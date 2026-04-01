@@ -44,6 +44,7 @@ export default function OrderNew() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [saveModal, setSaveModal] = useState(null); // 저장 완료 모달
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -298,8 +299,14 @@ export default function OrderNew() {
         orderCode: selectedCust.OrderCode || '',
         items,
       });
-      setSuccessMsg(`✅ ${result.message}`);
-      setTimeout(() => { setSuccessMsg(''); setQuantities({}); }, 3000);
+      // 저장 완료 모달 표시
+      setSaveModal({
+        custName:   selectedCust.CustName,
+        week:       weekInput.value,
+        count:      result.results?.filter(r => r.status === 'OK').length || items.length,
+        masterKey:  result.orderMasterKey,
+        message:    result.message,
+      });
     } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
 
@@ -401,6 +408,46 @@ export default function OrderNew() {
       {err && <div className="banner-err">⚠️ {err} <span style={{ float:'right', cursor:'pointer' }} onClick={() => setErr('')}>✕</span></div>}
       {successMsg && <div className="banner-ok">{successMsg}</div>}
       <div className="banner-warn" style={{ fontSize: 11 }}>⚠️ 저장 시 _new_OrderMaster / _new_OrderDetail (테스트 테이블)에 저장됩니다.</div>
+
+      {/* ── 저장 완료 모달 ── */}
+      {saveModal && (
+        <div className="modal-overlay" onClick={() => { setSaveModal(null); setQuantities({}); }}>
+          <div className="modal" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: '#E8F8E8', borderBottom: '2px solid #66BB66' }}>
+              <span className="modal-title" style={{ color: '#006600' }}>✅ 저장 완료</span>
+            </div>
+            <div className="modal-body" style={{ padding: '20px 24px' }}>
+              <div style={{ fontSize: 15, fontWeight: 'bold', marginBottom: 16, color: '#006600' }}>
+                주문이 저장되었습니다.
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)', width: 100 }}>거래처</td>
+                    <td style={{ padding: '6px 4px', fontWeight: 'bold' }}>{saveModal.custName}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)' }}>차수</td>
+                    <td style={{ padding: '6px 4px', fontWeight: 'bold', color: 'var(--blue)' }}>{saveModal.week}</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)' }}>저장 품목</td>
+                    <td style={{ padding: '6px 4px', fontWeight: 'bold' }}>{saveModal.count}개</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)' }}>주문번호</td>
+                    <td style={{ padding: '6px 4px', color: 'var(--text3)', fontSize: 11 }}>#{saveModal.masterKey} (테스트)</td>
+                  </tr>
+                </tbody>
+              </table>
+              <button className="btn btn-primary" style={{ width: '100%', height: 36, fontSize: 13 }}
+                onClick={() => { setSaveModal(null); setQuantities({}); }}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ■ 주문 품목 정보 */}
       <div style={{ padding: '2px 8px', background: 'var(--header-bg)', border: '1px solid var(--border)', borderTop: 'none', fontSize: 12, fontWeight: 'bold', flexShrink: 0 }}>

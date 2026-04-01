@@ -214,16 +214,84 @@ export default function Estimate() {
     } catch(e) { alert(e.message); } finally { setSaving(false); }
   };
 
-  // ── 엑셀 다운
+  // ── 엑셀 다운 (쿼리 데이터 기반)
   const handleExcel = () => {
-    const rows = [['품목명','단위','출고일','수량','단가','공급가액','부가세']];
-    filteredItems.forEach(i => rows.push([i.ProdName, i.Unit, i.outDate, i.Quantity, i.Cost, i.Amount, i.Vat]));
+    if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
+    const custName = selectedShip?.CustName || '';
+    const week = weekInput.value || '';
+    const rows = [
+      [`견적서 — ${custName} / ${week}`],
+      [],
+      ['품목명','단위','출고일','수량','단가','공급가액','부가세','구분'],
+    ];
+    filteredItems.forEach(i => rows.push([
+      i.ProdName, i.Unit, i.outDate||'', i.Quantity, i.Cost, i.Amount, i.Vat, i.EstimateType||''
+    ]));
+    rows.push([]);
+    rows.push(['합계','','', totalQty, '', totalSupply, totalVat, '']);
     const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `견적서_${selectedShip?.CustName||''}_${weekInput.value}.csv`;
+    a.download = `견적서_${custName}_${week}.csv`;
     a.click();
+  };
+
+  // ── 견적서 출력 (쿼리 데이터 기반 인쇄 창)
+  const handlePrint = () => {
+    if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
+    const custName = selectedShip?.CustName || '';
+    const week = weekInput.value || '';
+    const today = new Date().toLocaleDateString('ko-KR');
+    const rows = filteredItems.map(i => `
+      <tr>
+        <td>${i.ProdName||''}</td>
+        <td>${i.Unit||''}</td>
+        <td>${i.outDate||''}</td>
+        <td style="text-align:right">${Number(i.Quantity||0).toLocaleString()}</td>
+        <td style="text-align:right">${Number(i.Cost||0).toLocaleString()}</td>
+        <td style="text-align:right"><b>${Number(i.Amount||0).toLocaleString()}</b></td>
+        <td style="text-align:right">${Number(i.Vat||0).toLocaleString()}</td>
+        <td>${i.EstimateType||''}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>견적서 — ${custName}</title>
+<style>
+  body { font-family: 'Malgun Gothic', sans-serif; font-size: 11pt; margin: 20mm; }
+  h2 { text-align: center; margin-bottom: 6px; }
+  .info { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #D0D8E8; border: 1px solid #888; padding: 4px 6px; font-size: 10pt; }
+  td { border: 1px solid #CCC; padding: 3px 6px; font-size: 10pt; }
+  tfoot td { background: #EEF4FA; font-weight: bold; }
+  @media print { body { margin: 10mm; } }
+</style></head><body>
+<h2>견 적 서</h2>
+<div class="info">
+  <span>거래처: <b>${custName}</b></span>
+  <span>차수: <b>${week}</b></span>
+  <span>출력일: ${today}</span>
+</div>
+<table>
+  <thead><tr>
+    <th>품목명</th><th>단위</th><th>출고일</th>
+    <th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>구분</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr>
+    <td colspan="3">합 계</td>
+    <td style="text-align:right">${Number(totalQty).toLocaleString()}</td>
+    <td></td>
+    <td style="text-align:right">${Number(totalSupply).toLocaleString()}</td>
+    <td style="text-align:right">${Number(totalVat).toLocaleString()}</td>
+    <td></td>
+  </tr></tfoot>
+</table>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
+</body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (w) { w.document.write(html); w.document.close(); }
   };
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
@@ -284,9 +352,9 @@ export default function Estimate() {
 
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
-          <button className="btn" onClick={() => setSaving(false)}>💾 저장 / Guardar</button>
-          <button className="btn" onClick={() => window.print()}>🖨️ 견적서 출력 / Imprimir</button>
-          <button className="btn" onClick={handleExcel}>📊 엑셀 / Excel 다운</button>
+          <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
+          <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
+          <button className="btn" onClick={handleExcel}>📊 엑셀 다운</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>

@@ -35,6 +35,7 @@ export default function Distribute() {
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveModal, setSaveModal] = useState(null); // 저장 완료 모달
   const [outInputs, setOutInputs] = useState({});
   const [fixLoading, setFixLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -200,8 +201,14 @@ export default function Distribute() {
           })
         });
       }
-      setSuccessMsg('✅ 출고 분배 저장 완료 (테스트 테이블)');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
+      const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
+      setSaveModal({
+        prodName: selectedProd.ProdName,
+        week,
+        savedCount,
+        totalQty: totalSaved,
+      });
       selectProd(selectedProd); // 새로고침
     } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
@@ -243,6 +250,44 @@ export default function Distribute() {
       {/* 알림 */}
       {err && <div style={{padding:'6px 14px',background:'var(--red-bg)',color:'var(--red)',fontSize:12,borderLeft:'3px solid var(--red)',flexShrink:0}}>⚠️ {err}</div>}
       {successMsg && <div style={{padding:'6px 14px',background:'var(--green-bg)',color:'var(--green)',fontSize:12,flexShrink:0}}>{successMsg}</div>}
+
+      {/* 저장 완료 모달 */}
+      {saveModal && (
+        <div className="modal-overlay" onClick={() => setSaveModal(null)}>
+          <div className="modal" style={{maxWidth:380, textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header" style={{background:'#E8F8E8', borderBottom:'2px solid #66BB66'}}>
+              <span className="modal-title" style={{color:'#006600'}}>✅ 출고 분배 저장 완료</span>
+            </div>
+            <div className="modal-body" style={{padding:'20px 24px'}}>
+              <div style={{fontSize:15, fontWeight:'bold', marginBottom:16, color:'#006600'}}>
+                출고 분배가 저장되었습니다.
+              </div>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:12, marginBottom:16}}>
+                <tbody>
+                  <tr style={{borderBottom:'1px solid var(--border)'}}>
+                    <td style={{padding:'6px 4px', color:'var(--text3)', width:100}}>품목</td>
+                    <td style={{padding:'6px 4px', fontWeight:'bold'}}>{saveModal.prodName}</td>
+                  </tr>
+                  <tr style={{borderBottom:'1px solid var(--border)'}}>
+                    <td style={{padding:'6px 4px', color:'var(--text3)'}}>차수</td>
+                    <td style={{padding:'6px 4px', fontWeight:'bold', color:'var(--blue)'}}>{saveModal.week}</td>
+                  </tr>
+                  <tr style={{borderBottom:'1px solid var(--border)'}}>
+                    <td style={{padding:'6px 4px', color:'var(--text3)'}}>거래처 수</td>
+                    <td style={{padding:'6px 4px', fontWeight:'bold'}}>{saveModal.savedCount}개</td>
+                  </tr>
+                  <tr>
+                    <td style={{padding:'6px 4px', color:'var(--text3)'}}>총 출고수량</td>
+                    <td style={{padding:'6px 4px', fontWeight:'bold', color:'var(--amber)'}}>{saveModal.totalQty.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <button className="btn btn-primary" style={{width:'100%', height:36, fontSize:13}}
+                onClick={() => setSaveModal(null)}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 탭 */}
       <div style={{display:'flex',borderBottom:'2px solid var(--border)',background:'var(--surface)',flexShrink:0}}>

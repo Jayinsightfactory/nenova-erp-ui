@@ -162,14 +162,13 @@ async function createOrder(req, res) {
         `INSERT INTO _new_OrderDetail
            (OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
             OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-         VALUES (@mk, @pk, @box, @bunch, @steam, @qty, @qty, 0, @uid, GETDATE())`,
+         VALUES (@mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
         {
           mk:    { type: sql.Int,      value: orderMasterKey },
           pk:    { type: sql.Int,      value: prodKey },
           box:   { type: sql.Float,    value: unit === '박스' ? qty : 0 },
           bunch: { type: sql.Float,    value: unit === '단'   ? qty : 0 },
           steam: { type: sql.Float,    value: unit === '송이' ? qty : 0 },
-          qty:   { type: sql.Float,    value: qty },
           uid:   { type: sql.NVarChar, value: req.user.userId },
         }
       );

@@ -16,6 +16,33 @@ export default withAuth(async function handler(req, res) {
   const end   = endDate   || new Date().toISOString().slice(0,10);
 
   try {
+    // ── 0. 테스트 주문 등록 이력 (_new_OrderMaster) — try/catch로 테이블 없어도 안전
+    let newOrderRows = [];
+    try {
+      const newOrderResult = await query(
+        `SELECT TOP 200
+          CONVERT(NVARCHAR(19), nom.CreateDtm, 120) AS changeDtm,
+          nom.CreateID                              AS userId,
+          '주문등록(테스트)'                        AS category,
+          '신규등록'                                AS changeType,
+          nom.OrderWeek                             AS week,
+          ISNULL(c.CustName,'') + ' / 테스트주문'  AS targetName,
+          'OrderMasterKey'                          AS columName,
+          ''                                        AS beforeValue,
+          CAST(nom.OrderMasterKey AS NVARCHAR)      AS afterValue,
+          '테스트 테이블(_new_OrderMaster) 저장'    AS descr
+         FROM _new_OrderMaster nom
+         LEFT JOIN Customer c ON nom.CustKey = c.CustKey
+         WHERE CAST(nom.CreateDtm AS DATE) BETWEEN @start AND @end
+         ORDER BY nom.CreateDtm DESC`,
+        {
+          start: { type: sql.NVarChar, value: start },
+          end:   { type: sql.NVarChar, value: end },
+        }
+      );
+      newOrderRows = newOrderResult.recordset;
+    } catch { /* _new_OrderMaster 테이블 없으면 무시 */ }
+
     const results = await Promise.all([
 
       // ── 1. 주문 변경 이력 (OrderHistory)
@@ -94,8 +121,9 @@ export default withAuth(async function handler(req, res) {
       ),
     ]);
 
-    // 세 테이블 합치기 → 날짜 내림차순 정렬
+    // 세 테이블 + 테스트 주문 합치기 → 날짜 내림차순 정렬
     let logs = [
+      ...newOrderRows,
       ...results[0].recordset,
       ...results[1].recordset,
       ...results[2].recordset,
