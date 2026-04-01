@@ -6,7 +6,7 @@
 //   구분별 열: 02.주문=거래처명, 03.입고=농장명
 //   즐겨찾기: 현재 설정 저장/불러오기
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
@@ -92,21 +92,22 @@ export default function Pivot() {
   const [showDescr,    setShowDescr]    = useState(false);
   const [showAmount,   setShowAmount]   = useState(false);
   const [showQty,      setShowQty]      = useState(true);
+  const [showArea,     setShowArea]     = useState(false);
 
   // 열 구분 표시 여부
   const [showSections, setShowSections] = useState({ prev:true, order:true, incoming:true, none:true, cur:true });
 
   // 열 정렬
   const [sorts, setSorts] = useState({});
-  const handleSort = key => setSorts(s => ({ ...s, [key]: nextSort(s[key]) }));
+  const handleSort = useCallback(key => setSorts(s => ({ ...s, [key]: nextSort(s[key]) })), []);
 
   // 열 필터
   const [filters, setFilters] = useState({});
-  const handleFilter = (key, vals) => setFilters(f => ({ ...f, [key]: vals }));
+  const handleFilter = useCallback((key, vals) => setFilters(f => ({ ...f, [key]: vals })), []);
 
   // 접기
   const [collapsed, setCollapsed] = useState(new Set());
-  const toggleCollapse = key => setCollapsed(s => { const n=new Set(s); n.has(key)?n.delete(key):n.add(key); return n; });
+  const toggleCollapse = useCallback(key => setCollapsed(s => { const n=new Set(s); n.has(key)?n.delete(key):n.add(key); return n; }), []);
 
   // 즐겨찾기
   const [favorites, setFavorites] = useState(() => {
@@ -154,6 +155,7 @@ export default function Pivot() {
     const custs = data.customers || [];
     const farms = data.farms || [];
     const hdrs = ['국가','꽃','품목명'];
+    if (showArea)    hdrs.push('지역');
     if (showOutDate) hdrs.push('출고일');
     if (showInPrice) hdrs.push('입고단가');
     if (showInTotal) hdrs.push('입고총단가');
@@ -171,6 +173,7 @@ export default function Pivot() {
     const rows = [hdrs];
     filteredRows.forEach(r=>{
       const row=[r.country,r.flower,r.prodName];
+      if (showArea)    row.push(r.area||'');
       if (showOutDate) row.push(r.outDate||'');
       if (showInPrice) row.push(r.inPrice||0);
       if (showInTotal) row.push(r.inTotal||0);
@@ -194,13 +197,23 @@ export default function Pivot() {
   };
 
   // 그룹핑
-  const grouped = {};
   const allCusts = data?.customers || [];
-  const custs  = custFilter ? allCusts.filter(c => c.custName.toLowerCase().includes(custFilter.toLowerCase()) || c.area?.toLowerCase().includes(custFilter.toLowerCase())) : allCusts;
   const farms  = data?.farms || [];
 
+  const custs = useMemo(() =>
+    custFilter
+      ? allCusts.filter(c => c.custName.toLowerCase().includes(custFilter.toLowerCase()) || c.area?.toLowerCase().includes(custFilter.toLowerCase()))
+      : allCusts,
+  [allCusts, custFilter]);
+
+  // 필터 옵션 (필터용) — 데이터 변경 시만 재계산
+  const areaOptions    = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.area).filter(Boolean))].sort(),    [data]);
+  const countryOptions = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.country).filter(Boolean))].sort(), [data]);
+  const flowerOptions  = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.flower).filter(Boolean))].sort(),  [data]);
+  const prodNameOptions= useMemo(() => [...new Set((data?.rows||[]).map(r=>r.prodName).filter(Boolean))].sort(),[data]);
+
   // 필터 적용 (__EMPTY__ = 전체 해제 → 아무것도 안 보임)
-  const filteredRows = (data?.rows||[]).filter(r => {
+  const filteredRows = useMemo(() => (data?.rows||[]).filter(r => {
     if (filters.area?.includes('__EMPTY__'))     return false;
     if (filters.country?.includes('__EMPTY__'))  return false;
     if (filters.flower?.includes('__EMPTY__'))   return false;
@@ -210,18 +223,10 @@ export default function Pivot() {
     if (filters.flower?.length  && !filters.flower.includes(r.flower))   return false;
     if (filters.prodName?.length && !filters.prodName.includes(r.prodName)) return false;
     return true;
-  });
+  }), [data, filters]);
 
-  filteredRows.forEach(r => {
-    const ck = r.country;
-    if (!grouped[ck]) grouped[ck] = { country:r.country, flowers:{} };
-    const fk = r.flower;
-    if (!grouped[ck].flowers[fk]) grouped[ck].flowers[fk] = { flower:r.flower, items:[] };
-    grouped[ck].flowers[fk].items.push(r);
-  });
-
-  // 정렬 적용 (그룹 + 아이템)
-  const sortFn = (a, b) => {
+  // 정렬 함수
+  const sortFn = useCallback((a, b) => {
     for (const [key, dir] of Object.entries(sorts)) {
       if (!dir) continue;
       const av = a[key] ?? '';
@@ -230,33 +235,47 @@ export default function Pivot() {
       if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
     }
     return 0;
-  };
-  Object.values(grouped).forEach(gc => {
-    Object.values(gc.flowers).forEach(gf => { gf.items.sort(sortFn); });
-  });
+  }, [sorts]);
 
-  // 국가/꽃 그룹 정렬
-  const sortedCountries = Object.values(grouped).sort((a, b) => {
-    const dir = sorts.country;
-    if (!dir) return String(a.country).localeCompare(String(b.country));
-    const cmp = String(a.country).localeCompare(String(b.country));
-    return dir === 'asc' ? cmp : -cmp;
-  });
-  sortedCountries.forEach(gc => {
-    gc._sortedFlowers = Object.values(gc.flowers).sort((a, b) => {
-      const dir = sorts.flower;
-      if (!dir) return String(a.flower).localeCompare(String(b.flower));
-      const cmp = String(a.flower).localeCompare(String(b.flower));
+  // 그룹핑 + 정렬 — filteredRows/sorts 변경 시만 재계산
+  const sortedCountries = useMemo(() => {
+    const grouped = {};
+    filteredRows.forEach(r => {
+      const ck = r.country;
+      if (!grouped[ck]) grouped[ck] = { country:r.country, flowers:{} };
+      const fk = r.flower;
+      if (!grouped[ck].flowers[fk]) grouped[ck].flowers[fk] = { flower:r.flower, items:[] };
+      grouped[ck].flowers[fk].items.push(r);
+    });
+
+    // 아이템 정렬
+    Object.values(grouped).forEach(gc => {
+      Object.values(gc.flowers).forEach(gf => { gf.items = [...gf.items].sort(sortFn); });
+    });
+
+    // 국가/꽃 그룹 정렬
+    const sc = Object.values(grouped).sort((a, b) => {
+      const dir = sorts.country;
+      if (!dir) return String(a.country).localeCompare(String(b.country));
+      const cmp = String(a.country).localeCompare(String(b.country));
       return dir === 'asc' ? cmp : -cmp;
     });
-  });
+    sc.forEach(gc => {
+      gc._sortedFlowers = Object.values(gc.flowers).sort((a, b) => {
+        const dir = sorts.flower;
+        if (!dir) return String(a.flower).localeCompare(String(b.flower));
+        const cmp = String(a.flower).localeCompare(String(b.flower));
+        return dir === 'asc' ? cmp : -cmp;
+      });
+    });
+    return sc;
+  }, [filteredRows, sorts, sortFn]);
 
-  // 열 옵션 (필터용)
-  const areaOptions    = [...new Set((data?.rows||[]).map(r=>r.area).filter(Boolean))].sort();
-  const countryOptions = [...new Set((data?.rows||[]).map(r=>r.country).filter(Boolean))].sort();
-  const flowerOptions  = [...new Set((data?.rows||[]).map(r=>r.flower).filter(Boolean))].sort();
-  const prodNameOptions= [...new Set((data?.rows||[]).map(r=>r.prodName).filter(Boolean))].sort();
-  const sectOptions = ['01. 전재고','02. 주문','03. 입고','03. 미발주','05. 현재고'];
+  // 고정 좌측 컬럼 수 (국가+꽃+품목명 + 선택 열들)
+  const totalFixedCols = useMemo(() =>
+    3 + (showArea?1:0) + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0)
+      + (showAWB?1:0) + (showCost?1:0) + (showAmount?1:0) + (showDescr?1:0),
+  [showArea, showOutDate, showInPrice, showInTotal, showAWB, showCost, showAmount, showDescr]);
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
@@ -318,6 +337,7 @@ export default function Pivot() {
         {/* 행 추가 컬럼 */}
         {[
           {label:'품목명',  active:true,   onClick:null,                     disabled:true},
+          {label:'지역',    active:showArea, onClick:()=>setShowArea(s=>!s)},
           {label:'출고일',  active:showOutDate, onClick:()=>setShowOutDate(s=>!s)},
           {label:'입고단가',active:showInPrice,  onClick:()=>setShowInPrice(s=>!s)},
           {label:'입고총단가',active:showInTotal,onClick:()=>setShowInTotal(s=>!s)},
@@ -354,8 +374,8 @@ export default function Pivot() {
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>setCollapsed(new Set())}>▼ 펼침</button>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>{
           const keys=new Set();
-          Object.values(grouped).forEach(gc=>{keys.add(gc.country);
-            Object.values(gc.flowers).forEach(gf=>keys.add(gc.country+'|'+gf.flower));});
+          sortedCountries.forEach(gc=>{keys.add(gc.country);
+            (gc._sortedFlowers||Object.values(gc.flowers||{})).forEach(gf=>keys.add(gc.country+'|'+gf.flower));});
           setCollapsed(keys);
         }}>▶ 닫기</button>
       </div>
@@ -370,7 +390,7 @@ export default function Pivot() {
             <thead>
               {/* 1행: 주문년도 */}
               <tr style={{background:'#C0CCE0'}}>
-                <th colSpan={3 + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0) + (showAWB?1:0) + (showCost?1:0) + (showAmount?1:0) + (showDescr?1:0)}
+                <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
                 {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
@@ -381,7 +401,7 @@ export default function Pivot() {
               </tr>
               {/* 2행: 주문차수 */}
               <tr style={{background:'#C8D4E4'}}>
-                <th colSpan={3 + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0) + (showAWB?1:0) + (showCost?1:0) + (showAmount?1:0) + (showDescr?1:0)}
+                <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.order    && <th colSpan={custs.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
@@ -391,7 +411,7 @@ export default function Pivot() {
               </tr>
               {/* 3행: 구분 */}
               <tr style={{background:'#D0D8E8'}}>
-                <th colSpan={3 + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0) + (showAWB?1:0) + (showCost?1:0) + (showAmount?1:0) + (showDescr?1:0)}
+                <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
                 {showSections.order    && <th colSpan={custs.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
@@ -408,6 +428,8 @@ export default function Pivot() {
                 <ColHeader label="품목명(색상)" sortKey="prodName" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
                   filter={filters.prodName} filterOptions={prodNameOptions}
                   style={{minWidth:180, borderRight:'2px solid var(--border2)'}}/>
+                {showArea     && <ColHeader label="지역" sortKey="area" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
+                  filter={filters.area} filterOptions={areaOptions}/>}
                 {showOutDate  && <th style={{fontSize:10,minWidth:80}}>출고일</th>}
                 {showInPrice  && <th style={{fontSize:10,minWidth:70,textAlign:'right'}}>입고단가</th>}
                 {showInTotal  && <th style={{fontSize:10,minWidth:80,textAlign:'right'}}>입고총단가</th>}
@@ -470,11 +492,9 @@ export default function Pivot() {
                   custs.forEach(c=>{cTot.custO[c.custName]=(cTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
                   farms.forEach(f=>{cTot.farmI[f]=(cTot.farmI[f]||0)+(r.incoming?.[f]||0);});
                 }));
-                const extraCols = (showOutDate?1:0)+(showInPrice?1:0)+(showInTotal?1:0)+(showAWB?1:0);
-
                 return [
                   <tr key={`c-${ck}`} style={{background:'#D0DDE8',cursor:'pointer'}} onClick={()=>toggleCollapse(ck)}>
-                    <td colSpan={3+extraCols} style={{padding:'2px 8px',fontWeight:'bold',fontSize:12,borderRight:'2px solid var(--border2)'}}>
+                    <td colSpan={totalFixedCols} style={{padding:'2px 8px',fontWeight:'bold',fontSize:12,borderRight:'2px solid var(--border2)'}}>
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
                     {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fN(cTot.prev)}</td>}
@@ -502,7 +522,7 @@ export default function Pivot() {
                     return [
                       <tr key={`f-${fk}`} style={{background:'#D8E4F0',cursor:'pointer'}} onClick={()=>toggleCollapse(fk)}>
                         <td style={{width:8}}></td>
-                        <td colSpan={2+extraCols} style={{padding:'2px 8px',fontWeight:'bold',fontSize:11,borderRight:'2px solid var(--border2)'}}>
+                        <td colSpan={totalFixedCols-1} style={{padding:'2px 8px',fontWeight:'bold',fontSize:11,borderRight:'2px solid var(--border2)'}}>
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
                         {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fN(fTot.prev)}</td>}
@@ -517,9 +537,10 @@ export default function Pivot() {
                       ...(!isFC ? gFlower.items.map((r,idx)=>(
                         <tr key={`i-${r.prodKey}-${idx}`} style={{background:idx%2===0?'#fff':'var(--row-alt)'}}>
                           <td></td><td></td>
-                          <td style={{fontSize:11,fontWeight:500,borderRight:'2px solid var(--border2)',padding:'1px 6px',minWidth:160}}>
+                          <td style={{fontSize:11,fontWeight:500,borderRight: showArea?'none':'2px solid var(--border2)',padding:'1px 6px',minWidth:160}}>
                             {r.prodName}
                           </td>
+                          {showArea     && <td style={{fontSize:10,borderRight:'2px solid var(--border2)',color:'var(--text3)'}}>{r.area||''}</td>}
                           {showOutDate  && <td style={{fontSize:10}}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fN(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fN(r.inTotal)}</td>}
@@ -558,7 +579,7 @@ export default function Pivot() {
                       )) : []),
 
                       <tr key={`ft-${fk}`} style={{background:'#D4E0EC',borderTop:'1px solid var(--border)'}}>
-                        <td colSpan={3+extraCols} style={{padding:'2px 16px',fontSize:11,color:'var(--text3)',borderRight:'2px solid var(--border2)'}}>
+                        <td colSpan={totalFixedCols} style={{padding:'2px 16px',fontSize:11,color:'var(--text3)',borderRight:'2px solid var(--border2)'}}>
                           {gFlower.flower} Total
                         </td>
                         {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fN(fTot.prev)}</td>}
