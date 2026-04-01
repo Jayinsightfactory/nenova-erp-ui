@@ -162,13 +162,10 @@ table { width:100%; border-collapse:collapse; }
   <tbody>${itemRows}</tbody>
   <tfoot>
     <tr class="foot-row">
-      <td>공급가액</td>
+      <td colspan="4" style="text-align:right;padding-right:12px">공급가액 합계</td>
       <td style="text-align:right">${fmtN(totalSupply)}</td>
-      <td style="text-align:center">VAT</td>
       <td style="text-align:right">${fmtN(totalVat)}</td>
-      <td style="text-align:center">합&nbsp;&nbsp;&nbsp;계</td>
-      <td></td>
-      <td style="text-align:right;font-size:10pt">${fmtN(totalAmt)}</td>
+      <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
     </tr>
   </tfoot>
 </table>
