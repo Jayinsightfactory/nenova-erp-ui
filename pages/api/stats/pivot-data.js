@@ -17,7 +17,7 @@ export default withAuth(async function handler(req, res) {
       `SELECT
         p.CounName AS country, p.FlowerName AS flower, p.ProdName AS prodName,
         p.ProdKey, p.OutUnit, ISNULL(p.Cost,0) AS cost,
-        c.CustName, c.CustArea AS area, c.OrderCode,
+        c.CustName, c.CustArea AS area, c.OrderCode, ISNULL(c.Descr,'') AS custDescr,
         om.OrderWeek AS week,
         ISNULL(od.OutQuantity,0) AS outQty,
         ISNULL(od.Descr,'') AS descr
@@ -120,7 +120,7 @@ export default withAuth(async function handler(req, res) {
     const customers = [];
     orderResult.recordset.forEach(r => {
       const key = r.area+'|'+r.CustName;
-      if (!custSet.has(key)) { custSet.add(key); customers.push({area:r.area, custName:r.CustName, orderCode:r.OrderCode}); }
+      if (!custSet.has(key)) { custSet.add(key); customers.push({area:r.area, custName:r.CustName, orderCode:r.OrderCode, custDescr:r.custDescr||''}); }
     });
     customers.sort((a,b) => (a.area+a.custName).localeCompare(b.area+b.custName));
 

@@ -181,6 +181,15 @@ export default function Pivot() {
   const [favName, setFavName] = useState('');
   const [showFavMenu, setShowFavMenu] = useState(false);
 
+  // ── 컬럼 그룹 순서 (드래그로 변경 → 02.주문 섹션 계층 결정)
+  const [colGroupOrder, setColGroupOrder] = useState(['지역', '비고', '거래처명']);
+  const [dragOverIdx,   setDragOverIdx]   = useState(null);
+
+  // ── Filter Editor
+  const [filterConditions, setFilterConditions] = useState([]);
+  const [showFilterEditor,  setShowFilterEditor]  = useState(false);
+  const [draftConds,        setDraftConds]         = useState([]);
+
   const saveFav = () => {
     if (!favName.trim()) return;
     const cfg = { name:favName, showOutDate, showInPrice, showInTotal, showAWB, showCost, showQty, showSections };
@@ -277,18 +286,102 @@ export default function Pivot() {
   const flowerOptions  = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.flower).filter(Boolean))].sort(),  [data]);
   const prodNameOptions= useMemo(() => [...new Set((data?.rows||[]).map(r=>r.prodName).filter(Boolean))].sort(),[data]);
 
-  // 필터 적용 (__EMPTY__ = 전체 해제 → 아무것도 안 보임)
+  // ── Filter Editor: 필드 → row 키 매핑
+  const COND_FIELD_MAP = {
+    '국가':'country', '꽃':'flower', '지역':'area',
+    '품목명':'prodName', '품목명(색상)':'prodName',
+    '출고일':'outDate', '입고단가':'inPrice', '입고총단가':'inTotal',
+    'AWB':'awb', '비고':'descr',
+  };
+
+  // anyof 옵션 목록 (데이터에서 추출)
+  const getFieldValues = useCallback((field) => {
+    const key = COND_FIELD_MAP[field];
+    if (!key || !data?.rows) return [];
+    return [...new Set(data.rows.map(r=>String(r[key]||'')).filter(Boolean))].sort().slice(0,60);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 필터 적용 (__EMPTY__ = 전체 해제 + Filter Editor 조건)
   const filteredRows = useMemo(() => (data?.rows||[]).filter(r => {
     if (filters.area?.includes('__EMPTY__'))     return false;
     if (filters.country?.includes('__EMPTY__'))  return false;
     if (filters.flower?.includes('__EMPTY__'))   return false;
     if (filters.prodName?.includes('__EMPTY__')) return false;
-    if (filters.area?.length    && !filters.area.includes(r.area))       return false;
-    if (filters.country?.length && !filters.country.includes(r.country)) return false;
-    if (filters.flower?.length  && !filters.flower.includes(r.flower))   return false;
+    if (filters.area?.length    && !filters.area.includes(r.area))         return false;
+    if (filters.country?.length && !filters.country.includes(r.country))   return false;
+    if (filters.flower?.length  && !filters.flower.includes(r.flower))     return false;
     if (filters.prodName?.length && !filters.prodName.includes(r.prodName)) return false;
+    // Filter Editor 조건
+    for (const cond of filterConditions) {
+      const key = COND_FIELD_MAP[cond.field];
+      if (!key) continue;
+      const val = String(r[key] ?? '');
+      if (cond.op === 'eq'          && val !== (cond.value||''))        return false;
+      if (cond.op === 'neq'         && val === (cond.value||''))        return false;
+      if (cond.op === 'contains'    && !val.includes(cond.value||''))   return false;
+      if (cond.op === 'notcontains' && val.includes(cond.value||''))    return false;
+      if (cond.op === 'beginswith'  && !val.startsWith(cond.value||'')) return false;
+      if (cond.op === 'endswith'    && !val.endsWith(cond.value||''))   return false;
+      if (cond.op === 'anyof'  && cond.values?.length && !cond.values.includes(val)) return false;
+      if (cond.op === 'gt'  && !(Number(val) >  Number(cond.value))) return false;
+      if (cond.op === 'gte' && !(Number(val) >= Number(cond.value))) return false;
+      if (cond.op === 'lt'  && !(Number(val) <  Number(cond.value))) return false;
+      if (cond.op === 'lte' && !(Number(val) <= Number(cond.value))) return false;
+    }
     return true;
-  }), [data, filters]);
+  }), [data, filters, filterConditions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 거래처 그룹값 추출 (colGroupOrder용)
+  const getCustVal = useCallback((cust, level) => {
+    if (level === '지역')   return cust.area      || '';
+    if (level === '비고')   return cust.custDescr || '';
+    if (level === '거래처명') return cust.custName  || '';
+    return '';
+  }, []);
+
+  // colGroupOrder 순서로 정렬된 거래처 (02.주문 컬럼 순서)
+  const sortedCusts = useMemo(() => [...custs].sort((a, b) => {
+    for (const lv of colGroupOrder) {
+      const av = getCustVal(a, lv);
+      const bv = getCustVal(b, lv);
+      const c  = av.localeCompare(bv);
+      if (c !== 0) return c;
+    }
+    return 0;
+  }), [custs, colGroupOrder, getCustVal]);
+
+  // 02.주문 그룹 헤더 셀 (colGroupOrder에서 마지막 레벨 제외)
+  const custGroupHeaders = useMemo(() => {
+    const levels = colGroupOrder.slice(0, -1); // 거래처명 제외
+    return levels.map(level => {
+      const cells = [];
+      let i = 0;
+      while (i < sortedCusts.length) {
+        const val = getCustVal(sortedCusts[i], level);
+        let j = i + 1;
+        while (j < sortedCusts.length && getCustVal(sortedCusts[j], level) === val) j++;
+        cells.push({ value: val || '(없음)', colspan: j - i });
+        i = j;
+      }
+      return { level, cells };
+    });
+  }, [sortedCusts, colGroupOrder, getCustVal]);
+
+  // ── Filter Editor 열기 (현재 showSections → 구분 조건으로 변환)
+  const openFilterEditor = useCallback(() => {
+    const sectionCond = { field:'구분', sections:{...showSections} };
+    const rest = filterConditions.filter(c => c.field !== '구분');
+    setDraftConds([sectionCond, ...rest]);
+    setShowFilterEditor(true);
+  }, [showSections, filterConditions]);
+
+  // ── Filter Editor 적용
+  const applyFilterEditor = useCallback(() => {
+    const sectionCond = draftConds.find(c => c.field === '구분');
+    if (sectionCond?.sections) setShowSections(sectionCond.sections);
+    setFilterConditions(draftConds.filter(c => c.field && c.field !== '구분' && c.op));
+    setShowFilterEditor(false);
+  }, [draftConds]);
 
   // 정렬 함수
   const sortFn = useCallback((a, b) => {
@@ -443,6 +536,36 @@ export default function Pivot() {
             (gc._sortedFlowers||Object.values(gc.flowers||{})).forEach(gf=>keys.add(gc.country+'|'+gf.flower));});
           setCollapsed(keys);
         }}>▶ 닫기</button>
+        <span style={{borderLeft:'1px solid var(--border)',margin:'0 6px'}}></span>
+        {/* ── 02.주문 컬럼 그룹 순서 (드래그로 변경) */}
+        <span style={{fontSize:10,color:'var(--text3)',fontWeight:'bold',whiteSpace:'nowrap'}}>그룹순서:</span>
+        {colGroupOrder.map((lv, idx) => (
+          <span key={lv}
+            draggable
+            onDragStart={e => { e.dataTransfer.setData('cgIdx', String(idx)); setDragOverIdx(idx); }}
+            onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+            onDrop={e => {
+              e.preventDefault();
+              const from = parseInt(e.dataTransfer.getData('cgIdx'));
+              if (from === idx) { setDragOverIdx(null); return; }
+              const next = [...colGroupOrder];
+              const [removed] = next.splice(from, 1);
+              next.splice(idx, 0, removed);
+              setColGroupOrder(next);
+              setDragOverIdx(null);
+            }}
+            onDragEnd={() => setDragOverIdx(null)}
+            style={{
+              padding:'2px 8px', height:22, fontSize:11,
+              border:`1px solid ${dragOverIdx===idx?'var(--blue)':'var(--border2)'}`,
+              borderRadius:3,
+              background: dragOverIdx===idx ? '#e8f0fe' : '#f0f4f8',
+              cursor:'grab', userSelect:'none',
+              display:'inline-flex', alignItems:'center', gap:4,
+            }}>
+            <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>{lv}
+          </span>
+        ))}
       </div>
 
       {/* 피벗 테이블 */}
@@ -461,7 +584,7 @@ export default function Pivot() {
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
                 {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
-                {showSections.order    && <th colSpan={custs.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
+                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
                 {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
                 {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
                 {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
@@ -471,7 +594,7 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.order    && <th colSpan={custs.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8CCBC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.none     && <th style={{background:'#D8D4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.cur      && <th style={{background:'#C4C4DC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
@@ -481,12 +604,34 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
-                {showSections.order    && <th colSpan={custs.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
+                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
                 {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
                 {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10}}>∨ 03. 미발주</th>}
                 {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10}}>∨ 05. 현재고</th>}
               </tr>
-              {/* 4행: 컬럼 헤더 */}
+
+              {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) */}
+              {showSections.order && custGroupHeaders.map(({level, cells}) => (
+                <tr key={`gh-${level}`} style={{background:'#D0E8D0'}}>
+                  <th colSpan={totalFixedCols} style={{background:'#E8EEF4',borderRight:'2px solid var(--border2)'}} />
+                  {showSections.prev && <th style={{background:'#C8D0E8'}} />}
+                  {cells.map((cell, ci) => (
+                    <th key={ci} colSpan={cell.colspan} style={{
+                      textAlign:'center', fontSize:10, background:'#BEDFBE',
+                      borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
+                      fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
+                    }}>
+                      {cell.value}
+                    </th>
+                  ))}
+                  <th style={{background:'#AECFAE'}} />
+                  {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
+                  {showSections.none && <th style={{background:'#DCD8B0'}} />}
+                  {showSections.cur  && <th style={{background:'#C8C8E0'}} />}
+                </tr>
+              ))}
+
+              {/* 컬럼 헤더 행 */}
               <tr style={{background:'var(--header-bg)'}}>
                 <ColHeader label="국가"    sortKey="country" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
                   filter={filters.country} filterOptions={countryOptions}/>
@@ -508,14 +653,15 @@ export default function Pivot() {
                 {showSections.prev && (
                   <ColHeader label="전재고" sortKey="prevStock" sorts={sorts} onSort={handleSort}/>
                 )}
-                {/* 02. 주문 — 거래처별 */}
-                {showSections.order && custs.map(c=>(
+                {/* 02. 주문 — sortedCusts 순서로 렌더링 */}
+                {showSections.order && sortedCusts.map((c,ci)=>(
                   <th key={c.custName} style={{textAlign:'center',minWidth:65,fontSize:10,background:'#D4ECD4',
-                    maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
-                    title={c.custName}>
-                    <div>∨ {c.area}</div>
-                    <div style={{fontSize:9,color:'var(--text3)'}}>∨ {c.custName.length>7?c.custName.slice(0,7)+'…':c.custName}</div>
-                    <div style={{fontSize:9}}>{c.orderCode}</div>
+                    maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                    borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
+                  }}
+                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''}`}>
+                    <div style={{fontSize:9,fontWeight:'bold'}}>{c.custName.length>8?c.custName.slice(0,8)+'…':c.custName}</div>
+                    <div style={{fontSize:9,color:'var(--text3)'}}>{c.orderCode}</div>
                   </th>
                 ))}
                 {showSections.order && (
@@ -565,7 +711,7 @@ export default function Pivot() {
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
                     {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fN(cTot.prev)}</td>}
-                    {showSections.order    && custs.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fN(cTot.custO[c.custName])}</td>)}
+                    {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fN(cTot.custO[c.custName])}</td>)}
                     {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(cTot.order)}</td>}
                     {showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fN(cTot.farmI[f])}</td>)}
                     {showSections.incoming && farms.length===0 && <td></td>}
@@ -593,7 +739,7 @@ export default function Pivot() {
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
                         {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fN(fTot.prev)}</td>}
-                        {showSections.order    && custs.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fN(fTot.custO[c.custName])}</td>)}
+                        {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fN(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B4D0B4'}}>{fN(fTot.order)}</td>}
                         {showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fN(fTot.farmI[f])}</td>)}
                         {showSections.incoming && farms.length===0 && <td></td>}
@@ -618,7 +764,7 @@ export default function Pivot() {
                           {showSections.prev && (
                             <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fN(r.prevStock)}</td>
                           )}
-                          {showSections.order && custs.map(c=>(
+                          {showSections.order && sortedCusts.map(c=>(
                             <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)'}}>
                               {fN(r.orders?.[c.custName])}
                             </td>
@@ -650,7 +796,7 @@ export default function Pivot() {
                           {gFlower.flower} Total
                         </td>
                         {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fN(fTot.prev)}</td>}
-                        {showSections.order    && custs.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fN(fTot.custO[c.custName])}</td>)}
+                        {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fN(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(fTot.order)}</td>}
                         {showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.farmI[f])}</td>)}
                         {showSections.incoming && farms.length===0 && <td></td>}
@@ -665,6 +811,172 @@ export default function Pivot() {
           </table>
         )}
       </div>
+
+      {/* ── 하단 필터 상태바 ───────────────────────────────── */}
+      <div style={{padding:'4px 10px', background:'#f0f4fa', borderTop:'2px solid var(--border2)',
+        display:'flex', alignItems:'center', gap:5, fontSize:11, flexWrap:'wrap', flexShrink:0, minHeight:32}}>
+
+        {/* 구분 섹션 토글 칩 */}
+        <span style={{fontSize:10,color:'var(--text3)',fontWeight:'bold',marginRight:2}}>구분</span>
+        {[
+          {k:'prev',l:'01.전재고'},{k:'order',l:'02.주문'},
+          {k:'incoming',l:'03.입고'},{k:'none',l:'03.미발주'},{k:'cur',l:'05.현재고'},
+        ].map(s => (
+          <span key={s.k}
+            onClick={() => setShowSections(p=>({...p,[s.k]:!p[s.k]}))}
+            style={{
+              padding:'1px 7px', borderRadius:3, cursor:'pointer', fontSize:10, userSelect:'none',
+              background: showSections[s.k] ? '#3b7dd8' : '#dde2ea',
+              color: showSections[s.k] ? '#fff' : 'var(--text2)',
+              border:`1px solid ${showSections[s.k]?'#2a6cc8':'var(--border)'}`,
+            }}>{s.l}</span>
+        ))}
+
+        {/* Filter Editor로 추가된 조건 */}
+        {filterConditions.map((cond, idx) => (
+          <span key={idx} style={{display:'flex',alignItems:'center',gap:3}}>
+            <span style={{color:'#3b7dd8',fontWeight:'bold',fontSize:10}}>And</span>
+            <span style={{background:'#fff',border:'1px solid var(--border2)',borderRadius:3,
+              padding:'1px 6px',display:'flex',alignItems:'center',gap:3,fontSize:10}}>
+              <span style={{color:'var(--text2)',fontWeight:'bold'}}>{cond.field}</span>
+              <span style={{color:'var(--text3)'}}>
+                {({eq:'=',neq:'≠',gt:'>',gte:'≥',lt:'<',lte:'≤',
+                  contains:'Contains',notcontains:'Does not contain',
+                  beginswith:'Begins with',endswith:'Ends with',anyof:'Is any of'})[cond.op]||cond.op}
+              </span>
+              {cond.op==='anyof'
+                ? (cond.values||[]).map(v=><span key={v} style={{background:'#e8f0fe',borderRadius:2,padding:'0 4px'}}>{v}</span>)
+                : <span style={{background:'#e8f0fe',borderRadius:2,padding:'0 4px'}}>{cond.value}</span>
+              }
+              <span style={{cursor:'pointer',color:'var(--red)',marginLeft:2,fontSize:12}}
+                onClick={()=>setFilterConditions(cs=>cs.filter((_,i)=>i!==idx))}>×</span>
+            </span>
+          </span>
+        ))}
+
+        <button className="btn btn-sm" style={{marginLeft:'auto',height:22,fontSize:11}}
+          onClick={openFilterEditor}>✏️ Edit Filter</button>
+      </div>
+
+      {/* ── Filter Editor 모달 ───────────────────────────────── */}
+      {showFilterEditor && typeof document !== 'undefined' && createPortal(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:3000,
+          display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={e=>e.target===e.currentTarget&&setShowFilterEditor(false)}>
+          <div style={{background:'#fff',border:'2px solid var(--border2)',width:540,maxHeight:'80vh',
+            borderRadius:4,boxShadow:'4px 4px 20px rgba(0,0,0,.35)',display:'flex',flexDirection:'column'}}>
+
+            {/* 헤더 */}
+            <div style={{padding:'8px 14px',background:'var(--header-bg)',borderBottom:'1px solid var(--border)',
+              fontWeight:'bold',fontSize:13,flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
+              🔍 Filter Editor
+              <span style={{marginLeft:'auto',cursor:'pointer',fontSize:16,color:'var(--text3)'}}
+                onClick={()=>setShowFilterEditor(false)}>×</span>
+            </div>
+
+            {/* 조건 목록 */}
+            <div style={{padding:14,overflowY:'auto',flex:1}}>
+              <div style={{display:'inline-flex',alignItems:'center',background:'#ffe0e0',border:'1px solid #ff9999',
+                borderRadius:3,padding:'2px 12px',fontSize:11,fontWeight:'bold',marginBottom:10,color:'#c00'}}>
+                And
+              </div>
+
+              {draftConds.map((cond, idx) => (
+                <div key={idx} style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:8,
+                  padding:'6px 8px',background:'#fafafa',border:'1px solid #eee',borderRadius:4}}>
+
+                  {/* × 삭제 */}
+                  <button style={{background:'none',border:'1px solid #ddd',borderRadius:2,cursor:'pointer',
+                    width:20,height:20,fontSize:11,color:'var(--red)',padding:0,flexShrink:0,marginTop:1}}
+                    onClick={()=>setDraftConds(ds=>ds.filter((_,i)=>i!==idx))}>×</button>
+
+                  {/* 필드 선택 */}
+                  <select value={cond.field||''} style={{height:24,fontSize:11,border:'1px solid var(--border2)',borderRadius:2,flexShrink:0}}
+                    onChange={e=>setDraftConds(ds=>ds.map((d,i)=>i===idx?{...d,field:e.target.value,op:'eq',value:'',values:[]}:d))}>
+                    <option value="">-- 필드 선택 --</option>
+                    {['구분','국가','꽃','비고','지역','품목명','품목명(색상)','출고일','입고단가','입고총단가','AWB'].map(f=>(
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+
+                  {/* 연산자 */}
+                  {cond.field && cond.field !== '구분' && (
+                    <select value={cond.op||'eq'} style={{height:24,fontSize:11,border:'1px solid var(--border2)',borderRadius:2,flexShrink:0}}
+                      onChange={e=>setDraftConds(ds=>ds.map((d,i)=>i===idx?{...d,op:e.target.value,value:'',values:[]}:d))}>
+                      {[{k:'eq',l:'='},{k:'neq',l:'≠'},{k:'gt',l:'>'},{k:'gte',l:'≥'},{k:'lt',l:'<'},{k:'lte',l:'≤'},
+                        {k:'contains',l:'Contains'},{k:'notcontains',l:'Does not contain'},
+                        {k:'beginswith',l:'Begins with'},{k:'endswith',l:'Ends with'},{k:'anyof',l:'Is any of'},
+                      ].map(op=><option key={op.k} value={op.k}>{op.l}</option>)}
+                    </select>
+                  )}
+
+                  {/* 값 입력 */}
+                  <div style={{flex:1}}>
+                    {cond.field === '구분' ? (
+                      /* 구분: 섹션 체크박스 */
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                        {[{k:'prev',l:'01. 전재고'},{k:'order',l:'02. 주문'},
+                          {k:'incoming',l:'03. 입고'},{k:'none',l:'03. 미발주'},{k:'cur',l:'05. 현재고'},
+                        ].map(s=>(
+                          <label key={s.k} style={{display:'flex',alignItems:'center',gap:3,fontSize:11,cursor:'pointer',
+                            background:(cond.sections||showSections)[s.k]!==false?'#e8f0fe':'#f8f8f8',
+                            border:'1px solid var(--border2)',borderRadius:2,padding:'2px 6px'}}>
+                            <input type="checkbox"
+                              checked={(cond.sections||showSections)[s.k]!==false}
+                              onChange={e=>setDraftConds(ds=>ds.map((d,i)=>i===idx?{
+                                ...d,sections:{...(d.sections||showSections),[s.k]:e.target.checked}
+                              }:d))}/>
+                            {s.l}
+                          </label>
+                        ))}
+                      </div>
+                    ) : cond.op === 'anyof' ? (
+                      /* Is any of: 체크박스 목록 */
+                      <div style={{display:'flex',gap:3,flexWrap:'wrap',maxHeight:100,overflowY:'auto',
+                        border:'1px solid var(--border)',borderRadius:2,padding:'4px 6px'}}>
+                        {getFieldValues(cond.field).map(v=>(
+                          <label key={v} style={{display:'flex',alignItems:'center',gap:3,fontSize:10,cursor:'pointer',
+                            background:(cond.values||[]).includes(v)?'#e8f0fe':'#f8f8f8',
+                            border:'1px solid var(--border2)',borderRadius:2,padding:'1px 5px'}}>
+                            <input type="checkbox" checked={(cond.values||[]).includes(v)}
+                              onChange={e=>{
+                                const vals = e.target.checked
+                                  ? [...(cond.values||[]),v]
+                                  : (cond.values||[]).filter(x=>x!==v);
+                                setDraftConds(ds=>ds.map((d,i)=>i===idx?{...d,values:vals}:d));
+                              }}/>
+                            {v}
+                          </label>
+                        ))}
+                      </div>
+                    ) : cond.field ? (
+                      /* 텍스트/숫자 입력 */
+                      <input type="text" value={cond.value||''} placeholder="값 입력..."
+                        style={{width:'100%',height:24,fontSize:11,border:'1px solid var(--border2)',
+                          borderRadius:2,padding:'0 6px',boxSizing:'border-box'}}
+                        onChange={e=>setDraftConds(ds=>ds.map((d,i)=>i===idx?{...d,value:e.target.value}:d))}/>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+
+              <button className="btn btn-sm" style={{marginTop:4,fontSize:11}}
+                onClick={()=>setDraftConds(ds=>[...ds,{field:'',op:'eq',value:'',values:[]}])}>
+                + 조건 추가
+              </button>
+            </div>
+
+            {/* 푸터 버튼 */}
+            <div style={{padding:'8px 14px',borderTop:'1px solid var(--border)',
+              display:'flex',gap:8,justifyContent:'flex-end',flexShrink:0}}>
+              <button className="btn btn-primary" onClick={applyFilterEditor}>OK</button>
+              <button className="btn" onClick={()=>setShowFilterEditor(false)}>Cancel</button>
+              <button className="btn" onClick={applyFilterEditor}>Apply</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
