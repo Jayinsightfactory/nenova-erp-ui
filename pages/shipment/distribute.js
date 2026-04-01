@@ -104,8 +104,26 @@ export default function Distribute() {
         apiGet('/api/shipment/distribute', { type: 'custList', week }),
       ]);
       setProducts(prodRes.products || []);
-      setCustList(custRes.customers || []);
-      setCustFilter('');
+      const customers = custRes.customers || [];
+      setCustList(customers);
+
+      // 거래처 검색어가 있으면 → 업체 기준 모드로 자동 전환 + 첫 매칭 거래처 자동 선택
+      if (custFilter && custFilter.trim()) {
+        const matched = customers.filter(c => c.CustName.includes(custFilter.trim()));
+        if (matched.length > 0) {
+          setViewMode('cust');
+          // 첫 번째 매칭 거래처 자동 선택
+          const first = matched[0];
+          setSelectedCust(first);
+          setCustLoading(true);
+          try {
+            const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: first.CustKey });
+            setCustItems(d.items || []);
+          } catch { setCustItems([]); } finally { setCustLoading(false); }
+        } else {
+          setErr(`거래처 "${custFilter}" 를 이 차수에서 찾을 수 없습니다.`);
+        }
+      }
     } catch(e) { setErr(e.message); } finally { setLoading(false); }
   };
 
@@ -230,9 +248,13 @@ export default function Distribute() {
           {PROD_GROUPS.map(g=><option key={g}>{g}</option>)}
         </select>
         <span className="filter-label">거래처</span>
-        <input className="filter-input" placeholder="거래처명 검색..." value={custFilter||''} 
+        <input className="filter-input" placeholder="거래처명 입력 후 조회▶" value={custFilter||''}
           onChange={e=>setCustFilter(e.target.value)}
-          style={{minWidth:140}} />
+          onKeyDown={e=>e.key==='Enter' && handleSearch()}
+          style={{minWidth:150, borderColor: custFilter ? 'var(--blue)' : undefined, fontWeight: custFilter ? 600 : undefined}} />
+        {custFilter && (
+          <button className="btn btn-sm" style={{padding:'2px 7px',fontSize:11}} onClick={()=>{setCustFilter('');setSelectedCust(null);setCustItems([]);setViewMode('prod');}}>✕</button>
+        )}
         <div style={{marginLeft:'auto',display:'flex',gap:6,flexWrap:'wrap'}}>
           <button className="btn btn-secondary btn-sm" onClick={handleSearch}>🔍 조회</button>
           <button className="btn btn-success btn-sm" onClick={handleFix} disabled={fixLoading||isFixed}>

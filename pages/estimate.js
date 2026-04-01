@@ -2,13 +2,179 @@
 // 견적서 관리
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
+
+// ── 한글 금액 변환 (52,434,150 → "오천이백사십삼만사천일백오십원 정")
+function numToKorean(n) {
+  const num = Math.round(Math.abs(n || 0));
+  if (num === 0) return '영원 정';
+  const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+  const pos4   = ['', '십', '백', '천'];
+  const bigUnit = ['', '만', '억', '조'];
+  function fourDigit(v) {
+    let s = '';
+    const d = [Math.floor(v/1000)%10, Math.floor(v/100)%10, Math.floor(v/10)%10, v%10];
+    for (let i = 0; i < 4; i++) {
+      if (!d[i]) continue;
+      s += digits[d[i]] + pos4[3 - i];
+    }
+    return s;
+  }
+  const parts = [];
+  let rem = num;
+  for (let i = 0; i < 4; i++) {
+    const chunk = rem % 10000;
+    rem = Math.floor(rem / 10000);
+    if (chunk > 0) parts.unshift(fourDigit(chunk) + bigUnit[i]);
+  }
+  return parts.join('') + '원 정';
+}
+
+// ── FlowerName → 분할 그룹 이름
+function getFlowerGroup(flowerName) {
+  const f = (flowerName || '').toUpperCase();
+  if (f.includes('HYDRANGEA') || f.includes('수국') || f.includes('ALSTRO')) return '수국/알스트로';
+  if (f.includes('CARNATION') || f.includes('카네이션')) return '카네이션';
+  if (f.includes('ROSE') || f.includes('장미')) return '장미';
+  if (f.includes('ECUADOR') || f.includes('에콰도르')) return '에콰도르';
+  return '기타';
+}
+
+// ── 견적서 HTML 생성 — PDF 실제 서식과 동일
+function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows }) {
+  const totalSupply = rows.reduce((a, r) => a + (r.Amount || 0), 0);
+  const totalVat    = rows.reduce((a, r) => a + (r.Vat || 0), 0);
+  const totalAmt    = totalSupply + totalVat;
+  const fmtN = n => Number(n || 0).toLocaleString();
+
+  // 품목명: [차감유형] ProdName (정상출고는 prefix 없음)
+  const typeLabel = t => {
+    if (!t || t === '정상출고') return '';
+    return '[' + t.replace(/\/(박스|단|송이)$/, '') + '] ';
+  };
+
+  const itemRows = rows.map((r, i) => `
+    <tr>
+      <td style="text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
+      <td style="border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
+      <td style="text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
+      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
+      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
+      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
+      <td style="border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${r.Descr || ''}</td>
+    </tr>`).join('');
+
+  const serialDisplay = serialNo || printDate;
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>견적서 — ${custName}</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:9pt; padding:10mm 12mm; }
+h1 { text-align:center; font-size:20pt; font-weight:bold; letter-spacing:16px; text-decoration:underline; margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; }
+.hdr-outer { border:1px solid #555; }
+.hdr-left  { width:48%; vertical-align:top; border-right:1px solid #555; }
+.hdr-right { width:52%; vertical-align:top; padding:8px 12px; }
+.hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
+.hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
+.logo-area { text-align:center; border-bottom:1px solid #ddd; padding:5px 0 3px; margin-bottom:5px; }
+.logo-N    { font-size:26pt; font-weight:900; color:#111; font-family:'Arial Black',Arial,sans-serif;
+             display:inline-block; transform:skewX(-8deg); line-height:1; }
+.logo-txt  { font-size:11pt; font-weight:bold; letter-spacing:5px; color:#222; display:block; margin-top:1px; }
+.co-grid   { display:grid; grid-template-columns:82px 1fr; gap:0 4px; font-size:8pt; line-height:1.75; }
+.co-key    { font-weight:bold; text-align:right; color:#333; }
+.greet     { font-size:8pt; padding:6px 8px; border-top:1px solid #ddd; line-height:1.7; }
+.amt-row   { border:1px solid #555; border-top:none; padding:5px 10px;
+             display:flex; justify-content:space-between; align-items:center; margin-bottom:0; }
+.amt-ko    { font-weight:bold; font-size:9pt; }
+.amt-num   { font-size:8.5pt; }
+.item-th   { background:#e8e8e8; border:1px solid #888; padding:3px 5px; font-size:8.5pt; text-align:center; }
+.item-td   { border:1px solid #ccc; padding:2px 5px; font-size:8.5pt; vertical-align:middle; }
+.foot-row td { background:#f5f5f5; border:1px solid #888; padding:3px 8px; font-size:8.5pt; font-weight:bold; }
+@media print { body{padding:5mm 8mm;} @page{size:A4;margin:8mm;} }
+</style>
+</head><body>
+<h1>견 &nbsp; 적 &nbsp; 서</h1>
+
+<table class="hdr-outer">
+  <tr>
+    <td class="hdr-left">
+      <!-- 왼쪽: 수신/청조 그리드 -->
+      <table style="width:100%;border-collapse:collapse;">
+        <tr class="hdr-row"><td class="hdr-key">일련번호</td><td>${serialDisplay}</td></tr>
+        <tr class="hdr-row"><td class="hdr-key">수&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;신</td><td><b>${custName}</b></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">청&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">TEL/FAX</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">결제조건</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">유효기간</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">비&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;고</td><td>${bigoLabel}</td></tr>
+      </table>
+      <div class="greet">
+        1. 귀사의 일익 번창하심을 기원합니다.<br>
+        2. 하기와 같이 견적드리오니 검토하기 바랍니다.
+      </div>
+    </td>
+    <td class="hdr-right">
+      <!-- 오른쪽: NENOVA 로고 + 회사정보 -->
+      <div class="logo-area">
+        <span class="logo-N">N</span>
+        <span class="logo-txt">NENOVA</span>
+      </div>
+      <div class="co-grid">
+        <span class="co-key">사업자등록번호</span><span>134-86-94367</span>
+        <span class="co-key">회사명/대표</span><span>(주) 네노바 / 김원배</span>
+        <span class="co-key">주&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;소</span><span>서울특별시 서초구 언남길 15-7 102호 (양재동, 하얀빌딩)</span>
+        <span class="co-key">업태/종목</span><span>도매 / 무역</span>
+        <span class="co-key">계&nbsp;&nbsp;좌&nbsp;&nbsp;번&nbsp;&nbsp;호</span><span>하나은행 630-008129-149 (주)네노바</span>
+        <span class="co-key">TEL/FAX</span><span>025758003 / 02-576-8003</span>
+      </div>
+    </td>
+  </tr>
+</table>
+
+<!-- 금액 행 -->
+<div class="amt-row">
+  <span class="amt-ko">금 액 : ${numToKorean(totalAmt)}</span>
+  <span class="amt-num">(₩ ${fmtN(totalAmt)}원) / VAT 포함</span>
+</div>
+
+<!-- 품목 테이블 -->
+<table>
+  <thead>
+    <tr>
+      <th class="item-th" style="width:28px">순번</th>
+      <th class="item-th">품목명[규격]</th>
+      <th class="item-th" style="width:68px">수량</th>
+      <th class="item-th" style="width:62px">단가</th>
+      <th class="item-th" style="width:80px">공급가액</th>
+      <th class="item-th" style="width:68px">부가세</th>
+      <th class="item-th" style="width:80px">적요</th>
+    </tr>
+  </thead>
+  <tbody>${itemRows}</tbody>
+  <tfoot>
+    <tr class="foot-row">
+      <td>공급가액</td>
+      <td style="text-align:right">${fmtN(totalSupply)}</td>
+      <td style="text-align:center">VAT</td>
+      <td style="text-align:right">${fmtN(totalVat)}</td>
+      <td style="text-align:center">합&nbsp;&nbsp;&nbsp;계</td>
+      <td></td>
+      <td style="text-align:right;font-size:10pt">${fmtN(totalAmt)}</td>
+    </tr>
+  </tfoot>
+</table>
+<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
+</body></html>`;
+}
 const ESTIMATE_TYPES = [
   '불량차감/박스','불량차감/단','불량차감/송이',
   '검역차감/박스','검역차감/단','검역차감/송이',
@@ -95,8 +261,8 @@ export default function Estimate() {
   const [loading, setLoading] = useState(false);
   const [itemLoading, setItemLoading] = useState(false);
 
-  // WeekDay 필터
-  const [activeWD, setActiveWD] = useState(new Set());
+  // WeekDay 필터 — 기본값: 전체 요일 선택
+  const [activeWD, setActiveWD] = useState(new Set(['월','화','수','목','금','토','일']));
 
   // 불량/검역 모달
   const [showDefect, setShowDefect] = useState(false);
@@ -104,6 +270,16 @@ export default function Estimate() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // 출력 다이얼로그
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [printOpts, setPrintOpts] = useState({
+    printDate: new Date().toISOString().slice(0, 10),
+    splitMode: 'combined',   // 'combined' | 'split'
+    docTitle:  '견 적 서',
+    outType:   'total',      // 'total' | 'select'
+    serialNo:  '',
+  });
 
   // 불량/검역 폼
   const [defectForm, setDefectForm] = useState({
@@ -165,12 +341,12 @@ export default function Estimate() {
       .finally(() => setLoading(false));
   };
 
-  // ── 출고 목록 행 클릭 → 해당 거래처 견적 상세 로드
+  // ── 출고 목록 행 클릭 → 해당 ShipmentKey 견적 상세 로드 (정상출고 + 차감 합산)
   const selectShipment = (sk, custKey) => {
     setSelectedId(sk);
     setSelectedCustKey(custKey);
     setItemLoading(true);
-    apiGet('/api/estimate', { week: weekInput.value, custKey })
+    apiGet('/api/estimate', { shipmentKey: sk })
       .then(d => setItems(d.items || []))
       .catch(() => setItems([]))
       .finally(() => setItemLoading(false));
@@ -178,9 +354,10 @@ export default function Estimate() {
 
   const selectedShip = shipments.find(s => s.ShipmentKey === selectedId);
 
-  // ── WeekDay 필터 적용
+  // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
+  const ALL_WD = ['월','화','수','목','금','토','일'];
   const filteredItems = items.filter(item => {
-    if (activeWD.size === 0) return true;
+    if (activeWD.size === 0 || activeWD.size === 7) return true;  // 전체 or 0개 → 모두 표시
     const dayMap = {'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0};
     if (!item.outDate) return false;
     return [...activeWD].some(wd => dayMap[wd] === new Date(item.outDate).getDay());
@@ -237,62 +414,74 @@ export default function Estimate() {
     a.click();
   };
 
-  // ── 견적서 출력 (쿼리 데이터 기반 인쇄 창)
+  // ── 견적서 출력 버튼 → 출력 다이얼로그 열기
   const handlePrint = () => {
     if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
+    setShowPrintDialog(true);
+  };
+
+  // ── 실제 인쇄 실행
+  const doActualPrint = useCallback((opts) => {
     const custName = selectedShip?.CustName || '';
     const week = weekInput.value || '';
-    const today = new Date().toLocaleDateString('ko-KR');
-    const rows = filteredItems.map(i => `
-      <tr>
-        <td>${i.ProdName||''}</td>
-        <td>${i.Unit||''}</td>
-        <td>${i.outDate||''}</td>
-        <td style="text-align:right">${Number(i.Quantity||0).toLocaleString()}</td>
-        <td style="text-align:right">${Number(i.Cost||0).toLocaleString()}</td>
-        <td style="text-align:right"><b>${Number(i.Amount||0).toLocaleString()}</b></td>
-        <td style="text-align:right">${Number(i.Vat||0).toLocaleString()}</td>
-        <td>${i.EstimateType||''}</td>
-      </tr>`).join('');
-    const html = `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8">
-<title>견적서 — ${custName}</title>
-<style>
-  body { font-family: 'Malgun Gothic', sans-serif; font-size: 11pt; margin: 20mm; }
-  h2 { text-align: center; margin-bottom: 6px; }
-  .info { display: flex; justify-content: space-between; font-size: 10pt; margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #D0D8E8; border: 1px solid #888; padding: 4px 6px; font-size: 10pt; }
-  td { border: 1px solid #CCC; padding: 3px 6px; font-size: 10pt; }
-  tfoot td { background: #EEF4FA; font-weight: bold; }
-  @media print { body { margin: 10mm; } }
-</style></head><body>
-<h2>견 적 서</h2>
-<div class="info">
-  <span>거래처: <b>${custName}</b></span>
-  <span>차수: <b>${week}</b></span>
-  <span>출력일: ${today}</span>
-</div>
-<table>
-  <thead><tr>
-    <th>품목명</th><th>단위</th><th>출고일</th>
-    <th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>구분</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-  <tfoot><tr>
-    <td colspan="3">합 계</td>
-    <td style="text-align:right">${Number(totalQty).toLocaleString()}</td>
-    <td></td>
-    <td style="text-align:right">${Number(totalSupply).toLocaleString()}</td>
-    <td style="text-align:right">${Number(totalVat).toLocaleString()}</td>
-    <td></td>
-  </tr></tfoot>
-</table>
-<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
-</body></html>`;
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (w) { w.document.write(html); w.document.close(); }
-  };
+
+    // 선출고 = 정상출고 품목만, 종합 = 전체
+    const printRows = filteredItems.filter(i =>
+      opts.outType === 'select' ? i.EstimateType === '정상출고' : true
+    );
+
+    if (opts.splitMode === 'combined') {
+      // ── 종합 출력 (1장)
+      // 비고: "[차수] 종합견적서"
+      const bigoLabel = `${week} 종합견적서`;
+      const html = buildEstimateHtml({
+        bigoLabel,
+        serialNo:  opts.serialNo,
+        printDate: opts.printDate,
+        custName,
+        rows: printRows,
+      });
+      const w = window.open('', '_blank', 'width=960,height=720');
+      if (w) { w.document.write(html); w.document.close(); }
+    } else {
+      // ── 품목별 분할 출력 (수국/카네이션/장미/에콰도르/기타 각 1장)
+      // 분할 그룹 표시명 (PDF 비고 형식: "13차 수국")
+      const GROUP_LABEL = {
+        '수국/알스트로': '수국',
+        '카네이션':     '카네이션',
+        '장미':         '장미',
+        '에콰도르':     '에콰도르 장미',
+        '기타':         '기타',
+      };
+      const groups = {};
+      printRows.forEach(r => {
+        const g = getFlowerGroup(r.FlowerName);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(r);
+      });
+      const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
+      const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
+
+      if (activeGroups.length === 0) { alert('출력할 품목이 없습니다.'); return; }
+
+      activeGroups.forEach((g, idx) => {
+        const bigoLabel = `${week} ${GROUP_LABEL[g] || g}`;
+        const html = buildEstimateHtml({
+          bigoLabel,
+          serialNo:  opts.serialNo,
+          printDate: opts.printDate,
+          custName,
+          rows: groups[g],
+        });
+        setTimeout(() => {
+          const w = window.open('', '_blank', 'width=960,height=720');
+          if (w) { w.document.write(html); w.document.close(); }
+        }, idx * 450);
+      });
+    }
+
+    setShowPrintDialog(false);
+  }, [filteredItems, selectedShip, weekInput.value]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
@@ -476,12 +665,96 @@ export default function Estimate() {
             {WEEKDAYS.map(d => (
               <span key={d} className={`chip ${activeWD.has(d)?'chip-active':'chip-inactive'}`} onClick={() => toggleWD(d)}>{d}</span>
             ))}
-            {activeWD.size > 0 && (
-              <button className="btn btn-sm" style={{height:20, fontSize:10}} onClick={() => setActiveWD(new Set())}>초기화</button>
+            {activeWD.size < 7 && (
+              <button className="btn btn-sm" style={{height:20, fontSize:10}} onClick={() => setActiveWD(new Set(['월','화','수','목','금','토','일']))}>전체선택</button>
             )}
           </div>
         </div>
       </div>
+
+      {/* ── 견적서 출력 다이얼로그 ── */}
+      {showPrintDialog && (
+        <div className="modal-overlay" onClick={() => setShowPrintDialog(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🖨️ 견적서 출력 옵션</span>
+              <button className="btn btn-sm" onClick={() => setShowPrintDialog(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* 출력일자 (= 일련번호 기준) */}
+              <div className="form-group">
+                <label className="form-label">출력일자 (일련번호 기준)</label>
+                <input type="date" className="form-control"
+                  value={printOpts.printDate}
+                  onChange={e => setPrintOpts(o => ({ ...o, printDate: e.target.value }))}
+                />
+              </div>
+
+              {/* 일련번호 직접 입력 (선택) */}
+              <div className="form-group">
+                <label className="form-label">일련번호 <span style={{ color: 'var(--text3)', fontWeight: 'normal' }}>(비워두면 자동생성)</span></label>
+                <input className="form-control"
+                  value={printOpts.serialNo}
+                  onChange={e => setPrintOpts(o => ({ ...o, serialNo: e.target.value }))}
+                  placeholder="예: 2026-04-001"
+                />
+              </div>
+
+              {/* 출고구분 */}
+              <div className="form-group">
+                <label className="form-label">출고 구분</label>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {[['total', '종합출고 (전체)'], ['select', '선출고 (정상출고만)']].map(([v, l]) => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
+                      <input type="radio" name="outType" value={v}
+                        checked={printOpts.outType === v}
+                        onChange={() => setPrintOpts(o => ({ ...o, outType: v }))}
+                      />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 분할 선택 */}
+              <div className="form-group">
+                <label className="form-label">출력 방식</label>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  {[['combined', '품목 일괄 출력 (1장)'], ['split', '품목별 분할 출력 (꽃종류별)']].map(([v, l]) => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
+                      <input type="radio" name="splitMode" value={v}
+                        checked={printOpts.splitMode === v}
+                        onChange={() => setPrintOpts(o => ({ ...o, splitMode: v }))}
+                      />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+                {printOpts.splitMode === 'split' && (
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
+                    수국/알스트로 · 카네이션 · 장미 · 에콰도르 · 기타 로 분리 출력됩니다
+                  </div>
+                )}
+              </div>
+
+              {/* 미리보기 요약 */}
+              <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', fontSize: 11, color: 'var(--text2)' }}>
+                <div>거래처: <b>{selectedShip?.CustName || '—'}</b></div>
+                <div>차수: <b>{weekInput.value || '—'}</b></div>
+                <div>품목수: <b>{filteredItems.length}건</b></div>
+                <div>합계: <b>₩{(totalSupply + totalVat).toLocaleString()}</b> (공급가액 ₩{totalSupply.toLocaleString()} + 세액 ₩{totalVat.toLocaleString()})</div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => doActualPrint(printOpts)}>
+                🖨️ 출력 실행
+              </button>
+              <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 불량/검역 등록 모달 ── */}
       {showDefect && (

@@ -6,7 +6,8 @@
 //   구분별 열: 02.주문=거래처명, 03.입고=농장명
 //   즐겨찾기: 현재 설정 저장/불러오기
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
@@ -18,57 +19,121 @@ const fN = n => (!n || n === 0) ? '' : Number(n).toFixed(2);
 const nextSort = s => s === null ? 'asc' : s === 'asc' ? 'desc' : null;
 const SortIcon = ({ dir }) => dir === 'asc' ? ' ▲' : dir === 'desc' ? ' ▼' : ' ▲';
 
-// 컬럼 헤더 버튼 (클릭 시 정렬)
+// 컬럼 헤더 버튼 (클릭 시 정렬 + 필터 드롭다운)
+// - createPortal로 body에 렌더링 → overflow:auto 컨테이너에 잘리지 않음
+// - useRef + getBoundingClientRect로 위치 계산
 function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOptions }) {
   const [showFilter, setShowFilter] = useState(false);
-  const dir = sorts[sortKey] || null;
+  const [dropPos,    setDropPos]    = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const dir    = sorts[sortKey] || null;
+
+  // 전체해제 상태 (filter=['__EMPTY__'])
+  const allDeselected = filter?.includes('__EMPTY__');
+  // 필터 활성 여부 (일부만 선택)
+  const hasFilter = filter?.length > 0 && !allDeselected;
+
+  // 체크 여부 계산
+  const isChecked = opt => {
+    if (allDeselected) return false;
+    if (!filter?.length) return true;
+    return filter.includes(opt);
+  };
+
+  // 체크박스 토글
+  const handleChange = (opt, checked) => {
+    let cur;
+    if (allDeselected)    cur = [];
+    else if (!filter?.length) cur = [...filterOptions];
+    else                  cur = [...filter];
+
+    let next = checked
+      ? [...new Set([...cur, opt])]
+      : cur.filter(x => x !== opt);
+    if (next.length === filterOptions.length) next = []; // 전부 선택 → 필터 없음
+    onFilter(sortKey, next);
+  };
+
+  // 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showFilter) return;
+    const close = e => setShowFilter(false);
+    const t = setTimeout(() => document.addEventListener('click', close), 50);
+    return () => { clearTimeout(t); document.removeEventListener('click', close); };
+  }, [showFilter]);
+
   return (
     <th style={{textAlign:'center', minWidth:80, fontSize:11, position:'relative', cursor:'pointer',
       background:'#D4DDE8', whiteSpace:'nowrap'}}
       onClick={() => onSort(sortKey)}
     >
       {label}<SortIcon dir={dir}/>
-      {filterOptions && (
-        <span onClick={e=>{e.stopPropagation();setShowFilter(s=>!s)}}
-          style={{marginLeft:3, color:filter?.length?'var(--blue)':'var(--text3)', fontSize:10}}>▼</span>
+
+      {/* 필터 ▼ 버튼 — filterOptions가 1개 이상일 때만 표시 */}
+      {filterOptions?.length > 0 && (
+        <span ref={btnRef}
+          onClick={e => {
+            e.stopPropagation();
+            if (!showFilter && btnRef.current) {
+              const r = btnRef.current.getBoundingClientRect();
+              setDropPos({ top: r.bottom + window.scrollY, left: r.left + window.scrollX });
+            }
+            setShowFilter(s => !s);
+          }}
+          style={{
+            marginLeft: 4, fontSize: 10, cursor: 'pointer',
+            color:      hasFilter ? '#fff'          : 'var(--text2)',
+            background: hasFilter ? 'var(--blue)'   : '#dde4ee',
+            border: `1px solid ${hasFilter ? 'var(--blue)' : 'var(--border2)'}`,
+            borderRadius: 2, padding: '0 3px',
+            display: 'inline-block', lineHeight: '14px', userSelect: 'none',
+          }}>▼</span>
       )}
-      {showFilter && filterOptions && (
-        <div style={{position:'absolute', top:'100%', left:0, zIndex:300,
-          background:'#fff', border:'2px solid var(--border2)', minWidth:160,
-          maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 8px rgba(0,0,0,.2)'}}
-          onClick={e=>e.stopPropagation()}>
-          {filterOptions.map(opt => {
-            const selected = filter?.length ? filter : filterOptions;
-            const isChecked = selected.includes(opt);
-            return (
-              <label key={opt} style={{display:'flex', alignItems:'center', gap:6, padding:'4px 8px', fontSize:11, cursor:'pointer'}}>
-                <input type="checkbox" checked={isChecked}
-                  onChange={e => {
-                    let next;
-                    if (e.target.checked) {
-                      next = [...selected, opt];
-                    } else {
-                      next = selected.filter(x => x !== opt);
-                    }
-                    if (next.length === filterOptions.length) next = [];
-                    onFilter(sortKey, next);
-                    e.stopPropagation();
-                  }} />
-                {opt}
-              </label>
-            );
-          })}
-          <div style={{padding:'4px 8px', borderTop:'1px solid var(--border)', display:'flex', gap:4}}>
-            <button className="btn btn-sm" style={{fontSize:10,height:18}}
-              onClick={() => {
-                const allSelected = !filter?.length;
-                onFilter(sortKey, allSelected ? ['__EMPTY__'] : []);
-              }}>
+
+      {/* 드롭다운 — portal로 body에 렌더링 (overflow 컨테이너 클리핑 방지) */}
+      {showFilter && filterOptions?.length > 0 && typeof document !== 'undefined' && createPortal(
+        <div style={{
+          position: 'fixed',
+          top:  dropPos.top,
+          left: dropPos.left,
+          zIndex: 9999,
+          background: '#fff',
+          border: '2px solid var(--border2)',
+          minWidth: 170,
+          maxHeight: 260,
+          overflowY: 'auto',
+          boxShadow: '3px 4px 12px rgba(0,0,0,.28)',
+          borderRadius: 4,
+        }} onClick={e => e.stopPropagation()}>
+
+          {/* 전체선택/해제 상태 표시 행 */}
+          <div style={{padding:'4px 8px', background:'#f0f4fa', borderBottom:'1px solid var(--border)',
+            fontSize:10, color:'var(--text3)'}}>
+            {label} 필터 ({allDeselected ? '전체해제' : !filter?.length ? '전체선택' : `${filter.length}/${filterOptions.length}개`})
+          </div>
+
+          {filterOptions.map(opt => (
+            <label key={opt} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px',
+              fontSize:11, cursor:'pointer',
+              background: isChecked(opt) ? '#f0f6ff' : '#fff'}}>
+              <input type="checkbox"
+                checked={isChecked(opt)}
+                onChange={e => { e.stopPropagation(); handleChange(opt, e.target.checked); }} />
+              {opt}
+            </label>
+          ))}
+
+          <div style={{padding:'5px 8px', borderTop:'1px solid var(--border)',
+            display:'flex', gap:4, position:'sticky', bottom:0, background:'#f8f8f8'}}>
+            <button className="btn btn-sm" style={{fontSize:10, height:20}}
+              onClick={e => { e.stopPropagation(); onFilter(sortKey, !filter?.length ? ['__EMPTY__'] : []); }}>
               {!filter?.length ? '전체해제' : '전체선택'}
             </button>
-            <button className="btn btn-sm" style={{fontSize:10,height:18}} onClick={()=>setShowFilter(false)}>{t('닫기')}</button>
+            <button className="btn btn-sm" style={{fontSize:10, height:20}}
+              onClick={e => { e.stopPropagation(); setShowFilter(false); }}>닫기</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </th>
   );
