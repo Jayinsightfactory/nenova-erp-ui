@@ -385,6 +385,8 @@ export default function Pivot() {
         {loading ? <div className="skeleton" style={{height:300,margin:16}}></div>
         : !data ? (
           <div className="empty-state"><div className="empty-icon">📊</div><div className="empty-text">차수 입력 후 새로고침</div></div>
+        ) : data.rows?.length === 0 ? (
+          <div className="empty-state"><div className="empty-icon">🔍</div><div className="empty-text">해당 차수에 데이터가 없습니다.</div></div>
         ) : (
           <table className="tbl" style={{fontSize:11, minWidth: 500+(showSections.order?custs.length*70:0)+(showSections.incoming?farms.length*70:0)}}>
             <thead>
