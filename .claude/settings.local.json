@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(node --check \"C:\\\\Users\\\\cando\\\\Downloads\\\\nenova-erp-ui10\\\\nenova-erp-ui\\\\pages\\\\stats\\\\pivot.js\")",
+      "Bash(node --check \"C:\\\\Users\\\\cando\\\\Downloads\\\\nenova-erp-ui10\\\\nenova-erp-ui\\\\pages\\\\warehouse.js\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e \":*)",
+      "Bash(railway up:*)",
+      "Bash(railway status:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(railway logs:*)",
+      "Read(//c/Users/cando/Downloads/nenova-erp-ui10/nenova-erp-ui/$HOME/.claude/**)",
+      "Read(//c/Users/cando/Downloads/nenova-erp-ui10/nenova-erp-ui/$APPDATA/Claude/**)"
+    ]
+  }
+}

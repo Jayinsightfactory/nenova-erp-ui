@@ -1,0 +1,20 @@
+{
+  "name": "nenova-erp-ui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "node web.js"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1",
+    "next": "^16.2.1",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

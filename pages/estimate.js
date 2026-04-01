@@ -1,0 +1,523 @@
+// pages/estimate.js
+// 견적서 관리
+// 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
+
+import { useState, useEffect, useRef } from 'react';
+import { apiGet, apiPost } from '../lib/useApi';
+import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
+import { useLang } from '../lib/i18n';
+
+const fmt = n => Number(n || 0).toLocaleString();
+const WEEKDAYS = ['월','화','수','목','금','토','일'];
+const ESTIMATE_TYPES = [
+  '불량차감/박스','불량차감/단','불량차감/송이',
+  '검역차감/박스','검역차감/단','검역차감/송이',
+  '샘플/송이','샘플/단','단가차감/단','단가차감/송이',
+  '취소 / Cancelar차감/송이','취소 / Cancelar차감/단','부족차감/단','출하오류차감/단'
+];
+
+// ── 검색 가능한 드롭다운 공통 컴포넌트
+function SearchableSelect({ options, value, onChange, placeholder = '검색...' }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  // 외부 클릭 닫기
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = q
+    ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()))
+    : options;
+
+  const selectedLabel = options.find(o => o.value === value)?.label || '';
+
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <input
+        className="form-control"
+        placeholder={placeholder}
+        value={open ? q : selectedLabel}
+        onFocus={() => { setOpen(true); setQ(''); }}
+        onChange={e => setQ(e.target.value)}
+        readOnly={!open}
+        style={{ cursor: open ? 'text' : 'pointer', background: open ? '#fff' : '#F8F8F8' }}
+      />
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 300,
+          background: '#fff', border: '2px solid var(--border2)',
+          width: '100%', maxHeight: 220, overflowY: 'auto',
+          boxShadow: '2px 2px 8px rgba(0,0,0,0.2)', minWidth: 280
+        }}>
+          {filtered.length === 0
+            ? <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>검색 결과 없음</div>
+            : filtered.map(o => (
+              <div key={o.value}
+                onClick={() => { onChange(o.value); setOpen(false); setQ(''); }}
+                style={{ padding: '5px 10px', cursor: 'pointer', borderBottom: '1px solid #EEE', fontSize: 12 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#E8F0FF'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+              >
+                {o.label}
+                {o.sub && <div style={{ fontSize: 10, color: 'var(--text3)' }}>{o.sub}</div>}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Estimate() {
+  const { t } = useLang();
+  const weekInput = useWeekInput('');
+
+  // 왼쪽 패널 - 출고 목록
+  const [shipments, setShipments] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedCustKey, setSelectedCustKey] = useState(null);
+
+  // 오른쪽 패널 - 견적서 목록
+  const [items, setItems] = useState([]);
+
+  // 업체 검색 드롭다운
+  const [custSearch, setCustSearch] = useState('');
+  const [custList, setCustList] = useState([]);
+  const [selectedCust, setSelectedCust] = useState(null);
+  const [showCustDrop, setShowCustDrop] = useState(false);
+  const custDropRef = useRef();
+
+  // 로딩
+  const [loading, setLoading] = useState(false);
+  const [itemLoading, setItemLoading] = useState(false);
+
+  // WeekDay 필터
+  const [activeWD, setActiveWD] = useState(new Set());
+
+  // 불량/검역 모달
+  const [showDefect, setShowDefect] = useState(false);
+  const [products, setProducts] = useState([]);  // 품목 전체 목록 (드롭다운용)
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // 불량/검역 폼
+  const [defectForm, setDefectForm] = useState({
+    estimateType: '',
+    estimateDate: new Date().toISOString().slice(0,10),
+    prodKey: '',
+    unit: '단',
+    quantity: '',
+    cost: '',
+    descr: '',
+  });
+
+  // 공급가액/부가세 자동계산
+  const supply = Math.round((parseFloat(defectForm.quantity)||0) * (parseFloat(defectForm.cost)||0));
+  const vat    = Math.round(supply / 11);
+
+  // ── 외부 클릭 시 업체 드롭다운 닫기
+  useEffect(() => {
+    const handler = e => { if (custDropRef.current && !custDropRef.current.contains(e.target)) setShowCustDrop(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── 업체 검색 디바운스
+  useEffect(() => {
+    if (custSearch.length < 1) { setCustList([]); return; }
+    const t = setTimeout(() => {
+      apiGet('/api/customers/search', { q: custSearch })
+        .then(d => { setCustList(d.customers || []); setShowCustDrop(true); })
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(t);
+  }, [custSearch]);
+
+  // ── 품목 목록 로드 (모달 드롭다운용)
+  useEffect(() => {
+    apiGet('/api/products/search', { q: '' })
+      .then(d => setProducts(d.products || []))
+      .catch(() => {});
+  }, []);
+
+  // ── 조회 (차수 + 업체 기준)
+  const load = () => {
+    if (!weekInput.value && !selectedCust) { setErr('차수 또는 업체를 입력하세요.'); return; }
+    setLoading(true); setErr('');
+    apiGet('/api/estimate', {
+      week: weekInput.value,
+      custKey: selectedCust?.CustKey || '',
+    })
+      .then(d => {
+        setShipments(d.shipments || []);
+        setItems(d.items || []);
+        if (d.shipments?.length > 0) {
+          setSelectedId(d.shipments[0].ShipmentKey);
+          setSelectedCustKey(d.shipments[0].CustKey);
+        }
+      })
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  // ── 출고 목록 행 클릭 → 해당 거래처 견적 상세 로드
+  const selectShipment = (sk, custKey) => {
+    setSelectedId(sk);
+    setSelectedCustKey(custKey);
+    setItemLoading(true);
+    apiGet('/api/estimate', { week: weekInput.value, custKey })
+      .then(d => setItems(d.items || []))
+      .catch(() => setItems([]))
+      .finally(() => setItemLoading(false));
+  };
+
+  const selectedShip = shipments.find(s => s.ShipmentKey === selectedId);
+
+  // ── WeekDay 필터 적용
+  const filteredItems = items.filter(item => {
+    if (activeWD.size === 0) return true;
+    const dayMap = {'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0};
+    if (!item.outDate) return false;
+    return [...activeWD].some(wd => dayMap[wd] === new Date(item.outDate).getDay());
+  });
+
+  const totalQty    = filteredItems.reduce((a,b) => a+(b.Quantity||0), 0);
+  const totalSupply = filteredItems.reduce((a,b) => a+(b.Amount||0), 0);
+  const totalVat    = filteredItems.reduce((a,b) => a+(b.Vat||0), 0);
+
+  // ── 불량/검역 등록 저장
+  const handleDefectSave = async () => {
+    if (!selectedId)              { alert('출고 거래처를 선택하세요.'); return; }
+    if (!defectForm.estimateType) { alert('구분을 선택하세요.'); return; }
+    if (!defectForm.prodKey)      { alert('품목명을 선택하세요.'); return; }
+    if (!defectForm.quantity || parseFloat(defectForm.quantity) <= 0) { alert('수량을 입력하세요.'); return; }
+    setSaving(true);
+    try {
+      await apiPost('/api/estimate', {
+        shipmentKey:  selectedId,
+        prodKey:      parseInt(defectForm.prodKey),
+        estimateType: defectForm.estimateType,
+        unit:         defectForm.unit,
+        quantity:     parseFloat(defectForm.quantity),
+        cost:         parseFloat(defectForm.cost) || 0,
+      });
+      setShowDefect(false);
+      setDefectForm({ estimateType:'', estimateDate: new Date().toISOString().slice(0,10), prodKey:'', unit:'단', quantity:'', cost:'', descr:'' });
+      setSuccessMsg('✅ 불량/검역 등록 완료');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      selectShipment(selectedId, selectedCustKey);
+    } catch(e) { alert(e.message); } finally { setSaving(false); }
+  };
+
+  // ── 엑셀 다운
+  const handleExcel = () => {
+    const rows = [['품목명','단위','출고일','수량','단가','공급가액','부가세']];
+    filteredItems.forEach(i => rows.push([i.ProdName, i.Unit, i.outDate, i.Quantity, i.Cost, i.Amount, i.Vat]));
+    const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `견적서_${selectedShip?.CustName||''}_${weekInput.value}.csv`;
+    a.click();
+  };
+
+  const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
+
+  // 품목 옵션 (검색 가능 드롭다운용)
+  const prodOptions = products.map(p => ({
+    value: String(p.ProdKey),
+    label: p.ProdName,
+    sub: `${p.CounName} · ${p.FlowerName} · ${p.OutUnit}`,
+  }));
+
+  // 견적 유형 옵션
+  const estimateTypeOptions = ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
+
+  return (
+    <div>
+      {/* ── 필터 바 ── */}
+      <div className="filter-bar">
+        {/* 차수 입력 */}
+        <WeekInput weekInput={weekInput} label="차수" />
+
+        {/* 업체 검색 드롭다운 */}
+        <span className="filter-label">거래처</span>
+        <div style={{ position: 'relative' }} ref={custDropRef}>
+          <input
+            className="filter-input"
+            placeholder="거래처 검색..."
+            value={custSearch}
+            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); }}
+            onFocus={() => custList.length > 0 && setShowCustDrop(true)}
+            style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined }}
+          />
+          {showCustDrop && custList.length > 0 && (
+            <div style={{ position:'absolute', top:'100%', left:0, zIndex:200, background:'#fff', border:'2px solid var(--border2)', width:300, maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 6px rgba(0,0,0,0.2)' }}>
+              {custList.map(c => (
+                <div key={c.CustKey}
+                  onClick={() => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); }}
+                  style={{ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#E8F0FF'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                >
+                  <div style={{fontWeight:'bold'}}>{c.CustName}</div>
+                  <div style={{fontSize:11, color:'var(--text3)'}}>{c.CustArea} · {c.Manager}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {selectedCust && (
+          <button className="btn btn-sm" onClick={() => { setSelectedCust(null); setCustSearch(''); }}>✕</button>
+        )}
+
+        {/* 출고요일 필터 */}
+        <span className="filter-label">출고요일</span>
+        {WEEKDAYS.map(d => (
+          <span key={d} className={`chip ${activeWD.has(d)?'chip-active':'chip-inactive'}`} onClick={() => toggleWD(d)}>{d}</span>
+        ))}
+
+        <div className="page-actions">
+          <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
+          <button className="btn" onClick={() => setSaving(false)}>💾 저장 / Guardar</button>
+          <button className="btn" onClick={() => window.print()}>🖨️ 견적서 출력 / Imprimir</button>
+          <button className="btn" onClick={handleExcel}>📊 엑셀 / Excel 다운</button>
+          <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
+        </div>
+      </div>
+
+      {err      && <div className="banner-err">⚠️ {err}</div>}
+      {successMsg && <div className="banner-ok">{successMsg}</div>}
+
+      {/* ── 2분할 ── */}
+      <div className="split-panel">
+
+        {/* 왼쪽: 출고 목록 */}
+        <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
+          <div className="card-header">
+            <span className="card-title">■ 출고 목록</span>
+            <span style={{fontSize:11, color:'var(--text3)'}}>{shipments.length}건</span>
+          </div>
+          <div style={{overflowY:'auto', flex:1}}>
+            {loading
+              ? <div className="skeleton" style={{height:200, margin:12}}></div>
+              : (
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th style={{width:28}}><input type="checkbox"/></th>
+                      <th>차수</th><th>거래처</th>
+                      <th style={{textAlign:'right'}}>합계금액</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shipments.length === 0
+                      ? <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
+                      : shipments.map(s => (
+                        <tr key={s.ShipmentKey}
+                          className={selectedId === s.ShipmentKey ? 'selected' : ''}
+                          onClick={() => selectShipment(s.ShipmentKey, s.CustKey)}
+                          style={{cursor:'pointer'}}
+                        >
+                          <td><input type="checkbox" readOnly checked={selectedId === s.ShipmentKey}/></td>
+                          <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>{s.OrderYearWeek}</td>
+                          <td style={{fontWeight:500}}>{s.CustName}</td>
+                          <td className="num">{fmt(s.totalAmount)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+          </div>
+        </div>
+
+        {/* 오른쪽: 견적서 목록 */}
+        <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
+          <div className="card-header">
+            <span className="card-title">■ 견적서 목록</span>
+            {selectedShip && <span style={{fontSize:12, color:'var(--blue)', fontWeight:'bold'}}>{selectedShip.CustName}</span>}
+            <div style={{marginLeft:'auto', display:'flex', gap:4}}>
+              <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
+                onClick={() => {
+                  setDefectForm({ estimateType:'', estimateDate:new Date().toISOString().slice(0,10), prodKey:'', unit:'단', quantity:'', cost:'', descr:'' });
+                  setShowDefect(true);
+                }}>
+                ＋ 불량/검역 등록 / Reg. Defecto
+              </button>
+              <button className="btn btn-sm">✏️ 수정 / Editar</button>
+              <button className="btn btn-sm" style={{color:'var(--red)'}}>🗑️ 삭제 / Eliminar</button>
+            </div>
+          </div>
+
+          {/* 견적서 테이블 */}
+          <div style={{overflowY:'auto', flex:1}}>
+            {itemLoading
+              ? <div className="skeleton" style={{height:200, margin:12}}></div>
+              : (
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>품목명</th><th>단위</th><th>출고일자</th>
+                      <th style={{textAlign:'right'}}>수량</th>
+                      <th style={{textAlign:'right'}}>단가</th>
+                      <th style={{textAlign:'right'}}>공급가액</th>
+                      <th style={{textAlign:'right'}}>부가세</th>
+                      <th>비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.length === 0
+                      ? <tr><td colSpan={8} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
+                          {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
+                        </td></tr>
+                      : filteredItems.map((item, i) => (
+                        <tr key={i}>
+                          <td style={{fontSize:12, fontWeight:500}}>{item.ProdName}</td>
+                          <td style={{fontSize:12}}>{item.Unit}</td>
+                          <td style={{fontFamily:'var(--mono)', fontSize:12}}>{item.outDate}</td>
+                          <td className="num">{fmt(item.Quantity)}</td>
+                          <td className="num">{fmt(item.Cost)}</td>
+                          <td className="num" style={{color:'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
+                          <td className="num" style={{color:'var(--text3)'}}>{fmt(item.Vat)}</td>
+                          <td style={{fontSize:11, color:'var(--text3)'}}>{item.EstimateType||'—'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px'}}>합계</td>
+                      <td className="num" style={{fontWeight:'bold'}}>{fmt(totalQty)}</td>
+                      <td></td>
+                      <td className="num" style={{fontWeight:'bold', color:'var(--blue)'}}>{fmt(totalSupply)}</td>
+                      <td className="num" style={{fontWeight:'bold'}}>{fmt(totalVat)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+          </div>
+
+          {/* WeekDay 필터 바 */}
+          <div style={{padding:'5px 10px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', background:'var(--bg)'}}>
+            <span style={{fontSize:11, color:'var(--text3)'}}>출고요일 필터:</span>
+            {WEEKDAYS.map(d => (
+              <span key={d} className={`chip ${activeWD.has(d)?'chip-active':'chip-inactive'}`} onClick={() => toggleWD(d)}>{d}</span>
+            ))}
+            {activeWD.size > 0 && (
+              <button className="btn btn-sm" style={{height:20, fontSize:10}} onClick={() => setActiveWD(new Set())}>초기화</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 불량/검역 등록 모달 ── */}
+      {showDefect && (
+        <div className="modal-overlay" onClick={() => setShowDefect(false)}>
+          <div className="modal" style={{maxWidth:480}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">불량/검역 등록</span>
+              <button className="btn btn-sm" onClick={() => setShowDefect(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{fontWeight:'bold', fontSize:12, marginBottom:10, borderBottom:'1px solid var(--border)', paddingBottom:6}}>
+                ■ 불량/검역 정보
+              </div>
+
+              {/* 구분 + 견적일자 */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">구 분</label>
+                  {/* 검색 가능 드롭다운 */}
+                  <SearchableSelect
+                    options={estimateTypeOptions}
+                    value={defectForm.estimateType}
+                    onChange={v => setDefectForm(f => ({...f, estimateType: v}))}
+                    placeholder="구분 검색..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">견적일자</label>
+                  <input type="date" className="form-control"
+                    value={defectForm.estimateDate}
+                    onChange={e => setDefectForm(f => ({...f, estimateDate: e.target.value}))}
+                  />
+                </div>
+              </div>
+
+              {/* 품목명 — 검색 가능 드롭다운 */}
+              <div className="form-row form-row-1">
+                <div className="form-group">
+                  <label className="form-label">품목명</label>
+                  <SearchableSelect
+                    options={prodOptions}
+                    value={defectForm.prodKey}
+                    onChange={v => setDefectForm(f => ({...f, prodKey: v}))}
+                    placeholder="품목명 검색... (예: CARNATION)"
+                  />
+                </div>
+              </div>
+
+              {/* 수량 + 단가 */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">수 량</label>
+                  <input type="number" min={0} className="form-control"
+                    value={defectForm.quantity}
+                    onChange={e => setDefectForm(f => ({...f, quantity: e.target.value}))}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">단 가</label>
+                  <input type="number" min={0} className="form-control"
+                    value={defectForm.cost}
+                    onChange={e => setDefectForm(f => ({...f, cost: e.target.value}))}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* 공급가액 + 부가세 — 자동계산 */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">공급가액</label>
+                  <input type="number" className="form-control" value={supply} readOnly
+                    style={{background:'#F0F0F0', color:'var(--blue)', fontWeight:'bold'}}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">부가세</label>
+                  <input type="number" className="form-control" value={vat} readOnly
+                    style={{background:'#F0F0F0', color:'var(--text3)'}}
+                  />
+                </div>
+              </div>
+
+              {/* 비고 */}
+              <div className="form-row form-row-1">
+                <div className="form-group">
+                  <label className="form-label">비 고</label>
+                  <input className="form-control"
+                    value={defectForm.descr}
+                    onChange={e => setDefectForm(f => ({...f, descr: e.target.value}))}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={handleDefectSave} disabled={saving}>
+                💾 {saving ? '저장 중... / Guardando' : '저장'}
+              </button>
+              <button className="btn" onClick={() => setShowDefect(false)}>{t('닫기')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

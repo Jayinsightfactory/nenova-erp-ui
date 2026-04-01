@@ -1,0 +1,8 @@
+# railway.toml — Railway 배포 설정
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node web.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

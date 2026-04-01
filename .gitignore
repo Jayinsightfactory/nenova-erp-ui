@@ -1,0 +1,15 @@
+# 빌드 출력 — Railway에서 직접 빌드하도록 제외
+.next/
+out/
+
+# 환경변수 — 보안상 제외
+.env
+.env.local
+.env*.local
+
+# 의존성
+node_modules/
+
+# 기타
+.DS_Store
+*.log
