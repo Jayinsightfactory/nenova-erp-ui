@@ -167,7 +167,7 @@ export default withAuth(async function handler(req, res) {
   // 이카운트 API 호출
   let ecountResponse;
   try {
-    ecountResponse = await ecountPost('Sale/SaveSales', { DOMAIN: 'EC', SaleList });
+    ecountResponse = await ecountPost('Sale/SaveSale', { SaleList });
   } catch (err) {
     // 전체 실패 로그
     for (const s of shipments) {

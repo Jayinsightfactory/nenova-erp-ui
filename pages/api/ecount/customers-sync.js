@@ -52,7 +52,6 @@ export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const ecountRes = await ecountPost('BasInfo/GetCustomerList', {
-        DOMAIN: 'EC',
         Conditions: {},
       });
 
@@ -114,7 +113,6 @@ export default withAuth(async function handler(req, res) {
     let ecountResponse;
     try {
       ecountResponse = await ecountPost('BasInfo/SaveCustomer', {
-        DOMAIN:       'EC',
         CustomerList,
       });
     } catch (err) {
