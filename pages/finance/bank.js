@@ -120,11 +120,17 @@ export default function BankPage() {
         padding: '10px 16px', marginBottom: 14, display: 'flex',
         alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
       }}>
-        <span style={{ fontSize: 13, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 16 }}>🏦</span>
-          <strong>현재 샘플 모드입니다.</strong>
-          &nbsp;신한은행 API 연동 완료 후 실시간 데이터로 전환됩니다.
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 13, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 16 }}>🏦</span>
+            <strong>현재 샘플 모드입니다.</strong>
+            &nbsp;신한은행 API 연동 완료 후 실시간 데이터로 전환됩니다.
+          </span>
+          <span style={{ fontSize: 12, color: '#3b82f6', paddingLeft: 22 }}>
+            💡 신한은행 API 연동 후 수납 데이터는 이카운트 회계 자동분개와 연동되어 전표가 자동 생성됩니다.
+            &nbsp;<a href="/ecount/dashboard" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>이카운트 연동 현황 보기 →</a>
+          </span>
+        </div>
         <button className="btn btn-sm btn-primary" onClick={openModal}>
           직접 입력으로 테스트하기
         </button>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/Layout';
-import { apiGet } from '../../lib/useApi';
+import { apiGet, apiPost } from '../../lib/useApi';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 
 const fmt  = n => Number(n || 0).toLocaleString();
@@ -47,6 +47,11 @@ export default function PurchaseStatus() {
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // 이카운트 체크박스 / 전송 상태
+  const [checkedKeys, setCheckedKeys]   = useState(new Set());
+  const [ecountLoading, setEcountLoading] = useState(false);
+  const [ecountMsg, setEcountMsg]       = useState('');
 
   // 상세 모달
   const [showDetail, setShowDetail]       = useState(false);
@@ -92,6 +97,47 @@ export default function PurchaseStatus() {
   useEffect(() => {
     if (dateFrom && dateTo) load();
   }, [dateFrom, dateTo]);
+
+  // 체크박스 토글
+  const toggleCheck = useCallback((importKey) => {
+    setCheckedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(importKey)) next.delete(importKey);
+      else next.add(importKey);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setCheckedKeys(prev =>
+      prev.size === orders.length
+        ? new Set()
+        : new Set(orders.map(o => o.importKey))
+    );
+  }, [orders]);
+
+  // 이카운트 구매입력 전송
+  const handleEcountPush = useCallback(async () => {
+    const importKeys = Array.from(checkedKeys);
+    if (importKeys.length === 0) {
+      alert('전송할 구매 주문을 선택하세요.');
+      return;
+    }
+    if (!confirm(`선택한 ${importKeys.length}건을 이카운트에 전송하시겠습니까?`)) return;
+
+    setEcountLoading(true);
+    setEcountMsg('');
+    try {
+      const data = await apiPost('/api/ecount/purchase-push', { importKeys });
+      setEcountMsg(`✅ 이카운트 전송 완료: ${data.pushed}건`);
+      setCheckedKeys(new Set());
+    } catch (e) {
+      setEcountMsg(`❌ 전송 오류: ${e.message}`);
+    } finally {
+      setEcountLoading(false);
+      setTimeout(() => setEcountMsg(''), 6000);
+    }
+  }, [checkedKeys]);
 
   // 행 클릭 → 상세
   const openDetail = (order) => {
@@ -256,8 +302,29 @@ export default function PurchaseStatus() {
           <button className="btn btn-primary" onClick={load}>조회</button>
           <button className="btn btn-success" onClick={() => { resetForm(); setShowInput(true); }}>＋ 신규 구매입력</button>
           <button className="btn btn-secondary" onClick={handleExcel}>📊 엑셀 다운</button>
+          <button
+            className="btn"
+            style={{ background: '#1a5276', color: '#fff', borderColor: '#154360' }}
+            onClick={handleEcountPush}
+            disabled={ecountLoading || checkedKeys.size === 0}
+            title={checkedKeys.size === 0 ? '구매 주문을 선택하세요' : `선택 ${checkedKeys.size}건 전송`}
+          >
+            {ecountLoading ? '전송중...' : `📤 이카운트 구매입력${checkedKeys.size > 0 ? ` (${checkedKeys.size})` : ''}`}
+          </button>
         </div>
       </div>
+
+      {/* 이카운트 메시지 */}
+      {ecountMsg && (
+        <div style={{
+          padding: '8px 14px',
+          background: ecountMsg.startsWith('✅') ? 'var(--green-bg, #f0fff4)' : 'var(--red-bg, #fff0f0)',
+          color: ecountMsg.startsWith('✅') ? 'var(--green, #2e7d32)' : 'var(--red, #e53935)',
+          borderRadius: 8, marginBottom: 10, fontSize: 13,
+        }}>
+          {ecountMsg}
+        </div>
+      )}
 
       {/* 메시지 */}
       {err && (
@@ -300,9 +367,17 @@ export default function PurchaseStatus() {
           {loading ? (
             <div className="skeleton" style={{ margin: 16, height: 300, borderRadius: 8 }} />
           ) : (
-            <table className="tbl" style={{ minWidth: 1000 }}>
+            <table className="tbl" style={{ minWidth: 1020 }}>
               <thead>
                 <tr>
+                  <th style={{ width: 36, textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={orders.length > 0 && checkedKeys.size === orders.length}
+                      onChange={toggleAll}
+                      title="전체 선택/해제"
+                    />
+                  </th>
                   <th>차수</th>
                   <th>인보이스번호</th>
                   <th>거래처(농장)</th>
@@ -322,7 +397,7 @@ export default function PurchaseStatus() {
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={14} style={{ textAlign: 'center', padding: 48, color: 'var(--text3)' }}>
+                    <td colSpan={15} style={{ textAlign: 'center', padding: 48, color: 'var(--text3)' }}>
                       데이터 없음
                     </td>
                   </tr>
@@ -331,23 +406,29 @@ export default function PurchaseStatus() {
                   return (
                     <tr
                       key={o.importKey}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => openDetail(o)}
+                      style={{ cursor: 'pointer', background: checkedKeys.has(o.importKey) ? 'var(--blue-bg, #e3f2fd)' : undefined }}
                     >
-                      <td style={{ fontFamily: 'var(--mono)', fontWeight: 700 }}>{o.week}</td>
-                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{o.invoiceNo}</td>
-                      <td className="name">{o.supplierName}</td>
-                      <td style={{ fontSize: 12 }}>{o.currencyCode}</td>
-                      <td className="num">{fmt(o.exchangeRate)}</td>
-                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{o.paymentDtm}</td>
-                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{o.importDtm}</td>
-                      <td className="num">{fmt(o.totalBoxes)}</td>
-                      <td className="num">{fmtD(o.totalWeight)}</td>
-                      <td className="num">{currSymbol(o.currencyCode)}{fmtD(o.totalForeignAmt)}</td>
-                      <td className="num">{currSymbol(o.currencyCode)}{fmtD(o.freightCost)}</td>
-                      <td className="num">₩ {fmt(Math.round(o.totalKRW))}</td>
-                      <td className="num">{o.detailCount}</td>
-                      <td style={{ fontSize: 12, color: st.color, fontWeight: st.warn ? 700 : 400 }}>
+                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={checkedKeys.has(o.importKey)}
+                          onChange={() => toggleCheck(o.importKey)}
+                        />
+                      </td>
+                      <td style={{ fontFamily: 'var(--mono)', fontWeight: 700, cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.week}</td>
+                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12, cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.invoiceNo}</td>
+                      <td className="name" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.supplierName}</td>
+                      <td style={{ fontSize: 12, cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.currencyCode}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{fmt(o.exchangeRate)}</td>
+                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12, cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.paymentDtm}</td>
+                      <td style={{ fontFamily: 'var(--mono)', fontSize: 12, cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.importDtm}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{fmt(o.totalBoxes)}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{fmtD(o.totalWeight)}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{currSymbol(o.currencyCode)}{fmtD(o.totalForeignAmt)}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{currSymbol(o.currencyCode)}{fmtD(o.freightCost)}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>₩ {fmt(Math.round(o.totalKRW))}</td>
+                      <td className="num" style={{ cursor: 'pointer' }} onClick={() => openDetail(o)}>{o.detailCount}</td>
+                      <td style={{ fontSize: 12, color: st.color, fontWeight: st.warn ? 700 : 400, cursor: 'pointer' }} onClick={() => openDetail(o)}>
                         {st.label}
                       </td>
                     </tr>
@@ -357,7 +438,7 @@ export default function PurchaseStatus() {
               {orders.length > 0 && (
                 <tfoot>
                   <tr className="foot">
-                    <td colSpan={7}>합계</td>
+                    <td colSpan={8}>합계</td>
                     <td className="num">{fmt(totalBoxes)}</td>
                     <td className="num">{fmtD(orders.reduce((a, b) => a + (b.totalWeight || 0), 0))}</td>
                     <td className="num">$ {fmtD(totalForeignAmt)}</td>

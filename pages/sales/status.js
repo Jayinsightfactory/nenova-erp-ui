@@ -1,6 +1,6 @@
 // pages/sales/status.js — 판매현황
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { apiGet } from '../../lib/useApi';
+import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -13,6 +13,10 @@ export default function SalesStatus() {
   const [tab, setTab] = useState('all'); // 'all' | 'customer' | 'product'
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+
+  // 이카운트 전송 상태
+  const [ecountLoading, setEcountLoading] = useState(false);
+  const [ecountMsg, setEcountMsg] = useState('');
 
   // 필터 상태
   const today = new Date().toISOString().slice(0, 10);
@@ -191,6 +195,31 @@ export default function SalesStatus() {
     URL.revokeObjectURL(url);
   }, [tab, rows, byCustomer, byProduct, summary, dateFrom, dateTo]);
 
+  // 이카운트 판매입력 전송
+  const handleEcountPush = useCallback(async () => {
+    if (!rows.length) {
+      alert('먼저 조회하세요.');
+      return;
+    }
+    if (!confirm(`이 기간 판매 데이터를 이카운트에 전송하시겠습니까? (${rows.length}건)`)) return;
+
+    setEcountLoading(true);
+    setEcountMsg('');
+    try {
+      const data = await apiPost('/api/ecount/sales-push', {
+        dateFrom: dateFrom || undefined,
+        dateTo:   dateTo   || undefined,
+        week:     week     || undefined,
+      });
+      setEcountMsg(`✅ 이카운트 전송 완료: ${data.pushed}건`);
+    } catch (e) {
+      setEcountMsg(`❌ 전송 오류: ${e.message}`);
+    } finally {
+      setEcountLoading(false);
+      setTimeout(() => setEcountMsg(''), 6000);
+    }
+  }, [rows, dateFrom, dateTo, week]);
+
   // 합계 행 (전체탭)
   const totalRow = useMemo(() => {
     if (!rows.length) return null;
@@ -290,8 +319,27 @@ export default function SalesStatus() {
           <button className="btn btn-secondary" onClick={handleExcel} disabled={!rows.length}>
             {t('엑셀')}
           </button>
+          <button
+            className="btn"
+            style={{ background: '#1a5276', color: '#fff', borderColor: '#154360' }}
+            onClick={handleEcountPush}
+            disabled={ecountLoading}
+          >
+            {ecountLoading ? '전송중...' : '📤 이카운트 판매입력'}
+          </button>
         </div>
       </div>
+
+      {ecountMsg && (
+        <div style={{
+          padding: '8px 14px',
+          background: ecountMsg.startsWith('✅') ? 'var(--green-bg, #f0fff4)' : 'var(--red-bg, #fff0f0)',
+          color: ecountMsg.startsWith('✅') ? 'var(--green, #2e7d32)' : 'var(--red, #e53935)',
+          borderRadius: 8, marginBottom: 10, fontSize: 13,
+        }}>
+          {ecountMsg}
+        </div>
+      )}
 
       {err && (
         <div style={{

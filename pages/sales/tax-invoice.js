@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/Layout';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/useApi';
 
+
 const fmt = n => Number(n || 0).toLocaleString();
 
 // 진행단계 정의
@@ -148,6 +149,18 @@ export default function TaxInvoice() {
     } catch (e) { alert(e.message); }
   };
 
+  // 이카운트 자동분개
+  const handleAccounting = async (inv) => {
+    if (!confirm(`[${inv.custName}] 자동분개를 이카운트에 전송하시겠습니까?`)) return;
+    try {
+      const data = await apiPost('/api/ecount/accounting', { taxInvKeys: [inv.taxInvKey] });
+      setSuccessMsg(`자동분개 전송 완료: ${data.pushed}건`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (e) {
+      alert(`자동분개 오류: ${e.message}`);
+    }
+  };
+
   // 단계별 집계
   const stepSummary = STEPS.map(step => ({
     step,
@@ -267,6 +280,14 @@ export default function TaxInvoice() {
                           단계변경
                         </button>
                       )}
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: '#1a5276', color: '#fff', borderColor: '#154360', fontSize: 11 }}
+                        onClick={() => handleAccounting(inv)}
+                        title="이카운트 자동분개 전송"
+                      >
+                        자동분개
+                      </button>
                       <button className="btn btn-sm"
                         style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
                         onClick={() => handleDelete(inv)}
