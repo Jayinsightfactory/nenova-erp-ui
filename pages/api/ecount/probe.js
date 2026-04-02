@@ -27,21 +27,27 @@ export default withAuth(async function handler(req, res) {
   ];
 
   async function testKey(key, value) {
-    const url = `${API_BASE}/${EP}?SESSION_ID=${sessionId}`;
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [key]: value }),
-    });
-    const d = await r.json();
-    const msgs = (d?.Errors || []).map(e => e.Message).join(' | ');
-    const errMsg = d?.Error?.Message || msgs || '';
-    const sc = d?.Data?.SuccessCnt;
-    const fc = d?.Data?.FailCnt;
-    if (errMsg.includes('JSON 데이터 형식')) return 'JSON_ERR';
-    if (errMsg.includes('데이터 입력에 오류') || errMsg.includes('data error')) return `DATA_ERR sc=${sc} fc=${fc}`;
-    if (d?.Status === 200 && !errMsg) return `OK sc=${sc} fc=${fc}`;
-    return `OTHER(${d?.Status}): ${errMsg.slice(0, 100)}`;
+    try {
+      const url = `${API_BASE}/${EP}?SESSION_ID=${sessionId}`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      const text = await r.text();
+      let d;
+      try { d = JSON.parse(text); } catch(e) { return `HTML_RESP(${r.status}): ${text.slice(0,50)}`; }
+      const msgs = (d?.Errors || []).map(e => e.Message).join(' | ');
+      const errMsg = d?.Error?.Message || msgs || '';
+      const sc = d?.Data?.SuccessCnt;
+      const fc = d?.Data?.FailCnt;
+      if (errMsg.includes('JSON 데이터 형식')) return 'JSON_ERR';
+      if (errMsg.includes('데이터 입력에 오류') || errMsg.includes('data error')) return `DATA_ERR sc=${sc} fc=${fc}`;
+      if (d?.Status === 200 && !errMsg) return `OK sc=${sc} fc=${fc}`;
+      return `OTHER(${d?.Status}): ${errMsg.slice(0, 100)}`;
+    } catch(e) {
+      return `FETCH_ERR: ${e.message.slice(0, 80)}`;
+    }
   }
 
   const results = {};
