@@ -13,14 +13,20 @@ export default withAuth(async function handler(req, res) {
 
   const sessionId = await getSession();
 
+  const testCust = [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01', USE_YN: 'Y' }];
   const endpoints = [
-    { ep: 'BasInfo/GetCustomerList',  body: { Conditions: {} } },
-    { ep: 'Customer/GetCustomerList', body: { Conditions: {} } },
-    { ep: 'BasInfo/GetCustList',      body: { Conditions: {} } },
-    { ep: 'Cust/GetCustList',         body: { Conditions: {} } },
-    { ep: 'BasInfo/SaveCustomer',     body: { CustomerList: [] } },
-    { ep: 'Customer/SaveCustomer',    body: { CustomerList: [] } },
-    { ep: 'Cust/SaveCust',            body: { CustList: [] } },
+    // 목록 조회 계열
+    { ep: 'AccountBasic/GetBasicCustList',   body: { Conditions: {} } },
+    { ep: 'AccountBasic/GetCustList',        body: { Conditions: {} } },
+    { ep: 'AccountBasic/GetCustomerList',    body: { Conditions: {} } },
+    { ep: 'BasInfo/GetCustomerList',         body: { Conditions: {} } },
+    { ep: 'Bas/GetCustomerList',             body: { Conditions: {} } },
+    // 저장 계열 (CustomerList 키)
+    { ep: 'AccountBasic/SaveBasicCust',      body: { CustomerList: testCust } },
+    { ep: 'AccountBasic/SaveCust',           body: { CustomerList: testCust } },
+    { ep: 'AccountBasic/SaveCustomer',       body: { CustomerList: testCust } },
+    // 저장 계열 (CustList 키)
+    { ep: 'AccountBasic/SaveBasicCust',      body: { CustList: testCust } },
   ];
 
   const results = {};
