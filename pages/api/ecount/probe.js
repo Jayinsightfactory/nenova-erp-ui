@@ -17,9 +17,13 @@ async function call(ep, sessionId, body) {
     return {
       Status: d.Status,
       Errors: (d.Errors||[]).map(e => e.Message),
+      Error: d.Error?.Message,
       sc: d.Data?.SuccessCnt,
       fc: d.Data?.FailCnt,
-      qty: d.Data?.QUANTITY_INFO,
+      dataKeys: d.Data ? Object.keys(d.Data).join(',') : null,
+      // 거래처 목록이면 첫 3개만
+      sample: Array.isArray(d.Data) ? d.Data.slice(0,3) :
+              Array.isArray(d.Data?.Items) ? d.Data.Items.slice(0,3) : null,
     };
   } catch(e) {
     return { httpStatus: r.status, raw: text.slice(0, 150) };
@@ -29,30 +33,22 @@ async function call(ep, sessionId, body) {
 export default withAuth(async function handler(req, res) {
   if (!isConfigured()) return res.status(503).json({ error: '미설정' });
   const sid = await getSession();
-  const EP = 'AccountBasic/SaveBasicCust';
   const results = {};
 
-  // 먼저 Sale/SaveSale 성공 호출로 연속오류 카운터 리셋 시도
-  results['sale_reset'] = await call('Sale/SaveSale', sid, {
-    SaleList: [{
-      IO_DATE: '20260402', CUST_CD: '0000000001',
-      WH_CD: '100', IO_TYPE: '1', CURRENCY: 'KRW', AR_NO: '자동',
-      BulkDatas: [{ PROD_CD: '0000000001', QTY: 1, SUPPLY_AMT: 1000, VAT_AMT: 100 }]
-    }]
+  // GET 엔드포인트 탐색
+  results['GetBasicCustList'] = await call('AccountBasic/GetBasicCustList', sid, {
+    Conditions: {}
   });
 
-  // CUST_TYPE 알파벳 변형 (S=매출, P=매입, B=매출매입)
-  for (const tp of ['S','P','B','A','1','2']) {
-    results[`type_${tp}`] = await call(EP, sid, {
-      CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: tp, USE_YN: 'Y' }]
-    });
-  }
+  results['GetBasicCustList2'] = await call('AccountBasic/GetBasicCustList', sid, {});
 
-  // CUST_CD 없이 (omit, not empty string)
-  const { CUST_CD: _, ...noCode } = { CUST_CD: '', CUST_NM: '테스트', CUST_TYPE: 'S', USE_YN: 'Y' };
-  results['no_cust_cd'] = await call(EP, sid, {
-    CustomerList: [{ CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y' }]
+  results['GetBasicCustList3'] = await call('AccountBasic/GetBasicCustList', sid, {
+    CUST_CD: '', USE_YN: 'Y'
   });
+
+  // BasInfo 변형들
+  results['BasInfo_GetCust'] = await call('BasInfo/GetCust', sid, { Conditions: {} });
+  results['BasInfo_GetCustList'] = await call('BasInfo/GetCustList', sid, { Conditions: {} });
 
   return res.status(200).json({ success: true, results });
 });
