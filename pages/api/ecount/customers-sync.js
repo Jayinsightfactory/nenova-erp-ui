@@ -103,17 +103,19 @@ export default withAuth(async function handler(req, res) {
     }
 
     // 이카운트 거래처 등록/수정 (AccountBasic/SaveBasicCust)
-    const CustomerList = customers.map(c => ({
-      CUST_CD:   c.OrderCode || '',
-      CUST_NM:   c.CustName,
-      CUST_TYPE: 'E0',  // E0: 매출거래처
-      USE_YN:    'Y',
+    // 구조: CustList[{ BulkDatas: { BUSINESS_NO, CUST_NAME, ... } }]
+    // BUSINESS_NO = 거래처코드 (OrderCode 또는 CustKey 10자리 패딩)
+    const CustList = customers.map(c => ({
+      BulkDatas: {
+        BUSINESS_NO: c.OrderCode || String(c.CustKey).padStart(10, '0'),
+        CUST_NAME:   c.CustName,
+      },
     }));
 
     let ecountResponse;
     try {
       ecountResponse = await ecountPost('AccountBasic/SaveBasicCust', {
-        CustomerList,
+        CustList,
       });
     } catch (err) {
       for (const c of customers) {
@@ -122,11 +124,11 @@ export default withAuth(async function handler(req, res) {
       return res.status(500).json({ success: false, error: `이카운트 API 오류: ${err.message}` });
     }
 
-    // Status 200이고 FailCnt가 0이어야 진짜 성공
+    // ResultDetails 기반 성공 판정
     const sc = ecountResponse.Data?.SuccessCnt;
     const fc = ecountResponse.Data?.FailCnt;
     const hasErrors = (ecountResponse.Errors || []).length > 0;
-    const isSuccess = String(ecountResponse.Status) === '200' && !hasErrors;
+    const isSuccess = String(ecountResponse.Status) === '200' && !hasErrors && Number(sc) > 0;
 
     for (const c of customers) {
       await writeSyncLog(
