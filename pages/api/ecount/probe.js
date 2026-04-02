@@ -28,23 +28,17 @@ async function call(ep, sessionId, body) {
 export default withAuth(async function handler(req, res) {
   if (!isConfigured()) return res.status(503).json({ error: '미설정' });
   const sid = await getSession();
+  const EP = 'AccountBasic/SaveBasicCust';
+  const base = { CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y' };
   const results = {};
 
-  // BasInfo 계열 SaveCust 시도
-  results['BasInfo_SaveCust'] = await call('BasInfo/SaveCust', sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
-  });
-  results['BasInfo_SaveCustomer'] = await call('BasInfo/SaveCustomer', sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
-  });
-  results['BasInfo_SaveCustInfo'] = await call('BasInfo/SaveCustInfo', sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
-  });
-
-  // 이카운트에 실제 등록된 품목 확인 (BasInfo/GetProdList)
-  results['BasInfo_GetProdList'] = await call('BasInfo/GetProdList', sid, {
-    Conditions: {}
-  });
+  // 최상위 제어 필드 시도
+  results['SAVE_MODE_I'] = await call(EP, sid, { SAVE_MODE: 'I', CustomerList: [base] });
+  results['SAVE_MODE_U'] = await call(EP, sid, { SAVE_MODE: 'U', CustomerList: [base] });
+  results['SAVE_MODE_S'] = await call(EP, sid, { SAVE_MODE: 'S', CustomerList: [base] });
+  results['GBN_I'] = await call(EP, sid, { GBN: 'I', CustomerList: [base] });
+  results['ACTION_SAVE'] = await call(EP, sid, { ACTION: 'SAVE', CustomerList: [base] });
+  results['TYPE_1'] = await call(EP, sid, { TYPE: '1', CustomerList: [base] });
 
   return res.status(200).json({ success: true, results });
 });
