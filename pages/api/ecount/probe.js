@@ -17,12 +17,12 @@ async function call(ep, sessionId, body) {
     return {
       Status: d.Status,
       Errors: (d.Errors||[]).map(e => e.Message),
-      Error:  d.Error?.Message,
       sc: d.Data?.SuccessCnt,
       fc: d.Data?.FailCnt,
+      qty: d.Data?.QUANTITY_INFO,
     };
   } catch(e) {
-    return { httpStatus: r.status, raw: text.slice(0, 200) };
+    return { httpStatus: r.status, raw: text.slice(0, 150) };
   }
 }
 
@@ -32,30 +32,27 @@ export default withAuth(async function handler(req, res) {
   const EP = 'AccountBasic/SaveBasicCust';
   const results = {};
 
-  // 1) 빈 아이템
-  results['empty_item'] = await call(EP, sid, {
-    CustomerList: [{}]
+  // 먼저 Sale/SaveSale 성공 호출로 연속오류 카운터 리셋 시도
+  results['sale_reset'] = await call('Sale/SaveSale', sid, {
+    SaleList: [{
+      IO_DATE: '20260402', CUST_CD: '0000000001',
+      WH_CD: '100', IO_TYPE: '1', CURRENCY: 'KRW', AR_NO: '자동',
+      BulkDatas: [{ PROD_CD: '0000000001', QTY: 1, SUPPLY_AMT: 1000, VAT_AMT: 100 }]
+    }]
   });
 
-  // 2) CUST_NAME (NM 대신)
-  results['CUST_NAME'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NAME: '테스트', USE_YN: 'Y' }]
+  // CUST_TYPE 알파벳 변형 (S=매출, P=매입, B=매출매입)
+  for (const tp of ['S','P','B','A','1','2']) {
+    results[`type_${tp}`] = await call(EP, sid, {
+      CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: tp, USE_YN: 'Y' }]
+    });
+  }
+
+  // CUST_CD 없이 (omit, not empty string)
+  const { CUST_CD: _, ...noCode } = { CUST_CD: '', CUST_NM: '테스트', CUST_TYPE: 'S', USE_YN: 'Y' };
+  results['no_cust_cd'] = await call(EP, sid, {
+    CustomerList: [{ CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y' }]
   });
 
-  // 3) 거래처 유형 없이
-  results['no_type'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
-  });
-
-  // 4) AccountList 키
-  results['AccountList'] = await call(EP, sid, {
-    AccountList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
-  });
-
-  // 5) 기존 거래처 CD로 (이카운트에 실제 존재하는 것)
-  results['real_cd_no_type'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: '0000000001', CUST_NM: '(주)내노바', USE_YN: 'Y' }]
-  });
-
-  return res.status(200).json({ success: true, ep: EP, results });
+  return res.status(200).json({ success: true, results });
 });
