@@ -34,6 +34,27 @@ const MENU_ITEMS = [
     ]
   },
   {
+    group: '구매관리',
+    items: [
+      { href: '/purchase/status', labelKey: '구매현황(외화/수입)', popup: false },
+    ]
+  },
+  {
+    group: '채권관리',
+    items: [
+      { href: '/sales/status',       labelKey: '판매현황',           popup: false },
+      { href: '/sales/ar',           labelKey: '거래처별 채권',      popup: false },
+      { href: '/sales/tax-invoice',  labelKey: '세금계산서 진행단계', popup: false },
+    ]
+  },
+  {
+    group: '재무관리',
+    items: [
+      { href: '/finance/bank',     labelKey: '입/출금 계좌 조회', popup: false },
+      { href: '/finance/exchange', labelKey: '외화/환율 관리',    popup: false },
+    ]
+  },
+  {
     group: '통계화면',
     items: [
       { href: '/stock',          labelKey: '재고 관리',      popup: true },
