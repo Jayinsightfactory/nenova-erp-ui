@@ -16,39 +16,34 @@ async function call(ep, sessionId, body) {
     const d = JSON.parse(text);
     return {
       Status: d.Status,
-      Errors: (d.Errors||[]).map(e => ({ Code: e.Code, Msg: e.Message })),
-      sc: d.Data?.SuccessCnt, fc: d.Data?.FailCnt,
-      ResultDetails: d.Data?.ResultDetails,
+      Errors: (d.Errors||[]).map(e => e.Message),
+      sc: d.Data?.SuccessCnt,
+      fc: d.Data?.FailCnt,
     };
   } catch(e) {
-    return { httpStatus: r.status, raw: text.slice(0,100) };
+    return { httpStatus: r.status, raw: text.slice(0,120) };
   }
 }
 
 export default withAuth(async function handler(req, res) {
   if (!isConfigured()) return res.status(503).json({ error: '미설정' });
   const sid = await getSession();
-  const EP = 'AccountBasic/SaveBasicCust';
   const results = {};
 
-  // 1) BulkDatas 빈 배열 포함
-  results['with_BulkDatas'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y', BulkDatas: [] }]
+  // BasInfo 계열 SaveCust 시도
+  results['BasInfo_SaveCust'] = await call('BasInfo/SaveCust', sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
+  });
+  results['BasInfo_SaveCustomer'] = await call('BasInfo/SaveCustomer', sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
+  });
+  results['BasInfo_SaveCustInfo'] = await call('BasInfo/SaveCustInfo', sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
   });
 
-  // 2) ContactList 포함
-  results['with_ContactList'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y', ContactList: [] }]
-  });
-
-  // 3) 아무것도 없는 Customer (빈 CustomerList)
-  results['empty_list'] = await call(EP, sid, {
-    CustomerList: []
-  });
-
-  // 4) 기존 이카운트 거래처 CUST_CD 정확히 조회하기 (재고 엔드포인트로)
-  results['Inventory_Stock'] = await call('Inventory/GetInvtByLocProd', sid, {
-    Conditions: { WH_CD: '100' }
+  // 이카운트에 실제 등록된 품목 확인 (BasInfo/GetProdList)
+  results['BasInfo_GetProdList'] = await call('BasInfo/GetProdList', sid, {
+    Conditions: {}
   });
 
   return res.status(200).json({ success: true, results });
