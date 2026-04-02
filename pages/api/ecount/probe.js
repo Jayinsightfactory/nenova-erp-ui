@@ -16,9 +16,9 @@ async function call(ep, sessionId, body) {
     const d = JSON.parse(text);
     return {
       Status: d.Status,
-      Errors: (d.Errors||[]).map(e=>e.Message),
-      sc: d.Data?.SuccessCnt,
-      fc: d.Data?.FailCnt,
+      Errors: (d.Errors||[]).map(e => ({ Code: e.Code, Msg: e.Message })),
+      sc: d.Data?.SuccessCnt, fc: d.Data?.FailCnt,
+      ResultDetails: d.Data?.ResultDetails,
     };
   } catch(e) {
     return { httpStatus: r.status, raw: text.slice(0,100) };
@@ -31,44 +31,24 @@ export default withAuth(async function handler(req, res) {
   const EP = 'AccountBasic/SaveBasicCust';
   const results = {};
 
-  // 1) 정수형 CUST_TYPE
-  results['intType_1'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: 1, USE_YN: 'Y' }]
+  // 1) BulkDatas 빈 배열 포함
+  results['with_BulkDatas'] = await call(EP, sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y', BulkDatas: [] }]
   });
 
-  // 2) TAX_TYPE 추가
-  results['with_TAX'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y', TAX_TYPE: 'Y' }]
+  // 2) ContactList 포함
+  results['with_ContactList'] = await call(EP, sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', CUST_TYPE: '01', USE_YN: 'Y', ContactList: [] }]
   });
 
-  // 3) 모든 가능한 필드 포함
-  results['full_fields'] = await call(EP, sid, {
-    CustomerList: [{
-      CUST_CD: 'TEST001',
-      CUST_NM: '테스트거래처',
-      CUST_TYPE: '01',
-      USE_YN: 'Y',
-      TAX_TYPE: 'Y',
-      TAX_NO: '',
-      BOSS_NM: '',
-      TEL_NO: '',
-      FAX_NO: '',
-      EMAIL: '',
-      ADDR1: '',
-      ADDR2: '',
-      SELL_PRICE: 0,
-      BUY_PRICE: 0,
-    }]
+  // 3) 아무것도 없는 Customer (빈 CustomerList)
+  results['empty_list'] = await call(EP, sid, {
+    CustomerList: []
   });
 
-  // 4) CUST_TYPE 없이 다른 필드만
-  results['no_type_full'] = await call(EP, sid, {
-    CustomerList: [{
-      CUST_CD: 'TEST001',
-      CUST_NM: '테스트거래처',
-      USE_YN: 'Y',
-      TAX_TYPE: 'Y',
-    }]
+  // 4) 기존 이카운트 거래처 CUST_CD 정확히 조회하기 (재고 엔드포인트로)
+  results['Inventory_Stock'] = await call('Inventory/GetInvtByLocProd', sid, {
+    Conditions: { WH_CD: '100' }
   });
 
   return res.status(200).json({ success: true, results });
