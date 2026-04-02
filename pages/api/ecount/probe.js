@@ -1,5 +1,5 @@
 // pages/api/ecount/probe.js
-// 이카운트 OAPI V2 endpoint 경로 존재 여부 탐색용 임시 API
+// 이카운트 OAPI V2 AccountBasic/SaveBasicCust body 구조 탐색용 임시 API
 // 사용 후 삭제 필요
 
 import { withAuth } from '../../../lib/auth';
@@ -8,25 +8,17 @@ import { getSession, isConfigured } from '../../../lib/ecount';
 const ZONE = process.env.ECOUNT_ZONE || 'cc';
 const API_BASE = `https://sboapi${ZONE}.ecount.com/OAPI/V2`;
 
-async function probeEndpoint(endpoint, sessionId) {
+async function callEndpoint(endpoint, sessionId, body) {
   const url = `${API_BASE}/${endpoint}?SESSION_ID=${sessionId}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
-    const data = await res.json();
-    const msg = data?.Error?.Message || data?.Errors?.[0]?.Message || '';
-    const status = data?.Status;
-
-    if (msg === 'Not Found') return 'MISSING';
-    if (msg && msg.includes('No HTTP resource')) return 'NO_METHOD';
-    if (msg === 'Please login.' || msg === '로그인 하기 바랍니다.') return 'SESSION_INVALID';
-    // Status 200이거나 다른 오류 = 경로 존재!
-    return `EXISTS: status=${status} | ${msg.slice(0, 100)}`;
+    return await res.json();
   } catch (e) {
-    return `ERROR: ${e.message}`;
+    return { error: e.message };
   }
 }
 
@@ -37,73 +29,56 @@ export default withAuth(async function handler(req, res) {
 
   const sessionId = await getSession();
 
-  // 이카운트 OAPI V2 거래처 관련 모든 후보 endpoint
-  const candidates = [
-    // ── 기준선: 알려진 정상 경로 ──────────────────────────────
-    'InventoryBasic/GetBasicProductsList',
-    'Sale/SaveSale',
-    'Purchases/SavePurchases',
-    'InventoryBalance/GetListInventoryBalanceStatusByLocation',
-
-    // ── 이미 발견된 거래처 저장 경로 ─────────────────────────
-    'AccountBasic/SaveBasicCust',
-
-    // ── 거래처 조회 후보 (AccountBasic 계열) ──────────────────
-    'AccountBasic/GetBasicCustList',
-    'AccountBasic/GetBasicCust',
-    'AccountBasic/GetCustList',
-    'AccountBasic/GetCust',
-    'AccountBasic/GetListBasicCust',
-    'AccountBasic/SearchBasicCust',
-    'AccountBasic/GetBasicCustMasterList',
-    'AccountBasic/GetAllBasicCust',
-    'AccountBasic/GetBasicCustAll',
-    'AccountBasic/GetBasicCustByCondition',
-    'AccountBasic/GetBasicCustListByCondition',
-    'AccountBasic/GetBasicCustListByPage',
-    'AccountBasic/GetBasicCustCount',
-    'AccountBasic/DeleteBasicCust',
-
-    // ── 이카운트 공식 홈페이지에서 언급된 기능 기반 ───────────
-    // "거래처등록, 품목등록, 품목조회, 재고현황" 공개됨
-    // 거래처 "조회"는 공개 여부 불명확
-
-    // ── InventoryBasic 계열 (품목 조회 패턴 분석) ────────────
-    'InventoryBasic/GetBasicProductsList',
-    'InventoryBasic/SaveBasicProducts',
-    'InventoryBasic/SaveBasicProductsList',
-    'InventoryBasic/GetBasicProductsListByCondition',
-    'InventoryBasic/DeleteBasicProducts',
-
-    // ── AccountBasic 계열 추가 탐색 ──────────────────────────
-    'AccountBasic/SaveBasicVendor',
-    'AccountBasic/GetBasicVendorList',
-    'AccountBasic/SaveBasicCustomer',
-    'AccountBasic/GetBasicCustomerList',
-    'AccountBasic/SaveBasicAccount',
-    'AccountBasic/GetBasicAccountList',
-    'AccountBasic/SaveBasicTrading',
-    'AccountBasic/GetBasicTradingList',
-
-    // ── 현재 코드 (실패 중) ───────────────────────────────────
-    'BasInfo/GetCustomerList',
-    'BasInfo/SaveCustomer',
-  ];
+  // AccountBasic/SaveBasicCust 에 다양한 body 구조로 테스트
+  const tests = {
+    // 현재 코드 방식 (CustomerList 키)
+    'CustomerList_key': {
+      CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }]
+    },
+    // 단수형
+    'Customer_key': {
+      Customer: { CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }
+    },
+    // CustList 키
+    'CustList_key': {
+      CustList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }]
+    },
+    // Cust 키
+    'Cust_key': {
+      Cust: { CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }
+    },
+    // BasicCustList 키
+    'BasicCustList_key': {
+      BasicCustList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }]
+    },
+    // 빈 body
+    'empty_body': {},
+    // 직접 배열
+    'array_body': [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01' }],
+    // 이카운트 실제 필드명 다양하게
+    'with_more_fields': {
+      CustomerList: [{
+        CUST_CD: 'TEST001',
+        CUST_NM: '테스트거래처',
+        CUST_TYPE: '01',
+        CUST_TYPE_NM: '매출처',
+        USE_YN: 'Y',
+        REGION: '',
+        BSNS_NM: '',
+        CEO_NM: '',
+        BIZ_REG_NO: '',
+        TEL_NO: '',
+      }]
+    },
+  };
 
   const results = {};
-  for (const ep of candidates) {
-    results[ep] = await probeEndpoint(ep, sessionId);
+  for (const [label, body] of Object.entries(tests)) {
+    const data = await callEndpoint('AccountBasic/SaveBasicCust', sessionId, body);
+    const status = data?.Status;
+    const msg = data?.Error?.Message || data?.Errors?.[0]?.Message || '';
+    results[label] = `status=${status} | ${msg.slice(0, 120)}`;
   }
 
-  // EXISTS 결과만 별도 정리
-  const found = Object.entries(results)
-    .filter(([, v]) => v.startsWith('EXISTS'))
-    .map(([k, v]) => `${k} → ${v}`);
-
-  return res.status(200).json({
-    success: true,
-    sessionOk: true,
-    found,
-    all: results,
-  });
+  return res.status(200).json({ success: true, results });
 });
