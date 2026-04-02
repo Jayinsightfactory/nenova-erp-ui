@@ -14,19 +14,14 @@ async function call(ep, sessionId, body) {
   const text = await r.text();
   try {
     const d = JSON.parse(text);
-    return {
-      Status: d.Status,
-      Errors: (d.Errors||[]).map(e => e.Message),
-      Error: d.Error?.Message,
-      sc: d.Data?.SuccessCnt,
-      fc: d.Data?.FailCnt,
-      dataKeys: d.Data ? Object.keys(d.Data).join(',') : null,
-      // 거래처 목록이면 첫 3개만
-      sample: Array.isArray(d.Data) ? d.Data.slice(0,3) :
-              Array.isArray(d.Data?.Items) ? d.Data.Items.slice(0,3) : null,
-    };
+    const errs = (d.Errors||[]).map(e=>e.Message);
+    const dataPreview = d.Data
+      ? (Array.isArray(d.Data) ? `Array[${d.Data.length}] first=${JSON.stringify(d.Data[0]||{}).slice(0,100)}`
+         : JSON.stringify(d.Data).slice(0,200))
+      : null;
+    return { Status: d.Status, Errors: errs, dataPreview };
   } catch(e) {
-    return { httpStatus: r.status, raw: text.slice(0, 150) };
+    return { httpStatus: r.status, raw: text.slice(0,100) };
   }
 }
 
@@ -35,20 +30,28 @@ export default withAuth(async function handler(req, res) {
   const sid = await getSession();
   const results = {};
 
-  // GET 엔드포인트 탐색
-  results['GetBasicCustList'] = await call('AccountBasic/GetBasicCustList', sid, {
+  // 판매 관련 GET 엔드포인트로 이카운트 기존 데이터 확인
+  results['Sale_GetSaleList'] = await call('Sale/GetSaleList', sid, {
+    Conditions: { IO_DATE_FROM: '20260301', IO_DATE_TO: '20260331' }
+  });
+
+  results['Sale_GetSale'] = await call('Sale/GetSale', sid, {
+    Conditions: { IO_DATE_FROM: '20260301', IO_DATE_TO: '20260331' }
+  });
+
+  results['Inventory_GetInventoryList'] = await call('Inventory/GetInventoryList', sid, {
     Conditions: {}
   });
 
-  results['GetBasicCustList2'] = await call('AccountBasic/GetBasicCustList', sid, {});
-
-  results['GetBasicCustList3'] = await call('AccountBasic/GetBasicCustList', sid, {
-    CUST_CD: '', USE_YN: 'Y'
+  // 거래처 등록: CUST_CD 없이 auto (AUTO_CUST_CD 시도)
+  results['SaveCust_autoCD'] = await call('AccountBasic/SaveBasicCust', sid, {
+    CustomerList: [{ CUST_NM: '네트워크테스트', CUST_TYPE: '01', USE_YN: 'Y', AUTO_CUST_CD: 'Y' }]
   });
 
-  // BasInfo 변형들
-  results['BasInfo_GetCust'] = await call('BasInfo/GetCust', sid, { Conditions: {} });
-  results['BasInfo_GetCustList'] = await call('BasInfo/GetCustList', sid, { Conditions: {} });
+  // 거래처 등록: CUST_CD 숫자형
+  results['SaveCust_numCD'] = await call('AccountBasic/SaveBasicCust', sid, {
+    CustomerList: [{ CUST_CD: '9999999999', CUST_NM: '테스트거래처', CUST_TYPE: '01', USE_YN: 'Y' }]
+  });
 
   return res.status(200).json({ success: true, results });
 });
