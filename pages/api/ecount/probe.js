@@ -13,9 +13,16 @@ async function call(ep, sessionId, body) {
   });
   const text = await r.text();
   try {
-    return JSON.parse(text);   // raw 응답 전체 반환
+    const d = JSON.parse(text);
+    return {
+      Status: d.Status,
+      Errors: (d.Errors||[]).map(e => e.Message),
+      Error:  d.Error?.Message,
+      sc: d.Data?.SuccessCnt,
+      fc: d.Data?.FailCnt,
+    };
   } catch(e) {
-    return { httpStatus: r.status, raw: text.slice(0, 300) };
+    return { httpStatus: r.status, raw: text.slice(0, 200) };
   }
 }
 
@@ -25,25 +32,30 @@ export default withAuth(async function handler(req, res) {
   const EP = 'AccountBasic/SaveBasicCust';
   const results = {};
 
-  // 1) 최소 필드 (CUST_NM만)
-  results['minimal'] = await call(EP, sid, {
-    CustomerList: [{ CUST_NM: '테스트거래처', USE_YN: 'Y' }]
+  // 1) 빈 아이템
+  results['empty_item'] = await call(EP, sid, {
+    CustomerList: [{}]
   });
 
-  // 2) CUST_CD 포함 (새 코드)
-  results['with_code'] = await call(EP, sid, {
-    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', USE_YN: 'Y' }]
+  // 2) CUST_NAME (NM 대신)
+  results['CUST_NAME'] = await call(EP, sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NAME: '테스트', USE_YN: 'Y' }]
   });
 
-  // 3) BulkDatas 래퍼 테스트
-  results['bulk_wrap'] = await call(EP, sid, {
-    BulkDatas: [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', USE_YN: 'Y' }]
+  // 3) 거래처 유형 없이
+  results['no_type'] = await call(EP, sid, {
+    CustomerList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
   });
 
-  // 4) 기존 이카운트 CUST_CD로 업데이트
-  results['update_existing'] = await call(EP, sid, {
+  // 4) AccountList 키
+  results['AccountList'] = await call(EP, sid, {
+    AccountList: [{ CUST_CD: 'TEST001', CUST_NM: '테스트', USE_YN: 'Y' }]
+  });
+
+  // 5) 기존 거래처 CD로 (이카운트에 실제 존재하는 것)
+  results['real_cd_no_type'] = await call(EP, sid, {
     CustomerList: [{ CUST_CD: '0000000001', CUST_NM: '(주)내노바', USE_YN: 'Y' }]
   });
 
-  return res.status(200).json({ success: true, results });
+  return res.status(200).json({ success: true, ep: EP, results });
 });
