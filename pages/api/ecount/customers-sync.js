@@ -102,17 +102,17 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, synced: 0, message: '동기화할 거래처가 없습니다.' });
     }
 
-    // 이카운트 거래처 등록
+    // 이카운트 거래처 등록/수정 (AccountBasic/SaveBasicCust)
     const CustomerList = customers.map(c => ({
-      CUST_CD:   c.OrderCode || c.CustName.slice(0, 20),
+      CUST_CD:   c.OrderCode || '',
       CUST_NM:   c.CustName,
-      CUST_TYPE: '01',
-      REGION:    c.CustArea || '',
+      CUST_TYPE: 'E0',  // E0: 매출거래처
+      USE_YN:    'Y',
     }));
 
     let ecountResponse;
     try {
-      ecountResponse = await ecountPost('BasInfo/SaveCustomer', {
+      ecountResponse = await ecountPost('AccountBasic/SaveBasicCust', {
         CustomerList,
       });
     } catch (err) {
@@ -122,7 +122,11 @@ export default withAuth(async function handler(req, res) {
       return res.status(500).json({ success: false, error: `이카운트 API 오류: ${err.message}` });
     }
 
-    const isSuccess = ecountResponse.Status === 200;
+    // Status 200이고 FailCnt가 0이어야 진짜 성공
+    const sc = ecountResponse.Data?.SuccessCnt;
+    const fc = ecountResponse.Data?.FailCnt;
+    const hasErrors = (ecountResponse.Errors || []).length > 0;
+    const isSuccess = String(ecountResponse.Status) === '200' && !hasErrors;
 
     for (const c of customers) {
       await writeSyncLog(
