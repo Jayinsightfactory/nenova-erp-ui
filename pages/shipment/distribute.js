@@ -346,6 +346,7 @@ export default function Distribute() {
                       <tr>
                         <th>품목명(색상)</th><th>단위</th>
                         <th style={{textAlign:'right'}}>box</th><th style={{textAlign:'right'}}>단</th><th style={{textAlign:'right'}}>송이</th>
+                        <th style={{textAlign:'right',color:'var(--text3)'}}>전재고</th>
                         <th style={{textAlign:'right',color:'var(--blue)'}}>입고</th>
                         <th style={{textAlign:'right'}}>출고</th>
                         <th style={{textAlign:'right',color:'var(--green)'}}>현재고</th>
@@ -353,7 +354,7 @@ export default function Distribute() {
                     </thead>
                     <tbody>
                       {filteredProds.length === 0
-                        ? <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>차수 선택 후 조회하세요</td></tr>
+                        ? <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>차수 선택 후 조회하세요</td></tr>
                         : filteredProds.map(p => {
                           const isSelected = selectedProd?.ProdKey === p.ProdKey;
                           const hasStock = p.inQty > 0;
@@ -364,6 +365,7 @@ export default function Distribute() {
                               <td className="num">{p.BunchOf1Box||0}</td>
                               <td className="num">{p.SteamOf1Box||0}</td>
                               <td className="num">{(p.BunchOf1Box||0)*(p.SteamOf1Box||0)}</td>
+                              <td className="num" style={{color:'var(--text3)'}}>{p.prevStock!=null&&p.prevStock!==0?p.prevStock.toFixed(2):'—'}</td>
                               <td className="num" style={{color:'var(--blue)',fontWeight:p.inQty>0?700:400}}>{p.inQty?.toFixed(2)||'—'}</td>
                               <td className="num">{p.outQty?.toFixed(2)||'—'}</td>
                               <td className="num" style={{fontWeight:700,color:(p.inQty-p.outQty)>0?'var(--green)':'var(--text3)'}}>{((p.inQty||0)-(p.outQty||0)).toFixed(2)}</td>
@@ -374,6 +376,7 @@ export default function Distribute() {
                     <tfoot>
                       <tr className="foot">
                         <td colSpan={5}>합계</td>
+                        <td className="num">{filteredProds.reduce((a,b)=>a+(b.prevStock||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.inQty||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.outQty||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+((b.inQty||0)-(b.outQty||0)),0).toFixed(2)}</td>
