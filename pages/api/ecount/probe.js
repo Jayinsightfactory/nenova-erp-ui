@@ -13,44 +13,61 @@ export default withAuth(async function handler(req, res) {
 
   const sessionId = await getSession();
 
-  const testCust = [{ CUST_CD: 'TEST001', CUST_NM: '테스트거래처', CUST_TYPE: '01', USE_YN: 'Y' }];
-  const endpoints = [
-    // 목록 조회 계열
-    { ep: 'AccountBasic/GetBasicCustList',   body: { Conditions: {} } },
-    { ep: 'AccountBasic/GetCustList',        body: { Conditions: {} } },
-    { ep: 'AccountBasic/GetCustomerList',    body: { Conditions: {} } },
-    { ep: 'BasInfo/GetCustomerList',         body: { Conditions: {} } },
-    { ep: 'Bas/GetCustomerList',             body: { Conditions: {} } },
-    // 저장 계열 (CustomerList 키)
-    { ep: 'AccountBasic/SaveBasicCust',      body: { CustomerList: testCust } },
-    { ep: 'AccountBasic/SaveCust',           body: { CustomerList: testCust } },
-    { ep: 'AccountBasic/SaveCustomer',       body: { CustomerList: testCust } },
-    // 저장 계열 (CustList 키)
-    { ep: 'AccountBasic/SaveBasicCust',      body: { CustList: testCust } },
+  // AccountBasic/SaveBasicCust 가 정답 endpoint.
+  // body 키 이름 탐색: "JSON 데이터 형식" → 키 틀림 / "데이터 입력에 오류" → 키 맞음
+  const EP = 'AccountBasic/SaveBasicCust';
+  const cust = { CUST_CD: 'PROBE001', CUST_NM: '프로브테스트', CUST_TYPE: '01', USE_YN: 'Y' };
+
+  const keyVariants = [
+    'CustomerList', 'CustList', 'Cust', 'CustBasicList', 'BasicCustList',
+    'BasicCust', 'CUST_LIST', 'CustRegList', 'CustSaveList', 'SaveCustList',
+    'InputCustList', 'InCustList', 'Request', 'CustMasterList',
+    'AccountList', 'BasicAccountList', 'TradingList', 'PartnerList',
+    'VendorList', 'LIST', 'DataList', 'SaveList',
   ];
+
+  async function testKey(key, value) {
+    const url = `${API_BASE}/${EP}?SESSION_ID=${sessionId}`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    });
+    const d = await r.json();
+    const msgs = (d?.Errors || []).map(e => e.Message).join(' | ');
+    const errMsg = d?.Error?.Message || msgs || '';
+    const sc = d?.Data?.SuccessCnt;
+    const fc = d?.Data?.FailCnt;
+    if (errMsg.includes('JSON 데이터 형식')) return 'JSON_ERR';
+    if (errMsg.includes('데이터 입력에 오류') || errMsg.includes('data error')) return `DATA_ERR sc=${sc} fc=${fc}`;
+    if (d?.Status === 200 && !errMsg) return `OK sc=${sc} fc=${fc}`;
+    return `OTHER(${d?.Status}): ${errMsg.slice(0, 100)}`;
+  }
 
   const results = {};
 
-  for (const { ep, body } of endpoints) {
-    try {
-      const url = `${API_BASE}/${ep}?SESSION_ID=${sessionId}`;
-      const r = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      });
-      const data = await r.json();
-      results[ep] = {
-        httpStatus: r.status,
-        status:     data.Status,
-        errCode:    data.Error?.Code || (data.Errors?.[0]?.Code),
-        message:    data.Error?.Message || data.Message || data.Data?.Message || '',
-        hasData:    !!data.Data,
-      };
-    } catch (e) {
-      results[ep] = { error: e.message };
-    }
+  // 배열 키 테스트
+  for (const key of keyVariants) {
+    results[`arr:${key}`] = await testKey(key, [cust]);
+  }
+  // 단일 객체 키 테스트
+  for (const key of ['CustomerList', 'CustList', 'Cust', 'Request']) {
+    results[`obj:${key}`] = await testKey(key, cust);
   }
 
-  return res.status(200).json({ success: true, zone: ZONE, results });
+  // 목록 조회 endpoint 도 탐색
+  const listEps = [
+    'AccountBasic/GetBasicCustList', 'AccountBasic/GetCustList',
+    'AccountBasic/GetCustomerList',  'BasInfo/GetCustomerList',
+  ];
+  for (const ep of listEps) {
+    try {
+      const url = `${API_BASE}/${ep}?SESSION_ID=${sessionId}`;
+      const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+      const d = await r.json();
+      results[`GET:${ep}`] = `status=${d.Status} msg="${(d.Error?.Message||'').slice(0,80)}"`;
+    } catch(e) { results[`GET:${ep}`] = e.message; }
+  }
+
+  return res.status(200).json({ success: true, zone: ZONE, ep: EP, results });
 });
