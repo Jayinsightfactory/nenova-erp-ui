@@ -11,7 +11,43 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getStock(req, res) {
-  const { week, prodName } = req.query;
+  const { week, prodName, type, prodKey } = req.query;
+
+  // ── 재고 입/출고 내역 조회 (오른쪽 패널용)
+  if (type === 'history') {
+    if (!week || !prodKey) return res.status(400).json({ success: false, error: 'week, prodKey 필요' });
+    try {
+      const result = await query(
+        `SELECT '입고' AS 구분, wm.InputDate AS 일자,
+                wd.OutQuantity AS 변경수량, wm.FarmName AS 비고
+         FROM WarehouseDetail wd
+         JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+         WHERE wd.ProdKey = @pk AND wm.OrderWeek = @week AND wm.isDeleted = 0
+         UNION ALL
+         SELECT '출고' AS 구분, CONVERT(VARCHAR,sd.CreateDtm,23) AS 일자,
+                -sd.OutQuantity AS 변경수량, c.CustName AS 비고
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         JOIN Customer c ON sm.CustKey = c.CustKey
+         WHERE sd.ProdKey = @pk AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         UNION ALL
+         SELECT sh.ChangeType AS 구분, CONVERT(VARCHAR,sh.ChangeDtm,23) AS 일자,
+                -sh.AfterValue AS 변경수량, sh.Descr AS 비고
+         FROM _new_StockHistory sh
+         WHERE sh.ProdKey = @pk AND sh.OrderWeek = @week
+         ORDER BY 일자 ASC`,
+        {
+          week: { type: sql.NVarChar, value: week },
+          pk:   { type: sql.Int,      value: parseInt(prodKey) },
+        }
+      );
+      return res.status(200).json({ success: true, history: result.recordset });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // ── 재고 목록 조회
   let where = 'WHERE p.isDeleted = 0';
   const params = {};
   if (prodName) {
@@ -19,11 +55,11 @@ async function getStock(req, res) {
     params.name = { type: sql.NVarChar, value: `%${prodName}%` };
   }
   try {
-    // 실제 DB에서 조회
     const result = await query(
       `SELECT
         p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
-        ISNULL(p.Stock, 0) AS Stock,
+        ISNULL(sm2.StockKey, 0) AS StockKey,
+        ISNULL(ps.Stock, 0) AS prevStock,
         ISNULL(
           (SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
            JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
@@ -33,8 +69,13 @@ async function getStock(req, res) {
           (SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
            WHERE sd.ProdKey = p.ProdKey
-             AND sm.OrderWeek = @week AND sm.isDeleted = 0), 0) AS outQty
+             AND sm.OrderWeek = @week AND sm.isDeleted = 0), 0) AS outQty,
+        ISNULL(
+          (SELECT SUM(sh.AfterValue) FROM _new_StockHistory sh
+           WHERE sh.ProdKey = p.ProdKey AND sh.OrderWeek = @week), 0) AS adjustQty
        FROM Product p
+       LEFT JOIN StockMaster sm2 ON sm2.OrderWeek = @week
+       LEFT JOIN ProductStock ps ON p.ProdKey = ps.ProdKey AND ps.StockKey = sm2.StockKey
        ${where}
        ORDER BY p.CounName, p.FlowerName, p.ProdName`,
       { ...params, week: { type: sql.NVarChar, value: week || '' } }

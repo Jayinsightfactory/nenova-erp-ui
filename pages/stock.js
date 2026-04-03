@@ -3,13 +3,14 @@ import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
 import { apiGet, apiPost } from '../lib/useApi';
 import { useLang } from '../lib/i18n';
 
-const fmt = n => Number(n || 0).toLocaleString();
+const fmt  = n => Number(n || 0).toLocaleString();
+const fmtF = n => Number(n || 0) === 0 ? '—' : Number(n).toFixed(2);
 const ADJUST_TYPES = ['불량차감','검역차감','검수차감','기타차감','재고조정'];
 
 export default function Stock() {
   const { t } = useLang();
   const [stock, setStock] = useState([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState(null);
   const [loading, setLoading] = useState(true);
   const weekInput = useWeekInput('');
   const [search, setSearch] = useState('');
@@ -18,18 +19,36 @@ export default function Stock() {
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [history, setHistory] = useState([]);
+  const [histLoading, setHistLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
     apiGet('/api/stock', { week: weekInput.value, prodName: search })
-      .then(d => { setStock(d.stock || []); setErr(''); })
+      .then(d => { setStock(d.stock || []); setSelectedIdx(null); setHistory([]); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { if (weekInput.value) load(); }, [weekInput.value]);
 
-  const selected = stock[selectedIdx];
+  const selectRow = (i) => {
+    setSelectedIdx(i);
+    const s = stock[i];
+    if (!s) return;
+    setHistLoading(true);
+    apiGet('/api/stock', { type: 'history', week: weekInput.value, prodKey: s.ProdKey })
+      .then(d => setHistory(d.history || []))
+      .catch(() => setHistory([]))
+      .finally(() => setHistLoading(false));
+  };
+
+  const selected = selectedIdx !== null ? stock[selectedIdx] : null;
+
+  // 재고수량 계산: prevStock - outQty - adjustQty
+  const calcStock = (s) => (s.prevStock || 0) - (s.outQty || 0) - (s.adjustQty || 0);
+  // 전 차수 재고: prevStock - inQty
+  const calcPrevStock = (s) => (s.prevStock || 0) - (s.inQty || 0);
 
   // 조정 등록 모달 열기 - 사진과 동일한 폼
   const openAdjust = (prod) => {
@@ -66,8 +85,11 @@ export default function Stock() {
   };
 
   const handleExcel = () => {
-    const rows = [['국가','꽃','품목명','입고','출고','재고','단위']];
-    stock.forEach(s => rows.push([s.CounName,s.FlowerName,s.ProdName,s.inQty,s.outQty,s.Stock,s.OutUnit]));
+    const rows = [['국가','꽃','품목명','단위','전차수재고','현차수입고','현차수출고','현차수조정','재고수량']];
+    stock.forEach(s => rows.push([
+      s.CounName, s.FlowerName, s.ProdName, s.OutUnit,
+      calcPrevStock(s), s.inQty, s.outQty, s.adjustQty, calcStock(s)
+    ]));
     const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv],{type:'text/csv'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`재고현황.csv`; a.click();
@@ -103,62 +125,100 @@ export default function Stock() {
               <table className="tbl">
                 <thead>
                   <tr>
-                    <th>국가</th><th>꽃</th><th>품목명</th>
-                    <th style={{textAlign:'right',color:'var(--blue)'}}>입고</th>
-                    <th style={{textAlign:'right'}}>출고</th>
-                    <th style={{textAlign:'right',color:'var(--green)'}}>재고</th>
+                    <th>국가</th><th>꽃</th><th>품목명(색상)</th><th>단위</th>
+                    <th style={{textAlign:'right',color:'var(--text3)'}}>전 차수 재고</th>
+                    <th style={{textAlign:'right',color:'var(--blue)'}}>현 차수 입고</th>
+                    <th style={{textAlign:'right'}}>현 차수 출고</th>
+                    <th style={{textAlign:'right',color:'var(--amber)'}}>현 차수 조정</th>
+                    <th style={{textAlign:'right',color:'var(--green)'}}>재고수량</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stock.length === 0
-                    ? <tr><td colSpan={6} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음 — 조회 버튼을 클릭하세요</td></tr>
-                    : stock.map((s,i) => (
-                      <tr key={s.ProdKey} className={selectedIdx===i?'selected':''} onClick={()=>setSelectedIdx(i)} style={{cursor:'pointer'}}>
-                        <td style={{fontSize:11}}>{s.CounName}</td>
-                        <td style={{fontSize:11}}>{s.FlowerName}</td>
-                        <td style={{fontSize:12}}>{s.ProdName}</td>
-                        <td className="num" style={{color:'var(--blue)'}}>{fmt(s.inQty)}</td>
-                        <td className="num">{fmt(s.outQty)}</td>
-                        <td className="num" style={{fontWeight:700,color:s.Stock===0?'var(--red)':s.Stock<10?'var(--amber)':'var(--green)'}}>{fmt(s.Stock)}</td>
-                      </tr>
-                    ))}
+                    ? <tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음 — 조회 버튼을 클릭하세요</td></tr>
+                    : stock.map((s,i) => {
+                      const stockQty = calcStock(s);
+                      const prevStockQty = calcPrevStock(s);
+                      return (
+                        <tr key={s.ProdKey} className={selectedIdx===i?'selected':''} onClick={()=>selectRow(i)} style={{cursor:'pointer'}}>
+                          <td style={{fontSize:11}}>{s.CounName}</td>
+                          <td style={{fontSize:11}}>{s.FlowerName}</td>
+                          <td style={{fontSize:12}}>{s.ProdName}</td>
+                          <td style={{fontSize:11,color:'var(--text3)'}}>{s.OutUnit}</td>
+                          <td className="num" style={{color:'var(--text3)'}}>{prevStockQty!==0?fmtF(prevStockQty):'—'}</td>
+                          <td className="num" style={{color:'var(--blue)'}}>{s.inQty?fmtF(s.inQty):'—'}</td>
+                          <td className="num">{s.outQty?fmtF(s.outQty):'—'}</td>
+                          <td className="num" style={{color:'var(--amber)'}}>{s.adjustQty?fmtF(s.adjustQty):'—'}</td>
+                          <td className="num" style={{fontWeight:700,color:stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)'}}>{fmtF(stockQty)}</td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             )}
           </div>
         </div>
 
-        {/* 오른쪽: 선택 품목 요약 */}
-        <div className="card">
+        {/* 오른쪽: 재고 입/출고 내역 */}
+        <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
           <div className="card-header">
-            <span className="card-title">선택 품목 요약</span>
-            {selected && <span style={{fontSize:12,color:'var(--blue)'}}>{selected.ProdName}</span>}
+            <span className="card-title">재고 입/출고 내역</span>
+            {selected && (
+              <span style={{display:'flex',gap:6,alignItems:'center'}}>
+                <span style={{fontSize:12,color:'var(--blue)',fontWeight:600}}>{selected.ProdName}</span>
+                <button className="btn btn-secondary btn-sm" onClick={()=>openAdjust(selected)}>📝 조정등록</button>
+              </span>
+            )}
           </div>
           {selected ? (
-            <div>
+            <div style={{overflowY:'auto',flex:1}}>
+              {/* 요약 수치 */}
               <div style={{display:'flex',borderBottom:'1px solid var(--border)'}}>
-                {[['입고',selected.inQty,'var(--blue)'],['출고',selected.outQty,'var(--text2)'],['현재 재고',selected.Stock,selected.Stock===0?'var(--red)':selected.Stock<10?'var(--amber)':'var(--green)']].map(([label,val,color])=>(
-                  <div key={label} style={{flex:1,padding:'16px',textAlign:'center',borderRight:'1px solid var(--border)'}}>
-                    <div style={{fontSize:11,color:'var(--text3)',marginBottom:6}}>{label}</div>
-                    <div style={{fontSize:22,fontWeight:900,fontFamily:'var(--mono)',color}}>{fmt(val)}</div>
+                {[
+                  ['전 차수 재고', calcPrevStock(selected), 'var(--text3)'],
+                  ['현 차수 입고', selected.inQty, 'var(--blue)'],
+                  ['현 차수 출고', selected.outQty, 'var(--text2)'],
+                  ['현 차수 조정', selected.adjustQty, 'var(--amber)'],
+                  ['재고수량', calcStock(selected), calcStock(selected)<=0?'var(--red)':calcStock(selected)<10?'var(--amber)':'var(--green)'],
+                ].map(([label,val,color])=>(
+                  <div key={label} style={{flex:1,padding:'10px 6px',textAlign:'center',borderRight:'1px solid var(--border)'}}>
+                    <div style={{fontSize:10,color:'var(--text3)',marginBottom:4}}>{label}</div>
+                    <div style={{fontSize:16,fontWeight:900,fontFamily:'var(--mono)',color}}>{fmtF(val)}</div>
                   </div>
                 ))}
               </div>
-              <div style={{padding:'16px 18px'}}>
-                <table style={{width:'100%',fontSize:13}}>
-                  {[['국가',selected.CounName],['꽃 종류',selected.FlowerName],['출고단위',selected.OutUnit]].map(([k,v])=>(
-                    <tr key={k}><td style={{color:'var(--text3)',padding:'4px 0',width:80}}>{k}</td><td style={{fontWeight:500}}>{v}</td></tr>
-                  ))}
-                </table>
-                <div style={{marginTop:16}}>
-                  <button className="btn btn-secondary" style={{width:'100%'}} onClick={()=>openAdjust(selected)}>
-                    📝 이 품목 조정 등록
-                  </button>
-                </div>
-              </div>
+              {/* 내역 테이블 */}
+              {histLoading
+                ? <div className="skeleton" style={{margin:16,height:200,borderRadius:8}}></div>
+                : <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>일자</th>
+                        <th>구분</th>
+                        <th style={{textAlign:'right'}}>변경수량</th>
+                        <th>비고</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.length === 0
+                        ? <tr><td colSpan={4} style={{textAlign:'center',padding:30,color:'var(--text3)'}}>내역 없음</td></tr>
+                        : history.map((h,i)=>(
+                          <tr key={i}>
+                            <td style={{fontSize:11,fontFamily:'var(--mono)'}}>{h.일자}</td>
+                            <td style={{fontSize:11,color:h.구분==='입고'?'var(--blue)':h.구분==='출고'?'var(--text2)':'var(--amber)'}}>{h.구분}</td>
+                            <td className="num" style={{color:h.변경수량>0?'var(--blue)':'var(--red)',fontWeight:600}}>
+                              {h.변경수량>0?'+':''}{fmtF(h.변경수량)}
+                            </td>
+                            <td style={{fontSize:11,color:'var(--text3)'}}>{h.비고}</td>
+                          </tr>
+                        ))
+                      }
+                    </tbody>
+                  </table>
+              }
             </div>
           ) : (
-            <div className="empty-state"><div className="empty-icon">📦</div><div className="empty-text">품목을 선택하세요</div></div>
+            <div className="empty-state"><div className="empty-icon">📦</div><div className="empty-text">왼쪽에서 품목을 선택하세요</div></div>
           )}
         </div>
       </div>
