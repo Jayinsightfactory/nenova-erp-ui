@@ -4,8 +4,9 @@ import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
   const { entity } = req.query;
-  if (req.method === 'GET') return await getList(req, res, entity);
+  if (req.method === 'GET')  return await getList(req, res, entity);
   if (req.method === 'POST') return await create(req, res, entity);
+  if (req.method === 'PUT')  return await updatePricing(req, res);
   return res.status(405).end();
 });
 
@@ -123,6 +124,39 @@ async function create(req, res, entity) {
       return res.status(201).json({ success: true, message: '품목 등록 완료' });
     }
     return res.status(400).json({ success: false, error: 'entity 파라미터 필요' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// PUT /api/master?entity=pricing — 업체별 단가 일괄 저장
+async function updatePricing(req, res) {
+  try {
+    const { custKey, changes } = req.body; // changes: [{ autoKey, prodKey, cost }]
+    if (!custKey || !Array.isArray(changes) || changes.length === 0) {
+      return res.status(400).json({ success: false, error: 'custKey, changes 필요' });
+    }
+    for (const ch of changes) {
+      if (ch.autoKey) {
+        await query(
+          `UPDATE CustomerProdCost SET Cost=@cost WHERE AutoKey=@ak`,
+          { cost: { type: sql.Float, value: parseFloat(ch.cost)||0 }, ak: { type: sql.Int, value: ch.autoKey } }
+        );
+      } else {
+        await query(
+          `IF NOT EXISTS (SELECT 1 FROM CustomerProdCost WHERE CustKey=@ck AND ProdKey=@pk)
+             INSERT INTO CustomerProdCost (CustKey, ProdKey, Cost) VALUES (@ck, @pk, @cost)
+           ELSE
+             UPDATE CustomerProdCost SET Cost=@cost WHERE CustKey=@ck AND ProdKey=@pk`,
+          {
+            ck:   { type: sql.Int,   value: parseInt(custKey) },
+            pk:   { type: sql.Int,   value: parseInt(ch.prodKey) },
+            cost: { type: sql.Float, value: parseFloat(ch.cost)||0 },
+          }
+        );
+      }
+    }
+    return res.status(200).json({ success: true, saved: changes.length });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

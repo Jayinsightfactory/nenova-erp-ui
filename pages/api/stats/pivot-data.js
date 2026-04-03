@@ -17,7 +17,7 @@ export default withAuth(async function handler(req, res) {
       `SELECT
         p.CounName AS country, p.FlowerName AS flower, p.ProdName AS prodName,
         p.ProdKey, p.OutUnit, ISNULL(p.Cost,0) AS cost,
-        c.CustName, c.CustArea AS area, c.OrderCode, ISNULL(c.Descr,'') AS custDescr,
+        c.CustKey, c.CustName, c.CustArea AS area, c.OrderCode, ISNULL(c.Descr,'') AS custDescr,
         om.OrderWeek AS week,
         ISNULL(od.OutQuantity,0) AS outQty,
         ISNULL(od.Descr,'') AS descr
@@ -78,6 +78,13 @@ export default withAuth(async function handler(req, res) {
       `SELECT CustKey, ProdKey, Cost FROM CustomerProdCost`
     );
 
+    // ── 개별단가 맵: priceMap[custKey][prodKey] = cost
+    const priceMap = {};
+    priceResult.recordset.forEach(r => {
+      if (!priceMap[r.CustKey]) priceMap[r.CustKey] = {};
+      priceMap[r.CustKey][r.ProdKey] = r.Cost;
+    });
+
     // ── 맵 구성
     const prevStockMap = {};
     stockResult.recordset.forEach(r => { prevStockMap[r.ProdKey] = r.prevStock||0; });
@@ -108,11 +115,12 @@ export default withAuth(async function handler(req, res) {
       if (!orderMap[r.ProdKey]) {
         orderMap[r.ProdKey] = {
           country:r.country, flower:r.flower, prodName:r.prodName,
-          unit:r.OutUnit, cost:r.cost||0, area:r.area, custOrders:{}, descr:''
+          unit:r.OutUnit, cost:r.cost||0, area:r.area, custOrders:{}, custKeys:{}, descr:''
         };
       }
       if (r.descr) orderMap[r.ProdKey].descr = r.descr;
       orderMap[r.ProdKey].custOrders[r.CustName] = (orderMap[r.ProdKey].custOrders[r.CustName]||0) + r.outQty;
+      orderMap[r.ProdKey].custKeys[r.CustName] = r.CustKey;
     });
 
     // 거래처 목록
@@ -144,6 +152,14 @@ export default withAuth(async function handler(req, res) {
       const noneOut    = Math.max(0, totalOrder - totalIncoming);
       const curStock   = prevStock + totalIncoming - totalOrder;
 
+      // 업체별 개별단가 맵 { custName: cost }
+      const custKeys  = item?.custKeys || {};
+      const costOrders = {};
+      Object.entries(custKeys).forEach(([custName, custKey]) => {
+        const individualCost = priceMap[custKey]?.[prodKey];
+        costOrders[custName] = individualCost != null ? individualCost : (item?.cost || 0);
+      });
+
       return {
         country:    item?.country || inResult.recordset.find(r=>r.ProdKey===prodKey)?.country || '',
         flower:     item?.flower  || inResult.recordset.find(r=>r.ProdKey===prodKey)?.flower  || '',
@@ -153,6 +169,7 @@ export default withAuth(async function handler(req, res) {
         prodKey,
         prevStock,
         orders:     item?.custOrders || {},
+        costOrders,
         totalOrder,
         incoming,
         totalIncoming,

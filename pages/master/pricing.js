@@ -3,7 +3,7 @@
 // 수정이력: 2026-03-30 — 거래처 검색 드롭다운(담당자 있는 업체만), 품목 검색, 변경 하이라이트
 
 import { useState, useEffect, useRef } from 'react';
-import { apiGet } from '../../lib/useApi';
+import { apiGet, apiPut } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -28,6 +28,7 @@ export default function Pricing() {
   const [successMsg, setSuccessMsg] = useState('');
   const [showBulk, setShowBulk] = useState(false);
   const [bulkCost, setBulkCost] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -67,6 +68,23 @@ export default function Pricing() {
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
+  };
+
+  // 저장
+  const handleSave = async () => {
+    if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
+    if (changed.size === 0) return;
+    setSaving(true); setErr('');
+    const changes = [...changed].map(autoKey => {
+      const row = data.find(r => r.AutoKey === autoKey);
+      return { autoKey, prodKey: row?.ProdKey, cost: localCosts[autoKey] ?? 0 };
+    });
+    try {
+      const d = await apiPut('/api/master?entity=pricing', { custKey: selectedCust.CustKey, changes });
+      setChanged(new Set());
+      setSuccessMsg(`✅ ${d.saved}개 단가 저장 완료`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
 
   // 단가 변경
@@ -164,10 +182,10 @@ export default function Pricing() {
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
           <button className="btn" onClick={() => setShowBulk(true)}>📋 일괄 지정 / Asign. masiva</button>
           <button className="btn btn-primary"
-            disabled={changed.size === 0}
-            onClick={() => alert(`${changed.size}개 변경사항 저장 기능은 API 연결 완료 후 활성화됩니다.`)}
+            disabled={changed.size === 0 || saving}
+            onClick={handleSave}
           >
-            💾 저장 / Guardar{changed.size > 0 ? ` (${changed.size}개)` : ''}
+            {saving ? '⏳ 저장 중...' : `💾 저장 / Guardar${changed.size > 0 ? ` (${changed.size}개)` : ''}`}
           </button>
           <button className="btn" onClick={handleExcel}>📊 엑셀 / Excel</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>

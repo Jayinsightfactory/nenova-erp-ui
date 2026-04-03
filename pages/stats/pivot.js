@@ -234,11 +234,10 @@ export default function Pivot() {
     if (showInPrice) hdrs.push('입고단가');
     if (showInTotal) hdrs.push('입고총단가');
     if (showAWB)     hdrs.push('AWB');
-    if (showCost)    hdrs.push('판매가격');
     if (showAmount)  hdrs.push('판매금액');
     if (showDescr)   hdrs.push('비고');
     if (showSections.prev)     hdrs.push('01.전재고');
-    if (showSections.order)    custs.forEach(c=>hdrs.push(`주문_${c.custName}`));
+    if (showSections.order)    custs.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`단가_${c.custName}`); });
     if (showSections.order)    hdrs.push('02.주문Total');
     if (showSections.incoming) farms.forEach(f=>hdrs.push(`입고_${f}`));
     if (showSections.none)     hdrs.push('03.미발주');
@@ -252,11 +251,10 @@ export default function Pivot() {
       if (showInPrice) row.push(r.inPrice||0);
       if (showInTotal) row.push(r.inTotal||0);
       if (showAWB)     row.push(r.awb||'');
-      if (showCost)    row.push(r.cost||0);
       if (showAmount)  row.push((r.cost||0)*(r.totalOrder||0));
       if (showDescr)   row.push(r.descr||'');
       if (showSections.prev)     row.push(r.prevStock||0);
-      if (showSections.order)    custs.forEach(c=>row.push(r.orders?.[c.custName]||0));
+      if (showSections.order)    custs.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); });
       if (showSections.order)    row.push(r.totalOrder||0);
       if (showSections.incoming) farms.forEach(f=>row.push(r.incoming?.[f]||0));
       if (showSections.none)     row.push(r.noneOut||0);
@@ -430,10 +428,11 @@ export default function Pivot() {
   }, [filteredRows, sorts, sortFn]);
 
   // 고정 좌측 컬럼 수 (국가+꽃+품목명 + 선택 열들)
+  // showCost는 업체별 셀 내부에 스택으로 표시되므로 고정 컬럼 아님
   const totalFixedCols = useMemo(() =>
     3 + (showArea?1:0) + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0)
-      + (showAWB?1:0) + (showCost?1:0) + (showAmount?1:0) + (showDescr?1:0),
-  [showArea, showOutDate, showInPrice, showInTotal, showAWB, showCost, showAmount, showDescr]);
+      + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
+  [showArea, showOutDate, showInPrice, showInTotal, showAWB, showAmount, showDescr]);
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
@@ -447,7 +446,9 @@ export default function Pivot() {
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={load}>{t('새로고침')}</button>
+          <button className="btn btn-primary" onClick={load} disabled={loading}>
+            {loading ? '⏳ 로딩 중...' : t('새로고침')}
+          </button>
           <button className="btn" onClick={handleExcel}>{t('엑셀')}</button>
           {/* 즐겨찾기 */}
           <div style={{position:'relative', display:'inline-block'}}>
@@ -646,7 +647,6 @@ export default function Pivot() {
                 {showInPrice  && <th style={{fontSize:10,minWidth:70,textAlign:'right'}}>입고단가</th>}
                 {showInTotal  && <th style={{fontSize:10,minWidth:80,textAlign:'right'}}>입고총단가</th>}
                 {showAWB      && <th style={{fontSize:10,minWidth:80}}>AWB</th>}
-                {showCost     && <th style={{fontSize:10,minWidth:70,textAlign:'right'}}>판매가격</th>}
                 {showAmount   && <th style={{fontSize:10,minWidth:80,textAlign:'right'}}>판매금액</th>}
                 {showDescr    && <th style={{fontSize:10,minWidth:80}}>비고</th>}
                 {/* 01. 전재고 */}
@@ -655,13 +655,14 @@ export default function Pivot() {
                 )}
                 {/* 02. 주문 — sortedCusts 순서로 렌더링 */}
                 {showSections.order && sortedCusts.map((c,ci)=>(
-                  <th key={c.custName} style={{textAlign:'center',minWidth:65,fontSize:10,background:'#D4ECD4',
-                    maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                  <th key={c.custName} style={{textAlign:'center',minWidth:showCost?80:65,fontSize:10,background:'#D4ECD4',
+                    maxWidth:showCost?110:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
                   }}
                     title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''}`}>
                     <div style={{fontSize:9,fontWeight:'bold'}}>{c.custName.length>8?c.custName.slice(0,8)+'…':c.custName}</div>
                     <div style={{fontSize:9,color:'var(--text3)'}}>{c.orderCode}</div>
+                    {showCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 단가</div>}
                   </th>
                 ))}
                 {showSections.order && (
@@ -758,15 +759,17 @@ export default function Pivot() {
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fN(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fN(r.inTotal)}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
-                          {showCost     && <td className="num" style={{fontSize:10,color:'var(--blue)'}}>{fN(r.cost)}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fN((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.descr}>{r.descr||''}</td>}
                           {showSections.prev && (
                             <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fN(r.prevStock)}</td>
                           )}
                           {showSections.order && sortedCusts.map(c=>(
-                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)'}}>
-                              {fN(r.orders?.[c.custName])}
+                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showCost?'1.2':'inherit',padding:showCost?'1px 4px':'inherit'}}>
+                              {showQty && fN(r.orders?.[c.custName])}
+                              {showCost && (r.costOrders?.[c.custName]||0)>0 && (
+                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}}>{fN(r.costOrders?.[c.custName])}</div>
+                              )}
                             </td>
                           ))}
                           {showSections.order && (
