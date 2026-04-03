@@ -365,10 +365,10 @@ export default function Distribute() {
                               <td className="num">{p.BunchOf1Box||0}</td>
                               <td className="num">{p.SteamOf1Box||0}</td>
                               <td className="num">{(p.BunchOf1Box||0)*(p.SteamOf1Box||0)}</td>
-                              <td className="num" style={{color:'var(--text3)'}}>{p.prevStock!=null&&p.prevStock!==0?p.prevStock.toFixed(2):'—'}</td>
+                              <td className="num" style={{color:'var(--text3)'}}>{((p.prevStock||0)-(p.inQty||0))!==0?((p.prevStock||0)-(p.inQty||0)).toFixed(2):'—'}</td>
                               <td className="num" style={{color:'var(--blue)',fontWeight:p.inQty>0?700:400}}>{p.inQty?.toFixed(2)||'—'}</td>
                               <td className="num">{p.outQty?.toFixed(2)||'—'}</td>
-                              <td className="num" style={{fontWeight:700,color:(p.inQty-p.outQty)>0?'var(--green)':'var(--text3)'}}>{((p.inQty||0)-(p.outQty||0)).toFixed(2)}</td>
+                              <td className="num" style={{fontWeight:700,color:(p.prevStock-p.outQty)>0?'var(--green)':'var(--text3)'}}>{((p.prevStock||0)-(p.outQty||0)).toFixed(2)}</td>
                             </tr>
                           );
                         })}
@@ -376,10 +376,10 @@ export default function Distribute() {
                     <tfoot>
                       <tr className="foot">
                         <td colSpan={5}>합계</td>
-                        <td className="num">{filteredProds.reduce((a,b)=>a+(b.prevStock||0),0).toFixed(2)}</td>
+                        <td className="num">{filteredProds.reduce((a,b)=>a+((b.prevStock||0)-(b.inQty||0)),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.inQty||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.outQty||0),0).toFixed(2)}</td>
-                        <td className="num">{filteredProds.reduce((a,b)=>a+((b.inQty||0)-(b.outQty||0)),0).toFixed(2)}</td>
+                        <td className="num">{filteredProds.reduce((a,b)=>a+((b.prevStock||0)-(b.outQty||0)),0).toFixed(2)}</td>
                       </tr>
                     </tfoot>
                   </table>
