@@ -61,6 +61,10 @@ export default function EcountDashboard() {
   const [mapLoading, setMapLoading]       = useState(false);
   const [mapMsg, setMapMsg]               = useState('');
 
+  // 판매 전송
+  const [saleLoading, setSaleLoading]     = useState(false);
+  const [saleMsg, setSaleMsg]             = useState('');
+
   const loadStatus = useCallback(async () => {
     setApiLoading(true);
     try {
@@ -128,6 +132,47 @@ export default function EcountDashboard() {
       setTimeout(() => setMapMsg(''), 15000);
     }
   }, []);
+
+  // 미전송 판매 전체 이카운트 전송
+  const handleSalePush = useCallback(async () => {
+    if (!confirm(`미전송 판매 ${fmt(pendingSales)}건을 이카운트에 전송하시겠습니까?\n(이미 전송된 건은 제외됩니다)`)) return;
+    setSaleLoading(true);
+    setSaleMsg('⏳ 판매 전송 시작...');
+
+    let offset      = 0;
+    const LIMIT     = 10;
+    let totalPushed = 0;
+    let totalFailed = 0;
+    let grandTotal  = null;
+
+    try {
+      while (true) {
+        const data = await apiPost('/api/ecount/sales-push', { all: true, offset, limit: LIMIT });
+        totalPushed += data.pushed  || 0;
+        totalFailed += data.failed  || 0;
+        if (grandTotal === null) grandTotal = data.total || 0;
+
+        const processed = data.processed || (offset + LIMIT);
+        setSaleMsg(`⏳ 전송 중... ${Math.min(processed, grandTotal)}/${grandTotal}건`);
+
+        if (!data.nextOffset) break;
+        offset = data.nextOffset;
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      if (totalFailed === 0) {
+        setSaleMsg(`✅ 판매 전송 완료: ${totalPushed}건 성공`);
+      } else {
+        setSaleMsg(`⚠️ 완료: 성공 ${totalPushed}건 / 실패 ${totalFailed}건`);
+      }
+      loadLogs();
+    } catch (e) {
+      setSaleMsg(`❌ 오류: ${e.message}`);
+    } finally {
+      setSaleLoading(false);
+      setTimeout(() => setSaleMsg(''), 15000);
+    }
+  }, [pendingSales, loadLogs]);
 
   const handleCustSync = useCallback(async () => {
     if (!confirm('모든 활성 거래처를 이카운트에 동기화하시겠습니까?')) return;
@@ -283,6 +328,15 @@ export default function EcountDashboard() {
         </button>
         <button
           className="btn"
+          style={{ background: '#7c3aed', color: '#fff', borderColor: '#6d28d9' }}
+          onClick={handleSalePush}
+          disabled={saleLoading || pendingSales === 0}
+          title={`미전송 판매 ${fmt(pendingSales)}건 이카운트 전송`}
+        >
+          {saleLoading ? '전송중...' : `📤 판매 전송 (${fmt(pendingSales)}건)`}
+        </button>
+        <button
+          className="btn"
           style={{ background: '#065f46', color: '#fff', borderColor: '#064e3b' }}
           onClick={handleCustSync}
           disabled={custLoading}
@@ -306,6 +360,14 @@ export default function EcountDashboard() {
           {logsLoading ? '로딩중...' : '🔄 이력 새로고침'}
         </button>
 
+        {saleMsg && (
+          <span style={{
+            fontSize: 13,
+            color: saleMsg.startsWith('❌') ? 'var(--red,#e53935)' : saleMsg.startsWith('⚠️') ? '#b45309' : 'var(--green,#2e7d32)',
+          }}>
+            {saleMsg}
+          </span>
+        )}
         {sessionMsg && (
           <span style={{
             fontSize: 13,
