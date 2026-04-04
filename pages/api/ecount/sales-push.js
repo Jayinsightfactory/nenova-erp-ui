@@ -141,7 +141,7 @@ export default withAuth(async function handler(req, res) {
     JOIN Product p         ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
     LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
     WHERE sm.ShipmentKey IN (${batchKeys.join(',')})
-    ORDER BY sm.ShipmentKey, sd.ShipmentDetailKey`
+    ORDER BY sm.ShipmentKey, sd.ProdKey`
   );
 
   // ShipmentKey별 묶기
