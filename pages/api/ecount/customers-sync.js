@@ -151,23 +151,23 @@ export default withAuth(async function handler(req, res) {
       });
     }
 
+    // 디버그: 항상 전체 응답 콘솔 출력
+    console.log('[customers-sync] 이카운트 응답:', JSON.stringify(ecountResponse));
+
     const isOk = String(ecountResponse.Status) === '200';
-    const sc   = Number(ecountResponse.Data?.SuccessCnt) || 0;
-    const fc   = Number(ecountResponse.Data?.FailCnt)    || 0;
-    totalSuccess = isOk ? (sc || customers.length) : 0;
+    const sc   = Number(ecountResponse.Data?.SuccessCnt ?? ecountResponse.Data?.successCnt ?? -1);
+    const fc   = Number(ecountResponse.Data?.FailCnt    ?? ecountResponse.Data?.failCnt    ?? 0);
+
+    // sc=-1이면 SuccessCnt 없음 → 전체 성공으로 간주
+    totalSuccess = isOk ? (sc >= 0 ? sc : customers.length) : 0;
     totalFail    = isOk ? fc : customers.length;
 
-    // 디버그: 전체 응답 콘솔 출력
-    if (!isOk) {
-      console.error('[customers-sync] 이카운트 오류 응답:', JSON.stringify(ecountResponse));
-    }
-
-    const errMsg = isOk ? null : (
+    const errMsg = !isOk ? (
       ecountResponse.Error?.Message ||
       ecountResponse.Data?.Message ||
       ecountResponse.Message ||
       JSON.stringify(ecountResponse)
-    ).slice(0, 500);
+    ).slice(0, 500) : (fc > 0 ? `이카운트 실패 ${fc}건` : null);
 
     for (const c of customers) {
       await writeSyncLog(
@@ -189,7 +189,7 @@ export default withAuth(async function handler(req, res) {
       nextOffset,
       processed:      offset + customers.length,
       message:        `거래처 동기화 ${offset + 1}~${offset + customers.length}/${total}: 성공 ${totalSuccess}건 / 실패 ${totalFail}건`,
-      ecountResponse: isOk ? undefined : ecountResponse,  // 실패 시만 전달
+      ecountResponse,  // 디버그용 — 항상 전달
     });
   }
 
