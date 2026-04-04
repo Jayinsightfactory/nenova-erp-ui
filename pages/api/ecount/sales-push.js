@@ -136,7 +136,7 @@ export default withAuth(async function handler(req, res) {
       sd.OutQuantity AS QTY,
       ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) AS UnitCost
     FROM ShipmentMaster sm
-    JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey AND sd.isDeleted = 0
+    JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
     JOIN Customer c        ON sm.CustKey = c.CustKey AND c.isDeleted = 0
     JOIN Product p         ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
     LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
