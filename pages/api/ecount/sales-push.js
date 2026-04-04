@@ -78,8 +78,8 @@ export default withAuth(async function handler(req, res) {
     if (week)     params.week     = { type: sql.NVarChar, value: week };
     keyFilter = `
       AND sm.ShipmentKey NOT IN (${alreadySentSubQuery})
-      AND (@dateFrom IS NULL OR CONVERT(DATE, sm.ShipmentDtm) >= @dateFrom)
-      AND (@dateTo   IS NULL OR CONVERT(DATE, sm.ShipmentDtm) <= @dateTo)
+      AND (@dateFrom IS NULL OR CONVERT(DATE, sd.ShipmentDtm) >= @dateFrom)
+      AND (@dateTo   IS NULL OR CONVERT(DATE, sd.ShipmentDtm) <= @dateTo)
       AND (@week     IS NULL OR sm.OrderWeek = @week)
     `;
     if (!params.dateFrom) params.dateFrom = { type: sql.Date, value: null };
@@ -126,7 +126,7 @@ export default withAuth(async function handler(req, res) {
     `SELECT
       sm.ShipmentKey,
       sm.OrderWeek,
-      CONVERT(NVARCHAR(8), sm.ShipmentDtm, 112) AS IO_DATE,
+      CONVERT(NVARCHAR(8), sd.ShipmentDtm, 112) AS IO_DATE,
       c.CustKey,
       c.CustName,
       ISNULL(c.OrderCode, c.CustName) AS CUST_CD,
@@ -141,7 +141,7 @@ export default withAuth(async function handler(req, res) {
     JOIN Product p         ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
     LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
     WHERE sm.ShipmentKey IN (${batchKeys.join(',')})
-    ORDER BY sm.ShipmentKey, sd.ProdKey`
+    ORDER BY sm.ShipmentKey, p.ProdKey`
   );
 
   // ShipmentKey별 묶기
