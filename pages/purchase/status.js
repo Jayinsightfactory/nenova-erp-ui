@@ -2,7 +2,7 @@
 // 구매현황(외화/수입) — 이카운트 "구매현황" 화면
 
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 
@@ -263,7 +263,7 @@ export default function PurchaseStatus() {
   }).length;
 
   return (
-    <Layout title="구매현황(외화/수입)">
+    <>
       {/* 필터 바 */}
       <div className="filter-bar" style={{ flexWrap: 'wrap', gap: 6 }}>
         <span className="filter-label">기간</span>
@@ -792,6 +792,6 @@ export default function PurchaseStatus() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }

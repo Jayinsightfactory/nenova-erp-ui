@@ -1,6 +1,6 @@
 // pages/sales/ar.js — 거래처별 채권관리
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 
@@ -129,7 +129,7 @@ export default function SalesAR() {
   const totalBalanceSum = displayCustomers.reduce((a, c) => a + c.balance,   0);
 
   return (
-    <Layout title="거래처별 채권">
+    <>
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
         <span className="filter-label">기간</span>
@@ -492,6 +492,6 @@ export default function SalesAR() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }

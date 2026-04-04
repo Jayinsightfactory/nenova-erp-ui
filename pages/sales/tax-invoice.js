@@ -2,7 +2,7 @@
 // 세금계산서 진행단계 — 이카운트 "(세금)계산서진행단계" 화면
 
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/useApi';
 
 
@@ -169,7 +169,7 @@ export default function TaxInvoice() {
   }));
 
   return (
-    <Layout title="세금계산서 진행단계">
+    <>
       {/* 필터바 */}
       <div className="filter-bar">
         <label style={{ fontSize: 12, color: 'var(--text3)' }}>월</label>
@@ -415,7 +415,7 @@ export default function TaxInvoice() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }
 

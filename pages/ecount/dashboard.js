@@ -1,7 +1,7 @@
 // pages/ecount/dashboard.js — 이카운트 연동 현황 대시보드
 
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost, apiPut } from '../../lib/useApi';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -253,7 +253,7 @@ export default function EcountDashboard() {
   ];
 
   return (
-    <Layout title="이카운트 연동 현황">
+    <>
       {/* API 연결 상태 */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
@@ -456,6 +456,6 @@ export default function EcountDashboard() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

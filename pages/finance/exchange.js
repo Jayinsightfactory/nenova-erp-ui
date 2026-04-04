@@ -2,7 +2,7 @@
 // 외화/환율 관리 — 이카운트 "외화리스트" 화면
 
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost } from '../../lib/useApi';
 
 const fmt4 = n => Number(n || 0).toFixed(4);
@@ -100,7 +100,7 @@ export default function ExchangePage() {
   };
 
   return (
-    <Layout title="외화/환율 관리">
+    <>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
@@ -281,7 +281,7 @@ export default function ExchangePage() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }
 

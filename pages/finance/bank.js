@@ -2,7 +2,7 @@
 // 입/출금 계좌 조회 (샘플 모드)
 
 import { useState, useEffect, useCallback } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 전역 제공
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -113,7 +113,7 @@ export default function BankPage() {
   const f = k => e => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
   return (
-    <Layout title="입/출금 계좌 조회">
+    <>
       {/* 샘플모드 배너 */}
       <div style={{
         background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
@@ -339,7 +339,7 @@ export default function BankPage() {
           </div>
         </div>
       )}
-    </Layout>
+    </>
   );
 }
 
