@@ -63,9 +63,10 @@ async function uploadWarehouse(req, res) {
     );
     const warehouseKey = masterResult.recordset[0].WarehouseKey;
 
+    // 디테일 INSERT — 실패 시 마스터 rollback (isDeleted=1 처리)
     let ok = 0; const errors = [];
-    for (const item of items) {
-      try {
+    try {
+      for (const item of items) {
         let prodKey = item.prodKey;
         if (!prodKey && item.prodName) {
           const pr = await query(
@@ -74,29 +75,45 @@ async function uploadWarehouse(req, res) {
           );
           prodKey = pr.recordset[0]?.ProdKey || 0;
         }
-        await query(
-          `INSERT INTO WarehouseDetail
-             (ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-              OutQuantity, EstQuantity, UPrice, TPrice, Stock,
-              OrderCode, WarehouseKey, SteamOf1Box, SteamOf1Bunch)
-           VALUES (@pk,@box,@bunch,@steam,@out,@est,@up,@tp,0,@oc,@wk,@s1b,@s1bh)`,
-          {
-            pk:   { type: sql.Int,      value: prodKey },
-            box:  { type: sql.Float,    value: parseFloat(item.boxQty)   || 0 },
-            bunch:{ type: sql.Float,    value: parseFloat(item.bunchQty) || 0 },
-            steam:{ type: sql.Float,    value: parseFloat(item.steamQty) || 0 },
-            out:  { type: sql.Float,    value: parseFloat(item.outQty)   || 0 },
-            est:  { type: sql.Float,    value: parseFloat(item.estQty)   || 0 },
-            up:   { type: sql.Float,    value: parseFloat(item.unitPrice)|| 0 },
-            tp:   { type: sql.Float,    value: parseFloat(item.totalPrice)||0 },
-            oc:   { type: sql.NVarChar, value: item.orderCode || '' },
-            wk:   { type: sql.Int,      value: warehouseKey },
-            s1b:  { type: sql.Float,    value: parseFloat(item.steamOf1Box)  || 0 },
-            s1bh: { type: sql.Float,    value: parseFloat(item.steamOf1Bunch)|| 0 },
-          }
-        );
-        ok++;
-      } catch (e) { errors.push({ prodName: item.prodName, error: e.message }); }
+        try {
+          await query(
+            `INSERT INTO WarehouseDetail
+               (ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                OutQuantity, EstQuantity, UPrice, TPrice, Stock,
+                OrderCode, WarehouseKey, SteamOf1Box, SteamOf1Bunch)
+             VALUES (@pk,@box,@bunch,@steam,@out,@est,@up,@tp,0,@oc,@wk,@s1b,@s1bh)`,
+            {
+              pk:   { type: sql.Int,      value: prodKey },
+              box:  { type: sql.Float,    value: parseFloat(item.boxQty)    || 0 },
+              bunch:{ type: sql.Float,    value: parseFloat(item.bunchQty)  || 0 },
+              steam:{ type: sql.Float,    value: parseFloat(item.steamQty)  || 0 },
+              out:  { type: sql.Float,    value: parseFloat(item.outQty)    || 0 },
+              est:  { type: sql.Float,    value: parseFloat(item.estQty)    || 0 },
+              up:   { type: sql.Float,    value: parseFloat(item.unitPrice) || 0 },
+              tp:   { type: sql.Float,    value: parseFloat(item.totalPrice)|| 0 },
+              oc:   { type: sql.NVarChar, value: item.orderCode || '' },
+              wk:   { type: sql.Int,      value: warehouseKey },
+              s1b:  { type: sql.Float,    value: parseFloat(item.steamOf1Box)   || 0 },
+              s1bh: { type: sql.Float,    value: parseFloat(item.steamOf1Bunch) || 0 },
+            }
+          );
+          ok++;
+        } catch (e) {
+          errors.push({ prodName: item.prodName, error: e.message });
+        }
+      }
+    } catch (fatalErr) {
+      // 치명적 오류: 마스터 rollback (isDeleted=1)
+      await query(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
+        { wk: { type: sql.Int, value: warehouseKey } });
+      return res.status(500).json({ success: false, error: `입고 저장 실패 (롤백 완료): ${fatalErr.message}` });
+    }
+
+    // 성공 0건이면 마스터도 rollback
+    if (ok === 0) {
+      await query(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
+        { wk: { type: sql.Int, value: warehouseKey } });
+      return res.status(400).json({ success: false, error: `품목 매칭 실패: ${errors.map(e=>e.prodName).join(', ')}` });
     }
 
     return res.status(201).json({

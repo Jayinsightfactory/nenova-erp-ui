@@ -51,19 +51,21 @@ export default withAuth(async function handler(req, res) {
   // ── GET: 이카운트 거래처 목록 조회 ─────────────────────────
   if (req.method === 'GET') {
     try {
-      const ecountRes = await ecountPost('BasInfo/GetCustomerList', {
-        Conditions: {},
+      // AccountBasic/GetBasicCustList - 기본 거래처 목록 조회
+      const ecountRes = await ecountPost('AccountBasic/GetBasicCustList', {
+        Conditions: { USE_YN: 'Y' },
       });
 
-      if (ecountRes.Status !== 200) {
+      if (String(ecountRes.Status) !== '200') {
         const msg = ecountRes.Error?.Message || ecountRes.Message || '조회 실패';
         return res.status(400).json({ success: false, error: msg, ecountResponse: ecountRes });
       }
 
+      const customers = ecountRes.Data?.Result || ecountRes.Data || [];
       return res.status(200).json({
         success:   true,
-        customers: ecountRes.Data || [],
-        total:     (ecountRes.Data || []).length,
+        customers,
+        total:     Array.isArray(customers) ? customers.length : 0,
       });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
@@ -103,57 +105,81 @@ export default withAuth(async function handler(req, res) {
     }
 
     // 이카운트 거래처 등록/수정 (AccountBasic/SaveBasicCust)
-    // 구조: CustList[{ BulkDatas: { BUSINESS_NO, CUST_NAME, ... } }]
-    // BUSINESS_NO = 거래처코드 (OrderCode 또는 CustKey 10자리 패딩)
-    const CustList = customers.map(c => ({
-      BulkDatas: {
-        BUSINESS_NO: c.OrderCode || String(c.CustKey).padStart(10, '0'),
-        CUST_NAME:   c.CustName,
-      },
-    }));
+    // - CUST_CD: 거래처 코드 (OrderCode)  ← BUSINESS_NO(사업자번호)가 아님
+    // - CUST_TYPE: S(매출), P(매입), B(매출매입)
+    // - 구조: CustList[{ Line:"0", BulkDatas: { CUST_CD, CUST_NAME, CUST_TYPE } }]
+    // Rate limit 방지: 10건씩 나눠서 처리, 각 배치 사이 300ms 대기
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const BATCH = 10;
+    let totalSuccess = 0;
+    let totalFail    = 0;
+    let lastResponse = null;
 
-    let ecountResponse;
-    try {
-      ecountResponse = await ecountPost('AccountBasic/SaveBasicCust', {
-        CustList,
-      });
-    } catch (err) {
-      for (const c of customers) {
-        await writeSyncLog('거래처', c.CustKey, null, '실패', err.message);
+    for (let i = 0; i < customers.length; i += BATCH) {
+      const batch    = customers.slice(i, i + BATCH);
+      const CustList = batch.map((c, idx) => ({
+        Line:      String(idx),
+        BulkDatas: {
+          CUST_CD:   c.OrderCode || `NV${String(c.CustKey).padStart(5, '0')}`,
+          CUST_NAME: c.CustName,
+          CUST_TYPE: 'S',   // 매출 거래처
+          CUST_DES:  c.CustArea || '',
+        },
+      }));
+
+      let ecountResponse;
+      try {
+        ecountResponse = await ecountPost('AccountBasic/SaveBasicCust', { CustList });
+        lastResponse   = ecountResponse;
+      } catch (err) {
+        for (const c of batch) {
+          await writeSyncLog('거래처', c.CustKey, null, '실패', err.message);
+        }
+        totalFail += batch.length;
+        if (i + BATCH < customers.length) await sleep(300);
+        continue;
       }
-      return res.status(500).json({ success: false, error: `이카운트 API 오류: ${err.message}` });
+
+      const isOk = String(ecountResponse.Status) === '200' &&
+                   !(ecountResponse.Errors || []).length;
+      const sc   = Number(ecountResponse.Data?.SuccessCnt) || 0;
+      const fc   = Number(ecountResponse.Data?.FailCnt)    || 0;
+      totalSuccess += isOk ? (sc || batch.length) : 0;
+      totalFail    += isOk ? fc : batch.length;
+
+      for (const c of batch) {
+        await writeSyncLog(
+          '거래처',
+          c.CustKey,
+          c.OrderCode || null,
+          isOk ? '성공' : '실패',
+          isOk ? null : (ecountResponse.Error?.Message || JSON.stringify(ecountResponse)).slice(0, 500)
+        );
+      }
+
+      if (i + BATCH < customers.length) await sleep(300);
     }
 
-    // ResultDetails 기반 성공 판정
-    const sc = ecountResponse.Data?.SuccessCnt;
-    const fc = ecountResponse.Data?.FailCnt;
-    const hasErrors = (ecountResponse.Errors || []).length > 0;
-    const isSuccess = String(ecountResponse.Status) === '200' && !hasErrors && Number(sc) > 0;
-
-    for (const c of customers) {
+    const isSuccess = totalSuccess > 0;
+    // 하위 호환용 (기존 응답 처리 코드를 위해 마지막 응답 유지)
+    const ecountResponse = lastResponse;
+    for (const c of []) { // 이미 위에서 writeSyncLog 완료 — 이 루프는 스킵
       await writeSyncLog(
         '거래처',
         c.CustKey,
         c.OrderCode || null,
         isSuccess ? '성공' : '실패',
-        isSuccess ? null : (ecountResponse.Error?.Message || JSON.stringify(ecountResponse))
+        isSuccess ? null : (ecountResponse?.Error?.Message || JSON.stringify(ecountResponse))
       );
     }
 
-    if (!isSuccess) {
-      const errMsg = ecountResponse.Error?.Message || ecountResponse.Message || '알 수 없는 오류';
-      return res.status(400).json({
-        success:       false,
-        error:         `이카운트 전송 오류: ${errMsg}`,
-        ecountResponse,
-      });
-    }
-
     return res.status(200).json({
-      success:       true,
-      synced:        customers.length,
-      message:       `이카운트 거래처 동기화 완료: ${customers.length}건`,
-      ecountResponse,
+      success:      totalSuccess > 0 || totalFail === 0,
+      synced:       totalSuccess,
+      failed:       totalFail,
+      total:        customers.length,
+      message:      `거래처 동기화: 성공 ${totalSuccess}건 / 실패 ${totalFail}건`,
+      ecountResponse: lastResponse,
     });
   }
 

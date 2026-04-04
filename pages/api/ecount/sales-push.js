@@ -148,21 +148,28 @@ export default withAuth(async function handler(req, res) {
   const shipments = Object.values(shipmentMap);
 
   // 이카운트 판매입력 요청 구성
-  const SaleList = shipments.map(s => ({
-    IO_DATE:  s.IO_DATE,
-    CUST_CD:  s.CUST_CD,
-    WH_CD:    '100',
-    IO_TYPE:  '1',
-    CURRENCY: 'KRW',
-    AR_NO:    '자동',
-    BulkDatas: s.details.map(d => ({
-      PROD_CD:    d.PROD_CD,
-      QTY:        d.QTY,
-      SUPPLY_AMT: d.SUPPLY_AMT,
-      VAT_AMT:    d.VAT_AMT,
-      REMARKS:    d.REMARKS,
-    })),
-  }));
+  // 구조: SaleList[{ Line:"0", BulkDatas: { IO_DATE, CUST_CD, WH_CD, PROD_CD, QTY, ... } }]
+  // 각 라인 아이템이 SaleList의 개별 항목 (BulkDatas는 flat 단일 객체)
+  const SaleList = [];
+  shipments.forEach(s => {
+    s.details.forEach((d, li) => {
+      SaleList.push({
+        Line:      String(li),
+        BulkDatas: {
+          IO_DATE:    s.IO_DATE,
+          CUST_CD:    s.CUST_CD,
+          WH_CD:      '100',
+          IO_TYPE:    '1',
+          CURRENCY:   'KRW',
+          PROD_CD:    d.PROD_CD,
+          QTY:        String(d.QTY),
+          SUPPLY_AMT: String(d.SUPPLY_AMT),
+          VAT_AMT:    String(d.VAT_AMT),
+          REMARKS:    d.REMARKS,
+        },
+      });
+    });
+  });
 
   // 이카운트 API 호출
   let ecountResponse;
