@@ -129,6 +129,7 @@ export default withAuth(async function handler(req, res) {
         CUST_NAME: c.CustName,
         CUST_TYPE: 'S',
         CUST_DES:  c.CustArea || '',
+        USE_YN:    'Y',
       },
     }));
 
@@ -156,27 +157,39 @@ export default withAuth(async function handler(req, res) {
     totalSuccess = isOk ? (sc || customers.length) : 0;
     totalFail    = isOk ? fc : customers.length;
 
+    // 디버그: 전체 응답 콘솔 출력
+    if (!isOk) {
+      console.error('[customers-sync] 이카운트 오류 응답:', JSON.stringify(ecountResponse));
+    }
+
+    const errMsg = isOk ? null : (
+      ecountResponse.Error?.Message ||
+      ecountResponse.Data?.Message ||
+      ecountResponse.Message ||
+      JSON.stringify(ecountResponse)
+    ).slice(0, 500);
+
     for (const c of customers) {
       await writeSyncLog(
         '거래처',
         c.CustKey,
         c.OrderCode || null,
         isOk ? '성공' : '실패',
-        isOk ? null : (ecountResponse.Error?.Message || JSON.stringify(ecountResponse)).slice(0, 500)
+        errMsg
       );
     }
 
     const nextOffset = offset + customers.length < total ? offset + customers.length : null;
 
     return res.status(200).json({
-      success:    isOk,
-      synced:     totalSuccess,
-      failed:     totalFail,
+      success:        isOk,
+      synced:         totalSuccess,
+      failed:         totalFail,
       total,
       nextOffset,
-      processed:  offset + customers.length,
-      message:    `거래처 동기화 ${offset + 1}~${offset + customers.length}/${total}: 성공 ${totalSuccess}건 / 실패 ${totalFail}건`,
-      ecountResponse,
+      processed:      offset + customers.length,
+      message:        `거래처 동기화 ${offset + 1}~${offset + customers.length}/${total}: 성공 ${totalSuccess}건 / 실패 ${totalFail}건`,
+      ecountResponse: isOk ? undefined : ecountResponse,  // 실패 시만 전달
     });
   }
 

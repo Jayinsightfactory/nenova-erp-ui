@@ -122,6 +122,11 @@ export default function EcountDashboard() {
         totalFailed += data.failed  || 0;
         if (grandTotal === null) grandTotal = data.total || 0;
 
+        // 첫 번째 배치 실패 시 에러 원인 즉시 표시 후 계속 진행
+        if (!data.success && data.ecountResponse && offset === 0) {
+          console.warn('[custSync] 1번째 배치 이카운트 응답:', data.ecountResponse);
+        }
+
         const processed = data.processed || (offset + LIMIT);
         setCustMsg(`⏳ 동기화 중... ${Math.min(processed, grandTotal)}/${grandTotal}건`);
 
