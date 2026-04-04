@@ -193,5 +193,76 @@ export default withAuth(async function handler(req, res) {
     });
   }
 
+  // ── PUT: 이카운트 거래처 코드를 우리 DB로 역방향 매핑 ──────
+  // 이카운트에서 거래처 목록을 가져와 이름으로 매칭 → Customer.OrderCode 업데이트
+  if (req.method === 'PUT') {
+    try {
+      // 이카운트 거래처 목록 조회
+      const ecountRes = await ecountPost('AccountBasic/GetBasicCustList', {
+        Conditions: { USE_YN: 'Y' },
+      });
+
+      if (String(ecountRes.Status) !== '200') {
+        return res.status(400).json({ success: false, error: '이카운트 거래처 조회 실패', ecountRes });
+      }
+
+      const ecountCusts = ecountRes.Data?.Result || ecountRes.Data || [];
+      if (!Array.isArray(ecountCusts) || ecountCusts.length === 0) {
+        return res.status(200).json({ success: true, mapped: 0, message: '이카운트에 거래처가 없습니다.' });
+      }
+
+      // 우리 DB 거래처 조회
+      const dbResult = await query(
+        `SELECT CustKey, CustName, ISNULL(OrderCode,'') AS OrderCode FROM Customer WHERE isDeleted=0 ORDER BY CustKey`
+      );
+      const dbCusts = dbResult.recordset;
+
+      // 이카운트 거래처: CUST_CD, CUST_NAME 기준으로 Map 생성
+      // 매핑 전략: 이름 정규화 후 정확 매칭 → 부분 매칭 순
+      const normalize = s => (s || '').replace(/\s+/g, '').toLowerCase();
+      const ecountMap = {};
+      for (const ec of ecountCusts) {
+        const cd   = ec.CUST_CD   || ec.cust_cd   || '';
+        const name = ec.CUST_NAME || ec.cust_name || '';
+        if (cd && name) ecountMap[normalize(name)] = cd;
+      }
+
+      let mappedCount = 0;
+      const mappings  = [];
+      const skipped   = [];
+
+      for (const db of dbCusts) {
+        const key = normalize(db.CustName);
+        const ec  = ecountMap[key];
+        if (ec && ec !== db.OrderCode) {
+          // 매핑 발견 → DB 업데이트
+          await query(
+            `UPDATE Customer SET OrderCode=@code WHERE CustKey=@ck`,
+            {
+              code: { type: sql.NVarChar, value: ec },
+              ck:   { type: sql.Int,      value: db.CustKey },
+            }
+          );
+          mappings.push({ CustKey: db.CustKey, CustName: db.CustName, oldCode: db.OrderCode, newCode: ec });
+          mappedCount++;
+        } else if (!ec) {
+          skipped.push({ CustKey: db.CustKey, CustName: db.CustName, reason: '이카운트 미등록' });
+        }
+      }
+
+      return res.status(200).json({
+        success:      true,
+        mapped:       mappedCount,
+        total:        dbCusts.length,
+        ecountTotal:  ecountCusts.length,
+        mappings,
+        skipped:      skipped.slice(0, 20), // 처음 20건만
+        message:      `이카운트 코드 매핑 완료: ${mappedCount}건 업데이트`,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 });

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/Layout';
-import { apiGet, apiPost } from '../../lib/useApi';
+import { apiGet, apiPost, apiPut } from '../../lib/useApi';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -57,6 +57,10 @@ export default function EcountDashboard() {
   const [custLoading, setCustLoading]     = useState(false);
   const [custMsg, setCustMsg]             = useState('');
 
+  // 이카운트 코드 매핑
+  const [mapLoading, setMapLoading]       = useState(false);
+  const [mapMsg, setMapMsg]               = useState('');
+
   const loadStatus = useCallback(async () => {
     setApiLoading(true);
     try {
@@ -103,6 +107,27 @@ export default function EcountDashboard() {
       setTimeout(() => setSessionMsg(''), 6000);
     }
   }, [loadStatus]);
+
+  // 이카운트 → 우리 DB 역방향 코드 매핑
+  const handleCodeMap = useCallback(async () => {
+    if (!confirm('이카운트 거래처 목록을 가져와 우리 DB의 거래처 코드(OrderCode)를 자동 업데이트합니다.\n이 작업은 기존 OrderCode를 덮어씁니다. 계속하시겠습니까?')) return;
+    setMapLoading(true);
+    setMapMsg('⏳ 이카운트 코드 매핑 중...');
+    try {
+      const data = await apiPut('/api/ecount/customers-sync', {});
+      if (data.mapped > 0) {
+        setMapMsg(`✅ 코드 매핑 완료: ${data.mapped}건 업데이트 (이카운트 ${data.ecountTotal}건 / DB ${data.total}건)`);
+      } else {
+        setMapMsg(`⚠️ 매핑된 거래처 없음 — 이카운트 ${data.ecountTotal}건 조회됨`);
+      }
+      console.log('[코드매핑] 결과:', data);
+    } catch (e) {
+      setMapMsg(`❌ 오류: ${e.message}`);
+    } finally {
+      setMapLoading(false);
+      setTimeout(() => setMapMsg(''), 15000);
+    }
+  }, []);
 
   const handleCustSync = useCallback(async () => {
     if (!confirm('모든 활성 거래처를 이카운트에 동기화하시겠습니까?')) return;
@@ -265,6 +290,15 @@ export default function EcountDashboard() {
           {custLoading ? '동기화중...' : '👥 거래처 전체 동기화'}
         </button>
         <button
+          className="btn"
+          style={{ background: '#1d4ed8', color: '#fff', borderColor: '#1e40af' }}
+          onClick={handleCodeMap}
+          disabled={mapLoading}
+          title="이카운트 거래처 코드를 우리 DB에 매핑"
+        >
+          {mapLoading ? '매핑중...' : '🔗 이카운트 코드 매핑'}
+        </button>
+        <button
           className="btn btn-secondary"
           onClick={loadLogs}
           disabled={logsLoading}
@@ -286,6 +320,14 @@ export default function EcountDashboard() {
             color: custMsg.startsWith('❌') ? 'var(--red, #e53935)' : 'var(--green, #2e7d32)',
           }}>
             {custMsg}
+          </span>
+        )}
+        {mapMsg && (
+          <span style={{
+            fontSize: 13,
+            color: mapMsg.startsWith('❌') ? 'var(--red, #e53935)' : mapMsg.startsWith('⚠️') ? '#b45309' : 'var(--green, #2e7d32)',
+          }}>
+            {mapMsg}
           </span>
         )}
       </div>
