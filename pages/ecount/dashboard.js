@@ -107,17 +107,44 @@ export default function EcountDashboard() {
   const handleCustSync = useCallback(async () => {
     if (!confirm('모든 활성 거래처를 이카운트에 동기화하시겠습니까?')) return;
     setCustLoading(true);
-    setCustMsg('');
+    setCustMsg('⏳ 거래처 동기화 시작...');
+
+    let offset       = 0;
+    const LIMIT      = 20;
+    let totalSynced  = 0;
+    let totalFailed  = 0;
+    let grandTotal   = null;
+
     try {
-      const data = await apiPost('/api/ecount/customers-sync', { all: true });
-      setCustMsg(`✅ 거래처 동기화 완료: ${data.synced}건`);
+      while (true) {
+        const data = await apiPost('/api/ecount/customers-sync', { all: true, offset, limit: LIMIT });
+        totalSynced += data.synced  || 0;
+        totalFailed += data.failed  || 0;
+        if (grandTotal === null) grandTotal = data.total || 0;
+
+        const processed = data.processed || (offset + LIMIT);
+        setCustMsg(`⏳ 동기화 중... ${Math.min(processed, grandTotal)}/${grandTotal}건`);
+
+        if (data.nextOffset === null || data.nextOffset === undefined) break;
+        offset = data.nextOffset;
+
+        // 이카운트 rate limit 방지 — 배치 간 200ms 대기 (브라우저 측)
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      if (totalFailed === 0) {
+        setCustMsg(`✅ 거래처 동기화 완료: ${totalSynced}건 성공`);
+      } else {
+        setCustMsg(`⚠️ 동기화 완료: 성공 ${totalSynced}건 / 실패 ${totalFailed}건`);
+      }
+      loadLogs();
     } catch (e) {
       setCustMsg(`❌ 오류: ${e.message}`);
     } finally {
       setCustLoading(false);
-      setTimeout(() => setCustMsg(''), 6000);
+      setTimeout(() => setCustMsg(''), 10000);
     }
-  }, []);
+  }, [loadLogs]);
 
   const statusCards = [
     {
