@@ -121,16 +121,13 @@ export default withAuth(async function handler(req, res) {
     }
 
     // 이카운트 거래처 등록/수정 (AccountBasic/SaveBasicCust)
-    // 이번 배치 전체를 한 번에 전송 (sleep 없음 — 프론트가 호출 간격 조절)
-    const CustList = customers.map((c, idx) => ({
-      Line:      String(idx),
-      BulkDatas: {
-        CUST_CD:   c.OrderCode || `NV${String(c.CustKey).padStart(5, '0')}`,
-        CUST_NAME: c.CustName,
-        CUST_TYPE: 'S',
-        CUST_DES:  c.CustArea || '',
-        USE_YN:    'Y',
-      },
+    // 구조: CustList에 flat 객체 배열 (Line/BulkDatas 래퍼 없이 직접 필드)
+    const CustList = customers.map(c => ({
+      CUST_CD:   c.OrderCode || `NV${String(c.CustKey).padStart(5, '0')}`,
+      CUST_NAME: c.CustName,
+      CUST_TYPE: 'S',
+      CUST_DES:  c.CustArea || '',
+      USE_YN:    'Y',
     }));
 
     let ecountResponse;
