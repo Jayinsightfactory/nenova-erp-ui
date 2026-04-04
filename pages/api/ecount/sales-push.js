@@ -155,8 +155,8 @@ export default withAuth(async function handler(req, res) {
         details:     [],
       };
     }
-    const cost      = Number(row.UnitCost) || 0;
-    const qty       = Number(row.QTY)      || 0;
+    const cost      = Math.round(Number(row.UnitCost) || 0);
+    const qty       = Math.round(Number(row.QTY)      || 0);
     const totalAmt  = cost * qty;
     const supplyAmt = Math.round(totalAmt / 1.1);
     const vatAmt    = totalAmt - supplyAmt;
