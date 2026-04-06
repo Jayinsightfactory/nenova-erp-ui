@@ -98,18 +98,20 @@ async function saveMatrix(req, res) {
     if (!Array.isArray(changes) || changes.length === 0) {
       return res.status(400).json({ success: false, error: 'changes 배열 필요' });
     }
-    // 단일 MERGE 쿼리로 한 번에 처리
     const valid = changes
       .map(ch => ({ ck: parseInt(ch.custKey), pk: parseInt(ch.prodKey), cost: parseFloat(ch.cost) || 0 }))
       .filter(ch => ch.ck && ch.pk);
 
-    if (valid.length > 0) {
-      const values = valid.map((_, i) => `(@ck${i},@pk${i},@cost${i})`).join(',');
+    // MSSQL 파라미터 최대 2100개 → 파라미터 3개/항목 → 배치당 최대 600항목
+    const BATCH = 600;
+    for (let i = 0; i < valid.length; i += BATCH) {
+      const batch = valid.slice(i, i + BATCH);
+      const values = batch.map((_, j) => `(@ck${j},@pk${j},@cost${j})`).join(',');
       const params = {};
-      valid.forEach((ch, i) => {
-        params[`ck${i}`]   = { type: sql.Int,   value: ch.ck };
-        params[`pk${i}`]   = { type: sql.Int,   value: ch.pk };
-        params[`cost${i}`] = { type: sql.Float, value: ch.cost };
+      batch.forEach((ch, j) => {
+        params[`ck${j}`]   = { type: sql.Int,   value: ch.ck };
+        params[`pk${j}`]   = { type: sql.Int,   value: ch.pk };
+        params[`cost${j}`] = { type: sql.Float, value: ch.cost };
       });
       await query(
         `MERGE CustomerProdCost AS t

@@ -114,7 +114,7 @@ export default function Pricing() {
       };
     });
     try {
-      const BATCH = 50;
+      const BATCH = 600;
       let totalSaved = 0;
       for (let i = 0; i < changes.length; i += BATCH) {
         const batch = changes.slice(i, i + BATCH);
