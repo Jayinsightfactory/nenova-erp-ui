@@ -1,295 +1,449 @@
 // pages/master/pricing.js
-// 업체별 품목 단가 관리
-// 수정이력: 2026-03-30 — 거래처 검색 드롭다운(담당자 있는 업체만), 품목 검색, 변경 하이라이트
+// 업체별 품목 단가 관리 — 매트릭스 뷰 (업체×품목 일괄 수정)
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiGet, apiPut } from '../../lib/useApi';
-import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
 export default function Pricing() {
-  // 거래처 검색
-  const [custSearch, setCustSearch] = useState('');
-  const [custList, setCustList] = useState([]);
-  const [selectedCust, setSelectedCust] = useState(null);
-  const [showCustDrop, setShowCustDrop] = useState(false);
-  const custRef = useRef();
+  // ── 필터 상태
+  const [counName,   setCountName]   = useState('');
+  const [flowerName, setFlowerName]  = useState('');
+  const [prodSearch, setProdSearch]  = useState('');
 
-  // 품목 검색
-  const [prodSearch, setProdSearch] = useState('');
+  // ── 업체 선택
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [selectedKeys, setSelectedKeys] = useState(new Set()); // CustKey Set
+  const [custSearch,   setCustSearch]   = useState('');
+  const [showCustPanel, setShowCustPanel] = useState(false);
+  const custPanelRef = useRef();
 
-  // 데이터
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [localCosts, setLocalCosts] = useState({});
-  const [changed, setChanged] = useState(new Set());
-  const [err, setErr] = useState('');
+  // ── 드롭다운 옵션
+  const [counNames,   setCounNames]   = useState([]);
+  const [flowerNames, setFlowerNames] = useState([]);
+
+  // ── 매트릭스 데이터
+  const [products,   setProducts]   = useState([]);
+  const [costs,      setCosts]      = useState({}); // "custKey_prodKey" → {autoKey, cost}
+  const [localCosts, setLocalCosts] = useState({}); // 편집 중인 단가
+  const [changed,    setChanged]    = useState(new Set()); // "custKey_prodKey"
+
+  // ── UI 상태
+  const [loading,    setLoading]    = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [searched,   setSearched]   = useState(false);
+  const [err,        setErr]        = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [showBulk, setShowBulk] = useState(false);
-  const [bulkCost, setBulkCost] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  // 외부 클릭 시 드롭다운 닫기
+  // ── 일괄 지정
+  const [showBulk, setShowBulk]   = useState(false);
+  const [bulkCost, setBulkCost]   = useState('');
+  const [bulkTarget, setBulkTarget] = useState('all'); // 'all' | 'cust:{key}' | 'prod:{key}'
+
+  // 외부 클릭 시 업체 패널 닫기
   useEffect(() => {
     const handler = e => {
-      if (custRef.current && !custRef.current.contains(e.target)) setShowCustDrop(false);
+      if (custPanelRef.current && !custPanelRef.current.contains(e.target))
+        setShowCustPanel(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // 거래처 검색 디바운스 — 담당자 있는 업체만
+  // 초기 로드: 전체 옵션 목록
   useEffect(() => {
-    const t = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch || '' })
-        .then(d => {
-          // 담당자(Manager)가 설정된 업체만 필터링
-          const filtered = (d.customers || []).filter(c => c.Manager && c.Manager.trim() !== '');
-          setCustList(filtered);
-          if (custSearch.length > 0) setShowCustDrop(true);
-        })
-        .catch(() => {});
-    }, 300);
-    return () => clearTimeout(t);
-  }, [custSearch]);
-
-  // 거래처 선택 시 단가 목록 로드
-  const load = () => {
-    if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
-    setLoading(true); setErr('');
-    apiGet('/api/master', { entity: 'pricing', custKey: selectedCust.CustKey })
+    apiGet('/api/master/pricing-matrix')
       .then(d => {
-        setData(d.data || []);
-        const costs = {};
-        (d.data || []).forEach(r => { costs[r.AutoKey] = r.Cost; });
-        setLocalCosts(costs);
+        setAllCustomers(d.allCustomers || []);
+        setCounNames(d.counNames   || []);
+        setFlowerNames(d.flowerNames || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // 조회
+  const handleSearch = useCallback(() => {
+    if (selectedKeys.size === 0) {
+      setErr('업체를 1개 이상 선택하세요.');
+      return;
+    }
+    setLoading(true); setErr(''); setSearched(false);
+    const params = {
+      custKeys:   [...selectedKeys].join(','),
+      ...(counName   && { counName }),
+      ...(flowerName && { flowerName }),
+      ...(prodSearch && { prodSearch }),
+    };
+    apiGet('/api/master/pricing-matrix', params)
+      .then(d => {
+        setProducts(d.products || []);
+        setCosts(d.costs || {});
+        // localCosts 초기화: 기존 단가 세팅
+        const lc = {};
+        for (const [key, val] of Object.entries(d.costs || {})) {
+          lc[key] = val.cost;
+        }
+        setLocalCosts(lc);
         setChanged(new Set());
+        setSearched(true);
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
+  }, [selectedKeys, counName, flowerName, prodSearch]);
+
+  // 단가 변경
+  const handleCostChange = (custKey, prodKey, val) => {
+    const key = `${custKey}_${prodKey}`;
+    setLocalCosts(prev => ({ ...prev, [key]: val }));
+    setChanged(prev => new Set([...prev, key]));
   };
 
   // 저장
   const handleSave = async () => {
-    if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
     if (changed.size === 0) return;
     setSaving(true); setErr('');
-    const changes = [...changed].map(autoKey => {
-      const row = data.find(r => r.AutoKey === autoKey);
-      return { autoKey, prodKey: row?.ProdKey, cost: localCosts[autoKey] ?? 0 };
+    const changes = [...changed].map(key => {
+      const [ck, pk] = key.split('_');
+      return {
+        custKey:  parseInt(ck),
+        prodKey:  parseInt(pk),
+        autoKey:  costs[key]?.autoKey || null,
+        cost:     parseFloat(localCosts[key]) || 0,
+      };
     });
     try {
-      const d = await apiPut('/api/master?entity=pricing', { custKey: selectedCust.CustKey, changes });
+      const d = await apiPut('/api/master/pricing-matrix', { changes });
+      // 저장 후 costs 동기화
+      const newCosts = { ...costs };
+      for (const ch of changes) {
+        const k = `${ch.custKey}_${ch.prodKey}`;
+        newCosts[k] = { autoKey: newCosts[k]?.autoKey || ch.autoKey, cost: ch.cost };
+      }
+      setCosts(newCosts);
       setChanged(new Set());
       setSuccessMsg(`✅ ${d.saved}개 단가 저장 완료`);
       setTimeout(() => setSuccessMsg(''), 4000);
-    } catch (e) { setErr(e.message); } finally { setSaving(false); }
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
   };
 
-  // 단가 변경
-  const handleCostChange = (autoKey, val) => {
-    setLocalCosts(c => ({ ...c, [autoKey]: parseFloat(val) || 0 }));
-    setChanged(c => new Set([...c, autoKey]));
-  };
-
-  // 일괄 지정
+  // 일괄 적용
   const handleBulk = () => {
     const cost = parseFloat(bulkCost) || 0;
-    const newCosts = { ...localCosts };
-    const newChanged = new Set(changed);
-    filteredData.forEach(r => { newCosts[r.AutoKey] = cost; newChanged.add(r.AutoKey); });
-    setLocalCosts(newCosts);
-    setChanged(newChanged);
+    const newLC  = { ...localCosts };
+    const newChg = new Set(changed);
+
+    const selCusts = [...selectedKeys];
+
+    if (bulkTarget === 'all') {
+      selCusts.forEach(ck => {
+        products.forEach(p => {
+          const k = `${ck}_${p.ProdKey}`;
+          newLC[k] = cost; newChg.add(k);
+        });
+      });
+    } else if (bulkTarget.startsWith('cust:')) {
+      const ck = parseInt(bulkTarget.split(':')[1]);
+      products.forEach(p => {
+        const k = `${ck}_${p.ProdKey}`;
+        newLC[k] = cost; newChg.add(k);
+      });
+    } else if (bulkTarget.startsWith('prod:')) {
+      const pk = parseInt(bulkTarget.split(':')[1]);
+      selCusts.forEach(ck => {
+        const k = `${ck}_${pk}`;
+        newLC[k] = cost; newChg.add(k);
+      });
+    }
+
+    setLocalCosts(newLC);
+    setChanged(newChg);
     setShowBulk(false);
     setBulkCost('');
-    setSuccessMsg(`✅ ${filteredData.length}개 품목에 ${fmt(cost)}원 일괄 적용됨 (저장 버튼으로 확정)`);
+    setSuccessMsg(`✅ ${newChg.size - changed.size + 1}개 항목에 ${fmt(cost)}원 일괄 적용 (저장 버튼으로 확정)`);
     setTimeout(() => setSuccessMsg(''), 5000);
   };
 
-  // 엑셀
-  const handleExcel = () => {
-    const rows = [['국가','꽃','품목명','기본단가','적용단가']];
-    filteredData.forEach(r => rows.push([r.CounName, r.FlowerName, r.ProdName, r.Cost, localCosts[r.AutoKey]||0]));
-    const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `단가관리_${selectedCust?.CustName||''}.csv`;
-    a.click();
-  };
+  // 선택 업체 정보
+  const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 
-  // 품목 검색 필터 적용
-  const filteredData = prodSearch
-    ? data.filter(r =>
-        r.ProdName?.toLowerCase().includes(prodSearch.toLowerCase()) ||
-        r.FlowerName?.toLowerCase().includes(prodSearch.toLowerCase()) ||
-        r.CounName?.toLowerCase().includes(prodSearch.toLowerCase())
+  // 업체 검색 필터
+  const filteredCusts = custSearch
+    ? allCustomers.filter(c =>
+        c.CustName.toLowerCase().includes(custSearch.toLowerCase()) ||
+        (c.Manager || '').toLowerCase().includes(custSearch.toLowerCase())
       )
-    : data;
+    : allCustomers;
+
+  // 셀 값 가져오기
+  const getCost = (custKey, prodKey) => {
+    const key = `${custKey}_${prodKey}`;
+    return key in localCosts ? localCosts[key] : (costs[key]?.cost ?? '');
+  };
+  const isChanged = (custKey, prodKey) => changed.has(`${custKey}_${prodKey}`);
 
   return (
     <div>
-      {/* 필터 바 */}
-      <div className="filter-bar">
+      {/* ── 필터 바 ── */}
+      <div className="filter-bar" style={{ flexWrap: 'wrap', gap: 6 }}>
 
-        {/* 거래처 검색 드롭다운 */}
-        <span className="filter-label">거래처</span>
-        <div style={{position:'relative'}} ref={custRef}>
-          <input
-            className="filter-input"
-            placeholder="거래처명 검색... (담당자 있는 업체)"
-            value={custSearch}
-            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); }}
-            onFocus={() => custList.length > 0 && setShowCustDrop(true)}
-            style={{minWidth:220, borderColor: selectedCust ? 'var(--blue)' : undefined}}
-          />
-          {showCustDrop && custList.length > 0 && (
+        {/* 업체 선택 */}
+        <span className="filter-label">업체 선택</span>
+        <div style={{ position: 'relative' }} ref={custPanelRef}>
+          <button
+            className="btn"
+            onClick={() => setShowCustPanel(v => !v)}
+            style={{
+              minWidth: 200, textAlign: 'left', fontWeight: 'normal',
+              borderColor: selectedKeys.size > 0 ? 'var(--blue)' : undefined,
+            }}
+          >
+            {selectedKeys.size === 0
+              ? '업체 선택...'
+              : `${selectedKeys.size}개 업체 선택됨`}
+            {' '}▼
+          </button>
+
+          {showCustPanel && (
             <div style={{
-              position:'absolute', top:'100%', left:0, zIndex:200,
-              background:'#fff', border:'2px solid var(--border2)',
-              width:320, maxHeight:260, overflowY:'auto',
-              boxShadow:'2px 2px 8px rgba(0,0,0,0.2)'
+              position: 'absolute', top: '100%', left: 0, zIndex: 300,
+              background: '#fff', border: '2px solid var(--border2)',
+              width: 300, maxHeight: 320, display: 'flex', flexDirection: 'column',
+              boxShadow: '2px 4px 12px rgba(0,0,0,0.2)',
             }}>
-              {custList.map(c => (
-                <div key={c.CustKey}
-                  onClick={() => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); }}
-                  style={{padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12}}
-                  onMouseEnter={e => e.currentTarget.style.background = '#E8F0FF'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >
-                  <div style={{fontWeight:'bold'}}>{c.CustName}</div>
-                  <div style={{fontSize:11, color:'var(--text3)'}}>
-                    {c.CustArea} · 담당: <strong>{c.Manager}</strong> · {c.OrderCode}
-                  </div>
-                </div>
-              ))}
+              {/* 검색 + 전체선택 */}
+              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 }}>
+                <input
+                  className="filter-input"
+                  placeholder="업체명 / 담당자 검색"
+                  value={custSearch}
+                  onChange={e => setCustSearch(e.target.value)}
+                  style={{ flex: 1, fontSize: 12 }}
+                  autoFocus
+                />
+                <button className="btn btn-sm" onClick={() => {
+                  if (selectedKeys.size === filteredCusts.length)
+                    setSelectedKeys(new Set());
+                  else
+                    setSelectedKeys(new Set(filteredCusts.map(c => c.CustKey)));
+                }}>
+                  {selectedKeys.size === filteredCusts.length ? '전체 해제' : '전체 선택'}
+                </button>
+              </div>
+
+              {/* 업체 목록 */}
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {filteredCusts.map(c => {
+                  const checked = selectedKeys.has(c.CustKey);
+                  return (
+                    <label key={c.CustKey} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '5px 10px', cursor: 'pointer', fontSize: 12,
+                      borderBottom: '1px solid #EEE',
+                      background: checked ? '#EEF4FF' : '#fff',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedKeys(prev => {
+                            const next = new Set(prev);
+                            if (next.has(c.CustKey)) next.delete(c.CustKey);
+                            else next.add(c.CustKey);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span>
+                        <strong>{c.CustName}</strong>
+                        <span style={{ color: 'var(--text3)', marginLeft: 6 }}>
+                          {c.CustArea} · {c.Manager}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>
+                {selectedKeys.size}개 선택 / 전체 {allCustomers.length}개
+              </div>
             </div>
           )}
         </div>
+
+        {/* 국가 필터 */}
+        <span className="filter-label">국가</span>
+        <select className="filter-input" value={counName} onChange={e => setCountName(e.target.value)} style={{ minWidth: 100 }}>
+          <option value="">전체</option>
+          {counNames.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+
+        {/* 꽃 종류 필터 */}
+        <span className="filter-label">품종</span>
+        <select className="filter-input" value={flowerName} onChange={e => setFlowerName(e.target.value)} style={{ minWidth: 100 }}>
+          <option value="">전체</option>
+          {flowerNames.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
 
         {/* 품목 검색 */}
         <span className="filter-label">품목 검색</span>
         <input
           className="filter-input"
-          placeholder="품목명 / 꽃 / 국가"
+          placeholder="품목명 입력..."
           value={prodSearch}
           onChange={e => setProdSearch(e.target.value)}
-          style={{minWidth:160}}
+          onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          style={{ minWidth: 140 }}
         />
 
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
-          <button className="btn" onClick={() => setShowBulk(true)}>📋 일괄 지정 / Asign. masiva</button>
-          <button className="btn btn-primary"
-            disabled={changed.size === 0 || saving}
-            onClick={handleSave}
-          >
-            {saving ? '⏳ 저장 중...' : `💾 저장 / Guardar${changed.size > 0 ? ` (${changed.size}개)` : ''}`}
-          </button>
-          <button className="btn" onClick={handleExcel}>📊 엑셀 / Excel</button>
-          <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
+          <button className="btn btn-primary" onClick={handleSearch}>🔍 조회</button>
+          {searched && (
+            <>
+              <button className="btn" onClick={() => setShowBulk(true)}>📋 일괄 지정</button>
+              <button
+                className="btn btn-primary"
+                disabled={changed.size === 0 || saving}
+                onClick={handleSave}
+              >
+                {saving ? '⏳ 저장 중...' : `💾 저장 (${changed.size}개)`}
+              </button>
+            </>
+          )}
+          <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖ 닫기</button>
         </div>
       </div>
 
-      {err       && <div className="banner-err">⚠️ {err}</div>}
+      {/* 메시지 */}
+      {err        && <div className="banner-err">⚠️ {err}</div>}
       {successMsg && <div className="banner-ok">{successMsg}</div>}
       {changed.size > 0 && (
-        <div className="banner-warn">
-          ✏️ {changed.size}개 항목이 변경되었습니다. 저장 버튼을 눌러 확정하세요.
-        </div>
+        <div className="banner-warn">✏️ {changed.size}개 변경됨 — 저장 버튼으로 확정하세요.</div>
       )}
 
-      <div className="card">
+      {/* ── 매트릭스 테이블 ── */}
+      <div className="card" style={{ padding: 0 }}>
         <div className="card-header">
-          <span className="card-title">■ 업체별 품목 단가 목록</span>
-          <span style={{fontSize:11, color:'var(--text3)'}}>
-            {selectedCust
-              ? `${selectedCust.CustName} · ${selectedCust.Manager} · 전체 ${data.length}개 / 표시 ${filteredData.length}개`
-              : '거래처를 선택 후 조회하세요'}
+          <span className="card-title">■ 업체별 품목 단가 매트릭스</span>
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+            {searched
+              ? `${selectedCustomers.length}개 업체 × ${products.length}개 품목`
+              : '업체 선택 후 조회하세요'}
           </span>
         </div>
 
-        <div className="table-wrap" style={{border:'none', borderRadius:0}}>
-          {loading ? (
-            <div className="skeleton" style={{height:300}}></div>
-          ) : filteredData.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">💰</div>
-              <div className="empty-text">
-                {selectedCust ? '품목 데이터 없음' : '거래처 선택 후 조회하세요'}
-              </div>
-            </div>
-          ) : (
-            <table className="tbl">
+        {loading ? (
+          <div className="skeleton" style={{ height: 300 }} />
+        ) : !searched ? (
+          <div className="empty-state">
+            <div className="empty-icon">💰</div>
+            <div className="empty-text">업체를 선택하고 조회하세요</div>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🔍</div>
+            <div className="empty-text">조건에 맞는 품목이 없습니다</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl" style={{ minWidth: selectedCustomers.length * 110 + 300 }}>
               <thead>
                 <tr>
-                  <th style={{width:28}}><input type="checkbox"/></th>
-                  <th style={{minWidth:70}}>국가</th>
-                  <th style={{minWidth:80}}>꽃</th>
-                  <th style={{minWidth:200}}>품목명(색상)</th>
-                  <th style={{textAlign:'right', minWidth:80}}>기본단가</th>
-                  <th style={{textAlign:'right', minWidth:100}}>적용단가 (직접 입력)</th>
-                  <th>비고</th>
+                  <th style={{ minWidth: 70, position: 'sticky', left: 0, background: 'var(--bg2)', zIndex: 10 }}>국가</th>
+                  <th style={{ minWidth: 80, position: 'sticky', left: 70, background: 'var(--bg2)', zIndex: 10 }}>품종</th>
+                  <th style={{ minWidth: 180, position: 'sticky', left: 150, background: 'var(--bg2)', zIndex: 10 }}>품목명</th>
+                  <th style={{ textAlign: 'right', minWidth: 75, color: 'var(--text3)' }}>기본단가</th>
+                  {selectedCustomers.map(c => (
+                    <th key={c.CustKey} style={{ textAlign: 'center', minWidth: 100 }}>
+                      <div style={{ fontWeight: 700, fontSize: 11 }}>{c.CustName}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 'normal' }}>{c.Manager}</div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map(r => {
-                  const isChanged = changed.has(r.AutoKey);
-                  const curCost = localCosts[r.AutoKey] ?? r.Cost;
-                  return (
-                    <tr key={r.AutoKey} style={{background: isChanged ? '#FFFFC0' : undefined}}>
-                      <td><input type="checkbox"/></td>
-                      <td style={{fontSize:11}}>{r.CounName}</td>
-                      <td style={{fontSize:11}}>{r.FlowerName}</td>
-                      <td style={{fontWeight:500, fontSize:12}}>{r.ProdName}</td>
-                      <td className="num" style={{color:'var(--text3)', fontSize:11}}>{fmt(r.Cost)}</td>
-                      <td style={{textAlign:'right'}}>
-                        <input
-                          type="number"
-                          value={curCost}
-                          onChange={e => handleCostChange(r.AutoKey, e.target.value)}
-                          onFocus={e => e.target.select()}
-                          style={{
-                            width:95, height:22,
-                            border:`1px solid ${isChanged ? '#AABB00' : 'var(--border2)'}`,
-                            borderRadius:2,
-                            textAlign:'right', fontSize:12,
-                            fontFamily:'var(--mono)',
-                            padding:'0 4px',
-                            background: isChanged ? '#FFFFC0' : 'var(--surface)',
-                            fontWeight: isChanged ? 'bold' : 'normal',
-                          }}
-                        />
-                      </td>
-                      <td style={{fontSize:11, color:'var(--text3)'}}>{r.Descr||'—'}</td>
-                    </tr>
-                  );
-                })}
+                {products.map(p => (
+                  <tr key={p.ProdKey}>
+                    <td style={{ fontSize: 11, position: 'sticky', left: 0, background: '#fff', zIndex: 5 }}>{p.CounName}</td>
+                    <td style={{ fontSize: 11, position: 'sticky', left: 70, background: '#fff', zIndex: 5 }}>{p.FlowerName}</td>
+                    <td style={{ fontWeight: 500, fontSize: 12, position: 'sticky', left: 150, background: '#fff', zIndex: 5 }}>{p.ProdName}</td>
+                    <td className="num" style={{ color: 'var(--text3)', fontSize: 11 }}>{fmt(p.DefaultCost)}</td>
+                    {selectedCustomers.map(c => {
+                      const chg = isChanged(c.CustKey, p.ProdKey);
+                      const val = getCost(c.CustKey, p.ProdKey);
+                      return (
+                        <td key={c.CustKey} style={{ padding: '2px 4px', background: chg ? '#FFFFC0' : undefined }}>
+                          <input
+                            type="number"
+                            value={val}
+                            placeholder="0"
+                            onChange={e => handleCostChange(c.CustKey, p.ProdKey, e.target.value)}
+                            onFocus={e => e.target.select()}
+                            style={{
+                              width: '100%', height: 22, minWidth: 80,
+                              border: `1px solid ${chg ? '#AABB00' : 'var(--border2)'}`,
+                              borderRadius: 2,
+                              textAlign: 'right', fontSize: 12,
+                              fontFamily: 'var(--mono)',
+                              padding: '0 4px',
+                              background: chg ? '#FFFFC0' : 'var(--surface)',
+                              fontWeight: chg ? 'bold' : 'normal',
+                            }}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div style={{padding:'6px 12px', borderTop:'1px solid var(--border)', background:'var(--bg)', fontSize:11, color:'var(--text3)'}}>
-          💡 단가 0이면 기본 단가(Product.Cost)를 사용합니다.
-        </div>
+        {searched && (
+          <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>
+            💡 단가 0 또는 빈칸이면 기본단가(Product.Cost)를 사용합니다.
+          </div>
+        )}
       </div>
 
-      {/* 일괄 지정 모달 */}
+      {/* ── 일괄 지정 모달 ── */}
       {showBulk && (
         <div className="modal-overlay" onClick={() => setShowBulk(false)}>
-          <div className="modal" style={{maxWidth:380}} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">📋 일괄 단가 지정</span>
               <button className="btn btn-sm" onClick={() => setShowBulk(false)}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{fontSize:12, marginBottom:10}}>
-                현재 표시된 <strong>{filteredData.length}개</strong> 품목에 동일한 단가를 적용합니다.
+              <div className="form-group">
+                <label className="form-label">적용 범위</label>
+                <select
+                  className="form-control"
+                  value={bulkTarget}
+                  onChange={e => setBulkTarget(e.target.value)}
+                >
+                  <option value="all">전체 ({selectedCustomers.length}개 업체 × {products.length}개 품목)</option>
+                  <optgroup label="── 업체 1개만">
+                    {selectedCustomers.map(c => (
+                      <option key={c.CustKey} value={`cust:${c.CustKey}`}>
+                        {c.CustName} ({products.length}개 품목)
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="── 품목 1개만">
+                    {products.map(p => (
+                      <option key={p.ProdKey} value={`prod:${p.ProdKey}`}>
+                        {p.ProdName} ({selectedCustomers.length}개 업체)
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
               <div className="form-group">
-                <label className="form-label">적용할 단가</label>
+                <label className="form-label">적용 단가</label>
                 <input
                   type="number"
                   className="form-control"
@@ -299,15 +453,15 @@ export default function Pricing() {
                   autoFocus
                 />
               </div>
-              {bulkCost && (
-                <div className="banner-info" style={{marginTop:8}}>
-                  → {filteredData.length}개 품목에 {fmt(bulkCost)}원 적용
+              {bulkCost !== '' && (
+                <div className="banner-info" style={{ marginTop: 8 }}>
+                  → {fmt(bulkCost)}원 적용
                 </div>
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={handleBulk}>✅ 일괄 적용</button>
-              <button className="btn" onClick={() => setShowBulk(false)}>취소 / Cancelar</button>
+              <button className="btn btn-primary" onClick={handleBulk} disabled={bulkCost === ''}>✅ 일괄 적용</button>
+              <button className="btn" onClick={() => setShowBulk(false)}>취소</button>
             </div>
           </div>
         </div>
