@@ -40,6 +40,7 @@ export default function Pricing() {
   const [showBulk, setShowBulk]   = useState(false);
   const [bulkCost, setBulkCost]   = useState('');
   const [bulkTarget, setBulkTarget] = useState('all'); // 'all' | 'cust:{key}' | 'prod:{key}'
+  const [inlineCost, setInlineCost] = useState(''); // 인라인 일괄 단가 입력
 
   // 외부 클릭 시 업체 패널 닫기
   useEffect(() => {
@@ -126,6 +127,24 @@ export default function Pricing() {
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
+  };
+
+  // 인라인 전체 일괄 적용
+  const handleInlineBulk = () => {
+    const cost = parseFloat(inlineCost);
+    if (isNaN(cost) || inlineCost === '') return;
+    const newLC  = { ...localCosts };
+    const newChg = new Set(changed);
+    [...selectedKeys].forEach(ck => {
+      products.forEach(p => {
+        const k = `${ck}_${p.ProdKey}`;
+        newLC[k] = cost; newChg.add(k);
+      });
+    });
+    setLocalCosts(newLC);
+    setChanged(newChg);
+    setSuccessMsg(`✅ ${[...selectedKeys].length}개 업체 × ${products.length}개 품목에 ${fmt(cost)}원 적용 (저장 버튼으로 확정)`);
+    setTimeout(() => setSuccessMsg(''), 5000);
   };
 
   // 일괄 적용
@@ -302,7 +321,26 @@ export default function Pricing() {
           <button className="btn btn-primary" onClick={handleSearch}>🔍 조회</button>
           {searched && (
             <>
-              <button className="btn" onClick={() => setShowBulk(true)}>📋 일괄 지정</button>
+              {/* 인라인 단가 일괄 지정 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#FFF8E1', border: '1px solid #FFD54F', borderRadius: 4, padding: '2px 8px' }}>
+                <span style={{ fontSize: 11, color: '#795548', whiteSpace: 'nowrap' }}>단가:</span>
+                <input
+                  type="number"
+                  value={inlineCost}
+                  onChange={e => setInlineCost(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleInlineBulk()}
+                  placeholder="금액 입력"
+                  style={{ width: 90, height: 24, border: '1px solid #FFD54F', borderRadius: 3, textAlign: 'right', fontSize: 12, padding: '0 4px', fontFamily: 'var(--mono)' }}
+                />
+                <button
+                  className="btn"
+                  onClick={handleInlineBulk}
+                  disabled={inlineCost === ''}
+                  style={{ whiteSpace: 'nowrap', background: '#FF8F00', color: '#fff', borderColor: '#FF8F00', fontSize: 11 }}
+                >
+                  ✅ 단가 일괄 지정
+                </button>
+              </div>
               <button
                 className="btn btn-primary"
                 disabled={changed.size === 0 || saving}
@@ -369,7 +407,34 @@ export default function Pricing() {
                     <td style={{ fontSize: 11, position: 'sticky', left: 0, background: '#fff', zIndex: 5 }}>{p.CounName}</td>
                     <td style={{ fontSize: 11, position: 'sticky', left: 70, background: '#fff', zIndex: 5 }}>{p.FlowerName}</td>
                     <td style={{ fontWeight: 500, fontSize: 12, position: 'sticky', left: 150, background: '#fff', zIndex: 5 }}>{p.ProdName}</td>
-                    <td className="num" style={{ color: 'var(--text3)', fontSize: 11 }}>{fmt(p.DefaultCost)}</td>
+                    <td style={{ padding: '2px 4px' }}>
+                      <input
+                        type="number"
+                        placeholder={String(p.DefaultCost || 0)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const v = e.target.value;
+                            if (v === '') return;
+                            [...selectedKeys].forEach(ck => handleCostChange(ck, p.ProdKey, v));
+                            e.target.value = '';
+                            e.target.blur();
+                          }
+                        }}
+                        onBlur={e => {
+                          const v = e.target.value;
+                          if (v === '') return;
+                          [...selectedKeys].forEach(ck => handleCostChange(ck, p.ProdKey, v));
+                          e.target.value = '';
+                        }}
+                        style={{
+                          width: '100%', height: 22, minWidth: 70,
+                          border: '1px solid #FFD54F',
+                          borderRadius: 2, textAlign: 'right', fontSize: 11,
+                          fontFamily: 'var(--mono)', padding: '0 4px',
+                          background: '#FFFDE7', color: '#5D4037',
+                        }}
+                      />
+                    </td>
                     {selectedCustomers.map(c => {
                       const chg = isChanged(c.CustKey, p.ProdKey);
                       const val = getCost(c.CustKey, p.ProdKey);
