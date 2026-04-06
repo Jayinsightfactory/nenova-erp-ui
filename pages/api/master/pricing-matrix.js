@@ -98,19 +98,19 @@ async function saveMatrix(req, res) {
     if (!Array.isArray(changes) || changes.length === 0) {
       return res.status(400).json({ success: false, error: 'changes 배열 필요' });
     }
-    for (const ch of changes) {
+    await Promise.all(changes.map(ch => {
       const ck   = parseInt(ch.custKey);
       const pk   = parseInt(ch.prodKey);
       const cost = parseFloat(ch.cost) || 0;
-      if (!ck || !pk) continue;
+      if (!ck || !pk) return Promise.resolve();
 
       if (ch.autoKey) {
-        await query(
+        return query(
           `UPDATE CustomerProdCost SET Cost=@cost WHERE AutoKey=@ak`,
           { cost: { type: sql.Float, value: cost }, ak: { type: sql.Int, value: ch.autoKey } }
         );
       } else {
-        await query(
+        return query(
           `IF NOT EXISTS (SELECT 1 FROM CustomerProdCost WHERE CustKey=@ck AND ProdKey=@pk)
              INSERT INTO CustomerProdCost (CustKey, ProdKey, Cost) VALUES (@ck, @pk, @cost)
            ELSE
@@ -122,7 +122,7 @@ async function saveMatrix(req, res) {
           }
         );
       }
-    }
+    }));
     return res.status(200).json({ success: true, saved: changes.length });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

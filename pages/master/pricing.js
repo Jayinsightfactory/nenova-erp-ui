@@ -100,7 +100,7 @@ export default function Pricing() {
     setChanged(prev => new Set([...prev, key]));
   };
 
-  // 저장
+  // 저장 (50개씩 배치 전송)
   const handleSave = async () => {
     if (changed.size === 0) return;
     setSaving(true); setErr('');
@@ -114,7 +114,13 @@ export default function Pricing() {
       };
     });
     try {
-      const d = await apiPut('/api/master/pricing-matrix', { changes });
+      const BATCH = 50;
+      let totalSaved = 0;
+      for (let i = 0; i < changes.length; i += BATCH) {
+        const batch = changes.slice(i, i + BATCH);
+        const d = await apiPut('/api/master/pricing-matrix', { changes: batch });
+        totalSaved += d.saved || batch.length;
+      }
       // 저장 후 costs 동기화
       const newCosts = { ...costs };
       for (const ch of changes) {
@@ -123,7 +129,7 @@ export default function Pricing() {
       }
       setCosts(newCosts);
       setChanged(new Set());
-      setSuccessMsg(`✅ ${d.saved}개 단가 저장 완료`);
+      setSuccessMsg(`✅ ${totalSaved}개 단가 저장 완료`);
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
