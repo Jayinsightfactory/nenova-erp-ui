@@ -98,9 +98,16 @@ async function saveMatrix(req, res) {
     if (!Array.isArray(changes) || changes.length === 0) {
       return res.status(400).json({ success: false, error: 'changes 배열 필요' });
     }
+    // 중복 custKey+prodKey 제거 (MERGE 오류 방지)
+    const seen = new Set();
     const valid = changes
       .map(ch => ({ ck: parseInt(ch.custKey), pk: parseInt(ch.prodKey), cost: parseFloat(ch.cost) || 0 }))
-      .filter(ch => ch.ck && ch.pk);
+      .filter(ch => {
+        if (!ch.ck || !ch.pk) return false;
+        const k = `${ch.ck}_${ch.pk}`;
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
 
     // MSSQL 파라미터 최대 2100개 → 파라미터 3개/항목 → 배치당 최대 600항목
     const BATCH = 600;
