@@ -98,32 +98,29 @@ async function saveMatrix(req, res) {
     if (!Array.isArray(changes) || changes.length === 0) {
       return res.status(400).json({ success: false, error: 'changes 배열 필요' });
     }
-    await Promise.all(changes.map(ch => {
-      const ck   = parseInt(ch.custKey);
-      const pk   = parseInt(ch.prodKey);
-      const cost = parseFloat(ch.cost) || 0;
-      if (!ck || !pk) return Promise.resolve();
+    // 단일 MERGE 쿼리로 한 번에 처리
+    const valid = changes
+      .map(ch => ({ ck: parseInt(ch.custKey), pk: parseInt(ch.prodKey), cost: parseFloat(ch.cost) || 0 }))
+      .filter(ch => ch.ck && ch.pk);
 
-      if (ch.autoKey) {
-        return query(
-          `UPDATE CustomerProdCost SET Cost=@cost WHERE AutoKey=@ak`,
-          { cost: { type: sql.Float, value: cost }, ak: { type: sql.Int, value: ch.autoKey } }
-        );
-      } else {
-        return query(
-          `IF NOT EXISTS (SELECT 1 FROM CustomerProdCost WHERE CustKey=@ck AND ProdKey=@pk)
-             INSERT INTO CustomerProdCost (CustKey, ProdKey, Cost) VALUES (@ck, @pk, @cost)
-           ELSE
-             UPDATE CustomerProdCost SET Cost=@cost WHERE CustKey=@ck AND ProdKey=@pk`,
-          {
-            ck:   { type: sql.Int,   value: ck },
-            pk:   { type: sql.Int,   value: pk },
-            cost: { type: sql.Float, value: cost },
-          }
-        );
-      }
-    }));
-    return res.status(200).json({ success: true, saved: changes.length });
+    if (valid.length > 0) {
+      const values = valid.map((_, i) => `(@ck${i},@pk${i},@cost${i})`).join(',');
+      const params = {};
+      valid.forEach((ch, i) => {
+        params[`ck${i}`]   = { type: sql.Int,   value: ch.ck };
+        params[`pk${i}`]   = { type: sql.Int,   value: ch.pk };
+        params[`cost${i}`] = { type: sql.Float, value: ch.cost };
+      });
+      await query(
+        `MERGE CustomerProdCost AS t
+         USING (VALUES ${values}) AS s(CustKey, ProdKey, Cost)
+         ON t.CustKey = s.CustKey AND t.ProdKey = s.ProdKey
+         WHEN MATCHED THEN UPDATE SET t.Cost = s.Cost
+         WHEN NOT MATCHED THEN INSERT (CustKey, ProdKey, Cost) VALUES (s.CustKey, s.ProdKey, s.Cost);`,
+        params
+      );
+    }
+    return res.status(200).json({ success: true, saved: valid.length });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
