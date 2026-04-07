@@ -52,7 +52,8 @@ async function getMonthly(req, res, { month, year }) {
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy THEN sd.Amount ELSE 0 END) AS curSales,
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py THEN sd.Amount ELSE 0 END) AS prevSales
      FROM ShipmentDetail sd
-     JOIN Customer c ON sd.CustKey = c.CustKey
+     JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      WHERE (MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy)
         OR (MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py)
      GROUP BY c.CustArea, c.CustName, c.Manager
@@ -70,7 +71,9 @@ async function getMonthly(req, res, { month, year }) {
     `SELECT c.CustArea AS area,
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy THEN sd.Amount ELSE 0 END) AS curSales,
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py THEN sd.Amount ELSE 0 END) AS prevSales
-     FROM ShipmentDetail sd JOIN Customer c ON sd.CustKey = c.CustKey
+     FROM ShipmentDetail sd
+     JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      WHERE ((MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy)
         OR (MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py))
        AND c.CustArea IS NOT NULL AND c.CustArea != ''
@@ -86,7 +89,9 @@ async function getMonthly(req, res, { month, year }) {
     `SELECT c.Manager,
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy THEN sd.Amount ELSE 0 END) AS curSales,
       SUM(CASE WHEN MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py THEN sd.Amount ELSE 0 END) AS prevSales
-     FROM ShipmentDetail sd JOIN Customer c ON sd.CustKey = c.CustKey
+     FROM ShipmentDetail sd
+     JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      WHERE (MONTH(sd.ShipmentDtm)=@cm AND YEAR(sd.ShipmentDtm)=@cy)
         OR (MONTH(sd.ShipmentDtm)=@pm AND YEAR(sd.ShipmentDtm)=@py)
      GROUP BY c.Manager ORDER BY curSales DESC`,
@@ -125,7 +130,7 @@ async function getAreaSales(req, res, { week }) {
       SUM(CASE WHEN sm.OrderWeek=@prev THEN sd.Amount ELSE 0 END) AS prevSales
      FROM ShipmentDetail sd
      JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-     JOIN Customer c ON sd.CustKey = c.CustKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      WHERE sm.OrderWeek IN (@cur, @prev) AND sm.isDeleted=0
        AND c.CustArea IS NOT NULL AND c.CustArea != ''
      GROUP BY c.CustArea ORDER BY curSales DESC`,
@@ -137,7 +142,7 @@ async function getAreaSales(req, res, { week }) {
     `SELECT c.CustArea AS area, sm.OrderWeek AS week, SUM(sd.Amount) AS sales
      FROM ShipmentDetail sd
      JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-     JOIN Customer c ON sd.CustKey = c.CustKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      WHERE sm.isDeleted=0 AND c.CustArea IS NOT NULL
      GROUP BY c.CustArea, sm.OrderWeek ORDER BY sm.OrderWeek`
   );
@@ -173,7 +178,7 @@ async function getManagerSales(req, res, { week, manager, area }) {
       SUM(CASE WHEN sm.OrderWeek=@prev THEN sd.Amount ELSE 0 END) AS prevSales
      FROM ShipmentDetail sd
      JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-     JOIN Customer c ON sd.CustKey = c.CustKey
+     JOIN Customer c ON sm.CustKey = c.CustKey
      ${where}
      GROUP BY c.CustArea, c.Manager, c.CustName
      ORDER BY c.CustArea, c.Manager, curSales DESC`, params

@@ -4,8 +4,22 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
-import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
+import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
+import { useDropdownNav } from '../lib/useDropdownNav';
+
+// 오늘 날짜 기준 차수(주차 번호)만 반환 — "14-01" → "14"
+function getCurrentWeekNum() {
+  return getCurrentWeek().split('-')[0];
+}
+
+// 출고일자 포맷: "2026-04-03" → "03(금)" (기존 전산 프로그램 형식)
+const DAY_KR = ['일','월','화','수','목','금','토'];
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2,'0')}(${DAY_KR[d.getDay()]})`;
+}
 
 const fmt = n => Number(n || 0).toLocaleString();
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
@@ -237,7 +251,10 @@ function SearchableSelect({ options, value, onChange, placeholder = '검색...' 
 
 export default function Estimate() {
   const { t } = useLang();
-  const weekInput = useWeekInput('');
+  // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
+  const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
+  const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
+  const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
   // 왼쪽 패널 - 출고 목록
   const [shipments, setShipments] = useState([]);
@@ -253,6 +270,13 @@ export default function Estimate() {
   const [selectedCust, setSelectedCust] = useState(null);
   const [showCustDrop, setShowCustDrop] = useState(false);
   const custDropRef = useRef();
+
+  // 거래처 드롭다운 키보드 탐색
+  const custNav = useDropdownNav(
+    custList,
+    (c) => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); },
+    () => setShowCustDrop(false)
+  );
 
   // 로딩
   const [loading, setLoading] = useState(false);
@@ -318,12 +342,12 @@ export default function Estimate() {
       .catch(() => {});
   }, []);
 
-  // ── 조회 (차수 + 업체 기준) — 부모주차 기준 그룹핑
+  // ── 조회 (차수 + 업체 기준) — 차수 단위 그룹핑 (14 → 14-01, 14-02 … 모두 포함)
   const load = () => {
-    if (!weekInput.value && !selectedCust) { setErr('차수 또는 업체를 입력하세요.'); return; }
+    if (!weekNum && !selectedCust) { setErr('차수 또는 업체를 입력하세요.'); return; }
     setLoading(true); setErr('');
     apiGet('/api/estimate', {
-      week: weekInput.value,
+      week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       custKey: selectedCust?.CustKey || '',
     })
       .then(d => {
@@ -365,6 +389,7 @@ export default function Estimate() {
   });
 
   const totalQty    = filteredItems.reduce((a,b) => a+(b.Quantity||0), 0);
+  const totalCost   = filteredItems.reduce((a,b) => a+(b.Cost||0), 0);
   const totalSupply = filteredItems.reduce((a,b) => a+(b.Amount||0), 0);
   const totalVat    = filteredItems.reduce((a,b) => a+(b.Vat||0), 0);
 
@@ -396,7 +421,7 @@ export default function Estimate() {
   const handleExcel = () => {
     if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
     const custName = selectedShip?.CustName || '';
-    const week = weekInput.value || '';
+    const week = weekNum || '';
     const rows = [
       [`견적서 — ${custName} / ${week}`],
       [],
@@ -424,7 +449,7 @@ export default function Estimate() {
   // ── 실제 인쇄 실행
   const doActualPrint = useCallback((opts) => {
     const custName = selectedShip?.CustName || '';
-    const week = weekInput.value || '';
+    const week = weekNum || '';
 
     // 선출고 = 정상출고 품목만, 종합 = 전체
     const printRows = filteredItems.filter(i =>
@@ -482,7 +507,7 @@ export default function Estimate() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekInput.value]);
+  }, [filteredItems, selectedShip, weekNum]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
@@ -500,28 +525,44 @@ export default function Estimate() {
     <div>
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
-        {/* 차수 입력 */}
-        <WeekInput weekInput={weekInput} label="차수" />
+        {/* 차수 입력 — 단순 번호 (14, 15…), 세부차수(14-01/02)는 자동 묶음 */}
+        <span className="filter-label">차수</span>
+        <button type="button" className="btn btn-sm"
+          style={{ width:22, height:22, padding:0, fontSize:11 }}
+          onClick={weekPrev} title="이전 차수">◀</button>
+        <input
+          className="filter-input"
+          style={{ width:44, textAlign:'center', fontWeight:700 }}
+          value={weekNum}
+          onChange={e => setWeekNum(e.target.value.replace(/\D/g,'').slice(0,2))}
+          onBlur={e => setWeekNum(String(Math.max(1, Math.min(52, parseInt(e.target.value)||1))))}
+          placeholder={getCurrentWeekNum()}
+        />
+        <button type="button" className="btn btn-sm"
+          style={{ width:22, height:22, padding:0, fontSize:11 }}
+          onClick={weekNext} title="다음 차수">▶</button>
 
         {/* 업체 검색 드롭다운 */}
         <span className="filter-label">거래처</span>
         <div style={{ position: 'relative' }} ref={custDropRef}>
           <input
             className="filter-input"
-            placeholder="거래처 검색..."
+            placeholder="거래처 검색... (↓↑ 이동, Enter 선택)"
             value={custSearch}
-            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); }}
+            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); custNav.reset(); }}
             onFocus={() => custList.length > 0 && setShowCustDrop(true)}
+            onKeyDown={custNav.onKeyDown}
             style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined }}
           />
           {showCustDrop && custList.length > 0 && (
             <div style={{ position:'absolute', top:'100%', left:0, zIndex:200, background:'#fff', border:'2px solid var(--border2)', width:300, maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 6px rgba(0,0,0,0.2)' }}>
-              {custList.map(c => (
+              {custList.map((c, i) => (
                 <div key={c.CustKey}
-                  onClick={() => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); }}
-                  style={{ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12 }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#E8F0FF'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                  onClick={() => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); custNav.reset(); }}
+                  style={{ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12,
+                    background: custNav.idx === i ? '#C5D9F1' : '#fff' }}
+                  onMouseEnter={e => { if (custNav.idx !== i) e.currentTarget.style.background = '#E8F0FF'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = custNav.idx === i ? '#C5D9F1' : '#fff'; }}
                 >
                   <div style={{fontWeight:'bold'}}>{c.CustName}</div>
                   <div style={{fontSize:11, color:'var(--text3)'}}>{c.CustArea} · {c.Manager}</div>
@@ -569,13 +610,13 @@ export default function Estimate() {
                   <thead>
                     <tr>
                       <th style={{width:28}}><input type="checkbox"/></th>
-                      <th>주차</th><th>차수</th><th>거래처</th>
-                      <th style={{textAlign:'right'}}>합계금액</th>
+                      <th>차수</th><th>거래처</th>
+                      <th style={{textAlign:'right'}}>총 합계금액</th>
                     </tr>
                   </thead>
                   <tbody>
                     {shipments.length === 0
-                      ? <tr><td colSpan={5} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
+                      ? <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
                       : shipments.map(s => {
                           const groupId = `${s.ParentWeek}_${s.CustKey}`;
                           const subWeeks = (s.SubWeeks || '').split(',').filter(Boolean).join(', ');
@@ -586,8 +627,10 @@ export default function Estimate() {
                               style={{cursor:'pointer'}}
                             >
                               <td><input type="checkbox" readOnly checked={selectedId === groupId}/></td>
-                              <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>{s.ParentWeek}</td>
-                              <td style={{fontSize:10, color:'var(--text3)'}}>{subWeeks}</td>
+                              <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>
+                                {s.ParentWeek}
+                                <div style={{fontSize:9, color:'var(--text3)', fontWeight:'normal'}}>{subWeeks}</div>
+                              </td>
                               <td style={{fontWeight:500}}>{s.CustName}</td>
                               <td className="num">{fmt(s.totalAmount)}</td>
                             </tr>
@@ -638,24 +681,32 @@ export default function Estimate() {
                       ? <tr><td colSpan={8} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
                           {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
                         </td></tr>
-                      : filteredItems.map((item, i) => (
-                        <tr key={i}>
-                          <td style={{fontSize:12, fontWeight:500}}>{item.ProdName}</td>
-                          <td style={{fontSize:12}}>{item.Unit}</td>
-                          <td style={{fontFamily:'var(--mono)', fontSize:12}}>{item.outDate}</td>
-                          <td className="num">{fmt(item.Quantity)}</td>
-                          <td className="num">{fmt(item.Cost)}</td>
-                          <td className="num" style={{color:'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
-                          <td className="num" style={{color:'var(--text3)'}}>{fmt(item.Vat)}</td>
-                          <td style={{fontSize:11, color:'var(--text3)'}}>{item.EstimateType||'—'}</td>
-                        </tr>
-                      ))}
+                      : filteredItems.map((item, i) => {
+                          const isDed = item.EstimateType && item.EstimateType !== '정상출고';
+                          return (
+                          <tr key={i} style={{background: isDed ? '#FFF8DC' : ''}}>
+                            <td style={{fontSize:12, fontWeight:500, color: isDed ? '#A0522D' : ''}}>
+                              {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
+                                [{item.EstimateType.replace(/\/(박스|단|송이)$/,'')}]
+                              </span>}
+                              {item.ProdName}
+                            </td>
+                            <td style={{fontSize:12}}>{item.Unit}</td>
+                            <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
+                            <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
+                            <td className="num">{fmt(item.Cost)}</td>
+                            <td className="num" style={{color: isDed ? '#C0392B' : 'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
+                            <td className="num" style={{color: isDed ? '#C0392B' : 'var(--text3)'}}>{fmt(item.Vat)}</td>
+                            <td style={{fontSize:11, color:'var(--text3)'}}>{item.Descr||''}</td>
+                          </tr>
+                          );
+                        })}
                   </tbody>
                   <tfoot>
-                    <tr>
-                      <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px'}}>합계</td>
+                    <tr style={{background:'var(--bg2)'}}>
+                      <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px', fontSize:12}}>합계</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalQty)}</td>
-                      <td></td>
+                      <td className="num" style={{fontWeight:'bold', color:'var(--text3)'}}>{fmt(totalCost)}</td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--blue)'}}>{fmt(totalSupply)}</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalVat)}</td>
                       <td></td>
@@ -747,7 +798,7 @@ export default function Estimate() {
               {/* 미리보기 요약 */}
               <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', fontSize: 11, color: 'var(--text2)' }}>
                 <div>거래처: <b>{selectedShip?.CustName || '—'}</b></div>
-                <div>차수: <b>{weekInput.value || '—'}</b></div>
+                <div>차수: <b>{weekNum || '—'}</b></div>
                 <div>품목수: <b>{filteredItems.length}건</b></div>
                 <div>합계: <b>₩{(totalSupply + totalVat).toLocaleString()}</b> (공급가액 ₩{totalSupply.toLocaleString()} + 세액 ₩{totalVat.toLocaleString()})</div>
               </div>

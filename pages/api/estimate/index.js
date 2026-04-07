@@ -21,14 +21,14 @@ async function getEstimates(req, res) {
     }
   }
 
-  // parentWeek: "14-01" → "14", 검색어가 "14"면 "14-01"~"14-04" 모두 매칭
-  const parentWeek = week ? week.split('-')[0].replace(/^0+/, '') || week : '';
+  // parentWeek: "14-01" → "14" (앞 주차 번호만 추출, 하이픈 포함 시)
+  const parentWeek = week ? week.split('-')[0] : '';
 
   let where = 'WHERE sm.isDeleted = 0';
   const params = {};
   if (week) {
-    // 부모주차 기준 LIKE: "14" 입력 시 14-01, 14-02, 14-03, 14-04 모두 조회
-    where += ' AND LEFT(sm.OrderYearWeek, LEN(@parentWeek)) = @parentWeek';
+    // OrderWeek = "14-01" 형식 → LEFT 2자리가 parentWeek와 일치하는 것 모두 조회
+    where += ' AND LEFT(sm.OrderWeek, LEN(@parentWeek)) = @parentWeek';
     params.parentWeek = { type: sql.NVarChar, value: parentWeek };
   }
   if (custKey) { where += ' AND sm.CustKey = @custKey'; params.custKey = { type: sql.Int, value: parseInt(custKey) }; }
@@ -37,25 +37,45 @@ async function getEstimates(req, res) {
     // 출고 목록 (왼쪽 패널) — 부모주차+거래처 기준으로 그룹핑 (14-01, 14-02 → "14"로 묶음)
     const masterResult = await query(
       `SELECT
-        LEFT(sm.OrderYearWeek, CHARINDEX('-', sm.OrderYearWeek) - 1) AS ParentWeek,
+        LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1) AS ParentWeek,
         sm.CustKey, c.CustName,
-        STRING_AGG(CAST(sm.ShipmentKey AS NVARCHAR), ',') AS ShipmentKeys,
-        STRING_AGG(sm.OrderYearWeek, ',') AS SubWeeks,
-        SUM(
-          (SELECT ISNULL(SUM(
-              ISNULL(p2.Cost,0)
-              * ISNULL(NULLIF(sd2.OutQuantity,0), sd2.BoxQuantity+sd2.BunchQuantity+sd2.SteamQuantity)
-            ),0)
-           FROM ShipmentDetail sd2
-           LEFT JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
-           WHERE sd2.ShipmentKey = sm.ShipmentKey)
-          + (SELECT ISNULL(SUM(e2.Amount + e2.Vat),0) FROM Estimate e2 WHERE e2.ShipmentKey = sm.ShipmentKey)
-        ) AS totalAmount,
+        STUFF((
+          SELECT ',' + CAST(sm2.ShipmentKey AS NVARCHAR(20))
+          FROM ShipmentMaster sm2
+          WHERE sm2.CustKey = sm.CustKey
+            AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
+                = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
+            AND sm2.isDeleted = 0
+          FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS ShipmentKeys,
+        STUFF((
+          SELECT ',' + sm2.OrderWeek
+          FROM ShipmentMaster sm2
+          WHERE sm2.CustKey = sm.CustKey
+            AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
+                = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
+            AND sm2.isDeleted = 0
+          FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS SubWeeks,
+        SUM(ISNULL(sa.shipAmt, 0) + ISNULL(ea.estAmt, 0)) AS totalAmount,
         MIN(sm.ShipmentKey) AS firstShipmentKey
        FROM ShipmentMaster sm
        LEFT JOIN Customer c ON sm.CustKey = c.CustKey
+       OUTER APPLY (
+         SELECT SUM(ISNULL(p2.Cost,0)
+           * ISNULL(NULLIF(sd2.OutQuantity,0), sd2.BoxQuantity+sd2.BunchQuantity+sd2.SteamQuantity)
+         ) AS shipAmt
+         FROM ShipmentDetail sd2
+         LEFT JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
+         WHERE sd2.ShipmentKey = sm.ShipmentKey
+       ) sa
+       OUTER APPLY (
+         SELECT SUM(e2.Amount + e2.Vat) AS estAmt
+         FROM Estimate e2
+         WHERE e2.ShipmentKey = sm.ShipmentKey
+       ) ea
        ${where}
-       GROUP BY LEFT(sm.OrderYearWeek, CHARINDEX('-', sm.OrderYearWeek) - 1), sm.CustKey, c.CustName
+       GROUP BY LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1), sm.CustKey, c.CustName
        ORDER BY ParentWeek DESC, c.CustName`, params
     );
 
@@ -135,10 +155,12 @@ async function loadItems(sk) {
 
 async function createEstimate(req, res) {
   // 불량/검역 등록 → Estimate 테이블에 직접 저장 (원본 테이블)
+  // ※ 차감 항목은 기존 전산과 동일하게 수량/금액 음수로 저장
   const { shipmentKey, prodKey, estimateType, unit, quantity, cost } = req.body;
   try {
-    const amount = (quantity || 0) * (cost || 0);
-    const vat = Math.round(amount / 11);
+    const qty    = -Math.abs(parseFloat(quantity) || 0);   // 항상 음수
+    const amount = Math.round(qty * (cost || 0) / 1.1);    // 공급가액 (음수)
+    const vat    = Math.round(qty * (cost || 0) / 11);     // 부가세 (음수)
     await query(
       `INSERT INTO Estimate
          (EstimateType, ProdKey, Unit, Quantity, Cost, Amount, Vat, ShipmentKey, EstimateDtm)
@@ -147,7 +169,7 @@ async function createEstimate(req, res) {
         type:   { type: sql.NVarChar, value: estimateType },
         pk:     { type: sql.Int,      value: prodKey },
         unit:   { type: sql.NVarChar, value: unit },
-        qty:    { type: sql.Float,    value: quantity },
+        qty:    { type: sql.Float,    value: qty },
         cost:   { type: sql.Float,    value: cost },
         amount: { type: sql.Float,    value: amount },
         vat:    { type: sql.Float,    value: vat },

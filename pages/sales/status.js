@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { useDropdownNav } from '../../lib/useDropdownNav';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -72,6 +73,13 @@ export default function SalesStatus() {
     setCustSearch(c.CustName);
     setCustOpen(false);
   }, []);
+
+  // 거래처 드롭다운 키보드 탐색
+  const custNav = useDropdownNav(
+    custList,
+    handleSelectCust,
+    () => setCustOpen(false)
+  );
 
   const handleClearCust = useCallback(() => {
     setSelectedCust(null);
@@ -263,9 +271,10 @@ export default function SalesStatus() {
         <div ref={custRef} style={{ position: 'relative' }}>
           <input
             className="filter-input"
-            placeholder="거래처 검색..."
+            placeholder="거래처 검색... (↓↑ 이동, Enter 선택)"
             value={custSearch}
-            onChange={e => { setCustSearch(e.target.value); if (!e.target.value) handleClearCust(); }}
+            onChange={e => { setCustSearch(e.target.value); if (!e.target.value) handleClearCust(); custNav.reset(); }}
+            onKeyDown={custNav.onKeyDown}
             style={{ width: 160 }}
           />
           {selectedCust && (
@@ -285,13 +294,14 @@ export default function SalesStatus() {
               borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,.15)',
               maxHeight: 220, overflowY: 'auto', minWidth: 220,
             }}>
-              {custList.map(c => (
+              {custList.map((c, i) => (
                 <div
                   key={c.CustKey}
                   onMouseDown={() => handleSelectCust(c)}
                   style={{
                     padding: '6px 10px', cursor: 'pointer', fontSize: 12,
                     borderBottom: '1px solid var(--border)',
+                    background: custNav.idx === i ? '#C5D9F1' : undefined,
                   }}
                   className="cust-option"
                 >
