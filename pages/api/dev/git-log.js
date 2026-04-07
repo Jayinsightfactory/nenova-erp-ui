@@ -85,6 +85,21 @@ export default function handler(req, res) {
       return res.status(200).json({ success: true, plans });
     }
 
+    if (type === 'memory') {
+      // 작업 이력 md 파일 읽기 (Railway 포함 어디서나 동작)
+      const fs = require('fs');
+      const docsDir = path.join(ROOT, 'docs');
+      let files = [];
+      try {
+        const names = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+        files = names.map(f => {
+          const content = fs.readFileSync(path.join(docsDir, f), 'utf8');
+          return { name: f, content };
+        });
+      } catch { /* docs dir 없음 */ }
+      return res.status(200).json({ success: true, files });
+    }
+
     return res.status(400).json({ success: false, error: '지원하지 않는 type' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

@@ -1,5 +1,5 @@
 // pages/dev/history.js
-// 작업 히스토리 대시보드 (로컬 전용)
+// 작업 히스토리 대시보드
 // URL: /dev/history
 
 import { useState, useEffect, useCallback } from 'react';
@@ -41,17 +41,118 @@ function parseDiff(diff) {
   });
 }
 
+// 마크다운 → HTML (간단 변환)
+function renderMarkdown(md = '') {
+  const lines = md.split('\n');
+  const html = [];
+  let inCode = false;
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    let line = raw;
+
+    // 코드 블록
+    if (line.startsWith('```')) {
+      if (!inCode) {
+        inCode = true;
+        html.push('<pre style="background:#020617;border:1px solid #334155;border-radius:6px;padding:12px;overflow-x:auto;font-size:11px;line-height:1.6;margin:8px 0;color:#e2e8f0;">');
+      } else {
+        inCode = false;
+        html.push('</pre>');
+      }
+      continue;
+    }
+    if (inCode) {
+      html.push(escHtml(line) + '\n');
+      continue;
+    }
+
+    // 테이블
+    if (line.startsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        html.push('<table style="border-collapse:collapse;width:100%;font-size:12px;margin:8px 0;">');
+      }
+      if (line.match(/^\|[-| :]+\|$/)) continue; // 구분선
+      const cells = line.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const isHeader = i + 1 < lines.length && lines[i + 1].match(/^\|[-| :]+\|$/);
+      const tag = isHeader ? 'th' : 'td';
+      const cellStyle = isHeader
+        ? 'padding:6px 10px;background:#1e3a5f;color:#7dd3fc;text-align:left;border:1px solid #334155;'
+        : 'padding:5px 10px;border:1px solid #334155;color:#e2e8f0;';
+      html.push('<tr>' + cells.map(c => `<${tag} style="${cellStyle}">${inlineFormat(c.trim())}</${tag}>`).join('') + '</tr>');
+      continue;
+    } else if (inTable) {
+      inTable = false;
+      html.push('</table>');
+    }
+
+    // HR
+    if (line.match(/^---+$/) || line.match(/^\*\*\*+$/)) {
+      html.push('<hr style="border:none;border-top:1px solid #334155;margin:16px 0;">');
+      continue;
+    }
+
+    // 헤더
+    const h1 = line.match(/^# (.+)/);
+    const h2 = line.match(/^## (.+)/);
+    const h3 = line.match(/^### (.+)/);
+    const h4 = line.match(/^#### (.+)/);
+    if (h1) { html.push(`<h1 style="font-size:20px;color:#38bdf8;margin:20px 0 8px;border-bottom:2px solid #1e3a5f;padding-bottom:6px;">${inlineFormat(h1[1])}</h1>`); continue; }
+    if (h2) { html.push(`<h2 style="font-size:16px;color:#7dd3fc;margin:18px 0 6px;border-left:3px solid #38bdf8;padding-left:10px;">${inlineFormat(h2[1])}</h2>`); continue; }
+    if (h3) { html.push(`<h3 style="font-size:14px;color:#a78bfa;margin:14px 0 4px;">${inlineFormat(h3[1])}</h3>`); continue; }
+    if (h4) { html.push(`<h4 style="font-size:13px;color:#94a3b8;margin:10px 0 4px;">${inlineFormat(h4[1])}</h4>`); continue; }
+
+    // 목록
+    const ul = line.match(/^(\s*)-\s+(.+)/);
+    const ol = line.match(/^(\s*)\d+\.\s+(.+)/);
+    if (ul) { html.push(`<div style="margin:2px 0;padding-left:${(ul[1].length + 1) * 8}px;color:#cbd5e1;font-size:12px;">• ${inlineFormat(ul[2])}</div>`); continue; }
+    if (ol) { html.push(`<div style="margin:2px 0;padding-left:${(ol[1].length + 1) * 8}px;color:#cbd5e1;font-size:12px;">${inlineFormat(ol[2])}</div>`); continue; }
+
+    // 빈 줄
+    if (line.trim() === '') { html.push('<div style="height:6px;"></div>'); continue; }
+
+    // 일반 텍스트
+    html.push(`<p style="margin:3px 0;font-size:12px;color:#cbd5e1;line-height:1.6;">${inlineFormat(line)}</p>`);
+  }
+
+  if (inTable) html.push('</table>');
+  if (inCode) html.push('</pre>');
+
+  return html.join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function inlineFormat(s) {
+  return escHtml(s)
+    // **bold**
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#f8fafc;">$1</strong>')
+    // `code`
+    .replace(/`([^`]+)`/g, '<code style="background:#1e293b;color:#7dd3fc;padding:1px 5px;border-radius:3px;font-size:11px;">$1</code>')
+    // [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#38bdf8;text-decoration:underline;">$1</a>');
+}
+
 export default function HistoryPage() {
-  const [data, setData] = useState(null);           // 커밋 목록 + 상태
+  const [data, setData] = useState(null);
   const [selectedHash, setSelectedHash] = useState(null);
-  const [diffData, setDiffData] = useState(null);   // 선택한 커밋의 파일 목록
-  const [showDiff, setShowDiff] = useState(false);  // diff 본문
+  const [diffData, setDiffData] = useState(null);
+  const [showDiff, setShowDiff] = useState(false);
   const [diffContent, setDiffContent] = useState('');
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [tab, setTab] = useState('commits');        // commits | pending | plans
+  const [tab, setTab] = useState('commits');
   const [pendingDiff, setPendingDiff] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // 작업이력 탭
+  const [memFiles, setMemFiles] = useState([]);
+  const [selectedMem, setSelectedMem] = useState(null);
+  const [memLoading, setMemLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,8 +203,29 @@ export default function HistoryPage() {
     if (d.plans?.length > 0) setSelectedPlan(d.plans[0]);
   };
 
+  const loadMemory = async () => {
+    setTab('memory');
+    if (memFiles.length > 0) return;
+    setMemLoading(true);
+    try {
+      const r = await fetch(API + '?type=memory');
+      const d = await r.json();
+      const files = d.files || [];
+      setMemFiles(files);
+      if (files.length > 0) setSelectedMem(files[0]);
+    } catch (e) { console.error(e); }
+    setMemLoading(false);
+  };
+
   const commits = data?.commits || [];
   const status  = data?.status || [];
+
+  const TABS = [
+    ['commits', '커밋 목록'],
+    ['pending', '미커밋 변경'],
+    ['plans', '작업 플랜'],
+    ['memory', '📋 작업이력'],
+  ];
 
   return (
     <>
@@ -125,11 +247,16 @@ export default function HistoryPage() {
           <div style={{ width: 340, borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
             {/* 탭 */}
             <div style={{ display: 'flex', background: '#1e293b', borderBottom: '1px solid #334155' }}>
-              {[['commits','커밋 목록'], ['pending','미커밋 변경'], ['plans','작업 플랜']].map(([k, label]) => (
+              {TABS.map(([k, label]) => (
                 <button key={k}
-                  onClick={() => k === 'pending' ? loadPending() : k === 'plans' ? loadPlans() : setTab('commits')}
+                  onClick={() => {
+                    if (k === 'pending') loadPending();
+                    else if (k === 'plans') loadPlans();
+                    else if (k === 'memory') loadMemory();
+                    else setTab('commits');
+                  }}
                   style={{
-                    flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: 12,
+                    flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: 11,
                     background: tab === k ? '#0f172a' : '#1e293b',
                     color: tab === k ? '#38bdf8' : '#94a3b8',
                     borderBottom: tab === k ? '2px solid #38bdf8' : '2px solid transparent',
@@ -137,8 +264,8 @@ export default function HistoryPage() {
               ))}
             </div>
 
-            {/* 미커밋 파일 상태 (항상 상단에 표시) */}
-            {status.length > 0 && (
+            {/* 미커밋 파일 상태 */}
+            {status.length > 0 && tab !== 'memory' && (
               <div style={{ padding: '8px 12px', background: '#1a1a2e', borderBottom: '1px solid #334155', fontSize: 11 }}>
                 <div style={{ color: '#f59e0b', marginBottom: 4, fontWeight: 600 }}>⚠ 미커밋 파일 {status.length}개</div>
                 {status.map((s, i) => (
@@ -187,11 +314,29 @@ export default function HistoryPage() {
               </div>
             )}
 
-            {/* 미커밋 탭 — 왼쪽 패널은 안내만 */}
+            {/* 미커밋 탭 왼쪽 안내 */}
             {tab === 'pending' && (
               <div style={{ padding: 16, color: '#94a3b8', fontSize: 12 }}>
                 <div style={{ marginBottom: 8, color: '#f59e0b', fontWeight: 600 }}>미커밋 변경 diff</div>
                 <div style={{ color: '#64748b' }}>오른쪽에서 전체 diff를 확인하세요.</div>
+              </div>
+            )}
+
+            {/* 작업이력 파일 목록 */}
+            {tab === 'memory' && (
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {memLoading && <div style={{ padding: 20, color: '#64748b', fontSize: 12 }}>로딩 중...</div>}
+                {!memLoading && memFiles.length === 0 && <div style={{ padding: 20, color: '#64748b', fontSize: 12 }}>docs/ 폴더에 파일 없음</div>}
+                {memFiles.map((f, i) => (
+                  <div key={i} onClick={() => setSelectedMem(f)}
+                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1e293b',
+                      background: selectedMem?.name === f.name ? '#1e3a5f' : 'transparent' }}>
+                    <div style={{ fontSize: 12, color: '#38bdf8' }}>📄 {f.name}</div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+                      {(f.content.length / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -210,7 +355,6 @@ export default function HistoryPage() {
                   </button>
                 </div>
 
-                {/* 변경 파일 목록 */}
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>변경 파일 {diffData.files?.length}개</div>
                   {diffData.files?.map((f, i) => (
@@ -223,14 +367,12 @@ export default function HistoryPage() {
                   ))}
                 </div>
 
-                {/* stat */}
                 {diffData.stat && (
                   <pre style={{ background: '#1e293b', padding: 12, borderRadius: 6, fontSize: 11, color: '#94a3b8', whiteSpace: 'pre-wrap', marginBottom: 16 }}>
                     {diffData.stat}
                   </pre>
                 )}
 
-                {/* 전체 diff */}
                 {showDiff && (
                   <div style={{ background: '#020617', border: '1px solid #334155', borderRadius: 6, overflow: 'hidden' }}>
                     <div style={{ padding: '8px 12px', background: '#1e293b', fontSize: 11, color: '#94a3b8', borderBottom: '1px solid #334155' }}>diff 내용 (최대 50KB)</div>
@@ -244,7 +386,6 @@ export default function HistoryPage() {
               </div>
             )}
 
-            {/* 커밋 선택 전 안내 */}
             {tab === 'commits' && !selectedHash && (
               <div style={{ padding: 40, color: '#334155', textAlign: 'center', fontSize: 14 }}>
                 <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
@@ -276,6 +417,27 @@ export default function HistoryPage() {
                     {selectedPlan.content}
                   </pre>
                 </div>
+              </div>
+            )}
+
+            {/* 작업이력 마크다운 렌더링 */}
+            {tab === 'memory' && selectedMem && (
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 14, color: '#38bdf8', fontWeight: 700 }}>📄 {selectedMem.name}</span>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>{(selectedMem.content.length / 1024).toFixed(1)} KB</span>
+                </div>
+                <div
+                  style={{ fontFamily: 'sans-serif' }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedMem.content) }}
+                />
+              </div>
+            )}
+
+            {tab === 'memory' && !selectedMem && !memLoading && (
+              <div style={{ padding: 40, color: '#334155', textAlign: 'center', fontSize: 14 }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
+                <div>왼쪽에서 파일을 선택하세요.</div>
               </div>
             )}
           </div>
