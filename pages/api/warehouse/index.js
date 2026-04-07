@@ -1,5 +1,5 @@
 // pages/api/warehouse/index.js
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
@@ -43,47 +43,53 @@ async function uploadWarehouse(req, res) {
   const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
 
-  try {
-    const masterResult = await query(
-      `INSERT INTO WarehouseMaster
-         (UploadDtm, FileName, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo,
-          InputDate, isDeleted, CreateID, CreateDtm)
-       OUTPUT INSERTED.WarehouseKey
-       VALUES (GETDATE(), @fn, @year, @week, @farm, @inv, @awb, @dt, 0, @uid, GETDATE())`,
-      {
-        fn:   { type: sql.NVarChar, value: fileName || `upload_${Date.now()}` },
-        year: { type: sql.NVarChar, value: orderYear || '' },
-        week: { type: sql.NVarChar, value: orderWeek || '' },
-        farm: { type: sql.NVarChar, value: farmName || '' },
-        inv:  { type: sql.NVarChar, value: invoiceNo || '' },
-        awb:  { type: sql.NVarChar, value: awb || '' },
-        dt:   { type: sql.DateTime, value: inputDate ? new Date(inputDate) : new Date() },
-        uid:  { type: sql.NVarChar, value: req.user.userId },
-      }
-    );
-    const warehouseKey = masterResult.recordset[0].WarehouseKey;
+  // 품목 매칭 미리 처리 (트랜잭션 밖에서 — 조회만)
+  const resolvedItems = [];
+  for (const item of items) {
+    let prodKey = item.prodKey;
+    if (!prodKey && item.prodName) {
+      const pr = await query(
+        `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @n AND isDeleted=0 ORDER BY LEN(ProdName)`,
+        { n: { type: sql.NVarChar, value: `%${item.prodName}%` } }
+      );
+      prodKey = pr.recordset[0]?.ProdKey || 0;
+    }
+    resolvedItems.push({ ...item, prodKey });
+  }
 
-    // 디테일 INSERT — 실패 시 마스터 rollback (isDeleted=1 처리)
-    let ok = 0; const errors = [];
-    try {
-      for (const item of items) {
-        let prodKey = item.prodKey;
-        if (!prodKey && item.prodName) {
-          const pr = await query(
-            `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @n AND isDeleted=0 ORDER BY LEN(ProdName)`,
-            { n: { type: sql.NVarChar, value: `%${item.prodName}%` } }
-          );
-          prodKey = pr.recordset[0]?.ProdKey || 0;
+  try {
+    // Master + Detail 전체를 하나의 트랜잭션으로 (진짜 원자적 롤백)
+    const { warehouseKey, ok, errors } = await withTransaction(async (tQuery) => {
+      const masterResult = await tQuery(
+        `INSERT INTO WarehouseMaster
+           (UploadDtm, FileName, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo,
+            InputDate, isDeleted, CreateID, CreateDtm)
+         OUTPUT INSERTED.WarehouseKey
+         VALUES (GETDATE(), @fn, @year, @week, @farm, @inv, @awb, @dt, 0, @uid, GETDATE())`,
+        {
+          fn:   { type: sql.NVarChar, value: fileName || `upload_${Date.now()}` },
+          year: { type: sql.NVarChar, value: orderYear || '' },
+          week: { type: sql.NVarChar, value: orderWeek || '' },
+          farm: { type: sql.NVarChar, value: farmName || '' },
+          inv:  { type: sql.NVarChar, value: invoiceNo || '' },
+          awb:  { type: sql.NVarChar, value: awb || '' },
+          dt:   { type: sql.DateTime, value: inputDate ? new Date(inputDate) : new Date() },
+          uid:  { type: sql.NVarChar, value: req.user.userId },
         }
+      );
+      const wk = masterResult.recordset[0].WarehouseKey;
+
+      let successCount = 0; const errs = [];
+      for (const item of resolvedItems) {
         try {
-          await query(
+          await tQuery(
             `INSERT INTO WarehouseDetail
                (ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, EstQuantity, UPrice, TPrice, Stock,
                 OrderCode, WarehouseKey, SteamOf1Box, SteamOf1Bunch)
              VALUES (@pk,@box,@bunch,@steam,@out,@est,@up,@tp,0,@oc,@wk,@s1b,@s1bh)`,
             {
-              pk:   { type: sql.Int,      value: prodKey },
+              pk:   { type: sql.Int,      value: item.prodKey },
               box:  { type: sql.Float,    value: parseFloat(item.boxQty)    || 0 },
               bunch:{ type: sql.Float,    value: parseFloat(item.bunchQty)  || 0 },
               steam:{ type: sql.Float,    value: parseFloat(item.steamQty)  || 0 },
@@ -92,29 +98,20 @@ async function uploadWarehouse(req, res) {
               up:   { type: sql.Float,    value: parseFloat(item.unitPrice) || 0 },
               tp:   { type: sql.Float,    value: parseFloat(item.totalPrice)|| 0 },
               oc:   { type: sql.NVarChar, value: item.orderCode || '' },
-              wk:   { type: sql.Int,      value: warehouseKey },
+              wk:   { type: sql.Int,      value: wk },
               s1b:  { type: sql.Float,    value: parseFloat(item.steamOf1Box)   || 0 },
               s1bh: { type: sql.Float,    value: parseFloat(item.steamOf1Bunch) || 0 },
             }
           );
-          ok++;
+          successCount++;
         } catch (e) {
-          errors.push({ prodName: item.prodName, error: e.message });
+          errs.push({ prodName: item.prodName, error: e.message });
         }
       }
-    } catch (fatalErr) {
-      // 치명적 오류: 마스터 rollback (isDeleted=1)
-      await query(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
-        { wk: { type: sql.Int, value: warehouseKey } });
-      return res.status(500).json({ success: false, error: `입고 저장 실패 (롤백 완료): ${fatalErr.message}` });
-    }
 
-    // 성공 0건이면 마스터도 rollback
-    if (ok === 0) {
-      await query(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
-        { wk: { type: sql.Int, value: warehouseKey } });
-      return res.status(400).json({ success: false, error: `품목 매칭 실패: ${errors.map(e=>e.prodName).join(', ')}` });
-    }
+      if (successCount === 0) throw new Error(`품목 매칭 실패: ${errs.map(e=>e.prodName).join(', ')}`);
+      return { warehouseKey: wk, ok: successCount, errors: errs };
+    });
 
     return res.status(201).json({
       success: true, warehouseKey,

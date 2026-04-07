@@ -2,7 +2,7 @@
 // GET  → 실제 DB 조회 (OrderMaster + OrderDetail)
 // POST → 테스트 테이블에 저장 (_new_OrderMaster + _new_OrderDetail)
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
@@ -123,61 +123,59 @@ async function createOrder(req, res) {
       resolvedCustKey = r.recordset[0].CustKey;
     }
 
-    // _new_OrderMaster 에 저장
-    const masterResult = await query(
-      `INSERT INTO _new_OrderMaster
-         (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-       OUTPUT INSERTED.OrderMasterKey
-       VALUES (GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
-      {
-        year:      { type: sql.NVarChar, value: year || new Date().getFullYear().toString() },
-        week:      { type: sql.NVarChar, value: week || '' },
-        manager:   { type: sql.NVarChar, value: manager || req.user.userName },
-        custKey:   { type: sql.Int,      value: resolvedCustKey },
-        orderCode: { type: sql.NVarChar, value: orderCode || '' },
-        createId:  { type: sql.NVarChar, value: req.user.userId },
-      }
-    );
-    const orderMasterKey = masterResult.recordset[0].OrderMasterKey;
-
-    // _new_OrderDetail 에 각 품목 저장
-    const results = [];
-    for (const item of items) {
-      let prodKey = item.prodKey;
-      if (!prodKey && item.prodName) {
-        const pr = await query(
-          `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @name AND isDeleted = 0`,
-          { name: { type: sql.NVarChar, value: `%${item.prodName}%` } }
-        );
-        if (!pr.recordset[0]) {
-          results.push({ prodName: item.prodName, status: 'NOT_FOUND' });
-          continue;
-        }
-        prodKey = pr.recordset[0].ProdKey;
-      }
-
-      const qty = parseFloat(item.qty) || 0;
-      const unit = item.unit || '박스';
-      await query(
-        `INSERT INTO _new_OrderDetail
-           (OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-            OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-         VALUES (@mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
+    // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
+    const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
+      const masterResult = await tQuery(
+        `INSERT INTO _new_OrderMaster
+           (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+         OUTPUT INSERTED.OrderMasterKey
+         VALUES (GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
         {
-          mk:    { type: sql.Int,      value: orderMasterKey },
-          pk:    { type: sql.Int,      value: prodKey },
-          box:   { type: sql.Float,    value: unit === '박스' ? qty : 0 },
-          bunch: { type: sql.Float,    value: unit === '단'   ? qty : 0 },
-          steam: { type: sql.Float,    value: unit === '송이' ? qty : 0 },
-          uid:   { type: sql.NVarChar, value: req.user.userId },
+          year:      { type: sql.NVarChar, value: year || new Date().getFullYear().toString() },
+          week:      { type: sql.NVarChar, value: week || '' },
+          manager:   { type: sql.NVarChar, value: manager || req.user.userName },
+          custKey:   { type: sql.Int,      value: resolvedCustKey },
+          orderCode: { type: sql.NVarChar, value: orderCode || '' },
+          createId:  { type: sql.NVarChar, value: req.user.userId },
         }
       );
-      results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
-    }
+      const mk = masterResult.recordset[0].OrderMasterKey;
+
+      const detailResults = [];
+      for (const item of items) {
+        let prodKey = item.prodKey;
+        if (!prodKey && item.prodName) {
+          const pr = await tQuery(
+            `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @name AND isDeleted = 0`,
+            { name: { type: sql.NVarChar, value: `%${item.prodName}%` } }
+          );
+          if (!pr.recordset[0]) { detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+          prodKey = pr.recordset[0].ProdKey;
+        }
+        const qty = parseFloat(item.qty) || 0;
+        const unit = item.unit || '박스';
+        await tQuery(
+          `INSERT INTO _new_OrderDetail
+             (OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+              OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
+          {
+            mk:    { type: sql.Int,      value: mk },
+            pk:    { type: sql.Int,      value: prodKey },
+            box:   { type: sql.Float,    value: unit === '박스' ? qty : 0 },
+            bunch: { type: sql.Float,    value: unit === '단'   ? qty : 0 },
+            steam: { type: sql.Float,    value: unit === '송이' ? qty : 0 },
+            uid:   { type: sql.NVarChar, value: req.user.userId },
+          }
+        );
+        detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+      }
+      return { orderMasterKey: mk, results: detailResults };
+    });
 
     return res.status(201).json({
       success: true,
-      source: 'test_table',  // 테스트 테이블에 저장됐음을 표시
+      source: 'test_table',
       orderMasterKey,
       message: `주문 등록 완료 (테스트) — ${results.filter(r => r.status === 'OK').length}개 품목`,
       results,

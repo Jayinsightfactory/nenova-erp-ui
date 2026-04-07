@@ -3,7 +3,7 @@
 // POST → 신규 구매 주문 등록
 // DELETE → 구매 주문 삭제(소프트)
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 // ── 테이블 자동 생성 ──────────────────────────────────────
@@ -215,56 +215,57 @@ async function createOrder(req, res) {
   }
 
   try {
-    const masterResult = await query(
-      `INSERT INTO ImportOrder
-         (InvoiceNo, OrderWeek, SupplierName, CurrencyCode, ExchangeRate,
-          PaymentDtm, ImportDtm, TotalBoxes, TotalWeight, FreightCost, Memo,
-          CreateDtm, isDeleted)
-       OUTPUT INSERTED.ImportKey
-       VALUES
-         (@invoiceNo, @week, @supplierName, @currencyCode, @exchangeRate,
-          @paymentDtm, @importDtm, @totalBoxes, @totalWeight, @freightCost, @memo,
-          GETDATE(), 0)`,
-      {
-        invoiceNo:    { type: sql.NVarChar,  value: invoiceNo.trim() },
-        week:         { type: sql.NVarChar,  value: week || '' },
-        supplierName: { type: sql.NVarChar,  value: supplierName || '' },
-        currencyCode: { type: sql.NVarChar,  value: currencyCode || 'USD' },
-        exchangeRate: { type: sql.Decimal,   value: parseFloat(exchangeRate) || 1300 },
-        paymentDtm:   { type: sql.NVarChar,  value: paymentDtm || '' },
-        importDtm:    { type: sql.NVarChar,  value: importDtm || '' },
-        totalBoxes:   { type: sql.Int,       value: parseInt(totalBoxes) || 0 },
-        totalWeight:  { type: sql.Decimal,   value: parseFloat(totalWeight) || 0 },
-        freightCost:  { type: sql.Decimal,   value: parseFloat(freightCost) || 0 },
-        memo:         { type: sql.NVarChar,  value: memo || '' },
-      }
-    );
-
-    const importKey = masterResult.recordset[0].ImportKey;
-
-    for (const d of details) {
-      const boxQty     = parseFloat(d.boxQty)    || 0;
-      const unitPrice  = parseFloat(d.unitPrice)  || 0;
-      const totalPrice = parseFloat(d.totalPrice) || (boxQty * unitPrice);
-      const weight     = parseFloat(d.weight)     || 0;
-
-      await query(
-        `INSERT INTO ImportOrderDetail
-           (ImportKey, ProdKey, ProdName, BoxQty, UnitPrice, TotalPrice, Weight, Memo, isDeleted)
+    // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
+    const importKey = await withTransaction(async (tQuery) => {
+      const masterResult = await tQuery(
+        `INSERT INTO ImportOrder
+           (InvoiceNo, OrderWeek, SupplierName, CurrencyCode, ExchangeRate,
+            PaymentDtm, ImportDtm, TotalBoxes, TotalWeight, FreightCost, Memo,
+            CreateDtm, isDeleted)
+         OUTPUT INSERTED.ImportKey
          VALUES
-           (@importKey, @prodKey, @prodName, @boxQty, @unitPrice, @totalPrice, @weight, @memo, 0)`,
+           (@invoiceNo, @week, @supplierName, @currencyCode, @exchangeRate,
+            @paymentDtm, @importDtm, @totalBoxes, @totalWeight, @freightCost, @memo,
+            GETDATE(), 0)`,
         {
-          importKey:  { type: sql.Int,      value: importKey },
-          prodKey:    { type: sql.Int,      value: d.prodKey ? parseInt(d.prodKey) : null },
-          prodName:   { type: sql.NVarChar, value: d.prodName || '' },
-          boxQty:     { type: sql.Decimal,  value: boxQty },
-          unitPrice:  { type: sql.Decimal,  value: unitPrice },
-          totalPrice: { type: sql.Decimal,  value: totalPrice },
-          weight:     { type: sql.Decimal,  value: weight },
-          memo:       { type: sql.NVarChar, value: d.memo || '' },
+          invoiceNo:    { type: sql.NVarChar,  value: invoiceNo.trim() },
+          week:         { type: sql.NVarChar,  value: week || '' },
+          supplierName: { type: sql.NVarChar,  value: supplierName || '' },
+          currencyCode: { type: sql.NVarChar,  value: currencyCode || 'USD' },
+          exchangeRate: { type: sql.Decimal,   value: parseFloat(exchangeRate) || 1300 },
+          paymentDtm:   { type: sql.NVarChar,  value: paymentDtm || '' },
+          importDtm:    { type: sql.NVarChar,  value: importDtm || '' },
+          totalBoxes:   { type: sql.Int,       value: parseInt(totalBoxes) || 0 },
+          totalWeight:  { type: sql.Decimal,   value: parseFloat(totalWeight) || 0 },
+          freightCost:  { type: sql.Decimal,   value: parseFloat(freightCost) || 0 },
+          memo:         { type: sql.NVarChar,  value: memo || '' },
         }
       );
-    }
+      const ik = masterResult.recordset[0].ImportKey;
+
+      for (const d of details) {
+        const boxQty     = parseFloat(d.boxQty)    || 0;
+        const unitPrice  = parseFloat(d.unitPrice)  || 0;
+        const totalPrice = parseFloat(d.totalPrice) || (boxQty * unitPrice);
+        const weight     = parseFloat(d.weight)     || 0;
+        await tQuery(
+          `INSERT INTO ImportOrderDetail
+             (ImportKey, ProdKey, ProdName, BoxQty, UnitPrice, TotalPrice, Weight, Memo, isDeleted)
+           VALUES (@importKey, @prodKey, @prodName, @boxQty, @unitPrice, @totalPrice, @weight, @memo, 0)`,
+          {
+            importKey:  { type: sql.Int,      value: ik },
+            prodKey:    { type: sql.Int,      value: d.prodKey ? parseInt(d.prodKey) : null },
+            prodName:   { type: sql.NVarChar, value: d.prodName || '' },
+            boxQty:     { type: sql.Decimal,  value: boxQty },
+            unitPrice:  { type: sql.Decimal,  value: unitPrice },
+            totalPrice: { type: sql.Decimal,  value: totalPrice },
+            weight:     { type: sql.Decimal,  value: weight },
+            memo:       { type: sql.NVarChar, value: d.memo || '' },
+          }
+        );
+      }
+      return ik;
+    });
 
     return res.status(201).json({ success: true, importKey });
   } catch (err) {

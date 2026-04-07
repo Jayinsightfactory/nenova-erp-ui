@@ -3,7 +3,7 @@
 // GET?type=cust     → 업체 기준 주문 품목 (업체 선택 시)
 // POST              → _new_ShipmentDetail 저장
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
@@ -160,64 +160,69 @@ async function getDistribute(req, res) {
 }
 
 // ── 출고 분배 저장 (_new_ShipmentMaster + _new_ShipmentDetail)
+// withTransaction + UPDLOCK으로 동시 저장 시 중복 ShipmentMaster 생성 방지
 async function saveDistribute(req, res) {
-  const { week, year, custKey, prodKey, outQty, outDate, cost, isFix } = req.body;
+  const { week, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
-    // ShipmentMaster 있는지 확인, 없으면 생성
-    let smResult = await query(
-      `SELECT ShipmentKey FROM _new_ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@week`,
-      { ck: { type: sql.Int, value: parseInt(custKey) }, week: { type: sql.NVarChar, value: week } }
-    );
-
-    let shipmentKey;
-    if (smResult.recordset.length === 0) {
-      const ins = await query(
-        `INSERT INTO _new_ShipmentMaster
-           (OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-         OUTPUT INSERTED.ShipmentKey
-         VALUES (@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
-        {
-          yr:  { type: sql.NVarChar, value: year || '' },
-          wk:  { type: sql.NVarChar, value: week },
-          ywk: { type: sql.NVarChar, value: (year||'')+week },
-          ck:  { type: sql.Int,      value: parseInt(custKey) },
-          uid: { type: sql.NVarChar, value: req.user.userId },
-        }
+    const shipmentKey = await withTransaction(async (tQuery) => {
+      // UPDLOCK, HOLDLOCK: 같은 CustKey+OrderWeek로 동시 접근 시 대기하여 중복 방지
+      const smResult = await tQuery(
+        `SELECT ShipmentKey FROM _new_ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@week`,
+        { ck: { type: sql.Int, value: parseInt(custKey) }, week: { type: sql.NVarChar, value: week } }
       );
-      shipmentKey = ins.recordset[0].ShipmentKey;
-    } else {
-      shipmentKey = smResult.recordset[0].ShipmentKey;
-    }
 
-    // 기존 동일 품목 삭제 후 재삽입
-    await query(
-      `DELETE FROM _new_ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-      { sk: { type: sql.Int, value: shipmentKey }, pk: { type: sql.Int, value: parseInt(prodKey) } }
-    );
+      let sk;
+      if (smResult.recordset.length === 0) {
+        const ins = await tQuery(
+          `INSERT INTO _new_ShipmentMaster
+             (OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+           OUTPUT INSERTED.ShipmentKey
+           VALUES (@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
+          {
+            yr:  { type: sql.NVarChar, value: year || '' },
+            wk:  { type: sql.NVarChar, value: week },
+            ywk: { type: sql.NVarChar, value: (year||'')+week },
+            ck:  { type: sql.Int,      value: parseInt(custKey) },
+            uid: { type: sql.NVarChar, value: req.user.userId },
+          }
+        );
+        sk = ins.recordset[0].ShipmentKey;
+      } else {
+        sk = smResult.recordset[0].ShipmentKey;
+      }
 
-    if (parseFloat(outQty) > 0) {
-      const qty = parseFloat(outQty);
-      const unitCost = parseFloat(cost) || 0;
-      const amount = qty * unitCost;
-      const vat = Math.round(amount / 11);
-      await query(
-        `INSERT INTO _new_ShipmentDetail
-           (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
-            Cost,Amount,Vat,CreateID,CreateDtm)
-         VALUES (@sk,@ck,@pk,@dt,@qty,@qty,@cost,@amount,@vat,@uid,GETDATE())`,
-        {
-          sk:     { type: sql.Int,      value: shipmentKey },
-          ck:     { type: sql.Int,      value: parseInt(custKey) },
-          pk:     { type: sql.Int,      value: parseInt(prodKey) },
-          dt:     { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
-          qty:    { type: sql.Float,    value: qty },
-          cost:   { type: sql.Float,    value: unitCost },
-          amount: { type: sql.Float,    value: amount },
-          vat:    { type: sql.Float,    value: vat },
-          uid:    { type: sql.NVarChar, value: req.user.userId },
-        }
+      // 기존 동일 품목 삭제 후 재삽입
+      await tQuery(
+        `DELETE FROM _new_ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+        { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
-    }
+
+      if (parseFloat(outQty) > 0) {
+        const qty = parseFloat(outQty);
+        const unitCost = parseFloat(cost) || 0;
+        const amount = qty * unitCost;
+        const vat = Math.round(amount / 11);
+        await tQuery(
+          `INSERT INTO _new_ShipmentDetail
+             (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+              Cost,Amount,Vat,CreateID,CreateDtm)
+           VALUES (@sk,@ck,@pk,@dt,@qty,@qty,@cost,@amount,@vat,@uid,GETDATE())`,
+          {
+            sk:     { type: sql.Int,      value: sk },
+            ck:     { type: sql.Int,      value: parseInt(custKey) },
+            pk:     { type: sql.Int,      value: parseInt(prodKey) },
+            dt:     { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
+            qty:    { type: sql.Float,    value: qty },
+            cost:   { type: sql.Float,    value: unitCost },
+            amount: { type: sql.Float,    value: amount },
+            vat:    { type: sql.Float,    value: vat },
+            uid:    { type: sql.NVarChar, value: req.user.userId },
+          }
+        );
+      }
+      return sk;
+    });
 
     return res.status(200).json({ success: true, source: 'test_table', shipmentKey, message: '출고 분배 저장 완료 (테스트)' });
   } catch (err) {

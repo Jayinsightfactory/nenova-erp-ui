@@ -21,36 +21,51 @@ async function getEstimates(req, res) {
     }
   }
 
+  // parentWeek: "14-01" → "14", 검색어가 "14"면 "14-01"~"14-04" 모두 매칭
+  const parentWeek = week ? week.split('-')[0].replace(/^0+/, '') || week : '';
+
   let where = 'WHERE sm.isDeleted = 0';
   const params = {};
-  if (week)    { where += ' AND sm.OrderYearWeek LIKE @week'; params.week = { type: sql.NVarChar, value: `%${week}%` }; }
+  if (week) {
+    // 부모주차 기준 LIKE: "14" 입력 시 14-01, 14-02, 14-03, 14-04 모두 조회
+    where += ' AND LEFT(sm.OrderYearWeek, LEN(@parentWeek)) = @parentWeek';
+    params.parentWeek = { type: sql.NVarChar, value: parentWeek };
+  }
   if (custKey) { where += ' AND sm.CustKey = @custKey'; params.custKey = { type: sql.Int, value: parseInt(custKey) }; }
 
   try {
-    // 출고 목록 (왼쪽 패널) — ShipmentDetail + Estimate 합산 금액
+    // 출고 목록 (왼쪽 패널) — 부모주차+거래처 기준으로 그룹핑 (14-01, 14-02 → "14"로 묶음)
     const masterResult = await query(
-      `SELECT sm.ShipmentKey, sm.OrderYearWeek, sm.CustKey,
-        c.CustName,
-        (SELECT ISNULL(SUM(
-            ISNULL(p2.Cost,0)
-            * ISNULL(NULLIF(sd2.OutQuantity,0), sd2.BoxQuantity+sd2.BunchQuantity+sd2.SteamQuantity)
-          ),0)
-         FROM ShipmentDetail sd2
-         LEFT JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
-         WHERE sd2.ShipmentKey = sm.ShipmentKey)
-        + (SELECT ISNULL(SUM(e2.Amount + e2.Vat),0) FROM Estimate e2 WHERE e2.ShipmentKey = sm.ShipmentKey)
-        AS totalAmount
+      `SELECT
+        LEFT(sm.OrderYearWeek, CHARINDEX('-', sm.OrderYearWeek) - 1) AS ParentWeek,
+        sm.CustKey, c.CustName,
+        STRING_AGG(CAST(sm.ShipmentKey AS NVARCHAR), ',') AS ShipmentKeys,
+        STRING_AGG(sm.OrderYearWeek, ',') AS SubWeeks,
+        SUM(
+          (SELECT ISNULL(SUM(
+              ISNULL(p2.Cost,0)
+              * ISNULL(NULLIF(sd2.OutQuantity,0), sd2.BoxQuantity+sd2.BunchQuantity+sd2.SteamQuantity)
+            ),0)
+           FROM ShipmentDetail sd2
+           LEFT JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
+           WHERE sd2.ShipmentKey = sm.ShipmentKey)
+          + (SELECT ISNULL(SUM(e2.Amount + e2.Vat),0) FROM Estimate e2 WHERE e2.ShipmentKey = sm.ShipmentKey)
+        ) AS totalAmount,
+        MIN(sm.ShipmentKey) AS firstShipmentKey
        FROM ShipmentMaster sm
        LEFT JOIN Customer c ON sm.CustKey = c.CustKey
        ${where}
-       GROUP BY sm.ShipmentKey, sm.OrderYearWeek, sm.CustKey, c.CustName
-       ORDER BY sm.OrderYearWeek DESC, c.CustName`, params
+       GROUP BY LEFT(sm.OrderYearWeek, CHARINDEX('-', sm.OrderYearWeek) - 1), sm.CustKey, c.CustName
+       ORDER BY ParentWeek DESC, c.CustName`, params
     );
 
-    // 견적서 상세 (오른쪽 패널) - 첫 번째 항목: 정상출고 + 차감 합산
+    // 견적서 상세 — 첫 번째 그룹의 모든 ShipmentKey 항목 합산
     let items = [];
     if (masterResult.recordset.length > 0) {
-      items = await loadItems(masterResult.recordset[0].ShipmentKey);
+      const firstRow = masterResult.recordset[0];
+      const keys = (firstRow.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+      const allItems = await Promise.all(keys.map(k => loadItems(k)));
+      items = allItems.flat();
     }
 
     return res.status(200).json({

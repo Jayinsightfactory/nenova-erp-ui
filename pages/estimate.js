@@ -318,7 +318,7 @@ export default function Estimate() {
       .catch(() => {});
   }, []);
 
-  // ── 조회 (차수 + 업체 기준)
+  // ── 조회 (차수 + 업체 기준) — 부모주차 기준 그룹핑
   const load = () => {
     if (!weekInput.value && !selectedCust) { setErr('차수 또는 업체를 입력하세요.'); return; }
     setLoading(true); setErr('');
@@ -330,26 +330,30 @@ export default function Estimate() {
         setShipments(d.shipments || []);
         setItems(d.items || []);
         if (d.shipments?.length > 0) {
-          setSelectedId(d.shipments[0].ShipmentKey);
-          setSelectedCustKey(d.shipments[0].CustKey);
+          // 그룹 기준: ParentWeek + CustKey
+          const first = d.shipments[0];
+          setSelectedId(`${first.ParentWeek}_${first.CustKey}`);
+          setSelectedCustKey(first.CustKey);
         }
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
 
-  // ── 출고 목록 행 클릭 → 해당 ShipmentKey 견적 상세 로드 (정상출고 + 차감 합산)
-  const selectShipment = (sk, custKey) => {
-    setSelectedId(sk);
+  // ── 출고 목록 행 클릭 → 해당 그룹의 모든 ShipmentKey 견적 상세 로드
+  const selectShipment = (groupId, custKey, shipmentKeys) => {
+    setSelectedId(groupId);
     setSelectedCustKey(custKey);
     setItemLoading(true);
-    apiGet('/api/estimate', { shipmentKey: sk })
-      .then(d => setItems(d.items || []))
+    // ShipmentKeys가 여러 개인 경우 모두 로드 후 합산
+    const keys = (shipmentKeys || '').split(',').map(Number).filter(Boolean);
+    Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk }).then(d => d.items || [])))
+      .then(results => setItems(results.flat()))
       .catch(() => setItems([]))
       .finally(() => setItemLoading(false));
   };
 
-  const selectedShip = shipments.find(s => s.ShipmentKey === selectedId);
+  const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
 
   // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
   const ALL_WD = ['월','화','수','목','금','토','일'];
@@ -565,25 +569,30 @@ export default function Estimate() {
                   <thead>
                     <tr>
                       <th style={{width:28}}><input type="checkbox"/></th>
-                      <th>차수</th><th>거래처</th>
+                      <th>주차</th><th>차수</th><th>거래처</th>
                       <th style={{textAlign:'right'}}>합계금액</th>
                     </tr>
                   </thead>
                   <tbody>
                     {shipments.length === 0
-                      ? <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
-                      : shipments.map(s => (
-                        <tr key={s.ShipmentKey}
-                          className={selectedId === s.ShipmentKey ? 'selected' : ''}
-                          onClick={() => selectShipment(s.ShipmentKey, s.CustKey)}
-                          style={{cursor:'pointer'}}
-                        >
-                          <td><input type="checkbox" readOnly checked={selectedId === s.ShipmentKey}/></td>
-                          <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>{s.OrderYearWeek}</td>
-                          <td style={{fontWeight:500}}>{s.CustName}</td>
-                          <td className="num">{fmt(s.totalAmount)}</td>
-                        </tr>
-                      ))}
+                      ? <tr><td colSpan={5} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
+                      : shipments.map(s => {
+                          const groupId = `${s.ParentWeek}_${s.CustKey}`;
+                          const subWeeks = (s.SubWeeks || '').split(',').filter(Boolean).join(', ');
+                          return (
+                            <tr key={groupId}
+                              className={selectedId === groupId ? 'selected' : ''}
+                              onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
+                              style={{cursor:'pointer'}}
+                            >
+                              <td><input type="checkbox" readOnly checked={selectedId === groupId}/></td>
+                              <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>{s.ParentWeek}</td>
+                              <td style={{fontSize:10, color:'var(--text3)'}}>{subWeeks}</td>
+                              <td style={{fontWeight:500}}>{s.CustName}</td>
+                              <td className="num">{fmt(s.totalAmount)}</td>
+                            </tr>
+                          );
+                        })}
                   </tbody>
                 </table>
               )}
