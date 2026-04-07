@@ -9,7 +9,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiGet } from '../../lib/useApi';
-import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, YearInput } from '../../lib/useWeekInput';
+import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
 import { useLang } from '../../lib/i18n';
 
@@ -438,9 +438,9 @@ export default function Pivot() {
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
       {/* 툴바 */}
       <div className="filter-bar">
-        <WeekInput weekInput={weekStartInput} label="주문차수"/>
+        <WeekSpinInput weekInput={weekStartInput} label="주문차수"/>
         <span style={{color:'var(--text3)'}}>~</span>
-        <WeekInput weekInput={weekEndInput}/>
+        <WeekSpinInput weekInput={weekEndInput}/>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
