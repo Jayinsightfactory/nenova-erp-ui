@@ -5,6 +5,7 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { withActionLog } from '../../../lib/withActionLog';
 
 // ReceivableLedger 테이블 자동 생성
 const CREATE_TABLE_SQL = `
@@ -30,7 +31,7 @@ async function ensureTable() {
   tableReady = true;
 }
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   try {
     await ensureTable();
   } catch (err) {
@@ -233,4 +234,4 @@ async function postPayment(req, res) {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
-}
+}, { actionType: 'AR_WRITE', affectedTable: 'ReceivableLedger', riskLevel: 'HIGH' }));

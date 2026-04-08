@@ -4,6 +4,7 @@
 // 페이지네이션 방식 — 프론트가 nextOffset 없을 때까지 반복 호출
 
 import { withAuth } from '../../../lib/auth';
+import { withActionLog } from '../../../lib/withActionLog';
 import { query, sql } from '../../../lib/db';
 import { ecountPost, isConfigured } from '../../../lib/ecount';
 
@@ -40,7 +41,7 @@ async function writeSyncLog(syncType, refKey, ecountRef, status, errorMsg) {
   }
 }
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
@@ -236,4 +237,4 @@ export default withAuth(async function handler(req, res) {
     processed:  offset + batchKeys.length,
     message:    `판매전송 ${offset + 1}~${offset + batchKeys.length}/${total}: 성공 ${totalSuccess}건 / 실패 ${totalFail}건`,
   });
-});
+}, { actionType: 'ECOUNT_PUSH', affectedTable: 'ShipmentMaster+Ecount판매전표', riskLevel: 'CRITICAL' }));

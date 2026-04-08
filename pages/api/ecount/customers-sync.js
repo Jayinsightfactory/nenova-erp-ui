@@ -4,6 +4,7 @@
 // Body: { custKeys: [1,2,3] } OR { all: true }
 
 import { withAuth } from '../../../lib/auth';
+import { withActionLog } from '../../../lib/withActionLog';
 import { query, sql } from '../../../lib/db';
 import { ecountPost, isConfigured } from '../../../lib/ecount';
 
@@ -40,7 +41,7 @@ async function writeSyncLog(syncType, refKey, ecountRef, status, errorMsg) {
   }
 }
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   if (!isConfigured()) {
     return res.status(503).json({
       success: false,
@@ -262,4 +263,4 @@ export default withAuth(async function handler(req, res) {
   }
 
   return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-});
+}, { actionType: 'ECOUNT_SYNC', affectedTable: 'Customer+Ecount거래처', riskLevel: 'HIGH' }));
