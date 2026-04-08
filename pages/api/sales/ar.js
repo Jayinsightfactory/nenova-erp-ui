@@ -46,7 +46,7 @@ export default withAuth(withActionLog(async function handler(req, res) {
   }
   if (req.method === 'POST') return await postPayment(req, res);
   return res.status(405).end();
-});
+}, { actionType: 'AR_WRITE', affectedTable: 'ReceivableLedger', riskLevel: 'HIGH' }));
 
 // ── 거래처별 채권 목록 ─────────────────────────────
 async function getList(req, res) {
@@ -234,4 +234,4 @@ async function postPayment(req, res) {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
-}, { actionType: 'AR_WRITE', affectedTable: 'ReceivableLedger', riskLevel: 'HIGH' }));
+}
