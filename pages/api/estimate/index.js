@@ -63,7 +63,9 @@ async function getEstimates(req, res) {
        LEFT JOIN Customer c ON sm.CustKey = c.CustKey
        OUTER APPLY (
          SELECT SUM(ISNULL(p2.Cost,0)
-           * ISNULL(NULLIF(sd2.OutQuantity,0), sd2.BoxQuantity+sd2.BunchQuantity+sd2.SteamQuantity)
+           * CASE WHEN sd2.BunchQuantity > 0 THEN sd2.BunchQuantity
+                  WHEN sd2.SteamQuantity > 0 THEN sd2.SteamQuantity
+                  ELSE sd2.BoxQuantity END
          ) AS shipAmt
          FROM ShipmentDetail sd2
          LEFT JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
@@ -108,19 +110,22 @@ async function loadItems(sk) {
          '정상출고'                                AS EstimateType,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
-         CASE WHEN sd.BoxQuantity > 0 THEN '박스'
-              WHEN sd.BunchQuantity > 0 THEN '단'
-              ELSE '송이' END                      AS Unit,
-         ISNULL(NULLIF(sd.OutQuantity, 0),
-           sd.BoxQuantity + sd.BunchQuantity + sd.SteamQuantity) AS Quantity,
+         CASE WHEN sd.BunchQuantity > 0 THEN '단'
+              WHEN sd.SteamQuantity > 0 THEN '송이'
+              ELSE '박스' END                      AS Unit,
+         CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
+              WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+              ELSE sd.BoxQuantity END              AS Quantity,
          ISNULL(p.Cost, 0)                         AS Cost,
          ROUND(ISNULL(p.Cost, 0)
-           * ISNULL(NULLIF(sd.OutQuantity, 0),
-               sd.BoxQuantity + sd.BunchQuantity + sd.SteamQuantity)
+           * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
+                  WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+                  ELSE sd.BoxQuantity END
            / 1.1, 0)                               AS Amount,
          ROUND(ISNULL(p.Cost, 0)
-           * ISNULL(NULLIF(sd.OutQuantity, 0),
-               sd.BoxQuantity + sd.BunchQuantity + sd.SteamQuantity)
+           * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
+                  WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+                  ELSE sd.BoxQuantity END
            / 11, 0)                                AS Vat,
          ''                                        AS Descr,
          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate

@@ -73,16 +73,30 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows }) {
     return '[' + t.replace(/\/(박스|단|송이)$/, '') + '] ';
   };
 
-  const itemRows = rows.map((r, i) => `
+  // 차감 여부 판별
+  const isDeduct = r => r.EstimateType && r.EstimateType !== '정상출고';
+
+  // 적요: 차감 행은 출고일(DD일), 정상출고는 Descr 또는 빈 값
+  const descLabel = r => {
+    if (isDeduct(r) && r.outDate) return new Date(r.outDate).getDate() + '일';
+    return r.Descr || '';
+  };
+
+  const itemRows = rows.map((r, i) => {
+    const deduct = isDeduct(r);
+    const rowBg  = deduct ? 'background:#FFF8DC;' : '';
+    const amtClr = deduct ? 'color:#c0392b;' : '';
+    return `
     <tr>
-      <td style="text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
-      <td style="text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
-      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
-      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
-      <td style="text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
-      <td style="border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${r.Descr || ''}</td>
-    </tr>`).join('');
+      <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;${deduct ? 'color:#c0392b;font-weight:bold;' : ''}">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
+      <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${descLabel(r)}</td>
+    </tr>`;
+  }).join('');
 
   const serialDisplay = serialNo || printDate;
 
@@ -99,10 +113,7 @@ table { width:100%; border-collapse:collapse; }
 .hdr-right { width:52%; vertical-align:top; padding:8px 12px; }
 .hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
 .hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
-.logo-area { text-align:center; border-bottom:1px solid #ddd; padding:5px 0 3px; margin-bottom:5px; }
-.logo-N    { font-size:26pt; font-weight:900; color:#111; font-family:'Arial Black',Arial,sans-serif;
-             display:inline-block; transform:skewX(-8deg); line-height:1; }
-.logo-txt  { font-size:11pt; font-weight:bold; letter-spacing:5px; color:#222; display:block; margin-top:1px; }
+.logo-area { text-align:center; border-bottom:1px solid #ddd; padding:4px 0 3px; margin-bottom:5px; }
 .co-grid   { display:grid; grid-template-columns:82px 1fr; gap:0 4px; font-size:8pt; line-height:1.75; }
 .co-key    { font-weight:bold; text-align:right; color:#333; }
 .greet     { font-size:8pt; padding:6px 8px; border-top:1px solid #ddd; line-height:1.7; }
@@ -139,8 +150,9 @@ table { width:100%; border-collapse:collapse; }
     <td class="hdr-right">
       <!-- 오른쪽: NENOVA 로고 + 회사정보 -->
       <div class="logo-area">
-        <span class="logo-N">N</span>
-        <span class="logo-txt">NENOVA</span>
+        <img src="/nenova-logo.png" alt="NENOVA" style="height:48px;object-fit:contain;"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+        <div style="display:none;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;">NENOVA</div>
       </div>
       <div class="co-grid">
         <span class="co-key">사업자등록번호</span><span>134-86-94367</span>
@@ -457,9 +469,8 @@ export default function Estimate() {
     );
 
     if (opts.splitMode === 'combined') {
-      // ── 종합 출력 (1장)
-      // 비고: "[차수] 종합견적서"
-      const bigoLabel = `${week} 종합견적서`;
+      // ── 종합 출력 (1장) — 비고: "13차 종합견적서"
+      const bigoLabel = `${week}차 종합견적서`;
       const html = buildEstimateHtml({
         bigoLabel,
         serialNo:  opts.serialNo,
@@ -467,16 +478,17 @@ export default function Estimate() {
         custName,
         rows: printRows,
       });
-      const w = window.open('', '_blank', 'width=960,height=720');
-      if (w) { w.document.write(html); w.document.close(); }
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
     } else {
-      // ── 품목별 분할 출력 (수국/카네이션/장미/에콰도르/기타 각 1장)
-      // 분할 그룹 표시명 (PDF 비고 형식: "13차 수국")
+      // ── 품목별 분할 출력 (수국→카네이션→장미→에콰도르→기타 → 마지막 종합 1장)
+      // PDF 비고 형식: "13차 수국/알스트로메리아" 등
       const GROUP_LABEL = {
-        '수국/알스트로': '수국',
+        '수국/알스트로': '수국/알스트로메리아',
         '카네이션':     '카네이션',
         '장미':         '장미',
-        '에콰도르':     '에콰도르 장미',
+        '에콰도르':     '에콰도르 분화',
         '기타':         '기타',
       };
       const groups = {};
@@ -490,19 +502,32 @@ export default function Estimate() {
 
       if (activeGroups.length === 0) { alert('출력할 품목이 없습니다.'); return; }
 
-      activeGroups.forEach((g, idx) => {
-        const bigoLabel = `${week} ${GROUP_LABEL[g] || g}`;
+      // 그룹별 페이지 + 마지막에 종합 페이지
+      const pages = [
+        ...activeGroups.map(g => ({
+          bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
+          rows: groups[g],
+        })),
+        // 마지막: 종합 (PDF 마지막 페이지)
+        {
+          bigoLabel: `${week}차 종합견적서`,
+          rows: printRows,
+        },
+      ];
+
+      pages.forEach(({ bigoLabel, rows }, idx) => {
         const html = buildEstimateHtml({
           bigoLabel,
           serialNo:  opts.serialNo,
           printDate: opts.printDate,
           custName,
-          rows: groups[g],
+          rows,
         });
         setTimeout(() => {
-          const w = window.open('', '_blank', 'width=960,height=720');
-          if (w) { w.document.write(html); w.document.close(); }
-        }, idx * 450);
+          const blob = new Blob([html], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        }, idx * 500);
       });
     }
 
