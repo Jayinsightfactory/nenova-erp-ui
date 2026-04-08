@@ -5,12 +5,13 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { withActionLog } from '../../../lib/withActionLog';
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getDistribute(req, res);
   if (req.method === 'POST') return await saveDistribute(req, res);
   return res.status(405).end();
-});
+}, { actionType: 'SHIPMENT_WRITE', affectedTable: '_new_ShipmentMaster/Detail', riskLevel: 'HIGH' }));
 
 async function getDistribute(req, res) {
   const { type, week, prodGroup, custKey } = req.query;

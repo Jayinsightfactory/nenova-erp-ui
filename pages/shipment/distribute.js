@@ -29,6 +29,9 @@ export default function Distribute() {
   const [custItems, setCustItems] = useState([]);
   const [custLoading, setCustLoading] = useState(false);
 
+  // 업체기준 인라인 편집: { [prodKey]: { outQty, cost } }
+  const [custEditInputs, setCustEditInputs] = useState({});
+
   const [loading, setLoading] = useState(false);
   const [custFilter, setCustFilter] = useState('');
   const [distMode, setDistMode] = useState('ratio');
@@ -151,8 +154,54 @@ export default function Distribute() {
     setCustLoading(true);
     try {
       const d = await apiGet('/api/shipment/distribute', { type:'custItems', week, custKey: cust.CustKey });
-      setCustItems(d.items || []);
+      const items = d.items || [];
+      setCustItems(items);
+      // 편집 입력값 초기화: 기존 출고수량 + 기존 단가
+      const inputs = {};
+      items.forEach(item => {
+        inputs[item.ProdKey] = { outQty: item.출고수량 || 0, cost: item.Cost || 0 };
+      });
+      setCustEditInputs(inputs);
     } catch(e) { setErr(e.message); } finally { setCustLoading(false); }
+  };
+
+  // 업체기준 저장
+  const handleSaveCustItems = async () => {
+    if (!selectedCust || !week) { setErr('업체와 차수를 선택하세요.'); return; }
+    setSaving(true); setErr('');
+    try {
+      for (const item of custItems) {
+        const edit = custEditInputs[item.ProdKey] || {};
+        const qty = edit.outQty !== undefined ? parseFloat(edit.outQty) || 0 : (item.출고수량 || 0);
+        const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
+        if (qty <= 0) continue;
+        await fetch('/api/shipment/distribute', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            week, year: week.split('-')[0] || '2026',
+            custKey: selectedCust.CustKey,
+            prodKey: item.ProdKey,
+            outQty: qty,
+            cost,
+          })
+        });
+      }
+      const savedItems = custItems.filter(item => {
+        const edit = custEditInputs[item.ProdKey] || {};
+        return (edit.outQty !== undefined ? parseFloat(edit.outQty)||0 : (item.출고수량||0)) > 0;
+      });
+      setSaveModal({
+        prodName: selectedCust.CustName,
+        week,
+        savedCount: savedItems.length,
+        totalQty: savedItems.reduce((a, item) => {
+          const edit = custEditInputs[item.ProdKey] || {};
+          return a + (edit.outQty !== undefined ? parseFloat(edit.outQty)||0 : (item.출고수량||0));
+        }, 0),
+      });
+      selectCust(selectedCust); // 새로고침
+    } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
 
   // 비율 분배 자동 계산
@@ -263,7 +312,7 @@ export default function Distribute() {
           <button className="btn btn-secondary btn-sm" onClick={handleUnfix} disabled={fixLoading||!isFixed}>
             ↩️ 확정취소 / Cancelar / Anular
           </button>
-          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
+          <button className="btn btn-primary btn-sm" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saving}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleHistory}>📋 내역 조회 / Historial</button>
           <button className="btn btn-sm" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
@@ -526,31 +575,60 @@ export default function Distribute() {
                           <tr>
                             <th>국가</th><th>꽃</th><th>품목명</th><th>단위</th>
                             <th style={{textAlign:'right',color:'var(--blue)'}}>주문수량</th>
-                            <th style={{textAlign:'right'}}>출고수량</th>
-                            <th style={{textAlign:'right',color:remain<0?'var(--red)':'var(--amber)'}}>잔량</th>
+                            <th style={{textAlign:'right',color:'var(--blue)'}}>출고수량 입력</th>
+                            <th style={{textAlign:'right'}}>잔량</th>
+                            <th style={{textAlign:'right',color:'var(--amber)'}}>단가 (편집)</th>
+                            <th style={{textAlign:'right',color:'var(--text3)'}}>금액</th>
                           </tr>
                         </thead>
                         <tbody>
                           {custItems.length === 0
-                            ? <tr><td colSpan={7} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
-                            : custItems.map((item,i) => (
-                              <tr key={i} style={{background:item.잔량>0?'#FFFBEB':undefined}}>
-                                <td style={{fontSize:11}}>{item.CounName}</td>
-                                <td style={{fontSize:11}}>{item.FlowerName}</td>
-                                <td style={{fontWeight:500}}>{item.ProdName}</td>
-                                <td style={{fontSize:11}}>{item.OutUnit}</td>
-                                <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
-                                <td className="num">{(item.출고수량||0).toFixed(2)}</td>
-                                <td className="num" style={{fontWeight:700,color:item.잔량>0?'var(--amber)':item.잔량<0?'var(--red)':'var(--green)'}}>{(item.잔량||0).toFixed(2)}</td>
-                              </tr>
-                            ))}
+                            ? <tr><td colSpan={9} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
+                            : custItems.map((item,i) => {
+                              const edit = custEditInputs[item.ProdKey] || {};
+                              const outVal = edit.outQty !== undefined ? edit.outQty : (item.출고수량 || 0);
+                              const costVal = edit.cost !== undefined ? edit.cost : (item.Cost || 0);
+                              const diff = (item.주문수량||0) - parseFloat(outVal||0);
+                              const amount = parseFloat(outVal||0) * parseFloat(costVal||0);
+                              return (
+                                <tr key={i} style={{background:item.잔량>0?'#FFFBEB':undefined}}>
+                                  <td style={{fontSize:11}}>{item.CounName}</td>
+                                  <td style={{fontSize:11}}>{item.FlowerName}</td>
+                                  <td style={{fontWeight:500}}>{item.ProdName}</td>
+                                  <td style={{fontSize:11}}>{item.OutUnit}</td>
+                                  <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
+                                  <td>
+                                    <input type="number" min={0} step={0.1} value={outVal||''}
+                                      onChange={e=>setCustEditInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:e.target.value}}))}
+                                      style={{width:80,height:26,border:`1px solid ${parseFloat(outVal)>0?'var(--blue)':'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:parseFloat(outVal)>0?'var(--blue-bg)':'var(--bg)',fontWeight:parseFloat(outVal)>0?700:400}}
+                                    />
+                                  </td>
+                                  <td className="num" style={{fontWeight:700,color:diff<0?'var(--red)':diff===0?'var(--green)':'var(--amber)'}}>{diff.toFixed(2)}</td>
+                                  <td>
+                                    <input type="number" min={0} step={1} value={costVal||''}
+                                      onChange={e=>setCustEditInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),cost:e.target.value}}))}
+                                      style={{width:90,height:26,border:'1px solid var(--amber)',borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:'#FFFBEB'}}
+                                    />
+                                  </td>
+                                  <td className="num" style={{color:'var(--text2)'}}>{amount>0?fmt(Math.round(amount)):'—'}</td>
+                                </tr>
+                              );
+                            })}
                         </tbody>
                         <tfoot>
                           <tr className="foot">
                             <td colSpan={4}>합계</td>
                             <td className="num">{custItems.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>
-                            <td className="num">{custItems.reduce((a,b)=>a+(b.출고수량||0),0).toFixed(2)}</td>
-                            <td className="num">{custItems.reduce((a,b)=>a+(b.잔량||0),0).toFixed(2)}</td>
+                            <td className="num" style={{color:'var(--blue)'}}>
+                              {custItems.reduce((a,item)=>{const e=custEditInputs[item.ProdKey]||{};return a+parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0;},0).toFixed(2)}
+                            </td>
+                            <td className="num">
+                              {custItems.reduce((a,item)=>{const e=custEditInputs[item.ProdKey]||{};const q=parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0;return a+((item.주문수량||0)-q);},0).toFixed(2)}
+                            </td>
+                            <td></td>
+                            <td className="num" style={{color:'var(--text2)',fontWeight:700}}>
+                              {fmt(Math.round(custItems.reduce((a,item)=>{const e=custEditInputs[item.ProdKey]||{};const q=parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0;const c=parseFloat(e.cost!==undefined?e.cost:(item.Cost||0))||0;return a+q*c;},0)))}
+                            </td>
                           </tr>
                         </tfoot>
                       </table>
