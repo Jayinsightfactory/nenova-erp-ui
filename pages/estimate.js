@@ -150,7 +150,7 @@ table { width:100%; border-collapse:collapse; }
     <td class="hdr-right">
       <!-- 오른쪽: NENOVA 로고 + 회사정보 -->
       <div class="logo-area">
-        <img src="/nenova-logo.png" alt="NENOVA" style="height:48px;object-fit:contain;"
+        <img src="https://nenovaweb.com/nenova-logo.png" alt="NENOVA" style="height:48px;object-fit:contain;"
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
         <div style="display:none;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;">NENOVA</div>
       </div>
