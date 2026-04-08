@@ -27,9 +27,10 @@ const MENU_ITEMS = [
     group: '입/출고관리',
     items: [
       { href: '/incoming',            labelKey: '입고관리',     popup: true },
-      { href: '/shipment/distribute', labelKey: '출고분배',     popup: true },
-      { href: '/shipment/view',       labelKey: '출고조회',     popup: false },
-      { href: '/shipment/history',    labelKey: '출고내역조회', popup: false },
+      { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
+      { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
+      { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
+      { href: '/shipment/history',       labelKey: '출고내역조회',  popup: false },
       { href: '/estimate',            labelKey: '견적서 관리',  popup: true },
     ]
   },
