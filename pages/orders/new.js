@@ -48,6 +48,15 @@ export default function OrderNew() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
+  // ── 지난 주문 불러오기 모달
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
+  const [orderHistory, setOrderHistory]         = useState([]);
+  const [historyLoading, setHistoryLoading]     = useState(false);
+  const [historyTab, setHistoryTab]             = useState('recent'); // 'recent' | 'fav'
+  const [favorites, setFavorites]               = useState([]);
+  const [favEditId, setFavEditId]               = useState(null);    // 즐겨찾기 이름 입력 중인 row id
+  const [favEditName, setFavEditName]           = useState('');
+
   // ── 드롭다운 키보드 선택용 index
   const [dropIdx, setDropIdx] = useState(-1);
 
@@ -231,29 +240,72 @@ export default function OrderNew() {
     } catch(e) { setErr(e.message); }
   };
 
-  // ── 지난 주문 불러오기 (가장 최근 차수)
-  const loadLastOrder = async () => {
+  // ── 지난 주문 불러오기 → 차수별 목록 모달
+  const loadOrderHistory = async () => {
     if (!selectedCust) { alert('거래처를 먼저 선택하세요.'); return; }
+    setHistoryLoading(true);
+    setShowOrderHistory(true);
+    setHistoryTab('recent');
     try {
       const d = await apiGet('/api/orders', { custName: selectedCust.CustName });
-      const last = d.orders?.[0];
-      if (!last || !last.items?.length) { alert('이전 주문 데이터가 없습니다.'); return; }
-      const newQty = {};
-      last.items.forEach(item => {
-        if (!item.prodKey) return;
-        newQty[item.prodKey] = {
-          box:        (item.boxQty||0) > 0 ? item.boxQty : (item.unit === '박스' ? item.qty : 0),
-          bunch:      (item.bunchQty||0) > 0 ? item.bunchQty : (item.unit === '단' ? item.qty : 0),
-          steam:      (item.steamQty||0) > 0 ? item.steamQty : (item.unit === '송이' ? item.qty : 0),
-          prodName:   item.prodName   || '',
-          counName:   item.counName   || '',
-          flowerName: item.flowerName || '',
-        };
+      // 차수별 그룹핑 (같은 차수면 최신 1개만)
+      const weekMap = {};
+      (d.orders || []).forEach(order => {
+        if (!weekMap[order.week]) weekMap[order.week] = order;
       });
-      setQuantities(newQty);
-      setSuccessMsg(`↩️ ${last.week} 차수 주문을 불러왔습니다.`);
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch(e) { alert(e.message); }
+      const sorted = Object.values(weekMap).sort((a, b) => (b.week||'').localeCompare(a.week||''));
+      setOrderHistory(sorted);
+      // 즐겨찾기 로드 (localStorage)
+      try {
+        const raw = localStorage.getItem(`nenova_fav_${selectedCust.CustKey}`);
+        setFavorites(raw ? JSON.parse(raw) : []);
+      } catch { setFavorites([]); }
+    } catch(e) { setShowOrderHistory(false); alert(e.message); }
+    finally { setHistoryLoading(false); }
+  };
+
+  // ── 선택한 주문을 폼에 로드
+  const loadOrderToForm = (order) => {
+    const newQty = {};
+    (order.items || []).forEach(item => {
+      if (!item.prodKey) return;
+      if (!newQty[item.prodKey]) {
+        newQty[item.prodKey] = { box: 0, bunch: 0, steam: 0, prodName: item.prodName || '', counName: item.counName || '', flowerName: item.flowerName || '' };
+      }
+      if ((item.boxQty||0)   > 0) newQty[item.prodKey].box   = item.boxQty;
+      if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch = item.bunchQty;
+      if ((item.steamQty||0) > 0) newQty[item.prodKey].steam = item.steamQty;
+      // 단위별 qty만 있을 때
+      if (!(item.boxQty||item.bunchQty||item.steamQty)) {
+        if (item.unit === '박스') newQty[item.prodKey].box   = item.qty || 0;
+        else if (item.unit === '단') newQty[item.prodKey].bunch = item.qty || 0;
+        else if (item.unit === '송이') newQty[item.prodKey].steam = item.qty || 0;
+      }
+    });
+    setQuantities(newQty);
+    setShowOrderHistory(false);
+    setSuccessMsg(`✅ [${order.week}] 주문 ${Object.keys(newQty).length}개 품목 불러옴`);
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  // ── 즐겨찾기 저장
+  const saveFavorite = (order, name) => {
+    const key = `nenova_fav_${selectedCust.CustKey}`;
+    const existing = (() => { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } })();
+    const newFav = { id: Date.now(), name: name || `${order.week} 주문`, savedAt: new Date().toISOString().slice(0,10), week: order.week, items: order.items };
+    const updated = [newFav, ...existing];
+    localStorage.setItem(key, JSON.stringify(updated));
+    setFavorites(updated);
+    setFavEditId(null); setFavEditName('');
+  };
+
+  // ── 즐겨찾기 삭제
+  const deleteFavorite = (id) => {
+    if (!confirm('즐겨찾기를 삭제하시겠습니까?')) return;
+    const key = `nenova_fav_${selectedCust.CustKey}`;
+    const updated = favorites.filter(f => f.id !== id);
+    localStorage.setItem(key, JSON.stringify(updated));
+    setFavorites(updated);
   };
 
   // ── 주문 변경 내역 조회
@@ -400,7 +452,7 @@ export default function OrderNew() {
 
       {/* 두 번째 버튼 줄 */}
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderTop: 'none', padding: '3px 8px', display: 'flex', gap: 4, flexShrink: 0 }}>
-        <button className="btn btn-sm" onClick={loadLastOrder}>{t('지난 주문 불러오기')}</button>
+        <button className="btn btn-sm" onClick={loadOrderHistory}>📋 {t('지난 주문 불러오기')}</button>
         <button className="btn btn-sm" onClick={loadHistory}>{t('주문 변경 내역 조회')}</button>
       </div>
 
@@ -738,6 +790,141 @@ export default function OrderNew() {
           )}
         </div>
       </div>
+
+      {/* ── 지난 주문 불러오기 모달 ── */}
+      {showOrderHistory && (
+        <div className="modal-overlay" onClick={() => setShowOrderHistory(false)}>
+          <div className="modal" style={{ maxWidth: 820, width: '92%', maxHeight: '82vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">📋 {selectedCust?.CustName} — 지난 주문 불러오기</span>
+              <button className="btn btn-sm" onClick={() => setShowOrderHistory(false)}>✕ 닫기</button>
+            </div>
+
+            {/* 탭 */}
+            <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              {[['recent', '🕐 최근 주문 내역'], ['fav', `⭐ 즐겨찾기 (${favorites.length})`]].map(([key, label]) => (
+                <div key={key} onClick={() => setHistoryTab(key)}
+                  style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    color: historyTab === key ? 'var(--blue)' : 'var(--text3)',
+                    borderBottom: historyTab === key ? '2px solid var(--blue)' : '2px solid transparent',
+                    marginBottom: -2 }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {/* 본문 */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+
+              {/* ── 최근 주문 내역 탭 ── */}
+              {historyTab === 'recent' && (
+                historyLoading
+                  ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>불러오는 중...</div>
+                  : orderHistory.length === 0
+                  ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>주문 내역이 없습니다.</div>
+                  : (
+                    <table className="tbl" style={{ fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: 88 }}>차수</th>
+                          <th style={{ width: 95 }}>주문일</th>
+                          <th style={{ textAlign: 'right', width: 60 }}>품목수</th>
+                          <th style={{ textAlign: 'right', width: 72 }}>총수량</th>
+                          <th>품목 요약</th>
+                          <th style={{ width: 200, textAlign: 'center' }}>액션</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderHistory.map((order) => {
+                          const totalQ = (order.items || []).reduce((a, it) => a + (it.boxQty||0) + (it.bunchQty||0) + (it.steamQty||0) + (!it.boxQty&&!it.bunchQty&&!it.steamQty ? (it.qty||0) : 0), 0);
+                          const preview = (order.items || []).slice(0, 4).map(it => it.prodName).join(', ') + ((order.items?.length||0) > 4 ? ` 외 ${order.items.length - 4}개` : '');
+                          const isSaving = favEditId === order.id;
+                          return (
+                            <tr key={order.id} style={{ background: isSaving ? '#FFFBE6' : undefined }}>
+                              <td style={{ fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)' }}>{order.week}</td>
+                              <td style={{ color: 'var(--text2)', fontSize: 11 }}>{order.date}</td>
+                              <td className="num">{order.items?.length || 0}</td>
+                              <td className="num">{totalQ > 0 ? totalQ.toFixed(2) : '0.00'}</td>
+                              <td style={{ fontSize: 11, color: 'var(--text3)' }}>{preview || '—'}</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <button className="btn btn-primary btn-sm" onClick={() => loadOrderToForm(order)}>✅ 불러오기</button>
+                                  {isSaving ? (
+                                    <>
+                                      <input autoFocus placeholder="즐겨찾기 이름 입력"
+                                        value={favEditName} onChange={e => setFavEditName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') saveFavorite(order, favEditName); if (e.key === 'Escape') setFavEditId(null); }}
+                                        style={{ width: 120, height: 24, fontSize: 11, border: '1px solid var(--amber)', borderRadius: 3, padding: '0 4px' }}
+                                      />
+                                      <button className="btn btn-sm" style={{ padding: '1px 7px', fontSize: 11, background: '#FFC107', color: '#000', border: '1px solid #E0A800' }}
+                                        onClick={() => saveFavorite(order, favEditName)}>저장</button>
+                                      <button className="btn btn-sm" style={{ padding: '1px 6px', fontSize: 11 }}
+                                        onClick={() => setFavEditId(null)}>✕</button>
+                                    </>
+                                  ) : (
+                                    <button className="btn btn-sm" style={{ padding: '2px 8px', fontSize: 11, background: '#FFF8DC', border: '1px solid #CCA000', color: '#8B6914' }}
+                                      onClick={() => { setFavEditId(order.id); setFavEditName(`${order.week} 주문`); }}>
+                                      ⭐ 즐겨찾기
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )
+              )}
+
+              {/* ── 즐겨찾기 탭 ── */}
+              {historyTab === 'fav' && (
+                favorites.length === 0
+                  ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+                      저장된 즐겨찾기가 없습니다.<br/>
+                      <span style={{ fontSize: 12, marginTop: 6, display: 'block' }}>
+                        최근 주문 내역 탭에서 ⭐ 즐겨찾기 버튼으로 저장하세요.
+                      </span>
+                    </div>
+                  : (
+                    <table className="tbl" style={{ fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th>이름</th>
+                          <th style={{ width: 80 }}>차수</th>
+                          <th style={{ width: 85 }}>저장일</th>
+                          <th style={{ textAlign: 'right', width: 60 }}>품목수</th>
+                          <th>품목 요약</th>
+                          <th style={{ width: 140, textAlign: 'center' }}>액션</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {favorites.map(fav => {
+                          const preview = (fav.items || []).slice(0, 4).map(it => it.prodName).join(', ') + ((fav.items?.length||0) > 4 ? ` 외 ${fav.items.length - 4}개` : '');
+                          return (
+                            <tr key={fav.id}>
+                              <td style={{ fontWeight: 600 }}>⭐ {fav.name}</td>
+                              <td style={{ fontFamily: 'var(--mono)', color: 'var(--blue)', fontSize: 11 }}>{fav.week}</td>
+                              <td style={{ color: 'var(--text3)', fontSize: 11 }}>{fav.savedAt}</td>
+                              <td className="num">{fav.items?.length || 0}</td>
+                              <td style={{ fontSize: 11, color: 'var(--text3)' }}>{preview || '—'}</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                                  <button className="btn btn-primary btn-sm" onClick={() => loadOrderToForm(fav)}>✅ 불러오기</button>
+                                  <button className="btn btn-danger btn-sm" onClick={() => deleteFavorite(fav.id)}>🗑 삭제</button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 변경 내역 모달 ── */}
       {showHistory && (
