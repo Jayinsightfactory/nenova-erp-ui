@@ -139,7 +139,7 @@ table { width:100%; border-collapse:collapse; }
         <tr class="hdr-row"><td class="hdr-key">청&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">TEL/FAX</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">결제조건</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">유효기간</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">출고기간</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">비&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;고</td><td>${bigoLabel}</td></tr>
       </table>
       <div class="greet">
@@ -169,7 +169,7 @@ table { width:100%; border-collapse:collapse; }
 <!-- 금액 행 -->
 <div class="amt-row">
   <span class="amt-ko">금 액 : ${numToKorean(totalAmt)}</span>
-  <span class="amt-num">(₩ ${fmtN(totalAmt)}원) / VAT 포함</span>
+  <span class="amt-num">(W ${fmtN(totalAmt)}원) / VAT 포함</span>
 </div>
 
 <!-- 품목 테이블 -->
