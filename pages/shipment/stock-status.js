@@ -1,5 +1,5 @@
-// pages/shipment/stock-status.js — 출고,재고상황 v4
-// 추가: 업체별 칩 필터, 담당자별 칩 필터, 주문추가 단위(박스 기본값)
+// pages/shipment/stock-status.js — 출고,재고상황 v5
+// 추가: 업체별 칩 필터 기본값 전체숨김, 줄긋기 제거, 기록컬럼, UpdateDtm 오류수정
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import Layout from '../../components/Layout';
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
