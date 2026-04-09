@@ -155,7 +155,7 @@ export default function Layout({ children, title }) {
       <div className="layout">
         <div className="sidebar">
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
-            <div className="sidebar-logo" style={{ cursor:'pointer' }}>🏠 nenova ERP</div>
+            <div className="sidebar-logo" style={{ cursor:'pointer' }}>🏠 nenova ERP v4.9</div>
           </Link>
           <nav className="sidebar-nav">
             {MENU_ITEMS.map(group => (
