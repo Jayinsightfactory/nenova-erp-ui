@@ -1,10 +1,11 @@
 // pages/shipment/stock-status.js — 출고,재고상황
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/Layout';
-import WeekInput from '../../components/WeekInput';
+import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
 
 export default function StockStatus() {
-  const [week, setWeek]           = useState('');
+  const weekInput = useWeekInput('');
+  const week = weekInput.value;
   const [tab, setTab]             = useState('products'); // products | customers | pivot
   const [pivotSub, setPivotSub]   = useState('byCust');   // byCust | byProd
   const [loading, setLoading]     = useState(false);
@@ -322,7 +323,7 @@ export default function StockStatus() {
           <h2 style={{ margin:0, fontSize:18, fontWeight:700 }}>출고,재고상황</h2>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <label style={{ fontSize:13, color:'#555' }}>차수</label>
-            <WeekInput value={week} onChange={setWeek} />
+            <WeekInput weekInput={weekInput} />
           </div>
           {week && (
             <button onClick={() => loadData(week, tab)} style={styles.refreshBtn}>🔄 새로고침</button>
