@@ -1,0 +1,5 @@
+# nixpacks.toml — Railway 빌드 캐시 무효화용
+# 수정이력: 2026-04-09 — Docker 레이어 캐시 강제 파기
+
+[phases.build]
+cmds = ['echo "CACHE_BUST_20260409b" && rm -rf .next && npm run build']
