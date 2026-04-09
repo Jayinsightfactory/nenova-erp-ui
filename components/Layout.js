@@ -1,6 +1,7 @@
 // components/Layout.js
 // 수정이력: 2026-03-30 — useLang 훅으로 전체 메뉴/버튼 언어 전환
 // 수정이력: 2026-04-09 — 홈 링크 + topbar 닫기 버튼 추가
+// 수정이력: 2026-04-09b — Railway 강제 재빌드 v2
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
