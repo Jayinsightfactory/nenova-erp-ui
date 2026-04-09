@@ -33,6 +33,7 @@ export default function OrderList() {
   const [prodFilter, setProdFilter] = useState('');
   const [selectedRow, setSelectedRow] = useState(null); // { orderId, prodKey }
   const [err, setErr] = useState('');
+  const [showDate, setShowDate] = useState(true);   // 주문일 열 표시 여부
 
   const load = () => {
     setLoading(true); setErr('');
@@ -99,6 +100,14 @@ export default function OrderList() {
           <button className="btn" onClick={handleExcel}>📊 엑 셀 / Excel</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫 기 / Cerrar</button>
         </div>
+        {/* 주문일 표시 토글 */}
+        <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12,
+                         marginLeft:8, padding:'3px 10px', background: showDate ? '#e3f2fd' : '#f5f5f5',
+                         border:'1px solid #ccc', borderRadius:4, userSelect:'none' }}>
+          <input type="checkbox" checked={showDate} onChange={e => setShowDate(e.target.checked)}
+            style={{ cursor:'pointer' }} />
+          주문일 표시
+        </label>
       </div>
 
       {err && <div className="banner-err">⚠️ {err}</div>}
@@ -119,7 +128,7 @@ export default function OrderList() {
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{minWidth:90}}>주문일자</th>
+                {showDate && <th style={{minWidth:85}}>주문일</th>}
                 <th style={{minWidth:70}}>차수</th>
                 <th style={{minWidth:160}}>거래처</th>
                 <th style={{minWidth:60}}>지역</th>
@@ -150,14 +159,14 @@ export default function OrderList() {
                 return [
                   // ── 차수 헤더 행
                   <tr key={`week-${o.id}`} style={{background:'#E0E8F0'}}>
-                    <td colSpan={13} style={{padding:'2px 8px', fontWeight:'bold', fontSize:12}}>
+                    <td colSpan={showDate ? 13 : 12} style={{padding:'2px 8px', fontWeight:'bold', fontSize:12}}>
                       ∨ 차수: {o.week}
                     </td>
                   </tr>,
 
                   // ── 거래처 헤더 행
                   <tr key={`cust-${o.id}`} style={{background:'#EEF4FB'}}>
-                    <td colSpan={5} style={{padding:'2px 16px', fontWeight:'bold', fontSize:12, color:'var(--blue)'}}>
+                    <td colSpan={showDate ? 5 : 4} style={{padding:'2px 16px', fontWeight:'bold', fontSize:12, color:'var(--blue)'}}>
                       ∨ 거래처명: {o.custName} ({o.manager})
                     </td>
                     <td colSpan={4}></td>
@@ -176,7 +185,7 @@ export default function OrderList() {
                         onClick={() => setSelectedRow({orderId: o.id, idx})}
                         style={{cursor:'pointer'}}
                       >
-                        <td style={{fontFamily:'var(--mono)', fontSize:11}}>{o.date}</td>
+                        {showDate && <td style={{fontFamily:'var(--mono)', fontSize:11}}>{o.date}</td>}
                         <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:11}}>{o.week}</td>
                         <td style={{fontSize:12}}>{o.custName}</td>
                         <td>{o.custArea ? <span className="badge badge-gray">{o.custArea}</span> : ''}</td>
@@ -195,7 +204,7 @@ export default function OrderList() {
 
                   // ── 거래처 소계 행
                   <tr key={`subtotal-${o.id}`} style={{background:'#F8F8F8', borderTop:'1px solid var(--border)'}}>
-                    <td colSpan={9} style={{textAlign:'right', fontWeight:'bold', fontSize:12, padding:'2px 8px', color:'var(--text3)'}}>
+                    <td colSpan={showDate ? 9 : 8} style={{textAlign:'right', fontWeight:'bold', fontSize:12, padding:'2px 8px', color:'var(--text3)'}}>
                       합계
                     </td>
                     <td className="num" style={{fontWeight:'bold'}}>{fmt(orderTotal.box)}</td>
@@ -209,7 +218,7 @@ export default function OrderList() {
             {/* 전체 합계 */}
             <tfoot>
               <tr>
-                <td colSpan={9} style={{textAlign:'right', fontWeight:'bold', padding:'3px 8px'}}>전체 합계</td>
+                <td colSpan={showDate ? 9 : 8} style={{textAlign:'right', fontWeight:'bold', padding:'3px 8px'}}>전체 합계</td>
                 <td className="num" style={{fontWeight:'bold'}}>{fmt(totalBox)}</td>
                 <td className="num" style={{fontWeight:'bold'}}>{fmt(totalBunch)}</td>
                 <td className="num" style={{fontWeight:'bold'}}>{fmt(totalSteam)}</td>

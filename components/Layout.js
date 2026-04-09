@@ -152,7 +152,9 @@ export default function Layout({ children, title }) {
       <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
       <div className="layout">
         <div className="sidebar">
-          <div className="sidebar-logo">nenova ERP</div>
+          <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
+            <div className="sidebar-logo" style={{ cursor:'pointer' }}>🏠 nenova ERP</div>
+          </Link>
           <nav className="sidebar-nav">
             {MENU_ITEMS.map(group => (
               <div key={group.group} className="nav-group">
@@ -199,6 +201,12 @@ export default function Layout({ children, title }) {
                   {t('로그아웃')}
                 </button>
               )}
+              <button className="btn btn-sm"
+                onClick={() => window.opener ? window.close() : router.push('/dashboard')}
+                style={{ borderColor:'#999' }}
+                title="창 닫기 / 홈으로">
+                ✕ {t('닫기')}
+              </button>
             </span>
           </div>
           <div className="page-area">{children}</div>

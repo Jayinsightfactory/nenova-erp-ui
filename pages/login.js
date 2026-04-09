@@ -40,7 +40,7 @@ export default function Login() {
         <div style={{ background:'#fff', border:'2px solid #999', padding:'24px', width:320, boxShadow:'3px 3px 8px rgba(0,0,0,0.2)' }}>
           {/* 타이틀 바 (윈도우 스타일) */}
           <div style={{ background:'linear-gradient(to right,#000080,#1084d0)', color:'#fff', padding:'4px 8px', margin:'-24px -24px 16px -24px', fontSize:13, fontWeight:'bold', display:'flex', alignItems:'center', gap:8 }}>
-            <span>🌸</span> 화월 관리 프로그램 v1.0
+            <span>🌿</span> nenova ERP
           </div>
 
           <div style={{ fontSize:13, fontWeight:'bold', marginBottom:12, color:'#333' }}>■ 로그인</div>
