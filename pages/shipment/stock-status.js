@@ -930,15 +930,29 @@ export default function StockStatus() {
   // ─────────────────────────────────────────────────────────────
   const renderWeekPivot = () => {
     const rows = filteredCustRows;
-    if (!rows.length) return <div style={st.empty}>데이터 없음 (업체별 데이터 로딩 필요)</div>;
+    if (!rows.length) return <div style={st.empty}>데이터 없음</div>;
 
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
+    // 업체 — 지역별 그룹 정렬
     const custMap = {};
-    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea }; });
-    const custKeys = Object.keys(custMap).map(Number);
+    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea || '기타' }; });
+    const custKeys = Object.keys(custMap).map(Number)
+      .sort((a,b) => ((custMap[a].area+custMap[a].name).localeCompare(custMap[b].area+custMap[b].name, 'ko')));
+    // 지역 그룹 계산
+    const areaGroups = [];
+    let lastArea = null, areaStart = 0;
+    custKeys.forEach((ck, i) => {
+      const area = custMap[ck].area;
+      if (area !== lastArea) { if (lastArea !== null) areaGroups.push({ area: lastArea, count: i - areaStart }); lastArea = area; areaStart = i; }
+    });
+    if (lastArea !== null) areaGroups.push({ area: lastArea, count: custKeys.length - areaStart });
+
+    // 품목 — 수량 있는 것만
     const prodMap = {};
     rows.forEach(r => {
-      if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+      if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0) {
+        if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+      }
     });
     const prodKeys = Object.keys(prodMap).map(Number).sort((a,b) =>
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
@@ -953,61 +967,125 @@ export default function StockStatus() {
 
     if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
 
-    return (
-      <div style={{ overflowX:'auto' }}>
-        <table style={{ ...st.table, fontSize:11 }}>
-          <thead>
-            <tr style={st.thead}>
-              <th style={{ ...st.th, position:'sticky', left:0, background:'#37474f', zIndex:2, minWidth:160 }}>품명</th>
-              {weeks.map(wk => (
-                <React.Fragment key={wk}>
-                  {custKeys.map(ck => (
-                    <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:40 }}>
-                      <div style={{fontSize:8,opacity:0.7}}>{wk}</div>
-                      {custMap[ck]?.name?.slice(0,5)}
-                    </th>
-                  ))}
-                  <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:9 }}>시작</th>
-                  <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:9 }}>입고</th>
-                  <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:9 }}>{wk}출고</th>
-                  <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:9 }}>잔량</th>
-                </React.Fragment>
+    const PROD_REPEAT = 10;  // N품목마다 업체헤더 반복
+    const CUST_REPEAT = 15;  // N업체마다 품명 반복
+    const stockCols = 4; // 시작/입고/출고/잔량
+    const colsPerWeek = custKeys.length + stockCols;
+
+    // 헤더 행 렌더 함수
+    const renderHeaderRows = () => (
+      <>
+        {/* 1행: 차수 묶음 */}
+        <tr style={st.thead}>
+          <th style={{ ...st.th, position:'sticky', left:0, background:'#263238', zIndex:3 }} rowSpan={3}>품명</th>
+          {weeks.map(wk => (
+            <th key={wk} colSpan={colsPerWeek} style={{ ...st.th, textAlign:'center', background:'#1a237e', fontSize:12, borderLeft:'2px solid #fff' }}>{wk}</th>
+          ))}
+        </tr>
+        {/* 2행: 지역 묶음 */}
+        <tr style={st.thead}>
+          {weeks.map(wk => (
+            <React.Fragment key={wk}>
+              {areaGroups.map((ag,ai) => (
+                <th key={`${wk}-a${ai}`} colSpan={ag.count} style={{ ...st.th, textAlign:'center', background:'#455a64', fontSize:9, borderLeft: ai===0?'2px solid #fff':'none' }}>{ag.area}</th>
               ))}
-            </tr>
+              <th colSpan={stockCols} style={{ ...st.th, textAlign:'center', background:'#004d40', fontSize:9 }}>재고</th>
+            </React.Fragment>
+          ))}
+        </tr>
+        {/* 3행: 업체명 */}
+        <tr style={st.thead}>
+          {weeks.map(wk => (
+            <React.Fragment key={wk}>
+              {custKeys.map((ck,ci) => (
+                <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:44, maxWidth:60,
+                    whiteSpace:'normal', wordBreak:'break-all', lineHeight:'1.2', padding:'4px 2px',
+                    borderLeft: ci===0?'2px solid #fff':'none' }}>
+                  {custMap[ck]?.name}
+                </th>
+              ))}
+              <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작</th>
+              <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
+              <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
+              <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
+            </React.Fragment>
+          ))}
+        </tr>
+      </>
+    );
+
+    return (
+      <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'75vh', position:'relative' }}>
+        <table style={{ ...st.table, fontSize:10, borderCollapse:'collapse' }}>
+          <thead style={{ position:'sticky', top:0, zIndex:4 }}>
+            {renderHeaderRows()}
           </thead>
           <tbody>
             {prodKeys.map((pk, pi) => {
               const p = prodMap[pk];
               let rollingStock = startStocks[pk] || 0;
+
+              // N품목마다 업체헤더 반복
+              const needCustRepeat = pi > 0 && pi % PROD_REPEAT === 0;
+
               return (
-                <tr key={pk} style={{ background:pi%2===0?'#fff':'#f5f5f5' }}>
-                  <td style={{ ...st.td, position:'sticky', left:0, background:pi%2===0?'#fff':'#f5f5f5', zIndex:1 }}>
-                    <span style={{ ...st.clickCell, fontSize:9, color: filterCoun===p.coun?'#1565c0':'#888' }}
-                          onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
-                    <span style={{ ...st.clickCell, fontSize:9, color: filterFlower===p.flower?'#2e7d32':'#888', marginLeft:2 }}
-                          onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
-                    <div style={{fontWeight:600, fontSize:11}}>{p.name}</div>
-                  </td>
-                  {weeks.map(wk => {
-                    const weekStart = rollingStock;
-                    const inQty = inMap[`${pk}-${wk}`] || 0;
-                    const weekOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
-                    rollingStock = weekStart + inQty - weekOut;
-                    return (
-                      <React.Fragment key={wk}>
-                        {custKeys.map(ck => {
-                          const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-                          return <td key={`${wk}-${ck}`} style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ccc',fontSize:10}}>{v>0?fmt(v):'−'}</td>;
-                        })}
-                        <td style={{...st.td,textAlign:'right',background:'#e0f7fa',fontWeight:600,fontSize:10}}>{fmt(weekStart)}</td>
-                        <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:10}}>{fmt(inQty)}</td>
-                        <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:10}}>{fmt(weekOut)}</td>
-                        <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:10,
-                                    color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
-                      </React.Fragment>
-                    );
-                  })}
-                </tr>
+                <React.Fragment key={pk}>
+                  {needCustRepeat && (
+                    <tr style={{ background:'#eceff1' }}>
+                      <td style={{ ...st.td, position:'sticky', left:0, background:'#eceff1', zIndex:1, fontSize:9, color:'#555', fontWeight:700 }}>▼ 업체 ▼</td>
+                      {weeks.map(wk => (
+                        <React.Fragment key={wk}>
+                          {custKeys.map((ck,ci) => (
+                            <td key={`r-${wk}-${ck}`} style={{ ...st.td, fontSize:8, textAlign:'center', color:'#555', fontWeight:600,
+                                whiteSpace:'normal', wordBreak:'break-all', background:'#eceff1',
+                                borderLeft: ci===0?'2px solid #ccc':'none' }}>
+                              {custMap[ck]?.name}
+                            </td>
+                          ))}
+                          <td colSpan={stockCols} style={{ ...st.td, background:'#eceff1' }}></td>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  )}
+                  <tr style={{ background: pi%2===0?'#fff':'#f5f5f5' }}>
+                    <td style={{ ...st.td, position:'sticky', left:0, background: pi%2===0?'#fff':'#f5f5f5', zIndex:1, minWidth:150 }}>
+                      <span style={{ ...st.clickCell, fontSize:8, color: filterCoun===p.coun?'#1565c0':'#999' }}
+                            onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
+                      <span style={{ ...st.clickCell, fontSize:8, color: filterFlower===p.flower?'#2e7d32':'#999', marginLeft:2 }}
+                            onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
+                      <div style={{fontWeight:600, fontSize:10}}>{p.name}</div>
+                    </td>
+                    {weeks.map(wk => {
+                      const weekStart = rollingStock;
+                      const inQty = inMap[`${pk}-${wk}`] || 0;
+                      const weekOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                      rollingStock = weekStart + inQty - weekOut;
+                      return (
+                        <React.Fragment key={wk}>
+                          {custKeys.map((ck,ci) => {
+                            const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                            // N업체마다 품명 반복 표시
+                            const needProdLabel = ci > 0 && ci % CUST_REPEAT === 0;
+                            return (
+                              <td key={`${wk}-${ck}`} style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ddd',fontSize:10,
+                                  borderLeft: ci===0?'2px solid #e0e0e0':'none',
+                                  position:'relative'}}
+                                  title={needProdLabel ? p.name : undefined}>
+                                {v>0?fmt(v):'·'}
+                                {needProdLabel && v>0 && <div style={{position:'absolute',top:-1,left:0,fontSize:7,color:'#e65100',whiteSpace:'nowrap'}}>{p.name.slice(0,6)}</div>}
+                              </td>
+                            );
+                          })}
+                          <td style={{...st.td,textAlign:'right',background:'#e0f7fa',fontWeight:600,fontSize:9}}>{fmt(weekStart)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
+                                      color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                        </React.Fragment>
+                      );
+                    })}
+                  </tr>
+                </React.Fragment>
               );
             })}
           </tbody>
