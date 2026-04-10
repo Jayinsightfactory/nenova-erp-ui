@@ -935,11 +935,12 @@ export default function StockStatus() {
     return r.CustName;
   }, []);
 
-  // 품명에서 공통 꽃 영문명 제거
+  // 품명에서 모든 꽃/국가 영문명 제거
   const stripProdName = useCallback((name) => {
     return name
-      .replace(/^(CARNATION|ROSE|Hydrangea|ORCHID\s*VIETNAM|Ecuador\s*Tinted?|Ecuador|CHINA|Ruscus|SALAL|Lisianthus|\[MEL\])\s*[\/\s]*/i, '')
-      .replace(/^\s*\/\s*/, '').trim() || name;
+      .replace(/^(\[.*?\]\s*)*/,'')  // [MEL], [EZ], [오경] 등
+      .replace(/^(SPRAY\s+ROSE|ORCHID\s+VIETNAM|Ecuador\s+Tinted?|ALSTROMERIA|Minicarnation|CARNATION|Hydrangea|Anthurium|Delphinium|Amaryllis|Eucalyptus|Gladiolus|Asparagus|POMPON|DAHLIA|Ecuador|ORCHID|CHINA|ROSE|Tulip|Calla|Sweet|Gerbera|Peony|Den\.|Lisianthus|Hyacinthus|Spary|Allium|Acasia|Narcissus|Eryngium|Clematis|Veronica|Agapanthus|Helleborus|Fritillaria|Wax|Skimmia|Astrantia|Eyphorbia|Cymbidium|Panicum|Amaranthus|Nerine|Lily|Bouvardia|Ranunculus|Saponaria|Astilbe|Iris|Ruscus|SALAL|MOK|Rosa|Gentiana|Scabiosa|Sandersonia|Matricaria|Triteleia|Leucospermum|Campanula|Gloriosa|Grevillea|Jasmine|Oncidium|Fern|Cotton|Cortaderia|Kangaroo|Pong|Eustoma|ARAN|STATICE|LIMONIUM|PITTOSPORUM|Nutan|Preserved|Leucothoe|Genista|Thryptomene|Ananas|Wolly|Garden)\s*[\/\s]*/i, '')
+      .replace(/^\s*\/\s*/,'').trim() || name;
   }, []);
 
   // 피벗 전용 필터
@@ -998,7 +999,8 @@ export default function StockStatus() {
     const PROD_REPEAT = 10;
     const CUST_REPEAT = 15;
     const stockCols = 4;
-    const colsPerWeek = custKeys.length + stockCols;
+    const prodLabelCols = custKeys.length > CUST_REPEAT ? Math.floor((custKeys.length-1) / CUST_REPEAT) : 0;
+    const colsPerWeek = custKeys.length + stockCols + prodLabelCols;
 
     // 업체 짧은 이름
     const cShort = (ck) => {
@@ -1035,11 +1037,14 @@ export default function StockStatus() {
           {weeks.map(wk => (
             <React.Fragment key={wk}>
               {custKeys.map((ck,ci) => (
-                <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:44, maxWidth:60,
-                    whiteSpace:'normal', wordBreak:'break-all', lineHeight:'1.2', padding:'4px 2px',
-                    borderLeft: ci===0?'2px solid #fff':'none' }}>
-                  {cShort(ck)}
-                </th>
+                <React.Fragment key={`${wk}-${ck}`}>
+                  {ci > 0 && ci % CUST_REPEAT === 0 && <th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
+                  <th style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:44, maxWidth:60,
+                      whiteSpace:'normal', wordBreak:'break-all', lineHeight:'1.2', padding:'4px 2px',
+                      borderLeft: ci===0?'2px solid #fff':'none' }}>
+                    {cShort(ck)}
+                  </th>
+                </React.Fragment>
               ))}
               <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작</th>
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
@@ -1103,11 +1108,14 @@ export default function StockStatus() {
                       {weeks.map(wk => (
                         <React.Fragment key={wk}>
                           {custKeys.map((ck,ci) => (
-                            <td key={`r-${wk}-${ck}`} style={{ ...st.td, fontSize:8, textAlign:'center', color:'#555', fontWeight:600,
-                                whiteSpace:'normal', wordBreak:'break-all', background:'#eceff1',
-                                borderLeft: ci===0?'2px solid #ccc':'none' }}>
-                              {cShort(ck)}
-                            </td>
+                            <React.Fragment key={`r-${wk}-${ck}`}>
+                              {ci > 0 && ci % CUST_REPEAT === 0 && <td style={{...st.td,background:'#eceff1',fontSize:7,color:'#888',textAlign:'center'}}>품명</td>}
+                              <td style={{ ...st.td, fontSize:8, textAlign:'center', color:'#555', fontWeight:600,
+                                  whiteSpace:'normal', wordBreak:'break-all', background:'#eceff1',
+                                  borderLeft: ci===0?'2px solid #ccc':'none' }}>
+                                {cShort(ck)}
+                              </td>
+                            </React.Fragment>
                           ))}
                           <td colSpan={stockCols} style={{ ...st.td, background:'#eceff1' }}></td>
                         </React.Fragment>
@@ -1131,16 +1139,20 @@ export default function StockStatus() {
                         <React.Fragment key={wk}>
                           {custKeys.map((ck,ci) => {
                             const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-                            // N업체마다 품명 반복 표시
-                            const needProdLabel = ci > 0 && ci % CUST_REPEAT === 0;
                             return (
-                              <td key={`${wk}-${ck}`} style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ddd',fontSize:10,
-                                  borderLeft: ci===0?'2px solid #e0e0e0':'none',
-                                  position:'relative'}}
-                                  title={needProdLabel ? p.name : undefined}>
-                                {v>0?fmt(v):'·'}
-                                {needProdLabel && v>0 && <div style={{position:'absolute',top:-1,left:0,fontSize:7,color:'#e65100',whiteSpace:'nowrap'}}>{stripProdName(p.name).slice(0,8)}</div>}
-                              </td>
+                              <React.Fragment key={`${wk}-${ck}`}>
+                                {ci > 0 && ci % CUST_REPEAT === 0 && (
+                                  <td style={{...st.td,fontSize:8,fontWeight:600,color:'#e65100',whiteSpace:'nowrap',
+                                      background:'#fff8e1',borderLeft:'2px solid #ff9800',padding:'2px 4px',
+                                      writingMode:'vertical-rl',textOrientation:'mixed',maxWidth:16,lineHeight:'14px'}}>
+                                    {stripProdName(p.name).slice(0,10)}
+                                  </td>
+                                )}
+                                <td style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ddd',fontSize:10,
+                                    borderLeft: ci===0?'2px solid #e0e0e0':'none'}}>
+                                  {v>0?fmt(v):'·'}
+                                </td>
+                              </React.Fragment>
                             );
                           })}
                           <td style={{...st.td,textAlign:'right',background:'#e0f7fa',fontWeight:600,fontSize:9}}>{fmt(weekStart)}</td>
