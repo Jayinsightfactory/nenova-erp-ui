@@ -322,6 +322,19 @@ async function updateOutQty(req, res) {
     const ck  = parseInt(custKey);
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
+    const orderYear = new Date().getFullYear().toString();
+    const ywk = orderYear + week.replace('-',''); // "2026" + "1601" = "20261601"
+
+    // Product 환산정보
+    const prodInfo = await query(
+      `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
+      { pk: { type: sql.Int, value: pk } }
+    );
+    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
+    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+    const boxQty   = qty;
+    const bunchQty = qty * bunchOf1Box;
+    const steamQty = qty * steamOf1Box;
 
     await withTransaction(async (tQ) => {
       // ShipmentMaster 찾기 또는 생성
@@ -336,9 +349,11 @@ async function updateOutQty(req, res) {
         const maxSm = await tQ(`SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nk FROM ShipmentMaster`, {});
         const newSk = maxSm.recordset[0].nk;
         await tQ(
-          `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@wk,@ck,0,0,@uid,GETDATE())`,
-          { nk: { type: sql.Int, value: newSk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+          `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
+          { nk: { type: sql.Int, value: newSk }, yr: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: week }, ywk: { type: sql.NVarChar, value: ywk },
+            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
         sk = newSk;
         console.log('[PATCH] ShipmentMaster created:', newSk);
@@ -352,32 +367,32 @@ async function updateOutQty(req, res) {
         `SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
-      console.log('[PATCH] ShipmentDetail rows:', sd.recordset.length, 'sk:', sk, 'pk:', pk);
 
       if (sd.recordset.length > 0) {
         if (qty <= 0) {
           await tQ(`DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
-          console.log('[PATCH] ShipmentDetail DELETED');
         } else {
           await tQ(
-            `UPDATE ShipmentDetail SET OutQuantity=@qty, ShipmentDtm=GETDATE()
+            `UPDATE ShipmentDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+             ShipmentDtm=GETDATE(), isFix=0
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-            { qty: { type: sql.Float, value: qty }, sk: { type: sql.Int, value: sk },
-              pk: { type: sql.Int, value: pk } }
+            { qty: { type: sql.Float, value: qty }, bq: { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+              sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
           );
-          console.log('[PATCH] ShipmentDetail UPDATED qty:', qty);
         }
       } else if (qty > 0) {
         const maxSd = await tQ(`SELECT ISNULL(MAX(SdetailKey),0)+1 AS nk FROM ShipmentDetail`, {});
         const newSdk = maxSd.recordset[0].nk;
         await tQ(
-          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-           VALUES(@dk,@sk,@pk,GETDATE(),@qty,@qty)`,
+          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isFix,Descr)
+           VALUES(@dk,@sk,@pk,GETDATE(),@qty,@qty,@bq,@bnq,@sq,0,'')`,
           { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk },
-            pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty } }
+            pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty },
+            bq: { type: sql.Float, value: boxQty }, bnq: { type: sql.Float, value: bunchQty },
+            sq: { type: sql.Float, value: steamQty } }
         );
-        console.log('[PATCH] ShipmentDetail INSERTED dk:', newSdk);
       }
     });
 
