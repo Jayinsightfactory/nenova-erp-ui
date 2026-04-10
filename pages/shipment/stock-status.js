@@ -346,6 +346,7 @@ export default function StockStatus() {
 
   const [tab, setTab]           = useState('products');
   const [pivotSub, setPivotSub] = useState('byCust');
+  const [mgrSub, setMgrSub]     = useState('list'); // list | pivot
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const isFirstLoad = useRef({ custs: true, mgrs: true }); // 첫 로드 시에만 전체숨김
@@ -865,18 +866,22 @@ export default function StockStatus() {
                           <tr style={{ ...st.thead, background:'#546e7a' }}>
                             <th style={st.th}>국가</th><th style={st.th}>꽃</th><th style={st.th}>품명</th><th style={st.th}>단위</th>
                             {isRange && <th style={st.th}>차수</th>}
+                            <th style={{ ...st.th, background:'#006064' }}>시작재고</th>
                             <th style={{ ...st.th, background:'#2e7d32' }}>이월재고</th>
                             <th style={{ ...st.th, background:'#455a64' }}>내주문</th>
                             <th style={{ ...st.th, background:'#455a64' }}>전체입고</th>
                             <th style={{ ...st.th, background:'#455a64' }}>전체주문</th>
                             <th style={{ ...st.th, background:'#ad1457' }}>출고수량 ±</th>
-                            <th style={{ ...st.th, background:'#4a148c' }}>잔량</th>
+                            <th style={{ ...st.th, background:'#4a148c' }}>잔량(재고)</th>
+                            <th style={{ ...st.th, background:'#311b92' }}>잔량(기존)</th>
                             <th style={{ ...st.th, background:'#455a64', minWidth:90 }}>기록</th>
                           </tr>
                         </thead>
                         <tbody>
                           {sortedItems.map((item,i) => {
                             const remain = (item.prevStock||0)+(item.totalInQty||0)-(item.totalOutQty||0);
+                            const ss = startStocks[item.ProdKey];
+                            const remainSS = ss != null ? ss - (item.totalOutQty||0) : null;
                             return (
                               <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
                                 <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
@@ -886,11 +891,16 @@ export default function StockStatus() {
                                 <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
                                 <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                                 {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
+                                <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', color:'#006064', fontWeight:600 }}>
+                                  {ss != null ? fmt(ss) : '-'}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(item.prevStock)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(item.custOrderQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(item.totalInQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#f0f4c3' }}>{fmt(item.totalOrderQty)}</td>
                                 <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} baseQty={item.outQty} />
+                                <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa',
+                                             color: remainSS!=null?(remainSS<0?'#d32f2f':'#006064'):'#999', fontWeight:700 }}>
+                                  {remainSS!=null ? fmt(remainSS) : '-'}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5',
                                              color:remain<0?'#d32f2f':'#388e3c', fontWeight:700 }}>{fmt(remain)}</td>
                                 <td style={{ ...st.td, fontSize:10, color:'#888', whiteSpace:'nowrap', textAlign:'center' }}>{item.outCreateDtm || '—'}</td>
@@ -906,6 +916,99 @@ export default function StockStatus() {
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 담당자별 — 차수 피벗 뷰 (품명 × 업체 × 차수 + 롤링 재고)
+  // ─────────────────────────────────────────────────────────────
+  const renderMgrPivot = () => {
+    if (!mgrRows.length) return <div style={st.empty}>데이터 없음</div>;
+
+    // 차수 목록
+    const weeks = [...new Set(filteredMgrRows.map(r=>r.OrderWeek))].sort();
+    // 업체 목록
+    const custMap = {};
+    filteredMgrRows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea }; });
+    const custKeys = Object.keys(custMap).map(Number);
+    // 품목 목록
+    const prodMap = {};
+    filteredMgrRows.forEach(r => {
+      if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+    });
+    const prodKeys = Object.keys(prodMap).map(Number).sort((a,b) =>
+      ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
+       (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''), 'ko'));
+
+    // 데이터 맵: { `pk-ck-wk`: outQty }
+    const dataMap = {};
+    const inMap = {}, totalOutMap = {};
+    filteredMgrRows.forEach(r => {
+      dataMap[`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`] = r.outQty || 0;
+      const ik = `${r.ProdKey}-${r.OrderWeek}`;
+      if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
+      if (!totalOutMap[ik]) totalOutMap[ik] = 0;
+      totalOutMap[ik] += (r.outQty || 0);
+    });
+
+    if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
+
+    return (
+      <div style={{ overflowX:'auto' }}>
+        <table style={{ ...st.table, fontSize:11 }}>
+          <thead>
+            <tr style={st.thead}>
+              <th style={{ ...st.th, position:'sticky', left:0, background:'#37474f', zIndex:2, minWidth:140 }}>품명</th>
+              {weeks.map(wk => (
+                <React.Fragment key={wk}>
+                  {custKeys.map(ck => (
+                    <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:40 }}>
+                      <div style={{fontSize:8,opacity:0.7}}>{wk}</div>
+                      {custMap[ck]?.name?.slice(0,4)}
+                    </th>
+                  ))}
+                  <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:9 }}>시작</th>
+                  <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:9 }}>입고</th>
+                  <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:9 }}>{wk}출고</th>
+                  <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:9 }}>잔량</th>
+                </React.Fragment>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {prodKeys.map((pk, pi) => {
+              const p = prodMap[pk];
+              let rollingStock = startStocks[pk] || 0;
+              return (
+                <tr key={pk} style={{ background:pi%2===0?'#fff':'#f5f5f5' }}>
+                  <td style={{ ...st.td, fontWeight:600, position:'sticky', left:0, background:pi%2===0?'#fff':'#f5f5f5', zIndex:1 }}>
+                    <div style={{fontSize:9,color:'#888'}}>{p.coun}·{p.flower}</div>{p.name}
+                  </td>
+                  {weeks.map(wk => {
+                    const weekStart = rollingStock;
+                    const inQty = inMap[`${pk}-${wk}`] || 0;
+                    const weekOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                    rollingStock = weekStart + inQty - weekOut;
+                    return (
+                      <React.Fragment key={wk}>
+                        {custKeys.map(ck => {
+                          const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                          return <td key={`${wk}-${ck}`} style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ccc',fontSize:10}}>{v>0?fmt(v):'−'}</td>;
+                        })}
+                        <td style={{...st.td,textAlign:'right',background:'#e0f7fa',fontWeight:600,fontSize:10}}>{fmt(weekStart)}</td>
+                        <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:10}}>{fmt(inQty)}</td>
+                        <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:10}}>{fmt(weekOut)}</td>
+                        <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:10,
+                                    color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                      </React.Fragment>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -1125,7 +1228,17 @@ export default function StockStatus() {
             <>
               {tab==='products'  && renderProducts()}
               {tab==='customers' && renderCustomers()}
-              {tab==='managers'  && renderManagers()}
+              {tab==='managers' && (
+                <>
+                  <div style={{ display:'flex', gap:4, marginBottom:10 }}>
+                    <button onClick={()=>setMgrSub('list')}
+                      style={{ ...st.subTabBtn, ...(mgrSub==='list'?st.subTabBtnActive:{}) }}>📋 업체별</button>
+                    <button onClick={()=>setMgrSub('pivot')}
+                      style={{ ...st.subTabBtn, ...(mgrSub==='pivot'?st.subTabBtnActive:{}) }}>📊 차수 피벗</button>
+                  </div>
+                  {mgrSub==='list' ? renderManagers() : renderMgrPivot()}
+                </>
+              )}
               {tab==='pivot'     && renderPivot()}
             </>
           )}
