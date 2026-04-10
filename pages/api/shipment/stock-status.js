@@ -126,7 +126,7 @@ export default withAuth(async function handler(req, res) {
           om.OrderWeek,
           ISNULL(od.OutQuantity,   0) AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.CreateDtm, 120) AS outCreateDtm,
+          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -172,7 +172,7 @@ export default withAuth(async function handler(req, res) {
           om.OrderWeek,
           ISNULL(od.OutQuantity, 0) AS custOrderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.CreateDtm, 120) AS outCreateDtm,
+          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
@@ -288,11 +288,10 @@ async function updateOutQty(req, res) {
         }
       } else if (qty > 0) {
         await tQ(
-          `INSERT INTO ShipmentDetail (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,CreateID,CreateDtm)
-           VALUES(@sk,@ck,@pk,GETDATE(),@qty,@qty,@uid,GETDATE())`,
+          `INSERT INTO ShipmentDetail (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
+           VALUES(@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
           { sk: { type: sql.Int, value: sk }, ck: { type: sql.Int, value: ck },
-            pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty },
-            uid: { type: sql.NVarChar, value: uid } }
+            pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty } }
         );
       }
     });
