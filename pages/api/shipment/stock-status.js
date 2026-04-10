@@ -32,6 +32,44 @@ export default withAuth(async function handler(req, res) {
     }
   }
 
+  // 품목별 주문 횟수 (인기순 정렬용)
+  if (view === 'prodOrderCounts') {
+    try {
+      const result = await query(
+        `SELECT od.ProdKey, COUNT(*) AS cnt
+         FROM OrderDetail od
+         JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey AND om.isDeleted=0
+         WHERE od.isDeleted=0
+         GROUP BY od.ProdKey`, {}
+      );
+      const counts = {};
+      result.recordset.forEach(r => { counts[r.ProdKey] = r.cnt; });
+      return res.status(200).json({ success: true, counts });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // 특정 업체+차수의 기존 주문수량 조회 (모달용)
+  if (view === 'existOrders') {
+    const { custKey: ck } = req.query;
+    if (!weekFrom || !ck) return res.status(400).json({ success: false, error: 'weekFrom, custKey 필요' });
+    try {
+      const result = await query(
+        `SELECT od.ProdKey, od.OutQuantity, om.OrderWeek
+         FROM OrderDetail od
+         JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
+         WHERE om.CustKey=@ck AND om.OrderWeek=@wk AND om.isDeleted=0 AND od.isDeleted=0`,
+        { ck: { type: sql.Int, value: parseInt(ck) }, wk: { type: sql.NVarChar, value: weekFrom } }
+      );
+      const orders = {};
+      result.recordset.forEach(r => { orders[`${ck}-${r.ProdKey}-${r.OrderWeek}`] = r.OutQuantity; });
+      return res.status(200).json({ success: true, orders });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   if (week && !weekFrom) { weekFrom = week; weekTo = week; }
   if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
   if (!weekTo) weekTo = weekFrom;
