@@ -9,6 +9,7 @@ import { withAuth } from '../../../lib/auth';
 export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH') return await updateOutQty(req, res);
   if (req.method === 'POST')  return await addOrder(req, res);
+  if (req.method === 'PUT')   return await updateStartStock(req, res);
   if (req.method !== 'GET')   return res.status(405).end();
 
   // 차수 파라미터
@@ -45,6 +46,22 @@ export default withAuth(async function handler(req, res) {
       const counts = {};
       result.recordset.forEach(r => { counts[r.ProdKey] = r.cnt; });
       return res.status(200).json({ success: true, counts });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // 시작재고 조회/저장
+  if (view === 'startStock') {
+    if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
+    try {
+      const result = await query(
+        `SELECT ProdKey, Stock FROM StartStock WHERE OrderWeek=@wk`,
+        { wk: { type: sql.NVarChar, value: weekFrom } }
+      );
+      const stocks = {};
+      result.recordset.forEach(r => { stocks[r.ProdKey] = r.Stock; });
+      return res.status(200).json({ success: true, stocks });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
@@ -496,6 +513,28 @@ async function addOrder(req, res) {
     });
 
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── PUT: 시작재고 저장
+async function updateStartStock(req, res) {
+  const { prodKey, week, stock } = req.body;
+  if (!prodKey || !week) return res.status(400).json({ success: false, error: 'prodKey, week 필요' });
+  try {
+    const uid = req.user?.userId || 'system';
+    const s = parseFloat(stock) || 0;
+    await query(
+      `MERGE StartStock AS t
+       USING (SELECT @pk AS ProdKey, @wk AS OrderWeek) AS s
+       ON t.ProdKey=s.ProdKey AND t.OrderWeek=s.OrderWeek
+       WHEN MATCHED THEN UPDATE SET Stock=@s, CreateID=@uid, CreateDtm=GETDATE()
+       WHEN NOT MATCHED THEN INSERT (ProdKey,OrderWeek,Stock,CreateID,CreateDtm) VALUES(@pk,@wk,@s,@uid,GETDATE());`,
+      { pk: { type: sql.Int, value: parseInt(prodKey) }, wk: { type: sql.NVarChar, value: week },
+        s: { type: sql.Float, value: s }, uid: { type: sql.NVarChar, value: uid } }
+    );
+    return res.status(200).json({ success: true });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
