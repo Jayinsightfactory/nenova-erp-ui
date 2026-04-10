@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import Layout from '../../components/Layout';
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
+import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────
 // Edit Context
@@ -1126,6 +1127,33 @@ export default function StockStatus() {
             </div>
           );
         })()}
+        <button onClick={()=>{
+          // 엑셀 데이터 생성
+          const xlData = [];
+          // 헤더
+          const hdr = ['국가','꽃','품명'];
+          weeks.forEach(wk => { custKeys.forEach(ck => hdr.push(`${wk} ${cShort(ck)}`)); hdr.push(`${wk} 시작`,`${wk} 입고`,`${wk} 출고`,`${wk} 잔량`); });
+          xlData.push(hdr);
+          // 데이터
+          prodKeys.forEach(pk => {
+            const p = prodMap[pk];
+            const row = [p.coun, p.flower, stripProdName(p.name)];
+            let rs = startStocks[pk] || 0;
+            weeks.forEach(wk => {
+              custKeys.forEach(ck => row.push(dataMap[`${pk}-${ck}-${wk}`]||0));
+              const wStart = rs, inQ = inMap[`${pk}-${wk}`]||0;
+              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
+              rs = wStart + inQ - wOut;
+              row.push(wStart, inQ, wOut, rs);
+            });
+            xlData.push(row);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(xlData);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, '차수피벗');
+          XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
+        }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
+
         {rows.length === 0 ? (
           <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>
         ) : (
