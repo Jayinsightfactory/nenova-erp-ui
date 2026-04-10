@@ -472,6 +472,16 @@ export default function StockStatus() {
   const hasWeek = weekFrom && weekTo;
   const isFilterActive = filterCoun || filterFlower || filterSearch;
 
+  // 품목 행 정렬: 차수(범위 조회 시) → 국가 → 꽃 → 품명
+  const sortItems = (items) => [...items].sort((a,b) => {
+    if (isRange && a.OrderWeek !== b.OrderWeek) return (a.OrderWeek||'').localeCompare(b.OrderWeek||'');
+    const c = (a.CounName||'').localeCompare(b.CounName||'', 'ko');
+    if (c !== 0) return c;
+    const f = (a.FlowerName||'').localeCompare(b.FlowerName||'', 'ko');
+    if (f !== 0) return f;
+    return (a.ProdName||'').localeCompare(b.ProdName||'', 'ko');
+  };
+
   // ─────────────────────────────────────────────────────────────
   // 품목별 탭
   // ─────────────────────────────────────────────────────────────
@@ -618,8 +628,9 @@ export default function StockStatus() {
         )}
 
         {visGroups.map(g => {
-          const totOut = g.items.reduce((a,b)=>a+(b.outQty||0),0);
-          const totOrd = g.items.reduce((a,b)=>a+(b.custOrderQty||0),0);
+          const sortedItems = sortItems(g.items);
+          const totOut = sortedItems.reduce((a,b)=>a+(b.outQty||0),0);
+          const totOrd = sortedItems.reduce((a,b)=>a+(b.custOrderQty||0),0);
           return (
             <div key={g.custKey} style={{ marginBottom:14 }}>
               <div style={st.custHeader}>
@@ -645,7 +656,7 @@ export default function StockStatus() {
                     </tr>
                   </thead>
                   <tbody>
-                    {g.items.map((item, i) => {
+                    {sortedItems.map((item, i) => {
                       const remain = (item.prevStock||0) + (item.totalInQty||0) - (item.totalOutQty||0);
                       return (
                         <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
@@ -737,8 +748,9 @@ export default function StockStatus() {
               {visCusts.length === 0 && <div style={{ padding:'12px 16px', color:'#aaa', fontSize:12 }}>표시할 업체 없음</div>}
 
               {visCusts.map(g => {
-                const totOut = g.items.reduce((a,b)=>a+(b.outQty||0),0);
-                const totOrd = g.items.reduce((a,b)=>a+(b.custOrderQty||0),0);
+                const sortedItems = sortItems(g.items);
+                const totOut = sortedItems.reduce((a,b)=>a+(b.outQty||0),0);
+                const totOrd = sortedItems.reduce((a,b)=>a+(b.custOrderQty||0),0);
                 return (
                   <div key={g.custKey}>
                     <div style={{ ...st.custHeader, borderRadius:0, borderLeft:'3px solid #78909c' }}>
@@ -763,7 +775,7 @@ export default function StockStatus() {
                           </tr>
                         </thead>
                         <tbody>
-                          {g.items.map((item,i) => {
+                          {sortedItems.map((item,i) => {
                             const remain = (item.prevStock||0)+(item.totalInQty||0)-(item.totalOutQty||0);
                             return (
                               <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
