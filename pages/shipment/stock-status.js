@@ -947,6 +947,8 @@ export default function StockStatus() {
   // 피벗 전용 필터
   const [pvMgr, setPvMgr] = useState('');
   const [pvCusts, setPvCusts] = useState(new Set());
+  const [pvFlowers, setPvFlowers] = useState(new Set()); // 다중 꽃 선택
+  const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 접기/펼치기
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
 
@@ -981,6 +983,7 @@ export default function StockStatus() {
     let rows = filteredCustRows;
     if (pvMgr) rows = rows.filter(r => (r.Manager||'미지정') === pvMgr);
     if (pvCusts.size > 0) rows = rows.filter(r => pvCusts.has(r.CustKey));
+    if (pvFlowers.size > 0) rows = rows.filter(r => pvFlowers.has(r.FlowerName));
 
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
     const custMap = {};
@@ -1007,14 +1010,19 @@ export default function StockStatus() {
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''), 'ko'));
 
-    const dataMap = {}, inMap = {}, descrMap = {};
+    const dataMap = {}, inMap = {}, descrMap = {}, fixMap = {};
     rows.forEach(r => {
       const dk = `${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk] = r.outQty || 0;
       if (r.outDescr) descrMap[dk] = r.outDescr;
+      if (r.outCreateDtm) fixMap[dk] = r.outCreateDtm; // ShipmentDtm 존재 = 확정 여부 판단용
       const ik = `${r.ProdKey}-${r.OrderWeek}`;
       if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
     });
+    // isFix: CustKey-OrderWeek 단위로 확정 여부
+    const isFixed = (ck, wk) => {
+      return rows.some(r => r.CustKey===ck && r.OrderWeek===wk && r.isFix);
+    };
 
     if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
 
@@ -1073,7 +1081,10 @@ export default function StockStatus() {
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
-              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth:80 }}>비고</th>
+              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth: pvDescrOpen?80:30, cursor:'pointer' }}
+                  onClick={()=>setPvDescrOpen(p=>!p)}>
+                {pvDescrOpen ? '비고 ▾' : '▸'}
+              </th>
             </React.Fragment>
           ))}
         </tr>
@@ -1102,15 +1113,19 @@ export default function StockStatus() {
           <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
           {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
         </div>
-        {filterCoun && (
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
-            <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
-            <button onClick={()=>setFilterFlower('')} style={chipS(!filterFlower)}>전체</button>
-            {[...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort().map(f=>(
-              <button key={f} onClick={()=>setFilterFlower(prev=>prev===f?'':f)} style={chipS(filterFlower===f)}>{f}</button>
-            ))}
-          </div>
-        )}
+        {filterCoun && (() => {
+          const flowers = [...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort();
+          return (
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+              <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
+              <button onClick={()=>setPvFlowers(new Set())} style={chipS(pvFlowers.size===0)}>전체</button>
+              {flowers.map(f=>{
+                const active = pvFlowers.has(f);
+                return (<button key={f} onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);active?n.delete(f):n.add(f);return n;})} style={chipS(active)}>{f}</button>);
+              })}
+            </div>
+          );
+        })()}
         {rows.length === 0 ? (
           <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>
         ) : (
@@ -1175,13 +1190,20 @@ export default function StockStatus() {
                                     {stripProdName(p.name).slice(0,10)}
                                   </td>
                                 )}
-                                <td style={{...st.td,textAlign:'right',fontSize:10, cursor:'pointer',
-                                    borderLeft: ci===0?'2px solid #e0e0e0':'none',
-                                    color:v>0?'#1565c0':'#ddd',
-                                    background: pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
-                                    onClick={()=>setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)})}>
-                                  {v>0?fmt(v):'·'}
-                                </td>
+                                {(() => {
+                                  const fixed = isFixed(ck, wk);
+                                  return (
+                                    <td style={{...st.td,textAlign:'right',fontSize:10,
+                                        cursor: fixed?'not-allowed':'pointer',
+                                        borderLeft: ci===0?'2px solid #e0e0e0':'none',
+                                        color:v>0?'#1565c0':'#ddd',
+                                        background: fixed?'#f5f5f5': pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
+                                        onClick={()=>{ if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;} setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)}); }}>
+                                      {v>0?fmt(v):'·'}
+                                      {fixed && v>0 && <span style={{fontSize:7,color:'#999'}}>🔒</span>}
+                                    </td>
+                                  );
+                                })()}
                               </React.Fragment>
                             );
                           })}
@@ -1200,9 +1222,16 @@ export default function StockStatus() {
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
                                       color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
-                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:120,whiteSpace:'pre-line',lineHeight:'1.2'}}>
-                            {custKeys.map(ck=>descrMap[`${pk}-${ck}-${wk}`]).filter(Boolean).join('\n') || ''}
-                          </td>
+                          {(() => {
+                            const logs = custKeys.map(ck=>descrMap[`${pk}-${ck}-${wk}`]).filter(Boolean);
+                            const cnt = logs.reduce((a,l) => a + l.split('\n').filter(Boolean).length, 0);
+                            return (
+                              <td style={{...st.td,fontSize:8,color:'#555',maxWidth: pvDescrOpen?120:30,whiteSpace:'pre-line',lineHeight:'1.2',cursor:'pointer'}}
+                                  onClick={()=>setPvDescrOpen(p=>!p)}>
+                                {pvDescrOpen ? (logs.join('\n') || '') : (cnt > 0 ? <span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span> : '')}
+                              </td>
+                            );
+                          })()}
                         </React.Fragment>
                       );
                     })}

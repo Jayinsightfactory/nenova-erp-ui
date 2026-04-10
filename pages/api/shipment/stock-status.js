@@ -202,6 +202,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(sd.Descr,'') AS outDescr,
+          ISNULL(sm.isFix,0) AS isFix,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -249,6 +250,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL(sd.OutQuantity, 0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(sd.Descr,'') AS outDescr,
+          ISNULL(sm.isFix,0) AS isFix,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
