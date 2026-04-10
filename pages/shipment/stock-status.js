@@ -1144,7 +1144,7 @@ export default function StockStatus() {
                                 {ci > 0 && ci % CUST_REPEAT === 0 && (
                                   <td style={{...st.td,fontSize:8,fontWeight:600,color:'#e65100',whiteSpace:'nowrap',
                                       background:'#fff8e1',borderLeft:'2px solid #ff9800',padding:'2px 4px',
-                                      writingMode:'vertical-rl',textOrientation:'mixed',maxWidth:16,lineHeight:'14px'}}>
+                                      whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.1',maxWidth:28,minWidth:28}}>
                                     {stripProdName(p.name).slice(0,10)}
                                   </td>
                                 )}
