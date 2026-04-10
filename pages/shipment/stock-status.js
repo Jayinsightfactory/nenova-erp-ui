@@ -156,7 +156,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     }
     // 인기순 정렬
     list = [...list].sort((a,b) => (prodCounts[b.ProdKey]||0) - (prodCounts[a.ProdKey]||0));
-    return list.slice(0, 80);
+    return list.slice(0, 200);
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
 
   const addToCart = (p) => {
@@ -265,7 +265,8 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             )}
             <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..."
               style={st.modalInput} />
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:110, overflowY:'auto',
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:4,
+                          maxHeight:280, overflowY:'auto',
                           border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
               {filteredProds.map(p=>{
                 const inCart = cart.some(c=>c.prod.ProdKey===p.ProdKey);
@@ -274,7 +275,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                 return (
                   <button key={p.ProdKey} onClick={()=>addToCart(p)}
                     style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32': eq?'#ff9800':'#ccc',
-                             background: inCart?'#2e7d32': eq?'#fff3e0':'#fff' }}>
+                             background: inCart?'#2e7d32': eq?'#fff3e0':'#fff', textAlign:'left' }}>
                     {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
                     {eq > 0 && !inCart && <span style={{fontSize:9,color:'#e65100',marginLeft:2}}>({eq})</span>}
                   </button>
@@ -947,8 +948,7 @@ export default function StockStatus() {
   const [pvMgr, setPvMgr] = useState('');
   const [pvCusts, setPvCusts] = useState(new Set());
   // 피벗 셀 인라인 편집
-  const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val }
-  const pvEditRef = useRef(null);
+  const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
 
   const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
     const qty = parseFloat(newQty) || 0;
@@ -1021,7 +1021,7 @@ export default function StockStatus() {
 
     const PROD_REPEAT = 10;
     const CUST_REPEAT = 15;
-    const stockCols = 5; // 시작/입고/출고/잔량/비고
+    const stockCols = 7; // 시작재고/시작비고/입고/출고/잔량/비고
     const prodLabelCols = custKeys.length > CUST_REPEAT ? Math.floor((custKeys.length-1) / CUST_REPEAT) : 0;
     const colsPerWeek = custKeys.length + stockCols + prodLabelCols;
 
@@ -1069,7 +1069,8 @@ export default function StockStatus() {
                   </th>
                 </React.Fragment>
               ))}
-              <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작</th>
+              <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작재고</th>
+              <th style={{ ...st.th, background:'#004d40', textAlign:'center', fontSize:8, minWidth:50 }}>시작비고</th>
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
@@ -1168,24 +1169,31 @@ export default function StockStatus() {
                                 {ci > 0 && ci % CUST_REPEAT === 0 && (
                                   <td style={{...st.td,fontSize:8,fontWeight:600,color:'#e65100',whiteSpace:'nowrap',
                                       background:'#fff8e1',borderLeft:'2px solid #ff9800',padding:'2px 4px',
-                                      whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.1',maxWidth:28,minWidth:28}}>
+                                      whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.1',maxWidth:56,minWidth:56}}>
                                     {stripProdName(p.name).slice(0,10)}
                                   </td>
                                 )}
                                 <td style={{...st.td,textAlign:'right',fontSize:10, cursor:'pointer',
                                     borderLeft: ci===0?'2px solid #e0e0e0':'none',
-                                    color:v>0?'#1565c0':'#ddd', background: pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
-                                    onClick={()=>{setPvEdit({pk,ck,wk,val:v}); setTimeout(()=>pvEditRef.current?.focus(),50);}}>
-                                  {pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk ? (
-                                    <input ref={pvEditRef} type="number" defaultValue={v||''} style={{width:40,fontSize:10,textAlign:'right',border:'1px solid #1976d2',borderRadius:2,padding:'1px 2px'}}
-                                      onBlur={e=>savePvCell(pk,ck,wk,e.target.value,v,cShort(ck))}
-                                      onKeyDown={e=>{if(e.key==='Enter'){e.target.blur();}if(e.key==='Escape'){setPvEdit(null);}}} />
-                                  ) : (v>0?fmt(v):'·')}
+                                    color:v>0?'#1565c0':'#ddd',
+                                    background: pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
+                                    onClick={()=>setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)})}>
+                                  {v>0?fmt(v):'·'}
                                 </td>
                               </React.Fragment>
                             );
                           })}
-                          <td style={{...st.td,textAlign:'right',background:'#e0f7fa',fontWeight:600,fontSize:9}}>{fmt(weekStart)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#e0f7fa',padding:'2px 3px'}}
+                              onClick={e=>e.stopPropagation()}>
+                            {wk === weeks[0] ? (
+                              <input type="number" defaultValue={startStocks[pk]??''} placeholder="-"
+                                style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                                onBlur={e=>saveStartStock(pk,e.target.value)} />
+                            ) : <span style={{fontSize:9,fontWeight:600}}>{fmt(weekStart)}</span>}
+                          </td>
+                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa'}}>
+                            {wk === weeks[0] ? '' : ''}
+                          </td>
                           <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
@@ -1203,6 +1211,42 @@ export default function StockStatus() {
           </tbody>
         </table>
       </div>
+      {/* 수량 수정 모달 */}
+      {pvEdit && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&setPvEdit(null)}>
+          <div style={{background:'#fff',borderRadius:10,padding:20,boxShadow:'0 8px 32px rgba(0,0,0,0.3)',minWidth:280,textAlign:'center'}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>출고수량 수정</div>
+            <div style={{fontSize:12,color:'#888',marginBottom:8}}>{pvEdit.custName}</div>
+            <div style={{display:'flex',gap:16,justifyContent:'center',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:'#888'}}>기존수량</div>
+                <div style={{fontSize:24,fontWeight:700,color:'#37474f'}}>{pvEdit.val}</div>
+              </div>
+              <div style={{fontSize:20,color:'#aaa',lineHeight:'48px'}}>→</div>
+              <div>
+                <div style={{fontSize:10,color:'#1976d2'}}>수정수량</div>
+                <div style={{fontSize:24,fontWeight:700,color:'#1976d2'}}>{pvEdit.newVal}</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6,justifyContent:'center',marginBottom:12}}>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)-10}))} style={{...st.pmBtn,width:44,fontSize:12,background:'#ffcdd2'}}>-10</button>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)-1}))} style={{...st.pmBtn,width:44,fontSize:14,background:'#ffcdd2'}}>-1</button>
+              <input type="number" value={pvEdit.newVal} onChange={e=>setPvEdit(p=>({...p,newVal:parseFloat(e.target.value)||0}))}
+                style={{width:60,textAlign:'center',fontSize:16,fontWeight:700,border:'2px solid #1976d2',borderRadius:6,padding:'4px'}} />
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)+1}))} style={{...st.pmBtn,width:44,fontSize:14,background:'#c8e6c9'}}>+1</button>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)+10}))} style={{...st.pmBtn,width:44,fontSize:12,background:'#c8e6c9'}}>+10</button>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+              <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
+              <button onClick={()=>savePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName)}
+                style={{padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     );
   };
