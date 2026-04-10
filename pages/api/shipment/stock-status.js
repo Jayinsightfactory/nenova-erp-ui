@@ -399,12 +399,25 @@ async function addOrder(req, res) {
       );
 
       if (od.recordset.length > 0) {
+        const existDk = od.recordset[0].OrderDetailKey;
         if (quantity <= 0) {
+          // 기존 수량 조회 (변경내역용)
+          const prev = await tQ(`SELECT OutQuantity FROM OrderDetail WHERE OrderDetailKey=@dk`, { dk: { type: sql.Int, value: existDk } });
+          const prevQty = prev.recordset[0]?.OutQuantity || 0;
           await tQ(
             `UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
+          // 변경내역: 삭제
+          await tQ(
+            `INSERT INTO OrderHistory (ChangeDtm,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,OrderDetailKey)
+             VALUES(GETDATE(),@uid,N'삭제',N'주문수량',@bv,0,N'웹 주문추가',@dk)`,
+            { uid: { type: sql.NVarChar, value: uid }, bv: { type: sql.Float, value: prevQty }, dk: { type: sql.Int, value: existDk } }
+          );
         } else {
+          // 기존 수량 조회 (변경내역용)
+          const prev = await tQ(`SELECT OutQuantity FROM OrderDetail WHERE OrderDetailKey=@dk`, { dk: { type: sql.Int, value: existDk } });
+          const prevQty = prev.recordset[0]?.OutQuantity || 0;
           await tQ(
             `UPDATE OrderDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
@@ -413,6 +426,12 @@ async function addOrder(req, res) {
               bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
               mk:  { type: sql.Int,   value: mk },       pk:  { type: sql.Int,   value: pk },
             }
+          );
+          // 변경내역: 수정
+          await tQ(
+            `INSERT INTO OrderHistory (ChangeDtm,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,OrderDetailKey)
+             VALUES(GETDATE(),@uid,N'수정',N'주문수량',@bv,@av,N'웹 주문추가',@dk)`,
+            { uid: { type: sql.NVarChar, value: uid }, bv: { type: sql.Float, value: prevQty }, av: { type: sql.Float, value: quantity }, dk: { type: sql.Int, value: existDk } }
           );
         }
       } else if (quantity > 0) {
@@ -428,6 +447,12 @@ async function addOrder(req, res) {
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: uid },
           }
+        );
+        // 변경내역: 신규
+        await tQ(
+          `INSERT INTO OrderHistory (ChangeDtm,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,OrderDetailKey)
+           VALUES(GETDATE(),@uid,N'신규',N'주문수량',0,@av,N'웹 주문추가',@dk)`,
+          { uid: { type: sql.NVarChar, value: uid }, av: { type: sql.Float, value: quantity }, dk: { type: sql.Int, value: newDk } }
         );
       }
     });
