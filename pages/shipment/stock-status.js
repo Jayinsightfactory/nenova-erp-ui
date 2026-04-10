@@ -105,6 +105,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [error,      setError]      = useState('');
   const [selMgr,     setSelMgr]     = useState('');   // 담당자 필터
   const [selCoun,    setSelCoun]    = useState('');   // 국가 필터
+  const [selFlower,  setSelFlower]  = useState('');   // 꽃 필터
 
   // 업체/품목 로드
   useEffect(() => {
@@ -126,6 +127,12 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   // 국가 목록 추출
   const counList = useMemo(() => [...new Set(prods.map(p => p.CounName).filter(Boolean))].sort(), [prods]);
 
+  // 꽃 목록 (선택된 국가 기준)
+  const flowerList = useMemo(() => {
+    const base = selCoun ? prods.filter(p => p.CounName === selCoun) : prods;
+    return [...new Set(base.map(p => p.FlowerName).filter(Boolean))].sort();
+  }, [prods, selCoun]);
+
   const filteredCusts = useMemo(() => {
     let list = custs;
     if (selMgr) list = list.filter(c => (c.Manager || '미지정') === selMgr);
@@ -139,13 +146,14 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const filteredProds = useMemo(() => {
     let list = prods;
     if (selCoun) list = list.filter(p => p.CounName === selCoun);
+    if (selFlower) list = list.filter(p => p.FlowerName === selFlower);
     if (prodSearch) {
       const q = prodSearch.toLowerCase();
       list = list.filter(p =>
         p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
     }
     return list.slice(0, 80);
-  }, [prods, prodSearch, selCoun]);
+  }, [prods, prodSearch, selCoun, selFlower]);
 
   const handleSubmit = async () => {
     if (!selCust)              { setError('업체를 선택하세요'); return; }
@@ -239,28 +247,36 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             ) : (
               <>
                 {/* 국가별 칩 필터 */}
-                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:4 }}>
                   <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>국가:</span>
-                  <button onClick={()=>setSelCoun('')} style={chipStyle(!selCoun)}>전체</button>
+                  <button onClick={()=>{setSelCoun('');setSelFlower('');}} style={chipStyle(!selCoun)}>전체</button>
                   {counList.map(c=>(
-                    <button key={c} onClick={()=>setSelCoun(c)} style={chipStyle(selCoun===c)}>{c}</button>
+                    <button key={c} onClick={()=>{setSelCoun(c);setSelFlower('');}} style={chipStyle(selCoun===c)}>{c}</button>
                   ))}
                 </div>
-                <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 / 꽃 / 국가 검색..."
+                {/* 꽃별 칩 필터 (국가 선택 시 해당 국가 꽃만, 미선택 시 전체) */}
+                {flowerList.length > 0 && (
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                    <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>꽃:</span>
+                    <button onClick={()=>setSelFlower('')} style={chipStyle(!selFlower)}>전체</button>
+                    {flowerList.map(f=>(
+                      <button key={f} onClick={()=>setSelFlower(f)} style={chipStyle(selFlower===f)}>{f}</button>
+                    ))}
+                  </div>
+                )}
+                <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..."
                   style={st.modalInput} />
-                <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:130, overflowY:'auto',
+                              border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
                   {filteredProds.map(p=>(
-                    <div key={p.ProdKey} onClick={()=>{setSelProd(p);setProdSearch('');}}
-                      style={{ padding:'6px 10px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0',
-                               display:'flex', gap:6 }}
-                      onMouseOver={e=>e.currentTarget.style.background='#e8f5e9'}
-                      onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                      <b>{p.ProdName}</b>
-                      <span style={{color:'#888'}}>{p.CounName} · {p.FlowerName}</span>
-                      <span style={{color:'#1976d2', fontSize:11}}>[{p.OutUnit}]</span>
-                    </div>
+                    <button key={p.ProdKey} onClick={()=>{setSelProd(p);setProdSearch('');}}
+                      style={{ ...chipStyle(selProd?.ProdKey===p.ProdKey),
+                               borderColor: selProd?.ProdKey===p.ProdKey?'#2e7d32':'#ccc',
+                               background: selProd?.ProdKey===p.ProdKey?'#2e7d32':'#fff' }}>
+                      {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                    </button>
                   ))}
-                  {filteredProds.length===0&&<div style={{padding:'8px 10px',color:'#999',fontSize:12}}>검색 결과 없음</div>}
+                  {filteredProds.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
                 </div>
               </>
             )}
