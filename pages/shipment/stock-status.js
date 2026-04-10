@@ -199,42 +199,29 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           {/* 업체 */}
           <div style={{ marginBottom:14 }}>
             <label style={st.label}>업체 선택</label>
-            {selCust ? (
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ background:'#e3f2fd', padding:'4px 12px', borderRadius:20, fontSize:13, fontWeight:600 }}>
-                  {selCust.CustName} <span style={{ color:'#888', fontSize:11 }}>({selCust.CustArea})</span>
-                  {selCust.Manager && <span style={{ color:'#666', fontSize:10, marginLeft:4 }}>👤{selCust.Manager}</span>}
-                </span>
-                <button onClick={()=>setSelCust(null)}
-                  style={{ ...st.pmBtn, background:'#ef5350', color:'#fff', width:'auto', padding:'2px 8px', fontSize:10 }}>변경</button>
-              </div>
-            ) : (
-              <>
-                {/* 담당자별 칩 필터 */}
-                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
-                  <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>담당자:</span>
-                  <button onClick={()=>setSelMgr('')} style={chipStyle(!selMgr)}>전체</button>
-                  {mgrList.map(m=>(
-                    <button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>
-                  ))}
-                </div>
-                <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
-                  style={st.modalInput} autoFocus />
-                <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
-                  {filteredCusts.map(c=>(
-                    <div key={c.CustKey} onClick={()=>{setSelCust(c);setCustSearch('');}}
-                      style={{ padding:'6px 10px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0',
-                               display:'flex', gap:6 }}
-                      onMouseOver={e=>e.currentTarget.style.background='#e3f2fd'}
-                      onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                      <b>{c.CustName}</b><span style={{color:'#888'}}>{c.CustArea}</span>
-                      {c.Manager && <span style={{color:'#1976d2',fontSize:10}}>👤{c.Manager}</span>}
-                    </div>
-                  ))}
-                  {filteredCusts.length===0&&<div style={{padding:'8px 10px',color:'#999',fontSize:12}}>검색 결과 없음</div>}
-                </div>
-              </>
-            )}
+            {/* 담당자별 칩 필터 */}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+              <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>담당자:</span>
+              <button onClick={()=>setSelMgr('')} style={chipStyle(!selMgr)}>전체</button>
+              {mgrList.map(m=>(
+                <button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>
+              ))}
+            </div>
+            <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
+              style={{ ...st.modalInput, marginBottom:6 }} autoFocus />
+            {/* 업체 칩 리스트 */}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:120, overflowY:'auto',
+                          border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa' }}>
+              {filteredCusts.map(c=>(
+                <button key={c.CustKey} onClick={()=>setSelCust(c)}
+                  style={{ ...chipStyle(selCust?.CustKey===c.CustKey),
+                           borderColor: selCust?.CustKey===c.CustKey?'#1565c0':'#ccc',
+                           background: selCust?.CustKey===c.CustKey?'#1565c0':'#fff' }}>
+                  {c.CustName} <span style={{fontSize:9,opacity:0.7}}>{c.CustArea}</span>
+                </button>
+              ))}
+              {filteredCusts.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
+            </div>
           </div>
 
           {/* 품목 */}
