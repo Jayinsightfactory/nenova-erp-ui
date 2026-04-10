@@ -945,7 +945,28 @@ export default function StockStatus() {
 
   // 피벗 전용 필터
   const [pvMgr, setPvMgr] = useState('');
-  const [pvCusts, setPvCusts] = useState(new Set()); // 선택된 업체 (빈=전체)
+  const [pvCusts, setPvCusts] = useState(new Set());
+  // 피벗 셀 인라인 편집
+  const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val }
+  const pvEditRef = useRef(null);
+
+  const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
+    const qty = parseFloat(newQty) || 0;
+    const old = parseFloat(oldQty) || 0;
+    if (qty === old) { setPvEdit(null); return; }
+    try {
+      const diff = qty - old;
+      const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
+      const r = await fetch('/api/shipment/stock-status', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, outQty: qty,
+          descrLog: `${custName} ${old}>${qty}(${diffStr})` }),
+      });
+      const d = await r.json();
+      if (d.success) { setPvEdit(null); loadData(weekFrom, weekTo, tab); }
+      else alert('저장 실패: ' + d.error);
+    } catch(e) { alert('오류: ' + e.message); }
+  }, [weekFrom, weekTo, tab, loadData]);
 
   const renderWeekPivot = () => {
     // 피벗 전용 필터 적용
@@ -987,9 +1008,11 @@ export default function StockStatus() {
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''), 'ko'));
 
-    const dataMap = {}, inMap = {};
+    const dataMap = {}, inMap = {}, descrMap = {};
     rows.forEach(r => {
-      dataMap[`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`] = r.outQty || 0;
+      const dk = `${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
+      dataMap[dk] = r.outQty || 0;
+      if (r.outDescr) descrMap[dk] = r.outDescr;
       const ik = `${r.ProdKey}-${r.OrderWeek}`;
       if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
     });
@@ -998,7 +1021,7 @@ export default function StockStatus() {
 
     const PROD_REPEAT = 10;
     const CUST_REPEAT = 15;
-    const stockCols = 4;
+    const stockCols = 5; // 시작/입고/출고/잔량/비고
     const prodLabelCols = custKeys.length > CUST_REPEAT ? Math.floor((custKeys.length-1) / CUST_REPEAT) : 0;
     const colsPerWeek = custKeys.length + stockCols + prodLabelCols;
 
@@ -1050,6 +1073,7 @@ export default function StockStatus() {
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
+              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth:80 }}>비고</th>
             </React.Fragment>
           ))}
         </tr>
@@ -1148,9 +1172,15 @@ export default function StockStatus() {
                                     {stripProdName(p.name).slice(0,10)}
                                   </td>
                                 )}
-                                <td style={{...st.td,textAlign:'right',color:v>0?'#1565c0':'#ddd',fontSize:10,
-                                    borderLeft: ci===0?'2px solid #e0e0e0':'none'}}>
-                                  {v>0?fmt(v):'·'}
+                                <td style={{...st.td,textAlign:'right',fontSize:10, cursor:'pointer',
+                                    borderLeft: ci===0?'2px solid #e0e0e0':'none',
+                                    color:v>0?'#1565c0':'#ddd', background: pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
+                                    onClick={()=>{setPvEdit({pk,ck,wk,val:v}); setTimeout(()=>pvEditRef.current?.focus(),50);}}>
+                                  {pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk ? (
+                                    <input ref={pvEditRef} type="number" defaultValue={v||''} style={{width:40,fontSize:10,textAlign:'right',border:'1px solid #1976d2',borderRadius:2,padding:'1px 2px'}}
+                                      onBlur={e=>savePvCell(pk,ck,wk,e.target.value,v,cShort(ck))}
+                                      onKeyDown={e=>{if(e.key==='Enter'){e.target.blur();}if(e.key==='Escape'){setPvEdit(null);}}} />
+                                  ) : (v>0?fmt(v):'·')}
                                 </td>
                               </React.Fragment>
                             );
@@ -1160,6 +1190,9 @@ export default function StockStatus() {
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
                                       color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:120,whiteSpace:'pre-line',lineHeight:'1.2'}}>
+                            {custKeys.map(ck=>descrMap[`${pk}-${ck}-${wk}`]).filter(Boolean).join('\n') || ''}
+                          </td>
                         </React.Fragment>
                       );
                     })}

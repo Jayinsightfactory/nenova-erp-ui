@@ -201,6 +201,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL(od.OutQuantity,   0) AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(sd.Descr,'') AS outDescr,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -247,6 +248,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL(od.OutQuantity, 0) AS custOrderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(sd.Descr,'') AS outDescr,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
@@ -312,8 +314,8 @@ export default withAuth(async function handler(req, res) {
 
 // ── PATCH: 출고수량 수정 (ShipmentMaster + ShipmentDetail)
 async function updateOutQty(req, res) {
-  const { custKey, prodKey, week, outQty } = req.body;
-  console.log('[PATCH stock-status]', { custKey, prodKey, week, outQty });
+  const { custKey, prodKey, week, outQty, descrLog } = req.body;
+  console.log('[PATCH stock-status]', { custKey, prodKey, week, outQty, descrLog });
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -322,6 +324,10 @@ async function updateOutQty(req, res) {
     const ck  = parseInt(custKey);
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
+    const userName = req.user?.userName || uid;
+    const now = new Date();
+    const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const logEntry = descrLog ? `[${timeStr} ${userName}] ${descrLog}` : '';
     const orderYear = new Date().getFullYear().toString();
     const ywk = orderYear + week.replace('-',''); // "2026" + "1601" = "20261601"
 
@@ -375,11 +381,13 @@ async function updateOutQty(req, res) {
         } else {
           await tQ(
             `UPDATE ShipmentDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-             ShipmentDtm=GETDATE(), isFix=0
+             ShipmentDtm=GETDATE(), isFix=0,
+             Descr=CASE WHEN @log='' THEN Descr ELSE ISNULL(Descr,'') + CHAR(10) + @log END
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { qty: { type: sql.Float, value: qty }, bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
-              sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
+              sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
+              log: { type: sql.NVarChar, value: logEntry } }
           );
         }
       } else if (qty > 0) {
@@ -387,11 +395,11 @@ async function updateOutQty(req, res) {
         const newSdk = maxSd.recordset[0].nk;
         await tQ(
           `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isFix,Descr)
-           VALUES(@dk,@sk,@pk,GETDATE(),@qty,@qty,@bq,@bnq,@sq,0,'')`,
+           VALUES(@dk,@sk,@pk,GETDATE(),@qty,@qty,@bq,@bnq,@sq,0,@log)`,
           { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk },
             pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty },
             bq: { type: sql.Float, value: boxQty }, bnq: { type: sql.Float, value: bunchQty },
-            sq: { type: sql.Float, value: steamQty } }
+            sq: { type: sql.Float, value: steamQty }, log: { type: sql.NVarChar, value: logEntry } }
         );
       }
     });
