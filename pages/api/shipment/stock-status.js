@@ -13,6 +13,25 @@ export default withAuth(async function handler(req, res) {
 
   // 차수 파라미터
   let { weekFrom, weekTo, week, view, prodKey } = req.query;
+
+  // 차수 불필요한 뷰는 먼저 처리
+  if (view === 'custOrderCounts') {
+    try {
+      const result = await query(
+        `SELECT om.CustKey, COUNT(DISTINCT od.OrderDetailKey) AS cnt
+         FROM OrderMaster om
+         JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
+         WHERE om.isDeleted=0
+         GROUP BY om.CustKey`, {}
+      );
+      const counts = {};
+      result.recordset.forEach(r => { counts[r.CustKey] = r.cnt; });
+      return res.status(200).json({ success: true, counts });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   if (week && !weekFrom) { weekFrom = week; weekTo = week; }
   if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
   if (!weekTo) weekTo = weekFrom;
@@ -228,21 +247,6 @@ export default withAuth(async function handler(req, res) {
         params
       );
       return res.status(200).json({ success: true, rows: result.recordset });
-    }
-
-    // ── 업체별 주문 횟수 (모달용)
-    if (view === 'custOrderCounts') {
-      const result = await query(
-        `SELECT om.CustKey, COUNT(DISTINCT od.OrderDetailKey) AS cnt
-         FROM OrderMaster om
-         JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
-         WHERE om.isDeleted=0
-         GROUP BY om.CustKey`,
-        {}
-      );
-      const counts = {};
-      result.recordset.forEach(r => { counts[r.CustKey] = r.cnt; });
-      return res.status(200).json({ success: true, counts });
     }
 
     return res.status(400).json({ success: false, error: 'view 파라미터 필요' });
