@@ -969,19 +969,18 @@ export default function StockStatus() {
   }, [weekFrom, weekTo, tab, loadData]);
 
   const renderWeekPivot = () => {
+    // 담당자/업체 목록 (필터용) — 필터 전 원본에서 추출
+    const allMgrs = [...new Set(custRows.map(r=>r.Manager||'미지정'))].sort();
+    const allCusts = {};
+    custRows.forEach(r => { allCusts[r.CustKey] = { name: r.CustName, area: r.CustArea, descr: r.CustDescr, mgr: r.Manager }; });
+    const allCustList = Object.entries(allCusts)
+      .filter(([,c]) => !pvMgr || (c.mgr||'미지정')===pvMgr)
+      .sort((a,b) => ((a[1].area||'')+a[1].name).localeCompare((b[1].area||'')+b[1].name, 'ko'));
+
     // 피벗 전용 필터 적용
     let rows = filteredCustRows;
     if (pvMgr) rows = rows.filter(r => (r.Manager||'미지정') === pvMgr);
     if (pvCusts.size > 0) rows = rows.filter(r => pvCusts.has(r.CustKey));
-    if (!rows.length) return <div style={st.empty}>데이터 없음</div>;
-
-    // 담당자/업체 목록 (필터용)
-    const allMgrs = [...new Set(filteredCustRows.map(r=>r.Manager||'미지정'))].sort();
-    const allCusts = {};
-    filteredCustRows.forEach(r => { allCusts[r.CustKey] = { name: r.CustName, area: r.CustArea, descr: r.CustDescr, mgr: r.Manager }; });
-    const allCustList = Object.entries(allCusts)
-      .filter(([,c]) => !pvMgr || (c.mgr||'미지정')===pvMgr)
-      .sort((a,b) => ((a[1].area||'')+a[1].name).localeCompare((b[1].area||'')+b[1].name, 'ko'));
 
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
     const custMap = {};
@@ -1107,11 +1106,14 @@ export default function StockStatus() {
           <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
             <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
             <button onClick={()=>setFilterFlower('')} style={chipS(!filterFlower)}>전체</button>
-            {allFlowerNames.filter(f => filteredCustRows.some(r=>r.CounName===filterCoun && r.FlowerName===f)).map(f=>(
+            {[...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort().map(f=>(
               <button key={f} onClick={()=>setFilterFlower(prev=>prev===f?'':f)} style={chipS(filterFlower===f)}>{f}</button>
             ))}
           </div>
         )}
+        {rows.length === 0 ? (
+          <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>
+        ) : (
         <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'70vh', position:'relative' }}>
         <table style={{ ...st.table, fontSize:10, borderCollapse:'collapse' }}>
           <thead style={{ position:'sticky', top:0, zIndex:4 }}>
@@ -1211,6 +1213,7 @@ export default function StockStatus() {
           </tbody>
         </table>
       </div>
+      )}
       {/* 수량 수정 모달 */}
       {pvEdit && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
