@@ -144,7 +144,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
         body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: selProd.ProdKey, week: orderWeek, qty, unit }),
       });
       const d = await r.json();
-      if (d.success) { onSuccess?.(); onClose(); }
+      if (d.success) { onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: orderWeek }); onClose(); }
       else setError(d.error);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -660,8 +660,10 @@ export default function StockStatus() {
                       const remain = (item.prevStock||0) + (item.totalInQty||0) - (item.totalOutQty||0);
                       return (
                         <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
-                          <td style={st.td}>{item.CounName}</td>
-                          <td style={st.td}>{item.FlowerName}</td>
+                          <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
+                              onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
+                          <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
+                              onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
                           <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
                           <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                           {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
@@ -779,8 +781,10 @@ export default function StockStatus() {
                             const remain = (item.prevStock||0)+(item.totalInQty||0)-(item.totalOutQty||0);
                             return (
                               <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
-                                <td style={st.td}>{item.CounName}</td>
-                                <td style={st.td}>{item.FlowerName}</td>
+                                <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
+                                    onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
+                                <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
+                                    onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
                                 <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
                                 <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                                 {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
@@ -1028,7 +1032,17 @@ export default function StockStatus() {
         <AddOrderModal
           weekFrom={weekFrom} weekTo={weekTo}
           onClose={() => setShowAddOrder(false)}
-          onSuccess={() => loadData(weekFrom, weekTo, tab)}
+          onSuccess={({ custKey }) => {
+            // 업체별 탭: 해당 업체 칩 자동 활성화
+            setHiddenCusts(prev => { const n = new Set(prev); n.delete(custKey); return n; });
+            // 담당자별 탭: 모든 담당자의 해당 업체 칩 자동 활성화
+            setHiddenMgrCusts(prev => {
+              const n = { ...prev };
+              Object.keys(n).forEach(mgr => { const s = new Set(n[mgr]); s.delete(custKey); n[mgr] = s; });
+              return n;
+            });
+            loadData(weekFrom, weekTo, tab);
+          }}
         />
       )}
     </EditCtx.Provider>
@@ -1045,6 +1059,7 @@ const st = {
   thead: { background:'#37474f', color:'#fff' },
   th: { padding:'8px 10px', textAlign:'left', borderRight:'1px solid #546e7a', whiteSpace:'nowrap', fontWeight:600, fontSize:12 },
   td: { padding:'6px 10px', borderBottom:'1px solid #e0e0e0', borderRight:'1px solid #f0f0f0', fontSize:12 },
+  clickCell: { cursor:'pointer', textDecoration:'underline', textDecorationColor:'#bbb', textUnderlineOffset:2 },
   empty: { textAlign:'center', padding:'60px 20px', color:'#999', fontSize:14 },
   custHeader: {
     background:'#eceff1', padding:'8px 12px', borderRadius:'4px 4px 0 0',
