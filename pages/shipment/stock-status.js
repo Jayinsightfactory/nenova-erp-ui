@@ -480,7 +480,7 @@ export default function StockStatus() {
     const f = (a.FlowerName||'').localeCompare(b.FlowerName||'', 'ko');
     if (f !== 0) return f;
     return (a.ProdName||'').localeCompare(b.ProdName||'', 'ko');
-  };
+  });
 
   // ─────────────────────────────────────────────────────────────
   // 품목별 탭
