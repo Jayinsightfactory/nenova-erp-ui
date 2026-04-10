@@ -1,6 +1,6 @@
 // pages/shipment/stock-status.js — 출고,재고상황 v5
 // 추가: 업체별 칩 필터 기본값 전체숨김, 줄긋기 제거, 기록컬럼, UpdateDtm 오류수정
-import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import Layout from '../../components/Layout';
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
 
@@ -199,7 +199,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000,
                   display:'flex', alignItems:'center', justifyContent:'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:10, width:700, maxWidth:'95vw', maxHeight:'90vh',
+      <div style={{ background:'#fff', borderRadius:10, width:'95vw', height:'95vh',
                     overflow:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
         <div style={{ background:'#1976d2', color:'#fff', padding:'14px 20px', borderRadius:'10px 10px 0 0',
                       display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -211,10 +211,12 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           {/* 차수 — 좌우 버튼 */}
           <div style={{ marginBottom:14 }}>
             <label style={st.label}>차수</label>
-            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              <button onClick={modalWeek.prev} style={{ padding:'4px 10px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:14 }}>◀</button>
+            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+              <button onClick={modalWeek.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
+              <button onClick={modalWeek.prev} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>◀</button>
               <input {...modalWeek.props} style={{ ...st.modalInput, width:80, textAlign:'center', fontWeight:700 }} />
-              <button onClick={modalWeek.next} style={{ padding:'4px 10px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:14 }}>▶</button>
+              <button onClick={modalWeek.next} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>▶</button>
+              <button onClick={modalWeek.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
             </div>
           </div>
 
@@ -346,11 +348,13 @@ export default function StockStatus() {
   const [pivotSub, setPivotSub] = useState('byCust');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const isFirstLoad = useRef({ custs: true, mgrs: true }); // 첫 로드 시에만 전체숨김
 
   const [products,  setProducts]  = useState([]);
   const [custRows,  setCustRows]  = useState([]);
   const [mgrRows,   setMgrRows]   = useState([]);
   const [pivotRows, setPivotRows] = useState([]);
+  const [startStocks, setStartStocks] = useState({}); // { ProdKey: stock }
 
   // 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
@@ -400,13 +404,19 @@ export default function StockStatus() {
     );
   }, [mgrRows]);
 
-  // 데이터 로드 시 칩 필터 초기화 — 기본값: 전체숨김
+  // 데이터 로드 시 칩 필터 — 첫 로드만 전체숨김, 이후(저장 후)는 기존 필터 유지
   useEffect(() => {
-    setHiddenCusts(new Set(custRows.map(r => r.CustKey)));
+    if (isFirstLoad.current.custs) {
+      setHiddenCusts(new Set(custRows.map(r => r.CustKey)));
+      isFirstLoad.current.custs = false;
+    }
   }, [custRows]);
   useEffect(() => {
-    setHiddenMgrs(new Set(mgrRows.map(r => r.Manager || '미지정')));
-    setHiddenMgrCusts({});
+    if (isFirstLoad.current.mgrs) {
+      setHiddenMgrs(new Set(mgrRows.map(r => r.Manager || '미지정')));
+      setHiddenMgrCusts({});
+      isFirstLoad.current.mgrs = false;
+    }
   }, [mgrRows]);
 
   // ── 칩 토글 헬퍼
@@ -443,12 +453,19 @@ export default function StockStatus() {
       if (t === 'customers') setCustRows(d.rows||[]);
       if (t === 'managers')  setMgrRows(d.rows||[]);
       if (t === 'pivot')     setPivotRows(d.rows||[]);
+      // 시작재고 조회
+      fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&view=startStock`)
+        .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    if (weekFrom && weekTo) { setEditMap({}); loadData(weekFrom, weekTo, tab); }
+    if (weekFrom && weekTo) {
+      setEditMap({});
+      isFirstLoad.current = { custs: true, mgrs: true }; // 차수/탭 변경 시 필터 리셋
+      loadData(weekFrom, weekTo, tab);
+    }
   }, [weekFrom, weekTo, tab, loadData]);
 
   useEffect(() => {
@@ -486,6 +503,18 @@ export default function StockStatus() {
     } catch(e) { alert('오류: ' + e.message); }
     finally { setSaving(null); }
   }, [editMap, weekFrom, weekTo, tab, loadData]);
+
+  // ── 시작재고 저장
+  const saveStartStock = useCallback(async (prodKey, stock) => {
+    try {
+      const r = await fetch('/api/shipment/stock-status', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prodKey, week: weekFrom, stock }),
+      });
+      const d = await r.json();
+      if (d.success) setStartStocks(prev => ({ ...prev, [prodKey]: parseFloat(stock)||0 }));
+    } catch(e) { console.error(e); }
+  }, [weekFrom]);
 
   // ── 품목 expand 토글
   const toggleProdExpand = useCallback(async (prodKey) => {
@@ -550,17 +579,21 @@ export default function StockStatus() {
             <tr style={st.thead}>
               <th style={{ ...st.th, width:22 }}></th>
               <th style={st.th}>국가</th><th style={st.th}>꽃</th><th style={st.th}>품명</th><th style={st.th}>단위</th>
+              <th style={{ ...st.th, background:'#006064' }}>시작재고</th>
               <th style={{ ...st.th, background:'#2e7d32' }}>이월재고</th>
               <th style={{ ...st.th, background:'#1565c0' }}>입고수량</th>
               <th style={{ ...st.th, background:'#e65100' }}>주문수량</th>
               <th style={{ ...st.th, background:'#ad1457' }}>출고수량</th>
-              <th style={{ ...st.th, background:'#4a148c' }}>잔량</th>
+              <th style={{ ...st.th, background:'#4a148c' }}>잔량(재고)</th>
+              <th style={{ ...st.th, background:'#311b92' }}>잔량(기존)</th>
               <th style={{ ...st.th, background:'#455a64', minWidth:90 }}>기록</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.map((p, i) => {
               const remain   = (p.prevStock||0) + (p.inQty||0) - (p.outQty||0);
+              const ss = startStocks[p.ProdKey];
+              const remainSS = ss != null ? ss - (p.outQty||0) : null;
               const expState = prodExpand[p.ProdKey];
               const isExp    = expState !== undefined;
               const expRows  = Array.isArray(expState) ? expState : [];
@@ -575,22 +608,32 @@ export default function StockStatus() {
                     <td style={st.td}>{p.FlowerName}</td>
                     <td style={{ ...st.td, fontWeight:600 }}>{p.ProdName}</td>
                     <td style={{ ...st.td, textAlign:'center' }}>{p.OutUnit}</td>
+                    <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', padding:'2px 4px' }}
+                        onClick={e=>e.stopPropagation()}>
+                      <input type="number" defaultValue={ss ?? ''} placeholder="-"
+                        style={{ width:50, textAlign:'right', fontSize:11, padding:'2px 3px', border:'1px solid #ccc', borderRadius:3, background:'#fff' }}
+                        onBlur={e=>saveStartStock(p.ProdKey, e.target.value)} />
+                    </td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(p.prevStock)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(p.inQty)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(p.orderQty)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#fce4ec', fontWeight:600 }}>{fmt(p.outQty)}</td>
+                    <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa',
+                                 color: remainSS!=null?(remainSS<0?'#d32f2f':'#006064'):'#999', fontWeight:700 }}>
+                      {remainSS!=null ? fmt(remainSS) : '-'}
+                    </td>
                     <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5',
                                  color:remain<0?'#d32f2f':'#388e3c', fontWeight:700 }}>{fmt(remain)}</td>
                     <td style={st.td}></td>
                   </tr>
                   {isExp && expState==='loading' && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#888', fontSize:11 }}>업체별 로딩중...</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#888', fontSize:11 }}>업체별 로딩중...</td></tr>
                   )}
                   {isExp && expState==='error' && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#d32f2f', fontSize:11 }}>로드 실패</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#d32f2f', fontSize:11 }}>로드 실패</td></tr>
                   )}
                   {isExp && Array.isArray(expState) && expRows.length===0 && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#bbb', fontSize:11 }}>출고 데이터 없음</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#bbb', fontSize:11 }}>출고 데이터 없음</td></tr>
                   )}
                   {isExp && expRows.map(r2 => (
                     <tr key={`${p.ProdKey}-${r2.CustKey}-${r2.OrderWeek}`} style={{ background:'#eaf4fb' }}>
@@ -622,10 +665,12 @@ export default function StockStatus() {
           <tfoot>
             <tr style={{ background:'#eceff1', fontWeight:700 }}>
               <td colSpan={5} style={st.td}>합계 ({filteredProducts.length}품목)</td>
+              <td style={st.td}></td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.prevStock||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.inQty||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.orderQty||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.outQty||0),0))}</td>
+              <td style={st.td}></td>
               <td style={{ ...st.td, textAlign:'right',
                 color:filteredProducts.reduce((a,p)=>a+(p.prevStock||0)+(p.inQty||0)-(p.outQty||0),0)<0?'#d32f2f':'#388e3c' }}>
                 {fmt(filteredProducts.reduce((a,p)=>a+(p.prevStock||0)+(p.inQty||0)-(p.outQty||0),0))}
@@ -988,12 +1033,16 @@ export default function StockStatus() {
           {/* 헤더 */}
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap' }}>
             <h2 style={{ margin:0, fontSize:18, fontWeight:700 }}>출고,재고상황</h2>
-            <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f5f5f5',
+            <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5',
                           padding:'6px 10px', borderRadius:6, border:'1px solid #e0e0e0' }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>차수</span>
+              <button onClick={weekFromInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekFromInput} />
+              <button onClick={weekFromInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
               <span style={{ color:'#aaa', fontWeight:700 }}>~</span>
+              <button onClick={weekToInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekToInput} />
+              <button onClick={weekToInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
               {isRange && <span style={{ fontSize:11, color:'#1976d2' }}>(범위)</span>}
             </div>
             <button onClick={() => hasWeek && loadData(weekFrom, weekTo, tab)} style={st.refreshBtn} disabled={!hasWeek||loading}>
@@ -1120,6 +1169,7 @@ const st = {
     display:'flex', alignItems:'center', flexWrap:'wrap', gap:4,
   },
   refreshBtn: { padding:'5px 12px', background:'#f5f5f5', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', fontSize:12 },
+  weekBigBtn: { padding:'4px 8px', border:'2px solid #1976d2', borderRadius:4, cursor:'pointer', background:'#e3f2fd', fontSize:14, fontWeight:700, color:'#1976d2' },
   addBtn: { padding:'5px 14px', background:'#1976d2', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:12, fontWeight:600 },
   tabBtn: { padding:'8px 18px', border:'none', background:'transparent', cursor:'pointer', fontSize:13, fontWeight:500, color:'#666', borderBottom:'3px solid transparent', marginBottom:-2 },
   tabBtnActive: { color:'#1976d2', borderBottom:'3px solid #1976d2', fontWeight:700 },
