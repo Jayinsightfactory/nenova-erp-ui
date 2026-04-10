@@ -340,6 +340,7 @@ async function addOrder(req, res) {
     const pk       = parseInt(prodKey);
     const quantity = parseFloat(qty) || 0;
     const uid      = req.user?.userId || 'system';
+    const orderYear = new Date().getFullYear().toString();
 
     // Product 환산정보 조회
     const prodInfo = await query(
@@ -378,9 +379,9 @@ async function addOrder(req, res) {
         const maxOm = await tQ(`SELECT ISNULL(MAX(OrderMasterKey),0)+1 AS nk FROM OrderMaster`, {});
         const newMk = maxOm.recordset[0].nk;
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { nk: { type: sql.Int, value: newMk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,Manager,OrderCode,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,CAST(GETDATE() AS DATE),@yr,@wk,@ck,@uid,'',0,@uid,GETDATE())`,
+          { nk: { type: sql.Int, value: newMk }, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
         mk = newMk;
       } else {
