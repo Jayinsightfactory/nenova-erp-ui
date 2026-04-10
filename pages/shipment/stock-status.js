@@ -103,6 +103,8 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [orderWeek,  setOrderWeek]  = useState(weekFrom || '');
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState('');
+  const [selMgr,     setSelMgr]     = useState('');   // 담당자 필터
+  const [selCoun,    setSelCoun]    = useState('');   // 국가 필터
 
   // 업체/품목 로드
   useEffect(() => {
@@ -118,18 +120,32 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     }
   }, [selProd]);
 
+  // 담당자 목록 추출
+  const mgrList = useMemo(() => [...new Set(custs.map(c => c.Manager || '미지정'))].sort(), [custs]);
+
+  // 국가 목록 추출
+  const counList = useMemo(() => [...new Set(prods.map(p => p.CounName).filter(Boolean))].sort(), [prods]);
+
   const filteredCusts = useMemo(() => {
-    if (!custSearch) return custs.slice(0, 50);
-    const q = custSearch.toLowerCase();
-    return custs.filter(c => c.CustName?.toLowerCase().includes(q) || c.CustArea?.toLowerCase().includes(q));
-  }, [custs, custSearch]);
+    let list = custs;
+    if (selMgr) list = list.filter(c => (c.Manager || '미지정') === selMgr);
+    if (custSearch) {
+      const q = custSearch.toLowerCase();
+      list = list.filter(c => c.CustName?.toLowerCase().includes(q) || c.CustArea?.toLowerCase().includes(q));
+    }
+    return list.slice(0, 80);
+  }, [custs, custSearch, selMgr]);
 
   const filteredProds = useMemo(() => {
-    if (!prodSearch) return prods.slice(0, 50);
-    const q = prodSearch.toLowerCase();
-    return prods.filter(p =>
-      p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
-  }, [prods, prodSearch]);
+    let list = prods;
+    if (selCoun) list = list.filter(p => p.CounName === selCoun);
+    if (prodSearch) {
+      const q = prodSearch.toLowerCase();
+      list = list.filter(p =>
+        p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
+    }
+    return list.slice(0, 80);
+  }, [prods, prodSearch, selCoun]);
 
   const handleSubmit = async () => {
     if (!selCust)              { setError('업체를 선택하세요'); return; }
@@ -150,11 +166,16 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     finally { setSaving(false); }
   };
 
+  const chipStyle = (active) => ({
+    padding:'3px 10px', borderRadius:12, border:'1px solid', fontSize:11, cursor:'pointer', fontWeight: active?700:400,
+    borderColor: active?'#1976d2':'#ccc', background: active?'#1976d2':'#f5f5f5', color: active?'#fff':'#555',
+  });
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000,
                   display:'flex', alignItems:'center', justifyContent:'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:10, width:560, maxWidth:'95vw', maxHeight:'90vh',
+      <div style={{ background:'#fff', borderRadius:10, width:620, maxWidth:'95vw', maxHeight:'90vh',
                     overflow:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
         <div style={{ background:'#1976d2', color:'#fff', padding:'14px 20px', borderRadius:'10px 10px 0 0',
                       display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -182,12 +203,21 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ background:'#e3f2fd', padding:'4px 12px', borderRadius:20, fontSize:13, fontWeight:600 }}>
                   {selCust.CustName} <span style={{ color:'#888', fontSize:11 }}>({selCust.CustArea})</span>
+                  {selCust.Manager && <span style={{ color:'#666', fontSize:10, marginLeft:4 }}>👤{selCust.Manager}</span>}
                 </span>
                 <button onClick={()=>setSelCust(null)}
                   style={{ ...st.pmBtn, background:'#ef5350', color:'#fff', width:'auto', padding:'2px 8px', fontSize:10 }}>변경</button>
               </div>
             ) : (
               <>
+                {/* 담당자별 칩 필터 */}
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                  <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>담당자:</span>
+                  <button onClick={()=>setSelMgr('')} style={chipStyle(!selMgr)}>전체</button>
+                  {mgrList.map(m=>(
+                    <button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>
+                  ))}
+                </div>
                 <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
                   style={st.modalInput} autoFocus />
                 <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
@@ -198,6 +228,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                       onMouseOver={e=>e.currentTarget.style.background='#e3f2fd'}
                       onMouseOut={e=>e.currentTarget.style.background='transparent'}>
                       <b>{c.CustName}</b><span style={{color:'#888'}}>{c.CustArea}</span>
+                      {c.Manager && <span style={{color:'#1976d2',fontSize:10}}>👤{c.Manager}</span>}
                     </div>
                   ))}
                   {filteredCusts.length===0&&<div style={{padding:'8px 10px',color:'#999',fontSize:12}}>검색 결과 없음</div>}
@@ -220,6 +251,14 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
               </div>
             ) : (
               <>
+                {/* 국가별 칩 필터 */}
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                  <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>국가:</span>
+                  <button onClick={()=>setSelCoun('')} style={chipStyle(!selCoun)}>전체</button>
+                  {counList.map(c=>(
+                    <button key={c} onClick={()=>setSelCoun(c)} style={chipStyle(selCoun===c)}>{c}</button>
+                  ))}
+                </div>
                 <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 / 꽃 / 국가 검색..."
                   style={st.modalInput} />
                 <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
