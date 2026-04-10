@@ -928,14 +928,42 @@ export default function StockStatus() {
   // ─────────────────────────────────────────────────────────────
   // 차수 피벗 뷰 (품명 × 업체 × 차수 + 롤링 재고) — 모아보기 탭에서 사용
   // ─────────────────────────────────────────────────────────────
+  // 업체 짧은 이름: Descr의 '/' 앞 부분, 없으면 업체명
+  const custShortName = useCallback((r) => {
+    const d = r.CustDescr || r.Descr || '';
+    if (d) { const first = d.split('/')[0].trim(); if (first) return first; }
+    return r.CustName;
+  }, []);
+
+  // 품명에서 공통 꽃 영문명 제거
+  const stripProdName = useCallback((name) => {
+    return name
+      .replace(/^(CARNATION|ROSE|Hydrangea|ORCHID\s*VIETNAM|Ecuador\s*Tinted?|Ecuador|CHINA|Ruscus|SALAL|Lisianthus|\[MEL\])\s*[\/\s]*/i, '')
+      .replace(/^\s*\/\s*/, '').trim() || name;
+  }, []);
+
+  // 피벗 전용 필터
+  const [pvMgr, setPvMgr] = useState('');
+  const [pvCusts, setPvCusts] = useState(new Set()); // 선택된 업체 (빈=전체)
+
   const renderWeekPivot = () => {
-    const rows = filteredCustRows;
+    // 피벗 전용 필터 적용
+    let rows = filteredCustRows;
+    if (pvMgr) rows = rows.filter(r => (r.Manager||'미지정') === pvMgr);
+    if (pvCusts.size > 0) rows = rows.filter(r => pvCusts.has(r.CustKey));
     if (!rows.length) return <div style={st.empty}>데이터 없음</div>;
 
+    // 담당자/업체 목록 (필터용)
+    const allMgrs = [...new Set(filteredCustRows.map(r=>r.Manager||'미지정'))].sort();
+    const allCusts = {};
+    filteredCustRows.forEach(r => { allCusts[r.CustKey] = { name: r.CustName, area: r.CustArea, descr: r.CustDescr, mgr: r.Manager }; });
+    const allCustList = Object.entries(allCusts)
+      .filter(([,c]) => !pvMgr || (c.mgr||'미지정')===pvMgr)
+      .sort((a,b) => ((a[1].area||'')+a[1].name).localeCompare((b[1].area||'')+b[1].name, 'ko'));
+
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
-    // 업체 — 지역별 그룹 정렬
     const custMap = {};
-    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea || '기타' }; });
+    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea || '기타', descr: r.CustDescr }; });
     const custKeys = Object.keys(custMap).map(Number)
       .sort((a,b) => ((custMap[a].area+custMap[a].name).localeCompare(custMap[b].area+custMap[b].name, 'ko')));
     // 지역 그룹 계산
@@ -967,22 +995,32 @@ export default function StockStatus() {
 
     if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
 
-    const PROD_REPEAT = 10;  // N품목마다 업체헤더 반복
-    const CUST_REPEAT = 15;  // N업체마다 품명 반복
-    const stockCols = 4; // 시작/입고/출고/잔량
+    const PROD_REPEAT = 10;
+    const CUST_REPEAT = 15;
+    const stockCols = 4;
     const colsPerWeek = custKeys.length + stockCols;
 
-    // 헤더 행 렌더 함수
+    // 업체 짧은 이름
+    const cShort = (ck) => {
+      const c = custMap[ck];
+      if (!c) return '?';
+      const d = (c.descr||'').split('/')[0].trim();
+      return d || c.name;
+    };
+
+    const chipS = (active) => ({
+      padding:'2px 8px', borderRadius:10, border:'1px solid', fontSize:10, cursor:'pointer', fontWeight: active?700:400,
+      borderColor: active?'#1976d2':'#ccc', background: active?'#1976d2':'#f5f5f5', color: active?'#fff':'#555',
+    });
+
     const renderHeaderRows = () => (
       <>
-        {/* 1행: 차수 묶음 */}
         <tr style={st.thead}>
           <th style={{ ...st.th, position:'sticky', left:0, background:'#263238', zIndex:3 }} rowSpan={3}>품명</th>
           {weeks.map(wk => (
             <th key={wk} colSpan={colsPerWeek} style={{ ...st.th, textAlign:'center', background:'#1a237e', fontSize:12, borderLeft:'2px solid #fff' }}>{wk}</th>
           ))}
         </tr>
-        {/* 2행: 지역 묶음 */}
         <tr style={st.thead}>
           {weeks.map(wk => (
             <React.Fragment key={wk}>
@@ -993,7 +1031,6 @@ export default function StockStatus() {
             </React.Fragment>
           ))}
         </tr>
-        {/* 3행: 업체명 */}
         <tr style={st.thead}>
           {weeks.map(wk => (
             <React.Fragment key={wk}>
@@ -1001,7 +1038,7 @@ export default function StockStatus() {
                 <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:44, maxWidth:60,
                     whiteSpace:'normal', wordBreak:'break-all', lineHeight:'1.2', padding:'4px 2px',
                     borderLeft: ci===0?'2px solid #fff':'none' }}>
-                  {custMap[ck]?.name}
+                  {cShort(ck)}
                 </th>
               ))}
               <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작</th>
@@ -1015,7 +1052,37 @@ export default function StockStatus() {
     );
 
     return (
-      <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'75vh', position:'relative' }}>
+      <div>
+        {/* 피벗 필터: 담당자 → 업체 → 국가 → 꽃 */}
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>담당자:</span>
+          <button onClick={()=>{setPvMgr('');setPvCusts(new Set());}} style={chipS(!pvMgr)}>전체</button>
+          {allMgrs.map(m=>(<button key={m} onClick={()=>{setPvMgr(m);setPvCusts(new Set());}} style={chipS(pvMgr===m)}>{m}</button>))}
+        </div>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>업체:</span>
+          <button onClick={()=>setPvCusts(new Set())} style={chipS(pvCusts.size===0)}>전체</button>
+          {allCustList.map(([ck,c])=>{
+            const k=Number(ck); const active=pvCusts.has(k);
+            const short=(c.descr||'').split('/')[0].trim()||c.name;
+            return (<button key={ck} onClick={()=>setPvCusts(prev=>{const n=new Set(prev);active?n.delete(k):n.add(k);return n;})} style={chipS(active)}>{short}</button>);
+          })}
+        </div>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>국가:</span>
+          <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
+          {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
+        </div>
+        {filterCoun && (
+          <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+            <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
+            <button onClick={()=>setFilterFlower('')} style={chipS(!filterFlower)}>전체</button>
+            {allFlowerNames.filter(f => filteredCustRows.some(r=>r.CounName===filterCoun && r.FlowerName===f)).map(f=>(
+              <button key={f} onClick={()=>setFilterFlower(prev=>prev===f?'':f)} style={chipS(filterFlower===f)}>{f}</button>
+            ))}
+          </div>
+        )}
+        <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'70vh', position:'relative' }}>
         <table style={{ ...st.table, fontSize:10, borderCollapse:'collapse' }}>
           <thead style={{ position:'sticky', top:0, zIndex:4 }}>
             {renderHeaderRows()}
@@ -1039,7 +1106,7 @@ export default function StockStatus() {
                             <td key={`r-${wk}-${ck}`} style={{ ...st.td, fontSize:8, textAlign:'center', color:'#555', fontWeight:600,
                                 whiteSpace:'normal', wordBreak:'break-all', background:'#eceff1',
                                 borderLeft: ci===0?'2px solid #ccc':'none' }}>
-                              {custMap[ck]?.name}
+                              {cShort(ck)}
                             </td>
                           ))}
                           <td colSpan={stockCols} style={{ ...st.td, background:'#eceff1' }}></td>
@@ -1053,7 +1120,7 @@ export default function StockStatus() {
                             onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
                       <span style={{ ...st.clickCell, fontSize:8, color: filterFlower===p.flower?'#2e7d32':'#999', marginLeft:2 }}
                             onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
-                      <div style={{fontWeight:600, fontSize:10}}>{p.name}</div>
+                      <div style={{fontWeight:600, fontSize:10}}>{stripProdName(p.name)}</div>
                     </td>
                     {weeks.map(wk => {
                       const weekStart = rollingStock;
@@ -1072,7 +1139,7 @@ export default function StockStatus() {
                                   position:'relative'}}
                                   title={needProdLabel ? p.name : undefined}>
                                 {v>0?fmt(v):'·'}
-                                {needProdLabel && v>0 && <div style={{position:'absolute',top:-1,left:0,fontSize:7,color:'#e65100',whiteSpace:'nowrap'}}>{p.name.slice(0,6)}</div>}
+                                {needProdLabel && v>0 && <div style={{position:'absolute',top:-1,left:0,fontSize:7,color:'#e65100',whiteSpace:'nowrap'}}>{stripProdName(p.name).slice(0,8)}</div>}
                               </td>
                             );
                           })}
@@ -1090,6 +1157,7 @@ export default function StockStatus() {
             })}
           </tbody>
         </table>
+      </div>
       </div>
     );
   };

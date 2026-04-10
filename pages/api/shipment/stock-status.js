@@ -195,7 +195,7 @@ export default withAuth(async function handler(req, res) {
 
       const result = await query(
         `SELECT
-          c.CustKey, c.CustName, c.CustArea, c.Manager,
+          c.CustKey, c.CustName, c.CustArea, c.Manager, c.Descr AS CustDescr,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
           ISNULL(od.OutQuantity,   0) AS custOrderQty,
@@ -241,7 +241,7 @@ export default withAuth(async function handler(req, res) {
       const result = await query(
         `SELECT
           ISNULL(c.Manager, '미지정') AS Manager,
-          c.CustKey, c.CustName, c.CustArea,
+          c.CustKey, c.CustName, c.CustArea, c.Descr AS CustDescr,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
           ISNULL(od.OutQuantity, 0) AS custOrderQty,
@@ -286,7 +286,7 @@ export default withAuth(async function handler(req, res) {
     if (view === 'pivot') {
       const result = await query(
         `SELECT
-          c.CustKey, c.CustName, c.CustArea,
+          c.CustKey, c.CustName, c.CustArea, c.Descr AS CustDescr, c.Manager,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
           om.OrderWeek,
           ISNULL(sd.OutQuantity, 0) AS outQty
