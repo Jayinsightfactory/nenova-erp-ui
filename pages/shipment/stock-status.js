@@ -720,8 +720,8 @@ export default function StockStatus() {
                 👤 담당자: {mgr}
               </div>
 
-              {/* 업체 칩 필터 (담당자 내) */}
-              {chips4mgr.length > 1 && (
+              {/* 업체 칩 필터 (담당자 내) — 업체 1개여도 항상 표시 */}
+              {chips4mgr.length > 0 && (
                 <div style={{ background:'#eceff1', padding:'6px 10px', borderBottom:'1px solid #d0d8e0' }}>
                   <ChipFilterBar
                     chips={chips4mgr}
