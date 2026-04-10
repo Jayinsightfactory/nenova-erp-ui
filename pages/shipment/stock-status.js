@@ -1036,6 +1036,7 @@ export default function StockStatus() {
             <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5',
                           padding:'6px 10px', borderRadius:6, border:'1px solid #e0e0e0' }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>차수</span>
+              <button onClick={()=>{weekFromInput.prevWeek();weekToInput.prevWeek();}} style={st.weekSyncBtn} title="양쪽 이전 주차">◀◀</button>
               <button onClick={weekFromInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekFromInput} />
               <button onClick={weekFromInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
@@ -1043,6 +1044,7 @@ export default function StockStatus() {
               <button onClick={weekToInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekToInput} />
               <button onClick={weekToInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
+              <button onClick={()=>{weekFromInput.nextWeek();weekToInput.nextWeek();}} style={st.weekSyncBtn} title="양쪽 다음 주차">▶▶</button>
               {isRange && <span style={{ fontSize:11, color:'#1976d2' }}>(범위)</span>}
             </div>
             <button onClick={() => hasWeek && loadData(weekFrom, weekTo, tab)} style={st.refreshBtn} disabled={!hasWeek||loading}>
@@ -1170,6 +1172,7 @@ const st = {
   },
   refreshBtn: { padding:'5px 12px', background:'#f5f5f5', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', fontSize:12 },
   weekBigBtn: { padding:'4px 8px', border:'2px solid #1976d2', borderRadius:4, cursor:'pointer', background:'#e3f2fd', fontSize:14, fontWeight:700, color:'#1976d2' },
+  weekSyncBtn: { padding:'4px 8px', border:'2px solid #e65100', borderRadius:4, cursor:'pointer', background:'#fff3e0', fontSize:11, fontWeight:700, color:'#e65100' },
   addBtn: { padding:'5px 14px', background:'#1976d2', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:12, fontWeight:600 },
   tabBtn: { padding:'8px 18px', border:'none', background:'transparent', cursor:'pointer', fontSize:13, fontWeight:500, color:'#666', borderBottom:'3px solid transparent', marginBottom:-2 },
   tabBtnActive: { color:'#1976d2', borderBottom:'3px solid #1976d2', fontWeight:700 },
