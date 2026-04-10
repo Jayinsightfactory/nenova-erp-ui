@@ -346,7 +346,6 @@ export default function StockStatus() {
 
   const [tab, setTab]           = useState('products');
   const [pivotSub, setPivotSub] = useState('byCust');
-  const [mgrSub, setMgrSub]     = useState('list'); // list | pivot
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const isFirstLoad = useRef({ custs: true, mgrs: true }); // 첫 로드 시에만 전체숨김
@@ -453,7 +452,13 @@ export default function StockStatus() {
       if (t === 'products')  { setProducts(d.products||[]); setProdExpand({}); }
       if (t === 'customers') setCustRows(d.rows||[]);
       if (t === 'managers')  setMgrRows(d.rows||[]);
-      if (t === 'pivot')     setPivotRows(d.rows||[]);
+      if (t === 'pivot') {
+        setPivotRows(d.rows||[]);
+        // 차수 피벗용 customers 데이터도 로드
+        fetch(`/api/shipment/stock-status?${p}&view=customers`).then(r2=>r2.json()).then(d2=>{
+          if(d2.success) setCustRows(d2.rows||[]);
+        }).catch(()=>{});
+      }
       // 시작재고 조회
       fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&view=startStock`)
         .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
@@ -921,35 +926,29 @@ export default function StockStatus() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // 담당자별 — 차수 피벗 뷰 (품명 × 업체 × 차수 + 롤링 재고)
+  // 차수 피벗 뷰 (품명 × 업체 × 차수 + 롤링 재고) — 모아보기 탭에서 사용
   // ─────────────────────────────────────────────────────────────
-  const renderMgrPivot = () => {
-    if (!mgrRows.length) return <div style={st.empty}>데이터 없음</div>;
+  const renderWeekPivot = () => {
+    const rows = filteredCustRows;
+    if (!rows.length) return <div style={st.empty}>데이터 없음 (업체별 데이터 로딩 필요)</div>;
 
-    // 차수 목록
-    const weeks = [...new Set(filteredMgrRows.map(r=>r.OrderWeek))].sort();
-    // 업체 목록
+    const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
     const custMap = {};
-    filteredMgrRows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea }; });
+    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea }; });
     const custKeys = Object.keys(custMap).map(Number);
-    // 품목 목록
     const prodMap = {};
-    filteredMgrRows.forEach(r => {
+    rows.forEach(r => {
       if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
     });
     const prodKeys = Object.keys(prodMap).map(Number).sort((a,b) =>
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''), 'ko'));
 
-    // 데이터 맵: { `pk-ck-wk`: outQty }
-    const dataMap = {};
-    const inMap = {}, totalOutMap = {};
-    filteredMgrRows.forEach(r => {
+    const dataMap = {}, inMap = {};
+    rows.forEach(r => {
       dataMap[`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`] = r.outQty || 0;
       const ik = `${r.ProdKey}-${r.OrderWeek}`;
       if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
-      if (!totalOutMap[ik]) totalOutMap[ik] = 0;
-      totalOutMap[ik] += (r.outQty || 0);
     });
 
     if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
@@ -959,13 +958,13 @@ export default function StockStatus() {
         <table style={{ ...st.table, fontSize:11 }}>
           <thead>
             <tr style={st.thead}>
-              <th style={{ ...st.th, position:'sticky', left:0, background:'#37474f', zIndex:2, minWidth:140 }}>품명</th>
+              <th style={{ ...st.th, position:'sticky', left:0, background:'#37474f', zIndex:2, minWidth:160 }}>품명</th>
               {weeks.map(wk => (
                 <React.Fragment key={wk}>
                   {custKeys.map(ck => (
                     <th key={`${wk}-${ck}`} style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:40 }}>
                       <div style={{fontSize:8,opacity:0.7}}>{wk}</div>
-                      {custMap[ck]?.name?.slice(0,4)}
+                      {custMap[ck]?.name?.slice(0,5)}
                     </th>
                   ))}
                   <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:9 }}>시작</th>
@@ -982,8 +981,12 @@ export default function StockStatus() {
               let rollingStock = startStocks[pk] || 0;
               return (
                 <tr key={pk} style={{ background:pi%2===0?'#fff':'#f5f5f5' }}>
-                  <td style={{ ...st.td, fontWeight:600, position:'sticky', left:0, background:pi%2===0?'#fff':'#f5f5f5', zIndex:1 }}>
-                    <div style={{fontSize:9,color:'#888'}}>{p.coun}·{p.flower}</div>{p.name}
+                  <td style={{ ...st.td, position:'sticky', left:0, background:pi%2===0?'#fff':'#f5f5f5', zIndex:1 }}>
+                    <span style={{ ...st.clickCell, fontSize:9, color: filterCoun===p.coun?'#1565c0':'#888' }}
+                          onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
+                    <span style={{ ...st.clickCell, fontSize:9, color: filterFlower===p.flower?'#2e7d32':'#888', marginLeft:2 }}
+                          onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
+                    <div style={{fontWeight:600, fontSize:11}}>{p.name}</div>
                   </td>
                   {weeks.map(wk => {
                     const weekStart = rollingStock;
@@ -1208,17 +1211,6 @@ export default function StockStatus() {
             ))}
           </div>
 
-          {tab==='pivot' && (
-            <div style={{ display:'flex', gap:4, marginBottom:12 }}>
-              {[{key:'byCust',label:'🏢 업체기준'},{key:'byProd',label:'📦 품목기준'}].map(s=>(
-                <button key={s.key} onClick={()=>setPivotSub(s.key)}
-                  style={{ ...st.subTabBtn, ...(pivotSub===s.key?st.subTabBtnActive:{}) }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* 콘텐츠 */}
           {!hasWeek ? (
             <div style={st.empty}>차수를 선택해 주세요</div>
@@ -1228,18 +1220,20 @@ export default function StockStatus() {
             <>
               {tab==='products'  && renderProducts()}
               {tab==='customers' && renderCustomers()}
-              {tab==='managers' && (
+              {tab==='managers'  && renderManagers()}
+              {tab==='pivot' && (
                 <>
                   <div style={{ display:'flex', gap:4, marginBottom:10 }}>
-                    <button onClick={()=>setMgrSub('list')}
-                      style={{ ...st.subTabBtn, ...(mgrSub==='list'?st.subTabBtnActive:{}) }}>📋 업체별</button>
-                    <button onClick={()=>setMgrSub('pivot')}
-                      style={{ ...st.subTabBtn, ...(mgrSub==='pivot'?st.subTabBtnActive:{}) }}>📊 차수 피벗</button>
+                    {[{key:'byCust',label:'🏢 업체기준'},{key:'byProd',label:'📦 품목기준'},{key:'weekPivot',label:'📊 차수 피벗'}].map(s=>(
+                      <button key={s.key} onClick={()=>setPivotSub(s.key)}
+                        style={{ ...st.subTabBtn, ...(pivotSub===s.key?st.subTabBtnActive:{}) }}>
+                        {s.label}
+                      </button>
+                    ))}
                   </div>
-                  {mgrSub==='list' ? renderManagers() : renderMgrPivot()}
+                  {pivotSub==='weekPivot' ? renderWeekPivot() : renderPivot()}
                 </>
               )}
-              {tab==='pivot'     && renderPivot()}
             </>
           )}
         </div>
