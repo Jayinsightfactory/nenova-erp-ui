@@ -258,12 +258,14 @@ async function updateOutQty(req, res) {
 
       let sk;
       if (sm.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO ShipmentMaster (OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           OUTPUT INSERTED.ShipmentKey VALUES(@wk,@ck,0,0,@uid,GETDATE())`,
-          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        const maxSm = await tQ(`SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nk FROM ShipmentMaster`, {});
+        const newSk = maxSm.recordset[0].nk;
+        await tQ(
+          `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@wk,@ck,0,0,@uid,GETDATE())`,
+          { nk: { type: sql.Int, value: newSk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
-        sk = ins.recordset[0].ShipmentKey;
+        sk = newSk;
       } else {
         sk = sm.recordset[0].ShipmentKey;
       }
@@ -287,10 +289,12 @@ async function updateOutQty(req, res) {
           );
         }
       } else if (qty > 0) {
+        const maxSd = await tQ(`SELECT ISNULL(MAX(SdetailKey),0)+1 AS nk FROM ShipmentDetail`, {});
+        const newSdk = maxSd.recordset[0].nk;
         await tQ(
-          `INSERT INTO ShipmentDetail (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-           VALUES(@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
-          { sk: { type: sql.Int, value: sk }, ck: { type: sql.Int, value: ck },
+          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
+           VALUES(@dk,@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
+          { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk }, ck: { type: sql.Int, value: ck },
             pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty } }
         );
       }
@@ -330,12 +334,14 @@ async function addOrder(req, res) {
 
       let mk;
       if (om.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO OrderMaster (OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           OUTPUT INSERTED.OrderMasterKey VALUES(GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        const maxOm = await tQ(`SELECT ISNULL(MAX(OrderMasterKey),0)+1 AS nk FROM OrderMaster`, {});
+        const newMk = maxOm.recordset[0].nk;
+        await tQ(
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
+          { nk: { type: sql.Int, value: newMk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
-        mk = ins.recordset[0].OrderMasterKey;
+        mk = newMk;
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
@@ -364,11 +370,14 @@ async function addOrder(req, res) {
           );
         }
       } else if (quantity > 0) {
+        const maxOd = await tQ(`SELECT ISNULL(MAX(OrderDetailKey),0)+1 AS nk FROM OrderDetail`, {});
+        const newDk = maxOd.recordset[0].nk;
         await tQ(
-          `INSERT INTO OrderDetail (OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@dk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           {
-            mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
+            dk:  { type: sql.Int,   value: newDk },    mk:  { type: sql.Int,   value: mk },
+            pk:  { type: sql.Int,   value: pk },
             qty: { type: sql.Float, value: quantity }, bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: uid },
