@@ -97,37 +97,26 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [custs,      setCusts]      = useState([]);
   const [prods,      setProds]      = useState([]);
   const [selCust,    setSelCust]    = useState(null);
-  const [selProd,    setSelProd]    = useState(null);
-  const [qty,        setQty]        = useState('');
-  const [unit,       setUnit]       = useState('박스');
   const [orderWeek,  setOrderWeek]  = useState(weekFrom || '');
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState('');
-  const [selMgr,     setSelMgr]     = useState('');   // 담당자 필터
-  const [selCoun,    setSelCoun]    = useState('');   // 국가 필터
-  const [selFlower,  setSelFlower]  = useState('');   // 꽃 필터
+  const [selMgr,     setSelMgr]     = useState('');
+  const [selCoun,    setSelCoun]    = useState('');
+  const [selFlower,  setSelFlower]  = useState('');
+  const [orderCounts, setOrderCounts] = useState({});  // { CustKey: count }
+  const [cart, setCart] = useState([]);  // [{ prod, qty, unit }]
 
-  // 업체/품목 로드
   useEffect(() => {
     fetch('/api/master?entity=customers').then(r=>r.json()).then(d=>{if(d.success) setCusts(d.data);});
     fetch('/api/master?entity=products').then(r=>r.json()).then(d=>{if(d.success) setProds(d.data);});
+    // 업체별 주문 횟수 조회
+    fetch('/api/shipment/stock-status?view=custOrderCounts').then(r=>r.json()).then(d=>{
+      if(d.success && d.counts) setOrderCounts(d.counts);
+    }).catch(()=>{});
   }, []);
 
-  // 품목 선택 시 단위 자동 설정
-  useEffect(() => {
-    if (selProd?.OutUnit) {
-      const u = selProd.OutUnit;
-      setUnit(UNITS.includes(u) ? u : '박스');
-    }
-  }, [selProd]);
-
-  // 담당자 목록 추출
   const mgrList = useMemo(() => [...new Set(custs.map(c => c.Manager || '미지정'))].sort(), [custs]);
-
-  // 국가 목록 추출
   const counList = useMemo(() => [...new Set(prods.map(p => p.CounName).filter(Boolean))].sort(), [prods]);
-
-  // 꽃 목록 (선택된 국가 기준)
   const flowerList = useMemo(() => {
     const base = selCoun ? prods.filter(p => p.CounName === selCoun) : prods;
     return [...new Set(base.map(p => p.FlowerName).filter(Boolean))].sort();
@@ -140,8 +129,10 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
       const q = custSearch.toLowerCase();
       list = list.filter(c => c.CustName?.toLowerCase().includes(q) || c.CustArea?.toLowerCase().includes(q));
     }
+    // 주문 횟수 기준 내림차순 정렬
+    list = [...list].sort((a,b) => (orderCounts[b.CustKey]||0) - (orderCounts[a.CustKey]||0));
     return list.slice(0, 80);
-  }, [custs, custSearch, selMgr]);
+  }, [custs, custSearch, selMgr, orderCounts]);
 
   const filteredProds = useMemo(() => {
     let list = prods;
@@ -155,21 +146,33 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     return list.slice(0, 80);
   }, [prods, prodSearch, selCoun, selFlower]);
 
+  // 품목 칩 클릭 → 카트에 추가
+  const addToCart = (p) => {
+    if (cart.find(c => c.prod.ProdKey === p.ProdKey)) return; // 이미 추가됨
+    const u = UNITS.includes(p.OutUnit) ? p.OutUnit : '박스';
+    setCart(prev => [...prev, { prod: p, qty: 1, unit: u }]);
+  };
+  const removeFromCart = (pk) => setCart(prev => prev.filter(c => c.prod.ProdKey !== pk));
+  const updateCartQty = (pk, val) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, qty: parseFloat(val)||0} : c));
+  const updateCartUnit = (pk, u) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, unit: u} : c));
+
   const handleSubmit = async () => {
-    if (!selCust)              { setError('업체를 선택하세요'); return; }
-    if (!selProd)              { setError('품목을 선택하세요'); return; }
-    if (!qty || parseFloat(qty) <= 0) { setError('수량을 입력하세요 (0 초과)'); return; }
-    if (!orderWeek)            { setError('차수를 입력하세요'); return; }
+    if (!selCust) { setError('업체를 선택하세요'); return; }
+    if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
+    if (cart.some(c => !c.qty || c.qty <= 0)) { setError('수량을 모두 입력하세요 (0 초과)'); return; }
+    if (!orderWeek) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
     try {
-      const r = await fetch('/api/shipment/stock-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: selProd.ProdKey, week: orderWeek, qty, unit }),
-      });
-      const d = await r.json();
-      if (d.success) { onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: orderWeek }); onClose(); }
-      else setError(d.error);
+      let allOk = true;
+      for (const item of cart) {
+        const r = await fetch('/api/shipment/stock-status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: item.prod.ProdKey, week: orderWeek, qty: item.qty, unit: item.unit }),
+        });
+        const d = await r.json();
+        if (!d.success) { setError(d.error); allOk = false; break; }
+      }
+      if (allOk) { onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: orderWeek }); onClose(); }
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -183,11 +186,11 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000,
                   display:'flex', alignItems:'center', justifyContent:'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:10, width:620, maxWidth:'95vw', maxHeight:'90vh',
+      <div style={{ background:'#fff', borderRadius:10, width:700, maxWidth:'95vw', maxHeight:'90vh',
                     overflow:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
         <div style={{ background:'#1976d2', color:'#fff', padding:'14px 20px', borderRadius:'10px 10px 0 0',
                       display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontWeight:700, fontSize:16 }}>주문 추가</span>
+          <span style={{ fontWeight:700, fontSize:16 }}>주문 추가 {cart.length > 0 && <span style={{fontSize:12,opacity:0.8}}>({cart.length}개 품목)</span>}</span>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'#fff', fontSize:20, cursor:'pointer' }}>✕</button>
         </div>
         <div style={{ padding:'18px 20px' }}>
@@ -198,122 +201,112 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <input value={orderWeek} onChange={e=>setOrderWeek(e.target.value)} placeholder="예: 14-01"
                 style={{ ...st.modalInput, width:120 }} />
-              {weekFrom !== weekTo && (
-                <span style={{ fontSize:11, color:'#888' }}>범위: {weekFrom} ~ {weekTo}</span>
-              )}
+              {weekFrom !== weekTo && <span style={{ fontSize:11, color:'#888' }}>범위: {weekFrom} ~ {weekTo}</span>}
             </div>
           </div>
 
           {/* 업체 */}
           <div style={{ marginBottom:14 }}>
             <label style={st.label}>업체 선택</label>
-            {/* 담당자별 칩 필터 */}
             <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
               <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>담당자:</span>
               <button onClick={()=>setSelMgr('')} style={chipStyle(!selMgr)}>전체</button>
-              {mgrList.map(m=>(
-                <button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>
-              ))}
+              {mgrList.map(m=>(<button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>))}
             </div>
             <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
               style={{ ...st.modalInput, marginBottom:6 }} autoFocus />
-            {/* 업체 칩 리스트 */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:120, overflowY:'auto',
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:100, overflowY:'auto',
                           border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa' }}>
-              {filteredCusts.map(c=>(
-                <button key={c.CustKey} onClick={()=>setSelCust(c)}
-                  style={{ ...chipStyle(selCust?.CustKey===c.CustKey),
-                           borderColor: selCust?.CustKey===c.CustKey?'#1565c0':'#ccc',
-                           background: selCust?.CustKey===c.CustKey?'#1565c0':'#fff' }}>
-                  {c.CustName} <span style={{fontSize:9,opacity:0.7}}>{c.CustArea}</span>
-                </button>
-              ))}
+              {filteredCusts.map(c=>{
+                const cnt = orderCounts[c.CustKey] || 0;
+                return (
+                  <button key={c.CustKey} onClick={()=>setSelCust(c)}
+                    style={{ ...chipStyle(selCust?.CustKey===c.CustKey),
+                             borderColor: selCust?.CustKey===c.CustKey?'#1565c0':'#ccc',
+                             background: selCust?.CustKey===c.CustKey?'#1565c0':'#fff' }}>
+                    {c.CustName} <span style={{fontSize:9,opacity:0.7}}>{c.CustArea}</span>
+                    {cnt > 0 && <span style={{fontSize:8,opacity:0.6,marginLeft:2}}>({cnt})</span>}
+                  </button>
+                );
+              })}
               {filteredCusts.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
             </div>
           </div>
 
-          {/* 품목 */}
+          {/* 품목 선택 → 카트 추가 */}
           <div style={{ marginBottom:14 }}>
-            <label style={st.label}>품목 선택</label>
-            {selProd ? (
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ background:'#e8f5e9', padding:'4px 12px', borderRadius:20, fontSize:13, fontWeight:600 }}>
-                  {selProd.CounName} · {selProd.FlowerName} · {selProd.ProdName}
-                  <span style={{ color:'#888', fontSize:11, marginLeft:6 }}>[{selProd.OutUnit}]</span>
-                </span>
-                <button onClick={()=>setSelProd(null)}
-                  style={{ ...st.pmBtn, background:'#ef5350', color:'#fff', width:'auto', padding:'2px 8px', fontSize:10 }}>변경</button>
+            <label style={st.label}>품목 선택 (클릭하여 추가)</label>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:4 }}>
+              <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>국가:</span>
+              <button onClick={()=>{setSelCoun('');setSelFlower('');}} style={chipStyle(!selCoun)}>전체</button>
+              {counList.map(c=>(<button key={c} onClick={()=>{setSelCoun(c);setSelFlower('');}} style={chipStyle(selCoun===c)}>{c}</button>))}
+            </div>
+            {flowerList.length > 0 && (
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>꽃:</span>
+                <button onClick={()=>setSelFlower('')} style={chipStyle(!selFlower)}>전체</button>
+                {flowerList.map(f=>(<button key={f} onClick={()=>setSelFlower(f)} style={chipStyle(selFlower===f)}>{f}</button>))}
               </div>
-            ) : (
-              <>
-                {/* 국가별 칩 필터 */}
-                <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:4 }}>
-                  <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>국가:</span>
-                  <button onClick={()=>{setSelCoun('');setSelFlower('');}} style={chipStyle(!selCoun)}>전체</button>
-                  {counList.map(c=>(
-                    <button key={c} onClick={()=>{setSelCoun(c);setSelFlower('');}} style={chipStyle(selCoun===c)}>{c}</button>
-                  ))}
-                </div>
-                {/* 꽃별 칩 필터 (국가 선택 시 해당 국가 꽃만, 미선택 시 전체) */}
-                {flowerList.length > 0 && (
-                  <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
-                    <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>꽃:</span>
-                    <button onClick={()=>setSelFlower('')} style={chipStyle(!selFlower)}>전체</button>
-                    {flowerList.map(f=>(
-                      <button key={f} onClick={()=>setSelFlower(f)} style={chipStyle(selFlower===f)}>{f}</button>
-                    ))}
-                  </div>
-                )}
-                <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..."
-                  style={st.modalInput} />
-                <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:130, overflowY:'auto',
-                              border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
-                  {filteredProds.map(p=>(
-                    <button key={p.ProdKey} onClick={()=>{setSelProd(p);setProdSearch('');}}
-                      style={{ ...chipStyle(selProd?.ProdKey===p.ProdKey),
-                               borderColor: selProd?.ProdKey===p.ProdKey?'#2e7d32':'#ccc',
-                               background: selProd?.ProdKey===p.ProdKey?'#2e7d32':'#fff' }}>
-                      {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
-                    </button>
-                  ))}
-                  {filteredProds.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
-                </div>
-              </>
             )}
+            <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..."
+              style={st.modalInput} />
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:110, overflowY:'auto',
+                          border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
+              {filteredProds.map(p=>{
+                const inCart = cart.some(c=>c.prod.ProdKey===p.ProdKey);
+                return (
+                  <button key={p.ProdKey} onClick={()=>addToCart(p)}
+                    style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32':'#ccc', background: inCart?'#2e7d32':'#fff' }}>
+                    {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                  </button>
+                );
+              })}
+              {filteredProds.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
+            </div>
           </div>
 
-          {/* 단위 + 수량 */}
-          <div style={{ marginBottom:16, display:'flex', gap:16, alignItems:'flex-end', flexWrap:'wrap' }}>
-            <div>
-              <label style={st.label}>단위</label>
-              <div style={{ display:'flex', gap:6 }}>
-                {UNITS.map(u=>(
-                  <button key={u} onClick={()=>setUnit(u)}
-                    style={{ padding:'6px 14px', borderRadius:6, border:'1px solid',
-                             borderColor: unit===u ? '#1976d2' : '#ccc',
-                             background: unit===u ? '#1976d2' : '#f9f9f9',
-                             color: unit===u ? '#fff' : '#555',
-                             fontWeight: unit===u ? 700 : 400,
-                             cursor:'pointer', fontSize:13 }}>
-                    {u}
-                  </button>
+          {/* 카트: 선택된 품목 목록 + 수량/단위 입력 */}
+          {cart.length > 0 && (
+            <div style={{ marginBottom:14, border:'1px solid #1976d2', borderRadius:6, overflow:'hidden' }}>
+              <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700 }}>
+                선택된 품목 ({cart.length}개)
+              </div>
+              <div style={{ maxHeight:180, overflowY:'auto' }}>
+                {cart.map((item, i) => (
+                  <div key={item.prod.ProdKey} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
+                       borderBottom:'1px solid #eee', background: i%2===0?'#fff':'#f9f9f9', fontSize:12 }}>
+                    <button onClick={()=>removeFromCart(item.prod.ProdKey)}
+                      style={{ background:'#ef5350', color:'#fff', border:'none', borderRadius:4, width:20, height:20, cursor:'pointer', fontSize:12, lineHeight:'18px' }}>✕</button>
+                    <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {item.prod.ProdName}
+                    </span>
+                    <span style={{ color:'#888', fontSize:10, whiteSpace:'nowrap' }}>{item.prod.CounName}</span>
+                    <div style={{ display:'flex', gap:2 }}>
+                      {UNITS.map(u=>(
+                        <button key={u} onClick={()=>updateCartUnit(item.prod.ProdKey, u)}
+                          style={{ padding:'2px 6px', borderRadius:4, border:'1px solid', fontSize:10, cursor:'pointer',
+                                   borderColor: item.unit===u?'#1976d2':'#ccc', background: item.unit===u?'#1976d2':'#f9f9f9',
+                                   color: item.unit===u?'#fff':'#555', fontWeight: item.unit===u?700:400 }}>
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" min={1} value={item.qty}
+                      onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
+                      style={{ width:60, textAlign:'right', fontSize:11, padding:'3px 4px', border:'1px solid #ccc', borderRadius:3 }} />
+                  </div>
                 ))}
               </div>
             </div>
-            <div>
-              <label style={st.label}>수량 ({unit})</label>
-              <input type="number" min={1} value={qty} onChange={e=>setQty(e.target.value)}
-                placeholder="0" style={{ ...st.modalInput, width:100 }} />
-            </div>
-          </div>
+          )}
 
           {error && <div style={{color:'#d32f2f',fontSize:12,marginBottom:10}}>⚠ {error}</div>}
 
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
             <button onClick={onClose} style={{ padding:'8px 20px', border:'1px solid #ccc', borderRadius:5, cursor:'pointer', background:'#f5f5f5' }}>취소</button>
-            <button onClick={handleSubmit} disabled={saving}
-              style={{ padding:'8px 24px', background:saving?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
-              {saving ? '저장중...' : '주문 추가'}
+            <button onClick={handleSubmit} disabled={saving || cart.length===0}
+              style={{ padding:'8px 24px', background:(saving||cart.length===0)?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
+              {saving ? '저장중...' : `주문 추가 (${cart.length}개)`}
             </button>
           </div>
         </div>
