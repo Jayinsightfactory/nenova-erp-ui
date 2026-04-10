@@ -230,6 +230,21 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── 업체별 주문 횟수 (모달용)
+    if (view === 'custOrderCounts') {
+      const result = await query(
+        `SELECT om.CustKey, COUNT(DISTINCT od.OrderDetailKey) AS cnt
+         FROM OrderMaster om
+         JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
+         WHERE om.isDeleted=0
+         GROUP BY om.CustKey`,
+        {}
+      );
+      const counts = {};
+      result.recordset.forEach(r => { counts[r.CustKey] = r.cnt; });
+      return res.status(200).json({ success: true, counts });
+    }
+
     return res.status(400).json({ success: false, error: 'view 파라미터 필요' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -239,6 +254,7 @@ export default withAuth(async function handler(req, res) {
 // ── PATCH: 출고수량 수정 (ShipmentMaster + ShipmentDetail)
 async function updateOutQty(req, res) {
   const { custKey, prodKey, week, outQty } = req.body;
+  console.log('[PATCH stock-status]', { custKey, prodKey, week, outQty });
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -266,8 +282,10 @@ async function updateOutQty(req, res) {
           { nk: { type: sql.Int, value: newSk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
         sk = newSk;
+        console.log('[PATCH] ShipmentMaster created:', newSk);
       } else {
         sk = sm.recordset[0].ShipmentKey;
+        console.log('[PATCH] ShipmentMaster found:', sk);
       }
 
       // ShipmentDetail: 있으면 UPDATE, qty=0이면 DELETE, 없으면 INSERT
@@ -275,11 +293,13 @@ async function updateOutQty(req, res) {
         `SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
+      console.log('[PATCH] ShipmentDetail rows:', sd.recordset.length, 'sk:', sk, 'pk:', pk);
 
       if (sd.recordset.length > 0) {
         if (qty <= 0) {
           await tQ(`DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
+          console.log('[PATCH] ShipmentDetail DELETED');
         } else {
           await tQ(
             `UPDATE ShipmentDetail SET OutQuantity=@qty, ShipmentDtm=GETDATE()
@@ -287,16 +307,18 @@ async function updateOutQty(req, res) {
             { qty: { type: sql.Float, value: qty }, sk: { type: sql.Int, value: sk },
               pk: { type: sql.Int, value: pk } }
           );
+          console.log('[PATCH] ShipmentDetail UPDATED qty:', qty);
         }
       } else if (qty > 0) {
         const maxSd = await tQ(`SELECT ISNULL(MAX(SdetailKey),0)+1 AS nk FROM ShipmentDetail`, {});
         const newSdk = maxSd.recordset[0].nk;
         await tQ(
-          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-           VALUES(@dk,@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
-          { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk }, ck: { type: sql.Int, value: ck },
+          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
+           VALUES(@dk,@sk,@pk,GETDATE(),@qty,@qty)`,
+          { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk },
             pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty } }
         );
+        console.log('[PATCH] ShipmentDetail INSERTED dk:', newSdk);
       }
     });
 
@@ -319,10 +341,29 @@ async function addOrder(req, res) {
     const quantity = parseFloat(qty) || 0;
     const uid      = req.user?.userId || 'system';
 
-    // 단위별 수량 분배 (박스/단/송이)
-    const boxQty   = unit === '박스' ? quantity : 0;
-    const bunchQty = unit === '단'   ? quantity : 0;
-    const steamQty = unit === '송이' ? quantity : 0;
+    // Product 환산정보 조회
+    const prodInfo = await query(
+      `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
+      { pk: { type: sql.Int, value: pk } }
+    );
+    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
+    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+
+    // 단위별 수량 환산
+    let boxQty, bunchQty, steamQty;
+    if (unit === '박스') {
+      boxQty   = quantity;
+      bunchQty = quantity * bunchOf1Box;
+      steamQty = quantity * steamOf1Box;
+    } else if (unit === '단') {
+      bunchQty = quantity;
+      boxQty   = bunchOf1Box > 0 ? quantity / bunchOf1Box : 0;
+      steamQty = bunchOf1Box > 0 ? quantity * (steamOf1Box / bunchOf1Box) : 0;
+    } else {
+      steamQty = quantity;
+      boxQty   = steamOf1Box > 0 ? quantity / steamOf1Box : 0;
+      bunchQty = steamOf1Box > 0 ? quantity * (bunchOf1Box / steamOf1Box) : 0;
+    }
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
