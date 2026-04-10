@@ -159,7 +159,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const handleSubmit = async () => {
     if (!selCust) { setError('업체를 선택하세요'); return; }
     if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
-    if (cart.some(c => !c.qty || c.qty <= 0)) { setError('수량을 모두 입력하세요 (0 초과)'); return; }
+    if (cart.some(c => c.qty === '' || c.qty === 0)) { setError('수량을 입력하세요 (0 제외, 음수=-취소)'); return; }
     if (!orderWeek) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
     try {
@@ -291,7 +291,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                         </button>
                       ))}
                     </div>
-                    <input type="number" min={1} value={item.qty}
+                    <input type="number" value={item.qty}
                       onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
                       style={{ width:60, textAlign:'right', fontSize:11, padding:'3px 4px', border:'1px solid #ccc', borderRadius:3 }} />
                   </div>
