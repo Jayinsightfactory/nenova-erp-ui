@@ -1,10 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네달란드','중국기타','국내왁스'];
+const WEEK_SUFFIXES = ['-01', '-02'];
+const DAY_NAMES = ['월','화','수','목','금'];
+
+// 출고수량을 요일별로 자동 균등 분배
+function autoSplitQty(totalQty, dayCount) {
+  if (dayCount <= 0 || totalQty <= 0) return [];
+  const base = Math.floor(totalQty / dayCount);
+  const remainder = totalQty - base * dayCount;
+  return Array.from({ length: dayCount }, (_, i) => base + (i < remainder ? 1 : 0));
+}
 
 export default function Distribute() {
   const { t } = useLang();
@@ -44,6 +54,148 @@ export default function Distribute() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [isFixed, setIsFixed] = useState(false);
+
+  // 탭2: 출고요일 설정
+  const [shipDayConfigs, setShipDayConfigs] = useState({}); // { 'prodGroup|suffix': '월,화,수' }
+  const [shipDayLoading, setShipDayLoading] = useState(false);
+  const [shipDaySaving, setShipDaySaving] = useState(false);
+  // 탭2: 업체별 일별 수량 분배 { 'custKey|prodKey': { '월': 3, '화': 2, ... } }
+  const [dailyQtyInputs, setDailyQtyInputs] = useState({});
+  // 탭2: 품목별 출고일 오버라이드 { 'custKey|prodKey': '월,수' }
+  const [prodDayOverrides, setProdDayOverrides] = useState({});
+  const [tab2CustKey, setTab2CustKey] = useState(null);
+  const [tab2Items, setTab2Items] = useState([]);
+  const [tab2Loading, setTab2Loading] = useState(false);
+  const [excelDownloading, setExcelDownloading] = useState(false);
+
+  // ── 출고요일 설정 로드
+  const loadShipDayConfigs = useCallback(async () => {
+    setShipDayLoading(true);
+    try {
+      const d = await apiGet('/api/shipment/ship-days', {});
+      const map = {};
+      (d.configs || []).forEach(c => {
+        map[`${c.ProdGroup}|${c.WeekSuffix}`] = c.ShipDays;
+      });
+      setShipDayConfigs(map);
+    } catch (e) { setErr(e.message); } finally { setShipDayLoading(false); }
+  }, []);
+
+  useEffect(() => { loadShipDayConfigs(); }, [loadShipDayConfigs]);
+
+  // 출고요일 설정 저장
+  const saveShipDayConfigs = async () => {
+    setShipDaySaving(true); setErr('');
+    try {
+      const configs = Object.entries(shipDayConfigs).map(([key, days]) => {
+        const [prodGroup, weekSuffix] = key.split('|');
+        return { prodGroup, weekSuffix, custKey: 0, shipDays: days };
+      });
+      const res = await fetch('/api/shipment/ship-days', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configs }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setSuccessMsg('✅ 출고요일 설정 저장 완료');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (e) { setErr(e.message); } finally { setShipDaySaving(false); }
+  };
+
+  // 출고요일 토글
+  const toggleShipDay = (prodGroup, suffix, day) => {
+    const key = `${prodGroup}|${suffix}`;
+    const current = (shipDayConfigs[key] || '').split(',').filter(Boolean);
+    const idx = current.indexOf(day);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(day);
+    // 월~금 순서 정렬
+    current.sort((a, b) => DAY_NAMES.indexOf(a) - DAY_NAMES.indexOf(b));
+    setShipDayConfigs(prev => ({ ...prev, [key]: current.join(',') }));
+  };
+
+  // 품목의 출고요일 가져오기 (오버라이드 → 기본설정 → 빈배열)
+  const getShipDays = (custKey, prodKey, prodGroup) => {
+    const overKey = `${custKey}|${prodKey}`;
+    if (prodDayOverrides[overKey]) return prodDayOverrides[overKey].split(',').filter(Boolean);
+    // 차수 접미사 파악 (week = "14-01" → suffix = "-01")
+    const suffix = week ? `-${week.split('-').pop()}` : '-01';
+    const cfgKey = `${prodGroup}|${suffix}`;
+    const days = (shipDayConfigs[cfgKey] || '').split(',').filter(Boolean);
+    return days;
+  };
+
+  // 탭2 업체 선택 → 품목+출고수량 로드 → 자동 일별 분배
+  const loadTab2Items = async (ck) => {
+    if (!week || !ck) return;
+    setTab2CustKey(ck);
+    setTab2Loading(true);
+    try {
+      const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: ck });
+      const items = d.items || [];
+      setTab2Items(items);
+      // 자동 일별 분배 초기화
+      const newInputs = {};
+      items.forEach(item => {
+        const days = getShipDays(ck, item.ProdKey, item.CountryFlower || '');
+        const totalQty = item.출고수량 || item.주문수량 || 0;
+        if (days.length > 0 && totalQty > 0) {
+          const splits = autoSplitQty(totalQty, days.length);
+          const dayMap = {};
+          days.forEach((day, i) => { dayMap[day] = splits[i] || 0; });
+          newInputs[`${ck}|${item.ProdKey}`] = dayMap;
+        }
+      });
+      setDailyQtyInputs(prev => ({ ...prev, ...newInputs }));
+    } catch (e) { setErr(e.message); } finally { setTab2Loading(false); }
+  };
+
+  // 일별 수량 변경 → 자동 조정
+  const handleDailyQtyChange = (custKey, prodKey, day, value, totalQty, days) => {
+    const key = `${custKey}|${prodKey}`;
+    const current = { ...(dailyQtyInputs[key] || {}) };
+    const newVal = parseFloat(value) || 0;
+    current[day] = newVal;
+
+    // 나머지 요일에 남은 수량 자동 분배
+    const otherDays = days.filter(d => d !== day);
+    const usedByThis = newVal;
+    const remaining = Math.max(0, totalQty - usedByThis);
+
+    if (otherDays.length > 0) {
+      const splits = autoSplitQty(remaining, otherDays.length);
+      otherDays.forEach((d, i) => { current[d] = splits[i] || 0; });
+    }
+
+    setDailyQtyInputs(prev => ({ ...prev, [key]: current }));
+  };
+
+  // 엑셀 다운로드
+  const handleExcelDownload = async (singleCustKey) => {
+    if (!week) { setErr('차수를 입력하세요.'); return; }
+    setExcelDownloading(true); setErr('');
+    try {
+      const params = new URLSearchParams({ week });
+      if (singleCustKey) params.set('custKey', singleCustKey);
+      // 출고요일 설정과 일별 수량을 쿼리에 포함
+      params.set('shipDayConfigs', JSON.stringify(shipDayConfigs));
+      params.set('dailyQtyInputs', JSON.stringify(dailyQtyInputs));
+      params.set('prodDayOverrides', JSON.stringify(prodDayOverrides));
+
+      const res = await fetch(`/api/shipment/excel-download?${params.toString()}`);
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || '다운로드 실패'); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g,'') || `출고_${week}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSuccessMsg('✅ 엑셀 다운로드 완료');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (e) { setErr(e.message); } finally { setExcelDownloading(false); }
+  };
 
   const handleFix = async () => {
     if (!week) { setErr('차수를 입력하세요.'); return; }
@@ -314,6 +466,9 @@ export default function Distribute() {
           </button>
           <button className="btn btn-primary btn-sm" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saving}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleHistory}>📋 내역 조회 / Historial</button>
+          <button className="btn btn-success btn-sm" onClick={() => handleExcelDownload()} disabled={excelDownloading}>
+            {excelDownloading ? '다운로드중...' : '📥 엑셀 다운 / Excel'}
+          </button>
           <button className="btn btn-sm" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
@@ -642,8 +797,172 @@ export default function Distribute() {
 
       {/* 탭2: 출고일 지정 */}
       {tab === 1 && (
-        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)',padding:16}}>
-          <div className="empty-state"><div className="empty-icon">📅</div><div className="empty-text">탭1에서 품목 선택 후 출고일을 지정하세요</div></div>
+        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
+          {/* 상단: 기본 출고요일 설정 */}
+          <div style={{padding:'12px 16px',borderBottom:'2px solid var(--border)',background:'#F8FAFC'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <span style={{fontSize:13,fontWeight:700}}>📅 품목그룹별 기본 출고요일 설정</span>
+              <button className="btn btn-primary btn-sm" onClick={saveShipDayConfigs} disabled={shipDaySaving}>
+                {shipDaySaving ? '저장중...' : '💾 출고요일 저장'}
+              </button>
+              {shipDayLoading && <span style={{fontSize:11,color:'var(--text3)'}}>로딩...</span>}
+            </div>
+            <div style={{overflowX:'auto'}}>
+              <table className="tbl" style={{fontSize:12,minWidth:600}}>
+                <thead>
+                  <tr>
+                    <th style={{width:180}}>품목그룹</th>
+                    {WEEK_SUFFIXES.map(s => (
+                      <th key={s} colSpan={5} style={{textAlign:'center',color:'var(--blue)'}}>
+                        {s.replace('-','')+'차'}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th></th>
+                    {WEEK_SUFFIXES.map(s => DAY_NAMES.map(d => (
+                      <th key={s+d} style={{textAlign:'center',fontSize:11,width:40,padding:'4px 2px'}}>{d}</th>
+                    )))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {PROD_GROUPS.map(pg => (
+                    <tr key={pg}>
+                      <td style={{fontWeight:600,fontSize:12}}>{pg}</td>
+                      {WEEK_SUFFIXES.map(s => DAY_NAMES.map(d => {
+                        const key = `${pg}|${s}`;
+                        const checked = (shipDayConfigs[key] || '').split(',').includes(d);
+                        return (
+                          <td key={s+d} style={{textAlign:'center',padding:'3px 2px'}}>
+                            <input type="checkbox" checked={checked}
+                              onChange={() => toggleShipDay(pg, s, d)}
+                              style={{cursor:'pointer',width:16,height:16}} />
+                          </td>
+                        );
+                      }))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 하단: 업체별 일별 수량 분배 */}
+          <div style={{display:'grid',gridTemplateColumns:'240px 1fr',flex:1,overflow:'hidden'}}>
+            {/* 업체 목록 */}
+            <div style={{borderRight:'1px solid var(--border)',overflowY:'auto'}}>
+              <div style={{padding:'8px 12px',background:'#F0F7FF',borderBottom:'1px solid var(--border)',fontSize:11,fontWeight:700}}>
+                업체 선택 → 일별 분배
+              </div>
+              {custList.length === 0
+                ? <div style={{padding:20,textAlign:'center',color:'var(--text3)',fontSize:12}}>차수 조회 후 표시</div>
+                : custList.map(c => (
+                  <div key={c.CustKey}
+                    onClick={() => loadTab2Items(c.CustKey)}
+                    style={{
+                      padding:'6px 12px',fontSize:12,cursor:'pointer',
+                      background: tab2CustKey === c.CustKey ? 'var(--blue-bg)' : undefined,
+                      borderBottom:'1px solid var(--border)',
+                      fontWeight: tab2CustKey === c.CustKey ? 700 : 400,
+                    }}>
+                    {c.CustName} <span style={{fontSize:10,color:'var(--text3)'}}>{c.CustArea}</span>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* 품목별 일별 수량 */}
+            <div style={{overflowY:'auto',overflowX:'auto'}}>
+              {!tab2CustKey
+                ? <div className="empty-state"><div className="empty-icon">←</div><div className="empty-text">업체를 선택하세요</div></div>
+                : tab2Loading
+                ? <div className="skeleton" style={{margin:16,height:200,borderRadius:8}}></div>
+                : (
+                  <table className="tbl" style={{fontSize:12}}>
+                    <thead>
+                      <tr>
+                        <th>국가</th><th>꽃</th><th>품목명</th><th>단위</th>
+                        <th style={{textAlign:'right'}}>출고수량</th>
+                        {DAY_NAMES.map(d => (
+                          <th key={d} style={{textAlign:'center',color:'var(--blue)',width:65}}>{d}</th>
+                        ))}
+                        <th style={{textAlign:'right'}}>합계</th>
+                        <th style={{textAlign:'center'}}>차이</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tab2Items.length === 0
+                        ? <tr><td colSpan={12} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>출고 데이터 없음 (탭1에서 먼저 분배하세요)</td></tr>
+                        : tab2Items.filter(item => (item.출고수량 || 0) > 0).map((item, i) => {
+                          const totalQty = item.출고수량 || 0;
+                          const days = getShipDays(tab2CustKey, item.ProdKey, item.CountryFlower || '');
+                          const key = `${tab2CustKey}|${item.ProdKey}`;
+                          const dayInputs = dailyQtyInputs[key] || {};
+                          const daySum = Object.values(dayInputs).reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                          const diff = totalQty - daySum;
+
+                          return (
+                            <tr key={i} style={{background: diff !== 0 ? '#FFF3E0' : undefined}}>
+                              <td style={{fontSize:11}}>{item.CounName}</td>
+                              <td style={{fontSize:11}}>{item.FlowerName}</td>
+                              <td style={{fontWeight:500}}>{item.ProdName}</td>
+                              <td style={{fontSize:11}}>{item.OutUnit}</td>
+                              <td className="num" style={{fontWeight:700,color:'var(--blue)'}}>{totalQty}</td>
+                              {DAY_NAMES.map(d => {
+                                const isActive = days.includes(d);
+                                return (
+                                  <td key={d} style={{textAlign:'center',padding:'2px 3px',background: isActive ? '#E3F2FD' : '#F5F5F5'}}>
+                                    {isActive ? (
+                                      <input type="number" min={0} step={1}
+                                        value={dayInputs[d] ?? ''}
+                                        onChange={e => handleDailyQtyChange(tab2CustKey, item.ProdKey, d, e.target.value, totalQty, days)}
+                                        style={{width:50,height:24,textAlign:'right',fontSize:11,fontFamily:'var(--mono)',
+                                          border:'1px solid var(--blue)',borderRadius:3,padding:'0 3px',
+                                          background: (dayInputs[d] || 0) > 0 ? '#E3F2FD' : '#fff'}}
+                                      />
+                                    ) : (
+                                      <span style={{color:'#ccc',fontSize:10}}>—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td className="num" style={{fontWeight:700}}>{daySum}</td>
+                              <td className="num" style={{
+                                fontWeight:700,
+                                color: diff === 0 ? 'var(--green)' : diff > 0 ? 'var(--amber)' : 'var(--red)',
+                              }}>
+                                {diff === 0 ? '✓' : diff > 0 ? `+${diff}` : diff}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                    {tab2Items.filter(item => (item.출고수량 || 0) > 0).length > 0 && (
+                      <tfoot>
+                        <tr className="foot">
+                          <td colSpan={4}>합계</td>
+                          <td className="num">{tab2Items.reduce((a, b) => a + (b.출고수량 || 0), 0)}</td>
+                          {DAY_NAMES.map(d => {
+                            const dayTotal = tab2Items.filter(item => (item.출고수량 || 0) > 0).reduce((a, item) => {
+                              const key = `${tab2CustKey}|${item.ProdKey}`;
+                              return a + (parseFloat(dailyQtyInputs[key]?.[d]) || 0);
+                            }, 0);
+                            return <td key={d} className="num">{dayTotal || ''}</td>;
+                          })}
+                          <td className="num">
+                            {tab2Items.filter(item => (item.출고수량 || 0) > 0).reduce((a, item) => {
+                              const key = `${tab2CustKey}|${item.ProdKey}`;
+                              return a + Object.values(dailyQtyInputs[key] || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+                            }, 0)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                )}
+            </div>
+          </div>
         </div>
       )}
 
