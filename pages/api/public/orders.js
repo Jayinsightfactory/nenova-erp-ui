@@ -216,12 +216,19 @@ async function createOrder(req, res) {
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
         } else {
+          // OrderDetailKey = MAX+1 (IDENTITY가 아닌 테이블 대응)
+          const maxKey = await tQ(
+            `SELECT ISNULL(MAX(OrderDetailKey),0)+1 AS nextKey FROM OrderDetail WITH (UPDLOCK)`,
+            {}
+          );
+          const nextKey = maxKey.recordset[0].nextKey;
           await tQ(
             `INSERT INTO OrderDetail
-               (OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+               (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@mk, @pk, @box, @bunch, @steam, @qty, 0, 0, 'API', GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, 'API', GETDATE())`,
             {
+              nk:    { type: sql.Int,   value: nextKey },
               mk:    { type: sql.Int,   value: mk },
               pk:    { type: sql.Int,   value: prodKey },
               box:   { type: sql.Float, value: box },

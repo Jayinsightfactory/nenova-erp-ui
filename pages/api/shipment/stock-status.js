@@ -365,10 +365,17 @@ async function addOrder(req, res) {
           );
         }
       } else if (quantity > 0) {
+        // OrderDetailKey = MAX+1 (IDENTITY가 아닌 테이블 대응)
+        const maxKey = await tQ(
+          `SELECT ISNULL(MAX(OrderDetailKey),0)+1 AS nextKey FROM OrderDetail WITH (UPDLOCK)`,
+          {}
+        );
+        const nextKey = maxKey.recordset[0].nextKey;
         await tQ(
-          `INSERT INTO OrderDetail (OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           {
+            nk:  { type: sql.Int,   value: nextKey },
             mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
             qty: { type: sql.Float, value: quantity }, bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
