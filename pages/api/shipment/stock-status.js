@@ -293,7 +293,8 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea, c.Descr AS CustDescr, c.Manager,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
           om.OrderWeek,
-          ISNULL(sd.OutQuantity, 0) AS outQty
+          ISNULL(sd.OutQuantity, 0) AS outQty,
+          ISNULL(od.OutQuantity, 0) AS orderQty
          FROM OrderMaster om
          JOIN Customer c     ON om.CustKey=c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
@@ -301,7 +302,7 @@ export default withAuth(async function handler(req, res) {
          LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
-           AND om.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0
+           AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, p.CounName, p.FlowerName`,
         params
       );

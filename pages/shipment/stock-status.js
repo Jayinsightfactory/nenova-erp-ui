@@ -1000,10 +1000,10 @@ export default function StockStatus() {
     });
     if (lastArea !== null) areaGroups.push({ area: lastArea, count: custKeys.length - areaStart });
 
-    // 품목 — 수량 있는 것만
+    // 품목 — 주문 또는 출고 수량이 있는 것
     const prodMap = {};
     rows.forEach(r => {
-      if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0) {
+      if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0 || (r.orderQty||0) > 0) {
         if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
       }
     });
@@ -1315,7 +1315,7 @@ export default function StockStatus() {
   // 모아보기 탭
   // ─────────────────────────────────────────────────────────────
   const renderPivot = () => {
-    if (!pivotRows.length) return <div style={st.empty}>출고 데이터 없음 (출고수량 0 제외)</div>;
+    if (!pivotRows.length) return <div style={st.empty}>주문/출고 데이터 없음</div>;
 
     if (pivotSub === 'byCust') {
       const prodMap={}, custMap={};
