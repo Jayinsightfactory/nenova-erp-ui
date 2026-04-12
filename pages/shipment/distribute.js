@@ -32,6 +32,14 @@ export default function Distribute() {
   // 업체기준 인라인 편집: { [prodKey]: { outQty, cost } }
   const [custEditInputs, setCustEditInputs] = useState({});
 
+  // 출고일 지정 탭
+  const [dateData, setDateData] = useState([]);
+  const [dateLoading, setDateLoading] = useState(false);
+
+  // 집계 탭
+  const [summaryData, setSummaryData] = useState({ customers: [], data: [] });
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [custFilter, setCustFilter] = useState('');
   const [distMode, setDistMode] = useState('ratio');
@@ -280,6 +288,26 @@ export default function Distribute() {
     } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
 
+  // 탭 전환 시 데이터 로드
+  const handleTabChange = async (newTab) => {
+    setTab(newTab);
+    if (!week) return;
+    if (newTab === 1 && dateData.length === 0) {
+      setDateLoading(true);
+      try {
+        const d = await apiGet('/api/shipment/distribute', { type: 'dates', week });
+        setDateData(d.dates || []);
+      } catch(e) { setErr(e.message); } finally { setDateLoading(false); }
+    }
+    if (newTab === 2 && summaryData.data.length === 0) {
+      setSummaryLoading(true);
+      try {
+        const d = await apiGet('/api/shipment/distribute', { type: 'summary', week, prodGroup });
+        setSummaryData({ customers: d.customers || [], data: d.data || [] });
+      } catch(e) { setErr(e.message); } finally { setSummaryLoading(false); }
+    }
+  };
+
   const filteredProds = products.filter(p => !prodFilter || p.ProdName.toLowerCase().includes(prodFilter.toLowerCase()));
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
   const remain = (inQty||0) - totalOutInput;
@@ -363,7 +391,7 @@ export default function Distribute() {
       {/* 탭 */}
       <div style={{display:'flex',borderBottom:'2px solid var(--border)',background:'var(--surface)',flexShrink:0}}>
         {tabs.map((t,i) => (
-          <div key={t} onClick={()=>setTab(i)}
+          <div key={t} onClick={()=>handleTabChange(i)}
             style={{padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',color:tab===i?'var(--blue)':'var(--text3)',borderBottom:tab===i?'2px solid var(--blue)':'2px solid transparent',marginBottom:-2,whiteSpace:'nowrap'}}>
             {['🚚','📅','📊'][i]} {t}
           </div>
@@ -642,54 +670,125 @@ export default function Distribute() {
 
       {/* 탭2: 출고일 지정 */}
       {tab === 1 && (
-        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)',padding:16}}>
-          <div className="empty-state"><div className="empty-icon">📅</div><div className="empty-text">탭1에서 품목 선택 후 출고일을 지정하세요</div></div>
+        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
+          {dateLoading ? (
+            <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
+          ) : !week ? (
+            <div className="empty-state"><div className="empty-icon">📅</div><div className="empty-text">차수를 입력 후 조회하세요</div></div>
+          ) : dateData.length === 0 ? (
+            <div className="empty-state"><div className="empty-icon">📅</div><div className="empty-text">[{week}] 차수에 출고일 데이터가 없습니다</div></div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>거래처</th>
+                    <th>지역</th>
+                    <th>기본출고일</th>
+                    <th>출고일자</th>
+                    <th style={{textAlign:'right'}}>품목수</th>
+                    <th style={{textAlign:'right'}}>출고수량</th>
+                    <th>품목</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const grouped = {};
+                    dateData.forEach(d => {
+                      if (!grouped[d.CustKey]) grouped[d.CustKey] = { ...d, dates: [] };
+                      grouped[d.CustKey].dates.push(d);
+                    });
+                    return Object.values(grouped).map(g => (
+                      g.dates.map((dd, di) => (
+                        <tr key={`${g.CustKey}-${di}`}>
+                          {di === 0 && <td rowSpan={g.dates.length} className="name">{g.CustName}</td>}
+                          {di === 0 && <td rowSpan={g.dates.length} style={{fontSize:12}}><span className="badge badge-gray">{g.CustArea || '—'}</span></td>}
+                          {di === 0 && <td rowSpan={g.dates.length} style={{fontFamily:'var(--mono)',fontSize:12}}>{['일','월','화','수','목','금','토'][g.BaseOutDay] || g.BaseOutDay || '—'}</td>}
+                          <td style={{fontFamily:'var(--mono)',fontSize:12,fontWeight:'bold'}}>{dd.OutDate || '—'}</td>
+                          <td className="num">{dd.itemCount}</td>
+                          <td className="num">{fmt(dd.totalQty)}</td>
+                          <td style={{fontSize:11,color:'var(--text3)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{dd.prodNames || '—'}</td>
+                        </tr>
+                      ))
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {/* 탭3: 출고 분배 집계 */}
       {tab === 2 && (
         <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
-          <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center'}}>
-            {['차수','품목명','지역','담당자','주문수량','출고수량'].map(f=>(
-              <span key={f} className={`chip ${f==='주문수량'||f==='출고수량'?'chip-active':'chip-inactive'}`}>{f}</span>
-            ))}
-          </div>
-          <div style={{overflowX:'auto'}}>
-            <table className="tbl" style={{minWidth:600}}>
-              <thead>
-                <tr>
-                  <th>국가</th><th>꽃</th><th>품목명(색상)</th>
-                  {custList.map(c=><th key={c.CustKey} colSpan={2} style={{textAlign:'center',color:'var(--blue)',fontSize:11}}>{c.CustName}</th>)}
-                </tr>
-                <tr>
-                  <th colSpan={3}></th>
-                  {custList.map(c=>[
-                    <th key={`${c.CustKey}-o`} style={{textAlign:'right',fontSize:10}}>주문</th>,
-                    <th key={`${c.CustKey}-s`} style={{textAlign:'right',fontSize:10}}>출고</th>
-                  ])}
-                </tr>
-              </thead>
-              <tbody>
-                {products.map(p=>(
-                  <tr key={p.ProdKey}>
-                    <td style={{fontSize:11}}>{p.CounName}</td>
-                    <td style={{fontSize:11}}>{p.FlowerName}</td>
-                    <td style={{fontSize:12}}>{p.ProdName}</td>
-                    {custList.map(c=>{
-                      const oq = p.orderQty || 0;
-                      const sq = p.outQty || 0;
-                      return [
-                        <td key={`${c.CustKey}-o`} className="num" style={{fontSize:11}}>{oq||''}</td>,
-                        <td key={`${c.CustKey}-s`} className="num" style={{fontSize:11}}>{sq||''}</td>
-                      ];
-                    })}
-                  </tr>
-                ))}
-                {products.length === 0 && <tr><td colSpan={3+custList.length*2} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>조회 후 표시됩니다</td></tr>}
-              </tbody>
-            </table>
-          </div>
+          {summaryLoading ? (
+            <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
+          ) : !week ? (
+            <div className="empty-state"><div className="empty-icon">📊</div><div className="empty-text">차수를 입력 후 조회하세요</div></div>
+          ) : summaryData.data.length === 0 ? (
+            <div className="empty-state"><div className="empty-icon">📊</div><div className="empty-text">[{week}] 차수에 데이터가 없습니다</div></div>
+          ) : (() => {
+            // 품목별 거래처별 피벗 데이터 구성
+            const sCusts = summaryData.customers;
+            const pivotMap = {};
+            summaryData.data.forEach(d => {
+              if (!pivotMap[d.ProdKey]) pivotMap[d.ProdKey] = { ProdKey: d.ProdKey, ProdName: d.ProdName, FlowerName: d.FlowerName, CounName: d.CounName, custs: {} };
+              pivotMap[d.ProdKey].custs[d.CustKey] = { orderQty: d.orderQty || 0, outQty: d.outQty || 0 };
+            });
+            const pivotRows = Object.values(pivotMap);
+            return (
+              <>
+                <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:12,color:'var(--text3)'}}>품목 {pivotRows.length}건 x 거래처 {sCusts.length}건</span>
+                </div>
+                <div style={{overflowX:'auto'}}>
+                  <table className="tbl" style={{minWidth:600}}>
+                    <thead>
+                      <tr>
+                        <th>국가</th><th>꽃</th><th>품목명(색상)</th>
+                        {sCusts.map(c=><th key={c.CustKey} colSpan={2} style={{textAlign:'center',color:'var(--blue)',fontSize:11}}>{c.CustName}</th>)}
+                        <th colSpan={2} style={{textAlign:'center',fontWeight:'bold',background:'var(--amber-bg)'}}>합계</th>
+                      </tr>
+                      <tr>
+                        <th colSpan={3}></th>
+                        {sCusts.map(c=>[
+                          <th key={`${c.CustKey}-o`} style={{textAlign:'right',fontSize:10}}>주문</th>,
+                          <th key={`${c.CustKey}-s`} style={{textAlign:'right',fontSize:10}}>출고</th>
+                        ])}
+                        <th style={{textAlign:'right',fontSize:10,background:'var(--amber-bg)'}}>주문</th>
+                        <th style={{textAlign:'right',fontSize:10,background:'var(--amber-bg)'}}>출고</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pivotRows.map(p=>{
+                        let totalO = 0, totalS = 0;
+                        return (
+                          <tr key={p.ProdKey}>
+                            <td style={{fontSize:11}}>{p.CounName}</td>
+                            <td style={{fontSize:11}}>{p.FlowerName}</td>
+                            <td style={{fontSize:12}}>{p.ProdName}</td>
+                            {sCusts.map(c=>{
+                              const cd = p.custs[c.CustKey] || {};
+                              const oq = cd.orderQty || 0;
+                              const sq = cd.outQty || 0;
+                              totalO += oq; totalS += sq;
+                              return [
+                                <td key={`${c.CustKey}-o`} className="num" style={{fontSize:11}}>{oq||''}</td>,
+                                <td key={`${c.CustKey}-s`} className="num" style={{fontSize:11,color:sq>0?'var(--blue)':undefined,fontWeight:sq>0?600:undefined}}>{sq||''}</td>
+                              ];
+                            })}
+                            <td className="num" style={{fontSize:11,fontWeight:'bold',background:'var(--amber-bg)'}}>{totalO||''}</td>
+                            <td className="num" style={{fontSize:11,fontWeight:'bold',background:'var(--amber-bg)',color:totalS>0?'var(--blue)':undefined}}>{totalS||''}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

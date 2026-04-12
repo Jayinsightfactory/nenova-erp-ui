@@ -157,7 +157,81 @@ async function getDistribute(req, res) {
       return res.status(200).json({ success: true, customers: result.recordset });
     }
 
-    return res.status(400).json({ success: false, error: 'type 파라미터 필요 (products|custDist|custItems|custList)' });
+    // ── 출고일 지정 데이터 (ShipmentDetail.ShipmentDtm 기준 거래처별 출고일 집계)
+    if (type === 'dates') {
+      if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+      const result = await query(
+        `SELECT
+          c.CustKey, c.CustName, c.CustArea, c.BaseOutDay,
+          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS OutDate,
+          COUNT(sd.SdetailKey) AS itemCount,
+          SUM(sd.OutQuantity) AS totalQty,
+          STUFF((SELECT ', ' + LEFT(p2.ProdName, 15)
+                 FROM ShipmentDetail sd2
+                 JOIN Product p2 ON sd2.ProdKey = p2.ProdKey
+                 WHERE sd2.ShipmentKey = sm.ShipmentKey
+                   AND CONVERT(NVARCHAR(10), sd2.ShipmentDtm, 120) = CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)
+                   AND sd2.OutQuantity > 0
+                 FOR XML PATH('')), 1, 2, '') AS prodNames
+         FROM ShipmentMaster sm
+         JOIN Customer c ON sm.CustKey = c.CustKey
+         JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+         JOIN Product p ON sd.ProdKey = p.ProdKey
+         WHERE sm.OrderWeek = @week AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+         GROUP BY c.CustKey, c.CustName, c.CustArea, c.BaseOutDay,
+                  sm.ShipmentKey, CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)
+         ORDER BY c.CustArea, c.CustName, CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)`,
+        { week: { type: sql.NVarChar, value: week } }
+      );
+      return res.status(200).json({ success: true, source: 'real_db', dates: result.recordset });
+    }
+
+    // ── 출고 분배 집계 (품목×거래처 피벗)
+    if (type === 'summary') {
+      if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+
+      let prodWhere = '';
+      const params = { week: { type: sql.NVarChar, value: week } };
+      if (prodGroup) {
+        prodWhere = 'AND p.CountryFlower = @pg';
+        params.pg = { type: sql.NVarChar, value: prodGroup };
+      }
+
+      // 거래처 목록
+      const custResult = await query(
+        `SELECT DISTINCT c.CustKey, c.CustName, c.CustArea
+         FROM OrderMaster om
+         JOIN Customer c ON om.CustKey = c.CustKey
+         WHERE om.OrderWeek = @week AND om.isDeleted = 0 AND c.isDeleted = 0
+         ORDER BY c.CustArea, c.CustName`,
+        { week: { type: sql.NVarChar, value: week } }
+      );
+
+      // 품목별 거래처별 주문/출고 수량
+      const dataResult = await query(
+        `SELECT
+          p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+          om.CustKey,
+          ISNULL(od.OutQuantity, 0) AS orderQty,
+          ISNULL(sd.OutQuantity, 0) AS outQty
+         FROM OrderMaster om
+         JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
+         JOIN Product p ON od.ProdKey = p.ProdKey
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.ProdKey = p.ProdKey
+         WHERE om.OrderWeek = @week AND om.isDeleted = 0 AND p.isDeleted = 0 ${prodWhere}
+         ORDER BY p.CounName, p.FlowerName, p.ProdName`,
+        params
+      );
+
+      return res.status(200).json({
+        success: true, source: 'real_db',
+        customers: custResult.recordset,
+        data: dataResult.recordset,
+      });
+    }
+
+    return res.status(400).json({ success: false, error: 'type 파라미터 필요 (products|custDist|custItems|custList|dates|summary)' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

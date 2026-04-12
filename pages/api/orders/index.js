@@ -8,6 +8,7 @@ import { withAuth } from '../../../lib/auth';
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getOrders(req, res);
   if (req.method === 'POST') return await createOrder(req, res);
+  if (req.method === 'PUT')  return await updateOrder(req, res);
   return res.status(405).end();
 });
 
@@ -180,6 +181,92 @@ async function createOrder(req, res) {
       message: `주문 등록 완료 (테스트) — ${results.filter(r => r.status === 'OK').length}개 품목`,
       results,
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── 수정: 기존 주문 수량 변경 ──────────────────────────
+async function updateOrder(req, res) {
+  const { orderMasterKey, items, manager, orderCode } = req.body;
+  if (!orderMasterKey) {
+    return res.status(400).json({ success: false, error: 'orderMasterKey 필요' });
+  }
+
+  try {
+    const uid = req.user?.userId || 'system';
+    const userName = req.user?.userName || uid;
+
+    await withTransaction(async (tQuery) => {
+      // Master 필드 업데이트 (manager, orderCode)
+      if (manager !== undefined || orderCode !== undefined) {
+        const sets = [];
+        const params = { mk: { type: sql.Int, value: orderMasterKey } };
+        if (manager !== undefined) {
+          sets.push('Manager = @mgr');
+          params.mgr = { type: sql.NVarChar, value: manager };
+        }
+        if (orderCode !== undefined) {
+          sets.push('OrderCode = @oc');
+          params.oc = { type: sql.NVarChar, value: orderCode };
+        }
+        if (sets.length > 0) {
+          await tQuery(
+            `UPDATE OrderMaster SET ${sets.join(', ')} WHERE OrderMasterKey = @mk`,
+            params
+          );
+        }
+      }
+
+      // Detail 수량 업데이트
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (!item.detailKey) continue;
+          const qty = parseFloat(item.qty) || 0;
+          const unit = item.unit || '박스';
+          const now = new Date();
+          const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+          // 기존 수량 조회 (이력용)
+          const old = await tQuery(
+            `SELECT BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity FROM OrderDetail WHERE OrderDetailKey = @dk`,
+            { dk: { type: sql.Int, value: item.detailKey } }
+          );
+          const oldRow = old.recordset[0];
+          const oldQty = oldRow ? (oldRow.BoxQuantity || oldRow.BunchQuantity || oldRow.SteamQuantity || 0) : 0;
+
+          await tQuery(
+            `UPDATE OrderDetail SET
+              BoxQuantity = @box, BunchQuantity = @bunch, SteamQuantity = @steam,
+              OutQuantity = @outQty
+             WHERE OrderDetailKey = @dk`,
+            {
+              dk:    { type: sql.Int,   value: item.detailKey },
+              box:   { type: sql.Float, value: unit === '박스' ? qty : 0 },
+              bunch: { type: sql.Float, value: unit === '단'   ? qty : 0 },
+              steam: { type: sql.Float, value: unit === '송이' ? qty : 0 },
+              outQty:{ type: sql.Float, value: qty },
+            }
+          );
+
+          // 변경 이력 기록
+          await tQuery(
+            `INSERT INTO OrderHistory
+              (OrderDetailKey, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+             VALUES (@dk, '수정', '수량', @before, @after, @descr, @uid, GETDATE())`,
+            {
+              dk:     { type: sql.Int,      value: item.detailKey },
+              before: { type: sql.NVarChar, value: String(oldQty) },
+              after:  { type: sql.NVarChar, value: String(qty) },
+              descr:  { type: sql.NVarChar, value: `[${timeStr} ${userName}] 주문수정` },
+              uid:    { type: sql.NVarChar, value: uid },
+            }
+          );
+        }
+      }
+    });
+
+    return res.status(200).json({ success: true, message: '주문 수정 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

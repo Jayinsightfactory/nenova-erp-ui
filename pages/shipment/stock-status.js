@@ -1,7 +1,7 @@
 // pages/shipment/stock-status.js — 출고,재고상황 v5
 // 추가: 업체별 칩 필터 기본값 전체숨김, 줄긋기 제거, 기록컬럼, UpdateDtm 오류수정
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
-import Layout from '../../components/Layout';
+// Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
 import * as XLSX from 'xlsx';
 
@@ -578,7 +578,7 @@ export default function StockStatus() {
   const renderProducts = () => {
     if (!filteredProducts.length) return <div style={st.empty}>데이터 없음</div>;
     return (
-      <div style={{ overflowX:'auto' }}>
+      <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 300px)', overflowY:'auto' }}>
         <div style={{ fontSize:11, color:'#666', marginBottom:6 }}>
           💡 잔량 = 이월재고 + 입고 − 출고 | 행 클릭(▶) 시 업체별 출고수량 편집 가능
         </div>
@@ -1428,7 +1428,6 @@ export default function StockStatus() {
   // ─────────────────────────────────────────────────────────────
   return (
     <EditCtx.Provider value={{ editMap, setEditMap, saving, handleSave }}>
-      <Layout title="출고,재고상황">
         <div style={{ padding:'16px 20px', maxWidth:1600, margin:'0 auto' }}>
 
           {/* 헤더 */}
@@ -1532,7 +1531,6 @@ export default function StockStatus() {
             </>
           )}
         </div>
-      </Layout>
 
       {showAddOrder && (
         <AddOrderModal
