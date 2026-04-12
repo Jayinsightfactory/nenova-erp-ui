@@ -950,6 +950,7 @@ export default function StockStatus() {
   const [pvCusts, setPvCusts] = useState(new Set());
   const [pvFlowers, setPvFlowers] = useState(new Set()); // 다중 꽃 선택
   const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 접기/펼치기
+  const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false); // 출고 있는 품목만
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
 
@@ -1003,8 +1004,16 @@ export default function StockStatus() {
     // 품목 — 주문 또는 출고 수량이 있는 것
     const prodMap = {};
     rows.forEach(r => {
-      if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0 || (r.orderQty||0) > 0) {
-        if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+      if (pvShowOnlyOut) {
+        // 출고 있는 품목만 모드: 출고수량 > 0인 것만
+        if ((r.outQty||0) > 0) {
+          if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+        }
+      } else {
+        // 전체 모드: 주문 또는 출고가 있는 것
+        if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0 || (r.orderQty||0) > 0) {
+          if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+        }
       }
     });
     const prodKeys = Object.keys(prodMap).map(Number).sort((a,b) =>
@@ -1127,6 +1136,13 @@ export default function StockStatus() {
             </div>
           );
         })()}
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+          <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+            <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
+            출고 있는 품목만
+          </label>
+          <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
+        </div>
         <button onClick={()=>{
           // 엑셀 데이터 생성
           const xlData = [];
