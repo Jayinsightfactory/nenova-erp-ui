@@ -1005,8 +1005,8 @@ export default function StockStatus() {
     const prodMap = {};
     rows.forEach(r => {
       if (pvShowOnlyOut) {
-        // 출고 있는 품목만 모드: 출고수량 > 0인 것만
-        if ((r.outQty||0) > 0) {
+        // 출고 또는 시작재고 있는 품목만
+        if ((r.outQty||0) > 0 || startStocks[r.ProdKey]) {
           if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
         }
       } else {
@@ -1139,7 +1139,7 @@ export default function StockStatus() {
         <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
           <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
             <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
-            출고 있는 품목만
+            출고/재고 있는 품목만
           </label>
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
         </div>
