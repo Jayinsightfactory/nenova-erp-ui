@@ -238,6 +238,7 @@ export default function WeekPivot() {
   const [custRows,    setCustRows]    = useState([]);
   const [startStocks, setStartStocks] = useState({});
   const [user,        setUser]        = useState(null);
+  const [apiError,    setApiError]    = useState('');
 
   // 공통 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
@@ -269,18 +270,23 @@ export default function WeekPivot() {
   // 데이터 로드
   const loadData = useCallback(async (wf, wt) => {
     if (!wf || !wt) return;
-    setLoading(true);
+    setLoading(true); setApiError('');
     try {
       const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}`;
-      const [custRes, ssRes] = await Promise.all([
-        fetch(`/api/shipment/stock-status?${p}&view=customers`).then(r=>r.json()),
-        fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`).then(r=>r.json()),
-      ]);
-      if (custRes.success)  setCustRows(custRes.rows || []);
-      if (ssRes.success)    setStartStocks(ssRes.stocks || {});
-    } catch(e) { console.error(e); }
+      // customers 데이터 로드 (핵심 - 단독 await)
+      const custResp = await fetch(`/api/shipment/stock-status?${p}&view=customers`);
+      // 인증 만료 → 로그인 페이지로
+      if (custResp.status === 401) { router.replace('/login'); return; }
+      const custRes = await custResp.json();
+      if (custRes.success) {
+        setCustRows(custRes.rows || []);
+      } else {
+        setApiError(custRes.error || 'API 오류');
+        setCustRows([]);
+      }
+    } catch(e) { setApiError(e.message); }
     finally { setLoading(false); }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (weekFrom && weekTo) loadData(weekFrom, weekTo);
@@ -389,7 +395,8 @@ export default function WeekPivot() {
     });
     const isFixed=(ck,wk)=>rows.some(r=>r.CustKey===ck&&r.OrderWeek===wk&&r.isFix);
 
-    if(weeks.length===0||prodKeys.length===0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
+    if(weeks.length===0) return <div style={st.empty}>해당 차수에 주문 데이터 없음<br/><span style={{fontSize:11,color:'#bbb'}}>custRows: {custRows.length}행</span></div>;
+    if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
 
     const PROD_REPEAT=10, CUST_REPEAT=15;
     const stockCols=7;
@@ -730,7 +737,23 @@ export default function WeekPivot() {
 
       {/* 본문 */}
       <div style={{padding:'8px 10px'}}>
-        {!hasWeek ? (
+        {apiError ? (
+          <div style={{...st.empty, color:'#d32f2f'}}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:8}}>⚠ 오류</div>
+            <div style={{fontSize:13}}>{apiError}</div>
+            {apiError.includes('로그인') || apiError.includes('인증') ? (
+              <button onClick={()=>router.replace('/login')}
+                style={{marginTop:16,padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                로그인하기
+              </button>
+            ) : (
+              <button onClick={()=>loadData(weekFrom,weekTo)}
+                style={{marginTop:16,padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                다시 시도
+              </button>
+            )}
+          </div>
+        ) : !hasWeek ? (
           <div style={st.empty}>차수를 선택해 주세요</div>
         ) : loading ? (
           <div style={st.empty}>데이터 로딩중...</div>
