@@ -1,5 +1,6 @@
 // pages/shipment/week-pivot.js — 차수피벗 전용 전체화면 페이지
 // 사이드바 없음, 최대 너비, 독립 창으로 사용
+// 빌드캐시 파기 2026-04-13c
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Head from 'next/head';
