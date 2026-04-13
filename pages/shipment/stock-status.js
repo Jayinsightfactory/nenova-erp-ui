@@ -1215,31 +1215,61 @@ export default function StockStatus() {
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
         </div>
         <button onClick={()=>{
-          // 엑셀 데이터 생성
-          const xlData = [];
-          // 헤더
-          const hdr = ['국가','꽃','품명'];
-          weeks.forEach(wk => { custKeys.forEach(ck => hdr.push(`${wk} ${cShort(ck)}`)); hdr.push(`${wk} 시작`,`${wk} 입고`,`${wk} 출고`,`${wk} 잔량`); });
-          xlData.push(hdr);
-          // 데이터
-          prodKeys.forEach(pk => {
-            const p = prodMap[pk];
-            const row = [p.coun, p.flower, stripProdName(p.name)];
-            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
-            weeks.forEach(wk => {
-              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
-              if (wkSS != null) rs = wkSS;
-              custKeys.forEach(ck => row.push(dataMap[`${pk}-${ck}-${wk}`]||0));
-              const wStart = rs, inQ = inMap[`${pk}-${wk}`]||0;
-              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
-              rs = wStart + inQ - wOut;
-              row.push(wStart, inQ, wOut, rs);
-            });
-            xlData.push(row);
-          });
-          const ws = XLSX.utils.aoa_to_sheet(xlData);
+          // 엑셀 데이터: 차수 > 지역 > 업체 그룹핑, 0값 제거, 비고 포함
           const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, '차수피벗');
+          weeks.forEach(wk => {
+            const xlData = [];
+            // 지역별 그룹
+            areaGroups.forEach(ag => {
+              const areaCusts = custKeys.filter(ck => custMap[ck].area === ag.area);
+              if (areaCusts.length === 0) return;
+              // 지역 헤더
+              xlData.push([`▶ ${ag.area}`]);
+              areaCusts.forEach(ck => {
+                const custName = cShort(ck);
+                // 이 업체의 품목 데이터
+                const custProds = prodKeys.filter(pk => {
+                  const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                  return v > 0; // 0값 제거
+                });
+                if (custProds.length === 0) return;
+                // 업체 헤더
+                xlData.push([`  ${custName}`]);
+                xlData.push(['', '국가', '꽃', '품명', '수량', '비고']);
+                custProds.forEach(pk => {
+                  const p = prodMap[pk];
+                  const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                  const descr = descrMap[`${pk}-${ck}-${wk}`] || '';
+                  xlData.push(['', p.coun, p.flower, stripProdName(p.name), v, descr.replace(/\n/g, ' ')]);
+                });
+                // 업체 소계
+                const custTotal = custProds.reduce((a,pk) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                xlData.push(['', '', '', '소계', custTotal, '']);
+                xlData.push([]); // 빈 줄
+              });
+            });
+            // 전체 재고 요약
+            xlData.push([]);
+            xlData.push(['▶ 재고 요약']);
+            xlData.push(['', '국가', '꽃', '품명', '시작', '입고', '출고', '잔량']);
+            let rs0 = 0;
+            prodKeys.forEach(pk => {
+              const p = prodMap[pk];
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              const prevRS = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+              const wStart = wkSS != null ? wkSS : prevRS;
+              const inQ = inMap[`${pk}-${wk}`] || 0;
+              const wOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+              const remain = wStart + inQ - wOut;
+              if (wOut > 0 || inQ > 0 || wStart > 0) {
+                xlData.push(['', p.coun, p.flower, stripProdName(p.name), wStart||'', inQ||'', wOut||'', remain]);
+              }
+            });
+            const ws = XLSX.utils.aoa_to_sheet(xlData);
+            // 열 너비 설정
+            ws['!cols'] = [{wch:3},{wch:10},{wch:10},{wch:28},{wch:8},{wch:40}];
+            XLSX.utils.book_append_sheet(wb, ws, wk);
+          });
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
         <button onClick={()=>{
