@@ -1,9 +1,17 @@
 // pages/api/orders/index.js
 // GET  → 실제 DB 조회 (OrderMaster + OrderDetail)
-// POST → 테스트 테이블에 저장 (_new_OrderMaster + _new_OrderDetail)
+// POST → 정식 테이블에 저장 (OrderMaster + OrderDetail)
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+
+// MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
+async function safeNextKey(tQ, table, keyCol) {
+  const r = await tQ(
+    `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}
+  );
+  return r.recordset[0].nk;
+}
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getOrders(req, res);
@@ -102,7 +110,7 @@ async function getOrders(req, res) {
   }
 }
 
-// ── 등록: 테스트 테이블 ──────────────────────────
+// ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
 async function createOrder(req, res) {
   const { custName, custKey, week, year, manager, orderCode, items } = req.body;
 
@@ -124,23 +132,46 @@ async function createOrder(req, res) {
       resolvedCustKey = r.recordset[0].CustKey;
     }
 
+    const orderYear = year || new Date().getFullYear().toString();
+    const orderWeek = week || '';
+    const uid = req.user?.userId || 'system';
+
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
-      const masterResult = await tQuery(
-        `INSERT INTO _new_OrderMaster
-           (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-         OUTPUT INSERTED.OrderMasterKey
-         VALUES (GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
-        {
-          year:      { type: sql.NVarChar, value: year || new Date().getFullYear().toString() },
-          week:      { type: sql.NVarChar, value: week || '' },
-          manager:   { type: sql.NVarChar, value: manager || req.user.userName },
-          custKey:   { type: sql.Int,      value: resolvedCustKey },
-          orderCode: { type: sql.NVarChar, value: orderCode || '' },
-          createId:  { type: sql.NVarChar, value: req.user.userId },
-        }
+      // 기존 OrderMaster 확인 (같은 업체+차수)
+      const existing = await tQuery(
+        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: orderWeek } }
       );
-      const mk = masterResult.recordset[0].OrderMasterKey;
+
+      let mk;
+      if (existing.recordset.length > 0) {
+        mk = existing.recordset[0].OrderMasterKey;
+        // Manager, OrderCode 업데이트
+        await tQuery(
+          `UPDATE OrderMaster SET Manager=@mgr, OrderCode=@oc WHERE OrderMasterKey=@mk`,
+          { mk: { type: sql.Int, value: mk },
+            mgr: { type: sql.NVarChar, value: manager || req.user.userName },
+            oc: { type: sql.NVarChar, value: orderCode || '' } }
+        );
+      } else {
+        const ins = await tQuery(
+          `INSERT INTO OrderMaster
+             (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+           OUTPUT INSERTED.OrderMasterKey
+           VALUES (GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
+          {
+            year:      { type: sql.NVarChar, value: orderYear },
+            week:      { type: sql.NVarChar, value: orderWeek },
+            manager:   { type: sql.NVarChar, value: manager || req.user.userName },
+            custKey:   { type: sql.Int,      value: resolvedCustKey },
+            orderCode: { type: sql.NVarChar, value: orderCode || '' },
+            createId:  { type: sql.NVarChar, value: uid },
+          }
+        );
+        mk = ins.recordset[0].OrderMasterKey;
+      }
 
       const detailResults = [];
       for (const item of items) {
@@ -155,30 +186,57 @@ async function createOrder(req, res) {
         }
         const qty = parseFloat(item.qty) || 0;
         const unit = item.unit || '박스';
-        await tQuery(
-          `INSERT INTO _new_OrderDetail
-             (OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-              OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
-          {
-            mk:    { type: sql.Int,      value: mk },
-            pk:    { type: sql.Int,      value: prodKey },
-            box:   { type: sql.Float,    value: unit === '박스' ? qty : 0 },
-            bunch: { type: sql.Float,    value: unit === '단'   ? qty : 0 },
-            steam: { type: sql.Float,    value: unit === '송이' ? qty : 0 },
-            uid:   { type: sql.NVarChar, value: req.user.userId },
-          }
+        const boxQty   = unit === '박스' ? qty : 0;
+        const bunchQty = unit === '단'   ? qty : 0;
+        const steamQty = unit === '송이' ? qty : 0;
+
+        // 기존 OrderDetail 확인 (같은 Master+품목)
+        const existOd = await tQuery(
+          `SELECT OrderDetailKey, OutQuantity FROM OrderDetail
+           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+          { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
         );
-        detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+
+        if (existOd.recordset.length > 0) {
+          // 기존 있으면 수량 업데이트
+          await tQuery(
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam, OutQuantity=@qty
+             WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+            { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
+              steam: { type: sql.Float, value: steamQty }, qty: { type: sql.Float, value: qty },
+              mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
+          );
+          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
+        } else if (qty > 0) {
+          // 신규 INSERT — safeNextKey로 PK 충돌 방지
+          const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
+          await tQuery(
+            `INSERT INTO OrderDetail
+               (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, @uid, GETDATE())`,
+            {
+              nk:    { type: sql.Int,      value: nextKey },
+              mk:    { type: sql.Int,      value: mk },
+              pk:    { type: sql.Int,      value: prodKey },
+              box:   { type: sql.Float,    value: boxQty },
+              bunch: { type: sql.Float,    value: bunchQty },
+              steam: { type: sql.Float,    value: steamQty },
+              qty:   { type: sql.Float,    value: qty },
+              uid:   { type: sql.NVarChar, value: uid },
+            }
+          );
+          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+        }
       }
       return { orderMasterKey: mk, results: detailResults };
     });
 
     return res.status(201).json({
       success: true,
-      source: 'test_table',
+      source: 'real_db',
       orderMasterKey,
-      message: `주문 등록 완료 (테스트) — ${results.filter(r => r.status === 'OK').length}개 품목`,
+      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED').length}개 품목`,
       results,
     });
   } catch (err) {
