@@ -281,32 +281,32 @@ async function updateOutQty(req, res) {
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
 
-    // ── 업체별 BaseOutDay 조회 → 차수 기반 정확한 출고일 계산
+    // ── 업체별 BaseOutDay 조회 → 기존 전산 동일 로직으로 출고일 계산
+    // 기준: 해당 주의 수요일 + BaseOutDay별 오프셋 (차수 -01/-02 무관)
+    // BaseOutDay=0→수(+0), 6→금(+2), 1→일(+4), 2→월(+5), 3→화(+6), 4→목(+1), 5→토(+3)
     const custInfo = await query(
       `SELECT BaseOutDay FROM Customer WHERE CustKey=@ck`,
       { ck: { type: sql.Int, value: ck } }
     );
-    const baseOutDay = custInfo.recordset[0]?.BaseOutDay || 0; // 0=일,1=월,...6=토
+    const baseOutDay = custInfo.recordset[0]?.BaseOutDay ?? 0;
 
     function calcShipDate(weekStr, baseDay) {
       try {
-        const [wStr, dStr] = weekStr.split('-');
-        const weekNum = parseInt(wStr, 10);
-        const delivNum = parseInt(dStr, 10) || 1;
+        const weekNum = parseInt(weekStr.split('-')[0], 10);
         const yr = new Date().getFullYear();
         const jan4 = new Date(yr, 0, 4);
         const dow = jan4.getDay() || 7;
         const monday = new Date(jan4);
         monday.setDate(jan4.getDate() - dow + 1 + (weekNum - 1) * 7);
-        if (baseDay >= 1 && baseDay <= 6) {
-          // BaseOutDay: 1=월(+0), 2=화(+1), 3=수(+2), 4=목(+3), 5=금(+4), 6=토(+5)
-          monday.setDate(monday.getDate() + (baseDay - 1));
-        } else {
-          // 미지정: 차수별 기본값 01→월(+0), 02→목(+3), 03→토(+5)
-          const offsets = [0, 0, 3, 5];
-          monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
-        }
-        return monday.toISOString().slice(0, 10);
+        // 수요일 = Monday + 2
+        const wednesday = new Date(monday);
+        wednesday.setDate(monday.getDate() + 2);
+        // BaseOutDay → 수요일 기준 오프셋 (DB 실데이터 기반)
+        //   0=수(+0), 1=일(+4), 2=월(+5), 3=화(+6), 4=목(+1), 5=토(+3), 6=금(+2)
+        const offsets = [0, 4, 5, 6, 1, 3, 2];
+        const offset = offsets[baseDay] ?? 0;
+        wednesday.setDate(wednesday.getDate() + offset);
+        return wednesday.toISOString().slice(0, 10);
       } catch { return null; }
     }
 
