@@ -253,6 +253,7 @@ export default function WeekPivot() {
   const [pvDescrModal,  setPvDescrModal]  = useState(null);
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false);
   const [pvEdit,        setPvEdit]        = useState(null);
+  const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
 
@@ -563,13 +564,19 @@ export default function WeekPivot() {
                       ))}
                     </tr>
                   )}
-                  <tr style={{background:pi%2===0?'#fff':'#f5f5f5'}}>
-                    <td style={{...st.td,position:'sticky',left:0,background:pi%2===0?'#fff':'#f5f5f5',zIndex:1,minWidth:150}}>
+                  {(()=>{
+                    const isSel = pk === selectedPK;
+                    const rowBg = isSel ? '#FFF8E1' : (pi%2===0?'#fff':'#f5f5f5');
+                    return (
+                  <tr style={{background:rowBg, outline: isSel?'1px solid #FFA000':'none', outlineOffset:'-1px'}}>
+                    <td style={{...st.td,position:'sticky',left:0,background:rowBg,zIndex:1,minWidth:150,
+                                borderLeft: isSel?'4px solid #FF6F00':'4px solid transparent', boxSizing:'border-box'}}>
                       <span style={{...st.clickCell,fontSize:8,color:filterCoun===p.coun?'#1565c0':'#999'}}
                             onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
                       <span style={{...st.clickCell,fontSize:8,color:filterFlower===p.flower?'#2e7d32':'#999',marginLeft:2}}
                             onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
-                      <div style={{fontWeight:600,fontSize:13}}>{stripProdName(p.name)}</div>
+                      <div style={{fontWeight:600,fontSize:13,cursor:'pointer',color:isSel?'#E65100':undefined}}
+                           onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)}>{stripProdName(p.name)}</div>
                     </td>
                     {weeks.map(wk=>{
                       const ssKey=`${pk}-${wk}`;
@@ -653,6 +660,7 @@ export default function WeekPivot() {
                       );
                     })}
                   </tr>
+                  );})()}
                 </React.Fragment>
               );
             })}
