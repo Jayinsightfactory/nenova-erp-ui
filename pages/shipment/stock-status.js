@@ -1312,6 +1312,87 @@ export default function StockStatus() {
             ws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},{wch:8},{wch:40}];
             XLSX.utils.book_append_sheet(wb, ws, wk);
           });
+          // ── 병합 시트: 전체 차수 합산 (업체 × 품종별)
+          if (weeks.length > 1) {
+            const mergedData = [];
+            mergedData.push([`전체 (${weeks.join(' + ')})`]);
+            mergedData.push([]);
+            areaGroups.forEach(ag => {
+              const areaCusts = custKeys.filter(ck => custMap[ck].area === ag.area);
+              if (areaCusts.length === 0) return;
+              mergedData.push([`▶ ${ag.area}`]);
+              areaCusts.forEach(ck => {
+                const custName = cShort(ck);
+                // 전체 차수 합산 수량
+                const custProds = prodKeys.filter(pk => {
+                  const total = weeks.reduce((a,wk) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                  return total > 0;
+                });
+                if (custProds.length === 0) return;
+                const byFlower = {};
+                custProds.forEach(pk => {
+                  const fl = prodMap[pk].flower || '기타';
+                  if (!byFlower[fl]) byFlower[fl] = [];
+                  byFlower[fl].push(pk);
+                });
+                mergedData.push([`  ${custName}`]);
+                Object.entries(byFlower).forEach(([flower, pks]) => {
+                  mergedData.push(['', '', `[${flower}]`, '', ...weeks.map(()=>''), '']);
+                  const hdr = ['', '국가', '꽃', '품명'];
+                  weeks.forEach(wk => hdr.push(wk));
+                  hdr.push('합계', '비고');
+                  mergedData.push(hdr);
+                  let flowerTotal = 0;
+                  pks.forEach(pk => {
+                    const p = prodMap[pk];
+                    const row = ['', p.coun, p.flower, stripProdName(p.name)];
+                    let rowTotal = 0;
+                    weeks.forEach(wk => {
+                      const v = dataMap[`${pk}-${ck}-${wk}`]||0;
+                      row.push(v||'');
+                      rowTotal += v;
+                    });
+                    const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`]||'').filter(Boolean).join(' ');
+                    row.push(rowTotal, allDescr.replace(/\n/g,' '));
+                    mergedData.push(row);
+                    flowerTotal += rowTotal;
+                  });
+                  mergedData.push(['', '', '', `${flower} 소계`, ...weeks.map(()=>''), flowerTotal, '']);
+                });
+                const custTotal = custProds.reduce((a,pk) => a + weeks.reduce((s,wk) => s + (dataMap[`${pk}-${ck}-${wk}`]||0), 0), 0);
+                mergedData.push(['', '', '', '업체 합계', ...weeks.map(()=>''), custTotal, '']);
+                mergedData.push([]);
+              });
+            });
+            // 품종별 전체 토탈
+            mergedData.push([]);
+            mergedData.push(['▶ 품종별 전체 수량']);
+            const mHdr = ['', '품종']; weeks.forEach(wk => mHdr.push(wk)); mHdr.push('합계');
+            mergedData.push(mHdr);
+            const allFlowerTotals = {};
+            prodKeys.forEach(pk => {
+              const fl = prodMap[pk].flower || '기타';
+              if (!allFlowerTotals[fl]) allFlowerTotals[fl] = {};
+              weeks.forEach(wk => {
+                const wOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                allFlowerTotals[fl][wk] = (allFlowerTotals[fl][wk]||0) + wOut;
+              });
+            });
+            Object.entries(allFlowerTotals).sort((a,b) => {
+              const ta = Object.values(a[1]).reduce((s,v)=>s+v,0);
+              const tb = Object.values(b[1]).reduce((s,v)=>s+v,0);
+              return tb - ta;
+            }).forEach(([fl,wkMap]) => {
+              const row = ['', fl];
+              let total = 0;
+              weeks.forEach(wk => { row.push(wkMap[wk]||''); total += (wkMap[wk]||0); });
+              row.push(total);
+              mergedData.push(row);
+            });
+            const mws = XLSX.utils.aoa_to_sheet(mergedData);
+            mws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},...weeks.map(()=>({wch:8})),{wch:8},{wch:30}];
+            XLSX.utils.book_append_sheet(wb, mws, '전체병합');
+          }
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
         <button onClick={()=>{
