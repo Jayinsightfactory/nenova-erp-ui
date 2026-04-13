@@ -456,10 +456,12 @@ export default function StockStatus() {
       if (t === 'managers')  setMgrRows(d.rows||[]);
       if (t === 'pivot') {
         setPivotRows(d.rows||[]);
-        // 차수 피벗용 customers 데이터도 로드
-        fetch(`/api/shipment/stock-status?${p}&view=customers`).then(r2=>r2.json()).then(d2=>{
-          if(d2.success) setCustRows(d2.rows||[]);
-        }).catch(()=>{});
+        // 차수 피벗용 customers 데이터도 로드 (await: 로딩 끝나기 전에 데이터 준비)
+        try {
+          const r2 = await fetch(`/api/shipment/stock-status?${p}&view=customers`);
+          const d2 = await r2.json();
+          if (d2.success) setCustRows(d2.rows||[]);
+        } catch(e) {}
       }
       // 시작재고 조회
       fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`)
