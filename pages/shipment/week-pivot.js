@@ -8,6 +8,23 @@ import { useRouter } from 'next/router';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import * as XLSX from 'xlsx';
 
+// 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
+// 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
+function weekToShipDate(weekStr, year = new Date().getFullYear()) {
+  try {
+    const [wStr, dStr] = weekStr.split('-');
+    const weekNum = parseInt(wStr, 10);
+    const delivNum = parseInt(dStr, 10) || 1;
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    const offsets = [0, 0, 3, 5];
+    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
+    return monday.toISOString().slice(0, 10);
+  } catch { return null; }
+}
+
 // ─────────────────────────────────────────────────────────────
 // 주문추가 모달
 // ─────────────────────────────────────────────────────────────
@@ -332,7 +349,7 @@ export default function WeekPivot() {
       const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
       const r = await fetch('/api/shipment/stock-status', {
         method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ custKey:ck, prodKey:pk, week:wk, outQty:qty, descrLog:`${custName} ${old}>${qty}(${diffStr})` }),
+        body: JSON.stringify({ custKey:ck, prodKey:pk, week:wk, outQty:qty, shipDate:weekToShipDate(wk), descrLog:`${custName} ${old}>${qty}(${diffStr})` }),
       });
       const d = await r.json();
       if (d.success) { setPvEdit(null); loadData(weekFrom, weekTo); }

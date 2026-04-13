@@ -5,6 +5,22 @@ import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네달란드','중국기타','국내왁스'];
+
+// 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
+function weekToShipDate(weekStr, year = new Date().getFullYear()) {
+  try {
+    const [wStr, dStr] = weekStr.split('-');
+    const weekNum = parseInt(wStr, 10);
+    const delivNum = parseInt(dStr, 10) || 1;
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    const offsets = [0, 0, 3, 5];
+    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
+    return monday.toISOString().slice(0, 10);
+  } catch { return null; }
+}
 const WEEK_SUFFIXES = ['-01', '-02'];
 const DAY_NAMES = ['월','화','수','목','금'];
 
@@ -331,7 +347,8 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week, year: week.split('-')[0] || '2026',
+            week, year: new Date().getFullYear().toString(),
+            outDate: weekToShipDate(week),
             custKey: selectedCust.CustKey,
             prodKey: item.ProdKey,
             outQty: qty,
@@ -412,7 +429,8 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week, year: week.split('-')[0] || '2026',
+            week, year: new Date().getFullYear().toString(),
+            outDate: weekToShipDate(week),
             custKey: c.CustKey,
             prodKey: selectedProd.ProdKey,
             outQty: qty,
