@@ -326,6 +326,9 @@ export default function WeekPivot() {
     } catch(e) { alert('오류: ' + e.message); }
   }, [weekFrom, weekTo, loadData]);
 
+  // 차수피벗 제외 품명 키워드 (대소문자 무시)
+  const EXCLUDED_PROD_KW = ['carnation', 'hydrangea', 'rose', 'altromeria'];
+
   // 필터 적용
   const applyFilter = useCallback((rows) => rows.filter(r => {
     if (filterCoun   && !r.CounName?.includes(filterCoun))     return false;
@@ -334,6 +337,9 @@ export default function WeekPivot() {
       const q = filterSearch.toLowerCase();
       if (!r.ProdName?.toLowerCase().includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
     }
+    // 제외 품명 필터
+    const pn = (r.ProdName || '').toLowerCase();
+    if (EXCLUDED_PROD_KW.some(kw => pn.includes(kw))) return false;
     return true;
   }), [filterCoun, filterFlower, filterSearch]);
 
@@ -563,7 +569,7 @@ export default function WeekPivot() {
                             onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
                       <span style={{...st.clickCell,fontSize:8,color:filterFlower===p.flower?'#2e7d32':'#999',marginLeft:2}}
                             onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
-                      <div style={{fontWeight:600,fontSize:10}}>{stripProdName(p.name)}</div>
+                      <div style={{fontWeight:600,fontSize:13}}>{stripProdName(p.name)}</div>
                     </td>
                     {weeks.map(wk=>{
                       const ssKey=`${pk}-${wk}`;
