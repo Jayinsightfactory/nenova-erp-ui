@@ -7,6 +7,16 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
+// MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
+async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    const r = await tQ(
+      `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}
+    );
+    return r.recordset[0].nk;
+  }
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
   if (req.method === 'POST')   return await addOrder(req, res);
@@ -325,11 +335,8 @@ async function updateOutQty(req, res) {
 
       let sk;
       if (sm.recordset.length === 0) {
-        // ShipmentKey는 IDENTITY 아님 → MAX+1 직접 할당
-        const maxSmKey = await tQ(
-          `SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nextKey FROM ShipmentMaster WITH (UPDLOCK)`
-        );
-        const newSk = maxSmKey.recordset[0].nextKey;
+        // ShipmentKey는 IDENTITY 아님 → 안전한 MAX+1
+        const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
         await tQ(
           `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
            VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
@@ -362,11 +369,8 @@ async function updateOutQty(req, res) {
           );
         }
       } else if (qty > 0) {
-        // SdetailKey는 IDENTITY 아님 → MAX+1 직접 할당
-        const maxSdk = await tQ(
-          `SELECT ISNULL(MAX(SdetailKey),0)+1 AS nextKey FROM ShipmentDetail WITH (UPDLOCK)`
-        );
-        const nk = maxSdk.recordset[0].nextKey;
+        // SdetailKey는 IDENTITY 아님 → 안전한 MAX+1
+        const nk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
         await tQ(
           `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
            VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty)`,
@@ -496,12 +500,8 @@ async function addOrder(req, res) {
           );
         }
       } else if (quantity > 0) {
-        // OrderDetailKey = MAX+1 (IDENTITY가 아닌 테이블 대응)
-        const maxKey = await tQ(
-          `SELECT ISNULL(MAX(OrderDetailKey),0)+1 AS nextKey FROM OrderDetail WITH (UPDLOCK)`,
-          {}
-        );
-        const nextKey = maxKey.recordset[0].nextKey;
+        // OrderDetailKey = MAX+1 → 안전한 HOLDLOCK
+        const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await tQ(
           `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
            VALUES(@nk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,

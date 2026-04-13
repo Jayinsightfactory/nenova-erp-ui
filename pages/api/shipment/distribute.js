@@ -7,6 +7,14 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 
+// MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
+async function safeNextKey(tQ, table, keyCol) {
+  const r = await tQ(
+    `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}
+  );
+  return r.recordset[0].nk;
+}
+
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getDistribute(req, res);
   if (req.method === 'POST') return await saveDistribute(req, res);
@@ -263,8 +271,7 @@ async function saveDistribute(req, res) {
 
       let sk;
       if (smResult.recordset.length === 0) {
-        const maxSm = await tQuery(`SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nk FROM ShipmentMaster`, {});
-        sk = maxSm.recordset[0].nk;
+        sk = await safeNextKey(tQuery, 'ShipmentMaster', 'ShipmentKey');
         await tQuery(
           `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
            VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
@@ -301,8 +308,7 @@ async function saveDistribute(req, res) {
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
 
-        const maxSd = await tQuery(`SELECT ISNULL(MAX(SdetailKey),0)+1 AS nk FROM ShipmentDetail`, {});
-        const newSdk = maxSd.recordset[0].nk;
+        const newSdk = await safeNextKey(tQuery, 'ShipmentDetail', 'SdetailKey');
         await tQuery(
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
