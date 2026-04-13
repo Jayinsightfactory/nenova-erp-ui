@@ -1,15 +1,17 @@
 // pages/api/shipment/stock-status.js
 // GET  ?weekFrom&weekTo&view=products|customers|managers|pivot  → 조회
-// PATCH { custKey, prodKey, week, outQty }                       → 출고수량 수정
+// PATCH { custKey, prodKey, week, outQty, descrLog }             → 출고수량 수정 + 비고 로그
 // POST  { action:'addOrder', custKey, prodKey, week, qty }       → 주문 추가/수정
+// DELETE { custKey, prodKey, week, lineIdx }                     → 수정내역 특정 줄 삭제
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
-  if (req.method === 'PATCH') return await updateOutQty(req, res);
-  if (req.method === 'POST')  return await addOrder(req, res);
-  if (req.method !== 'GET')   return res.status(405).end();
+  if (req.method === 'PATCH')  return await updateOutQty(req, res);
+  if (req.method === 'POST')   return await addOrder(req, res);
+  if (req.method === 'DELETE') return await deleteDescrLine(req, res);
+  if (req.method !== 'GET')    return res.status(405).end();
 
   // 차수 파라미터
   let { weekFrom, weekTo, week, view, prodKey } = req.query;
@@ -122,11 +124,15 @@ export default withAuth(async function handler(req, res) {
       const result = await query(
         `SELECT
           c.CustKey, c.CustName, c.CustArea, c.Manager,
+          ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
           ISNULL(od.OutQuantity,   0) AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.CreateDtm, 120) AS outCreateDtm,
+          ISNULL(sd.Descr, '') AS outDescr,
+          ISNULL(sm.isFix, 0) AS isFix,
+          sd.SdetailKey,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -236,9 +242,9 @@ export default withAuth(async function handler(req, res) {
   }
 });
 
-// ── PATCH: 출고수량 수정 (ShipmentMaster + ShipmentDetail)
+// ── PATCH: 출고수량 수정 + 비고 로그 저장
 async function updateOutQty(req, res) {
-  const { custKey, prodKey, week, outQty } = req.body;
+  const { custKey, prodKey, week, outQty, descrLog } = req.body;
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -297,7 +303,55 @@ async function updateOutQty(req, res) {
       }
     });
 
+    // descrLog 있으면 ShipmentDetail.Descr에 추가
+    if (descrLog && qty > 0) {
+      const now = new Date().toISOString().replace('T',' ').slice(0,16);
+      const logLine = `[${now}] ${descrLog}`;
+      await query(
+        `UPDATE ShipmentDetail SET Descr = ISNULL(Descr,'') + @log
+         WHERE ShipmentKey=(SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0)
+         AND ProdKey=@pk`,
+        { log:  { type: sql.NVarChar, value: '\n' + logLine },
+          ck:   { type: sql.Int,      value: ck },
+          wk:   { type: sql.NVarChar, value: week },
+          pk:   { type: sql.Int,      value: pk } }
+      );
+    }
     return res.status(200).json({ success: true, message: '출고수량 수정 완료' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── DELETE: 수정내역 특정 줄 삭제
+async function deleteDescrLine(req, res) {
+  const { custKey, prodKey, week, lineIdx } = req.body;
+  if (custKey === undefined || !prodKey || !week || lineIdx === undefined) {
+    return res.status(400).json({ success: false, error: 'custKey, prodKey, week, lineIdx 필요' });
+  }
+  try {
+    const ck = parseInt(custKey);
+    const pk = parseInt(prodKey);
+    const idx = parseInt(lineIdx);
+    // 현재 Descr 조회
+    const r = await query(
+      `SELECT sd.SdetailKey, sd.Descr FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
+       WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+      { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week },
+        pk: { type: sql.Int, value: pk } }
+    );
+    if (!r.recordset.length) return res.status(404).json({ success: false, error: '데이터 없음' });
+    const { SdetailKey, Descr } = r.recordset[0];
+    const lines = (Descr || '').split('\n').filter(l => l.trim());
+    if (idx < 0 || idx >= lines.length) return res.status(400).json({ success: false, error: '잘못된 인덱스' });
+    lines.splice(idx, 1);
+    const newDescr = lines.join('\n');
+    await query(
+      `UPDATE ShipmentDetail SET Descr=@d WHERE SdetailKey=@k`,
+      { d: { type: sql.NVarChar, value: newDescr }, k: { type: sql.Int, value: SdetailKey } }
+    );
+    return res.status(200).json({ success: true, lines });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

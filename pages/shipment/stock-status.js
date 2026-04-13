@@ -956,6 +956,7 @@ export default function StockStatus() {
   const [pvCusts, setPvCusts] = useState(new Set());
   const [pvFlowers, setPvFlowers] = useState(new Set()); // 다중 꽃 선택
   const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 접기/펼치기
+  const [pvDescrModal, setPvDescrModal] = useState(null); // { pk, ck, wk, lines, custName, prodName } 수정내역 삭제 모달
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false); // 출고 있는 품목만
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
@@ -1097,7 +1098,7 @@ export default function StockStatus() {
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
-              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth: pvDescrOpen?80:30, cursor:'pointer' }}
+              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth: pvDescrOpen?100:30, cursor:'pointer' }}
                   onClick={()=>setPvDescrOpen(p=>!p)}>
                 {pvDescrOpen ? '비고 ▾' : '▸'}
               </th>
@@ -1298,12 +1299,41 @@ export default function StockStatus() {
                           <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
                                       color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
                           {(() => {
-                            const logs = custKeys.map(ck=>descrMap[`${pk}-${ck}-${wk}`]).filter(Boolean);
-                            const cnt = logs.reduce((a,l) => a + l.split('\n').filter(Boolean).length, 0);
+                            // 이 품목+차수의 모든 업체 비고 합산 (업체별 개별 항목)
+                            const custLogs = custKeys.map(ck => {
+                              const raw = descrMap[`${pk}-${ck}-${wk}`] || '';
+                              const lines = raw.split('\n').filter(l=>l.trim());
+                              return { ck, lines };
+                            }).filter(x=>x.lines.length);
+                            const cnt = custLogs.reduce((a,x)=>a+x.lines.length, 0);
+                            // 가장 긴 줄 기준 동적 폭
+                            const maxLineLen = custLogs.reduce((a,x)=>Math.max(a,...x.lines.map(l=>l.length)),0);
+                            const dynWidth = pvDescrOpen ? Math.max(100, maxLineLen * 6) : 30;
                             return (
-                              <td style={{...st.td,fontSize:8,color:'#555',maxWidth: pvDescrOpen?120:30,whiteSpace:'pre-line',lineHeight:'1.2',cursor:'pointer'}}
+                              <td style={{...st.td,fontSize:8,color:'#555',
+                                          width:dynWidth, minWidth:dynWidth, maxWidth: pvDescrOpen?'none':30,
+                                          whiteSpace:'pre-line',lineHeight:'1.3',cursor:'pointer',
+                                          verticalAlign:'top', padding:'2px 4px'}}
                                   onClick={()=>setPvDescrOpen(p=>!p)}>
-                                {pvDescrOpen ? (logs.join('\n') || '') : (cnt > 0 ? <span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span> : '')}
+                                {pvDescrOpen ? (
+                                  custLogs.map(({ck,lines})=>
+                                    lines.map((line,li)=>(
+                                      <div key={`${ck}-${li}`} style={{display:'flex',alignItems:'flex-start',gap:2,marginBottom:1}}>
+                                        <span style={{flex:1,fontSize:7,color:'#555',lineHeight:'1.3',wordBreak:'break-all'}}>{line}</span>
+                                        <span title="수정내역 삭제"
+                                          style={{cursor:'pointer',color:'#e53935',fontSize:9,flexShrink:0,lineHeight:'1.3',padding:'0 1px'}}
+                                          onClick={e=>{
+                                            e.stopPropagation();
+                                            setPvDescrModal({pk,ck,wk,lineIdx:li,
+                                              custName:cShort(ck),prodName:stripProdName(p.name),
+                                              line, allLines:lines});
+                                          }}>✕</span>
+                                      </div>
+                                    ))
+                                  )
+                                ) : (
+                                  cnt > 0 ? <span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span> : ''
+                                )}
                               </td>
                             );
                           })()}
@@ -1564,13 +1594,18 @@ export default function StockStatus() {
               {tab==='managers'  && renderManagers()}
               {tab==='pivot' && (
                 <>
-                  <div style={{ display:'flex', gap:4, marginBottom:10 }}>
+                  <div style={{ display:'flex', gap:4, marginBottom:10, alignItems:'center', flexWrap:'wrap' }}>
                     {[{key:'byCust',label:'🏢 업체기준'},{key:'byProd',label:'📦 품목기준'},{key:'weekPivot',label:'📊 차수 피벗'}].map(s=>(
                       <button key={s.key} onClick={()=>setPivotSub(s.key)}
                         style={{ ...st.subTabBtn, ...(pivotSub===s.key?st.subTabBtnActive:{}) }}>
                         {s.label}
                       </button>
                     ))}
+                    <button onClick={()=>setShowAddOrder(true)}
+                      style={{ marginLeft:'auto', padding:'5px 14px', background:'#388e3c', color:'#fff',
+                               border:'none', borderRadius:4, cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                      ➕ 주문추가
+                    </button>
                   </div>
                   {pivotSub==='weekPivot' ? renderWeekPivot() : renderPivot()}
                 </>
@@ -1579,6 +1614,41 @@ export default function StockStatus() {
           )}
         </div>
 
+      {/* 수정내역 삭제 확인 모달 */}
+      {pvDescrModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&setPvDescrModal(null)}>
+          <div style={{background:'#fff',borderRadius:10,padding:24,boxShadow:'0 8px 32px rgba(0,0,0,0.3)',minWidth:320,maxWidth:480}}>
+            <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>수정내역 삭제</div>
+            <div style={{fontSize:12,color:'#888',marginBottom:12}}>
+              {pvDescrModal.prodName} / {pvDescrModal.custName} / {pvDescrModal.wk}
+            </div>
+            <div style={{background:'#fff3e0',border:'1px solid #ff9800',borderRadius:6,padding:'8px 12px',fontSize:12,marginBottom:16,wordBreak:'break-all'}}>
+              {pvDescrModal.line}
+            </div>
+            <div style={{fontSize:12,color:'#d32f2f',marginBottom:16}}>이 항목을 삭제하시겠습니까?</div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>setPvDescrModal(null)}
+                style={{padding:'7px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5',fontSize:12}}>취소</button>
+              <button onClick={async()=>{
+                const m = pvDescrModal;
+                try {
+                  const r = await fetch('/api/shipment/stock-status', {
+                    method:'DELETE', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({custKey:m.ck, prodKey:m.pk, week:m.wk, lineIdx:m.lineIdx}),
+                  });
+                  const d = await r.json();
+                  if (d.success) { setPvDescrModal(null); loadData(weekFrom, weekTo, tab); }
+                  else alert('삭제 실패: ' + d.error);
+                } catch(e) { alert('오류: ' + e.message); }
+              }}
+                style={{padding:'7px 20px',background:'#d32f2f',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontSize:12,fontWeight:700}}>
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showAddOrder && (
         <AddOrderModal
           weekFrom={weekFrom} weekTo={weekTo}
