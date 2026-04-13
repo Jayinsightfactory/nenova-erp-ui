@@ -650,8 +650,27 @@ export default function StockStatus() {
     if (!filteredProducts.length) return <div style={st.empty}>데이터 없음</div>;
     return (
       <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 300px)', overflowY:'auto' }}>
-        <div style={{ fontSize:11, color:'#666', marginBottom:6 }}>
-          💡 잔량 = 이월재고 + 입고 − 출고 | 행 클릭(▶) 시 업체별 출고수량 편집 가능
+        <div style={{ display:'flex', alignItems:'center', gap:10, fontSize:11, color:'#666', marginBottom:6, flexWrap:'wrap' }}>
+          <span>💡 잔량 = 이월재고 + 입고 − 출고 | 행 클릭(▶) 시 업체별 출고수량 편집 가능</span>
+          {(()=>{
+            const ssCount = Object.keys(startStocks).filter(k=>k.endsWith(`-${weekFrom}`)&&startStocks[k]?.stock!=null).length;
+            return ssCount > 0
+              ? <span style={{background:'#e0f7fa',border:'1px solid #00acc1',borderRadius:10,padding:'2px 10px',color:'#006064',fontWeight:700}}>
+                  📦 시작재고 {ssCount}개 저장됨 ({weekFrom})
+                  <button onClick={async()=>{
+                    if(!confirm(`[${weekFrom}] 시작재고를 전부 삭제(초기화)하시겠습니까?`)) return;
+                    const delKeys = Object.keys(startStocks).filter(k=>k.endsWith(`-${weekFrom}`));
+                    for(const k of delKeys){
+                      const pk=k.split('-')[0];
+                      await fetch('/api/shipment/stock-status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({prodKey:pk,week:weekFrom,stock:0})});
+                    }
+                    setStartStocks(prev=>{const n={...prev};delKeys.forEach(k=>delete n[k]);return n;});
+                  }} style={{marginLeft:6,fontSize:10,padding:'1px 6px',border:'1px solid #e53935',borderRadius:4,background:'#ffebee',color:'#c62828',cursor:'pointer'}}>
+                    🗑 삭제(초기화)
+                  </button>
+                </span>
+              : <span style={{color:'#999'}}>시작재고 미설정 ({weekFrom})</span>;
+          })()}
         </div>
         <table style={st.table}>
           <thead>
