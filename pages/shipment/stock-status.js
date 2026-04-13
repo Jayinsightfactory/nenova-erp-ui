@@ -1,8 +1,9 @@
 // pages/shipment/stock-status.js — 출고,재고상황 v5
 // 추가: 업체별 칩 필터 기본값 전체숨김, 줄긋기 제거, 기록컬럼, UpdateDtm 오류수정
-import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
-import Layout from '../../components/Layout';
+import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
+// Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
+import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────
 // Edit Context
@@ -97,181 +98,237 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [custs,      setCusts]      = useState([]);
   const [prods,      setProds]      = useState([]);
   const [selCust,    setSelCust]    = useState(null);
-  const [selProd,    setSelProd]    = useState(null);
-  const [qty,        setQty]        = useState('');
-  const [unit,       setUnit]       = useState('박스');
-  const [orderWeek,  setOrderWeek]  = useState(weekFrom || '');
+  const modalWeek = useWeekInput(weekFrom || '');
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState('');
+  const [selMgr,     setSelMgr]     = useState('');
+  const [selCoun,    setSelCoun]    = useState('');
+  const [selFlower,  setSelFlower]  = useState('');
+  const [orderCounts, setOrderCounts] = useState({});
+  const [prodCounts, setProdCounts] = useState({});   // { ProdKey: count } 품목 인기순
+  const [existOrders, setExistOrders] = useState({}); // { `CustKey-ProdKey-Week`: qty } 기존 주문수량
+  const [cart, setCart] = useState([]);
 
-  // 업체/품목 로드
   useEffect(() => {
     fetch('/api/master?entity=customers').then(r=>r.json()).then(d=>{if(d.success) setCusts(d.data);});
     fetch('/api/master?entity=products').then(r=>r.json()).then(d=>{if(d.success) setProds(d.data);});
+    fetch('/api/shipment/stock-status?view=custOrderCounts').then(r=>r.json()).then(d=>{
+      if(d.success && d.counts) setOrderCounts(d.counts);
+    }).catch(()=>{});
+    fetch('/api/shipment/stock-status?view=prodOrderCounts').then(r=>r.json()).then(d=>{
+      if(d.success && d.counts) setProdCounts(d.counts);
+    }).catch(()=>{});
   }, []);
 
-  // 품목 선택 시 단위 자동 설정
+  // 업체+차수 선택 시 기존 주문수량 조회
   useEffect(() => {
-    if (selProd?.OutUnit) {
-      const u = selProd.OutUnit;
-      setUnit(UNITS.includes(u) ? u : '박스');
-    }
-  }, [selProd]);
+    if (!selCust || !modalWeek.value) { setExistOrders({}); return; }
+    fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&custKey=${selCust.CustKey}`)
+      .then(r=>r.json()).then(d=>{ if(d.success && d.orders) setExistOrders(d.orders); })
+      .catch(()=>{});
+  }, [selCust, modalWeek.value]);
+
+  const mgrList = useMemo(() => [...new Set(custs.map(c => c.Manager || '미지정'))].sort(), [custs]);
+  const counList = useMemo(() => [...new Set(prods.map(p => p.CounName).filter(Boolean))].sort(), [prods]);
+  const flowerList = useMemo(() => {
+    const base = selCoun ? prods.filter(p => p.CounName === selCoun) : prods;
+    return [...new Set(base.map(p => p.FlowerName).filter(Boolean))].sort();
+  }, [prods, selCoun]);
 
   const filteredCusts = useMemo(() => {
-    if (!custSearch) return custs.slice(0, 50);
-    const q = custSearch.toLowerCase();
-    return custs.filter(c => c.CustName?.toLowerCase().includes(q) || c.CustArea?.toLowerCase().includes(q));
-  }, [custs, custSearch]);
+    let list = custs;
+    if (selMgr) list = list.filter(c => (c.Manager || '미지정') === selMgr);
+    if (custSearch) {
+      const q = custSearch.toLowerCase();
+      list = list.filter(c => c.CustName?.toLowerCase().includes(q) || c.CustArea?.toLowerCase().includes(q));
+    }
+    list = [...list].sort((a,b) => (orderCounts[b.CustKey]||0) - (orderCounts[a.CustKey]||0));
+    return list.slice(0, 80);
+  }, [custs, custSearch, selMgr, orderCounts]);
 
   const filteredProds = useMemo(() => {
-    if (!prodSearch) return prods.slice(0, 50);
-    const q = prodSearch.toLowerCase();
-    return prods.filter(p =>
-      p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
-  }, [prods, prodSearch]);
+    let list = prods;
+    if (selCoun) list = list.filter(p => p.CounName === selCoun);
+    if (selFlower) list = list.filter(p => p.FlowerName === selFlower);
+    if (prodSearch) {
+      const q = prodSearch.toLowerCase();
+      list = list.filter(p =>
+        p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
+    }
+    // 인기순 정렬
+    list = [...list].sort((a,b) => (prodCounts[b.ProdKey]||0) - (prodCounts[a.ProdKey]||0));
+    return list.slice(0, 200);
+  }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
+
+  const addToCart = (p) => {
+    if (cart.find(c => c.prod.ProdKey === p.ProdKey)) return;
+    const u = UNITS.includes(p.OutUnit) ? p.OutUnit : '박스';
+    const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
+    const existQty = existOrders[existKey] || 0;
+    setCart(prev => [...prev, { prod: p, qty: existQty || 1, unit: u, existQty }]);
+  };
+  const removeFromCart = (pk) => setCart(prev => prev.filter(c => c.prod.ProdKey !== pk));
+  const updateCartQty = (pk, val) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, qty: parseFloat(val)||0} : c));
+  const updateCartUnit = (pk, u) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, unit: u} : c));
 
   const handleSubmit = async () => {
-    if (!selCust)              { setError('업체를 선택하세요'); return; }
-    if (!selProd)              { setError('품목을 선택하세요'); return; }
-    if (!qty || parseFloat(qty) <= 0) { setError('수량을 입력하세요 (0 초과)'); return; }
-    if (!orderWeek)            { setError('차수를 입력하세요'); return; }
+    if (!selCust) { setError('업체를 선택하세요'); return; }
+    if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
+    if (!modalWeek.value) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
     try {
-      const r = await fetch('/api/shipment/stock-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: selProd.ProdKey, week: orderWeek, qty, unit }),
-      });
-      const d = await r.json();
-      if (d.success) { onSuccess?.(); onClose(); }
-      else setError(d.error);
+      let allOk = true;
+      for (const item of cart) {
+        const r = await fetch('/api/shipment/stock-status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
+        });
+        const d = await r.json();
+        if (!d.success) { setError(d.error); allOk = false; break; }
+      }
+      if (allOk) { onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: modalWeek.value }); onClose(); }
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
+
+  const chipStyle = (active) => ({
+    padding:'3px 10px', borderRadius:12, border:'1px solid', fontSize:11, cursor:'pointer', fontWeight: active?700:400,
+    borderColor: active?'#1976d2':'#ccc', background: active?'#1976d2':'#f5f5f5', color: active?'#fff':'#555',
+  });
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000,
                   display:'flex', alignItems:'center', justifyContent:'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:10, width:560, maxWidth:'95vw', maxHeight:'90vh',
+      <div style={{ background:'#fff', borderRadius:10, width:'95vw', height:'95vh',
                     overflow:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.25)' }}>
         <div style={{ background:'#1976d2', color:'#fff', padding:'14px 20px', borderRadius:'10px 10px 0 0',
                       display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontWeight:700, fontSize:16 }}>주문 추가</span>
+          <span style={{ fontWeight:700, fontSize:16 }}>주문 추가 {cart.length > 0 && <span style={{fontSize:12,opacity:0.8}}>({cart.length}개 품목)</span>}</span>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'#fff', fontSize:20, cursor:'pointer' }}>✕</button>
         </div>
         <div style={{ padding:'18px 20px' }}>
 
-          {/* 차수 */}
+          {/* 차수 — 좌우 버튼 */}
           <div style={{ marginBottom:14 }}>
             <label style={st.label}>차수</label>
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-              <input value={orderWeek} onChange={e=>setOrderWeek(e.target.value)} placeholder="예: 14-01"
-                style={{ ...st.modalInput, width:120 }} />
-              {weekFrom !== weekTo && (
-                <span style={{ fontSize:11, color:'#888' }}>범위: {weekFrom} ~ {weekTo}</span>
-              )}
+            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+              <button onClick={modalWeek.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
+              <button onClick={modalWeek.prev} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>◀</button>
+              <input {...modalWeek.props} style={{ ...st.modalInput, width:80, textAlign:'center', fontWeight:700 }} />
+              <button onClick={modalWeek.next} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>▶</button>
+              <button onClick={modalWeek.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
             </div>
           </div>
 
           {/* 업체 */}
           <div style={{ marginBottom:14 }}>
             <label style={st.label}>업체 선택</label>
-            {selCust ? (
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ background:'#e3f2fd', padding:'4px 12px', borderRadius:20, fontSize:13, fontWeight:600 }}>
-                  {selCust.CustName} <span style={{ color:'#888', fontSize:11 }}>({selCust.CustArea})</span>
-                </span>
-                <button onClick={()=>setSelCust(null)}
-                  style={{ ...st.pmBtn, background:'#ef5350', color:'#fff', width:'auto', padding:'2px 8px', fontSize:10 }}>변경</button>
-              </div>
-            ) : (
-              <>
-                <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
-                  style={st.modalInput} autoFocus />
-                <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
-                  {filteredCusts.map(c=>(
-                    <div key={c.CustKey} onClick={()=>{setSelCust(c);setCustSearch('');}}
-                      style={{ padding:'6px 10px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0',
-                               display:'flex', gap:6 }}
-                      onMouseOver={e=>e.currentTarget.style.background='#e3f2fd'}
-                      onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                      <b>{c.CustName}</b><span style={{color:'#888'}}>{c.CustArea}</span>
-                    </div>
-                  ))}
-                  {filteredCusts.length===0&&<div style={{padding:'8px 10px',color:'#999',fontSize:12}}>검색 결과 없음</div>}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 품목 */}
-          <div style={{ marginBottom:14 }}>
-            <label style={st.label}>품목 선택</label>
-            {selProd ? (
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ background:'#e8f5e9', padding:'4px 12px', borderRadius:20, fontSize:13, fontWeight:600 }}>
-                  {selProd.CounName} · {selProd.FlowerName} · {selProd.ProdName}
-                  <span style={{ color:'#888', fontSize:11, marginLeft:6 }}>[{selProd.OutUnit}]</span>
-                </span>
-                <button onClick={()=>setSelProd(null)}
-                  style={{ ...st.pmBtn, background:'#ef5350', color:'#fff', width:'auto', padding:'2px 8px', fontSize:10 }}>변경</button>
-              </div>
-            ) : (
-              <>
-                <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 / 꽃 / 국가 검색..."
-                  style={st.modalInput} />
-                <div style={{ border:'1px solid #e0e0e0', borderRadius:4, maxHeight:150, overflowY:'auto', marginTop:4 }}>
-                  {filteredProds.map(p=>(
-                    <div key={p.ProdKey} onClick={()=>{setSelProd(p);setProdSearch('');}}
-                      style={{ padding:'6px 10px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0',
-                               display:'flex', gap:6 }}
-                      onMouseOver={e=>e.currentTarget.style.background='#e8f5e9'}
-                      onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                      <b>{p.ProdName}</b>
-                      <span style={{color:'#888'}}>{p.CounName} · {p.FlowerName}</span>
-                      <span style={{color:'#1976d2', fontSize:11}}>[{p.OutUnit}]</span>
-                    </div>
-                  ))}
-                  {filteredProds.length===0&&<div style={{padding:'8px 10px',color:'#999',fontSize:12}}>검색 결과 없음</div>}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 단위 + 수량 */}
-          <div style={{ marginBottom:16, display:'flex', gap:16, alignItems:'flex-end', flexWrap:'wrap' }}>
-            <div>
-              <label style={st.label}>단위</label>
-              <div style={{ display:'flex', gap:6 }}>
-                {UNITS.map(u=>(
-                  <button key={u} onClick={()=>setUnit(u)}
-                    style={{ padding:'6px 14px', borderRadius:6, border:'1px solid',
-                             borderColor: unit===u ? '#1976d2' : '#ccc',
-                             background: unit===u ? '#1976d2' : '#f9f9f9',
-                             color: unit===u ? '#fff' : '#555',
-                             fontWeight: unit===u ? 700 : 400,
-                             cursor:'pointer', fontSize:13 }}>
-                    {u}
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+              <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>담당자:</span>
+              <button onClick={()=>setSelMgr('')} style={chipStyle(!selMgr)}>전체</button>
+              {mgrList.map(m=>(<button key={m} onClick={()=>setSelMgr(m)} style={chipStyle(selMgr===m)}>{m}</button>))}
+            </div>
+            <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="업체명 / 지역 검색..."
+              style={{ ...st.modalInput, marginBottom:6 }} autoFocus />
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', maxHeight:100, overflowY:'auto',
+                          border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa' }}>
+              {filteredCusts.map(c=>{
+                const cnt = orderCounts[c.CustKey] || 0;
+                return (
+                  <button key={c.CustKey} onClick={()=>setSelCust(c)}
+                    style={{ ...chipStyle(selCust?.CustKey===c.CustKey),
+                             borderColor: selCust?.CustKey===c.CustKey?'#1565c0':'#ccc',
+                             background: selCust?.CustKey===c.CustKey?'#1565c0':'#fff' }}>
+                    {c.CustName} <span style={{fontSize:9,opacity:0.7}}>{c.CustArea}</span>
+                    {cnt > 0 && <span style={{fontSize:8,opacity:0.6,marginLeft:2}}>({cnt})</span>}
                   </button>
+                );
+              })}
+              {filteredCusts.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
+            </div>
+          </div>
+
+          {/* 품목 선택 → 카트 추가 */}
+          <div style={{ marginBottom:14 }}>
+            <label style={st.label}>품목 선택 (클릭하여 추가) — 인기순 정렬</label>
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:4 }}>
+              <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>국가:</span>
+              <button onClick={()=>{setSelCoun('');setSelFlower('');}} style={chipStyle(!selCoun)}>전체</button>
+              {counList.map(c=>(<button key={c} onClick={()=>{setSelCoun(c);setSelFlower('');}} style={chipStyle(selCoun===c)}>{c}</button>))}
+            </div>
+            {flowerList.length > 0 && (
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+                <span style={{ fontSize:11, color:'#888', lineHeight:'24px' }}>꽃:</span>
+                <button onClick={()=>setSelFlower('')} style={chipStyle(!selFlower)}>전체</button>
+                {flowerList.map(f=>(<button key={f} onClick={()=>setSelFlower(f)} style={chipStyle(selFlower===f)}>{f}</button>))}
+              </div>
+            )}
+            <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..."
+              style={st.modalInput} />
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:4,
+                          maxHeight:280, overflowY:'auto',
+                          border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
+              {filteredProds.map(p=>{
+                const inCart = cart.some(c=>c.prod.ProdKey===p.ProdKey);
+                const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
+                const eq = existOrders[existKey];
+                return (
+                  <button key={p.ProdKey} onClick={()=>addToCart(p)}
+                    style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32': eq?'#ff9800':'#ccc',
+                             background: inCart?'#2e7d32': eq?'#fff3e0':'#fff', textAlign:'left' }}>
+                    {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                    {eq > 0 && !inCart && <span style={{fontSize:9,color:'#e65100',marginLeft:2}}>({eq})</span>}
+                  </button>
+                );
+              })}
+              {filteredProds.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
+            </div>
+          </div>
+
+          {/* 카트 */}
+          {cart.length > 0 && (
+            <div style={{ marginBottom:14, border:'1px solid #1976d2', borderRadius:6, overflow:'hidden' }}>
+              <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700 }}>
+                선택된 품목 ({cart.length}개)
+              </div>
+              <div style={{ maxHeight:180, overflowY:'auto' }}>
+                {cart.map((item, i) => (
+                  <div key={item.prod.ProdKey} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
+                       borderBottom:'1px solid #eee', background: i%2===0?'#fff':'#f9f9f9', fontSize:12 }}>
+                    <button onClick={()=>removeFromCart(item.prod.ProdKey)}
+                      style={{ background:'#ef5350', color:'#fff', border:'none', borderRadius:4, width:20, height:20, cursor:'pointer', fontSize:12, lineHeight:'18px', flexShrink:0 }}>✕</button>
+                    <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {item.prod.ProdName}
+                    </span>
+                    {item.existQty > 0 && <span style={{ color:'#e65100', fontSize:10, whiteSpace:'nowrap' }}>기존:{item.existQty}</span>}
+                    <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+                      {UNITS.map(u=>(
+                        <button key={u} onClick={()=>updateCartUnit(item.prod.ProdKey, u)}
+                          style={{ padding:'2px 6px', borderRadius:4, border:'1px solid', fontSize:10, cursor:'pointer',
+                                   borderColor: item.unit===u?'#1976d2':'#ccc', background: item.unit===u?'#1976d2':'#f9f9f9',
+                                   color: item.unit===u?'#fff':'#555', fontWeight: item.unit===u?700:400 }}>
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" value={item.qty}
+                      onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
+                      style={{ width:60, textAlign:'right', fontSize:11, padding:'3px 4px', border:'1px solid #ccc', borderRadius:3,
+                               background: item.qty < 0 ? '#ffebee' : '#fff', flexShrink:0 }} />
+                  </div>
                 ))}
               </div>
             </div>
-            <div>
-              <label style={st.label}>수량 ({unit})</label>
-              <input type="number" min={1} value={qty} onChange={e=>setQty(e.target.value)}
-                placeholder="0" style={{ ...st.modalInput, width:100 }} />
-            </div>
-          </div>
+          )}
 
           {error && <div style={{color:'#d32f2f',fontSize:12,marginBottom:10}}>⚠ {error}</div>}
 
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
             <button onClick={onClose} style={{ padding:'8px 20px', border:'1px solid #ccc', borderRadius:5, cursor:'pointer', background:'#f5f5f5' }}>취소</button>
-            <button onClick={handleSubmit} disabled={saving}
-              style={{ padding:'8px 24px', background:saving?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
-              {saving ? '저장중...' : '주문 추가'}
+            <button onClick={handleSubmit} disabled={saving || cart.length===0}
+              style={{ padding:'8px 24px', background:(saving||cart.length===0)?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
+              {saving ? '저장중...' : `주문 추가 (${cart.length}개)`}
             </button>
           </div>
         </div>
@@ -293,11 +350,13 @@ export default function StockStatus() {
   const [pivotSub, setPivotSub] = useState('byCust');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const isFirstLoad = useRef({ custs: true, mgrs: true }); // 첫 로드 시에만 전체숨김
 
   const [products,  setProducts]  = useState([]);
   const [custRows,  setCustRows]  = useState([]);
   const [mgrRows,   setMgrRows]   = useState([]);
   const [pivotRows, setPivotRows] = useState([]);
+  const [startStocks, setStartStocks] = useState({}); // { "ProdKey-OrderWeek": { stock, remark } }
 
   // 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
@@ -347,13 +406,19 @@ export default function StockStatus() {
     );
   }, [mgrRows]);
 
-  // 데이터 로드 시 칩 필터 초기화 — 기본값: 전체숨김
+  // 데이터 로드 시 칩 필터 — 첫 로드만 전체숨김, 이후(저장 후)는 기존 필터 유지
   useEffect(() => {
-    setHiddenCusts(new Set(custRows.map(r => r.CustKey)));
+    if (isFirstLoad.current.custs) {
+      setHiddenCusts(new Set(custRows.map(r => r.CustKey)));
+      isFirstLoad.current.custs = false;
+    }
   }, [custRows]);
   useEffect(() => {
-    setHiddenMgrs(new Set(mgrRows.map(r => r.Manager || '미지정')));
-    setHiddenMgrCusts({});
+    if (isFirstLoad.current.mgrs) {
+      setHiddenMgrs(new Set(mgrRows.map(r => r.Manager || '미지정')));
+      setHiddenMgrCusts({});
+      isFirstLoad.current.mgrs = false;
+    }
   }, [mgrRows]);
 
   // ── 칩 토글 헬퍼
@@ -389,13 +454,26 @@ export default function StockStatus() {
       if (t === 'products')  { setProducts(d.products||[]); setProdExpand({}); }
       if (t === 'customers') setCustRows(d.rows||[]);
       if (t === 'managers')  setMgrRows(d.rows||[]);
-      if (t === 'pivot')     setPivotRows(d.rows||[]);
+      if (t === 'pivot') {
+        setPivotRows(d.rows||[]);
+        // 차수 피벗용 customers 데이터도 로드
+        fetch(`/api/shipment/stock-status?${p}&view=customers`).then(r2=>r2.json()).then(d2=>{
+          if(d2.success) setCustRows(d2.rows||[]);
+        }).catch(()=>{});
+      }
+      // 시작재고 조회
+      fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`)
+        .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    if (weekFrom && weekTo) { setEditMap({}); loadData(weekFrom, weekTo, tab); }
+    if (weekFrom && weekTo) {
+      setEditMap({});
+      isFirstLoad.current = { custs: true, mgrs: true }; // 차수/탭 변경 시 필터 리셋
+      loadData(weekFrom, weekTo, tab);
+    }
   }, [weekFrom, weekTo, tab, loadData]);
 
   useEffect(() => {
@@ -433,6 +511,22 @@ export default function StockStatus() {
     } catch(e) { alert('오류: ' + e.message); }
     finally { setSaving(null); }
   }, [editMap, weekFrom, weekTo, tab, loadData]);
+
+  // ── 시작재고/시작비고 저장
+  const saveStartStock = useCallback(async (prodKey, week, stock, remark) => {
+    const key = `${prodKey}-${week}`;
+    const prev = startStocks[key] || {};
+    const s = stock != null ? stock : prev.stock;
+    const rm = remark != null ? remark : (prev.remark || '');
+    try {
+      const r = await fetch('/api/shipment/stock-status', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prodKey, week, stock: s, remark: rm }),
+      });
+      const d = await r.json();
+      if (d.success) setStartStocks(prev => ({ ...prev, [key]: { stock: parseFloat(s)||0, remark: rm } }));
+    } catch(e) { console.error(e); }
+  }, [startStocks]);
 
   // ── 품목 expand 토글
   const toggleProdExpand = useCallback(async (prodKey) => {
@@ -472,13 +566,23 @@ export default function StockStatus() {
   const hasWeek = weekFrom && weekTo;
   const isFilterActive = filterCoun || filterFlower || filterSearch;
 
+  // 품목 행 정렬: 차수(범위 조회 시) → 국가 → 꽃 → 품명
+  const sortItems = (items) => [...items].sort((a,b) => {
+    if (isRange && a.OrderWeek !== b.OrderWeek) return (a.OrderWeek||'').localeCompare(b.OrderWeek||'');
+    const c = (a.CounName||'').localeCompare(b.CounName||'', 'ko');
+    if (c !== 0) return c;
+    const f = (a.FlowerName||'').localeCompare(b.FlowerName||'', 'ko');
+    if (f !== 0) return f;
+    return (a.ProdName||'').localeCompare(b.ProdName||'', 'ko');
+  });
+
   // ─────────────────────────────────────────────────────────────
   // 품목별 탭
   // ─────────────────────────────────────────────────────────────
   const renderProducts = () => {
     if (!filteredProducts.length) return <div style={st.empty}>데이터 없음</div>;
     return (
-      <div style={{ overflowX:'auto' }}>
+      <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 300px)', overflowY:'auto' }}>
         <div style={{ fontSize:11, color:'#666', marginBottom:6 }}>
           💡 잔량 = 이월재고 + 입고 − 출고 | 행 클릭(▶) 시 업체별 출고수량 편집 가능
         </div>
@@ -487,17 +591,22 @@ export default function StockStatus() {
             <tr style={st.thead}>
               <th style={{ ...st.th, width:22 }}></th>
               <th style={st.th}>국가</th><th style={st.th}>꽃</th><th style={st.th}>품명</th><th style={st.th}>단위</th>
+              <th style={{ ...st.th, background:'#006064' }}>시작재고</th>
               <th style={{ ...st.th, background:'#2e7d32' }}>이월재고</th>
               <th style={{ ...st.th, background:'#1565c0' }}>입고수량</th>
               <th style={{ ...st.th, background:'#e65100' }}>주문수량</th>
               <th style={{ ...st.th, background:'#ad1457' }}>출고수량</th>
-              <th style={{ ...st.th, background:'#4a148c' }}>잔량</th>
+              <th style={{ ...st.th, background:'#4a148c' }}>잔량(재고)</th>
+              <th style={{ ...st.th, background:'#311b92' }}>잔량(기존)</th>
               <th style={{ ...st.th, background:'#455a64', minWidth:90 }}>기록</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.map((p, i) => {
               const remain   = (p.prevStock||0) + (p.inQty||0) - (p.outQty||0);
+              const ssObj = startStocks[`${p.ProdKey}-${weekFrom}`];
+              const ss = ssObj?.stock;
+              const remainSS = ss != null ? ss - (p.outQty||0) : null;
               const expState = prodExpand[p.ProdKey];
               const isExp    = expState !== undefined;
               const expRows  = Array.isArray(expState) ? expState : [];
@@ -512,22 +621,32 @@ export default function StockStatus() {
                     <td style={st.td}>{p.FlowerName}</td>
                     <td style={{ ...st.td, fontWeight:600 }}>{p.ProdName}</td>
                     <td style={{ ...st.td, textAlign:'center' }}>{p.OutUnit}</td>
+                    <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', padding:'2px 4px' }}
+                        onClick={e=>e.stopPropagation()}>
+                      <input type="number" defaultValue={ss ?? ''} placeholder="-"
+                        style={{ width:50, textAlign:'right', fontSize:11, padding:'2px 3px', border:'1px solid #ccc', borderRadius:3, background:'#fff' }}
+                        onBlur={e=>saveStartStock(p.ProdKey, weekFrom, e.target.value)} />
+                    </td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(p.prevStock)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(p.inQty)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(p.orderQty)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#fce4ec', fontWeight:600 }}>{fmt(p.outQty)}</td>
+                    <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa',
+                                 color: remainSS!=null?(remainSS<0?'#d32f2f':'#006064'):'#999', fontWeight:700 }}>
+                      {remainSS!=null ? fmt(remainSS) : '-'}
+                    </td>
                     <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5',
                                  color:remain<0?'#d32f2f':'#388e3c', fontWeight:700 }}>{fmt(remain)}</td>
                     <td style={st.td}></td>
                   </tr>
                   {isExp && expState==='loading' && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#888', fontSize:11 }}>업체별 로딩중...</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#888', fontSize:11 }}>업체별 로딩중...</td></tr>
                   )}
                   {isExp && expState==='error' && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#d32f2f', fontSize:11 }}>로드 실패</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#d32f2f', fontSize:11 }}>로드 실패</td></tr>
                   )}
                   {isExp && Array.isArray(expState) && expRows.length===0 && (
-                    <tr><td colSpan={11} style={{ ...st.td, textAlign:'center', color:'#bbb', fontSize:11 }}>출고 데이터 없음</td></tr>
+                    <tr><td colSpan={13} style={{ ...st.td, textAlign:'center', color:'#bbb', fontSize:11 }}>출고 데이터 없음</td></tr>
                   )}
                   {isExp && expRows.map(r2 => (
                     <tr key={`${p.ProdKey}-${r2.CustKey}-${r2.OrderWeek}`} style={{ background:'#eaf4fb' }}>
@@ -559,10 +678,12 @@ export default function StockStatus() {
           <tfoot>
             <tr style={{ background:'#eceff1', fontWeight:700 }}>
               <td colSpan={5} style={st.td}>합계 ({filteredProducts.length}품목)</td>
+              <td style={st.td}></td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.prevStock||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.inQty||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.orderQty||0),0))}</td>
               <td style={{ ...st.td, textAlign:'right' }}>{fmt(filteredProducts.reduce((a,p)=>a+(p.outQty||0),0))}</td>
+              <td style={st.td}></td>
               <td style={{ ...st.td, textAlign:'right',
                 color:filteredProducts.reduce((a,p)=>a+(p.prevStock||0)+(p.inQty||0)-(p.outQty||0),0)<0?'#d32f2f':'#388e3c' }}>
                 {fmt(filteredProducts.reduce((a,p)=>a+(p.prevStock||0)+(p.inQty||0)-(p.outQty||0),0))}
@@ -618,8 +739,9 @@ export default function StockStatus() {
         )}
 
         {visGroups.map(g => {
-          const totOut = g.items.reduce((a,b)=>a+(b.outQty||0),0);
-          const totOrd = g.items.reduce((a,b)=>a+(b.custOrderQty||0),0);
+          const sortedItems = sortItems(g.items);
+          const totOut = sortedItems.reduce((a,b)=>a+(b.outQty||0),0);
+          const totOrd = sortedItems.reduce((a,b)=>a+(b.custOrderQty||0),0);
           return (
             <div key={g.custKey} style={{ marginBottom:14 }}>
               <div style={st.custHeader}>
@@ -645,12 +767,14 @@ export default function StockStatus() {
                     </tr>
                   </thead>
                   <tbody>
-                    {g.items.map((item, i) => {
+                    {sortedItems.map((item, i) => {
                       const remain = (item.prevStock||0) + (item.totalInQty||0) - (item.totalOutQty||0);
                       return (
                         <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
-                          <td style={st.td}>{item.CounName}</td>
-                          <td style={st.td}>{item.FlowerName}</td>
+                          <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
+                              onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
+                          <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
+                              onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
                           <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
                           <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                           {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
@@ -720,8 +844,8 @@ export default function StockStatus() {
                 👤 담당자: {mgr}
               </div>
 
-              {/* 업체 칩 필터 (담당자 내) */}
-              {chips4mgr.length > 1 && (
+              {/* 업체 칩 필터 (담당자 내) — 업체 1개여도 항상 표시 */}
+              {chips4mgr.length > 0 && (
                 <div style={{ background:'#eceff1', padding:'6px 10px', borderBottom:'1px solid #d0d8e0' }}>
                   <ChipFilterBar
                     chips={chips4mgr}
@@ -737,8 +861,9 @@ export default function StockStatus() {
               {visCusts.length === 0 && <div style={{ padding:'12px 16px', color:'#aaa', fontSize:12 }}>표시할 업체 없음</div>}
 
               {visCusts.map(g => {
-                const totOut = g.items.reduce((a,b)=>a+(b.outQty||0),0);
-                const totOrd = g.items.reduce((a,b)=>a+(b.custOrderQty||0),0);
+                const sortedItems = sortItems(g.items);
+                const totOut = sortedItems.reduce((a,b)=>a+(b.outQty||0),0);
+                const totOrd = sortedItems.reduce((a,b)=>a+(b.custOrderQty||0),0);
                 return (
                   <div key={g.custKey}>
                     <div style={{ ...st.custHeader, borderRadius:0, borderLeft:'3px solid #78909c' }}>
@@ -753,30 +878,42 @@ export default function StockStatus() {
                           <tr style={{ ...st.thead, background:'#546e7a' }}>
                             <th style={st.th}>국가</th><th style={st.th}>꽃</th><th style={st.th}>품명</th><th style={st.th}>단위</th>
                             {isRange && <th style={st.th}>차수</th>}
+                            <th style={{ ...st.th, background:'#006064' }}>시작재고</th>
                             <th style={{ ...st.th, background:'#2e7d32' }}>이월재고</th>
                             <th style={{ ...st.th, background:'#455a64' }}>내주문</th>
                             <th style={{ ...st.th, background:'#455a64' }}>전체입고</th>
                             <th style={{ ...st.th, background:'#455a64' }}>전체주문</th>
                             <th style={{ ...st.th, background:'#ad1457' }}>출고수량 ±</th>
-                            <th style={{ ...st.th, background:'#4a148c' }}>잔량</th>
+                            <th style={{ ...st.th, background:'#4a148c' }}>잔량(재고)</th>
+                            <th style={{ ...st.th, background:'#311b92' }}>잔량(기존)</th>
                             <th style={{ ...st.th, background:'#455a64', minWidth:90 }}>기록</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {g.items.map((item,i) => {
+                          {sortedItems.map((item,i) => {
                             const remain = (item.prevStock||0)+(item.totalInQty||0)-(item.totalOutQty||0);
+                            const ssObj = startStocks[`${item.ProdKey}-${weekFrom}`];
+                            const ss = ssObj?.stock;
+                            const remainSS = ss != null ? ss - (item.totalOutQty||0) : null;
                             return (
                               <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
-                                <td style={st.td}>{item.CounName}</td>
-                                <td style={st.td}>{item.FlowerName}</td>
+                                <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
+                                    onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
+                                <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
+                                    onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
                                 <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
                                 <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                                 {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
+                                <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', color:'#006064', fontWeight:600 }}>
+                                  {ss != null ? fmt(ss) : '-'}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(item.prevStock)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(item.custOrderQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(item.totalInQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#f0f4c3' }}>{fmt(item.totalOrderQty)}</td>
                                 <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} baseQty={item.outQty} />
+                                <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa',
+                                             color: remainSS!=null?(remainSS<0?'#d32f2f':'#006064'):'#999', fontWeight:700 }}>
+                                  {remainSS!=null ? fmt(remainSS) : '-'}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5',
                                              color:remain<0?'#d32f2f':'#388e3c', fontWeight:700 }}>{fmt(remain)}</td>
                                 <td style={{ ...st.td, fontSize:10, color:'#888', whiteSpace:'nowrap', textAlign:'center' }}>{item.outCreateDtm || '—'}</td>
@@ -797,10 +934,435 @@ export default function StockStatus() {
   };
 
   // ─────────────────────────────────────────────────────────────
+  // 차수 피벗 뷰 (품명 × 업체 × 차수 + 롤링 재고) — 모아보기 탭에서 사용
+  // ─────────────────────────────────────────────────────────────
+  // 업체 짧은 이름: Descr의 '/' 앞 부분, 없으면 업체명
+  const custShortName = useCallback((r) => {
+    const d = r.CustDescr || r.Descr || '';
+    if (d) { const first = d.split('/')[0].trim(); if (first) return first; }
+    return r.CustName;
+  }, []);
+
+  // 품명에서 모든 꽃/국가 영문명 제거
+  const stripProdName = useCallback((name) => {
+    return name
+      .replace(/^(\[.*?\]\s*)*/,'')  // [MEL], [EZ], [오경] 등
+      .replace(/^(SPRAY\s+ROSE|ORCHID\s+VIETNAM|Ecuador\s+Tinted?|ALSTROMERIA|Minicarnation|CARNATION|Hydrangea|Anthurium|Delphinium|Amaryllis|Eucalyptus|Gladiolus|Asparagus|POMPON|DAHLIA|Ecuador|ORCHID|CHINA|ROSE|Tulip|Calla|Sweet|Gerbera|Peony|Den\.|Lisianthus|Hyacinthus|Spary|Allium|Acasia|Narcissus|Eryngium|Clematis|Veronica|Agapanthus|Helleborus|Fritillaria|Wax|Skimmia|Astrantia|Eyphorbia|Cymbidium|Panicum|Amaranthus|Nerine|Lily|Bouvardia|Ranunculus|Saponaria|Astilbe|Iris|Ruscus|SALAL|MOK|Rosa|Gentiana|Scabiosa|Sandersonia|Matricaria|Triteleia|Leucospermum|Campanula|Gloriosa|Grevillea|Jasmine|Oncidium|Fern|Cotton|Cortaderia|Kangaroo|Pong|Eustoma|ARAN|STATICE|LIMONIUM|PITTOSPORUM|Nutan|Preserved|Leucothoe|Genista|Thryptomene|Ananas|Wolly|Garden)\s*[\/\s]*/i, '')
+      .replace(/^\s*\/\s*/,'').trim() || name;
+  }, []);
+
+  // 피벗 전용 필터
+  const [pvMgr, setPvMgr] = useState('');
+  const [pvCusts, setPvCusts] = useState(new Set());
+  const [pvFlowers, setPvFlowers] = useState(new Set()); // 다중 꽃 선택
+  const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 접기/펼치기
+  const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false); // 출고 있는 품목만
+  // 피벗 셀 인라인 편집
+  const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
+
+  const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
+    const qty = parseFloat(newQty) || 0;
+    const old = parseFloat(oldQty) || 0;
+    if (qty === old) { setPvEdit(null); return; }
+    try {
+      const diff = qty - old;
+      const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
+      const r = await fetch('/api/shipment/stock-status', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, outQty: qty,
+          descrLog: `${custName} ${old}>${qty}(${diffStr})` }),
+      });
+      const d = await r.json();
+      if (d.success) { setPvEdit(null); loadData(weekFrom, weekTo, tab); }
+      else alert('저장 실패: ' + d.error);
+    } catch(e) { alert('오류: ' + e.message); }
+  }, [weekFrom, weekTo, tab, loadData]);
+
+  const renderWeekPivot = () => {
+    // 담당자/업체 목록 (필터용) — 필터 전 원본에서 추출
+    const allMgrs = [...new Set(custRows.map(r=>r.Manager||'미지정'))].sort();
+    const allCusts = {};
+    custRows.forEach(r => { allCusts[r.CustKey] = { name: r.CustName, area: r.CustArea, descr: r.CustDescr, mgr: r.Manager }; });
+    const allCustList = Object.entries(allCusts)
+      .filter(([,c]) => !pvMgr || (c.mgr||'미지정')===pvMgr)
+      .sort((a,b) => ((a[1].area||'')+a[1].name).localeCompare((b[1].area||'')+b[1].name, 'ko'));
+
+    // 피벗 전용 필터 적용
+    let rows = filteredCustRows;
+    if (pvMgr) rows = rows.filter(r => (r.Manager||'미지정') === pvMgr);
+    if (pvCusts.size > 0) rows = rows.filter(r => pvCusts.has(r.CustKey));
+    if (pvFlowers.size > 0) rows = rows.filter(r => pvFlowers.has(r.FlowerName));
+
+    const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
+    const custMap = {};
+    rows.forEach(r => { custMap[r.CustKey] = { name: r.CustName, area: r.CustArea || '기타', descr: r.CustDescr }; });
+    const custKeys = Object.keys(custMap).map(Number)
+      .sort((a,b) => ((custMap[a].area+custMap[a].name).localeCompare(custMap[b].area+custMap[b].name, 'ko')));
+    // 지역 그룹 계산
+    const areaGroups = [];
+    let lastArea = null, areaStart = 0;
+    custKeys.forEach((ck, i) => {
+      const area = custMap[ck].area;
+      if (area !== lastArea) { if (lastArea !== null) areaGroups.push({ area: lastArea, count: i - areaStart }); lastArea = area; areaStart = i; }
+    });
+    if (lastArea !== null) areaGroups.push({ area: lastArea, count: custKeys.length - areaStart });
+
+    // 품목 — 주문 또는 출고 수량이 있는 것
+    const prodMap = {};
+    rows.forEach(r => {
+      if (pvShowOnlyOut) {
+        // 출고 또는 시작재고 있는 품목만
+        if ((r.outQty||0) > 0 || Object.keys(startStocks).some(k => k.startsWith(`${r.ProdKey}-`) && startStocks[k]?.stock)) {
+          if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+        }
+      } else {
+        // 전체 모드: 주문 또는 출고가 있는 것
+        if ((r.outQty||0) > 0 || (r.custOrderQty||0) > 0 || (r.orderQty||0) > 0) {
+          if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
+        }
+      }
+    });
+    const prodKeys = Object.keys(prodMap).map(Number).sort((a,b) =>
+      ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
+       (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''), 'ko'));
+
+    const dataMap = {}, inMap = {}, descrMap = {}, fixMap = {};
+    rows.forEach(r => {
+      const dk = `${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
+      dataMap[dk] = r.outQty || 0;
+      if (r.outDescr) descrMap[dk] = r.outDescr;
+      if (r.outCreateDtm) fixMap[dk] = r.outCreateDtm; // ShipmentDtm 존재 = 확정 여부 판단용
+      const ik = `${r.ProdKey}-${r.OrderWeek}`;
+      if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
+    });
+    // isFix: CustKey-OrderWeek 단위로 확정 여부
+    const isFixed = (ck, wk) => {
+      return rows.some(r => r.CustKey===ck && r.OrderWeek===wk && r.isFix);
+    };
+
+    if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
+
+    const PROD_REPEAT = 10;
+    const CUST_REPEAT = 15;
+    const stockCols = 7; // 시작재고/시작비고/입고/출고/잔량/비고
+    const prodLabelCols = custKeys.length > CUST_REPEAT ? Math.floor((custKeys.length-1) / CUST_REPEAT) : 0;
+    const colsPerWeek = custKeys.length + stockCols + prodLabelCols;
+
+    // 업체 짧은 이름
+    const cShort = (ck) => {
+      const c = custMap[ck];
+      if (!c) return '?';
+      const d = (c.descr||'').split('/')[0].trim();
+      return d || c.name;
+    };
+
+    const chipS = (active) => ({
+      padding:'2px 8px', borderRadius:10, border:'1px solid', fontSize:10, cursor:'pointer', fontWeight: active?700:400,
+      borderColor: active?'#1976d2':'#ccc', background: active?'#1976d2':'#f5f5f5', color: active?'#fff':'#555',
+    });
+
+    const renderHeaderRows = () => (
+      <>
+        <tr style={st.thead}>
+          <th style={{ ...st.th, position:'sticky', left:0, background:'#263238', zIndex:3 }} rowSpan={3}>품명</th>
+          {weeks.map(wk => (
+            <th key={wk} colSpan={colsPerWeek} style={{ ...st.th, textAlign:'center', background:'#1a237e', fontSize:12, borderLeft:'2px solid #fff' }}>{wk}</th>
+          ))}
+        </tr>
+        <tr style={st.thead}>
+          {weeks.map(wk => (
+            <React.Fragment key={wk}>
+              {areaGroups.map((ag,ai) => (
+                <th key={`${wk}-a${ai}`} colSpan={ag.count} style={{ ...st.th, textAlign:'center', background:'#455a64', fontSize:9, borderLeft: ai===0?'2px solid #fff':'none' }}>{ag.area}</th>
+              ))}
+              <th colSpan={stockCols} style={{ ...st.th, textAlign:'center', background:'#004d40', fontSize:9 }}>재고</th>
+            </React.Fragment>
+          ))}
+        </tr>
+        <tr style={st.thead}>
+          {weeks.map(wk => (
+            <React.Fragment key={wk}>
+              {custKeys.map((ck,ci) => (
+                <React.Fragment key={`${wk}-${ck}`}>
+                  {ci > 0 && ci % CUST_REPEAT === 0 && <th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
+                  <th style={{ ...st.th, fontSize:9, textAlign:'center', minWidth:44, maxWidth:60,
+                      whiteSpace:'normal', wordBreak:'break-all', lineHeight:'1.2', padding:'4px 2px',
+                      borderLeft: ci===0?'2px solid #fff':'none' }}>
+                    {cShort(ck)}
+                  </th>
+                </React.Fragment>
+              ))}
+              <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작재고</th>
+              <th style={{ ...st.th, background:'#004d40', textAlign:'center', fontSize:8, minWidth:50 }}>시작비고</th>
+              <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
+              <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
+              <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
+              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth: pvDescrOpen?80:30, cursor:'pointer' }}
+                  onClick={()=>setPvDescrOpen(p=>!p)}>
+                {pvDescrOpen ? '비고 ▾' : '▸'}
+              </th>
+            </React.Fragment>
+          ))}
+        </tr>
+      </>
+    );
+
+    return (
+      <div>
+        {/* 피벗 필터: 담당자 → 업체 → 국가 → 꽃 */}
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>담당자:</span>
+          <button onClick={()=>{setPvMgr('');setPvCusts(new Set());}} style={chipS(!pvMgr)}>전체</button>
+          {allMgrs.map(m=>(<button key={m} onClick={()=>{setPvMgr(m);setPvCusts(new Set());}} style={chipS(pvMgr===m)}>{m}</button>))}
+        </div>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>업체:</span>
+          <button onClick={()=>setPvCusts(new Set())} style={chipS(pvCusts.size===0)}>전체</button>
+          {allCustList.map(([ck,c])=>{
+            const k=Number(ck); const active=pvCusts.has(k);
+            const short=(c.descr||'').split('/')[0].trim()||c.name;
+            return (<button key={ck} onClick={()=>setPvCusts(prev=>{const n=new Set(prev);active?n.delete(k):n.add(k);return n;})} style={chipS(active)}>{short}</button>);
+          })}
+        </div>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+          <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>국가:</span>
+          <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
+          {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
+        </div>
+        {filterCoun && (() => {
+          const flowers = [...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort();
+          return (
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
+              <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
+              <button onClick={()=>setPvFlowers(new Set())} style={chipS(pvFlowers.size===0)}>전체</button>
+              {flowers.map(f=>{
+                const active = pvFlowers.has(f);
+                return (<button key={f} onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);active?n.delete(f):n.add(f);return n;})} style={chipS(active)}>{f}</button>);
+              })}
+            </div>
+          );
+        })()}
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+          <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+            <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
+            출고/재고 있는 품목만
+          </label>
+          <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
+        </div>
+        <button onClick={()=>{
+          // 엑셀 데이터 생성
+          const xlData = [];
+          // 헤더
+          const hdr = ['국가','꽃','품명'];
+          weeks.forEach(wk => { custKeys.forEach(ck => hdr.push(`${wk} ${cShort(ck)}`)); hdr.push(`${wk} 시작`,`${wk} 입고`,`${wk} 출고`,`${wk} 잔량`); });
+          xlData.push(hdr);
+          // 데이터
+          prodKeys.forEach(pk => {
+            const p = prodMap[pk];
+            const row = [p.coun, p.flower, stripProdName(p.name)];
+            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+            weeks.forEach(wk => {
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              if (wkSS != null) rs = wkSS;
+              custKeys.forEach(ck => row.push(dataMap[`${pk}-${ck}-${wk}`]||0));
+              const wStart = rs, inQ = inMap[`${pk}-${wk}`]||0;
+              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
+              rs = wStart + inQ - wOut;
+              row.push(wStart, inQ, wOut, rs);
+            });
+            xlData.push(row);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(xlData);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, '차수피벗');
+          XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
+        }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
+        <button onClick={()=>{
+          // 잔량 있는 품목 클립보드 복사 (마지막 차수 기준)
+          const lines = [];
+          prodKeys.forEach(pk => {
+            const p = prodMap[pk];
+            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+            weeks.forEach(wk => {
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              if (wkSS != null) rs = wkSS;
+              const inQ = inMap[`${pk}-${wk}`]||0;
+              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
+              rs = rs + inQ - wOut;
+            });
+            if (rs > 0) lines.push(`${stripProdName(p.name)} ${rs}`);
+          });
+          if (lines.length === 0) { alert('잔량이 있는 품목이 없습니다'); return; }
+          navigator.clipboard.writeText(lines.join('\n')).then(()=>alert(`${lines.length}개 품목 복사됨`));
+        }} style={{ ...st.addBtn, marginBottom:8, background:'#6a1b9a', marginLeft:8 }}>📋 잔량 복사</button>
+
+        {rows.length === 0 ? (
+          <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>
+        ) : (
+        <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'70vh', position:'relative' }}>
+        <table style={{ ...st.table, fontSize:10, borderCollapse:'collapse' }}>
+          <thead style={{ position:'sticky', top:0, zIndex:4 }}>
+            {renderHeaderRows()}
+          </thead>
+          <tbody>
+            {prodKeys.map((pk, pi) => {
+              const p = prodMap[pk];
+              let rollingStock = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+
+              // N품목마다 업체헤더 반복
+              const needCustRepeat = pi > 0 && pi % PROD_REPEAT === 0;
+
+              return (
+                <React.Fragment key={pk}>
+                  {needCustRepeat && (
+                    <tr style={{ background:'#eceff1' }}>
+                      <td style={{ ...st.td, position:'sticky', left:0, background:'#eceff1', zIndex:1, fontSize:9, color:'#555', fontWeight:700 }}>▼ 업체 ▼</td>
+                      {weeks.map(wk => (
+                        <React.Fragment key={wk}>
+                          {custKeys.map((ck,ci) => (
+                            <React.Fragment key={`r-${wk}-${ck}`}>
+                              {ci > 0 && ci % CUST_REPEAT === 0 && <td style={{...st.td,background:'#eceff1',fontSize:7,color:'#888',textAlign:'center'}}>품명</td>}
+                              <td style={{ ...st.td, fontSize:8, textAlign:'center', color:'#555', fontWeight:600,
+                                  whiteSpace:'normal', wordBreak:'break-all', background:'#eceff1',
+                                  borderLeft: ci===0?'2px solid #ccc':'none' }}>
+                                {cShort(ck)}
+                              </td>
+                            </React.Fragment>
+                          ))}
+                          <td colSpan={stockCols} style={{ ...st.td, background:'#eceff1' }}></td>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  )}
+                  <tr style={{ background: pi%2===0?'#fff':'#f5f5f5' }}>
+                    <td style={{ ...st.td, position:'sticky', left:0, background: pi%2===0?'#fff':'#f5f5f5', zIndex:1, minWidth:150 }}>
+                      <span style={{ ...st.clickCell, fontSize:8, color: filterCoun===p.coun?'#1565c0':'#999' }}
+                            onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
+                      <span style={{ ...st.clickCell, fontSize:8, color: filterFlower===p.flower?'#2e7d32':'#999', marginLeft:2 }}
+                            onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
+                      <div style={{fontWeight:600, fontSize:10}}>{stripProdName(p.name)}</div>
+                    </td>
+                    {weeks.map(wk => {
+                      // 해당 차수에 시작재고가 입력되어 있으면 rollingStock을 덮어씀
+                      const ssKey = `${pk}-${wk}`;
+                      const ssObj = startStocks[ssKey];
+                      if (ssObj?.stock != null) rollingStock = ssObj.stock;
+                      const weekStart = rollingStock;
+                      const inQty = inMap[`${pk}-${wk}`] || 0;
+                      const weekOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+                      rollingStock = weekStart + inQty - weekOut;
+                      return (
+                        <React.Fragment key={wk}>
+                          {custKeys.map((ck,ci) => {
+                            const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                            return (
+                              <React.Fragment key={`${wk}-${ck}`}>
+                                {ci > 0 && ci % CUST_REPEAT === 0 && (
+                                  <td style={{...st.td,fontSize:8,fontWeight:600,color:'#e65100',whiteSpace:'nowrap',
+                                      background:'#fff8e1',borderLeft:'2px solid #ff9800',padding:'2px 4px',
+                                      whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.1',maxWidth:56,minWidth:56}}>
+                                    {stripProdName(p.name).slice(0,10)}
+                                  </td>
+                                )}
+                                {(() => {
+                                  const fixed = isFixed(ck, wk);
+                                  return (
+                                    <td style={{...st.td,textAlign:'right',fontSize:10,
+                                        cursor: fixed?'not-allowed':'pointer',
+                                        borderLeft: ci===0?'2px solid #e0e0e0':'none',
+                                        color:v>0?'#1565c0':'#ddd',
+                                        background: fixed?'#f5f5f5': pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
+                                        onClick={()=>{ if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;} setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)}); }}>
+                                      {v>0?fmt(v):'·'}
+                                      {fixed && v>0 && <span style={{fontSize:7,color:'#999'}}>🔒</span>}
+                                    </td>
+                                  );
+                                })()}
+                              </React.Fragment>
+                            );
+                          })}
+                          <td style={{...st.td,textAlign:'right',background:'#e0f7fa',padding:'2px 3px'}}
+                              onClick={e=>e.stopPropagation()}>
+                            <input type="number" key={`ss-${pk}-${wk}`} defaultValue={ssObj?.stock??''} placeholder="-"
+                              style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                              onBlur={e=>saveStartStock(pk,wk,e.target.value)} />
+                          </td>
+                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa',padding:'1px 2px'}}
+                              onClick={e=>e.stopPropagation()}>
+                            <input type="text" key={`sr-${pk}-${wk}`} defaultValue={ssObj?.remark??''} placeholder="-"
+                              style={{width:46,fontSize:8,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                              onBlur={e=>saveStartStock(pk,wk,null,e.target.value)} />
+                          </td>
+                          <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
+                          <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
+                                      color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                          {(() => {
+                            const logs = custKeys.map(ck=>descrMap[`${pk}-${ck}-${wk}`]).filter(Boolean);
+                            const cnt = logs.reduce((a,l) => a + l.split('\n').filter(Boolean).length, 0);
+                            return (
+                              <td style={{...st.td,fontSize:8,color:'#555',maxWidth: pvDescrOpen?120:30,whiteSpace:'pre-line',lineHeight:'1.2',cursor:'pointer'}}
+                                  onClick={()=>setPvDescrOpen(p=>!p)}>
+                                {pvDescrOpen ? (logs.join('\n') || '') : (cnt > 0 ? <span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span> : '')}
+                              </td>
+                            );
+                          })()}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      )}
+      {/* 수량 수정 모달 */}
+      {pvEdit && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&setPvEdit(null)}>
+          <div style={{background:'#fff',borderRadius:10,padding:20,boxShadow:'0 8px 32px rgba(0,0,0,0.3)',minWidth:280,textAlign:'center'}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>출고수량 수정</div>
+            <div style={{fontSize:12,color:'#888',marginBottom:8}}>{pvEdit.custName}</div>
+            <div style={{display:'flex',gap:16,justifyContent:'center',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:'#888'}}>기존수량</div>
+                <div style={{fontSize:24,fontWeight:700,color:'#37474f'}}>{pvEdit.val}</div>
+              </div>
+              <div style={{fontSize:20,color:'#aaa',lineHeight:'48px'}}>→</div>
+              <div>
+                <div style={{fontSize:10,color:'#1976d2'}}>수정수량</div>
+                <div style={{fontSize:24,fontWeight:700,color:'#1976d2'}}>{pvEdit.newVal}</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6,justifyContent:'center',marginBottom:12}}>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)-10}))} style={{...st.pmBtn,width:44,fontSize:12,background:'#ffcdd2'}}>-10</button>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)-1}))} style={{...st.pmBtn,width:44,fontSize:14,background:'#ffcdd2'}}>-1</button>
+              <input type="number" value={pvEdit.newVal} onChange={e=>setPvEdit(p=>({...p,newVal:parseFloat(e.target.value)||0}))}
+                style={{width:60,textAlign:'center',fontSize:16,fontWeight:700,border:'2px solid #1976d2',borderRadius:6,padding:'4px'}} />
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)+1}))} style={{...st.pmBtn,width:44,fontSize:14,background:'#c8e6c9'}}>+1</button>
+              <button onClick={()=>setPvEdit(p=>({...p,newVal:(p.newVal||0)+10}))} style={{...st.pmBtn,width:44,fontSize:12,background:'#c8e6c9'}}>+10</button>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+              <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
+              <button onClick={()=>savePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName)}
+                style={{padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────
   // 모아보기 탭
   // ─────────────────────────────────────────────────────────────
   const renderPivot = () => {
-    if (!pivotRows.length) return <div style={st.empty}>출고 데이터 없음 (출고수량 0 제외)</div>;
+    if (!pivotRows.length) return <div style={st.empty}>주문/출고 데이터 없음</div>;
 
     if (pivotSub === 'byCust') {
       const prodMap={}, custMap={};
@@ -913,18 +1475,23 @@ export default function StockStatus() {
   // ─────────────────────────────────────────────────────────────
   return (
     <EditCtx.Provider value={{ editMap, setEditMap, saving, handleSave }}>
-      <Layout title="출고,재고상황">
         <div style={{ padding:'16px 20px', maxWidth:1600, margin:'0 auto' }}>
 
           {/* 헤더 */}
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap' }}>
             <h2 style={{ margin:0, fontSize:18, fontWeight:700 }}>출고,재고상황</h2>
-            <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f5f5f5',
+            <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5',
                           padding:'6px 10px', borderRadius:6, border:'1px solid #e0e0e0' }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>차수</span>
+              <button onClick={()=>{weekFromInput.prevWeek();weekToInput.prevWeek();}} style={st.weekSyncBtn} title="양쪽 이전 주차">◀◀</button>
+              <button onClick={weekFromInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekFromInput} />
+              <button onClick={weekFromInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
               <span style={{ color:'#aaa', fontWeight:700 }}>~</span>
+              <button onClick={weekToInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekToInput} />
+              <button onClick={weekToInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
+              <button onClick={()=>{weekFromInput.nextWeek();weekToInput.nextWeek();}} style={st.weekSyncBtn} title="양쪽 다음 주차">▶▶</button>
               {isRange && <span style={{ fontSize:11, color:'#1976d2' }}>(범위)</span>}
             </div>
             <button onClick={() => hasWeek && loadData(weekFrom, weekTo, tab)} style={st.refreshBtn} disabled={!hasWeek||loading}>
@@ -985,17 +1552,6 @@ export default function StockStatus() {
             ))}
           </div>
 
-          {tab==='pivot' && (
-            <div style={{ display:'flex', gap:4, marginBottom:12 }}>
-              {[{key:'byCust',label:'🏢 업체기준'},{key:'byProd',label:'📦 품목기준'}].map(s=>(
-                <button key={s.key} onClick={()=>setPivotSub(s.key)}
-                  style={{ ...st.subTabBtn, ...(pivotSub===s.key?st.subTabBtnActive:{}) }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* 콘텐츠 */}
           {!hasWeek ? (
             <div style={st.empty}>차수를 선택해 주세요</div>
@@ -1006,17 +1562,38 @@ export default function StockStatus() {
               {tab==='products'  && renderProducts()}
               {tab==='customers' && renderCustomers()}
               {tab==='managers'  && renderManagers()}
-              {tab==='pivot'     && renderPivot()}
+              {tab==='pivot' && (
+                <>
+                  <div style={{ display:'flex', gap:4, marginBottom:10 }}>
+                    {[{key:'byCust',label:'🏢 업체기준'},{key:'byProd',label:'📦 품목기준'},{key:'weekPivot',label:'📊 차수 피벗'}].map(s=>(
+                      <button key={s.key} onClick={()=>setPivotSub(s.key)}
+                        style={{ ...st.subTabBtn, ...(pivotSub===s.key?st.subTabBtnActive:{}) }}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  {pivotSub==='weekPivot' ? renderWeekPivot() : renderPivot()}
+                </>
+              )}
             </>
           )}
         </div>
-      </Layout>
 
       {showAddOrder && (
         <AddOrderModal
           weekFrom={weekFrom} weekTo={weekTo}
           onClose={() => setShowAddOrder(false)}
-          onSuccess={() => loadData(weekFrom, weekTo, tab)}
+          onSuccess={({ custKey }) => {
+            // 업체별 탭: 해당 업체 칩 자동 활성화
+            setHiddenCusts(prev => { const n = new Set(prev); n.delete(custKey); return n; });
+            // 담당자별 탭: 모든 담당자의 해당 업체 칩 자동 활성화
+            setHiddenMgrCusts(prev => {
+              const n = { ...prev };
+              Object.keys(n).forEach(mgr => { const s = new Set(n[mgr]); s.delete(custKey); n[mgr] = s; });
+              return n;
+            });
+            loadData(weekFrom, weekTo, tab);
+          }}
         />
       )}
     </EditCtx.Provider>
@@ -1033,6 +1610,7 @@ const st = {
   thead: { background:'#37474f', color:'#fff' },
   th: { padding:'8px 10px', textAlign:'left', borderRight:'1px solid #546e7a', whiteSpace:'nowrap', fontWeight:600, fontSize:12 },
   td: { padding:'6px 10px', borderBottom:'1px solid #e0e0e0', borderRight:'1px solid #f0f0f0', fontSize:12 },
+  clickCell: { cursor:'pointer', textDecoration:'underline', textDecorationColor:'#bbb', textUnderlineOffset:2 },
   empty: { textAlign:'center', padding:'60px 20px', color:'#999', fontSize:14 },
   custHeader: {
     background:'#eceff1', padding:'8px 12px', borderRadius:'4px 4px 0 0',
@@ -1040,6 +1618,8 @@ const st = {
     display:'flex', alignItems:'center', flexWrap:'wrap', gap:4,
   },
   refreshBtn: { padding:'5px 12px', background:'#f5f5f5', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', fontSize:12 },
+  weekBigBtn: { padding:'4px 8px', border:'2px solid #1976d2', borderRadius:4, cursor:'pointer', background:'#e3f2fd', fontSize:14, fontWeight:700, color:'#1976d2' },
+  weekSyncBtn: { padding:'4px 8px', border:'2px solid #e65100', borderRadius:4, cursor:'pointer', background:'#fff3e0', fontSize:11, fontWeight:700, color:'#e65100' },
   addBtn: { padding:'5px 14px', background:'#1976d2', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:12, fontWeight:600 },
   tabBtn: { padding:'8px 18px', border:'none', background:'transparent', cursor:'pointer', fontSize:13, fontWeight:500, color:'#666', borderBottom:'3px solid transparent', marginBottom:-2 },
   tabBtnActive: { color:'#1976d2', borderBottom:'3px solid #1976d2', fontWeight:700 },

@@ -83,20 +83,28 @@ body {
 .card-body     { padding: 8px; }
 
 /* ── 테이블 ── */
-.table-wrap    { overflow: auto; border: 1px solid var(--border2); }
+.table-wrap    { overflow: auto; border: 1px solid var(--border2); position: relative; }
 .tbl           { width: 100%; border-collapse: collapse; font-size: 12px; }
 .tbl thead tr  { background: var(--header-bg); }
+.tbl thead     { position: sticky; top: 0; z-index: 2; }
 .tbl th        { padding: 3px 6px; border: 1px solid var(--border); font-weight: bold; text-align: left; white-space: nowrap; font-size: 12px; color: var(--text1); }
 .tbl td        { padding: 2px 6px; border-right: 1px solid var(--border); border-bottom: 1px solid #E8E8E8; white-space: nowrap; }
 .tbl tbody tr:hover     { background: #E8F0FF; }
 .tbl tbody tr.selected  { background: var(--blue-sel) !important; }
 .tbl tbody tr:nth-child(even) { background: var(--row-alt); }
 .tbl tbody tr:nth-child(even):hover { background: #E8F0FF; }
-.tbl tfoot tr  { background: var(--header-bg); font-weight: bold; }
+.tbl tfoot tr  { background: var(--header-bg); font-weight: bold; position: sticky; bottom: 0; z-index: 2; }
 .tbl tfoot td  { padding: 3px 6px; border: 1px solid var(--border); }
 .tbl th        { resize: horizontal; overflow: hidden; }
 .num           { text-align: right; font-family: var(--mono); }
-.name          { font-weight: 500; }
+.name          { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 품목명 폭 제한 ── */
+.tbl td.prod-name, .tbl .prod-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 테이블 스크롤 영역: 높이 제한 + 가로/세로 스크롤 ── */
+.table-scroll  { overflow: auto; max-height: calc(100vh - 220px); position: relative; }
+
 
 /* ── 분할 패널 ── */
 .split-panel   { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
