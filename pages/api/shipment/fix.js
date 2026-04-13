@@ -52,12 +52,19 @@ async function fix(req, res, week, prodKeyFilter) {
         { sk: { type: sql.Int, value: sk } });
     }
 
-    // 이전 차수 StockKey
+    // 이전 차수 StockKey (확정된 차수)
     const prevSM = await tQuery(
       `SELECT TOP 1 StockKey FROM StockMaster WHERE OrderWeek < @wk AND isFix=1 ORDER BY OrderWeek DESC`,
       { wk: { type: sql.NVarChar, value: week } }
     );
     const prevStockKey = prevSM.recordset[0]?.StockKey || null;
+
+    // 시작재고 StockKey (isFix=2: 차수피벗에서 수동 입력한 시작재고 우선 사용)
+    const startSM = await tQuery(
+      `SELECT StockKey FROM StockMaster WHERE OrderWeek=@wk AND isFix=2`,
+      { wk: { type: sql.NVarChar, value: week } }
+    );
+    const startStockKey = startSM.recordset[0]?.StockKey || null;
 
     // 출고 집계
     let shipWhere = 'WHERE sm.OrderWeek=@wk AND sm.isDeleted=0';
@@ -86,7 +93,22 @@ async function fix(req, res, week, prodKeyFilter) {
     let cnt = 0; const items = [];
     for (const pk of allProdKeys) {
       let prevStock = 0;
-      if (prevStockKey) {
+      // 시작재고(isFix=2) 우선 — 없으면 이전 확정 차수 재고 사용
+      if (startStockKey) {
+        const ss = await tQuery(
+          `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
+          { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: startStockKey } }
+        );
+        if (ss.recordset.length > 0) {
+          prevStock = ss.recordset[0].Stock || 0;
+        } else if (prevStockKey) {
+          const ps = await tQuery(
+            `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
+            { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: prevStockKey } }
+          );
+          prevStock = ps.recordset[0]?.Stock || 0;
+        }
+      } else if (prevStockKey) {
         const ps = await tQuery(
           `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
           { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: prevStockKey } }

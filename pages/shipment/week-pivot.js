@@ -274,8 +274,11 @@ export default function WeekPivot() {
     setLoading(true); setApiError('');
     try {
       const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}`;
-      // customers 데이터 로드 (핵심 - 단독 await)
-      const custResp = await fetch(`/api/shipment/stock-status?${p}&view=customers`);
+      // customers 데이터와 시작재고 동시 로드
+      const [custResp, ssResp] = await Promise.all([
+        fetch(`/api/shipment/stock-status?${p}&view=customers`),
+        fetch(`/api/shipment/stock-status?${p}&view=startStocks`),
+      ]);
       // 인증 만료 → 로그인 페이지로
       if (custResp.status === 401) { router.replace('/login'); return; }
       const custRes = await custResp.json();
@@ -284,6 +287,15 @@ export default function WeekPivot() {
       } else {
         setApiError(custRes.error || 'API 오류');
         setCustRows([]);
+      }
+      // 시작재고 초기화 (DB 저장값)
+      if (ssResp.ok) {
+        const ssRes = await ssResp.json();
+        if (ssRes.success && ssRes.rows?.length) {
+          const ssMap = {};
+          ssRes.rows.forEach(r => { ssMap[`${r.ProdKey}-${r.OrderWeek}`] = { stock: r.Stock }; });
+          setStartStocks(ssMap);
+        }
       }
     } catch(e) { setApiError(e.message); }
     finally { setLoading(false); }
@@ -392,13 +404,15 @@ export default function WeekPivot() {
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''),'ko'));
 
-    const dataMap={}, inMap={}, descrMap={};
+    const dataMap={}, inMap={}, descrMap={}, prevStockMap={};
     rows.forEach(r=>{
       const dk=`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk]=r.outQty||0;
       if(r.outDescr) descrMap[dk]=r.outDescr;
       const ik=`${r.ProdKey}-${r.OrderWeek}`;
       if(!inMap[ik]) inMap[ik]=r.totalInQty||0;
+      // 품목별 이월재고 (DB ProductStock 기준) — startStocks 미입력 시 기본값
+      if(!(r.ProdKey in prevStockMap)) prevStockMap[r.ProdKey]=r.prevStock||0;
     });
     const isFixed=(ck,wk)=>rows.some(r=>r.CustKey===ck&&r.OrderWeek===wk&&r.isFix);
 
@@ -470,7 +484,7 @@ export default function WeekPivot() {
             prodKeys.forEach(pk=>{
               const p=prodMap[pk];
               const row=[p.coun,p.flower,stripProdName(p.name)];
-              let rs=startStocks[`${pk}-${weeks[0]}`]?.stock||0;
+              const _xl0=startStocks[`${pk}-${weeks[0]}`];let rs=_xl0?.stock!=null?_xl0.stock:(prevStockMap[pk]||0);
               weeks.forEach(wk=>{
                 const wkSS=startStocks[`${pk}-${wk}`]?.stock;
                 if(wkSS!=null) rs=wkSS;
@@ -490,7 +504,7 @@ export default function WeekPivot() {
           <button onClick={()=>{
             const lines=[];
             prodKeys.forEach(pk=>{
-              const p=prodMap[pk]; let rs=startStocks[`${pk}-${weeks[0]}`]?.stock||0;
+              const p=prodMap[pk];const _cp0=startStocks[`${pk}-${weeks[0]}`];let rs=_cp0?.stock!=null?_cp0.stock:(prevStockMap[pk]||0);
               weeks.forEach(wk=>{const wkSS=startStocks[`${pk}-${wk}`]?.stock;if(wkSS!=null)rs=wkSS;const inQ=inMap[`${pk}-${wk}`]||0;const wOut=custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);rs=rs+inQ-wOut;});
               if(rs>0) lines.push(`${stripProdName(p.name)} ${rs}`);
             });
@@ -544,7 +558,8 @@ export default function WeekPivot() {
           <tbody>
             {prodKeys.map((pk,pi)=>{
               const p=prodMap[pk];
-              let rollingStock=startStocks[`${pk}-${weeks[0]}`]?.stock||0;
+              const _initSS=startStocks[`${pk}-${weeks[0]}`];
+              let rollingStock=_initSS?.stock!=null?_initSS.stock:(prevStockMap[pk]||0);
               const needRepeat=pi>0&&pi%PROD_REPEAT===0;
               return (
                 <React.Fragment key={pk}>

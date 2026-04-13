@@ -11,6 +11,7 @@ export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
   if (req.method === 'POST')   return await addOrder(req, res);
   if (req.method === 'DELETE') return await deleteDescrLine(req, res);
+  if (req.method === 'PUT')    return await saveStartStock(req, res);
   if (req.method !== 'GET')    return res.status(405).end();
 
   // 차수 파라미터
@@ -236,6 +237,19 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── 시작재고 조회 (isFix=2 마커)
+    if (view === 'startStocks') {
+      const result = await query(
+        `SELECT ps.ProdKey, sm.OrderWeek, ps.Stock
+         FROM ProductStock ps
+         JOIN StockMaster sm ON ps.StockKey=sm.StockKey
+         WHERE sm.isFix=2
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo`,
+        params
+      );
+      return res.status(200).json({ success: true, rows: result.recordset });
+    }
+
     return res.status(400).json({ success: false, error: 'view 파라미터 필요' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -455,6 +469,53 @@ async function addOrder(req, res) {
     });
 
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── PUT: 시작재고(startStock) 저장
+// { prodKey, week, stock, remark }
+// StockMaster에 isFix=2(시작재고 전용) 레코드를 사용하여 ProductStock에 저장
+async function saveStartStock(req, res) {
+  const { prodKey, week, stock, remark } = req.body;
+  if (!prodKey || !week) {
+    return res.status(400).json({ success: false, error: 'prodKey, week 필요' });
+  }
+  try {
+    const pk      = parseInt(prodKey);
+    const stockVal = parseFloat(stock) || 0;
+    const remarkVal = remark || '';
+
+    await withTransaction(async (tQ) => {
+      // StockMaster: isFix=2 를 시작재고 전용 마커로 사용
+      let smResult = await tQ(
+        `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND isFix=2`,
+        { wk: { type: sql.NVarChar, value: week } }
+      );
+
+      let sk;
+      if (smResult.recordset.length === 0) {
+        const ins = await tQ(
+          `INSERT INTO StockMaster (OrderWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, 2)`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+        sk = ins.recordset[0].StockKey;
+      } else {
+        sk = smResult.recordset[0].StockKey;
+      }
+
+      // ProductStock upsert (시작재고)
+      await tQ(
+        `MERGE INTO ProductStock WITH (HOLDLOCK) AS t
+         USING (VALUES (@pk, @sk)) AS s(ProdKey, StockKey) ON t.ProdKey=s.ProdKey AND t.StockKey=s.StockKey
+         WHEN MATCHED THEN UPDATE SET Stock=@stock
+         WHEN NOT MATCHED THEN INSERT (ProdKey, StockKey, Stock) VALUES (@pk, @sk, @stock);`,
+        { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: sk }, stock: { type: sql.Float, value: stockVal } }
+      );
+    });
+
+    return res.status(200).json({ success: true, message: '시작재고 저장 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
