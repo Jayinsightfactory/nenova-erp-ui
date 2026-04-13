@@ -16,11 +16,23 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: |
-            cd /var/www/nenova-erp-ui
+            set -e
+            echo "=== pm2 앱 경로 확인 ==="
+            pm2 list
+            APP_PATH=$(pm2 info nenova-erp 2>/dev/null | grep "script path" | awk '{print $NF}' | xargs dirname || echo "")
+            if [ -z "$APP_PATH" ]; then
+              APP_PATH=$(find /root /home /var/www /srv -name "web.js" -not -path "*/node_modules/*" 2>/dev/null | head -1 | xargs dirname)
+            fi
+            echo "=== 앱 경로: $APP_PATH ==="
+            cd "$APP_PATH"
+            echo "=== 현재 경로: $(pwd) ==="
+            echo "=== 현재 커밋 ==="
+            git log --oneline -3
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
             git reset --hard origin/master
-            npm install --omit=dev
+            echo "=== 업데이트 후 커밋 ==="
+            git log --oneline -3
             rm -rf .next
             npm run build
             pm2 restart nenova-erp
