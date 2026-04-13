@@ -457,9 +457,11 @@ export default function WeekPivot() {
       const q = filterSearch.toLowerCase();
       if (!r.ProdName?.toLowerCase().includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
     }
-    // 제외 품명 필터
-    const pn = (r.ProdName || '').toLowerCase();
-    if (EXCLUDED_PROD_KW.some(kw => pn.includes(kw))) return false;
+    // 제외 품명 필터 — 사용자가 국가/꽃/검색어를 직접 선택한 경우 제외 안 함
+    if (!filterCoun && !filterFlower && !filterSearch) {
+      const pn = (r.ProdName || '').toLowerCase();
+      if (EXCLUDED_PROD_KW.some(kw => pn.includes(kw))) return false;
+    }
     return true;
   }), [filterCoun, filterFlower, filterSearch]);
 
