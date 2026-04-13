@@ -250,6 +250,19 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── EstQuantity 동기화 (OutQuantity != EstQuantity 보정)
+    if (view === 'syncEstQty') {
+      const result = await query(
+        `UPDATE sd SET sd.EstQuantity = sd.OutQuantity
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+           AND ISNULL(sd.EstQuantity, 0) != ISNULL(sd.OutQuantity, 0)`,
+        params
+      );
+      return res.status(200).json({ success: true, message: `동기화 완료`, rowsAffected: result.rowsAffected });
+    }
+
     return res.status(400).json({ success: false, error: 'view 파라미터 필요' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -308,7 +321,7 @@ async function updateOutQty(req, res) {
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
         } else {
           await tQ(
-            `UPDATE ShipmentDetail SET OutQuantity=@qty, ShipmentDtm=GETDATE()
+            `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty, ShipmentDtm=GETDATE()
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { qty: { type: sql.Float, value: qty }, sk: { type: sql.Int, value: sk },
               pk: { type: sql.Int, value: pk } }
