@@ -305,12 +305,13 @@ async function saveDistribute(req, res) {
         const newSdk = maxSd.recordset[0].nk;
         await tQuery(
           `INSERT INTO ShipmentDetail
-             (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+             (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@pk,@dt,@qty,@qty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@qty,@qty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
           {
             dk:     { type: sql.Int,      value: newSdk },
             sk:     { type: sql.Int,      value: sk },
+            ck:     { type: sql.Int,      value: parseInt(custKey) },
             pk:     { type: sql.Int,      value: parseInt(prodKey) },
             dt:     { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
             qty:    { type: sql.Float,    value: qty },

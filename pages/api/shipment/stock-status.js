@@ -286,12 +286,16 @@ async function updateOutQty(req, res) {
           `SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nextKey FROM ShipmentMaster WITH (UPDLOCK)`
         );
         const newSk = maxSmKey.recordset[0].nextKey;
+        const orderYear = new Date().getFullYear().toString();
+        const ywk = orderYear + (week || '').replace('-', '');
         await tQ(
-          `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
-          { newSk: { type: sql.Int,     value: newSk },
+          `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+           VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
+          { newSk: { type: sql.Int,      value: newSk },
+            yr:    { type: sql.NVarChar, value: orderYear },
             wk:    { type: sql.NVarChar, value: week  },
-            ck:    { type: sql.Int,     value: ck    },
+            ywk:   { type: sql.NVarChar, value: ywk   },
+            ck:    { type: sql.Int,      value: ck    },
             uid:   { type: sql.NVarChar, value: uid   } }
         );
         sk = newSk;
