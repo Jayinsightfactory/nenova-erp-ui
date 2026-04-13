@@ -356,7 +356,7 @@ export default function StockStatus() {
   const [custRows,  setCustRows]  = useState([]);
   const [mgrRows,   setMgrRows]   = useState([]);
   const [pivotRows, setPivotRows] = useState([]);
-  const [startStocks, setStartStocks] = useState({}); // { ProdKey: stock }
+  const [startStocks, setStartStocks] = useState({}); // { "ProdKey-OrderWeek": { stock, remark } }
 
   // 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
@@ -462,7 +462,7 @@ export default function StockStatus() {
         }).catch(()=>{});
       }
       // 시작재고 조회
-      fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&view=startStock`)
+      fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`)
         .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
@@ -512,17 +512,21 @@ export default function StockStatus() {
     finally { setSaving(null); }
   }, [editMap, weekFrom, weekTo, tab, loadData]);
 
-  // ── 시작재고 저장
-  const saveStartStock = useCallback(async (prodKey, stock) => {
+  // ── 시작재고/시작비고 저장
+  const saveStartStock = useCallback(async (prodKey, week, stock, remark) => {
+    const key = `${prodKey}-${week}`;
+    const prev = startStocks[key] || {};
+    const s = stock != null ? stock : prev.stock;
+    const rm = remark != null ? remark : (prev.remark || '');
     try {
       const r = await fetch('/api/shipment/stock-status', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prodKey, week: weekFrom, stock }),
+        body: JSON.stringify({ prodKey, week, stock: s, remark: rm }),
       });
       const d = await r.json();
-      if (d.success) setStartStocks(prev => ({ ...prev, [prodKey]: parseFloat(stock)||0 }));
+      if (d.success) setStartStocks(prev => ({ ...prev, [key]: { stock: parseFloat(s)||0, remark: rm } }));
     } catch(e) { console.error(e); }
-  }, [weekFrom]);
+  }, [startStocks]);
 
   // ── 품목 expand 토글
   const toggleProdExpand = useCallback(async (prodKey) => {
@@ -600,7 +604,8 @@ export default function StockStatus() {
           <tbody>
             {filteredProducts.map((p, i) => {
               const remain   = (p.prevStock||0) + (p.inQty||0) - (p.outQty||0);
-              const ss = startStocks[p.ProdKey];
+              const ssObj = startStocks[`${p.ProdKey}-${weekFrom}`];
+              const ss = ssObj?.stock;
               const remainSS = ss != null ? ss - (p.outQty||0) : null;
               const expState = prodExpand[p.ProdKey];
               const isExp    = expState !== undefined;
@@ -620,7 +625,7 @@ export default function StockStatus() {
                         onClick={e=>e.stopPropagation()}>
                       <input type="number" defaultValue={ss ?? ''} placeholder="-"
                         style={{ width:50, textAlign:'right', fontSize:11, padding:'2px 3px', border:'1px solid #ccc', borderRadius:3, background:'#fff' }}
-                        onBlur={e=>saveStartStock(p.ProdKey, e.target.value)} />
+                        onBlur={e=>saveStartStock(p.ProdKey, weekFrom, e.target.value)} />
                     </td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(p.prevStock)}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(p.inQty)}</td>
@@ -887,7 +892,8 @@ export default function StockStatus() {
                         <tbody>
                           {sortedItems.map((item,i) => {
                             const remain = (item.prevStock||0)+(item.totalInQty||0)-(item.totalOutQty||0);
-                            const ss = startStocks[item.ProdKey];
+                            const ssObj = startStocks[`${item.ProdKey}-${weekFrom}`];
+                            const ss = ssObj?.stock;
                             const remainSS = ss != null ? ss - (item.totalOutQty||0) : null;
                             return (
                               <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
@@ -1006,7 +1012,7 @@ export default function StockStatus() {
     rows.forEach(r => {
       if (pvShowOnlyOut) {
         // 출고 또는 시작재고 있는 품목만
-        if ((r.outQty||0) > 0 || startStocks[r.ProdKey]) {
+        if ((r.outQty||0) > 0 || Object.keys(startStocks).some(k => k.startsWith(`${r.ProdKey}-`) && startStocks[k]?.stock)) {
           if (!prodMap[r.ProdKey]) prodMap[r.ProdKey] = { name:r.ProdName, coun:r.CounName, flower:r.FlowerName, unit:r.OutUnit };
         }
       } else {
@@ -1154,8 +1160,10 @@ export default function StockStatus() {
           prodKeys.forEach(pk => {
             const p = prodMap[pk];
             const row = [p.coun, p.flower, stripProdName(p.name)];
-            let rs = startStocks[pk] || 0;
+            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
             weeks.forEach(wk => {
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              if (wkSS != null) rs = wkSS;
               custKeys.forEach(ck => row.push(dataMap[`${pk}-${ck}-${wk}`]||0));
               const wStart = rs, inQ = inMap[`${pk}-${wk}`]||0;
               const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
@@ -1169,6 +1177,24 @@ export default function StockStatus() {
           XLSX.utils.book_append_sheet(wb, ws, '차수피벗');
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
+        <button onClick={()=>{
+          // 잔량 있는 품목 클립보드 복사 (마지막 차수 기준)
+          const lines = [];
+          prodKeys.forEach(pk => {
+            const p = prodMap[pk];
+            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+            weeks.forEach(wk => {
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              if (wkSS != null) rs = wkSS;
+              const inQ = inMap[`${pk}-${wk}`]||0;
+              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
+              rs = rs + inQ - wOut;
+            });
+            if (rs > 0) lines.push(`${stripProdName(p.name)} ${rs}`);
+          });
+          if (lines.length === 0) { alert('잔량이 있는 품목이 없습니다'); return; }
+          navigator.clipboard.writeText(lines.join('\n')).then(()=>alert(`${lines.length}개 품목 복사됨`));
+        }} style={{ ...st.addBtn, marginBottom:8, background:'#6a1b9a', marginLeft:8 }}>📋 잔량 복사</button>
 
         {rows.length === 0 ? (
           <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>
@@ -1181,7 +1207,7 @@ export default function StockStatus() {
           <tbody>
             {prodKeys.map((pk, pi) => {
               const p = prodMap[pk];
-              let rollingStock = startStocks[pk] || 0;
+              let rollingStock = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
 
               // N품목마다 업체헤더 반복
               const needCustRepeat = pi > 0 && pi % PROD_REPEAT === 0;
@@ -1217,6 +1243,10 @@ export default function StockStatus() {
                       <div style={{fontWeight:600, fontSize:10}}>{stripProdName(p.name)}</div>
                     </td>
                     {weeks.map(wk => {
+                      // 해당 차수에 시작재고가 입력되어 있으면 rollingStock을 덮어씀
+                      const ssKey = `${pk}-${wk}`;
+                      const ssObj = startStocks[ssKey];
+                      if (ssObj?.stock != null) rollingStock = ssObj.stock;
                       const weekStart = rollingStock;
                       const inQty = inMap[`${pk}-${wk}`] || 0;
                       const weekOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
@@ -1253,14 +1283,15 @@ export default function StockStatus() {
                           })}
                           <td style={{...st.td,textAlign:'right',background:'#e0f7fa',padding:'2px 3px'}}
                               onClick={e=>e.stopPropagation()}>
-                            {wk === weeks[0] ? (
-                              <input type="number" defaultValue={startStocks[pk]??''} placeholder="-"
-                                style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
-                                onBlur={e=>saveStartStock(pk,e.target.value)} />
-                            ) : <span style={{fontSize:9,fontWeight:600}}>{fmt(weekStart)}</span>}
+                            <input type="number" key={`ss-${pk}-${wk}`} defaultValue={ssObj?.stock??''} placeholder="-"
+                              style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                              onBlur={e=>saveStartStock(pk,wk,e.target.value)} />
                           </td>
-                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa'}}>
-                            {wk === weeks[0] ? '' : ''}
+                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa',padding:'1px 2px'}}
+                              onClick={e=>e.stopPropagation()}>
+                            <input type="text" key={`sr-${pk}-${wk}`} defaultValue={ssObj?.remark??''} placeholder="-"
+                              style={{width:46,fontSize:8,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                              onBlur={e=>saveStartStock(pk,wk,null,e.target.value)} />
                           </td>
                           <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>

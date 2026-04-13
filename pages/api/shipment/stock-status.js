@@ -55,12 +55,26 @@ export default withAuth(async function handler(req, res) {
   if (view === 'startStock') {
     if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
     try {
-      const result = await query(
-        `SELECT ProdKey, Stock FROM StartStock WHERE OrderWeek=@wk`,
-        { wk: { type: sql.NVarChar, value: weekFrom } }
-      );
+      const wTo = weekTo || weekFrom;
+      let result;
+      try {
+        result = await query(
+          `SELECT ProdKey, OrderWeek, Stock, ISNULL(Remark,'') AS Remark FROM StartStock WHERE OrderWeek BETWEEN @wf AND @wt`,
+          { wf: { type: sql.NVarChar, value: weekFrom }, wt: { type: sql.NVarChar, value: wTo } }
+        );
+      } catch (colErr) {
+        // Remark 컬럼이 없으면 추가 후 재시도
+        if (colErr.message && colErr.message.includes('Remark')) {
+          await query(`ALTER TABLE StartStock ADD Remark NVARCHAR(200) NULL`);
+          result = await query(
+            `SELECT ProdKey, OrderWeek, Stock, ISNULL(Remark,'') AS Remark FROM StartStock WHERE OrderWeek BETWEEN @wf AND @wt`,
+            { wf: { type: sql.NVarChar, value: weekFrom }, wt: { type: sql.NVarChar, value: wTo } }
+          );
+        } else throw colErr;
+      }
+      // { "ProdKey-OrderWeek": { stock, remark } }
       const stocks = {};
-      result.recordset.forEach(r => { stocks[r.ProdKey] = r.Stock; });
+      result.recordset.forEach(r => { stocks[`${r.ProdKey}-${r.OrderWeek}`] = { stock: r.Stock, remark: r.Remark }; });
       return res.status(200).json({ success: true, stocks });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
@@ -559,21 +573,23 @@ async function addOrder(req, res) {
   }
 }
 
-// ── PUT: 시작재고 저장
+// ── PUT: 시작재고/시작비고 저장
 async function updateStartStock(req, res) {
-  const { prodKey, week, stock } = req.body;
+  const { prodKey, week, stock, remark } = req.body;
   if (!prodKey || !week) return res.status(400).json({ success: false, error: 'prodKey, week 필요' });
   try {
     const uid = req.user?.userId || 'system';
     const s = parseFloat(stock) || 0;
+    const rm = remark != null ? remark : '';
     await query(
       `MERGE StartStock AS t
        USING (SELECT @pk AS ProdKey, @wk AS OrderWeek) AS s
        ON t.ProdKey=s.ProdKey AND t.OrderWeek=s.OrderWeek
-       WHEN MATCHED THEN UPDATE SET Stock=@s, CreateID=@uid, CreateDtm=GETDATE()
-       WHEN NOT MATCHED THEN INSERT (ProdKey,OrderWeek,Stock,CreateID,CreateDtm) VALUES(@pk,@wk,@s,@uid,GETDATE());`,
+       WHEN MATCHED THEN UPDATE SET Stock=@s, Remark=@rm, CreateID=@uid, CreateDtm=GETDATE()
+       WHEN NOT MATCHED THEN INSERT (ProdKey,OrderWeek,Stock,Remark,CreateID,CreateDtm) VALUES(@pk,@wk,@s,@rm,@uid,GETDATE());`,
       { pk: { type: sql.Int, value: parseInt(prodKey) }, wk: { type: sql.NVarChar, value: week },
-        s: { type: sql.Float, value: s }, uid: { type: sql.NVarChar, value: uid } }
+        s: { type: sql.Float, value: s }, rm: { type: sql.NVarChar, value: rm },
+        uid: { type: sql.NVarChar, value: uid } }
     );
     return res.status(200).json({ success: true });
   } catch (err) {
