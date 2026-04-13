@@ -1215,7 +1215,7 @@ export default function StockStatus() {
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
         </div>
         <button onClick={()=>{
-          // 엑셀 데이터: 차수 > 지역 > 업체 그룹핑, 0값 제거, 비고 포함
+          // 엑셀: 차수 > 지역 > 업체 > 품종별 그룹핑, 0값 제거, 비고 포함
           const wb = XLSX.utils.book_new();
           weeks.forEach(wk => {
             const xlData = [];
@@ -1223,36 +1223,57 @@ export default function StockStatus() {
             areaGroups.forEach(ag => {
               const areaCusts = custKeys.filter(ck => custMap[ck].area === ag.area);
               if (areaCusts.length === 0) return;
-              // 지역 헤더
               xlData.push([`▶ ${ag.area}`]);
               areaCusts.forEach(ck => {
                 const custName = cShort(ck);
-                // 이 업체의 품목 데이터
-                const custProds = prodKeys.filter(pk => {
-                  const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-                  return v > 0; // 0값 제거
-                });
+                const custProds = prodKeys.filter(pk => (dataMap[`${pk}-${ck}-${wk}`]||0) > 0);
                 if (custProds.length === 0) return;
+                // 품종별 그룹핑
+                const byFlower = {};
+                custProds.forEach(pk => {
+                  const fl = prodMap[pk].flower || '기타';
+                  if (!byFlower[fl]) byFlower[fl] = [];
+                  byFlower[fl].push(pk);
+                });
                 // 업체 헤더
                 xlData.push([`  ${custName}`]);
-                xlData.push(['', '국가', '꽃', '품명', '수량', '비고']);
-                custProds.forEach(pk => {
-                  const p = prodMap[pk];
-                  const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-                  const descr = descrMap[`${pk}-${ck}-${wk}`] || '';
-                  xlData.push(['', p.coun, p.flower, stripProdName(p.name), v, descr.replace(/\n/g, ' ')]);
+                Object.entries(byFlower).forEach(([flower, pks]) => {
+                  xlData.push(['', '', `[${flower}]`, '', '', '']);
+                  xlData.push(['', '국가', '꽃', '품명', '수량', '비고']);
+                  let flowerTotal = 0;
+                  pks.forEach(pk => {
+                    const p = prodMap[pk];
+                    const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                    const descr = descrMap[`${pk}-${ck}-${wk}`] || '';
+                    xlData.push(['', p.coun, p.flower, stripProdName(p.name), v, descr.replace(/\n/g, ' ')]);
+                    flowerTotal += v;
+                  });
+                  xlData.push(['', '', '', `${flower} 소계`, flowerTotal, '']);
                 });
-                // 업체 소계
+                // 업체 총합
                 const custTotal = custProds.reduce((a,pk) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
-                xlData.push(['', '', '', '소계', custTotal, '']);
-                xlData.push([]); // 빈 줄
+                xlData.push(['', '', '', '업체 합계', custTotal, '']);
+                xlData.push([]);
               });
             });
-            // 전체 재고 요약
+            // 품종별 전체 토탈 요약
+            xlData.push([]);
+            xlData.push(['▶ 품종별 전체 수량']);
+            xlData.push(['', '품종', '총 출고수량']);
+            const flowerTotals = {};
+            prodKeys.forEach(pk => {
+              const fl = prodMap[pk].flower || '기타';
+              const wOut = custKeys.reduce((a,ck) => a + (dataMap[`${pk}-${ck}-${wk}`]||0), 0);
+              if (wOut > 0) flowerTotals[fl] = (flowerTotals[fl]||0) + wOut;
+            });
+            Object.entries(flowerTotals).sort((a,b) => b[1]-a[1]).forEach(([fl,tot]) => {
+              xlData.push(['', fl, tot]);
+            });
+            xlData.push(['', '전체 합계', Object.values(flowerTotals).reduce((a,b)=>a+b,0)]);
+            // 재고 요약
             xlData.push([]);
             xlData.push(['▶ 재고 요약']);
             xlData.push(['', '국가', '꽃', '품명', '시작', '입고', '출고', '잔량']);
-            let rs0 = 0;
             prodKeys.forEach(pk => {
               const p = prodMap[pk];
               const wkSS = startStocks[`${pk}-${wk}`]?.stock;
@@ -1266,8 +1287,7 @@ export default function StockStatus() {
               }
             });
             const ws = XLSX.utils.aoa_to_sheet(xlData);
-            // 열 너비 설정
-            ws['!cols'] = [{wch:3},{wch:10},{wch:10},{wch:28},{wch:8},{wch:40}];
+            ws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},{wch:8},{wch:40}];
             XLSX.utils.book_append_sheet(wb, ws, wk);
           });
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
