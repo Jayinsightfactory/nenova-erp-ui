@@ -388,6 +388,7 @@ export default function StockStatus() {
     const name = prompt('즐겨찾기 이름을 입력하세요:');
     if (!name) return;
     const filterState = {
+      weekFrom, weekTo,
       tab, pivotSub,
       hiddenCusts: [...hiddenCusts],
       hiddenMgrs: [...hiddenMgrs],
@@ -408,6 +409,8 @@ export default function StockStatus() {
   const applyFavorite = (fav) => {
     try {
       const f = JSON.parse(fav.FilterData);
+      if (f.weekFrom) weekFromInput.setValue(f.weekFrom);
+      if (f.weekTo) weekToInput.setValue(f.weekTo);
       if (f.tab) setTab(f.tab);
       if (f.pivotSub) setPivotSub(f.pivotSub);
       if (f.hiddenCusts) setHiddenCusts(new Set(f.hiddenCusts));
@@ -1627,7 +1630,9 @@ export default function StockStatus() {
             <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5',
                           padding:'6px 10px', borderRadius:6, border:'1px solid #e0e0e0' }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>차수</span>
-              <button onClick={()=>{weekFromInput.prevWeek();weekToInput.prevWeek();}} style={st.weekSyncBtn} title="양쪽 이전 주차">◀◀</button>
+              <button onClick={()=>{weekFromInput.prevWeek();weekToInput.prevWeek();}}
+                style={{...st.weekSyncBtn,background:'#e65100',color:'#fff',fontWeight:900,fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',cursor:'pointer'}}
+                title="양쪽 동시 이전 주차">&lt;&lt;&lt;</button>
               <button onClick={weekFromInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekFromInput} />
               <button onClick={weekFromInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
@@ -1635,7 +1640,9 @@ export default function StockStatus() {
               <button onClick={weekToInput.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <WeekInput weekInput={weekToInput} />
               <button onClick={weekToInput.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
-              <button onClick={()=>{weekFromInput.nextWeek();weekToInput.nextWeek();}} style={st.weekSyncBtn} title="양쪽 다음 주차">▶▶</button>
+              <button onClick={()=>{weekFromInput.nextWeek();weekToInput.nextWeek();}}
+                style={{...st.weekSyncBtn,background:'#e65100',color:'#fff',fontWeight:900,fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',cursor:'pointer'}}
+                title="양쪽 동시 다음 주차">&gt;&gt;&gt;</button>
               {isRange && <span style={{ fontSize:11, color:'#1976d2' }}>(범위)</span>}
             </div>
             <button onClick={() => hasWeek && loadData(weekFrom, weekTo, tab)} style={st.refreshBtn} disabled={!hasWeek||loading}>
