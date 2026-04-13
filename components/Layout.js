@@ -31,6 +31,7 @@ const MENU_ITEMS = [
       { href: '/incoming',            labelKey: '입고관리',     popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
+      { href: '/shipment/week-pivot',   labelKey: '📊 차수피벗',   fullscreen: true },
       { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
       { href: '/shipment/history',       labelKey: '출고내역조회',  popup: false },
       { href: '/estimate',            labelKey: '견적서 관리',  popup: true },
@@ -163,7 +164,13 @@ export default function Layout({ children, title }) {
                 {/* 그룹 제목도 번역 */}
                 <div className="nav-group-title">{t(group.group)}</div>
                 {group.items.map(item => (
-                  item.popup ? (
+                  item.fullscreen ? (
+                    <a key={item.href}
+                      className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
+                      href="#"
+                      onClick={e => { e.preventDefault(); window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`); }}
+                    >{t(item.labelKey)}</a>
+                  ) : item.popup ? (
                     <a key={item.href}
                       className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
                       href="#"

@@ -2,7 +2,7 @@ import Layout from '../components/Layout';
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
 
-const NO_LAYOUT = ['/login', '/'];
+const NO_LAYOUT = ['/login', '/', '/shipment/week-pivot'];
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
