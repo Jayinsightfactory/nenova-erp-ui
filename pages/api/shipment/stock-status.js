@@ -264,12 +264,20 @@ async function updateOutQty(req, res) {
 
       let sk;
       if (sm.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO ShipmentMaster (OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           OUTPUT INSERTED.ShipmentKey VALUES(@wk,@ck,0,0,@uid,GETDATE())`,
-          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        // ShipmentKey는 IDENTITY 아님 → MAX+1 직접 할당
+        const maxSmKey = await tQ(
+          `SELECT ISNULL(MAX(ShipmentKey),0)+1 AS nextKey FROM ShipmentMaster WITH (UPDLOCK)`
         );
-        sk = ins.recordset[0].ShipmentKey;
+        const newSk = maxSmKey.recordset[0].nextKey;
+        await tQ(
+          `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+           VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
+          { newSk: { type: sql.Int,     value: newSk },
+            wk:    { type: sql.NVarChar, value: week  },
+            ck:    { type: sql.Int,     value: ck    },
+            uid:   { type: sql.NVarChar, value: uid   } }
+        );
+        sk = newSk;
       } else {
         sk = sm.recordset[0].ShipmentKey;
       }
@@ -293,12 +301,19 @@ async function updateOutQty(req, res) {
           );
         }
       } else if (qty > 0) {
+        // SdetailKey는 IDENTITY 아님 → MAX+1 직접 할당
+        const maxSdk = await tQ(
+          `SELECT ISNULL(MAX(SdetailKey),0)+1 AS nextKey FROM ShipmentDetail WITH (UPDLOCK)`
+        );
+        const nk = maxSdk.recordset[0].nextKey;
         await tQ(
-          `INSERT INTO ShipmentDetail (ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,CreateID,CreateDtm)
-           VALUES(@sk,@ck,@pk,GETDATE(),@qty,@qty,@uid,GETDATE())`,
-          { sk: { type: sql.Int, value: sk }, ck: { type: sql.Int, value: ck },
-            pk: { type: sql.Int, value: pk }, qty: { type: sql.Float, value: qty },
-            uid: { type: sql.NVarChar, value: uid } }
+          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
+           VALUES(@nk,@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
+          { nk:  { type: sql.Int,   value: nk  },
+            sk:  { type: sql.Int,   value: sk  },
+            ck:  { type: sql.Int,   value: ck  },
+            pk:  { type: sql.Int,   value: pk  },
+            qty: { type: sql.Float, value: qty } }
         );
       }
     });
