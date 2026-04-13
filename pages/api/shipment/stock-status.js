@@ -258,7 +258,7 @@ export default withAuth(async function handler(req, res) {
 
 // ── PATCH: 출고수량 수정 + 비고 로그 저장
 async function updateOutQty(req, res) {
-  const { custKey, prodKey, week, outQty, shipDate, descrLog } = req.body;
+  const { custKey, prodKey, week, outQty, descrLog } = req.body;
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -267,9 +267,6 @@ async function updateOutQty(req, res) {
     const ck  = parseInt(custKey);
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
-    // 출고일: 전달된 shipDate 우선, 없으면 GETDATE()
-    const shipDtmExpr = shipDate ? `CAST(@shipDate AS DATETIME)` : `GETDATE()`;
-    const shipDtmParam = shipDate ? { shipDate: { type: sql.NVarChar, value: shipDate } } : {};
 
     await withTransaction(async (tQ) => {
       // ShipmentMaster 찾기 또는 생성
@@ -311,10 +308,10 @@ async function updateOutQty(req, res) {
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
         } else {
           await tQ(
-            `UPDATE ShipmentDetail SET OutQuantity=@qty, ShipmentDtm=${shipDtmExpr}
+            `UPDATE ShipmentDetail SET OutQuantity=@qty, ShipmentDtm=GETDATE()
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { qty: { type: sql.Float, value: qty }, sk: { type: sql.Int, value: sk },
-              pk: { type: sql.Int, value: pk }, ...shipDtmParam }
+              pk: { type: sql.Int, value: pk } }
           );
         }
       } else if (qty > 0) {
@@ -325,13 +322,12 @@ async function updateOutQty(req, res) {
         const nk = maxSdk.recordset[0].nextKey;
         await tQ(
           `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-           VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty)`,
+           VALUES(@nk,@sk,@ck,@pk,GETDATE(),@qty,@qty)`,
           { nk:  { type: sql.Int,   value: nk  },
             sk:  { type: sql.Int,   value: sk  },
             ck:  { type: sql.Int,   value: ck  },
             pk:  { type: sql.Int,   value: pk  },
-            qty: { type: sql.Float, value: qty },
-            ...shipDtmParam }
+            qty: { type: sql.Float, value: qty } }
         );
       }
     });
