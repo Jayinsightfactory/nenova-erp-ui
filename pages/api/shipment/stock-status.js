@@ -129,7 +129,7 @@ export default withAuth(async function handler(req, res) {
           om.OrderWeek,
           ISNULL(od.OutQuantity,   0) AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.CreateDtm, 120) AS outCreateDtm,
+          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(sd.Descr, '') AS outDescr,
           ISNULL(sm.isFix, 0) AS isFix,
           sd.SdetailKey,
@@ -178,7 +178,7 @@ export default withAuth(async function handler(req, res) {
           om.OrderWeek,
           ISNULL(od.OutQuantity, 0) AS custOrderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.CreateDtm, 120) AS outCreateDtm,
+          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
