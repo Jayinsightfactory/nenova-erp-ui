@@ -373,6 +373,68 @@ export default function StockStatus() {
   // 주문추가 모달
   const [showAddOrder, setShowAddOrder] = useState(false);
 
+  // ── 즐겨찾기
+  const [favorites, setFavorites] = useState([]);
+  const loadFavorites = useCallback(async () => {
+    try {
+      const r = await fetch('/api/favorites?page=stock-status');
+      const d = await r.json();
+      if (d.success) setFavorites(d.favorites || []);
+    } catch {}
+  }, []);
+  useEffect(() => { loadFavorites(); }, [loadFavorites]);
+
+  const saveFavorite = async () => {
+    const name = prompt('즐겨찾기 이름을 입력하세요:');
+    if (!name) return;
+    const filterState = {
+      tab, pivotSub,
+      hiddenCusts: [...hiddenCusts],
+      hiddenMgrs: [...hiddenMgrs],
+      hiddenMgrCusts: Object.fromEntries(Object.entries(hiddenMgrCusts).map(([k,v])=>[k,[...v]])),
+      pvMgr, pvCusts: [...pvCusts], pvFlowers: [...pvFlowers],
+      filterCoun, filterFlower, filterSearch, pvShowOnlyOut,
+    };
+    try {
+      const r = await fetch('/api/favorites', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ page:'stock-status', name, filterData: JSON.stringify(filterState) }),
+      });
+      const d = await r.json();
+      if (d.success) loadFavorites();
+    } catch {}
+  };
+
+  const applyFavorite = (fav) => {
+    try {
+      const f = JSON.parse(fav.FilterData);
+      if (f.tab) setTab(f.tab);
+      if (f.pivotSub) setPivotSub(f.pivotSub);
+      if (f.hiddenCusts) setHiddenCusts(new Set(f.hiddenCusts));
+      if (f.hiddenMgrs) setHiddenMgrs(new Set(f.hiddenMgrs));
+      if (f.hiddenMgrCusts) {
+        const obj = {};
+        Object.entries(f.hiddenMgrCusts).forEach(([k,v])=>{ obj[k]=new Set(v); });
+        setHiddenMgrCusts(obj);
+      }
+      if (f.pvMgr !== undefined) setPvMgr(f.pvMgr);
+      if (f.pvCusts) setPvCusts(new Set(f.pvCusts));
+      if (f.pvFlowers) setPvFlowers(new Set(f.pvFlowers));
+      if (f.filterCoun !== undefined) setFilterCoun(f.filterCoun);
+      if (f.filterFlower !== undefined) setFilterFlower(f.filterFlower);
+      if (f.filterSearch !== undefined) setFilterSearch(f.filterSearch);
+      if (f.pvShowOnlyOut !== undefined) setPvShowOnlyOut(f.pvShowOnlyOut);
+    } catch {}
+  };
+
+  const deleteFavorite = async (fk) => {
+    if (!confirm('이 즐겨찾기를 삭제하시겠습니까?')) return;
+    try {
+      await fetch('/api/favorites', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ favoriteKey: fk }) });
+      loadFavorites();
+    } catch {}
+  };
+
   // ── 업체별 탭 칩 필터 (hiddenCusts = 숨길 CustKey Set)
   const [hiddenCusts, setHiddenCusts] = useState(new Set());
   // ── 담당자별 탭 칩 필터
@@ -1569,8 +1631,8 @@ export default function StockStatus() {
             </div>
           )}
 
-          {/* 탭 */}
-          <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'2px solid #e0e0e0' }}>
+          {/* 탭 + 즐겨찾기 */}
+          <div style={{ display:'flex', gap:4, marginBottom:16, borderBottom:'2px solid #e0e0e0', alignItems:'center', flexWrap:'wrap' }}>
             {[
               { key:'products',  label:'📦 품목별' },
               { key:'customers', label:'🏢 업체별' },
@@ -1582,6 +1644,24 @@ export default function StockStatus() {
                 {t.label}
               </button>
             ))}
+            <span style={{ width:1, height:20, background:'#ccc', margin:'0 4px' }}/>
+            {favorites.map(fav=>(
+              <span key={fav.FavoriteKey} style={{ display:'inline-flex', alignItems:'center', gap:2 }}>
+                <button onClick={()=>applyFavorite(fav)}
+                  style={{ padding:'4px 10px', fontSize:11, fontWeight:600, border:'1px solid #f9a825', borderRadius:12,
+                    background:'#fff8e1', color:'#f57f17', cursor:'pointer' }}>
+                  ⭐ {fav.FavName}
+                </button>
+                <button onClick={()=>deleteFavorite(fav.FavoriteKey)}
+                  style={{ width:16, height:16, padding:0, fontSize:9, border:'none', background:'transparent',
+                    color:'#999', cursor:'pointer', lineHeight:'16px' }}>✕</button>
+              </span>
+            ))}
+            <button onClick={saveFavorite}
+              style={{ padding:'4px 10px', fontSize:11, border:'1px dashed #aaa', borderRadius:12,
+                background:'#fafafa', color:'#666', cursor:'pointer' }}>
+              + 즐겨찾기 추가
+            </button>
           </div>
 
           {/* 콘텐츠 */}

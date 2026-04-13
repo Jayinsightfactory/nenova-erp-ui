@@ -84,33 +84,50 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     return list.slice(0, 200);
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
 
+  // ── 분배 동시 적용 체크박스
+  const [distributeSync, setDistributeSync] = useState(false);
+
+  // 카트: { cust:{CustKey,CustName,CustArea}, prod, qty, unit, existQty }
   const addToCart = (p) => {
-    if (cart.find(c=>c.prod.ProdKey===p.ProdKey)) return;
+    if (!selCust) { setError('업체를 먼저 선택하세요'); return; }
+    if (cart.find(c=>c.cust.CustKey===selCust.CustKey && c.prod.ProdKey===p.ProdKey)) return;
     const u = UNITS.includes(p.OutUnit) ? p.OutUnit : '박스';
-    const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
+    const existKey = `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}`;
     const existQty = existOrders[existKey] || 0;
-    setCart(prev=>[...prev,{prod:p, qty:existQty||1, unit:u, existQty}]);
+    setCart(prev=>[...prev,{cust:{CustKey:selCust.CustKey,CustName:selCust.CustName,CustArea:selCust.CustArea||''}, prod:p, qty:existQty||1, unit:u, existQty}]);
   };
-  const removeFromCart  = (pk) => setCart(prev=>prev.filter(c=>c.prod.ProdKey!==pk));
-  const updateCartQty   = (pk, val) => setCart(prev=>prev.map(c=>c.prod.ProdKey===pk?{...c,qty:parseFloat(val)||0}:c));
-  const updateCartUnit  = (pk, u)   => setCart(prev=>prev.map(c=>c.prod.ProdKey===pk?{...c,unit:u}:c));
+  const removeFromCart  = (ck,pk) => setCart(prev=>prev.filter(c=>!(c.cust.CustKey===ck && c.prod.ProdKey===pk)));
+  const updateCartQty   = (ck,pk, val) => setCart(prev=>prev.map(c=>(c.cust.CustKey===ck&&c.prod.ProdKey===pk)?{...c,qty:parseFloat(val)||0}:c));
+  const updateCartUnit  = (ck,pk, u)   => setCart(prev=>prev.map(c=>(c.cust.CustKey===ck&&c.prod.ProdKey===pk)?{...c,unit:u}:c));
 
   const handleSubmit = async () => {
-    if (!selCust)       { setError('업체를 선택하세요'); return; }
-    if (!cart.length)   { setError('품목을 1개 이상 추가하세요'); return; }
+    if (!cart.length)     { setError('품목을 1개 이상 추가하세요'); return; }
     if (!modalWeek.value) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
     try {
       let allOk = true;
+      // 1단계: 주문등록 (delta 모드 = 분배동시 적용 시, 절대값 = 기본)
+      const orderAction = distributeSync ? 'addOrderDelta' : 'addOrder';
       for (const item of cart) {
         const r = await fetch('/api/shipment/stock-status', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ action:'addOrder', custKey:selCust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, qty:item.qty, unit:item.unit }),
+          body: JSON.stringify({ action:orderAction, custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, qty:item.qty, unit:item.unit }),
         });
         const d = await r.json();
         if (!d.success) { setError(d.error); allOk=false; break; }
       }
-      if (allOk) { onSuccess?.({custKey:selCust.CustKey, custName:selCust.CustName, week:modalWeek.value}); onClose(); }
+      // 2단계: 분배 동시 적용 (순차 실행)
+      if (allOk && distributeSync) {
+        for (const item of cart) {
+          const r = await fetch('/api/shipment/stock-status', {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, outQty:item.qty, mode:'delta' }),
+          });
+          const d = await r.json();
+          if (!d.success) { setError('분배 오류: ' + d.error); allOk=false; break; }
+        }
+      }
+      if (allOk) { onSuccess?.({ week:modalWeek.value }); onClose(); }
     } catch(e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -180,7 +197,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             <input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="품목명 검색..." style={st.modalInput} />
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:4,maxHeight:280,overflowY:'auto',border:'1px solid #e0e0e0',borderRadius:6,padding:8,background:'#fafafa',marginTop:4}}>
               {filteredProds.map(p=>{
-                const inCart=cart.some(c=>c.prod.ProdKey===p.ProdKey);
+                const inCart=selCust&&cart.some(c=>c.cust.CustKey===selCust.CustKey&&c.prod.ProdKey===p.ProdKey);
                 const existKey=selCust?`${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}`:'';
                 const eq=existOrders[existKey];
                 return (<button key={p.ProdKey} onClick={()=>addToCart(p)}
@@ -192,29 +209,50 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
               {filteredProds.length===0&&<span style={{color:'#999',fontSize:12}}>검색 결과 없음</span>}
             </div>
           </div>
-          {/* 카트 */}
-          {cart.length>0&&(
-            <div style={{marginBottom:14,border:'1px solid #1976d2',borderRadius:6,overflow:'hidden'}}>
-              <div style={{background:'#1976d2',color:'#fff',padding:'6px 12px',fontSize:12,fontWeight:700}}>선택된 품목 ({cart.length}개)</div>
-              <div style={{maxHeight:180,overflowY:'auto'}}>
-                {cart.map((item,i)=>(
-                  <div key={item.prod.ProdKey} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',borderBottom:'1px solid #eee',background:i%2===0?'#fff':'#f9f9f9',fontSize:12}}>
-                    <button onClick={()=>removeFromCart(item.prod.ProdKey)} style={{background:'#ef5350',color:'#fff',border:'none',borderRadius:4,width:20,height:20,cursor:'pointer',fontSize:12,lineHeight:'18px',flexShrink:0}}>✕</button>
-                    <span style={{flex:1,fontWeight:600,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.prod.ProdName}</span>
-                    {item.existQty>0&&<span style={{color:'#e65100',fontSize:10,whiteSpace:'nowrap'}}>기존:{item.existQty}</span>}
-                    <div style={{display:'flex',gap:2,flexShrink:0}}>
-                      {UNITS.map(u=>(<button key={u} onClick={()=>updateCartUnit(item.prod.ProdKey,u)}
-                        style={{padding:'2px 6px',borderRadius:4,border:'1px solid',fontSize:10,cursor:'pointer',borderColor:item.unit===u?'#1976d2':'#ccc',background:item.unit===u?'#1976d2':'#f9f9f9',color:item.unit===u?'#fff':'#555',fontWeight:item.unit===u?700:400}}>{u}</button>))}
+          {/* 카트 — 업체별 그룹 */}
+          {cart.length>0&&(()=>{
+            const groups={};
+            cart.forEach(item=>{
+              const ck=item.cust.CustKey;
+              if(!groups[ck]) groups[ck]={cust:item.cust,items:[]};
+              groups[ck].items.push(item);
+            });
+            return (
+              <div style={{marginBottom:14,border:'1px solid #1976d2',borderRadius:6,overflow:'hidden'}}>
+                <div style={{background:'#1976d2',color:'#fff',padding:'6px 12px',fontSize:12,fontWeight:700}}>
+                  선택된 품목 ({cart.length}개, {Object.keys(groups).length}업체)
+                </div>
+                <div style={{maxHeight:220,overflowY:'auto'}}>
+                  {Object.values(groups).map(g=>(
+                    <div key={g.cust.CustKey}>
+                      <div style={{background:'#e3f2fd',padding:'4px 12px',fontSize:11,fontWeight:700,borderBottom:'1px solid #bbdefb',color:'#1565c0'}}>
+                        🏢 {g.cust.CustName} {g.cust.CustArea&&<span style={{fontSize:10,color:'#666'}}>({g.cust.CustArea})</span>}
+                      </div>
+                      {g.items.map((item,i)=>(
+                        <div key={`${item.cust.CustKey}-${item.prod.ProdKey}`} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 12px 5px 24px',borderBottom:'1px solid #eee',background:i%2===0?'#fff':'#f9f9f9',fontSize:12}}>
+                          <button onClick={()=>removeFromCart(item.cust.CustKey,item.prod.ProdKey)} style={{background:'#ef5350',color:'#fff',border:'none',borderRadius:4,width:20,height:20,cursor:'pointer',fontSize:12,lineHeight:'18px',flexShrink:0}}>✕</button>
+                          <span style={{flex:1,fontWeight:600,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.prod.ProdName}</span>
+                          {item.existQty>0&&<span style={{color:'#e65100',fontSize:10,whiteSpace:'nowrap'}}>기존:{item.existQty}</span>}
+                          <div style={{display:'flex',gap:2,flexShrink:0}}>
+                            {UNITS.map(u=>(<button key={u} onClick={()=>updateCartUnit(item.cust.CustKey,item.prod.ProdKey,u)}
+                              style={{padding:'2px 6px',borderRadius:4,border:'1px solid',fontSize:10,cursor:'pointer',borderColor:item.unit===u?'#1976d2':'#ccc',background:item.unit===u?'#1976d2':'#f9f9f9',color:item.unit===u?'#fff':'#555',fontWeight:item.unit===u?700:400}}>{u}</button>))}
+                          </div>
+                          <input type="number" value={item.qty} onChange={e=>updateCartQty(item.cust.CustKey,item.prod.ProdKey,e.target.value)}
+                            style={{width:60,textAlign:'right',fontSize:11,padding:'3px 4px',border:'1px solid #ccc',borderRadius:3,background:item.qty<0?'#ffebee':'#fff',flexShrink:0}} />
+                        </div>
+                      ))}
                     </div>
-                    <input type="number" value={item.qty} onChange={e=>updateCartQty(item.prod.ProdKey,e.target.value)}
-                      style={{width:60,textAlign:'right',fontSize:11,padding:'3px 4px',border:'1px solid #ccc',borderRadius:3,background:item.qty<0?'#ffebee':'#fff',flexShrink:0}} />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {error&&<div style={{color:'#d32f2f',fontSize:12,marginBottom:10}}>⚠ {error}</div>}
-          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
+            <label style={{fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:4,marginRight:'auto'}}>
+              <input type="checkbox" checked={distributeSync} onChange={e=>setDistributeSync(e.target.checked)} />
+              분배 동시 적용
+            </label>
             <button onClick={onClose} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
             <button onClick={handleSubmit} disabled={saving||cart.length===0}
               style={{padding:'8px 24px',background:(saving||cart.length===0)?'#aaa':'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
@@ -274,6 +312,57 @@ export default function WeekPivot() {
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
+
+  // ── 즐겨찾기
+  const [favorites, setFavorites] = useState([]);
+  const loadFavorites = useCallback(async () => {
+    try {
+      const r = await fetch('/api/favorites?page=week-pivot');
+      const d = await r.json();
+      if (d.success) setFavorites(d.favorites || []);
+    } catch {}
+  }, []);
+  useEffect(() => { loadFavorites(); }, [loadFavorites]);
+
+  const saveFavorite = async () => {
+    const name = prompt('즐겨찾기 이름을 입력하세요:');
+    if (!name) return;
+    const filterState = {
+      weekFrom, weekTo: weekToInput.value,
+      pvMgr, pvCusts: [...pvCusts], pvFlowers: [...pvFlowers], pvShowOnlyOut,
+      filterCoun, filterFlower, filterSearch,
+    };
+    try {
+      await fetch('/api/favorites', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ page:'week-pivot', name, filterData: JSON.stringify(filterState) }),
+      });
+      loadFavorites();
+    } catch {}
+  };
+
+  const applyFavorite = (fav) => {
+    try {
+      const f = JSON.parse(fav.FilterData);
+      if (f.weekFrom) weekFromInput.setValue(f.weekFrom);
+      if (f.weekTo) weekToInput.setValue(f.weekTo);
+      if (f.pvMgr !== undefined) setPvMgr(f.pvMgr);
+      if (f.pvCusts) setPvCusts(new Set(f.pvCusts));
+      if (f.pvFlowers) setPvFlowers(new Set(f.pvFlowers));
+      if (f.pvShowOnlyOut !== undefined) setPvShowOnlyOut(f.pvShowOnlyOut);
+      if (f.filterCoun !== undefined) setFilterCoun(f.filterCoun);
+      if (f.filterFlower !== undefined) setFilterFlower(f.filterFlower);
+      if (f.filterSearch !== undefined) setFilterSearch(f.filterSearch);
+    } catch {}
+  };
+
+  const deleteFavorite = async (fk) => {
+    if (!confirm('삭제하시겠습니까?')) return;
+    try {
+      await fetch('/api/favorites', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ favoriteKey: fk }) });
+      loadFavorites();
+    } catch {}
+  };
 
   // 로그인 확인
   useEffect(() => {
@@ -786,6 +875,23 @@ export default function WeekPivot() {
         <button onClick={()=>setShowAddOrder(true)}
           style={{...hst.hBtn,background:'#43a047',border:'1px solid #388e3c'}}>
           ➕ 주문추가
+        </button>
+        {/* 즐겨찾기 */}
+        {favorites.map(fav=>(
+          <span key={fav.FavoriteKey} style={{display:'inline-flex',alignItems:'center',gap:1}}>
+            <button onClick={()=>applyFavorite(fav)}
+              style={{padding:'2px 8px',fontSize:10,fontWeight:600,border:'1px solid #f9a825',borderRadius:10,
+                background:'rgba(255,248,225,0.9)',color:'#f57f17',cursor:'pointer'}}>
+              ⭐{fav.FavName}
+            </button>
+            <button onClick={()=>deleteFavorite(fav.FavoriteKey)}
+              style={{width:14,height:14,padding:0,fontSize:8,border:'none',background:'transparent',color:'rgba(255,255,255,0.5)',cursor:'pointer'}}>✕</button>
+          </span>
+        ))}
+        <button onClick={saveFavorite}
+          style={{padding:'2px 8px',fontSize:10,border:'1px dashed rgba(255,255,255,0.4)',borderRadius:10,
+            background:'transparent',color:'rgba(255,255,255,0.7)',cursor:'pointer'}}>
+          + 즐겨찾기
         </button>
         {/* 검색 */}
         <input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)} placeholder="품목/업체 검색..."

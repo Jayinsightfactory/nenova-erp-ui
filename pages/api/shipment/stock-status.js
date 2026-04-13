@@ -19,6 +19,7 @@ async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
+  if (req.method === 'POST' && req.body?.action === 'addOrderDelta') return await addOrderDelta(req, res);
   if (req.method === 'POST')   return await addOrder(req, res);
   if (req.method === 'DELETE') return await deleteDescrLine(req, res);
   if (req.method === 'PUT')    return await saveStartStock(req, res);
@@ -281,7 +282,7 @@ export default withAuth(async function handler(req, res) {
 
 // ── PATCH: 출고수량 수정 + 비고 로그 저장
 async function updateOutQty(req, res) {
-  const { custKey, prodKey, week, outQty, shipDate, descrLog } = req.body;
+  const { custKey, prodKey, week, outQty, shipDate, descrLog, mode } = req.body;
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -357,30 +358,42 @@ async function updateOutQty(req, res) {
       );
 
       if (sd.recordset.length > 0) {
-        if (qty <= 0) {
+        // delta 모드: 기존값 + delta, absolute 모드: 그대로
+        let finalQty = qty;
+        if (mode === 'delta') {
+          const exist = await tQ(
+            `SELECT OutQuantity FROM ShipmentDetail WITH (UPDLOCK) WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+            { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
+          );
+          finalQty = (exist.recordset[0]?.OutQuantity || 0) + qty;
+        }
+        if (finalQty <= 0) {
           await tQ(`DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
         } else {
           await tQ(
             `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty, ShipmentDtm=${shipDtmExpr}
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-            { qty: { type: sql.Float, value: qty }, sk: { type: sql.Int, value: sk },
+            { qty: { type: sql.Float, value: finalQty }, sk: { type: sql.Int, value: sk },
               pk: { type: sql.Int, value: pk }, ...shipDtmParam }
           );
         }
-      } else if (qty > 0) {
+      } else if ((mode === 'delta' ? qty : qty) > 0) {
         // SdetailKey는 IDENTITY 아님 → 안전한 MAX+1
         const nk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
-        await tQ(
-          `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-           VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty)`,
-          { nk:  { type: sql.Int,   value: nk  },
-            sk:  { type: sql.Int,   value: sk  },
-            ck:  { type: sql.Int,   value: ck  },
-            pk:  { type: sql.Int,   value: pk  },
-            qty: { type: sql.Float, value: qty },
-            ...shipDtmParam }
-        );
+        const insertQty = qty > 0 ? qty : 0;
+        if (insertQty > 0) {
+          await tQ(
+            `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
+             VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty)`,
+            { nk:  { type: sql.Int,   value: nk  },
+              sk:  { type: sql.Int,   value: sk  },
+              ck:  { type: sql.Int,   value: ck  },
+              pk:  { type: sql.Int,   value: pk  },
+              qty: { type: sql.Float, value: insertQty },
+              ...shipDtmParam }
+          );
+        }
       }
     });
 
@@ -564,6 +577,86 @@ async function saveStartStock(req, res) {
     });
 
     return res.status(200).json({ success: true, message: '시작재고 저장 완료' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── POST action='addOrderDelta': 기존 주문수량에 delta 합산 (기존값 + 추가값)
+async function addOrderDelta(req, res) {
+  const { custKey, prodKey, week, qty, unit } = req.body;
+  if (!custKey || !prodKey || !week) {
+    return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
+  }
+  try {
+    const ck       = parseInt(custKey);
+    const pk       = parseInt(prodKey);
+    const delta    = parseFloat(qty) || 0;
+    const uid      = req.user?.userId || 'system';
+
+    await withTransaction(async (tQ) => {
+      // OrderMaster 찾기 또는 생성
+      const om = await tQ(
+        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+      );
+
+      let mk;
+      if (om.recordset.length === 0) {
+        const ins = await tQ(
+          `INSERT INTO OrderMaster (OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           OUTPUT INSERTED.OrderMasterKey VALUES(GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
+          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        );
+        mk = ins.recordset[0].OrderMasterKey;
+      } else {
+        mk = om.recordset[0].OrderMasterKey;
+      }
+
+      // 기존 OrderDetail 조회
+      const od = await tQ(
+        `SELECT OrderDetailKey, OutQuantity FROM OrderDetail WITH (UPDLOCK)
+         WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+        { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
+      );
+
+      if (od.recordset.length > 0) {
+        const existQty = od.recordset[0].OutQuantity || 0;
+        const finalQty = existQty + delta;
+
+        if (finalQty <= 0) {
+          await tQ(`UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
+            { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } });
+        } else {
+          const boxQty   = unit === '박스' ? finalQty : 0;
+          const bunchQty = unit === '단'   ? finalQty : 0;
+          const steamQty = unit === '송이' ? finalQty : 0;
+          await tQ(
+            `UPDATE OrderDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
+             WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+            { qty: { type: sql.Float, value: finalQty }, bq: { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+              mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
+          );
+        }
+      } else if (delta > 0) {
+        const boxQty   = unit === '박스' ? delta : 0;
+        const bunchQty = unit === '단'   ? delta : 0;
+        const steamQty = unit === '송이' ? delta : 0;
+        const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
+        await tQ(
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
+            qty: { type: sql.Float, value: delta }, bq: { type: sql.Float, value: boxQty },
+            bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+            uid: { type: sql.NVarChar, value: uid } }
+        );
+      }
+    });
+
+    return res.status(200).json({ success: true, message: '주문 추가(delta) 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
