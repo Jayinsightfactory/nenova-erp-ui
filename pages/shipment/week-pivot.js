@@ -732,12 +732,12 @@ export default function WeekPivot() {
                    boxShadow:'0 2px 8px rgba(0,0,0,0.3)'}}>
         <span style={{fontWeight:700,fontSize:14,whiteSpace:'nowrap'}}>📊 차수피벗</span>
         <span style={{width:1,height:20,background:'rgba(255,255,255,0.3)',margin:'0 4px'}} />
-        {/* 양쪽 동시 이동 ◀◀◀ */}
+        {/* 양쪽 동시 이동 <<< */}
         <button
           onClick={()=>{ weekFromInput.prevWeek(); weekToInput.prevWeek(); }}
-          style={{...hst.wBtn, background:'rgba(255,255,255,0.25)', fontWeight:900,
-                  fontSize:13, padding:'2px 8px', letterSpacing:-2, minWidth:34}}
-          title="양쪽 동시 주차-1">«</button>
+          style={{...hst.wBtn, background:'#e65100', border:'1px solid #bf360c', fontWeight:900,
+                  fontSize:11, padding:'2px 10px', letterSpacing:0, minWidth:40, color:'#fff'}}
+          title="양쪽 동시 주차-1">&lt;&lt;&lt;</button>
         {/* 차수 From */}
         <div style={{display:'flex',alignItems:'center',gap:2}}>
           <button onClick={weekFromInput.prevWeek} style={hst.wBtn} title="주차-1">◀◀</button>
@@ -755,12 +755,12 @@ export default function WeekPivot() {
           <button onClick={weekToInput.next}     style={hst.wBtn} title="차수+1">▷</button>
           <button onClick={weekToInput.nextWeek} style={hst.wBtn} title="주차+1">▶▶</button>
         </div>
-        {/* 양쪽 동시 이동 ▶▶▶ */}
+        {/* 양쪽 동시 이동 >>> */}
         <button
           onClick={()=>{ weekFromInput.nextWeek(); weekToInput.nextWeek(); }}
-          style={{...hst.wBtn, background:'rgba(255,255,255,0.25)', fontWeight:900,
-                  fontSize:13, padding:'2px 8px', letterSpacing:-2, minWidth:34}}
-          title="양쪽 동시 주차+1">»</button>
+          style={{...hst.wBtn, background:'#e65100', border:'1px solid #bf360c', fontWeight:900,
+                  fontSize:11, padding:'2px 10px', letterSpacing:0, minWidth:40, color:'#fff'}}
+          title="양쪽 동시 주차+1">&gt;&gt;&gt;</button>
         <button onClick={()=>loadData(weekFrom,weekTo)} disabled={loading||!hasWeek}
           style={{...hst.hBtn,background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)'}}>
           {loading?'로딩중...':'🔄 새로고침'}
