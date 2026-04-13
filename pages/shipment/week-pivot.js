@@ -2,6 +2,25 @@
 // 사이드바 없음, 최대 너비, 독립 창으로 사용
 // 빌드캐시 파기 2026-04-13c
 
+// ── 차수("15-01") → 출고 기본일(YYYY-MM-DD) 변환
+// 01차 = 해당 ISO주의 월요일, 02차 = 목요일 (3일 간격)
+function weekToShipDate(weekStr, year = new Date().getFullYear()) {
+  try {
+    const [wStr, dStr] = weekStr.split('-');
+    const weekNum = parseInt(wStr, 10);
+    const delivNum = parseInt(dStr, 10) || 1;
+    // ISO 주 1의 월요일 계산
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7; // 1=월 ~ 7=일
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    // 차수별 오프셋: 01→0일, 02→3일, 03→5일
+    const offsets = [0, 0, 3, 5];
+    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
+    return monday.toISOString().slice(0, 10); // YYYY-MM-DD
+  } catch { return null; }
+}
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -330,9 +349,11 @@ export default function WeekPivot() {
     try {
       const diff = qty - old;
       const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
+      // 차수 기준 출고 기본일 계산 (예: "15-01" → 해당 주 월요일)
+      const shipDate = weekToShipDate(wk);
       const r = await fetch('/api/shipment/stock-status', {
         method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ custKey:ck, prodKey:pk, week:wk, outQty:qty, descrLog:`${custName} ${old}>${qty}(${diffStr})` }),
+        body: JSON.stringify({ custKey:ck, prodKey:pk, week:wk, outQty:qty, shipDate, descrLog:`${custName} ${old}>${qty}(${diffStr})` }),
       });
       const d = await r.json();
       if (d.success) { setPvEdit(null); loadData(weekFrom, weekTo); }
