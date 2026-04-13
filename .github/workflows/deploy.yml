@@ -16,8 +16,17 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: |
-            echo "=== 경로 탐색 ==="
-            find /root /home /var/www /srv -maxdepth 4 -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | xargs grep -l '"nenova-erp-ui"' 2>/dev/null | head -5
-            echo "=== pm2 목록 ==="
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
-            pm2 list 2>/dev/null || echo "pm2 명령 실패"
+            cd /var/www/nenova-erp
+            echo "=== git pull ==="
+            git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
+            git fetch origin master
+            git reset --hard origin/master
+            echo "=== npm install ==="
+            npm install --omit=dev
+            echo "=== build ==="
+            rm -rf .next
+            npm run build
+            echo "=== pm2 restart ==="
+            pm2 restart nenova-erp
+            echo "✅ 배포 완료"
