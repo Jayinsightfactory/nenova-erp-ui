@@ -5,23 +5,6 @@ import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네달란드','중국기타','국내왁스'];
-
-// 차수(예: "15-01") → 출고 기본일(YYYY-MM-DD) 변환
-// 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
-function weekToShipDate(weekStr, year = new Date().getFullYear()) {
-  try {
-    const [wStr, dStr] = weekStr.split('-');
-    const weekNum = parseInt(wStr, 10);
-    const delivNum = parseInt(dStr, 10) || 1;
-    const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7;
-    const monday = new Date(jan4);
-    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
-    const offsets = [0, 0, 3, 5]; // 01→월, 02→+3(목), 03→+5(토)
-    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
-    return monday.toISOString().slice(0, 10);
-  } catch { return null; }
-}
 const WEEK_SUFFIXES = ['-01', '-02'];
 const DAY_NAMES = ['월','화','수','목','금'];
 
@@ -348,9 +331,7 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week,
-            year: new Date().getFullYear().toString(),
-            outDate: weekToShipDate(week),
+            week, year: week.split('-')[0] || '2026',
             custKey: selectedCust.CustKey,
             prodKey: item.ProdKey,
             outQty: qty,
@@ -431,9 +412,7 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week,
-            year: new Date().getFullYear().toString(),
-            outDate: weekToShipDate(week),
+            week, year: week.split('-')[0] || '2026',
             custKey: c.CustKey,
             prodKey: selectedProd.ProdKey,
             outQty: qty,
@@ -818,9 +797,9 @@ export default function Distribute() {
 
       {/* 탭2: 출고일 지정 */}
       {tab === 1 && (
-        <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
+        <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
           {/* 상단: 기본 출고요일 설정 */}
-          <div style={{padding:'12px 16px',borderBottom:'2px solid var(--border)',background:'#F8FAFC',flexShrink:0,overflow:'auto',maxHeight:'40vh'}}>
+          <div style={{padding:'12px 16px',borderBottom:'2px solid var(--border)',background:'#F8FAFC'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
               <span style={{fontSize:13,fontWeight:700}}>📅 품목그룹별 기본 출고요일 설정</span>
               <button className="btn btn-primary btn-sm" onClick={saveShipDayConfigs} disabled={shipDaySaving}>
