@@ -1622,31 +1622,54 @@ export default function StockStatus() {
             if (weeks.length > 1) hdr.push('합계');
             hdr.push('비고');
             csData.push(hdr);
+            // 품종별 그룹핑
+            const byFlower = {};
             custProds.forEach(pk => {
-              const p = prodMap[pk];
-              const row = [p.coun, p.flower, stripProdName(p.name)];
-              let rowTotal = 0;
-              weeks.forEach(wk => {
-                const v = dataMap[`${pk}-${ck}-${wk}`]||0;
-                row.push(v > 0 ? v : '');
-                rowTotal += v;
+              const fl = prodMap[pk].flower || '기타';
+              if (!byFlower[fl]) byFlower[fl] = [];
+              byFlower[fl].push(pk);
+            });
+            let rowIdx = 2; // 현재 행 (1=헤더제목, 2=컬럼헤더, 3부터 데이터)
+            Object.entries(byFlower).forEach(([flower, pks]) => {
+              const flowerStartRow = rowIdx + 1;
+              pks.forEach(pk => {
+                const p = prodMap[pk];
+                const row = [p.coun, p.flower, stripProdName(p.name)];
+                weeks.forEach(wk => {
+                  const v = dataMap[`${pk}-${ck}-${wk}`]||0;
+                  row.push(v > 0 ? v : '');
+                });
+                if (weeks.length > 1) {
+                  let rowTotal = 0;
+                  weeks.forEach(wk => { rowTotal += (dataMap[`${pk}-${ck}-${wk}`]||0); });
+                  row.push(rowTotal || '');
+                }
+                const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`]||'').filter(Boolean).join(' ');
+                row.push(allDescr.replace(/\n/g,' '));
+                csData.push(row);
+                rowIdx++;
               });
-              if (weeks.length > 1) row.push(rowTotal);
-              const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`]||'').filter(Boolean).join(' ');
-              row.push(allDescr.replace(/\n/g,' '));
-              csData.push(row);
+              // 품종 소계 행
+              const subR = ['', '', `${flower} 소계`];
+              weeks.forEach((wk,wi) => {
+                const col = XLSX.utils.encode_col(3+wi);
+                subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
+              });
+              if (weeks.length > 1) {
+                const col = XLSX.utils.encode_col(3+weeks.length);
+                subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
+              }
+              csData.push(subR);
+              rowIdx++;
             });
-            // 합계 행
-            const sumR = ['','','합계'];
-            weeks.forEach((wk,wi) => {
-              const col = XLSX.utils.encode_col(3+wi);
-              sumR.push({ f: `SUM(${col}3:${col}${2+custProds.length})` });
-            });
-            if (weeks.length > 1) {
-              const col = XLSX.utils.encode_col(3+weeks.length);
-              sumR.push({ f: `SUM(${col}3:${col}${2+custProds.length})` });
+            // 전체 합계 행
+            const totalR = ['','','전체 합계'];
+            const dataColCount = weeks.length + (weeks.length > 1 ? 1 : 0);
+            for (let ci = 0; ci < dataColCount; ci++) {
+              const col = XLSX.utils.encode_col(3+ci);
+              totalR.push({ f: `SUM(${col}3:${col}${rowIdx})` });
             }
-            csData.push(sumR);
+            csData.push(totalR);
             const csWs = XLSX.utils.aoa_to_sheet(csData);
             csWs['!cols'] = [{wch:10},{wch:10},{wch:28},...weeks.map(()=>({wch:8})),...(weeks.length>1?[{wch:8}]:[]),{wch:30}];
             // 시트명 31자 제한 + 특수문자 제거
