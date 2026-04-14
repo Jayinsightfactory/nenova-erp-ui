@@ -401,28 +401,50 @@ async function updateOutQty(req, res) {
     const shipDtmParam = finalDate ? { shipDate: { type: sql.NVarChar, value: finalDate } } : {};
 
     await withTransaction(async (tQ) => {
-      // ShipmentMaster 찾기 또는 생성
-      const sm = await tQ(
-        `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+      // ── 1단계: 기존 ShipmentDetail 먼저 찾기 (어떤 ShipmentMaster에 있든)
+      // 전산이 만든 레코드도 찾을 수 있도록 CustKey 없이 ProdKey+OrderWeek로 검색
+      const existSD = await tQ(
+        `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week }, pk: { type: sql.Int, value: pk } }
       );
-
-      let sk;
-      if (sm.recordset.length === 0) {
-        // ShipmentKey는 IDENTITY 아님 → 안전한 MAX+1
-        const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
-        await tQ(
-          `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
-          { newSk: { type: sql.Int,     value: newSk },
-            wk:    { type: sql.NVarChar, value: week  },
-            ck:    { type: sql.Int,     value: ck    },
-            uid:   { type: sql.NVarChar, value: uid   } }
+      // CustKey 없는 ShipmentMaster도 검색 (전산이 CustKey 없이 만든 경우)
+      let existSD2 = { recordset: [] };
+      if (existSD.recordset.length === 0) {
+        existSD2 = await tQ(
+          `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity
+           FROM ShipmentDetail sd
+           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+           WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk AND sd.CustKey=@ck`,
+          { wk: { type: sql.NVarChar, value: week }, pk: { type: sql.Int, value: pk }, ck: { type: sql.Int, value: ck } }
         );
-        sk = newSk;
+      }
+      const foundSD = existSD.recordset[0] || existSD2.recordset[0] || null;
+
+      // ── 2단계: ShipmentMaster 결정
+      let sk;
+      if (foundSD) {
+        sk = foundSD.ShipmentKey; // 기존 레코드가 있는 ShipmentMaster 사용
       } else {
-        sk = sm.recordset[0].ShipmentKey;
+        const sm = await tQ(
+          `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+          { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+        );
+        if (sm.recordset.length > 0) {
+          sk = sm.recordset[0].ShipmentKey;
+        } else {
+          const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
+          await tQ(
+            `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
+             VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
+            { newSk: { type: sql.Int, value: newSk }, wk: { type: sql.NVarChar, value: week },
+              ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+          );
+          sk = newSk;
+        }
       }
 
       // Product 환산정보 조회 (전산과 동일 구조: Box/Bunch/Steam)
@@ -433,38 +455,31 @@ async function updateOutQty(req, res) {
       const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
       const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
 
-      // ShipmentDetail: 있으면 UPDATE, qty=0이면 DELETE, 없으면 INSERT
-      const sd = await tQ(
-        `SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-        { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
-      );
+      // ── 3단계: ShipmentDetail UPDATE/DELETE/INSERT
+      const sd = { recordset: foundSD ? [foundSD] : [] };
 
       if (sd.recordset.length > 0) {
+        const targetSdk = foundSD.SdetailKey;
         // delta 모드: 기존값 + delta, absolute 모드: 그대로
         let finalQty = qty;
         if (mode === 'delta') {
-          const exist = await tQ(
-            `SELECT OutQuantity FROM ShipmentDetail WITH (UPDLOCK) WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-            { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
-          );
-          finalQty = (exist.recordset[0]?.OutQuantity || 0) + qty;
+          finalQty = (foundSD.OutQuantity || 0) + qty;
         }
         if (finalQty <= 0) {
-          await tQ(`DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-            { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
+          await tQ(`DELETE FROM ShipmentDetail WHERE SdetailKey=@sdk`,
+            { sdk: { type: sql.Int, value: targetSdk } });
         } else {
           // 전산 동일 구조: Box=qty, Bunch=qty*bunchOf1Box, Steam=qty*steamOf1Box
           await tQ(
             `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty,
               BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
               ShipmentDtm=${shipDtmExpr}
-             WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+             WHERE SdetailKey=@sdk`,
             { qty: { type: sql.Float, value: finalQty },
               bq:  { type: sql.Float, value: finalQty },
               bnq: { type: sql.Float, value: finalQty * bunchOf1Box },
               sq:  { type: sql.Float, value: finalQty * steamOf1Box },
-              sk: { type: sql.Int, value: sk },
-              pk: { type: sql.Int, value: pk }, ...shipDtmParam }
+              sdk: { type: sql.Int, value: targetSdk }, ...shipDtmParam }
           );
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {
