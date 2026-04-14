@@ -121,12 +121,21 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     }).catch(()=>{});
   }, []);
 
-  // 업체+차수 선택 시 기존 주문수량 조회
+  // 업체+차수 선택 시 기존 주문수량+분배수량 조회
   useEffect(() => {
     if (!selCust || !modalWeek.value) { setExistOrders({}); return; }
-    fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&custKey=${selCust.CustKey}`)
-      .then(r=>r.json()).then(d=>{ if(d.success && d.orders) setExistOrders(d.orders); })
-      .catch(()=>{});
+    fetch(`/api/shipment/stock-status?view=customers&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}`)
+      .then(r=>r.json()).then(d=>{
+        if (!d.success) return;
+        const map = {};
+        (d.rows||[]).filter(r => r.CustKey === selCust.CustKey).forEach(r => {
+          map[`${selCust.CustKey}-${r.ProdKey}-${modalWeek.value}`] = {
+            orderQty: r.custOrderQty || 0,
+            outQty: r.outQty || 0
+          };
+        });
+        setExistOrders(map);
+      }).catch(()=>{});
   }, [selCust, modalWeek.value]);
 
   const mgrList = useMemo(() => [...new Set(custs.map(c => c.Manager || '미지정'))].sort(), [custs]);
@@ -165,8 +174,10 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     if (cart.find(c => c.prod.ProdKey === p.ProdKey)) return;
     const u = UNITS.includes(p.OutUnit) ? p.OutUnit : '박스';
     const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
-    const existQty = existOrders[existKey] || 0;
-    setCart(prev => [...prev, { prod: p, qty: existQty || 1, unit: u, existQty }]);
+    const exist = existOrders[existKey] || {};
+    const existQty = exist.orderQty || 0;
+    const existOut = exist.outQty || 0;
+    setCart(prev => [...prev, { prod: p, qty: existQty || 1, unit: u, existQty, existOut }]);
   };
   const removeFromCart = (pk) => setCart(prev => prev.filter(c => c.prod.ProdKey !== pk));
   const updateCartQty = (pk, val) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, qty: parseFloat(val)||0} : c));
@@ -284,12 +295,13 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                 const inCart = cart.some(c=>c.prod.ProdKey===p.ProdKey);
                 const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
                 const eq = existOrders[existKey];
+                const hasExist = eq && (eq.orderQty > 0 || eq.outQty > 0);
                 return (
                   <button key={p.ProdKey} onClick={()=>addToCart(p)}
-                    style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32': eq?'#ff9800':'#ccc',
-                             background: inCart?'#2e7d32': eq?'#fff3e0':'#fff', textAlign:'left' }}>
+                    style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32': hasExist?'#ff9800':'#ccc',
+                             background: inCart?'#2e7d32': hasExist?'#fff3e0':'#fff', textAlign:'left' }}>
                     {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
-                    {eq > 0 && !inCart && <span style={{fontSize:9,color:'#e65100',marginLeft:2}}>({eq})</span>}
+                    {hasExist && !inCart && <span style={{fontSize:9,color:'#e65100',marginLeft:2}}>(주문{eq.orderQty} 분배{eq.outQty})</span>}
                   </button>
                 );
               })}
@@ -311,7 +323,11 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                     <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {item.prod.ProdName}
                     </span>
-                    {item.existQty > 0 && <span style={{ color:'#e65100', fontSize:10, whiteSpace:'nowrap' }}>기존:{item.existQty}</span>}
+                    <span style={{ fontSize:10, whiteSpace:'nowrap', display:'flex', gap:4, flexShrink:0 }}>
+                      {item.existQty > 0 && <span style={{color:'#1565c0'}}>주문:{item.existQty}</span>}
+                      {item.existOut > 0 && <span style={{color:'#e65100'}}>분배:{item.existOut}</span>}
+                      {(item.existQty > 0 || item.existOut > 0) && <span style={{color:'#2e7d32',fontWeight:700}}>→{item.qty}</span>}
+                    </span>
                     <div style={{ display:'flex', gap:2, flexShrink:0 }}>
                       {UNITS.map(u=>(
                         <button key={u} onClick={()=>updateCartUnit(item.prod.ProdKey, u)}
