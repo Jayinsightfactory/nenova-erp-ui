@@ -1229,12 +1229,34 @@ export default function StockStatus() {
             </div>
           );
         })()}
-        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
           <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
             <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
             출고/재고 있는 품목만
           </label>
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목)</span>
+          <span style={{width:1,height:16,background:'#ccc'}}/>
+          {(()=>{
+            const ssCount = weeks.reduce((a,wk) => a + Object.keys(startStocks).filter(k=>k.endsWith(`-${wk}`)&&startStocks[k]?.stock!=null&&startStocks[k]?.stock>0).length, 0);
+            return ssCount > 0
+              ? <span style={{background:'#e0f7fa',border:'1px solid #00acc1',borderRadius:10,padding:'2px 10px',fontSize:11,color:'#006064',fontWeight:700}}>
+                  📦 시작재고 {ssCount}개 저장됨
+                  <button onClick={async()=>{
+                    if(!confirm(`시작재고를 전부 삭제(초기화)하시겠습니까?`)) return;
+                    for(const wk of weeks){
+                      const delKeys = Object.keys(startStocks).filter(k=>k.endsWith(`-${wk}`));
+                      for(const k of delKeys){
+                        const pk=k.split('-')[0];
+                        await fetch('/api/shipment/stock-status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({prodKey:pk,week:wk,stock:0})});
+                      }
+                    }
+                    setStartStocks({});
+                  }} style={{marginLeft:6,fontSize:10,padding:'1px 6px',border:'1px solid #e53935',borderRadius:4,background:'#ffebee',color:'#c62828',cursor:'pointer'}}>
+                    🗑 초기화
+                  </button>
+                </span>
+              : <span style={{fontSize:11,color:'#999'}}>시작재고 미설정</span>;
+          })()}
         </div>
         <button onClick={()=>{
           // 엑셀: 차수 > 지역 > 업체 > 품종별 그룹핑, 0값 제거, 비고 포함
