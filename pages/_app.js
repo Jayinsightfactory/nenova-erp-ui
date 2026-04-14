@@ -6,7 +6,9 @@ const NO_LAYOUT = ['/login', '/', '/shipment/week-pivot'];
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const isNoLayout = NO_LAYOUT.includes(router.pathname);
+  // 정확 매칭 + /m/* 접두사 매칭 (모바일 전용 페이지는 레이아웃 없음)
+  const isNoLayout =
+    NO_LAYOUT.includes(router.pathname) || router.pathname.startsWith('/m/');
 
   if (isNoLayout) {
     return (
