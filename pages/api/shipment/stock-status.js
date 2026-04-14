@@ -36,6 +36,19 @@ export default withAuth(async function handler(req, res) {
     weekTo:   { type: sql.NVarChar, value: weekTo },
   };
 
+  // ── 조회 시 자동 EstQuantity 동기화 (전산프로그램이 OutQuantity만 변경하는 경우 대응)
+  try {
+    await query(
+      `UPDATE sd SET sd.EstQuantity = sd.OutQuantity
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+         AND ISNULL(sd.EstQuantity, 0) != ISNULL(sd.OutQuantity, 0)`,
+      { weekFrom: { type: sql.NVarChar, value: weekFrom }, weekTo: { type: sql.NVarChar, value: weekTo } }
+    );
+  } catch {}
+  };
+
   try {
     // ── 품목별: 이월재고 + 입고/출고/주문 + 차수별 세부
     if (view === 'products' || !view) {
