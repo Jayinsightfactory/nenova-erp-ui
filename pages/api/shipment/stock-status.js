@@ -282,6 +282,18 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── OutQuantity=0 빈 ShipmentDetail 정리 (전산 확정 차단 원인)
+    if (view === 'cleanupZero') {
+      const result = await query(
+        `DELETE sd FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+           AND ISNULL(sd.OutQuantity, 0) = 0`,
+        params
+      );
+      return res.status(200).json({ success: true, message: '빈 레코드 정리', rowsAffected: result.rowsAffected });
+    }
+
     // ── EstQuantity 동기화 (OutQuantity != EstQuantity 보정)
     if (view === 'syncEstQty') {
       const result = await query(
