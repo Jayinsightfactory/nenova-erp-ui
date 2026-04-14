@@ -301,15 +301,13 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           {cart.length > 0 && (
             <div style={{ marginBottom:14, border:'1px solid #1976d2', borderRadius:6, overflow:'hidden' }}>
               <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span>선택된 품목 ({cart.length}개) {selCust && <span style={{opacity:0.8, fontWeight:400}}>— 🏢 {selCust.CustName}</span>}</span>
+                <span>{selCust?.CustName||'업체 미선택'}, {cart.map(c=>c.prod.ProdName.split(' ').pop()||c.prod.ProdName).join(', ').substring(0,50)}{cart.length>3?'..':''} ({cart.length}개)</span>
                 <button onClick={()=>setCart([])} style={{background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)',color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:10,cursor:'pointer'}}>전체 취소</button>
               </div>
               <div style={{ maxHeight:180, overflowY:'auto' }}>
                 {cart.map((item, i) => (
                   <div key={item.prod.ProdKey} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
                        borderBottom:'1px solid #eee', background: i%2===0?'#fff':'#f9f9f9', fontSize:12 }}>
-                    <button onClick={()=>removeFromCart(item.prod.ProdKey)}
-                      style={{ background:'#ef5350', color:'#fff', border:'none', borderRadius:4, width:20, height:20, cursor:'pointer', fontSize:12, lineHeight:'18px', flexShrink:0 }}>✕</button>
                     <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {item.prod.ProdName}
                     </span>
@@ -324,10 +322,18 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                         </button>
                       ))}
                     </div>
-                    <input type="number" value={item.qty}
-                      onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
-                      style={{ width:60, textAlign:'right', fontSize:11, padding:'3px 4px', border:'1px solid #ccc', borderRadius:3,
-                               background: item.qty < 0 ? '#ffebee' : '#fff', flexShrink:0 }} />
+                    <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
+                      <button onClick={()=>updateCartQty(item.prod.ProdKey, (item.qty||0)-1)}
+                        style={{ width:28, height:28, fontSize:16, fontWeight:700, border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', color:'#d32f2f', lineHeight:'26px' }}>−</button>
+                      <input type="number" value={item.qty}
+                        onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
+                        style={{ width:50, textAlign:'center', fontSize:13, fontWeight:700, padding:'3px 2px', border:'1px solid #1976d2', borderRadius:4,
+                                 background: item.qty < 0 ? '#ffebee' : '#fff' }} />
+                      <button onClick={()=>updateCartQty(item.prod.ProdKey, (item.qty||0)+1)}
+                        style={{ width:28, height:28, fontSize:16, fontWeight:700, border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#e3f2fd', color:'#1565c0', lineHeight:'26px' }}>+</button>
+                    </div>
+                    <button onClick={()=>removeFromCart(item.prod.ProdKey)}
+                      style={{ background:'#ef5350', color:'#fff', border:'none', borderRadius:4, width:22, height:22, cursor:'pointer', fontSize:11, lineHeight:'20px', flexShrink:0 }}>✕</button>
                   </div>
                 ))}
               </div>
