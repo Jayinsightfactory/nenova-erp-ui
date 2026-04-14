@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 // Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
-import * as XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────
 // Edit Context
@@ -1567,40 +1567,7 @@ export default function StockStatus() {
             merges.push({s:{r:1,c:endCol-3},e:{r:1,c:endCol}});
           });
           flatWs['!merges'] = merges;
-
-          // 스타일 적용
-          const border = { top:{style:'thin',color:{rgb:'CCCCCC'}}, bottom:{style:'thin',color:{rgb:'CCCCCC'}}, left:{style:'thin',color:{rgb:'CCCCCC'}}, right:{style:'thin',color:{rgb:'CCCCCC'}} };
-          const hdrStyle1 = { font:{bold:true,color:{rgb:'FFFFFF'},sz:11}, fill:{fgColor:{rgb:'1A237E'}}, alignment:{horizontal:'center',vertical:'center'}, border };
-          const hdrStyle2 = { font:{bold:true,color:{rgb:'FFFFFF'},sz:9}, fill:{fgColor:{rgb:'455A64'}}, alignment:{horizontal:'center',vertical:'center'}, border };
-          const hdrStyle3 = { font:{bold:true,sz:9}, fill:{fgColor:{rgb:'E3F2FD'}}, alignment:{horizontal:'center',vertical:'center'}, border };
-          const numStyle = { alignment:{horizontal:'center'}, border };
-          const sumStyle = { font:{bold:true,sz:10}, fill:{fgColor:{rgb:'FFF9C4'}}, alignment:{horizontal:'center'}, border };
-          const labelStyle = { font:{bold:true,sz:10}, fill:{fgColor:{rgb:'FFF9C4'}}, alignment:{horizontal:'right'}, border };
-
-          for (let c = 0; c < totalCols; c++) {
-            const col = XLSX.utils.encode_col(c);
-            // 행1 차수
-            const a1 = `${col}1`;
-            if (flatWs[a1]) flatWs[a1].s = hdrStyle1; else flatWs[a1] = {v:'',t:'s',s:hdrStyle1};
-            // 행2 지역
-            const a2 = `${col}2`;
-            if (flatWs[a2]) flatWs[a2].s = hdrStyle2; else flatWs[a2] = {v:'',t:'s',s:hdrStyle2};
-            // 행3 업체명
-            const a3 = `${col}3`;
-            if (flatWs[a3]) flatWs[a3].s = hdrStyle3; else flatWs[a3] = {v:'',t:'s',s:hdrStyle3};
-            // 데이터 행
-            for (let r = dataStartRow; r < sumRow; r++) {
-              const addr = `${col}${r+1}`;
-              if (flatWs[addr]) flatWs[addr].s = c < 3 ? {...numStyle, alignment:{horizontal:'left'}} : numStyle;
-              else flatWs[addr] = {v:'',t:'s',s:numStyle};
-            }
-            // 합계 행
-            const sa = `${col}${sumRow+1}`;
-            if (flatWs[sa]) flatWs[sa].s = c < 3 ? labelStyle : sumStyle;
-          }
-
           flatWs['!cols'] = [{wch:10},{wch:10},{wch:26},...Array(totalCols-3).fill({wch:7})];
-          flatWs['!rows'] = [{hpt:22},{hpt:18},{hpt:18}];
           XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
           }
 
