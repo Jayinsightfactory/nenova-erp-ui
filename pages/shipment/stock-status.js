@@ -406,7 +406,17 @@ export default function StockStatus() {
     } catch {}
   };
 
+  const [activeFavKey, setActiveFavKey] = useState(null); // 현재 활성화된 즐겨찾기
+
   const applyFavorite = (fav) => {
+    // 이미 활성 → 취소 (필터 초기화)
+    if (activeFavKey === fav.FavoriteKey) {
+      setActiveFavKey(null);
+      setFilterCoun(new Set()); setFilterFlower(''); setFilterSearch('');
+      setPvMgr(''); setPvCusts(new Set()); setPvFlowers(new Set()); setPvShowOnlyOut(false);
+      return;
+    }
+    setActiveFavKey(fav.FavoriteKey);
     try {
       const f = JSON.parse(fav.FilterData);
       if (f.weekFrom) weekFromInput.setValue(f.weekFrom);
@@ -423,7 +433,14 @@ export default function StockStatus() {
       if (f.pvMgr !== undefined) setPvMgr(f.pvMgr);
       if (f.pvCusts) setPvCusts(new Set(f.pvCusts));
       if (f.pvFlowers) setPvFlowers(new Set(f.pvFlowers));
-      if (f.filterCoun) setFilterCoun(new Set(f.filterCoun));
+      // filterCoun: 구버전(문자열) 호환 + 신버전(배열)
+      if (f.filterCoun) {
+        if (typeof f.filterCoun === 'string') setFilterCoun(new Set([f.filterCoun]));
+        else if (Array.isArray(f.filterCoun)) setFilterCoun(new Set(f.filterCoun));
+        else setFilterCoun(new Set());
+      } else {
+        setFilterCoun(new Set());
+      }
       if (f.filterFlower !== undefined) setFilterFlower(f.filterFlower);
       if (f.filterSearch !== undefined) setFilterSearch(f.filterSearch);
       if (f.pvShowOnlyOut !== undefined) setPvShowOnlyOut(f.pvShowOnlyOut);
@@ -1127,7 +1144,10 @@ export default function StockStatus() {
       return rows.some(r => r.CustKey===ck && r.OrderWeek===wk && r.isFix);
     };
 
-    if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음</div>;
+    if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음
+      <div style={{marginTop:10}}><button onClick={()=>{setFilterCoun(new Set());setFilterFlower('');setFilterSearch('');setPvMgr('');setPvCusts(new Set());setPvFlowers(new Set());setPvShowOnlyOut(false);setActiveFavKey(null);}}
+        style={{padding:'6px 16px',fontSize:12,border:'1px solid #1976d2',borderRadius:6,background:'#e3f2fd',color:'#1565c0',cursor:'pointer',fontWeight:600}}>🔄 필터 초기화</button></div>
+    </div>;
 
     const PROD_REPEAT = 10;
     const CUST_REPEAT = 15;
@@ -1937,18 +1957,23 @@ export default function StockStatus() {
               </button>
             ))}
             <span style={{ width:1, height:20, background:'#ccc', margin:'0 4px' }}/>
-            {favorites.map(fav=>(
+            {favorites.map(fav=>{
+              const isActive = activeFavKey === fav.FavoriteKey;
+              return (
               <span key={fav.FavoriteKey} style={{ display:'inline-flex', alignItems:'center', gap:2 }}>
                 <button onClick={()=>applyFavorite(fav)}
-                  style={{ padding:'4px 10px', fontSize:11, fontWeight:600, border:'1px solid #f9a825', borderRadius:12,
-                    background:'#fff8e1', color:'#f57f17', cursor:'pointer' }}>
-                  ⭐ {fav.FavName}
+                  style={{ padding:'4px 10px', fontSize:11, fontWeight:600, borderRadius:12, cursor:'pointer',
+                    border: isActive ? '2px solid #e65100' : '1px solid #f9a825',
+                    background: isActive ? '#e65100' : '#fff8e1',
+                    color: isActive ? '#fff' : '#f57f17' }}>
+                  {isActive ? '★' : '⭐'} {fav.FavName}
                 </button>
                 <button onClick={()=>deleteFavorite(fav.FavoriteKey)}
                   style={{ width:16, height:16, padding:0, fontSize:9, border:'none', background:'transparent',
                     color:'#999', cursor:'pointer', lineHeight:'16px' }}>✕</button>
               </span>
-            ))}
+              );
+            })}
             <button onClick={saveFavorite}
               style={{ padding:'4px 10px', fontSize:11, border:'1px dashed #aaa', borderRadius:12,
                 background:'#fafafa', color:'#666', cursor:'pointer' }}>
