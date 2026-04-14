@@ -256,11 +256,15 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
+      `SELECT BunchOf1Box, SteamOf1Box, SteamOf1Bunch FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
-    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
-    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+    const pInfo = prodInfo.recordset[0] || {};
+    const bunchOf1Box = pInfo.BunchOf1Box || 0;
+    // SteamOf1Box가 0이면 BunchOf1Box * SteamOf1Bunch로 계산 (Ruscus 등)
+    const steamOf1Box = (pInfo.SteamOf1Box && pInfo.SteamOf1Box > 0)
+      ? pInfo.SteamOf1Box
+      : (bunchOf1Box * (pInfo.SteamOf1Bunch || 0));
 
     const shipmentKey = await withTransaction(async (tQuery) => {
       const smResult = await tQuery(
