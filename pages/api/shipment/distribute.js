@@ -256,24 +256,15 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT BunchOf1Box, SteamOf1Box, SteamOf1Bunch, OutUnit FROM Product WHERE ProdKey=@pk`,
+      `SELECT BunchOf1Box, SteamOf1Box, SteamOf1Bunch FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
     const pInfo = prodInfo.recordset[0] || {};
-    const B1B = pInfo.BunchOf1Box || 0;
-    const S1B = pInfo.SteamOf1Bunch || 0;
-    const S1Box = (pInfo.SteamOf1Box && pInfo.SteamOf1Box > 0) ? pInfo.SteamOf1Box : (B1B * S1B);
-    const outUnit = pInfo.OutUnit || '박스';
-    // OutUnit별로 Box/Bunch/Steam 계산
-    const calcQuantities = (qty) => {
-      if (outUnit === '단') {
-        return { box: B1B > 0 ? Math.round((qty / B1B) * 100) / 100 : qty, bunch: qty, steam: qty * S1B };
-      } else if (outUnit === '송이') {
-        return { box: S1Box > 0 ? Math.round((qty / S1Box) * 100) / 100 : qty, bunch: S1B > 0 ? Math.round((qty / S1B) * 100) / 100 : qty, steam: qty };
-      } else {
-        return { box: qty, bunch: qty * B1B, steam: qty * S1Box };
-      }
-    };
+    const bunchOf1Box = pInfo.BunchOf1Box || 0;
+    // SteamOf1Box가 0이면 BunchOf1Box * SteamOf1Bunch로 계산 (Ruscus 등)
+    const steamOf1Box = (pInfo.SteamOf1Box && pInfo.SteamOf1Box > 0)
+      ? pInfo.SteamOf1Box
+      : (bunchOf1Box * (pInfo.SteamOf1Bunch || 0));
 
     const shipmentKey = await withTransaction(async (tQuery) => {
       const smResult = await tQuery(
@@ -314,10 +305,9 @@ async function saveDistribute(req, res) {
         const unitCost = parseFloat(cost) || 0;
         const amount = qty * unitCost;
         const vat = Math.round(amount / 11);
-        const _q = calcQuantities(qty);
-        const boxQty = _q.box;
-        const bunchQty = _q.bunch;
-        const steamQty = _q.steam;
+        const boxQty = qty;
+        const bunchQty = qty * bunchOf1Box;
+        const steamQty = qty * steamOf1Box;
         const now = new Date();
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
