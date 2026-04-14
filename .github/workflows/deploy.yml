@@ -22,7 +22,8 @@ jobs:
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
             git reset --hard origin/master
-            echo "=== npm install ==="
+            echo "=== npm install (클린) ==="
+            rm -rf node_modules
             npm install --omit=dev
             echo "=== build ==="
             rm -rf .next
