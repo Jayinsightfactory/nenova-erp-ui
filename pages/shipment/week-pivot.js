@@ -21,7 +21,7 @@ function weekToShipDate(weekStr, year = new Date().getFullYear()) {
     monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
     const offsets = [0, 0, 3, 5];
     monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
-    return monday.toISOString().slice(0, 10);
+    return `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
   } catch { return null; }
 }
 

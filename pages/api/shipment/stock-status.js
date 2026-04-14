@@ -321,7 +321,8 @@ async function updateOutQty(req, res) {
         const offsets = [0, 4, 5, 6, 1, 3, 2];
         const offset = offsets[baseDay] ?? 0;
         wednesday.setDate(wednesday.getDate() + offset);
-        return wednesday.toISOString().slice(0, 10);
+        // 로컬 날짜 포맷 (toISOString은 UTC 변환으로 KST에서 하루 밀림)
+        return `${wednesday.getFullYear()}-${String(wednesday.getMonth()+1).padStart(2,'0')}-${String(wednesday.getDate()).padStart(2,'0')}`;
       } catch { return null; }
     }
 
