@@ -16,6 +16,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: |
+            set -e
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
             echo "=== git pull ==="
@@ -27,9 +28,7 @@ jobs:
             echo "=== build ==="
             rm -rf .next
             npm run build
+            if [ ! -d ".next" ]; then echo "❌ 빌드 실패 — .next 없음"; exit 1; fi
             echo "=== pm2 restart ==="
             pm2 restart nenova-erp
-            sleep 5
-            echo "=== pm2 logs (최근 30줄) ==="
-            pm2 logs nenova-erp --nostream --lines 30 2>&1 || true
             echo "✅ 배포 완료"
