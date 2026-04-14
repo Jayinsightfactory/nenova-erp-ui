@@ -307,14 +307,16 @@ async function updateOutQty(req, res) {
       try {
         const weekNum = parseInt(weekStr.split('-')[0], 10);
         const yr = new Date().getFullYear();
-        const jan4 = new Date(yr, 0, 4);
-        const dow = jan4.getDay() || 7;
-        const monday = new Date(jan4);
-        monday.setDate(jan4.getDate() - dow + 1 + (weekNum - 1) * 7);
-        // 수요일 = Monday + 2
-        const wednesday = new Date(monday);
-        wednesday.setDate(monday.getDate() + 2);
-        // BaseOutDay → 수요일 기준 오프셋 (DB 실데이터 기반)
+        // getCurrentWeek()과 동일한 단순 7일 분할: week N = day (N-1)*7+1 ~ N*7
+        const dayStart = (weekNum - 1) * 7 + 1;
+        const dateStart = new Date(yr, 0, dayStart); // day 1 = Jan 1
+        // 해당 7일 구간 내 수요일(getDay()=3) 찾기
+        const wednesday = new Date(dateStart);
+        for (let i = 0; i < 7; i++) {
+          if (wednesday.getDay() === 3) break;
+          wednesday.setDate(wednesday.getDate() + 1);
+        }
+        // BaseOutDay → 수요일 기준 오프셋 (DB 실데이터 검증 완료)
         //   0=수(+0), 1=일(+4), 2=월(+5), 3=화(+6), 4=목(+1), 5=토(+3), 6=금(+2)
         const offsets = [0, 4, 5, 6, 1, 3, 2];
         const offset = offsets[baseDay] ?? 0;
@@ -399,8 +401,8 @@ async function updateOutQty(req, res) {
       }
     });
 
-    // descrLog 있으면 ShipmentDetail.Descr에 추가
-    if (descrLog && qty > 0) {
+    // descrLog 있으면 ShipmentDetail.Descr에 추가 (수량 관계없이 기록)
+    if (descrLog) {
       const now = new Date().toISOString().replace('T',' ').slice(0,16);
       const logLine = `[${now}] ${descrLog}`;
       await query(
