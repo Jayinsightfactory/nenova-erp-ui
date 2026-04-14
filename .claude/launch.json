@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "nenova-railway",
+      "runtimeExecutable": "railway",
+      "runtimeArgs": ["run", "npm", "run", "dev"],
+      "port": 3000
     }
   ]
 }

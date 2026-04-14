@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 // Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 // ─────────────────────────────────────────────────────────────
 // Edit Context
@@ -1415,24 +1415,31 @@ export default function StockStatus() {
             mws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},...weeks.map(()=>({wch:8})),{wch:8},{wch:30}];
             XLSX.utils.book_append_sheet(wb, mws, '전체병합');
           }
-          // ── 기존 플랫 시트 (차수피벗): 3줄 헤더 — 차수 > 지역 > 업체
+          // ── 차수피벗 시트: 3줄 헤더(셀병합) + 합산수식 + 테두리 + 정렬
+          {
+          const colsPerWeek = custKeys.length + 4; // 업체 + 시작/입고/출고/잔량
+          const totalCols = 3 + weeks.length * colsPerWeek;
+          const dataStartRow = 3; // 0-indexed (행4부터 데이터)
+          const dataRows = prodKeys.length;
+          const sumRow = dataStartRow + dataRows; // 합계 행
+
           const flatData = [];
-          // 행1: 차수 (셀병합 대신 반복)
+          // 행1: 차수
           const h1 = ['','',''];
-          weeks.forEach(wk => { custKeys.forEach(() => h1.push(wk)); h1.push(wk,wk,wk,wk); });
+          weeks.forEach(wk => { for(let i=0;i<colsPerWeek;i++) h1.push(i===0?wk:''); });
           flatData.push(h1);
           // 행2: 지역
           const h2 = ['','',''];
           weeks.forEach(() => {
-            areaGroups.forEach(ag => { for(let i=0;i<ag.count;i++) h2.push(ag.area); });
-            h2.push('재고','재고','재고','재고');
+            areaGroups.forEach(ag => { for(let i=0;i<ag.count;i++) h2.push(i===0?ag.area:''); });
+            h2.push('','','','');
           });
           flatData.push(h2);
-          // 행3: 업체명 + 재고헤더
+          // 행3: 업체명
           const h3 = ['국가','꽃','품명'];
           weeks.forEach(() => { custKeys.forEach(ck => h3.push(cShort(ck))); h3.push('시작','입고','출고','잔량'); });
           flatData.push(h3);
-          // 데이터
+          // 데이터 행
           prodKeys.forEach(pk => {
             const p = prodMap[pk];
             const row = [p.coun, p.flower, stripProdName(p.name)];
@@ -1451,9 +1458,74 @@ export default function StockStatus() {
             });
             flatData.push(row);
           });
+          // 합계 행 (수식)
+          const sumRowData = ['','','합계'];
+          for (let c = 3; c < totalCols; c++) {
+            const colLetter = XLSX.utils.encode_col(c);
+            sumRowData.push({ f: `SUM(${colLetter}${dataStartRow+1+1}:${colLetter}${sumRow})` });
+          }
+          flatData.push(sumRowData);
+
           const flatWs = XLSX.utils.aoa_to_sheet(flatData);
-          flatWs['!cols'] = [{wch:10},{wch:10},{wch:28},...Array(h3.length-3).fill({wch:7})];
+
+          // 셀병합: 행1 차수, 행2 지역
+          const merges = [];
+          // 행1+2+3 품명 영역 병합 (A1:A3, B1:B3, C1:C3)
+          merges.push({s:{r:0,c:0},e:{r:2,c:0}});
+          merges.push({s:{r:0,c:1},e:{r:2,c:1}});
+          merges.push({s:{r:0,c:2},e:{r:2,c:2}});
+          // 차수별 병합
+          weeks.forEach((wk,wi) => {
+            const startCol = 3 + wi * colsPerWeek;
+            const endCol = startCol + colsPerWeek - 1;
+            // 행1: 차수 셀병합
+            merges.push({s:{r:0,c:startCol},e:{r:0,c:endCol}});
+            // 행2: 지역별 셀병합
+            let col = startCol;
+            areaGroups.forEach(ag => {
+              if (ag.count > 1) merges.push({s:{r:1,c:col},e:{r:1,c:col+ag.count-1}});
+              col += ag.count;
+            });
+            // 행2: 재고 4칸 병합
+            merges.push({s:{r:1,c:endCol-3},e:{r:1,c:endCol}});
+          });
+          flatWs['!merges'] = merges;
+
+          // 스타일 적용
+          const border = { top:{style:'thin',color:{rgb:'CCCCCC'}}, bottom:{style:'thin',color:{rgb:'CCCCCC'}}, left:{style:'thin',color:{rgb:'CCCCCC'}}, right:{style:'thin',color:{rgb:'CCCCCC'}} };
+          const hdrStyle1 = { font:{bold:true,color:{rgb:'FFFFFF'},sz:11}, fill:{fgColor:{rgb:'1A237E'}}, alignment:{horizontal:'center',vertical:'center'}, border };
+          const hdrStyle2 = { font:{bold:true,color:{rgb:'FFFFFF'},sz:9}, fill:{fgColor:{rgb:'455A64'}}, alignment:{horizontal:'center',vertical:'center'}, border };
+          const hdrStyle3 = { font:{bold:true,sz:9}, fill:{fgColor:{rgb:'E3F2FD'}}, alignment:{horizontal:'center',vertical:'center'}, border };
+          const numStyle = { alignment:{horizontal:'center'}, border };
+          const sumStyle = { font:{bold:true,sz:10}, fill:{fgColor:{rgb:'FFF9C4'}}, alignment:{horizontal:'center'}, border };
+          const labelStyle = { font:{bold:true,sz:10}, fill:{fgColor:{rgb:'FFF9C4'}}, alignment:{horizontal:'right'}, border };
+
+          for (let c = 0; c < totalCols; c++) {
+            const col = XLSX.utils.encode_col(c);
+            // 행1 차수
+            const a1 = `${col}1`;
+            if (flatWs[a1]) flatWs[a1].s = hdrStyle1; else flatWs[a1] = {v:'',t:'s',s:hdrStyle1};
+            // 행2 지역
+            const a2 = `${col}2`;
+            if (flatWs[a2]) flatWs[a2].s = hdrStyle2; else flatWs[a2] = {v:'',t:'s',s:hdrStyle2};
+            // 행3 업체명
+            const a3 = `${col}3`;
+            if (flatWs[a3]) flatWs[a3].s = hdrStyle3; else flatWs[a3] = {v:'',t:'s',s:hdrStyle3};
+            // 데이터 행
+            for (let r = dataStartRow; r < sumRow; r++) {
+              const addr = `${col}${r+1}`;
+              if (flatWs[addr]) flatWs[addr].s = c < 3 ? {...numStyle, alignment:{horizontal:'left'}} : numStyle;
+              else flatWs[addr] = {v:'',t:'s',s:numStyle};
+            }
+            // 합계 행
+            const sa = `${col}${sumRow+1}`;
+            if (flatWs[sa]) flatWs[sa].s = c < 3 ? labelStyle : sumStyle;
+          }
+
+          flatWs['!cols'] = [{wch:10},{wch:10},{wch:26},...Array(totalCols-3).fill({wch:7})];
+          flatWs['!rows'] = [{hpt:22},{hpt:18},{hpt:18}];
           XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
+          }
 
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>

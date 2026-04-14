@@ -12,7 +12,13 @@
       "Bash(npm uninstall:*)",
       "Bash(railway logs:*)",
       "Read(//c/Users/cando/Downloads/nenova-erp-ui10/nenova-erp-ui/$HOME/.claude/**)",
-      "Read(//c/Users/cando/Downloads/nenova-erp-ui10/nenova-erp-ui/$APPDATA/Claude/**)"
+      "Read(//c/Users/cando/Downloads/nenova-erp-ui10/nenova-erp-ui/$APPDATA/Claude/**)",
+      "Bash(cmd /c \"railway --version\")",
+      "Bash(cmd /c \"where railway && railway --version\")",
+      "Bash(start chrome:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(powershell -command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen | Select-Object Bounds\")",
+      "Bash(powershell -command \":*)"
     ]
   }
 }
