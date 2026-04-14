@@ -300,8 +300,9 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           {/* 카트 */}
           {cart.length > 0 && (
             <div style={{ marginBottom:14, border:'1px solid #1976d2', borderRadius:6, overflow:'hidden' }}>
-              <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700 }}>
-                선택된 품목 ({cart.length}개)
+              <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span>선택된 품목 ({cart.length}개) {selCust && <span style={{opacity:0.8, fontWeight:400}}>— 🏢 {selCust.CustName}</span>}</span>
+                <button onClick={()=>setCart([])} style={{background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)',color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:10,cursor:'pointer'}}>전체 취소</button>
               </div>
               <div style={{ maxHeight:180, overflowY:'auto' }}>
                 {cart.map((item, i) => (
