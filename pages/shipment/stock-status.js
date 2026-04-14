@@ -1372,7 +1372,7 @@ export default function StockStatus() {
               : <span style={{fontSize:11,color:'#999'}}>시작재고 미설정</span>;
           })()}
         </div>
-        <button onClick={()=>{
+        <button onClick={async()=>{
           // 엑셀: 차수 > 지역 > 업체 > 품종별 그룹핑, 0값 제거, 비고 포함
           const wb = XLSX.utils.book_new();
           weeks.forEach(wk => {
@@ -1654,7 +1654,28 @@ export default function StockStatus() {
             try { XLSX.utils.book_append_sheet(wb, csWs, sheetName); } catch {}
           });
 
-          XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
+          // 저장: showSaveFilePicker 지원 시 경로 선택, 아니면 기본 다운로드
+          const fileName = `차수피벗_${weeks.join('~')}.xlsx`;
+          if (window.showSaveFilePicker) {
+            try {
+              const handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: 'Excel', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
+                startIn: localStorage.getItem('excelSaveDir') ? undefined : 'downloads',
+              });
+              // 디렉토리 기억 (다음번에 같은 위치)
+              const writable = await handle.createWritable();
+              const buf = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+              await writable.write(buf);
+              await writable.close();
+              alert(`✅ 저장 완료: ${handle.name}`);
+            } catch(e) {
+              if (e.name !== 'AbortError') { console.error(e); XLSX.writeFile(wb, fileName); }
+            }
+          } else {
+            alert('⚠️ 이 브라우저는 저장 위치 선택을 지원하지 않습니다.\nChrome 브라우저를 사용해주세요.\n기본 다운로드 폴더에 저장됩니다.');
+            XLSX.writeFile(wb, fileName);
+          }
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
         <button onClick={()=>{
           // 잔량 있는 품목 클립보드 복사 (마지막 차수 기준)
