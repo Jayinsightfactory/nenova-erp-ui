@@ -108,6 +108,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [prodCounts, setProdCounts] = useState({});   // { ProdKey: count } 품목 인기순
   const [existOrders, setExistOrders] = useState({}); // { `CustKey-ProdKey-Week`: qty } 기존 주문수량
   const [cart, setCart] = useState([]);
+  const [submitResults, setSubmitResults] = useState(null); // { items: [{prod,qty,unit,status,dbQty}...] }
 
   useEffect(() => {
     fetch('/api/master?entity=customers').then(r=>r.json()).then(d=>{if(d.success) setCusts(d.data);});
@@ -176,17 +177,27 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
     if (!modalWeek.value) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
+    const results = [];
     try {
-      let allOk = true;
       for (const item of cart) {
         const r = await fetch('/api/shipment/stock-status', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
         });
         const d = await r.json();
-        if (!d.success) { setError(d.error); allOk = false; break; }
+        results.push({ prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error || '' });
       }
-      if (allOk) { onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: modalWeek.value }); onClose(); }
+      // DB 검증: 실제 저장된 수량 확인
+      const verifyRes = await fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&custKey=${selCust.CustKey}`);
+      const verifyData = await verifyRes.json();
+      const dbOrders = verifyData.orders || {};
+      results.forEach(r => {
+        const dbKey = `${selCust.CustKey}-${r.prod.ProdKey}-${modalWeek.value}`;
+        r.dbQty = dbOrders[dbKey] ?? null;
+        r.verified = r.dbQty != null && r.dbQty == r.qty;
+      });
+      setSubmitResults({ custName: selCust.CustName, week: modalWeek.value, items: results });
+      onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: modalWeek.value });
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -324,12 +335,58 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
 
           {error && <div style={{color:'#d32f2f',fontSize:12,marginBottom:10}}>⚠ {error}</div>}
 
+          {/* 등록 결과 표시 */}
+          {submitResults && (
+            <div style={{ marginBottom:14, border:'2px solid #2e7d32', borderRadius:6, overflow:'hidden' }}>
+              <div style={{ background:'#2e7d32', color:'#fff', padding:'8px 12px', fontSize:13, fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span>주문등록 결과 — {submitResults.custName} [{submitResults.week}]</span>
+                <button onClick={()=>{setSubmitResults(null);setCart([]);}} style={{background:'none',border:'1px solid rgba(255,255,255,0.5)',color:'#fff',borderRadius:4,padding:'2px 10px',fontSize:11,cursor:'pointer'}}>확인 (닫기)</button>
+              </div>
+              <div style={{ maxHeight:200, overflowY:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:'#e8f5e9' }}>
+                      <th style={{padding:'4px 8px',textAlign:'left'}}>품목</th>
+                      <th style={{padding:'4px 8px',textAlign:'right'}}>요청수량</th>
+                      <th style={{padding:'4px 8px',textAlign:'right'}}>DB수량</th>
+                      <th style={{padding:'4px 8px',textAlign:'center'}}>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submitResults.items.map((r,i) => (
+                      <tr key={i} style={{ background: i%2===0?'#fff':'#f9f9f9', borderBottom:'1px solid #eee' }}>
+                        <td style={{padding:'4px 8px',fontWeight:500}}>{r.prod.ProdName}</td>
+                        <td style={{padding:'4px 8px',textAlign:'right'}}>{r.qty} {r.unit}</td>
+                        <td style={{padding:'4px 8px',textAlign:'right',fontWeight:700,color:r.verified?'#2e7d32':'#d32f2f'}}>
+                          {r.dbQty != null ? r.dbQty : '-'}
+                        </td>
+                        <td style={{padding:'4px 8px',textAlign:'center',fontSize:14}}>
+                          {!r.ok ? <span style={{color:'#d32f2f'}}>❌ {r.error}</span>
+                           : r.verified ? <span style={{color:'#2e7d32'}}>✅</span>
+                           : <span style={{color:'#ff9800'}}>⚠️ 불일치</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-            <button onClick={onClose} style={{ padding:'8px 20px', border:'1px solid #ccc', borderRadius:5, cursor:'pointer', background:'#f5f5f5' }}>취소</button>
-            <button onClick={handleSubmit} disabled={saving || cart.length===0}
-              style={{ padding:'8px 24px', background:(saving||cart.length===0)?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
-              {saving ? '저장중...' : `주문 추가 (${cart.length}개)`}
-            </button>
+            <button onClick={onClose} style={{ padding:'8px 20px', border:'1px solid #ccc', borderRadius:5, cursor:'pointer', background:'#f5f5f5' }}>닫기</button>
+            {!submitResults && (
+              <button onClick={handleSubmit} disabled={saving || cart.length===0}
+                style={{ padding:'8px 24px', background:(saving||cart.length===0)?'#aaa':'#1976d2', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
+                {saving ? '저장중...' : `주문등록추가 (${cart.length}개)`}
+              </button>
+            )}
+            {submitResults && (
+              <button onClick={()=>{setSubmitResults(null);setCart([]);}}
+                style={{ padding:'8px 24px', background:'#2e7d32', color:'#fff', border:'none', borderRadius:5, cursor:'pointer', fontWeight:700 }}>
+                계속 추가하기
+              </button>
+            )}
           </div>
         </div>
       </div>
