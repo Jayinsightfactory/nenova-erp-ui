@@ -255,6 +255,32 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── 확정재고 조회 (ProductStock에서 isFix=1 확정 스냅샷)
+    if (view === 'confirmedStock') {
+      const result = await query(
+        `SELECT p.ProdKey, sm.OrderWeek, ps.Stock
+         FROM Product p
+         CROSS APPLY (
+           SELECT TOP 1 ps2.Stock, sm2.OrderWeek
+           FROM ProductStock ps2
+           JOIN StockMaster sm2 ON ps2.StockKey = sm2.StockKey
+           WHERE ps2.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekTo
+           ORDER BY sm2.OrderWeek DESC
+         ) ps
+         CROSS APPLY (
+           SELECT TOP 1 sm3.OrderWeek
+           FROM StockMaster sm3
+           WHERE sm3.OrderWeek <= @weekTo AND sm3.isFix IN (1,2)
+           ORDER BY sm3.OrderWeek DESC
+         ) sm
+         WHERE p.isDeleted = 0`,
+        params
+      );
+      const stocks = {};
+      (result.recordset||[]).forEach(r => { stocks[`${r.ProdKey}-${r.OrderWeek}`] = r.Stock; });
+      return res.status(200).json({ success: true, stocks });
+    }
+
     // ── 시작재고 조회 (isFix=2 마커)
     if (view === 'startStocks') {
       const result = await query(

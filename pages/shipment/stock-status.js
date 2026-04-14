@@ -455,6 +455,7 @@ export default function StockStatus() {
   const [mgrRows,   setMgrRows]   = useState([]);
   const [pivotRows, setPivotRows] = useState([]);
   const [startStocks, setStartStocks] = useState({}); // { "ProdKey-OrderWeek": { stock, remark } }
+  const [confirmedStocks, setConfirmedStocks] = useState({}); // { "ProdKey-OrderWeek": stock } DB 확정재고
   const [shipHistory, setShipHistory] = useState([]); // ShipmentHistory 전산 수정내역
 
   // 텍스트 필터
@@ -647,6 +648,9 @@ export default function StockStatus() {
       // 시작재고 조회
       fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`)
         .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
+      // 확정재고 조회 (ProductStock isFix=1 기준)
+      fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=confirmedStock`)
+        .then(r=>r.json()).then(d2=>{ if(d2.success) setConfirmedStocks(d2.stocks||{}); }).catch(()=>{});
       // 전산 수정내역(ShipmentHistory) 조회 → shipHistory 상태에 저장
       fetch(`/api/shipment/history?startDate=2020-01-01&endDate=2099-12-31&search=${encodeURIComponent(wf)}`)
         .then(r=>r.json()).then(d2=>{ if(d2.success) setShipHistory(d2.history||[]); }).catch(()=>{});
@@ -1264,7 +1268,7 @@ export default function StockStatus() {
 
     const PROD_REPEAT = 10;
     const CUST_REPEAT = 15;
-    const stockCols = 7; // 시작재고/시작비고/입고/출고/잔량/비고
+    const stockCols = 9; // 확정재고/시작재고/시작비고/입고/출고/잔량(확정)/잔량(시작)/비고
     const prodLabelCols = custKeys.length > CUST_REPEAT ? Math.floor((custKeys.length-1) / CUST_REPEAT) : 0;
     const colsPerWeek = custKeys.length + stockCols + prodLabelCols;
 
@@ -1312,10 +1316,12 @@ export default function StockStatus() {
                   </th>
                 </React.Fragment>
               ))}
+              <th style={{ ...st.th, background:'#b71c1c', textAlign:'center', fontSize:8 }}>확정재고</th>
               <th style={{ ...st.th, background:'#006064', textAlign:'center', fontSize:8 }}>시작재고</th>
               <th style={{ ...st.th, background:'#004d40', textAlign:'center', fontSize:8, minWidth:50 }}>시작비고</th>
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
+              <th style={{ ...st.th, background:'#880e4f', textAlign:'center', fontSize:8 }}>잔량(확정)</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
               {pvDescrOpen && <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth:80 }}>비고</th>}
             </React.Fragment>
@@ -1826,22 +1832,38 @@ export default function StockStatus() {
                               </React.Fragment>
                             );
                           })}
-                          <td style={{...st.td,textAlign:'right',background:'#e0f7fa',padding:'2px 3px'}}
-                              onClick={e=>e.stopPropagation()}>
-                            <input type="number" key={`ss-${pk}-${wk}`} defaultValue={ssObj?.stock??''} placeholder="-"
-                              style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
-                              onBlur={e=>saveStartStock(pk,wk,e.target.value)} />
-                          </td>
-                          <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa',padding:'1px 2px'}}
-                              onClick={e=>e.stopPropagation()}>
-                            <input type="text" key={`sr-${pk}-${wk}`} defaultValue={ssObj?.remark??''} placeholder="-"
-                              style={{width:46,fontSize:8,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
-                              onBlur={e=>saveStartStock(pk,wk,null,e.target.value)} />
-                          </td>
-                          <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
-                          <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
-                          <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
-                                      color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                          {/* 확정재고 (DB에서 읽기 전용) */}
+                          {(()=>{
+                            // 확정재고: confirmedStocks에서 해당 품목의 최신 확정 스냅샷
+                            const csKeys = Object.keys(confirmedStocks).filter(k=>k.startsWith(`${pk}-`));
+                            const csVal = csKeys.length > 0 ? confirmedStocks[csKeys[csKeys.length-1]] : null;
+                            const confirmRemain = csVal != null ? csVal + inQty - weekOut : null;
+                            return <>
+                              <td style={{...st.td,textAlign:'right',background:'#ffebee',fontSize:9,fontWeight:700,color:'#b71c1c'}}>
+                                {csVal != null ? fmt(csVal) : '-'}
+                              </td>
+                              <td style={{...st.td,textAlign:'right',background:'#e0f7fa',padding:'2px 3px'}}
+                                  onClick={e=>e.stopPropagation()}>
+                                <input type="number" key={`ss-${pk}-${wk}`} defaultValue={ssObj?.stock??''} placeholder="-"
+                                  style={{width:40,textAlign:'right',fontSize:9,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                                  onBlur={e=>saveStartStock(pk,wk,e.target.value)} />
+                              </td>
+                              <td style={{...st.td,fontSize:8,color:'#555',maxWidth:50,whiteSpace:'pre-line',lineHeight:'1.1',background:'#e0f7fa',padding:'1px 2px'}}
+                                  onClick={e=>e.stopPropagation()}>
+                                <input type="text" key={`sr-${pk}-${wk}`} defaultValue={ssObj?.remark??''} placeholder="-"
+                                  style={{width:46,fontSize:8,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
+                                  onBlur={e=>saveStartStock(pk,wk,null,e.target.value)} />
+                              </td>
+                              <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
+                              <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
+                              <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:700,fontSize:9,
+                                          color:confirmRemain!=null?(confirmRemain<0?'#d32f2f':'#2e7d32'):'#999'}}>
+                                {confirmRemain != null ? fmt(confirmRemain) : '-'}
+                              </td>
+                              <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,
+                                          color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                            </>;
+                          })()}
                           {(() => {
                             // 이 품목+차수의 모든 업체 비고 합산 (업체별 개별 항목)
                             const custLogs = custKeys.map(ck => {
