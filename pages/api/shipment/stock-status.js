@@ -320,6 +320,23 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, total: rows.length, negativeCount: negative.length, negative, all: rows });
     }
 
+    // ── 고스트 출고 레코드 찾기 (주문 없이 출고만 있는 ShipmentDetail)
+    if (view === 'ghostShipments') {
+      const result = await query(
+        `SELECT sd.SdetailKey, sd.ProdKey, sd.OutQuantity, sd.EstQuantity, sd.CustKey,
+                sm.OrderWeek, sm.ShipmentKey, p.ProdName, p.FlowerName, c.CustName,
+                CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS ShipmentDtm
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+         LEFT JOIN Customer c ON sm.CustKey = c.CustKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+           AND sd.ProdKey = @pk AND sd.OutQuantity > 0`,
+        { ...params, pk: { type: sql.Int, value: parseInt(req.query.prodKey) } }
+      );
+      return res.status(200).json({ success: true, rows: result.recordset });
+    }
+
     // ── OutQuantity=0 빈 ShipmentDetail 정리 (전산 확정 차단 원인)
     if (view === 'cleanupZero') {
       const result = await query(
