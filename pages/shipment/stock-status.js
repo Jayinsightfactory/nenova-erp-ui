@@ -359,7 +359,7 @@ export default function StockStatus() {
   const [startStocks, setStartStocks] = useState({}); // { "ProdKey-OrderWeek": { stock, remark } }
 
   // 텍스트 필터
-  const [filterCoun,   setFilterCoun]   = useState('');
+  const [filterCoun,   setFilterCoun]   = useState(new Set()); // 복수 국가 선택
   const [filterFlower, setFilterFlower] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
 
@@ -394,7 +394,7 @@ export default function StockStatus() {
       hiddenMgrs: [...hiddenMgrs],
       hiddenMgrCusts: Object.fromEntries(Object.entries(hiddenMgrCusts).map(([k,v])=>[k,[...v]])),
       pvMgr, pvCusts: [...pvCusts], pvFlowers: [...pvFlowers],
-      filterCoun, filterFlower, filterSearch, pvShowOnlyOut,
+      filterCoun: [...filterCoun], filterFlower, filterSearch, pvShowOnlyOut,
     };
     try {
       const r = await fetch('/api/favorites', {
@@ -423,7 +423,7 @@ export default function StockStatus() {
       if (f.pvMgr !== undefined) setPvMgr(f.pvMgr);
       if (f.pvCusts) setPvCusts(new Set(f.pvCusts));
       if (f.pvFlowers) setPvFlowers(new Set(f.pvFlowers));
-      if (f.filterCoun !== undefined) setFilterCoun(f.filterCoun);
+      if (f.filterCoun) setFilterCoun(new Set(f.filterCoun));
       if (f.filterFlower !== undefined) setFilterFlower(f.filterFlower);
       if (f.filterSearch !== undefined) setFilterSearch(f.filterSearch);
       if (f.pvShowOnlyOut !== undefined) setPvShowOnlyOut(f.pvShowOnlyOut);
@@ -611,7 +611,7 @@ export default function StockStatus() {
 
   // ── 텍스트 필터
   const applyFilter = useCallback((rows) => rows.filter(r => {
-    if (filterCoun   && !r.CounName?.includes(filterCoun))     return false;
+    if (filterCoun.size > 0 && !filterCoun.has(r.CounName))     return false;
     if (filterFlower && !r.FlowerName?.includes(filterFlower)) return false;
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
@@ -631,7 +631,7 @@ export default function StockStatus() {
 
   const isRange = weekFrom !== weekTo;
   const hasWeek = weekFrom && weekTo;
-  const isFilterActive = filterCoun || filterFlower || filterSearch;
+  const isFilterActive = filterCoun.size > 0 || filterFlower || filterSearch;
 
   // 품목 행 정렬: 차수(범위 조회 시) → 국가 → 꽃 → 품명
   const sortItems = (items) => [...items].sort((a,b) => {
@@ -857,8 +857,8 @@ export default function StockStatus() {
                       const remain = (item.prevStock||0) + (item.totalInQty||0) - (item.totalOutQty||0);
                       return (
                         <tr key={`${item.ProdKey}-${item.OrderWeek}`} style={{ background:i%2===0?'#fff':'#fafafa' }}>
-                          <td style={{ ...st.td, ...st.clickCell, background: filterCoun===item.CounName?'#bbdefb':undefined }}
-                              onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
+                          <td style={{ ...st.td, ...st.clickCell, background: filterCoun.has(item.CounName)?'#bbdefb':undefined }}
+                              onClick={()=>setFilterCoun(prev=>{const n=new Set(prev);n.has(item.CounName)?n.delete(item.CounName):n.add(item.CounName);return n;})}>{item.CounName}</td>
                           <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
                               onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
                           <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
@@ -1213,11 +1213,11 @@ export default function StockStatus() {
         </div>
         <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
           <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>국가:</span>
-          <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
-          {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
+          <button onClick={()=>{setFilterCoun(new Set());setFilterFlower('');}} style={chipS(filterCoun.size===0)}>전체</button>
+          {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>{const n=new Set(prev);n.has(c)?n.delete(c):n.add(c);return n;});setFilterFlower('');}} style={chipS(filterCoun.has(c))}>{c}</button>))}
         </div>
-        {filterCoun && (() => {
-          const flowers = [...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort();
+        {filterCoun.size > 0 && (() => {
+          const flowers = [...new Set(custRows.filter(r=>filterCoun.has(r.CounName)).map(r=>r.FlowerName).filter(Boolean))].sort();
           return (
             <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:6 }}>
               <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
@@ -1588,8 +1588,8 @@ export default function StockStatus() {
                   )}
                   <tr style={{ background: pi%2===0?'#fff':'#f5f5f5' }}>
                     <td style={{ ...st.td, position:'sticky', left:0, background: pi%2===0?'#fff':'#f5f5f5', zIndex:1, minWidth:150 }}>
-                      <span style={{ ...st.clickCell, fontSize:8, color: filterCoun===p.coun?'#1565c0':'#999' }}
-                            onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
+                      <span style={{ ...st.clickCell, fontSize:8, color: filterCoun.has(p.coun)?'#1565c0':'#999' }}
+                            onClick={()=>setFilterCoun(prev=>{const n=new Set(prev);n.has(p.coun)?n.delete(p.coun):n.add(p.coun);return n;})}>{p.coun}</span>
                       <span style={{ ...st.clickCell, fontSize:8, color: filterFlower===p.flower?'#2e7d32':'#999', marginLeft:2 }}
                             onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
                       <div style={{fontWeight:600, fontSize:10}}>{stripProdName(p.name)}</div>
@@ -1903,10 +1903,11 @@ export default function StockStatus() {
                           background:'#f5f5f5', padding:'8px 12px', borderRadius:6,
                           border:`1px solid ${isFilterActive?'#1976d2':'#e0e0e0'}` }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>🔍</span>
-              <select value={filterCoun} onChange={e=>setFilterCoun(e.target.value)} style={st.filterSel}>
-                <option value="">국가 전체</option>
-                {allCounNames.map(c=><option key={c} value={c}>{c}</option>)}
+              <select value="" onChange={e=>{if(e.target.value) setFilterCoun(prev=>{const n=new Set(prev);n.add(e.target.value);return n;});}} style={st.filterSel}>
+                <option value="">{filterCoun.size>0?`국가 ${filterCoun.size}개 선택`:'국가 전체'}</option>
+                {allCounNames.filter(c=>!filterCoun.has(c)).map(c=><option key={c} value={c}>{c}</option>)}
               </select>
+              {filterCoun.size>0&&<button onClick={()=>setFilterCoun(new Set())} style={{fontSize:10,padding:'1px 6px',border:'1px solid #ccc',borderRadius:4,cursor:'pointer',background:'#fff'}}>국가초기화</button>}
               <select value={filterFlower} onChange={e=>setFilterFlower(e.target.value)} style={st.filterSel}>
                 <option value="">꽃 전체</option>
                 {allFlowerNames.map(f=><option key={f} value={f}>{f}</option>)}
@@ -1914,7 +1915,7 @@ export default function StockStatus() {
               <input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)}
                 placeholder="품명 / 꽃 / 업체명..." style={{ ...st.filterSel, width:160 }} />
               {isFilterActive && (
-                <button onClick={()=>{setFilterCoun('');setFilterFlower('');setFilterSearch('');}}
+                <button onClick={()=>{setFilterCoun(new Set());setFilterFlower('');setFilterSearch('');}}
                   style={{ fontSize:11, padding:'3px 10px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#fff' }}>
                   ✕ 초기화
                 </button>
