@@ -1142,8 +1142,9 @@ export default function StockStatus() {
   const [pvMgr, setPvMgr] = useState('');
   const [pvCusts, setPvCusts] = useState(new Set());
   const [pvFlowers, setPvFlowers] = useState(new Set()); // 다중 꽃 선택
-  const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 접기/펼치기
-  const [pvDescrModal, setPvDescrModal] = useState(null); // { pk, ck, wk, lines, custName, prodName } 수정내역 삭제 모달
+  const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 컬럼 표시/숨김
+  const [pvDescrModal, setPvDescrModal] = useState(null); // 수정내역 삭제 모달
+  const [pvDescrView, setPvDescrView] = useState(null);  // 비고 상세 보기 모달 { pk, prodName, wk, items:[] }
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false); // 출고 있는 품목만
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
@@ -1298,10 +1299,7 @@ export default function StockStatus() {
               <th style={{ ...st.th, background:'#1565c0', textAlign:'center', fontSize:8 }}>입고</th>
               <th style={{ ...st.th, background:'#ad1457', textAlign:'center', fontSize:8 }}>출고</th>
               <th style={{ ...st.th, background:'#4a148c', textAlign:'center', fontSize:8 }}>잔량</th>
-              <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth: pvDescrOpen?100:30, cursor:'pointer' }}
-                  onClick={()=>setPvDescrOpen(p=>!p)}>
-                {pvDescrOpen ? '비고 ▾' : '▸'}
-              </th>
+              {pvDescrOpen && <th style={{ ...st.th, background:'#37474f', textAlign:'center', fontSize:8, minWidth:80 }}>비고</th>}
             </React.Fragment>
           ))}
         </tr>
@@ -1371,6 +1369,12 @@ export default function StockStatus() {
                 </span>
               : <span style={{fontSize:11,color:'#999'}}>시작재고 미설정</span>;
           })()}
+          <span style={{width:1,height:16,background:'#ccc'}}/>
+          <button onClick={()=>setPvDescrOpen(p=>!p)}
+            style={{padding:'2px 8px',fontSize:10,border:'1px solid #666',borderRadius:4,
+              background:pvDescrOpen?'#37474f':'#f5f5f5',color:pvDescrOpen?'#fff':'#555',cursor:'pointer'}}>
+            {pvDescrOpen ? '📝 비고 숨김' : '📝 비고 표시'}
+          </button>
         </div>
         <button onClick={async()=>{
           // 엑셀: 차수 > 지역 > 업체 > 품종별 그룹핑, 0값 제거, 비고 포함
@@ -1828,34 +1832,29 @@ export default function StockStatus() {
                               return { ck, lines };
                             }).filter(x=>x.lines.length);
                             const cnt = custLogs.reduce((a,x)=>a+x.lines.length, 0);
-                            // 가장 긴 줄 기준 동적 폭
-                            const maxLineLen = custLogs.reduce((a,x)=>Math.max(a,...x.lines.map(l=>l.length)),0);
-                            const dynWidth = pvDescrOpen ? Math.max(100, maxLineLen * 6) : 30;
+                            if (!pvDescrOpen) return null;
                             return (
-                              <td style={{...st.td,fontSize:8,color:'#555',
-                                          width:dynWidth, minWidth:dynWidth, maxWidth: pvDescrOpen?'none':30,
-                                          whiteSpace:'pre-line',lineHeight:'1.3',cursor:'pointer',
-                                          verticalAlign:'top', padding:'2px 4px'}}
-                                  onClick={()=>setPvDescrOpen(p=>!p)}>
-                                {pvDescrOpen ? (
-                                  custLogs.map(({ck,lines})=>
-                                    lines.map((line,li)=>(
-                                      <div key={`${ck}-${li}`} style={{display:'flex',alignItems:'flex-start',gap:2,marginBottom:1}}>
-                                        <span style={{flex:1,fontSize:7,color:'#555',lineHeight:'1.3',wordBreak:'break-all'}}>{line}</span>
-                                        <span title="수정내역 삭제"
-                                          style={{cursor:'pointer',color:'#e53935',fontSize:9,flexShrink:0,lineHeight:'1.3',padding:'0 1px'}}
-                                          onClick={e=>{
-                                            e.stopPropagation();
-                                            setPvDescrModal({pk,ck,wk,lineIdx:li,
-                                              custName:cShort(ck),prodName:stripProdName(p.name),
-                                              line, allLines:lines});
-                                          }}>✕</span>
-                                      </div>
-                                    ))
-                                  )
-                                ) : (
-                                  cnt > 0 ? <span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span> : ''
-                                )}
+                              <td style={{...st.td,fontSize:8,color:'#555',minWidth:80,maxWidth:120,
+                                          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
+                                          cursor:'pointer',padding:'2px 4px',background:cnt>0?'#fff8e1':undefined}}
+                                  title={cnt>0?'클릭하여 상세보기':''}
+                                  onClick={()=>{
+                                    if(cnt===0) return;
+                                    // 비고 상세 모달 — 품목+차수+업체별 전체 이력
+                                    const items = custLogs.map(({ck,lines})=>({
+                                      custName:cShort(ck), lines
+                                    }));
+                                    // 기초재고, 입고, 분배 정보
+                                    const ssVal = startStocks[`${pk}-${wk}`]?.stock;
+                                    const inVal = inMap[`${pk}-${wk}`]||0;
+                                    const outVal = custKeys.reduce((a,c)=>a+(dataMap[`${pk}-${c}-${wk}`]||0),0);
+                                    setPvDescrView({
+                                      pk, wk, prodName:stripProdName(p.name), coun:p.coun, flower:p.flower,
+                                      startStock:ssVal, inQty:inVal, outQty:outVal, remain:(ssVal||0)+inVal-outVal,
+                                      items
+                                    });
+                                  }}>
+                                {cnt > 0 ? <span style={{color:'#e65100'}}>📝{cnt}건</span> : ''}
                               </td>
                             );
                           })()}
@@ -1870,6 +1869,45 @@ export default function StockStatus() {
         </table>
       </div>
       )}
+      {/* 비고 상세 모달 */}
+      {pvDescrView && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2500,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&setPvDescrView(null)}>
+          <div style={{background:'#fff',borderRadius:10,boxShadow:'0 8px 32px rgba(0,0,0,0.3)',minWidth:500,maxWidth:700,maxHeight:'80vh',overflow:'auto'}}>
+            <div style={{background:'#37474f',color:'#fff',padding:'12px 20px',borderRadius:'10px 10px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontWeight:700,fontSize:14}}>📝 변경내역 상세</span>
+              <button onClick={()=>setPvDescrView(null)} style={{background:'none',border:'none',color:'#fff',fontSize:18,cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:'16px 20px'}}>
+              {/* 품목 정보 */}
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,marginBottom:16}}>
+                <tbody>
+                  <tr style={{borderBottom:'1px solid #eee'}}><td style={{padding:'6px 4px',color:'#888',width:80}}>품목</td><td style={{fontWeight:700}}>{pvDescrView.coun} / {pvDescrView.flower} / {pvDescrView.prodName}</td></tr>
+                  <tr style={{borderBottom:'1px solid #eee'}}><td style={{padding:'6px 4px',color:'#888'}}>차수</td><td style={{fontWeight:700,color:'#1565c0'}}>{pvDescrView.wk}</td></tr>
+                  <tr style={{borderBottom:'1px solid #eee'}}><td style={{padding:'6px 4px',color:'#888'}}>기초재고</td><td>{pvDescrView.startStock != null ? pvDescrView.startStock : '-'}</td></tr>
+                  <tr style={{borderBottom:'1px solid #eee'}}><td style={{padding:'6px 4px',color:'#888'}}>입고</td><td style={{color:'#1565c0'}}>{pvDescrView.inQty}</td></tr>
+                  <tr style={{borderBottom:'1px solid #eee'}}><td style={{padding:'6px 4px',color:'#888'}}>출고(분배)</td><td style={{color:'#e65100',fontWeight:700}}>{pvDescrView.outQty}</td></tr>
+                  <tr><td style={{padding:'6px 4px',color:'#888'}}>잔량</td><td style={{fontWeight:700,color:pvDescrView.remain<0?'#d32f2f':'#2e7d32'}}>{pvDescrView.remain}</td></tr>
+                </tbody>
+              </table>
+              {/* 업체별 변경내역 */}
+              <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>변경내역</div>
+              {pvDescrView.items.map((item,i) => (
+                <div key={i} style={{marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#1565c0',marginBottom:4}}>🏢 {item.custName}</div>
+                  {item.lines.map((line,li) => (
+                    <div key={li} style={{fontSize:11,color:'#555',padding:'2px 0 2px 16px',borderLeft:'2px solid #e0e0e0',marginBottom:2}}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {pvDescrView.items.length === 0 && <div style={{color:'#999',fontSize:12}}>변경내역 없음</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 수량 수정 모달 */}
       {pvEdit && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
