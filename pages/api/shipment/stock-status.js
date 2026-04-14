@@ -282,6 +282,44 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── DB 기준 잔량 마이너스 품목 찾기 (전산 확정 방식 동일)
+    if (view === 'negativeStock') {
+      const result = await query(
+        `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+          ISNULL((
+            SELECT TOP 1 ps.Stock FROM ProductStock ps
+            JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.isFix = 1
+            ORDER BY sm2.OrderWeek DESC
+          ), 0) AS confirmedStock,
+          ISNULL((
+            SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+            JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+            WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted = 0
+          ), 0) AS inQty,
+          ISNULL((
+            SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
+            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+            WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+          ), 0) AS outQty
+         FROM Product p
+         WHERE p.isDeleted = 0
+           AND EXISTS (
+             SELECT 1 FROM ShipmentDetail sd2
+             JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
+             WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek >= @weekFrom AND sm3.OrderWeek <= @weekTo AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0
+           )
+         ORDER BY p.CounName, p.FlowerName, p.ProdName`,
+        params
+      );
+      const rows = result.recordset.map(r => ({
+        ...r,
+        remain: (r.confirmedStock||0) + (r.inQty||0) - (r.outQty||0)
+      }));
+      const negative = rows.filter(r => r.remain < 0);
+      return res.status(200).json({ success: true, total: rows.length, negativeCount: negative.length, negative, all: rows });
+    }
+
     // ── OutQuantity=0 빈 ShipmentDetail 정리 (전산 확정 차단 원인)
     if (view === 'cleanupZero') {
       const result = await query(
