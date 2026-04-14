@@ -375,6 +375,14 @@ async function updateOutQty(req, res) {
         sk = sm.recordset[0].ShipmentKey;
       }
 
+      // Product 환산정보 조회 (전산과 동일 구조: Box/Bunch/Steam)
+      const prodInfo = await tQ(
+        `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
+        { pk: { type: sql.Int, value: pk } }
+      );
+      const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
+      const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+
       // ShipmentDetail: 있으면 UPDATE, qty=0이면 DELETE, 없으면 INSERT
       const sd = await tQ(
         `SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
@@ -395,10 +403,17 @@ async function updateOutQty(req, res) {
           await tQ(`DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } });
         } else {
+          // 전산 동일 구조: Box=qty, Bunch=qty*bunchOf1Box, Steam=qty*steamOf1Box
           await tQ(
-            `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty, ShipmentDtm=${shipDtmExpr}
+            `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty,
+              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+              ShipmentDtm=${shipDtmExpr}
              WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-            { qty: { type: sql.Float, value: finalQty }, sk: { type: sql.Int, value: sk },
+            { qty: { type: sql.Float, value: finalQty },
+              bq:  { type: sql.Float, value: finalQty },
+              bnq: { type: sql.Float, value: finalQty * bunchOf1Box },
+              sq:  { type: sql.Float, value: finalQty * steamOf1Box },
+              sk: { type: sql.Int, value: sk },
               pk: { type: sql.Int, value: pk }, ...shipDtmParam }
           );
         }
@@ -408,13 +423,16 @@ async function updateOutQty(req, res) {
         const insertQty = qty > 0 ? qty : 0;
         if (insertQty > 0) {
           await tQ(
-            `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity)
-             VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty)`,
+            `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity)
+             VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty,@bq,@bnq,@sq)`,
             { nk:  { type: sql.Int,   value: nk  },
               sk:  { type: sql.Int,   value: sk  },
               ck:  { type: sql.Int,   value: ck  },
               pk:  { type: sql.Int,   value: pk  },
               qty: { type: sql.Float, value: insertQty },
+              bq:  { type: sql.Float, value: insertQty },
+              bnq: { type: sql.Float, value: insertQty * bunchOf1Box },
+              sq:  { type: sql.Float, value: insertQty * steamOf1Box },
               ...shipDtmParam }
           );
         }
