@@ -1585,6 +1585,52 @@ export default function StockStatus() {
           XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
           }
 
+          // ── 업체별 개별 시트
+          custKeys.forEach(ck => {
+            const cn = cShort(ck);
+            const custProds = prodKeys.filter(pk =>
+              weeks.some(wk => (dataMap[`${pk}-${ck}-${wk}`]||0) > 0)
+            );
+            if (custProds.length === 0) return;
+            const csData = [];
+            csData.push([`${cn} (${custMap[ck]?.area||''})`]);
+            const hdr = ['국가','꽃','품명'];
+            weeks.forEach(wk => hdr.push(`${wk} 수량`));
+            if (weeks.length > 1) hdr.push('합계');
+            hdr.push('비고');
+            csData.push(hdr);
+            custProds.forEach(pk => {
+              const p = prodMap[pk];
+              const row = [p.coun, p.flower, stripProdName(p.name)];
+              let rowTotal = 0;
+              weeks.forEach(wk => {
+                const v = dataMap[`${pk}-${ck}-${wk}`]||0;
+                row.push(v > 0 ? v : '');
+                rowTotal += v;
+              });
+              if (weeks.length > 1) row.push(rowTotal);
+              const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`]||'').filter(Boolean).join(' ');
+              row.push(allDescr.replace(/\n/g,' '));
+              csData.push(row);
+            });
+            // 합계 행
+            const sumR = ['','','합계'];
+            weeks.forEach((wk,wi) => {
+              const col = XLSX.utils.encode_col(3+wi);
+              sumR.push({ f: `SUM(${col}3:${col}${2+custProds.length})` });
+            });
+            if (weeks.length > 1) {
+              const col = XLSX.utils.encode_col(3+weeks.length);
+              sumR.push({ f: `SUM(${col}3:${col}${2+custProds.length})` });
+            }
+            csData.push(sumR);
+            const csWs = XLSX.utils.aoa_to_sheet(csData);
+            csWs['!cols'] = [{wch:10},{wch:10},{wch:28},...weeks.map(()=>({wch:8})),...(weeks.length>1?[{wch:8}]:[]),{wch:30}];
+            // 시트명 31자 제한 + 특수문자 제거
+            const sheetName = cn.replace(/[\\\/\?\*\[\]:]/g,'').substring(0,31);
+            try { XLSX.utils.book_append_sheet(wb, csWs, sheetName); } catch {}
+          });
+
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
         <button onClick={()=>{
