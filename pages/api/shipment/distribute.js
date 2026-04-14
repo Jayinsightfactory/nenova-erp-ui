@@ -299,11 +299,12 @@ async function saveDistribute(req, res) {
       if (parseFloat(outQty) > 0) {
         const qty = parseFloat(outQty);
         const unitCost = parseFloat(cost) || 0;
-        const amount = qty * unitCost;
-        const vat = Math.round(amount / 11);
         const boxQty = qty;
         const bunchQty = qty * bunchOf1Box;
         const steamQty = qty * steamOf1Box;
+        // 13/14차 데이터 패턴: Amount = Bunch × Cost / 1.1, Vat = Bunch × Cost / 11
+        const amount = Math.round(bunchQty * unitCost / 1.1);
+        const vat    = Math.round(bunchQty * unitCost / 11);
         const now = new Date();
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;

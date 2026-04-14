@@ -203,8 +203,10 @@ async function createShipment(req, res) {
       const bunchQty = parseFloat(item.bunchQty) || 0;
       const steamQty = parseFloat(item.steamQty) || 0;
       const cost   = parseFloat(item.cost)   || 0;
-      const amount = qty * cost;
-      const vat    = Math.round(amount / 11);
+      // 13/14차 데이터 패턴: Amount = Bunch × Cost / 1.1 (Bunch 없으면 Out fallback)
+      const effQty = bunchQty > 0 ? bunchQty : qty;
+      const amount = Math.round(effQty * cost / 1.1);
+      const vat    = Math.round(effQty * cost / 11);
 
       // 기존 동일 품목 있으면 덮어쓰기
       await query(
