@@ -29,4 +29,7 @@ jobs:
             npm run build
             echo "=== pm2 restart ==="
             pm2 restart nenova-erp
+            sleep 5
+            echo "=== pm2 logs (최근 30줄) ==="
+            pm2 logs nenova-erp --nostream --lines 30 2>&1 || true
             echo "✅ 배포 완료"
