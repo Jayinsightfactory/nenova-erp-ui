@@ -1415,6 +1415,46 @@ export default function StockStatus() {
             mws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},...weeks.map(()=>({wch:8})),{wch:8},{wch:30}];
             XLSX.utils.book_append_sheet(wb, mws, '전체병합');
           }
+          // ── 기존 플랫 시트 (차수피벗): 3줄 헤더 — 차수 > 지역 > 업체
+          const flatData = [];
+          // 행1: 차수 (셀병합 대신 반복)
+          const h1 = ['','',''];
+          weeks.forEach(wk => { custKeys.forEach(() => h1.push(wk)); h1.push(wk,wk,wk,wk); });
+          flatData.push(h1);
+          // 행2: 지역
+          const h2 = ['','',''];
+          weeks.forEach(() => {
+            areaGroups.forEach(ag => { for(let i=0;i<ag.count;i++) h2.push(ag.area); });
+            h2.push('재고','재고','재고','재고');
+          });
+          flatData.push(h2);
+          // 행3: 업체명 + 재고헤더
+          const h3 = ['국가','꽃','품명'];
+          weeks.forEach(() => { custKeys.forEach(ck => h3.push(cShort(ck))); h3.push('시작','입고','출고','잔량'); });
+          flatData.push(h3);
+          // 데이터
+          prodKeys.forEach(pk => {
+            const p = prodMap[pk];
+            const row = [p.coun, p.flower, stripProdName(p.name)];
+            let rs = startStocks[`${pk}-${weeks[0]}`]?.stock || 0;
+            weeks.forEach(wk => {
+              const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+              if (wkSS != null) rs = wkSS;
+              custKeys.forEach(ck => {
+                const v = dataMap[`${pk}-${ck}-${wk}`]||0;
+                row.push(v > 0 ? v : '');
+              });
+              const wStart = rs, inQ = inMap[`${pk}-${wk}`]||0;
+              const wOut = custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);
+              rs = wStart + inQ - wOut;
+              row.push(wStart||'', inQ||'', wOut||'', rs);
+            });
+            flatData.push(row);
+          });
+          const flatWs = XLSX.utils.aoa_to_sheet(flatData);
+          flatWs['!cols'] = [{wch:10},{wch:10},{wch:28},...Array(h3.length-3).fill({wch:7})];
+          XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
+
           XLSX.writeFile(wb, `차수피벗_${weeks.join('~')}.xlsx`);
         }} style={{ ...st.addBtn, marginBottom:8, background:'#2e7d32' }}>📥 엑셀 다운로드</button>
         <button onClick={()=>{
