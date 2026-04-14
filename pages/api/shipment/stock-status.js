@@ -320,6 +320,17 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, total: rows.length, negativeCount: negative.length, negative, all: rows });
     }
 
+    // ── SdetailKey로 특정 ShipmentDetail 삭제
+    if (view === 'deleteSdetail') {
+      const sdk = parseInt(req.query.sdk);
+      if (!sdk) return res.status(400).json({ success: false, error: 'sdk 필요' });
+      const result = await query(
+        `DELETE FROM ShipmentDetail WHERE SdetailKey=@sdk`,
+        { sdk: { type: sql.Int, value: sdk } }
+      );
+      return res.status(200).json({ success: true, message: `sdk=${sdk} 삭제`, rowsAffected: result.rowsAffected });
+    }
+
     // ── 고스트 출고 레코드 찾기 (주문 없이 출고만 있는 ShipmentDetail)
     if (view === 'ghostShipments') {
       const result = await query(
