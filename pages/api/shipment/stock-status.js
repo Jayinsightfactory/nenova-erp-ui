@@ -263,6 +263,25 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── EstQuantity 불일치 확인 (읽기 전용)
+    if (view === 'checkEstQty') {
+      const result = await query(
+        `SELECT sd.SdetailKey, sd.ProdKey, sd.CustKey, sd.OutQuantity, sd.EstQuantity,
+                sd.BoxQuantity, sd.BunchQuantity, sd.SteamQuantity, sd.Cost, sd.Amount,
+                CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS ShipmentDtm,
+                sm.OrderWeek, p.ProdName, c.CustName
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+         LEFT JOIN Customer c ON sd.CustKey = c.CustKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+           AND (ISNULL(sd.EstQuantity, 0) != ISNULL(sd.OutQuantity, 0)
+                OR sd.OutQuantity = 0)`,
+        params
+      );
+      return res.status(200).json({ success: true, rows: result.recordset });
+    }
+
     // ── EstQuantity 동기화 (OutQuantity != EstQuantity 보정)
     if (view === 'syncEstQty') {
       const result = await query(
