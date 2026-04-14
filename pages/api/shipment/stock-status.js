@@ -37,7 +37,6 @@ export default withAuth(async function handler(req, res) {
   };
 
   // GET은 읽기 전용 — DB 수정하지 않음
-  };
 
   try {
     // ── 품목별: 이월재고 + 입고/출고/주문 + 차수별 세부
