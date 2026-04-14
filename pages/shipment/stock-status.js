@@ -170,21 +170,22 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     return list.slice(0, 200);
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
 
+  // 카트: { cust:{CustKey,CustName}, prod, qty, unit, existQty, existOut }
   const addToCart = (p) => {
-    if (cart.find(c => c.prod.ProdKey === p.ProdKey)) return;
+    if (!selCust) { setError('업체를 먼저 선택하세요'); return; }
+    if (cart.find(c => c.cust.CustKey === selCust.CustKey && c.prod.ProdKey === p.ProdKey)) return;
     const u = UNITS.includes(p.OutUnit) ? p.OutUnit : '박스';
-    const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
+    const existKey = `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}`;
     const exist = existOrders[existKey] || {};
     const existQty = exist.orderQty || 0;
     const existOut = exist.outQty || 0;
-    setCart(prev => [...prev, { prod: p, qty: existQty || 1, unit: u, existQty, existOut }]);
+    setCart(prev => [...prev, { cust:{CustKey:selCust.CustKey, CustName:selCust.CustName}, prod: p, qty: existQty || 1, unit: u, existQty, existOut }]);
   };
-  const removeFromCart = (pk) => setCart(prev => prev.filter(c => c.prod.ProdKey !== pk));
-  const updateCartQty = (pk, val) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, qty: parseFloat(val)||0} : c));
-  const updateCartUnit = (pk, u) => setCart(prev => prev.map(c => c.prod.ProdKey===pk ? {...c, unit: u} : c));
+  const removeFromCart = (ck,pk) => setCart(prev => prev.filter(c => !(c.cust.CustKey===ck && c.prod.ProdKey===pk)));
+  const updateCartQty = (ck,pk, val) => setCart(prev => prev.map(c => (c.cust.CustKey===ck&&c.prod.ProdKey===pk) ? {...c, qty: parseFloat(val)||0} : c));
+  const updateCartUnit = (ck,pk, u) => setCart(prev => prev.map(c => (c.cust.CustKey===ck&&c.prod.ProdKey===pk) ? {...c, unit: u} : c));
 
   const handleSubmit = async () => {
-    if (!selCust) { setError('업체를 선택하세요'); return; }
     if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
     if (!modalWeek.value) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
@@ -193,22 +194,24 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
       for (const item of cart) {
         const r = await fetch('/api/shipment/stock-status', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'addOrder', custKey: selCust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
+          body: JSON.stringify({ action: 'addOrder', custKey: item.cust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
         });
         const d = await r.json();
-        results.push({ prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error || '' });
+        results.push({ cust: item.cust, prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error || '' });
       }
-      // DB 검증: 실제 저장된 수량 확인
-      const verifyRes = await fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&custKey=${selCust.CustKey}`);
+      // DB 검증: 실제 저장된 수량 확인 (업체별)
+      const custKeys = [...new Set(cart.map(c=>c.cust.CustKey))];
+      const verifyRes = await fetch(`/api/shipment/stock-status?view=customers&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}`);
       const verifyData = await verifyRes.json();
-      const dbOrders = verifyData.orders || {};
+      const dbRows = verifyData.rows || [];
       results.forEach(r => {
-        const dbKey = `${selCust.CustKey}-${r.prod.ProdKey}-${modalWeek.value}`;
-        r.dbQty = dbOrders[dbKey] ?? null;
+        const match = dbRows.find(row => row.CustKey === r.cust.CustKey && row.ProdKey === r.prod.ProdKey);
+        r.dbQty = match?.custOrderQty ?? null;
         r.verified = r.dbQty != null && r.dbQty == r.qty;
       });
-      setSubmitResults({ custName: selCust.CustName, week: modalWeek.value, items: results });
-      onSuccess?.({ custKey: selCust.CustKey, custName: selCust.CustName, week: modalWeek.value });
+      const custNames = [...new Set(cart.map(c=>c.cust.CustName))].join(', ');
+      setSubmitResults({ custName: custNames, week: modalWeek.value, items: results });
+      onSuccess?.({ week: modalWeek.value });
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -292,7 +295,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                           maxHeight:280, overflowY:'auto',
                           border:'1px solid #e0e0e0', borderRadius:6, padding:8, background:'#fafafa', marginTop:4 }}>
               {filteredProds.map(p=>{
-                const inCart = cart.some(c=>c.prod.ProdKey===p.ProdKey);
+                const inCart = selCust && cart.some(c=>c.cust.CustKey===selCust.CustKey && c.prod.ProdKey===p.ProdKey);
                 const existKey = selCust ? `${selCust.CustKey}-${p.ProdKey}-${modalWeek.value}` : '';
                 const eq = existOrders[existKey];
                 const hasExist = eq && (eq.orderQty > 0 || eq.outQty > 0);
@@ -309,16 +312,28 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* 카트 */}
-          {cart.length > 0 && (
+          {/* 카트 — 업체별 그룹 */}
+          {cart.length > 0 && (()=>{
+            const groups = {};
+            cart.forEach(item => {
+              const ck = item.cust.CustKey;
+              if (!groups[ck]) groups[ck] = { cust: item.cust, items: [] };
+              groups[ck].items.push(item);
+            });
+            return (
             <div style={{ marginBottom:14, border:'1px solid #1976d2', borderRadius:6, overflow:'hidden' }}>
               <div style={{ background:'#1976d2', color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:700, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span>{selCust?.CustName||'업체 미선택'}, {cart.map(c=>c.prod.ProdName.split(' ').pop()||c.prod.ProdName).join(', ').substring(0,50)}{cart.length>3?'..':''} ({cart.length}개)</span>
+                <span>{Object.values(groups).map(g=>g.cust.CustName).join(', ')} ({cart.length}개, {Object.keys(groups).length}업체)</span>
                 <button onClick={()=>setCart([])} style={{background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)',color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:10,cursor:'pointer'}}>전체 취소</button>
               </div>
-              <div style={{ maxHeight:180, overflowY:'auto' }}>
-                {cart.map((item, i) => (
-                  <div key={item.prod.ProdKey} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
+              <div style={{ maxHeight:220, overflowY:'auto' }}>
+                {Object.values(groups).map(g=>(
+                  <div key={g.cust.CustKey}>
+                    <div style={{background:'#e3f2fd',padding:'4px 12px',fontSize:11,fontWeight:700,borderBottom:'1px solid #bbdefb',color:'#1565c0'}}>
+                      🏢 {g.cust.CustName}
+                    </div>
+                    {g.items.map((item,i)=>(
+                  <div key={`${item.cust.CustKey}-${item.prod.ProdKey}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px 5px 24px',
                        borderBottom:'1px solid #eee', background: i%2===0?'#fff':'#f9f9f9', fontSize:12 }}>
                     <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {item.prod.ProdName}
@@ -330,7 +345,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                     </span>
                     <div style={{ display:'flex', gap:2, flexShrink:0 }}>
                       {UNITS.map(u=>(
-                        <button key={u} onClick={()=>updateCartUnit(item.prod.ProdKey, u)}
+                        <button key={u} onClick={()=>updateCartUnit(item.cust.CustKey, item.prod.ProdKey, u)}
                           style={{ padding:'2px 6px', borderRadius:4, border:'1px solid', fontSize:10, cursor:'pointer',
                                    borderColor: item.unit===u?'#1976d2':'#ccc', background: item.unit===u?'#1976d2':'#f9f9f9',
                                    color: item.unit===u?'#fff':'#555', fontWeight: item.unit===u?700:400 }}>
@@ -339,22 +354,25 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                       ))}
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0 }}>
-                      <button onClick={()=>updateCartQty(item.prod.ProdKey, (item.qty||0)-1)}
+                      <button onClick={()=>updateCartQty(item.cust.CustKey, item.prod.ProdKey, (item.qty||0)-1)}
                         style={{ width:28, height:28, fontSize:16, fontWeight:700, border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', color:'#d32f2f', lineHeight:'26px' }}>−</button>
                       <input type="number" value={item.qty}
-                        onChange={e=>updateCartQty(item.prod.ProdKey, e.target.value)}
+                        onChange={e=>updateCartQty(item.cust.CustKey, item.prod.ProdKey, e.target.value)}
                         style={{ width:50, textAlign:'center', fontSize:13, fontWeight:700, padding:'3px 2px', border:'1px solid #1976d2', borderRadius:4,
                                  background: item.qty < 0 ? '#ffebee' : '#fff' }} />
-                      <button onClick={()=>updateCartQty(item.prod.ProdKey, (item.qty||0)+1)}
+                      <button onClick={()=>updateCartQty(item.cust.CustKey, item.prod.ProdKey, (item.qty||0)+1)}
                         style={{ width:28, height:28, fontSize:16, fontWeight:700, border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#e3f2fd', color:'#1565c0', lineHeight:'26px' }}>+</button>
                     </div>
-                    <button onClick={()=>removeFromCart(item.prod.ProdKey)}
+                    <button onClick={()=>removeFromCart(item.cust.CustKey, item.prod.ProdKey)}
                       style={{ background:'#ef5350', color:'#fff', border:'none', borderRadius:4, width:22, height:22, cursor:'pointer', fontSize:11, lineHeight:'20px', flexShrink:0 }}>✕</button>
+                  </div>
+                    ))}
                   </div>
                 ))}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {error && <div style={{color:'#d32f2f',fontSize:12,marginBottom:10}}>⚠ {error}</div>}
 
@@ -378,7 +396,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                   <tbody>
                     {submitResults.items.map((r,i) => (
                       <tr key={i} style={{ background: i%2===0?'#fff':'#f9f9f9', borderBottom:'1px solid #eee' }}>
-                        <td style={{padding:'4px 8px',fontWeight:500}}>{r.prod.ProdName}</td>
+                        <td style={{padding:'4px 8px',fontWeight:500}}>{r.cust?.CustName && <span style={{fontSize:10,color:'#1565c0',marginRight:4}}>[{r.cust.CustName}]</span>}{r.prod.ProdName}</td>
                         <td style={{padding:'4px 8px',textAlign:'right'}}>{r.qty} {r.unit}</td>
                         <td style={{padding:'4px 8px',textAlign:'right',fontWeight:700,color:r.verified?'#2e7d32':'#d32f2f'}}>
                           {r.dbQty != null ? r.dbQty : '-'}
