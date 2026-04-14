@@ -414,6 +414,7 @@ export default function StockStatus() {
   const [mgrRows,   setMgrRows]   = useState([]);
   const [pivotRows, setPivotRows] = useState([]);
   const [startStocks, setStartStocks] = useState({}); // { "ProdKey-OrderWeek": { stock, remark } }
+  const [shipHistory, setShipHistory] = useState([]); // ShipmentHistory 전산 수정내역
 
   // 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState(new Set()); // 복수 국가 선택
@@ -605,6 +606,9 @@ export default function StockStatus() {
       // 시작재고 조회
       fetch(`/api/shipment/stock-status?weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=startStock`)
         .then(r=>r.json()).then(d2=>{ if(d2.success) setStartStocks(d2.stocks||{}); }).catch(()=>{});
+      // 전산 수정내역(ShipmentHistory) 조회 → shipHistory 상태에 저장
+      fetch(`/api/shipment/history?startDate=2020-01-01&endDate=2099-12-31&search=${encodeURIComponent(wf)}`)
+        .then(r=>r.json()).then(d2=>{ if(d2.success) setShipHistory(d2.history||[]); }).catch(()=>{});
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
@@ -1192,9 +1196,19 @@ export default function StockStatus() {
       const dk = `${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk] = r.outQty || 0;
       if (r.outDescr) descrMap[dk] = r.outDescr;
-      if (r.outCreateDtm) fixMap[dk] = r.outCreateDtm; // ShipmentDtm 존재 = 확정 여부 판단용
+      if (r.outCreateDtm) fixMap[dk] = r.outCreateDtm;
       const ik = `${r.ProdKey}-${r.OrderWeek}`;
       if (!inMap[ik]) inMap[ik] = r.totalInQty || 0;
+    });
+    // 전산 수정내역(ShipmentHistory) → descrMap에 합치기
+    shipHistory.forEach(h => {
+      if (!h.CustName || !h.name) return;
+      // CustKey+ProdKey 매칭 (history에는 CustName/ProdName만 있으므로 rows에서 찾기)
+      const matchRow = rows.find(r => r.CustName === h.CustName && r.ProdName === h.name && r.OrderWeek === h.week);
+      if (!matchRow) return;
+      const dk = `${matchRow.ProdKey}-${matchRow.CustKey}-${h.week}`;
+      const log = `[전산 ${h.ChangeDtm} ${h.type}] ${h.before}→${h.after}`;
+      descrMap[dk] = (descrMap[dk] || '') + '\n' + log;
     });
     // isFix: CustKey-OrderWeek 단위로 확정 여부
     const isFixed = (ck, wk) => {
