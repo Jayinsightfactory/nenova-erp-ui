@@ -173,7 +173,12 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c      ON om.CustKey = c.CustKey
          JOIN OrderDetail od  ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted=0 ${pkFilter}
          JOIN Product p       ON od.ProdKey = p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
+         OUTER APPLY (
+           SELECT TOP 1 sm2.ShipmentKey, sm2.isFix
+           FROM ShipmentMaster sm2
+           WHERE sm2.CustKey=om.CustKey AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
+           ORDER BY sm2.isFix DESC
+         ) sm
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
@@ -451,19 +456,22 @@ async function updateOutQty(req, res) {
       }
       const foundSD = existSD.recordset[0] || existSD2.recordset[0] || null;
 
-      // ── 2단계: ShipmentMaster 결정
+      // ── 2단계: ShipmentMaster 결정 (전산 것 우선, 중복 생성 절대 금지)
       let sk;
       if (foundSD) {
         sk = foundSD.ShipmentKey; // 기존 레코드가 있는 ShipmentMaster 사용
       } else {
+        // 해당 업체+차수의 모든 ShipmentMaster 검색 (isFix=1 우선)
         const sm = await tQ(
-          `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+          `SELECT ShipmentKey, isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+           ORDER BY isFix DESC`,
           { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
         );
         if (sm.recordset.length > 0) {
-          sk = sm.recordset[0].ShipmentKey;
+          sk = sm.recordset[0].ShipmentKey; // isFix=1(전산 확정) 우선
         } else {
+          // ShipmentMaster가 정말 없을 때만 생성
           const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
           await tQ(
             `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
