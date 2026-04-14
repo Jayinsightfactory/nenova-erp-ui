@@ -289,7 +289,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.isFix = 1
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekFrom
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS confirmedStock,
           ISNULL((
