@@ -1,8 +1,46 @@
-// pages/api/estimate/index.js — 견적서 (실제 DB 조회, _new_ 테이블 저장)
+// pages/api/estimate/index.js — 견적서 (실제 DB 조회)
+// P3 구조 변경:
+//   - 단가 우선순위: WeekProdCost → ShipmentDetail.Cost → CustomerProdCost → Product.Cost
+//   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
+// ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
+// 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
+let _wpcEnsured = null;
+async function ensureWeekProdCostTable() {
+  if (_wpcEnsured) return _wpcEnsured;
+  _wpcEnsured = (async () => {
+    try {
+      await query(
+        `IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name='WeekProdCost')
+         BEGIN
+           CREATE TABLE WeekProdCost (
+             AutoKey INT IDENTITY(1,1) PRIMARY KEY,
+             OrderWeek NVARCHAR(10) NOT NULL,
+             CustKey INT NOT NULL,
+             ProdKey INT NOT NULL,
+             Cost FLOAT NOT NULL,
+             CreatedAt DATETIME DEFAULT GETDATE(),
+             UpdatedAt DATETIME DEFAULT GETDATE(),
+             UpdatedBy NVARCHAR(50)
+           );
+           CREATE UNIQUE INDEX IX_WeekProdCost_Lookup
+             ON WeekProdCost(OrderWeek, CustKey, ProdKey);
+         END`,
+        {}
+      );
+    } catch (e) {
+      // 권한 부족 등은 무시 — OUTER APPLY 결과가 null 이 되므로 견적서 계산은 계속 동작
+      console.warn('[estimate] WeekProdCost 테이블 생성 스킵:', e.message);
+    }
+  })();
+  return _wpcEnsured;
+}
+
 export default withAuth(async function handler(req, res) {
+  // 최초 1회: WeekProdCost 테이블 존재 보장
+  await ensureWeekProdCostTable();
   if (req.method === 'GET')  return await getEstimates(req, res);
   if (req.method === 'POST') return await createEstimate(req, res);
   return res.status(405).end();
@@ -101,10 +139,16 @@ async function getEstimates(req, res) {
 }
 
 // ── 공통: ShipmentKey → 정상출고(ShipmentDetail) + 차감(Estimate) UNION 반환
+// 단가 우선순위 (P3 전 구조 변경):
+//   1) WeekProdCost   — 차수+거래처+품목 (매차수 즐겨찾기)
+//   2) ShipmentDetail.Cost — 출고 분배 시 고정된 값 (1회성)
+//   3) CustomerProdCost    — 거래처+품목 (매차수 고정)
+//   4) Product.Cost        — 기본 단가
 async function loadItems(sk) {
   const result = await query(
     `SELECT * FROM (
-       -- ① 정상출고 (ShipmentDetail) — isDeleted/Cost/Amount/Vat 없는 원본 테이블 대응
+       -- ① 정상출고 (ShipmentDetail)
+       -- EffectiveCost = COALESCE(wpc, sd.Cost, cpc, p.Cost)
        SELECT
          NULL                                      AS EstimateKey,
          '정상출고'                                AS EstimateType,
@@ -116,13 +160,15 @@ async function loadItems(sk) {
          CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
               WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
-         ISNULL(p.Cost, 0)                         AS Cost,
-         ROUND(ISNULL(p.Cost, 0)
+         COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost,
+         ROUND(
+           COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))
            * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
                   WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
                   ELSE sd.BoxQuantity END
            / 1.1, 0)                               AS Amount,
-         ROUND(ISNULL(p.Cost, 0)
+         ROUND(
+           COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))
            * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
                   WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
                   ELSE sd.BoxQuantity END
@@ -130,7 +176,17 @@ async function loadItems(sk) {
          ''                                        AS Descr,
          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
        FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = sm.CustKey AND cpc.ProdKey = sd.ProdKey
+       -- WeekProdCost 는 없어도 안전하게 (신규 테이블) — LEFT JOIN + 조건 매칭
+       OUTER APPLY (
+         SELECT TOP 1 wpc0.Cost
+           FROM WeekProdCost wpc0
+          WHERE wpc0.OrderWeek = sm.OrderWeek
+            AND wpc0.CustKey   = sm.CustKey
+            AND wpc0.ProdKey   = sd.ProdKey
+       ) wpc
        WHERE sd.ShipmentKey = @sk
        UNION ALL
        -- ② 차감 (Estimate)
