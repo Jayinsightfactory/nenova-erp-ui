@@ -552,14 +552,18 @@ export default withAuth(async function handler(req, res) {
         `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
           ISNULL(p.CountryFlower,'') AS CountryFlower,
           ISNULL(p.OutUnit,'') AS OutUnit,
-          -- 시작재고: weekFrom 이전 차수 중 전산이 확정(isFix=1/true)한 가장 최근 ProductStock
-          -- isFix 는 bit 타입 — 직접 = 1 비교 (NULL 은 자동 제외)
+          -- 시작재고: weekFrom 이전 차수 중 전산 생성(isFix IS NULL) 또는 확정(isFix=1) ProductStock
+          -- 실측 결과:
+          --   전산 생성: isFix = NULL (14차 14-01, 14-02 확인)
+          --   웹 임의값: isFix = 0/false (웹 전용 startStock)
+          --   전산 확정: isFix = 1 (안전 fallback)
+          -- 가장 최근 레코드를 기준으로 잡되, isFix=false(0) 인 웹 임의값은 제외
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = p.ProdKey
               AND sm2.OrderWeek < @weekFrom
-              AND sm2.isFix = 1
+              AND (sm2.isFix IS NULL OR sm2.isFix = 1)
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS confirmedStock,
           -- 어느 차수 재고를 기준으로 했는지 (디버깅용)
@@ -568,7 +572,7 @@ export default withAuth(async function handler(req, res) {
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = p.ProdKey
               AND sm2.OrderWeek < @weekFrom
-              AND sm2.isFix = 1
+              AND (sm2.isFix IS NULL OR sm2.isFix = 1)
             ORDER BY sm2.OrderWeek DESC
           ) AS baseWeek,
           ISNULL((
