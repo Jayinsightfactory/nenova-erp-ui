@@ -323,6 +323,95 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── stockMasterDiag: StockMaster + ProductStock 구조 진단
+    // /api/shipment/stock-status?view=stockMasterDiag&weekFrom=14-01&weekTo=15-01&prodKey=389
+    if (view === 'stockMasterDiag') {
+      const pk = parseInt(req.query.prodKey) || null;
+
+      // 1) 해당 기간 StockMaster 전체 (isFix, OrderWeek, StockKey)
+      const smList = await query(
+        `SELECT StockKey, OrderWeek, ISNULL(isFix, -999) AS isFix,
+                CONVERT(NVARCHAR(16), CreateDtm, 120) AS CreateDtm,
+                ISNULL(CreateID, '') AS CreateID
+           FROM StockMaster
+          WHERE OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
+          ORDER BY OrderWeek, StockKey`,
+        params
+      );
+
+      // 2) isFix 값별 카운트
+      const isFixDist = await query(
+        `SELECT ISNULL(isFix, -999) AS isFix, COUNT(*) AS cnt
+           FROM StockMaster
+          WHERE OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
+          GROUP BY ISNULL(isFix, -999)
+          ORDER BY ISNULL(isFix, -999)`,
+        params
+      );
+
+      // 3) prodKey 있으면 해당 품목의 ProductStock 전체
+      let prodStock = [];
+      if (pk) {
+        const ps = await query(
+          `SELECT ps.StockKey, sm.OrderWeek, ISNULL(sm.isFix,-999) AS isFix,
+                  ps.Stock,
+                  CONVERT(NVARCHAR(16), sm.CreateDtm, 120) AS SMCreateDtm
+             FROM ProductStock ps
+             JOIN StockMaster sm ON ps.StockKey = sm.StockKey
+            WHERE ps.ProdKey = @pk
+              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+            ORDER BY sm.OrderWeek, ps.StockKey`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        prodStock = ps.recordset;
+      }
+
+      // 4) 해당 품목의 ShipmentDetail 합계 차수별 (검증용)
+      let shipSummary = [];
+      if (pk) {
+        const ss = await query(
+          `SELECT sm.OrderWeek, ISNULL(sm.isFix,-999) AS smIsFix,
+                  SUM(sd.OutQuantity) AS outSum
+             FROM ShipmentDetail sd
+             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+            WHERE sd.ProdKey = @pk
+              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+              AND ISNULL(sm.isDeleted,0) = 0
+            GROUP BY sm.OrderWeek, ISNULL(sm.isFix,-999)
+            ORDER BY sm.OrderWeek`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        shipSummary = ss.recordset;
+      }
+
+      // 5) 해당 품목의 WarehouseDetail 합계 차수별 (입고)
+      let whSummary = [];
+      if (pk) {
+        const wh = await query(
+          `SELECT wm.OrderWeek, SUM(wd.OutQuantity) AS inSum
+             FROM WarehouseDetail wd
+             JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+            WHERE wd.ProdKey = @pk
+              AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo
+              AND ISNULL(wm.isDeleted,0) = 0
+            GROUP BY wm.OrderWeek
+            ORDER BY wm.OrderWeek`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        whSummary = wh.recordset;
+      }
+
+      return res.status(200).json({
+        success: true,
+        filter: { weekFrom: req.query.weekFrom, weekTo: req.query.weekTo, prodKey: pk },
+        stockMasterList: smList.recordset,
+        isFixDistribution: isFixDist.recordset,
+        productStock: prodStock,
+        shipmentSummary: shipSummary,
+        warehouseSummary: whSummary,
+      });
+    }
+
     // ── custDiag: 거래처+차수 ShipmentDetail 전체 진단 (모든 필드)
     // /api/shipment/stock-status?view=custDiag&custName=동산&weekFrom=15-01&weekTo=15-02
     if (view === 'custDiag') {
