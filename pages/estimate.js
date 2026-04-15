@@ -460,18 +460,6 @@ export default function Estimate() {
     // 차수/거래처 정보
     const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
 
-    // SdetailKey → 소속 ShipmentKey 매핑 (items 에서 조회)
-    const itemByKey = {};
-    filteredItems.forEach(it => {
-      if (it.SdetailKey) itemByKey[it.SdetailKey] = it;
-    });
-
-    // ShipmentKey 별로 items 그룹핑 — 여러 sm 중 해당 sd 가 속한 것 찾기
-    // 견적서 그룹은 여러 ShipmentKey 를 합쳐 보여주므로, 각 sd 의 소속을 결정해야 함
-    // 간단 전략: 모든 sd 가 각 ShipmentKey 에 대해 한 번씩 UPDATE 시도 (존재하지 않으면 API 가 무시하거나 에러)
-    // 더 안전: API 가 SdetailKey 로 ShipmentKey 를 자동 조회
-    // 현재 API 는 shipmentKey+sdetailKey 쌍으로 검증하므로, 각 ShipmentKey 별로 해당 sd 만 묶어서 전송
-
     setCostApplying(true);
     setCostResult(null);
     setCostApplyLog([
@@ -483,79 +471,99 @@ export default function Estimate() {
         .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
         .map(k => parseInt(k));
 
-      // 각 ShipmentKey 별 atomic 호출 (확정 해제 → 수정 → 재확정)
-      const allChanges = [];
-      let totalDiff = 0;
+      // ── 1) 각 ShipmentKey 의 SdetailKey 목록을 재조회해서
+      //      편집된 sdk 가 어느 ShipmentKey 에 속하는지 결정
+      setCostApplyLog(prev => [...prev, {
+        step: 'collect',
+        label: `${selectedShipmentKeys.length}개 세부차수 조회 중 — SdetailKey 소속 확인...`,
+      }]);
 
+      // sdk → { shipmentKey, cost(조회시점) } 매핑 구축
+      const sdkToShipment = {}; // sdk → sk
       for (const sk of selectedShipmentKeys) {
-        // 해당 sk 에 속한 sdetailKey 만 수집
-        // API 가 SdetailKey + ShipmentKey 쌍 검증 후 속하지 않은 건 throw 하므로,
-        // 먼저 이 sk 에 속하는지 체크하는 items API 재조회 대신, 단순히 속한 것들만 전송
-        const skItems = filteredItems.filter(it =>
-          it.SdetailKey && editedSdKeys.includes(it.SdetailKey)
-        );
-        // items.SdetailKey 가 어느 ShipmentKey 에 속하는지 모르므로, 전부 시도 → API 가 검증 실패 시 throw
-        // 개선: GET /api/estimate?shipmentKey=sk 로 한 번 더 조회해서 해당 sk 의 sdKey 만 추림
         const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
-        const skSdKeys = new Set((skDetail.items || []).map(it => it.SdetailKey).filter(Boolean));
-        const itemsForSk = skItems
-          .filter(it => skSdKeys.has(it.SdetailKey))
-          .map(it => ({
+        for (const it of (skDetail.items || [])) {
+          if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey)) {
+            // 같은 sdk 가 여러 sk 에 있을 수 없음 (DB 제약) — 첫 매칭 사용
+            if (!(it.SdetailKey in sdkToShipment)) {
+              sdkToShipment[it.SdetailKey] = { sk, cost: it.Cost };
+            }
+          }
+        }
+      }
+
+      // filteredItems 에서 편집된 sdk 를 찾고 각각에 shipmentKey 매핑
+      const allItems = [];
+      filteredItems.forEach(it => {
+        if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
+          allItems.push({
+            shipmentKey: sdkToShipment[it.SdetailKey].sk,
             sdetailKey: it.SdetailKey,
             cost: parseFloat(costEdits[it.SdetailKey]),
-            // 낙관적 동시성: 조회 시점 snapshot 의 Cost 를 함께 전송
-            // 서버가 현재 DB Cost 와 비교해서 다르면 409 STALE_DATA 반환
+            // 낙관적 동시성: 조회 시점 snapshot 의 Cost (filteredItems 에 있는 값)
             expectedOldCost: it.Cost,
-          }));
-
-        if (itemsForSk.length === 0) continue;
-
-        setCostApplyLog(prev => [...prev, {
-          step: `sk-${sk}`,
-          label: `견적서 #${sk} 처리 중 (${itemsForSk.length}건) — 확정 해제 → 단가 수정 → 재확정...`,
-        }]);
-
-        const body = {
-          shipmentKey: sk,
-          items: itemsForSk,
-          mode: costMode,
-          week,
-          custKey: selectedShip.CustKey,
-        };
-        const r = await fetch('/api/estimate/update-cost', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const d = await r.json();
-        if (!d.success) {
-          // STALE_DATA (409 Conflict) — 조회시점 이후 데이터 변경 감지
-          if (d.code === 'STALE_DATA') {
-            const staleErr = new Error(
-              `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
-              `(SdetailKey=${d.sdetailKey}: 조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
-              `전체 변경이 롤백되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
-            );
-            staleErr.isStaleData = true;
-            throw staleErr;
-          }
-          throw new Error(d.error || `견적서 #${sk} 처리 실패`);
+          });
         }
+      });
 
-        allChanges.push(...(d.changes || []));
-        totalDiff += (d.diffAmount || 0);
-
-        setCostApplyLog(prev => [...prev, {
-          step: `sk-${sk}-done`,
-          label: `견적서 #${sk} 완료 — ${d.changedCount}건 수정, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원`,
-        }]);
+      if (allItems.length === 0) {
+        throw new Error('수정 대상 항목이 없습니다');
       }
+
+      // 세부차수별 카운트 (로그용)
+      const skCounts = {};
+      allItems.forEach(it => {
+        skCounts[it.shipmentKey] = (skCounts[it.shipmentKey] || 0) + 1;
+      });
+      const skSummary = Object.entries(skCounts)
+        .map(([sk, n]) => `#${sk}(${n}건)`).join(', ');
+
+      setCostApplyLog(prev => [...prev, {
+        step: 'processing',
+        label: `${allItems.length}건 처리 중 (${skSummary}) — 확정 해제 → 단가 수정 → 재확정 (단일 트랜잭션)...`,
+      }]);
+
+      // ── 2) 단일 POST — 모든 ShipmentKey + SdetailKey 를 한 트랜잭션으로
+      const body = {
+        items: allItems,
+        mode: costMode,
+        week,
+        custKey: selectedShip.CustKey,
+      };
+      const r = await fetch('/api/estimate/update-cost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+
+      if (!d.success) {
+        if (d.code === 'STALE_DATA') {
+          const staleErr = new Error(
+            `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
+            `(SdetailKey=${d.sdetailKey}${d.shipmentKey ? ` / ShipmentKey=${d.shipmentKey}` : ''}: ` +
+            `조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
+            `전체 변경이 롤백되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
+          );
+          staleErr.isStaleData = true;
+          throw staleErr;
+        }
+        throw new Error(d.error || '단가 수정 실패');
+      }
+
+      setCostApplyLog(prev => [...prev, {
+        step: 'processed',
+        label: `✓ DB 반영 완료 — ${d.changedCount}건, ${d.shipmentKeys?.length || 0}개 차수 동시 수정, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원`,
+      }]);
+
+      const allChanges = d.changes || [];
+      const totalDiff = d.diffAmount || 0;
 
       setCostApplyLog(prev => [...prev, { step: 'done', label: '✅ 전체 완료 — 견적서 재로딩 중...' }]);
 
       // 재로딩
       if (selectedShip) {
-        await new Promise(res => setTimeout(res, 400)); // 잠시 로딩 메시지 보이게
+        await new Promise(res => setTimeout(res, 400));
         selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
       }
 
