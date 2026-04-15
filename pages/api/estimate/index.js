@@ -152,7 +152,9 @@ async function loadItems(sk) {
          ON e.ShipmentKey = sd2.ShipmentKey AND e.ProdKey = sd2.ProdKey
        WHERE e.ShipmentKey = @sk
      ) T
-     ORDER BY outDate, EstimateType, ProdName`,
+     -- 차감(정상출고 아님) 항목은 무조건 최하단
+     ORDER BY CASE WHEN EstimateType = '정상출고' THEN 0 ELSE 1 END,
+              outDate, EstimateType, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
   return result.recordset;

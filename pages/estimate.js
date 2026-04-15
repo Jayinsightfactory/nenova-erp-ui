@@ -60,8 +60,43 @@ function getFlowerGroup(flowerName) {
   return '기타';
 }
 
+// ── EstimateType 코드 → 한글명 매핑 (레거시 코드 fallback)
+// 실제 DB 값은 이미 한글(불량차감/박스 등)이지만, 과거 데이터가 fee03-kr0010 같은
+// 전산 코드로 남아있을 경우를 위한 안전 매핑
+const ESTIMATE_TYPE_MAP = {
+  'fee01': '단가차감', 'fee02': '검역차감', 'fee03': '불량차감',
+  'fee04': '부족차감', 'fee05': '출하오류차감', 'fee06': '샘플',
+  'kr0010': '불량차감', 'kr0011': '검역차감', 'kr0012': '단가차감',
+};
+function mapEstimateType(t) {
+  if (!t) return '';
+  // "fee03-kr0010" / "fee03" / "kr0010" 같은 코드 형식 감지 (영문/숫자/하이픈만)
+  if (/^[a-z0-9-]+$/i.test(t)) {
+    const parts = t.toLowerCase().split('-');
+    for (const p of parts) {
+      if (ESTIMATE_TYPE_MAP[p]) return ESTIMATE_TYPE_MAP[p];
+    }
+    return '차감'; // 매핑 없으면 generic label
+  }
+  // 이미 한글 (불량차감/박스 등)
+  return t.replace(/\/(박스|단|송이)$/, '');
+}
+
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
 function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows }) {
+  // ── 차감 항목을 최하단으로 정렬 (정상출고 먼저, 차감은 뒤)
+  const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
+  const sortedRows = [...rows].sort((a, b) => {
+    const ad = isDeductRow(a) ? 1 : 0;
+    const bd = isDeductRow(b) ? 1 : 0;
+    if (ad !== bd) return ad - bd;
+    // 같은 그룹 내: 기존 순서 유지 (outDate/ProdName)
+    const adt = a.outDate || ''; const bdt = b.outDate || '';
+    if (adt !== bdt) return adt.localeCompare(bdt);
+    return (a.ProdName || '').localeCompare(b.ProdName || '');
+  });
+  rows = sortedRows;
+
   const totalSupply = rows.reduce((a, r) => a + (r.Amount || 0), 0);
   const totalVat    = rows.reduce((a, r) => a + (r.Vat || 0), 0);
   const totalAmt    = totalSupply + totalVat;
@@ -70,11 +105,11 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows }) {
   // 품목명: [차감유형] ProdName (정상출고는 prefix 없음)
   const typeLabel = t => {
     if (!t || t === '정상출고') return '';
-    return '[' + t.replace(/\/(박스|단|송이)$/, '') + '] ';
+    return '[' + mapEstimateType(t) + '] ';
   };
 
   // 차감 여부 판별
-  const isDeduct = r => r.EstimateType && r.EstimateType !== '정상출고';
+  const isDeduct = isDeductRow;
 
   // 적요: 차감 행은 출고일(DD일), 정상출고는 Descr 또는 빈 값
   const descLabel = r => {
@@ -110,12 +145,19 @@ h1 { text-align:center; font-size:20pt; font-weight:bold; letter-spacing:16px; t
 table { width:100%; border-collapse:collapse; }
 .hdr-outer { border:1px solid #555; }
 .hdr-left  { width:48%; vertical-align:top; border-right:1px solid #555; }
-.hdr-right { width:52%; vertical-align:top; padding:8px 12px; }
+.hdr-right { width:52%; vertical-align:top; padding:0; }
 .hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
 .hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
-.logo-area { text-align:center; border-bottom:1px solid #ddd; padding:4px 0 3px; margin-bottom:5px; }
-.co-grid   { display:grid; grid-template-columns:82px 1fr; gap:0 4px; font-size:8pt; line-height:1.75; }
-.co-key    { font-weight:bold; text-align:right; color:#333; }
+/* 로고: 타이트하게 칸에 꽉 차게 */
+.logo-area { text-align:left; border-bottom:1px solid #555; padding:0; margin:0; line-height:0; background:#fff; }
+.logo-area img { display:block; width:100%; height:auto; max-height:64px; object-fit:cover; object-position:left center; }
+/* 회사정보: 실제 테이블 2셀 (왼쪽정렬, 줄바꿈 방지, 셀 경계선) */
+.co-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.co-table td { border:1px solid #999; padding:4px 6px; font-size:7.5pt;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+               text-align:left; vertical-align:middle; }
+.co-table td.co-key { background:#f5f5f5; font-weight:bold; color:#333; width:40%; }
+.co-table td.co-val { width:60%; }
 .greet     { font-size:8pt; padding:6px 8px; border-top:1px solid #ddd; line-height:1.7; }
 .amt-row   { border:1px solid #555; border-top:none; padding:5px 10px;
              display:flex; justify-content:space-between; align-items:center; margin-bottom:0; }
@@ -148,20 +190,20 @@ table { width:100%; border-collapse:collapse; }
       </div>
     </td>
     <td class="hdr-right">
-      <!-- 오른쪽: NENOVA 로고 + 회사정보 -->
+      <!-- 오른쪽: NENOVA 로고 (칸 꽉차게) + 회사정보 (2셀 테이블, 왼쪽정렬, 줄바꿈 방지) -->
       <div class="logo-area">
-        <img src="https://nenovaweb.com/nenova-logo.png" alt="NENOVA" style="height:48px;object-fit:contain;"
+        <img src="https://nenovaweb.com/nenova-logo.png" alt="NENOVA"
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
-        <div style="display:none;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;">NENOVA</div>
+        <div style="display:none;padding:8px 10px;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;text-align:left;">NENOVA</div>
       </div>
-      <div class="co-grid">
-        <span class="co-key">사업자등록번호</span><span>134-86-94367</span>
-        <span class="co-key">회사명/대표</span><span>(주) 네노바 / 김원배</span>
-        <span class="co-key">주&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;소</span><span>서울특별시 서초구 언남길 15-7 102호 (양재동, 하얀빌딩)</span>
-        <span class="co-key">업태/종목</span><span>도매 / 무역</span>
-        <span class="co-key">계&nbsp;&nbsp;좌&nbsp;&nbsp;번&nbsp;&nbsp;호</span><span>하나은행 630-008129-149 (주)네노바</span>
-        <span class="co-key">TEL/FAX</span><span>025758003 / 02-576-8003</span>
-      </div>
+      <table class="co-table">
+        <tr><td class="co-key">사업자등록번호</td><td class="co-val">134-86-94367</td></tr>
+        <tr><td class="co-key">회사명/대표</td><td class="co-val">(주)네노바 / 김원배</td></tr>
+        <tr><td class="co-key">주소</td><td class="co-val">서울 서초구 언남길 15-7, 102호</td></tr>
+        <tr><td class="co-key">업태/종목</td><td class="co-val">도매 / 무역</td></tr>
+        <tr><td class="co-key">계좌번호</td><td class="co-val">하나 630-008129-149</td></tr>
+        <tr><td class="co-key">TEL / FAX</td><td class="co-val">02-575-8003 / 02-576-8003</td></tr>
+      </table>
     </td>
   </tr>
 </table>

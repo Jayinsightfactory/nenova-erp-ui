@@ -13,3 +13,6 @@ node_modules/
 # 기타
 .DS_Store
 *.log
+
+# 로컬 preview 용 임시 파일
+.preview/
