@@ -10,11 +10,14 @@ jobs:
     steps:
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           host: 172.233.89.171
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
+          envs: ANTHROPIC_API_KEY
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -22,6 +25,18 @@ jobs:
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
             git reset --hard origin/master
+            echo "=== .env.local 환경변수 동기화 (ANTHROPIC_API_KEY) ==="
+            if [ -n "$ANTHROPIC_API_KEY" ]; then
+              if grep -q '^ANTHROPIC_API_KEY=' .env.local 2>/dev/null; then
+                # BSD/GNU sed 호환: 임시 파일 방식
+                grep -v '^ANTHROPIC_API_KEY=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> .env.local
+              echo "✅ ANTHROPIC_API_KEY synced (len=${#ANTHROPIC_API_KEY})"
+            else
+              echo "⚠️  ANTHROPIC_API_KEY GitHub Secret 이 비어있음 — 챗봇 LLM 비활성"
+            fi
             echo "=== npm install ==="
             npm install --omit=dev
             echo "=== build ==="
