@@ -139,19 +139,18 @@ async function getEstimates(req, res) {
 }
 
 // ── 공통: ShipmentKey → 정상출고(ShipmentDetail) + 차감(Estimate) UNION 반환
-// 단가 우선순위 (P3 전 구조 변경):
-//   1) WeekProdCost   — 차수+거래처+품목 (매차수 즐겨찾기)
-//   2) ShipmentDetail.Cost — 출고 분배 시 고정된 값 (1회성)
-//   3) CustomerProdCost    — 거래처+품목 (매차수 고정)
-//   4) Product.Cost        — 기본 단가
+// 14차 패턴: ShipmentDetail.Cost/Amount/Vat 를 그대로 읽음 (DB = Truth)
+// 단가 수정은 update-cost API 를 통해 ShipmentDetail 을 직접 UPDATE 하므로
+// 모든 화면(견적서/매출/미수금/세금계산서/eCount)이 일관된 값을 봄
 async function loadItems(sk) {
   const result = await query(
     `SELECT * FROM (
-       -- ① 정상출고 (ShipmentDetail)
-       -- EffectiveCost = COALESCE(wpc, sd.Cost, cpc, p.Cost)
+       -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
        SELECT
          NULL                                      AS EstimateKey,
          '정상출고'                                AS EstimateType,
+         sd.SdetailKey,
+         sd.ProdKey,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          CASE WHEN sd.BunchQuantity > 0 THEN '단'
@@ -160,39 +159,35 @@ async function loadItems(sk) {
          CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
               WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
-         COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost,
-         ROUND(
-           COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))
-           * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
-                  WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
-                  ELSE sd.BoxQuantity END
-           / 1.1, 0)                               AS Amount,
-         ROUND(
-           COALESCE(NULLIF(wpc.Cost,0), NULLIF(sd.Cost,0), NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))
-           * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
-                  WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
-                  ELSE sd.BoxQuantity END
-           / 11, 0)                                AS Vat,
+         -- Cost: sd.Cost 있으면 그대로, 없으면 p.Cost (14차 fallback)
+         ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
+         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 14차 패턴 (Bunch × Cost / 1.1)
+         ISNULL(NULLIF(sd.Amount, 0),
+           ROUND(ISNULL(p.Cost, 0)
+             * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
+                    WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+                    ELSE sd.BoxQuantity END
+             / 1.1, 0)
+         ) AS Amount,
+         ISNULL(NULLIF(sd.Vat, 0),
+           ROUND(ISNULL(p.Cost, 0)
+             * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
+                    WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+                    ELSE sd.BoxQuantity END
+             / 11, 0)
+         ) AS Vat,
          ''                                        AS Descr,
          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
        FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
-       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = sm.CustKey AND cpc.ProdKey = sd.ProdKey
-       -- WeekProdCost 는 없어도 안전하게 (신규 테이블) — LEFT JOIN + 조건 매칭
-       OUTER APPLY (
-         SELECT TOP 1 wpc0.Cost
-           FROM WeekProdCost wpc0
-          WHERE wpc0.OrderWeek = sm.OrderWeek
-            AND wpc0.CustKey   = sm.CustKey
-            AND wpc0.ProdKey   = sd.ProdKey
-       ) wpc
        WHERE sd.ShipmentKey = @sk
        UNION ALL
-       -- ② 차감 (Estimate)
+       -- ② 차감 (Estimate) — 단가 수정 대상 아님, SdetailKey=NULL
        SELECT
          e.EstimateKey,
          e.EstimateType,
+         NULL                                      AS SdetailKey,
+         e.ProdKey,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          e.Unit,

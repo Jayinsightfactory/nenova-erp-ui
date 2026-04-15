@@ -346,6 +346,14 @@ export default function Estimate() {
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // ── 단가 수정 상태 (P3) ─────────────────────────
+  // costEdits[sdetailKey] = 수정된 단가 (string)
+  const [costEdits, setCostEdits] = useState({});
+  const [costMode, setCostMode] = useState('once'); // 'once' | 'fixed' | 'weekFav'
+  const [costApplying, setCostApplying] = useState(false);
+  const [costApplyLog, setCostApplyLog] = useState([]); // 진행 단계 로그
+  const [costResult, setCostResult] = useState(null);   // 완료 후 결과
+
   // 출력 다이얼로그
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [printOpts, setPrintOpts] = useState({
@@ -432,6 +440,130 @@ export default function Estimate() {
   };
 
   const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
+
+  // ── 단가 수정 관련 함수 (P3) ─────────────────────────
+  // 현재 선택된 그룹의 ShipmentKey 목록
+  const selectedShipmentKeys = selectedShip
+    ? (selectedShip.ShipmentKeys || '').split(',').map(Number).filter(Boolean)
+    : [];
+  // 수정된 단가 개수
+  const editedCount = Object.keys(costEdits).filter(k => {
+    const v = costEdits[k];
+    return v !== '' && v !== undefined && v !== null;
+  }).length;
+
+  // "확정풀고 단가 적용하기" — 실제 적용 함수
+  async function applyCostEdits() {
+    if (editedCount === 0) return;
+    if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
+
+    // 차수/거래처 정보
+    const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
+
+    // SdetailKey → 소속 ShipmentKey 매핑 (items 에서 조회)
+    const itemByKey = {};
+    filteredItems.forEach(it => {
+      if (it.SdetailKey) itemByKey[it.SdetailKey] = it;
+    });
+
+    // ShipmentKey 별로 items 그룹핑 — 여러 sm 중 해당 sd 가 속한 것 찾기
+    // 견적서 그룹은 여러 ShipmentKey 를 합쳐 보여주므로, 각 sd 의 소속을 결정해야 함
+    // 간단 전략: 모든 sd 가 각 ShipmentKey 에 대해 한 번씩 UPDATE 시도 (존재하지 않으면 API 가 무시하거나 에러)
+    // 더 안전: API 가 SdetailKey 로 ShipmentKey 를 자동 조회
+    // 현재 API 는 shipmentKey+sdetailKey 쌍으로 검증하므로, 각 ShipmentKey 별로 해당 sd 만 묶어서 전송
+
+    setCostApplying(true);
+    setCostResult(null);
+    setCostApplyLog([
+      { step: 'start', label: '시작 — 단가 적용 준비 중...' },
+    ]);
+
+    try {
+      const editedSdKeys = Object.keys(costEdits)
+        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
+        .map(k => parseInt(k));
+
+      // 각 ShipmentKey 별 atomic 호출 (확정 해제 → 수정 → 재확정)
+      const allChanges = [];
+      let totalDiff = 0;
+
+      for (const sk of selectedShipmentKeys) {
+        // 해당 sk 에 속한 sdetailKey 만 수집
+        // API 가 SdetailKey + ShipmentKey 쌍 검증 후 속하지 않은 건 throw 하므로,
+        // 먼저 이 sk 에 속하는지 체크하는 items API 재조회 대신, 단순히 속한 것들만 전송
+        const skItems = filteredItems.filter(it =>
+          it.SdetailKey && editedSdKeys.includes(it.SdetailKey)
+        );
+        // items.SdetailKey 가 어느 ShipmentKey 에 속하는지 모르므로, 전부 시도 → API 가 검증 실패 시 throw
+        // 개선: GET /api/estimate?shipmentKey=sk 로 한 번 더 조회해서 해당 sk 의 sdKey 만 추림
+        const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
+        const skSdKeys = new Set((skDetail.items || []).map(it => it.SdetailKey).filter(Boolean));
+        const itemsForSk = skItems
+          .filter(it => skSdKeys.has(it.SdetailKey))
+          .map(it => ({ sdetailKey: it.SdetailKey, cost: parseFloat(costEdits[it.SdetailKey]) }));
+
+        if (itemsForSk.length === 0) continue;
+
+        setCostApplyLog(prev => [...prev, {
+          step: `sk-${sk}`,
+          label: `견적서 #${sk} 처리 중 (${itemsForSk.length}건) — 확정 해제 → 단가 수정 → 재확정...`,
+        }]);
+
+        const body = {
+          shipmentKey: sk,
+          items: itemsForSk,
+          mode: costMode,
+          week,
+          custKey: selectedShip.CustKey,
+        };
+        const r = await fetch('/api/estimate/update-cost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.error || `견적서 #${sk} 처리 실패`);
+
+        allChanges.push(...(d.changes || []));
+        totalDiff += (d.diffAmount || 0);
+
+        setCostApplyLog(prev => [...prev, {
+          step: `sk-${sk}-done`,
+          label: `견적서 #${sk} 완료 — ${d.changedCount}건 수정, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원`,
+        }]);
+      }
+
+      setCostApplyLog(prev => [...prev, { step: 'done', label: '✅ 전체 완료 — 견적서 재로딩 중...' }]);
+
+      // 재로딩
+      if (selectedShip) {
+        await new Promise(res => setTimeout(res, 400)); // 잠시 로딩 메시지 보이게
+        selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
+      }
+
+      setCostResult({
+        success: true,
+        changedCount: allChanges.length,
+        totalDiff,
+      });
+      // 성공 시 편집 상태 초기화
+      setCostEdits({});
+    } catch (err) {
+      setCostApplyLog(prev => [...prev, { step: 'error', label: `❌ 오류: ${err.message}` }]);
+      setCostResult({ success: false, error: err.message });
+    } finally {
+      // 모달은 수동 닫기 — 사용자가 결과를 볼 수 있도록
+      setTimeout(() => {
+        // 자동 닫기는 3초 후에만 (성공 시)
+      }, 0);
+    }
+  }
+
+  function closeCostModal() {
+    setCostApplying(false);
+    setCostApplyLog([]);
+    setCostResult(null);
+  }
 
   // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
   const ALL_WD = ['월','화','수','목','금','토','일'];
@@ -711,10 +843,41 @@ export default function Estimate() {
 
         {/* 오른쪽: 견적서 목록 */}
         <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
-          <div className="card-header">
+          <div className="card-header" style={{flexWrap:'wrap', gap:6}}>
             <span className="card-title">■ 견적서 목록</span>
             {selectedShip && <span style={{fontSize:12, color:'var(--blue)', fontWeight:'bold'}}>{selectedShip.CustName}</span>}
-            <div style={{marginLeft:'auto', display:'flex', gap:4}}>
+            <div style={{marginLeft:'auto', display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
+              {/* ── 단가 수정 모드 선택 + 적용 버튼 (P3) ── */}
+              {editedCount > 0 && (
+                <>
+                  <select
+                    value={costMode}
+                    onChange={e => setCostMode(e.target.value)}
+                    style={{fontSize:11, padding:'3px 6px', borderRadius:4, border:'1px solid #CBD5E0'}}
+                    disabled={costApplying}
+                    title="수정한 단가를 어떻게 저장할지 선택"
+                  >
+                    <option value="once">① 1회성 (이 견적서만)</option>
+                    <option value="fixed">② 거래처 고정 (이후 모든 차수)</option>
+                    <option value="weekFav">③ 이 차수 즐겨찾기</option>
+                  </select>
+                  <button
+                    className="btn btn-sm"
+                    style={{background:'#2b6cb0', color:'#fff', borderColor:'#1e4e8c', fontWeight:'bold'}}
+                    disabled={costApplying}
+                    onClick={applyCostEdits}
+                  >
+                    🔓 확정풀고 단가 적용하기 ({editedCount})
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    disabled={costApplying}
+                    onClick={() => setCostEdits({})}
+                  >
+                    ↩ 수정 취소
+                  </button>
+                </>
+              )}
               <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
                 onClick={() => {
                   setDefectForm({ estimateType:'', estimateDate:new Date().toISOString().slice(0,10), prodKey:'', unit:'단', quantity:'', cost:'', descr:'' });
@@ -738,6 +901,7 @@ export default function Estimate() {
                       <th>품목명</th><th>단위</th><th>출고일자</th>
                       <th style={{textAlign:'right'}}>수량</th>
                       <th style={{textAlign:'right'}}>단가</th>
+                      <th style={{textAlign:'right', background:'#FFF9E6'}}>단가 수정</th>
                       <th style={{textAlign:'right'}}>공급가액</th>
                       <th style={{textAlign:'right'}}>부가세</th>
                       <th>비고</th>
@@ -745,13 +909,16 @@ export default function Estimate() {
                   </thead>
                   <tbody>
                     {filteredItems.length === 0
-                      ? <tr><td colSpan={8} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
+                      ? <tr><td colSpan={9} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
                           {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
                         </td></tr>
                       : filteredItems.map((item, i) => {
                           const isDed = item.EstimateType && item.EstimateType !== '정상출고';
+                          const sdk = item.SdetailKey;
+                          const editVal = sdk != null ? (costEdits[sdk] ?? '') : '';
+                          const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
-                          <tr key={i} style={{background: isDed ? '#FFF8DC' : ''}}>
+                          <tr key={i} style={{background: isEdited ? '#E6F7FF' : (isDed ? '#FFF8DC' : '')}}>
                             <td style={{fontSize:12, fontWeight:500, color: isDed ? '#A0522D' : ''}}>
                               {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
                                 [{item.EstimateType.replace(/\/(박스|단|송이)$/,'')}]
@@ -762,6 +929,37 @@ export default function Estimate() {
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
                             <td className="num">{fmt(item.Cost)}</td>
+                            <td style={{textAlign:'right', padding:'2px 4px', background:'#FFFDF5'}}>
+                              {isDed ? (
+                                <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  value={editVal}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setCostEdits(prev => {
+                                      const next = { ...prev };
+                                      if (v === '') delete next[sdk];
+                                      else next[sdk] = v;
+                                      return next;
+                                    });
+                                  }}
+                                  placeholder={fmt(item.Cost)}
+                                  style={{
+                                    width: 80,
+                                    padding: '2px 5px',
+                                    textAlign: 'right',
+                                    fontSize: 12,
+                                    border: isEdited ? '2px solid #2b6cb0' : '1px solid #CBD5E0',
+                                    borderRadius: 3,
+                                    fontFamily: 'var(--mono)',
+                                    background: isEdited ? '#EBF8FF' : '#fff',
+                                  }}
+                                  disabled={costApplying}
+                                />
+                              )}
+                            </td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--text3)'}}>{fmt(item.Vat)}</td>
                             <td style={{fontSize:11, color:'var(--text3)'}}>{item.Descr||''}</td>
@@ -774,6 +972,7 @@ export default function Estimate() {
                       <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px', fontSize:12}}>합계</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalQty)}</td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--text3)'}}>{fmt(totalCost)}</td>
+                      <td></td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--blue)'}}>{fmt(totalSupply)}</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalVat)}</td>
                       <td></td>
@@ -795,6 +994,77 @@ export default function Estimate() {
           </div>
         </div>
       </div>
+
+      {/* ── 단가 적용 로딩/결과 모달 (P3) ── */}
+      {(costApplying || costResult) && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                {costApplying && !costResult ? '🔄 단가 적용 중...' : (costResult?.success ? '✅ 단가 적용 완료' : '❌ 오류')}
+              </span>
+              {!costApplying || costResult ? (
+                <button className="btn btn-sm" onClick={closeCostModal}>✕</button>
+              ) : null}
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ padding: '8px 12px', background: '#F7FAFC', borderRadius: 6, fontSize: 12 }}>
+                <strong>진행 로그</strong>
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
+                  {costApplyLog.map((l, i) => (
+                    <div key={i} style={{
+                      padding: '4px 8px',
+                      background: l.step === 'error' ? '#FED7D7' : (l.step === 'done' ? '#C6F6D5' : '#fff'),
+                      borderRadius: 3,
+                      borderLeft: l.step === 'error' ? '3px solid #c53030' : (l.step === 'done' ? '3px solid #2f855a' : '3px solid #4299e1'),
+                      fontFamily: 'var(--mono)',
+                      fontSize: 11,
+                    }}>
+                      {l.label}
+                    </div>
+                  ))}
+                  {costApplying && !costResult && (
+                    <div style={{ padding: '4px 8px', color: '#718096', fontSize: 11 }}>
+                      <span className="spinner" style={{ display:'inline-block', width:10, height:10, border:'2px solid #4299e1', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 1s linear infinite', marginRight:6 }} />
+                      처리 중 — 이 창을 닫지 마세요
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {costResult && costResult.success && (
+                <div style={{ padding: 12, background: '#F0FFF4', border: '1px solid #9AE6B4', borderRadius: 6, fontSize: 12 }}>
+                  <div><strong>수정된 품목:</strong> {costResult.changedCount}건</div>
+                  <div><strong>공급가 변동:</strong> {costResult.totalDiff >= 0 ? '+' : ''}{(costResult.totalDiff || 0).toLocaleString()}원</div>
+                  <div style={{ marginTop: 6, color: '#2f855a' }}>
+                    견적서가 재로딩되었습니다. 새 단가가 반영된 것을 확인하세요.
+                  </div>
+                </div>
+              )}
+
+              {costResult && !costResult.success && (
+                <div style={{ padding: 12, background: '#FFF5F5', border: '1px solid #FEB2B2', borderRadius: 6, fontSize: 12, color: '#c53030' }}>
+                  <strong>오류:</strong> {costResult.error}
+                  <div style={{ marginTop: 4, fontSize: 11 }}>
+                    트랜잭션이 롤백되었습니다. DB 는 변경되지 않았습니다.
+                  </div>
+                </div>
+              )}
+
+              {(costResult || !costApplying) && (
+                <button className="btn" onClick={closeCostModal} style={{ marginTop: 4 }}>
+                  닫기
+                </button>
+              )}
+            </div>
+          </div>
+          <style jsx>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* ── 견적서 출력 다이얼로그 ── */}
       {showPrintDialog && (
