@@ -19,7 +19,8 @@ export default withAuth(async function handler(req, res) {
         p.ProdKey, p.OutUnit, ISNULL(p.Cost,0) AS cost,
         c.CustKey, c.CustName, c.CustArea AS area, c.OrderCode, ISNULL(c.Descr,'') AS custDescr,
         om.OrderWeek AS week,
-        ISNULL(od.OutQuantity,0) AS outQty,
+        -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
+        (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS outQty,
         ISNULL(od.Descr,'') AS descr
        FROM OrderMaster om
        JOIN Customer c     ON om.CustKey = c.CustKey AND c.isDeleted = 0

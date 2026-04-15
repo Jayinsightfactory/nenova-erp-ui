@@ -54,7 +54,9 @@ async function getOrders(req, res) {
         od.OrderDetailKey, od.ProdKey,
         p.ProdName, p.FlowerName, p.CounName,
         od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-        od.OutQuantity, od.NoneOutQuantity
+        -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량 (응답 호환 위해 OutQuantity alias 유지)
+        (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS OutQuantity,
+        od.NoneOutQuantity
        FROM OrderMaster om
        LEFT JOIN Customer c    ON om.CustKey = c.CustKey AND c.isDeleted = 0
        LEFT JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
@@ -198,23 +200,23 @@ async function createOrder(req, res) {
         );
 
         if (existOd.recordset.length > 0) {
-          // 기존 있으면 수량 업데이트
+          // 14차 패턴: OutQuantity 는 건드리지 않음 (전산이 출고 기록 시 채움)
           await tQuery(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam, OutQuantity=@qty
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
-              steam: { type: sql.Float, value: steamQty }, qty: { type: sql.Float, value: qty },
+              steam: { type: sql.Float, value: steamQty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
         } else if (qty > 0) {
-          // 신규 INSERT — safeNextKey로 PK 충돌 방지
+          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0 (전산 출고 기록 전)
           const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
           await tQuery(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, @uid, GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
             {
               nk:    { type: sql.Int,      value: nextKey },
               mk:    { type: sql.Int,      value: mk },
@@ -222,7 +224,6 @@ async function createOrder(req, res) {
               box:   { type: sql.Float,    value: boxQty },
               bunch: { type: sql.Float,    value: bunchQty },
               steam: { type: sql.Float,    value: steamQty },
-              qty:   { type: sql.Float,    value: qty },
               uid:   { type: sql.NVarChar, value: uid },
             }
           );
@@ -293,17 +294,16 @@ async function updateOrder(req, res) {
           const oldRow = old.recordset[0];
           const oldQty = oldRow ? (oldRow.BoxQuantity || oldRow.BunchQuantity || oldRow.SteamQuantity || 0) : 0;
 
+          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQuery(
             `UPDATE OrderDetail SET
-              BoxQuantity = @box, BunchQuantity = @bunch, SteamQuantity = @steam,
-              OutQuantity = @outQty
+              BoxQuantity = @box, BunchQuantity = @bunch, SteamQuantity = @steam
              WHERE OrderDetailKey = @dk`,
             {
               dk:    { type: sql.Int,   value: item.detailKey },
               box:   { type: sql.Float, value: unit === '박스' ? qty : 0 },
               bunch: { type: sql.Float, value: unit === '단'   ? qty : 0 },
               steam: { type: sql.Float, value: unit === '송이' ? qty : 0 },
-              outQty:{ type: sql.Float, value: qty },
             }
           );
 

@@ -69,9 +69,10 @@ export default withAuth(async function handler(req, res) {
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND sm.isDeleted = 0
           ), 0) AS outQty,
-          -- 기간 내 주문수량 (전체 업체)
+          -- 기간 내 주문수량 (전체 업체) — 14차 패턴: Box+Bunch+Steam 합
           ISNULL((
-            SELECT SUM(od.OutQuantity) FROM OrderDetail od
+            SELECT SUM(ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0))
+            FROM OrderDetail od
             JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
             WHERE od.ProdKey = p.ProdKey
               AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
@@ -105,7 +106,10 @@ export default withAuth(async function handler(req, res) {
            FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
            WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted=0
            UNION ALL
-           SELECT od.ProdKey, om.OrderWeek, od.OutQuantity, 'ord'
+           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
+           SELECT od.ProdKey, om.OrderWeek,
+                  (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)),
+                  'ord'
            FROM OrderDetail od JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
            WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
              AND om.isDeleted=0 AND od.isDeleted=0
@@ -141,7 +145,8 @@ export default withAuth(async function handler(req, res) {
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
-          ISNULL(od.OutQuantity,   0) AS custOrderQty,
+          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
+          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(sd.Descr, '') AS outDescr,
@@ -154,7 +159,9 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            SELECT SUM(od2.OutQuantity) FROM OrderDetail od2
+            -- 14차 패턴: Box+Bunch+Steam 합
+            SELECT SUM(ISNULL(od2.BoxQuantity,0)+ISNULL(od2.BunchQuantity,0)+ISNULL(od2.SteamQuantity,0))
+            FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
@@ -195,7 +202,8 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea,
           p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
-          ISNULL(od.OutQuantity, 0) AS custOrderQty,
+          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
+          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL((
@@ -205,7 +213,9 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            SELECT SUM(od2.OutQuantity) FROM OrderDetail od2
+            -- 14차 패턴: Box+Bunch+Steam 합
+            SELECT SUM(ISNULL(od2.BoxQuantity,0)+ISNULL(od2.BunchQuantity,0)+ISNULL(od2.SteamQuantity,0))
+            FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
@@ -744,26 +754,27 @@ async function addOrder(req, res) {
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
         } else {
+          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
-            `UPDATE OrderDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
+            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
-              qty: { type: sql.Float, value: quantity }, bq:  { type: sql.Float, value: boxQty },
+              bq:  { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
               mk:  { type: sql.Int,   value: mk },       pk:  { type: sql.Int,   value: pk },
             }
           );
         }
       } else if (quantity > 0) {
-        // OrderDetailKey = MAX+1 → 안전한 HOLDLOCK
+        // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,0,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           {
             nk:  { type: sql.Int,   value: nextKey },
             mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
-            qty: { type: sql.Float, value: quantity }, bq:  { type: sql.Float, value: boxQty },
+            bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: uid },
           }
@@ -856,15 +867,17 @@ async function addOrderDelta(req, res) {
         mk = om.recordset[0].OrderMasterKey;
       }
 
-      // 기존 OrderDetail 조회
+      // 기존 OrderDetail 조회 (14차 패턴: Box+Bunch+Steam 합이 주문수량)
       const od = await tQ(
-        `SELECT OrderDetailKey, OutQuantity FROM OrderDetail WITH (UPDLOCK)
-         WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+        `SELECT OrderDetailKey,
+                (ISNULL(BoxQuantity,0)+ISNULL(BunchQuantity,0)+ISNULL(SteamQuantity,0)) AS qty
+           FROM OrderDetail WITH (UPDLOCK)
+          WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
 
       if (od.recordset.length > 0) {
-        const existQty = od.recordset[0].OutQuantity || 0;
+        const existQty = od.recordset[0].qty || 0;
         const finalQty = existQty + delta;
 
         if (finalQty <= 0) {
@@ -874,10 +887,11 @@ async function addOrderDelta(req, res) {
           const boxQty   = unit === '박스' ? finalQty : 0;
           const bunchQty = unit === '단'   ? finalQty : 0;
           const steamQty = unit === '송이' ? finalQty : 0;
+          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
-            `UPDATE OrderDetail SET OutQuantity=@qty, BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
+            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
-            { qty: { type: sql.Float, value: finalQty }, bq: { type: sql.Float, value: boxQty },
+            { bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
@@ -887,11 +901,12 @@ async function addOrderDelta(req, res) {
         const bunchQty = unit === '단'   ? delta : 0;
         const steamQty = unit === '송이' ? delta : 0;
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
+        // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
         await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@qty,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,0,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-            qty: { type: sql.Float, value: delta }, bq: { type: sql.Float, value: boxQty },
+            bq: { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: uid } }
         );

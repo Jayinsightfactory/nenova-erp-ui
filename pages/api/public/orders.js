@@ -70,7 +70,9 @@ async function getOrders(req, res) {
         od.OrderDetailKey, od.ProdKey,
         p.ProdName, p.FlowerName, p.CounName,
         od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-        od.OutQuantity, od.NoneOutQuantity
+        -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량 (응답 호환 위해 OutQuantity alias 유지)
+        (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS OutQuantity,
+        od.NoneOutQuantity
        FROM OrderMaster om
        LEFT JOIN Customer   c  ON om.CustKey = c.CustKey AND c.isDeleted = 0
        LEFT JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
@@ -202,14 +204,14 @@ async function createOrder(req, res) {
         );
 
         if (odExist.recordset.length > 0) {
+          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam, OutQuantity=@qty
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
               box:   { type: sql.Float, value: box },
               bunch: { type: sql.Float, value: bunch },
               steam: { type: sql.Float, value: steam },
-              qty:   { type: sql.Float, value: qty },
               mk:    { type: sql.Int,   value: mk },
               pk:    { type: sql.Int,   value: prodKey },
             }
@@ -222,11 +224,12 @@ async function createOrder(req, res) {
             {}
           );
           const nextKey = maxKey.recordset[0].nextKey;
+          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
           await tQ(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, 'API', GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, 'API', GETDATE())`,
             {
               nk:    { type: sql.Int,   value: nextKey },
               mk:    { type: sql.Int,   value: mk },
@@ -234,7 +237,6 @@ async function createOrder(req, res) {
               box:   { type: sql.Float, value: box },
               bunch: { type: sql.Float, value: bunch },
               steam: { type: sql.Float, value: steam },
-              qty:   { type: sql.Float, value: qty },
             }
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });

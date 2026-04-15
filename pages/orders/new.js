@@ -327,7 +327,7 @@ export default function OrderNew() {
     handleNew();
   };
 
-  // ── 저장 → _new_OrderMaster + _new_OrderDetail
+  // ── 저장 → OrderMaster + OrderDetail (정식 테이블)
   const handleSave = async () => {
     if (!selectedCust) { setErr('거래처를 선택하세요.'); return; }
     if (!weekInput.value) { setErr('차수를 입력하세요.'); return; }
@@ -459,7 +459,6 @@ export default function OrderNew() {
       {/* 알림 배너 */}
       {err && <div className="banner-err">⚠️ {err} <span style={{ float:'right', cursor:'pointer' }} onClick={() => setErr('')}>✕</span></div>}
       {successMsg && <div className="banner-ok">{successMsg}</div>}
-      <div className="banner-warn" style={{ fontSize: 11 }}>⚠️ 저장 시 _new_OrderMaster / _new_OrderDetail (테스트 테이블)에 저장됩니다.</div>
 
       {/* ── 저장 완료 모달 ── */}
       {saveModal && (
