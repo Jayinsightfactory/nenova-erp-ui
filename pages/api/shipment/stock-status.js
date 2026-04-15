@@ -313,6 +313,79 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, rows: result.recordset });
     }
 
+    // ── custDiag: 거래처+차수 ShipmentDetail 전체 진단 (모든 필드)
+    // /api/shipment/stock-status?view=custDiag&custName=동산&weekFrom=15-01&weekTo=15-02
+    if (view === 'custDiag') {
+      const custName = req.query.custName || '';
+      const dParams = { ...params, cn: { type: sql.NVarChar, value: `%${custName}%` } };
+      const result = await query(
+        `SELECT sd.SdetailKey, sd.ShipmentKey, sd.ProdKey, sd.CustKey,
+                sd.OutQuantity, sd.EstQuantity,
+                sd.BoxQuantity, sd.BunchQuantity, sd.SteamQuantity,
+                sd.Cost, sd.Amount, sd.Vat,
+                CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS ShipmentDtm,
+                sm.OrderWeek, sm.isFix AS smIsFix,
+                p.ProdName, ISNULL(p.FlowerName,'') AS FlowerName,
+                ISNULL(p.OutUnit,'') AS OutUnit,
+                ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+                ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
+                ISNULL(p.Cost,0) AS pCost,
+                c.CustName,
+                ISNULL(sd.Descr,'') AS Descr,
+                -- 13/14차 패턴 검증값 계산
+                CASE WHEN ISNULL(sd.OutQuantity,0) <> ISNULL(sd.EstQuantity,0)
+                     THEN 'OUT≠EST' ELSE '' END AS check1,
+                CASE WHEN ISNULL(sd.BoxQuantity,0) <> ISNULL(sd.OutQuantity,0)
+                     THEN 'BOX≠OUT' ELSE '' END AS check2,
+                CASE WHEN ABS(ISNULL(sd.BunchQuantity,0) - ISNULL(sd.OutQuantity,0)*ISNULL(p.BunchOf1Box,0)) > 0.01
+                     THEN 'BUNCH≠OUT*B1B' ELSE '' END AS check3,
+                CASE WHEN ABS(ISNULL(sd.SteamQuantity,0) - ISNULL(sd.OutQuantity,0)*ISNULL(p.SteamOf1Box,0)) > 0.01
+                     THEN 'STEAM≠OUT*S1B' ELSE '' END AS check4
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         JOIN Customer c ON sm.CustKey = c.CustKey
+         LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+           AND ISNULL(sm.isDeleted,0) = 0
+           AND c.CustName LIKE @cn
+         ORDER BY sm.OrderWeek, p.ProdName`,
+        dParams
+      );
+      // OrderDetail 매칭 (참고용)
+      const odResult = await query(
+        `SELECT od.OrderDetailKey, od.ProdKey, od.OutQuantity AS odOutQty,
+                od.BoxQuantity AS odBox, od.BunchQuantity AS odBunch, od.SteamQuantity AS odSteam,
+                om.OrderWeek, c.CustName
+         FROM OrderMaster om
+         JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+         JOIN Customer c ON om.CustKey = c.CustKey
+         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+           AND ISNULL(om.isDeleted,0) = 0
+           AND c.CustName LIKE @cn`,
+        dParams
+      );
+      // 요약: 불일치 카운트
+      const rows = result.recordset;
+      const summary = {
+        total: rows.length,
+        outNeqEst: rows.filter(r => r.check1).length,
+        boxNeqOut: rows.filter(r => r.check2).length,
+        bunchNeqExpected: rows.filter(r => r.check3).length,
+        steamNeqExpected: rows.filter(r => r.check4).length,
+        zeroOut: rows.filter(r => (r.OutQuantity||0) === 0).length,
+      };
+      return res.status(200).json({
+        success: true,
+        custName,
+        weekFrom: req.query.weekFrom,
+        weekTo: req.query.weekTo,
+        summary,
+        shipmentDetails: rows,
+        orderDetails: odResult.recordset,
+      });
+    }
+
     // ── DB 기준 잔량 마이너스 품목 찾기 (전산 확정 방식 동일)
     if (view === 'negativeStock') {
       const result = await query(
