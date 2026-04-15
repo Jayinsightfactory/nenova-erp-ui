@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -8,6 +8,16 @@ export default function Login() {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // next 쿼리 파라미터 — 로그인 성공 후 이동할 페이지 (예: /m/chat)
+  // router.query 는 hydration 후 채워지므로 useEffect 로 읽음
+  const [nextUrl, setNextUrl] = useState('');
+  useEffect(() => {
+    if (router.isReady) {
+      const n = typeof router.query.next === 'string' ? router.query.next : '';
+      setNextUrl(n);
+    }
+  }, [router.isReady, router.query.next]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,7 +32,12 @@ export default function Login() {
       const data = await res.json();
       if (data.success) {
         localStorage.setItem('nenovaUser', JSON.stringify(data.user));
-        router.push('/dashboard');
+        // next 파라미터가 있으면 그리로, 없으면 기본 dashboard
+        // 보안: next 는 같은 사이트의 경로여야 함 (외부 리다이렉트 방지)
+        const safeNext = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//')
+          ? nextUrl
+          : '/dashboard';
+        router.push(safeNext);
       } else {
         setErr(data.error || '로그인 실패');
         setLoading(false);
@@ -31,6 +46,11 @@ export default function Login() {
       setErr('서버 연결 오류.');
       setLoading(false);
     }
+  };
+
+  const goMobileLogin = () => {
+    // 모바일 전용 로그인 페이지로 이동 (풀스크린 터치 친화적)
+    router.push('/m/login');
   };
 
   return (
@@ -44,6 +64,12 @@ export default function Login() {
           </div>
 
           <div style={{ fontSize:13, fontWeight:'bold', marginBottom:12, color:'#333' }}>■ 로그인</div>
+
+          {nextUrl === '/m/chat' && (
+            <div style={{ padding:'6px 10px', background:'#E6F7FF', border:'1px solid #91D5FF', color:'#0050B3', fontSize:12, marginBottom:10, borderRadius:3 }}>
+              📱 로그인 후 <b>모바일 챗봇</b> 으로 이동합니다
+            </div>
+          )}
 
           {err && (
             <div style={{ padding:'4px 8px', background:'#FFEEEE', border:'1px solid #FFAAAA', color:'#CC0000', fontSize:12, marginBottom:10 }}>
@@ -87,6 +113,34 @@ export default function Login() {
               </button>
             </div>
           </form>
+
+          {/* 모바일 로그인 바로가기 */}
+          <div style={{ marginTop:16, paddingTop:12, borderTop:'1px dashed #CCC', textAlign:'center' }}>
+            <button type="button"
+              onClick={goMobileLogin}
+              style={{
+                height:36,
+                padding:'0 16px',
+                fontSize:12,
+                fontFamily:'inherit',
+                border:'1px solid #2b6cb0',
+                background:'#EBF8FF',
+                color:'#2b6cb0',
+                fontWeight:'bold',
+                cursor:'pointer',
+                borderRadius:4,
+                width:'100%',
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'center',
+                gap:6,
+              }}>
+              📱 모바일 로그인
+            </button>
+            <div style={{ fontSize:10, color:'#888', marginTop:6, lineHeight:1.4 }}>
+              모바일 전용 로그인 화면으로 이동합니다
+            </div>
+          </div>
         </div>
       </div>
     </>
