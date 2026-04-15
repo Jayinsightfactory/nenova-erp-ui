@@ -351,9 +351,13 @@ export default withAuth(async function handler(req, res) {
 
       // 3) prodKey 있으면 해당 품목의 ProductStock 전체
       let prodStock = [];
+      let testConfirmedStock = null;
+      let testConfirmedStockInt = null;
+      let testConfirmedStockBit = null;
       if (pk) {
         const ps = await query(
           `SELECT ps.StockKey, sm.OrderWeek, ISNULL(sm.isFix,-999) AS isFix,
+                  CAST(sm.isFix AS INT) AS isFixInt,
                   ps.Stock,
                   CONVERT(NVARCHAR(16), sm.CreateDtm, 120) AS SMCreateDtm
              FROM ProductStock ps
@@ -364,6 +368,46 @@ export default withAuth(async function handler(req, res) {
           { ...params, pk: { type: sql.Int, value: pk } }
         );
         prodStock = ps.recordset;
+
+        // negativeStock 서브쿼리와 동일 로직 직접 실행 — 디버그
+        // weekTo 를 기준으로 < weekTo (즉 15-01 이전) 확정 재고 찾기
+        const tcs = await query(
+          `SELECT TOP 1 ps.Stock, sm2.OrderWeek, sm2.isFix
+             FROM ProductStock ps
+             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = @pk
+              AND sm2.OrderWeek < @weekTo
+              AND sm2.isFix = 1
+            ORDER BY sm2.OrderWeek DESC`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        testConfirmedStock = tcs.recordset[0] || null;
+
+        // int 캐스팅 비교
+        const tcs2 = await query(
+          `SELECT TOP 1 ps.Stock, sm2.OrderWeek, sm2.isFix
+             FROM ProductStock ps
+             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = @pk
+              AND sm2.OrderWeek < @weekTo
+              AND CAST(sm2.isFix AS INT) = 1
+            ORDER BY sm2.OrderWeek DESC`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        testConfirmedStockInt = tcs2.recordset[0] || null;
+
+        // isFix=1 대신 <> 0 로 비교
+        const tcs3 = await query(
+          `SELECT TOP 1 ps.Stock, sm2.OrderWeek, sm2.isFix
+             FROM ProductStock ps
+             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = @pk
+              AND sm2.OrderWeek < @weekTo
+              AND sm2.isFix <> 0
+            ORDER BY sm2.OrderWeek DESC`,
+          { ...params, pk: { type: sql.Int, value: pk } }
+        );
+        testConfirmedStockBit = tcs3.recordset[0] || null;
       }
 
       // 4) 해당 품목의 ShipmentDetail 합계 차수별 (검증용)
@@ -409,6 +453,9 @@ export default withAuth(async function handler(req, res) {
         productStock: prodStock,
         shipmentSummary: shipSummary,
         warehouseSummary: whSummary,
+        testConfirmedStock,
+        testConfirmedStockInt,
+        testConfirmedStockBit,
       });
     }
 
