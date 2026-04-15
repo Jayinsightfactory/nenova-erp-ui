@@ -1,25 +1,35 @@
 // pages/api/estimate/update-cost.js
-// P3: 견적서 단가 수정 API — atomic 워크플로우
+// P3: 견적서 단가 수정 API — atomic 워크플로우 + 낙관적 동시성 제어
 //
 // 흐름:
 //   1) UPDATE ShipmentMaster SET isFix=0  (확정 해제)
-//   2) 각 아이템에 대해 ShipmentDetail.Cost/Amount/Vat UPDATE
-//      (Amount = ROUND(Bunch × Cost / 1.1), Vat = ROUND(Bunch × Cost / 11) — 14차 패턴)
+//   2) 각 아이템에 대해:
+//      a. 현재 DB Cost/Amount/Vat 조회 (UPDLOCK)
+//      b. 조회시점 snapshot(expectedOldCost/Amount/Vat) 와 비교
+//      c. 불일치 시 전체 트랜잭션 throw → 롤백 (다른 사용자/전산 수정 감지)
+//      d. 정상이면 ShipmentDetail.Cost/Amount/Vat UPDATE
+//         (Amount = ROUND(Bunch × Cost / 1.1), Vat = ROUND(Bunch × Cost / 11))
 //   3) mode 별 부가 저장 (fixed → CustomerProdCost, weekFav → WeekProdCost)
 //   4) UPDATE ShipmentMaster SET isFix=1  (재확정)
 //   5) 전 과정 단일 트랜잭션 — 중간 실패 시 전체 롤백
 //
 // Request body:
 //   {
-//     shipmentKey: 1234,                    // 대상 견적서(차수+거래처)
-//     items: [                              // 여러 줄 동시 수정 가능
-//       { sdetailKey: 555, cost: 1500 },
+//     shipmentKey: 1234,
+//     items: [
+//       { sdetailKey: 555, cost: 1500, expectedOldCost: 1200 },
 //       ...
 //     ],
-//     mode: 'once' | 'fixed' | 'weekFav',   // 저장 모드
-//     week?: '15-02',                       // mode=weekFav 일 때 필요
-//     custKey?: 42,                         // mode=fixed/weekFav 일 때 필요
+//     mode: 'once' | 'fixed' | 'weekFav',
+//     week?: '15-02',
+//     custKey?: 42,
 //   }
+//
+// 낙관적 동시성 (expectedOldCost):
+//   - 클라이언트가 "조회" 버튼 눌렀을 때의 스냅샷 Cost 를 함께 전송
+//   - 서버가 UPDATE 전 현재 DB Cost 와 비교
+//   - 불일치 시 "데이터가 변경되었습니다. 재조회 후 다시 시도해주세요" 에러 → 전체 롤백
+//   - expectedOldCost 미전달 시 검증 스킵 (하위호환)
 
 import { withTransaction, sql, query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
@@ -120,17 +130,19 @@ export default withAuth(async function handler(req, res) {
       }
 
       // ── 3단계: 각 ShipmentDetail 의 Cost/Amount/Vat 재계산 UPDATE
+      // 낙관적 동시성 체크 — 전부 선행 검증 후 UPDATE (한 건이라도 불일치면 전체 롤백)
       const changes = [];
       for (const it of items) {
         const sdk = parseInt(it.sdetailKey);
         const newCost = parseFloat(it.cost);
+        const expectedOldCost = it.expectedOldCost != null ? parseFloat(it.expectedOldCost) : null;
 
-        // 기존 값 조회 (ShipmentDetail 이 지정한 ShipmentKey 에 속하는지 검증)
+        // 기존 값 조회 (UPDLOCK — 이 트랜잭션 내에서 다른 UPDATE 가 끼어들지 못함)
         const cur = await tQ(
           `SELECT SdetailKey, ProdKey, ISNULL(BunchQuantity,0) AS BunchQty,
                   ISNULL(Cost,0) AS OldCost, ISNULL(Amount,0) AS OldAmount,
                   ISNULL(Vat,0) AS OldVat
-             FROM ShipmentDetail
+             FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
             WHERE SdetailKey=@sdk AND ShipmentKey=@sk`,
           { sdk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk } }
         );
@@ -138,6 +150,21 @@ export default withAuth(async function handler(req, res) {
           throw new Error(`SdetailKey=${sdk} 가 ShipmentKey=${sk} 에 없음`);
         }
         const row = cur.recordset[0];
+
+        // 낙관적 동시성 검증: 조회시점 Cost 와 현재 DB Cost 가 같아야 함
+        if (expectedOldCost != null && Math.abs(row.OldCost - expectedOldCost) > 0.001) {
+          const err = new Error(
+            `STALE_DATA: SdetailKey=${sdk} 의 단가가 조회 이후 변경되었습니다 ` +
+            `(조회시점=${expectedOldCost} → 현재=${row.OldCost}). ` +
+            `다른 사용자 또는 전산 프로그램이 값을 수정했을 수 있습니다. 재조회 후 다시 시도해주세요.`
+          );
+          err.code = 'STALE_DATA';
+          err.sdetailKey = sdk;
+          err.expected = expectedOldCost;
+          err.actual = row.OldCost;
+          throw err;
+        }
+
         const bunchQty = row.BunchQty;
         const newAmount = Math.round(bunchQty * newCost / 1.1);
         const newVat    = Math.round(bunchQty * newCost / 11);
@@ -250,6 +277,17 @@ export default withAuth(async function handler(req, res) {
       ...result,
     });
   } catch (err) {
+    // STALE_DATA 는 409 Conflict, 그 외는 500
+    if (err.code === 'STALE_DATA') {
+      return res.status(409).json({
+        success: false,
+        code: 'STALE_DATA',
+        error: err.message,
+        sdetailKey: err.sdetailKey,
+        expected: err.expected,
+        actual: err.actual,
+      });
+    }
     return res.status(500).json({ success: false, error: err.message });
   }
 });

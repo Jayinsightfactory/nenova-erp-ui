@@ -500,7 +500,13 @@ export default function Estimate() {
         const skSdKeys = new Set((skDetail.items || []).map(it => it.SdetailKey).filter(Boolean));
         const itemsForSk = skItems
           .filter(it => skSdKeys.has(it.SdetailKey))
-          .map(it => ({ sdetailKey: it.SdetailKey, cost: parseFloat(costEdits[it.SdetailKey]) }));
+          .map(it => ({
+            sdetailKey: it.SdetailKey,
+            cost: parseFloat(costEdits[it.SdetailKey]),
+            // 낙관적 동시성: 조회 시점 snapshot 의 Cost 를 함께 전송
+            // 서버가 현재 DB Cost 와 비교해서 다르면 409 STALE_DATA 반환
+            expectedOldCost: it.Cost,
+          }));
 
         if (itemsForSk.length === 0) continue;
 
@@ -522,7 +528,19 @@ export default function Estimate() {
           body: JSON.stringify(body),
         });
         const d = await r.json();
-        if (!d.success) throw new Error(d.error || `견적서 #${sk} 처리 실패`);
+        if (!d.success) {
+          // STALE_DATA (409 Conflict) — 조회시점 이후 데이터 변경 감지
+          if (d.code === 'STALE_DATA') {
+            const staleErr = new Error(
+              `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
+              `(SdetailKey=${d.sdetailKey}: 조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
+              `전체 변경이 롤백되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
+            );
+            staleErr.isStaleData = true;
+            throw staleErr;
+          }
+          throw new Error(d.error || `견적서 #${sk} 처리 실패`);
+        }
 
         allChanges.push(...(d.changes || []));
         totalDiff += (d.diffAmount || 0);
