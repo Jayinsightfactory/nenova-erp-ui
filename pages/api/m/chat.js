@@ -7,13 +7,13 @@ async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
-  const { message } = req.body || {};
+  const { message, payload } = req.body || {};
   const text = (message || '').trim();
   if (!text) {
     return res.status(400).json({ success: false, error: '메시지가 비어있습니다.' });
   }
   try {
-    const result = await routeIntent(text, req.user);
+    const result = await routeIntent(text, req.user, payload || null);
     return res.status(200).json({ success: true, ...result });
   } catch (err) {
     console.error('[chat]', err);

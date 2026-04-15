@@ -50,8 +50,8 @@ export default function MobileChat() {
     }
   }, [messages, sending]);
 
-  // ── 메시지 전송
-  async function send(text) {
+  // ── 메시지 전송 (payload 는 structured intent — 선택지 버튼에서 전달)
+  async function send(text, payload = null) {
     const q = (text ?? input).trim();
     if (!q || sending) return;
     setInput('');
@@ -62,7 +62,7 @@ export default function MobileChat() {
       const r = await fetch('/api/m/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: q }),
+        body: JSON.stringify({ message: q, payload }),
       });
       const d = await r.json();
       if (d?.success) {
@@ -99,6 +99,23 @@ export default function MobileChat() {
 
       {/* 상단 바 */}
       <header className="m-topbar">
+        <button
+          type="button"
+          className="m-home-btn"
+          aria-label="홈"
+          onClick={() => {
+            if (sending) return;
+            setMessages([{
+              role: 'bot',
+              type: 'text',
+              content: `안녕하세요, ${me?.userName || me?.userId || ''}님 👋\n무엇을 도와드릴까요?\n\n아래 빠른 메뉴를 누르거나 자유롭게 질문하세요.`,
+              ts: Date.now(),
+            }]);
+            setInput('');
+          }}
+        >
+          🏠
+        </button>
         <div className="m-topbar-title">
           <span className="m-logo">🌸</span>
           <span>네노바 챗봇</span>
@@ -193,13 +210,29 @@ export default function MobileChat() {
           flex-shrink: 0;
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          gap: 8px;
           padding: 12px 16px;
           background: #2b6cb0;
           color: white;
           padding-top: calc(12px + env(safe-area-inset-top));
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .m-home-btn {
+          flex-shrink: 0;
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.18);
+          color: white;
+          font-size: 18px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .m-home-btn:active { background: rgba(255,255,255,0.3); }
+        .m-topbar-title { flex: 1; }
         .m-topbar-title {
           display: flex; align-items: center; gap: 8px;
           font-weight: 700; font-size: 16px;
@@ -297,10 +330,31 @@ function MessageBubble({ msg, onQuickAction }) {
         {msg.type === 'actions' && (
           <div className="m-actions">
             {(msg.actions || []).map((a, i) => (
-              <button key={i} className="m-action-btn" onClick={() => onQuickAction(a.text)}>
+              <button
+                key={i}
+                className={`m-action-btn ${a.primary ? 'primary' : ''}`}
+                onClick={() => onQuickAction(a.text, a.payload || null)}
+              >
                 {a.label}
               </button>
             ))}
+          </div>
+        )}
+        {msg.type === 'choices' && (
+          <div className="m-choices">
+            {msg.prompt && <div className="m-choices-prompt">{msg.prompt}</div>}
+            <div className="m-choices-list">
+              {(msg.choices || []).map((c, i) => (
+                <button
+                  key={i}
+                  className="m-choice-btn"
+                  onClick={() => onQuickAction(c.text || c.label, c.payload || null)}
+                >
+                  <span className="m-choice-label">{c.label}</span>
+                  {c.sub && <span className="m-choice-sub">{c.sub}</span>}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -353,6 +407,33 @@ function MessageBubble({ msg, onQuickAction }) {
           cursor: pointer;
         }
         .m-action-btn:active { background: #EDF2F7; }
+        .m-action-btn.primary {
+          background: #2b6cb0; color: white; border-color: #2b6cb0;
+        }
+        .m-action-btn.primary:active { background: #1e4e8c; }
+        .m-choices { margin-top: 6px; }
+        .m-choices-prompt {
+          font-size: 12px; color: #4A5568; margin-bottom: 6px; font-weight: 600;
+        }
+        .m-choices-list {
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        .m-choice-btn {
+          display: flex; flex-direction: column; align-items: flex-start;
+          gap: 2px;
+          padding: 10px 12px;
+          border: 1px solid #CBD5E0;
+          background: white;
+          border-radius: 10px;
+          font-size: 13px;
+          cursor: pointer;
+          text-align: left;
+          min-height: 44px;
+          width: 100%;
+        }
+        .m-choice-btn:active { background: #EDF2F7; border-color: #2b6cb0; }
+        .m-choice-label { font-weight: 600; color: #1A202C; }
+        .m-choice-sub { font-size: 11px; color: #718096; }
       `}</style>
     </div>
   );
