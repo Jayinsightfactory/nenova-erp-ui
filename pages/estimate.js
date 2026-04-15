@@ -148,9 +148,10 @@ table { width:100%; border-collapse:collapse; }
 .hdr-right { width:52%; vertical-align:top; padding:0; }
 .hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
 .hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
-/* 로고: 타이트하게 칸에 꽉 차게 */
-.logo-area { text-align:left; border-bottom:1px solid #555; padding:0; margin:0; line-height:0; background:#fff; }
-.logo-area img { display:block; width:100%; height:auto; max-height:64px; object-fit:cover; object-position:left center; }
+/* 로고: 헤더 영역 안에 수렴 (페이지 넘어가지 않도록 max-height 엄격 제한 + contain) */
+.logo-area { text-align:left; border-bottom:1px solid #555; padding:0; margin:0; line-height:0; background:#fff; height:44px; overflow:hidden; }
+.logo-area img { display:block; width:100%; height:44px; max-height:44px; object-fit:contain; object-position:left center; }
+@media print { .logo-area { height:38px; } .logo-area img { height:38px; max-height:38px; } }
 /* 회사정보: 실제 테이블 2셀 (왼쪽정렬, 줄바꿈 방지, 셀 경계선) */
 .co-table { width:100%; border-collapse:collapse; table-layout:fixed; }
 .co-table td { border:1px solid #999; padding:4px 6px; font-size:7.5pt;
