@@ -112,6 +112,12 @@ export default function MobileChat() {
               ts: Date.now(),
             }]);
             setInput('');
+            // 서버 대화 기록도 초기화 (실패해도 UI 는 리셋됨)
+            fetch('/api/m/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reset: true }),
+            }).catch(() => {});
           }}
         >
           🏠
