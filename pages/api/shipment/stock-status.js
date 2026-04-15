@@ -416,12 +416,25 @@ export default withAuth(async function handler(req, res) {
         `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
           ISNULL(p.CountryFlower,'') AS CountryFlower,
           ISNULL(p.OutUnit,'') AS OutUnit,
+          -- 시작재고: weekFrom 이전 차수 중 전산이 확정(isFix=1)한 가장 최근 ProductStock
+          -- 웹이 임의로 넣은 시작재고(isFix=2) 는 제외
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekFrom
+            WHERE ps.ProdKey = p.ProdKey
+              AND sm2.OrderWeek < @weekFrom
+              AND ISNULL(sm2.isFix, 0) = 1
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS confirmedStock,
+          -- 어느 차수 재고를 기준으로 했는지 (디버깅용)
+          (
+            SELECT TOP 1 sm2.OrderWeek FROM ProductStock ps
+            JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = p.ProdKey
+              AND sm2.OrderWeek < @weekFrom
+              AND ISNULL(sm2.isFix, 0) = 1
+            ORDER BY sm2.OrderWeek DESC
+          ) AS baseWeek,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
