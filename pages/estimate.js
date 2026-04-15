@@ -921,7 +921,7 @@ export default function Estimate() {
                           <tr key={i} style={{background: isEdited ? '#E6F7FF' : (isDed ? '#FFF8DC' : '')}}>
                             <td style={{fontSize:12, fontWeight:500, color: isDed ? '#A0522D' : ''}}>
                               {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
-                                [{item.EstimateType.replace(/\/(박스|단|송이)$/,'')}]
+                                [{mapEstimateType(item.EstimateType)}]
                               </span>}
                               {item.ProdName}
                             </td>
