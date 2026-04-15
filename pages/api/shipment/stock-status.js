@@ -397,9 +397,25 @@ export default withAuth(async function handler(req, res) {
     }
 
     // ── DB 기준 잔량 마이너스 품목 찾기 (전산 확정 방식 동일)
+    // 선택적 필터: country (CounName / CountryFlower like), flower (FlowerName / ProdName like)
+    //   예: view=negativeStock&weekFrom=15-01&weekTo=15-01&country=콜롬비아&flower=카네이션
     if (view === 'negativeStock') {
+      const countryQ = (req.query.country || '').trim();
+      const flowerQ  = (req.query.flower  || '').trim();
+      const filterParams = { ...params };
+      let filterWhere = '';
+      if (countryQ) {
+        filterWhere += ` AND (p.CounName LIKE @country OR p.CountryFlower LIKE @country)`;
+        filterParams.country = { type: sql.NVarChar, value: `%${countryQ}%` };
+      }
+      if (flowerQ) {
+        filterWhere += ` AND (p.FlowerName LIKE @flower OR p.ProdName LIKE @flower)`;
+        filterParams.flower = { type: sql.NVarChar, value: `%${flowerQ}%` };
+      }
       const result = await query(
         `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+          ISNULL(p.CountryFlower,'') AS CountryFlower,
+          ISNULL(p.OutUnit,'') AS OutUnit,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -415,23 +431,45 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
             WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
-          ), 0) AS outQty
+          ), 0) AS outQty,
+          -- 업체별 출고 수량 집계 (어느 거래처가 몇 개 가져갔는지)
+          (
+            SELECT c.CustName, SUM(sd.OutQuantity) AS qty
+            FROM ShipmentDetail sd
+            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+            JOIN Customer c ON sm.CustKey = c.CustKey
+            WHERE sd.ProdKey = p.ProdKey
+              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+              AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+            GROUP BY c.CustName
+            ORDER BY SUM(sd.OutQuantity) DESC
+            FOR JSON PATH
+          ) AS custBreakdown
          FROM Product p
          WHERE p.isDeleted = 0
+           ${filterWhere}
            AND EXISTS (
              SELECT 1 FROM ShipmentDetail sd2
              JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
              WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek >= @weekFrom AND sm3.OrderWeek <= @weekTo AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0
            )
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
-        params
+        filterParams
       );
       const rows = result.recordset.map(r => ({
         ...r,
+        custBreakdown: r.custBreakdown ? JSON.parse(r.custBreakdown) : [],
         remain: (r.confirmedStock||0) + (r.inQty||0) - (r.outQty||0)
       }));
       const negative = rows.filter(r => r.remain < 0);
-      return res.status(200).json({ success: true, total: rows.length, negativeCount: negative.length, negative, all: rows });
+      return res.status(200).json({
+        success: true,
+        filter: { country: countryQ || null, flower: flowerQ || null, weekFrom: req.query.weekFrom, weekTo: req.query.weekTo },
+        total: rows.length,
+        negativeCount: negative.length,
+        negative,
+        all: rows,
+      });
     }
 
     // ── SdetailKey로 특정 ShipmentDetail 삭제
