@@ -659,6 +659,11 @@ export default function Estimate() {
   };
 
   // ── 실제 인쇄 실행
+  //
+  // [구조 변경] Blob URL + window.open(_blank) 방식 →  iframe srcdoc 방식으로 전환.
+  // 이유: Blob URL + _blank 가 일부 Chrome 버전/조건에서 현재 탭으로 navigate 되어
+  //       견적서 관리 페이지가 사라지던 문제.  iframe 은 팝업 차단 이슈도 없음.
+  //       부모 페이지는 절대 영향 받지 않음.
   const doActualPrint = useCallback((opts) => {
     const custName = selectedShip?.CustName || '';
     const week = weekNum || '';
@@ -667,6 +672,34 @@ export default function Estimate() {
     const printRows = filteredItems.filter(i =>
       opts.outType === 'select' ? i.EstimateType === '정상출고' : true
     );
+
+    // ── 숨김 iframe 에 HTML 주입 후 인쇄 (부모 창 영향 없음)
+    const printInIframe = (html) => new Promise((resolve) => {
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+      iframe.srcdoc = html;
+      let done = false;
+      const cleanup = () => {
+        if (done) return; done = true;
+        setTimeout(() => iframe.remove(), 500);
+        resolve();
+      };
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (e) {
+          console.error('[print] iframe error:', e);
+        }
+        // 프린트 다이얼로그 닫힘 이벤트 (대부분 브라우저 지원)
+        try {
+          iframe.contentWindow.onafterprint = cleanup;
+        } catch (_) { /* cross-origin 등 */ }
+        // 보조: 3초 후 강제 제거 (onafterprint 미발화 대비)
+        setTimeout(cleanup, 3000);
+      };
+      document.body.appendChild(iframe);
+    });
 
     if (opts.splitMode === 'combined') {
       // ── 종합 출력 (1장) — 비고: "13차 종합견적서"
@@ -678,9 +711,7 @@ export default function Estimate() {
         custName,
         rows: printRows,
       });
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      printInIframe(html);
     } else {
       // ── 품목별 분할 출력 (수국→카네이션→장미→에콰도르→기타 → 마지막 종합 1장)
       // PDF 비고 형식: "13차 수국/알스트로메리아" 등
@@ -715,6 +746,7 @@ export default function Estimate() {
         },
       ];
 
+      const pagePromises = [];
       pages.forEach(({ bigoLabel, rows }, idx) => {
         const html = buildEstimateHtml({
           bigoLabel,
@@ -723,12 +755,15 @@ export default function Estimate() {
           custName,
           rows,
         });
-        setTimeout(() => {
-          const blob = new Blob([html], { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
-        }, idx * 500);
+        // 기존 setTimeout + window.open 방식 → 순차 iframe 인쇄로 변경.
+        pagePromises.push({ html });
       });
+      // 순차 실행 (이전 프린트 완료 후 다음)
+      (async () => {
+        for (const { html } of pagePromises) {
+          await printInIframe(html);
+        }
+      })();
     }
 
     setShowPrintDialog(false);
