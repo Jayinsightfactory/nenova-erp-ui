@@ -26,6 +26,8 @@ export default function FreightPage() {
   const [rowsOverride, setRowsOverride] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [dirty, setDirty] = useState(false);  // 스냅샷 저장 이후 수정 여부
+  const [catEditing, setCatEditing] = useState({});   // { flowerName: { BoxWeight, BoxCBM, StemsPerBox } } — liveResult 에 병합
+  const [catSaving, setCatSaving] = useState('');
 
   // localStorage 초안 key
   const draftKey = apiData ? `freight-draft-${apiData.primaryKey}` : null;
@@ -111,12 +113,29 @@ export default function FreightPage() {
         tariffRate:    ov.tariffRate    ?? d.tariffRate,
       };
     });
+    // 카테고리 인라인 편집(catEditing) 을 flowerMeta 에 즉시 반영 — 💾 저장 전에도 프리뷰 갱신
+    const mergedFlowerMeta = { ...(apiData.flowerMeta || {}) };
+    for (const [flowerName, edit] of Object.entries(catEditing || {})) {
+      const key = normalizeFlower(flowerName);
+      const base = mergedFlowerMeta[key] || {};
+      const pick = (raw, fallback) => {
+        if (raw === '' || raw == null) return fallback;
+        const n = parseFloat(raw);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      mergedFlowerMeta[key] = {
+        ...base,
+        boxWeight:   pick(edit.BoxWeight,   base.boxWeight),
+        boxCBM:      pick(edit.BoxCBM,      base.boxCBM),
+        stemsPerBox: pick(edit.StemsPerBox, base.stemsPerBox),
+      };
+    }
     return computeFreightCost({
       master, basis, customs, details,
       productMeta: apiData.productMeta,
-      flowerMeta: apiData.flowerMeta,
+      flowerMeta: mergedFlowerMeta,
     });
-  }, [apiData, master, customs, rowsOverride, basis]);
+  }, [apiData, master, customs, rowsOverride, basis, catEditing]);
 
   const selectedGroup = groups.find(g => g.GroupKey === groupKey);
 
@@ -127,9 +146,8 @@ export default function FreightPage() {
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
 
-  // 카테고리(Flower) 기본값 편집 → Flower 테이블에 저장 (전역)
-  const [catEditing, setCatEditing] = useState({});   // { flowerName: { BoxWeight, BoxCBM, StemsPerBox } }
-  const [catSaving, setCatSaving] = useState('');
+  // 카테고리(Flower) 기본값 편집 → Flower 테이블에 저장 (전역).
+  // state 선언은 위에서 했음 (liveResult 가 참조하므로 TDZ 회피).
   const startCatEdit = (flowerName, current) => {
     setCatEditing(m => ({ ...m, [flowerName]: {
       BoxWeight: current.boxWeight ?? '',
@@ -223,10 +241,37 @@ export default function FreightPage() {
 
   const handleExcel = async () => {
     if (!apiData) { alert('BILL을 선택하세요.'); return; }
-    const keys = (apiData.warehouseKeys || [apiData.primaryKey]).join(',');
-    const url = `/api/freight/excel?warehouseKeys=${keys}&awb=${encodeURIComponent(apiData.awb || '')}`;
+    // 클라이언트 편집값(마스터/통관비/바디 오버라이드/카테고리 편집)을 POST 로 전달 — 저장 없이도 즉시 반영됨
+    const rowsPayload = (apiData.input?.details || []).map(d => {
+      const ov = rowsOverride[d.prodKey] || {};
+      return {
+        prodKey: d.prodKey,
+        stemsPerBunch: ov.stemsPerBunch ?? d.stemsPerBunch,
+        salePriceKRW:  ov.salePriceKRW  ?? d.salePriceKRW,
+        tariffRate:    ov.tariffRate    ?? d.tariffRate,
+      };
+    });
+    const flowerOverrides = {};
+    for (const [flowerName, edit] of Object.entries(catEditing || {})) {
+      flowerOverrides[normalizeFlower(flowerName)] = {
+        BoxWeight:   edit.BoxWeight,
+        BoxCBM:      edit.BoxCBM,
+        StemsPerBox: edit.StemsPerBox,
+      };
+    }
     try {
-      const res = await fetch(url, { credentials: 'same-origin' });
+      const res = await fetch('/api/freight/excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          warehouseKeys: apiData.warehouseKeys || [apiData.primaryKey],
+          awb: apiData.awb || '',
+          basis, master, customs,
+          rows: rowsPayload,
+          flowerOverrides,
+        }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
         throw new Error(err.error || 'Excel 다운로드 실패');
@@ -310,142 +355,275 @@ export default function FreightPage() {
             </div>
           )}
 
-          {/* 차수 요약 + 설정값 */}
-          <div className="card" style={{ marginBottom: 10 }}>
-            <div className="card-header">
-              <span className="card-title">차수 요약 · 입력값</span>
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
-                {selectedGroup?.OrderWeek} · {selectedGroup?.FarmName} · AWB {selectedGroup?.AWB || '–'} · {selectedGroup?.InputDate}
-                {apiData.mergeCount > 1 && <span style={{ marginLeft: 8, padding: '2px 6px', background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>🔗 {apiData.mergeCount}원장 합산 (꽃)</span>}
-                {apiData.freightForwarder && <span style={{ marginLeft: 8, padding: '2px 6px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>✈️ 항공료 {apiData.freightForwarder.farmNames.join(',')} = ${apiData.freightForwarder.actualFreightUSD.toFixed(2)}</span>}
-                {apiData.snapshot
-                  ? <span style={{ marginLeft: 12, padding: '2px 8px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 4, fontWeight: 600 }}>💾 저장됨 · {new Date(apiData.snapshot.UpdateDtm || apiData.snapshot.CreateDtm).toLocaleString()}</span>
-                  : <span style={{ marginLeft: 12, padding: '2px 8px', background: 'var(--amber-bg, #fff8e1)', color: 'var(--amber, #f57c00)', borderRadius: 4, fontWeight: 600 }}>🆕 최초 입력 중</span>}
-                {dirty && <span style={{ marginLeft: 8, padding: '2px 8px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 4, fontWeight: 600 }}>⚠️ 미저장 변경</span>}
-              </span>
-            </div>
-            <div style={{ padding: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, fontSize: 12 }}>
-              <NumField label="총금액 Invoice (USD)" value={master.invoiceUSD} onChange={v => updMaster('invoiceUSD', v)} readOnly={!editMode} />
-              <NumField label="환율 (KRW/USD)" value={master.exchangeRate} onChange={v => updMaster('exchangeRate', v)} readOnly={!editMode} />
-              <NumField label="GW 실중량 (kg)" value={master.gw} onChange={v => updMaster('gw', v)} readOnly={!editMode} />
-              <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => updMaster('cw', v)} readOnly={!editMode} />
-              <NumField label="Rate (USD/kg)" value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
-              <NumField label="서류 (USD)" value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
-              <NumField label="품목수 (자동)" value={master.itemCount} readOnly />
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--text3)' }}>
-                  항공료 {liveResult.header.freightSource === 'ACTUAL' ? <span style={{color:'var(--green)',fontWeight:700}}>· FREIGHTWISE 실제 청구</span> : <span style={{color:'var(--text3)'}}>· 계산값 (Rate×CW+Doc)</span>}
-                </div>
-                <div style={{ fontWeight: 700, color: liveResult.header.freightSource === 'ACTUAL' ? 'var(--green)' : 'var(--blue)' }}>{fmt2(liveResult.header.freightTotalUSD)} USD</div>
-                {liveResult.header.actualFreightUSD && Math.abs(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD) > 1 && (
-                  <div style={{ fontSize: 10, color: 'var(--amber)' }}>
-                    ⚠️ 계산값: {fmt2(liveResult.header.freightComputedUSD)}과 차이 {fmt2(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD)}
-                  </div>
-                )}
-                <div style={{ fontSize: 10, color: 'var(--text3)' }}>기준: {liveResult.header.basis}</div>
-              </div>
-            </div>
-            <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', margin: '8px 0' }}>📦 통관비 상수 (KRW) — 차수별 수정 가능</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-                <NumField label="백상 단가 × GW" value={customs.bakSangRate} onChange={v => updCustoms('bakSangRate', v)} readOnly={!editMode} />
-                <NumField label="수수료" value={customs.handlingFee} onChange={v => updCustoms('handlingFee', v)} readOnly={!editMode} />
-                <NumField label="검역 × 품목수" value={customs.quarantinePerItem} onChange={v => updCustoms('quarantinePerItem', v)} readOnly={!editMode} />
-                <NumField label="국내운송" value={customs.domesticFreight} onChange={v => updCustoms('domesticFreight', v)} readOnly={!editMode} />
-                <NumField label="차감" value={customs.deductFee} onChange={v => updCustoms('deductFee', v)} readOnly={!editMode} />
-                <NumField label="추가 통관" value={customs.extraFee} onChange={v => updCustoms('extraFee', v)} readOnly={!editMode} />
-              </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--blue)', fontWeight: 600 }}>
-                → 통관 합계: {fmt(liveResult.header.customsTotalKRW)} 원
-              </div>
-            </div>
+          {/* 상태 배지 */}
+          <div style={{ padding: '6px 10px', marginBottom: 10, fontSize: 12, color: 'var(--text3)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+            <strong style={{ color: 'var(--text)' }}>{selectedGroup?.OrderWeek} · {selectedGroup?.FarmName} · AWB {selectedGroup?.AWB || '–'} · {selectedGroup?.InputDate}</strong>
+            {apiData.mergeCount > 1 && <span style={{ padding: '2px 6px', background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>🔗 {apiData.mergeCount}원장 합산</span>}
+            {apiData.freightForwarder && <span style={{ padding: '2px 6px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>✈️ 항공료 {apiData.freightForwarder.farmNames.join(',')} = ${apiData.freightForwarder.actualFreightUSD.toFixed(2)}</span>}
+            {apiData.snapshot
+              ? <span style={{ padding: '2px 8px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 4, fontWeight: 600 }}>💾 저장됨 · {new Date(apiData.snapshot.UpdateDtm || apiData.snapshot.CreateDtm).toLocaleString()}</span>
+              : <span style={{ padding: '2px 8px', background: 'var(--amber-bg, #fff8e1)', color: 'var(--amber, #f57c00)', borderRadius: 4, fontWeight: 600 }}>🆕 최초 입력 중</span>}
+            {dirty && <span style={{ padding: '2px 8px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 4, fontWeight: 600 }}>⚠️ 미저장 변경</span>}
           </div>
 
-          {/* 카테고리별 분배 */}
-          <div className="card" style={{ marginBottom: 10 }}>
-            <div className="card-header">
-              <span className="card-title">카테고리별 분배 (BILL 포함 카테고리만)</span>
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>💡 박스무게/CBM/송이박스 셀 클릭 → 편집 → 💾 누르면 전역 저장 (다음 BILL 자동 적용)</span>
+          {/* ━━ Row 1: 좌(차수·항공료) | 중(품목별 운임비) | 우(그외 통관비) ━━ */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1.1fr) minmax(280px, 1.1fr) minmax(340px, 1.4fr)', gap: 10, marginBottom: 10 }}>
+
+            {/* ① 차수 · 항공료 */}
+            <div className="card">
+              <div className="card-header"><span className="card-title">① 차수 · 항공료 (USD)</span></div>
+              <div style={{ padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>차수 (AWB)</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--mono)' }}>{selectedGroup?.AWB || selectedGroup?.OrderWeek || '–'}</div>
+                </div>
+                <NumField label="총금액 Invoice (USD)" value={master.invoiceUSD} onChange={v => updMaster('invoiceUSD', v)} readOnly={!editMode} />
+                <NumField label="환율 (KRW/USD)" value={master.exchangeRate} onChange={v => updMaster('exchangeRate', v)} readOnly={!editMode} />
+                <NumField label="GW 실중량 (kg)" value={master.gw} onChange={v => updMaster('gw', v)} readOnly={!editMode} />
+                <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => updMaster('cw', v)} readOnly={!editMode} />
+                <NumField label="Rate (USD/kg)" value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
+                <NumField label="서류 (USD)" value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>품목수 (자동)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{fmt(master.itemCount)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>총수량 (송이)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{fmt(liveResult.rows.reduce((a,r) => a + (Number(r.steamQty)||0), 0))}</div>
+                </div>
+              </div>
+              <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', background: '#fafafa' }}>
+                <div style={{ fontSize: 10, color: 'var(--text3)' }}>
+                  항공료 {liveResult.header.freightSource === 'ACTUAL' ? <span style={{color:'var(--green)',fontWeight:700}}>· FREIGHTWISE 실제 청구</span> : <span>· 계산값 (Rate×CW + Doc)</span>} · 기준 {liveResult.header.basis}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: liveResult.header.freightSource === 'ACTUAL' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{fmt2(liveResult.header.freightTotalUSD)} USD</div>
+                {liveResult.header.actualFreightUSD && Math.abs(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD) > 1 && (
+                  <div style={{ fontSize: 10, color: 'var(--amber)' }}>⚠️ 계산값 {fmt2(liveResult.header.freightComputedUSD)} 과 차이 {fmt2(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD)}</div>
+                )}
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>운송비 = Rate × CW = {fmt2((Number(master.rateUSD)||0) * (Number(master.cw)||0))} USD</div>
+              </div>
             </div>
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>카테고리</th>
-                  <th style={{ textAlign: 'right' }}>박스수</th>
-                  <th style={{ textAlign: 'right' }}>박스무게</th>
-                  <th style={{ textAlign: 'right' }}>박스CBM</th>
-                  <th style={{ textAlign: 'right' }}>송이/박스</th>
-                  <th></th>
-                  <th style={{ textAlign: 'right' }}>총 송이수</th>
-                  <th style={{ textAlign: 'right' }}>무게비율</th>
-                  <th style={{ textAlign: 'right' }}>CBM비율</th>
-                  <th style={{ textAlign: 'right' }}>사용 비율</th>
-                  <th style={{ textAlign: 'right' }}>운임 (USD)</th>
-                  <th style={{ textAlign: 'right' }}>운임/송이 (USD)</th>
-                  <th style={{ textAlign: 'right' }}>통관/송이 (KRW)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {liveResult.categories.map(c => {
-                  const edit = catEditing[c.flowerName];
-                  const fkKey = normalizeFlower(c.flowerName);
-                  const fkId = flowerNameToKey[fkKey];
-                  const cellStyle = { width: 70, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
-                  return (
+
+            {/* ② 품목별 운임비 */}
+            <div className="card">
+              <div className="card-header"><span className="card-title">② 품목별 운임비</span></div>
+              <table className="tbl" style={{ fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>카테고리</th>
+                    <th style={{ textAlign: 'right' }}>운임비 (USD)</th>
+                    <th style={{ textAlign: 'right' }}>수량 (송이)</th>
+                    <th style={{ textAlign: 'right' }}>송이당 운임비</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveResult.categories.map(c => (
                     <tr key={c.flowerName}>
                       <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                      <td className="num">{fmt(c.boxCount)}</td>
-                      <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default' }}>
-                        {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight ?? '–')}
-                      </td>
-                      <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default' }}>
-                        {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM ?? '–')}
-                      </td>
-                      <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default' }}>
-                        {edit ? <input type="number" style={cellStyle} value={edit.StemsPerBox} onChange={e => updCatField(c.flowerName, 'StemsPerBox', e.target.value)} /> : (c.stemsPerBox ?? '–')}
-                      </td>
-                      <td style={{ width: 50 }}>
-                        {edit
-                          ? <span style={{display:'flex',gap:2}}>
-                              <button className="btn btn-primary btn-sm" style={{height:22,padding:'0 6px',fontSize:11}} onClick={() => saveCatEdit(c.flowerName, fkId)} disabled={catSaving === c.flowerName}>💾</button>
-                              <button className="btn btn-secondary btn-sm" style={{height:22,padding:'0 6px',fontSize:11}} onClick={() => setCatEditing(m => { const n={...m}; delete n[c.flowerName]; return n; })}>✕</button>
-                            </span>
-                          : <button className="btn btn-secondary btn-sm" style={{height:22,padding:'0 6px',fontSize:11}} disabled={!fkId} onClick={() => startCatEdit(c.flowerName, c)}>✏️</button>}
-                      </td>
-                      <td className="num">{fmt(c.stemsCount)}</td>
-                      <td className="num">{pct(c.weightRatio)}</td>
-                      <td className="num">{pct(c.cbmRatio)}</td>
-                      <td className="num" style={{ fontWeight: 700, color: 'var(--blue)' }}>{pct(c.usedRatio)}</td>
                       <td className="num">{fmt2(c.freightUSD)}</td>
-                      <td className="num">{fmt4(c.freightPerStemUSD)}</td>
-                      <td className="num">{fmt2(c.customsPerStemKRW)}</td>
+                      <td className="num">{fmt(c.stemsCount)}</td>
+                      <td className="num" style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt4(c.freightPerStemUSD)}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="foot">
+                    <td style={{ textAlign: 'right' }}>합계</td>
+                    <td className="num">{fmt2(liveResult.categories.reduce((a,c) => a + (c.freightUSD||0), 0))}</td>
+                    <td className="num">{fmt(liveResult.categories.reduce((a,c) => a + (c.stemsCount||0), 0))}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* ③ 그외 통관비 */}
+            <div className="card">
+              <div className="card-header"><span className="card-title">③ 그외 통관비 (KRW)</span></div>
+              <div style={{ padding: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 11 }}>
+                <NumField label="백상 단가 × GW" value={customs.bakSangRate} onChange={v => updCustoms('bakSangRate', v)} readOnly={!editMode} />
+                <NumField label="차감" value={customs.deductFee} onChange={v => updCustoms('deductFee', v)} readOnly={!editMode} />
+                <NumField label="수수료 (handling)" value={customs.handlingFee} onChange={v => updCustoms('handlingFee', v)} readOnly={!editMode} />
+                <NumField label="검역 × 품목수" value={customs.quarantinePerItem} onChange={v => updCustoms('quarantinePerItem', v)} readOnly={!editMode} />
+                <NumField label="국내운송" value={customs.domesticFreight} onChange={v => updCustoms('domesticFreight', v)} readOnly={!editMode} />
+                <NumField label="추가 통관" value={customs.extraFee} onChange={v => updCustoms('extraFee', v)} readOnly={!editMode} />
+              </div>
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--blue)', fontWeight: 700, background: '#fafafa' }}>
+                → 통관 합계: {fmt(liveResult.header.customsTotalKRW)} 원
+              </div>
+              <table className="tbl" style={{ fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>카테고리</th>
+                    <th style={{ textAlign: 'right' }}>품목별 통관비</th>
+                    <th style={{ textAlign: 'right' }}>송이당 통관비</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveResult.categories.map(c => (
+                    <tr key={c.flowerName}>
+                      <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
+                      <td className="num">{fmt(c.customsKRW)}</td>
+                      <td className="num" style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt2(c.customsPerStemKRW)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* 품목 상세 그리드 */}
+          {/* ━━ Row 2: 좌(종 합계) | 우(운송비 분배 비율 계산) ━━ */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(500px, 2.6fr)', gap: 10, marginBottom: 10 }}>
+
+            {/* ④ 종 합계 */}
+            <div className="card">
+              <div className="card-header"><span className="card-title">④ 종 합계</span></div>
+              <div style={{ padding: 14, display: 'grid', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>종 이익률</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: liveResult.totals.overallProfitRate < 0 ? 'var(--red)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{pct(liveResult.totals.overallProfitRate)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>종 판매가</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--mono)' }}>{fmt(liveResult.totals.totalSaleKRW)} 원</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>종 이익</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: liveResult.totals.totalProfitKRW < 0 ? 'var(--red)' : 'var(--green)', fontFamily: 'var(--mono)' }}>{fmt(liveResult.totals.totalProfitKRW)} 원</div>
+                </div>
+              </div>
+            </div>
+
+            {/* ⑤ 운송비 품목별 분배 비율 계산 */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">⑤ 운송비 품목별 분배 비율 계산</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>💡 박스무게/CBM/송이박스 셀 클릭 → 편집 → 💾 누르면 전역 저장</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                {/* 무게 기준 */}
+                <div>
+                  <div style={{ padding: '6px 10px', background: liveResult.header.basis === 'GW' ? '#e3f2fd' : '#f5f5f5', fontWeight: 700, fontSize: 11, color: liveResult.header.basis === 'GW' ? 'var(--blue)' : 'var(--text3)' }}>
+                    GW ≈ CW · 무게로 계산 {liveResult.header.basis === 'GW' && '✓ 사용 중'}
+                  </div>
+                  <table className="tbl" style={{ fontSize: 11 }}>
+                    <thead>
+                      <tr>
+                        <th>카테고리</th>
+                        <th style={{ textAlign: 'right' }}>박스당 무게</th>
+                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>비율</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveResult.categories.map(c => {
+                        const edit = catEditing[c.flowerName];
+                        const fkKey = normalizeFlower(c.flowerName);
+                        const fkId = flowerNameToKey[fkKey];
+                        const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        return (
+                          <tr key={c.flowerName}>
+                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight ?? '–')}
+                            </td>
+                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" style={{ fontWeight: liveResult.header.basis === 'GW' ? 700 : 400, color: liveResult.header.basis === 'GW' ? 'var(--blue)' : 'var(--text3)' }}>{pct(c.weightRatio)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* CBM 기준 */}
+                <div style={{ borderLeft: '1px solid var(--border)' }}>
+                  <div style={{ padding: '6px 10px', background: liveResult.header.basis === 'CBM' ? '#fff3e0' : '#f5f5f5', fontWeight: 700, fontSize: 11, color: liveResult.header.basis === 'CBM' ? 'var(--amber, #f57c00)' : 'var(--text3)' }}>
+                    GW &lt;&lt; CW · CBM으로 계산 {liveResult.header.basis === 'CBM' && '✓ 사용 중'}
+                  </div>
+                  <table className="tbl" style={{ fontSize: 11 }}>
+                    <thead>
+                      <tr>
+                        <th>카테고리</th>
+                        <th style={{ textAlign: 'right' }}>박스당 CBM</th>
+                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>비율</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveResult.categories.map(c => {
+                        const edit = catEditing[c.flowerName];
+                        const fkKey = normalizeFlower(c.flowerName);
+                        const fkId = flowerNameToKey[fkKey];
+                        const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        return (
+                          <tr key={c.flowerName}>
+                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM ?? '–')}
+                            </td>
+                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" style={{ fontWeight: liveResult.header.basis === 'CBM' ? 700 : 400, color: liveResult.header.basis === 'CBM' ? 'var(--amber, #f57c00)' : 'var(--text3)' }}>{pct(c.cbmRatio)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 박스당 송이수 + 저장 버튼 영역 */}
+              <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)', background: '#fafafa' }}>
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4, fontWeight: 600 }}>📦 박스당 송이수 (수량 계산용, 카테고리 공통)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6 }}>
+                  {liveResult.categories.map(c => {
+                    const edit = catEditing[c.flowerName];
+                    const fkKey = normalizeFlower(c.flowerName);
+                    const fkId = flowerNameToKey[fkKey];
+                    const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                    return (
+                      <div key={c.flowerName} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', background: edit ? '#fffde7' : '#fff', border: '1px solid var(--border)', borderRadius: 4 }}>
+                        <span className="badge badge-purple" style={{ fontSize: 10 }}>{c.flowerName}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text3)' }}>송이/박스</span>
+                        {edit
+                          ? <input type="number" style={cellStyle} value={edit.StemsPerBox} onChange={e => updCatField(c.flowerName, 'StemsPerBox', e.target.value)} />
+                          : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: fkId ? 'pointer' : 'default', marginLeft: 'auto' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{c.stemsPerBox ?? '–'}</span>}
+                        {edit
+                          ? <span style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+                              <button className="btn btn-primary btn-sm" style={{ height: 22, padding: '0 6px', fontSize: 11 }} onClick={() => saveCatEdit(c.flowerName, fkId)} disabled={catSaving === c.flowerName}>💾</button>
+                              <button className="btn btn-secondary btn-sm" style={{ height: 22, padding: '0 6px', fontSize: 11 }} onClick={() => setCatEditing(m => { const n = { ...m }; delete n[c.flowerName]; return n; })}>✕</button>
+                            </span>
+                          : <button className="btn btn-secondary btn-sm" style={{ height: 22, padding: '0 6px', fontSize: 11, marginLeft: 'auto' }} disabled={!fkId} onClick={() => startCatEdit(c.flowerName, c)}>✏️</button>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ━━ Row 3: 품목 상세 원가 ━━ */}
           <div className="card">
             <div className="card-header">
               <span className="card-title">품목 상세 원가</span>
               <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>{liveResult.rows.length}개 품목</span>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table className="tbl" style={{ minWidth: 1400, fontSize: 11 }}>
+              <table className="tbl" style={{ minWidth: 1600, fontSize: 11 }}>
                 <thead>
                   <tr>
                     <th>농장</th><th>품목명</th>
-                    <th style={{ textAlign: 'right' }}>수량</th>
-                    <th style={{ textAlign: 'right' }}>FOB</th>
+                    <th style={{ textAlign: 'right', background: '#e8f5e9' }}>박스수</th>
+                    <th style={{ textAlign: 'right', background: '#e8f5e9' }}>단수</th>
+                    <th style={{ textAlign: 'right', background: '#e8f5e9' }}>송이수</th>
+                    <th style={{ textAlign: 'right', background: '#e8f5e9' }}>단가(USD)</th>
+                    <th style={{ textAlign: 'right', background: '#e8f5e9' }}>총액(USD)</th>
                     <th style={{ textAlign: 'right' }}>운송비/송이</th>
                     <th style={{ textAlign: 'right' }}>CNF USD</th>
                     <th style={{ textAlign: 'right' }}>CNF 원</th>
                     <th style={{ textAlign: 'right' }}>관세</th>
                     <th style={{ textAlign: 'right' }}>그외통관</th>
                     <th style={{ textAlign: 'right' }}>도착원가/송이</th>
-                    <th style={{ textAlign: 'right' }}>단수(N)</th>
+                    <th style={{ textAlign: 'right' }}>단당송이(N)</th>
                     <th style={{ textAlign: 'right' }}>도착원가/단</th>
                     <th style={{ textAlign: 'right' }}>판매가(Q)</th>
                     <th style={{ textAlign: 'right' }}>단이익</th>
@@ -462,15 +640,27 @@ export default function FreightPage() {
                     const prevFarm = i > 0 ? liveResult.rows[i-1].farmName : null;
                     const showFarm = r.farmName && r.farmName !== prevFarm;
                     const isFarmBoundary = i > 0 && r.farmName !== prevFarm;
+                    const steamZero = (Number(r.steamQty) || 0) === 0 && ((r.rawBoxQty || 0) > 0 || (r.bunchQty || 0) > 0);
+                    const usingDefault = r.steamQtySource === 'bunch_default' || r.steamQtySource === 'box_default' || r.stemsPerBunchSource === 'default';
                     return (
                       <tr key={i} style={{
-                        background: overridden.stemsPerBunch != null || overridden.salePriceKRW != null ? '#fffde7' : undefined,
+                        background: overridden.stemsPerBunch != null || overridden.salePriceKRW != null ? '#fffde7'
+                                  : steamZero ? '#ffebee'
+                                  : usingDefault ? '#fff8e1' : undefined,
                         borderTop: isFarmBoundary ? '2px solid var(--blue)' : undefined,
                       }}>
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
-                        <td className="num">{fmt(r.steamQty)}</td>
+                        <td className="num">{fmt(r.rawBoxQty)}</td>
+                        <td className="num">{fmt(r.bunchQty)}</td>
+                        <td className="num"
+                          style={{ color: steamZero ? 'var(--red)' : usingDefault ? 'var(--amber, #f57c00)' : 'inherit', fontWeight: steamZero || usingDefault ? 700 : 400 }}
+                          title={steamZero ? '수량 계산 불가 (단수·박스수 모두 0)' : usingDefault ? '단당송이 미설정 → 카테고리 표준값으로 자동 계산. 품목 마스터에서 정확히 설정하세요.' : undefined}
+                        >
+                          {fmt(r.steamQty)}{steamZero ? ' ⚠' : usingDefault ? ' ~' : ''}
+                        </td>
                         <td className="num">{fmt2(r.fobUSD)}</td>
+                        <td className="num">{fmt2(r.totalPriceUSD)}</td>
                         <td className="num">{fmt4(r.freightPerStemUSD)}</td>
                         <td className="num">{fmt4(r.cnfUSD)}</td>
                         <td className="num">{fmt2(r.cnfKRW)}</td>
@@ -498,13 +688,15 @@ export default function FreightPage() {
                 </tbody>
                 <tfoot>
                   <tr className="foot">
-                    <td colSpan={15} style={{ textAlign: 'right' }}>합계</td>
+                    <td style={{ textAlign: 'right' }} colSpan={2}>합계</td>
+                    <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.rawBoxQty || 0), 0))}</td>
+                    <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.bunchQty || 0), 0))}</td>
+                    <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.steamQty || 0), 0))}</td>
+                    <td></td>
+                    <td className="num">{fmt2(liveResult.rows.reduce((a,r) => a + (r.totalPriceUSD || 0), 0))}</td>
+                    <td colSpan={11}></td>
                     <td className="num">{fmt(liveResult.totals.totalSaleKRW)}</td>
                     <td className="num" style={{ color: liveResult.totals.totalProfitKRW < 0 ? 'var(--red)' : 'var(--green)', fontWeight: 700 }}>{fmt(liveResult.totals.totalProfitKRW)}</td>
-                  </tr>
-                  <tr className="foot">
-                    <td colSpan={15} style={{ textAlign: 'right' }}>종 이익률</td>
-                    <td colSpan={2} className="num" style={{ fontWeight: 700, color: 'var(--blue)' }}>{pct(liveResult.totals.overallProfitRate)}</td>
                   </tr>
                 </tfoot>
               </table>

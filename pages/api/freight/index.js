@@ -200,6 +200,32 @@ async function loadFreightData(res, keys, awbLabel) {
   } : { ...DEFAULT_CUSTOMS };
   const basis = snap?.WeightBasis || 'AUTO';
 
+  // Flower 기본값 맵 (normalized key) — steamQty fallback 계산에 필요해서 details 생성 전에 빌드
+  const flowerMeta = {};
+  for (const f of flowers) {
+    flowerMeta[normalizeFlower(f.FlowerName)] = {
+      boxWeight: f.BoxWeight != null ? Number(f.BoxWeight) : null,
+      boxCBM: f.BoxCBM != null ? Number(f.BoxCBM) : null,
+      stemsPerBox: f.StemsPerBox != null ? Number(f.StemsPerBox) : null,
+      defaultTariff: f.DefaultTariff != null ? Number(f.DefaultTariff) : null,
+    };
+  }
+
+  // 송이수 fallback — WarehouseDetail.SteamQuantity 가 0 이면 Bunch/Box 단위에서 환산.
+  // 입고 엑셀(Packing) 에 TOTAL STEAM 컬럼 없이 BOX/BUNCH 만 있는 경우 대응.
+  const resolveSteamQty = (r) => {
+    const sq = Number(r.SteamQuantity) || 0;
+    if (sq > 0) return sq;
+    const spb = Number(r.SteamOf1Bunch) || 0;       // Product.SteamOf1Bunch (단당 송이)
+    const bq = Number(r.BunchQuantity) || 0;
+    if (bq > 0 && spb > 0) return bq * spb;
+    const boxQ = Number(r.BoxQuantity) || 0;
+    const fm = flowerMeta[normalizeFlower(r.FlowerName || '')];
+    const stemsPerBox = Number(fm?.stemsPerBox) || 0;
+    if (boxQ > 0 && stemsPerBox > 0) return boxQ * stemsPerBox;
+    return 0;
+  };
+
   // detail 집합 빌드
   // 같은 flowerName 여러 row일 때 boxQty는 첫 row에만 몰아서 넣는 방식으로 (엑셀 AC 블록과 동일)
   const flowerSeen = new Set();
@@ -217,9 +243,12 @@ async function loadFreightData(res, keys, awbLabel) {
       flowerName: fn,
       farmName: r.FarmName || null,
       orderCode: r.OrderCode || null,
-      boxQty,
-      steamQty: Number(r.SteamQuantity) || 0,
-      fobUSD: Number(r.UPrice) || 0,
+      boxQty,                                                        // 카테고리 분배용(첫 행에만 몰아 넣음)
+      rawBoxQty: Number(r.BoxQuantity) || 0,                         // 행별 박스수 — client fallback 용
+      bunchQty: Number(r.BunchQuantity) || 0,                        // 행별 단수 — client fallback 용
+      steamQty: resolveSteamQty(r),
+      fobUSD: Number(r.UPrice) || 0,                                 // DB 단가 (보통 송이당, 단가 단위는 OutUnit 에 따름)
+      totalPriceUSD: Number(r.TPrice) || 0,                          // 원장에 기록된 총단가 (표시용)
       stemsPerBunch: snapRow?.StemsPerBunch != null ? Number(snapRow.StemsPerBunch) : (Number(r.SteamOf1Bunch) || 0),
       salePriceKRW: snapRow?.SalePriceKRW != null ? Number(snapRow.SalePriceKRW) : (Number(r.Cost) || 0),
       tariffRate: snapRow?.TariffRate != null ? Number(snapRow.TariffRate) : (r.P_TariffRate != null ? Number(r.P_TariffRate) : null),
@@ -236,17 +265,6 @@ async function loadFreightData(res, keys, awbLabel) {
         tariffRate: r.P_TariffRate != null ? Number(r.P_TariffRate) : null,
       };
     }
-  }
-
-  // Flower 기본값 맵 (normalized key)
-  const flowerMeta = {};
-  for (const f of flowers) {
-    flowerMeta[normalizeFlower(f.FlowerName)] = {
-      boxWeight: f.BoxWeight != null ? Number(f.BoxWeight) : null,
-      boxCBM: f.BoxCBM != null ? Number(f.BoxCBM) : null,
-      stemsPerBox: f.StemsPerBox != null ? Number(f.StemsPerBox) : null,
-      defaultTariff: f.DefaultTariff != null ? Number(f.DefaultTariff) : null,
-    };
   }
 
   // 계산

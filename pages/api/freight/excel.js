@@ -9,25 +9,51 @@ import { normalizeFlower, isFreightForwarder } from '../../../lib/freightCalc';
 
 export default withAuth(async function handler(req, res) {
   try {
-    const { warehouseKey, warehouseKeys, awb } = req.query;
     let keys = [];
-    let awbLabel = awb || '';
+    let awbLabel = '';
+    let overrides = null;  // POST 로 전달된 client-side 편집값
 
-    if (warehouseKeys) {
-      keys = warehouseKeys.split(',').map(s => parseInt(s)).filter(Boolean);
-    } else if (warehouseKey) {
-      keys = [parseInt(warehouseKey)];
-    } else if (awb) {
-      const r = await query(
-        `SELECT WarehouseKey FROM WarehouseMaster WHERE OrderNo=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
-        { awb: { type: sql.NVarChar, value: awb } }
-      );
-      keys = r.recordset.map(x => x.WarehouseKey);
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      awbLabel = body.awb || '';
+      if (Array.isArray(body.warehouseKeys) && body.warehouseKeys.length > 0) {
+        keys = body.warehouseKeys.map(Number).filter(Boolean);
+      } else if (body.warehouseKey) {
+        keys = [Number(body.warehouseKey)].filter(Boolean);
+      } else if (awbLabel) {
+        const r = await query(
+          `SELECT WarehouseKey FROM WarehouseMaster WHERE OrderNo=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
+          { awb: { type: sql.NVarChar, value: awbLabel } }
+        );
+        keys = r.recordset.map(x => x.WarehouseKey);
+      }
+      overrides = {
+        master: body.master || null,
+        customs: body.customs || null,
+        basis: body.basis || null,
+        rows: Array.isArray(body.rows) ? body.rows : [],
+        flowerOverrides: body.flowerOverrides || {},
+      };
+    } else {
+      const { warehouseKey, warehouseKeys, awb } = req.query;
+      awbLabel = awb || '';
+      if (warehouseKeys) {
+        keys = warehouseKeys.split(',').map(s => parseInt(s)).filter(Boolean);
+      } else if (warehouseKey) {
+        keys = [parseInt(warehouseKey)];
+      } else if (awb) {
+        const r = await query(
+          `SELECT WarehouseKey FROM WarehouseMaster WHERE OrderNo=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
+          { awb: { type: sql.NVarChar, value: awb } }
+        );
+        keys = r.recordset.map(x => x.WarehouseKey);
+      }
     }
+
     if (keys.length === 0) return res.status(400).json({ success:false, error:'warehouseKey/awb 필수' });
 
     const wb = XLSX.utils.book_new();
-    const sheet = await buildSheet(keys, awbLabel);
+    const sheet = await buildSheet(keys, awbLabel, overrides);
     if (sheet) XLSX.utils.book_append_sheet(wb, sheet.ws, sheet.name);
 
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
@@ -55,7 +81,15 @@ function style(bg, font, align, border = BORDER_ALL) {
   return { fill: bg, font, alignment: align, border };
 }
 
-async function buildSheet(warehouseKeys, awbLabel) {
+async function buildSheet(warehouseKeys, awbLabel, overrides) {
+  const ov = overrides || {};
+  const ovMaster = ov.master || {};
+  const ovCustoms = ov.customs || {};
+  const ovFlowers = ov.flowerOverrides || {};
+  const ovRowsByKey = new Map();
+  for (const r of (ov.rows || [])) if (r && r.prodKey != null) ovRowsByKey.set(Number(r.prodKey), r);
+  const pickOv = (val, fallback) => (val === '' || val == null || Number.isNaN(Number(val))) ? fallback : Number(val);
+
   const keyCSV = warehouseKeys.join(',');
   const [mRes, dRes, fRes, fcRes] = await Promise.all([
     query(
@@ -65,7 +99,7 @@ async function buildSheet(warehouseKeys, awbLabel) {
          FROM WarehouseMaster WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY WarehouseKey`
     ),
     query(
-      `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
+      `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
           p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
@@ -102,15 +136,43 @@ async function buildSheet(warehouseKeys, awbLabel) {
 
   const flowerMetaMap = new Map();
   for (const f of fRes.recordset) flowerMetaMap.set(normalizeFlower(f.FlowerName), f);
+  // 카테고리 오버라이드 적용 — Flower 마스터 저장 없이 사용자 입력값으로 즉시 반영
+  // flowerOverrides 는 { [normalizedFlowerName]: { BoxWeight, BoxCBM, StemsPerBox } }
+  for (const [normName, ovF] of Object.entries(ovFlowers)) {
+    const base = flowerMetaMap.get(normName) || { FlowerName: normName };
+    flowerMetaMap.set(normName, {
+      ...base,
+      BoxWeight:   pickOv(ovF.BoxWeight,   base.BoxWeight),
+      BoxCBM:      pickOv(ovF.BoxCBM,      base.BoxCBM),
+      StemsPerBox: pickOv(ovF.StemsPerBox, base.StemsPerBox),
+    });
+  }
+
+  // 송이수 fallback — SteamQuantity 가 0 이면 Bunch/Box 단위에서 환산.
+  const resolveSteam = (r) => {
+    const sq = Number(r.SteamQuantity) || 0;
+    if (sq > 0) return sq;
+    const bq = Number(r.BunchQuantity) || 0;
+    const spb = Number(r.SteamOf1Bunch) || 0;
+    if (bq > 0 && spb > 0) return bq * spb;
+    const boxQ = Number(r.BoxQuantity) || 0;
+    const fm = flowerMetaMap.get(normalizeFlower(r.FlowerName || ''));
+    const stemsPerBox = Number(fm?.StemsPerBox) || 0;
+    if (boxQ > 0 && stemsPerBox > 0) return boxQ * stemsPerBox;
+    return 0;
+  };
 
   const sheetName = (awbLabel || primary.OrderWeek || `BILL_${primary.WarehouseKey}`).substring(0, 31);
 
-  const invoiceUSD = snap?.InvoiceTotalUSD ?? rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
-  const totalSteam = rows.reduce((a, r) => a + (Number(r.SteamQuantity) || 0), 0);
-  const gw = snap?.GrossWeight ?? sumF('GrossWeight') ?? 0;
-  const cw = snap?.ChargeableWeight ?? sumF('ChargeableWeight') ?? 0;
-  const rate = snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? 0;
-  const docFee = snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? 0;
+  const dbInvoiceUSD = snap?.InvoiceTotalUSD ?? rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
+  const totalSteam = rows.reduce((a, r) => a + resolveSteam(r), 0);
+  const invoiceUSD = pickOv(ovMaster.invoiceUSD, dbInvoiceUSD);
+  const gw = pickOv(ovMaster.gw, snap?.GrossWeight ?? sumF('GrossWeight') ?? 0);
+  const cw = pickOv(ovMaster.cw, snap?.ChargeableWeight ?? sumF('ChargeableWeight') ?? 0);
+  const rate = pickOv(ovMaster.rateUSD, snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? 0);
+  const docFee = pickOv(ovMaster.docFeeUSD, snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? 0);
+  const exchangeRate = pickOv(ovMaster.exchangeRate, snap?.ExchangeRate || 0);
+  const actualFreightEff = pickOv(ovMaster.actualFreightUSD, actualFreightUSD);
 
   // aoa + styles (styles는 별도 map으로 관리 후 post-process)
   const aoa = Array.from({ length: 14 }, () => Array(35).fill(null));
@@ -139,7 +201,7 @@ async function buildSheet(warehouseKeys, awbLabel) {
 
   // B7 환율 / C7
   set(6, 1, '환율', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(6, 2, snap?.ExchangeRate || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(6, 2, exchangeRate, style(BG_INPUT, null, ALIGN_RIGHT));
 
   // B8 GW / C8 / D8 CW / E8
   set(7, 1, 'GW', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
@@ -160,8 +222,8 @@ async function buildSheet(warehouseKeys, awbLabel) {
   // B11 항공료 / C11 / D11 서류 / E11 / F11 운송비 / G11=E9*E8
   // FREIGHTWISE 실제 인보이스가 있으면 C11 에 그 값(고정값), 없으면 E11+G11 수식
   set(10, 1, '항공료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  if (actualFreightUSD > 0) {
-    set(10, 2, actualFreightUSD, style({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
+  if (actualFreightEff > 0) {
+    set(10, 2, actualFreightEff, style({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
   } else {
     set(10, 2, fml('E11+G11'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
   }
@@ -176,21 +238,31 @@ async function buildSheet(warehouseKeys, awbLabel) {
   set(4, 14, '그외에 통관비', style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
   merges.push({ s:{r:4,c:14}, e:{r:4,c:17} });
 
+  // 통관 상수 (오버라이드 우선, 없으면 스냅샷, 없으면 하드코드 기본값)
+  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 370);
+  const cHandling   = pickOv(ovCustoms.handlingFee,       snap ? Number(snap.HandlingFee)       : 33000);
+  const cQuarantine = pickOv(ovCustoms.quarantinePerItem, snap ? Number(snap.QuarantinePerItem) : 10000);
+  const cDomestic   = pickOv(ovCustoms.domesticFreight,   snap ? Number(snap.DomesticFreight)   : 99000);
+  const cDeduct     = pickOv(ovCustoms.deductFee,         snap ? Number(snap.DeductFee)         : 40000);
+  const cExtra      = pickOv(ovCustoms.extraFee,          snap ? Number(snap.ExtraFee)          : 0);
+
   // row 6 J~U: 헤더
   ['품목','운임비','수량(송이)','송이당 운임비'].forEach((h,i) => set(5, 9+i, h, style(BG_HEADER, FONT_BOLD, ALIGN_CENTER)));
   set(5,14,'백상',  style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(5,15, fml('C8*370'), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(5,15, fml(`C8*${cBakSang || 0}`), style(BG_FORMULA, null, ALIGN_RIGHT));
   set(5,16,'겸역차감', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(5,17, snap ? Number(snap.DeductFee) : 40000, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(5,17, cDeduct || 0, style(BG_INPUT, null, ALIGN_RIGHT));
   ['품목','품목별 통관비','송이당 통관비'].forEach((h,i)=>set(5,18+i,h,style(BG_HEADER,FONT_BOLD,ALIGN_CENTER)));
 
   // P7..P9 통관 상수
   set(6, 14, '통관 수수료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(6, 15, snap ? Number(snap.HandlingFee) : 33000, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(6, 15, cHandling || 0, style(BG_INPUT, null, ALIGN_RIGHT));
   set(7, 14, '검역 수수료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(7, 15, fml('C9*10000'), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(7, 15, fml(`C9*${cQuarantine || 0}`), style(BG_FORMULA, null, ALIGN_RIGHT));
   set(8, 14, '국내 운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(8, 15, snap ? Number(snap.DomesticFreight) : 99000, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(8, 15, cDomestic || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  // 추가통관(extraFee) 는 R7 셀에 주입 — 기존 P10 Total 수식이 R6+R7 포함
+  set(6, 17, cExtra || 0, style(BG_INPUT, null, ALIGN_RIGHT));
   set(9, 14, 'Total', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(9, 15, fml('SUM(P6:P9)+R6+R7'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
 
@@ -278,8 +350,13 @@ async function buildSheet(warehouseKeys, awbLabel) {
     set(rowIdx, 0, showFarm ? r.FarmName : '', style(null, showFarm ? FONT_BOLD : null, { horizontal:'left' }));
     prevFarm = r.FarmName;
     set(rowIdx, 1, r.ProdName || '', style(null, null, { horizontal:'left' }));
-    set(rowIdx, 4, Number(r.SteamQuantity) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(rowIdx, 5, Number(r.UPrice) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+    // 오버라이드 우선순위: client POST 편집값 > 스냅샷 > DB/Product 기본값
+    const ovRow = ovRowsByKey.get(Number(r.ProdKey)) || {};
+    const sd = snapMap.get(r.ProdKey) || {};
+    const effSteamQty = pickOv(ovRow.steamQty, resolveSteam(r));
+    const effFobUSD   = pickOv(ovRow.fobUSD, Number(r.UPrice) || 0);
+    set(rowIdx, 4, effSteamQty, style(BG_INPUT, null, ALIGN_RIGHT));
+    set(rowIdx, 5, effFobUSD, style(BG_INPUT, null, ALIGN_RIGHT));
     // G/L 수식: 원본 엑셀의 SEARCH 방식 그대로 (카테고리별 M/U 참조)
     // =IF(ISNUMBER(SEARCH($J$8,B15)),$M$8, IF(ISNUMBER(SEARCH($J$7,B15)),$M$7, ...))
     // MINICARNATION 이 CARNATION 을 포함하므로 CARNATION(J8) 먼저 검색해야 올바름
@@ -290,14 +367,15 @@ async function buildSheet(warehouseKeys, awbLabel) {
     set(rowIdx, 7, fml(`F${excelRow}+G${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 8, fml(`E${excelRow}*H${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 9, fml(`H${excelRow}*$C$7`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    const tariffRate = (snapMap.get(r.ProdKey) || {}).TariffRate ?? r.P_TariffRate ?? 0;
+    const tariffRate = pickOv(ovRow.tariffRate, sd.TariffRate ?? r.P_TariffRate ?? 0);
     set(rowIdx, 10, tariffRate > 0 ? fml(`J${excelRow}*${tariffRate}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 12, fml(`J${excelRow}+K${excelRow}+L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    const sd = snapMap.get(r.ProdKey) || {};
-    set(rowIdx, 13, Number(sd.StemsPerBunch ?? r.SteamOf1Bunch) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+    const effStemsPerBunch = pickOv(ovRow.stemsPerBunch, Number(sd.StemsPerBunch ?? r.SteamOf1Bunch) || 0);
+    const effSalePriceKRW  = pickOv(ovRow.salePriceKRW,  Number(sd.SalePriceKRW ?? r.Cost) || 0);
+    set(rowIdx, 13, effStemsPerBunch, style(BG_INPUT, null, ALIGN_RIGHT));
     set(rowIdx, 14, fml(`M${excelRow}*N${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 15, fml(`Q${excelRow}/1.1`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 16, Number(sd.SalePriceKRW ?? r.Cost) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+    set(rowIdx, 16, effSalePriceKRW, style(BG_INPUT, null, ALIGN_RIGHT));
     set(rowIdx, 17, fml(`IFERROR(O${excelRow}/0.77,0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 18, fml(`P${excelRow}-O${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 19, fml(`IFERROR(S${excelRow}/P${excelRow},0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
