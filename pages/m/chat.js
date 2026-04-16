@@ -166,6 +166,7 @@ export default function MobileChat() {
         <div className="m-topbar-title">
           <span className="m-logo">🌸</span>
           <span>네노바 챗봇</span>
+          <span className="m-version">{process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}</span>
         </div>
         <div className="m-topbar-user">
           {me?.userName || me?.userId}
@@ -284,6 +285,16 @@ export default function MobileChat() {
         .m-topbar-title {
           display: flex; align-items: center; gap: 8px;
           font-weight: 700; font-size: 16px;
+        }
+        .m-version {
+          font-size: 10px;
+          font-weight: 500;
+          opacity: 0.7;
+          padding: 2px 6px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 4px;
+          letter-spacing: 0.2px;
+          font-family: 'Menlo','Monaco',monospace;
         }
         .m-logo { font-size: 20px; }
         .m-topbar-user {
