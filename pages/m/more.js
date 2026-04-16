@@ -34,6 +34,7 @@ const MENU_GROUPS = [
     items: [
       { icon: '⚙️', label: '마스터 관리', href: '/master' },
       { icon: '📊', label: '통계 대시보드', href: '/stats/dashboard' },
+      { icon: '🩺', label: '시스템 진단', href: '/m/admin/status' },
     ],
   },
 ];
