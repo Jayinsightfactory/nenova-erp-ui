@@ -26,6 +26,7 @@ async function getList(req, res, entity) {
       result = await query(
         `SELECT ProdKey, ProdCode, ProdName, ProdGroup, FlowerName, CounName,
           Cost, OutUnit, EstUnit, BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
+          BoxWeight, BoxCBM, TariffRate,
           Stock, isDeleted, Descr
          FROM Product WHERE isDeleted=0 ORDER BY CounName, FlowerName, ProdName`
       );
@@ -51,7 +52,7 @@ async function getList(req, res, entity) {
     if (entity === 'codes') {
       const [countries, flowers, farms] = await Promise.all([
         query(`SELECT CounKey, CounName, isSelectFlower, isUseOrderCode, Sort, Descr FROM Country WHERE isDeleted=0 ORDER BY Sort`),
-        query(`SELECT FlowerKey, FlowerName, Sort, OrderNo, Descr FROM Flower WHERE isDeleted=0 ORDER BY Sort`),
+        query(`SELECT FlowerKey, FlowerName, Sort, OrderNo, Descr, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff FROM Flower WHERE isDeleted=0 ORDER BY Sort`),
         query(`SELECT f.FarmKey, f.FarmCode, f.FarmName, c.CounName FROM Farm f JOIN Country c ON f.CounKey=c.CounKey WHERE f.isDeleted=0 ORDER BY f.FarmName`),
       ]);
       return res.status(200).json({
@@ -101,27 +102,66 @@ async function create(req, res, entity) {
       return res.status(201).json({ success: true, message: '거래처 등록 완료' });
     }
     if (entity === 'products') {
-      const { prodCode, prodName, flowerName, counName, cost, outUnit, estUnit, bunchOf1Box, steamOf1Bunch, descr } = req.body;
+      const { prodKey, prodCode, prodName, flowerName, counName, cost, outUnit, estUnit, bunchOf1Box, steamOf1Bunch, boxWeight, boxCBM, tariffRate, descr } = req.body;
+      const params = {
+        code:       { type: sql.NVarChar, value: prodCode || '' },
+        name:       { type: sql.NVarChar, value: prodName },
+        flower:     { type: sql.NVarChar, value: flowerName || '' },
+        country:    { type: sql.NVarChar, value: counName || '' },
+        cost:       { type: sql.Float,    value: parseFloat(cost) || 0 },
+        outUnit:    { type: sql.NVarChar, value: outUnit || '박스' },
+        estUnit:    { type: sql.NVarChar, value: estUnit || '박스' },
+        bunch:      { type: sql.Float,    value: parseFloat(bunchOf1Box) || 0 },
+        steam:      { type: sql.Float,    value: parseFloat(steamOf1Bunch) || 0 },
+        boxWt:      { type: sql.Float,  value: boxWeight === '' || boxWeight == null ? null : parseFloat(boxWeight) },
+        boxCbm:     { type: sql.Float,  value: boxCBM === '' || boxCBM == null ? null : parseFloat(boxCBM) },
+        tariff:     { type: sql.Float,  value: tariffRate === '' || tariffRate == null ? null : parseFloat(tariffRate) },
+        uid:        { type: sql.NVarChar, value: req.user.userId },
+      };
+
+      if (prodKey) {
+        // UPDATE 모드
+        params.pk = { type: sql.Int, value: parseInt(prodKey) };
+        await query(
+          `UPDATE Product SET ProdCode=@code, ProdName=@name, FlowerName=@flower, CounName=@country,
+             Cost=@cost, OutUnit=@outUnit, EstUnit=@estUnit,
+             BunchOf1Box=@bunch, SteamOf1Bunch=@steam, SteamOf1Box=@bunch*@steam,
+             BoxWeight=@boxWt, BoxCBM=@boxCbm, TariffRate=@tariff
+           WHERE ProdKey=@pk`,
+          params
+        );
+        return res.status(200).json({ success: true, message: '품목 수정 완료' });
+      } else {
+        await query(
+          `INSERT INTO Product
+             (ProdCode, ProdName, FlowerName, CounName, Cost, OutUnit, EstUnit,
+              BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
+              BoxWeight, BoxCBM, TariffRate,
+              isDeleted, CreateID, CreateDtm)
+           VALUES (@code, @name, @flower, @country, @cost, @outUnit, @estUnit,
+                   @bunch, @steam, @bunch*@steam,
+                   @boxWt, @boxCbm, @tariff,
+                   0, @uid, GETDATE())`,
+          params
+        );
+        return res.status(201).json({ success: true, message: '품목 등록 완료' });
+      }
+    }
+    if (entity === 'flower') {
+      // Flower 카테고리 기본값 업데이트
+      const { flowerKey, boxWeight, boxCBM, stemsPerBox, defaultTariff } = req.body;
+      if (!flowerKey) return res.status(400).json({ success: false, error: 'flowerKey 필수' });
       await query(
-        `INSERT INTO Product
-           (ProdCode, ProdName, FlowerName, CounName, Cost, OutUnit, EstUnit,
-            BunchOf1Box, SteamOf1Bunch, SteamOf1Box, isDeleted, CreateID, CreateDtm)
-         VALUES (@code, @name, @flower, @country, @cost, @outUnit, @estUnit,
-                 @bunch, @steam, @bunch*@steam, 0, @uid, GETDATE())`,
+        `UPDATE Flower SET BoxWeight=@bw, BoxCBM=@bc, StemsPerBox=@sb, DefaultTariff=@dt WHERE FlowerKey=@fk`,
         {
-          code:    { type: sql.NVarChar, value: prodCode || '' },
-          name:    { type: sql.NVarChar, value: prodName },
-          flower:  { type: sql.NVarChar, value: flowerName || '' },
-          country: { type: sql.NVarChar, value: counName || '' },
-          cost:    { type: sql.Float,    value: parseFloat(cost) || 0 },
-          outUnit: { type: sql.NVarChar, value: outUnit || '박스' },
-          estUnit: { type: sql.NVarChar, value: estUnit || '박스' },
-          bunch:   { type: sql.Float,    value: parseFloat(bunchOf1Box) || 0 },
-          steam:   { type: sql.Float,    value: parseFloat(steamOf1Bunch) || 0 },
-          uid:     { type: sql.NVarChar, value: req.user.userId },
+          fk: { type: sql.Int,     value: parseInt(flowerKey) },
+          bw: { type: sql.Float, value: boxWeight === '' || boxWeight == null ? null : parseFloat(boxWeight) },
+          bc: { type: sql.Float, value: boxCBM    === '' || boxCBM    == null ? null : parseFloat(boxCBM) },
+          sb: { type: sql.Float, value: stemsPerBox === '' || stemsPerBox == null ? null : parseFloat(stemsPerBox) },
+          dt: { type: sql.Float, value: defaultTariff === '' || defaultTariff == null ? null : parseFloat(defaultTariff) },
         }
       );
-      return res.status(201).json({ success: true, message: '품목 등록 완료' });
+      return res.status(200).json({ success: true, message: '꽃 기본값 업데이트' });
     }
     return res.status(400).json({ success: false, error: 'entity 파라미터 필요' });
   } catch (err) {

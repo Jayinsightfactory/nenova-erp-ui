@@ -31,7 +31,23 @@ export default function Products() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiPost('/api/master?entity=products', form);
+      // upper→lower 정규화: 수정 모드에서 미변경 필드가 Uppercase 로 남아있어도 API 호환
+      const payload = {
+        prodKey:       form.ProdKey       ?? form.prodKey,
+        prodCode:      form.prodCode      ?? form.ProdCode,
+        prodName:      form.prodName      ?? form.ProdName,
+        flowerName:    form.flowerName    ?? form.FlowerName,
+        counName:      form.counName      ?? form.CounName,
+        cost:          form.cost          ?? form.Cost,
+        outUnit:       form.outUnit       ?? form.OutUnit,
+        estUnit:       form.estUnit       ?? form.EstUnit,
+        bunchOf1Box:   form.bunchOf1Box   ?? form.BunchOf1Box,
+        steamOf1Bunch: form.steamOf1Bunch ?? form.SteamOf1Bunch,
+        boxWeight:     form.boxWeight     ?? form.BoxWeight,
+        boxCBM:        form.boxCBM        ?? form.BoxCBM,
+        tariffRate:    form.tariffRate    ?? form.TariffRate,
+      };
+      await apiPost('/api/master?entity=products', payload);
       setShowModal(false);
       load();
     } catch (e) { alert(e.message); } finally { setSaving(false); }
@@ -53,7 +69,7 @@ export default function Products() {
       <div className="table-wrap">
         {loading ? <div className="skeleton" style={{ height: 300, borderRadius: 0 }}></div> : (
           <table className="tbl">
-            <thead><tr><th>#</th><th>품목코드</th><th>품목명</th><th>꽃</th><th>국가</th><th style={{ textAlign: 'right' }}>출고단가</th><th>출고단위</th><th style={{ textAlign: 'right' }}>1박스단수</th><th style={{ textAlign: 'right' }}>1단송이</th><th style={{ textAlign: 'right' }}>재고</th></tr></thead>
+            <thead><tr><th>#</th><th>품목코드</th><th>품목명</th><th>꽃</th><th>국가</th><th style={{ textAlign: 'right' }}>출고단가</th><th>출고단위</th><th style={{ textAlign: 'right' }}>1박스단수</th><th style={{ textAlign: 'right' }}>1단송이</th><th style={{ textAlign: 'right' }}>박스무게</th><th style={{ textAlign: 'right' }}>박스CBM</th><th style={{ textAlign: 'right' }}>관세%</th><th style={{ textAlign: 'right' }}>재고</th></tr></thead>
             <tbody>
               {filtered.map((p, i) => (
                 <tr key={p.ProdKey} className={selected?.ProdKey === p.ProdKey ? 'selected' : ''} onClick={() => setSelected(p)} onDoubleClick={() => { setForm({ ...p }); setShowModal(true); }} style={{ cursor: 'pointer' }}>
@@ -66,6 +82,9 @@ export default function Products() {
                   <td style={{ fontSize: 12 }}>{p.OutUnit}</td>
                   <td className="num">{p.BunchOf1Box}</td>
                   <td className="num">{p.SteamOf1Bunch}</td>
+                  <td className="num" style={{ color: p.BoxWeight == null ? 'var(--text3)' : 'inherit' }}>{p.BoxWeight ?? '–'}</td>
+                  <td className="num" style={{ color: p.BoxCBM == null ? 'var(--text3)' : 'inherit' }}>{p.BoxCBM ?? '–'}</td>
+                  <td className="num" style={{ color: p.TariffRate == null ? 'var(--text3)' : 'inherit' }}>{p.TariffRate == null ? '–' : (Number(p.TariffRate) * 100).toFixed(1) + '%'}</td>
                   <td className="num" style={{ color: p.Stock === 0 ? 'var(--red)' : p.Stock < 10 ? 'var(--amber)' : 'var(--green)', fontWeight: 700 }}>{p.Stock}</td>
                 </tr>
               ))}
@@ -111,6 +130,14 @@ export default function Products() {
               <div className="form-row">
                 <div className="form-group"><label className="form-label">1박스 당 단수</label><input type="number" className="form-control" value={form.BunchOf1Box || 0} onChange={e => setForm(f => ({ ...f, bunchOf1Box: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">1단 당 송이수</label><input type="number" className="form-control" value={form.SteamOf1Bunch || 0} onChange={e => setForm(f => ({ ...f, steamOf1Bunch: e.target.value }))} /></div>
+              </div>
+              <div style={{ margin: '8px 0 4px', fontSize: 11, color: 'var(--text3)', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                🚛 운송 원가 계산용 — 빈칸이면 꽃 카테고리 기본값 사용
+              </div>
+              <div className="form-row form-row-3">
+                <div className="form-group"><label className="form-label">박스당 무게 (kg)</label><input type="number" step="0.1" className="form-control" value={form.BoxWeight ?? ''} onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))} placeholder="예: 8" /></div>
+                <div className="form-group"><label className="form-label">박스당 CBM</label><input type="number" step="0.1" className="form-control" value={form.BoxCBM ?? ''} onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))} placeholder="예: 10" /></div>
+                <div className="form-group"><label className="form-label">관세율 (%)</label><input type="number" step="0.01" className="form-control" value={form.TariffRate != null ? Number(form.TariffRate) * 100 : ''} onChange={e => setForm(f => ({ ...f, tariffRate: e.target.value === '' ? '' : (parseFloat(e.target.value) / 100) }))} placeholder="0 (콜롬비아)" /></div>
               </div>
             </div>
             <div className="modal-footer">
