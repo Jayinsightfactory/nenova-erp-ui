@@ -66,11 +66,13 @@ async function buildSheet(warehouseKeys, awbLabel) {
     ),
     query(
       `SELECT wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
+          wm.FarmName,
           p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
+         INNER JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
          LEFT JOIN Product p ON wd.ProdKey=p.ProdKey
-         WHERE wd.WarehouseKey IN (${keyCSV}) ORDER BY wd.WdetailKey`
+         WHERE wd.WarehouseKey IN (${keyCSV}) ORDER BY wm.FarmName, wd.WdetailKey`
     ),
     query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox FROM Flower WHERE isDeleted=0`),
     query(`SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY CreateDtm DESC`),
@@ -251,6 +253,7 @@ async function buildSheet(warehouseKeys, awbLabel) {
     for (const s of sdRes.recordset) snapMap.set(s.ProdKey, s);
   }
 
+  let prevFarm = null;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const rowIdx = 14 + i;
@@ -259,7 +262,10 @@ async function buildSheet(warehouseKeys, awbLabel) {
     const catIdx = bodyCatIdx.get(normalizeFlower(fn));
     const catExcelRow = catIdx != null ? catIdx + 7 : null;
 
-    set(rowIdx, 0, r.OrderCode || '', style(null, null, { horizontal:'left' }));
+    // 농장명은 바뀔 때만 표시 (엑셀 원본과 동일)
+    const showFarm = r.FarmName && r.FarmName !== prevFarm;
+    set(rowIdx, 0, showFarm ? r.FarmName : '', style(null, showFarm ? FONT_BOLD : null, { horizontal:'left' }));
+    prevFarm = r.FarmName;
     set(rowIdx, 1, r.ProdName || '', style(null, null, { horizontal:'left' }));
     set(rowIdx, 4, Number(r.SteamQuantity) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
     set(rowIdx, 5, Number(r.UPrice) || 0, style(BG_INPUT, null, ALIGN_RIGHT));

@@ -114,12 +114,14 @@ async function loadFreightData(res, keys, awbLabel) {
     query(
       `SELECT wd.WarehouseKey, wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
           wd.UPrice, wd.TPrice, wd.OrderCode,
+          wm.FarmName,
           p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
+         INNER JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
          LEFT JOIN Product p ON wd.ProdKey=p.ProdKey
          WHERE wd.WarehouseKey IN (${keyCSV})
-         ORDER BY wd.WarehouseKey, wd.WdetailKey`
+         ORDER BY wm.FarmName, wd.WdetailKey`
     ),
     query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff FROM Flower WHERE isDeleted=0`),
     // 스냅샷은 primary(최소) WarehouseKey 기준
@@ -204,7 +206,8 @@ async function loadFreightData(res, keys, awbLabel) {
       prodKey: r.ProdKey,
       prodName: r.ProdName,
       flowerName: fn,
-      farmName: r.OrderCode || null,
+      farmName: r.FarmName || null,
+      orderCode: r.OrderCode || null,
       boxQty,
       steamQty: Number(r.SteamQuantity) || 0,
       fobUSD: Number(r.UPrice) || 0,

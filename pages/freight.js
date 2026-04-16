@@ -288,9 +288,16 @@ export default function FreightPage() {
                   {liveResult.rows.map((r, i) => {
                     const overridden = rowsOverride[r.prodKey] || {};
                     const profitNeg = (r.profitPerBunch || 0) < 0;
+                    // 농장 바뀔 때만 표시 (엑셀 원본과 동일)
+                    const prevFarm = i > 0 ? liveResult.rows[i-1].farmName : null;
+                    const showFarm = r.farmName && r.farmName !== prevFarm;
+                    const isFarmBoundary = i > 0 && r.farmName !== prevFarm;
                     return (
-                      <tr key={i} style={{ background: overridden.stemsPerBunch != null || overridden.salePriceKRW != null ? '#fffde7' : undefined }}>
-                        <td style={{ color: 'var(--text3)', fontSize: 10 }}>{r.farmName || ''}</td>
+                      <tr key={i} style={{
+                        background: overridden.stemsPerBunch != null || overridden.salePriceKRW != null ? '#fffde7' : undefined,
+                        borderTop: isFarmBoundary ? '2px solid var(--blue)' : undefined,
+                      }}>
+                        <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
                         <td className="num">{fmt(r.steamQty)}</td>
                         <td className="num">{fmt2(r.fobUSD)}</td>
