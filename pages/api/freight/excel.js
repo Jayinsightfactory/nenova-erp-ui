@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower, isFreightForwarder } from '../../../lib/freightCalc';
+import { normalizeFlower, isFreightForwarder, isFreightRow } from '../../../lib/freightCalc';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -117,8 +117,9 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const allRows = dRes.recordset;
   // FREIGHTWISE 분리
   const masters = mastersAll.filter(m => !isFreightForwarder(m.FarmName));
-  const rows = allRows.filter(r => !isFreightForwarder(r.FarmName));
-  const freightRows = allRows.filter(r => isFreightForwarder(r.FarmName));
+  // 운송료 행 분리: FarmName 이 운송사이거나 ProdName 이 '운송료' 등인 행
+  const rows = allRows.filter(r => !isFreightRow(r));
+  const freightRows = allRows.filter(r => isFreightRow(r));
   const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
   const snap = fcRes.recordset[0] || null;
   const primary = (masters.length > 0 ? masters : mastersAll)[0];

@@ -5,7 +5,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower, isFreightForwarder } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow } from '../../../lib/freightCalc';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 370,
@@ -138,8 +138,9 @@ async function loadFreightData(res, keys, awbLabel) {
   const masters = flowerMasters.length > 0 ? flowerMasters : mastersAll;
   const primaryKey = Math.min(...masters.map(m => m.WarehouseKey));
   const allRows = dRes.recordset;
-  const freightRows = allRows.filter(r => isFreightForwarder(r.FarmName));
-  const rows = allRows.filter(r => !isFreightForwarder(r.FarmName));
+  // 운송료 행 분리: FarmName 이 운송사이거나 ProdName 이 '운송료' 등인 행
+  const freightRows = allRows.filter(r => isFreightRow(r));
+  const rows = allRows.filter(r => !isFreightRow(r));
   // FREIGHTWISE 의 TPrice 합계 = 실제 항공료 USD
   const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
