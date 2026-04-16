@@ -5,9 +5,32 @@ import { withAuth } from '../../../lib/auth';
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getWarehouse(req, res);
   if (req.method === 'POST') return await uploadWarehouse(req, res);
+  if (req.method === 'PATCH') return await patchFreight(req, res);
   if (req.method === 'DELETE') return await deleteWarehouse(req, res);
   return res.status(405).end();
 });
+
+async function patchFreight(req, res) {
+  const { warehouseKey, gw, cw, rate, docFee } = req.body;
+  if (!warehouseKey) return res.status(400).json({ success:false, error:'warehouseKey 필수' });
+  try {
+    await query(
+      `UPDATE WarehouseMaster SET
+         GrossWeight=@gw, ChargeableWeight=@cw, FreightRateUSD=@rate, DocFeeUSD=@doc
+       WHERE WarehouseKey=@wk`,
+      {
+        wk:   { type: sql.Int,   value: parseInt(warehouseKey) },
+        gw:   { type: sql.Float, value: gw === '' || gw == null ? null : parseFloat(gw) },
+        cw:   { type: sql.Float, value: cw === '' || cw == null ? null : parseFloat(cw) },
+        rate: { type: sql.Float, value: rate === '' || rate == null ? null : parseFloat(rate) },
+        doc:  { type: sql.Float, value: docFee === '' || docFee == null ? null : parseFloat(docFee) },
+      }
+    );
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
 
 async function getWarehouse(req, res) {
   const { startDate, endDate } = req.query;
@@ -22,6 +45,7 @@ async function getWarehouse(req, res) {
         wm.InvoiceNo, wm.OrderNo AS AWB,
         CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
         wm.FileName,
+        wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD,
         SUM(wd.BoxQuantity)   AS totalBox,
         SUM(wd.BunchQuantity) AS totalBunch,
         SUM(wd.SteamQuantity) AS totalSteam
@@ -29,7 +53,8 @@ async function getWarehouse(req, res) {
        LEFT JOIN WarehouseDetail wd ON wm.WarehouseKey = wd.WarehouseKey
        ${where}
        GROUP BY wm.WarehouseKey, wm.OrderYear, wm.OrderWeek, wm.FarmName,
-                wm.InvoiceNo, wm.OrderNo, wm.InputDate, wm.FileName
+                wm.InvoiceNo, wm.OrderNo, wm.InputDate, wm.FileName,
+                wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD
        ORDER BY wm.InputDate DESC, wm.WarehouseKey DESC`,
       params
     );
@@ -40,7 +65,7 @@ async function getWarehouse(req, res) {
 }
 
 async function uploadWarehouse(req, res) {
-  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items } = req.body;
+  const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items, gw, cw, rate, docFee } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
 
   // 품목 매칭 미리 처리 (트랜잭션 밖에서 — 조회만)
@@ -63,9 +88,12 @@ async function uploadWarehouse(req, res) {
       const masterResult = await tQuery(
         `INSERT INTO WarehouseMaster
            (UploadDtm, FileName, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo,
-            InputDate, isDeleted, CreateID, CreateDtm)
+            InputDate, GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD,
+            isDeleted, CreateID, CreateDtm)
          OUTPUT INSERTED.WarehouseKey
-         VALUES (GETDATE(), @fn, @year, @week, @farm, @inv, @awb, @dt, 0, @uid, GETDATE())`,
+         VALUES (GETDATE(), @fn, @year, @week, @farm, @inv, @awb, @dt,
+                 @gw, @cw, @rate, @doc,
+                 0, @uid, GETDATE())`,
         {
           fn:   { type: sql.NVarChar, value: fileName || `upload_${Date.now()}` },
           year: { type: sql.NVarChar, value: orderYear || '' },
@@ -74,6 +102,10 @@ async function uploadWarehouse(req, res) {
           inv:  { type: sql.NVarChar, value: invoiceNo || '' },
           awb:  { type: sql.NVarChar, value: awb || '' },
           dt:   { type: sql.DateTime, value: inputDate ? new Date(inputDate) : new Date() },
+          gw:   { type: sql.Float,    value: gw === '' || gw == null ? null : parseFloat(gw) },
+          cw:   { type: sql.Float,    value: cw === '' || cw == null ? null : parseFloat(cw) },
+          rate: { type: sql.Float,    value: rate === '' || rate == null ? null : parseFloat(rate) },
+          doc:  { type: sql.Float,    value: docFee === '' || docFee == null ? null : parseFloat(docFee) },
           uid:  { type: sql.NVarChar, value: req.user.userId },
         }
       );

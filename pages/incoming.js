@@ -95,7 +95,7 @@ export default function Warehouse() {
   const [uploading, setUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState(null);
-  const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '' });
+  const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
   const fileRef = useRef();
 
   const load = () => {
@@ -214,7 +214,14 @@ export default function Warehouse() {
       const res = await fetch('/api/warehouse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...uploadMeta, items }),
+        body: JSON.stringify({
+          ...uploadMeta,
+          gw:     uploadMeta.gw     === '' ? null : uploadMeta.gw,
+          cw:     uploadMeta.cw     === '' ? null : uploadMeta.cw,
+          rate:   uploadMeta.rate   === '' ? null : uploadMeta.rate,
+          docFee: uploadMeta.docFee === '' ? null : uploadMeta.docFee,
+          items,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -295,11 +302,12 @@ export default function Warehouse() {
                     <th style={{width:32}}><input type="checkbox"/></th>
                     <th>주문년도</th><th>차수</th><th>농장명</th><th>인보이스</th><th>AWB</th><th>입력일자</th>
                     <th style={{textAlign:'right'}}>박스</th><th style={{textAlign:'right'}}>단</th><th style={{textAlign:'right'}}>송이</th>
+                    <th style={{textAlign:'right'}}>GW</th><th style={{textAlign:'right'}}>CW</th><th style={{textAlign:'right'}}>Rate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMasters.length === 0
-                    ? <tr><td colSpan={10} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음</td></tr>
+                    ? <tr><td colSpan={13} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음</td></tr>
                     : filteredMasters.map(m => (
                       <tr key={m.WarehouseKey} className={selectedKey===m.WarehouseKey?'selected':''} onClick={()=>selectMaster(m.WarehouseKey)} style={{cursor:'pointer'}}>
                         <td><input type="checkbox" readOnly checked={selectedKey===m.WarehouseKey}/></td>
@@ -312,6 +320,9 @@ export default function Warehouse() {
                         <td className="num">{fmt(m.totalBox)}</td>
                         <td className="num">{fmt(m.totalBunch)}</td>
                         <td className="num">{fmt(m.totalSteam)}</td>
+                        <td className="num" style={{color:m.GrossWeight==null?'var(--text3)':'inherit',fontSize:11}}>{m.GrossWeight ?? '–'}</td>
+                        <td className="num" style={{color:m.ChargeableWeight==null?'var(--text3)':'inherit',fontSize:11}}>{m.ChargeableWeight ?? '–'}</td>
+                        <td className="num" style={{color:m.FreightRateUSD==null?'var(--text3)':'inherit',fontSize:11}}>{m.FreightRateUSD ?? '–'}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -321,6 +332,7 @@ export default function Warehouse() {
                     <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalBox||0),0))}</td>
                     <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalBunch||0),0))}</td>
                     <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalSteam||0),0))}</td>
+                    <td colSpan={3}></td>
                   </tr>
                 </tfoot>
               </table>
@@ -415,8 +427,19 @@ export default function Warehouse() {
                 <div className="form-group"><label className="form-label">인보이스</label><input className="form-control" value={uploadMeta.invoiceNo} onChange={e=>setUploadMeta(m=>({...m,invoiceNo:e.target.value}))} /></div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label className="form-label">AWB</label><input className="form-control" value={uploadMeta.awb} onChange={e=>setUploadMeta(m=>({...m,awb:e.target.value}))} /></div>
+                <div className="form-group"><label className="form-label">AWB (BILL No)</label><input className="form-control" value={uploadMeta.awb} onChange={e=>setUploadMeta(m=>({...m,awb:e.target.value}))} placeholder="123-45678901" /></div>
                 <div className="form-group"><label className="form-label">입력일자</label><input type="date" className="form-control" value={uploadMeta.inputDate} onChange={e=>setUploadMeta(m=>({...m,inputDate:e.target.value}))} /></div>
+              </div>
+              <div style={{ margin:'8px 0 4px', fontSize:11, color:'var(--text3)', borderTop:'1px solid var(--border)', paddingTop:8 }}>
+                ✈️ 항공 원가 — AWB 문서 확인 후 입력. 운송기준원가 탭에서 재입력/수정 가능.
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">GW 실중량 (kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.gw} onChange={e=>setUploadMeta(m=>({...m,gw:e.target.value}))} placeholder="976" /></div>
+                <div className="form-group"><label className="form-label">CW 과금중량 (kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.cw} onChange={e=>setUploadMeta(m=>({...m,cw:e.target.value}))} placeholder="976" /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Rate (USD/kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.rate} onChange={e=>setUploadMeta(m=>({...m,rate:e.target.value}))} placeholder="2.85" /></div>
+                <div className="form-group"><label className="form-label">서류비 (USD)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.docFee} onChange={e=>setUploadMeta(m=>({...m,docFee:e.target.value}))} placeholder="90" /></div>
               </div>
 
               {/* 미리보기 */}
