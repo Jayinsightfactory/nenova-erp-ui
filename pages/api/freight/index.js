@@ -43,39 +43,53 @@ async function handleGet(req, res) {
   }
 
   if (!warehouseKey) {
-    // 리스트: WarehouseMaster 를 AWB 기준으로 그룹화
-    // - AWB 있는 건 묶어서 한 행 (MergeCount > 1 이면 여러 원장 합쳐진 것)
-    // - AWB 없는 건 원장 단위로 한 행
-    const r = await query(
-      `WITH grouped AS (
-         SELECT
-           CASE WHEN ISNULL(OrderNo,'') = '' THEN 'WK:' + CAST(WarehouseKey AS NVARCHAR(20)) ELSE 'AWB:' + OrderNo END AS GroupKey,
-           ISNULL(OrderNo,'') AS AWB,
-           WarehouseKey, OrderYear, OrderWeek, FarmName, InvoiceNo, InputDate,
-           GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
-         FROM WarehouseMaster WHERE isDeleted=0
-       )
-       SELECT
-         g.GroupKey, g.AWB,
-         MIN(g.WarehouseKey) AS PrimaryKey,
-         STRING_AGG(CAST(g.WarehouseKey AS NVARCHAR(20)), ',') AS AllKeys,
-         COUNT(*) AS MergeCount,
-         MAX(g.FarmName) AS FarmName,
-         MAX(g.OrderWeek) AS OrderWeek,
-         MAX(g.InvoiceNo) AS InvoiceNo,
-         CONVERT(NVARCHAR(10), MAX(g.InputDate), 120) AS InputDate,
-         MAX(g.GrossWeight) AS GrossWeight,
-         MAX(g.ChargeableWeight) AS ChargeableWeight,
-         MAX(g.FreightRateUSD) AS FreightRateUSD,
-         MAX(g.DocFeeUSD) AS DocFeeUSD,
-         (SELECT TOP 1 fc.FreightKey FROM FreightCost fc
-            WHERE fc.WarehouseKey=MIN(g.WarehouseKey) AND fc.isDeleted=0
-            ORDER BY fc.CreateDtm DESC) AS FreightKey
-       FROM grouped g
-       GROUP BY g.GroupKey, g.AWB
-       ORDER BY MAX(g.InputDate) DESC`
+    // WarehouseMaster 전체 로드 후 JS에서 AWB 기준 그룹화 (STRING_AGG 호환성 회피)
+    const wmRes = await query(
+      `SELECT WarehouseKey, ISNULL(OrderNo,'') AS AWB, OrderYear, OrderWeek,
+          FarmName, InvoiceNo, CONVERT(NVARCHAR(10), InputDate, 120) AS InputDate,
+          GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+         FROM WarehouseMaster WHERE isDeleted=0`
     );
-    return res.status(200).json({ success: true, groups: r.recordset });
+    const fkRes = await query(
+      `SELECT WarehouseKey, FreightKey, CreateDtm FROM FreightCost WHERE isDeleted=0`
+    );
+    // WarehouseKey → FreightKey 매핑 (최근 것 우선)
+    const fkByWk = new Map();
+    for (const f of fkRes.recordset.sort((a,b) => new Date(b.CreateDtm) - new Date(a.CreateDtm))) {
+      if (!fkByWk.has(f.WarehouseKey)) fkByWk.set(f.WarehouseKey, f.FreightKey);
+    }
+
+    // AWB 기준 그룹화 (AWB 없으면 WarehouseKey 단위로 개별 그룹)
+    const groupMap = new Map();
+    for (const m of wmRes.recordset) {
+      const groupKey = m.AWB ? `AWB:${m.AWB}` : `WK:${m.WarehouseKey}`;
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          GroupKey: groupKey, AWB: m.AWB || '',
+          PrimaryKey: m.WarehouseKey, AllKeys: [],
+          MergeCount: 0,
+          FarmName: m.FarmName, OrderWeek: m.OrderWeek, InvoiceNo: m.InvoiceNo, InputDate: m.InputDate,
+          GrossWeight: 0, ChargeableWeight: 0, FreightRateUSD: null, DocFeeUSD: null,
+          FreightKey: null,
+        });
+      }
+      const g = groupMap.get(groupKey);
+      g.AllKeys.push(m.WarehouseKey);
+      g.MergeCount++;
+      g.PrimaryKey = Math.min(g.PrimaryKey, m.WarehouseKey);
+      if (m.GrossWeight != null) g.GrossWeight = (g.GrossWeight || 0) + Number(m.GrossWeight);
+      if (m.ChargeableWeight != null) g.ChargeableWeight = (g.ChargeableWeight || 0) + Number(m.ChargeableWeight);
+      if (m.FreightRateUSD != null && g.FreightRateUSD == null) g.FreightRateUSD = Number(m.FreightRateUSD);
+      if (m.DocFeeUSD != null && g.DocFeeUSD == null) g.DocFeeUSD = Number(m.DocFeeUSD);
+      if (m.InputDate > g.InputDate) g.InputDate = m.InputDate;
+    }
+    // FreightKey는 PrimaryKey 기준
+    for (const g of groupMap.values()) {
+      g.FreightKey = fkByWk.get(g.PrimaryKey) || null;
+      g.AllKeys = g.AllKeys.join(',');
+    }
+    const groups = [...groupMap.values()].sort((a, b) => (b.InputDate || '').localeCompare(a.InputDate || ''));
+    return res.status(200).json({ success: true, groups });
   }
 
   // 단일 WarehouseKey (하위 호환)
