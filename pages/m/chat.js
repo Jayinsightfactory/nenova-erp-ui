@@ -17,7 +17,31 @@ export default function MobileChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(''); // 로딩 단계 표시
   const scrollRef = useRef(null);
+
+  // ── localStorage 영속 히스토리 키
+  const HISTORY_KEY = 'nenova_chat_history_v1';
+
+  // 로컬 저장
+  const saveHistory = (msgs) => {
+    try {
+      // 최근 100개만 저장 (용량 제한)
+      const toSave = msgs.slice(-100);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(toSave));
+    } catch (_) { /* quota exceeded 무시 */ }
+  };
+
+  // 로컬 로드
+  const loadHistory = () => {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      return arr;
+    } catch (_) { return null; }
+  };
 
   // ── 인증 체크 (기존 PC 세션 재사용)
   useEffect(() => {
@@ -26,15 +50,20 @@ export default function MobileChat() {
       .then(d => {
         if (d?.success && d?.user) {
           setMe(d.user);
-          // 첫 인사 메시지
-          setMessages([
-            {
-              role: 'bot',
-              type: 'text',
-              content: `안녕하세요, ${d.user.userName || d.user.userId}님 👋\n무엇을 도와드릴까요?\n\n아래 빠른 메뉴를 누르거나 자유롭게 질문하세요.`,
-              ts: Date.now(),
-            },
-          ]);
+          // 로컬 히스토리 복원 (있으면)
+          const saved = loadHistory();
+          if (saved && saved.length > 0) {
+            setMessages(saved);
+          } else {
+            setMessages([
+              {
+                role: 'bot',
+                type: 'text',
+                content: `안녕하세요, ${d.user.userName || d.user.userId}님 👋\n무엇을 도와드릴까요?\n\n아래 빠른 메뉴를 누르거나 자유롭게 질문하세요.`,
+                ts: Date.now(),
+              },
+            ]);
+          }
         } else {
           router.replace('/login?next=/m/chat');
         }
@@ -43,11 +72,12 @@ export default function MobileChat() {
       .finally(() => setAuthChecked(true));
   }, [router]);
 
-  // ── 메시지 스크롤
+  // ── 메시지 스크롤 + localStorage 자동 저장
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+    if (messages.length > 0) saveHistory(messages);
   }, [messages, sending]);
 
   // ── 메시지 전송 (payload 는 structured intent — 선택지 버튼에서 전달)
@@ -58,6 +88,13 @@ export default function MobileChat() {
     const userMsg = { role: 'user', type: 'text', content: q, ts: Date.now() };
     setMessages(m => [...m, userMsg]);
     setSending(true);
+
+    // 로딩 단계 시뮬레이션 (실제 타이밍에 맞춰)
+    setLoadingStage('질문 분석 중...');
+    const t1 = setTimeout(() => setLoadingStage('DB 조회 중...'), 1500);
+    const t2 = setTimeout(() => setLoadingStage('답변 작성 중...'), 4000);
+    const t3 = setTimeout(() => setLoadingStage('생각이 길어져요 (최대 20초)...'), 10000);
+
     try {
       const r = await fetch('/api/m/chat', {
         method: 'POST',
@@ -78,6 +115,8 @@ export default function MobileChat() {
     } catch (e) {
       setMessages(m => [...m, { role: 'bot', type: 'text', content: `⚠️ 네트워크 오류: ${e.message}`, ts: Date.now() }]);
     } finally {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      setLoadingStage('');
       setSending(false);
     }
   }
@@ -112,6 +151,8 @@ export default function MobileChat() {
               ts: Date.now(),
             }]);
             setInput('');
+            // 로컬 히스토리도 정리
+            try { localStorage.removeItem(HISTORY_KEY); } catch (_) {}
             // 서버 대화 기록도 초기화 (실패해도 UI 는 리셋됨)
             fetch('/api/m/chat', {
               method: 'POST',
@@ -140,6 +181,7 @@ export default function MobileChat() {
           <div className="m-msg bot">
             <div className="m-bubble bot typing">
               <span /><span /><span />
+              {loadingStage && <div className="m-loading-stage">{loadingStage}</div>}
             </div>
           </div>
         )}
@@ -389,7 +431,13 @@ function MessageBubble({ msg, onQuickAction }) {
           border-bottom-left-radius: 4px;
         }
         .m-bubble.typing {
-          display: flex; gap: 4px; padding: 14px 16px;
+          display: flex; align-items: center; flex-wrap: wrap;
+          gap: 4px; padding: 12px 16px;
+        }
+        .m-loading-stage {
+          flex-basis: 100%;
+          font-size: 11px; color: #718096;
+          margin-top: 4px;
         }
         .m-bubble.typing span {
           width: 6px; height: 6px; border-radius: 50%;
