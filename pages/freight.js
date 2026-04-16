@@ -25,6 +25,10 @@ export default function FreightPage() {
   const [customs, setCustoms] = useState(null);
   const [rowsOverride, setRowsOverride] = useState({});
   const [editMode, setEditMode] = useState(false);
+  const [dirty, setDirty] = useState(false);  // 스냅샷 저장 이후 수정 여부
+
+  // localStorage 초안 key
+  const draftKey = apiData ? `freight-draft-${apiData.primaryKey}` : null;
 
   // AWB 그룹 리스트 로드
   useEffect(() => {
@@ -44,14 +48,57 @@ export default function FreightPage() {
       .then(d => {
         if (!d.success) throw new Error(d.error);
         setApiData(d);
+        // localStorage 초안 있으면 먼저 확인 (스냅샷보다 최신일 수 있음)
+        const dk = `freight-draft-${d.primaryKey}`;
+        const draft = (typeof window !== 'undefined') ? localStorage.getItem(dk) : null;
+        if (draft) {
+          try {
+            const parsed = JSON.parse(draft);
+            // 초안이 스냅샷보다 최신이면 복구
+            const snapshotDtm = d.snapshot ? new Date(d.snapshot.UpdateDtm || d.snapshot.CreateDtm).getTime() : 0;
+            if (parsed.savedAt > snapshotDtm && confirm('저장되지 않은 변경사항이 있습니다. 복구하시겠습니까?')) {
+              setMaster(parsed.master);
+              setCustoms(parsed.customs);
+              setBasis(parsed.basis || 'AUTO');
+              setRowsOverride(parsed.rowsOverride || {});
+              setDirty(true);
+              return;
+            }
+            // 거절하면 초안 삭제
+            localStorage.removeItem(dk);
+          } catch {}
+        }
         setMaster({ ...d.input.master });
         setCustoms({ ...d.input.customs });
         setBasis(d.input.basis || 'AUTO');
         setRowsOverride({});
+        setDirty(false);
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   }, [groupKey, groups]);
+
+  // dirty 상태에서 창 닫으려 할 때 경고
+  useEffect(() => {
+    const h = (e) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ''; return ''; }
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [dirty]);
+
+  // 값 변경 시 dirty 표시 + localStorage 초안 자동 저장 (debounce)
+  useEffect(() => {
+    if (!apiData || !master || !customs || !draftKey) return;
+    const t = setTimeout(() => {
+      if (dirty) {
+        localStorage.setItem(draftKey, JSON.stringify({
+          master, customs, basis, rowsOverride, savedAt: Date.now(),
+        }));
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [master, customs, basis, rowsOverride, dirty, apiData, draftKey]);
 
   // 실시간 재계산 (클라이언트)
   const liveResult = useMemo(() => {
@@ -75,7 +122,10 @@ export default function FreightPage() {
 
   const updateRow = (prodKey, field, val) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), [field]: val === '' ? null : Number(val) } }));
+    setDirty(true);
   };
+  const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
+  const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
 
   const handleSave = async () => {
     if (!apiData || !master) return;
@@ -105,13 +155,33 @@ export default function FreightPage() {
       if (!d.success) throw new Error(d.error);
       setMsg(`✅ 스냅샷 저장 완료 (FreightKey ${d.freightKey}, 품목 ${d.saved}건)`);
       setTimeout(() => setMsg(''), 4000);
+      setDirty(false);
+      if (draftKey) localStorage.removeItem(draftKey);  // 저장 성공시 초안 제거
     } catch (e) { alert(e.message); } finally { setSaving(false); }
   };
 
-  const handleExcel = () => {
+  const handleExcel = async () => {
     if (!apiData) { alert('BILL을 선택하세요.'); return; }
     const keys = (apiData.warehouseKeys || [apiData.primaryKey]).join(',');
-    window.open(`/api/freight/excel?warehouseKeys=${keys}&awb=${encodeURIComponent(apiData.awb || '')}`, '_blank');
+    const url = `/api/freight/excel?warehouseKeys=${keys}&awb=${encodeURIComponent(apiData.awb || '')}`;
+    try {
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+        throw new Error(err.error || 'Excel 다운로드 실패');
+      }
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      const dlUrl = URL.createObjectURL(blob);
+      link.href = dlUrl;
+      link.download = `freight_${apiData.awb || apiData.primaryKey}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
+      setMsg('📊 엑셀 다운로드 완료');
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { alert(e.message); }
   };
 
   return (
@@ -146,7 +216,11 @@ export default function FreightPage() {
           <label style={{ fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             <input type="checkbox" checked={editMode} onChange={e => setEditMode(e.target.checked)} /> 편집모드
           </label>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !apiData}>💾 스냅샷 저장</button>
+          <button
+            className={dirty ? 'btn btn-danger' : 'btn btn-primary'}
+            onClick={handleSave} disabled={saving || !apiData}
+            title={dirty ? '저장 안 된 변경사항이 있습니다' : '현재 값을 DB에 스냅샷으로 저장'}
+          >{saving ? '저장 중...' : dirty ? '⚠️ 저장 필요' : '💾 저장'}</button>
           <button className="btn btn-secondary" onClick={handleExcel} disabled={!apiData}>📊 엑셀</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기</button>
         </div>
@@ -182,16 +256,19 @@ export default function FreightPage() {
               <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
                 {selectedGroup?.OrderWeek} · {selectedGroup?.FarmName} · AWB {selectedGroup?.AWB || '–'} · {selectedGroup?.InputDate}
                 {apiData.mergeCount > 1 && <span style={{ marginLeft: 8, padding: '2px 6px', background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>🔗 {apiData.mergeCount}원장 합산</span>}
-                {apiData.snapshot && <span style={{ marginLeft: 12, color: 'var(--green)' }}>💾 스냅샷 있음 (최종 {new Date(apiData.snapshot.UpdateDtm || apiData.snapshot.CreateDtm).toLocaleString()})</span>}
+                {apiData.snapshot
+                  ? <span style={{ marginLeft: 12, padding: '2px 8px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 4, fontWeight: 600 }}>💾 저장됨 · {new Date(apiData.snapshot.UpdateDtm || apiData.snapshot.CreateDtm).toLocaleString()}</span>
+                  : <span style={{ marginLeft: 12, padding: '2px 8px', background: 'var(--amber-bg, #fff8e1)', color: 'var(--amber, #f57c00)', borderRadius: 4, fontWeight: 600 }}>🆕 최초 입력 중</span>}
+                {dirty && <span style={{ marginLeft: 8, padding: '2px 8px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 4, fontWeight: 600 }}>⚠️ 미저장 변경</span>}
               </span>
             </div>
             <div style={{ padding: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, fontSize: 12 }}>
-              <NumField label="총금액 Invoice (USD)" value={master.invoiceUSD} onChange={v => setMaster(m => ({ ...m, invoiceUSD: v }))} readOnly={!editMode} />
-              <NumField label="환율 (KRW/USD)" value={master.exchangeRate} onChange={v => setMaster(m => ({ ...m, exchangeRate: v }))} readOnly={!editMode} />
-              <NumField label="GW 실중량 (kg)" value={master.gw} onChange={v => setMaster(m => ({ ...m, gw: v }))} readOnly={!editMode} />
-              <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => setMaster(m => ({ ...m, cw: v }))} readOnly={!editMode} />
-              <NumField label="Rate (USD/kg)" value={master.rateUSD} onChange={v => setMaster(m => ({ ...m, rateUSD: v }))} readOnly={!editMode} />
-              <NumField label="서류 (USD)" value={master.docFeeUSD} onChange={v => setMaster(m => ({ ...m, docFeeUSD: v }))} readOnly={!editMode} />
+              <NumField label="총금액 Invoice (USD)" value={master.invoiceUSD} onChange={v => updMaster('invoiceUSD', v)} readOnly={!editMode} />
+              <NumField label="환율 (KRW/USD)" value={master.exchangeRate} onChange={v => updMaster('exchangeRate', v)} readOnly={!editMode} />
+              <NumField label="GW 실중량 (kg)" value={master.gw} onChange={v => updMaster('gw', v)} readOnly={!editMode} />
+              <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => updMaster('cw', v)} readOnly={!editMode} />
+              <NumField label="Rate (USD/kg)" value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
+              <NumField label="서류 (USD)" value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
               <NumField label="품목수 (자동)" value={master.itemCount} readOnly />
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>항공료 계산</div>
@@ -202,12 +279,12 @@ export default function FreightPage() {
             <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', margin: '8px 0' }}>📦 통관비 상수 (KRW) — 차수별 수정 가능</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-                <NumField label="백상 단가 × GW" value={customs.bakSangRate} onChange={v => setCustoms(c => ({ ...c, bakSangRate: v }))} readOnly={!editMode} />
-                <NumField label="수수료" value={customs.handlingFee} onChange={v => setCustoms(c => ({ ...c, handlingFee: v }))} readOnly={!editMode} />
-                <NumField label="검역 × 품목수" value={customs.quarantinePerItem} onChange={v => setCustoms(c => ({ ...c, quarantinePerItem: v }))} readOnly={!editMode} />
-                <NumField label="국내운송" value={customs.domesticFreight} onChange={v => setCustoms(c => ({ ...c, domesticFreight: v }))} readOnly={!editMode} />
-                <NumField label="차감" value={customs.deductFee} onChange={v => setCustoms(c => ({ ...c, deductFee: v }))} readOnly={!editMode} />
-                <NumField label="추가 통관" value={customs.extraFee} onChange={v => setCustoms(c => ({ ...c, extraFee: v }))} readOnly={!editMode} />
+                <NumField label="백상 단가 × GW" value={customs.bakSangRate} onChange={v => updCustoms('bakSangRate', v)} readOnly={!editMode} />
+                <NumField label="수수료" value={customs.handlingFee} onChange={v => updCustoms('handlingFee', v)} readOnly={!editMode} />
+                <NumField label="검역 × 품목수" value={customs.quarantinePerItem} onChange={v => updCustoms('quarantinePerItem', v)} readOnly={!editMode} />
+                <NumField label="국내운송" value={customs.domesticFreight} onChange={v => updCustoms('domesticFreight', v)} readOnly={!editMode} />
+                <NumField label="차감" value={customs.deductFee} onChange={v => updCustoms('deductFee', v)} readOnly={!editMode} />
+                <NumField label="추가 통관" value={customs.extraFee} onChange={v => updCustoms('extraFee', v)} readOnly={!editMode} />
               </div>
               <div style={{ marginTop: 8, fontSize: 12, color: 'var(--blue)', fontWeight: 600 }}>
                 → 통관 합계: {fmt(liveResult.header.customsTotalKRW)} 원
