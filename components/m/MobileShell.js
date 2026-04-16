@@ -23,7 +23,10 @@ export default function MobileShell({ title, back, children, hideTabBar = false,
             ←
           </button>
         )}
-        <span className="ms-title">{title || '네노바 ERP'}</span>
+        <span className="ms-title">
+          {title || '네노바 ERP'}
+          <span className="ms-version">{process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}</span>
+        </span>
         {user && (
           <span className="ms-user">{user.userName || user.userId}</span>
         )}
@@ -80,6 +83,17 @@ export default function MobileShell({ title, back, children, hideTabBar = false,
         .ms-back:active { background: rgba(255,255,255,0.3); }
         .ms-title {
           flex: 1; font-weight: 700; font-size: 16px;
+          display: flex; align-items: center; gap: 6px;
+        }
+        .ms-version {
+          font-size: 10px;
+          font-weight: 500;
+          opacity: 0.7;
+          padding: 2px 6px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 4px;
+          letter-spacing: 0.2px;
+          font-family: 'Menlo','Monaco',monospace;
         }
         .ms-user {
           font-size: 12px; opacity: 0.85;
