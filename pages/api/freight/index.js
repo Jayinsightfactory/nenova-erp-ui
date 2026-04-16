@@ -27,56 +27,106 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function handleGet(req, res) {
-  const { warehouseKey } = req.query;
-  if (!warehouseKey) {
-    // 리스트: 저장된 스냅샷 + WarehouseMaster 정보
+  const { warehouseKey, awb } = req.query;
+
+  // AWB 그룹 조회 — 같은 AWB의 모든 WarehouseKey 합산
+  if (awb) {
     const r = await query(
-      `SELECT fc.FreightKey, fc.WarehouseKey, fc.WeightBasis, fc.ExchangeRate,
-          fc.GrossWeight, fc.ChargeableWeight, fc.FreightRateUSD, fc.DocFeeUSD,
-          fc.InvoiceTotalUSD, fc.CreateDtm, fc.UpdateDtm,
-          wm.OrderWeek, wm.FarmName, wm.InvoiceNo, wm.OrderNo AS AWB,
-          CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate
-         FROM FreightCost fc
-         JOIN WarehouseMaster wm ON fc.WarehouseKey=wm.WarehouseKey
-         WHERE fc.isDeleted=0 AND wm.isDeleted=0
-         ORDER BY fc.CreateDtm DESC`
+      `SELECT WarehouseKey FROM WarehouseMaster
+         WHERE OrderNo=@awb AND isDeleted=0
+         ORDER BY WarehouseKey`,
+      { awb: { type: sql.NVarChar, value: awb } }
     );
-    return res.status(200).json({ success: true, snapshots: r.recordset });
+    const keys = r.recordset.map(x => x.WarehouseKey);
+    if (keys.length === 0) return res.status(404).json({ success:false, error:`AWB ${awb} 원장 없음` });
+    return await loadFreightData(res, keys, awb);
   }
 
-  // 라이브 계산 데이터: Warehouse + Products + Flowers + 기존 스냅샷(있으면)
+  if (!warehouseKey) {
+    // 리스트: WarehouseMaster 를 AWB 기준으로 그룹화
+    // - AWB 있는 건 묶어서 한 행 (MergeCount > 1 이면 여러 원장 합쳐진 것)
+    // - AWB 없는 건 원장 단위로 한 행
+    const r = await query(
+      `WITH grouped AS (
+         SELECT
+           CASE WHEN ISNULL(OrderNo,'') = '' THEN 'WK:' + CAST(WarehouseKey AS NVARCHAR(20)) ELSE 'AWB:' + OrderNo END AS GroupKey,
+           ISNULL(OrderNo,'') AS AWB,
+           WarehouseKey, OrderYear, OrderWeek, FarmName, InvoiceNo, InputDate,
+           GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+         FROM WarehouseMaster WHERE isDeleted=0
+       )
+       SELECT
+         g.GroupKey, g.AWB,
+         MIN(g.WarehouseKey) AS PrimaryKey,
+         STRING_AGG(CAST(g.WarehouseKey AS NVARCHAR(20)), ',') AS AllKeys,
+         COUNT(*) AS MergeCount,
+         MAX(g.FarmName) AS FarmName,
+         MAX(g.OrderWeek) AS OrderWeek,
+         MAX(g.InvoiceNo) AS InvoiceNo,
+         CONVERT(NVARCHAR(10), MAX(g.InputDate), 120) AS InputDate,
+         MAX(g.GrossWeight) AS GrossWeight,
+         MAX(g.ChargeableWeight) AS ChargeableWeight,
+         MAX(g.FreightRateUSD) AS FreightRateUSD,
+         MAX(g.DocFeeUSD) AS DocFeeUSD,
+         (SELECT TOP 1 fc.FreightKey FROM FreightCost fc
+            WHERE fc.WarehouseKey=MIN(g.WarehouseKey) AND fc.isDeleted=0
+            ORDER BY fc.CreateDtm DESC) AS FreightKey
+       FROM grouped g
+       GROUP BY g.GroupKey, g.AWB
+       ORDER BY MAX(g.InputDate) DESC`
+    );
+    return res.status(200).json({ success: true, groups: r.recordset });
+  }
+
+  // 단일 WarehouseKey (하위 호환)
   const wk = parseInt(warehouseKey);
+  return await loadFreightData(res, [wk], null);
+}
+
+async function loadFreightData(res, keys, awbLabel) {
+  // keys: WarehouseKey 배열. awbLabel: AWB 문자열(그룹 표시용, null이면 단일)
+  const keyList = keys.map(k => parseInt(k)).filter(Boolean);
+  if (keyList.length === 0) return res.status(400).json({ success:false, error:'warehouseKey 없음' });
+  const keyCSV = keyList.join(',');  // 숫자만이라 안전
+
   const [mRes, dRes, fRes, fcRes] = await Promise.all([
     query(
       `SELECT WarehouseKey, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo AS AWB,
           CONVERT(NVARCHAR(10), InputDate, 120) AS InputDate,
           GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
-         FROM WarehouseMaster WHERE WarehouseKey=@wk AND isDeleted=0`,
-      { wk: { type: sql.Int, value: wk } }
+         FROM WarehouseMaster WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0
+         ORDER BY WarehouseKey`
     ),
     query(
-      `SELECT wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
+      `SELECT wd.WarehouseKey, wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
           wd.UPrice, wd.TPrice, wd.OrderCode,
           p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
          LEFT JOIN Product p ON wd.ProdKey=p.ProdKey
-         WHERE wd.WarehouseKey=@wk
-         ORDER BY wd.WdetailKey`,
-      { wk: { type: sql.Int, value: wk } }
+         WHERE wd.WarehouseKey IN (${keyCSV})
+         ORDER BY wd.WarehouseKey, wd.WdetailKey`
     ),
+    query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff FROM Flower WHERE isDeleted=0`),
+    // 스냅샷은 primary(최소) WarehouseKey 기준
     query(
-      `SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff
-         FROM Flower WHERE isDeleted=0`
-    ),
-    query(
-      `SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey=@wk AND isDeleted=0 ORDER BY CreateDtm DESC`,
-      { wk: { type: sql.Int, value: wk } }
+      `SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY CreateDtm DESC`
     ),
   ]);
 
   if (mRes.recordset.length === 0) return res.status(404).json({ success: false, error: '해당 BILL(AWB)을 찾을 수 없습니다.' });
-  const master = mRes.recordset[0];
+  const masters = mRes.recordset;
+  const primaryKey = Math.min(...masters.map(m => m.WarehouseKey));
+  // 대표 마스터: primary 기준 + 집계값
+  const master = {
+    ...masters.find(m => m.WarehouseKey === primaryKey),
+    AWB: awbLabel || masters[0].AWB,
+    // 여러 원장일 때 GW/CW/Rate/DocFee 는 합산 or 첫 값 (합산이 의미상 맞음: 같은 AWB의 분할 업로드)
+    GrossWeight: sumField(masters, 'GrossWeight'),
+    ChargeableWeight: sumField(masters, 'ChargeableWeight'),
+    FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD'),
+    DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD'),
+  };
   const rows = dRes.recordset;
   const flowers = fRes.recordset;
   const existingSnapshot = fcRes.recordset[0] || null;
@@ -186,12 +236,25 @@ async function handleGet(req, res) {
   return res.status(200).json({
     success: true,
     warehouse: master,
+    warehouseKeys: keyList,        // 포함된 WarehouseKey 전체
+    primaryKey,
+    mergeCount: masters.length,
+    awb: awbLabel,
     snapshot: existingSnapshot,
     productMeta,
     flowerMeta,
     input: { master: liveMaster, basis, customs, details },
     result,
   });
+}
+
+function sumField(arr, field) {
+  const vals = arr.map(x => Number(x[field])).filter(v => !Number.isNaN(v) && v !== 0);
+  return vals.length === 0 ? null : vals.reduce((a, b) => a + b, 0);
+}
+function firstNonNullField(arr, field) {
+  for (const x of arr) if (x[field] != null) return Number(x[field]);
+  return null;
 }
 
 async function handlePost(req, res) {

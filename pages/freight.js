@@ -13,30 +13,34 @@ const pct = n => (n == null || Number.isNaN(Number(n))) ? '–' : (Number(n) * 1
 
 export default function FreightPage() {
   const { t } = useLang();
-  const [warehouses, setWarehouses] = useState([]);
-  const [warehouseKey, setWarehouseKey] = useState('');
+  const [groups, setGroups] = useState([]);          // AWB 그룹 리스트 ([{ GroupKey, AWB, AllKeys, MergeCount, ... }])
+  const [groupKey, setGroupKey] = useState('');      // 선택된 GroupKey
   const [basis, setBasis] = useState('AUTO');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const [apiData, setApiData] = useState(null);           // { warehouse, input, result, productMeta, flowerMeta, snapshot }
-  const [master, setMaster] = useState(null);              // editable header
-  const [customs, setCustoms] = useState(null);            // editable customs constants
-  const [rowsOverride, setRowsOverride] = useState({});    // { prodKey: { stemsPerBunch, salePriceKRW, tariffRate } }
+  const [apiData, setApiData] = useState(null);
+  const [master, setMaster] = useState(null);
+  const [customs, setCustoms] = useState(null);
+  const [rowsOverride, setRowsOverride] = useState({});
   const [editMode, setEditMode] = useState(false);
 
-  // BILL 리스트 로드
+  // AWB 그룹 리스트 로드
   useEffect(() => {
-    apiGet('/api/warehouse').then(d => setWarehouses(d.masters || [])).catch(e => setErr(e.message));
+    apiGet('/api/freight').then(d => setGroups(d.groups || [])).catch(e => setErr(e.message));
   }, []);
 
-  // BILL 선택시 로드
+  // 그룹 선택시 로드
   useEffect(() => {
-    if (!warehouseKey) return;
+    if (!groupKey) return;
+    const g = groups.find(x => x.GroupKey === groupKey);
+    if (!g) return;
     setLoading(true);
     setErr(''); setMsg('');
-    apiGet('/api/freight', { warehouseKey })
+    // AWB 있으면 awb 파라미터로, 없으면 warehouseKey
+    const queryParams = g.AWB ? { awb: g.AWB } : { warehouseKey: g.PrimaryKey };
+    apiGet('/api/freight', queryParams)
       .then(d => {
         if (!d.success) throw new Error(d.error);
         setApiData(d);
@@ -47,7 +51,7 @@ export default function FreightPage() {
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [warehouseKey]);
+  }, [groupKey, groups]);
 
   // 실시간 재계산 (클라이언트)
   const liveResult = useMemo(() => {
@@ -67,14 +71,14 @@ export default function FreightPage() {
     });
   }, [apiData, master, customs, rowsOverride, basis]);
 
-  const selectedWh = warehouses.find(w => w.WarehouseKey === Number(warehouseKey));
+  const selectedGroup = groups.find(g => g.GroupKey === groupKey);
 
   const updateRow = (prodKey, field, val) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), [field]: val === '' ? null : Number(val) } }));
   };
 
   const handleSave = async () => {
-    if (!warehouseKey || !apiData || !master) return;
+    if (!apiData || !master) return;
     if (!master.gw || !master.cw || !master.rateUSD || !master.exchangeRate) {
       alert('GW, CW, Rate, 환율은 필수입니다.'); return;
     }
@@ -91,7 +95,11 @@ export default function FreightPage() {
       const res = await fetch('/api/freight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ warehouseKey: Number(warehouseKey), basis, master, customs, rows }),
+        body: JSON.stringify({
+          warehouseKey: apiData.primaryKey,
+          warehouseKeys: apiData.warehouseKeys,
+          basis, master, customs, rows,
+        }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error);
@@ -101,8 +109,9 @@ export default function FreightPage() {
   };
 
   const handleExcel = () => {
-    if (!warehouseKey) { alert('BILL을 선택하세요.'); return; }
-    window.open(`/api/freight/excel?warehouseKey=${warehouseKey}`, '_blank');
+    if (!apiData) { alert('BILL을 선택하세요.'); return; }
+    const keys = (apiData.warehouseKeys || [apiData.primaryKey]).join(',');
+    window.open(`/api/freight/excel?warehouseKeys=${keys}&awb=${encodeURIComponent(apiData.awb || '')}`, '_blank');
   };
 
   return (
@@ -112,11 +121,14 @@ export default function FreightPage() {
       {/* 필터 바 */}
       <div className="filter-bar">
         <span className="filter-label">BILL / AWB</span>
-        <select className="filter-input" value={warehouseKey} onChange={e => setWarehouseKey(e.target.value)} style={{ minWidth: 320 }}>
+        <select className="filter-input" value={groupKey} onChange={e => setGroupKey(e.target.value)} style={{ minWidth: 380 }}>
           <option value="">선택하세요</option>
-          {warehouses.map(w => (
-            <option key={w.WarehouseKey} value={w.WarehouseKey}>
-              {w.OrderWeek} · {w.FarmName} · AWB {w.AWB || '–'} ({w.InputDate})
+          {groups.map(g => (
+            <option key={g.GroupKey} value={g.GroupKey}>
+              {g.AWB ? `AWB ${g.AWB}` : `[AWB없음]`}
+              {g.MergeCount > 1 ? ` · ${g.MergeCount}원장 합산` : ''}
+              {` · ${g.OrderWeek || ''} · ${g.FarmName || ''} (${g.InputDate})`}
+              {g.FreightKey ? ' 💾' : ''}
             </option>
           ))}
         </select>
@@ -143,10 +155,10 @@ export default function FreightPage() {
       {err && <div style={{ padding: '8px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 10, fontSize: 13 }}>⚠️ {err}</div>}
       {msg && <div style={{ padding: '8px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 8, marginBottom: 10, fontSize: 13 }}>{msg}</div>}
 
-      {!warehouseKey && (
+      {!groupKey && (
         <div className="empty-state" style={{ padding: 80 }}>
           <div className="empty-icon">📦</div>
-          <div className="empty-text">상단에서 BILL을 선택하세요. 해당 AWB의 인보이스 데이터로 원가가 계산됩니다.</div>
+          <div className="empty-text">상단에서 BILL을 선택하세요. 같은 AWB로 여러 번 업로드된 경우 자동으로 합산됩니다.</div>
         </div>
       )}
 
@@ -168,7 +180,8 @@ export default function FreightPage() {
             <div className="card-header">
               <span className="card-title">차수 요약 · 입력값</span>
               <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
-                {selectedWh?.OrderWeek} · {selectedWh?.FarmName} · AWB {selectedWh?.AWB} · {selectedWh?.InputDate}
+                {selectedGroup?.OrderWeek} · {selectedGroup?.FarmName} · AWB {selectedGroup?.AWB || '–'} · {selectedGroup?.InputDate}
+                {apiData.mergeCount > 1 && <span style={{ marginLeft: 8, padding: '2px 6px', background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>🔗 {apiData.mergeCount}원장 합산</span>}
                 {apiData.snapshot && <span style={{ marginLeft: 12, color: 'var(--green)' }}>💾 스냅샷 있음 (최종 {new Date(apiData.snapshot.UpdateDtm || apiData.snapshot.CreateDtm).toLocaleString()})</span>}
               </span>
             </div>
