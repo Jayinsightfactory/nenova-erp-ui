@@ -113,6 +113,7 @@ async function buildSheet(warehouseKeys, awbLabel) {
   const merges = [];
 
   const set = (r, c, v, st) => {
+    while (aoa.length <= r) aoa.push(Array(35).fill(null));
     aoa[r][c] = v;
     if (st) styles[XLSX.utils.encode_cell({ r, c })] = st;
   };
