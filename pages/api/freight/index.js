@@ -1,0 +1,328 @@
+// pages/api/freight/index.js
+// GET (no params)              → 스냅샷 리스트 + WarehouseMaster join
+// GET ?warehouseKey=N          → 라이브 계산 데이터 (스냅샷 없어도 OK)
+// POST                         → 스냅샷 저장 (기존 active 있으면 soft-delete 후 INSERT)
+
+import { query, withTransaction, sql } from '../../../lib/db';
+import { withAuth } from '../../../lib/auth';
+import { computeFreightCost, normalizeFlower } from '../../../lib/freightCalc';
+
+const DEFAULT_CUSTOMS = {
+  bakSangRate: 370,
+  handlingFee: 33000,
+  quarantinePerItem: 10000,
+  domesticFreight: 99000,
+  deductFee: 40000,
+  extraFee: 0,
+};
+
+export default withAuth(async function handler(req, res) {
+  try {
+    if (req.method === 'GET')  return await handleGet(req, res);
+    if (req.method === 'POST') return await handlePost(req, res);
+    return res.status(405).end();
+  } catch (err) {
+    return res.status(500).json({ success:false, error: err.message });
+  }
+});
+
+async function handleGet(req, res) {
+  const { warehouseKey } = req.query;
+  if (!warehouseKey) {
+    // 리스트: 저장된 스냅샷 + WarehouseMaster 정보
+    const r = await query(
+      `SELECT fc.FreightKey, fc.WarehouseKey, fc.WeightBasis, fc.ExchangeRate,
+          fc.GrossWeight, fc.ChargeableWeight, fc.FreightRateUSD, fc.DocFeeUSD,
+          fc.InvoiceTotalUSD, fc.CreateDtm, fc.UpdateDtm,
+          wm.OrderWeek, wm.FarmName, wm.InvoiceNo, wm.OrderNo AS AWB,
+          CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate
+         FROM FreightCost fc
+         JOIN WarehouseMaster wm ON fc.WarehouseKey=wm.WarehouseKey
+         WHERE fc.isDeleted=0 AND wm.isDeleted=0
+         ORDER BY fc.CreateDtm DESC`
+    );
+    return res.status(200).json({ success: true, snapshots: r.recordset });
+  }
+
+  // 라이브 계산 데이터: Warehouse + Products + Flowers + 기존 스냅샷(있으면)
+  const wk = parseInt(warehouseKey);
+  const [mRes, dRes, fRes, fcRes] = await Promise.all([
+    query(
+      `SELECT WarehouseKey, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo AS AWB,
+          CONVERT(NVARCHAR(10), InputDate, 120) AS InputDate,
+          GrossWeight, ChargeableWeight, FreightRateUSD, DocFeeUSD
+         FROM WarehouseMaster WHERE WarehouseKey=@wk AND isDeleted=0`,
+      { wk: { type: sql.Int, value: wk } }
+    ),
+    query(
+      `SELECT wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
+          wd.UPrice, wd.TPrice, wd.OrderCode,
+          p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
+          p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
+         FROM WarehouseDetail wd
+         LEFT JOIN Product p ON wd.ProdKey=p.ProdKey
+         WHERE wd.WarehouseKey=@wk
+         ORDER BY wd.WdetailKey`,
+      { wk: { type: sql.Int, value: wk } }
+    ),
+    query(
+      `SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff
+         FROM Flower WHERE isDeleted=0`
+    ),
+    query(
+      `SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey=@wk AND isDeleted=0 ORDER BY CreateDtm DESC`,
+      { wk: { type: sql.Int, value: wk } }
+    ),
+  ]);
+
+  if (mRes.recordset.length === 0) return res.status(404).json({ success: false, error: '해당 BILL(AWB)을 찾을 수 없습니다.' });
+  const master = mRes.recordset[0];
+  const rows = dRes.recordset;
+  const flowers = fRes.recordset;
+  const existingSnapshot = fcRes.recordset[0] || null;
+
+  // 스냅샷 detail 있으면 로드
+  let snapshotDetails = [];
+  if (existingSnapshot) {
+    const sdRes = await query(
+      `SELECT * FROM FreightCostDetail WHERE FreightKey=@fk`,
+      { fk: { type: sql.Int, value: existingSnapshot.FreightKey } }
+    );
+    snapshotDetails = sdRes.recordset;
+  }
+
+  // 카테고리별 박스수 집계 (LEFT JOIN에서 FlowerName 없으면 '미분류')
+  const boxByFlower = new Map();
+  for (const r of rows) {
+    const fn = (r.FlowerName || '').trim();
+    boxByFlower.set(fn, (boxByFlower.get(fn) || 0) + (Number(r.BoxQuantity) || 0));
+  }
+
+  // distinct FlowerName count (actually present in BILL with boxes > 0)
+  const itemCount = [...boxByFlower.entries()].filter(([_, v]) => v > 0).length;
+
+  const invoiceUSD = rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
+
+  // 스냅샷 값 우선, 없으면 Warehouse/기본값
+  const snap = existingSnapshot;
+  const liveMaster = {
+    warehouseKey: master.WarehouseKey,
+    gw: snap?.GrossWeight ?? master.GrossWeight ?? 0,
+    cw: snap?.ChargeableWeight ?? master.ChargeableWeight ?? 0,
+    rateUSD: snap?.FreightRateUSD ?? master.FreightRateUSD ?? 0,
+    docFeeUSD: snap?.DocFeeUSD ?? master.DocFeeUSD ?? 0,
+    exchangeRate: snap?.ExchangeRate ?? 0,
+    invoiceUSD: snap?.InvoiceTotalUSD ?? invoiceUSD,
+    itemCount,
+  };
+  const customs = snap ? {
+    bakSangRate: Number(snap.BakSangRate) || DEFAULT_CUSTOMS.bakSangRate,
+    handlingFee: Number(snap.HandlingFee) || DEFAULT_CUSTOMS.handlingFee,
+    quarantinePerItem: Number(snap.QuarantinePerItem) || DEFAULT_CUSTOMS.quarantinePerItem,
+    domesticFreight: Number(snap.DomesticFreight) || DEFAULT_CUSTOMS.domesticFreight,
+    deductFee: Number(snap.DeductFee) || DEFAULT_CUSTOMS.deductFee,
+    extraFee: Number(snap.ExtraFee) || DEFAULT_CUSTOMS.extraFee,
+  } : { ...DEFAULT_CUSTOMS };
+  const basis = snap?.WeightBasis || 'AUTO';
+
+  // detail 집합 빌드
+  // 같은 flowerName 여러 row일 때 boxQty는 첫 row에만 몰아서 넣는 방식으로 (엑셀 AC 블록과 동일)
+  const flowerSeen = new Set();
+  const details = rows.map(r => {
+    const fn = (r.FlowerName || '').trim();
+    const isFirst = !flowerSeen.has(fn);
+    if (isFirst) flowerSeen.add(fn);
+    const boxQty = isFirst ? (boxByFlower.get(fn) || 0) : 0;
+    // 스냅샷에서 동일 ProdKey 찾아서 N/Q 복원
+    const snapRow = snap ? snapshotDetails.find(s => s.ProdKey === r.ProdKey) : null;
+    return {
+      warehouseDetailKey: r.WdetailKey,
+      prodKey: r.ProdKey,
+      prodName: r.ProdName,
+      flowerName: fn,
+      farmName: r.OrderCode || null,
+      boxQty,
+      steamQty: Number(r.SteamQuantity) || 0,
+      fobUSD: Number(r.UPrice) || 0,
+      stemsPerBunch: snapRow?.StemsPerBunch != null ? Number(snapRow.StemsPerBunch) : (Number(r.SteamOf1Bunch) || 0),
+      salePriceKRW: snapRow?.SalePriceKRW != null ? Number(snapRow.SalePriceKRW) : (Number(r.Cost) || 0),
+      tariffRate: snapRow?.TariffRate != null ? Number(snapRow.TariffRate) : (r.P_TariffRate != null ? Number(r.P_TariffRate) : null),
+    };
+  });
+
+  // Product 레벨 BoxWeight/BoxCBM 맵
+  const productMeta = {};
+  for (const r of rows) {
+    if (r.P_BoxWeight != null || r.P_BoxCBM != null || r.P_TariffRate != null) {
+      productMeta[r.ProdKey] = {
+        boxWeight: r.P_BoxWeight != null ? Number(r.P_BoxWeight) : null,
+        boxCBM: r.P_BoxCBM != null ? Number(r.P_BoxCBM) : null,
+        tariffRate: r.P_TariffRate != null ? Number(r.P_TariffRate) : null,
+      };
+    }
+  }
+
+  // Flower 기본값 맵 (normalized key)
+  const flowerMeta = {};
+  for (const f of flowers) {
+    flowerMeta[normalizeFlower(f.FlowerName)] = {
+      boxWeight: f.BoxWeight != null ? Number(f.BoxWeight) : null,
+      boxCBM: f.BoxCBM != null ? Number(f.BoxCBM) : null,
+      stemsPerBox: f.StemsPerBox != null ? Number(f.StemsPerBox) : null,
+      defaultTariff: f.DefaultTariff != null ? Number(f.DefaultTariff) : null,
+    };
+  }
+
+  // 계산
+  const result = computeFreightCost({
+    master: liveMaster,
+    basis,
+    customs,
+    details,
+    productMeta,
+    flowerMeta,
+  });
+
+  return res.status(200).json({
+    success: true,
+    warehouse: master,
+    snapshot: existingSnapshot,
+    productMeta,
+    flowerMeta,
+    input: { master: liveMaster, basis, customs, details },
+    result,
+  });
+}
+
+async function handlePost(req, res) {
+  const { warehouseKey, basis = 'AUTO', master, customs, rows } = req.body;
+  if (!warehouseKey) return res.status(400).json({ success:false, error:'warehouseKey 필수' });
+  if (!master || !master.gw || !master.cw || !master.rateUSD || !master.exchangeRate) {
+    return res.status(400).json({ success:false, error:'GW / CW / Rate / 환율 필수' });
+  }
+  const c = { ...DEFAULT_CUSTOMS, ...(customs || {}) };
+
+  // 현재 Product/Flower 데이터 다시 조회 (latest로 계산)
+  const [fRes, pRes] = await Promise.all([
+    query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff FROM Flower WHERE isDeleted=0`),
+    query(`SELECT ProdKey, BoxWeight, BoxCBM, TariffRate FROM Product WHERE isDeleted=0`),
+  ]);
+  const productMeta = {};
+  for (const p of pRes.recordset) {
+    productMeta[p.ProdKey] = {
+      boxWeight: p.BoxWeight != null ? Number(p.BoxWeight) : null,
+      boxCBM: p.BoxCBM != null ? Number(p.BoxCBM) : null,
+      tariffRate: p.TariffRate != null ? Number(p.TariffRate) : null,
+    };
+  }
+  const flowerMeta = {};
+  for (const f of fRes.recordset) {
+    flowerMeta[normalizeFlower(f.FlowerName)] = {
+      boxWeight: f.BoxWeight != null ? Number(f.BoxWeight) : null,
+      boxCBM: f.BoxCBM != null ? Number(f.BoxCBM) : null,
+      stemsPerBox: f.StemsPerBox != null ? Number(f.StemsPerBox) : null,
+      defaultTariff: f.DefaultTariff != null ? Number(f.DefaultTariff) : null,
+    };
+  }
+
+  // 재계산 (저장 전 최종 값)
+  const calc = computeFreightCost({
+    master: { ...master, warehouseKey },
+    basis,
+    customs: c,
+    details: rows,
+    productMeta,
+    flowerMeta,
+  });
+
+  // 트랜잭션: 기존 active 스냅샷 soft-delete → 신규 INSERT → Detail bulk
+  const result = await withTransaction(async (tQuery) => {
+    await tQuery(
+      `UPDATE FreightCost SET isDeleted=1, UpdateID=@uid, UpdateDtm=GETDATE()
+         WHERE WarehouseKey=@wk AND isDeleted=0`,
+      { wk: { type: sql.Int, value: parseInt(warehouseKey) }, uid: { type: sql.NVarChar, value: req.user.userId } }
+    );
+    const fcRes = await tQuery(
+      `INSERT INTO FreightCost
+        (WarehouseKey, WeightBasis, ExchangeRate, GrossWeight, ChargeableWeight,
+         FreightRateUSD, DocFeeUSD, InvoiceTotalUSD,
+         BakSangRate, HandlingFee, QuarantinePerItem, DomesticFreight, DeductFee, ExtraFee,
+         CreateID, CreateDtm, isDeleted)
+       OUTPUT INSERTED.FreightKey
+       VALUES (@wk, @basis, @ex, @gw, @cw, @rate, @doc, @inv,
+               @bs, @hd, @qp, @dm, @df, @ef, @uid, GETDATE(), 0)`,
+      {
+        wk:    { type: sql.Int,      value: parseInt(warehouseKey) },
+        basis: { type: sql.NVarChar, value: calc.header.basis },
+        ex:    { type: sql.Float,    value: Number(master.exchangeRate) },
+        gw:    { type: sql.Float,    value: Number(master.gw) },
+        cw:    { type: sql.Float,    value: Number(master.cw) },
+        rate:  { type: sql.Float,    value: Number(master.rateUSD) },
+        doc:   { type: sql.Float,    value: Number(master.docFeeUSD) || 0 },
+        inv:   { type: sql.Float,    value: Number(master.invoiceUSD) || 0 },
+        bs:    { type: sql.Float,    value: Number(c.bakSangRate) },
+        hd:    { type: sql.Float,    value: Number(c.handlingFee) },
+        qp:    { type: sql.Float,    value: Number(c.quarantinePerItem) },
+        dm:    { type: sql.Float,    value: Number(c.domesticFreight) },
+        df:    { type: sql.Float,    value: Number(c.deductFee) },
+        ef:    { type: sql.Float,    value: Number(c.extraFee) },
+        uid:   { type: sql.NVarChar, value: req.user.userId },
+      }
+    );
+    const freightKey = fcRes.recordset[0].FreightKey;
+
+    // Detail bulk insert
+    let idx = 0;
+    for (const row of calc.rows) {
+      await tQuery(
+        `INSERT INTO FreightCostDetail
+           (FreightKey, WarehouseDetailKey, ProdKey, ProdName, FlowerName, FarmName,
+            SteamQty, FOBUSD, BoxQty, BoxWeightUsed, BoxCBMUsed, StemsPerBoxUsed,
+            StemsPerBunch, SalePriceKRW, TariffRate,
+            FreightPerStemUSD, CNF_USD, CNF_KRW, TariffKRW, CustomsPerStem,
+            ArrivalPerStem, ArrivalPerBunch, SalePriceExVAT,
+            ProfitPerBunch, ProfitRate, TotalSaleKRW, TotalProfitKRW, SortOrder)
+         VALUES
+           (@fk, @wdk, @pk, @pn, @fn, @farm,
+            @sq, @fob, @bq, @bw, @bc, @spb,
+            @spb2, @sp, @tr,
+            @g, @h, @j, @k, @l,
+            @m, @o, @p,
+            @s, @t, @u, @v, @so)`,
+        {
+          fk:   { type: sql.Int,      value: freightKey },
+          wdk:  { type: sql.Int,      value: row.warehouseDetailKey ?? null },
+          pk:   { type: sql.Int,      value: row.prodKey },
+          pn:   { type: sql.NVarChar, value: row.prodName || '' },
+          fn:   { type: sql.NVarChar, value: row.flowerName || '' },
+          farm: { type: sql.NVarChar, value: row.farmName || '' },
+          sq:   { type: sql.Float,    value: row.steamQty ?? null },
+          fob:  { type: sql.Float,    value: row.fobUSD ?? null },
+          bq:   { type: sql.Float,    value: row.boxQty ?? null },
+          bw:   { type: sql.Float,    value: row.boxWeightUsed ?? null },
+          bc:   { type: sql.Float,    value: row.boxCBMUsed ?? null },
+          spb:  { type: sql.Float,    value: row.stemsPerBoxUsed ?? null },
+          spb2: { type: sql.Float,    value: row.stemsPerBunch ?? null },
+          sp:   { type: sql.Float,    value: row.salePriceKRW ?? null },
+          tr:   { type: sql.Float,    value: row.tariffRate ?? null },
+          g:    { type: sql.Float,    value: row.freightPerStemUSD ?? null },
+          h:    { type: sql.Float,    value: row.cnfUSD ?? null },
+          j:    { type: sql.Float,    value: row.cnfKRW ?? null },
+          k:    { type: sql.Float,    value: row.tariffKRW ?? null },
+          l:    { type: sql.Float,    value: row.customsPerStem ?? null },
+          m:    { type: sql.Float,    value: row.arrivalPerStem ?? null },
+          o:    { type: sql.Float,    value: row.arrivalPerBunch ?? null },
+          p:    { type: sql.Float,    value: row.salePriceExVAT ?? null },
+          s:    { type: sql.Float,    value: row.profitPerBunch ?? null },
+          t:    { type: sql.Float,    value: row.profitRate ?? null },
+          u:    { type: sql.Float,    value: row.totalSaleKRW ?? null },
+          v:    { type: sql.Float,    value: row.totalProfitKRW ?? null },
+          so:   { type: sql.Int,      value: idx++ },
+        }
+      );
+    }
+    return { freightKey };
+  });
+
+  return res.status(200).json({ success: true, ...result, saved: calc.rows.length });
+}
