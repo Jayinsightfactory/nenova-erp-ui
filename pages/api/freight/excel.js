@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower } from '../../../lib/freightCalc';
+import { normalizeFlower, isFreightForwarder } from '../../../lib/freightCalc';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -65,7 +65,7 @@ async function buildSheet(warehouseKeys, awbLabel) {
          FROM WarehouseMaster WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY WarehouseKey`
     ),
     query(
-      `SELECT wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
+      `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
           p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
@@ -79,10 +79,15 @@ async function buildSheet(warehouseKeys, awbLabel) {
   ]);
 
   if (mRes.recordset.length === 0) return null;
-  const masters = mRes.recordset;
-  const rows = dRes.recordset;
+  const mastersAll = mRes.recordset;
+  const allRows = dRes.recordset;
+  // FREIGHTWISE 분리
+  const masters = mastersAll.filter(m => !isFreightForwarder(m.FarmName));
+  const rows = allRows.filter(r => !isFreightForwarder(r.FarmName));
+  const freightRows = allRows.filter(r => isFreightForwarder(r.FarmName));
+  const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
   const snap = fcRes.recordset[0] || null;
-  const primary = masters[0];
+  const primary = (masters.length > 0 ? masters : mastersAll)[0];
   const sumF = (f) => masters.map(m => Number(m[f])).filter(v => !Number.isNaN(v) && v !== 0).reduce((a,b)=>a+b,0) || null;
   const firstF = (f) => { for (const m of masters) if (m[f] != null) return Number(m[f]); return null; };
 
@@ -152,9 +157,14 @@ async function buildSheet(warehouseKeys, awbLabel) {
   set(9, 1, '총수량', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(9, 2, totalSteam, style(BG_FORMULA, null, ALIGN_RIGHT));
 
-  // B11 항공료 / C11=E11+G11 / D11 서류 / E11 / F11 운송비 / G11=E9*E8
+  // B11 항공료 / C11 / D11 서류 / E11 / F11 운송비 / G11=E9*E8
+  // FREIGHTWISE 실제 인보이스가 있으면 C11 에 그 값(고정값), 없으면 E11+G11 수식
   set(10, 1, '항공료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(10, 2, fml('E11+G11'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  if (actualFreightUSD > 0) {
+    set(10, 2, actualFreightUSD, style({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
+  } else {
+    set(10, 2, fml('E11+G11'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  }
   set(10, 3, '서류', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(10, 4, docFee, style(BG_INPUT, null, ALIGN_RIGHT));
   set(10, 5, '운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
@@ -270,13 +280,13 @@ async function buildSheet(warehouseKeys, awbLabel) {
     set(rowIdx, 1, r.ProdName || '', style(null, null, { horizontal:'left' }));
     set(rowIdx, 4, Number(r.SteamQuantity) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
     set(rowIdx, 5, Number(r.UPrice) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    if (catExcelRow) {
-      set(rowIdx, 6, fml(`M${catExcelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(rowIdx, 11, fml(`U${catExcelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    } else {
-      set(rowIdx, 6, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(rowIdx, 11, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    }
+    // G/L 수식: 원본 엑셀의 SEARCH 방식 그대로 (카테고리별 M/U 참조)
+    // =IF(ISNUMBER(SEARCH($J$8,B15)),$M$8, IF(ISNUMBER(SEARCH($J$7,B15)),$M$7, ...))
+    // MINICARNATION 이 CARNATION 을 포함하므로 CARNATION(J8) 먼저 검색해야 올바름
+    const searchG = buildSearchFormula(excelRow, categories, 'M', 1);
+    const searchL = buildSearchFormula(excelRow, categories, 'U', 1);
+    set(rowIdx, 6, searchG ? fml(searchG) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 11, searchL ? fml(searchL) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 7, fml(`F${excelRow}+G${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 8, fml(`E${excelRow}*H${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
     set(rowIdx, 9, fml(`H${excelRow}*$C$7`), style(BG_FORMULA, null, ALIGN_RIGHT));
@@ -308,6 +318,29 @@ async function buildSheet(warehouseKeys, awbLabel) {
   ];
   ws['!rows'] = Array.from({ length: 15 }, (_, i) => ({ hpx: i === 0 ? 32 : 22 }));
   return { ws, name: sheetName };
+}
+
+/**
+ * 원본 엑셀의 body G/L 수식 재현 — 중첩 IF(ISNUMBER(SEARCH(...)))
+ * @param {number} bodyRow Excel 행 번호 (15 이상)
+ * @param {string[]} categories 카테고리 배열 (4개, 빈 문자열 포함)
+ * @param {string} col 'M' (운임) or 'U' (통관)
+ * @param {number} offset catCol 첫 J$7 기준 오프셋 (J7=idx0)
+ * @returns {string|null} 수식 문자열 or null
+ */
+function buildSearchFormula(bodyRow, categories, col, _offset) {
+  // 카테고리 길이가 긴 것부터 검색해야 MINICARNATION 이 CARNATION 에 오탐되지 않음
+  const indexed = categories.map((c, i) => ({ cat: c, j: 7 + i, m: 7 + i }))
+    .filter(x => x.cat)
+    .sort((a, b) => b.cat.length - a.cat.length);
+  if (indexed.length === 0) return null;
+  // Build nested IF
+  let expr = '0';
+  for (let i = indexed.length - 1; i >= 0; i--) {
+    const { j, m } = indexed[i];
+    expr = `IF(ISNUMBER(SEARCH($J$${j},B${bodyRow})),$${col}$${m},${expr})`;
+  }
+  return expr;
 }
 
 function buildWorksheet(aoa, styles, merges) {

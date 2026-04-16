@@ -5,7 +5,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder } from '../../../lib/freightCalc';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 370,
@@ -131,19 +131,27 @@ async function loadFreightData(res, keys, awbLabel) {
   ]);
 
   if (mRes.recordset.length === 0) return res.status(404).json({ success: false, error: '해당 BILL(AWB)을 찾을 수 없습니다.' });
-  const masters = mRes.recordset;
+  const mastersAll = mRes.recordset;
+  // FREIGHTWISE (항공 운송사) 원장 분리
+  const freightMasters = mastersAll.filter(m => isFreightForwarder(m.FarmName));
+  const flowerMasters  = mastersAll.filter(m => !isFreightForwarder(m.FarmName));
+  const masters = flowerMasters.length > 0 ? flowerMasters : mastersAll;
   const primaryKey = Math.min(...masters.map(m => m.WarehouseKey));
+  const allRows = dRes.recordset;
+  const freightRows = allRows.filter(r => isFreightForwarder(r.FarmName));
+  const rows = allRows.filter(r => !isFreightForwarder(r.FarmName));
+  // FREIGHTWISE 의 TPrice 합계 = 실제 항공료 USD
+  const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
+
   // 대표 마스터: primary 기준 + 집계값
   const master = {
     ...masters.find(m => m.WarehouseKey === primaryKey),
-    AWB: awbLabel || masters[0].AWB,
-    // 여러 원장일 때 GW/CW/Rate/DocFee 는 합산 or 첫 값 (합산이 의미상 맞음: 같은 AWB의 분할 업로드)
+    AWB: awbLabel || mastersAll[0].AWB,
     GrossWeight: sumField(masters, 'GrossWeight'),
     ChargeableWeight: sumField(masters, 'ChargeableWeight'),
     FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD'),
     DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD'),
   };
-  const rows = dRes.recordset;
   const flowers = fRes.recordset;
   const existingSnapshot = fcRes.recordset[0] || null;
 
@@ -180,6 +188,7 @@ async function loadFreightData(res, keys, awbLabel) {
     exchangeRate: snap?.ExchangeRate ?? 0,
     invoiceUSD: snap?.InvoiceTotalUSD ?? invoiceUSD,
     itemCount,
+    actualFreightUSD: actualFreightUSD > 0 ? actualFreightUSD : null,
   };
   const customs = snap ? {
     bakSangRate: Number(snap.BakSangRate) || DEFAULT_CUSTOMS.bakSangRate,
@@ -256,6 +265,11 @@ async function loadFreightData(res, keys, awbLabel) {
     warehouseKeys: keyList,        // 포함된 WarehouseKey 전체
     primaryKey,
     mergeCount: masters.length,
+    freightForwarder: freightMasters.length > 0 ? {
+      farmNames: [...new Set(freightMasters.map(m => m.FarmName))],
+      invoiceCount: freightMasters.length,
+      actualFreightUSD,
+    } : null,
     awb: awbLabel,
     snapshot: existingSnapshot,
     productMeta,
