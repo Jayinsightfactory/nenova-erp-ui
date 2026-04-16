@@ -127,6 +127,9 @@ export default function Layout({ children, title }) {
           }}>
             <span>nenova ERP — {t(pageTitle)}</span>
             <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
+              <span style={{fontSize:9, opacity:.6, fontFamily:"'Menlo','Monaco',monospace"}}>
+                {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}
+              </span>
               {user && <span style={{fontSize:11, opacity:.8}}>{user.userName}</span>}
               <button onClick={toggleLang}
                 style={{background:'none', border:'1px solid rgba(255,255,255,.5)', color:'#fff',
@@ -155,7 +158,21 @@ export default function Layout({ children, title }) {
       <div className="layout">
         <div className="sidebar">
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
-            <div className="sidebar-logo" style={{ cursor:'pointer' }}>🏠 nenova ERP v4.9</div>
+            <div className="sidebar-logo" style={{ cursor:'pointer' }} title={process.env.NEXT_PUBLIC_BUILD_VERSION || ''}>
+              🏠 nenova ERP
+              <span style={{
+                marginLeft: 6,
+                fontSize: 9,
+                fontWeight: 500,
+                opacity: 0.7,
+                padding: '2px 5px',
+                background: 'rgba(255,255,255,0.18)',
+                borderRadius: 4,
+                letterSpacing: 0.2,
+                fontFamily: "'Menlo','Monaco',monospace",
+                verticalAlign: 'middle',
+              }}>{process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}</span>
+            </div>
           </Link>
           <nav className="sidebar-nav">
             {MENU_ITEMS.map(group => (
