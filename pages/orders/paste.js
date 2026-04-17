@@ -4,6 +4,7 @@ import Layout from '../../components/Layout';
 import { apiGet } from '../../lib/useApi';
 import { filterProducts, jamoSimilarity, getDisplayName } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
+import { defaultUnit } from '../../lib/orderUtils';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 
@@ -65,7 +66,7 @@ export default function PasteOrderPage() {
       if (!hit) return it;
       const prod = prods.find(p => p.ProdKey === hit.prodKey);
       if (!prod) return it;
-      return { ...it, prodKey: prod.ProdKey, prodName: prod.ProdName, displayName: prod.DisplayName || prod.ProdName };
+      return { ...it, prodKey: prod.ProdKey, prodName: prod.ProdName, displayName: prod.DisplayName || prod.ProdName, unit: defaultUnit(prod, it.unit) };
     }),
   }));
 
@@ -95,12 +96,15 @@ export default function PasteOrderPage() {
         custMatch: o.custMatch,
         saving: false,
         resultMsg: '',
-        items: (o.items || []).map((it, idx) => ({
-          ...it,
-          idx,
-          unit: it.unit || '박스',
-          skip: false,
-        })),
+        items: (o.items || []).map((it, idx) => {
+          const prod = it.prodKey ? allProducts.find(p => p.ProdKey === it.prodKey) : null;
+          return {
+            ...it,
+            idx,
+            unit: defaultUnit(prod, it.unit),
+            skip: false,
+          };
+        }),
       }));
 
       setOrders(applyCache(raw, cache, allProducts));
@@ -144,9 +148,10 @@ export default function PasteOrderPage() {
     if (!currentQ) return;
     const { orderId, itemIdx, inputName } = currentQ;
     updateItem(orderId, itemIdx, {
-      prodKey: prod.ProdKey,
-      prodName: prod.ProdName,
+      prodKey:     prod.ProdKey,
+      prodName:    prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
+      unit:        defaultUnit(prod),  // 장미/네덜란드 → 단, 나머지 → 박스
     });
     if (saveToCache) {
       const updated = { ...mappingCache, [cacheKey(inputName)]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };

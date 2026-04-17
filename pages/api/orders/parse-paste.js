@@ -13,6 +13,8 @@ function getClient() {
   return _client;
 }
 
+import { defaultUnit } from '../../../lib/orderUtils';
+
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
   '장미': 'ROSE', '로즈': 'ROSE',
@@ -119,7 +121,7 @@ Caroline | 2
 - 거래처명 줄: 단독 줄, 숫자/단위/동작어 없음
 - 품목줄: "{품종명} {수량}{단위} {추가|취소}" 또는 "{품종명} | {수량}"
 - action: "추가"(기본) 또는 "취소"
-- unit: 박스(기본)/단/송이
+- unit 결정 규칙: 장미(ROSE)→단, 네덜란드산→단, 나머지→박스, 송이 단위면 송이
 - qty 명시 없으면 1
 - "→ 출고", "오늘 출고 부탁드립니다", 날짜 관련 줄 무시
 - 같은 거래처가 여러 섹션에 나오면 섹션마다 별도 order
@@ -186,10 +188,11 @@ Caroline | 2
 
       const items = (order.items || []).map(item => {
         const prod = item.prodKey ? products.find(p => p.ProdKey === item.prodKey) : null;
+        const unit = defaultUnit(prod, item.unit);
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
-          unit:        item.unit || '박스',
+          unit,
           action:      item.action || '추가',
           prodKey:     prod?.ProdKey  || null,
           prodName:    prod?.ProdName || item.prodName || null,
