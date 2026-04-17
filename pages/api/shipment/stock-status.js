@@ -966,7 +966,7 @@ async function addOrder(req, res) {
     const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     // YYYY-WW-SS → WW-SS 정규화
     const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-    const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : week.match(/^\d{2}-\d{2}$/) ? '2025' : String(new Date().getFullYear());
 
     // 단위별 수량 분배 (박스/단/송이)
     const boxQty   = unit === '박스' ? quantity : 0;
@@ -1151,7 +1151,7 @@ async function addOrderDelta(req, res) {
     const delta    = parseFloat(qty) || 0;
     const uid      = req.user?.userId || 'system';
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-    const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : week.match(/^\d{2}-\d{2}$/) ? '2025' : String(new Date().getFullYear());
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
