@@ -106,7 +106,7 @@ async function getOrders(req, res) {
           outQty: row.OutQuantity,
           noneOutQty: row.NoneOutQuantity,
           unit: row.OutUnit || (row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이'),
-          qty: row.OutQuantity || 0,
+          qty: row.BoxQuantity || row.BunchQuantity || row.SteamQuantity || 0,
         });
       }
     }
