@@ -59,13 +59,28 @@ export default withAuth(async function handler(req, res) {
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
 
   try {
-    const [custRes, prodRes] = await Promise.all([
+    const [custRes, prodRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
       query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName FROM Product WHERE isDeleted=0 ORDER BY ProdName`),
+      query(`SELECT ProdKey,
+               SUM(ISNULL(BoxQuantity,0))   AS TotalBox,
+               SUM(ISNULL(BunchQuantity,0)) AS TotalBunch,
+               SUM(ISNULL(SteamQuantity,0)) AS TotalSteam
+             FROM OrderDetail WHERE isDeleted=0 AND ProdKey IS NOT NULL GROUP BY ProdKey`, {}),
     ]);
 
     const customers = custRes.recordset;
     const products  = prodRes.recordset;
+
+    // 품목별 이력 단위 맵 빌드
+    const prodUnitMap = {};
+    for (const row of unitRes.recordset) {
+      const b = row.TotalBox, d = row.TotalBunch, s = row.TotalSteam;
+      if (b === 0 && d === 0 && s === 0) continue;
+      if (d >= b && d >= s)      prodUnitMap[row.ProdKey] = '단';
+      else if (s >= b && s >= d) prodUnitMap[row.ProdKey] = '송이';
+      else                       prodUnitMap[row.ProdKey] = '박스';
+    }
 
     // 한국어 토큰 → 영문 키워드로 관련 품목 필터링
     const koTokens = (text.match(/[가-힣]+/g) || []);
@@ -188,7 +203,7 @@ Caroline | 2
 
       const items = (order.items || []).map(item => {
         const prod = item.prodKey ? products.find(p => p.ProdKey === item.prodKey) : null;
-        const unit = defaultUnit(prod, item.unit);
+        const unit = defaultUnit(prod, item.unit, prodUnitMap);
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
@@ -205,7 +220,7 @@ Caroline | 2
       return { custMatch, items };
     });
 
-    return res.status(200).json({ success: true, orders });
+    return res.status(200).json({ success: true, orders, prodUnitMap });
   } catch (err) {
     console.error('[parse-paste]', err.message);
     return res.status(500).json({ success: false, error: err.message });

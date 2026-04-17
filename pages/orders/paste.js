@@ -39,11 +39,13 @@ export default function PasteOrderPage() {
   const [disambigSearch, setDisambigSearch] = useState('');
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
+  const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
 
   useEffect(() => {
     setMappingCache(loadCache());
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
+    apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
     apiGet('/api/orders/weeks').then(d => {
       if (d.success) {
         const def = getDefaultWeek(); // 2026-WW-01
@@ -66,7 +68,7 @@ export default function PasteOrderPage() {
       if (!hit) return it;
       const prod = prods.find(p => p.ProdKey === hit.prodKey);
       if (!prod) return it;
-      return { ...it, prodKey: prod.ProdKey, prodName: prod.ProdName, displayName: prod.DisplayName || prod.ProdName, unit: defaultUnit(prod, it.unit) };
+      return { ...it, prodKey: prod.ProdKey, prodName: prod.ProdName, displayName: prod.DisplayName || prod.ProdName, unit: defaultUnit(prod, it.unit, prodUnitMap) };
     }),
   }));
 
@@ -101,7 +103,7 @@ export default function PasteOrderPage() {
           return {
             ...it,
             idx,
-            unit: defaultUnit(prod, it.unit),
+            unit: defaultUnit(prod, it.unit, prodUnitMap),
             skip: false,
           };
         }),
@@ -151,7 +153,7 @@ export default function PasteOrderPage() {
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
-      unit:        defaultUnit(prod),  // 장미/네덜란드 → 단, 나머지 → 박스
+      unit:        defaultUnit(prod, null, prodUnitMap),  // 장미/네덜란드 → 단, 나머지 → 박스
     });
     if (saveToCache) {
       const updated = { ...mappingCache, [cacheKey(inputName)]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
