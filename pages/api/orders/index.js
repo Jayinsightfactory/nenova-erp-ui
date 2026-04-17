@@ -5,6 +5,16 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
+async function appLog(category, step, detail, isError = false) {
+  try {
+    await query(
+      `INSERT INTO AppLog (Category, Step, Detail, IsError) VALUES (@cat, @step, @detail, @err)`,
+      { cat: { type: sql.NVarChar, value: category }, step: { type: sql.NVarChar, value: step },
+        detail: { type: sql.NVarChar, value: String(detail) }, err: { type: sql.Bit, value: isError ? 1 : 0 } }
+    );
+  } catch { /* AppLog 없으면 무시 */ }
+}
+
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -124,6 +134,8 @@ async function createOrder(req, res) {
   }
 
   try {
+    await appLog('createOrder', '시작', `custKey=${custKey} custName=${custName} week=${week} items=${items?.length}`);
+
     // 거래처 조회 (OrderCode 포함)
     let resolvedCustKey = custKey;
     let resolvedOrderCode = orderCode || '';
@@ -139,6 +151,7 @@ async function createOrder(req, res) {
         { name: { type: sql.NVarChar, value: `%${custName}%` } }
       );
       if (!r.recordset[0]) {
+        await appLog('createOrder', '오류', `거래처 없음: ${custName}`, true);
         return res.status(404).json({ success: false, error: `거래처 없음: ${custName}` });
       }
       resolvedCustKey = r.recordset[0].CustKey;
@@ -150,6 +163,8 @@ async function createOrder(req, res) {
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
     const uid = req.user?.userId || 'nenovaSS3';
+
+    await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
@@ -164,6 +179,7 @@ async function createOrder(req, res) {
       let mk;
       if (existing.recordset.length > 0) {
         mk = existing.recordset[0].OrderMasterKey;
+        await appLog('createOrder', 'OM_FOUND', `mk=${mk}`);
         // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
         await tQuery(
           `UPDATE OrderMaster SET
@@ -174,6 +190,7 @@ async function createOrder(req, res) {
         );
       } else {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
+        await appLog('createOrder', 'OM_INSERT', `new mk=${mk} ck=${resolvedCustKey} wk=${orderWeek}`);
         await tQuery(
           `INSERT INTO OrderMaster
              (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
@@ -217,6 +234,7 @@ async function createOrder(req, res) {
         );
 
         if (existOd.recordset.length > 0) {
+          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQuery(
             `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
@@ -227,6 +245,7 @@ async function createOrder(req, res) {
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
         } else if (qty > 0) {
           const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
+          await appLog('createOrder', 'OD_INSERT', `nk=${nextKey} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
           await tQuery(
             `INSERT INTO OrderDetail
@@ -249,6 +268,7 @@ async function createOrder(req, res) {
       return { orderMasterKey: mk, results: detailResults };
     });
 
+    await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
       source: 'real_db',
@@ -257,6 +277,7 @@ async function createOrder(req, res) {
       results,
     });
   } catch (err) {
+    await appLog('createOrder', '오류', err.message, true);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
