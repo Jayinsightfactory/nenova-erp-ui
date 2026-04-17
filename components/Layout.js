@@ -137,7 +137,7 @@ export default function Layout({ children, title }) {
               <button onClick={toggleLang}
                 style={{background:'none', border:'1px solid rgba(255,255,255,.5)', color:'#fff',
                   cursor:'pointer', fontSize:10, padding:'1px 6px'}}>
-                {lang==='ko'?'ES':'KO'}
+                {lang==='bi'?'KO/ES':lang==='ko'?'KO':'ES'}
               </button>
               <button onClick={() => window.close()}
                 style={{background:'none', border:'1px solid rgba(255,255,255,.4)', color:'#fff',
@@ -217,12 +217,12 @@ export default function Layout({ children, title }) {
               {/* 언어 전환 버튼 */}
               <button className="btn btn-sm" onClick={toggleLang}
                 style={{
-                  background: lang==='es' ? '#1166BB' : '#006600',
+                  background: lang==='es' ? '#1166BB' : lang==='ko' ? '#006600' : '#6a1b9a',
                   color:'#fff',
-                  borderColor: lang==='es' ? '#0055AA' : '#004400',
-                  minWidth: 42, fontWeight:'bold'
+                  borderColor: lang==='es' ? '#0055AA' : lang==='ko' ? '#004400' : '#4a148c',
+                  minWidth: 52, fontWeight:'bold', fontSize:11
                 }}>
-                {lang==='ko' ? '🌐 ES' : '🌐 KO'}
+                {lang==='bi' ? '🌐 KO/ES' : lang==='ko' ? '🌐 KO' : '🌐 ES'}
               </button>
               {user && (
                 <button className="btn btn-sm" onClick={handleLogout}>
