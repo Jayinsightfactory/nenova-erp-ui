@@ -72,7 +72,18 @@ async function fix(req, res, week, prodKeyFilter) {
     if (prodKeyFilter) { shipWhere += ' AND sd.ProdKey=@pk'; shipParams.pk = { type: sql.Int, value: parseInt(prodKeyFilter) }; }
     const outResult = await tQuery(
       `SELECT sd.ProdKey, SUM(sd.OutQuantity) AS outQty FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey ${shipWhere} GROUP BY sd.ProdKey`,
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey ${shipWhere}
+         AND (
+           sm.WebCreated = 1
+           OR NOT EXISTS (
+             SELECT 1 FROM ShipmentDetail sd2
+             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey = sm2.ShipmentKey
+             WHERE sm2.CustKey = sm.CustKey AND sm2.OrderWeek = sm.OrderWeek
+               AND sm2.isDeleted = 0 AND sm2.WebCreated = 1
+               AND sd2.ProdKey = sd.ProdKey
+           )
+         )
+       GROUP BY sd.ProdKey`,
       shipParams
     );
 

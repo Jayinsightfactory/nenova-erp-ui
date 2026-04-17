@@ -266,13 +266,16 @@ async function saveDistribute(req, res) {
       `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
-    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
-    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+    // BunchOf1Box/SteamOf1Box null 시 0 사용 (기본값 1은 잘못된 환산 유발)
+    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box ?? 0;
+    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
 
     const shipmentKey = await withTransaction(async (tQuery) => {
+      // WebCreated=1인 마스터 우선 조회, 없으면 레거시 마스터 사용
       const smResult = await tQuery(
-        `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0`,
+        `SELECT ShipmentKey, WebCreated FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0
+         ORDER BY WebCreated DESC`,
         { ck: { type: sql.Int, value: parseInt(custKey) }, week: { type: sql.NVarChar, value: week } }
       );
 
@@ -280,14 +283,21 @@ async function saveDistribute(req, res) {
       if (smResult.recordset.length === 0) {
         sk = await safeNextKey(tQuery, 'ShipmentMaster', 'ShipmentKey');
         await tQuery(
-          `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-           VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,@uid,GETDATE())`,
+          `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+           VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
           { nk: { type: sql.Int, value: sk }, yr: { type: sql.NVarChar, value: orderYear },
             wk: { type: sql.NVarChar, value: week }, ywk: { type: sql.NVarChar, value: ywk },
             ck: { type: sql.Int, value: parseInt(custKey) }, uid: { type: sql.NVarChar, value: uid } }
         );
       } else {
         sk = smResult.recordset[0].ShipmentKey;
+        // 레거시 마스터라면 WebCreated=1로 소유권 인수
+        if (!smResult.recordset[0].WebCreated) {
+          await tQuery(
+            `UPDATE ShipmentMaster SET WebCreated=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE() WHERE ShipmentKey=@sk`,
+            { sk: { type: sql.Int, value: sk }, uid: { type: sql.NVarChar, value: uid } }
+          );
+        }
       }
 
       // 기존 수량 조회 (이력용)
@@ -306,12 +316,13 @@ async function saveDistribute(req, res) {
       if (parseFloat(outQty) > 0) {
         const qty = parseFloat(outQty);
         const unitCost = parseFloat(cost) || 0;
-        const boxQty = qty;
-        const bunchQty = qty * bunchOf1Box;
-        const steamQty = qty * steamOf1Box;
-        // 13/14차 데이터 패턴: Amount = Bunch × Cost / 1.1, Vat = Bunch × Cost / 11
-        const amount = Math.round(bunchQty * unitCost / 1.1);
-        const vat    = Math.round(bunchQty * unitCost / 11);
+        const boxQty   = qty;
+        const bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
+        const steamQty = steamOf1Box > 0 ? qty * steamOf1Box : 0;
+        // Amount: 단 환산값 있으면 단 기준, 없으면 박스 기준
+        const amtBase = bunchQty > 0 ? bunchQty : boxQty;
+        const amount = Math.round(amtBase * unitCost / 1.1);
+        const vat    = Math.round(amtBase * unitCost / 11);
         const now = new Date();
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;

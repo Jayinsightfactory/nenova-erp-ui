@@ -153,26 +153,27 @@ async function loadItems(sk) {
          sd.ProdKey,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
-         CASE WHEN sd.BunchQuantity > 0 THEN '단'
-              WHEN sd.SteamQuantity > 0 THEN '송이'
-              ELSE '박스' END                      AS Unit,
-         CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
-              WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+         ISNULL(p.OutUnit, '박스')                 AS Unit,
+         CASE ISNULL(p.OutUnit, '박스')
+              WHEN '단'  THEN sd.BunchQuantity
+              WHEN '송이' THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
          -- Cost: sd.Cost 있으면 그대로, 없으면 p.Cost (14차 fallback)
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
          -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 14차 패턴 (Bunch × Cost / 1.1)
          ISNULL(NULLIF(sd.Amount, 0),
            ROUND(ISNULL(p.Cost, 0)
-             * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
-                    WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+             * CASE ISNULL(p.OutUnit,'박스')
+                    WHEN '단'  THEN sd.BunchQuantity
+                    WHEN '송이' THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
          ) AS Amount,
          ISNULL(NULLIF(sd.Vat, 0),
            ROUND(ISNULL(p.Cost, 0)
-             * CASE WHEN sd.BunchQuantity > 0 THEN sd.BunchQuantity
-                    WHEN sd.SteamQuantity > 0 THEN sd.SteamQuantity
+             * CASE ISNULL(p.OutUnit,'박스')
+                    WHEN '단'  THEN sd.BunchQuantity
+                    WHEN '송이' THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 11, 0)
          ) AS Vat,
