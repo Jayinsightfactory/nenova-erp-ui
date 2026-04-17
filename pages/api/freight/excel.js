@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower, isFreightForwarder, isFreightRow } from '../../../lib/freightCalc';
+import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch } from '../../../lib/freightCalc';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -136,6 +136,11 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const sumF = (f) => masters.map(m => Number(m[f])).filter(v => !Number.isNaN(v) && v !== 0).reduce((a,b)=>a+b,0) || null;
   const firstF = (f) => { for (const m of masters) if (m[f] != null) return Number(m[f]); return null; };
 
+  // 자동 카테고리 매핑 — '기타'/'미분류' 는 ProdName 키워드로 재분류 (프리뷰와 동일 로직)
+  for (const r of rows) {
+    r.FlowerName = autoDetectFlower(r.ProdName, (r.FlowerName || '').trim());
+  }
+
   // 카테고리 집계
   const boxByFlower = new Map();
   for (const r of rows) {
@@ -160,6 +165,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   }
 
   // 송이수 fallback — SteamQuantity 가 0 이면 Bunch/Box 단위에서 환산.
+  // 최종 fallback: 업계 표준 단당송이(장미=10, 카네이션=20 등) 사용.
   const resolveSteam = (r) => {
     const sq = Number(r.SteamQuantity) || 0;
     if (sq > 0) return sq;
@@ -170,6 +176,11 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     const fm = flowerMetaMap.get(normalizeFlower(r.FlowerName || ''));
     const stemsPerBox = Number(fm?.StemsPerBox) || 0;
     if (boxQ > 0 && stemsPerBox > 0) return boxQ * stemsPerBox;
+    // 업계 표준값 fallback
+    if (bq > 0) {
+      const defaultSpb = getDefaultStemsPerBunch(r.FlowerName || r.ProdName);
+      if (defaultSpb > 0) return bq * defaultSpb;
+    }
     return 0;
   };
 

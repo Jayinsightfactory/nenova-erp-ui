@@ -5,7 +5,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower } from '../../../lib/freightCalc';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 370,
@@ -182,15 +182,28 @@ async function loadFreightData(res, keys, awbLabel) {
     snapshotDetails = sdRes.recordset;
   }
 
-  // 카테고리별 박스수 집계 (LEFT JOIN에서 FlowerName 없으면 '미분류')
+  // 자동 카테고리 매핑 — FlowerName 이 '기타'/'미분류' 인 품목은 ProdName 키워드로 재분류
+  // 예: [MEL] CHINA / 리모늄 미스티 블루 (FlowerName='기타') → '리모니움'
+  const autoMapped = [];
+  for (const r of rows) {
+    const orig = (r.FlowerName || '').trim();
+    const detected = autoDetectFlower(r.ProdName, orig);
+    if (detected !== orig) {
+      r.FlowerName = detected;  // rows 배열의 행 자체 수정
+      autoMapped.push({ prodName: r.ProdName, from: orig || '(없음)', to: detected });
+    }
+  }
+
+  // 카테고리별 박스수 집계 (재분류 후 기준)
   const boxByFlower = new Map();
   for (const r of rows) {
     const fn = (r.FlowerName || '').trim();
     boxByFlower.set(fn, (boxByFlower.get(fn) || 0) + (Number(r.BoxQuantity) || 0));
   }
 
-  // distinct FlowerName count (actually present in BILL with boxes > 0)
-  const itemCount = [...boxByFlower.entries()].filter(([_, v]) => v > 0).length;
+  // distinct FlowerName count (actually present in BILL)
+  const itemCount = [...boxByFlower.entries()].filter(([_, v]) => v > 0).length
+    || [...new Set(rows.map(r => (r.FlowerName || '').trim()))].filter(Boolean).length;
 
   const invoiceUSD = rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
@@ -294,6 +307,17 @@ async function loadFreightData(res, keys, awbLabel) {
     flowerMeta,
   });
 
+  // 자동 카테고리 매핑된 품목 정보를 경고에 추가
+  if (autoMapped.length > 0) {
+    const summary = autoMapped.slice(0, 5).map(m => `${m.prodName?.substring(0, 30)} → ${m.to}`).join(', ');
+    const extra = autoMapped.length > 5 ? ` 외 ${autoMapped.length - 5}건` : '';
+    result.warnings = result.warnings || [];
+    result.warnings.unshift({
+      level: 'warn',
+      msg: `품목명 키워드로 카테고리 자동 매핑: ${summary}${extra}. 정확하지 않으면 품목관리 > 제품정보 에서 FlowerName 수정.`,
+    });
+  }
+
   return res.status(200).json({
     success: true,
     warehouse: master,
@@ -306,6 +330,7 @@ async function loadFreightData(res, keys, awbLabel) {
       actualFreightUSD,
     } : null,
     awb: awbLabel,
+    autoMapped,  // 클라이언트에 자동매핑 내역 노출
     snapshot: existingSnapshot,
     productMeta,
     flowerMeta,
