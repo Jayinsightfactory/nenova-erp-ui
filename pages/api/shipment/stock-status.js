@@ -909,6 +909,10 @@ async function addOrder(req, res) {
     const userName = req.user?.userName || uid;
     const now = new Date();
     const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    // YYYY-WW-SS → WW-SS 정규화
+    const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
+    const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYwk  = normYear + normWeek.replace('-', '');
 
     // 단위별 수량 분배 (박스/단/송이)
     const boxQty   = unit === '박스' ? quantity : 0;
@@ -920,16 +924,18 @@ async function addOrder(req, res) {
       const om = await tQ(
         `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
          WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek } }
       );
 
       let mk;
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { mk: { type: sql.Int, value: mk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@ck,0,@uid,GETDATE())`,
+          { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear },
+            wk: { type: sql.NVarChar, value: normWeek }, ywk: { type: sql.NVarChar, value: normYwk },
+            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;
@@ -1073,22 +1079,27 @@ async function addOrderDelta(req, res) {
     const pk       = parseInt(prodKey);
     const delta    = parseFloat(qty) || 0;
     const uid      = req.user?.userId || 'system';
+    const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
+    const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYwk2  = normYear2 + normWeek2.replace('-', '');
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
         `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
          WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek2 } }
       );
 
       let mk;
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { mk: { type: sql.Int, value: mk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@ck,0,@uid,GETDATE())`,
+          { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear2 },
+            wk: { type: sql.NVarChar, value: normWeek2 }, ywk: { type: sql.NVarChar, value: normYwk2 },
+            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;

@@ -138,6 +138,7 @@ async function createOrder(req, res) {
     // YYYY-WW-SS → WW-SS (전산 DB 형식으로 정규화)
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
+    const orderYearWeek = orderYear + orderWeek.replace('-', '');
     const uid = req.user?.userId || 'system';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
@@ -163,12 +164,13 @@ async function createOrder(req, res) {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
         await tQuery(
           `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @ywk, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
           {
             mk:        { type: sql.Int,      value: mk },
             year:      { type: sql.NVarChar, value: orderYear },
             week:      { type: sql.NVarChar, value: orderWeek },
+            ywk:       { type: sql.NVarChar, value: orderYearWeek },
             manager:   { type: sql.NVarChar, value: manager || req.user.userName },
             custKey:   { type: sql.Int,      value: resolvedCustKey },
             orderCode: { type: sql.NVarChar, value: orderCode || '' },
