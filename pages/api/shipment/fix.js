@@ -7,6 +7,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
+  if (req.method === 'GET') return await validate(req, res);
   if (req.method !== 'POST') return res.status(405).end();
   const { week, prodKey, action } = req.body;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
@@ -19,6 +20,104 @@ export default withAuth(async function handler(req, res) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ── 확정 전 사전검증 (GET ?week=16-01)
+// 1. 주문 없는데 출고 있는 품목 (ghost)
+// 2. 같은 거래처+품목에 중복 출고 레코드
+// 3. 마이너스 잔량 품목
+async function validate(req, res) {
+  const { week } = req.query;
+  if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+  try {
+    const wk = { type: sql.NVarChar, value: week };
+
+    // 1. 주문 없는 출고 (OrderDetail 없는데 ShipmentDetail 있음)
+    const ghostResult = await query(
+      `SELECT DISTINCT p.ProdName, c.CustName, sd.OutQuantity,
+         sm.ShipmentKey, sm.isFix, sm.WebCreated
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON sd.ProdKey = p.ProdKey
+       JOIN Customer c ON sm.CustKey = c.CustKey
+       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+         AND NOT EXISTS (
+           SELECT 1 FROM OrderDetail od
+           JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
+           WHERE om.CustKey = sm.CustKey AND om.OrderWeek = @wk
+             AND od.ProdKey = sd.ProdKey AND om.isDeleted = 0 AND od.isDeleted = 0
+         )
+       ORDER BY c.CustName, p.ProdName`,
+      { wk }
+    );
+
+    // 2. 중복 출고 (같은 거래처+품목+차수에 ShipmentDetail 2건 이상)
+    const dupResult = await query(
+      `SELECT p.ProdName, c.CustName,
+         COUNT(sd.SdetailKey) AS cnt,
+         SUM(sd.OutQuantity) AS totalQty,
+         STRING_AGG(CAST(sd.ShipmentKey AS NVARCHAR(20)), ',') AS shipKeys
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON sd.ProdKey = p.ProdKey
+       JOIN Customer c ON sm.CustKey = c.CustKey
+       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+       GROUP BY sm.CustKey, sd.ProdKey, p.ProdName, c.CustName
+       HAVING COUNT(sd.SdetailKey) > 1
+       ORDER BY c.CustName, p.ProdName`,
+      { wk }
+    );
+
+    // 3. 마이너스 잔량
+    const negResult = await query(
+      `SELECT p.ProdName, p.FlowerName, p.CounName,
+         ISNULL((SELECT TOP 1 ps.Stock FROM ProductStock ps
+           JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+           WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @wk
+           ORDER BY sm2.OrderWeek DESC), 0) AS prevStock,
+         ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) AS inQty,
+         ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
+           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+           WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek = @wk AND sm.isDeleted = 0), 0) AS outQty
+       FROM Product p
+       WHERE p.isDeleted = 0
+         AND EXISTS (SELECT 1 FROM ShipmentDetail sd2
+           JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
+           WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek = @wk AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0)
+       HAVING
+         ISNULL((SELECT TOP 1 ps.Stock FROM ProductStock ps
+           JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+           WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @wk
+           ORDER BY sm2.OrderWeek DESC), 0)
+         + ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0)
+         - ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
+           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+           WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek = @wk AND sm.isDeleted = 0), 0) < 0
+       ORDER BY p.FlowerName, p.ProdName`,
+      { wk }
+    );
+
+    const negRows = negResult.recordset.map(r => ({
+      ...r,
+      remain: Math.round((r.prevStock + r.inQty - r.outQty) * 1000) / 1000,
+    }));
+
+    const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length;
+    return res.status(200).json({
+      success: true,
+      week,
+      issueCount: issues,
+      ghost:    ghostResult.recordset,    // 주문 없는 출고
+      duplicate: dupResult.recordset,     // 중복 출고
+      negative: negRows,                  // 마이너스 잔량
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
 
 // ── 확정 (withTransaction으로 전체 묶음 → 동시 확정 시 재고 중복/누락 방지)
 async function fix(req, res, week, prodKeyFilter) {

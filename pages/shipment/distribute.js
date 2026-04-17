@@ -70,6 +70,8 @@ export default function Distribute() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [isFixed, setIsFixed] = useState(false);
+  const [validateResult, setValidateResult] = useState(null);
+  const [showValidate, setShowValidate] = useState(false);
 
   // 탭2: 출고요일 설정
   const [shipDayConfigs, setShipDayConfigs] = useState({}); // { 'prodGroup|suffix': '월,화,수' }
@@ -215,7 +217,23 @@ export default function Distribute() {
 
   const handleFix = async () => {
     if (!week) { setErr('차수를 입력하세요.'); return; }
-    if (!confirm(`[${week}] 차수를 확정하시겠습니까?\n\n확정 시 재고가 업데이트되고 견적서에 반영됩니다.`)) return;
+    // 사전검증
+    setFixLoading(true); setErr('');
+    try {
+      const vRes = await fetch(`/api/shipment/fix?week=${encodeURIComponent(week)}`);
+      const vData = await vRes.json();
+      if (vData.issueCount > 0) {
+        setValidateResult(vData);
+        setShowValidate(true);
+        setFixLoading(false);
+        return;
+      }
+    } catch(e) { /* 검증 실패해도 확정 진행 허용 */ }
+    await doFix();
+  };
+
+  const doFix = async () => {
+    if (!confirm(`[${week}] 차수를 확정하시겠습니까?\n\n확정 시 재고가 업데이트되고 견적서에 반영됩니다.`)) { setFixLoading(false); return; }
     setFixLoading(true); setErr('');
     try {
       const res = await fetch('/api/shipment/fix', {
@@ -226,6 +244,7 @@ export default function Distribute() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setIsFixed(true);
+      setShowValidate(false);
       setSuccessMsg('✅ ' + data.message);
       setTimeout(() => setSuccessMsg(''), 5000);
       handleSearch();
@@ -1026,6 +1045,97 @@ export default function Distribute() {
                 {products.length === 0 && <tr><td colSpan={3+custList.length*2} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>조회 후 표시됩니다</td></tr>}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* 확정 전 사전검증 모달 */}
+      {showValidate && validateResult && (
+        <div className="modal-overlay" onClick={() => setShowValidate(false)}>
+          <div className="modal" style={{maxWidth:620}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{background:'#FFF3CD', borderBottom:'2px solid #FFC107'}}>
+              <span className="modal-title" style={{color:'#856404'}}>⚠️ 확정 전 이슈 발견 ({validateResult.issueCount}건) — [{validateResult.week}]</span>
+              <button className="modal-close" onClick={() => setShowValidate(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{padding:'16px 20px', maxHeight:'60vh', overflowY:'auto', fontSize:12}}>
+
+              {validateResult.negative?.length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontWeight:700, color:'#c00', marginBottom:6}}>🔴 마이너스 잔량 ({validateResult.negative.length}건) — 출고량이 입고+재고 초과</div>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                    <thead><tr style={{background:'#f8d7da'}}>
+                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
+                      <th style={{padding:'4px 6px'}}>전재고</th>
+                      <th style={{padding:'4px 6px'}}>입고</th>
+                      <th style={{padding:'4px 6px'}}>출고</th>
+                      <th style={{padding:'4px 6px', color:'#c00'}}>잔량</th>
+                    </tr></thead>
+                    <tbody>{validateResult.negative.map((r,i) => (
+                      <tr key={i} style={{borderBottom:'1px solid #f5c6cb'}}>
+                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.prevStock}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.inQty}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.outQty}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center', color:'#c00', fontWeight:700}}>{r.remain}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+
+              {validateResult.duplicate?.length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontWeight:700, color:'#856404', marginBottom:6}}>🟡 중복 출고 ({validateResult.duplicate.length}건) — 같은 거래처+품목에 복수 입력</div>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                    <thead><tr style={{background:'#fff3cd'}}>
+                      <th style={{padding:'4px 6px', textAlign:'left'}}>거래처</th>
+                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
+                      <th style={{padding:'4px 6px'}}>건수</th>
+                      <th style={{padding:'4px 6px'}}>합계</th>
+                    </tr></thead>
+                    <tbody>{validateResult.duplicate.map((r,i) => (
+                      <tr key={i} style={{borderBottom:'1px solid #ffeeba'}}>
+                        <td style={{padding:'3px 6px'}}>{r.CustName}</td>
+                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center', color:'#c00', fontWeight:700}}>{r.cnt}건</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.totalQty}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+
+              {validateResult.ghost?.length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontWeight:700, color:'#555', marginBottom:6}}>⚪ 주문 없는 출고 ({validateResult.ghost.length}건) — 주문 미등록 상태에서 출고 분배됨</div>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                    <thead><tr style={{background:'#e2e3e5'}}>
+                      <th style={{padding:'4px 6px', textAlign:'left'}}>거래처</th>
+                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
+                      <th style={{padding:'4px 6px'}}>수량</th>
+                      <th style={{padding:'4px 6px'}}>확정여부</th>
+                    </tr></thead>
+                    <tbody>{validateResult.ghost.map((r,i) => (
+                      <tr key={i} style={{borderBottom:'1px solid #d6d8db'}}>
+                        <td style={{padding:'3px 6px'}}>{r.CustName}</td>
+                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.OutQuantity}</td>
+                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.isFix ? '확정' : '미확정'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+
+              <div style={{color:'#666', fontSize:11, marginTop:8}}>위 이슈를 확인 후 수정하거나, 이상 없으면 그대로 확정할 수 있습니다.</div>
+            </div>
+            <div className="modal-footer" style={{display:'flex', gap:8, justifyContent:'flex-end', padding:'12px 20px'}}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowValidate(false)}>취소 / Cancelar</button>
+              <button className="btn btn-warning btn-sm" style={{background:'#FFC107', color:'#000', border:'none'}}
+                onClick={() => { setShowValidate(false); doFix(); }}>
+                이슈 무시하고 확정
+              </button>
+            </div>
           </div>
         </div>
       )}
