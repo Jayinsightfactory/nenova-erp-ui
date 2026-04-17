@@ -247,28 +247,34 @@ export default function PasteOrderPage() {
 
     if (items.length === 0) { alert('등록할 추가 품목이 없습니다.'); return; }
 
+    // week 문자열에서 연도 추출 (2026-16-01 → 2026, 16-01 → 현재연도)
+    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+
     updateOrder(oid, { saving: true, resultMsg: '' });
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, items }),
+        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items }),
       });
       const d = await res.json();
       if (d.success) {
-        updateOrder(oid, { saving: false, resultMsg: `✅ ${items.length}개 등록 완료 (${order.custMatch.CustName} / ${week})` });
-        // DB에서 등록된 주문 내역 조회
-        const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
-        if (od.success && od.orders?.length > 0) {
-          const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
-          setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
-        }
+        const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED').length ?? items.length;
+        updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}` });
+        // 등록 후 DB 내역 조회 — 실패해도 성공 메시지 유지
+        try {
+          const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+          if (od.success && od.orders?.length > 0) {
+            const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
+            setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+          }
+        } catch { /* 조회 실패해도 저장은 완료 */ }
       } else {
-        updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error}` });
+        updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` });
       }
     } catch (e) {
-      updateOrder(oid, { saving: false, resultMsg: `❌ ${e.message}` });
+      updateOrder(oid, { saving: false, resultMsg: `❌ 네트워크 오류: ${e.message}` });
     }
   };
 
@@ -283,6 +289,22 @@ export default function PasteOrderPage() {
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
           </h2>
+          {orders.length > 0 && (
+            <button
+              onClick={() => {
+                setPasteText('');
+                setOrders([]);
+                setParseError('');
+                setQueueIdx(0);
+                setDisambigSearch('');
+                setDisambigResults([]);
+                setRegisteredOrders({});
+              }}
+              style={{ padding: '6px 16px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              ✏️ 다른 주문하기
+            </button>
+          )}
           {cachedEntries > 0 && (
             <span style={{ fontSize: 11, color: '#888', background: '#f0f0f0', padding: '2px 8px', borderRadius: 10 }}>
               💾 저장된 매칭 {cachedEntries}개
