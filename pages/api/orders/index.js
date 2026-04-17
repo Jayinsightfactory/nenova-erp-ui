@@ -65,10 +65,7 @@ async function getOrders(req, res) {
         od.OrderDetailKey, od.ProdKey,
         p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
         od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-        -- 14차: OutUnit 기준 단일 컬럼
-        CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
-             WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
-             ELSE ISNULL(od.BoxQuantity,0) END AS OutQuantity,
+        ISNULL(od.OutQuantity, 0) AS OutQuantity,
         od.NoneOutQuantity
        FROM OrderMaster om
        LEFT JOIN Customer c    ON om.CustKey = c.CustKey AND c.isDeleted = 0
