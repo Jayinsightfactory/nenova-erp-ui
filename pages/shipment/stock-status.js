@@ -185,7 +185,13 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const updateCartQty = (ck,pk, val) => setCart(prev => prev.map(c => (c.cust.CustKey===ck&&c.prod.ProdKey===pk) ? {...c, qty: parseFloat(val)||0} : c));
   const updateCartUnit = (ck,pk, u) => setCart(prev => prev.map(c => (c.cust.CustKey===ck&&c.prod.ProdKey===pk) ? {...c, unit: u} : c));
 
+  const flog = (step, detail) => fetch('/api/log', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category: 'addOrderModal', step, detail: String(detail) }),
+  }).catch(() => {});
+
   const handleSubmit = async () => {
+    await flog('버튼클릭', `week=${modalWeek.value} cart=${cart.length}건 items=${cart.map(c=>`${c.cust.CustName}/${c.prod.ProdName}/${c.qty}${c.unit}`).join('|')}`);
     if (cart.length === 0) { setError('품목을 1개 이상 추가하세요'); return; }
     if (!modalWeek.value) { setError('차수를 입력하세요'); return; }
     setSaving(true); setError('');
@@ -197,6 +203,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           body: JSON.stringify({ action: 'addOrder', custKey: item.cust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
         });
         const d = await r.json();
+        await flog(d.success ? '성공' : '실패', `ck=${item.cust.CustKey} pk=${item.prod.ProdKey} qty=${item.qty} ${d.success ? 'ok' : d.error}`);
         results.push({ cust: item.cust, prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error ? `[${r.status}] ${d.error}` : '' });
       }
       // DB 검증: 실제 저장된 수량 확인 (업체별)
