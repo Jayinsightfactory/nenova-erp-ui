@@ -121,24 +121,32 @@ async function createOrder(req, res) {
   }
 
   try {
-    // 거래처 조회
+    // 거래처 조회 (OrderCode 포함)
     let resolvedCustKey = custKey;
-    if (!resolvedCustKey && custName) {
+    let resolvedOrderCode = orderCode || '';
+    if (resolvedCustKey) {
+      const rc = await query(
+        `SELECT TOP 1 CustKey, ISNULL(OrderCode,'') AS OrderCode FROM Customer WHERE CustKey=@ck AND isDeleted=0`,
+        { ck: { type: sql.Int, value: parseInt(resolvedCustKey) } }
+      );
+      if (rc.recordset[0]) resolvedOrderCode = rc.recordset[0].OrderCode || resolvedOrderCode;
+    } else if (custName) {
       const r = await query(
-        `SELECT TOP 1 CustKey FROM Customer WHERE CustName LIKE @name AND isDeleted = 0`,
+        `SELECT TOP 1 CustKey, ISNULL(OrderCode,'') AS OrderCode FROM Customer WHERE CustName LIKE @name AND isDeleted = 0`,
         { name: { type: sql.NVarChar, value: `%${custName}%` } }
       );
       if (!r.recordset[0]) {
         return res.status(404).json({ success: false, error: `거래처 없음: ${custName}` });
       }
       resolvedCustKey = r.recordset[0].CustKey;
+      resolvedOrderCode = r.recordset[0].OrderCode || '';
     }
 
     const orderYear = year || new Date().getFullYear().toString();
     // YYYY-WW-SS → WW-SS (전산 DB 형식으로 정규화)
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
-    const uid = req.user?.userId || 'system';
+    const uid = req.user?.userId || 'nenovaSS3';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
@@ -157,14 +165,16 @@ async function createOrder(req, res) {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
         await tQuery(
           `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, CustKey, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @custKey, 0, @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, 0, @createId, GETDATE())`,
           {
-            mk:      { type: sql.Int,      value: mk },
-            year:    { type: sql.NVarChar, value: orderYear },
-            week:    { type: sql.NVarChar, value: orderWeek },
-            custKey: { type: sql.Int,      value: resolvedCustKey },
-            createId:{ type: sql.NVarChar, value: uid },
+            mk:       { type: sql.Int,      value: mk },
+            year:     { type: sql.NVarChar, value: orderYear },
+            week:     { type: sql.NVarChar, value: orderWeek },
+            mgr:      { type: sql.NVarChar, value: uid },
+            custKey:  { type: sql.Int,      value: resolvedCustKey },
+            oc:       { type: sql.NVarChar, value: resolvedOrderCode },
+            createId: { type: sql.NVarChar, value: uid },
           }
         );
       }
