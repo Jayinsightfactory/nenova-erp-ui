@@ -1035,14 +1035,18 @@ async function addOrder(req, res) {
           await insertOrderHistory(tQ, detailKey, String(oldQty), '0', `[${timeStr} ${userName}] 차수피벗 삭제`, uid);
         } else {
           await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
-          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
-            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
+            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq, OutQuantity=@oq,
+               LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
-              bq:  { type: sql.Float, value: boxQty },
-              bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
-              mk:  { type: sql.Int,   value: mk },       pk:  { type: sql.Int,   value: pk },
+              bq:  { type: sql.Float,    value: boxQty },
+              bnq: { type: sql.Float,    value: bunchQty },
+              sq:  { type: sql.Float,    value: steamQty },
+              oq:  { type: sql.Float,    value: quantity },
+              uid: { type: sql.NVarChar, value: uid },
+              mk:  { type: sql.Int,      value: mk },
+              pk:  { type: sql.Int,      value: pk },
             }
           );
           if (oldQty !== quantity) {
@@ -1052,13 +1056,13 @@ async function addOrder(req, res) {
       } else if (quantity > 0) {
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await appLog('addOrder', 'OD_INSERT', `nk=${nextKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
-        // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
         await tQ(
           `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,0,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+           VALUES(@nk,@mk,@pk,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           {
             nk:  { type: sql.Int,   value: nextKey },
             mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
+            oq:  { type: sql.Float, value: quantity },
             bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: 'admin' },

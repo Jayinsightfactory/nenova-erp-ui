@@ -238,10 +238,11 @@ async function createOrder(req, res) {
           await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQuery(
             `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-               LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+               OutQuantity=@oq, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
+              oq:  { type: sql.Float,    value: qty },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
@@ -254,7 +255,7 @@ async function createOrder(req, res) {
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, 0, 0, @uid, GETDATE())`,
             {
               nk:    { type: sql.Int,      value: nextKey },
               mk:    { type: sql.Int,      value: mk },
@@ -262,6 +263,7 @@ async function createOrder(req, res) {
               box:   { type: sql.Float,    value: boxQty },
               bunch: { type: sql.Float,    value: bunchQty },
               steam: { type: sql.Float,    value: steamQty },
+              oq:    { type: sql.Float,    value: qty },
               uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
             }
           );
