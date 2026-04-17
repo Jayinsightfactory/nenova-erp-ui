@@ -147,13 +147,15 @@ async function getDistribute(req, res) {
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(sd.Cost, ISNULL(cpc.Cost, p.Cost)) AS Cost,
           od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
-               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
-               ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
+          ISNULL(od.OutQuantity,
+            CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                 WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                 ELSE ISNULL(od.BoxQuantity,0) END) AS 주문수량,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
-          (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
-                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
-                ELSE ISNULL(od.BoxQuantity,0) END - ISNULL(sd.OutQuantity, 0)) AS 잔량,
+          (ISNULL(od.OutQuantity,
+            CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                 WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                 ELSE ISNULL(od.BoxQuantity,0) END) - ISNULL(sd.OutQuantity, 0)) AS 잔량,
           c.CustName, c.OrderCode
          FROM OrderMaster om
          JOIN Customer c    ON om.CustKey = c.CustKey
