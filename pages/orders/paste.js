@@ -257,36 +257,34 @@ export default function PasteOrderPage() {
 
     const items = order.items
       .filter(it => !it.skip && it.prodKey && it.action !== '취소')
-      .map(it => ({ prodKey: it.prodKey, prodName: it.prodName, qty: it.qty, unit: it.unit }));
+      .map(it => ({ prodKey: it.prodKey, qty: it.qty, unit: it.unit }));
 
     if (items.length === 0) { alert('등록할 추가 품목이 없습니다.'); return; }
 
-    // week 문자열에서 연도 추출 (2026-16-01 → 2026, 16-01 → 현재연도)
-    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
-
     updateOrder(oid, { saving: true, resultMsg: '' });
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED').length ?? items.length;
-        updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}` });
-        // 등록 후 DB 내역 조회 — 실패해도 성공 메시지 유지
-        try {
-          const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
-          if (od.success && od.orders?.length > 0) {
-            const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
-            setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
-          }
-        } catch { /* 조회 실패해도 저장은 완료 */ }
-      } else {
-        updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` });
+      // 차수피벗과 동일한 stock-status addOrder API 사용
+      let okCount = 0;
+      let lastMk = null;
+      for (const item of items) {
+        const res = await fetch('/api/shipment/stock-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'addOrder', custKey: order.custMatch.CustKey, prodKey: item.prodKey, week, qty: item.qty, unit: item.unit }),
+        });
+        const d = await res.json();
+        if (d.success) { okCount++; if (d.orderMasterKey) lastMk = d.orderMasterKey; }
+        else { updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` }); return; }
       }
+      updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)})${lastMk ? ` — OrderKey: ${lastMk}` : ''}` });
+      try {
+        const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+        if (od.success && od.orders?.length > 0) {
+          const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
+          setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+        }
+      } catch { /* 조회 실패해도 저장은 완료 */ }
     } catch (e) {
       updateOrder(oid, { saving: false, resultMsg: `❌ 네트워크 오류: ${e.message}` });
     }
