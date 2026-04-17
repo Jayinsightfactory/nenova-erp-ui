@@ -267,10 +267,7 @@ export default function PasteOrderPage() {
 
     if (items.length === 0) { alert('등록할 추가 품목이 없습니다.'); return; }
 
-    // 구형식 WW-SS → 2025년, 신형식 YYYY-WW-SS → 해당 연도
-    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1]
-                       : week.match(/^\d{2}-\d{2}$/) ? '2025'
-                       : String(new Date().getFullYear());
+    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
     updateOrder(oid, { saving: true, resultMsg: '' });
     try {

@@ -147,10 +147,7 @@ async function createOrder(req, res) {
 
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
-    // 구형식 WW-SS → 2025년, 신형식 YYYY-WW-SS → 해당 연도
-    const orderYear = year || (rawWeek.match(/^(\d{4})-/) ? rawWeek.match(/^(\d{4})-/)[1]
-                             : rawWeek.match(/^\d{2}-\d{2}$/) ? '2025'
-                             : new Date().getFullYear().toString());
+    const orderYear = year || (rawWeek.match(/^(\d{4})-/) ? rawWeek.match(/^(\d{4})-/)[1] : new Date().getFullYear().toString());
     const uid = req.user?.userId || 'nenovaSS3';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
