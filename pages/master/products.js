@@ -15,6 +15,9 @@ export default function Products() {
   const [err, setErr] = useState('');
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [showOnlyNoAlias, setShowOnlyNoAlias] = useState(false);
+  const [reviewItems, setReviewItems] = useState(null);  // null = 모달 닫힘
+  const [reviewEdits, setReviewEdits] = useState({});    // { prodKey: string }
+  const [reviewSaving, setReviewSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -55,19 +58,58 @@ export default function Products() {
     } catch (e) { alert(e.message); } finally { setSaving(false); }
   };
 
-  // 일괄 자동생성 — 자연어명 없는 품목에 제안명 저장
+  // 일괄 자동생성 — 매칭되는 건 바로 저장, 안되는 건 검토 모달
   const handleBulkGenerate = async () => {
     const targets = products.filter(p => !p.DisplayName);
     if (targets.length === 0) { alert('모든 품목에 자연어명이 이미 설정되어 있습니다.'); return; }
-    const previews = targets.map(p => ({ ...p, suggested: suggestDisplayName(p.ProdName) }))
-      .filter(p => p.suggested && p.suggested !== p.ProdName);
-    if (previews.length === 0) { alert('자동 매칭되는 품목이 없습니다.'); return; }
-    if (!confirm(`${previews.length}개 품목에 자연어명을 자동 설정합니다.\n예시:\n${previews.slice(0,5).map(p => `${p.ProdName} → ${p.suggested}`).join('\n')}\n\n계속하시겠습니까?`)) return;
+
+    const withSuggestion = targets.map(p => ({
+      ...p,
+      suggested: suggestDisplayName(p.ProdName),
+    }));
+
+    // 자동 적용 가능: 제안명이 원본과 다르고 한글 포함
+    const autoItems = withSuggestion.filter(p =>
+      p.suggested && p.suggested !== p.ProdName && /[\uAC00-\uD7A3]/.test(p.suggested)
+    );
+    // 검토 필요: 매칭 안 됨 (한글 없음 = 전혀 번역 안 된 것)
+    const needsReview = withSuggestion.filter(p =>
+      !p.suggested || p.suggested === p.ProdName || !/[\uAC00-\uD7A3]/.test(p.suggested)
+    );
 
     setBulkGenerating(true);
     try {
-      const updates = previews.map(p => ({ prodKey: p.ProdKey, displayName: p.suggested }));
-      // 100개씩 배치 전송
+      // 자동 적용
+      if (autoItems.length > 0) {
+        const updates = autoItems.map(p => ({ prodKey: p.ProdKey, displayName: p.suggested }));
+        for (let i = 0; i < updates.length; i += 100) {
+          await fetch('/api/master?entity=display-name', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates: updates.slice(i, i + 100) }),
+          });
+        }
+        await load();
+      }
+      // 검토 모달 오픈
+      if (needsReview.length > 0) {
+        const initEdits = {};
+        for (const p of needsReview) initEdits[p.ProdKey] = p.suggested !== p.ProdName ? p.suggested : '';
+        setReviewEdits(initEdits);
+        setReviewItems(needsReview);
+      } else if (autoItems.length > 0) {
+        alert(`✅ ${autoItems.length}개 자동 적용 완료. 검토 필요 항목 없음.`);
+      }
+    } catch (e) { alert(e.message); } finally { setBulkGenerating(false); }
+  };
+
+  const handleReviewSave = async () => {
+    const updates = Object.entries(reviewEdits)
+      .filter(([, v]) => v && v.trim())
+      .map(([prodKey, displayName]) => ({ prodKey: Number(prodKey), displayName: displayName.trim() }));
+    if (updates.length === 0) { setReviewItems(null); return; }
+    setReviewSaving(true);
+    try {
       for (let i = 0; i < updates.length; i += 100) {
         await fetch('/api/master?entity=display-name', {
           method: 'PUT',
@@ -75,8 +117,9 @@ export default function Products() {
           body: JSON.stringify({ updates: updates.slice(i, i + 100) }),
         });
       }
+      setReviewItems(null);
       load();
-    } catch (e) { alert(e.message); } finally { setBulkGenerating(false); }
+    } catch (e) { alert(e.message); } finally { setReviewSaving(false); }
   };
 
   const noAliasCount = products.filter(p => !p.DisplayName).length;
@@ -170,6 +213,67 @@ export default function Products() {
           </table>
         )}
       </div>
+
+      {/* 자연어명 검토 모달 */}
+      {reviewItems && (
+        <div className="modal-overlay" onClick={() => setReviewItems(null)}>
+          <div className="modal" style={{ maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🔍 자연어명 검토 ({reviewItems.length}개 — 자동 매칭 안 됨)</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setReviewItems(null)}>✕</button>
+            </div>
+            <div style={{ padding: '8px 16px', background: '#fff8e1', fontSize: 12, color: '#795548', borderBottom: '1px solid var(--border)' }}>
+              한글명을 입력하거나 비워두면 건너뜁니다. 입력한 항목만 저장됩니다.
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f5f5f5' }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, width: 40 }}>#</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>품목명 (DB)</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, width: 80 }}>꽃/국가</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, width: 200 }}>자연어명 입력</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewItems.map((p, i) => (
+                    <tr key={p.ProdKey} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '5px 8px', color: 'var(--text3)', fontSize: 11 }}>{i + 1}</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>{p.ProdName}</td>
+                      <td style={{ padding: '5px 8px', fontSize: 11 }}>
+                        <span className="badge badge-purple" style={{ fontSize: 10 }}>{p.FlowerName}</span>
+                        <br />
+                        <span className="badge badge-gray" style={{ fontSize: 10, marginTop: 2 }}>{p.CounName}</span>
+                      </td>
+                      <td style={{ padding: '4px 8px' }}>
+                        <input
+                          type="text"
+                          className="form-control"
+                          style={{ fontSize: 12, padding: '3px 6px' }}
+                          placeholder="예: 카네이션 핑크"
+                          value={reviewEdits[p.ProdKey] ?? ''}
+                          onChange={e => setReviewEdits(prev => ({ ...prev, [p.ProdKey]: e.target.value }))}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+                {Object.values(reviewEdits).filter(v => v && v.trim()).length}개 입력됨
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary" onClick={() => setReviewItems(null)}>건너뛰기</button>
+                <button className="btn btn-primary" onClick={handleReviewSave} disabled={reviewSaving}>
+                  {reviewSaving ? '저장 중...' : '💾 입력한 항목 저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
