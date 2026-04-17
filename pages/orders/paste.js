@@ -712,26 +712,25 @@ export default function PasteOrderPage() {
                 </button>
               </div>
 
-              {/* 주문등록 완료 + 출고분배 통합 패널 */}
+              {/* 출고분배 패널 */}
               {distributeState[order.id]?.show && (() => {
                 const ds = distributeState[order.id];
                 const doneCount = ds.items.filter(it => it.result === '✅').length;
                 return (
                   <div style={{ borderTop: '2px solid #1565c0', background: '#e3f2fd' }}>
                     <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#1b5e20' }}>✅ 주문등록 완료</span>
-                      <span style={{ fontSize: 12, color: '#1565c0', fontWeight: 700 }}>→ 출고분배</span>
-                      {ds.loading && <span style={{ fontSize: 12, color: '#888' }}>품목 로딩 중...</span>}
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#1565c0' }}>🚚 출고분배</span>
+                      {ds.loading && <span style={{ fontSize: 12, color: '#888' }}>로딩 중...</span>}
                       {!ds.loading && ds.items.length > 0 && (
-                        <span style={{ fontSize: 12, color: '#555' }}>{ds.items.length}개 품목{doneCount > 0 && <> · <b style={{ color: '#2e7d32' }}>{doneCount}개 분배완료</b></>}</span>
+                        <span style={{ fontSize: 12, color: '#555' }}>{ds.items.length}개 품목{doneCount > 0 && <> / <b style={{color:'#2e7d32'}}>{doneCount}개 완료</b></>}</span>
                       )}
                       {!ds.loading && ds.items.length > 0 && (
                         <button
                           onClick={() => handleAllDistribute(order.id)}
                           disabled={ds.allSaving}
-                          style={{ marginLeft: 'auto', padding: '6px 20px', background: ds.allSaving ? '#90a4ae' : '#1565c0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: ds.allSaving ? 'not-allowed' : 'pointer' }}
+                          style={{ marginLeft: 'auto', padding: '6px 18px', background: ds.allSaving ? '#90a4ae' : '#1565c0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: ds.allSaving ? 'not-allowed' : 'pointer' }}
                         >
-                          {ds.allSaving ? '저장 중...' : '🚚 출고분배 일괄저장'}
+                          {ds.allSaving ? '저장 중...' : '💾 전체 일괄저장'}
                         </button>
                       )}
                       <button onClick={() => setDistributeState(prev => ({ ...prev, [order.id]: { ...prev[order.id], show: false } }))}
@@ -745,60 +744,92 @@ export default function PasteOrderPage() {
                           <thead>
                             <tr style={{ background: '#bbdefb' }}>
                               <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>품목명</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right' }}>주문수량</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right' }}>기존출고</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>분배수량</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>단위</th>
-                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right', color: '#1565c0' }}>주문수량</th>
-                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right', color: '#e65100' }}>현재분배</th>
-                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center', color: '#ad1457' }}>분배입력</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>결과</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>저장</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {ds.items.map((it, i) => {
-                              const orderQ = it['주문수량'] ?? 0;
-                              const distQ  = it['출고수량'] ?? 0;
-                              const diff   = orderQ - distQ;
-                              return (
-                                <tr key={i} style={{ borderBottom: '1px solid #dce8f8', background: it.result === '✅' ? '#e8f5e9' : it.result?.startsWith('❌') ? '#ffebee' : i%2===0 ? '#f0f7ff' : '#e3f2fd' }}>
-                                  <td style={{ padding: '5px 8px', fontWeight: 500 }}>{it.DisplayName || it.ProdName}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'center', color: '#777', fontSize: 11 }}>{it.OutUnit || '박스'}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', color: '#1565c0', fontWeight: 700 }}>{orderQ}</td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', color: distQ > 0 ? '#e65100' : '#bbb', fontWeight: distQ > 0 ? 600 : 400 }}>
-                                    {distQ}
-                                    {diff !== 0 && <span style={{ fontSize: 10, color: diff > 0 ? '#2e7d32' : '#c62828', marginLeft: 4 }}>({diff > 0 ? '+' : ''}{diff})</span>}
-                                  </td>
-                                  <td style={{ padding: '4px 4px', textAlign: 'center' }}>
-                                    <input
-                                      type="number"
-                                      step="0.5"
-                                      value={it.inputQty ?? ''}
-                                      onChange={e => updateDistItem(order.id, i, { inputQty: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                      style={{ width: 64, padding: '3px 5px', border: '2px solid #90caf9', borderRadius: 4, textAlign: 'right', fontSize: 13, fontWeight: 600 }}
-                                    />
-                                  </td>
-                                  <td style={{ padding: '5px 8px', textAlign: 'center', fontSize: 13 }}>
-                                    {it.saving ? '⏳' : it.result || ''}
-                                  </td>
-                                  <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                                    <button
-                                      onClick={() => handleSingleDistribute(order.id, i)}
-                                      disabled={it.saving || ds.allSaving}
-                                      style={{ padding: '3px 10px', fontSize: 11, background: '#1565c0', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: it.saving || ds.allSaving ? 0.5 : 1 }}
-                                    >
-                                      저장
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
+                            {ds.items.map((it, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid #e3f2fd', background: it.result === '✅' ? '#e8f5e9' : it.result?.startsWith('❌') ? '#ffebee' : i%2===0?'#f8fbff':'#e3f2fd' }}>
+                                <td style={{ padding: '4px 8px' }}>{it.DisplayName || it.ProdName}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#1565c0', fontWeight: 600 }}>{it['주문수량']}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#555' }}>{it['출고수량']}</td>
+                                <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    value={it.inputQty ?? ''}
+                                    onChange={e => updateDistItem(order.id, i, { inputQty: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                                    style={{ width: 60, padding: '2px 4px', border: '1px solid #90caf9', borderRadius: 4, textAlign: 'right', fontSize: 12 }}
+                                  />
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#555' }}>{it.OutUnit || '박스'}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: 13 }}>
+                                  {it.saving ? '...' : it.result || ''}
+                                </td>
+                                <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => handleSingleDistribute(order.id, i)}
+                                    disabled={it.saving || ds.allSaving}
+                                    style={{ padding: '3px 10px', fontSize: 11, background: '#1565c0', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: it.saving || ds.allSaving ? 0.5 : 1 }}
+                                  >
+                                    저장
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
                     )}
                     {!ds.loading && ds.items.length === 0 && !ds.error && (
-                      <div style={{ padding: '8px 16px', fontSize: 12, color: '#888' }}>주문 품목 없음 (week 불일치 확인)</div>
+                      <div style={{ padding: '8px 16px', fontSize: 12, color: '#888' }}>주문 품목 없음</div>
                     )}
                     {ds.error && <div style={{ padding: '8px 16px', fontSize: 12, color: '#c62828' }}>{ds.error}</div>}
+                  </div>
+                );
+              })()}
+
+              {/* 등록 후 DB 주문내역 */}
+              {registeredOrders[order.id] && (() => {
+                const ro = registeredOrders[order.id];
+                return (
+                  <div style={{ borderTop: '2px solid #2e7d32', background: '#f1f8e9' }}>
+                    <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
+                      <button onClick={() => setRegisteredOrders(p => { const n={...p}; delete n[order.id]; return n; })}
+                        style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}>
+                        닫기
+                      </button>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ background: '#c8e6c9' }}>
+                            <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>품목명</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>국가</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>꽃</th>
+                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}>수량</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>단위</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(ro.items || []).map((it, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: i%2===0?'#f9fbe7':'#f1f8e9' }}>
+                              <td style={{ padding: '4px 8px' }}>{it.displayName || it.prodName}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c', fontSize: 11 }}>{it.counName || '—'}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{it.qty}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{it.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 );
               })()}
