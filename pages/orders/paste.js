@@ -343,6 +343,12 @@ export default function PasteOrderPage() {
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
           </h2>
+          <button
+            onClick={() => { window.location.href = '/shipment/week-pivot'; }}
+            style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            📊 차수피벗 이동
+          </button>
           {orders.length > 0 && (
             <button
               onClick={() => {
