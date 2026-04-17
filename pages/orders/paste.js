@@ -343,7 +343,7 @@ export default function PasteOrderPage() {
                   {newWeeks.map(w => (
                     <button key={w} onClick={() => setWeek(w)}
                       style={{
-                        padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                        padding: '5px 22px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
                         border: week === w ? '2px solid #1a237e' : '1px solid #c5cae9',
                         background: week === w ? '#1a237e' : '#f3f4ff',
                         color: week === w ? '#fff' : '#1a237e',
