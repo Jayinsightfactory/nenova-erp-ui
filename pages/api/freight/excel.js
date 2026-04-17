@@ -175,13 +175,19 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
 
   const dbInvoiceUSD = snap?.InvoiceTotalUSD ?? rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
   const totalSteam = rows.reduce((a, r) => a + resolveSteam(r), 0);
+  // 0 은 "미설정" 으로 취급 — 클라이언트가 0 보내도 서버 추출값/DB값이 우선
+  const pickNonZero = (val, fallback) => {
+    if (val === '' || val == null || Number.isNaN(Number(val))) return fallback;
+    const n = Number(val);
+    return n > 0 ? n : fallback;
+  };
   const invoiceUSD = pickOv(ovMaster.invoiceUSD, dbInvoiceUSD);
-  const gw = pickOv(ovMaster.gw, snap?.GrossWeight ?? sumF('GrossWeight') ?? (extractedGW || 0));
-  const cw = pickOv(ovMaster.cw, snap?.ChargeableWeight ?? sumF('ChargeableWeight') ?? (extractedGW || 0));
-  const rate = pickOv(ovMaster.rateUSD, snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? (extractedRate || 0));
-  const docFee = pickOv(ovMaster.docFeeUSD, snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? (extractedDoc || 0));
+  const gw = pickNonZero(ovMaster.gw, snap?.GrossWeight ?? sumF('GrossWeight') ?? extractedGW ?? 0);
+  const cw = pickNonZero(ovMaster.cw, snap?.ChargeableWeight ?? sumF('ChargeableWeight') ?? extractedGW ?? 0);
+  const rate = pickNonZero(ovMaster.rateUSD, snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? extractedRate ?? 0);
+  const docFee = pickNonZero(ovMaster.docFeeUSD, snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? extractedDoc ?? 0);
   const exchangeRate = pickOv(ovMaster.exchangeRate, snap?.ExchangeRate || 0);
-  const actualFreightEff = pickOv(ovMaster.actualFreightUSD, actualFreightUSD);
+  const actualFreightEff = pickNonZero(ovMaster.actualFreightUSD, actualFreightUSD);
 
   // aoa + styles (styles는 별도 map으로 관리 후 post-process)
   const aoa = Array.from({ length: 14 }, () => Array(35).fill(null));
