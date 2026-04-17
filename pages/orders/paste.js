@@ -125,7 +125,22 @@ export default function PasteOrderPage() {
         }),
       }));
 
-      setOrders(applyCache(raw, cache, allProducts));
+      const applied = applyCache(raw, cache, allProducts);
+      setOrders(applied);
+
+      // 거래처 매칭된 업체의 저장내역 자동 로드
+      if (week) {
+        applied.forEach(async (o) => {
+          if (!o.custMatch) return;
+          try {
+            const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, week });
+            if (od.success && od.orders?.length > 0) {
+              const matched = od.orders.find(r => r.custName === o.custMatch.CustName) || od.orders[0];
+              setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
+            }
+          } catch { /* 조회 실패 무시 */ }
+        });
+      }
     } catch (e) {
       setParseError(e.message);
     } finally {
