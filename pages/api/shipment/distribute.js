@@ -53,10 +53,12 @@ async function getDistribute(req, res) {
             WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek = @week AND sm3.isDeleted = 0
           ), 0) AS outQty,
           ISNULL((
-            -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-            SELECT SUM(ISNULL(od2.BoxQuantity,0)+ISNULL(od2.BunchQuantity,0)+ISNULL(od2.SteamQuantity,0))
+            SELECT SUM(CASE WHEN p2.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
+                            WHEN p2.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
+                            ELSE ISNULL(od2.BoxQuantity,0) END)
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey = om2.OrderMasterKey
+            JOIN Product p2 ON od2.ProdKey = p2.ProdKey
             WHERE od2.ProdKey = p.ProdKey AND om2.OrderWeek = @week AND om2.isDeleted = 0
               AND od2.isDeleted = 0
           ), 0) AS orderQty
@@ -89,10 +91,13 @@ async function getDistribute(req, res) {
           ISNULL(od.BoxQuantity, 0) AS 주문Box,
           ISNULL(od.BunchQuantity, 0) AS 주문Bunch,
           ISNULL(od.SteamQuantity, 0) AS 주문Steam,
-          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량 (unit 기준 하나만 채워짐)
-          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS 주문수량,
+          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+               ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
-          ((ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) - ISNULL(sd.OutQuantity, 0)) AS 차이,
+          (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                ELSE ISNULL(od.BoxQuantity,0) END - ISNULL(sd.OutQuantity, 0)) AS 차이,
           ISNULL(sd.BoxQuantity, 0) AS 출고Box,
           ISNULL(sd.BunchQuantity, 0) AS 출고Bunch,
           ISNULL(sd.SteamQuantity, 0) AS 출고Steam,
@@ -135,10 +140,13 @@ async function getDistribute(req, res) {
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(sd.Cost, ISNULL(cpc.Cost, p.Cost)) AS Cost,
           od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS 주문수량,
+          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+               ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
-          ((ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) - ISNULL(sd.OutQuantity, 0)) AS 잔량,
+          (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                ELSE ISNULL(od.BoxQuantity,0) END - ISNULL(sd.OutQuantity, 0)) AS 잔량,
           c.CustName, c.OrderCode
          FROM OrderMaster om
          JOIN Customer c    ON om.CustKey = c.CustKey
@@ -226,8 +234,9 @@ async function getDistribute(req, res) {
         `SELECT
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
           om.CustKey,
-          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS orderQty,
+          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+               ELSE ISNULL(od.BoxQuantity,0) END AS orderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty
          FROM OrderMaster om
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0

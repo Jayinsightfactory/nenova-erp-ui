@@ -52,10 +52,12 @@ async function getOrders(req, res) {
         om.OrderYear, om.OrderWeek, om.Manager, om.OrderCode,
         c.CustKey, c.CustName, c.CustArea,
         od.OrderDetailKey, od.ProdKey,
-        p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
+        p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
         od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
-        -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량 (응답 호환 위해 OutQuantity alias 유지)
-        (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS OutQuantity,
+        -- 14차: OutUnit 기준 단일 컬럼
+        CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+             WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+             ELSE ISNULL(od.BoxQuantity,0) END AS OutQuantity,
         od.NoneOutQuantity
        FROM OrderMaster om
        LEFT JOIN Customer c    ON om.CustKey = c.CustKey AND c.isDeleted = 0
@@ -95,8 +97,8 @@ async function getOrders(req, res) {
           steamQty: row.SteamQuantity,
           outQty: row.OutQuantity,
           noneOutQty: row.NoneOutQuantity,
-          unit: row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이',
-          qty: row.BoxQuantity || row.BunchQuantity || row.SteamQuantity || 0,
+          unit: row.OutUnit || (row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이'),
+          qty: row.OutQuantity || 0,
         });
       }
     }
@@ -172,8 +174,8 @@ async function createOrder(req, res) {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
         await tQuery(
           `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, 0, @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
           {
             mk:       { type: sql.Int,      value: mk },
             year:     { type: sql.NVarChar, value: orderYear },
