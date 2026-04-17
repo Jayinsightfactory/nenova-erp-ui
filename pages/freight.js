@@ -108,6 +108,7 @@ export default function FreightPage() {
     const details = apiData.input.details.map(d => {
       const ov = rowsOverride[d.prodKey] || {};
       return { ...d,
+        flowerName:    ov.flowerName    ?? d.flowerName,   // 카테고리 수동 오버라이드
         stemsPerBunch: ov.stemsPerBunch ?? d.stemsPerBunch,
         salePriceKRW:  ov.salePriceKRW  ?? d.salePriceKRW,
         tariffRate:    ov.tariffRate    ?? d.tariffRate,
@@ -141,6 +142,11 @@ export default function FreightPage() {
 
   const updateRow = (prodKey, field, val) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), [field]: val === '' ? null : Number(val) } }));
+    setDirty(true);
+  };
+  // 카테고리(FlowerName)는 문자열이라 별도 핸들러
+  const updateRowCategory = (prodKey, flowerName) => {
+    setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
@@ -246,6 +252,7 @@ export default function FreightPage() {
       const ov = rowsOverride[d.prodKey] || {};
       return {
         prodKey: d.prodKey,
+        flowerName:    ov.flowerName    ?? d.flowerName,    // 카테고리 오버라이드 엑셀에도 반영
         stemsPerBunch: ov.stemsPerBunch ?? d.stemsPerBunch,
         salePriceKRW:  ov.salePriceKRW  ?? d.salePriceKRW,
         tariffRate:    ov.tariffRate    ?? d.tariffRate,
@@ -612,6 +619,7 @@ export default function FreightPage() {
                 <thead>
                   <tr>
                     <th>농장</th><th>품목명</th>
+                    <th style={{ background: '#fff3e0' }}>카테고리</th>
                     <th style={{ textAlign: 'right', background: '#e8f5e9' }}>박스수</th>
                     <th style={{ textAlign: 'right', background: '#e8f5e9' }}>단수</th>
                     <th style={{ textAlign: 'right', background: '#e8f5e9' }}>송이수</th>
@@ -651,6 +659,30 @@ export default function FreightPage() {
                       }}>
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
+                        <td style={{ background: overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}>
+                          {editMode ? (
+                            <select
+                              value={overridden.flowerName ?? r.flowerName ?? ''}
+                              onChange={e => updateRowCategory(r.prodKey, e.target.value)}
+                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 2px', background: '#fff' }}
+                            >
+                              <option value="">(없음)</option>
+                              {Object.keys(flowerNameToKey).map(nk => {
+                                // flowerNameToKey 는 normalized key. 실제 한글 라벨은 apiData.flowerMeta 에서 찾아야 함
+                                // 간단히 nk 를 그대로 노출 (대부분 한글명)
+                                return <option key={nk} value={nk}>{nk}</option>;
+                              })}
+                              {/* 추가 선택지: 업계 표준 카테고리 */}
+                              {['장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'].filter(c => !flowerNameToKey[c]).map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span style={{ fontSize: 11, color: r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)' }}>
+                              {r.flowerName || '(없음)'}{overridden.flowerName ? ' *' : ''}
+                            </span>
+                          )}
+                        </td>
                         <td className="num">{fmt(r.rawBoxQty)}</td>
                         <td className="num">{fmt(r.bunchQty)}</td>
                         <td className="num"
@@ -688,7 +720,7 @@ export default function FreightPage() {
                 </tbody>
                 <tfoot>
                   <tr className="foot">
-                    <td style={{ textAlign: 'right' }} colSpan={2}>합계</td>
+                    <td style={{ textAlign: 'right' }} colSpan={3}>합계</td>
                     <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.rawBoxQty || 0), 0))}</td>
                     <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.bunchQty || 0), 0))}</td>
                     <td className="num">{fmt(liveResult.rows.reduce((a,r) => a + (r.steamQty || 0), 0))}</td>

@@ -136,18 +136,31 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const sumF = (f) => masters.map(m => Number(m[f])).filter(v => !Number.isNaN(v) && v !== 0).reduce((a,b)=>a+b,0) || null;
   const firstF = (f) => { for (const m of masters) if (m[f] != null) return Number(m[f]); return null; };
 
-  // 자동 카테고리 매핑 — '기타'/'미분류' 는 ProdName 키워드로 재분류 (프리뷰와 동일 로직)
+  // 카테고리 결정 순서:
+  //   1) 클라이언트 오버라이드 (rowsPayload[prodKey].flowerName)
+  //   2) 자동 감지 (기타/미분류 → ProdName 키워드 매핑)
+  //   3) DB FlowerName
   for (const r of rows) {
-    r.FlowerName = autoDetectFlower(r.ProdName, (r.FlowerName || '').trim());
+    const ovRow = ovRowsByKey.get(Number(r.ProdKey));
+    if (ovRow && ovRow.flowerName) {
+      r.FlowerName = ovRow.flowerName;
+    } else {
+      r.FlowerName = autoDetectFlower(r.ProdName, (r.FlowerName || '').trim());
+    }
   }
 
-  // 카테고리 집계
+  // 카테고리 집계 (BoxQty>0 우선, 없으면 BunchQty 기준으로도 노출)
   const boxByFlower = new Map();
+  const bunchByFlower = new Map();
   for (const r of rows) {
     const fn = (r.FlowerName || '').trim();
     boxByFlower.set(fn, (boxByFlower.get(fn) || 0) + (Number(r.BoxQuantity) || 0));
+    bunchByFlower.set(fn, (bunchByFlower.get(fn) || 0) + (Number(r.BunchQuantity) || 0));
   }
-  const categories = [...boxByFlower.entries()].filter(([_, v]) => v > 0).map(([fn]) => fn);
+  // 박스가 0 인 카테고리도 단수>0 이면 포함 (MELODY 같은 BILL 대응)
+  const categories = [...new Set([...boxByFlower.entries()].filter(([_, v]) => v > 0).map(([fn]) => fn)
+    .concat([...bunchByFlower.entries()].filter(([_, v]) => v > 0).map(([fn]) => fn)))]
+    .filter(Boolean);
   while (categories.length < 4) categories.push('');
 
   const flowerMetaMap = new Map();
