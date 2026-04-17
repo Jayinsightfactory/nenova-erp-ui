@@ -976,8 +976,9 @@ async function addOrder(req, res) {
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek } }
       );
 
@@ -1143,8 +1144,9 @@ async function addOrderDelta(req, res) {
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek2 } }
       );
 

@@ -155,8 +155,9 @@ async function createOrder(req, res) {
     const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
       // 기존 OrderMaster 확인 (같은 업체+차수)
       const existing = await tQuery(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: orderWeek } }
       );
 
