@@ -152,10 +152,11 @@ async function createOrder(req, res) {
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
-      // 기존 OrderMaster 확인 (같은 업체+차수)
+      // 기존 OrderMaster 확인 (같은 업체+차수) — TOP 1 오래된 것 우선
       const existing = await tQuery(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: orderWeek } }
       );
 

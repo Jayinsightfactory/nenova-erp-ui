@@ -974,10 +974,11 @@ async function addOrder(req, res) {
     const steamQty = unit === '송이' ? quantity : 0;
 
     await withTransaction(async (tQ) => {
-      // OrderMaster 찾기 또는 생성
+      // OrderMaster 찾기 또는 생성 — TOP 1 오래된 것 우선 (중복 방지)
       const om = await tQ(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek } }
       );
 
@@ -1154,10 +1155,11 @@ async function addOrderDelta(req, res) {
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
     await withTransaction(async (tQ) => {
-      // OrderMaster 찾기 또는 생성
+      // OrderMaster 찾기 또는 생성 — TOP 1 오래된 것 우선
       const om = await tQ(
-        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         ORDER BY OrderMasterKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek2 } }
       );
 
