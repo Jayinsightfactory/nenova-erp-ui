@@ -278,20 +278,21 @@ export default function IncomingPricePage() {
                 {flowerGroups.map(group => {
                   const expanded = expandedFlowers.has(group.key);
                   const cnt = group.rows.length;
+                  const hasAmount = activeFarms.some(f => groupFarmTotal(group, f) > 0);
                   return (
                     <>
                       {/* 꽃 요약 행 */}
                       <tr key={group.key}
-                        onClick={() => toggleFlowerExpand(group.key)}
-                        style={{ background: '#e8eaf6', cursor: 'pointer', borderBottom: '1px solid #c5cae9' }}>
+                        onClick={() => hasAmount && toggleFlowerExpand(group.key)}
+                        style={{ background: hasAmount ? '#e8eaf6' : '#f5f5f5', cursor: hasAmount ? 'pointer' : 'default', borderBottom: '1px solid #c5cae9', opacity: hasAmount ? 1 : 0.45 }}>
                         <td style={tdS(100, 'center', { fontWeight: 700, color: '#1a237e' })}>{group.country}</td>
                         <td style={{ padding: '7px 8px', fontWeight: 700, color: '#283593' }}>
-                          <span style={{ marginRight: 6 }}>{expanded ? '▼' : '▶'}</span>
+                          <span style={{ marginRight: 6 }}>{!hasAmount ? '—' : expanded ? '▼' : '▶'}</span>
                           {group.flower}
                           <span style={{ fontSize: 11, fontWeight: 400, color: '#888', marginLeft: 6 }}>({cnt}품목)</span>
                         </td>
-                        <td style={tdS(200, 'left', { color: '#888', fontSize: 11, paddingLeft: 8 })}>
-                          클릭하여 {expanded ? '접기' : '펼치기'}
+                        <td style={tdS(200, 'left', { color: '#aaa', fontSize: 11, paddingLeft: 8 })}>
+                          {hasAmount ? `클릭하여 ${expanded ? '접기' : '펼치기'}` : '데이터 없음'}
                         </td>
                         {activeFarms.map(farm => {
                           const total = groupFarmTotal(group, farm);
