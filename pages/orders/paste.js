@@ -9,9 +9,11 @@ export default function PasteOrderPage() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [weeks, setWeeks] = useState([]);
   const [week, setWeek] = useState('');
+  const [weekPage, setWeekPage] = useState(0);
+  const WEEK_PAGE_SIZE = 6;
   const [pasteText, setPasteText] = useState('');
   const [parsing, setParsing] = useState(false);
-  const [parsed, setParsed] = useState(null);   // { custMatch, items[] }
+  const [parsed, setParsed] = useState(null);
   const [saving, setSaving] = useState(false);
   const [resultMsg, setResultMsg] = useState('');
   const [parseError, setParseError] = useState('');
@@ -19,7 +21,13 @@ export default function PasteOrderPage() {
   useEffect(() => {
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
-    apiGet('/api/incoming-price').then(d => { if (d.success) setWeeks(d.weeks || []); });
+    apiGet('/api/orders/weeks').then(d => {
+      if (d.success) {
+        const ws = d.weeks || [];
+        setWeeks(ws);
+        if (ws.length > 0) { setWeek(ws[0]); setWeekPage(0); }
+      }
+    });
   }, []);
 
   const handleParse = async () => {
@@ -109,30 +117,50 @@ export default function PasteOrderPage() {
           📋 붙여넣기 주문등록
         </h2>
 
-        {/* 붙여넣기 + 차수 */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <label style={labelS}>
-              텍스트 붙여넣기
-              <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 6 }}>
-                거래처명 / 품목명 | 수량 형식
-              </span>
-            </label>
-            <textarea
-              style={{ width: '100%', height: 200, padding: '10px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-              placeholder={'청화꽃집\nCaroline | 2\nMoon Light | 3\n수국 핑크 | 2\n...'}
-              value={pasteText}
-              onChange={e => { setPasteText(e.target.value); setParsed(null); setParseError(''); }}
-            />
+        {/* 차수 선택 버튼형 */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelS}>차수</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setWeekPage(p => Math.min(p + 1, Math.floor((weeks.length - 1) / WEEK_PAGE_SIZE)))}
+              disabled={weekPage >= Math.floor((weeks.length - 1) / WEEK_PAGE_SIZE)}
+              style={navBtnS}
+            >◀</button>
+            {weeks.slice(weekPage * WEEK_PAGE_SIZE, (weekPage + 1) * WEEK_PAGE_SIZE).map(w => (
+              <button key={w} onClick={() => setWeek(w)}
+                style={{
+                  padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                  border: week === w ? '2px solid #1a237e' : '1px solid #bbb',
+                  background: week === w ? '#1a237e' : '#fff',
+                  color: week === w ? '#fff' : '#333',
+                  fontWeight: week === w ? 700 : 400,
+                }}>
+                {w}
+              </button>
+            ))}
+            <button
+              onClick={() => setWeekPage(p => Math.max(p - 1, 0))}
+              disabled={weekPage === 0}
+              style={navBtnS}
+            >▶</button>
+            {week && <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600, marginLeft: 4 }}>선택: {week}</span>}
           </div>
-          <div>
-            <label style={labelS}>차수</label>
-            <select style={{ padding: '7px 10px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, minWidth: 160 }}
-              value={week} onChange={e => setWeek(e.target.value)}>
-              <option value="">차수 선택</option>
-              {weeks.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
-          </div>
+        </div>
+
+        {/* 붙여넣기 영역 */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelS}>
+            텍스트 붙여넣기
+            <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 6 }}>
+              거래처명 / 품목명 | 수량 형식
+            </span>
+          </label>
+          <textarea
+            style={{ width: '100%', height: 200, padding: '10px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+            placeholder={'청화꽃집\nCaroline | 2\nMoon Light | 3\n수국 핑크 | 2\n...'}
+            value={pasteText}
+            onChange={e => { setPasteText(e.target.value); setParsed(null); setParseError(''); }}
+          />
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
@@ -306,3 +334,4 @@ function ProdSearchInput({ value, results, onChange, onSelect }) {
 
 const labelS = { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 };
 const thS = (w, align = 'center') => ({ width: w, minWidth: w, padding: '7px 8px', textAlign: align, fontWeight: 600 });
+const navBtnS = { padding: '5px 10px', borderRadius: 6, border: '1px solid #bbb', background: '#f5f5f5', cursor: 'pointer', fontSize: 13, color: '#555' };
