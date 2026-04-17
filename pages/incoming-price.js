@@ -8,45 +8,54 @@ const fmtUSD = v => v == null ? '' : `$${Number(v).toFixed(2)}`;
 const fmtUSDInt = v => v == null ? '' : `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function IncomingPricePage() {
-  const [weeks, setWeeks] = useState([]);
-  const [week, setWeek] = useState('');
+  const [allWeeks, setAllWeeks] = useState([]);
+  const [selectedWeeks, setSelectedWeeks] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [includeFreight, setIncludeFreight] = useState(false);
-  const [credits, setCredits] = useState({});   // { farmName: { creditUSD, memo } }
-  const [editCredit, setEditCredit] = useState({});  // 편집 중인 값
+  const [credits, setCredits] = useState({});
+  const [editCredit, setEditCredit] = useState({});
+  const [creditWeek, setCreditWeek] = useState('');  // 크레딧 저장용 단일 차수
   const [saving, setSaving] = useState({});
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
     apiGet('/api/incoming-price').then(d => {
-      if (d.success) setWeeks(d.weeks || []);
+      if (d.success) setAllWeeks(d.weeks || []);
     });
   }, []);
 
-  const loadWeek = useCallback(async (w) => {
-    if (!w) return;
+  const toggleWeek = (w) => {
+    setSelectedWeeks(prev =>
+      prev.includes(w) ? prev.filter(x => x !== w) : [...prev, w]
+    );
+  };
+
+  const loadData = useCallback(async (weeks) => {
+    if (!weeks.length) { setData(null); return; }
     setLoading(true);
     setData(null);
     try {
-      const d = await apiGet('/api/incoming-price', { week: w });
+      const d = await apiGet('/api/incoming-price', { weeks: weeks.join(',') });
       if (d.success) {
         setData(d);
         setCredits(d.credits || {});
-        // 편집 초기값 세팅
         const init = {};
         for (const farm of (d.farms || [])) {
           const c = d.credits?.[farm];
           init[farm] = { creditUSD: c?.creditUSD ?? '', memo: c?.memo ?? '' };
         }
         setEditCredit(init);
+        // 크레딧 저장 기본 차수: 마지막 선택 차수
+        setCreditWeek(weeks[weeks.length - 1] || '');
       }
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (week) loadWeek(week); }, [week, loadWeek]);
+  useEffect(() => { loadData(selectedWeeks); }, [selectedWeeks, loadData]);
 
   const saveCredit = async (farm) => {
+    if (!creditWeek) return;
     setSaving(p => ({ ...p, [farm]: true }));
     try {
       const ec = editCredit[farm] || {};
@@ -54,12 +63,12 @@ export default function IncomingPricePage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ farmName: farm, orderWeek: week, creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' }),
+        body: JSON.stringify({ farmName: farm, orderWeek: creditWeek, creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' }),
       });
       const d = await res.json();
       if (d.success) {
         setCredits(p => ({ ...p, [farm]: { creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' } }));
-        setMsg(`✅ ${farm} 크레딧 저장`);
+        setMsg(`✅ ${farm} 크레딧 저장 (${creditWeek})`);
         setTimeout(() => setMsg(''), 2500);
       }
     } finally { setSaving(p => ({ ...p, [farm]: false })); }
@@ -69,14 +78,12 @@ export default function IncomingPricePage() {
   const rows   = data?.rows   || [];
   const totals = data?.totals || {};
 
-  // 국가 > 꽃 > 품목 그룹 (정렬)
   const sortedRows = [...rows].sort((a, b) =>
     (a.country||'').localeCompare(b.country||'') ||
     (a.flower||'').localeCompare(b.flower||'') ||
     (a.prodName||'').localeCompare(b.prodName||'')
   );
 
-  // 그룹 헤더용
   let prevCountry = null, prevFlower = null;
 
   const getFarmTotal = (farm) => {
@@ -98,21 +105,60 @@ export default function IncomingPricePage() {
       <div style={{ padding: '16px 20px', minHeight: '100vh', background: '#f8f9fa' }}>
 
         {/* 상단 컨트롤 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>입고단가 / 농장 송금</h2>
-          <select
-            value={week}
-            onChange={e => setWeek(e.target.value)}
-            style={{ padding: '6px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 14, minWidth: 160 }}
-          >
-            <option value="">차수 선택</option>
-            {weeks.map(w => <option key={w} value={w}>{w}</option>)}
-          </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-            <input type="checkbox" checked={includeFreight} onChange={e => setIncludeFreight(e.target.checked)} />
-            국내 운송료 포함
-          </label>
-          {msg && <span style={{ color: '#388e3c', fontWeight: 600 }}>{msg}</span>}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>입고단가 / 농장 송금</h2>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={includeFreight} onChange={e => setIncludeFreight(e.target.checked)} />
+              국내 운송료 포함
+            </label>
+            {msg && <span style={{ color: '#388e3c', fontWeight: 600 }}>{msg}</span>}
+          </div>
+
+          {/* 차수 토글 버튼 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>차수 선택:</span>
+            {allWeeks.length === 0 && (
+              <span style={{ fontSize: 12, color: '#aaa' }}>로딩 중…</span>
+            )}
+            {allWeeks.map(w => {
+              const active = selectedWeeks.includes(w);
+              return (
+                <button
+                  key={w}
+                  onClick={() => toggleWeek(w)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    border: active ? '2px solid #1a237e' : '1px solid #bbb',
+                    background: active ? '#1a237e' : '#fff',
+                    color: active ? '#fff' : '#333',
+                    fontWeight: active ? 700 : 400,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {w}
+                </button>
+              );
+            })}
+            {selectedWeeks.length > 0 && (
+              <button
+                onClick={() => setSelectedWeeks([])}
+                style={{ padding: '4px 10px', borderRadius: 20, border: '1px solid #e0e0e0', background: '#f5f5f5', color: '#888', fontSize: 12, cursor: 'pointer' }}
+              >
+                전체 해제
+              </button>
+            )}
+          </div>
+
+          {selectedWeeks.length > 0 && (
+            <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>
+              선택된 차수: <strong style={{ color: '#1a237e' }}>{selectedWeeks.join(', ')}</strong>
+              {selectedWeeks.length > 1 && ' (합산 집계)'}
+            </div>
+          )}
         </div>
 
         {loading && <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>로딩 중…</div>}
@@ -200,7 +246,21 @@ export default function IncomingPricePage() {
                 {/* 크레딧 입력 */}
                 <tr style={{ background: '#fff3e0' }}>
                   <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12, color: '#e65100', fontWeight: 600 })}>
-                    크레딧 차감 (불량/반품)
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <span>크레딧 차감 (불량/반품)</span>
+                      {selectedWeeks.length > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+                          <span style={{ color: '#888' }}>저장할 차수:</span>
+                          <select
+                            value={creditWeek}
+                            onChange={e => setCreditWeek(e.target.value)}
+                            style={{ fontSize: 11, padding: '1px 4px', border: '1px solid #ffb74d', borderRadius: 3 }}
+                          >
+                            {selectedWeeks.map(w => <option key={w} value={w}>{w}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   {farms.map(farm => (
                     <td key={farm} style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
@@ -226,7 +286,7 @@ export default function IncomingPricePage() {
                         />
                         <button
                           onClick={() => saveCredit(farm)}
-                          disabled={saving[farm]}
+                          disabled={saving[farm] || !creditWeek}
                           style={{ fontSize: 11, padding: '2px 8px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
                         >
                           {saving[farm] ? '…' : '저장'}
@@ -288,9 +348,9 @@ export default function IncomingPricePage() {
           </div>
         )}
 
-        {!loading && !data && !week && (
+        {!loading && !data && selectedWeeks.length === 0 && (
           <div style={{ padding: 60, textAlign: 'center', color: '#aaa', fontSize: 15 }}>
-            차수를 선택하면 농장별 입고단가와 송금액을 확인할 수 있습니다.
+            위에서 차수를 선택하면 농장별 입고단가와 송금액을 확인할 수 있습니다.
           </div>
         )}
       </div>

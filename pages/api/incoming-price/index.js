@@ -1,7 +1,7 @@
 // pages/api/incoming-price/index.js
-// GET ?week=xxx  → 차수별 농장 입고단가 피벗 + 크레딧
-// GET (no week)  → 차수 목록
-// PUT            → 크레딧 저장 { farmName, orderWeek, creditUSD, memo }
+// GET               → 차수 목록
+// GET ?weeks=w1,w2  → 다중 차수 농장 입고단가 피벗 + 크레딧
+// PUT               → 크레딧 저장 { farmName, orderWeek, creditUSD, memo }
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
@@ -17,10 +17,10 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function handleGet(req, res) {
-  const { week } = req.query;
+  const { weeks: weeksParam } = req.query;
 
   // 차수 목록
-  if (!week) {
+  if (!weeksParam) {
     const r = await query(
       `SELECT DISTINCT OrderWeek FROM WarehouseMaster
        WHERE isDeleted=0 AND OrderWeek IS NOT NULL AND OrderWeek<>''
@@ -29,15 +29,27 @@ async function handleGet(req, res) {
     return res.status(200).json({ success: true, weeks: r.recordset.map(x => x.OrderWeek) });
   }
 
-  // 품목별 입고 단가 (UPrice) / 합계 (TPrice)
+  const selectedWeeks = weeksParam.split(',').map(w => w.trim()).filter(Boolean);
+  if (selectedWeeks.length === 0) {
+    return res.status(200).json({ success: true, weeks: [], farms: [], rows: [], totals: {}, credits: {} });
+  }
+
+  // 다중 차수 IN 절 파라미터 빌드
+  const weekParams = {};
+  const weekPlaceholders = selectedWeeks.map((w, i) => {
+    weekParams[`w${i}`] = { type: sql.NVarChar, value: w };
+    return `@w${i}`;
+  }).join(',');
+
   const [detailRes, creditRes] = await Promise.all([
     query(
       `SELECT
          wm.FarmName,
+         wm.OrderWeek,
          p.CounName    AS country,
          p.FlowerName  AS flower,
          p.ProdName    AS prodName,
-         p.DisplayName AS displayName,
+         ISNULL(p.DisplayName, p.ProdName) AS displayName,
          p.ProdKey,
          wd.UPrice,
          wd.TPrice,
@@ -48,16 +60,16 @@ async function handleGet(req, res) {
        FROM WarehouseDetail wd
        JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
        LEFT JOIN Product p ON wd.ProdKey = p.ProdKey
-       WHERE wm.OrderWeek = @week AND wm.isDeleted = 0
+       WHERE wm.OrderWeek IN (${weekPlaceholders}) AND wm.isDeleted = 0
        ORDER BY wm.FarmName, p.CounName, p.FlowerName, p.ProdName`,
-      { week: { type: sql.NVarChar, value: week } }
+      weekParams
     ),
     query(
-      `SELECT FarmName, CreditUSD, Memo
+      `SELECT FarmName, OrderWeek, CreditUSD, Memo
        FROM FarmCredit
-       WHERE OrderWeek = @week AND isDeleted = 0`,
-      { week: { type: sql.NVarChar, value: week } }
-    ).catch(() => ({ recordset: [] })),  // 테이블 없을 때 fallback
+       WHERE OrderWeek IN (${weekPlaceholders}) AND isDeleted = 0`,
+      weekParams
+    ).catch(() => ({ recordset: [] })),
   ]);
 
   const rows = detailRes.recordset;
@@ -66,9 +78,9 @@ async function handleGet(req, res) {
   // 농장 목록 (순서 유지)
   const farms = [...new Set(rows.map(r => r.FarmName).filter(Boolean))];
 
-  // 품목 키: country|flower|prodName
-  const productMap = new Map();  // key → { meta, prices: { farmName: {uPrice, tPrice, qty} } }
-  const freightMap = new Map();  // farmName → tPrice (운송료 합계)
+  // 품목 키: country|flower|prodName|prodKey
+  const productMap = new Map();
+  const freightMap = new Map();  // farmName → tPrice 합계
 
   for (const r of rows) {
     const farmName = r.FarmName || '';
@@ -92,16 +104,14 @@ async function handleGet(req, res) {
       });
     }
     const item = productMap.get(key);
-    // 같은 품목을 같은 농장에서 여러 번 입고한 경우 합산
     if (!item.prices[farmName]) {
       item.prices[farmName] = { uPrice: Number(r.UPrice) || 0, tPrice: 0, qty: 0 };
     }
     item.prices[farmName].tPrice += tPrice;
     item.prices[farmName].qty    += Number(r.BunchQuantity || r.BoxQuantity || r.OutQuantity) || 0;
-    // uPrice는 첫 번째 값 사용 (같은 품목·농장이면 동일해야 함)
   }
 
-  // 농장별 소계 (운송료 제외)
+  // 농장별 소계
   const totals = {};
   for (const farm of farms) {
     let subtotal = 0;
@@ -114,15 +124,19 @@ async function handleGet(req, res) {
     };
   }
 
-  // 크레딧
+  // 크레딧: 다중 차수 합산
   const credits = {};
   for (const c of creditRes.recordset) {
-    credits[c.FarmName] = { creditUSD: Number(c.CreditUSD) || 0, memo: c.Memo || '' };
+    const farm = c.FarmName;
+    if (!credits[farm]) credits[farm] = { creditUSD: 0, memo: '' };
+    credits[farm].creditUSD += Number(c.CreditUSD) || 0;
+    if (c.Memo) credits[farm].memo = credits[farm].memo
+      ? `${credits[farm].memo} / ${c.Memo}` : c.Memo;
   }
 
   return res.status(200).json({
     success: true,
-    week,
+    weeks: selectedWeeks,
     farms,
     rows: [...productMap.values()],
     totals,
@@ -134,7 +148,6 @@ async function handlePutCredit(req, res) {
   const { farmName, orderWeek, creditUSD, memo } = req.body;
   if (!farmName || !orderWeek) return res.status(400).json({ success: false, error: 'farmName, orderWeek 필수' });
 
-  // upsert: 기존 있으면 UPDATE, 없으면 INSERT
   await query(
     `IF EXISTS (SELECT 1 FROM FarmCredit WHERE FarmName=@farm AND OrderWeek=@week AND isDeleted=0)
        UPDATE FarmCredit SET CreditUSD=@credit, Memo=@memo, UpdateDtm=GETDATE()
