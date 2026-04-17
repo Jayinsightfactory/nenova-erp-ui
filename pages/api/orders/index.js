@@ -135,7 +135,9 @@ async function createOrder(req, res) {
     }
 
     const orderYear = year || new Date().getFullYear().toString();
-    const orderWeek = week || '';
+    // YYYY-WW-SS → WW-SS (전산 DB 형식으로 정규화)
+    const rawWeek = week || '';
+    const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
     const uid = req.user?.userId || 'system';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
