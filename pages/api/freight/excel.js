@@ -83,6 +83,15 @@ function style(bg, font, align, border = BORDER_ALL) {
   return { fill: bg, font, alignment: align, border };
 }
 
+// 소수점 2자리 숫자 포맷 + 스타일
+const NUM_FMT_2  = '#,##0.00;[Red]-#,##0.00;-';
+const NUM_FMT_4  = '#,##0.0000;[Red]-#,##0.0000;-';
+const NUM_FMT_INT= '#,##0;[Red]-#,##0;-';
+const NUM_FMT_PCT= '0.00%;[Red]-0.00%;-';
+function nstyle(bg, font, align, fmt = NUM_FMT_2, border = BORDER_ALL) {
+  return { fill: bg, font, alignment: align, border, numFmt: fmt };
+}
+
 async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const ov = overrides || {};
   const ovMaster = ov.master || {};
@@ -225,7 +234,9 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     aoa[r][c] = v;
     if (st) styles[XLSX.utils.encode_cell({ r, c })] = st;
   };
-  const fml = (expr) => ({ f: expr });
+  // fml(expr, cached) — Excel 수식 + 캐시된 계산값을 함께 기록.
+  // cached 값을 같이 주면 어떤 뷰어에서도 즉시 값 표시 + Excel 에서 입력 변경시 재계산 가능.
+  const fml = (expr, cached) => ({ f: expr, v: cached });
 
   // 제목 B1
   set(0, 1, `${primary.FarmName || ''} · AWB ${awbLabel || primary.AWB || ''}`, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
@@ -237,41 +248,41 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
 
   // B6 총금액 / C6 (input) / D6=C6-C11 (formula)
   set(5, 1, '총금액 Invoice', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(5, 2, Number(invoiceUSD) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(5, 2, Number(invoiceUSD) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
   set(5, 3, fml('C6-C11'), style(BG_FORMULA, null, ALIGN_RIGHT));
 
   // B7 환율 / C7
   set(6, 1, '환율', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(6, 2, exchangeRate, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(6, 2, exchangeRate, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
 
   // B8 GW / C8 / D8 CW / E8
   set(7, 1, 'GW', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(7, 2, gw, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(7, 2, gw, nstyle(BG_INPUT, null, ALIGN_RIGHT));
   set(7, 3, 'CW', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(7, 4, cw, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(7, 4, cw, nstyle(BG_INPUT, null, ALIGN_RIGHT));
 
   // B9 품목수 / C9 / D9 Rate / E9
   set(8, 1, '품목수', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(8, 2, categories.filter(c => c).length, style(BG_FORMULA, null, ALIGN_RIGHT));
   set(8, 3, 'Rate', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(8, 4, rate, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(8, 4, rate, nstyle(BG_INPUT, null, ALIGN_RIGHT));
 
   // B10 총수량 / C10
   set(9, 1, '총수량', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(9, 2, totalSteam, style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(9, 2, totalSteam, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_INT));
 
   // B11 항공료 / C11 / D11 서류 / E11 / F11 운송비 / G11=E9*E8
   // FREIGHTWISE 실제 인보이스가 있으면 C11 에 그 값(고정값), 없으면 E11+G11 수식
   set(10, 1, '항공료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   if (actualFreightEff > 0) {
-    set(10, 2, actualFreightEff, style({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
+    set(10, 2, actualFreightEff, nstyle({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
   } else {
-    set(10, 2, fml('E11+G11'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+    set(10, 2, fml('E11+G11', (Number(docFee) || 0) + (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
   }
   set(10, 3, '서류', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(10, 4, docFee, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(10, 4, docFee, nstyle(BG_INPUT, null, ALIGN_RIGHT));
   set(10, 5, '운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(10, 6, fml('E9*E8'), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(10, 6, fml('E9*E8', (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
 
   // J5 품목별 운임비 / O5 그외에 통관비
   set(4, 9, '품목별 운임비', style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
@@ -287,25 +298,31 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const cDeduct     = pickOv(ovCustoms.deductFee,         snap ? Number(snap.DeductFee)         : 40000);
   const cExtra      = pickOv(ovCustoms.extraFee,          snap ? Number(snap.ExtraFee)          : 0);
 
+  // 통관 총액 미리 계산 (수식에 cached 값 채움용)
+  const _itemCountEff = categories.filter(c => c).length;
+  const _bakSangKRW = (gw || 0) * (cBakSang || 0);
+  const _quarantineKRW = _itemCountEff * (cQuarantine || 0);
+  const _customsTotalKRW = _bakSangKRW + (cHandling || 0) + _quarantineKRW + (cDomestic || 0) + (cDeduct || 0) + (cExtra || 0);
+
   // row 6 J~U: 헤더
   ['품목','운임비','수량(송이)','송이당 운임비'].forEach((h,i) => set(5, 9+i, h, style(BG_HEADER, FONT_BOLD, ALIGN_CENTER)));
   set(5,14,'백상',  style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(5,15, fml(`C8*${cBakSang || 0}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(5,15, fml(`C8*${cBakSang || 0}`, _bakSangKRW), nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_INT));
   set(5,16,'겸역차감', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(5,17, cDeduct || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(5,17, cDeduct || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
   ['품목','품목별 통관비','송이당 통관비'].forEach((h,i)=>set(5,18+i,h,style(BG_HEADER,FONT_BOLD,ALIGN_CENTER)));
 
   // P7..P9 통관 상수
   set(6, 14, '통관 수수료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(6, 15, cHandling || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(6, 15, cHandling || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
   set(7, 14, '검역 수수료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(7, 15, fml(`C9*${cQuarantine || 0}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(7, 15, fml(`C9*${cQuarantine || 0}`, _quarantineKRW), nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_INT));
   set(8, 14, '국내 운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(8, 15, cDomestic || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(8, 15, cDomestic || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
   // 추가통관(extraFee) 는 R7 셀에 주입 — 기존 P10 Total 수식이 R6+R7 포함
-  set(6, 17, cExtra || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+  set(6, 17, cExtra || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
   set(9, 14, 'Total', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(9, 15, fml('SUM(P6:P9)+R6+R7'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(9, 15, fml('SUM(P6:P9)+R6+R7', _customsTotalKRW), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
 
   // 박스 수량 0 인 BILL (Yunnan Melody 처럼 단 단위) 감지 → 송이수 기반 분배 fallback
   const totalBoxAll = categories.reduce((a, c) => a + (c ? (boxByFlower.get(c) || 0) : 0), 0);
@@ -375,21 +392,45 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const compRowByProdKey = new Map(compResult.rows.map(r => [r.prodKey, r]));
   const compCategoryByName = new Map(compResult.categories.map(c => [c.flowerName, c]));
 
-  // 4개 카테고리 (고정 4행) — K/L/M/T/U (static values from computeFreightCost)
+  // 4개 카테고리 (고정 4행) — K/L/M/T/U (수식 + cached values)
   for (let i = 0; i < 4; i++) {
     const catName = categories[i] || '';
     const r = 6 + i;  // excel row 7..10
+    const excelRow = r + 1;
     set(r, 9, catName, style(BG_HEADER, null, ALIGN_CENTER));
     set(r, 18, catName, style(BG_HEADER, null, ALIGN_CENTER));
     const cat = catName ? compCategoryByName.get(catName) : null;
-    const cellStyle = useStemsRatio
-      ? style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT)
-      : style(BG_FORMULA, null, ALIGN_RIGHT);
-    set(r, 10, cat ? Number(cat.freightUSD) || 0 : 0, cellStyle);
-    set(r, 11, cat ? Number(cat.stemsCount) || 0 : 0, cellStyle);
-    set(r, 12, cat ? Number(cat.freightPerStemUSD) || 0 : 0, cellStyle);
-    set(r, 19, cat ? Number(cat.customsKRW) || 0 : 0, cellStyle);
-    set(r, 20, cat ? Number(cat.customsPerStemKRW) || 0 : 0, cellStyle);
+    const fm = flowerMetaMap.get(normalizeFlower(catName)) || {};
+    const stemsPerBox = Number(fm.StemsPerBox) || 0;
+    const bgBase = useStemsRatio ? { fgColor:{rgb:'FFF3E0'}, patternType:'solid' } : BG_FORMULA;
+    if (!catName) {
+      set(r, 10, 0, nstyle(bgBase, null, ALIGN_RIGHT));
+      set(r, 11, 0, nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 12, 0, nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_4));
+      set(r, 19, 0, nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 20, 0, nstyle(bgBase, null, ALIGN_RIGHT));
+      continue;
+    }
+    const catFreight     = cat ? Number(cat.freightUSD) || 0 : 0;
+    const catStems       = cat ? Number(cat.stemsCount) || 0 : 0;
+    const catPerStemFr   = cat ? Number(cat.freightPerStemUSD) || 0 : 0;
+    const catCustoms     = cat ? Number(cat.customsKRW) || 0 : 0;
+    const catPerStemCu   = cat ? Number(cat.customsPerStemKRW) || 0 : 0;
+    if (useStemsRatio) {
+      // 박스=0 BILL — 수식 의존 불가, static 값 유지 (배경 주황)
+      set(r, 10, catFreight,    nstyle(bgBase, null, ALIGN_RIGHT));
+      set(r, 11, catStems,      nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 12, catPerStemFr,  nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_4));
+      set(r, 19, catCustoms,    nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 20, catPerStemCu,  nstyle(bgBase, null, ALIGN_RIGHT));
+    } else {
+      // 박스>0 — 수식 + cached (원본 엑셀 호환)
+      set(r, 10, fml(`IF($C$8=$E$8,$C$11*AD${excelRow},$C$11*AI${excelRow})`, catFreight),       nstyle(bgBase, null, ALIGN_RIGHT));
+      set(r, 11, fml(`AC${excelRow}*${stemsPerBox}`, catStems),                                   nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 12, fml(`IFERROR(K${excelRow}/L${excelRow},0)`, catPerStemFr),                       nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_4));
+      set(r, 19, fml(`$P$10*AD${excelRow}`, catCustoms),                                          nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 20, fml(`IFERROR(T${excelRow}/L${excelRow},0)`, catPerStemCu),                       nstyle(bgBase, null, ALIGN_RIGHT));
+    }
   }
 
   // AA3~AI13 분배 비율 블록
@@ -413,25 +454,28 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     const catName = categories[i] || '';
     const r = 7 + i;
     const fm = flowerMetaMap.get(normalizeFlower(catName)) || {};
+    const cat = catName ? compCategoryByName.get(catName) : null;
     set(r,26,catName, style(BG_HEADER, null, ALIGN_CENTER));
-    set(r,27, catName ? Number(fm.BoxWeight) || 0 : 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(r,28, catName ? (boxByFlower.get(catName) || 0) : 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(r,29, catName ? fml(`AB${r+1}*AC${r+1}/SUMPRODUCT($AB$8:$AB$11,$AC$8:$AC$11)`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(r,27, catName ? Number(fm.BoxWeight) || 0 : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
+    set(r,28, catName ? (boxByFlower.get(catName) || 0) : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
+    set(r,29, catName ? fml(`IFERROR(AB${r+1}*AC${r+1}/SUMPRODUCT($AB$8:$AB$11,$AC$8:$AC$11),0)`, Number(cat?.weightRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
     set(r,31,catName, style(BG_HEADER, null, ALIGN_CENTER));
-    set(r,32, catName ? Number(fm.BoxCBM) || 0 : 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(r,33, catName ? (boxByFlower.get(catName) || 0) : 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(r,34, catName ? fml(`AG${r+1}*AH${r+1}/SUMPRODUCT($AG$8:$AG$11,$AH$8:$AH$11)`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(r,32, catName ? Number(fm.BoxCBM) || 0 : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
+    set(r,33, catName ? (boxByFlower.get(catName) || 0) : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
+    set(r,34, catName ? fml(`IFERROR(AG${r+1}*AH${r+1}/SUMPRODUCT($AG$8:$AG$11,$AH$8:$AH$11),0)`, Number(cat?.cbmRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
   }
-  set(12, 29, fml('SUM(AD8:AD11)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
-  set(12, 34, fml('SUM(AI8:AI11)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(12, 29, fml('SUM(AD8:AD11)', 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
+  set(12, 34, fml('SUM(AI8:AI11)', 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
 
-  // T12/U12/V12 종 이익률/판매/이익 (static values)
+  // T12/U12/V12 종 이익률/판매/이익 — 수식 + cached (body 합계 기반)
+  const lastBodyRow = 14 + rows.length;  // exclusive (excel row 기준)
+  const sumRange = rows.length > 0 ? `15:${lastBodyRow}` : '15:500';
   set(11, 19, '종 이익률', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(11, 20, '종 판매가', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(11, 21, '종 이익',   style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(12, 19, Number(compResult.totals.overallProfitRate) || 0, style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
-  set(12, 20, Number(compResult.totals.totalSaleKRW) || 0,     style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
-  set(12, 21, Number(compResult.totals.totalProfitKRW) || 0,   style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(12, 19, fml('IFERROR(V13/U13,0)', Number(compResult.totals.overallProfitRate) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
+  set(12, 20, fml(`SUM(U${15}:U${Math.max(lastBodyRow, 15)})`, Number(compResult.totals.totalSaleKRW) || 0),   nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
+  set(12, 21, fml(`SUM(V${15}:V${Math.max(lastBodyRow, 15)})`, Number(compResult.totals.totalProfitKRW) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
 
   // Row 14: body headers (C, D 는 카테고리/박스수로 채움 — 빈칸 제거)
   const headers = ['농장','품목명','카테고리','박스수','수량(송이)','FOB(단가)','운송비(송이)','CNF(송이)','총금액(CNF포함)','CNF(원화)','관세','그외통관(송이당)','도착원가(송이)','단당수량','도착원가(단)','판매(부가세별도)','판매가(부가세포함)','15% 이익 판매가(단)','단 이익','이익률','종 판매가','종 이익'];
@@ -447,40 +491,61 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     for (const s of sdRes.recordset) snapMap.set(s.ProdKey, s);
   }
 
+  // 품목명→카테고리 J row 매핑 (G/L 수식 SEARCH 에서 사용 — J7/J8 등)
   let prevFarm = null;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const rowIdx = 14 + i;
+    const excelRow = rowIdx + 1;
     const fn = (r.FlowerName || '').trim();
     const comp = compRowByProdKey.get(r.ProdKey) || {};
+    const tariffRate = Number(comp.tariffRate) || 0;
 
     // 농장명은 바뀔 때만 표시
     const showFarm = r.FarmName && r.FarmName !== prevFarm;
     set(rowIdx, 0, showFarm ? r.FarmName : '', style(null, showFarm ? FONT_BOLD : null, { horizontal:'left' }));
     prevFarm = r.FarmName;
     set(rowIdx, 1, r.ProdName || '', style(null, null, { horizontal:'left' }));
-    // C/D 컬럼: 카테고리, 박스수 (빈칸 제거)
+    // C/D: 카테고리, 박스수
     set(rowIdx, 2, fn, style(null, null, { horizontal:'center' }));
-    set(rowIdx, 3, Number(r.BoxQuantity) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
-    // E~V: 모두 static values from computeFreightCost
-    set(rowIdx, 4,  Number(comp.steamQty) || 0,          style(BG_INPUT,   null, ALIGN_RIGHT));
-    set(rowIdx, 5,  Number(comp.fobUSD)   || 0,          style(BG_INPUT,   null, ALIGN_RIGHT));
-    set(rowIdx, 6,  Number(comp.freightPerStemUSD) || 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 7,  Number(comp.cnfUSD)   || 0,          style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 8,  Number(comp.steamQty) * Number(comp.cnfUSD) || 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 9,  Number(comp.cnfKRW)   || 0,          style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 10, Number(comp.tariffKRW) || 0,         style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 11, Number(comp.customsPerStem) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 12, Number(comp.arrivalPerStem) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 13, Number(comp.stemsPerBunch) || 0,     style(BG_INPUT,   null, ALIGN_RIGHT));
-    set(rowIdx, 14, Number(comp.arrivalPerBunch) || 0,   style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 15, Number(comp.salePriceExVAT) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 16, Number(comp.salePriceKRW) || 0,      style(BG_INPUT,   null, ALIGN_RIGHT));
-    set(rowIdx, 17, Number(comp.saleAt15Profit) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 18, Number(comp.profitPerBunch) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 19, Number(comp.profitRate) || 0,        style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 20, Number(comp.totalSaleKRW) || 0,      style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 21, Number(comp.totalProfitKRW) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 3, Number(r.BoxQuantity) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
+    // E/F 입력셀 (수식 없음)
+    set(rowIdx, 4, Number(comp.steamQty) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
+    set(rowIdx, 5, Number(comp.fobUSD) || 0,   nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_4));
+    // G: 운송비/송이 — 카테고리 SEARCH 로 M$7~M$10 조회 + cached
+    const searchG = buildSearchFormula(excelRow, categories, 'M', 1);
+    set(rowIdx, 6, searchG ? fml(searchG, Number(comp.freightPerStemUSD) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_4));
+    // H: CNF 송이 = F+G
+    set(rowIdx, 7, fml(`F${excelRow}+G${excelRow}`, Number(comp.cnfUSD) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_4));
+    // I: 총금액(CNF 포함) = E*H
+    set(rowIdx, 8, fml(`E${excelRow}*H${excelRow}`, (Number(comp.steamQty) || 0) * (Number(comp.cnfUSD) || 0)), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // J: CNF(원화) = H*C7
+    set(rowIdx, 9, fml(`H${excelRow}*$C$7`, Number(comp.cnfKRW) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // K: 관세 = J*tariffRate
+    set(rowIdx, 10, tariffRate > 0 ? fml(`J${excelRow}*${tariffRate}`, Number(comp.tariffKRW) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // L: 그외통관/송이 — 카테고리 SEARCH 로 U$7~U$10 조회
+    const searchL = buildSearchFormula(excelRow, categories, 'U', 1);
+    set(rowIdx, 11, searchL ? fml(searchL, Number(comp.customsPerStem) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // M: 도착원가/송이 = J+K+L
+    set(rowIdx, 12, fml(`J${excelRow}+K${excelRow}+L${excelRow}`, Number(comp.arrivalPerStem) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // N: 단당송이 (입력)
+    set(rowIdx, 13, Number(comp.stemsPerBunch) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
+    // O: 도착원가/단 = M*N
+    set(rowIdx, 14, fml(`M${excelRow}*N${excelRow}`, Number(comp.arrivalPerBunch) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // P: 판매(VAT별도) = Q/1.1
+    set(rowIdx, 15, fml(`Q${excelRow}/1.1`, Number(comp.salePriceExVAT) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // Q: 판매가(VAT포함) (입력)
+    set(rowIdx, 16, Number(comp.salePriceKRW) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
+    // R: 15% 이익 판매가 = O/0.77
+    set(rowIdx, 17, fml(`IFERROR(O${excelRow}/0.77,0)`, Number(comp.saleAt15Profit) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // S: 단이익 = P-O
+    set(rowIdx, 18, fml(`P${excelRow}-O${excelRow}`, Number(comp.profitPerBunch) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // T: 이익률 = S/P
+    set(rowIdx, 19, fml(`IFERROR(S${excelRow}/P${excelRow},0)`, Number(comp.profitRate) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
+    // U: 종 판매가 = P*E/N
+    set(rowIdx, 20, fml(`IFERROR(P${excelRow}*E${excelRow}/N${excelRow},0)`, Number(comp.totalSaleKRW) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+    // V: 종 이익 = E*S/N
+    set(rowIdx, 21, fml(`IFERROR(E${excelRow}*S${excelRow}/N${excelRow},0)`, Number(comp.totalProfitKRW) || 0), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
   }
 
   // aoa → sheet
@@ -535,7 +600,10 @@ function buildWorksheet(aoa, styles, merges) {
       if (v == null) {
         ws[addr] = { t: 's', v: '', s: st };
       } else if (typeof v === 'object' && v.f) {
-        ws[addr] = { f: v.f, t: 'n', s: st };
+        // Formula 셀 — cached value (v.v) 있으면 함께 기록하여 뷰어가 바로 값 표시
+        const cell = { f: v.f, t: 'n', s: st };
+        if (v.v != null && !Number.isNaN(Number(v.v))) cell.v = Number(v.v);
+        ws[addr] = cell;
       } else if (typeof v === 'number') {
         ws[addr] = { v, t: 'n', s: st };
       } else {
