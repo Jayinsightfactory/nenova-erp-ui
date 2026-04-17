@@ -197,7 +197,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
           body: JSON.stringify({ action: 'addOrder', custKey: item.cust.CustKey, prodKey: item.prod.ProdKey, week: modalWeek.value, qty: item.qty, unit: item.unit }),
         });
         const d = await r.json();
-        results.push({ cust: item.cust, prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error || '' });
+        results.push({ cust: item.cust, prod: item.prod, qty: item.qty, unit: item.unit, ok: d.success, error: d.error ? `[${r.status}] ${d.error}` : '' });
       }
       // DB 검증: 실제 저장된 수량 확인 (업체별)
       const custKeys = [...new Set(cart.map(c=>c.cust.CustKey))];
@@ -240,7 +240,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             <div style={{ display:'flex', gap:4, alignItems:'center' }}>
               <button onClick={modalWeek.prevWeek} style={st.weekBigBtn} title="이전 주차">◁</button>
               <button onClick={modalWeek.prev} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>◀</button>
-              <input {...modalWeek.props} style={{ ...st.modalInput, width:80, textAlign:'center', fontWeight:700 }} />
+              <input {...modalWeek.props} style={{ ...st.modalInput, width:110, textAlign:'center', fontWeight:700 }} />
               <button onClick={modalWeek.next} style={{ padding:'4px 8px', border:'1px solid #ccc', borderRadius:4, cursor:'pointer', background:'#f5f5f5', fontSize:12 }}>▶</button>
               <button onClick={modalWeek.nextWeek} style={st.weekBigBtn} title="다음 주차">▷</button>
             </div>
