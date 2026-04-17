@@ -163,6 +163,7 @@ async function createOrder(req, res) {
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
     const uid = req.user?.userId || 'nenovaSS3';
+    const mgr = '관리자'; // 전산 호환 (전산은 Manager='관리자' 기준으로 주문 표시)
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
 
@@ -186,7 +187,7 @@ async function createOrder(req, res) {
              Manager   = CASE WHEN Manager   IS NULL OR Manager   = '' THEN @mgr ELSE Manager END,
              OrderCode = CASE WHEN OrderCode IS NULL OR OrderCode = '' THEN @oc  ELSE OrderCode END
            WHERE OrderMasterKey = @mk`,
-          { mgr: { type: sql.NVarChar, value: uid }, oc: { type: sql.NVarChar, value: resolvedOrderCode }, mk: { type: sql.Int, value: mk } }
+          { mgr: { type: sql.NVarChar, value: mgr }, oc: { type: sql.NVarChar, value: resolvedOrderCode }, mk: { type: sql.Int, value: mk } }
         );
       } else {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
@@ -199,7 +200,7 @@ async function createOrder(req, res) {
             mk:       { type: sql.Int,      value: mk },
             year:     { type: sql.NVarChar, value: orderYear },
             week:     { type: sql.NVarChar, value: orderWeek },
-            mgr:      { type: sql.NVarChar, value: uid },
+            mgr:      { type: sql.NVarChar, value: mgr },
             custKey:  { type: sql.Int,      value: resolvedCustKey },
             oc:       { type: sql.NVarChar, value: resolvedOrderCode },
             createId: { type: sql.NVarChar, value: uid },
