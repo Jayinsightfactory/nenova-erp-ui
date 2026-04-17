@@ -89,9 +89,33 @@ export default function PasteOrderPage() {
     ? customers.filter(c => c.CustName?.includes(custSearch) || c.CustCode?.includes(custSearch))
     : customers.slice(0, 20);
 
+  // 거래처명 줄인지 판별: 구분자(|:) 없고 끝에 숫자 없는 줄
+  const isCustLine = (line) => {
+    if (line.includes('|') || line.includes(':')) return false;
+    if (/\s+\d+(\.\d+)?$/.test(line)) return false;
+    return true;
+  };
+
   const handleParse = () => {
     const lines = pasteText.split('\n').map(l => l.trim()).filter(Boolean);
-    const result = lines.map((line, idx) => {
+
+    // 첫 번째 줄이 거래처명 형식이면 자동 선택
+    let startIdx = 0;
+    if (lines.length > 0 && isCustLine(lines[0])) {
+      const custName = lines[0];
+      const found = customers.find(c =>
+        c.CustName === custName ||
+        c.CustName?.includes(custName) ||
+        custName.includes(c.CustName)
+      );
+      if (found && !selectedCust) {
+        setSelectedCust(found);
+        setCustSearch('');
+      }
+      startIdx = 1;  // 첫 줄은 거래처로 처리했으니 건너뜀
+    }
+
+    const result = lines.slice(startIdx).map((line, idx) => {
       const parsed = parseLine(line);
       if (!parsed) return null;
       const matches = matchProducts(parsed.name, products);
