@@ -18,6 +18,7 @@ async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
 }
 
 export default withAuth(async function handler(req, res) {
+  if (req.method === 'PATCH' && req.body?.action === 'editDescrLine') return await editDescrLine(req, res);
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
   if (req.method === 'POST' && req.body?.action === 'addOrderDelta') return await addOrderDelta(req, res);
   if (req.method === 'POST')   return await addOrder(req, res);
@@ -867,15 +868,15 @@ async function updateOutQty(req, res) {
 
 // ── DELETE: 수정내역 특정 줄 삭제
 async function deleteDescrLine(req, res) {
-  const { custKey, prodKey, week, lineIdx } = req.body;
-  if (custKey === undefined || !prodKey || !week || lineIdx === undefined) {
+  const { custKey, prodKey, week: rawWeek, lineIdx } = req.body;
+  if (custKey === undefined || !prodKey || !rawWeek || lineIdx === undefined) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, lineIdx 필요' });
   }
+  const week = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
   try {
     const ck = parseInt(custKey);
     const pk = parseInt(prodKey);
     const idx = parseInt(lineIdx);
-    // 현재 Descr 조회
     const r = await query(
       `SELECT sd.SdetailKey, sd.Descr FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
@@ -888,6 +889,40 @@ async function deleteDescrLine(req, res) {
     const lines = (Descr || '').split('\n').filter(l => l.trim());
     if (idx < 0 || idx >= lines.length) return res.status(400).json({ success: false, error: '잘못된 인덱스' });
     lines.splice(idx, 1);
+    const newDescr = lines.join('\n');
+    await query(
+      `UPDATE ShipmentDetail SET Descr=@d WHERE SdetailKey=@k`,
+      { d: { type: sql.NVarChar, value: newDescr }, k: { type: sql.Int, value: SdetailKey } }
+    );
+    return res.status(200).json({ success: true, lines });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// ── PATCH action=editDescrLine: 수정내역 특정 줄 텍스트 수정
+async function editDescrLine(req, res) {
+  const { custKey, prodKey, week: rawWeek, lineIdx, newText } = req.body;
+  if (custKey === undefined || !prodKey || !rawWeek || lineIdx === undefined || newText === undefined) {
+    return res.status(400).json({ success: false, error: 'custKey, prodKey, week, lineIdx, newText 필요' });
+  }
+  const week = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
+  try {
+    const ck = parseInt(custKey);
+    const pk = parseInt(prodKey);
+    const idx = parseInt(lineIdx);
+    const r = await query(
+      `SELECT sd.SdetailKey, sd.Descr FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
+       WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+      { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week },
+        pk: { type: sql.Int, value: pk } }
+    );
+    if (!r.recordset.length) return res.status(404).json({ success: false, error: '데이터 없음' });
+    const { SdetailKey, Descr } = r.recordset[0];
+    const lines = (Descr || '').split('\n').filter(l => l.trim());
+    if (idx < 0 || idx >= lines.length) return res.status(400).json({ success: false, error: '잘못된 인덱스' });
+    lines[idx] = newText.trim();
     const newDescr = lines.join('\n');
     await query(
       `UPDATE ShipmentDetail SET Descr=@d WHERE SdetailKey=@k`,

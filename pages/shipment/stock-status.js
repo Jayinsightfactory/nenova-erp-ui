@@ -1167,6 +1167,7 @@ export default function StockStatus() {
   const [pvDescrOpen, setPvDescrOpen] = useState(true);  // 비고 컬럼 표시/숨김
   const [pvDescrModal, setPvDescrModal] = useState(null); // 수정내역 삭제 모달
   const [pvDescrView, setPvDescrView] = useState(null);  // 비고 상세 보기 모달 { pk, prodName, wk, items:[] }
+  const [pvDescrEditIdx, setPvDescrEditIdx] = useState(null); // { itemIdx, lineIdx } 편집 중인 줄
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false); // 출고 있는 품목만
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
@@ -1882,7 +1883,7 @@ export default function StockStatus() {
                                     if(cnt===0) return;
                                     // 비고 상세 모달 — 품목+차수+업체별 전체 이력
                                     const items = custLogs.map(({ck,lines})=>({
-                                      custName:cShort(ck), lines
+                                      ck, custName:cShort(ck), lines
                                     }));
                                     // 기초재고, 입고, 분배 정보
                                     const ssVal = startStocks[`${pk}-${wk}`]?.stock;
@@ -1935,11 +1936,43 @@ export default function StockStatus() {
               {pvDescrView.items.map((item,i) => (
                 <div key={i} style={{marginBottom:12}}>
                   <div style={{fontSize:12,fontWeight:600,color:'#1565c0',marginBottom:4}}>🏢 {item.custName}</div>
-                  {item.lines.map((line,li) => (
-                    <div key={li} style={{fontSize:11,color:'#555',padding:'2px 0 2px 16px',borderLeft:'2px solid #e0e0e0',marginBottom:2}}>
-                      {line}
-                    </div>
-                  ))}
+                  {item.lines.map((line,li) => {
+                    const isEditing = pvDescrEditIdx?.itemIdx===i && pvDescrEditIdx?.lineIdx===li;
+                    return (
+                      <div key={li} style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+                        {isEditing ? (
+                          <>
+                            <input defaultValue={line}
+                              id={`descr-edit-${i}-${li}`}
+                              style={{flex:1,fontSize:11,border:'1px solid #1976d2',borderRadius:3,padding:'2px 6px'}} />
+                            <button onClick={async()=>{
+                              const val = document.getElementById(`descr-edit-${i}-${li}`)?.value;
+                              if (!val?.trim()) return;
+                              const r = await fetch('/api/shipment/stock-status',{
+                                method:'PATCH',headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify({action:'editDescrLine',custKey:item.ck,prodKey:pvDescrView.pk,week:pvDescrView.wk,lineIdx:li,newText:val.trim()})
+                              });
+                              const d = await r.json();
+                              if(d.success){
+                                setPvDescrView(v=>({...v,items:v.items.map((it,ii)=>ii===i?{...it,lines:it.lines.map((l,ll)=>ll===li?val.trim():l)}:it)}));
+                                setPvDescrEditIdx(null);
+                                loadData(weekFrom,weekTo,tab);
+                              } else alert('수정 실패: '+d.error);
+                            }} style={{fontSize:10,padding:'2px 7px',background:'#1976d2',color:'#fff',border:'none',borderRadius:3,cursor:'pointer'}}>저장</button>
+                            <button onClick={()=>setPvDescrEditIdx(null)} style={{fontSize:10,padding:'2px 7px',background:'#eee',border:'none',borderRadius:3,cursor:'pointer'}}>취소</button>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{flex:1,fontSize:11,color:'#555',padding:'2px 0 2px 10px',borderLeft:'2px solid #e0e0e0'}}>{line}</div>
+                            <button onClick={()=>setPvDescrEditIdx({itemIdx:i,lineIdx:li})}
+                              style={{fontSize:10,padding:'1px 5px',background:'none',border:'1px solid #bbb',borderRadius:3,cursor:'pointer',color:'#555'}} title="수정">✏</button>
+                            <button onClick={()=>setPvDescrModal({ck:item.ck,pk:pvDescrView.pk,wk:pvDescrView.wk,lineIdx:li,line,custName:item.custName,prodName:pvDescrView.prodName})}
+                              style={{fontSize:10,padding:'1px 5px',background:'none',border:'1px solid #ffcdd2',borderRadius:3,cursor:'pointer',color:'#d32f2f'}} title="삭제">🗑</button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
               {pvDescrView.items.length === 0 && <div style={{color:'#999',fontSize:12}}>변경내역 없음</div>}
@@ -2266,8 +2299,14 @@ export default function StockStatus() {
                     body: JSON.stringify({custKey:m.ck, prodKey:m.pk, week:m.wk, lineIdx:m.lineIdx}),
                   });
                   const d = await r.json();
-                  if (d.success) { setPvDescrModal(null); loadData(weekFrom, weekTo, tab); }
-                  else alert('삭제 실패: ' + d.error);
+                  if (d.success) {
+                    setPvDescrModal(null);
+                    // 비고 모달 줄도 즉시 제거
+                    setPvDescrView(v => v ? ({...v, items: v.items.map(it =>
+                      it.ck === m.ck ? {...it, lines: it.lines.filter((_,li)=>li!==m.lineIdx)} : it
+                    ).filter(it=>it.lines.length)}) : null);
+                    loadData(weekFrom, weekTo, tab);
+                  } else alert('삭제 실패: ' + d.error);
                 } catch(e) { alert('오류: ' + e.message); }
               }}
                 style={{padding:'7px 20px',background:'#d32f2f',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontSize:12,fontWeight:700}}>
