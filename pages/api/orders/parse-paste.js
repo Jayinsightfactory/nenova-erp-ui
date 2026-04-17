@@ -14,6 +14,7 @@ function getClient() {
 }
 
 import { defaultUnit } from '../../../lib/orderUtils';
+import { loadMappings, normalizeToken } from '../../../lib/parseMappings';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -214,8 +215,17 @@ Caroline | 2
         ) || null;
       }
 
+      const savedMappings = loadMappings();
       const items = (order.items || []).map(item => {
-        const prod = item.prodKey ? products.find(p => p.ProdKey === item.prodKey) : null;
+        // 1순위: 서버 저장 매핑 (사용자 학습 데이터)
+        const mappedKey = normalizeToken(item.inputName);
+        const savedMap = mappedKey ? savedMappings[mappedKey] : null;
+        const mappedProd = savedMap ? products.find(p => p.ProdKey === savedMap.prodKey) : null;
+
+        // 2순위: Claude 파싱 결과
+        const claudeProd = item.prodKey ? products.find(p => p.ProdKey === item.prodKey) : null;
+
+        const prod = mappedProd || claudeProd;
         const unit = defaultUnit(prod, item.unit, prodUnitMap);
         return {
           inputName:   item.inputName,
@@ -227,6 +237,7 @@ Caroline | 2
           displayName: prod?.DisplayName || item.displayName || null,
           flowerName:  prod?.FlowerName  || null,
           counName:    prod?.CounName    || null,
+          fromMapping: !!mappedProd,  // 매핑에서 자동 적용됐는지 표시
         };
       });
 

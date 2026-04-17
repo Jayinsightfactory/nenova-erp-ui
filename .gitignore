@@ -16,3 +16,4 @@ node_modules/
 
 # 로컬 preview 용 임시 파일
 .preview/
+data/order-mappings.json

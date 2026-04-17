@@ -175,6 +175,12 @@ export default function PasteOrderPage() {
       const updated = { ...mappingCache, [cacheKey(inputName)]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
       setMappingCache(updated);
       saveCache(updated);
+      // 서버에도 저장 (전 사용자 공유 학습)
+      fetch('/api/orders/mappings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ inputToken: inputName, prodKey: prod.ProdKey, prodName: prod.ProdName,
+          displayName: prod.DisplayName, flowerName: prod.FlowerName, counName: prod.CounName }),
+      }).catch(() => {});
     }
     setDisambigSearch('');
     setDisambigResults([]);
@@ -275,6 +281,15 @@ export default function PasteOrderPage() {
       if (d.success) {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}` });
+        // 저장 성공한 품목의 inputName→prodKey 매핑 서버에 학습
+        const mappingItems = order.items.filter(it => !it.skip && it.prodKey && it.inputName && it.action !== '취소');
+        mappingItems.forEach(it => {
+          fetch('/api/orders/mappings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+            body: JSON.stringify({ inputToken: it.inputName, prodKey: it.prodKey, prodName: it.prodName,
+              displayName: it.displayName, flowerName: it.flowerName, counName: it.counName }),
+          }).catch(() => {});
+        });
         try {
           const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
           if (od.success && od.orders?.length > 0) {
