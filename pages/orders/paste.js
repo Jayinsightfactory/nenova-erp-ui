@@ -7,16 +7,9 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 
-// DB 차수 목록에서 오늘 기준 기본 차수 선택
-function findDefaultWeek(weeks) {
-  const def = getCurrentWeek(); // 2026-WW-01
-  // 1) 정확히 일치하는 것 먼저 (신 형식 2026-16-01)
-  if (weeks.includes(def)) return def;
-  // 2) 같은 주차 번호의 구 형식 매칭 (16-01 등)
-  const parts = def.split('-');
-  const ww = parts[1] || parts[0]; // 주차 번호
-  const fallback = weeks.find(w => (w.match(/^\d{4}-(\d{2})/)?.[1] || w.match(/^(\d{2})/)?.[1] || '') === ww);
-  return fallback || weeks[0] || '';
+// 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
+function getDefaultWeek() {
+  return getCurrentWeek(); // 항상 2026-WW-01
 }
 
 function loadCache() {
@@ -52,15 +45,13 @@ export default function PasteOrderPage() {
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/weeks').then(d => {
       if (d.success) {
-        const ws = d.weeks || [];
+        const def = getDefaultWeek(); // 2026-WW-01
+        const dbWeeks = d.weeks || [];
+        // 2026 기본 차수가 DB에 없으면 맨 앞에 추가
+        const ws = dbWeeks.includes(def) ? dbWeeks : [def, ...dbWeeks];
         setWeeks(ws);
-        if (ws.length > 0) {
-          const def = findDefaultWeek(ws);
-          setWeek(def);
-          // 기본 차수가 몇 번째 페이지인지 계산
-          const idx = ws.indexOf(def);
-          setWeekPage(idx >= 0 ? Math.floor(idx / WEEK_PAGE_SIZE) : 0);
-        }
+        setWeek(def);
+        setWeekPage(0); // 기본 차수는 항상 첫 페이지
       }
     });
   }, []);

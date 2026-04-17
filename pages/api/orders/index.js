@@ -187,7 +187,9 @@ async function createOrder(req, res) {
           prodKey = pr.recordset[0].ProdKey;
         }
         const qty = parseFloat(item.qty) || 0;
-        const unit = item.unit || '박스';
+        // '개'/'stems'/'송이' 모두 steamQty로 정규화
+        const rawUnit = item.unit || '박스';
+        const unit = rawUnit === '개' ? '송이' : rawUnit;
         const boxQty   = unit === '박스' ? qty : 0;
         const bunchQty = unit === '단'   ? qty : 0;
         const steamQty = unit === '송이' ? qty : 0;
