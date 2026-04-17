@@ -77,11 +77,12 @@ export default withAuth(async function handler(req, res) {
           ), 0) AS outQty,
           -- 기간 내 주문수량 (전체 업체) — OutUnit 기준 단일 컬럼 선택
           ISNULL((
-            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
-                            WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+            SELECT SUM(CASE WHEN p2.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                            WHEN p2.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                             ELSE ISNULL(od.BoxQuantity,0) END)
             FROM OrderDetail od
             JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
+            JOIN Product p2 ON od.ProdKey = p2.ProdKey
             WHERE od.ProdKey = p.ProdKey
               AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
               AND om.isDeleted = 0 AND od.isDeleted = 0
@@ -173,11 +174,12 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
-                            WHEN p.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
+            SELECT SUM(CASE WHEN p2.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
+                            WHEN p2.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
                             ELSE ISNULL(od2.BoxQuantity,0) END)
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
+            JOIN Product p2 ON od2.ProdKey=p2.ProdKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
           ), 0) AS totalOrderQty,
@@ -230,11 +232,12 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
-                            WHEN p.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
+            SELECT SUM(CASE WHEN p2.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
+                            WHEN p2.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
                             ELSE ISNULL(od2.BoxQuantity,0) END)
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
+            JOIN Product p2 ON od2.ProdKey=p2.ProdKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
           ), 0) AS totalOrderQty,
