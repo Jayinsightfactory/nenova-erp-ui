@@ -307,19 +307,61 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   set(9, 14, 'Total', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(9, 15, fml('SUM(P6:P9)+R6+R7'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
 
-  // 4개 카테고리 (고정 4행)
+  // 박스 수량 0 인 BILL (Yunnan Melody 처럼 단 단위) 감지 → 송이수 기반 분배 fallback
+  const totalBoxAll = categories.reduce((a, c) => a + (c ? (boxByFlower.get(c) || 0) : 0), 0);
+  const useStemsRatio = totalBoxAll <= 0;
+  // 카테고리별 총 송이수 계산 (resolveSteam 기반, 업계표준 fallback 포함)
+  const categoryStems = {};
+  for (const cat of categories) {
+    if (!cat) continue;
+    const catRows = rows.filter(r => (r.FlowerName || '').trim() === cat);
+    categoryStems[cat] = catRows.reduce((a, r) => a + resolveSteam(r), 0);
+  }
+  const totalStemsAll = Object.values(categoryStems).reduce((a, b) => a + b, 0);
+  // 통관 합계 계산 (P10 수식과 동일)
+  const customsBakSangKRW = (gw || 0) * (cBakSang || 0);
+  const customsQuarantineKRW = (categories.filter(c => c).length || 0) * (cQuarantine || 0);
+  const customsTotalKRW = customsBakSangKRW + (cHandling || 0) + customsQuarantineKRW + (cDomestic || 0) + (cDeduct || 0) + (cExtra || 0);
+
+  // 4개 카테고리 (고정 4행) — K/L/M/T/U
+  // 박스수량 0 일 때: JS 로 송이수 비율 분배를 미리 계산해 static 값으로 기록 (수식 0 divzero 방지)
   for (let i = 0; i < 4; i++) {
     const catName = categories[i] || '';
     const r = 6 + i;  // excel row 7..10
     const excelRow = r + 1;
-    const stemsPerBox = Number((flowerMetaMap.get(normalizeFlower(catName)) || {}).StemsPerBox) || 0;
+    const fm = flowerMetaMap.get(normalizeFlower(catName)) || {};
+    const stemsPerBox = Number(fm.StemsPerBox) || 0;
     set(r, 9, catName, style(BG_HEADER, null, ALIGN_CENTER));
-    set(r, 10, catName ? fml(`IF($C$8=$E$8,$C$11*AD${r+2},$C$11*AI${r+2})`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(r, 11, catName ? fml(`AC${r+2}*${stemsPerBox}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(r, 12, catName ? fml(`K${excelRow}/L${excelRow}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
     set(r, 18, catName, style(BG_HEADER, null, ALIGN_CENTER));
-    set(r, 19, catName ? fml(`$P$10*AD${r+2}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(r, 20, catName ? fml(`T${excelRow}/L${excelRow}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    if (!catName) {
+      set(r, 10, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 11, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 12, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 19, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 20, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+      continue;
+    }
+    if (useStemsRatio) {
+      // 송이수 기반 분배 (static values)
+      const stems = categoryStems[catName] || 0;
+      const ratio = totalStemsAll > 0 ? stems / totalStemsAll : 0;
+      const catFreightUSD = (Number(actualFreightEff) || 0) * ratio;
+      const catCustomsKRW = customsTotalKRW * ratio;
+      const perStemFreight = stems > 0 ? catFreightUSD / stems : 0;
+      const perStemCustoms = stems > 0 ? catCustomsKRW / stems : 0;
+      set(r, 10, catFreightUSD,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // K (주황 = 송이수기반)
+      set(r, 11, stems,           style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // L
+      set(r, 12, perStemFreight,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // M
+      set(r, 19, catCustomsKRW,   style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // T
+      set(r, 20, perStemCustoms,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // U
+    } else {
+      // 박스무게 기반 분배 (기존 엑셀 수식 유지 — 엑셀 원본과 동일)
+      set(r, 10, fml(`IF($C$8=$E$8,$C$11*AD${r+2},$C$11*AI${r+2})`), style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 11, fml(`AC${r+2}*${stemsPerBox}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 12, fml(`K${excelRow}/L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 19, fml(`$P$10*AD${r+2}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+      set(r, 20, fml(`T${excelRow}/L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
+    }
   }
 
   // AA3~AI13 분배 비율 블록
