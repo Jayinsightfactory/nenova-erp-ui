@@ -3,20 +3,20 @@ import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { apiGet } from '../../lib/useApi';
 import { filterProducts } from '../../lib/displayName';
+import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 
-function currentWeekNum() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((now - start) / (86400000)) + 1;
-  return Math.ceil(dayOfYear / 7);
-}
-
+// DB 차수 목록에서 오늘 기준 기본 차수 선택
 function findDefaultWeek(weeks) {
-  const target = String(currentWeekNum());
-  // 주차 문자열에서 앞 숫자 추출 ("16차", "16-1", "16", "1601" 등 모두 대응)
-  return weeks.find(w => (w.match(/^\d+/)?.[0] || '') === target) || weeks[0] || '';
+  const def = getCurrentWeek(); // 2026-WW-01
+  // 1) 정확히 일치하는 것 먼저 (신 형식 2026-16-01)
+  if (weeks.includes(def)) return def;
+  // 2) 같은 주차 번호의 구 형식 매칭 (16-01 등)
+  const parts = def.split('-');
+  const ww = parts[1] || parts[0]; // 주차 번호
+  const fallback = weeks.find(w => (w.match(/^\d{4}-(\d{2})/)?.[1] || w.match(/^(\d{2})/)?.[1] || '') === ww);
+  return fallback || weeks[0] || '';
 }
 
 function loadCache() {
@@ -44,6 +44,7 @@ export default function PasteOrderPage() {
   const [queueIdx, setQueueIdx] = useState(0);   // 현재 질문 중인 미매칭 항목 인덱스
   const [disambigSearch, setDisambigSearch] = useState('');
   const [disambigResults, setDisambigResults] = useState([]);
+  const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
 
   useEffect(() => {
     setMappingCache(loadCache());
@@ -206,6 +207,12 @@ export default function PasteOrderPage() {
       const d = await res.json();
       if (d.success) {
         updateOrder(oid, { saving: false, resultMsg: `✅ ${items.length}개 등록 완료 (${order.custMatch.CustName} / ${week})` });
+        // DB에서 등록된 주문 내역 조회
+        const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+        if (od.success && od.orders?.length > 0) {
+          const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
+          setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+        }
       } else {
         updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error}` });
       }
@@ -254,7 +261,7 @@ export default function PasteOrderPage() {
                   color: week === w ? '#fff' : '#333',
                   fontWeight: week === w ? 700 : 400,
                 }}>
-                {w}
+                {formatWeekDisplay(w)}
               </button>
             ))}
             <button
@@ -262,7 +269,7 @@ export default function PasteOrderPage() {
               disabled={weekPage === 0}
               style={navBtnS}
             >▶</button>
-            {week && <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600, marginLeft: 4 }}>선택: {week}</span>}
+            {week && <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600, marginLeft: 4 }}>선택: {formatWeekDisplay(week)}</span>}
           </div>
         </div>
 
@@ -395,18 +402,23 @@ export default function PasteOrderPage() {
                             </select>
                           </td>
                           <td style={{ padding: '4px 8px' }}>
-                            {it.prodKey ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ color: '#1b5e20', fontWeight: 600, fontSize: 12 }}>
-                                  ✅ {it.displayName || it.prodName}
-                                </span>
-                                <span style={{ color: '#aaa', fontSize: 11 }}>{it.prodName}</span>
-                                <button onClick={() => updateItem(order.id, idx, { prodKey: null, prodName: null, displayName: null })}
-                                  style={{ fontSize: 10, padding: '1px 5px', background: 'none', border: '1px solid #ddd', borderRadius: 3, cursor: 'pointer', color: '#aaa', marginLeft: 'auto' }}>
-                                  변경
-                                </button>
-                              </div>
-                            ) : it.skip ? null : (
+                            {it.prodKey ? (() => {
+                              const pd = allProducts.find(p => p.ProdKey === it.prodKey);
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  <span style={{ color: '#1b5e20', fontWeight: 600, fontSize: 12 }}>
+                                    ✅ {it.displayName || it.prodName}
+                                  </span>
+                                  {pd?.CounName && <span style={{ fontSize: 10, background: '#e8f5e9', color: '#388e3c', borderRadius: 8, padding: '1px 6px' }}>{pd.CounName}</span>}
+                                  {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
+                                  <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
+                                  <button onClick={() => updateItem(order.id, idx, { prodKey: null, prodName: null, displayName: null })}
+                                    style={{ fontSize: 10, padding: '1px 5px', background: 'none', border: '1px solid #ddd', borderRadius: 3, cursor: 'pointer', color: '#aaa', marginLeft: 'auto' }}>
+                                    변경
+                                  </button>
+                                </div>
+                              );
+                            })() : it.skip ? null : (
                               <span style={{ fontSize: 11, color: isCurrentQ ? '#f57f17' : '#bbb' }}>
                                 {isCurrentQ ? '↓ 아래에서 선택' : '대기 중…'}
                               </span>
@@ -450,6 +462,46 @@ export default function PasteOrderPage() {
                   {order.saving ? '등록 중...' : `💾 추가 ${matchedAdd.length}건 등록`}
                 </button>
               </div>
+
+              {/* 등록 후 DB 주문내역 */}
+              {registeredOrders[order.id] && (() => {
+                const ro = registeredOrders[order.id];
+                return (
+                  <div style={{ borderTop: '2px solid #2e7d32', background: '#f1f8e9' }}>
+                    <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
+                      <button onClick={() => setRegisteredOrders(p => { const n={...p}; delete n[order.id]; return n; })}
+                        style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}>
+                        닫기
+                      </button>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ background: '#c8e6c9' }}>
+                            <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>품목명</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>국가</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>꽃</th>
+                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}>수량</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>단위</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(ro.items || []).map((it, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: i%2===0?'#f9fbe7':'#f1f8e9' }}>
+                              <td style={{ padding: '4px 8px' }}>{it.displayName || it.prodName}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c', fontSize: 11 }}>{it.counName || '—'}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{it.qty}</td>
+                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{it.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

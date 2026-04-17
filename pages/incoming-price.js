@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import Layout from '../components/Layout';
 import { apiGet } from '../lib/useApi';
+import { formatWeekDisplay } from '../lib/useWeekInput';
 
 const fmtUSD = v => v == null ? '' : `$${Number(v).toFixed(2)}`;
 const fmtUSDInt = v => v == null ? '' : `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -225,7 +226,7 @@ export default function IncomingPricePage() {
                     transition: 'all 0.15s',
                   }}
                 >
-                  {w}
+                  {formatWeekDisplay(w)}
                 </button>
               );
             })}
@@ -241,7 +242,7 @@ export default function IncomingPricePage() {
 
           {selectedWeeks.length > 0 && (
             <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>
-              선택된 차수: <strong style={{ color: '#1a237e' }}>{selectedWeeks.join(', ')}</strong>
+              선택된 차수: <strong style={{ color: '#1a237e' }}>{selectedWeeks.map(formatWeekDisplay).join(', ')}</strong>
               {selectedWeeks.length > 1 && ' (합산 집계)'}
             </div>
           )}
