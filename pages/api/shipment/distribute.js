@@ -21,15 +21,8 @@ export default withAuth(withActionLog(async function handler(req, res) {
   return res.status(405).end();
 }, { actionType: 'SHIPMENT_WRITE', affectedTable: 'ShipmentMaster/Detail', riskLevel: 'HIGH' }));
 
-function normWeek(w) {
-  if (!w) return w;
-  const m = String(w).match(/^\d{4}-(\d{2}-\d{2})$/);
-  return m ? m[1] : w;
-}
-
 async function getDistribute(req, res) {
-  const { type, prodGroup, custKey } = req.query;
-  const week = normWeek(req.query.week);
+  const { type, week, prodGroup, custKey } = req.query;
 
   try {
     // ── 품목 목록 (왼쪽 패널): 차수+품목그룹 기준 입고/출고/현재고
@@ -283,8 +276,7 @@ async function distLog(category, step, detail) {
 // delta=true 시: newQty = oldQty + outQty (음수 델타로 감소 가능)
 // delta=false(기본): newQty = outQty (절대값)
 async function saveDistribute(req, res) {
-  const { year, custKey, prodKey, outQty, outDate, cost, delta } = req.body;
-  const week = normWeek(req.body.week);
+  const { week, year, custKey, prodKey, outQty, outDate, cost, delta } = req.body;
   const isDelta = delta === true || delta === 'true';
   try {
     const uid = req.user?.userId || 'system';
