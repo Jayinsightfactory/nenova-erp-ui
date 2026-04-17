@@ -160,7 +160,14 @@ async function createOrder(req, res) {
       let mk;
       if (existing.recordset.length > 0) {
         mk = existing.recordset[0].OrderMasterKey;
-        // 기존 전산 주문의 Manager/OrderCode는 건드리지 않음 (전산 필터 보호)
+        // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
+        await tQuery(
+          `UPDATE OrderMaster SET
+             Manager   = CASE WHEN Manager   IS NULL OR Manager   = '' THEN @mgr ELSE Manager END,
+             OrderCode = CASE WHEN OrderCode IS NULL OR OrderCode = '' THEN @oc  ELSE OrderCode END
+           WHERE OrderMasterKey = @mk`,
+          { mgr: { type: sql.NVarChar, value: uid }, oc: { type: sql.NVarChar, value: resolvedOrderCode }, mk: { type: sql.Int, value: mk } }
+        );
       } else {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
         await tQuery(
