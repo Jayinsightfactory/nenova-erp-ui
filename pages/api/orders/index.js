@@ -158,12 +158,13 @@ async function createOrder(req, res) {
             oc: { type: sql.NVarChar, value: orderCode || '' } }
         );
       } else {
-        const ins = await tQuery(
+        mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
+        await tQuery(
           `INSERT INTO OrderMaster
-             (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-           OUTPUT INSERTED.OrderMasterKey
-           VALUES (GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
           {
+            mk:        { type: sql.Int,      value: mk },
             year:      { type: sql.NVarChar, value: orderYear },
             week:      { type: sql.NVarChar, value: orderWeek },
             manager:   { type: sql.NVarChar, value: manager || req.user.userName },
@@ -172,7 +173,6 @@ async function createOrder(req, res) {
             createId:  { type: sql.NVarChar, value: uid },
           }
         );
-        mk = ins.recordset[0].OrderMasterKey;
       }
 
       const detailResults = [];
