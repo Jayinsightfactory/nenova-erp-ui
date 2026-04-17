@@ -198,23 +198,21 @@ async function createOrder(req, res) {
         );
 
         if (existOd.recordset.length > 0) {
-          // 14차 패턴: OutQuantity 는 건드리지 않음 (전산이 출고 기록 시 채움)
           await tQuery(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam, OutQuantity=@qty
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
-              steam: { type: sql.Float, value: steamQty },
+              steam: { type: sql.Float, value: steamQty }, qty: { type: sql.Float, value: qty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
         } else if (qty > 0) {
-          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0 (전산 출고 기록 전)
           const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
           await tQuery(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, @uid, GETDATE())`,
             {
               nk:    { type: sql.Int,      value: nextKey },
               mk:    { type: sql.Int,      value: mk },
@@ -222,6 +220,7 @@ async function createOrder(req, res) {
               box:   { type: sql.Float,    value: boxQty },
               bunch: { type: sql.Float,    value: bunchQty },
               steam: { type: sql.Float,    value: steamQty },
+              qty:   { type: sql.Float,    value: qty },
               uid:   { type: sql.NVarChar, value: uid },
             }
           );
