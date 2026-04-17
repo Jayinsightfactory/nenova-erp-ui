@@ -83,7 +83,7 @@ function mapEstimateType(t) {
 }
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
-function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows }) {
+function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl }) {
   // ── 차감 항목을 최하단으로 정렬 (정상출고 먼저, 차감은 뒤)
   const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
   const sortedRows = [...rows].sort((a, b) => {
@@ -191,9 +191,9 @@ table { width:100%; border-collapse:collapse; }
       </div>
     </td>
     <td class="hdr-right">
-      <!-- 오른쪽: NENOVA 로고 (칸 꽉차게) + 회사정보 (2셀 테이블, 왼쪽정렬, 줄바꿈 방지) -->
+      <!-- 오른쪽: NENOVA 로고 (로컬 base64 인라인) + 회사정보 -->
       <div class="logo-area">
-        <img src="https://nenovaweb.com/nenova-logo.png" alt="NENOVA"
+        <img src="${logoDataUrl || '/nenova-logo.png'}" alt="NENOVA"
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
         <div style="display:none;padding:8px 10px;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;text-align:left;">NENOVA</div>
       </div>
@@ -336,6 +336,26 @@ export default function Estimate() {
   // 로딩
   const [loading, setLoading] = useState(false);
   const [itemLoading, setItemLoading] = useState(false);
+
+  // 견적서 로고 (base64 데이터 URL) — iframe srcdoc 내에서도 안정적으로 표시되도록 인라인 삽입.
+  // 외부 URL 의존시 CORS/HTTPS 제한으로 로고 누락될 수 있음.
+  const [logoDataUrl, setLogoDataUrl] = useState(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    fetch('/nenova-logo.png')
+      .then(r => r.ok ? r.blob() : null)
+      .then(b => {
+        if (!b) return null;
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(b);
+        });
+      })
+      .then(dataUrl => { if (dataUrl) setLogoDataUrl(dataUrl); })
+      .catch(() => { /* 실패시 buildEstimateHtml 의 /nenova-logo.png fallback 사용 */ });
+  }, []);
 
   // WeekDay 필터 — 기본값: 전체 요일 선택
   const [activeWD, setActiveWD] = useState(new Set(['월','화','수','목','금','토','일']));
@@ -711,6 +731,7 @@ export default function Estimate() {
         printDate: opts.printDate,
         custName,
         rows: printRows,
+        logoDataUrl,
       });
       printInIframe(html);
     } else {
@@ -755,6 +776,7 @@ export default function Estimate() {
           printDate: opts.printDate,
           custName,
           rows,
+          logoDataUrl,
         });
         // 기존 setTimeout + window.open 방식 → 순차 iframe 인쇄로 변경.
         pagePromises.push({ html });
@@ -768,7 +790,7 @@ export default function Estimate() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum]);
+  }, [filteredItems, selectedShip, weekNum, logoDataUrl]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 

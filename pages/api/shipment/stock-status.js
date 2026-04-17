@@ -906,6 +906,9 @@ async function addOrder(req, res) {
     const pk       = parseInt(prodKey);
     const quantity = parseFloat(qty) || 0;
     const uid      = req.user?.userId || 'system';
+    const userName = req.user?.userName || uid;
+    const now = new Date();
+    const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
     // 단위별 수량 분배 (박스/단/송이)
     const boxQty   = unit === '박스' ? quantity : 0;
@@ -934,16 +937,22 @@ async function addOrder(req, res) {
 
       // OrderDetail: 있으면 UPDATE, qty=0이면 삭제, 없으면 INSERT
       const od = await tQ(
-        `SELECT OrderDetailKey FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+        `SELECT OrderDetailKey, BoxQuantity, BunchQuantity, SteamQuantity
+           FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
 
       if (od.recordset.length > 0) {
+        const existing = od.recordset[0];
+        const detailKey = existing.OrderDetailKey;
+        const oldQty = (existing.BoxQuantity || 0) + (existing.BunchQuantity || 0) + (existing.SteamQuantity || 0);
         if (quantity <= 0) {
           await tQ(
             `UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
+          // 삭제 이력
+          await insertOrderHistory(tQ, detailKey, String(oldQty), '0', `[${timeStr} ${userName}] 차수피벗 삭제`, uid);
         } else {
           // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
@@ -955,6 +964,10 @@ async function addOrder(req, res) {
               mk:  { type: sql.Int,   value: mk },       pk:  { type: sql.Int,   value: pk },
             }
           );
+          // 수량 변경 이력 (이전 ≠ 이후 일 때만)
+          if (oldQty !== quantity) {
+            await insertOrderHistory(tQ, detailKey, String(oldQty), String(quantity), `[${timeStr} ${userName}] 차수피벗 수정`, uid);
+          }
         }
       } else if (quantity > 0) {
         // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
@@ -970,12 +983,35 @@ async function addOrder(req, res) {
             uid: { type: sql.NVarChar, value: uid },
           }
         );
+        // 신규 추가 이력
+        await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
       }
     });
 
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// OrderHistory INSERT 공통 헬퍼 — 차수피벗/주문관리 양쪽에서 일관된 이력 기록
+async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {
+  try {
+    await tQ(
+      `INSERT INTO OrderHistory
+         (OrderDetailKey, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+       VALUES (@dk, '수정', '수량', @before, @after, @descr, @uid, GETDATE())`,
+      {
+        dk:     { type: sql.Int,      value: detailKey },
+        before: { type: sql.NVarChar, value: before },
+        after:  { type: sql.NVarChar, value: after },
+        descr:  { type: sql.NVarChar, value: descr },
+        uid:    { type: sql.NVarChar, value: uid },
+      }
+    );
+  } catch (e) {
+    // OrderHistory 실패시 전체 트랜잭션 롤백 방지 — 경고 로그만
+    console.warn('[OrderHistory INSERT failed]', e.message);
   }
 }
 
