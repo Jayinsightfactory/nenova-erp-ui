@@ -157,16 +157,14 @@ async function createOrder(req, res) {
         mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
         await tQuery(
           `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @manager, @custKey, @orderCode, 0, @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, CustKey, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @custKey, 0, @createId, GETDATE())`,
           {
-            mk:        { type: sql.Int,      value: mk },
-            year:      { type: sql.NVarChar, value: orderYear },
-            week:      { type: sql.NVarChar, value: orderWeek },
-            manager:   { type: sql.NVarChar, value: manager || 'nenovaSS3' },
-            custKey:   { type: sql.Int,      value: resolvedCustKey },
-            orderCode: { type: sql.NVarChar, value: orderCode || '' },
-            createId:  { type: sql.NVarChar, value: uid },
+            mk:      { type: sql.Int,      value: mk },
+            year:    { type: sql.NVarChar, value: orderYear },
+            week:    { type: sql.NVarChar, value: orderWeek },
+            custKey: { type: sql.Int,      value: resolvedCustKey },
+            createId:{ type: sql.NVarChar, value: uid },
           }
         );
       }
@@ -199,20 +197,21 @@ async function createOrder(req, res) {
 
         if (existOd.recordset.length > 0) {
           await tQuery(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam, OutQuantity=@qty
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
-              steam: { type: sql.Float, value: steamQty }, qty: { type: sql.Float, value: qty },
+              steam: { type: sql.Float, value: steamQty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
         } else if (qty > 0) {
           const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
+          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
           await tQuery(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                 OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @qty, 0, 0, @uid, GETDATE())`,
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, @uid, GETDATE())`,
             {
               nk:    { type: sql.Int,      value: nextKey },
               mk:    { type: sql.Int,      value: mk },
@@ -220,7 +219,6 @@ async function createOrder(req, res) {
               box:   { type: sql.Float,    value: boxQty },
               bunch: { type: sql.Float,    value: bunchQty },
               steam: { type: sql.Float,    value: steamQty },
-              qty:   { type: sql.Float,    value: qty },
               uid:   { type: sql.NVarChar, value: uid },
             }
           );
