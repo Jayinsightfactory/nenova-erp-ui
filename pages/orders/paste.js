@@ -256,8 +256,20 @@ export default function PasteOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQ?.orderId, currentQ?.itemIdx]);
 
+  const flog = (step, detail) => fetch('/api/log', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+    body: JSON.stringify({ category: 'paste', step, detail: String(detail) }),
+  }).catch(() => {});
+
   const handleRegister = async (oid) => {
     const order = orders.find(o => o.id === oid);
+
+    const allItems  = order?.items || [];
+    const addItems  = allItems.filter(it => !it.skip && it.action !== '취소');
+    const matched   = addItems.filter(it => it.prodKey);
+    const unmatched = addItems.filter(it => !it.prodKey);
+    await flog('버튼클릭', `oid=${oid} custMatch=${order?.custMatch?.CustName||'없음'} week=${week} 전체=${allItems.length} 추가대상=${addItems.length} 매칭=${matched.length} 미매칭=${unmatched.length} 미매칭품목=${unmatched.map(i=>i.inputName||'?').join(',')}`);
+
     if (!order?.custMatch) { alert('거래처를 확인하세요.'); return; }
     if (!week) { alert('차수를 선택하세요.'); return; }
 
@@ -265,7 +277,7 @@ export default function PasteOrderPage() {
       .filter(it => !it.skip && it.prodKey && it.action !== '취소')
       .map(it => ({ prodKey: it.prodKey, prodName: it.prodName, qty: it.qty, unit: it.unit }));
 
-    if (items.length === 0) { alert('등록할 추가 품목이 없습니다.'); return; }
+    if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 추가 품목이 없습니다.'); return; }
 
     const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
