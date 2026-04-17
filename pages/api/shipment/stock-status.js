@@ -31,6 +31,11 @@ export default withAuth(async function handler(req, res) {
   if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
   if (!weekTo) weekTo = weekFrom;
 
+  // YYYY-WW-SS → WW-SS (DB 저장 형식으로 정규화)
+  const normWeek = w => w.match(/^\d{4}-(\d{2}-\d{2})$/) ? w.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : w;
+  weekFrom = normWeek(weekFrom);
+  weekTo   = normWeek(weekTo);
+
   const params = {
     weekFrom: { type: sql.NVarChar, value: weekFrom },
     weekTo:   { type: sql.NVarChar, value: weekTo },
