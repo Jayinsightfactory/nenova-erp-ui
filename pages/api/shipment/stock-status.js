@@ -925,12 +925,12 @@ async function addOrder(req, res) {
 
       let mk;
       if (om.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO OrderMaster (OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           OUTPUT INSERTED.OrderMasterKey VALUES(GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        await tQ(
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
+          { mk: { type: sql.Int, value: mk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
-        mk = ins.recordset[0].OrderMasterKey;
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
@@ -1084,12 +1084,12 @@ async function addOrderDelta(req, res) {
 
       let mk;
       if (om.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO OrderMaster (OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           OUTPUT INSERTED.OrderMasterKey VALUES(GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
-          { wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+        mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        await tQ(
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@wk,@ck,0,@uid,GETDATE())`,
+          { mk: { type: sql.Int, value: mk }, wk: { type: sql.NVarChar, value: week }, ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
-        mk = ins.recordset[0].OrderMasterKey;
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
