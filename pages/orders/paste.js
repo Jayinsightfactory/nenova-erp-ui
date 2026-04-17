@@ -555,11 +555,16 @@ export default function PasteOrderPage() {
                   }}>
                     {disambigResults.map(p => (
                       <div key={p.ProdKey}
-                        style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f5f5f5', display: 'flex', gap: 8, alignItems: 'center' }}
+                        style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f5f5f5', display: 'flex', gap: 8, alignItems: 'center', color: '#111', background: '#fff' }}
+                        onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
+                        onMouseLeave={e => e.currentTarget.style.background='#fff'}
                         onMouseDown={() => handleDisambigSelect(p)}>
-                        <strong>{p.DisplayName || p.ProdName}</strong>
-                        <span style={{ color: '#aaa', fontSize: 11 }}>{p.ProdName}</span>
-                        <span style={{ color: '#bbb', fontSize: 11, marginLeft: 'auto' }}>{p.FlowerName} / {p.CounName}</span>
+                        <strong style={{ color: '#1a237e' }}>{p.DisplayName || p.ProdName}</strong>
+                        <span style={{ color: '#555', fontSize: 11 }}>{p.ProdName}</span>
+                        <span style={{ fontSize: 11, marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                          {p.CounName && <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, padding: '1px 6px' }}>{p.CounName}</span>}
+                          {p.FlowerName && <span style={{ background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{p.FlowerName}</span>}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -598,10 +603,13 @@ function CustSelector({ customers, onSelect }) {
       {results.length > 0 && q && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 200, maxHeight: 180, overflowY: 'auto' }}>
           {results.map(c => (
-            <div key={c.CustKey} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f5f5f5' }}
+            <div key={c.CustKey}
+              style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f5f5f5', color: '#111', background: '#fff' }}
+              onMouseEnter={e => e.currentTarget.style.background='#f0f4ff'}
+              onMouseLeave={e => e.currentTarget.style.background='#fff'}
               onMouseDown={() => { onSelect(c); setQ(''); }}>
-              <strong>{c.CustName}</strong>
-              <span style={{ color: '#999', fontSize: 11, marginLeft: 6 }}>{c.CustArea}</span>
+              <strong style={{ color: '#1a237e' }}>{c.CustName}</strong>
+              <span style={{ color: '#666', fontSize: 11, marginLeft: 6 }}>{c.CustArea}</span>
             </div>
           ))}
         </div>
