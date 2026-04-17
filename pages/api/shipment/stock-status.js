@@ -950,6 +950,17 @@ async function editDescrLine(req, res) {
 }
 
 // ── POST: 주문 추가/수정 (OrderMaster + OrderDetail)
+// DB 로그 기록 헬퍼 (AppLog 테이블 필요 — 없으면 무시)
+async function appLog(category, step, detail, isError = false) {
+  try {
+    await query(
+      `INSERT INTO AppLog (Category, Step, Detail, IsError) VALUES (@cat, @step, @detail, @err)`,
+      { cat: { type: sql.NVarChar, value: category }, step: { type: sql.NVarChar, value: step },
+        detail: { type: sql.NVarChar, value: String(detail) }, err: { type: sql.Bit, value: isError ? 1 : 0 } }
+    );
+  } catch { /* AppLog 테이블 없으면 무시 */ }
+}
+
 async function addOrder(req, res) {
   const { action, custKey, prodKey, week, qty, unit } = req.body;
   if (action !== 'addOrder') return res.status(400).json({ success: false, error: 'action=addOrder 필요' });
@@ -973,6 +984,8 @@ async function addOrder(req, res) {
     const bunchQty = unit === '단'   ? quantity : 0;
     const steamQty = unit === '송이' ? quantity : 0;
 
+    await appLog('addOrder', '시작', `ck=${ck} pk=${pk} week=${normWeek} qty=${quantity} unit=${unit} uid=${uid}`);
+
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
@@ -985,6 +998,7 @@ async function addOrder(req, res) {
       let mk;
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        await appLog('addOrder', 'OM_INSERT', `new mk=${mk} ck=${ck} wk=${normWeek}`);
         await tQ(
           `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
            VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
@@ -994,6 +1008,7 @@ async function addOrder(req, res) {
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;
+        await appLog('addOrder', 'OM_FOUND', `mk=${mk}`);
       }
 
       // OrderDetail: 있으면 UPDATE, qty=0이면 삭제, 없으면 INSERT
@@ -1012,13 +1027,14 @@ async function addOrder(req, res) {
                      : outUnit === '송이' ? (existing.SteamQuantity || 0)
                      : (existing.BoxQuantity || 0);
         if (quantity <= 0) {
+          await appLog('addOrder', 'OD_DELETE', `dk=${detailKey}`);
           await tQ(
             `UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
-          // 삭제 이력
           await insertOrderHistory(tQ, detailKey, String(oldQty), '0', `[${timeStr} ${userName}] 차수피벗 삭제`, uid);
         } else {
+          await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
@@ -1029,14 +1045,14 @@ async function addOrder(req, res) {
               mk:  { type: sql.Int,   value: mk },       pk:  { type: sql.Int,   value: pk },
             }
           );
-          // 수량 변경 이력 (이전 ≠ 이후 일 때만)
           if (oldQty !== quantity) {
             await insertOrderHistory(tQ, detailKey, String(oldQty), String(quantity), `[${timeStr} ${userName}] 차수피벗 수정`, uid);
           }
         }
       } else if (quantity > 0) {
-        // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
+        await appLog('addOrder', 'OD_INSERT', `nk=${nextKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+        // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
         await tQ(
           `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
            VALUES(@nk,@mk,@pk,0,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
@@ -1048,13 +1064,16 @@ async function addOrder(req, res) {
             uid: { type: sql.NVarChar, value: uid },
           }
         );
-        // 신규 추가 이력
         await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
+      } else {
+        await appLog('addOrder', 'OD_SKIP', `qty=0이고 기존 없음 — 아무것도 안함`);
       }
     });
 
+    await appLog('addOrder', '완료', `ck=${ck} pk=${pk} wk=${normWeek}`);
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
   } catch (err) {
+    await appLog('addOrder', '오류', err.message, true);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
