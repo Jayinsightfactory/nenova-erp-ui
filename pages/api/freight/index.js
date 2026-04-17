@@ -141,17 +141,24 @@ async function loadFreightData(res, keys, awbLabel) {
   // 운송료 행 분리: FarmName 이 운송사이거나 ProdName 이 '운송료' 등인 행
   const freightRows = allRows.filter(r => isFreightRow(r));
   const rows = allRows.filter(r => !isFreightRow(r));
-  // FREIGHTWISE 의 TPrice 합계 = 실제 항공료 USD
+  // FREIGHTWISE / 운송료 행에서 항공료 + GW/Rate/DocFee 추출
+  // 패턴: 운송비 행은 UPrice>0 (Rate=USD/kg), BunchQuantity=GW(kg), TPrice=운송비
+  //        서류비 행은 UPrice=0, TPrice=서류비
   const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
+  const freightMainRow = freightRows.find(r => Number(r.UPrice) > 0);      // Rate 가 있는 메인행
+  const freightDocRows = freightRows.filter(r => (Number(r.UPrice) || 0) === 0 && Number(r.TPrice) > 0);
+  const extractedGW   = freightMainRow ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
+  const extractedRate  = freightMainRow ? (Number(freightMainRow.UPrice) || 0) : 0;
+  const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
-  // 대표 마스터: primary 기준 + 집계값
+  // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {
     ...masters.find(m => m.WarehouseKey === primaryKey),
     AWB: awbLabel || mastersAll[0].AWB,
-    GrossWeight: sumField(masters, 'GrossWeight'),
-    ChargeableWeight: sumField(masters, 'ChargeableWeight'),
-    FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD'),
-    DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD'),
+    GrossWeight: sumField(masters, 'GrossWeight') || (extractedGW > 0 ? extractedGW : null),
+    ChargeableWeight: sumField(masters, 'ChargeableWeight') || (extractedGW > 0 ? extractedGW : null),
+    FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD') || (extractedRate > 0 ? extractedRate : null),
+    DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD') || (extractedDoc > 0 ? extractedDoc : null),
   };
   const flowers = fRes.recordset;
   const existingSnapshot = fcRes.recordset[0] || null;
