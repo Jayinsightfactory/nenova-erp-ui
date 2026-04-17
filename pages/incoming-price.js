@@ -74,24 +74,32 @@ export default function IncomingPricePage() {
     } finally { setSaving(p => ({ ...p, [farm]: false })); }
   };
 
-  const [selCountries, setSelCountries] = useState([]);
-  const [selFlowers,   setSelFlowers]   = useState([]);
+  const [selCountries,    setSelCountries]    = useState([]);
+  const [selFlowers,      setSelFlowers]      = useState([]);
+  const [expandedFlowers, setExpandedFlowers] = useState(new Set());
 
-  // 데이터 변경 시 필터 초기화
-  useEffect(() => { setSelCountries([]); setSelFlowers([]); }, [data]);
+  // 데이터 변경 시 필터·확장 초기화
+  useEffect(() => { setSelCountries([]); setSelFlowers([]); setExpandedFlowers(new Set()); }, [data]);
 
   const farms  = data?.farms  || [];
   const rows   = data?.rows   || [];
   const totals = data?.totals || {};
 
-  // 로드된 데이터에서 국가·꽃 목록 추출
   const allCountries = [...new Set(rows.map(r => r.country).filter(Boolean))].sort();
   const allFlowers   = [...new Set(rows.map(r => r.flower ).filter(Boolean))].sort();
 
   const toggle = (setter, val) =>
     setter(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
 
-  const sortedRows = [...rows]
+  const toggleFlowerExpand = (key) =>
+    setExpandedFlowers(prev => {
+      const n = new Set(prev);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
+
+  // 필터 적용된 행
+  const filteredRows = [...rows]
     .filter(r => selCountries.length === 0 || selCountries.includes(r.country))
     .filter(r => selFlowers.length   === 0 || selFlowers.includes(r.flower))
     .sort((a, b) =>
@@ -100,20 +108,42 @@ export default function IncomingPricePage() {
       (a.prodName||'').localeCompare(b.prodName||'')
     );
 
-  let prevCountry = null, prevFlower = null;
+  // 데이터 있는 농장만 표시
+  const activeFarms = farms.filter(farm =>
+    filteredRows.some(r => (r.prices[farm]?.tPrice || 0) > 0)
+  );
+
+  // 꽃별 그룹핑
+  const flowerGroups = [];
+  const seen = new Set();
+  for (const r of filteredRows) {
+    const key = `${r.country}||${r.flower}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      flowerGroups.push({ key, country: r.country, flower: r.flower, rows: [] });
+    }
+    flowerGroups[flowerGroups.length - 1].rows.push(r);
+  }
+
+  // 꽃 그룹별 농장 합계
+  const groupFarmTotal = (group, farm) =>
+    group.rows.reduce((s, r) => s + (r.prices[farm]?.tPrice || 0), 0);
+
+  // 필터 적용된 농장 소계 재계산
+  const filteredTotals = {};
+  for (const farm of activeFarms) {
+    filteredTotals[farm] = {
+      subtotal: filteredRows.reduce((s, r) => s + (r.prices[farm]?.tPrice || 0), 0),
+      freightTPrice: totals[farm]?.freightTPrice || 0,
+    };
+  }
 
   const getFarmTotal = (farm) => {
-    const t = totals[farm] || {};
-    const base = t.subtotal || 0;
-    const freight = includeFreight ? (t.freightTPrice || 0) : 0;
-    return base + freight;
+    const t = filteredTotals[farm] || {};
+    return (t.subtotal || 0) + (includeFreight ? (t.freightTPrice || 0) : 0);
   };
 
-  const getNetPayment = (farm) => {
-    const total = getFarmTotal(farm);
-    const credit = Number(credits[farm]?.creditUSD) || 0;
-    return total - credit;
-  };
+  const getNetPayment = (farm) => getFarmTotal(farm) - (Number(credits[farm]?.creditUSD) || 0);
 
   return (
     <Layout title="입고단가 / 농장 송금">
@@ -227,50 +257,75 @@ export default function IncomingPricePage() {
           <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>해당 차수의 입고 데이터가 없습니다.</div>
         )}
 
-        {!loading && data && farms.length > 0 && (
+        {!loading && data && activeFarms.length === 0 && filteredRows.length === 0 && farms.length > 0 && (
+          <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>필터 조건에 맞는 데이터가 없습니다.</div>
+        )}
+
+        {!loading && data && activeFarms.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: 13, background: '#fff', width: '100%', minWidth: farms.length * 130 + 300 }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 13, background: '#fff', width: '100%', minWidth: activeFarms.length * 130 + 300 }}>
               <thead>
                 <tr style={{ background: '#1a237e', color: '#fff' }}>
                   <th style={thS(100)}>국가</th>
-                  <th style={thS(90)}>꽃</th>
+                  <th style={thS(110, 'left')}>꽃</th>
                   <th style={thS(200, 'left')}>품목명</th>
-                  {farms.map(f => (
+                  {activeFarms.map(f => (
                     <th key={f} style={thS(130)}>{f}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {sortedRows.map((row, idx) => {
-                  const showCountry = row.country !== prevCountry;
-                  const showFlower  = showCountry || row.flower !== prevFlower;
-                  prevCountry = row.country;
-                  prevFlower  = row.flower;
-                  const bgColor = idx % 2 === 0 ? '#fff' : '#f5f5f5';
+                {flowerGroups.map(group => {
+                  const expanded = expandedFlowers.has(group.key);
+                  const cnt = group.rows.length;
                   return (
-                    <tr key={idx} style={{ background: bgColor }}>
-                      <td style={tdS(100, 'center', showCountry ? { fontWeight: 700, color: '#1a237e' } : { color: '#999' })}>
-                        {showCountry ? (row.country || '—') : ''}
-                      </td>
-                      <td style={tdS(90, 'center', showFlower ? { fontWeight: 600 } : { color: '#bbb' })}>
-                        {showFlower ? (row.flower || '—') : ''}
-                      </td>
-                      <td style={tdS(200, 'left', { paddingLeft: 8 })}>
-                        {row.displayName || row.prodName}
-                      </td>
-                      {farms.map(farm => {
-                        const p = row.prices[farm];
-                        return (
-                          <td key={farm} style={tdS(130, 'center', p ? {} : { color: '#ddd' })}>
-                            {p ? (
-                              <span title={`합계: ${fmtUSDInt(p.tPrice)}`}>
-                                {fmtUSD(p.uPrice)}
-                              </span>
-                            ) : '—'}
+                    <>
+                      {/* 꽃 요약 행 */}
+                      <tr key={group.key}
+                        onClick={() => toggleFlowerExpand(group.key)}
+                        style={{ background: '#e8eaf6', cursor: 'pointer', borderBottom: '1px solid #c5cae9' }}>
+                        <td style={tdS(100, 'center', { fontWeight: 700, color: '#1a237e' })}>{group.country}</td>
+                        <td style={{ padding: '7px 8px', fontWeight: 700, color: '#283593' }}>
+                          <span style={{ marginRight: 6 }}>{expanded ? '▼' : '▶'}</span>
+                          {group.flower}
+                          <span style={{ fontSize: 11, fontWeight: 400, color: '#888', marginLeft: 6 }}>({cnt}품목)</span>
+                        </td>
+                        <td style={tdS(200, 'left', { color: '#888', fontSize: 11, paddingLeft: 8 })}>
+                          클릭하여 {expanded ? '접기' : '펼치기'}
+                        </td>
+                        {activeFarms.map(farm => {
+                          const total = groupFarmTotal(group, farm);
+                          return (
+                            <td key={farm} style={tdS(130, 'center', { fontWeight: 700, color: total > 0 ? '#1a237e' : '#ccc' })}>
+                              {total > 0 ? fmtUSDInt(total) : '—'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* 세부 품목 행 (펼쳐진 경우) */}
+                      {expanded && group.rows.map((row, idx) => (
+                        <tr key={`${group.key}-${idx}`} style={{ background: idx % 2 === 0 ? '#fafafa' : '#f3f3f3', borderBottom: '1px solid #eee' }}>
+                          <td style={tdS(100, 'center', { color: '#bbb', fontSize: 11 })}></td>
+                          <td style={{ padding: '5px 8px', paddingLeft: 24, color: '#888', fontSize: 11 }}></td>
+                          <td style={tdS(200, 'left', { paddingLeft: 16, fontSize: 12 })}>
+                            {row.displayName || row.prodName}
                           </td>
-                        );
-                      })}
-                    </tr>
+                          {activeFarms.map(farm => {
+                            const p = row.prices[farm];
+                            return (
+                              <td key={farm} style={tdS(130, 'center', p ? { fontSize: 12 } : { color: '#ddd' })}>
+                                {p ? (
+                                  <span title={`합계: ${fmtUSDInt(p.tPrice)}`}>
+                                    {fmtUSD(p.uPrice)}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
                   );
                 })}
 
@@ -278,8 +333,8 @@ export default function IncomingPricePage() {
                 <tr style={{ background: '#e8f5e9', fontStyle: 'italic' }}>
                   <td style={tdS(100, 'center', { color: '#388e3c' })}>운송료</td>
                   <td colSpan={2} style={tdS(290, 'left', { paddingLeft: 8, color: '#388e3c' })}>국내 운송비</td>
-                  {farms.map(farm => {
-                    const fr = totals[farm]?.freightTPrice || 0;
+                  {activeFarms.map(farm => {
+                    const fr = filteredTotals[farm]?.freightTPrice || 0;
                     return (
                       <td key={farm} style={tdS(130, 'center', { color: fr > 0 ? '#388e3c' : '#ccc' })}>
                         {fr > 0 ? fmtUSDInt(fr) : '—'}
@@ -289,14 +344,14 @@ export default function IncomingPricePage() {
                 </tr>
 
                 {/* 구분선 */}
-                <tr><td colSpan={3 + farms.length} style={{ height: 4, background: '#1a237e' }} /></tr>
+                <tr><td colSpan={3 + activeFarms.length} style={{ height: 4, background: '#1a237e' }} /></tr>
 
                 {/* 소계 */}
                 <tr style={{ background: '#e3f2fd', fontWeight: 700 }}>
                   <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12 })}>
                     소계 {includeFreight ? '(운송료 포함)' : '(운송료 제외)'}
                   </td>
-                  {farms.map(farm => (
+                  {activeFarms.map(farm => (
                     <td key={farm} style={tdS(130, 'center', { color: '#1a237e' })}>
                       {fmtUSDInt(getFarmTotal(farm))}
                     </td>
@@ -322,7 +377,7 @@ export default function IncomingPricePage() {
                       )}
                     </div>
                   </td>
-                  {farms.map(farm => (
+                  {activeFarms.map(farm => (
                     <td key={farm} style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -361,7 +416,7 @@ export default function IncomingPricePage() {
                   <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12, color: '#fff' })}>
                     💸 최종 송금액
                   </td>
-                  {farms.map(farm => {
+                  {activeFarms.map(farm => {
                     const net = getNetPayment(farm);
                     return (
                       <td key={farm} style={tdS(130, 'center', { color: net < 0 ? '#ff5252' : '#a5d6a7', fontWeight: 700 })}>
@@ -375,7 +430,7 @@ export default function IncomingPricePage() {
 
             {/* 농장별 요약 카드 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
-              {farms.map(farm => {
+              {activeFarms.map(farm => {
                 const total  = getFarmTotal(farm);
                 const credit = Number(credits[farm]?.creditUSD) || 0;
                 const net    = total - credit;
