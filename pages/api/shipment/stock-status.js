@@ -75,9 +75,11 @@ export default withAuth(async function handler(req, res) {
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND sm.isDeleted = 0
           ), 0) AS outQty,
-          -- 기간 내 주문수량 (전체 업체) — 14차 패턴: Box+Bunch+Steam 합
+          -- 기간 내 주문수량 (전체 업체) — OutUnit 기준 단일 컬럼 선택
           ISNULL((
-            SELECT SUM(ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0))
+            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                            WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                            ELSE ISNULL(od.BoxQuantity,0) END)
             FROM OrderDetail od
             JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
             WHERE od.ProdKey = p.ProdKey
@@ -112,11 +114,15 @@ export default withAuth(async function handler(req, res) {
            FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
            WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted=0
            UNION ALL
-           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
+           -- OutUnit 기준 단일 컬럼 선택
            SELECT od.ProdKey, om.OrderWeek,
-                  (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)),
+                  CASE WHEN p2.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+                       WHEN p2.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+                       ELSE ISNULL(od.BoxQuantity,0) END,
                   'ord'
-           FROM OrderDetail od JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
+           FROM OrderDetail od
+           JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
+           JOIN Product p2 ON od.ProdKey=p2.ProdKey
            WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
              AND om.isDeleted=0 AND od.isDeleted=0
          ) AS src
@@ -151,8 +157,10 @@ export default withAuth(async function handler(req, res) {
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
-          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
+          -- OutUnit 기준 단일 컬럼 선택
+          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+               ELSE ISNULL(od.BoxQuantity,0) END AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL(sd.Descr, '') AS outDescr,
@@ -165,8 +173,9 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            -- 14차 패턴: Box+Bunch+Steam 합
-            SELECT SUM(ISNULL(od2.BoxQuantity,0)+ISNULL(od2.BunchQuantity,0)+ISNULL(od2.SteamQuantity,0))
+            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
+                            WHEN p.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
+                            ELSE ISNULL(od2.BoxQuantity,0) END)
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
@@ -208,8 +217,10 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
-          -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-          (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
+          -- OutUnit 기준 단일 컬럼 선택
+          CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
+               WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
+               ELSE ISNULL(od.BoxQuantity,0) END AS custOrderQty,
           ISNULL(sd.OutQuantity, 0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
           ISNULL((
@@ -219,8 +230,9 @@ export default withAuth(async function handler(req, res) {
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
-            -- 14차 패턴: Box+Bunch+Steam 합
-            SELECT SUM(ISNULL(od2.BoxQuantity,0)+ISNULL(od2.BunchQuantity,0)+ISNULL(od2.SteamQuantity,0))
+            SELECT SUM(CASE WHEN p.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
+                            WHEN p.OutUnit='송이' THEN ISNULL(od2.SteamQuantity,0)
+                            ELSE ISNULL(od2.BoxQuantity,0) END)
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
@@ -982,15 +994,19 @@ async function addOrder(req, res) {
 
       // OrderDetail: 있으면 UPDATE, qty=0이면 삭제, 없으면 INSERT
       const od = await tQ(
-        `SELECT OrderDetailKey, BoxQuantity, BunchQuantity, SteamQuantity
-           FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+        `SELECT od.OrderDetailKey, od.BoxQuantity, od.BunchQuantity, od.SteamQuantity, p.OutUnit
+           FROM OrderDetail od JOIN Product p ON od.ProdKey=p.ProdKey
+           WHERE od.OrderMasterKey=@mk AND od.ProdKey=@pk AND od.isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
 
       if (od.recordset.length > 0) {
         const existing = od.recordset[0];
         const detailKey = existing.OrderDetailKey;
-        const oldQty = (existing.BoxQuantity || 0) + (existing.BunchQuantity || 0) + (existing.SteamQuantity || 0);
+        const outUnit = existing.OutUnit || '박스';
+        const oldQty = outUnit === '단' ? (existing.BunchQuantity || 0)
+                     : outUnit === '송이' ? (existing.SteamQuantity || 0)
+                     : (existing.BoxQuantity || 0);
         if (quantity <= 0) {
           await tQ(
             `UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
