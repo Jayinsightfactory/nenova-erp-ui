@@ -53,6 +53,8 @@ const KO_EN_KEYWORDS = {
   '샴페인': 'CHAMPAGNE',
 };
 
+export const config = { api: { responseLimit: false, bodyParser: { sizeLimit: '1mb' } } };
+
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text } = req.body;
@@ -94,8 +96,8 @@ export default withAuth(async function handler(req, res) {
           return searchTokens.some(tok => name.includes(tok));
         })
       : [];
-    // 너무 적으면 전체 폴백
-    const prodForClaude = filteredProducts.length >= 5 ? filteredProducts : products;
+    // 너무 적으면 전체 폴백 (최대 300개 제한)
+    const prodForClaude = (filteredProducts.length >= 5 ? filteredProducts : products).slice(0, 300);
 
     const custList = customers.map(c => `${c.CustKey}|${c.CustName}|${c.CustArea || ''}`).join('\n');
     const prodList = prodForClaude.map(p => `${p.ProdKey}|${p.ProdName}|${p.DisplayName}|${p.FlowerName}|${p.CounName}`).join('\n');
@@ -168,12 +170,15 @@ Caroline | 2
 
     const userMsg = `거래처 목록:\n${custList}\n\n품목 목록:\n${prodList}\n\n파싱할 텍스트:\n${text}`;
 
-    const resp = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMsg }],
-    });
+    const resp = await Promise.race([
+      client.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }],
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Claude API 응답 시간 초과 (30초)')), 30000)),
+    ]);
 
     trackLLMCall({
       userId: req.user?.userId || null,
