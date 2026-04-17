@@ -1,5 +1,5 @@
 // pages/incoming-price.js — 입고단가 / 농장 송금 관리
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import Layout from '../components/Layout';
 import { apiGet } from '../lib/useApi';
@@ -13,11 +13,12 @@ export default function IncomingPricePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [includeFreight, setIncludeFreight] = useState(false);
-  const [credits, setCredits] = useState({});
-  const [editCredit, setEditCredit] = useState({});
-  const [creditWeek, setCreditWeek] = useState('');  // 크레딧 저장용 단일 차수
+  const [creditsRaw, setCreditsRaw] = useState([]);  // [{ farmName, orderWeek, creditUSD, memo }]
+  const [editCredit, setEditCredit] = useState({});  // { "farm::week": { creditUSD, memo } }
   const [saving, setSaving] = useState({});
   const [msg, setMsg] = useState('');
+  const tableContainerRef = useRef(null);
+  const topScrollRef = useRef(null);
 
   useEffect(() => {
     apiGet('/api/incoming-price').then(d => {
@@ -32,46 +33,85 @@ export default function IncomingPricePage() {
   };
 
   const loadData = useCallback(async (weeks) => {
-    if (!weeks.length) { setData(null); return; }
+    if (!weeks.length) { setData(null); setCreditsRaw([]); setEditCredit({}); return; }
     setLoading(true);
     setData(null);
     try {
       const d = await apiGet('/api/incoming-price', { weeks: weeks.join(',') });
       if (d.success) {
         setData(d);
-        setCredits(d.credits || {});
+        const raw = d.creditsRaw || [];
+        setCreditsRaw(raw);
+        // editCredit 초기화: farm::week 키로
         const init = {};
+        for (const c of raw) {
+          const k = `${c.farmName}::${c.orderWeek}`;
+          init[k] = { creditUSD: c.creditUSD ?? '', memo: c.memo ?? '' };
+        }
+        // 크레딧 없는 farm×week 도 빈 값으로 초기화
         for (const farm of (d.farms || [])) {
-          const c = d.credits?.[farm];
-          init[farm] = { creditUSD: c?.creditUSD ?? '', memo: c?.memo ?? '' };
+          for (const w of weeks) {
+            const k = `${farm}::${w}`;
+            if (!init[k]) init[k] = { creditUSD: '', memo: '' };
+          }
         }
         setEditCredit(init);
-        // 크레딧 저장 기본 차수: 마지막 선택 차수
-        setCreditWeek(weeks[weeks.length - 1] || '');
       }
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadData(selectedWeeks); }, [selectedWeeks, loadData]);
 
-  const saveCredit = async (farm) => {
-    if (!creditWeek) return;
-    setSaving(p => ({ ...p, [farm]: true }));
+  // farm의 전체 크레딧 합산 (creditsRaw + 미저장 editCredit 반영)
+  const getFarmCredit = (farm) =>
+    selectedWeeks.reduce((sum, w) => {
+      const ec = editCredit[`${farm}::${w}`];
+      return sum + (Number(ec?.creditUSD) || 0);
+    }, 0);
+
+  const saveCredit = async (farm, week) => {
+    const k = `${farm}::${week}`;
+    setSaving(p => ({ ...p, [k]: true }));
     try {
-      const ec = editCredit[farm] || {};
+      const ec = editCredit[k] || {};
       const res = await fetch('/api/incoming-price', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ farmName: farm, orderWeek: creditWeek, creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' }),
+        body: JSON.stringify({ farmName: farm, orderWeek: week, creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' }),
       });
       const d = await res.json();
       if (d.success) {
-        setCredits(p => ({ ...p, [farm]: { creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' } }));
-        setMsg(`✅ ${farm} 크레딧 저장 (${creditWeek})`);
+        // creditsRaw 로컬 업데이트 (재로드 없이 정확한 합산 유지)
+        setCreditsRaw(prev => {
+          const others = prev.filter(c => !(c.farmName === farm && c.orderWeek === week));
+          return [...others, { farmName: farm, orderWeek: week, creditUSD: Number(ec.creditUSD) || 0, memo: ec.memo || '' }];
+        });
+        setMsg(`✅ ${farm} 크레딧 저장 (${week})`);
         setTimeout(() => setMsg(''), 2500);
       }
-    } finally { setSaving(p => ({ ...p, [farm]: false })); }
+    } finally { setSaving(p => ({ ...p, [`${farm}::${week}`]: false })); }
+  };
+
+  const deleteCredit = async (farm, week) => {
+    if (!confirm(`${farm} / ${week} 크레딧을 삭제하시겠습니까?`)) return;
+    const k = `${farm}::${week}`;
+    setSaving(p => ({ ...p, [k]: true }));
+    try {
+      const res = await fetch('/api/incoming-price', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ farmName: farm, orderWeek: week }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setCreditsRaw(prev => prev.filter(c => !(c.farmName === farm && c.orderWeek === week)));
+        setEditCredit(p => ({ ...p, [k]: { creditUSD: '', memo: '' } }));
+        setMsg(`🗑 ${farm} 크레딧 삭제 (${week})`);
+        setTimeout(() => setMsg(''), 2500);
+      }
+    } finally { setSaving(p => ({ ...p, [k]: false })); }
   };
 
   const [selCountries,    setSelCountries]    = useState([]);
@@ -143,7 +183,7 @@ export default function IncomingPricePage() {
     return (t.subtotal || 0) + (includeFreight ? (t.freightTPrice || 0) : 0);
   };
 
-  const getNetPayment = (farm) => getFarmTotal(farm) - (Number(credits[farm]?.creditUSD) || 0);
+  const getNetPayment = (farm) => getFarmTotal(farm) - getFarmCredit(farm);
 
   return (
     <Layout title="입고단가 / 농장 송금">
@@ -251,6 +291,17 @@ export default function IncomingPricePage() {
           )}
         </div>
 
+        {/* 꽃 필터 바로 아래 가로 스크롤바 */}
+        {!loading && data && activeFarms.length > 0 && (
+          <div
+            ref={topScrollRef}
+            style={{ overflowX: 'auto', overflowY: 'hidden', height: 10, marginBottom: 4, marginTop: 2 }}
+            onScroll={e => { if (tableContainerRef.current) tableContainerRef.current.scrollLeft = e.target.scrollLeft; }}
+          >
+            <div style={{ width: activeFarms.length * 130 + 300, height: 1 }} />
+          </div>
+        )}
+
         {loading && <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>로딩 중…</div>}
 
         {!loading && data && farms.length === 0 && (
@@ -262,7 +313,13 @@ export default function IncomingPricePage() {
         )}
 
         {!loading && data && activeFarms.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
+          <div>
+            {/* 메인 테이블 */}
+            <div
+              ref={tableContainerRef}
+              style={{ overflowX: 'auto' }}
+              onScroll={e => { if (topScrollRef.current) topScrollRef.current.scrollLeft = e.target.scrollLeft; }}
+            >
             <table style={{ borderCollapse: 'collapse', fontSize: 13, background: '#fff', width: '100%', minWidth: activeFarms.length * 130 + 300 }}>
               <thead>
                 <tr style={{ background: '#1a237e', color: '#fff' }}>
@@ -329,6 +386,16 @@ export default function IncomingPricePage() {
                   );
                 })}
 
+                {/* 소계 위 컬럼 헤더 반복 행 */}
+                <tr style={{ background: '#1a237e', color: '#fff', borderTop: '3px solid #0d1b6e' }}>
+                  <th style={thS(100)}>국가</th>
+                  <th style={thS(110, 'left')}>꽃</th>
+                  <th style={thS(200, 'left')}>품목명</th>
+                  {activeFarms.map(f => (
+                    <th key={f} style={thS(130)}>{f}</th>
+                  ))}
+                </tr>
+
                 {/* 운송료 행 */}
                 <tr style={{ background: '#e8f5e9', fontStyle: 'italic' }}>
                   <td style={tdS(100, 'center', { color: '#388e3c' })}>운송료</td>
@@ -358,57 +425,99 @@ export default function IncomingPricePage() {
                   ))}
                 </tr>
 
-                {/* 크레딧 입력 */}
+                {/* 크레딧 입력 — 차수 | 비고 | 금액 테이블 */}
                 <tr style={{ background: '#fff3e0' }}>
                   <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12, color: '#e65100', fontWeight: 600 })}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
                       <span>크레딧 차감 (불량/반품)</span>
-                      {selectedWeeks.length > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-                          <span style={{ color: '#888' }}>저장할 차수:</span>
-                          <select
-                            value={creditWeek}
-                            onChange={e => setCreditWeek(e.target.value)}
-                            style={{ fontSize: 11, padding: '1px 4px', border: '1px solid #ffb74d', borderRadius: 3 }}
-                          >
-                            {selectedWeeks.map(w => <option key={w} value={w}>{w}</option>)}
-                          </select>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => window.open('/incoming-price/credit-history?popup=1', '크레딧이력', 'width=820,height=600,resizable=yes,scrollbars=yes')}
+                        style={{ fontSize: 11, padding: '2px 10px', background: '#fff', border: '1px solid #ffb74d', borderRadius: 4, color: '#e65100', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        📋 기록
+                      </button>
                     </div>
                   </td>
-                  {activeFarms.map(farm => (
-                    <td key={farm} style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <span style={{ fontSize: 12, color: '#888' }}>$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={editCredit[farm]?.creditUSD ?? ''}
-                            onChange={e => setEditCredit(p => ({ ...p, [farm]: { ...(p[farm]||{}), creditUSD: e.target.value } }))}
-                            style={{ width: 70, padding: '2px 4px', border: '1px solid #ffb74d', borderRadius: 4, fontSize: 12, textAlign: 'right' }}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={editCredit[farm]?.memo ?? ''}
-                          onChange={e => setEditCredit(p => ({ ...p, [farm]: { ...(p[farm]||{}), memo: e.target.value } }))}
-                          placeholder="메모 (사유)"
-                          style={{ width: 100, padding: '2px 4px', border: '1px solid #ffb74d', borderRadius: 4, fontSize: 11 }}
-                        />
-                        <button
-                          onClick={() => saveCredit(farm)}
-                          disabled={saving[farm] || !creditWeek}
-                          style={{ fontSize: 11, padding: '2px 8px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                        >
-                          {saving[farm] ? '…' : '저장'}
-                        </button>
-                      </div>
-                    </td>
-                  ))}
+                  {activeFarms.map(farm => {
+                    const savedMemos = creditsRaw.filter(
+                      c => c.farmName === farm && selectedWeeks.includes(c.orderWeek) && c.memo
+                    );
+                    return (
+                      <td key={farm} style={{ padding: '4px 6px', verticalAlign: 'top', minWidth: 200 }}>
+                        {/* 차수별 입력 */}
+                        {selectedWeeks.map(w => {
+                          const k = `${farm}::${w}`;
+                          const ec = editCredit[k] || {};
+                          const isSaving = saving[k];
+                          return (
+                            <div key={w} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: selectedWeeks.length > 1 ? '1px dashed #ffe0b2' : 'none' }}>
+                              {selectedWeeks.length > 1 && (
+                                <div style={{ fontSize: 10, color: '#e65100', fontWeight: 700, marginBottom: 3 }}>{w}</div>
+                              )}
+                              {/* 비고 textarea — 크고 넓게 */}
+                              <textarea
+                                value={ec.memo ?? ''}
+                                onChange={e => setEditCredit(p => ({ ...p, [k]: { ...(p[k]||{}), memo: e.target.value } }))}
+                                placeholder="비고 입력…"
+                                rows={3}
+                                style={{
+                                  width: '100%', padding: '4px 6px',
+                                  border: '1px solid #ffb74d', borderRadius: 4,
+                                  fontSize: 12, boxSizing: 'border-box',
+                                  resize: 'vertical', minHeight: 54, lineHeight: 1.5,
+                                  fontFamily: 'inherit',
+                                }}
+                              />
+                              {/* 금액 + 버튼 */}
+                              <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 }}>
+                                <span style={{ fontSize: 11, color: '#888' }}>$</span>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={ec.creditUSD ?? ''}
+                                  onChange={e => setEditCredit(p => ({ ...p, [k]: { ...(p[k]||{}), creditUSD: e.target.value } }))}
+                                  style={{ flex: 1, padding: '3px 4px', border: '1px solid #ffb74d', borderRadius: 4, fontSize: 12, textAlign: 'right' }}
+                                  placeholder="0.00"
+                                />
+                                <button onClick={() => saveCredit(farm, w)} disabled={isSaving}
+                                  style={{ fontSize: 11, padding: '3px 8px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                                  {isSaving ? '…' : '💾'}
+                                </button>
+                                <button onClick={() => deleteCredit(farm, w)} disabled={isSaving} title="삭제"
+                                  style={{ fontSize: 11, padding: '3px 6px', background: '#fff', border: '1px solid #ffcdd2', color: '#c62828', borderRadius: 4, cursor: 'pointer' }}>
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* 저장된 비고 카드 (차수별 분리) */}
+                        {savedMemos.length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 10, color: '#aaa', fontWeight: 600, marginBottom: 4, letterSpacing: 0.3 }}>💬 저장된 비고</div>
+                            {savedMemos.map(c => (
+                              <div key={c.orderWeek} style={{
+                                background: '#fff8f0', border: '1px solid #ffe0b2',
+                                borderLeft: '3px solid #ff9800',
+                                borderRadius: 4, padding: '5px 8px', marginBottom: 5,
+                                fontSize: 12,
+                              }}>
+                                <div style={{ fontSize: 10, color: '#e65100', fontWeight: 700, marginBottom: 2 }}>{c.orderWeek}</div>
+                                <div style={{ color: '#333', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.memo}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 합계 (다중 차수) */}
+                        {selectedWeeks.length > 1 && (
+                          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: '#e65100', textAlign: 'right' }}>
+                            합계: {fmtUSDInt(getFarmCredit(farm))}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
 
                 {/* 최종 송금액 */}
@@ -427,13 +536,15 @@ export default function IncomingPricePage() {
                 </tr>
               </tbody>
             </table>
+            </div>{/* /tableContainerRef */}
 
             {/* 농장별 요약 카드 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
               {activeFarms.map(farm => {
                 const total  = getFarmTotal(farm);
-                const credit = Number(credits[farm]?.creditUSD) || 0;
+                const credit = getFarmCredit(farm);
                 const net    = total - credit;
+                const farmRaw = creditsRaw.filter(c => c.farmName === farm && selectedWeeks.includes(c.orderWeek));
                 return (
                   <div key={farm} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, padding: '12px 16px', minWidth: 200, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
                     <div style={{ fontWeight: 700, color: '#1a237e', marginBottom: 6, fontSize: 14 }}>{farm}</div>
@@ -448,9 +559,9 @@ export default function IncomingPricePage() {
                           <span>- {fmtUSDInt(credit)}</span>
                         </div>
                       )}
-                      {credits[farm]?.memo && (
-                        <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{credits[farm].memo}</div>
-                      )}
+                      {farmRaw.map(c => c.memo).filter(Boolean).map((m, i) => (
+                        <div key={i} style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{m}</div>
+                      ))}
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eee', marginTop: 6, paddingTop: 6, fontWeight: 700, color: net < 0 ? '#c62828' : '#1b5e20' }}>
                         <span>송금액</span>
                         <span>{fmtUSDInt(net)}</span>

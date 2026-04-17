@@ -8,8 +8,9 @@ import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
   try {
-    if (req.method === 'GET')  return await handleGet(req, res);
-    if (req.method === 'PUT')  return await handlePutCredit(req, res);
+    if (req.method === 'GET')    return await handleGet(req, res);
+    if (req.method === 'PUT')    return await handlePutCredit(req, res);
+    if (req.method === 'DELETE') return await handleDeleteCredit(req, res);
     return res.status(405).end();
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -141,6 +142,12 @@ async function handleGet(req, res) {
     rows: [...productMap.values()],
     totals,
     credits,
+    creditsRaw: creditRes.recordset.map(c => ({
+      farmName:  c.FarmName,
+      orderWeek: c.OrderWeek,
+      creditUSD: Number(c.CreditUSD) || 0,
+      memo:      c.Memo || '',
+    })),
   });
 }
 
@@ -159,6 +166,21 @@ async function handlePutCredit(req, res) {
       week:   { type: sql.NVarChar, value: orderWeek },
       credit: { type: sql.Decimal,  value: Number(creditUSD) || 0, precision: 10, scale: 2 },
       memo:   { type: sql.NVarChar, value: memo || '' },
+    }
+  );
+  return res.status(200).json({ success: true });
+}
+
+async function handleDeleteCredit(req, res) {
+  const { farmName, orderWeek } = req.body;
+  if (!farmName || !orderWeek) return res.status(400).json({ success: false, error: 'farmName, orderWeek 필수' });
+
+  await query(
+    `UPDATE FarmCredit SET isDeleted=1, UpdateDtm=GETDATE()
+     WHERE FarmName=@farm AND OrderWeek=@week AND isDeleted=0`,
+    {
+      farm: { type: sql.NVarChar, value: farmName },
+      week: { type: sql.NVarChar, value: orderWeek },
     }
   );
   return res.status(200).json({ success: true });
