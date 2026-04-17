@@ -20,9 +20,10 @@ const MENU_ITEMS = [
   {
     group: '주문관리',
     items: [
-      { href: '/orders/new',  labelKey: '주문등록',  popup: false },
-      { href: '/orders',      labelKey: '주문관리',  popup: false },
-      { href: '/warehouse',   labelKey: '발주관리',  popup: false },
+      { href: '/orders/new',   labelKey: '주문등록',          popup: false },
+      { href: '/orders/paste', labelKey: '붙여넣기 주문등록',  popup: true  },
+      { href: '/orders',       labelKey: '주문관리',          popup: false },
+      { href: '/warehouse',    labelKey: '발주관리',          popup: false },
     ]
   },
   {
