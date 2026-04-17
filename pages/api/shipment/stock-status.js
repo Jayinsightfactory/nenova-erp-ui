@@ -584,15 +584,6 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
             WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
-              AND (
-                sm.WebCreated = 1
-                OR NOT EXISTS (
-                  SELECT 1 FROM ShipmentDetail sd2
-                  JOIN ShipmentMaster sm2 ON sd2.ShipmentKey = sm2.ShipmentKey
-                  WHERE sm2.CustKey = sm.CustKey AND sm2.OrderWeek >= @weekFrom AND sm2.OrderWeek <= @weekTo
-                    AND sm2.isDeleted = 0 AND sm2.WebCreated = 1 AND sd2.ProdKey = sd.ProdKey
-                )
-              )
           ), 0) AS outQty,
           -- 업체별 출고 수량 집계 (어느 거래처가 몇 개 가져갔는지)
           (
@@ -603,15 +594,6 @@ export default withAuth(async function handler(req, res) {
             WHERE sd.ProdKey = p.ProdKey
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND sm.isDeleted = 0 AND sd.OutQuantity > 0
-              AND (
-                sm.WebCreated = 1
-                OR NOT EXISTS (
-                  SELECT 1 FROM ShipmentDetail sd2
-                  JOIN ShipmentMaster sm2 ON sd2.ShipmentKey = sm2.ShipmentKey
-                  WHERE sm2.CustKey = sm.CustKey AND sm2.OrderWeek >= @weekFrom AND sm2.OrderWeek <= @weekTo
-                    AND sm2.isDeleted = 0 AND sm2.WebCreated = 1 AND sd2.ProdKey = sd.ProdKey
-                )
-              )
             GROUP BY c.CustName
             ORDER BY SUM(sd.OutQuantity) DESC
             FOR JSON PATH
@@ -623,15 +605,6 @@ export default withAuth(async function handler(req, res) {
              SELECT 1 FROM ShipmentDetail sd2
              JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
              WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek >= @weekFrom AND sm3.OrderWeek <= @weekTo AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0
-               AND (
-                 sm3.WebCreated = 1
-                 OR NOT EXISTS (
-                   SELECT 1 FROM ShipmentDetail sd3
-                   JOIN ShipmentMaster sm4 ON sd3.ShipmentKey = sm4.ShipmentKey
-                   WHERE sm4.CustKey = sm3.CustKey AND sm4.OrderWeek >= @weekFrom AND sm4.OrderWeek <= @weekTo
-                     AND sm4.isDeleted = 0 AND sm4.WebCreated = 1 AND sd3.ProdKey = sd2.ProdKey
-                 )
-               )
            )
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
         filterParams
