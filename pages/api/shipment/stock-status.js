@@ -912,7 +912,6 @@ async function addOrder(req, res) {
     // YYYY-WW-SS → WW-SS 정규화
     const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
-    const normYwk  = normYear + normWeek.replace('-', '');
 
     // 단위별 수량 분배 (박스/단/송이)
     const boxQty   = unit === '박스' ? quantity : 0;
@@ -931,10 +930,10 @@ async function addOrder(req, res) {
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@ck,0,@uid,GETDATE())`,
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
           { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear },
-            wk: { type: sql.NVarChar, value: normWeek }, ywk: { type: sql.NVarChar, value: normYwk },
+            wk: { type: sql.NVarChar, value: normWeek },
             ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
       } else {
@@ -1081,7 +1080,6 @@ async function addOrderDelta(req, res) {
     const uid      = req.user?.userId || 'system';
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
-    const normYwk2  = normYear2 + normWeek2.replace('-', '');
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
@@ -1095,10 +1093,10 @@ async function addOrderDelta(req, res) {
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@ck,0,@uid,GETDATE())`,
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
           { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear2 },
-            wk: { type: sql.NVarChar, value: normWeek2 }, ywk: { type: sql.NVarChar, value: normYwk2 },
+            wk: { type: sql.NVarChar, value: normWeek2 },
             ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
         );
       } else {
