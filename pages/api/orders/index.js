@@ -28,8 +28,9 @@ async function getOrders(req, res) {
   const params = {};
 
   if (week) {
+    const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     where += ' AND om.OrderWeek = @week';
-    params.week = { type: sql.NVarChar, value: week };
+    params.week = { type: sql.NVarChar, value: normWeek };
   }
   if (startDate) {
     where += ' AND CAST(om.OrderDtm AS DATE) >= @startDate';

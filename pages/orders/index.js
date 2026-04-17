@@ -30,6 +30,7 @@ export default function OrderList() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [custName, setCustName] = useState('');
+  const [weekFilter, setWeekFilter] = useState('');
   const [prodFilter, setProdFilter] = useState('');
   const [selectedRow, setSelectedRow] = useState(null); // { orderId, prodKey }
   const [err, setErr] = useState('');
@@ -37,7 +38,11 @@ export default function OrderList() {
 
   const load = () => {
     setLoading(true); setErr('');
-    apiGet('/api/orders', { startDate, endDate, custName })
+    // 차수 필터 있으면 날짜 무시하고 차수 기준 조회
+    const params = weekFilter
+      ? { week: weekFilter, custName }
+      : { startDate, endDate, custName };
+    apiGet('/api/orders', params)
       .then(d => setOrders(d.orders || []))
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -88,10 +93,17 @@ export default function OrderList() {
     <div>
       {/* 필터 바 */}
       <div className="filter-bar">
+        <span className="filter-label">차수</span>
+        <input className="filter-input" placeholder="16-01 또는 2026-16-01"
+          value={weekFilter} onChange={e => setWeekFilter(e.target.value)}
+          style={{minWidth:110}}
+          onKeyDown={e => e.key === 'Enter' && load()} />
         <span className="filter-label">주문일자</span>
-        <input type="date" className="filter-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        <input type="date" className="filter-input" value={startDate}
+          onChange={e => { setWeekFilter(''); setStartDate(e.target.value); }} />
         <span style={{color:'var(--text3)'}}>~</span>
-        <input type="date" className="filter-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
+        <input type="date" className="filter-input" value={endDate}
+          onChange={e => { setWeekFilter(''); setEndDate(e.target.value); }} />
         <span className="filter-label">품목</span>
         <input className="filter-input" placeholder="품목명" value={prodFilter} onChange={e => setProdFilter(e.target.value)} style={{minWidth:120}} />
         <div className="page-actions">
