@@ -29,13 +29,14 @@ export default withAuth(async function handler(req, res) {
 async function handleGet(req, res) {
   const { warehouseKey, awb } = req.query;
 
-  // AWB 그룹 조회 — 같은 AWB의 모든 WarehouseKey 합산
+  // AWB 그룹 조회 — 같은 AWB의 모든 WarehouseKey 합산 (대시/공백 무시)
   if (awb) {
+    const normAWB = (awb || '').replace(/[-\s]/g, '').trim();
     const r = await query(
       `SELECT WarehouseKey FROM WarehouseMaster
-         WHERE OrderNo=@awb AND isDeleted=0
+         WHERE REPLACE(REPLACE(OrderNo,'-',''),' ','')=@awb AND isDeleted=0
          ORDER BY WarehouseKey`,
-      { awb: { type: sql.NVarChar, value: awb } }
+      { awb: { type: sql.NVarChar, value: normAWB } }
     );
     const keys = r.recordset.map(x => x.WarehouseKey);
     if (keys.length === 0) return res.status(404).json({ success:false, error:`AWB ${awb} 원장 없음` });
@@ -59,10 +60,14 @@ async function handleGet(req, res) {
       if (!fkByWk.has(f.WarehouseKey)) fkByWk.set(f.WarehouseKey, f.FreightKey);
     }
 
+    // AWB 정규화 — 대시/공백 제거하여 "006-45360346" == "00645360346" 매칭
+    const normalizeAWB = (awb) => (awb || '').replace(/[-\s]/g, '').trim();
+
     // AWB 기준 그룹화 (AWB 없으면 WarehouseKey 단위로 개별 그룹)
     const groupMap = new Map();
     for (const m of wmRes.recordset) {
-      const groupKey = m.AWB ? `AWB:${m.AWB}` : `WK:${m.WarehouseKey}`;
+      const normAWB = normalizeAWB(m.AWB);
+      const groupKey = normAWB ? `AWB:${normAWB}` : `WK:${m.WarehouseKey}`;
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
           GroupKey: groupKey, AWB: m.AWB || '',

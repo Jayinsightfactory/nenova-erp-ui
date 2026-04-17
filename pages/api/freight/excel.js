@@ -21,9 +21,10 @@ export default withAuth(async function handler(req, res) {
       } else if (body.warehouseKey) {
         keys = [Number(body.warehouseKey)].filter(Boolean);
       } else if (awbLabel) {
+        const normAWB = awbLabel.replace(/[-\s]/g, '').trim();
         const r = await query(
-          `SELECT WarehouseKey FROM WarehouseMaster WHERE OrderNo=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
-          { awb: { type: sql.NVarChar, value: awbLabel } }
+          `SELECT WarehouseKey FROM WarehouseMaster WHERE REPLACE(REPLACE(OrderNo,'-',''),' ','')=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
+          { awb: { type: sql.NVarChar, value: normAWB } }
         );
         keys = r.recordset.map(x => x.WarehouseKey);
       }
@@ -42,9 +43,10 @@ export default withAuth(async function handler(req, res) {
       } else if (warehouseKey) {
         keys = [parseInt(warehouseKey)];
       } else if (awb) {
+        const normAWB = awb.replace(/[-\s]/g, '').trim();
         const r = await query(
-          `SELECT WarehouseKey FROM WarehouseMaster WHERE OrderNo=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
-          { awb: { type: sql.NVarChar, value: awb } }
+          `SELECT WarehouseKey FROM WarehouseMaster WHERE REPLACE(REPLACE(OrderNo,'-',''),' ','')=@awb AND isDeleted=0 ORDER BY WarehouseKey`,
+          { awb: { type: sql.NVarChar, value: normAWB } }
         );
         keys = r.recordset.map(x => x.WarehouseKey);
       }
