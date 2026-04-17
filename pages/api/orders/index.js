@@ -163,7 +163,7 @@ async function createOrder(req, res) {
             mk:        { type: sql.Int,      value: mk },
             year:      { type: sql.NVarChar, value: orderYear },
             week:      { type: sql.NVarChar, value: orderWeek },
-            manager:   { type: sql.NVarChar, value: manager || req.user.userName },
+            manager:   { type: sql.NVarChar, value: manager || 'nenovaSS3' },
             custKey:   { type: sql.Int,      value: resolvedCustKey },
             orderCode: { type: sql.NVarChar, value: orderCode || '' },
             createId:  { type: sql.NVarChar, value: uid },
