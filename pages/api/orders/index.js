@@ -145,18 +145,18 @@ async function createOrder(req, res) {
       resolvedOrderCode = r.recordset[0].OrderCode || '';
     }
 
+    const orderYear = year || new Date().getFullYear().toString();
+    // YYYY-WW-SS → WW-SS (전산 DB 형식으로 정규화)
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
-    const orderYear = year || (rawWeek.match(/^(\d{4})-/) ? rawWeek.match(/^(\d{4})-/)[1] : new Date().getFullYear().toString());
     const uid = req.user?.userId || 'nenovaSS3';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
-    const { orderMasterKey, results, isNew } = await withTransaction(async (tQuery) => {
-      // 기존 OrderMaster 확인 (같은 업체+차수) — TOP 1 오래된 것 우선
+    const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
+      // 기존 OrderMaster 확인 (같은 업체+차수)
       const existing = await tQuery(
-        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
-         ORDER BY OrderMasterKey ASC`,
+        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
         { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: orderWeek } }
       );
 
@@ -245,23 +245,8 @@ async function createOrder(req, res) {
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
-      return { orderMasterKey: mk, results: detailResults, isNew: existing.recordset.length === 0 };
+      return { orderMasterKey: mk, results: detailResults };
     });
-
-    // 웹 작업 히스토리 → 트랜잭션 밖에서 Descr 추가 (실패해도 주문 등록 영향 없음)
-    try {
-      const logNow = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      const logItems = results.filter(r => r.status === 'OK' || r.status === 'UPDATED')
-        .map(r => `${r.prodName || r.prodKey} ${r.qty}${r.unit}`).join(', ');
-      if (logItems) {
-        const action = isNew ? '웹등록' : '웹수정';
-        await query(
-          `UPDATE OrderMaster SET Descr = ISNULL(Descr,'') + @log WHERE OrderMasterKey=@mk`,
-          { log: { type: sql.NVarChar, value: `\n[${action} ${logNow} ${uid}] ${logItems}` },
-            mk:  { type: sql.Int, value: orderMasterKey } }
-        );
-      }
-    } catch { /* 이력 실패는 주문 등록에 영향 없음 */ }
 
     return res.status(201).json({
       success: true,
@@ -350,7 +335,6 @@ async function updateOrder(req, res) {
               uid:    { type: sql.NVarChar, value: uid },
             }
           );
-
         }
       }
     });

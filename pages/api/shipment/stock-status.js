@@ -974,11 +974,10 @@ async function addOrder(req, res) {
     const steamQty = unit === '송이' ? quantity : 0;
 
     await withTransaction(async (tQ) => {
-      // OrderMaster 찾기 또는 생성 — TOP 1 오래된 것 우선 (중복 방지)
+      // OrderMaster 찾기 또는 생성
       const om = await tQ(
-        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
-         ORDER BY OrderMasterKey ASC`,
+        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek } }
       );
 
@@ -1052,19 +1051,6 @@ async function addOrder(req, res) {
         await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
       }
     });
-
-    // OrderMaster.Descr 에 웹 작업 이력 추가 (전산에서 확인 가능)
-    const logNow = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    const logAction = quantity <= 0 ? '차수피벗삭제' : '차수피벗추가/수정';
-    try {
-      await query(
-        `UPDATE OrderMaster SET Descr=ISNULL(Descr,'')+@log
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
-        { log: { type: sql.NVarChar, value: `\n[${logAction} ${logNow} ${req.user?.userId||'system'}] ProdKey:${prodKey} ${quantity}${unit||''}` },
-          ck:  { type: sql.Int,     value: parseInt(custKey) },
-          wk:  { type: sql.NVarChar, value: (week.match(/^\d{4}-(\d{2}-\d{2})$/) || [,week])[1] } }
-      );
-    } catch { /* 이력 실패는 무시 */ }
 
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
   } catch (err) {
@@ -1155,11 +1141,10 @@ async function addOrderDelta(req, res) {
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
     await withTransaction(async (tQ) => {
-      // OrderMaster 찾기 또는 생성 — TOP 1 오래된 것 우선
+      // OrderMaster 찾기 또는 생성
       const om = await tQ(
-        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
-         ORDER BY OrderMasterKey ASC`,
+        `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek2 } }
       );
 
