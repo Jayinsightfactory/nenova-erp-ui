@@ -86,7 +86,7 @@ async function getOrders(req, res) {
         ordersMap[row.OrderMasterKey] = {
           id: row.OrderMasterKey,
           date: row.OrderDtm,
-          week: row.OrderWeek,
+          week: row.OrderYear ? `${row.OrderYear}-${row.OrderWeek}` : row.OrderWeek,
           year: row.OrderYear,
           manager: row.Manager,
           orderCode: row.OrderCode,
@@ -237,10 +237,12 @@ async function createOrder(req, res) {
         if (existOd.recordset.length > 0) {
           await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQuery(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
+            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
+               LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
+              uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
@@ -260,7 +262,7 @@ async function createOrder(req, res) {
               box:   { type: sql.Float,    value: boxQty },
               bunch: { type: sql.Float,    value: bunchQty },
               steam: { type: sql.Float,    value: steamQty },
-              uid:   { type: sql.NVarChar, value: uid },
+              uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
             }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
