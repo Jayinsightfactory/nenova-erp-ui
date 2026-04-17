@@ -61,9 +61,21 @@ export default withAuth(async function handler(req, res) {
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
 
   try {
+    // ── Step 1: 텍스트 첫 줄에서 꽃 품종 키워드 선(先) 추출
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const koTokensAll = (text.match(/[가-힣]+/g) || []);
+    const detectedFlowers = [...new Set(koTokensAll.flatMap(t => KO_EN_KEYWORDS[t] ? [KO_EN_KEYWORDS[t]] : []))];
+
+    // ── Step 2: 꽃 품종 기준으로 DB에서 해당 품목만 조회 (없으면 전체 최대 300)
+    let prodFilter = '';
+    if (detectedFlowers.length > 0) {
+      prodFilter = detectedFlowers.map(f => `FlowerName LIKE '%${f}%' OR ProdName LIKE '%${f}%'`).join(' OR ');
+    }
     const [custRes, prodRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
-      query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName FROM Product WHERE isDeleted=0 ORDER BY ProdName`),
+      query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName
+             FROM Product WHERE isDeleted=0 ${prodFilter ? `AND (${prodFilter})` : ''}
+             ORDER BY ProdName`),
       query(`SELECT ProdKey,
                SUM(ISNULL(BoxQuantity,0))   AS TotalBox,
                SUM(ISNULL(BunchQuantity,0)) AS TotalBunch,
@@ -84,20 +96,16 @@ export default withAuth(async function handler(req, res) {
       else                       prodUnitMap[row.ProdKey] = '박스';
     }
 
-    // 한국어 토큰 → 영문 키워드로 관련 품목 필터링
-    const koTokens = (text.match(/[가-힣]+/g) || []);
-    const enFromKo = [...new Set(koTokens.flatMap(t => KO_EN_KEYWORDS[t] ? [KO_EN_KEYWORDS[t]] : []))];
+    // ── Step 3: 영문 토큰으로 2차 필터링 (추가 정밀도)
     const enDirect = text.split(/[\s\n|:,→]+/).map(t => t.trim().toUpperCase()).filter(t => t.length >= 4 && /^[A-Z]/.test(t));
-    const searchTokens = [...new Set([...enFromKo, ...enDirect])];
-
+    const searchTokens = [...new Set([...detectedFlowers, ...enDirect])];
     const filteredProducts = searchTokens.length > 0
       ? products.filter(p => {
           const name = (p.ProdName || '').toUpperCase();
           return searchTokens.some(tok => name.includes(tok));
         })
-      : [];
-    // 너무 적으면 전체 폴백 (최대 300개 제한)
-    const prodForClaude = (filteredProducts.length >= 5 ? filteredProducts : products).slice(0, 300);
+      : products;
+    const prodForClaude = filteredProducts.length >= 3 ? filteredProducts : products;
 
     const custList = customers.map(c => `${c.CustKey}|${c.CustName}|${c.CustArea || ''}`).join('\n');
     const prodList = prodForClaude.map(p => `${p.ProdKey}|${p.ProdName}|${p.DisplayName}|${p.FlowerName}|${p.CounName}`).join('\n');
