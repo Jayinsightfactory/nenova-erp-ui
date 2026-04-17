@@ -261,23 +261,9 @@ async function getDistribute(req, res) {
   }
 }
 
-async function distLog(category, step, detail) {
-  try {
-    await query(
-      `INSERT INTO AppLog (Category, Step, Detail, IsError) VALUES (@cat, @step, @detail, 0)`,
-      { cat: { type: sql.NVarChar, value: category },
-        step: { type: sql.NVarChar, value: step },
-        detail: { type: sql.NVarChar, value: String(detail) } }
-    );
-  } catch { /* AppLog 없으면 무시 */ }
-}
-
 // ── 출고 분배 저장 (ShipmentMaster + ShipmentDetail — 실제 DB)
-// delta=true 시: newQty = oldQty + outQty (음수 델타로 감소 가능)
-// delta=false(기본): newQty = outQty (절대값)
 async function saveDistribute(req, res) {
-  const { week, year, custKey, prodKey, outQty, outDate, cost, delta } = req.body;
-  const isDelta = delta === true || delta === 'true';
+  const { week, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
@@ -329,10 +315,6 @@ async function saveDistribute(req, res) {
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
       const oldQty = oldSd.recordset[0]?.OutQuantity || 0;
-      const inputQty = parseFloat(outQty) || 0;
-      const newQty = isDelta ? oldQty + inputQty : inputQty;
-
-      await distLog('distribute', '시작', `ck=${custKey} pk=${prodKey} wk=${week} old=${oldQty} input=${inputQty} delta=${isDelta} new=${newQty}`);
 
       // 기존 삭제
       await tQuery(
@@ -340,8 +322,8 @@ async function saveDistribute(req, res) {
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
 
-      if (newQty > 0) {
-        const qty = newQty;
+      if (parseFloat(outQty) > 0) {
+        const qty = parseFloat(outQty);
         const unitCost = parseFloat(cost) || 0;
         const boxQty   = qty;
         const bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
@@ -352,9 +334,7 @@ async function saveDistribute(req, res) {
         const vat    = Math.round(amtBase * unitCost / 11);
         const now = new Date();
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const logEntry = isDelta
-          ? `[${timeStr} ${userName}] ${oldQty}+${inputQty}=${qty}(출고분배델타)`
-          : `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
+        const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
 
         const newSdk = await safeNextKey(tQuery, 'ShipmentDetail', 'SdetailKey');
         await tQuery(
@@ -381,8 +361,7 @@ async function saveDistribute(req, res) {
       return sk;
     });
 
-    await distLog('distribute', '완료', `sk=${shipmentKey} ck=${custKey} pk=${prodKey} wk=${week} newQty=${isDelta ? (parseFloat(outQty)||0) + (req.body._oldQty||0) : outQty}`);
-    return res.status(200).json({ success: true, shipmentKey, oldQty: 0, newQty: parseFloat(outQty)||0, message: '출고 분배 저장 완료' });
+    return res.status(200).json({ success: true, shipmentKey, message: '출고 분배 저장 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
