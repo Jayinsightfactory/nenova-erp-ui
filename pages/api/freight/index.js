@@ -147,13 +147,17 @@ async function loadFreightData(res, keys, awbLabel) {
   const freightRows = allRows.filter(r => isFreightRow(r));
   const rows = allRows.filter(r => !isFreightRow(r));
   // FREIGHTWISE / 운송료 행에서 항공료 + GW/Rate/DocFee 추출
-  // 패턴: 운송비 행은 UPrice>0 (Rate=USD/kg), BunchQuantity=GW(kg), TPrice=운송비
-  //        서류비 행은 UPrice=0, TPrice=서류비
+  // 패턴 A (Rate×Weight): UPrice=작은값(Rate), BunchQuantity=큰값(GW kg), TPrice=Rate*GW
+  //   예: FREIGHTWISE Colombia — UPrice=2.85, BunchQty=976, TPrice=2781.6
+  // 패턴 B (총액 1건):  UPrice=큰값(총 항공료), BunchQuantity≤1
+  //   예: Yunnan Melody 운송료 — UPrice=11214, BunchQty=1, TPrice=11214
   const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
-  const freightMainRow = freightRows.find(r => Number(r.UPrice) > 0);      // Rate 가 있는 메인행
+  const freightMainRow = freightRows.find(r => Number(r.UPrice) > 0);
+  // BunchQty>1 이면 Rate×Weight 패턴 (GW/Rate 추출 가능), 아니면 총액 패턴
+  const isRatePattern = freightMainRow && (Number(freightMainRow.BunchQuantity) || 0) > 1;
   const freightDocRows = freightRows.filter(r => (Number(r.UPrice) || 0) === 0 && Number(r.TPrice) > 0);
-  const extractedGW   = freightMainRow ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
-  const extractedRate  = freightMainRow ? (Number(freightMainRow.UPrice) || 0) : 0;
+  const extractedGW   = isRatePattern ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
+  const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback

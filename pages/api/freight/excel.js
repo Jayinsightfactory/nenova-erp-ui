@@ -124,10 +124,12 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const freightRows = allRows.filter(r => isFreightRow(r));
   const actualFreightUSD = freightRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
   // FREIGHTWISE 행에서 GW/Rate/DocFee 추출 (WarehouseMaster 에 없을 때 fallback)
+  // BunchQty>1 이면 Rate×Weight 패턴 (GW/Rate 추출), 아니면 총액 패턴 (GW/Rate 추출 불가)
   const freightMainRow = freightRows.find(r => Number(r.UPrice) > 0);
+  const isRatePattern = freightMainRow && (Number(freightMainRow.BunchQuantity) || 0) > 1;
   const freightDocRows = freightRows.filter(r => (Number(r.UPrice) || 0) === 0 && Number(r.TPrice) > 0);
-  const extractedGW   = freightMainRow ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
-  const extractedRate  = freightMainRow ? (Number(freightMainRow.UPrice) || 0) : 0;
+  const extractedGW   = isRatePattern ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
+  const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
   const snap = fcRes.recordset[0] || null;
   const primary = (masters.length > 0 ? masters : mastersAll)[0];
