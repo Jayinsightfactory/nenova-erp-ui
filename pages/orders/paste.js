@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { apiGet } from '../../lib/useApi';
-import { filterProducts } from '../../lib/displayName';
+import { filterProducts, jamoSimilarity, getDisplayName } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -180,10 +180,61 @@ export default function PasteOrderPage() {
     setDisambigResults([]);
   };
 
+  // 품목 스코어링: inputName + 검색어 조합, 0~100
+  const scoreProduct = (inputName, prod, searchQuery = '') => {
+    const dn = (getDisplayName(prod) || '').toLowerCase();
+    const pn = (prod.ProdName || '').toLowerCase();
+    const fn = (prod.FlowerName || '').toLowerCase();
+    const q  = (inputName || '').toLowerCase();
+
+    let score = Math.max(
+      jamoSimilarity(q, dn),
+      jamoSimilarity(q, pn),
+      jamoSimilarity(q, fn),
+      dn.includes(q) ? 1 : 0,
+      pn.includes(q) ? 1 : 0,
+    );
+
+    if (searchQuery) {
+      const sq = searchQuery.toLowerCase();
+      const sqScore = Math.max(
+        jamoSimilarity(sq, dn),
+        jamoSimilarity(sq, pn),
+        dn.includes(sq) ? 1 : 0,
+        pn.includes(sq) ? 1 : 0,
+      );
+      if (sqScore > 0) score = Math.max(score, sqScore);
+    }
+    return Math.round(score * 100);
+  };
+
+  // 후보 목록: 검색어 없으면 inputName 기준 자동 스코어링, 있으면 필터+스코어
+  const buildCandidates = (inputName, searchQuery) => {
+    const base = searchQuery
+      ? filterProducts(allProducts, searchQuery)
+      : allProducts;
+    return base
+      .map(p => ({ prod: p, score: scoreProduct(inputName, p, searchQuery) }))
+      .filter(x => searchQuery ? true : x.score >= 20)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 15);
+  };
+
   const handleDisambigSearchChange = (q) => {
     setDisambigSearch(q);
-    setDisambigResults(q ? filterProducts(allProducts, q).slice(0, 12) : []);
+    setDisambigResults(buildCandidates(currentQ?.inputName || '', q));
   };
+
+  // currentQ 바뀌면 자동으로 후보 계산
+  useEffect(() => {
+    if (currentQ) {
+      setDisambigSearch('');
+      setDisambigResults(buildCandidates(currentQ.inputName, ''));
+    } else {
+      setDisambigResults([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQ?.orderId, currentQ?.itemIdx]);
 
   const handleRegister = async (oid) => {
     const order = orders.find(o => o.id === oid);
@@ -227,7 +278,7 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '16px 20px', maxWidth: 980, margin: '0 auto', paddingBottom: currentQ ? 160 : 20 }}>
+      <div style={{ padding: '16px 20px', maxWidth: 980, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
@@ -535,44 +586,55 @@ export default function PasteOrderPage() {
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="품목명 검색 (한글/영문)…"
-                  value={disambigSearch}
-                  onChange={e => handleDisambigSearchChange(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', border: '2px solid #f9a825', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }}
-                />
-                {disambigResults.length > 0 && (
-                  <div style={{
-                    position: 'absolute', bottom: '100%', left: 0, right: 0,
-                    background: '#fff', border: '1px solid #ddd', borderRadius: 6,
-                    boxShadow: '0 -4px 16px rgba(0,0,0,0.12)', zIndex: 600,
-                    maxHeight: 220, overflowY: 'auto',
-                    marginBottom: 4,
-                  }}>
-                    {disambigResults.map(p => (
-                      <div key={p.ProdKey}
-                        style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f5f5f5', display: 'flex', gap: 8, alignItems: 'center', color: '#111', background: '#fff' }}
-                        onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
-                        onMouseLeave={e => e.currentTarget.style.background='#fff'}
-                        onMouseDown={() => handleDisambigSelect(p)}>
-                        <strong style={{ color: '#1a237e' }}>{p.DisplayName || p.ProdName}</strong>
-                        <span style={{ color: '#555', fontSize: 11 }}>{p.ProdName}</span>
-                        <span style={{ fontSize: 11, marginLeft: 'auto', display: 'flex', gap: 4 }}>
-                          {p.CounName && <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, padding: '1px 6px' }}>{p.CounName}</span>}
-                          {p.FlowerName && <span style={{ background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{p.FlowerName}</span>}
-                        </span>
+            {/* 후보 카드 목록 (항상 표시, 매칭률 순) */}
+            {disambigResults.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {disambigResults.map(({ prod: p, score }) => {
+                  const pctColor = score >= 70 ? '#2e7d32' : score >= 40 ? '#e65100' : '#999';
+                  const pctBg    = score >= 70 ? '#e8f5e9' : score >= 40 ? '#fff3e0' : '#f5f5f5';
+                  return (
+                    <button key={p.ProdKey}
+                      onMouseDown={() => handleDisambigSelect(p)}
+                      style={{
+                        display: 'flex', flexDirection: 'column', gap: 2,
+                        padding: '6px 10px', border: `1px solid ${score >= 70 ? '#a5d6a7' : '#ddd'}`,
+                        borderRadius: 8, background: '#fff', cursor: 'pointer',
+                        textAlign: 'left', minWidth: 120, maxWidth: 180,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f0f4ff'}
+                      onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 6,
+                          background: pctBg, color: pctColor, whiteSpace: 'nowrap',
+                        }}>{score}%</span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1a237e', lineHeight: 1.3 }}>
+                        {p.DisplayName || p.ProdName}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#888' }}>{p.ProdName}</div>
+                      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                        {p.CounName && <span style={{ fontSize: 9, background: '#e8f5e9', color: '#388e3c', borderRadius: 6, padding: '1px 4px' }}>{p.CounName}</span>}
+                        {p.FlowerName && <span style={{ fontSize: 9, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 6, padding: '1px 4px' }}>{p.FlowerName}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                autoFocus
+                type="text"
+                placeholder="추가 검색으로 좁히기 (한글/영문)…"
+                value={disambigSearch}
+                onChange={e => handleDisambigSearchChange(e.target.value)}
+                style={{ flex: 1, padding: '8px 12px', border: '2px solid #f9a825', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+              />
               <button
                 onClick={handleDisambigSkip}
-                style={{ padding: '9px 18px', border: '1px solid #bbb', background: '#f5f5f5', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: '#666', whiteSpace: 'nowrap' }}
+                style={{ padding: '8px 16px', border: '1px solid #bbb', background: '#f5f5f5', borderRadius: 6, fontSize: 13, cursor: 'pointer', color: '#666', whiteSpace: 'nowrap' }}
               >
                 건너뛰기
               </button>
