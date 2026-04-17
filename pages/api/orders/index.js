@@ -151,7 +151,7 @@ async function createOrder(req, res) {
     const uid = req.user?.userId || 'nenovaSS3';
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
-    const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
+    const { orderMasterKey, results, isNew } = await withTransaction(async (tQuery) => {
       // 기존 OrderMaster 확인 (같은 업체+차수) — TOP 1 오래된 것 우선
       const existing = await tQuery(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
@@ -245,23 +245,23 @@ async function createOrder(req, res) {
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
-      // 웹 작업 히스토리 → OrderMaster.Descr 에 추가
-      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      const logItems = detailResults
-        .filter(r => r.status === 'OK' || r.status === 'UPDATED')
-        .map(r => `${r.prodName || r.prodKey} ${r.qty}${r.unit}`)
-        .join(', ');
+      return { orderMasterKey: mk, results: detailResults, isNew: existing.recordset.length === 0 };
+    });
+
+    // 웹 작업 히스토리 → 트랜잭션 밖에서 Descr 추가 (실패해도 주문 등록 영향 없음)
+    try {
+      const logNow = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const logItems = results.filter(r => r.status === 'OK' || r.status === 'UPDATED')
+        .map(r => `${r.prodName || r.prodKey} ${r.qty}${r.unit}`).join(', ');
       if (logItems) {
-        const action = existing.recordset.length > 0 ? '웹수정' : '웹등록';
-        await tQuery(
+        const action = isNew ? '웹등록' : '웹수정';
+        await query(
           `UPDATE OrderMaster SET Descr = ISNULL(Descr,'') + @log WHERE OrderMasterKey=@mk`,
-          { log: { type: sql.NVarChar, value: `\n[${action} ${now} ${uid}] ${logItems}` },
-            mk:  { type: sql.Int, value: mk } }
+          { log: { type: sql.NVarChar, value: `\n[${action} ${logNow} ${uid}] ${logItems}` },
+            mk:  { type: sql.Int, value: orderMasterKey } }
         );
       }
-
-      return { orderMasterKey: mk, results: detailResults };
-    });
+    } catch { /* 이력 실패는 주문 등록에 영향 없음 */ }
 
     return res.status(201).json({
       success: true,
@@ -351,16 +351,6 @@ async function updateOrder(req, res) {
             }
           );
 
-          // OrderMaster.Descr 에도 웹 작업 이력 추가
-          const prodName = item.prodName || `ProdKey:${item.prodKey||item.detailKey}`;
-          await tQuery(
-            `UPDATE OrderMaster SET Descr = ISNULL(Descr,'') + @log
-             WHERE OrderMasterKey = (SELECT OrderMasterKey FROM OrderDetail WHERE OrderDetailKey=@dk)`,
-            {
-              log: { type: sql.NVarChar, value: `\n[웹수정 ${timeStr} ${userName}] ${prodName} ${oldQty}→${qty}${unit}` },
-              dk:  { type: sql.Int, value: item.detailKey },
-            }
-          );
         }
       }
     });
