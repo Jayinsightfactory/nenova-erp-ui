@@ -74,15 +74,31 @@ export default function IncomingPricePage() {
     } finally { setSaving(p => ({ ...p, [farm]: false })); }
   };
 
+  const [selCountries, setSelCountries] = useState([]);
+  const [selFlowers,   setSelFlowers]   = useState([]);
+
+  // 데이터 변경 시 필터 초기화
+  useEffect(() => { setSelCountries([]); setSelFlowers([]); }, [data]);
+
   const farms  = data?.farms  || [];
   const rows   = data?.rows   || [];
   const totals = data?.totals || {};
 
-  const sortedRows = [...rows].sort((a, b) =>
-    (a.country||'').localeCompare(b.country||'') ||
-    (a.flower||'').localeCompare(b.flower||'') ||
-    (a.prodName||'').localeCompare(b.prodName||'')
-  );
+  // 로드된 데이터에서 국가·꽃 목록 추출
+  const allCountries = [...new Set(rows.map(r => r.country).filter(Boolean))].sort();
+  const allFlowers   = [...new Set(rows.map(r => r.flower ).filter(Boolean))].sort();
+
+  const toggle = (setter, val) =>
+    setter(prev => prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]);
+
+  const sortedRows = [...rows]
+    .filter(r => selCountries.length === 0 || selCountries.includes(r.country))
+    .filter(r => selFlowers.length   === 0 || selFlowers.includes(r.flower))
+    .sort((a, b) =>
+      (a.country||'').localeCompare(b.country||'') ||
+      (a.flower||'').localeCompare(b.flower||'') ||
+      (a.prodName||'').localeCompare(b.prodName||'')
+    );
 
   let prevCountry = null, prevFlower = null;
 
@@ -157,6 +173,50 @@ export default function IncomingPricePage() {
             <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>
               선택된 차수: <strong style={{ color: '#1a237e' }}>{selectedWeeks.join(', ')}</strong>
               {selectedWeeks.length > 1 && ' (합산 집계)'}
+            </div>
+          )}
+
+          {/* 국가 필터 */}
+          {allCountries.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: '#666', marginRight: 4, minWidth: 60 }}>국가:</span>
+              {allCountries.map(c => {
+                const on = selCountries.includes(c);
+                return (
+                  <button key={c} onClick={() => toggle(setSelCountries, c)}
+                    style={{ padding: '3px 10px', borderRadius: 20, border: on ? '2px solid #00695c' : '1px solid #bbb', background: on ? '#00695c' : '#fff', color: on ? '#fff' : '#333', fontWeight: on ? 700 : 400, fontSize: 12, cursor: 'pointer' }}>
+                    {c}
+                  </button>
+                );
+              })}
+              {selCountries.length > 0 && (
+                <button onClick={() => setSelCountries([])}
+                  style={{ padding: '3px 8px', borderRadius: 20, border: '1px solid #e0e0e0', background: '#f5f5f5', color: '#888', fontSize: 11, cursor: 'pointer' }}>
+                  해제
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 꽃 필터 */}
+          {allFlowers.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 6 }}>
+              <span style={{ fontSize: 12, color: '#666', marginRight: 4, minWidth: 60 }}>꽃:</span>
+              {allFlowers.map(f => {
+                const on = selFlowers.includes(f);
+                return (
+                  <button key={f} onClick={() => toggle(setSelFlowers, f)}
+                    style={{ padding: '3px 10px', borderRadius: 20, border: on ? '2px solid #6a1b9a' : '1px solid #bbb', background: on ? '#6a1b9a' : '#fff', color: on ? '#fff' : '#333', fontWeight: on ? 700 : 400, fontSize: 12, cursor: 'pointer' }}>
+                    {f}
+                  </button>
+                );
+              })}
+              {selFlowers.length > 0 && (
+                <button onClick={() => setSelFlowers([])}
+                  style={{ padding: '3px 8px', borderRadius: 20, border: '1px solid #e0e0e0', background: '#f5f5f5', color: '#888', fontSize: 11, cursor: 'pointer' }}>
+                  해제
+                </button>
+              )}
             </div>
           )}
         </div>
