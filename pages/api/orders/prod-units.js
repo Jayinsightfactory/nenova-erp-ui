@@ -1,11 +1,25 @@
 // pages/api/orders/prod-units.js
-// 품목별 실제 사용 단위 집계 (OrderDetail 이력 기반)
-// GET → { [ProdKey]: '박스'|'단'|'송이' }
+// GET  → { [ProdKey]: '박스'|'단'|'송이' } (OrderDetail 이력 기반)
+// PUT  → { prodKey, unit } → Product.OutUnit 저장 (사용자 수동 설정)
 
-import { query } from '../../../lib/db';
+import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
+  if (req.method === 'PUT') {
+    const { prodKey, unit } = req.body;
+    if (!prodKey || !['박스','단','송이'].includes(unit))
+      return res.status(400).json({ success: false, error: 'prodKey, unit(박스|단|송이) 필요' });
+    try {
+      await query(
+        `UPDATE Product SET OutUnit=@unit WHERE ProdKey=@pk`,
+        { unit: { type: sql.NVarChar, value: unit }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+      );
+      return res.status(200).json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
   if (req.method !== 'GET') return res.status(405).end();
   try {
     const r = await query(

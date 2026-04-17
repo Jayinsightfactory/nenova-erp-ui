@@ -514,7 +514,18 @@ export default function PasteOrderPage() {
                               style={{ width: 56, padding: '2px 4px', border: '1px solid #ddd', borderRadius: 4, textAlign: 'right', fontSize: 13 }} />
                           </td>
                           <td style={{ padding: '5px 8px', textAlign: 'center' }}>
-                            <select value={it.unit} onChange={e => updateItem(order.id, idx, { unit: e.target.value })}
+                            <select value={it.unit} onChange={e => {
+                              const newUnit = e.target.value;
+                              updateItem(order.id, idx, { unit: newUnit });
+                              if (it.prodKey) {
+                                fetch('/api/orders/prod-units', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'same-origin',
+                                  body: JSON.stringify({ prodKey: it.prodKey, unit: newUnit }),
+                                });
+                              }
+                            }}
                               style={{ fontSize: 12, padding: '2px 4px', border: '1px solid #ddd', borderRadius: 4 }}>
                               <option>박스</option><option>단</option><option>송이</option>
                             </select>

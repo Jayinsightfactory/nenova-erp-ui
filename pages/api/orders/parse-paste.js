@@ -73,7 +73,7 @@ export default withAuth(async function handler(req, res) {
     }
     const [custRes, prodRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
-      query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName
+      query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
              FROM Product WHERE isDeleted=0 ${prodFilter ? `AND (${prodFilter})` : ''}
              ORDER BY ProdName`),
       query(`SELECT ProdKey,
