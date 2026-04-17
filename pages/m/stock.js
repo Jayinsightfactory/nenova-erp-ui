@@ -100,7 +100,7 @@ export default function MobileStock() {
             <div className="st-alert-title">재고 부족 품목</div>
             {lowStock.map((s, i) => (
               <div key={i} className="st-alert-row">
-                <span>{s.ProdName}</span>
+                <span>{s.DisplayName || s.ProdName}</span>
                 <span className="st-alert-val">
                   {fmtN((s.prevStock || 0) + (s.inQty || 0) - (s.outQty || 0))}
                 </span>
@@ -155,7 +155,7 @@ export default function MobileStock() {
               products.map((p, i) => (
                 <div key={p.ProdKey || i} className="st-card">
                   <div className="st-card-top">
-                    <span className="st-card-name">{p.ProdName}</span>
+                    <span className="st-card-name">{p.DisplayName || p.ProdName}</span>
                     <span className="st-card-unit">{p.OutUnit || ''}</span>
                   </div>
                   <div className="st-card-bot">

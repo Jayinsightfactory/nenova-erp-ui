@@ -145,7 +145,7 @@ export default function MobileCustomerDetail() {
                       <span className="cd-card-qty">{fmtN(o.TotalQty || o.totalQty || o.qty || 0)}</span>
                     </div>
                     {o.ProdName && (
-                      <div className="cd-card-sub">{o.ProdName}</div>
+                      <div className="cd-card-sub">{o.DisplayName || o.ProdName}</div>
                     )}
                   </div>
                 ))

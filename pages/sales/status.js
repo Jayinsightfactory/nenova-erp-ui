@@ -443,7 +443,7 @@ export default function SalesStatus() {
                             <span className="badge badge-gray" style={{ fontSize: 10 }}>{r.CustArea}</span>
                           )}
                         </td>
-                        <td style={{ fontSize: 12 }}>{r.ProdName}</td>
+                        <td style={{ fontSize: 12 }}>{r.DisplayName || r.ProdName}</td>
                         <td style={{ fontSize: 11, color: 'var(--text3)' }}>{r.OutUnit}</td>
                         <td className="num">{fmt(r.qty)}</td>
                         <td className="num" style={{ color: 'var(--text3)', fontSize: 11 }}>{fmt(r.unitCost)}</td>

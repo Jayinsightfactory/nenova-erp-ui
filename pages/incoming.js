@@ -379,7 +379,7 @@ export default function Warehouse() {
                     : filteredDetails.map((d,i) => (
                       <tr key={i}>
                         <td style={{fontFamily:'var(--mono)',fontSize:11}}>{d.주문코드}</td>
-                        <td style={{fontSize:12,fontWeight:500}}>{d.ProdName}</td>
+                        <td style={{fontSize:12,fontWeight:500}}>{d.DisplayName || d.ProdName}</td>
                         <td style={{fontSize:12}}>{d.단위}</td>
                         <td className="num">{fmt(d.단송이)}</td>
                         <td className="num">{fmt(d.박스송이)}</td>

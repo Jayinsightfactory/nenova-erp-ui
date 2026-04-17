@@ -52,7 +52,7 @@ async function getOrders(req, res) {
         om.OrderYear, om.OrderWeek, om.Manager, om.OrderCode,
         c.CustKey, c.CustName, c.CustArea,
         od.OrderDetailKey, od.ProdKey,
-        p.ProdName, p.FlowerName, p.CounName,
+        p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
         od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
         -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량 (응답 호환 위해 OutQuantity alias 유지)
         (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS OutQuantity,

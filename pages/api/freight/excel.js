@@ -170,7 +170,10 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const categories = [...new Set([...boxByFlower.entries()].filter(([_, v]) => v > 0).map(([fn]) => fn)
     .concat([...bunchByFlower.entries()].filter(([_, v]) => v > 0).map(([fn]) => fn)))]
     .filter(Boolean);
-  while (categories.length < 4) categories.push('');
+  // 실제 카테고리 수 (최소 4, 초과시 동적 확장)
+  const nCat = Math.max(4, categories.filter(c => c).length);
+  const catShift = nCat - 4;  // 헤더 아래 섹션 오프셋 (0 = 기존과 동일)
+  while (categories.length < nCat) categories.push('');
 
   const flowerMetaMap = new Map();
   for (const f of fRes.recordset) flowerMetaMap.set(normalizeFlower(f.FlowerName), f);
@@ -249,7 +252,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   // B6 총금액 / C6 (input) / D6=C6-C11 (formula)
   set(5, 1, '총금액 Invoice', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(5, 2, Number(invoiceUSD) || 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
-  set(5, 3, fml('C6-C11'), style(BG_FORMULA, null, ALIGN_RIGHT));
+  set(5, 3, fml(`C6-C${11+catShift}`), style(BG_FORMULA, null, ALIGN_RIGHT));
 
   // B7 환율 / C7
   set(6, 1, '환율', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
@@ -271,18 +274,17 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   set(9, 1, '총수량', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(9, 2, totalSteam, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_INT));
 
-  // B11 항공료 / C11 / D11 서류 / E11 / F11 운송비 / G11=E9*E8
-  // FREIGHTWISE 실제 인보이스가 있으면 C11 에 그 값(고정값), 없으면 E11+G11 수식
-  set(10, 1, '항공료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  // 항공료 행 — catShift 만큼 아래로 이동
+  set(10+catShift, 1, '항공료', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   if (actualFreightEff > 0) {
-    set(10, 2, actualFreightEff, nstyle({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
+    set(10+catShift, 2, actualFreightEff, nstyle({ fgColor:{rgb:'C8E6C9'}, patternType:'solid' }, FONT_BOLD, ALIGN_RIGHT));
   } else {
-    set(10, 2, fml('E11+G11', (Number(docFee) || 0) + (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+    set(10+catShift, 2, fml(`E${11+catShift}+G${11+catShift}`, (Number(docFee) || 0) + (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
   }
-  set(10, 3, '서류', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(10, 4, docFee, nstyle(BG_INPUT, null, ALIGN_RIGHT));
-  set(10, 5, '운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(10, 6, fml('E9*E8', (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
+  set(10+catShift, 3, '서류', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  set(10+catShift, 4, docFee, nstyle(BG_INPUT, null, ALIGN_RIGHT));
+  set(10+catShift, 5, '운송비', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  set(10+catShift, 6, fml('E9*E8', (Number(rate) || 0) * (Number(cw) || 0)), nstyle(BG_FORMULA, null, ALIGN_RIGHT));
 
   // J5 품목별 운임비 / O5 그외에 통관비
   set(4, 9, '품목별 운임비', style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
@@ -392,8 +394,8 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const compRowByProdKey = new Map(compResult.rows.map(r => [r.prodKey, r]));
   const compCategoryByName = new Map(compResult.categories.map(c => [c.flowerName, c]));
 
-  // 4개 카테고리 (고정 4행) — K/L/M/T/U (수식 + cached values)
-  for (let i = 0; i < 4; i++) {
+  // nCat 카테고리 (동적) — K/L/M/T/U (수식 + cached values)
+  for (let i = 0; i < nCat; i++) {
     const catName = categories[i] || '';
     const r = 6 + i;  // excel row 7..10
     const excelRow = r + 1;
@@ -425,10 +427,12 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
       set(r, 20, catPerStemCu,  nstyle(bgBase, null, ALIGN_RIGHT));
     } else {
       // 박스>0 — 수식 + cached (원본 엑셀 호환)
-      set(r, 10, fml(`IF($C$8=$E$8,$C$11*AD${excelRow},$C$11*AI${excelRow})`, catFreight),       nstyle(bgBase, null, ALIGN_RIGHT));
-      set(r, 11, fml(`AC${excelRow}*${stemsPerBox}`, catStems),                                   nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      // ABS(<0.5) 사용: JS APPROX(0.5) 와 동일 기준 — 정확히 같을 때만이면 재계산 시 달라짐
+      // 분배비율(AD/AI/AC)은 distribution 루프가 한 행 아래(r+1)에서 시작 → excelRow+1 참조
+      set(r, 10, fml(`IF(ABS($C$8-$E$8)<0.5,$C$${11+catShift}*AD${excelRow+1},$C$${11+catShift}*AI${excelRow+1})`, catFreight), nstyle(bgBase, null, ALIGN_RIGHT));
+      set(r, 11, fml(`AC${excelRow+1}*${stemsPerBox}`, catStems),                                 nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
       set(r, 12, fml(`IFERROR(K${excelRow}/L${excelRow},0)`, catPerStemFr),                       nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_4));
-      set(r, 19, fml(`$P$10*AD${excelRow}`, catCustoms),                                          nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
+      set(r, 19, fml(`$P$10*AD${excelRow+1}`, catCustoms),                                        nstyle(bgBase, null, ALIGN_RIGHT, NUM_FMT_INT));
       set(r, 20, fml(`IFERROR(T${excelRow}/L${excelRow},0)`, catPerStemCu),                       nstyle(bgBase, null, ALIGN_RIGHT));
     }
   }
@@ -450,7 +454,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   set(6,31,'', style(BG_HEADER));
   ['박스당 CBM','박스 수량','비율'].forEach((h,i)=>set(6,32+i,h,style(BG_HEADER,FONT_BOLD,ALIGN_CENTER)));
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < nCat; i++) {
     const catName = categories[i] || '';
     const r = 7 + i;
     const fm = flowerMetaMap.get(normalizeFlower(catName)) || {};
@@ -458,28 +462,28 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     set(r,26,catName, style(BG_HEADER, null, ALIGN_CENTER));
     set(r,27, catName ? Number(fm.BoxWeight) || 0 : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
     set(r,28, catName ? (boxByFlower.get(catName) || 0) : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
-    set(r,29, catName ? fml(`IFERROR(AB${r+1}*AC${r+1}/SUMPRODUCT($AB$8:$AB$11,$AC$8:$AC$11),0)`, Number(cat?.weightRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
+    set(r,29, catName ? fml(`IFERROR(AB${r+1}*AC${r+1}/SUMPRODUCT($AB$8:$AB$${7+nCat},$AC$8:$AC$${7+nCat}),0)`, Number(cat?.weightRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
     set(r,31,catName, style(BG_HEADER, null, ALIGN_CENTER));
     set(r,32, catName ? Number(fm.BoxCBM) || 0 : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT));
     set(r,33, catName ? (boxByFlower.get(catName) || 0) : 0, nstyle(BG_INPUT, null, ALIGN_RIGHT, NUM_FMT_INT));
-    set(r,34, catName ? fml(`IFERROR(AG${r+1}*AH${r+1}/SUMPRODUCT($AG$8:$AG$11,$AH$8:$AH$11),0)`, Number(cat?.cbmRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
+    set(r,34, catName ? fml(`IFERROR(AG${r+1}*AH${r+1}/SUMPRODUCT($AG$8:$AG$${7+nCat},$AH$8:$AH$${7+nCat}),0)`, Number(cat?.cbmRatio) || 0) : 0, nstyle(BG_FORMULA, null, ALIGN_RIGHT, NUM_FMT_PCT));
   }
-  set(12, 29, fml('SUM(AD8:AD11)', 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
-  set(12, 34, fml('SUM(AI8:AI11)', 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
+  set(12+catShift, 29, fml(`SUM(AD8:AD${7+nCat})`, 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
+  set(12+catShift, 34, fml(`SUM(AI8:AI${7+nCat})`, 1), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
 
   // T12/U12/V12 종 이익률/판매/이익 — 수식 + cached (body 합계 기반)
-  const lastBodyRow = 14 + rows.length;  // exclusive (excel row 기준)
-  const sumRange = rows.length > 0 ? `15:${lastBodyRow}` : '15:500';
-  set(11, 19, '종 이익률', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(11, 20, '종 판매가', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(11, 21, '종 이익',   style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(12, 19, fml('IFERROR(V13/U13,0)', Number(compResult.totals.overallProfitRate) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
-  set(12, 20, fml(`SUM(U${15}:U${Math.max(lastBodyRow, 15)})`, Number(compResult.totals.totalSaleKRW) || 0),   nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
-  set(12, 21, fml(`SUM(V${15}:V${Math.max(lastBodyRow, 15)})`, Number(compResult.totals.totalProfitKRW) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
+  const lastBodyRow = 14 + catShift + rows.length;  // exclusive (excel row 기준)
+  const bodyStart = 15 + catShift;
+  set(11+catShift, 19, '종 이익률', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  set(11+catShift, 20, '종 판매가', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  set(11+catShift, 21, '종 이익',   style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
+  set(12+catShift, 19, fml(`IFERROR(V${13+catShift}/U${13+catShift},0)`, Number(compResult.totals.overallProfitRate) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_PCT));
+  set(12+catShift, 20, fml(`SUM(U${bodyStart}:U${Math.max(lastBodyRow, bodyStart)})`, Number(compResult.totals.totalSaleKRW) || 0),   nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
+  set(12+catShift, 21, fml(`SUM(V${bodyStart}:V${Math.max(lastBodyRow, bodyStart)})`, Number(compResult.totals.totalProfitKRW) || 0), nstyle(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT, NUM_FMT_INT));
 
-  // Row 14: body headers (C, D 는 카테고리/박스수로 채움 — 빈칸 제거)
+  // body headers (catShift 행 아래로)
   const headers = ['농장','품목명','카테고리','박스수','수량(송이)','FOB(단가)','운송비(송이)','CNF(송이)','총금액(CNF포함)','CNF(원화)','관세','그외통관(송이당)','도착원가(송이)','단당수량','도착원가(단)','판매(부가세별도)','판매가(부가세포함)','15% 이익 판매가(단)','단 이익','이익률','종 판매가','종 이익'];
-  headers.forEach((h, i) => { if (h != null) set(13, i, h, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER)); });
+  headers.forEach((h, i) => { if (h != null) set(13+catShift, i, h, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER)); });
 
   // Body rows (row 15~)
   const bodyCatIdx = new Map();
@@ -495,7 +499,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   let prevFarm = null;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const rowIdx = 14 + i;
+    const rowIdx = 14 + catShift + i;
     const excelRow = rowIdx + 1;
     const fn = (r.FlowerName || '').trim();
     const comp = compRowByProdKey.get(r.ProdKey) || {};
@@ -560,7 +564,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     { wch: 4 },{ wch: 14 },{ wch: 11 },{ wch: 11 },{ wch: 10 },
     { wch: 4 },{ wch: 11 },{ wch: 11 },{ wch: 11 },{ wch: 10 },
   ];
-  ws['!rows'] = Array.from({ length: 15 }, (_, i) => ({ hpx: i === 0 ? 32 : 22 }));
+  ws['!rows'] = Array.from({ length: 15 + catShift }, (_, i) => ({ hpx: i === 0 ? 32 : 22 }));
   return { ws, name: sheetName };
 }
 
@@ -573,18 +577,11 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
  * @returns {string|null} 수식 문자열 or null
  */
 function buildSearchFormula(bodyRow, categories, col, _offset) {
-  // 카테고리 길이가 긴 것부터 검색해야 MINICARNATION 이 CARNATION 에 오탐되지 않음
-  const indexed = categories.map((c, i) => ({ cat: c, j: 7 + i, m: 7 + i }))
-    .filter(x => x.cat)
-    .sort((a, b) => b.cat.length - a.cat.length);
-  if (indexed.length === 0) return null;
-  // Build nested IF
-  let expr = '0';
-  for (let i = indexed.length - 1; i >= 0; i--) {
-    const { j, m } = indexed[i];
-    expr = `IF(ISNUMBER(SEARCH($J$${j},B${bodyRow})),$${col}$${m},${expr})`;
-  }
-  return expr;
+  const hasCategories = categories.some(c => c);
+  if (!hasCategories) return null;
+  const nCat = categories.length;  // categories 는 항상 nCat 크기로 패딩됨
+  const catEndRow = 6 + nCat;      // Excel row: 7 ~ 6+nCat
+  return `IFERROR(INDEX($${col}$7:$${col}$${catEndRow},MATCH(C${bodyRow},$J$7:$J$${catEndRow},0)),0)`;
 }
 
 function buildWorksheet(aoa, styles, merges) {

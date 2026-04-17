@@ -38,7 +38,7 @@ async function getDistribute(req, res) {
 
       const result = await query(
         `SELECT
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.CountryFlower,
           p.OutUnit, p.BunchOf1Box, p.SteamOf1Box, p.SteamOf1Bunch, p.Cost,
           ISNULL(sm2.StockKey, 0) AS StockKey,
           ISNULL(ps.Stock, 0) AS prevStock,
@@ -132,7 +132,7 @@ async function getDistribute(req, res) {
 
       const result = await query(
         `SELECT
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(sd.Cost, ISNULL(cpc.Cost, p.Cost)) AS Cost,
           od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
@@ -224,7 +224,7 @@ async function getDistribute(req, res) {
       // 품목별 거래처별 주문/출고 수량
       const dataResult = await query(
         `SELECT
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
           om.CustKey,
           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
           (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS orderQty,

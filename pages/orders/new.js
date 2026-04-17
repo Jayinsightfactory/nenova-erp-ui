@@ -656,7 +656,7 @@ export default function OrderNew() {
                         <input type="checkbox" checked={hasQty} readOnly style={{ width: 12, height: 12 }} />
                       </td>
                       <td style={{ fontWeight: hasQty ? 'bold' : 'normal', color: hasQty ? '#996600' : 'var(--text1)', fontSize: 11 }}>
-                        {p.ProdName}
+                        {p.DisplayName || p.ProdName}
                       </td>
                       <td style={{ color: 'var(--text3)', fontSize: 10 }}>{p.OutUnit}</td>
                       {/* 현재고 */}
@@ -761,7 +761,7 @@ export default function OrderNew() {
                       </tr>,
                       ...g.items.map(p => (
                         <tr key={p.ProdKey}>
-                          <td style={{ fontSize:10, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.ProdName}</td>
+                          <td style={{ fontSize:10, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.DisplayName || p.ProdName}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.box>0?p.q.box:''}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.bunch>0?p.q.bunch:''}</td>
                           <td className="num" style={{ fontSize:10 }}>{p.q.steam>0?p.q.steam:''}</td>

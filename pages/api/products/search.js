@@ -51,7 +51,7 @@ export default withAuth(async function handler(req, res) {
     if (country && flower && !q) {
       const result = await query(
         `SELECT
-          p.ProdKey, p.ProdCode, p.ProdName,
+          p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
           p.FlowerName, p.CounName,
           ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
           p.Cost, p.OutUnit, p.EstUnit,
@@ -82,7 +82,7 @@ export default withAuth(async function handler(req, res) {
       if (refresh === '1' || !isCacheValid(global._prodCache)) {
         const result = await query(
           `SELECT
-            p.ProdKey, p.ProdCode, p.ProdName,
+            p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
             p.FlowerName, p.CounName,
             ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
             p.Cost, p.OutUnit, p.EstUnit,
@@ -100,6 +100,7 @@ export default withAuth(async function handler(req, res) {
       const keyword = q.toLowerCase();
       const products = global._prodCache.data.filter(p =>
         p.ProdName?.toLowerCase().includes(keyword) ||
+        p.DisplayName?.toLowerCase().includes(keyword) ||
         p.ProdCode?.toLowerCase().includes(keyword) ||
         p.FlowerName?.toLowerCase().includes(keyword) ||
         p.CounName?.toLowerCase().includes(keyword)
@@ -111,7 +112,7 @@ export default withAuth(async function handler(req, res) {
     if (refresh === '1' || !isCacheValid(global._prodCache)) {
       const result = await query(
         `SELECT
-          p.ProdKey, p.ProdCode, p.ProdName,
+          p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
           p.FlowerName, p.CounName,
           ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
           p.Cost, p.OutUnit, p.EstUnit,

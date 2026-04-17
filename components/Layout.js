@@ -29,6 +29,7 @@ const MENU_ITEMS = [
     group: '입/출고관리',
     items: [
       { href: '/incoming',            labelKey: '입고관리',     popup: true },
+      { href: '/incoming-price',      labelKey: '입고단가/송금', popup: true },
       { href: '/freight',             labelKey: '운송기준원가', popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },

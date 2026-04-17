@@ -43,7 +43,7 @@ export default withAuth(async function handler(req, res) {
     if (view === 'products' || !view) {
       const totalResult = await query(
         `SELECT
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.CountryFlower,
           p.OutUnit, p.BunchOf1Box, p.SteamOf1Box,
           -- 이월재고: weekFrom 이전 최신 ProductStock 스냅샷
           ISNULL((
@@ -143,7 +143,7 @@ export default withAuth(async function handler(req, res) {
         `SELECT
           c.CustKey, c.CustName, c.CustArea, c.Manager,
           ISNULL(c.Descr, '') AS CustDescr,
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
           (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
@@ -200,7 +200,7 @@ export default withAuth(async function handler(req, res) {
         `SELECT
           ISNULL(c.Manager, '미지정') AS Manager,
           c.CustKey, c.CustName, c.CustArea,
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           om.OrderWeek,
           -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
           (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS custOrderQty,
@@ -248,7 +248,7 @@ export default withAuth(async function handler(req, res) {
       const result = await query(
         `SELECT
           c.CustKey, c.CustName, c.CustArea,
-          p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
           om.OrderWeek,
           ISNULL(sd.OutQuantity, 0) AS outQty
          FROM OrderMaster om
@@ -549,7 +549,7 @@ export default withAuth(async function handler(req, res) {
         filterParams.flower = { type: sql.NVarChar, value: `%${flowerQ}%` };
       }
       const result = await query(
-        `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+        `SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
           ISNULL(p.CountryFlower,'') AS CountryFlower,
           ISNULL(p.OutUnit,'') AS OutUnit,
           -- 시작재고: weekFrom 이전 차수 중 전산 생성(isFix IS NULL) 또는 확정(isFix=1) ProductStock
@@ -640,7 +640,7 @@ export default withAuth(async function handler(req, res) {
     if (view === 'ghostShipments') {
       const result = await query(
         `SELECT sd.SdetailKey, sd.ProdKey, sd.OutQuantity, sd.EstQuantity, sd.CustKey,
-                sm.OrderWeek, sm.ShipmentKey, p.ProdName, p.FlowerName, c.CustName,
+                sm.OrderWeek, sm.ShipmentKey, p.ProdName, p.DisplayName, p.FlowerName, c.CustName,
                 CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS ShipmentDtm
          FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey

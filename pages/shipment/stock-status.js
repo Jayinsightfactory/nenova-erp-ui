@@ -163,7 +163,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     if (prodSearch) {
       const q = prodSearch.toLowerCase();
       list = list.filter(p =>
-        p.ProdName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
+        p.ProdName?.toLowerCase().includes(q) || p.DisplayName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
     }
     // 인기순 정렬
     list = [...list].sort((a,b) => (prodCounts[b.ProdKey]||0) - (prodCounts[a.ProdKey]||0));
@@ -303,7 +303,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                   <button key={p.ProdKey} onClick={()=>addToCart(p)}
                     style={{ ...chipStyle(inCart), borderColor: inCart?'#2e7d32': hasExist?'#ff9800':'#ccc',
                              background: inCart?'#2e7d32': hasExist?'#fff3e0':'#fff', textAlign:'left' }}>
-                    {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                    {p.DisplayName || p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
                     {hasExist && !inCart && <span style={{fontSize:9,color:'#e65100',marginLeft:2}}>(주문{eq.orderQty} 분배{eq.outQty})</span>}
                   </button>
                 );
@@ -336,7 +336,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                   <div key={`${item.cust.CustKey}-${item.prod.ProdKey}`} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px 5px 24px',
                        borderBottom:'1px solid #eee', background: i%2===0?'#fff':'#f9f9f9', fontSize:12 }}>
                     <span style={{ flex:1, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {item.prod.ProdName}
+                      {item.prod.DisplayName || item.prod.ProdName}
                     </span>
                     <span style={{ fontSize:10, whiteSpace:'nowrap', display:'flex', gap:4, flexShrink:0 }}>
                       {item.existQty > 0 && <span style={{color:'#1565c0'}}>주문:{item.existQty}</span>}
@@ -828,7 +828,7 @@ export default function StockStatus() {
                     </td>
                     <td style={st.td}>{p.CounName}</td>
                     <td style={st.td}>{p.FlowerName}</td>
-                    <td style={{ ...st.td, fontWeight:600 }}>{p.ProdName}</td>
+                    <td style={{ ...st.td, fontWeight:600 }}>{p.DisplayName || p.ProdName}</td>
                     <td style={{ ...st.td, textAlign:'center' }}>{p.OutUnit}</td>
                     <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', padding:'2px 4px' }}
                         onClick={e=>e.stopPropagation()}>
@@ -866,7 +866,7 @@ export default function StockStatus() {
                       </td>
                       <td style={{ ...st.td, fontSize:11 }}>
                         {isRange && <span style={{ color:'#1976d2', fontWeight:600, marginRight:4 }}>{r2.OrderWeek}</span>}
-                        {r2.ProdName}
+                        {r2.DisplayName || r2.ProdName}
                       </td>
                       <td style={{ ...st.td, textAlign:'center', fontSize:11 }}>{r2.OutUnit}</td>
                       <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontSize:11 }}>—</td>
@@ -984,7 +984,7 @@ export default function StockStatus() {
                               onClick={()=>setFilterCoun(prev=>{const n=new Set(prev);n.has(item.CounName)?n.delete(item.CounName):n.add(item.CounName);return n;})}>{item.CounName}</td>
                           <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
                               onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
-                          <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
+                          <td style={{ ...st.td, fontWeight:600 }}>{item.DisplayName || item.ProdName}</td>
                           <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                           {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
                           <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontWeight:600 }}>{fmt(item.prevStock)}</td>
@@ -1110,7 +1110,7 @@ export default function StockStatus() {
                                     onClick={()=>setFilterCoun(prev=>prev===item.CounName?'':item.CounName)}>{item.CounName}</td>
                                 <td style={{ ...st.td, ...st.clickCell, background: filterFlower===item.FlowerName?'#c8e6c9':undefined }}
                                     onClick={()=>setFilterFlower(prev=>prev===item.FlowerName?'':item.FlowerName)}>{item.FlowerName}</td>
-                                <td style={{ ...st.td, fontWeight:600 }}>{item.ProdName}</td>
+                                <td style={{ ...st.td, fontWeight:600 }}>{item.DisplayName || item.ProdName}</td>
                                 <td style={{ ...st.td, textAlign:'center' }}>{item.OutUnit}</td>
                                 {isRange && <td style={{ ...st.td, textAlign:'center', fontSize:11, color:'#1565c0', fontWeight:600 }}>{item.OrderWeek}</td>}
                                 <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa', color:'#006064', fontWeight:600 }}>

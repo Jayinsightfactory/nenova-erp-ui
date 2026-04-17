@@ -6,6 +6,7 @@ export default withAuth(async function handler(req, res) {
   const { entity } = req.query;
   if (req.method === 'GET')  return await getList(req, res, entity);
   if (req.method === 'POST') return await create(req, res, entity);
+  if (req.method === 'PUT' && entity === 'display-name') return await bulkUpdateDisplayName(req, res);
   if (req.method === 'PUT')  return await updatePricing(req, res);
   return res.status(405).end();
 });
@@ -24,7 +25,7 @@ async function getList(req, res, entity) {
     }
     if (entity === 'products') {
       result = await query(
-        `SELECT ProdKey, ProdCode, ProdName, ProdGroup, FlowerName, CounName,
+        `SELECT ProdKey, ProdCode, ProdName, DisplayName, ProdGroup, FlowerName, CounName,
           Cost, OutUnit, EstUnit, BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
           BoxWeight, BoxCBM, TariffRate,
           Stock, isDeleted, Descr
@@ -102,28 +103,29 @@ async function create(req, res, entity) {
       return res.status(201).json({ success: true, message: '거래처 등록 완료' });
     }
     if (entity === 'products') {
-      const { prodKey, prodCode, prodName, flowerName, counName, cost, outUnit, estUnit, bunchOf1Box, steamOf1Bunch, boxWeight, boxCBM, tariffRate, descr } = req.body;
+      const { prodKey, prodCode, prodName, displayName, flowerName, counName, cost, outUnit, estUnit, bunchOf1Box, steamOf1Bunch, boxWeight, boxCBM, tariffRate, descr } = req.body;
       const params = {
-        code:       { type: sql.NVarChar, value: prodCode || '' },
-        name:       { type: sql.NVarChar, value: prodName },
-        flower:     { type: sql.NVarChar, value: flowerName || '' },
-        country:    { type: sql.NVarChar, value: counName || '' },
-        cost:       { type: sql.Float,    value: parseFloat(cost) || 0 },
-        outUnit:    { type: sql.NVarChar, value: outUnit || '박스' },
-        estUnit:    { type: sql.NVarChar, value: estUnit || '박스' },
-        bunch:      { type: sql.Float,    value: parseFloat(bunchOf1Box) || 0 },
-        steam:      { type: sql.Float,    value: parseFloat(steamOf1Bunch) || 0 },
-        boxWt:      { type: sql.Float,  value: boxWeight === '' || boxWeight == null ? null : parseFloat(boxWeight) },
-        boxCbm:     { type: sql.Float,  value: boxCBM === '' || boxCBM == null ? null : parseFloat(boxCBM) },
-        tariff:     { type: sql.Float,  value: tariffRate === '' || tariffRate == null ? null : parseFloat(tariffRate) },
-        uid:        { type: sql.NVarChar, value: req.user.userId },
+        code:        { type: sql.NVarChar, value: prodCode || '' },
+        name:        { type: sql.NVarChar, value: prodName },
+        dispName:    { type: sql.NVarChar, value: displayName === undefined ? null : (displayName || null) },
+        flower:      { type: sql.NVarChar, value: flowerName || '' },
+        country:     { type: sql.NVarChar, value: counName || '' },
+        cost:        { type: sql.Float,    value: parseFloat(cost) || 0 },
+        outUnit:     { type: sql.NVarChar, value: outUnit || '박스' },
+        estUnit:     { type: sql.NVarChar, value: estUnit || '박스' },
+        bunch:       { type: sql.Float,    value: parseFloat(bunchOf1Box) || 0 },
+        steam:       { type: sql.Float,    value: parseFloat(steamOf1Bunch) || 0 },
+        boxWt:       { type: sql.Float,  value: boxWeight === '' || boxWeight == null ? null : parseFloat(boxWeight) },
+        boxCbm:      { type: sql.Float,  value: boxCBM === '' || boxCBM == null ? null : parseFloat(boxCBM) },
+        tariff:      { type: sql.Float,  value: tariffRate === '' || tariffRate == null ? null : parseFloat(tariffRate) },
+        uid:         { type: sql.NVarChar, value: req.user.userId },
       };
 
       if (prodKey) {
-        // UPDATE 모드
         params.pk = { type: sql.Int, value: parseInt(prodKey) };
         await query(
-          `UPDATE Product SET ProdCode=@code, ProdName=@name, FlowerName=@flower, CounName=@country,
+          `UPDATE Product SET ProdCode=@code, ProdName=@name, DisplayName=@dispName,
+             FlowerName=@flower, CounName=@country,
              Cost=@cost, OutUnit=@outUnit, EstUnit=@estUnit,
              BunchOf1Box=@bunch, SteamOf1Bunch=@steam, SteamOf1Box=@bunch*@steam,
              BoxWeight=@boxWt, BoxCBM=@boxCbm, TariffRate=@tariff
@@ -134,11 +136,11 @@ async function create(req, res, entity) {
       } else {
         await query(
           `INSERT INTO Product
-             (ProdCode, ProdName, FlowerName, CounName, Cost, OutUnit, EstUnit,
+             (ProdCode, ProdName, DisplayName, FlowerName, CounName, Cost, OutUnit, EstUnit,
               BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
               BoxWeight, BoxCBM, TariffRate,
               isDeleted, CreateID, CreateDtm)
-           VALUES (@code, @name, @flower, @country, @cost, @outUnit, @estUnit,
+           VALUES (@code, @name, @dispName, @flower, @country, @cost, @outUnit, @estUnit,
                    @bunch, @steam, @bunch*@steam,
                    @boxWt, @boxCbm, @tariff,
                    0, @uid, GETDATE())`,
@@ -164,6 +166,30 @@ async function create(req, res, entity) {
       return res.status(200).json({ success: true, message: '꽃 기본값 업데이트' });
     }
     return res.status(400).json({ success: false, error: 'entity 파라미터 필요' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// PUT /api/master?entity=display-name — 자연어명 일괄 저장
+// body: { updates: [{ prodKey, displayName }] }
+async function bulkUpdateDisplayName(req, res) {
+  const { updates } = req.body;
+  if (!Array.isArray(updates) || updates.length === 0)
+    return res.status(400).json({ success: false, error: 'updates 배열 필요' });
+  try {
+    for (const u of updates) {
+      await query(
+        `UPDATE Product SET DisplayName=@dn WHERE ProdKey=@pk`,
+        {
+          pk: { type: sql.Int,      value: parseInt(u.prodKey) },
+          dn: { type: sql.NVarChar, value: u.displayName || null },
+        }
+      );
+    }
+    // 캐시 무효화
+    if (global._prodCache) global._prodCache.data = null;
+    return res.status(200).json({ success: true, updated: updates.length });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

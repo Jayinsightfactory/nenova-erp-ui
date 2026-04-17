@@ -123,7 +123,7 @@ export default function MobileOrderDetail() {
               <div className="md-group-body">
                 {g.rows.map((o, i) => (
                   <div key={i} className="md-item">
-                    <span className="md-item-name">{o.ProdName}</span>
+                    <span className="md-item-name">{o.DisplayName || o.ProdName}</span>
                     <span className="md-item-qty">
                       {getQty(o).toLocaleString()} {o.OutUnit || ''}
                     </span>

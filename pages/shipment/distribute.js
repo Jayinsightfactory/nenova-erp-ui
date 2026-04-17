@@ -450,7 +450,7 @@ export default function Distribute() {
     } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
 
-  const filteredProds = products.filter(p => !prodFilter || p.ProdName.toLowerCase().includes(prodFilter.toLowerCase()));
+  const filteredProds = products.filter(p => !prodFilter || (p.DisplayName || p.ProdName).toLowerCase().includes(prodFilter.toLowerCase()) || p.ProdName.toLowerCase().includes(prodFilter.toLowerCase()));
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
   const remain = (inQty||0) - totalOutInput;
 
@@ -582,7 +582,7 @@ export default function Distribute() {
                           const hasStock = p.inQty > 0;
                           return (
                             <tr key={p.ProdKey} className={isSelected?'selected':''} onClick={()=>selectProd(p)} style={{cursor:'pointer',background:hasStock&&!isSelected?'#F0F7FF':undefined}}>
-                              <td style={{fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>{p.ProdName}</td>
+                              <td style={{fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>{p.DisplayName || p.ProdName}</td>
                               <td style={{color:'var(--text3)'}}>{p.OutUnit}</td>
                               <td className="num">{p.BunchOf1Box||0}</td>
                               <td className="num">{p.SteamOf1Box||0}</td>
@@ -669,7 +669,7 @@ export default function Distribute() {
                     : (
                       <>
                         <div style={{padding:'6px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600}}>
-                          {selectedProd.ProdName} — 거래처 분배 정보
+                          {selectedProd.DisplayName || selectedProd.ProdName} — 거래처 분배 정보
                         </div>
                         <table className="tbl" style={{fontSize:12}}>
                           <thead>
@@ -767,7 +767,7 @@ export default function Distribute() {
                                 <tr key={i} style={{background:item.잔량>0?'#FFFBEB':undefined}}>
                                   <td style={{fontSize:11}}>{item.CounName}</td>
                                   <td style={{fontSize:11}}>{item.FlowerName}</td>
-                                  <td style={{fontWeight:500}}>{item.ProdName}</td>
+                                  <td style={{fontWeight:500}}>{item.DisplayName || item.ProdName}</td>
                                   <td style={{fontSize:11}}>{item.OutUnit}</td>
                                   <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
                                   <td>
@@ -923,7 +923,7 @@ export default function Distribute() {
                             <tr key={i} style={{background: diff !== 0 ? '#FFF3E0' : undefined}}>
                               <td style={{fontSize:11}}>{item.CounName}</td>
                               <td style={{fontSize:11}}>{item.FlowerName}</td>
-                              <td style={{fontWeight:500}}>{item.ProdName}</td>
+                              <td style={{fontWeight:500}}>{item.DisplayName || item.ProdName}</td>
                               <td style={{fontSize:11}}>{item.OutUnit}</td>
                               <td className="num" style={{fontWeight:700,color:'var(--blue)'}}>{totalQty}</td>
                               {DAY_NAMES.map(d => {
@@ -1012,7 +1012,7 @@ export default function Distribute() {
                   <tr key={p.ProdKey}>
                     <td style={{fontSize:11}}>{p.CounName}</td>
                     <td style={{fontSize:11}}>{p.FlowerName}</td>
-                    <td style={{fontSize:12}}>{p.ProdName}</td>
+                    <td style={{fontSize:12}}>{p.DisplayName || p.ProdName}</td>
                     {custList.map(c=>{
                       const oq = p.orderQty || 0;
                       const sq = p.outQty || 0;
