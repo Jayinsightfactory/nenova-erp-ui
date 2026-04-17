@@ -36,12 +36,11 @@ export default function OrderList() {
   const [err, setErr] = useState('');
   const [showDate, setShowDate] = useState(true);   // 주문일 열 표시 여부
 
-  const load = () => {
+  const load = (overrideParams) => {
     setLoading(true); setErr('');
-    // 차수 필터 있으면 날짜 무시하고 차수 기준 조회
-    const params = weekFilter
+    const params = overrideParams || (weekFilter
       ? { week: weekFilter, custName }
-      : { startDate, endDate, custName };
+      : { startDate, endDate, custName });
     apiGet('/api/orders', params)
       .then(d => setOrders(d.orders || []))
       .catch(e => setErr(e.message))
@@ -52,11 +51,21 @@ export default function OrderList() {
     const d = new Date(); const day = d.getDay();
     const mon = new Date(d); mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
     const sun = new Date(d); sun.setDate(d.getDate() + (day === 0 ? 0 : 7 - day));
-    setStartDate(mon.toISOString().slice(0, 10));
-    setEndDate(sun.toISOString().slice(0, 10));
+    const sd = mon.toISOString().slice(0, 10);
+    const ed = sun.toISOString().slice(0, 10);
+    setStartDate(sd);
+    setEndDate(ed);
+    // 직접 파라미터 전달 → 클로저 타이밍 문제 방지
+    setLoading(true); setErr('');
+    apiGet('/api/orders', { startDate: sd, endDate: ed, custName: '' })
+      .then(data => setOrders(data.orders || []))
+      .catch(e => setErr(e.message))
+      .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
+  // 날짜 변경 시 재조회 (weekFilter 없을 때만)
+  useEffect(() => {
+    if (startDate && endDate && !weekFilter) load();
+  }, [startDate, endDate]); // eslint-disable-line
 
   // 품목 필터 적용
   const filteredOrders = orders.map(o => ({

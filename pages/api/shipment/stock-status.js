@@ -1052,6 +1052,19 @@ async function addOrder(req, res) {
       }
     });
 
+    // OrderMaster.Descr 에 웹 작업 이력 추가 (전산에서 확인 가능)
+    const logNow = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    const logAction = quantity <= 0 ? '차수피벗삭제' : '차수피벗추가/수정';
+    try {
+      await query(
+        `UPDATE OrderMaster SET Descr=ISNULL(Descr,'')+@log
+         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
+        { log: { type: sql.NVarChar, value: `\n[${logAction} ${logNow} ${req.user?.userId||'system'}] ProdKey:${prodKey} ${quantity}${unit||''}` },
+          ck:  { type: sql.Int,     value: parseInt(custKey) },
+          wk:  { type: sql.NVarChar, value: (week.match(/^\d{4}-(\d{2}-\d{2})$/) || [,week])[1] } }
+      );
+    } catch { /* 이력 실패는 무시 */ }
+
     return res.status(200).json({ success: true, message: '주문 추가/수정 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

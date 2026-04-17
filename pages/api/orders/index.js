@@ -245,6 +245,21 @@ async function createOrder(req, res) {
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
+      // 웹 작업 히스토리 → OrderMaster.Descr 에 추가
+      const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const logItems = detailResults
+        .filter(r => r.status === 'OK' || r.status === 'UPDATED')
+        .map(r => `${r.prodName || r.prodKey} ${r.qty}${r.unit}`)
+        .join(', ');
+      if (logItems) {
+        const action = existing.recordset.length > 0 ? '웹수정' : '웹등록';
+        await tQuery(
+          `UPDATE OrderMaster SET Descr = ISNULL(Descr,'') + @log WHERE OrderMasterKey=@mk`,
+          { log: { type: sql.NVarChar, value: `\n[${action} ${now} ${uid}] ${logItems}` },
+            mk:  { type: sql.Int, value: mk } }
+        );
+      }
+
       return { orderMasterKey: mk, results: detailResults };
     });
 
@@ -333,6 +348,17 @@ async function updateOrder(req, res) {
               after:  { type: sql.NVarChar, value: String(qty) },
               descr:  { type: sql.NVarChar, value: `[${timeStr} ${userName}] 주문수정` },
               uid:    { type: sql.NVarChar, value: uid },
+            }
+          );
+
+          // OrderMaster.Descr 에도 웹 작업 이력 추가
+          const prodName = item.prodName || `ProdKey:${item.prodKey||item.detailKey}`;
+          await tQuery(
+            `UPDATE OrderMaster SET Descr = ISNULL(Descr,'') + @log
+             WHERE OrderMasterKey = (SELECT OrderMasterKey FROM OrderDetail WHERE OrderDetailKey=@dk)`,
+            {
+              log: { type: sql.NVarChar, value: `\n[웹수정 ${timeStr} ${userName}] ${prodName} ${oldQty}→${qty}${unit}` },
+              dk:  { type: sql.Int, value: item.detailKey },
             }
           );
         }
