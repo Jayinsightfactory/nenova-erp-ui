@@ -1061,7 +1061,7 @@ async function addOrder(req, res) {
             mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
             bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
-            uid: { type: sql.NVarChar, value: uid },
+            uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
         await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
@@ -1224,7 +1224,7 @@ async function addOrderDelta(req, res) {
           { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
             bq: { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
-            uid: { type: sql.NVarChar, value: uid } }
+            uid: { type: sql.NVarChar, value: 'admin' } }
         );
       }
     });
