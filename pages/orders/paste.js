@@ -10,7 +10,21 @@ const MAPPING_KEY = 'nenova_paste_mappings';
 
 // 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
 function getDefaultWeek() {
-  return getCurrentWeek(); // 항상 2026-WW-01
+  return getCurrentWeek(); // 2026-WW-01
+}
+
+// 현재 주차 기준 ±N 범위의 2026 차수 목록 (최신순)
+function getNearby2026Weeks(range = 4) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const start = new Date(year, 0, 1);
+  const dayOfYear = Math.floor((now - start) / 86400000) + 1;
+  const curWeek = Math.min(Math.ceil(dayOfYear / 7), 52);
+  const weeks = [];
+  for (let w = curWeek + range; w >= Math.max(1, curWeek - range); w--) {
+    weeks.push(`${year}-${String(w).padStart(2,'0')}-01`);
+  }
+  return weeks;
 }
 
 function loadCache() {
@@ -30,6 +44,7 @@ export default function PasteOrderPage() {
   const [week, setWeek] = useState('');
   const [weekPage, setWeekPage] = useState(0);
   const WEEK_PAGE_SIZE = 6;
+  const [showOldWeeks, setShowOldWeeks] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState([]);
@@ -48,13 +63,14 @@ export default function PasteOrderPage() {
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
     apiGet('/api/orders/weeks').then(d => {
       if (d.success) {
-        const def = getDefaultWeek(); // 2026-WW-01
-        const dbWeeks = d.weeks || [];
-        // 2026 기본 차수가 DB에 없으면 맨 앞에 추가
-        const ws = dbWeeks.includes(def) ? dbWeeks : [def, ...dbWeeks];
+        const def = getDefaultWeek();
+        const nearby = getNearby2026Weeks(4); // 2026 최근 ±4주
+        const dbWeeks = (d.weeks || []).filter(w => !nearby.includes(w)); // 중복 제거
+        // 2026 차수 먼저, 그 다음 DB 구형식(25년도) 차수
+        const ws = [...nearby, ...dbWeeks];
         setWeeks(ws);
         setWeek(def);
-        setWeekPage(0); // 기본 차수는 항상 첫 페이지
+        setWeekPage(0);
       }
     });
   }, []);
@@ -317,31 +333,62 @@ export default function PasteOrderPage() {
         {/* 차수 선택 */}
         <div style={{ marginBottom: 12 }}>
           <label style={labelS}>차수</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setWeekPage(p => Math.min(p + 1, Math.floor((weeks.length - 1) / WEEK_PAGE_SIZE)))}
-              disabled={weekPage >= Math.floor((weeks.length - 1) / WEEK_PAGE_SIZE)}
-              style={navBtnS}
-            >◀</button>
-            {weeks.slice(weekPage * WEEK_PAGE_SIZE, (weekPage + 1) * WEEK_PAGE_SIZE).map(w => (
-              <button key={w} onClick={() => setWeek(w)}
-                style={{
-                  padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
-                  border: week === w ? '2px solid #1a237e' : '1px solid #bbb',
-                  background: week === w ? '#1a237e' : '#fff',
-                  color: week === w ? '#fff' : '#333',
-                  fontWeight: week === w ? 700 : 400,
-                }}>
-                {formatWeekDisplay(w)}
-              </button>
-            ))}
-            <button
-              onClick={() => setWeekPage(p => Math.max(p - 1, 0))}
-              disabled={weekPage === 0}
-              style={navBtnS}
-            >▶</button>
-            {week && <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600, marginLeft: 4 }}>선택: {formatWeekDisplay(week)}</span>}
-          </div>
+          {/* 2026 차수 (신형식) */}
+          {(() => {
+            const newWeeks = weeks.filter(w => w.match(/^\d{4}-/));
+            const oldWeeks = weeks.filter(w => !w.match(/^\d{4}-/));
+            return (
+              <div>
+                {/* 2026 섹션 */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: '#1a237e', fontWeight: 700, background: '#e8eaf6', padding: '2px 8px', borderRadius: 10 }}>2026</span>
+                  {newWeeks.map(w => (
+                    <button key={w} onClick={() => setWeek(w)}
+                      style={{
+                        padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                        border: week === w ? '2px solid #1a237e' : '1px solid #c5cae9',
+                        background: week === w ? '#1a237e' : '#f3f4ff',
+                        color: week === w ? '#fff' : '#1a237e',
+                        fontWeight: week === w ? 700 : 500,
+                      }}>
+                      {formatWeekDisplay(w)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 이전 차수 (25년도) */}
+                {oldWeeks.length > 0 && (
+                  <div>
+                    <button onClick={() => setShowOldWeeks(v => !v)}
+                      style={{ fontSize: 11, color: '#888', background: 'none', border: '1px solid #ddd', borderRadius: 10, padding: '2px 10px', cursor: 'pointer', marginBottom: 4 }}>
+                      {showOldWeeks ? '▲' : '▼'} 이전 차수 (25년도) {oldWeeks.length}개
+                    </button>
+                    {showOldWeeks && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {oldWeeks.map(w => (
+                          <button key={w} onClick={() => setWeek(w)}
+                            style={{
+                              padding: '4px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                              border: week === w ? '2px solid #888' : '1px solid #ddd',
+                              background: week === w ? '#666' : '#f9f9f9',
+                              color: week === w ? '#fff' : '#888',
+                            }}>
+                            {formatWeekDisplay(w)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {week && (
+                  <div style={{ fontSize: 12, color: '#1a237e', fontWeight: 600, marginTop: 4 }}>
+                    선택: {formatWeekDisplay(week)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 텍스트 입력 */}
