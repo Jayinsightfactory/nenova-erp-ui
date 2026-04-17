@@ -155,10 +155,14 @@ export default function FreightPage() {
   // 카테고리(Flower) 기본값 편집 → Flower 테이블에 저장 (전역).
   // state 선언은 위에서 했음 (liveResult 가 참조하므로 TDZ 회피).
   const startCatEdit = (flowerName, current) => {
+    // apiData.flowerMeta 에서 defaultTariff 도 가져옴 (카테고리 객체엔 없음)
+    const key = normalizeFlower(flowerName);
+    const fm = apiData?.flowerMeta?.[key] || {};
     setCatEditing(m => ({ ...m, [flowerName]: {
       BoxWeight: current.boxWeight ?? '',
       BoxCBM: current.boxCBM ?? '',
       StemsPerBox: current.stemsPerBox ?? '',
+      DefaultTariff: fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(2) : '',  // % 로 표시
     }}));
   };
   const updCatField = (flowerName, field, val) => {
@@ -170,6 +174,9 @@ export default function FreightPage() {
     setCatSaving(flowerName);
     try {
       // /api/master?entity=flower (PUT → flowerKey 있으면 UPDATE)
+      // 관세(%) 입력 → 소수로 변환 (예: 8 → 0.08)
+      const tariffPct = v.DefaultTariff === '' ? null : parseFloat(v.DefaultTariff);
+      const defaultTariff = tariffPct != null && !Number.isNaN(tariffPct) ? tariffPct / 100 : null;
       const res = await fetch('/api/master?entity=flower', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,6 +185,7 @@ export default function FreightPage() {
           boxWeight: v.BoxWeight === '' ? null : parseFloat(v.BoxWeight),
           boxCBM: v.BoxCBM === '' ? null : parseFloat(v.BoxCBM),
           stemsPerBox: v.StemsPerBox === '' ? null : parseFloat(v.StemsPerBox),
+          defaultTariff,
         }),
       });
       const d = await res.json();
@@ -194,6 +202,7 @@ export default function FreightPage() {
           boxWeight: v.BoxWeight === '' ? null : parseFloat(v.BoxWeight),
           boxCBM: v.BoxCBM === '' ? null : parseFloat(v.BoxCBM),
           stemsPerBox: v.StemsPerBox === '' ? null : parseFloat(v.StemsPerBox),
+          defaultTariff,
         };
         setApiData(a => ({ ...a, flowerMeta: next }));
       }
@@ -594,22 +603,31 @@ export default function FreightPage() {
                 </div>
               </div>
 
-              {/* 박스당 송이수 + 저장 버튼 영역 */}
+              {/* 박스당 송이수 + 관세 + 저장 버튼 영역 */}
               <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border)', background: '#fafafa' }}>
-                <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4, fontWeight: 600 }}>📦 박스당 송이수 (수량 계산용, 카테고리 공통)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6 }}>
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4, fontWeight: 600 }}>📦 카테고리 기본값 (송이/박스 + 관세%) — 전역 저장 (Flower 마스터)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 6 }}>
                   {liveResult.categories.map(c => {
                     const edit = catEditing[c.flowerName];
                     const fkKey = normalizeFlower(c.flowerName);
                     const fkId = flowerNameToKey[fkKey];
-                    const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                    const fm = apiData?.flowerMeta?.[fkKey] || {};
+                    const curTariffPct = fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(2) : null;
+                    const cellStyle = { width: 54, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
                     return (
-                      <div key={c.flowerName} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', background: edit ? '#fffde7' : '#fff', border: '1px solid var(--border)', borderRadius: 4 }}>
+                      <div key={c.flowerName} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', background: edit ? '#fffde7' : '#fff', border: '1px solid var(--border)', borderRadius: 4, flexWrap: 'wrap' }}>
                         <span className="badge badge-purple" style={{ fontSize: 10 }}>{c.flowerName}</span>
                         <span style={{ fontSize: 10, color: 'var(--text3)' }}>송이/박스</span>
                         {edit
                           ? <input type="number" style={cellStyle} value={edit.StemsPerBox} onChange={e => updCatField(c.flowerName, 'StemsPerBox', e.target.value)} />
-                          : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: fkId ? 'pointer' : 'default', marginLeft: 'auto' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{c.stemsPerBox ?? '–'}</span>}
+                          : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: fkId ? 'pointer' : 'default' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{c.stemsPerBox ?? '–'}</span>}
+                        <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 4 }}>관세</span>
+                        {edit
+                          ? <>
+                              <input type="number" step="0.01" style={cellStyle} value={edit.DefaultTariff ?? ''} onChange={e => updCatField(c.flowerName, 'DefaultTariff', e.target.value)} placeholder="0" />
+                              <span style={{ fontSize: 10 }}>%</span>
+                            </>
+                          : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: curTariffPct ? 'var(--amber, #f57c00)' : 'var(--text3)', cursor: fkId ? 'pointer' : 'default' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{curTariffPct != null ? curTariffPct + '%' : '–'}</span>}
                         {edit
                           ? <span style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
                               <button className="btn btn-primary btn-sm" style={{ height: 22, padding: '0 6px', fontSize: 11 }} onClick={() => saveCatEdit(c.flowerName, fkId)} disabled={catSaving === c.flowerName}>💾</button>

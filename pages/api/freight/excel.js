@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch } from '../../../lib/freightCalc';
+import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost } from '../../../lib/freightCalc';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -323,45 +323,73 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const customsQuarantineKRW = (categories.filter(c => c).length || 0) * (cQuarantine || 0);
   const customsTotalKRW = customsBakSangKRW + (cHandling || 0) + customsQuarantineKRW + (cDomestic || 0) + (cDeduct || 0) + (cExtra || 0);
 
-  // 4개 카테고리 (고정 4행) — K/L/M/T/U
-  // 박스수량 0 일 때: JS 로 송이수 비율 분배를 미리 계산해 static 값으로 기록 (수식 0 divzero 방지)
+  // ────────────────────────────────────────────────────────────────────────
+  // ★★ 전체 계산값을 computeFreightCost 로 서버에서 미리 계산해 static 값으로 기록 ★★
+  // xlsx-js-style 의 formula-only 출력은 일부 뷰어에서 재계산이 안 되어 값이 비어 보임.
+  // 해결: 모든 계산 셀에 캐시된 값을 직접 기록 (Excel 에서 열면 바로 값 표시).
+  // ────────────────────────────────────────────────────────────────────────
+  const compFlowerSeen = new Set();
+  const compDetails = rows.map(r => {
+    const fn = (r.FlowerName || '').trim();
+    const first = !compFlowerSeen.has(fn);
+    if (first) compFlowerSeen.add(fn);
+    const ovRow = ovRowsByKey.get(Number(r.ProdKey)) || {};
+    const sd = snapMap ? null : null;  // snapMap은 body loop에서만 사용
+    return {
+      prodKey: r.ProdKey,
+      prodName: r.ProdName,
+      flowerName: fn,
+      farmName: r.FarmName,
+      boxQty: first ? (boxByFlower.get(fn) || 0) : 0,  // 카테고리 분배용 (첫행)
+      rawBoxQty: Number(r.BoxQuantity) || 0,
+      bunchQty: Number(r.BunchQuantity) || 0,
+      steamQty: Number(r.SteamQuantity) || 0,
+      fobUSD: pickOv(ovRow.fobUSD, Number(r.UPrice) || 0),
+      totalPriceUSD: Number(r.TPrice) || 0,
+      stemsPerBunch: pickOv(ovRow.stemsPerBunch, Number(r.SteamOf1Bunch) || 0),
+      salePriceKRW: pickOv(ovRow.salePriceKRW, Number(r.Cost) || 0),
+      tariffRate: pickOv(ovRow.tariffRate, r.P_TariffRate ?? null),
+    };
+  });
+  const compFlowerMeta = {};
+  for (const [normKey, fm] of flowerMetaMap.entries()) {
+    compFlowerMeta[normKey] = {
+      boxWeight: Number(fm.BoxWeight) || null,
+      boxCBM: Number(fm.BoxCBM) || null,
+      stemsPerBox: Number(fm.StemsPerBox) || null,
+      defaultTariff: Number(fm.DefaultTariff) || null,
+    };
+  }
+  const compResult = computeFreightCost({
+    master: {
+      gw, cw, rateUSD: rate, docFeeUSD: docFee, exchangeRate,
+      invoiceUSD, itemCount: categories.filter(c => c).length,
+      actualFreightUSD: actualFreightEff || null,
+    },
+    basis: ov.basis || 'AUTO',
+    customs: { bakSangRate: cBakSang, handlingFee: cHandling, quarantinePerItem: cQuarantine, domesticFreight: cDomestic, deductFee: cDeduct, extraFee: cExtra },
+    details: compDetails,
+    productMeta: {},
+    flowerMeta: compFlowerMeta,
+  });
+  const compRowByProdKey = new Map(compResult.rows.map(r => [r.prodKey, r]));
+  const compCategoryByName = new Map(compResult.categories.map(c => [c.flowerName, c]));
+
+  // 4개 카테고리 (고정 4행) — K/L/M/T/U (static values from computeFreightCost)
   for (let i = 0; i < 4; i++) {
     const catName = categories[i] || '';
     const r = 6 + i;  // excel row 7..10
-    const excelRow = r + 1;
-    const fm = flowerMetaMap.get(normalizeFlower(catName)) || {};
-    const stemsPerBox = Number(fm.StemsPerBox) || 0;
     set(r, 9, catName, style(BG_HEADER, null, ALIGN_CENTER));
     set(r, 18, catName, style(BG_HEADER, null, ALIGN_CENTER));
-    if (!catName) {
-      set(r, 10, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 11, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 12, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 19, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 20, 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-      continue;
-    }
-    if (useStemsRatio) {
-      // 송이수 기반 분배 (static values)
-      const stems = categoryStems[catName] || 0;
-      const ratio = totalStemsAll > 0 ? stems / totalStemsAll : 0;
-      const catFreightUSD = (Number(actualFreightEff) || 0) * ratio;
-      const catCustomsKRW = customsTotalKRW * ratio;
-      const perStemFreight = stems > 0 ? catFreightUSD / stems : 0;
-      const perStemCustoms = stems > 0 ? catCustomsKRW / stems : 0;
-      set(r, 10, catFreightUSD,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // K (주황 = 송이수기반)
-      set(r, 11, stems,           style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // L
-      set(r, 12, perStemFreight,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // M
-      set(r, 19, catCustomsKRW,   style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // T
-      set(r, 20, perStemCustoms,  style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT));  // U
-    } else {
-      // 박스무게 기반 분배 (기존 엑셀 수식 유지 — 엑셀 원본과 동일)
-      set(r, 10, fml(`IF($C$8=$E$8,$C$11*AD${r+2},$C$11*AI${r+2})`), style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 11, fml(`AC${r+2}*${stemsPerBox}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 12, fml(`K${excelRow}/L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 19, fml(`$P$10*AD${r+2}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-      set(r, 20, fml(`T${excelRow}/L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    }
+    const cat = catName ? compCategoryByName.get(catName) : null;
+    const cellStyle = useStemsRatio
+      ? style({ fgColor:{rgb:'FFF3E0'}, patternType:'solid' }, null, ALIGN_RIGHT)
+      : style(BG_FORMULA, null, ALIGN_RIGHT);
+    set(r, 10, cat ? Number(cat.freightUSD) || 0 : 0, cellStyle);
+    set(r, 11, cat ? Number(cat.stemsCount) || 0 : 0, cellStyle);
+    set(r, 12, cat ? Number(cat.freightPerStemUSD) || 0 : 0, cellStyle);
+    set(r, 19, cat ? Number(cat.customsKRW) || 0 : 0, cellStyle);
+    set(r, 20, cat ? Number(cat.customsPerStemKRW) || 0 : 0, cellStyle);
   }
 
   // AA3~AI13 분배 비율 블록
@@ -397,16 +425,16 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   set(12, 29, fml('SUM(AD8:AD11)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
   set(12, 34, fml('SUM(AI8:AI11)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
 
-  // T12/U12/V12 종 이익률/판매/이익
+  // T12/U12/V12 종 이익률/판매/이익 (static values)
   set(11, 19, '종 이익률', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(11, 20, '종 판매가', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
   set(11, 21, '종 이익',   style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(12, 19, fml('IFERROR(V13/U13,0)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
-  set(12, 20, fml('SUM(U15:U500)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
-  set(12, 21, fml('SUM(V15:V500)'), style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(12, 19, Number(compResult.totals.overallProfitRate) || 0, style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(12, 20, Number(compResult.totals.totalSaleKRW) || 0,     style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
+  set(12, 21, Number(compResult.totals.totalProfitKRW) || 0,   style(BG_FORMULA, FONT_BOLD, ALIGN_RIGHT));
 
-  // Row 14: body headers
-  const headers = ['농장','Color/Grade',null,null,'수량','FOB','운송비(송이)','CNF(송이)','총금액(CNF포함)','CNF(원화)','관세','그외통관(송이당)','도착원가(송이)','단당 수량','도착원가(단)','판매(부가세 별도)','판매가(부가세 포함)','15% 이익 판매가(단)','단 이익','이익률','종 판매가','종 이익'];
+  // Row 14: body headers (C, D 는 카테고리/박스수로 채움 — 빈칸 제거)
+  const headers = ['농장','품목명','카테고리','박스수','수량(송이)','FOB(단가)','운송비(송이)','CNF(송이)','총금액(CNF포함)','CNF(원화)','관세','그외통관(송이당)','도착원가(송이)','단당수량','도착원가(단)','판매(부가세별도)','판매가(부가세포함)','15% 이익 판매가(단)','단 이익','이익률','종 판매가','종 이익'];
   headers.forEach((h, i) => { if (h != null) set(13, i, h, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER)); });
 
   // Body rows (row 15~)
@@ -423,53 +451,43 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const rowIdx = 14 + i;
-    const excelRow = rowIdx + 1;
     const fn = (r.FlowerName || '').trim();
-    const catIdx = bodyCatIdx.get(normalizeFlower(fn));
-    const catExcelRow = catIdx != null ? catIdx + 7 : null;
+    const comp = compRowByProdKey.get(r.ProdKey) || {};
 
-    // 농장명은 바뀔 때만 표시 (엑셀 원본과 동일)
+    // 농장명은 바뀔 때만 표시
     const showFarm = r.FarmName && r.FarmName !== prevFarm;
     set(rowIdx, 0, showFarm ? r.FarmName : '', style(null, showFarm ? FONT_BOLD : null, { horizontal:'left' }));
     prevFarm = r.FarmName;
     set(rowIdx, 1, r.ProdName || '', style(null, null, { horizontal:'left' }));
-    // 오버라이드 우선순위: client POST 편집값 > 스냅샷 > DB/Product 기본값
-    const ovRow = ovRowsByKey.get(Number(r.ProdKey)) || {};
-    const sd = snapMap.get(r.ProdKey) || {};
-    const effSteamQty = pickOv(ovRow.steamQty, resolveSteam(r));
-    const effFobUSD   = pickOv(ovRow.fobUSD, Number(r.UPrice) || 0);
-    set(rowIdx, 4, effSteamQty, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(rowIdx, 5, effFobUSD, style(BG_INPUT, null, ALIGN_RIGHT));
-    // G/L 수식: 원본 엑셀의 SEARCH 방식 그대로 (카테고리별 M/U 참조)
-    // =IF(ISNUMBER(SEARCH($J$8,B15)),$M$8, IF(ISNUMBER(SEARCH($J$7,B15)),$M$7, ...))
-    // MINICARNATION 이 CARNATION 을 포함하므로 CARNATION(J8) 먼저 검색해야 올바름
-    const searchG = buildSearchFormula(excelRow, categories, 'M', 1);
-    const searchL = buildSearchFormula(excelRow, categories, 'U', 1);
-    set(rowIdx, 6, searchG ? fml(searchG) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 11, searchL ? fml(searchL) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 7, fml(`F${excelRow}+G${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 8, fml(`E${excelRow}*H${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 9, fml(`H${excelRow}*$C$7`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    const tariffRate = pickOv(ovRow.tariffRate, sd.TariffRate ?? r.P_TariffRate ?? 0);
-    set(rowIdx, 10, tariffRate > 0 ? fml(`J${excelRow}*${tariffRate}`) : 0, style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 12, fml(`J${excelRow}+K${excelRow}+L${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    const effStemsPerBunch = pickOv(ovRow.stemsPerBunch, Number(sd.StemsPerBunch ?? r.SteamOf1Bunch) || 0);
-    const effSalePriceKRW  = pickOv(ovRow.salePriceKRW,  Number(sd.SalePriceKRW ?? r.Cost) || 0);
-    set(rowIdx, 13, effStemsPerBunch, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(rowIdx, 14, fml(`M${excelRow}*N${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 15, fml(`Q${excelRow}/1.1`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 16, effSalePriceKRW, style(BG_INPUT, null, ALIGN_RIGHT));
-    set(rowIdx, 17, fml(`IFERROR(O${excelRow}/0.77,0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 18, fml(`P${excelRow}-O${excelRow}`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 19, fml(`IFERROR(S${excelRow}/P${excelRow},0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 20, fml(`IFERROR(P${excelRow}*E${excelRow}/N${excelRow},0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
-    set(rowIdx, 21, fml(`IFERROR(E${excelRow}*S${excelRow}/N${excelRow},0)`), style(BG_FORMULA, null, ALIGN_RIGHT));
+    // C/D 컬럼: 카테고리, 박스수 (빈칸 제거)
+    set(rowIdx, 2, fn, style(null, null, { horizontal:'center' }));
+    set(rowIdx, 3, Number(r.BoxQuantity) || 0, style(BG_INPUT, null, ALIGN_RIGHT));
+    // E~V: 모두 static values from computeFreightCost
+    set(rowIdx, 4,  Number(comp.steamQty) || 0,          style(BG_INPUT,   null, ALIGN_RIGHT));
+    set(rowIdx, 5,  Number(comp.fobUSD)   || 0,          style(BG_INPUT,   null, ALIGN_RIGHT));
+    set(rowIdx, 6,  Number(comp.freightPerStemUSD) || 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 7,  Number(comp.cnfUSD)   || 0,          style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 8,  Number(comp.steamQty) * Number(comp.cnfUSD) || 0, style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 9,  Number(comp.cnfKRW)   || 0,          style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 10, Number(comp.tariffKRW) || 0,         style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 11, Number(comp.customsPerStem) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 12, Number(comp.arrivalPerStem) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 13, Number(comp.stemsPerBunch) || 0,     style(BG_INPUT,   null, ALIGN_RIGHT));
+    set(rowIdx, 14, Number(comp.arrivalPerBunch) || 0,   style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 15, Number(comp.salePriceExVAT) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 16, Number(comp.salePriceKRW) || 0,      style(BG_INPUT,   null, ALIGN_RIGHT));
+    set(rowIdx, 17, Number(comp.saleAt15Profit) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 18, Number(comp.profitPerBunch) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 19, Number(comp.profitRate) || 0,        style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 20, Number(comp.totalSaleKRW) || 0,      style(BG_FORMULA, null, ALIGN_RIGHT));
+    set(rowIdx, 21, Number(comp.totalProfitKRW) || 0,    style(BG_FORMULA, null, ALIGN_RIGHT));
   }
 
   // aoa → sheet
   const ws = buildWorksheet(aoa, styles, merges);
+  // C(카테고리), D(박스수) — 기존엔 빈칸이었음, 이제 실제 데이터로 채워짐
   ws['!cols'] = [
-    { wch: 12 },{ wch: 28 },{ wch: 8 },{ wch: 8 },{ wch: 8 },
+    { wch: 12 },{ wch: 28 },{ wch: 10 },{ wch: 7 },{ wch: 9 },
     { wch: 8 },{ wch: 11 },{ wch: 11 },{ wch: 13 },{ wch: 13 },
     { wch: 10 },{ wch: 13 },{ wch: 13 },{ wch: 9 },{ wch: 14 },
     { wch: 14 },{ wch: 14 },{ wch: 16 },{ wch: 11 },{ wch: 9 },
