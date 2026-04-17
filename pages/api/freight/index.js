@@ -5,7 +5,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency } from '../../../lib/freightCalc';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 370,
@@ -108,7 +108,7 @@ async function loadFreightData(res, keys, awbLabel) {
   if (keyList.length === 0) return res.status(400).json({ success:false, error:'warehouseKey 없음' });
   const keyCSV = keyList.join(',');  // 숫자만이라 안전
 
-  const [mRes, dRes, fRes, fcRes] = await Promise.all([
+  const [mRes, dRes, fRes, fcRes, curRes] = await Promise.all([
     query(
       `SELECT WarehouseKey, OrderYear, OrderWeek, FarmName, InvoiceNo, OrderNo AS AWB,
           CONVERT(NVARCHAR(10), InputDate, 120) AS InputDate,
@@ -120,7 +120,7 @@ async function loadFreightData(res, keys, awbLabel) {
       `SELECT wd.WarehouseKey, wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
           wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
-          p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost,
+          p.ProdName, p.FlowerName, p.CounName, p.SteamOf1Bunch, p.Cost,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
          INNER JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
@@ -133,7 +133,15 @@ async function loadFreightData(res, keys, awbLabel) {
     query(
       `SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY CreateDtm DESC`
     ),
+    // CurrencyMaster 전체 (USD/EUR/JPY/CNY/KRW 등)
+    query(`SELECT CurrencyCode, CurrencyName, ExchangeRate FROM CurrencyMaster WHERE IsActive=1`),
   ]);
+
+  // 통화별 환율 맵 { USD: 1300, EUR: 1420, CNY: 188, JPY: 8.9, KRW: 1 }
+  const currencyRates = { KRW: 1 };
+  for (const c of (curRes.recordset || [])) {
+    currencyRates[c.CurrencyCode] = Number(c.ExchangeRate) || 0;
+  }
 
   if (mRes.recordset.length === 0) return res.status(404).json({ success: false, error: '해당 BILL(AWB)을 찾을 수 없습니다.' });
   const mastersAll = mRes.recordset;
@@ -207,7 +215,18 @@ async function loadFreightData(res, keys, awbLabel) {
 
   const invoiceUSD = rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
-  // 스냅샷 값 우선, 없으면 Warehouse/기본값
+  // 인보이스 통화 자동 감지 (Product.CounName 기반) + CurrencyMaster 에서 환율 제안
+  const invoiceCurrency = detectInvoiceCurrency(rows.map(r => ({ counName: r.CounName })));
+  const suggestedExchangeRate = currencyRates[invoiceCurrency] || 0;
+  // 감지된 국가 분포 (UI 에서 배지로 표시)
+  const counCounter = {};
+  for (const r of rows) {
+    const cn = (r.CounName || '').trim();
+    if (cn) counCounter[cn] = (counCounter[cn] || 0) + 1;
+  }
+  const countryDistribution = Object.entries(counCounter).sort((a, b) => b[1] - a[1]);
+
+  // 스냅샷 값 우선, 없으면 Warehouse → 통화환율 제안값 → 0 순서
   const snap = existingSnapshot;
   const liveMaster = {
     warehouseKey: master.WarehouseKey,
@@ -215,10 +234,15 @@ async function loadFreightData(res, keys, awbLabel) {
     cw: snap?.ChargeableWeight ?? master.ChargeableWeight ?? 0,
     rateUSD: snap?.FreightRateUSD ?? master.FreightRateUSD ?? 0,
     docFeeUSD: snap?.DocFeeUSD ?? master.DocFeeUSD ?? 0,
-    exchangeRate: snap?.ExchangeRate ?? 0,
+    // 환율: 스냅샷 > 0 이면 사용, 아니면 CurrencyMaster 의 자동 제안값
+    exchangeRate: (snap?.ExchangeRate > 0 ? snap.ExchangeRate : suggestedExchangeRate) || 0,
     invoiceUSD: snap?.InvoiceTotalUSD ?? invoiceUSD,
     itemCount,
     actualFreightUSD: actualFreightUSD > 0 ? actualFreightUSD : null,
+    // 통화 정보 (UI 표시용)
+    invoiceCurrency,
+    suggestedExchangeRate,
+    exchangeRateAutoFilled: !(snap?.ExchangeRate > 0) && suggestedExchangeRate > 0,
   };
   const customs = snap ? {
     bakSangRate: Number(snap.BakSangRate) || DEFAULT_CUSTOMS.bakSangRate,
@@ -330,7 +354,10 @@ async function loadFreightData(res, keys, awbLabel) {
       actualFreightUSD,
     } : null,
     awb: awbLabel,
-    autoMapped,  // 클라이언트에 자동매핑 내역 노출
+    autoMapped,                                        // 카테고리 자동매핑 내역
+    currencyRates,                                     // 활성 통화 전체 환율 맵 {USD,EUR,CNY,JPY}
+    invoiceCurrency: liveMaster.invoiceCurrency,       // 감지된 대표 통화
+    countryDistribution,                               // [[국가명, 품목수], ...]
     snapshot: existingSnapshot,
     productMeta,
     flowerMeta,

@@ -381,15 +381,31 @@ export default function FreightPage() {
               <div className="card-header"><span className="card-title">① 차수 · 항공료 (USD)</span></div>
               <div style={{ padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>차수 (AWB)</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>차수 (AWB)</span>
+                    {apiData?.invoiceCurrency && (
+                      <span style={{ padding: '1px 6px', background: apiData.invoiceCurrency === 'CNY' ? '#ffebee' : apiData.invoiceCurrency === 'EUR' ? '#e3f2fd' : '#e8f5e9', color: apiData.invoiceCurrency === 'CNY' ? '#c62828' : apiData.invoiceCurrency === 'EUR' ? '#1565c0' : '#2e7d32', borderRadius: 3, fontSize: 10, fontWeight: 700 }}
+                            title={apiData.countryDistribution?.map(([c,n]) => `${c} ${n}건`).join(', ')}>
+                        💱 {apiData.invoiceCurrency}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--mono)' }}>{selectedGroup?.AWB || selectedGroup?.OrderWeek || '–'}</div>
                 </div>
-                <NumField label="총금액 Invoice (USD)" value={master.invoiceUSD} onChange={v => updMaster('invoiceUSD', v)} readOnly={!editMode} />
-                <NumField label="환율 (KRW/USD)" value={master.exchangeRate} onChange={v => updMaster('exchangeRate', v)} readOnly={!editMode} />
+                <NumField label={`총금액 Invoice (${apiData?.invoiceCurrency || 'USD'})`} value={master.invoiceUSD} onChange={v => updMaster('invoiceUSD', v)} readOnly={!editMode} />
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>환율 (KRW/{apiData?.invoiceCurrency || 'USD'})</span>
+                    {master.exchangeRateAutoFilled && <span style={{ fontSize: 9, color: 'var(--amber, #f57c00)', fontWeight: 600 }} title="CurrencyMaster 에서 자동 채움">~자동</span>}
+                  </div>
+                  {editMode
+                    ? <input type="number" step="any" value={master.exchangeRate ?? ''} onChange={e => updMaster('exchangeRate', e.target.value === '' ? null : Number(e.target.value))} style={{ width: '100%', height: 26, border: '1px solid var(--blue)', borderRadius: 4, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', padding: '0 6px', background: master.exchangeRateAutoFilled ? '#fff8e1' : '#e3f2fd' }} />
+                    : <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{master.exchangeRate != null ? Number(master.exchangeRate).toLocaleString() : '–'}</div>}
+                </div>
                 <NumField label="GW 실중량 (kg)" value={master.gw} onChange={v => updMaster('gw', v)} readOnly={!editMode} />
                 <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => updMaster('cw', v)} readOnly={!editMode} />
-                <NumField label="Rate (USD/kg)" value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
-                <NumField label="서류 (USD)" value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
+                <NumField label={`Rate (${apiData?.invoiceCurrency || 'USD'}/kg)`} value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
+                <NumField label={`서류 (${apiData?.invoiceCurrency || 'USD'})`} value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>품목수 (자동)</div>
                   <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{fmt(master.itemCount)}</div>
