@@ -1004,7 +1004,7 @@ async function addOrder(req, res) {
            VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
           { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear },
             wk: { type: sql.NVarChar, value: normWeek },
-            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: 'admin' } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;
@@ -1177,7 +1177,7 @@ async function addOrderDelta(req, res) {
            VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
           { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear2 },
             wk: { type: sql.NVarChar, value: normWeek2 },
-            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: 'admin' } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;

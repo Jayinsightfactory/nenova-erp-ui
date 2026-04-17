@@ -203,7 +203,7 @@ async function createOrder(req, res) {
             mgr:      { type: sql.NVarChar, value: mgr },
             custKey:  { type: sql.Int,      value: resolvedCustKey },
             oc:       { type: sql.NVarChar, value: resolvedOrderCode },
-            createId: { type: sql.NVarChar, value: uid },
+            createId: { type: sql.NVarChar, value: 'admin' }, // 전산 호환 (CreateID='admin' 기준 필터)
           }
         );
       }
