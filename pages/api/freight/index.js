@@ -169,10 +169,13 @@ async function loadFreightData(res, keys, awbLabel) {
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
   // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행의 BunchQuantity 를 GW/CW 로 추출
-  const gwRow = allRows.find(r => /^\s*gross\s*weight\s*$/i.test(String(r.ProdName || '').trim()));
-  const cwRow = allRows.find(r => /^\s*chargeable\s*weight\s*$/i.test(String(r.ProdName || '').trim()));
-  const extractedGwFromRow = gwRow ? (Number(gwRow.BunchQuantity) || 0) : 0;
-  const extractedCwFromRow = cwRow ? (Number(cwRow.BunchQuantity) || 0) : 0;
+  // 실제 DB 에 오타 "weigth" 로 들어오는 경우 많아 둘 다 허용
+  const isGwName = (n) => /^\s*gross\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
+  const isCwName = (n) => /^\s*chargeable\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
+  const gwRows = allRows.filter(r => isGwName(r.ProdName));
+  const cwRows = allRows.filter(r => isCwName(r.ProdName));
+  const extractedGwFromRow = gwRows.reduce((a, r) => a + (Number(r.BunchQuantity) || 0), 0);
+  const extractedCwFromRow = cwRows.reduce((a, r) => a + (Number(r.BunchQuantity) || 0), 0);
 
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {
