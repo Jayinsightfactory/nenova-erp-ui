@@ -181,8 +181,11 @@ async function loadFreightData(res, keys, awbLabel) {
   const master = {
     ...masters.find(m => m.WarehouseKey === primaryKey),
     AWB: awbLabel || mastersAll[0].AWB,
-    GrossWeight: sumField(masters, 'GrossWeight') || (extractedGwFromRow > 0 ? extractedGwFromRow : null) || (extractedGW > 0 ? extractedGW : null),
-    ChargeableWeight: sumField(masters, 'ChargeableWeight') || (extractedCwFromRow > 0 ? extractedCwFromRow : null) || (extractedGW > 0 ? extractedGW : null),
+    // 1순위: BILL 내 'Gross weigth'/'Chargeable weigth' 행 (가장 신뢰도 높음)
+    // 2순위: WarehouseMaster 필드 (1 같은 더미값인 경우 많아 후순위)
+    // 3순위: FREIGHTWISE 행 (Rate×Weight 패턴)
+    GrossWeight: (extractedGwFromRow > 1 ? extractedGwFromRow : null) || sumField(masters, 'GrossWeight') || (extractedGW > 0 ? extractedGW : null),
+    ChargeableWeight: (extractedCwFromRow > 1 ? extractedCwFromRow : null) || sumField(masters, 'ChargeableWeight') || (extractedGW > 0 ? extractedGW : null),
     FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD') || (extractedRate > 0 ? extractedRate : null),
     DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD') || (extractedDoc > 0 ? extractedDoc : null),
   };
