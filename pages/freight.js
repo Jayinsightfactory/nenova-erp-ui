@@ -665,6 +665,13 @@ export default function FreightPage() {
               <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>{liveResult.rows.length}개 품목</span>
             </div>
             <div style={{ overflowX: 'auto' }}>
+              {editMode && (
+                <datalist id="freight-cat-list">
+                  {[...new Set([...Object.keys(flowerNameToKey), '장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'])].map(c => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              )}
               <table className="tbl" style={{ minWidth: 1600, fontSize: 11 }}>
                 <thead>
                   <tr>
@@ -710,26 +717,20 @@ export default function FreightPage() {
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
                         <td style={{ background: r.categoryOverride ? '#e1f5fe' : overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}
-                            title={r.categoryOverride ? `웹 오버라이드: ${r.categoryOverride.category}${r.categoryOverride.note ? ' — ' + r.categoryOverride.note : ''}` : undefined}>
+                            title={!r.prodKey ? 'prodKey 없음 — 오버라이드 저장 불가' : r.categoryOverride ? `웹 오버라이드: ${r.categoryOverride.category}${r.categoryOverride.note ? ' — ' + r.categoryOverride.note : ''}` : undefined}>
                           {editMode ? (
                             <input
-                              list={`cat-list-${r.prodKey}`}
+                              list="freight-cat-list"
                               value={overridden.flowerName ?? r.flowerName ?? ''}
+                              disabled={!r.prodKey}
                               onChange={e => updateRowCategory(r.prodKey, e.target.value)}
-                              placeholder="자유 입력 가능"
-                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: '#fff' }}
+                              placeholder={r.prodKey ? '자유 입력 가능' : 'prodKey 없음'}
+                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: r.prodKey ? '#fff' : '#f5f5f5', color: r.prodKey ? 'var(--text)' : 'var(--text3)' }}
                             />
                           ) : (
                             <span style={{ fontSize: 11, color: r.categoryOverride ? 'var(--blue)' : (r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)'), fontWeight: r.categoryOverride ? 700 : 400 }}>
                               {r.flowerName || '(없음)'}{r.categoryOverride ? ' 🌐' : overridden.flowerName ? ' *' : ''}
                             </span>
-                          )}
-                          {editMode && (
-                            <datalist id={`cat-list-${r.prodKey}`}>
-                              {[...Object.keys(flowerNameToKey), '장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'].map(c => (
-                                <option key={c} value={c} />
-                              ))}
-                            </datalist>
                           )}
                         </td>
                         <td className="num">{fmt(r.rawBoxQty)}</td>

@@ -239,9 +239,9 @@ async function loadFreightData(res, keys, awbLabel) {
     boxByFlower.set(fn, (boxByFlower.get(fn) || 0) + (Number(r.BoxQuantity) || 0));
   }
 
-  // distinct FlowerName count (actually present in BILL)
-  const itemCount = [...boxByFlower.entries()].filter(([_, v]) => v > 0).length
-    || [...new Set(rows.map(r => (r.FlowerName || '').trim()))].filter(Boolean).length;
+  // distinct FlowerName count — 운송료/GW/CW 제외한 실제 품목 카테고리 수 (검역수수료 계산용)
+  // BoxQuantity 가 0/1 더미값인 경우가 많으므로 단순 distinct 사용
+  const itemCount = [...new Set(rows.map(r => (r.FlowerName || '').trim()))].filter(Boolean).length;
 
   const invoiceUSD = rows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
