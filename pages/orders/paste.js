@@ -55,6 +55,7 @@ export default function PasteOrderPage() {
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
   const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
+  const [distributeState, setDistributeState] = useState({}); // { [orderId]: { loading, items, allSaving } }
 
   useEffect(() => {
     setMappingCache(loadCache());
@@ -271,6 +272,83 @@ export default function PasteOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQ?.orderId, currentQ?.itemIdx]);
 
+  const loadDistributeItems = async (oid, custKey) => {
+    if (!week || !custKey) return;
+    setDistributeState(prev => ({ ...prev, [oid]: { loading: true, items: [], allSaving: false, show: true } }));
+    try {
+      const data = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey });
+      if (data.success) {
+        const items = (data.items || []).map(it => ({
+          ...it,
+          inputQty: it['주문수량'] ?? 0,
+          saving: false,
+          result: '',
+          skip: false,
+        }));
+        setDistributeState(prev => ({ ...prev, [oid]: { loading: false, items, allSaving: false, show: true } }));
+      }
+    } catch {
+      setDistributeState(prev => ({ ...prev, [oid]: { loading: false, items: [], allSaving: false, show: true, error: '로드 실패' } }));
+    }
+  };
+
+  const updateDistItem = (oid, idx, patch) => {
+    setDistributeState(prev => ({
+      ...prev,
+      [oid]: {
+        ...prev[oid],
+        items: prev[oid].items.map((it, i) => i === idx ? { ...it, ...patch } : it),
+      },
+    }));
+  };
+
+  const handleSingleDistribute = async (oid, idx) => {
+    const order = orders.find(o => o.id === oid);
+    const ds = distributeState[oid];
+    if (!ds || !order?.custMatch) return;
+    const item = ds.items[idx];
+    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    updateDistItem(oid, idx, { saving: true, result: '' });
+    try {
+      const r = await fetch('/api/shipment/distribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: false }),
+      });
+      const d = await r.json();
+      updateDistItem(oid, idx, { saving: false, result: d.success ? '✅' : `❌ ${d.error}` });
+    } catch (e) {
+      updateDistItem(oid, idx, { saving: false, result: `❌ ${e.message}` });
+    }
+  };
+
+  const handleAllDistribute = async (oid) => {
+    const order = orders.find(o => o.id === oid);
+    const ds = distributeState[oid];
+    if (!ds || !order?.custMatch) return;
+    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    setDistributeState(prev => ({ ...prev, [oid]: { ...prev[oid], allSaving: true } }));
+    for (let i = 0; i < ds.items.length; i++) {
+      const item = ds.items[i];
+      if (item.skip || item.inputQty == null || item.inputQty === '') continue;
+      updateDistItem(oid, i, { saving: true, result: '' });
+      try {
+        const r = await fetch('/api/shipment/distribute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: false }),
+        });
+        const d = await r.json();
+        updateDistItem(oid, i, { saving: false, result: d.success ? '✅' : `❌ ${d.error}` });
+      } catch (e) {
+        updateDistItem(oid, i, { saving: false, result: `❌ ${e.message}` });
+      }
+    }
+    setDistributeState(prev => ({ ...prev, [oid]: { ...prev[oid], allSaving: false } }));
+  };
+
   const flog = (step, detail) => fetch('/api/log', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
     body: JSON.stringify({ category: 'paste', step, detail: String(detail) }),
@@ -324,6 +402,8 @@ export default function PasteOrderPage() {
             setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
           }
         } catch { /* 조회 실패해도 저장은 완료 */ }
+        // 주문등록 완료 → 출고분배 패널 자동 로드
+        loadDistributeItems(oid, order.custMatch.CustKey);
       } else {
         updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` });
       }
@@ -637,6 +717,88 @@ export default function PasteOrderPage() {
                   {order.saving ? '등록 중...' : `💾 추가 ${matchedAdd.length}건 등록`}
                 </button>
               </div>
+
+              {/* 출고분배 패널 */}
+              {distributeState[order.id]?.show && (() => {
+                const ds = distributeState[order.id];
+                const doneCount = ds.items.filter(it => it.result === '✅').length;
+                return (
+                  <div style={{ borderTop: '2px solid #1565c0', background: '#e3f2fd' }}>
+                    <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#1565c0' }}>🚚 출고분배</span>
+                      {ds.loading && <span style={{ fontSize: 12, color: '#888' }}>로딩 중...</span>}
+                      {!ds.loading && ds.items.length > 0 && (
+                        <span style={{ fontSize: 12, color: '#555' }}>{ds.items.length}개 품목{doneCount > 0 && <> / <b style={{color:'#2e7d32'}}>{doneCount}개 완료</b></>}</span>
+                      )}
+                      {!ds.loading && ds.items.length > 0 && (
+                        <button
+                          onClick={() => handleAllDistribute(order.id)}
+                          disabled={ds.allSaving}
+                          style={{ marginLeft: 'auto', padding: '6px 18px', background: ds.allSaving ? '#90a4ae' : '#1565c0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: ds.allSaving ? 'not-allowed' : 'pointer' }}
+                        >
+                          {ds.allSaving ? '저장 중...' : '💾 전체 일괄저장'}
+                        </button>
+                      )}
+                      <button onClick={() => setDistributeState(prev => ({ ...prev, [order.id]: { ...prev[order.id], show: false } }))}
+                        style={{ fontSize: 11, padding: '2px 8px', background: 'none', border: '1px solid #90caf9', borderRadius: 4, color: '#1565c0', cursor: 'pointer' }}>
+                        닫기
+                      </button>
+                    </div>
+                    {!ds.loading && ds.items.length > 0 && (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: '#bbdefb' }}>
+                              <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>품목명</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right' }}>주문수량</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right' }}>기존출고</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>분배수량</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>단위</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>결과</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>저장</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ds.items.map((it, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid #e3f2fd', background: it.result === '✅' ? '#e8f5e9' : it.result?.startsWith('❌') ? '#ffebee' : i%2===0?'#f8fbff':'#e3f2fd' }}>
+                                <td style={{ padding: '4px 8px' }}>{it.DisplayName || it.ProdName}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#1565c0', fontWeight: 600 }}>{it['주문수량']}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#555' }}>{it['출고수량']}</td>
+                                <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    value={it.inputQty ?? ''}
+                                    onChange={e => updateDistItem(order.id, i, { inputQty: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                                    style={{ width: 60, padding: '2px 4px', border: '1px solid #90caf9', borderRadius: 4, textAlign: 'right', fontSize: 12 }}
+                                  />
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#555' }}>{it.OutUnit || '박스'}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: 13 }}>
+                                  {it.saving ? '...' : it.result || ''}
+                                </td>
+                                <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => handleSingleDistribute(order.id, i)}
+                                    disabled={it.saving || ds.allSaving}
+                                    style={{ padding: '3px 10px', fontSize: 11, background: '#1565c0', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: it.saving || ds.allSaving ? 0.5 : 1 }}
+                                  >
+                                    저장
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {!ds.loading && ds.items.length === 0 && !ds.error && (
+                      <div style={{ padding: '8px 16px', fontSize: 12, color: '#888' }}>주문 품목 없음</div>
+                    )}
+                    {ds.error && <div style={{ padding: '8px 16px', fontSize: 12, color: '#c62828' }}>{ds.error}</div>}
+                  </div>
+                );
+              })()}
 
               {/* 등록 후 DB 주문내역 */}
               {registeredOrders[order.id] && (() => {
