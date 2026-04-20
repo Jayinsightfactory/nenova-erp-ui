@@ -562,8 +562,8 @@ export default function FreightPage() {
                     <thead>
                       <tr>
                         <th>카테고리</th>
-                        <th style={{ textAlign: 'right' }}>박스당 무게</th>
-                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>무게 / <span style={{color:'var(--text3)',fontWeight:400}}>박스·단</span></th>
+                        <th style={{ textAlign: 'right' }}>수량 / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
                         <th style={{ textAlign: 'right' }}>비율</th>
                       </tr>
                     </thead>
@@ -573,13 +573,21 @@ export default function FreightPage() {
                         const fkKey = normalizeFlower(c.flowerName);
                         const fkId = flowerNameToKey[fkKey];
                         const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        const isColombia = /콜롬비아|colombia/i.test(c.countryName || '');
+                        const qtyLabel = isColombia ? '박' : '단';
+                        const qtyValue = isColombia ? c.boxCount : c.bunchCount;
                         return (
                           <tr key={c.flowerName}>
-                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
-                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight ?? '–')}
+                            <td className="name">
+                              <span className="badge badge-purple">{c.flowerName}</span>
+                              {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
                             </td>
-                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.01" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight != null ? `${c.boxWeight}${isColombia ? '㎏/박' : '㎏/단'}` : '–')}
+                            </td>
+                            <td className="num">
+                              {fmt(qtyValue)} <span style={{ fontSize: 9, color: 'var(--text3)' }}>{qtyLabel}</span>
+                            </td>
                             <td className="num" style={{ fontWeight: liveResult.header.basis === 'GW' ? 700 : 400, color: liveResult.header.basis === 'GW' ? 'var(--blue)' : 'var(--text3)' }}>{pct(c.weightRatio)}</td>
                           </tr>
                         );
@@ -596,8 +604,8 @@ export default function FreightPage() {
                     <thead>
                       <tr>
                         <th>카테고리</th>
-                        <th style={{ textAlign: 'right' }}>박스당 CBM</th>
-                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>CBM / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
+                        <th style={{ textAlign: 'right' }}>수량 / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
                         <th style={{ textAlign: 'right' }}>비율</th>
                       </tr>
                     </thead>
@@ -607,13 +615,21 @@ export default function FreightPage() {
                         const fkKey = normalizeFlower(c.flowerName);
                         const fkId = flowerNameToKey[fkKey];
                         const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        const isColombia = /콜롬비아|colombia/i.test(c.countryName || '');
+                        const qtyLabel = isColombia ? '박' : '단';
+                        const qtyValue = isColombia ? c.boxCount : c.bunchCount;
                         return (
                           <tr key={c.flowerName}>
-                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
-                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM ?? '–')}
+                            <td className="name">
+                              <span className="badge badge-purple">{c.flowerName}</span>
+                              {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
                             </td>
-                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.001" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM != null ? `${c.boxCBM}${isColombia ? '/박' : '/단'}` : '–')}
+                            </td>
+                            <td className="num">
+                              {fmt(qtyValue)} <span style={{ fontSize: 9, color: 'var(--text3)' }}>{qtyLabel}</span>
+                            </td>
                             <td className="num" style={{ fontWeight: liveResult.header.basis === 'CBM' ? 700 : 400, color: liveResult.header.basis === 'CBM' ? 'var(--amber, #f57c00)' : 'var(--text3)' }}>{pct(c.cbmRatio)}</td>
                           </tr>
                         );

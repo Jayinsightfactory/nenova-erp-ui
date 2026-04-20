@@ -325,6 +325,7 @@ async function loadFreightData(res, keys, awbLabel) {
       prodKey: r.ProdKey,
       prodName: r.ProdName,
       flowerName: fn,
+      counName: r.CounName || null,                                  // 국가명 (박스/단 기준 결정용)
       farmName: r.FarmName || null,
       orderCode: r.OrderCode || null,
       boxQty,                                                        // 카테고리 분배용(첫 행에만 몰아 넣음)
