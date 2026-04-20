@@ -6,6 +6,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency } from '../../../lib/freightCalc';
+import { loadOverrides } from '../../../lib/categoryOverrides';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 460,
@@ -222,13 +223,15 @@ async function loadFreightData(res, keys, awbLabel) {
   }
 
   // 웹 전용 카테고리 오버라이드 적용 (Product.FlowerName 은 건드리지 않고 표시만 변경)
-  const { loadOverrides } = await import('../../../lib/categoryOverrides');
-  const catOverrides = loadOverrides();
+  // 매번 파일에서 새로 로드 (모듈 캐시 리셋)
+  const catOverrides = loadOverrides(true);
+  let overriddenCount = 0;
   for (const r of rows) {
     const ov = r.ProdKey ? catOverrides[r.ProdKey] : null;
     if (ov && ov.category) {
       r.FlowerName = ov.category;
       r._categoryOverride = { category: ov.category, note: ov.note || '' };
+      overriddenCount++;
     }
   }
 
