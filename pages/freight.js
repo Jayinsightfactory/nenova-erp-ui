@@ -148,15 +148,13 @@ export default function FreightPage() {
   const updateRowCategory = (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
-    // 카테고리 변경 시 Product.FlowerName 영구 저장 (다음 BILL 로드 시 자동 적용됨)
-    if (flowerName) {
-      fetch('/api/master/product-category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ prodKey, flowerName }),
-      }).catch(() => {}); // 실패해도 UI 동작엔 영향 없음
-    }
+    // 웹 전용 오버라이드에 저장 (Product.FlowerName 건드리지 않음, 다음 BILL 로드 시 자동 적용)
+    fetch('/api/freight/category-override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ prodKey, category: flowerName || '' }),  // 빈 값이면 삭제
+    }).catch(() => {});
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
@@ -711,28 +709,27 @@ export default function FreightPage() {
                       }}>
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
-                        <td style={{ background: overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}>
+                        <td style={{ background: r.categoryOverride ? '#e1f5fe' : overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}
+                            title={r.categoryOverride ? `웹 오버라이드: ${r.categoryOverride.category}${r.categoryOverride.note ? ' — ' + r.categoryOverride.note : ''}` : undefined}>
                           {editMode ? (
-                            <select
+                            <input
+                              list={`cat-list-${r.prodKey}`}
                               value={overridden.flowerName ?? r.flowerName ?? ''}
                               onChange={e => updateRowCategory(r.prodKey, e.target.value)}
-                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 2px', background: '#fff' }}
-                            >
-                              <option value="">(없음)</option>
-                              {Object.keys(flowerNameToKey).map(nk => {
-                                // flowerNameToKey 는 normalized key. 실제 한글 라벨은 apiData.flowerMeta 에서 찾아야 함
-                                // 간단히 nk 를 그대로 노출 (대부분 한글명)
-                                return <option key={nk} value={nk}>{nk}</option>;
-                              })}
-                              {/* 추가 선택지: 업계 표준 카테고리 */}
-                              {['장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'].filter(c => !flowerNameToKey[c]).map(c => (
-                                <option key={c} value={c}>{c}</option>
-                              ))}
-                            </select>
+                              placeholder="자유 입력 가능"
+                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: '#fff' }}
+                            />
                           ) : (
-                            <span style={{ fontSize: 11, color: r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)' }}>
-                              {r.flowerName || '(없음)'}{overridden.flowerName ? ' *' : ''}
+                            <span style={{ fontSize: 11, color: r.categoryOverride ? 'var(--blue)' : (r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)'), fontWeight: r.categoryOverride ? 700 : 400 }}>
+                              {r.flowerName || '(없음)'}{r.categoryOverride ? ' 🌐' : overridden.flowerName ? ' *' : ''}
                             </span>
+                          )}
+                          {editMode && (
+                            <datalist id={`cat-list-${r.prodKey}`}>
+                              {[...Object.keys(flowerNameToKey), '장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'].map(c => (
+                                <option key={c} value={c} />
+                              ))}
+                            </datalist>
                           )}
                         </td>
                         <td className="num">{fmt(r.rawBoxQty)}</td>

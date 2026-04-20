@@ -18,3 +18,4 @@ node_modules/
 .preview/
 *.product-cache.json
 data/.train-queue.json
+data/category-overrides.json

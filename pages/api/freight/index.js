@@ -214,6 +214,17 @@ async function loadFreightData(res, keys, awbLabel) {
     }
   }
 
+  // 웹 전용 카테고리 오버라이드 적용 (Product.FlowerName 은 건드리지 않고 표시만 변경)
+  const { loadOverrides } = await import('../../../lib/categoryOverrides');
+  const catOverrides = loadOverrides();
+  for (const r of rows) {
+    const ov = r.ProdKey ? catOverrides[r.ProdKey] : null;
+    if (ov && ov.category) {
+      r.FlowerName = ov.category;
+      r._categoryOverride = { category: ov.category, note: ov.note || '' };
+    }
+  }
+
   // 카테고리별 박스수 집계 (재분류 후 기준)
   const boxByFlower = new Map();
   for (const r of rows) {
@@ -318,6 +329,8 @@ async function loadFreightData(res, keys, awbLabel) {
       stemsPerBunch: snapRow?.StemsPerBunch != null ? Number(snapRow.StemsPerBunch) : (Number(r.SteamOf1Bunch) || 0),
       salePriceKRW: snapRow?.SalePriceKRW != null ? Number(snapRow.SalePriceKRW) : (Number(r.Cost) || 0),
       tariffRate: snapRow?.TariffRate != null ? Number(snapRow.TariffRate) : (r.P_TariffRate != null ? Number(r.P_TariffRate) : null),
+      categoryOverride: r._categoryOverride || null,  // 웹 오버라이드 적용됐으면 {category, note}
+      origFlowerName: catOverrides[r.ProdKey] ? null : null, // 원본은 DB에 남아있음
     };
   });
 
