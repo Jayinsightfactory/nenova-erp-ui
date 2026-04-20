@@ -160,7 +160,7 @@ async function createOrder(req, res) {
     const rawWeek = week || '';
     const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
     const uid = req.user?.userId || 'nenovaSS3';
-    const mgr = '관리자'; // 전산 호환 (전산은 Manager='관리자' 기준으로 주문 표시)
+    const mgr = uid; // 전산은 Manager=사용자ID 기준으로 필터 (관리자 하드코딩 시 출고분배 품목이 숨겨짐)
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
 
