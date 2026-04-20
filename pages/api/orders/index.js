@@ -16,11 +16,33 @@ async function appLog(category, step, detail, isError = false) {
 }
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
+// 전산이 같은 시점에 INSERT 하면 HOLDLOCK 범위 밖이라 여전히 충돌 가능 → tryInsertWithRetry 로 감쌈
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
     `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}
   );
   return r.recordset[0].nk;
+}
+
+// PK 충돌 시 MAX+1 재계산 후 재시도 (최대 5회)
+async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxRetry; attempt++) {
+    const key = await safeNextKey(tQ, table, keyCol);
+    try {
+      await buildInsert(key);
+      return key;
+    } catch (e) {
+      lastErr = e;
+      // PK 충돌(2627) 또는 UNIQUE 위반(2601) 만 재시도
+      if (e.number === 2627 || e.number === 2601 || /PRIMARY KEY|duplicate key|UNIQUE/i.test(e.message || '')) {
+        await appLog('safeInsert', '재시도', `${table}.${keyCol}=${key} 충돌 → 재시도 ${attempt + 1}/${maxRetry}`, false);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr || new Error(`${table} INSERT 재시도 ${maxRetry}회 모두 실패`);
 }
 
 export default withAuth(async function handler(req, res) {
@@ -190,22 +212,23 @@ async function createOrder(req, res) {
           { mgr: { type: sql.NVarChar, value: mgr }, oc: { type: sql.NVarChar, value: resolvedOrderCode }, mk: { type: sql.Int, value: mk } }
         );
       } else {
-        mk = await safeNextKey(tQuery, 'OrderMaster', 'OrderMasterKey');
-        await appLog('createOrder', 'OM_INSERT', `new mk=${mk} ck=${resolvedCustKey} wk=${orderWeek}`);
-        await tQuery(
-          `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE())`,
-          {
-            mk:       { type: sql.Int,      value: mk },
-            year:     { type: sql.NVarChar, value: orderYear },
-            week:     { type: sql.NVarChar, value: orderWeek },
-            mgr:      { type: sql.NVarChar, value: mgr },
-            custKey:  { type: sql.Int,      value: resolvedCustKey },
-            oc:       { type: sql.NVarChar, value: resolvedOrderCode },
-            createId: { type: sql.NVarChar, value: 'admin' }, // 전산 호환 (CreateID='admin' 기준 필터)
-          }
-        );
+        mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
+          await appLog('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
+          await tQuery(
+            `INSERT INTO OrderMaster
+               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm)
+             VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE())`,
+            {
+              mk:       { type: sql.Int,      value: newMk },
+              year:     { type: sql.NVarChar, value: orderYear },
+              week:     { type: sql.NVarChar, value: orderWeek },
+              mgr:      { type: sql.NVarChar, value: mgr },
+              custKey:  { type: sql.Int,      value: resolvedCustKey },
+              oc:       { type: sql.NVarChar, value: resolvedOrderCode },
+              createId: { type: sql.NVarChar, value: 'admin' }, // 전산 호환 (CreateID='admin' 기준 필터)
+            }
+          );
+        });
       }
 
       const detailResults = [];
@@ -254,25 +277,25 @@ async function createOrder(req, res) {
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: isDelta ? 'ADDED' : 'UPDATED' });
         } else if (qty > 0) {
-          const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
-          await appLog('createOrder', 'OD_INSERT', `nk=${nextKey} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
-          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
-          await tQuery(
-            `INSERT INTO OrderDetail
-               (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, 0, 0, @uid, GETDATE())`,
-            {
-              nk:    { type: sql.Int,      value: nextKey },
-              mk:    { type: sql.Int,      value: mk },
-              pk:    { type: sql.Int,      value: prodKey },
-              box:   { type: sql.Float,    value: boxQty },
-              bunch: { type: sql.Float,    value: bunchQty },
-              steam: { type: sql.Float,    value: steamQty },
-              oq:    { type: sql.Float,    value: qty },
-              uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
-            }
-          );
+          const nextKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
+            await appLog('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+            await tQuery(
+              `INSERT INTO OrderDetail
+                 (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                  OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+               VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, 0, 0, @uid, GETDATE())`,
+              {
+                nk:    { type: sql.Int,      value: newNk },
+                mk:    { type: sql.Int,      value: mk },
+                pk:    { type: sql.Int,      value: prodKey },
+                box:   { type: sql.Float,    value: boxQty },
+                bunch: { type: sql.Float,    value: bunchQty },
+                steam: { type: sql.Float,    value: steamQty },
+                oq:    { type: sql.Float,    value: qty },
+                uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
+              }
+            );
+          });
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
