@@ -123,8 +123,11 @@ async function getOrders(req, res) {
 }
 
 // ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
+// delta=true 시: 기존 OrderDetail 수량에 입력값 가산 (기존 2 + 신규 3 → 5)
+// delta=false(기본): 기존 수량을 입력값으로 덮어쓰기
 async function createOrder(req, res) {
-  const { custName, custKey, week, year, manager, orderCode, items } = req.body;
+  const { custName, custKey, week, year, manager, orderCode, items, delta } = req.body;
+  const isDelta = delta === true || delta === 'true';
 
   if (!items || items.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
@@ -232,17 +235,24 @@ async function createOrder(req, res) {
         );
 
         if (existOd.recordset.length > 0) {
-          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
-          await tQuery(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-               OutQuantity=@oq
-             WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+          const updateSql = isDelta
+            ? `UPDATE OrderDetail SET
+                 BoxQuantity   = ISNULL(BoxQuantity,0)   + @box,
+                 BunchQuantity = ISNULL(BunchQuantity,0) + @bunch,
+                 SteamQuantity = ISNULL(SteamQuantity,0) + @steam,
+                 OutQuantity   = ISNULL(OutQuantity,0)   + @oq
+               WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`
+            : `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
+                 OutQuantity=@oq
+               WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`;
+          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta}`);
+          await tQuery(updateSql,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
               oq:  { type: sql.Float,    value: qty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
-          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
+          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: isDelta ? 'ADDED' : 'UPDATED' });
         } else if (qty > 0) {
           const nextKey = await safeNextKey(tQuery, 'OrderDetail', 'OrderDetailKey');
           await appLog('createOrder', 'OD_INSERT', `nk=${nextKey} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
