@@ -55,6 +55,8 @@ export default function PasteOrderPage() {
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
   const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
+  const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
+  const [deltaMode, setDeltaMode] = useState(false); // true: 기존 수량에 가산, false: 덮어쓰기
 
   useEffect(() => {
     setMappingCache(loadCache());
@@ -302,7 +304,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items }),
+        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items, delta: deltaMode }),
       });
       const d = await res.json();
       if (d.success) {
@@ -461,6 +463,10 @@ export default function PasteOrderPage() {
           >
             {parsing ? '🤖 분석 중...' : '🤖 Claude로 분석'}
           </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', padding: '4px 10px', border: `1px solid ${deltaMode ? '#2e7d32' : '#ddd'}`, borderRadius: 6, background: deltaMode ? '#e8f5e9' : '#fff', color: deltaMode ? '#1b5e20' : '#666', fontWeight: deltaMode ? 700 : 400 }}>
+            <input type="checkbox" checked={deltaMode} onChange={e => setDeltaMode(e.target.checked)} />
+            ➕ 기존 수량에 더하기
+          </label>
           {parseError && <span style={{ color: '#c62828', fontSize: 13 }}>❌ {parseError}</span>}
           {orders.length > 0 && (
             <span style={{ fontSize: 13, color: '#555' }}>
