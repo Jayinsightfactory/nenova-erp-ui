@@ -168,14 +168,21 @@ async function loadFreightData(res, keys, awbLabel) {
   const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
-  // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행의 BunchQuantity 를 GW/CW 로 추출
-  // 실제 DB 에 오타 "weigth" 로 들어오는 경우 많아 둘 다 허용
+  // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행에서 무게값 추출
+  // 실제 DB: 오타 "weigth" + 무게값이 BunchQuantity/SteamQuantity 어느 쪽에든 올 수 있음
+  // (Yunnan Melody 는 SteamQuantity 에 554, FREIGHTWISE 는 BunchQuantity 에)
   const isGwName = (n) => /^\s*gross\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
   const isCwName = (n) => /^\s*chargeable\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
+  // Box/Bunch/Steam 중 1보다 큰 최대값 = 실제 무게 (더미값 1은 스킵)
+  const weightOfRow = (r) => {
+    const vals = [Number(r.BoxQuantity) || 0, Number(r.BunchQuantity) || 0, Number(r.SteamQuantity) || 0];
+    const realVals = vals.filter(v => v > 1);
+    return realVals.length > 0 ? Math.max(...realVals) : 0;
+  };
   const gwRows = allRows.filter(r => isGwName(r.ProdName));
   const cwRows = allRows.filter(r => isCwName(r.ProdName));
-  const extractedGwFromRow = gwRows.reduce((a, r) => a + (Number(r.BunchQuantity) || 0), 0);
-  const extractedCwFromRow = cwRows.reduce((a, r) => a + (Number(r.BunchQuantity) || 0), 0);
+  const extractedGwFromRow = gwRows.reduce((a, r) => a + weightOfRow(r), 0);
+  const extractedCwFromRow = cwRows.reduce((a, r) => a + weightOfRow(r), 0);
 
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {
