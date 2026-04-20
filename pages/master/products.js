@@ -170,8 +170,8 @@ export default function Products() {
                 <th>출고단위</th>
                 <th style={{ textAlign: 'right' }}>1박스단수</th>
                 <th style={{ textAlign: 'right' }}>1단송이</th>
-                <th style={{ textAlign: 'right' }}>박스무게</th>
-                <th style={{ textAlign: 'right' }}>박스CBM</th>
+                <th style={{ textAlign: 'right' }}>단당무게</th>
+                <th style={{ textAlign: 'right' }}>단당CBM</th>
                 <th style={{ textAlign: 'right' }}>관세%</th>
                 <th style={{ textAlign: 'right' }}>재고</th>
               </tr>
@@ -374,8 +374,8 @@ export default function Products() {
                 🚛 운송 원가 계산용 — 빈칸이면 꽃 카테고리 기본값 사용
               </div>
               <div className="form-row form-row-3">
-                <div className="form-group"><label className="form-label">박스당 무게 (kg)</label><input type="number" step="0.1" className="form-control" value={form.BoxWeight ?? ''} onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))} placeholder="예: 8" /></div>
-                <div className="form-group"><label className="form-label">박스당 CBM</label><input type="number" step="0.1" className="form-control" value={form.BoxCBM ?? ''} onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))} placeholder="예: 10" /></div>
+                <div className="form-group"><label className="form-label">단당 무게 (kg)</label><input type="number" step="0.01" className="form-control" value={form.BoxWeight ?? ''} onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))} placeholder="예: 0.5" /></div>
+                <div className="form-group"><label className="form-label">단당 CBM</label><input type="number" step="0.001" className="form-control" value={form.BoxCBM ?? ''} onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))} placeholder="예: 0.05" /></div>
                 <div className="form-group"><label className="form-label">관세율 (%)</label><input type="number" step="0.01" className="form-control" value={form.TariffRate != null ? Number(form.TariffRate) * 100 : ''} onChange={e => setForm(f => ({ ...f, tariffRate: e.target.value === '' ? '' : (parseFloat(e.target.value) / 100) }))} placeholder="0 (콜롬비아)" /></div>
               </div>
             </div>

@@ -148,6 +148,15 @@ export default function FreightPage() {
   const updateRowCategory = (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
+    // 카테고리 변경 시 Product.FlowerName 영구 저장 (다음 BILL 로드 시 자동 적용됨)
+    if (flowerName) {
+      fetch('/api/master/product-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prodKey, flowerName }),
+      }).catch(() => {}); // 실패해도 UI 동작엔 영향 없음
+    }
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
