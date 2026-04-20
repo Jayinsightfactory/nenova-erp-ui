@@ -16,8 +16,8 @@ node_modules/
 
 # 로컬 preview 용 임시 파일
 .preview/
-data/order-mappings.json
 data/category-overrides.json
+data/.train-queue.json
 *.product-cache.json
 
 # 런타임 업로드 파일 (카카오워크 봇 이미지 등) — 커밋 금지, .gitkeep 만 추적
