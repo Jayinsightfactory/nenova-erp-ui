@@ -296,7 +296,7 @@ export default function PasteOrderPage() {
       if (data.success) {
         const items = (data.items || []).map(it => ({
           ...it,
-          inputQty: it['주문수량'] ?? 0,
+          inputQty: Math.max(0, (it['주문수량'] ?? 0) - (it['출고수량'] ?? 0)), // 분배는 delta 모드 → 잔량만 기본 입력
           saving: false,
           result: '',
           skip: false,
@@ -330,7 +330,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: false }),
+        body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: true }),
       });
       const d = await r.json();
       updateDistItem(oid, idx, { saving: false, result: d.success ? '✅' : `❌ ${d.error}` });
@@ -354,7 +354,7 @@ export default function PasteOrderPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: false }),
+          body: JSON.stringify({ week, year: yearFromWeek, custKey: order.custMatch.CustKey, prodKey: item.ProdKey, outQty: item.inputQty, cost: item.Cost || 0, delta: true }),
         });
         const d = await r.json();
         updateDistItem(oid, i, { saving: false, result: d.success ? '✅' : `❌ ${d.error}` });
@@ -779,7 +779,7 @@ export default function PasteOrderPage() {
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>단위</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right', color: '#1565c0' }}>주문수량</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'right', color: '#e65100' }}>현재분배</th>
-                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center', color: '#ad1457' }}>분배입력</th>
+                              <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center', color: '#ad1457' }}>추가분배 ➕</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>결과</th>
                               <th style={{ padding: '5px 8px', fontWeight: 600, textAlign: 'center' }}>저장</th>
                             </tr>
