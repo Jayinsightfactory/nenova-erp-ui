@@ -154,10 +154,16 @@ Caroline | 2
 - custKey: 거래처 목록에서 가장 유사한 CustKey, 없으면 null
 - prodKey: 품목 목록에서 가장 유사한 ProdKey (꽃종류+품종명 조합으로 검색), 없으면 null
 
+차수(week) 추출:
+- 섹션 헤더(예: "16-1 수국 변경사항", "16-01", "16주차 1차")에서 차수 감지
+- 형식: "WW-SS" (예: "16-01", "16-2" → "16-02")
+- 텍스트에 차수 표시 없으면 null
+
 반드시 유효한 JSON만 출력. 설명/주석 금지.
 
 응답 스키마:
 {
+  "detectedWeek": "<WW-SS 형식 or null>",
   "orders": [
     {
       "custKey": <number|null>,
@@ -244,7 +250,14 @@ Caroline | 2
       return { custMatch, items };
     });
 
-    return res.status(200).json({ success: true, orders, prodUnitMap });
+    // 차수 정규화: "16-1" → "16-01"
+    let detectedWeek = parsed.detectedWeek || null;
+    if (detectedWeek) {
+      const m = String(detectedWeek).match(/^(\d{1,2})-(\d{1,2})$/);
+      if (m) detectedWeek = `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+    }
+
+    return res.status(200).json({ success: true, orders, prodUnitMap, detectedWeek });
   } catch (err) {
     console.error('[parse-paste]', err.message);
     return res.status(500).json({ success: false, error: err.message });
