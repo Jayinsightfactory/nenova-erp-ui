@@ -8,7 +8,7 @@ import { withAuth } from '../../../lib/auth';
 import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency } from '../../../lib/freightCalc';
 
 const DEFAULT_CUSTOMS = {
-  bakSangRate: 370,
+  bakSangRate: 460,
   handlingFee: 33000,
   quarantinePerItem: 10000,
   domesticFreight: 99000,
@@ -168,12 +168,18 @@ async function loadFreightData(res, keys, awbLabel) {
   const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
+  // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행의 BunchQuantity 를 GW/CW 로 추출
+  const gwRow = allRows.find(r => /^\s*gross\s*weight\s*$/i.test(String(r.ProdName || '').trim()));
+  const cwRow = allRows.find(r => /^\s*chargeable\s*weight\s*$/i.test(String(r.ProdName || '').trim()));
+  const extractedGwFromRow = gwRow ? (Number(gwRow.BunchQuantity) || 0) : 0;
+  const extractedCwFromRow = cwRow ? (Number(cwRow.BunchQuantity) || 0) : 0;
+
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {
     ...masters.find(m => m.WarehouseKey === primaryKey),
     AWB: awbLabel || mastersAll[0].AWB,
-    GrossWeight: sumField(masters, 'GrossWeight') || (extractedGW > 0 ? extractedGW : null),
-    ChargeableWeight: sumField(masters, 'ChargeableWeight') || (extractedGW > 0 ? extractedGW : null),
+    GrossWeight: sumField(masters, 'GrossWeight') || (extractedGwFromRow > 0 ? extractedGwFromRow : null) || (extractedGW > 0 ? extractedGW : null),
+    ChargeableWeight: sumField(masters, 'ChargeableWeight') || (extractedCwFromRow > 0 ? extractedCwFromRow : null) || (extractedGW > 0 ? extractedGW : null),
     FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD') || (extractedRate > 0 ? extractedRate : null),
     DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD') || (extractedDoc > 0 ? extractedDoc : null),
   };

@@ -293,7 +293,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   merges.push({ s:{r:4,c:14}, e:{r:4,c:17} });
 
   // 통관 상수 (오버라이드 우선, 없으면 스냅샷, 없으면 하드코드 기본값)
-  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 370);
+  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 460);
   const cHandling   = pickOv(ovCustoms.handlingFee,       snap ? Number(snap.HandlingFee)       : 33000);
   const cQuarantine = pickOv(ovCustoms.quarantinePerItem, snap ? Number(snap.QuarantinePerItem) : 10000);
   const cDomestic   = pickOv(ovCustoms.domesticFreight,   snap ? Number(snap.DomesticFreight)   : 99000);
