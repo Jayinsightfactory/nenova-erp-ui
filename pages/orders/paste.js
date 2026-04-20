@@ -13,7 +13,7 @@ function getDefaultWeek() {
   return getCurrentWeek(); // 2026-WW-01
 }
 
-// 현재 주차 기준 ±N 범위의 2026 차수 목록 (최신순)
+// 현재 주차 기준 ±N 범위의 2026 차수 목록 (각 주마다 -01/-02/-03, 오름차순)
 function getNearby2026Weeks(range = 4) {
   const now = new Date();
   const year = now.getFullYear();
@@ -21,8 +21,10 @@ function getNearby2026Weeks(range = 4) {
   const dayOfYear = Math.floor((now - start) / 86400000) + 1;
   const curWeek = Math.min(Math.ceil(dayOfYear / 7), 52);
   const weeks = [];
-  for (let w = curWeek + range; w >= Math.max(1, curWeek - range); w--) {
-    weeks.push(`${year}-${String(w).padStart(2,'0')}-01`);
+  for (let w = Math.max(1, curWeek - range); w <= curWeek + range; w++) {
+    for (let s = 1; s <= 3; s++) {
+      weeks.push(`${year}-${String(w).padStart(2,'0')}-${String(s).padStart(2,'0')}`);
+    }
   }
   return weeks;
 }
@@ -56,6 +58,7 @@ export default function PasteOrderPage() {
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
   const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
   const [distributeState, setDistributeState] = useState({}); // { [orderId]: { loading, items, allSaving } }
+  const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
 
   useEffect(() => {
     setMappingCache(loadCache());
@@ -110,6 +113,18 @@ export default function PasteOrderPage() {
       const cache = loadCache();
       setMappingCache(cache);
 
+      // 감지된 차수 자동 적용 ("WW-SS" → 현재 연도 붙여서 "YYYY-WW-SS")
+      let effectiveWeek = week;
+      if (d.detectedWeek) {
+        const year = new Date().getFullYear();
+        const autoWeek = `${year}-${d.detectedWeek}`;
+        setDetectedWeek(d.detectedWeek);
+        setWeek(autoWeek);
+        effectiveWeek = autoWeek;
+      } else {
+        setDetectedWeek('');
+      }
+
       const raw = (d.orders || []).map((o, oi) => ({
         id: oi,
         custMatch: o.custMatch,
@@ -129,12 +144,12 @@ export default function PasteOrderPage() {
       const applied = applyCache(raw, cache, allProducts);
       setOrders(applied);
 
-      // 거래처 매칭된 업체의 저장내역 자동 로드
-      if (week) {
+      // 거래처 매칭된 업체의 저장내역 자동 로드 (감지된 차수 반영)
+      if (effectiveWeek) {
         applied.forEach(async (o) => {
           if (!o.custMatch) return;
           try {
-            const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, week });
+            const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, week: effectiveWeek });
             if (od.success && od.orders?.length > 0) {
               const matched = od.orders.find(r => r.custName === o.custMatch.CustName) || od.orders[0];
               setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
@@ -544,6 +559,11 @@ export default function PasteOrderPage() {
           {parseError && <span style={{ color: '#c62828', fontSize: 13 }}>❌ {parseError}</span>}
           {orders.length > 0 && (
             <span style={{ fontSize: 13, color: '#555' }}>
+              {detectedWeek && (
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: '#1565c0', padding: '3px 10px', borderRadius: 10, marginRight: 8 }}>
+                  📅 적용 차수 {detectedWeek}
+                </span>
+              )}
               <b style={{ color: '#1a237e' }}>{orders.length}개 거래처</b>
               {totalAdd > 0 && <> / <b style={{ color: '#2e7d32' }}>추가 {totalAdd}건</b></>}
               {totalCancel > 0 && <> / <b style={{ color: '#c62828' }}>취소 {totalCancel}건</b></>}
