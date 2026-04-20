@@ -1036,15 +1036,13 @@ async function addOrder(req, res) {
         } else {
           await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQ(
-            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq, OutQuantity=@oq,
-               LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+            `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq, OutQuantity=@oq
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
               bq:  { type: sql.Float,    value: boxQty },
               bnq: { type: sql.Float,    value: bunchQty },
               sq:  { type: sql.Float,    value: steamQty },
               oq:  { type: sql.Float,    value: quantity },
-              uid: { type: sql.NVarChar, value: uid },
               mk:  { type: sql.Int,      value: mk },
               pk:  { type: sql.Int,      value: pk },
             }

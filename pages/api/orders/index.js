@@ -191,8 +191,8 @@ async function createOrder(req, res) {
         await appLog('createOrder', 'OM_INSERT', `new mk=${mk} ck=${resolvedCustKey} wk=${orderWeek}`);
         await tQuery(
           `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm)
+           VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE())`,
           {
             mk:       { type: sql.Int,      value: mk },
             year:     { type: sql.NVarChar, value: orderYear },
@@ -235,12 +235,11 @@ async function createOrder(req, res) {
           await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQuery(
             `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-               OutQuantity=@oq, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+               OutQuantity=@oq
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
               oq:  { type: sql.Float,    value: qty },
-              uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
