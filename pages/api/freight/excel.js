@@ -364,11 +364,13 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
       prodKey: r.ProdKey,
       prodName: r.ProdName,
       flowerName: fn,
+      counName: r.CounName || null,
       farmName: r.FarmName,
       boxQty: first ? (boxByFlower.get(fn) || 0) : 0,  // 카테고리 분배용 (첫행)
       rawBoxQty: Number(r.BoxQuantity) || 0,
       bunchQty: Number(r.BunchQuantity) || 0,
-      steamQty: Number(r.SteamQuantity) || 0,
+      // SteamQuantity 원본이 0 이어도 BunchQty * SteamOf1Bunch fallback 으로 실제 송이수 계산
+      steamQty: resolveSteam(r),
       fobUSD: pickOv(ovRow.fobUSD, Number(r.UPrice) || 0),
       totalPriceUSD: Number(r.TPrice) || 0,
       stemsPerBunch: pickOv(ovRow.stemsPerBunch, Number(r.SteamOf1Bunch) || 0),
