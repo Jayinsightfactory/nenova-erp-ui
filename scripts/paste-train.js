@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const https = require('https');
+const http = require('http');
 
 const ROOT = path.resolve(__dirname, '..');
 const MAP_FILE = path.join(ROOT, 'data', 'order-mappings.json');
@@ -77,7 +78,8 @@ function topCandidates(inputName, products, n = 10) {
 function fetchProducts() {
   return new Promise((resolve, reject) => {
     const url = `${API_URL}/api/master?entity=products`;
-    https.get(url, (res) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (res) => {
       let data = '';
       res.on('data', (c) => data += c);
       res.on('end', () => {
@@ -91,16 +93,58 @@ function fetchProducts() {
   });
 }
 
+// ── 품목 리스트 동기화 (DB 직접) ──────────────────────────────
+function loadEnvLocal() {
+  const envPath = path.join(ROOT, '.env.local');
+  if (!fs.existsSync(envPath)) throw new Error('.env.local 없음');
+  const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+  for (const line of lines) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+  }
+}
+
+async function fetchProductsDb() {
+  loadEnvLocal();
+  let sql;
+  try { sql = require('mssql'); }
+  catch { throw new Error('mssql 패키지 필요: npm i mssql'); }
+  const config = {
+    server: process.env.DB_SERVER,
+    port: parseInt(process.env.DB_PORT || '1433'),
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    options: { encrypt: false, trustServerCertificate: true },
+    connectionTimeout: 30000,
+  };
+  const pool = await sql.connect(config);
+  const r = await pool.request().query(
+    `SELECT ProdKey, ProdName, DisplayName, FlowerName, CounName, OutUnit
+     FROM Product WHERE isDeleted=0 ORDER BY ProdName`
+  );
+  await pool.close();
+  return r.recordset;
+}
+
 // ── 메인 인터랙티브 루프 ───────────────────────────────────────
-async function syncProducts() {
-  console.log(`📥 품목 리스트 다운로드: ${API_URL}/api/master?entity=products`);
+async function syncProducts(useDb = false) {
   try {
-    const products = await fetchProducts();
+    let products;
+    if (useDb) {
+      console.log(`📥 DB 직접 조회 (.env.local)`);
+      products = await fetchProductsDb();
+    } else {
+      console.log(`📥 품목 리스트 다운로드: ${API_URL}/api/master?entity=products`);
+      products = await fetchProducts();
+    }
     saveJson(PROD_CACHE, products);
     console.log(`✅ ${products.length}건 저장: ${PROD_CACHE}`);
   } catch (e) {
     console.error('❌ 실패:', e.message);
-    console.log('  (로그인 인증이 필요한 API는 다른 방식 필요 — 수동으로 data/.product-cache.json 에 넣어주세요)');
+    if (!useDb) {
+      console.log('  → DB 직접 모드 시도: node scripts/paste-train.js --sync-db');
+    }
     process.exit(1);
   }
 }
@@ -220,11 +264,13 @@ async function trainLoop() {
 // ── 엔트리 ────────────────────────────────────────────────────
 (async () => {
   const args = process.argv.slice(2);
-  if (args.includes('--sync')) { await syncProducts(); return; }
+  if (args.includes('--sync'))    { await syncProducts(false); return; }
+  if (args.includes('--sync-db')) { await syncProducts(true);  return; }
   if (args.includes('--help') || args.includes('-h')) {
     console.log('사용법:');
-    console.log('  node scripts/paste-train.js --sync   (품목 캐시 다운로드, 최초 1회)');
-    console.log('  node scripts/paste-train.js          (학습 시작)');
+    console.log('  node scripts/paste-train.js --sync      (API 통해 다운, 인증 필요)');
+    console.log('  node scripts/paste-train.js --sync-db   (.env.local DB 직접, 추천)');
+    console.log('  node scripts/paste-train.js             (학습 시작)');
     return;
   }
   await trainLoop();
