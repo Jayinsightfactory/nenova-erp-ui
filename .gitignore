@@ -18,6 +18,7 @@ node_modules/
 .preview/
 data/order-mappings.json
 data/category-overrides.json
+*.product-cache.json
 
 # 런타임 업로드 파일 (카카오워크 봇 이미지 등) — 커밋 금지, .gitkeep 만 추적
 public/uploads/photos/**
