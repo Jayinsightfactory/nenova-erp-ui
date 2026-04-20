@@ -28,6 +28,7 @@ export default function FreightPage() {
   const [dirty, setDirty] = useState(false);  // 스냅샷 저장 이후 수정 여부
   const [catEditing, setCatEditing] = useState({});   // { flowerName: { BoxWeight, BoxCBM, StemsPerBox } } — liveResult 에 병합
   const [catSaving, setCatSaving] = useState('');
+  const [catPopup, setCatPopup] = useState(null);      // { prodKey, prodName, currentFlower, input }
 
   // localStorage 초안 key
   const draftKey = apiData ? `freight-draft-${apiData.primaryKey}` : null;
@@ -145,20 +146,37 @@ export default function FreightPage() {
     setDirty(true);
   };
   // 카테고리(FlowerName)는 문자열이라 별도 핸들러
-  // 로컬 상태만 즉시 업데이트 (UI 반응성 확보, 서버 저장은 onBlur 에서)
+  // 로컬 상태 즉시 업데이트 (UI 반응성)
   const updateRowCategory = (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
   };
-  // 입력 완료 시(blur) 서버에 저장 — 타이핑마다 fetch 안함
-  const persistRowCategory = (prodKey, flowerName) => {
+  // 서버 저장 (blur 또는 팝업 확정 시)
+  const persistRowCategory = async (prodKey, flowerName) => {
     if (!prodKey) return;
-    fetch('/api/freight/category-override', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ prodKey, category: flowerName || '' }),  // 빈 값이면 삭제
-    }).catch(() => {});
+    try {
+      await fetch('/api/freight/category-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prodKey, category: flowerName || '' }),
+      });
+    } catch {}
+  };
+  // 팝업 열기
+  const openCatPopup = (r) => {
+    if (!r.prodKey) return;
+    const current = (rowsOverride[r.prodKey]?.flowerName) ?? r.flowerName ?? '';
+    setCatPopup({ prodKey: r.prodKey, prodName: r.prodName, currentFlower: current, input: current });
+  };
+  const closeCatPopup = () => setCatPopup(null);
+  const saveCatPopup = async () => {
+    if (!catPopup) return;
+    updateRowCategory(catPopup.prodKey, catPopup.input);
+    await persistRowCategory(catPopup.prodKey, catPopup.input);
+    setCatPopup(null);
+    setMsg(`✅ 카테고리 저장: ${catPopup.input}`);
+    setTimeout(() => setMsg(''), 2000);
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
@@ -736,23 +754,17 @@ export default function FreightPage() {
                       }}>
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
-                        <td style={{ background: r.categoryOverride ? '#e1f5fe' : overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}
-                            title={!r.prodKey ? 'prodKey 없음 — 오버라이드 저장 불가' : r.categoryOverride ? `웹 오버라이드: ${r.categoryOverride.category}${r.categoryOverride.note ? ' — ' + r.categoryOverride.note : ''}` : undefined}>
-                          {editMode ? (
-                            <input
-                              list="freight-cat-list"
-                              value={overridden.flowerName ?? r.flowerName ?? ''}
-                              disabled={!r.prodKey}
-                              onChange={e => updateRowCategory(r.prodKey, e.target.value)}
-                              onBlur={e => persistRowCategory(r.prodKey, e.target.value)}
-                              placeholder={r.prodKey ? '자유 입력 가능' : 'prodKey 없음'}
-                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: r.prodKey ? '#fff' : '#f5f5f5', color: r.prodKey ? 'var(--text)' : 'var(--text3)' }}
-                            />
-                          ) : (
-                            <span style={{ fontSize: 11, color: r.categoryOverride ? 'var(--blue)' : (r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)'), fontWeight: r.categoryOverride ? 700 : 400 }}>
-                              {r.flowerName || '(없음)'}{r.categoryOverride ? ' 🌐' : overridden.flowerName ? ' *' : ''}
-                            </span>
-                          )}
+                        <td
+                          onClick={() => openCatPopup(r)}
+                          style={{
+                            background: r.categoryOverride ? '#e1f5fe' : overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0'),
+                            cursor: r.prodKey ? 'pointer' : 'not-allowed',
+                            textDecoration: r.prodKey ? 'none' : 'none',
+                          }}
+                          title={!r.prodKey ? 'prodKey 없음 — 편집 불가' : '클릭하여 카테고리 변경'}>
+                          <span style={{ fontSize: 11, color: r.categoryOverride ? 'var(--blue)' : (r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)'), fontWeight: r.categoryOverride ? 700 : 400 }}>
+                            {r.flowerName || '(없음)'}{r.categoryOverride ? ' 🌐' : overridden.flowerName ? ' *' : ''}{r.prodKey && ' ✏'}
+                          </span>
                         </td>
                         <td className="num">{fmt(r.rawBoxQty)}</td>
                         <td className="num">{fmt(r.bunchQty)}</td>
@@ -807,6 +819,45 @@ export default function FreightPage() {
           </div>
         </>
       )}
+
+      {/* 카테고리 편집 팝업 */}
+      {catPopup && (
+        <div onClick={closeCatPopup} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, padding: 20, minWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--blue)' }}>카테고리 변경 (웹 전용)</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>품목</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4 }}>{catPopup.prodName}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>카테고리 (자유 입력 가능)</div>
+            <input
+              autoFocus
+              list="freight-cat-list"
+              value={catPopup.input}
+              onChange={e => setCatPopup(p => ({ ...p, input: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') saveCatPopup(); if (e.key === 'Escape') closeCatPopup(); }}
+              placeholder="예: 줄맨드라미, 기타-녹색, 특수리프"
+              style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '2px solid var(--blue)', borderRadius: 4, marginBottom: 6 }}
+            />
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 16 }}>※ Product.FlowerName 은 건드리지 않음 (웹에만 저장, 전산 DB 영향 없음)</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={closeCatPopup} className="btn btn-secondary btn-sm">취소</button>
+              {catPopup.currentFlower && (
+                <button onClick={() => { setCatPopup(p => ({ ...p, input: '' })); setTimeout(saveCatPopup, 0); }}
+                        className="btn btn-sm" style={{ background: '#ffebee', color: 'var(--red)', border: '1px solid var(--red)' }}>
+                  🗑 오버라이드 삭제
+                </button>
+              )}
+              <button onClick={saveCatPopup} className="btn btn-primary btn-sm">💾 저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 전역 datalist (팝업과 인라인에서 공용) */}
+      <datalist id="freight-cat-list">
+        {[...new Set(['장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타','줄맨드라미'])].map(c => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
     </div>
   );
 }
