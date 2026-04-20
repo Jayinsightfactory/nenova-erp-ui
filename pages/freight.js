@@ -145,10 +145,14 @@ export default function FreightPage() {
     setDirty(true);
   };
   // 카테고리(FlowerName)는 문자열이라 별도 핸들러
+  // 로컬 상태만 즉시 업데이트 (UI 반응성 확보, 서버 저장은 onBlur 에서)
   const updateRowCategory = (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
-    // 웹 전용 오버라이드에 저장 (Product.FlowerName 건드리지 않음, 다음 BILL 로드 시 자동 적용)
+  };
+  // 입력 완료 시(blur) 서버에 저장 — 타이핑마다 fetch 안함
+  const persistRowCategory = (prodKey, flowerName) => {
+    if (!prodKey) return;
     fetch('/api/freight/category-override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -724,6 +728,7 @@ export default function FreightPage() {
                               value={overridden.flowerName ?? r.flowerName ?? ''}
                               disabled={!r.prodKey}
                               onChange={e => updateRowCategory(r.prodKey, e.target.value)}
+                              onBlur={e => persistRowCategory(r.prodKey, e.target.value)}
                               placeholder={r.prodKey ? '자유 입력 가능' : 'prodKey 없음'}
                               style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: r.prodKey ? '#fff' : '#f5f5f5', color: r.prodKey ? 'var(--text)' : 'var(--text3)' }}
                             />
