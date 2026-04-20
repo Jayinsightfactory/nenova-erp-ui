@@ -327,8 +327,8 @@ async function saveDistribute(req, res) {
         // 레거시 마스터라면 WebCreated=1로 소유권 인수
         if (!smResult.recordset[0].WebCreated) {
           await tQuery(
-            `UPDATE ShipmentMaster SET WebCreated=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE() WHERE ShipmentKey=@sk`,
-            { sk: { type: sql.Int, value: sk }, uid: { type: sql.NVarChar, value: uid } }
+            `UPDATE ShipmentMaster SET WebCreated=1 WHERE ShipmentKey=@sk`,
+            { sk: { type: sql.Int, value: sk } }
           );
         }
       }
