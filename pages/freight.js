@@ -424,10 +424,7 @@ export default function FreightPage() {
                 <NumField label="CW 과금중량 (kg)" value={master.cw} onChange={v => updMaster('cw', v)} readOnly={!editMode} />
                 <NumField label={`Rate (${apiData?.invoiceCurrency || 'USD'}/kg)`} value={master.rateUSD} onChange={v => updMaster('rateUSD', v)} readOnly={!editMode} />
                 <NumField label={`서류 (${apiData?.invoiceCurrency || 'USD'})`} value={master.docFeeUSD} onChange={v => updMaster('docFeeUSD', v)} readOnly={!editMode} />
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>품목수 (자동)</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{fmt(master.itemCount)}</div>
-                </div>
+                <NumField label="품목수 (자동/수동)" value={master.itemCount ?? ''} onChange={v => updMaster('itemCount', v)} readOnly={!editMode} />
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>총수량 (송이)</div>
                   <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono)' }}>{fmt(liveResult.rows.reduce((a,r) => a + (Number(r.steamQty)||0), 0))}</div>
@@ -435,9 +432,21 @@ export default function FreightPage() {
               </div>
               <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', background: '#fafafa' }}>
                 <div style={{ fontSize: 10, color: 'var(--text3)' }}>
-                  항공료 {liveResult.header.freightSource === 'ACTUAL' ? <span style={{color:'var(--green)',fontWeight:700}}>· FREIGHTWISE 실제 청구</span> : <span>· 계산값 (Rate×CW + Doc)</span>} · 기준 {liveResult.header.basis}
+                  항공료 {master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? <span style={{color:'var(--red)',fontWeight:700}}>· 수동 입력값 사용</span> : liveResult.header.freightSource === 'ACTUAL' ? <span style={{color:'var(--green)',fontWeight:700}}>· FREIGHTWISE 실제 청구</span> : <span>· 계산값 (Rate×CW + Doc)</span>} · 기준 {liveResult.header.basis}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: liveResult.header.freightSource === 'ACTUAL' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{fmt2(liveResult.header.freightTotalUSD)} USD</div>
+                {editMode ? (
+                  <input
+                    type="number" step="0.01"
+                    value={master.freightOverrideUSD ?? ''}
+                    onChange={e => updMaster('freightOverrideUSD', e.target.value)}
+                    placeholder={`자동 ${fmt2(liveResult.header.freightTotalUSD)} (수정 시 이 값 사용)`}
+                    style={{ width: '100%', fontSize: 16, fontWeight: 700, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4, fontFamily: 'var(--mono)', color: master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? 'var(--red)' : 'var(--blue)' }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 18, fontWeight: 800, color: master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? 'var(--red)' : liveResult.header.freightSource === 'ACTUAL' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>
+                    {fmt2(master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? Number(master.freightOverrideUSD) : liveResult.header.freightTotalUSD)} USD
+                  </div>
+                )}
                 {liveResult.header.actualFreightUSD && Math.abs(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD) > 1 && (
                   <div style={{ fontSize: 10, color: 'var(--amber)' }}>⚠️ 계산값 {fmt2(liveResult.header.freightComputedUSD)} 과 차이 {fmt2(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD)}</div>
                 )}
