@@ -114,7 +114,7 @@ function FlowerRow({ flower, onSaved }) {
       <td className="num"><input type="number" step="0.1" value={f.BoxWeight} onChange={e => setF(x => ({ ...x, BoxWeight: e.target.value }))} style={cell} /></td>
       <td className="num"><input type="number" step="0.1" value={f.BoxCBM} onChange={e => setF(x => ({ ...x, BoxCBM: e.target.value }))} style={cell} /></td>
       <td className="num"><input type="number" value={f.StemsPerBox} onChange={e => setF(x => ({ ...x, StemsPerBox: e.target.value }))} style={cell} /></td>
-      <td className="num"><input type="number" step="0.1" value={f.DefaultTariff} onChange={e => setF(x => ({ ...x, DefaultTariff: e.target.value }))} style={cell} /></td>
+      <td className="num"><input type="number" step="0.001" value={f.DefaultTariff} onChange={e => setF(x => ({ ...x, DefaultTariff: e.target.value }))} style={cell} /></td>
       <td style={{ width: 60 }}><button className="btn btn-primary btn-sm" onClick={onSave} disabled={saving}>{saving ? '...' : '💾'}</button></td>
     </tr>
   );

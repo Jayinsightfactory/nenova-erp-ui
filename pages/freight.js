@@ -171,7 +171,7 @@ export default function FreightPage() {
       BoxWeight: current.boxWeight ?? '',
       BoxCBM: current.boxCBM ?? '',
       StemsPerBox: current.stemsPerBox ?? '',
-      DefaultTariff: fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(2) : '',  // % 로 표시
+      DefaultTariff: fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(3) : '',  // % 로 표시 (소수 3자리)
     }}));
   };
   const updCatField = (flowerName, field, val) => {
@@ -633,7 +633,7 @@ export default function FreightPage() {
                         <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 4 }}>관세</span>
                         {edit
                           ? <>
-                              <input type="number" step="0.01" style={cellStyle} value={edit.DefaultTariff ?? ''} onChange={e => updCatField(c.flowerName, 'DefaultTariff', e.target.value)} placeholder="0" />
+                              <input type="number" step="0.001" style={cellStyle} value={edit.DefaultTariff ?? ''} onChange={e => updCatField(c.flowerName, 'DefaultTariff', e.target.value)} placeholder="0" />
                               <span style={{ fontSize: 10 }}>%</span>
                             </>
                           : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: curTariffPct ? 'var(--amber, #f57c00)' : 'var(--text3)', cursor: fkId ? 'pointer' : 'default' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{curTariffPct != null ? curTariffPct + '%' : '–'}</span>}
