@@ -243,13 +243,14 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   // cached 값을 같이 주면 어떤 뷰어에서도 즉시 값 표시 + Excel 에서 입력 변경시 재계산 가능.
   const fml = (expr, cached) => ({ f: expr, v: cached });
 
-  // 제목 B1
-  set(0, 1, `${primary.FarmName || ''} · AWB ${awbLabel || primary.AWB || ''}`, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
+  // 제목 B1 — 차수(WW-SS) + AWB 로 표시
+  const weekLabel = primary.OrderWeek || '';
+  set(0, 1, `차수 ${weekLabel} · AWB ${awbLabel || primary.AWB || ''}`, style(BG_SECTION, FONT_TITLE, ALIGN_CENTER));
   merges.push({ s: { r: 0, c: 1 }, e: { r: 0, c: 6 } });
 
-  // B5 차수 / C5
+  // B5 차수 / C5 — 농장 대신 실제 차수값
   set(4, 1, '차수', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));
-  set(4, 2, awbLabel || primary.OrderWeek || '', style(BG_INPUT, FONT_BOLD, ALIGN_CENTER));
+  set(4, 2, weekLabel, style(BG_INPUT, FONT_BOLD, ALIGN_CENTER));
 
   // B6 총금액 / C6 (input) / D6=C6-C11 (formula)
   set(5, 1, '총금액 Invoice', style(BG_HEADER, FONT_BOLD, ALIGN_CENTER));

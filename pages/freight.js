@@ -464,13 +464,13 @@ export default function FreightPage() {
                   />
                 ) : (
                   <div style={{ fontSize: 18, fontWeight: 800, color: master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? 'var(--red)' : liveResult.header.freightSource === 'ACTUAL' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>
-                    {fmt2(master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? Number(master.freightOverrideUSD) : liveResult.header.freightTotalUSD)} USD
+                    {fmt2(master.freightOverrideUSD != null && master.freightOverrideUSD !== '' ? Number(master.freightOverrideUSD) : liveResult.header.freightTotalUSD)} {apiData?.invoiceCurrency || 'USD'}
                   </div>
                 )}
                 {liveResult.header.actualFreightUSD && Math.abs(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD) > 1 && (
                   <div style={{ fontSize: 10, color: 'var(--amber)' }}>⚠️ 계산값 {fmt2(liveResult.header.freightComputedUSD)} 과 차이 {fmt2(liveResult.header.actualFreightUSD - liveResult.header.freightComputedUSD)}</div>
                 )}
-                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>운송비 = Rate × CW = {fmt2((Number(master.rateUSD)||0) * (Number(master.cw)||0))} USD</div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>운송비 = Rate × CW = {fmt2((Number(master.rateUSD)||0) * (Number(master.cw)||0))} {apiData?.invoiceCurrency || 'USD'}</div>
               </div>
             </div>
 
@@ -481,26 +481,41 @@ export default function FreightPage() {
                 <thead>
                   <tr>
                     <th>카테고리</th>
-                    <th style={{ textAlign: 'right' }}>운임비 (USD)</th>
-                    <th style={{ textAlign: 'right' }}>수량 (송이)</th>
-                    <th style={{ textAlign: 'right' }}>송이당 운임비</th>
+                    <th style={{ textAlign: 'right' }}>운임비 ({apiData?.invoiceCurrency || 'USD'})</th>
+                    <th style={{ textAlign: 'right' }}>수량 (송이/단)</th>
+                    <th style={{ textAlign: 'right' }}>단위당 운임비</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {liveResult.categories.map(c => (
-                    <tr key={c.flowerName}>
-                      <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                      <td className="num">{fmt2(c.freightUSD)}</td>
-                      <td className="num">{fmt(c.stemsCount)}</td>
-                      <td className="num" style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt4(c.freightPerStemUSD)}</td>
-                    </tr>
-                  ))}
+                  {liveResult.categories.map(c => {
+                    const isColombia = /콜롬비아|colombia/i.test(c.countryName || '');
+                    const qtyForCat = isColombia ? c.stemsCount : c.bunchCount; // 콜롬비아=송이, 그 외=단
+                    const perUnit = qtyForCat > 0 ? c.freightUSD / qtyForCat : 0;
+                    return (
+                      <tr key={c.flowerName}>
+                        <td className="name">
+                          <span className="badge badge-purple">{c.flowerName}</span>
+                          {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
+                        </td>
+                        <td className="num">{fmt2(c.freightUSD)}</td>
+                        <td className="num">
+                          {fmt(qtyForCat)} <span style={{ fontSize: 9, color: 'var(--text3)' }}>{isColombia ? '송이' : '단'}</span>
+                        </td>
+                        <td className="num" style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt4(perUnit)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="foot">
                     <td style={{ textAlign: 'right' }}>합계</td>
                     <td className="num">{fmt2(liveResult.categories.reduce((a,c) => a + (c.freightUSD||0), 0))}</td>
-                    <td className="num">{fmt(liveResult.categories.reduce((a,c) => a + (c.stemsCount||0), 0))}</td>
+                    <td className="num">
+                      {fmt(liveResult.categories.reduce((a,c) => {
+                        const isCol = /콜롬비아|colombia/i.test(c.countryName || '');
+                        return a + (isCol ? (c.stemsCount||0) : (c.bunchCount||0));
+                      }, 0))}
+                    </td>
                     <td></td>
                   </tr>
                 </tfoot>
