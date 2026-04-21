@@ -210,17 +210,11 @@ async function loadFreightData(res, keys, awbLabel) {
     snapshotDetails = sdRes.recordset;
   }
 
-  // 자동 카테고리 매핑 — FlowerName 이 '기타'/'미분류' 인 품목은 ProdName 키워드로 재분류
-  // 예: [MEL] CHINA / 리모늄 미스티 블루 (FlowerName='기타') → '리모니움'
+  // [DISABLED 2026-04-21] autoDetectFlower 자동 재분류 비활성화.
+  // 이유: 사용자가 '기타' 로 등록된 품목(솔리다고 등)이 화면에서 소국/리모니움 등으로
+  //       자동 이동하면서 원래 이름으로 찾기 어려워짐. DB FlowerName 값을 그대로 사용.
+  //       필요 시 카테고리 팝업(category-override) 으로 개별 수동 재분류.
   const autoMapped = [];
-  for (const r of rows) {
-    const orig = (r.FlowerName || '').trim();
-    const detected = autoDetectFlower(r.ProdName, orig);
-    if (detected !== orig) {
-      r.FlowerName = detected;  // rows 배열의 행 자체 수정
-      autoMapped.push({ prodName: r.ProdName, from: orig || '(없음)', to: detected });
-    }
-  }
 
   // 웹 전용 카테고리 오버라이드 적용 (Product.FlowerName 은 건드리지 않고 표시만 변경)
   // 매번 파일에서 새로 로드 (모듈 캐시 리셋)
