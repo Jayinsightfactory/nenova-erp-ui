@@ -190,17 +190,10 @@ async function loadFreightData(res, keys, awbLabel) {
     snapshotDetails = sdRes.recordset;
   }
 
-  // 자동 카테고리 매핑 — FlowerName 이 '기타'/'미분류' 인 품목은 ProdName 키워드로 재분류
-  // 예: [MEL] CHINA / 리모늄 미스티 블루 (FlowerName='기타') → '리모니움'
+  // [DISABLED 2026-04-21] 자동 카테고리 매핑 비활성화.
+  // 사용자가 DB FlowerName='기타' 인 품목들이 소국/리모니움/안개꽃 등으로 자동 흩어져
+  // "기타" 카테고리에 일부(Amaranthus)만 남던 문제. DB 값 그대로 표시.
   const autoMapped = [];
-  for (const r of rows) {
-    const orig = (r.FlowerName || '').trim();
-    const detected = autoDetectFlower(r.ProdName, orig);
-    if (detected !== orig) {
-      r.FlowerName = detected;  // rows 배열의 행 자체 수정
-      autoMapped.push({ prodName: r.ProdName, from: orig || '(없음)', to: detected });
-    }
-  }
 
   // 카테고리별 박스수 집계 (재분류 후 기준)
   const boxByFlower = new Map();
