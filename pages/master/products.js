@@ -370,14 +370,92 @@ export default function Products() {
                 <div className="form-group"><label className="form-label">1박스 당 단수</label><input type="number" className="form-control" value={form.BunchOf1Box || 0} onChange={e => setForm(f => ({ ...f, bunchOf1Box: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">1단 당 송이수</label><input type="number" className="form-control" value={form.SteamOf1Bunch || 0} onChange={e => setForm(f => ({ ...f, steamOf1Bunch: e.target.value }))} /></div>
               </div>
-              <div style={{ margin: '8px 0 4px', fontSize: 11, color: 'var(--text3)', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                🚛 운송 원가 계산용 — 빈칸이면 꽃 카테고리 기본값 사용
-              </div>
-              <div className="form-row form-row-3">
-                <div className="form-group"><label className="form-label">박스당 무게 (kg)</label><input type="number" step="0.1" className="form-control" value={form.BoxWeight ?? ''} onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))} placeholder="예: 8" /></div>
-                <div className="form-group"><label className="form-label">박스당 CBM</label><input type="number" step="0.1" className="form-control" value={form.BoxCBM ?? ''} onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))} placeholder="예: 10" /></div>
-                <div className="form-group"><label className="form-label">관세율 (%)</label><input type="number" step="0.01" className="form-control" value={form.TariffRate != null ? Number(form.TariffRate) * 100 : ''} onChange={e => setForm(f => ({ ...f, tariffRate: e.target.value === '' ? '' : (parseFloat(e.target.value) / 100) }))} placeholder="0 (콜롬비아)" /></div>
-              </div>
+              {(() => {
+                // 박스당/단당 입력 — 콜롬비아는 박스 기준, 외국은 단 기준 (사용자 선호)
+                const counName = String(form.CounName || form.counName || '').trim();
+                const isColombia = /콜롬비아|COLOMBIA/i.test(counName);
+                const bpb = Number(form.BunchOf1Box || form.bunchOf1Box) || 0;
+                const boxW = form.BoxWeight ?? form.boxWeight;
+                const boxC = form.BoxCBM ?? form.boxCBM;
+                const bunchW = boxW !== '' && boxW != null && bpb > 0 ? (Number(boxW) / bpb) : '';
+                const bunchC = boxC !== '' && boxC != null && bpb > 0 ? (Number(boxC) / bpb) : '';
+                // 단당으로 입력 시 박스당으로 환산해 BoxWeight/BoxCBM 에 저장 (DB 는 기존 컬럼 유지)
+                const onBunchWeight = (v) => {
+                  if (v === '') { setForm(f => ({ ...f, boxWeight: '' })); return; }
+                  if (bpb > 0) setForm(f => ({ ...f, boxWeight: (parseFloat(v) * bpb).toFixed(3).replace(/\.?0+$/, '') }));
+                };
+                const onBunchCBM = (v) => {
+                  if (v === '') { setForm(f => ({ ...f, boxCBM: '' })); return; }
+                  if (bpb > 0) setForm(f => ({ ...f, boxCBM: (parseFloat(v) * bpb).toFixed(4).replace(/\.?0+$/, '') }));
+                };
+                // 콜롬비아면 박스 칸 강조, 아니면 단 칸 강조 (activeStyle)
+                const boxActive = isColombia;
+                const activeStyle = { background: '#e8f5e9', border: '2px solid #66bb6a', boxShadow: '0 0 0 2px rgba(102,187,106,0.2)' };
+                const dimStyle    = { background: '#fafafa', color: '#777' };
+                return (
+                  <>
+                    <div style={{ margin: '8px 0 4px', fontSize: 11, color: 'var(--text3)', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                      🚛 운송 원가 계산용 — 빈칸이면 꽃 카테고리 기본값 사용
+                      <span style={{ marginLeft: 10, fontSize: 10, fontWeight: 600, color: boxActive ? '#2e7d32' : '#1565c0' }}>
+                        [{counName || '국가 미지정'}] 기본 입력: <b>{boxActive ? '박스당' : '단당'}</b>
+                      </span>
+                      <span style={{ marginLeft: 8, fontSize: 10, color: '#888' }}>
+                        (양쪽 어디에 입력해도 자동 환산 {bpb > 0 ? `· 1박스 = ${bpb}단` : '· ⚠ BunchOf1Box 설정 필요'})
+                      </span>
+                    </div>
+
+                    <div className="form-row form-row-3">
+                      <div className="form-group">
+                        <label className="form-label">박스당 무게 (kg)</label>
+                        <input type="number" step="0.1" className="form-control"
+                          value={form.BoxWeight ?? form.boxWeight ?? ''}
+                          onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))}
+                          placeholder={isColombia ? '예: 8' : ''}
+                          style={boxActive ? activeStyle : dimStyle} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">단당 무게 (kg)</label>
+                        <input type="number" step="0.01" className="form-control"
+                          value={bunchW === '' ? '' : (typeof bunchW === 'number' ? +bunchW.toFixed(4) : bunchW)}
+                          onChange={e => onBunchWeight(e.target.value)}
+                          placeholder={!isColombia ? '예: 0.5' : ''}
+                          disabled={!(bpb > 0)}
+                          title={bpb > 0 ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.' : '1박스당 단수(BunchOf1Box) 먼저 설정하세요.'}
+                          style={!boxActive && bpb > 0 ? activeStyle : dimStyle} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">관세율 (%)</label>
+                        <input type="number" step="0.01" className="form-control"
+                          value={form.TariffRate != null ? Number(form.TariffRate) * 100 : ''}
+                          onChange={e => setForm(f => ({ ...f, tariffRate: e.target.value === '' ? '' : (parseFloat(e.target.value) / 100) }))}
+                          placeholder="0 (콜롬비아)" />
+                      </div>
+                    </div>
+
+                    <div className="form-row form-row-3">
+                      <div className="form-group">
+                        <label className="form-label">박스당 CBM</label>
+                        <input type="number" step="0.1" className="form-control"
+                          value={form.BoxCBM ?? form.boxCBM ?? ''}
+                          onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))}
+                          placeholder={isColombia ? '예: 10' : ''}
+                          style={boxActive ? activeStyle : dimStyle} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">단당 CBM</label>
+                        <input type="number" step="0.01" className="form-control"
+                          value={bunchC === '' ? '' : (typeof bunchC === 'number' ? +bunchC.toFixed(5) : bunchC)}
+                          onChange={e => onBunchCBM(e.target.value)}
+                          placeholder={!isColombia ? '예: 0.03' : ''}
+                          disabled={!(bpb > 0)}
+                          title={bpb > 0 ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.' : '1박스당 단수(BunchOf1Box) 먼저 설정하세요.'}
+                          style={!boxActive && bpb > 0 ? activeStyle : dimStyle} />
+                      </div>
+                      <div />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>취소 / Cancelar</button>

@@ -6,6 +6,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency } from '../../../lib/freightCalc';
+import { loadOverrides } from '../../../lib/categoryOverrides';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 370,
@@ -168,12 +169,33 @@ async function loadFreightData(res, keys, awbLabel) {
   const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
+  // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행에서 무게값 추출
+  // 실제 DB: 오타 "weigth" + 무게값이 Box/Bunch/Steam 어느 컬럼에든 올 수 있음
+  // (Yunnan Melody 는 SteamQuantity 에 554, FREIGHTWISE 는 BunchQuantity 에)
+  const isGwName = (n) => /^\s*gross\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
+  const isCwName = (n) => /^\s*chargeable\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
+  // Box/Bunch/Steam 중 1보다 큰 최대값 = 실제 무게 (더미값 1은 스킵)
+  const weightOfRow = (r) => {
+    const vals = [Number(r.BoxQuantity) || 0, Number(r.BunchQuantity) || 0, Number(r.SteamQuantity) || 0];
+    const realVals = vals.filter(v => v > 1);
+    return realVals.length > 0 ? Math.max(...realVals) : 0;
+  };
+  // 이제 isFreightItem 에 Gross/Chargeable weigth 패턴이 포함되므로 freightRows 에 섞여 들어감
+  // freightRows 에서 GW/CW 행만 뽑아 weightOfRow 로 무게 추출
+  const gwRows = freightRows.filter(r => isGwName(r.ProdName));
+  const cwRows = freightRows.filter(r => isCwName(r.ProdName));
+  const extractedGwFromRow = gwRows.reduce((a, r) => a + weightOfRow(r), 0);
+  const extractedCwFromRow = cwRows.reduce((a, r) => a + weightOfRow(r), 0);
+
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {
     ...masters.find(m => m.WarehouseKey === primaryKey),
     AWB: awbLabel || mastersAll[0].AWB,
-    GrossWeight: sumField(masters, 'GrossWeight') || (extractedGW > 0 ? extractedGW : null),
-    ChargeableWeight: sumField(masters, 'ChargeableWeight') || (extractedGW > 0 ? extractedGW : null),
+    // 1순위: BILL 내 'Gross weigth'/'Chargeable weigth' 품목행 (가장 신뢰도 높음)
+    // 2순위: WarehouseMaster 필드 (1 같은 더미값인 경우 많아 후순위)
+    // 3순위: FREIGHTWISE 행 (Rate×Weight 패턴)
+    GrossWeight: (extractedGwFromRow > 1 ? extractedGwFromRow : null) || sumField(masters, 'GrossWeight') || (extractedGW > 0 ? extractedGW : null),
+    ChargeableWeight: (extractedCwFromRow > 1 ? extractedCwFromRow : null) || sumField(masters, 'ChargeableWeight') || (extractedGW > 0 ? extractedGW : null),
     FreightRateUSD: firstNonNullField(masters, 'FreightRateUSD') || (extractedRate > 0 ? extractedRate : null),
     DocFeeUSD: firstNonNullField(masters, 'DocFeeUSD') || (extractedDoc > 0 ? extractedDoc : null),
   };
@@ -194,6 +216,19 @@ async function loadFreightData(res, keys, awbLabel) {
   // 사용자가 DB FlowerName='기타' 인 품목들이 소국/리모니움/안개꽃 등으로 자동 흩어져
   // "기타" 카테고리에 일부(Amaranthus)만 남던 문제. DB 값 그대로 표시.
   const autoMapped = [];
+
+  // 웹 전용 "세부카테고리" 오버라이드 적용 (Product.FlowerName 은 건드리지 않고 표시만 변경)
+  // 매번 파일에서 새로 로드 (모듈 캐시 리셋) — 저장 직후에도 즉시 반영되도록
+  const catOverrides = loadOverrides(true);
+  let overriddenCount = 0;
+  for (const r of rows) {
+    const ov = r.ProdKey ? catOverrides[r.ProdKey] : null;
+    if (ov && ov.category) {
+      r.FlowerName = ov.category;
+      r._categoryOverride = { category: ov.category, note: ov.note || '' };
+      overriddenCount++;
+    }
+  }
 
   // 카테고리별 박스수 집계 (재분류 후 기준)
   const boxByFlower = new Map();
@@ -299,6 +334,7 @@ async function loadFreightData(res, keys, awbLabel) {
       stemsPerBunch: snapRow?.StemsPerBunch != null ? Number(snapRow.StemsPerBunch) : (Number(r.SteamOf1Bunch) || 0),
       salePriceKRW: snapRow?.SalePriceKRW != null ? Number(snapRow.SalePriceKRW) : (Number(r.Cost) || 0),
       tariffRate: snapRow?.TariffRate != null ? Number(snapRow.TariffRate) : (r.P_TariffRate != null ? Number(r.P_TariffRate) : null),
+      categoryOverride: r._categoryOverride || null,  // 웹 세부카테고리 적용됐으면 { category, note }
     };
   });
 

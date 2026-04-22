@@ -144,10 +144,22 @@ export default function FreightPage() {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), [field]: val === '' ? null : Number(val) } }));
     setDirty(true);
   };
-  // 카테고리(FlowerName)는 문자열이라 별도 핸들러
-  const updateRowCategory = (prodKey, flowerName) => {
+  // 세부카테고리(FlowerName 대체) — 웹 전용 오버라이드 (Product.FlowerName 은 건드리지 않음)
+  // 1) 클라이언트 state 에 즉시 반영 (화면 새로고침 전)
+  // 2) /api/freight/category-override 에 파일 저장 → 다음 로드부터 서버에서 자동 적용
+  const updateRowCategory = async (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
+    try {
+      await fetch('/api/freight/category-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ prodKey, category: flowerName || '' }),
+      });
+    } catch (e) {
+      console.warn('[category-override] 저장 실패:', e.message);
+    }
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
@@ -309,6 +321,14 @@ export default function FreightPage() {
   return (
     <div>
       <Head><title>운송기준원가 / Shipping Cost</title></Head>
+
+      {/* 세부카테고리 자동완성 목록 (화면 내 input[list=...] 에서 공유) */}
+      <datalist id="freight-category-list">
+        {Array.from(new Set([
+          ...Object.keys(flowerNameToKey || {}),
+          '장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타','줄맨드라미'
+        ])).map(c => <option key={c} value={c} />)}
+      </datalist>
 
       {/* 필터 바 */}
       <div className="filter-bar">
@@ -693,27 +713,20 @@ export default function FreightPage() {
                       }}>
                         <td style={{ color: 'var(--blue)', fontSize: 11, fontWeight: showFarm ? 700 : 400 }}>{showFarm ? r.farmName : ''}</td>
                         <td>{r.prodName}</td>
-                        <td style={{ background: overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}>
+                        <td style={{ background: r.categoryOverride ? '#e1f5fe' : overridden.flowerName ? '#fff9c4' : (r.flowerName === '기타' || !r.flowerName ? '#ffebee' : '#fff3e0') }}
+                            title={r.categoryOverride ? `🌐 세부카테고리 (웹 전용) — DB는 변경되지 않음${r.categoryOverride.note ? ' · ' + r.categoryOverride.note : ''}` : undefined}>
                           {editMode ? (
-                            <select
+                            <input
+                              type="text"
+                              list="freight-category-list"
                               value={overridden.flowerName ?? r.flowerName ?? ''}
                               onChange={e => updateRowCategory(r.prodKey, e.target.value)}
-                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 2px', background: '#fff' }}
-                            >
-                              <option value="">(없음)</option>
-                              {Object.keys(flowerNameToKey).map(nk => {
-                                // flowerNameToKey 는 normalized key. 실제 한글 라벨은 apiData.flowerMeta 에서 찾아야 함
-                                // 간단히 nk 를 그대로 노출 (대부분 한글명)
-                                return <option key={nk} value={nk}>{nk}</option>;
-                              })}
-                              {/* 추가 선택지: 업계 표준 카테고리 */}
-                              {['장미','카네이션','리모니움','유칼립투스','리시안서스','안개꽃','아스파라거스','스프레이카네이션','알스트로','루스커스','릴리','튤립','소국','기타'].filter(c => !flowerNameToKey[c]).map(c => (
-                                <option key={c} value={c}>{c}</option>
-                              ))}
-                            </select>
+                              placeholder="세부카테고리"
+                              style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: '#fff' }}
+                            />
                           ) : (
                             <span style={{ fontSize: 11, color: r.flowerName === '기타' || !r.flowerName ? 'var(--red)' : 'var(--text)' }}>
-                              {r.flowerName || '(없음)'}{overridden.flowerName ? ' *' : ''}
+                              {r.categoryOverride ? '🌐 ' : ''}{r.flowerName || '(없음)'}{overridden.flowerName ? ' *' : ''}
                             </span>
                           )}
                         </td>

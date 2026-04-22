@@ -81,6 +81,7 @@ const MENU_ITEMS = [
       { href: '/master/codes',     labelKey: '코드관리',             popup: true },
       { href: '/admin/users',      labelKey: '사용자관리',           popup: true },
       { href: '/master/activity',  labelKey: '작업내역',             popup: true },
+      { href: '/admin/category-overrides', labelKey: '🏷 세부카테고리', popup: true },
       { href: '/dev/action-log',   labelKey: '🔍 액션 로그',         popup: false },
     ]
   },

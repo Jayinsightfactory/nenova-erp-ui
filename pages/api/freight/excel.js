@@ -6,6 +6,7 @@ import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost } from '../../../lib/freightCalc';
+import { loadOverrides as loadCategoryOverrides } from '../../../lib/categoryOverrides';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -146,12 +147,17 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const firstF = (f) => { for (const m of masters) if (m[f] != null) return Number(m[f]); return null; };
 
   // 카테고리 결정 순서 (2026-04-22 변경):
-  //   1) 클라이언트 오버라이드 (rowsPayload[prodKey].flowerName)
-  //   2) DB FlowerName 그대로 (autoDetectFlower 비활성화 — '기타' 품목 자동 재분류 금지)
+  //   1) 클라이언트 오버라이드 (rowsPayload[prodKey].flowerName) — 세션 임시값
+  //   2) 서버 파일 오버라이드 (data/category-overrides.json) — 세부카테고리 영구값
+  //   3) DB FlowerName 그대로 (autoDetectFlower 비활성화 — 자동 재분류 금지)
+  const catFileOverrides = loadCategoryOverrides(true);
   for (const r of rows) {
     const ovRow = ovRowsByKey.get(Number(r.ProdKey));
+    const catFile = catFileOverrides[r.ProdKey];
     if (ovRow && ovRow.flowerName) {
       r.FlowerName = ovRow.flowerName;
+    } else if (catFile && catFile.category) {
+      r.FlowerName = catFile.category;
     } else {
       r.FlowerName = (r.FlowerName || '').trim();
     }
