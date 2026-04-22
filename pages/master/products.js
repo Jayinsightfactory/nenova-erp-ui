@@ -372,21 +372,37 @@ export default function Products() {
               </div>
               {(() => {
                 // 박스당/단당 입력 — 콜롬비아는 박스 기준, 외국은 단 기준 (사용자 선호)
+                // ⚠ 사용자 편집값(`boxWeight` camelCase) > DB 초기값(`BoxWeight` PascalCase) 우선
                 const counName = String(form.CounName || form.counName || '').trim();
                 const isColombia = /콜롬비아|COLOMBIA/i.test(counName);
-                const bpb = Number(form.BunchOf1Box || form.bunchOf1Box) || 0;
-                const boxW = form.BoxWeight ?? form.boxWeight;
-                const boxC = form.BoxCBM ?? form.boxCBM;
+                const bpb = Number(form.bunchOf1Box ?? form.BunchOf1Box) || 0;
+                // pick: 사용자 편집값이 있으면 그것, 없으면 DB 원본
+                const pick = (lc, uc) => {
+                  if (lc !== undefined && lc !== null) return lc;
+                  if (uc !== undefined && uc !== null) return uc;
+                  return '';
+                };
+                const boxW = pick(form.boxWeight, form.BoxWeight);
+                const boxC = pick(form.boxCBM, form.BoxCBM);
                 const bunchW = boxW !== '' && boxW != null && bpb > 0 ? (Number(boxW) / bpb) : '';
                 const bunchC = boxC !== '' && boxC != null && bpb > 0 ? (Number(boxC) / bpb) : '';
                 // 단당으로 입력 시 박스당으로 환산해 BoxWeight/BoxCBM 에 저장 (DB 는 기존 컬럼 유지)
+                // ⚠ PascalCase 키도 함께 덮어써야 표시값이 즉시 갱신됨
+                const onBoxWeight = (v) => setForm(f => ({ ...f, boxWeight: v, BoxWeight: v === '' ? null : v }));
+                const onBoxCBM    = (v) => setForm(f => ({ ...f, boxCBM: v,    BoxCBM:    v === '' ? null : v }));
                 const onBunchWeight = (v) => {
-                  if (v === '') { setForm(f => ({ ...f, boxWeight: '' })); return; }
-                  if (bpb > 0) setForm(f => ({ ...f, boxWeight: (parseFloat(v) * bpb).toFixed(3).replace(/\.?0+$/, '') }));
+                  if (v === '') { onBoxWeight(''); return; }
+                  if (bpb > 0) {
+                    const boxVal = String(+(parseFloat(v) * bpb).toFixed(3));
+                    onBoxWeight(boxVal);
+                  }
                 };
                 const onBunchCBM = (v) => {
-                  if (v === '') { setForm(f => ({ ...f, boxCBM: '' })); return; }
-                  if (bpb > 0) setForm(f => ({ ...f, boxCBM: (parseFloat(v) * bpb).toFixed(4).replace(/\.?0+$/, '') }));
+                  if (v === '') { onBoxCBM(''); return; }
+                  if (bpb > 0) {
+                    const boxVal = String(+(parseFloat(v) * bpb).toFixed(4));
+                    onBoxCBM(boxVal);
+                  }
                 };
                 // 콜롬비아면 박스 칸 강조, 아니면 단 칸 강조 (activeStyle)
                 const boxActive = isColombia;
@@ -408,8 +424,8 @@ export default function Products() {
                       <div className="form-group">
                         <label className="form-label">박스당 무게 (kg)</label>
                         <input type="number" step="0.1" className="form-control"
-                          value={form.BoxWeight ?? form.boxWeight ?? ''}
-                          onChange={e => setForm(f => ({ ...f, boxWeight: e.target.value }))}
+                          value={boxW === null ? '' : boxW}
+                          onChange={e => onBoxWeight(e.target.value)}
                           placeholder={isColombia ? '예: 8' : ''}
                           style={boxActive ? activeStyle : dimStyle} />
                       </div>
@@ -436,8 +452,8 @@ export default function Products() {
                       <div className="form-group">
                         <label className="form-label">박스당 CBM</label>
                         <input type="number" step="0.1" className="form-control"
-                          value={form.BoxCBM ?? form.boxCBM ?? ''}
-                          onChange={e => setForm(f => ({ ...f, boxCBM: e.target.value }))}
+                          value={boxC === null ? '' : boxC}
+                          onChange={e => onBoxCBM(e.target.value)}
                           placeholder={isColombia ? '예: 10' : ''}
                           style={boxActive ? activeStyle : dimStyle} />
                       </div>
