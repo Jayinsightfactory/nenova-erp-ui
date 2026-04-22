@@ -145,16 +145,15 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const sumF = (f) => masters.map(m => Number(m[f])).filter(v => !Number.isNaN(v) && v !== 0).reduce((a,b)=>a+b,0) || null;
   const firstF = (f) => { for (const m of masters) if (m[f] != null) return Number(m[f]); return null; };
 
-  // 카테고리 결정 순서:
+  // 카테고리 결정 순서 (2026-04-22 변경):
   //   1) 클라이언트 오버라이드 (rowsPayload[prodKey].flowerName)
-  //   2) 자동 감지 (기타/미분류 → ProdName 키워드 매핑)
-  //   3) DB FlowerName
+  //   2) DB FlowerName 그대로 (autoDetectFlower 비활성화 — '기타' 품목 자동 재분류 금지)
   for (const r of rows) {
     const ovRow = ovRowsByKey.get(Number(r.ProdKey));
     if (ovRow && ovRow.flowerName) {
       r.FlowerName = ovRow.flowerName;
     } else {
-      r.FlowerName = autoDetectFlower(r.ProdName, (r.FlowerName || '').trim());
+      r.FlowerName = (r.FlowerName || '').trim();
     }
   }
 
