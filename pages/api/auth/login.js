@@ -5,9 +5,16 @@ import { createToken } from '../../../lib/auth';
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { userId, password } = req.body;
+  // alias: userId(웹 표준) / username(외부 봇/에이전트) / id(레거시) 모두 허용
+  const body = req.body || {};
+  const userId   = body.userId || body.username || body.id || null;
+  const password = body.password || body.pwd || null;
   if (!userId || !password) {
-    return res.status(400).json({ success: false, error: '아이디와 비밀번호를 입력하세요.' });
+    return res.status(400).json({
+      success: false,
+      error: '아이디와 비밀번호를 입력하세요.',
+      hint: 'POST { userId|username, password } 또는 { id, password }',
+    });
   }
 
   try {
