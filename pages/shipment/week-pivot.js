@@ -586,6 +586,12 @@ export default function WeekPivot() {
           </label>
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목 / {custKeys.length}개 업체)</span>
           <button onClick={()=>{
+            // 엑셀 컬럼 인덱스 → A1 표기 (0=A, 26=AA, …)
+            const colL=(idx)=>{let s='';let n=idx;while(n>=0){s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26)-1;}return s;};
+            // 각 주차 블록 내 위치: 0..C-1=업체별, C=시작, C+1=입고, C+2=출고, C+3=잔량
+            const C=custKeys.length;
+            const blockSize=C+4;
+            const wkBaseCol=(wIdx)=>3+wIdx*blockSize; // 첫 업체 셀 컬럼 인덱스
             const xlData=[];
             const hdr=['국가','꽃','품명'];
             weeks.forEach(wk=>{custKeys.forEach(ck=>hdr.push(`${wk} ${cShort(ck)}`));hdr.push(`${wk} 시작`,`${wk} 입고`,`${wk} 출고`,`${wk} 잔량`);});
@@ -605,7 +611,53 @@ export default function WeekPivot() {
               });
               xlData.push(row);
             });
+            // 합계 행 추가 (각 숫자 컬럼 SUM)
+            const totalRowIdx=xlData.length; // 0-based
+            const totalRow=['','','합계'];
+            for(let k=3;k<hdr.length;k++) totalRow.push(0);
+            xlData.push(totalRow);
             const ws=XLSX.utils.aoa_to_sheet(xlData);
+
+            // ── 수식 주입 ─────────────────────────────────────────
+            // 각 데이터 행(rIdx=2..totalRowIdx) 에 대해:
+            //   출고 = SUM(업체셀들)
+            //   잔량 = 시작 + 입고 - 출고
+            //   2주차 이상의 시작 = 직전 주 잔량
+            const lastDataRow=totalRowIdx; // 1-based 시트행은 totalRowIdx+1, totalRowIdx 가 합계행 인덱스(0-based)
+            for(let rIdx=1;rIdx<=lastDataRow-1;rIdx++){ // 데이터행만 (헤더/합계 제외)
+              const sheetRow=rIdx+1; // A1 행번호
+              weeks.forEach((wk,wIdx)=>{
+                const baseCol=wkBaseCol(wIdx);
+                const startCol=baseCol+C, inCol=baseCol+C+1, outCol=baseCol+C+2, remainCol=baseCol+C+3;
+                // 출고 = SUM(업체셀들)
+                if(C>0){
+                  const firstCust=colL(baseCol)+sheetRow;
+                  const lastCust =colL(baseCol+C-1)+sheetRow;
+                  ws[colL(outCol)+sheetRow]={t:'n',f:`SUM(${firstCust}:${lastCust})`};
+                }
+                // 잔량 = 시작 + 입고 - 출고
+                const sA=colL(startCol)+sheetRow, iA=colL(inCol)+sheetRow, oA=colL(outCol)+sheetRow;
+                ws[colL(remainCol)+sheetRow]={t:'n',f:`${sA}+${iA}-${oA}`};
+                // 2주차 이상이면 시작 = 직전 주 잔량 (사용자가 시작재고 수동 저장값을 안 넣은 경우만)
+                if(wIdx>0){
+                  const ssKey=`${prodKeys[rIdx-1]}-${wk}`;
+                  if(startStocks[ssKey]?.stock==null){
+                    const prevRemainCol=wkBaseCol(wIdx-1)+C+3;
+                    ws[colL(startCol)+sheetRow]={t:'n',f:`${colL(prevRemainCol)}${sheetRow}`};
+                  }
+                }
+              });
+            }
+            // 합계 행: 각 숫자 컬럼 = SUM(데이터 범위)
+            const totalSheetRow=totalRowIdx+1;
+            const firstDataSheetRow=2, lastDataSheetRow=totalRowIdx; // 합계 직전까지
+            for(let cIdx=3;cIdx<hdr.length;cIdx++){
+              const cL=colL(cIdx);
+              ws[cL+totalSheetRow]={t:'n',f:`SUM(${cL}${firstDataSheetRow}:${cL}${lastDataSheetRow})`};
+            }
+            // 시트 범위 갱신
+            ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRowIdx,c:hdr.length-1}});
+
             const wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'차수피벗');
             XLSX.writeFile(wb,`차수피벗_${weeks.join('~')}.xlsx`);

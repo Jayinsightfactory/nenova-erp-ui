@@ -187,6 +187,25 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
             WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+          ), 0) AS totalWhInQty,
+          -- 전산 재고관리 탭에서 +/- 한 재고조정값 (StockHistory 의 AfterValue-BeforeValue 합)
+          --   '확정'/'확정취소'/'입고'/'출고' 는 자동 생성되어 다른 컬럼과 중복되므로 제외
+          ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
+          ), 0) AS totalAdjustQty,
+          -- 입고 표시용: 입고원장 + 전산 재고조정 합산
+          ISNULL((
+            SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+            JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+          ), 0) + ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
@@ -245,6 +264,25 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
             WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+          ), 0) AS totalWhInQty,
+          -- 전산 재고관리 탭에서 +/- 한 재고조정값 (StockHistory 의 AfterValue-BeforeValue 합)
+          --   '확정'/'확정취소'/'입고'/'출고' 는 자동 생성되어 다른 컬럼과 중복되므로 제외
+          ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
+          ), 0) AS totalAdjustQty,
+          -- 입고 표시용: 입고원장 + 전산 재고조정 합산
+          ISNULL((
+            SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+            JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+          ), 0) + ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
