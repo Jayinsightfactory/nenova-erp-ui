@@ -14,7 +14,7 @@ function getClient() {
 }
 
 import { defaultUnit } from '../../../lib/orderUtils';
-import { loadMappings, normalizeToken } from '../../../lib/parseMappings';
+import { loadMappings, normalizeToken, findMappingFuzzy } from '../../../lib/parseMappings';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -221,11 +221,12 @@ Caroline | 2
         ) || null;
       }
 
-      const savedMappings = loadMappings();
+      // 매번 파일에서 새로 로드 (학습 후 재배포 없이 즉시 반영)
+      const savedMappings = loadMappings(true);
       const items = (order.items || []).map(item => {
-        // 1순위: 서버 저장 매핑 (사용자 학습 데이터)
-        const mappedKey = normalizeToken(item.inputName);
-        const savedMap = mappedKey ? savedMappings[mappedKey] : null;
+        // 1순위: 서버 저장 매핑 (사용자 학습 데이터) — 정확 매치 + fuzzy 부분 매치
+        const fuzzyMatch = findMappingFuzzy(item.inputName, savedMappings);
+        const savedMap = fuzzyMatch ? fuzzyMatch.value : null;
         const mappedProd = savedMap ? products.find(p => p.ProdKey === savedMap.prodKey) : null;
 
         // 2순위: Claude 파싱 결과
@@ -244,6 +245,8 @@ Caroline | 2
           flowerName:  prod?.FlowerName  || null,
           counName:    prod?.CounName    || null,
           fromMapping: !!mappedProd,  // 매핑에서 자동 적용됐는지 표시
+          mappingMatchType: fuzzyMatch?.matchType || null,  // 'exact' | 'fuzzy' | null
+          mappingMatchKey:  fuzzyMatch?.key || null,        // 어떤 키로 매치됐는지 (디버그용)
         };
       });
 
