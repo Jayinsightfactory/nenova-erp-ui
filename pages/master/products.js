@@ -441,9 +441,16 @@ export default function Products() {
                       </div>
                       <div className="form-group">
                         <label className="form-label">관세율 (%)</label>
-                        <input type="number" step="0.01" className="form-control"
-                          value={form.TariffRate != null ? Number(form.TariffRate) * 100 : ''}
-                          onChange={e => setForm(f => ({ ...f, tariffRate: e.target.value === '' ? '' : (parseFloat(e.target.value) / 100) }))}
+                        <input type="number" step="0.001" className="form-control"
+                          value={(() => {
+                            const tr = form.tariffRate ?? form.TariffRate;
+                            return tr === '' || tr == null ? '' : Number(tr) * 100;
+                          })()}
+                          onChange={e => {
+                            const v = e.target.value;
+                            const ratio = v === '' ? null : parseFloat(v) / 100;
+                            setForm(f => ({ ...f, tariffRate: ratio == null ? '' : ratio, TariffRate: ratio }));
+                          }}
                           placeholder="0 (콜롬비아)" />
                       </div>
                     </div>

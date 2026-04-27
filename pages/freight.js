@@ -145,21 +145,20 @@ export default function FreightPage() {
     setDirty(true);
   };
   // 세부카테고리(FlowerName 대체) — 웹 전용 오버라이드 (Product.FlowerName 은 건드리지 않음)
-  // 1) 클라이언트 state 에 즉시 반영 (화면 새로고침 전)
-  // 2) /api/freight/category-override 에 파일 저장 → 다음 로드부터 서버에서 자동 적용
-  const updateRowCategory = async (prodKey, flowerName) => {
+  // onChange: 로컬 state 만 (UI 즉시 반응)
+  // onBlur:   서버 저장 (타이핑마다 fetch 하지 않고 포커스 이탈 시 1회)
+  const updateRowCategory = (prodKey, flowerName) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), flowerName: flowerName || null } }));
     setDirty(true);
-    try {
-      await fetch('/api/freight/category-override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ prodKey, category: flowerName || '' }),
-      });
-    } catch (e) {
-      console.warn('[category-override] 저장 실패:', e.message);
-    }
+  };
+  const persistRowCategory = (prodKey, flowerName) => {
+    if (!prodKey) return;
+    fetch('/api/freight/category-override', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ prodKey, category: flowerName || '' }),
+    }).catch(e => console.warn('[category-override] 저장 실패:', e.message));
   };
   const updMaster = (field, val) => { setMaster(m => ({ ...m, [field]: val })); setDirty(true); };
   const updCustoms = (field, val) => { setCustoms(c => ({ ...c, [field]: val })); setDirty(true); };
@@ -174,7 +173,7 @@ export default function FreightPage() {
       BoxWeight: current.boxWeight ?? '',
       BoxCBM: current.boxCBM ?? '',
       StemsPerBox: current.stemsPerBox ?? '',
-      DefaultTariff: fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(2) : '',  // % 로 표시
+      DefaultTariff: fm.defaultTariff != null ? (fm.defaultTariff * 100).toFixed(3) : '',  // % 로 표시 (소수 3자리)
     }}));
   };
   const updCatField = (flowerName, field, val) => {
@@ -562,8 +561,8 @@ export default function FreightPage() {
                     <thead>
                       <tr>
                         <th>카테고리</th>
-                        <th style={{ textAlign: 'right' }}>박스당 무게</th>
-                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>무게 / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
+                        <th style={{ textAlign: 'right' }}>수량 / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
                         <th style={{ textAlign: 'right' }}>비율</th>
                       </tr>
                     </thead>
@@ -573,13 +572,20 @@ export default function FreightPage() {
                         const fkKey = normalizeFlower(c.flowerName);
                         const fkId = flowerNameToKey[fkKey];
                         const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        const country = String(c.countryName || '').trim();
+                        const isColombia = !country || /콜롬비아|colombia/i.test(country);
+                        const qtyLabel = isColombia ? '박' : '단';
+                        const qtyValue = isColombia ? c.boxCount : (c.bunchCount || 0);
                         return (
                           <tr key={c.flowerName}>
-                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
-                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight ?? '–')}
+                            <td className="name">
+                              <span className="badge badge-purple">{c.flowerName}</span>
+                              {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
                             </td>
-                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.01" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight != null ? `${c.boxWeight}${isColombia ? '㎏/박' : '㎏/단'}` : '–')}
+                            </td>
+                            <td className="num">{fmt(qtyValue)} <span style={{ fontSize: 9, color: 'var(--text3)' }}>{qtyLabel}</span></td>
                             <td className="num" style={{ fontWeight: liveResult.header.basis === 'GW' ? 700 : 400, color: liveResult.header.basis === 'GW' ? 'var(--blue)' : 'var(--text3)' }}>{pct(c.weightRatio)}</td>
                           </tr>
                         );
@@ -596,8 +602,8 @@ export default function FreightPage() {
                     <thead>
                       <tr>
                         <th>카테고리</th>
-                        <th style={{ textAlign: 'right' }}>박스당 CBM</th>
-                        <th style={{ textAlign: 'right' }}>박스 수</th>
+                        <th style={{ textAlign: 'right' }}>CBM / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
+                        <th style={{ textAlign: 'right' }}>수량 / <span style={{color:'var(--text3)',fontWeight:400}}>박·단</span></th>
                         <th style={{ textAlign: 'right' }}>비율</th>
                       </tr>
                     </thead>
@@ -607,13 +613,20 @@ export default function FreightPage() {
                         const fkKey = normalizeFlower(c.flowerName);
                         const fkId = flowerNameToKey[fkKey];
                         const cellStyle = { width: 60, height: 22, border: '1px solid var(--blue)', borderRadius: 3, textAlign: 'right', fontSize: 11, fontFamily: 'var(--mono)', padding: '0 4px', background: '#e3f2fd' };
+                        const country = String(c.countryName || '').trim();
+                        const isColombia = !country || /콜롬비아|colombia/i.test(country);
+                        const qtyLabel = isColombia ? '박' : '단';
+                        const qtyValue = isColombia ? c.boxCount : (c.bunchCount || 0);
                         return (
                           <tr key={c.flowerName}>
-                            <td className="name"><span className="badge badge-purple">{c.flowerName}</span></td>
-                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
-                              {edit ? <input type="number" step="0.1" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM ?? '–')}
+                            <td className="name">
+                              <span className="badge badge-purple">{c.flowerName}</span>
+                              {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
                             </td>
-                            <td className="num">{fmt(c.boxCount)}</td>
+                            <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
+                              {edit ? <input type="number" step="0.001" style={cellStyle} value={edit.BoxCBM} onChange={e => updCatField(c.flowerName, 'BoxCBM', e.target.value)} /> : (c.boxCBM != null ? `${c.boxCBM}${isColombia ? '/박' : '/단'}` : '–')}
+                            </td>
+                            <td className="num">{fmt(qtyValue)} <span style={{ fontSize: 9, color: 'var(--text3)' }}>{qtyLabel}</span></td>
                             <td className="num" style={{ fontWeight: liveResult.header.basis === 'CBM' ? 700 : 400, color: liveResult.header.basis === 'CBM' ? 'var(--amber, #f57c00)' : 'var(--text3)' }}>{pct(c.cbmRatio)}</td>
                           </tr>
                         );
@@ -644,7 +657,7 @@ export default function FreightPage() {
                         <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 4 }}>관세</span>
                         {edit
                           ? <>
-                              <input type="number" step="0.01" style={cellStyle} value={edit.DefaultTariff ?? ''} onChange={e => updCatField(c.flowerName, 'DefaultTariff', e.target.value)} placeholder="0" />
+                              <input type="number" step="0.001" style={cellStyle} value={edit.DefaultTariff ?? ''} onChange={e => updCatField(c.flowerName, 'DefaultTariff', e.target.value)} placeholder="0" />
                               <span style={{ fontSize: 10 }}>%</span>
                             </>
                           : <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: curTariffPct ? 'var(--amber, #f57c00)' : 'var(--text3)', cursor: fkId ? 'pointer' : 'default' }} onClick={() => fkId && startCatEdit(c.flowerName, c)}>{curTariffPct != null ? curTariffPct + '%' : '–'}</span>}
@@ -721,6 +734,7 @@ export default function FreightPage() {
                               list="freight-category-list"
                               value={overridden.flowerName ?? r.flowerName ?? ''}
                               onChange={e => updateRowCategory(r.prodKey, e.target.value)}
+                              onBlur={e => persistRowCategory(r.prodKey, e.target.value)}
                               placeholder="세부카테고리"
                               style={{ width: '100%', height: 22, border: '1px solid var(--border2)', borderRadius: 3, fontSize: 10, padding: '0 4px', background: '#fff' }}
                             />

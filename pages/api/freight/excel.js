@@ -230,7 +230,9 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const rate = pickNonZero(ovMaster.rateUSD, snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? extractedRate ?? 0);
   const docFee = pickNonZero(ovMaster.docFeeUSD, snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? extractedDoc ?? 0);
   const exchangeRate = pickOv(ovMaster.exchangeRate, snap?.ExchangeRate || 0);
-  const actualFreightEff = pickNonZero(ovMaster.actualFreightUSD, actualFreightUSD);
+  // 항공료 우선순위: freightOverrideUSD(수동) > actualFreightUSD(FREIGHTWISE) > Rate*CW+Doc 계산
+  const freightOverrideUSD = (ovMaster.freightOverrideUSD != null && ovMaster.freightOverrideUSD !== '' && !Number.isNaN(Number(ovMaster.freightOverrideUSD))) ? Number(ovMaster.freightOverrideUSD) : null;
+  const actualFreightEff = freightOverrideUSD != null ? freightOverrideUSD : pickNonZero(ovMaster.actualFreightUSD, actualFreightUSD);
 
   // aoa + styles (styles는 별도 map으로 관리 후 post-process)
   const aoa = Array.from({ length: 14 }, () => Array(35).fill(null));
@@ -298,7 +300,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   merges.push({ s:{r:4,c:14}, e:{r:4,c:17} });
 
   // 통관 상수 (오버라이드 우선, 없으면 스냅샷, 없으면 하드코드 기본값)
-  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 370);
+  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 460);
   const cHandling   = pickOv(ovCustoms.handlingFee,       snap ? Number(snap.HandlingFee)       : 33000);
   const cQuarantine = pickOv(ovCustoms.quarantinePerItem, snap ? Number(snap.QuarantinePerItem) : 10000);
   const cDomestic   = pickOv(ovCustoms.domesticFreight,   snap ? Number(snap.DomesticFreight)   : 99000);
@@ -306,7 +308,10 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const cExtra      = pickOv(ovCustoms.extraFee,          snap ? Number(snap.ExtraFee)          : 0);
 
   // 통관 총액 미리 계산 (수식에 cached 값 채움용)
-  const _itemCountEff = categories.filter(c => c).length;
+  // itemCount 는 사용자 수동 오버라이드 우선, 없으면 카테고리 자동 집계
+  const _itemCountEff = (ovMaster.itemCount != null && ovMaster.itemCount !== '' && !Number.isNaN(Number(ovMaster.itemCount)))
+    ? Number(ovMaster.itemCount)
+    : categories.filter(c => c).length;
   const _bakSangKRW = (gw || 0) * (cBakSang || 0);
   const _quarantineKRW = _itemCountEff * (cQuarantine || 0);
   const _customsTotalKRW = _bakSangKRW + (cHandling || 0) + _quarantineKRW + (cDomestic || 0) + (cDeduct || 0) + (cExtra || 0);
@@ -387,8 +392,9 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const compResult = computeFreightCost({
     master: {
       gw, cw, rateUSD: rate, docFeeUSD: docFee, exchangeRate,
-      invoiceUSD, itemCount: categories.filter(c => c).length,
+      invoiceUSD, itemCount: _itemCountEff,
       actualFreightUSD: actualFreightEff || null,
+      freightOverrideUSD: freightOverrideUSD,
     },
     basis: ov.basis || 'AUTO',
     customs: { bakSangRate: cBakSang, handlingFee: cHandling, quarantinePerItem: cQuarantine, domesticFreight: cDomestic, deductFee: cDeduct, extraFee: cExtra },
