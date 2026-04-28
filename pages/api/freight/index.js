@@ -121,7 +121,7 @@ async function loadFreightData(res, keys, awbLabel) {
       `SELECT wd.WarehouseKey, wd.WdetailKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
           wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
-          p.ProdName, p.FlowerName, p.CounName, p.SteamOf1Bunch, p.Cost,
+          p.ProdName, p.FlowerName, p.CounName, p.SteamOf1Bunch, p.Cost, p.OutUnit,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
          INNER JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
@@ -326,11 +326,12 @@ async function loadFreightData(res, keys, awbLabel) {
       counName: r.CounName || null,                                  // 국가명 (박스/단 기준 결정용)
       farmName: r.FarmName || null,
       orderCode: r.OrderCode || null,
+      outUnit: (r.OutUnit || '').trim() || null,                     // Product.OutUnit ('박스'|'단'|'송이') — display 단위 결정
       boxQty,                                                        // 카테고리 분배용(첫 행에만 몰아 넣음)
       rawBoxQty: Number(r.BoxQuantity) || 0,                         // 행별 박스수 — client fallback 용
       bunchQty: Number(r.BunchQuantity) || 0,                        // 행별 단수 — client fallback 용
       steamQty: resolveSteamQty(r),
-      fobUSD: Number(r.UPrice) || 0,                                 // DB 단가 (보통 송이당, 단가 단위는 OutUnit 에 따름)
+      fobUSD: Number(r.UPrice) || 0,                                 // DB 단가 (OutUnit 단위와 일치)
       totalPriceUSD: Number(r.TPrice) || 0,                          // 원장에 기록된 총단가 (표시용)
       stemsPerBunch: snapRow?.StemsPerBunch != null ? Number(snapRow.StemsPerBunch) : (Number(r.SteamOf1Bunch) || 0),
       salePriceKRW: snapRow?.SalePriceKRW != null ? Number(snapRow.SalePriceKRW) : (Number(r.Cost) || 0),
