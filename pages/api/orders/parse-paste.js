@@ -14,7 +14,7 @@ function getClient() {
 }
 
 import { defaultUnit } from '../../../lib/orderUtils';
-import { loadMappings, normalizeToken, findMappingFuzzy } from '../../../lib/parseMappings';
+import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -35,12 +35,68 @@ const KO_EN_KEYWORDS = {
   '연핑크': 'LIGHT',
   '블루': 'BLUE',
   '코랄리프': 'CORAL',
+  // 카네이션 품종 (Carnation varieties) — 2026-04-28 확장
   '캐롤라인': 'CAROLINE',
+  '캐롤라인골드': 'CAROLINE GOLD',
   '카라멜': 'CARAMEL',
   '사파리': 'SAFARI',
   '레드팬서': 'PANTHER',
   '팬서': 'PANTHER',
-  '문라이트': 'MOON',
+  '문라이트': 'MOON LIGHT',
+  '문골렘': 'MOON GOLEM',
+  '돈셀': 'DONCEL',
+  '돈페드로': 'DON PEDRO',
+  '돈루이스': 'DON LUIS',
+  '노비아': 'NOVIA',
+  '헤르메스': 'HERMES',
+  '헤르메스오렌지': 'HERMES ORANGE',
+  '오렌지헤르메스': 'HERMES ORANGE',
+  '라이온킹': 'LION KING',
+  '라이언킹': 'LION KING',
+  '메건': 'MEGAN',
+  '웨딩': 'WEDDING',
+  '체리오': 'CHERRIO',
+  '치리오': 'CHERRIO',
+  '프론테라': 'FRONTERA',
+  '레드프론테라': 'RED FRONTERA',
+  '클리아워터': 'CLEAR WATER',
+  '클리어워터': 'CLEAR WATER',
+  '만달레이': 'MANDALAY',
+  '코마치': 'KOMACHI',
+  '마루치': 'MARUCHI',
+  '마리포사': 'MARIPOSA',
+  '카오리': 'KAORI',
+  '이케바나': 'IKEBANA',
+  '폴림니아': 'POLIMNIA',
+  '폴립니아': 'POLIMNIA',
+  '마제스타': 'MAJESTA',
+  '브루트': 'BRUT',
+  '브르트': 'BRUT',
+  '로다스': 'RODAS',
+  '로시타': 'ROSITA',
+  '쥬리고': 'ZURIGO',
+  '아틱': 'ARCTIC',
+  '네스': 'NES',
+  '딜리타': 'DILETTA',
+  '지오지아': 'GIOGIA',
+  '애플티': 'APPLE TEA',
+  '립스틱': 'LIPS',
+  '일루션': 'ILUSION',
+  '일루젼': 'ILUSION',
+  '유카리': 'YUKARI',
+  '유카리체리': 'YUKARI CHERRY',
+  '바카라': 'BACARAT',
+  '골렘': 'GOLEM',
+  '캐서린': 'CATHERINE',
+  '시저': 'CESAR',
+  '시저레드': 'CESAR RED',
+  '바이올렛퀸': 'VIOLET QUEEN',
+  '믹스박스a': 'MIX BOX A',
+  '믹스박스b': 'MIX BOX B',
+  '믹스박스c': 'MIX BOX C',
+  '믹스박스d': 'MIX BOX D',
+  '믹스박스e': 'MIX BOX E',
+  '믹스': 'MIX',
   '핑크': 'PINK',
   '레드': 'RED',
   '옐로': 'YELLOW',
@@ -234,6 +290,26 @@ Caroline | 2
 
         const prod = mappedProd || claudeProd;
         const unit = defaultUnit(prod, item.unit, prodUnitMap);
+        // confidence 점수 계산
+        // - 학습매핑 exact: 1.0
+        // - 학습매핑 fuzzy: fuzzyMatch.score (0~1)
+        // - LLM 매칭: 0.6
+        // - 매칭 실패: 0.0
+        let confidence = 0;
+        let confidenceLabel = 'none';
+        if (mappedProd) {
+          confidence = fuzzyMatch?.score ?? 1;
+          confidenceLabel = fuzzyMatch?.matchType === 'exact' ? 'high' : 'medium';
+        } else if (claudeProd) {
+          confidence = 0.6;
+          confidenceLabel = 'medium';
+        }
+        // fallback 의심 검사: 매칭된 prodKey 가 너무 많은 입력에 매핑되어 있나?
+        const fallbackInfo = prod ? detectFallbackProdKey(prod.ProdKey) : { isFallback: false, count: 0 };
+        if (fallbackInfo.isFallback) {
+          confidence = Math.min(confidence, 0.4);
+          confidenceLabel = 'low';
+        }
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
@@ -244,9 +320,13 @@ Caroline | 2
           displayName: prod?.DisplayName || item.displayName || null,
           flowerName:  prod?.FlowerName  || null,
           counName:    prod?.CounName    || null,
-          fromMapping: !!mappedProd,  // 매핑에서 자동 적용됐는지 표시
-          mappingMatchType: fuzzyMatch?.matchType || null,  // 'exact' | 'fuzzy' | null
-          mappingMatchKey:  fuzzyMatch?.key || null,        // 어떤 키로 매치됐는지 (디버그용)
+          fromMapping: !!mappedProd,
+          mappingMatchType: fuzzyMatch?.matchType || null,
+          mappingMatchKey:  fuzzyMatch?.key || null,
+          confidence,                       // 0.0 ~ 1.0
+          confidenceLabel,                  // 'high' | 'medium' | 'low' | 'none'
+          fallbackSuspect: fallbackInfo.isFallback,  // 같은 prodKey 가 N+개 입력에 매핑되어 있으면 true
+          fallbackCount:   fallbackInfo.count,
         };
       });
 

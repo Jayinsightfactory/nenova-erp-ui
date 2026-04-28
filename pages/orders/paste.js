@@ -206,11 +206,11 @@ export default function PasteOrderPage() {
       const updated = { ...mappingCache, [cacheKey(inputName)]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
       setMappingCache(updated);
       saveCache(updated);
-      // 서버에도 저장 (전 사용자 공유 학습)
+      // 서버에도 저장 (전 사용자 공유 학습) — 사용자가 직접 매칭 변경한 거니 force=true
       fetch('/api/orders/mappings', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ inputToken: inputName, prodKey: prod.ProdKey, prodName: prod.ProdName,
-          displayName: prod.DisplayName, flowerName: prod.FlowerName, counName: prod.CounName }),
+          displayName: prod.DisplayName, flowerName: prod.FlowerName, counName: prod.CounName, force: true }),
       }).catch(() => {});
     }
     setDisambigSearch('');
@@ -604,11 +604,26 @@ export default function PasteOrderPage() {
                           <td style={{ padding: '4px 8px' }}>
                             {it.prodKey ? (() => {
                               const pd = allProducts.find(p => p.ProdKey === it.prodKey);
+                              // 매칭 신뢰도 시각화
+                              const conf = it.confidenceLabel || (it.fromMapping ? 'medium' : 'medium');
+                              const isLow = conf === 'low' || it.fallbackSuspect;
+                              const icon = isLow ? '⚠️' : conf === 'high' ? '✅' : '✓';
+                              const color = isLow ? '#c62828' : conf === 'high' ? '#1b5e20' : '#0d47a1';
+                              const bgConf = isLow ? '#ffebee' : conf === 'high' ? '#e8f5e9' : '#e3f2fd';
                               return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                  <span style={{ color: '#1b5e20', fontWeight: 600, fontSize: 12 }}>
-                                    ✅ {it.displayName || it.prodName}
+                                  <span style={{ color, fontWeight: 600, fontSize: 12 }}>
+                                    {icon} {it.displayName || it.prodName}
                                   </span>
+                                  {it.fallbackSuspect && (
+                                    <span title={`이 품목이 ${it.fallbackCount}개 입력에 매핑되어 있어 자동 추측일 가능성이 높음. 직접 확인 후 변경하세요.`}
+                                      style={{ fontSize: 10, background: '#ffebee', color: '#c62828', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
+                                      ⚠ fallback의심 ({it.fallbackCount})
+                                    </span>
+                                  )}
+                                  {!it.fallbackSuspect && conf === 'low' && (
+                                    <span style={{ fontSize: 10, background: bgConf, color, borderRadius: 8, padding: '1px 6px' }}>저신뢰</span>
+                                  )}
                                   {pd?.CounName && <span style={{ fontSize: 10, background: '#e8f5e9', color: '#388e3c', borderRadius: 8, padding: '1px 6px' }}>{pd.CounName}</span>}
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
