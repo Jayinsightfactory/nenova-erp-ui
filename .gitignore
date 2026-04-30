@@ -28,3 +28,4 @@ data/.train-queue.json
 public/uploads/photos/**
 !public/uploads/photos/.gitkeep
 data/order-mappings.backup-*.json
+data/audit-bills-result.json
