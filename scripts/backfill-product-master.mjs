@@ -1,18 +1,29 @@
 // scripts/backfill-product-master.mjs
-// Product 마스터 자동 백필 — Flower 마스터의 BoxWeight/BoxCBM/StemsPerBox 를
-// Product 마스터의 NULL/0 ProdKey 에 일괄 적용.
 //
-// 룰:
-//   1. Flower 마스터에 BoxWeight 값 있는 카테고리만 대상 (장미/카네이션/알스트로/루스커스)
-//   2. Product.BoxWeight 가 NULL 또는 0 인 ProdKey 만 업데이트
-//   3. 이미 값 있는 ProdKey 는 보존 (덮어쓰기 금지)
-//   4. SteamOf1Bunch 도 동일 룰 (Flower 마스터에 값 있으면 백필 — 단, Flower 에는 StemsPerBox 만 있고 SteamOf1Bunch 는 별도)
+// ⚠️⚠️⚠️ DEPRECATED — 사용 금지 ⚠️⚠️⚠️
 //
-// 안전:
-//   - DRY-RUN 기본. --apply 옵션으로만 실제 UPDATE 실행
-//   - 백업 SQL 출력 (UPDATE 전 원래값 → 롤백 가능)
-//   - 트랜잭션으로 묶음 (전체 성공 or 전체 롤백)
+// 사용자 결정 (2026-05-01):
+//   "엑셀에 입력값 제외하고는 DB에 데이터 없다면 입력하지 마. 예측은 위험하니까."
+//
+// 본 스크립트는 Flower 마스터의 카테고리 평균값(추정값)을 Product 마스터에 박는 방식.
+// 즉 "장미는 모두 8kg, 카네이션은 모두 11kg" 같이 실제값과 다른 추정값을 넣음.
+// → DB 데이터의 신뢰성 훼손 + 정확값으로 갱신해야 함을 잊을 위험.
+//
+// 대신 권장 워크플로:
+//   1. 카카오톡으로 받은 엑셀 정답지 (예: 16-1 MELODY 원가자료.xlsx) 의 정확값만 입력
+//   2. /master/products UI 에서 ProdKey 별로 직접 입력 (단당/박스당)
+//   3. 빈칸이어도 freightCalc.js 의 fallback 로직(Flower 마스터 → 카테고리 평균) 으로
+//      운송원가 계산은 작동 — DB 에 박지 않아도 됨
+//
+// 본 파일은 기록 보존용으로 남기되 실행 차단됨.
 
+console.error('❌ DEPRECATED — 본 스크립트는 카테고리 평균값(추정값)을 DB 에 박습니다.');
+console.error('   사용자 결정: 엑셀 정답지의 정확값만 DB 에 입력. 추정값 금지.');
+console.error('   대안: /master/products UI 에서 정확값 직접 입력');
+console.error('   또는: scripts/extract-excel-truth.mjs (있으면) 으로 엑셀에서 추출');
+process.exit(1);
+
+// ↓↓↓ 이하 원본 코드는 기록 보존용. 실행되지 않음.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

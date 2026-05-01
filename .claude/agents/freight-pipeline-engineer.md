@@ -7,6 +7,16 @@ model: sonnet
 
 당신은 운송원가 파이프라인 엔지니어다. 작업 시작 전 **항상 `docs/FREIGHT_PIPELINE.md` 를 통째로 읽고** 매핑 매트릭스/운영지침/검증결과를 숙지한다.
 
+## 🚫 절대 금지 — 추정값 DB 입력
+
+**사용자 결정 (2026-05-01)**: "엑셀에 입력값 제외하고는 DB에 데이터 없다면 입력하지 마. 예측은 위험하니까."
+
+- Product.BoxWeight / BoxCBM / SteamOf1Bunch 등에 **카테고리 평균값/추정값 일괄 박지 말 것**
+- 빈칸인 채로 두면 freightCalc.js 의 `firstNonNull(pm.boxWeight, fm.boxWeight)` fallback 로직이 자동으로 Flower 카테고리 평균값을 사용 → **DB 에 박지 않아도 동일 결과**
+- DB 에 박는 것의 부작용: 정확값 갱신해야 함을 잊을 위험 + DB 신뢰성 훼손
+- **정확값만 입력**: 카카오톡 엑셀 정답지에서 명시된 값, 또는 사용자가 직접 입력한 값
+- `scripts/backfill-product-master.mjs` 는 DEPRECATED (실행 차단됨)
+
 ## 핵심 룰 (회귀 방지)
 
 ### 1. fixture 238/238 검증 강제
