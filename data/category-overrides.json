@@ -1,18 +1,496 @@
 {
-  "3076": { "category": "기타", "note": "[MEL] Amaranthus 줄맨드라미 (엑셀: others)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "3088": { "category": "기타", "note": "[MEL] ASPARAGUS Preserved White 미디오 (엑셀 라벨은 Sinensis 였으나 실제 분배는 others=기타로 합산되므로 통일)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2748": { "category": "안개꽃", "note": "[MEL] 안개꽃 1Kg Gypsophila white (엑셀: Gypsophila)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "3084": { "category": "리시안서스", "note": "[MEL] Lisianthus 핑크 600g (엑셀: LISIANTHUS)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "3078": { "category": "리시안서스", "note": "[MEL] Lisianthus WHITE 600g (엑셀: LISIANTHUS)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2742": { "category": "장미", "note": "[MEL] ROSE 골렘 Golestem (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2851": { "category": "장미", "note": "[MEL] ROSE 케서린 Catherine (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "3093": { "category": "장미", "note": "[MEL] ROSE 케서린 Catherine 65-75cm (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2961": { "category": "장미", "note": "[MEL] ROSE 퀵샌드 Drift Sand (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2746": { "category": "장미", "note": "[MEL] ROSE 크림컵 Cream cup (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2744": { "category": "장미", "note": "[MEL] ROSE 프라우드 Pride (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2834": { "category": "기타", "note": "[MEL] 리모늄 스타티스 화이트 Statice white (엑셀: others)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2918": { "category": "장미", "note": "[MEL] ROSE 시시아 페어리 Zixia Fairy (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2388": { "category": "장미", "note": "ROSE 만달라 Mandala 65-75cm (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2093": { "category": "장미", "note": "ROSE 버터컵 Butter cup (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" },
-  "2513": { "category": "장미", "note": "ROSE 프라우드 White proud 65-75cm (엑셀: ROSE)", "savedAt": "2026-04-27T00:00:00.000Z" }
+  "2093": {
+    "category": "장미",
+    "note": "ROSE 버터컵 Butter cup (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2158": {
+    "category": "리모늄",
+    "note": "[자동분류] CHINA / 리모늄 시네신스 화이트 (Sinensis white) 50 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2159": {
+    "category": "리모늄",
+    "note": "[자동분류] CHINA / 리모늄 시네신스 옐로우 (Sinensis Yellow) 5 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2220": {
+    "category": "안개꽃",
+    "note": "[자동분류] CHINA / 안개꽃 (Gypsophila white) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2226": {
+    "category": "유칼립투스",
+    "note": "[자동분류] Eucalyptus CHINA / 블랙잭 (베이비 블루) (대) 1Kg (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2269": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 화이트 (Rosita 3 Type wh (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2270": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 샴페인 (Reina Champagne) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2271": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 핑크 (mariachi Light pi (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2295": {
+    "category": "아마란투스",
+    "note": "[자동분류] Amaranthus CHINA / 줄맨드라미 화이트 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2327": {
+    "category": "리모늄",
+    "note": "[자동분류] CHINA / 리모늄 스타티스 화이트 (Statice white) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2330": {
+    "category": "왁스플라워",
+    "note": "[자동분류] CHINA / 왁스 화이트 (Wax White) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2377": {
+    "category": "유칼립투스",
+    "note": "[자동분류] Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptu (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2388": {
+    "category": "장미",
+    "note": "ROSE 만달라 Mandala 65-75cm (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2490": {
+    "category": "왁스플라워",
+    "note": "[자동분류] CHINA / 왁스 핑크 (Wax pink) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2500": {
+    "category": "왁스플라워",
+    "note": "[자동분류] CHINA / 왁스 노랑 (Wax Yellow) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2513": {
+    "category": "장미",
+    "note": "ROSE 프라우드 White proud 65-75cm (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2534": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 핑크 (Rosita 3 Type pin (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2557": {
+    "category": "라넌큘러스",
+    "note": "[자동분류] Ranunculus CHINA / 라넌큘러스 화이트(ranunculus  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2560": {
+    "category": "델피니움",
+    "note": "[자동분류] Delphinium CHINA / 화이트 White  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2561": {
+    "category": "델피니움",
+    "note": "[자동분류] Delphinium CHINA / 연블루 Light Blue (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2562": {
+    "category": "델피니움",
+    "note": "[자동분류] Delphinium CHINA / 라벤더 Lavender (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2651": {
+    "category": "라넌큘러스",
+    "note": "[자동분류] Ranunculus CHINA / 라넌큘러스 레드 (ranunculus  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2685": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 아레나 R1 2호 피플 피코티 (Are (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2742": {
+    "category": "장미",
+    "note": "[MEL] ROSE 골렘 Golestem (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2744": {
+    "category": "장미",
+    "note": "[MEL] ROSE 프라우드 Pride (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2746": {
+    "category": "장미",
+    "note": "[MEL] ROSE 크림컵 Cream cup (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2748": {
+    "category": "안개꽃",
+    "note": "[MEL] 안개꽃 1Kg Gypsophila white (엑셀: Gypsophila)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2754": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL] CHINA / 리모늄 시네신스 화이트 (Sinensis whi (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2755": {
+    "category": "유칼립투스",
+    "note": "[자동분류] [MEL] CHINA Eucalyptus / 블랙잭 (베이비 블루) (대 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2833": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL] CHINA / 리모늄 미스티 블루 (Limonium blue) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2834": {
+    "category": "기타",
+    "note": "[MEL] 리모늄 스타티스 화이트 Statice white (엑셀: others)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2835": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL]CHINA / 리모늄 스타티스 노랑 (Statice Yellow (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2836": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL]CHINA / 리모늄 스타티스 연보라 (Statice light (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2837": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL]CHINA / 리모늄 스타티스 연핑크 (Statice light (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2839": {
+    "category": "리모늄",
+    "note": "[자동분류] [MEL]CHINA / 리모늄 스타티스 진보라 (Statice dark  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2846": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma Pink 600 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2847": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma White an (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2848": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma White  6 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2851": {
+    "category": "장미",
+    "note": "[MEL] ROSE 케서린 Catherine (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2885": {
+    "category": "에리카",
+    "note": "[자동분류] [MEL] CHINA GoldenWatree / 골든와트리  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2918": {
+    "category": "장미",
+    "note": "[MEL] ROSE 시시아 페어리 Zixia Fairy (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2919": {
+    "category": "안개꽃",
+    "note": "[자동분류] [MEL] CHINA / 안개꽃 1Kg (Gypsophila white  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2943": {
+    "category": "글라디올러스",
+    "note": "[자동분류] CHINA / 라스라지 화이트 (Gladiolus White) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2950": {
+    "category": "세루리아",
+    "note": "[자동분류] CHINA / 블러싱 브라이드(Serruria Florida) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2957": {
+    "category": "리시안서스",
+    "note": "[자동분류] Lisianthus CHINA / 로잔 3호 그린 (Rosanne 2 G (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2958": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 블랙 (Dahlia Cocoa bean (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2961": {
+    "category": "장미",
+    "note": "[MEL] ROSE 퀵샌드 Drift Sand (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "2965": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 카라멜 (caramel) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2966": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 핑크 (Dahlia Wizard of  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2967": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 코랄 (Coral pearl) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "2968": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 오렌지 (Orange Stone) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "2987": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 오렌지 (Bright Orange) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3002": {
+    "category": "달리아",
+    "note": "[자동분류] DAHLIA CHINA / 달리아 라운드 화이트 (Round White  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3003": {
+    "category": "글라디올러스",
+    "note": "[자동분류] [MEL] CHINA / 라스라지 화이트 (Gladiolus White) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3004": {
+    "category": "글라디올러스",
+    "note": "[자동분류] [MEL] CHINA / 라스라지 연보라 (Gladiolus Taro p (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3027": {
+    "category": "백합",
+    "note": "[자동분류] CHINA / 백합 화이트 (Oriental white) 2 Buds/봉 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3028": {
+    "category": "유칼립투스",
+    "note": "[자동분류] Eucalyptus CHINA / 포퓰러스 시드, 다이브 (populus (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3029": {
+    "category": "솔리다고",
+    "note": "[자동분류] CHINA / 솔리다고 (Solidago) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3030": {
+    "category": "솔리다고",
+    "note": "[자동분류] [MEL] CHINA / 솔리다고 (Solidago) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3031": {
+    "category": "유칼립투스",
+    "note": "[자동분류] [MEL] Eucalyptus CHINA / 포퓰러스 시드, 다이브 (E (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3032": {
+    "category": "아마란투스",
+    "note": "[자동분류] Amaranthus CHINA Fresh / 줄맨드라미 생화 그린 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3033": {
+    "category": "아마란투스",
+    "note": "[자동분류] Amaranthus CHINA Fresh / 줄맨드라미 생화 래드 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3039": {
+    "category": "조팝",
+    "note": "[자동분류] CHINA / 조팝 (Spiraea spp, Bridal wreath) (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3075": {
+    "category": "아마란투스",
+    "note": "[자동분류] [MEL] Amaranthus CHINA DRY WHITE/ 줄맨드라미  (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3076": {
+    "category": "기타",
+    "note": "[MEL] Amaranthus 줄맨드라미 (엑셀: others)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "3077": {
+    "category": "아마란투스",
+    "note": "[자동분류] [MEL] Amaranthus CHINA Fresh RED / 줄맨드라미 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3078": {
+    "category": "리시안서스",
+    "note": "[MEL] Lisianthus WHITE 600g (엑셀: LISIANTHUS)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "3079": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma Pink 800 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3080": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma White 80 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3081": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma White&Pu (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3084": {
+    "category": "리시안서스",
+    "note": "[MEL] Lisianthus 핑크 600g (엑셀: LISIANTHUS)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "3086": {
+    "category": "아스파라거스",
+    "note": "[자동분류] [MEL] ASPARAGUS CHINA Preserved Blue / 미 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3087": {
+    "category": "아스파라거스",
+    "note": "[자동분류] [MEL] ASPARAGUS CHINA Preserved Dark red (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3088": {
+    "category": "기타",
+    "note": "[MEL] ASPARAGUS Preserved White 미디오 (엑셀 라벨은 Sinensis 였으나 실제 분배는 others=기타로 합산되므로 통일)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "3089": {
+    "category": "아스파라거스",
+    "note": "[자동분류] [MEL] ASPARAGUS CHINA Preserved Pink / 미 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.442Z",
+    "auto": true
+  },
+  "3091": {
+    "category": "폴리고나텀",
+    "note": "[자동분류] Polygonatum Multiflo (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3093": {
+    "category": "장미",
+    "note": "[MEL] ROSE 케서린 Catherine 65-75cm (엑셀: ROSE)",
+    "savedAt": "2026-04-27T00:00:00.000Z"
+  },
+  "3096": {
+    "category": "리모늄",
+    "note": "[자동분류] CHINA / 리모늄 시네신스 연핑크 (Sinensis Light Pin (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3102": {
+    "category": "코디라인",
+    "note": "[자동분류] Cordyline Leaf Per Bunch Black Ti (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3105": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Light Pink 800g (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3108": {
+    "category": "클레마티스",
+    "note": "[자동분류] CLEMATIS CHINA / 클레마티스 연보라 (Rooguchi Sop (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3115": {
+    "category": "리시안서스",
+    "note": "[자동분류] [MEL]Lisianthus CHINA / Eustoma Champagn (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3118": {
+    "category": "유칼립투스",
+    "note": "[자동분류] Eucalyptus CHINA / 포퓰러스 폴리 (populus) 500 (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3119": {
+    "category": "에리카",
+    "note": "[자동분류] Greens CHINA / 에리카 골드 (Melaleuca) 400g (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  },
+  "3121": {
+    "category": "알륨",
+    "note": "[자동분류] Greens CHINA / 스네이크 알륨 (Allium fistulosu (키워드 매칭, 2026-05-01)",
+    "savedAt": "2026-05-01T02:11:17.443Z",
+    "auto": true
+  }
 }

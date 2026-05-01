@@ -29,3 +29,6 @@ public/uploads/photos/**
 !public/uploads/photos/.gitkeep
 data/order-mappings.backup-*.json
 data/audit-bills-result.json
+data/product-master-diagnosis.json
+data/category-overrides.backup-*.json
+data/product-master-rollback-*.sql
