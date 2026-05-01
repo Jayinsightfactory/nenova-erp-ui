@@ -390,18 +390,29 @@ export default function Products() {
                 // ⚠ PascalCase 키도 함께 덮어써야 표시값이 즉시 갱신됨
                 const onBoxWeight = (v) => setForm(f => ({ ...f, boxWeight: v, BoxWeight: v === '' ? null : v }));
                 const onBoxCBM    = (v) => setForm(f => ({ ...f, boxCBM: v,    BoxCBM:    v === '' ? null : v }));
+                // 단당 입력 → BoxWeight 저장 분기:
+                //   - 콜롬비아 (박스 기준): BPB 있으면 박스당으로 환산, 없으면 입력 차단 (의미상 박스당이 정답)
+                //   - 외국 (단 기준): BPB 있으면 환산, 없으면 단당값 그대로 BoxWeight 에 저장
+                //     이유: freightCalc.js 의 외국 분기는 boxWeight × bunchCount 로 작동 →
+                //     BoxWeight 가 사실상 "단당 무게" 로 취급됨. 따라서 단당 그대로 저장이 정확.
                 const onBunchWeight = (v) => {
                   if (v === '') { onBoxWeight(''); return; }
                   if (bpb > 0) {
                     const boxVal = String(+(parseFloat(v) * bpb).toFixed(3));
                     onBoxWeight(boxVal);
+                  } else if (!isColombia) {
+                    // BPB 미설정 외국 품목 — 단당값을 BoxWeight 에 그대로 저장
+                    onBoxWeight(String(+(parseFloat(v)).toFixed(3)));
                   }
+                  // 콜롬비아 + BPB=0 = 입력 무시 (UI 가이드로 BPB 먼저 설정 유도)
                 };
                 const onBunchCBM = (v) => {
                   if (v === '') { onBoxCBM(''); return; }
                   if (bpb > 0) {
                     const boxVal = String(+(parseFloat(v) * bpb).toFixed(4));
                     onBoxCBM(boxVal);
+                  } else if (!isColombia) {
+                    onBoxCBM(String(+(parseFloat(v)).toFixed(4)));
                   }
                 };
                 // 콜롬비아면 박스 칸 강조, 아니면 단 칸 강조 (activeStyle)
@@ -416,7 +427,11 @@ export default function Products() {
                         [{counName || '국가 미지정'}] 기본 입력: <b>{boxActive ? '박스당' : '단당'}</b>
                       </span>
                       <span style={{ marginLeft: 8, fontSize: 10, color: '#888' }}>
-                        (양쪽 어디에 입력해도 자동 환산 {bpb > 0 ? `· 1박스 = ${bpb}단` : '· ⚠ BunchOf1Box 설정 필요'})
+                        {bpb > 0
+                          ? `(양쪽 어디에 입력해도 자동 환산 · 1박스 = ${bpb}단)`
+                          : isColombia
+                            ? '(⚠ 콜롬비아 = 박스당 무게 입력 권장. BunchOf1Box 설정 시 단당 입력도 가능)'
+                            : '(외국 = 단당 무게 그대로 저장됨. BunchOf1Box 설정 시 양쪽 환산 가능)'}
                       </span>
                     </div>
 
@@ -432,12 +447,24 @@ export default function Products() {
                       <div className="form-group">
                         <label className="form-label">단당 무게 (kg)</label>
                         <input type="number" step="0.01" className="form-control"
-                          value={bunchW === '' ? '' : (typeof bunchW === 'number' ? +bunchW.toFixed(4) : bunchW)}
+                          value={(() => {
+                            // BPB > 0 이면 박스당값 ÷ BPB 로 표시
+                            // BPB = 0 + 외국이면 BoxWeight 에 단당값이 그대로 저장됨 → 그 값 표시
+                            if (bpb > 0) return bunchW === '' ? '' : (typeof bunchW === 'number' ? +bunchW.toFixed(4) : bunchW);
+                            if (!isColombia) return boxW === '' || boxW == null ? '' : boxW;
+                            return '';
+                          })()}
                           onChange={e => onBunchWeight(e.target.value)}
                           placeholder={!isColombia ? '예: 0.5' : ''}
-                          disabled={!(bpb > 0)}
-                          title={bpb > 0 ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.' : '1박스당 단수(BunchOf1Box) 먼저 설정하세요.'}
-                          style={!boxActive && bpb > 0 ? activeStyle : dimStyle} />
+                          disabled={isColombia && !(bpb > 0)}
+                          title={
+                            bpb > 0
+                              ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.'
+                              : isColombia
+                                ? '콜롬비아는 박스당 무게 권장. 단당 입력하려면 1박스당 단수(BunchOf1Box) 먼저 설정하세요.'
+                                : '외국 품목 — 단당 값을 BoxWeight 컬럼에 그대로 저장합니다 (운송원가 분배는 단당 × 단수로 작동).'
+                          }
+                          style={!boxActive ? activeStyle : dimStyle} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">관세율 (%)</label>
@@ -467,12 +494,22 @@ export default function Products() {
                       <div className="form-group">
                         <label className="form-label">단당 CBM</label>
                         <input type="number" step="0.01" className="form-control"
-                          value={bunchC === '' ? '' : (typeof bunchC === 'number' ? +bunchC.toFixed(5) : bunchC)}
+                          value={(() => {
+                            if (bpb > 0) return bunchC === '' ? '' : (typeof bunchC === 'number' ? +bunchC.toFixed(5) : bunchC);
+                            if (!isColombia) return boxC === '' || boxC == null ? '' : boxC;
+                            return '';
+                          })()}
                           onChange={e => onBunchCBM(e.target.value)}
                           placeholder={!isColombia ? '예: 0.03' : ''}
-                          disabled={!(bpb > 0)}
-                          title={bpb > 0 ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.' : '1박스당 단수(BunchOf1Box) 먼저 설정하세요.'}
-                          style={!boxActive && bpb > 0 ? activeStyle : dimStyle} />
+                          disabled={isColombia && !(bpb > 0)}
+                          title={
+                            bpb > 0
+                              ? '단당 값을 입력하면 박스당(=단당×1박스단수)으로 자동 환산되어 DB 저장됩니다.'
+                              : isColombia
+                                ? '콜롬비아는 박스당 CBM 권장. 단당 입력하려면 1박스당 단수(BunchOf1Box) 먼저 설정하세요.'
+                                : '외국 품목 — 단당 값을 BoxCBM 컬럼에 그대로 저장합니다.'
+                          }
+                          style={!boxActive ? activeStyle : dimStyle} />
                       </div>
                       <div />
                     </div>
