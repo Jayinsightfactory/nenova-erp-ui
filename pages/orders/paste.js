@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { apiGet } from '../../lib/useApi';
-import { filterProducts, jamoSimilarity, getDisplayName } from '../../lib/displayName';
+import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit } from '../../lib/orderUtils';
 
@@ -231,44 +231,25 @@ export default function PasteOrderPage() {
     setDisambigResults([]);
   };
 
-  // 품목 스코어링: inputName + 검색어 조합, 0~100
-  const scoreProduct = (inputName, prod, searchQuery = '') => {
-    const dn = (getDisplayName(prod) || '').toLowerCase();
-    const pn = (prod.ProdName || '').toLowerCase();
-    const fn = (prod.FlowerName || '').toLowerCase();
-    const q  = (inputName || '').toLowerCase();
+  // 품목 스코어링: lib/displayName.js의 scoreMatch 위임 (한글↔영문 역변환 + 토큰별 매칭 + 마지막 토큰 보너스)
+  const scoreProduct = (inputName, prod, searchQuery = '') =>
+    scoreMatch(inputName, prod, searchQuery);
 
-    let score = Math.max(
-      jamoSimilarity(q, dn),
-      jamoSimilarity(q, pn),
-      jamoSimilarity(q, fn),
-      dn.includes(q) ? 1 : 0,
-      pn.includes(q) ? 1 : 0,
-    );
-
-    if (searchQuery) {
-      const sq = searchQuery.toLowerCase();
-      const sqScore = Math.max(
-        jamoSimilarity(sq, dn),
-        jamoSimilarity(sq, pn),
-        dn.includes(sq) ? 1 : 0,
-        pn.includes(sq) ? 1 : 0,
-      );
-      if (sqScore > 0) score = Math.max(score, sqScore);
-    }
-    return Math.round(score * 100);
-  };
-
-  // 후보 목록: 검색어 없으면 inputName 기준 자동 스코어링, 있으면 필터+스코어
+  // 후보 목록: 점수 0 후보 제거, 점수 내림차순 정렬, 동점이면 한글 자연어명 알파벳순
+  // - 검색어 없으면 inputName 만으로 점수 계산 → 점수 ≥ 25 만 표시 (관련성 낮은 거 제거)
+  // - 검색어 있으면 검색어 포함 모든 후보에서 점수 ≥ 15 만 표시 (사용자가 적극 입력했으므로 관대)
   const buildCandidates = (inputName, searchQuery) => {
-    const base = searchQuery
-      ? filterProducts(allProducts, searchQuery)
-      : allProducts;
-    return base
+    const minScore = searchQuery ? 15 : 25;
+    return allProducts
       .map(p => ({ prod: p, score: scoreProduct(inputName, p, searchQuery) }))
-      .filter(x => searchQuery ? true : x.score >= 20)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 15);
+      .filter(x => x.score >= minScore)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const an = getDisplayName(a.prod) || a.prod.ProdName || '';
+        const bn = getDisplayName(b.prod) || b.prod.ProdName || '';
+        return an.localeCompare(bn, 'ko');
+      })
+      .slice(0, 20);
   };
 
   const handleDisambigSearchChange = (q) => {
