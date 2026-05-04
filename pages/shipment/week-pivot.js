@@ -313,6 +313,34 @@ export default function WeekPivot() {
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
 
+  // ── 보기 옵션 (글씨/너비/패딩 + 필터/컴팩트) — localStorage 영구 저장
+  const [pvFontSize, setPvFontSize] = useState(10);
+  const [pvCellWidth, setPvCellWidth] = useState(44);
+  const [pvCellPad, setPvCellPad] = useState(2);
+  const [pvFiltersOpen, setPvFiltersOpen] = useState(false); // 기본 닫힘 (엑셀 같은 느낌)
+  useEffect(() => {
+    try {
+      const fs = parseInt(localStorage.getItem('wp_fs')); if (fs >= 7 && fs <= 20) setPvFontSize(fs);
+      const cw = parseInt(localStorage.getItem('wp_cw')); if (cw >= 24 && cw <= 120) setPvCellWidth(cw);
+      const cp = parseInt(localStorage.getItem('wp_cp')); if (cp >= 0 && cp <= 12) setPvCellPad(cp);
+      const fo = localStorage.getItem('wp_fo'); if (fo === '1') setPvFiltersOpen(true);
+    } catch {}
+  }, []);
+  useEffect(() => { try { localStorage.setItem('wp_fs', String(pvFontSize)); } catch {} }, [pvFontSize]);
+  useEffect(() => { try { localStorage.setItem('wp_cw', String(pvCellWidth)); } catch {} }, [pvCellWidth]);
+  useEffect(() => { try { localStorage.setItem('wp_cp', String(pvCellPad)); } catch {} }, [pvCellPad]);
+  useEffect(() => { try { localStorage.setItem('wp_fo', pvFiltersOpen ? '1' : '0'); } catch {} }, [pvFiltersOpen]);
+
+  // 가로 스크롤 동기화 (위/아래 두 개)
+  const pvTopScrollRef = useRef(null);
+  const pvBodyScrollRef = useRef(null);
+  const syncScroll = (src, dst) => {
+    if (!src.current || !dst.current) return;
+    if (dst.current._syncing) { dst.current._syncing = false; return; }
+    src.current._syncing = true;
+    dst.current.scrollLeft = src.current.scrollLeft;
+  };
+
   // ── 즐겨찾기
   const [favorites, setFavorites] = useState([]);
   const loadFavorites = useCallback(async () => {
@@ -551,6 +579,8 @@ export default function WeekPivot() {
 
     return (
       <div>
+        {/* 필터 영역 — 기본 닫힘. 토글 버튼으로 펼침 */}
+        {pvFiltersOpen && (<>
         {/* 담당자 필터 */}
         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
           <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>담당자:</span>
@@ -573,8 +603,9 @@ export default function WeekPivot() {
           <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
           {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
         </div>
+        </>)}
         {/* 꽃 필터 (국가 선택 시) */}
-        {filterCoun&&(()=>{
+        {pvFiltersOpen&&filterCoun&&(()=>{
           const flowers=[...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort();
           return (
             <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
@@ -586,11 +617,37 @@ export default function WeekPivot() {
         })()}
         {/* 옵션 + 버튼 */}
         <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
+          <button onClick={()=>setPvFiltersOpen(v=>!v)}
+            style={{padding:'2px 10px',fontSize:11,fontWeight:700,border:'1px solid #1976d2',borderRadius:4,
+              background:pvFiltersOpen?'#1976d2':'#fff',color:pvFiltersOpen?'#fff':'#1976d2',cursor:'pointer'}}>
+            {pvFiltersOpen?'▴ 필터 닫기':'▾ 필터'}
+          </button>
           <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
             <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
             출고/재고 있는 품목만
           </label>
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목 / {custKeys.length}개 업체)</span>
+          {/* ── 보기 옵션: 글씨크기/셀너비/패딩 ── */}
+          <div style={{display:'flex',gap:4,alignItems:'center',padding:'2px 8px',background:'#f8f9fa',border:'1px solid #dee2e6',borderRadius:4}}>
+            <span style={{fontSize:9,color:'#666'}}>🔡</span>
+            <button onClick={()=>setPvFontSize(v=>Math.max(7,v-1))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>-</button>
+            <span style={{fontSize:9,minWidth:14,textAlign:'center',fontWeight:700}}>{pvFontSize}</span>
+            <button onClick={()=>setPvFontSize(v=>Math.min(20,v+1))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
+            <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
+            <span style={{fontSize:9,color:'#666'}}>↔</span>
+            <button onClick={()=>setPvCellWidth(v=>Math.max(24,v-4))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>-</button>
+            <span style={{fontSize:9,minWidth:18,textAlign:'center',fontWeight:700}}>{pvCellWidth}</span>
+            <button onClick={()=>setPvCellWidth(v=>Math.min(120,v+4))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
+            <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
+            <span style={{fontSize:9,color:'#666'}}>▭</span>
+            <button onClick={()=>setPvCellPad(v=>Math.max(0,v-1))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>-</button>
+            <span style={{fontSize:9,minWidth:14,textAlign:'center',fontWeight:700}}>{pvCellPad}</span>
+            <button onClick={()=>setPvCellPad(v=>Math.min(12,v+1))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
+            <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
+            <button onClick={()=>{setPvFontSize(10);setPvCellWidth(44);setPvCellPad(2);}}
+              style={{padding:'1px 6px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2,color:'#666'}}
+              title="기본값으로 초기화">↺</button>
+          </div>
           <button onClick={()=>{
             // 엑셀 컬럼 인덱스 → A1 표기 (0=A, 26=AA, …)
             const colL=(idx)=>{let s='';let n=idx;while(n>=0){s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26)-1;}return s;};
@@ -680,9 +737,34 @@ export default function WeekPivot() {
           }} style={{...st.addBtn,background:'#6a1b9a'}}>📋 잔량복사</button>
         </div>
 
-        {/* 피벗 테이블 */}
-        <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 200px)',position:'relative'}}>
-        <table style={{...st.table,fontSize:10,borderCollapse:'collapse'}}>
+        {/* 피벗 테이블 — 보기옵션 동적 적용 */}
+        <style>{`
+          .wp-pivot table { font-size: ${pvFontSize}px !important; }
+          .wp-pivot td, .wp-pivot th { padding: ${pvCellPad}px ${Math.max(2,pvCellPad)}px !important; }
+          .wp-pivot .pv-cell { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth}px !important; }
+          .wp-pivot .pv-cust-head { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth + 16}px !important; }
+          /* 상단 가로스크롤 미러 */
+          .wp-top-scroll { overflow-x: auto; overflow-y: hidden; height: 14px; margin-bottom: 2px; background: #f5f5f5; border-radius: 3px; }
+          .wp-top-scroll > div { height: 1px; }
+          /* 스크롤바 두껍게 — 잡기 쉽게 */
+          .wp-top-scroll::-webkit-scrollbar, .wp-pivot::-webkit-scrollbar { height: 14px; }
+          .wp-top-scroll::-webkit-scrollbar-thumb, .wp-pivot::-webkit-scrollbar-thumb { background: #1976d2; border-radius: 7px; }
+        `}</style>
+        {/* 상단 가로 스크롤 미러 — 표를 위로 안 올려도 가로이동 가능 */}
+        <div ref={pvTopScrollRef} className="wp-top-scroll"
+             onScroll={()=>syncScroll(pvTopScrollRef, pvBodyScrollRef)}>
+          <div ref={el => { if (el && pvBodyScrollRef.current) el.style.width = pvBodyScrollRef.current.scrollWidth + 'px'; }} />
+        </div>
+        <div ref={pvBodyScrollRef} className="wp-pivot"
+             onScroll={()=>{
+               syncScroll(pvBodyScrollRef, pvTopScrollRef);
+               // 미러 inner 너비 동기화
+               if (pvTopScrollRef.current?.firstChild && pvBodyScrollRef.current) {
+                 pvTopScrollRef.current.firstChild.style.width = pvBodyScrollRef.current.scrollWidth + 'px';
+               }
+             }}
+             style={{overflowX:'auto',overflowY:'auto',maxHeight:`calc(100vh - ${pvFiltersOpen ? 200 : 90}px)`,position:'relative'}}>
+        <table style={{...st.table,fontSize:pvFontSize,borderCollapse:'collapse'}}>
           <thead style={{position:'sticky',top:0,zIndex:4}}>
             <tr style={st.thead}>
               <th style={{...st.th,position:'sticky',left:0,background:'#263238',zIndex:3}} rowSpan={3}>품명</th>
@@ -706,7 +788,7 @@ export default function WeekPivot() {
                   {custKeys.map((ck,ci)=>(
                     <React.Fragment key={`${wk}-${ck}`}>
                       {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
-                      <th style={{...st.th,fontSize:9,textAlign:'center',minWidth:44,maxWidth:60,whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.2',padding:'4px 2px',borderLeft:ci===0?'2px solid #fff':'none'}}>
+                      <th className="pv-cust-head" style={{...st.th,fontSize:Math.max(8,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.2',padding:'4px 2px',borderLeft:ci===0?'2px solid #fff':'none'}}>
                         {cShort(ck)}
                       </th>
                     </React.Fragment>
@@ -782,12 +864,12 @@ export default function WeekPivot() {
                                 {(()=>{
                                   const fixed=isFixed(ck,wk);
                                   return (
-                                    <td style={{...st.td,textAlign:'right',fontSize:10,cursor:fixed?'not-allowed':'pointer',
+                                    <td className="pv-cell" style={{...st.td,textAlign:'right',fontSize:pvFontSize,cursor:fixed?'not-allowed':'pointer',
                                         borderLeft:ci===0?'2px solid #e0e0e0':'none',color:v>0?'#1565c0':'#ddd',
                                         background:fixed?'#f5f5f5':pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
                                         onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)});}}>
                                       {v>0?fmt(v):'·'}
-                                      {fixed&&v>0&&<span style={{fontSize:7,color:'#999'}}>🔒</span>}
+                                      {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
                                     </td>
                                   );
                                 })()}
