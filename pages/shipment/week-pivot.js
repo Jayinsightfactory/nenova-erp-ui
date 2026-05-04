@@ -428,22 +428,28 @@ export default function WeekPivot() {
     } catch(e) { console.error(e); }
   }, [startStocks]);
 
-  // 피벗 셀 수량 저장
+  // 피벗 셀 수량 저장 — ADD/CANCEL 단일 액션 + ShipmentAdjustment 이력 자동 기록
   const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
     if (qty === old) { setPvEdit(null); return; }
+    const diff = qty - old;
+    const type = diff > 0 ? 'ADD' : 'CANCEL';
+    const delta = Math.abs(diff);
     try {
-      const diff = qty - old;
-      const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
-      const r = await fetch('/api/shipment/stock-status', {
-        method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ custKey:ck, prodKey:pk, week:wk, outQty:qty, shipDate:weekToShipDate(wk), descrLog:`${custName} ${old}>${qty}(${diffStr})` }),
+      const r = await fetch('/api/shipment/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, type, qty: delta, memo: `${custName} 셀편집` }),
       });
       const d = await r.json();
-      if (d.success) { setPvEdit(null); loadData(weekFrom, weekTo); }
-      else alert('저장 실패: ' + d.error);
-    } catch(e) { alert('오류: ' + e.message); }
+      if (d.success) {
+        setPvEdit(null);
+        loadData(weekFrom, weekTo);
+      } else {
+        alert(`${type} 실패: ${d.error}`);
+      }
+    } catch (e) { alert('오류: ' + e.message); }
   }, [weekFrom, weekTo, loadData]);
 
   // 차수피벗 제외 품명 키워드 (대소문자 무시)
@@ -950,6 +956,11 @@ export default function WeekPivot() {
         {/* 검색 */}
         <input value={filterSearch} onChange={e=>setFilterSearch(e.target.value)} placeholder="품목/업체 검색..."
           style={{...hst.wInput,width:140,background:'rgba(255,255,255,0.15)',color:'#fff',border:'1px solid rgba(255,255,255,0.3)'}} />
+        <button
+          onClick={()=>window.open('/orders/paste', 'pastePopup', 'width=1100,height=860,scrollbars=yes')}
+          style={{...hst.hBtn, background:'#2e7d32', border:'1px solid #1b5e20', fontWeight:700, fontSize:11, padding:'3px 12px'}}
+          title="새 창으로 붙여넣기 주문등록 — 등록 후 이 화면에서 [🔍 조회] 다시 누르면 반영됨"
+        >📋 붙여넣기 주문등록</button>
         <span style={{marginLeft:'auto',fontSize:11,opacity:0.7}}>{user?.userName||''}</span>
         <button onClick={()=>window.close()} style={{...hst.hBtn,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.3)',fontSize:11}}>✕ 닫기</button>
       </div>
