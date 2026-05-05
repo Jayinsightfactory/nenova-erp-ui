@@ -152,6 +152,7 @@ async function loadItems(sk) {
          '정상출고'                                AS EstimateType,
          sd.SdetailKey,
          sd.ProdKey,
+         smOuter.OrderWeek                         AS OrderWeek,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.OutUnit, '박스')                 AS Unit,
@@ -182,6 +183,7 @@ async function loadItems(sk) {
          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
        FROM ShipmentDetail sd
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+       LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
        WHERE sd.ShipmentKey = @sk
        UNION ALL
        -- ② 차감 (Estimate) — 단가 수정 대상 아님, SdetailKey=NULL
@@ -190,6 +192,7 @@ async function loadItems(sk) {
          e.EstimateType,
          NULL                                      AS SdetailKey,
          e.ProdKey,
+         smE.OrderWeek                             AS OrderWeek,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          e.Unit,
@@ -203,6 +206,7 @@ async function loadItems(sk) {
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
        LEFT JOIN ShipmentDetail sd2
          ON e.ShipmentKey = sd2.ShipmentKey AND e.ProdKey = sd2.ProdKey
+       LEFT JOIN ShipmentMaster smE ON e.ShipmentKey = smE.ShipmentKey
        WHERE e.ShipmentKey = @sk
      ) T
      -- 차감(정상출고 아님) 항목은 무조건 최하단

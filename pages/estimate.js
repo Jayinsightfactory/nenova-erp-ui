@@ -83,7 +83,7 @@ function mapEstimateType(t) {
 }
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
-function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl }) {
+function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl, aggregate = false }) {
   // ── 차감 항목을 최하단으로 정렬 (정상출고 먼저, 차감은 뒤)
   const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
   const sortedRows = [...rows].sort((a, b) => {
@@ -114,8 +114,37 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
   // 적요: 차감 행은 출고일(DD일), 정상출고는 Descr 또는 빈 값
   const descLabel = r => {
     if (isDeduct(r) && r.outDate) return new Date(r.outDate).getDate() + '일';
+    if (r._distribDesc) return r._distribDesc;  // 차수별 분배 표시 (1차 N단, 2차 M단)
     return r.Descr || '';
   };
+
+  // ── 종합견적서 (aggregate=true): 같은 ProdKey 끼리 합산하고 차수별 breakdown 을 적요에 표시
+  if (aggregate) {
+    const groups = {};   // key = `${EstimateType}|${ProdKey}`
+    rows.forEach(r => {
+      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}`;
+      if (!groups[key]) groups[key] = { ...r, Quantity: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
+      const g = groups[key];
+      g.Quantity += (r.Quantity || 0);
+      g.Amount   += (r.Amount   || 0);
+      g.Vat      += (r.Vat      || 0);
+      // OrderWeek 형식 "14-01" → "1차" / "14-02" → "2차"
+      const ow = r.OrderWeek || '';
+      const subM = ow.match(/-(\d+)$/);
+      const subLabel = subM ? `${parseInt(subM[1])}차` : (ow || '?');
+      g._breakdown[subLabel] = (g._breakdown[subLabel] || 0) + (r.Quantity || 0);
+      if (r.outDate) g._outDates.add(r.outDate);
+    });
+    rows = Object.values(groups).map(g => {
+      const parts = Object.entries(g._breakdown)
+        .filter(([_, v]) => v > 0)
+        .sort(([a],[b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k} ${fmtN(v)}${g.Unit||'박스'}`);
+      g._distribDesc = parts.join(', ');
+      // 차감행은 출고일 우선 표시 (집계 후에도)
+      return g;
+    });
+  }
 
   const itemRows = rows.map((r, i) => {
     const deduct = isDeduct(r);
@@ -125,7 +154,7 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
       <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;${deduct ? 'color:#c0392b;font-weight:bold;' : ''}">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || '박스'}</td>
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
@@ -179,10 +208,10 @@ table { width:100%; border-collapse:collapse; }
       <table style="width:100%;border-collapse:collapse;">
         <tr class="hdr-row"><td class="hdr-key">일련번호</td><td>${serialDisplay}</td></tr>
         <tr class="hdr-row"><td class="hdr-key">수&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;신</td><td><b>${custName}</b></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">청&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">참&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">TEL/FAX</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">결제조건</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">출고기간</td><td></td></tr>
+        <tr class="hdr-row"><td class="hdr-key">유효기간</td><td></td></tr>
         <tr class="hdr-row"><td class="hdr-key">비&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;고</td><td>${bigoLabel}</td></tr>
       </table>
       <div class="greet">
@@ -723,7 +752,7 @@ export default function Estimate() {
     });
 
     if (opts.splitMode === 'combined') {
-      // ── 종합 출력 (1장) — 비고: "13차 종합견적서"
+      // ── 종합 출력 (1장) — 비고: "13차 종합견적서" + 차수별 분배 합산표시
       const bigoLabel = `${week}차 종합견적서`;
       const html = buildEstimateHtml({
         bigoLabel,
@@ -732,6 +761,7 @@ export default function Estimate() {
         custName,
         rows: printRows,
         logoDataUrl,
+        aggregate: true, // 같은 품목 합산 + 적요에 1차/2차 분배 표시
       });
       printInIframe(html);
     } else {
@@ -761,15 +791,16 @@ export default function Estimate() {
           bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
           rows: groups[g],
         })),
-        // 마지막: 종합 (PDF 마지막 페이지)
+        // 마지막: 종합 (PDF 마지막 페이지) — 차수별 분배 합산
         {
           bigoLabel: `${week}차 종합견적서`,
           rows: printRows,
+          aggregate: true,
         },
       ];
 
       const pagePromises = [];
-      pages.forEach(({ bigoLabel, rows }, idx) => {
+      pages.forEach(({ bigoLabel, rows, aggregate }, idx) => {
         const html = buildEstimateHtml({
           bigoLabel,
           serialNo:  opts.serialNo,
@@ -777,6 +808,7 @@ export default function Estimate() {
           custName,
           rows,
           logoDataUrl,
+          aggregate,
         });
         // 기존 setTimeout + window.open 방식 → 순차 iframe 인쇄로 변경.
         pagePromises.push({ html });
