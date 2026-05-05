@@ -8,9 +8,18 @@ import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
 
-// 오늘 날짜 기준 차수(주차 번호)만 반환 — "14-01" → "14"
+// 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
-  return getCurrentWeek().split('-')[0];
+  const w = getCurrentWeek(); // "2026-18-01" 또는 "18-01"
+  const parts = w.split('-');
+  // 신형식 YYYY-WW-SS 면 [1], 구형식 WW-SS 면 [0]
+  return parts.length === 3 ? parts[1] : parts[0];
+}
+// 오늘 날짜 기준 연도 — "2026"
+function getCurrentYearStr() {
+  const w = getCurrentWeek();
+  const parts = w.split('-');
+  return parts.length === 3 ? parts[0] : String(new Date().getFullYear());
 }
 
 // 출고일자 포맷: "2026-04-03" → "03(금)" (기존 전산 프로그램 형식)
@@ -154,7 +163,7 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
       <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;${deduct ? 'color:#c0392b;font-weight:bold;' : ''}">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || '박스'}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
@@ -337,6 +346,7 @@ export default function Estimate() {
   const { t } = useLang();
   // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
   const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
+  const [yearStr, setYearStr] = useState(getCurrentYearStr);
   const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
   const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
@@ -840,6 +850,16 @@ export default function Estimate() {
     <div>
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
+        {/* 연도 (별도) */}
+        <span className="filter-label">연도</span>
+        <input
+          className="filter-input"
+          style={{ width:60, textAlign:'center', fontWeight:700, background:'#f8f9fa' }}
+          value={yearStr}
+          onChange={e => setYearStr(e.target.value.replace(/\D/g,'').slice(0,4))}
+          onBlur={e => setYearStr(String(Math.max(2024, Math.min(2030, parseInt(e.target.value)||new Date().getFullYear())))) }
+          placeholder={getCurrentYearStr()}
+        />
         {/* 차수 입력 — 단순 번호 (14, 15…), 세부차수(14-01/02)는 자동 묶음 */}
         <span className="filter-label">차수</span>
         <button type="button" className="btn btn-sm"
