@@ -155,28 +155,29 @@ async function loadItems(sk) {
          smOuter.OrderWeek                         AS OrderWeek,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
-         ISNULL(p.OutUnit, '박스')                 AS Unit,
-         CASE ISNULL(p.OutUnit, '박스')
-              WHEN '단'  THEN sd.BunchQuantity
-              WHEN '송이' THEN sd.SteamQuantity
+         -- 표시 단위: BunchQty>0 단, SteamQty>0 송이, 그 외 박스 (옛 양식 우선순위)
+         -- 카네이션처럼 OutUnit='박스' 라도 Bunch 가 채워져 있으면 단 단위로 표시
+         CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
+              WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
+              ELSE N'박스' END                     AS Unit,
+         CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+              WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
          ISNULL(sd.BoxQuantity, 0)                 AS BoxQty,
          -- Cost: sd.Cost 있으면 그대로, 없으면 p.Cost (14차 fallback)
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
-         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 14차 패턴 (Bunch × Cost / 1.1)
+         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 표시단위 우선순위로 환산
          ISNULL(NULLIF(sd.Amount, 0),
            ROUND(ISNULL(p.Cost, 0)
-             * CASE ISNULL(p.OutUnit,'박스')
-                    WHEN '단'  THEN sd.BunchQuantity
-                    WHEN '송이' THEN sd.SteamQuantity
+             * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
          ) AS Amount,
          ISNULL(NULLIF(sd.Vat, 0),
            ROUND(ISNULL(p.Cost, 0)
-             * CASE ISNULL(p.OutUnit,'박스')
-                    WHEN '단'  THEN sd.BunchQuantity
-                    WHEN '송이' THEN sd.SteamQuantity
+             * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 11, 0)
          ) AS Vat,

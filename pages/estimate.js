@@ -425,6 +425,10 @@ export default function Estimate() {
   // ── 단가 수정 상태 (P3) ─────────────────────────
   // costEdits[sdetailKey] = 수정된 단가 (string)
   const [costEdits, setCostEdits] = useState({});
+  // qtyEdits[sdetailKey] = 수정된 수량 (string)
+  const [qtyEdits, setQtyEdits] = useState({});
+  const [qtyApplying, setQtyApplying] = useState(false);
+  const [qtyResult, setQtyResult] = useState(null);
   const [costMode, setCostMode] = useState('once'); // 'once' | 'fixed' | 'weekFav'
   const [costApplying, setCostApplying] = useState(false);
   const [costApplyLog, setCostApplyLog] = useState([]); // 진행 단계 로그
@@ -543,6 +547,58 @@ export default function Estimate() {
     const v = costEdits[k];
     return v !== '' && v !== undefined && v !== null;
   }).length;
+  // 수정된 수량 개수
+  const editedQtyCount = Object.keys(qtyEdits).filter(k => {
+    const v = qtyEdits[k];
+    return v !== '' && v !== undefined && v !== null;
+  }).length;
+
+  // 수량 수정 적용 — 단가수정과 다르게 ADD/CANCEL 으로 분기 (audit log)
+  const applyQtyEdits = async () => {
+    if (editedQtyCount === 0) return;
+    setQtyApplying(true);
+    setQtyResult(null);
+    try {
+      const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
+      const custKey = selectedShip.CustKey;
+      const results = [];
+      for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
+        if (newVal === '' || newVal == null) continue;
+        const sdk = parseInt(sdkStr);
+        const item = filteredItems.find(it => it.SdetailKey === sdk);
+        if (!item) continue;
+        const oldQty = parseFloat(item.Quantity) || 0;
+        const newQty = parseFloat(newVal);
+        if (Number.isNaN(newQty) || newQty < 0) continue;
+        if (Math.abs(newQty - oldQty) < 0.001) continue;
+        const type = newQty > oldQty ? 'ADD' : 'CANCEL';
+        const delta = Math.abs(newQty - oldQty);
+        // 단위는 표시 단위 그대로 (단/송이/박스)
+        const r = await fetch('/api/shipment/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            custKey, prodKey: item.ProdKey, week, type, qty: delta, unit: item.Unit,
+            memo: `견적서 수량수정: ${oldQty}${item.Unit}→${newQty}${item.Unit}`,
+            force: true, // 견적서 수정은 입고검증 우회 (이미 확정된 차수일 가능성)
+          }),
+        });
+        const d = await r.json();
+        results.push({ sdk, ok: d.success, oldQty, newQty, type, delta, error: d.error });
+      }
+      const okCount = results.filter(r => r.ok).length;
+      const failCount = results.filter(r => !r.ok).length;
+      setQtyResult({ results, okCount, failCount });
+      if (failCount === 0) setQtyEdits({});
+      // 다시 조회하여 화면 갱신
+      load(true);
+    } catch (e) {
+      setQtyResult({ error: e.message });
+    } finally {
+      setQtyApplying(false);
+    }
+  };
 
   // "확정풀고 단가 적용하기" — 실제 적용 함수
   async function applyCostEdits() {
@@ -1091,6 +1147,33 @@ export default function Estimate() {
                   </button>
                 </>
               )}
+              {/* 수량 수정 적용 버튼 */}
+              {editedQtyCount > 0 && (
+                <>
+                  <button
+                    className="btn btn-sm"
+                    style={{background:'#00897b', color:'#fff', borderColor:'#00695c', fontWeight:'bold'}}
+                    disabled={qtyApplying}
+                    onClick={applyQtyEdits}
+                    title="수량 변경분을 ADD/CANCEL 로 자동 분기 적용 (이력 기록됨)"
+                  >
+                    📦 수량 수정 적용 ({editedQtyCount})
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    disabled={qtyApplying}
+                    onClick={() => setQtyEdits({})}
+                  >
+                    ↩ 수량 취소
+                  </button>
+                </>
+              )}
+              {qtyResult && (
+                <span style={{fontSize:11, color: qtyResult.failCount > 0 ? '#c62828' : '#2e7d32', fontWeight:700}}>
+                  {qtyResult.error ? `❌ ${qtyResult.error}` :
+                    `✅ ${qtyResult.okCount}건 적용${qtyResult.failCount > 0 ? ` / ❌ ${qtyResult.failCount}건 실패` : ''}`}
+                </span>
+              )}
               <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
                 onClick={() => {
                   setDefectForm({ estimateType:'', estimateDate:new Date().toISOString().slice(0,10), prodKey:'', unit:'단', quantity:'', cost:'', descr:'' });
@@ -1113,6 +1196,7 @@ export default function Estimate() {
                     <tr>
                       <th>품목명</th><th>단위</th><th>출고일자</th>
                       <th style={{textAlign:'right'}}>수량</th>
+                      <th style={{textAlign:'right', background:'#E6FFFA'}}>수량 수정</th>
                       <th style={{textAlign:'right'}}>단가</th>
                       <th style={{textAlign:'right', background:'#FFF9E6'}}>단가 수정</th>
                       <th style={{textAlign:'right'}}>공급가액</th>
@@ -1122,7 +1206,7 @@ export default function Estimate() {
                   </thead>
                   <tbody>
                     {filteredItems.length === 0
-                      ? <tr><td colSpan={9} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
+                      ? <tr><td colSpan={10} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
                           {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
                         </td></tr>
                       : filteredItems.map((item, i) => {
@@ -1141,6 +1225,38 @@ export default function Estimate() {
                             <td style={{fontSize:12}}>{item.Unit}</td>
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
+                            <td style={{textAlign:'right', padding:'2px 4px', background:'#F0FFFE'}}>
+                              {isDed ? (
+                                <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  value={sdk != null ? (qtyEdits[sdk] ?? '') : ''}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setQtyEdits(prev => {
+                                      const next = { ...prev };
+                                      if (v === '') delete next[sdk];
+                                      else next[sdk] = v;
+                                      return next;
+                                    });
+                                  }}
+                                  placeholder={fmt(item.Quantity)}
+                                  style={{
+                                    width: 70,
+                                    padding: '2px 5px',
+                                    textAlign: 'right',
+                                    fontSize: 12,
+                                    border: (sdk != null && qtyEdits[sdk] !== undefined && qtyEdits[sdk] !== '') ? '2px solid #00897b' : '1px solid #CBD5E0',
+                                    borderRadius: 3,
+                                    fontFamily: 'var(--mono)',
+                                    background: (sdk != null && qtyEdits[sdk] !== undefined && qtyEdits[sdk] !== '') ? '#E0F2F1' : '#fff',
+                                  }}
+                                  disabled={qtyApplying}
+                                  title="수량 변경: ADD(증가) / CANCEL(감소)"
+                                />
+                              )}
+                            </td>
                             <td className="num">{fmt(item.Cost)}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#FFFDF5'}}>
                               {isDed ? (
@@ -1184,6 +1300,7 @@ export default function Estimate() {
                     <tr style={{background:'var(--bg2)'}}>
                       <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px', fontSize:12}}>합계</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalQty)}</td>
+                      <td></td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--text3)'}}>{fmt(totalCost)}</td>
                       <td></td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--blue)'}}>{fmt(totalSupply)}</td>
