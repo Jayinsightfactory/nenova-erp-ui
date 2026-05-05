@@ -105,12 +105,33 @@ async function validate(req, res) {
       remain: Math.round((r.prevStock + r.inQty - r.outQty) * 1000) / 1000,
     }));
 
-    const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length;
+    // 4. 입고 없는 출고 (WarehouseDetail 없는데 ShipmentDetail.OutQuantity > 0)
+    //    이 케이스가 견적서에서 "입고 0인데 출고 5" 처럼 보여 작업 오류 유발
+    const noInResult = await query(
+      `SELECT DISTINCT p.ProdName, p.FlowerName, p.CounName,
+         SUM(sd.OutQuantity) AS outQty,
+         ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) AS inQty
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON sd.ProdKey = p.ProdKey
+       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+       GROUP BY p.ProdKey, p.ProdName, p.FlowerName, p.CounName
+       HAVING ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) = 0
+       ORDER BY p.FlowerName, p.ProdName`,
+      { wk }
+    );
+
+    const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length + noInResult.recordset.length;
     return res.status(200).json({
       success: true,
       week,
       issueCount: issues,
       ghost:    ghostResult.recordset,    // 주문 없는 출고
+      noIncoming: noInResult.recordset,   // 입고 없는 출고 (4번째 검증)
       duplicate: dupResult.recordset,     // 중복 출고
       negative: negRows,                  // 마이너스 잔량
     });

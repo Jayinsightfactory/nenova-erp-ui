@@ -482,13 +482,25 @@ export default function WeekPivot() {
     const diff = qty - old;
     const type = diff > 0 ? 'ADD' : 'CANCEL';
     const delta = Math.abs(diff);
-    try {
+    const callApi = async (force = false) => {
       const r = await fetch('/api/shipment/adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, type, qty: delta, memo: `${custName} 셀편집` }),
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, type, qty: delta, memo: `${custName} 셀편집`, force }),
       });
-      const d = await r.json();
+      return await r.json();
+    };
+    try {
+      let d = await callApi(false);
+      // 입고 미등록/초과 → 강제 진행 옵션
+      if (!d.success && d.error && (d.error.includes('입고 미등록') || (d.error.includes('입고') && d.error.includes('초과')))) {
+        if (confirm(`${d.error}\n\n그래도 진행할까요?`)) {
+          d = await callApi(true);
+        } else {
+          setPvEdit(null);
+          return;
+        }
+      }
       if (d.success) {
         setPvEdit(null);
         loadData(weekFrom, weekTo);

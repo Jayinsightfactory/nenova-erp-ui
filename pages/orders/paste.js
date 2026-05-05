@@ -294,7 +294,7 @@ export default function PasteOrderPage() {
   };
 
   // ADD/CANCEL 단일 액션
-  const handleAdjust = async () => {
+  const handleAdjust = async (force = false) => {
     if (!adjustModal) return;
     const delta = parseFloat(adjustQty);
     if (!(delta > 0)) { alert('수량은 0보다 커야 합니다.'); return; }
@@ -304,10 +304,21 @@ export default function PasteOrderPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({
           custKey: adjustModal.custKey, prodKey: adjustModal.prodKey, week: adjustModal.week,
-          type: adjustModal.type, qty: delta, unit: adjustModal.unit, memo: '붙여넣기 등록 후 분배조정',
+          type: adjustModal.type, qty: delta, unit: adjustModal.unit,
+          memo: '붙여넣기 등록 후 분배조정', force,
         }),
       });
       const d = await r.json();
+      // 입고 미등록/초과 차단 → 강제 진행 옵션 안내
+      if (!d.success && !force && d.error && (d.error.includes('입고 미등록') || d.error.includes('입고') && d.error.includes('초과'))) {
+        const proceed = confirm(`${d.error}\n\n그래도 진행하시겠습니까?`);
+        if (proceed) {
+          setAdjustSaving(false);
+          return handleAdjust(true);
+        }
+        setAdjustSaving(false);
+        return;
+      }
       if (d.success) {
         // 분배수량 갱신
         const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;

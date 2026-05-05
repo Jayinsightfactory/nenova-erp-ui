@@ -274,10 +274,16 @@ async function postAdjust(req, res) {
       const remainBefore = totalIn - (totalOut - qtyAfter + qtyBefore);
       const remainAfter  = totalIn - totalOut;
 
-      // 입고초과 경고 — 입고가 등록되어 있는데 잔량이 음수로 가는 경우만 차단
-      // (입고=0 차수는 선분배 패턴이라 허용. body 에 force=true 면 강제 진행)
-      if (type === 'ADD' && totalIn > 0 && remainAfter < 0 && !req.body.force) {
-        throw new Error(`입고(${totalIn}) 초과: 분배합 ${totalOut} > 입고. 강제 진행하려면 force=true (관리자만)`);
+      // 입고검증 — 견적서/확정 단계 오류 예방
+      // (a) 입고 0 인데 출고 ADD: "선분배" 패턴. 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
+      // (b) 입고 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
+      if (type === 'ADD' && !req.body.force) {
+        if (totalIn === 0) {
+          throw new Error(`입고 미등록 차수입니다. WarehouseDetail 입고 등록 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
+        }
+        if (totalIn > 0 && remainAfter < 0) {
+          throw new Error(`입고(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
+        }
       }
 
       // 7) ShipmentAdjustment INSERT
