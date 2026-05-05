@@ -294,6 +294,7 @@ export default function WeekPivot() {
   const [custRows,    setCustRows]    = useState([]);
   const [startStocks, setStartStocks] = useState({});
   const [confirmedStocks, setConfirmedStocks] = useState({}); // 차수 확정(isFix=1)된 DB 잔량
+  const [expectedStarts, setExpectedStarts] = useState({});   // 예상시작재고 (lastConfirmed + 중간차수 in/out)
   const [user,        setUser]        = useState(null);
   const [apiError,    setApiError]    = useState('');
 
@@ -411,10 +412,11 @@ export default function WeekPivot() {
     try {
       const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}`;
       // customers 데이터와 시작재고 동시 로드
-      const [custResp, ssResp, csResp] = await Promise.all([
+      const [custResp, ssResp, csResp, esResp] = await Promise.all([
         fetch(`/api/shipment/stock-status?${p}&view=customers`),
         fetch(`/api/shipment/stock-status?${p}&view=startStocks`),
         fetch(`/api/shipment/stock-status?${p}&view=confirmedStock`),
+        fetch(`/api/shipment/stock-status?${p}&view=expectedStart`),
       ]);
       // 인증 만료 → 로그인 페이지로
       if (custResp.status === 401) { router.replace('/login'); return; }
@@ -439,6 +441,13 @@ export default function WeekPivot() {
         const csRes = await csResp.json();
         if (csRes.success && csRes.stocks) {
           setConfirmedStocks(csRes.stocks);
+        }
+      }
+      // 예상시작재고 (lastConfirmed + 중간 차수 in/out)
+      if (esResp.ok) {
+        const esRes = await esResp.json();
+        if (esRes.success && esRes.expected) {
+          setExpectedStarts(esRes.expected);
         }
       }
     } catch(e) { setApiError(e.message); }
@@ -572,7 +581,7 @@ export default function WeekPivot() {
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
 
     const PROD_REPEAT=10, CUST_REPEAT=15;
-    const stockCols=8; // 시작재고, 시작비고, 입고, 출고, 잔량(계산), 잔량(DB), 비고, +1
+    const stockCols=9; // 시작재고, 시작비고, 예상시작, 입고, 출고, 잔량(계산), 잔량(DB), 비고, +1
     const prodLabelCols=custKeys.length>CUST_REPEAT?Math.floor((custKeys.length-1)/CUST_REPEAT):0;
     const colsPerWeek=custKeys.length+stockCols+prodLabelCols;
 
@@ -804,6 +813,7 @@ export default function WeekPivot() {
                   ))}
                   <th style={{...st.th,background:'#006064',textAlign:'center',fontSize:8}}>시작재고</th>
                   <th style={{...st.th,background:'#004d40',textAlign:'center',fontSize:8,minWidth:50}}>시작비고</th>
+                  <th style={{...st.th,background:'#00695c',textAlign:'center',fontSize:8}} title="마지막 확정차수의 잔량 + 그 후 미확정 차수들의 입고-출고. 18차 미확정이어도 19-1차 작업 가능">예상시작</th>
                   <th style={{...st.th,background:'#1565c0',textAlign:'center',fontSize:8}}>입고</th>
                   <th style={{...st.th,background:'#ad1457',textAlign:'center',fontSize:8}}>출고</th>
                   <th style={{...st.th,background:'#4a148c',textAlign:'center',fontSize:8}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
@@ -898,6 +908,25 @@ export default function WeekPivot() {
                               style={{width:46,fontSize:8,padding:'1px 2px',border:'1px solid #ccc',borderRadius:2,background:'#fff'}}
                               onBlur={e=>saveStartStock(pk,wk,null,e.target.value)} />
                           </td>
+                          {/* 예상시작 — lastConfirmed + 중간차수 입고-출고 */}
+                          {(()=>{
+                            const es = expectedStarts[`${pk}-${wk}`];
+                            if (!es) return <td style={{...st.td,textAlign:'right',background:'#e0f2f1',fontSize:9,color:'#bbb'}}>-</td>;
+                            const v = (es.expected || 0);
+                            const lc = es.lastConfirmedWeek;
+                            const tooltip = lc
+                              ? `${lc} 확정 ${es.lastConfirmedStock} + 중간입고 ${es.gapIn} - 중간출고 ${es.gapOut} = ${v}`
+                              : `이전 확정차수 없음 — 중간입고 ${es.gapIn} - 중간출고 ${es.gapOut} = ${v}`;
+                            const setBtnTitle = '시작재고에 이 값 적용';
+                            return (
+                              <td style={{...st.td,textAlign:'right',background:'#e0f2f1',fontSize:9,color:v<0?'#d32f2f':'#00695c',fontWeight:600,padding:'1px 3px',position:'relative'}}
+                                  title={tooltip}
+                                  onClick={e=>{e.stopPropagation(); if (confirm(`예상시작 ${v} 를 시작재고에 적용?`)) saveStartStock(pk,wk,String(v));}}>
+                                {fmt(v)}
+                                <span style={{fontSize:7,color:'#26a69a',marginLeft:2,cursor:'pointer'}} title={setBtnTitle}>↗</span>
+                              </td>
+                            );
+                          })()}
                           <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
                           {/* 잔량(계산) — 시작재고 + 입고 - 출고 */}
