@@ -56,6 +56,10 @@ export default function PasteOrderPage() {
   const [disambigSearch, setDisambigSearch] = useState('');
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
+  const [shipmentQtys, setShipmentQtys] = useState({}); // `${custKey}-${prodKey}-${week}` → ShipmentDetail.OutQuantity
+  const [adjustModal, setAdjustModal] = useState(null); // { custKey, prodKey, week, type, currentQty, prodName, custName, unit }
+  const [adjustQty, setAdjustQty] = useState('');
+  const [adjustSaving, setAdjustSaving] = useState(false);
   const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
   const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
   const [deltaMode, setDeltaMode] = useState(false); // true: 기존 수량에 가산, false: 덮어쓰기
@@ -273,6 +277,64 @@ export default function PasteOrderPage() {
     body: JSON.stringify({ category: 'paste', step, detail: String(detail) }),
   }).catch(() => {});
 
+  // 분배수량(ShipmentDetail.OutQuantity) 일괄 조회
+  const fetchShipmentQtys = async (custKey, week, prodKeys) => {
+    if (!custKey || !week || !prodKeys?.length) return;
+    try {
+      const r = await fetch(`/api/shipment/distribute?type=custItems&week=${encodeURIComponent(week)}&custKey=${custKey}`);
+      const d = await r.json();
+      if (d.success && d.items) {
+        const updates = {};
+        d.items.forEach(it => {
+          updates[`${custKey}-${it.ProdKey}-${week}`] = it.출고수량 || 0;
+        });
+        setShipmentQtys(prev => ({ ...prev, ...updates }));
+      }
+    } catch { /* 조회 실패해도 무시 */ }
+  };
+
+  // ADD/CANCEL 단일 액션
+  const handleAdjust = async () => {
+    if (!adjustModal) return;
+    const delta = parseFloat(adjustQty);
+    if (!(delta > 0)) { alert('수량은 0보다 커야 합니다.'); return; }
+    setAdjustSaving(true);
+    try {
+      const r = await fetch('/api/shipment/adjust', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          custKey: adjustModal.custKey, prodKey: adjustModal.prodKey, week: adjustModal.week,
+          type: adjustModal.type, qty: delta, unit: adjustModal.unit, memo: '붙여넣기 등록 후 분배조정',
+        }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        // 분배수량 갱신
+        const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;
+        setShipmentQtys(prev => ({ ...prev, [key]: d.qtyAfter }));
+        // ADD 인 경우 OrderDetail 도 변경됨 → registeredOrders 도 다시 조회
+        if (adjustModal.type === 'ADD') {
+          const od = await apiGet('/api/orders', { custName: adjustModal.custName, week: adjustModal.week });
+          if (od.success && od.orders?.length > 0) {
+            const matched = od.orders.find(o => o.custName === adjustModal.custName) || od.orders[0];
+            setRegisteredOrders(prev => {
+              const oid = Object.keys(prev).find(k => prev[k]?.custKey === adjustModal.custKey && prev[k]?.week === adjustModal.week);
+              if (!oid) return prev;
+              return { ...prev, [oid]: { ...matched, prevSnapshot: prev[oid].prevSnapshot } };
+            });
+          }
+        }
+        setAdjustModal(null); setAdjustQty('');
+      } else {
+        alert(`${adjustModal.type} 실패: ${d.error}`);
+      }
+    } catch (e) {
+      alert('네트워크 오류: ' + e.message);
+    } finally {
+      setAdjustSaving(false);
+    }
+  };
+
   const handleRegister = async (oid) => {
     const order = orders.find(o => o.id === oid);
 
@@ -294,6 +356,17 @@ export default function PasteOrderPage() {
     const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
     updateOrder(oid, { saving: true, resultMsg: '' });
+
+    // 저장 직전 스냅샷 — 변경 셀 표시용 (prev qty per ProdKey)
+    const prevSnapshot = {};
+    try {
+      const pre = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+      if (pre.success) {
+        const preMatch = pre.orders?.find(o => o.custName === order.custMatch.CustName) || pre.orders?.[0];
+        (preMatch?.items || []).forEach(it => { prevSnapshot[it.prodKey] = it.qty; });
+      }
+    } catch { /* 스냅샷 실패해도 등록은 진행 */ }
+
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -318,7 +391,9 @@ export default function PasteOrderPage() {
           const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
           if (od.success && od.orders?.length > 0) {
             const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
-            setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+            setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot } }));
+            // 각 품목의 현재 분배(ShipmentDetail.OutQuantity) 가져오기
+            await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
           }
         } catch { /* 조회 실패해도 저장은 완료 */ }
       } else {
@@ -662,10 +737,34 @@ export default function PasteOrderPage() {
               {/* 등록 후 DB 주문내역 */}
               {registeredOrders[order.id] && (() => {
                 const ro = registeredOrders[order.id];
+                const prevSnap = ro.prevSnapshot || {};
+                const items = ro.items || [];
+                let newCount = 0, changedCount = 0, sameCount = 0;
+                items.forEach(it => {
+                  const p = prevSnap[it.prodKey];
+                  if (p == null) newCount++;
+                  else if (p !== it.qty) changedCount++;
+                  else sameCount++;
+                });
                 return (
                   <div style={{ borderTop: '2px solid #2e7d32', background: '#f1f8e9' }}>
-                    <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
+                      {newCount > 0 && (
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fff9c4', color: '#f57f17', border: '1px solid #fbc02d' }}>
+                          🆕 신규 {newCount}건
+                        </span>
+                      )}
+                      {changedCount > 0 && (
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#ffe0b2', color: '#e65100', border: '1px solid #fb8c00' }}>
+                          ✏️ 변경 {changedCount}건
+                        </span>
+                      )}
+                      {sameCount > 0 && (
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#e0e0e0', color: '#666' }}>
+                          유지 {sameCount}건
+                        </span>
+                      )}
                       <button onClick={() => setRegisteredOrders(p => { const n={...p}; delete n[order.id]; return n; })}
                         style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}>
                         닫기
@@ -678,20 +777,76 @@ export default function PasteOrderPage() {
                             <th style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 600 }}>품목명</th>
                             <th style={{ padding: '5px 8px', fontWeight: 600 }}>국가</th>
                             <th style={{ padding: '5px 8px', fontWeight: 600 }}>꽃</th>
-                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}>수량</th>
+                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}>주문수량</th>
+                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#1565c0' }}>분배수량</th>
+                            <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#7b1fa2' }}>잔량</th>
                             <th style={{ padding: '5px 8px', fontWeight: 600 }}>단위</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>분배조정</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(ro.items || []).map((it, i) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: i%2===0?'#f9fbe7':'#f1f8e9' }}>
-                              <td style={{ padding: '4px 8px' }}>{it.displayName || it.prodName}</td>
-                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c', fontSize: 11 }}>{it.counName || '—'}</td>
-                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
-                              <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{it.qty}</td>
-                              <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{it.unit}</td>
-                            </tr>
-                          ))}
+                          {items.map((it, i) => {
+                            const prev = prevSnap[it.prodKey];
+                            const isNew = prev == null;
+                            const isChanged = !isNew && prev !== it.qty;
+                            const rowBg = isNew
+                              ? '#fff9c4'
+                              : isChanged
+                                ? '#ffe0b2'
+                                : (i%2===0?'#f9fbe7':'#f1f8e9');
+                            const leftBorder = isNew
+                              ? '3px solid #fbc02d'
+                              : isChanged
+                                ? '3px solid #fb8c00'
+                                : '3px solid transparent';
+                            const shipKey = `${ro.custKey}-${it.prodKey}-${ro.week}`;
+                            const shipQty = shipmentQtys[shipKey] || 0;
+                            const remain = (it.qty || 0) - shipQty;
+                            return (
+                              <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: rowBg, borderLeft: leftBorder }}>
+                                <td style={{ padding: '4px 8px' }}>
+                                  {isNew && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#fbc02d', color: '#fff', fontWeight: 700 }}>NEW</span>}
+                                  {isChanged && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#fb8c00', color: '#fff', fontWeight: 700 }}>변경</span>}
+                                  {it.displayName || it.prodName}
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c', fontSize: 11 }}>{it.counName || '—'}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                  {isNew ? (
+                                    <span style={{ color: '#f57f17' }}>+{it.qty}</span>
+                                  ) : isChanged ? (
+                                    <span>
+                                      <span style={{ color: '#999', textDecoration: 'line-through', marginRight: 4 }}>{prev}</span>
+                                      <span style={{ color: '#e65100' }}>→</span>
+                                      <span style={{ color: '#e65100', marginLeft: 4, fontWeight: 700 }}>{it.qty}</span>
+                                      <span style={{ marginLeft: 6, fontSize: 10, color: it.qty - prev > 0 ? '#2e7d32' : '#c62828' }}>
+                                        ({it.qty - prev > 0 ? '+' : ''}{it.qty - prev})
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    it.qty
+                                  )}
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#1565c0', fontVariantNumeric: 'tabular-nums' }}>
+                                  {shipQty}
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: remain === 0 ? '#388e3c' : (remain > 0 ? '#f57f17' : '#c62828') }}>
+                                  {remain}
+                                </td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{it.unit}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: it.unit }); setAdjustQty(''); }}
+                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', marginRight: 4 }}>
+                                    + 추가
+                                  </button>
+                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: it.unit }); setAdjustQty(''); }}
+                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                                    − 취소
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -702,6 +857,58 @@ export default function PasteOrderPage() {
           );
         })}
       </div>
+
+      {/* ── 분배조정(ADD/CANCEL) 모달 ── */}
+      {adjustModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => e.target === e.currentTarget && !adjustSaving && setAdjustModal(null)}>
+          <div style={{ background: '#fff', borderRadius: 10, padding: 24, minWidth: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: adjustModal.type === 'ADD' ? '#2e7d32' : '#c62828' }}>
+              {adjustModal.type === 'ADD' ? '➕ 분배 추가' : '➖ 분배 취소'}
+            </div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+              {adjustModal.custName} / {adjustModal.prodName}
+              <br />
+              <span style={{ fontSize: 11, color: '#999' }}>
+                {adjustModal.type === 'ADD' ? '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 +' : '주문등록 그대로, 분배만 −'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#888' }}>현재 분배</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#37474f' }}>{adjustModal.currentQty}</div>
+              </div>
+              <div style={{ fontSize: 18, color: '#aaa' }}>{adjustModal.type === 'ADD' ? '+' : '−'}</div>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#888' }}>변경량</div>
+                <input type="number" autoFocus value={adjustQty} onChange={e => setAdjustQty(e.target.value)} placeholder="0"
+                  onKeyDown={e => e.key === 'Enter' && handleAdjust()}
+                  style={{ width: '100%', textAlign: 'center', fontSize: 22, fontWeight: 700, color: '#1976d2', padding: '4px 8px', border: '2px solid #1976d2', borderRadius: 4 }} />
+              </div>
+              <div style={{ fontSize: 18, color: '#aaa' }}>=</div>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#888' }}>결과</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: adjustModal.type === 'ADD' ? '#2e7d32' : '#c62828' }}>
+                  {adjustModal.currentQty + (adjustModal.type === 'ADD' ? 1 : -1) * (parseFloat(adjustQty) || 0)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => !adjustSaving && setAdjustModal(null)} disabled={adjustSaving}
+                style={{ padding: '8px 18px', border: '1px solid #ccc', background: '#f5f5f5', borderRadius: 5, cursor: 'pointer', color: '#666' }}>
+                취소
+              </button>
+              <button onClick={handleAdjust} disabled={adjustSaving || !(parseFloat(adjustQty) > 0)}
+                style={{ padding: '8px 22px', background: adjustSaving ? '#aaa' : (adjustModal.type === 'ADD' ? '#2e7d32' : '#c62828'),
+                  color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: adjustSaving ? 'wait' : 'pointer' }}>
+                {adjustSaving ? '저장중...' : (adjustModal.type === 'ADD' ? '추가 확정' : '취소 확정')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 미매칭 질문 패널 (sticky bottom) ── */}
       {currentQ && (
