@@ -293,6 +293,7 @@ export default function WeekPivot() {
   const [loading,     setLoading]     = useState(false);
   const [custRows,    setCustRows]    = useState([]);
   const [startStocks, setStartStocks] = useState({});
+  const [confirmedStocks, setConfirmedStocks] = useState({}); // 차수 확정(isFix=1)된 DB 잔량
   const [user,        setUser]        = useState(null);
   const [apiError,    setApiError]    = useState('');
 
@@ -410,9 +411,10 @@ export default function WeekPivot() {
     try {
       const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}`;
       // customers 데이터와 시작재고 동시 로드
-      const [custResp, ssResp] = await Promise.all([
+      const [custResp, ssResp, csResp] = await Promise.all([
         fetch(`/api/shipment/stock-status?${p}&view=customers`),
         fetch(`/api/shipment/stock-status?${p}&view=startStocks`),
+        fetch(`/api/shipment/stock-status?${p}&view=confirmedStock`),
       ]);
       // 인증 만료 → 로그인 페이지로
       if (custResp.status === 401) { router.replace('/login'); return; }
@@ -430,6 +432,13 @@ export default function WeekPivot() {
           const ssMap = {};
           ssRes.rows.forEach(r => { ssMap[`${r.ProdKey}-${r.OrderWeek}`] = { stock: r.Stock }; });
           setStartStocks(ssMap);
+        }
+      }
+      // 확정재고 초기화 (isFix=1, end-of-week DB 잔량)
+      if (csResp.ok) {
+        const csRes = await csResp.json();
+        if (csRes.success && csRes.stocks) {
+          setConfirmedStocks(csRes.stocks);
         }
       }
     } catch(e) { setApiError(e.message); }
@@ -894,9 +903,9 @@ export default function WeekPivot() {
                           {/* 잔량(계산) — 시작재고 + 입고 - 출고 */}
                           <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,color:rollingStock<0?'#d32f2f':'#388e3c'}}
                               title="시작재고 + 입고 - 출고">{fmt(rollingStock)}</td>
-                          {/* 잔량(DB) — ProductStock 저장값. 계산값과 다르면 빨강 */}
+                          {/* 잔량(DB) — 차수 확정(isFix=1) 시 저장된 end-of-week 잔량. 계산값과 다르면 빨강 */}
                           {(()=>{
-                            const dbStock = startStocks[`${pk}-${wk}`]?.stock;
+                            const dbStock = confirmedStocks[`${pk}-${wk}`];
                             const has = dbStock !== undefined && dbStock !== null && dbStock !== '';
                             const dbVal = has ? Number(dbStock) : null;
                             const mismatch = has && Math.abs(dbVal - rollingStock) > 0.001;
@@ -904,7 +913,7 @@ export default function WeekPivot() {
                               <td style={{...st.td,textAlign:'right',background:mismatch?'#ffebee':'#e8eaf6',
                                           fontWeight:700,fontSize:9,
                                           color: !has ? '#bbb' : (mismatch ? '#c62828' : '#3949ab')}}
-                                  title={has ? (mismatch ? `DB 저장 ${dbVal} ≠ 계산 ${rollingStock}` : 'DB 일치') : '미저장'}>
+                                  title={has ? (mismatch ? `DB 확정 ${dbVal} ≠ 계산 ${rollingStock} (분배 후 차수 재확정 필요)` : 'DB 확정값과 일치') : '차수 미확정 (fix 안 함)'}>
                                 {has ? fmt(dbVal) : '-'}
                               </td>
                             );
