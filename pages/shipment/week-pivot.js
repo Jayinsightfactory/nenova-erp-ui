@@ -563,7 +563,7 @@ export default function WeekPivot() {
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
 
     const PROD_REPEAT=10, CUST_REPEAT=15;
-    const stockCols=7;
+    const stockCols=8; // 시작재고, 시작비고, 입고, 출고, 잔량(계산), 잔량(DB), 비고, +1
     const prodLabelCols=custKeys.length>CUST_REPEAT?Math.floor((custKeys.length-1)/CUST_REPEAT):0;
     const colsPerWeek=custKeys.length+stockCols+prodLabelCols;
 
@@ -797,7 +797,8 @@ export default function WeekPivot() {
                   <th style={{...st.th,background:'#004d40',textAlign:'center',fontSize:8,minWidth:50}}>시작비고</th>
                   <th style={{...st.th,background:'#1565c0',textAlign:'center',fontSize:8}}>입고</th>
                   <th style={{...st.th,background:'#ad1457',textAlign:'center',fontSize:8}}>출고</th>
-                  <th style={{...st.th,background:'#4a148c',textAlign:'center',fontSize:8}}>잔량</th>
+                  <th style={{...st.th,background:'#4a148c',textAlign:'center',fontSize:8}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
+                  <th style={{...st.th,background:'#283593',textAlign:'center',fontSize:8}} title="DB 저장값 (ProductStock.Stock)">잔량(DB)</th>
                   <th style={{...st.th,background:'#37474f',textAlign:'center',fontSize:8,minWidth:pvDescrOpen?100:30,cursor:'pointer'}}
                       onClick={()=>setPvDescrOpen(p=>!p)}>{pvDescrOpen?'비고 ▾':'▸'}</th>
                 </React.Fragment>
@@ -890,7 +891,24 @@ export default function WeekPivot() {
                           </td>
                           <td style={{...st.td,textAlign:'right',background:'#e3f2fd',fontSize:9}}>{fmt(inQty)}</td>
                           <td style={{...st.td,textAlign:'right',background:'#fce4ec',fontWeight:600,fontSize:9}}>{fmt(weekOut)}</td>
-                          <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,color:rollingStock<0?'#d32f2f':'#388e3c'}}>{fmt(rollingStock)}</td>
+                          {/* 잔량(계산) — 시작재고 + 입고 - 출고 */}
+                          <td style={{...st.td,textAlign:'right',background:'#f3e5f5',fontWeight:700,fontSize:9,color:rollingStock<0?'#d32f2f':'#388e3c'}}
+                              title="시작재고 + 입고 - 출고">{fmt(rollingStock)}</td>
+                          {/* 잔량(DB) — ProductStock 저장값. 계산값과 다르면 빨강 */}
+                          {(()=>{
+                            const dbStock = startStocks[`${pk}-${wk}`]?.stock;
+                            const has = dbStock !== undefined && dbStock !== null && dbStock !== '';
+                            const dbVal = has ? Number(dbStock) : null;
+                            const mismatch = has && Math.abs(dbVal - rollingStock) > 0.001;
+                            return (
+                              <td style={{...st.td,textAlign:'right',background:mismatch?'#ffebee':'#e8eaf6',
+                                          fontWeight:700,fontSize:9,
+                                          color: !has ? '#bbb' : (mismatch ? '#c62828' : '#3949ab')}}
+                                  title={has ? (mismatch ? `DB 저장 ${dbVal} ≠ 계산 ${rollingStock}` : 'DB 일치') : '미저장'}>
+                                {has ? fmt(dbVal) : '-'}
+                              </td>
+                            );
+                          })()}
                           {/* 비고 (수정내역) */}
                           {(()=>{
                             const custLogs=custKeys.map(ck=>{
