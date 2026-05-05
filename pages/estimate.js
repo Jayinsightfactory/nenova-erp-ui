@@ -96,13 +96,37 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
   // ── 수량/단가 둘 다 0인 행 제거 (사장님 요청)
   rows = rows.filter(r => (Number(r.Quantity) || 0) > 0 || (Number(r.Cost) || 0) > 0);
 
-  // ── 차감 항목을 최하단으로 정렬 (정상출고 먼저, 차감은 뒤)
+  // ── 사장님 지정 정렬 우선순위
+  // 콜롬비아 수국→알스트로→루스커스→카네이션→장미 → 네덜란드 → 호주 → 중국 → 에콰도르
+  // → 운송료 → 운임 → 그 외 차감
   const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
+  const priorityOf = r => {
+    const isDed = isDeductRow(r);
+    const country = r.CounName || '';
+    const flower = r.FlowerName || '';
+    const prod = r.ProdName || '';
+    if (!isDed) {
+      if (/콜롬비아/.test(country)) {
+        if (/수국/.test(flower)) return 1;
+        if (/알스트로/.test(flower)) return 2;
+        if (/루스커스/.test(flower)) return 3;
+        if (/카네이션/.test(flower)) return 4;
+        if (/장미/.test(flower)) return 5;
+        return 6;
+      }
+      if (/네덜란드/.test(country)) return 10;
+      if (/호주/.test(country)) return 11;
+      if (/중국/.test(country)) return 12;
+      if (/에콰도르/.test(country)) return 13;
+      return 50;
+    }
+    if (/운송/.test(prod)) return 79;
+    if (/운임/.test(prod)) return 80;
+    return 99;
+  };
   const sortedRows = [...rows].sort((a, b) => {
-    const ad = isDeductRow(a) ? 1 : 0;
-    const bd = isDeductRow(b) ? 1 : 0;
-    if (ad !== bd) return ad - bd;
-    // 같은 그룹 내: 기존 순서 유지 (outDate/ProdName)
+    const pa = priorityOf(a); const pb = priorityOf(b);
+    if (pa !== pb) return pa - pb;
     const adt = a.outDate || ''; const bdt = b.outDate || '';
     if (adt !== bdt) return adt.localeCompare(bdt);
     return (a.ProdName || '').localeCompare(b.ProdName || '');

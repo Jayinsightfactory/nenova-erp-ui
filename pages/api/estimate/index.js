@@ -155,6 +155,7 @@ async function loadItems(sk) {
          smOuter.OrderWeek                         AS OrderWeek,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
+         ISNULL(p.CounName, '')                    AS CounName,
          -- 표시 단위: BunchQty>0 단, SteamQty>0 송이, 그 외 박스 (옛 양식 우선순위)
          -- 카네이션처럼 OutUnit='박스' 라도 Bunch 가 채워져 있으면 단 단위로 표시
          CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
@@ -197,6 +198,7 @@ async function loadItems(sk) {
          smE.OrderWeek                             AS OrderWeek,
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
+         ISNULL(p.CounName, '')                    AS CounName,
          e.Unit,
          e.Quantity,
          CASE WHEN ISNULL(p.OutUnit,'박스')='박스' THEN e.Quantity
@@ -215,9 +217,28 @@ async function loadItems(sk) {
        LEFT JOIN ShipmentMaster smE ON e.ShipmentKey = smE.ShipmentKey
        WHERE e.ShipmentKey = @sk
      ) T
-     -- 차감(정상출고 아님) 항목은 무조건 최하단
-     ORDER BY CASE WHEN EstimateType = '정상출고' THEN 0 ELSE 1 END,
-              outDate, EstimateType, ProdName`,
+     -- 사장님 지정 정렬 우선순위:
+     --   콜롬비아 수국 → 알스트로 → 루스커스 → 카네이션 → 장미
+     --   네덜란드 → 호주 → 중국 → 에콰도르
+     --   운송료 → 운임 → 그 외 차감
+     ORDER BY
+       CASE
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%' AND FlowerName LIKE N'%수국%'   THEN 1
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%' AND FlowerName LIKE N'%알스트로%' THEN 2
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%' AND FlowerName LIKE N'%루스커스%' THEN 3
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%' AND FlowerName LIKE N'%카네이션%' THEN 4
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%' AND FlowerName LIKE N'%장미%'    THEN 5
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%콜롬비아%'                                 THEN 6
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%네덜란드%'                                 THEN 10
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%호주%'                                     THEN 11
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%중국%'                                     THEN 12
+         WHEN EstimateType = N'정상출고' AND CounName LIKE N'%에콰도르%'                                 THEN 13
+         WHEN EstimateType = N'정상출고'                                                                 THEN 50
+         WHEN ProdName LIKE N'%운송%'                                                                   THEN 79
+         WHEN ProdName LIKE N'%운임%'                                                                   THEN 80
+         ELSE 99
+       END,
+       outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
   return result.recordset;
