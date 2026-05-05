@@ -380,6 +380,9 @@ export default function Estimate() {
   // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
   const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
   const [yearStr, setYearStr] = useState(getCurrentYearStr);
+  // 차수 확정 모달
+  const [fixModal, setFixModal] = useState(null); // null | { stage, week, issues, result }
+  const [fixWorking, setFixWorking] = useState(false);
   // 자동조회 토글 — 차수 변경 시 자동으로 조회 (확정된 차수만 결과 있음, 옛 PATCH 안 거치고 isFix=1 필터됨)
   const [autoLoad, setAutoLoad] = useState(true);
   // 미확정 포함 토글 — 켜면 isFix=0 차수도 견적서에 표시
@@ -583,6 +586,74 @@ export default function Estimate() {
     const v = qtyEdits[k];
     return v !== '' && v !== undefined && v !== null;
   }).length;
+
+  // ── 차수 확정 — 사전검증 + 실행 + 오류상세 표시
+  const fixWeekAllSubs = async () => {
+    if (!weekNum) { alert('차수를 입력하세요'); return; }
+    setFixWorking(true);
+    try {
+      // 부모차수(예: "18") 의 모든 세부차수(18-01, 18-02, …) 수집 — 현재 화면에 로드된 shipments 의 SubWeeks 사용
+      // shipments 가 비어있으면 클라이언트에서 weekNum-01..03 시도
+      const subWeeks = new Set();
+      shipments.forEach(s => {
+        (s.SubWeeks || '').split(',').filter(Boolean).forEach(sw => subWeeks.add(sw));
+      });
+      if (subWeeks.size === 0) {
+        // fallback — weekNum-01, weekNum-02, weekNum-03 모두 시도
+        ['01','02','03'].forEach(s => subWeeks.add(`${weekNum}-${s}`));
+      }
+      const weekList = [...subWeeks].sort();
+
+      // 1단계: 각 세부차수 사전검증 → 이슈 모음
+      const allIssues = {};
+      for (const wk of weekList) {
+        try {
+          const r = await fetch(`/api/shipment/fix?week=${encodeURIComponent(wk)}`);
+          const d = await r.json();
+          if (d.success && d.issueCount > 0) {
+            allIssues[wk] = {
+              ghost: d.ghost || [], noIncoming: d.noIncoming || [],
+              duplicate: d.duplicate || [], negative: d.negative || [],
+              count: d.issueCount,
+            };
+          }
+        } catch (_) { /* 검증 실패 시 무시하고 fix 시도 */ }
+      }
+
+      const totalIssues = Object.values(allIssues).reduce((a, x) => a + x.count, 0);
+      if (totalIssues > 0) {
+        // 이슈 있으면 모달 띄움 (사용자 강제진행 여부 결정)
+        setFixModal({ stage: 'preview', week: weekNum, weekList, allIssues, totalIssues });
+        setFixWorking(false);
+        return;
+      }
+      // 이슈 0건 → 바로 fix 진행
+      await doFixAll(weekList);
+    } catch (e) {
+      setFixModal({ stage: 'error', error: e.message });
+      setFixWorking(false);
+    }
+  };
+
+  const doFixAll = async (weekList) => {
+    setFixWorking(true);
+    const results = [];
+    for (const wk of weekList) {
+      try {
+        const r = await fetch('/api/shipment/fix', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week: wk, action: 'fix' }),
+        });
+        const d = await r.json();
+        results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount });
+      } catch (e) {
+        results.push({ week: wk, ok: false, error: e.message });
+      }
+    }
+    setFixModal({ stage: 'done', results });
+    setFixWorking(false);
+    load(true); // 화면 갱신
+  };
 
   // 수량 수정 적용 — 단가수정과 다르게 ADD/CANCEL 으로 분기 (audit log)
   const applyQtyEdits = async () => {
@@ -1064,6 +1135,15 @@ export default function Estimate() {
           }}>
           {includeUnfixed ? '🔓 미확정 포함' : '🔒 확정만'}
         </button>
+        <button type="button" onClick={fixWeekAllSubs} disabled={fixWorking || !weekNum}
+          title={`${weekNum}차의 모든 세부차수(01/02/03) 일괄 확정`}
+          style={{
+            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: fixWorking ? 'wait' : 'pointer',
+            borderRadius: 14, marginLeft: 4,
+            border: '1.5px solid #2e7d32', background: fixWorking ? '#a5d6a7' : '#2e7d32', color: '#fff',
+          }}>
+          {fixWorking ? '⏳ 확정중...' : '🔐 차수 확정하기'}
+        </button>
 
         <div className="page-actions">
           <button className="btn btn-primary" onClick={() => load(false)}>🔄 조회 / Buscar</button>
@@ -1525,6 +1605,133 @@ export default function Estimate() {
                 🖨️ 출력 실행
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 차수 확정 모달 (사전검증 결과 + 강제진행 + 결과) ── */}
+      {fixModal && (
+        <div className="modal-overlay" onClick={() => !fixWorking && setFixModal(null)}>
+          <div className="modal" style={{ maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                {fixModal.stage === 'preview' && `🔍 ${fixModal.week}차 확정 — 사전검증 결과`}
+                {fixModal.stage === 'done'    && `📋 ${weekNum}차 확정 결과`}
+                {fixModal.stage === 'error'   && '❌ 차수 확정 오류'}
+              </span>
+              {!fixWorking && (
+                <button className="btn btn-sm" onClick={() => setFixModal(null)}>✕</button>
+              )}
+            </div>
+
+            {/* 사전검증 단계 — 이슈 목록 + 강제진행 */}
+            {fixModal.stage === 'preview' && (
+              <div className="modal-body">
+                <div style={{ background: '#fff3e0', border: '1px solid #fb8c00', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 12, color: '#e65100' }}>
+                  ⚠ 확정 전 검증에서 <b>{fixModal.totalIssues}건</b> 이슈 발견. 그래도 강제 확정하면 견적서 오류 발생 가능.
+                </div>
+                {Object.entries(fixModal.allIssues).map(([wk, iss]) => (
+                  <div key={wk} style={{ marginBottom: 12, border: '1px solid #ddd', borderRadius: 6, padding: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#1976d2', marginBottom: 6 }}>
+                      📅 {wk} — 총 {iss.count}건 이슈
+                    </div>
+                    {iss.ghost?.length > 0 && (
+                      <div style={{ fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ background: '#ffcdd2', color: '#c62828', padding: '1px 6px', borderRadius: 3, fontWeight: 700 }}>주문없는 출고 {iss.ghost.length}건</span>
+                        <ul style={{ margin: '4px 0 0 16px', color: '#555' }}>
+                          {iss.ghost.slice(0, 5).map((g, i) => (
+                            <li key={i}>{g.CustName} / {g.ProdName} ({g.OutQuantity})</li>
+                          ))}
+                          {iss.ghost.length > 5 && <li>...외 {iss.ghost.length - 5}건</li>}
+                        </ul>
+                      </div>
+                    )}
+                    {iss.noIncoming?.length > 0 && (
+                      <div style={{ fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ background: '#ffe0b2', color: '#e65100', padding: '1px 6px', borderRadius: 3, fontWeight: 700 }}>입고없는 출고 {iss.noIncoming.length}건</span>
+                        <ul style={{ margin: '4px 0 0 16px', color: '#555' }}>
+                          {iss.noIncoming.slice(0, 5).map((n, i) => (
+                            <li key={i}>{n.ProdName} (출고 {n.outQty}, 입고 {n.inQty})</li>
+                          ))}
+                          {iss.noIncoming.length > 5 && <li>...외 {iss.noIncoming.length - 5}건</li>}
+                        </ul>
+                      </div>
+                    )}
+                    {iss.duplicate?.length > 0 && (
+                      <div style={{ fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ background: '#f3e5f5', color: '#6a1b9a', padding: '1px 6px', borderRadius: 3, fontWeight: 700 }}>중복 출고 {iss.duplicate.length}건</span>
+                        <ul style={{ margin: '4px 0 0 16px', color: '#555' }}>
+                          {iss.duplicate.slice(0, 5).map((d, i) => (
+                            <li key={i}>{d.CustName} / {d.ProdName} (총 {d.totalQty}, {d.cnt}건)</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {iss.negative?.length > 0 && (
+                      <div style={{ fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ background: '#ffebee', color: '#b71c1c', padding: '1px 6px', borderRadius: 3, fontWeight: 700 }}>마이너스 잔량 {iss.negative.length}건</span>
+                        <ul style={{ margin: '4px 0 0 16px', color: '#555' }}>
+                          {iss.negative.slice(0, 5).map((n, i) => (
+                            <li key={i}>{n.ProdName} (전재고 {n.prevStock} + 입고 {n.inQty} - 출고 {n.outQty} = {n.remain})</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 결과 단계 — 차수별 성공/실패 */}
+            {fixModal.stage === 'done' && (
+              <div className="modal-body">
+                {fixModal.results.map((r, i) => (
+                  <div key={i} style={{
+                    padding: 8, marginBottom: 6, borderRadius: 6,
+                    background: r.ok ? '#e8f5e9' : '#ffebee',
+                    border: `1px solid ${r.ok ? '#66bb6a' : '#ef5350'}`,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: r.ok ? '#2e7d32' : '#c62828' }}>
+                      {r.ok ? '✅' : '❌'} {r.week}차
+                    </div>
+                    <div style={{ fontSize: 11, marginTop: 4, color: '#555' }}>
+                      {r.ok ? r.message : `오류: ${r.error}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 일반 오류 */}
+            {fixModal.stage === 'error' && (
+              <div className="modal-body">
+                <div style={{ background: '#ffebee', padding: 12, borderRadius: 6, color: '#c62828' }}>
+                  {fixModal.error}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, padding: 12, justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
+              {fixModal.stage === 'preview' && (
+                <>
+                  <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
+                  <button
+                    className="btn"
+                    style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}
+                    onClick={() => doFixAll(fixModal.weekList)}
+                    disabled={fixWorking}
+                  >
+                    ⚠ 그래도 강제 확정 ({fixModal.weekList.length}차수)
+                  </button>
+                </>
+              )}
+              {fixModal.stage === 'done' && (
+                <button className="btn btn-primary" onClick={() => setFixModal(null)}>닫기</button>
+              )}
+              {fixModal.stage === 'error' && (
+                <button className="btn" onClick={() => setFixModal(null)}>닫기</button>
+              )}
             </div>
           </div>
         </div>
