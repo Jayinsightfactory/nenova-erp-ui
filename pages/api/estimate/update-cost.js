@@ -146,9 +146,13 @@ export default withAuth(async function handler(req, res) {
       // ── 3단계: 모든 ShipmentDetail 에 대해 낙관적 동시성 검증 + Cost/Amount/Vat UPDATE
       const changes = [];
       for (const it of items) {
-        // 기존 값 조회 (UPDLOCK)
+        // 기존 값 조회 (UPDLOCK) — Box/Bunch/Steam 모두 가져와서 Amount 계산 안전화
         const cur = await tQ(
-          `SELECT SdetailKey, ProdKey, ISNULL(BunchQuantity,0) AS BunchQty,
+          `SELECT SdetailKey, ProdKey,
+                  ISNULL(BunchQuantity,0) AS BunchQty,
+                  ISNULL(BoxQuantity,0)   AS BoxQty,
+                  ISNULL(SteamQuantity,0) AS SteamQty,
+                  ISNULL(OutQuantity,0)   AS OutQty,
                   ISNULL(Cost,0) AS OldCost, ISNULL(Amount,0) AS OldAmount,
                   ISNULL(Vat,0) AS OldVat
              FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
@@ -175,9 +179,15 @@ export default withAuth(async function handler(req, res) {
           throw err;
         }
 
+        // 금액 계산 기준수량 — Bunch>0 우선, 없으면 Steam, 마지막 Box (BunchQty=0 박스단위 품목 케이스 보정)
+        // 옛 코드는 Bunch만 봤기 때문에 박스단위 품목에서 Amount=0 으로 잘못 갱신되던 버그 수정
         const bunchQty = row.BunchQty;
-        const newAmount = Math.round(bunchQty * it.cost / 1.1);
-        const newVat    = Math.round(bunchQty * it.cost / 11);
+        const baseQty = bunchQty > 0 ? bunchQty
+                      : row.SteamQty > 0 ? row.SteamQty
+                      : row.BoxQty > 0 ? row.BoxQty
+                      : (row.OutQty || 0);
+        const newAmount = Math.round(baseQty * it.cost / 1.1);
+        const newVat    = Math.round(baseQty * it.cost / 11);
 
         const now = new Date();
         const ts = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;

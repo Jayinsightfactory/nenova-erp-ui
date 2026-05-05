@@ -277,34 +277,94 @@ async function fix(req, res, week, prodKeyFilter) {
 }
 
 // ── 확정 취소 ──────────────────────────────────────────
+// 트랜잭션 단일화 + 후속 차수 의존성 경고 + 확정 안 된 상태 가드
 async function unfix(req, res, week, prodKeyFilter) {
-  // ShipmentMaster isFix = 0
-  await query(
-    `UPDATE ShipmentMaster SET isFix=0 WHERE OrderWeek=@wk AND isDeleted=0`,
-    { wk: { type: sql.NVarChar, value: week } }
-  );
-
-  // StockMaster isFix = 0
-  await query(
-    `UPDATE StockMaster SET isFix=0 WHERE OrderWeek=@wk`,
-    { wk: { type: sql.NVarChar, value: week } }
-  );
-
-  // StockHistory 확정취소 기록
-  await query(
-    `INSERT INTO StockHistory
-       (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
-        BeforeValue, AfterValue, Descr, ProdKey)
-     VALUES (GETDATE(), @yr, @wk, @uid, '확정취소', '수량', 0, 0, '확정 취소', 0)`,
-    {
-      yr:  { type: sql.NVarChar, value: week.split('-')[0] || '2026' },
-      wk:  { type: sql.NVarChar, value: week },
-      uid: { type: sql.NVarChar, value: req.user.userId },
+  try {
+    // 사전 검증 — 후속 차수 중에 확정된 게 있으면 경고
+    const laterFix = await query(
+      `SELECT TOP 5 OrderWeek FROM StockMaster
+        WHERE OrderWeek > @wk AND isFix=1
+        ORDER BY OrderWeek`,
+      { wk: { type: sql.NVarChar, value: week } }
+    );
+    const laterFixed = laterFix.recordset.map(r => r.OrderWeek);
+    // force=true 가 아니고 후속 확정차수가 있으면 차단 (차수 간 일관성 보호)
+    if (laterFixed.length > 0 && !req.body.force) {
+      return res.status(400).json({
+        success: false,
+        warning: 'LATER_FIXED_EXISTS',
+        laterWeeks: laterFixed,
+        error: `후속 차수가 확정 상태입니다: ${laterFixed.join(', ')}\n` +
+               `이 차수만 풀면 후속 차수 재고가 옛 값 기반으로 남습니다.\n` +
+               `강제 진행: body.force=true 추가`,
+      });
     }
-  );
 
-  return res.status(200).json({
-    success: true,
-    message: `[${week}] 확정 취소 완료`,
-  });
+    const result = await withTransaction(async (tQ) => {
+      // 현재 상태 잠금 + 확인 (UPDLOCK)
+      const cur = await tQ(
+        `SELECT TOP 1 ISNULL(isFix,0) AS isFix
+           FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+          WHERE OrderWeek=@wk AND isDeleted=0`,
+        { wk: { type: sql.NVarChar, value: week } }
+      );
+      const wasFixed = cur.recordset[0]?.isFix === 1 || cur.recordset[0]?.isFix === true;
+
+      // 1. ShipmentMaster.isFix = 0
+      await tQ(
+        `UPDATE ShipmentMaster SET isFix=0 WHERE OrderWeek=@wk AND isDeleted=0`,
+        { wk: { type: sql.NVarChar, value: week } }
+      );
+
+      // 2. StockMaster.isFix = 0 (UPDLOCK)
+      const smRes = await tQ(
+        `UPDATE StockMaster WITH (UPDLOCK, HOLDLOCK)
+           SET isFix=0
+         OUTPUT INSERTED.StockKey
+         WHERE OrderWeek=@wk AND isFix=1`,
+        { wk: { type: sql.NVarChar, value: week } }
+      );
+      const unfixedStockKeys = smRes.recordset.map(r => r.StockKey);
+
+      // 3. ProductStock 영향받은 품목 정리 — 확정 시 저장한 스냅샷 삭제
+      //    (다음 fix 시 새로 계산되도록. 메모리 노트: 차수피벗 잔량(DB) stale 방지)
+      let psDeletedCount = 0;
+      if (unfixedStockKeys.length > 0) {
+        const skList = unfixedStockKeys.join(',');
+        const delRes = await tQ(
+          `DELETE FROM ProductStock WHERE StockKey IN (${skList})`,
+          {}
+        );
+        psDeletedCount = delRes.rowsAffected?.[0] || 0;
+      }
+
+      // 4. StockHistory 확정취소 기록 — prodKey=0 단일행 + 메타에 영향범위 표시
+      await tQ(
+        `INSERT INTO StockHistory
+           (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
+            BeforeValue, AfterValue, Descr, ProdKey)
+         VALUES (GETDATE(), @yr, @wk, @uid, '확정취소', '수량', 0, 0, @descr, 0)`,
+        {
+          yr:    { type: sql.NVarChar, value: week.split('-')[0] || '2026' },
+          wk:    { type: sql.NVarChar, value: week },
+          uid:   { type: sql.NVarChar, value: req.user.userId },
+          descr: { type: sql.NVarChar,
+                   value: `확정 취소 (이전 isFix=${wasFixed ? 1 : 0}, ProductStock ${psDeletedCount}건 삭제` +
+                          (laterFixed.length > 0 ? `, 후속확정차수 ${laterFixed.join(',')} 강제 진행` : '') + ')' },
+        }
+      );
+
+      return { wasFixed, unfixedStockKeys, psDeletedCount };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `[${week}] 확정 취소 완료 — ProductStock ${result.psDeletedCount}건 정리` +
+               (result.wasFixed ? '' : ' (이미 확정 안 된 상태)') +
+               (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : ''),
+      ...result,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 }
