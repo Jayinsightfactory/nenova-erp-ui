@@ -382,10 +382,16 @@ export default function Estimate() {
   const [yearStr, setYearStr] = useState(getCurrentYearStr);
   // 자동조회 토글 — 차수 변경 시 자동으로 조회 (확정된 차수만 결과 있음, 옛 PATCH 안 거치고 isFix=1 필터됨)
   const [autoLoad, setAutoLoad] = useState(true);
+  // 미확정 포함 토글 — 켜면 isFix=0 차수도 견적서에 표시
+  const [includeUnfixed, setIncludeUnfixed] = useState(false);
   useEffect(() => {
-    try { const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false); } catch {}
+    try {
+      const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false);
+      const u = localStorage.getItem('est_inclUnfixed'); if (u === '1') setIncludeUnfixed(true);
+    } catch {}
   }, []);
   useEffect(() => { try { localStorage.setItem('est_autoLoad', autoLoad ? '1' : '0'); } catch {} }, [autoLoad]);
+  useEffect(() => { try { localStorage.setItem('est_inclUnfixed', includeUnfixed ? '1' : '0'); } catch {} }, [includeUnfixed]);
   const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
   const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
@@ -519,6 +525,7 @@ export default function Estimate() {
     apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       custKey: selectedCust?.CustKey || '',
+      includeUnfixed: includeUnfixed ? '1' : '',
     })
       .then(d => {
         setShipments(d.shipments || []);
@@ -544,7 +551,7 @@ export default function Estimate() {
     const t = setTimeout(() => load(true), 200); // 입력 디바운스
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekNum, selectedCust?.CustKey, autoLoad]);
+  }, [weekNum, selectedCust?.CustKey, autoLoad, includeUnfixed]);
 
   // ── 출고 목록 행 클릭 → 해당 그룹의 모든 ShipmentKey 견적 상세 로드
   const selectShipment = (groupId, custKey, shipmentKeys) => {
@@ -1045,6 +1052,17 @@ export default function Estimate() {
             color: autoLoad ? '#fff' : '#666',
           }}>
           {autoLoad ? '⚡자동조회 ON' : '⚡자동조회 OFF'}
+        </button>
+        <button type="button" onClick={() => setIncludeUnfixed(v => !v)}
+          title={includeUnfixed ? '미확정 차수도 견적서에 표시 (검토용)' : '확정된 차수만 표시 (정상)'}
+          style={{
+            padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            borderRadius: 14, marginLeft: 4,
+            border: `1.5px solid ${includeUnfixed ? '#c62828' : '#999'}`,
+            background: includeUnfixed ? '#ffebee' : '#fff',
+            color: includeUnfixed ? '#c62828' : '#666',
+          }}>
+          {includeUnfixed ? '🔓 미확정 포함' : '🔒 확정만'}
         </button>
 
         <div className="page-actions">

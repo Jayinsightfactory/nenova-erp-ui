@@ -47,7 +47,8 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getEstimates(req, res) {
-  const { week, custKey, shipmentKey } = req.query;
+  const { week, custKey, shipmentKey, includeUnfixed } = req.query;
+  const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
 
   // ── shipmentKey 직접 지정 시: 해당 건 상세만 반환 (왼쪽 목록 불필요)
   if (shipmentKey) {
@@ -62,8 +63,11 @@ async function getEstimates(req, res) {
   // parentWeek: "14-01" → "14" (앞 주차 번호만 추출, 하이픈 포함 시)
   const parentWeek = week ? week.split('-')[0] : '';
 
-  // 전산과 동일: isFix=1 (확정된 출고)만 견적서에 표시
-  let where = 'WHERE sm.isDeleted = 0 AND sm.isFix = 1';
+  // 전산과 동일: 기본은 isFix=1 (확정된 출고)만 표시.
+  // includeUnfixed=1 시 미확정도 포함 (사장님 미리보기/검토용)
+  let where = showUnfixed
+    ? 'WHERE sm.isDeleted = 0'
+    : 'WHERE sm.isDeleted = 0 AND sm.isFix = 1';
   const params = {};
   if (week) {
     // OrderWeek = "14-01" 형식 → LEFT 2자리가 parentWeek와 일치하는 것 모두 조회
@@ -84,7 +88,7 @@ async function getEstimates(req, res) {
           WHERE sm2.CustKey = sm.CustKey
             AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
                 = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
-            AND sm2.isDeleted = 0 AND sm2.isFix = 1
+            AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
           FOR XML PATH(''), TYPE
         ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS ShipmentKeys,
         STUFF((
@@ -93,7 +97,7 @@ async function getEstimates(req, res) {
           WHERE sm2.CustKey = sm.CustKey
             AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
                 = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
-            AND sm2.isDeleted = 0 AND sm2.isFix = 1
+            AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
           FOR XML PATH(''), TYPE
         ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS SubWeeks,
         SUM(ISNULL(sa.shipAmt, 0) + ISNULL(ea.estAmt, 0)) AS totalAmount,
