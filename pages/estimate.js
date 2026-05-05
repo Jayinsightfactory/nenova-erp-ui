@@ -358,6 +358,7 @@ export default function Estimate() {
 
   // 왼쪽 패널 - 출고 목록
   const [shipments, setShipments] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
   const [selectedCustKey, setSelectedCustKey] = useState(null);
 
@@ -484,6 +485,7 @@ export default function Estimate() {
     })
       .then(d => {
         setShipments(d.shipments || []);
+        setSelectedGroups(new Set()); // 새 조회 시 다중선택 초기화
         setItems(d.items || []);
         if (d.shipments?.length > 0) {
           // 그룹 기준: ParentWeek + CustKey
@@ -735,7 +737,12 @@ export default function Estimate() {
 
   // ── 견적서 출력 버튼 → 출력 다이얼로그 열기
   const handlePrint = () => {
-    if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
+    // 다중 선택이 있으면 그것만 사용, 없으면 현재 단일 선택 사용
+    if (selectedGroups.size > 0) {
+      setShowPrintDialog(true);
+      return;
+    }
+    if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
     setShowPrintDialog(true);
   };
 
@@ -745,14 +752,8 @@ export default function Estimate() {
   // 이유: Blob URL + _blank 가 일부 Chrome 버전/조건에서 현재 탭으로 navigate 되어
   //       견적서 관리 페이지가 사라지던 문제.  iframe 은 팝업 차단 이슈도 없음.
   //       부모 페이지는 절대 영향 받지 않음.
-  const doActualPrint = useCallback((opts) => {
-    const custName = selectedShip?.CustName || '';
+  const doActualPrint = useCallback(async (opts) => {
     const week = weekNum || '';
-
-    // 선출고 = 정상출고 품목만, 종합 = 전체
-    const printRows = filteredItems.filter(i =>
-      opts.outType === 'select' ? i.EstimateType === '정상출고' : true
-    );
 
     // ── 숨김 iframe 에 HTML 주입 후 인쇄 (부모 창 영향 없음)
     const printInIframe = (html) => new Promise((resolve) => {
@@ -782,78 +783,85 @@ export default function Estimate() {
       document.body.appendChild(iframe);
     });
 
-    if (opts.splitMode === 'combined') {
-      // ── 종합 출력 (1장) — 비고: "13차 종합견적서" + 차수별 분배 합산표시
-      const bigoLabel = `${week}차 종합견적서`;
-      const html = buildEstimateHtml({
-        bigoLabel,
-        serialNo:  opts.serialNo,
-        printDate: opts.printDate,
-        custName,
-        rows: printRows,
-        logoDataUrl,
-        aggregate: true, // 같은 품목 합산 + 적요에 1차/2차 분배 표시
-      });
-      printInIframe(html);
-    } else {
-      // ── 품목별 분할 출력 (수국→카네이션→장미→에콰도르→기타 → 마지막 종합 1장)
-      // PDF 비고 형식: "13차 수국/알스트로메리아" 등
-      const GROUP_LABEL = {
-        '수국/알스트로': '수국/알스트로메리아',
-        '카네이션':     '카네이션',
-        '장미':         '장미',
-        '에콰도르':     '에콰도르 분화',
-        '기타':         '기타',
-      };
-      const groups = {};
-      printRows.forEach(r => {
-        const g = getFlowerGroup(r.FlowerName);
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(r);
-      });
-      const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
-      const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
+    // ── 한 거래처분 인쇄 헬퍼 — rows 와 custName 받아 splitMode 에 따라 분기
+    const printOneCustomer = async (oneCustName, oneRows) => {
+      const printRows = oneRows.filter(i =>
+        opts.outType === 'select' ? i.EstimateType === '정상출고' : true
+      );
+      if (!printRows.length) return;
 
-      if (activeGroups.length === 0) { alert('출력할 품목이 없습니다.'); return; }
-
-      // 그룹별 페이지 + 마지막에 종합 페이지
-      const pages = [
-        ...activeGroups.map(g => ({
-          bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
-          rows: groups[g],
-        })),
-        // 마지막: 종합 (PDF 마지막 페이지) — 차수별 분배 합산
-        {
-          bigoLabel: `${week}차 종합견적서`,
-          rows: printRows,
-          aggregate: true,
-        },
-      ];
-
-      const pagePromises = [];
-      pages.forEach(({ bigoLabel, rows, aggregate }, idx) => {
+      if (opts.splitMode === 'combined') {
+        const bigoLabel = `${week}차 종합견적서`;
         const html = buildEstimateHtml({
-          bigoLabel,
-          serialNo:  opts.serialNo,
-          printDate: opts.printDate,
-          custName,
-          rows,
-          logoDataUrl,
-          aggregate,
+          bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
+          custName: oneCustName, rows: printRows, logoDataUrl,
+          aggregate: true,
         });
-        // 기존 setTimeout + window.open 방식 → 순차 iframe 인쇄로 변경.
-        pagePromises.push({ html });
-      });
-      // 순차 실행 (이전 프린트 완료 후 다음)
-      (async () => {
-        for (const { html } of pagePromises) {
+        await printInIframe(html);
+      } else {
+        const GROUP_LABEL = {
+          '수국/알스트로': '수국/알스트로메리아',
+          '카네이션':     '카네이션',
+          '장미':         '장미',
+          '에콰도르':     '에콰도르 분화',
+          '기타':         '기타',
+        };
+        const groups = {};
+        printRows.forEach(r => {
+          const g = getFlowerGroup(r.FlowerName);
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(r);
+        });
+        const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
+        const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
+        if (activeGroups.length === 0) return;
+
+        const pages = [
+          ...activeGroups.map(g => ({
+            bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
+            rows: groups[g],
+          })),
+          { bigoLabel: `${week}차 종합견적서`, rows: printRows, aggregate: true },
+        ];
+        for (const { bigoLabel, rows, aggregate } of pages) {
+          const html = buildEstimateHtml({
+            bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
+            custName: oneCustName, rows, logoDataUrl, aggregate,
+          });
           await printInIframe(html);
         }
-      })();
+      }
+    };
+
+    // ── 다중 선택 모드: 각 거래처별로 순차 인쇄
+    if (selectedGroups.size > 0) {
+      // selectedGroups 의 각 그룹에 대해 items 가져와서 인쇄
+      const groupArr = Array.from(selectedGroups);
+      for (const groupId of groupArr) {
+        const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId);
+        if (!ship) continue;
+        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        try {
+          const fetchPromises = keys.map(k =>
+            fetch(`/api/estimate?shipmentKey=${k}`, { credentials: 'same-origin' })
+              .then(r => r.json())
+              .then(d => d.success ? (d.items || []) : [])
+          );
+          const allItems = await Promise.all(fetchPromises);
+          const rows = allItems.flat();
+          await printOneCustomer(ship.CustName, rows);
+        } catch (e) {
+          console.error(`[print] ${ship.CustName} 실패:`, e);
+        }
+      }
+    } else {
+      // 단일 선택 — 기존 흐름
+      const custName = selectedShip?.CustName || '';
+      await printOneCustomer(custName, filteredItems);
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, logoDataUrl]);
+  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
@@ -970,6 +978,12 @@ export default function Estimate() {
           <div className="card-header">
             <span className="card-title">■ 출고 목록</span>
             <span style={{fontSize:11, color:'var(--text3)'}}>{shipments.length}건</span>
+            {selectedGroups.size > 0 && (
+              <span style={{marginLeft:'auto', fontSize:11, fontWeight:700, color:'#2e7d32',
+                            padding:'2px 8px', background:'#e8f5e9', borderRadius:10}}>
+                ✓ {selectedGroups.size}건 선택됨
+              </span>
+            )}
           </div>
           <div style={{overflowY:'auto', flex:1}}>
             {loading
@@ -978,7 +992,16 @@ export default function Estimate() {
                 <table className="tbl">
                   <thead>
                     <tr>
-                      <th style={{width:28}}><input type="checkbox"/></th>
+                      <th style={{width:28}}>
+                        <input type="checkbox"
+                          ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < shipments.length; }}
+                          checked={shipments.length > 0 && selectedGroups.size === shipments.length}
+                          onChange={() => {
+                            if (selectedGroups.size === shipments.length) setSelectedGroups(new Set());
+                            else setSelectedGroups(new Set(shipments.map(s => `${s.ParentWeek}_${s.CustKey}`)));
+                          }}
+                          title="전체 선택/해제"/>
+                      </th>
                       <th>차수</th><th>거래처</th>
                       <th style={{textAlign:'right'}}>총 합계금액</th>
                     </tr>
@@ -989,13 +1012,24 @@ export default function Estimate() {
                       : shipments.map(s => {
                           const groupId = `${s.ParentWeek}_${s.CustKey}`;
                           const subWeeks = (s.SubWeeks || '').split(',').filter(Boolean).join(', ');
+                          const checked = selectedGroups.has(groupId);
                           return (
                             <tr key={groupId}
                               className={selectedId === groupId ? 'selected' : ''}
                               onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
-                              style={{cursor:'pointer'}}
+                              style={{cursor:'pointer', background: checked ? '#e3f2fd' : undefined}}
                             >
-                              <td><input type="checkbox" readOnly checked={selectedId === groupId}/></td>
+                              <td onClick={e => e.stopPropagation()}>
+                                <input type="checkbox" checked={checked}
+                                  onChange={() => {
+                                    setSelectedGroups(prev => {
+                                      const n = new Set(prev);
+                                      if (n.has(groupId)) n.delete(groupId);
+                                      else n.add(groupId);
+                                      return n;
+                                    });
+                                  }}/>
+                              </td>
                               <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>
                                 {s.ParentWeek}
                                 <div style={{fontSize:9, color:'var(--text3)', fontWeight:'normal'}}>{subWeeks}</div>
@@ -1241,7 +1275,15 @@ export default function Estimate() {
         <div className="modal-overlay" onClick={() => setShowPrintDialog(false)}>
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">🖨️ 견적서 출력 옵션</span>
+              <span className="modal-title">
+                🖨️ 견적서 출력 옵션
+                {selectedGroups.size > 0 && (
+                  <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#2e7d32',
+                                 padding:'2px 8px', borderRadius:10, marginLeft:8 }}>
+                    {selectedGroups.size}건 일괄 인쇄
+                  </span>
+                )}
+              </span>
               <button className="btn btn-sm" onClick={() => setShowPrintDialog(false)}>✕</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
