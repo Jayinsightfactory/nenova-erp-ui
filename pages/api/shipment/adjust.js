@@ -181,9 +181,9 @@ async function postAdjust(req, res) {
         }
       }
 
-      // 4) ShipmentMaster 확보
+      // 4) ShipmentMaster 확보 + isFix 보호
       const sm = await tQ(
-        `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+        `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
           ORDER BY WebCreated DESC, ShipmentKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: orderWeek } }
@@ -207,6 +207,10 @@ async function postAdjust(req, res) {
         );
       } else {
         sk = sm.recordset[0].ShipmentKey;
+        // 확정차수 백엔드 보호 — 프론트가 우회되어도 DB가 막음
+        if (sm.recordset[0].isFix === 1) {
+          throw new Error('확정된 차수는 수정할 수 없습니다 (먼저 차수 확정을 해제하세요)');
+        }
       }
 
       // 5) ShipmentDetail 현재값
@@ -251,7 +255,9 @@ async function postAdjust(req, res) {
         );
       }
 
-      // 6) 잔량 계산: 입고합 − Σ(ShipmentDetail.OutQuantity by ProdKey,Week)
+      // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고
+      // 단, totalIn=0 (입고 미등록 차수)인 경우는 허용 (선분배 패턴)
+      // 잔량 계산: 입고합 − Σ(ShipmentDetail.OutQuantity by ProdKey,Week)
       const remainQ = await tQ(
         `SELECT
            ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
@@ -267,6 +273,12 @@ async function postAdjust(req, res) {
       // remainBefore: 이 행 변경 직전 시점
       const remainBefore = totalIn - (totalOut - qtyAfter + qtyBefore);
       const remainAfter  = totalIn - totalOut;
+
+      // 입고초과 경고 — 입고가 등록되어 있는데 잔량이 음수로 가는 경우만 차단
+      // (입고=0 차수는 선분배 패턴이라 허용. body 에 force=true 면 강제 진행)
+      if (type === 'ADD' && totalIn > 0 && remainAfter < 0 && !req.body.force) {
+        throw new Error(`입고(${totalIn}) 초과: 분배합 ${totalOut} > 입고. 강제 진행하려면 force=true (관리자만)`);
+      }
 
       // 7) ShipmentAdjustment INSERT
       await tQ(
