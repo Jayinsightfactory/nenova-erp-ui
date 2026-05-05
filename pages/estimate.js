@@ -93,6 +93,9 @@ function mapEstimateType(t) {
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
 function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl, aggregate = false }) {
+  // ── 수량/단가 둘 다 0인 행 제거 (사장님 요청)
+  rows = rows.filter(r => (Number(r.Quantity) || 0) > 0 || (Number(r.Cost) || 0) > 0);
+
   // ── 차감 항목을 최하단으로 정렬 (정상출고 먼저, 차감은 뒤)
   const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
   const sortedRows = [...rows].sort((a, b) => {
@@ -127,30 +130,33 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
     return r.Descr || '';
   };
 
-  // ── 종합견적서 (aggregate=true): 같은 ProdKey 끼리 합산하고 차수별 breakdown 을 적요에 표시
-  if (aggregate) {
+  // ── 같은 ProdKey 끼리 항상 합산 + 차수별 breakdown 적요에 표시 (1차/2차 모두 보이게)
+  // aggregate 옵션 제거 — 항상 활성화 (옛 명세 사장님 요구사항)
+  {
     const groups = {};   // key = `${EstimateType}|${ProdKey}`
     rows.forEach(r => {
       const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}`;
-      if (!groups[key]) groups[key] = { ...r, Quantity: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
+      if (!groups[key]) groups[key] = { ...r, Quantity: 0, BoxQty: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
       const g = groups[key];
-      g.Quantity += (r.Quantity || 0);
-      g.Amount   += (r.Amount   || 0);
-      g.Vat      += (r.Vat      || 0);
+      g.Quantity += (Number(r.Quantity) || 0);
+      g.BoxQty   += (Number(r.BoxQty)   || 0);
+      g.Amount   += (Number(r.Amount)   || 0);
+      g.Vat      += (Number(r.Vat)      || 0);
       // OrderWeek 형식 "14-01" → "1차" / "14-02" → "2차"
       const ow = r.OrderWeek || '';
       const subM = ow.match(/-(\d+)$/);
-      const subLabel = subM ? `${parseInt(subM[1])}차` : (ow || '?');
-      g._breakdown[subLabel] = (g._breakdown[subLabel] || 0) + (r.Quantity || 0);
+      const subLabel = subM ? `${parseInt(subM[1])}차` : (ow || '');
+      if (subLabel) {
+        g._breakdown[subLabel] = (g._breakdown[subLabel] || 0) + (Number(r.Quantity) || 0);
+      }
       if (r.outDate) g._outDates.add(r.outDate);
     });
     rows = Object.values(groups).map(g => {
       const parts = Object.entries(g._breakdown)
         .filter(([_, v]) => v > 0)
         .sort(([a],[b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k} ${fmtN(v)}${g.Unit||'박스'}`);
+        .map(([k, v]) => `${k} ${fmtN(v)}${g.Unit||''}`);
       g._distribDesc = parts.join(', ');
-      // 차감행은 출고일 우선 표시 (집계 후에도)
       return g;
     });
   }
@@ -164,6 +170,7 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
       <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;${deduct ? 'color:#c0392b;font-weight:bold;' : ''}">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
+      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
@@ -186,10 +193,11 @@ table { width:100%; border-collapse:collapse; }
 .hdr-right { width:52%; vertical-align:top; padding:0; }
 .hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
 .hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
-/* 로고: 헤더 영역 안에 수렴 (페이지 넘어가지 않도록 max-height 엄격 제한 + contain) */
-.logo-area { text-align:left; border-bottom:1px solid #555; padding:0; margin:0; line-height:0; background:#fff; height:44px; overflow:hidden; }
-.logo-area img { display:block; width:100%; height:44px; max-height:44px; object-fit:contain; object-position:left center; }
-@media print { .logo-area { height:38px; } .logo-area img { height:38px; max-height:38px; } }
+/* 로고: 헤더 영역 가운데 정렬 + 사장님 양식과 동일한 사이즈 */
+.logo-area { text-align:center; border-bottom:1px solid #555; padding:6px 8px; margin:0; line-height:0; background:#fff; height:64px; overflow:hidden;
+             display:flex; align-items:center; justify-content:center; }
+.logo-area img { display:block; height:52px; max-height:52px; max-width:90%; object-fit:contain; }
+@media print { .logo-area { height:58px; padding:4px 6px; } .logo-area img { height:48px; max-height:48px; } }
 /* 회사정보: 실제 테이블 2셀 (왼쪽정렬, 줄바꿈 방지, 셀 경계선) */
 .co-table { width:100%; border-collapse:collapse; table-layout:fixed; }
 .co-table td { border:1px solid #999; padding:4px 6px; font-size:7.5pt;
@@ -257,19 +265,20 @@ table { width:100%; border-collapse:collapse; }
 <table>
   <thead>
     <tr>
-      <th class="item-th" style="width:28px">순번</th>
+      <th class="item-th" style="width:24px">순번</th>
       <th class="item-th">품목명[규격]</th>
-      <th class="item-th" style="width:68px">수량</th>
-      <th class="item-th" style="width:62px">단가</th>
-      <th class="item-th" style="width:80px">공급가액</th>
-      <th class="item-th" style="width:68px">부가세</th>
-      <th class="item-th" style="width:80px">적요</th>
+      <th class="item-th" style="width:54px">수량</th>
+      <th class="item-th" style="width:46px">박스</th>
+      <th class="item-th" style="width:54px">단가</th>
+      <th class="item-th" style="width:74px">공급가액</th>
+      <th class="item-th" style="width:60px">부가세</th>
+      <th class="item-th" style="width:108px">적요</th>
     </tr>
   </thead>
   <tbody>${itemRows}</tbody>
   <tfoot>
     <tr class="foot-row">
-      <td colspan="4" style="text-align:right;padding-right:12px">공급가액 합계</td>
+      <td colspan="5" style="text-align:right;padding-right:12px">공급가액 합계</td>
       <td style="text-align:right">${fmtN(totalSupply)}</td>
       <td style="text-align:right">${fmtN(totalVat)}</td>
       <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>

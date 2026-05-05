@@ -160,6 +160,7 @@ async function loadItems(sk) {
               WHEN '단'  THEN sd.BunchQuantity
               WHEN '송이' THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
+         ISNULL(sd.BoxQuantity, 0)                 AS BoxQty,
          -- Cost: sd.Cost 있으면 그대로, 없으면 p.Cost (14차 fallback)
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
          -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 14차 패턴 (Bunch × Cost / 1.1)
@@ -197,6 +198,10 @@ async function loadItems(sk) {
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          e.Unit,
          e.Quantity,
+         CASE WHEN ISNULL(p.OutUnit,'박스')='박스' THEN e.Quantity
+              WHEN p.OutUnit='단'  AND p.BunchOf1Box>0 THEN e.Quantity / p.BunchOf1Box
+              WHEN p.OutUnit='송이' AND p.SteamOf1Box>0 THEN e.Quantity / p.SteamOf1Box
+              ELSE 0 END                            AS BoxQty,
          e.Cost,
          e.Amount,
          e.Vat,
