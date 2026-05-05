@@ -102,9 +102,33 @@ async function postAdjust(req, res) {
       );
       if (!pInfo.recordset[0]) throw new Error('품목 없음 ProdKey=' + pk);
       const prod = pInfo.recordset[0];
-      const outUnit = unit || prod.OutUnit || '박스';
+      // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
+      // prodOutUnit: 마스터 단위 (저장 기준)
+      const prodOutUnit = prod.OutUnit || '박스';
+      const userUnit = unit || prodOutUnit;
       const B1B = prod.B1B || 0;
       const S1B = prod.S1B || 0;
+      // qty/delta 를 3개 단위(박스/단/송이) 모두로 환산하는 헬퍼
+      // qty 가 userUnit 기준일 때, 다른 두 단위로 비례 환산
+      const toAllUnits = (qInUserUnit) => {
+        let box, bunch, steam;
+        if (userUnit === '박스') {
+          box   = qInUserUnit;
+          bunch = B1B > 0 ? qInUserUnit * B1B : 0;
+          steam = S1B > 0 ? qInUserUnit * S1B : 0;
+        } else if (userUnit === '단') {
+          bunch = qInUserUnit;
+          box   = B1B > 0 ? qInUserUnit / B1B : 0;
+          steam = (B1B > 0 && S1B > 0) ? box * S1B : 0;
+        } else { // 송이
+          steam = qInUserUnit;
+          box   = S1B > 0 ? qInUserUnit / S1B : 0;
+          bunch = (S1B > 0 && B1B > 0) ? box * B1B : 0;
+        }
+        // OutQuantity = Product 의 OutUnit 기준 (canonical)
+        const outQ = prodOutUnit === '단' ? bunch : prodOutUnit === '송이' ? steam : box;
+        return { box, bunch, steam, outQ };
+      };
 
       // 2) OrderMaster 확보 (UPDLOCK)
       const om = await tQ(
@@ -134,35 +158,35 @@ async function postAdjust(req, res) {
         mk = om.recordset[0].OrderMasterKey;
       }
 
-      // 3) OrderDetail 현재값 (canonical qty by OutUnit)
+      // 3) OrderDetail 현재값 — userUnit 기준 (사용자 보는 단위)
       const odCur = await tQ(
         `SELECT OrderDetailKey,
-                CASE WHEN @ou=N'단'   THEN ISNULL(BunchQuantity,0)
-                     WHEN @ou=N'송이' THEN ISNULL(SteamQuantity,0)
-                     ELSE ISNULL(BoxQuantity,0) END AS curQty
+                ISNULL(BoxQuantity,0)   AS curBox,
+                ISNULL(BunchQuantity,0) AS curBunch,
+                ISNULL(SteamQuantity,0) AS curSteam
            FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
-        { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-          ou: { type: sql.NVarChar, value: outUnit } }
+        { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
-      const orderQtyBefore = odCur.recordset[0]?.curQty || 0;
+      const odRow = odCur.recordset[0];
+      const orderQtyBefore = !odRow ? 0
+        : userUnit === '단'   ? odRow.curBunch
+        : userUnit === '송이' ? odRow.curSteam
+        : odRow.curBox;
       const orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore;
 
-      // ADD 일 때만 OrderDetail INSERT/UPDATE
+      // ADD 일 때만 OrderDetail INSERT/UPDATE — 모든 단위 환산값 저장
       if (type === 'ADD') {
-        const finalQty = orderQtyAfter;
-        const boxQty   = outUnit === '박스' ? finalQty : 0;
-        const bunchQty = outUnit === '단'   ? finalQty : (outUnit === '박스' && B1B > 0 ? finalQty * B1B : 0);
-        const steamQty = outUnit === '송이' ? finalQty : (outUnit === '박스' && S1B > 0 ? finalQty * S1B : 0);
+        const u = toAllUnits(orderQtyAfter);
 
-        if (odCur.recordset.length > 0) {
+        if (odRow) {
           await tQ(
             `UPDATE OrderDetail SET
                BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
-            { bq: { type: sql.Float, value: boxQty }, bnq: { type: sql.Float, value: bunchQty },
-              sq: { type: sql.Float, value: steamQty },
+            { bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
+              sq: { type: sql.Float, value: u.steam },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
@@ -174,8 +198,8 @@ async function postAdjust(req, res) {
                 OutQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
              VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,0,0,0,@uid,GETDATE())`,
             { nk: { type: sql.Int, value: odk }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-              bq: { type: sql.Float, value: boxQty }, bnq: { type: sql.Float, value: bunchQty },
-              sq: { type: sql.Float, value: steamQty },
+              bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
+              sq: { type: sql.Float, value: u.steam },
               uid: { type: sql.NVarChar, value: 'admin' } }
           );
         }
@@ -213,32 +237,38 @@ async function postAdjust(req, res) {
         }
       }
 
-      // 5) ShipmentDetail 현재값
+      // 5) ShipmentDetail 현재값 — userUnit 기준
       const sdCur = await tQ(
-        `SELECT SdetailKey, ISNULL(OutQuantity,0) AS curQty
+        `SELECT SdetailKey,
+                ISNULL(BoxQuantity,0)   AS curBox,
+                ISNULL(BunchQuantity,0) AS curBunch,
+                ISNULL(SteamQuantity,0) AS curSteam,
+                ISNULL(OutQuantity,0)   AS curOut
            FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
-      const qtyBefore = sdCur.recordset[0]?.curQty || 0;
+      const sdRow = sdCur.recordset[0];
+      const qtyBefore = !sdRow ? 0
+        : userUnit === '단'   ? sdRow.curBunch
+        : userUnit === '송이' ? sdRow.curSteam
+        : sdRow.curBox;
       const qtyAfter  = type === 'ADD' ? qtyBefore + delta : qtyBefore - delta;
-      if (qtyAfter < 0) throw new Error(`취소량(${delta})이 현재 출고(${qtyBefore})보다 큼`);
+      if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore}${userUnit})보다 큼`);
 
-      const finalBox   = qtyAfter;
-      const finalBunch = B1B > 0 ? qtyAfter * B1B : 0;
-      const finalSteam = S1B > 0 ? qtyAfter * S1B : 0;
+      const u = toAllUnits(qtyAfter);
 
-      if (sdCur.recordset.length > 0) {
+      if (sdRow) {
         await tQ(
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@oq,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
            WHERE SdetailKey=@dk`,
-          { dk: { type: sql.Int, value: sdCur.recordset[0].SdetailKey },
-            oq: { type: sql.Float, value: qtyAfter },
-            bq: { type: sql.Float, value: finalBox },
-            bnq:{ type: sql.Float, value: finalBunch },
-            sq: { type: sql.Float, value: finalSteam } }
+          { dk: { type: sql.Int, value: sdRow.SdetailKey },
+            oq: { type: sql.Float, value: u.outQ },
+            bq: { type: sql.Float, value: u.box },
+            bnq:{ type: sql.Float, value: u.bunch },
+            sq: { type: sql.Float, value: u.steam } }
         );
       } else if (type === 'ADD') {
         const sdk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
@@ -248,10 +278,10 @@ async function postAdjust(req, res) {
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
            VALUES (@dk,@sk,@pk,GETDATE(),@oq,@oq,@bq,@bnq,@sq,0,0,0,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
-            oq: { type: sql.Float, value: qtyAfter },
-            bq: { type: sql.Float, value: finalBox },
-            bnq:{ type: sql.Float, value: finalBunch },
-            sq: { type: sql.Float, value: finalSteam } }
+            oq: { type: sql.Float, value: u.outQ },
+            bq: { type: sql.Float, value: u.box },
+            bnq:{ type: sql.Float, value: u.bunch },
+            sq: { type: sql.Float, value: u.steam } }
         );
       }
 
@@ -270,8 +300,11 @@ async function postAdjust(req, res) {
       );
       const totalIn  = remainQ.recordset[0].totalIn  || 0;
       const totalOut = remainQ.recordset[0].totalOut || 0;
+      // OutQuantity 단위로 전후 환산 (totalOut 도 OutQuantity 기준이므로)
+      const outQAfter  = u.outQ;
+      const outQBefore = !sdRow ? 0 : sdRow.curOut;
       // remainBefore: 이 행 변경 직전 시점
-      const remainBefore = totalIn - (totalOut - qtyAfter + qtyBefore);
+      const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
 
       // 입고검증 — 견적서/확정 단계 오류 예방
