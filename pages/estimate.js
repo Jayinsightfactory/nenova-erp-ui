@@ -347,6 +347,12 @@ export default function Estimate() {
   // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
   const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
   const [yearStr, setYearStr] = useState(getCurrentYearStr);
+  // 자동조회 토글 — 차수 변경 시 자동으로 조회 (확정된 차수만 결과 있음, 옛 PATCH 안 거치고 isFix=1 필터됨)
+  const [autoLoad, setAutoLoad] = useState(true);
+  useEffect(() => {
+    try { const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false); } catch {}
+  }, []);
+  useEffect(() => { try { localStorage.setItem('est_autoLoad', autoLoad ? '1' : '0'); } catch {} }, [autoLoad]);
   const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
   const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
@@ -465,8 +471,12 @@ export default function Estimate() {
   }, []);
 
   // ── 조회 (차수 + 업체 기준) — 차수 단위 그룹핑 (14 → 14-01, 14-02 … 모두 포함)
-  const load = () => {
-    if (!weekNum && !selectedCust) { setErr('차수 또는 업체를 입력하세요.'); return; }
+  // silent=true: 자동조회 시 에러 무시 (입력 부족 케이스)
+  const load = (silent = false) => {
+    if (!weekNum && !selectedCust) {
+      if (!silent) setErr('차수 또는 업체를 입력하세요.');
+      return;
+    }
     setLoading(true); setErr('');
     apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
@@ -480,11 +490,22 @@ export default function Estimate() {
           const first = d.shipments[0];
           setSelectedId(`${first.ParentWeek}_${first.CustKey}`);
           setSelectedCustKey(first.CustKey);
+        } else {
+          setSelectedId(null); setSelectedCustKey(null);
         }
       })
-      .catch(e => setErr(e.message))
+      .catch(e => { if (!silent) setErr(e.message); })
       .finally(() => setLoading(false));
   };
+
+  // 자동조회: 차수/거래처 변경 시 자동 로드 (autoLoad=true 일 때만)
+  useEffect(() => {
+    if (!autoLoad) return;
+    if (!weekNum && !selectedCust) return;
+    const t = setTimeout(() => load(true), 200); // 입력 디바운스
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekNum, selectedCust?.CustKey, autoLoad]);
 
   // ── 출고 목록 행 클릭 → 해당 그룹의 모든 ShipmentKey 견적 상세 로드
   const selectShipment = (groupId, custKey, shipmentKeys) => {
@@ -916,8 +937,21 @@ export default function Estimate() {
           <span key={d} className={`chip ${activeWD.has(d)?'chip-active':'chip-inactive'}`} onClick={() => toggleWD(d)}>{d}</span>
         ))}
 
+        {/* 자동조회 토글 — 차수 변경 시 자동으로 업체목록 불러오기 */}
+        <button type="button" onClick={() => setAutoLoad(v => !v)}
+          title={autoLoad ? '자동조회 ON: 차수 변경 시 즉시 조회' : '자동조회 OFF: 조회 버튼 눌러야 조회'}
+          style={{
+            padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            borderRadius: 14, marginLeft: 4,
+            border: `1.5px solid ${autoLoad ? '#2e7d32' : '#999'}`,
+            background: autoLoad ? '#2e7d32' : '#fff',
+            color: autoLoad ? '#fff' : '#666',
+          }}>
+          {autoLoad ? '⚡자동조회 ON' : '⚡자동조회 OFF'}
+        </button>
+
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
+          <button className="btn btn-primary" onClick={() => load(false)}>🔄 조회 / Buscar</button>
           <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
           <button className="btn" onClick={handleExcel}>📊 엑셀 다운</button>
