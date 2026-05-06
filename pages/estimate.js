@@ -820,9 +820,10 @@ export default function Estimate() {
 
       setCostApplyLog(prev => [...prev, { step: 'done', label: '✅ 전체 완료 — 견적서 재로딩 중...' }]);
 
-      // 재로딩
+      // 재로딩 — 좌측 출고목록(합계금액) + 우측 견적 상세 둘 다
       if (selectedShip) {
         await new Promise(res => setTimeout(res, 400));
+        load(true); // 좌측 shipments 재조회 (총 합계금액 갱신)
         selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
       }
 
