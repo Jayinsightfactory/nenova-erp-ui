@@ -383,6 +383,9 @@ export default function Estimate() {
   // 차수 확정 모달
   const [fixModal, setFixModal] = useState(null); // null | { stage, week, issues, result }
   const [fixWorking, setFixWorking] = useState(false);
+  // 주문 vs 출고 불일치 검증
+  const [mismatch, setMismatch] = useState(null); // { total, shortageCount, overflowCount, items }
+  const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
   // 자동조회 토글 — 차수 변경 시 자동으로 조회 (확정된 차수만 결과 있음, 옛 PATCH 안 거치고 isFix=1 필터됨)
   const [autoLoad, setAutoLoad] = useState(true);
   // 미확정 포함 토글 — 켜면 isFix=0 차수도 견적서에 표시
@@ -567,6 +570,12 @@ export default function Estimate() {
       .then(results => setItems(results.flat()))
       .catch(() => setItems([]))
       .finally(() => setItemLoading(false));
+    // 주문 vs 출고 불일치 자동 검증
+    if (custKey && weekNum) {
+      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, custKey })
+        .then(d => { if (d.success) setMismatch(d); else setMismatch(null); })
+        .catch(() => setMismatch(null));
+    }
   };
 
   const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
@@ -1237,6 +1246,19 @@ export default function Estimate() {
           <div className="card-header" style={{flexWrap:'wrap', gap:6}}>
             <span className="card-title">■ 견적서 목록</span>
             {selectedShip && <span style={{fontSize:12, color:'var(--blue)', fontWeight:'bold'}}>{selectedShip.CustName}</span>}
+            {mismatch && mismatch.total > 0 && (
+              <button onClick={() => setMismatchModalOpen(true)}
+                title={`주문 vs 출고 불일치 ${mismatch.total}건 — 클릭하여 상세 보기`}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 12,
+                  background: '#fff3e0', color: '#e65100', border: '1.5px solid #fb8c00',
+                  cursor: 'pointer', marginLeft: 4,
+                }}>
+                ⚠ 불일치 {mismatch.total}건
+                {mismatch.shortageCount > 0 && ` (부족 ${mismatch.shortageCount})`}
+                {mismatch.overflowCount > 0 && ` (과출고 ${mismatch.overflowCount})`}
+              </button>
+            )}
             <div style={{marginLeft:'auto', display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
               {/* ── 단가 수정 모드 선택 + 적용 버튼 (P3) ── */}
               {editedCount > 0 && (
@@ -1605,6 +1627,90 @@ export default function Estimate() {
                 🖨️ 출력 실행
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 주문 vs 출고 불일치 상세 모달 ── */}
+      {mismatchModalOpen && mismatch && (
+        <div className="modal-overlay" onClick={() => setMismatchModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 720, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                ⚠ {selectedShip?.CustName} / {mismatch.week}차 — 주문 vs 출고 불일치
+              </span>
+              <button className="btn btn-sm" onClick={() => setMismatchModalOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display:'flex', gap:8, marginBottom:12, fontSize:12 }}>
+                {mismatch.shortageCount > 0 && (
+                  <span style={{ background:'#ffebee', color:'#c62828', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                    📉 출고 부족 {mismatch.shortageCount}건
+                  </span>
+                )}
+                {mismatch.overflowCount > 0 && (
+                  <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                    📈 과출고 {mismatch.overflowCount}건
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize:11, color:'#666', marginBottom:8, lineHeight:1.5 }}>
+                주문등록(OrderDetail) 대비 출고분배(ShipmentDetail) 합산이 다른 품목 목록입니다.
+                <br/>출고일 별 분배가 일부만 됐거나, 주문 후 추가 출고된 케이스 등.
+              </div>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                <thead>
+                  <tr style={{ background:'#f5f5f5', borderBottom:'2px solid #999' }}>
+                    <th style={{ padding:'5px 6px', textAlign:'left' }}>품목</th>
+                    <th style={{ padding:'5px 6px', textAlign:'center', width:40 }}>단위</th>
+                    <th style={{ padding:'5px 6px', textAlign:'right', width:60 }}>주문</th>
+                    <th style={{ padding:'5px 6px', textAlign:'right', width:60 }}>출고</th>
+                    <th style={{ padding:'5px 6px', textAlign:'right', width:70 }}>차이</th>
+                    <th style={{ padding:'5px 6px', textAlign:'center', width:70 }}>유형</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mismatch.items.map(it => {
+                    const isShortage = it.diffType === 'shortage';
+                    return (
+                      <tr key={it.ProdKey} style={{ borderBottom:'1px solid #eee' }}>
+                        <td style={{ padding:'4px 6px' }}>
+                          {it.ProdName}
+                          <div style={{ fontSize:9, color:'#888' }}>
+                            {it.CounName} / {it.FlowerName}
+                          </div>
+                        </td>
+                        <td style={{ padding:'4px 6px', textAlign:'center' }}>{it.OutUnit}</td>
+                        <td style={{ padding:'4px 6px', textAlign:'right', fontWeight:600 }}>
+                          {Number(it.orderQty).toLocaleString()}
+                        </td>
+                        <td style={{ padding:'4px 6px', textAlign:'right', fontWeight:600 }}>
+                          {Number(it.shipQty).toLocaleString()}
+                        </td>
+                        <td style={{ padding:'4px 6px', textAlign:'right', fontWeight:700,
+                                     color: isShortage ? '#c62828' : '#1565c0' }}>
+                          {isShortage ? '−' : '+'}{Math.abs(Number(it.diff)).toLocaleString()}
+                        </td>
+                        <td style={{ padding:'4px 6px', textAlign:'center', fontSize:10 }}>
+                          {isShortage ? (
+                            <span style={{ background:'#ffebee', color:'#c62828', padding:'1px 6px', borderRadius:8 }}>
+                              부족
+                            </span>
+                          ) : (
+                            <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'1px 6px', borderRadius:8 }}>
+                              과출고
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)' }}>
+              <button className="btn" onClick={() => setMismatchModalOpen(false)}>닫기</button>
             </div>
           </div>
         </div>

@@ -47,8 +47,79 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getEstimates(req, res) {
-  const { week, custKey, shipmentKey, includeUnfixed } = req.query;
+  const { week, custKey, shipmentKey, includeUnfixed, view } = req.query;
   const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
+
+  // ── view=mismatch: 거래처+차수의 OrderDetail vs ShipmentDetail 합산 비교
+  // 출고수량 != 주문수량 인 품목만 반환
+  if (view === 'mismatch') {
+    if (!week || !custKey) {
+      return res.status(400).json({ success: false, error: 'week, custKey 필요' });
+    }
+    const parentWeek = week.split('-')[0];
+    try {
+      const r = await query(
+        `SELECT
+           p.ProdKey, p.ProdName, p.OutUnit, p.FlowerName, p.CounName,
+           ISNULL(od_agg.orderQty, 0) AS orderQty,
+           ISNULL(sd_agg.shipQty,  0) AS shipQty,
+           ISNULL(od_agg.orderQty, 0) - ISNULL(sd_agg.shipQty, 0) AS diff,
+           sd_agg.shipDateCount,
+           sd_agg.shipKeyCount
+         FROM Product p
+         OUTER APPLY (
+           SELECT SUM(
+             CASE WHEN ISNULL(od.BunchQuantity,0) > 0 THEN od.BunchQuantity
+                  WHEN ISNULL(od.SteamQuantity,0) > 0 THEN od.SteamQuantity
+                  ELSE od.BoxQuantity END
+           ) AS orderQty
+           FROM OrderMaster om
+           JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
+           WHERE om.CustKey = @ck AND LEFT(om.OrderWeek, LEN(@pw)) = @pw
+             AND om.isDeleted = 0 AND od.ProdKey = p.ProdKey
+         ) od_agg
+         OUTER APPLY (
+           SELECT SUM(
+             CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+                  WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
+                  ELSE sd.BoxQuantity END
+           ) AS shipQty,
+           COUNT(DISTINCT CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)) AS shipDateCount,
+           COUNT(DISTINCT sm.ShipmentKey) AS shipKeyCount
+           FROM ShipmentMaster sm
+           JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
+           WHERE sm.CustKey = @ck AND LEFT(sm.OrderWeek, LEN(@pw)) = @pw
+             AND sm.isDeleted = 0 AND sd.ProdKey = p.ProdKey
+         ) sd_agg
+         WHERE p.isDeleted = 0
+           AND (ISNULL(od_agg.orderQty,0) > 0 OR ISNULL(sd_agg.shipQty,0) > 0)
+           AND ABS(ISNULL(od_agg.orderQty,0) - ISNULL(sd_agg.shipQty,0)) > 0.001
+         ORDER BY ABS(ISNULL(od_agg.orderQty,0) - ISNULL(sd_agg.shipQty,0)) DESC`,
+        {
+          ck: { type: sql.Int, value: parseInt(custKey) },
+          pw: { type: sql.NVarChar, value: parentWeek },
+        }
+      );
+      // 분류
+      const items = r.recordset.map(x => ({
+        ...x,
+        diffType: x.diff > 0 ? 'shortage' : 'overflow', // shortage=출고부족, overflow=과출고
+      }));
+      const shortage = items.filter(x => x.diffType === 'shortage');
+      const overflow = items.filter(x => x.diffType === 'overflow');
+      return res.status(200).json({
+        success: true,
+        week: parentWeek,
+        custKey: parseInt(custKey),
+        total: items.length,
+        shortageCount: shortage.length,
+        overflowCount: overflow.length,
+        items,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 
   // ── shipmentKey 직접 지정 시: 해당 건 상세만 반환 (왼쪽 목록 불필요)
   if (shipmentKey) {
