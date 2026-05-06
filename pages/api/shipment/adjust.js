@@ -26,6 +26,25 @@ function normWeek(week) {
   return { year: String(new Date().getFullYear()), week: String(week || '') };
 }
 
+// 차수(예: "18-01") + 연도 → 정상 출고일(YYYY-MM-DD) 계산
+// 14차/17차 옛 전산 패턴과 동일: 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
+function weekToShipDate(weekStr, yearStr) {
+  try {
+    const year = parseInt(yearStr) || new Date().getFullYear();
+    const [wStr, dStr] = String(weekStr || '').split('-');
+    const weekNum = parseInt(wStr, 10);
+    const delivNum = parseInt(dStr, 10) || 1;
+    if (!weekNum) return null;
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    const offsets = [0, 0, 3, 5];
+    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
+    return monday;
+  } catch { return null; }
+}
+
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getAdjustments(req, res);
   if (req.method === 'POST') return await postAdjust(req, res);
@@ -272,12 +291,16 @@ async function postAdjust(req, res) {
         );
       } else if (type === 'ADD') {
         const sdk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
+        // ShipmentDtm: 차수 기반 정상 출고일 (옛 전산 패턴과 일치 — 14차 등)
+        // 계산 실패 시 현재시각 fallback
+        const shipDate = weekToShipDate(orderWeek, orderYear) || new Date();
         await tQ(
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@pk,GETDATE(),@oq,@oq,@bq,@bnq,@sq,0,0,0,0,'')`,
+           VALUES (@dk,@sk,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,0,0,0,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
+            dt: { type: sql.DateTime, value: shipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
