@@ -525,3 +525,92 @@ ORDER BY CreateDtm DESC;
 ### 8.4 ViewShipment 와 웹 코드의 isDeleted 차이
 
 전산 ViewShipment 는 `sd.isDeleted` 무시 → 웹이 `sd.isDeleted=0` 추가하면 출고 합계가 다를 수 있음. **JOIN 직접 쓸 때 일관 유지**.
+
+---
+
+## 9. 🔴 결정적 발견 — 두 가지 Stock 시스템이 동시 운용 (2026-05-07)
+
+`usp_ShipmentFixCancel` 분석에서 드러남.
+
+### 9.1 두 테이블 모두 잔량 보유
+
+| 시스템 | 테이블.컬럼 | 의미 | 갱신 |
+|---|---|---|---|
+| **단일 누적값** | `Product.Stock` | 현재 시점 한 품목 전체 누적 잔량 (단일 값) | `usp_ShipmentFix/Cancel` 가 직접 +/- |
+| **차수별 스냅샷** | `ProductStock.Stock` (StockKey별) | 차수 마감 잔량 (차수마다 행) | `usp_StockCalculation` cascade |
+
+### 9.2 `usp_ShipmentFixCancel` 핵심 동작
+
+```sql
+-- 1) 확정된 출고 detail 찾기 (DetailFix=1)
+SELECT vs.ShipmentKey, vs.ProdKey, vs.SdetailKey, vs.OutQuantity
+INTO #ShipmentList FROM ViewShipment vs
+WHERE vs.OrderYear=@yr AND vs.OrderWeek=@wk
+  AND vs.CountryFlower=@cf AND vs.DetailFix=1;
+
+-- 2) Detail.isFix = 0
+-- 3) Master.isFix = 0
+-- 4) StockHistory 에 ChangeType='출고', BeforeValue=Product.Stock, AfterValue=Product.Stock+OutQuantity
+-- 5) Product.Stock += SUM(OutQuantity)   ← 직접 +
+```
+
+→ **확정 취소를 호출할 때마다 `Product.Stock` 이 출고수량만큼 증가**.
+
+### 9.3 웹과의 충돌 메커니즘
+
+웹은 `Product.Stock` 의 존재 자체를 모르고 `ProductStock` 만 수정. 전산은 둘 다 수정. 결과:
+
+- **웹에서 출고확정/취소** → `Product.Stock` 안 바뀜, 전산 화면에서 잘못된 값
+- **전산에서 출고확정/취소** → `Product.Stock` 변동, 그러나 웹이 이를 모름
+- 사이클 반복 → `Product.Stock` 점진적 누적 차이
+
+### 9.4 1000→3000 점프 의심 메커니즘
+
+5/4 13:53~13:55 nenovaSS1 작업 (메모리에 기록):
+- 13:53:40 `usp_ShipmentFixCancel` 호출 → `Product.Stock += SUM(OutQty)` (88품목)
+- 13:55:47 `usp_ShipmentFix` 호출 → `Product.Stock -= ?` (검증 필요)
+
+만약 사이에 수량이 변경됐거나, 취소만 여러 번 호출됐다면 `Product.Stock` 영구 누적.
+
+### 9.5 검증 SQL — 즉시 진단 가능
+
+```sql
+-- 17-02 카네이션의 Product.Stock 변동 이력
+SELECT TOP 100
+    sh.ChangeDtm, sh.ChangeID, sh.ChangeType,
+    p.ProdKey, p.ProdName,
+    sh.BeforeValue, sh.AfterValue,
+    (sh.AfterValue - sh.BeforeValue) AS delta,
+    sh.Descr
+FROM StockHistory sh
+JOIN Product p ON sh.ProdKey = p.ProdKey
+WHERE sh.OrderYear=2026 AND sh.OrderWeek='17-02'
+  AND sh.ChangeType IN (N'출고', N'재고조정', N'확정취소')
+  AND p.FlowerName LIKE N'%카네이션%'
+ORDER BY sh.ChangeDtm DESC;
+
+-- Product.Stock 의 현재 값 vs ProductStock 17-02 비교
+SELECT
+    p.ProdKey, p.ProdName,
+    p.Stock                                AS productStock_live,
+    ISNULL(ps.Stock, 0)                    AS productStock_17_02_snapshot,
+    p.Stock - ISNULL(ps.Stock, 0)          AS gap
+FROM Product p
+LEFT JOIN ProductStock ps
+  ON ps.ProdKey = p.ProdKey
+  AND ps.StockKey = (SELECT TOP 1 StockKey FROM StockMaster WHERE OrderYear=2026 AND OrderWeek='17-02')
+WHERE p.FlowerName LIKE N'%카네이션%'
+  AND p.CounName LIKE N'%콜롬비아%'
+  AND ABS(p.Stock - ISNULL(ps.Stock, 0)) >= 10
+ORDER BY ABS(p.Stock - ISNULL(ps.Stock, 0)) DESC;
+```
+
+→ Product.Stock 이 ProductStock 17-02 와 큰 차이 나는 카네이션 = 문제 품목.
+
+### 9.6 정책 권장 (긴급)
+
+1. **웹 [fix.js](pages/api/shipment/fix.js) 의 출고확정/취소 로직 즉시 검토**
+   - Product.Stock 갱신 코드 누락 확인
+   - `usp_ShipmentFix` / `usp_ShipmentFixCancel` SP 호출로 전환 검토
+2. **Product.Stock 의 정확한 값 재계산 SP 작성** — 모든 ShipmentDetail (DetailFix=1) 출고합 + 입고합 재집계
+3. **모든 Stock 시스템을 단일 source of truth 로** — 가능하면 ProductStock 만 사용
