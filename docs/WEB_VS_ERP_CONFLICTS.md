@@ -240,3 +240,109 @@ const offsets = [0, 0, 3, 5];
 - [docs/migrations/](migrations/) — 마이그레이션 SQL 파일 5건
 - 메모리: `memory/feedback_conversion_logic.md`, `memory/feedback_rollback_strategy.md`, `memory/session_2026-04-22.md`
 - 백업 태그: `stable-13-14` (`81121fa`), `backup-before-recovery-20260422-1109` (`b6189d0`), `backup-before-rollback-2026-04-21`
+
+---
+
+## 6. 전산 (Nenova.exe) 정적분석 결과 (2026-05-07)
+
+> **방법**: dnSpy 로 `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe` 디컴파일 + UTF-16 문자열 풀 추출.
+> **수집물**: SQL 209건, 일반 문자열 1,633건. 결과 파일은 git 외부 (`C:\Users\cando\nenova-erp-ui\nenova-sql.txt` 등).
+> **목적**: 웹 작업 시 충돌 회피.
+
+### 6.1 전산이 INSERT/UPDATE/DELETE 하는 테이블 전체
+
+| 테이블 | INS | UPD | DEL | 웹 충돌 위험 |
+|---|---|---|---|---|
+| OrderMaster | ✓ | ✓ | | 🔴 (붙여넣기 주문등록) |
+| OrderDetail | ✓ | ✓ | | 🔴 |
+| OrderHistory | ✓ | | | ⚠ audit 이중 |
+| ShipmentMaster | ✓ | ✓ | | 🔴 (출고분배) |
+| ShipmentDetail | ✓ | ✓ | ✓ | 🔴 |
+| ShipmentDate | ✓ | ✓ | ✓ | ⚠ |
+| ShipmentFarm | ✓ | ✓ | ✓ | ⚠ (견적서) |
+| WarehouseMaster | ✓ | ✓ | | ⚠ |
+| WarehouseDetail | ✓ | ✓ | ✓ | ⚠ |
+| StockHistory | ✓ | | | 🔴 audit |
+| Estimate | ✓ | | ✓ | 🔴 (견적서 관리탭) |
+| CustomerProdCost | ✓ | | ✓ | ⚠ |
+| Customer / Product / Country / UserInfo | ✓ | | | ⚠ 마스터 |
+
+### 6.2 전산이 의존하는 VIEW (웹은 안 보는 곳)
+
+전산은 정규 테이블이 아닌 **DB VIEW** 기준으로 화면을 구성. 웹이 동일 데이터를 다른 경로로 조회 → 결과 불일치.
+
+| VIEW | 용도 | 웹 사용 | 갭 |
+|---|---|---|---|
+| **`ViewOrder`** | 주문 통합 | ❌ | OrderMaster/Detail 직조회 — 누락 컬럼 가능 |
+| **`ViewShipment`** | 출고 통합. `EstQuantity` / `OutQuantity` / `Amount` / `OrderYearWeek2` 노출 | ❌ | 같음 |
+| **`StockList`** | 재고 통합 (잔량 계산 본체) — ProductStock 합산 + 차수별 누적 | ❌ | 다른 DB/스키마 가능. `sp_helptext` 미발견 |
+| **`Shipments`** | 출고 단순 별칭 | ❌ | |
+| **`dbo.GetCustomWeek`** | 차수 계산 사용자정의 함수 | ❌ | 미발견. 웹은 자체 차수 로직 |
+
+### 6.3 전산만 쓰는 컬럼 (웹이 모르면 데이터 미스매치)
+
+| 컬럼 | 의미 | 웹 위험 |
+|---|---|---|
+| **`OrderYearWeek`** (`'20261702'`) | 전산의 주 키 (year+week 결합) | OrderYear/OrderWeek 따로 쓰면 인덱스/JOIN 미스 |
+| **`OrderYearWeek2`** | 보조 차수키 | 같음 |
+| **`EstQuantity`** | 견적 수량 (출고와 별개) | 웹 OrderDetail 작성 시 안 채우면 견적서 계산 깨짐 |
+| **`EstUnit`** | 견적 단위 (OutUnit 과 다름) | 웹은 OutUnit 분기만 — `EstUnit` 분기 누락 |
+| **`SteamOf1Bunch`** | 단당 송이수 | 웹은 SteamOf1Box / BunchOf1Box 만 사용 |
+| **`ProductSort`, `ProductSortLookup`** | 견적서 정렬 순서 | 웹 견적서 정렬과 다를 수 있음 |
+| **`AuthorityFormMapping`** | 권한별 폼 매트릭스 | 웹 권한과 별개 |
+| **`PeriodDay`** | 차수별 요일 매핑 (출고일 자동) | 893e294 와 연관 |
+| **`CodeInfo`** | 코드 마스터 | 웹 미사용 |
+
+### 6.4 전산이 쓰는 잔량 계산 패턴
+
+```sql
+;WITH stock AS (
+   SELECT sm.OrderYear, ...
+   FROM ProductStock ps
+   JOIN StockList sl
+)
+SELECT ...
+JOIN      stock ns
+LEFT JOIN stock bs   -- 직전 차수 비교
+```
+
+→ **`StockList` view 정의가 잔량 공식의 본체**. ProductStock 17-XX 행에 큰 값이 박혀있는 것도 이 view 가 채우는 결과로 추정. view 정의 확보 필요.
+
+### 6.5 즉시 보호해야 할 웹 영역
+
+| 웹 화면 | 위험 | 권장 보강 |
+|---|---|---|
+| 붙여넣기 주문등록 (`/orders/paste`) | OrderYearWeek 안 채우면 전산 화면 미표시 | INSERT 시 `OrderYearWeek=YYYY+WW-SS` 같이 채우기 |
+| 견적서 관리 (`/estimate`) | Estimate + 보조 ShipmentFarm | ShipmentFarm 갱신 정책 검토 |
+| 출고분배 (`/shipment/distribute`) | ShipmentMaster/Detail + ProductStock 직접 수정 | `EstQuantity`, `EstUnit` 함께 갱신 |
+| 출고확정/취소 (`/shipment/fix`) | 277a0e4 의 `DELETE FROM ProductStock` | StockList view 가 ProductStock 의존 — 삭제 시 전산 잔량 0 |
+
+### 6.6 다음 진단 단계 (DB 권한 필요)
+
+```sql
+-- StockList / ViewShipment / ViewOrder 정의 확보
+EXEC sp_helptext N'ViewShipment';
+EXEC sp_helptext N'ViewOrder';
+
+-- 다른 스키마/DB 에 있을 수 있는 객체 검색
+SELECT s.name AS schemaName, o.name, o.type_desc
+FROM sys.objects o JOIN sys.schemas s ON o.schema_id = s.schema_id
+WHERE o.name IN ('StockList','GetCustomWeek','ViewShipment','ViewOrder','Shipments')
+   OR o.name LIKE '%Stock%' OR o.name LIKE '%Shipment%';
+
+-- 전체 view/function 카탈로그
+SELECT s.name+'.'+o.name AS objName, o.type_desc, o.create_date, o.modify_date
+FROM sys.objects o JOIN sys.schemas s ON o.schema_id = s.schema_id
+WHERE o.type IN ('V','FN','IF','TF','P')
+ORDER BY o.modify_date DESC;
+```
+
+이 결과로 view 정의 확보되면 **전산의 잔량 계산 공식 100% 파악** 가능.
+
+### 6.7 추출 산출물 (분석 reference)
+
+git 외부 파일 (PC 로컬):
+- `C:\Users\cando\nenova-erp-ui\nenova-sql.txt` — SQL 텍스트 209건
+- `C:\Users\cando\nenova-erp-ui\nenova-strings.txt` — 30+ 글자 의미있는 문자열
+- `C:\Users\cando\nenova-erp-ui\nenova-strings-all.txt` — 모든 ASCII 문자열 1,633건
+- `C:\Users\cando\nenova-erp-ui\extract-strings.py` — 추출 스크립트 (재실행 가능)
