@@ -52,9 +52,9 @@ async function handler(req, res) {
       const year = new Date().getFullYear().toString();
       const ywk = year + (reqRow.OrderWeek || '').replace('-', '');
 
-      // 동일 CustKey+OrderWeek OrderMaster 찾기
+      // 동일 CustKey+OrderWeek OrderMaster 찾기 (실제 컬럼: OrderMasterKey)
       const existing = await tQ(
-        `SELECT OrderKey FROM OrderMaster
+        `SELECT OrderMasterKey FROM OrderMaster
           WHERE CustKey=@ck AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0`,
         {
           ck: { type: sql.Int,      value: reqRow.CustKey },
@@ -63,43 +63,80 @@ async function handler(req, res) {
       );
       let ok;
       if (existing.recordset.length > 0) {
-        ok = existing.recordset[0].OrderKey;
+        ok = existing.recordset[0].OrderMasterKey;
       } else {
-        ok = await safeNextKey(tQ, 'OrderMaster', 'OrderKey');
+        ok = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
         await tQ(
-          `INSERT INTO OrderMaster (OrderKey, OrderYear, OrderWeek, OrderYearWeek, CustKey, isDeleted, CreateID, CreateDtm)
-           VALUES (@ok, @yr, @wk, @ywk, @ck, 0, @uid, GETDATE())`,
+          `INSERT INTO OrderMaster
+             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
+              isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+           VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
+                   0, @uid, GETDATE(), @uid, GETDATE())`,
           {
             ok:  { type: sql.Int,      value: ok },
             yr:  { type: sql.NVarChar, value: year },
             wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
             ywk: { type: sql.NVarChar, value: ywk },
+            mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
             ck:  { type: sql.Int,      value: reqRow.CustKey },
-            uid: { type: sql.NVarChar, value: req.user.userId },
+            uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
       }
 
       // OrderRequestDetail → OrderDetail INSERT
+      // Product 환산정보 함께 가져와 Box/Bunch/Steam 3종 채움 (전산 호환)
       const details = await tQ(
-        `SELECT ProdKey, Quantity, Unit FROM OrderRequestDetail WHERE RequestKey=@rk`,
+        `SELECT ord.ProdKey, ord.Quantity, ord.Unit,
+                p.OutUnit, ISNULL(p.BunchOf1Box,1) AS bpb, ISNULL(p.SteamOf1Box,1) AS spb
+           FROM OrderRequestDetail ord
+           JOIN Product p ON ord.ProdKey = p.ProdKey
+          WHERE ord.RequestKey=@rk`,
         { rk: { type: sql.Int, value: parseInt(requestKey) } }
       );
       for (const d of details.recordset) {
-        const odk = await safeNextKey(tQ, 'OrderDetail', 'OdetailKey');
+        const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
+        // 단위 환산: 사용자가 입력한 단위(d.Unit) 기준으로 박스 수량 역산
+        const unit = (d.Unit || d.OutUnit || '박스').trim();
+        const qty = d.Quantity || 0;
+        let boxQ;
+        if (unit === '단' || unit.toUpperCase() === 'BUNCH') {
+          boxQ = qty / d.bpb;
+        } else if (unit === '송이' || unit.toUpperCase() === 'STEM' || unit.toUpperCase() === 'STEAM') {
+          boxQ = qty / d.spb;
+        } else { // 박스 / BOX
+          boxQ = qty;
+        }
+        const bunchQ = boxQ * d.bpb;
+        const steamQ = boxQ * d.spb;
+        // OutUnit 기준 단일값 (전산 환산)
+        let outQ = boxQ;
+        if (d.OutUnit === '단') outQ = bunchQ;
+        else if (d.OutUnit === '송이') outQ = steamQ;
+
         await tQ(
-          `INSERT INTO OrderDetail (OdetailKey, OrderKey, ProdKey, OrderQuantity)
-           VALUES (@odk, @ok, @pk, @qty)`,
+          `INSERT INTO OrderDetail
+             (OrderDetailKey, OrderMasterKey, ProdKey,
+              BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, NoneOutQuantity,
+              isDeleted, CreateID, CreateDtm)
+           VALUES (@odk, @ok, @pk,
+                   @box, @bnq, @sq, @oq, 0,
+                   0, @uid, GETDATE())`,
           {
             odk: { type: sql.Int,   value: odk },
             ok:  { type: sql.Int,   value: ok },
             pk:  { type: sql.Int,   value: d.ProdKey },
-            qty: { type: sql.Float, value: d.Quantity },
+            box: { type: sql.Float, value: boxQ },
+            bnq: { type: sql.Float, value: bunchQ },
+            sq:  { type: sql.Float, value: steamQ },
+            oq:  { type: sql.Float, value: outQ },
+            uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
       }
 
-      // 신청 상태 업데이트
+      // 신청 상태 업데이트 (ApprovedOrderKey → 컬럼명이 다를 수 있음, 일단 그대로)
       await tQ(
         `UPDATE OrderRequest
             SET Status='approved', ProcessedAt=GETDATE(),

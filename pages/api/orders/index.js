@@ -4,6 +4,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { validateOrderWeek } from '../../../lib/orderUtils';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -182,10 +183,17 @@ async function createOrder(req, res) {
       resolvedOrderCode = r.recordset[0].OrderCode || '';
     }
 
-    const orderYear = year || new Date().getFullYear().toString();
-    // YYYY-WW-SS → WW-SS (전산 DB 형식으로 정규화)
-    const rawWeek = week || '';
-    const orderWeek = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
+    // OrderWeek 형식 검증 + 정규화 (NN-NN 또는 YYYY-NN-NN 만 허용)
+    // → '17-01B', '470-01' 같은 노이즈 행 신규 생성 차단
+    let orderYear, orderWeek;
+    try {
+      const v = validateOrderWeek(week || '');
+      orderYear = v.year || year || new Date().getFullYear().toString();
+      orderWeek = v.week;
+    } catch (e) {
+      await appLog('createOrder', '검증실패', e.message, true);
+      return res.status(400).json({ success: false, error: e.message });
+    }
     const uid = req.user?.userId || 'nenovaSS3';
     const mgr = '관리자'; // 전산 호환 (전산은 Manager='관리자' 기준으로 주문 표시)
 
