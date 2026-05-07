@@ -3,7 +3,7 @@
 // 확정: isFix=1 + ProductStock 업데이트 + StockHistory 기록
 // 확정취소: isFix=0
 
-import { query, withTransaction, sql } from '../../../lib/db';
+import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
@@ -140,155 +140,135 @@ async function validate(req, res) {
   }
 }
 
-// ── 확정 (withTransaction으로 전체 묶음 → 동시 확정 시 재고 중복/누락 방지)
+// ── OrderYear 추출 헬퍼: '2026-17-02' / '17-02' 둘 다 지원
+function deriveOrderYear(week) {
+  const m = (week || '').match(/^(\d{4})-/);
+  if (m) return m[1];
+  return String(new Date().getFullYear());
+}
+function deriveOrderWeek(week) {
+  const m = (week || '').match(/^\d{4}-(\d{2}-\d{2})$/);
+  return m ? m[1] : week;
+}
+
+// ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
+//    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
 async function fix(req, res, week, prodKeyFilter) {
-  // 1. 이미 확정된 항목 확인 (트랜잭션 밖에서 빠른 체크)
-  const already = await query(
-    `SELECT COUNT(*) AS cnt FROM ShipmentMaster WHERE OrderWeek=@wk AND isFix=1 AND isDeleted=0`,
-    { wk: { type: sql.NVarChar, value: week } }
-  );
-  if (already.recordset[0].cnt > 0 && !prodKeyFilter) {
-    return res.status(400).json({ success: false, error: `[${week}] 이미 확정된 항목이 있습니다. 먼저 확정취소 후 진행하세요.` });
+  if (prodKeyFilter) {
+    return res.status(400).json({
+      success: false,
+      error: '품목 단위 부분 확정은 지원하지 않습니다. 차수 전체를 확정하세요.',
+    });
   }
 
-  // 2~6. 전체 재고 계산 + 저장을 하나의 트랜잭션으로
-  const { stockKey, updatedCount, historyItems } = await withTransaction(async (tQuery) => {
-    // StockMaster 확인/생성 (UPDLOCK으로 동시 접근 차단)
-    let smResult = await tQuery(
-      `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk`,
-      { wk: { type: sql.NVarChar, value: week } }
-    );
+  const orderYear = deriveOrderYear(week);
+  const orderWeek = deriveOrderWeek(week);
+  const uid       = req.user?.userId || 'admin';
 
-    let sk;
-    if (smResult.recordset.length === 0) {
-      const ins = await tQuery(
-        `INSERT INTO StockMaster (OrderWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, 1)`,
-        { wk: { type: sql.NVarChar, value: week } }
-      );
-      sk = ins.recordset[0].StockKey;
-    } else {
-      sk = smResult.recordset[0].StockKey;
-      await tQuery(`UPDATE StockMaster SET isFix=1 WHERE StockKey=@sk`,
-        { sk: { type: sql.Int, value: sk } });
-    }
+  // 1. 이미 전체 확정된 경우 안내
+  const already = await query(
+    `SELECT COUNT(*) AS cnt FROM ShipmentMaster
+      WHERE OrderWeek=@wk AND isFix=1 AND isDeleted=0`,
+    { wk: { type: sql.NVarChar, value: orderWeek } }
+  );
 
-    // 이전 차수 StockKey (확정된 차수)
-    const prevSM = await tQuery(
-      `SELECT TOP 1 StockKey FROM StockMaster WHERE OrderWeek < @wk AND isFix=1 ORDER BY OrderWeek DESC`,
-      { wk: { type: sql.NVarChar, value: week } }
-    );
-    const prevStockKey = prevSM.recordset[0]?.StockKey || null;
+  // 2. 미확정(DetailFix=0) 출고가 있는 CountryFlower 목록
+  const cfList = await query(
+    `SELECT DISTINCT p.CountryFlower
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+      WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
+        AND ISNULL(sd.isFix, 0) = 0
+        AND sd.OutQuantity > 0`,
+    { wk: { type: sql.NVarChar, value: orderWeek } }
+  );
 
-    // 시작재고 StockKey (isFix=2: 차수피벗에서 수동 입력한 시작재고 우선 사용)
-    const startSM = await tQuery(
-      `SELECT StockKey FROM StockMaster WHERE OrderWeek=@wk AND isFix=2`,
-      { wk: { type: sql.NVarChar, value: week } }
-    );
-    const startStockKey = startSM.recordset[0]?.StockKey || null;
+  const flowers = cfList.recordset
+    .map(r => r.CountryFlower)
+    .filter(cf => cf && cf.trim());
 
-    // 출고 집계
-    let shipWhere = 'WHERE sm.OrderWeek=@wk AND sm.isDeleted=0';
-    const shipParams = { wk: { type: sql.NVarChar, value: week } };
-    if (prodKeyFilter) { shipWhere += ' AND sd.ProdKey=@pk'; shipParams.pk = { type: sql.Int, value: parseInt(prodKeyFilter) }; }
-    const outResult = await tQuery(
-      `SELECT sd.ProdKey, SUM(sd.OutQuantity) AS outQty FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey ${shipWhere} GROUP BY sd.ProdKey`,
-      shipParams
-    );
+  if (flowers.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: already.recordset[0].cnt > 0
+        ? `[${week}] 이미 모두 확정 상태입니다. 변경하려면 먼저 확정 취소 후 진행하세요.`
+        : `[${week}] 확정할 미확정 출고가 없습니다.`,
+    });
+  }
 
-    // 입고 집계
-    let inWhere = 'WHERE wm.OrderWeek=@wk AND wm.isDeleted=0';
-    const inParams = { wk: { type: sql.NVarChar, value: week } };
-    if (prodKeyFilter) { inWhere += ' AND wd.ProdKey=@pk'; inParams.pk = { type: sql.Int, value: parseInt(prodKeyFilter) }; }
-    const inResult = await tQuery(
-      `SELECT wd.ProdKey, SUM(wd.OutQuantity) AS inQty FROM WarehouseDetail wd
-       JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey ${inWhere} GROUP BY wd.ProdKey`,
-      inParams
-    );
-
-    const outMap = {}; outResult.recordset.forEach(r => { outMap[r.ProdKey] = r.outQty || 0; });
-    const inMap  = {}; inResult.recordset.forEach(r => { inMap[r.ProdKey]  = r.inQty  || 0; });
-    const allProdKeys = [...new Set([...Object.keys(outMap).map(Number), ...Object.keys(inMap).map(Number)])];
-
-    let cnt = 0; const items = [];
-    for (const pk of allProdKeys) {
-      let prevStock = 0;
-      // 시작재고(isFix=2) 우선 — 없으면 이전 확정 차수 재고 사용
-      if (startStockKey) {
-        const ss = await tQuery(
-          `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
-          { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: startStockKey } }
-        );
-        if (ss.recordset.length > 0) {
-          prevStock = ss.recordset[0].Stock || 0;
-        } else if (prevStockKey) {
-          const ps = await tQuery(
-            `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
-            { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: prevStockKey } }
-          );
-          prevStock = ps.recordset[0]?.Stock || 0;
-        }
-      } else if (prevStockKey) {
-        const ps = await tQuery(
-          `SELECT Stock FROM ProductStock WHERE ProdKey=@pk AND StockKey=@sk`,
-          { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: prevStockKey } }
-        );
-        prevStock = ps.recordset[0]?.Stock || 0;
-      }
-
-      const inQty = inMap[pk] || 0;
-      const outQty = outMap[pk] || 0;
-      const newStock = prevStock + inQty - outQty;
-
-      // MERGE로 ProductStock upsert (동시 실행 안전)
-      await tQuery(
-        `MERGE INTO ProductStock WITH (HOLDLOCK) AS t
-         USING (VALUES (@pk, @sk)) AS s(ProdKey, StockKey) ON t.ProdKey=s.ProdKey AND t.StockKey=s.StockKey
-         WHEN MATCHED THEN UPDATE SET Stock=@stock
-         WHEN NOT MATCHED THEN INSERT (ProdKey, StockKey, Stock) VALUES (@pk, @sk, @stock);`,
-        { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: sk }, stock: { type: sql.Float, value: newStock } }
-      );
-
-      await tQuery(
-        `INSERT INTO StockHistory (ChangeDtm,OrderYear,OrderWeek,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,ProdKey)
-         VALUES (GETDATE(),@yr,@wk,@uid,'확정','수량',@before,@after,@descr,@pk)`,
+  // 3. 카테고리별로 SP 호출 — SP 가 자체 트랜잭션 처리
+  const results = [];
+  const errors = [];
+  for (const cf of flowers) {
+    try {
+      const r = await query(
+        `DECLARE @r INT, @m NVARCHAR(MAX);
+         EXEC dbo.usp_ShipmentFix
+              @OrderYear     = @yr,
+              @OrderWeek     = @wk,
+              @CountryFlower = @cf,
+              @iUserID       = @uid,
+              @oResult       = @r OUTPUT,
+              @oMessage      = @m OUTPUT;
+         SELECT @r AS result, @m AS message;`,
         {
-          yr: { type: sql.NVarChar, value: week.split('-')[0] || '2026' }, wk: { type: sql.NVarChar, value: week },
-          uid: { type: sql.NVarChar, value: req.user.userId }, before: { type: sql.Float, value: prevStock },
-          after: { type: sql.Float, value: newStock },
-          descr: { type: sql.NVarChar, value: `확정: 전재고${prevStock}+입고${inQty}-출고${outQty}=${newStock}` },
-          pk: { type: sql.Int, value: pk },
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          cf:  { type: sql.NVarChar, value: cf },
+          uid: { type: sql.NVarChar, value: uid },
         }
       );
-      items.push({ prodKey: pk, prevStock, inQty, outQty, newStock }); cnt++;
+      const row = r.recordset?.[0] || {};
+      if (row.result === 0) {
+        results.push({ countryFlower: cf, ok: true, message: row.message });
+      } else {
+        errors.push({ countryFlower: cf, code: row.result, message: row.message || 'unknown' });
+      }
+    } catch (e) {
+      errors.push({ countryFlower: cf, code: -1, message: e.message });
     }
+  }
 
-    await tQuery(`UPDATE ShipmentMaster SET isFix=1 WHERE OrderWeek=@wk AND isDeleted=0`,
-      { wk: { type: sql.NVarChar, value: week } });
-
-    return { stockKey: sk, updatedCount: cnt, historyItems: items };
-  });
+  if (errors.length > 0 && results.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: '확정 실패 — ' + errors.map(e => `[${e.countryFlower}] ${e.message}`).join(' / '),
+      errors,
+    });
+  }
 
   return res.status(200).json({
-    success: true,
-    message: `[${week}] 확정 완료 — ${updatedCount}개 품목 재고 업데이트`,
-    stockKey, updatedCount, items: historyItems,
+    success: errors.length === 0,
+    message: `[${week}] ${results.length}개 카테고리 확정 완료` +
+             (errors.length > 0 ? ` (${errors.length}개 실패)` : ''),
+    results,
+    errors,
   });
 }
 
-// ── 확정 취소 ──────────────────────────────────────────
-// 트랜잭션 단일화 + 후속 차수 의존성 경고 + 확정 안 된 상태 가드
+// ── 확정 취소 — 전산 SP usp_ShipmentFixCancel 를 CountryFlower 단위 호출
 async function unfix(req, res, week, prodKeyFilter) {
+  if (prodKeyFilter) {
+    return res.status(400).json({
+      success: false,
+      error: '품목 단위 부분 취소는 지원하지 않습니다. 차수 전체를 취소하세요.',
+    });
+  }
+
+  const orderYear = deriveOrderYear(week);
+  const orderWeek = deriveOrderWeek(week);
+  const uid       = req.user?.userId || 'admin';
+
   try {
-    // 사전 검증 — 후속 차수 중에 확정된 게 있으면 경고
+    // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
     const laterFix = await query(
       `SELECT TOP 5 OrderWeek FROM StockMaster
         WHERE OrderWeek > @wk AND isFix=1
         ORDER BY OrderWeek`,
-      { wk: { type: sql.NVarChar, value: week } }
+      { wk: { type: sql.NVarChar, value: orderWeek } }
     );
     const laterFixed = laterFix.recordset.map(r => r.OrderWeek);
-    // force=true 가 아니고 후속 확정차수가 있으면 차단 (차수 간 일관성 보호)
     if (laterFixed.length > 0 && !req.body.force) {
       return res.status(400).json({
         success: false,
@@ -300,69 +280,70 @@ async function unfix(req, res, week, prodKeyFilter) {
       });
     }
 
-    const result = await withTransaction(async (tQ) => {
-      // 현재 상태 잠금 + 확인 (UPDLOCK)
-      const cur = await tQ(
-        `SELECT TOP 1 ISNULL(isFix,0) AS isFix
-           FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE OrderWeek=@wk AND isDeleted=0`,
-        { wk: { type: sql.NVarChar, value: week } }
-      );
-      const wasFixed = cur.recordset[0]?.isFix === 1 || cur.recordset[0]?.isFix === true;
+    // 확정(DetailFix=1) 상태인 CountryFlower 목록
+    const cfList = await query(
+      `SELECT DISTINCT p.CountryFlower
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+        WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
+          AND ISNULL(sd.isFix, 0) = 1`,
+      { wk: { type: sql.NVarChar, value: orderWeek } }
+    );
 
-      // 1. ShipmentMaster.isFix = 0
-      await tQ(
-        `UPDATE ShipmentMaster SET isFix=0 WHERE OrderWeek=@wk AND isDeleted=0`,
-        { wk: { type: sql.NVarChar, value: week } }
-      );
+    const flowers = cfList.recordset
+      .map(r => r.CountryFlower)
+      .filter(cf => cf && cf.trim());
 
-      // 2. StockMaster.isFix = 0 (UPDLOCK)
-      const smRes = await tQ(
-        `UPDATE StockMaster WITH (UPDLOCK, HOLDLOCK)
-           SET isFix=0
-         OUTPUT INSERTED.StockKey
-         WHERE OrderWeek=@wk AND isFix=1`,
-        { wk: { type: sql.NVarChar, value: week } }
-      );
-      const unfixedStockKeys = smRes.recordset.map(r => r.StockKey);
+    if (flowers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `[${week}] 확정 취소 대상 없음 (이미 모두 미확정 상태)`,
+        results: [],
+      });
+    }
 
-      // 3. ProductStock 영향받은 품목 정리 — 확정 시 저장한 스냅샷 삭제
-      //    (다음 fix 시 새로 계산되도록. 메모리 노트: 차수피벗 잔량(DB) stale 방지)
-      let psDeletedCount = 0;
-      if (unfixedStockKeys.length > 0) {
-        const skList = unfixedStockKeys.join(',');
-        const delRes = await tQ(
-          `DELETE FROM ProductStock WHERE StockKey IN (${skList})`,
-          {}
+    // 카테고리별 SP 호출
+    const results = [];
+    const errors = [];
+    for (const cf of flowers) {
+      try {
+        const r = await query(
+          `DECLARE @r INT, @m NVARCHAR(MAX);
+           EXEC dbo.usp_ShipmentFixCancel
+                @OrderYear     = @yr,
+                @OrderWeek     = @wk,
+                @CountryFlower = @cf,
+                @iUserID       = @uid,
+                @oResult       = @r OUTPUT,
+                @oMessage      = @m OUTPUT;
+           SELECT @r AS result, @m AS message;`,
+          {
+            yr:  { type: sql.NVarChar, value: orderYear },
+            wk:  { type: sql.NVarChar, value: orderWeek },
+            cf:  { type: sql.NVarChar, value: cf },
+            uid: { type: sql.NVarChar, value: uid },
+          }
         );
-        psDeletedCount = delRes.rowsAffected?.[0] || 0;
-      }
-
-      // 4. StockHistory 확정취소 기록 — prodKey=0 단일행 + 메타에 영향범위 표시
-      await tQ(
-        `INSERT INTO StockHistory
-           (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
-            BeforeValue, AfterValue, Descr, ProdKey)
-         VALUES (GETDATE(), @yr, @wk, @uid, '확정취소', '수량', 0, 0, @descr, 0)`,
-        {
-          yr:    { type: sql.NVarChar, value: week.split('-')[0] || '2026' },
-          wk:    { type: sql.NVarChar, value: week },
-          uid:   { type: sql.NVarChar, value: req.user.userId },
-          descr: { type: sql.NVarChar,
-                   value: `확정 취소 (이전 isFix=${wasFixed ? 1 : 0}, ProductStock ${psDeletedCount}건 삭제` +
-                          (laterFixed.length > 0 ? `, 후속확정차수 ${laterFixed.join(',')} 강제 진행` : '') + ')' },
+        const row = r.recordset?.[0] || {};
+        if (row.result === 0) {
+          results.push({ countryFlower: cf, ok: true, message: row.message });
+        } else {
+          errors.push({ countryFlower: cf, code: row.result, message: row.message || 'unknown' });
         }
-      );
-
-      return { wasFixed, unfixedStockKeys, psDeletedCount };
-    });
+      } catch (e) {
+        errors.push({ countryFlower: cf, code: -1, message: e.message });
+      }
+    }
 
     return res.status(200).json({
-      success: true,
-      message: `[${week}] 확정 취소 완료 — ProductStock ${result.psDeletedCount}건 정리` +
-               (result.wasFixed ? '' : ' (이미 확정 안 된 상태)') +
+      success: errors.length === 0,
+      message: `[${week}] ${results.length}개 카테고리 확정 취소` +
+               (errors.length > 0 ? ` (${errors.length}개 실패)` : '') +
                (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : ''),
-      ...result,
+      results,
+      errors,
+      laterFixed,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
