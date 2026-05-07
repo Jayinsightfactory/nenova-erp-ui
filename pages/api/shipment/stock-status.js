@@ -333,7 +333,9 @@ export default withAuth(async function handler(req, res) {
            SELECT TOP 1 ps2.Stock, sm2.OrderWeek
            FROM ProductStock ps2
            JOIN StockMaster sm2 ON ps2.StockKey = sm2.StockKey
-           WHERE ps2.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekTo
+           WHERE ps2.ProdKey = p.ProdKey
+             AND sm2.OrderWeek < @weekTo
+             AND sm2.OrderWeek LIKE '__-__'
            ORDER BY sm2.OrderWeek DESC
          ) ps
          CROSS APPLY (
