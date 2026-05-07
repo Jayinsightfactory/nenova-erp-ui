@@ -447,7 +447,35 @@ WHERE sm.isDeleted = 0
 
 **주의**: `sd.isDeleted` 필터 없음! ShipmentDetail 의 isDeleted 는 view 가 무시. 웹은 `sd.isDeleted=0` 조건 빈번하게 추가하는데 view 와 결과가 다를 수 있음.
 
-### 7.6 신규 발견 보조 객체
+### 7.6 ViewWarehouse 정의 (전산이 입고로 보는 것)
+
+```sql
+CREATE VIEW dbo.ViewWarehouse AS
+SELECT wm.WarehouseKey, wm.UploadDtm, wm.FileName,
+       wm.OrderYear, wm.OrderWeek,
+       SUBSTRING(wm.OrderWeek,0,3)                  AS OrderWeek2,
+       wm.OrderYear + REPLACE(wm.OrderWeek,'-','')  AS OrderYearWeek2,
+       wm.FarmName, wm.OrderNo, f.CounKey, wm.InvoiceNo,
+       wd.OrderCode, wm.InputDate,
+       wd.WdetailKey, wd.ProdKey,
+       p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
+       wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
+       wd.OutQuantity, wd.EstQuantity,
+       wd.UPrice, wd.TPrice
+FROM WarehouseMaster wm
+JOIN WarehouseDetail wd ON wm.WarehouseKey = wd.WarehouseKey
+JOIN Product p          ON wd.ProdKey = p.ProdKey         -- ⚠ p.isDeleted 안 봄
+LEFT JOIN Farm f        ON wm.FarmName = f.FarmName AND f.isDeleted = 0
+WHERE wm.isDeleted = 0                                    -- wd.isDeleted 안 봄
+```
+
+**주의 포인트**:
+1. `WarehouseDetail.isDeleted` 필터 없음 — 라인 단위 삭제는 view 가 무시. 웹은 `wd.isDeleted=0` 추가하면 결과 다를 수 있음.
+2. `Product.isDeleted` 필터 없음 — 삭제된 품목 입고도 표시. ViewOrder/ViewShipment 와 불일치.
+3. `Farm` 은 LEFT JOIN — FarmName 매칭 안 돼도 행 유지. CounKey 만 NULL.
+4. `OrderYearWeek2` 만 노출 (OrderYearWeek 없음).
+
+### 7.7 신규 발견 보조 객체
 
 | 객체 | 용도 |
 |---|---|
