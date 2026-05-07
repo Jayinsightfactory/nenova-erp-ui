@@ -346,3 +346,114 @@ git 외부 파일 (PC 로컬):
 - `C:\Users\cando\nenova-erp-ui\nenova-strings.txt` — 30+ 글자 의미있는 문자열
 - `C:\Users\cando\nenova-erp-ui\nenova-strings-all.txt` — 모든 ASCII 문자열 1,633건
 - `C:\Users\cando\nenova-erp-ui\extract-strings.py` — 추출 스크립트 (재실행 가능)
+
+---
+
+## 7. 잔량 계산 공식 — 전산의 본체 SP `usp_StockCalculation` (2026-05-07)
+
+### 7.1 SP 시그니처
+```sql
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '17-02',
+     @ProdKey   = NULL,        -- NULL 또는 0 이면 전 품목
+     @iUserID   = 'admin',
+     @oResult   OUT,
+     @oMessage  OUT;
+-- 가드: @OrderYear <= 2025 면 -1 반환 (작년 이전 차수 수정 차단)
+```
+
+### 7.2 잔량 공식
+
+```
+NewStock(현차수) = PrevStock(전차수 마감 ProductStock.Stock)
+                 + SUM(ViewWarehouse.OutQuantity)              -- 현차수 입고
+                 - SUM(ViewShipment.OutQuantity, DetailFix=1)  -- 현차수 확정 출고
+                 + SUM(StockHistory.AfterValue - BeforeValue)  -- 재고조정 (StockType='재고조정' 등)
+```
+
+→ 결과를 `ProductStock` 에 UPDATE (있으면) 또는 INSERT (없으면). **그리고 후속 모든 차수에 cascade 재계산** (커서 루프).
+
+### 7.3 핵심 동작 특성
+
+1. **선택 차수 + 후속 차수 전부 재계산** — `WHERE OrderYearWeek >= @OrderYearWeek` 커서 → 17-2 호출하면 17-2, 18-1, 18-2, ... 모두 재산출
+2. **전차수 = `OrderYearWeek < 현차수` ORDER BY DESC TOP 1** — `MasterFix(isFix)` 무관. 즉 미확정 차수도 chain 의 한 노드
+3. **신규 ProductStock INSERT 시 isFix 안 채움** (NULL) — 우리가 본 17-02 StockKey 117 Stock=492 가 이렇게 만들어진 것
+4. **ViewShipment 필터**: `DetailFix = 1` (출고 라인 단위). 즉 master 가 isFix=0 이라도 detail 이 isFix=1 이면 잔량에 반영
+
+### 7.4 ViewShipment 정의 (전산이 출고로 보는 것)
+
+```sql
+CREATE VIEW dbo.ViewShipment AS
+SELECT sm.ShipmentKey, sm.OrderYear, sm.OrderWeek,
+       SUBSTRING(sm.OrderWeek,0,3)             AS OrderWeek2,
+       sm.OrderYearWeek,
+       sm.OrderYear + REPLACE(sm.OrderWeek,'-','') AS OrderYearWeek2,
+       sm.isFix                                AS MasterFix,
+       sd.ProdKey, p.ProdName, p.ProdCode, p.FlowerName, p.CounName, p.CountryFlower,
+       sm.CustKey, c.CustCode, c.CustName, c.CustArea, c.Manager, c.Descr AS CustDescr,
+       sd.ShipmentDtm,
+       sd.BoxQuantity, sd.BunchQuantity, sd.SteamQuantity,
+       sd.OutQuantity, sd.EstQuantity, sd.EstQuantity2, sd.EstDescr,
+       sd.Cost, sd.Amount, sd.Vat, sd.Descr,
+       sd.isFix AS DetailFix,
+       sd.SdetailKey
+FROM ShipmentMaster sm
+JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
+JOIN Product p         ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+JOIN Customer c        ON sm.CustKey = c.CustKey AND c.isDeleted = 0
+WHERE sm.isDeleted = 0
+```
+
+**주의**: `sd.isDeleted` 필터 없음! ShipmentDetail 의 isDeleted 는 view 가 무시. 웹은 `sd.isDeleted=0` 조건 빈번하게 추가하는데 view 와 결과가 다를 수 있음.
+
+### 7.5 신규 발견 보조 객체
+
+| 객체 | 용도 |
+|---|---|
+| `usp_ShipmentFix` | 출고확정 SP (정의 미확보) |
+| `usp_ShipmentFixCancel` | 출고확정 취소 SP (정의 미확보) |
+| `UpdateStockHistory` | StockHistory 의 BeforeValue/AfterValue 누적 재계산 (cursor 기반) |
+| `ShipmentAdjustment` 테이블 | 출고 조정 이력 (`RemainBefore/After` 등 잔량 변동 추적) |
+| `StartStock` 테이블 | 시작재고 기준점 (UQ 제약) |
+| `_new_ShipmentDetail/Master/StockHistory` | 마이그레이션 그림자 테이블 (의도/시점 미파악) |
+| `ShipmentHistoryTemp` | 출고이력 임시본 |
+| `tempstock` | 재고 임시본 |
+| `ShipmentDetail_20260429` 등 | 4/29 시점 백업 (사고 직전?) |
+
+## 8. 충돌 정리 + 신규 정책
+
+### 8.1 출고확정 / 잔량 작업은 SP 호출로 통일
+
+지금까지 웹 [fix.js](pages/api/shipment/fix.js) 가 직접 INSERT/UPDATE/DELETE → 전산 cascade 깨짐.
+
+**권장 전환**:
+```js
+// 잔량 재계산
+await query(`EXEC dbo.usp_StockCalculation
+              @OrderYear=@yr, @OrderWeek=@wk, @ProdKey=NULL, @iUserID=@uid,
+              @oResult=@r OUTPUT, @oMessage=@m OUTPUT`, params);
+```
+
+이러면 ProductStock cascade 가 전산과 동일 패턴으로 작동. 직접 ProductStock 만지지 말 것.
+
+### 8.2 web prevStock SQL 도 이 식과 일관되게
+
+웹 [stock-status.js](pages/api/shipment/stock-status.js) 의 prevStock 은 단순 `SELECT TOP 1 ps.Stock ... WHERE OrderWeek < @weekFrom` 인데,
+전산 SP 는 `OrderYearWeek` 결합 키로 비교. **일관성 위해 OrderYear+OrderWeek 둘 다 비교 권장** — 차후 fix 대상.
+
+### 8.3 ShipmentAdjustment 추적 활용
+
+데이터 사고 발생 시 가장 먼저 확인:
+```sql
+SELECT TOP 100 *
+FROM ShipmentAdjustment
+WHERE ABS(RemainAfter - RemainBefore) >= <threshold>
+ORDER BY CreateDtm DESC;
+```
+
+`RemainBefore/After` 가 잔량 점프의 직접 흔적.
+
+### 8.4 ViewShipment 와 웹 코드의 isDeleted 차이
+
+전산 ViewShipment 는 `sd.isDeleted` 무시 → 웹이 `sd.isDeleted=0` 추가하면 출고 합계가 다를 수 있음. **JOIN 직접 쓸 때 일관 유지**.
