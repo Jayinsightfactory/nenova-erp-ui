@@ -390,14 +390,52 @@ export default function Estimate() {
   const [autoLoad, setAutoLoad] = useState(true);
   // 미확정 포함 토글 — 켜면 isFix=0 차수도 견적서에 표시
   const [includeUnfixed, setIncludeUnfixed] = useState(false);
+  // 최근 2개 차수만 표시 토글 (default ON)
+  const [recentOnly, setRecentOnly] = useState(true);
+  // 차수별 확정 취소 작업 상태
+  const [unfixingWeek, setUnfixingWeek] = useState(null); // 작업 중인 세부차수
   useEffect(() => {
     try {
       const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false);
       const u = localStorage.getItem('est_inclUnfixed'); if (u === '1') setIncludeUnfixed(true);
+      const r = localStorage.getItem('est_recentOnly'); if (r === '0') setRecentOnly(false);
     } catch {}
   }, []);
   useEffect(() => { try { localStorage.setItem('est_autoLoad', autoLoad ? '1' : '0'); } catch {} }, [autoLoad]);
   useEffect(() => { try { localStorage.setItem('est_inclUnfixed', includeUnfixed ? '1' : '0'); } catch {} }, [includeUnfixed]);
+  useEffect(() => { try { localStorage.setItem('est_recentOnly', recentOnly ? '1' : '0'); } catch {} }, [recentOnly]);
+
+  // 특정 세부차수 확정 취소 (한 차수 단위)
+  const unfixOneWeek = async (subWeek, force = false) => {
+    if (!subWeek) return;
+    if (!confirm(`[${subWeek}] 차수 확정을 취소하시겠습니까?\n취소 후 단가/수량 수정 가능합니다.`)) return;
+    setUnfixingWeek(subWeek);
+    try {
+      const r = await fetch('/api/shipment/fix', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ week: subWeek, action: 'unfix', force }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        // 후속차수 확정 경고면 강제 진행 옵션 제공
+        if (d.warning === 'LATER_FIXED_EXISTS') {
+          if (confirm(`${d.error}\n\n그래도 강제 진행하시겠습니까?`)) {
+            return await unfixOneWeek(subWeek, true);
+          }
+          return;
+        }
+        alert(`확정 취소 실패: ${d.error || '알 수 없는 오류'}`);
+        return;
+      }
+      alert(d.message || `[${subWeek}] 확정 취소 완료`);
+      load(true); // 화면 갱신
+    } catch (e) {
+      alert(`확정 취소 오류: ${e.message}`);
+    } finally {
+      setUnfixingWeek(null);
+    }
+  };
   const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
   const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
@@ -1175,6 +1213,18 @@ export default function Estimate() {
           <div className="card-header">
             <span className="card-title">■ 출고 목록</span>
             <span style={{fontSize:11, color:'var(--text3)'}}>{shipments.length}건</span>
+            <button type="button" onClick={() => setRecentOnly(v => !v)}
+              title={recentOnly ? '최근 2개 차수만 표시 중 (클릭하면 전체)' : '전체 차수 표시 중 (클릭하면 최근 2개만)'}
+              style={{
+                marginLeft: 6,
+                padding: '2px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                borderRadius: 10,
+                border: `1.5px solid ${recentOnly ? '#1976d2' : '#999'}`,
+                background: recentOnly ? '#e3f2fd' : '#fff',
+                color: recentOnly ? '#1976d2' : '#666',
+              }}>
+              {recentOnly ? '🔽 최근 2개' : '📋 전체'}
+            </button>
             {selectedGroups.size > 0 && (
               <span style={{marginLeft:'auto', fontSize:11, fontWeight:700, color:'#2e7d32',
                             padding:'2px 8px', background:'#e8f5e9', borderRadius:10}}>
@@ -1204,38 +1254,88 @@ export default function Estimate() {
                     </tr>
                   </thead>
                   <tbody>
-                    {shipments.length === 0
-                      ? <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>
-                      : shipments.map(s => {
-                          const groupId = `${s.ParentWeek}_${s.CustKey}`;
-                          const subWeeks = (s.SubWeeks || '').split(',').filter(Boolean).join(', ');
-                          const checked = selectedGroups.has(groupId);
-                          return (
-                            <tr key={groupId}
-                              className={selectedId === groupId ? 'selected' : ''}
-                              onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
-                              style={{cursor:'pointer', background: checked ? '#e3f2fd' : undefined}}
-                            >
-                              <td onClick={e => e.stopPropagation()}>
-                                <input type="checkbox" checked={checked}
-                                  onChange={() => {
-                                    setSelectedGroups(prev => {
-                                      const n = new Set(prev);
-                                      if (n.has(groupId)) n.delete(groupId);
-                                      else n.add(groupId);
-                                      return n;
-                                    });
-                                  }}/>
-                              </td>
-                              <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}}>
+                    {(() => {
+                      // 최근 2개 부모차수만 필터 (recentOnly=true 시)
+                      let displayShips = shipments;
+                      if (recentOnly && shipments.length > 0) {
+                        const uniqueParents = [...new Set(shipments.map(s => s.ParentWeek))]
+                          .sort((a, b) => String(b).localeCompare(String(a))).slice(0, 2);
+                        displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
+                      }
+                      if (displayShips.length === 0) {
+                        return <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>;
+                      }
+                      return displayShips.map(s => {
+                        const groupId = `${s.ParentWeek}_${s.CustKey}`;
+                        // SubWeeksFix: '17-01:1,17-02:0' → [{wk:'17-01', fix:1}, ...]
+                        const subFix = (s.SubWeeksFix || '').split(',').filter(Boolean).map(p => {
+                          const [wk, fix] = p.split(':');
+                          return { wk, fix: parseInt(fix) || 0 };
+                        });
+                        const checked = selectedGroups.has(groupId);
+                        return (
+                          <tr key={groupId}
+                            className={selectedId === groupId ? 'selected' : ''}
+                            onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
+                            style={{cursor:'pointer', background: checked ? '#e3f2fd' : undefined}}
+                          >
+                            <td onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={checked}
+                                onChange={() => {
+                                  setSelectedGroups(prev => {
+                                    const n = new Set(prev);
+                                    if (n.has(groupId)) n.delete(groupId);
+                                    else n.add(groupId);
+                                    return n;
+                                  });
+                                }}/>
+                            </td>
+                            <td style={{fontFamily:'var(--mono)', fontWeight:'bold', fontSize:12}} onClick={e => e.stopPropagation()}>
+                              <div style={{cursor:'pointer'}} onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}>
                                 {s.ParentWeek}
-                                <div style={{fontSize:9, color:'var(--text3)', fontWeight:'normal'}}>{subWeeks}</div>
-                              </td>
-                              <td style={{fontWeight:500}}>{s.CustName}</td>
-                              <td className="num">{fmt(s.totalAmount)}</td>
-                            </tr>
-                          );
-                        })}
+                              </div>
+                              {/* 세부차수별 확정 배지 + 확정취소 버튼 */}
+                              <div style={{display:'flex', flexDirection:'column', gap:2, marginTop:2}}>
+                                {subFix.length === 0 && (
+                                  <span style={{fontSize:9, color:'var(--text3)', fontWeight:'normal'}}>(세부 없음)</span>
+                                )}
+                                {subFix.map(({ wk, fix }) => (
+                                  <div key={wk} style={{display:'flex', alignItems:'center', gap:3}}>
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 600,
+                                      padding: '1px 5px', borderRadius: 8,
+                                      background: fix ? '#e8f5e9' : '#fff3e0',
+                                      color:      fix ? '#2e7d32' : '#e65100',
+                                      border: `1px solid ${fix ? '#a5d6a7' : '#ffb74d'}`,
+                                    }}>
+                                      {fix ? '✓' : '⚠'} {wk}
+                                    </span>
+                                    {fix === 1 && (
+                                      <button
+                                        type="button"
+                                        title={`${wk} 확정 취소`}
+                                        disabled={unfixingWeek === wk}
+                                        onClick={(e) => { e.stopPropagation(); unfixOneWeek(wk); }}
+                                        style={{
+                                          fontSize: 9, padding: '0 4px', height: 16,
+                                          border: '1px solid #c62828', background: '#fff',
+                                          color: '#c62828', borderRadius: 8, cursor: unfixingWeek === wk ? 'wait' : 'pointer',
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {unfixingWeek === wk ? '⏳' : '취소'}
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td style={{fontWeight:500}}>{s.CustName}</td>
+                            <td className="num">{fmt(s.totalAmount)}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               )}

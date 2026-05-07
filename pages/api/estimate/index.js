@@ -171,6 +171,16 @@ async function getEstimates(req, res) {
             AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
           FOR XML PATH(''), TYPE
         ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS SubWeeks,
+        -- 각 세부차수의 ShipmentKey:isFix 매핑 (예: '17-01:1,17-02:0')
+        STUFF((
+          SELECT ',' + sm2.OrderWeek + ':' + CAST(ISNULL(sm2.isFix,0) AS NVARCHAR(1))
+          FROM ShipmentMaster sm2
+          WHERE sm2.CustKey = sm.CustKey
+            AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
+                = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
+            AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
+          FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS SubWeeksFix,
         SUM(ISNULL(sa.shipAmt, 0) + ISNULL(ea.estAmt, 0)) AS totalAmount,
         MIN(sm.ShipmentKey) AS firstShipmentKey
        FROM ShipmentMaster sm
