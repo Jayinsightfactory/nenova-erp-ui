@@ -614,3 +614,148 @@ ORDER BY ABS(p.Stock - ISNULL(ps.Stock, 0)) DESC;
    - `usp_ShipmentFix` / `usp_ShipmentFixCancel` SP 호출로 전환 검토
 2. **Product.Stock 의 정확한 값 재계산 SP 작성** — 모든 ShipmentDetail (DetailFix=1) 출고합 + 입고합 재집계
 3. **모든 Stock 시스템을 단일 source of truth 로** — 가능하면 ProductStock 만 사용
+
+### 9.7 실측 결과 — Product.Stock 전부 음수 (2026-05-07)
+
+진단 SQL 실행 결과 콜롬비아 카네이션 전 품목이 비정상:
+
+| 품목 | Product.Stock | ProductStock(17-02) |
+|---|---|---|
+| Doncel | **−376** | +532 |
+| Moon Light | **−329.01** | +492 |
+| Don pedro | **−334** | +426 |
+| Novia | **−219** | +274 |
+| Cherrio | **−239** | +234 |
+| ... 50+ 품목 동일 | 모두 음수 | 모두 양수 |
+
+**해석**: 두 시스템 부호 정반대.
+- Product.Stock 음수 = 출고가 입고+이월보다 누적 우세 (정상 아님)
+- ProductStock(17-02) 양수 = 17-02 마감 스냅샷은 정상
+
+가능 원인:
+- 입고 SP 부재 또는 실행 누락 (출고만 차감, 입고 미반영)
+- usp_ShipmentFix 와 usp_ShipmentFixCancel 호출 비대칭 누적
+- 5/4 일제 취소→재확정 사이클의 수량 변경분 누적
+
+→ 사용자가 보고한 "1000→3000 잔량 점프" 의 정확한 출처는 **화면 컬럼 식별 + usp_ShipmentFix 정의** 확보 후 확정. 작업 보류 상태.
+
+---
+
+## 10. usp_ShipmentFix 분석 — 사이클 양방향 식 완성 (2026-05-07)
+
+### 10.1 시그니처
+
+```sql
+EXEC dbo.usp_ShipmentFix
+     @OrderYear = '2026',
+     @OrderWeek = '17-02',
+     @CountryFlower = '카네이션',
+     @iUserID = 'admin',
+     @oResult OUT, @oMessage OUT;
+```
+
+### 10.2 핵심 동작 흐름
+
+1. **미확정 출고 수집** — `ViewShipment WHERE DetailFix=0`
+2. **잔량 마이너스 검증** ⭐
+   ```sql
+   WITH stock AS (SELECT ps.ProdKey, ps.Stock, sm.OrderYearWeek
+                  FROM StockMaster sm JOIN ProductStock ps ON sm.StockKey=ps.StockKey)
+   ...
+   WHERE ROUND(ISNULL(ns.Stock,0) - ISNULL(sl.OutQuantity,0), 0) < 0
+   -- → 마이너스 나오면 ROLLBACK + '잔량 마이너스 출고 존재' 오류
+   ```
+   **주의**: stock CTE 에 `isFix` 필터 없음. 모든 ProductStock 봄.
+3. **출고일 합산 검증** — `ShipmentDate.ShipmentQuantity` 합과 `OutQuantity` 일치 확인
+4. **isFix 설정** — Detail 1, Master 는 미확정 detail 없으면 1 / 있으면 0
+5. **StockHistory 기록** — `BeforeValue=p.Stock, AfterValue=p.Stock-OutQuantity, ChangeType='출고'`
+6. **Product.Stock -= SUM(OutQuantity)** ← Stock 차감
+7. **ShipmentHistory 기록** — 신규/삭제/수정 출고일 이력
+
+### 10.3 Fix vs FixCancel 대칭
+
+| 구분 | usp_ShipmentFix | usp_ShipmentFixCancel |
+|---|---|---|
+| 대상 | DetailFix=0 (미확정) | DetailFix=1 (확정된 것) |
+| isFix | → 1 | → 0 |
+| Product.Stock | **-= OutQuantity** | **+= OutQuantity** |
+| StockHistory.Descr | '출고확정' | '출고확정 취소' |
+| 잔량 검증 | ProductStock 마이너스 차단 | 검증 없음 |
+| 출고일 이력 | 기록 | 기록 안 함 |
+
+→ **이론상 정확히 대칭**. 사이클 돌면 Product.Stock = 0 으로 복원되어야 함.
+
+### 10.4 그러나 실측은 전부 음수 — 비대칭 누적 시나리오
+
+| 가설 | 메커니즘 |
+|---|---|
+| **A** | 출고확정 → 출고수량 증가 변경 (ShipmentDetail.OutQuantity UPDATE) → 재확정 — 이때 변경분만큼 추가 차감 |
+| **B** | 같은 ShipmentDetail 이 SP 외부에서 isFix 토글되면서 Product.Stock 갱신 누락 |
+| **C** | 웹 [fix.js](pages/api/shipment/fix.js) 가 SP 안 거치고 직접 ShipmentMaster.isFix = 0/1 토글 — Product.Stock 안 건드려서 점진적 차이 누적 |
+| **D** | SP 가 한 번 실행 중 오류 → ROLLBACK 후 부분 재실행 |
+
+가설 C 가 가장 유력. 웹 fix.js 가 직접 SQL 만짐 ([memory: 277a0e4 `unfix 트랜잭션화 + ProductStock 정리`]).
+
+### 10.5 종합 — 모든 SP/View/테이블 매트릭스
+
+| 객체 | 종류 | 핵심 부작용 |
+|---|---|---|
+| **`usp_StockCalculation`** | SP | ProductStock cascade 재계산 (전·후속 차수) |
+| **`usp_ShipmentFix`** | SP | Product.Stock -= / isFix=1 / StockHistory / ShipmentHistory |
+| **`usp_ShipmentFixCancel`** | SP | Product.Stock += / isFix=0 / StockHistory |
+| **`UpdateStockHistory`** | SP | StockHistory.BeforeValue/AfterValue cumulative re-calc (cursor) |
+| `ViewOrder` | VIEW | OM/OD/Customer/Product/Country/UserInfo INNER JOIN |
+| `ViewShipment` | VIEW | SM/SD/Product/Customer INNER (sd.isDeleted 무시) |
+| `ViewWarehouse` | VIEW | WM/WD/Product INNER (wd, p.isDeleted 둘 다 무시) |
+| `ShipmentAdjustment` | TABLE | RemainBefore/After 잔량 변동 audit |
+| `StartStock` | TABLE | 시작재고 기준 (UQ) |
+| `_new_*`, `*_20260429`, `tempstock` | TABLE | 마이그레이션/백업 그림자 |
+
+## 11. 종합 보호 가이드라인 — 신규 웹 작업시 체크리스트
+
+### 11.1 OrderMaster INSERT/UPDATE 시
+
+- [ ] `Manager` 컬럼에 UserInfo.UserID 매칭값 채우기 (없으면 ViewOrder 에서 사라짐)
+- [ ] `OrderYearWeek` (= OrderYear + REPLACE(OrderWeek,'-','')) 채우기 → 인덱스 활용
+- [ ] `CustKey`/`ProdKey` 가 isDeleted=0 인지 확인
+- [ ] Country 마스터에 CounName 존재 확인 (ViewOrder JOIN 차단 방지)
+
+### 11.2 OrderDetail INSERT/UPDATE 시
+
+- [ ] `EstQuantity` 채우기 (전산 견적 계산용)
+- [ ] `NoneOutQuantity` 채우기 (미출고수량, 견적/잔량용)
+- [ ] `BoxQuantity`, `BunchQuantity`, `SteamQuantity` 모두 환산 채우기 (단일 공식)
+- [ ] OutUnit 분기 금지 (이미 메모리 정책)
+
+### 11.3 ShipmentDetail / Master 작업 시
+
+- [ ] `isFix` 토글은 가능하면 SP (`usp_ShipmentFix/Cancel`) 호출
+- [ ] 직접 토글 시 `Product.Stock` 갱신 누락 주의
+- [ ] `EstQuantity`, `EstQuantity2`, `EstDescr` 채우기
+- [ ] ShipmentMaster.OrderYearWeek 채우기
+- [ ] StockHistory INSERT 시 BeforeValue/AfterValue/ChangeType 형식 SP 와 일치
+
+### 11.4 ProductStock / StockMaster 작업 시
+
+- [ ] **직접 INSERT/UPDATE 금지** — `usp_StockCalculation` 호출이 정공
+- [ ] StockKey = MAX+1 패턴 유지
+- [ ] OrderYearWeek 채우기
+- [ ] `'17-01B'`, `'470-01'` 같은 형식 오류 데이터 절대 생성 금지 (LIKE '__-__' 만)
+
+### 11.5 견적서 (Estimate) 작업 시
+
+- [ ] ShipmentFarm 보조 테이블 갱신 정책 검토 필요
+- [ ] ProductSort/ProductSortLookup 정렬 우선순위 따르기
+
+### 11.6 입고 (WarehouseMaster/Detail) 작업 시
+
+- [ ] OrderYearWeek2 컬럼 채우기 (ViewWarehouse 노출 키)
+- [ ] FarmName 이 Farm.FarmName 과 매칭 (LEFT JOIN 이라 없으면 CounKey NULL)
+
+### 11.7 데이터 사고 시 우선 진단 순서
+
+1. `ShipmentAdjustment` 테이블 — `RemainBefore/After` 변동 추적
+2. `StockHistory` 의 `ChangeType='출고'/'재고조정'` 행 추적
+3. `ShipmentHistory` 의 isFix/OutQuantity 변경 추적
+4. Product.Stock vs ProductStock(차수) gap 진단 (섹션 9.5 SQL)
+5. ViewShipment vs ShipmentDetail 직접 합산 비교
