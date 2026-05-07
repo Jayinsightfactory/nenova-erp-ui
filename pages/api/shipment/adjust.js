@@ -279,13 +279,15 @@ async function postAdjust(req, res) {
 
       const u = toAllUnits(qtyAfter);
 
+      let targetSdk;
       if (sdRow) {
+        targetSdk = sdRow.SdetailKey;
         await tQ(
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@oq,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
            WHERE SdetailKey=@dk`,
-          { dk: { type: sql.Int, value: sdRow.SdetailKey },
+          { dk: { type: sql.Int, value: targetSdk },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
@@ -308,6 +310,26 @@ async function postAdjust(req, res) {
             bnq:{ type: sql.Float, value: u.bunch },
             sq: { type: sql.Float, value: u.steam } }
         );
+        targetSdk = sdk;
+      }
+
+      // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
+      // 정책: 기존 ShipmentDate 행 모두 삭제 후 ShipmentDtm 기준 단일 행 INSERT
+      //       (출고일별 분배는 견적서/분배 화면에서 별도 입력하지 않으므로 단일화)
+      // OutQuantity 가 0 으로 떨어지면 ShipmentDate 도 비우기
+      if (targetSdk) {
+        await tQ(
+          `DELETE FROM ShipmentDate WHERE SdetailKey=@dk`,
+          { dk: { type: sql.Int, value: targetSdk } }
+        );
+        if (u.outQ > 0) {
+          // ShipmentDtm 은 ShipmentDetail 에서 가져옴 (방금 UPDATE/INSERT 한 값)
+          await tQ(
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
+             SELECT @dk, ShipmentDtm, @oq FROM ShipmentDetail WHERE SdetailKey=@dk`,
+            { dk: { type: sql.Int, value: targetSdk }, oq: { type: sql.Float, value: u.outQ } }
+          );
+        }
       }
 
       // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고

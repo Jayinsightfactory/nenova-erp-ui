@@ -809,7 +809,7 @@ export default function WeekPivot() {
                   {custKeys.map((ck,ci)=>(
                     <React.Fragment key={`${wk}-${ck}`}>
                       {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
-                      <th className="pv-cust-head" style={{...st.th,fontSize:Math.max(8,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.2',padding:'4px 2px',borderLeft:ci===0?'2px solid #fff':'none'}}>
+                      <th className="pv-cust-head" style={{...st.th,fontSize:Math.max(9,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'keep-all',lineHeight:'1.25',padding:'4px 3px',borderLeft:ci===0?'2px solid #fff':'none',minWidth:50,maxWidth:90}} title={cShort(ck)}>
                         {cShort(ck)}
                       </th>
                     </React.Fragment>

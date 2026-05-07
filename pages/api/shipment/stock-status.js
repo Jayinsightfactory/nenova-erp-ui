@@ -870,6 +870,8 @@ async function updateOutQty(req, res) {
           finalQty = (foundSD.OutQuantity || 0) + qty;
         }
         if (finalQty <= 0) {
+          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@sdk`,
+            { sdk: { type: sql.Int, value: targetSdk } });
           await tQ(`DELETE FROM ShipmentDetail WHERE SdetailKey=@sdk`,
             { sdk: { type: sql.Int, value: targetSdk } });
         } else {
@@ -884,6 +886,14 @@ async function updateOutQty(req, res) {
               bnq: { type: sql.Float, value: finalQty * bunchOf1Box },
               sq:  { type: sql.Float, value: finalQty * steamOf1Box },
               sdk: { type: sql.Int, value: targetSdk }, ...shipDtmParam }
+          );
+          // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
+          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@sdk`,
+            { sdk: { type: sql.Int, value: targetSdk } });
+          await tQ(
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
+             SELECT @sdk, ShipmentDtm, @qty FROM ShipmentDetail WHERE SdetailKey=@sdk`,
+            { sdk: { type: sql.Int, value: targetSdk }, qty: { type: sql.Float, value: finalQty } }
           );
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {
@@ -903,6 +913,12 @@ async function updateOutQty(req, res) {
               bnq: { type: sql.Float, value: insertQty * bunchOf1Box },
               sq:  { type: sql.Float, value: insertQty * steamOf1Box },
               ...shipDtmParam }
+          );
+          // ShipmentDate 동기화 (신규 INSERT)
+          await tQ(
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
+             SELECT @nk, ShipmentDtm, @qty FROM ShipmentDetail WHERE SdetailKey=@nk`,
+            { nk: { type: sql.Int, value: nk }, qty: { type: sql.Float, value: insertQty } }
           );
         }
       }

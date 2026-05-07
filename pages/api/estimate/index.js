@@ -232,6 +232,8 @@ async function loadItems(sk) {
   const result = await query(
     `SELECT * FROM (
        -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
+       --    fallback 우선순위 (출고분배 화면과 통일): sd.Cost → cpc.Cost → p.Cost
+       --    cpc = CustomerProdCost (거래처별 고정단가, 단가수정 mode='fixed' 시 저장)
        SELECT
          NULL                                      AS EstimateKey,
          '정상출고'                                AS EstimateType,
@@ -250,18 +252,18 @@ async function loadItems(sk) {
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
          ISNULL(sd.BoxQuantity, 0)                 AS BoxQty,
-         -- Cost: sd.Cost 있으면 그대로, 없으면 p.Cost (14차 fallback)
-         ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
-         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 표시단위 우선순위로 환산
+         -- Cost: sd.Cost → cpc.Cost (거래처고정) → p.Cost
+         ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
+         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 fallback Cost 로 환산
          ISNULL(NULLIF(sd.Amount, 0),
-           ROUND(ISNULL(p.Cost, 0)
+           ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
          ) AS Amount,
          ISNULL(NULLIF(sd.Vat, 0),
-           ROUND(ISNULL(p.Cost, 0)
+           ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
@@ -270,8 +272,9 @@ async function loadItems(sk) {
          ''                                        AS Descr,
          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
        FROM ShipmentDetail sd
-       LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
        LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
+       LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
        WHERE sd.ShipmentKey = @sk
        UNION ALL
        -- ② 차감 (Estimate) — 단가 수정 대상 아님, SdetailKey=NULL
