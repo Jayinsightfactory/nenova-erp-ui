@@ -350,67 +350,6 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, stocks });
     }
 
-    // ── 예상시작재고 (롤링 계산)
-    // 각 (ProdKey, 차수) 마다:
-    //   lastConfirmed = 그 차수 이전 가장 최근의 isFix=1 차수의 Stock
-    //   gapIn = lastConfirmed차수+1 ~ targetWeek-1 의 입고합 (확정 안 된 중간 차수들)
-    //   gapOut = 같은 범위의 출고합
-    //   expectedStart = lastConfirmed + gapIn - gapOut
-    // 예: 17-2 확정 + 18-1 입고 + 18-2 입고 - 18-1 출고 - 18-2 출고 = 19-1 예상시작
-    if (view === 'expectedStart') {
-      // 범위 내 distinct 차수 추출 (OrderMaster + ShipmentMaster + WarehouseMaster 합집합)
-      const result = await query(
-        `WITH WeeksInRange AS (
-           SELECT DISTINCT OrderWeek FROM OrderMaster
-             WHERE OrderWeek BETWEEN @weekFrom AND @weekTo AND isDeleted=0
-           UNION
-           SELECT DISTINCT OrderWeek FROM ShipmentMaster
-             WHERE OrderWeek BETWEEN @weekFrom AND @weekTo AND isDeleted=0
-           UNION
-           SELECT DISTINCT OrderWeek FROM WarehouseMaster
-             WHERE OrderWeek BETWEEN @weekFrom AND @weekTo AND isDeleted=0
-         )
-         SELECT p.ProdKey, w.OrderWeek AS TargetWeek,
-           ISNULL(lc.Stock, 0) AS LastConfirmedStock,
-           ISNULL(lc.OrderWeek, '') AS LastConfirmedWeek,
-           ISNULL((SELECT SUM(wd.OutQuantity)
-                   FROM WarehouseDetail wd
-                   JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-                   WHERE wd.ProdKey = p.ProdKey AND wm.isDeleted = 0
-                     AND wm.OrderWeek > ISNULL(lc.OrderWeek, '00-00')
-                     AND wm.OrderWeek < w.OrderWeek), 0) AS GapInSum,
-           ISNULL((SELECT SUM(sd.OutQuantity)
-                   FROM ShipmentDetail sd
-                   JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-                   WHERE sd.ProdKey = p.ProdKey AND sm.isDeleted = 0
-                     AND sm.OrderWeek > ISNULL(lc.OrderWeek, '00-00')
-                     AND sm.OrderWeek < w.OrderWeek), 0) AS GapOutSum
-         FROM Product p
-         CROSS JOIN WeeksInRange w
-         OUTER APPLY (
-           SELECT TOP 1 ps.Stock, sm2.OrderWeek
-           FROM ProductStock ps
-           JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-           WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < w.OrderWeek AND sm2.isFix = 1
-           ORDER BY sm2.OrderWeek DESC
-         ) lc
-         WHERE p.isDeleted = 0`,
-        params
-      );
-      const expected = {};
-      (result.recordset || []).forEach(r => {
-        const v = (r.LastConfirmedStock || 0) + (r.GapInSum || 0) - (r.GapOutSum || 0);
-        expected[`${r.ProdKey}-${r.TargetWeek}`] = {
-          expected: v,
-          lastConfirmedStock: r.LastConfirmedStock,
-          lastConfirmedWeek: r.LastConfirmedWeek,
-          gapIn: r.GapInSum,
-          gapOut: r.GapOutSum,
-        };
-      });
-      return res.status(200).json({ success: true, expected });
-    }
-
     // ── 시작재고 조회 (isFix=2 마커)
     if (view === 'startStocks') {
       const result = await query(
