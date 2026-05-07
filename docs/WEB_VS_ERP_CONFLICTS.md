@@ -381,7 +381,47 @@ NewStock(현차수) = PrevStock(전차수 마감 ProductStock.Stock)
 3. **신규 ProductStock INSERT 시 isFix 안 채움** (NULL) — 우리가 본 17-02 StockKey 117 Stock=492 가 이렇게 만들어진 것
 4. **ViewShipment 필터**: `DetailFix = 1` (출고 라인 단위). 즉 master 가 isFix=0 이라도 detail 이 isFix=1 이면 잔량에 반영
 
-### 7.4 ViewShipment 정의 (전산이 출고로 보는 것)
+### 7.4 ViewOrder 정의 (전산이 주문으로 보는 것)
+
+```sql
+CREATE VIEW dbo.ViewOrder AS
+SELECT om.OrderMasterKey, om.OrderYear, om.OrderWeek,
+       SUBSTRING(om.OrderWeek,0,3)                 AS OrderWeek2,
+       om.OrderYear + SUBSTRING(om.OrderWeek,0,3)  AS OrderYearWeek,
+       om.OrderYear + REPLACE(om.OrderWeek,'-','') AS OrderYearWeek2,
+       om.OrderDtm,
+       ui.UserName                                 AS Manager,    -- ⚠ INNER JOIN UserInfo
+       om.CustKey, c.CustName, c.CustArea,
+       c.Manager  AS BusinessManager,
+       c.Descr    AS CustDescr,
+       ct.isUseOrderCode,
+       om.OrderCode, om.Descr,
+       od.OrderDetailKey, od.ProdKey,
+       p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
+       od.Descr   AS DetailDescr,
+       od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
+       od.OutQuantity, od.EstQuantity, od.NoneOutQuantity
+FROM OrderMaster om
+JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey
+JOIN Customer    c  ON om.CustKey = c.CustKey AND c.isDeleted = 0
+JOIN Product     p  ON od.ProdKey = p.ProdKey AND p.isDeleted = 0
+JOIN Country     ct ON p.CounName = ct.CounName        -- ⚠ INNER JOIN Country
+JOIN UserInfo    ui ON om.Manager = ui.UserID          -- 🔴 INNER JOIN UserInfo
+WHERE om.isDeleted = 0
+  AND od.isDeleted = 0   -- ShipmentDetail view 와 달리 isDeleted 필터 있음
+```
+
+**🔴 결정적 충돌 포인트** (이미 문서 #5 의 "관리자 화면 숨김" 이슈와 직결):
+1. `JOIN UserInfo ui ON om.Manager = ui.UserID` — **웹이 `OrderMaster.Manager` 안 채우면 그 주문은 ViewOrder 에서 사라짐** (전산 화면에서 "주문이 없는 것처럼" 보임). `req.user.userId` 가 UserInfo.UserID 에 존재해야 함.
+2. `JOIN Country ct ON p.CounName = ct.CounName` — **Product.CounName 과 Country.CounName 동기 필수**. 새 국가 추가 시 Country 마스터 먼저.
+3. `od.isDeleted = 0` 포함 — 웹의 OrderDetail isDeleted 토글이 즉시 ViewOrder 에서 사라짐
+4. `NoneOutQuantity` 노출 — **미출고 수량 컬럼**. 웹이 채우지 않으면 전산 견적/잔량 계산이 어긋남
+5. `OrderYearWeek` 두 가지 포맷:
+   - `OrderYearWeek` = `OrderYear + SUBSTRING(OrderWeek,0,3)` → 예: `'2026' + '17-'` = `'202617-'`
+   - `OrderYearWeek2` = `OrderYear + REPLACE(OrderWeek,'-','')` → 예: `'20261702'`
+   - 웹이 OrderMaster INSERT 시 OrderYearWeek 안 채우면 인덱스 이용 못함
+
+### 7.5 ViewShipment 정의 (전산이 출고로 보는 것)
 
 ```sql
 CREATE VIEW dbo.ViewShipment AS
@@ -407,7 +447,7 @@ WHERE sm.isDeleted = 0
 
 **주의**: `sd.isDeleted` 필터 없음! ShipmentDetail 의 isDeleted 는 view 가 무시. 웹은 `sd.isDeleted=0` 조건 빈번하게 추가하는데 view 와 결과가 다를 수 있음.
 
-### 7.5 신규 발견 보조 객체
+### 7.6 신규 발견 보조 객체
 
 | 객체 | 용도 |
 |---|---|
