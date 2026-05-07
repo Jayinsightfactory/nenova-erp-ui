@@ -56,7 +56,7 @@ export default withAuth(async function handler(req, res) {
             SELECT TOP 1 ps.Stock
             FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekFrom
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           -- 기간 내 입고수량
@@ -170,7 +170,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek <= @weekFrom
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
@@ -247,7 +247,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
-            WHERE ps.ProdKey=p.ProdKey AND sm2.OrderWeek <= @weekFrom
+            WHERE ps.ProdKey=p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
