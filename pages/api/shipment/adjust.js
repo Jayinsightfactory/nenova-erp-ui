@@ -160,15 +160,17 @@ async function postAdjust(req, res) {
       if (om.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 OrderMaster 없음');
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        // 전산 ViewOrder INNER JOIN UserInfo: 실 사용자 ID, OrderYearWeek 함께 채움
         await tQ(
           `INSERT INTO OrderMaster
-             (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-           VALUES (@mk,GETDATE(),@yr,@wk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+             (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
+           VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
           {
             mk:  { type: sql.Int,      value: mk },
             yr:  { type: sql.NVarChar, value: orderYear },
             wk:  { type: sql.NVarChar, value: orderWeek },
-            mgr: { type: sql.NVarChar, value: '관리자' },
+            ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
+            mgr: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
             ck:  { type: sql.Int,      value: ck },
             uid: { type: sql.NVarChar, value: 'admin' },
           }

@@ -833,12 +833,19 @@ async function updateOutQty(req, res) {
           sk = sm.recordset[0].ShipmentKey; // isFix=1(전산 확정) 우선
         } else {
           // ShipmentMaster가 정말 없을 때만 생성
+          // OrderYear/OrderYearWeek 채움 (전산 ViewShipment.OrderYearWeek2 매칭용)
+          const yr = String(new Date().getFullYear());
+          const ywk = yr + (week || '').replace('-', '');
           const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
           await tQ(
-            `INSERT INTO ShipmentMaster (ShipmentKey,OrderWeek,CustKey,isFix,isDeleted,CreateID,CreateDtm)
-             VALUES(@newSk,@wk,@ck,0,0,@uid,GETDATE())`,
-            { newSk: { type: sql.Int, value: newSk }, wk: { type: sql.NVarChar, value: week },
-              ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: uid } }
+            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+             VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+            { newSk: { type: sql.Int, value: newSk },
+              yr:  { type: sql.NVarChar, value: yr },
+              wk:  { type: sql.NVarChar, value: week },
+              ywk: { type: sql.NVarChar, value: ywk },
+              ck:  { type: sql.Int, value: ck },
+              uid: { type: sql.NVarChar, value: uid } }
           );
           sk = newSk;
         }
@@ -1039,12 +1046,19 @@ async function addOrder(req, res) {
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         await appLog('addOrder', 'OM_INSERT', `new mk=${mk} ck=${ck} wk=${normWeek}`);
+        // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
+        // OrderYearWeek 채워 인덱스/조회 일치
+        const ywk = normYear + (normWeek || '').replace('-', '');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
-          { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear },
-            wk: { type: sql.NVarChar, value: normWeek },
-            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: 'admin' } }
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+          { mk: { type: sql.Int, value: mk },
+            yr:  { type: sql.NVarChar, value: normYear },
+            wk:  { type: sql.NVarChar, value: normWeek },
+            ywk: { type: sql.NVarChar, value: ywk },
+            mgr: { type: sql.NVarChar, value: uid || 'admin' },
+            ck:  { type: sql.Int, value: ck },
+            uid: { type: sql.NVarChar, value: 'admin' } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;
@@ -1216,12 +1230,18 @@ async function addOrderDelta(req, res) {
       let mk;
       if (om.recordset.length === 0) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
+        // 전산 ViewOrder INNER JOIN 충돌 방지: Manager + OrderYearWeek 채움
+        const ywk2 = normYear2 + (normWeek2 || '').replace('-', '');
         await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ck,0,@uid,GETDATE())`,
-          { mk: { type: sql.Int, value: mk }, yr: { type: sql.NVarChar, value: normYear2 },
-            wk: { type: sql.NVarChar, value: normWeek2 },
-            ck: { type: sql.Int, value: ck }, uid: { type: sql.NVarChar, value: 'admin' } }
+          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+          { mk:  { type: sql.Int, value: mk },
+            yr:  { type: sql.NVarChar, value: normYear2 },
+            wk:  { type: sql.NVarChar, value: normWeek2 },
+            ywk: { type: sql.NVarChar, value: ywk2 },
+            mgr: { type: sql.NVarChar, value: uid || 'admin' },
+            ck:  { type: sql.Int, value: ck },
+            uid: { type: sql.NVarChar, value: 'admin' } }
         );
       } else {
         mk = om.recordset[0].OrderMasterKey;

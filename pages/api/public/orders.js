@@ -162,15 +162,20 @@ async function createOrder(req, res) {
       if (existing.recordset.length > 0) {
         mk = existing.recordset[0].OrderMasterKey;
       } else {
+        // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 비어있으면 'admin' fallback
+        // OrderYearWeek 채워 인덱스 일치
+        const yr = year || String(new Date().getFullYear());
+        const ywk = yr + (week || '').replace('-', '');
         const ins = await tQ(
           `INSERT INTO OrderMaster
-             (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+             (OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
            OUTPUT INSERTED.OrderMasterKey
-           VALUES (GETDATE(), @year, @week, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+           VALUES (GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
           {
-            year:      { type: sql.NVarChar, value: year || String(new Date().getFullYear()) },
+            year:      { type: sql.NVarChar, value: yr },
             week:      { type: sql.NVarChar, value: week },
-            manager:   { type: sql.NVarChar, value: manager || '' },
+            ywk:       { type: sql.NVarChar, value: ywk },
+            manager:   { type: sql.NVarChar, value: manager || 'admin' },
             ck:        { type: sql.Int,      value: resolvedCustKey },
             orderCode: { type: sql.NVarChar, value: orderCode || '' },
           }

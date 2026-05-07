@@ -216,14 +216,17 @@ async function createOrder(req, res) {
       } else {
         mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           await appLog('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
+          // 전산 ViewOrder/usp_* SP 가 OrderYearWeek 인덱스 사용 — 함께 채움
+          const ywk = orderYear + (orderWeek || '').replace('-', '');
           await tQuery(
             `INSERT INTO OrderMaster
-               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-             VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
+               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+             VALUES (@mk, GETDATE(), @year, @week, @ywk, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
             {
               mk:       { type: sql.Int,      value: newMk },
               year:     { type: sql.NVarChar, value: orderYear },
               week:     { type: sql.NVarChar, value: orderWeek },
+              ywk:      { type: sql.NVarChar, value: ywk },
               mgr:      { type: sql.NVarChar, value: mgr },
               custKey:  { type: sql.Int,      value: resolvedCustKey },
               oc:       { type: sql.NVarChar, value: resolvedOrderCode },
