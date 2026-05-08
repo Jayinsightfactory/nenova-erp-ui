@@ -293,55 +293,69 @@ export default function PasteOrderPage() {
     } catch { /* 조회 실패해도 무시 */ }
   };
 
-  // 일괄 분배 — 등록된 주문의 모든 품목에 대해 OrderDetail.qty - ShipmentDetail.OutQuantity 차이만큼 자동 ADD/CANCEL
-  // 사용 시점: 주문등록(handleRegister) 후 [🚀 일괄 분배] 버튼 클릭
+  // 일괄 등록+분배 — 입력 텍스트의 action(추가/취소) 그대로 ADD/CANCEL 호출
+  // 사용 시점: 텍스트 파싱 후 [🚀 일괄 등록+분배] 버튼 클릭
+  // 동작:
+  //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
+  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → ShipmentDetail-1 (주문은 그대로)
+  // 주의: adjust API 의 ADD 가 이미 OrderDetail+ShipmentDetail 동시 처리하므로
+  //       handleRegister 별도 호출 불필요.
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
   const handleBulkDistribute = async (oid) => {
-    const ro = registeredOrders[oid];
-    if (!ro || !ro.custKey || !week) { alert('등록된 주문이 없습니다.'); return; }
-    // 차이 계산: OrderDetail.qty - ShipmentDetail.OutQuantity
-    const diffs = (ro.items || []).filter(it => it.prodKey).map(it => {
-      const distKey = `${ro.custKey}-${it.prodKey}-${week}`;
-      const distributed = parseFloat(shipmentQtys[distKey] || 0);
-      const ordered = parseFloat(it.qty) || 0;
-      return {
-        prodKey: it.prodKey, prodName: it.prodName, unit: it.unit,
-        ordered, distributed, delta: ordered - distributed,
-      };
-    }).filter(x => Math.abs(x.delta) > 0.001);
+    const order = orders.find(o => o.id === oid);
+    if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
 
-    if (diffs.length === 0) { alert('이미 모든 품목 분배 완료 (차이 0)'); return; }
+    const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => ({
+      prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
+      qty: parseFloat(it.qty) || 0,
+      unit: it.unit || '단',
+      action: it.action || '추가',  // 기본 추가
+    })).filter(x => x.qty > 0);
 
-    const summary = diffs.map(x => `${x.prodName}: 주문 ${x.ordered}${x.unit} − 분배 ${x.distributed}${x.unit} = ${x.delta > 0 ? '+' : ''}${x.delta.toFixed(2)}`).join('\n');
-    if (!confirm(`${diffs.length}개 품목 일괄 분배:\n\n${summary}\n\n진행하시겠습니까?`)) return;
+    if (targets.length === 0) { alert('처리할 품목이 없습니다.'); return; }
+
+    // 미리보기: ADD/CANCEL 자동 분기
+    const previewLines = targets.map(x => {
+      const isCancel = x.action === '취소';
+      return `${x.prodName}: ${isCancel ? '−' : '+'}${x.qty}${x.unit} (${isCancel ? '취소' : '추가'})`;
+    });
+
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 OrderDetail+ShipmentDetail 동시 +, 취소는 ShipmentDetail만 −)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
-    for (const d of diffs) {
+    for (const t of targets) {
+      const type = (t.action === '취소') ? 'CANCEL' : 'ADD';
       try {
         const r = await fetch('/api/shipment/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
           body: JSON.stringify({
-            custKey: ro.custKey, prodKey: d.prodKey, week,
-            type: d.delta > 0 ? 'ADD' : 'CANCEL',
-            qty: Math.abs(d.delta), unit: d.unit,
-            memo: `붙여넣기 일괄분배 (${d.ordered}-${d.distributed}=${d.delta > 0 ? '+' : ''}${d.delta.toFixed(2)})`,
-            force: true, // 입고없는 차수 통과
+            custKey: order.custMatch.CustKey, prodKey: t.prodKey, week,
+            type, qty: t.qty, unit: t.unit,
+            memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
+            force: true,
           }),
         });
         const j = await r.json();
-        details.push({ ...d, ok: j.success, error: j.error });
+        details.push({ ...t, type, ok: j.success, error: j.error });
       } catch (e) {
-        details.push({ ...d, ok: false, error: e.message });
+        details.push({ ...t, type, ok: false, error: e.message });
       }
     }
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
     setBulkResult({ okCount, failCount, details });
     setBulkRunning(false);
-    // 화면 갱신
-    await fetchShipmentQtys(ro.custKey, week, (ro.items || []).map(i => i.prodKey));
+    // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
+    try {
+      const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+      if (od.success && od.orders?.length > 0) {
+        const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
+        setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot: prev[oid]?.prevSnapshot || {} } }));
+        await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+      }
+    } catch { /* 갱신 실패해도 결과는 표시 */ }
   };
 
   // ADD/CANCEL 단일 액션
@@ -784,15 +798,29 @@ export default function PasteOrderPage() {
                 <button
                   onClick={() => handleRegister(order.id)}
                   disabled={order.saving || matchedAdd.length === 0 || !order.custMatch || !week}
+                  title="OrderDetail 만 INSERT/UPDATE — 분배 (ShipmentDetail) 는 별도 작업"
                   style={{
                     marginLeft: 'auto',
-                    padding: '8px 24px',
+                    padding: '8px 18px',
                     background: (matchedAdd.length > 0 && order.custMatch && week) ? '#2e7d32' : '#bbb',
                     color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
                     cursor: (matchedAdd.length > 0 && order.custMatch && week) ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  {order.saving ? '등록 중...' : `💾 추가 ${matchedAdd.length}건 등록`}
+                  {order.saving ? '등록 중...' : `💾 등록만 (${matchedAdd.length}건)`}
+                </button>
+                <button
+                  onClick={() => handleBulkDistribute(order.id)}
+                  disabled={bulkRunning || (matchedAdd.length === 0 && cancelItems.length === 0) || !order.custMatch || !week}
+                  title="추가 = OrderDetail+ShipmentDetail 동시 +,  취소 = ShipmentDetail 만 − (한 번에 처리)"
+                  style={{
+                    padding: '8px 18px',
+                    background: (matchedAdd.length > 0 || cancelItems.length > 0) && order.custMatch && week ? '#1565c0' : '#bbb',
+                    color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
+                    cursor: bulkRunning ? 'wait' : 'pointer',
+                  }}
+                >
+                  {bulkRunning ? '⏳ 처리중...' : `🚀 일괄 등록+분배 (${matchedAdd.length + cancelItems.length}건)`}
                 </button>
               </div>
 
