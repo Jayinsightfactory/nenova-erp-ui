@@ -579,6 +579,15 @@ export default function WeekPivot() {
       if(!(r.ProdKey in prevStockMap)) prevStockMap[r.ProdKey]=r.prevStock||0;
     });
     const isFixed=(ck,wk)=>rows.some(r=>r.CustKey===ck&&r.OrderWeek===wk&&r.isFix);
+    // 차수 단위 확정 상태: 'fixed' (전체 확정), 'unfixed' (전체 미확정), 'partial' (일부 — 잘못된 상태), 'empty'
+    const weekFixState=(wk)=>{
+      const wkRows=rows.filter(r=>r.OrderWeek===wk&&((r.outQty||0)>0||(r.orderQty||0)>0));
+      if(wkRows.length===0) return 'empty';
+      const fixedRows=wkRows.filter(r=>r.isFix);
+      if(fixedRows.length===0) return 'unfixed';
+      if(fixedRows.length===wkRows.length) return 'fixed';
+      return 'partial';
+    };
 
     if(weeks.length===0) return <div style={st.empty}>해당 차수에 주문 데이터 없음<br/><span style={{fontSize:11,color:'#bbb'}}>custRows: {custRows.length}행</span></div>;
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
@@ -789,9 +798,31 @@ export default function WeekPivot() {
           <thead style={{position:'sticky',top:0,zIndex:4}}>
             <tr style={st.thead}>
               <th style={{...st.th,position:'sticky',left:0,background:'#263238',zIndex:3}} rowSpan={3}>품명</th>
-              {weeks.map(wk=>(
-                <th key={wk} colSpan={colsPerWeek} style={{...st.th,textAlign:'center',background:'#1a237e',fontSize:12,borderLeft:'2px solid #fff'}}>{wk}</th>
-              ))}
+              {weeks.map(wk=>{
+                const fixState=weekFixState(wk);
+                const stateConfig={
+                  fixed:    {bg:'#2e7d32', label:'🔒 확정',     desc:'전체 확정 — 수정 불가'},
+                  unfixed:  {bg:'#1a237e', label:'✏️ 미확정',   desc:'전체 미확정 — 수정 가능'},
+                  partial:  {bg:'#e65100', label:'⚠ 부분확정',  desc:'일부만 확정 — 비정상 상태 (DB 정합성 점검 필요)'},
+                  empty:    {bg:'#455a64', label:'(빈차수)',    desc:'주문/출고 없음'},
+                }[fixState] || {bg:'#1a237e',label:'',desc:''};
+                return (
+                  <th key={wk} colSpan={colsPerWeek}
+                      title={stateConfig.desc}
+                      style={{...st.th,textAlign:'center',background:stateConfig.bg,fontSize:12,borderLeft:'2px solid #fff'}}>
+                    {wk}
+                    {stateConfig.label && (
+                      <span style={{
+                        marginLeft:8, fontSize:10, fontWeight:700,
+                        padding:'1px 6px', borderRadius:8,
+                        background:'rgba(255,255,255,0.25)', color:'#fff',
+                      }}>
+                        {stateConfig.label}
+                      </span>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
             <tr style={st.thead}>
               {weeks.map(wk=>(
