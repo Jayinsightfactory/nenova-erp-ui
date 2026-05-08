@@ -293,6 +293,57 @@ export default function PasteOrderPage() {
     } catch { /* 조회 실패해도 무시 */ }
   };
 
+  // 일괄 분배 — 등록된 주문의 모든 품목에 대해 OrderDetail.qty - ShipmentDetail.OutQuantity 차이만큼 자동 ADD/CANCEL
+  // 사용 시점: 주문등록(handleRegister) 후 [🚀 일괄 분배] 버튼 클릭
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
+  const handleBulkDistribute = async (oid) => {
+    const ro = registeredOrders[oid];
+    if (!ro || !ro.custKey || !week) { alert('등록된 주문이 없습니다.'); return; }
+    // 차이 계산: OrderDetail.qty - ShipmentDetail.OutQuantity
+    const diffs = (ro.items || []).filter(it => it.prodKey).map(it => {
+      const distKey = `${ro.custKey}-${it.prodKey}-${week}`;
+      const distributed = parseFloat(shipmentQtys[distKey] || 0);
+      const ordered = parseFloat(it.qty) || 0;
+      return {
+        prodKey: it.prodKey, prodName: it.prodName, unit: it.unit,
+        ordered, distributed, delta: ordered - distributed,
+      };
+    }).filter(x => Math.abs(x.delta) > 0.001);
+
+    if (diffs.length === 0) { alert('이미 모든 품목 분배 완료 (차이 0)'); return; }
+
+    const summary = diffs.map(x => `${x.prodName}: 주문 ${x.ordered}${x.unit} − 분배 ${x.distributed}${x.unit} = ${x.delta > 0 ? '+' : ''}${x.delta.toFixed(2)}`).join('\n');
+    if (!confirm(`${diffs.length}개 품목 일괄 분배:\n\n${summary}\n\n진행하시겠습니까?`)) return;
+
+    setBulkRunning(true); setBulkResult(null);
+    const details = [];
+    for (const d of diffs) {
+      try {
+        const r = await fetch('/api/shipment/adjust', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          body: JSON.stringify({
+            custKey: ro.custKey, prodKey: d.prodKey, week,
+            type: d.delta > 0 ? 'ADD' : 'CANCEL',
+            qty: Math.abs(d.delta), unit: d.unit,
+            memo: `붙여넣기 일괄분배 (${d.ordered}-${d.distributed}=${d.delta > 0 ? '+' : ''}${d.delta.toFixed(2)})`,
+            force: true, // 입고없는 차수 통과
+          }),
+        });
+        const j = await r.json();
+        details.push({ ...d, ok: j.success, error: j.error });
+      } catch (e) {
+        details.push({ ...d, ok: false, error: e.message });
+      }
+    }
+    const okCount = details.filter(x => x.ok).length;
+    const failCount = details.filter(x => !x.ok).length;
+    setBulkResult({ okCount, failCount, details });
+    setBulkRunning(false);
+    // 화면 갱신
+    await fetchShipmentQtys(ro.custKey, week, (ro.items || []).map(i => i.prodKey));
+  };
+
   // ADD/CANCEL 단일 액션
   const handleAdjust = async (force = false) => {
     if (!adjustModal) return;
@@ -776,11 +827,42 @@ export default function PasteOrderPage() {
                           유지 {sameCount}건
                         </span>
                       )}
+                      <button
+                        onClick={() => handleBulkDistribute(order.id)}
+                        disabled={bulkRunning}
+                        title="등록한 모든 품목을 한 번에 출고분배 (주문수량 - 기존 분배수량 차이만큼)"
+                        style={{
+                          marginLeft: 'auto',
+                          fontSize: 12, fontWeight: 700,
+                          padding: '4px 14px', borderRadius: 6,
+                          background: bulkRunning ? '#bbb' : '#1565c0',
+                          color: '#fff', border: 'none',
+                          cursor: bulkRunning ? 'wait' : 'pointer',
+                        }}>
+                        {bulkRunning ? '⏳ 분배 중...' : `🚀 일괄 분배 (${items.length}건)`}
+                      </button>
                       <button onClick={() => setRegisteredOrders(p => { const n={...p}; delete n[order.id]; return n; })}
-                        style={{ marginLeft: 'auto', fontSize: 11, padding: '1px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}>
+                        style={{ fontSize: 11, padding: '1px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}>
                         닫기
                       </button>
                     </div>
+
+                    {/* 일괄 분배 결과 표시 */}
+                    {bulkResult && (
+                      <div style={{ padding: '6px 16px', borderTop: '1px solid #c8e6c9', background: bulkResult.failCount === 0 ? '#e8f5e9' : '#fff3e0', fontSize: 12 }}>
+                        <strong>일괄 분배 결과:</strong>
+                        {' '}✅ 성공 {bulkResult.okCount}건
+                        {bulkResult.failCount > 0 && <> / ❌ 실패 {bulkResult.failCount}건</>}
+                        <button onClick={() => setBulkResult(null)} style={{ marginLeft: 8, fontSize: 11, padding: '0 6px', background: 'none', border: '1px solid #999', borderRadius: 4, cursor: 'pointer' }}>닫기</button>
+                        {bulkResult.failCount > 0 && (
+                          <div style={{ marginTop: 4, fontSize: 11, color: '#e65100' }}>
+                            {bulkResult.details.filter(x => !x.ok).map((x, i) => (
+                              <div key={i}>• {x.prodName} ({x.delta > 0 ? '+' : ''}{x.delta.toFixed(2)}{x.unit}): {x.error}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                         <thead>

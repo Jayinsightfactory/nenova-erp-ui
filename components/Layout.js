@@ -34,6 +34,7 @@ const MENU_ITEMS = [
       { href: '/freight',             labelKey: '운송기준원가', popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
+      { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },
       { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
       { href: '/shipment/history',       labelKey: '출고내역조회',  popup: false },
       { href: '/estimate',            labelKey: '견적서 관리',  popup: true },
