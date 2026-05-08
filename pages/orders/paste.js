@@ -187,6 +187,27 @@ export default function PasteOrderPage() {
     ));
   };
 
+  // 거래처 매칭 시 자동으로 기존 주문/분배 미리보기 로드
+  // (사용자가 수동 검색해서 거래처 선택한 경우도 포함)
+  const setCustMatch = (oid, customer) => {
+    updateOrder(oid, { custMatch: customer });
+    if (!customer || !week) return;
+    // 비동기로 기존 주문 + 분배 fetch
+    (async () => {
+      try {
+        const od = await apiGet('/api/orders', { custName: customer.CustName, week });
+        if (od.success && od.orders?.length > 0) {
+          const matched = od.orders.find(r => r.custName === customer.CustName) || od.orders[0];
+          setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+          await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+        } else {
+          // 기존 주문 없음 — empty 상태로 미리보기 표시 (분배 가능 안내)
+          setRegisteredOrders(prev => ({ ...prev, [oid]: { custKey: customer.CustKey, custName: customer.CustName, week, items: [], prevSnapshot: {} } }));
+        }
+      } catch { /* 조회 실패 무시 */ }
+    })();
+  };
+
   const updateOrder = (oid, patch) => {
     setOrders(prev => prev.map(o => o.id === oid ? { ...o, ...patch } : o));
   };
@@ -658,7 +679,7 @@ export default function PasteOrderPage() {
                     <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>⚠️ 거래처 미확인</span>
                     <div style={{ flex: 1 }}>
                       <CustSelector customers={allCustomers}
-                        onSelect={c => updateOrder(order.id, { custMatch: c })} />
+                        onSelect={c => setCustMatch(order.id, c)} />
                     </div>
                   </>
                 )}
@@ -795,25 +816,28 @@ export default function PasteOrderPage() {
                 {unmatched.length > 0 && (
                   <span style={{ fontSize: 12, color: '#e65100' }}>❓ 미매칭 {unmatched.length}개</span>
                 )}
-                <button
-                  onClick={() => handleRegister(order.id)}
-                  disabled={order.saving || matchedAdd.length === 0 || !order.custMatch || !week}
-                  title="OrderDetail 만 INSERT/UPDATE — 분배 (ShipmentDetail) 는 별도 작업"
-                  style={{
-                    marginLeft: 'auto',
-                    padding: '8px 18px',
-                    background: (matchedAdd.length > 0 && order.custMatch && week) ? '#2e7d32' : '#bbb',
-                    color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
-                    cursor: (matchedAdd.length > 0 && order.custMatch && week) ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {order.saving ? '등록 중...' : `💾 등록만 (${matchedAdd.length}건)`}
-                </button>
+                {matchedAdd.length > 0 && (
+                  <button
+                    onClick={() => handleRegister(order.id)}
+                    disabled={order.saving || !order.custMatch || !week}
+                    title="OrderDetail 만 INSERT/UPDATE — 분배 (ShipmentDetail) 는 별도 작업"
+                    style={{
+                      marginLeft: 'auto',
+                      padding: '8px 18px',
+                      background: (order.custMatch && week) ? '#2e7d32' : '#bbb',
+                      color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
+                      cursor: (order.custMatch && week) ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {order.saving ? '등록 중...' : `💾 등록만 (${matchedAdd.length}건)`}
+                  </button>
+                )}
                 <button
                   onClick={() => handleBulkDistribute(order.id)}
                   disabled={bulkRunning || (matchedAdd.length === 0 && cancelItems.length === 0) || !order.custMatch || !week}
                   title="추가 = OrderDetail+ShipmentDetail 동시 +,  취소 = ShipmentDetail 만 − (한 번에 처리)"
                   style={{
+                    marginLeft: matchedAdd.length === 0 ? 'auto' : '0',
                     padding: '8px 18px',
                     background: (matchedAdd.length > 0 || cancelItems.length > 0) && order.custMatch && week ? '#1565c0' : '#bbb',
                     color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
