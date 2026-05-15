@@ -4,6 +4,7 @@
 import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
 import { safeNextKey } from '../../../lib/safeNextKey';
+import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -98,7 +99,9 @@ async function handler(req, res) {
       for (const d of details.recordset) {
         const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         // 단위 환산: 사용자가 입력한 단위(d.Unit) 기준으로 박스 수량 역산
-        const unit = (d.Unit || d.OutUnit || '박스').trim();
+        const unit = normalizeOrderUnit(d.Unit, normalizeOrderUnit(d.OutUnit, '박스'));
+        const outUnit = normalizeOrderUnit(d.OutUnit, unit);
+        const estUnit = normalizeOrderUnit(d.EstUnit, outUnit);
         const qty = d.Quantity || 0;
         let boxQ;
         if (unit === '단' || unit.toUpperCase() === 'BUNCH') {
@@ -112,8 +115,8 @@ async function handler(req, res) {
         const steamQ = boxQ * d.spb;
         // OutUnit 기준 단일값 (전산 환산)
         let outQ = boxQ;
-        if (d.OutUnit === '단') outQ = bunchQ;
-        else if (d.OutUnit === '송이') outQ = steamQ;
+        if (outUnit === '단') outQ = bunchQ;
+        else if (outUnit === '송이') outQ = steamQ;
 
         await tQ(
           `INSERT INTO OrderDetail
@@ -131,7 +134,7 @@ async function handler(req, res) {
             bnq: { type: sql.Float, value: bunchQ },
             sq:  { type: sql.Float, value: steamQ },
             oq:  { type: sql.Float, value: outQ },
-            estUnit: { type: sql.NVarChar, value: d.EstUnit || d.OutUnit || unit },
+            estUnit: { type: sql.NVarChar, value: estUnit },
             uid: { type: sql.NVarChar, value: 'admin' },
           }
         );

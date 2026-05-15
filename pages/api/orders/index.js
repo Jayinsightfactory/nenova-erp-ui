@@ -364,13 +364,14 @@ async function createOrder(req, res) {
       return { orderMasterKey: mk, results: detailResults };
     });
 
-    await runStockCalculation(orderYear, orderWeek, uid);
+    const stockWarning = await runStockCalculation(orderYear, orderWeek, uid);
     await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
       source: 'real_db',
       orderMasterKey,
       message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length}개 품목`,
+      warning: stockWarning?.message || null,
       results,
     });
   } catch (err) {
@@ -475,7 +476,8 @@ async function updateOrder(req, res) {
     });
 
     if (recalcTarget?.OrderYear && recalcTarget?.OrderWeek) {
-      await runStockCalculation(String(recalcTarget.OrderYear), recalcTarget.OrderWeek, uid);
+      const stockWarning = await runStockCalculation(String(recalcTarget.OrderYear), recalcTarget.OrderWeek, uid);
+      return res.status(200).json({ success: true, message: '주문 수정 완료', warning: stockWarning?.message || null });
     }
     return res.status(200).json({ success: true, message: '주문 수정 완료' });
   } catch (err) {
@@ -493,9 +495,10 @@ async function runStockCalculation(orderYear, orderWeek, uid) {
         uid:  { type: sql.NVarChar, value: uid || 'admin' },
       }
     );
+    return null;
   } catch (e) {
     await appLog('usp_StockCalculation', '오류', `${orderYear}/${orderWeek}: ${e.message}`, true);
-    throw e;
+    return { message: `재고 재계산 경고: ${e.message}` };
   }
 }
 

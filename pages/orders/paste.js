@@ -601,7 +601,7 @@ export default function PasteOrderPage() {
       const d = await res.json();
       if (d.success) {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length ?? items.length;
-        updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}` });
+        updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
         // 저장 성공한 품목의 inputName→prodKey 매핑 서버에 학습
         const mappingItems = order.items.filter(it => !it.skip && it.prodKey && it.inputName);
         mappingItems.forEach(it => learnItemMapping(it));

@@ -21,6 +21,7 @@
 // }
 
 import { query, withTransaction, sql } from '../../../lib/db';
+import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
@@ -36,7 +37,8 @@ function checkApiKey(req, res) {
 function toAllUnits(qty, unit, prod = {}) {
   const B1B = Number(prod.B1B || prod.BunchOf1Box || 0);
   const S1B = Number(prod.S1B || prod.SteamOf1Box || 0);
-  const outUnit = prod.OutUnit || unit || '박스';
+  const outUnit = normalizeOrderUnit(prod.OutUnit, unit || '박스');
+  unit = normalizeOrderUnit(unit, outUnit);
   let box = 0;
   let bunch = 0;
   let steam = 0;
@@ -254,10 +256,11 @@ async function createOrder(req, res) {
         );
         if (!prodInfo.recordset[0]) { results.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
 
+        const prod = prodInfo.recordset[0];
         const qty   = parseFloat(item.qty) || 0;
-        const unit  = item.unit === '개' ? '송이' : (item.unit || '박스');
+        const unit  = normalizeOrderUnit(item.unit, normalizeOrderUnit(prod.OutUnit, '박스'));
         const q = toAllUnits(qty, unit, prodInfo.recordset[0]);
-        const estUnit = prodInfo.recordset[0].EstUnit || prodInfo.recordset[0].OutUnit || unit;
+        const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
         const odExist = await tQ(
           `SELECT OrderDetailKey FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,

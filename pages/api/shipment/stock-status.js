@@ -6,6 +6,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
 async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
@@ -1103,6 +1104,7 @@ async function addOrder(req, res) {
     const ck       = parseInt(custKey);
     const pk       = parseInt(prodKey);
     const quantity = parseFloat(qty) || 0;
+    const orderUnit = normalizeOrderUnit(unit, '박스');
     const uid      = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
     const now = new Date();
@@ -1112,15 +1114,15 @@ async function addOrder(req, res) {
     const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
     // 단위별 수량 분배 (박스/단/송이)
-    const boxQty   = unit === '박스' ? quantity : 0;
-    const bunchQty = unit === '단'   ? quantity : 0;
-    const steamQty = unit === '송이' ? quantity : 0;
+    const boxQty   = orderUnit === '박스' ? quantity : 0;
+    const bunchQty = orderUnit === '단'   ? quantity : 0;
+    const steamQty = orderUnit === '송이' ? quantity : 0;
     const prodUnitInfo = await query(
       `SELECT OutUnit, EstUnit FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: pk } }
     );
-    const prodOutUnit = prodUnitInfo.recordset[0]?.OutUnit || unit || '박스';
-    const prodEstUnit = prodUnitInfo.recordset[0]?.EstUnit || prodOutUnit;
+    const prodOutUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.OutUnit, orderUnit);
+    const prodEstUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.EstUnit, prodOutUnit);
 
     await appLog('addOrder', '시작', `ck=${ck} pk=${pk} week=${normWeek} qty=${quantity} unit=${unit} uid=${uid}`);
 
@@ -1167,7 +1169,7 @@ async function addOrder(req, res) {
       if (od.recordset.length > 0) {
         const existing = od.recordset[0];
         const detailKey = existing.OrderDetailKey;
-        const outUnit = existing.OutUnit || '박스';
+        const outUnit = normalizeOrderUnit(existing.OutUnit, '박스');
         const oldQty = outUnit === '단' ? (existing.BunchQuantity || 0)
                      : outUnit === '송이' ? (existing.SteamQuantity || 0)
                      : (existing.BoxQuantity || 0);
@@ -1308,6 +1310,7 @@ async function addOrderDelta(req, res) {
     const ck       = parseInt(custKey);
     const pk       = parseInt(prodKey);
     const delta    = parseFloat(qty) || 0;
+    const orderUnit = normalizeOrderUnit(unit, '박스');
     const uid      = req.user?.userId || 'system';
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
@@ -1358,9 +1361,9 @@ async function addOrderDelta(req, res) {
           await tQ(`UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } });
         } else {
-          const boxQty   = unit === '박스' ? finalQty : 0;
-          const bunchQty = unit === '단'   ? finalQty : 0;
-          const steamQty = unit === '송이' ? finalQty : 0;
+          const boxQty   = orderUnit === '박스' ? finalQty : 0;
+          const bunchQty = orderUnit === '단'   ? finalQty : 0;
+          const steamQty = orderUnit === '송이' ? finalQty : 0;
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                 OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0
@@ -1368,21 +1371,21 @@ async function addOrderDelta(req, res) {
             { bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
               oq: { type: sql.Float, value: finalQty },
-              estUnit: { type: sql.NVarChar, value: unit },
+              estUnit: { type: sql.NVarChar, value: orderUnit },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
         }
       } else if (delta > 0) {
-        const boxQty   = unit === '박스' ? delta : 0;
-        const bunchQty = unit === '단'   ? delta : 0;
-        const steamQty = unit === '송이' ? delta : 0;
+        const boxQty   = orderUnit === '박스' ? delta : 0;
+        const bunchQty = orderUnit === '단'   ? delta : 0;
+        const steamQty = orderUnit === '송이' ? delta : 0;
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await tQ(
           `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,EstUnit,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
            VALUES(@nk,@mk,@pk,@oq,@oq,@estUnit,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
             oq: { type: sql.Float, value: delta },
-            estUnit: { type: sql.NVarChar, value: unit },
+            estUnit: { type: sql.NVarChar, value: orderUnit },
             bq: { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: 'admin' } }
