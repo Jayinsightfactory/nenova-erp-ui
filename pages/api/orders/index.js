@@ -279,7 +279,7 @@ async function createOrder(req, res) {
           prodKey = pr.recordset[0].ProdKey;
         }
         const prodInfo = await tQuery(
-          `SELECT OutUnit, EstUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+          `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
              FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
           { pk: { type: sql.Int, value: prodKey } }
         );
@@ -292,7 +292,6 @@ async function createOrder(req, res) {
         const bunchQty = allQty.bunch;
         const steamQty = allQty.steam;
         const outQty = allQty.outQ;
-        const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
         // 기존 OrderDetail 확인 (같은 Master+품목)
         const existOd = await tQuery(
@@ -311,12 +310,11 @@ async function createOrder(req, res) {
                  SteamQuantity = ISNULL(SteamQuantity,0) + @steam,
                  OutQuantity   = ISNULL(OutQuantity,0)   + @oq,
                  EstQuantity   = ISNULL(EstQuantity,0)   + @oq,
-                 EstUnit       = @estUnit,
                  NoneOutQuantity = 0,
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`
             : `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-                 OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0,
+                 OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0,
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`;
           await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta}`);
@@ -324,7 +322,6 @@ async function createOrder(req, res) {
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
               oq:  { type: sql.Float,    value: outQty },
-              estUnit: { type: sql.NVarChar, value: estUnit },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
@@ -343,8 +340,8 @@ async function createOrder(req, res) {
             await tQuery(
               `INSERT INTO OrderDetail
                  (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                  OutQuantity, EstQuantity, EstUnit, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-               VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, @estUnit, 0, 0, @uid, GETDATE())`,
+                  OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+               VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, @uid, GETDATE())`,
               {
                 nk:    { type: sql.Int,      value: newNk },
                 mk:    { type: sql.Int,      value: mk },
@@ -353,7 +350,6 @@ async function createOrder(req, res) {
                 bunch: { type: sql.Float,    value: bunchQty },
                 steam: { type: sql.Float,    value: steamQty },
                 oq:    { type: sql.Float,    value: outQty },
-                estUnit:{ type: sql.NVarChar, value: estUnit },
                 uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
               }
             );
@@ -432,7 +428,7 @@ async function updateOrder(req, res) {
           // 기존 수량 조회 (이력용)
           const old = await tQuery(
             `SELECT od.BoxQuantity, od.BunchQuantity, od.SteamQuantity, od.OutQuantity,
-                    p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS B1B, ISNULL(p.SteamOf1Box,0) AS S1B
+                    p.OutUnit, ISNULL(p.BunchOf1Box,0) AS B1B, ISNULL(p.SteamOf1Box,0) AS S1B
                FROM OrderDetail od
                JOIN Product p ON od.ProdKey=p.ProdKey
               WHERE od.OrderDetailKey = @dk`,
@@ -442,12 +438,11 @@ async function updateOrder(req, res) {
           const oldQty = oldRow ? (oldRow.OutQuantity || oldRow.BoxQuantity || oldRow.BunchQuantity || oldRow.SteamQuantity || 0) : 0;
           const prod = oldRow || {};
           const allQty = toAllUnits(qty, unit, prod);
-          const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
           await tQuery(
             `UPDATE OrderDetail SET
               BoxQuantity = @box, BunchQuantity = @bunch, SteamQuantity = @steam,
-              OutQuantity = @oq, EstQuantity = @oq, EstUnit = @estUnit, NoneOutQuantity = 0
+              OutQuantity = @oq, EstQuantity = @oq, NoneOutQuantity = 0
              WHERE OrderDetailKey = @dk`,
             {
               dk:    { type: sql.Int,   value: item.detailKey },
@@ -455,7 +450,6 @@ async function updateOrder(req, res) {
               bunch: { type: sql.Float, value: allQty.bunch },
               steam: { type: sql.Float, value: allQty.steam },
               oq:    { type: sql.Float, value: allQty.outQ },
-              estUnit: { type: sql.NVarChar, value: estUnit },
             }
           );
 
