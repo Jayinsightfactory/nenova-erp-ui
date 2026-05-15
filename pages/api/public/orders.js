@@ -250,7 +250,7 @@ async function createOrder(req, res) {
         }
 
         const prodInfo = await tQ(
-          `SELECT OutUnit, EstUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+          `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
              FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
           { pk: { type: sql.Int, value: prodKey } }
         );
@@ -260,7 +260,6 @@ async function createOrder(req, res) {
         const qty   = parseFloat(item.qty) || 0;
         const unit  = normalizeOrderUnit(item.unit, normalizeOrderUnit(prod.OutUnit, '박스'));
         const q = toAllUnits(qty, unit, prodInfo.recordset[0]);
-        const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
         const odExist = await tQ(
           `SELECT OrderDetailKey FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
@@ -271,14 +270,13 @@ async function createOrder(req, res) {
           await tQ(
             `UPDATE OrderDetail SET
                 BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-                OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0
+                OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
               box:   { type: sql.Float, value: q.box },
               bunch: { type: sql.Float, value: q.bunch },
               steam: { type: sql.Float, value: q.steam },
               oq:    { type: sql.Float, value: q.outQ },
-              estUnit: { type: sql.NVarChar, value: estUnit },
               mk:    { type: sql.Int,   value: mk },
               pk:    { type: sql.Int,   value: prodKey },
             }
@@ -294,8 +292,8 @@ async function createOrder(req, res) {
           await tQ(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                OutQuantity, EstQuantity, EstUnit, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, @estUnit, 0, 0, 'API', GETDATE())`,
+                 OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+              VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, 'API', GETDATE())`,
             {
               nk:    { type: sql.Int,   value: nextKey },
               mk:    { type: sql.Int,   value: mk },
@@ -304,7 +302,6 @@ async function createOrder(req, res) {
               bunch: { type: sql.Float, value: q.bunch },
               steam: { type: sql.Float, value: q.steam },
               oq:    { type: sql.Float, value: q.outQ },
-              estUnit: { type: sql.NVarChar, value: estUnit },
             }
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });

@@ -1118,11 +1118,10 @@ async function addOrder(req, res) {
     const bunchQty = orderUnit === '단'   ? quantity : 0;
     const steamQty = orderUnit === '송이' ? quantity : 0;
     const prodUnitInfo = await query(
-      `SELECT OutUnit, EstUnit FROM Product WHERE ProdKey=@pk`,
+      `SELECT OutUnit FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: pk } }
     );
     const prodOutUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.OutUnit, orderUnit);
-    const prodEstUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.EstUnit, prodOutUnit);
 
     await appLog('addOrder', '시작', `ck=${ck} pk=${pk} week=${normWeek} qty=${quantity} unit=${unit} uid=${uid}`);
 
@@ -1184,7 +1183,7 @@ async function addOrder(req, res) {
           await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq, OutQuantity=@oq,
-               EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0,
+               EstQuantity=@oq, NoneOutQuantity=0,
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
@@ -1192,7 +1191,6 @@ async function addOrder(req, res) {
               bnq: { type: sql.Float,    value: bunchQty },
               sq:  { type: sql.Float,    value: steamQty },
               oq:  { type: sql.Float,    value: quantity },
-              estUnit: { type: sql.NVarChar, value: prodEstUnit },
               uid: { type: sql.NVarChar, value: uid },
               mk:  { type: sql.Int,      value: mk },
               pk:  { type: sql.Int,      value: pk },
@@ -1206,13 +1204,12 @@ async function addOrder(req, res) {
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await appLog('addOrder', 'OD_INSERT', `nk=${nextKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
         await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,EstUnit,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@oq,@oq,@estUnit,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           {
             nk:  { type: sql.Int,   value: nextKey },
             mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
             oq:  { type: sql.Float, value: quantity },
-            estUnit: { type: sql.NVarChar, value: prodEstUnit },
             bq:  { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: 'admin' },
@@ -1366,12 +1363,11 @@ async function addOrderDelta(req, res) {
           const steamQty = orderUnit === '송이' ? finalQty : 0;
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-                OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0
+                OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
               oq: { type: sql.Float, value: finalQty },
-              estUnit: { type: sql.NVarChar, value: orderUnit },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
         }
@@ -1381,11 +1377,10 @@ async function addOrderDelta(req, res) {
         const steamQty = orderUnit === '송이' ? delta : 0;
         const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,EstUnit,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@oq,@oq,@estUnit,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+           VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
           { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
             oq: { type: sql.Float, value: delta },
-            estUnit: { type: sql.NVarChar, value: orderUnit },
             bq: { type: sql.Float, value: boxQty },
             bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
             uid: { type: sql.NVarChar, value: 'admin' } }

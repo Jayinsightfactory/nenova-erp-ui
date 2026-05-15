@@ -90,7 +90,7 @@ async function handler(req, res) {
       // Product 환산정보 함께 가져와 Box/Bunch/Steam 3종 채움 (전산 호환)
       const details = await tQ(
         `SELECT ord.ProdKey, ord.Quantity, ord.Unit,
-                p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,1) AS bpb, ISNULL(p.SteamOf1Box,1) AS spb
+                p.OutUnit, ISNULL(p.BunchOf1Box,1) AS bpb, ISNULL(p.SteamOf1Box,1) AS spb
            FROM OrderRequestDetail ord
            JOIN Product p ON ord.ProdKey = p.ProdKey
           WHERE ord.RequestKey=@rk`,
@@ -101,7 +101,6 @@ async function handler(req, res) {
         // 단위 환산: 사용자가 입력한 단위(d.Unit) 기준으로 박스 수량 역산
         const unit = normalizeOrderUnit(d.Unit, normalizeOrderUnit(d.OutUnit, '박스'));
         const outUnit = normalizeOrderUnit(d.OutUnit, unit);
-        const estUnit = normalizeOrderUnit(d.EstUnit, outUnit);
         const qty = d.Quantity || 0;
         let boxQ;
         if (unit === '단' || unit.toUpperCase() === 'BUNCH') {
@@ -121,11 +120,11 @@ async function handler(req, res) {
         await tQ(
           `INSERT INTO OrderDetail
              (OrderDetailKey, OrderMasterKey, ProdKey,
-              BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity, EstUnit, NoneOutQuantity,
-              isDeleted, CreateID, CreateDtm)
-           VALUES (@odk, @ok, @pk,
-                   @box, @bnq, @sq, @oq, @oq, @estUnit, 0,
-                   0, @uid, GETDATE())`,
+               BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity, NoneOutQuantity,
+               isDeleted, CreateID, CreateDtm)
+            VALUES (@odk, @ok, @pk,
+                    @box, @bnq, @sq, @oq, @oq, 0,
+                    0, @uid, GETDATE())`,
           {
             odk: { type: sql.Int,   value: odk },
             ok:  { type: sql.Int,   value: ok },
@@ -134,7 +133,6 @@ async function handler(req, res) {
             bnq: { type: sql.Float, value: bunchQ },
             sq:  { type: sql.Float, value: steamQ },
             oq:  { type: sql.Float, value: outQ },
-            estUnit: { type: sql.NVarChar, value: estUnit },
             uid: { type: sql.NVarChar, value: 'admin' },
           }
         );

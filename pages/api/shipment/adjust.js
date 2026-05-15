@@ -116,7 +116,7 @@ async function postAdjust(req, res) {
     const result = await withTransaction(async (tQ) => {
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, EstUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+        `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
            FROM Product WHERE ProdKey=@pk`,
         { pk: { type: sql.Int, value: pk } }
       );
@@ -125,7 +125,6 @@ async function postAdjust(req, res) {
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
       const prodOutUnit = normalizeOrderUnit(prod.OutUnit, '박스');
-      const prodEstUnit = normalizeOrderUnit(prod.EstUnit, prodOutUnit);
       const userUnit = normalizeOrderUnit(unit, prodOutUnit);
       const B1B = prod.B1B || 0;
       const S1B = prod.S1B || 0;
@@ -207,13 +206,12 @@ async function postAdjust(req, res) {
           await tQ(
             `UPDATE OrderDetail SET
                BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-               OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0,
+               OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0,
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
               sq: { type: sql.Float, value: u.steam },
               oq: { type: sql.Float, value: u.outQ },
-              estUnit: { type: sql.NVarChar, value: prodEstUnit },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
@@ -223,13 +221,12 @@ async function postAdjust(req, res) {
           await tQ(
             `INSERT INTO OrderDetail
                (OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
-                OutQuantity,EstQuantity,EstUnit,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
-             VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,@estUnit,0,0,@uid,GETDATE())`,
+                OutQuantity,EstQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
+             VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,0,0,@uid,GETDATE())`,
             { nk: { type: sql.Int, value: odk }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
               bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
               sq: { type: sql.Float, value: u.steam },
               oq: { type: sql.Float, value: u.outQ },
-              estUnit: { type: sql.NVarChar, value: prodEstUnit },
               uid: { type: sql.NVarChar, value: 'admin' } }
           );
         }
