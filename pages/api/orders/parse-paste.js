@@ -115,15 +115,31 @@ const KO_EN_KEYWORDS = {
 
 export const config = { api: { responseLimit: false, bodyParser: { sizeLimit: '1mb' } } };
 
+function sanitizePasteText(raw) {
+  return String(raw || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => !/^[ㅡ\-_=\s]{5,}$/.test(line))
+    .join('\n')
+    .replace(/춰소|츼소|치소|취ㅅ|ㅊ소/g, '취소');
+}
+
+function normalizeAction(action, inputName = '') {
+  const s = `${action || ''} ${inputName || ''}`;
+  if (/취소|cancel|delete|삭제/i.test(s)) return '취소';
+  return '추가';
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
+  const cleanText = sanitizePasteText(text);
 
   try {
     // ── Step 1: 텍스트 첫 줄에서 꽃 품종 키워드 선(先) 추출
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const koTokensAll = (text.match(/[가-힣]+/g) || []);
+    const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+    const koTokensAll = (cleanText.match(/[가-힣]+/g) || []);
     const detectedFlowers = [...new Set(koTokensAll.flatMap(t => KO_EN_KEYWORDS[t] ? [KO_EN_KEYWORDS[t]] : []))];
 
     // ── Step 2: 꽃 품종 기준으로 DB에서 해당 품목만 조회 (없으면 전체 최대 300)
@@ -162,7 +178,7 @@ export default withAuth(async function handler(req, res) {
     }
 
     // ── Step 3: 영문 토큰으로 2차 필터링 (추가 정밀도)
-    const enDirect = text.split(/[\s\n|:,→]+/).map(t => t.trim().toUpperCase()).filter(t => t.length >= 4 && /^[A-Z]/.test(t));
+    const enDirect = cleanText.split(/[\s\n|:,→]+/).map(t => t.trim().toUpperCase()).filter(t => t.length >= 4 && /^[A-Z]/.test(t));
     const searchTokens = [...new Set([...detectedFlowers, ...enDirect])];
     const filteredProducts = searchTokens.length > 0
       ? products.filter(p => {
@@ -213,6 +229,7 @@ Caroline | 2
 - 거래처명 줄: 단독 줄, 숫자/단위/동작어 없음
 - 품목줄: "{품종명} {수량}{단위} {추가|취소}" 또는 "{품종명} | {수량}"
 - action: "추가"(기본) 또는 "취소"
+- "춰소", "츼소", "치소" 같은 오타는 "취소"로 해석
 - unit 결정 규칙 (★ 매우 중요):
   ★ 기본값: 박스 (90%+ 케이스)
   ★ "장미"는 단 (예: 프리덤, 몬디알, 캔들라이트 등 ROSE 품목)
@@ -273,7 +290,7 @@ Caroline | 2
   ]
 }`;
 
-    const userMsg = `거래처 목록:\n${custList}\n\n품목 목록:\n${prodList}\n\n파싱할 텍스트:\n${text}`;
+    const userMsg = `거래처 목록:\n${custList}\n\n품목 목록:\n${prodList}\n\n파싱할 텍스트:\n${cleanText}`;
 
     const resp = await Promise.race([
       client.messages.create({
@@ -356,7 +373,7 @@ Caroline | 2
           inputName:   item.inputName,
           qty:         item.qty || 1,
           unit,
-          action:      item.action || '추가',
+          action:      normalizeAction(item.action, item.inputName),
           prodKey:     prod?.ProdKey  || null,
           prodName:    prod?.ProdName || item.prodName || null,
           displayName: prod?.DisplayName || item.displayName || null,

@@ -434,7 +434,7 @@ export default function PasteOrderPage() {
     }
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
-    setBulkResult({ okCount, failCount, details });
+    setBulkResult({ orderId: oid, okCount, failCount, details });
     details.filter(x => x.ok).forEach(x => learnItemMapping(x));
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
@@ -1019,7 +1019,7 @@ export default function PasteOrderPage() {
                     </div>
 
                     {/* 일괄 분배 결과 표시 */}
-                    {bulkResult && (
+                    {bulkResult?.orderId === order.id && (
                       <div style={{ padding: '6px 16px', borderTop: '1px solid #c8e6c9', background: bulkResult.failCount === 0 ? '#e8f5e9' : '#fff3e0', fontSize: 12 }}>
                         <strong>일괄 분배 결과:</strong>
                         {' '}✅ 성공 {bulkResult.okCount}건
@@ -1030,10 +1030,17 @@ export default function PasteOrderPage() {
                           </button>
                         )}
                         <button onClick={() => setBulkResult(null)} style={{ marginLeft: 8, fontSize: 11, padding: '0 6px', background: 'none', border: '1px solid #999', borderRadius: 4, cursor: 'pointer' }}>닫기</button>
+                        {bulkResult.okCount > 0 && (
+                          <div style={{ marginTop: 6, fontSize: 11, color: '#1b5e20', display: 'grid', gap: 2 }}>
+                            {bulkResult.details.filter(x => x.ok).map((x, i) => (
+                              <div key={i}>• {x.type === 'CANCEL' ? '취소' : '추가'} {x.prodName}: {x.type === 'CANCEL' ? '−' : '+'}{x.qty}{x.unit}</div>
+                            ))}
+                          </div>
+                        )}
                         {bulkResult.failCount > 0 && (
                           <div style={{ marginTop: 4, fontSize: 11, color: '#e65100' }}>
                             {bulkResult.details.filter(x => !x.ok).map((x, i) => (
-                              <div key={i}>• {x.prodName} ({x.delta > 0 ? '+' : ''}{x.delta.toFixed(2)}{x.unit}): {x.error}</div>
+                              <div key={i}>• {x.type === 'CANCEL' ? '취소' : '추가'} {x.prodName} {x.qty}{x.unit}: {x.error}</div>
                             ))}
                           </div>
                         )}
