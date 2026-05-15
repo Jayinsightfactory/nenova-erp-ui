@@ -5,6 +5,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, validateOrderWeek } from '../../../lib/orderUtils';
+import { withActionLog } from '../../../lib/withActionLog';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -73,12 +74,12 @@ function toAllUnits(qty, unit, prod = {}) {
   return { box, bunch, steam, outQ };
 }
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getOrders(req, res);
   if (req.method === 'POST') return await createOrder(req, res);
   if (req.method === 'PUT')  return await updateOrder(req, res);
   return res.status(405).end();
-});
+}, { actionType: 'ORDER_WRITE', affectedTable: 'OrderMaster/OrderDetail', riskLevel: 'MEDIUM' }));
 
 // ── 조회: 실제 DB ──────────────────────────────
 async function getOrders(req, res) {
