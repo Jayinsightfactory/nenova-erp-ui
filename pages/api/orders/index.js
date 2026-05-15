@@ -4,7 +4,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { validateOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, validateOrderWeek } from '../../../lib/orderUtils';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -51,7 +51,8 @@ async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) 
 function toAllUnits(qty, unit, prod = {}) {
   const B1B = Number(prod.B1B || prod.BunchOf1Box || 0);
   const S1B = Number(prod.S1B || prod.SteamOf1Box || 0);
-  const outUnit = prod.OutUnit || unit || '박스';
+  const outUnit = normalizeOrderUnit(prod.OutUnit, unit || '박스');
+  unit = normalizeOrderUnit(unit, outUnit);
   let box = 0;
   let bunch = 0;
   let steam = 0;
@@ -170,11 +171,10 @@ async function getOrders(req, res) {
 }
 
 // ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
-// delta=true 시: 기존 OrderDetail 수량에 입력값 가산 (기존 2 + 신규 3 → 5)
-// delta=false(기본): 기존 수량을 입력값으로 덮어쓰기
+// 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
 async function createOrder(req, res) {
-  const { custName, custKey, week, year, manager, orderCode, items, delta } = req.body;
-  const isDelta = delta === true || delta === 'true';
+  const { custName, custKey, week, year, manager, orderCode, items } = req.body;
+  const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
 
   if (!items || items.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
@@ -285,15 +285,13 @@ async function createOrder(req, res) {
         if (!prodInfo.recordset[0]) { detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
         const prod = prodInfo.recordset[0];
         const qty = parseFloat(item.qty) || 0;
-        // '개'/'stems'/'송이' 모두 steamQty로 정규화
-        const rawUnit = item.unit || '박스';
-        const unit = rawUnit === '개' ? '송이' : rawUnit;
+        const unit = normalizeOrderUnit(item.unit, normalizeOrderUnit(prod.OutUnit, '박스'));
         const allQty = toAllUnits(qty, unit, prod);
         const boxQty = allQty.box;
         const bunchQty = allQty.bunch;
         const steamQty = allQty.steam;
         const outQty = allQty.outQ;
-        const estUnit = prod.EstUnit || prod.OutUnit || unit;
+        const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
         // 기존 OrderDetail 확인 (같은 Master+품목)
         const existOd = await tQuery(
@@ -372,7 +370,7 @@ async function createOrder(req, res) {
       success: true,
       source: 'real_db',
       orderMasterKey,
-      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED').length}개 품목`,
+      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length}개 품목`,
       results,
     });
   } catch (err) {
@@ -425,7 +423,7 @@ async function updateOrder(req, res) {
         for (const item of items) {
           if (!item.detailKey) continue;
           const qty = parseFloat(item.qty) || 0;
-          const unit = item.unit === '개' ? '송이' : (item.unit || '박스');
+          const unit = normalizeOrderUnit(item.unit, '박스');
           const now = new Date();
           const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
@@ -442,7 +440,7 @@ async function updateOrder(req, res) {
           const oldQty = oldRow ? (oldRow.OutQuantity || oldRow.BoxQuantity || oldRow.BunchQuantity || oldRow.SteamQuantity || 0) : 0;
           const prod = oldRow || {};
           const allQty = toAllUnits(qty, unit, prod);
-          const estUnit = prod.EstUnit || prod.OutUnit || unit;
+          const estUnit = normalizeOrderUnit(prod.EstUnit, normalizeOrderUnit(prod.OutUnit, unit));
 
           await tQuery(
             `UPDATE OrderDetail SET
