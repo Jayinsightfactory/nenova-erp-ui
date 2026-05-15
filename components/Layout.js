@@ -22,6 +22,7 @@ const MENU_ITEMS = [
     items: [
       { href: '/orders/new',   labelKey: '주문등록',          popup: false },
       { href: '/orders/paste', labelKey: '붙여넣기 주문등록',  popup: true  },
+      { href: '/orders/kakao-audit', labelKey: '카톡 변경 검증', popup: false },
       { href: '/orders',       labelKey: '주문관리',          popup: false },
       { href: '/warehouse',    labelKey: '발주관리',          popup: false },
     ]
