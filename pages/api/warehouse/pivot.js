@@ -4,10 +4,12 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
-  const { week } = req.query;
+  const { week: rawWeek } = req.query;
+  const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
   try {

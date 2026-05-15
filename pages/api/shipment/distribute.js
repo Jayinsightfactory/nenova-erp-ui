@@ -6,6 +6,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
+import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -22,7 +23,8 @@ export default withAuth(withActionLog(async function handler(req, res) {
 }, { actionType: 'SHIPMENT_WRITE', affectedTable: 'ShipmentMaster/Detail', riskLevel: 'HIGH' }));
 
 async function getDistribute(req, res) {
-  const { type, week, prodGroup, custKey } = req.query;
+  let { type, week, prodGroup, custKey } = req.query;
+  if (week) week = normalizeOrderWeek(week);
 
   try {
     // ── 품목 목록 (왼쪽 패널): 차수+품목그룹 기준 입고/출고/현재고
@@ -263,11 +265,12 @@ async function getDistribute(req, res) {
 
 // ── 출고 분배 저장 (ShipmentMaster + ShipmentDetail — 실제 DB)
 async function saveDistribute(req, res) {
-  const { week, year, custKey, prodKey, outQty, outDate, cost } = req.body;
+  const { week: rawWeek, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
-    const orderYear = year || new Date().getFullYear().toString();
+    const week = normalizeOrderWeek(rawWeek);
+    const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
     const ywk = orderYear + (week||'').replace('-','');
 
     // Product 환산정보

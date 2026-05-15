@@ -5,6 +5,7 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
 import XLSX from 'xlsx';
 
 const DAY_NAMES = ['월','화','수','목','금'];
@@ -13,7 +14,8 @@ const DAY_KO = { '월':'월요일','화':'화요일','수':'수요일','목':'�
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const { week, custKey, shipDayConfigs: cfgStr, dailyQtyInputs: qtyStr, prodDayOverrides: overStr } = req.query;
+  const { week: rawWeek, custKey, shipDayConfigs: cfgStr, dailyQtyInputs: qtyStr, prodDayOverrides: overStr } = req.query;
+  const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
   // 프론트엔드에서 전달한 설정 파싱

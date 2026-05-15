@@ -3,6 +3,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getStock(req, res);
@@ -11,7 +12,8 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getStock(req, res) {
-  const { week, prodName, type, prodKey } = req.query;
+  const { week: rawWeek, prodName, type, prodKey } = req.query;
+  const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
 
   // ── 재고 입/출고 내역 조회 (오른쪽 패널용)
   if (type === 'history') {
@@ -92,8 +94,9 @@ async function getStock(req, res) {
 }
 
 async function adjustStock(req, res) {
-  const { week, prodKey, prodName, qty, adjustType, descr } = req.body;
+  const { week: rawWeek, prodKey, prodName, qty, adjustType, descr } = req.body;
   try {
+    const week = normalizeOrderWeek(rawWeek);
     let pk = prodKey;
     if (!pk && prodName) {
       const r = await query(
@@ -106,7 +109,7 @@ async function adjustStock(req, res) {
     const stockQty = parseFloat(qty);
     if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
 
-    const orderYear = await resolveOrderYear(week);
+    const orderYear = normalizeOrderYear(rawWeek, await resolveOrderYear(week));
     const uid = req.user?.userId || 'admin';
     const beforeResult = await query(
       `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,

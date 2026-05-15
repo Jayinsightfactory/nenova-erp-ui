@@ -1,6 +1,7 @@
 // pages/api/orders/history.js — 주문 변경 내역 조회
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -8,7 +9,7 @@ export default withAuth(async function handler(req, res) {
 
   let where = 'WHERE 1=1';
   const params = {};
-  if (week)     { where += ' AND om.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: week }; }
+  if (week)     { where += ' AND om.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: normalizeOrderWeek(week) }; }
   if (custName) { where += ' AND c.CustName LIKE @cust'; params.cust = { type: sql.NVarChar, value: `%${custName}%` }; }
 
   try {

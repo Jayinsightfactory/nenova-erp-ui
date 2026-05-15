@@ -4,12 +4,14 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   const { weekStart, weekEnd } = req.query;
   if (!weekStart) return res.status(400).json({ success: false, error: 'weekStart 필요' });
-  const wEnd = weekEnd || weekStart;
+  const weekStartNorm = normalizeOrderWeek(weekStart);
+  const wEnd = normalizeOrderWeek(weekEnd || weekStart);
 
   try {
     // ── 1. 주문 데이터 (02.주문) — 거래처별
@@ -20,7 +22,7 @@ export default withAuth(async function handler(req, res) {
         c.CustKey, c.CustName, c.CustArea AS area, c.OrderCode, ISNULL(c.Descr,'') AS custDescr,
         om.OrderWeek AS week,
         -- 14차 패턴: Box+Bunch+Steam 합 = 주문수량
-        (ISNULL(od.BoxQuantity,0)+ISNULL(od.BunchQuantity,0)+ISNULL(od.SteamQuantity,0)) AS outQty,
+        ISNULL(od.OutQuantity,0) AS outQty,
         ISNULL(od.Descr,'') AS descr
        FROM OrderMaster om
        JOIN Customer c     ON om.CustKey = c.CustKey AND c.isDeleted = 0
@@ -28,7 +30,7 @@ export default withAuth(async function handler(req, res) {
        JOIN Product p      ON od.ProdKey = p.ProdKey AND p.isDeleted = 0
        WHERE om.OrderWeek >= @ws AND om.OrderWeek <= @we AND om.isDeleted = 0
        ORDER BY p.CounName, p.FlowerName, p.ProdName, c.CustArea, c.CustName`,
-      { ws:{type:sql.NVarChar,value:weekStart}, we:{type:sql.NVarChar,value:wEnd} }
+      { ws:{type:sql.NVarChar,value:weekStartNorm}, we:{type:sql.NVarChar,value:wEnd} }
     );
 
     // ── 2. 입고 데이터 (03.입고) — 농장별
@@ -47,7 +49,7 @@ export default withAuth(async function handler(req, res) {
        JOIN Product p ON wd.ProdKey = p.ProdKey
        WHERE wm.OrderWeek >= @ws AND wm.OrderWeek <= @we
        ORDER BY p.CounName, p.FlowerName, p.ProdName, wm.FarmName`,
-      { ws:{type:sql.NVarChar,value:weekStart}, we:{type:sql.NVarChar,value:wEnd} }
+      { ws:{type:sql.NVarChar,value:weekStartNorm}, we:{type:sql.NVarChar,value:wEnd} }
     );
 
     // ── 3. 전재고 — 이전 확정 차수
@@ -60,7 +62,7 @@ export default withAuth(async function handler(req, res) {
          ORDER BY OrderWeek DESC
        )
        WHERE p.isDeleted = 0`,
-      { ws:{type:sql.NVarChar,value:weekStart} }
+      { ws:{type:sql.NVarChar,value:weekStartNorm} }
     );
 
     // ── 4. 출고 데이터 (확정된 것)
@@ -71,7 +73,7 @@ export default withAuth(async function handler(req, res) {
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey AND sm.isDeleted = 0
        WHERE sm.OrderWeek >= @ws AND sm.OrderWeek <= @we AND sm.isFix = 1
        GROUP BY sd.ProdKey`,
-      { ws:{type:sql.NVarChar,value:weekStart}, we:{type:sql.NVarChar,value:wEnd} }
+      { ws:{type:sql.NVarChar,value:weekStartNorm}, we:{type:sql.NVarChar,value:wEnd} }
     );
 
     // ── 5. 개별단가 (CustomerProdCost)
@@ -189,7 +191,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      weekStart, weekEnd: wEnd,
+      weekStart: weekStartNorm, weekEnd: wEnd,
       customers,
       farms,
       rows,

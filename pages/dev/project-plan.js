@@ -79,6 +79,7 @@ export default function ProjectPlan() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <a className="btn btn-secondary btn-sm" href="/nenova-workflow-overview.svg" target="_blank" rel="noreferrer">SVG 흐름도</a>
           <a className="btn btn-secondary btn-sm" href="/shipment/fix-status">차수 확정 현황</a>
+          <a className="btn btn-secondary btn-sm" href="/full-flow-audit-2026-05-15.md" target="_blank" rel="noreferrer">전체 감사 문서</a>
         </div>
       </div>
 
@@ -146,4 +147,3 @@ export default function ProjectPlan() {
     </div>
   );
 }
-

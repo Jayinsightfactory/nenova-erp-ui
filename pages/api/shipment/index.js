@@ -4,6 +4,7 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getShipments(req, res);
@@ -15,7 +16,7 @@ async function getShipments(req, res) {
   const { week, custName, area, manager } = req.query;
   let where = 'WHERE 1=1';
   const params = {};
-  if (week) { where += ' AND vs.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: week }; }
+  if (week) { where += ' AND vs.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: normalizeOrderWeek(week) }; }
   if (custName) { where += ' AND vs.CustName LIKE @custName'; params.custName = { type: sql.NVarChar, value: `%${custName}%` }; }
   if (area) { where += ' AND vs.CustArea = @area'; params.area = { type: sql.NVarChar, value: area }; }
   if (manager) { where += ' AND vs.Manager = @manager'; params.manager = { type: sql.NVarChar, value: manager }; }
