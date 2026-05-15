@@ -5,6 +5,7 @@ import { apiGet } from '../../lib/useApi';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
+import { customerMatchesSearch } from '../../lib/customerSearch';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
@@ -1402,7 +1403,7 @@ export default function PasteOrderPage() {
 
 function CustSelector({ customers, onSelect }) {
   const [q, setQ] = useState('');
-  const results = q ? customers.filter(c => c.CustName?.includes(q)) : customers.slice(0, 15);
+  const results = q ? customers.filter(c => customerMatchesSearch(c, q)).slice(0, 50) : customers.slice(0, 15);
   return (
     <div style={{ position: 'relative' }}>
       <input type="text" placeholder="거래처 검색..." value={q} onChange={e => setQ(e.target.value)}
