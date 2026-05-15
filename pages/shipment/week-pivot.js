@@ -313,6 +313,10 @@ export default function WeekPivot() {
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
+  const [showStartStockText, setShowStartStockText] = useState(false);
+  const [startStockText, setStartStockText] = useState('');
+  const [startStockResult, setStartStockResult] = useState(null);
+  const [startStockSaving, setStartStockSaving] = useState(false);
 
   // ── 보기 옵션 (글씨/너비/패딩 + 필터/컴팩트) — localStorage 영구 저장
   const [pvFontSize, setPvFontSize] = useState(10);
@@ -476,6 +480,31 @@ export default function WeekPivot() {
     } catch(e) { console.error(e); }
   }, [startStocks]);
 
+  const submitStartStockText = useCallback(async (save = false) => {
+    if (!weekFrom) { alert('차수를 먼저 선택하세요'); return; }
+    if (!startStockText.trim()) { alert('기초재고 텍스트를 입력하세요'); return; }
+    setStartStockSaving(true);
+    try {
+      const r = await fetch('/api/shipment/start-stock-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week: weekFrom, text: startStockText, save }),
+      });
+      const d = await r.json();
+      setStartStockResult(d);
+      if (d.success && save) {
+        await loadData(weekFrom, weekTo || weekFrom);
+        alert(`${d.matched?.length || 0}개 기초재고 저장 완료`);
+      } else if (!d.success && d.unmatched?.length) {
+        alert(`미매칭 ${d.unmatched.length}개가 있어 저장하지 않았습니다.`);
+      }
+    } catch (e) {
+      setStartStockResult({ success: false, error: e.message });
+    } finally {
+      setStartStockSaving(false);
+    }
+  }, [weekFrom, weekTo, startStockText, loadData]);
+
   // 피벗 셀 수량 저장 — ADD/CANCEL 단일 액션 + ShipmentAdjustment 이력 자동 기록
   const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
     const qty = parseFloat(newQty) || 0;
@@ -617,6 +646,41 @@ export default function WeekPivot() {
       padding:'2px 8px',borderRadius:10,border:'1px solid',fontSize:10,cursor:'pointer',fontWeight:active?700:400,
       borderColor:active?'#1976d2':'#ccc',background:active?'#1976d2':'#f5f5f5',color:active?'#fff':'#555',
     });
+    const buildRemainLines = () => {
+      const groups = {};
+      prodKeys.forEach(pk => {
+        const p = prodMap[pk];
+        const first = startStocks[`${pk}-${weeks[0]}`];
+        let rs = first?.stock != null ? first.stock : (prevStockMap[pk] || 0);
+        weeks.forEach(wk => {
+          const wkSS = startStocks[`${pk}-${wk}`]?.stock;
+          if (wkSS != null) rs = wkSS;
+          const inQ = inMap[`${pk}-${wk}`] || 0;
+          const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
+          rs = rs + inQ - wOut;
+        });
+        if (rs > 0) {
+          const flower = p.flower || '기타';
+          if (!groups[flower]) groups[flower] = [];
+          groups[flower].push(`${stripProdName(p.name)} ${rs}`);
+        }
+      });
+      return Object.entries(groups).flatMap(([flower, lines], idx) => [
+        ...(idx > 0 ? [''] : []),
+        flower,
+        ...lines,
+      ]);
+    };
+    const loadChangeHistoryRows = async () => {
+      try {
+        const qs = `weekFrom=${encodeURIComponent(weekFrom)}&weekTo=${encodeURIComponent(weekTo)}&view=changeHistory`;
+        const r = await fetch(`/api/shipment/stock-status?${qs}`);
+        const d = await r.json();
+        return d.success ? (d.rows || []) : [];
+      } catch {
+        return [];
+      }
+    };
 
     return (
       <div>
@@ -689,7 +753,7 @@ export default function WeekPivot() {
               style={{padding:'1px 6px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2,color:'#666'}}
               title="기본값으로 초기화">↺</button>
           </div>
-          <button onClick={()=>{
+          <button onClick={async ()=>{
             // 엑셀 컬럼 인덱스 → A1 표기 (0=A, 26=AA, …)
             const colL=(idx)=>{let s='';let n=idx;while(n>=0){s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26)-1;}return s;};
             // 각 주차 블록 내 위치: 0..C-1=업체별, C=시작, C+1=입고, C+2=출고, C+3=잔량
@@ -764,15 +828,26 @@ export default function WeekPivot() {
 
             const wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,ws,'차수피벗');
+            const changes = await loadChangeHistoryRows();
+            if (changes.length > 0) {
+              const changeData = [[
+                '구분','차수','거래처','품목','변경','이전','이후','증감','잔량이전','잔량이후','메모','작업자','시간'
+              ]];
+              changes.forEach(c => changeData.push([
+                c.Kind, c.OrderWeek, c.CustName || '', c.DisplayName || c.ProdName || '',
+                c.ChangeType, c.BeforeQty ?? '', c.AfterQty ?? '', c.DeltaQty ?? '',
+                c.RemainBefore ?? '', c.RemainAfter ?? '', c.Memo || '', c.CreateID || '', c.CreateDtm || '',
+              ]));
+              const cws = XLSX.utils.aoa_to_sheet(changeData);
+              cws['!cols'] = [
+                {wch:10},{wch:10},{wch:16},{wch:24},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:36},{wch:12},{wch:20}
+              ];
+              XLSX.utils.book_append_sheet(wb,cws,'오늘변경');
+            }
             XLSX.writeFile(wb,`차수피벗_${weeks.join('~')}.xlsx`);
           }} style={{...st.addBtn,background:'#2e7d32'}}>📥 엑셀</button>
           <button onClick={()=>{
-            const lines=[];
-            prodKeys.forEach(pk=>{
-              const p=prodMap[pk];const _cp0=startStocks[`${pk}-${weeks[0]}`];let rs=_cp0?.stock!=null?_cp0.stock:(prevStockMap[pk]||0);
-              weeks.forEach(wk=>{const wkSS=startStocks[`${pk}-${wk}`]?.stock;if(wkSS!=null)rs=wkSS;const inQ=inMap[`${pk}-${wk}`]||0;const wOut=custKeys.reduce((a,ck)=>a+(dataMap[`${pk}-${ck}-${wk}`]||0),0);rs=rs+inQ-wOut;});
-              if(rs>0) lines.push(`${stripProdName(p.name)} ${rs}`);
-            });
+            const lines=buildRemainLines();
             if(!lines.length){alert('잔량이 있는 품목이 없습니다');return;}
             navigator.clipboard.writeText(lines.join('\n')).then(()=>alert(`${lines.length}개 품목 복사됨`));
           }} style={{...st.addBtn,background:'#6a1b9a'}}>📋 잔량복사</button>
@@ -1099,6 +1174,10 @@ export default function WeekPivot() {
           style={{...hst.hBtn,background:'#43a047',border:'1px solid #388e3c'}}>
           ➕ 주문추가
         </button>
+        <button onClick={()=>setShowStartStockText(true)}
+          style={{...hst.hBtn,background:'#6a1b9a',border:'1px solid #4a148c'}}>
+          🧾 기초재고 입력
+        </button>
         {/* 즐겨찾기 */}
         {favorites.map(fav=>(
           <span key={fav.FavoriteKey} style={{display:'inline-flex',alignItems:'center',gap:1}}>
@@ -1162,6 +1241,54 @@ export default function WeekPivot() {
           onClose={()=>setShowAddOrder(false)}
           onSuccess={()=>loadData(weekFrom,weekTo)}
         />
+      )}
+
+      {/* 기초재고 텍스트 입력 모달 */}
+      {showStartStockText && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2500,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&!startStockSaving&&setShowStartStockText(false)}>
+          <div style={{background:'#fff',borderRadius:10,width:'min(920px,94vw)',maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 32px rgba(0,0,0,0.3)'}}>
+            <div style={{background:'#6a1b9a',color:'#fff',padding:'12px 18px',borderRadius:'10px 10px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <b>기초재고 텍스트 입력 — {weekFrom || '차수 선택 필요'}</b>
+              <button onClick={()=>setShowStartStockText(false)} style={{background:'none',border:'none',color:'#fff',fontSize:20,cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:18}}>
+              <textarea
+                value={startStockText}
+                onChange={e=>setStartStockText(e.target.value)}
+                placeholder={'진핑크 2\n진그린 1\n미니그린 1\n연핑크 9\n피치 22\n화이트 2\n\n쉬머 60 20\n\n알스트로\n라벤더 2 박스\n오랜지퀸 1박스\n카네이션\n애플티 1\n딜레타 크림 1\n시저 2'}
+                style={{width:'100%',height:220,padding:10,border:'1px solid #ccc',borderRadius:6,fontSize:13,lineHeight:1.5}}
+              />
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:10}}>
+                <button onClick={()=>submitStartStockText(false)} disabled={startStockSaving}
+                  style={{padding:'8px 16px',border:'1px solid #6a1b9a',background:'#fff',color:'#6a1b9a',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                  매칭 미리보기
+                </button>
+                <button onClick={()=>submitStartStockText(true)} disabled={startStockSaving}
+                  style={{padding:'8px 20px',border:'none',background:startStockSaving?'#aaa':'#6a1b9a',color:'#fff',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                  {startStockSaving?'저장중...':'기초재고 저장'}
+                </button>
+              </div>
+              {startStockResult && (
+                <div style={{marginTop:14,border:'1px solid #ddd',borderRadius:6,overflow:'hidden'}}>
+                  <div style={{padding:'7px 10px',background:startStockResult.success?'#e8f5e9':'#ffebee',fontSize:12,fontWeight:700}}>
+                    {startStockResult.success ? `매칭 ${startStockResult.matched?.length || 0}개 / 미매칭 ${startStockResult.unmatched?.length || 0}개` : startStockResult.error}
+                  </div>
+                  <div style={{maxHeight:260,overflow:'auto'}}>
+                    {(startStockResult.rows || []).map((r,i)=>(
+                      <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 80px 2fr 60px',gap:8,padding:'7px 10px',borderTop:'1px solid #eee',fontSize:12,alignItems:'center'}}>
+                        <div>{r.section && <span style={{color:'#777'}}>[{r.section}] </span>}{r.inputName}</div>
+                        <div>{r.qty}{r.unit || ''}</div>
+                        <div style={{fontWeight:700,color:r.prodKey?'#1b5e20':'#b71c1c'}}>{r.displayName || r.prodName || '미매칭'}</div>
+                        <div style={{textAlign:'right',color:'#777'}}>{Math.round(r.score || 0)}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 수정내역 삭제 모달 */}

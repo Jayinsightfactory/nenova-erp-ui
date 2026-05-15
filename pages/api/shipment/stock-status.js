@@ -520,6 +520,75 @@ export default withAuth(async function handler(req, res) {
       });
     }
 
+    // ── 오늘 주문/분배/출고수량 변경 이력
+    if (view === 'changeHistory') {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const dateFrom = req.query.dateFrom || `${y}-${m}-${d}`;
+      const dateTo = req.query.dateTo || dateFrom;
+      const hParams = {
+        ...params,
+        df: { type: sql.NVarChar, value: dateFrom },
+        dt: { type: sql.NVarChar, value: dateTo },
+      };
+      const result = await query(
+        `SELECT '분배조정' AS Kind,
+                a.OrderWeek, a.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
+                a.CustKey, c.CustName,
+                a.AdjType AS ChangeType,
+                a.QtyBefore AS BeforeQty, a.QtyAfter AS AfterQty, a.QtyDelta AS DeltaQty,
+                a.RemainBefore, a.RemainAfter,
+                a.Memo, a.CreateID, a.CreateDtm
+         FROM ShipmentAdjustment a
+         LEFT JOIN Product p ON a.ProdKey=p.ProdKey
+         LEFT JOIN Customer c ON a.CustKey=c.CustKey
+         WHERE a.OrderWeek >= @weekFrom AND a.OrderWeek <= @weekTo
+           AND CONVERT(date, a.CreateDtm) >= CONVERT(date, @df)
+           AND CONVERT(date, a.CreateDtm) <= CONVERT(date, @dt)
+         UNION ALL
+         SELECT '출고수정' AS Kind,
+                sm.OrderWeek, sd.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
+                sm.CustKey, c.CustName,
+                sh.ChangeType,
+                TRY_CONVERT(float, sh.BeforeValue) AS BeforeQty,
+                TRY_CONVERT(float, sh.AfterValue) AS AfterQty,
+                TRY_CONVERT(float, sh.AfterValue) - TRY_CONVERT(float, sh.BeforeValue) AS DeltaQty,
+                NULL AS RemainBefore, NULL AS RemainAfter,
+                sh.Descr AS Memo, sh.ChangeID AS CreateID, sh.ChangeDtm AS CreateDtm
+         FROM ShipmentHistory sh
+         JOIN ShipmentDetail sd ON sh.SdetailKey=sd.SdetailKey
+         JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
+         LEFT JOIN Product p ON sd.ProdKey=p.ProdKey
+         LEFT JOIN Customer c ON sm.CustKey=c.CustKey
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+           AND CONVERT(date, sh.ChangeDtm) >= CONVERT(date, @df)
+           AND CONVERT(date, sh.ChangeDtm) <= CONVERT(date, @dt)
+         UNION ALL
+         SELECT '주문수정' AS Kind,
+                om.OrderWeek, od.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
+                om.CustKey, c.CustName,
+                oh.ChangeType,
+                TRY_CONVERT(float, oh.BeforeValue) AS BeforeQty,
+                TRY_CONVERT(float, oh.AfterValue) AS AfterQty,
+                TRY_CONVERT(float, oh.AfterValue) - TRY_CONVERT(float, oh.BeforeValue) AS DeltaQty,
+                NULL AS RemainBefore, NULL AS RemainAfter,
+                oh.Descr AS Memo, oh.ChangeID AS CreateID, oh.ChangeDtm AS CreateDtm
+         FROM OrderHistory oh
+         JOIN OrderDetail od ON oh.OrderDetailKey=od.OrderDetailKey
+         JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
+         LEFT JOIN Product p ON od.ProdKey=p.ProdKey
+         LEFT JOIN Customer c ON om.CustKey=c.CustKey
+         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+           AND CONVERT(date, oh.ChangeDtm) >= CONVERT(date, @df)
+           AND CONVERT(date, oh.ChangeDtm) <= CONVERT(date, @dt)
+         ORDER BY CreateDtm DESC`,
+        hParams
+      );
+      return res.status(200).json({ success: true, rows: result.recordset, dateFrom, dateTo });
+    }
+
     // ── custDiag: 거래처+차수 ShipmentDetail 전체 진단 (모든 필드)
     // /api/shipment/stock-status?view=custDiag&custName=동산&weekFrom=15-01&weekTo=15-02
     if (view === 'custDiag') {
