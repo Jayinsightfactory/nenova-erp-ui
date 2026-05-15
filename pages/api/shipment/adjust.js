@@ -10,6 +10,7 @@
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
+import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -123,9 +124,9 @@ async function postAdjust(req, res) {
       const prod = pInfo.recordset[0];
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
-      const prodOutUnit = prod.OutUnit || '박스';
-      const prodEstUnit = prod.EstUnit || prodOutUnit;
-      const userUnit = unit || prodOutUnit;
+      const prodOutUnit = normalizeOrderUnit(prod.OutUnit, '박스');
+      const prodEstUnit = normalizeOrderUnit(prod.EstUnit, prodOutUnit);
+      const userUnit = normalizeOrderUnit(unit, prodOutUnit);
       const B1B = prod.B1B || 0;
       const S1B = prod.S1B || 0;
       // qty/delta 를 3개 단위(박스/단/송이) 모두로 환산하는 헬퍼

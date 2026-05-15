@@ -153,7 +153,7 @@ async function getOrders(req, res) {
           steamQty: row.SteamQuantity,
           outQty: row.OutQuantity,
           noneOutQty: row.NoneOutQuantity,
-          unit: row.OutUnit || (row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이'),
+          unit: normalizeOrderUnit(row.OutUnit, row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이'),
           qty: row.BoxQuantity || row.BunchQuantity || row.SteamQuantity || 0,
         });
       }

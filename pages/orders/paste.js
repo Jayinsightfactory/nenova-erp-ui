@@ -4,7 +4,7 @@ import Layout from '../../components/Layout';
 import { apiGet } from '../../lib/useApi';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
-import { defaultUnit } from '../../lib/orderUtils';
+import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
@@ -155,7 +155,7 @@ export default function PasteOrderPage() {
         fromMapping: true,
         confidence: 0.95,
         confidenceLabel: 'high',
-        unit: defaultUnit(prod, it.unit, prodUnitMap),
+        unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
       };
     }),
   }));
@@ -207,7 +207,7 @@ export default function PasteOrderPage() {
           return {
             ...it,
             idx,
-            unit: defaultUnit(prod, it.unit, prodUnitMap),
+            unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
             skip: false,
           };
         }),
@@ -358,7 +358,7 @@ export default function PasteOrderPage() {
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
-      unit:        defaultUnit(prod, null, prodUnitMap),  // 장미/네덜란드 → 단, 나머지 → 박스
+      unit:        normalizeOrderUnit(defaultUnit(prod, null, prodUnitMap)),  // 장미/네덜란드 → 단, 나머지 → 박스
     });
     if (saveToCache) learnItemMapping({ inputName }, prod);
     setDisambigSearch('');
@@ -383,21 +383,23 @@ export default function PasteOrderPage() {
   const scoreProduct = (inputName, prod, searchQuery = '') =>
     scoreMatch(inputName, prod, searchQuery);
 
-  // 후보 목록: 점수 0 후보 제거, 점수 내림차순 정렬, 동점이면 한글 자연어명 알파벳순
-  // - 검색어 없으면 inputName 만으로 점수 계산 → 점수 ≥ 25 만 표시 (관련성 낮은 거 제거)
-  // - 검색어 있으면 검색어 포함 모든 후보에서 점수 ≥ 15 만 표시 (사용자가 적극 입력했으므로 관대)
+  // 후보 목록: 최고점 근처 후보만 표시해 무관한 품목 노출을 줄인다.
+  // - 자동 후보는 입력명 기준으로 매우 가까운 것만 표시
+  // - 검색어 입력 시에도 낮은 점수 후보는 제외
   const buildCandidates = (inputName, searchQuery) => {
-    const minScore = searchQuery ? 15 : 25;
-    return allProducts
+    const scored = allProducts
       .map(p => ({ prod: p, score: scoreProduct(inputName, p, searchQuery) }))
-      .filter(x => x.score >= minScore)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         const an = getDisplayName(a.prod) || a.prod.ProdName || '';
         const bn = getDisplayName(b.prod) || b.prod.ProdName || '';
         return an.localeCompare(bn, 'ko');
-      })
-      .slice(0, 20);
+      });
+    const topScore = scored[0]?.score || 0;
+    const baseMin = searchQuery ? 45 : 40;
+    const nearTop = topScore >= 70 ? topScore - 18 : topScore >= 55 ? topScore - 12 : topScore;
+    const minScore = Math.max(baseMin, nearTop);
+    return scored.filter(x => x.score >= minScore).slice(0, searchQuery ? 12 : 8);
   };
 
   const handleDisambigSearchChange = (q) => {
@@ -453,7 +455,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => ({
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
       qty: parseFloat(it.qty) || 0,
-      unit: it.unit || '단',
+      unit: normalizeOrderUnit(it.unit, '단'),
       action: it.action || '추가',  // 기본 추가
     })).filter(x => x.qty > 0);
 
@@ -570,7 +572,7 @@ export default function PasteOrderPage() {
 
     const items = order.items
       .filter(it => !it.skip && it.prodKey && it.action !== '취소')
-      .map(it => ({ prodKey: it.prodKey, prodName: it.prodName, qty: it.qty, unit: it.unit }));
+      .map(it => ({ prodKey: it.prodKey, prodName: it.prodName, qty: it.qty, unit: normalizeOrderUnit(it.unit) }));
 
     if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 추가 품목이 없습니다.'); return; }
 
@@ -654,7 +656,7 @@ export default function PasteOrderPage() {
           flowerName: it.flowerName || '',
           counName: it.counName || '',
           qty: it.qty,
-          unit: it.unit,
+          unit: normalizeOrderUnit(it.unit),
           action: it.action,
           skip: !!it.skip,
           fromMapping: !!it.fromMapping,
@@ -921,7 +923,7 @@ export default function PasteOrderPage() {
                               style={{ width: 56, padding: '2px 4px', border: '1px solid #ddd', borderRadius: 4, textAlign: 'right', fontSize: 13 }} />
                           </td>
                           <td style={{ padding: '5px 8px', textAlign: 'center' }}>
-                            <select value={it.unit} onChange={e => {
+                            <select value={normalizeOrderUnit(it.unit)} onChange={e => {
                               const newUnit = e.target.value;
                               updateItem(order.id, idx, { unit: newUnit });
                               if (it.prodKey) {
@@ -1173,13 +1175,13 @@ export default function PasteOrderPage() {
                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: remain === 0 ? '#388e3c' : (remain > 0 ? '#f57f17' : '#c62828') }}>
                                   {remain}
                                 </td>
-                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{it.unit}</td>
+                                <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{normalizeOrderUnit(it.unit)}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: it.unit }); setAdjustQty(''); }}
+                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
                                     style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', marginRight: 4 }}>
                                     + 추가
                                   </button>
-                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: it.unit }); setAdjustQty(''); }}
+                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
                                     style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                                     − 취소
                                   </button>
