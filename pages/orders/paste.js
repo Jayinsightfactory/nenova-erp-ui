@@ -572,6 +572,47 @@ export default function PasteOrderPage() {
     if (!popup) window.location.href = `/shipment/week-pivot${suffix}`;
   };
 
+  const openMappingStatus = () => {
+    const snapshot = {
+      savedAt: new Date().toISOString(),
+      week,
+      detectedWeek,
+      mappingCache,
+      orders: orders.map(o => ({
+        id: o.id,
+        custName: o.custMatch?.CustName || o.custName || '',
+        custKey: o.custMatch?.CustKey || null,
+        items: (o.items || []).map(it => ({
+          inputName: it.inputName,
+          prodKey: it.prodKey || null,
+          prodName: it.prodName || '',
+          displayName: it.displayName || '',
+          flowerName: it.flowerName || '',
+          counName: it.counName || '',
+          qty: it.qty,
+          unit: it.unit,
+          action: it.action,
+          skip: !!it.skip,
+          fromMapping: !!it.fromMapping,
+          mappingMatchType: it.mappingMatchType || null,
+          mappingMatchKey: it.mappingMatchKey || null,
+          confidence: it.confidence ?? null,
+          confidenceLabel: it.confidenceLabel || '',
+          fallbackSuspect: !!it.fallbackSuspect,
+        })),
+      })),
+    };
+    try {
+      sessionStorage.setItem('nenova_paste_mapping_status', JSON.stringify(snapshot));
+    } catch {}
+    const popup = window.open(
+      '/orders/mapping-status?popup=1',
+      'pasteMappingStatus',
+      'width=1180,height=820,left=80,top=40,resizable=yes,scrollbars=yes'
+    );
+    if (!popup) window.location.href = '/orders/mapping-status?popup=1';
+  };
+
   return (
     <Layout title="붙여넣기 주문등록">
       <div style={{ padding: '16px 20px', maxWidth: 980, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
@@ -584,6 +625,12 @@ export default function PasteOrderPage() {
             style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
             📊 차수피벗 이동
+          </button>
+          <button
+            onClick={openMappingStatus}
+            style={{ padding: '6px 16px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            매칭 적용 확인
           </button>
           {orders.length > 0 && (
             <button
