@@ -141,6 +141,7 @@ export default function PasteOrderPage() {
     ...o,
     items: o.items.map(it => {
       if (it.prodKey) return it;
+      if (it.ambiguousCountry) return it;
       const hit = findLocalMapping(it.inputName, cache);
       if (!hit) return it;
       const prod = prods.find(p => Number(p.ProdKey) === Number(hit.prodKey));
@@ -241,7 +242,7 @@ export default function PasteOrderPage() {
   orders.forEach(o => {
     o.items.forEach((it, idx) => {
       if (!it.skip && !it.prodKey) {
-        unmatchedQueue.push({ orderId: o.id, itemIdx: idx, inputName: it.inputName, action: it.action });
+        unmatchedQueue.push({ orderId: o.id, itemIdx: idx, inputName: it.inputName, action: it.action, ambiguityReason: it.ambiguityReason });
       }
     });
   });
@@ -1276,6 +1277,11 @@ export default function PasteOrderPage() {
               }}>
                 {currentQ.action}
               </span>
+              {currentQ.ambiguityReason && (
+                <span style={{ fontSize: 11, color: '#e65100', fontWeight: 700 }}>
+                  {currentQ.ambiguityReason}
+                </span>
+              )}
               <span style={{ fontSize: 12, color: '#aaa', marginLeft: 'auto' }}>
                 미매칭 {unmatchedQueue.length}개 남음
               </span>

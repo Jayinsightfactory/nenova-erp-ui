@@ -16,6 +16,7 @@ function getClient() {
 import { defaultUnit } from '../../../lib/orderUtils';
 import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
 import { loadCustomerMappings, findCustomerMapping } from '../../../lib/customerMappings';
+import { scoreMatch } from '../../../lib/displayName';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -131,6 +132,69 @@ function normalizeAction(action, inputName = '') {
   return '추가';
 }
 
+function hasExplicitCountry(text) {
+  return /(중국|china|콜롬비아|colombia|콜장미|에콰도르|에콰|ecuador)/i.test(String(text || ''));
+}
+
+function extractCm(text) {
+  const m = String(text || '').match(/(\d{2})\s*(?:cm|센치)/i);
+  return m ? Number(m[1]) : null;
+}
+
+function productCm(prod) {
+  return extractCm(`${prod?.ProdName || ''} ${prod?.DisplayName || ''}`);
+}
+
+function isRoseProduct(prod) {
+  const text = `${prod?.FlowerName || ''} ${prod?.ProdName || ''} ${prod?.DisplayName || ''}`;
+  return /(장미|rose)/i.test(text);
+}
+
+function countryKey(prod) {
+  return String(prod?.CounName || '').trim().toLowerCase() || 'unknown';
+}
+
+function resolveRoseCandidate(item, chosenProd, allProducts) {
+  const input = item?.inputName || item?.prodName || item?.displayName || '';
+  const isRoseInput = /(장미|rose)/i.test(input) || isRoseProduct(chosenProd);
+  if (!isRoseInput) return { prod: chosenProd, ambiguousCountry: false, reason: null };
+
+  const explicitCountry = hasExplicitCountry(input);
+  const explicitCm = extractCm(input);
+  let candidates = allProducts
+    .filter(isRoseProduct)
+    .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
+    .filter(x => x.score >= 70)
+    .sort((a, b) => b.score - a.score);
+
+  if (explicitCm) {
+    const lengthMatches = candidates.filter(x => productCm(x.prod) === explicitCm);
+    if (lengthMatches.length) candidates = lengthMatches;
+  } else {
+    // 장미 길이 미기재 시 운영 기본값은 50cm. 40cm 자동 매칭을 방지한다.
+    const cm50 = candidates.filter(x => productCm(x.prod) === 50);
+    if (cm50.length) candidates = cm50;
+  }
+
+  if (candidates.length === 0) {
+    return { prod: chosenProd, ambiguousCountry: false, reason: null };
+  }
+
+  const topScore = candidates[0].score;
+  const top = candidates.filter(x => x.score >= topScore - 5);
+  const countries = new Set(top.map(x => countryKey(x.prod)));
+
+  if (!explicitCountry && countries.size > 1) {
+    return {
+      prod: null,
+      ambiguousCountry: true,
+      reason: '같은 장미 품종이 여러 국가에 있어 국가 선택 필요',
+    };
+  }
+
+  return { prod: top[0].prod, ambiguousCountry: false, reason: null };
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text } = req.body;
@@ -236,6 +300,7 @@ Caroline | 2
 - unit 결정 규칙 (★ 매우 중요):
   ★ 기본값: 박스 (90%+ 케이스)
   ★ "장미"는 단 (예: 프리덤, 몬디알, 캔들라이트 등 ROSE 품목)
+  ★ 장미 길이가 없으면 50cm 를 기본으로 본다. 40cm 로 임의 매칭하지 말 것.
   ★ 입력에 명시 단위 있으면 그대로 (단/박스/송이)
   ★ 단위 누락 ("루스커스 1 취소", "마리포사 1 추가") → 박스 로 강제 (장미 외)
   ★ 단/송이 단위가 장미 외 품목에서 등장하면 → 사용자가 의도적으로 단수로 입력한 것이므로 그대로 유지하되,
@@ -259,7 +324,7 @@ Caroline | 2
   ★ 텍스트에 "중국" 키워드 포함 → CountryFlower='중국장미' 우선
   ★ "콜" / "콜롬비아" 키워드 포함 → CountryFlower='콜롬비아장미' 우선
   ★ "에콰" / "에콰도르" → 에콰도르장미
-  ★ 키워드 없으면 → 콜롬비아 default (가장 흔한 산지)
+  ★ 키워드 없고 동일 품종이 여러 국가에 있으면 → prodKey=null (사용자 수동 선택)
   ★ 섹션 헤더에 "중국 변경사항" 같이 국가 명시되면 그 섹션 전체 적용
 - custKey: 거래처 목록에서 가장 유사한 CustKey, 없으면 null
 - prodKey: 위 규칙대로 CountryFlower 추론 후 매칭. 못 찾으면 null (사용자 수동 매칭)
@@ -354,7 +419,8 @@ Caroline | 2
         // 2순위: Claude 파싱 결과
         const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
 
-        const prod = mappedProd || claudeProd;
+        const resolved = resolveRoseCandidate(item, mappedProd || claudeProd, allProducts);
+        const prod = resolved.prod;
         const unit = defaultUnit(prod, item.unit, prodUnitMap);
         // confidence 점수 계산
         // - 학습매핑 exact: 1.0
@@ -363,7 +429,10 @@ Caroline | 2
         // - 매칭 실패: 0.0
         let confidence = 0;
         let confidenceLabel = 'none';
-        if (mappedProd) {
+        if (resolved.ambiguousCountry) {
+          confidence = 0;
+          confidenceLabel = 'none';
+        } else if (mappedProd) {
           confidence = fuzzyMatch?.score ?? 1;
           confidenceLabel = fuzzyMatch?.matchType === 'exact' ? 'high' : 'medium';
         } else if (claudeProd) {
@@ -386,9 +455,11 @@ Caroline | 2
           displayName: prod?.DisplayName || item.displayName || null,
           flowerName:  prod?.FlowerName  || null,
           counName:    prod?.CounName    || null,
-          fromMapping: !!mappedProd,
-          mappingMatchType: fuzzyMatch?.matchType || null,
-          mappingMatchKey:  fuzzyMatch?.key || null,
+          fromMapping: !!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey),
+          mappingMatchType: (!!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey)) ? (fuzzyMatch?.matchType || null) : null,
+          mappingMatchKey:  (!!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey)) ? (fuzzyMatch?.key || null) : null,
+          ambiguousCountry: resolved.ambiguousCountry,
+          ambiguityReason:  resolved.reason,
           confidence,                       // 0.0 ~ 1.0
           confidenceLabel,                  // 'high' | 'medium' | 'low' | 'none'
           fallbackSuspect: fallbackInfo.isFallback,  // 같은 prodKey 가 N+개 입력에 매핑되어 있으면 true
