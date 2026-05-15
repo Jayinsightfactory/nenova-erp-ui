@@ -223,7 +223,7 @@ async function createOrder(req, res) {
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
-    const { orderMasterKey, results } = await withTransaction(async (tQuery) => {
+    const { orderMasterKey, results, prodKeys } = await withTransaction(async (tQuery) => {
       // 기존 OrderMaster 확인 (같은 업체+차수)
       const existing = await tQuery(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
@@ -268,6 +268,7 @@ async function createOrder(req, res) {
       }
 
       const detailResults = [];
+      const changedProdKeys = new Set();
       for (const item of items) {
         let prodKey = item.prodKey;
         if (!prodKey && item.prodName) {
@@ -333,6 +334,7 @@ async function createOrder(req, res) {
             '주문등록',
             uid
           );
+          changedProdKeys.add(Number(prodKey));
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: isDelta ? 'ADDED' : 'UPDATED' });
         } else if (qty > 0) {
           const newDetailKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
@@ -355,13 +357,14 @@ async function createOrder(req, res) {
             );
           });
           await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), '주문등록', uid);
+          changedProdKeys.add(Number(prodKey));
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
-      return { orderMasterKey: mk, results: detailResults };
+      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys] };
     });
 
-    const stockWarning = await runStockCalculation(orderYear, orderWeek, uid);
+    const stockWarning = await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
     await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
@@ -388,6 +391,7 @@ async function updateOrder(req, res) {
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
     let recalcTarget = null;
+    const recalcProdKeys = new Set();
 
     await withTransaction(async (tQuery) => {
       const omInfo = await tQuery(
@@ -427,7 +431,7 @@ async function updateOrder(req, res) {
 
           // 기존 수량 조회 (이력용)
           const old = await tQuery(
-            `SELECT od.BoxQuantity, od.BunchQuantity, od.SteamQuantity, od.OutQuantity,
+            `SELECT od.ProdKey, od.BoxQuantity, od.BunchQuantity, od.SteamQuantity, od.OutQuantity,
                     p.OutUnit, ISNULL(p.BunchOf1Box,0) AS B1B, ISNULL(p.SteamOf1Box,0) AS S1B
                FROM OrderDetail od
                JOIN Product p ON od.ProdKey=p.ProdKey
@@ -435,6 +439,7 @@ async function updateOrder(req, res) {
             { dk: { type: sql.Int, value: item.detailKey } }
           );
           const oldRow = old.recordset[0];
+          if (oldRow?.ProdKey) recalcProdKeys.add(Number(oldRow.ProdKey));
           const oldQty = oldRow ? (oldRow.OutQuantity || oldRow.BoxQuantity || oldRow.BunchQuantity || oldRow.SteamQuantity || 0) : 0;
           const prod = oldRow || {};
           const allQty = toAllUnits(qty, unit, prod);
@@ -471,7 +476,7 @@ async function updateOrder(req, res) {
     });
 
     if (recalcTarget?.OrderYear && recalcTarget?.OrderWeek) {
-      const stockWarning = await runStockCalculation(String(recalcTarget.OrderYear), recalcTarget.OrderWeek, uid);
+      const stockWarning = await runStockCalculation(String(recalcTarget.OrderYear), recalcTarget.OrderWeek, uid, [...recalcProdKeys]);
       return res.status(200).json({ success: true, message: '주문 수정 완료', warning: stockWarning?.message || null });
     }
     return res.status(200).json({ success: true, message: '주문 수정 완료' });
@@ -480,16 +485,22 @@ async function updateOrder(req, res) {
   }
 }
 
-async function runStockCalculation(orderYear, orderWeek, uid) {
+async function runStockCalculation(orderYear, orderWeek, uid, prodKeys = []) {
+  const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  if (keys.length === 0) return null;
+
   try {
-    await query(
-      stockCalculationSql(),
-      {
-        year: { type: sql.NVarChar, value: String(orderYear) },
-        week: { type: sql.NVarChar, value: orderWeek },
-        uid:  { type: sql.NVarChar, value: uid || 'admin' },
-      }
-    );
+    for (const prodKey of keys) {
+      await query(
+        stockCalculationSql(),
+        {
+          year: { type: sql.NVarChar, value: String(orderYear) },
+          week: { type: sql.NVarChar, value: orderWeek },
+          uid:  { type: sql.NVarChar, value: uid || 'admin' },
+          pk:   { type: sql.Int, value: prodKey },
+        }
+      );
+    }
     return null;
   } catch (e) {
     await appLog('usp_StockCalculation', '오류', `${orderYear}/${orderWeek}: ${e.message}`, true);
@@ -498,20 +509,48 @@ async function runStockCalculation(orderYear, orderWeek, uid) {
 }
 
 function stockCalculationSql() {
-  return `IF EXISTS (
+  return `DECLARE @hasProdKey BIT = CASE WHEN EXISTS (
+            SELECT 1 FROM sys.parameters
+             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
+               AND name = N'@ProdKey'
+          ) THEN 1 ELSE 0 END;
+
+          DECLARE @hasResult BIT = CASE WHEN EXISTS (
             SELECT 1 FROM sys.parameters
              WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
                AND name = N'@oResult'
-          )
+          ) THEN 1 ELSE 0 END;
+
+          IF @hasProdKey = 1 AND @hasResult = 1
           BEGIN
             DECLARE @r INT, @m NVARCHAR(MAX);
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year,
                  @OrderWeek = @week,
+                 @ProdKey   = @pk,
                  @iUserID   = @uid,
                  @oResult   = @r OUTPUT,
                  @oMessage  = @m OUTPUT;
             SELECT @r AS result, @m AS message;
+          END
+          ELSE IF @hasProdKey = 1
+          BEGIN
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @ProdKey   = @pk,
+                 @iUserID   = @uid;
+          END
+          ELSE IF @hasResult = 1
+          BEGIN
+            DECLARE @r2 INT, @m2 NVARCHAR(MAX);
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @iUserID   = @uid,
+                 @oResult   = @r2 OUTPUT,
+                 @oMessage  = @m2 OUTPUT;
+            SELECT @r2 AS result, @m2 AS message;
           END
           ELSE
           BEGIN
