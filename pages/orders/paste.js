@@ -401,7 +401,26 @@ export default function PasteOrderPage() {
     if (topScore < baseMin) return [];
     const nearTop = topScore >= 70 ? topScore - 18 : topScore >= 55 ? topScore - 12 : topScore;
     const minScore = Math.max(baseMin, nearTop);
-    return scored.filter(x => x.score >= minScore).slice(0, searchQuery ? 12 : 8);
+    const filtered = scored.filter(x => x.score >= minScore);
+    const byCountry = [];
+    const seenCountry = new Set();
+    for (const x of filtered) {
+      const country = String(x.prod.CounName || '').trim() || '기타';
+      if (!seenCountry.has(country)) {
+        seenCountry.add(country);
+        byCountry.push(x);
+      }
+    }
+    const merged = [...byCountry, ...filtered];
+    const seenProd = new Set();
+    return merged
+      .filter(x => {
+        const key = Number(x.prod.ProdKey);
+        if (seenProd.has(key)) return false;
+        seenProd.add(key);
+        return true;
+      })
+      .slice(0, searchQuery ? 12 : 10);
   };
 
   const handleDisambigSearchChange = (q) => {
