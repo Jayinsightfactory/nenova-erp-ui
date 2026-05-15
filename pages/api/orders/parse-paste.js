@@ -128,10 +128,13 @@ export default withAuth(async function handler(req, res) {
     if (detectedFlowers.length > 0) {
       prodFilter = detectedFlowers.map(f => `FlowerName LIKE '%${f}%' OR ProdName LIKE '%${f}%'`).join(' OR ');
     }
-    const [custRes, prodRes, unitRes] = await Promise.all([
+    const [custRes, prodRes, allProdRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
       query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
              FROM Product WHERE isDeleted=0 ${prodFilter ? `AND (${prodFilter})` : ''}
+             ORDER BY ProdName`),
+      query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
+             FROM Product WHERE isDeleted=0
              ORDER BY ProdName`),
       query(`SELECT ProdKey,
                SUM(ISNULL(BoxQuantity,0))   AS TotalBox,
@@ -142,6 +145,8 @@ export default withAuth(async function handler(req, res) {
 
     const customers = custRes.recordset;
     const products  = prodRes.recordset;
+    const allProducts = allProdRes.recordset;
+    const productByKey = new Map(allProducts.map(p => [Number(p.ProdKey), p]));
 
     // 품목별 이력 단위 맵 빌드
     const prodUnitMap = {};
@@ -292,13 +297,21 @@ Caroline | 2
     // 거래처·품목 보강
     const orders = (parsed.orders || []).map(order => {
       let custMatch = null;
+      const normCust = s => String(s || '').replace(/\s+/g, '').toLowerCase();
       if (order.custKey) {
         custMatch = customers.find(c => c.CustKey === order.custKey) || null;
       }
       if (!custMatch && order.custName) {
-        custMatch = customers.find(c =>
-          c.CustName?.includes(order.custName) || order.custName?.includes(c.CustName)
-        ) || null;
+        const orderCust = normCust(order.custName);
+        const candidates = customers.filter(c => {
+          const custName = normCust(c.CustName);
+          return custName === orderCust || custName.includes(orderCust) || orderCust.includes(custName);
+        });
+        candidates.sort((a, b) =>
+          Math.abs(normCust(a.CustName).length - orderCust.length) -
+          Math.abs(normCust(b.CustName).length - orderCust.length)
+        );
+        custMatch = candidates[0] || null;
       }
 
       // 매번 파일에서 새로 로드 (학습 후 재배포 없이 즉시 반영)
@@ -307,10 +320,10 @@ Caroline | 2
         // 1순위: 서버 저장 매핑 (사용자 학습 데이터) — 정확 매치 + fuzzy 부분 매치
         const fuzzyMatch = findMappingFuzzy(item.inputName, savedMappings);
         const savedMap = fuzzyMatch ? fuzzyMatch.value : null;
-        const mappedProd = savedMap ? products.find(p => p.ProdKey === savedMap.prodKey) : null;
+        const mappedProd = savedMap ? productByKey.get(Number(savedMap.prodKey)) : null;
 
         // 2순위: Claude 파싱 결과
-        const claudeProd = item.prodKey ? products.find(p => p.ProdKey === item.prodKey) : null;
+        const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
 
         const prod = mappedProd || claudeProd;
         const unit = defaultUnit(prod, item.unit, prodUnitMap);

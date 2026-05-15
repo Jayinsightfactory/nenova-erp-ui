@@ -36,7 +36,38 @@ function saveCache(cache) {
   try { localStorage.setItem(MAPPING_KEY, JSON.stringify(cache)); } catch {}
 }
 function cacheKey(inputName) {
-  return (inputName || '').toLowerCase().trim();
+  return normalizePasteToken(inputName);
+}
+function normalizePasteToken(inputName) {
+  return (inputName || '')
+    .toLowerCase()
+    .replace(/[()[\]{}]/g, ' ')
+    .replace(/\b(add|cancel|delete|box|bunch|stem|stems|ea)\b/gi, ' ')
+    .replace(/(추가|취소|삭제|출고|입고|변경사항|변경|오늘|일요일|월요일|화요일|수요일|목요일|금요일|토요일)/g, ' ')
+    .replace(/\d+(\.\d+)?\s*(박스|단|송이|개|box|bunch|stem|stems|ea)?/gi, ' ')
+    .replace(/[|:：,\-→>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function tokenParts(s) {
+  return normalizePasteToken(s).split(/\s+/).filter(t => t.length >= 2);
+}
+function findLocalMapping(inputName, cache) {
+  const exact = cacheKey(inputName);
+  if (cache[exact]) return cache[exact];
+  const inputTokens = tokenParts(inputName);
+  if (inputTokens.length === 0) return null;
+  const hits = [];
+  Object.entries(cache || {}).forEach(([key, value]) => {
+    const keyTokens = tokenParts(key);
+    if (keyTokens.length === 0) return;
+    const allIn = inputTokens.every(t => keyTokens.some(k =>
+      t === k || (t.length >= 4 && k.length >= 4 && (t.includes(k) || k.includes(t)))
+    ));
+    if (allIn) hits.push({ key, value, score: inputTokens.length / Math.max(inputTokens.length, keyTokens.length) });
+  });
+  hits.sort((a, b) => b.score - a.score);
+  return hits[0]?.value || null;
 }
 
 export default function PasteOrderPage() {
@@ -88,11 +119,22 @@ export default function PasteOrderPage() {
     ...o,
     items: o.items.map(it => {
       if (it.prodKey) return it;
-      const hit = cache[cacheKey(it.inputName)];
+      const hit = findLocalMapping(it.inputName, cache);
       if (!hit) return it;
-      const prod = prods.find(p => p.ProdKey === hit.prodKey);
+      const prod = prods.find(p => Number(p.ProdKey) === Number(hit.prodKey));
       if (!prod) return it;
-      return { ...it, prodKey: prod.ProdKey, prodName: prod.ProdName, displayName: prod.DisplayName || prod.ProdName, unit: defaultUnit(prod, it.unit, prodUnitMap) };
+      return {
+        ...it,
+        prodKey: prod.ProdKey,
+        prodName: prod.ProdName,
+        displayName: prod.DisplayName || prod.ProdName,
+        flowerName: prod.FlowerName,
+        counName: prod.CounName,
+        fromMapping: true,
+        confidence: 0.95,
+        confidenceLabel: 'high',
+        unit: defaultUnit(prod, it.unit, prodUnitMap),
+      };
     }),
   }));
 
@@ -135,7 +177,7 @@ export default function PasteOrderPage() {
         saving: false,
         resultMsg: '',
         items: (o.items || []).map((it, idx) => {
-          const prod = it.prodKey ? allProducts.find(p => p.ProdKey === it.prodKey) : null;
+          const prod = it.prodKey ? allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey)) : null;
           return {
             ...it,
             idx,
@@ -217,6 +259,37 @@ export default function PasteOrderPage() {
     updateItem(oid, idx, { prodSearch: q, prodSearchResults: results });
   };
 
+  const learnItemMapping = (item, prodOverride = null) => {
+    const prod = prodOverride || allProducts.find(p => Number(p.ProdKey) === Number(item?.prodKey));
+    if (!item?.inputName || !prod) return;
+    const key = cacheKey(item.inputName);
+    if (!key) return;
+    const value = {
+      prodKey: prod.ProdKey,
+      prodName: prod.ProdName,
+      displayName: prod.DisplayName,
+      flowerName: prod.FlowerName,
+      counName: prod.CounName,
+    };
+    const updated = { ...loadCache(), [key]: value };
+    setMappingCache(updated);
+    saveCache(updated);
+    fetch('/api/orders/mappings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        inputToken: item.inputName,
+        prodKey: prod.ProdKey,
+        prodName: prod.ProdName,
+        displayName: prod.DisplayName,
+        flowerName: prod.FlowerName,
+        counName: prod.CounName,
+        force: true,
+      }),
+    }).catch(() => {});
+  };
+
   // 미매칭 질문 패널: 사용자가 품목 선택
   const handleDisambigSelect = (prod, saveToCache = true) => {
     if (!currentQ) return;
@@ -227,17 +300,7 @@ export default function PasteOrderPage() {
       displayName: prod.DisplayName || prod.ProdName,
       unit:        defaultUnit(prod, null, prodUnitMap),  // 장미/네덜란드 → 단, 나머지 → 박스
     });
-    if (saveToCache) {
-      const updated = { ...mappingCache, [cacheKey(inputName)]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
-      setMappingCache(updated);
-      saveCache(updated);
-      // 서버에도 저장 (전 사용자 공유 학습) — 사용자가 직접 매칭 변경한 거니 force=true
-      fetch('/api/orders/mappings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ inputToken: inputName, prodKey: prod.ProdKey, prodName: prod.ProdName,
-          displayName: prod.DisplayName, flowerName: prod.FlowerName, counName: prod.CounName, force: true }),
-      }).catch(() => {});
-    }
+    if (saveToCache) learnItemMapping({ inputName }, prod);
     setDisambigSearch('');
     setDisambigResults([]);
     // queueIdx는 그대로 — 이 항목이 사라지면서 다음 항목이 자동으로 currentQ가 됨
@@ -367,6 +430,7 @@ export default function PasteOrderPage() {
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
     setBulkResult({ okCount, failCount, details });
+    details.filter(x => x.ok).forEach(x => learnItemMapping(x));
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
     try {
@@ -476,14 +540,8 @@ export default function PasteOrderPage() {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}` });
         // 저장 성공한 품목의 inputName→prodKey 매핑 서버에 학습
-        const mappingItems = order.items.filter(it => !it.skip && it.prodKey && it.inputName && it.action !== '취소');
-        mappingItems.forEach(it => {
-          fetch('/api/orders/mappings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-            body: JSON.stringify({ inputToken: it.inputName, prodKey: it.prodKey, prodName: it.prodName,
-              displayName: it.displayName, flowerName: it.flowerName, counName: it.counName }),
-          }).catch(() => {});
-        });
+        const mappingItems = order.items.filter(it => !it.skip && it.prodKey && it.inputName);
+        mappingItems.forEach(it => learnItemMapping(it));
         try {
           const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
           if (od.success && od.orders?.length > 0) {
@@ -765,7 +823,7 @@ export default function PasteOrderPage() {
                           </td>
                           <td style={{ padding: '4px 8px' }}>
                             {it.prodKey ? (() => {
-                              const pd = allProducts.find(p => p.ProdKey === it.prodKey);
+                              const pd = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
                               // 매칭 신뢰도 시각화
                               const conf = it.confidenceLabel || (it.fromMapping ? 'medium' : 'medium');
                               const isLow = conf === 'low' || it.fallbackSuspect;
