@@ -15,6 +15,7 @@ function getClient() {
 
 import { defaultUnit } from '../../../lib/orderUtils';
 import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
+import { loadCustomerMappings, findCustomerMapping } from '../../../lib/customerMappings';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -166,6 +167,8 @@ export default withAuth(async function handler(req, res) {
     const products  = prodRes.recordset;
     const allProducts = allProdRes.recordset;
     const productByKey = new Map(allProducts.map(p => [Number(p.ProdKey), p]));
+    const customerByKey = new Map(customers.map(c => [Number(c.CustKey), c]));
+    const savedCustomerMappings = loadCustomerMappings(true);
 
     // 품목별 이력 단위 맵 빌드
     const prodUnitMap = {};
@@ -320,7 +323,11 @@ Caroline | 2
     const orders = (parsed.orders || []).map(order => {
       let custMatch = null;
       const normCust = s => String(s || '').replace(/\s+/g, '').toLowerCase();
-      if (order.custKey) {
+      const savedCustMap = findCustomerMapping(order.custName, savedCustomerMappings);
+      if (savedCustMap?.value?.custKey) {
+        custMatch = customerByKey.get(Number(savedCustMap.value.custKey)) || null;
+      }
+      if (!custMatch && order.custKey) {
         custMatch = customers.find(c => c.CustKey === order.custKey) || null;
       }
       if (!custMatch && order.custName) {
@@ -389,7 +396,13 @@ Caroline | 2
         };
       });
 
-      return { custMatch, items };
+      return {
+        custName: order.custName || '',
+        custMatch,
+        custFromMapping: !!savedCustMap && !!custMatch,
+        custMappingKey: savedCustMap?.key || null,
+        items,
+      };
     });
 
     // 차수 정규화: "16-1" → "16-01"

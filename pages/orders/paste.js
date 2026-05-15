@@ -7,6 +7,7 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit } from '../../lib/orderUtils';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
+const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
 
 // 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
 function getDefaultWeek() {
@@ -34,6 +35,21 @@ function loadCache() {
 }
 function saveCache(cache) {
   try { localStorage.setItem(MAPPING_KEY, JSON.stringify(cache)); } catch {}
+}
+function loadCustomerCache() {
+  try { return JSON.parse(localStorage.getItem(CUSTOMER_MAPPING_KEY) || '{}'); } catch { return {}; }
+}
+function saveCustomerCache(cache) {
+  try { localStorage.setItem(CUSTOMER_MAPPING_KEY, JSON.stringify(cache)); } catch {}
+}
+function customerCacheKey(inputName) {
+  return (inputName || '')
+    .toLowerCase()
+    .replace(/[()[\]{}]/g, ' ')
+    .replace(/(추가|취소|삭제|출고|입고|변경사항|변경|오늘|일요일|월요일|화요일|수요일|목요일|금요일|토요일)/g, ' ')
+    .replace(/[|:：,\-→>]/g, ' ')
+    .replace(/\s+/g, '')
+    .trim();
 }
 function cacheKey(inputName) {
   return normalizePasteToken(inputName);
@@ -88,6 +104,7 @@ export default function PasteOrderPage() {
   const [orders, setOrders] = useState([]);
   const [parseError, setParseError] = useState('');
   const [mappingCache, setMappingCache] = useState({});
+  const [customerMappingCache, setCustomerMappingCache] = useState({});
   const [queueIdx, setQueueIdx] = useState(0);   // 현재 질문 중인 미매칭 항목 인덱스
   const [disambigSearch, setDisambigSearch] = useState('');
   const [disambigResults, setDisambigResults] = useState([]);
@@ -102,6 +119,7 @@ export default function PasteOrderPage() {
 
   useEffect(() => {
     setMappingCache(loadCache());
+    setCustomerMappingCache(loadCustomerCache());
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
@@ -163,6 +181,7 @@ export default function PasteOrderPage() {
 
       const cache = loadCache();
       setMappingCache(cache);
+      setCustomerMappingCache(loadCustomerCache());
 
       // 감지된 차수 자동 적용 ("WW-SS" → 현재 연도 붙여서 "YYYY-WW-SS")
       let effectiveWeek = week;
@@ -178,7 +197,10 @@ export default function PasteOrderPage() {
 
       const raw = (d.orders || []).map((o, oi) => ({
         id: oi,
+        custName: o.custName || '',
         custMatch: o.custMatch,
+        custFromMapping: !!o.custFromMapping,
+        custMappingKey: o.custMappingKey || null,
         saving: false,
         resultMsg: '',
         items: (o.items || []).map((it, idx) => {
@@ -236,8 +258,42 @@ export default function PasteOrderPage() {
 
   // 거래처 매칭 시 자동으로 기존 주문/분배 미리보기 로드
   // (사용자가 수동 검색해서 거래처 선택한 경우도 포함)
+  const learnCustomerMapping = (inputName, customer) => {
+    if (!inputName || !customer?.CustKey) return;
+    const key = customerCacheKey(inputName);
+    if (!key) return;
+    const value = {
+      custKey: customer.CustKey,
+      custName: customer.CustName,
+      custArea: customer.CustArea || '',
+    };
+    const updated = { ...loadCustomerCache(), [key]: value };
+    setCustomerMappingCache(updated);
+    saveCustomerCache(updated);
+    fetch('/api/orders/customer-mappings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        inputToken: inputName,
+        custKey: customer.CustKey,
+        custName: customer.CustName,
+        custArea: customer.CustArea,
+      }),
+    }).catch(() => {});
+  };
+
   const setCustMatch = (oid, customer) => {
-    updateOrder(oid, { custMatch: customer });
+    const order = orders.find(o => o.id === oid);
+    const inputName = order?.custName || order?.custMatch?.CustName || customer?.CustName;
+    if (customer && inputName && customer.CustName !== inputName) {
+      learnCustomerMapping(inputName, customer);
+    }
+    updateOrder(oid, {
+      custMatch: customer,
+      custFromMapping: false,
+      custMappingKey: inputName ? customerCacheKey(inputName) : null,
+    });
     if (!customer || !week) return;
     // 비동기로 기존 주문 + 분배 fetch
     (async () => {
@@ -583,10 +639,14 @@ export default function PasteOrderPage() {
       week,
       detectedWeek,
       mappingCache,
+      customerMappingCache,
       orders: orders.map(o => ({
         id: o.id,
+        inputCustName: o.custName || '',
         custName: o.custMatch?.CustName || o.custName || '',
         custKey: o.custMatch?.CustKey || null,
+        custFromMapping: !!o.custFromMapping,
+        custMappingKey: o.custMappingKey || null,
         items: (o.items || []).map(it => ({
           inputName: it.inputName,
           prodKey: it.prodKey || null,
@@ -788,6 +848,11 @@ export default function PasteOrderPage() {
                   <>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>✅ {order.custMatch.CustName}</span>
                     <span style={{ fontSize: 12, opacity: 0.8 }}>{order.custMatch.CustArea}</span>
+                    {order.custName && order.custName !== order.custMatch.CustName && (
+                      <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 10, padding: '2px 8px' }}>
+                        입력 {order.custName} → {order.custFromMapping ? '저장매칭' : '자동/수동'} 적용
+                      </span>
+                    )}
                     <button onClick={() => updateOrder(order.id, { custMatch: null })}
                       style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 4, cursor: 'pointer' }}>
                       변경
