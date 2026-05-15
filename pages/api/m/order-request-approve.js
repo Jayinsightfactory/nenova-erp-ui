@@ -89,7 +89,7 @@ async function handler(req, res) {
       // Product 환산정보 함께 가져와 Box/Bunch/Steam 3종 채움 (전산 호환)
       const details = await tQ(
         `SELECT ord.ProdKey, ord.Quantity, ord.Unit,
-                p.OutUnit, ISNULL(p.BunchOf1Box,1) AS bpb, ISNULL(p.SteamOf1Box,1) AS spb
+                p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,1) AS bpb, ISNULL(p.SteamOf1Box,1) AS spb
            FROM OrderRequestDetail ord
            JOIN Product p ON ord.ProdKey = p.ProdKey
           WHERE ord.RequestKey=@rk`,
@@ -118,10 +118,10 @@ async function handler(req, res) {
         await tQ(
           `INSERT INTO OrderDetail
              (OrderDetailKey, OrderMasterKey, ProdKey,
-              BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, NoneOutQuantity,
+              BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity, EstUnit, NoneOutQuantity,
               isDeleted, CreateID, CreateDtm)
            VALUES (@odk, @ok, @pk,
-                   @box, @bnq, @sq, @oq, 0,
+                   @box, @bnq, @sq, @oq, @oq, @estUnit, 0,
                    0, @uid, GETDATE())`,
           {
             odk: { type: sql.Int,   value: odk },
@@ -131,10 +131,13 @@ async function handler(req, res) {
             bnq: { type: sql.Float, value: bunchQ },
             sq:  { type: sql.Float, value: steamQ },
             oq:  { type: sql.Float, value: outQ },
+            estUnit: { type: sql.NVarChar, value: d.EstUnit || d.OutUnit || unit },
             uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
       }
+
+      await runStockCalculation(tQ, String(new Date().getFullYear()), reqRow.OrderWeek, req.user?.userId || 'admin');
 
       // 신청 상태 업데이트 (ApprovedOrderKey → 컬럼명이 다를 수 있음, 일단 그대로)
       await tQ(
@@ -158,3 +161,29 @@ async function handler(req, res) {
 }
 
 export default withAuth(handler);
+
+async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
+  await tQ(
+    `IF EXISTS (
+       SELECT 1 FROM sys.parameters
+        WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
+          AND name = N'@oResult'
+     )
+     BEGIN
+       DECLARE @r INT, @m NVARCHAR(MAX);
+       EXEC dbo.usp_StockCalculation
+            @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid,
+            @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
+       SELECT @r AS result, @m AS message;
+     END
+     ELSE
+     BEGIN
+       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid;
+     END`,
+    {
+      year: { type: sql.NVarChar, value: String(orderYear) },
+      week: { type: sql.NVarChar, value: orderWeek || '' },
+      uid:  { type: sql.NVarChar, value: uid || 'admin' },
+    }
+  );
+}

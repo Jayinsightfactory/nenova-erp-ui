@@ -135,6 +135,16 @@ async function uploadWarehouse(req, res) {
               s1bh: { type: sql.Float,    value: parseFloat(item.steamOf1Bunch) || 0 },
             }
           );
+          await insertStockHistory(
+            tQuery,
+            orderYear || new Date().getFullYear().toString(),
+            orderWeek || '',
+            req.user?.userId || 'admin',
+            '입고',
+            item.prodKey,
+            parseFloat(item.outQty) || 0,
+            `입고등록 ${farmName || ''} ${invoiceNo || awb || ''}`.trim()
+          );
           successCount++;
         } catch (e) {
           errs.push({ prodName: item.prodName, error: e.message });
@@ -142,6 +152,7 @@ async function uploadWarehouse(req, res) {
       }
 
       if (successCount === 0) throw new Error(`품목 매칭 실패: ${errs.map(e=>e.prodName).join(', ')}`);
+      await runStockCalculation(tQuery, orderYear || new Date().getFullYear().toString(), orderWeek || '', req.user?.userId || 'admin');
       return { warehouseKey: wk, ok: successCount, errors: errs };
     });
 
@@ -158,10 +169,101 @@ async function uploadWarehouse(req, res) {
 async function deleteWarehouse(req, res) {
   const { warehouseKey } = req.body;
   try {
-    await query(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
-      { wk: { type: sql.Int, value: parseInt(warehouseKey) } });
+    await withTransaction(async (tQuery) => {
+      const info = await tQuery(
+        `SELECT wm.OrderYear, wm.OrderWeek, wm.FarmName, wm.InvoiceNo, wm.OrderNo,
+                wd.ProdKey, ISNULL(wd.OutQuantity,0) AS OutQuantity
+           FROM WarehouseMaster wm
+           JOIN WarehouseDetail wd ON wm.WarehouseKey=wd.WarehouseKey
+          WHERE wm.WarehouseKey=@wk AND ISNULL(wm.isDeleted,0)=0`,
+        { wk: { type: sql.Int, value: parseInt(warehouseKey) } }
+      );
+
+      await tQuery(`UPDATE WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=@wk`,
+        { wk: { type: sql.Int, value: parseInt(warehouseKey) } });
+
+      const first = info.recordset[0];
+      for (const row of info.recordset) {
+        await insertStockHistory(
+          tQuery,
+          row.OrderYear || new Date().getFullYear().toString(),
+          row.OrderWeek || '',
+          req.user?.userId || 'admin',
+          '입고삭제',
+          row.ProdKey,
+          -Number(row.OutQuantity || 0),
+          `입고삭제 ${row.FarmName || ''} ${row.InvoiceNo || row.OrderNo || ''}`.trim()
+        );
+      }
+      if (first) {
+        await runStockCalculation(tQuery, first.OrderYear || new Date().getFullYear().toString(), first.OrderWeek || '', req.user?.userId || 'admin');
+      }
+    });
     return res.status(200).json({ success: true, message: '원장 삭제 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
+}
+
+async function insertStockHistory(tQuery, orderYear, orderWeek, uid, changeType, prodKey, delta, descr) {
+  if (!prodKey || !delta) return;
+  const beforeResult = await tQuery(
+    `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
+    { pk: { type: sql.Int, value: prodKey } }
+  );
+  const before = Number(beforeResult.recordset[0]?.Stock || 0);
+  const after = before + Number(delta || 0);
+  await tQuery(
+    `INSERT INTO StockHistory
+       (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
+        BeforeValue, AfterValue, Descr, ProdKey)
+     VALUES (GETDATE(), @year, @week, @uid, @type, N'재고수량',
+        @before, @after, @descr, @pk)`,
+    {
+      year:   { type: sql.NVarChar, value: String(orderYear) },
+      week:   { type: sql.NVarChar, value: orderWeek || '' },
+      uid:    { type: sql.NVarChar, value: uid || 'admin' },
+      type:   { type: sql.NVarChar, value: changeType },
+      before: { type: sql.Float,    value: before },
+      after:  { type: sql.Float,    value: after },
+      descr:  { type: sql.NVarChar, value: descr || '' },
+      pk:     { type: sql.Int,      value: prodKey },
+    }
+  );
+}
+
+async function runStockCalculation(tQuery, orderYear, orderWeek, uid) {
+  await tQuery(
+    stockCalculationSql(),
+    {
+      year: { type: sql.NVarChar, value: String(orderYear) },
+      week: { type: sql.NVarChar, value: orderWeek || '' },
+      uid:  { type: sql.NVarChar, value: uid || 'admin' },
+    }
+  );
+}
+
+function stockCalculationSql() {
+  return `IF EXISTS (
+            SELECT 1 FROM sys.parameters
+             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
+               AND name = N'@oResult'
+          )
+          BEGIN
+            DECLARE @r INT, @m NVARCHAR(MAX);
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @iUserID   = @uid,
+                 @oResult   = @r OUTPUT,
+                 @oMessage  = @m OUTPUT;
+            SELECT @r AS result, @m AS message;
+          END
+          ELSE
+          BEGIN
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @iUserID   = @uid;
+          END`;
 }

@@ -33,6 +33,56 @@ function checkApiKey(req, res) {
   return true;
 }
 
+function toAllUnits(qty, unit, prod = {}) {
+  const B1B = Number(prod.B1B || prod.BunchOf1Box || 0);
+  const S1B = Number(prod.S1B || prod.SteamOf1Box || 0);
+  const outUnit = prod.OutUnit || unit || '박스';
+  let box = 0;
+  let bunch = 0;
+  let steam = 0;
+  if (unit === '단') {
+    bunch = qty;
+    box = B1B > 0 ? qty / B1B : 0;
+    steam = (B1B > 0 && S1B > 0) ? box * S1B : 0;
+  } else if (unit === '송이') {
+    steam = qty;
+    box = S1B > 0 ? qty / S1B : 0;
+    bunch = (S1B > 0 && B1B > 0) ? box * B1B : 0;
+  } else {
+    box = qty;
+    bunch = B1B > 0 ? qty * B1B : 0;
+    steam = S1B > 0 ? qty * S1B : 0;
+  }
+  const outQ = outUnit === '단' ? bunch : outUnit === '송이' ? steam : box;
+  return { box, bunch, steam, outQ };
+}
+
+async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
+  await tQ(
+    `IF EXISTS (
+       SELECT 1 FROM sys.parameters
+        WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
+          AND name = N'@oResult'
+     )
+     BEGIN
+       DECLARE @r INT, @m NVARCHAR(MAX);
+       EXEC dbo.usp_StockCalculation
+            @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid,
+            @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
+       SELECT @r AS result, @m AS message;
+     END
+     ELSE
+     BEGIN
+       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid;
+     END`,
+    {
+      year: { type: sql.NVarChar, value: String(orderYear) },
+      week: { type: sql.NVarChar, value: orderWeek || '' },
+      uid:  { type: sql.NVarChar, value: uid || 'admin' },
+    }
+  );
+}
+
 export default async function handler(req, res) {
   // CORS 허용 (외부 프로그램 접근)
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -197,11 +247,17 @@ async function createOrder(req, res) {
           prodKey = pr.recordset[0].ProdKey;
         }
 
+        const prodInfo = await tQ(
+          `SELECT OutUnit, EstUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+             FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
+          { pk: { type: sql.Int, value: prodKey } }
+        );
+        if (!prodInfo.recordset[0]) { results.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+
         const qty   = parseFloat(item.qty) || 0;
-        const unit  = item.unit || '박스';
-        const box   = unit === '박스' ? qty : 0;
-        const bunch = unit === '단'   ? qty : 0;
-        const steam = unit === '송이' ? qty : 0;
+        const unit  = item.unit === '개' ? '송이' : (item.unit || '박스');
+        const q = toAllUnits(qty, unit, prodInfo.recordset[0]);
+        const estUnit = prodInfo.recordset[0].EstUnit || prodInfo.recordset[0].OutUnit || unit;
 
         const odExist = await tQ(
           `SELECT OrderDetailKey FROM OrderDetail WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
@@ -209,14 +265,17 @@ async function createOrder(req, res) {
         );
 
         if (odExist.recordset.length > 0) {
-          // 14차 패턴: OutQuantity 는 건드리지 않음
           await tQ(
-            `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam
+            `UPDATE OrderDetail SET
+                BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
+                OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
-              box:   { type: sql.Float, value: box },
-              bunch: { type: sql.Float, value: bunch },
-              steam: { type: sql.Float, value: steam },
+              box:   { type: sql.Float, value: q.box },
+              bunch: { type: sql.Float, value: q.bunch },
+              steam: { type: sql.Float, value: q.steam },
+              oq:    { type: sql.Float, value: q.outQ },
+              estUnit: { type: sql.NVarChar, value: estUnit },
               mk:    { type: sql.Int,   value: mk },
               pk:    { type: sql.Int,   value: prodKey },
             }
@@ -229,24 +288,26 @@ async function createOrder(req, res) {
             {}
           );
           const nextKey = maxKey.recordset[0].nextKey;
-          // 14차 패턴: OutQuantity=0, NoneOutQuantity=0
           await tQ(
             `INSERT INTO OrderDetail
                (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                OutQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, 0, 0, 0, 'API', GETDATE())`,
+                OutQuantity, EstQuantity, EstUnit, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+             VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, @estUnit, 0, 0, 'API', GETDATE())`,
             {
               nk:    { type: sql.Int,   value: nextKey },
               mk:    { type: sql.Int,   value: mk },
               pk:    { type: sql.Int,   value: prodKey },
-              box:   { type: sql.Float, value: box },
-              bunch: { type: sql.Float, value: bunch },
-              steam: { type: sql.Float, value: steam },
+              box:   { type: sql.Float, value: q.box },
+              bunch: { type: sql.Float, value: q.bunch },
+              steam: { type: sql.Float, value: q.steam },
+              oq:    { type: sql.Float, value: q.outQ },
+              estUnit: { type: sql.NVarChar, value: estUnit },
             }
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
       }
+      await runStockCalculation(tQ, year || String(new Date().getFullYear()), week, 'API');
       return { orderMasterKey: mk, created, results };
     });
 

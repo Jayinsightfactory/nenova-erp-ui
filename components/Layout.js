@@ -33,6 +33,7 @@ const MENU_ITEMS = [
       { href: '/incoming-price',      labelKey: '입고단가/송금', popup: false },
       { href: '/freight',             labelKey: '운송기준원가', popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
+      { href: '/shipment/fix-status',    labelKey: '차수 확정 현황', popup: false },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
       { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },
       { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
@@ -84,6 +85,7 @@ const MENU_ITEMS = [
       { href: '/master/activity',  labelKey: '작업내역',             popup: true },
       { href: '/admin/category-overrides', labelKey: '🏷 세부카테고리', popup: true },
       { href: '/dev/action-log',   labelKey: '🔍 액션 로그',         popup: false },
+      { href: '/dev/project-plan',  labelKey: '작업/기획 현황',       popup: false },
     ]
   },
 ];

@@ -504,6 +504,10 @@ export default function PasteOrderPage() {
   const totalAdd    = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action !== '취소' && it.prodKey).length, 0);
   const totalCancel = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action === '취소').length, 0);
   const cachedEntries = Object.keys(mappingCache).length;
+  const openWeekPivot = () => {
+    const suffix = week ? `?weekFrom=${encodeURIComponent(week)}&weekTo=${encodeURIComponent(week)}` : '';
+    window.location.href = `/shipment/week-pivot${suffix}`;
+  };
 
   return (
     <Layout title="붙여넣기 주문등록">
@@ -513,7 +517,7 @@ export default function PasteOrderPage() {
             📋 붙여넣기 주문등록
           </h2>
           <button
-            onClick={() => { window.location.href = '/shipment/week-pivot'; }}
+            onClick={openWeekPivot}
             style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
             📊 차수피벗 이동
@@ -905,6 +909,11 @@ export default function PasteOrderPage() {
                         <strong>일괄 분배 결과:</strong>
                         {' '}✅ 성공 {bulkResult.okCount}건
                         {bulkResult.failCount > 0 && <> / ❌ 실패 {bulkResult.failCount}건</>}
+                        {bulkResult.okCount > 0 && (
+                          <button onClick={openWeekPivot} style={{ marginLeft: 8, fontSize: 11, padding: '0 8px', background: '#1565c0', color: '#fff', border: '1px solid #1565c0', borderRadius: 4, cursor: 'pointer' }}>
+                            차수피벗/엑셀
+                          </button>
+                        )}
                         <button onClick={() => setBulkResult(null)} style={{ marginLeft: 8, fontSize: 11, padding: '0 6px', background: 'none', border: '1px solid #999', borderRadius: 4, cursor: 'pointer' }}>닫기</button>
                         {bulkResult.failCount > 0 && (
                           <div style={{ marginTop: 4, fontSize: 11, color: '#e65100' }}>

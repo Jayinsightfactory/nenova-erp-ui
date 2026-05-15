@@ -45,10 +45,9 @@ export default function Stock() {
 
   const selected = selectedIdx !== null ? stock[selectedIdx] : null;
 
-  // 재고수량 계산: prevStock - outQty - adjustQty
-  const calcStock = (s) => (s.prevStock || 0) - (s.outQty || 0) - (s.adjustQty || 0);
-  // 전 차수 재고: prevStock - inQty
-  const calcPrevStock = (s) => (s.prevStock || 0) - (s.inQty || 0);
+  // exe stock calculation: previous/current ProductStock + in - out + StockHistory delta
+  const calcStock = (s) => (s.prevStock || 0) + (s.inQty || 0) - (s.outQty || 0) + (s.adjustQty || 0);
+  const calcPrevStock = (s) => s.prevStock || 0;
 
   // 조정 등록 모달 열기 - 사진과 동일한 폼
   const openAdjust = (prod) => {
@@ -78,7 +77,7 @@ export default function Stock() {
         descr: form.descr,
       });
       setShowModal(false);
-      setSuccessMsg('✅ 재고 조정 등록 완료 (테스트 테이블)');
+      setSuccessMsg('✅ 재고 조정 등록 완료');
       setTimeout(() => setSuccessMsg(''), 3000);
       load();
     } catch (e) { alert(e.message); } finally { setSaving(false); }
@@ -282,7 +281,7 @@ export default function Stock() {
                     style={{resize:'vertical'}} />
                 </div>
               </div>
-              <div style={{fontSize:11,color:'var(--amber)',marginTop:8}}>⚠️ _new_StockHistory (테스트 테이블)에 저장됩니다.</div>
+              <div style={{fontSize:11,color:'var(--amber)',marginTop:8}}>⚠️ StockHistory 저장 후 전산 재고계산을 실행합니다.</div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

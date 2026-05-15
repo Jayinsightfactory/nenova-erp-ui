@@ -115,7 +115,7 @@ async function postAdjust(req, res) {
     const result = await withTransaction(async (tQ) => {
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+        `SELECT ProdName, OutUnit, EstUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
            FROM Product WHERE ProdKey=@pk`,
         { pk: { type: sql.Int, value: pk } }
       );
@@ -124,6 +124,7 @@ async function postAdjust(req, res) {
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
       const prodOutUnit = prod.OutUnit || '박스';
+      const prodEstUnit = prod.EstUnit || prodOutUnit;
       const userUnit = unit || prodOutUnit;
       const B1B = prod.B1B || 0;
       const S1B = prod.S1B || 0;
@@ -199,29 +200,46 @@ async function postAdjust(req, res) {
       // ADD 일 때만 OrderDetail INSERT/UPDATE — 모든 단위 환산값 저장
       if (type === 'ADD') {
         const u = toAllUnits(orderQtyAfter);
+        let targetOdk = odRow?.OrderDetailKey;
 
         if (odRow) {
           await tQ(
             `UPDATE OrderDetail SET
                BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+               OutQuantity=@oq, EstQuantity=@oq, EstUnit=@estUnit, NoneOutQuantity=0,
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
               sq: { type: sql.Float, value: u.steam },
+              oq: { type: sql.Float, value: u.outQ },
+              estUnit: { type: sql.NVarChar, value: prodEstUnit },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
         } else {
           const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
+          targetOdk = odk;
           await tQ(
             `INSERT INTO OrderDetail
                (OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
-                OutQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
-             VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,0,0,0,@uid,GETDATE())`,
+                OutQuantity,EstQuantity,EstUnit,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
+             VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,@estUnit,0,0,@uid,GETDATE())`,
             { nk: { type: sql.Int, value: odk }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
               bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
               sq: { type: sql.Float, value: u.steam },
+              oq: { type: sql.Float, value: u.outQ },
+              estUnit: { type: sql.NVarChar, value: prodEstUnit },
               uid: { type: sql.NVarChar, value: 'admin' } }
+          );
+        }
+        if (targetOdk) {
+          await insertOrderHistory(
+            tQ,
+            targetOdk,
+            String(orderQtyBefore),
+            String(orderQtyAfter),
+            `[${formatLogTime()} ${userName}] paste order + distribute`,
+            uid
           );
         }
       }
@@ -278,6 +296,8 @@ async function postAdjust(req, res) {
       if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore}${userUnit})보다 큼`);
 
       const u = toAllUnits(qtyAfter);
+      const outQBefore = !sdRow ? 0 : sdRow.curOut;
+      const outQAfter  = u.outQ;
 
       let targetSdk;
       if (sdRow) {
@@ -311,6 +331,17 @@ async function postAdjust(req, res) {
             sq: { type: sql.Float, value: u.steam } }
         );
         targetSdk = sdk;
+      }
+
+      if (targetSdk) {
+        await insertShipmentHistory(
+          tQ,
+          targetSdk,
+          String(outQBefore),
+          String(outQAfter),
+          `[${formatLogTime()} ${userName}] ${type === 'ADD' ? 'paste order + distribute' : 'shipment cancel'}${memo ? ` / ${memo}` : ''}`,
+          uid
+        );
       }
 
       // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
@@ -348,8 +379,6 @@ async function postAdjust(req, res) {
       const totalIn  = remainQ.recordset[0].totalIn  || 0;
       const totalOut = remainQ.recordset[0].totalOut || 0;
       // OutQuantity 단위로 전후 환산 (totalOut 도 OutQuantity 기준이므로)
-      const outQAfter  = u.outQ;
-      const outQBefore = !sdRow ? 0 : sdRow.curOut;
       // remainBefore: 이 행 변경 직전 시점
       const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
@@ -403,5 +432,50 @@ async function postAdjust(req, res) {
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+function formatLogTime() {
+  const now = new Date();
+  return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {
+  try {
+    await tQ(
+      `INSERT INTO OrderHistory
+         (OrderDetailKey, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+       VALUES (@dk, N'수정', N'수량', @before, @after, @descr, @uid, GETDATE())`,
+      {
+        dk:     { type: sql.Int,      value: detailKey },
+        before: { type: sql.NVarChar, value: before },
+        after:  { type: sql.NVarChar, value: after },
+        descr:  { type: sql.NVarChar, value: descr },
+        uid:    { type: sql.NVarChar, value: uid },
+      }
+    );
+  } catch (e) {
+    console.warn('[OrderHistory INSERT failed]', e.message);
+  }
+}
+
+async function insertShipmentHistory(tQ, sdetailKey, before, after, descr, uid) {
+  try {
+    await tQ(
+      `INSERT INTO ShipmentHistory
+         (SdetailKey, ShipmentDtm, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+       SELECT @dk, ShipmentDtm, N'수정', N'OutQuantity', @before, @after, @descr, @uid, GETDATE()
+         FROM ShipmentDetail
+        WHERE SdetailKey=@dk`,
+      {
+        dk:     { type: sql.Int,      value: sdetailKey },
+        before: { type: sql.NVarChar, value: before },
+        after:  { type: sql.NVarChar, value: after },
+        descr:  { type: sql.NVarChar, value: descr },
+        uid:    { type: sql.NVarChar, value: uid },
+      }
+    );
+  } catch (e) {
+    console.warn('[ShipmentHistory INSERT failed]', e.message);
   }
 }

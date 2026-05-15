@@ -29,53 +29,28 @@ export default withAuth(async function handler(req, res) {
     let custWhere = '';
     const params = { week: { type: sql.NVarChar, value: week } };
     if (custKey) {
-      custWhere = 'AND om.CustKey = @ck';
+      custWhere = 'AND vs.CustKey = @ck';
       params.ck = { type: sql.Int, value: parseInt(custKey) };
     }
 
-    // 출고 데이터 조회 (ShipmentDetail 기준)
+    // 출고 데이터 조회 (exe ViewShipment + ShipmentDate 기준)
     const result = await query(
       `SELECT
-        c.CustKey, c.CustName,
-        p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
+        vs.CustKey, vs.CustName,
+        vs.ProdKey, vs.ProdName, vs.FlowerName, vs.CounName, vs.CountryFlower,
         p.OutUnit,
-        ISNULL(sd.OutQuantity, 0) AS OutQty,
-        CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipmentDtm
-       FROM ShipmentMaster sm
-       JOIN Customer c ON sm.CustKey = c.CustKey
-       JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
-       JOIN Product p ON sd.ProdKey = p.ProdKey
-       JOIN OrderMaster om ON om.CustKey = sm.CustKey AND om.OrderWeek = @week AND om.isDeleted = 0
-       WHERE sm.OrderWeek = @week AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+        ISNULL(sdt.ShipmentQuantity, vs.OutQuantity) AS OutQty,
+        CONVERT(NVARCHAR(10), ISNULL(sdt.ShipmentDtm, vs.ShipmentDtm), 120) AS ShipmentDtm
+       FROM ViewShipment vs
+       LEFT JOIN ShipmentDate sdt ON vs.SdetailKey = sdt.SdetailKey
+       LEFT JOIN Product p ON vs.ProdKey = p.ProdKey
+       WHERE vs.OrderWeek = @week AND vs.OutQuantity > 0
        ${custWhere}
-       ORDER BY c.CustName, p.CountryFlower, p.FlowerName, p.ProdName`,
+       ORDER BY vs.CustName, vs.CountryFlower, vs.FlowerName, vs.ProdName`,
       params
     );
 
-    // _new_ShipmentDetail도 체크 (아직 확정 안 된 것)
-    const newResult = await query(
-      `SELECT
-        c.CustKey, c.CustName,
-        p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
-        p.OutUnit,
-        ISNULL(sd.OutQuantity, 0) AS OutQty,
-        CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipmentDtm
-       FROM _new_ShipmentMaster sm
-       JOIN Customer c ON sm.CustKey = c.CustKey
-       JOIN _new_ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
-       JOIN Product p ON sd.ProdKey = p.ProdKey
-       WHERE sm.OrderWeek = @week AND sm.isDeleted = 0 AND sd.OutQuantity > 0
-       ${custWhere ? custWhere.replace('om.CustKey','sm.CustKey') : ''}
-       ORDER BY c.CustName, p.CountryFlower, p.FlowerName, p.ProdName`,
-      params
-    );
-
-    // 두 결과 합치기 (new가 있으면 우선)
-    const allRows = [...newResult.recordset];
-    const newKeys = new Set(allRows.map(r => `${r.CustKey}|${r.ProdKey}`));
-    result.recordset.forEach(r => {
-      if (!newKeys.has(`${r.CustKey}|${r.ProdKey}`)) allRows.push(r);
-    });
+    const allRows = result.recordset;
 
     // 업체별 그룹핑
     const custMap = {};

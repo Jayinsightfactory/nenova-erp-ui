@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+  <defs>
+    <style>
+      .bg{fill:#f6f8fb}
+      .title{font-family:Arial,'Malgun Gothic',sans-serif;font-size:34px;font-weight:800;fill:#172033}
+      .sub{font-family:Arial,'Malgun Gothic',sans-serif;font-size:16px;fill:#536072}
+      .h{font-family:Arial,'Malgun Gothic',sans-serif;font-size:20px;font-weight:800;fill:#172033}
+      .t{font-family:Arial,'Malgun Gothic',sans-serif;font-size:15px;fill:#263244}
+      .s{font-family:Arial,'Malgun Gothic',sans-serif;font-size:13px;fill:#5b6675}
+      .tiny{font-family:Arial,'Malgun Gothic',sans-serif;font-size:12px;fill:#6b7280}
+      .box{fill:#fff;stroke:#d7dee8;stroke-width:1.5;rx:10}
+      .done{fill:#eaf7ef;stroke:#49a66a}
+      .work{fill:#fff8e6;stroke:#e0a528}
+      .todo{fill:#fff1f1;stroke:#d16060}
+      .info{fill:#eef5ff;stroke:#4a7fc3}
+      .line{stroke:#8da0b8;stroke-width:2;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#b7c1cf;stroke-width:2;fill:none;stroke-dasharray:6 6;marker-end:url(#arrow)}
+      .pillDone{fill:#2f9e5f}
+      .pillWarn{fill:#c47b12}
+      .pillTodo{fill:#b94141}
+      .pillInfo{fill:#356eb7}
+      .pillText{font-family:Arial,'Malgun Gothic',sans-serif;font-size:12px;font-weight:800;fill:white}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8da0b8"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1600" height="1120"/>
+
+  <text class="title" x="70" y="70">NenovaWeb 작업 흐름 최신 현황</text>
+  <text class="sub" x="70" y="100">Nenova.exe 분석 → 웹 동일 구현 → 주문/출고/재고/피벗 자동화 → 이카운트 ERP 100% 매칭 검증으로 진행 중</text>
+  <text class="tiny" x="70" y="124">업데이트: 2026-05-15 / 로컬 페이지: /dev/project-plan, /shipment/fix-status</text>
+
+  <rect class="box done" x="70" y="165" width="300" height="130"/>
+  <rect class="pillDone" x="92" y="185" width="58" height="24" rx="12"/><text class="pillText" x="108" y="202">완료</text>
+  <text class="h" x="92" y="232">1. EXE 구조 분석</text>
+  <text class="s" x="92" y="258">dnSpy/IL 기반 Forms, 메뉴, SP, DB 흐름 확인</text>
+  <text class="s" x="92" y="280">주요 SP: ShipmentFix, StockCalculation 등</text>
+
+  <rect class="box done" x="430" y="165" width="300" height="130"/>
+  <rect class="pillDone" x="452" y="185" width="58" height="24" rx="12"/><text class="pillText" x="468" y="202">완료</text>
+  <text class="h" x="452" y="232">2. 메뉴/기능 매칭 감사</text>
+  <text class="s" x="452" y="258">EXE와 웹 메뉴, 버튼, 데이터값 비교 문서화</text>
+  <text class="s" x="452" y="280">기존 EXE 메뉴는 100% 매칭 대상</text>
+
+  <rect class="box done" x="790" y="165" width="300" height="130"/>
+  <rect class="pillDone" x="812" y="185" width="58" height="24" rx="12"/><text class="pillText" x="828" y="202">완료</text>
+  <text class="h" x="812" y="232">3. 주문등록 보강</text>
+  <text class="s" x="812" y="258">붙여넣기 주문 → 실제 OrderDetail 필수값 보강</text>
+  <text class="s" x="812" y="280">히스토리/재고계산/차수피벗 연결</text>
+
+  <rect class="box done" x="1150" y="165" width="300" height="130"/>
+  <rect class="pillDone" x="1172" y="185" width="58" height="24" rx="12"/><text class="pillText" x="1188" y="202">완료</text>
+  <text class="h" x="1172" y="232">4. 출고분배 보강</text>
+  <text class="s" x="1172" y="258">ShipmentMaster/Detail, ShipmentDate 동기화</text>
+  <text class="s" x="1172" y="280">ShipmentHistory 기록 추가</text>
+
+  <path class="line" d="M370 230 H430"/>
+  <path class="line" d="M730 230 H790"/>
+  <path class="line" d="M1090 230 H1150"/>
+
+  <rect class="box done" x="70" y="365" width="300" height="150"/>
+  <rect class="pillDone" x="92" y="385" width="58" height="24" rx="12"/><text class="pillText" x="108" y="402">완료</text>
+  <text class="h" x="92" y="432">5. 출고확정/재고</text>
+  <text class="s" x="92" y="458">전산 SP 호출 중심으로 확정/취소 처리</text>
+  <text class="s" x="92" y="480">StockHistory, ProductStock cascade 보강</text>
+  <text class="s" x="92" y="502">음수재고 사전검증 개선</text>
+
+  <rect class="box done" x="430" y="365" width="300" height="150"/>
+  <rect class="pillDone" x="452" y="385" width="58" height="24" rx="12"/><text class="pillText" x="468" y="402">완료</text>
+  <text class="h" x="452" y="432">6. 차수 확정 현황</text>
+  <text class="s" x="452" y="458">/shipment/fix-status 신규 구현</text>
+  <text class="s" x="452" y="480">구간 확정취소: 높은 차수부터 낮은 차수</text>
+  <text class="s" x="452" y="502">오류 품목: 전재고+입고-출고 음수 표시</text>
+
+  <rect class="box done" x="790" y="365" width="300" height="150"/>
+  <rect class="pillDone" x="812" y="385" width="58" height="24" rx="12"/><text class="pillText" x="828" y="402">완료</text>
+  <text class="h" x="812" y="432">7. 차수피벗/엑셀</text>
+  <text class="s" x="812" y="458">주문등록 후 피벗/엑셀 바로 이동</text>
+  <text class="s" x="812" y="480">히스토리 기반 흐름 추적 가능</text>
+
+  <rect class="box work" x="1150" y="365" width="300" height="150"/>
+  <rect class="pillWarn" x="1172" y="385" width="72" height="24" rx="12"/><text class="pillText" x="1186" y="402">진행중</text>
+  <text class="h" x="1172" y="432">8. 경영지원/Ecount</text>
+  <text class="s" x="1172" y="458">현재 웹 계산값과 ERP 원본 차이 문서화</text>
+  <text class="s" x="1172" y="480">판매/채권/세금계산서/구매 원본 대조 필요</text>
+  <text class="s" x="1172" y="502">검증상태 컬럼 추가 예정</text>
+
+  <path class="line" d="M1300 295 V330 H220 V365"/>
+  <path class="line" d="M370 440 H430"/>
+  <path class="line" d="M730 440 H790"/>
+  <path class="line" d="M1090 440 H1150"/>
+
+  <rect class="box info" x="70" y="585" width="660" height="190"/>
+  <rect class="pillInfo" x="92" y="605" width="58" height="24" rx="12"/><text class="pillText" x="108" y="622">확인</text>
+  <text class="h" x="92" y="652">웹에서 볼 수 있는 현황판</text>
+  <text class="t" x="92" y="684">/dev/project-plan</text>
+  <text class="s" x="92" y="712">- 완료된 작업내역</text>
+  <text class="s" x="92" y="735">- 페이지별 기획/구현 상태</text>
+  <text class="s" x="92" y="758">- 아직 구현 못한 핵심 항목</text>
+  <text class="s" x="360" y="712">- 다음 추천 작업 순서</text>
+  <text class="s" x="360" y="735">- 관련 문서/SVG 링크</text>
+  <text class="s" x="360" y="758">- 빌드/검증 상태</text>
+
+  <rect class="box todo" x="790" y="585" width="660" height="260"/>
+  <rect class="pillTodo" x="812" y="605" width="82" height="24" rx="12"/><text class="pillText" x="828" y="622">남은일</text>
+  <text class="h" x="812" y="652">아직 구현/검증해야 하는 핵심</text>
+  <text class="s" x="812" y="685">1. 이카운트 ERP 원본과 경영지원 숫자 100% 매칭</text>
+  <text class="s" x="812" y="708">2. ERP 판매/채권/세금계산서/구매 원본 조회 또는 엑셀 대조</text>
+  <text class="s" x="812" y="731">3. Nenova.exe 전체 메뉴별 실측 검증</text>
+  <text class="s" x="812" y="754">4. 운영 DB에서 구간 확정취소 실측 테스트</text>
+  <text class="s" x="812" y="777">5. Product.Stock vs ProductStock 차이 진단 및 보정</text>
+  <text class="s" x="812" y="800">6. 신한은행/입출금 원본 연동 결정</text>
+  <text class="s" x="812" y="823">7. Railway 운영환경 DB 접속/IP/보안 경고 처리</text>
+
+  <path class="dash" d="M580 515 V585"/>
+  <path class="dash" d="M1300 515 V585"/>
+
+  <rect class="box" x="70" y="900" width="1380" height="130"/>
+  <text class="h" x="92" y="940">다음 추천 순서</text>
+  <text class="s" x="92" y="970">1) /shipment/fix-status 운영 DB 조회 확인 → 2) 좁은 구간 확정취소 테스트 → 3) Product.Stock 차이 리포트 → 4) 이카운트 원본 대조 방식 확정</text>
+  <text class="s" x="92" y="996">5) 경영지원 화면에 ERP 검증상태 표시 → 6) Railway 배포 전 환경/보안/빌드 최종검증</text>
+</svg>
+

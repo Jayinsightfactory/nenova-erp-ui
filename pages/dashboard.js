@@ -29,7 +29,7 @@ export default function Dashboard() {
       {err && <div className="banner-err">⚠️ DB 연결 오류: {err}</div>}
 
       <div className="banner-info">
-        실시간 DB 연결됨 — {data?.week} 차수 ({data?.year}) | 조회: 실제 DB · 등록: 테스트 테이블
+        실시간 DB 연결됨 — {data?.week} 차수 ({data?.year}) | 조회/등록: 실제 전산 DB
       </div>
 
       {/* KPI 요약 */}

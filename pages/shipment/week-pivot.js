@@ -398,6 +398,17 @@ export default function WeekPivot() {
     try { const u = JSON.parse(localStorage.getItem('nenovaUser')||'null'); if (!u) router.replace('/login'); else setUser(u); } catch { router.replace('/login'); }
   }, []);
 
+  // 붙여넣기 주문등록에서 넘어온 차수를 바로 조회할 수 있게 초기값 반영
+  useEffect(() => {
+    if (!router.isReady) return;
+    const qFrom = router.query.weekFrom || router.query.week;
+    const qTo = router.query.weekTo || qFrom;
+    const from = Array.isArray(qFrom) ? qFrom[0] : qFrom;
+    const to = Array.isArray(qTo) ? qTo[0] : qTo;
+    if (from && !weekFromInput.value) weekFromInput.setValue(String(from));
+    if (to && !weekToInput.value) weekToInput.setValue(String(to));
+  }, [router.isReady, router.query.week, router.query.weekFrom, router.query.weekTo]);
+
   // weekTo 기본값 = weekFrom
   useEffect(() => {
     if (weekFrom && !weekToInput.value) weekToInput.setValue(weekFrom);

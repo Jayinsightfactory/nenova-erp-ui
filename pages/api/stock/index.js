@@ -1,7 +1,7 @@
 // pages/api/stock/index.js
-// GET → 실제 DB 조회, POST → _new_StockHistory 저장
+// GET/POST → 실제 전산 StockHistory + usp_StockCalculation 기준
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
 export default withAuth(async function handler(req, res) {
@@ -32,8 +32,8 @@ async function getStock(req, res) {
          WHERE sd.ProdKey = @pk AND sm.OrderWeek = @week AND sm.isDeleted = 0
          UNION ALL
          SELECT sh.ChangeType AS 구분, CONVERT(VARCHAR,sh.ChangeDtm,23) AS 일자,
-                -sh.AfterValue AS 변경수량, sh.Descr AS 비고
-         FROM _new_StockHistory sh
+                (ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS 변경수량, sh.Descr AS 비고
+         FROM StockHistory sh
          WHERE sh.ProdKey = @pk AND sh.OrderWeek = @week
          ORDER BY 일자 ASC`,
         {
@@ -71,7 +71,7 @@ async function getStock(req, res) {
            WHERE sd.ProdKey = p.ProdKey
              AND sm.OrderWeek = @week AND sm.isDeleted = 0), 0) AS outQty,
         ISNULL(
-          (SELECT SUM(sh.AfterValue) FROM _new_StockHistory sh
+          (SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) FROM StockHistory sh
            WHERE sh.ProdKey = p.ProdKey AND sh.OrderWeek = @week), 0) AS adjustQty
        FROM Product p
        LEFT JOIN StockMaster sm2 ON sm2.OrderWeek = @week
@@ -103,31 +103,89 @@ async function adjustStock(req, res) {
       if (!r.recordset[0]) return res.status(404).json({ success: false, error: '품목 없음' });
       pk = r.recordset[0].ProdKey;
     }
-    // 테스트 테이블에 조정 이력 저장
-    await query(
-      `INSERT INTO _new_StockHistory
-         (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
-          BeforeValue, AfterValue, Descr, ProdKey)
-       VALUES (GETDATE(), @year, @week, @uid, @type, '재고수량',
-         (SELECT ISNULL(Stock,0) FROM Product WHERE ProdKey=@pk),
-         (SELECT ISNULL(Stock,0) FROM Product WHERE ProdKey=@pk) - @qty,
-         @descr, @pk)`,
-      {
-        year:  { type: sql.NVarChar, value: (week||'').split('-')[0] || new Date().getFullYear().toString() },
-        week:  { type: sql.NVarChar, value: week || '' },
-        uid:   { type: sql.NVarChar, value: req.user.userId },
-        type:  { type: sql.NVarChar, value: adjustType },
-        pk:    { type: sql.Int,      value: pk },
-        qty:   { type: sql.Float,    value: parseFloat(qty) },
-        descr: { type: sql.NVarChar, value: descr || '' },
-      }
+    const stockQty = parseFloat(qty);
+    if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
+
+    const orderYear = await resolveOrderYear(week);
+    const uid = req.user?.userId || 'admin';
+    const beforeResult = await query(
+      `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
+      { pk: { type: sql.Int, value: pk } }
     );
+    const before = Number(beforeResult.recordset[0]?.Stock || 0);
+    const after = before - stockQty;
+
+    await withTransaction(async (tQuery) => {
+      await tQuery(
+        `INSERT INTO StockHistory
+           (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
+            BeforeValue, AfterValue, Descr, ProdKey)
+         VALUES (GETDATE(), @year, @week, @uid, @type, N'재고수량',
+           @before, @after, @descr, @pk)`,
+        {
+          year:   { type: sql.NVarChar, value: orderYear },
+          week:   { type: sql.NVarChar, value: week || '' },
+          uid:    { type: sql.NVarChar, value: uid },
+          type:   { type: sql.NVarChar, value: adjustType },
+          pk:     { type: sql.Int,      value: pk },
+          before: { type: sql.Float,    value: before },
+          after:  { type: sql.Float,    value: after },
+          descr:  { type: sql.NVarChar, value: descr || '' },
+        }
+      );
+
+      await tQuery(
+        stockCalculationSql(),
+        {
+          year: { type: sql.NVarChar, value: orderYear },
+          week: { type: sql.NVarChar, value: week || '' },
+          uid:  { type: sql.NVarChar, value: uid },
+        }
+      );
+    });
+
     return res.status(200).json({
       success: true,
-      source: 'test_table',
-      message: `재고 조정 기록 완료 (테스트) — ${adjustType}: -${qty}`,
+      source: 'real_db',
+      message: `재고 조정 등록 완료 — ${adjustType}: -${qty}`,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
+}
+
+async function resolveOrderYear(week) {
+  const r = await query(
+    `SELECT TOP 1 OrderYear
+       FROM StockMaster
+      WHERE OrderWeek=@week AND OrderYear IS NOT NULL
+      ORDER BY OrderYear DESC`,
+    { week: { type: sql.NVarChar, value: week || '' } }
+  );
+  return String(r.recordset[0]?.OrderYear || new Date().getFullYear());
+}
+
+function stockCalculationSql() {
+  return `IF EXISTS (
+            SELECT 1 FROM sys.parameters
+             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
+               AND name = N'@oResult'
+          )
+          BEGIN
+            DECLARE @r INT, @m NVARCHAR(MAX);
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @iUserID   = @uid,
+                 @oResult   = @r OUTPUT,
+                 @oMessage  = @m OUTPUT;
+            SELECT @r AS result, @m AS message;
+          END
+          ELSE
+          BEGIN
+            EXEC dbo.usp_StockCalculation
+                 @OrderYear = @year,
+                 @OrderWeek = @week,
+                 @iUserID   = @uid;
+          END`;
 }

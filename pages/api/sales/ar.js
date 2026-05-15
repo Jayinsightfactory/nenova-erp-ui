@@ -68,12 +68,13 @@ async function getList(req, res) {
       `SELECT
         c.CustKey, c.CustName, c.CustArea, c.Manager,
         COUNT(DISTINCT sm.ShipmentKey) AS shipCount,
-        SUM(ROUND(ISNULL(p.Cost, 0) * sd.OutQuantity / 1.1, 0)) AS totalSales,
+        SUM(ROUND(ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) * sd.OutQuantity / 1.1, 0)) AS totalSales,
         MAX(CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)) AS lastShipDtm
       FROM ShipmentMaster sm
       JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
       JOIN Customer c ON sm.CustKey = c.CustKey AND c.isDeleted = 0
       JOIN Product p ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+      LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
       WHERE sm.isDeleted = 0 AND sm.isFix = 1
         AND (@dateFrom IS NULL OR CONVERT(DATE, sd.ShipmentDtm) >= CONVERT(DATE, @dateFrom))
         AND (@dateTo   IS NULL OR CONVERT(DATE, sd.ShipmentDtm) <= CONVERT(DATE, @dateTo))
@@ -138,13 +139,14 @@ async function getLedger(req, res) {
       `SELECT
         MAX(CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)) AS entryDate,
         N'출고' AS entryType,
-        SUM(ROUND(ISNULL(p.Cost, 0) * sd.OutQuantity / 1.1, 0)) AS amount,
+        SUM(ROUND(ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) * sd.OutQuantity / 1.1, 0)) AS amount,
         sm.ShipmentKey,
         NULL AS memo,
         NULL AS bankAccount
       FROM ShipmentMaster sm
       JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
       JOIN Product p ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+      LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = sm.CustKey AND cpc.ProdKey = p.ProdKey
       WHERE sm.CustKey = @ck AND sm.isDeleted = 0 AND sm.isFix = 1
       GROUP BY sm.ShipmentKey
       ORDER BY MAX(sd.ShipmentDtm) ASC`,

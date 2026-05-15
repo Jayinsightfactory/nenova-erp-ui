@@ -1,7 +1,7 @@
 // pages/api/shipment/distribute.js
 // GET?type=products → 품목 목록 (왼쪽 패널)
 // GET?type=cust     → 업체 기준 주문 품목 (업체 선택 시)
-// POST              → _new_ShipmentDetail 저장
+// POST              → 실제 ShipmentMaster/Detail 저장
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
@@ -303,8 +303,8 @@ async function saveDistribute(req, res) {
         // 레거시 마스터라면 WebCreated=1로 소유권 인수
         if (!smResult.recordset[0].WebCreated) {
           await tQuery(
-            `UPDATE ShipmentMaster SET WebCreated=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE() WHERE ShipmentKey=@sk`,
-            { sk: { type: sql.Int, value: sk }, uid: { type: sql.NVarChar, value: uid } }
+            `UPDATE ShipmentMaster SET WebCreated=1 WHERE ShipmentKey=@sk`,
+            { sk: { type: sql.Int, value: sk } }
           );
         }
       }
@@ -315,6 +315,14 @@ async function saveDistribute(req, res) {
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
       const oldQty = oldSd.recordset[0]?.OutQuantity || 0;
+
+      await tQuery(
+        `DELETE sdt
+           FROM ShipmentDate sdt
+           JOIN ShipmentDetail sd ON sdt.SdetailKey=sd.SdetailKey
+          WHERE sd.ShipmentKey=@sk AND sd.ProdKey=@pk`,
+        { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+      );
 
       // 기존 삭제
       await tQuery(
@@ -357,6 +365,16 @@ async function saveDistribute(req, res) {
             log:    { type: sql.NVarChar, value: logEntry },
           }
         );
+        await tQuery(
+          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
+           VALUES (@dk, @dt, @qty)`,
+          {
+            dk:  { type: sql.Int,      value: newSdk },
+            dt:  { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
+            qty: { type: sql.Float,    value: qty },
+          }
+        );
+        await insertShipmentHistory(tQuery, newSdk, String(oldQty), String(qty), logEntry, uid);
       }
       return sk;
     });
@@ -364,5 +382,26 @@ async function saveDistribute(req, res) {
     return res.status(200).json({ success: true, shipmentKey, message: '출고 분배 저장 완료' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function insertShipmentHistory(tQuery, sdetailKey, before, after, descr, uid) {
+  try {
+    await tQuery(
+      `INSERT INTO ShipmentHistory
+         (SdetailKey, ShipmentDtm, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+       SELECT @dk, ShipmentDtm, N'수정', N'OutQuantity', @before, @after, @descr, @uid, GETDATE()
+         FROM ShipmentDetail
+        WHERE SdetailKey=@dk`,
+      {
+        dk:     { type: sql.Int,      value: sdetailKey },
+        before: { type: sql.NVarChar, value: before },
+        after:  { type: sql.NVarChar, value: after },
+        descr:  { type: sql.NVarChar, value: descr },
+        uid:    { type: sql.NVarChar, value: uid },
+      }
+    );
+  } catch (e) {
+    console.warn('[ShipmentHistory INSERT failed]', e.message);
   }
 }

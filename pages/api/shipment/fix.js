@@ -29,7 +29,10 @@ async function validate(req, res) {
   const { week } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   try {
-    const wk = { type: sql.NVarChar, value: week };
+    const orderYear = deriveOrderYear(week);
+    const orderWeek = deriveOrderWeek(week);
+    const orderYearWeek = orderYear + String(orderWeek || '').replace('-', '');
+    const wk = { type: sql.NVarChar, value: orderWeek };
 
     // 1. 주문 없는 출고 (OrderDetail 없는데 ShipmentDetail 있음)
     const ghostResult = await query(
@@ -69,40 +72,52 @@ async function validate(req, res) {
 
     // 3. 마이너스 잔량
     const negResult = await query(
-      `SELECT p.ProdName, p.FlowerName, p.CounName,
-         ISNULL((SELECT TOP 1 ps.Stock FROM ProductStock ps
-           JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-           WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @wk
-           ORDER BY sm2.OrderWeek DESC), 0) AS prevStock,
-         ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
-           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) AS inQty,
-         ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
-           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-           WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek = @wk AND sm.isDeleted = 0), 0) AS outQty
-       FROM Product p
-       WHERE p.isDeleted = 0
-         AND EXISTS (SELECT 1 FROM ShipmentDetail sd2
-           JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
-           WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek = @wk AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0)
-       HAVING
-         ISNULL((SELECT TOP 1 ps.Stock FROM ProductStock ps
-           JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-           WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @wk
-           ORDER BY sm2.OrderWeek DESC), 0)
-         + ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
-           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0)
-         - ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
-           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-           WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek = @wk AND sm.isDeleted = 0), 0) < 0
+      `WITH out_qty AS (
+         SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
+         GROUP BY sd.ProdKey
+       ),
+       in_qty AS (
+         SELECT wd.ProdKey, SUM(ISNULL(wd.OutQuantity, 0)) AS inQty
+         FROM WarehouseMaster wm
+         JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
+         WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
+         GROUP BY wd.ProdKey
+       )
+       SELECT
+         p.ProdKey,
+         p.ProdName,
+         p.FlowerName,
+         p.CounName,
+         ISNULL(prev.prevStock, 0) AS prevStock,
+         ISNULL(iq.inQty, 0) AS inQty,
+         ISNULL(oq.outQty, 0) AS outQty,
+         ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) AS remain
+       FROM out_qty oq
+       JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
+       LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
+       OUTER APPLY (
+         SELECT TOP 1 ps.Stock AS prevStock
+         FROM ProductStock ps
+         JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+         WHERE ps.ProdKey = p.ProdKey
+           AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
+         ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
+       ) prev
+       WHERE ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) < 0
        ORDER BY p.FlowerName, p.ProdName`,
-      { wk }
+      {
+        wk,
+        yr:  { type: sql.NVarChar, value: orderYear },
+        ywk: { type: sql.NVarChar, value: orderYearWeek },
+      }
     );
 
     const negRows = negResult.recordset.map(r => ({
       ...r,
-      remain: Math.round((r.prevStock + r.inQty - r.outQty) * 1000) / 1000,
+      remain: Math.round((Number(r.prevStock || 0) + Number(r.inQty || 0) - Number(r.outQty || 0)) * 1000) / 1000,
     }));
 
     // 4. 입고 없는 출고 (WarehouseDetail 없는데 ShipmentDetail.OutQuantity > 0)
@@ -128,7 +143,7 @@ async function validate(req, res) {
     const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length + noInResult.recordset.length;
     return res.status(200).json({
       success: true,
-      week,
+      week: `${orderYear}-${orderWeek}`,
       issueCount: issues,
       ghost:    ghostResult.recordset,    // 주문 없는 출고
       noIncoming: noInResult.recordset,   // 입고 없는 출고 (4번째 검증)
