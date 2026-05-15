@@ -506,7 +506,12 @@ export default function PasteOrderPage() {
   const cachedEntries = Object.keys(mappingCache).length;
   const openWeekPivot = () => {
     const suffix = week ? `?weekFrom=${encodeURIComponent(week)}&weekTo=${encodeURIComponent(week)}` : '';
-    window.location.href = `/shipment/week-pivot${suffix}`;
+    const popup = window.open(
+      `/shipment/week-pivot${suffix}`,
+      'weekPivotPopup',
+      'width=1600,height=920,left=20,top=20,resizable=yes,scrollbars=yes'
+    );
+    if (!popup) window.location.href = `/shipment/week-pivot${suffix}`;
   };
 
   return (

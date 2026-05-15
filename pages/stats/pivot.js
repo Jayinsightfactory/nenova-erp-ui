@@ -438,9 +438,21 @@ export default function Pivot() {
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
       {/* 툴바 */}
       <div className="filter-bar">
+        <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
+          onClick={() => { weekStartInput.prevWeek(); weekEndInput.prevWeek(); }}
+          title="범위 전체 주차-1">&lt;&lt;</button>
+        <button className="btn btn-sm" style={{height:22,fontSize:11}}
+          onClick={() => { weekStartInput.prev(); weekEndInput.prev(); }}
+          title="범위 전체 차수-1">&lt;</button>
         <WeekSpinInput weekInput={weekStartInput} label="주문차수"/>
         <span style={{color:'var(--text3)'}}>~</span>
         <WeekSpinInput weekInput={weekEndInput}/>
+        <button className="btn btn-sm" style={{height:22,fontSize:11}}
+          onClick={() => { weekStartInput.next(); weekEndInput.next(); }}
+          title="범위 전체 차수+1">&gt;</button>
+        <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
+          onClick={() => { weekStartInput.nextWeek(); weekEndInput.nextWeek(); }}
+          title="범위 전체 주차+1">&gt;&gt;</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."

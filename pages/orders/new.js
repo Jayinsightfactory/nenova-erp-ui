@@ -125,9 +125,10 @@ export default function OrderNew() {
 
   // ── 그룹 선택 시 해당 품목만 로드
   const loadGroupProds = (group) => {
-    if (!group) { setProdList([]); return; }
+    if (!group) { setSelectedGroup(null); setProdList([]); return; }
     // 이미 같은 그룹이면 스킵
-    if (selectedGroup?.key === group.key) return;
+    if (selectedGroup?.key === group.key && prodList.length > 0) return;
+    setSelectedGroup(group);
     setProdLoading(true);
     setProdList([]);
     apiGet('/api/products/search', { country: group.country, flower: group.flower })
@@ -166,12 +167,9 @@ export default function OrderNew() {
   // ── 그룹별 합계 (왼쪽 패널 표시용)
   const groupTotals = {};
   prodGroups.forEach(g => {
-    const total = prodList
-      .filter(p => p.CounName + '|' + p.FlowerName === g.key)
-      .reduce((a, p) => {
-        const q = quantities[p.ProdKey] || initQty();
-        return a + q.box + q.bunch + q.steam;
-      }, 0);
+    const total = Object.values(quantities)
+      .filter(q => `${q.counName || ''}|${q.flowerName || ''}` === g.key)
+      .reduce((a, q) => a + (q.box || 0) + (q.bunch || 0) + (q.steam || 0), 0);
     groupTotals[g.key] = total;
   });
 
@@ -200,7 +198,7 @@ export default function OrderNew() {
     setSelectedCust(null); setCustSearch('');
     setQuantities({}); weekInput.setValue('');
     setGroupSearch(''); setProdSearch('');
-    setSelectedGroup(''); setErr(''); setSuccessMsg('');
+    setSelectedGroup(null); setProdList([]); setErr(''); setSuccessMsg('');
   };
 
   // ── 조회 (거래처+차수 기준 기존 주문 로드)
@@ -226,7 +224,7 @@ export default function OrderNew() {
           steam:      item.unit === '송이' ? (item.steamQty || item.qty || 0) : 0,
           // box/bunch/steam 모두 합산 (기존 프로그램은 단위별로 저장)
           prodName:   item.prodName   || '',
-          counName:   item.counName   || item.flowerName ? item.counName : '',
+          counName:   item.counName   || '',
           flowerName: item.flowerName || '',
         };
         // 여러 단위가 있을 경우 합산
@@ -550,7 +548,7 @@ export default function OrderNew() {
                   return (
                     <tr
                       key={g.key}
-                      onClick={() => { const next = isSelected ? null : g; setSelectedGroup(next); loadGroupProds(next); }}
+                      onClick={() => { const next = isSelected ? null : g; loadGroupProds(next); }}
                       style={{
                         cursor: 'pointer',
                         background: isSelected ? 'var(--blue-sel)' : total > 0 ? '#FFFFD0' : undefined,
