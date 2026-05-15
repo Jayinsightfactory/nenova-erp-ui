@@ -91,6 +91,19 @@ function findLocalMapping(inputName, cache) {
   return hits[0]?.value || null;
 }
 
+function isMixBoxName(prod) {
+  const text = `${prod?.ProdName || ''} ${prod?.DisplayName || ''}`.toLowerCase();
+  return /믹스\s*박스|mix\s*box|mixbox/.test(text);
+}
+
+function inputWantsMixBox(inputName) {
+  return /믹스\s*박스|믹스|mix\s*box|mixbox|mixed/i.test(String(inputName || ''));
+}
+
+function isMixBoxMismatch(inputName, prod) {
+  return isMixBoxName(prod) && !inputWantsMixBox(inputName);
+}
+
 export default function PasteOrderPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [allCustomers, setAllCustomers] = useState([]);
@@ -146,6 +159,7 @@ export default function PasteOrderPage() {
       if (!hit) return it;
       const prod = prods.find(p => Number(p.ProdKey) === Number(hit.prodKey));
       if (!prod) return it;
+      if (isMixBoxMismatch(it.inputName, prod)) return it;
       return {
         ...it,
         prodKey: prod.ProdKey,
@@ -359,7 +373,18 @@ export default function PasteOrderPage() {
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
+      flowerName:  prod.FlowerName,
+      counName:    prod.CounName,
       unit:        normalizeOrderUnit(defaultUnit(prod, null, prodUnitMap)),  // 장미/네덜란드 → 단, 나머지 → 박스
+      fromMapping: false,
+      mappingMatchType: 'direct-select',
+      mappingMatchKey: null,
+      confidence: 1,
+      confidenceLabel: 'high',
+      fallbackSuspect: false,
+      fallbackCount: 0,
+      ambiguousCountry: false,
+      ambiguityReason: null,
     });
     if (saveToCache) learnItemMapping({ inputName }, prod);
     setDisambigSearch('');
@@ -382,7 +407,7 @@ export default function PasteOrderPage() {
 
   // 품목 스코어링: lib/displayName.js의 scoreMatch 위임 (한글↔영문 역변환 + 토큰별 매칭 + 마지막 토큰 보너스)
   const scoreProduct = (inputName, prod, searchQuery = '') =>
-    scoreMatch(inputName, prod, searchQuery);
+    isMixBoxMismatch(inputName, prod) ? 0 : scoreMatch(inputName, prod, searchQuery);
 
   // 후보 목록: 최고점 근처 후보만 표시해 무관한 품목 노출을 줄인다.
   // - 자동 후보는 입력명 기준으로 매우 가까운 것만 표시
@@ -660,7 +685,7 @@ export default function PasteOrderPage() {
       savedAt: new Date().toISOString(),
       week,
       detectedWeek,
-      mappingCache,
+      mappingCache: loadCache(),
       customerMappingCache,
       orders: orders.map(o => ({
         id: o.id,

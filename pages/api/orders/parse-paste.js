@@ -154,6 +154,19 @@ function countryKey(prod) {
   return String(prod?.CounName || '').trim().toLowerCase() || 'unknown';
 }
 
+function isMixBoxName(prod) {
+  const text = `${prod?.ProdName || ''} ${prod?.DisplayName || ''}`.toLowerCase();
+  return /믹스\s*박스|mix\s*box|mixbox/.test(text);
+}
+
+function inputWantsMixBox(inputName) {
+  return /믹스\s*박스|믹스|mix\s*box|mixbox|mixed/i.test(String(inputName || ''));
+}
+
+function isMixBoxMismatch(inputName, prod) {
+  return isMixBoxName(prod) && !inputWantsMixBox(inputName);
+}
+
 function resolveRoseCandidate(item, chosenProd, allProducts) {
   const input = item?.inputName || item?.prodName || item?.displayName || '';
   const isRoseInput = /(장미|rose)/i.test(input) || isRoseProduct(chosenProd);
@@ -414,7 +427,8 @@ Caroline | 2
         // 1순위: 서버 저장 매핑 (사용자 학습 데이터) — 정확 매치 + fuzzy 부분 매치
         const fuzzyMatch = findMappingFuzzy(item.inputName, savedMappings);
         const savedMap = fuzzyMatch ? fuzzyMatch.value : null;
-        const mappedProd = savedMap ? productByKey.get(Number(savedMap.prodKey)) : null;
+        const savedMappedProd = savedMap ? productByKey.get(Number(savedMap.prodKey)) : null;
+        const mappedProd = isMixBoxMismatch(item.inputName, savedMappedProd) ? null : savedMappedProd;
 
         // 2순위: Claude 파싱 결과
         const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
