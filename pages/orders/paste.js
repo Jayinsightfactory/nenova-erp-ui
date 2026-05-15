@@ -42,9 +42,9 @@ function normalizePasteToken(inputName) {
   return (inputName || '')
     .toLowerCase()
     .replace(/[()[\]{}]/g, ' ')
-    .replace(/\b(add|cancel|delete|box|bunch|stem|stems|ea)\b/gi, ' ')
+    .replace(/\b(add|cancel|delete|box|bunch|stem|stems|cm|ea)\b/gi, ' ')
     .replace(/(추가|취소|삭제|출고|입고|변경사항|변경|오늘|일요일|월요일|화요일|수요일|목요일|금요일|토요일)/g, ' ')
-    .replace(/\d+(\.\d+)?\s*(박스|단|송이|개|box|bunch|stem|stems|ea)?/gi, ' ')
+    .replace(/\d+(\.\d+)?\s*(박스|단|송이|개|box|bunch|stem|stems|cm|ea)?/gi, ' ')
     .replace(/[|:：,\-→>]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -55,6 +55,11 @@ function tokenParts(s) {
 function findLocalMapping(inputName, cache) {
   const exact = cacheKey(inputName);
   if (cache[exact]) return cache[exact];
+  const compactExact = exact.replace(/\s+/g, '');
+  for (const [key, value] of Object.entries(cache || {})) {
+    const compactKey = normalizePasteToken(key).replace(/\s+/g, '');
+    if (compactKey && compactKey === compactExact) return value;
+  }
   const inputTokens = tokenParts(inputName);
   if (inputTokens.length === 0) return null;
   const hits = [];

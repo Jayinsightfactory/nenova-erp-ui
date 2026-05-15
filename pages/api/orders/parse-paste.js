@@ -98,6 +98,8 @@ const KO_EN_KEYWORDS = {
   '믹스박스e': 'MIX BOX E',
   '믹스': 'MIX',
   '핑크': 'PINK',
+  '핑크몬디알': 'PINK MONDIAL',
+  '몬디알': 'MONDIAL',
   '레드': 'RED',
   '옐로': 'YELLOW',
   '오렌지': 'ORANGE',
@@ -202,6 +204,7 @@ Caroline | 2
 
 품종명 한→영:
 화이트=WHITE, 연핑크=LIGHT PINK, 블루=BLUE, 코랄리프=CORAL REEF
+핑크몬디알=PINK MONDIAL, 몬디알=MONDIAL
 캐롤라인=CAROLINE, 카라멜=CARAMEL, 사파리=SAFARI, 레드팬서=RED PANTHER
 
 규칙:
