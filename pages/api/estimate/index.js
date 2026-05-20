@@ -55,7 +55,7 @@ async function getEstimates(req, res) {
       const r = await query(
         `SELECT
            DetailCode,
-           ISNULL(NULLIF(Descr2, ''), ISNULL(NULLIF(Descr, ''), DetailCode)) AS Label,
+           ISNULL(NULLIF(Descr, ''), ISNULL(NULLIF(Descr2, ''), DetailCode)) AS Label,
            ISNULL(Descr, '') AS Descr,
            ISNULL(Descr2, '') AS Descr2
          FROM CodeInfo
@@ -388,6 +388,11 @@ async function createEstimate(req, res) {
   try {
     const { typeText, unitText } = normalizeEstimateTypeInput(estimateType, unit);
     const typeCode = await resolveEstimateTypeCode(typeText);
+    const prod = await query(
+      `SELECT TOP 1 EstUnit FROM Product WHERE ProdKey = @pk AND isDeleted = 0`,
+      { pk: { type: sql.Int, value: prodKey } }
+    );
+    const estUnit = prod.recordset[0]?.EstUnit || unitText;
     const dtValue = estimateDate ? new Date(estimateDate) : new Date();
     const qty    = -Math.abs(parseFloat(quantity) || 0);   // 항상 음수
     const amount = Math.round(qty * (cost || 0) / 1.1);    // 공급가액 (음수)
@@ -399,7 +404,7 @@ async function createEstimate(req, res) {
       {
         type:   { type: sql.NVarChar, value: typeCode },
         pk:     { type: sql.Int,      value: prodKey },
-        unit:   { type: sql.NVarChar, value: unitText },
+        unit:   { type: sql.NVarChar, value: estUnit },
         qty:    { type: sql.Float,    value: qty },
         cost:   { type: sql.Float,    value: cost },
         amount: { type: sql.Float,    value: amount },

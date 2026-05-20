@@ -1219,7 +1219,7 @@ export default function Estimate() {
 
   // 견적 유형 옵션
   const estimateTypeOptions = estimateTypes.length > 0
-    ? estimateTypes.map(t => ({ value: t.DetailCode, label: t.Label || t.Descr2 || t.Descr || t.DetailCode }))
+    ? estimateTypes.map(t => ({ value: t.DetailCode, label: t.Label || t.Descr || t.Descr2 || t.DetailCode }))
     : ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
 
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
