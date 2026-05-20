@@ -145,7 +145,13 @@ function mapEstimateType(t) {
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
 function isPrintableEstimateRow(row) {
-  return (Number(row?.Quantity) || 0) > 0 && (Number(row?.Cost) || 0) > 0;
+  const qty = Number(row?.Quantity) || 0;
+  if (qty <= 0) return false;
+
+  const isDeduct = row?.EstimateType && row.EstimateType !== '정상출고';
+  if (isDeduct) return true;
+
+  return (Number(row?.Cost) || 0) > 0;
 }
 
 function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl, aggregate = false }) {
