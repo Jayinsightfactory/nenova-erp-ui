@@ -124,7 +124,7 @@ async function loadWeekStatus(from, to) {
               OrderWeek,
               ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey
        FROM StockMaster
-       WHERE ISNULL(isDeleted, 0) = 0
+       WHERE OrderWeek IS NOT NULL
      ),
      ship AS (
        SELECT
@@ -148,7 +148,7 @@ async function loadWeekStatus(from, to) {
          MAX(CASE WHEN ISNULL(isFix, 0) = 1 THEN 1 ELSE 0 END) AS stockFixed,
          COUNT(*) AS stockMasterCount
        FROM StockMaster
-       WHERE ISNULL(isDeleted, 0) = 0
+       WHERE OrderWeek IS NOT NULL
        GROUP BY ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '')
      )
      SELECT
