@@ -111,7 +111,7 @@ async function uploadWarehouse(req, res) {
       );
       const wk = masterResult.recordset[0].WarehouseKey;
 
-      let successCount = 0; const errs = [];
+      let successCount = 0; const errs = []; const changedProdKeys = new Set();
       for (const item of resolvedItems) {
         try {
           await tQuery(
@@ -145,6 +145,7 @@ async function uploadWarehouse(req, res) {
             parseFloat(item.outQty) || 0,
             `입고등록 ${farmName || ''} ${invoiceNo || awb || ''}`.trim()
           );
+          changedProdKeys.add(Number(item.prodKey));
           successCount++;
         } catch (e) {
           errs.push({ prodName: item.prodName, error: e.message });
@@ -152,7 +153,7 @@ async function uploadWarehouse(req, res) {
       }
 
       if (successCount === 0) throw new Error(`품목 매칭 실패: ${errs.map(e=>e.prodName).join(', ')}`);
-      await runStockCalculation(tQuery, orderYear || new Date().getFullYear().toString(), orderWeek || '', req.user?.userId || 'admin');
+      await runStockCalculation(tQuery, orderYear || new Date().getFullYear().toString(), orderWeek || '', req.user?.userId || 'admin', [...changedProdKeys]);
       return { warehouseKey: wk, ok: successCount, errors: errs };
     });
 
@@ -183,6 +184,7 @@ async function deleteWarehouse(req, res) {
         { wk: { type: sql.Int, value: parseInt(warehouseKey) } });
 
       const first = info.recordset[0];
+      const changedProdKeys = new Set();
       for (const row of info.recordset) {
         await insertStockHistory(
           tQuery,
@@ -194,9 +196,10 @@ async function deleteWarehouse(req, res) {
           -Number(row.OutQuantity || 0),
           `입고삭제 ${row.FarmName || ''} ${row.InvoiceNo || row.OrderNo || ''}`.trim()
         );
+        changedProdKeys.add(Number(row.ProdKey));
       }
       if (first) {
-        await runStockCalculation(tQuery, first.OrderYear || new Date().getFullYear().toString(), first.OrderWeek || '', req.user?.userId || 'admin');
+        await runStockCalculation(tQuery, first.OrderYear || new Date().getFullYear().toString(), first.OrderWeek || '', req.user?.userId || 'admin', [...changedProdKeys]);
       }
     });
     return res.status(200).json({ success: true, message: '원장 삭제 완료' });
@@ -232,15 +235,19 @@ async function insertStockHistory(tQuery, orderYear, orderWeek, uid, changeType,
   );
 }
 
-async function runStockCalculation(tQuery, orderYear, orderWeek, uid) {
-  await tQuery(
-    stockCalculationSql(),
-    {
-      year: { type: sql.NVarChar, value: String(orderYear) },
-      week: { type: sql.NVarChar, value: orderWeek || '' },
-      uid:  { type: sql.NVarChar, value: uid || 'admin' },
-    }
-  );
+async function runStockCalculation(tQuery, orderYear, orderWeek, uid, prodKeys = []) {
+  const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  for (const prodKey of keys) {
+    await tQuery(
+      stockCalculationSql(),
+      {
+        year: { type: sql.NVarChar, value: String(orderYear) },
+        week: { type: sql.NVarChar, value: orderWeek || '' },
+        uid:  { type: sql.NVarChar, value: uid || 'admin' },
+        pk:   { type: sql.Int, value: prodKey },
+      }
+    );
+  }
 }
 
 function stockCalculationSql() {
@@ -254,6 +261,7 @@ function stockCalculationSql() {
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year,
                  @OrderWeek = @week,
+                 @ProdKey   = @pk,
                  @iUserID   = @uid,
                  @oResult   = @r OUTPUT,
                  @oMessage  = @m OUTPUT;
@@ -264,6 +272,7 @@ function stockCalculationSql() {
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year,
                  @OrderWeek = @week,
+                 @ProdKey   = @pk,
                  @iUserID   = @uid;
           END`;
 }

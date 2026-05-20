@@ -96,6 +96,7 @@ async function handler(req, res) {
           WHERE ord.RequestKey=@rk`,
         { rk: { type: sql.Int, value: parseInt(requestKey) } }
       );
+      const changedProdKeys = new Set();
       for (const d of details.recordset) {
         const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         // 단위 환산: 사용자가 입력한 단위(d.Unit) 기준으로 박스 수량 역산
@@ -136,9 +137,10 @@ async function handler(req, res) {
             uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
+        changedProdKeys.add(Number(d.ProdKey));
       }
 
-      await runStockCalculation(tQ, String(new Date().getFullYear()), reqRow.OrderWeek, req.user?.userId || 'admin');
+      await runStockCalculation(tQ, String(new Date().getFullYear()), reqRow.OrderWeek, req.user?.userId || 'admin', [...changedProdKeys]);
 
       // 신청 상태 업데이트 (ApprovedOrderKey → 컬럼명이 다를 수 있음, 일단 그대로)
       await tQ(
@@ -163,9 +165,11 @@ async function handler(req, res) {
 
 export default withAuth(handler);
 
-async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
-  await tQ(
-    `IF EXISTS (
+async function runStockCalculation(tQ, orderYear, orderWeek, uid, prodKeys = []) {
+  const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  for (const prodKey of keys) {
+    await tQ(
+      `IF EXISTS (
        SELECT 1 FROM sys.parameters
         WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
           AND name = N'@oResult'
@@ -173,18 +177,20 @@ async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
      BEGIN
        DECLARE @r INT, @m NVARCHAR(MAX);
        EXEC dbo.usp_StockCalculation
-            @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid,
+            @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid,
             @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
        SELECT @r AS result, @m AS message;
      END
      ELSE
      BEGIN
-       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid;
+       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid;
      END`,
-    {
-      year: { type: sql.NVarChar, value: String(orderYear) },
-      week: { type: sql.NVarChar, value: orderWeek || '' },
-      uid:  { type: sql.NVarChar, value: uid || 'admin' },
-    }
-  );
+      {
+        year: { type: sql.NVarChar, value: String(orderYear) },
+        week: { type: sql.NVarChar, value: orderWeek || '' },
+        uid:  { type: sql.NVarChar, value: uid || 'admin' },
+        pk:   { type: sql.Int, value: prodKey },
+      }
+    );
+  }
 }

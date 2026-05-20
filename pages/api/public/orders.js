@@ -59,9 +59,11 @@ function toAllUnits(qty, unit, prod = {}) {
   return { box, bunch, steam, outQ };
 }
 
-async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
-  await tQ(
-    `IF EXISTS (
+async function runStockCalculation(tQ, orderYear, orderWeek, uid, prodKeys = []) {
+  const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  for (const prodKey of keys) {
+    await tQ(
+      `IF EXISTS (
        SELECT 1 FROM sys.parameters
         WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
           AND name = N'@oResult'
@@ -69,20 +71,22 @@ async function runStockCalculation(tQ, orderYear, orderWeek, uid) {
      BEGIN
        DECLARE @r INT, @m NVARCHAR(MAX);
        EXEC dbo.usp_StockCalculation
-            @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid,
+            @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid,
             @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
        SELECT @r AS result, @m AS message;
      END
      ELSE
      BEGIN
-       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @iUserID = @uid;
+       EXEC dbo.usp_StockCalculation @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid;
      END`,
-    {
-      year: { type: sql.NVarChar, value: String(orderYear) },
-      week: { type: sql.NVarChar, value: orderWeek || '' },
-      uid:  { type: sql.NVarChar, value: uid || 'admin' },
-    }
-  );
+      {
+        year: { type: sql.NVarChar, value: String(orderYear) },
+        week: { type: sql.NVarChar, value: orderWeek || '' },
+        uid:  { type: sql.NVarChar, value: uid || 'admin' },
+        pk:   { type: sql.Int, value: prodKey },
+      }
+    );
+  }
 }
 
 export default async function handler(req, res) {
@@ -238,6 +242,7 @@ async function createOrder(req, res) {
 
       // ── OrderDetail: 품목별로 기존 있으면 수량 UPDATE, 없으면 INSERT
       const results = [];
+      const changedProdKeys = new Set();
       for (const item of items) {
         let prodKey = parseInt(item.prodKey) || 0;
         if (!prodKey && item.prodName) {
@@ -282,6 +287,7 @@ async function createOrder(req, res) {
             }
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
+          changedProdKeys.add(Number(prodKey));
         } else {
           // OrderDetailKey = MAX+1 (IDENTITY가 아닌 테이블 대응)
           const maxKey = await tQ(
@@ -305,9 +311,10 @@ async function createOrder(req, res) {
             }
           );
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+          changedProdKeys.add(Number(prodKey));
         }
       }
-      await runStockCalculation(tQ, year || String(new Date().getFullYear()), week, 'API');
+      await runStockCalculation(tQ, year || String(new Date().getFullYear()), week, 'API', [...changedProdKeys]);
       return { orderMasterKey: mk, created, results };
     });
 

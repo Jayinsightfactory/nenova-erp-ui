@@ -143,6 +143,7 @@ async function adjustStock(req, res) {
           year: { type: sql.NVarChar, value: orderYear },
           week: { type: sql.NVarChar, value: week || '' },
           uid:  { type: sql.NVarChar, value: uid },
+          pk:   { type: sql.Int, value: pk },
         }
       );
     });
@@ -179,6 +180,7 @@ function stockCalculationSql() {
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year,
                  @OrderWeek = @week,
+                 @ProdKey   = @pk,
                  @iUserID   = @uid,
                  @oResult   = @r OUTPUT,
                  @oMessage  = @m OUTPUT;
@@ -189,6 +191,7 @@ function stockCalculationSql() {
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year,
                  @OrderWeek = @week,
+                 @ProdKey   = @pk,
                  @iUserID   = @uid;
           END`;
 }
