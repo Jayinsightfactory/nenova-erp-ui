@@ -18,6 +18,18 @@ async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
   }
 }
 
+async function getProductStockRemarkColumn(q = query) {
+  const r = await q(
+    `SELECT TOP 1 COLUMN_NAME
+       FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'ProductStock'
+        AND COLUMN_NAME IN ('Remark', 'Descr', 'Memo')
+      ORDER BY CASE COLUMN_NAME WHEN 'Remark' THEN 1 WHEN 'Descr' THEN 2 ELSE 3 END`
+  );
+  const col = r.recordset?.[0]?.COLUMN_NAME;
+  return ['Remark', 'Descr', 'Memo'].includes(col) ? col : null;
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH' && req.body?.action === 'editDescrLine') return await editDescrLine(req, res);
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
@@ -355,8 +367,10 @@ export default withAuth(async function handler(req, res) {
 
     // ── 시작재고 조회 (isFix=2 마커)
     if (view === 'startStocks') {
+      const remarkCol = await getProductStockRemarkColumn();
+      const remarkSelect = remarkCol ? `, ISNULL(ps.[${remarkCol}], '') AS Remark` : `, CAST('' AS NVARCHAR(4000)) AS Remark`;
       const result = await query(
-        `SELECT ps.ProdKey, sm.OrderWeek, ps.Stock
+        `SELECT ps.ProdKey, sm.OrderWeek, ps.Stock${remarkSelect}
          FROM ProductStock ps
          JOIN StockMaster sm ON ps.StockKey=sm.StockKey
          WHERE sm.isFix=2
@@ -1282,12 +1296,21 @@ async function saveStartStock(req, res) {
       }
 
       // ProductStock upsert (시작재고)
+      const remarkCol = await getProductStockRemarkColumn(tQ);
+      const updateRemark = remarkCol ? `, [${remarkCol}]=@remark` : '';
+      const insertRemarkCols = remarkCol ? `, [${remarkCol}]` : '';
+      const insertRemarkVals = remarkCol ? `, @remark` : '';
       await tQ(
         `MERGE INTO ProductStock WITH (HOLDLOCK) AS t
          USING (VALUES (@pk, @sk)) AS s(ProdKey, StockKey) ON t.ProdKey=s.ProdKey AND t.StockKey=s.StockKey
-         WHEN MATCHED THEN UPDATE SET Stock=@stock
-         WHEN NOT MATCHED THEN INSERT (ProdKey, StockKey, Stock) VALUES (@pk, @sk, @stock);`,
-        { pk: { type: sql.Int, value: pk }, sk: { type: sql.Int, value: sk }, stock: { type: sql.Float, value: stockVal } }
+         WHEN MATCHED THEN UPDATE SET Stock=@stock${updateRemark}
+         WHEN NOT MATCHED THEN INSERT (ProdKey, StockKey, Stock${insertRemarkCols}) VALUES (@pk, @sk, @stock${insertRemarkVals});`,
+        {
+          pk: { type: sql.Int, value: pk },
+          sk: { type: sql.Int, value: sk },
+          stock: { type: sql.Float, value: stockVal },
+          remark: { type: sql.NVarChar, value: remarkVal },
+        }
       );
     });
 

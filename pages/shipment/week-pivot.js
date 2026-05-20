@@ -443,9 +443,14 @@ export default function WeekPivot() {
       // 시작재고 초기화 (DB 저장값)
       if (ssResp.ok) {
         const ssRes = await ssResp.json();
-        if (ssRes.success && ssRes.rows?.length) {
+        if (ssRes.success) {
           const ssMap = {};
-          ssRes.rows.forEach(r => { ssMap[`${r.ProdKey}-${r.OrderWeek}`] = { stock: r.Stock }; });
+          (ssRes.rows || []).forEach(r => {
+            ssMap[`${r.ProdKey}-${r.OrderWeek}`] = {
+              stock: r.Stock,
+              remark: r.Remark || r.Descr || r.Memo || '',
+            };
+          });
           setStartStocks(ssMap);
         }
       }
@@ -633,7 +638,7 @@ export default function WeekPivot() {
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
 
     const PROD_REPEAT=10, CUST_REPEAT=15;
-    const stockCols=8; // 시작재고, 시작비고, 입고, 출고, 잔량(계산), 잔량(DB), 비고, +1
+    const stockCols=7; // 시작재고, 시작비고, 입고, 출고, 잔량(계산), 잔량(DB), 비고
     const prodLabelCols=custKeys.length>CUST_REPEAT?Math.floor((custKeys.length-1)/CUST_REPEAT):0;
     const colsPerWeek=custKeys.length+stockCols+prodLabelCols;
 
@@ -673,7 +678,8 @@ export default function WeekPivot() {
     };
     const loadChangeHistoryRows = async () => {
       try {
-        const qs = `weekFrom=${encodeURIComponent(weekFrom)}&weekTo=${encodeURIComponent(weekTo)}&view=changeHistory`;
+        const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        const qs = `weekFrom=${encodeURIComponent(weekFrom)}&weekTo=${encodeURIComponent(weekTo)}&view=changeHistory&dateFrom=${localToday}&dateTo=${localToday}`;
         const r = await fetch(`/api/shipment/stock-status?${qs}`);
         const d = await r.json();
         return d.success ? (d.rows || []) : [];
