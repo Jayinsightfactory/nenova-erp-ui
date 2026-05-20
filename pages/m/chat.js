@@ -96,10 +96,18 @@ export default function MobileChat() {
     const t3 = setTimeout(() => setLoadingStage('생각이 길어져요 (최대 20초)...'), 10000);
 
     try {
+      const clientHistory = messages.slice(-12).map(m => ({
+        role: m.role,
+        type: m.type,
+        content: m.content || '',
+        card: m.card || null,
+        cards: m.cards || null,
+        payload: m.payload || null,
+      }));
       const r = await fetch('/api/m/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: q, payload }),
+        body: JSON.stringify({ message: q, payload, clientHistory }),
       });
       const d = await r.json();
       if (d?.success) {

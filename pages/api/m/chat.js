@@ -7,7 +7,7 @@ async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
-  const { message, payload, reset } = req.body || {};
+  const { message, payload, reset, clientHistory } = req.body || {};
 
   // 홈 버튼 같이 대화 초기화 요청
   if (reset === true) {
@@ -20,7 +20,7 @@ async function handler(req, res) {
     return res.status(400).json({ success: false, error: '메시지가 비어있습니다.' });
   }
   try {
-    const result = await routeIntent(text, req.user, payload || null);
+    const result = await routeIntent(text, req.user, payload || null, { clientHistory: Array.isArray(clientHistory) ? clientHistory : [] });
 
     // 대화 기록에 보관 — text + card 평탄화 (LLM 후속 질문 맥락 이해용)
     const parts = [];
@@ -42,7 +42,7 @@ async function handler(req, res) {
     }
     const botText = parts.join('\n').slice(0, 2000);
     if (botText) {
-      appendTurn(req.user, { userMessage: text, botText, payload: payload || null });
+      appendTurn(req.user, { userMessage: text, botText, payload: payload || null, messages: result?.messages || [] });
     }
 
     return res.status(200).json({ success: true, ...result });
