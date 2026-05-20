@@ -241,6 +241,54 @@ async function loadNegativeGuardRows(orderYear, orderWeek) {
   }));
 }
 
+async function loadProcedureShape(procedureName) {
+  const result = await query(
+    `SELECT LOWER(name) AS name
+       FROM sys.parameters
+      WHERE object_id = OBJECT_ID(@procedureName)`,
+    { procedureName: { type: sql.NVarChar, value: `dbo.${procedureName}` } }
+  );
+  const names = new Set(result.recordset.map(r => r.name));
+  return {
+    hasCountryFlower: names.has('@countryflower'),
+    hasOutput: names.has('@oresult') || names.has('@omessage'),
+  };
+}
+
+function shipmentProcedureSql(procedureName, shape) {
+  if (!['usp_ShipmentFix', 'usp_ShipmentFixCancel'].includes(procedureName)) {
+    throw new Error('Unsupported shipment procedure');
+  }
+  const countryArg = shape.hasCountryFlower ? `\n              @CountryFlower = @cf,` : '';
+  if (shape.hasOutput) {
+    return `DECLARE @r INT, @m NVARCHAR(MAX);
+         EXEC dbo.${procedureName}
+              @OrderYear     = @yr,
+              @OrderWeek     = @wk,${countryArg}
+              @iUserID       = @uid,
+              @oResult       = @r OUTPUT,
+              @oMessage      = @m OUTPUT;
+         SELECT ISNULL(@r, 0) AS result, @m AS message;`;
+  }
+  return `EXEC dbo.${procedureName}
+              @OrderYear     = @yr,
+              @OrderWeek     = @wk,${countryArg}
+              @iUserID       = @uid;
+          SELECT 0 AS result, N'' AS message;`;
+}
+
+async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, uid, countryFlower) {
+  const params = {
+    yr:  { type: sql.NVarChar, value: orderYear },
+    wk:  { type: sql.NVarChar, value: orderWeek },
+    uid: { type: sql.NVarChar, value: uid },
+  };
+  if (shape.hasCountryFlower) {
+    params.cf = { type: sql.NVarChar, value: countryFlower || '' };
+  }
+  return await query(shipmentProcedureSql(procedureName, shape), params);
+}
+
 // ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
 //    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
 async function fix(req, res, week, prodKeyFilter) {
@@ -297,36 +345,23 @@ async function fix(req, res, week, prodKeyFilter) {
     });
   }
 
-  // 3. 카테고리별로 SP 호출 — SP 가 자체 트랜잭션 처리
+  const procedureShape = await loadProcedureShape('usp_ShipmentFix');
+  const targets = procedureShape.hasCountryFlower ? flowers : [null];
+
+  // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
   const results = [];
   const errors = [];
-  for (const cf of flowers) {
+  for (const cf of targets) {
     try {
-      const r = await query(
-        `DECLARE @r INT, @m NVARCHAR(MAX);
-         EXEC dbo.usp_ShipmentFix
-              @OrderYear     = @yr,
-              @OrderWeek     = @wk,
-              @CountryFlower = @cf,
-              @iUserID       = @uid,
-              @oResult       = @r OUTPUT,
-              @oMessage      = @m OUTPUT;
-         SELECT @r AS result, @m AS message;`,
-        {
-          yr:  { type: sql.NVarChar, value: orderYear },
-          wk:  { type: sql.NVarChar, value: orderWeek },
-          cf:  { type: sql.NVarChar, value: cf },
-          uid: { type: sql.NVarChar, value: uid },
-        }
-      );
+      const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
-        results.push({ countryFlower: cf, ok: true, message: row.message });
+        results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
       } else {
-        errors.push({ countryFlower: cf, code: row.result, message: row.message || 'unknown' });
+        errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
       }
     } catch (e) {
-      errors.push({ countryFlower: cf, code: -1, message: e.message });
+      errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
     }
   }
 
@@ -340,7 +375,7 @@ async function fix(req, res, week, prodKeyFilter) {
 
   return res.status(200).json({
     success: errors.length === 0,
-    message: `[${week}] ${results.length}개 카테고리 확정 완료` +
+    message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
              (errors.length > 0 ? ` (${errors.length}개 실패)` : ''),
     results,
     errors,
@@ -404,35 +439,22 @@ async function unfix(req, res, week, prodKeyFilter) {
     }
 
     // 카테고리별 SP 호출
+    const procedureShape = await loadProcedureShape('usp_ShipmentFixCancel');
+    const targets = procedureShape.hasCountryFlower ? flowers : [null];
+
     const results = [];
     const errors = [];
-    for (const cf of flowers) {
+    for (const cf of targets) {
       try {
-        const r = await query(
-          `DECLARE @r INT, @m NVARCHAR(MAX);
-           EXEC dbo.usp_ShipmentFixCancel
-                @OrderYear     = @yr,
-                @OrderWeek     = @wk,
-                @CountryFlower = @cf,
-                @iUserID       = @uid,
-                @oResult       = @r OUTPUT,
-                @oMessage      = @m OUTPUT;
-           SELECT @r AS result, @m AS message;`,
-          {
-            yr:  { type: sql.NVarChar, value: orderYear },
-            wk:  { type: sql.NVarChar, value: orderWeek },
-            cf:  { type: sql.NVarChar, value: cf },
-            uid: { type: sql.NVarChar, value: uid },
-          }
-        );
+        const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
-          results.push({ countryFlower: cf, ok: true, message: row.message });
+          results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
         } else {
-          errors.push({ countryFlower: cf, code: row.result, message: row.message || 'unknown' });
+          errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
         }
       } catch (e) {
-        errors.push({ countryFlower: cf, code: -1, message: e.message });
+        errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
       }
     }
 

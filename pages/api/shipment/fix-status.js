@@ -22,6 +22,39 @@ function normalizeRange(fromWeek, toWeek) {
   return from.key <= to.key ? { from, to } : { from: to, to: from };
 }
 
+async function loadProcedureShape(procedureName) {
+  const result = await query(
+    `SELECT LOWER(name) AS name
+       FROM sys.parameters
+      WHERE object_id = OBJECT_ID(@procedureName)`,
+    { procedureName: { type: sql.NVarChar, value: `dbo.${procedureName}` } }
+  );
+  const names = new Set(result.recordset.map(r => r.name));
+  return {
+    hasCountryFlower: names.has('@countryflower'),
+    hasOutput: names.has('@oresult') || names.has('@omessage'),
+  };
+}
+
+function shipmentCancelSql(shape) {
+  const countryArg = shape.hasCountryFlower ? `\n                  @CountryFlower = @cf,` : '';
+  if (shape.hasOutput) {
+    return `DECLARE @r INT, @m NVARCHAR(MAX);
+             EXEC dbo.usp_ShipmentFixCancel
+                  @OrderYear     = @yr,
+                  @OrderWeek     = @wk,${countryArg}
+                  @iUserID       = @uid,
+                  @oResult       = @r OUTPUT,
+                  @oMessage      = @m OUTPUT;
+             SELECT ISNULL(@r, 0) AS result, @m AS message;`;
+  }
+  return `EXEC dbo.usp_ShipmentFixCancel
+                  @OrderYear     = @yr,
+                  @OrderWeek     = @wk,${countryArg}
+                  @iUserID       = @uid;
+          SELECT 0 AS result, N'' AS message;`;
+}
+
 async function loadWeekStatus(from, to) {
   return await query(
     `WITH week_set AS (
@@ -256,35 +289,34 @@ export default withAuth(async function handler(req, res) {
       }
 
       const uid = req.user?.userId || 'admin';
+      const procedureShape = await loadProcedureShape('usp_ShipmentFixCancel');
+      const callTargets = procedureShape.hasCountryFlower
+        ? targets
+        : Object.values(targets.reduce((acc, t) => {
+            acc[`${t.OrderYear}-${t.OrderWeek}`] ||= { ...t, CountryFlower: null };
+            return acc;
+          }, {}));
       const results = [];
       const errors = [];
-      for (const t of targets) {
+      for (const t of callTargets) {
         try {
           const r = await query(
-            `DECLARE @r INT, @m NVARCHAR(MAX);
-             EXEC dbo.usp_ShipmentFixCancel
-                  @OrderYear     = @yr,
-                  @OrderWeek     = @wk,
-                  @CountryFlower = @cf,
-                  @iUserID       = @uid,
-                  @oResult       = @r OUTPUT,
-                  @oMessage      = @m OUTPUT;
-             SELECT @r AS result, @m AS message;`,
+            shipmentCancelSql(procedureShape),
             {
               yr:  { type: sql.NVarChar, value: t.OrderYear },
               wk:  { type: sql.NVarChar, value: t.OrderWeek },
-              cf:  { type: sql.NVarChar, value: t.CountryFlower },
+              ...(procedureShape.hasCountryFlower ? { cf: { type: sql.NVarChar, value: t.CountryFlower } } : {}),
               uid: { type: sql.NVarChar, value: uid },
             }
           );
           const row = r.recordset?.[0] || {};
           if (row.result === 0) {
-            results.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower, message: row.message || '' });
+            results.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', message: row.message || '' });
           } else {
-            errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower, code: row.result, message: row.message || 'unknown' });
+            errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', code: row.result, message: row.message || 'unknown' });
           }
         } catch (e) {
-          errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower, code: -1, message: e.message });
+          errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', code: -1, message: e.message });
         }
       }
 
@@ -301,4 +333,3 @@ export default withAuth(async function handler(req, res) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-
