@@ -115,10 +115,16 @@ async function validate(req, res) {
       }
     );
 
-    const negRows = negResult.recordset.map(r => ({
+    const calcNegRows = negResult.recordset.map(r => ({
       ...r,
       remain: Math.round((Number(r.prevStock || 0) + Number(r.inQty || 0) - Number(r.outQty || 0)) * 1000) / 1000,
     }));
+    const guardNegRows = await loadNegativeGuardRows(orderYear, orderWeek);
+    const negMap = new Map();
+    for (const row of [...calcNegRows, ...guardNegRows]) {
+      negMap.set(Number(row.ProdKey), row);
+    }
+    const negRows = [...negMap.values()];
 
     // 4. 입고 없는 출고 (WarehouseDetail 없는데 ShipmentDetail.OutQuantity > 0)
     //    이 케이스가 견적서에서 "입고 0인데 출고 5" 처럼 보여 작업 오류 유발
@@ -166,6 +172,75 @@ function deriveOrderWeek(week) {
   return m ? m[1] : week;
 }
 
+async function loadNegativeGuardRows(orderYear, orderWeek) {
+  const orderYearWeek = orderYear + String(orderWeek || '').replace('-', '');
+  const result = await query(
+    `WITH out_qty AS (
+       SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
+       GROUP BY sd.ProdKey
+     ),
+     in_qty AS (
+       SELECT wd.ProdKey, SUM(ISNULL(wd.OutQuantity, 0)) AS inQty
+       FROM WarehouseMaster wm
+       JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
+       WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
+       GROUP BY wd.ProdKey
+     ),
+     stock_base AS (
+       SELECT
+         p.ProdKey,
+         p.ProdName,
+         p.FlowerName,
+         p.CounName,
+         ISNULL(prev.prevStock, ISNULL(p.Stock, 0)) AS prevStock,
+         ISNULL(p.Stock, 0) AS productStock,
+         ISNULL(iq.inQty, 0) AS inQty,
+         ISNULL(oq.outQty, 0) AS outQty
+       FROM out_qty oq
+       JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
+       LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
+       OUTER APPLY (
+         SELECT TOP 1 ps.Stock AS prevStock
+         FROM ProductStock ps
+         JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+         WHERE ps.ProdKey = p.ProdKey
+           AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
+           AND (sm2.isFix IS NULL OR sm2.isFix = 1)
+         ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
+       ) prev
+     )
+     SELECT
+       ProdKey,
+       ProdName,
+       FlowerName,
+       CounName,
+       prevStock,
+       productStock,
+       inQty,
+       outQty,
+       prevStock + inQty - outQty AS remain,
+       productStock + inQty - outQty AS productRemain
+     FROM stock_base
+     WHERE prevStock + inQty - outQty < 0
+        OR productStock + inQty - outQty < 0
+     ORDER BY FlowerName, ProdName`,
+    {
+      wk:  { type: sql.NVarChar, value: orderWeek },
+      yr:  { type: sql.NVarChar, value: orderYear },
+      ywk: { type: sql.NVarChar, value: orderYearWeek },
+    }
+  );
+
+  return result.recordset.map(r => ({
+    ...r,
+    remain: Math.round(Number(r.remain || 0) * 1000) / 1000,
+    productRemain: Math.round(Number(r.productRemain || 0) * 1000) / 1000,
+  }));
+}
+
 // ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
 //    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
 async function fix(req, res, week, prodKeyFilter) {
@@ -179,6 +254,16 @@ async function fix(req, res, week, prodKeyFilter) {
   const orderYear = deriveOrderYear(week);
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
+
+  const negativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
+  if (negativeRows.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: `[${week}] 확정 불가 — 전재고 + 입고 - 출고가 음수인 품목 ${negativeRows.length}건`,
+      code: 'NEGATIVE_STOCK',
+      negative: negativeRows,
+    });
+  }
 
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(

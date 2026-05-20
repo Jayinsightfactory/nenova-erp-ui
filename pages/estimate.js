@@ -394,6 +394,7 @@ export default function Estimate() {
   const [recentOnly, setRecentOnly] = useState(true);
   // 차수별 확정 취소 작업 상태
   const [unfixingWeek, setUnfixingWeek] = useState(null); // 작업 중인 세부차수
+  const [rangeUnfixWorking, setRangeUnfixWorking] = useState(false);
   useEffect(() => {
     try {
       const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false);
@@ -436,6 +437,92 @@ export default function Estimate() {
       setUnfixingWeek(null);
     }
   };
+
+  const formatSubWeek = (parentWeek, sub = '01') => `${String(parentWeek).padStart(2, '0')}-${sub}`;
+
+  const getLatestParentWeek = () => {
+    const candidates = [weekNum, getCurrentWeekNum()];
+    shipments.forEach(s => {
+      if (s.ParentWeek) candidates.push(s.ParentWeek);
+      (s.SubWeeks || '').split(',').forEach(sw => {
+        const m = sw.match(/^(\d{1,2})-/);
+        if (m) candidates.push(m[1]);
+      });
+    });
+    return Math.max(...candidates.map(v => parseInt(v, 10)).filter(Number.isFinite));
+  };
+
+  const unfixRangeToSelectedWeek = async (force = false) => {
+    if (!weekNum) { alert('차수를 입력하세요.'); return; }
+
+    const selectedParent = parseInt(weekNum, 10);
+    const latestParent = getLatestParentWeek();
+    if (!Number.isFinite(selectedParent) || !Number.isFinite(latestParent)) {
+      alert('확정취소할 차수를 확인할 수 없습니다.');
+      return;
+    }
+
+    const fromParent = Math.min(selectedParent, latestParent);
+    const toParent = Math.max(selectedParent, latestParent);
+    const fromWeek = formatSubWeek(fromParent, '01');
+    const toWeek = formatSubWeek(toParent, '03');
+
+    setRangeUnfixWorking(true);
+    try {
+      const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(fromWeek)}&toWeek=${encodeURIComponent(toWeek)}`, {
+        credentials: 'same-origin',
+      });
+      const status = await statusRes.json();
+      if (!status.success) throw new Error(status.error || '구간 확정상태 조회 실패');
+
+      const targetWeeks = (status.weeks || [])
+        .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL')
+        .map(w => w.OrderWeek || w.week)
+        .filter(Boolean)
+        .sort()
+        .reverse();
+
+      if (targetWeeks.length === 0) {
+        alert(`[${fromWeek} ~ ${toWeek}] 구간에 확정취소할 차수가 없습니다.`);
+        return;
+      }
+
+      if (!force) {
+        const ok = confirm(
+          `[${fromWeek} ~ ${toWeek}] 구간 확정취소를 진행할까요?\n\n` +
+          `대상: ${targetWeeks.join(', ')}\n\n` +
+          `높은 차수부터 낮은 차수 순서로 취소되어 ${weekNum}차 수정이 가능해집니다.`
+        );
+        if (!ok) return;
+      }
+
+      const res = await fetch('/api/shipment/fix-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ fromWeek, toWeek, force }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        if (data.warning === 'LATER_FIXED_EXISTS' && !force) {
+          if (confirm(`${data.error}\n\n그래도 구간 확정취소를 진행할까요?`)) {
+            return await unfixRangeToSelectedWeek(true);
+          }
+          return;
+        }
+        throw new Error(data.error || '구간 확정취소 실패');
+      }
+
+      alert(data.message || `[${fromWeek} ~ ${toWeek}] 구간 확정취소 완료`);
+      setIncludeUnfixed(true);
+      load(true);
+    } catch (e) {
+      alert(`구간 확정취소 오류: ${e.message}`);
+    } finally {
+      setRangeUnfixWorking(false);
+    }
+  };
+
   const weekPrev = () => setWeekNum(w => String(Math.max(1, parseInt(w)||1) - 1));
   const weekNext = () => setWeekNum(w => String(Math.min(52, parseInt(w)||1) + 1));
 
@@ -682,14 +769,14 @@ export default function Estimate() {
     }
   };
 
-  const doFixAll = async (weekList) => {
+  const doFixAll = async (weekList, force = false) => {
     setFixWorking(true);
     const results = [];
     for (const wk of weekList) {
       try {
         const r = await fetch('/api/shipment/fix', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ week: wk, action: 'fix' }),
+          body: JSON.stringify({ week: wk, action: 'fix', force }),
         });
         const d = await r.json();
         results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount });
@@ -1090,6 +1177,9 @@ export default function Estimate() {
   // 견적 유형 옵션
   const estimateTypeOptions = ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
 
+  const fixModalHasNegative = fixModal?.stage === 'preview' &&
+    Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
+
   return (
     <div>
       {/* ── 필터 바 ── */}
@@ -1191,6 +1281,15 @@ export default function Estimate() {
             border: '1.5px solid #2e7d32', background: fixWorking ? '#a5d6a7' : '#2e7d32', color: '#fff',
           }}>
           {fixWorking ? '⏳ 확정중...' : '🔐 차수 확정하기'}
+        </button>
+        <button type="button" onClick={() => unfixRangeToSelectedWeek(false)} disabled={rangeUnfixWorking || !weekNum}
+          title={`현재 확정 차수부터 ${weekNum}차까지 구간 확정취소`}
+          style={{
+            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: rangeUnfixWorking ? 'wait' : 'pointer',
+            borderRadius: 14, marginLeft: 4,
+            border: '1.5px solid #ef6c00', background: rangeUnfixWorking ? '#ffe0b2' : '#fff7ed', color: '#bf360c',
+          }}>
+          {rangeUnfixWorking ? '⏳ 취소중...' : '🔓 구간 확정취소'}
         </button>
 
         <div className="page-actions">
@@ -1836,7 +1935,10 @@ export default function Estimate() {
             {fixModal.stage === 'preview' && (
               <div className="modal-body">
                 <div style={{ background: '#fff3e0', border: '1px solid #fb8c00', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 12, color: '#e65100' }}>
-                  ⚠ 확정 전 검증에서 <b>{fixModal.totalIssues}건</b> 이슈 발견. 그래도 강제 확정하면 견적서 오류 발생 가능.
+                  ⚠ 확정 전 검증에서 <b>{fixModal.totalIssues}건</b> 이슈 발견.
+                  {fixModalHasNegative
+                    ? ' 음수재고가 포함되어 확정할 수 없습니다. 입고/출고를 먼저 수정하세요.'
+                    : ' 강제 확정하면 견적서 오류가 발생할 수 있습니다.'}
                 </div>
                 {Object.entries(fixModal.allIssues).map(([wk, iss]) => (
                   <div key={wk} style={{ marginBottom: 12, border: '1px solid #ddd', borderRadius: 6, padding: 8 }}>
@@ -1923,14 +2025,20 @@ export default function Estimate() {
               {fixModal.stage === 'preview' && (
                 <>
                   <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
-                  <button
-                    className="btn"
-                    style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}
-                    onClick={() => doFixAll(fixModal.weekList)}
-                    disabled={fixWorking}
-                  >
-                    ⚠ 그래도 강제 확정 ({fixModal.weekList.length}차수)
-                  </button>
+                  {fixModalHasNegative ? (
+                    <button className="btn" disabled style={{ fontWeight: 700 }}>
+                      음수재고 수정 후 확정 가능
+                    </button>
+                  ) : (
+                    <button
+                      className="btn"
+                      style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}
+                      onClick={() => doFixAll(fixModal.weekList, true)}
+                      disabled={fixWorking}
+                    >
+                      ⚠ 그래도 강제 확정 ({fixModal.weekList.length}차수)
+                    </button>
+                  )}
                 </>
               )}
               {fixModal.stage === 'done' && (
