@@ -12,6 +12,58 @@ const fixedLabel = {
   NO_SHIPMENT: { text: '출고없음', bg: '#e5e7eb', color: '#374151' },
 };
 
+const MAX_SEQ = 4;
+
+function parseWeekValue(value) {
+  const parts = String(value || '').split('-').map(v => Number(v));
+  if (parts.length === 3) return { year: parts[0], week: parts[1], seq: parts[2], hasYear: true };
+  if (parts.length === 2) return { year: new Date().getFullYear(), week: parts[0], seq: parts[1], hasYear: false };
+  return null;
+}
+
+function buildWeekValue({ year, week, seq, hasYear }) {
+  const ww = String(week).padStart(2, '0');
+  const ss = String(seq).padStart(2, '0');
+  return hasYear ? `${year}-${ww}-${ss}` : `${ww}-${ss}`;
+}
+
+function addWeekSlots(value, delta) {
+  const parsed = parseWeekValue(value);
+  if (!parsed) return value;
+  let { year, week, seq, hasYear } = parsed;
+  const step = delta >= 0 ? 1 : -1;
+  for (let i = 0; i < Math.abs(delta); i += 1) {
+    seq += step;
+    if (seq > MAX_SEQ) {
+      seq = 1;
+      week += 1;
+    }
+    if (seq < 1) {
+      seq = MAX_SEQ;
+      week -= 1;
+    }
+    if (week > 52) {
+      week = 1;
+      year += 1;
+      hasYear = true;
+    }
+    if (week < 1) {
+      week = 52;
+      year -= 1;
+      hasYear = true;
+    }
+  }
+  return buildWeekValue({ year, week, seq, hasYear });
+}
+
+function getRecentRange(count = 10) {
+  const current = getCurrentWeek();
+  return {
+    from: addWeekSlots(current, -(count - 1)),
+    to: current,
+  };
+}
+
 function StatusBadge({ status }) {
   const s = fixedLabel[status] || fixedLabel.NO_SHIPMENT;
   return (
@@ -32,9 +84,9 @@ function StatusBadge({ status }) {
 }
 
 export default function ShipmentFixStatus() {
-  const current = getCurrentWeek();
-  const fromInput = useWeekInput(current);
-  const toInput = useWeekInput(current);
+  const defaultRange = useMemo(() => getRecentRange(10), []);
+  const fromInput = useWeekInput(defaultRange.from);
+  const toInput = useWeekInput(defaultRange.to);
   const [weeks, setWeeks] = useState([]);
   const [negative, setNegative] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -130,11 +182,11 @@ export default function ShipmentFixStatus() {
             {working ? '취소 처리중...' : '선택 구간 확정취소'}
           </button>
           <button className="btn btn-sm" onClick={() => {
-            const cur = getCurrentWeek();
-            fromInput.setValue(cur);
-            toInput.setValue(cur);
+            const range = getRecentRange(10);
+            fromInput.setValue(range.from);
+            toInput.setValue(range.to);
           }}>
-            현재차수
+            최근 10차수
           </button>
         </div>
       </div>
@@ -248,4 +300,3 @@ export default function ShipmentFixStatus() {
     </div>
   );
 }
-
