@@ -610,6 +610,7 @@ export default function Estimate() {
   // 불량/검역 모달
   const [showDefect, setShowDefect] = useState(false);
   const [products, setProducts] = useState([]);  // 품목 전체 목록 (드롭다운용)
+  const [estimateTypes, setEstimateTypes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -674,6 +675,12 @@ export default function Estimate() {
     apiGet('/api/products/search', { q: '' })
       .then(d => setProducts(d.products || []))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiGet('/api/estimate', { view: 'types' })
+      .then(d => setEstimateTypes(d.types || []))
+      .catch(() => setEstimateTypes([]));
   }, []);
 
   // ── 조회 (차수 + 업체 기준) — 차수 단위 그룹핑 (14 → 14-01, 14-02 … 모두 포함)
@@ -1027,15 +1034,20 @@ export default function Estimate() {
     if (!defectForm.estimateType) { alert('구분을 선택하세요.'); return; }
     if (!defectForm.prodKey)      { alert('품목명을 선택하세요.'); return; }
     if (!defectForm.quantity || parseFloat(defectForm.quantity) <= 0) { alert('수량을 입력하세요.'); return; }
+    const shipmentKeyForEstimate = selectedShip?.firstShipmentKey
+      || Number((selectedShip?.ShipmentKeys || '').split(',').find(Boolean));
+    if (!shipmentKeyForEstimate) { alert('견적을 등록할 출고번호를 찾지 못했습니다. 다시 조회 후 선택하세요.'); return; }
     setSaving(true);
     try {
       await apiPost('/api/estimate', {
-        shipmentKey:  selectedId,
+        shipmentKey:  shipmentKeyForEstimate,
         prodKey:      parseInt(defectForm.prodKey),
         estimateType: defectForm.estimateType,
         unit:         defectForm.unit,
         quantity:     parseFloat(defectForm.quantity),
         cost:         parseFloat(defectForm.cost) || 0,
+        estimateDate: defectForm.estimateDate,
+        descr:        defectForm.descr || '',
       });
       setShowDefect(false);
       setDefectForm({ estimateType:'', estimateDate: new Date().toISOString().slice(0,10), prodKey:'', unit:'단', quantity:'', cost:'', descr:'' });
@@ -1206,7 +1218,9 @@ export default function Estimate() {
   }));
 
   // 견적 유형 옵션
-  const estimateTypeOptions = ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
+  const estimateTypeOptions = estimateTypes.length > 0
+    ? estimateTypes.map(t => ({ value: t.DetailCode, label: t.Label || t.Descr2 || t.Descr || t.DetailCode }))
+    : ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
 
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
     Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
