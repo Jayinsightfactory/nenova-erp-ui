@@ -92,9 +92,13 @@ function mapEstimateType(t) {
 }
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
+function isPrintableEstimateRow(row) {
+  return (Number(row?.Quantity) || 0) > 0 && (Number(row?.Cost) || 0) > 0;
+}
+
 function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl, aggregate = false }) {
-  // ── 수량/단가 둘 다 0인 행 제거 (사장님 요청)
-  rows = rows.filter(r => (Number(r.Quantity) || 0) > 0 || (Number(r.Cost) || 0) > 0);
+  // ── 인쇄용: 수량 또는 단가가 0인 행 제거
+  rows = rows.filter(isPrintableEstimateRow);
 
   // ── 사장님 지정 정렬 우선순위
   // 콜롬비아 수국→알스트로→루스커스→카네이션→장미 → 네덜란드 → 호주 → 중국 → 에콰도르
@@ -1130,9 +1134,10 @@ export default function Estimate() {
 
     // ── 한 거래처분 인쇄 헬퍼 — rows 와 custName 받아 splitMode 에 따라 분기
     const printOneCustomer = async (oneCustName, oneRows) => {
-      const printRows = oneRows.filter(i =>
-        opts.outType === 'select' ? i.EstimateType === '정상출고' : true
-      );
+      const printRows = oneRows.filter(i => {
+        if (!isPrintableEstimateRow(i)) return false;
+        return opts.outType === 'select' ? i.EstimateType === '정상출고' : true;
+      });
       if (!printRows.length) return;
 
       if (opts.splitMode === 'combined') {
