@@ -383,6 +383,8 @@ export default function Estimate() {
   // 차수 확정 모달
   const [fixModal, setFixModal] = useState(null); // null | { stage, week, issues, result }
   const [fixWorking, setFixWorking] = useState(false);
+  const [fixStatusModal, setFixStatusModal] = useState(null);
+  const [fixStatusLoading, setFixStatusLoading] = useState(false);
   // 주문 vs 출고 불일치 검증
   const [mismatch, setMismatch] = useState(null); // { total, shortageCount, overflowCount, items }
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
@@ -452,20 +454,48 @@ export default function Estimate() {
     return Math.max(...candidates.map(v => parseInt(v, 10)).filter(Number.isFinite));
   };
 
+  const getSelectedFixRange = () => {
+    const selectedParent = parseInt(weekNum, 10);
+    const latestParent = getLatestParentWeek();
+    if (!Number.isFinite(selectedParent) || !Number.isFinite(latestParent)) return null;
+    const fromParent = Math.min(selectedParent, latestParent);
+    const toParent = Math.max(selectedParent, latestParent);
+    return {
+      fromParent,
+      toParent,
+      fromWeek: formatSubWeek(fromParent, '01'),
+      toWeek: formatSubWeek(toParent, '03'),
+    };
+  };
+
+  const checkFixStatus = async () => {
+    if (!weekNum) { alert('차수를 입력하세요.'); return; }
+    const range = getSelectedFixRange();
+    if (!range) { alert('확정 현황을 확인할 차수를 알 수 없습니다.'); return; }
+    setFixStatusLoading(true);
+    try {
+      const res = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, {
+        credentials: 'same-origin',
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
+      setFixStatusModal({ ...data, range });
+    } catch (e) {
+      alert(`확정 현황 확인 오류: ${e.message}`);
+    } finally {
+      setFixStatusLoading(false);
+    }
+  };
+
   const unfixRangeToSelectedWeek = async (force = false) => {
     if (!weekNum) { alert('차수를 입력하세요.'); return; }
 
-    const selectedParent = parseInt(weekNum, 10);
-    const latestParent = getLatestParentWeek();
-    if (!Number.isFinite(selectedParent) || !Number.isFinite(latestParent)) {
+    const range = getSelectedFixRange();
+    if (!range) {
       alert('확정취소할 차수를 확인할 수 없습니다.');
       return;
     }
-
-    const fromParent = Math.min(selectedParent, latestParent);
-    const toParent = Math.max(selectedParent, latestParent);
-    const fromWeek = formatSubWeek(fromParent, '01');
-    const toWeek = formatSubWeek(toParent, '03');
+    const { fromWeek, toWeek } = range;
 
     setRangeUnfixWorking(true);
     try {
@@ -1179,6 +1209,15 @@ export default function Estimate() {
 
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
     Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
+  const fixStatusRows = fixStatusModal?.weeks || [];
+  const fixStatusTargetRows = fixStatusRows.filter(w => w.status === 'FIXED' || w.status === 'PARTIAL');
+  const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
+  const fixStatusBadge = (status) => {
+    if (status === 'FIXED') return { text: '확정', bg: '#e8f5e9', color: '#2e7d32' };
+    if (status === 'PARTIAL') return { text: '부분확정', bg: '#fff8e1', color: '#ef6c00' };
+    if (status === 'UNFIXED') return { text: '미확정', bg: '#e3f2fd', color: '#1565c0' };
+    return { text: '출고없음', bg: '#f5f5f5', color: '#777' };
+  };
 
   return (
     <div>
@@ -1273,23 +1312,14 @@ export default function Estimate() {
           }}>
           {includeUnfixed ? '🔓 미확정 포함' : '🔒 확정만'}
         </button>
-        <button type="button" onClick={fixWeekAllSubs} disabled={fixWorking || !weekNum}
-          title={`${weekNum}차의 모든 세부차수(01/02/03) 일괄 확정`}
+        <button type="button" onClick={checkFixStatus} disabled={fixStatusLoading || fixWorking || rangeUnfixWorking || !weekNum}
+          title={`${weekNum}차 기준 확정/미확정/음수재고 현황 확인 후 확정 또는 구간 확정취소`}
           style={{
-            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: fixWorking ? 'wait' : 'pointer',
+            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: fixStatusLoading ? 'wait' : 'pointer',
             borderRadius: 14, marginLeft: 4,
-            border: '1.5px solid #2e7d32', background: fixWorking ? '#a5d6a7' : '#2e7d32', color: '#fff',
+            border: '1.5px solid #1565c0', background: fixStatusLoading ? '#90caf9' : '#1565c0', color: '#fff',
           }}>
-          {fixWorking ? '⏳ 확정중...' : '🔐 차수 확정하기'}
-        </button>
-        <button type="button" onClick={() => unfixRangeToSelectedWeek(false)} disabled={rangeUnfixWorking || !weekNum}
-          title={`현재 확정 차수부터 ${weekNum}차까지 구간 확정취소`}
-          style={{
-            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: rangeUnfixWorking ? 'wait' : 'pointer',
-            borderRadius: 14, marginLeft: 4,
-            border: '1.5px solid #ef6c00', background: rangeUnfixWorking ? '#ffe0b2' : '#fff7ed', color: '#bf360c',
-          }}>
-          {rangeUnfixWorking ? '⏳ 취소중...' : '🔓 구간 확정취소'}
+          {fixStatusLoading ? '⏳ 확인중...' : '🔎 확정 현황 확인'}
         </button>
 
         <div className="page-actions">
@@ -1911,6 +1941,99 @@ export default function Estimate() {
             </div>
             <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)' }}>
               <button className="btn" onClick={() => setMismatchModalOpen(false)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fixStatusModal && (
+        <div className="modal-overlay" onClick={() => !(fixWorking || rangeUnfixWorking) && setFixStatusModal(null)}>
+          <div className="modal" style={{ maxWidth: 760, maxHeight: '82vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                🔎 확정 현황 — {fixStatusModal.range.fromWeek} ~ {fixStatusModal.range.toWeek}
+              </span>
+              {!(fixWorking || rangeUnfixWorking) && (
+                <button className="btn btn-sm" onClick={() => setFixStatusModal(null)}>닫기</button>
+              )}
+            </div>
+            <div className="modal-body">
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12, fontSize:12 }}>
+                <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  조회 {fixStatusRows.length}차수
+                </span>
+                <span style={{ background:'#fff8e1', color:'#ef6c00', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  취소대상 {fixStatusTargetRows.length}차수
+                </span>
+                <span style={{ background: fixStatusNegativeCount > 0 ? '#ffebee' : '#e8f5e9', color: fixStatusNegativeCount > 0 ? '#c62828' : '#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  음수재고 {fixStatusNegativeCount}건
+                </span>
+              </div>
+              <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
+                먼저 현황을 확인한 뒤, 현재 선택 차수는 확정하고 과거 차수 수정이 필요하면 구간 확정취소를 진행합니다.
+                음수재고가 있으면 확정 버튼을 눌러도 서버에서 확정이 차단됩니다.
+              </div>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                <thead>
+                  <tr style={{ background:'#f5f5f5', borderBottom:'2px solid #999' }}>
+                    <th style={{ padding:'6px', textAlign:'center', width:80 }}>차수</th>
+                    <th style={{ padding:'6px', textAlign:'center', width:90 }}>상태</th>
+                    <th style={{ padding:'6px', textAlign:'right' }}>출고</th>
+                    <th style={{ padding:'6px', textAlign:'right' }}>확정출고</th>
+                    <th style={{ padding:'6px', textAlign:'right' }}>미확정</th>
+                    <th style={{ padding:'6px', textAlign:'right' }}>카테고리</th>
+                    <th style={{ padding:'6px', textAlign:'right' }}>음수재고</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fixStatusRows.map(w => {
+                    const badge = fixStatusBadge(w.status);
+                    return (
+                      <tr key={w.WeekKey || w.OrderWeek} style={{ borderBottom:'1px solid #eee' }}>
+                        <td style={{ padding:'5px 6px', textAlign:'center', fontWeight:700 }}>{w.OrderWeek}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'center' }}>
+                          <span style={{ background: badge.bg, color: badge.color, padding:'2px 8px', borderRadius:12, fontWeight:700 }}>
+                            {badge.text}
+                          </span>
+                        </td>
+                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.detailCount || 0).toLocaleString()}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.fixedDetailCount || 0).toLocaleString()}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.unfixedDetailCount || 0).toLocaleString()}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.fixedCategoryCount || 0).toLocaleString()} / {Number(w.categoryCount || 0).toLocaleString()}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'right', color: Number(w.negativeCount || 0) > 0 ? '#c62828' : '#555', fontWeight: Number(w.negativeCount || 0) > 0 ? 700 : 400 }}>
+                          {Number(w.negativeCount || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {fixStatusRows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ padding:16, textAlign:'center', color:'#777' }}>
+                        조회된 차수 현황이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)' }}>
+              <button className="btn" onClick={() => setFixStatusModal(null)} disabled={fixWorking || rangeUnfixWorking}>닫기</button>
+              <button
+                className="btn"
+                onClick={async () => { setFixStatusModal(null); await unfixRangeToSelectedWeek(false); }}
+                disabled={rangeUnfixWorking || fixStatusTargetRows.length === 0}
+                style={{ background:'#fff7ed', color:'#bf360c', borderColor:'#ef6c00', fontWeight:700 }}
+              >
+                {rangeUnfixWorking ? '취소중...' : `구간 확정취소 (${fixStatusTargetRows.length}차수)`}
+              </button>
+              <button
+                className="btn"
+                onClick={async () => { setFixStatusModal(null); await fixWeekAllSubs(); }}
+                disabled={fixWorking || !weekNum}
+                style={{ background:'#2e7d32', color:'#fff', borderColor:'#2e7d32', fontWeight:700 }}
+              >
+                {fixWorking ? '확정중...' : `${weekNum}차 확정하기`}
+              </button>
             </div>
           </div>
         </div>
