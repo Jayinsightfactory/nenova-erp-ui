@@ -23,6 +23,58 @@ function getCurrentYearStr() {
 }
 
 // 출고일자 포맷: "2026-04-03" → "03(금)" (기존 전산 프로그램 형식)
+const FIX_STATUS_COUNT = 10;
+const FIX_STATUS_LAST_SUB = '03';
+
+function parseSubWeekValue(value) {
+  const m = String(value || '').match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  return { parent: Number(m[1]), sub: Number(m[2]) };
+}
+
+function formatSubWeekValue(parent, sub) {
+  return `${String(parent).padStart(2, '0')}-${String(sub).padStart(2, '0')}`;
+}
+
+function shiftSubWeek(value, delta) {
+  const parsed = parseSubWeekValue(value);
+  if (!parsed) return value;
+  let { parent, sub } = parsed;
+  const step = delta >= 0 ? 1 : -1;
+  for (let i = 0; i < Math.abs(delta); i += 1) {
+    sub += step;
+    if (sub > 4) { sub = 1; parent += 1; }
+    if (sub < 1) { sub = 4; parent -= 1; }
+    if (parent < 1) { parent = 1; sub = 1; }
+  }
+  return formatSubWeekValue(parent, sub);
+}
+
+function subWeekKey(value) {
+  const p = parseSubWeekValue(value);
+  return p ? p.parent * 100 + p.sub : 0;
+}
+
+function expandSubWeekRange(fromWeek, toWeek, limit = FIX_STATUS_COUNT) {
+  const rows = [];
+  let cur = fromWeek;
+  let guard = 0;
+  while (cur && subWeekKey(cur) <= subWeekKey(toWeek) && guard < 80) {
+    rows.push(cur);
+    cur = shiftSubWeek(cur, 1);
+    guard += 1;
+  }
+  return rows.slice(-limit);
+}
+
+function getRecentFixStatusRange(parentWeek, count = FIX_STATUS_COUNT) {
+  const toWeek = formatSubWeekValue(Number(parentWeek), Number(FIX_STATUS_LAST_SUB));
+  return {
+    fromWeek: shiftSubWeek(toWeek, -(count - 1)),
+    toWeek,
+  };
+}
+
 const DAY_KR = ['일','월','화','수','목','금','토'];
 function fmtDate(dateStr) {
   if (!dateStr) return '';
@@ -390,6 +442,7 @@ export default function Estimate() {
   const [fixWorking, setFixWorking] = useState(false);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
+  const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
   // 주문 vs 출고 불일치 검증
   const [mismatch, setMismatch] = useState(null); // { total, shortageCount, overflowCount, items }
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
@@ -461,16 +514,8 @@ export default function Estimate() {
 
   const getSelectedFixRange = () => {
     const selectedParent = parseInt(weekNum, 10);
-    const latestParent = getLatestParentWeek();
-    if (!Number.isFinite(selectedParent) || !Number.isFinite(latestParent)) return null;
-    const fromParent = Math.min(selectedParent, latestParent);
-    const toParent = Math.max(selectedParent, latestParent);
-    return {
-      fromParent,
-      toParent,
-      fromWeek: formatSubWeek(fromParent, '01'),
-      toWeek: formatSubWeek(toParent, '03'),
-    };
+    if (!Number.isFinite(selectedParent)) return null;
+    return getRecentFixStatusRange(selectedParent, FIX_STATUS_COUNT);
   };
 
   const checkFixStatus = async () => {
@@ -484,7 +529,25 @@ export default function Estimate() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
-      setFixStatusModal({ ...data, range });
+      const existing = new Map((data.weeks || []).map(w => [w.OrderWeek, w]));
+      const weeks = expandSubWeekRange(range.fromWeek, range.toWeek, FIX_STATUS_COUNT).map(orderWeek => {
+        const found = existing.get(orderWeek);
+        if (found) return found;
+        return {
+          OrderYear: yearStr,
+          OrderWeek: orderWeek,
+          WeekKey: `${yearStr}${String(orderWeek).replace('-', '')}`,
+          status: 'NO_SHIPMENT',
+          detailCount: 0,
+          fixedDetailCount: 0,
+          unfixedDetailCount: 0,
+          categoryCount: 0,
+          fixedCategoryCount: 0,
+          negativeCount: 0,
+        };
+      }).sort((a, b) => String(b.WeekKey).localeCompare(String(a.WeekKey)));
+      setSelectedFixStatusWeeks(new Set());
+      setFixStatusModal({ ...data, weeks, range });
     } catch (e) {
       alert(`확정 현황 확인 오류: ${e.message}`);
     } finally {
@@ -1230,13 +1293,58 @@ export default function Estimate() {
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
     Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
   const fixStatusRows = fixStatusModal?.weeks || [];
-  const fixStatusTargetRows = fixStatusRows.filter(w => w.status === 'FIXED' || w.status === 'PARTIAL');
+  const selectedFixStatusRows = selectedFixStatusWeeks.size > 0
+    ? fixStatusRows.filter(w => selectedFixStatusWeeks.has(w.OrderWeek))
+    : [];
+  const fixStatusTargetRows = (selectedFixStatusRows.length ? selectedFixStatusRows : fixStatusRows)
+    .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL');
   const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
   const fixStatusBadge = (status) => {
     if (status === 'FIXED') return { text: '확정', bg: '#e8f5e9', color: '#2e7d32' };
     if (status === 'PARTIAL') return { text: '부분확정', bg: '#fff8e1', color: '#ef6c00' };
     if (status === 'UNFIXED') return { text: '미확정', bg: '#e3f2fd', color: '#1565c0' };
     return { text: '출고없음', bg: '#f5f5f5', color: '#777' };
+  };
+
+  const unfixSelectedFixStatusWeeks = async (force = false) => {
+    const rows = fixStatusTargetRows;
+    if (!rows.length) {
+      alert('확정취소할 차수를 선택하거나, 확정/부분확정 차수가 있어야 합니다.');
+      return;
+    }
+    const ordered = [...rows].sort((a, b) => String(b.WeekKey || b.OrderWeek).localeCompare(String(a.WeekKey || a.OrderWeek)));
+    const weekLabels = ordered.map(w => w.OrderWeek);
+    if (!force && !confirm(`선택한 ${ordered.length}개 차수를 확정취소할까요?\n\n${weekLabels.join(', ')}\n\n높은 차수부터 낮은 차수 순서로 처리됩니다.`)) {
+      return;
+    }
+
+    setRangeUnfixWorking(true);
+    try {
+      const errors = [];
+      for (const row of ordered) {
+        const res = await fetch('/api/shipment/fix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ week: row.OrderWeek, action: 'unfix', force: true }),
+        });
+        const data = await res.json();
+        if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
+      }
+      if (errors.length) {
+        alert(`일부 확정취소 실패\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? `\n외 ${errors.length - 8}건` : ''}`);
+      } else {
+        alert(`선택 차수 확정취소 완료: ${weekLabels.join(', ')}`);
+      }
+      setSelectedFixStatusWeeks(new Set());
+      await checkFixStatus();
+      setIncludeUnfixed(true);
+      load(true);
+    } catch (e) {
+      alert(`선택 차수 확정취소 오류: ${e.message}`);
+    } finally {
+      setRangeUnfixWorking(false);
+    }
   };
 
   return (
@@ -1982,6 +2090,9 @@ export default function Estimate() {
                 <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   조회 {fixStatusRows.length}차수
                 </span>
+                <span style={{ background:'#ede7f6', color:'#4527a0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  선택 {selectedFixStatusWeeks.size}차수
+                </span>
                 <span style={{ background:'#fff8e1', color:'#ef6c00', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   취소대상 {fixStatusTargetRows.length}차수
                 </span>
@@ -1996,6 +2107,7 @@ export default function Estimate() {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                 <thead>
                   <tr style={{ background:'#f5f5f5', borderBottom:'2px solid #999' }}>
+                    <th style={{ padding:'6px', textAlign:'center', width:42 }}>선택</th>
                     <th style={{ padding:'6px', textAlign:'center', width:80 }}>차수</th>
                     <th style={{ padding:'6px', textAlign:'center', width:90 }}>상태</th>
                     <th style={{ padding:'6px', textAlign:'right' }}>출고</th>
@@ -2008,8 +2120,29 @@ export default function Estimate() {
                 <tbody>
                   {fixStatusRows.map(w => {
                     const badge = fixStatusBadge(w.status);
+                    const selected = selectedFixStatusWeeks.has(w.OrderWeek);
+                    const selectable = w.status === 'FIXED' || w.status === 'PARTIAL';
                     return (
-                      <tr key={w.WeekKey || w.OrderWeek} style={{ borderBottom:'1px solid #eee' }}>
+                      <tr
+                        key={w.WeekKey || w.OrderWeek}
+                        onClick={() => {
+                          if (!selectable) return;
+                          setSelectedFixStatusWeeks(prev => {
+                            const next = new Set(prev);
+                            if (next.has(w.OrderWeek)) next.delete(w.OrderWeek);
+                            else next.add(w.OrderWeek);
+                            return next;
+                          });
+                        }}
+                        style={{
+                          borderBottom:'1px solid #eee',
+                          cursor: selectable ? 'pointer' : 'default',
+                          background: selected ? '#f3e5f5' : undefined,
+                        }}
+                      >
+                        <td style={{ padding:'5px 6px', textAlign:'center' }}>
+                          {selectable ? <input type="checkbox" checked={selected} readOnly /> : '-'}
+                        </td>
                         <td style={{ padding:'5px 6px', textAlign:'center', fontWeight:700 }}>{w.OrderWeek}</td>
                         <td style={{ padding:'5px 6px', textAlign:'center' }}>
                           <span style={{ background: badge.bg, color: badge.color, padding:'2px 8px', borderRadius:12, fontWeight:700 }}>
@@ -2028,7 +2161,7 @@ export default function Estimate() {
                   })}
                   {fixStatusRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ padding:16, textAlign:'center', color:'#777' }}>
+                      <td colSpan={8} style={{ padding:16, textAlign:'center', color:'#777' }}>
                         조회된 차수 현황이 없습니다.
                       </td>
                     </tr>
@@ -2040,11 +2173,11 @@ export default function Estimate() {
               <button className="btn" onClick={() => setFixStatusModal(null)} disabled={fixWorking || rangeUnfixWorking}>닫기</button>
               <button
                 className="btn"
-                onClick={async () => { setFixStatusModal(null); await unfixRangeToSelectedWeek(false); }}
+                onClick={async () => { await unfixSelectedFixStatusWeeks(false); }}
                 disabled={rangeUnfixWorking || fixStatusTargetRows.length === 0}
                 style={{ background:'#fff7ed', color:'#bf360c', borderColor:'#ef6c00', fontWeight:700 }}
               >
-                {rangeUnfixWorking ? '취소중...' : `구간 확정취소 (${fixStatusTargetRows.length}차수)`}
+                {rangeUnfixWorking ? '취소중...' : `선택 확정취소 (${fixStatusTargetRows.length}차수)`}
               </button>
               <button
                 className="btn"
