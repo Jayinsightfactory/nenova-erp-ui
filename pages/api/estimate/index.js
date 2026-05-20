@@ -280,7 +280,7 @@ async function loadItems(sk) {
        -- ② 차감 (Estimate) — 단가 수정 대상 아님, SdetailKey=NULL
        SELECT
          e.EstimateKey,
-         e.EstimateType,
+         ISNULL(NULLIF(ci.Descr2, ''), e.EstimateType) AS EstimateType,
          NULL                                      AS SdetailKey,
          e.ProdKey,
          smE.OrderWeek                             AS OrderWeek,
@@ -300,6 +300,8 @@ async function loadItems(sk) {
          CONVERT(NVARCHAR(10), sd2.ShipmentDtm, 120) AS outDate
        FROM Estimate e
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
+       LEFT JOIN CodeInfo ci
+         ON ci.Category = N'EstimateType' AND ci.DetailCode = e.EstimateType
        LEFT JOIN ShipmentDetail sd2
          ON e.ShipmentKey = sd2.ShipmentKey AND e.ProdKey = sd2.ProdKey
        LEFT JOIN ShipmentMaster smE ON e.ShipmentKey = smE.ShipmentKey
@@ -332,27 +334,59 @@ async function loadItems(sk) {
   return result.recordset;
 }
 
+function normalizeEstimateTypeInput(estimateType, unit) {
+  const raw = String(estimateType || '').trim();
+  const m = raw.match(/^(.+?)\/(박스|단|송이)$/);
+  if (!m) return { typeText: raw, unitText: unit || '' };
+  return {
+    typeText: m[1].trim(),
+    unitText: unit || m[2],
+  };
+}
+
+async function resolveEstimateTypeCode(typeText) {
+  if (!typeText) return '';
+  try {
+    const r = await query(
+      `SELECT TOP 1 DetailCode, Descr2
+         FROM CodeInfo
+        WHERE Category = N'EstimateType'
+          AND (DetailCode = @type OR Descr2 = @type)
+        ORDER BY CASE WHEN DetailCode = @type THEN 0 ELSE 1 END`,
+      { type: { type: sql.NVarChar, value: typeText } }
+    );
+    return r.recordset[0]?.DetailCode || typeText;
+  } catch (e) {
+    console.warn('[estimate] EstimateType 코드 조회 실패:', e.message);
+    return typeText;
+  }
+}
+
 async function createEstimate(req, res) {
   // 불량/검역 등록 → Estimate 테이블에 직접 저장 (원본 테이블)
   // ※ 차감 항목은 기존 전산과 동일하게 수량/금액 음수로 저장
-  const { shipmentKey, prodKey, estimateType, unit, quantity, cost } = req.body;
+  const { shipmentKey, prodKey, estimateType, unit, quantity, cost, estimateDate } = req.body;
   try {
+    const { typeText, unitText } = normalizeEstimateTypeInput(estimateType, unit);
+    const typeCode = await resolveEstimateTypeCode(typeText);
+    const dtValue = estimateDate ? new Date(estimateDate) : new Date();
     const qty    = -Math.abs(parseFloat(quantity) || 0);   // 항상 음수
     const amount = Math.round(qty * (cost || 0) / 1.1);    // 공급가액 (음수)
     const vat    = Math.round(qty * (cost || 0) / 11);     // 부가세 (음수)
     await query(
       `INSERT INTO Estimate
          (EstimateType, ProdKey, Unit, Quantity, Cost, Amount, Vat, ShipmentKey, EstimateDtm)
-       VALUES (@type, @pk, @unit, @qty, @cost, @amount, @vat, @sk, GETDATE())`,
+       VALUES (@type, @pk, @unit, @qty, @cost, @amount, @vat, @sk, @dt)`,
       {
-        type:   { type: sql.NVarChar, value: estimateType },
+        type:   { type: sql.NVarChar, value: typeCode },
         pk:     { type: sql.Int,      value: prodKey },
-        unit:   { type: sql.NVarChar, value: unit },
+        unit:   { type: sql.NVarChar, value: unitText },
         qty:    { type: sql.Float,    value: qty },
         cost:   { type: sql.Float,    value: cost },
         amount: { type: sql.Float,    value: amount },
         vat:    { type: sql.Float,    value: vat },
         sk:     { type: sql.Int,      value: shipmentKey },
+        dt:     { type: sql.DateTime, value: dtValue },
       }
     );
     return res.status(201).json({ success: true, message: '견적 등록 완료' });

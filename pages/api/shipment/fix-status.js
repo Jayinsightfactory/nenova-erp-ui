@@ -55,6 +55,60 @@ function shipmentCancelSql(shape) {
           SELECT 0 AS result, N'' AS message;`;
 }
 
+async function loadShipmentProdKeys(orderWeek, countryFlower) {
+  const result = await query(
+    `SELECT DISTINCT sd.ProdKey
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
+      WHERE sm.OrderWeek = @wk
+        AND sm.isDeleted = 0
+        AND ISNULL(sd.OutQuantity, 0) > 0
+        AND (@cf IS NULL OR p.CountryFlower = @cf)`,
+    {
+      wk: { type: sql.NVarChar, value: orderWeek },
+      cf: { type: sql.NVarChar, value: countryFlower || null },
+    }
+  );
+  return result.recordset.map(r => Number(r.ProdKey)).filter(Boolean);
+}
+
+async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys) {
+  const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  const results = [];
+  const errors = [];
+  for (const prodKey of uniqueKeys) {
+    try {
+      const r = await query(
+        `DECLARE @r INT, @m NVARCHAR(200);
+         EXEC dbo.usp_StockCalculation
+              @OrderYear = @yr,
+              @OrderWeek = @wk,
+              @ProdKey   = @pk,
+              @iUserID   = @uid,
+              @oResult   = @r OUTPUT,
+              @oMessage  = @m OUTPUT;
+         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+        {
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          pk:  { type: sql.Int, value: prodKey },
+          uid: { type: sql.NVarChar, value: uid },
+        }
+      );
+      const row = r.recordset?.[0] || {};
+      if (Number(row.result || 0) === 0) {
+        results.push({ prodKey, ok: true, message: row.message || '' });
+      } else {
+        errors.push({ prodKey, code: row.result, message: row.message || 'unknown' });
+      }
+    } catch (e) {
+      errors.push({ prodKey, code: -1, message: e.message });
+    }
+  }
+  return { results, errors };
+}
+
 async function loadWeekStatus(from, to) {
   return await query(
     `WITH week_set AS (
@@ -295,11 +349,14 @@ export default withAuth(async function handler(req, res) {
         : Object.values(targets.reduce((acc, t) => {
             acc[`${t.OrderYear}-${t.OrderWeek}`] ||= { ...t, CountryFlower: null };
             return acc;
-          }, {}));
+      }, {}));
       const results = [];
       const errors = [];
+      const stockResults = [];
+      const stockErrors = [];
       for (const t of callTargets) {
         try {
+          const prodKeys = await loadShipmentProdKeys(t.OrderWeek, procedureShape.hasCountryFlower ? t.CountryFlower : null);
           const r = await query(
             shipmentCancelSql(procedureShape),
             {
@@ -311,6 +368,9 @@ export default withAuth(async function handler(req, res) {
           );
           const row = r.recordset?.[0] || {};
           if (row.result === 0) {
+            const stock = await runStockCalculationForProducts(t.OrderYear, t.OrderWeek, uid, prodKeys);
+            stockResults.push(...stock.results);
+            stockErrors.push(...stock.errors);
             results.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', message: row.message || '' });
           } else {
             errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', code: row.result, message: row.message || 'unknown' });
@@ -320,11 +380,13 @@ export default withAuth(async function handler(req, res) {
         }
       }
 
-      return res.status(errors.length ? 207 : 200).json({
-        success: errors.length === 0,
-        message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length}건`,
+      return res.status(errors.length || stockErrors.length ? 207 : 200).json({
+        success: errors.length === 0 && stockErrors.length === 0,
+        message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length + stockErrors.length}건`,
         results,
         errors,
+        stockResults,
+        stockErrors,
       });
     }
 
