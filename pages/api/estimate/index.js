@@ -271,9 +271,9 @@ async function loadItems(sk) {
          CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
-         CASE WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
-              WHEN ISNULL(sd.BunchQuantity, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+         CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(p.SteamOf1Box, 0) > 0 THEN sd.SteamQuantity / CAST(p.SteamOf1Box AS DECIMAL(18,4))
+              WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
               ELSE 0 END                           AS BoxQty,
          -- Cost: sd.Cost → cpc.Cost (거래처고정) → p.Cost
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
