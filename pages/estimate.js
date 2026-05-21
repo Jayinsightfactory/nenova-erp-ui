@@ -384,6 +384,46 @@ table { width:100%; border-collapse:collapse; }
 <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
 </body></html>`;
 }
+
+function extractEstimateBody(html) {
+  const bodyStart = html.indexOf('<body>');
+  const scriptStart = html.indexOf('<script>', bodyStart);
+  const bodyEnd = html.indexOf('</body>', bodyStart);
+  if (bodyStart < 0) return html;
+  const end = scriptStart > -1 ? scriptStart : bodyEnd;
+  return html.slice(bodyStart + '<body>'.length, end > -1 ? end : undefined).trim();
+}
+
+function extractEstimateStyle(html) {
+  const match = html.match(/<style>([\s\S]*?)<\/style>/);
+  return match ? match[1] : '';
+}
+
+function buildEstimatePrintBundle(htmlPages) {
+  const pages = (htmlPages || []).filter(Boolean);
+  if (pages.length === 0) return '';
+  const style = extractEstimateStyle(pages[0]);
+  const sections = pages
+    .map(html => `<section class="print-page">${extractEstimateBody(html)}</section>`)
+    .join('\n');
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>견적서 일괄 인쇄</title>
+<style>
+${style}
+body { padding:0 !important; }
+.print-page { padding:10mm 12mm; page-break-after:always; break-after:page; }
+.print-page:last-child { page-break-after:auto; break-after:auto; }
+@media print {
+  body { padding:0 !important; }
+  .print-page { padding:5mm 8mm; page-break-after:always; break-after:page; }
+  .print-page:last-child { page-break-after:auto; break-after:auto; }
+}
+</style>
+</head><body>
+${sections}
+</body></html>`;
+}
 const ESTIMATE_TYPES = [
   '불량차감/박스','불량차감/단','불량차감/송이',
   '검역차감/박스','검역차감/단','검역차감/송이',
@@ -1222,65 +1262,62 @@ export default function Estimate() {
       document.body.appendChild(iframe);
     });
 
-    // ── 한 거래처분 인쇄 헬퍼 — rows 와 custName 받아 splitMode 에 따라 분기
-    const printOneCustomer = async (oneCustName, oneRows) => {
+    // ── 한 거래처분 인쇄 페이지 생성 — rows 와 custName 받아 splitMode 에 따라 페이지 배열 반환
+    const buildCustomerPrintPages = (oneCustName, oneRows) => {
       const printRows = oneRows.filter(i => {
         if (!isPrintableEstimateRow(i)) return false;
         return opts.outType === 'select' ? i.EstimateType === '정상출고' : true;
       });
-      if (!printRows.length) return;
+      if (!printRows.length) return [];
 
       if (opts.splitMode === 'combined') {
         const bigoLabel = `${week}차 종합견적서`;
-        const html = buildEstimateHtml({
+        return [buildEstimateHtml({
           bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
           custName: oneCustName, rows: printRows, logoDataUrl,
           aggregate: true,
           showBoxQty: opts.showBoxQty !== false,
           showDistribDesc: opts.showDistribDesc !== false,
-        });
-        await printInIframe(html);
-      } else {
-        const GROUP_LABEL = {
-          '수국/알스트로': '수국/알스트로메리아',
-          '카네이션':     '카네이션',
-          '장미':         '장미',
-          '에콰도르':     '에콰도르 분화',
-          '기타':         '기타',
-        };
-        const groups = {};
-        printRows.forEach(r => {
-          const g = getFlowerGroup(r.FlowerName);
-          if (!groups[g]) groups[g] = [];
-          groups[g].push(r);
-        });
-        const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
-        const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
-        if (activeGroups.length === 0) return;
-
-        const pages = [
-          ...activeGroups.map(g => ({
-            bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
-            rows: groups[g],
-          })),
-          { bigoLabel: `${week}차 종합견적서`, rows: printRows, aggregate: true },
-        ];
-        for (const { bigoLabel, rows, aggregate } of pages) {
-          const html = buildEstimateHtml({
-            bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
-            custName: oneCustName, rows, logoDataUrl, aggregate,
-            showBoxQty: opts.showBoxQty !== false,
-            showDistribDesc: opts.showDistribDesc !== false,
-          });
-          await printInIframe(html);
-        }
+        })];
       }
+
+      const GROUP_LABEL = {
+        '수국/알스트로': '수국/알스트로메리아',
+        '카네이션':     '카네이션',
+        '장미':         '장미',
+        '에콰도르':     '에콰도르 분화',
+        '기타':         '기타',
+      };
+      const groups = {};
+      printRows.forEach(r => {
+        const g = getFlowerGroup(r.FlowerName);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(r);
+      });
+      const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
+      const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
+      if (activeGroups.length === 0) return [];
+
+      const pages = [
+        ...activeGroups.map(g => ({
+          bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
+          rows: groups[g],
+        })),
+        { bigoLabel: `${week}차 종합견적서`, rows: printRows, aggregate: true },
+      ];
+      return pages.map(({ bigoLabel, rows, aggregate }) => buildEstimateHtml({
+        bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
+        custName: oneCustName, rows, logoDataUrl, aggregate,
+        showBoxQty: opts.showBoxQty !== false,
+        showDistribDesc: opts.showDistribDesc !== false,
+      }));
     };
 
     // ── 다중 선택 모드: 각 거래처별로 순차 인쇄
     if (selectedGroups.size > 0) {
       // selectedGroups 의 각 그룹에 대해 items 가져와서 인쇄
       const groupArr = Array.from(selectedGroups);
+      const printPages = [];
       for (const groupId of groupArr) {
         const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId);
         if (!ship) continue;
@@ -1293,16 +1330,26 @@ export default function Estimate() {
           );
           const allItems = await Promise.all(fetchPromises);
           const rows = allItems.flat();
-          await printOneCustomer(ship.CustName, rows);
+          printPages.push(...buildCustomerPrintPages(ship.CustName, rows));
         } catch (e) {
           console.error(`[print] ${ship.CustName} 실패:`, e);
         }
       }
+      if (printPages.length === 0) {
+        alert('출력할 데이터가 없습니다.');
+        return;
+      }
+      await printInIframe(buildEstimatePrintBundle(printPages));
     } else {
       // 단일 선택 — 기존 흐름
       const custName = selectedShip?.CustName || '';
       const refreshedItems = await reloadSelectedShipmentItems();
-      await printOneCustomer(custName, filterItemsByWeekday(refreshedItems));
+      const printPages = buildCustomerPrintPages(custName, filterItemsByWeekday(refreshedItems));
+      if (printPages.length === 0) {
+        alert('출력할 데이터가 없습니다.');
+        return;
+      }
+      await printInIframe(buildEstimatePrintBundle(printPages));
     }
 
     setShowPrintDialog(false);
