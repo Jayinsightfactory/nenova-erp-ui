@@ -545,8 +545,9 @@ export default function Estimate() {
         alert(`확정 취소 실패: ${d.error || '알 수 없는 오류'}`);
         return;
       }
-      alert(d.message || `[${subWeek}] 확정 취소 완료`);
-      load(true); // 화면 갱신
+      alert(`${d.message || `[${subWeek}] 확정 취소 완료`}${d.stockWarning ? `\n\n참고: 재고 재계산 경고 ${d.stockErrors?.length || 0}건이 있습니다.` : ''}`);
+      setIncludeUnfixed(true);
+      await load(true, { includeUnfixedOverride: true }); // 화면 갱신
     } catch (e) {
       alert(`확정 취소 오류: ${e.message}`);
     } finally {
@@ -670,7 +671,7 @@ export default function Estimate() {
 
       alert(data.message || `[${fromWeek} ~ ${toWeek}] 구간 확정취소 완료`);
       setIncludeUnfixed(true);
-      load(true);
+      await load(true, { includeUnfixedOverride: true });
     } catch (e) {
       alert(`구간 확정취소 오류: ${e.message}`);
     } finally {
@@ -811,16 +812,17 @@ export default function Estimate() {
 
   // ── 조회 (차수 + 업체 기준) — 차수 단위 그룹핑 (14 → 14-01, 14-02 … 모두 포함)
   // silent=true: 자동조회 시 에러 무시 (입력 부족 케이스)
-  const load = (silent = false) => {
+  const load = (silent = false, opts = {}) => {
     if (!weekNum && !selectedCust) {
       if (!silent) setErr('차수 또는 업체를 입력하세요.');
-      return;
+      return Promise.resolve();
     }
     setLoading(true); setErr('');
-    apiGet('/api/estimate', {
+    const includeUnfixedForLoad = opts.includeUnfixedOverride ?? includeUnfixed;
+    return apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       custKey: selectedCust?.CustKey || '',
-      includeUnfixed: includeUnfixed ? '1' : '',
+      includeUnfixed: includeUnfixedForLoad ? '1' : '',
     })
       .then(d => {
         setShipments(d.shipments || []);
@@ -1400,6 +1402,7 @@ export default function Estimate() {
     setRangeUnfixWorking(true);
     try {
       const errors = [];
+      const warnings = [];
       for (const row of ordered) {
         const res = await fetch('/api/shipment/fix', {
           method: 'POST',
@@ -1409,17 +1412,17 @@ export default function Estimate() {
         });
         const data = await res.json();
         if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
+        else if (data.stockWarning) warnings.push(`${row.OrderWeek}: 재고 재계산 경고 ${data.stockErrors?.length || 0}건`);
       }
       if (errors.length) {
         alert(`일부 확정취소 실패\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? `\n외 ${errors.length - 8}건` : ''}`);
       } else {
-        alert(`선택 차수 확정취소 완료: ${weekLabels.join(', ')}`);
+        alert(`선택 차수 확정취소 완료: ${weekLabels.join(', ')}${warnings.length ? `\n\n참고:\n${warnings.slice(0, 5).join('\n')}` : ''}`);
       }
       setSelectedFixStatusWeeks(new Set());
       await checkFixStatus();
       setIncludeUnfixed(true);
-      await load(true);
-      await reloadSelectedShipmentItems();
+      await load(true, { includeUnfixedOverride: true });
     } catch (e) {
       alert(`선택 차수 확정취소 오류: ${e.message}`);
     } finally {

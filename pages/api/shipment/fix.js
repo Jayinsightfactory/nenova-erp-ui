@@ -526,15 +526,18 @@ async function unfix(req, res, week, prodKeyFilter) {
       }
     }
 
+    const hasStockWarning = stockErrors.length > 0;
     return res.status(200).json({
-      success: errors.length === 0 && stockErrors.length === 0,
+      success: errors.length === 0,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +
-               (errors.length > 0 || stockErrors.length > 0 ? ` (${errors.length + stockErrors.length}개 실패)` : '') +
+               (errors.length > 0 ? ` (${errors.length}개 실패)` : '') +
+               (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length}건` : '') +
                (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : ''),
       results,
       errors,
       stockResults,
       stockErrors,
+      stockWarning: hasStockWarning,
       laterFixed,
     });
   } catch (err) {

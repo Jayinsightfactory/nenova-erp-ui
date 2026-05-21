@@ -407,13 +407,16 @@ export default withAuth(async function handler(req, res) {
         }
       }
 
-      return res.status(errors.length || stockErrors.length ? 207 : 200).json({
-        success: errors.length === 0 && stockErrors.length === 0,
-        message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length + stockErrors.length}건`,
+      const hasStockWarning = stockErrors.length > 0;
+      return res.status(errors.length ? 207 : 200).json({
+        success: errors.length === 0,
+        message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length}건` +
+                 (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length}건` : ''),
         results,
         errors,
         stockResults,
         stockErrors,
+        stockWarning: hasStockWarning,
       });
     }
 
