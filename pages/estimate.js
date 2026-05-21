@@ -149,7 +149,17 @@ function isPrintableEstimateRow(row) {
   return qty !== 0;
 }
 
-function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, logoDataUrl, aggregate = false }) {
+function buildEstimateHtml({
+  bigoLabel,
+  serialNo,
+  printDate,
+  custName,
+  rows,
+  logoDataUrl,
+  aggregate = false,
+  showBoxQty = true,
+  showDistribDesc = true,
+}) {
   // ── 인쇄용: 수량 또는 단가가 0인 행 제거
   rows = rows.filter(isPrintableEstimateRow);
 
@@ -207,7 +217,7 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
   // 적요: 차감 행은 출고일(DD일), 정상출고는 Descr 또는 빈 값
   const descLabel = r => {
     if (isDeduct(r) && r.outDate) return new Date(r.outDate).getDate() + '일';
-    if (r._distribDesc) return r._distribDesc;  // 차수별 분배 표시 (1차 N단, 2차 M단)
+    if (showDistribDesc && r._distribDesc) return r._distribDesc;  // 차수별 분배 표시 (1차 N단, 2차 M단)
     return r.Descr || '';
   };
 
@@ -246,12 +256,15 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
     const deduct = isDeduct(r);
     const rowBg  = deduct ? 'background:#FFF8DC;' : '';
     const amtClr = '';
+    const boxCell = showBoxQty
+      ? `<td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>`
+      : '';
     return `
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
       <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>
+      ${boxCell}
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
@@ -260,6 +273,8 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
   }).join('');
 
   const serialDisplay = serialNo || printDate;
+  const boxHeader = showBoxQty ? '<th class="item-th" style="width:46px">박스</th>' : '';
+  const footerLabelColspan = showBoxQty ? 5 : 4;
 
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
@@ -349,7 +364,7 @@ table { width:100%; border-collapse:collapse; }
       <th class="item-th" style="width:24px">순번</th>
       <th class="item-th">품목명[규격]</th>
       <th class="item-th" style="width:54px">수량</th>
-      <th class="item-th" style="width:46px">박스</th>
+      ${boxHeader}
       <th class="item-th" style="width:54px">단가</th>
       <th class="item-th" style="width:74px">공급가액</th>
       <th class="item-th" style="width:60px">부가세</th>
@@ -359,7 +374,7 @@ table { width:100%; border-collapse:collapse; }
   <tbody>${itemRows}</tbody>
   <tfoot>
     <tr class="foot-row">
-      <td colspan="5" style="text-align:right;padding-right:12px">공급가액 합계</td>
+      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">공급가액 합계</td>
       <td style="text-align:right">${fmtN(totalSupply)}</td>
       <td style="text-align:right">${fmtN(totalVat)}</td>
       <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
@@ -704,6 +719,8 @@ export default function Estimate() {
     docTitle:  '견 적 서',
     outType:   'total',      // 'total' | 'select'
     serialNo:  '',
+    showBoxQty: true,
+    showDistribDesc: true,
   });
 
   // 불량/검역 폼
@@ -1219,6 +1236,8 @@ export default function Estimate() {
           bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
           custName: oneCustName, rows: printRows, logoDataUrl,
           aggregate: true,
+          showBoxQty: opts.showBoxQty !== false,
+          showDistribDesc: opts.showDistribDesc !== false,
         });
         await printInIframe(html);
       } else {
@@ -1250,6 +1269,8 @@ export default function Estimate() {
           const html = buildEstimateHtml({
             bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
             custName: oneCustName, rows, logoDataUrl, aggregate,
+            showBoxQty: opts.showBoxQty !== false,
+            showDistribDesc: opts.showDistribDesc !== false,
           });
           await printInIframe(html);
         }
@@ -1982,6 +2003,27 @@ export default function Estimate() {
                     수국/알스트로 · 카네이션 · 장미 · 에콰도르 · 기타 로 분리 출력됩니다
                   </div>
                 )}
+              </div>
+
+              {/* 표시 항목 */}
+              <div className="form-group">
+                <label className="form-label">표시 항목</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={printOpts.showBoxQty !== false}
+                      onChange={e => setPrintOpts(o => ({ ...o, showBoxQty: e.target.checked }))}
+                    />
+                    박스수량 표시
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={printOpts.showDistribDesc !== false}
+                      onChange={e => setPrintOpts(o => ({ ...o, showDistribDesc: e.target.checked }))}
+                    />
+                    적요에 차수별 수량 표시
+                  </label>
+                </div>
               </div>
 
               {/* 미리보기 요약 */}
