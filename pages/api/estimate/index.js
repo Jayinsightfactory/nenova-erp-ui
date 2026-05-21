@@ -256,6 +256,7 @@ async function loadItems(sk) {
        SELECT
          NULL                                      AS EstimateKey,
          '정상출고'                                AS EstimateType,
+         sd.ShipmentKey,
          sd.SdetailKey,
          sd.ProdKey,
          smOuter.OrderWeek                         AS OrderWeek,
@@ -314,6 +315,7 @@ async function loadItems(sk) {
        SELECT
          e.EstimateKey,
          ISNULL(NULLIF(ci.Descr2, ''), e.EstimateType) AS EstimateType,
+         e.ShipmentKey,
          NULL                                      AS SdetailKey,
          e.ProdKey,
          smE.OrderWeek                             AS OrderWeek,

@@ -810,6 +810,16 @@ export default function Estimate() {
     }
   };
 
+  const reloadSelectedShipmentItems = useCallback(async () => {
+    const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
+    if (!ship) return [];
+    const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+    const results = await Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk }).then(d => d.items || [])));
+    const nextItems = results.flat();
+    setItems(nextItems);
+    return nextItems;
+  }, [selectedId, shipments]);
+
   const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
 
   // ── 단가 수정 관련 함수 (P3) ─────────────────────────
@@ -902,8 +912,6 @@ export default function Estimate() {
     setQtyApplying(true);
     setQtyResult(null);
     try {
-      const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
-      const custKey = selectedShip.CustKey;
       const results = [];
       for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
@@ -914,21 +922,20 @@ export default function Estimate() {
         const newQty = parseFloat(newVal);
         if (Number.isNaN(newQty) || newQty < 0) continue;
         if (Math.abs(newQty - oldQty) < 0.001) continue;
-        const type = newQty > oldQty ? 'ADD' : 'CANCEL';
-        const delta = Math.abs(newQty - oldQty);
-        // 단위는 표시 단위 그대로 (단/송이/박스)
-        const r = await fetch('/api/shipment/adjust', {
+        const r = await fetch('/api/estimate/update-quantity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({
-            custKey, prodKey: item.ProdKey, week, type, qty: delta, unit: item.Unit,
-            memo: `견적서 수량수정: ${oldQty}${item.Unit}→${newQty}${item.Unit}`,
-            force: true, // 견적서 수정은 입고검증 우회 (이미 확정된 차수일 가능성)
+            sdetailKey: sdk,
+            shipmentKey: item.ShipmentKey,
+            quantity: newQty,
+            unit: item.Unit,
+            expectedOldQuantity: oldQty,
           }),
         });
         const d = await r.json();
-        results.push({ sdk, ok: d.success, oldQty, newQty, type, delta, error: d.error });
+        results.push({ sdk, ok: d.success, oldQty, newQty, orderWeek: item.OrderWeek, error: d.error });
       }
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
@@ -1085,12 +1092,13 @@ export default function Estimate() {
 
   // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
   const ALL_WD = ['월','화','수','목','금','토','일'];
-  const filteredItems = items.filter(item => {
+  const filterItemsByWeekday = useCallback((sourceItems) => sourceItems.filter(item => {
     if (activeWD.size === 0 || activeWD.size === 7) return true;  // 전체 or 0개 → 모두 표시
     const dayMap = {'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0};
     if (!item.outDate) return false;
     return [...activeWD].some(wd => dayMap[wd] === new Date(item.outDate).getDay());
-  });
+  }), [activeWD]);
+  const filteredItems = filterItemsByWeekday(items);
 
   const totalQty    = filteredItems.reduce((a,b) => a+(b.Quantity||0), 0);
   const totalCost   = filteredItems.reduce((a,b) => a+(b.Cost||0), 0);
@@ -1272,11 +1280,12 @@ export default function Estimate() {
     } else {
       // 단일 선택 — 기존 흐름
       const custName = selectedShip?.CustName || '';
-      await printOneCustomer(custName, filteredItems);
+      const refreshedItems = await reloadSelectedShipmentItems();
+      await printOneCustomer(custName, filterItemsByWeekday(refreshedItems));
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments]);
+  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
@@ -1341,7 +1350,8 @@ export default function Estimate() {
       setSelectedFixStatusWeeks(new Set());
       await checkFixStatus();
       setIncludeUnfixed(true);
-      load(true);
+      await load(true);
+      await reloadSelectedShipmentItems();
     } catch (e) {
       alert(`선택 차수 확정취소 오류: ${e.message}`);
     } finally {
