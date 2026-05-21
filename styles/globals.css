@@ -108,6 +108,7 @@ body {
 
 /* ── 분할 패널 ── */
 .split-panel   { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.estimate-split-panel { grid-template-columns: minmax(260px, 3fr) minmax(0, 7fr); }
 
 /* ── KPI 카드 ── */
 .kpi-grid      { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
@@ -189,6 +190,7 @@ input[type="radio"]    { cursor: pointer; accent-color: var(--blue); }
   .sidebar { display: none; }
   .kpi-grid { grid-template-columns: 1fr 1fr; }
   .split-panel { grid-template-columns: 1fr; }
+  .estimate-split-panel { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
 }
 

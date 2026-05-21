@@ -1475,7 +1475,7 @@ export default function Estimate() {
       {successMsg && <div className="banner-ok">{successMsg}</div>}
 
       {/* ── 2분할 ── */}
-      <div className="split-panel">
+      <div className="split-panel estimate-split-panel">
 
         {/* 왼쪽: 출고 목록 */}
         <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
