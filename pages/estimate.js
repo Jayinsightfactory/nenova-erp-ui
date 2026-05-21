@@ -549,6 +549,7 @@ export default function Estimate() {
           unfixedDetailCount: 0,
           categoryCount: 0,
           fixedCategoryCount: 0,
+          unfixedCategories: '',
           negativeCount: 0,
         };
       }).sort((a, b) => String(b.WeekKey).localeCompare(String(a.WeekKey)));
@@ -2116,10 +2117,7 @@ export default function Estimate() {
                     <th style={{ padding:'6px', textAlign:'center', width:42 }}>선택</th>
                     <th style={{ padding:'6px', textAlign:'center', width:80 }}>차수</th>
                     <th style={{ padding:'6px', textAlign:'center', width:90 }}>상태</th>
-                    <th style={{ padding:'6px', textAlign:'right' }}>출고</th>
-                    <th style={{ padding:'6px', textAlign:'right' }}>확정출고</th>
-                    <th style={{ padding:'6px', textAlign:'right' }}>미확정</th>
-                    <th style={{ padding:'6px', textAlign:'right' }}>카테고리</th>
+                    <th style={{ padding:'6px', textAlign:'left' }}>미확정 카테고리</th>
                     <th style={{ padding:'6px', textAlign:'right' }}>음수재고</th>
                   </tr>
                 </thead>
@@ -2155,10 +2153,9 @@ export default function Estimate() {
                             {badge.text}
                           </span>
                         </td>
-                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.detailCount || 0).toLocaleString()}</td>
-                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.fixedDetailCount || 0).toLocaleString()}</td>
-                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.unfixedDetailCount || 0).toLocaleString()}</td>
-                        <td style={{ padding:'5px 6px', textAlign:'right' }}>{Number(w.fixedCategoryCount || 0).toLocaleString()} / {Number(w.categoryCount || 0).toLocaleString()}</td>
+                        <td style={{ padding:'5px 6px', textAlign:'left', color: w.unfixedCategories ? '#c62828' : '#777', fontWeight: w.unfixedCategories ? 700 : 400 }}>
+                          {w.unfixedCategories || '-'}
+                        </td>
                         <td style={{ padding:'5px 6px', textAlign:'right', color: Number(w.negativeCount || 0) > 0 ? '#c62828' : '#555', fontWeight: Number(w.negativeCount || 0) > 0 ? 700 : 400 }}>
                           {Number(w.negativeCount || 0).toLocaleString()}
                         </td>
@@ -2167,7 +2164,7 @@ export default function Estimate() {
                   })}
                   {fixStatusRows.length === 0 && (
                     <tr>
-                      <td colSpan={8} style={{ padding:16, textAlign:'center', color:'#777' }}>
+                      <td colSpan={5} style={{ padding:16, textAlign:'center', color:'#777' }}>
                         조회된 차수 현황이 없습니다.
                       </td>
                     </tr>

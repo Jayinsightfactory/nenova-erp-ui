@@ -142,6 +142,31 @@ async function loadWeekStatus(from, to) {
        WHERE sm.isDeleted = 0
        GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
      ),
+     unfixed_category AS (
+       SELECT
+         x.WeekKey,
+         STUFF((
+           SELECT DISTINCT N', ' + ISNULL(NULLIF(p2.CountryFlower, N''), ISNULL(p2.CounName, N'') + N' ' + ISNULL(p2.FlowerName, N''))
+           FROM ShipmentMaster sm2
+           JOIN ShipmentDetail sd2 ON sd2.ShipmentKey = sm2.ShipmentKey
+           LEFT JOIN Product p2 ON p2.ProdKey = sd2.ProdKey
+           WHERE sm2.isDeleted = 0
+             AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') = x.WeekKey
+             AND ISNULL(sd2.isFix, 0) = 0
+             AND ISNULL(sd2.OutQuantity, 0) > 0
+             AND (p2.CountryFlower IS NOT NULL OR p2.CounName IS NOT NULL OR p2.FlowerName IS NOT NULL)
+           FOR XML PATH(''), TYPE
+         ).value('.', 'NVARCHAR(MAX)'), 1, 2, N'') AS unfixedCategories
+       FROM (
+         SELECT DISTINCT
+           ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.isDeleted = 0
+           AND ISNULL(sd.isFix, 0) = 0
+           AND ISNULL(sd.OutQuantity, 0) > 0
+       ) x
+     ),
      stock AS (
        SELECT
          ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey,
@@ -162,10 +187,12 @@ async function loadWeekStatus(from, to) {
        ISNULL(ship.unfixedDetailCount, 0) AS unfixedDetailCount,
        ISNULL(ship.categoryCount, 0) AS categoryCount,
        ISNULL(ship.fixedCategoryCount, 0) AS fixedCategoryCount,
+       ISNULL(unfixed_category.unfixedCategories, N'') AS unfixedCategories,
        ISNULL(stock.stockFixed, 0) AS stockFixed,
        ISNULL(stock.stockMasterCount, 0) AS stockMasterCount
      FROM week_set w
      LEFT JOIN ship ON ship.WeekKey = w.WeekKey
+     LEFT JOIN unfixed_category ON unfixed_category.WeekKey = w.WeekKey
      LEFT JOIN stock ON stock.WeekKey = w.WeekKey
      WHERE w.WeekKey BETWEEN @fromKey AND @toKey
      ORDER BY w.WeekKey DESC`,
