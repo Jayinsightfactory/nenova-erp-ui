@@ -271,8 +271,8 @@ async function loadItems(sk) {
          CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
-         CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
-              WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(p.SteamOf1Box, 0) > 0 THEN sd.SteamQuantity / CAST(p.SteamOf1Box AS DECIMAL(18,4))
+         CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+              WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN sd.SteamQuantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
               ELSE 0 END                           AS BoxQty,
          -- Cost: sd.Cost → cpc.Cost (거래처고정) → p.Cost
@@ -299,15 +299,48 @@ async function loadItems(sk) {
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
        LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
        OUTER APPLY (
-         SELECT CASE
-           WHEN ISNULL(p.CounName, N'') LIKE N'%콜롬비아%'
-            AND (ISNULL(p.FlowerName, N'') LIKE N'%수국%'
-              OR ISNULL(p.FlowerName, N'') LIKE N'%알스트로%'
-              OR ISNULL(p.FlowerName, N'') LIKE N'%카네이션%')
-            AND ISNULL(p.BunchOf1Box, 0) > 0
-             THEN p.BunchOf1Box
-           ELSE 10
-         END AS BunchesPerBox
+         SELECT
+           CASE WHEN ISNULL(sd.BoxQuantity, 0) > 0 AND ISNULL(sd.BunchQuantity, 0) > 0
+                  THEN sd.BunchQuantity / NULLIF(CAST(sd.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS RowBunchesPerBox,
+           CASE WHEN ISNULL(sd.BoxQuantity, 0) > 0 AND ISNULL(sd.SteamQuantity, 0) > 0
+                  THEN sd.SteamQuantity / NULLIF(CAST(sd.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS RowSteamsPerBox
+       ) rowRule
+       OUTER APPLY (
+         SELECT TOP 1
+           CASE WHEN ISNULL(od.BoxQuantity, 0) > 0 AND ISNULL(od.BunchQuantity, 0) > 0
+                  THEN od.BunchQuantity / NULLIF(CAST(od.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS HistBunchesPerBox,
+           CASE WHEN ISNULL(od.BoxQuantity, 0) > 0 AND ISNULL(od.SteamQuantity, 0) > 0
+                  THEN od.SteamQuantity / NULLIF(CAST(od.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS HistSteamsPerBox
+         FROM OrderDetail od
+         WHERE od.ProdKey = sd.ProdKey
+           AND ISNULL(od.isDeleted, 0) = 0
+           AND ISNULL(od.BoxQuantity, 0) > 0
+           AND (ISNULL(od.BunchQuantity, 0) > 0 OR ISNULL(od.SteamQuantity, 0) > 0)
+         ORDER BY od.OrderDetailKey DESC
+       ) histRule
+       OUTER APPLY (
+         SELECT
+           CASE
+             WHEN ISNULL(rowRule.RowBunchesPerBox, 0) > 0 THEN rowRule.RowBunchesPerBox
+             WHEN ISNULL(histRule.HistBunchesPerBox, 0) > 0 THEN histRule.HistBunchesPerBox
+             WHEN ISNULL(p.CounName, N'') LIKE N'%콜롬비아%'
+              AND (ISNULL(p.FlowerName, N'') LIKE N'%수국%'
+                OR ISNULL(p.FlowerName, N'') LIKE N'%알스트로%'
+                OR ISNULL(p.FlowerName, N'') LIKE N'%카네이션%')
+              AND ISNULL(p.BunchOf1Box, 0) > 0
+               THEN p.BunchOf1Box
+             ELSE 10
+           END AS BunchesPerBox,
+           CASE
+             WHEN ISNULL(rowRule.RowSteamsPerBox, 0) > 0 THEN rowRule.RowSteamsPerBox
+             WHEN ISNULL(histRule.HistSteamsPerBox, 0) > 0 THEN histRule.HistSteamsPerBox
+             WHEN ISNULL(p.SteamOf1Box, 0) > 0 THEN p.SteamOf1Box
+             ELSE 0
+           END AS SteamsPerBox
        ) boxRule
        WHERE sd.ShipmentKey = @sk
        UNION ALL
@@ -325,11 +358,11 @@ async function loadItems(sk) {
          e.Unit,
          e.Quantity,
          CASE WHEN e.Unit = N'박스' THEN e.Quantity
-              WHEN e.Unit = N'단' THEN e.Quantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
-              WHEN e.Unit = N'송이' AND p.SteamOf1Box>0 THEN e.Quantity / CAST(p.SteamOf1Box AS DECIMAL(18,4))
+              WHEN e.Unit = N'단' AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+              WHEN e.Unit = N'송이' AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               WHEN ISNULL(p.OutUnit,'박스')='박스' THEN e.Quantity
-              WHEN p.OutUnit='단' THEN e.Quantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
-              WHEN p.OutUnit='송이' AND p.SteamOf1Box>0 THEN e.Quantity / CAST(p.SteamOf1Box AS DECIMAL(18,4))
+              WHEN p.OutUnit='단' AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+              WHEN p.OutUnit='송이' AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               ELSE 0 END                            AS BoxQty,
          e.Cost,
          e.Amount,
@@ -344,15 +377,48 @@ async function loadItems(sk) {
          ON e.ShipmentKey = sd2.ShipmentKey AND e.ProdKey = sd2.ProdKey
        LEFT JOIN ShipmentMaster smE ON e.ShipmentKey = smE.ShipmentKey
        OUTER APPLY (
-         SELECT CASE
-           WHEN ISNULL(p.CounName, N'') LIKE N'%콜롬비아%'
-            AND (ISNULL(p.FlowerName, N'') LIKE N'%수국%'
-              OR ISNULL(p.FlowerName, N'') LIKE N'%알스트로%'
-              OR ISNULL(p.FlowerName, N'') LIKE N'%카네이션%')
-            AND ISNULL(p.BunchOf1Box, 0) > 0
-             THEN p.BunchOf1Box
-           ELSE 10
-         END AS BunchesPerBox
+         SELECT
+           CASE WHEN ISNULL(sd2.BoxQuantity, 0) > 0 AND ISNULL(sd2.BunchQuantity, 0) > 0
+                  THEN sd2.BunchQuantity / NULLIF(CAST(sd2.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS RowBunchesPerBox,
+           CASE WHEN ISNULL(sd2.BoxQuantity, 0) > 0 AND ISNULL(sd2.SteamQuantity, 0) > 0
+                  THEN sd2.SteamQuantity / NULLIF(CAST(sd2.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS RowSteamsPerBox
+       ) rowRule
+       OUTER APPLY (
+         SELECT TOP 1
+           CASE WHEN ISNULL(od.BoxQuantity, 0) > 0 AND ISNULL(od.BunchQuantity, 0) > 0
+                  THEN od.BunchQuantity / NULLIF(CAST(od.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS HistBunchesPerBox,
+           CASE WHEN ISNULL(od.BoxQuantity, 0) > 0 AND ISNULL(od.SteamQuantity, 0) > 0
+                  THEN od.SteamQuantity / NULLIF(CAST(od.BoxQuantity AS DECIMAL(18,4)), 0)
+                ELSE 0 END AS HistSteamsPerBox
+         FROM OrderDetail od
+         WHERE od.ProdKey = e.ProdKey
+           AND ISNULL(od.isDeleted, 0) = 0
+           AND ISNULL(od.BoxQuantity, 0) > 0
+           AND (ISNULL(od.BunchQuantity, 0) > 0 OR ISNULL(od.SteamQuantity, 0) > 0)
+         ORDER BY od.OrderDetailKey DESC
+       ) histRule
+       OUTER APPLY (
+         SELECT
+           CASE
+             WHEN ISNULL(rowRule.RowBunchesPerBox, 0) > 0 THEN rowRule.RowBunchesPerBox
+             WHEN ISNULL(histRule.HistBunchesPerBox, 0) > 0 THEN histRule.HistBunchesPerBox
+             WHEN ISNULL(p.CounName, N'') LIKE N'%콜롬비아%'
+              AND (ISNULL(p.FlowerName, N'') LIKE N'%수국%'
+                OR ISNULL(p.FlowerName, N'') LIKE N'%알스트로%'
+                OR ISNULL(p.FlowerName, N'') LIKE N'%카네이션%')
+              AND ISNULL(p.BunchOf1Box, 0) > 0
+               THEN p.BunchOf1Box
+             ELSE 10
+           END AS BunchesPerBox,
+           CASE
+             WHEN ISNULL(rowRule.RowSteamsPerBox, 0) > 0 THEN rowRule.RowSteamsPerBox
+             WHEN ISNULL(histRule.HistSteamsPerBox, 0) > 0 THEN histRule.HistSteamsPerBox
+             WHEN ISNULL(p.SteamOf1Box, 0) > 0 THEN p.SteamOf1Box
+             ELSE 0
+           END AS SteamsPerBox
        ) boxRule
        WHERE e.ShipmentKey = @sk
      ) T
