@@ -245,11 +245,11 @@ function buildEstimateHtml({ bigoLabel, serialNo, printDate, custName, rows, log
   const itemRows = rows.map((r, i) => {
     const deduct = isDeduct(r);
     const rowBg  = deduct ? 'background:#FFF8DC;' : '';
-    const amtClr = deduct ? 'color:#c0392b;' : '';
+    const amtClr = '';
     return `
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;${deduct ? 'color:#c0392b;font-weight:bold;' : ''}">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
