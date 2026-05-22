@@ -1229,8 +1229,8 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '16px 20px', maxWidth: 980, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ padding: '16px 20px', maxWidth: 760, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
           </h2>
@@ -1344,7 +1344,7 @@ export default function PasteOrderPage() {
             </span>
           </label>
           <textarea
-            style={{ width: '100%', height: 92, padding: '9px 11px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+            style={{ width: '100%', height: 280, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
             placeholder={'블루 2\n라벤더 14\n화이트 1'}
             value={baseStockText}
             onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); }}
@@ -1360,14 +1360,14 @@ export default function PasteOrderPage() {
             </span>
           </label>
           <textarea
-            style={{ width: '100%', height: 200, padding: '10px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+            style={{ width: '100%', height: 420, padding: '10px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
             placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[카톡 잔량형]\n21-1\n블루 2(원협4>5)(신화1>0)\n화이트1 <> 2시작 (미우154>148)\n\n[기본형]\n청화꽃집\nCaroline | 2'}
             value={pasteText}
             onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); }}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
           <button
             onClick={handleParse}
             disabled={parsing || !pasteText.trim()}
@@ -1841,7 +1841,7 @@ export default function PasteOrderPage() {
           padding: '14px 24px 16px',
           zIndex: 500,
         }}>
-          <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#333' }}>
                 ❓ &nbsp;
@@ -1952,9 +1952,9 @@ function StockDraftPanel({ draft, copied, onCopy }) {
         </button>
       </div>
 
-      <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(280px, 0.9fr)', gap: 12 }}>
+      <div style={{ padding: 12, display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 10 }}>
             <StockStat label="기초재고" value={draft.baseRows.length} />
             <StockStat label="잔량" value={draft.remainRows.length} />
             <StockStat label="히스토리" value={draft.historyRows.length} />
@@ -2006,7 +2006,7 @@ function StockDraftPanel({ draft, copied, onCopy }) {
           <textarea
             readOnly
             value={draft.copyText}
-            style={{ width: '100%', height: 260, padding: 10, border: '1px solid #cfd8dc', borderRadius: 6, fontFamily: 'monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', background: '#fafafa', color: '#263238' }}
+            style={{ width: '100%', height: 430, padding: 10, border: '1px solid #cfd8dc', borderRadius: 6, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.45, resize: 'vertical', boxSizing: 'border-box', background: '#fafafa', color: '#263238' }}
           />
         </div>
       </div>
