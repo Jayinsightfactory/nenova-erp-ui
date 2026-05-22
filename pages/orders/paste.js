@@ -105,6 +105,16 @@ function isMixBoxMismatch(inputName, prod) {
   return isMixBoxName(prod) && !inputWantsMixBox(inputName);
 }
 
+function mappingProductName(itemOrProd) {
+  if (!itemOrProd) return '';
+  return itemOrProd.DisplayName || itemOrProd.displayName || itemOrProd.ProdName || itemOrProd.prodName || '';
+}
+
+function mappingProductMeta(itemOrProd) {
+  const bits = [itemOrProd?.CounName || itemOrProd?.counName, itemOrProd?.FlowerName || itemOrProd?.flowerName].filter(Boolean);
+  return bits.join(' / ');
+}
+
 function stockNorm(text) {
   return String(text || '')
     .toLowerCase()
@@ -592,6 +602,8 @@ export default function PasteOrderPage() {
   const [parseError, setParseError] = useState('');
   const [mappingCache, setMappingCache] = useState({});
   const [customerMappingCache, setCustomerMappingCache] = useState({});
+  const [mappingNotice, setMappingNotice] = useState(null);
+  const [mappingChangeLog, setMappingChangeLog] = useState([]);
   const [queueIdx, setQueueIdx] = useState(0);   // 현재 질문 중인 미매칭 항목 인덱스
   const [disambigSearch, setDisambigSearch] = useState('');
   const [disambigResults, setDisambigResults] = useState([]);
@@ -836,11 +848,53 @@ export default function PasteOrderPage() {
     updateItem(oid, idx, { prodSearch: q, prodSearchResults: results });
   };
 
+  const showMappingNotice = ({ inputName, previous, next, savedKey }) => {
+    const notice = {
+      id: Date.now(),
+      inputName,
+      previousName: mappingProductName(previous),
+      previousMeta: mappingProductMeta(previous),
+      nextName: mappingProductName(next),
+      nextMeta: mappingProductMeta(next),
+      savedKey,
+    };
+    setMappingNotice(notice);
+    setMappingChangeLog(prev => [notice, ...prev.filter(x => x.inputName !== inputName)].slice(0, 5));
+    setTimeout(() => {
+      setMappingNotice(cur => cur?.id === notice.id ? null : cur);
+    }, 7000);
+  };
+
+  const clearProductMatchForChange = (oid, idx) => {
+    const order = orders.find(o => o.id === oid);
+    const item = order?.items?.[idx];
+    const previous = item?.prodKey ? {
+      prodKey: item.prodKey,
+      prodName: item.prodName,
+      displayName: item.displayName,
+      flowerName: item.flowerName,
+      counName: item.counName,
+    } : null;
+    updateItem(oid, idx, {
+      prodKey: null,
+      prodName: null,
+      displayName: null,
+      flowerName: null,
+      counName: null,
+      confidence: 0,
+      confidenceLabel: 'none',
+      fromMapping: false,
+      pendingMappingFrom: previous,
+      mappingChanged: false,
+      mappingSavedKey: null,
+    });
+  };
+
   const learnItemMapping = (item, prodOverride = null) => {
     const prod = prodOverride || allProducts.find(p => Number(p.ProdKey) === Number(item?.prodKey));
-    if (!item?.inputName || !prod) return;
+    if (!item?.inputName || !prod) return null;
     const key = cacheKey(item.inputName);
-    if (!key) return;
+    if (!key) return null;
     const value = {
       prodKey: prod.ProdKey,
       prodName: prod.ProdName,
@@ -865,12 +919,18 @@ export default function PasteOrderPage() {
         force: true,
       }),
     }).catch(() => {});
+    return { key, value };
   };
 
   // 미매칭 질문 패널: 사용자가 품목 선택
   const handleDisambigSelect = (prod, saveToCache = true) => {
     if (!currentQ) return;
     const { orderId, itemIdx, inputName } = currentQ;
+    const currentOrder = orders.find(o => o.id === orderId);
+    const currentItem = currentOrder?.items?.[itemIdx] || {};
+    const previous = currentItem.pendingMappingFrom || null;
+    const changed = !!previous && Number(previous.prodKey) !== Number(prod.ProdKey);
+    const saved = saveToCache ? learnItemMapping({ inputName }, prod) : null;
     updateItem(orderId, itemIdx, {
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
@@ -887,8 +947,12 @@ export default function PasteOrderPage() {
       fallbackCount: 0,
       ambiguousCountry: false,
       ambiguityReason: null,
+      pendingMappingFrom: null,
+      mappingChanged: changed,
+      mappingSavedKey: saved?.key || null,
+      mappingSavedAt: saveToCache ? new Date().toISOString() : null,
     });
-    if (saveToCache) learnItemMapping({ inputName }, prod);
+    if (saveToCache) showMappingNotice({ inputName, previous, next: prod, savedKey: saved?.key });
     setDisambigSearch('');
     setDisambigResults([]);
     // queueIdx는 그대로 — 이 항목이 사라지면서 다음 항목이 자동으로 currentQ가 됨
@@ -1410,6 +1474,26 @@ export default function PasteOrderPage() {
           />
         )}
 
+        {mappingChangeLog.length > 0 && (
+          <div style={{ border: '1px solid #90caf9', borderRadius: 8, background: '#e3f2fd', padding: '9px 12px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <strong style={{ color: '#0d47a1', fontSize: 13 }}>매칭 변경사항</strong>
+              <span style={{ color: '#1565c0', fontSize: 12 }}>다음 분석부터 저장매칭으로 적용됩니다.</span>
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              {mappingChangeLog.map(n => (
+                <div key={n.id} style={{ fontSize: 12, color: '#263238', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700 }}>"{n.inputName}"</span>
+                  {n.previousName && <span style={{ color: '#78909c' }}>{n.previousName} →</span>}
+                  <span style={{ color: '#1b5e20', fontWeight: 700 }}>{n.nextName}</span>
+                  {n.nextMeta && <span style={{ color: '#607d8b' }}>({n.nextMeta})</span>}
+                  <span style={{ color: '#1565c0' }}>저장키: {n.savedKey}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 거래처별 주문 카드 */}
         {orders.map(order => {
           const addItems    = order.items.filter(it => !it.skip && it.action !== '취소');
@@ -1533,6 +1617,24 @@ export default function PasteOrderPage() {
                                   <span style={{ color, fontWeight: 600, fontSize: 12 }}>
                                     {icon} {it.displayName || it.prodName}
                                   </span>
+                                  {it.mappingChanged && (
+                                    <span title="방금 이 입력명의 저장매칭을 변경했습니다. 다음 Claude 분석부터 새 매칭이 자동 적용됩니다."
+                                      style={{ fontSize: 10, background: '#e3f2fd', color: '#0d47a1', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
+                                      방금 변경저장
+                                    </span>
+                                  )}
+                                  {it.fromMapping && (
+                                    <span title="저장된 매칭이 이번 분석에 자동 적용되었습니다."
+                                      style={{ fontSize: 10, background: '#e8f5e9', color: '#1b5e20', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
+                                      저장매칭 적용
+                                    </span>
+                                  )}
+                                  {!it.fromMapping && it.mappingMatchType === 'direct-select' && !it.mappingChanged && (
+                                    <span title="사용자가 직접 선택했고, 같은 입력명은 저장매칭으로 학습됩니다."
+                                      style={{ fontSize: 10, background: '#fff8e1', color: '#e65100', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
+                                      수동선택 저장
+                                    </span>
+                                  )}
                                   {it.fallbackSuspect && (
                                     <span title={`이 품목이 ${it.fallbackCount}개 입력에 매핑되어 있어 자동 추측일 가능성이 높음. 직접 확인 후 변경하세요.`}
                                       style={{ fontSize: 10, background: '#ffebee', color: '#c62828', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>
@@ -1545,7 +1647,7 @@ export default function PasteOrderPage() {
                                   {pd?.CounName && <span style={{ fontSize: 10, background: '#e8f5e9', color: '#388e3c', borderRadius: 8, padding: '1px 6px' }}>{pd.CounName}</span>}
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
-                                  <button onClick={() => updateItem(order.id, idx, { prodKey: null, prodName: null, displayName: null })}
+                                  <button onClick={() => clearProductMatchForChange(order.id, idx)}
                                     style={{ fontSize: 10, padding: '1px 5px', background: 'none', border: '1px solid #ddd', borderRadius: 3, cursor: 'pointer', color: '#aaa', marginLeft: 'auto' }}>
                                     변경
                                   </button>
@@ -1828,6 +1930,58 @@ export default function PasteOrderPage() {
                 {adjustSaving ? '저장중...' : (adjustModal.type === 'ADD' ? '추가 확정' : '취소 확정')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {mappingNotice && (
+        <div style={{
+          position: 'fixed',
+          right: 18,
+          bottom: currentQ ? 246 : 18,
+          width: 360,
+          maxWidth: 'calc(100vw - 36px)',
+          background: '#e8f5e9',
+          border: '2px solid #43a047',
+          borderRadius: 8,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+          padding: '10px 12px',
+          zIndex: 650,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+            <strong style={{ color: '#1b5e20', fontSize: 13 }}>매칭 변경사항 저장</strong>
+            <button
+              onClick={() => setMappingNotice(null)}
+              style={{
+                marginLeft: 'auto',
+                border: 'none',
+                background: 'transparent',
+                color: '#2e7d32',
+                fontSize: 18,
+                lineHeight: 1,
+                cursor: 'pointer',
+                padding: '0 2px',
+              }}
+              aria-label="매칭 변경 알림 닫기"
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: '#263238', lineHeight: 1.45 }}>
+            <div><b>"{mappingNotice.inputName}"</b></div>
+            {mappingNotice.previousName && (
+              <div style={{ color: '#78909c' }}>
+                이전: {mappingNotice.previousName}{mappingNotice.previousMeta ? ` (${mappingNotice.previousMeta})` : ''}
+              </div>
+            )}
+            <div style={{ color: '#1b5e20', fontWeight: 700 }}>
+              적용: {mappingNotice.nextName}{mappingNotice.nextMeta ? ` (${mappingNotice.nextMeta})` : ''}
+            </div>
+            {mappingNotice.savedKey && (
+              <div style={{ color: '#1565c0', marginTop: 3 }}>
+                다음 분석부터 저장매칭으로 적용됩니다. 저장키: {mappingNotice.savedKey}
+              </div>
+            )}
           </div>
         </div>
       )}
