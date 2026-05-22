@@ -173,7 +173,8 @@ function parseBaseStockText(text) {
   const byKey = {};
   String(text || '').split(/\r?\n/).forEach((raw, idx) => {
     const line = raw.trim();
-    if (!line || isSeparatorLine(line) || /^(잔량|기초재고|재고)$/i.test(line)) return;
+    if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
+    if (/^\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
     const cleaned = line.replace(/^[-*•]\s*/, '').trim();
     const m = cleaned.match(/^(.+?)[\s:：]*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?$/);
     if (!m) return;
@@ -447,8 +448,9 @@ function productMatchSummary(productName, products) {
   return { status: 'unmatched', names: [] };
 }
 
-function buildKakaoStockDraft({ text, baseText, selectedWeek, products }) {
+function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, products }) {
   const base = parseBaseStockText(baseText);
+  const finalRemain = parseBaseStockText(remainText);
   const { records, extraRows } = parseKakaoStockRecords(text, selectedWeek);
   const confirmRows = [];
   const productWeekCounts = {};
@@ -467,6 +469,7 @@ function buildKakaoStockDraft({ text, baseText, selectedWeek, products }) {
 
   const remainRows = [];
   const historyRows = [];
+  const usedFinalRemainKeys = new Set();
 
   recordsByProduct.forEach((group, productKey) => {
     const sorted = [...group].sort((a, b) => {
@@ -474,18 +477,22 @@ function buildKakaoStockDraft({ text, baseText, selectedWeek, products }) {
       return ws || a.order - b.order;
     });
     let running = base.byKey[productKey]?.qty ?? null;
-    sorted.forEach(record => {
+    sorted.forEach((record, sortedIdx) => {
       const deltaSum = record.changes.reduce((sum, change) => sum + (Number(change.delta) || 0), 0);
       const calcRemain = running == null ? null : running - deltaSum;
-      const closeRemain = record.reportedRemain != null ? record.reportedRemain : calcRemain;
+      const finalRow = finalRemain.byKey[productKey];
+      const finalInputRemain = finalRow && sortedIdx === sorted.length - 1 ? finalRow.qty : null;
+      const reportedRemain = record.reportedRemain != null ? record.reportedRemain : finalInputRemain;
+      if (finalInputRemain != null) usedFinalRemainKeys.add(productKey);
+      const closeRemain = reportedRemain != null ? reportedRemain : calcRemain;
       const match = productMatchSummary(record.productName, products);
       const warnings = [];
 
-      if (record.reportedRemain == null && calcRemain == null) {
+      if (reportedRemain == null && calcRemain == null) {
         warnings.push('기초재고 또는 결과 잔량 필요');
       }
-      if (record.reportedRemain != null && calcRemain != null && Math.abs(record.reportedRemain - calcRemain) > 0.001) {
-        warnings.push(`계산 ${fmtStockQty(calcRemain)}와 카톡잔량 ${fmtStockQty(record.reportedRemain)} 불일치`);
+      if (reportedRemain != null && calcRemain != null && Math.abs(reportedRemain - calcRemain) > 0.001) {
+        warnings.push(`계산 ${fmtStockQty(calcRemain)}와 잔량재고 ${fmtStockQty(reportedRemain)} 불일치`);
       }
       if (record.changes.some(change => change.assumed)) {
         warnings.push('동작어 없는 괄호값은 추가로 추정');
@@ -503,6 +510,8 @@ function buildKakaoStockDraft({ text, baseText, selectedWeek, products }) {
 
       const row = {
         ...record,
+        reportedRemain,
+        reportedRemainSource: record.reportedRemain != null ? 'text' : (finalInputRemain != null ? 'remainInput' : null),
         start: running,
         deltaSum,
         calcRemain,
@@ -517,6 +526,44 @@ function buildKakaoStockDraft({ text, baseText, selectedWeek, products }) {
         confirmRows.push(`${record.weekLabel || '선택차수'} ${record.productName}: ${warning}`);
       });
       if (closeRemain != null) running = closeRemain;
+    });
+  });
+
+  finalRemain.rows.forEach(row => {
+    const productKey = stockNorm(row.name);
+    if (!productKey || usedFinalRemainKeys.has(productKey) || recordsByProduct.has(productKey)) return;
+    const match = productMatchSummary(row.name, products);
+    const warnings = [];
+    if (match.status === 'ambiguous') {
+      warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
+    } else if (match.status === 'outside') {
+      warnings.push(`담당범위 밖 후보: ${match.names.join(', ')}`);
+    } else if (match.status === 'unmatched') {
+      warnings.push('품목 매칭 후보 없음');
+    }
+    const finalOnlyRow = {
+      id: `final-${row.idx}`,
+      lineNo: row.idx + 1,
+      week: selectedWeek || '',
+      weekLabel: shortWeekLabel(selectedWeek || ''),
+      productName: row.name,
+      reportedRemain: row.qty,
+      reportedRemainSource: 'remainInput',
+      unit: row.unit || '',
+      changes: [],
+      notes: [],
+      sourceLine: `${row.name} ${fmtStockQty(row.qty)}`,
+      mode: 'remain-only',
+      start: base.byKey[productKey]?.qty ?? null,
+      deltaSum: 0,
+      calcRemain: base.byKey[productKey]?.qty ?? null,
+      closeRemain: row.qty,
+      warnings,
+      match,
+    };
+    remainRows.push(finalOnlyRow);
+    warnings.forEach(warning => {
+      confirmRows.push(`${finalOnlyRow.weekLabel || '선택차수'} ${finalOnlyRow.productName}: ${warning}`);
     });
   });
 
@@ -615,6 +662,7 @@ export default function PasteOrderPage() {
   const [prodUnitMap, setProdUnitMap] = useState({}); // { [ProdKey]: '박스'|'단'|'송이' }
   const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
   const [baseStockText, setBaseStockText] = useState('');
+  const [remainStockText, setRemainStockText] = useState('');
   const [stockDraft, setStockDraft] = useState(null);
   const [stockCopied, setStockCopied] = useState(false);
 
@@ -664,10 +712,11 @@ export default function PasteOrderPage() {
     }),
   }));
 
-  const refreshStockDraft = (nextText = pasteText, nextBase = baseStockText, nextWeek = week) => {
+  const refreshStockDraft = (nextText = pasteText, nextBase = baseStockText, nextWeek = week, nextRemain = remainStockText) => {
     const draft = buildKakaoStockDraft({
       text: nextText,
       baseText: nextBase,
+      remainText: nextRemain,
       selectedWeek: nextWeek,
       products: allProducts,
     });
@@ -689,7 +738,7 @@ export default function PasteOrderPage() {
 
   const handleParse = async () => {
     if (!pasteText.trim()) return;
-    refreshStockDraft(pasteText, baseStockText, week);
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText);
     setParsing(true);
     setOrders([]);
     setParseError('');
@@ -718,7 +767,7 @@ export default function PasteOrderPage() {
         setDetectedWeek(d.detectedWeek);
         setWeek(autoWeek);
         effectiveWeek = autoWeek;
-        refreshStockDraft(pasteText, baseStockText, autoWeek);
+        refreshStockDraft(pasteText, baseStockText, autoWeek, remainStockText);
       } else {
         setDetectedWeek('');
       }
@@ -1293,7 +1342,7 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '16px 20px', maxWidth: 760, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+      <div style={{ padding: '16px 20px', maxWidth: 1180, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
@@ -1399,36 +1448,51 @@ export default function PasteOrderPage() {
           })()}
         </div>
 
-        {/* 기초재고 입력 */}
-        <div style={{ marginBottom: 12, border: '1px solid #d6dee8', borderRadius: 8, padding: 12, background: '#f8fbff' }}>
-          <label style={labelS}>
-            기초재고 / 시작잔량
-            <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-              품목명 수량 형식으로 입력하면 카톡 변경사항과 합산해 잔량을 계산합니다.
-            </span>
-          </label>
-          <textarea
-            style={{ width: '100%', height: 280, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
-            placeholder={'블루 2\n라벤더 14\n화이트 1'}
-            value={baseStockText}
-            onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); }}
-          />
-        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 14 }}>
+          <div style={{ border: '1px solid #c5cae9', borderRadius: 8, padding: 12, background: '#f7f8ff', minWidth: 0 }}>
+            <label style={labelS}>
+              텍스트 붙여넣기
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                주문/변경사항
+              </span>
+            </label>
+            <textarea
+              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
+              value={pasteText}
+              onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); }}
+            />
+          </div>
 
-        {/* 텍스트 입력 */}
-        <div style={{ marginBottom: 12 }}>
-          <label style={labelS}>
-            텍스트 붙여넣기
-            <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 6 }}>
-              기본형, 변경사항형, 카톡 잔량형 모두 지원
-            </span>
-          </label>
-          <textarea
-            style={{ width: '100%', height: 420, padding: '10px 12px', border: '1px solid #bbb', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
-            placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[카톡 잔량형]\n21-1\n블루 2(원협4>5)(신화1>0)\n화이트1 <> 2시작 (미우154>148)\n\n[기본형]\n청화꽃집\nCaroline | 2'}
-            value={pasteText}
-            onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); }}
-          />
+          <div style={{ border: '1px solid #b8c7d9', borderRadius: 8, padding: 12, background: '#f8fbff', minWidth: 0 }}>
+            <label style={labelS}>
+              기존재고
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                시작 기준
+              </span>
+            </label>
+            <textarea
+              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              placeholder={'기존재고\n블루 2\n라벤더 14\n화이트 1'}
+              value={baseStockText}
+              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); }}
+            />
+          </div>
+
+          <div style={{ border: '1px solid #b2dfdb', borderRadius: 8, padding: 12, background: '#f3fffd', minWidth: 0 }}>
+            <label style={labelS}>
+              잔량재고
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                최종 잔량
+              </span>
+            </label>
+            <textarea
+              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #80cbc4', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              placeholder={'잔량재고\n21-1\n블루 2\n라벤더 14\n화이트 1'}
+              value={remainStockText}
+              onChange={e => { setRemainStockText(e.target.value); setStockDraft(null); }}
+            />
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
@@ -1441,8 +1505,8 @@ export default function PasteOrderPage() {
           </button>
           <button
             onClick={() => refreshStockDraft()}
-            disabled={!pasteText.trim() && !baseStockText.trim()}
-            style={{ padding: '9px 18px', background: '#455a64', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!pasteText.trim() && !baseStockText.trim()) ? 0.5 : 1 }}
+            disabled={!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()}
+            style={{ padding: '9px 18px', background: '#455a64', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()) ? 0.5 : 1 }}
           >
             잔량/히스토리 계산
           </button>
