@@ -1718,13 +1718,18 @@ export default function PasteOrderPage() {
               {/* 등록 후 DB 주문내역 */}
               {registeredOrders[order.id] && (() => {
                 const ro = registeredOrders[order.id];
-                const prevSnap = ro.prevSnapshot || {};
+                const hasSnapshot = Object.prototype.hasOwnProperty.call(ro, 'prevSnapshot');
+                const prevSnap = hasSnapshot ? (ro.prevSnapshot || {}) : {};
                 const items = ro.items || [];
                 let newCount = 0, changedCount = 0, sameCount = 0;
                 items.forEach(it => {
+                  if (!hasSnapshot) {
+                    sameCount++;
+                    return;
+                  }
                   const p = prevSnap[it.prodKey];
                   if (p == null) newCount++;
-                  else if (p !== it.qty) changedCount++;
+                  else if (Number(p) !== Number(it.qty)) changedCount++;
                   else sameCount++;
                 });
                 return (
@@ -1732,7 +1737,7 @@ export default function PasteOrderPage() {
                     <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
                       {newCount > 0 && (
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fff9c4', color: '#f57f17', border: '1px solid #fbc02d' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#e3f2fd', color: '#0d47a1', border: '1px solid #64b5f6' }}>
                           🆕 신규 {newCount}건
                         </span>
                       )}
@@ -1810,16 +1815,17 @@ export default function PasteOrderPage() {
                         </thead>
                         <tbody>
                           {items.map((it, i) => {
-                            const prev = prevSnap[it.prodKey];
-                            const isNew = prev == null;
-                            const isChanged = !isNew && prev !== it.qty;
+                            const prev = hasSnapshot ? prevSnap[it.prodKey] : null;
+                            const isNew = hasSnapshot && prev == null;
+                            const isChanged = hasSnapshot && !isNew && Number(prev) !== Number(it.qty);
+                            const delta = isChanged ? Number(it.qty) - Number(prev) : 0;
                             const rowBg = isNew
-                              ? '#fff9c4'
+                              ? '#e3f2fd'
                               : isChanged
                                 ? '#ffe0b2'
                                 : (i%2===0?'#f9fbe7':'#f1f8e9');
                             const leftBorder = isNew
-                              ? '3px solid #fbc02d'
+                              ? '3px solid #1976d2'
                               : isChanged
                                 ? '3px solid #fb8c00'
                                 : '3px solid transparent';
@@ -1829,7 +1835,7 @@ export default function PasteOrderPage() {
                             return (
                               <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: rowBg, borderLeft: leftBorder }}>
                                 <td style={{ padding: '4px 8px' }}>
-                                  {isNew && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#fbc02d', color: '#fff', fontWeight: 700 }}>NEW</span>}
+                                  {isNew && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#1976d2', color: '#fff', fontWeight: 700 }}>신규</span>}
                                   {isChanged && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#fb8c00', color: '#fff', fontWeight: 700 }}>변경</span>}
                                   {it.displayName || it.prodName}
                                 </td>
@@ -1837,14 +1843,14 @@ export default function PasteOrderPage() {
                                 <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                                   {isNew ? (
-                                    <span style={{ color: '#f57f17' }}>+{it.qty}</span>
+                                    <span style={{ color: '#0d47a1' }}>+{it.qty}</span>
                                   ) : isChanged ? (
                                     <span>
                                       <span style={{ color: '#999', textDecoration: 'line-through', marginRight: 4 }}>{prev}</span>
                                       <span style={{ color: '#e65100' }}>→</span>
                                       <span style={{ color: '#e65100', marginLeft: 4, fontWeight: 700 }}>{it.qty}</span>
-                                      <span style={{ marginLeft: 6, fontSize: 10, color: it.qty - prev > 0 ? '#2e7d32' : '#c62828' }}>
-                                        ({it.qty - prev > 0 ? '+' : ''}{it.qty - prev})
+                                      <span style={{ marginLeft: 6, fontSize: 10, color: delta > 0 ? '#2e7d32' : '#c62828' }}>
+                                        ({delta > 0 ? '+' : ''}{delta})
                                       </span>
                                     </span>
                                   ) : (
