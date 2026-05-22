@@ -168,6 +168,18 @@ function isSeparatorLine(line) {
   return /^[\s\-_=ㅡ─]{4,}$/.test(String(line || '').trim());
 }
 
+function normalizeFlowerContext(line) {
+  const s = String(line || '').trim().replace(/\s+/g, '');
+  if (s === '카네') return '카네이션';
+  return /^(수국|장미|카네이션|알스트로)$/.test(s) ? s : '';
+}
+
+function applyFlowerContext(name, flowerContext) {
+  const productName = String(name || '').trim();
+  if (!productName || !flowerContext) return productName;
+  return productName.includes(flowerContext) ? productName : `${flowerContext} ${productName}`;
+}
+
 function parseBaseStockText(text) {
   const rows = [];
   const byKey = {};
@@ -316,6 +328,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
   const primaryWeek = { value: selectedWeek || '' };
   let currentWeek = selectedWeek || '';
   let currentCustomer = '';
+  let currentFlower = '';
   let mode = 'regular';
 
   String(text || '').split(/\r?\n/).forEach((raw, idx) => {
@@ -341,12 +354,19 @@ function parseKakaoStockRecords(text, selectedWeek) {
         mode = 'regular';
         currentWeek = lineWeek;
         primaryWeek.value = primaryWeek.value || lineWeek;
+        currentFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로)/) || [])[1]) || currentFlower;
         currentCustomer = '';
         return;
       }
     }
 
     if (/^(잔량|히스토리|기초재고|확인필요)$/.test(line)) return;
+
+    const flowerOnly = normalizeFlowerContext(line);
+    if (flowerOnly) {
+      currentFlower = flowerOnly;
+      return;
+    }
 
     if (!/[0-9()<>]|추가|취소/.test(line)) {
       currentCustomer = line;
@@ -355,12 +375,13 @@ function parseKakaoStockRecords(text, selectedWeek) {
 
     const natural = parseNaturalChangeLine(line, currentCustomer);
     if (natural) {
+      const productName = applyFlowerContext(natural.productName, currentFlower);
       records.push({
         id: `${idx}-natural`,
         lineNo: idx + 1,
         week: currentWeek || selectedWeek || '',
         weekLabel: shortWeekLabel(currentWeek || selectedWeek || ''),
-        productName: natural.productName,
+        productName,
         reportedRemain: null,
         changes: natural.changes,
         notes: natural.notes,
@@ -372,6 +393,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
 
     const { name, reportedRemain, unit } = parseHeadNameRemain(line);
     if (!name) return;
+    const productName = applyFlowerContext(name, currentFlower);
 
     const inlineChanges = parseInlinePrefixChanges(line);
     const parenTokens = [...line.matchAll(/\(([^)]*)\)/g)].map(m => m[1].trim());
@@ -389,7 +411,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
         lineNo: idx + 1,
         week: currentWeek || selectedWeek || '',
         weekLabel: shortWeekLabel(currentWeek || selectedWeek || ''),
-        productName: name,
+        productName,
         qty: reportedRemain,
         unit: unit || '',
         notes,
@@ -404,7 +426,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
       lineNo: idx + 1,
       week: currentWeek || selectedWeek || '',
       weekLabel: shortWeekLabel(currentWeek || selectedWeek || ''),
-      productName: name,
+      productName,
       reportedRemain,
       unit: unit || '',
       changes,
@@ -476,10 +498,11 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, p
       const ws = weekSortValue(a.week) - weekSortValue(b.week);
       return ws || a.order - b.order;
     });
-    let running = base.byKey[productKey]?.qty ?? null;
+    const hasBase = base.byKey[productKey]?.qty != null;
+    let running = hasBase ? base.byKey[productKey].qty : 0;
     sorted.forEach((record, sortedIdx) => {
       const deltaSum = record.changes.reduce((sum, change) => sum + (Number(change.delta) || 0), 0);
-      const calcRemain = running == null ? null : running - deltaSum;
+      const calcRemain = running - deltaSum;
       const finalRow = finalRemain.byKey[productKey];
       const finalInputRemain = finalRow && sortedIdx === sorted.length - 1 ? finalRow.qty : null;
       const reportedRemain = record.reportedRemain != null ? record.reportedRemain : finalInputRemain;
@@ -488,8 +511,8 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, p
       const match = productMatchSummary(record.productName, products);
       const warnings = [];
 
-      if (reportedRemain == null && calcRemain == null) {
-        warnings.push('기초재고 또는 결과 잔량 필요');
+      if (!hasBase && sortedIdx === 0) {
+        warnings.push('기초재고 없음, 0으로 계산');
       }
       if (reportedRemain != null && calcRemain != null && Math.abs(reportedRemain - calcRemain) > 0.001) {
         warnings.push(`계산 ${fmtStockQty(calcRemain)}와 잔량재고 ${fmtStockQty(reportedRemain)} 불일치`);
@@ -564,6 +587,45 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, p
     remainRows.push(finalOnlyRow);
     warnings.forEach(warning => {
       confirmRows.push(`${finalOnlyRow.weekLabel || '선택차수'} ${finalOnlyRow.productName}: ${warning}`);
+    });
+  });
+
+  const shownRemainKeys = new Set(remainRows.map(row => stockNorm(row.productName)));
+  base.rows.forEach(row => {
+    const productKey = stockNorm(row.name);
+    if (!productKey || shownRemainKeys.has(productKey)) return;
+    const match = productMatchSummary(row.name, products);
+    const warnings = [];
+    if (match.status === 'ambiguous') {
+      warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
+    } else if (match.status === 'outside') {
+      warnings.push(`담당범위 밖 후보: ${match.names.join(', ')}`);
+    } else if (match.status === 'unmatched') {
+      warnings.push('품목 매칭 후보 없음');
+    }
+    const baseOnlyRow = {
+      id: `base-${row.idx}`,
+      lineNo: row.idx + 1,
+      week: selectedWeek || '',
+      weekLabel: shortWeekLabel(selectedWeek || ''),
+      productName: row.name,
+      reportedRemain: row.qty,
+      reportedRemainSource: 'baseInput',
+      unit: row.unit || '',
+      changes: [],
+      notes: [],
+      sourceLine: `${row.name} ${fmtStockQty(row.qty)}`,
+      mode: 'base-only',
+      start: row.qty,
+      deltaSum: 0,
+      calcRemain: row.qty,
+      closeRemain: row.qty,
+      warnings,
+      match,
+    };
+    remainRows.push(baseOnlyRow);
+    warnings.forEach(warning => {
+      confirmRows.push(`${baseOnlyRow.weekLabel || '선택차수'} ${baseOnlyRow.productName}: ${warning}`);
     });
   });
 

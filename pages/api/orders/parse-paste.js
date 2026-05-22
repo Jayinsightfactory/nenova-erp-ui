@@ -244,6 +244,67 @@ function parseCompactStockOrders(text) {
   return { detectedWeek, orders: [...orderMap.values()].filter(o => o.items.length > 0) };
 }
 
+function normalizeFlowerContext(line) {
+  const s = String(line || '').trim().replace(/\s+/g, '');
+  if (s === '카네') return '카네이션';
+  return /^(수국|장미|카네이션|알스트로)$/.test(s) ? s : '';
+}
+
+function applyFlowerContext(name, flowerContext) {
+  const productName = String(name || '').trim();
+  if (!productName || !flowerContext) return productName;
+  return productName.includes(flowerContext) ? productName : `${flowerContext} ${productName}`;
+}
+
+function parseNaturalSectionOrders(text) {
+  const orderMap = new Map();
+  let detectedWeek = null;
+  let currentCust = '';
+  let flowerContext = '';
+
+  String(text || '').split('\n').forEach(raw => {
+    const line = raw.trim();
+    if (!line || /^[\s\-_=ㅡ─]{4,}$/.test(line)) return;
+
+    const lineWeek = parseCompactWeek(line);
+    if (lineWeek) {
+      detectedWeek = detectedWeek || lineWeek;
+      flowerContext = parseCompactFlowerContext(line, flowerContext);
+      if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
+    }
+
+    const flowerOnly = normalizeFlowerContext(line);
+    if (flowerOnly) {
+      flowerContext = flowerOnly;
+      return;
+    }
+
+    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박스|단|송이|개)?\s*(추가|취소)\s*$/);
+    if (m && currentCust) {
+      const qty = Math.abs(parseCompactQty(m[2] || '1')) || 1;
+      const productName = applyFlowerContext(m[1].trim(), flowerContext);
+      const unit = m[3] || (flowerContext === '장미' ? '단' : '박스');
+      if (!orderMap.has(currentCust)) orderMap.set(currentCust, { custKey: null, custName: currentCust, items: [] });
+      orderMap.get(currentCust).items.push({
+        inputName: productName,
+        qty,
+        unit,
+        action: m[4],
+        prodKey: null,
+        prodName: null,
+        displayName: null,
+      });
+      return;
+    }
+
+    if (!/[0-9]|추가|취소|[()<>]/.test(line)) {
+      currentCust = line;
+    }
+  });
+
+  return { detectedWeek, orders: [...orderMap.values()].filter(o => o.items.length > 0) };
+}
+
 function normalizeAction(action, inputName = '') {
   const s = `${action || ''} ${inputName || ''}`;
   if (/취소|cancel|delete|삭제/i.test(s)) return '취소';
@@ -324,6 +385,22 @@ function resolveRoseCandidate(item, chosenProd, allProducts) {
   }
 
   return { prod: top[0].prod, ambiguousCountry: false, reason: null };
+}
+
+function findBestProductCandidate(inputName, allProducts) {
+  const input = String(inputName || '').trim();
+  if (!input) return null;
+  const scored = allProducts
+    .filter(prod => !isMixBoxMismatch(input, prod))
+    .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
+    .filter(x => x.score >= 72)
+    .sort((a, b) => b.score - a.score);
+  if (scored.length === 0) return null;
+  const topScore = scored[0].score;
+  const nearTop = scored.filter(x => x.score >= topScore - 3);
+  const nearKeys = new Set(nearTop.map(x => Number(x.prod.ProdKey)));
+  if (nearKeys.size > 1) return null;
+  return scored[0].prod;
 }
 
 export default withAuth(async function handler(req, res) {
@@ -515,7 +592,9 @@ Caroline | 2
 
     const parsed = JSON.parse(jsonText);
     const compactParsed = parseCompactStockOrders(cleanText);
-    const mergedParsedOrders = [...(parsed.orders || []), ...(compactParsed.orders || [])];
+    const naturalParsed = parseNaturalSectionOrders(cleanText);
+    const baseParsedOrders = naturalParsed.orders?.length ? naturalParsed.orders : (parsed.orders || []);
+    const mergedParsedOrders = [...baseParsedOrders, ...(compactParsed.orders || [])];
 
     // 거래처·품목 보강
     const orders = mergedParsedOrders.map(order => {
@@ -552,8 +631,9 @@ Caroline | 2
 
         // 2순위: Claude 파싱 결과
         const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
+        const scoredProd = (!mappedProd && !claudeProd) ? findBestProductCandidate(item.inputName, allProducts) : null;
 
-        const resolved = resolveRoseCandidate(item, mappedProd || claudeProd, allProducts);
+        const resolved = resolveRoseCandidate(item, mappedProd || claudeProd || scoredProd, allProducts);
         const prod = resolved.prod;
         const unit = defaultUnit(prod, item.unit, prodUnitMap);
         // confidence 점수 계산
@@ -571,6 +651,9 @@ Caroline | 2
           confidenceLabel = fuzzyMatch?.matchType === 'exact' ? 'high' : 'medium';
         } else if (claudeProd) {
           confidence = 0.6;
+          confidenceLabel = 'medium';
+        } else if (scoredProd) {
+          confidence = 0.55;
           confidenceLabel = 'medium';
         }
         // fallback 의심 검사: 매칭된 prodKey 가 너무 많은 입력에 매핑되어 있나?
@@ -611,7 +694,7 @@ Caroline | 2
     });
 
     // 차수 정규화: "16-1" → "16-01"
-    let detectedWeek = parsed.detectedWeek || null;
+    let detectedWeek = naturalParsed.detectedWeek || parsed.detectedWeek || null;
     if (detectedWeek) {
       const m = String(detectedWeek).match(/^(\d{1,2})-(\d{1,2})$/);
       if (m) detectedWeek = `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
