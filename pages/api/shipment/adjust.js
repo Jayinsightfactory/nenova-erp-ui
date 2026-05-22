@@ -46,6 +46,30 @@ function weekToShipDate(weekStr, yearStr) {
   } catch { return null; }
 }
 
+async function assertWeekNotFixed(q, orderWeek) {
+  const fixed = await q(
+    `SELECT TOP 1 FixSource
+       FROM (
+         SELECT N'ShipmentMaster' AS FixSource
+           FROM ShipmentMaster
+          WHERE OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
+         UNION ALL
+         SELECT N'ShipmentDetail' AS FixSource
+           FROM ShipmentMaster sm
+           JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+          WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
+         UNION ALL
+         SELECT N'StockMaster' AS FixSource
+           FROM StockMaster
+          WHERE OrderWeek=@wk AND ISNULL(isFix,0)=1
+       ) x`,
+    { wk: { type: sql.NVarChar, value: orderWeek } }
+  );
+  if (fixed.recordset.length > 0) {
+    throw new Error('확정된 차수는 출고분배/분배조정을 할 수 없습니다 (먼저 차수 확정을 해제하세요)');
+  }
+}
+
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getAdjustments(req, res);
   if (req.method === 'POST') return await postAdjust(req, res);
@@ -114,6 +138,8 @@ async function postAdjust(req, res) {
 
   try {
     const result = await withTransaction(async (tQ) => {
+      await assertWeekNotFixed(tQ, orderWeek);
+
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
         `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
