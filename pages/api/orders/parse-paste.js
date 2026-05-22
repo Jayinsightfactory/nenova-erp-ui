@@ -126,6 +126,124 @@ function sanitizePasteText(raw) {
     .replace(/춰소|츼소|치소|취ㅅ|ㅊ소/g, '취소');
 }
 
+function parseCompactQty(value) {
+  const n = parseFloat(String(value || '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseCompactWeek(line) {
+  const m = String(line || '').match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
+  return m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : null;
+}
+
+function parseCompactFlowerContext(line, currentFlower = '') {
+  const m = String(line || '').match(/(수국|장미|카네이션|카네|알스트로)/);
+  if (!m) return currentFlower;
+  if (m[1] === '카네') return '카네이션';
+  return m[1];
+}
+
+function parseCompactProductHead(line) {
+  const beforeParen = String(line || '').split('(')[0] || '';
+  const beforeAngle = beforeParen.split('<')[0].trim();
+  if (!beforeAngle) return '';
+  const m = beforeAngle.match(/^(.+?)[\s:：]*-?\d+(?:\.\d+)?\s*(박스|단|송이|개)?$/);
+  return (m ? m[1] : beforeAngle).trim();
+}
+
+function parseCompactChangeToken(token) {
+  const s = String(token || '').replace(/\s+/g, '').trim();
+  if (!s || /미발주|사용예정|예정|시작|여분|메모|참고|입고|재고/.test(s) || /\d+\s*개/.test(s)) return null;
+
+  let m = s.match(/^(.+?)(-?\d+(?:\.\d+)?)>(-?\d+(?:\.\d+)?)$/);
+  if (m) {
+    const before = parseCompactQty(m[2]);
+    const after = parseCompactQty(m[3]);
+    return { custName: m[1], delta: after - before, raw: token };
+  }
+
+  m = s.match(/^(.+?)취소(-?\d+(?:\.\d+)?)$/) || s.match(/^(.+?)(-?\d+(?:\.\d+)?)취소$/);
+  if (m) return { custName: m[1], delta: -Math.abs(parseCompactQty(m[2])), raw: token };
+
+  m = s.match(/^(.+?)(-?\d+(?:\.\d+)?)추가$/) || s.match(/^(.+?)추가(-?\d+(?:\.\d+)?)$/);
+  if (m) return { custName: m[1], delta: Math.abs(parseCompactQty(m[2])), raw: token };
+
+  m = s.match(/^(.+?)(-?\d+(?:\.\d+)?)$/);
+  if (m && !/^\d/.test(m[1])) return { custName: m[1], delta: Math.abs(parseCompactQty(m[2])), raw: token, assumed: true };
+
+  return null;
+}
+
+function parseCompactInlinePrefixChanges(line) {
+  const changes = [];
+  const re = /([가-힣A-Za-z0-9]+)\s*\(\s*(-?\d+(?:\.\d+)?)\s*>\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+  let m;
+  while ((m = re.exec(String(line || ''))) !== null) {
+    const before = parseCompactQty(m[2]);
+    const after = parseCompactQty(m[3]);
+    changes.push({ custName: m[1], delta: after - before, raw: `${m[1]}${m[2]}>${m[3]}` });
+  }
+  return changes;
+}
+
+function parseCompactStockOrders(text) {
+  const orderMap = new Map();
+  let detectedWeek = null;
+  let flowerContext = '';
+  let mode = 'regular';
+
+  String(text || '').split('\n').forEach(raw => {
+    const line = raw.trim();
+    if (!line) return;
+    if (/^[\s\-_=ㅡ─]{4,}$/.test(line)) {
+      if (mode === 'extra') mode = 'regular';
+      return;
+    }
+
+    const lineWeek = parseCompactWeek(line);
+    if (lineWeek) {
+      detectedWeek = detectedWeek || lineWeek;
+      flowerContext = parseCompactFlowerContext(line, flowerContext);
+      if (/여분\s*주문|여분주문/.test(line)) mode = 'extra';
+      if (/변경사항/.test(line)) mode = 'regular';
+      if (/여분\s*주문|여분주문|변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
+    }
+    if (mode === 'extra') return;
+    if (!line.includes('(') || !/[>]|추가|취소/.test(line)) return;
+
+    const productName = parseCompactProductHead(line);
+    if (!productName) return;
+    const inputName = flowerContext && !String(productName).includes(flowerContext)
+      ? `${flowerContext} ${productName}`
+      : productName;
+
+    const changes = parseCompactInlinePrefixChanges(line);
+    [...line.matchAll(/\(([^)]*)\)/g)].forEach(m => {
+      const change = parseCompactChangeToken(m[1]);
+      if (change) changes.push(change);
+    });
+
+    changes.forEach(change => {
+      if (!change.custName || !change.delta) return;
+      const qty = Math.abs(change.delta);
+      if (!(qty > 0)) return;
+      const key = change.custName;
+      if (!orderMap.has(key)) orderMap.set(key, { custKey: null, custName: key, items: [] });
+      orderMap.get(key).items.push({
+        inputName,
+        qty,
+        unit: '박스',
+        action: change.delta > 0 ? '추가' : '취소',
+        prodKey: null,
+        prodName: null,
+        displayName: null,
+      });
+    });
+  });
+
+  return { detectedWeek, orders: [...orderMap.values()].filter(o => o.items.length > 0) };
+}
+
 function normalizeAction(action, inputName = '') {
   const s = `${action || ''} ${inputName || ''}`;
   if (/취소|cancel|delete|삭제/i.test(s)) return '취소';
@@ -396,9 +514,11 @@ Caroline | 2
     if (!jsonText) return res.status(500).json({ success: false, error: 'LLM 응답 파싱 실패' });
 
     const parsed = JSON.parse(jsonText);
+    const compactParsed = parseCompactStockOrders(cleanText);
+    const mergedParsedOrders = [...(parsed.orders || []), ...(compactParsed.orders || [])];
 
     // 거래처·품목 보강
-    const orders = (parsed.orders || []).map(order => {
+    const orders = mergedParsedOrders.map(order => {
       let custMatch = null;
       const normCust = s => String(s || '').replace(/\s+/g, '').toLowerCase();
       const savedCustMap = findCustomerMapping(order.custName, savedCustomerMappings);
@@ -496,6 +616,7 @@ Caroline | 2
       const m = String(detectedWeek).match(/^(\d{1,2})-(\d{1,2})$/);
       if (m) detectedWeek = `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
     }
+    if (!detectedWeek && compactParsed.detectedWeek) detectedWeek = compactParsed.detectedWeek;
 
     return res.status(200).json({ success: true, orders, prodUnitMap, detectedWeek });
   } catch (err) {
