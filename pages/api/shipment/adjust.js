@@ -474,9 +474,11 @@ async function postAdjust(req, res) {
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@oq,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-             Cost=@cost, Amount=@amount, Vat=@vat
+             Cost=@cost, Amount=@amount, Vat=@vat,
+             ShipmentDtm=ISNULL(ShipmentDtm,@dt)
            WHERE SdetailKey=@dk`,
           { dk: { type: sql.Int, value: targetSdk },
+            dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
