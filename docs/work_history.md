@@ -27,6 +27,14 @@ type: history
 - 후속 확인: 생성된 5건 모두 `ShipmentDate` 합계 = `OutQuantity`, `OutQuantity` = `EstQuantity`, 출고일/단가/공급가/부가세 정상
 - 후속 확인: 21-01 `ShipmentMaster` 중복 거래처 그룹 0건
 - 재발 방지: 웹 출고분배/분배조정에서 `OrderMaster/Detail`, `ShipmentMaster/Detail` 생성 후 `KeyNumbering`을 실제 최대 key 이상으로 동기화
+
+### 2026-05-25 NenovaWeb vs Nenova.exe 메뉴/화면 누락 감사
+
+- 요청: 로그인 후 첫 화면부터 전체 메뉴, 버튼, 화면 정보가 `nenova.exe`와 어디가 다른지 재확인
+- 확인: 웹 `Layout`, `dashboard`, 모바일 메뉴 복제본과 기존 exe dnSpy/문자열 분석 문서 대조
+- 결과 문서: `docs/NENOVA_WEB_EXE_MENU_GAP_AUDIT_2026-05-25.md`
+- 최우선 누락/차이: 출고분배 버튼 parity, 견적서/ShipmentFarm, 재고 StockList/Product.Stock/ProductStock, 주문등록 기존 주문/변경내역, 업체별 품목단가관리 단가 흐름
+- 추가 발견: 모바일 메뉴 복제본에 `/orders/kakao-audit` 누락, 데스크톱/모바일 그룹명 일부 불일치
 - 주의: `국내왁스` 묶음의 실제 대상은 꽃 왁스가 아니라 운임성 품목이었다. 주문은 `현지상차운임(ProdKey=2262)`, 입고는 `운송료(ProdKey=2182)`로 잡힘
 
 ---
