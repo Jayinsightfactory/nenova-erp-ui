@@ -1006,5 +1006,536 @@
     "counName": "콜롬비아",
     "savedAt": "2026-04-20T02:24:24.005Z",
     "auto": true
+  },
+  "크림컵 ( 번 박스)": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.990Z",
+    "auto": true
+  },
+  "프라이드 ( 번 박스)": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.990Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 노라": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.992Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 두바이": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.992Z",
+    "auto": true
+  },
+  "콜롬비아 레몬잎 레몬잎": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.993Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 휘슬러": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.994Z",
+    "auto": true
+  },
+  "중국 멜로디 -> 오늘 출고 총입니다": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.994Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 피피": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.994Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 히말라야": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.995Z",
+    "auto": true
+  },
+  "콜롬비아 수국 스페셜핑크": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.995Z",
+    "auto": true
+  },
+  "콜롬비아 수국 진라벤더": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.995Z",
+    "auto": true
+  },
+  "콜롬비아 수국 루스커스": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.995Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 오렌지퀸": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 골드": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true
+  },
+  "콜롬비아 수국 라벤다": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true
+  },
+  "콜롬비아 수국 만 오늘 출고입니다.": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true
+  },
+  "콜롬비아 수국 (는 월요일입니다)": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true
+  },
+  "콜롬비아 수국 (오늘 총 출고입니다 불량대체 확인부탁해요)": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 - 주밀리아 10단<76번> 주밀리아 <번>": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 수국 사무실 창고 회수한 (샘플)": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 수국 월요일총 출고": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 수국 목요일(오늘) 총 출고입니다": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "중국 장미 heng -버터컵 (번)": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 수국 루스커스 (총 출고입니다)": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "콜롬비아 수국 다크핑크": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true
+  },
+  "중국 장미 -안슬레이 <번>": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.998Z",
+    "auto": true
+  },
+  "중국 장미 -로맨틱비치 <번>": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:23.998Z",
+    "auto": true
+  },
+  "콜롬비아 태국 jinda sweet (피치) l": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.998Z",
+    "auto": true
+  },
+  "콜롬비아 수국 *양재 랑은 별개입니다.": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.998Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 -> 두바이 후 수량": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.999Z",
+    "auto": true
+  },
+  "콜롬비아 수국 >": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.999Z",
+    "auto": true
+  },
+  "장미 변경사항 (미입고 입고건)": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "(알파는 결국 ~번 )": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 알스트로": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 알파 피피": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 꽃길 피피": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 피피버터플러스": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 태국 봉지덴파레 봉지 (잔량)": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true
+  },
+  "콜롬비아 태국 쥴링레드 xl": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.001Z",
+    "auto": true
+  },
+  "콜롬비아 태국 총 출고입니다.": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.001Z",
+    "auto": true
+  },
+  "콜롬비아 레몬잎 (총)": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.001Z",
+    "auto": true
+  },
+  "콜롬비아 태국 줄링": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.001Z",
+    "auto": true
+  },
+  "콜롬비아 수국 모히또": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.001Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 피피 버터플러스 (재고)": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 레몬잎 -> 오늘 만 출고입니다": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "중국 멜로디 출고일 리시안셔스 <번 번 번>": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 태국 총 출고 수량 입니다.": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "루어샨 ( )": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 레몬잎 오늘 총 출고 부탁드립니다": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 10단 오션송": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 알스트로 버터플러스 피피": {
+    "prodKey": 92,
+    "prodName": "ALSTROMERIA Arrone",
+    "displayName": null,
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.002Z",
+    "auto": true
+  },
+  "콜롬비아 10단 쉬머": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.003Z",
+    "auto": true
+  },
+  "중국 멜로디 차 heng 물량>": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.003Z",
+    "auto": true
+  },
+  "중국 멜로디 차 멜로디 물량>": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.003Z",
+    "auto": true
+  },
+  "콜롬비아 베트남 호접 총": {
+    "prodKey": 892,
+    "prodName": "폼폼이 화이트",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true
+  },
+  "중국 클라우드 으로 박스에 표기해주시고 총 오늘 사무실로 출고부탁드립니다.": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true
+  },
+  "중국 클라우드 꽃길 검역차감 지워주시고 출고 부탁드립니다.": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true
+  },
+  "중국 클라우드 표기해주시고 출고 부탁드립니다.": {
+    "prodKey": 2757,
+    "prodName": "[오경] ROSE CHINA /  주밀리아 (Jumilia) ",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true
+  },
+  "콜롬비아 수국 (미우 화요일 목요일)": {
+    "prodKey": 897,
+    "prodName": "HYDRANGEA",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.005Z",
+    "auto": true
   }
 }
