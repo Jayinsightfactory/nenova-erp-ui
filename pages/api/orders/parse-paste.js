@@ -13,7 +13,7 @@ function getClient() {
   return _client;
 }
 
-import { defaultUnit } from '../../../lib/orderUtils';
+import { defaultUnit, normalizeOrderUnit } from '../../../lib/orderUtils';
 import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
 import { loadCustomerMappings, findCustomerMapping } from '../../../lib/customerMappings';
 import { scoreMatch } from '../../../lib/displayName';
@@ -328,6 +328,7 @@ function parseNaturalSectionOrders(text) {
         inputName: productName,
         qty,
         unit,
+        unitExplicit: !!m[3],
         action: m[4],
         prodKey: null,
         prodName: null,
@@ -346,6 +347,7 @@ function parseNaturalSectionOrders(text) {
         inputName: productName,
         qty,
         unit,
+        unitExplicit: !!qtyOnly[3],
         action: sectionAction,
         prodKey: null,
         prodName: null,
@@ -705,7 +707,9 @@ Caroline | 2
 
         const resolved = resolveRoseCandidate(item, mappedProd || claudeProd || scoredProd, allProducts);
         const prod = resolved.prod;
-        const unit = defaultUnit(prod, item.unit, prodUnitMap);
+        const unit = item.unitExplicit
+          ? normalizeOrderUnit(item.unit, '박스')
+          : defaultUnit(prod, item.unit, prodUnitMap);
         // confidence 점수 계산
         // - 학습매핑 exact: 1.0
         // - 학습매핑 fuzzy: fuzzyMatch.score (0~1)
