@@ -46,6 +46,26 @@ function weekToShipDate(weekStr, yearStr) {
   } catch { return null; }
 }
 
+function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
+  try {
+    const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
+    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    if (!weekNum) return null;
+
+    const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1);
+    const wednesday = new Date(dateStart);
+    for (let i = 0; i < 7; i++) {
+      if (wednesday.getDay() === 3) break;
+      wednesday.setDate(wednesday.getDate() + 1);
+    }
+
+    const offsets = [0, 4, 5, 6, 1, 3, 2];
+    const normalizedBaseDay = Number.isFinite(Number(baseDay)) ? Number(baseDay) : 0;
+    wednesday.setDate(wednesday.getDate() + (offsets[normalizedBaseDay] ?? 0));
+    return wednesday;
+  } catch { return null; }
+}
+
 function calcShipmentAmount(qty, unitCost) {
   const amount = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 1.1);
   const vat = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 11);
@@ -260,6 +280,17 @@ async function postAdjust(req, res) {
           WHERE CustKey=@ck AND ProdKey=@pk`,
         { ck: { type: sql.Int, value: ck }, pk: { type: sql.Int, value: pk } }
       );
+      const custInfo = await tQ(
+        `SELECT TOP 1 ISNULL(BaseOutDay,0) AS BaseOutDay
+           FROM Customer
+          WHERE CustKey=@ck`,
+        { ck: { type: sql.Int, value: ck } }
+      );
+      const baseOutDay = custInfo.recordset[0]?.BaseOutDay ?? 0;
+      const defaultShipDate =
+        weekToShipDateByBaseOutDay(orderWeek, orderYear, baseOutDay) ||
+        weekToShipDate(orderWeek, orderYear) ||
+        new Date();
       const defaultUnitCost = Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0;
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
@@ -456,16 +487,14 @@ async function postAdjust(req, res) {
         );
       } else if (type === 'ADD') {
         const sdk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
-        // ShipmentDtm: 차수 기반 정상 출고일 (옛 전산 패턴과 일치 — 14차 등)
-        // 계산 실패 시 현재시각 fallback
-        const shipDate = weekToShipDate(orderWeek, orderYear) || new Date();
+        // ShipmentDtm: Customer.BaseOutDay first, then the old week/delivery fallback.
         await tQ(
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
            VALUES (@dk,@sk,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
-            dt: { type: sql.DateTime, value: shipDate },
+            dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
