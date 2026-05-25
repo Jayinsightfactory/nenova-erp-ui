@@ -14,6 +14,7 @@ export default function IncomingPricePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [includeFreight, setIncludeFreight] = useState(false);
+  const [sideTab, setSideTab] = useState('pending');
   const [creditsRaw, setCreditsRaw] = useState([]);  // [{ farmName, orderWeek, creditUSD, memo }]
   const [editCredit, setEditCredit] = useState({});  // { "farm::week": { creditUSD, memo } }
   const [saving, setSaving] = useState({});
@@ -186,10 +187,34 @@ export default function IncomingPricePage() {
 
   const getNetPayment = (farm) => getFarmTotal(farm) - getFarmCredit(farm);
 
+  const farmSummaries = activeFarms.map(farm => {
+    const total = getFarmTotal(farm);
+    const credit = getFarmCredit(farm);
+    const net = total - credit;
+    const savedEntries = creditsRaw
+      .filter(c => c.farmName === farm && selectedWeeks.includes(c.orderWeek))
+      .filter(c => (Number(c.creditUSD) || 0) !== 0 || String(c.memo || '').trim() !== '');
+    return { farm, total, credit, net, savedEntries, hasSavedInput: savedEntries.length > 0 };
+  });
+  const savedFarmSummaries = farmSummaries.filter(f => f.hasSavedInput);
+  const pendingFarmSummaries = farmSummaries.filter(f => !f.hasSavedInput && f.net > 0);
+  const activeSideRows = sideTab === 'saved' ? savedFarmSummaries : pendingFarmSummaries;
+
   return (
     <Layout title="입고단가 / 농장 송금">
       <Head><title>입고단가 · NENOVA</title></Head>
       <div style={{ padding: '16px 20px', minHeight: '100vh', background: '#f8f9fa' }}>
+        <style jsx>{`
+          .incoming-price-workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+          }
+          @media (max-width: 1100px) {
+            .incoming-price-workspace {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}</style>
 
         {/* 상단 컨트롤 */}
         <div style={{ marginBottom: 16 }}>
@@ -314,7 +339,8 @@ export default function IncomingPricePage() {
         )}
 
         {!loading && data && activeFarms.length > 0 && (
-          <div>
+          <div className="incoming-price-workspace" style={{ gap: 16, alignItems: 'start' }}>
+            <div style={{ minWidth: 0 }}>
             {/* 메인 테이블 */}
             <div
               ref={tableContainerRef}
@@ -572,6 +598,85 @@ export default function IncomingPricePage() {
                 );
               })}
             </div>
+            </div>
+            <aside style={{
+              position: 'sticky',
+              top: 12,
+              background: '#fff',
+              border: '1px solid #dfe3ee',
+              borderRadius: 8,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+            }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid #e8eaf6', background: '#f6f8ff' }}>
+                <button onClick={() => setSideTab('pending')} style={sideTabButtonStyle(sideTab === 'pending', '#c62828')}>
+                  송금 필요 {pendingFarmSummaries.length}
+                </button>
+                <button onClick={() => setSideTab('saved')} style={sideTabButtonStyle(sideTab === 'saved', '#2e7d32')}>
+                  입력 있음 {savedFarmSummaries.length}
+                </button>
+              </div>
+              <div style={{ padding: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: '#ffebee', color: '#b71c1c', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700 }}>송금 필요</div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>{pendingFarmSummaries.length}</div>
+                  </div>
+                  <div style={{ background: '#e8f5e9', color: '#1b5e20', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700 }}>입력 있음</div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>{savedFarmSummaries.length}</div>
+                  </div>
+                </div>
+                <div style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', paddingRight: 2 }}>
+                  {activeSideRows.length === 0 && (
+                    <div style={{ padding: '24px 8px', textAlign: 'center', color: '#999', fontSize: 13 }}>
+                      표시할 업체가 없습니다.
+                    </div>
+                  )}
+                  {activeSideRows.map(row => (
+                    <div key={row.farm} style={{
+                      border: '1px solid #edf0f5',
+                      borderLeft: `4px solid ${row.hasSavedInput ? '#43a047' : '#ef5350'}`,
+                      borderRadius: 6,
+                      padding: '10px 12px',
+                      marginBottom: 8,
+                      background: row.hasSavedInput ? '#fbfffb' : '#fffafa',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                        <div style={{ fontWeight: 800, color: '#1a237e', lineHeight: 1.35 }}>{row.farm}</div>
+                        <div style={{ fontSize: 11, color: row.hasSavedInput ? '#2e7d32' : '#c62828', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                          {row.hasSavedInput ? '입력됨' : '미입력'}
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>소계</span><strong>{fmtUSDInt(row.total)}</strong>
+                        </div>
+                        {row.credit > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e65100' }}>
+                            <span>차감</span><strong>- {fmtUSDInt(row.credit)}</strong>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eee', marginTop: 6, paddingTop: 6, color: row.net < 0 ? '#c62828' : '#1b5e20' }}>
+                          <span>송금액</span><strong>{fmtUSDInt(row.net)}</strong>
+                        </div>
+                      </div>
+                      {row.savedEntries.length > 0 && (
+                        <div style={{ marginTop: 8, borderTop: '1px dashed #e0e0e0', paddingTop: 6 }}>
+                          {row.savedEntries.map(entry => (
+                            <div key={`${row.farm}-${entry.orderWeek}`} style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
+                              <strong>{entry.orderWeek}</strong>
+                              {(Number(entry.creditUSD) || 0) !== 0 && <span> · 차감 {fmtUSDInt(entry.creditUSD)}</span>}
+                              {entry.memo && <div style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>{entry.memo}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
           </div>
         )}
 
@@ -590,4 +695,17 @@ function thS(w, align = 'center') {
 }
 function tdS(w, align = 'center', extra = {}) {
   return { width: w, minWidth: w, padding: '6px 6px', textAlign: align, borderBottom: '1px solid #f0f0f0', borderRight: '1px solid #eee', fontSize: 13, ...extra };
+}
+
+function sideTabButtonStyle(active, color) {
+  return {
+    flex: 1,
+    padding: '10px 8px',
+    border: 'none',
+    borderBottom: active ? `3px solid ${color}` : '3px solid transparent',
+    background: active ? '#fff' : 'transparent',
+    color: active ? color : '#555',
+    fontWeight: 700,
+    cursor: 'pointer',
+  };
 }
