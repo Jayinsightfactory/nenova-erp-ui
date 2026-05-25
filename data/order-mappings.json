@@ -134,6 +134,33 @@
     "savedAt": "2026-04-20T02:24:23.992Z",
     "auto": true
   },
+  "콜롬비아 장미 퀵샌드": {
+    "prodKey": 1304,
+    "prodName": "ROSE / Quick Sand 50cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T10:20:00.000Z",
+    "manual": true
+  },
+  "장미 퀵샌드": {
+    "prodKey": 1304,
+    "prodName": "ROSE / Quick Sand 50cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T10:20:00.000Z",
+    "manual": true
+  },
+  "퀵샌드": {
+    "prodKey": 1304,
+    "prodName": "ROSE / Quick Sand 50cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T10:20:00.000Z",
+    "manual": true
+  },
   "콜롬비아 알스트로 노라": {
     "prodKey": 92,
     "prodName": "ALSTROMERIA Arrone",
