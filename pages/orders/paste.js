@@ -1176,12 +1176,28 @@ export default function PasteOrderPage() {
     } catch { /* 조회 실패해도 무시 */ }
   };
 
-  const ensureWeekCanDistribute = async (targetWeek) => {
+  const ensureWeekCanDistribute = async (targetWeek, prodKeys = []) => {
     if (!targetWeek) {
       alert('차수를 선택하세요.');
       return false;
     }
     try {
+      const targetProdKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+      if (targetProdKeys.length > 0) {
+        const d = await apiGet('/api/shipment/adjust', {
+          type: 'fixCheck',
+          week: targetWeek,
+          prodKeys: targetProdKeys.join(','),
+        });
+        if (!d.success) throw new Error(d.error || '품목군 확정 상태 조회 실패');
+        if (d.blocked) {
+          const scopes = (d.blockedScopes || []).map(s => s.scopeName).filter(Boolean).join(', ') || '선택 품목군';
+          alert(`${formatWeekDisplay(targetWeek)} ${scopes}은(는) 확정 상태입니다.\n확정된 품목군은 출고분배/분배조정을 할 수 없습니다.\n해당 품목군 확정취소 후 다시 진행하세요.`);
+          return false;
+        }
+        return true;
+      }
+
       const d = await apiGet('/api/shipment/fix-status', { fromWeek: targetWeek, toWeek: targetWeek });
       if (!d.success) throw new Error(d.error || '확정 상태 조회 실패');
       const targetShort = shortWeekLabel(targetWeek);
@@ -1217,7 +1233,6 @@ export default function PasteOrderPage() {
   const handleBulkDistribute = async (oid) => {
     const order = orders.find(o => o.id === oid);
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
-    if (!(await ensureWeekCanDistribute(week))) return;
 
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => ({
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
@@ -1227,6 +1242,7 @@ export default function PasteOrderPage() {
     })).filter(x => x.qty > 0);
 
     if (targets.length === 0) { alert('처리할 품목이 없습니다.'); return; }
+    if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
 
     // 미리보기: ADD/CANCEL 자동 분기
     const previewLines = targets.map(x => {
@@ -1277,7 +1293,7 @@ export default function PasteOrderPage() {
     if (!adjustModal) return;
     const delta = parseFloat(adjustQty);
     if (!(delta > 0)) { alert('수량은 0보다 커야 합니다.'); return; }
-    if (!(await ensureWeekCanDistribute(adjustModal.week))) return;
+    if (!(await ensureWeekCanDistribute(adjustModal.week, [adjustModal.prodKey]))) return;
     setAdjustSaving(true);
     try {
       const r = await fetch('/api/shipment/adjust', {

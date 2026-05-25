@@ -46,6 +46,58 @@ function weekToShipDate(weekStr, yearStr) {
   } catch { return null; }
 }
 
+async function getProductFixScope(q, prodKey) {
+  const prod = await q(
+    `SELECT TOP 1 ProdKey, ProdName, CountryFlower, CounName, FlowerName
+       FROM Product
+      WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+    { pk: { type: sql.Int, value: Number(prodKey) } }
+  );
+  return prod.recordset[0] || null;
+}
+
+async function getProductScopeFixedRows(q, orderWeek, prodKey) {
+  const prod = await getProductFixScope(q, prodKey);
+  if (!prod) return { prod: null, rows: [] };
+
+  const params = {
+    wk: { type: sql.NVarChar, value: orderWeek },
+    pk: { type: sql.Int, value: Number(prodKey) },
+    cf: { type: sql.NVarChar, value: prod.CountryFlower || '' },
+  };
+  const scopeClause = prod.CountryFlower
+    ? `ISNULL(p.CountryFlower, '') = @cf`
+    : `p.ProdKey = @pk`;
+
+  const fixed = await q(
+    `SELECT TOP 5
+            sd.SdetailKey,
+            sd.ProdKey,
+            p.ProdName,
+            p.CountryFlower,
+            c.CustName
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+       JOIN Product p ON p.ProdKey=sd.ProdKey
+       LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+      WHERE sm.OrderWeek=@wk
+        AND ISNULL(sm.isDeleted,0)=0
+        AND ISNULL(sd.isFix,0)=1
+        AND ${scopeClause}
+      ORDER BY c.CustName, p.ProdName`,
+    params
+  );
+  return { prod, rows: fixed.recordset || [] };
+}
+
+async function assertProductScopeNotFixed(q, orderWeek, prodKey) {
+  const { prod, rows } = await getProductScopeFixedRows(q, orderWeek, prodKey);
+  if (rows.length > 0) {
+    const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${prodKey}`;
+    throw new Error(`${orderWeek}차 ${scopeName} 품목군은 이미 확정되어 출고분배/분배조정을 할 수 없습니다. 해당 품목군 확정취소 후 다시 진행하세요.`);
+  }
+}
+
 async function assertWeekNotFixed(q, orderWeek) {
   const fixed = await q(
     `SELECT TOP 1 FixSource
@@ -71,7 +123,10 @@ async function assertWeekNotFixed(q, orderWeek) {
 }
 
 export default withAuth(withActionLog(async function handler(req, res) {
-  if (req.method === 'GET')  return await getAdjustments(req, res);
+  if (req.method === 'GET') {
+    if (req.query?.type === 'fixCheck') return await getFixCheck(req, res);
+    return await getAdjustments(req, res);
+  }
   if (req.method === 'POST') return await postAdjust(req, res);
   return res.status(405).json({ success: false, error: 'method not allowed' });
 }, { actionType: 'SHIPMENT_ADJUST', affectedTable: 'ShipmentAdjustment', riskLevel: 'MEDIUM' }));
@@ -79,6 +134,50 @@ export default withAuth(withActionLog(async function handler(req, res) {
 // ─────────────────────────────────────────────────────────────────────────
 // GET — 시계열 조회 (비고 렌더링용)
 // ─────────────────────────────────────────────────────────────────────────
+async function getFixCheck(req, res) {
+  const { week, prodKey, prodKeys } = req.query;
+  if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+  const { week: orderWeek } = normWeek(week);
+  const keys = String(prodKeys || prodKey || '')
+    .split(',')
+    .map(v => parseInt(v, 10))
+    .filter(v => Number.isFinite(v) && v > 0);
+  if (keys.length === 0) return res.status(400).json({ success: false, error: 'prodKey 필요' });
+
+  try {
+    const blockedScopes = [];
+    const seenScopes = new Set();
+    for (const pk of keys) {
+      const { prod, rows } = await getProductScopeFixedRows(query, orderWeek, pk);
+      const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${pk}`;
+      if (seenScopes.has(scopeName)) continue;
+      seenScopes.add(scopeName);
+      if (rows.length > 0) {
+        blockedScopes.push({
+          prodKey: pk,
+          scopeName,
+          fixedCount: rows.length,
+          samples: rows.map(r => ({
+            prodKey: r.ProdKey,
+            prodName: r.ProdName,
+            custName: r.CustName,
+          })),
+        });
+      }
+    }
+    return res.status(200).json({
+      success: true,
+      blocked: blockedScopes.length > 0,
+      blockedScopes,
+      message: blockedScopes.length
+        ? `${orderWeek}차 ${blockedScopes.map(b => b.scopeName).join(', ')} 품목군은 확정 상태입니다.`
+        : `${orderWeek}차 선택 품목군은 미확정 상태입니다.`,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 async function getAdjustments(req, res) {
   const { week, year, prodKey, custKey } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
@@ -138,7 +237,7 @@ async function postAdjust(req, res) {
 
   try {
     const result = await withTransaction(async (tQ) => {
-      await assertWeekNotFixed(tQ, orderWeek);
+      await assertProductScopeNotFixed(tQ, orderWeek, pk);
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
@@ -294,10 +393,6 @@ async function postAdjust(req, res) {
         );
       } else {
         sk = sm.recordset[0].ShipmentKey;
-        // 확정차수 백엔드 보호 — 프론트가 우회되어도 DB가 막음
-        if (sm.recordset[0].isFix === 1) {
-          throw new Error('확정된 차수는 수정할 수 없습니다 (먼저 차수 확정을 해제하세요)');
-        }
       }
 
       // 5) ShipmentDetail 현재값 — userUnit 기준
