@@ -368,9 +368,11 @@
   "콜롬비아 카네이션 헤르메스오렌지": {
     "prodKey": 409,
     "prodName": "CARNATION Hermes Orange",
+    "displayName": null,
     "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-28T06:12:22.263Z"
+    "savedAt": "2026-05-25T11:15:00.000Z",
+    "manual": true
   },
   "콜롬비아 카네이션 돈셀": {
     "prodKey": 389,
@@ -1894,49 +1896,49 @@
     "auto": true
   },
   "콜롬비아 호주 엄브렐라펀": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 반커부쉬": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 251,
+    "prodName": "Banker Bush",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 에뮤그라스": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 823,
+    "prodName": "Emu Grass",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 코알라": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 719,
+    "prodName": "Koala Fern",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 반커부쉬 에 \"주문\" 표기해서 출고 부탁드립니다.": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 251,
+    "prodName": "Banker Bush",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
   },
   "콜롬비아 카네이션 -> 오늘 출고입니다 ( 총 )": {
     "prodKey": 360,
@@ -1984,13 +1986,13 @@
     "auto": true
   },
   "콜롬비아 호주 스틸그라스": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 824,
+    "prodName": "Steel Grass",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 수국 모히또": {
     "prodKey": 897,
@@ -2002,49 +2004,49 @@
     "auto": true
   },
   "콜롬비아 호주 스테노카르푸스": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 엄브렐러펀": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 코알라펀": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 719,
+    "prodName": "Koala Fern",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 코퍼글로우": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.001Z",
-    "auto": true
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 울리브러시": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.002Z",
-    "auto": true
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "중국 mel 시네신스 화이트 <.번>": {
     "prodKey": 2754,
@@ -2119,22 +2121,22 @@
     "auto": true
   },
   "콜롬비아 호주 시스타펀": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.002Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "콜롬비아 호주 스테노": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.002Z",
-    "auto": true
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "중국 멜로디 출고일 리시안셔스 <번 번 번>": {
     "prodKey": 2757,
@@ -2191,13 +2193,13 @@
     "auto": true
   },
   "콜롬비아 호주 엄블렐라펀": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.002Z",
-    "auto": true
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "리시안 w&p <>": {
     "prodKey": 1034,
@@ -2245,13 +2247,13 @@
     "auto": true
   },
   "콜롬비아 호주 울리부쉬": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
     "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.002Z",
-    "auto": true
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
   },
   "차 물량>": {
     "prodKey": 2458,
@@ -2585,13 +2587,13 @@
     "auto": true
   },
   "콜롬비아 박스 헤르메스오렌지": {
-    "prodKey": 892,
-    "prodName": "폼폼이 화이트",
+    "prodKey": 409,
+    "prodName": "CARNATION Hermes Orange",
     "displayName": null,
-    "flowerName": "수국",
+    "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.004Z",
-    "auto": true
+    "savedAt": "2026-05-25T11:15:00.000Z",
+    "manual": true
   },
   "콜롬비아 박스 캐롤라인": {
     "prodKey": 364,
@@ -3321,9 +3323,11 @@
   "카네이션 헤르메스오렌지": {
     "prodKey": 409,
     "prodName": "CARNATION Hermes Orange",
+    "displayName": null,
     "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-28T06:12:22.263Z"
+    "savedAt": "2026-05-25T11:15:00.000Z",
+    "manual": true
   },
   "카네이션 헤르메스 오렌지": {
     "prodKey": 409,
@@ -3422,5 +3426,860 @@
     "flowerName": "카네이션",
     "counName": "콜롬비아",
     "savedAt": "2026-04-28T06:12:22.263Z"
+  },
+  "바커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 바커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 바커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "반커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 반커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "뱅커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 뱅커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 뱅커부쉬": {
+    "prodKey": 251,
+    "prodName": "Banker Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "에뮤그라스": {
+    "prodKey": 823,
+    "prodName": "Emu Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 에뮤그라스": {
+    "prodKey": 823,
+    "prodName": "Emu Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "스틸그라스": {
+    "prodKey": 824,
+    "prodName": "Steel Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 스틸그라스": {
+    "prodKey": 824,
+    "prodName": "Steel Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "코알라": {
+    "prodKey": 719,
+    "prodName": "Koala Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 코알라": {
+    "prodKey": 719,
+    "prodName": "Koala Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "코알라펀": {
+    "prodKey": 719,
+    "prodName": "Koala Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 코알라펀": {
+    "prodKey": 719,
+    "prodName": "Koala Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "엄브렐라펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 엄브렐라펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "엄브렐러펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 엄브렐러펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "엄블렐라펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 엄블렐라펀": {
+    "prodKey": 723,
+    "prodName": "Fern Umbrella",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "레인보우펀": {
+    "prodKey": 720,
+    "prodName": "Fern Rainbow",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 레인보우펀": {
+    "prodKey": 720,
+    "prodName": "Fern Rainbow",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 레인보우펀": {
+    "prodKey": 720,
+    "prodName": "Fern Rainbow",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "씨스타펀": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 씨스타펀": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 씨스타펀": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "시스타펀": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 시스타펀": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "에뮤페더": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 에뮤페더": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 에뮤페더": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "스테노카르푸스": {
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
+    "displayName": null,
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 스테노카르푸스": {
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
+    "displayName": null,
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "스테노": {
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
+    "displayName": null,
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 스테노": {
+    "prodKey": 1742,
+    "prodName": "Stenocarpus",
+    "displayName": null,
+    "flowerName": "스테노",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "코퍼글로우": {
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
+    "displayName": null,
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 코퍼글로우": {
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
+    "displayName": null,
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "쿠퍼글로우": {
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
+    "displayName": null,
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 쿠퍼글로우": {
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
+    "displayName": null,
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 쿠퍼글로우": {
+    "prodKey": 2999,
+    "prodName": "Copper Glow",
+    "displayName": null,
+    "flowerName": "기타",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "울리부쉬그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 울리부쉬그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 울리부쉬그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "울리부쉬 그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 울리부쉬 그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 울리부쉬 그린": {
+    "prodKey": 2997,
+    "prodName": "Wolly Bush Green Tip ",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "울리부쉬": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 울리부쉬": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "울리브러시": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 울리브러시": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "울리브러쉬": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 울리브러쉬": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 울리브러쉬": {
+    "prodKey": 254,
+    "prodName": "Wolly Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "구아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 구아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 구아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "구아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 구아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 구아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "고아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 고아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 고아나클로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "고아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 고아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 고아나클라우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "딩고펀": {
+    "prodKey": 718,
+    "prodName": "Dingo Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 딩고펀": {
+    "prodKey": 718,
+    "prodName": "Dingo Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 딩고펀": {
+    "prodKey": 718,
+    "prodName": "Dingo Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "스타펀": {
+    "prodKey": 722,
+    "prodName": "Star Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 스타펀": {
+    "prodKey": 722,
+    "prodName": "Star Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 스타펀": {
+    "prodKey": 722,
+    "prodName": "Star Fern",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "사파이어부쉬": {
+    "prodKey": 252,
+    "prodName": "Sapphire Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 사파이어부쉬": {
+    "prodKey": 252,
+    "prodName": "Sapphire Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 사파이어부쉬": {
+    "prodKey": 252,
+    "prodName": "Sapphire Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "스모크부쉬": {
+    "prodKey": 253,
+    "prodName": "Smoke Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "호주 스모크부쉬": {
+    "prodKey": 253,
+    "prodName": "Smoke Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 스모크부쉬": {
+    "prodKey": 253,
+    "prodName": "Smoke Bush",
+    "displayName": null,
+    "flowerName": "부쉬",
+    "counName": "호주",
+    "savedAt": "2026-05-25T10:45:00.000Z",
+    "manual": true
+  },
+  "에뮤글라스": {
+    "prodKey": 823,
+    "prodName": "Emu Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "호주 에뮤글라스": {
+    "prodKey": 823,
+    "prodName": "Emu Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 에뮤글라스": {
+    "prodKey": 823,
+    "prodName": "Emu Grass",
+    "displayName": null,
+    "flowerName": "그라스",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "씨스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "호주 씨스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 씨스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "시스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "호주 시스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 시스타": {
+    "prodKey": 721,
+    "prodName": "Fern Sea Star",
+    "displayName": null,
+    "flowerName": "펀",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "에뮤페터": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "호주 에뮤페터": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 에뮤페터": {
+    "prodKey": 717,
+    "prodName": "Emu Feather",
+    "displayName": null,
+    "flowerName": "페더",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "구아나크로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "호주 구아나크로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "콜롬비아 호주 구아나크로우": {
+    "prodKey": 553,
+    "prodName": "Goanna Claw",
+    "displayName": null,
+    "flowerName": "클라우",
+    "counName": "호주",
+    "savedAt": "2026-05-25T11:05:00.000Z",
+    "manual": true
+  },
+  "헤르메스오렌지": {
+    "prodKey": 409,
+    "prodName": "CARNATION Hermes Orange",
+    "displayName": null,
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T11:15:00.000Z",
+    "manual": true
   }
 }

@@ -49,7 +49,7 @@ function parseDateSeparator(line) {
 
 function detectFlower(title = '') {
   const t = String(title);
-  const names = ['장미', '카네이션', '수국', '루스커스', '알스트로', '코알라', '코 장미', '중국', '콜롬비아'];
+  const names = ['장미', '카네이션', '수국', '루스커스', '알스트로', '코알라', '코 장미', '중국', '콜롬비아', '호주'];
   return names.find(n => t.includes(n)) || '';
 }
 
@@ -61,7 +61,7 @@ function cleanProductName(line, flower) {
     .replace(/\([^)]*\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (flower && !s.includes(flower) && !/장미|카네이션|수국|루스커스|알스트로/.test(s)) {
+  if (flower && !s.includes(flower) && !/장미|카네이션|수국|루스커스|알스트로|중국|콜롬비아|호주/.test(s)) {
     s = `${flower} ${s}`.trim();
   }
   return s;

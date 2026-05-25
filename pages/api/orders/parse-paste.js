@@ -33,6 +33,8 @@ const KO_EN_KEYWORDS = {
   '해바라기': 'SUNFLOWER',
   '알스트로': 'ALSTROEMERIA',
   '스타티스': 'STATICE',
+  '호주': '호주',
+  '소재': '호주',
   '화이트': 'WHITE',
   '연핑크': 'LIGHT',
   '블루': 'BLUE',
@@ -103,6 +105,41 @@ const KO_EN_KEYWORDS = {
   '핑크몬디알': 'PINK MONDIAL',
   '몬디알': 'MONDIAL',
   '퀵샌드': 'QUICK SAND',
+  // 호주 소재 품목
+  '바커부쉬': 'BANKER BUSH',
+  '반커부쉬': 'BANKER BUSH',
+  '뱅커부쉬': 'BANKER BUSH',
+  '에뮤그라스': 'EMU GRASS',
+  '에뮤글라스': 'EMU GRASS',
+  '스틸그라스': 'STEEL GRASS',
+  '코알라': 'KOALA FERN',
+  '코알라펀': 'KOALA FERN',
+  '엄브렐라': 'FERN UMBRELLA',
+  '엄브렐러': 'FERN UMBRELLA',
+  '엄브렐라펀': 'FERN UMBRELLA',
+  '엄브렐러펀': 'FERN UMBRELLA',
+  '엄블렐라펀': 'FERN UMBRELLA',
+  '레인보우': 'FERN RAINBOW',
+  '레인보우펀': 'FERN RAINBOW',
+  '씨스타': 'FERN SEA STAR',
+  '씨스타펀': 'FERN SEA STAR',
+  '시스타': 'FERN SEA STAR',
+  '시스타펀': 'FERN SEA STAR',
+  '에뮤페더': 'EMU FEATHER',
+  '에뮤페터': 'EMU FEATHER',
+  '스테노카르푸스': 'STENOCARPUS',
+  '스테노': 'STENOCARPUS',
+  '코퍼글로우': 'COPPER GLOW',
+  '쿠퍼글로우': 'COPPER GLOW',
+  '울리부쉬그린': 'WOLLY BUSH GREEN TIP',
+  '울리부쉬': 'WOLLY BUSH',
+  '울리브러시': 'WOLLY BUSH',
+  '울리브러쉬': 'WOLLY BUSH',
+  '구아나클라우': 'GOANNA CLAW',
+  '구아나클로우': 'GOANNA CLAW',
+  '구아나크로우': 'GOANNA CLAW',
+  '고아나클로우': 'GOANNA CLAW',
+  '고아나클라우': 'GOANNA CLAW',
   '레드': 'RED',
   '옐로': 'YELLOW',
   '오렌지': 'ORANGE',
@@ -261,6 +298,7 @@ function parseNaturalSectionOrders(text) {
   let detectedWeek = null;
   let currentCust = '';
   let flowerContext = '';
+  let sectionAction = '';
 
   String(text || '').split('\n').forEach(raw => {
     const line = raw.trim();
@@ -270,6 +308,7 @@ function parseNaturalSectionOrders(text) {
     if (lineWeek) {
       detectedWeek = detectedWeek || lineWeek;
       flowerContext = parseCompactFlowerContext(line, flowerContext);
+      sectionAction = /추가|취소|춰소|츼소|치소|쥐소/.test(line) ? normalizeAction(line) : '';
       if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
     }
 
@@ -290,6 +329,24 @@ function parseNaturalSectionOrders(text) {
         qty,
         unit,
         action: m[4],
+        prodKey: null,
+        prodName: null,
+        displayName: null,
+      });
+      return;
+    }
+
+    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?\s*$/);
+    if (qtyOnly && currentCust && sectionAction) {
+      const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
+      const productName = applyFlowerContext(qtyOnly[1].trim(), flowerContext);
+      const unit = qtyOnly[3] || (flowerContext === '장미' ? '단' : '박스');
+      if (!orderMap.has(currentCust)) orderMap.set(currentCust, { custKey: null, custName: currentCust, items: [] });
+      orderMap.get(currentCust).items.push({
+        inputName: productName,
+        qty,
+        unit,
+        action: sectionAction,
         prodKey: null,
         prodName: null,
         displayName: null,
@@ -418,7 +475,7 @@ export default withAuth(async function handler(req, res) {
     // ── Step 2: 꽃 품종 기준으로 DB에서 해당 품목만 조회 (없으면 전체 최대 300)
     let prodFilter = '';
     if (detectedFlowers.length > 0) {
-      prodFilter = detectedFlowers.map(f => `FlowerName LIKE '%${f}%' OR ProdName LIKE '%${f}%'`).join(' OR ');
+      prodFilter = detectedFlowers.map(f => `FlowerName LIKE '%${f}%' OR ProdName LIKE '%${f}%' OR CounName LIKE '%${f}%'`).join(' OR ');
     }
     const [custRes, prodRes, allProdRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
@@ -457,8 +514,8 @@ export default withAuth(async function handler(req, res) {
     const searchTokens = [...new Set([...detectedFlowers, ...enDirect])];
     const filteredProducts = searchTokens.length > 0
       ? products.filter(p => {
-          const name = (p.ProdName || '').toUpperCase();
-          return searchTokens.some(tok => name.includes(tok));
+          const haystack = `${p.ProdName || ''} ${p.DisplayName || ''} ${p.FlowerName || ''} ${p.CounName || ''}`.toUpperCase();
+          return searchTokens.some(tok => haystack.includes(String(tok || '').toUpperCase()));
         })
       : products;
     const prodForClaude = filteredProducts.length >= 3 ? filteredProducts : products;
@@ -493,11 +550,20 @@ Caroline | 2
 
 꽃 한→영 (ProdName 검색):
 장미=ROSE, 카네이션=CARNATION, 수국=HYDRANGEA, 루스커스=RUSCUS, 콜=COL, 콜장미=COL ROSE
+호주=AUSTRALIA/호주 CounName. "16차 호주 추가" 섹션은 호주 소재 품목으로 해석.
 
 품종명 한→영:
 화이트=WHITE, 연핑크=LIGHT PINK, 블루=BLUE, 코랄리프=CORAL REEF
 핑크몬디알=PINK MONDIAL, 몬디알=MONDIAL
 퀵샌드=QUICK SAND
+호주 소재:
+바커부쉬/반커부쉬/뱅커부쉬=BANKER BUSH, 에뮤그라스/에뮤글라스=EMU GRASS, 에뮤페더/에뮤페터=EMU FEATHER,
+스틸그라스=STEEL GRASS, 코알라/코알라펀=KOALA FERN,
+엄브렐라/엄브렐러/엄브렐라펀/엄브렐러펀/엄블렐라펀=FERN UMBRELLA,
+레인보우/레인보우펀=FERN RAINBOW, 씨스타/시스타/씨스타펀/시스타펀=FERN SEA STAR,
+스테노/스테노카르푸스=STENOCARPUS, 코퍼글로우/쿠퍼글로우=COPPER GLOW,
+울리부쉬그린=WOLLY BUSH GREEN TIP, 울리부쉬/울리브러시=WOLLY BUSH,
+구아나클라우/구아나클로우/구아나크로우/고아나클로우=GOANNA CLAW
 캐롤라인=CAROLINE, 카라멜=CARAMEL, 사파리=SAFARI, 레드팬서=RED PANTHER
 
 규칙:
@@ -627,7 +693,11 @@ Caroline | 2
         const fuzzyMatch = findMappingFuzzy(item.inputName, savedMappings);
         const savedMap = fuzzyMatch ? fuzzyMatch.value : null;
         const savedMappedProd = savedMap ? productByKey.get(Number(savedMap.prodKey)) : null;
-        const mappedProd = isMixBoxMismatch(item.inputName, savedMappedProd) ? null : savedMappedProd;
+        const savedFallbackInfo = savedMappedProd
+          ? detectFallbackProdKey(savedMappedProd.ProdKey, fuzzyMatch?.key)
+          : { isFallback: false, count: 0 };
+        const legacyFallbackMapping = !!fuzzyMatch && savedMap?.auto === true && savedFallbackInfo.isFallback;
+        const mappedProd = (legacyFallbackMapping || isMixBoxMismatch(item.inputName, savedMappedProd)) ? null : savedMappedProd;
 
         // 2순위: Claude 파싱 결과
         const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
@@ -658,7 +728,7 @@ Caroline | 2
         }
         // fallback 의심 검사: 매칭된 prodKey 가 너무 많은 입력에 매핑되어 있나?
         const fallbackInfo = prod ? detectFallbackProdKey(prod.ProdKey) : { isFallback: false, count: 0 };
-        const mappingLooksSpecific = !!fuzzyMatch && (
+        const mappingLooksSpecific = !!fuzzyMatch && !legacyFallbackMapping && (
           fuzzyMatch.matchType === 'exact' ||
           fuzzyMatch.matchType === 'compact' ||
           Number(fuzzyMatch.score || 0) >= 0.5
