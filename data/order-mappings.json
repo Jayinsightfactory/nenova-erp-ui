@@ -214,8 +214,8 @@
     "savedAt": "2026-04-28T06:12:22.264Z"
   },
   "콜롬비아 카네이션 유카리체리": {
-    "prodKey": 2518,
-    "prodName": "CARNATION MIx Box D (Mariposa. Yukari cherry, Cherrio)",
+    "prodKey": 502,
+    "prodName": "CARNATION Yukari Cherry",
     "flowerName": "카네이션",
     "counName": "콜롬비아",
     "savedAt": "2026-04-28T06:12:22.264Z"
@@ -3274,6 +3274,22 @@
     "flowerName": "카네이션",
     "counName": "콜롬비아",
     "savedAt": "2026-04-28T06:12:22.263Z"
+  },
+  "카네이션 유카리체리": {
+    "prodKey": 502,
+    "prodName": "CARNATION Yukari Cherry",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T00:00:00.000Z",
+    "manual": true
+  },
+  "유카리체리": {
+    "prodKey": 502,
+    "prodName": "CARNATION Yukari Cherry",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "savedAt": "2026-05-25T00:00:00.000Z",
+    "manual": true
   },
   "카네이션 헤르메스오렌지": {
     "prodKey": 409,

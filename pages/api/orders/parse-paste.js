@@ -658,7 +658,12 @@ Caroline | 2
         }
         // fallback 의심 검사: 매칭된 prodKey 가 너무 많은 입력에 매핑되어 있나?
         const fallbackInfo = prod ? detectFallbackProdKey(prod.ProdKey) : { isFallback: false, count: 0 };
-        if (fallbackInfo.isFallback) {
+        const mappingLooksSpecific = !!fuzzyMatch && (
+          fuzzyMatch.matchType === 'exact' ||
+          fuzzyMatch.matchType === 'compact' ||
+          Number(fuzzyMatch.score || 0) >= 0.5
+        );
+        if (fallbackInfo.isFallback && !mappingLooksSpecific) {
           confidence = Math.min(confidence, 0.4);
           confidenceLabel = 'low';
         }
@@ -679,7 +684,7 @@ Caroline | 2
           ambiguityReason:  resolved.reason,
           confidence,                       // 0.0 ~ 1.0
           confidenceLabel,                  // 'high' | 'medium' | 'low' | 'none'
-          fallbackSuspect: fallbackInfo.isFallback,  // 같은 prodKey 가 N+개 입력에 매핑되어 있으면 true
+          fallbackSuspect: fallbackInfo.isFallback && !mappingLooksSpecific,  // 같은 prodKey 가 N+개 입력에 매핑되어 있으면 true
           fallbackCount:   fallbackInfo.count,
         };
       });

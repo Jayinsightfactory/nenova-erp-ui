@@ -729,8 +729,17 @@ export default function PasteOrderPage() {
   const [stockCopied, setStockCopied] = useState(false);
 
   useEffect(() => {
-    setMappingCache(loadCache());
+    const localProductCache = loadCache();
+    setMappingCache(localProductCache);
     setCustomerMappingCache(loadCustomerCache());
+    fetch('/api/orders/mappings', { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.success) return;
+        // 서버 공용 매핑을 후보 점수에도 반영한다. 브라우저에서 방금 바꾼 값은 우선한다.
+        setMappingCache(prev => ({ ...(d.mappings || {}), ...prev, ...loadCache() }));
+      })
+      .catch(() => {});
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
@@ -817,7 +826,7 @@ export default function PasteOrderPage() {
       const d = await res.json();
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
 
-      const cache = loadCache();
+      const cache = { ...mappingCache, ...loadCache() };
       setMappingCache(cache);
       setCustomerMappingCache(loadCustomerCache());
 
@@ -1090,8 +1099,13 @@ export default function PasteOrderPage() {
   // - 자동 후보는 입력명 기준으로 매우 가까운 것만 표시
   // - 검색어 입력 시에도 낮은 점수 후보는 제외
   const buildCandidates = (inputName, searchQuery) => {
+    const savedHit = findLocalMapping(inputName, mappingCache);
     const scored = allProducts
-      .map(p => ({ prod: p, score: scoreProduct(inputName, p, searchQuery) }))
+      .map(p => {
+        const baseScore = scoreProduct(inputName, p, searchQuery);
+        const savedScore = savedHit?.prodKey && Number(savedHit.prodKey) === Number(p.ProdKey) && !isMixBoxMismatch(inputName, p) ? 99 : 0;
+        return { prod: p, score: Math.max(baseScore, savedScore) };
+      })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         const an = getDisplayName(a.prod) || a.prod.ProdName || '';
