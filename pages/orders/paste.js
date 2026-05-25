@@ -1050,7 +1050,6 @@ export default function PasteOrderPage() {
     const currentItem = currentOrder?.items?.[itemIdx] || {};
     const previous = currentItem.pendingMappingFrom || null;
     const changed = !!previous && Number(previous.prodKey) !== Number(prod.ProdKey);
-    const saved = saveToCache ? learnItemMapping({ inputName }, prod) : null;
     updateItem(orderId, itemIdx, {
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
@@ -1069,10 +1068,10 @@ export default function PasteOrderPage() {
       ambiguityReason: null,
       pendingMappingFrom: null,
       mappingChanged: changed,
-      mappingSavedKey: saved?.key || null,
-      mappingSavedAt: saveToCache ? new Date().toISOString() : null,
+      mappingSavedKey: null,
+      mappingSavedAt: null,
+      pendingLearning: saveToCache,
     });
-    if (saveToCache) showMappingNotice({ inputName, previous, next: prod, savedKey: saved?.key });
     setDisambigSearch('');
     setDisambigResults([]);
     // queueIdx는 그대로 — 이 항목이 사라지면서 다음 항목이 자동으로 currentQ가 됨
@@ -1385,9 +1384,6 @@ export default function PasteOrderPage() {
       if (d.success) {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
-        // 저장 성공한 품목의 inputName→prodKey 매핑 서버에 학습
-        const mappingItems = order.items.filter(it => !it.skip && it.prodKey && it.inputName);
-        mappingItems.forEach(it => learnItemMapping(it));
         try {
           const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
           if (od.success && od.orders?.length > 0) {

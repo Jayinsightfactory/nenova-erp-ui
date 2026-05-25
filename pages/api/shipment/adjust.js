@@ -46,6 +46,12 @@ function weekToShipDate(weekStr, yearStr) {
   } catch { return null; }
 }
 
+function calcShipmentAmount(qty, unitCost) {
+  const amount = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 1.1);
+  const vat = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 11);
+  return { amount, vat };
+}
+
 async function getProductFixScope(q, prodKey) {
   const prod = await q(
     `SELECT TOP 1 ProdKey, ProdName, CountryFlower, CounName, FlowerName
@@ -241,12 +247,20 @@ async function postAdjust(req, res) {
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+        `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B,
+                ISNULL(Cost,0) AS ProductCost
            FROM Product WHERE ProdKey=@pk`,
         { pk: { type: sql.Int, value: pk } }
       );
       if (!pInfo.recordset[0]) throw new Error('품목 없음 ProdKey=' + pk);
       const prod = pInfo.recordset[0];
+      const cpc = await tQ(
+        `SELECT TOP 1 ISNULL(Cost,0) AS Cost
+           FROM CustomerProdCost
+          WHERE CustKey=@ck AND ProdKey=@pk`,
+        { ck: { type: sql.Int, value: ck }, pk: { type: sql.Int, value: pk } }
+      );
+      const defaultUnitCost = Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0;
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
       const prodOutUnit = normalizeOrderUnit(prod.OutUnit, '박스');
@@ -401,7 +415,8 @@ async function postAdjust(req, res) {
                 ISNULL(BoxQuantity,0)   AS curBox,
                 ISNULL(BunchQuantity,0) AS curBunch,
                 ISNULL(SteamQuantity,0) AS curSteam,
-                ISNULL(OutQuantity,0)   AS curOut
+                ISNULL(OutQuantity,0)   AS curOut,
+                ISNULL(Cost,0)          AS curCost
            FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
@@ -417,6 +432,9 @@ async function postAdjust(req, res) {
       const u = toAllUnits(qtyAfter);
       const outQBefore = !sdRow ? 0 : sdRow.curOut;
       const outQAfter  = u.outQ;
+      const unitCost = Number(sdRow?.curCost || 0) || defaultUnitCost;
+      const amountBase = u.bunch > 0 ? u.bunch : u.box;
+      const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
       let targetSdk;
       if (sdRow) {
@@ -424,13 +442,17 @@ async function postAdjust(req, res) {
         await tQ(
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@oq,
-             BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq
+             BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+             Cost=@cost, Amount=@amount, Vat=@vat
            WHERE SdetailKey=@dk`,
           { dk: { type: sql.Int, value: targetSdk },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
-            sq: { type: sql.Float, value: u.steam } }
+            sq: { type: sql.Float, value: u.steam },
+            cost: { type: sql.Float, value: unitCost },
+            amount: { type: sql.Float, value: amount },
+            vat: { type: sql.Float, value: vat } }
         );
       } else if (type === 'ADD') {
         const sdk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
@@ -441,13 +463,16 @@ async function postAdjust(req, res) {
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,0,0,0,0,'')`,
+           VALUES (@dk,@sk,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
             dt: { type: sql.DateTime, value: shipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
-            sq: { type: sql.Float, value: u.steam } }
+            sq: { type: sql.Float, value: u.steam },
+            cost: { type: sql.Float, value: unitCost },
+            amount: { type: sql.Float, value: amount },
+            vat: { type: sql.Float, value: vat } }
         );
         targetSdk = sdk;
       }
