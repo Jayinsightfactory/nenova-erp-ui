@@ -817,3 +817,24 @@ EXEC dbo.usp_ShipmentFix
 4. 충돌 가능성이 낮은 `+A` 방식 설계
 5. 코드 수정
 6. build 및 운영 반영 확인
+
+### 12.1 2026-05-25 21-01 국내왁스 분배 실패 원인
+
+`nenova.exe`에서 21-01 국내왁스 일괄출고분배가 동작하지 않은 원인은 `ShipmentDetailKey` 채번값 불일치였다.
+
+- `ShipmentDetail` 실제 최대 `SdetailKey`: `74808`
+- `KeyNumbering.Category='ShipmentDetailKey'`의 `LastKeyNo`: `74806`
+- `usp_DistributeOne`이 다음 key로 `74807`을 받아 `ShipmentDetail_PK` 중복 오류 발생
+- 프로시저 CATCH가 오류 메시지를 숨기고 `-1`만 반환해서 화면에서는 버튼이 동작하지 않는 것처럼 보임
+
+조치:
+
+- `KeyNumbering.ShipmentDetailKey`를 실제 최대 key인 `74808`로 보정
+- 트랜잭션 롤백 테스트에서 `usp_DistributeOne(2026, 21-01, ProdKey=2262)` 정상 결과 확인
+
+주의:
+
+- `국내왁스` 묶음의 실제 대상은 꽃 왁스가 아니라 운임성 품목이었다.
+  - 주문: `현지상차운임` (`ProdKey=2262`)
+  - 입고: `운송료` (`ProdKey=2182`)
+- 출고분배 실패처럼 보일 때는 품목 분류보다 먼저 `KeyNumbering`과 PK 실제 최대값을 비교한다.

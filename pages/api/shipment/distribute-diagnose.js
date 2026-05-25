@@ -14,7 +14,8 @@ async function handler(req, res) {
   try {
     const duplicateMasters = await query(
       `SELECT CustKey, OrderWeek, COUNT(*) AS masterCount,
-              STRING_AGG(CAST(ShipmentKey AS NVARCHAR(20)), ',') AS shipmentKeys
+              MIN(ShipmentKey) AS minShipmentKey,
+              MAX(ShipmentKey) AS maxShipmentKey
          FROM ShipmentMaster
         WHERE OrderWeek=@wk AND ISNULL(isDeleted,0)=0
         GROUP BY CustKey, OrderWeek
