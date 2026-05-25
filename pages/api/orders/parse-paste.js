@@ -37,11 +37,20 @@ const KO_EN_KEYWORDS = {
   '소재': '호주',
   '화이트': 'WHITE',
   '연핑크': 'LIGHT',
+  '진핑크': 'DEEP PINK',
+  '진그린': 'DARK GREEN',
+  '연그린': 'LIGHT GREEN',
   '블루': 'BLUE',
+  '라벤다': 'LAVENDER',
+  '라벤더': 'LAVENDER',
+  '피치': 'PEACH',
   '코랄리프': 'CORAL',
+  '레몬잎': 'SALAL TIPS',
+  '솔리다고': 'SOLIDAGO',
   // 카네이션 품종 (Carnation varieties) — 2026-04-28 확장
   '캐롤라인': 'CAROLINE',
   '캐롤라인골드': 'CAROLINE GOLD',
+  '캐롤라인 골드': 'CAROLINE GOLD',
   '카라멜': 'CARAMEL',
   '사파리': 'SAFARI',
   '레드팬서': 'PANTHER',
@@ -54,11 +63,31 @@ const KO_EN_KEYWORDS = {
   '노비아': 'NOVIA',
   '헤르메스': 'HERMES',
   '헤르메스오렌지': 'HERMES ORANGE',
+  '헤르메스 오렌지': 'HERMES ORANGE',
+  '헤르메르오렌지': 'HERMES ORANGE',
+  '헤르메르 오렌지': 'HERMES ORANGE',
+  '헤르메오렌지': 'HERMES ORANGE',
   '오렌지헤르메스': 'HERMES ORANGE',
+  '오랜지헤르메스': 'HERMES ORANGE',
   '라이온킹': 'LION KING',
   '라이언킹': 'LION KING',
   '메건': 'MEGAN',
   '웨딩': 'WEDDING',
+  '베로나핑크': 'VERONA PINK',
+  '베로나 핑크': 'VERONA PINK',
+  '피치맘보': 'PEACH MAMBO',
+  '로다스크림': 'RODAS CREAM',
+  '로다스 크림': 'RODAS CREAM',
+  '딜레타': 'DILETTA',
+  '딜레타크림': 'DILETTA CREAM',
+  '딜레타 크림': 'DILETTA CREAM',
+  '딜레타크리미': 'DILETTA CREAM',
+  '딜레타크리미아': 'DILETTA CREAM',
+  '딜레타옐로우': 'DILETTA YELLOW',
+  '딜레타엘로우': 'DILETTA YELLOW',
+  '딜레타 노랑': 'DILETTA YELLOW',
+  '고블린': 'GOBLIN',
+  '엠마': 'EMMA',
   '체리오': 'CHERRIO',
   '치리오': 'CHERRIO',
   '프론테라': 'FRONTERA',
@@ -79,6 +108,7 @@ const KO_EN_KEYWORDS = {
   '로다스': 'RODAS',
   '로시타': 'ROSITA',
   '쥬리고': 'ZURIGO',
+  '주리고': 'ZURIGO',
   '아틱': 'ARCTIC',
   '네스': 'NES',
   '딜리타': 'DILETTA',
@@ -95,6 +125,12 @@ const KO_EN_KEYWORDS = {
   '시저': 'CESAR',
   '시저레드': 'CESAR RED',
   '바이올렛퀸': 'VIOLET QUEEN',
+  '핑크코벳': 'PINK CORVETTE',
+  '로얄다마스커스': 'ROYAL DAMASCUS',
+  'sp화이트': 'SP WHITE',
+  'sp크림': 'SP CREAM',
+  'sp연핑크': 'SP PINK',
+  'sp피치': 'SP PEACH',
   '믹스박스a': 'MIX BOX A',
   '믹스박스b': 'MIX BOX B',
   '믹스박스c': 'MIX BOX C',
@@ -104,7 +140,32 @@ const KO_EN_KEYWORDS = {
   '핑크': 'PINK',
   '핑크몬디알': 'PINK MONDIAL',
   '몬디알': 'MONDIAL',
+  '몬디알화이트': 'MONDIAL WHITE',
+  '몬디알 화이트': 'MONDIAL WHITE',
+  '화이트몬디알': 'MONDIAL WHITE',
+  '화이트 몬디알': 'MONDIAL WHITE',
   '퀵샌드': 'QUICK SAND',
+  '플라야': 'PLAYA BLANCA',
+  '플라야블랑카': 'PLAYA BLANCA',
+  '플라야 블랑카': 'PLAYA BLANCA',
+  '프리덤': 'FREEDOM',
+  '프라우드': 'PROUD',
+  '프라우드레드': 'PROUD RED',
+  '쉬머': 'SHIMMER',
+  '오션송': 'OCEAN SONG',
+  '하츠': 'HARTS',
+  '비스윗': 'BE SWEET',
+  '비스위트': 'BE SWEET',
+  '비 스윗': 'BE SWEET',
+  '오렌지퀸': 'ORANGE QUEEN',
+  '오랜지퀸': 'ORANGE QUEEN',
+  '크림컵': 'CREAM CUP',
+  '크림 컵': 'CREAM CUP',
+  '버터컵': 'BUTTERCUP',
+  '안슬레이': 'ANNESLEY',
+  '로맨틱비치': 'ROMANTIC BEACH',
+  '로맨틱 비치': 'ROMANTIC BEACH',
+  '다이아나': 'DIANA',
   // 호주 소재 품목
   '바커부쉬': 'BANKER BUSH',
   '반커부쉬': 'BANKER BUSH',
@@ -174,9 +235,10 @@ function parseCompactWeek(line) {
 }
 
 function parseCompactFlowerContext(line, currentFlower = '') {
-  const m = String(line || '').match(/(수국|장미|카네이션|카네|알스트로)/);
+  const m = String(line || '').match(/(수국|장미|카네이션|카네|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안|튤립)/);
   if (!m) return currentFlower;
   if (m[1] === '카네') return '카네이션';
+  if (m[1] === '리시안') return '리시안셔스';
   return m[1];
 }
 
@@ -284,7 +346,7 @@ function parseCompactStockOrders(text) {
 function normalizeFlowerContext(line) {
   const s = String(line || '').trim().replace(/\s+/g, '');
   if (s === '카네') return '카네이션';
-  return /^(수국|장미|카네이션|알스트로)$/.test(s) ? s : '';
+  return /^(수국|장미|카네이션|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|튤립)$/.test(s) ? s : '';
 }
 
 function applyFlowerContext(name, flowerContext) {
@@ -305,6 +367,15 @@ function parseNaturalSectionOrders(text) {
     if (!line || /^[\s\-_=ㅡ─]{4,}$/.test(line)) return;
 
     const lineWeek = parseCompactWeek(line);
+    const explicitHeaderFlowerContext = parseCompactFlowerContext(line, '');
+    const headerLooksLikeSection = /(변경사항|추가|취소|재고|잔량|출고일)/.test(line);
+    if (headerLooksLikeSection && explicitHeaderFlowerContext) {
+      flowerContext = explicitHeaderFlowerContext;
+    }
+    if (!lineWeek && headerLooksLikeSection && /추가|취소/.test(line) && explicitHeaderFlowerContext && !/\d+\s*(박스|단|송이|개)/.test(line)) {
+      sectionAction = normalizeAction(line);
+      return;
+    }
     if (lineWeek) {
       detectedWeek = detectedWeek || lineWeek;
       flowerContext = parseCompactFlowerContext(line, flowerContext);
@@ -319,17 +390,18 @@ function parseNaturalSectionOrders(text) {
     }
 
     const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박스|단|송이|개)?\s*(추가|취소)\s*$/);
-    if (m && currentCust) {
+    if (m && (currentCust || sectionAction)) {
+      const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(m[2] || '1')) || 1;
       const productName = applyFlowerContext(m[1].trim(), flowerContext);
       const unit = m[3] || (flowerContext === '장미' ? '단' : '박스');
-      if (!orderMap.has(currentCust)) orderMap.set(currentCust, { custKey: null, custName: currentCust, items: [] });
-      orderMap.get(currentCust).items.push({
+      if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
+      orderMap.get(custName).items.push({
         inputName: productName,
         qty,
         unit,
         unitExplicit: !!m[3],
-        action: m[4],
+        action: m[4] || sectionAction,
         prodKey: null,
         prodName: null,
         displayName: null,
@@ -338,12 +410,13 @@ function parseNaturalSectionOrders(text) {
     }
 
     const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?\s*$/);
-    if (qtyOnly && currentCust && sectionAction) {
+    if (qtyOnly && (currentCust || sectionAction) && sectionAction) {
+      const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
       const productName = applyFlowerContext(qtyOnly[1].trim(), flowerContext);
       const unit = qtyOnly[3] || (flowerContext === '장미' ? '단' : '박스');
-      if (!orderMap.has(currentCust)) orderMap.set(currentCust, { custKey: null, custName: currentCust, items: [] });
-      orderMap.get(currentCust).items.push({
+      if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
+      orderMap.get(custName).items.push({
         inputName: productName,
         qty,
         unit,
@@ -405,6 +478,19 @@ function isMixBoxMismatch(inputName, prod) {
   return isMixBoxName(prod) && !inputWantsMixBox(inputName);
 }
 
+function isFreightOrChargeProduct(prod) {
+  const text = `${prod?.ProdName || ''} ${prod?.DisplayName || ''}`.toLowerCase();
+  return /운송료|운송비|항공료|항공비|freight|shipping|charge/.test(text);
+}
+
+function inputWantsFreight(inputName) {
+  return /운송료|운송비|항공료|항공비|freight|shipping|charge/i.test(String(inputName || ''));
+}
+
+function isFreightMismatch(inputName, prod) {
+  return isFreightOrChargeProduct(prod) && !inputWantsFreight(inputName);
+}
+
 function resolveRoseCandidate(item, chosenProd, allProducts) {
   const input = item?.inputName || item?.prodName || item?.displayName || '';
   const isRoseInput = /(장미|rose)/i.test(input) || isRoseProduct(chosenProd);
@@ -414,6 +500,7 @@ function resolveRoseCandidate(item, chosenProd, allProducts) {
   const explicitCm = extractCm(input);
   let candidates = allProducts
     .filter(isRoseProduct)
+    .filter(prod => !isFreightMismatch(input, prod))
     .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
     .filter(x => x.score >= 70)
     .sort((a, b) => b.score - a.score);
@@ -451,6 +538,7 @@ function findBestProductCandidate(inputName, allProducts) {
   if (!input) return null;
   const scored = allProducts
     .filter(prod => !isMixBoxMismatch(input, prod))
+    .filter(prod => !isFreightMismatch(input, prod))
     .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
     .filter(x => x.score >= 72)
     .sort((a, b) => b.score - a.score);
@@ -699,7 +787,11 @@ Caroline | 2
           ? detectFallbackProdKey(savedMappedProd.ProdKey, fuzzyMatch?.key)
           : { isFallback: false, count: 0 };
         const legacyFallbackMapping = !!fuzzyMatch && savedMap?.auto === true && savedFallbackInfo.isFallback;
-        const mappedProd = (legacyFallbackMapping || isMixBoxMismatch(item.inputName, savedMappedProd)) ? null : savedMappedProd;
+        const mappedProd = (
+          legacyFallbackMapping ||
+          isMixBoxMismatch(item.inputName, savedMappedProd) ||
+          isFreightMismatch(item.inputName, savedMappedProd)
+        ) ? null : savedMappedProd;
 
         // 2순위: Claude 파싱 결과
         const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
