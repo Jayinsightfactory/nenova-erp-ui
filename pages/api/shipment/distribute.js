@@ -309,11 +309,11 @@ async function saveDistribute(req, res) {
     const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
 
     const shipmentKey = await withTransaction(async (tQuery) => {
-      // WebCreated=1인 마스터 우선 조회, 없으면 레거시 마스터 사용
+      // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
       const smResult = await tQuery(
-        `SELECT ShipmentKey, WebCreated FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+        `SELECT ShipmentKey, WebCreated, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
          WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0
-         ORDER BY WebCreated DESC`,
+         ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
         { ck: { type: sql.Int, value: parseInt(custKey) }, week: { type: sql.NVarChar, value: week } }
       );
 
@@ -329,13 +329,6 @@ async function saveDistribute(req, res) {
         );
       } else {
         sk = smResult.recordset[0].ShipmentKey;
-        // 레거시 마스터라면 WebCreated=1로 소유권 인수
-        if (!smResult.recordset[0].WebCreated) {
-          await tQuery(
-            `UPDATE ShipmentMaster SET WebCreated=1 WHERE ShipmentKey=@sk`,
-            { sk: { type: sql.Int, value: sk } }
-          );
-        }
       }
 
       // 기존 수량 조회 (이력용)
@@ -376,12 +369,13 @@ async function saveDistribute(req, res) {
         const newSdk = await safeNextKey(tQuery, 'ShipmentDetail', 'SdetailKey');
         await tQuery(
           `INSERT INTO ShipmentDetail
-             (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+             (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@pk,@dt,@qty,@qty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@qty,@qty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
           {
             dk:     { type: sql.Int,      value: newSdk },
             sk:     { type: sql.Int,      value: sk },
+            ck:     { type: sql.Int,      value: parseInt(custKey) },
             pk:     { type: sql.Int,      value: parseInt(prodKey) },
             dt:     { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
             qty:    { type: sql.Float,    value: qty },

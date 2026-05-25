@@ -416,7 +416,7 @@ async function postAdjust(req, res) {
       const sm = await tQ(
         `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
-          ORDER BY WebCreated DESC, ShipmentKey ASC`,
+          ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
         { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: orderWeek } }
       );
       let sk;
@@ -474,10 +474,12 @@ async function postAdjust(req, res) {
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@oq,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+             CustKey=ISNULL(CustKey,@ck),
              Cost=@cost, Amount=@amount, Vat=@vat,
              ShipmentDtm=ISNULL(ShipmentDtm,@dt)
            WHERE SdetailKey=@dk`,
           { dk: { type: sql.Int, value: targetSdk },
+            ck: { type: sql.Int, value: ck },
             dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
@@ -492,10 +494,11 @@ async function postAdjust(req, res) {
         // ShipmentDtm: Customer.BaseOutDay first, then the old week/delivery fallback.
         await tQ(
           `INSERT INTO ShipmentDetail
-             (SdetailKey,ShipmentKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+             (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
+            ck: { type: sql.Int, value: ck },
             dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
             bq: { type: sql.Float, value: u.box },
