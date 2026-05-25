@@ -20,6 +20,30 @@ async function safeNextKey(tQ, table, keyCol) {
   return r.recordset[0].nk;
 }
 
+async function syncKeyNumbering(tQ, category, table, keyCol) {
+  const allowed = {
+    OrderMasterKey: ['OrderMaster', 'OrderMasterKey'],
+    OrderDetailKey: ['OrderDetail', 'OrderDetailKey'],
+    ShipmentMasterKey: ['ShipmentMaster', 'ShipmentKey'],
+    ShipmentDetailKey: ['ShipmentDetail', 'SdetailKey'],
+  };
+  const [safeTable, safeKeyCol] = allowed[category] || [];
+  if (safeTable !== table || safeKeyCol !== keyCol) throw new Error('invalid key numbering sync target');
+
+  await tQ(
+    `IF EXISTS (SELECT 1 FROM KeyNumbering WHERE Category=@cat)
+       UPDATE KeyNumbering
+          SET LastKeyNo = CASE WHEN LastKeyNo < x.MaxKey THEN x.MaxKey ELSE LastKeyNo END
+         FROM KeyNumbering
+         CROSS JOIN (SELECT ISNULL(MAX(${keyCol}),0) AS MaxKey FROM ${table}) x
+        WHERE Category=@cat
+     ELSE
+       INSERT INTO KeyNumbering (Category, LastKeyNo, Descr)
+       SELECT @cat, ISNULL(MAX(${keyCol}),0), '' FROM ${table}`,
+    { cat: { type: sql.NVarChar, value: category } }
+  );
+}
+
 // 차수 정규화: 'YYYY-WW-SS' → 'WW-SS' / year 추출
 function normWeek(week) {
   const m = String(week || '').match(/^(\d{4})-(\d{2}-\d{2})$/);
@@ -346,6 +370,7 @@ async function postAdjust(req, res) {
             uid: { type: sql.NVarChar, value: 'admin' },
           }
         );
+        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
@@ -399,6 +424,7 @@ async function postAdjust(req, res) {
               oq: { type: sql.Float, value: u.outQ },
               uid: { type: sql.NVarChar, value: 'admin' } }
           );
+          await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
         }
         if (targetOdk) {
           await insertOrderHistory(
@@ -436,6 +462,7 @@ async function postAdjust(req, res) {
             uid: { type: sql.NVarChar, value: uid },
           }
         );
+        await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = sm.recordset[0].ShipmentKey;
       }
@@ -508,6 +535,7 @@ async function postAdjust(req, res) {
             amount: { type: sql.Float, value: amount },
             vat: { type: sql.Float, value: vat } }
         );
+        await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         targetSdk = sdk;
       }
 

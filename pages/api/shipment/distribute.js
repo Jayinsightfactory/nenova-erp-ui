@@ -16,6 +16,28 @@ async function safeNextKey(tQ, table, keyCol) {
   return r.recordset[0].nk;
 }
 
+async function syncKeyNumbering(tQ, category, table, keyCol) {
+  const allowed = {
+    ShipmentMasterKey: ['ShipmentMaster', 'ShipmentKey'],
+    ShipmentDetailKey: ['ShipmentDetail', 'SdetailKey'],
+  };
+  const [safeTable, safeKeyCol] = allowed[category] || [];
+  if (safeTable !== table || safeKeyCol !== keyCol) throw new Error('invalid key numbering sync target');
+
+  await tQ(
+    `IF EXISTS (SELECT 1 FROM KeyNumbering WHERE Category=@cat)
+       UPDATE KeyNumbering
+          SET LastKeyNo = CASE WHEN LastKeyNo < x.MaxKey THEN x.MaxKey ELSE LastKeyNo END
+         FROM KeyNumbering
+         CROSS JOIN (SELECT ISNULL(MAX(${keyCol}),0) AS MaxKey FROM ${table}) x
+        WHERE Category=@cat
+     ELSE
+       INSERT INTO KeyNumbering (Category, LastKeyNo, Descr)
+       SELECT @cat, ISNULL(MAX(${keyCol}),0), '' FROM ${table}`,
+    { cat: { type: sql.NVarChar, value: category } }
+  );
+}
+
 async function assertWeekNotFixed(q, orderWeek) {
   const fixed = await q(
     `SELECT TOP 1 FixSource
@@ -327,6 +349,7 @@ async function saveDistribute(req, res) {
             wk: { type: sql.NVarChar, value: week }, ywk: { type: sql.NVarChar, value: ywk },
             ck: { type: sql.Int, value: parseInt(custKey) }, uid: { type: sql.NVarChar, value: uid } }
         );
+        await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = smResult.recordset[0].ShipmentKey;
       }
@@ -388,6 +411,7 @@ async function saveDistribute(req, res) {
             log:    { type: sql.NVarChar, value: logEntry },
           }
         );
+        await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         await tQuery(
           `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
            VALUES (@dk, @dt, @qty)`,
