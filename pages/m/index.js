@@ -23,6 +23,7 @@ const DESKTOP_MENU = [
     items: [
       { href: '/orders/new',   label: '주문등록' },
       { href: '/orders/paste', label: '붙여넣기 주문등록' },
+      { href: '/orders/kakao-audit', label: '카톡 변경 검증' },
       { href: '/orders',       label: '주문관리' },
       { href: '/warehouse',    label: '발주관리' },
     ],
@@ -65,7 +66,7 @@ const DESKTOP_MENU = [
     ],
   },
   {
-    group: '재고/통계',
+    group: '통계화면',
     items: [
       { href: '/stock',          label: '재고 관리' },
       { href: '/stats/monthly',  label: '월별 판매 현황' },
@@ -76,7 +77,7 @@ const DESKTOP_MENU = [
     ],
   },
   {
-    group: '코드/관리자',
+    group: '코드관리',
     items: [
       { href: '/master/customers',         label: '거래처관리' },
       { href: '/master/products',          label: '품목관리' },

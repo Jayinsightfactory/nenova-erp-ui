@@ -934,13 +934,13 @@ export default function PasteOrderPage() {
   const setCustMatch = (oid, customer) => {
     const order = orders.find(o => o.id === oid);
     const inputName = order?.custName || order?.custMatch?.CustName || customer?.CustName;
-    if (customer && inputName && customer.CustName !== inputName) {
-      learnCustomerMapping(inputName, customer);
-    }
     updateOrder(oid, {
       custMatch: customer,
       custFromMapping: false,
       custMappingKey: inputName ? customerCacheKey(inputName) : null,
+      pendingCustomerLearning: customer && inputName && customer.CustName !== inputName
+        ? { inputName, customer }
+        : null,
     });
     if (!customer || !week) return;
     // 비동기로 기존 주문 + 분배 fetch
@@ -1275,6 +1275,10 @@ export default function PasteOrderPage() {
     const failCount = details.filter(x => !x.ok).length;
     setBulkResult({ orderId: oid, okCount, failCount, details });
     details.filter(x => x.ok).forEach(x => learnItemMapping(x));
+    if (okCount > 0 && order.pendingCustomerLearning) {
+      learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+      updateOrder(oid, { pendingCustomerLearning: null });
+    }
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
     try {
@@ -1384,6 +1388,10 @@ export default function PasteOrderPage() {
       if (d.success) {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
+        if (order.pendingCustomerLearning) {
+          learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+          updateOrder(oid, { pendingCustomerLearning: null });
+        }
         try {
           const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
           if (od.success && od.orders?.length > 0) {

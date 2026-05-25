@@ -62,6 +62,95 @@ async function assertWeekNotFixed(q, orderWeek) {
   }
 }
 
+function weekToShipDate(weekStr, yearStr) {
+  try {
+    const year = parseInt(yearStr) || new Date().getFullYear();
+    const [wStr, dStr] = String(weekStr || '').split('-');
+    const weekNum = parseInt(wStr, 10);
+    const delivNum = parseInt(dStr, 10) || 1;
+    if (!weekNum) return null;
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
+    const offsets = [0, 0, 3, 5];
+    monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
+    return monday;
+  } catch { return null; }
+}
+
+function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
+  try {
+    const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
+    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    if (!weekNum) return null;
+
+    const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1);
+    const wednesday = new Date(dateStart);
+    for (let i = 0; i < 7; i++) {
+      if (wednesday.getDay() === 3) break;
+      wednesday.setDate(wednesday.getDate() + 1);
+    }
+
+    const offsets = [0, 4, 5, 6, 1, 3, 2];
+    const normalizedBaseDay = Number.isFinite(Number(baseDay)) ? Number(baseDay) : 0;
+    wednesday.setDate(wednesday.getDate() + (offsets[normalizedBaseDay] ?? 0));
+    return wednesday;
+  } catch { return null; }
+}
+
+async function getProductFixScope(q, prodKey) {
+  const prod = await q(
+    `SELECT TOP 1 ProdKey, ProdName, CountryFlower, CounName, FlowerName
+       FROM Product
+      WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+    { pk: { type: sql.Int, value: Number(prodKey) } }
+  );
+  return prod.recordset[0] || null;
+}
+
+async function getProductScopeFixedRows(q, orderWeek, prodKey) {
+  const prod = await getProductFixScope(q, prodKey);
+  if (!prod) return { prod: null, rows: [] };
+
+  const params = {
+    wk: { type: sql.NVarChar, value: orderWeek },
+    pk: { type: sql.Int, value: Number(prodKey) },
+    cf: { type: sql.NVarChar, value: prod.CountryFlower || '' },
+  };
+  const scopeClause = prod.CountryFlower
+    ? `ISNULL(p.CountryFlower, '') = @cf`
+    : `p.ProdKey = @pk`;
+
+  const fixed = await q(
+    `SELECT TOP 5
+            sd.SdetailKey,
+            sd.ProdKey,
+            p.ProdName,
+            p.CountryFlower,
+            c.CustName
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+       JOIN Product p ON p.ProdKey=sd.ProdKey
+       LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+      WHERE sm.OrderWeek=@wk
+        AND ISNULL(sm.isDeleted,0)=0
+        AND ISNULL(sd.isFix,0)=1
+        AND ${scopeClause}
+      ORDER BY c.CustName, p.ProdName`,
+    params
+  );
+  return { prod, rows: fixed.recordset || [] };
+}
+
+async function assertProductScopeNotFixed(q, orderWeek, prodKey) {
+  const { prod, rows } = await getProductScopeFixedRows(q, orderWeek, prodKey);
+  if (rows.length > 0) {
+    const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${prodKey}`;
+    throw new Error(`${orderWeek}차 ${scopeName} 품목군은 이미 확정되어 출고분배를 할 수 없습니다. 해당 품목군 확정취소 후 다시 진행하세요.`);
+  }
+}
+
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getDistribute(req, res);
   if (req.method === 'POST') return await saveDistribute(req, res);
@@ -319,16 +408,41 @@ async function saveDistribute(req, res) {
     const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
     const ywk = orderYear + (week||'').replace('-','');
 
-    await assertWeekNotFixed(query, week);
+    await assertProductScopeNotFixed(query, week, prodKey);
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
+      `SELECT BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
     // BunchOf1Box/SteamOf1Box null 시 0 사용 (기본값 1은 잘못된 환산 유발)
     const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box ?? 0;
     const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
+    const productCost = Number(prodInfo.recordset[0]?.ProductCost || 0) || 0;
+
+    const priceInfo = await query(
+      `SELECT TOP 1
+              ISNULL(cpc.Cost,0) AS CustomerCost,
+              ISNULL(c.BaseOutDay,0) AS BaseOutDay
+         FROM Customer c
+         LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=@pk
+        WHERE c.CustKey=@ck`,
+      {
+        ck: { type: sql.Int, value: parseInt(custKey) },
+        pk: { type: sql.Int, value: parseInt(prodKey) },
+      }
+    );
+    const inputCost = Number(cost);
+    const defaultUnitCost = Number(priceInfo.recordset[0]?.CustomerCost || 0) || productCost;
+    const resolvedCost = Number.isFinite(inputCost) && inputCost > 0 ? inputCost : defaultUnitCost;
+    const explicitShipDate = outDate ? new Date(outDate) : null;
+    const resolvedShipDate = explicitShipDate && !Number.isNaN(explicitShipDate.getTime())
+      ? explicitShipDate
+      : weekToShipDateByBaseOutDay(week, orderYear, priceInfo.recordset[0]?.BaseOutDay) ||
+        weekToShipDate(week, orderYear);
+    if (!resolvedShipDate || Number.isNaN(resolvedShipDate.getTime())) {
+      throw new Error('출고일을 계산할 수 없습니다. 출고일을 지정한 뒤 다시 저장하세요.');
+    }
 
     const shipmentKey = await withTransaction(async (tQuery) => {
       // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
@@ -377,7 +491,7 @@ async function saveDistribute(req, res) {
 
       if (parseFloat(outQty) > 0) {
         const qty = parseFloat(outQty);
-        const unitCost = parseFloat(cost) || 0;
+        const unitCost = resolvedCost;
         const boxQty   = qty;
         const bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
         const steamQty = steamOf1Box > 0 ? qty * steamOf1Box : 0;
@@ -400,7 +514,7 @@ async function saveDistribute(req, res) {
             sk:     { type: sql.Int,      value: sk },
             ck:     { type: sql.Int,      value: parseInt(custKey) },
             pk:     { type: sql.Int,      value: parseInt(prodKey) },
-            dt:     { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
+            dt:     { type: sql.DateTime, value: resolvedShipDate },
             qty:    { type: sql.Float,    value: qty },
             bq:     { type: sql.Float,    value: boxQty },
             bnq:    { type: sql.Float,    value: bunchQty },
@@ -417,7 +531,7 @@ async function saveDistribute(req, res) {
            VALUES (@dk, @dt, @qty)`,
           {
             dk:  { type: sql.Int,      value: newSdk },
-            dt:  { type: sql.DateTime, value: outDate ? new Date(outDate) : new Date() },
+            dt:  { type: sql.DateTime, value: resolvedShipDate },
             qty: { type: sql.Float,    value: qty },
           }
         );

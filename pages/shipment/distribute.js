@@ -4,7 +4,7 @@ import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput'
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
-const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네달란드','중국기타','국내왁스'];
+const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네덜란드','중국기타','국내왁스'];
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
 function weekToShipDate(weekStr, year = new Date().getFullYear()) {
@@ -362,7 +362,7 @@ export default function Distribute() {
         const qty = edit.outQty !== undefined ? parseFloat(edit.outQty) || 0 : (item.출고수량 || 0);
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
         if (qty <= 0) continue;
-        await fetch('/api/shipment/distribute', {
+        const res = await fetch('/api/shipment/distribute', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -374,6 +374,8 @@ export default function Distribute() {
             cost,
           })
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
       }
       const savedItems = custItems.filter(item => {
         const edit = custEditInputs[item.ProdKey] || {};
@@ -444,7 +446,7 @@ export default function Distribute() {
       for (const c of custDist) {
         const qty = outInputs[c.CustKey] || 0;
         if (qty <= 0) continue;
-        await fetch('/api/shipment/distribute', {
+        const res = await fetch('/api/shipment/distribute', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -453,9 +455,11 @@ export default function Distribute() {
             custKey: c.CustKey,
             prodKey: selectedProd.ProdKey,
             outQty: qty,
-            cost: selectedProd.Cost || 0,
+            cost: c.단가 || selectedProd.Cost || 0,
           })
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
       }
       const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
