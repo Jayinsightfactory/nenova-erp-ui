@@ -17,6 +17,18 @@ type: history
 - 원칙: `nenova.exe` 버튼, 저장 프로시저, 기존 ERP row, 운영 데이터 불일치 여부를 확인한 뒤에만 코드 수정
 - 출고분배는 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `ShipmentMaster/Detail`, `ShipmentDate`, `ShipmentHistory` 충돌 여부를 먼저 확인
 
+### 2026-05-25 21-01 국내왁스 출고분배 장애
+
+- 증상: `nenova.exe`에서 21-01 국내왁스 일괄출고분배 버튼이 동작하지 않음
+- 원인: `KeyNumbering.Category='ShipmentDetailKey'` 값이 실제 `MAX(ShipmentDetail.SdetailKey)`보다 작아서 `usp_DistributeOne`이 이미 존재하는 `SdetailKey=74807`로 INSERT 시도
+- 확인: 트랜잭션 롤백 테스트에서 PK 중복 오류를 재현했고, 채번값 보정 후 같은 테스트가 `oResult=0`으로 통과함
+- 조치: 운영 DB `ShipmentDetailKey` 채번값을 실제 최대값 `74808`로 보정
+- 후속 확인: 실제 분배 후 `ShipmentDetailKey`는 `74813`까지 증가했고 `KeyNumbering`도 `74813`으로 일치
+- 후속 확인: 생성된 5건 모두 `ShipmentDate` 합계 = `OutQuantity`, `OutQuantity` = `EstQuantity`, 출고일/단가/공급가/부가세 정상
+- 후속 확인: 21-01 `ShipmentMaster` 중복 거래처 그룹 0건
+- 재발 방지: 웹 출고분배/분배조정에서 `OrderMaster/Detail`, `ShipmentMaster/Detail` 생성 후 `KeyNumbering`을 실제 최대 key 이상으로 동기화
+- 주의: `국내왁스` 묶음의 실제 대상은 꽃 왁스가 아니라 운임성 품목이었다. 주문은 `현지상차운임(ProdKey=2262)`, 입고는 `운송료(ProdKey=2182)`로 잡힘
+
 ---
 
 ## 🗺️ 최초 기획 (이카운트 분석 기반)
