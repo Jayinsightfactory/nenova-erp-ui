@@ -798,3 +798,22 @@ EXEC dbo.usp_ShipmentFix
 3. `ShipmentHistory` 의 isFix/OutQuantity 변경 추적
 4. Product.Stock vs ProductStock(차수) gap 진단 (섹션 9.5 SQL)
 5. ViewShipment vs ShipmentDetail 직접 합산 비교
+
+---
+
+## 12. 2026-05-25 작업 우선순위 변경
+
+앞으로 주문, 출고, 견적, 재고, 정산 기능을 수정하기 전에는 기능 구현보다 **충돌 여부 확인을 먼저 한다.**
+
+최우선 확인 문서:
+
+- [PRE_WORK_CONFLICT_CHECK_2026-05-25.md](PRE_WORK_CONFLICT_CHECK_2026-05-25.md)
+
+특히 `nenova.exe` 버튼, MSSQL 저장 프로시저, ERP 조회 화면과 같은 테이블을 공유하는 작업은 다음 순서를 지킨다.
+
+1. `nenova.exe`/DB 구조 충돌 가능성 확인
+2. 운영 데이터 중복/누락/불일치 진단
+3. 기존 ERP row 재사용 가능 여부 확인
+4. 충돌 가능성이 낮은 `+A` 방식 설계
+5. 코드 수정
+6. build 및 운영 반영 확인

@@ -8,6 +8,17 @@ type: history
 
 ---
 
+## 2026-05-25 우선순위 변경
+
+계속된 웹/`nenova.exe` 충돌을 방지하기 위해 앞으로는 기능 수정 전 **충돌 여부 확인을 최우선 작업**으로 둔다.
+
+- 기준 문서: [PRE_WORK_CONFLICT_CHECK_2026-05-25.md](PRE_WORK_CONFLICT_CHECK_2026-05-25.md)
+- 적용 대상: 주문등록, 출고분배, 출고확정, 견적서, 재고, 정산, 챗봇의 DB 쓰기 작업
+- 원칙: `nenova.exe` 버튼, 저장 프로시저, 기존 ERP row, 운영 데이터 불일치 여부를 확인한 뒤에만 코드 수정
+- 출고분배는 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `ShipmentMaster/Detail`, `ShipmentDate`, `ShipmentHistory` 충돌 여부를 먼저 확인
+
+---
+
 ## 🗺️ 최초 기획 (이카운트 분석 기반)
 
 **방향:** 이카운트와 연동X. 이카운트에서 사용하던 기능들을 nenova 웹에 직접 구현
