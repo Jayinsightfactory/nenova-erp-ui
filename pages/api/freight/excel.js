@@ -113,14 +113,14 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     query(
       `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
-          p.ProdName, p.FlowerName, p.SteamOf1Bunch, p.Cost, p.OutUnit,
+          p.ProdName, p.FlowerName, p.CounName, p.SteamOf1Bunch, p.Cost, p.OutUnit,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
          FROM WarehouseDetail wd
          INNER JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
          LEFT JOIN Product p ON wd.ProdKey=p.ProdKey
          WHERE wd.WarehouseKey IN (${keyCSV}) ORDER BY wm.FarmName, wd.WdetailKey`
     ),
-    query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox FROM Flower WHERE isDeleted=0`),
+    query(`SELECT FlowerName, BoxWeight, BoxCBM, StemsPerBox, DefaultTariff FROM Flower WHERE isDeleted=0`),
     query(`SELECT TOP 1 * FROM FreightCost WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY CreateDtm DESC`),
   ]);
 
@@ -191,6 +191,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
       BoxWeight:   pickOv(ovF.BoxWeight,   base.BoxWeight),
       BoxCBM:      pickOv(ovF.BoxCBM,      base.BoxCBM),
       StemsPerBox: pickOv(ovF.StemsPerBox, base.StemsPerBox),
+      DefaultTariff: pickOv(ovF.DefaultTariff, base.DefaultTariff),
     });
   }
 
@@ -368,6 +369,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
       prodKey: r.ProdKey,
       prodName: r.ProdName,
       flowerName: fn,
+      counName: r.CounName || null,
       farmName: r.FarmName,
       outUnit: (r.OutUnit || '').trim() || null,
       boxQty: first ? (boxByFlower.get(fn) || 0) : 0,  // 카테고리 분배용 (첫행)

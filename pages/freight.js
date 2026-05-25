@@ -242,18 +242,28 @@ export default function FreightPage() {
       const rows = apiData.input.details.map(d => {
         const ov = rowsOverride[d.prodKey] || {};
         return { ...d,
+          flowerName: ov.flowerName ?? d.flowerName,
           stemsPerBunch: ov.stemsPerBunch ?? d.stemsPerBunch,
           salePriceKRW:  ov.salePriceKRW  ?? d.salePriceKRW,
           tariffRate:    ov.tariffRate    ?? d.tariffRate,
         };
       });
+      const flowerOverrides = {};
+      for (const [flowerName, edit] of Object.entries(catEditing || {})) {
+        flowerOverrides[normalizeFlower(flowerName)] = {
+          BoxWeight:   edit.BoxWeight,
+          BoxCBM:      edit.BoxCBM,
+          StemsPerBox: edit.StemsPerBox,
+          DefaultTariff: edit.DefaultTariff,
+        };
+      }
       const res = await fetch('/api/freight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           warehouseKey: apiData.primaryKey,
           warehouseKeys: apiData.warehouseKeys,
-          basis, master, customs, rows,
+          basis, master, customs, rows, flowerOverrides,
         }),
       });
       const d = await res.json();
@@ -284,6 +294,7 @@ export default function FreightPage() {
         BoxWeight:   edit.BoxWeight,
         BoxCBM:      edit.BoxCBM,
         StemsPerBox: edit.StemsPerBox,
+        DefaultTariff: edit.DefaultTariff,
       };
     }
     try {

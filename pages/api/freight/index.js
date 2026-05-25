@@ -407,7 +407,7 @@ function firstNonNullField(arr, field) {
 }
 
 async function handlePost(req, res) {
-  const { warehouseKey, basis = 'AUTO', master, customs, rows } = req.body;
+  const { warehouseKey, basis = 'AUTO', master, customs, rows, flowerOverrides = {} } = req.body;
   if (!warehouseKey) return res.status(400).json({ success:false, error:'warehouseKey 필수' });
   if (!master || !master.gw || !master.cw || !master.rateUSD || !master.exchangeRate) {
     return res.status(400).json({ success:false, error:'GW / CW / Rate / 환율 필수' });
@@ -434,6 +434,22 @@ async function handlePost(req, res) {
       boxCBM: f.BoxCBM != null ? Number(f.BoxCBM) : null,
       stemsPerBox: f.StemsPerBox != null ? Number(f.StemsPerBox) : null,
       defaultTariff: f.DefaultTariff != null ? Number(f.DefaultTariff) : null,
+    };
+  }
+  for (const [flowerName, override] of Object.entries(flowerOverrides || {})) {
+    const key = normalizeFlower(flowerName);
+    const base = flowerMeta[key] || {};
+    const pick = (value, fallback) => {
+      if (value === '' || value == null) return fallback ?? null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback ?? null;
+    };
+    flowerMeta[key] = {
+      ...base,
+      boxWeight: pick(override.BoxWeight, base.boxWeight),
+      boxCBM: pick(override.BoxCBM, base.boxCBM),
+      stemsPerBox: pick(override.StemsPerBox, base.stemsPerBox),
+      defaultTariff: pick(override.DefaultTariff, base.defaultTariff),
     };
   }
 
