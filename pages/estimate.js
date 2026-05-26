@@ -1458,6 +1458,153 @@ export default function Estimate() {
     }
   }
 
+  async function applyAllEdits() {
+    if (editedCount === 0 && editedQtyCount === 0) return;
+    if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
+
+    setQtyApplying(true);
+    setCostApplying(true);
+    setEditApplyTitle('단가/수량 수정 저장');
+    setQtyResult(null);
+    setCostResult(null);
+    setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 단가/수량 수정 시작` }]);
+
+    try {
+      const qtyPending = [];
+      for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
+        if (newVal === '' || newVal == null) continue;
+        const sdk = parseInt(sdkStr);
+        const item = filteredItems.find(it => it.SdetailKey === sdk);
+        if (!item) continue;
+        const oldQty = parseFloat(item.Quantity) || 0;
+        const newQty = parseFloat(newVal);
+        if (Number.isNaN(newQty) || newQty < 0) continue;
+        if (Math.abs(newQty - oldQty) < 0.001) continue;
+        qtyPending.push({ sdk, item, oldQty, newQty });
+      }
+
+      const editedSdKeys = Object.keys(costEdits)
+        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
+        .map(k => parseInt(k));
+      const sdkToShipment = {};
+      for (const sk of selectedShipmentKeys) {
+        const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
+        for (const it of (skDetail.items || [])) {
+          if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && !(it.SdetailKey in sdkToShipment)) {
+            sdkToShipment[it.SdetailKey] = { sk, cost: it.Cost };
+          }
+        }
+      }
+      const costItems = [];
+      filteredItems.forEach(it => {
+        if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
+          const cost = parseFloat(costEdits[it.SdetailKey]);
+          if (!Number.isNaN(cost) && cost >= 0) {
+            costItems.push({
+              shipmentKey: sdkToShipment[it.SdetailKey].sk,
+              sdetailKey: it.SdetailKey,
+              cost,
+              OrderWeek: it.OrderWeek,
+              ProdName: it.ProdName,
+              expectedOldCost: it.Cost,
+            });
+          }
+        }
+      });
+
+      if (qtyPending.length === 0 && costItems.length === 0) throw new Error('수정 대상이 없습니다.');
+
+      const cycleWeeks = getFixCycleWeeksForEditedItems([
+        ...qtyPending.map(p => p.item),
+        ...costItems,
+      ], selectedShip);
+      if (cycleWeeks.length > 0) {
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정`,
+        }]);
+      }
+
+      const runCombinedUpdate = async () => {
+        const qtyResults = [];
+        for (const p of qtyPending) {
+          setCostApplyLog(prev => [...prev, {
+            step: 'save',
+            label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
+          }]);
+          const r = await fetch('/api/estimate/update-quantity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              sdetailKey: p.sdk,
+              shipmentKey: p.item.ShipmentKey,
+              quantity: p.newQty,
+              unit: p.item.Unit,
+              expectedOldQuantity: p.oldQty,
+            }),
+          });
+          const d = await r.json();
+          qtyResults.push({ sdk: p.sdk, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
+        }
+
+        let costResultData = { changedCount: 0, diffAmount: 0, changes: [] };
+        if (costItems.length > 0) {
+          costItems.forEach(it => {
+            setCostApplyLog(prev => [...prev, {
+              step: 'save',
+              label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
+            }]);
+          });
+          const r = await fetch('/api/estimate/update-cost', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: costItems.map(({ OrderWeek, ProdName, ...it }) => it),
+              mode: costMode,
+              week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
+              custKey: selectedShip.CustKey,
+            }),
+          });
+          const d = await r.json();
+          if (!d.success) throw new Error(d.error || '단가 수정 실패');
+          costResultData = d;
+        }
+        return { qtyResults, costResultData };
+      };
+
+      const { qtyResults, costResultData } = cycleWeeks.length > 0
+        ? await runEditWithFixCycle({
+            weeks: cycleWeeks,
+            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+            apply: runCombinedUpdate,
+          })
+        : await runCombinedUpdate();
+
+      const okQty = qtyResults.filter(r => r.ok).length;
+      setQtyResult({ results: qtyResults, okCount: okQty, failCount: qtyResults.length - okQty });
+      setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 단가/수량 반영 후 견적서 재조회 중' }]);
+      setCostResult({
+        success: true,
+        type: 'combined',
+        changedCount: okQty + Number(costResultData.changedCount || 0),
+        totalDiff: Number(costResultData.diffAmount || 0),
+      });
+      setQtyEdits({});
+      setCostEdits({});
+      await load(true);
+      if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
+    } catch (err) {
+      setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${err.message}` }]);
+      setCostResult({ success: false, error: err.message });
+      setQtyResult({ error: err.message });
+    } finally {
+      setQtyApplying(false);
+      setCostApplying(false);
+    }
+  }
+
   function closeCostModal() {
     setCostApplying(false);
     setCostApplyLog([]);
@@ -2049,7 +2196,18 @@ export default function Estimate() {
             )}
             <div style={{marginLeft:'auto', display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
               {/* ── 단가 수정 모드 선택 + 적용 버튼 (P3) ── */}
-              {editedCount > 0 && (
+              {(editedCount > 0 || editedQtyCount > 0) && (
+                <button
+                  className="btn btn-sm"
+                  style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
+                  disabled={costApplying || qtyApplying}
+                  onClick={applyAllEdits}
+                  title="단가와 수량 변경분을 한 번의 확정해제/저장/재확정 흐름으로 처리"
+                >
+                  수정 저장 ({editedCount + editedQtyCount})
+                </button>
+              )}
+              {editedCount > 0 && editedQtyCount === 0 && (
                 <>
                   <select
                     value={costMode}
@@ -2080,7 +2238,7 @@ export default function Estimate() {
                 </>
               )}
               {/* 수량 수정 적용 버튼 */}
-              {editedQtyCount > 0 && (
+              {editedQtyCount > 0 && editedCount === 0 && (
                 <>
                   <button
                     className="btn btn-sm"
