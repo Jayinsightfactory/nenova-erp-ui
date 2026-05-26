@@ -56,6 +56,7 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const sdetailKey = parseInt(req.body?.sdetailKey, 10);
+  const estimateKey = parseInt(req.body?.estimateKey, 10);
   const shipmentKey = parseInt(req.body?.shipmentKey, 10);
   const quantity = parseFloat(req.body?.quantity);
   const unit = normalizeUnit(req.body?.unit);
@@ -63,8 +64,8 @@ export default withAuth(async function handler(req, res) {
     ? parseFloat(req.body.expectedOldQuantity)
     : null;
 
-  if (!sdetailKey || Number.isNaN(quantity) || quantity < 0) {
-    return res.status(400).json({ success: false, error: 'sdetailKey와 0 이상 수량이 필요합니다.' });
+  if ((!sdetailKey && !estimateKey) || Number.isNaN(quantity)) {
+    return res.status(400).json({ success: false, error: 'sdetailKey 또는 estimateKey 와 수량이 필요합니다.' });
   }
 
   const uid = req.user?.userId || 'admin';
@@ -72,6 +73,68 @@ export default withAuth(async function handler(req, res) {
 
   try {
     const result = await withTransaction(async (tQ) => {
+      if (estimateKey) {
+        const cur = await tQ(
+          `SELECT e.EstimateKey, e.ShipmentKey, e.ProdKey,
+                  ISNULL(e.Quantity,0) AS Quantity,
+                  ISNULL(e.Cost,0) AS Cost,
+                  ISNULL(e.Amount,0) AS Amount,
+                  ISNULL(e.Vat,0) AS Vat,
+                  sm.OrderWeek
+             FROM Estimate e WITH (UPDLOCK, HOLDLOCK)
+             JOIN ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) ON sm.ShipmentKey = e.ShipmentKey
+            WHERE e.EstimateKey=@ek
+              AND (@sk IS NULL OR e.ShipmentKey=@sk)
+              AND ISNULL(sm.isDeleted,0)=0`,
+          {
+            ek: { type: sql.Int, value: estimateKey },
+            sk: { type: sql.Int, value: shipmentKey || null },
+          }
+        );
+        if (cur.recordset.length === 0) throw new Error(`EstimateKey=${estimateKey} 를 찾을 수 없습니다.`);
+        const row = cur.recordset[0];
+        const oldQuantity = Number(row.Quantity || 0);
+        if (expectedOldQuantity != null && Math.abs(oldQuantity - expectedOldQuantity) > 0.001) {
+          const err = new Error(`수량이 조회 이후 변경되었습니다. 조회시점=${expectedOldQuantity}, 현재=${oldQuantity}`);
+          err.code = 'STALE_DATA';
+          err.expected = expectedOldQuantity;
+          err.actual = oldQuantity;
+          throw err;
+        }
+
+        const nextQuantity = oldQuantity < 0 ? -Math.abs(quantity) : quantity;
+        const amount = Math.round(nextQuantity * Number(row.Cost || 0) / 1.1);
+        const vat = Math.round(nextQuantity * Number(row.Cost || 0) / 11);
+        const now = new Date();
+        const ts = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        await tQ(
+          `UPDATE Estimate
+              SET Quantity=@qty, Amount=@amount, Vat=@vat,
+                  Descr = ISNULL(Descr,'') + @descr
+            WHERE EstimateKey=@ek`,
+          {
+            ek: { type: sql.Int, value: estimateKey },
+            qty: { type: sql.Float, value: nextQuantity },
+            amount: { type: sql.Float, value: amount },
+            vat: { type: sql.Float, value: vat },
+            descr: { type: sql.NVarChar, value: `\n[${ts} ${userName}] 차감수량 ${oldQuantity}->${nextQuantity}` },
+          }
+        );
+
+        return {
+          estimateKey,
+          shipmentKey: row.ShipmentKey,
+          orderWeek: row.OrderWeek,
+          oldQuantity,
+          newQuantity: nextQuantity,
+          oldOutQuantity: oldQuantity,
+          newOutQuantity: nextQuantity,
+          amount,
+          vat,
+        };
+      }
+
       const cur = await tQ(
         `SELECT sd.SdetailKey, sd.ShipmentKey, sd.ProdKey, sd.ShipmentDtm,
                 ISNULL(sd.BoxQuantity,0) AS BoxQuantity,

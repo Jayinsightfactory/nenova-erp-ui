@@ -84,17 +84,19 @@ export default withAuth(async function handler(req, res) {
   // items 정규화: 각 item 은 shipmentKey 가 있어야 함 (없으면 최상위 topSk 브로드캐스트)
   const items = [];
   for (const it of rawItems) {
-    const sdk = parseInt(it.sdetailKey);
+    const sdk = it.sdetailKey != null ? parseInt(it.sdetailKey) : null;
+    const estimateKey = it.estimateKey != null ? parseInt(it.estimateKey) : null;
     const itSk = it.shipmentKey != null ? parseInt(it.shipmentKey) : (topSk ? parseInt(topSk) : null);
     const cost = parseFloat(it.cost);
-    if (!sdk || !itSk || Number.isNaN(cost) || cost < 0) {
+    if ((!sdk && !estimateKey) || !itSk || Number.isNaN(cost) || cost < 0) {
       return res.status(400).json({
         success: false,
-        error: `items 각 항목은 { shipmentKey, sdetailKey, cost(>=0) } 필요 (문제 항목: ${JSON.stringify(it)})`,
+        error: `items 각 항목은 { shipmentKey, sdetailKey 또는 estimateKey, cost(>=0) } 필요 (문제 항목: ${JSON.stringify(it)})`,
       });
     }
     items.push({
       sdetailKey: sdk,
+      estimateKey,
       shipmentKey: itSk,
       cost,
       expectedOldCost: it.expectedOldCost != null ? parseFloat(it.expectedOldCost) : null,
@@ -133,7 +135,7 @@ export default withAuth(async function handler(req, res) {
         };
       }
       const fixedWeeks = uniqueSks
-        .filter(sk => smMap[sk].wasFixed)
+        .filter(sk => smMap[sk].wasFixed && items.some(it => it.shipmentKey === sk && it.sdetailKey))
         .map(sk => smMap[sk].orderWeek)
         .filter(Boolean);
       if (fixedWeeks.length > 0) {
@@ -150,6 +152,68 @@ export default withAuth(async function handler(req, res) {
       // 확정 해제/재확정은 전산 흐름처럼 사용자가 구간 단위로 먼저 수행해야 한다.
       const changes = [];
       for (const it of items) {
+        if (it.estimateKey) {
+          const cur = await tQ(
+            `SELECT EstimateKey, ShipmentKey, ProdKey,
+                    ISNULL(Quantity,0) AS Quantity,
+                    ISNULL(Cost,0) AS OldCost,
+                    ISNULL(Amount,0) AS OldAmount,
+                    ISNULL(Vat,0) AS OldVat
+               FROM Estimate WITH (UPDLOCK, HOLDLOCK)
+              WHERE EstimateKey=@ek AND ShipmentKey=@sk`,
+            { ek: { type: sql.Int, value: it.estimateKey }, sk: { type: sql.Int, value: it.shipmentKey } }
+          );
+          if (cur.recordset.length === 0) {
+            throw new Error(`EstimateKey=${it.estimateKey} 가 ShipmentKey=${it.shipmentKey} 에 없음`);
+          }
+          const row = cur.recordset[0];
+          if (it.expectedOldCost != null && Math.abs(row.OldCost - it.expectedOldCost) > 0.001) {
+            const err = new Error(`STALE_DATA: EstimateKey=${it.estimateKey} 단가가 조회 이후 변경되었습니다 (조회시점=${it.expectedOldCost} / 현재=${row.OldCost}).`);
+            err.code = 'STALE_DATA';
+            err.estimateKey = it.estimateKey;
+            err.shipmentKey = it.shipmentKey;
+            err.expected = it.expectedOldCost;
+            err.actual = row.OldCost;
+            throw err;
+          }
+
+          const newAmount = Math.round(Number(row.Quantity || 0) * it.cost / 1.1);
+          const newVat = Math.round(Number(row.Quantity || 0) * it.cost / 11);
+          const now = new Date();
+          const ts = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+          const logLine = `\n[${ts} ${userName}] 차감단가 ${row.OldCost}->${it.cost} (${mode})`;
+
+          await tQ(
+            `UPDATE Estimate
+                SET Cost=@cost, Amount=@amount, Vat=@vat,
+                    Descr = ISNULL(Descr,'') + @log
+              WHERE EstimateKey=@ek`,
+            {
+              ek: { type: sql.Int, value: it.estimateKey },
+              cost: { type: sql.Float, value: it.cost },
+              amount: { type: sql.Float, value: newAmount },
+              vat: { type: sql.Float, value: newVat },
+              log: { type: sql.NVarChar, value: logLine },
+            }
+          );
+
+          changes.push({
+            source: 'Estimate',
+            estimateKey: it.estimateKey,
+            shipmentKey: it.shipmentKey,
+            orderWeek: smMap[it.shipmentKey].orderWeek,
+            prodKey: row.ProdKey,
+            oldCost: row.OldCost,
+            newCost: it.cost,
+            oldAmount: row.OldAmount,
+            newAmount,
+            oldVat: row.OldVat,
+            newVat,
+            bunchQty: row.Quantity,
+          });
+          continue;
+        }
+
         // 기존 값 조회 (UPDLOCK) — Box/Bunch/Steam 모두 가져와서 Amount 계산 안전화
         const cur = await tQ(
           `SELECT SdetailKey, ProdKey,
@@ -230,7 +294,7 @@ export default withAuth(async function handler(req, res) {
       // 같은 품목이 여러 차수에 있으면 같은 prodKey 가 중복될 수 있음 → Set 으로 dedup
       if (mode === 'fixed') {
         const seen = new Set();
-        for (const ch of changes) {
+        for (const ch of changes.filter(ch => ch.source !== 'Estimate')) {
           if (seen.has(ch.prodKey)) continue;
           seen.add(ch.prodKey);
           await tQ(
@@ -249,7 +313,7 @@ export default withAuth(async function handler(req, res) {
       } else if (mode === 'weekFav') {
         // weekFav 는 해당 week + prodKey 조합 단위로 dedup
         const seen = new Set();
-        for (const ch of changes) {
+        for (const ch of changes.filter(ch => ch.source !== 'Estimate')) {
           const key = `${week}:${ch.prodKey}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -307,6 +371,7 @@ export default withAuth(async function handler(req, res) {
         code: 'STALE_DATA',
         error: err.message,
         sdetailKey: err.sdetailKey,
+        estimateKey: err.estimateKey,
         shipmentKey: err.shipmentKey,
         expected: err.expected,
         actual: err.actual,

@@ -979,6 +979,15 @@ export default function Estimate() {
     .map(it => String(it.CountryFlower || '').trim())
     .filter(Boolean))];
 
+  const getItemEditKey = (item) => {
+    if (item?.SdetailKey != null) return `sd:${item.SdetailKey}`;
+    if (item?.EstimateKey != null) return `est:${item.EstimateKey}`;
+    return '';
+  };
+
+  const isEstimateEditKey = (key) => String(key || '').startsWith('est:');
+  const parseEditKeyNumber = (key) => parseInt(String(key || '').split(':')[1] || key, 10);
+
   const runShipmentFixAction = async (week, action, countryFlowers = []) => {
     const r = await fetch('/api/shipment/fix', {
       method: 'POST',
@@ -1196,22 +1205,25 @@ export default function Estimate() {
     setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 수량 수정 시작` }]);
     try {
       const pending = [];
-      for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
+      for (const [editKey, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
-        const sdk = parseInt(sdkStr);
-        const item = filteredItems.find(it => it.SdetailKey === sdk);
+        const item = filteredItems.find(it => getItemEditKey(it) === editKey);
         if (!item) continue;
+        const isEstimate = isEstimateEditKey(editKey);
+        const keyNumber = parseEditKeyNumber(editKey);
         const oldQty = parseFloat(item.Quantity) || 0;
         const newQty = parseFloat(newVal);
-        if (Number.isNaN(newQty) || newQty < 0) continue;
-        if (Math.abs(newQty - oldQty) < 0.001) continue;
-        pending.push({ sdk, item, oldQty, newQty });
+        if (Number.isNaN(newQty) || (!isEstimate && newQty < 0)) continue;
+        const effectiveNewQty = isEstimate && oldQty < 0 ? -Math.abs(newQty) : newQty;
+        if (Math.abs(effectiveNewQty - oldQty) < 0.001) continue;
+        pending.push({ keyNumber, isEstimate, item, oldQty, newQty });
       }
 
       if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
 
-      const cycleWeeks = getFixCycleWeeksForEditedItems(pending.map(p => p.item), selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(pending.map(p => p.item));
+      const shipmentPending = pending.filter(p => !p.isEstimate);
+      const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentPending.map(p => p.item), selectedShip);
+      const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentPending.map(p => p.item));
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1231,7 +1243,8 @@ export default function Estimate() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
-              sdetailKey: p.sdk,
+              sdetailKey: p.isEstimate ? undefined : p.keyNumber,
+              estimateKey: p.isEstimate ? p.keyNumber : undefined,
               shipmentKey: p.item.ShipmentKey,
               quantity: p.newQty,
               unit: p.item.Unit,
@@ -1239,7 +1252,7 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          results.push({ sdk: p.sdk, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          results.push({ key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
           if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
         }
         return results;
@@ -1290,7 +1303,12 @@ export default function Estimate() {
     try {
       const editedSdKeys = Object.keys(costEdits)
         .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
-        .map(k => parseInt(k));
+        .filter(k => !isEstimateEditKey(k))
+        .map(k => parseEditKeyNumber(k));
+      const editedEstimateKeys = Object.keys(costEdits)
+        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
+        .filter(k => isEstimateEditKey(k))
+        .map(k => parseEditKeyNumber(k));
 
       // ── 1) 각 ShipmentKey 의 SdetailKey 목록을 재조회해서
       //      편집된 sdk 가 어느 ShipmentKey 에 속하는지 결정
@@ -1320,11 +1338,21 @@ export default function Estimate() {
           allItems.push({
             shipmentKey: sdkToShipment[it.SdetailKey].sk,
             sdetailKey: it.SdetailKey,
-            cost: parseFloat(costEdits[it.SdetailKey]),
+            cost: parseFloat(costEdits[getItemEditKey(it)]),
             OrderWeek: it.OrderWeek,
             ProdName: it.ProdName,
             CountryFlower: it.CountryFlower,
             // 낙관적 동시성: 조회 시점 snapshot 의 Cost (filteredItems 에 있는 값)
+            expectedOldCost: it.Cost,
+          });
+        } else if (it.EstimateKey && editedEstimateKeys.includes(it.EstimateKey)) {
+          allItems.push({
+            shipmentKey: it.ShipmentKey,
+            estimateKey: it.EstimateKey,
+            cost: parseFloat(costEdits[getItemEditKey(it)]),
+            OrderWeek: it.OrderWeek,
+            ProdName: it.ProdName,
+            CountryFlower: it.CountryFlower,
             expectedOldCost: it.Cost,
           });
         }
@@ -1354,8 +1382,9 @@ export default function Estimate() {
         week,
         custKey: selectedShip.CustKey,
       };
-      const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(allItems);
+      const shipmentCostItems = allItems.filter(it => it.sdetailKey);
+      const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentCostItems, selectedShip);
+      const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentCostItems);
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1480,21 +1509,28 @@ export default function Estimate() {
 
     try {
       const qtyPending = [];
-      for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
+      for (const [editKey, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
-        const sdk = parseInt(sdkStr);
-        const item = filteredItems.find(it => it.SdetailKey === sdk);
+        const item = filteredItems.find(it => getItemEditKey(it) === editKey);
         if (!item) continue;
+        const isEstimate = isEstimateEditKey(editKey);
+        const keyNumber = parseEditKeyNumber(editKey);
         const oldQty = parseFloat(item.Quantity) || 0;
         const newQty = parseFloat(newVal);
-        if (Number.isNaN(newQty) || newQty < 0) continue;
-        if (Math.abs(newQty - oldQty) < 0.001) continue;
-        qtyPending.push({ sdk, item, oldQty, newQty });
+        if (Number.isNaN(newQty) || (!isEstimate && newQty < 0)) continue;
+        const effectiveNewQty = isEstimate && oldQty < 0 ? -Math.abs(newQty) : newQty;
+        if (Math.abs(effectiveNewQty - oldQty) < 0.001) continue;
+        qtyPending.push({ keyNumber, isEstimate, item, oldQty, newQty });
       }
 
       const editedSdKeys = Object.keys(costEdits)
         .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
-        .map(k => parseInt(k));
+        .filter(k => !isEstimateEditKey(k))
+        .map(k => parseEditKeyNumber(k));
+      const editedEstimateKeys = Object.keys(costEdits)
+        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
+        .filter(k => isEstimateEditKey(k))
+        .map(k => parseEditKeyNumber(k));
       const sdkToShipment = {};
       for (const sk of selectedShipmentKeys) {
         const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
@@ -1507,11 +1543,24 @@ export default function Estimate() {
       const costItems = [];
       filteredItems.forEach(it => {
         if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
-          const cost = parseFloat(costEdits[it.SdetailKey]);
+          const cost = parseFloat(costEdits[getItemEditKey(it)]);
           if (!Number.isNaN(cost) && cost >= 0) {
             costItems.push({
               shipmentKey: sdkToShipment[it.SdetailKey].sk,
               sdetailKey: it.SdetailKey,
+              cost,
+              OrderWeek: it.OrderWeek,
+              ProdName: it.ProdName,
+              CountryFlower: it.CountryFlower,
+              expectedOldCost: it.Cost,
+            });
+          }
+        } else if (it.EstimateKey && editedEstimateKeys.includes(it.EstimateKey)) {
+          const cost = parseFloat(costEdits[getItemEditKey(it)]);
+          if (!Number.isNaN(cost) && cost >= 0) {
+            costItems.push({
+              shipmentKey: it.ShipmentKey,
+              estimateKey: it.EstimateKey,
               cost,
               OrderWeek: it.OrderWeek,
               ProdName: it.ProdName,
@@ -1525,12 +1574,12 @@ export default function Estimate() {
       if (qtyPending.length === 0 && costItems.length === 0) throw new Error('수정 대상이 없습니다.');
 
       const cycleWeeks = getFixCycleWeeksForEditedItems([
-        ...qtyPending.map(p => p.item),
-        ...costItems,
+        ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
+        ...costItems.filter(it => it.sdetailKey),
       ], selectedShip);
       const cycleCountryFlowers = getCountryFlowersForEditedItems([
-        ...qtyPending.map(p => p.item),
-        ...costItems,
+        ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
+        ...costItems.filter(it => it.sdetailKey),
       ]);
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
@@ -1551,7 +1600,8 @@ export default function Estimate() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
-              sdetailKey: p.sdk,
+              sdetailKey: p.isEstimate ? undefined : p.keyNumber,
+              estimateKey: p.isEstimate ? p.keyNumber : undefined,
               shipmentKey: p.item.ShipmentKey,
               quantity: p.newQty,
               unit: p.item.Unit,
@@ -1559,7 +1609,7 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          qtyResults.push({ sdk: p.sdk, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          qtyResults.push({ key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
           if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
         }
 
@@ -2317,7 +2367,8 @@ export default function Estimate() {
                       : filteredItems.map((item, i) => {
                           const isDed = item.EstimateType && item.EstimateType !== '정상출고';
                           const sdk = item.SdetailKey;
-                          const editVal = sdk != null ? (costEdits[sdk] ?? '') : '';
+                          const editKey = getItemEditKey(item);
+                          const editVal = editKey ? (costEdits[editKey] ?? '') : '';
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
                           <tr key={i} style={{background: isEdited ? '#E6F7FF' : (isDed ? '#FFF8DC' : '')}}>
@@ -2331,40 +2382,40 @@ export default function Estimate() {
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#F0FFFE'}}>
-                              {isDed ? (
+                              {!editKey ? (
                                 <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
                               ) : (
                                 <input
                                   type="number"
-                                  value={sdk != null ? (qtyEdits[sdk] ?? '') : ''}
+                                  value={editKey ? (qtyEdits[editKey] ?? '') : ''}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setQtyEdits(prev => {
                                       const next = { ...prev };
-                                      if (v === '') delete next[sdk];
-                                      else next[sdk] = v;
+                                      if (v === '') delete next[editKey];
+                                      else next[editKey] = v;
                                       return next;
                                     });
                                   }}
-                                  placeholder={fmt(item.Quantity)}
+                                  placeholder={isDed ? fmt(Math.abs(Number(item.Quantity || 0))) : fmt(item.Quantity)}
                                   style={{
                                     width: 70,
                                     padding: '2px 5px',
                                     textAlign: 'right',
                                     fontSize: 12,
-                                    border: (sdk != null && qtyEdits[sdk] !== undefined && qtyEdits[sdk] !== '') ? '2px solid #00897b' : '1px solid #CBD5E0',
+                                    border: (editKey && qtyEdits[editKey] !== undefined && qtyEdits[editKey] !== '') ? '2px solid #00897b' : '1px solid #CBD5E0',
                                     borderRadius: 3,
                                     fontFamily: 'var(--mono)',
-                                    background: (sdk != null && qtyEdits[sdk] !== undefined && qtyEdits[sdk] !== '') ? '#E0F2F1' : '#fff',
+                                    background: (editKey && qtyEdits[editKey] !== undefined && qtyEdits[editKey] !== '') ? '#E0F2F1' : '#fff',
                                   }}
-                                  disabled={qtyApplying}
+                                  disabled={qtyApplying || !editKey}
                                   title="수량 변경: ADD(증가) / CANCEL(감소)"
                                 />
                               )}
                             </td>
                             <td className="num">{fmt(item.Cost)}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#FFFDF5'}}>
-                              {isDed ? (
+                              {!editKey ? (
                                 <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
                               ) : (
                                 <input
@@ -2374,8 +2425,8 @@ export default function Estimate() {
                                     const v = e.target.value;
                                     setCostEdits(prev => {
                                       const next = { ...prev };
-                                      if (v === '') delete next[sdk];
-                                      else next[sdk] = v;
+                                      if (v === '') delete next[editKey];
+                                      else next[editKey] = v;
                                       return next;
                                     });
                                   }}
@@ -2390,7 +2441,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: isEdited ? '#EBF8FF' : '#fff',
                                   }}
-                                  disabled={costApplying}
+                                  disabled={costApplying || !editKey}
                                 />
                               )}
                             </td>
