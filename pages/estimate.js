@@ -1053,24 +1053,37 @@ export default function Estimate() {
       results: [],
     });
     try {
-      // 부모차수(예: "18") 의 모든 세부차수(18-01, 18-02, …) 수집 — 현재 화면에 로드된 shipments 의 SubWeeks 사용
-      // shipments 가 비어있으면 클라이언트에서 weekNum-01..03 시도
-      const subWeeks = new Set();
-      shipments.forEach(s => {
-        (s.SubWeeks || '').split(',').filter(Boolean).forEach(sw => subWeeks.add(sw));
+      const parentPrefix = `${String(weekNum).padStart(2, '0')}-`;
+      const range = getSelectedFixRange();
+      if (!range) throw new Error('확정 대상 차수 범위를 확인할 수 없습니다.');
+      const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, {
+        credentials: 'same-origin',
       });
-      if (subWeeks.size === 0) {
-        // fallback — weekNum-01, weekNum-02, weekNum-03 모두 시도
-        ['01','02','03'].forEach(s => subWeeks.add(`${weekNum}-${s}`));
+      const statusData = await statusRes.json();
+      if (!statusData.success) throw new Error(statusData.error || '확정현황 조회 실패');
+
+      const weekList = (statusData.weeks || [])
+        .filter(w => String(w.OrderWeek || '').startsWith(parentPrefix))
+        .filter(w => Number(w.detailCount || 0) > 0)
+        .filter(w => w.status === 'UNFIXED' || w.status === 'PARTIAL')
+        .map(w => w.OrderWeek)
+        .filter(Boolean)
+        .sort();
+
+      if (weekList.length === 0) {
+        alert(`${weekNum}차에서 확정할 미확정 출고가 없습니다. 이미 확정되었거나 출고분배 데이터가 없습니다.`);
+        setFixWorking(false);
+        setFixProgress(null);
+        return;
       }
-      const weekList = [...subWeeks].sort();
+
       setFixProgress(prev => ({
         ...(prev || {}),
         phase: 'validating',
         title: `${weekNum}차 사전검증`,
         total: weekList.length,
         done: 0,
-        message: `${weekList.length}개 세부차수를 확인합니다.`,
+        message: `${weekList.join(', ')} 세부차수를 확인합니다.`,
         results: [],
       }));
 
