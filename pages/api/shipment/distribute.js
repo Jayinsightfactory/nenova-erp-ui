@@ -419,11 +419,12 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT OutUnit, BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
+      `SELECT BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
     // BunchOf1Box/SteamOf1Box null 시 0 사용 (기본값 1은 잘못된 환산 유발)
-    const productOutUnit = normalizeUnit(prodInfo.recordset[0]?.OutUnit);
+    // Keep nenova.exe-compatible stable writes: input qty is box-based for ShipmentDetail.
+    const productOutUnit = 'box';
     const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box ?? 0;
     const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
     const productCost = Number(prodInfo.recordset[0]?.ProductCost || 0) || 0;

@@ -112,6 +112,9 @@ export default withAuth(async function handler(req, res) {
       if (next.outQuantity > 0 && !row.ShipmentDtm) {
         throw new Error('출고일이 지정되지 않은 출고입니다. 출고분배 화면에서 출고일을 먼저 지정한 뒤 수량을 수정하세요.');
       }
+      if (next.outQuantity > 0 && dateCount === 0) {
+        throw new Error('ShipmentDate가 없는 출고입니다. 출고분배 화면에서 출고일을 먼저 동기화한 뒤 수량을 수정하세요.');
+      }
       if (next.outQuantity > 0 && dateCount > 1) {
         throw new Error('출고일별 분배가 여러 건인 출고입니다. 견적서관리에서 수량을 단일 출고일로 덮어쓰지 않도록 출고분배 화면에서 수정하세요.');
       }
