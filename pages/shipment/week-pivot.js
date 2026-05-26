@@ -286,6 +286,11 @@ function cleanDisplayName(name, fallback = '') {
   return v && v !== fallback ? v : '';
 }
 
+function pivotProdName(product) {
+  if (!product) return '';
+  return cleanDisplayName(product.displayName, product.name) || stripProdName(product.name);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
@@ -700,7 +705,7 @@ export default function WeekPivot() {
         if (rs > 0) {
           const flower = p.flower || '기타';
           if (!groups[flower]) groups[flower] = [];
-          groups[flower].push(`${stripProdName(p.name)} ${rs}`);
+          groups[flower].push(`${pivotProdName(p)} ${rs}`);
         }
       });
       return Object.entries(groups).flatMap(([flower, lines], idx) => [
@@ -749,7 +754,7 @@ export default function WeekPivot() {
                 const p = prodMap[pk];
                 const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
                 const descr = descrMap[`${pk}-${ck}-${wk}`] || '';
-                xlData.push(['', p.coun, p.flower, stripProdName(p.name), v, descr.replace(/\n/g, ' ')]);
+                xlData.push(['', p.coun, p.flower, pivotProdName(p), v, descr.replace(/\n/g, ' ')]);
                 flowerTotal += v;
               });
               xlData.push(['', '', '', `${flower} 소계`, flowerTotal, '']);
@@ -786,7 +791,7 @@ export default function WeekPivot() {
           const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
           const remain = wStart + inQ - wOut;
           if (wOut > 0 || inQ > 0 || wStart > 0) {
-            xlData.push(['', p.coun, p.flower, stripProdName(p.name), wStart || '', inQ || '', wOut || '', remain]);
+            xlData.push(['', p.coun, p.flower, pivotProdName(p), wStart || '', inQ || '', wOut || '', remain]);
           }
         });
         const ws = XLSX.utils.aoa_to_sheet(xlData);
@@ -823,7 +828,7 @@ export default function WeekPivot() {
               let flowerTotal = 0;
               pks.forEach(pk => {
                 const p = prodMap[pk];
-                const row = ['', p.coun, p.flower, stripProdName(p.name)];
+                const row = ['', p.coun, p.flower, pivotProdName(p)];
                 let rowTotal = 0;
                 weeks.forEach(wk => {
                   const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
@@ -900,7 +905,7 @@ export default function WeekPivot() {
 
         prodKeys.forEach(pk => {
           const p = prodMap[pk];
-          const row = [p.coun, p.flower, stripProdName(p.name)];
+          const row = [p.coun, p.flower, pivotProdName(p)];
           const first = startStocks[`${pk}-${weeks[0]}`];
           let rs = first?.stock != null ? first.stock : (prevStockMap[pk] || 0);
           weeks.forEach(wk => {
@@ -973,7 +978,7 @@ export default function WeekPivot() {
           const flowerStartRow = rowIdx + 1;
           pks.forEach(pk => {
             const p = prodMap[pk];
-            const row = [p.coun, p.flower, stripProdName(p.name)];
+            const row = [p.coun, p.flower, pivotProdName(p)];
             weeks.forEach(wk => {
               const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
               row.push(v > 0 ? v : '');
@@ -1210,7 +1215,7 @@ export default function WeekPivot() {
               const p=prodMap[pk];
               const prodBaseName=stripProdName(p.name);
               const prodDisplayName=cleanDisplayName(p.displayName, p.name);
-              const prodShortName=prodDisplayName || prodBaseName;
+              const prodShortName=pivotProdName(p);
               const _initSS=startStocks[`${pk}-${weeks[0]}`];
               let rollingStock=_initSS?.stock!=null?_initSS.stock:(prevStockMap[pk]||0);
               const needRepeat=pi>0&&pi%PROD_REPEAT===0;
@@ -1343,7 +1348,7 @@ export default function WeekPivot() {
                                       <span style={{flex:1,fontSize:7,color:'#555',lineHeight:'1.3',wordBreak:'break-all'}}>{line}</span>
                                       <span title="수정내역 삭제"
                                         style={{cursor:'pointer',color:'#e53935',fontSize:9,flexShrink:0,lineHeight:'1.3',padding:'0 1px'}}
-                                        onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:stripProdName(p.name),line,allLines:lines});}}>✕</span>
+                                        onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:pivotProdName(p),line,allLines:lines});}}>✕</span>
                                     </div>
                                   )))
                                 ):(
