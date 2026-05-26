@@ -6,6 +6,28 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isDeadlockError(err) {
+  return Number(err?.number || err?.originalError?.number || err?.precedingErrors?.[0]?.number || 0) === 1205 ||
+    /deadlocked on lock resources|deadlock victim/i.test(String(err?.message || ''));
+}
+
+async function queryWithDeadlockRetry(q, params = {}, options = {}) {
+  const retries = Number(options.retries ?? 3);
+  const baseDelay = Number(options.baseDelay ?? 250);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await query(q, params);
+    } catch (err) {
+      if (!isDeadlockError(err) || attempt >= retries) throw err;
+      await sleep(baseDelay * Math.pow(2, attempt));
+    }
+  }
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') return await validate(req, res);
   if (req.method !== 'POST') return res.status(405).end();
@@ -286,7 +308,10 @@ async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, 
   if (shape.hasCountryFlower) {
     params.cf = { type: sql.NVarChar, value: countryFlower || '' };
   }
-  return await query(shipmentProcedureSql(procedureName, shape), params);
+  return await queryWithDeadlockRetry(shipmentProcedureSql(procedureName, shape), params, {
+    retries: 4,
+    baseDelay: 300,
+  });
 }
 
 async function loadShipmentProdKeys(orderWeek, countryFlower) {
@@ -298,7 +323,8 @@ async function loadShipmentProdKeys(orderWeek, countryFlower) {
       WHERE sm.OrderWeek = @wk
         AND sm.isDeleted = 0
         AND ISNULL(sd.OutQuantity, 0) > 0
-        AND (@cf IS NULL OR p.CountryFlower = @cf)`,
+        AND (@cf IS NULL OR p.CountryFlower = @cf)
+      ORDER BY sd.ProdKey`,
     {
       wk: { type: sql.NVarChar, value: orderWeek },
       cf: { type: sql.NVarChar, value: countryFlower || null },
@@ -308,12 +334,13 @@ async function loadShipmentProdKeys(orderWeek, countryFlower) {
 }
 
 async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys) {
-  const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
+  const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))]
+    .sort((a, b) => a - b);
   const results = [];
   const errors = [];
   for (const prodKey of uniqueKeys) {
     try {
-      const r = await query(
+      const r = await queryWithDeadlockRetry(
         `DECLARE @r INT, @m NVARCHAR(200);
          EXEC dbo.usp_StockCalculation
               @OrderYear = @yr,
@@ -328,7 +355,8 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
           wk:  { type: sql.NVarChar, value: orderWeek },
           pk:  { type: sql.Int, value: prodKey },
           uid: { type: sql.NVarChar, value: uid },
-        }
+        },
+        { retries: 4, baseDelay: 300 }
       );
       const row = r.recordset?.[0] || {};
       if (Number(row.result || 0) === 0) {
@@ -372,7 +400,8 @@ async function fix(req, res, week, prodKeyFilter) {
        JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
       WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
         AND ISNULL(sd.isFix, 0) = 0
-        AND sd.OutQuantity > 0`,
+        AND sd.OutQuantity > 0
+      ORDER BY p.CountryFlower`,
     { wk: { type: sql.NVarChar, value: orderWeek } }
   );
 
@@ -485,7 +514,8 @@ async function unfix(req, res, week, prodKeyFilter) {
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
         WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
-          AND ISNULL(sd.isFix, 0) = 1`,
+          AND ISNULL(sd.isFix, 0) = 1
+        ORDER BY p.CountryFlower`,
       { wk: { type: sql.NVarChar, value: orderWeek } }
     );
 
