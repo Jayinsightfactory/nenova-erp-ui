@@ -172,6 +172,8 @@ async function getEstimates(req, res) {
       `SELECT
         LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1) AS ParentWeek,
         sm.CustKey, c.CustName,
+        ISNULL(c.Manager, '') AS Manager,
+        ISNULL(c.CustArea, '') AS CustArea,
         STUFF((
           SELECT ',' + CAST(sm2.ShipmentKey AS NVARCHAR(20))
           FROM ShipmentMaster sm2
@@ -220,7 +222,7 @@ async function getEstimates(req, res) {
          WHERE e2.ShipmentKey = sm.ShipmentKey
        ) ea
        ${where}
-       GROUP BY LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1), sm.CustKey, c.CustName
+       GROUP BY LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1), sm.CustKey, c.CustName, c.Manager, c.CustArea
        ORDER BY ParentWeek DESC, c.CustName`, params
     );
 

@@ -402,7 +402,7 @@ function extractEstimateStyle(html) {
 function buildEstimatePrintBundle(htmlPages) {
   const pages = (htmlPages || []).filter(Boolean);
   if (pages.length === 0) return '';
-  const style = extractEstimateStyle(pages[0]);
+  const style = [...new Set(pages.map(extractEstimateStyle).filter(Boolean))].join('\n');
   const sections = pages
     .map(html => `<section class="print-page">${extractEstimateBody(html)}</section>`)
     .join('\n');
@@ -422,6 +422,72 @@ body { padding:0 !important; }
 </style>
 </head><body>
 ${sections}
+</body></html>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getShipmentManager(ship) {
+  const manager = String(ship?.Manager || '').trim();
+  return manager || '담당자 미지정';
+}
+
+function compareShipmentsByManager(a, b) {
+  const managerDiff = getShipmentManager(a).localeCompare(getShipmentManager(b), 'ko');
+  if (managerDiff !== 0) return managerDiff;
+  const weekDiff = String(b?.ParentWeek || '').localeCompare(String(a?.ParentWeek || ''), 'ko', { numeric: true });
+  if (weekDiff !== 0) return weekDiff;
+  return String(a?.CustName || '').localeCompare(String(b?.CustName || ''), 'ko');
+}
+
+function buildManagerSeparatorHtml({ managerName, ships, week, printDate }) {
+  const safeManager = escapeHtml(managerName);
+  const safeWeek = escapeHtml(week || '');
+  const safeDate = escapeHtml(printDate || '');
+  const totalAmount = (ships || []).reduce((sum, s) => sum + (Number(s?.totalAmount) || 0), 0);
+  const rows = (ships || []).map((s, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>${escapeHtml(s?.CustName || '')}</td>
+      <td>${escapeHtml(s?.CustArea || '')}</td>
+      <td>${escapeHtml(s?.ParentWeek || '')}</td>
+      <td style="text-align:right">${(Number(s?.totalAmount) || 0).toLocaleString()}</td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>담당자별 견적서 - ${safeManager}</title>
+<style>
+body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:10pt; padding:14mm 16mm; color:#111; }
+.manager-cover { min-height:245mm; display:flex; flex-direction:column; justify-content:center; }
+.cover-label { font-size:12pt; font-weight:700; color:#555; margin-bottom:10px; }
+.manager-cover .cover-title { font-size:28pt; margin:0 0 10px; letter-spacing:0; text-decoration:none; text-align:left; font-weight:800; }
+.cover-meta { font-size:11pt; color:#444; margin-bottom:22px; }
+.manager-cover table { width:100%; border-collapse:collapse; }
+.manager-cover th, .manager-cover td { border:1px solid #999; padding:6px 8px; font-size:9pt; }
+.manager-cover th { background:#efefef; text-align:center; }
+.summary { margin-top:14px; font-size:11pt; font-weight:700; text-align:right; }
+@media print { body { padding:9mm 10mm; } @page { size:A4; margin:8mm; } }
+</style>
+</head><body>
+<div class="manager-cover">
+  <div class="cover-label">담당자별 견적서 묶음</div>
+  <div class="cover-title">${safeManager}</div>
+  <div class="cover-meta">${safeWeek ? `${safeWeek}차 · ` : ''}${(ships || []).length}개 거래처 · 출력일 ${safeDate}</div>
+  <table>
+    <thead><tr><th style="width:42px">No</th><th>거래처</th><th style="width:90px">지역</th><th style="width:70px">차수</th><th style="width:110px">합계</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">담당자 합계 ${totalAmount.toLocaleString()}원</div>
+</div>
 </body></html>`;
 }
 const ESTIMATE_TYPES = [
@@ -762,6 +828,8 @@ export default function Estimate() {
     serialNo:  '',
     showBoxQty: true,
     showDistribDesc: true,
+    groupByManager: true,
+    showManagerSeparator: true,
   });
 
   // 불량/검역 폼
@@ -1320,9 +1388,25 @@ export default function Estimate() {
       // selectedGroups 의 각 그룹에 대해 items 가져와서 인쇄
       const groupArr = Array.from(selectedGroups);
       const printPages = [];
-      for (const groupId of groupArr) {
-        const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId);
-        if (!ship) continue;
+      const selectedShips = groupArr
+        .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
+        .filter(Boolean);
+      const printShips = opts.groupByManager === false
+        ? selectedShips
+        : [...selectedShips].sort(compareShipmentsByManager);
+      let currentManager = null;
+      for (const ship of printShips) {
+        const managerName = getShipmentManager(ship);
+        if (opts.groupByManager !== false && opts.showManagerSeparator !== false && managerName !== currentManager) {
+          const managerShips = printShips.filter(s => getShipmentManager(s) === managerName);
+          printPages.push(buildManagerSeparatorHtml({
+            managerName,
+            ships: managerShips,
+            week,
+            printDate: opts.printDate,
+          }));
+          currentManager = managerName;
+        }
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         try {
           const fetchPromises = keys.map(k =>
@@ -1370,6 +1454,16 @@ export default function Estimate() {
   const estimateTypeOptions = estimateTypes.length > 0
     ? estimateTypes.map(t => ({ value: t.DetailCode, label: t.Label || t.Descr || t.Descr2 || t.DetailCode }))
     : ESTIMATE_TYPES.map(t => ({ value: t, label: t }));
+
+  const selectedPrintShips = Array.from(selectedGroups)
+    .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
+    .filter(Boolean);
+  const selectedPrintManagerGroups = selectedPrintShips.reduce((acc, ship) => {
+    const manager = getShipmentManager(ship);
+    if (!acc[manager]) acc[manager] = [];
+    acc[manager].push(ship);
+    return acc;
+  }, {});
 
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
     Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
@@ -1589,7 +1683,7 @@ export default function Estimate() {
                           }}
                           title="전체 선택/해제"/>
                       </th>
-                      <th>차수</th><th>거래처</th>
+                      <th>차수</th><th>거래처</th><th>담당자</th>
                       <th style={{textAlign:'right'}}>총 합계금액</th>
                     </tr>
                   </thead>
@@ -1603,7 +1697,7 @@ export default function Estimate() {
                         displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
                       }
                       if (displayShips.length === 0) {
-                        return <tr><td colSpan={4} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>;
+                        return <tr><td colSpan={5} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>;
                       }
                       return displayShips.map(s => {
                         const groupId = `${s.ParentWeek}_${s.CustKey}`;
@@ -1671,6 +1765,7 @@ export default function Estimate() {
                               </div>
                             </td>
                             <td style={{fontWeight:500}}>{s.CustName}</td>
+                            <td style={{fontSize:11, color:'var(--text2)'}}>{getShipmentManager(s)}</td>
                             <td className="num">{fmt(s.totalAmount)}</td>
                           </tr>
                         );
@@ -2073,15 +2168,50 @@ export default function Estimate() {
                     />
                     적요에 차수별 수량 표시
                   </label>
+                  {selectedGroups.size > 0 && (
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input type="checkbox"
+                          checked={printOpts.groupByManager !== false}
+                          onChange={e => setPrintOpts(o => ({ ...o, groupByManager: e.target.checked }))}
+                        />
+                        담당자별 자동 정렬
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input type="checkbox"
+                          checked={printOpts.showManagerSeparator !== false}
+                          disabled={printOpts.groupByManager === false}
+                          onChange={e => setPrintOpts(o => ({ ...o, showManagerSeparator: e.target.checked }))}
+                        />
+                        담당자 구분지 포함
+                      </label>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* 미리보기 요약 */}
               <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', fontSize: 11, color: 'var(--text2)' }}>
-                <div>거래처: <b>{selectedShip?.CustName || '—'}</b></div>
-                <div>차수: <b>{weekNum || '—'}</b></div>
-                <div>품목수: <b>{filteredItems.length}건</b></div>
-                <div>합계: <b>₩{(totalSupply + totalVat).toLocaleString()}</b> (공급가액 ₩{totalSupply.toLocaleString()} + 세액 ₩{totalVat.toLocaleString()})</div>
+                {selectedGroups.size > 0 ? (
+                  <>
+                    <div>선택 거래처: <b>{selectedGroups.size}건</b></div>
+                    <div>담당자 그룹: <b>{Object.keys(selectedPrintManagerGroups).length}명</b></div>
+                    {Object.entries(selectedPrintManagerGroups)
+                      .sort(([a], [b]) => a.localeCompare(b, 'ko'))
+                      .map(([manager, ships]) => (
+                        <div key={manager}>
+                          {manager}: <b>{ships.length}건</b>
+                        </div>
+                      ))}
+                  </>
+                ) : (
+                  <>
+                    <div>거래처: <b>{selectedShip?.CustName || '-'}</b></div>
+                    <div>차수: <b>{weekNum || '-'}</b></div>
+                    <div>항목수: <b>{filteredItems.length}건</b></div>
+                    <div>합계: <b>₩{(totalSupply + totalVat).toLocaleString()}</b> (공급가 ₩{totalSupply.toLocaleString()} + 세액 ₩{totalVat.toLocaleString()})</div>
+                  </>
+                )}
               </div>
             </div>
             <div className="modal-footer">
