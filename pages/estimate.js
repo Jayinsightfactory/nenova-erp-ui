@@ -260,9 +260,10 @@ function buildEstimateHtml({
   // ── 같은 ProdKey 끼리 항상 합산 + 차수별 breakdown 적요에 표시 (1차/2차 모두 보이게)
   // aggregate 옵션 제거 — 항상 활성화 (옛 명세 사장님 요구사항)
   {
-    const groups = {};   // key = `${EstimateType}|${ProdKey}`
+    const groups = {};   // key = `${EstimateType}|${ProdKey}|${Unit}|${Cost}`
     rows.forEach(r => {
-      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}`;
+      const costKey = Number(r.Cost || 0).toFixed(4);
+      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}|${r.Unit || ''}|${costKey}`;
       if (!groups[key]) groups[key] = { ...r, Quantity: 0, BoxQty: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
       const g = groups[key];
       g.Quantity += (Number(r.Quantity) || 0);
