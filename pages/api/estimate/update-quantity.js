@@ -100,6 +100,21 @@ export default withAuth(async function handler(req, res) {
       }
 
       const next = toAllUnits(quantity, unit, row);
+      const dateSummary = await tQ(
+        `SELECT COUNT(*) AS dateCount,
+                ISNULL(SUM(ShipmentQuantity),0) AS dateQty
+           FROM ShipmentDate WITH (UPDLOCK, HOLDLOCK)
+          WHERE SdetailKey=@sdk`,
+        { sdk: { type: sql.Int, value: sdetailKey } }
+      );
+      const dateRow = dateSummary.recordset[0] || {};
+      const dateCount = Number(dateRow.dateCount || 0);
+      if (next.outQuantity > 0 && !row.ShipmentDtm) {
+        throw new Error('출고일이 지정되지 않은 출고입니다. 출고분배 화면에서 출고일을 먼저 지정한 뒤 수량을 수정하세요.');
+      }
+      if (next.outQuantity > 0 && dateCount > 1) {
+        throw new Error('출고일별 분배가 여러 건인 출고입니다. 견적서관리에서 수량을 단일 출고일로 덮어쓰지 않도록 출고분배 화면에서 수정하세요.');
+      }
       const amountBase = next.bunch > 0 ? next.bunch : next.steam > 0 ? next.steam : next.box;
       const amount = Math.round(amountBase * Number(row.Cost || 0) / 1.1);
       const vat = Math.round(amountBase * Number(row.Cost || 0) / 11);
