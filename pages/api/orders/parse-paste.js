@@ -358,6 +358,15 @@ function applyFlowerContext(name, flowerContext) {
   return productName.includes(flowerContext) ? productName : `${flowerContext} ${productName}`;
 }
 
+function isNaturalCustomerLine(line) {
+  const s = String(line || '').trim();
+  if (!s) return false;
+  if (/추가|취소|[()<>]/.test(s)) return false;
+  if (/^\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?\s*$/.test(s)) return false;
+  if (/\d+\s*(박스|단|송이|개|ea|box|bunch|stem|stems)/i.test(s)) return false;
+  return true;
+}
+
 function parseNaturalSectionOrders(text) {
   const orderMap = new Map();
   let detectedWeek = null;
@@ -434,7 +443,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    if (!/[0-9]|추가|취소|[()<>]/.test(line)) {
+    if (isNaturalCustomerLine(line)) {
       currentCust = line;
     }
   });
