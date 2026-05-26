@@ -187,3 +187,10 @@ read-only 진단 보강:
 
 - 기존 21-01 국내왁스 일괄출고분배 실패는 `ShipmentDetailKey` 채번값이 실제 `ShipmentDetail.SdetailKey` 최대값보다 낮아서 `usp_DistributeOne`이 이미 존재하는 PK로 INSERT를 시도한 것이 원인으로 기록되어 있다.
 - 이번 보강으로 같은 유형의 실패는 운영 데이터 수정 없이 진단 API에서 먼저 확인할 수 있다.
+
+배포/검증:
+
+- `next build` 성공.
+- 운영 `git-log`에서 `d0d6ddb fix: clarify shipment distribute controls` 반영 확인.
+- 운영 `/api/shipment/distribute-diagnose?week=2026-21-01` 직접 호출은 인증 필요 응답으로 막혔다. 운영 데이터 변경은 없었다.
+- 실제 진단 JSON 확인은 로그인 세션 또는 API 토큰이 있는 상태에서 조회 전용으로 다시 수행한다.
