@@ -7,13 +7,12 @@
 //
 // 흐름 (단일 트랜잭션):
 //   1) items 를 ShipmentKey 별로 grouping
-//   2) 각 ShipmentKey 에 대해 isFix 상태 조회 + 확정본이면 isFix=0 (UPDLOCK)
+//   2) 각 ShipmentKey 에 대해 확정 상태 조회 + 잠금 (UPDLOCK)
 //   3) 각 item (sdetailKey+shipmentKey 쌍) 에 대해:
 //      a. 현재 DB Cost/BunchQty 조회 (UPDLOCK)
 //      b. expectedOldCost 와 비교 (STALE_DATA 감지 → throw)
 //      c. Cost/Amount/Vat UPDATE
 //   4) mode 별 부가 저장 (fixed → CustomerProdCost, weekFav → WeekProdCost)
-//   5) 1단계에서 확정본이었던 모든 ShipmentKey 에 대해 isFix=1 재확정
 //   중간 실패 시 전체 롤백 → DB 에 아무 흔적 없음
 //
 // Request body (신규 형식 — shipmentKey 가 items 안으로 이동):
@@ -134,16 +133,8 @@ export default withAuth(async function handler(req, res) {
         };
       }
 
-      // ── 2단계: 확정본이었던 모든 ShipmentMaster 를 한번에 해제
-      const fixedSks = uniqueSks.filter(sk => smMap[sk].wasFixed);
-      for (const sk of fixedSks) {
-        await tQ(
-          `UPDATE ShipmentMaster SET isFix=0 WHERE ShipmentKey=@sk`,
-          { sk: { type: sql.Int, value: sk } }
-        );
-      }
-
-      // ── 3단계: 모든 ShipmentDetail 에 대해 낙관적 동시성 검증 + Cost/Amount/Vat UPDATE
+      // ── 2단계: 모든 ShipmentDetail 에 대해 낙관적 동시성 검증 + Cost/Amount/Vat UPDATE
+      // 단가만 바꾸는 작업은 재고/출고수량을 건드리지 않으므로 isFix 를 내렸다 올리지 않는다.
       const changes = [];
       for (const it of items) {
         // 기존 값 조회 (UPDLOCK) — Box/Bunch/Steam 모두 가져와서 Amount 계산 안전화
@@ -222,7 +213,7 @@ export default withAuth(async function handler(req, res) {
         });
       }
 
-      // ── 4단계: 모드별 부가 저장 (CustomerProdCost / WeekProdCost)
+      // ── 3단계: 모드별 부가 저장 (CustomerProdCost / WeekProdCost)
       // 같은 품목이 여러 차수에 있으면 같은 prodKey 가 중복될 수 있음 → Set 으로 dedup
       if (mode === 'fixed') {
         const seen = new Set();
@@ -269,14 +260,6 @@ export default withAuth(async function handler(req, res) {
         }
       }
 
-      // ── 5단계: 원래 확정본이었던 ShipmentMaster 는 재확정
-      for (const sk of fixedSks) {
-        await tQ(
-          `UPDATE ShipmentMaster SET isFix=1 WHERE ShipmentKey=@sk`,
-          { sk: { type: sql.Int, value: sk } }
-        );
-      }
-
       // 집계
       const totalOldAmount = changes.reduce((a, c) => a + (c.oldAmount || 0), 0);
       const totalNewAmount = changes.reduce((a, c) => a + (c.newAmount || 0), 0);
@@ -285,7 +268,7 @@ export default withAuth(async function handler(req, res) {
 
       return {
         shipmentKeys: uniqueSks,
-        fixedShipmentKeys: fixedSks,
+        fixedShipmentKeys: uniqueSks.filter(sk => smMap[sk].wasFixed),
         changedCount: changes.length,
         changes,
         totalOldAmount,

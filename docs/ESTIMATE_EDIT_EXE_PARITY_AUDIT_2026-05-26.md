@@ -41,9 +41,17 @@
 - `ShipmentDate`가 2건 이상인 출고는 견적서관리 수량 수정에서 차단한다.
 - 이런 케이스는 출고분배 화면에서 출고일을 보면서 수정해야 한다.
 
-### 2. 견적서 단가 수정은 확정 상태를 임시 해제 후 직접 갱신한다
+### 2. 견적서 단가 수정은 확정 상태를 유지한 채 직접 갱신한다
 
-`/api/estimate/update-cost`는 관련 `ShipmentMaster`가 확정이면 트랜잭션 안에서 `isFix=0`으로 바꾼 뒤 `ShipmentDetail.Cost`, `Amount`, `Vat`를 직접 수정하고 다시 `isFix=1`로 돌린다.
+초기 구현은 관련 `ShipmentMaster`가 확정이면 트랜잭션 안에서 `isFix=0`으로 바꾼 뒤 `ShipmentDetail.Cost`, `Amount`, `Vat`를 직접 수정하고 다시 `isFix=1`로 돌렸다.
+
+추가 검증 결과, 단가 수정은 수량과 재고를 바꾸지 않기 때문에 `isFix`를 내렸다 올릴 필요가 없다. 오히려 아주 짧은 순간이라도 확정 상태가 흔들리면 조회/전산 확정 작업과 충돌할 여지가 있다.
+
+조치:
+
+- `/api/estimate/update-cost`는 `ShipmentMaster`를 `UPDLOCK/HOLDLOCK`으로 확인하되 `isFix` 값은 변경하지 않는다.
+- 확정 상태를 유지한 채 `ShipmentDetail.Cost`, `Amount`, `Vat`만 단일 트랜잭션으로 수정한다.
+- 수량/재고/출고일분배는 변경하지 않는다.
 
 수량과 재고를 바꾸지는 않기 때문에 `usp_ShipmentFix`를 다시 호출하지 않아도 재고 차감에는 직접 영향이 없다. 다만 `nenova.exe`가 단가 수정 이력을 별도 테이블이나 SP로 남긴다면 웹과 완전히 같다고 볼 수 없다.
 

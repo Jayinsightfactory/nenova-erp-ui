@@ -1195,7 +1195,7 @@ export default function Estimate() {
 
       setCostApplyLog(prev => [...prev, {
         step: 'processing',
-        label: `${allItems.length}건 처리 중 (${skSummary}) — 확정 해제 → 단가 수정 → 재확정 (단일 트랜잭션)...`,
+        label: `${allItems.length}건 처리 중 (${skSummary}) — 확정 상태 유지 → 단가/금액 수정 (단일 트랜잭션)...`,
       }]);
 
       // ── 2) 단일 POST — 모든 ShipmentKey + SdetailKey 를 한 트랜잭션으로
