@@ -1195,7 +1195,7 @@ export default function Estimate() {
 
       setCostApplyLog(prev => [...prev, {
         step: 'processing',
-        label: `${allItems.length}건 처리 중 (${skSummary}) — 확정 상태 유지 → 단가/금액 수정 (단일 트랜잭션)...`,
+        label: `${allItems.length}건 처리 중 (${skSummary}) — 미확정 차수 단가/금액 수정 (단일 트랜잭션)...`,
       }]);
 
       // ── 2) 단일 POST — 모든 ShipmentKey + SdetailKey 를 한 트랜잭션으로
@@ -1213,6 +1213,15 @@ export default function Estimate() {
       const d = await r.json();
 
       if (!d.success) {
+        if (d.code === 'FIXED_WEEK') {
+          const fixedErr = new Error(
+            `확정된 차수는 단가를 바로 수정할 수 없습니다.\n\n` +
+            `대상 차수: ${(d.fixedWeeks || []).join(', ') || '확정 차수'}\n\n` +
+            `확정현황에서 필요한 구간을 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정해주세요.`
+          );
+          fixedErr.isFixedWeek = true;
+          throw fixedErr;
+        }
         if (d.code === 'STALE_DATA') {
           const staleErr = new Error(
             `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
@@ -1851,7 +1860,7 @@ export default function Estimate() {
                     disabled={costApplying}
                     onClick={applyCostEdits}
                   >
-                    🔓 확정풀고 단가 적용하기 ({editedCount})
+                    단가 적용하기 ({editedCount})
                   </button>
                   <button
                     className="btn btn-sm"

@@ -7,7 +7,7 @@
 //
 // 흐름 (단일 트랜잭션):
 //   1) items 를 ShipmentKey 별로 grouping
-//   2) 각 ShipmentKey 에 대해 확정 상태 조회 + 잠금 (UPDLOCK)
+//   2) 각 ShipmentKey 에 대해 확정 상태 조회 + 잠금 (UPDLOCK), 확정본이면 차단
 //   3) 각 item (sdetailKey+shipmentKey 쌍) 에 대해:
 //      a. 현재 DB Cost/BunchQty 조회 (UPDLOCK)
 //      b. expectedOldCost 와 비교 (STALE_DATA 감지 → throw)
@@ -132,9 +132,22 @@ export default withAuth(async function handler(req, res) {
           orderWeek: row.OrderWeek,
         };
       }
+      const fixedWeeks = uniqueSks
+        .filter(sk => smMap[sk].wasFixed)
+        .map(sk => smMap[sk].orderWeek)
+        .filter(Boolean);
+      if (fixedWeeks.length > 0) {
+        const err = new Error(
+          `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
+          `${[...new Set(fixedWeeks)].join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`
+        );
+        err.code = 'FIXED_WEEK';
+        err.fixedWeeks = [...new Set(fixedWeeks)];
+        throw err;
+      }
 
       // ── 2단계: 모든 ShipmentDetail 에 대해 낙관적 동시성 검증 + Cost/Amount/Vat UPDATE
-      // 단가만 바꾸는 작업은 재고/출고수량을 건드리지 않으므로 isFix 를 내렸다 올리지 않는다.
+      // 확정 해제/재확정은 전산 흐름처럼 사용자가 구간 단위로 먼저 수행해야 한다.
       const changes = [];
       for (const it of items) {
         // 기존 값 조회 (UPDLOCK) — Box/Bunch/Steam 모두 가져와서 Amount 계산 안전화
@@ -297,6 +310,14 @@ export default withAuth(async function handler(req, res) {
         shipmentKey: err.shipmentKey,
         expected: err.expected,
         actual: err.actual,
+      });
+    }
+    if (err.code === 'FIXED_WEEK') {
+      return res.status(409).json({
+        success: false,
+        code: 'FIXED_WEEK',
+        error: err.message,
+        fixedWeeks: err.fixedWeeks || [],
       });
     }
     return res.status(500).json({ success: false, error: err.message });
