@@ -804,6 +804,7 @@ export default function Estimate() {
   const [qtyResult, setQtyResult] = useState(null);
   const [costMode, setCostMode] = useState('once'); // 'once' | 'fixed' | 'weekFav'
   const [costApplying, setCostApplying] = useState(false);
+  const [editApplyTitle, setEditApplyTitle] = useState('단가 적용');
   const [costApplyLog, setCostApplyLog] = useState([]); // 진행 단계 로그
   const [costResult, setCostResult] = useState(null);   // 완료 후 결과
 
@@ -941,6 +942,90 @@ export default function Estimate() {
   const selectedShipmentKeys = selectedShip
     ? (selectedShip.ShipmentKeys || '').split(',').map(Number).filter(Boolean)
     : [];
+
+  const sortWeeksAsc = (weeks) => [...new Set((weeks || []).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b)));
+  const sortWeeksDesc = (weeks) => sortWeeksAsc(weeks).reverse();
+
+  const getFixedWeeksFromShip = (ship) => {
+    if (!ship) return [];
+    const entries = String(ship.SubWeeksFix || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (entries.length > 0) {
+      return entries
+        .map(entry => {
+          const [week, fix] = entry.split(':');
+          return Number(fix || 0) === 1 ? week : '';
+        })
+        .filter(Boolean);
+    }
+    return String(ship.SubWeeks || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  };
+
+  const getFixCycleWeeksForEditedItems = (editedItems, ship) => {
+    const editedWeeks = sortWeeksAsc((editedItems || []).map(it => it.OrderWeek).filter(Boolean));
+    if (editedWeeks.length === 0) return [];
+    const firstEditedWeek = editedWeeks[0];
+    return getFixedWeeksFromShip(ship)
+      .filter(wk => String(wk).localeCompare(String(firstEditedWeek)) >= 0);
+  };
+
+  const runShipmentFixAction = async (week, action) => {
+    const r = await fetch('/api/shipment/fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ week, action, force: true }),
+    });
+    const d = await r.json();
+    if (!d.success) {
+      throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
+    }
+    return d;
+  };
+
+  const runEditWithFixCycle = async ({ weeks, progress, apply }) => {
+    const targetWeeks = sortWeeksAsc(weeks);
+    const unfixedWeeks = [];
+    let applyResult = null;
+    let applyError = null;
+    try {
+      for (const wk of sortWeeksDesc(targetWeeks)) {
+        progress?.(`${wk} 확정해제 중`);
+        await runShipmentFixAction(wk, 'unfix');
+        unfixedWeeks.push(wk);
+      }
+    } catch (err) {
+      progress?.(`확정해제 오류 — ${err.message}`);
+      for (const wk of sortWeeksAsc(unfixedWeeks)) {
+        progress?.(`${wk} 원상복구 재확정 중`);
+        await runShipmentFixAction(wk, 'fix');
+      }
+      throw err;
+    }
+
+    try {
+      progress?.('수정값 저장 중');
+      applyResult = await apply();
+    } catch (err) {
+      applyError = err;
+      progress?.(`수정 저장 오류 — ${err.message}`);
+    }
+
+    for (const wk of sortWeeksAsc(unfixedWeeks)) {
+      progress?.(`${wk} 재확정 중`);
+      await runShipmentFixAction(wk, 'fix');
+    }
+
+    if (applyError) throw applyError;
+    return applyResult;
+  };
+
   // 수정된 단가 개수
   const editedCount = Object.keys(costEdits).filter(k => {
     const v = costEdits[k];
@@ -1088,8 +1173,12 @@ export default function Estimate() {
     if (editedQtyCount === 0) return;
     setQtyApplying(true);
     setQtyResult(null);
+    setCostApplying(true);
+    setEditApplyTitle('수량 수정 저장');
+    setCostResult(null);
+    setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 수량 수정 시작` }]);
     try {
-      const results = [];
+      const pending = [];
       for (const [sdkStr, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
         const sdk = parseInt(sdkStr);
@@ -1099,31 +1188,68 @@ export default function Estimate() {
         const newQty = parseFloat(newVal);
         if (Number.isNaN(newQty) || newQty < 0) continue;
         if (Math.abs(newQty - oldQty) < 0.001) continue;
-        const r = await fetch('/api/estimate/update-quantity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            sdetailKey: sdk,
-            shipmentKey: item.ShipmentKey,
-            quantity: newQty,
-            unit: item.Unit,
-            expectedOldQuantity: oldQty,
-          }),
-        });
-        const d = await r.json();
-        results.push({ sdk, ok: d.success, oldQty, newQty, orderWeek: item.OrderWeek, error: d.error });
+        pending.push({ sdk, item, oldQty, newQty });
       }
+
+      if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
+
+      const cycleWeeks = getFixCycleWeeksForEditedItems(pending.map(p => p.item), selectedShip);
+      if (cycleWeeks.length > 0) {
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정`,
+        }]);
+      }
+
+      const runQuantityUpdate = async () => {
+        const results = [];
+        for (const p of pending) {
+          setCostApplyLog(prev => [...prev, {
+            step: 'save',
+            label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
+          }]);
+          const r = await fetch('/api/estimate/update-quantity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              sdetailKey: p.sdk,
+              shipmentKey: p.item.ShipmentKey,
+              quantity: p.newQty,
+              unit: p.item.Unit,
+              expectedOldQuantity: p.oldQty,
+            }),
+          });
+          const d = await r.json();
+          results.push({ sdk: p.sdk, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
+        }
+        return results;
+      };
+
+      const results = cycleWeeks.length > 0
+        ? await runEditWithFixCycle({
+            weeks: cycleWeeks,
+            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+            apply: runQuantityUpdate,
+          })
+        : await runQuantityUpdate();
+
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
       setQtyResult({ results, okCount, failCount });
       if (failCount === 0) setQtyEdits({});
+      setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 수정 수량 반영 후 견적서 재조회 중' }]);
+      setCostResult({ success: true, type: 'quantity', changedCount: okCount });
       // 다시 조회하여 화면 갱신
       load(true);
     } catch (e) {
       setQtyResult({ error: e.message });
+      setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${e.message}` }]);
+      setCostResult({ success: false, error: e.message });
     } finally {
       setQtyApplying(false);
+      setCostApplying(false);
     }
   };
 
@@ -1136,6 +1262,7 @@ export default function Estimate() {
     const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
 
     setCostApplying(true);
+    setEditApplyTitle('단가 수정 저장');
     setCostResult(null);
     setCostApplyLog([
       { step: 'start', label: '시작 — 단가 적용 준비 중...' },
@@ -1175,6 +1302,8 @@ export default function Estimate() {
             shipmentKey: sdkToShipment[it.SdetailKey].sk,
             sdetailKey: it.SdetailKey,
             cost: parseFloat(costEdits[it.SdetailKey]),
+            OrderWeek: it.OrderWeek,
+            ProdName: it.ProdName,
             // 낙관적 동시성: 조회 시점 snapshot 의 Cost (filteredItems 에 있는 값)
             expectedOldCost: it.Cost,
           });
@@ -1200,17 +1329,63 @@ export default function Estimate() {
 
       // ── 2) 단일 POST — 모든 ShipmentKey + SdetailKey 를 한 트랜잭션으로
       const body = {
-        items: allItems,
+        items: allItems.map(({ OrderWeek, ProdName, ...it }) => it),
         mode: costMode,
         week,
         custKey: selectedShip.CustKey,
       };
-      const r = await fetch('/api/estimate/update-cost', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const d = await r.json();
+      const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
+      if (cycleWeeks.length > 0) {
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정`,
+        }]);
+      }
+      const postCostUpdate = async () => {
+        allItems.forEach(it => {
+          setCostApplyLog(prev => [...prev, {
+            step: 'save',
+            label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
+          }]);
+        });
+        const r = await fetch('/api/estimate/update-cost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const d = await r.json();
+        if (!d.success) {
+          if (d.code === 'FIXED_WEEK') {
+            const fixedErr = new Error(
+              `확정된 차수는 단가를 바로 수정할 수 없습니다.\n\n` +
+              `대상 차수: ${(d.fixedWeeks || []).join(', ') || '확정 차수'}\n\n` +
+              `확정해제 후 저장/재확정 과정에서 다시 확정된 데이터가 감지되었습니다.`
+            );
+            fixedErr.isFixedWeek = true;
+            throw fixedErr;
+          }
+          if (d.code === 'STALE_DATA') {
+            const staleErr = new Error(
+              `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
+              `(SdetailKey=${d.sdetailKey}${d.shipmentKey ? ` / ShipmentKey=${d.shipmentKey}` : ''}: ` +
+              `조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
+              `수정은 중단되고 확정 상태는 다시 복구됩니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
+            );
+            staleErr.isStaleData = true;
+            throw staleErr;
+          }
+          throw new Error(d.error || '단가 수정 실패');
+        }
+        return d;
+      };
+
+      const d = cycleWeeks.length > 0
+        ? await runEditWithFixCycle({
+            weeks: cycleWeeks,
+            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+            apply: postCostUpdate,
+          })
+        : await postCostUpdate();
 
       if (!d.success) {
         if (d.code === 'FIXED_WEEK') {
@@ -1741,7 +1916,27 @@ export default function Estimate() {
                         displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
                       }
                       if (displayShips.length === 0) {
-                        return <tr><td colSpan={5} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>차수 또는 거래처 입력 후 조회하세요</td></tr>;
+                        return (
+                          <tr>
+                            <td colSpan={5} style={{textAlign:'center', padding:32, color:'var(--text3)', lineHeight:1.6}}>
+                              {includeUnfixed
+                                ? '조회된 출고 목록이 없습니다.'
+                                : '확정된 출고 목록이 없습니다. 수정이 필요하면 미확정 포함을 켜고 조회하세요.'}
+                              {!includeUnfixed && (
+                                <div style={{marginTop:10}}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm"
+                                    onClick={() => setIncludeUnfixed(true)}
+                                    style={{fontWeight:700}}
+                                  >
+                                    미확정 포함으로 보기
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
                       }
                       return displayShips.map(s => {
                         const groupId = `${s.ParentWeek}_${s.CustKey}`;
@@ -2055,7 +2250,7 @@ export default function Estimate() {
           <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
-                {costApplying && !costResult ? '🔄 단가 적용 중...' : (costResult?.success ? '✅ 단가 적용 완료' : '❌ 오류')}
+                {costApplying && !costResult ? `🔄 ${editApplyTitle} 중...` : (costResult?.success ? `✅ ${editApplyTitle} 완료` : '❌ 오류')}
               </span>
               {!costApplying || costResult ? (
                 <button className="btn btn-sm" onClick={closeCostModal}>✕</button>
@@ -2089,9 +2284,11 @@ export default function Estimate() {
               {costResult && costResult.success && (
                 <div style={{ padding: 12, background: '#F0FFF4', border: '1px solid #9AE6B4', borderRadius: 6, fontSize: 12 }}>
                   <div><strong>수정된 품목:</strong> {costResult.changedCount}건</div>
-                  <div><strong>공급가 변동:</strong> {costResult.totalDiff >= 0 ? '+' : ''}{(costResult.totalDiff || 0).toLocaleString()}원</div>
+                  {costResult.type !== 'quantity' && (
+                    <div><strong>공급가 변동:</strong> {costResult.totalDiff >= 0 ? '+' : ''}{(costResult.totalDiff || 0).toLocaleString()}원</div>
+                  )}
                   <div style={{ marginTop: 6, color: '#2f855a' }}>
-                    견적서가 재로딩되었습니다. 새 단가가 반영된 것을 확인하세요.
+                    견적서가 재로딩되었습니다. 새 {costResult.type === 'quantity' ? '수량' : '단가'}가 반영된 것을 확인하세요.
                   </div>
                 </div>
               )}
@@ -2100,7 +2297,7 @@ export default function Estimate() {
                 <div style={{ padding: 12, background: '#FFF5F5', border: '1px solid #FEB2B2', borderRadius: 6, fontSize: 12, color: '#c53030' }}>
                   <strong>오류:</strong> {costResult.error}
                   <div style={{ marginTop: 4, fontSize: 11 }}>
-                    트랜잭션이 롤백되었습니다. DB 는 변경되지 않았습니다.
+                    작업이 중단되었습니다. 진행 로그에서 멈춘 차수와 단계를 확인하세요.
                   </div>
                 </div>
               )}
