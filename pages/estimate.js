@@ -2313,7 +2313,7 @@ export default function Estimate() {
                 <div style={{ background: '#fff3e0', border: '1px solid #fb8c00', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 12, color: '#e65100' }}>
                   ⚠ 확정 전 검증에서 <b>{fixModal.totalIssues}건</b> 이슈 발견.
                   {fixModalHasNegative
-                    ? ' 음수재고가 포함되어 확정할 수 없습니다. 입고/출고를 먼저 수정하세요.'
+                    ? ' 음수재고 경고가 포함되어 있습니다. 전산 SP 기준으로 가능한 품목군만 확정 시도합니다.'
                     : ' 강제 확정하면 견적서 오류가 발생할 수 있습니다.'}
                 </div>
                 {Object.entries(fixModal.allIssues).map(([wk, iss]) => (
@@ -2401,20 +2401,14 @@ export default function Estimate() {
               {fixModal.stage === 'preview' && (
                 <>
                   <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
-                  {fixModalHasNegative ? (
-                    <button className="btn" disabled style={{ fontWeight: 700 }}>
-                      음수재고 수정 후 확정 가능
-                    </button>
-                  ) : (
-                    <button
-                      className="btn"
-                      style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}
-                      onClick={() => doFixAll(fixModal.weekList, true)}
-                      disabled={fixWorking}
-                    >
-                      ⚠ 그래도 강제 확정 ({fixModal.weekList.length}차수)
-                    </button>
-                  )}
+                  <button
+                    className="btn"
+                    style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}
+                    onClick={() => doFixAll(fixModal.weekList, true)}
+                    disabled={fixWorking}
+                  >
+                    ⚠ 그래도 강제 확정 ({fixModal.weekList.length}차수)
+                  </button>
                 </>
               )}
               {fixModal.stage === 'done' && (
