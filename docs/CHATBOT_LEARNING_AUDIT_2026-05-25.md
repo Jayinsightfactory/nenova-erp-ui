@@ -77,6 +77,27 @@ It shows:
 
 The page only calls `GET /api/m/chat-audit` and does not write ERP data.
 
+## 2026-05-26 Live Audit Findings
+
+Live `/admin/chat-audit` check after login showed 5 recent rows:
+
+- 1 `RULE_HANDLER` stock answer for `21-1 차 수국 재고`, success without risk flags.
+- 4 `LLM_SQL` answers.
+- 3 answers had `ASKBACK` + `UNCERTAIN_ANSWER`.
+
+The repeated weak pattern was simple shipment quantity questions such as `21차 아이엠 출고수량`.
+
+Observed issue:
+
+- The router sent simple `차수 + 거래처 + 출고수량` questions to the SQL agent first because `isComplexQuery` matched broad shipment quantity wording.
+- The SQL agent sometimes generated exact customer filters such as `c.CustName = N'아이엠'`, which returned 0 rows.
+- A later similar query succeeded when SQL used `c.CustName LIKE N'%아이엠%'` and `Customer` joined through `ShipmentMaster.CustKey`.
+
+Patch:
+
+- Simple shipment quantity questions now bypass the SQL agent and go to the fixed shipment handler first.
+- Shipment handler treats `출고수량` / `출고물량` as item quantity lookup wording.
+
 ## Next Improvement Ideas
 
 - Add thumbs up/down feedback to each answer and store it with `AuditKey`.
