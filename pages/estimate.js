@@ -155,7 +155,7 @@ function normalizeEstimatePrintRow(row) {
   return {
     ...row,
     Quantity: steamQty,
-    Unit: '스팀',
+    Unit: '송이',
     Cost: displayCost,
   };
 }
