@@ -238,3 +238,24 @@ read-only 진단 보강:
 - `호주 반커부쉬` -> `Banker Bush`
 - `콜롬비아 태국` -> 매칭 없음
 - `호주` -> 매칭 없음
+
+## 2026-05-26 챗봇 DTM/역질문 보완
+
+문제:
+
+- 챗봇 재고 조회 핸들러가 `ProductStock.CurrentStock`, `ProductStock.UpdateDtm`처럼 실제 전산 재고 구조와 맞지 않는 컬럼을 참조할 수 있었다.
+- `_chat_audit` 테이블이 예전 구조로 이미 생성되어 있으면 `CreateDtm` 등 신규 컬럼이 없어 감사 조회에서 DTM 계열 오류가 날 수 있었다.
+- 내부 조회 오류가 API 500으로 바로 노출되면, 사용자는 LLM과 대화하듯이 기준을 다시 좁혀갈 수 없다.
+
+수정:
+
+- 재고 챗봇 조회는 최신 `StockMaster` + `ProductStock.Stock`을 기준으로 조회하도록 변경했다. 값이 없으면 `Product.Stock`을 fallback으로 사용한다.
+- 챗봇 SQL 스키마 프롬프트에서 `ProductStock.CurrentStock/UpdateDtm` 사용 금지를 명시하고, 최신 재고 조회 예시를 `OUTER APPLY` 기준으로 수정했다.
+- `_chat_audit` 보장 로직에 누락 컬럼 자동 추가를 넣었다. `CreateDtm`, `DurationMs`, `RiskFlags`, `RouteFlags`, `DebugJson` 등 기존 테이블 누락 컬럼을 보정한다.
+- `/api/m/chat-audit`도 조회 전에 감사 테이블 보정 로직을 실행한다.
+- `/api/m/chat`에서 내부 조회 오류가 나도 500으로 끝내지 않고, `재고/출고/주문/매출 기준` 선택지를 주는 역질문 응답으로 전환한다.
+
+검증 예정:
+
+- `next build`
+- 운영 반영 후 `/api/dev/git-log?limit=1`

@@ -51,16 +51,36 @@ async function handler(req, res) {
     return res.status(200).json({ success: true, ...result });
   } catch (err) {
     console.error('[chat]', err);
+    const errorMessage = String(err?.message || '');
+    const result = {
+      messages: [
+        {
+          type: 'text',
+          content: '질문을 처리하다가 내부 조회 기준이 맞지 않는 부분을 발견했습니다.\n제가 바로 단정해서 답하기보다는, 어떤 기준으로 다시 볼지 확인하고 이어가겠습니다.',
+        },
+        {
+          type: 'actions',
+          actions: [
+            { label: '재고 기준', text: `${text} 재고 기준으로 다시 조회` },
+            { label: '출고 기준', text: `${text} 출고 기준으로 다시 조회` },
+            { label: '주문 기준', text: `${text} 주문 기준으로 다시 조회` },
+            { label: '매출 기준', text: `${text} 매출 기준으로 다시 조회` },
+          ],
+        },
+      ],
+      _askback: true,
+      _debug: { error: errorMessage.slice(0, 500) },
+    };
     await logChatAudit({
       user: req.user,
       userMessage: text,
       payload: payload || null,
       clientHistory: normalizedClientHistory,
-      result: null,
+      result,
       error: err,
       durationMs: Date.now() - startedAt,
     });
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(200).json({ success: true, ...result });
   }
 }
 

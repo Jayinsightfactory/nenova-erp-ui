@@ -1,9 +1,11 @@
 // pages/api/m/chat-audit.js - inspect chatbot answer history and risk flags
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
+import { ensureChatAuditTable } from '../../../lib/chat/audit';
 
 async function ensureReadableTable() {
   try {
+    await ensureChatAuditTable();
     await query(`SELECT TOP 1 AuditKey FROM _chat_audit`);
     return true;
   } catch {
