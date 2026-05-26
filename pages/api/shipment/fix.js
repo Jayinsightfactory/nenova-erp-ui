@@ -31,13 +31,13 @@ async function queryWithDeadlockRetry(q, params = {}, options = {}) {
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') return await validate(req, res);
   if (req.method !== 'POST') return res.status(405).end();
-  const { week, prodKey, action } = req.body;
+  const { week, prodKey, action, countryFlowers } = req.body;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!['fix', 'unfix'].includes(action)) return res.status(400).json({ success: false, error: 'action은 fix 또는 unfix' });
 
   try {
-    if (action === 'unfix') return await unfix(req, res, week, prodKey);
-    return await fix(req, res, week, prodKey);
+    if (action === 'unfix') return await unfix(req, res, week, prodKey, countryFlowers);
+    return await fix(req, res, week, prodKey, countryFlowers);
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -371,9 +371,17 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   return { results, errors };
 }
 
+function normalizeCountryFlowerFilter(countryFlowers) {
+  const values = Array.isArray(countryFlowers)
+    ? countryFlowers
+    : String(countryFlowers || '').split(',');
+  const clean = values.map(v => String(v || '').trim()).filter(Boolean);
+  return clean.length ? new Set(clean) : null;
+}
+
 // ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
 //    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
-async function fix(req, res, week, prodKeyFilter) {
+async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   if (prodKeyFilter) {
     return res.status(400).json({
       success: false,
@@ -384,6 +392,7 @@ async function fix(req, res, week, prodKeyFilter) {
   const orderYear = deriveOrderYear(week);
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
+  const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
 
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(
@@ -407,9 +416,17 @@ async function fix(req, res, week, prodKeyFilter) {
 
   const flowers = cfList.recordset
     .map(r => r.CountryFlower)
-    .filter(cf => cf && cf.trim());
+    .filter(cf => cf && cf.trim())
+    .filter(cf => !allowedCountryFlowers || allowedCountryFlowers.has(cf));
 
   if (flowers.length === 0) {
+    if (allowedCountryFlowers) {
+      return res.status(200).json({
+        success: true,
+        message: `[${week}] 요청 카테고리 확정 대상 없음 (${[...allowedCountryFlowers].join(', ')})`,
+        results: [],
+      });
+    }
     return res.status(400).json({
       success: false,
       error: already.recordset[0].cnt > 0
@@ -475,7 +492,7 @@ async function fix(req, res, week, prodKeyFilter) {
 }
 
 // ── 확정 취소 — 전산 SP usp_ShipmentFixCancel 를 CountryFlower 단위 호출
-async function unfix(req, res, week, prodKeyFilter) {
+async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   if (prodKeyFilter) {
     return res.status(400).json({
       success: false,
@@ -486,6 +503,7 @@ async function unfix(req, res, week, prodKeyFilter) {
   const orderYear = deriveOrderYear(week);
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
+  const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
 
   try {
     // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
@@ -521,7 +539,8 @@ async function unfix(req, res, week, prodKeyFilter) {
 
     const flowers = cfList.recordset
       .map(r => r.CountryFlower)
-      .filter(cf => cf && cf.trim());
+      .filter(cf => cf && cf.trim())
+      .filter(cf => !allowedCountryFlowers || allowedCountryFlowers.has(cf));
 
     if (flowers.length === 0) {
       return res.status(200).json({

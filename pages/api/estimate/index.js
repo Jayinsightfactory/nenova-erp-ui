@@ -265,6 +265,7 @@ async function loadItems(sk) {
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.CounName, '')                    AS CounName,
+         ISNULL(p.CountryFlower, '')               AS CountryFlower,
          -- 표시 단위: BunchQty>0 단, SteamQty>0 송이, 그 외 박스 (옛 양식 우선순위)
          -- 카네이션처럼 OutUnit='박스' 라도 Bunch 가 채워져 있으면 단 단위로 표시
          CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
@@ -360,6 +361,7 @@ async function loadItems(sk) {
          p.ProdName,
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.CounName, '')                    AS CounName,
+         ISNULL(p.CountryFlower, '')               AS CountryFlower,
          e.Unit,
          e.Quantity,
          CASE WHEN e.Unit = N'박스' THEN e.Quantity
