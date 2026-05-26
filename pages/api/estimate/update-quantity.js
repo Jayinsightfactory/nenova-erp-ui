@@ -8,10 +8,27 @@ function normalizeUnit(unit) {
   return '박스';
 }
 
+function positiveNumber(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function getUnitsPerBox(product) {
+  const rowBox = positiveNumber(product.BoxQuantity);
+  const rowBunch = positiveNumber(product.BunchQuantity);
+  const rowSteam = positiveNumber(product.SteamQuantity);
+  const rowBunchPerBox = rowBox > 0 && rowBunch > 0 ? rowBunch / rowBox : 0;
+  const rowSteamPerBox = rowBox > 0 && rowSteam > 0 ? rowSteam / rowBox : 0;
+
+  return {
+    bunchPerBox: rowBunchPerBox || positiveNumber(product.BunchOf1Box) || 10,
+    steamPerBox: rowSteamPerBox || positiveNumber(product.SteamOf1Box) || 0,
+  };
+}
+
 function toAllUnits(quantity, unit, product) {
   const q = Number(quantity) || 0;
-  const b1b = Number(product.BunchOf1Box || 0);
-  const s1b = Number(product.SteamOf1Box || 0);
+  const { bunchPerBox: b1b, steamPerBox: s1b } = getUnitsPerBox(product);
   const outUnit = normalizeUnit(product.OutUnit);
   let box = 0;
   let bunch = 0;
