@@ -177,6 +177,8 @@ export default withAuth(async function handler(req, res) {
                ELSE ISNULL(od.BoxQuantity,0) END AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(sd.CreateID, '') AS outCreateID,
+          COALESCE(NULLIF(sdu.UserName, ''), NULLIF(sd.CreateID, ''), NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
           ISNULL(sd.Descr, '') AS outDescr,
           ISNULL(sm.isFix, 0) AS isFix,
           sd.SdetailKey,
@@ -230,12 +232,14 @@ export default withAuth(async function handler(req, res) {
          JOIN OrderDetail od  ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted=0 ${pkFilter}
          JOIN Product p       ON od.ProdKey = p.ProdKey
          OUTER APPLY (
-           SELECT TOP 1 sm2.ShipmentKey, sm2.isFix
+           SELECT TOP 1 sm2.ShipmentKey, sm2.isFix, sm2.CreateID
            FROM ShipmentMaster sm2
            WHERE sm2.CustKey=om.CustKey AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
            ORDER BY sm2.isFix DESC
          ) sm
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
+         LEFT JOIN UserInfo sdu ON sdu.UserID=sd.CreateID
+         LEFT JOIN UserInfo smu ON smu.UserID=sm.CreateID
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
@@ -1011,7 +1015,8 @@ async function updateOutQty(req, res) {
     // descrLog 있으면 ShipmentDetail.Descr에 추가 (수량 관계없이 기록)
     if (descrLog) {
       const now = new Date().toISOString().replace('T',' ').slice(0,16);
-      const logLine = `[${now}] ${descrLog}`;
+      const actor = req.user?.userName || req.user?.userId || '사용자';
+      const logLine = `[${now}] [${actor}] ${descrLog}`;
       await query(
         `UPDATE ShipmentDetail SET Descr = ISNULL(Descr,'') + @log
          WHERE ShipmentKey=(SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0)

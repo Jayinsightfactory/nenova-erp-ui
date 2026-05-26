@@ -302,6 +302,14 @@ function pivotProdName(product) {
   return cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
 }
 
+function cleanDescrText(text, actor = '') {
+  if (!text) return '';
+  const name = String(actor || '').trim() || '사용자';
+  return String(text)
+    .replace(/\[\s*\.Net SqlClient Data Provider[^\]]*\]/gi, `[${name}]`)
+    .replace(/\.Net SqlClient Data Provider/gi, name);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
@@ -486,7 +494,7 @@ export default function WeekPivot() {
       }
     } catch(e) { setApiError(e.message); }
     finally { setLoading(false); }
-  }, [router]);
+  }, [router, user?.userName, user?.userId]);
 
   useEffect(() => {
     if (weekFrom && weekTo) loadData(weekFrom, weekTo);
@@ -666,7 +674,7 @@ export default function WeekPivot() {
     rows.forEach(r=>{
       const dk=`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk]=r.outQty||0;
-      if(r.outDescr) descrMap[dk]=r.outDescr;
+      if(r.outDescr) descrMap[dk]=cleanDescrText(r.outDescr, r.outUserName || r.outCreateID || user?.userName || user?.userId);
       const ik=`${r.ProdKey}-${r.OrderWeek}`;
       if(!inMap[ik]) inMap[ik]=r.totalInQty||0;
       // 품목별 이월재고 (DB ProductStock 기준) — startStocks 미입력 시 기본값
