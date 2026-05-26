@@ -63,9 +63,22 @@ Each chatbot response now stores:
 
 Added `/api/m/chat-audit` to inspect recent chatbot answers and summary counts.
 
+## 2026-05-26 Check Status
+
+Added a read-only admin page at `/admin/chat-audit`.
+
+It shows:
+
+- recent user questions and bot answers
+- route flags such as `RULE_HANDLER`, `LLM_SQL`, `ASKBACK`, `CONTEXT_FOLLOWUP`, `INVESTIGATIVE`
+- risk flags such as `ERROR`, `EMPTY_RESPONSE`, `DANGEROUS_SQL_TOKEN`, `NO_TOP_LIMIT`, `LARGE_RESULT`
+- generated SQL from `DebugJson` when the SQL agent was used
+- success/error status and duration
+
+The page only calls `GET /api/m/chat-audit` and does not write ERP data.
+
 ## Next Improvement Ideas
 
-- Add an admin UI page for chat audit review.
 - Add thumbs up/down feedback to each answer and store it with `AuditKey`.
 - Convert repeated bad answers into fixed handler rules instead of relying on SQL-agent guessing.
 - Add a test set of common Korean/Kakao-style ERP questions and replay it after each chatbot change.

@@ -86,6 +86,7 @@ const MENU_ITEMS = [
       { href: '/master/activity',  labelKey: '작업내역',             popup: true },
       { href: '/admin/category-overrides', labelKey: '🏷 세부카테고리', popup: true },
       { href: '/dev/action-log',   labelKey: '🔍 액션 로그',         popup: false },
+      { href: '/admin/chat-audit', labelKey: '챗봇 질문/처리현황', popup: false },
       { href: '/dev/project-plan',  labelKey: '작업/기획 현황',       popup: false },
     ]
   },
