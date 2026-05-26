@@ -111,13 +111,29 @@ function numToKorean(n) {
   return parts.join('') + '원 정';
 }
 
-// ── FlowerName → 분할 그룹 이름
-function getFlowerGroup(flowerName) {
-  const f = (flowerName || '').toUpperCase();
-  if (f.includes('HYDRANGEA') || f.includes('수국') || f.includes('ALSTRO')) return '수국/알스트로';
-  if (f.includes('CARNATION') || f.includes('카네이션')) return '카네이션';
-  if (f.includes('ROSE') || f.includes('장미')) return '장미';
-  if (f.includes('ECUADOR') || f.includes('에콰도르')) return '에콰도르';
+// ── 견적서 품목별 출력 그룹. 국가+꽃명+품명을 함께 보아 국가 장미/수국/알스트로가 섞이지 않게 한다.
+function getFlowerGroup(row) {
+  const country = String(row?.CounName || '').toUpperCase();
+  const flower = String(row?.FlowerName || '').toUpperCase();
+  const prod = String(row?.ProdName || '').toUpperCase();
+  const text = `${country} ${flower} ${prod}`;
+
+  if (text.includes('ECUADOR') || text.includes('에콰도르')) return '에콰도르 장미';
+  if (text.includes('COLOMBIA') || text.includes('콜롬비아')) {
+    if (text.includes('ROSE') || text.includes('장미')) return '콜롬비아 장미';
+    if (text.includes('HYDRANGEA') || text.includes('수국')) return '콜롬비아 수국';
+    if (text.includes('ALSTRO') || text.includes('알스트로')) return '콜롬비아 알스트로';
+    return '콜롬비아 기타';
+  }
+  if (text.includes('CHINA') || text.includes('중국')) {
+    if (text.includes('ROSE') || text.includes('장미')) return '중국 장미';
+    return '중국 기타';
+  }
+  if (text.includes('NETHERLAND') || text.includes('HOLLAND') || text.includes('네덜란드')) return '네덜란드';
+  if (text.includes('HYDRANGEA') || text.includes('수국')) return '수국';
+  if (text.includes('ALSTRO') || text.includes('알스트로')) return '알스트로메리아';
+  if (text.includes('CARNATION') || text.includes('카네이션')) return '카네이션';
+  if (text.includes('ROSE') || text.includes('장미')) return '장미';
   return '기타';
 }
 
@@ -1351,29 +1367,31 @@ export default function Estimate() {
         })];
       }
 
-      const GROUP_LABEL = {
-        '수국/알스트로': '수국/알스트로메리아',
-        '카네이션':     '카네이션',
-        '장미':         '장미',
-        '에콰도르':     '에콰도르 분화',
-        '기타':         '기타',
-      };
       const groups = {};
       printRows.forEach(r => {
-        const g = getFlowerGroup(r.FlowerName);
+        const g = getFlowerGroup(r);
         if (!groups[g]) groups[g] = [];
         groups[g].push(r);
       });
-      const groupOrder = ['수국/알스트로','카네이션','장미','에콰도르','기타'];
-      const activeGroups = groupOrder.filter(g => groups[g]?.length > 0);
+      const groupOrder = [
+        '콜롬비아 장미', '중국 장미', '에콰도르 장미', '장미',
+        '콜롬비아 수국', '수국',
+        '콜롬비아 알스트로', '알스트로메리아',
+        '카네이션', '네덜란드',
+        '콜롬비아 기타', '중국 기타', '기타',
+      ];
+      const orderedGroups = [
+        ...groupOrder.filter(g => groups[g]?.length > 0),
+        ...Object.keys(groups).filter(g => !groupOrder.includes(g)).sort((a, b) => a.localeCompare(b, 'ko')),
+      ];
+      const activeGroups = orderedGroups;
       if (activeGroups.length === 0) return [];
 
       const pages = [
         ...activeGroups.map(g => ({
-          bigoLabel: `${week}차 ${GROUP_LABEL[g] || g}`,
+          bigoLabel: `${week}차 ${g}`,
           rows: groups[g],
         })),
-        { bigoLabel: `${week}차 종합견적서`, rows: printRows, aggregate: true },
       ];
       return pages.map(({ bigoLabel, rows, aggregate }) => buildEstimateHtml({
         bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
@@ -2145,7 +2163,7 @@ export default function Estimate() {
                 </div>
                 {printOpts.splitMode === 'split' && (
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
-                    수국/알스트로 · 카네이션 · 장미 · 에콰도르 · 기타 로 분리 출력됩니다
+                    국가/꽃명/품명을 기준으로 장미, 수국, 알스트로, 카네이션, 네덜란드 등을 분리 출력합니다.
                   </div>
                 )}
               </div>
