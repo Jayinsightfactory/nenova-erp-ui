@@ -367,7 +367,6 @@ export default function Distribute() {
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             week, year: new Date().getFullYear().toString(),
-            outDate: weekToShipDate(week),
             custKey: selectedCust.CustKey,
             prodKey: item.ProdKey,
             outQty: qty,
@@ -471,7 +470,6 @@ export default function Distribute() {
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             week, year: new Date().getFullYear().toString(),
-            outDate: weekToShipDate(week),
             custKey: c.CustKey,
             prodKey: selectedProd.ProdKey,
             outQty: qty,

@@ -99,6 +99,13 @@ function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
   } catch { return null; }
 }
 
+function normalizeUnit(unit) {
+  const u = String(unit || '').trim().toLowerCase();
+  if (['단', 'bunch'].includes(u)) return '단';
+  if (['송이', 'steam', 'stem'].includes(u)) return '송이';
+  return '박스';
+}
+
 async function getProductFixScope(q, prodKey) {
   const prod = await q(
     `SELECT TOP 1 ProdKey, ProdName, CountryFlower, CounName, FlowerName
@@ -412,10 +419,11 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
+      `SELECT OutUnit, BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
     // BunchOf1Box/SteamOf1Box null 시 0 사용 (기본값 1은 잘못된 환산 유발)
+    const productOutUnit = normalizeUnit(prodInfo.recordset[0]?.OutUnit);
     const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box ?? 0;
     const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
     const productCost = Number(prodInfo.recordset[0]?.ProductCost || 0) || 0;
@@ -492,11 +500,28 @@ async function saveDistribute(req, res) {
       if (parseFloat(outQty) > 0) {
         const qty = parseFloat(outQty);
         const unitCost = resolvedCost;
-        const boxQty   = qty;
-        const bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
-        const steamQty = steamOf1Box > 0 ? qty * steamOf1Box : 0;
-        // Amount: 단 환산값 있으면 단 기준, 없으면 박스 기준
-        const amtBase = bunchQty > 0 ? bunchQty : boxQty;
+        let boxQty = 0;
+        let bunchQty = 0;
+        let steamQty = 0;
+        if (productOutUnit === '단') {
+          bunchQty = qty;
+          boxQty = bunchOf1Box > 0 ? qty / bunchOf1Box : 0;
+          steamQty = bunchOf1Box > 0 && steamOf1Box > 0 ? boxQty * steamOf1Box : 0;
+        } else if (productOutUnit === '송이') {
+          steamQty = qty;
+          boxQty = steamOf1Box > 0 ? qty / steamOf1Box : 0;
+          bunchQty = steamOf1Box > 0 && bunchOf1Box > 0 ? boxQty * bunchOf1Box : 0;
+        } else {
+          boxQty = qty;
+          bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
+          steamQty = steamOf1Box > 0 ? qty * steamOf1Box : 0;
+        }
+        const canonicalOutQty = qty;
+        const amtBase = productOutUnit === '송이'
+          ? (steamQty > 0 ? steamQty : canonicalOutQty)
+          : productOutUnit === '단'
+            ? (bunchQty > 0 ? bunchQty : canonicalOutQty)
+            : (bunchQty > 0 ? bunchQty : steamQty > 0 ? steamQty : boxQty);
         const amount = Math.round(amtBase * unitCost / 1.1);
         const vat    = Math.round(amtBase * unitCost / 11);
         const now = new Date();
@@ -508,14 +533,14 @@ async function saveDistribute(req, res) {
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@ck,@pk,@dt,@qty,@qty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@outQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
           {
             dk:     { type: sql.Int,      value: newSdk },
             sk:     { type: sql.Int,      value: sk },
             ck:     { type: sql.Int,      value: parseInt(custKey) },
             pk:     { type: sql.Int,      value: parseInt(prodKey) },
             dt:     { type: sql.DateTime, value: resolvedShipDate },
-            qty:    { type: sql.Float,    value: qty },
+            outQty: { type: sql.Float,    value: canonicalOutQty },
             bq:     { type: sql.Float,    value: boxQty },
             bnq:    { type: sql.Float,    value: bunchQty },
             sq:     { type: sql.Float,    value: steamQty },
@@ -532,10 +557,10 @@ async function saveDistribute(req, res) {
           {
             dk:  { type: sql.Int,      value: newSdk },
             dt:  { type: sql.DateTime, value: resolvedShipDate },
-            qty: { type: sql.Float,    value: qty },
+            qty: { type: sql.Float,    value: canonicalOutQty },
           }
         );
-        await insertShipmentHistory(tQuery, newSdk, String(oldQty), String(qty), logEntry, uid);
+        await insertShipmentHistory(tQuery, newSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
       }
       return sk;
     });
