@@ -107,3 +107,42 @@
 - 전산 SP 정의 중 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `usp_ShipmentFix`, `usp_ShipmentFixCancel`, `usp_StockCalculation` 원문/파라미터/테이블 영향을 별도 표로 빼야 한다.
 - 운영 사이트 읽기 전용 화면 확인 결과를 메뉴별로 이어 붙일 예정이다.
 
+## 2026-05-26 추가 검증 기록
+
+운영 사이트를 읽기 전용으로 열어 다음 화면의 버튼/입력/표시 구조를 확인했다. 저장, 삭제, 수정, 전송 버튼은 누르지 않았다.
+
+확인한 화면:
+
+- `/incoming-price`
+- `/shipment/distribute?popup=1`
+- `/shipment/week-pivot?popup=1`
+- `/master/pricing?popup=1`
+- `/estimate?popup=1`
+
+확인 결과:
+
+- 운영 배포 버전은 `v1.0.2·8bc7fa6`로 표시되었다.
+- `/shipment/distribute?popup=1`에는 조회, 확정, 확정취소, 저장, 내역 조회, 엑셀, `일괄 출고분배`, `개별 출고분배`, `개별 초기화` 버튼이 실제로 보인다.
+- `/shipment/distribute`의 저장 API는 `ShipmentMaster`, `ShipmentDetail`, `ShipmentDate`, `ShipmentHistory`, `KeyNumbering`을 직접 쓴다. 단가는 `CustomerProdCost` 우선, 없으면 `Product.Cost` fallback이고, 출고일은 명시값이 없으면 `Customer.BaseOutDay` 기준으로 계산한다.
+- `/shipment/adjust`는 붙여넣기 주문등록 후 분배 조정에서 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentDate`, `ShipmentAdjustment`, `OrderHistory`, `ShipmentHistory`를 함께 쓴다. 따라서 단순 주문 저장이 아니라 출고/주문 동시 변경 경로이다.
+- `/master/pricing?popup=1`은 업체 선택, 국가/품종/품목 검색, 저장 버튼 구조이며 API는 `CustomerProdCost`를 `MERGE`한다. 견적 단가와 출고분배 단가의 기준 원천이다.
+- `/estimate?popup=1`은 출고 기반 견적 목록, 수량 수정, 단가 수정, 공급가액, 부가세를 표시한다. `update-cost`는 `ShipmentDetail.Cost`, `Amount`, `Vat`를 바꾸고 모드에 따라 `CustomerProdCost` 또는 `WeekProdCost`를 추가 갱신한다.
+- `/incoming-price`는 `WarehouseMaster`, `WarehouseDetail`을 조회하고, 송금/차감 입력은 `FarmCredit`에만 저장한다. 우측 탭은 `송금 필요`와 `입력 있음`을 `FarmCredit` 저장값 존재 여부로 분리한다.
+
+추가 발견:
+
+- `/incoming-price` 운영 화면에서 사이드 메뉴가 중복으로 렌더링되는 구조가 확인되었다. 원인은 `pages/incoming-price.js`가 내부에서 `Layout`을 직접 사용하고 있는데, `_app.js`의 공통 `Layout`에서도 다시 감싸고 있었기 때문이다.
+- 같은 구조의 자체 Layout 페이지는 `/orders/paste`, `/orders/mapping-status`, `/orders/kakao-audit`, `/admin/category-overrides`에도 존재한다.
+- 모바일 루트 `/m`은 `_app.js`에서 `/m/` 하위만 레이아웃 제외하고 exact `/m`은 제외하지 않아 데스크톱 Layout이 섞일 수 있다.
+
+적용한 구조 보정:
+
+- `pages/_app.js`의 `NO_LAYOUT`에 자체 Layout 페이지를 추가했다.
+- `router.pathname === '/m'`도 레이아웃 제외 조건에 추가했다.
+- 이 변경은 화면 wrapper 중복 제거이며, 업무 DB 쓰기 로직은 변경하지 않았다.
+
+남은 검증:
+
+- 출고분배의 `일괄 출고분배`, `개별 출고분배` 버튼이 현재 프론트에서 실제 저장 함수와 어떻게 연결되는지 추가 확인해야 한다. 운영에서는 클릭하지 않는다.
+- 전산 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`와 웹 직접 저장 결과의 차이는 별도 샘플 DB 조회 또는 테스트 환경에서만 검증한다.
+- `FarmCredit`는 송금 완료 원장이라기보다 차감/메모 입력값으로 보인다. 정확한 송금 완료/미완료 관리를 하려면 전산 원장 기준 또는 별도 완료 필드가 필요하다.
