@@ -287,15 +287,18 @@ async function loadItems(sk) {
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
          ) AS Amount,
-         ISNULL(NULLIF(sd.Vat, 0),
-           ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
-             * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
-                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-                    ELSE sd.BoxQuantity END
-             / 11, 0)
-         ) AS Vat,
-         ''                                        AS Descr,
-         CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
+          ISNULL(NULLIF(sd.Vat, 0),
+            ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
+              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
+                     ELSE sd.BoxQuantity END
+              / 11, 0)
+          ) AS Vat,
+          ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
+          ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,
+          ISNULL(sd.BoxQuantity, 0)                  AS RawBoxQuantity,
+          ''                                        AS Descr,
+          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
        FROM ShipmentDetail sd
        LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
@@ -366,11 +369,14 @@ async function loadItems(sk) {
               WHEN p.OutUnit='단' AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
               WHEN p.OutUnit='송이' AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN e.Quantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               ELSE 0 END                            AS BoxQty,
-         e.Cost,
-         e.Amount,
-         e.Vat,
-         ISNULL(e.Descr, '')                       AS Descr,
-         CONVERT(NVARCHAR(10), sd2.ShipmentDtm, 120) AS outDate
+          e.Cost,
+          e.Amount,
+          e.Vat,
+          NULL                                      AS RawBunchQuantity,
+          NULL                                      AS RawSteamQuantity,
+          NULL                                      AS RawBoxQuantity,
+          ISNULL(e.Descr, '')                       AS Descr,
+          CONVERT(NVARCHAR(10), sd2.ShipmentDtm, 120) AS outDate
        FROM Estimate e
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
        LEFT JOIN CodeInfo ci

@@ -140,6 +140,29 @@ function getFlowerGroup(row) {
 // ── EstimateType 코드 → 한글명 매핑 (레거시 코드 fallback)
 // 실제 DB 값은 이미 한글(불량차감/박스 등)이지만, 과거 데이터가 fee03-kr0010 같은
 // 전산 코드로 남아있을 경우를 위한 안전 매핑
+
+function isAlstroRow(row) {
+  const text = `${row?.FlowerName || ''} ${row?.ProdName || ''}`.toUpperCase();
+  return text.includes('ALSTRO') || text.includes('알스트로');
+}
+
+function normalizeEstimatePrintRow(row) {
+  if (!isAlstroRow(row)) return row;
+  const rawSteam = Number(row?.RawSteamQuantity) || 0;
+  const rawBunch = Number(row?.RawBunchQuantity) || 0;
+  const currentQty = Number(row?.Quantity) || 0;
+  const steamQty = rawSteam > 0 ? rawSteam : (rawBunch > 0 ? rawBunch * 10 : currentQty);
+  if (steamQty <= 0) return row;
+  const total = (Number(row?.Amount) || 0) + (Number(row?.Vat) || 0);
+  const displayCost = total > 0 ? Math.round(total / steamQty) : row?.Cost;
+  return {
+    ...row,
+    Quantity: steamQty,
+    Unit: '스팀',
+    Cost: displayCost,
+  };
+}
+
 const ESTIMATE_TYPE_MAP = {
   'fee01': '단가차감', 'fee02': '검역차감', 'fee03': '불량차감',
   'fee04': '부족차감', 'fee05': '출하오류차감', 'fee06': '샘플',
@@ -177,7 +200,7 @@ function buildEstimateHtml({
   showDistribDesc = true,
 }) {
   // ── 인쇄용: 수량 또는 단가가 0인 행 제거
-  rows = rows.filter(isPrintableEstimateRow);
+  rows = rows.map(normalizeEstimatePrintRow).filter(isPrintableEstimateRow);
 
   // ── 사장님 지정 정렬 우선순위
   // 콜롬비아 수국→알스트로→루스커스→카네이션→장미 → 네덜란드 → 호주 → 중국 → 에콰도르
@@ -259,6 +282,10 @@ function buildEstimateHtml({
       if (r.outDate) g._outDates.add(r.outDate);
     });
     rows = Object.values(groups).map(g => {
+      if (isAlstroRow(g) && (Number(g.Quantity) || 0) > 0) {
+        const total = (Number(g.Amount) || 0) + (Number(g.Vat) || 0);
+        if (total > 0) g.Cost = Math.round(total / (Number(g.Quantity) || 1));
+      }
       const parts = Object.entries(g._breakdown)
         .filter(([_, v]) => v > 0)
         .sort(([a],[b]) => a.localeCompare(b))
