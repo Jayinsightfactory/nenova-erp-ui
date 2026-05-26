@@ -357,16 +357,6 @@ async function fix(req, res, week, prodKeyFilter) {
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
 
-  const negativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
-  if (negativeRows.length > 0) {
-    return res.status(400).json({
-      success: false,
-      error: `[${week}] 확정 불가 — 전재고 + 입고 - 출고가 음수인 품목 ${negativeRows.length}건`,
-      code: 'NEGATIVE_STOCK',
-      negative: negativeRows,
-    });
-  }
-
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(
     `SELECT COUNT(*) AS cnt FROM ShipmentMaster
@@ -400,6 +390,17 @@ async function fix(req, res, week, prodKeyFilter) {
   }
 
   const procedureShape = await loadProcedureShape('usp_ShipmentFix');
+  if (!procedureShape.hasCountryFlower) {
+    const wholeWeekNegativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
+    if (wholeWeekNegativeRows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `[${week}] 확정 불가: 현재재고 + 입고 - 출고가 음수인 품목 ${wholeWeekNegativeRows.length}건`,
+        code: 'NEGATIVE_STOCK',
+        negative: wholeWeekNegativeRows,
+      });
+    }
+  }
   const targets = procedureShape.hasCountryFlower ? flowers : [null];
 
   // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
