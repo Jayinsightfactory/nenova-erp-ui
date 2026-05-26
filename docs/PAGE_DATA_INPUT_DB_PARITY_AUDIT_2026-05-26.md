@@ -301,3 +301,23 @@ read-only 진단 보강:
 - `진다스위트 피치 L` -> `Den. Jinda Sweet (피치) L` 100점, `XL/M/Sweety` 0점.
 - `진다 스윗트 피치 XL` -> `Den. Jinda Sweet (피치) XL` 100점, `L/M/Sweety` 0점.
 - `태국 진다스위트 피치 M` -> `Den. Jinda Sweet (피치) M` 100점, `L/XL/Sweety` 0점.
+
+## 2026-05-26 차수피벗 한글 품명 직접 저장
+
+요청:
+
+- 차수피벗에서 ERP 원본 품명 옆에 한글/자연어 품명을 같이 보여주고, 사용자가 직접 수정해 저장할 수 있어야 한다.
+- 이 한글명은 임시 화면값이 아니라 이후 자연어 매칭에 쓰이는 실제 품목 표시명으로 저장되어야 한다.
+
+수정:
+
+- `pages/shipment/week-pivot.js`의 품목 행에 `Product.DisplayName`을 원본 `ProdName` 아래 보조 이름으로 표시했다.
+- 한글명이 없는 품목은 `한글명 추가` 버튼으로 보이고, 클릭하면 수정 모달이 열린다.
+- 저장 시 기존 `/api/master?entity=display-name` API를 사용해 `Product.DisplayName`에 저장한다.
+- 저장 성공 후 현재 피벗 데이터도 즉시 갱신해서 새로고침 없이 화면에 반영한다.
+- 차수피벗 상단 검색과 주문추가 모달의 품목 검색도 `DisplayName`을 포함하도록 보완했다.
+
+주의:
+
+- `ProdName` 원본은 변경하지 않는다.
+- 사용자가 저장 버튼을 누를 때만 DB 쓰기가 발생한다.

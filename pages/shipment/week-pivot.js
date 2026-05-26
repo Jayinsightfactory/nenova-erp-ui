@@ -79,7 +79,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     let list = prods;
     if (selCoun)   list = list.filter(p=>p.CounName===selCoun);
     if (selFlower) list = list.filter(p=>p.FlowerName===selFlower);
-    if (prodSearch) { const q=prodSearch.toLowerCase(); list=list.filter(p=>p.ProdName?.toLowerCase().includes(q)||p.FlowerName?.toLowerCase().includes(q)||p.CounName?.toLowerCase().includes(q)); }
+    if (prodSearch) { const q=prodSearch.toLowerCase(); list=list.filter(p=>p.ProdName?.toLowerCase().includes(q)||p.DisplayName?.toLowerCase().includes(q)||p.FlowerName?.toLowerCase().includes(q)||p.CounName?.toLowerCase().includes(q)); }
     list = [...list].sort((a,b)=>(prodCounts[b.ProdKey]||0)-(prodCounts[a.ProdKey]||0));
     return list.slice(0, 200);
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
@@ -202,7 +202,8 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
                 const eq=existOrders[existKey];
                 return (<button key={p.ProdKey} onClick={()=>addToCart(p)}
                   style={{...chip(inCart),borderColor:inCart?'#2e7d32':eq?'#ff9800':'#ccc',background:inCart?'#2e7d32':eq?'#fff3e0':'#fff',textAlign:'left'}}>
-                  {p.ProdName} <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                  <span>{p.ProdName}</span> <span style={{fontSize:9,opacity:0.7}}>[{p.OutUnit}]</span>
+                  {cleanDisplayName(p.DisplayName, p.ProdName)&&<div style={{fontSize:10,color:'#1b5e20',marginTop:1}}>{p.DisplayName}</div>}
                   {eq>0&&!inCart&&<span style={{fontSize:9,color:'#e65100',marginLeft:2}}>({eq})</span>}
                 </button>);
               })}
@@ -280,6 +281,11 @@ function stripProdName(name) {
     .replace(/^\s*\/\s*/,'').trim() || name;
 }
 
+function cleanDisplayName(name, fallback = '') {
+  const v = String(name || '').trim();
+  return v && v !== fallback ? v : '';
+}
+
 // ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
@@ -310,6 +316,7 @@ export default function WeekPivot() {
   const [pvDescrModal,  setPvDescrModal]  = useState(null);
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false);
   const [pvEdit,        setPvEdit]        = useState(null);
+  const [pvNameEdit,    setPvNameEdit]    = useState(null);
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
@@ -485,6 +492,31 @@ export default function WeekPivot() {
     } catch(e) { console.error(e); }
   }, [startStocks]);
 
+  const saveDisplayName = useCallback(async () => {
+    if (!pvNameEdit?.prodKey) return;
+    const displayName = String(pvNameEdit.displayName || '').trim();
+    try {
+      const r = await fetch('/api/master?entity=display-name', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates: [{ prodKey: pvNameEdit.prodKey, displayName }] }),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        alert('한글명 저장 실패: ' + (d.error || '알 수 없는 오류'));
+        return;
+      }
+      setCustRows(prev => prev.map(row => (
+        Number(row.ProdKey) === Number(pvNameEdit.prodKey)
+          ? { ...row, DisplayName: displayName || null }
+          : row
+      )));
+      setPvNameEdit(null);
+    } catch (e) {
+      alert('한글명 저장 오류: ' + e.message);
+    }
+  }, [pvNameEdit]);
+
   const submitStartStockText = useCallback(async (save = false) => {
     if (!weekFrom) { alert('차수를 먼저 선택하세요'); return; }
     if (!startStockText.trim()) { alert('기초재고 텍스트를 입력하세요'); return; }
@@ -555,7 +587,8 @@ export default function WeekPivot() {
     if (filterFlower && !r.FlowerName?.includes(filterFlower)) return false;
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
-      if (!r.ProdName?.toLowerCase().includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
+      const dn = (r.DisplayName || '').toLowerCase();
+      if (!r.ProdName?.toLowerCase().includes(q) && !dn.includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
     }
     // 제외 품명 필터 — 사용자가 국가/꽃/검색어를 직접 선택한 경우 제외 안 함
     if (!filterCoun && !filterFlower && !filterSearch) {
@@ -601,11 +634,11 @@ export default function WeekPivot() {
     rows.forEach(r=>{
       if(pvShowOnlyOut){
         if((r.outQty||0)>0||Object.keys(startStocks).some(k=>k.startsWith(`${r.ProdKey}-`)&&startStocks[k]?.stock)){
-          if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
+          if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,displayName:r.DisplayName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
         }
       } else {
         if((r.outQty||0)>0||(r.custOrderQty||0)>0){
-          if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
+          if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,displayName:r.DisplayName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
         }
       }
     });
@@ -1175,6 +1208,9 @@ export default function WeekPivot() {
           <tbody>
             {prodKeys.map((pk,pi)=>{
               const p=prodMap[pk];
+              const prodBaseName=stripProdName(p.name);
+              const prodDisplayName=cleanDisplayName(p.displayName, p.name);
+              const prodShortName=prodDisplayName || prodBaseName;
               const _initSS=startStocks[`${pk}-${weeks[0]}`];
               let rollingStock=_initSS?.stock!=null?_initSS.stock:(prevStockMap[pk]||0);
               const needRepeat=pi>0&&pi%PROD_REPEAT===0;
@@ -1207,8 +1243,19 @@ export default function WeekPivot() {
                             onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
                       <span style={{...st.clickCell,fontSize:8,color:filterFlower===p.flower?'#2e7d32':'#999',marginLeft:2}}
                             onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
-                      <div style={{fontWeight:600,fontSize:13,cursor:'pointer',color:isSel?'#E65100':undefined}}
-                           onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)}>{stripProdName(p.name)}</div>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:4,marginTop:2}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:600,fontSize:12,cursor:'pointer',color:isSel?'#E65100':undefined,lineHeight:1.15,wordBreak:'break-word'}}
+                               onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)} title={p.name}>{prodBaseName}</div>
+                          <button
+                            type="button"
+                            onClick={(e)=>{e.stopPropagation();setPvNameEdit({prodKey:pk,prodName:p.name,displayName:prodDisplayName});}}
+                            title="한글명 수정"
+                            style={{marginTop:2,maxWidth:'100%',border:'1px solid #c8e6c9',background:prodDisplayName?'#e8f5e9':'#fff',color:prodDisplayName?'#1b5e20':'#777',borderRadius:4,padding:'1px 4px',fontSize:10,lineHeight:1.2,cursor:'pointer',textAlign:'left',whiteSpace:'normal',wordBreak:'break-word'}}>
+                            {prodDisplayName || '한글명 추가'}
+                          </button>
+                        </div>
+                      </div>
                     </td>
                     {weeks.map(wk=>{
                       const ssKey=`${pk}-${wk}`;
@@ -1226,7 +1273,7 @@ export default function WeekPivot() {
                               <React.Fragment key={`${wk}-${ck}`}>
                                 {ci>0&&ci%CUST_REPEAT===0&&(
                                   <td style={{...st.td,fontSize:8,fontWeight:600,color:'#e65100',background:'#fff8e1',borderLeft:'2px solid #ff9800',padding:'2px 4px',whiteSpace:'normal',wordBreak:'break-all',lineHeight:'1.1',maxWidth:56,minWidth:56}}>
-                                    {stripProdName(p.name).slice(0,10)}
+                                    {prodShortName.slice(0,10)}
                                   </td>
                                 )}
                                 {(()=>{
@@ -1316,6 +1363,35 @@ export default function WeekPivot() {
           </tbody>
         </table>
         </div>
+
+        {/* 한글 품명 수정 모달 */}
+        {pvNameEdit&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
+               onClick={e=>e.target===e.currentTarget&&setPvNameEdit(null)}>
+            <div style={{background:'#fff',borderRadius:10,padding:20,boxShadow:'0 8px 32px rgba(0,0,0,0.3)',width:'min(520px,92vw)'}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>한글 품명 수정</div>
+              <div style={{fontSize:11,color:'#777',marginBottom:6}}>ERP 품명</div>
+              <div style={{fontSize:12,background:'#f5f5f5',border:'1px solid #ddd',borderRadius:5,padding:'7px 9px',marginBottom:12,wordBreak:'break-word'}}>
+                {pvNameEdit.prodName}
+              </div>
+              <div style={{fontSize:11,color:'#1976d2',marginBottom:6}}>차수피벗/자연어 매칭 한글명</div>
+              <input
+                value={pvNameEdit.displayName}
+                onChange={e=>setPvNameEdit(p=>({...p,displayName:e.target.value}))}
+                placeholder="예: 진다스위트 피치 L"
+                autoFocus
+                onKeyDown={e=>{if(e.key==='Enter') saveDisplayName(); if(e.key==='Escape') setPvNameEdit(null);}}
+                style={{width:'100%',padding:'8px 10px',border:'2px solid #1976d2',borderRadius:6,fontSize:14,marginBottom:8}}
+              />
+              <div style={{fontSize:11,color:'#777',marginBottom:16}}>비우고 저장하면 한글명이 삭제되고 ERP 품명만 남습니다.</div>
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                <button onClick={()=>setPvNameEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
+                <button onClick={saveDisplayName}
+                  style={{padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>저장</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 수량 수정 모달 */}
         {pvEdit&&(
