@@ -68,6 +68,43 @@ async function handler(req, res) {
       { wk: { type: sql.NVarChar, value: week } }
     );
 
+    const keyNumbering = await query(
+      `SELECT v.Category,
+              ISNULL(kn.LastKeyNo,0) AS LastKeyNo,
+              v.ActualMaxKey,
+              CASE WHEN ISNULL(kn.LastKeyNo,0) < v.ActualMaxKey THEN 1 ELSE 0 END AS NeedsSync,
+              CASE WHEN ISNULL(kn.LastKeyNo,0) < v.ActualMaxKey
+                   THEN v.ActualMaxKey - ISNULL(kn.LastKeyNo,0)
+                   ELSE 0 END AS Gap
+         FROM (
+           SELECT N'ShipmentMasterKey' AS Category, ISNULL(MAX(ShipmentKey),0) AS ActualMaxKey FROM ShipmentMaster
+           UNION ALL
+           SELECT N'ShipmentDetailKey' AS Category, ISNULL(MAX(SdetailKey),0) AS ActualMaxKey FROM ShipmentDetail
+           UNION ALL
+           SELECT N'OrderMasterKey' AS Category, ISNULL(MAX(OrderMasterKey),0) AS ActualMaxKey FROM OrderMaster
+           UNION ALL
+           SELECT N'OrderDetailKey' AS Category, ISNULL(MAX(OrderDetailKey),0) AS ActualMaxKey FROM OrderDetail
+         ) v
+         LEFT JOIN KeyNumbering kn ON kn.Category = v.Category
+        ORDER BY v.Category`
+    );
+
+    const procedures = await query(
+      `SELECT v.ProcedureName,
+              CASE WHEN OBJECT_ID(N'dbo.' + v.ProcedureName, N'P') IS NULL THEN 0 ELSE 1 END AS ExistsInDb
+         FROM (VALUES
+           (N'usp_DistributeTotal'),
+           (N'usp_DistributeOne'),
+           (N'usp_DistributeClear'),
+           (N'usp_ShipmentFix'),
+           (N'usp_ShipmentFixCancel'),
+           (N'usp_StockCalculation')
+         ) v(ProcedureName)
+        ORDER BY v.ProcedureName`
+    );
+
+    const keyNeedsSync = keyNumbering.recordset.filter(r => Number(r.NeedsSync) === 1);
+
     return res.status(200).json({
       success: true,
       week,
@@ -76,11 +113,15 @@ async function handler(req, res) {
         missingCustKey: missingCustKey.recordset.length,
         shipmentDateMismatch: shipmentDateMismatch.recordset.length,
         estMismatch: estMismatch.recordset.length,
+        keyNumberingNeedsSync: keyNeedsSync.length,
+        missingProcedures: procedures.recordset.filter(r => Number(r.ExistsInDb) !== 1).length,
       },
       duplicateMasters: duplicateMasters.recordset,
       missingCustKey: missingCustKey.recordset,
       shipmentDateMismatch: shipmentDateMismatch.recordset,
       estMismatch: estMismatch.recordset,
+      keyNumbering: keyNumbering.recordset,
+      procedures: procedures.recordset,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

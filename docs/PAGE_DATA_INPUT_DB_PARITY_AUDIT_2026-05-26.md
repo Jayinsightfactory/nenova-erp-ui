@@ -153,3 +153,37 @@
 - 출고분배의 `일괄 출고분배`, `개별 출고분배` 버튼이 현재 프론트에서 실제 저장 함수와 어떻게 연결되는지 추가 확인해야 한다. 운영에서는 클릭하지 않는다.
 - 전산 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`와 웹 직접 저장 결과의 차이는 별도 샘플 DB 조회 또는 테스트 환경에서만 검증한다.
 - `FarmCredit`는 송금 완료 원장이라기보다 차감/메모 입력값으로 보인다. 정확한 송금 완료/미완료 관리를 하려면 전산 원장 기준 또는 별도 완료 필드가 필요하다.
+
+## 2026-05-26 출고분배 버튼 추가 검증
+
+확인 대상:
+
+- `pages/shipment/distribute.js`
+- `pages/api/shipment/distribute.js`
+- `pages/api/shipment/distribute-diagnose.js`
+- 기존 기록 `WEB_VS_ERP_CONFLICTS.md`, `work_history.md`
+
+확인 결과:
+
+- 웹 `/shipment/distribute`의 `일괄 출고분배`, `개별 출고분배` 버튼은 DB 저장 버튼이 아니다.
+- 웹 버튼은 화면의 출고수량 입력값을 채우는 계산 버튼이고, 실제 DB 반영은 상단 `저장` 버튼이 `/api/shipment/distribute` POST를 호출할 때 이루어진다.
+- 반면 `nenova.exe`의 일괄/개별 출고분배 버튼은 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear` 같은 전산 SP를 통해 DB에 직접 반영되는 구조로 기록되어 있다.
+- 따라서 이름은 같지만 현재 웹과 exe의 버튼 의미가 다르다. 사용자가 “버튼이 작동하지 않는다”고 느낄 수 있는 지점은 웹 버튼이 값을 채우기만 하고 저장까지 하지 않기 때문이다.
+
+적용한 보완:
+
+- 웹 `일괄 출고분배`, `개별 출고분배` 버튼에 선택 품목/거래처 분배 데이터가 없으면 비활성화되도록 했다.
+- 버튼 실행 후 “입력값만 채웠고 실제 DB 저장은 상단 저장 버튼을 눌러야 한다”는 안내 메시지를 표시하도록 했다.
+- `개별 출고분배` 버튼은 기존에 `outInputs`만 바꾸고 `outQty` 상태는 갱신하지 않았는데, 합계 상태도 같이 갱신하도록 보완했다.
+
+read-only 진단 보강:
+
+- `/api/shipment/distribute-diagnose`에 `KeyNumbering` 상태를 추가했다.
+- `ShipmentMasterKey`, `ShipmentDetailKey`, `OrderMasterKey`, `OrderDetailKey`의 `KeyNumbering.LastKeyNo`와 실제 테이블 최대 PK를 비교한다.
+- `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `usp_ShipmentFix`, `usp_ShipmentFixCancel`, `usp_StockCalculation` 존재 여부를 같이 반환한다.
+- 이 API는 조회만 수행하며 운영 데이터를 변경하지 않는다.
+
+전산 exe 관련 결론:
+
+- 기존 21-01 국내왁스 일괄출고분배 실패는 `ShipmentDetailKey` 채번값이 실제 `ShipmentDetail.SdetailKey` 최대값보다 낮아서 `usp_DistributeOne`이 이미 존재하는 PK로 INSERT를 시도한 것이 원인으로 기록되어 있다.
+- 이번 보강으로 같은 유형의 실패는 운영 데이터 수정 없이 진단 API에서 먼저 확인할 수 있다.

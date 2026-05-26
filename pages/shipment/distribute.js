@@ -396,7 +396,10 @@ export default function Distribute() {
 
   // 비율 분배 자동 계산
   const autoDistribute = () => {
-    if (!selectedProd || custDist.length === 0) return;
+    if (!selectedProd || custDist.length === 0) {
+      setErr('품목을 선택하고 조회된 거래처 분배 정보가 있어야 자동 계산할 수 있습니다.');
+      return;
+    }
 
     const available = selectedProd.inQty || 0; // 입고 가능 수량
     const newInputs = {};
@@ -436,6 +439,23 @@ export default function Distribute() {
 
     setOutInputs(newInputs);
     setOutQty(Object.values(newInputs).reduce((a,b)=>a+b,0));
+    setErr('');
+    setSuccessMsg('분배 수량을 자동 계산했습니다. 실제 DB 저장은 상단 저장 버튼을 눌러야 적용됩니다.');
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  const fillOrderQuantities = () => {
+    if (!selectedProd || custDist.length === 0) {
+      setErr('품목을 선택하고 조회된 거래처 분배 정보가 있어야 주문수량을 채울 수 있습니다.');
+      return;
+    }
+    const nextInputs = {};
+    custDist.forEach(c => { nextInputs[c.CustKey] = c.주문수량 || 0; });
+    setOutInputs(nextInputs);
+    setOutQty(Object.values(nextInputs).reduce((a,b)=>a+(b||0),0));
+    setErr('');
+    setSuccessMsg('주문수량 기준으로 출고수량 입력값을 채웠습니다. 실제 DB 저장은 상단 저장 버튼을 눌러야 적용됩니다.');
+    setTimeout(() => setSuccessMsg(''), 3000);
   };
 
   // 저장
@@ -671,8 +691,8 @@ export default function Distribute() {
                   <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
                     <input type="radio" name="distMode" checked={distMode==='prior'} onChange={()=>setDistMode('prior')}/> 우선 분배
                   </label>
-                  <button className="btn btn-secondary btn-sm" onClick={autoDistribute}>📋 일괄 출고분배 / Distrib. masiva</button>
-                  <button className="btn btn-secondary btn-sm" onClick={()=>{const o={};custDist.forEach(c=>{o[c.CustKey]=c.주문수량||0;});setOutInputs(o);}}>📦 개별 출고분배 / Distrib. indiv.</button>
+                  <button className="btn btn-secondary btn-sm" onClick={autoDistribute} disabled={!selectedProd || custDist.length === 0} title="화면 입력값만 자동 계산합니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">📋 일괄 출고분배 / Distrib. masiva</button>
+                  <button className="btn btn-secondary btn-sm" onClick={fillOrderQuantities} disabled={!selectedProd || custDist.length === 0} title="주문수량을 출고수량 입력값으로 채웁니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">📦 개별 출고분배 / Distrib. indiv.</button>
                   <button className="btn btn-secondary btn-sm" onClick={()=>{const o={};custDist.forEach(c=>{o[c.CustKey]=0;});setOutInputs(o);setOutQty(0);}}>🔄 개별 초기화</button>
                 </div>
                 {/* 입고/출고/잔량 */}
