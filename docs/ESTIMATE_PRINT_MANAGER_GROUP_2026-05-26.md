@@ -8,8 +8,8 @@
 - The estimate shipment list shows the manager for each customer group.
 - Multi-select estimate printing now defaults to manager grouping:
   - Selected customer groups are sorted by manager, week, then customer name.
-  - A manager separator page is inserted before each manager group by default.
-  - The print dialog exposes toggles for manager sorting and separator pages.
+  - Manager separator pages were removed to avoid wasting printed paper.
+  - The print dialog does not show manager grouping controls; sorting is applied automatically.
 - Single-customer printing remains unchanged.
 
 ## Safety Notes
