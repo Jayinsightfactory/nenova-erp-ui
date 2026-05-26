@@ -540,12 +540,23 @@ async function postAdjust(req, res) {
       }
 
       if (targetSdk) {
+        const conciseLog = `[${userName}]${fmtQty(qtyBefore)}>${fmtQty(qtyAfter)}(${formatSignedQty(qtyAfter - qtyBefore)})`;
+        await tQ(
+          `UPDATE ShipmentDetail
+              SET Descr = ISNULL(NULLIF(Descr,''), '') +
+                          CASE WHEN ISNULL(Descr,'')='' THEN '' ELSE CHAR(10) END + @descr
+            WHERE SdetailKey=@dk`,
+          {
+            dk:    { type: sql.Int,      value: targetSdk },
+            descr: { type: sql.NVarChar, value: conciseLog },
+          }
+        );
         await insertShipmentHistory(
           tQ,
           targetSdk,
           String(outQBefore),
           String(outQAfter),
-          `[${formatLogTime()} ${userName}] ${type === 'ADD' ? 'paste order + distribute' : 'shipment cancel'}${memo ? ` / ${memo}` : ''}`,
+          conciseLog,
           uid
         );
       }
@@ -644,6 +655,19 @@ async function postAdjust(req, res) {
 function formatLogTime() {
   const now = new Date();
   return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function fmtQty(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value ?? '');
+  if (Math.abs(n - Math.round(n)) < 0.0001) return String(Math.round(n));
+  return n.toFixed(3).replace(/\.?0+$/, '');
+}
+
+function formatSignedQty(value) {
+  const n = Number(value) || 0;
+  const body = fmtQty(Math.abs(n));
+  return `${n >= 0 ? '+' : '-'}${body}`;
 }
 
 async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {

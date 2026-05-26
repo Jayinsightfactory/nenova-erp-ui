@@ -307,7 +307,9 @@ function cleanDescrText(text, actor = '') {
   const name = String(actor || '').trim() || '사용자';
   return String(text)
     .replace(/\[\s*\.Net SqlClient Data Provider[^\]]*\]/gi, `[${name}]`)
-    .replace(/\.Net SqlClient Data Provider/gi, name);
+    .replace(/\.Net SqlClient Data Provider/gi, name)
+    .replace(/\[(?:\d{4}-\d{2}-\d{2}|\d{2}\/\d{2})\s+\d{2}:\d{2}\]\s*\[([^\]]+)\]\s*/g, '[$1]')
+    .replace(/\[(?:\d{2}\/\d{2})\s+\d{2}:\d{2}\s+([^\]]+)\]\s*/g, '[$1]');
 }
 
 // ─────────────────────────────────────────────────────────────
