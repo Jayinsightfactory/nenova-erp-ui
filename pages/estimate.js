@@ -550,6 +550,7 @@ export default function Estimate() {
   // 차수 확정 모달
   const [fixModal, setFixModal] = useState(null); // null | { stage, week, issues, result }
   const [fixWorking, setFixWorking] = useState(false);
+  const [fixProgress, setFixProgress] = useState(null);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
@@ -955,6 +956,17 @@ export default function Estimate() {
   const fixWeekAllSubs = async () => {
     if (!weekNum) { alert('차수를 입력하세요'); return; }
     setFixWorking(true);
+    setFixProgress({
+      phase: 'validating',
+      title: `${weekNum}차 확정 준비 중`,
+      currentWeek: '',
+      total: 0,
+      done: 0,
+      success: 0,
+      failed: 0,
+      message: '확정 대상 차수를 확인하고 있습니다.',
+      results: [],
+    });
     try {
       // 부모차수(예: "18") 의 모든 세부차수(18-01, 18-02, …) 수집 — 현재 화면에 로드된 shipments 의 SubWeeks 사용
       // shipments 가 비어있으면 클라이언트에서 weekNum-01..03 시도
@@ -967,10 +979,26 @@ export default function Estimate() {
         ['01','02','03'].forEach(s => subWeeks.add(`${weekNum}-${s}`));
       }
       const weekList = [...subWeeks].sort();
+      setFixProgress(prev => ({
+        ...(prev || {}),
+        phase: 'validating',
+        title: `${weekNum}차 사전검증`,
+        total: weekList.length,
+        done: 0,
+        message: `${weekList.length}개 세부차수를 확인합니다.`,
+        results: [],
+      }));
 
       // 1단계: 각 세부차수 사전검증 → 이슈 모음
       const allIssues = {};
-      for (const wk of weekList) {
+      for (let i = 0; i < weekList.length; i += 1) {
+        const wk = weekList[i];
+        setFixProgress(prev => ({
+          ...(prev || {}),
+          currentWeek: wk,
+          done: i,
+          message: `${wk} 사전검증 중입니다.`,
+        }));
         try {
           const r = await fetch(`/api/shipment/fix?week=${encodeURIComponent(wk)}`);
           const d = await r.json();
@@ -982,6 +1010,11 @@ export default function Estimate() {
             };
           }
         } catch (_) { /* 검증 실패 시 무시하고 fix 시도 */ }
+        setFixProgress(prev => ({
+          ...(prev || {}),
+          done: i + 1,
+          message: `${wk} 사전검증 완료`,
+        }));
       }
 
       const totalIssues = Object.values(allIssues).reduce((a, x) => a + x.count, 0);
@@ -989,6 +1022,7 @@ export default function Estimate() {
         // 이슈 있으면 모달 띄움 (사용자 강제진행 여부 결정)
         setFixModal({ stage: 'preview', week: weekNum, weekList, allIssues, totalIssues });
         setFixWorking(false);
+        setFixProgress(null);
         return;
       }
       // 이슈 0건 → 바로 fix 진행
@@ -996,13 +1030,32 @@ export default function Estimate() {
     } catch (e) {
       setFixModal({ stage: 'error', error: e.message });
       setFixWorking(false);
+      setFixProgress(null);
     }
   };
 
   const doFixAll = async (weekList, force = false) => {
     setFixWorking(true);
     const results = [];
-    for (const wk of weekList) {
+    setFixProgress({
+      phase: 'fixing',
+      title: `${weekNum}차 출고 확정 진행 중`,
+      currentWeek: '',
+      total: weekList.length,
+      done: 0,
+      success: 0,
+      failed: 0,
+      message: `${weekList.length}개 세부차수를 순서대로 확정합니다.`,
+      results: [],
+    });
+    for (let i = 0; i < weekList.length; i += 1) {
+      const wk = weekList[i];
+      setFixProgress(prev => ({
+        ...(prev || {}),
+        currentWeek: wk,
+        done: i,
+        message: `${wk} 확정 중입니다. 재고 계산까지 함께 처리합니다.`,
+      }));
       try {
         const r = await fetch('/api/shipment/fix', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1013,9 +1066,20 @@ export default function Estimate() {
       } catch (e) {
         results.push({ week: wk, ok: false, error: e.message });
       }
+      const success = results.filter(x => x.ok).length;
+      const failed = results.length - success;
+      setFixProgress(prev => ({
+        ...(prev || {}),
+        done: i + 1,
+        success,
+        failed,
+        results: results.slice(-5),
+        message: `${wk} 처리 완료. 남은 차수 ${Math.max(weekList.length - i - 1, 0)}개`,
+      }));
     }
     setFixModal({ stage: 'done', results });
     setFixWorking(false);
+    setFixProgress(null);
     load(true); // 화면 갱신
   };
 
@@ -1432,6 +1496,12 @@ export default function Estimate() {
 
   const fixModalHasNegative = fixModal?.stage === 'preview' &&
     Object.values(fixModal.allIssues || {}).some(iss => (iss.negative || []).length > 0);
+  const fixProgressTotal = Number(fixProgress?.total || 0);
+  const fixProgressDone = Number(fixProgress?.done || 0);
+  const fixProgressPct = fixProgressTotal > 0
+    ? Math.min(100, Math.round((fixProgressDone / fixProgressTotal) * 100))
+    : 0;
+  const fixProgressRemain = Math.max(fixProgressTotal - fixProgressDone, 0);
   const fixStatusRows = fixStatusModal?.weeks || [];
   const selectedFixStatusRows = selectedFixStatusWeeks.size > 0
     ? fixStatusRows.filter(w => selectedFixStatusWeeks.has(w.OrderWeek))
@@ -2355,6 +2425,64 @@ export default function Estimate() {
               >
                 {fixWorking ? '확정중...' : `${weekNum}차 확정하기`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fixProgress && (
+        <div className="modal-overlay" onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">{fixProgress.title || '출고 확정 진행 중'}</span>
+            </div>
+            <div className="modal-body">
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, fontSize:12, color:'#555' }}>
+                <span>{fixProgress.currentWeek ? `현재 ${fixProgress.currentWeek}` : '대상 확인 중'}</span>
+                <span style={{ fontWeight:700 }}>{fixProgressDone}/{fixProgressTotal || '-'} 완료</span>
+              </div>
+              <div style={{ height:12, background:'#eceff1', borderRadius:6, overflow:'hidden', border:'1px solid #cfd8dc' }}>
+                <div style={{
+                  width: `${fixProgressPct}%`,
+                  height:'100%',
+                  background: fixProgress.phase === 'validating' ? '#1565c0' : '#2e7d32',
+                  transition:'width 0.25s ease',
+                }} />
+              </div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:12, fontSize:12 }}>
+                <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  진행률 {fixProgressPct}%
+                </span>
+                <span style={{ background:'#fff8e1', color:'#ef6c00', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  남음 {fixProgressRemain}개
+                </span>
+                {fixProgress.phase === 'fixing' && (
+                  <>
+                    <span style={{ background:'#e8f5e9', color:'#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                      성공 {Number(fixProgress.success || 0)}개
+                    </span>
+                    <span style={{ background:'#ffebee', color:'#c62828', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                      실패 {Number(fixProgress.failed || 0)}개
+                    </span>
+                  </>
+                )}
+              </div>
+              <div style={{ marginTop:14, fontSize:13, lineHeight:1.5, color:'#333', fontWeight:600 }}>
+                {fixProgress.message}
+              </div>
+              {fixProgress.results?.length > 0 && (
+                <div style={{ marginTop:12, borderTop:'1px solid #eee', paddingTop:10 }}>
+                  {fixProgress.results.map((r, i) => (
+                    <div key={`${r.week}-${i}`} style={{
+                      display:'flex', justifyContent:'space-between', gap:8,
+                      padding:'4px 0', fontSize:12, color: r.ok ? '#2e7d32' : '#c62828',
+                    }}>
+                      <span style={{ fontWeight:700 }}>{r.week}</span>
+                      <span>{r.ok ? '완료' : (r.error || '실패')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
