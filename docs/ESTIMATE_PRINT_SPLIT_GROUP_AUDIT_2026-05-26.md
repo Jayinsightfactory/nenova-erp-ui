@@ -12,7 +12,8 @@
 ## Changes
 - Split grouping now checks the full row context: country name, flower name, and product name.
 - Hydrangea and alstro are separate groups.
-- Colombia rose, China rose, and Ecuador rose are separate groups.
+- Colombia rose and Ecuador rose are separate groups.
+- China items are grouped into one `중국` section instead of splitting `중국 장미` and `중국 기타`.
 - Netherlands items are grouped as 네덜란드 instead of 기타.
 - Split mode no longer appends the final 종합견적서 page automatically.
 

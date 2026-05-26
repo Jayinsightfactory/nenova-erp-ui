@@ -125,10 +125,7 @@ function getFlowerGroup(row) {
     if (text.includes('ALSTRO') || text.includes('알스트로')) return '콜롬비아 알스트로';
     return '콜롬비아 기타';
   }
-  if (text.includes('CHINA') || text.includes('중국')) {
-    if (text.includes('ROSE') || text.includes('장미')) return '중국 장미';
-    return '중국 기타';
-  }
+  if (text.includes('CHINA') || text.includes('중국')) return '중국';
   if (text.includes('NETHERLAND') || text.includes('HOLLAND') || text.includes('네덜란드')) return '네덜란드';
   if (text.includes('HYDRANGEA') || text.includes('수국')) return '수국';
   if (text.includes('ALSTRO') || text.includes('알스트로')) return '알스트로메리아';
@@ -1401,11 +1398,11 @@ export default function Estimate() {
         groups[g].push(r);
       });
       const groupOrder = [
-        '콜롬비아 장미', '중국 장미', '에콰도르 장미', '장미',
+        '콜롬비아 장미', '중국', '에콰도르 장미', '장미',
         '콜롬비아 수국', '수국',
         '콜롬비아 알스트로', '알스트로메리아',
         '카네이션', '네덜란드',
-        '콜롬비아 기타', '중국 기타', '기타',
+        '콜롬비아 기타', '기타',
       ];
       const orderedGroups = [
         ...groupOrder.filter(g => groups[g]?.length > 0),
