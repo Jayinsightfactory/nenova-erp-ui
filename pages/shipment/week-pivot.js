@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
+import { suggestDisplayName } from '../../lib/displayName';
 import * as XLSX from 'xlsx';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
@@ -286,9 +287,19 @@ function cleanDisplayName(name, fallback = '') {
   return v && v !== fallback ? v : '';
 }
 
+function suggestedPivotProdName(name) {
+  const original = stripProdName(name);
+  const suggested = stripProdName(suggestDisplayName(name))
+    .replace(/^den\.?\s*/i, '')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return suggested && /[가-힣]/.test(suggested) && suggested !== original ? suggested : original;
+}
+
 function pivotProdName(product) {
   if (!product) return '';
-  return cleanDisplayName(product.displayName, product.name) || stripProdName(product.name);
+  return cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
 }
 
 // ─────────────────────────────────────────────────────────────

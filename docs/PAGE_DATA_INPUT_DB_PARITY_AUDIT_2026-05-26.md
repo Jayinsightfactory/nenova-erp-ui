@@ -326,3 +326,4 @@ read-only 진단 보강:
 
 - 차수피벗 엑셀 다운로드의 품명도 화면과 같은 기준으로 변경했다.
 - 업체별 시트, 재고 요약, 전체병합, 차수피벗, 국가별 시트, 오늘변경 시트에서 `DisplayName`이 있으면 한글 품명을 우선 출력하고, 없으면 기존 `ProdName` 정리명을 출력한다.
+- `DisplayName`이 아직 저장되지 않은 품목도 `suggestDisplayName` 기반 자동 한글명을 fallback으로 사용한다. 예: `Den. Jinda Sweet (피치) M` -> `진다스위트 피치 M`.
