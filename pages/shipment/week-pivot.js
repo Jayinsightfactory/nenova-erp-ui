@@ -152,7 +152,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
             <div style={{display:'flex',gap:4,alignItems:'center'}}>
               <button onClick={modalWeek.prevWeek} style={st.weekBigBtn}>◁</button>
               <button onClick={modalWeek.prev} style={{padding:'4px 8px',border:'1px solid #ccc',borderRadius:4,cursor:'pointer',background:'#f5f5f5',fontSize:12}}>◀</button>
-              <input {...modalWeek.props} style={{...st.modalInput,width:80,textAlign:'center',fontWeight:700}} />
+              <input {...modalWeek.props} style={{...st.modalInput,width:116,textAlign:'center',fontWeight:700}} />
               <button onClick={modalWeek.next} style={{padding:'4px 8px',border:'1px solid #ccc',borderRadius:4,cursor:'pointer',background:'#f5f5f5',fontSize:12}}>▶</button>
               <button onClick={modalWeek.nextWeek} style={st.weekBigBtn}>▷</button>
             </div>
@@ -1000,27 +1000,7 @@ export default function WeekPivot() {
       }
 
       const fileName = `차수피벗_${weeks.join('~')}.xlsx`;
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{ description: 'Excel', accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']} }],
-            startIn: localStorage.getItem('excelSaveDir') ? undefined : 'downloads',
-          });
-          const writable = await handle.createWritable();
-          const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-          await writable.write(buf);
-          await writable.close();
-          alert(`✅ 저장 완료: ${handle.name}`);
-        } catch (e) {
-          if (e.name !== 'AbortError') {
-            console.error(e);
-            XLSX.writeFile(wb, fileName);
-          }
-        }
-      } else {
-        XLSX.writeFile(wb, fileName);
-      }
+      XLSX.writeFile(wb, fileName, { compression: true });
     };
 
     return (
@@ -1578,7 +1558,7 @@ export default function WeekPivot() {
 // ─────────────────────────────────────────────────────────────
 const hst = {
   wBtn:   { padding:'3px 7px', border:'1px solid rgba(255,255,255,0.4)', borderRadius:3, cursor:'pointer', background:'rgba(255,255,255,0.15)', color:'#fff', fontSize:11, fontWeight:700 },
-  wInput: { padding:'3px 6px', border:'1px solid rgba(255,255,255,0.4)', borderRadius:3, background:'rgba(255,255,255,0.95)', color:'#222', fontSize:12, fontWeight:700, width:68, textAlign:'center' },
+  wInput: { padding:'3px 6px', border:'1px solid rgba(255,255,255,0.4)', borderRadius:3, background:'rgba(255,255,255,0.95)', color:'#222', fontSize:12, fontWeight:700, width:116, minWidth:116, textAlign:'center', boxSizing:'border-box' },
   hBtn:   { padding:'4px 12px', borderRadius:4, cursor:'pointer', color:'#fff', fontSize:12, fontWeight:600 },
 };
 

@@ -230,8 +230,11 @@ function parseCompactQty(value) {
 }
 
 function parseCompactWeek(line) {
-  const m = String(line || '').match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
-  return m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : null;
+  const s = String(line || '');
+  let m = s.match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
+  if (m) return `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  m = s.match(/(?:^|\s)(\d{1,2})\s*차(?:\s|$)/);
+  return m ? `${m[1].padStart(2, '0')}-01` : null;
 }
 
 function parseCompactFlowerContext(line, currentFlower = '') {
@@ -380,6 +383,8 @@ function parseNaturalSectionOrders(text) {
       detectedWeek = detectedWeek || lineWeek;
       flowerContext = parseCompactFlowerContext(line, flowerContext);
       sectionAction = /추가|취소|춰소|츼소|치소|쥐소/.test(line) ? normalizeAction(line) : '';
+      const lineWithoutWeek = line.replace(/(?:^|\s)\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?/, ' ');
+      if (explicitHeaderFlowerContext && /추가|취소/.test(line) && !/\d+\s*(박스|단|송이|개)/.test(lineWithoutWeek)) return;
       if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
     }
 

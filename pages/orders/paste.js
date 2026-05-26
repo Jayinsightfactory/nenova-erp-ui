@@ -153,9 +153,11 @@ function shortWeekLabel(weekValue) {
 }
 
 function parseWeekFromLine(line, selectedWeek) {
-  const m = String(line || '').match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
-  if (!m) return '';
-  return fullWeekFromShort(`${m[1]}-${m[2]}`, selectedWeek);
+  const s = String(line || '');
+  let m = s.match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
+  if (m) return fullWeekFromShort(`${m[1]}-${m[2]}`, selectedWeek);
+  m = s.match(/(?:^|\s)(\d{1,2})\s*차(?:\s|$)/);
+  return m ? fullWeekFromShort(`${m[1]}-01`, selectedWeek) : '';
 }
 
 function weekSortValue(weekValue) {
@@ -171,7 +173,8 @@ function isSeparatorLine(line) {
 function normalizeFlowerContext(line) {
   const s = String(line || '').trim().replace(/\s+/g, '');
   if (s === '카네') return '카네이션';
-  return /^(수국|장미|카네이션|알스트로)$/.test(s) ? s : '';
+  if (s === '리시안') return '리시안셔스';
+  return /^(수국|장미|카네이션|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|튤립)$/.test(s) ? s : '';
 }
 
 function applyFlowerContext(name, flowerContext) {
@@ -345,16 +348,25 @@ function parseKakaoStockRecords(text, selectedWeek) {
 
     const lineWeek = parseWeekFromLine(line, selectedWeek);
     if (lineWeek) {
+      const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
+      if (headerFlower) currentFlower = headerFlower;
       if (/여분\s*주문|여분주문/.test(line)) {
         mode = 'extra';
         currentWeek = lineWeek;
+        return;
+      }
+      const lineWithoutWeek = line.replace(/(?:^|\s)\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?/, ' ');
+      if (headerFlower && /추가|취소/.test(line) && !/\d+\s*(박스|단|송이|개)/.test(lineWithoutWeek)) {
+        mode = 'regular';
+        currentWeek = lineWeek;
+        primaryWeek.value = primaryWeek.value || lineWeek;
+        currentCustomer = '';
         return;
       }
       if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) {
         mode = 'regular';
         currentWeek = lineWeek;
         primaryWeek.value = primaryWeek.value || lineWeek;
-        currentFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로)/) || [])[1]) || currentFlower;
         currentCustomer = '';
         return;
       }
