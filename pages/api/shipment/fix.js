@@ -377,7 +377,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const total = uniqueKeys.length;
   const logPrefix = logContext.prefix || 'stock_calc';
   const logLabel = logContext.label || '';
-  await runLimited(uniqueKeys, 3, async (prodKey) => {
+  await runLimited(uniqueKeys, 1, async (prodKey) => {
     try {
       const r = await queryWithDeadlockRetry(
         `DECLARE @r INT, @m NVARCHAR(200);
@@ -439,6 +439,10 @@ function countryFlowerLabelSql(alias = 'p') {
 function matchesCountryFlowerFilter(row, allowedCountryFlowers) {
   if (!allowedCountryFlowers) return true;
   return allowedCountryFlowers.has(row.countryFlower) || allowedCountryFlowers.has(row.label);
+}
+
+function isNegativeStockProcedureMessage(message) {
+  return /마이너스|negative/i.test(String(message || ''));
 }
 
 async function loadShipmentCategoryTargets(orderWeek, detailFixValue, allowedCountryFlowers) {
@@ -613,8 +617,44 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         }
         results.push({ countryFlower: label, ok: true, message: row.message });
       } else {
-        await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${label} code=${row.result} msg=${row.message || ''}`, true);
-        errors.push({ countryFlower: label, code: row.result, message: row.message || 'unknown' });
+        let retryRow = null;
+        if (isNegativeStockProcedureMessage(row.message)) {
+          await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
+          const preStock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+            prefix: 'fix_retry_stock_calc',
+            label,
+          });
+          stockResults.push(...preStock.results);
+          stockErrors.push(...preStock.errors);
+          await logFix('fix_retry_stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${preStock.results.length} err=${preStock.errors.length}`, preStock.errors.length > 0);
+          const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
+          retryRow = retry.recordset?.[0] || {};
+        }
+
+        if (retryRow && retryRow.result === 0) {
+          await logFix('fix_sp_retry_ok', `${orderYear}/${orderWeek} ${label}`);
+          await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
+          const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+            prefix: 'stock_calc',
+            label,
+          });
+          stockResults.push(...stock.results);
+          stockErrors.push(...stock.errors);
+          await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
+          if (stock.errors.length > 0) {
+            await logFix(
+              'stock_calc_error',
+              `${orderYear}/${orderWeek} ${label} ` +
+                stock.errors.slice(0, 5).map(e => `pk=${e.prodKey}:${e.message}`).join(' / '),
+              true
+            );
+          }
+          results.push({ countryFlower: label, ok: true, message: retryRow.message });
+        } else {
+          const finalRow = retryRow || row;
+          await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${label} code=${finalRow.result} msg=${finalRow.message || ''}`, true);
+          errors.push({ countryFlower: label, code: finalRow.result, message: finalRow.message || 'unknown' });
+        }
       }
     } catch (e) {
       await logFix('fix_exception', `${orderYear}/${orderWeek} ${label} ${e.message}`, true);
