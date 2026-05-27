@@ -417,6 +417,7 @@ async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter)
     : '';
   const params = {
     currentKey: { type: sql.NVarChar, value: currentKey },
+    orderYear: { type: sql.NVarChar, value: orderYear },
     defaultYear: { type: sql.NVarChar, value: orderYear },
   };
   countryFlowers.forEach((cf, i) => {
@@ -433,6 +434,7 @@ async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter)
      WHERE sm.isDeleted = 0
        AND ISNULL(sd.OutQuantity, 0) > 0
        AND ISNULL(sd.isFix, 0) = 0
+       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) = @orderYear
        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') < @currentKey
        ${cfWhere}
      GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek
