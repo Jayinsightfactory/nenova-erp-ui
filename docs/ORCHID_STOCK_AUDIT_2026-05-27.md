@@ -127,3 +127,66 @@ Final verified snapshots:
 - `22-02`: `21`
 - `23-01`: `21`
 - `23-02`: `21`
+
+## Full Future Sweep
+
+User reported that the bad stock value reappeared after `22` weeks, so the audit was expanded from `20-01` through all visible future `2026` stock masters.
+
+Additional stale boundaries found:
+
+- `24-01`: `683`
+- `26-01`: `683`
+- `50-01`: `683`
+
+Each boundary was repaired with the official stock calculation SP only. No direct quantity or stock table update was used.
+
+Executed:
+
+```sql
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '24-01',
+     @ProdKey = 3074,
+     @iUserID = '<logged-in user>';
+
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '26-01',
+     @ProdKey = 3074,
+     @iUserID = '<logged-in user>';
+
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '50-01',
+     @ProdKey = 3074,
+     @iUserID = '<logged-in user>';
+```
+
+All three SP calls returned:
+
+- `result`: `0`
+- `message`: `확정 완료`
+
+Final full future audit for `ProdKey 3074`:
+
+- `20-01`: `21`
+- `20-02`: `21`
+- `21-01`: `21`
+- `21-02`: `21`
+- `21-03`: `21`
+- `22-01`: `21`
+- `22-02`: `21`
+- `23-01`: `21`
+- `23-02`: `21`
+- `24-01`: `21`
+- `24-02`: `21`
+- `25-01`: `21`
+- `25-02`: `21`
+- `26-01`: `21`
+- `27-01`: `21`
+- `28-01`: `21`
+- `29-01`: `21`
+- `30-01`: `21`
+- `50-01`: `21`
+
+Conclusion: the product's visible 2026 future stock snapshots are now consistent. The repair used the same official `usp_StockCalculation` path that `nenova.exe` depends on, so no web-only stock structure was introduced.
