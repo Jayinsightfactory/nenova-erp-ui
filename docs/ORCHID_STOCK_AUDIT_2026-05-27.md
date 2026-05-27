@@ -86,3 +86,44 @@ After repair:
 This matches the expected stock path:
 
 `19-02 stock 688 - 20-01 shipment 662 - quarantine deduction 5 = 21`
+
+## Follow-up Repair For 22+ Weeks
+
+After the first repair, `22-01` and later still showed `683`.
+
+Observed snapshots before the follow-up repair:
+
+- `21-03`: `21`
+- `22-01`: `683`
+- `22-02`: `683`
+- `23-01`: `683`
+- `23-02`: `683`
+
+This happened because the `22-01` `StockMaster` row had its own later week snapshot chain and was not corrected by the initial `20-01` recalc.
+
+Executed official SP again from the affected future boundary:
+
+```sql
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '22-01',
+     @ProdKey = 3074,
+     @iUserID = '<logged-in user>';
+```
+
+SP returned:
+
+- `result`: `0`
+- `message`: `확정 완료`
+
+Final verified snapshots:
+
+- `20-01`: `21`
+- `20-02`: `21`
+- `21-01`: `21`
+- `21-02`: `21`
+- `21-03`: `21`
+- `22-01`: `21`
+- `22-02`: `21`
+- `23-01`: `21`
+- `23-02`: `21`
