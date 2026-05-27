@@ -1056,12 +1056,16 @@ export default function Estimate() {
     return results;
   };
 
-  const runShipmentFixAction = async (week, action, countryFlowers = []) => {
+  const getProdKeysForEditedItems = (editedItems) => [...new Set((editedItems || [])
+    .map(it => Number(it.ProdKey))
+    .filter(Number.isFinite))];
+
+  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = []) => {
     const r = await fetch('/api/shipment/fix', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ week, action, force: true, countryFlowers }),
+      body: JSON.stringify({ week, action, force: true, countryFlowers, stockProdKeys }),
     });
     const d = await r.json();
     if (!d.success) {
@@ -1070,7 +1074,7 @@ export default function Estimate() {
     return d;
   };
 
-  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], progress, apply }) => {
+  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const unfixedWeeks = [];
     let applyResult = null;
@@ -1078,14 +1082,14 @@ export default function Estimate() {
     try {
       for (const wk of sortWeeksDesc(targetWeeks)) {
         progress?.(`${wk} 확정해제 중`);
-        await runShipmentFixAction(wk, 'unfix', countryFlowers);
+        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys);
         unfixedWeeks.push(wk);
       }
     } catch (err) {
       progress?.(`확정해제 오류 — ${err.message}`);
       for (const wk of sortWeeksAsc(unfixedWeeks)) {
         progress?.(`${wk} 원상복구 재확정 중`);
-        await runShipmentFixAction(wk, 'fix', countryFlowers);
+        await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
       }
       throw err;
     }
@@ -1100,7 +1104,7 @@ export default function Estimate() {
 
     for (const wk of sortWeeksAsc(unfixedWeeks)) {
       progress?.(`${wk} 재확정 중`);
-      await runShipmentFixAction(wk, 'fix', countryFlowers);
+      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
     }
 
     if (applyError) throw applyError;
@@ -1297,6 +1301,7 @@ export default function Estimate() {
       const shipmentPending = pending.filter(p => !p.isEstimate);
       const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentPending.map(p => p.item), selectedShip);
       const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentPending.map(p => p.item));
+      const cycleStockProdKeys = getProdKeysForEditedItems(shipmentPending.map(p => p.item));
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1334,6 +1339,7 @@ export default function Estimate() {
         ? await runEditWithFixCycle({
             weeks: cycleWeeks,
             countryFlowers: cycleCountryFlowers,
+            stockProdKeys: cycleStockProdKeys,
             progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
             apply: runQuantityUpdate,
           })
@@ -1444,9 +1450,8 @@ export default function Estimate() {
         week,
         custKey: selectedShip.CustKey,
       };
-      const shipmentCostItems = allItems.filter(it => it.sdetailKey);
-      const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentCostItems, selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentCostItems);
+      const cycleWeeks = [];
+      const cycleCountryFlowers = [];
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1495,6 +1500,7 @@ export default function Estimate() {
         ? await runEditWithFixCycle({
             weeks: cycleWeeks,
             countryFlowers: cycleCountryFlowers,
+            stockProdKeys: [],
             progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
             apply: postCostUpdate,
           })
@@ -1633,12 +1639,11 @@ export default function Estimate() {
 
       const cycleWeeks = getFixCycleWeeksForEditedItems([
         ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
-        ...costItems.filter(it => it.sdetailKey),
       ], selectedShip);
       const cycleCountryFlowers = getCountryFlowersForEditedItems([
         ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
-        ...costItems.filter(it => it.sdetailKey),
       ]);
+      const cycleStockProdKeys = getProdKeysForEditedItems(qtyPending.filter(p => !p.isEstimate).map(p => p.item));
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1700,6 +1705,7 @@ export default function Estimate() {
         ? await runEditWithFixCycle({
             weeks: cycleWeeks,
             countryFlowers: cycleCountryFlowers,
+            stockProdKeys: cycleStockProdKeys,
             progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
             apply: runCombinedUpdate,
           })

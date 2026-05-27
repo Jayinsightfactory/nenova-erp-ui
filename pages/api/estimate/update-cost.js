@@ -138,7 +138,7 @@ export default withAuth(async function handler(req, res) {
         .filter(sk => smMap[sk].wasFixed && items.some(it => it.shipmentKey === sk && it.sdetailKey))
         .map(sk => smMap[sk].orderWeek)
         .filter(Boolean);
-      if (fixedWeeks.length > 0) {
+      if (false && fixedWeeks.length > 0) {
         const err = new Error(
           `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
           `${[...new Set(fixedWeeks)].join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`

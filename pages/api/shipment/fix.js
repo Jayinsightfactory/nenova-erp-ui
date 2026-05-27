@@ -368,6 +368,22 @@ async function loadShipmentProdKeys(orderWeek, countryFlower, targetMode = 'CATE
   return result.recordset.map(r => Number(r.ProdKey)).filter(Boolean);
 }
 
+function normalizeStockProdKeys(stockProdKeys) {
+  const values = Array.isArray(stockProdKeys)
+    ? stockProdKeys
+    : String(stockProdKeys || '').split(',');
+  const keys = values.map(v => Number(v)).filter(Number.isFinite);
+  return [...new Set(keys)];
+}
+
+function narrowStockProdKeys(prodKeys, stockProdKeys) {
+  const allowed = normalizeStockProdKeys(stockProdKeys);
+  if (allowed.length === 0) return prodKeys;
+  const allowedSet = new Set(allowed);
+  const narrowed = (prodKeys || []).filter(pk => allowedSet.has(Number(pk)));
+  return narrowed;
+}
+
 async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext = {}) {
   const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))]
     .sort((a, b) => a - b);
@@ -524,6 +540,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, allowedCountryFlowers);
@@ -590,7 +607,8 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const cf = target.countryFlower;
     const label = target.label || cf || 'ALL';
     try {
-      const prodKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+      const categoryProdKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+      const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
       await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
@@ -689,6 +707,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
   try {
@@ -737,7 +756,8 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const cf = target.countryFlower;
       const label = target.label || cf || 'ALL';
       try {
-        const prodKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+        const categoryProdKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+        const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
         await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
