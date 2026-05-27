@@ -82,6 +82,20 @@ async function runStockCalculation({ orderYear, orderWeek, prodKey, uid }) {
   return { result: 0, message: '' };
 }
 
+async function appLog(step, detail, isError = false) {
+  try {
+    await query(
+      `INSERT INTO AppLog (Category, Step, Detail, IsError)
+       VALUES (N'stockRecalc', @step, @detail, @err)`,
+      {
+        step: { type: sql.NVarChar, value: String(step || '').slice(0, 100) },
+        detail: { type: sql.NVarChar, value: String(detail || '').slice(0, 1000) },
+        err: { type: sql.Bit, value: isError ? 1 : 0 },
+      }
+    );
+  } catch {}
+}
+
 export default withAuth(async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
@@ -107,11 +121,16 @@ export default withAuth(async function handler(req, res) {
   }
 
   try {
+    await appLog('start', `${orderYear}/${orderWeek} pk=${prodKey} uid=${uid}`);
     const before = await loadProductStock(prodKey, weekFrom, weekTo);
+    await appLog('before_loaded', `${orderYear}/${orderWeek} pk=${prodKey} rows=${before.length}`);
     const beforeProduct = await loadProduct(prodKey);
+    await appLog('sp_start', `${orderYear}/${orderWeek} pk=${prodKey} live=${beforeProduct?.ProductStockLive ?? ''}`);
     const sp = await runStockCalculation({ orderYear, orderWeek, prodKey, uid });
+    await appLog('sp_done', `${orderYear}/${orderWeek} pk=${prodKey} result=${sp.result ?? ''} msg=${sp.message || ''}`, Number(sp.result || 0) !== 0);
     const after = await loadProductStock(prodKey, weekFrom, weekTo);
     const afterProduct = await loadProduct(prodKey);
+    await appLog('done', `${orderYear}/${orderWeek} pk=${prodKey} rows=${after.length} live=${afterProduct?.ProductStockLive ?? ''}`);
 
     return res.status(200).json({
       success: Number(sp.result || 0) === 0,
@@ -121,6 +140,7 @@ export default withAuth(async function handler(req, res) {
       productStock: { before, after },
     });
   } catch (err) {
+    await appLog('error', `${orderYear}/${orderWeek} pk=${prodKey} ${err.message}`, true);
     return res.status(500).json({
       success: false,
       error: err.message,
