@@ -344,7 +344,7 @@ async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, 
   });
 }
 
-async function loadShipmentProdKeys(orderWeek, countryFlower) {
+async function loadShipmentProdKeys(orderWeek, countryFlower, targetMode = 'CATEGORY') {
   const result = await query(
     `SELECT DISTINCT sd.ProdKey
        FROM ShipmentMaster sm
@@ -353,11 +353,16 @@ async function loadShipmentProdKeys(orderWeek, countryFlower) {
       WHERE sm.OrderWeek = @wk
         AND sm.isDeleted = 0
         AND ISNULL(sd.OutQuantity, 0) > 0
-        AND (@cf IS NULL OR p.CountryFlower = @cf)
+        AND (
+          @mode = N'ALL'
+          OR (@mode = N'BLANK' AND NULLIF(LTRIM(RTRIM(ISNULL(p.CountryFlower, N''))), N'') IS NULL)
+          OR (@mode = N'CATEGORY' AND p.CountryFlower = @cf)
+        )
       ORDER BY sd.ProdKey`,
     {
       wk: { type: sql.NVarChar, value: orderWeek },
       cf: { type: sql.NVarChar, value: countryFlower || null },
+      mode: { type: sql.NVarChar, value: targetMode },
     }
   );
   return result.recordset.map(r => Number(r.ProdKey)).filter(Boolean);
@@ -422,11 +427,59 @@ function normalizeCountryFlowerFilter(countryFlowers) {
   return clean.length ? new Set(clean) : null;
 }
 
+function countryFlowerNameSql(alias = 'p') {
+  return `NULLIF(LTRIM(RTRIM(ISNULL(${alias}.CountryFlower, N''))), N'')`;
+}
+
+function countryFlowerLabelSql(alias = 'p') {
+  const cf = countryFlowerNameSql(alias);
+  return `ISNULL(${cf}, ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(${alias}.CounName, N''))), N''), ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(${alias}.FlowerName, N''))), N''), N'(분류없음)')))`;
+}
+
+function matchesCountryFlowerFilter(row, allowedCountryFlowers) {
+  if (!allowedCountryFlowers) return true;
+  return allowedCountryFlowers.has(row.countryFlower) || allowedCountryFlowers.has(row.label);
+}
+
+async function loadShipmentCategoryTargets(orderWeek, detailFixValue, allowedCountryFlowers) {
+  const cf = countryFlowerNameSql('p');
+  const label = countryFlowerLabelSql('p');
+  const result = await query(
+    `SELECT DISTINCT
+            ISNULL(${cf}, N'') AS countryFlower,
+            ${label} AS label,
+            CASE WHEN ${cf} IS NULL THEN 1 ELSE 0 END AS isBlank
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
+      WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
+        AND ISNULL(sd.isFix, 0) = @detailFix
+        AND sd.OutQuantity > 0`,
+    {
+      wk: { type: sql.NVarChar, value: orderWeek },
+      detailFix: { type: sql.Int, value: detailFixValue },
+    }
+  );
+
+  return result.recordset
+    .map(r => ({
+      countryFlower: String(r.countryFlower || ''),
+      label: String(r.label || r.countryFlower || '(분류없음)'),
+      isBlank: Number(r.isBlank || 0) === 1,
+      mode: Number(r.isBlank || 0) === 1 ? 'BLANK' : 'CATEGORY',
+    }))
+    .filter(row => matchesCountryFlowerFilter(row, allowedCountryFlowers))
+    .sort((a, b) => Number(a.isBlank) - Number(b.isBlank) || a.label.localeCompare(b.label, 'ko'));
+}
+
 async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter) {
   const currentKey = String(orderYear) + String(orderWeek || '').replace('-', '');
   const countryFlowers = countryFlowersFilter ? [...countryFlowersFilter] : [];
+  const cf = countryFlowerNameSql('p');
+  const label = countryFlowerLabelSql('p');
   const cfWhere = countryFlowers.length
-    ? `AND p.CountryFlower IN (${countryFlowers.map((_, i) => `@cf${i}`).join(', ')})`
+    ? `AND (ISNULL(${cf}, N'') IN (${countryFlowers.map((_, i) => `@cf${i}`).join(', ')})
+            OR ${label} IN (${countryFlowers.map((_, i) => `@cf${i}`).join(', ')}))`
     : '';
   const params = {
     currentKey: { type: sql.NVarChar, value: currentKey },
@@ -493,24 +546,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   );
 
   // 2. 미확정(DetailFix=0) 출고가 있는 CountryFlower 목록
-  const cfList = await query(
-    `SELECT DISTINCT p.CountryFlower
-       FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-       JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
-      WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
-        AND ISNULL(sd.isFix, 0) = 0
-        AND sd.OutQuantity > 0
-      ORDER BY p.CountryFlower`,
-    { wk: { type: sql.NVarChar, value: orderWeek } }
-  );
+  const categoryTargets = await loadShipmentCategoryTargets(orderWeek, 0, allowedCountryFlowers);
 
-  const flowers = cfList.recordset
-    .map(r => r.CountryFlower)
-    .filter(cf => cf && cf.trim())
-    .filter(cf => !allowedCountryFlowers || allowedCountryFlowers.has(cf));
-
-  if (flowers.length === 0) {
+  if (categoryTargets.length === 0) {
     if (allowedCountryFlowers) {
       return res.status(200).json({
         success: true,
@@ -538,7 +576,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       });
     }
   }
-  const targets = procedureShape.hasCountryFlower ? flowers : [null];
+  const targets = procedureShape.hasCountryFlower
+    ? categoryTargets
+    : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
   await logFix('fix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
   // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
@@ -546,37 +586,39 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const errors = [];
   const stockResults = [];
   const stockErrors = [];
-  for (const cf of targets) {
+  for (const target of targets) {
+    const cf = target.countryFlower;
+    const label = target.label || cf || 'ALL';
     try {
-      const prodKeys = await loadShipmentProdKeys(orderWeek, cf);
-      await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
+      const prodKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+      await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
-        await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
+        await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
           prefix: 'stock_calc',
-          label: cf || 'ALL',
+          label,
         });
         stockResults.push(...stock.results);
         stockErrors.push(...stock.errors);
-        await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
+        await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
         if (stock.errors.length > 0) {
           await logFix(
             'stock_calc_error',
-            `${orderYear}/${orderWeek} ${cf || 'ALL'} ` +
+            `${orderYear}/${orderWeek} ${label} ` +
               stock.errors.slice(0, 5).map(e => `pk=${e.prodKey}:${e.message}`).join(' / '),
             true
           );
         }
-        results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
+        results.push({ countryFlower: label, ok: true, message: row.message });
       } else {
-        await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
-        errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
+        await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${label} code=${row.result} msg=${row.message || ''}`, true);
+        errors.push({ countryFlower: label, code: row.result, message: row.message || 'unknown' });
       }
     } catch (e) {
-      await logFix('fix_exception', `${orderYear}/${orderWeek} ${cf || 'ALL'} ${e.message}`, true);
-      errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
+      await logFix('fix_exception', `${orderYear}/${orderWeek} ${label} ${e.message}`, true);
+      errors.push({ countryFlower: label, code: -1, message: e.message });
     }
   }
 
@@ -636,23 +678,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     }
 
     // 확정(DetailFix=1) 상태인 CountryFlower 목록
-    const cfList = await query(
-      `SELECT DISTINCT p.CountryFlower
-         FROM ShipmentDetail sd
-         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
-        WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
-          AND ISNULL(sd.isFix, 0) = 1
-        ORDER BY p.CountryFlower`,
-      { wk: { type: sql.NVarChar, value: orderWeek } }
-    );
+    const categoryTargets = await loadShipmentCategoryTargets(orderWeek, 1, allowedCountryFlowers);
 
-    const flowers = cfList.recordset
-      .map(r => r.CountryFlower)
-      .filter(cf => cf && cf.trim())
-      .filter(cf => !allowedCountryFlowers || allowedCountryFlowers.has(cf));
-
-    if (flowers.length === 0) {
+    if (categoryTargets.length === 0) {
       return res.status(200).json({
         success: true,
         message: `[${week}] 확정 취소 대상 없음 (이미 모두 미확정 상태)`,
@@ -662,44 +690,48 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
 
     // 카테고리별 SP 호출
     const procedureShape = await loadProcedureShape('usp_ShipmentFixCancel');
-    const targets = procedureShape.hasCountryFlower ? flowers : [null];
+    const targets = procedureShape.hasCountryFlower
+      ? categoryTargets
+      : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
     await logFix('unfix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
     const results = [];
     const errors = [];
     const stockResults = [];
     const stockErrors = [];
-    for (const cf of targets) {
+    for (const target of targets) {
+      const cf = target.countryFlower;
+      const label = target.label || cf || 'ALL';
       try {
-        const prodKeys = await loadShipmentProdKeys(orderWeek, cf);
-        await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
+        const prodKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+        await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
-          await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
+          await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
           const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
             prefix: 'unfix_stock_calc',
-            label: cf || 'ALL',
+            label,
           });
           stockResults.push(...stock.results);
           stockErrors.push(...stock.errors);
-          await logFix('unfix_stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
+          await logFix('unfix_stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
           if (stock.errors.length > 0) {
             await logFix(
               'unfix_stock_calc_error',
-              `${orderYear}/${orderWeek} ${cf || 'ALL'} ` +
+              `${orderYear}/${orderWeek} ${label} ` +
                 stock.errors.slice(0, 5).map(e => `pk=${e.prodKey}:${e.message}`).join(' / '),
               true
             );
           }
-          results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
+          results.push({ countryFlower: label, ok: true, message: row.message });
         } else {
-          await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
-          errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
+          await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${label} code=${row.result} msg=${row.message || ''}`, true);
+          errors.push({ countryFlower: label, code: row.result, message: row.message || 'unknown' });
         }
       } catch (e) {
-        await logFix('unfix_exception', `${orderYear}/${orderWeek} ${cf || 'ALL'} ${e.message}`, true);
-        errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
+        await logFix('unfix_exception', `${orderYear}/${orderWeek} ${label} ${e.message}`, true);
+        errors.push({ countryFlower: label, code: -1, message: e.message });
       }
     }
 
