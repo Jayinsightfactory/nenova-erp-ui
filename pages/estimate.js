@@ -1960,8 +1960,12 @@ export default function Estimate() {
   const selectedFixStatusRows = selectedFixStatusWeeks.size > 0
     ? fixStatusRows.filter(w => selectedFixStatusWeeks.has(w.OrderWeek))
     : [];
-  const fixStatusTargetRows = (selectedFixStatusRows.length ? selectedFixStatusRows : fixStatusRows)
+  const fixStatusActionBaseRows = selectedFixStatusRows.length ? selectedFixStatusRows : fixStatusRows;
+  const fixStatusTargetRows = fixStatusActionBaseRows
     .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL');
+  const fixStatusFixTargetRows = fixStatusActionBaseRows
+    .filter(w => Number(w.detailCount || 0) > 0)
+    .filter(w => w.status === 'UNFIXED' || w.status === 'PARTIAL');
   const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
   const fixStatusBadge = (status) => {
     if (status === 'FIXED') return { text: '확정', bg: '#e8f5e9', color: '#2e7d32' };
@@ -2018,6 +2022,21 @@ export default function Estimate() {
       setRangeUnfixWorking(false);
       setTimeout(() => setRangeUnfixStatus(''), 1500);
     }
+  };
+
+  const fixSelectedFixStatusWeeks = async () => {
+    const rows = fixStatusFixTargetRows;
+    if (!rows.length) {
+      alert('확정할 차수를 선택하거나, 미확정/부분확정 차수가 있어야 합니다.');
+      return;
+    }
+    const ordered = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek)));
+    const weekLabels = ordered.map(w => w.OrderWeek).filter(Boolean);
+    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.`)) {
+      return;
+    }
+    setFixStatusModal(null);
+    await doFixAll(weekLabels);
   };
 
   return (
@@ -2833,6 +2852,9 @@ export default function Estimate() {
                 <span style={{ background:'#fff8e1', color:'#ef6c00', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   취소대상 {fixStatusTargetRows.length}차수
                 </span>
+                <span style={{ background:'#e8f5e9', color:'#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  확정대상 {fixStatusFixTargetRows.length}차수
+                </span>
                 <span style={{ background: fixStatusNegativeCount > 0 ? '#ffebee' : '#e8f5e9', color: fixStatusNegativeCount > 0 ? '#c62828' : '#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   음수재고 {fixStatusNegativeCount}건
                 </span>
@@ -2890,7 +2912,7 @@ export default function Estimate() {
                   {fixStatusRows.map(w => {
                     const badge = fixStatusBadge(w.status);
                     const selected = selectedFixStatusWeeks.has(w.OrderWeek);
-                    const selectable = w.status === 'FIXED' || w.status === 'PARTIAL';
+                    const selectable = Number(w.detailCount || 0) > 0 && w.status !== 'NO_SHIPMENT';
                     return (
                       <tr
                         key={w.WeekKey || w.OrderWeek}
@@ -2949,11 +2971,11 @@ export default function Estimate() {
               </button>
               <button
                 className="btn"
-                onClick={async () => { setFixStatusModal(null); await fixWeekAllSubs(); }}
-                disabled={fixWorking || !weekNum}
+                onClick={async () => { await fixSelectedFixStatusWeeks(); }}
+                disabled={fixWorking || rangeUnfixWorking || fixStatusFixTargetRows.length === 0}
                 style={{ background:'#2e7d32', color:'#fff', borderColor:'#2e7d32', fontWeight:700 }}
               >
-                {fixWorking ? '확정중...' : `${weekNum}차 확정하기`}
+                {fixWorking ? '확정중...' : `선택 차수 확정하기 (${fixStatusFixTargetRows.length}차수)`}
               </button>
             </div>
           </div>
