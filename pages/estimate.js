@@ -566,6 +566,7 @@ export default function Estimate() {
   // 차수별 확정 취소 작업 상태
   const [unfixingWeek, setUnfixingWeek] = useState(null); // 작업 중인 세부차수
   const [rangeUnfixWorking, setRangeUnfixWorking] = useState(false);
+  const [rangeUnfixStatus, setRangeUnfixStatus] = useState('');
   useEffect(() => {
     try {
       const v = localStorage.getItem('est_autoLoad'); if (v === '0') setAutoLoad(false);
@@ -641,24 +642,9 @@ export default function Estimate() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
-      const existing = new Map((data.weeks || []).map(w => [w.OrderWeek, w]));
-      const weeks = expandSubWeekRange(range.fromWeek, range.toWeek, FIX_STATUS_COUNT).map(orderWeek => {
-        const found = existing.get(orderWeek);
-        if (found) return found;
-        return {
-          OrderYear: yearStr,
-          OrderWeek: orderWeek,
-          WeekKey: `${yearStr}${String(orderWeek).replace('-', '')}`,
-          status: 'NO_SHIPMENT',
-          detailCount: 0,
-          fixedDetailCount: 0,
-          unfixedDetailCount: 0,
-          categoryCount: 0,
-          fixedCategoryCount: 0,
-          unfixedCategories: '',
-          negativeCount: 0,
-        };
-      }).sort((a, b) => String(b.WeekKey).localeCompare(String(a.WeekKey)));
+      const weeks = (data.weeks || [])
+        .filter(w => Number(w.masterCount || 0) > 0 || Number(w.detailCount || 0) > 0)
+        .sort((a, b) => String(b.WeekKey || b.OrderWeek).localeCompare(String(a.WeekKey || a.OrderWeek)));
       setSelectedFixStatusWeeks(new Set());
       setFixStatusModal({ ...data, weeks, range });
     } catch (e) {
@@ -679,6 +665,7 @@ export default function Estimate() {
     const { fromWeek, toWeek } = range;
 
     setRangeUnfixWorking(true);
+    setRangeUnfixStatus('확정취소 대상 확인 중');
     try {
       const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(fromWeek)}&toWeek=${encodeURIComponent(toWeek)}`, {
         credentials: 'same-origin',
@@ -724,13 +711,16 @@ export default function Estimate() {
         throw new Error(data.error || '구간 확정취소 실패');
       }
 
+      setRangeUnfixStatus('확정취소 완료 — 화면 갱신 중');
       alert(data.message || `[${fromWeek} ~ ${toWeek}] 구간 확정취소 완료`);
       setIncludeUnfixed(true);
       await load(true, { includeUnfixedOverride: true });
     } catch (e) {
+      setRangeUnfixStatus('');
       alert(`구간 확정취소 오류: ${e.message}`);
     } finally {
       setRangeUnfixWorking(false);
+      setTimeout(() => setRangeUnfixStatus(''), 1500);
     }
   };
 
@@ -1937,10 +1927,12 @@ export default function Estimate() {
     }
 
     setRangeUnfixWorking(true);
+    setRangeUnfixStatus('선택 차수 확정취소 시작');
     try {
       const errors = [];
       const warnings = [];
       for (const row of ordered) {
+        setRangeUnfixStatus(`${row.OrderWeek} 확정취소 중`);
         const res = await fetch('/api/shipment/fix', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1951,6 +1943,7 @@ export default function Estimate() {
         if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
         else if (data.stockWarning) warnings.push(`${row.OrderWeek}: 재고 재계산 경고 ${data.stockErrors?.length || 0}건`);
       }
+      setRangeUnfixStatus('확정취소 완료 — 현황 갱신 중');
       if (errors.length) {
         alert(`일부 확정취소 실패\n\n${errors.slice(0, 8).join('\n')}${errors.length > 8 ? `\n외 ${errors.length - 8}건` : ''}`);
       } else {
@@ -1961,9 +1954,11 @@ export default function Estimate() {
       setIncludeUnfixed(true);
       await load(true, { includeUnfixedOverride: true });
     } catch (e) {
+      setRangeUnfixStatus('');
       alert(`선택 차수 확정취소 오류: ${e.message}`);
     } finally {
       setRangeUnfixWorking(false);
+      setTimeout(() => setRangeUnfixStatus(''), 1500);
     }
   };
 
@@ -2788,6 +2783,11 @@ export default function Estimate() {
                 먼저 현황을 확인한 뒤, 현재 선택 차수는 확정하고 과거 차수 수정이 필요하면 구간 확정취소를 진행합니다.
                 음수재고가 있으면 확정 버튼을 눌러도 서버에서 확정이 차단됩니다.
               </div>
+              {(rangeUnfixWorking || rangeUnfixStatus) && (
+                <div style={{ marginBottom:10, padding:'8px 10px', background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, color:'#9a3412', fontSize:12, fontWeight:800 }}>
+                  {rangeUnfixStatus || '확정취소 처리 중'}
+                </div>
+              )}
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                 <thead>
                   <tr style={{ background:'#f5f5f5', borderBottom:'2px solid #999' }}>
@@ -2857,7 +2857,7 @@ export default function Estimate() {
                 disabled={rangeUnfixWorking || fixStatusTargetRows.length === 0}
                 style={{ background:'#fff7ed', color:'#bf360c', borderColor:'#ef6c00', fontWeight:700 }}
               >
-                {rangeUnfixWorking ? '취소중...' : `선택 확정취소 (${fixStatusTargetRows.length}차수)`}
+                {rangeUnfixWorking ? (rangeUnfixStatus || '취소중...') : `선택 확정취소 (${fixStatusTargetRows.length}차수)`}
               </button>
               <button
                 className="btn"

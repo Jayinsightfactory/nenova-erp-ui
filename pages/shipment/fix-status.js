@@ -91,6 +91,7 @@ export default function ShipmentFixStatus() {
   const [negative, setNegative] = useState([]);
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
+  const [workStatus, setWorkStatus] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [selectedWeek, setSelectedWeek] = useState('');
@@ -128,6 +129,7 @@ export default function ShipmentFixStatus() {
     }
 
     setWorking(true);
+    setWorkStatus('확정취소 처리 중');
     setErr('');
     setMsg('');
     try {
@@ -147,12 +149,15 @@ export default function ShipmentFixStatus() {
       if (!data.success && (!data.results || data.results.length === 0)) {
         throw new Error(data.error || data.message || '확정취소 실패');
       }
+      setWorkStatus('확정취소 완료 — 현황 갱신 중');
       setMsg(data.message || '구간 확정취소 완료');
       await load();
     } catch (e) {
+      setWorkStatus('');
       setErr(e.message);
     } finally {
       setWorking(false);
+      setTimeout(() => setWorkStatus(''), 1500);
     }
   }, [fromInput.value, toInput.value, load]);
 
@@ -179,7 +184,7 @@ export default function ShipmentFixStatus() {
             {loading ? '조회중...' : '조회'}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => unfixRange(false)} disabled={working || loading}>
-            {working ? '취소 처리중...' : '선택 구간 확정취소'}
+            {working ? (workStatus || '취소 처리중...') : '선택 구간 확정취소'}
           </button>
           <button className="btn btn-sm" onClick={() => {
             const range = getRecentRange(10);
@@ -192,6 +197,7 @@ export default function ShipmentFixStatus() {
       </div>
 
       {err && <div style={{ padding: '8px 12px', background: 'var(--red-bg)', color: 'var(--red)', borderLeft: '3px solid var(--red)', fontSize: 13 }}>{err}</div>}
+      {(working || workStatus) && <div style={{ padding: '8px 12px', background: '#fff7ed', color: '#9a3412', borderLeft: '3px solid #f97316', fontSize: 13, fontWeight: 800 }}>{workStatus || '확정취소 처리 중'}</div>}
       {msg && <div style={{ padding: '8px 12px', background: 'var(--green-bg)', color: 'var(--green)', borderLeft: '3px solid var(--green)', fontSize: 13 }}>{msg}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 10 }}>

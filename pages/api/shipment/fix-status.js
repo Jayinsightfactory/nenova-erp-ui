@@ -118,13 +118,6 @@ async function loadWeekStatus(from, to) {
               ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey
        FROM ShipmentMaster
        WHERE isDeleted = 0
-       UNION
-       SELECT DISTINCT
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
-              OrderWeek,
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey
-       FROM StockMaster
-       WHERE OrderWeek IS NOT NULL
      ),
      ship AS (
        SELECT
