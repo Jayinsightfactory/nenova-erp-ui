@@ -28,6 +28,36 @@ async function queryWithDeadlockRetry(q, params = {}, options = {}) {
   }
 }
 
+async function logFix(step, detail, isError = false) {
+  try {
+    await query(
+      `INSERT INTO AppLog (Category, Step, Detail, IsError)
+       VALUES (N'shipmentFix', @step, @detail, @err)`,
+      {
+        step:   { type: sql.NVarChar, value: String(step || '').slice(0, 100) },
+        detail: { type: sql.NVarChar, value: String(detail || '').slice(0, 1000) },
+        err:    { type: sql.Bit, value: isError ? 1 : 0 },
+      }
+    );
+  } catch {
+    // AppLog가 없거나 쓰기 실패해도 확정 작업은 계속 진행한다.
+  }
+}
+
+async function runLimited(items, limit, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') return await validate(req, res);
   if (req.method !== 'POST') return res.status(405).end();
@@ -338,7 +368,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
     .sort((a, b) => a - b);
   const results = [];
   const errors = [];
-  for (const prodKey of uniqueKeys) {
+  await runLimited(uniqueKeys, 3, async (prodKey) => {
     try {
       const r = await queryWithDeadlockRetry(
         `DECLARE @r INT, @m NVARCHAR(200);
@@ -367,7 +397,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
     } catch (e) {
       errors.push({ prodKey, code: -1, message: e.message });
     }
-  }
+  });
   return { results, errors };
 }
 
@@ -393,6 +423,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(
@@ -448,6 +479,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     }
   }
   const targets = procedureShape.hasCountryFlower ? flowers : [null];
+  await logFix('fix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
   // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
   const results = [];
@@ -457,17 +489,22 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   for (const cf of targets) {
     try {
       const prodKeys = await loadShipmentProdKeys(orderWeek, cf);
+      await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
+        await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
         const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys);
         stockResults.push(...stock.results);
         stockErrors.push(...stock.errors);
+        await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
         results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
       } else {
+        await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
         errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
       }
     } catch (e) {
+      await logFix('fix_exception', `${orderYear}/${orderWeek} ${cf || 'ALL'} ${e.message}`, true);
       errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
     }
   }
@@ -480,6 +517,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     });
   }
 
+  await logFix('fix_done', `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length}`, errors.length > 0 || stockErrors.length > 0);
   return res.status(200).json({
     success: errors.length === 0 && stockErrors.length === 0,
     message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
