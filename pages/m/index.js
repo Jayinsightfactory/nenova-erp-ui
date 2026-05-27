@@ -32,6 +32,7 @@ const DESKTOP_MENU = [
     group: '입/출고관리',
     items: [
       { href: '/incoming',              label: '입고관리' },
+      { href: '/incoming/kakao-summary', label: '수입방 카톡 수량집계' },
       { href: '/incoming-price',        label: '입고단가/송금' },
       { href: '/freight',               label: '운송기준원가' },
       { href: '/shipment/distribute',   label: '출고분배' },
