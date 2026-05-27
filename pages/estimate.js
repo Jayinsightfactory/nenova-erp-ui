@@ -551,6 +551,7 @@ export default function Estimate() {
   const [fixModal, setFixModal] = useState(null); // null | { stage, week, issues, result }
   const [fixWorking, setFixWorking] = useState(false);
   const [fixProgress, setFixProgress] = useState(null);
+  const [fixServerLogs, setFixServerLogs] = useState([]);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
@@ -577,6 +578,31 @@ export default function Estimate() {
   useEffect(() => { try { localStorage.setItem('est_autoLoad', autoLoad ? '1' : '0'); } catch {} }, [autoLoad]);
   useEffect(() => { try { localStorage.setItem('est_inclUnfixed', includeUnfixed ? '1' : '0'); } catch {} }, [includeUnfixed]);
   useEffect(() => { try { localStorage.setItem('est_recentOnly', recentOnly ? '1' : '0'); } catch {} }, [recentOnly]);
+
+  useEffect(() => {
+    if (!fixProgress) return;
+    let stopped = false;
+    const parentPrefix = `${String(weekNum || '').padStart(2, '0')}-`;
+    const refreshLogs = async () => {
+      try {
+        const data = await apiGet('/api/dev/app-log', { limit: 40, category: 'shipmentFix' });
+        if (stopped) return;
+        const logs = (data.logs || [])
+          .filter(l => !parentPrefix || String(l.Detail || '').includes(parentPrefix))
+          .slice(0, 12)
+          .reverse();
+        setFixServerLogs(logs);
+      } catch {
+        if (!stopped) setFixServerLogs([]);
+      }
+    };
+    refreshLogs();
+    const timer = setInterval(refreshLogs, 1500);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [fixProgress, weekNum]);
 
   // 특정 세부차수 확정 취소 (한 차수 단위)
   const unfixOneWeek = async (subWeek, force = false) => {
@@ -1058,6 +1084,7 @@ export default function Estimate() {
   const fixWeekAllSubs = async () => {
     if (!weekNum) { alert('차수를 입력하세요'); return; }
     setFixWorking(true);
+    setFixServerLogs([]);
     setFixProgress({
       phase: 'validating',
       title: `${weekNum}차 확정 준비 중`,
@@ -1151,6 +1178,7 @@ export default function Estimate() {
 
   const doFixAll = async (weekList, force = false) => {
     setFixWorking(true);
+    setFixServerLogs([]);
     const results = [];
     setFixProgress({
       phase: 'fixing',
@@ -2911,6 +2939,36 @@ export default function Estimate() {
               </div>
               <div style={{ marginTop:14, fontSize:13, lineHeight:1.5, color:'#333', fontWeight:600 }}>
                 {fixProgress.message}
+              </div>
+              <div style={{ marginTop:12, border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden' }}>
+                <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333' }}>
+                  서버 처리 로그
+                </div>
+                <div style={{ maxHeight:150, overflowY:'auto', background:'#fff' }}>
+                  {fixServerLogs.length === 0 ? (
+                    <div style={{ padding:'10px', fontSize:12, color:'#777' }}>
+                      서버 로그 수신 대기 중입니다.
+                    </div>
+                  ) : fixServerLogs.map((l, i) => {
+                    const isError = Boolean(l.IsError);
+                    return (
+                      <div key={`${l.CreateDtm}-${l.Step}-${i}`} style={{
+                        display:'grid',
+                        gridTemplateColumns:'82px 110px 1fr',
+                        gap:8,
+                        alignItems:'center',
+                        padding:'6px 10px',
+                        borderBottom:'1px solid #f1f1f1',
+                        fontSize:11,
+                        color: isError ? '#c62828' : '#333',
+                      }}>
+                        <span style={{ color:'#777', fontFamily:'var(--mono)' }}>{String(l.CreateDtm || '').slice(11, 19)}</span>
+                        <span style={{ fontWeight:800 }}>{l.Step || '-'}</span>
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.Detail || ''}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               {fixProgress.results?.length > 0 && (
                 <div style={{ marginTop:12, borderTop:'1px solid #eee', paddingTop:10 }}>
