@@ -363,11 +363,15 @@ async function loadShipmentProdKeys(orderWeek, countryFlower) {
   return result.recordset.map(r => Number(r.ProdKey)).filter(Boolean);
 }
 
-async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys) {
+async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext = {}) {
   const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))]
     .sort((a, b) => a - b);
   const results = [];
   const errors = [];
+  let completed = 0;
+  const total = uniqueKeys.length;
+  const logPrefix = logContext.prefix || 'stock_calc';
+  const logLabel = logContext.label || '';
   await runLimited(uniqueKeys, 3, async (prodKey) => {
     try {
       const r = await queryWithDeadlockRetry(
@@ -392,10 +396,19 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
       if (Number(row.result || 0) === 0) {
         results.push({ prodKey, ok: true, message: row.message || '' });
       } else {
-        errors.push({ prodKey, code: row.result, message: row.message || 'unknown' });
+        const error = { prodKey, code: row.result, message: row.message || 'unknown' };
+        errors.push(error);
+        await logFix(`${logPrefix}_item_error`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${error.message}`, true);
       }
     } catch (e) {
-      errors.push({ prodKey, code: -1, message: e.message });
+      const error = { prodKey, code: -1, message: e.message };
+      errors.push(error);
+      await logFix(`${logPrefix}_item_error`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${error.message}`, true);
+    } finally {
+      completed += 1;
+      if (completed === total || completed % 10 === 0) {
+        await logFix(`${logPrefix}_progress`, `${orderYear}/${orderWeek} ${logLabel} ${completed}/${total}`);
+      }
     }
   });
   return { results, errors };
@@ -541,7 +554,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
         await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
-        const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys);
+        const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+          prefix: 'stock_calc',
+          label: cf || 'ALL',
+        });
         stockResults.push(...stock.results);
         stockErrors.push(...stock.errors);
         await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
@@ -661,7 +677,10 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
           await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
-          const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys);
+          const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+            prefix: 'unfix_stock_calc',
+            label: cf || 'ALL',
+          });
           stockResults.push(...stock.results);
           stockErrors.push(...stock.errors);
           await logFix('unfix_stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
