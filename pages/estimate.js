@@ -552,6 +552,7 @@ export default function Estimate() {
   const [fixWorking, setFixWorking] = useState(false);
   const [fixProgress, setFixProgress] = useState(null);
   const [fixServerLogs, setFixServerLogs] = useState([]);
+  const [fixLogWeeks, setFixLogWeeks] = useState([]);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
@@ -582,13 +583,13 @@ export default function Estimate() {
   useEffect(() => {
     if (!fixProgress) return;
     let stopped = false;
-    const parentPrefix = `${String(weekNum || '').padStart(2, '0')}-`;
+    const logWeeks = fixLogWeeks.length ? fixLogWeeks : [`${String(weekNum || '').padStart(2, '0')}-`];
     const refreshLogs = async () => {
       try {
         const data = await apiGet('/api/dev/app-log', { limit: 40, category: 'shipmentFix' });
         if (stopped) return;
         const logs = (data.logs || [])
-          .filter(l => !parentPrefix || String(l.Detail || '').includes(parentPrefix))
+          .filter(l => logWeeks.some(wk => String(l.Detail || '').includes(wk)))
           .slice(0, 12)
           .reverse();
         setFixServerLogs(logs);
@@ -602,7 +603,7 @@ export default function Estimate() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [fixProgress, weekNum]);
+  }, [fixProgress, weekNum, fixLogWeeks]);
 
   // 특정 세부차수 확정 취소 (한 차수 단위)
   const unfixOneWeek = async (subWeek, force = false) => {
@@ -1085,6 +1086,7 @@ export default function Estimate() {
     if (!weekNum) { alert('차수를 입력하세요'); return; }
     setFixWorking(true);
     setFixServerLogs([]);
+    setFixLogWeeks([]);
     setFixProgress({
       phase: 'validating',
       title: `${weekNum}차 확정 준비 중`,
@@ -1097,7 +1099,6 @@ export default function Estimate() {
       results: [],
     });
     try {
-      const parentPrefix = `${String(weekNum).padStart(2, '0')}-`;
       const range = getSelectedFixRange();
       if (!range) throw new Error('확정 대상 차수 범위를 확인할 수 없습니다.');
       const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, {
@@ -1107,7 +1108,6 @@ export default function Estimate() {
       if (!statusData.success) throw new Error(statusData.error || '확정현황 조회 실패');
 
       const weekList = (statusData.weeks || [])
-        .filter(w => String(w.OrderWeek || '').startsWith(parentPrefix))
         .filter(w => Number(w.detailCount || 0) > 0)
         .filter(w => w.status === 'UNFIXED' || w.status === 'PARTIAL')
         .map(w => w.OrderWeek)
@@ -1120,14 +1120,15 @@ export default function Estimate() {
         setFixProgress(null);
         return;
       }
+      setFixLogWeeks(weekList);
 
       setFixProgress(prev => ({
         ...(prev || {}),
         phase: 'validating',
-        title: `${weekNum}차 사전검증`,
+        title: `${weekNum}차 및 하위차수 사전검증`,
         total: weekList.length,
         done: 0,
-        message: `${weekList.join(', ')} 세부차수를 확인합니다.`,
+        message: `${weekList.join(', ')} 순서로 하위차수부터 확인합니다.`,
         results: [],
       }));
 
@@ -1179,16 +1180,17 @@ export default function Estimate() {
   const doFixAll = async (weekList, force = false) => {
     setFixWorking(true);
     setFixServerLogs([]);
+    setFixLogWeeks(weekList || []);
     const results = [];
     setFixProgress({
       phase: 'fixing',
-      title: `${weekNum}차 출고 확정 진행 중`,
+      title: `${weekNum}차 및 하위차수 출고 확정 진행 중`,
       currentWeek: '',
       total: weekList.length,
       done: 0,
       success: 0,
       failed: 0,
-      message: `${weekList.length}개 세부차수를 순서대로 확정합니다.`,
+      message: `${weekList.length}개 세부차수를 낮은 차수부터 순서대로 확정합니다.`,
       results: [],
     });
     for (let i = 0; i < weekList.length; i += 1) {

@@ -409,6 +409,39 @@ function normalizeCountryFlowerFilter(countryFlowers) {
   return clean.length ? new Set(clean) : null;
 }
 
+async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter) {
+  const currentKey = String(orderYear) + String(orderWeek || '').replace('-', '');
+  const countryFlowers = countryFlowersFilter ? [...countryFlowersFilter] : [];
+  const cfWhere = countryFlowers.length
+    ? `AND p.CountryFlower IN (${countryFlowers.map((_, i) => `@cf${i}`).join(', ')})`
+    : '';
+  const params = {
+    currentKey: { type: sql.NVarChar, value: currentKey },
+    defaultYear: { type: sql.NVarChar, value: orderYear },
+  };
+  countryFlowers.forEach((cf, i) => {
+    params[`cf${i}`] = { type: sql.NVarChar, value: cf };
+  });
+  const result = await query(
+    `SELECT TOP 20
+       ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
+       sm.OrderWeek,
+       COUNT(sd.SdetailKey) AS detailCount
+     FROM ShipmentMaster sm
+     JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+     JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
+     WHERE sm.isDeleted = 0
+       AND ISNULL(sd.OutQuantity, 0) > 0
+       AND ISNULL(sd.isFix, 0) = 0
+       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') < @currentKey
+       ${cfWhere}
+     GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek
+     ORDER BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek`,
+    params
+  );
+  return result.recordset || [];
+}
+
 // ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
 //    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
 async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
@@ -424,6 +457,18 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
+
+  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, allowedCountryFlowers);
+  if (lowerUnfixedWeeks.length > 0) {
+    const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
+    await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels}`, true);
+    return res.status(409).json({
+      success: false,
+      code: 'LOWER_UNFIXED_EXISTS',
+      lowerWeeks: lowerUnfixedWeeks,
+      error: `[${week}] 확정 불가: 이전 차수 미확정 출고가 남아 있습니다. 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
+    });
+  }
 
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(
