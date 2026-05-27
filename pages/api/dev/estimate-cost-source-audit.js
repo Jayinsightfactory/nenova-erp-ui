@@ -117,6 +117,43 @@ async function handler(req, res) {
     farmRows = farm.recordset || [];
   }
 
+  const grouped = await query(
+    `WITH Edited AS (
+       SELECT DISTINCT sm.OrderYearWeek, sm.CustKey, sd.ProdKey
+       FROM ShipmentDetail sd
+       JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+       WHERE ISNULL(sm.isDeleted,0)=0
+         AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'
+         ${weekWhere}
+     )
+     SELECT TOP (@limit)
+       sm.OrderYearWeek,
+       sm.OrderWeek,
+       sm.ShipmentKey,
+       sd.SdetailKey,
+       sm.CustKey,
+       c.CustName,
+       sd.ProdKey,
+       p.ProdName,
+       ISNULL(sd.Cost,0) AS DetailCost,
+       ISNULL(sdt.Cost,0) AS DateCost,
+       ISNULL(vs.Cost,0) AS ViewCost,
+       ISNULL(sd.EstQuantity,0) AS DetailEstQuantity,
+       ISNULL(sdt.EstQuantity,0) AS DateEstQuantity,
+       ISNULL(sdt.ShipmentQuantity,0) AS DateShipmentQuantity,
+       CASE WHEN ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' THEN 1 ELSE 0 END AS HasWebCostEdit,
+       LEFT(ISNULL(sd.Descr,''), 300) AS DetailDescr
+     FROM Edited e
+     JOIN ShipmentMaster sm ON sm.OrderYearWeek=e.OrderYearWeek AND sm.CustKey=e.CustKey AND ISNULL(sm.isDeleted,0)=0
+     JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=e.ProdKey
+     LEFT JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
+     LEFT JOIN ViewShipment vs ON vs.SdetailKey=sd.SdetailKey
+     LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+     LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+     ORDER BY sm.OrderYearWeek DESC, sm.CustKey, sd.ProdKey, sm.OrderWeek, sd.SdetailKey`,
+    params
+  );
+
   return res.status(200).json({
     success: true,
     week: week || null,
@@ -135,6 +172,7 @@ async function handler(req, res) {
     },
     rows: rows.recordset || [],
     farmRows,
+    groupedRows: grouped.recordset || [],
   });
 }
 
