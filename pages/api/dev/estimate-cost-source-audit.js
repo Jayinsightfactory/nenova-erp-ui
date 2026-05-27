@@ -154,6 +154,50 @@ async function handler(req, res) {
     params
   );
 
+  const allMismatches = await query(
+    `SELECT TOP (@limit)
+       sm.OrderYearWeek,
+       sm.OrderWeek,
+       sm.ShipmentKey,
+       sd.SdetailKey,
+       sdt.SdateKey,
+       sm.CustKey,
+       c.CustName,
+       sd.ProdKey,
+       p.ProdName,
+       ISNULL(sd.Cost,0) AS DetailCost,
+       ISNULL(sd.Amount,0) AS DetailAmount,
+       ISNULL(sd.Vat,0) AS DetailVat,
+       ISNULL(sdt.Cost,0) AS DateCost,
+       ISNULL(sdt.Amount,0) AS DateAmount,
+       ISNULL(sdt.Vat,0) AS DateVat,
+       ISNULL(vs.Cost,0) AS ViewCost,
+       ISNULL(vs.Amount,0) AS ViewAmount,
+       ISNULL(vs.Vat,0) AS ViewVat,
+       ISNULL(sd.EstQuantity,0) AS DetailEstQuantity,
+       ISNULL(sdt.EstQuantity,0) AS DateEstQuantity,
+       ISNULL(sdt.ShipmentQuantity,0) AS DateShipmentQuantity,
+       LEFT(ISNULL(sd.Descr,''), 300) AS DetailDescr
+     FROM ShipmentDetail sd
+     JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+     LEFT JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
+     LEFT JOIN ViewShipment vs ON vs.SdetailKey=sd.SdetailKey
+     LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+     LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+     WHERE ISNULL(sm.isDeleted,0)=0
+       ${weekWhere}
+       AND (
+         ABS(ISNULL(sd.Cost,0) - ISNULL(sdt.Cost,0)) > 0.001
+         OR ABS(ISNULL(sd.Amount,0) - ISNULL(sdt.Amount,0)) > 0.001
+         OR ABS(ISNULL(sd.Vat,0) - ISNULL(sdt.Vat,0)) > 0.001
+         OR ABS(ISNULL(sd.Cost,0) - ISNULL(vs.Cost,0)) > 0.001
+         OR ABS(ISNULL(sd.Amount,0) - ISNULL(vs.Amount,0)) > 0.001
+         OR ABS(ISNULL(sd.Vat,0) - ISNULL(vs.Vat,0)) > 0.001
+       )
+     ORDER BY sm.OrderYearWeek DESC, sm.OrderWeek DESC, sd.SdetailKey DESC`,
+    params
+  );
+
   return res.status(200).json({
     success: true,
     week: week || null,
@@ -173,6 +217,7 @@ async function handler(req, res) {
     rows: rows.recordset || [],
     farmRows,
     groupedRows: grouped.recordset || [],
+    allMismatches: allMismatches.recordset || [],
   });
 }
 
