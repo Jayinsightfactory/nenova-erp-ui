@@ -605,6 +605,32 @@ export default function Estimate() {
     };
   }, [fixProgress, weekNum, fixLogWeeks]);
 
+  useEffect(() => {
+    if (!(rangeUnfixWorking || rangeUnfixStatus)) return;
+    let stopped = false;
+    const logWeeks = fixLogWeeks;
+    const refreshLogs = async () => {
+      try {
+        const data = await apiGet('/api/dev/app-log', { limit: 60, category: 'shipmentFix' });
+        if (stopped) return;
+        const logs = (data.logs || [])
+          .filter(l => String(l.Step || '').startsWith('unfix_'))
+          .filter(l => logWeeks.length === 0 || logWeeks.some(wk => String(l.Detail || '').includes(wk)))
+          .slice(0, 12)
+          .reverse();
+        setFixServerLogs(logs);
+      } catch {
+        if (!stopped) setFixServerLogs([]);
+      }
+    };
+    refreshLogs();
+    const timer = setInterval(refreshLogs, 1500);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [rangeUnfixWorking, rangeUnfixStatus, fixLogWeeks]);
+
   // 특정 세부차수 확정 취소 (한 차수 단위)
   const unfixOneWeek = async (subWeek, force = false) => {
     if (!subWeek) return;
@@ -1958,6 +1984,8 @@ export default function Estimate() {
 
     setRangeUnfixWorking(true);
     setRangeUnfixStatus('선택 차수 확정취소 시작');
+    setFixServerLogs([]);
+    setFixLogWeeks(weekLabels);
     try {
       const errors = [];
       const warnings = [];
@@ -2816,6 +2844,36 @@ export default function Estimate() {
               {(rangeUnfixWorking || rangeUnfixStatus) && (
                 <div style={{ marginBottom:10, padding:'8px 10px', background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, color:'#9a3412', fontSize:12, fontWeight:800 }}>
                   {rangeUnfixStatus || '확정취소 처리 중'}
+                </div>
+              )}
+              {(rangeUnfixWorking || rangeUnfixStatus) && (
+                <div style={{ marginBottom:10, border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden' }}>
+                  <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333' }}>
+                    확정취소 서버 로그
+                  </div>
+                  <div style={{ maxHeight:150, overflowY:'auto', background:'#fff' }}>
+                    {fixServerLogs.length === 0 ? (
+                      <div style={{ padding:'10px', fontSize:12, color:'#777' }}>서버 로그 수신 대기 중입니다.</div>
+                    ) : fixServerLogs.map((l, i) => {
+                      const isError = Boolean(l.IsError);
+                      return (
+                        <div key={`${l.CreateDtm}-${l.Step}-${i}`} style={{
+                          display:'grid',
+                          gridTemplateColumns:'82px 135px 1fr',
+                          gap:8,
+                          alignItems:'center',
+                          padding:'6px 10px',
+                          borderBottom:'1px solid #f1f1f1',
+                          fontSize:11,
+                          color: isError ? '#c62828' : '#333',
+                        }}>
+                          <span style={{ color:'#777', fontFamily:'var(--mono)' }}>{String(l.CreateDtm || '').slice(11, 19)}</span>
+                          <span style={{ fontWeight:800 }}>{l.Step || '-'}</span>
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.Detail || ''}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>

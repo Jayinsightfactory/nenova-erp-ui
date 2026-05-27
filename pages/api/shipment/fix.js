@@ -587,6 +587,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const orderWeek = deriveOrderWeek(week);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
   try {
     // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
@@ -636,6 +637,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     // 카테고리별 SP 호출
     const procedureShape = await loadProcedureShape('usp_ShipmentFixCancel');
     const targets = procedureShape.hasCountryFlower ? flowers : [null];
+    await logFix('unfix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
     const results = [];
     const errors = [];
@@ -644,22 +646,28 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     for (const cf of targets) {
       try {
         const prodKeys = await loadShipmentProdKeys(orderWeek, cf);
+        await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
+          await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${cf || 'ALL'} prod=${prodKeys.length}`);
           const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys);
           stockResults.push(...stock.results);
           stockErrors.push(...stock.errors);
+          await logFix('unfix_stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
           results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
         } else {
+          await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
           errors.push({ countryFlower: cf || 'ALL', code: row.result, message: row.message || 'unknown' });
         }
       } catch (e) {
+        await logFix('unfix_exception', `${orderYear}/${orderWeek} ${cf || 'ALL'} ${e.message}`, true);
         errors.push({ countryFlower: cf || 'ALL', code: -1, message: e.message });
       }
     }
 
     const hasStockWarning = stockErrors.length > 0;
+    await logFix('unfix_done', `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length}`, errors.length > 0 || stockErrors.length > 0);
     return res.status(200).json({
       success: errors.length === 0,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +
