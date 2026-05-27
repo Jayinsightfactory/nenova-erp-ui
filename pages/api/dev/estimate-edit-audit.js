@@ -10,11 +10,15 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 
   const marker = req.query.marker || todayText();
+  const useMarker = marker && marker !== 'all';
   const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
   const params = {
-    marker: { type: sql.NVarChar, value: `%[${marker}%` },
+    marker: { type: sql.NVarChar, value: `%${marker}%` },
     limit: { type: sql.Int, value: limit },
   };
+  const markerSql = useMarker ? `AND sh.Descr LIKE @marker` : '';
+  const sdMarkerSql = useMarker ? `AND sd.Descr LIKE @marker` : '';
+  const estMarkerSql = useMarker ? `AND e.Descr LIKE @marker` : '';
 
   const quantityHistory = await query(
     `SELECT TOP (@limit)
@@ -54,8 +58,8 @@ export default withAuth(async function handler(req, res) {
        FROM ShipmentDate
        WHERE SdetailKey = sd.SdetailKey
      ) sdt
-     WHERE sh.Descr LIKE @marker
-       AND (sh.Descr LIKE N'%견적서관리%' OR sh.Descr LIKE N'%수량%')
+     WHERE (sh.Descr LIKE N'%견적서관리%' OR sh.Descr LIKE N'%수량%')
+       ${markerSql}
      ORDER BY sh.ChangeDtm DESC`,
     params
   );
@@ -94,8 +98,8 @@ export default withAuth(async function handler(req, res) {
        FROM ShipmentDate
        WHERE SdetailKey = sd.SdetailKey
      ) sdt
-     WHERE sd.Descr LIKE @marker
-       AND sd.Descr LIKE N'%단가%'
+     WHERE sd.Descr LIKE N'%단가%'
+       ${sdMarkerSql}
      ORDER BY sd.SdetailKey DESC`,
     params
   );
@@ -123,8 +127,8 @@ export default withAuth(async function handler(req, res) {
      JOIN ShipmentMaster sm ON sm.ShipmentKey = e.ShipmentKey
      LEFT JOIN Product p ON p.ProdKey = e.ProdKey
      LEFT JOIN Customer c ON c.CustKey = sm.CustKey
-     WHERE e.Descr LIKE @marker
-       AND (e.Descr LIKE N'%차감단가%' OR e.Descr LIKE N'%차감수량%')
+     WHERE (e.Descr LIKE N'%차감단가%' OR e.Descr LIKE N'%차감수량%')
+       ${estMarkerSql}
      ORDER BY e.EstimateKey DESC`,
     params
   );
