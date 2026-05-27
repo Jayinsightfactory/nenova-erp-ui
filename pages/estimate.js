@@ -85,6 +85,14 @@ function fmtDate(dateStr) {
 const fmt = n => Number(n || 0).toLocaleString();
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
 
+function parseAppLogTime(value) {
+  const text = String(value || '').trim();
+  if (!text) return 0;
+  const dt = new Date(`${text.replace(' ', 'T')}+09:00`);
+  const ms = dt.getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 // ── 한글 금액 변환 (52,434,150 → "오천이백사십삼만사천일백오십원 정")
 function numToKorean(n) {
   const num = Math.round(Math.abs(n || 0));
@@ -553,6 +561,7 @@ export default function Estimate() {
   const [fixProgress, setFixProgress] = useState(null);
   const [fixServerLogs, setFixServerLogs] = useState([]);
   const [fixLogWeeks, setFixLogWeeks] = useState([]);
+  const [fixLogSince, setFixLogSince] = useState(0);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
@@ -589,6 +598,7 @@ export default function Estimate() {
         const data = await apiGet('/api/dev/app-log', { limit: 40, category: 'shipmentFix' });
         if (stopped) return;
         const logs = (data.logs || [])
+          .filter(l => !fixLogSince || parseAppLogTime(l.CreateDtm) >= fixLogSince)
           .filter(l => logWeeks.some(wk => String(l.Detail || '').includes(wk)))
           .slice(0, 12)
           .reverse();
@@ -603,7 +613,7 @@ export default function Estimate() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [fixProgress, weekNum, fixLogWeeks]);
+  }, [fixProgress, weekNum, fixLogWeeks, fixLogSince]);
 
   useEffect(() => {
     if (!(rangeUnfixWorking || rangeUnfixStatus)) return;
@@ -614,6 +624,7 @@ export default function Estimate() {
         const data = await apiGet('/api/dev/app-log', { limit: 60, category: 'shipmentFix' });
         if (stopped) return;
         const logs = (data.logs || [])
+          .filter(l => !fixLogSince || parseAppLogTime(l.CreateDtm) >= fixLogSince)
           .filter(l => String(l.Step || '').startsWith('unfix_'))
           .filter(l => logWeeks.length === 0 || logWeeks.some(wk => String(l.Detail || '').includes(wk)))
           .slice(0, 12)
@@ -629,7 +640,7 @@ export default function Estimate() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [rangeUnfixWorking, rangeUnfixStatus, fixLogWeeks]);
+  }, [rangeUnfixWorking, rangeUnfixStatus, fixLogWeeks, fixLogSince]);
 
   // 특정 세부차수 확정 취소 (한 차수 단위)
   const unfixOneWeek = async (subWeek, force = false) => {
@@ -1113,6 +1124,7 @@ export default function Estimate() {
     setFixWorking(true);
     setFixServerLogs([]);
     setFixLogWeeks([]);
+    setFixLogSince(Date.now() - 3000);
     setFixProgress({
       phase: 'validating',
       title: `${weekNum}차 확정 준비 중`,
@@ -1207,6 +1219,7 @@ export default function Estimate() {
     setFixWorking(true);
     setFixServerLogs([]);
     setFixLogWeeks(weekList || []);
+    setFixLogSince(Date.now() - 3000);
     const results = [];
     setFixProgress({
       phase: 'fixing',
@@ -1990,6 +2003,7 @@ export default function Estimate() {
     setRangeUnfixStatus('선택 차수 확정취소 시작');
     setFixServerLogs([]);
     setFixLogWeeks(weekLabels);
+    setFixLogSince(Date.now() - 3000);
     try {
       const errors = [];
       const warnings = [];

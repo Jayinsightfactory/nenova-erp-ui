@@ -545,6 +545,14 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         stockResults.push(...stock.results);
         stockErrors.push(...stock.errors);
         await logFix('stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
+        if (stock.errors.length > 0) {
+          await logFix(
+            'stock_calc_error',
+            `${orderYear}/${orderWeek} ${cf || 'ALL'} ` +
+              stock.errors.slice(0, 5).map(e => `pk=${e.prodKey}:${e.message}`).join(' / '),
+            true
+          );
+        }
         results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
       } else {
         await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
@@ -657,6 +665,14 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           stockResults.push(...stock.results);
           stockErrors.push(...stock.errors);
           await logFix('unfix_stock_calc_done', `${orderYear}/${orderWeek} ${cf || 'ALL'} ok=${stock.results.length} err=${stock.errors.length}`, stock.errors.length > 0);
+          if (stock.errors.length > 0) {
+            await logFix(
+              'unfix_stock_calc_error',
+              `${orderYear}/${orderWeek} ${cf || 'ALL'} ` +
+                stock.errors.slice(0, 5).map(e => `pk=${e.prodKey}:${e.message}`).join(' / '),
+              true
+            );
+          }
           results.push({ countryFlower: cf || 'ALL', ok: true, message: row.message });
         } else {
           await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${cf || 'ALL'} code=${row.result} msg=${row.message || ''}`, true);
