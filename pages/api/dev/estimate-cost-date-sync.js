@@ -12,6 +12,8 @@ async function handler(req, res) {
   const limit = toInt(req.query.limit || req.body?.limit);
   const apply = req.method === 'POST' || req.query.apply === '1';
   const week = String(req.query.week || req.body?.week || '').trim();
+  const scope = String(req.query.scope || req.body?.scope || 'web-edits').trim();
+  const allCostSources = scope === 'all' || scope === 'all-cost-sources';
 
   const params = { limit: { type: sql.Int, value: limit } };
   let weekWhere = '';
@@ -19,6 +21,7 @@ async function handler(req, res) {
     weekWhere = 'AND sm.OrderWeek = @week';
     params.week = { type: sql.NVarChar, value: week };
   }
+  const editWhere = allCostSources ? '' : "AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'";
 
   const selectSql = `
     SELECT TOP (@limit)
@@ -46,7 +49,7 @@ async function handler(req, res) {
     LEFT JOIN Customer c ON c.CustKey = sm.CustKey
     LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
     WHERE ISNULL(sm.isDeleted,0)=0
-      AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'
+      ${editWhere}
       ${weekWhere}
       AND (
         ABS(ISNULL(sdt.Cost,0) - ISNULL(sd.Cost,0)) > 0.001
@@ -70,7 +73,7 @@ async function handler(req, res) {
              FROM ShipmentDate sdt
              JOIN ShipmentDetail sd ON sd.SdetailKey = sdt.SdetailKey
             WHERE sdt.SdateKey=@sdateKey
-              AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'`,
+              ${editWhere}`,
           { sdateKey: { type: sql.Int, value: sdateKey } }
         );
       }
@@ -82,6 +85,7 @@ async function handler(req, res) {
   return res.status(200).json({
     success: true,
     apply,
+    scope: allCostSources ? 'all-cost-sources' : 'web-edits',
     checked: targets.length,
     remaining: after ? after.recordset.length : undefined,
     rows: targets,
