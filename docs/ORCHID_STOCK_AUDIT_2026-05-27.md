@@ -59,3 +59,30 @@ Safe repair path:
 3. Recheck `ProductStock` for `20-01` through `21-02`.
 4. If the SP fails, capture the returned `oResult/oMessage` and fix the underlying SP validation issue first.
 
+## Repair Result
+
+Executed official SP:
+
+```sql
+EXEC dbo.usp_StockCalculation
+     @OrderYear = '2026',
+     @OrderWeek = '20-01',
+     @ProdKey = 3074,
+     @iUserID = '<logged-in user>';
+```
+
+SP returned:
+
+- `result`: `0`
+- `message`: `확정 완료`
+
+After repair:
+
+- `20-01`: `21`
+- `20-02`: `21`
+- `21-01`: `21`
+- `21-02`: `21`
+
+This matches the expected stock path:
+
+`19-02 stock 688 - 20-01 shipment 662 - quarantine deduction 5 = 21`

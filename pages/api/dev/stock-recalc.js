@@ -97,11 +97,11 @@ async function appLog(step, detail, isError = false) {
 }
 
 export default withAuth(async function handler(req, res) {
-  if (!['GET', 'POST'].includes(req.method)) {
+  if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const source = req.method === 'POST' ? req.body || {} : req.query || {};
+  const source = req.body || {};
   const prodKey = toInt(source.prodKey, null);
   const orderYear = String(source.orderYear || '2026').trim();
   const orderWeek = String(source.orderWeek || '').trim();
