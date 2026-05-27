@@ -441,10 +441,6 @@ function matchesCountryFlowerFilter(row, allowedCountryFlowers) {
   return allowedCountryFlowers.has(row.countryFlower) || allowedCountryFlowers.has(row.label);
 }
 
-function isNegativeStockProcedureMessage(message) {
-  return /마이너스|negative/i.test(String(message || ''));
-}
-
 async function loadShipmentCategoryTargets(orderWeek, detailFixValue, allowedCountryFlowers) {
   const cf = countryFlowerNameSql('p');
   const label = countryFlowerLabelSql('p');
@@ -618,18 +614,16 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         results.push({ countryFlower: label, ok: true, message: row.message });
       } else {
         let retryRow = null;
-        if (isNegativeStockProcedureMessage(row.message)) {
-          await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
-          const preStock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
-            prefix: 'fix_retry_stock_calc',
-            label,
-          });
-          stockResults.push(...preStock.results);
-          stockErrors.push(...preStock.errors);
-          await logFix('fix_retry_stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${preStock.results.length} err=${preStock.errors.length}`, preStock.errors.length > 0);
-          const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
-          retryRow = retry.recordset?.[0] || {};
-        }
+        await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
+        const preStock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+          prefix: 'fix_retry_stock_calc',
+          label,
+        });
+        stockResults.push(...preStock.results);
+        stockErrors.push(...preStock.errors);
+        await logFix('fix_retry_stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${preStock.results.length} err=${preStock.errors.length}`, preStock.errors.length > 0);
+        const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
+        retryRow = retry.recordset?.[0] || {};
 
         if (retryRow && retryRow.result === 0) {
           await logFix('fix_sp_retry_ok', `${orderYear}/${orderWeek} ${label}`);
