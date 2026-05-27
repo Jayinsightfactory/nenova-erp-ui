@@ -45,7 +45,7 @@ export default withAuth(async function handler(req, res) {
     `SELECT sm.OrderYear, sm.OrderWeek,
             sm.isFix AS MasterFix,
             sd.isFix AS DetailFix,
-            COUNT(*) AS RowCount,
+            COUNT(*) AS [RowCount],
             SUM(ISNULL(sd.OutQuantity,0)) AS OutQuantity,
             SUM(ISNULL(sd.BoxQuantity,0)) AS BoxQuantity,
             SUM(ISNULL(sd.BunchQuantity,0)) AS BunchQuantity,
@@ -92,7 +92,7 @@ export default withAuth(async function handler(req, res) {
 
   const warehouseSummary = await query(
     `SELECT wm.OrderYear, wm.OrderWeek,
-            COUNT(*) AS RowCount,
+            COUNT(*) AS [RowCount],
             SUM(ISNULL(wd.OutQuantity,0)) AS InQuantity,
             SUM(ISNULL(wd.BoxQuantity,0)) AS BoxQuantity,
             SUM(ISNULL(wd.BunchQuantity,0)) AS BunchQuantity,
