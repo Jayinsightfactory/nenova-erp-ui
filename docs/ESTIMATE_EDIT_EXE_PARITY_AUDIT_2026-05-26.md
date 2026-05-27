@@ -89,4 +89,18 @@
 1. `ShipmentDetail.CustKey`가 null인 기존 21-01 출고 200건 이상을 정리할지 결정해야 한다. 신규 웹 경로는 `CustKey=ISNULL(CustKey,@ck)`로 보강되어 있으나, 과거 데이터는 남아 있다.
 2. 알스트로 단가가 송이당인지, 박스/단 기준인지 운영 실제 견적서와 전산 화면으로 확인해야 한다.
 3. `update-cost`의 단가 변경 이력을 `ShipmentHistory`에도 남겨야 하는지 `nenova.exe` 동작을 dnSpy/DB 로그로 추가 확인해야 한다.
+
+## 2026-05-27 추가 확인
+
+사용자 확인 중 “웹 견적서관리에서 단가를 수정했는데 `nenova.exe`에는 반영되지 않는 것 같다”는 증상이 재현 가능 구조로 확인됐다.
+
+- 기존 웹 단가 수정은 정상출고 행의 `ShipmentDetail.Cost`, `Amount`, `Vat`만 갱신했다.
+- dnSpy 문자열 기준 `FormEstimateView.GetDetail`, `GetPrintDetail`, `GetExcelDetail`은 정상출고 견적 단가/금액을 `ShipmentDate` alias `sdd.Cost`, `sdd.Amount`, `sdd.Vat`에서 읽는다.
+- 따라서 `ShipmentDetail`만 바뀌면 웹의 일부 조회는 바뀐 것처럼 보일 수 있지만, `nenova.exe` 견적서관리/출력/엑셀은 기존 `ShipmentDate` 값을 계속 볼 수 있다.
+
+조치:
+
+- `/api/estimate/update-cost`에서 `ShipmentDetail` 갱신 후 같은 `SdetailKey`의 `ShipmentDate.Cost`, `Amount`, `Vat`도 같이 갱신하도록 수정했다.
+- 이미 웹에서 수정된 단가 행을 안전하게 동기화하기 위해 `/api/dev/estimate-cost-date-sync`를 추가했다.
+- 이 동기화는 `ShipmentDetail.Descr`에 웹 단가 변경 로그가 있는 행만 대상으로 하며, 수량/출고일/확정상태는 변경하지 않는다.
 4. 출고분배 저장을 웹 직접 갱신으로 유지할지, `usp_DistributeOne/Total/Clear` 기반으로 전환할지 별도 설계가 필요하다.

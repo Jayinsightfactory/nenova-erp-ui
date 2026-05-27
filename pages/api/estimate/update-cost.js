@@ -275,6 +275,18 @@ export default withAuth(async function handler(req, res) {
           }
         );
 
+        await tQ(
+          `UPDATE ShipmentDate
+              SET Cost=@cost,
+                  Amount=ROUND(@cost * ROUND(ISNULL(NULLIF(EstQuantity,0), ShipmentQuantity), 0) / 1.1, 0),
+                  Vat=ROUND(@cost * ROUND(ISNULL(NULLIF(EstQuantity,0), ShipmentQuantity), 0) / 11, 0)
+            WHERE SdetailKey=@sdk`,
+          {
+            sdk:  { type: sql.Int,   value: it.sdetailKey },
+            cost: { type: sql.Float, value: it.cost },
+          }
+        );
+
         changes.push({
           sdetailKey: it.sdetailKey,
           shipmentKey: it.shipmentKey,
