@@ -9,14 +9,15 @@ function toInt(value, fallback = null) {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 
-  const prodKey = toInt(req.query.prodKey, 3074);
-  const weekFrom = String(req.query.weekFrom || '19-01').trim();
-  const weekTo = String(req.query.weekTo || '21-02').trim();
-  const params = {
-    pk: { type: sql.Int, value: prodKey },
-    weekFrom: { type: sql.NVarChar, value: weekFrom },
-    weekTo: { type: sql.NVarChar, value: weekTo },
-  };
+  try {
+    const prodKey = toInt(req.query.prodKey, 3074);
+    const weekFrom = String(req.query.weekFrom || '19-01').trim();
+    const weekTo = String(req.query.weekTo || '21-02').trim();
+    const params = {
+      pk: { type: sql.Int, value: prodKey },
+      weekFrom: { type: sql.NVarChar, value: weekFrom },
+      weekTo: { type: sql.NVarChar, value: weekTo },
+    };
 
   const product = await query(
     `SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName, CountryFlower,
@@ -134,15 +135,23 @@ export default withAuth(async function handler(req, res) {
     appLogs = logs.recordset || [];
   } catch {}
 
-  return res.status(200).json({
-    success: true,
-    filter: { prodKey, weekFrom, weekTo },
-    product: product.recordset?.[0] || null,
-    productStock: productStock.recordset || [],
-    shipmentSummary: shipmentSummary.recordset || [],
-    shipmentRows: shipmentRows.recordset || [],
-    warehouseSummary: warehouseSummary.recordset || [],
-    stockHistory: stockHistory.recordset || [],
-    appLogs,
-  });
+    return res.status(200).json({
+      success: true,
+      filter: { prodKey, weekFrom, weekTo },
+      product: product.recordset?.[0] || null,
+      productStock: productStock.recordset || [],
+      shipmentSummary: shipmentSummary.recordset || [],
+      shipmentRows: shipmentRows.recordset || [],
+      warehouseSummary: warehouseSummary.recordset || [],
+      stockHistory: stockHistory.recordset || [],
+      appLogs,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      number: err.number || err.originalError?.number || null,
+      lineNumber: err.lineNumber || null,
+    });
+  }
 });
