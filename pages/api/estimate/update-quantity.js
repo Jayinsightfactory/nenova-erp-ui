@@ -208,7 +208,7 @@ export default withAuth(async function handler(req, res) {
                 BunchQuantity=@bunch,
                 SteamQuantity=@steam,
                 OutQuantity=@outQuantity,
-                EstQuantity=@outQuantity,
+                EstQuantity=@estQuantity,
                 Amount=@amount,
                 Vat=@vat
           WHERE SdetailKey=@sdk`,
@@ -218,6 +218,7 @@ export default withAuth(async function handler(req, res) {
           bunch: { type: sql.Float, value: next.bunch },
           steam: { type: sql.Float, value: next.steam },
           outQuantity: { type: sql.Float, value: next.outQuantity },
+          estQuantity: { type: sql.Float, value: amountBase },
           amount: { type: sql.Float, value: amount },
           vat: { type: sql.Float, value: vat },
         }
@@ -228,12 +229,16 @@ export default withAuth(async function handler(req, res) {
       });
       if (next.outQuantity > 0) {
         await tQ(
-          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
-           VALUES (@sdk, @dt, @qty)`,
+          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+           VALUES (@sdk, @dt, @qty, @estQuantity, @cost, @amount, @vat)`,
           {
             sdk: { type: sql.Int, value: sdetailKey },
             dt: { type: sql.DateTime, value: row.ShipmentDtm },
             qty: { type: sql.Float, value: next.outQuantity },
+            estQuantity: { type: sql.Float, value: amountBase },
+            cost: { type: sql.Float, value: Number(row.Cost || 0) },
+            amount: { type: sql.Float, value: amount },
+            vat: { type: sql.Float, value: vat },
           }
         );
       }

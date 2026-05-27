@@ -499,7 +499,7 @@ async function postAdjust(req, res) {
         targetSdk = sdRow.SdetailKey;
         await tQ(
           `UPDATE ShipmentDetail SET
-             OutQuantity=@oq, EstQuantity=@oq,
+             OutQuantity=@oq, EstQuantity=@estQty,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
              CustKey=ISNULL(CustKey,@ck),
              Cost=@cost, Amount=@amount, Vat=@vat,
@@ -509,6 +509,7 @@ async function postAdjust(req, res) {
             ck: { type: sql.Int, value: ck },
             dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
+            estQty: { type: sql.Float, value: amountBase },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
             sq: { type: sql.Float, value: u.steam },
@@ -523,11 +524,12 @@ async function postAdjust(req, res) {
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@ck,@pk,@dt,@oq,@oq,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@oq,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
           { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
             ck: { type: sql.Int, value: ck },
             dt: { type: sql.DateTime, value: defaultShipDate },
             oq: { type: sql.Float, value: u.outQ },
+            estQty: { type: sql.Float, value: amountBase },
             bq: { type: sql.Float, value: u.box },
             bnq:{ type: sql.Float, value: u.bunch },
             sq: { type: sql.Float, value: u.steam },
@@ -573,9 +575,16 @@ async function postAdjust(req, res) {
         if (u.outQ > 0) {
           // ShipmentDtm 은 ShipmentDetail 에서 가져옴 (방금 UPDATE/INSERT 한 값)
           await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
-             SELECT @dk, ShipmentDtm, @oq FROM ShipmentDetail WHERE SdetailKey=@dk`,
-            { dk: { type: sql.Int, value: targetSdk }, oq: { type: sql.Float, value: u.outQ } }
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+             SELECT @dk, ShipmentDtm, @oq, @estQty, @cost, @amount, @vat FROM ShipmentDetail WHERE SdetailKey=@dk`,
+            {
+              dk: { type: sql.Int, value: targetSdk },
+              oq: { type: sql.Float, value: u.outQ },
+              estQty: { type: sql.Float, value: amountBase },
+              cost: { type: sql.Float, value: unitCost },
+              amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat },
+            }
           );
         }
       }

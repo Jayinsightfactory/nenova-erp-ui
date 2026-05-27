@@ -534,7 +534,7 @@ async function saveDistribute(req, res) {
           `INSERT INTO ShipmentDetail
              (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
               BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@outQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+           VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
           {
             dk:     { type: sql.Int,      value: newSdk },
             sk:     { type: sql.Int,      value: sk },
@@ -542,6 +542,7 @@ async function saveDistribute(req, res) {
             pk:     { type: sql.Int,      value: parseInt(prodKey) },
             dt:     { type: sql.DateTime, value: resolvedShipDate },
             outQty: { type: sql.Float,    value: canonicalOutQty },
+            estQty: { type: sql.Float,    value: amtBase },
             bq:     { type: sql.Float,    value: boxQty },
             bnq:    { type: sql.Float,    value: bunchQty },
             sq:     { type: sql.Float,    value: steamQty },
@@ -553,12 +554,16 @@ async function saveDistribute(req, res) {
         );
         await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         await tQuery(
-          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
-           VALUES (@dk, @dt, @qty)`,
+          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+           VALUES (@dk, @dt, @qty, @estQty, @cost, @amount, @vat)`,
           {
             dk:  { type: sql.Int,      value: newSdk },
             dt:  { type: sql.DateTime, value: resolvedShipDate },
             qty: { type: sql.Float,    value: canonicalOutQty },
+            estQty: { type: sql.Float, value: amtBase },
+            cost: { type: sql.Float,   value: unitCost },
+            amount: { type: sql.Float, value: amount },
+            vat: { type: sql.Float,    value: vat },
           }
         );
         await insertShipmentHistory(tQuery, newSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
