@@ -988,6 +988,20 @@ export default function Estimate() {
   const isEstimateEditKey = (key) => String(key || '').startsWith('est:');
   const parseEditKeyNumber = (key) => parseInt(String(key || '').split(':')[1] || key, 10);
 
+  const runLimited = async (items, limit, worker) => {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        results[currentIndex] = await worker(items[currentIndex], currentIndex);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  };
+
   const runShipmentFixAction = async (week, action, countryFlowers = []) => {
     const r = await fetch('/api/shipment/fix', {
       method: 'POST',
@@ -1232,8 +1246,7 @@ export default function Estimate() {
       }
 
       const runQuantityUpdate = async () => {
-        const results = [];
-        for (const p of pending) {
+        return await runLimited(pending, 4, async (p) => {
           setCostApplyLog(prev => [...prev, {
             step: 'save',
             label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
@@ -1252,10 +1265,10 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          results.push({ key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          const result = { key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error };
           if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
-        }
-        return results;
+          return result;
+        });
       };
 
       const results = cycleWeeks.length > 0
@@ -1310,26 +1323,16 @@ export default function Estimate() {
         .filter(k => isEstimateEditKey(k))
         .map(k => parseEditKeyNumber(k));
 
-      // ── 1) 각 ShipmentKey 의 SdetailKey 목록을 재조회해서
-      //      편집된 sdk 가 어느 ShipmentKey 에 속하는지 결정
       setCostApplyLog(prev => [...prev, {
         step: 'collect',
-        label: `${selectedShipmentKeys.length}개 세부차수 조회 중 — SdetailKey 소속 확인...`,
+        label: `${editedSdKeys.length + editedEstimateKeys.length}건 수정 대상 확인 중...`,
       }]);
 
-      // sdk → { shipmentKey, cost(조회시점) } 매핑 구축
-      const sdkToShipment = {}; // sdk → sk
-      for (const sk of selectedShipmentKeys) {
-        const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
-        for (const it of (skDetail.items || [])) {
-          if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey)) {
-            // 같은 sdk 가 여러 sk 에 있을 수 없음 (DB 제약) — 첫 매칭 사용
-            if (!(it.SdetailKey in sdkToShipment)) {
-              sdkToShipment[it.SdetailKey] = { sk, cost: it.Cost };
-            }
-          }
-        }
-      }
+      const sdkToShipment = Object.fromEntries(
+        filteredItems
+          .filter(it => it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && it.ShipmentKey)
+          .map(it => [it.SdetailKey, { sk: it.ShipmentKey, cost: it.Cost }])
+      );
 
       // filteredItems 에서 편집된 sdk 를 찾고 각각에 shipmentKey 매핑
       const allItems = [];
@@ -1531,15 +1534,11 @@ export default function Estimate() {
         .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
         .filter(k => isEstimateEditKey(k))
         .map(k => parseEditKeyNumber(k));
-      const sdkToShipment = {};
-      for (const sk of selectedShipmentKeys) {
-        const skDetail = await fetch(`/api/estimate?shipmentKey=${sk}`).then(r => r.json());
-        for (const it of (skDetail.items || [])) {
-          if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && !(it.SdetailKey in sdkToShipment)) {
-            sdkToShipment[it.SdetailKey] = { sk, cost: it.Cost };
-          }
-        }
-      }
+      const sdkToShipment = Object.fromEntries(
+        filteredItems
+          .filter(it => it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && it.ShipmentKey)
+          .map(it => [it.SdetailKey, { sk: it.ShipmentKey, cost: it.Cost }])
+      );
       const costItems = [];
       filteredItems.forEach(it => {
         if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
@@ -1589,8 +1588,7 @@ export default function Estimate() {
       }
 
       const runCombinedUpdate = async () => {
-        const qtyResults = [];
-        for (const p of qtyPending) {
+        const qtyResults = await runLimited(qtyPending, 4, async (p) => {
           setCostApplyLog(prev => [...prev, {
             step: 'save',
             label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
@@ -1609,9 +1607,10 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          qtyResults.push({ key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error });
+          const result = { key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error };
           if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
-        }
+          return result;
+        });
 
         let costResultData = { changedCount: 0, diffAmount: 0, changes: [] };
         if (costItems.length > 0) {
