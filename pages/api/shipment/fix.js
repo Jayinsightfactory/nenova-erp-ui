@@ -377,11 +377,10 @@ function normalizeStockProdKeys(stockProdKeys) {
 }
 
 function narrowStockProdKeys(prodKeys, stockProdKeys) {
-  const allowed = normalizeStockProdKeys(stockProdKeys);
-  if (allowed.length === 0) return prodKeys;
-  const allowedSet = new Set(allowed);
-  const narrowed = (prodKeys || []).filter(pk => allowedSet.has(Number(pk)));
-  return narrowed;
+  // usp_ShipmentFix/Cancel works at CountryFlower scope and changes Product.Stock
+  // for every shipment detail in that category. Even though usp_StockCalculation
+  // accepts a ProdKey, post-fix recalculation must keep the same category scope.
+  return prodKeys;
 }
 
 async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext = {}) {
