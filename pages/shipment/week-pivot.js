@@ -604,9 +604,6 @@ export default function WeekPivot() {
     } catch (e) { alert('오류: ' + e.message); }
   }, [weekFrom, weekTo, loadData]);
 
-  // 차수피벗 제외 품명 키워드 (대소문자 무시)
-  const EXCLUDED_PROD_KW = ['carnation', 'hydrangea', 'rose', 'altromeria'];
-
   // 필터 적용
   const applyFilter = useCallback((rows) => rows.filter(r => {
     if (filterCoun   && !r.CounName?.includes(filterCoun))     return false;
@@ -615,11 +612,6 @@ export default function WeekPivot() {
       const q = filterSearch.toLowerCase();
       const dn = (r.DisplayName || '').toLowerCase();
       if (!r.ProdName?.toLowerCase().includes(q) && !dn.includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
-    }
-    // 제외 품명 필터 — 사용자가 국가/꽃/검색어를 직접 선택한 경우 제외 안 함
-    if (!filterCoun && !filterFlower && !filterSearch) {
-      const pn = (r.ProdName || '').toLowerCase();
-      if (EXCLUDED_PROD_KW.some(kw => pn.includes(kw))) return false;
     }
     return true;
   }), [filterCoun, filterFlower, filterSearch]);
