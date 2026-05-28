@@ -177,8 +177,8 @@ export default withAuth(async function handler(req, res) {
                ELSE ISNULL(od.BoxQuantity,0) END AS custOrderQty,
           ISNULL(sd.OutQuantity,   0) AS outQty,
           CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
-          ISNULL(sd.CreateID, '') AS outCreateID,
-          COALESCE(NULLIF(sdu.UserName, ''), NULLIF(sd.CreateID, ''), NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
+          ISNULL(sm.CreateID, '') AS outCreateID,
+          COALESCE(NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
           ISNULL(sd.Descr, '') AS outDescr,
           ISNULL(sm.isFix, 0) AS isFix,
           sd.SdetailKey,
@@ -238,7 +238,6 @@ export default withAuth(async function handler(req, res) {
            ORDER BY sm2.isFix DESC
          ) sm
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
-         LEFT JOIN UserInfo sdu ON sdu.UserID=sd.CreateID
          LEFT JOIN UserInfo smu ON smu.UserID=sm.CreateID
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
