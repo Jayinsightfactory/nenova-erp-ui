@@ -175,13 +175,13 @@ export default withAuth(async function handler(req, res) {
           CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                ELSE ISNULL(od.BoxQuantity,0) END AS custOrderQty,
-          ISNULL(sd.OutQuantity,   0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
-          ISNULL(sm.CreateID, '') AS outCreateID,
-          COALESCE(NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
-          ISNULL(sd.Descr, '') AS outDescr,
-          ISNULL(sm.isFix, 0) AS isFix,
-          sd.SdetailKey,
+          ISNULL(ship.OutQuantity, 0) AS outQty,
+          CONVERT(NVARCHAR(16), ship.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(ship.CreateID, '') AS outCreateID,
+          COALESCE(NULLIF(shipu.UserName, ''), NULLIF(ship.CreateID, ''), '') AS outUserName,
+          ISNULL(ship.Descr, '') AS outDescr,
+          ISNULL(ship.isFix, 0) AS isFix,
+          ship.SdetailKey,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -232,13 +232,31 @@ export default withAuth(async function handler(req, res) {
          JOIN OrderDetail od  ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted=0 ${pkFilter}
          JOIN Product p       ON od.ProdKey = p.ProdKey
          OUTER APPLY (
-           SELECT TOP 1 sm2.ShipmentKey, sm2.isFix, sm2.CreateID
+           SELECT
+             SUM(ISNULL(sd2.OutQuantity,0)) AS OutQuantity,
+             MAX(sd2.ShipmentDtm) AS ShipmentDtm,
+             MAX(ISNULL(sm2.CreateID,'')) AS CreateID,
+             MAX(CAST(ISNULL(sm2.isFix,0) AS INT)) AS isFix,
+             MIN(sd2.SdetailKey) AS SdetailKey,
+             STUFF((
+               SELECT CHAR(10) + sd3.Descr
+               FROM ShipmentMaster sm3
+               JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
+               WHERE sm3.CustKey=om.CustKey
+                 AND sm3.OrderWeek=om.OrderWeek
+                 AND sm3.isDeleted=0
+                 AND sd3.ProdKey=p.ProdKey
+                 AND NULLIF(sd3.Descr,'') IS NOT NULL
+               FOR XML PATH(''), TYPE
+             ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Descr
            FROM ShipmentMaster sm2
-           WHERE sm2.CustKey=om.CustKey AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
-           ORDER BY sm2.isFix DESC
-         ) sm
-         LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
-         LEFT JOIN UserInfo smu ON smu.UserID=sm.CreateID
+           JOIN ShipmentDetail sd2 ON sd2.ShipmentKey=sm2.ShipmentKey
+           WHERE sm2.CustKey=om.CustKey
+             AND sm2.OrderWeek=om.OrderWeek
+             AND sm2.isDeleted=0
+             AND sd2.ProdKey=p.ProdKey
+         ) ship
+         LEFT JOIN UserInfo shipu ON shipu.UserID=ship.CreateID
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
@@ -249,15 +267,15 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea, c.Manager,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
-          sm.OrderWeek,
+          ship.OrderWeek,
           0 AS custOrderQty,
-          ISNULL(sd.OutQuantity, 0) AS outQty,
-          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
-          ISNULL(sm.CreateID, '') AS outCreateID,
-          COALESCE(NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
-          ISNULL(sd.Descr, '') AS outDescr,
-          ISNULL(sm.isFix, 0) AS isFix,
-          sd.SdetailKey,
+          ISNULL(ship.OutQuantity, 0) AS outQty,
+          CONVERT(NVARCHAR(16), ship.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(ship.CreateID, '') AS outCreateID,
+          COALESCE(NULLIF(smu.UserName, ''), NULLIF(ship.CreateID, ''), '') AS outUserName,
+          ISNULL(ship.Descr, '') AS outDescr,
+          ISNULL(ship.isFix, 0) AS isFix,
+          ship.SdetailKey,
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
@@ -268,48 +286,72 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=sm.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
           ), 0) AS totalWhInQty,
           ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=sm.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=ship.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalAdjustQty,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=sm.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
           ), 0) + ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=sm.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=ship.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
-            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=sm.OrderWeek AND sm2.isDeleted=0
+            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=ship.OrderWeek AND sm2.isDeleted=0
           ), 0) AS totalOutQty
-         FROM ShipmentMaster sm
-         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-         JOIN Customer c ON sm.CustKey=c.CustKey
-         JOIN Product p ON sd.ProdKey=p.ProdKey
-         LEFT JOIN UserInfo smu ON smu.UserID=sm.CreateID
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
-           AND sm.isDeleted=0
-           AND ISNULL(sd.OutQuantity,0)>0
-           ${prodKey ? 'AND sd.ProdKey = @pk' : ''}
+         FROM (
+           SELECT
+             sm.CustKey,
+             sd.ProdKey,
+             sm.OrderWeek,
+             SUM(ISNULL(sd.OutQuantity,0)) AS OutQuantity,
+             MAX(sd.ShipmentDtm) AS ShipmentDtm,
+             MAX(ISNULL(sm.CreateID,'')) AS CreateID,
+             MAX(CAST(ISNULL(sm.isFix,0) AS INT)) AS isFix,
+             MIN(sd.SdetailKey) AS SdetailKey,
+             STUFF((
+               SELECT CHAR(10) + sd3.Descr
+               FROM ShipmentMaster sm3
+               JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
+               WHERE sm3.CustKey=sm.CustKey
+                 AND sm3.OrderWeek=sm.OrderWeek
+                 AND sm3.isDeleted=0
+                 AND sd3.ProdKey=sd.ProdKey
+                 AND NULLIF(sd3.Descr,'') IS NOT NULL
+               FOR XML PATH(''), TYPE
+             ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Descr
+           FROM ShipmentMaster sm
+           JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+           WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+             AND sm.isDeleted=0
+             AND ISNULL(sd.OutQuantity,0)>0
+             ${prodKey ? 'AND sd.ProdKey = @pk' : ''}
+           GROUP BY sm.CustKey, sd.ProdKey, sm.OrderWeek
+         ) ship
+         JOIN Customer c ON ship.CustKey=c.CustKey
+         JOIN Product p ON ship.ProdKey=p.ProdKey
+         LEFT JOIN UserInfo smu ON smu.UserID=ship.CreateID
+         WHERE 1=1
            AND NOT EXISTS (
              SELECT 1
              FROM OrderMaster omx
              JOIN OrderDetail odx ON odx.OrderMasterKey=omx.OrderMasterKey AND odx.isDeleted=0
-             WHERE omx.CustKey=sm.CustKey
-               AND omx.OrderWeek=sm.OrderWeek
+             WHERE omx.CustKey=ship.CustKey
+               AND omx.OrderWeek=ship.OrderWeek
                AND omx.isDeleted=0
-               AND odx.ProdKey=sd.ProdKey
+               AND odx.ProdKey=ship.ProdKey
            )
-         ORDER BY c.CustArea, c.CustName, sm.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
+         ORDER BY c.CustArea, c.CustName, ship.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
       );
 
