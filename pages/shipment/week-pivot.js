@@ -297,17 +297,34 @@ function suggestedPivotProdName(name) {
   return suggested && /[가-힣]/.test(suggested) && suggested !== original ? suggested : original;
 }
 
-function pivotProdName(product) {
-  if (!product) return '';
-  return cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
+function removeFlowerFromName(name, flower = '') {
+  let v = String(name || '').trim();
+  const f = String(flower || '').toLowerCase();
+  const aliases = [];
+  if (f.includes('카네이션')) aliases.push('carnation', '카네이션');
+  if (f.includes('장미')) aliases.push('rose', '장미');
+  if (f.includes('수국')) aliases.push('hydrangea', '수국');
+  if (f.includes('알스트로')) aliases.push('alstromeria', 'altromeria', '알스트로메리아', '알스트로');
+  if (f.includes('루스커스')) aliases.push('ruscus', '루스커스');
+  if (f.includes('튤립')) aliases.push('tulip', '튤립');
+  if (f.includes('온시디움')) aliases.push('oncidium', '온시디움');
+  aliases.forEach(a => {
+    v = v.replace(new RegExp(`^\\s*${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:/|-)??\\s*`, 'i'), '');
+  });
+  return v.replace(/\s+/g, ' ').trim() || String(name || '').trim();
 }
 
-function cleanDescrText(text, actor = '') {
+function pivotProdName(product) {
+  if (!product) return '';
+  const display = cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
+  return removeFlowerFromName(display, product.flower);
+}
+
+function cleanDescrText(text) {
   if (!text) return '';
-  const name = String(actor || '').trim() || '사용자';
   return String(text)
-    .replace(/\[\s*\.Net SqlClient Data Provider[^\]]*\]/gi, `[${name}]`)
-    .replace(/\.Net SqlClient Data Provider/gi, name)
+    .replace(/\[\s*\.Net SqlClient Data Provider[^\]]*\]/gi, '[작업자미상]')
+    .replace(/\.Net SqlClient Data Provider/gi, '작업자미상')
     .replace(/\[(?:\d{4}-\d{2}-\d{2}|\d{2}\/\d{2})\s+\d{2}:\d{2}\]\s*\[([^\]]+)\]\s*/g, '[$1]')
     .replace(/\[(?:\d{2}\/\d{2})\s+\d{2}:\d{2}\s+([^\]]+)\]\s*/g, '[$1]');
 }
@@ -668,7 +685,7 @@ export default function WeekPivot() {
     rows.forEach(r=>{
       const dk=`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk]=r.outQty||0;
-      if(r.outDescr) descrMap[dk]=cleanDescrText(r.outDescr, r.outUserName || r.outCreateID || user?.userName || user?.userId);
+      if(r.outDescr) descrMap[dk]=cleanDescrText(r.outDescr);
       const ik=`${r.ProdKey}-${r.OrderWeek}`;
       if(!inMap[ik]) inMap[ik]=r.totalInQty||0;
       // 품목별 이월재고 (DB ProductStock 기준) — startStocks 미입력 시 기본값
@@ -1226,8 +1243,9 @@ export default function WeekPivot() {
           <tbody>
             {prodKeys.map((pk,pi)=>{
               const p=prodMap[pk];
-              const prodBaseName=stripProdName(p.name);
+              const prodBaseName=removeFlowerFromName(stripProdName(p.name), p.flower);
               const prodDisplayName=cleanDisplayName(p.displayName, p.name);
+              const prodSuggestedName=removeFlowerFromName(prodDisplayName || suggestedPivotProdName(p.name), p.flower);
               const prodShortName=pivotProdName(p);
               const _initSS=startStocks[`${pk}-${weeks[0]}`];
               let rollingStock=_initSS?.stock!=null?_initSS.stock:(prevStockMap[pk]||0);
@@ -1267,10 +1285,10 @@ export default function WeekPivot() {
                                onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)} title={p.name}>{prodBaseName}</div>
                           <button
                             type="button"
-                            onClick={(e)=>{e.stopPropagation();setPvNameEdit({prodKey:pk,prodName:p.name,displayName:prodDisplayName});}}
-                            title="한글명 수정"
+                            onClick={(e)=>{e.stopPropagation();setPvNameEdit({prodKey:pk,prodName:p.name,displayName:prodSuggestedName});}}
+                            title={prodDisplayName ? '한글명 수정' : '추천 한글명 저장'}
                             style={{marginTop:2,maxWidth:'100%',border:'1px solid #c8e6c9',background:prodDisplayName?'#e8f5e9':'#fff',color:prodDisplayName?'#1b5e20':'#777',borderRadius:4,padding:'1px 4px',fontSize:10,lineHeight:1.2,cursor:'pointer',textAlign:'left',whiteSpace:'normal',wordBreak:'break-word'}}>
-                            {prodDisplayName || '한글명 추가'}
+                            {prodSuggestedName || '한글명 추가'} {prodDisplayName ? '수정' : '저장'}
                           </button>
                         </div>
                       </div>
