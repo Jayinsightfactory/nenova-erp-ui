@@ -243,7 +243,80 @@ export default withAuth(async function handler(req, res) {
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
       );
-      return res.status(200).json({ success: true, rows: result.recordset });
+
+      const shipmentOnly = await query(
+        `SELECT
+          c.CustKey, c.CustName, c.CustArea, c.Manager,
+          ISNULL(c.Descr, '') AS CustDescr,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
+          sm.OrderWeek,
+          0 AS custOrderQty,
+          ISNULL(sd.OutQuantity, 0) AS outQty,
+          CONVERT(NVARCHAR(16), sd.ShipmentDtm, 120) AS outCreateDtm,
+          ISNULL(sm.CreateID, '') AS outCreateID,
+          COALESCE(NULLIF(smu.UserName, ''), NULLIF(sm.CreateID, ''), '') AS outUserName,
+          ISNULL(sd.Descr, '') AS outDescr,
+          ISNULL(sm.isFix, 0) AS isFix,
+          sd.SdetailKey,
+          ISNULL((
+            SELECT TOP 1 ps.Stock FROM ProductStock ps
+            JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
+            ORDER BY sm2.OrderWeek DESC
+          ), 0) AS prevStock,
+          0 AS totalOrderQty,
+          ISNULL((
+            SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+            JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=sm.OrderWeek AND wm2.isDeleted=0
+          ), 0) AS totalWhInQty,
+          ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=sm.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
+          ), 0) AS totalAdjustQty,
+          ISNULL((
+            SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+            JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=sm.OrderWeek AND wm2.isDeleted=0
+          ), 0) + ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=sm.OrderWeek
+              AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
+          ), 0) AS totalInQty,
+          ISNULL((
+            SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
+            JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
+            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=sm.OrderWeek AND sm2.isDeleted=0
+          ), 0) AS totalOutQty
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+         JOIN Customer c ON sm.CustKey=c.CustKey
+         JOIN Product p ON sd.ProdKey=p.ProdKey
+         LEFT JOIN UserInfo smu ON smu.UserID=sm.CreateID
+         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+           AND sm.isDeleted=0
+           AND ISNULL(sd.OutQuantity,0)>0
+           ${prodKey ? 'AND sd.ProdKey = @pk' : ''}
+           AND NOT EXISTS (
+             SELECT 1
+             FROM OrderMaster omx
+             JOIN OrderDetail odx ON odx.OrderMasterKey=omx.OrderMasterKey AND odx.isDeleted=0
+             WHERE omx.CustKey=sm.CustKey
+               AND omx.OrderWeek=sm.OrderWeek
+               AND omx.isDeleted=0
+               AND odx.ProdKey=sd.ProdKey
+           )
+         ORDER BY c.CustArea, c.CustName, sm.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
+        params
+      );
+
+      return res.status(200).json({
+        success: true,
+        rows: [...(result.recordset || []), ...(shipmentOnly.recordset || [])],
+      });
     }
 
     // ── 담당자별
