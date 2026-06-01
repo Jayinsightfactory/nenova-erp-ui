@@ -26,10 +26,13 @@ Transaction (Process ID 97) was deadlocked on lock resources with another proces
   - SQL Server deadlock 번호 `1205` 또는 deadlock 메시지를 감지하면 짧은 backoff 후 재시도
   - 품목군(`CountryFlower`) 조회 순서와 품목키 조회 순서를 고정해서 서로 다른 세션이 다른 순서로 락을 잡는 가능성을 낮춤
   - 품목별 재고계산도 `ProdKey` 오름차순으로 실행
+- `lib/db.js`
+  - 일반 주문등록/출고분배/업로드에서 사용하는 `withTransaction` 공통 래퍼에도 deadlock 재시도 로직 추가
+  - `1205`, `deadlock victim`, `Rerun the transaction` 메시지 감지 시 트랜잭션 전체를 rollback 후 최대 3회 재실행
+  - deadlock victim 트랜잭션은 SQL Server가 rollback하므로, PK 생성/주문상세/출고상세 INSERT는 재실행 시 다시 키를 잡는다.
 
 ## 주의
 
 - 재시도는 transient deadlock 완화용이다.
 - 같은 차수를 `nenova.exe`와 웹에서 동시에 확정하면 deadlock 가능성은 줄어들지만 완전히 0이 되지는 않는다.
 - 재고/출고 SP 자체의 내부 락 순서는 전산 DB 프로시저 정의를 따라가므로, 웹에서는 호출 순서 안정화와 재시도까지만 적용했다.
-
