@@ -157,6 +157,128 @@ async function appLog(step, detail, isError = false) {
   } catch {}
 }
 
+async function restoreOrderRows(tQ, rows, uid) {
+  const applied = [];
+  const skipped = [];
+
+  for (const source of rows || []) {
+    const custKey = toInt(source.custKey, null);
+    const prodKey = toInt(source.prodKey, null);
+    const week = normalizeWeek(source.week || '');
+    const beforeQty = toFloat(source.qtyBefore);
+    const expectedAfter = source.qtyAfter === undefined || source.qtyAfter === null
+      ? null
+      : toFloat(source.qtyAfter);
+
+    if (!custKey || !prodKey || !week) {
+      skipped.push({ ...source, reason: 'custKey_prodKey_week_required' });
+      continue;
+    }
+
+    const current = await tQ(
+      `SELECT TOP 1
+              om.OrderMasterKey,
+              od.OrderDetailKey,
+              ISNULL(od.OutQuantity,0) AS CurrentOutQty,
+              ISNULL(od.BoxQuantity,0) AS CurrentBoxQty,
+              ISNULL(od.BunchQuantity,0) AS CurrentBunchQty,
+              ISNULL(od.SteamQuantity,0) AS CurrentSteamQty,
+              p.ProdName,
+              p.OutUnit,
+              ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+              ISNULL(p.SteamOf1Box,0) AS SteamOf1Box
+         FROM OrderMaster om WITH (UPDLOCK, HOLDLOCK)
+         JOIN OrderDetail od WITH (UPDLOCK, HOLDLOCK) ON od.OrderMasterKey = om.OrderMasterKey
+         JOIN Product p ON p.ProdKey = od.ProdKey
+        WHERE om.CustKey=@ck
+          AND om.OrderWeek=@wk
+          AND ISNULL(om.isDeleted,0)=0
+          AND ISNULL(od.isDeleted,0)=0
+          AND od.ProdKey=@pk
+        ORDER BY om.OrderMasterKey ASC, od.OrderDetailKey ASC`,
+      {
+        ck: { type: sql.Int, value: custKey },
+        wk: { type: sql.NVarChar, value: week },
+        pk: { type: sql.Int, value: prodKey },
+      }
+    );
+
+    const row = current.recordset?.[0];
+    if (!row) {
+      skipped.push({ ...source, reason: 'order_detail_not_found' });
+      continue;
+    }
+
+    if (expectedAfter !== null && !sameQty(row.CurrentOutQty, expectedAfter)) {
+      skipped.push({ ...source, reason: 'current_order_qty_changed', currentOutQty: row.CurrentOutQty });
+      continue;
+    }
+
+    if (beforeQty <= 0) {
+      await tQ(
+        `UPDATE OrderDetail
+            SET isDeleted=1,
+                LastUpdateID=@uid,
+                LastUpdateDtm=GETDATE()
+          WHERE OrderDetailKey=@dk`,
+        {
+          dk: { type: sql.Int, value: Number(row.OrderDetailKey) },
+          uid: { type: sql.NVarChar, value: uid },
+        }
+      );
+    } else {
+      const units = shipmentUnits(beforeQty, row.BunchOf1Box, row.SteamOf1Box);
+      await tQ(
+        `UPDATE OrderDetail
+            SET OutQuantity=@outQty,
+                EstQuantity=@outQty,
+                NoneOutQuantity=0,
+                BoxQuantity=@box,
+                BunchQuantity=@bunch,
+                SteamQuantity=@steam,
+                LastUpdateID=@uid,
+                LastUpdateDtm=GETDATE()
+          WHERE OrderDetailKey=@dk`,
+        {
+          dk: { type: sql.Int, value: Number(row.OrderDetailKey) },
+          outQty: { type: sql.Float, value: beforeQty },
+          box: { type: sql.Float, value: units.box },
+          bunch: { type: sql.Float, value: units.bunch },
+          steam: { type: sql.Float, value: units.steam },
+          uid: { type: sql.NVarChar, value: uid },
+        }
+      );
+    }
+
+    await tQ(
+      `DELETE FROM OrderHistory
+        WHERE OrderDetailKey=@dk
+          AND ISNULL(ColumName,N'')=N'수량'
+          AND ISNULL(BeforeValue,N'')=@beforeValue
+          AND ISNULL(AfterValue,N'')=@afterValue
+          AND ISNULL(Descr,N'') LIKE N'%paste order + distribute%'`,
+      {
+        dk: { type: sql.Int, value: Number(row.OrderDetailKey) },
+        beforeValue: { type: sql.NVarChar, value: String(beforeQty) },
+        afterValue: { type: sql.NVarChar, value: String(expectedAfter ?? row.CurrentOutQty) },
+      }
+    );
+
+    applied.push({
+      custKey,
+      prodKey,
+      week,
+      orderDetailKey: row.OrderDetailKey,
+      prodName: row.ProdName,
+      beforeCurrentQty: row.CurrentOutQty,
+      restoredTo: beforeQty,
+      action: beforeQty <= 0 ? 'deleted_order_detail' : 'restored_order_detail',
+    });
+  }
+
+  return { applied, skipped };
+}
+
 async function handler(req, res) {
   if (req.method === 'GET') {
     const rows = await loadCandidates(query, req.query || {});
@@ -172,12 +294,13 @@ async function handler(req, res) {
   const adjKeys = Array.isArray(source.adjKeys)
     ? source.adjKeys.map(x => toInt(x, null)).filter(Boolean)
     : [];
+  const orderRestores = Array.isArray(source.orderRestores) ? source.orderRestores : [];
 
   if (confirm !== 'DELETE_PASTE_DISTRIBUTION') {
     return res.status(400).json({ success: false, error: 'confirm=DELETE_PASTE_DISTRIBUTION required' });
   }
-  if (adjKeys.length === 0) {
-    return res.status(400).json({ success: false, error: 'adjKeys required' });
+  if (adjKeys.length === 0 && orderRestores.length === 0) {
+    return res.status(400).json({ success: false, error: 'adjKeys or orderRestores required' });
   }
 
   const uid = req.user?.userId || 'admin';
@@ -290,10 +413,16 @@ async function handler(req, res) {
         applied.push({ ...row, action: 'restored_shipment_detail', revertedTo: beforeQty });
       }
 
-      return { candidates, applied, skipped };
+      const orderResult = await restoreOrderRows(tQ, orderRestores, uid);
+
+      return { candidates, applied, skipped, orderResult };
     });
 
-    await appLog('applied', `uid=${uid} adjKeys=${adjKeys.join(',')} applied=${result.applied.length} skipped=${result.skipped.length}`, result.skipped.length > 0);
+    await appLog(
+      'applied',
+      `uid=${uid} adjKeys=${adjKeys.join(',')} shipmentApplied=${result.applied.length} shipmentSkipped=${result.skipped.length} orderApplied=${result.orderResult.applied.length} orderSkipped=${result.orderResult.skipped.length}`,
+      result.skipped.length > 0 || result.orderResult.skipped.length > 0
+    );
 
     return res.status(200).json({
       success: true,
@@ -302,6 +431,10 @@ async function handler(req, res) {
       skippedCount: result.skipped.length,
       applied: result.applied,
       skipped: result.skipped,
+      orderAppliedCount: result.orderResult.applied.length,
+      orderSkippedCount: result.orderResult.skipped.length,
+      orderApplied: result.orderResult.applied,
+      orderSkipped: result.orderResult.skipped,
     });
   } catch (err) {
     await appLog('error', err.message, true);
