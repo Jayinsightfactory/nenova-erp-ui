@@ -49,6 +49,21 @@ async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) 
   throw lastErr || new Error(`${table} INSERT 재시도 ${maxRetry}회 모두 실패`);
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName:  { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 function toAllUnits(qty, unit, prod = {}) {
   const B1B = Number(prod.B1B || prod.BunchOf1Box || 0);
   const S1B = Number(prod.S1B || prod.SteamOf1Box || 0);
@@ -221,6 +236,7 @@ async function createOrder(req, res) {
     const mgr = '관리자'; // 전산 호환 (전산은 Manager='관리자' 기준으로 주문 표시)
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys } = await withTransaction(async (tQuery) => {
@@ -247,23 +263,32 @@ async function createOrder(req, res) {
       } else {
         mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           await appLog('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
-          // 전산 ViewOrder/usp_* SP 가 OrderYearWeek 인덱스 사용 — 함께 채움
           const ywk = orderYear + (orderWeek || '').replace('-', '');
-          await tQuery(
-            `INSERT INTO OrderMaster
-               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-             VALUES (@mk, GETDATE(), @year, @week, @ywk, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
-            {
-              mk:       { type: sql.Int,      value: newMk },
-              year:     { type: sql.NVarChar, value: orderYear },
-              week:     { type: sql.NVarChar, value: orderWeek },
-              ywk:      { type: sql.NVarChar, value: ywk },
-              mgr:      { type: sql.NVarChar, value: mgr },
-              custKey:  { type: sql.Int,      value: resolvedCustKey },
-              oc:       { type: sql.NVarChar, value: resolvedOrderCode },
-              createId: { type: sql.NVarChar, value: 'admin' }, // 전산 호환 (CreateID='admin' 기준 필터)
-            }
-          );
+          const params = {
+            mk:       { type: sql.Int,      value: newMk },
+            year:     { type: sql.NVarChar, value: orderYear },
+            week:     { type: sql.NVarChar, value: orderWeek },
+            ywk:      { type: sql.NVarChar, value: ywk },
+            mgr:      { type: sql.NVarChar, value: mgr },
+            custKey:  { type: sql.Int,      value: resolvedCustKey },
+            oc:       { type: sql.NVarChar, value: resolvedOrderCode },
+            createId: { type: sql.NVarChar, value: 'admin' }, // 전산 호환 (CreateID='admin' 기준 필터)
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQuery(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+               VALUES (@mk, GETDATE(), @year, @week, @ywk, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
+              params
+            );
+          } else {
+            await tQuery(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr, isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+               VALUES (@mk, GETDATE(), @year, @week, @mgr, @custKey, @oc, '', 0, @createId, GETDATE(), @createId, GETDATE())`,
+              params
+            );
+          }
         });
       }
 
