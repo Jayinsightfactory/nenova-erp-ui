@@ -1390,6 +1390,8 @@ export default function PasteOrderPage() {
           qtyAfter: j.qtyAfter,
           orderQtyBefore: j.orderQtyBefore,
           orderQtyAfter: j.orderQtyAfter,
+          outQtyBefore: j.outQtyBefore,
+          outQtyAfter: j.outQtyAfter,
           remainBefore: j.remainBefore,
           remainAfter: j.remainAfter,
           totalIn: j.totalIn,
@@ -1410,8 +1412,9 @@ export default function PasteOrderPage() {
       }));
 
       const shipUpdates = {};
-      details.filter(x => x.ok && Number.isFinite(Number(x.qtyAfter))).forEach(x => {
-        shipUpdates[`${order.custMatch.CustKey}-${x.prodKey}-${week}`] = Number(x.qtyAfter || 0);
+      details.filter(x => x.ok && (Number.isFinite(Number(x.outQtyAfter)) || Number.isFinite(Number(x.qtyAfter)))).forEach(x => {
+        const shipQty = Number.isFinite(Number(x.outQtyAfter)) ? Number(x.outQtyAfter) : Number(x.qtyAfter || 0);
+        shipUpdates[`${order.custMatch.CustKey}-${x.prodKey}-${week}`] = shipQty;
       });
       if (Object.keys(shipUpdates).length > 0) {
         setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
@@ -1441,6 +1444,80 @@ export default function PasteOrderPage() {
         await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
       }
     } catch { /* 갱신 실패해도 결과는 표시 */ }
+  };
+
+  // 등록된 주문을 기준으로 분배만 다시 저장한다.
+  // 등록 후 하단 "일괄 분배"에서 주문등록이 재가산되지 않도록 /api/shipment/distribute 만 호출.
+  const handleDistributeOnly = async (oid) => {
+    const ro = registeredOrders[oid];
+    const targetWeek = ro?.week || week;
+    if (!ro || !ro.custKey || !targetWeek) { alert('등록된 주문내역/차수를 확인하세요.'); return; }
+
+    const targets = (ro.items || []).filter(it => it.prodKey && Number(it.qty || 0) > 0).map(it => ({
+      prodKey: it.prodKey,
+      prodName: it.prodName,
+      displayName: it.displayName,
+      flowerName: it.flowerName,
+      counName: it.counName,
+      qty: Number(it.qty || 0),
+      unit: normalizeOrderUnit(it.unit),
+    }));
+    if (targets.length === 0) { alert('분배할 등록 품목이 없습니다.'); return; }
+    if (!(await ensureWeekCanDistribute(targetWeek, targets.map(t => t.prodKey)))) return;
+
+    const previewLines = targets.slice(0, 20).map(x => `${x.displayName || x.prodName}: ${x.qty}${x.unit}`);
+    const moreText = targets.length > previewLines.length ? `\n... 외 ${targets.length - previewLines.length}건` : '';
+    if (!confirm(`${ro.custName} / ${formatWeekDisplay(targetWeek)}\n등록된 주문수량으로 ${targets.length}개 품목을 출고분배로 다시 저장합니다.\n\n${previewLines.join('\n')}${moreText}\n\n진행하시겠습니까?`)) return;
+
+    setBulkRunning(true); setBulkResult(null);
+    const details = [];
+    for (const t of targets) {
+      const shipKey = `${ro.custKey}-${t.prodKey}-${targetWeek}`;
+      const beforeQty = Number(shipmentQtys[shipKey] || 0);
+      try {
+        const r = await fetch('/api/shipment/distribute', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          body: JSON.stringify({
+            custKey: ro.custKey,
+            prodKey: t.prodKey,
+            week: targetWeek,
+            outQty: t.qty,
+          }),
+        });
+        const j = await r.json();
+        details.push({
+          ...t,
+          type: 'DISTRIBUTE',
+          ok: !!j.success,
+          error: j.error,
+          qtyBefore: beforeQty,
+          qtyAfter: t.qty,
+          outQtyBefore: beforeQty,
+          outQtyAfter: t.qty,
+        });
+      } catch (e) {
+        details.push({ ...t, type: 'DISTRIBUTE', ok: false, error: e.message });
+      }
+    }
+    const okCount = details.filter(x => x.ok).length;
+    const failCount = details.filter(x => !x.ok).length;
+    setBulkResult({ orderId: oid, okCount, failCount, details });
+
+    if (okCount > 0) {
+      const shipUpdates = {};
+      details.filter(x => x.ok).forEach(x => {
+        shipUpdates[`${ro.custKey}-${x.prodKey}-${targetWeek}`] = Number(x.outQtyAfter || 0);
+      });
+      setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
+      await fetchShipmentQtys(ro.custKey, targetWeek, targets.map(t => t.prodKey));
+    }
+
+    updateOrder(oid, {
+      resultMsg: okCount > 0
+        ? `일괄 분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
+        : `일괄 분배 실패: ${failCount}건`,
+    });
+    setBulkRunning(false);
   };
 
   // ADD/CANCEL 단일 액션
@@ -1473,7 +1550,8 @@ export default function PasteOrderPage() {
       if (d.success) {
         // 분배수량 갱신
         const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;
-        setShipmentQtys(prev => ({ ...prev, [key]: d.qtyAfter }));
+        const shipQty = Number.isFinite(Number(d.outQtyAfter)) ? Number(d.outQtyAfter) : Number(d.qtyAfter || 0);
+        setShipmentQtys(prev => ({ ...prev, [key]: shipQty }));
         // ADD 인 경우 OrderDetail 도 변경됨 → registeredOrders 도 다시 조회
         if (adjustModal.type === 'ADD') {
           const od = await apiGet('/api/orders', { custName: adjustModal.custName, week: adjustModal.week });
@@ -2122,9 +2200,9 @@ export default function PasteOrderPage() {
                         </span>
                       )}
                       <button
-                        onClick={() => handleBulkDistribute(order.id)}
+                        onClick={() => handleDistributeOnly(order.id)}
                         disabled={bulkRunning}
-                        title="등록한 모든 품목을 한 번에 출고분배 (주문수량 - 기존 분배수량 차이만큼)"
+                        title="등록한 주문수량 그대로 출고분배만 다시 저장합니다. 주문등록은 재가산하지 않습니다."
                         style={{
                           marginLeft: 'auto',
                           fontSize: 12, fontWeight: 700,
@@ -2156,14 +2234,14 @@ export default function PasteOrderPage() {
                         {bulkResult.okCount > 0 && (
                           <div style={{ marginTop: 6, fontSize: 11, color: '#1b5e20', display: 'grid', gap: 2 }}>
                             {bulkResult.details.filter(x => x.ok).map((x, i) => (
-                              <div key={i}>• {x.type === 'CANCEL' ? '취소' : '추가'} {x.prodName}: {x.type === 'CANCEL' ? '−' : '+'}{x.qty}{x.unit}</div>
+                              <div key={i}>• {x.type === 'DISTRIBUTE' ? '분배' : x.type === 'CANCEL' ? '취소' : '추가'} {x.displayName || x.prodName}: {x.type === 'CANCEL' ? '−' : x.type === 'ADD' ? '+' : ''}{x.qty}{x.unit}</div>
                             ))}
                           </div>
                         )}
                         {bulkResult.failCount > 0 && (
                           <div style={{ marginTop: 4, fontSize: 11, color: '#e65100' }}>
                             {bulkResult.details.filter(x => !x.ok).map((x, i) => (
-                              <div key={i}>• {x.type === 'CANCEL' ? '취소' : '추가'} {x.prodName} {x.qty}{x.unit}: {x.error}</div>
+                              <div key={i}>• {x.type === 'DISTRIBUTE' ? '분배' : x.type === 'CANCEL' ? '취소' : '추가'} {x.displayName || x.prodName} {x.qty}{x.unit}: {x.error}</div>
                             ))}
                           </div>
                         )}

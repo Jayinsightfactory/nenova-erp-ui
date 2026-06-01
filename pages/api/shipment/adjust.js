@@ -111,6 +111,34 @@ function calcShipmentAmount(qty, unitCost) {
   return { amount, vat };
 }
 
+function qtyForUnit(row, userUnit, keys) {
+  const unitQty = userUnit === '단'
+    ? Number(row?.[keys.bunch] || 0)
+    : userUnit === '송이'
+      ? Number(row?.[keys.steam] || 0)
+      : Number(row?.[keys.box] || 0);
+  if (unitQty !== 0) return unitQty;
+  return Number(row?.[keys.out] || 0);
+}
+
+function toShipmentUnits(outQty, bunchOf1Box, steamOf1Box) {
+  const qty = Number(outQty || 0);
+  const b1b = Number(bunchOf1Box || 0);
+  const s1b = Number(steamOf1Box || 0);
+  return {
+    box: qty,
+    bunch: b1b > 0 ? qty * b1b : 0,
+    steam: s1b > 0 ? qty * s1b : 0,
+    outQ: qty,
+  };
+}
+
+function estimateQuantityFromShipmentUnits(units) {
+  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
+  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
+  return Number(units.box || 0);
+}
+
 async function getProductFixScope(q, prodKey) {
   const prod = await q(
     `SELECT TOP 1 ProdKey, ProdName, CountryFlower, CounName, FlowerName
@@ -356,7 +384,10 @@ async function postAdjust(req, res) {
           bunch = (S1B > 0 && B1B > 0) ? box * B1B : 0;
         }
         // OutQuantity = Product 의 OutUnit 기준 (canonical)
-        const outQ = prodOutUnit === '단' ? bunch : prodOutUnit === '송이' ? steam : box;
+        const convertedOutQ = prodOutUnit === '단' ? bunch : prodOutUnit === '송이' ? steam : box;
+        const outQ = Number(convertedOutQ || 0) !== 0 || !(Number(qInUserUnit) > 0)
+          ? convertedOutQ
+          : Number(qInUserUnit);
         return { box, bunch, steam, outQ };
       };
 
@@ -405,16 +436,15 @@ async function postAdjust(req, res) {
         `SELECT OrderDetailKey,
                 ISNULL(BoxQuantity,0)   AS curBox,
                 ISNULL(BunchQuantity,0) AS curBunch,
-                ISNULL(SteamQuantity,0) AS curSteam
+                ISNULL(SteamQuantity,0) AS curSteam,
+                ISNULL(OutQuantity,0)   AS curOut
            FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
-        : userUnit === '단'   ? odRow.curBunch
-        : userUnit === '송이' ? odRow.curSteam
-        : odRow.curBox;
+        : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
       const orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore;
 
       // ADD 일 때만 OrderDetail INSERT/UPDATE — 모든 단위 환산값 저장
@@ -492,7 +522,7 @@ async function postAdjust(req, res) {
         sk = sm.recordset[0].ShipmentKey;
       }
 
-      // 5) ShipmentDetail 현재값 — userUnit 기준
+      // 5) ShipmentDetail 현재값 — exe 호환 기준: OutQuantity 단일값
       const sdCur = await tQ(
         `SELECT SdetailKey,
                 ISNULL(BoxQuantity,0)   AS curBox,
@@ -505,18 +535,15 @@ async function postAdjust(req, res) {
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
       const sdRow = sdCur.recordset[0];
-      const qtyBefore = !sdRow ? 0
-        : userUnit === '단'   ? sdRow.curBunch
-        : userUnit === '송이' ? sdRow.curSteam
-        : sdRow.curBox;
+      const qtyBefore = !sdRow ? 0 : Number(sdRow.curOut || 0);
       const qtyAfter  = type === 'ADD' ? qtyBefore + delta : qtyBefore - delta;
-      if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore}${userUnit})보다 큼`);
+      if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore})보다 큼`);
 
-      const u = toAllUnits(qtyAfter);
-      const outQBefore = !sdRow ? 0 : sdRow.curOut;
+      const u = toShipmentUnits(qtyAfter, B1B, S1B);
+      const outQBefore = qtyBefore;
       const outQAfter  = u.outQ;
       const unitCost = Number(sdRow?.curCost || 0) || defaultUnitCost;
-      const amountBase = u.bunch > 0 ? u.bunch : u.box;
+      const amountBase = estimateQuantityFromShipmentUnits(u);
       const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
       let targetSdk;
@@ -671,7 +698,18 @@ async function postAdjust(req, res) {
         }
       );
 
-      return { qtyBefore, qtyAfter, orderQtyBefore, orderQtyAfter, remainBefore, remainAfter, totalIn, totalOut };
+      return {
+        qtyBefore,
+        qtyAfter,
+        orderQtyBefore,
+        orderQtyAfter,
+        outQtyBefore: outQBefore,
+        outQtyAfter: outQAfter,
+        remainBefore,
+        remainAfter,
+        totalIn,
+        totalOut,
+      };
     });
 
     return res.status(200).json({

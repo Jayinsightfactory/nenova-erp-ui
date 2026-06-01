@@ -158,6 +158,7 @@ async function getOrders(req, res) {
         };
       }
       if (row.OrderDetailKey) {
+        const displayQty = row.OutQuantity || row.BoxQuantity || row.BunchQuantity || row.SteamQuantity || 0;
         ordersMap[row.OrderMasterKey].items.push({
           detailKey: row.OrderDetailKey,
           prodKey: row.ProdKey,
@@ -170,7 +171,7 @@ async function getOrders(req, res) {
           outQty: row.OutQuantity,
           noneOutQty: row.NoneOutQuantity,
           unit: normalizeOrderUnit(row.OutUnit, row.BoxQuantity > 0 ? '박스' : row.BunchQuantity > 0 ? '단' : '송이'),
-          qty: row.BoxQuantity || row.BunchQuantity || row.SteamQuantity || 0,
+          qty: displayQty,
         });
       }
     }
