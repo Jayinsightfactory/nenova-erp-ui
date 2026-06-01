@@ -1231,6 +1231,62 @@ export default function PasteOrderPage() {
     };
   };
 
+  const buildRegisterRegisteredFallback = (order, savedItems, prevSnapshot = {}, prevItems = [], prev = null) => {
+    const itemsByKey = new Map();
+    [...(prevItems || []), ...(prev?.items || [])].forEach(it => {
+      const pk = Number(it.prodKey);
+      if (!pk) return;
+      itemsByKey.set(pk, {
+        prodKey: pk,
+        prodName: it.prodName || '',
+        displayName: it.displayName || it.prodName || '',
+        counName: it.counName || '',
+        flowerName: it.flowerName || '',
+        qty: Number(it.qty || 0),
+        unit: normalizeOrderUnit(it.unit),
+      });
+    });
+
+    const deltasByKey = new Map();
+    (savedItems || []).forEach(it => {
+      const pk = Number(it.prodKey);
+      if (!pk) return;
+      const prevDelta = deltasByKey.get(pk);
+      const deltaQty = Number(it.qty || 0);
+      if (prevDelta) {
+        prevDelta.qty += deltaQty;
+      } else {
+        deltasByKey.set(pk, { ...it, prodKey: pk, qty: deltaQty });
+      }
+    });
+
+    deltasByKey.forEach((it, pk) => {
+      const oldItem = itemsByKey.get(pk);
+      const baseQty = oldItem
+        ? Number(oldItem.qty || 0)
+        : Number(prevSnapshot?.[pk] || 0);
+      itemsByKey.set(pk, {
+        prodKey: pk,
+        prodName: oldItem?.prodName || it.prodName || '',
+        displayName: oldItem?.displayName || it.displayName || it.prodName || '',
+        counName: oldItem?.counName || it.counName || '',
+        flowerName: oldItem?.flowerName || it.flowerName || '',
+        qty: baseQty + Number(it.qty || 0),
+        unit: normalizeOrderUnit(oldItem?.unit || it.unit),
+      });
+    });
+
+    return {
+      ...(prev || {}),
+      custKey: order.custMatch.CustKey,
+      custName: order.custMatch.CustName,
+      week,
+      items: [...itemsByKey.values()].filter(it => it.prodKey),
+      prevSnapshot,
+      _fallback: true,
+    };
+  };
+
   const ensureWeekCanDistribute = async (targetWeek, prodKeys = []) => {
     if (!targetWeek) {
       alert('차수를 선택하세요.');
@@ -1453,9 +1509,23 @@ export default function PasteOrderPage() {
     if (!order?.custMatch) { alert('거래처를 확인하세요.'); return; }
     if (!week) { alert('차수를 선택하세요.'); return; }
 
-    const items = order.items
+    const registerItems = order.items
       .filter(it => !it.skip && it.prodKey && it.action !== '취소')
-      .map(it => ({ prodKey: it.prodKey, prodName: it.prodName, qty: it.qty, unit: normalizeOrderUnit(it.unit) }));
+      .map(it => ({
+        prodKey: it.prodKey,
+        prodName: it.prodName,
+        displayName: it.displayName,
+        flowerName: it.flowerName,
+        counName: it.counName,
+        qty: it.qty,
+        unit: normalizeOrderUnit(it.unit),
+      }));
+    const items = registerItems.map(it => ({
+      prodKey: it.prodKey,
+      prodName: it.prodName,
+      qty: it.qty,
+      unit: it.unit,
+    }));
 
     if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 추가 품목이 없습니다.'); return; }
 
@@ -1465,11 +1535,13 @@ export default function PasteOrderPage() {
 
     // 저장 직전 스냅샷 — 변경 셀 표시용 (prev qty per ProdKey)
     const prevSnapshot = {};
+    let prevItems = [];
     try {
       const pre = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
       if (pre.success) {
         const preMatch = pre.orders?.find(o => o.custName === order.custMatch.CustName) || pre.orders?.[0];
-        (preMatch?.items || []).forEach(it => { prevSnapshot[it.prodKey] = it.qty; });
+        prevItems = preMatch?.items || [];
+        prevItems.forEach(it => { prevSnapshot[it.prodKey] = it.qty; });
       }
     } catch { /* 스냅샷 실패해도 등록은 진행 */ }
 
@@ -1484,6 +1556,12 @@ export default function PasteOrderPage() {
       if (d.success) {
         const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
+        const fallbackPreview = buildRegisterRegisteredFallback(order, registerItems, prevSnapshot, prevItems, registeredOrders[oid]);
+        setRegisteredOrders(prev => ({
+          ...prev,
+          [oid]: buildRegisterRegisteredFallback(order, registerItems, prevSnapshot, prevItems, prev[oid]),
+        }));
+        await fetchShipmentQtys(order.custMatch.CustKey, week, fallbackPreview.items.map(i => i.prodKey));
         if (order.pendingCustomerLearning) {
           learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
           updateOrder(oid, { pendingCustomerLearning: null });
