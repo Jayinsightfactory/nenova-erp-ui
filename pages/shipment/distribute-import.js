@@ -7,10 +7,15 @@ const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
   ? `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(r.quantityMultiplier)})`
   : fmt(r.uploadQty);
-const cls = status => status === '변경' ? '#fff7ed' : status === '주문없음' ? '#eff6ff' : '#fff';
+const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
 const statusText = status => status === '주문없음' ? '주문생성' : status;
 const rowChanged = r => r?.status !== '동일';
-const orderChanged = r => Number(r?.orderDiffQty || 0) !== 0 || r?.status === '주문없음';
+const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
+const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
+const shipmentNeedsApply = r => hasQtyDiff(shipmentDiffQty(r));
+const applyTarget = r => rowChanged(r) || shipmentNeedsApply(r);
+const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
+const rowBg = r => r?.status === '주문없음' ? '#eff6ff' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
 
 function buildPivotModel(sourceRows) {
   const customers = new Map();
@@ -27,7 +32,9 @@ function buildPivotModel(sourceRows) {
         currentOutQty: 0,
         uploadQty: 0,
         changeQty: 0,
+        shipmentDiffQty: 0,
         changedLines: 0,
+        shipmentChangedLines: 0,
       });
     }
     if (!products.has(prodKey)) {
@@ -40,7 +47,9 @@ function buildPivotModel(sourceRows) {
         currentOutQty: 0,
         uploadQty: 0,
         changeQty: 0,
+        shipmentDiffQty: 0,
         changedLines: 0,
+        shipmentChangedLines: 0,
         cells: new Map(),
       });
     }
@@ -50,13 +59,19 @@ function buildPivotModel(sourceRows) {
     c.currentOutQty += Number(r.currentOutQty || 0);
     c.uploadQty += Number(r.uploadQty || 0);
     c.changeQty += Number(r.changeQty || 0);
+    c.shipmentDiffQty += shipmentDiffQty(r);
     p.orderQty += Number(r.orderQty || 0);
     p.currentOutQty += Number(r.currentOutQty || 0);
     p.uploadQty += Number(r.uploadQty || 0);
     p.changeQty += Number(r.changeQty || 0);
+    p.shipmentDiffQty += shipmentDiffQty(r);
     if (rowChanged(r)) {
       c.changedLines += 1;
       p.changedLines += 1;
+    }
+    if (applyTarget(r)) {
+      c.shipmentChangedLines += 1;
+      p.shipmentChangedLines += 1;
     }
     p.cells.set(custKey, r);
   }
@@ -82,7 +97,8 @@ export default function DistributeImport() {
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
-  const orderChangeRows = useMemo(() => changedRows.filter(r => Number(r.orderDiffQty || 0) !== 0 || r.status === '주문없음'), [changedRows]);
+  const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
+  const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
   const visibleRows = useMemo(() => {
     const base = filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
@@ -108,8 +124,9 @@ export default function DistributeImport() {
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
-      const orderChanges = (data.changedRows || []).filter(r => Number(r.orderDiffQty || 0) !== 0 || r.status === '주문없음').length;
-      setMessage(`검증 완료: 변경 ${data.changedRows?.length || 0}건, 주문반영 ${orderChanges}건, 주문생성 ${orderless}건, 미매칭 ${data.unmatched?.length || 0}건`);
+      const orderChanges = (data.changedRows || []).filter(orderChanged).length;
+      const applyCount = (data.rows || []).filter(applyTarget).length;
+      setMessage(`검증 완료: 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 주문반영 ${orderChanges}건, 주문생성 ${orderless}건, 미매칭 ${data.unmatched?.length || 0}건`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -123,19 +140,19 @@ export default function DistributeImport() {
       setError('미매칭 행이 있습니다. 품목/업체 매칭을 먼저 확인하세요.');
       return;
     }
-    if (!changedRows.length) {
-      setError('적용할 변경분이 없습니다.');
+    if (!applyRows.length) {
+      setError('적용할 주문변경/분배반영 대상이 없습니다.');
       return;
     }
     const orderCreateText = orderlessRows.length ? `\n주문 미등록 ${orderlessRows.length}건은 주문등록 후 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n주문수량 변경 ${orderChangeRows.length}건도 엑셀 최종 수량으로 반영합니다.` : '';
-    if (!confirm(`${preview.week}차 출고분배 ${changedRows.length}건을 적용하시겠습니까?${orderCreateText}${orderChangeText}`)) return;
+    if (!confirm(`${preview.week}차 주문등록 기준 변경 ${changedRows.length}건, 분배반영 ${applyRows.length}건을 적용하시겠습니까?${orderCreateText}${orderChangeText}`)) return;
     setApplying(true); setError(''); setMessage('');
     try {
       const res = await fetch('/api/shipment/distribute-import-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week: preview.week, rows: changedRows }),
+        body: JSON.stringify({ week: preview.week, rows: applyRows }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '적용 실패');
@@ -154,7 +171,7 @@ export default function DistributeImport() {
         <div style={st.toolbar}>
           <div>
             <h1 style={st.title}>출고분배 엑셀 검증 업로드</h1>
-            <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 주문/현재분배/수정수량을 비교합니다.</div>
+            <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 기존 주문등록 수량 기준으로 변경을 검증합니다.</div>
           </div>
           <div style={st.controls}>
             <button onClick={weekInput.prevWeek} style={st.iconBtn}>◁</button>
@@ -186,10 +203,10 @@ export default function DistributeImport() {
           <>
             <div style={st.kpis}>
               <Kpi label="전체 표시" value={rows.length} />
-              <Kpi label="변경" value={changedRows.length} warn />
-              <Kpi label="주문반영" value={orderChangeRows.length} warn={orderChangeRows.length > 0} />
+              <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
+              <Kpi label="분배반영" value={applyRows.length} warn={applyRows.length > changedRows.length} />
+              <Kpi label="주문생성" value={orderlessRows.length} warn={orderlessRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
-              <Kpi label="업체" value={preview.summaryByCustomer?.length || 0} />
             </div>
 
             <div style={st.grid}>
@@ -207,12 +224,13 @@ export default function DistributeImport() {
                 </div>
                 <div style={st.tableWrap}>
                   <table style={st.table}>
-                    <thead><tr><th>업체</th><th>주문</th><th>현재분배</th><th>수정수량</th><th>증감</th><th>변경라인</th></tr></thead>
+                    <thead><tr><th>업체</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>변경품목</th></tr></thead>
                     <tbody>
                       {(preview.summaryByCustomer || []).map(r => (
                         <tr key={r.custName}>
                           <td>{r.custName}</td><td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td>
-                          <td>{fmt(r.uploadQty)}</td><td style={{ color: r.changeQty ? '#b45309' : '#475569' }}>{fmt(r.changeQty)}</td><td>{r.changedLines}</td>
+                          <td>{fmt(r.uploadQty)}</td><td style={{ color: r.changeQty ? '#b45309' : '#475569' }}>{fmt(r.changeQty)}</td>
+                          <td style={{ color: r.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(r.shipmentDiffQty)}</td><td>{r.changedLines}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -232,7 +250,7 @@ export default function DistributeImport() {
                     </div>
                   )}
                   <div style={st.segment}>
-                    <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>변경만</button>
+                    <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>주문변경만</button>
                     <button onClick={() => setFilter('all')} style={filter === 'all' ? st.segOn : st.seg}>전체</button>
                     <button onClick={() => setFilter('unmatched')} style={filter === 'unmatched' ? st.segOn : st.seg}>미매칭</button>
                   </div>
@@ -246,14 +264,14 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문</th><th>현재분배</th><th>엑셀수정</th><th>증감</th><th>주문대비</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
-                        <tr key={r.key} style={{ background: cls(r.status) }}>
-                          <td>{statusText(r.status)}</td><td>{r.custName}</td><td>{r.displayName || r.prodName}</td><td>{r.outUnit}</td>
+                        <tr key={r.key} style={{ background: rowBg(r) }}>
+                          <td>{rowStatusText(r)}</td><td>{r.custName}</td><td>{r.displayName || r.prodName}</td><td>{r.outUnit}</td>
                           <td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td><td>{fmtUpload(r)}</td>
-                          <td>{fmt(r.changeQty)}</td><td>{fmt(r.orderDiffQty)}</td><td>{(r.cells || []).slice(0, 2).join(', ')}</td>
+                          <td>{fmt(r.changeQty)}</td><td>{fmt(shipmentDiffQty(r))}</td><td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -300,8 +318,9 @@ function PivotComparison({ model }) {
     acc.currentOutQty += c.currentOutQty;
     acc.uploadQty += c.uploadQty;
     acc.changeQty += c.changeQty;
+    acc.shipmentDiffQty += c.shipmentDiffQty;
     return acc;
-  }, { orderQty: 0, currentOutQty: 0, uploadQty: 0, changeQty: 0 });
+  }, { orderQty: 0, currentOutQty: 0, uploadQty: 0, changeQty: 0, shipmentDiffQty: 0 });
   return (
     <div style={st.pivotWrap}>
       <table style={st.pivotTable}>
@@ -311,13 +330,14 @@ function PivotComparison({ model }) {
             {model.customers.map(c => (
               <th key={c.key} style={st.pivotCustHead}>
                 <div style={st.custName}>{c.name}</div>
-                <div style={st.custMeta}>수정 {fmt(c.uploadQty)} / 변경 {fmt(c.changeQty)}</div>
+                <div style={st.custMeta}>엑셀 {fmt(c.uploadQty)} / 주문변경 {fmt(c.changeQty)}</div>
               </th>
             ))}
-            <th style={st.pivotTotalHead}>주문</th>
+            <th style={st.pivotTotalHead}>주문등록</th>
             <th style={st.pivotTotalHead}>현재분배</th>
-            <th style={st.pivotTotalHead}>엑셀수정</th>
-            <th style={st.pivotTotalHead}>증감</th>
+            <th style={st.pivotTotalHead}>엑셀수량</th>
+            <th style={st.pivotTotalHead}>주문변경</th>
+            <th style={st.pivotTotalHead}>분배차이</th>
           </tr>
         </thead>
         <tbody>
@@ -325,30 +345,31 @@ function PivotComparison({ model }) {
             <tr key={p.key}>
               <td style={st.pivotProductCell}>
                 <div style={{ fontWeight: 700 }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 변경 {p.changedLines}건</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 주문변경 {p.changedLines}건</div>
               </td>
               {model.customers.map(c => {
                 const r = p.cells.get(c.key);
                 if (!r) return <td key={c.key} style={st.pivotEmptyCell} />;
                 const changed = rowChanged(r);
                 const orderDiff = orderChanged(r);
+                const shipDiff = shipmentNeedsApply(r);
                 return (
                   <td key={c.key} style={{
                     ...st.pivotQtyCell,
-                    background: r.status === '주문없음' ? '#eff6ff' : changed ? '#fff7ed' : '#fff',
-                    borderColor: changed ? '#fdba74' : '#e2e8f0',
+                    background: rowBg(r),
+                    borderColor: changed ? '#fdba74' : shipDiff ? '#86efac' : '#e2e8f0',
                   }}>
                     <div style={{ ...st.qtyMain, color: changed ? '#9a3412' : '#0f172a' }}>
                       {fmtUpload(r)}
                     </div>
-                    {changed && (
-                      <div style={st.qtySub}>
-                        분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
+                    {orderDiff && (
+                      <div style={{ ...st.qtySub, color: '#b45309' }}>
+                        주문 {fmt(r.orderQty)} → {fmt(r.uploadQty)}
                       </div>
                     )}
-                    {orderDiff && (
-                      <div style={{ ...st.qtySub, color: '#1d4ed8' }}>
-                        주문 {fmt(r.orderQty)} → {fmt(r.uploadQty)}
+                    {shipDiff && (
+                      <div style={{ ...st.qtySub, color: '#15803d' }}>
+                        분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
                       </div>
                     )}
                     {r.status === '주문없음' && <div style={st.createBadge}>주문생성</div>}
@@ -359,6 +380,7 @@ function PivotComparison({ model }) {
               <td style={st.totalCell}>{fmt(p.currentOutQty)}</td>
               <td style={st.totalCellStrong}>{fmt(p.uploadQty)}</td>
               <td style={{ ...st.totalCellStrong, color: p.changeQty ? '#b45309' : '#475569' }}>{fmt(p.changeQty)}</td>
+              <td style={{ ...st.totalCellStrong, color: p.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(p.shipmentDiffQty)}</td>
             </tr>
           ))}
         </tbody>
@@ -372,6 +394,7 @@ function PivotComparison({ model }) {
             <td style={st.totalCellStrong}>{fmt(totals.currentOutQty)}</td>
             <td style={st.totalCellStrong}>{fmt(totals.uploadQty)}</td>
             <td style={{ ...st.totalCellStrong, color: totals.changeQty ? '#b45309' : '#475569' }}>{fmt(totals.changeQty)}</td>
+            <td style={{ ...st.totalCellStrong, color: totals.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(totals.shipmentDiffQty)}</td>
           </tr>
         </tfoot>
       </table>
@@ -420,7 +443,7 @@ const st = {
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },
-  kpis: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 10, marginBottom: 12 },
+  kpis: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 10, marginBottom: 12 },
   kpi: { background: '#fff', border: '1px solid #dbe3ef', borderRadius: 8, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   grid: { display: 'grid', gridTemplateColumns: 'minmax(320px, 0.8fr) minmax(460px, 1.2fr)', gap: 12, marginBottom: 12 },
   panel: { border: '1px solid #dbe3ef', borderRadius: 8, background: '#fff', overflow: 'hidden' },
