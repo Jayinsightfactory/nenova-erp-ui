@@ -3,7 +3,8 @@
 //
 // POST  body: { custKey, prodKey, week, year, type: 'ADD'|'CANCEL', qty, unit, memo }
 //   ADD    : OrderDetail += qty, ShipmentDetail += qty, Adjustment(ADD) INSERT
-//   CANCEL : OrderDetail 변경없음, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
+//   CANCEL : 기본은 OrderDetail 변경없음, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
+//            단, 붙여넣기/등록+분배가 0에서 만든 주문이고 출고가 0으로 돌아가면 OrderDetail 삭제 처리
 //
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
@@ -445,7 +446,9 @@ async function postAdjust(req, res) {
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
         : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
-      const orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore;
+      let orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore;
+      let orderDeleted = false;
+      let orderDeleteReason = '';
 
       // ADD 일 때만 OrderDetail INSERT/UPDATE — 모든 단위 환산값 저장
       if (type === 'ADD') {
@@ -661,6 +664,21 @@ async function postAdjust(req, res) {
       const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
 
+      if (type === 'CANCEL' && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
+        const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
+          orderMasterKey: mk,
+          orderDetailKey: odRow.OrderDetailKey,
+          orderQtyBefore,
+          uid,
+          userName,
+        });
+        if (cleanup.deleted) {
+          orderDeleted = true;
+          orderDeleteReason = cleanup.reason;
+          orderQtyAfter = 0;
+        }
+      }
+
       // 입고검증 — 견적서/확정 단계 오류 예방
       // (a) 입고 0 인데 출고 ADD: "선분배" 패턴. 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
       // (b) 입고 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
@@ -703,6 +721,8 @@ async function postAdjust(req, res) {
         qtyAfter,
         orderQtyBefore,
         orderQtyAfter,
+        orderDeleted,
+        orderDeleteReason,
         outQtyBefore: outQBefore,
         outQtyAfter: outQAfter,
         remainBefore,
@@ -717,7 +737,7 @@ async function postAdjust(req, res) {
       type,
       delta,
       ...result,
-      message: `${type === 'ADD' ? '추가' : '취소'} 완료 — ${result.qtyBefore} → ${result.qtyAfter}`,
+      message: `${type === 'ADD' ? '추가' : '취소'} 완료 — ${result.qtyBefore} → ${result.qtyAfter}${result.orderDeleted ? ' / 자동 주문삭제' : ''}`,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -740,6 +760,86 @@ function formatSignedQty(value) {
   const n = Number(value) || 0;
   const body = fmtQty(Math.abs(n));
   return `${n >= 0 ? '+' : '-'}${body}`;
+}
+
+function isZeroishText(value) {
+  const n = Number(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) && Math.abs(n) < 0.0001;
+}
+
+async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, orderQtyBefore, uid, userName }) {
+  const marker = await tQ(
+    `SELECT TOP 1 BeforeValue, AfterValue, Descr, ChangeDtm
+       FROM OrderHistory
+      WHERE OrderDetailKey=@dk
+        AND ISNULL(ChangeType,'') = N'수정'
+        AND (
+             Descr LIKE N'%paste order + distribute%'
+          OR Descr LIKE N'%붙여넣기 주문등록%'
+          OR Descr LIKE N'%붙여넣기 일괄추가%'
+        )
+      ORDER BY ChangeDtm ASC`,
+    { dk: { type: sql.Int, value: orderDetailKey } }
+  );
+  const firstPaste = marker.recordset[0];
+  if (!firstPaste || !isZeroishText(firstPaste.BeforeValue)) {
+    return { deleted: false, reason: 'not_auto_paste_order' };
+  }
+
+  const laterManual = await tQ(
+    `SELECT COUNT(*) AS Cnt
+       FROM OrderHistory
+      WHERE OrderDetailKey=@dk
+        AND ChangeDtm > @dt
+        AND (
+             Descr IS NULL OR (
+                 Descr NOT LIKE N'%paste order + distribute%'
+             AND Descr NOT LIKE N'%붙여넣기 주문등록%'
+             AND Descr NOT LIKE N'%붙여넣기 일괄추가%'
+             AND Descr NOT LIKE N'%자동 주문삭제%'
+             )
+        )`,
+    {
+      dk: { type: sql.Int, value: orderDetailKey },
+      dt: { type: sql.DateTime, value: firstPaste.ChangeDtm },
+    }
+  );
+  if (Number(laterManual.recordset[0]?.Cnt || 0) > 0) {
+    return { deleted: false, reason: 'manual_order_change_exists' };
+  }
+
+  await tQ(
+    `UPDATE OrderDetail
+        SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+      WHERE OrderDetailKey=@dk AND ISNULL(isDeleted,0)=0`,
+    {
+      dk: { type: sql.Int, value: orderDetailKey },
+      uid: { type: sql.NVarChar, value: uid },
+    }
+  );
+  await insertOrderHistory(
+    tQ,
+    orderDetailKey,
+    String(orderQtyBefore),
+    '0',
+    `[${formatLogTime()} ${userName}] 자동 주문삭제: 분배수량 0`,
+    uid
+  );
+  await tQ(
+    `UPDATE OrderMaster
+        SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+      WHERE OrderMasterKey=@mk
+        AND ISNULL(isDeleted,0)=0
+        AND NOT EXISTS (
+          SELECT 1 FROM OrderDetail
+           WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+        )`,
+    {
+      mk: { type: sql.Int, value: orderMasterKey },
+      uid: { type: sql.NVarChar, value: uid },
+    }
+  );
+  return { deleted: true, reason: 'auto_paste_distribution_zero' };
 }
 
 async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {

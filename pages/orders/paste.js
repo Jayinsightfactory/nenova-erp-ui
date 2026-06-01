@@ -1336,7 +1336,8 @@ export default function PasteOrderPage() {
   // 사용 시점: 텍스트 파싱 후 [🚀 일괄 등록+분배] 버튼 클릭
   // 동작:
   //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
-  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → ShipmentDetail-1 (주문은 그대로)
+  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → ShipmentDetail-1
+  //     (붙여넣기가 0에서 만든 주문은 분배가 0으로 돌아가면 자동 삭제)
   // 주의: adjust API 의 ADD 가 이미 OrderDetail+ShipmentDetail 동시 처리하므로
   //       handleRegister 별도 호출 불필요.
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -1364,7 +1365,7 @@ export default function PasteOrderPage() {
       return `${x.prodName}: ${isCancel ? '−' : '+'}${x.qty}${x.unit} (${isCancel ? '취소' : '추가'})`;
     });
 
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 OrderDetail+ShipmentDetail 동시 +, 취소는 ShipmentDetail만 −)`)) return;
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 OrderDetail+ShipmentDetail 동시 +, 취소는 분배 − / 자동생성 주문은 0이 되면 삭제)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
@@ -1552,17 +1553,20 @@ export default function PasteOrderPage() {
         const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;
         const shipQty = Number.isFinite(Number(d.outQtyAfter)) ? Number(d.outQtyAfter) : Number(d.qtyAfter || 0);
         setShipmentQtys(prev => ({ ...prev, [key]: shipQty }));
-        // ADD 인 경우 OrderDetail 도 변경됨 → registeredOrders 도 다시 조회
-        if (adjustModal.type === 'ADD') {
+        // ADD 또는 자동 주문삭제 시 OrderDetail 도 변경됨 → registeredOrders 도 다시 조회
+        if (adjustModal.type === 'ADD' || d.orderDeleted) {
           const od = await apiGet('/api/orders', { custName: adjustModal.custName, week: adjustModal.week });
-          if (od.success && od.orders?.length > 0) {
-            const matched = od.orders.find(o => o.custName === adjustModal.custName) || od.orders[0];
-            setRegisteredOrders(prev => {
-              const oid = Object.keys(prev).find(k => prev[k]?.custKey === adjustModal.custKey && prev[k]?.week === adjustModal.week);
-              if (!oid) return prev;
+          setRegisteredOrders(prev => {
+            const oid = Object.keys(prev).find(k => prev[k]?.custKey === adjustModal.custKey && prev[k]?.week === adjustModal.week);
+            if (!oid) return prev;
+            if (od.success && od.orders?.length > 0) {
+              const matched = od.orders.find(o => o.custName === adjustModal.custName) || od.orders[0];
               return { ...prev, [oid]: { ...matched, prevSnapshot: prev[oid].prevSnapshot } };
-            });
-          }
+            }
+            const next = { ...prev };
+            delete next[oid];
+            return next;
+          });
         }
         setAdjustModal(null); setAdjustQty('');
       } else {
@@ -1628,7 +1632,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items, delta: true }),
+        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items, delta: true, source: 'paste' }),
       });
       const d = await res.json();
       if (d.success) {

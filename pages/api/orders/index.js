@@ -190,8 +190,9 @@ async function getOrders(req, res) {
 // ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
 // 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
 async function createOrder(req, res) {
-  const { custName, custKey, week, year, manager, orderCode, items } = req.body;
+  const { custName, custKey, week, year, manager, orderCode, items, source } = req.body;
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
+  const historyDescr = String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
   if (!items || items.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
@@ -357,7 +358,7 @@ async function createOrder(req, res) {
             existOd.recordset[0].OrderDetailKey,
             String(oldOutQty),
             String(isDelta ? oldOutQty + outQty : outQty),
-            '주문등록',
+            historyDescr,
             uid
           );
           changedProdKeys.add(Number(prodKey));
@@ -382,7 +383,7 @@ async function createOrder(req, res) {
               }
             );
           });
-          await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), '주문등록', uid);
+          await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid);
           changedProdKeys.add(Number(prodKey));
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
         }
