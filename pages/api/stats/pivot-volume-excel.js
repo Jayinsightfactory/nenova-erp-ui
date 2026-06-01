@@ -1,8 +1,9 @@
 // pages/api/stats/pivot-volume-excel.js
 // Pivot 통계 기반 통합 물량표 다운로드
 
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import { withAuth } from '../../../lib/auth';
+import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
 
 const FLOWER_PREFIX = {
@@ -15,6 +16,46 @@ const FLOWER_PREFIX = {
 };
 
 const DAY_ORDER = { '목': 0, '금': 1, '토': 2, '일': 3, '화': 4, '수': 5, '월': 6 };
+const ALSTRO_DIVISOR = 16;
+const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
+const BORDER = {
+  top: { style: 'thin', color: { rgb: 'C8C8C8' } },
+  bottom: { style: 'thin', color: { rgb: 'C8C8C8' } },
+  left: { style: 'thin', color: { rgb: 'C8C8C8' } },
+  right: { style: 'thin', color: { rgb: 'C8C8C8' } },
+};
+const STYLES = {
+  title: {
+    font: { bold: true, name: '맑은 고딕', sz: 10 },
+    fill: { fgColor: { rgb: 'D9E6F2' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: BORDER,
+  },
+  header: {
+    font: { bold: true, name: '맑은 고딕', sz: 9 },
+    fill: { fgColor: { rgb: 'E8EEF4' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: BORDER,
+  },
+  text: {
+    font: { name: '맑은 고딕', sz: 9 },
+    alignment: { horizontal: 'left', vertical: 'center', wrapText: false },
+    border: BORDER,
+  },
+  number: {
+    font: { bold: true, name: '맑은 고딕', sz: 9 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: BORDER,
+    numFmt: '0.##',
+  },
+  summary: {
+    font: { bold: true, name: '맑은 고딕', sz: 9 },
+    fill: { fgColor: { rgb: 'B5D9C8' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: BORDER,
+    numFmt: '0.##',
+  },
+};
 
 function n(value) {
   const num = Number(value || 0);
@@ -23,6 +64,31 @@ function n(value) {
 
 function encodeCell(row, col) {
   return XLSX.utils.encode_cell({ r: row - 1, c: col - 1 });
+}
+
+function normalizeVolumeFlower(flower) {
+  const raw = String(flower || '').trim();
+  if (/루스커스|ruscus|수국|hydrangea/i.test(raw)) return '수국';
+  return raw;
+}
+
+function isAlstroRow(row) {
+  return /알스트로|alstro/i.test(`${row?.flower || ''} ${row?.prodName || ''}`);
+}
+
+function q(row, value) {
+  const amount = n(value);
+  return isAlstroRow(row) ? amount / ALSTRO_DIVISOR : amount;
+}
+
+function cleanProductLabel(name) {
+  return String(name || '')
+    .replace(/mini\s*carnation/gi, 'Mini ')
+    .replace(/\bcarnation\b\s*\/?\s*/gi, ' ')
+    .replace(PRODUCT_WORD_RE, ' ')
+    .replace(/^[\s/／-]+|[\s/／-]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function extractCustomerAbbr(customer) {
@@ -150,20 +216,20 @@ function makeSheet(rows, customers, farms, meta) {
     } else if (col.type === 'farm') {
       aoa[0][idx] = '';
       aoa[1][idx] = '';
-      aoa[2][idx] = col.farm;
+      aoa[2][idx] = getFarmDisplayName(col.farm);
     }
   });
 
   rows.forEach(row => {
     const line = [];
     colPlan.forEach(col => {
-      if (col.type === 'product') line.push(row.prodName);
-      else if (col.type === 'customer') line.push(n(row.orders?.[col.customer.custName]) || '');
-      else if (col.type === 'summary' && col.label === '주문') line.push(n(row.totalOrder) || '');
-      else if (col.type === 'summary' && col.label === '입고') line.push(n(row.totalIncoming) || '');
-      else if (col.type === 'summary' && col.label === '재고') line.push(n(row.prevStock) || '');
-      else if (col.type === 'summary' && col.label === '잔량') line.push(n(row.curStock) || '');
-      else if (col.type === 'farm') line.push(n(row.incoming?.[col.farm]) || '');
+      if (col.type === 'product') line.push(cleanProductLabel(row.prodName));
+      else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
+      else if (col.type === 'summary' && col.label === '주문') line.push(q(row, row.totalOrder) || '');
+      else if (col.type === 'summary' && col.label === '입고') line.push(q(row, row.totalIncoming) || '');
+      else if (col.type === 'summary' && col.label === '재고') line.push(q(row, row.prevStock) || '');
+      else if (col.type === 'summary' && col.label === '잔량') line.push(q(row, row.curStock) || '');
+      else if (col.type === 'farm') line.push(q(row, row.incoming?.[col.farm]) || '');
       else line.push('');
     });
     aoa.push(line);
@@ -172,18 +238,19 @@ function makeSheet(rows, customers, farms, meta) {
   const totals = [];
   colPlan.forEach(col => {
     if (col.type === 'product') totals.push('합계');
-    else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + n(row.orders?.[col.customer.custName]), 0) || '');
-    else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + n(row.totalOrder), 0) || '');
-    else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + n(row.totalIncoming), 0) || '');
-    else if (col.type === 'summary' && col.label === '재고') totals.push(rows.reduce((sum, row) => sum + n(row.prevStock), 0) || '');
-    else if (col.type === 'summary' && col.label === '잔량') totals.push(rows.reduce((sum, row) => sum + n(row.curStock), 0) || '');
-    else if (col.type === 'farm') totals.push(rows.reduce((sum, row) => sum + n(row.incoming?.[col.farm]), 0) || '');
+    else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, row.orders?.[col.customer.custName]), 0) || '');
+    else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalOrder), 0) || '');
+    else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalIncoming), 0) || '');
+    else if (col.type === 'summary' && col.label === '재고') totals.push(rows.reduce((sum, row) => sum + q(row, row.prevStock), 0) || '');
+    else if (col.type === 'summary' && col.label === '잔량') totals.push(rows.reduce((sum, row) => sum + q(row, row.curStock), 0) || '');
+    else if (col.type === 'farm') totals.push(rows.reduce((sum, row) => sum + q(row, row.incoming?.[col.farm]), 0) || '');
     else totals.push('');
   });
   aoa.push(totals);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = colPlan.map(col => ({ wch: col.type === 'product' ? 24 : col.type === 'summary' ? 8 : 5 }));
+  ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: 1, ySplit: 3 };
 
   const dataStart = 4;
@@ -198,15 +265,17 @@ function makeSheet(rows, customers, farms, meta) {
     if (summaryCols['주문']) {
       ws[encodeCell(excelRow, summaryCols['주문'])] = {
         t: 'n',
-        v: n(row.totalOrder),
+        v: q(row, row.totalOrder),
         f: `SUM(${encodeCell(excelRow, 2)}:${encodeCell(excelRow, Math.max(2, summaryCols['주문'] - 1))})`,
+        s: STYLES.summary,
       };
     }
     if (summaryCols['잔량']) {
       ws[encodeCell(excelRow, summaryCols['잔량'])] = {
         t: 'n',
-        v: n(row.curStock),
+        v: q(row, row.curStock),
         f: `${encodeCell(excelRow, summaryCols['입고'])}-${encodeCell(excelRow, summaryCols['주문'])}+${encodeCell(excelRow, summaryCols['재고'])}`,
+        s: STYLES.summary,
       };
     }
   });
@@ -216,11 +285,22 @@ function makeSheet(rows, customers, farms, meta) {
     const colNo = idx + 1;
     const value = totals[idx];
     ws[encodeCell(totalRow, colNo)] = typeof value === 'number'
-      ? { t: 'n', v: value, f: `SUM(${encodeCell(dataStart, colNo)}:${encodeCell(totalRow - 1, colNo)})` }
-      : { t: 's', v: String(value || '') };
+      ? { t: 'n', v: value, f: `SUM(${encodeCell(dataStart, colNo)}:${encodeCell(totalRow - 1, colNo)})`, s: STYLES.summary }
+      : { t: 's', v: String(value || ''), s: STYLES.summary };
   });
 
   ws.A1 = { t: 's', v: `${meta.orderYear} ${meta.weekLabel} ${meta.sheetName} 통합 물량표` };
+  for (let r = 1; r <= totalRow; r += 1) {
+    colPlan.forEach((col, idx) => {
+      const addr = encodeCell(r, idx + 1);
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      if (r <= 3) ws[addr].s = r === 1 ? STYLES.title : STYLES.header;
+      else if (r === totalRow) ws[addr].s = STYLES.summary;
+      else if (col.type === 'product') ws[addr].s = STYLES.text;
+      else if (col.type === 'summary') ws[addr].s = STYLES.summary;
+      else ws[addr].s = STYLES.number;
+    });
+  }
   return ws;
 }
 
@@ -239,8 +319,9 @@ export default withAuth(async function handler(req, res) {
     (data.rows || [])
       .filter(row => n(row.totalOrder) > 0 || n(row.totalIncoming) > 0)
       .forEach(row => {
-        const key = `${row.country || ''}|${row.flower || ''}`;
-        if (!groups.has(key)) groups.set(key, { country: row.country, flower: row.flower, rows: [] });
+        const flower = normalizeVolumeFlower(row.flower);
+        const key = `${row.country || ''}|${flower || ''}`;
+        if (!groups.has(key)) groups.set(key, { country: row.country, flower, rows: [] });
         groups.get(key).rows.push(row);
       });
 
