@@ -9,6 +9,62 @@ const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
   : fmt(r.uploadQty);
 const cls = status => status === '변경' ? '#fff7ed' : status === '주문없음' ? '#eff6ff' : '#fff';
 const statusText = status => status === '주문없음' ? '주문생성' : status;
+const rowChanged = r => r?.status !== '동일';
+const orderChanged = r => Number(r?.orderDiffQty || 0) !== 0 || r?.status === '주문없음';
+
+function buildPivotModel(sourceRows) {
+  const customers = new Map();
+  const products = new Map();
+  for (const r of sourceRows || []) {
+    const custKey = String(r.custKey || r.custName || '');
+    const prodKey = String(r.prodKey || r.prodName || '');
+    if (!custKey || !prodKey) continue;
+    if (!customers.has(custKey)) {
+      customers.set(custKey, {
+        key: custKey,
+        name: r.custName,
+        orderQty: 0,
+        currentOutQty: 0,
+        uploadQty: 0,
+        changeQty: 0,
+        changedLines: 0,
+      });
+    }
+    if (!products.has(prodKey)) {
+      products.set(prodKey, {
+        key: prodKey,
+        name: r.displayName || r.prodName,
+        prodName: r.prodName,
+        outUnit: r.outUnit,
+        orderQty: 0,
+        currentOutQty: 0,
+        uploadQty: 0,
+        changeQty: 0,
+        changedLines: 0,
+        cells: new Map(),
+      });
+    }
+    const c = customers.get(custKey);
+    const p = products.get(prodKey);
+    c.orderQty += Number(r.orderQty || 0);
+    c.currentOutQty += Number(r.currentOutQty || 0);
+    c.uploadQty += Number(r.uploadQty || 0);
+    c.changeQty += Number(r.changeQty || 0);
+    p.orderQty += Number(r.orderQty || 0);
+    p.currentOutQty += Number(r.currentOutQty || 0);
+    p.uploadQty += Number(r.uploadQty || 0);
+    p.changeQty += Number(r.changeQty || 0);
+    if (rowChanged(r)) {
+      c.changedLines += 1;
+      p.changedLines += 1;
+    }
+    p.cells.set(custKey, r);
+  }
+  return {
+    customers: [...customers.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')),
+    products: [...products.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')),
+  };
+}
 
 export default function DistributeImport() {
   const router = useRouter();
@@ -21,6 +77,7 @@ export default function DistributeImport() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState('changed');
+  const [viewMode, setViewMode] = useState('pivot');
 
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
@@ -30,6 +87,7 @@ export default function DistributeImport() {
     const base = filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
   }, [rows, changedRows, filter]);
+  const pivotModel = useMemo(() => buildPivotModel(filter === 'changed' ? changedRows : rows), [rows, changedRows, filter]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -166,14 +224,24 @@ export default function DistributeImport() {
             <div style={st.panel}>
               <div style={st.panelHead}>
                 <strong>업체별 품목 수량 비교</strong>
-                <div style={st.segment}>
-                  <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>변경만</button>
-                  <button onClick={() => setFilter('all')} style={filter === 'all' ? st.segOn : st.seg}>전체</button>
-                  <button onClick={() => setFilter('unmatched')} style={filter === 'unmatched' ? st.segOn : st.seg}>미매칭</button>
+                <div style={st.panelActions}>
+                  {filter !== 'unmatched' && (
+                    <div style={st.segment}>
+                      <button onClick={() => setViewMode('pivot')} style={viewMode === 'pivot' ? st.segOn : st.seg}>피벗보기</button>
+                      <button onClick={() => setViewMode('list')} style={viewMode === 'list' ? st.segOn : st.seg}>상세목록</button>
+                    </div>
+                  )}
+                  <div style={st.segment}>
+                    <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>변경만</button>
+                    <button onClick={() => setFilter('all')} style={filter === 'all' ? st.segOn : st.seg}>전체</button>
+                    <button onClick={() => setFilter('unmatched')} style={filter === 'unmatched' ? st.segOn : st.seg}>미매칭</button>
+                  </div>
                 </div>
               </div>
               {filter === 'unmatched' ? (
                 <SimpleUnmatched rows={preview.unmatched || []} />
+              ) : viewMode === 'pivot' ? (
+                <PivotComparison model={pivotModel} />
               ) : (
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
@@ -220,6 +288,94 @@ export default function DistributeImport() {
         }
       `}</style>
     </Layout>
+  );
+}
+
+function PivotComparison({ model }) {
+  if (!model.products.length) {
+    return <div style={{ padding: 18, color: '#64748b' }}>표시할 품목 수량이 없습니다.</div>;
+  }
+  const totals = model.customers.reduce((acc, c) => {
+    acc.orderQty += c.orderQty;
+    acc.currentOutQty += c.currentOutQty;
+    acc.uploadQty += c.uploadQty;
+    acc.changeQty += c.changeQty;
+    return acc;
+  }, { orderQty: 0, currentOutQty: 0, uploadQty: 0, changeQty: 0 });
+  return (
+    <div style={st.pivotWrap}>
+      <table style={st.pivotTable}>
+        <thead>
+          <tr>
+            <th style={{ ...st.pivotStickyHead, minWidth: 230 }}>품목</th>
+            {model.customers.map(c => (
+              <th key={c.key} style={st.pivotCustHead}>
+                <div style={st.custName}>{c.name}</div>
+                <div style={st.custMeta}>수정 {fmt(c.uploadQty)} / 변경 {fmt(c.changeQty)}</div>
+              </th>
+            ))}
+            <th style={st.pivotTotalHead}>주문</th>
+            <th style={st.pivotTotalHead}>현재분배</th>
+            <th style={st.pivotTotalHead}>엑셀수정</th>
+            <th style={st.pivotTotalHead}>증감</th>
+          </tr>
+        </thead>
+        <tbody>
+          {model.products.map(p => (
+            <tr key={p.key}>
+              <td style={st.pivotProductCell}>
+                <div style={{ fontWeight: 700 }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 변경 {p.changedLines}건</div>
+              </td>
+              {model.customers.map(c => {
+                const r = p.cells.get(c.key);
+                if (!r) return <td key={c.key} style={st.pivotEmptyCell} />;
+                const changed = rowChanged(r);
+                const orderDiff = orderChanged(r);
+                return (
+                  <td key={c.key} style={{
+                    ...st.pivotQtyCell,
+                    background: r.status === '주문없음' ? '#eff6ff' : changed ? '#fff7ed' : '#fff',
+                    borderColor: changed ? '#fdba74' : '#e2e8f0',
+                  }}>
+                    <div style={{ ...st.qtyMain, color: changed ? '#9a3412' : '#0f172a' }}>
+                      {fmtUpload(r)}
+                    </div>
+                    {changed && (
+                      <div style={st.qtySub}>
+                        분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
+                      </div>
+                    )}
+                    {orderDiff && (
+                      <div style={{ ...st.qtySub, color: '#1d4ed8' }}>
+                        주문 {fmt(r.orderQty)} → {fmt(r.uploadQty)}
+                      </div>
+                    )}
+                    {r.status === '주문없음' && <div style={st.createBadge}>주문생성</div>}
+                  </td>
+                );
+              })}
+              <td style={st.totalCell}>{fmt(p.orderQty)}</td>
+              <td style={st.totalCell}>{fmt(p.currentOutQty)}</td>
+              <td style={st.totalCellStrong}>{fmt(p.uploadQty)}</td>
+              <td style={{ ...st.totalCellStrong, color: p.changeQty ? '#b45309' : '#475569' }}>{fmt(p.changeQty)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td style={st.pivotProductCell}>합계</td>
+            {model.customers.map(c => (
+              <td key={c.key} style={st.totalCellStrong}>{fmt(c.uploadQty)}</td>
+            ))}
+            <td style={st.totalCellStrong}>{fmt(totals.orderQty)}</td>
+            <td style={st.totalCellStrong}>{fmt(totals.currentOutQty)}</td>
+            <td style={st.totalCellStrong}>{fmt(totals.uploadQty)}</td>
+            <td style={{ ...st.totalCellStrong, color: totals.changeQty ? '#b45309' : '#475569' }}>{fmt(totals.changeQty)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -273,7 +429,23 @@ const st = {
   tableWrap: { height: 220, overflow: 'auto' },
   tableWrapLarge: { maxHeight: 560, overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
+  panelActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   segment: { display: 'flex', gap: 4 },
   seg: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
   segOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
+  pivotWrap: { maxHeight: 640, overflow: 'auto', background: '#fff' },
+  pivotTable: { width: 'max-content', minWidth: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 },
+  pivotStickyHead: { position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '8px 10px', textAlign: 'left' },
+  pivotCustHead: { position: 'sticky', top: 0, zIndex: 3, minWidth: 132, maxWidth: 150, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '7px 8px', textAlign: 'center', verticalAlign: 'top' },
+  pivotTotalHead: { position: 'sticky', top: 0, zIndex: 3, minWidth: 90, background: '#cbd5e1', color: '#0f172a', borderRight: '1px solid #94a3b8', borderBottom: '1px solid #94a3b8', padding: '7px 8px', textAlign: 'right' },
+  pivotProductCell: { position: 'sticky', left: 0, zIndex: 2, minWidth: 230, maxWidth: 260, background: '#f8fafc', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', padding: '8px 10px', textAlign: 'left', whiteSpace: 'normal' },
+  pivotQtyCell: { minWidth: 132, maxWidth: 150, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '6px 8px', textAlign: 'right', verticalAlign: 'top' },
+  pivotEmptyCell: { minWidth: 132, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', background: '#fff' },
+  qtyMain: { fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
+  qtySub: { marginTop: 2, fontSize: 10, color: '#64748b', fontVariantNumeric: 'tabular-nums' },
+  createBadge: { marginTop: 3, display: 'inline-block', fontSize: 10, color: '#1d4ed8', background: '#dbeafe', borderRadius: 8, padding: '1px 6px', fontWeight: 700 },
+  custName: { fontWeight: 700, lineHeight: 1.25, whiteSpace: 'normal' },
+  custMeta: { marginTop: 3, fontSize: 10, color: '#64748b', fontWeight: 500, whiteSpace: 'normal' },
+  totalCell: { minWidth: 90, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '7px 8px', textAlign: 'right', color: '#475569', fontVariantNumeric: 'tabular-nums' },
+  totalCellStrong: { minWidth: 90, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '7px 8px', textAlign: 'right', fontWeight: 800, fontVariantNumeric: 'tabular-nums', background: '#f8fafc' },
 };
