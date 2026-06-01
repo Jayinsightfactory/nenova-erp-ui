@@ -51,6 +51,21 @@ function normWeek(week) {
   return { year: String(new Date().getFullYear()), week: String(week || '') };
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName:  { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 // 차수(예: "18-01") + 연도 → 정상 출고일(YYYY-MM-DD) 계산
 // 14차/17차 옛 전산 패턴과 동일: 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
 function weekToShipDate(weekStr, yearStr) {
@@ -286,6 +301,7 @@ async function postAdjust(req, res) {
   const userName = req.user?.userName || uid;
 
   try {
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const result = await withTransaction(async (tQ) => {
       await assertProductScopeNotFixed(tQ, orderWeek, pk);
 
@@ -355,21 +371,30 @@ async function postAdjust(req, res) {
       if (om.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 OrderMaster 없음');
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
-        // 전산 ViewOrder INNER JOIN UserInfo: 실 사용자 ID, OrderYearWeek 함께 채움
-        await tQ(
-          `INSERT INTO OrderMaster
-             (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-           VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
-          {
-            mk:  { type: sql.Int,      value: mk },
-            yr:  { type: sql.NVarChar, value: orderYear },
-            wk:  { type: sql.NVarChar, value: orderWeek },
-            ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
-            mgr: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
-            ck:  { type: sql.Int,      value: ck },
-            uid: { type: sql.NVarChar, value: 'admin' },
-          }
-        );
+        const orderMasterParams = {
+          mk:  { type: sql.Int,      value: mk },
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
+          mgr: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
+          ck:  { type: sql.Int,      value: ck },
+          uid: { type: sql.NVarChar, value: 'admin' },
+        };
+        if (hasOrderYearWeekColumn) {
+          await tQ(
+            `INSERT INTO OrderMaster
+               (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
+             VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+            orderMasterParams
+          );
+        } else {
+          await tQ(
+            `INSERT INTO OrderMaster
+               (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
+             VALUES (@mk,GETDATE(),@yr,@wk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+            orderMasterParams
+          );
+        }
         await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;

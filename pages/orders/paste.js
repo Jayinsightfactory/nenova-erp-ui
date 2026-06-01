@@ -1196,6 +1196,41 @@ export default function PasteOrderPage() {
     } catch { /* 조회 실패해도 무시 */ }
   };
 
+  const buildBulkRegisteredFallback = (order, details, prev = null) => {
+    const okDetails = (details || []).filter(x => x.ok);
+    const prevItemsByKey = new Map((prev?.items || []).map(it => [Number(it.prodKey), it]));
+    const touchedKeys = new Set(okDetails.map(x => Number(x.prodKey)).filter(Boolean));
+    const allKeys = new Set([...prevItemsByKey.keys(), ...touchedKeys]);
+    const prevSnapshot = {};
+    const items = [...allKeys].map(pk => {
+      const oldItem = prevItemsByKey.get(pk);
+      const detail = okDetails.filter(x => Number(x.prodKey) === pk).slice(-1)[0];
+      if (!oldItem && detail?.orderQtyBefore > 0) prevSnapshot[pk] = Number(detail.orderQtyBefore || 0);
+      if (oldItem) prevSnapshot[pk] = Number(oldItem.qty || 0);
+      const orderQty = Number.isFinite(Number(detail?.orderQtyAfter))
+        ? Number(detail.orderQtyAfter)
+        : Number(oldItem?.qty || detail?.qty || 0);
+      return {
+        prodKey: pk,
+        prodName: oldItem?.prodName || detail?.prodName || '',
+        displayName: oldItem?.displayName || detail?.displayName || detail?.prodName || '',
+        counName: oldItem?.counName || detail?.counName || '',
+        flowerName: oldItem?.flowerName || detail?.flowerName || '',
+        qty: orderQty,
+        unit: normalizeOrderUnit(oldItem?.unit || detail?.unit),
+      };
+    }).filter(it => it.prodKey && (it.qty !== 0 || touchedKeys.has(Number(it.prodKey))));
+    return {
+      ...(prev || {}),
+      custKey: order.custMatch.CustKey,
+      custName: order.custMatch.CustName,
+      week,
+      items,
+      prevSnapshot,
+      _fallback: true,
+    };
+  };
+
   const ensureWeekCanDistribute = async (targetWeek, prodKeys = []) => {
     if (!targetWeek) {
       alert('차수를 선택하세요.');
@@ -1256,6 +1291,9 @@ export default function PasteOrderPage() {
 
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => ({
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
+      displayName: it.displayName,
+      flowerName: it.flowerName,
+      counName: it.counName,
       qty: parseFloat(it.qty) || 0,
       unit: normalizeOrderUnit(it.unit, '단'),
       action: it.action || '추가',  // 기본 추가
@@ -1287,7 +1325,20 @@ export default function PasteOrderPage() {
           }),
         });
         const j = await r.json();
-        details.push({ ...t, type, ok: j.success, error: j.error });
+        details.push({
+          ...t,
+          type,
+          ok: !!j.success,
+          error: j.error,
+          qtyBefore: j.qtyBefore,
+          qtyAfter: j.qtyAfter,
+          orderQtyBefore: j.orderQtyBefore,
+          orderQtyAfter: j.orderQtyAfter,
+          remainBefore: j.remainBefore,
+          remainAfter: j.remainAfter,
+          totalIn: j.totalIn,
+          totalOut: j.totalOut,
+        });
       } catch (e) {
         details.push({ ...t, type, ok: false, error: e.message });
       }
@@ -1295,18 +1346,42 @@ export default function PasteOrderPage() {
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
     setBulkResult({ orderId: oid, okCount, failCount, details });
+
+    if (okCount > 0) {
+      setRegisteredOrders(prev => ({
+        ...prev,
+        [oid]: buildBulkRegisteredFallback(order, details, prev[oid]),
+      }));
+
+      const shipUpdates = {};
+      details.filter(x => x.ok && Number.isFinite(Number(x.qtyAfter))).forEach(x => {
+        shipUpdates[`${order.custMatch.CustKey}-${x.prodKey}-${week}`] = Number(x.qtyAfter || 0);
+      });
+      if (Object.keys(shipUpdates).length > 0) {
+        setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
+      }
+    }
+
     details.filter(x => x.ok).forEach(x => learnItemMapping(x));
     if (okCount > 0 && order.pendingCustomerLearning) {
       learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
       updateOrder(oid, { pendingCustomerLearning: null });
     }
+    updateOrder(oid, {
+      resultMsg: okCount > 0
+        ? `일괄 등록+분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
+        : `일괄 등록+분배 실패: ${failCount}건`,
+    });
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
     try {
       const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
       if (od.success && od.orders?.length > 0) {
         const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
-        setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot: prev[oid]?.prevSnapshot || {} } }));
+        setRegisteredOrders(prev => ({
+          ...prev,
+          [oid]: { ...matched, prevSnapshot: prev[oid]?.prevSnapshot || {} },
+        }));
         await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
       }
     } catch { /* 갱신 실패해도 결과는 표시 */ }
@@ -1948,6 +2023,11 @@ export default function PasteOrderPage() {
                   <div style={{ borderTop: '2px solid #2e7d32', background: '#f1f8e9' }}>
                     <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
+                      {ro._fallback && (
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fff8e1', color: '#8a5a00', border: '1px solid #ffca28' }}>
+                          처리 직후 내역
+                        </span>
+                      )}
                       {newCount > 0 && (
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#e3f2fd', color: '#0d47a1', border: '1px solid #64b5f6' }}>
                           🆕 신규 {newCount}건
