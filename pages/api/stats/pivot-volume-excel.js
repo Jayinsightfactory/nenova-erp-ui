@@ -46,14 +46,14 @@ const STYLES = {
     font: { bold: true, name: '맑은 고딕', sz: 9 },
     alignment: { horizontal: 'center', vertical: 'center' },
     border: BORDER,
-    numFmt: '0.##',
+    numFmt: 'General',
   },
   summary: {
     font: { bold: true, name: '맑은 고딕', sz: 9 },
     fill: { fgColor: { rgb: 'B5D9C8' } },
     alignment: { horizontal: 'center', vertical: 'center' },
     border: BORDER,
-    numFmt: '0.##',
+    numFmt: 'General',
   },
 };
 
@@ -179,11 +179,12 @@ function activeFarms(rows, farms) {
 
 function makeColumnPlan(rows, customers, farms, meta) {
   const customerGroups = makeCustomerGroups(rows, customers, meta.flower);
+  const customerColCount = customerGroups.reduce((sum, group) => sum + group.cols.length, 0);
   const farmNames = activeFarms(rows, farms);
   const colPlan = [{ type: 'product', section: 'left' }];
 
   for (const group of customerGroups) {
-    if (group.region === '지방' && colPlan.filter(col => col.type === 'product').length === 1) {
+    if (customerColCount > 10 && group.region === '지방' && colPlan.filter(col => col.type === 'product').length === 1) {
       colPlan.push({ type: 'product', section: 'middle' });
     }
     group.cols.forEach(col => colPlan.push({ type: 'customer', group: group.region, ...col }));
@@ -271,10 +272,13 @@ function makeSheet(rows, customers, farms, meta) {
       };
     }
     if (summaryCols['잔량']) {
+      const inCell = encodeCell(excelRow, summaryCols['입고']);
+      const orderCell = encodeCell(excelRow, summaryCols['주문']);
+      const stockCell = encodeCell(excelRow, summaryCols['재고']);
       ws[encodeCell(excelRow, summaryCols['잔량'])] = {
         t: 'n',
         v: q(row, row.curStock),
-        f: `${encodeCell(excelRow, summaryCols['입고'])}-${encodeCell(excelRow, summaryCols['주문'])}+${encodeCell(excelRow, summaryCols['재고'])}`,
+        f: `SUM(${inCell})-SUM(${orderCell})+SUM(${stockCell})`,
         s: STYLES.summary,
       };
     }
