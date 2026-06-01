@@ -78,6 +78,11 @@ function normalizeCountryName(country) {
   return String(country || '').replace(/\s+/g, '').trim();
 }
 
+function isNetherlands(rowOrMeta) {
+  return normalizeCountryName(rowOrMeta?.country) === '네덜란드' ||
+    normalizeCountryName(rowOrMeta?.sheetName) === '네덜란드';
+}
+
 function countryOnlySheetName(country) {
   const normalized = normalizeCountryName(country);
   return COUNTRY_ONLY_SHEETS.has(normalized) ? normalized : '';
@@ -100,6 +105,13 @@ function cleanProductLabel(name) {
     .replace(/^[\s/／-]+|[\s/／-]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+function dutchColorLabel(descr) {
+  const head = String(descr || '').split(/[\/／]/)[0]?.trim() || '';
+  if (!head || !/[가-힣]/.test(head)) return '';
+  if (/[0-9]|\bmoq\b|시즌|월|단색|단당|박스|스템|길이|원산지|최소|주문|포장/i.test(head)) return '';
+  return head.replace(/\s{2,}/g, ' ');
 }
 
 function extractCustomerAbbr(customer) {
@@ -193,6 +205,7 @@ function makeColumnPlan(rows, customers, farms, meta) {
   const customerColCount = customerGroups.reduce((sum, group) => sum + group.cols.length, 0);
   const farmNames = activeFarms(rows, farms);
   const colPlan = [{ type: 'product', section: 'left' }];
+  if (isNetherlands(meta)) colPlan.push({ type: 'color' });
 
   for (const group of customerGroups) {
     if (customerColCount > 10 && group.region === '지방' && colPlan.filter(col => col.type === 'product').length === 1) {
@@ -216,6 +229,10 @@ function makeSheet(rows, customers, farms, meta) {
       aoa[0][idx] = `${meta.weekLabel}${meta.flower || ''}`;
       aoa[1][idx] = '';
       aoa[2][idx] = '';
+    } else if (col.type === 'color') {
+      aoa[0][idx] = '';
+      aoa[1][idx] = '';
+      aoa[2][idx] = '칼라';
     } else if (col.type === 'customer') {
       const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
       aoa[0][idx] = isRegionStart ? col.group : '';
@@ -236,6 +253,7 @@ function makeSheet(rows, customers, farms, meta) {
     const line = [];
     colPlan.forEach(col => {
       if (col.type === 'product') line.push(cleanProductLabel(row.prodName));
+      else if (col.type === 'color') line.push(isNetherlands(row) ? dutchColorLabel(row.productDescr) : '');
       else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
       else if (col.type === 'summary' && col.label === '주문') line.push(q(row, row.totalOrder) || '');
       else if (col.type === 'summary' && col.label === '입고') line.push(q(row, row.totalIncoming) || '');
@@ -250,6 +268,7 @@ function makeSheet(rows, customers, farms, meta) {
   const totals = [];
   colPlan.forEach(col => {
     if (col.type === 'product') totals.push('합계');
+    else if (col.type === 'color') totals.push('');
     else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, row.orders?.[col.customer.custName]), 0) || '');
     else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalOrder), 0) || '');
     else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalIncoming), 0) || '');
@@ -262,7 +281,7 @@ function makeSheet(rows, customers, farms, meta) {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = colPlan.map(col => ({
-    wch: col.type === 'product' ? 24 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
+    wch: col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: 1, ySplit: 3 };
@@ -314,6 +333,7 @@ function makeSheet(rows, customers, farms, meta) {
       if (r <= 3) ws[addr].s = r === 1 ? STYLES.title : STYLES.header;
       else if (r === totalRow) ws[addr].s = STYLES.summary;
       else if (col.type === 'product') ws[addr].s = STYLES.text;
+      else if (col.type === 'color') ws[addr].s = STYLES.text;
       else if (col.type === 'summary') ws[addr].s = STYLES.summary;
       else ws[addr].s = STYLES.number;
     });
