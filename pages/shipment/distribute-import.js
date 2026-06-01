@@ -3,6 +3,9 @@ import Layout from '../../components/Layout';
 import { useWeekInput } from '../../lib/useWeekInput';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
+  ? `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(r.quantityMultiplier)})`
+  : fmt(r.uploadQty);
 const cls = status => status === '변경' ? '#fff7ed' : status === '주문없음' ? '#eff6ff' : '#fff';
 const statusText = status => status === '주문없음' ? '주문생성' : status;
 
@@ -20,6 +23,7 @@ export default function DistributeImport() {
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
+  const orderChangeRows = useMemo(() => changedRows.filter(r => Number(r.orderDiffQty || 0) !== 0 || r.status === '주문없음'), [changedRows]);
   const visibleRows = useMemo(() => {
     const base = filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
@@ -38,7 +42,8 @@ export default function DistributeImport() {
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
-      setMessage(`검증 완료: 변경 ${data.changedRows?.length || 0}건, 주문생성 ${orderless}건, 미매칭 ${data.unmatched?.length || 0}건`);
+      const orderChanges = (data.changedRows || []).filter(r => Number(r.orderDiffQty || 0) !== 0 || r.status === '주문없음').length;
+      setMessage(`검증 완료: 변경 ${data.changedRows?.length || 0}건, 주문반영 ${orderChanges}건, 주문생성 ${orderless}건, 미매칭 ${data.unmatched?.length || 0}건`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -57,7 +62,8 @@ export default function DistributeImport() {
       return;
     }
     const orderCreateText = orderlessRows.length ? `\n주문 미등록 ${orderlessRows.length}건은 주문등록 후 분배합니다.` : '';
-    if (!confirm(`${preview.week}차 출고분배 ${changedRows.length}건을 적용하시겠습니까?${orderCreateText}`)) return;
+    const orderChangeText = orderChangeRows.length ? `\n주문수량 변경 ${orderChangeRows.length}건도 엑셀 최종 수량으로 반영합니다.` : '';
+    if (!confirm(`${preview.week}차 출고분배 ${changedRows.length}건을 적용하시겠습니까?${orderCreateText}${orderChangeText}`)) return;
     setApplying(true); setError(''); setMessage('');
     try {
       const res = await fetch('/api/shipment/distribute-import-apply', {
@@ -67,7 +73,7 @@ export default function DistributeImport() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '적용 실패');
-      setMessage(`업로드 적용 완료: 분배 ${data.appliedCount}건, 주문생성 ${data.orderCreatedCount || 0}건`);
+      setMessage(`업로드 적용 완료: 적용 ${data.appliedCount}건, 분배 ${data.shipmentChangedCount || 0}건, 주문반영 ${data.orderChangedCount || 0}건`);
       await handlePreview();
     } catch (e) {
       setError(e.message);
@@ -115,7 +121,7 @@ export default function DistributeImport() {
             <div style={st.kpis}>
               <Kpi label="전체 표시" value={rows.length} />
               <Kpi label="변경" value={changedRows.length} warn />
-              <Kpi label="주문생성" value={orderlessRows.length} warn={orderlessRows.length > 0} />
+              <Kpi label="주문반영" value={orderChangeRows.length} warn={orderChangeRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
               <Kpi label="업체" value={preview.summaryByCustomer?.length || 0} />
             </div>
@@ -170,7 +176,7 @@ export default function DistributeImport() {
                       {visibleRows.map(r => (
                         <tr key={r.key} style={{ background: cls(r.status) }}>
                           <td>{statusText(r.status)}</td><td>{r.custName}</td><td>{r.displayName || r.prodName}</td><td>{r.outUnit}</td>
-                          <td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td><td>{fmt(r.uploadQty)}</td>
+                          <td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td><td>{fmtUpload(r)}</td>
                           <td>{fmt(r.changeQty)}</td><td>{fmt(r.orderDiffQty)}</td><td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
                       ))}

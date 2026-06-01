@@ -17,6 +17,7 @@ const FLOWER_PREFIX = {
 
 const DAY_ORDER = { '목': 0, '금': 1, '토': 2, '일': 3, '화': 4, '수': 5, '월': 6 };
 const ALSTRO_DIVISOR = 16;
+const CUSTOMER_COL_WCH = 4;
 const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
 const BORDER = {
   top: { style: 'thin', color: { rgb: 'C8C8C8' } },
@@ -250,7 +251,9 @@ function makeSheet(rows, customers, farms, meta) {
   aoa.push(totals);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = colPlan.map(col => ({ wch: col.type === 'product' ? 24 : col.type === 'summary' ? 8 : 5 }));
+  ws['!cols'] = colPlan.map(col => ({
+    wch: col.type === 'product' ? 24 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
+  }));
   ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: 1, ySplit: 3 };
 
