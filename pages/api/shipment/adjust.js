@@ -277,13 +277,13 @@ async function getAdjustments(req, res) {
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   const { week: orderWeek, year: orderYear } = normWeek(week);
 
-  let where = `OrderWeek=@wk AND OrderYear=@yr`;
+  let where = `a.OrderWeek=@wk AND a.OrderYear=@yr`;
   const params = {
     wk: { type: sql.NVarChar, value: orderWeek },
     yr: { type: sql.NVarChar, value: year || orderYear },
   };
-  if (prodKey) { where += ' AND ProdKey=@pk'; params.pk = { type: sql.Int, value: parseInt(prodKey) }; }
-  if (custKey) { where += ' AND CustKey=@ck'; params.ck = { type: sql.Int, value: parseInt(custKey) }; }
+  if (prodKey) { where += ' AND a.ProdKey=@pk'; params.pk = { type: sql.Int, value: parseInt(prodKey) }; }
+  if (custKey) { where += ' AND a.CustKey=@ck'; params.ck = { type: sql.Int, value: parseInt(custKey) }; }
 
   try {
     const r = await query(
