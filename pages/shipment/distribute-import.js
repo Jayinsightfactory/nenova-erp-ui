@@ -8,7 +8,7 @@ const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
   ? `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(r.quantityMultiplier)})`
   : fmt(r.uploadQty);
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
-const statusText = status => status === '주문없음' ? '주문생성' : status;
+const statusText = status => status === '주문없음' ? '신규추가' : status;
 const rowChanged = r => r?.status !== '동일';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
@@ -130,7 +130,7 @@ export default function DistributeImport() {
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
       const orderChanges = (data.changedRows || []).filter(orderChanged).length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
-      setMessage(`검증 완료: 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 주문반영 ${orderChanges}건, 주문생성 ${orderless}건, 미매칭 ${data.unmatched?.length || 0}건`);
+      setMessage(`검증 완료: 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -148,9 +148,9 @@ export default function DistributeImport() {
       setError('적용할 주문변경/분배반영 대상이 없습니다.');
       return;
     }
-    const orderCreateText = orderlessRows.length ? `\n주문 미등록 ${orderlessRows.length}건은 주문등록 후 분배합니다.` : '';
-    const orderChangeText = orderChangeRows.length ? `\n주문수량 변경 ${orderChangeRows.length}건도 엑셀 최종 수량으로 반영합니다.` : '';
-    if (!confirm(`${preview.week}차 주문등록 기준 변경 ${changedRows.length}건, 분배반영 ${applyRows.length}건을 적용하시겠습니까?${orderCreateText}${orderChangeText}`)) return;
+    const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
+    const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
+    if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}`)) return;
     setApplying(true); setError(''); setMessage('');
     try {
       const res = await fetch('/api/shipment/distribute-import-apply', {
@@ -160,7 +160,7 @@ export default function DistributeImport() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '적용 실패');
-      setMessage(`업로드 적용 완료: 적용 ${data.appliedCount}건, 분배 ${data.shipmentChangedCount || 0}건, 주문반영 ${data.orderChangedCount || 0}건`);
+      setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문삭제 ${data.orderDeletedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건`);
       await handlePreview();
     } catch (e) {
       setError(e.message);
@@ -197,7 +197,7 @@ export default function DistributeImport() {
           <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
           <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
-          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용 중...' : '승인 후 업로드'}</button>
+          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용 중...' : '승인 후 주문등록+분배'}</button>
         </div>
 
         {error && <div style={st.error}>{error}</div>}
@@ -209,7 +209,7 @@ export default function DistributeImport() {
               <Kpi label="전체 표시" value={rows.length} />
               <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
               <Kpi label="분배반영" value={applyRows.length} warn={applyRows.length > changedRows.length} />
-              <Kpi label="주문생성" value={orderlessRows.length} warn={orderlessRows.length > 0} />
+              <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
             </div>
 
@@ -377,7 +377,7 @@ function PivotComparison({ model }) {
                         분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
                       </div>
                     )}
-                    {r.status === '주문없음' && <div style={st.createBadge}>주문생성</div>}
+                    {r.status === '주문없음' && <div style={st.createBadge}>신규추가</div>}
                   </td>
                 );
               })}
