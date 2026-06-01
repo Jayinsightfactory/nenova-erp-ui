@@ -182,7 +182,7 @@ export default withAuth(async function handler(req, res) {
 
       const result = await query(
         `SELECT
-          c.CustKey, c.CustName, c.CustArea, c.Manager,
+          c.CustKey, c.CustName, c.CustArea, c.Manager, ISNULL(c.BaseOutDay,0) AS BaseOutDay,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(NULLIF(ship.Cost,0), ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))) AS UnitCost,
@@ -282,7 +282,7 @@ export default withAuth(async function handler(req, res) {
 
       const shipmentOnly = await query(
         `SELECT
-          c.CustKey, c.CustName, c.CustArea, c.Manager,
+          c.CustKey, c.CustName, c.CustArea, c.Manager, ISNULL(c.BaseOutDay,0) AS BaseOutDay,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(NULLIF(ship.Cost,0), ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))) AS UnitCost,

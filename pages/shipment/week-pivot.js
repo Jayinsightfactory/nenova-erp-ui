@@ -26,6 +26,26 @@ function weekToShipDate(weekStr, year = new Date().getFullYear()) {
   } catch { return null; }
 }
 
+function weekToShipDateByBaseOutDay(weekStr, year = new Date().getFullYear(), baseDay = 0) {
+  const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
+  if (!weekNum) return null;
+  const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1);
+  const wednesday = new Date(dateStart);
+  for (let i = 0; i < 7; i += 1) {
+    if (wednesday.getDay() === 3) break;
+    wednesday.setDate(wednesday.getDate() + 1);
+  }
+  const offsets = [0, 4, 5, 6, 1, 3, 2];
+  wednesday.setDate(wednesday.getDate() + (offsets[Number(baseDay)] ?? 0));
+  return wednesday;
+}
+
+function formatShipDateKo(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  return `${date.getMonth() + 1}월${date.getDate()}일 ${days[date.getDay()]}`;
+}
+
 // ─────────────────────────────────────────────────────────────
 // 주문추가 모달
 // ─────────────────────────────────────────────────────────────
@@ -642,7 +662,7 @@ export default function WeekPivot() {
   const renderWeekPivot = () => {
     const allMgrs = [...new Set(custRows.map(r=>r.Manager||'미지정'))].sort();
     const allCusts = {};
-    custRows.forEach(r=>{ allCusts[r.CustKey]={name:r.CustName,area:r.CustArea,descr:r.CustDescr,mgr:r.Manager}; });
+    custRows.forEach(r=>{ allCusts[r.CustKey]={name:r.CustName,area:r.CustArea,descr:r.CustDescr,mgr:r.Manager,baseOutDay:r.BaseOutDay}; });
     const allCustList = Object.entries(allCusts)
       .filter(([,c])=>!pvMgr||(c.mgr||'미지정')===pvMgr)
       .sort((a,b)=>((a[1].area||'')+a[1].name).localeCompare((b[1].area||'')+b[1].name,'ko'));
@@ -654,7 +674,7 @@ export default function WeekPivot() {
 
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
     const custMap = {};
-    rows.forEach(r=>{ custMap[r.CustKey]={name:r.CustName,area:r.CustArea||'기타',descr:r.CustDescr}; });
+    rows.forEach(r=>{ custMap[r.CustKey]={name:r.CustName,area:r.CustArea||'기타',descr:r.CustDescr,baseOutDay:r.BaseOutDay}; });
     const custKeys = Object.keys(custMap).map(Number)
       .sort((a,b)=>((custMap[a].area+custMap[a].name).localeCompare(custMap[b].area+custMap[b].name,'ko')));
 
@@ -681,10 +701,11 @@ export default function WeekPivot() {
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''),'ko'));
 
-    const dataMap={}, inMap={}, descrMap={}, prevStockMap={}, costMap={};
+    const dataMap={}, orderMap={}, inMap={}, descrMap={}, prevStockMap={}, costMap={};
     rows.forEach(r=>{
       const dk=`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk]=r.outQty||0;
+      orderMap[dk]=r.custOrderQty||0;
       costMap[dk]=Number(r.UnitCost||0);
       if(r.outDescr) descrMap[dk]=cleanDescrText(r.outDescr);
       const ik=`${r.ProdKey}-${r.OrderWeek}`;
@@ -1055,112 +1076,166 @@ export default function WeekPivot() {
         XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
       }
 
-      // 업체별 개별 시트
-      custKeys.forEach(ck => {
-        const cn = cShort(ck);
-        const custProds = prodKeys.filter(pk => weeks.some(wk => (dataMap[`${pk}-${ck}-${wk}`] || 0) > 0));
-        if (custProds.length === 0) return;
-        const csData = [];
-        csData.push([`${cn} (${custMap[ck]?.area || ''})`]);
-        const hdr = ['국가', '꽃', '품명'];
-        weeks.forEach(wk => hdr.push(`${wk} 수량`));
-        if (weeks.length > 1) hdr.push('합계수량');
-        hdr.push('품목단가', '공급가액', '부가세', '총금액', '비고');
-        csData.push(hdr);
-        const totalQtyCol = weeks.length > 1 ? 3 + weeks.length : 3;
-        const unitCostCol = totalQtyCol + 1;
-        const supplyCol = unitCostCol + 1;
-        const vatCol = unitCostCol + 2;
-        const grossCol = unitCostCol + 3;
-
-        const byFlower = {};
-        custProds.forEach(pk => {
-          const fl = prodMap[pk].flower || '기타';
-          if (!byFlower[fl]) byFlower[fl] = [];
-          byFlower[fl].push(pk);
-        });
-
-        let rowIdx = 2;
-        Object.entries(byFlower).forEach(([flower, pks]) => {
-          const flowerStartRow = rowIdx + 1;
-          pks.forEach(pk => {
-            const p = prodMap[pk];
-            const row = [p.coun, p.flower, pivotProdName(p)];
-            const excelRow = rowIdx + 1;
-            let rowTotal = 0;
-            weeks.forEach(wk => {
-              const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-              row.push(v > 0 ? v : '');
-              rowTotal += v;
-            });
-            if (weeks.length > 1) {
-              const firstQtyCol = XLSX.utils.encode_col(3);
-              const lastQtyCol = XLSX.utils.encode_col(3 + weeks.length - 1);
-              row.push({ f: `SUM(${firstQtyCol}${excelRow}:${lastQtyCol}${excelRow})`, v: rowTotal || 0 });
-            }
-            const unitCost = displayUnitCostFor(pk, ck, weeks);
-            const money = totalMoneyFor(pk, ck, weeks);
-            const qtyColName = XLSX.utils.encode_col(totalQtyCol);
-            const unitColName = XLSX.utils.encode_col(unitCostCol);
-            row.push(unitCost || '');
-            row.push({ f: `ROUND(${qtyColName}${excelRow}*${unitColName}${excelRow}/1.1,0)`, v: money.supply || 0 });
-            row.push({ f: `ROUND(${qtyColName}${excelRow}*${unitColName}${excelRow}/11,0)`, v: money.vat || 0 });
-            row.push({ f: `${qtyColName}${excelRow}*${unitColName}${excelRow}`, v: money.gross || 0 });
-            const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`] || '').filter(Boolean).join(' ');
-            row.push(allDescr.replace(/\n/g, ' '));
-            csData.push(row);
-            rowIdx++;
-          });
-
-          const subR = ['', '', `${flower} 소계`];
-          weeks.forEach((wk, wi) => {
-            const col = XLSX.utils.encode_col(3 + wi);
-            subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
-          });
-          if (weeks.length > 1) {
-            const col = XLSX.utils.encode_col(totalQtyCol);
-            subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
+      // 업체별 출고리스트: 수정 후 검증 업로드에 다시 사용할 수 있도록 숨은 키 열을 같이 둔다.
+      {
+        const usedSheetNames = new Set((wb.SheetNames || []).map(s => s.toLowerCase()));
+        const safeSheetName = (name, fallback) => {
+          const base = String(name || fallback || '업체')
+            .replace(/[\\\/\?\*\[\]:]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 28) || '업체';
+          let candidate = base;
+          let i = 2;
+          while (usedSheetNames.has(candidate.toLowerCase())) {
+            const suffix = `_${i++}`;
+            candidate = `${base.substring(0, 31 - suffix.length)}${suffix}`;
           }
-          subR.push('');
-          [supplyCol, vatCol, grossCol].forEach(ci => {
-            const col = XLSX.utils.encode_col(ci);
-            subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
-          });
-          subR.push('');
-          csData.push(subR);
-          rowIdx++;
-        });
+          usedSheetNames.add(candidate.toLowerCase());
+          return candidate;
+        };
+        const categoryLabel = (p) => {
+          const flower = p.flower || '기타';
+          const country = String(p.coun || '').trim();
+          if (!country || /^국내/.test(country) || country === '기타') return flower;
+          return `${country} ${flower}`;
+        };
+        const colorLabelFor = (p, pk, ck, wk) => {
+          const descrHead = String(descrMap[`${pk}-${ck}-${wk}`] || '').split('/')[0]?.trim();
+          if (/네덜란드/.test(String(p.coun || '')) && descrHead && !/엑셀업로드|작업자|sqlclient|^\d{1,2}[-/]\d{1,2}/i.test(descrHead)) {
+            return descrHead;
+          }
+          return pivotProdName(p);
+        };
 
-        const totalR = ['', '', '전체 합계'];
-        const totalFormulaCols = [
-          ...weeks.map((_, wi) => 3 + wi),
-          ...(weeks.length > 1 ? [totalQtyCol] : []),
-        ];
-        totalFormulaCols.forEach(ci => {
-          const col = XLSX.utils.encode_col(ci);
-          totalR.push({ f: `SUMIF($C$3:$C$${rowIdx},"*소계",${col}$3:${col}$${rowIdx})` });
-        });
-        totalR.push('');
-        [supplyCol, vatCol, grossCol].forEach(ci => {
-          const col = XLSX.utils.encode_col(ci);
-          totalR.push({ f: `SUMIF($C$3:$C$${rowIdx},"*소계",${col}$3:${col}$${rowIdx})` });
-        });
-        totalR.push('');
-        csData.push(totalR);
-        const csWs = XLSX.utils.aoa_to_sheet(csData);
-        const colWidths = [{wch:10},{wch:10},{wch:28}, ...weeks.map(() => ({wch:8}))];
-        if (weeks.length > 1) colWidths.push({wch:8});
-        colWidths.push({wch:10},{wch:12},{wch:10},{wch:12},{wch:30});
-        csWs['!cols'] = colWidths;
-        for (let r = 2; r < csData.length; r += 1) {
-          [unitCostCol, supplyCol, vatCol, grossCol].forEach(ci => {
-            const addr = XLSX.utils.encode_cell({ r, c: ci });
-            if (csWs[addr]) csWs[addr].z = '#,##0';
+        custKeys.forEach(ck => {
+          const cn = cShort(ck);
+          const customerRows = [];
+          weeks.forEach(wk => {
+            prodKeys.forEach(pk => {
+              const outQty = dataMap[`${pk}-${ck}-${wk}`] || 0;
+              const orderQty = orderMap[`${pk}-${ck}-${wk}`] || 0;
+              if (outQty <= 0 && orderQty <= 0) return;
+              const p = prodMap[pk];
+              customerRows.push({ wk, pk, p, outQty, orderQty });
+            });
           });
-        }
-        const sheetName = cn.replace(/[\\\/\?\*\[\]:]/g, '').substring(0, 31);
-        try { XLSX.utils.book_append_sheet(wb, csWs, sheetName); } catch {}
-      });
+          if (customerRows.length === 0) return;
+
+          const includeWeekCol = weeks.length > 1;
+          const visibleHdr = includeWeekCol
+            ? ['차수', '품명', '컬러', '주문수량', '출고수량', '단가', '공급가액', '부가세', '총금액', '비고']
+            : ['품명', '컬러', '주문수량', '출고수량', '단가', '공급가액', '부가세', '총금액', '비고'];
+          const metaHdr = ['_CustKey', '_ProdKey', '_Week', '_OutUnit'];
+          const categoryCol = includeWeekCol ? 1 : 0;
+          const colorCol = includeWeekCol ? 2 : 1;
+          const orderCol = includeWeekCol ? 3 : 2;
+          const outCol = includeWeekCol ? 4 : 3;
+          const unitCol = includeWeekCol ? 5 : 4;
+          const supplyCol = includeWeekCol ? 6 : 5;
+          const vatCol = includeWeekCol ? 7 : 6;
+          const grossCol = includeWeekCol ? 8 : 7;
+          const metaStartCol = visibleHdr.length;
+
+          const titleWeek = weeks.length === 1 ? `${weeks[0]}차` : `${weeks[0]}~${weeks[weeks.length - 1]}차`;
+          const shipDate = weeks.length === 1
+            ? formatShipDateKo(weekToShipDateByBaseOutDay(weeks[0], new Date().getFullYear(), custMap[ck]?.baseOutDay))
+            : '';
+          const csData = [[`${cn} ${titleWeek} 출고리스트${shipDate ? `(${shipDate} 출고)` : ''}`], [], [...visibleHdr, ...metaHdr]];
+          const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: visibleHdr.length - 1 } }];
+          const groups = new Map();
+          customerRows.forEach(item => {
+            const label = categoryLabel(item.p);
+            if (!groups.has(label)) groups.set(label, []);
+            groups.get(label).push(item);
+          });
+
+          let rowIdx = 3;
+          const subtotalRows = [];
+          for (const [category, items] of groups.entries()) {
+            const groupStart = rowIdx + 1;
+            const unitsInGroup = [...new Set(items.map(item => item.p.unit || '박스').filter(Boolean))];
+            items.forEach(item => {
+              const excelRow = rowIdx + 1;
+              const outColName = XLSX.utils.encode_col(outCol);
+              const unitColName = XLSX.utils.encode_col(unitCol);
+              const unitCost = unitCostFor(item.pk, ck, item.wk);
+              const row = includeWeekCol
+                ? [item.wk, category, colorLabelFor(item.p, item.pk, ck, item.wk), item.orderQty || '', item.outQty > 0 ? item.outQty : '', unitCost || '']
+                : [category, colorLabelFor(item.p, item.pk, ck, item.wk), item.orderQty || '', item.outQty > 0 ? item.outQty : '', unitCost || ''];
+              row.push(
+                { f: `ROUND(${outColName}${excelRow}*${unitColName}${excelRow}/1.1,0)` },
+                { f: `ROUND(${outColName}${excelRow}*${unitColName}${excelRow}/11,0)` },
+                { f: `${outColName}${excelRow}*${unitColName}${excelRow}` },
+                (descrMap[`${item.pk}-${ck}-${item.wk}`] || '').replace(/\n/g, ' '),
+                ck,
+                item.pk,
+                item.wk,
+                item.p.unit || '박스',
+              );
+              csData.push(row);
+              rowIdx += 1;
+            });
+
+            const groupEnd = rowIdx;
+            if (items.length > 1) merges.push({ s: { r: groupStart - 1, c: categoryCol }, e: { r: groupEnd - 1, c: categoryCol } });
+            const subtotalExcelRow = rowIdx + 1;
+            const subtotal = Array(metaStartCol + metaHdr.length).fill('');
+            subtotal[colorCol] = `합계${unitsInGroup.length === 1 ? `(${unitsInGroup[0]})` : ''}`;
+            [orderCol, outCol, supplyCol, vatCol, grossCol].forEach(ci => {
+              const col = XLSX.utils.encode_col(ci);
+              subtotal[ci] = { f: `SUM(${col}${groupStart}:${col}${groupEnd})` };
+            });
+            subtotal[unitCol] = '단가';
+            csData.push(subtotal);
+            subtotalRows.push(subtotalExcelRow);
+            rowIdx += 1;
+          }
+
+          const total = Array(metaStartCol + metaHdr.length).fill('');
+          total[colorCol] = '전체 합계';
+          [orderCol, outCol, supplyCol, vatCol, grossCol].forEach(ci => {
+            const col = XLSX.utils.encode_col(ci);
+            total[ci] = { f: subtotalRows.length ? subtotalRows.map(r => `${col}${r}`).join('+') : '0' };
+          });
+          total[unitCol] = '단가';
+          csData.push(total);
+
+          const csWs = XLSX.utils.aoa_to_sheet(csData);
+          csWs['!merges'] = merges;
+          csWs['!cols'] = [
+            ...(includeWeekCol ? [{ wch: 9 }] : []),
+            { wch: 16 },
+            { wch: 34 },
+            { wch: 10 },
+            { wch: 10 },
+            { wch: 10 },
+            { wch: 12 },
+            { wch: 10 },
+            { wch: 12 },
+            { wch: 28 },
+            { wch: 8, hidden: true },
+            { wch: 8, hidden: true },
+            { wch: 8, hidden: true },
+            { wch: 8, hidden: true },
+          ];
+          csWs['!rows'] = [{ hpt: 24 }, { hpt: 8 }, { hpt: 20 }];
+          for (let r = 0; r < csData.length; r += 1) {
+            for (let c = 0; c < visibleHdr.length; c += 1) {
+              const addr = XLSX.utils.encode_cell({ r, c });
+              if (!csWs[addr]) continue;
+              const cellStyle = { alignment: { horizontal: 'center', vertical: 'center', wrapText: true } };
+              if (r === 0 || r === 2 || csData[r][colorCol] === '전체 합계' || String(csData[r][colorCol] || '').startsWith('합계')) {
+                cellStyle.font = { bold: true };
+              }
+              csWs[addr].s = cellStyle;
+              if ([orderCol, outCol, unitCol, supplyCol, vatCol, grossCol].includes(c)) csWs[addr].z = '#,##0';
+            }
+          }
+          const sheetName = safeSheetName(cn, `업체${ck}`);
+          XLSX.utils.book_append_sheet(wb, csWs, sheetName);
+        });
+      }
 
       const changes = await loadChangeHistoryRows();
       if (changes.length > 0) {
@@ -1255,6 +1330,8 @@ export default function WeekPivot() {
               title="기본값으로 초기화">↺</button>
           </div>
           <button onClick={downloadPivotExcel} style={{...st.addBtn,background:'#2e7d32'}}>📥 엑셀</button>
+          <button onClick={()=>router.push(`/shipment/distribute-import?week=${encodeURIComponent(weekFrom || weeks[0] || '')}`)}
+            style={{...st.addBtn,background:'#0f766e'}}>검증 업로드</button>
           <button onClick={()=>{
             const lines=buildRemainLines();
             if(!lines.length){alert('잔량이 있는 품목이 없습니다');return;}

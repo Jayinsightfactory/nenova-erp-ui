@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { useWeekInput } from '../../lib/useWeekInput';
 
@@ -10,6 +11,7 @@ const cls = status => status === '변경' ? '#fff7ed' : status === '주문없음
 const statusText = status => status === '주문없음' ? '주문생성' : status;
 
 export default function DistributeImport() {
+  const router = useRouter();
   const weekInput = useWeekInput('');
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -28,6 +30,12 @@ export default function DistributeImport() {
     const base = filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
   }, [rows, changedRows, filter]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const qWeek = Array.isArray(router.query.week) ? router.query.week[0] : router.query.week;
+    if (qWeek) weekInput.setValue(String(qWeek));
+  }, [router.isReady, router.query.week]);
 
   const handlePreview = async () => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
@@ -88,7 +96,7 @@ export default function DistributeImport() {
         <div style={st.toolbar}>
           <div>
             <h1 style={st.title}>출고분배 엑셀 검증 업로드</h1>
-            <div style={st.sub}>분류프로그램 물량표를 읽어 업체별 품목 수량 기준으로 주문/현재분배/수정수량을 비교합니다.</div>
+            <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 주문/현재분배/수정수량을 비교합니다.</div>
           </div>
           <div style={st.controls}>
             <button onClick={weekInput.prevWeek} style={st.iconBtn}>◁</button>
@@ -108,7 +116,7 @@ export default function DistributeImport() {
             onChange={e => setFile(e.target.files?.[0] || null)}
           />
           <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
-          <span style={st.fileName}>{file ? file.name : '분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용 중...' : '승인 후 업로드'}</button>
         </div>
