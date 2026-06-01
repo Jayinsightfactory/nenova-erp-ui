@@ -22,6 +22,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { tryInsertWithRetry } from '../../../lib/safeNextKey';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
@@ -314,27 +315,23 @@ async function createOrder(req, res) {
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'UPDATED' });
           changedProdKeys.add(Number(prodKey));
         } else {
-          // OrderDetailKey = MAX+1 (IDENTITY가 아닌 테이블 대응)
-          const maxKey = await tQ(
-            `SELECT ISNULL(MAX(OrderDetailKey),0)+1 AS nextKey FROM OrderDetail WITH (UPDLOCK)`,
-            {}
-          );
-          const nextKey = maxKey.recordset[0].nextKey;
-          await tQ(
-            `INSERT INTO OrderDetail
-               (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                 OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-              VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, 'API', GETDATE())`,
-            {
-              nk:    { type: sql.Int,   value: nextKey },
-              mk:    { type: sql.Int,   value: mk },
-              pk:    { type: sql.Int,   value: prodKey },
-              box:   { type: sql.Float, value: q.box },
-              bunch: { type: sql.Float, value: q.bunch },
-              steam: { type: sql.Float, value: q.steam },
-              oq:    { type: sql.Float, value: q.outQ },
-            }
-          );
+          await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (nextKey) => {
+            await tQ(
+              `INSERT INTO OrderDetail
+                 (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                   OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
+                VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, 'API', GETDATE())`,
+              {
+                nk:    { type: sql.Int,   value: nextKey },
+                mk:    { type: sql.Int,   value: mk },
+                pk:    { type: sql.Int,   value: prodKey },
+                box:   { type: sql.Float, value: q.box },
+                bunch: { type: sql.Float, value: q.bunch },
+                steam: { type: sql.Float, value: q.steam },
+                oq:    { type: sql.Float, value: q.outQ },
+              }
+            );
+          });
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
           changedProdKeys.add(Number(prodKey));
         }

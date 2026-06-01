@@ -3,7 +3,7 @@
 // 승인 시: 기존 OrderMaster/OrderDetail 에 INSERT (13/14차 구조 유지)
 import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
-import { safeNextKey } from '../../../lib/safeNextKey';
+import { tryInsertWithRetry } from '../../../lib/safeNextKey';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 const columnExistsCache = {};
@@ -82,36 +82,37 @@ async function handler(req, res) {
       if (existing.recordset.length > 0) {
         ok = existing.recordset[0].OrderMasterKey;
       } else {
-        ok = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
-        // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
-        const orderMasterParams = {
-          ok:  { type: sql.Int,      value: ok },
-          yr:  { type: sql.NVarChar, value: year },
-          wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
-          ywk: { type: sql.NVarChar, value: ywk },
-          mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
-          ck:  { type: sql.Int,      value: reqRow.CustKey },
-          uid: { type: sql.NVarChar, value: 'admin' },
-        };
-        if (hasOrderYearWeekColumn) {
-          await tQ(
-            `INSERT INTO OrderMaster
-               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
-                isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-             VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
-                     0, @uid, GETDATE(), @uid, GETDATE())`,
-            orderMasterParams
-          );
-        } else {
-          await tQ(
-            `INSERT INTO OrderMaster
-               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr,
-                isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-             VALUES (@ok, GETDATE(), @yr, @wk, @mgr, @ck, '', '',
-                     0, @uid, GETDATE(), @uid, GETDATE())`,
-            orderMasterParams
-          );
-        }
+        ok = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newOk) => {
+          // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
+          const orderMasterParams = {
+            ok:  { type: sql.Int,      value: newOk },
+            yr:  { type: sql.NVarChar, value: year },
+            wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
+            ywk: { type: sql.NVarChar, value: ywk },
+            mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
+            ck:  { type: sql.Int,      value: reqRow.CustKey },
+            uid: { type: sql.NVarChar, value: 'admin' },
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
+                  isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+               VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
+                       0, @uid, GETDATE(), @uid, GETDATE())`,
+              orderMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr,
+                  isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+               VALUES (@ok, GETDATE(), @yr, @wk, @mgr, @ck, '', '',
+                       0, @uid, GETDATE(), @uid, GETDATE())`,
+              orderMasterParams
+            );
+          }
+        });
       }
 
       // OrderRequestDetail → OrderDetail INSERT
@@ -126,7 +127,6 @@ async function handler(req, res) {
       );
       const changedProdKeys = new Set();
       for (const d of details.recordset) {
-        const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
         // 단위 환산: 사용자가 입력한 단위(d.Unit) 기준으로 박스 수량 역산
         const unit = normalizeOrderUnit(d.Unit, normalizeOrderUnit(d.OutUnit, '박스'));
         const outUnit = normalizeOrderUnit(d.OutUnit, unit);
@@ -146,25 +146,27 @@ async function handler(req, res) {
         if (outUnit === '단') outQ = bunchQ;
         else if (outUnit === '송이') outQ = steamQ;
 
-        await tQ(
-          `INSERT INTO OrderDetail
-             (OrderDetailKey, OrderMasterKey, ProdKey,
-               BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity, NoneOutQuantity,
-               isDeleted, CreateID, CreateDtm)
-            VALUES (@odk, @ok, @pk,
-                    @box, @bnq, @sq, @oq, @oq, 0,
-                    0, @uid, GETDATE())`,
-          {
-            odk: { type: sql.Int,   value: odk },
-            ok:  { type: sql.Int,   value: ok },
-            pk:  { type: sql.Int,   value: d.ProdKey },
-            box: { type: sql.Float, value: boxQ },
-            bnq: { type: sql.Float, value: bunchQ },
-            sq:  { type: sql.Float, value: steamQ },
-            oq:  { type: sql.Float, value: outQ },
-            uid: { type: sql.NVarChar, value: 'admin' },
-          }
-        );
+        await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (odk) => {
+          await tQ(
+            `INSERT INTO OrderDetail
+               (OrderDetailKey, OrderMasterKey, ProdKey,
+                 BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity, NoneOutQuantity,
+                 isDeleted, CreateID, CreateDtm)
+              VALUES (@odk, @ok, @pk,
+                      @box, @bnq, @sq, @oq, @oq, 0,
+                      0, @uid, GETDATE())`,
+            {
+              odk: { type: sql.Int,   value: odk },
+              ok:  { type: sql.Int,   value: ok },
+              pk:  { type: sql.Int,   value: d.ProdKey },
+              box: { type: sql.Float, value: boxQ },
+              bnq: { type: sql.Float, value: bunchQ },
+              sq:  { type: sql.Float, value: steamQ },
+              oq:  { type: sql.Float, value: outQ },
+              uid: { type: sql.NVarChar, value: 'admin' },
+            }
+          );
+        });
         changedProdKeys.add(Number(d.ProdKey));
       }
 

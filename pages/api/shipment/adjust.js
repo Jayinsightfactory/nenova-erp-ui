@@ -3,8 +3,8 @@
 //
 // POST  body: { custKey, prodKey, week, year, type: 'ADD'|'CANCEL', qty, unit, memo }
 //   ADD    : OrderDetail += qty, ShipmentDetail += qty, Adjustment(ADD) INSERT
-//   CANCEL : 기본은 OrderDetail 변경없음, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
-//            단, 붙여넣기/등록+분배가 0에서 만든 주문이고 출고가 0으로 돌아가면 OrderDetail 삭제 처리
+//   CANCEL : OrderDetail -= qty, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
+//            주문수량이 0으로 돌아가면 OrderDetail 삭제 처리
 //
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
@@ -19,6 +19,26 @@ async function safeNextKey(tQ, table, keyCol) {
     {}
   );
   return r.recordset[0].nk;
+}
+
+function isPkCollision(e) {
+  return e?.number === 2627 || e?.number === 2601 || /PRIMARY KEY|duplicate key|UNIQUE/i.test(e?.message || '');
+}
+
+async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxRetry; attempt += 1) {
+    const key = await safeNextKey(tQ, table, keyCol);
+    try {
+      await buildInsert(key);
+      return key;
+    } catch (e) {
+      lastErr = e;
+      if (isPkCollision(e)) continue;
+      throw e;
+    }
+  }
+  throw lastErr || new Error(`${table} INSERT 재시도 실패`);
 }
 
 async function syncKeyNumbering(tQ, category, table, keyCol) {
@@ -50,6 +70,19 @@ function normWeek(week) {
   const m = String(week || '').match(/^(\d{4})-(\d{2}-\d{2})$/);
   if (m) return { year: m[1], week: m[2] };
   return { year: String(new Date().getFullYear()), week: String(week || '') };
+}
+
+function isNetherlandsProduct(prod = {}) {
+  return /네덜란드|netherlands|holland|dutch/i.test(String(prod.CounName || ''));
+}
+
+function extractMoqText(prod = {}) {
+  if (!isNetherlandsProduct(prod)) return '';
+  const descr = String(prod.ProdDescr || prod.Descr || '').trim();
+  if (!descr) return '';
+  const line = descr.split(/\r?\n/).find(v => /moq|엠오큐|최소/i.test(v)) || '';
+  const m = line.match(/(?:moq|엠오큐|최소)\s*[:：=]?\s*([^,;/\n]+)/i);
+  return (m ? `MOQ ${m[1].trim()}` : line.trim()).trim();
 }
 
 const columnExistsCache = {};
@@ -332,18 +365,21 @@ async function postAdjust(req, res) {
   try {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
+    const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
     const result = await withTransaction(async (tQ) => {
       await assertProductScopeNotFixed(tQ, orderWeek, pk);
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B,
+        `SELECT ProdName, OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+                ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B,
                 ISNULL(Cost,0) AS ProductCost
            FROM Product WHERE ProdKey=@pk`,
         { pk: { type: sql.Int, value: pk } }
       );
       if (!pInfo.recordset[0]) throw new Error('품목 없음 ProdKey=' + pk);
       const prod = pInfo.recordset[0];
+      const orderDetailDescr = extractMoqText(prod);
       const cpc = await tQ(
         `SELECT TOP 1 ISNULL(Cost,0) AS Cost
            FROM CustomerProdCost
@@ -403,31 +439,32 @@ async function postAdjust(req, res) {
       let mk;
       if (om.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 OrderMaster 없음');
-        mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
-        const orderMasterParams = {
-          mk:  { type: sql.Int,      value: mk },
-          yr:  { type: sql.NVarChar, value: orderYear },
-          wk:  { type: sql.NVarChar, value: orderWeek },
-          ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
-          mgr: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
-          ck:  { type: sql.Int,      value: ck },
-          uid: { type: sql.NVarChar, value: 'admin' },
-        };
-        if (hasOrderYearWeekColumn) {
-          await tQ(
-            `INSERT INTO OrderMaster
-               (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-             VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
-            orderMasterParams
-          );
-        } else {
-          await tQ(
-            `INSERT INTO OrderMaster
-               (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-             VALUES (@mk,GETDATE(),@yr,@wk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
-            orderMasterParams
-          );
-        }
+        mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
+          const orderMasterParams = {
+            mk:  { type: sql.Int,      value: newMk },
+            yr:  { type: sql.NVarChar, value: orderYear },
+            wk:  { type: sql.NVarChar, value: orderWeek },
+            ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
+            mgr: { type: sql.NVarChar, value: '관리자' },
+            ck:  { type: sql.Int,      value: ck },
+            uid: { type: sql.NVarChar, value: 'admin' },
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
+               VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+              orderMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
+               VALUES (@mk,GETDATE(),@yr,@wk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+              orderMasterParams
+            );
+          }
+        });
         await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;
@@ -447,43 +484,76 @@ async function postAdjust(req, res) {
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
         : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
-      let orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore;
+      let orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore - delta;
       let orderDeleted = false;
       let orderDeleteReason = '';
+      if (type === 'CANCEL' && orderQtyAfter < -0.0001) {
+        throw new Error(`취소량(${delta}${userUnit})이 현재 주문(${orderQtyBefore})보다 큼`);
+      }
 
-      // ADD 일 때만 OrderDetail INSERT/UPDATE — 모든 단위 환산값 저장
-      if (type === 'ADD') {
-        const u = toAllUnits(orderQtyAfter);
+      // ADD/CANCEL 모두 OrderDetail을 델타 반영한다. 취소는 주문수량도 같이 감소한다.
+      if (type === 'ADD' || type === 'CANCEL') {
+        const normalizedOrderAfter = Math.max(0, orderQtyAfter);
+        const u = toAllUnits(normalizedOrderAfter);
         let targetOdk = odRow?.OrderDetailKey;
 
-        if (odRow) {
+        if (odRow && normalizedOrderAfter <= 0) {
+          await tQ(
+            `UPDATE OrderDetail SET
+               BoxQuantity=0, BunchQuantity=0, SteamQuantity=0,
+               OutQuantity=0, EstQuantity=0, NoneOutQuantity=0,
+               isDeleted=1,
+               LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+             WHERE OrderDetailKey=@dk`,
+            {
+              dk: { type: sql.Int, value: targetOdk },
+              uid: { type: sql.NVarChar, value: uid },
+            }
+          );
+          orderDeleted = true;
+          orderDeleteReason = 'cancel_order_zero';
+          orderQtyAfter = 0;
+        } else if (odRow) {
+          const updateDescrSql = hasOrderDetailDescrColumn
+            ? `Descr = CASE WHEN @descr<>'' AND ISNULL(Descr,'')='' THEN @descr ELSE Descr END,`
+            : '';
           await tQ(
             `UPDATE OrderDetail SET
                BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0,
+               ${updateDescrSql}
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             { bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
               sq: { type: sql.Float, value: u.steam },
               oq: { type: sql.Float, value: u.outQ },
+              descr: { type: sql.NVarChar, value: orderDetailDescr },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
-        } else {
-          const odk = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
-          targetOdk = odk;
-          await tQ(
-            `INSERT INTO OrderDetail
-               (OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
-                OutQuantity,EstQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)
-             VALUES (@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,0,0,@uid,GETDATE())`,
-            { nk: { type: sql.Int, value: odk }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-              bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
-              sq: { type: sql.Float, value: u.steam },
-              oq: { type: sql.Float, value: u.outQ },
-              uid: { type: sql.NVarChar, value: 'admin' } }
-          );
+        } else if (type === 'ADD' && normalizedOrderAfter > 0) {
+          targetOdk = await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (newOdk) => {
+            const insertCols = hasOrderDetailDescrColumn
+              ? `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
+                  OutQuantity,EstQuantity,NoneOutQuantity,Descr,isDeleted,CreateID,CreateDtm)`
+              : `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
+                  OutQuantity,EstQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)`;
+            const insertValues = hasOrderDetailDescrColumn
+              ? `(@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,0,@descr,0,@uid,GETDATE())`
+              : `(@nk,@mk,@pk,@bq,@bnq,@sq,@oq,@oq,0,0,@uid,GETDATE())`;
+            await tQ(
+              `INSERT INTO OrderDetail ${insertCols} VALUES ${insertValues}`,
+              { nk: { type: sql.Int, value: newOdk }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
+                bq: { type: sql.Float, value: u.box }, bnq: { type: sql.Float, value: u.bunch },
+                sq: { type: sql.Float, value: u.steam },
+                oq: { type: sql.Float, value: u.outQ },
+                descr: { type: sql.NVarChar, value: orderDetailDescr },
+                uid: { type: sql.NVarChar, value: 'admin' } }
+            );
+          });
           await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
+        } else {
+          throw new Error('취소 대상 OrderDetail 없음');
         }
         if (targetOdk) {
           await insertOrderHistory(
@@ -491,8 +561,21 @@ async function postAdjust(req, res) {
             targetOdk,
             String(orderQtyBefore),
             String(orderQtyAfter),
-            `[${formatLogTime()} ${userName}] paste order + distribute`,
+            `[${formatLogTime()} ${userName}] paste order ${type === 'ADD' ? '+' : '-'} distribute`,
             uid
+          );
+        }
+        if (orderDeleted) {
+          await tQ(
+            `UPDATE OrderMaster
+                SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+              WHERE OrderMasterKey=@mk
+                AND ISNULL(isDeleted,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM OrderDetail
+                   WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+                )`,
+            { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
           );
         }
       }
@@ -507,30 +590,31 @@ async function postAdjust(req, res) {
       let sk;
       if (sm.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 ShipmentMaster 없음');
-        sk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
-        const shipmentMasterParams = {
-          sk:  { type: sql.Int,      value: sk },
-          yr:  { type: sql.NVarChar, value: orderYear },
-          wk:  { type: sql.NVarChar, value: orderWeek },
-          ywk: { type: sql.NVarChar, value: ywk },
-          ck:  { type: sql.Int,      value: ck },
-          uid: { type: sql.NVarChar, value: uid },
-        };
-        if (hasShipmentYearWeekColumn) {
-          await tQ(
-            `INSERT INTO ShipmentMaster
-               (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-             VALUES (@sk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-            shipmentMasterParams
-          );
-        } else {
-          await tQ(
-            `INSERT INTO ShipmentMaster
-               (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-             VALUES (@sk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
-            shipmentMasterParams
-          );
-        }
+        sk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (newSk) => {
+          const shipmentMasterParams = {
+            sk:  { type: sql.Int,      value: newSk },
+            yr:  { type: sql.NVarChar, value: orderYear },
+            wk:  { type: sql.NVarChar, value: orderWeek },
+            ywk: { type: sql.NVarChar, value: ywk },
+            ck:  { type: sql.Int,      value: ck },
+            uid: { type: sql.NVarChar, value: uid },
+          };
+          if (hasShipmentYearWeekColumn) {
+            await tQ(
+              `INSERT INTO ShipmentMaster
+                 (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES (@sk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO ShipmentMaster
+                 (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES (@sk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          }
+        });
         await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = sm.recordset[0].ShipmentKey;
@@ -584,25 +668,26 @@ async function postAdjust(req, res) {
             vat: { type: sql.Float, value: vat } }
         );
       } else if (type === 'ADD') {
-        const sdk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
         // ShipmentDtm: Customer.BaseOutDay first, then the old week/delivery fallback.
-        await tQ(
-          `INSERT INTO ShipmentDetail
-             (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
-              BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@ck,@pk,@dt,@oq,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
-          { dk: { type: sql.Int, value: sdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
-            ck: { type: sql.Int, value: ck },
-            dt: { type: sql.DateTime, value: defaultShipDate },
-            oq: { type: sql.Float, value: u.outQ },
-            estQty: { type: sql.Float, value: amountBase },
-            bq: { type: sql.Float, value: u.box },
-            bnq:{ type: sql.Float, value: u.bunch },
-            sq: { type: sql.Float, value: u.steam },
-            cost: { type: sql.Float, value: unitCost },
-            amount: { type: sql.Float, value: amount },
-            vat: { type: sql.Float, value: vat } }
-        );
+        const sdk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (newSdk) => {
+          await tQ(
+            `INSERT INTO ShipmentDetail
+               (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+             VALUES (@dk,@sk,@ck,@pk,@dt,@oq,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,'')`,
+            { dk: { type: sql.Int, value: newSdk }, sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk },
+              ck: { type: sql.Int, value: ck },
+              dt: { type: sql.DateTime, value: defaultShipDate },
+              oq: { type: sql.Float, value: u.outQ },
+              estQty: { type: sql.Float, value: amountBase },
+              bq: { type: sql.Float, value: u.box },
+              bnq:{ type: sql.Float, value: u.bunch },
+              sq: { type: sql.Float, value: u.steam },
+              cost: { type: sql.Float, value: unitCost },
+              amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat } }
+          );
+        });
         await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         targetSdk = sdk;
       }
@@ -675,7 +760,7 @@ async function postAdjust(req, res) {
       const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
 
-      if (type === 'CANCEL' && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
+      if (type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
         const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
           orderMasterKey: mk,
           orderDetailKey: odRow.OrderDetailKey,

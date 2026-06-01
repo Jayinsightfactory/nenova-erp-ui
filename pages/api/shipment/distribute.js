@@ -16,6 +16,26 @@ async function safeNextKey(tQ, table, keyCol) {
   return r.recordset[0].nk;
 }
 
+function isPkCollision(e) {
+  return e?.number === 2627 || e?.number === 2601 || /PRIMARY KEY|duplicate key|UNIQUE/i.test(e?.message || '');
+}
+
+async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxRetry; attempt += 1) {
+    const key = await safeNextKey(tQ, table, keyCol);
+    try {
+      await buildInsert(key);
+      return key;
+    } catch (e) {
+      lastErr = e;
+      if (isPkCollision(e)) continue;
+      throw e;
+    }
+  }
+  throw lastErr || new Error(`${table} INSERT 재시도 실패`);
+}
+
 async function syncKeyNumbering(tQ, category, table, keyCol) {
   const allowed = {
     ShipmentMasterKey: ['ShipmentMaster', 'ShipmentKey'],
@@ -480,28 +500,29 @@ async function saveDistribute(req, res) {
 
       let sk;
       if (smResult.recordset.length === 0) {
-        sk = await safeNextKey(tQuery, 'ShipmentMaster', 'ShipmentKey');
-        const shipmentMasterParams = {
-          nk: { type: sql.Int, value: sk },
-          yr: { type: sql.NVarChar, value: orderYear },
-          wk: { type: sql.NVarChar, value: week },
-          ywk: { type: sql.NVarChar, value: ywk },
-          ck: { type: sql.Int, value: parseInt(custKey) },
-          uid: { type: sql.NVarChar, value: uid },
-        };
-        if (hasShipmentYearWeekColumn) {
-          await tQuery(
-            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-             VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-            shipmentMasterParams
-          );
-        } else {
-          await tQuery(
-            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-             VALUES (@nk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
-            shipmentMasterParams
-          );
-        }
+        sk = await tryInsertWithRetry(tQuery, 'ShipmentMaster', 'ShipmentKey', async (newSk) => {
+          const shipmentMasterParams = {
+            nk: { type: sql.Int, value: newSk },
+            yr: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: week },
+            ywk: { type: sql.NVarChar, value: ywk },
+            ck: { type: sql.Int, value: parseInt(custKey) },
+            uid: { type: sql.NVarChar, value: uid },
+          };
+          if (hasShipmentYearWeekColumn) {
+            await tQuery(
+              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          } else {
+            await tQuery(
+              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES (@nk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          }
+        });
         await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = smResult.recordset[0].ShipmentKey;
@@ -559,29 +580,30 @@ async function saveDistribute(req, res) {
         const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
 
-        const newSdk = await safeNextKey(tQuery, 'ShipmentDetail', 'SdetailKey');
-        await tQuery(
-          `INSERT INTO ShipmentDetail
-             (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
-              BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-           VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
-          {
-            dk:     { type: sql.Int,      value: newSdk },
-            sk:     { type: sql.Int,      value: sk },
-            ck:     { type: sql.Int,      value: parseInt(custKey) },
-            pk:     { type: sql.Int,      value: parseInt(prodKey) },
-            dt:     { type: sql.DateTime, value: resolvedShipDate },
-            outQty: { type: sql.Float,    value: canonicalOutQty },
-            estQty: { type: sql.Float,    value: amtBase },
-            bq:     { type: sql.Float,    value: boxQty },
-            bnq:    { type: sql.Float,    value: bunchQty },
-            sq:     { type: sql.Float,    value: steamQty },
-            cost:   { type: sql.Float,    value: unitCost },
-            amount: { type: sql.Float,    value: amount },
-            vat:    { type: sql.Float,    value: vat },
-            log:    { type: sql.NVarChar, value: logEntry },
-          }
-        );
+        const newSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
+          await tQuery(
+            `INSERT INTO ShipmentDetail
+               (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+             VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+            {
+              dk:     { type: sql.Int,      value: newKey },
+              sk:     { type: sql.Int,      value: sk },
+              ck:     { type: sql.Int,      value: parseInt(custKey) },
+              pk:     { type: sql.Int,      value: parseInt(prodKey) },
+              dt:     { type: sql.DateTime, value: resolvedShipDate },
+              outQty: { type: sql.Float,    value: canonicalOutQty },
+              estQty: { type: sql.Float,    value: amtBase },
+              bq:     { type: sql.Float,    value: boxQty },
+              bnq:    { type: sql.Float,    value: bunchQty },
+              sq:     { type: sql.Float,    value: steamQty },
+              cost:   { type: sql.Float,    value: unitCost },
+              amount: { type: sql.Float,    value: amount },
+              vat:    { type: sql.Float,    value: vat },
+              log:    { type: sql.NVarChar, value: logEntry },
+            }
+          );
+        });
         await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         await tQuery(
           `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)

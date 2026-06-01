@@ -1,7 +1,7 @@
 // pages/orders/paste.js — 붙여넣기 주문등록 (Claude AI 파싱, 다중거래처/변경사항, 미매칭 질문)
 import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
-import { apiGet } from '../../lib/useApi';
+import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
@@ -9,6 +9,7 @@ import { customerMatchesSearch } from '../../lib/customerSearch';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
+const ORDER_TEMPLATE_PAGE = 'paste-order-template';
 
 // 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
 function getDefaultWeek() {
@@ -113,6 +114,33 @@ function mappingProductName(itemOrProd) {
 function mappingProductMeta(itemOrProd) {
   const bits = [itemOrProd?.CounName || itemOrProd?.counName, itemOrProd?.FlowerName || itemOrProd?.flowerName].filter(Boolean);
   return bits.join(' / ');
+}
+
+function isNetherlandsProduct(prod) {
+  return /네덜란드|netherlands|holland|dutch/i.test(String(prod?.CounName || prod?.counName || ''));
+}
+
+function extractMoqText(prod) {
+  if (!isNetherlandsProduct(prod)) return '';
+  const descr = String(prod?.Descr || prod?.descr || prod?.ProdDescr || '').trim();
+  if (!descr) return '';
+  const line = descr.split(/\r?\n/).find(v => /moq|엠오큐|최소/i.test(v)) || '';
+  const m = line.match(/(?:moq|엠오큐|최소)\s*[:：=]?\s*([^,;/\n]+)/i);
+  return (m ? `MOQ ${m[1].trim()}` : line.trim()).trim();
+}
+
+function favoriteItemFromOrderItem(it, allProducts = []) {
+  const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey)) || it;
+  return {
+    prodKey: Number(it.prodKey),
+    prodName: it.prodName || prod?.ProdName || '',
+    displayName: it.displayName || prod?.DisplayName || it.prodName || '',
+    flowerName: it.flowerName || prod?.FlowerName || '',
+    counName: it.counName || prod?.CounName || '',
+    qty: Number(it.qty || 0),
+    unit: normalizeOrderUnit(it.unit || prod?.OutUnit),
+    descr: extractMoqText(prod),
+  };
 }
 
 function stockNorm(text) {
@@ -748,6 +776,12 @@ export default function PasteOrderPage() {
   const [remainStockText, setRemainStockText] = useState('');
   const [stockDraft, setStockDraft] = useState(null);
   const [stockCopied, setStockCopied] = useState(false);
+  const [orderTemplates, setOrderTemplates] = useState([]);
+  const [templateDraft, setTemplateDraft] = useState(null);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [sourceOrdersForTemplate, setSourceOrdersForTemplate] = useState([]);
+  const [sourceOrderLoading, setSourceOrderLoading] = useState(false);
+  const [bulkUnitEdits, setBulkUnitEdits] = useState({});
 
   useEffect(() => {
     const localProductCache = loadCache();
@@ -764,6 +798,7 @@ export default function PasteOrderPage() {
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
+    loadOrderTemplates();
     apiGet('/api/orders/weeks').then(d => {
       if (d.success) {
         const def = getDefaultWeek();
@@ -777,6 +812,23 @@ export default function PasteOrderPage() {
       }
     });
   }, []);
+
+  const parseTemplateFavorite = (fav) => {
+    try {
+      return { ...fav, data: JSON.parse(fav.FilterData || '{}') };
+    } catch {
+      return { ...fav, data: null };
+    }
+  };
+
+  const loadOrderTemplates = async () => {
+    try {
+      const d = await apiGet('/api/favorites', { page: ORDER_TEMPLATE_PAGE });
+      setOrderTemplates((d.favorites || []).map(parseTemplateFavorite).filter(f => f.data?.items?.length));
+    } catch {
+      setOrderTemplates([]);
+    }
+  };
 
   // 캐시 적용: 이미 알고 있는 inputName은 자동 매칭
   const applyCache = (rawOrders, cache, prods) => rawOrders.map(o => ({
@@ -1336,7 +1388,7 @@ export default function PasteOrderPage() {
   // 사용 시점: 텍스트 파싱 후 [🚀 일괄 등록+분배] 버튼 클릭
   // 동작:
   //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
-  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → ShipmentDetail-1
+  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → OrderDetail-1 + ShipmentDetail-1
   //     (붙여넣기가 0에서 만든 주문은 분배가 0으로 돌아가면 자동 삭제)
   // 주의: adjust API 의 ADD 가 이미 OrderDetail+ShipmentDetail 동시 처리하므로
   //       handleRegister 별도 호출 불필요.
@@ -1365,7 +1417,7 @@ export default function PasteOrderPage() {
       return `${x.prodName}: ${isCancel ? '−' : '+'}${x.qty}${x.unit} (${isCancel ? '취소' : '추가'})`;
     });
 
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 OrderDetail+ShipmentDetail 동시 +, 취소는 분배 − / 자동생성 주문은 0이 되면 삭제)`)) return;
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 주문등록+분배 동시 − / 0이 되면 주문상세 삭제)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
@@ -1553,8 +1605,8 @@ export default function PasteOrderPage() {
         const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;
         const shipQty = Number.isFinite(Number(d.outQtyAfter)) ? Number(d.outQtyAfter) : Number(d.qtyAfter || 0);
         setShipmentQtys(prev => ({ ...prev, [key]: shipQty }));
-        // ADD 또는 자동 주문삭제 시 OrderDetail 도 변경됨 → registeredOrders 도 다시 조회
-        if (adjustModal.type === 'ADD' || d.orderDeleted) {
+        // ADD/CANCEL 모두 OrderDetail 이 변경됨 → registeredOrders 도 다시 조회
+        if (adjustModal.type === 'ADD' || adjustModal.type === 'CANCEL' || d.orderDeleted) {
           const od = await apiGet('/api/orders', { custName: adjustModal.custName, week: adjustModal.week });
           setRegisteredOrders(prev => {
             const oid = Object.keys(prev).find(k => prev[k]?.custKey === adjustModal.custKey && prev[k]?.week === adjustModal.week);
@@ -1583,33 +1635,39 @@ export default function PasteOrderPage() {
     const order = orders.find(o => o.id === oid);
 
     const allItems  = order?.items || [];
-    const addItems  = allItems.filter(it => !it.skip && it.action !== '취소');
-    const matched   = addItems.filter(it => it.prodKey);
-    const unmatched = addItems.filter(it => !it.prodKey);
-    await flog('버튼클릭', `oid=${oid} custMatch=${order?.custMatch?.CustName||'없음'} week=${week} 전체=${allItems.length} 추가대상=${addItems.length} 매칭=${matched.length} 미매칭=${unmatched.length} 미매칭품목=${unmatched.map(i=>i.inputName||'?').join(',')}`);
+    const activeItems = allItems.filter(it => !it.skip);
+    const matched   = activeItems.filter(it => it.prodKey);
+    const unmatched = activeItems.filter(it => !it.prodKey);
+    await flog('버튼클릭', `oid=${oid} custMatch=${order?.custMatch?.CustName||'없음'} week=${week} 전체=${allItems.length} 대상=${activeItems.length} 매칭=${matched.length} 미매칭=${unmatched.length} 미매칭품목=${unmatched.map(i=>i.inputName||'?').join(',')}`);
 
     if (!order?.custMatch) { alert('거래처를 확인하세요.'); return; }
     if (!week) { alert('차수를 선택하세요.'); return; }
 
     const registerItems = order.items
-      .filter(it => !it.skip && it.prodKey && it.action !== '취소')
-      .map(it => ({
-        prodKey: it.prodKey,
-        prodName: it.prodName,
-        displayName: it.displayName,
-        flowerName: it.flowerName,
-        counName: it.counName,
-        qty: it.qty,
-        unit: normalizeOrderUnit(it.unit),
-      }));
+      .filter(it => !it.skip && it.prodKey)
+      .map(it => {
+        const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
+        const signedQty = it.action === '취소' ? -Math.abs(Number(it.qty || 0)) : Math.abs(Number(it.qty || 0));
+        return {
+          prodKey: it.prodKey,
+          prodName: it.prodName,
+          displayName: it.displayName,
+          flowerName: it.flowerName,
+          counName: it.counName,
+          qty: signedQty,
+          unit: normalizeOrderUnit(it.unit),
+          descr: extractMoqText(prod),
+        };
+      });
     const items = registerItems.map(it => ({
       prodKey: it.prodKey,
       prodName: it.prodName,
       qty: it.qty,
       unit: it.unit,
+      descr: it.descr,
     }));
 
-    if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 추가 품목이 없습니다.'); return; }
+    if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 품목이 없습니다.'); return; }
 
     const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
@@ -1636,7 +1694,7 @@ export default function PasteOrderPage() {
       });
       const d = await res.json();
       if (d.success) {
-        const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length ?? items.length;
+        const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length ?? items.length;
         updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
         const fallbackPreview = buildRegisterRegisteredFallback(order, registerItems, prevSnapshot, prevItems, registeredOrders[oid]);
         setRegisteredOrders(prev => ({
@@ -1721,6 +1779,183 @@ export default function PasteOrderPage() {
       'width=1180,height=820,left=80,top=40,resizable=yes,scrollbars=yes'
     );
     if (!popup) window.location.href = '/orders/mapping-status?popup=1';
+  };
+
+  const saveTemplateFromRegistered = async (order, registeredOrder) => {
+    if (!registeredOrder?.items?.length) { alert('저장할 주문내역이 없습니다.'); return; }
+    const defaultName = `${registeredOrder.custName || order.custMatch?.CustName || '주문'} ${formatWeekDisplay(registeredOrder.week || week)}`;
+    const name = prompt('즐겨찾기 이름을 입력하세요:', defaultName);
+    if (!name) return;
+    const data = {
+      custKey: registeredOrder.custKey || order.custMatch?.CustKey,
+      custName: registeredOrder.custName || order.custMatch?.CustName || '',
+      sourceWeek: registeredOrder.week || week,
+      items: (registeredOrder.items || [])
+        .filter(it => it.prodKey && Number(it.qty || 0) !== 0)
+        .map(it => favoriteItemFromOrderItem(it, allProducts)),
+    };
+    if (!data.custKey || data.items.length === 0) { alert('거래처와 품목수량을 확인하세요.'); return; }
+    try {
+      await apiPost('/api/favorites', {
+        page: ORDER_TEMPLATE_PAGE,
+        name,
+        filterData: JSON.stringify(data),
+      });
+      await loadOrderTemplates();
+      alert('주문 즐겨찾기에 저장했습니다.');
+    } catch (e) {
+      alert(`즐겨찾기 저장 실패: ${e.message}`);
+    }
+  };
+
+  const loadTemplateDraft = (favKey) => {
+    const fav = orderTemplates.find(f => Number(f.FavoriteKey) === Number(favKey));
+    if (!fav?.data) { setTemplateDraft(null); return; }
+    setTemplateDraft({
+      favoriteKey: fav.FavoriteKey,
+      name: fav.FavName,
+      custKey: fav.data.custKey,
+      custName: fav.data.custName,
+      sourceWeek: fav.data.sourceWeek,
+      items: (fav.data.items || []).map(it => ({ ...it, unit: normalizeOrderUnit(it.unit) })),
+      resultMsg: '',
+    });
+  };
+
+  const setTemplateDraftFromOrder = (order) => {
+    if (!order) return;
+    setTemplateDraft({
+      favoriteKey: null,
+      name: `${order.custName || '주문'} ${formatWeekDisplay(order.week || week)}`,
+      custKey: order.custKey,
+      custName: order.custName,
+      sourceWeek: order.week || week,
+      items: (order.items || [])
+        .filter(it => it.prodKey && Number(it.qty || 0) !== 0)
+        .map(it => favoriteItemFromOrderItem(it, allProducts)),
+      resultMsg: '',
+    });
+  };
+
+  const loadSourceOrdersForTemplate = async () => {
+    if (!week) { alert('불러올 차수를 먼저 선택하세요.'); return; }
+    setSourceOrderLoading(true);
+    try {
+      const d = await apiGet('/api/orders', { week });
+      const list = d.orders || [];
+      setSourceOrdersForTemplate(list);
+      if (!list.length) alert(`${formatWeekDisplay(week)} 주문등록 내역이 없습니다.`);
+    } catch (e) {
+      alert(`기존 주문 불러오기 실패: ${e.message}`);
+    } finally {
+      setSourceOrderLoading(false);
+    }
+  };
+
+  const updateTemplateItem = (idx, patch) => {
+    setTemplateDraft(prev => prev ? ({
+      ...prev,
+      items: prev.items.map((it, i) => i === idx ? { ...it, ...patch } : it),
+    }) : prev);
+  };
+
+  const saveTemplateDraft = async () => {
+    if (!templateDraft?.items?.length) return;
+    setTemplateSaving(true);
+    try {
+      if (templateDraft.favoriteKey) {
+        await apiDelete('/api/favorites', { favoriteKey: templateDraft.favoriteKey });
+      }
+      const saved = await apiPost('/api/favorites', {
+        page: ORDER_TEMPLATE_PAGE,
+        name: templateDraft.name || templateDraft.custName || '주문 즐겨찾기',
+        filterData: JSON.stringify({
+          custKey: templateDraft.custKey,
+          custName: templateDraft.custName,
+          sourceWeek: templateDraft.sourceWeek,
+          items: templateDraft.items
+            .filter(it => it.prodKey && Number(it.qty || 0) !== 0)
+            .map(it => {
+              const base = favoriteItemFromOrderItem(it, allProducts);
+              return { ...base, descr: it.descr || base.descr };
+            }),
+        }),
+      });
+      await loadOrderTemplates();
+      setTemplateDraft(prev => prev ? ({ ...prev, favoriteKey: saved.favoriteKey || prev.favoriteKey, resultMsg: '저장 완료' }) : prev);
+    } catch (e) {
+      alert(`즐겨찾기 수정 저장 실패: ${e.message}`);
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const registerTemplateDraft = async () => {
+    if (!templateDraft?.custKey) { alert('즐겨찾기 거래처가 없습니다.'); return; }
+    if (!week) { alert('차수를 선택하세요.'); return; }
+    const items = (templateDraft.items || [])
+      .filter(it => it.prodKey && Number(it.qty || 0) !== 0)
+      .map(it => ({
+        prodKey: it.prodKey,
+        prodName: it.prodName,
+        qty: Number(it.qty || 0),
+        unit: normalizeOrderUnit(it.unit),
+        descr: it.descr || extractMoqText(allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey))),
+      }));
+    if (!items.length) { alert('등록할 품목수량이 없습니다.'); return; }
+    if (!confirm(`${templateDraft.custName} / ${formatWeekDisplay(week)}\n즐겨찾기 ${items.length}개 품목을 주문등록하시겠습니까?`)) return;
+    setTemplateSaving(true);
+    try {
+      const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+      const d = await apiPost('/api/orders', {
+        custKey: templateDraft.custKey,
+        week,
+        year: yearFromWeek,
+        items,
+        delta: true,
+        source: 'paste-template',
+      });
+      if (!d.success) throw new Error(d.error || '주문등록 실패');
+      setTemplateDraft(prev => prev ? ({ ...prev, resultMsg: `등록 완료 — OrderKey ${d.orderMasterKey}` }) : prev);
+      const od = await apiGet('/api/orders', { custName: templateDraft.custName, week });
+      if (od.success && od.orders?.length > 0) {
+        const matched = od.orders.find(o => Number(o.custKey) === Number(templateDraft.custKey)) || od.orders[0];
+        setRegisteredOrders(prev => ({ ...prev, [`template-${templateDraft.favoriteKey || 'new'}`]: matched }));
+      }
+    } catch (e) {
+      setTemplateDraft(prev => prev ? ({ ...prev, resultMsg: `등록 실패: ${e.message}` }) : prev);
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const setBulkUnitEdit = (oid, patch) => {
+    setBulkUnitEdits(prev => ({ ...prev, [oid]: { ...(prev[oid] || {}), ...patch } }));
+  };
+
+  const applyBulkUnit = async (oid) => {
+    const order = orders.find(o => o.id === oid);
+    const edit = bulkUnitEdits[oid] || {};
+    const flower = edit.flower || '';
+    const unit = normalizeOrderUnit(edit.unit || '박스');
+    if (!order || !flower) { alert('일괄 변경할 품종을 선택하세요.'); return; }
+    const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
+    if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
+    setOrders(prev => prev.map(o => o.id === oid
+      ? { ...o, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit } : it) }
+      : o
+    ));
+    await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ prodKey: it.prodKey, unit }),
+    }).catch(() => null)));
+    setProdUnitMap(prev => {
+      const next = { ...prev };
+      targets.forEach(it => { next[it.prodKey] = unit; });
+      return next;
+    });
   };
 
   return (
@@ -1913,6 +2148,148 @@ export default function PasteOrderPage() {
           )}
         </div>
 
+        <div style={{ border: '1px solid #d7ccc8', borderRadius: 8, background: '#fffdf8', padding: '10px 12px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <strong style={{ color: '#4e342e', fontSize: 13 }}>주문 즐겨찾기</strong>
+            <button
+              onClick={loadSourceOrdersForTemplate}
+              disabled={sourceOrderLoading || !week}
+              style={{ padding: '5px 12px', border: '1px solid #8d6e63', borderRadius: 5, background: sourceOrderLoading ? '#d7ccc8' : '#6d4c41', color: '#fff', fontSize: 12, fontWeight: 700, cursor: sourceOrderLoading ? 'wait' : 'pointer' }}
+            >
+              {sourceOrderLoading ? '불러오는 중...' : '선택차수 주문 불러오기'}
+            </button>
+            {sourceOrdersForTemplate.length > 0 && (
+              <select
+                value=""
+                onChange={e => {
+                  const selected = sourceOrdersForTemplate.find(o => String(o.id) === e.target.value);
+                  setTemplateDraftFromOrder(selected);
+                }}
+                style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12, background: '#fff' }}
+              >
+                <option value="">기존 주문 선택</option>
+                {sourceOrdersForTemplate.map(o => (
+                  <option key={o.id} value={o.id}>
+                    {o.custName} / {formatWeekDisplay(o.week)} / {o.items?.length || 0}품목
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              value={templateDraft?.favoriteKey || ''}
+              onChange={e => loadTemplateDraft(e.target.value)}
+              style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12, background: '#fff' }}
+            >
+              <option value="">저장 즐겨찾기 선택</option>
+              {orderTemplates.map(f => (
+                <option key={f.FavoriteKey} value={f.FavoriteKey}>
+                  {f.FavName} / {f.data?.custName || ''} / {f.data?.items?.length || 0}품목
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={loadOrderTemplates}
+              style={{ padding: '5px 10px', border: '1px solid #bcaaa4', borderRadius: 5, background: '#fff', color: '#5d4037', fontSize: 12, cursor: 'pointer' }}
+            >
+              새로고침
+            </button>
+          </div>
+
+          {templateDraft && (
+            <div style={{ borderTop: '1px solid #efebe9', paddingTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                <input
+                  value={templateDraft.name || ''}
+                  onChange={e => setTemplateDraft(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
+                  placeholder="즐겨찾기 이름"
+                  style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12 }}
+                />
+                <span style={{ fontSize: 12, color: '#5d4037', fontWeight: 700 }}>{templateDraft.custName}</span>
+                {templateDraft.sourceWeek && (
+                  <span style={{ fontSize: 11, color: '#795548', background: '#efebe9', borderRadius: 10, padding: '2px 8px' }}>
+                    원본 {formatWeekDisplay(templateDraft.sourceWeek)}
+                  </span>
+                )}
+                <span style={{ fontSize: 11, color: '#1a237e', background: '#e8eaf6', borderRadius: 10, padding: '2px 8px' }}>
+                  등록대상 {formatWeekDisplay(week)}
+                </span>
+                {templateDraft.resultMsg && (
+                  <span style={{ fontSize: 12, color: templateDraft.resultMsg.includes('실패') ? '#c62828' : '#2e7d32', fontWeight: 700 }}>
+                    {templateDraft.resultMsg}
+                  </span>
+                )}
+              </div>
+              <div style={{ overflowX: 'auto', maxHeight: 260, border: '1px solid #efebe9' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#efebe9' }}>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>품목</th>
+                      <th style={{ padding: '5px 8px' }}>국가</th>
+                      <th style={{ padding: '5px 8px' }}>꽃</th>
+                      <th style={{ padding: '5px 8px' }}>수량</th>
+                      <th style={{ padding: '5px 8px' }}>단위</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>비고</th>
+                      <th style={{ padding: '5px 8px' }}>삭제</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(templateDraft.items || []).map((it, i) => (
+                      <tr key={`${it.prodKey}-${i}`} style={{ borderBottom: '1px solid #f5eee9' }}>
+                        <td style={{ padding: '4px 8px', fontWeight: 600 }}>{it.displayName || it.prodName}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c' }}>{it.counName || ''}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2' }}>{it.flowerName || ''}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={it.qty}
+                            onChange={e => updateTemplateItem(i, { qty: parseFloat(e.target.value) || 0 })}
+                            style={{ width: 72, padding: '2px 4px', border: '1px solid #bcaaa4', borderRadius: 4, textAlign: 'right' }}
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                          <select
+                            value={normalizeOrderUnit(it.unit)}
+                            onChange={e => updateTemplateItem(i, { unit: e.target.value })}
+                            style={{ padding: '2px 4px', border: '1px solid #bcaaa4', borderRadius: 4 }}
+                          >
+                            <option>박스</option><option>단</option><option>송이</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '4px 8px', color: '#6d4c41' }}>{it.descr || ''}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => setTemplateDraft(prev => prev ? ({ ...prev, items: prev.items.filter((_, idx) => idx !== i) }) : prev)}
+                            style={{ padding: '1px 7px', border: '1px solid #d7ccc8', borderRadius: 4, background: '#fff', color: '#8d6e63', cursor: 'pointer' }}
+                          >
+                            삭제
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8, flexWrap: 'wrap' }}>
+                <button
+                  onClick={saveTemplateDraft}
+                  disabled={templateSaving || !(templateDraft.items || []).length}
+                  style={{ padding: '7px 16px', background: templateSaving ? '#bbb' : '#795548', color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: templateSaving ? 'wait' : 'pointer' }}
+                >
+                  수정 저장
+                </button>
+                <button
+                  onClick={registerTemplateDraft}
+                  disabled={templateSaving || !week || !(templateDraft.items || []).length}
+                  style={{ padding: '7px 16px', background: templateSaving ? '#bbb' : '#2e7d32', color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: templateSaving ? 'wait' : 'pointer' }}
+                >
+                  선택차수 주문등록하기
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {stockDraft && (
           <StockDraftPanel
             draft={stockDraft}
@@ -1943,10 +2320,14 @@ export default function PasteOrderPage() {
 
         {/* 거래처별 주문 카드 */}
         {orders.map(order => {
-          const addItems    = order.items.filter(it => !it.skip && it.action !== '취소');
-          const cancelItems = order.items.filter(it => !it.skip && it.action === '취소');
+          const activeItems = order.items.filter(it => !it.skip);
+          const addItems    = activeItems.filter(it => it.action !== '취소');
+          const cancelItems = activeItems.filter(it => it.action === '취소');
+          const matchedItems = activeItems.filter(it => it.prodKey);
           const matchedAdd  = addItems.filter(it => it.prodKey);
-          const unmatched   = addItems.filter(it => !it.prodKey);
+          const unmatched   = activeItems.filter(it => !it.prodKey);
+          const bulkFlowers = [...new Set(matchedItems.map(it => it.flowerName || '기타'))].sort();
+          const bulkEdit = bulkUnitEdits[order.id] || {};
 
           return (
             <div key={order.id} style={{ border: '1px solid #c5cae9', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
@@ -1980,6 +2361,35 @@ export default function PasteOrderPage() {
                   </>
                 )}
               </div>
+
+              {bulkFlowers.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px', background: '#fffde7', borderBottom: '1px solid #eee8c8', fontSize: 12 }}>
+                  <strong style={{ color: '#5d4037' }}>품종 단위 일괄수정</strong>
+                  <select
+                    value={bulkEdit.flower || ''}
+                    onChange={e => setBulkUnitEdit(order.id, { flower: e.target.value })}
+                    style={{ padding: '3px 8px', border: '1px solid #d6c58a', borderRadius: 4, background: '#fff' }}
+                  >
+                    <option value="">품종 선택</option>
+                    {bulkFlowers.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                  <select
+                    value={bulkEdit.unit || '박스'}
+                    onChange={e => setBulkUnitEdit(order.id, { unit: e.target.value })}
+                    style={{ padding: '3px 8px', border: '1px solid #d6c58a', borderRadius: 4, background: '#fff' }}
+                  >
+                    <option>박스</option><option>단</option><option>송이</option>
+                  </select>
+                  <button
+                    onClick={() => applyBulkUnit(order.id)}
+                    disabled={!bulkEdit.flower}
+                    style={{ padding: '4px 12px', border: 'none', borderRadius: 4, background: bulkEdit.flower ? '#795548' : '#bbb', color: '#fff', fontWeight: 700, cursor: bulkEdit.flower ? 'pointer' : 'not-allowed' }}
+                  >
+                    수정
+                  </button>
+                  <span style={{ color: '#8d6e63' }}>선택한 품종의 매칭 단위가 한 번에 바뀝니다.</span>
+                </div>
+              )}
 
               {/* 품목 테이블 */}
               <div style={{ overflowX: 'auto' }}>
@@ -2053,6 +2463,7 @@ export default function PasteOrderPage() {
                           <td style={{ padding: '4px 8px' }}>
                             {it.prodKey ? (() => {
                               const pd = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
+                              const moqText = extractMoqText(pd);
                               // 매칭 신뢰도 시각화
                               const conf = it.confidenceLabel || (it.fromMapping ? 'medium' : 'medium');
                               const isLow = conf === 'low' || it.fallbackSuspect;
@@ -2093,6 +2504,7 @@ export default function PasteOrderPage() {
                                   )}
                                   {pd?.CounName && <span style={{ fontSize: 10, background: '#e8f5e9', color: '#388e3c', borderRadius: 8, padding: '1px 6px' }}>{pd.CounName}</span>}
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
+                                  {moqText && <span style={{ fontSize: 10, background: '#fff3e0', color: '#ef6c00', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{moqText}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
                                   <button onClick={() => clearProductMatchForChange(order.id, idx)}
                                     style={{ fontSize: 10, padding: '1px 5px', background: 'none', border: '1px solid #ddd', borderRadius: 3, cursor: 'pointer', color: '#aaa', marginLeft: 'auto' }}>
@@ -2125,12 +2537,12 @@ export default function PasteOrderPage() {
                   </span>
                 )}
                 {cancelItems.length > 0 && (
-                  <span style={{ fontSize: 12, color: '#e65100' }}>⚠️ 취소 {cancelItems.length}건 (수동처리)</span>
+                  <span style={{ fontSize: 12, color: '#e65100' }}>취소 {cancelItems.length}건 (주문수량 음수 반영)</span>
                 )}
                 {unmatched.length > 0 && (
                   <span style={{ fontSize: 12, color: '#e65100' }}>❓ 미매칭 {unmatched.length}개</span>
                 )}
-                {matchedAdd.length > 0 && (
+                {matchedItems.length > 0 && (
                   <button
                     onClick={() => handleRegister(order.id)}
                     disabled={order.saving || !order.custMatch || !week}
@@ -2143,22 +2555,22 @@ export default function PasteOrderPage() {
                       cursor: (order.custMatch && week) ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    {order.saving ? '등록 중...' : `💾 등록만 (${matchedAdd.length}건)`}
+                    {order.saving ? '등록 중...' : `💾 등록만 (${matchedItems.length}건)`}
                   </button>
                 )}
                 <button
                   onClick={() => handleBulkDistribute(order.id)}
-                  disabled={bulkRunning || (matchedAdd.length === 0 && cancelItems.length === 0) || !order.custMatch || !week}
-                  title="추가 = OrderDetail+ShipmentDetail 동시 +,  취소 = ShipmentDetail 만 − (한 번에 처리)"
+                  disabled={bulkRunning || matchedItems.length === 0 || !order.custMatch || !week}
+                  title="추가 = 주문등록+분배 동시 +, 취소 = 주문등록+분배 동시 −"
                   style={{
-                    marginLeft: matchedAdd.length === 0 ? 'auto' : '0',
+                    marginLeft: matchedItems.length === 0 ? 'auto' : '0',
                     padding: '8px 18px',
-                    background: (matchedAdd.length > 0 || cancelItems.length > 0) && order.custMatch && week ? '#1565c0' : '#bbb',
+                    background: matchedItems.length > 0 && order.custMatch && week ? '#1565c0' : '#bbb',
                     color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700,
                     cursor: bulkRunning ? 'wait' : 'pointer',
                   }}
                 >
-                  {bulkRunning ? '⏳ 처리중...' : `🚀 일괄 등록+분배 (${matchedAdd.length + cancelItems.length}건)`}
+                  {bulkRunning ? '⏳ 처리중...' : `🚀 일괄 등록+분배 (${matchedItems.length}건)`}
                 </button>
               </div>
 
@@ -2203,6 +2615,18 @@ export default function PasteOrderPage() {
                           유지 {sameCount}건
                         </span>
                       )}
+                      <button
+                        onClick={() => saveTemplateFromRegistered(order, ro)}
+                        title="현재 DB 저장 내역을 주문 즐겨찾기로 저장합니다."
+                        style={{
+                          fontSize: 12, fontWeight: 700,
+                          padding: '4px 12px', borderRadius: 6,
+                          background: '#795548',
+                          color: '#fff', border: 'none',
+                          cursor: 'pointer',
+                        }}>
+                        즐겨찾기 저장
+                      </button>
                       <button
                         onClick={() => handleDistributeOnly(order.id)}
                         disabled={bulkRunning}
@@ -2352,7 +2776,7 @@ export default function PasteOrderPage() {
               {adjustModal.custName} / {adjustModal.prodName}
               <br />
               <span style={{ fontSize: 11, color: '#999' }}>
-                {adjustModal.type === 'ADD' ? '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 +' : '주문등록 그대로, 분배만 −'}
+                {adjustModal.type === 'ADD' ? '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 +' : '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 −'}
               </span>
             </div>
 

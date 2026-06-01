@@ -18,6 +18,26 @@ async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
   }
 }
 
+function isPkCollision(e) {
+  return e?.number === 2627 || e?.number === 2601 || /PRIMARY KEY|duplicate key|UNIQUE/i.test(e?.message || '');
+}
+
+async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxRetry; attempt += 1) {
+    const key = await safeNextKey(tQ, table, keyCol);
+    try {
+      await buildInsert(key);
+      return key;
+    } catch (e) {
+      lastErr = e;
+      if (isPkCollision(e)) continue;
+      throw e;
+    }
+  }
+  throw lastErr || new Error(`${table} INSERT 재시도 실패`);
+}
+
 async function getProductStockRemarkColumn(q = query) {
   const r = await q(
     `SELECT TOP 1 COLUMN_NAME
@@ -1059,29 +1079,30 @@ async function updateOutQty(req, res) {
           // OrderYear/OrderYearWeek 채움 (전산 ViewShipment.OrderYearWeek2 매칭용)
           const yr = String(new Date().getFullYear());
           const ywk = yr + (week || '').replace('-', '');
-          const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
           const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
-          const shipmentMasterParams = {
-            newSk: { type: sql.Int, value: newSk },
-            yr:  { type: sql.NVarChar, value: yr },
-            wk:  { type: sql.NVarChar, value: week },
-            ywk: { type: sql.NVarChar, value: ywk },
-            ck:  { type: sql.Int, value: ck },
-            uid: { type: sql.NVarChar, value: uid },
-          };
-          if (hasShipmentYearWeekColumn) {
-            await tQ(
-              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-               VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-              shipmentMasterParams
-            );
-          } else {
-            await tQ(
-              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-               VALUES(@newSk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
-              shipmentMasterParams
-            );
-          }
+          const newSk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (candidateSk) => {
+            const shipmentMasterParams = {
+              newSk: { type: sql.Int, value: candidateSk },
+              yr:  { type: sql.NVarChar, value: yr },
+              wk:  { type: sql.NVarChar, value: week },
+              ywk: { type: sql.NVarChar, value: ywk },
+              ck:  { type: sql.Int, value: ck },
+              uid: { type: sql.NVarChar, value: uid },
+            };
+            if (hasShipmentYearWeekColumn) {
+              await tQ(
+                `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+                 VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+                shipmentMasterParams
+              );
+            } else {
+              await tQ(
+                `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+                 VALUES(@newSk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+                shipmentMasterParams
+              );
+            }
+          });
           sk = newSk;
         }
       }
@@ -1133,22 +1154,23 @@ async function updateOutQty(req, res) {
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {
         // SdetailKey는 IDENTITY 아님 → 안전한 MAX+1
-        const nk = await safeNextKey(tQ, 'ShipmentDetail', 'SdetailKey');
         const insertQty = qty > 0 ? qty : 0;
         if (insertQty > 0) {
-          await tQ(
-            `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity)
-             VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty,@bq,@bnq,@sq)`,
-            { nk:  { type: sql.Int,   value: nk  },
-              sk:  { type: sql.Int,   value: sk  },
-              ck:  { type: sql.Int,   value: ck  },
-              pk:  { type: sql.Int,   value: pk  },
-              qty: { type: sql.Float, value: insertQty },
-              bq:  { type: sql.Float, value: insertQty },
-              bnq: { type: sql.Float, value: insertQty * bunchOf1Box },
-              sq:  { type: sql.Float, value: insertQty * steamOf1Box },
-              ...shipDtmParam }
-          );
+          const nk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (candidateDk) => {
+            await tQ(
+              `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity)
+               VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty,@bq,@bnq,@sq)`,
+              { nk:  { type: sql.Int,   value: candidateDk  },
+                sk:  { type: sql.Int,   value: sk  },
+                ck:  { type: sql.Int,   value: ck  },
+                pk:  { type: sql.Int,   value: pk  },
+                qty: { type: sql.Float, value: insertQty },
+                bq:  { type: sql.Float, value: insertQty },
+                bnq: { type: sql.Float, value: insertQty * bunchOf1Box },
+                sq:  { type: sql.Float, value: insertQty * steamOf1Box },
+                ...shipDtmParam }
+            );
+          });
           // ShipmentDate 동기화 (신규 INSERT)
           await tQ(
             `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
@@ -1303,33 +1325,34 @@ async function addOrder(req, res) {
 
       let mk;
       if (om.recordset.length === 0) {
-        mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
-        await appLog('addOrder', 'OM_INSERT', `new mk=${mk} ck=${ck} wk=${normWeek}`);
-        // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
-        // OrderYearWeek 채워 인덱스/조회 일치
-        const ywk = normYear + (normWeek || '').replace('-', '');
-        const orderMasterParams = {
-          mk: { type: sql.Int, value: mk },
-          yr:  { type: sql.NVarChar, value: normYear },
-          wk:  { type: sql.NVarChar, value: normWeek },
-          ywk: { type: sql.NVarChar, value: ywk },
-          mgr: { type: sql.NVarChar, value: uid || 'admin' },
-          ck:  { type: sql.Int, value: ck },
-          uid: { type: sql.NVarChar, value: 'admin' },
-        };
-        if (hasOrderYearWeekColumn) {
-          await tQ(
-            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-             VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
-            orderMasterParams
-          );
-        } else {
-          await tQ(
-            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-             VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
-            orderMasterParams
-          );
-        }
+        mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (candidateMk) => {
+          await appLog('addOrder', 'OM_INSERT', `new mk=${candidateMk} ck=${ck} wk=${normWeek}`);
+          // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
+          // OrderYearWeek 채워 인덱스/조회 일치
+          const ywk = normYear + (normWeek || '').replace('-', '');
+          const orderMasterParams = {
+            mk: { type: sql.Int, value: candidateMk },
+            yr:  { type: sql.NVarChar, value: normYear },
+            wk:  { type: sql.NVarChar, value: normWeek },
+            ywk: { type: sql.NVarChar, value: ywk },
+            mgr: { type: sql.NVarChar, value: uid || 'admin' },
+            ck:  { type: sql.Int, value: ck },
+            uid: { type: sql.NVarChar, value: 'admin' },
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQ(
+              `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+               VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+              orderMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+               VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
+              orderMasterParams
+            );
+          }
+        });
       } else {
         mk = om.recordset[0].OrderMasterKey;
         await appLog('addOrder', 'OM_FOUND', `mk=${mk}`);
@@ -1379,20 +1402,21 @@ async function addOrder(req, res) {
           }
         }
       } else if (quantity > 0) {
-        const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
-        await appLog('addOrder', 'OD_INSERT', `nk=${nextKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
-        await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
-          {
-            nk:  { type: sql.Int,   value: nextKey },
-            mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
-            oq:  { type: sql.Float, value: quantity },
-            bq:  { type: sql.Float, value: boxQty },
-            bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
-            uid: { type: sql.NVarChar, value: 'admin' },
-          }
-        );
+        const nextKey = await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (candidateKey) => {
+          await appLog('addOrder', 'OD_INSERT', `nk=${candidateKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+          await tQ(
+            `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+             VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+            {
+              nk:  { type: sql.Int,   value: candidateKey },
+              mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
+              oq:  { type: sql.Float, value: quantity },
+              bq:  { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
+              uid: { type: sql.NVarChar, value: 'admin' },
+            }
+          );
+        });
         await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
       } else {
         await appLog('addOrder', 'OD_SKIP', `qty=0이고 기존 없음 — 아무것도 안함`);
@@ -1511,31 +1535,32 @@ async function addOrderDelta(req, res) {
 
       let mk;
       if (om.recordset.length === 0) {
-        mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
-        // 전산 ViewOrder INNER JOIN 충돌 방지: Manager + OrderYearWeek 채움
-        const ywk2 = normYear2 + (normWeek2 || '').replace('-', '');
-        const orderMasterParams = {
-          mk:  { type: sql.Int, value: mk },
-          yr:  { type: sql.NVarChar, value: normYear2 },
-          wk:  { type: sql.NVarChar, value: normWeek2 },
-          ywk: { type: sql.NVarChar, value: ywk2 },
-          mgr: { type: sql.NVarChar, value: uid || 'admin' },
-          ck:  { type: sql.Int, value: ck },
-          uid: { type: sql.NVarChar, value: 'admin' },
-        };
-        if (hasOrderYearWeekColumn) {
-          await tQ(
-            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-             VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
-            orderMasterParams
-          );
-        } else {
-          await tQ(
-            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-             VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
-            orderMasterParams
-          );
-        }
+        mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (candidateMk) => {
+          // 전산 ViewOrder INNER JOIN 충돌 방지: Manager + OrderYearWeek 채움
+          const ywk2 = normYear2 + (normWeek2 || '').replace('-', '');
+          const orderMasterParams = {
+            mk:  { type: sql.Int, value: candidateMk },
+            yr:  { type: sql.NVarChar, value: normYear2 },
+            wk:  { type: sql.NVarChar, value: normWeek2 },
+            ywk: { type: sql.NVarChar, value: ywk2 },
+            mgr: { type: sql.NVarChar, value: uid || 'admin' },
+            ck:  { type: sql.Int, value: ck },
+            uid: { type: sql.NVarChar, value: 'admin' },
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQ(
+              `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+               VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+              orderMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+               VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
+              orderMasterParams
+            );
+          }
+        });
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
@@ -1574,16 +1599,17 @@ async function addOrderDelta(req, res) {
         const boxQty   = orderUnit === '박스' ? delta : 0;
         const bunchQty = orderUnit === '단'   ? delta : 0;
         const steamQty = orderUnit === '송이' ? delta : 0;
-        const nextKey = await safeNextKey(tQ, 'OrderDetail', 'OrderDetailKey');
-        await tQ(
-          `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
-           VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
-          { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-            oq: { type: sql.Float, value: delta },
-            bq: { type: sql.Float, value: boxQty },
-            bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
-            uid: { type: sql.NVarChar, value: 'admin' } }
-        );
+        await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (nextKey) => {
+          await tQ(
+            `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
+             VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
+            { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
+              oq: { type: sql.Float, value: delta },
+              bq: { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+              uid: { type: sql.NVarChar, value: 'admin' } }
+          );
+        });
       }
     });
 

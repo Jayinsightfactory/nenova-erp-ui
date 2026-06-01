@@ -89,6 +89,19 @@ function toAllUnits(qty, unit, prod = {}) {
   return { box, bunch, steam, outQ };
 }
 
+function isNetherlandsProduct(prod = {}) {
+  return /네덜란드|netherlands|holland|dutch/i.test(String(prod.CounName || ''));
+}
+
+function extractMoqText(prod = {}) {
+  if (!isNetherlandsProduct(prod)) return '';
+  const descr = String(prod.ProdDescr || prod.Descr || '').trim();
+  if (!descr) return '';
+  const line = descr.split(/\r?\n/).find(v => /moq|엠오큐|최소/i.test(v)) || '';
+  const m = line.match(/(?:moq|엠오큐|최소)\s*[:：=]?\s*([^,;/\n]+)/i);
+  return (m ? `MOQ ${m[1].trim()}` : line.trim()).trim();
+}
+
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getOrders(req, res);
   if (req.method === 'POST') return await createOrder(req, res);
@@ -239,6 +252,7 @@ async function createOrder(req, res) {
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
+    const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys } = await withTransaction(async (tQuery) => {
@@ -307,7 +321,8 @@ async function createOrder(req, res) {
           prodKey = pr.recordset[0].ProdKey;
         }
         const prodInfo = await tQuery(
-          `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+          `SELECT OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+                  ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
              FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
           { pk: { type: sql.Int, value: prodKey } }
         );
@@ -320,6 +335,7 @@ async function createOrder(req, res) {
         const bunchQty = allQty.bunch;
         const steamQty = allQty.steam;
         const outQty = allQty.outQ;
+        const detailDescr = String(item.descr || item.memo || extractMoqText(prod) || '').trim();
 
         // 기존 OrderDetail 확인 (같은 Master+품목)
         const existOd = await tQuery(
@@ -330,6 +346,47 @@ async function createOrder(req, res) {
         const oldOutQty = Number(existOd.recordset[0]?.OutQuantity || 0);
 
         if (existOd.recordset.length > 0) {
+          const nextOutQty = isDelta ? oldOutQty + outQty : outQty;
+          if (nextOutQty < -0.0001) {
+            throw new Error(`${item.prodName || prodKey}: 취소 수량이 현재 주문수량(${oldOutQty})보다 큽니다.`);
+          }
+          if (isDelta && nextOutQty <= 0) {
+            await appLog('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
+            await tQuery(
+              `UPDATE OrderDetail SET
+                 BoxQuantity=0, BunchQuantity=0, SteamQuantity=0,
+                 OutQuantity=0, EstQuantity=0, NoneOutQuantity=0,
+                 isDeleted=1,
+                 LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+               WHERE OrderDetailKey=@dk`,
+              {
+                dk: { type: sql.Int, value: existOd.recordset[0].OrderDetailKey },
+                uid: { type: sql.NVarChar, value: uid },
+              }
+            );
+            await insertOrderHistory(
+              tQuery,
+              existOd.recordset[0].OrderDetailKey,
+              String(oldOutQty),
+              '0',
+              historyDescr,
+              uid
+            );
+            await tQuery(
+              `UPDATE OrderMaster
+                  SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+                WHERE OrderMasterKey=@mk
+                  AND ISNULL(isDeleted,0)=0
+                  AND NOT EXISTS (
+                    SELECT 1 FROM OrderDetail
+                     WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+                  )`,
+              { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
+            );
+            changedProdKeys.add(Number(prodKey));
+            detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'DELETED' });
+            continue;
+          }
           // delta=true 면 기존값에 더하기, 기본은 덮어쓰기
           const updateSql = isDelta
             ? `UPDATE OrderDetail SET
@@ -339,10 +396,12 @@ async function createOrder(req, res) {
                  OutQuantity   = ISNULL(OutQuantity,0)   + @oq,
                  EstQuantity   = ISNULL(EstQuantity,0)   + @oq,
                  NoneOutQuantity = 0,
+                 ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`
             : `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
                  OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0,
+                 ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`;
           await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta}`);
@@ -350,6 +409,7 @@ async function createOrder(req, res) {
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
               oq:  { type: sql.Float,    value: outQty },
+              descr: { type: sql.NVarChar, value: detailDescr },
               uid: { type: sql.NVarChar, value: uid },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
           );
@@ -366,11 +426,16 @@ async function createOrder(req, res) {
         } else if (qty > 0) {
           const newDetailKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
             await appLog('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+            const insertCols = hasOrderDetailDescrColumn
+              ? `(OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                  OutQuantity, EstQuantity, NoneOutQuantity, Descr, isDeleted, CreateID, CreateDtm)`
+              : `(OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
+                  OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)`;
+            const insertValues = hasOrderDetailDescrColumn
+              ? `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, @descr, 0, @uid, GETDATE())`
+              : `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, @uid, GETDATE())`;
             await tQuery(
-              `INSERT INTO OrderDetail
-                 (OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
-                  OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)
-               VALUES (@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, @uid, GETDATE())`,
+              `INSERT INTO OrderDetail ${insertCols} VALUES ${insertValues}`,
               {
                 nk:    { type: sql.Int,      value: newNk },
                 mk:    { type: sql.Int,      value: mk },
@@ -379,6 +444,7 @@ async function createOrder(req, res) {
                 bunch: { type: sql.Float,    value: bunchQty },
                 steam: { type: sql.Float,    value: steamQty },
                 oq:    { type: sql.Float,    value: outQty },
+                descr: { type: sql.NVarChar, value: detailDescr },
                 uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
               }
             );
@@ -386,6 +452,8 @@ async function createOrder(req, res) {
           await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid);
           changedProdKeys.add(Number(prodKey));
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+        } else if (qty < 0) {
+          throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
       return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys] };
@@ -397,7 +465,7 @@ async function createOrder(req, res) {
       success: true,
       source: 'real_db',
       orderMasterKey,
-      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED').length}개 품목`,
+      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length}개 품목`,
       warning: stockWarning?.message || null,
       results,
     });

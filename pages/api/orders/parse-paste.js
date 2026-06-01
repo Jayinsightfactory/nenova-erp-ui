@@ -319,7 +319,7 @@ function parseCompactStockOrders(text) {
       if (/여분\s*주문|여분주문|변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
     }
     if (mode === 'extra') return;
-    if (!line.includes('(') || !/[>]|추가|취소/.test(line)) return;
+    if (!line.includes('(')) return;
 
     const productName = parseCompactProductHead(line);
     if (!productName) return;
@@ -432,7 +432,7 @@ function parseNaturalSectionOrders(text) {
     }
 
     const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?\s*$/);
-    if (qtyOnly && (currentCust || sectionAction) && sectionAction) {
+    if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
       const productName = applyFlowerContext(qtyOnly[1].trim(), flowerContext);
@@ -443,7 +443,7 @@ function parseNaturalSectionOrders(text) {
         qty,
         unit,
         unitExplicit: !!qtyOnly[3],
-        action: sectionAction,
+        action: sectionAction || '추가',
         prodKey: null,
         prodName: null,
         displayName: null,
