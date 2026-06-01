@@ -185,6 +185,7 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea, c.Manager,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
+          ISNULL(NULLIF(ship.Cost,0), ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))) AS UnitCost,
           om.OrderWeek,
           -- OutUnit 기준 단일 컬럼 선택
           CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
@@ -250,6 +251,7 @@ export default withAuth(async function handler(req, res) {
            SELECT
              SUM(ISNULL(sd2.OutQuantity,0)) AS OutQuantity,
              MAX(sd2.ShipmentDtm) AS ShipmentDtm,
+             MAX(NULLIF(sd2.Cost,0)) AS Cost,
              MAX(ISNULL(sm2.CreateID,'')) AS CreateID,
              MAX(CAST(ISNULL(sm2.isFix,0) AS INT)) AS isFix,
              MIN(sd2.SdetailKey) AS SdetailKey,
@@ -272,6 +274,7 @@ export default withAuth(async function handler(req, res) {
              AND sd2.ProdKey=p.ProdKey
          ) ship
          LEFT JOIN UserInfo shipu ON shipu.UserID=ship.CreateID
+         LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=p.ProdKey
          WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
@@ -282,6 +285,7 @@ export default withAuth(async function handler(req, res) {
           c.CustKey, c.CustName, c.CustArea, c.Manager,
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
+          ISNULL(NULLIF(ship.Cost,0), ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))) AS UnitCost,
           ship.OrderWeek,
           0 AS custOrderQty,
           ISNULL(ship.OutQuantity, 0) AS outQty,
@@ -331,6 +335,7 @@ export default withAuth(async function handler(req, res) {
              sm.OrderWeek,
              SUM(ISNULL(sd.OutQuantity,0)) AS OutQuantity,
              MAX(sd.ShipmentDtm) AS ShipmentDtm,
+             MAX(NULLIF(sd.Cost,0)) AS Cost,
              MAX(ISNULL(sm.CreateID,'')) AS CreateID,
              MAX(CAST(ISNULL(sm.isFix,0) AS INT)) AS isFix,
              MIN(sd.SdetailKey) AS SdetailKey,
@@ -356,6 +361,7 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c ON ship.CustKey=c.CustKey
          JOIN Product p ON ship.ProdKey=p.ProdKey
          LEFT JOIN UserInfo smu ON smu.UserID=ship.CreateID
+         LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=p.ProdKey
          WHERE 1=1
            AND NOT EXISTS (
              SELECT 1

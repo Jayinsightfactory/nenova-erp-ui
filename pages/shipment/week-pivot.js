@@ -681,10 +681,11 @@ export default function WeekPivot() {
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''),'ko'));
 
-    const dataMap={}, inMap={}, descrMap={}, prevStockMap={};
+    const dataMap={}, inMap={}, descrMap={}, prevStockMap={}, costMap={};
     rows.forEach(r=>{
       const dk=`${r.ProdKey}-${r.CustKey}-${r.OrderWeek}`;
       dataMap[dk]=r.outQty||0;
+      costMap[dk]=Number(r.UnitCost||0);
       if(r.outDescr) descrMap[dk]=cleanDescrText(r.outDescr);
       const ik=`${r.ProdKey}-${r.OrderWeek}`;
       if(!inMap[ik]) inMap[ik]=r.totalInQty||0;
@@ -714,6 +715,26 @@ export default function WeekPivot() {
       const c=custMap[ck]; if(!c) return '?';
       const d=(c.descr||'').split('/')[0].trim();
       return d||c.name;
+    };
+    const calcMoney = (qty, unitCost) => {
+      const gross = Math.round((Number(qty) || 0) * (Number(unitCost) || 0));
+      const supply = Math.round(gross / 1.1);
+      const vat = Math.round(gross / 11);
+      return { supply, vat, gross };
+    };
+    const unitCostFor = (pk, ck, wk) => Number(costMap[`${pk}-${ck}-${wk}`] || 0);
+    const totalQtyFor = (pk, ck, weekList = weeks) => weekList.reduce((s, wk) => s + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
+    const totalMoneyFor = (pk, ck, weekList = weeks) => weekList.reduce((sum, wk) => {
+      const qty = dataMap[`${pk}-${ck}-${wk}`] || 0;
+      const cost = unitCostFor(pk, ck, wk);
+      const m = calcMoney(qty, cost);
+      return { supply: sum.supply + m.supply, vat: sum.vat + m.vat, gross: sum.gross + m.gross };
+    }, { supply: 0, vat: 0, gross: 0 });
+    const displayUnitCostFor = (pk, ck, weekList = weeks) => {
+      const qty = totalQtyFor(pk, ck, weekList);
+      const money = totalMoneyFor(pk, ck, weekList);
+      if (qty > 0 && money.gross > 0) return Math.round(money.gross / qty);
+      return weekList.map(wk => unitCostFor(pk, ck, wk)).find(v => v > 0) || 0;
     };
     const chipS=(active)=>({
       padding:'2px 8px',borderRadius:10,border:'1px solid',fontSize:10,cursor:'pointer',fontWeight:active?700:400,
@@ -777,37 +798,65 @@ export default function WeekPivot() {
             });
             xlData.push([`  ${custName}`]);
             Object.entries(byFlower).forEach(([flower, pks]) => {
-              xlData.push(['', '', `[${flower}]`, '', '', '']);
-              xlData.push(['', '국가', '꽃', '품명', '수량', '비고']);
+              xlData.push(['', '', `[${flower}]`, '', '', '', '', '', '', '']);
+              xlData.push(['', '국가', '꽃', '품명', '수량', '품목단가', '공급가액', '부가세', '총금액', '비고']);
               let flowerTotal = 0;
+              let flowerSupply = 0;
+              let flowerVat = 0;
+              let flowerGross = 0;
               pks.forEach(pk => {
                 const p = prodMap[pk];
                 const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
+                const unitCost = unitCostFor(pk, ck, wk);
+                const money = calcMoney(v, unitCost);
                 const descr = descrMap[`${pk}-${ck}-${wk}`] || '';
-                xlData.push(['', p.coun, p.flower, pivotProdName(p), v, descr.replace(/\n/g, ' ')]);
+                xlData.push(['', p.coun, p.flower, pivotProdName(p), v, unitCost || '', money.supply || '', money.vat || '', money.gross || '', descr.replace(/\n/g, ' ')]);
                 flowerTotal += v;
+                flowerSupply += money.supply;
+                flowerVat += money.vat;
+                flowerGross += money.gross;
               });
-              xlData.push(['', '', '', `${flower} 소계`, flowerTotal, '']);
+              xlData.push(['', '', '', `${flower} 소계`, flowerTotal, '', flowerSupply || '', flowerVat || '', flowerGross || '', '']);
             });
             const custTotal = custProds.reduce((a, pk) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
-            xlData.push(['', '', '', '업체 합계', custTotal, '']);
+            const custMoney = custProds.reduce((sum, pk) => {
+              const m = calcMoney(dataMap[`${pk}-${ck}-${wk}`] || 0, unitCostFor(pk, ck, wk));
+              return { supply: sum.supply + m.supply, vat: sum.vat + m.vat, gross: sum.gross + m.gross };
+            }, { supply: 0, vat: 0, gross: 0 });
+            xlData.push(['', '', '', '업체 합계', custTotal, '', custMoney.supply || '', custMoney.vat || '', custMoney.gross || '', '']);
             xlData.push([]);
           });
         });
 
         xlData.push([]);
         xlData.push(['▶ 품종별 전체 수량']);
-        xlData.push(['', '품종', '총 출고수량']);
+        xlData.push(['', '품종', '총 출고수량', '공급가액', '부가세', '총금액']);
         const flowerTotals = {};
+        const flowerMoneyTotals = {};
         prodKeys.forEach(pk => {
           const fl = prodMap[pk].flower || '기타';
           const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
           if (wOut > 0) flowerTotals[fl] = (flowerTotals[fl] || 0) + wOut;
+          custKeys.forEach(ck => {
+            const qty = dataMap[`${pk}-${ck}-${wk}`] || 0;
+            if (qty <= 0) return;
+            const m = calcMoney(qty, unitCostFor(pk, ck, wk));
+            if (!flowerMoneyTotals[fl]) flowerMoneyTotals[fl] = { supply: 0, vat: 0, gross: 0 };
+            flowerMoneyTotals[fl].supply += m.supply;
+            flowerMoneyTotals[fl].vat += m.vat;
+            flowerMoneyTotals[fl].gross += m.gross;
+          });
         });
         Object.entries(flowerTotals).sort((a, b) => b[1] - a[1]).forEach(([fl, tot]) => {
-          xlData.push(['', fl, tot]);
+          const m = flowerMoneyTotals[fl] || {};
+          xlData.push(['', fl, tot, m.supply || '', m.vat || '', m.gross || '']);
         });
-        xlData.push(['', '전체 합계', Object.values(flowerTotals).reduce((a, b) => a + b, 0)]);
+        const allFlowerMoney = Object.values(flowerMoneyTotals).reduce((sum, m) => ({
+          supply: sum.supply + (m.supply || 0),
+          vat: sum.vat + (m.vat || 0),
+          gross: sum.gross + (m.gross || 0),
+        }), { supply: 0, vat: 0, gross: 0 });
+        xlData.push(['', '전체 합계', Object.values(flowerTotals).reduce((a, b) => a + b, 0), allFlowerMoney.supply || '', allFlowerMoney.vat || '', allFlowerMoney.gross || '']);
 
         xlData.push([]);
         xlData.push(['▶ 재고 요약']);
@@ -825,7 +874,7 @@ export default function WeekPivot() {
           }
         });
         const ws = XLSX.utils.aoa_to_sheet(xlData);
-        ws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},{wch:8},{wch:40},{wch:8},{wch:8}];
+        ws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28},{wch:8},{wch:10},{wch:12},{wch:10},{wch:12},{wch:40}];
         XLSX.utils.book_append_sheet(wb, ws, wk);
       });
 
@@ -850,12 +899,15 @@ export default function WeekPivot() {
             });
             mergedData.push([`  ${custName}`]);
             Object.entries(byFlower).forEach(([flower, pks]) => {
-              mergedData.push(['', '', `[${flower}]`, '', ...weeks.map(() => ''), '']);
+              mergedData.push(['', '', `[${flower}]`, '', ...weeks.map(() => ''), '', '', '', '', '', '']);
               const hdr = ['', '국가', '꽃', '품명'];
               weeks.forEach(wk => hdr.push(wk));
-              hdr.push('합계', '비고');
+              hdr.push('합계수량', '품목단가', '공급가액', '부가세', '총금액', '비고');
               mergedData.push(hdr);
               let flowerTotal = 0;
+              let flowerSupply = 0;
+              let flowerVat = 0;
+              let flowerGross = 0;
               pks.forEach(pk => {
                 const p = prodMap[pk];
                 const row = ['', p.coun, p.flower, pivotProdName(p)];
@@ -865,15 +917,24 @@ export default function WeekPivot() {
                   row.push(v || '');
                   rowTotal += v;
                 });
+                const unitCost = displayUnitCostFor(pk, ck, weeks);
+                const money = totalMoneyFor(pk, ck, weeks);
                 const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`] || '').filter(Boolean).join(' ');
-                row.push(rowTotal, allDescr.replace(/\n/g, ' '));
+                row.push(rowTotal, unitCost || '', money.supply || '', money.vat || '', money.gross || '', allDescr.replace(/\n/g, ' '));
                 mergedData.push(row);
                 flowerTotal += rowTotal;
+                flowerSupply += money.supply;
+                flowerVat += money.vat;
+                flowerGross += money.gross;
               });
-              mergedData.push(['', '', '', `${flower} 소계`, ...weeks.map(() => ''), flowerTotal, '']);
+              mergedData.push(['', '', '', `${flower} 소계`, ...weeks.map(() => ''), flowerTotal, '', flowerSupply || '', flowerVat || '', flowerGross || '', '']);
             });
             const custTotal = custProds.reduce((a, pk) => a + weeks.reduce((s, wk) => s + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0), 0);
-            mergedData.push(['', '', '', '업체 합계', ...weeks.map(() => ''), custTotal, '']);
+            const custMoney = custProds.reduce((sum, pk) => {
+              const m = totalMoneyFor(pk, ck, weeks);
+              return { supply: sum.supply + m.supply, vat: sum.vat + m.vat, gross: sum.gross + m.gross };
+            }, { supply: 0, vat: 0, gross: 0 });
+            mergedData.push(['', '', '', '업체 합계', ...weeks.map(() => ''), custTotal, '', custMoney.supply || '', custMoney.vat || '', custMoney.gross || '', '']);
             mergedData.push([]);
           });
         });
@@ -882,15 +943,25 @@ export default function WeekPivot() {
         mergedData.push(['▶ 품종별 전체 수량']);
         const mHdr = ['', '품종'];
         weeks.forEach(wk => mHdr.push(wk));
-        mHdr.push('합계');
+        mHdr.push('합계수량', '공급가액', '부가세', '총금액');
         mergedData.push(mHdr);
         const allFlowerTotals = {};
+        const allFlowerMoneyTotals = {};
         prodKeys.forEach(pk => {
           const fl = prodMap[pk].flower || '기타';
           if (!allFlowerTotals[fl]) allFlowerTotals[fl] = {};
+          if (!allFlowerMoneyTotals[fl]) allFlowerMoneyTotals[fl] = { supply: 0, vat: 0, gross: 0 };
           weeks.forEach(wk => {
             const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
             allFlowerTotals[fl][wk] = (allFlowerTotals[fl][wk] || 0) + wOut;
+            custKeys.forEach(ck => {
+              const qty = dataMap[`${pk}-${ck}-${wk}`] || 0;
+              if (qty <= 0) return;
+              const m = calcMoney(qty, unitCostFor(pk, ck, wk));
+              allFlowerMoneyTotals[fl].supply += m.supply;
+              allFlowerMoneyTotals[fl].vat += m.vat;
+              allFlowerMoneyTotals[fl].gross += m.gross;
+            });
           });
         });
         Object.entries(allFlowerTotals).sort((a, b) => {
@@ -901,11 +972,12 @@ export default function WeekPivot() {
           const row = ['', fl];
           let total = 0;
           weeks.forEach(wk => { row.push(wkMap[wk] || ''); total += (wkMap[wk] || 0); });
-          row.push(total);
+          const m = allFlowerMoneyTotals[fl] || {};
+          row.push(total, m.supply || '', m.vat || '', m.gross || '');
           mergedData.push(row);
         });
         const mws = XLSX.utils.aoa_to_sheet(mergedData);
-        mws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28}, ...weeks.map(() => ({wch:8})), {wch:8}, {wch:30}];
+        mws['!cols'] = [{wch:3},{wch:10},{wch:12},{wch:28}, ...weeks.map(() => ({wch:8})), {wch:8},{wch:10},{wch:12},{wch:10},{wch:12},{wch:30}];
         XLSX.utils.book_append_sheet(wb, mws, '전체병합');
       }
 
@@ -992,9 +1064,14 @@ export default function WeekPivot() {
         csData.push([`${cn} (${custMap[ck]?.area || ''})`]);
         const hdr = ['국가', '꽃', '품명'];
         weeks.forEach(wk => hdr.push(`${wk} 수량`));
-        if (weeks.length > 1) hdr.push('합계');
-        hdr.push('비고');
+        if (weeks.length > 1) hdr.push('합계수량');
+        hdr.push('품목단가', '공급가액', '부가세', '총금액', '비고');
         csData.push(hdr);
+        const totalQtyCol = weeks.length > 1 ? 3 + weeks.length : 3;
+        const unitCostCol = totalQtyCol + 1;
+        const supplyCol = unitCostCol + 1;
+        const vatCol = unitCostCol + 2;
+        const grossCol = unitCostCol + 3;
 
         const byFlower = {};
         custProds.forEach(pk => {
@@ -1009,15 +1086,26 @@ export default function WeekPivot() {
           pks.forEach(pk => {
             const p = prodMap[pk];
             const row = [p.coun, p.flower, pivotProdName(p)];
+            const excelRow = rowIdx + 1;
+            let rowTotal = 0;
             weeks.forEach(wk => {
               const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
               row.push(v > 0 ? v : '');
+              rowTotal += v;
             });
             if (weeks.length > 1) {
-              let rowTotal = 0;
-              weeks.forEach(wk => { rowTotal += (dataMap[`${pk}-${ck}-${wk}`] || 0); });
-              row.push(rowTotal || '');
+              const firstQtyCol = XLSX.utils.encode_col(3);
+              const lastQtyCol = XLSX.utils.encode_col(3 + weeks.length - 1);
+              row.push({ f: `SUM(${firstQtyCol}${excelRow}:${lastQtyCol}${excelRow})`, v: rowTotal || 0 });
             }
+            const unitCost = displayUnitCostFor(pk, ck, weeks);
+            const money = totalMoneyFor(pk, ck, weeks);
+            const qtyColName = XLSX.utils.encode_col(totalQtyCol);
+            const unitColName = XLSX.utils.encode_col(unitCostCol);
+            row.push(unitCost || '');
+            row.push({ f: `ROUND(${qtyColName}${excelRow}*${unitColName}${excelRow}/1.1,0)`, v: money.supply || 0 });
+            row.push({ f: `ROUND(${qtyColName}${excelRow}*${unitColName}${excelRow}/11,0)`, v: money.vat || 0 });
+            row.push({ f: `${qtyColName}${excelRow}*${unitColName}${excelRow}`, v: money.gross || 0 });
             const allDescr = weeks.map(wk => descrMap[`${pk}-${ck}-${wk}`] || '').filter(Boolean).join(' ');
             row.push(allDescr.replace(/\n/g, ' '));
             csData.push(row);
@@ -1030,22 +1118,46 @@ export default function WeekPivot() {
             subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
           });
           if (weeks.length > 1) {
-            const col = XLSX.utils.encode_col(3 + weeks.length);
+            const col = XLSX.utils.encode_col(totalQtyCol);
             subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
           }
+          subR.push('');
+          [supplyCol, vatCol, grossCol].forEach(ci => {
+            const col = XLSX.utils.encode_col(ci);
+            subR.push({ f: `SUM(${col}${flowerStartRow}:${col}${rowIdx})` });
+          });
+          subR.push('');
           csData.push(subR);
           rowIdx++;
         });
 
         const totalR = ['', '', '전체 합계'];
-        const dataColCount = weeks.length + (weeks.length > 1 ? 1 : 0);
-        for (let ci = 0; ci < dataColCount; ci++) {
-          const col = XLSX.utils.encode_col(3 + ci);
-          totalR.push({ f: `SUM(${col}3:${col}${rowIdx})` });
-        }
+        const totalFormulaCols = [
+          ...weeks.map((_, wi) => 3 + wi),
+          ...(weeks.length > 1 ? [totalQtyCol] : []),
+        ];
+        totalFormulaCols.forEach(ci => {
+          const col = XLSX.utils.encode_col(ci);
+          totalR.push({ f: `SUMIF($C$3:$C$${rowIdx},"*소계",${col}$3:${col}$${rowIdx})` });
+        });
+        totalR.push('');
+        [supplyCol, vatCol, grossCol].forEach(ci => {
+          const col = XLSX.utils.encode_col(ci);
+          totalR.push({ f: `SUMIF($C$3:$C$${rowIdx},"*소계",${col}$3:${col}$${rowIdx})` });
+        });
+        totalR.push('');
         csData.push(totalR);
         const csWs = XLSX.utils.aoa_to_sheet(csData);
-        csWs['!cols'] = [{wch:10},{wch:10},{wch:28}, ...weeks.map(() => ({wch:8})), ...(weeks.length > 1 ? [{wch:8}] : []), {wch:30}];
+        const colWidths = [{wch:10},{wch:10},{wch:28}, ...weeks.map(() => ({wch:8}))];
+        if (weeks.length > 1) colWidths.push({wch:8});
+        colWidths.push({wch:10},{wch:12},{wch:10},{wch:12},{wch:30});
+        csWs['!cols'] = colWidths;
+        for (let r = 2; r < csData.length; r += 1) {
+          [unitCostCol, supplyCol, vatCol, grossCol].forEach(ci => {
+            const addr = XLSX.utils.encode_cell({ r, c: ci });
+            if (csWs[addr]) csWs[addr].z = '#,##0';
+          });
+        }
         const sheetName = cn.replace(/[\\\/\?\*\[\]:]/g, '').substring(0, 31);
         try { XLSX.utils.book_append_sheet(wb, csWs, sheetName); } catch {}
       });
