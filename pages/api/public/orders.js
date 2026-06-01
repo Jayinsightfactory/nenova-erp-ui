@@ -59,6 +59,21 @@ function toAllUnits(qty, unit, prod = {}) {
   return { box, bunch, steam, outQ };
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName: { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 async function runStockCalculation(tQ, orderYear, orderWeek, uid, prodKeys = []) {
   const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
   for (const prodKey of keys) {
@@ -193,6 +208,7 @@ async function createOrder(req, res) {
   }
 
   try {
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     // 거래처 조회
     let resolvedCustKey = parseInt(custKey) || 0;
     if (!resolvedCustKey && custName) {
@@ -222,20 +238,29 @@ async function createOrder(req, res) {
         // OrderYearWeek 채워 인덱스 일치
         const yr = year || String(new Date().getFullYear());
         const ywk = yr + (week || '').replace('-', '');
-        const ins = await tQ(
-          `INSERT INTO OrderMaster
-             (OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-           OUTPUT INSERTED.OrderMasterKey
-           VALUES (GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
-          {
-            year:      { type: sql.NVarChar, value: yr },
-            week:      { type: sql.NVarChar, value: week },
-            ywk:       { type: sql.NVarChar, value: ywk },
-            manager:   { type: sql.NVarChar, value: manager || 'admin' },
-            ck:        { type: sql.Int,      value: resolvedCustKey },
-            orderCode: { type: sql.NVarChar, value: orderCode || '' },
-          }
-        );
+        const orderMasterParams = {
+          year:      { type: sql.NVarChar, value: yr },
+          week:      { type: sql.NVarChar, value: week },
+          ywk:       { type: sql.NVarChar, value: ywk },
+          manager:   { type: sql.NVarChar, value: manager || 'admin' },
+          ck:        { type: sql.Int,      value: resolvedCustKey },
+          orderCode: { type: sql.NVarChar, value: orderCode || '' },
+        };
+        const ins = hasOrderYearWeekColumn
+          ? await tQ(
+            `INSERT INTO OrderMaster
+               (OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+             OUTPUT INSERTED.OrderMasterKey
+             VALUES (GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+            orderMasterParams
+          )
+          : await tQ(
+            `INSERT INTO OrderMaster
+               (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+             OUTPUT INSERTED.OrderMasterKey
+             VALUES (GETDATE(), @year, @week, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+            orderMasterParams
+          );
         mk = ins.recordset[0].OrderMasterKey;
         created = true;
       }

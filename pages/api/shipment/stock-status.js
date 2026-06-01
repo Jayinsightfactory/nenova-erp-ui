@@ -30,6 +30,21 @@ async function getProductStockRemarkColumn(q = query) {
   return ['Remark', 'Descr', 'Memo'].includes(col) ? col : null;
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName: { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 export default withAuth(async function handler(req, res) {
   if (req.method === 'PATCH' && req.body?.action === 'editDescrLine') return await editDescrLine(req, res);
   if (req.method === 'PATCH')  return await updateOutQty(req, res);
@@ -1039,16 +1054,28 @@ async function updateOutQty(req, res) {
           const yr = String(new Date().getFullYear());
           const ywk = yr + (week || '').replace('-', '');
           const newSk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
-          await tQ(
-            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-             VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-            { newSk: { type: sql.Int, value: newSk },
-              yr:  { type: sql.NVarChar, value: yr },
-              wk:  { type: sql.NVarChar, value: week },
-              ywk: { type: sql.NVarChar, value: ywk },
-              ck:  { type: sql.Int, value: ck },
-              uid: { type: sql.NVarChar, value: uid } }
-          );
+          const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
+          const shipmentMasterParams = {
+            newSk: { type: sql.Int, value: newSk },
+            yr:  { type: sql.NVarChar, value: yr },
+            wk:  { type: sql.NVarChar, value: week },
+            ywk: { type: sql.NVarChar, value: ywk },
+            ck:  { type: sql.Int, value: ck },
+            uid: { type: sql.NVarChar, value: uid },
+          };
+          if (hasShipmentYearWeekColumn) {
+            await tQ(
+              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES(@newSk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          } else {
+            await tQ(
+              `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+               VALUES(@newSk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+              shipmentMasterParams
+            );
+          }
           sk = newSk;
         }
       }
@@ -1257,6 +1284,7 @@ async function addOrder(req, res) {
     const prodOutUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.OutUnit, orderUnit);
 
     await appLog('addOrder', '시작', `ck=${ck} pk=${pk} week=${normWeek} qty=${quantity} unit=${unit} uid=${uid}`);
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
@@ -1274,17 +1302,28 @@ async function addOrder(req, res) {
         // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
         // OrderYearWeek 채워 인덱스/조회 일치
         const ywk = normYear + (normWeek || '').replace('-', '');
-        await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
-          { mk: { type: sql.Int, value: mk },
-            yr:  { type: sql.NVarChar, value: normYear },
-            wk:  { type: sql.NVarChar, value: normWeek },
-            ywk: { type: sql.NVarChar, value: ywk },
-            mgr: { type: sql.NVarChar, value: uid || 'admin' },
-            ck:  { type: sql.Int, value: ck },
-            uid: { type: sql.NVarChar, value: 'admin' } }
-        );
+        const orderMasterParams = {
+          mk: { type: sql.Int, value: mk },
+          yr:  { type: sql.NVarChar, value: normYear },
+          wk:  { type: sql.NVarChar, value: normWeek },
+          ywk: { type: sql.NVarChar, value: ywk },
+          mgr: { type: sql.NVarChar, value: uid || 'admin' },
+          ck:  { type: sql.Int, value: ck },
+          uid: { type: sql.NVarChar, value: 'admin' },
+        };
+        if (hasOrderYearWeekColumn) {
+          await tQ(
+            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+             VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+            orderMasterParams
+          );
+        } else {
+          await tQ(
+            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+             VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
+            orderMasterParams
+          );
+        }
       } else {
         mk = om.recordset[0].OrderMasterKey;
         await appLog('addOrder', 'OM_FOUND', `mk=${mk}`);
@@ -1453,6 +1492,7 @@ async function addOrderDelta(req, res) {
     const uid      = req.user?.userId || 'system';
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
@@ -1468,17 +1508,28 @@ async function addOrderDelta(req, res) {
         mk = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         // 전산 ViewOrder INNER JOIN 충돌 방지: Manager + OrderYearWeek 채움
         const ywk2 = normYear2 + (normWeek2 || '').replace('-', '');
-        await tQ(
-          `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
-           VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
-          { mk:  { type: sql.Int, value: mk },
-            yr:  { type: sql.NVarChar, value: normYear2 },
-            wk:  { type: sql.NVarChar, value: normWeek2 },
-            ywk: { type: sql.NVarChar, value: ywk2 },
-            mgr: { type: sql.NVarChar, value: uid || 'admin' },
-            ck:  { type: sql.Int, value: ck },
-            uid: { type: sql.NVarChar, value: 'admin' } }
-        );
+        const orderMasterParams = {
+          mk:  { type: sql.Int, value: mk },
+          yr:  { type: sql.NVarChar, value: normYear2 },
+          wk:  { type: sql.NVarChar, value: normWeek2 },
+          ywk: { type: sql.NVarChar, value: ywk2 },
+          mgr: { type: sql.NVarChar, value: uid || 'admin' },
+          ck:  { type: sql.Int, value: ck },
+          uid: { type: sql.NVarChar, value: 'admin' },
+        };
+        if (hasOrderYearWeekColumn) {
+          await tQ(
+            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+             VALUES(@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,0,@uid,GETDATE())`,
+            orderMasterParams
+          );
+        } else {
+          await tQ(
+            `INSERT INTO OrderMaster (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,isDeleted,CreateID,CreateDtm)
+             VALUES(@mk,GETDATE(),@yr,@wk,@mgr,@ck,0,@uid,GETDATE())`,
+            orderMasterParams
+          );
+        }
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }

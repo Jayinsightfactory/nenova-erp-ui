@@ -331,6 +331,7 @@ async function postAdjust(req, res) {
 
   try {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
+    const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
     const result = await withTransaction(async (tQ) => {
       await assertProductScopeNotFixed(tQ, orderWeek, pk);
 
@@ -507,19 +508,29 @@ async function postAdjust(req, res) {
       if (sm.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 ShipmentMaster 없음');
         sk = await safeNextKey(tQ, 'ShipmentMaster', 'ShipmentKey');
-        await tQ(
-          `INSERT INTO ShipmentMaster
-             (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-           VALUES (@sk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-          {
-            sk:  { type: sql.Int,      value: sk },
-            yr:  { type: sql.NVarChar, value: orderYear },
-            wk:  { type: sql.NVarChar, value: orderWeek },
-            ywk: { type: sql.NVarChar, value: ywk },
-            ck:  { type: sql.Int,      value: ck },
-            uid: { type: sql.NVarChar, value: uid },
-          }
-        );
+        const shipmentMasterParams = {
+          sk:  { type: sql.Int,      value: sk },
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          ywk: { type: sql.NVarChar, value: ywk },
+          ck:  { type: sql.Int,      value: ck },
+          uid: { type: sql.NVarChar, value: uid },
+        };
+        if (hasShipmentYearWeekColumn) {
+          await tQ(
+            `INSERT INTO ShipmentMaster
+               (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+             VALUES (@sk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+            shipmentMasterParams
+          );
+        } else {
+          await tQ(
+            `INSERT INTO ShipmentMaster
+               (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+             VALUES (@sk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+            shipmentMasterParams
+          );
+        }
         await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = sm.recordset[0].ShipmentKey;

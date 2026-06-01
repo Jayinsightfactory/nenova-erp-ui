@@ -42,6 +42,21 @@ function checkApiKey(req, res) {
   return true;
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName: { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 export default async function handler(req, res) {
   // CORS 허용 (외부 프로그램 접근)
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -142,6 +157,7 @@ async function createShipment(req, res) {
   }
 
   try {
+    const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
     // 거래처 조회
     let resolvedCustKey = custKey;
     if (!resolvedCustKey && custName) {
@@ -168,18 +184,27 @@ async function createShipment(req, res) {
 
     let shipmentKey;
     if (smResult.recordset.length === 0) {
-      const ins = await query(
-        `INSERT INTO ShipmentMaster
-           (OrderYear, OrderWeek, OrderYearWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
-         OUTPUT INSERTED.ShipmentKey
-         VALUES (@yr, @wk, @ywk, @ck, 0, 0, 'API', GETDATE())`,
-        {
-          yr:  { type: sql.NVarChar, value: resolvedYear },
-          wk:  { type: sql.NVarChar, value: resolvedWeek },
-          ywk: { type: sql.NVarChar, value: resolvedYear + resolvedWeek },
-          ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
-        }
-      );
+      const shipmentMasterParams = {
+        yr:  { type: sql.NVarChar, value: resolvedYear },
+        wk:  { type: sql.NVarChar, value: resolvedWeek },
+        ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').replace('-', '') },
+        ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
+      };
+      const ins = hasShipmentYearWeekColumn
+        ? await query(
+          `INSERT INTO ShipmentMaster
+             (OrderYear, OrderWeek, OrderYearWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
+           OUTPUT INSERTED.ShipmentKey
+           VALUES (@yr, @wk, @ywk, @ck, 0, 0, 'API', GETDATE())`,
+          shipmentMasterParams
+        )
+        : await query(
+          `INSERT INTO ShipmentMaster
+             (OrderYear, OrderWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
+           OUTPUT INSERTED.ShipmentKey
+           VALUES (@yr, @wk, @ck, 0, 0, 'API', GETDATE())`,
+          shipmentMasterParams
+        );
       shipmentKey = ins.recordset[0].ShipmentKey;
     } else {
       shipmentKey = smResult.recordset[0].ShipmentKey;

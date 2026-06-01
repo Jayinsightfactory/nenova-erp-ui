@@ -6,6 +6,21 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { safeNextKey } from '../../../lib/safeNextKey';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName: { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -49,6 +64,7 @@ async function handler(req, res) {
     }
 
     // 승인 → 기존 OrderMaster/OrderDetail 로 이동
+    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const orderKey = await withTransaction(async (tQ) => {
       const year = new Date().getFullYear().toString();
       const ywk = year + (reqRow.OrderWeek || '').replace('-', '');
@@ -68,22 +84,34 @@ async function handler(req, res) {
       } else {
         ok = await safeNextKey(tQ, 'OrderMaster', 'OrderMasterKey');
         // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
-        await tQ(
-          `INSERT INTO OrderMaster
-             (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
-              isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-           VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
-                   0, @uid, GETDATE(), @uid, GETDATE())`,
-          {
-            ok:  { type: sql.Int,      value: ok },
-            yr:  { type: sql.NVarChar, value: year },
-            wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
-            ywk: { type: sql.NVarChar, value: ywk },
-            mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
-            ck:  { type: sql.Int,      value: reqRow.CustKey },
-            uid: { type: sql.NVarChar, value: 'admin' },
-          }
-        );
+        const orderMasterParams = {
+          ok:  { type: sql.Int,      value: ok },
+          yr:  { type: sql.NVarChar, value: year },
+          wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
+          ywk: { type: sql.NVarChar, value: ywk },
+          mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
+          ck:  { type: sql.Int,      value: reqRow.CustKey },
+          uid: { type: sql.NVarChar, value: 'admin' },
+        };
+        if (hasOrderYearWeekColumn) {
+          await tQ(
+            `INSERT INTO OrderMaster
+               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
+                isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+             VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
+                     0, @uid, GETDATE(), @uid, GETDATE())`,
+            orderMasterParams
+          );
+        } else {
+          await tQ(
+            `INSERT INTO OrderMaster
+               (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr,
+                isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
+             VALUES (@ok, GETDATE(), @yr, @wk, @mgr, @ck, '', '',
+                     0, @uid, GETDATE(), @uid, GETDATE())`,
+            orderMasterParams
+          );
+        }
       }
 
       // OrderRequestDetail → OrderDetail INSERT

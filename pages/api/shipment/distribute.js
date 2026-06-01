@@ -38,6 +38,21 @@ async function syncKeyNumbering(tQ, category, table, keyCol) {
   );
 }
 
+const columnExistsCache = {};
+async function columnExists(tableName, columnName) {
+  const key = `${tableName}.${columnName}`;
+  if (columnExistsCache[key] !== undefined) return columnExistsCache[key];
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@tableName, @columnName) IS NULL THEN 0 ELSE 1 END AS HasColumn`,
+    {
+      tableName: { type: sql.NVarChar, value: `dbo.${tableName}` },
+      columnName: { type: sql.NVarChar, value: columnName },
+    }
+  );
+  columnExistsCache[key] = Number(r.recordset[0]?.HasColumn || 0) === 1;
+  return columnExistsCache[key];
+}
+
 async function assertWeekNotFixed(q, orderWeek) {
   const fixed = await q(
     `SELECT TOP 1 FixSource
@@ -452,6 +467,7 @@ async function saveDistribute(req, res) {
     if (!resolvedShipDate || Number.isNaN(resolvedShipDate.getTime())) {
       throw new Error('출고일을 계산할 수 없습니다. 출고일을 지정한 뒤 다시 저장하세요.');
     }
+    const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const shipmentKey = await withTransaction(async (tQuery) => {
       // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
@@ -465,13 +481,27 @@ async function saveDistribute(req, res) {
       let sk;
       if (smResult.recordset.length === 0) {
         sk = await safeNextKey(tQuery, 'ShipmentMaster', 'ShipmentKey');
-        await tQuery(
-          `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
-           VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
-          { nk: { type: sql.Int, value: sk }, yr: { type: sql.NVarChar, value: orderYear },
-            wk: { type: sql.NVarChar, value: week }, ywk: { type: sql.NVarChar, value: ywk },
-            ck: { type: sql.Int, value: parseInt(custKey) }, uid: { type: sql.NVarChar, value: uid } }
-        );
+        const shipmentMasterParams = {
+          nk: { type: sql.Int, value: sk },
+          yr: { type: sql.NVarChar, value: orderYear },
+          wk: { type: sql.NVarChar, value: week },
+          ywk: { type: sql.NVarChar, value: ywk },
+          ck: { type: sql.Int, value: parseInt(custKey) },
+          uid: { type: sql.NVarChar, value: uid },
+        };
+        if (hasShipmentYearWeekColumn) {
+          await tQuery(
+            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+             VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`,
+            shipmentMasterParams
+          );
+        } else {
+          await tQuery(
+            `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+             VALUES (@nk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`,
+            shipmentMasterParams
+          );
+        }
         await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
         sk = smResult.recordset[0].ShipmentKey;

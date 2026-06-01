@@ -110,7 +110,17 @@ async function validate(req, res) {
       `SELECT p.ProdName, c.CustName,
          COUNT(sd.SdetailKey) AS cnt,
          SUM(sd.OutQuantity) AS totalQty,
-         STRING_AGG(CAST(sd.ShipmentKey AS NVARCHAR(20)), ',') AS shipKeys
+         STUFF((
+           SELECT ',' + CAST(sm2.ShipmentKey AS NVARCHAR(20))
+             FROM ShipmentDetail sd2
+             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey = sm2.ShipmentKey
+            WHERE sm2.OrderWeek = @wk
+              AND sm2.isDeleted = 0
+              AND sm2.CustKey = sm.CustKey
+              AND sd2.ProdKey = sd.ProdKey
+              AND sd2.OutQuantity > 0
+            FOR XML PATH(''), TYPE
+         ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS shipKeys
        FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON sd.ProdKey = p.ProdKey
