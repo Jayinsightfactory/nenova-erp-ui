@@ -76,8 +76,8 @@ function buildPivotModel(sourceRows) {
     p.cells.set(custKey, r);
   }
   return {
-    customers: [...customers.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')),
-    products: [...products.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')),
+    customers: [...customers.values()],
+    products: [...products.values()],
   };
 }
 
@@ -91,7 +91,7 @@ export default function DistributeImport() {
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [filter, setFilter] = useState('changed');
+  const [filter, setFilter] = useState('apply');
   const [viewMode, setViewMode] = useState('pivot');
 
   const rows = preview?.rows || [];
@@ -100,10 +100,13 @@ export default function DistributeImport() {
   const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
   const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
   const visibleRows = useMemo(() => {
-    const base = filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
+    const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
-  }, [rows, changedRows, filter]);
-  const pivotModel = useMemo(() => buildPivotModel(filter === 'changed' ? changedRows : rows), [rows, changedRows, filter]);
+  }, [rows, applyRows, changedRows, filter]);
+  const pivotModel = useMemo(() => {
+    const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : rows;
+    return buildPivotModel(source);
+  }, [rows, applyRows, changedRows, filter]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -123,6 +126,7 @@ export default function DistributeImport() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
+      setFilter('apply');
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
       const orderChanges = (data.changedRows || []).filter(orderChanged).length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
@@ -250,6 +254,7 @@ export default function DistributeImport() {
                     </div>
                   )}
                   <div style={st.segment}>
+                    <button onClick={() => setFilter('apply')} style={filter === 'apply' ? st.segOn : st.seg}>적용대상</button>
                     <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>주문변경만</button>
                     <button onClick={() => setFilter('all')} style={filter === 'all' ? st.segOn : st.seg}>전체</button>
                     <button onClick={() => setFilter('unmatched')} style={filter === 'unmatched' ? st.segOn : st.seg}>미매칭</button>
