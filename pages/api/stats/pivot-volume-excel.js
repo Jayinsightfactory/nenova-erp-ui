@@ -18,7 +18,7 @@ const FLOWER_PREFIX = {
 const DAY_ORDER = { '목': 0, '금': 1, '토': 2, '일': 3, '화': 4, '수': 5, '월': 6 };
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
-const COUNTRY_ONLY_SHEETS = new Set(['태국', '호주', '네덜란드']);
+const COUNTRY_ONLY_SHEETS = new Set(['중국', '태국', '호주', '네덜란드']);
 const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
 const BORDER = {
   top: { style: 'thin', color: { rgb: 'C8C8C8' } },
