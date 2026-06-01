@@ -18,6 +18,7 @@ const FLOWER_PREFIX = {
 const DAY_ORDER = { '목': 0, '금': 1, '토': 2, '일': 3, '화': 4, '수': 5, '월': 6 };
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
+const COUNTRY_ONLY_SHEETS = new Set(['태국', '호주', '네덜란드']);
 const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
 const BORDER = {
   top: { style: 'thin', color: { rgb: 'C8C8C8' } },
@@ -71,6 +72,15 @@ function normalizeVolumeFlower(flower) {
   const raw = String(flower || '').trim();
   if (/루스커스|ruscus|수국|hydrangea/i.test(raw)) return '수국';
   return raw;
+}
+
+function normalizeCountryName(country) {
+  return String(country || '').replace(/\s+/g, '').trim();
+}
+
+function countryOnlySheetName(country) {
+  const normalized = normalizeCountryName(country);
+  return COUNTRY_ONLY_SHEETS.has(normalized) ? normalized : '';
 }
 
 function isAlstroRow(row) {
@@ -326,9 +336,18 @@ export default withAuth(async function handler(req, res) {
     (data.rows || [])
       .filter(row => n(row.totalOrder) > 0 || n(row.totalIncoming) > 0)
       .forEach(row => {
+        const countrySheet = countryOnlySheetName(row.country);
         const flower = normalizeVolumeFlower(row.flower);
-        const key = `${row.country || ''}|${flower || ''}`;
-        if (!groups.has(key)) groups.set(key, { country: row.country, flower, rows: [] });
+        const key = countrySheet ? `country:${countrySheet}` : `${row.country || ''}|${flower || ''}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            country: row.country,
+            flower: countrySheet || flower,
+            sheetNameBase: countrySheet,
+            countryOnly: !!countrySheet,
+            rows: [],
+          });
+        }
         groups.get(key).rows.push(row);
       });
 
@@ -336,9 +355,13 @@ export default withAuth(async function handler(req, res) {
     for (const group of groups.values()) {
       const sheetRows = group.rows
         .filter(row => n(row.totalOrder) > 0)
-        .sort((a, b) => String(a.prodName).localeCompare(String(b.prodName)));
+        .sort((a, b) => group.countryOnly
+          ? `${normalizeVolumeFlower(a.flower)}${a.prodName}`.localeCompare(`${normalizeVolumeFlower(b.flower)}${b.prodName}`)
+          : String(a.prodName).localeCompare(String(b.prodName)));
       if (!sheetRows.length) continue;
-      const sheetName = makePivotVolumeSheetName(group.country, group.flower, usedSheetNames);
+      const sheetName = group.sheetNameBase
+        ? makePivotVolumeSheetName(group.sheetNameBase, '', usedSheetNames)
+        : makePivotVolumeSheetName(group.country, group.flower, usedSheetNames);
       const ws = makeSheet(sheetRows, customers, farms, {
         orderYear: data.orderYear,
         weekLabel,
