@@ -91,6 +91,7 @@ export default function DistributeImport() {
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [applyResult, setApplyResult] = useState(null);
   const [filter, setFilter] = useState('apply');
   const [viewMode, setViewMode] = useState('pivot');
 
@@ -114,10 +115,14 @@ export default function DistributeImport() {
     if (qWeek) weekInput.setValue(String(qWeek));
   }, [router.isReady, router.query.week]);
 
-  const handlePreview = async () => {
+  const handlePreview = async (options = {}) => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
-    setLoading(true); setError(''); setMessage(''); setPreview(null);
+    setLoading(true);
+    setError('');
+    if (!options.preserveMessage) setMessage('');
+    if (!options.preserveApplyResult) setApplyResult(null);
+    setPreview(null);
     try {
       const form = new FormData();
       form.append('week', weekInput.value);
@@ -128,9 +133,10 @@ export default function DistributeImport() {
       setPreview(data);
       setFilter('apply');
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
-      const orderChanges = (data.changedRows || []).filter(orderChanged).length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
-      setMessage(`검증 완료: 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
+      if (!options.preserveMessage) {
+        setMessage(`검증 완료: 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -152,6 +158,14 @@ export default function DistributeImport() {
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
     if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}`)) return;
     setApplying(true); setError(''); setMessage('');
+    setApplyResult({
+      running: true,
+      logs: [
+        `${preview.week}차 일괄 주문등록+분배 적용 시작`,
+        `적용대상 ${applyRows.length}건을 서버 트랜잭션으로 처리 중입니다.`,
+      ],
+      appliedRows: [],
+    });
     try {
       const res = await fetch('/api/shipment/distribute-import-apply', {
         method: 'POST',
@@ -160,8 +174,9 @@ export default function DistributeImport() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '적용 실패');
+      setApplyResult(data);
       setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문삭제 ${data.orderDeletedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건`);
-      await handlePreview();
+      await handlePreview({ preserveMessage: true, preserveApplyResult: true });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -284,6 +299,10 @@ export default function DistributeImport() {
                 </div>
               )}
             </div>
+
+            {applyResult && (
+              <ApplyResultLog result={applyResult} />
+            )}
           </>
         )}
       </div>
@@ -407,6 +426,57 @@ function PivotComparison({ model }) {
   );
 }
 
+function ApplyResultLog({ result }) {
+  const rows = result.appliedRows || [];
+  return (
+    <div style={st.panel}>
+      <div style={st.panelHead}>
+        <strong>적용 결과 로그</strong>
+        <span style={{ fontSize: 12, color: result.running ? '#b45309' : '#166534', fontWeight: 800 }}>
+          {result.running ? '처리 중' : `적용 ${fmt(result.appliedCount)}건 / 분배 ${fmt(result.shipmentChangedCount)}건`}
+        </span>
+      </div>
+      <div style={st.applyLogGrid}>
+        <div style={st.applyLogBox}>
+          {(result.logs || []).map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+        <div style={st.applyTableWrap}>
+          <table style={st.table}>
+            <thead>
+              <tr>
+                <th>업체</th>
+                <th>품목</th>
+                <th>주문처리</th>
+                <th>분배처리</th>
+                <th>분배 전</th>
+                <th>분배 후</th>
+                <th>출고일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.running ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>서버 적용 결과를 기다리는 중입니다.</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>적용된 행이 없습니다.</td></tr>
+              ) : rows.slice(0, 1000).map((r, i) => (
+                <tr key={`${r.key || i}-${r.shipmentDetailKey || ''}`}>
+                  <td>{r.custName}</td>
+                  <td>{r.displayName || r.prodName}</td>
+                  <td>{r.orderAction}</td>
+                  <td style={{ color: r.shipmentChanged ? '#15803d' : '#64748b', fontWeight: r.shipmentChanged ? 800 : 500 }}>{r.shipmentAction}</td>
+                  <td>{fmt(r.beforeQty)}</td>
+                  <td>{fmt(r.afterQty)}</td>
+                  <td>{r.shipDate || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Kpi({ label, value, warn, danger }) {
   return (
     <div style={{ ...st.kpi, borderColor: danger ? '#ef4444' : warn ? '#f59e0b' : '#dbe3ef' }}>
@@ -454,6 +524,9 @@ const st = {
   panel: { border: '1px solid #dbe3ef', borderRadius: 8, background: '#fff', overflow: 'hidden' },
   panelHead: { minHeight: 42, padding: '0 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logBox: { padding: 12, height: 220, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55, background: '#0f172a', color: '#e2e8f0' },
+  applyLogGrid: { display: 'grid', gridTemplateColumns: 'minmax(320px, 0.75fr) minmax(520px, 1.25fr)', gap: 0 },
+  applyLogBox: { padding: 12, maxHeight: 300, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55, background: '#0f172a', color: '#e2e8f0', borderRight: '1px solid #334155' },
+  applyTableWrap: { maxHeight: 300, overflow: 'auto' },
   tableWrap: { height: 220, overflow: 'auto' },
   tableWrapLarge: { maxHeight: 560, overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
