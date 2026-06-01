@@ -36,6 +36,7 @@ export default function OrderNew() {
   const [selectedGroup, setSelectedGroup] = useState(null); // { country, flower } 또는 null
   const [prodSearch, setProdSearch] = useState('');      // 중간 패널 검색창
   const [prodLoading, setProdLoading] = useState(false); // 품목 로딩 중
+  const [collapsedCountries, setCollapsedCountries] = useState(new Set());
 
   // 수량: { prodKey: { box, bunch, steam } }
   const [quantities, setQuantities] = useState({});
@@ -113,13 +114,15 @@ export default function OrderNew() {
   useEffect(() => {
     apiGet('/api/products/search', { groupsOnly: '1' }).then(d => {
       const groups = d.groups || [];
-      setProdGroups(groups.map(g => ({
+      const normalizedGroups = groups.map(g => ({
         key: g.country + '|' + g.flower,
         label: g.label,
         country: g.country,
         flower: g.flower,
         prodCount: g.prodCount,
-      })));
+      }));
+      setProdGroups(normalizedGroups);
+      setCollapsedCountries(new Set(normalizedGroups.map(g => g.country || '기타')));
     }).catch(() => {});
   }, []);
 
@@ -141,6 +144,14 @@ export default function OrderNew() {
   const filteredGroups = groupSearch
     ? prodGroups.filter(g => g.label.includes(groupSearch) || g.country.includes(groupSearch) || g.flower.includes(groupSearch))
     : prodGroups;
+
+  const toggleCountry = (country) => {
+    setCollapsedCountries(prev => {
+      const next = new Set(prev);
+      next.has(country) ? next.delete(country) : next.add(country);
+      return next;
+    });
+  };
 
   // ── 필터된 품목 (중간 패널 - 검색어만 적용, 그룹은 이미 서버에서 필터됨)
   const filteredProds = prodList.filter(p =>
@@ -173,6 +184,15 @@ export default function OrderNew() {
     groupTotals[g.key] = total;
   });
 
+  const groupedFilteredGroups = Object.values(filteredGroups.reduce((acc, g) => {
+    const country = g.country || '기타';
+    if (!acc[country]) acc[country] = { country, groups: [], total: 0, count: 0 };
+    acc[country].groups.push(g);
+    acc[country].total += groupTotals[g.key] || 0;
+    acc[country].count += g.prodCount || 0;
+    return acc;
+  }, {})).sort((a, b) => a.country.localeCompare(b.country));
+
   // ── 주문 내역서 — quantities에서 직접 계산 (prodList 불필요)
   const orderSummary = Object.entries(quantities)
     .filter(([, q]) => (q.box||0) > 0 || (q.bunch||0) > 0 || (q.steam||0) > 0)
@@ -198,6 +218,7 @@ export default function OrderNew() {
     setSelectedCust(null); setCustSearch('');
     setQuantities({}); weekInput.setValue('');
     setGroupSearch(''); setProdSearch('');
+    setCollapsedCountries(new Set());
     setSelectedGroup(null); setProdList([]); setErr(''); setSuccessMsg('');
   };
 
@@ -542,26 +563,47 @@ export default function OrderNew() {
                     {totalQty > 0 ? totalQty.toFixed(2) : '0.00'}
                   </td>
                 </tr>
-                {filteredGroups.map(g => {
-                  const total = groupTotals[g.key] || 0;
-                  const isSelected = selectedGroup?.key === g.key;
-                  return (
+                {groupedFilteredGroups.map(group => {
+                  const isCollapsed = !groupSearch && collapsedCountries.has(group.country);
+                  return [
                     <tr
-                      key={g.key}
-                      onClick={() => { const next = isSelected ? null : g; loadGroupProds(next); }}
+                      key={`country-${group.country}`}
+                      onClick={() => toggleCountry(group.country)}
                       style={{
                         cursor: 'pointer',
-                        background: isSelected ? 'var(--blue-sel)' : total > 0 ? '#FFFFD0' : undefined,
+                        background: group.total > 0 ? '#FFF4C8' : '#E8EEF4',
                       }}
                     >
-                      <td style={{ color: total > 0 ? '#996600' : 'var(--text2)', fontWeight: total > 0 ? 'bold' : 'normal', fontSize: 11 }}>
-                        {g.label} <span style={{color:'var(--text3)',fontSize:10}}>({g.prodCount})</span>
+                      <td style={{ color: group.total > 0 ? '#996600' : 'var(--text1)', fontWeight: 'bold', fontSize: 11 }}>
+                        {isCollapsed ? '▶' : '∨'} {group.country}
+                        <span style={{color:'var(--text3)',fontSize:10}}> ({group.groups.length}묶음/{group.count})</span>
                       </td>
-                      <td className="num" style={{ color: total > 0 ? '#996600' : 'var(--text3)', fontWeight: total > 0 ? 'bold' : 'normal', fontSize: 11 }}>
-                        {total > 0 ? total.toFixed(2) : '0.00'}
+                      <td className="num" style={{ color: group.total > 0 ? '#996600' : 'var(--text3)', fontWeight: 'bold', fontSize: 11 }}>
+                        {group.total > 0 ? group.total.toFixed(2) : '0.00'}
                       </td>
-                    </tr>
-                  );
+                    </tr>,
+                    ...(!isCollapsed ? group.groups.map(g => {
+                      const total = groupTotals[g.key] || 0;
+                      const isSelected = selectedGroup?.key === g.key;
+                      return (
+                        <tr
+                          key={g.key}
+                          onClick={() => { const next = isSelected ? null : g; loadGroupProds(next); }}
+                          style={{
+                            cursor: 'pointer',
+                            background: isSelected ? 'var(--blue-sel)' : total > 0 ? '#FFFFD0' : undefined,
+                          }}
+                        >
+                          <td style={{ color: total > 0 ? '#996600' : 'var(--text2)', fontWeight: total > 0 ? 'bold' : 'normal', fontSize: 11, paddingLeft: 18 }}>
+                            {g.flower || '(분류없음)'} <span style={{color:'var(--text3)',fontSize:10}}>({g.prodCount})</span>
+                          </td>
+                          <td className="num" style={{ color: total > 0 ? '#996600' : 'var(--text3)', fontWeight: total > 0 ? 'bold' : 'normal', fontSize: 11 }}>
+                            {total > 0 ? total.toFixed(2) : '0.00'}
+                          </td>
+                        </tr>
+                      );
+                    }) : []),
+                  ];
                 })}
               </tbody>
               <tfoot>

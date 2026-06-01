@@ -35,6 +35,7 @@ const MENU_ITEMS = [
       { href: '/incoming-price',      labelKey: '입고단가/송금', popup: false },
       { href: '/freight',             labelKey: '운송기준원가', popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
+      { href: '/shipment/distribute-import', labelKey: '출고분배 엑셀업로드', popup: false },
       { href: '/shipment/fix-status',    labelKey: '차수 확정 현황', popup: false },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
       { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },

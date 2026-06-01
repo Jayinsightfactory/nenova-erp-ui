@@ -141,6 +141,7 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
 
 export default function Pivot() {
   const { t } = useLang();
+  const yearInput = useYearInput(new Date().getFullYear().toString());
   const weekStartInput = useWeekInput('');
   const weekEndInput   = useWeekInput('');
   const [custFilter, setCustFilter] = useState('');
@@ -214,6 +215,7 @@ export default function Pivot() {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
     setLoading(true); setErr('');
     apiGet('/api/stats/pivot-data', {
+      orderYear: yearInput.value,
       weekStart: weekStartInput.value,
       weekEnd: weekEndInput.value || weekStartInput.value,
     })
@@ -266,6 +268,36 @@ export default function Pivot() {
     const blob = new Blob(['\uFEFF'+csv],{type:'text/csv'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=`Pivot통계_${weekStartInput.value}.csv`; a.click();
+  };
+
+  const handleVolumeExcel = async () => {
+    if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
+    setErr('');
+    const qs = new URLSearchParams({
+      orderYear: yearInput.value,
+      weekStart: weekStartInput.value,
+      weekEnd: weekEndInput.value || weekStartInput.value,
+    });
+    const res = await fetch(`/api/stats/pivot-volume-excel?${qs.toString()}`);
+    if (!res.ok) {
+      let message = '물량표 다운로드 실패';
+      try {
+        const d = await res.json();
+        message = d.error || message;
+      } catch {}
+      setErr(message);
+      return;
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const encoded = cd.match(/filename\*=UTF-8''([^;]+)/)?.[1];
+    const fallback = `${yearInput.value}_${weekStartInput.value}_통합물량표.xlsx`;
+    const fileName = encoded ? decodeURIComponent(encoded) : fallback;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   // 그룹핑
@@ -438,6 +470,7 @@ export default function Pivot() {
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
       {/* 툴바 */}
       <div className="filter-bar">
+        <YearInput yearInput={yearInput} label="주문년도" />
         <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
           onClick={() => { weekStartInput.prevWeek(); weekEndInput.prevWeek(); }}
           title="범위 전체 주차-1">&lt;&lt;</button>
@@ -457,6 +490,7 @@ export default function Pivot() {
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
+        <button className="btn btn-success" onClick={handleVolumeExcel}>물량표 다운받기</button>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>
             {loading ? '⏳ 로딩 중...' : t('새로고침')}
@@ -596,11 +630,11 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
-                {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
-                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
-                {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
-                {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
-                {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{weekStartInput.value?.split('-')[0]||'2026'}</th>}
+                {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
               </tr>
               {/* 2행: 주문차수 */}
               <tr style={{background:'#C8D4E4'}}>
