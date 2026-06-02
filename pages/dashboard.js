@@ -129,6 +129,29 @@ export default function Dashboard() {
   const kpi = data?.kpi || {};
   const salesByArea = data?.salesByArea || [];
   const topCustomers = data?.topCustomers || [];
+  const favoriteGridStyle = {
+    padding: 12,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, 176px)',
+    gap: 10,
+    alignItems: 'stretch',
+    justifyContent: 'start',
+  };
+  const favoriteButtonStyle = {
+    width: '100%',
+    height: 92,
+    boxSizing: 'border-box',
+    textAlign: 'left',
+    padding: '12px 36px 11px 14px',
+    border: '1px solid #dbe3ea',
+    borderRadius: 8,
+    background: '#fff',
+    boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+    cursor: 'pointer',
+    display: 'grid',
+    gridTemplateRows: '1fr auto',
+    overflow: 'hidden',
+  };
 
   if (loading) return <div className="skeleton" style={{ height: 200 }}></div>;
 
@@ -162,23 +185,22 @@ export default function Dashboard() {
             즐겨찾는 메뉴 추가하기
           </button>
         </div>
-        <div style={{
-          padding: 12,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-          gap: 10,
-        }}>
+        <div style={favoriteGridStyle}>
           {menuFavorites.length === 0 ? (
             <button
               onClick={() => setMenuPickerOpen(true)}
               style={{
-                minHeight: 86,
+                width: 176,
+                height: 92,
+                boxSizing: 'border-box',
                 border: '1px dashed #93c5fd',
                 borderRadius: 8,
                 background: '#eff6ff',
                 color: '#1d4ed8',
                 fontWeight: 900,
                 cursor: 'pointer',
+                padding: '0 14px',
+                lineHeight: 1.25,
               }}
             >
               + 즐겨찾는 메뉴 추가하기
@@ -192,23 +214,13 @@ export default function Dashboard() {
               <div key={fav.FavoriteKey} style={{ position: 'relative' }}>
                 <button
                   onClick={() => openWorkMenu({ ...menu, ...fav.data, label })}
-                  style={{
-                    width: '100%',
-                    minHeight: 86,
-                    textAlign: 'left',
-                    padding: '12px 14px',
-                    border: '1px solid #dbe3ea',
-                    borderRadius: 8,
-                    background: '#fff',
-                    boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
-                    cursor: 'pointer',
-                  }}
+                  style={favoriteButtonStyle}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <span style={{ fontSize: 22 }}>{icon}</span>
-                    <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>{label}</span>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 }}>
+                    <span style={{ fontSize: 22, lineHeight: 1, flex: '0 0 auto' }}>{icon}</span>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a', lineHeight: 1.22, wordBreak: 'keep-all' }}>{label}</span>
                   </div>
-                  <div style={{ marginTop: 7, fontSize: 11, color: '#64748b' }}>
+                  <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {t(group)} · 새 창으로 열기
                   </div>
                 </button>
