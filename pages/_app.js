@@ -9,6 +9,7 @@ const NO_LAYOUT = [
   '/incoming-price',
   '/admin/category-overrides',
   '/orders/paste',
+  '/orders/paste-template',
   '/orders/mapping-status',
   '/orders/kakao-audit',
 ];

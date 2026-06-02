@@ -1736,6 +1736,16 @@ export default function PasteOrderPage() {
     if (!popup) window.location.href = `/shipment/week-pivot${suffix}`;
   };
 
+  const openTemplateWindow = () => {
+    const suffix = week ? `?week=${encodeURIComponent(week)}&popup=1` : '?popup=1';
+    const popup = window.open(
+      `/orders/paste-template${suffix}`,
+      'pasteOrderTemplatePopup',
+      'width=1440,height=920,left=30,top=20,resizable=yes,scrollbars=yes'
+    );
+    if (!popup) window.location.href = `/orders/paste-template${suffix}`;
+  };
+
   const openMappingStatus = () => {
     const snapshot = {
       savedAt: new Date().toISOString(),
@@ -2151,6 +2161,13 @@ export default function PasteOrderPage() {
         <div style={{ border: '1px solid #d7ccc8', borderRadius: 8, background: '#fffdf8', padding: '10px 12px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
             <strong style={{ color: '#4e342e', fontSize: 13 }}>주문 즐겨찾기</strong>
+            <button
+              onClick={openTemplateWindow}
+              style={{ padding: '5px 12px', border: '1px solid #4527a0', borderRadius: 5, background: '#5e35b1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              title="큰 새 창에서 원본 차수와 등록대상 차수를 따로 선택하고 즐겨찾기를 관리합니다."
+            >
+              크게 보기 / 대상차수 선택
+            </button>
             <button
               onClick={loadSourceOrdersForTemplate}
               disabled={sourceOrderLoading || !week}
