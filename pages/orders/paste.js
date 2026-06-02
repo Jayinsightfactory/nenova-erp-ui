@@ -1976,6 +1976,23 @@ export default function PasteOrderPage() {
             📋 붙여넣기 주문등록
           </h2>
           <button
+            onClick={openTemplateWindow}
+            style={{
+              padding: '10px 22px',
+              background: '#5e35b1',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(94,53,177,0.25)',
+            }}
+            title="새 창에서 원본 차수 주문 불러오기, 즐겨찾기 저장/수정, 등록대상 차수 주문등록을 처리합니다."
+          >
+            주문즐겨찾기
+          </button>
+          <button
             onClick={openWeekPivot}
             style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
@@ -2158,154 +2175,7 @@ export default function PasteOrderPage() {
           )}
         </div>
 
-        <div style={{ border: '1px solid #d7ccc8', borderRadius: 8, background: '#fffdf8', padding: '10px 12px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <strong style={{ color: '#4e342e', fontSize: 13 }}>주문 즐겨찾기</strong>
-            <button
-              onClick={openTemplateWindow}
-              style={{ padding: '5px 12px', border: '1px solid #4527a0', borderRadius: 5, background: '#5e35b1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-              title="큰 새 창에서 원본 차수와 등록대상 차수를 따로 선택하고 즐겨찾기를 관리합니다."
-            >
-              크게 보기 / 대상차수 선택
-            </button>
-            <button
-              onClick={loadSourceOrdersForTemplate}
-              disabled={sourceOrderLoading || !week}
-              style={{ padding: '5px 12px', border: '1px solid #8d6e63', borderRadius: 5, background: sourceOrderLoading ? '#d7ccc8' : '#6d4c41', color: '#fff', fontSize: 12, fontWeight: 700, cursor: sourceOrderLoading ? 'wait' : 'pointer' }}
-            >
-              {sourceOrderLoading ? '불러오는 중...' : '선택차수 주문 불러오기'}
-            </button>
-            {sourceOrdersForTemplate.length > 0 && (
-              <select
-                value=""
-                onChange={e => {
-                  const selected = sourceOrdersForTemplate.find(o => String(o.id) === e.target.value);
-                  setTemplateDraftFromOrder(selected);
-                }}
-                style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12, background: '#fff' }}
-              >
-                <option value="">기존 주문 선택</option>
-                {sourceOrdersForTemplate.map(o => (
-                  <option key={o.id} value={o.id}>
-                    {o.custName} / {formatWeekDisplay(o.week)} / {o.items?.length || 0}품목
-                  </option>
-                ))}
-              </select>
-            )}
-            <select
-              value={templateDraft?.favoriteKey || ''}
-              onChange={e => loadTemplateDraft(e.target.value)}
-              style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12, background: '#fff' }}
-            >
-              <option value="">저장 즐겨찾기 선택</option>
-              {orderTemplates.map(f => (
-                <option key={f.FavoriteKey} value={f.FavoriteKey}>
-                  {f.FavName} / {f.data?.custName || ''} / {f.data?.items?.length || 0}품목
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={loadOrderTemplates}
-              style={{ padding: '5px 10px', border: '1px solid #bcaaa4', borderRadius: 5, background: '#fff', color: '#5d4037', fontSize: 12, cursor: 'pointer' }}
-            >
-              새로고침
-            </button>
-          </div>
-
-          {templateDraft && (
-            <div style={{ borderTop: '1px solid #efebe9', paddingTop: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                <input
-                  value={templateDraft.name || ''}
-                  onChange={e => setTemplateDraft(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
-                  placeholder="즐겨찾기 이름"
-                  style={{ minWidth: 220, padding: '5px 8px', border: '1px solid #bcaaa4', borderRadius: 5, fontSize: 12 }}
-                />
-                <span style={{ fontSize: 12, color: '#5d4037', fontWeight: 700 }}>{templateDraft.custName}</span>
-                {templateDraft.sourceWeek && (
-                  <span style={{ fontSize: 11, color: '#795548', background: '#efebe9', borderRadius: 10, padding: '2px 8px' }}>
-                    원본 {formatWeekDisplay(templateDraft.sourceWeek)}
-                  </span>
-                )}
-                <span style={{ fontSize: 11, color: '#1a237e', background: '#e8eaf6', borderRadius: 10, padding: '2px 8px' }}>
-                  등록대상 {formatWeekDisplay(week)}
-                </span>
-                {templateDraft.resultMsg && (
-                  <span style={{ fontSize: 12, color: templateDraft.resultMsg.includes('실패') ? '#c62828' : '#2e7d32', fontWeight: 700 }}>
-                    {templateDraft.resultMsg}
-                  </span>
-                )}
-              </div>
-              <div style={{ overflowX: 'auto', maxHeight: 260, border: '1px solid #efebe9' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: '#efebe9' }}>
-                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>품목</th>
-                      <th style={{ padding: '5px 8px' }}>국가</th>
-                      <th style={{ padding: '5px 8px' }}>꽃</th>
-                      <th style={{ padding: '5px 8px' }}>수량</th>
-                      <th style={{ padding: '5px 8px' }}>단위</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>비고</th>
-                      <th style={{ padding: '5px 8px' }}>삭제</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(templateDraft.items || []).map((it, i) => (
-                      <tr key={`${it.prodKey}-${i}`} style={{ borderBottom: '1px solid #f5eee9' }}>
-                        <td style={{ padding: '4px 8px', fontWeight: 600 }}>{it.displayName || it.prodName}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c' }}>{it.counName || ''}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2' }}>{it.flowerName || ''}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={it.qty}
-                            onChange={e => updateTemplateItem(i, { qty: parseFloat(e.target.value) || 0 })}
-                            style={{ width: 72, padding: '2px 4px', border: '1px solid #bcaaa4', borderRadius: 4, textAlign: 'right' }}
-                          />
-                        </td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                          <select
-                            value={normalizeOrderUnit(it.unit)}
-                            onChange={e => updateTemplateItem(i, { unit: e.target.value })}
-                            style={{ padding: '2px 4px', border: '1px solid #bcaaa4', borderRadius: 4 }}
-                          >
-                            <option>박스</option><option>단</option><option>송이</option>
-                          </select>
-                        </td>
-                        <td style={{ padding: '4px 8px', color: '#6d4c41' }}>{it.descr || ''}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => setTemplateDraft(prev => prev ? ({ ...prev, items: prev.items.filter((_, idx) => idx !== i) }) : prev)}
-                            style={{ padding: '1px 7px', border: '1px solid #d7ccc8', borderRadius: 4, background: '#fff', color: '#8d6e63', cursor: 'pointer' }}
-                          >
-                            삭제
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8, flexWrap: 'wrap' }}>
-                <button
-                  onClick={saveTemplateDraft}
-                  disabled={templateSaving || !(templateDraft.items || []).length}
-                  style={{ padding: '7px 16px', background: templateSaving ? '#bbb' : '#795548', color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: templateSaving ? 'wait' : 'pointer' }}
-                >
-                  수정 저장
-                </button>
-                <button
-                  onClick={registerTemplateDraft}
-                  disabled={templateSaving || !week || !(templateDraft.items || []).length}
-                  style={{ padding: '7px 16px', background: templateSaving ? '#bbb' : '#2e7d32', color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: templateSaving ? 'wait' : 'pointer' }}
-                >
-                  선택차수 주문등록하기
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* 주문즐겨찾기 작업은 상단 큰 버튼으로 여는 새 창에서 처리합니다. */}
 
         {stockDraft && (
           <StockDraftPanel
