@@ -433,6 +433,7 @@ function ApplyResultLog({ result }) {
     { label: '주문수량 수정', value: result.orderUpdatedCount || 0, tone: '#b45309' },
     { label: '주문 삭제', value: result.orderDeletedCount || 0, tone: '#b91c1c' },
     { label: '분배 입력/수정', value: result.shipmentChangedCount || 0, tone: '#15803d' },
+    { label: '이미 동일해서 건너뜀', value: result.skippedNoChangeCount || 0, tone: '#64748b' },
   ];
   return (
     <div style={st.panel}>
@@ -557,7 +558,7 @@ const st = {
   panelHead: { minHeight: 42, padding: '0 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logBox: { padding: 12, height: 220, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55, background: '#0f172a', color: '#e2e8f0' },
   applyResultBody: { padding: 12 },
-  applySummaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 8, marginBottom: 10 },
+  applySummaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 8, marginBottom: 10 },
   applySummaryCard: { border: '1px solid #dbe3ef', borderRadius: 8, background: '#f8fafc', padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 },
   applyStepBox: { border: '1px solid #fde68a', borderRadius: 8, background: '#fffbeb', color: '#92400e', padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 },
   applyTableWrap: { maxHeight: 340, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 },
