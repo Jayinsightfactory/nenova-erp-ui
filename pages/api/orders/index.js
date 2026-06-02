@@ -354,7 +354,7 @@ async function createOrder(req, res) {
           prodKey = pr.recordset[0].ProdKey;
         }
         const prodInfo = await tQuery(
-          `SELECT OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+          `SELECT ProdName, FlowerName, OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
                   ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
              FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
           { pk: { type: sql.Int, value: prodKey } }
@@ -417,7 +417,17 @@ async function createOrder(req, res) {
               { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
             );
             changedProdKeys.add(Number(prodKey));
-            detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'DELETED' });
+            detailResults.push({
+              prodKey,
+              prodName: item.prodName || prod.ProdName || '',
+              qty,
+              unit,
+              status: 'DELETED',
+              previousQty: oldOutQty,
+              deltaQty: outQty,
+              finalQty: 0,
+              orderDetailKey: existOd.recordset[0].OrderDetailKey,
+            });
             continue;
           }
           // delta=true 면 기존값에 더하기, 기본은 덮어쓰기
@@ -455,7 +465,17 @@ async function createOrder(req, res) {
             uid
           );
           changedProdKeys.add(Number(prodKey));
-          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: isDelta ? 'ADDED' : 'UPDATED' });
+          detailResults.push({
+            prodKey,
+            prodName: item.prodName || prod.ProdName || '',
+            qty,
+            unit,
+            status: isDelta ? (outQty < 0 ? 'CANCELLED' : 'ADDED') : 'UPDATED',
+            previousQty: oldOutQty,
+            deltaQty: outQty,
+            finalQty: isDelta ? oldOutQty + outQty : outQty,
+            orderDetailKey: existOd.recordset[0].OrderDetailKey,
+          });
         } else if (qty > 0) {
           const newDetailKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
             await appLog('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
@@ -485,7 +505,17 @@ async function createOrder(req, res) {
           await syncKeyNumbering(tQuery, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
           await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid);
           changedProdKeys.add(Number(prodKey));
-          detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
+          detailResults.push({
+            prodKey,
+            prodName: item.prodName || prod.ProdName || '',
+            qty,
+            unit,
+            status: 'OK',
+            previousQty: 0,
+            deltaQty: outQty,
+            finalQty: outQty,
+            orderDetailKey: newDetailKey,
+          });
         } else if (qty < 0) {
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
@@ -499,7 +529,7 @@ async function createOrder(req, res) {
       success: true,
       source: 'real_db',
       orderMasterKey,
-      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length}개 품목`,
+      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED').length}개 품목`,
       warning: stockWarning?.message || null,
       results,
     });

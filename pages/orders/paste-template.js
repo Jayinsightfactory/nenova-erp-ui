@@ -79,22 +79,56 @@ function normalizeWeekInput(value) {
   return raw;
 }
 
+function shiftWeekByOrder(value, delta) {
+  const raw = normalizeWeekInput(value) || getCurrentWeek();
+  let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const hasYear = !!m;
+  if (!m) m = raw.match(/^(\d{2})-(\d{2})$/);
+  if (!m) return raw;
+
+  let year = hasYear ? parseInt(m[1], 10) : null;
+  let week = parseInt(m[hasYear ? 2 : 1], 10) + delta;
+  const seq = parseInt(m[hasYear ? 3 : 2], 10);
+
+  if (week < 1) {
+    if (hasYear) { year -= 1; week = 52; }
+    else week = 1;
+  } else if (week > 52) {
+    if (hasYear) { year += 1; week = 1; }
+    else week = 52;
+  }
+
+  const body = `${String(week).padStart(2, '0')}-${String(seq).padStart(2, '0')}`;
+  return hasYear ? `${year}-${body}` : body;
+}
+
 function WeekInput({ label, value, onChange, weeks, accent }) {
   const listId = `${label.replace(/\s+/g, '-')}-weeks`;
+  const shift = (delta) => onChange(shiftWeekByOrder(value, delta));
   return (
     <label style={{ display: 'grid', gap: 5, minWidth: 180 }}>
       <span style={{ fontSize: 12, fontWeight: 800, color: accent }}>{label}</span>
-      <input
-        list={listId}
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', fontSize: 13, fontWeight: 700 }}
-      />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 28px', gap: 5 }}>
+        <input
+          list={listId}
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', fontSize: 13, fontWeight: 700, boxSizing: 'border-box' }}
+        />
+        <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 2 }}>
+          <button type="button" title="1차수 올리기" onClick={(e) => { e.preventDefault(); shift(1); }} style={{ border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 10, fontWeight: 900, lineHeight: 1, cursor: 'pointer' }}>▲</button>
+          <button type="button" title="1차수 내리기" onClick={(e) => { e.preventDefault(); shift(-1); }} style={{ border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 10, fontWeight: 900, lineHeight: 1, cursor: 'pointer' }}>▼</button>
+        </div>
+      </div>
       <datalist id={listId}>
         {weeks.map(w => <option key={w} value={w}>{formatWeekDisplay(w)}</option>)}
       </datalist>
     </label>
   );
+}
+
+function orderItemDisplayQty(item = {}) {
+  return Number(item.outQty ?? item.qty ?? item.boxQty ?? item.bunchQty ?? item.steamQty ?? 0);
 }
 
 export default function PasteTemplateWindow() {
@@ -111,6 +145,7 @@ export default function PasteTemplateWindow() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [registerResult, setRegisterResult] = useState(null);
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -150,6 +185,24 @@ export default function PasteTemplateWindow() {
     (draft?.items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0)
   ), [draft]);
 
+  const rememberWeekOption = (value) => {
+    const next = normalizeWeekInput(value);
+    if (!next || !/^(\d{4}-)?\d{2}-\d{2}$/.test(next)) return;
+    setWeeks(prev => prev.includes(next) ? prev : [next, ...prev]);
+  };
+
+  const changeSourceWeek = (value) => {
+    setSourceWeek(value);
+    rememberWeekOption(value);
+  };
+
+  const changeTargetWeek = (value) => {
+    setTargetWeek(value);
+    rememberWeekOption(value);
+    setRegisterResult(null);
+    setDraft(prev => prev ? ({ ...prev, resultMsg: '' }) : prev);
+  };
+
   const setDraftFromOrder = (order) => {
     if (!order) return;
     const items = (order.items || [])
@@ -164,6 +217,7 @@ export default function PasteTemplateWindow() {
       items,
       resultMsg: '',
     });
+    setRegisterResult(null);
     setSelectedFavoriteKey('');
     setStatus(`${order.custName || ''} 원본 주문 ${items.length}품목을 불러왔습니다.`);
   };
@@ -200,11 +254,13 @@ export default function PasteTemplateWindow() {
       items: (fav.data.items || []).map(it => ({ ...it, unit: normalizeOrderUnit(it.unit) })),
       resultMsg: '',
     });
+    setRegisterResult(null);
     setSelectedSourceId('');
     setStatus(`${fav.FavName} 즐겨찾기를 불러왔습니다.`);
   };
 
   const updateDraftItem = (idx, patch) => {
+    setRegisterResult(null);
     setDraft(prev => prev ? ({
       ...prev,
       items: prev.items.map((it, i) => i === idx ? { ...it, ...patch } : it),
@@ -213,6 +269,7 @@ export default function PasteTemplateWindow() {
   };
 
   const removeDraftItem = (idx) => {
+    setRegisterResult(null);
     setDraft(prev => prev ? ({ ...prev, items: prev.items.filter((_, i) => i !== idx), resultMsg: '' }) : prev);
   };
 
@@ -298,10 +355,55 @@ export default function PasteTemplateWindow() {
         source: 'paste-template',
       });
       if (!d.success) throw new Error(d.error || '주문등록 실패');
-      setDraft(prev => prev ? ({ ...prev, resultMsg: `주문등록 완료: OrderKey ${d.orderMasterKey}` }) : prev);
-      setStatus(`${draft.custName} / ${formatWeekDisplay(registerWeek)} 주문등록 완료`);
+
+      const verify = await apiGet('/api/orders', { custName: draft.custName, week: registerWeek });
+      const verifiedOrder = (verify.orders || []).find(o => Number(o.custKey) === Number(draft.custKey)) || null;
+      const resultRows = (d.results || []).map(r => {
+        const draftItem = payload.items.find(it => Number(it.prodKey) === Number(r.prodKey)) || {};
+        const verifiedItem = (verifiedOrder?.items || []).find(it => Number(it.prodKey) === Number(r.prodKey)) || null;
+        const previousQty = Number(r.previousQty ?? 0);
+        const deltaQty = Number(r.deltaQty ?? draftItem.qty ?? r.qty ?? 0);
+        const finalQty = Number(r.finalQty ?? (previousQty + deltaQty));
+        const verifiedQty = verifiedItem ? orderItemDisplayQty(verifiedItem) : null;
+        const deleteVerified = Math.abs(finalQty) < 0.0001 && !verifiedItem && r.status === 'DELETED';
+        return {
+          prodKey: r.prodKey,
+          prodName: draftItem.prodName || r.prodName || draftItem.displayName || '',
+          displayName: draftItem.displayName || r.prodName || draftItem.prodName || '',
+          unit: normalizeOrderUnit(r.unit || draftItem.unit),
+          status: r.status,
+          previousQty,
+          deltaQty,
+          finalQty,
+          verifiedQty,
+          ok: deleteVerified || (verifiedQty !== null && Math.abs(Number(verifiedQty) - Number(finalQty)) < 0.0001),
+        };
+      });
+      const okCount = resultRows.filter(r => r.ok).length;
+      setRegisterResult({
+        orderMasterKey: d.orderMasterKey,
+        week: registerWeek,
+        custName: draft.custName,
+        source: d.source || 'real_db',
+        message: d.message || '',
+        warning: d.warning || '',
+        verifiedOrder,
+        rows: resultRows,
+      });
+      setDraft(prev => prev ? ({ ...prev, resultMsg: `주문등록 완료: OrderKey ${d.orderMasterKey} · 전산조회 ${okCount}/${resultRows.length}개 일치` }) : prev);
+      setStatus(`${draft.custName} / ${formatWeekDisplay(registerWeek)} 주문등록 완료 · 전산조회 ${okCount}/${resultRows.length}개 일치`);
     } catch (e) {
       setDraft(prev => prev ? ({ ...prev, resultMsg: `주문등록 실패: ${e.message}` }) : prev);
+      setRegisterResult({
+        orderMasterKey: null,
+        week: registerWeek,
+        custName: draft.custName,
+        source: 'error',
+        message: `주문등록 실패: ${e.message}`,
+        warning: '',
+        verifiedOrder: null,
+        rows: [],
+      });
       setStatus(`주문등록 실패: ${e.message}`);
     } finally {
       setSaving(false);
@@ -338,7 +440,7 @@ export default function PasteTemplateWindow() {
                 {sourceLoading ? '불러오는 중' : '불러오기'}
               </button>
             </div>
-            <WeekInput label="원본 차수" value={sourceWeek} onChange={setSourceWeek} weeks={weeks} accent="#1d4ed8" />
+            <WeekInput label="원본 차수" value={sourceWeek} onChange={changeSourceWeek} weeks={weeks} accent="#1d4ed8" />
             <input
               value={sourceFilter}
               onChange={e => setSourceFilter(e.target.value)}
@@ -416,7 +518,7 @@ export default function PasteTemplateWindow() {
                 {draft?.sourceWeek && <span style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '4px 9px' }}>원본 {formatWeekDisplay(draft.sourceWeek)}</span>}
                 {draft && <span style={{ fontSize: 12, fontWeight: 800, color: '#0f766e', background: '#ccfbf1', borderRadius: 999, padding: '4px 9px' }}>{draft.items?.length || 0}품목 · 합계 {fmtQty(totalQty)}</span>}
               </div>
-              <WeekInput label="등록대상 차수" value={targetWeek} onChange={setTargetWeek} weeks={weeks} accent="#15803d" />
+              <WeekInput label="등록대상 차수" value={targetWeek} onChange={changeTargetWeek} weeks={weeks} accent="#15803d" />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button
@@ -500,20 +602,94 @@ export default function PasteTemplateWindow() {
             )}
           </div>
 
-          <div style={{ padding: 14, borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', background: '#f8fafc' }}>
-            <div style={{ fontSize: 12, color: '#475569' }}>
-              {draft?.resultMsg || '등록은 등록대상 차수에만 적용됩니다. 원본 차수와 즐겨찾기 내용은 주문등록 버튼만으로 변경되지 않습니다.'}
+          <div style={{ padding: 14, borderTop: '1px solid #e2e8f0', display: 'grid', gap: 10, background: '#f8fafc' }}>
+            {registerResult && <RegisterResultPanel result={registerResult} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 12, color: '#475569' }}>
+                {draft?.resultMsg || '등록은 등록대상 차수에만 적용됩니다. 원본 차수와 즐겨찾기 내용은 주문등록 버튼만으로 변경되지 않습니다.'}
+              </div>
+              <button
+                onClick={registerDraft}
+                disabled={saving || !draft?.items?.length || !targetWeek}
+                style={{ height: 38, padding: '0 18px', border: 'none', borderRadius: 7, background: saving || !draft?.items?.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}
+              >
+                등록대상 차수에 주문등록하기
+              </button>
             </div>
-            <button
-              onClick={registerDraft}
-              disabled={saving || !draft?.items?.length || !targetWeek}
-              style={{ height: 38, padding: '0 18px', border: 'none', borderRadius: 7, background: saving || !draft?.items?.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}
-            >
-              등록대상 차수에 주문등록하기
-            </button>
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+function statusLabel(status) {
+  if (status === 'OK') return '신규';
+  if (status === 'ADDED') return '추가';
+  if (status === 'CANCELLED') return '취소';
+  if (status === 'UPDATED') return '수정';
+  if (status === 'DELETED') return '삭제';
+  if (status === 'NOT_FOUND') return '품목없음';
+  return status || '';
+}
+
+function RegisterResultPanel({ result }) {
+  const rows = result.rows || [];
+  const okCount = rows.filter(r => r.ok).length;
+  const hasError = result.source === 'error' || /실패|오류/.test(result.message || '');
+  return (
+    <div style={{ border: `1px solid ${hasError ? '#fecaca' : '#bbf7d0'}`, borderRadius: 8, background: hasError ? '#fff1f2' : '#f0fdf4', overflow: 'hidden' }}>
+      <div style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
+        <div style={{ fontWeight: 900, color: hasError ? '#b91c1c' : '#166534' }}>
+          {hasError ? '주문등록 실패' : '주문등록 후 전산조회 확인'}
+        </div>
+        <div style={{ fontSize: 12, color: '#475569' }}>
+          {result.custName} · {formatWeekDisplay(result.week)} · {hasError ? result.message : `일치 ${okCount}/${rows.length}품목`}
+        </div>
+        {result.orderMasterKey && (
+          <div style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b', fontWeight: 800 }}>
+            OrderKey {result.orderMasterKey}
+          </div>
+        )}
+      </div>
+      {result.warning && (
+        <div style={{ padding: '7px 12px', fontSize: 12, color: '#92400e', background: '#fffbeb', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
+          {result.warning}
+        </div>
+      )}
+      {rows.length > 0 && (
+        <div style={{ maxHeight: 190, overflow: 'auto', background: '#fff' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#dcfce7' }}>
+              <tr>
+                <th style={{ padding: '7px 9px', textAlign: 'left' }}>품목</th>
+                <th style={{ padding: '7px 9px', width: 70 }}>구분</th>
+                <th style={{ padding: '7px 9px', width: 90 }}>기존</th>
+                <th style={{ padding: '7px 9px', width: 90 }}>이번등록</th>
+                <th style={{ padding: '7px 9px', width: 90 }}>최종</th>
+                <th style={{ padding: '7px 9px', width: 110 }}>전산조회</th>
+                <th style={{ padding: '7px 9px', width: 80 }}>확인</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => {
+                const deleted = r.status === 'DELETED' && r.verifiedQty === null;
+                return (
+                  <tr key={`${r.prodKey}-${idx}`} style={{ borderTop: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '7px 9px', fontWeight: 800 }}>{r.displayName || r.prodName}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'center', color: (r.status === 'DELETED' || r.status === 'CANCELLED') ? '#b91c1c' : '#166534', fontWeight: 800 }}>{statusLabel(r.status)}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'right' }}>{fmtQty(r.previousQty)} {r.unit}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'right', color: r.deltaQty < 0 ? '#b91c1c' : '#1d4ed8', fontWeight: 800 }}>{fmtQty(r.deltaQty)} {r.unit}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'right', fontWeight: 900 }}>{fmtQty(r.finalQty)} {r.unit}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'right' }}>{deleted ? '삭제 확인' : r.verifiedQty === null ? '미조회' : `${fmtQty(r.verifiedQty)} ${r.unit}`}</td>
+                    <td style={{ padding: '7px 9px', textAlign: 'center', color: r.ok ? '#166534' : '#b91c1c', fontWeight: 900 }}>{r.ok ? '일치' : '확인필요'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
