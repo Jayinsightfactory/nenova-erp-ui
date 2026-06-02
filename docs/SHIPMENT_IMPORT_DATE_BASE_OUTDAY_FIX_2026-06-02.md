@@ -137,4 +137,29 @@ Content-Type: application/json
 
 - `13a95d5` `fix: align shipment dates with ERP week calendar`
 - `8bca486` `docs: clarify ERP shipment date calendar`
+- `9750f0f` `fix: avoid outer reference aggregate in import preview`
 
+## 2026-06-02 추가 SQL 오류 조치
+
+오류:
+
+```text
+Multiple columns are specified in an aggregated expression containing an outer reference.
+If an expression being aggregated contains an outer reference, then that outer reference must be the only column referenced in the expression.
+```
+
+원인:
+
+- 엑셀 업로드 검증 SQL의 `OUTER APPLY` 안에서 `ShipmentDate`를 `SUM(CASE ...)`로 집계하면서 바깥쪽 `ShipmentDetail.ShipmentDtm`과 안쪽 `ShipmentDate.ShipmentDtm`을 동시에 비교했다.
+- SQL Server는 집계식 안에서 외부 참조 컬럼과 내부 컬럼을 함께 쓰는 형태를 허용하지 않는다.
+
+조치:
+
+- `ShipmentDate` 하위 집계는 내부 컬럼만 사용하도록 변경했다.
+- 내부 집계 결과로 `DateQty`, `DateRowCount`, `NullDateCount`, `MinShipmentDate`, `MaxShipmentDate`를 만든다.
+- 바깥 쿼리에서 `ShipmentDetail.ShipmentDtm`과 위 집계 결과를 비교해 출고일 문제 여부를 판단한다.
+
+운영 검증:
+
+- `2301카네이션물량표.xlsx`를 `23-01`로 업로드 검증 호출.
+- 결과: `success=true`, `rows=246`, `changedRows=3`, `applyRows=3`, `unmatched=0`.
