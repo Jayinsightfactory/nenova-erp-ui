@@ -38,6 +38,76 @@ async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) 
   throw lastErr || new Error(`${table} INSERT 재시도 실패`);
 }
 
+async function syncKeyNumbering(tQ, category, table, keyCol) {
+  const allowed = {
+    OrderMasterKey: ['OrderMaster', 'OrderMasterKey'],
+    OrderDetailKey: ['OrderDetail', 'OrderDetailKey'],
+    ShipmentMasterKey: ['ShipmentMaster', 'ShipmentKey'],
+    ShipmentDetailKey: ['ShipmentDetail', 'SdetailKey'],
+  };
+  const [safeTable, safeKeyCol] = allowed[category] || [];
+  if (safeTable !== table || safeKeyCol !== keyCol) throw new Error('invalid key numbering sync target');
+
+  await tQ(
+    `IF EXISTS (SELECT 1 FROM KeyNumbering WHERE Category=@cat)
+       UPDATE KeyNumbering
+          SET LastKeyNo = CASE WHEN LastKeyNo < x.MaxKey THEN x.MaxKey ELSE LastKeyNo END
+         FROM KeyNumbering
+         CROSS JOIN (SELECT ISNULL(MAX(${keyCol}),0) AS MaxKey FROM ${table}) x
+        WHERE Category=@cat
+     ELSE
+       INSERT INTO KeyNumbering (Category, LastKeyNo, Descr)
+       SELECT @cat, ISNULL(MAX(${keyCol}),0), '' FROM ${table}`,
+    { cat: { type: sql.NVarChar, value: category } }
+  );
+}
+
+function toOrderUnits(qty, unit, product = {}) {
+  const q = Number(qty || 0);
+  const b1b = Number(product.BunchOf1Box || 0);
+  const s1b = Number(product.SteamOf1Box || 0);
+  const outUnit = normalizeOrderUnit(product.OutUnit, unit || '박스');
+  const displayUnit = normalizeOrderUnit(unit, outUnit);
+
+  let box = 0;
+  let bunch = 0;
+  let steam = 0;
+  if (displayUnit === '단') {
+    bunch = q;
+    box = b1b > 0 ? q / b1b : 0;
+    steam = box > 0 && s1b > 0 ? box * s1b : 0;
+  } else if (displayUnit === '송이') {
+    steam = q;
+    box = s1b > 0 ? q / s1b : 0;
+    bunch = box > 0 && b1b > 0 ? box * b1b : 0;
+  } else {
+    box = q;
+    bunch = b1b > 0 ? q * b1b : 0;
+    steam = s1b > 0 ? q * s1b : 0;
+  }
+
+  const outQty = outUnit === '단' ? bunch : outUnit === '송이' ? steam : box;
+  return { box, bunch, steam, outQty };
+}
+
+function toShipmentUnits(outQty, product = {}) {
+  const qty = Number(outQty || 0);
+  const b1b = Number(product.BunchOf1Box || 0);
+  const s1b = Number(product.SteamOf1Box || 0);
+  return {
+    box: qty,
+    bunch: b1b > 0 ? qty * b1b : 0,
+    steam: s1b > 0 ? qty * s1b : 0,
+    outQty: qty,
+  };
+}
+
+function estimateQuantityFromShipmentUnits(units) {
+  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
+  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
+  return Number(units.box || 0);
+}
+
 async function getProductStockRemarkColumn(q = query) {
   const r = await q(
     `SELECT TOP 1 COLUMN_NAME
@@ -1041,7 +1111,7 @@ async function updateOutQty(req, res) {
       // ── 1단계: 기존 ShipmentDetail 먼저 찾기 (어떤 ShipmentMaster에 있든)
       // 전산이 만든 레코드도 찾을 수 있도록 CustKey 없이 ProdKey+OrderWeek로 검색
       const existSD = await tQ(
-        `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity
+        `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity, ISNULL(sd.Cost,0) AS Cost
          FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
@@ -1051,7 +1121,7 @@ async function updateOutQty(req, res) {
       let existSD2 = { recordset: [] };
       if (existSD.recordset.length === 0) {
         existSD2 = await tQ(
-          `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity
+          `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity, ISNULL(sd.Cost,0) AS Cost
            FROM ShipmentDetail sd
            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
            WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk AND sd.CustKey=@ck`,
@@ -1103,17 +1173,22 @@ async function updateOutQty(req, res) {
               );
             }
           });
+          await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
           sk = newSk;
         }
       }
 
       // Product 환산정보 조회 (전산과 동일 구조: Box/Bunch/Steam)
       const prodInfo = await tQ(
-        `SELECT BunchOf1Box, SteamOf1Box FROM Product WHERE ProdKey=@pk`,
-        { pk: { type: sql.Int, value: pk } }
+        `SELECT ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+                ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost
+           FROM Product p
+           LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=@ck AND cpc.ProdKey=p.ProdKey
+          WHERE p.ProdKey=@pk`,
+        { pk: { type: sql.Int, value: pk }, ck: { type: sql.Int, value: ck } }
       );
-      const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box || 1;
-      const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box || 1;
+      const productInfo = prodInfo.recordset[0] || {};
 
       // ── 3단계: ShipmentDetail UPDATE/DELETE/INSERT
       const sd = { recordset: foundSD ? [foundSD] : [] };
@@ -1131,51 +1206,80 @@ async function updateOutQty(req, res) {
           await tQ(`DELETE FROM ShipmentDetail WHERE SdetailKey=@sdk`,
             { sdk: { type: sql.Int, value: targetSdk } });
         } else {
-          // 전산 동일 구조: Box=qty, Bunch=qty*bunchOf1Box, Steam=qty*steamOf1Box
+          const units = toShipmentUnits(finalQty, productInfo);
+          const estQty = estimateQuantityFromShipmentUnits(units);
+          const unitCost = Number(foundSD.Cost || 0) || Number(productInfo.Cost || 0);
           await tQ(
-            `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@qty,
+            `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@estQty,
               BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+              Cost=CASE WHEN ISNULL(Cost,0)>0 THEN Cost ELSE @cost END,
+              Amount=ROUND(ISNULL(NULLIF(Cost,0), @cost) * @estQty / 1.1, 0),
+              Vat=ROUND(ISNULL(NULLIF(Cost,0), @cost) * @estQty / 11, 0),
               ShipmentDtm=${shipDtmExpr}
              WHERE SdetailKey=@sdk`,
-            { qty: { type: sql.Float, value: finalQty },
-              bq:  { type: sql.Float, value: finalQty },
-              bnq: { type: sql.Float, value: finalQty * bunchOf1Box },
-              sq:  { type: sql.Float, value: finalQty * steamOf1Box },
+            { qty: { type: sql.Float, value: units.outQty },
+              estQty: { type: sql.Float, value: estQty },
+              bq:  { type: sql.Float, value: units.box },
+              bnq: { type: sql.Float, value: units.bunch },
+              sq:  { type: sql.Float, value: units.steam },
+              cost: { type: sql.Float, value: unitCost },
               sdk: { type: sql.Int, value: targetSdk }, ...shipDtmParam }
           );
           // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
           await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@sdk`,
             { sdk: { type: sql.Int, value: targetSdk } });
           await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
-             SELECT @sdk, ShipmentDtm, @qty FROM ShipmentDetail WHERE SdetailKey=@sdk`,
-            { sdk: { type: sql.Int, value: targetSdk }, qty: { type: sql.Float, value: finalQty } }
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+             SELECT @sdk, ShipmentDtm, @qty, @estQty, ISNULL(Cost,0), ISNULL(Amount,0), ISNULL(Vat,0)
+               FROM ShipmentDetail
+              WHERE SdetailKey=@sdk`,
+            {
+              sdk: { type: sql.Int, value: targetSdk },
+              qty: { type: sql.Float, value: units.outQty },
+              estQty: { type: sql.Float, value: estQty },
+            }
           );
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {
         // SdetailKey는 IDENTITY 아님 → 안전한 MAX+1
         const insertQty = qty > 0 ? qty : 0;
         if (insertQty > 0) {
+          const units = toShipmentUnits(insertQty, productInfo);
+          const estQty = estimateQuantityFromShipmentUnits(units);
+          const unitCost = Number(productInfo.Cost || 0);
           const nk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (candidateDk) => {
             await tQ(
-              `INSERT INTO ShipmentDetail (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity)
-               VALUES(@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@qty,@bq,@bnq,@sq)`,
+              `INSERT INTO ShipmentDetail
+                 (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                  BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix)
+               VALUES
+                 (@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@estQty,
+                  @bq,@bnq,@sq,@cost,ROUND(@cost * @estQty / 1.1, 0),ROUND(@cost * @estQty / 11, 0),0)`,
               { nk:  { type: sql.Int,   value: candidateDk  },
                 sk:  { type: sql.Int,   value: sk  },
                 ck:  { type: sql.Int,   value: ck  },
                 pk:  { type: sql.Int,   value: pk  },
-                qty: { type: sql.Float, value: insertQty },
-                bq:  { type: sql.Float, value: insertQty },
-                bnq: { type: sql.Float, value: insertQty * bunchOf1Box },
-                sq:  { type: sql.Float, value: insertQty * steamOf1Box },
+                qty: { type: sql.Float, value: units.outQty },
+                estQty: { type: sql.Float, value: estQty },
+                bq:  { type: sql.Float, value: units.box },
+                bnq: { type: sql.Float, value: units.bunch },
+                sq:  { type: sql.Float, value: units.steam },
+                cost: { type: sql.Float, value: unitCost },
                 ...shipDtmParam }
             );
           });
+          await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
           // ShipmentDate 동기화 (신규 INSERT)
           await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity)
-             SELECT @nk, ShipmentDtm, @qty FROM ShipmentDetail WHERE SdetailKey=@nk`,
-            { nk: { type: sql.Int, value: nk }, qty: { type: sql.Float, value: insertQty } }
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+             SELECT @nk, ShipmentDtm, @qty, @estQty, ISNULL(Cost,0), ISNULL(Amount,0), ISNULL(Vat,0)
+               FROM ShipmentDetail
+              WHERE SdetailKey=@nk`,
+            {
+              nk: { type: sql.Int, value: nk },
+              qty: { type: sql.Float, value: units.outQty },
+              estQty: { type: sql.Float, value: estQty },
+            }
           );
         }
       }
@@ -1301,15 +1405,14 @@ async function addOrder(req, res) {
     const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
 
-    // 단위별 수량 분배 (박스/단/송이)
-    const boxQty   = orderUnit === '박스' ? quantity : 0;
-    const bunchQty = orderUnit === '단'   ? quantity : 0;
-    const steamQty = orderUnit === '송이' ? quantity : 0;
     const prodUnitInfo = await query(
-      `SELECT OutUnit FROM Product WHERE ProdKey=@pk`,
+      `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Box,0) AS SteamOf1Box
+         FROM Product
+        WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: pk } }
     );
-    const prodOutUnit = normalizeOrderUnit(prodUnitInfo.recordset[0]?.OutUnit, orderUnit);
+    const productInfo = prodUnitInfo.recordset[0] || { OutUnit: orderUnit };
+    const units = toOrderUnits(quantity, orderUnit, productInfo);
 
     await appLog('addOrder', '시작', `ck=${ck} pk=${pk} week=${normWeek} qty=${quantity} unit=${unit} uid=${uid}`);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
@@ -1353,6 +1456,7 @@ async function addOrder(req, res) {
             );
           }
         });
+        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;
         await appLog('addOrder', 'OM_FOUND', `mk=${mk}`);
@@ -1381,17 +1485,17 @@ async function addOrder(req, res) {
           );
           await insertOrderHistory(tQ, detailKey, String(oldQty), '0', `[${timeStr} ${userName}] 차수피벗 삭제`, uid);
         } else {
-          await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+          await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${units.box} bunch=${units.bunch} steam=${units.steam}`);
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq, OutQuantity=@oq,
                EstQuantity=@oq, NoneOutQuantity=0,
                LastUpdateID=@uid, LastUpdateDtm=GETDATE()
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
             {
-              bq:  { type: sql.Float,    value: boxQty },
-              bnq: { type: sql.Float,    value: bunchQty },
-              sq:  { type: sql.Float,    value: steamQty },
-              oq:  { type: sql.Float,    value: quantity },
+              bq:  { type: sql.Float,    value: units.box },
+              bnq: { type: sql.Float,    value: units.bunch },
+              sq:  { type: sql.Float,    value: units.steam },
+              oq:  { type: sql.Float,    value: units.outQty },
               uid: { type: sql.NVarChar, value: uid },
               mk:  { type: sql.Int,      value: mk },
               pk:  { type: sql.Int,      value: pk },
@@ -1403,20 +1507,21 @@ async function addOrder(req, res) {
         }
       } else if (quantity > 0) {
         const nextKey = await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (candidateKey) => {
-          await appLog('addOrder', 'OD_INSERT', `nk=${candidateKey} mk=${mk} pk=${pk} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
+          await appLog('addOrder', 'OD_INSERT', `nk=${candidateKey} mk=${mk} pk=${pk} box=${units.box} bunch=${units.bunch} steam=${units.steam}`);
           await tQ(
             `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
              VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
             {
               nk:  { type: sql.Int,   value: candidateKey },
               mk:  { type: sql.Int,   value: mk },      pk:  { type: sql.Int,   value: pk },
-              oq:  { type: sql.Float, value: quantity },
-              bq:  { type: sql.Float, value: boxQty },
-              bnq: { type: sql.Float, value: bunchQty }, sq:  { type: sql.Float, value: steamQty },
+              oq:  { type: sql.Float, value: units.outQty },
+              bq:  { type: sql.Float, value: units.box },
+              bnq: { type: sql.Float, value: units.bunch }, sq:  { type: sql.Float, value: units.steam },
               uid: { type: sql.NVarChar, value: 'admin' },
             }
           );
         });
+        await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
         await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
       } else {
         await appLog('addOrder', 'OD_SKIP', `qty=0이고 기존 없음 — 아무것도 안함`);
@@ -1523,6 +1628,13 @@ async function addOrderDelta(req, res) {
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
+    const prodUnitInfo = await query(
+      `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Box,0) AS SteamOf1Box
+         FROM Product
+        WHERE ProdKey=@pk`,
+      { pk: { type: sql.Int, value: pk } }
+    );
+    const productInfo = prodUnitInfo.recordset[0] || { OutUnit: orderUnit };
 
     await withTransaction(async (tQ) => {
       // OrderMaster 찾기 또는 생성
@@ -1561,55 +1673,56 @@ async function addOrderDelta(req, res) {
             );
           }
         });
+        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
 
-      // 기존 OrderDetail 조회 (14차 패턴: Box+Bunch+Steam 합이 주문수량)
+      // 기존 OrderDetail 조회 — Product.OutUnit 기준 한 컬럼만 주문수량으로 본다.
       const od = await tQ(
-        `SELECT OrderDetailKey,
-                (ISNULL(BoxQuantity,0)+ISNULL(BunchQuantity,0)+ISNULL(SteamQuantity,0)) AS qty
-           FROM OrderDetail WITH (UPDLOCK)
+        `SELECT OrderDetailKey, BoxQuantity, BunchQuantity, SteamQuantity
+           FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
       );
 
       if (od.recordset.length > 0) {
-        const existQty = od.recordset[0].qty || 0;
+        const existing = od.recordset[0];
+        const outUnit = normalizeOrderUnit(productInfo.OutUnit, orderUnit);
+        const existQty = outUnit === '단' ? Number(existing.BunchQuantity || 0)
+                       : outUnit === '송이' ? Number(existing.SteamQuantity || 0)
+                       : Number(existing.BoxQuantity || 0);
         const finalQty = existQty + delta;
 
         if (finalQty <= 0) {
           await tQ(`UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } });
         } else {
-          const boxQty   = orderUnit === '박스' ? finalQty : 0;
-          const bunchQty = orderUnit === '단'   ? finalQty : 0;
-          const steamQty = orderUnit === '송이' ? finalQty : 0;
+          const units = toOrderUnits(finalQty, orderUnit, productInfo);
           await tQ(
             `UPDATE OrderDetail SET BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
                 OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0
              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
-            { bq: { type: sql.Float, value: boxQty },
-              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
-              oq: { type: sql.Float, value: finalQty },
+            { bq: { type: sql.Float, value: units.box },
+              bnq: { type: sql.Float, value: units.bunch }, sq: { type: sql.Float, value: units.steam },
+              oq: { type: sql.Float, value: units.outQty },
               mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
         }
       } else if (delta > 0) {
-        const boxQty   = orderUnit === '박스' ? delta : 0;
-        const bunchQty = orderUnit === '단'   ? delta : 0;
-        const steamQty = orderUnit === '송이' ? delta : 0;
+        const units = toOrderUnits(delta, orderUnit, productInfo);
         await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (nextKey) => {
           await tQ(
             `INSERT INTO OrderDetail (OrderDetailKey,OrderMasterKey,ProdKey,OutQuantity,EstQuantity,NoneOutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,isDeleted,CreateID,CreateDtm)
              VALUES(@nk,@mk,@pk,@oq,@oq,0,@bq,@bnq,@sq,0,@uid,GETDATE())`,
             { nk: { type: sql.Int, value: nextKey }, mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk },
-              oq: { type: sql.Float, value: delta },
-              bq: { type: sql.Float, value: boxQty },
-              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+              oq: { type: sql.Float, value: units.outQty },
+              bq: { type: sql.Float, value: units.box },
+              bnq: { type: sql.Float, value: units.bunch }, sq: { type: sql.Float, value: units.steam },
               uid: { type: sql.NVarChar, value: 'admin' } }
           );
         });
+        await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
       }
     });
 

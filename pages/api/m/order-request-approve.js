@@ -3,7 +3,7 @@
 // 승인 시: 기존 OrderMaster/OrderDetail 에 INSERT (13/14차 구조 유지)
 import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
-import { tryInsertWithRetry } from '../../../lib/safeNextKey';
+import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 const columnExistsCache = {};
@@ -113,6 +113,7 @@ async function handler(req, res) {
             );
           }
         });
+        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       }
 
       // OrderRequestDetail → OrderDetail INSERT
@@ -167,6 +168,7 @@ async function handler(req, res) {
             }
           );
         });
+        await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
         changedProdKeys.add(Number(d.ProdKey));
       }
 

@@ -22,7 +22,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
-import { tryInsertWithRetry } from '../../../lib/safeNextKey';
+import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
@@ -247,22 +247,28 @@ async function createOrder(req, res) {
           ck:        { type: sql.Int,      value: resolvedCustKey },
           orderCode: { type: sql.NVarChar, value: orderCode || '' },
         };
-        const ins = hasOrderYearWeekColumn
-          ? await tQ(
-            `INSERT INTO OrderMaster
-               (OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-             OUTPUT INSERTED.OrderMasterKey
-             VALUES (GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
-            orderMasterParams
-          )
-          : await tQ(
-            `INSERT INTO OrderMaster
-               (OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-             OUTPUT INSERTED.OrderMasterKey
-             VALUES (GETDATE(), @year, @week, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
-            orderMasterParams
-          );
-        mk = ins.recordset[0].OrderMasterKey;
+        mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (nextKey) => {
+          const params = {
+            ...orderMasterParams,
+            mk: { type: sql.Int, value: nextKey },
+          };
+          if (hasOrderYearWeekColumn) {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+               VALUES (@mk, GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+              params
+            );
+          } else {
+            await tQ(
+              `INSERT INTO OrderMaster
+                 (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
+               VALUES (@mk, GETDATE(), @year, @week, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+              params
+            );
+          }
+        });
+        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
         created = true;
       }
 
@@ -332,6 +338,7 @@ async function createOrder(req, res) {
               }
             );
           });
+          await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
           results.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
           changedProdKeys.add(Number(prodKey));
         }

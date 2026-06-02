@@ -29,9 +29,28 @@
 //   ]
 // }
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
+import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
+
+function toShipmentUnits(outQty, product = {}) {
+  const qty = Number(outQty || 0);
+  const b1b = Number(product.BunchOf1Box || 0);
+  const s1b = Number(product.SteamOf1Box || 0);
+  return {
+    box: qty,
+    bunch: b1b > 0 ? qty * b1b : 0,
+    steam: s1b > 0 ? qty * s1b : 0,
+    outQty: qty,
+  };
+}
+
+function estimateQuantityFromShipmentUnits(units) {
+  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
+  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
+  return Number(units.box || 0);
+}
 
 function checkApiKey(req, res) {
   const key = req.headers['x-api-key'] || req.query.apiKey;
@@ -90,7 +109,7 @@ async function getShipments(req, res) {
         CONVERT(NVARCHAR(10), sm.CreateDtm, 120) AS ShipmentDtm,
         sm.OrderWeek, sm.OrderYear, sm.isFix,
         c.CustKey, c.CustName, c.CustArea, c.Manager,
-        sd.ShipmentDetailKey, sd.ProdKey,
+        sd.SdetailKey AS ShipmentDetailKey, sd.ProdKey,
         p.ProdName, p.FlowerName, p.CounName,
         sd.BoxQuantity, sd.BunchQuantity, sd.SteamQuantity,
         sd.OutQuantity, sd.Cost, sd.Amount, sd.Vat
@@ -99,7 +118,7 @@ async function getShipments(req, res) {
        LEFT JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
        LEFT JOIN Product p         ON sd.ProdKey = p.ProdKey
        ${where}
-       ORDER BY sm.CreateDtm DESC, sm.ShipmentKey, sd.ShipmentDetailKey`,
+       ORDER BY sm.CreateDtm DESC, sm.ShipmentKey, sd.SdetailKey`,
       params
     );
 
@@ -173,96 +192,140 @@ async function createShipment(req, res) {
     const resolvedWeek = week || '';
     const resolvedYear = year || String(new Date().getFullYear());
 
-    // ShipmentMaster가 이미 있는지 확인, 없으면 생성
-    let smResult = await query(
-      `SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0`,
-      {
-        ck:   { type: sql.Int,      value: parseInt(resolvedCustKey) },
-        week: { type: sql.NVarChar, value: resolvedWeek },
-      }
-    );
-
-    let shipmentKey;
-    if (smResult.recordset.length === 0) {
-      const shipmentMasterParams = {
-        yr:  { type: sql.NVarChar, value: resolvedYear },
-        wk:  { type: sql.NVarChar, value: resolvedWeek },
-        ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').replace('-', '') },
-        ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
-      };
-      const ins = hasShipmentYearWeekColumn
-        ? await query(
-          `INSERT INTO ShipmentMaster
-             (OrderYear, OrderWeek, OrderYearWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
-           OUTPUT INSERTED.ShipmentKey
-           VALUES (@yr, @wk, @ywk, @ck, 0, 0, 'API', GETDATE())`,
-          shipmentMasterParams
-        )
-        : await query(
-          `INSERT INTO ShipmentMaster
-             (OrderYear, OrderWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
-           OUTPUT INSERTED.ShipmentKey
-           VALUES (@yr, @wk, @ck, 0, 0, 'API', GETDATE())`,
-          shipmentMasterParams
-        );
-      shipmentKey = ins.recordset[0].ShipmentKey;
-    } else {
-      shipmentKey = smResult.recordset[0].ShipmentKey;
-    }
-
-    // ShipmentDetail 저장
-    const results = [];
-    for (const item of items) {
-      let prodKey = item.prodKey;
-      if (!prodKey && item.prodName) {
-        const pr = await query(
-          `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @name AND isDeleted = 0`,
-          { name: { type: sql.NVarChar, value: `%${item.prodName}%` } }
-        );
-        if (!pr.recordset[0]) { results.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
-        prodKey = pr.recordset[0].ProdKey;
-      }
-
-      const qty    = parseFloat(item.qty)    || 0;
-      const boxQty = parseFloat(item.boxQty) || qty;
-      const bunchQty = parseFloat(item.bunchQty) || 0;
-      const steamQty = parseFloat(item.steamQty) || 0;
-      const cost   = parseFloat(item.cost)   || 0;
-      // 13/14차 데이터 패턴: Amount = Bunch × Cost / 1.1 (Bunch 없으면 Out fallback)
-      const effQty = bunchQty > 0 ? bunchQty : qty;
-      const amount = Math.round(effQty * cost / 1.1);
-      const vat    = Math.round(effQty * cost / 11);
-
-      // 기존 동일 품목 있으면 덮어쓰기
-      await query(
-        `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-        { sk: { type: sql.Int, value: shipmentKey }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+    const { shipmentKey, results } = await withTransaction(async (tQ) => {
+      const smResult = await tQ(
+        `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+          WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0`,
+        {
+          ck:   { type: sql.Int,      value: parseInt(resolvedCustKey) },
+          week: { type: sql.NVarChar, value: resolvedWeek },
+        }
       );
 
-      if (qty > 0) {
-        await query(
-          `INSERT INTO ShipmentDetail
-             (ShipmentKey, CustKey, ProdKey, ShipmentDtm,
-              BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity,
-              Cost, Amount, Vat, CreateID, CreateDtm)
-           VALUES (@sk, @ck, @pk, @dt, @box, @bunch, @steam, @qty, @qty, @cost, @amount, @vat, 'API', GETDATE())`,
-          {
-            sk:     { type: sql.Int,      value: shipmentKey },
-            ck:     { type: sql.Int,      value: parseInt(resolvedCustKey) },
-            pk:     { type: sql.Int,      value: parseInt(prodKey) },
-            dt:     { type: sql.DateTime, value: item.shipDate ? new Date(item.shipDate) : new Date() },
-            box:    { type: sql.Float,    value: boxQty },
-            bunch:  { type: sql.Float,    value: bunchQty },
-            steam:  { type: sql.Float,    value: steamQty },
-            qty:    { type: sql.Float,    value: qty },
-            cost:   { type: sql.Float,    value: cost },
-            amount: { type: sql.Float,    value: amount },
-            vat:    { type: sql.Float,    value: vat },
+      let sk;
+      if (smResult.recordset.length === 0) {
+        const shipmentMasterParams = {
+          yr:  { type: sql.NVarChar, value: resolvedYear },
+          wk:  { type: sql.NVarChar, value: resolvedWeek },
+          ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').replace('-', '') },
+          ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
+        };
+        sk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (nextKey) => {
+          const params = { ...shipmentMasterParams, sk: { type: sql.Int, value: nextKey } };
+          if (hasShipmentYearWeekColumn) {
+            await tQ(
+              `INSERT INTO ShipmentMaster
+                 (ShipmentKey, OrderYear, OrderWeek, OrderYearWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
+               VALUES (@sk, @yr, @wk, @ywk, @ck, 0, 0, 'API', GETDATE())`,
+              params
+            );
+          } else {
+            await tQ(
+              `INSERT INTO ShipmentMaster
+                 (ShipmentKey, OrderYear, OrderWeek, CustKey, isFix, isDeleted, CreateID, CreateDtm)
+               VALUES (@sk, @yr, @wk, @ck, 0, 0, 'API', GETDATE())`,
+              params
+            );
           }
-        );
+        });
+        await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
+      } else {
+        sk = smResult.recordset[0].ShipmentKey;
       }
-      results.push({ prodKey, prodName: item.prodName, qty, cost, amount, status: 'OK' });
-    }
+
+      const results = [];
+      for (const item of items) {
+        let prodKey = item.prodKey;
+        if (!prodKey && item.prodName) {
+          const pr = await tQ(
+            `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @name AND isDeleted = 0`,
+            { name: { type: sql.NVarChar, value: `%${item.prodName}%` } }
+          );
+          if (!pr.recordset[0]) { results.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+          prodKey = pr.recordset[0].ProdKey;
+        }
+
+        const prod = await tQ(
+          `SELECT ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                  ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+                  ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost
+             FROM Product p
+             LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=@ck AND cpc.ProdKey=p.ProdKey
+            WHERE p.ProdKey=@pk AND ISNULL(p.isDeleted,0)=0`,
+          { pk: { type: sql.Int, value: parseInt(prodKey) }, ck: { type: sql.Int, value: parseInt(resolvedCustKey) } }
+        );
+        if (!prod.recordset[0]) { results.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+
+        const productInfo = prod.recordset[0];
+        const qty = parseFloat(item.qty) || 0;
+        const units = toShipmentUnits(qty, productInfo);
+        const estQty = estimateQuantityFromShipmentUnits(units);
+        const cost = parseFloat(item.cost) || Number(productInfo.Cost || 0);
+        const amount = Math.round(estQty * cost / 1.1);
+        const vat = Math.round(estQty * cost / 11);
+
+        const oldRows = await tQ(
+          `SELECT SdetailKey FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
+            WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+          { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+        );
+        for (const old of oldRows.recordset) {
+          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: old.SdetailKey } });
+        }
+        await tQ(
+          `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+          { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+        );
+
+        if (qty > 0) {
+          const detailKey = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (nextKey) => {
+            await tQ(
+              `INSERT INTO ShipmentDetail
+                 (SdetailKey, ShipmentKey, CustKey, ProdKey, ShipmentDtm,
+                  BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity,
+                  Cost, Amount, Vat, isFix, CreateID, CreateDtm)
+               VALUES
+                 (@dk, @sk, @ck, @pk, @dt,
+                  @box, @bunch, @steam, @qty, @estQty,
+                  @cost, @amount, @vat, 0, 'API', GETDATE())`,
+              {
+                dk:     { type: sql.Int,      value: nextKey },
+                sk:     { type: sql.Int,      value: sk },
+                ck:     { type: sql.Int,      value: parseInt(resolvedCustKey) },
+                pk:     { type: sql.Int,      value: parseInt(prodKey) },
+                dt:     { type: sql.DateTime, value: item.shipDate ? new Date(item.shipDate) : new Date() },
+                box:    { type: sql.Float,    value: units.box },
+                bunch:  { type: sql.Float,    value: units.bunch },
+                steam:  { type: sql.Float,    value: units.steam },
+                qty:    { type: sql.Float,    value: units.outQty },
+                estQty: { type: sql.Float,    value: estQty },
+                cost:   { type: sql.Float,    value: cost },
+                amount: { type: sql.Float,    value: amount },
+                vat:    { type: sql.Float,    value: vat },
+              }
+            );
+          });
+          await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+          await tQ(
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+             SELECT @dk, ShipmentDtm, @qty, @estQty, @cost, @amount, @vat
+               FROM ShipmentDetail
+              WHERE SdetailKey=@dk`,
+            {
+              dk: { type: sql.Int, value: detailKey },
+              qty: { type: sql.Float, value: units.outQty },
+              estQty: { type: sql.Float, value: estQty },
+              cost: { type: sql.Float, value: cost },
+              amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat },
+            }
+          );
+        }
+        results.push({ prodKey, prodName: item.prodName, qty, cost, amount, status: 'OK' });
+      }
+
+      return { shipmentKey: sk, results };
+    });
 
     return res.status(201).json({
       success: true,
