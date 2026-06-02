@@ -27,6 +27,12 @@ type: history
 - 후속 확인: `shipmentDateMismatch=0`, `shipmentDateBaseMismatch=0`, `missingCustKey=0`, `duplicateMasters=0`, `keyNumberingNeedsSync=0`.
 - 상세 문서: [SHIPMENT_IMPORT_DATE_BASE_OUTDAY_FIX_2026-06-02.md](SHIPMENT_IMPORT_DATE_BASE_OUTDAY_FIX_2026-06-02.md)
 
+### 2026-06-02 출고분배 엑셀 업로드 기본 차수 +1 적용
+
+- 요청: 출고분배 엑셀 업로드 화면은 기존 현재 차수 계산값보다 1차수 뒤를 기본값으로 사용해야 함. 예: `2026-06-02` 기준 `2026-22-01`이 아니라 `2026-23-01`.
+- 적용 범위: `/shipment/distribute-import` 화면 기본값만 변경. URL 쿼리로 차수를 직접 지정한 경우는 지정값을 우선 사용.
+- 주의: 일반 차수 입력 공통 계산(`getCurrentWeek`)은 그대로 둔다. 업로드 화면에서만 `현재차수 + 1주`를 기본값으로 넘긴다.
+
 ### 2026-05-25 21-01 국내왁스 출고분배 장애
 
 - 증상: `nenova.exe`에서 21-01 국내왁스 일괄출고분배 버튼이 동작하지 않음
