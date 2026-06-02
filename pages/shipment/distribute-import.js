@@ -428,44 +428,76 @@ function PivotComparison({ model }) {
 
 function ApplyResultLog({ result }) {
   const rows = result.appliedRows || [];
+  const summary = [
+    { label: '주문 신규/추가', value: result.orderCreatedCount || 0, tone: '#1d4ed8' },
+    { label: '주문수량 수정', value: result.orderUpdatedCount || 0, tone: '#b45309' },
+    { label: '주문 삭제', value: result.orderDeletedCount || 0, tone: '#b91c1c' },
+    { label: '분배 입력/수정', value: result.shipmentChangedCount || 0, tone: '#15803d' },
+  ];
   return (
     <div style={st.panel}>
       <div style={st.panelHead}>
-        <strong>적용 결과 로그</strong>
+        <strong>주문등록 및 출고분배 작업 내역</strong>
         <span style={{ fontSize: 12, color: result.running ? '#b45309' : '#166534', fontWeight: 800 }}>
-          {result.running ? '처리 중' : `적용 ${fmt(result.appliedCount)}건 / 분배 ${fmt(result.shipmentChangedCount)}건`}
+          {result.running ? '처리 중' : `작업 ${fmt(result.appliedCount)}건 완료`}
         </span>
       </div>
-      <div style={st.applyLogGrid}>
-        <div style={st.applyLogBox}>
-          {(result.logs || []).map((l, i) => <div key={i}>{l}</div>)}
+      <div style={st.applyResultBody}>
+        <div style={st.applySummaryGrid}>
+          {summary.map(s => (
+            <div key={s.label} style={st.applySummaryCard}>
+              <span>{s.label}</span>
+              <strong style={{ color: s.tone }}>{fmt(s.value)}</strong>
+            </div>
+          ))}
         </div>
+        {result.running && (
+          <div style={st.applyStepBox}>
+            <div>검증된 엑셀 수량으로 주문등록을 먼저 맞추는 중입니다.</div>
+            <div>없는 주문은 새로 등록하고, 0으로 바뀐 주문은 삭제 처리합니다.</div>
+            <div>주문등록이 맞춰지면 같은 수량으로 출고분배를 입력합니다.</div>
+          </div>
+        )}
         <div style={st.applyTableWrap}>
           <table style={st.table}>
             <thead>
               <tr>
-                <th>업체</th>
-                <th>품목</th>
-                <th>주문처리</th>
-                <th>분배처리</th>
-                <th>분배 전</th>
-                <th>분배 후</th>
+                <th>업체명</th>
+                <th>품목명</th>
+                <th>주문등록 변화</th>
+                <th>출고분배 변화</th>
+                <th>처리 내용</th>
                 <th>출고일</th>
               </tr>
             </thead>
             <tbody>
               {result.running ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>서버 적용 결과를 기다리는 중입니다.</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>작업이 끝나면 업체별 처리 내역이 여기에 표시됩니다.</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>적용된 행이 없습니다.</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>적용된 행이 없습니다.</td></tr>
               ) : rows.slice(0, 1000).map((r, i) => (
                 <tr key={`${r.key || i}-${r.shipmentDetailKey || ''}`}>
                   <td>{r.custName}</td>
                   <td>{r.displayName || r.prodName}</td>
-                  <td>{r.orderAction}</td>
-                  <td style={{ color: r.shipmentChanged ? '#15803d' : '#64748b', fontWeight: r.shipmentChanged ? 800 : 500 }}>{r.shipmentAction}</td>
-                  <td>{fmt(r.beforeQty)}</td>
-                  <td>{fmt(r.afterQty)}</td>
+                  <td style={{ color: r.orderChanged ? '#b45309' : '#64748b', fontWeight: r.orderChanged ? 800 : 500 }}>
+                    {fmt(r.orderQty)} → {fmt(r.uploadQty)}
+                  </td>
+                  <td style={{ color: r.shipmentChanged ? '#15803d' : '#64748b', fontWeight: r.shipmentChanged ? 800 : 500 }}>
+                    {fmt(r.beforeQty)} → {fmt(r.afterQty)}
+                  </td>
+                  <td>
+                    <span style={{
+                      ...st.actionBadge,
+                      background: r.orderAction === '주문삭제' ? '#fee2e2' : r.orderAction?.includes('신규') || r.orderAction?.includes('추가') ? '#dbeafe' : '#fef3c7',
+                      color: r.orderAction === '주문삭제' ? '#991b1b' : r.orderAction?.includes('신규') || r.orderAction?.includes('추가') ? '#1d4ed8' : '#92400e',
+                    }}>{r.orderAction}</span>
+                    <span style={{
+                      ...st.actionBadge,
+                      marginLeft: 6,
+                      background: r.shipmentChanged ? '#dcfce7' : '#f1f5f9',
+                      color: r.shipmentChanged ? '#166534' : '#64748b',
+                    }}>{r.shipmentAction}</span>
+                  </td>
                   <td>{r.shipDate || ''}</td>
                 </tr>
               ))}
@@ -524,9 +556,12 @@ const st = {
   panel: { border: '1px solid #dbe3ef', borderRadius: 8, background: '#fff', overflow: 'hidden' },
   panelHead: { minHeight: 42, padding: '0 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logBox: { padding: 12, height: 220, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55, background: '#0f172a', color: '#e2e8f0' },
-  applyLogGrid: { display: 'grid', gridTemplateColumns: 'minmax(320px, 0.75fr) minmax(520px, 1.25fr)', gap: 0 },
-  applyLogBox: { padding: 12, maxHeight: 300, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55, background: '#0f172a', color: '#e2e8f0', borderRight: '1px solid #334155' },
-  applyTableWrap: { maxHeight: 300, overflow: 'auto' },
+  applyResultBody: { padding: 12 },
+  applySummaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 8, marginBottom: 10 },
+  applySummaryCard: { border: '1px solid #dbe3ef', borderRadius: 8, background: '#f8fafc', padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 },
+  applyStepBox: { border: '1px solid #fde68a', borderRadius: 8, background: '#fffbeb', color: '#92400e', padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 },
+  applyTableWrap: { maxHeight: 340, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 },
+  actionBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 },
   tableWrap: { height: 220, overflow: 'auto' },
   tableWrapLarge: { maxHeight: 560, overflow: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
