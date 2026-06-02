@@ -1080,13 +1080,11 @@ async function updateOutQty(req, res) {
         const yr = new Date().getFullYear();
         // getCurrentWeek()과 동일한 단순 7일 분할: week N = day (N-1)*7+1 ~ N*7
         const dayStart = (weekNum - 1) * 7 + 1;
-        const dateStart = new Date(yr, 0, dayStart); // day 1 = Jan 1
-        // 해당 7일 구간 내 수요일(getDay()=3) 찾기
+        const dateStart = new Date(yr, 0, dayStart, 12, 0, 0, 0); // day 1 = Jan 1
+        // 전산 기준: 해당 7일 구간 시작일의 직전/당일 수요일
         const wednesday = new Date(dateStart);
-        for (let i = 0; i < 7; i++) {
-          if (wednesday.getDay() === 3) break;
-          wednesday.setDate(wednesday.getDate() + 1);
-        }
+        const daysBackToWednesday = (wednesday.getDay() - 3 + 7) % 7;
+        wednesday.setDate(wednesday.getDate() - daysBackToWednesday);
         // BaseOutDay → 수요일 기준 오프셋 (DB 실데이터 검증 완료)
         //   0=수(+0), 1=일(+4), 2=월(+5), 3=화(+6), 4=목(+1), 5=토(+3), 6=금(+2)
         const offsets = [0, 4, 5, 6, 1, 3, 2];

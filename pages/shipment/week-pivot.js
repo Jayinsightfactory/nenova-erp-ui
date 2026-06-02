@@ -29,12 +29,10 @@ function weekToShipDate(weekStr, year = new Date().getFullYear()) {
 function weekToShipDateByBaseOutDay(weekStr, year = new Date().getFullYear(), baseDay = 0) {
   const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
   if (!weekNum) return null;
-  const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1);
+  const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1, 12, 0, 0, 0);
   const wednesday = new Date(dateStart);
-  for (let i = 0; i < 7; i += 1) {
-    if (wednesday.getDay() === 3) break;
-    wednesday.setDate(wednesday.getDate() + 1);
-  }
+  const daysBackToWednesday = (wednesday.getDay() - 3 + 7) % 7;
+  wednesday.setDate(wednesday.getDate() - daysBackToWednesday);
   const offsets = [0, 4, 5, 6, 1, 3, 2];
   wednesday.setDate(wednesday.getDate() + (offsets[Number(baseDay)] ?? 0));
   return wednesday;
