@@ -740,12 +740,16 @@ async function postAdjust(req, res) {
 
       // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고
       // 단, totalIn=0 (입고 미등록 차수)인 경우는 허용 (선분배 패턴)
-      // 잔량 계산: 입고합 − Σ(ShipmentDetail.OutQuantity by ProdKey,Week)
+      // 잔량 계산: 입고합 + 수동재고조정 − Σ(ShipmentDetail.OutQuantity by ProdKey,Week)
       const remainQ = await tQ(
         `SELECT
            ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
                    JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
-                   WHERE wd.ProdKey=@pk AND wm.OrderWeek=@wk AND wm.isDeleted=0),0) AS totalIn,
+                   WHERE wd.ProdKey=@pk AND wm.OrderWeek=@wk AND wm.isDeleted=0),0)
+           + ISNULL((SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+                   FROM StockHistory sh
+                   WHERE sh.ProdKey=@pk AND sh.OrderWeek=@wk
+                     AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS totalIn,
            ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
                    JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
                    WHERE sd.ProdKey=@pk AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut`,
@@ -774,14 +778,14 @@ async function postAdjust(req, res) {
       }
 
       // 입고검증 — 견적서/확정 단계 오류 예방
-      // (a) 입고 0 인데 출고 ADD: "선분배" 패턴. 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
-      // (b) 입고 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
+      // (a) 입고+수동재고조정 0 인데 출고 ADD: 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
+      // (b) 입고+수동재고조정 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
       if (type === 'ADD' && !req.body.force) {
-        if (totalIn === 0) {
-          throw new Error(`입고 미등록 차수입니다. WarehouseDetail 입고 등록 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
+        if (totalIn <= 0) {
+          throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
         }
         if (totalIn > 0 && remainAfter < 0) {
-          throw new Error(`입고(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
+          throw new Error(`입고+재고조정(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
         }
       }
 

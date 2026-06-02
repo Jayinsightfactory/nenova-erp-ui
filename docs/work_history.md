@@ -17,6 +17,14 @@ type: history
 - 원칙: `nenova.exe` 버튼, 저장 프로시저, 기존 ERP row, 운영 데이터 불일치 여부를 확인한 뒤에만 코드 수정
 - 출고분배는 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `ShipmentMaster/Detail`, `ShipmentDate`, `ShipmentHistory` 충돌 여부를 먼저 확인
 
+### 2026-06-02 재고 수동조정 반영 기준 통일
+
+- 요청: `nenova.exe` 재고관리에서 실제 인보이스 차이 때문에 수량을 `+/-` 조정한 경우, 챗봇 재고 답변과 네노바웹 차수피벗/물량표/분배검사가 같은 기준으로 보이게 해야 함.
+- 기준 공식: `전재고(ProductStock) + 실제입고(WarehouseDetail) + 수동재고조정(StockHistory) - 출고/주문 기준 수량`.
+- 수동재고조정 범위: `StockHistory.AfterValue - BeforeValue`를 합산하되, 자동 이력인 `확정`, `확정취소`, `입고`, `출고`는 중복 방지를 위해 제외.
+- 조치: 챗봇 차수별 재고 조회, Pivot 통계/물량표 다운로드, 출고/재고상황 품목별 요약, 붙여넣기 주문등록 후 분배 ADD/CANCEL 입고초과 검사, 차수확정 사전 음수재고 검사를 같은 기준으로 보정.
+- 표시: Pivot 통계/물량표에서는 조정값이 있으면 입고 계열에 `재고조정` 열로 함께 들어가며, 합계/잔량이 보정 후 기준으로 계산됨.
+
 ### 2026-06-02 23-01 출고분배 엑셀 업로드 출고일 밀림 보정
 
 - 증상: 엑셀 업로드 신규 분배 행의 출고일이 기존 `nenova.exe` 분배 행보다 6일 뒤로 저장됨.

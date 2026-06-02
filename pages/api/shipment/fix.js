@@ -147,6 +147,13 @@ async function validate(req, res) {
          JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
          WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
          GROUP BY wd.ProdKey
+       ),
+       adjust_qty AS (
+         SELECT sh.ProdKey, SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
+         FROM StockHistory sh
+         WHERE sh.OrderWeek = @wk
+           AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
+         GROUP BY sh.ProdKey
        )
        SELECT
          p.ProdKey,
@@ -154,12 +161,14 @@ async function validate(req, res) {
          p.FlowerName,
          p.CounName,
          ISNULL(prev.prevStock, 0) AS prevStock,
-         ISNULL(iq.inQty, 0) AS inQty,
+         ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) AS inQty,
+         ISNULL(aq.adjustQty, 0) AS adjustQty,
          ISNULL(oq.outQty, 0) AS outQty,
-         ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) AS remain
+         ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) AS remain
        FROM out_qty oq
        JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
        LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
+       LEFT JOIN adjust_qty aq ON aq.ProdKey = oq.ProdKey
        OUTER APPLY (
          SELECT TOP 1 ps.Stock AS prevStock
          FROM ProductStock ps
@@ -168,7 +177,7 @@ async function validate(req, res) {
            AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
          ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
        ) prev
-       WHERE ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) < 0
+       WHERE ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) < 0
        ORDER BY p.FlowerName, p.ProdName`,
       {
         wk,
@@ -188,22 +197,38 @@ async function validate(req, res) {
     }
     const negRows = [...negMap.values()];
 
-    // 4. 입고 없는 출고 (WarehouseDetail 없는데 ShipmentDetail.OutQuantity > 0)
+    // 4. 입고/수동재고조정 반영 후 가용수량 없는 출고
     //    이 케이스가 견적서에서 "입고 0인데 출고 5" 처럼 보여 작업 오류 유발
     const noInResult = await query(
-      `SELECT DISTINCT p.ProdName, p.FlowerName, p.CounName,
-         SUM(sd.OutQuantity) AS outQty,
-         ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
+      `WITH out_qty AS (
+         SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+         WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+         GROUP BY sd.ProdKey
+       ),
+       in_qty AS (
+         SELECT ProdKey, SUM(qty) AS inQty
+         FROM (
+           SELECT wd.ProdKey, ISNULL(wd.OutQuantity, 0) AS qty
+           FROM WarehouseDetail wd
            JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) AS inQty
-       FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-       JOIN Product p ON sd.ProdKey = p.ProdKey
-       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
-       GROUP BY p.ProdKey, p.ProdName, p.FlowerName, p.CounName
-       HAVING ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
-           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-           WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek = @wk AND wm.isDeleted = 0), 0) = 0
+           WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
+           UNION ALL
+           SELECT sh.ProdKey, ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0) AS qty
+           FROM StockHistory sh
+           WHERE sh.OrderWeek = @wk
+             AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
+         ) x
+         GROUP BY ProdKey
+       )
+       SELECT p.ProdName, p.FlowerName, p.CounName,
+         oq.outQty,
+         ISNULL(iq.inQty, 0) AS inQty
+       FROM out_qty oq
+       JOIN Product p ON oq.ProdKey = p.ProdKey
+       LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
+       WHERE ISNULL(iq.inQty, 0) <= 0
        ORDER BY p.FlowerName, p.ProdName`,
       { wk }
     );
@@ -251,6 +276,13 @@ async function loadNegativeGuardRows(orderYear, orderWeek) {
        WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
        GROUP BY wd.ProdKey
      ),
+     adjust_qty AS (
+       SELECT sh.ProdKey, SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
+       FROM StockHistory sh
+       WHERE sh.OrderWeek = @wk
+         AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
+       GROUP BY sh.ProdKey
+     ),
      stock_base AS (
        SELECT
          p.ProdKey,
@@ -259,11 +291,13 @@ async function loadNegativeGuardRows(orderYear, orderWeek) {
          p.CounName,
          ISNULL(prev.prevStock, ISNULL(p.Stock, 0)) AS prevStock,
          ISNULL(p.Stock, 0) AS productStock,
-         ISNULL(iq.inQty, 0) AS inQty,
+         ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) AS inQty,
+         ISNULL(aq.adjustQty, 0) AS adjustQty,
          ISNULL(oq.outQty, 0) AS outQty
        FROM out_qty oq
        JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
        LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
+       LEFT JOIN adjust_qty aq ON aq.ProdKey = oq.ProdKey
        OUTER APPLY (
          SELECT TOP 1 ps.Stock AS prevStock
          FROM ProductStock ps
@@ -596,7 +630,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     if (wholeWeekNegativeRows.length > 0) {
       return res.status(400).json({
         success: false,
-        error: `[${week}] 확정 불가: 현재재고 + 입고 - 출고가 음수인 품목 ${wholeWeekNegativeRows.length}건`,
+        error: `[${week}] 확정 불가: 현재재고 + 입고 + 재고조정 - 출고가 음수인 품목 ${wholeWeekNegativeRows.length}건`,
         code: 'NEGATIVE_STOCK',
         negative: wholeWeekNegativeRows,
       });

@@ -177,13 +177,19 @@ export default withAuth(async function handler(req, res) {
             WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
-          -- 기간 내 입고수량
+          -- 기간 내 입고수량 + 전산 재고관리 탭 수동 조정값
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
             WHERE wd.ProdKey = p.ProdKey
               AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo
               AND wm.isDeleted = 0
+          ), 0) + ISNULL((
+            SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+            FROM StockHistory sh
+            WHERE sh.ProdKey = p.ProdKey
+              AND sh.OrderWeek >= @weekFrom AND sh.OrderWeek <= @weekTo
+              AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
           ), 0) AS inQty,
           -- 기간 내 출고수량 (전체 업체)
           ISNULL((
@@ -228,6 +234,12 @@ export default withAuth(async function handler(req, res) {
            SELECT wd.ProdKey, wm.OrderWeek, wd.OutQuantity AS qty, 'in' AS kind
            FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
            WHERE wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted=0
+           UNION ALL
+           SELECT sh.ProdKey, sh.OrderWeek,
+                  ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0), 'in'
+           FROM StockHistory sh
+           WHERE sh.OrderWeek >= @weekFrom AND sh.OrderWeek <= @weekTo
+             AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
            UNION ALL
            SELECT sd.ProdKey, sm.OrderWeek, sd.OutQuantity, 'out'
            FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey

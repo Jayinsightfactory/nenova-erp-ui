@@ -227,6 +227,16 @@ async function loadNegativeRows(from, to) {
        JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
        WHERE wm.isDeleted = 0
        GROUP BY ISNULL(CAST(wm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(wm.OrderWeek, '-', ''), wd.ProdKey
+     ),
+     adjust_qty AS (
+       SELECT
+         ISNULL(CAST(sh.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sh.OrderWeek, '-', '') AS WeekKey,
+         sh.ProdKey,
+         SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
+       FROM StockHistory sh
+       WHERE sh.OrderWeek LIKE '__-__'
+         AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
+       GROUP BY ISNULL(CAST(sh.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sh.OrderWeek, '-', ''), sh.ProdKey
      )
      SELECT TOP 500
        w.OrderYear,
@@ -236,13 +246,15 @@ async function loadNegativeRows(from, to) {
        p.FlowerName,
        p.CounName,
        ISNULL(prev.prevStock, 0) AS prevStock,
-       ISNULL(iq.inQty, 0) AS inQty,
+       ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) AS inQty,
+       ISNULL(aq.adjustQty, 0) AS adjustQty,
        ISNULL(oq.outQty, 0) AS outQty,
-       ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) AS remain
+       ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) AS remain
      FROM out_qty oq
      JOIN week_set w ON w.WeekKey = oq.WeekKey
      JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
      LEFT JOIN in_qty iq ON iq.WeekKey = oq.WeekKey AND iq.ProdKey = oq.ProdKey
+     LEFT JOIN adjust_qty aq ON aq.WeekKey = oq.WeekKey AND aq.ProdKey = oq.ProdKey
      OUTER APPLY (
        SELECT TOP 1 ps.Stock AS prevStock
        FROM ProductStock ps
@@ -252,7 +264,7 @@ async function loadNegativeRows(from, to) {
        ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') DESC
      ) prev
      WHERE oq.WeekKey BETWEEN @fromKey AND @toKey
-       AND ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) - ISNULL(oq.outQty, 0) < 0
+       AND ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) < 0
      ORDER BY w.WeekKey DESC, p.FlowerName, p.ProdName`,
     {
       defaultYear: { type: sql.NVarChar, value: from.year },

@@ -267,7 +267,7 @@ export default function ShipmentFixStatus() {
         <div className="card-header">
           <span className="card-title">확정 시 오류 예상 품목</span>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-            전재고 + 입고 - 출고가 음수인 품목 {selectedWeek ? `(${selectedWeek})` : '(전체 범위)'}
+            전재고 + 입고 + 재고조정 - 출고가 음수인 품목 {selectedWeek ? `(${selectedWeek})` : '(전체 범위)'}
           </span>
         </div>
         <div style={{ overflowX: 'auto' }}>
