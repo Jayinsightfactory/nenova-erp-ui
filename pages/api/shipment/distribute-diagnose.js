@@ -1,17 +1,85 @@
 // pages/api/shipment/distribute-diagnose.js - compatibility checks for Nenova.exe distribute buttons
 import { withAuth } from '../../../lib/auth';
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (!['GET', 'POST'].includes(req.method)) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const week = normalizeOrderWeek(req.query.week || '');
+  const week = normalizeOrderWeek(req.query.week || req.body?.week || '');
   if (!week) return res.status(400).json({ success: false, error: 'week is required' });
 
   try {
+    if (req.method === 'POST') {
+      const action = String(req.body?.action || '').trim();
+      if (action !== 'repairMissingCustKey') {
+        return res.status(400).json({ success: false, error: '지원하지 않는 action 입니다.' });
+      }
+
+      const repaired = await withTransaction(async (tQ) => {
+        const before = await tQ(
+          `SELECT COUNT(*) AS cnt
+             FROM ShipmentMaster sm
+             JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              AND ISNULL(sd.OutQuantity,0) <> 0
+              AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+
+        const sample = await tQ(
+          `SELECT TOP 50 sm.ShipmentKey, sd.SdetailKey, sm.CustKey AS MasterCustKey,
+                  sd.CustKey AS DetailCustKey, sd.ProdKey, p.ProdName, sd.OutQuantity
+             FROM ShipmentMaster sm
+             JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+             LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              AND ISNULL(sd.OutQuantity,0) <> 0
+              AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)
+            ORDER BY sm.CustKey, sd.ProdKey`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+
+        const updateResult = await tQ(
+          `UPDATE sd
+              SET sd.CustKey = sm.CustKey
+             FROM ShipmentDetail sd WITH (UPDLOCK, ROWLOCK)
+             JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
+            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              AND ISNULL(sd.OutQuantity,0) <> 0
+              AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+
+        const after = await tQ(
+          `SELECT COUNT(*) AS cnt
+             FROM ShipmentMaster sm
+             JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              AND ISNULL(sd.OutQuantity,0) <> 0
+              AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+
+        return {
+          before: Number(before.recordset[0]?.cnt || 0),
+          updated: Number(updateResult.rowsAffected?.[0] || 0),
+          after: Number(after.recordset[0]?.cnt || 0),
+          sample: sample.recordset,
+        };
+      }, { retries: 5, baseDelay: 200 });
+
+      return res.status(200).json({
+        success: true,
+        week,
+        action,
+        message: `출고상세 업체키 ${repaired.updated}건을 주문 업체 기준으로 정리했습니다.`,
+        ...repaired,
+      });
+    }
+
     const duplicateMasters = await query(
       `SELECT CustKey, OrderWeek, COUNT(*) AS masterCount,
               MIN(ShipmentKey) AS minShipmentKey,

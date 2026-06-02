@@ -1039,17 +1039,12 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, message: '빈 레코드 정리', rowsAffected: result.rowsAffected });
     }
 
-    // ── EstQuantity 동기화 (OutQuantity != EstQuantity 보정)
+    // ── EstQuantity는 품목 단위 환산값이라 OutQuantity와 다를 수 있음
     if (view === 'syncEstQty') {
-      const result = await query(
-        `UPDATE sd SET sd.EstQuantity = sd.OutQuantity
-         FROM ShipmentDetail sd
-         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
-           AND ISNULL(sd.EstQuantity, 0) != ISNULL(sd.OutQuantity, 0)`,
-        params
-      );
-      return res.status(200).json({ success: true, message: `동기화 완료`, rowsAffected: result.rowsAffected });
+      return res.status(410).json({
+        success: false,
+        error: 'syncEstQty는 비활성화되었습니다. 단/송이 환산 품목은 EstQuantity와 OutQuantity가 정상적으로 다를 수 있습니다.',
+      });
     }
 
     return res.status(400).json({ success: false, error: 'view 파라미터 필요' });
