@@ -85,6 +85,7 @@ export default function DistributeImport() {
   const router = useRouter();
   const weekInput = useWeekInput('');
   const fileRef = useRef(null);
+  const applyResultRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -115,6 +116,11 @@ export default function DistributeImport() {
     if (qWeek) weekInput.setValue(String(qWeek));
   }, [router.isReady, router.query.week]);
 
+  useEffect(() => {
+    if (!applyResult || applyResult.running) return;
+    applyResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [applyResult?.running, applyResult?.appliedCount, applyResult?.skippedNoChangeCount]);
+
   const handlePreview = async (options = {}) => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
@@ -122,7 +128,7 @@ export default function DistributeImport() {
     setError('');
     if (!options.preserveMessage) setMessage('');
     if (!options.preserveApplyResult) setApplyResult(null);
-    setPreview(null);
+    if (!options.preserveApplyResult) setPreview(null);
     try {
       const form = new FormData();
       form.append('week', weekInput.value);
@@ -217,6 +223,11 @@ export default function DistributeImport() {
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
+        {applyResult && (
+          <div ref={applyResultRef} style={{ marginBottom: 12 }}>
+            <ApplyResultLog result={applyResult} />
+          </div>
+        )}
 
         {preview && (
           <>
@@ -299,10 +310,6 @@ export default function DistributeImport() {
                 </div>
               )}
             </div>
-
-            {applyResult && (
-              <ApplyResultLog result={applyResult} />
-            )}
           </>
         )}
       </div>
