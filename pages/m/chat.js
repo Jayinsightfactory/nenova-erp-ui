@@ -10,6 +10,45 @@ const QUICK_PROMPTS = [
   { icon: '📋', text: '승인 대기 주문' },
 ];
 
+function formatWeekDisplayLocal(week) {
+  const raw = String(week || '').trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${Number(m[2])}-${Number(m[3])}차`;
+  const mm = raw.match(/^(\d{2})-(\d{2})$/);
+  if (mm) return `${Number(mm[1])}-${Number(mm[2])}차`;
+  return raw;
+}
+
+function normalizeWeekInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = raw.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  m = raw.match(/^(\d{1,2})\s*차\s*(\d{1,2})?$/);
+  if (m) return `${m[1].padStart(2, '0')}-${String(m[2] || '01').padStart(2, '0')}`;
+  return raw;
+}
+
+function toChatOrderWeek(value) {
+  const normalized = normalizeWeekInput(value);
+  const m = normalized.match(/^\d{4}-(\d{2}-\d{2})$/);
+  return m ? m[1] : normalized;
+}
+
+function customerLabel(c) {
+  if (!c) return '';
+  return `${c.CustName || ''}${c.CustArea ? ` / ${c.CustArea}` : ''}`.trim();
+}
+
+function productLabel(p) {
+  if (!p) return '';
+  const name = p.DisplayName || p.ProdName || '';
+  const group = [p.CounName, p.FlowerName].filter(Boolean).join(' / ');
+  return `${name}${group ? ` / ${group}` : ''}`.trim();
+}
+
 export default function MobileChat() {
   const router = useRouter();
   const [me, setMe] = useState(null);
@@ -18,6 +57,15 @@ export default function MobileChat() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingStage, setLoadingStage] = useState(''); // 로딩 단계 표시
+  const [directOpen, setDirectOpen] = useState(true);
+  const [weeks, setWeeks] = useState([]);
+  const [directWeek, setDirectWeek] = useState('');
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [productQuery, setProductQuery] = useState('');
+  const [productOptions, setProductOptions] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const scrollRef = useRef(null);
 
   // ── localStorage 영속 히스토리 키
@@ -71,6 +119,50 @@ export default function MobileChat() {
       .catch(() => router.replace('/login?next=/m/chat'))
       .finally(() => setAuthChecked(true));
   }, [router]);
+
+  useEffect(() => {
+    if (!authChecked || !me) return;
+    fetch('/api/orders/weeks')
+      .then(r => r.json())
+      .then(d => {
+        const list = (d.weeks || []).filter(Boolean);
+        setWeeks(list);
+        setDirectWeek(prev => prev || list[0] || '');
+      })
+      .catch(() => {});
+  }, [authChecked, me]);
+
+  useEffect(() => {
+    const q = customerQuery.trim();
+    if (q.length < 1) {
+      setCustomerOptions([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/customers/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then(r => r.json())
+        .then(d => setCustomerOptions((d.customers || []).slice(0, 12)))
+        .catch(() => {});
+    }, 180);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [customerQuery]);
+
+  useEffect(() => {
+    const q = productQuery.trim();
+    if (q.length < 1) {
+      setProductOptions([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/products/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then(r => r.json())
+        .then(d => setProductOptions((d.products || []).slice(0, 12)))
+        .catch(() => {});
+    }, 180);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [productQuery]);
 
   // ── 메시지 스크롤 + localStorage 자동 저장
   useEffect(() => {
@@ -129,6 +221,43 @@ export default function MobileChat() {
     }
   }
 
+  function sendDirect(kind) {
+    const week = toChatOrderWeek(directWeek);
+    if (!week || sending) return;
+    const prod = selectedProduct;
+    const cust = selectedCustomer;
+    if ((kind === 'stock' || kind === 'farm') && !prod?.ProdKey) return;
+    if (kind === 'shipment' && !cust?.CustKey) return;
+
+    if (kind === 'stock') {
+      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 재고조회`, {
+        intent: 'stock',
+        mode: 'weekStockStatus',
+        week,
+        prodKey: prod.ProdKey,
+        hideZero: true,
+      });
+      return;
+    }
+    if (kind === 'farm') {
+      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 농장확인`, {
+        intent: 'stock',
+        mode: 'incomingFarm',
+        week,
+        prodKey: prod.ProdKey,
+        groupBy: 'product',
+      });
+      return;
+    }
+    send(`${formatWeekDisplayLocal(week)} ${cust.CustName} ${prod?.ProdName ? `${prod.DisplayName || prod.ProdName} ` : ''}출고품목수량확인`, {
+      intent: 'shipment',
+      mode: 'items',
+      week,
+      custKey: cust.CustKey,
+      ...(prod?.ProdKey ? { prodKey: prod.ProdKey, prodName: prod.DisplayName || prod.ProdName } : {}),
+    });
+  }
+
   if (!authChecked) {
     return (
       <div className="m-loading">
@@ -180,6 +309,26 @@ export default function MobileChat() {
           {me?.userName || me?.userId}
         </div>
       </header>
+
+      <DirectLookupPanel
+        open={directOpen}
+        setOpen={setDirectOpen}
+        weeks={weeks}
+        week={directWeek}
+        setWeek={setDirectWeek}
+        customerQuery={customerQuery}
+        setCustomerQuery={setCustomerQuery}
+        customerOptions={customerOptions}
+        selectedCustomer={selectedCustomer}
+        setSelectedCustomer={setSelectedCustomer}
+        productQuery={productQuery}
+        setProductQuery={setProductQuery}
+        productOptions={productOptions}
+        selectedProduct={selectedProduct}
+        setSelectedProduct={setSelectedProduct}
+        sending={sending}
+        onRun={sendDirect}
+      />
 
       {/* 메시지 영역 */}
       <div className="m-messages" ref={scrollRef}>
@@ -378,6 +527,296 @@ export default function MobileChat() {
         .m-send-btn:disabled { background: #A0AEC0; cursor: not-allowed; }
       `}</style>
     </div>
+  );
+}
+
+function DirectLookupPanel({
+  open,
+  setOpen,
+  weeks,
+  week,
+  setWeek,
+  customerQuery,
+  setCustomerQuery,
+  customerOptions,
+  selectedCustomer,
+  setSelectedCustomer,
+  productQuery,
+  setProductQuery,
+  productOptions,
+  selectedProduct,
+  setSelectedProduct,
+  sending,
+  onRun,
+}) {
+  return (
+    <section className={`m-direct ${open ? 'open' : 'closed'}`}>
+      <button type="button" className="m-direct-toggle" onClick={() => setOpen(!open)}>
+        <span>바로 조회</span>
+        <span className="m-direct-status">
+          {week ? formatWeekDisplayLocal(week) : '차수 선택'}{selectedCustomer ? ` · ${selectedCustomer.CustName}` : ''}{selectedProduct ? ` · ${selectedProduct.DisplayName || selectedProduct.ProdName}` : ''}
+        </span>
+        <span>{open ? '접기' : '열기'}</span>
+      </button>
+      {open && (
+        <div className="m-direct-body">
+          <label className="m-direct-field">
+            <span>차수</span>
+            <input
+              list="chat-week-list"
+              value={week || ''}
+              onChange={e => setWeek(e.target.value)}
+              placeholder="예: 23-01"
+            />
+            <datalist id="chat-week-list">
+              {weeks.slice(0, 80).map(w => <option key={w} value={w}>{formatWeekDisplayLocal(w)}</option>)}
+            </datalist>
+          </label>
+
+          <SearchPickField
+            label="업체"
+            value={customerQuery}
+            setValue={(v) => { setCustomerQuery(v); setSelectedCustomer(null); }}
+            placeholder="업체명 입력"
+            selectedText={selectedCustomer ? customerLabel(selectedCustomer) : ''}
+            onClear={() => { setSelectedCustomer(null); setCustomerQuery(''); }}
+            options={customerOptions}
+            optionKey="CustKey"
+            renderOption={customerLabel}
+            onPick={(c) => { setSelectedCustomer(c); setCustomerQuery(c.CustName || ''); }}
+          />
+
+          <SearchPickField
+            label="품종"
+            value={productQuery}
+            setValue={(v) => { setProductQuery(v); setSelectedProduct(null); }}
+            placeholder="품목명 입력"
+            selectedText={selectedProduct ? productLabel(selectedProduct) : ''}
+            onClear={() => { setSelectedProduct(null); setProductQuery(''); }}
+            options={productOptions}
+            optionKey="ProdKey"
+            renderOption={productLabel}
+            onPick={(p) => { setSelectedProduct(p); setProductQuery(p.DisplayName || p.ProdName || ''); }}
+          />
+
+          <div className="m-direct-actions">
+            <button
+              type="button"
+              disabled={sending || !week || !selectedProduct}
+              onClick={() => onRun('stock')}
+            >
+              재고조회
+            </button>
+            <button
+              type="button"
+              disabled={sending || !week || !selectedProduct}
+              onClick={() => onRun('farm')}
+            >
+              농장확인
+            </button>
+            <button
+              type="button"
+              disabled={sending || !week || !selectedCustomer}
+              onClick={() => onRun('shipment')}
+            >
+              출고품목수량확인
+            </button>
+          </div>
+          <div className="m-direct-hint">
+            출고품목수량은 업체만 선택하면 전체 품목, 품종까지 선택하면 해당 품목만 조회합니다.
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        .m-direct {
+          flex-shrink: 0;
+          background: #fff;
+          border-bottom: 1px solid #dbe3ea;
+        }
+        .m-direct-toggle {
+          width: 100%;
+          min-height: 40px;
+          border: 0;
+          background: #f8fafc;
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          gap: 8px;
+          align-items: center;
+          padding: 8px 12px;
+          color: #1e293b;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+          text-align: left;
+        }
+        .m-direct-status {
+          min-width: 0;
+          color: #64748b;
+          font-weight: 700;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+        .m-direct-body {
+          display: grid;
+          gap: 8px;
+          padding: 10px 12px 12px;
+        }
+        .m-direct-field {
+          display: grid;
+          gap: 4px;
+          font-size: 11px;
+          color: #475569;
+          font-weight: 800;
+        }
+        .m-direct-field input {
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 0 10px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #0f172a;
+          background: #fff;
+        }
+        .m-direct-actions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .m-direct-actions button {
+          min-height: 36px;
+          border: 0;
+          border-radius: 8px;
+          background: #2563eb;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .m-direct-actions button:nth-child(2) { background: #0f766e; }
+        .m-direct-actions button:nth-child(3) { background: #7c3aed; }
+        .m-direct-actions button:disabled {
+          background: #cbd5e1;
+          color: #64748b;
+          cursor: not-allowed;
+        }
+        .m-direct-hint {
+          color: #64748b;
+          font-size: 11px;
+          line-height: 1.35;
+        }
+      `}</style>
+    </section>
+  );
+}
+
+function SearchPickField({ label, value, setValue, placeholder, selectedText, onClear, options, optionKey, renderOption, onPick }) {
+  return (
+    <label className="m-pick-field">
+      <span>{label}</span>
+      {selectedText ? (
+        <div className="m-picked">
+          <span>{selectedText}</span>
+          <button type="button" onClick={onClear}>변경</button>
+        </div>
+      ) : (
+        <>
+          <input
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            placeholder={placeholder}
+          />
+          {options.length > 0 && (
+            <div className="m-pick-list">
+              {options.map(o => (
+                <button
+                  type="button"
+                  key={o[optionKey]}
+                  onClick={() => onPick(o)}
+                >
+                  {renderOption(o)}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <style jsx>{`
+        .m-pick-field {
+          display: grid;
+          gap: 4px;
+          font-size: 11px;
+          color: #475569;
+          font-weight: 800;
+          position: relative;
+        }
+        .m-pick-field input {
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 0 10px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #0f172a;
+          background: #fff;
+        }
+        .m-picked {
+          min-height: 34px;
+          border: 1px solid #bae6fd;
+          border-radius: 8px;
+          padding: 6px 7px 6px 10px;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 8px;
+          align-items: center;
+          background: #f0f9ff;
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .m-picked span {
+          min-width: 0;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+        .m-picked button {
+          min-height: 24px;
+          border: 1px solid #7dd3fc;
+          border-radius: 6px;
+          background: #fff;
+          color: #0369a1;
+          font-size: 11px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .m-pick-list {
+          max-height: 138px;
+          overflow: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #fff;
+          box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+        .m-pick-list button {
+          width: 100%;
+          min-height: 34px;
+          border: 0;
+          border-bottom: 1px solid #eef2f7;
+          background: #fff;
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 700;
+          text-align: left;
+          padding: 7px 10px;
+          cursor: pointer;
+        }
+        .m-pick-list button:active { background: #eff6ff; }
+      `}</style>
+    </label>
   );
 }
 

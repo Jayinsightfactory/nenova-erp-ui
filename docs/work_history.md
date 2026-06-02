@@ -844,3 +844,22 @@ collapsed: Set  // 접힌 행 그룹
 - 안전성:
   - 주문 저장 경로는 기존 `OrderMaster/OrderDetail` 정식 주문등록 API를 그대로 사용.
   - 전산 표시 검증은 저장 직후 조회만 수행하며 추가 DB 쓰기 없음.
+
+---
+
+## 2026-06-03 모바일 챗봇 바로 조회 패널
+
+- 요청: 네노바 챗봇에서 `재고조회`, `농장확인`, `출고품목수량확인` 등을 차수/업체/품종 선택 후 바로 답변 가능한 구조로 변경.
+- 수정 내용:
+  - `/m/chat` 상단에 `바로 조회` 패널 추가.
+  - 차수는 `/api/orders/weeks`, 업체는 `/api/customers/search`, 품종은 `/api/products/search` 조회 API로 선택.
+  - `재고조회`: 선택 차수 + 선택 품종을 structured payload `{ intent:'stock', mode:'weekStockStatus', week, prodKey }`로 전송.
+  - `농장확인`: 선택 차수 + 선택 품종을 structured payload `{ intent:'stock', mode:'incomingFarm', week, prodKey, groupBy:'product' }`로 전송.
+  - `출고품목수량확인`: 선택 차수 + 선택 업체를 structured payload `{ intent:'shipment', mode:'items', week, custKey }`로 전송. 품종 선택 시 `prodKey`로 해당 품목만 필터링.
+  - 사용자가 `2026-23-01`처럼 입력해도 챗봇 조회에는 전산 OrderWeek 기준 `23-01`로 전달.
+  - `lib/chat/handlers/shipment.js`는 `prodKey` payload가 있으면 해당 품목만 출고수량 조회.
+- 안전성:
+  - 화면 선택 패널은 조회 API만 사용.
+  - 챗봇 답변은 기존 `/api/m/chat` 라우터와 기존 재고/출고 핸들러를 사용하며, ERP 원장 쓰기 없음.
+- 검증:
+  - `next build` 통과.
