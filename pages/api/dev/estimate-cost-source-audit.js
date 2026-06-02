@@ -87,7 +87,7 @@ async function handler(req, res) {
      LEFT JOIN Customer c ON c.CustKey = sm.CustKey
      LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
      WHERE ISNULL(sm.isDeleted,0)=0
-       AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'
+       AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')
        ${weekWhere}
      ORDER BY sd.SdetailKey DESC`,
     params
@@ -108,7 +108,7 @@ async function handler(req, res) {
        FROM ShipmentFarm sf
        JOIN ShipmentDetail sd ON sd.SdetailKey = sf.SdetailKey
        JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
-       WHERE ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'
+       WHERE (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')
          ${weekWhere}
        GROUP BY sf.SdetailKey${farmHasCost ? ', sf.Cost' : ''}${farmHasAmount ? ', sf.Amount' : ''}${farmHasVat ? ', sf.Vat' : ''}
        ORDER BY sf.SdetailKey DESC`,
@@ -123,7 +123,7 @@ async function handler(req, res) {
        FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
        WHERE ISNULL(sm.isDeleted,0)=0
-         AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'
+         AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')
          ${weekWhere}
      )
      SELECT TOP (@limit)
@@ -141,7 +141,7 @@ async function handler(req, res) {
        ISNULL(sd.EstQuantity,0) AS DetailEstQuantity,
        ISNULL(sdt.EstQuantity,0) AS DateEstQuantity,
        ISNULL(sdt.ShipmentQuantity,0) AS DateShipmentQuantity,
-       CASE WHEN ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' THEN 1 ELSE 0 END AS HasWebCostEdit,
+       CASE WHEN (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%') THEN 1 ELSE 0 END AS HasWebCostEdit,
        LEFT(ISNULL(sd.Descr,''), 300) AS DetailDescr
      FROM Edited e
      JOIN ShipmentMaster sm ON sm.OrderYearWeek=e.OrderYearWeek AND sm.CustKey=e.CustKey AND ISNULL(sm.isDeleted,0)=0

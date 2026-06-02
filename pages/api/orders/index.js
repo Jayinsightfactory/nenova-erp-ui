@@ -518,7 +518,6 @@ async function updateOrder(req, res) {
 
   try {
     const uid = req.user?.userId || 'system';
-    const userName = req.user?.userName || uid;
     let recalcTarget = null;
     const recalcProdKeys = new Set();
 
@@ -555,9 +554,6 @@ async function updateOrder(req, res) {
           if (!item.detailKey) continue;
           const qty = parseFloat(item.qty) || 0;
           const unit = normalizeOrderUnit(item.unit, '박스');
-          const now = new Date();
-          const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
           // 기존 수량 조회 (이력용)
           const old = await tQuery(
             `SELECT od.ProdKey, od.BoxQuantity, od.BunchQuantity, od.SteamQuantity, od.OutQuantity,
@@ -596,7 +592,7 @@ async function updateOrder(req, res) {
               dk:     { type: sql.Int,      value: item.detailKey },
               before: { type: sql.NVarChar, value: String(oldQty) },
               after:  { type: sql.NVarChar, value: String(allQty.outQ) },
-              descr:  { type: sql.NVarChar, value: `[${timeStr} ${userName}] 주문수정` },
+              descr:  { type: sql.NVarChar, value: '주문수정' },
               uid:    { type: sql.NVarChar, value: uid },
             }
           );

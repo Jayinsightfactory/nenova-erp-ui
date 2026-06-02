@@ -1292,9 +1292,10 @@ async function updateOutQty(req, res) {
 
     // descrLog 있으면 ShipmentDetail.Descr에 추가 (수량 관계없이 기록)
     if (descrLog) {
-      const now = new Date().toISOString().replace('T',' ').slice(0,16);
-      const actor = req.user?.userName || req.user?.userId || '사용자';
-      const logLine = `[${now}] [${actor}] ${descrLog}`;
+      const logLine = String(descrLog || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 80);
       await query(
         `UPDATE ShipmentDetail SET Descr = ISNULL(Descr,'') + @log
          WHERE ShipmentKey=(SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0)
@@ -1403,9 +1404,6 @@ async function addOrder(req, res) {
     const quantity = parseFloat(qty) || 0;
     const orderUnit = normalizeOrderUnit(unit, '박스');
     const uid      = req.user?.userId || 'system';
-    const userName = req.user?.userName || uid;
-    const now = new Date();
-    const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     // YYYY-WW-SS → WW-SS 정규화
     const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
     const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
@@ -1488,7 +1486,7 @@ async function addOrder(req, res) {
             `UPDATE OrderDetail SET isDeleted=1 WHERE OrderMasterKey=@mk AND ProdKey=@pk`,
             { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
           );
-          await insertOrderHistory(tQ, detailKey, String(oldQty), '0', `[${timeStr} ${userName}] 차수피벗 삭제`, uid);
+          await insertOrderHistory(tQ, detailKey, String(oldQty), '0', '차수피벗 삭제', uid);
         } else {
           await appLog('addOrder', 'OD_UPDATE', `dk=${detailKey} box=${units.box} bunch=${units.bunch} steam=${units.steam}`);
           await tQ(
@@ -1507,7 +1505,7 @@ async function addOrder(req, res) {
             }
           );
           if (oldQty !== quantity) {
-            await insertOrderHistory(tQ, detailKey, String(oldQty), String(quantity), `[${timeStr} ${userName}] 차수피벗 수정`, uid);
+            await insertOrderHistory(tQ, detailKey, String(oldQty), String(quantity), '차수피벗 수정', uid);
           }
         }
       } else if (quantity > 0) {
@@ -1527,7 +1525,7 @@ async function addOrder(req, res) {
           );
         });
         await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
-        await insertOrderHistory(tQ, nextKey, '0', String(quantity), `[${timeStr} ${userName}] 차수피벗 추가`, uid);
+        await insertOrderHistory(tQ, nextKey, '0', String(quantity), '차수피벗 추가', uid);
       } else {
         await appLog('addOrder', 'OD_SKIP', `qty=0이고 기존 없음 — 아무것도 안함`);
       }

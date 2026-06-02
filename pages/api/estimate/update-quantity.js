@@ -69,7 +69,6 @@ export default withAuth(async function handler(req, res) {
   }
 
   const uid = req.user?.userId || 'admin';
-  const userName = req.user?.userName || uid;
 
   try {
     const result = await withTransaction(async (tQ) => {
@@ -105,9 +104,6 @@ export default withAuth(async function handler(req, res) {
         const nextQuantity = oldQuantity < 0 ? -Math.abs(quantity) : quantity;
         const amount = Math.round(nextQuantity * Number(row.Cost || 0) / 1.1);
         const vat = Math.round(nextQuantity * Number(row.Cost || 0) / 11);
-        const now = new Date();
-        const ts = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
         await tQ(
           `UPDATE Estimate
               SET Quantity=@qty, Amount=@amount, Vat=@vat,
@@ -118,7 +114,7 @@ export default withAuth(async function handler(req, res) {
             qty: { type: sql.Float, value: nextQuantity },
             amount: { type: sql.Float, value: amount },
             vat: { type: sql.Float, value: vat },
-            descr: { type: sql.NVarChar, value: `\n[${ts} ${userName}] 차감수량 ${oldQuantity}->${nextQuantity}` },
+            descr: { type: sql.NVarChar, value: `\n차감수량 ${oldQuantity}>${nextQuantity}` },
           }
         );
 
@@ -243,8 +239,6 @@ export default withAuth(async function handler(req, res) {
         );
       }
 
-      const now = new Date();
-      const ts = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       await tQ(
         `INSERT INTO ShipmentHistory
            (SdetailKey, ShipmentDtm, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
@@ -254,7 +248,7 @@ export default withAuth(async function handler(req, res) {
           dt: { type: sql.DateTime, value: row.ShipmentDtm },
           before: { type: sql.NVarChar, value: String(row.OutQuantity || 0) },
           after: { type: sql.NVarChar, value: String(next.outQuantity) },
-          descr: { type: sql.NVarChar, value: `[${ts} ${userName}] 견적서관리 수량수정 ${oldQuantity}${unit} → ${quantity}${unit}` },
+          descr: { type: sql.NVarChar, value: `수량 ${oldQuantity}${unit}>${quantity}${unit}` },
           uid: { type: sql.NVarChar, value: uid },
         }
       );

@@ -559,7 +559,7 @@ async function postAdjust(req, res) {
             targetOdk,
             String(orderQtyBefore),
             String(orderQtyAfter),
-            `[${formatLogTime()} ${userName}] paste order ${type === 'ADD' ? '+' : '-'} distribute`,
+            `붙여넣기 주문${type === 'ADD' ? '추가' : '취소'}`,
             uid
           );
         }
@@ -691,7 +691,7 @@ async function postAdjust(req, res) {
       }
 
       if (targetSdk) {
-        const conciseLog = `[${userName}]${fmtQty(qtyBefore)}>${fmtQty(qtyAfter)}(${formatSignedQty(qtyAfter - qtyBefore)})`;
+        const conciseLog = `붙여넣기분배 ${fmtQty(qtyBefore)}>${fmtQty(qtyAfter)}(${formatSignedQty(qtyAfter - qtyBefore)})`;
         await tQ(
           `UPDATE ShipmentDetail
               SET Descr = ISNULL(NULLIF(Descr,''), '') +
@@ -768,7 +768,6 @@ async function postAdjust(req, res) {
           orderDetailKey: odRow.OrderDetailKey,
           orderQtyBefore,
           uid,
-          userName,
         });
         if (cleanup.deleted) {
           orderDeleted = true;
@@ -842,11 +841,6 @@ async function postAdjust(req, res) {
   }
 }
 
-function formatLogTime() {
-  const now = new Date();
-  return `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-}
-
 function fmtQty(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value ?? '');
@@ -865,7 +859,7 @@ function isZeroishText(value) {
   return Number.isFinite(n) && Math.abs(n) < 0.0001;
 }
 
-async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, orderQtyBefore, uid, userName }) {
+async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, orderQtyBefore, uid }) {
   const marker = await tQ(
     `SELECT TOP 1 BeforeValue, AfterValue, Descr, ChangeDtm
        FROM OrderHistory
@@ -873,6 +867,7 @@ async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, o
         AND ISNULL(ChangeType,'') = N'수정'
         AND (
              Descr LIKE N'%paste order + distribute%'
+          OR Descr LIKE N'%붙여넣기 주문추가%'
           OR Descr LIKE N'%붙여넣기 주문등록%'
           OR Descr LIKE N'%붙여넣기 일괄추가%'
         )
@@ -892,9 +887,11 @@ async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, o
         AND (
              Descr IS NULL OR (
                  Descr NOT LIKE N'%paste order + distribute%'
+             AND Descr NOT LIKE N'%붙여넣기 주문추가%'
              AND Descr NOT LIKE N'%붙여넣기 주문등록%'
              AND Descr NOT LIKE N'%붙여넣기 일괄추가%'
              AND Descr NOT LIKE N'%자동 주문삭제%'
+             AND Descr NOT LIKE N'%자동주문삭제%'
              )
         )`,
     {
@@ -920,7 +917,7 @@ async function maybeDeleteAutoPasteOrder(tQ, { orderMasterKey, orderDetailKey, o
     orderDetailKey,
     String(orderQtyBefore),
     '0',
-    `[${formatLogTime()} ${userName}] 자동 주문삭제: 분배수량 0`,
+    '자동주문삭제 분배0',
     uid
   );
   await tQ(

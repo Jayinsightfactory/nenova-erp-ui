@@ -443,7 +443,6 @@ async function saveDistribute(req, res) {
   const { week: rawWeek, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
     const uid = req.user?.userId || 'system';
-    const userName = req.user?.userName || uid;
     const week = normalizeOrderWeek(rawWeek);
     const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
     const ywk = orderYear + (week||'').replace('-','');
@@ -574,9 +573,7 @@ async function saveDistribute(req, res) {
             : (bunchQty > 0 ? bunchQty : steamQty > 0 ? steamQty : boxQty);
         const amount = Math.round(amtBase * unitCost / 1.1);
         const vat    = Math.round(amtBase * unitCost / 11);
-        const now = new Date();
-        const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const logEntry = `[${timeStr} ${userName}] ${oldQty}>${qty}(출고분배)`;
+        const logEntry = `출고분배 ${oldQty}>${qty}`;
 
         const newSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
           await tQuery(

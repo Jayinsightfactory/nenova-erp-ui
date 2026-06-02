@@ -117,7 +117,7 @@ async function handler(req, res) {
             { wk: { type: sql.NVarChar, value: week }, ...dateParams }
           );
 
-          const log = `\n[${new Date().toLocaleString('ko-KR', { hour12: false })} Codex] 엑셀업로드 출고일 보정`;
+          const log = `\n엑셀업로드 출고일보정`;
           const detailUpdate = await tQ(
             `WITH date_map(BaseOutDay, ExpectedDate, WrongDate) AS (
                SELECT * FROM (VALUES ${dateMapSql}) v(BaseOutDay, ExpectedDate, WrongDate)

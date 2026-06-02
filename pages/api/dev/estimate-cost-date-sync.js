@@ -28,7 +28,7 @@ async function handler(req, res) {
     weekWhere = 'AND sm.OrderWeek = @week';
     params.week = { type: sql.NVarChar, value: week };
   }
-  const editWhere = allCostSources ? '' : "AND ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%'";
+  const editWhere = allCostSources ? '' : "AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')";
 
   const selectSql = `
     SELECT TOP (@limit)

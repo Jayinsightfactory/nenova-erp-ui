@@ -111,7 +111,6 @@ export default withAuth(async function handler(req, res) {
   }
 
   const uid = req.user?.userId || 'system';
-  const userName = req.user?.userName || uid;
 
   try {
     const result = await withTransaction(async (tQ) => {
@@ -179,9 +178,7 @@ export default withAuth(async function handler(req, res) {
 
           const newAmount = Math.round(Number(row.Quantity || 0) * it.cost / 1.1);
           const newVat = Math.round(Number(row.Quantity || 0) * it.cost / 11);
-          const now = new Date();
-          const ts = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-          const logLine = `\n[${ts} ${userName}] 차감단가 ${row.OldCost}->${it.cost} (${mode})`;
+          const logLine = `\n차감단가 ${row.OldCost}>${it.cost}`;
 
           await tQ(
             `UPDATE Estimate
@@ -257,9 +254,7 @@ export default withAuth(async function handler(req, res) {
         const newAmount = Math.round(baseQty * it.cost / 1.1);
         const newVat    = Math.round(baseQty * it.cost / 11);
 
-        const now = new Date();
-        const ts = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        const logLine = `\n[${ts} ${userName}] 단가 ${row.OldCost}→${it.cost} (${mode})`;
+        const logLine = `\n단가 ${row.OldCost}>${it.cost}`;
 
         await tQ(
           `UPDATE ShipmentDetail
