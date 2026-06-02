@@ -5,12 +5,27 @@ import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
-  const { custName, week } = req.query;
+  const { custName, custNames, week } = req.query;
 
   let where = 'WHERE 1=1';
   const params = {};
   if (week)     { where += ' AND om.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: normalizeOrderWeek(week) }; }
   if (custName) { where += ' AND c.CustName LIKE @cust'; params.cust = { type: sql.NVarChar, value: `%${custName}%` }; }
+  if (!custName && custNames) {
+    const names = String(custNames)
+      .split('|')
+      .map(v => v.trim())
+      .filter(Boolean)
+      .slice(0, 80);
+    if (names.length > 0) {
+      const keys = names.map((name, idx) => {
+        const key = `cust${idx}`;
+        params[key] = { type: sql.NVarChar, value: name };
+        return `@${key}`;
+      });
+      where += ` AND c.CustName IN (${keys.join(',')})`;
+    }
+  }
 
   try {
     const result = await query(

@@ -782,6 +782,9 @@ export default function PasteOrderPage() {
   const [sourceOrdersForTemplate, setSourceOrdersForTemplate] = useState([]);
   const [sourceOrderLoading, setSourceOrderLoading] = useState(false);
   const [bulkUnitEdits, setBulkUnitEdits] = useState({});
+  const [orderHistoryRows, setOrderHistoryRows] = useState([]);
+  const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
+  const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
 
   useEffect(() => {
     const localProductCache = loadCache();
@@ -1497,6 +1500,7 @@ export default function PasteOrderPage() {
         await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
       }
     } catch { /* 갱신 실패해도 결과는 표시 */ }
+    loadOrderHistorySummary(week, orders);
   };
 
   // 등록된 주문을 기준으로 분배만 다시 저장한다.
@@ -1620,6 +1624,7 @@ export default function PasteOrderPage() {
             return next;
           });
         }
+        loadOrderHistorySummary(adjustModal.week, orders);
         setAdjustModal(null); setAdjustQty('');
       } else {
         alert(`${adjustModal.type} 실패: ${d.error}`);
@@ -1715,6 +1720,7 @@ export default function PasteOrderPage() {
             await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
           }
         } catch { /* 조회 실패해도 저장은 완료 */ }
+        loadOrderHistorySummary(week, orders);
       } else {
         updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` });
       }
@@ -1725,7 +1731,44 @@ export default function PasteOrderPage() {
 
   const totalAdd    = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action !== '취소' && it.prodKey).length, 0);
   const totalCancel = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action === '취소').length, 0);
+  const matchedCustomerKey = orders.map(o => o.custMatch?.CustKey || o.custMatch?.CustName || o.custName || '').join('|');
+  const matchingDone = orders.length > 0 && unmatchedQueue.length === 0;
   const cachedEntries = Object.keys(mappingCache).length;
+
+  const loadOrderHistorySummary = async (targetWeek = week, sourceOrders = orders) => {
+    if (!targetWeek) {
+      setOrderHistoryRows([]);
+      return;
+    }
+    setOrderHistoryLoading(true);
+    try {
+      const names = new Set(
+        (sourceOrders || [])
+          .map(o => o.custMatch?.CustName || o.custName)
+          .filter(Boolean)
+      );
+      const d = await apiGet('/api/orders/history', {
+        week: targetWeek,
+        custNames: names.size > 0 ? [...names].join('|') : '',
+      });
+      const rows = (d.history || []).slice(0, 12);
+      setOrderHistoryRows(rows);
+    } catch {
+      setOrderHistoryRows([]);
+    } finally {
+      setOrderHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!orders.length || !week) {
+      setOrderHistoryRows([]);
+      return;
+    }
+    loadOrderHistorySummary(week, orders);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [week, matchedCustomerKey, orders.length]);
+
   const openWeekPivot = () => {
     const suffix = week ? `?weekFrom=${encodeURIComponent(week)}&weekTo=${encodeURIComponent(week)}` : '';
     const popup = window.open(
@@ -1744,6 +1787,20 @@ export default function PasteOrderPage() {
       'width=1440,height=920,left=30,top=20,resizable=yes,scrollbars=yes'
     );
     if (!popup) window.location.href = `/orders/paste-template${suffix}`;
+  };
+
+  const openOrderHistoryDetail = (custName = '') => {
+    const params = new URLSearchParams();
+    if (week) params.set('week', week);
+    if (custName) params.set('custName', custName);
+    params.set('popup', '1');
+    const url = `/orders/history?${params.toString()}`;
+    const popup = window.open(
+      url,
+      'orderHistoryPopup',
+      'width=1280,height=820,left=60,top=40,resizable=yes,scrollbars=yes'
+    );
+    if (!popup) window.location.href = url;
   };
 
   const openMappingStatus = () => {
@@ -2153,7 +2210,7 @@ export default function PasteOrderPage() {
             disabled={!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()}
             style={{ padding: '9px 18px', background: '#455a64', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()) ? 0.5 : 1 }}
           >
-            잔량/히스토리 계산
+            최종 잔량/변경사항 계산
           </button>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'default', padding: '4px 10px', border: '1px solid #2e7d32', borderRadius: 6, background: '#e8f5e9', color: '#1b5e20', fontWeight: 700 }}>
             <input type="checkbox" checked readOnly disabled />
@@ -2171,39 +2228,14 @@ export default function PasteOrderPage() {
               {totalAdd > 0 && <> / <b style={{ color: '#2e7d32' }}>추가 {totalAdd}건</b></>}
               {totalCancel > 0 && <> / <b style={{ color: '#c62828' }}>취소 {totalCancel}건</b></>}
               {unmatchedQueue.length > 0 && <> / <b style={{ color: '#e65100' }}>미매칭 {unmatchedQueue.length}개</b></>}
+              {stockDraft && !matchingDone && (
+                <> / <b style={{ color: '#607d8b' }}>최종 확인 대기</b></>
+              )}
             </span>
           )}
         </div>
 
         {/* 주문즐겨찾기 작업은 상단 큰 버튼으로 여는 새 창에서 처리합니다. */}
-
-        {stockDraft && (
-          <StockDraftPanel
-            draft={stockDraft}
-            copied={stockCopied}
-            onCopy={copyStockDraft}
-          />
-        )}
-
-        {mappingChangeLog.length > 0 && (
-          <div style={{ border: '1px solid #90caf9', borderRadius: 8, background: '#e3f2fd', padding: '9px 12px', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <strong style={{ color: '#0d47a1', fontSize: 13 }}>매칭 변경사항</strong>
-              <span style={{ color: '#1565c0', fontSize: 12 }}>다음 분석부터 저장매칭으로 적용됩니다.</span>
-            </div>
-            <div style={{ display: 'grid', gap: 4 }}>
-              {mappingChangeLog.map(n => (
-                <div key={n.id} style={{ fontSize: 12, color: '#263238', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700 }}>"{n.inputName}"</span>
-                  {n.previousName && <span style={{ color: '#78909c' }}>{n.previousName} →</span>}
-                  <span style={{ color: '#1b5e20', fontWeight: 700 }}>{n.nextName}</span>
-                  {n.nextMeta && <span style={{ color: '#607d8b' }}>({n.nextMeta})</span>}
-                  <span style={{ color: '#1565c0' }}>저장키: {n.savedKey}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* 거래처별 주문 카드 */}
         {orders.map(order => {
@@ -2649,7 +2681,67 @@ export default function PasteOrderPage() {
             </div>
           );
         })}
+
+        {matchingDone && (stockDraft || mappingChangeLog.length > 0) && (
+          <div style={{ marginTop: 6 }}>
+            <div style={{
+              border: '1px solid #cfd8dc',
+              borderRadius: 8,
+              background: '#f8fbff',
+              padding: '10px 12px',
+              marginBottom: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+            }}>
+              <strong style={{ fontSize: 14, color: '#263238' }}>최종 확인</strong>
+              <span style={{ fontSize: 12, color: '#607d8b' }}>
+                품목/거래처 매칭 처리 후 재고와 매칭 변경사항을 확인하는 구간입니다.
+              </span>
+            </div>
+
+            {stockDraft && (
+              <StockDraftPanel
+                draft={stockDraft}
+                copied={stockCopied}
+                onCopy={copyStockDraft}
+              />
+            )}
+
+            {mappingChangeLog.length > 0 && (
+              <div style={{ border: '1px solid #90caf9', borderRadius: 8, background: '#e3f2fd', padding: '9px 12px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <strong style={{ color: '#0d47a1', fontSize: 13 }}>매칭 변경사항</strong>
+                  <span style={{ color: '#1565c0', fontSize: 12 }}>다음 분석부터 저장매칭으로 적용됩니다.</span>
+                </div>
+                <div style={{ display: 'grid', gap: 4 }}>
+                  {mappingChangeLog.map(n => (
+                    <div key={n.id} style={{ fontSize: 12, color: '#263238', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700 }}>"{n.inputName}"</span>
+                      {n.previousName && <span style={{ color: '#78909c' }}>{n.previousName} →</span>}
+                      <span style={{ color: '#1b5e20', fontWeight: 700 }}>{n.nextName}</span>
+                      {n.nextMeta && <span style={{ color: '#607d8b' }}>({n.nextMeta})</span>}
+                      <span style={{ color: '#1565c0' }}>저장키: {n.savedKey}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {(orders.length > 0 || orderHistoryRows.length > 0) && (
+        <OrderHistorySideTab
+          open={orderHistoryOpen}
+          setOpen={setOrderHistoryOpen}
+          loading={orderHistoryLoading}
+          rows={orderHistoryRows}
+          week={week}
+          onOpenDetail={openOrderHistoryDetail}
+        />
+      )}
 
       {/* ── 분배조정(ADD/CANCEL) 모달 ── */}
       {adjustModal && (
@@ -2942,6 +3034,130 @@ function StockStat({ label, value, alert = false }) {
     <div style={{ border: `1px solid ${alert ? '#ffcc80' : '#d6dee8'}`, background: alert ? '#fff8e1' : '#f8fbff', borderRadius: 6, padding: '8px 9px' }}>
       <div style={{ fontSize: 11, color: alert ? '#e65100' : '#607d8b', fontWeight: 700 }}>{label}</div>
       <div style={{ fontSize: 18, color: alert ? '#e65100' : '#263238', fontWeight: 800 }}>{value}</div>
+    </div>
+  );
+}
+
+function shortHistoryValue(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '0';
+  return raw.length > 18 ? `${raw.slice(0, 18)}...` : raw;
+}
+
+function OrderHistorySideTab({ open, setOpen, loading, rows, week, onOpenDetail }) {
+  const count = rows.length;
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          position: 'fixed',
+          right: 0,
+          top: 170,
+          zIndex: 620,
+          padding: '11px 9px',
+          border: '1px solid #90a4ae',
+          borderRight: 'none',
+          borderRadius: '8px 0 0 8px',
+          background: '#263238',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: 'pointer',
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+        }}
+        title="주문 변경이력 요약"
+      >
+        주문 변경이력 {loading ? '조회중' : count}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      right: 12,
+      top: 118,
+      bottom: 24,
+      width: 370,
+      maxWidth: 'calc(100vw - 24px)',
+      zIndex: 620,
+      background: '#fff',
+      border: '1px solid #b0bec5',
+      borderRadius: 10,
+      boxShadow: '0 10px 28px rgba(0,0,0,0.2)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '10px 12px', background: '#263238', color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <strong style={{ fontSize: 14 }}>주문 변경이력</strong>
+        <span style={{ fontSize: 11, opacity: 0.85 }}>{week ? formatWeekDisplay(week) : '차수 미선택'}</span>
+        <button
+          onClick={() => onOpenDetail('')}
+          style={{ marginLeft: 'auto', padding: '4px 9px', border: '1px solid rgba(255,255,255,0.55)', borderRadius: 5, background: '#fff', color: '#263238', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+        >
+          자세히
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="주문 변경이력 닫기"
+          style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: '0 2px' }}
+        >
+          ×
+        </button>
+      </div>
+      <div style={{ padding: '9px 10px', borderBottom: '1px solid #eceff1', background: '#f8fbff', fontSize: 12, color: '#455a64' }}>
+        현재 붙여넣기 화면의 거래처 기준 최근 변경 {loading ? '조회 중' : `${count}건`}입니다.
+      </div>
+      <div style={{ overflowY: 'auto', flex: 1, background: '#fafafa' }}>
+        {loading && (
+          <div style={{ padding: 16, fontSize: 13, color: '#607d8b' }}>변경이력을 불러오는 중입니다.</div>
+        )}
+        {!loading && rows.length === 0 && (
+          <div style={{ padding: 16, fontSize: 13, color: '#78909c' }}>
+            표시할 주문 변경이력이 없습니다.
+          </div>
+        )}
+        {!loading && rows.map((row, idx) => (
+          <button
+            key={`${row.변경일자}-${row.거래처명}-${row.품목명}-${idx}`}
+            onClick={() => onOpenDetail(row.거래처명 || '')}
+            style={{
+              width: '100%',
+              display: 'block',
+              textAlign: 'left',
+              border: 'none',
+              borderBottom: '1px solid #eceff1',
+              background: '#fff',
+              padding: '9px 11px',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginBottom: 3 }}>
+              <strong style={{ color: '#1a237e', fontSize: 12 }}>{row.거래처명 || '-'}</strong>
+              <span style={{ marginLeft: 'auto', color: '#78909c', fontSize: 10 }}>{row.변경일자}</span>
+            </div>
+            <div style={{ color: '#263238', fontSize: 12, fontWeight: 700, lineHeight: 1.35 }}>
+              {row.품목명 || '-'}
+            </div>
+            <div style={{ marginTop: 3, color: '#546e7a', fontSize: 11, lineHeight: 1.35 }}>
+              {row.변경항목 || row.변경유형 || '변경'}:
+              {' '}
+              <span style={{ color: '#999', textDecoration: 'line-through' }}>{shortHistoryValue(row.기준값)}</span>
+              <span style={{ color: '#e65100', margin: '0 4px' }}>→</span>
+              <span style={{ color: '#2e7d32', fontWeight: 800 }}>{shortHistoryValue(row.변경값)}</span>
+            </div>
+            {row.비고 && (
+              <div style={{ marginTop: 3, color: '#8d6e63', fontSize: 10, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {row.비고}
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
