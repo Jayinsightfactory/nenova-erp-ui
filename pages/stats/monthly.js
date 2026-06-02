@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const fmtW = n => (Number(n || 0) / 10000).toFixed(0) + '만';
@@ -32,6 +33,52 @@ export default function MonthlySales() {
   const byCustomer = data?.byCustomer || [];
   const byArea = data?.byArea || [];
   const byManager = data?.byManager || [];
+  const handleExport = () => {
+    downloadSectionsCsv(makeDatedFilename(`월별판매_${data?.year || new Date(date).getFullYear()}_${data?.month || new Date(date).getMonth() + 1}`), [
+      {
+        title: `[${data?.month}]월 품목별 판매 현황`,
+        columns: [
+          { label: '품목명', value: r => r.prodName },
+          { label: '판매량', value: r => r.qty },
+          { label: '판매금액', value: r => r.curSales },
+          { label: '전월 판매금액', value: r => r.prevSales },
+          { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+        ],
+        rows: byProduct,
+      },
+      {
+        title: `[${data?.month}]월 거래처별 판매 현황`,
+        columns: [
+          { label: '지역', value: r => r.area },
+          { label: '거래처명', value: r => r.CustName },
+          { label: '판매금액', value: r => r.curSales },
+          { label: '전월', value: r => r.prevSales },
+          { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+        ],
+        rows: byCustomer,
+      },
+      {
+        title: `[${data?.month}]월 지역별 판매`,
+        columns: [
+          { label: '지역', value: r => r.area },
+          { label: '판매금액', value: r => r.curSales },
+          { label: '전월', value: r => r.prevSales },
+          { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+        ],
+        rows: byArea,
+      },
+      {
+        title: `[${data?.month}]월 담당자별 판매`,
+        columns: [
+          { label: '담당자', value: r => r.Manager },
+          { label: '판매금액', value: r => r.curSales },
+          { label: '전월', value: r => r.prevSales },
+          { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+        ],
+        rows: byManager,
+      },
+    ]);
+  };
 
   return (
     <div>
@@ -45,7 +92,7 @@ export default function MonthlySales() {
         <input type="date" className="filter-input" value={date} onChange={e => setDate(e.target.value)} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
-          <button className="btn btn-secondary">{t('엑셀')}</button>
+          <button className="btn btn-secondary" onClick={handleExport}>{t('엑셀')}</button>
         </div>
       </div>
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -38,6 +39,49 @@ export default function SalesAnalysis() {
   const totalDefect = defects.reduce((a,b)=>a+(b.curAmount||0),0);
   const prevDefect = defects.reduce((a,b)=>a+(b.prevAmount||0),0);
 
+  const handleExport = () => {
+    downloadSectionsCsv(makeDatedFilename(`매출물량분석_${data?.curWeek || week}`), [
+      {
+        title: `[${data?.curWeek}] 매출액`,
+        columns: [
+          { label: '항목', value: r => r.name },
+          { label: '현재차수', value: r => r.cur },
+          { label: '전차수', value: r => r.prev },
+        ],
+        rows: [
+          { name: '매출액', cur: sales.curSales, prev: sales.prevSales },
+          { name: '불량차감 합계', cur: totalDefect, prev: prevDefect },
+          { name: 'Grand Total', cur: (sales.curSales || 0) + totalDefect, prev: (sales.prevSales || 0) + prevDefect },
+        ],
+      },
+      {
+        title: `[${data?.curWeek}] 품목별 매출액`,
+        columns: [
+          { label: '꽃 종류', value: r => r.FlowerName },
+          { label: '매출액', value: r => r.curSales },
+        ],
+        rows: byFlower,
+      },
+      {
+        title: `[${data?.curWeek}] 불량차감 상세`,
+        columns: [
+          { label: '항목', value: r => r.EstimateType },
+          { label: '현재차수', value: r => r.curAmount },
+          { label: '전차수', value: r => r.prevAmount },
+        ],
+        rows: defects,
+      },
+      {
+        title: '전체차수 매출 추이',
+        columns: [
+          { label: '차수', value: r => r.week },
+          { label: '매출액', value: r => r.sales },
+        ],
+        rows: trend,
+      },
+    ]);
+  };
+
   return (
     <div>
       <div className="filter-bar">
@@ -45,7 +89,7 @@ export default function SalesAnalysis() {
         <input className="filter-input" placeholder="빈칸=최신" value={week} onChange={e=>setWeek(e.target.value)} style={{width:100}} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
-          <button className="btn btn-secondary">{t('엑셀')}</button>
+          <button className="btn btn-secondary" onClick={handleExport}>{t('엑셀')}</button>
         </div>
       </div>
       {err && <div style={{padding:'8px 14px',background:'var(--red-bg)',color:'var(--red)',borderRadius:8,marginBottom:10,fontSize:13}}>⚠️ {err}</div>}

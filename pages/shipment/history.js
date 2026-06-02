@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWeekInput } from '../../lib/useWeekInput';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const typeBadge = t => t === '신규' ? 'badge-green' : t === '수정' ? 'badge-blue' : 'badge-red';
 
@@ -31,6 +32,22 @@ export default function ShipmentHistory() {
 
   useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
 
+  const handleExport = () => {
+    downloadCsv(makeDatedFilename('출고변경내역'), [
+      { label: '변경일자', value: r => r.ChangeDtm },
+      { label: '차수', value: r => r.week },
+      { label: '거래처명', value: r => r.CustName },
+      { label: '국가', value: r => r.country },
+      { label: '꽃', value: r => r.flower },
+      { label: '품목명', value: r => r.name },
+      { label: '변경유형', value: r => r.type },
+      { label: '출고일자', value: r => r.outDate },
+      { label: '기준값', value: r => r.before },
+      { label: '변경값', value: r => r.after },
+      { label: '비고', value: r => r.Descr },
+    ], history);
+  };
+
   return (
     <div>
       <div className="filter-bar">
@@ -42,7 +59,7 @@ export default function ShipmentHistory() {
         <input className="filter-input" placeholder="품목명 / 거래처명" value={search} onChange={e => setSearch(e.target.value)} style={{ minWidth: 160 }} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
-          <button className="btn btn-secondary">📊 엑셀 / Excel</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={loading || history.length === 0}>📊 엑셀 / Excel</button>
         </div>
       </div>
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadTextFile, makeDatedFilename } from '../../lib/exportUtils';
 
 const fmt = n => Number(n || 0).toLocaleString();
+const escSvg = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 export default function ShipmentView() {
   const { t } = useLang();
@@ -38,6 +40,63 @@ export default function ShipmentView() {
 
   const selected = shipments.find(s => s.ShipmentKey === selectedId);
 
+  const handlePrint = () => {
+    if (!selected) {
+      alert('출고 목록에서 거래처를 먼저 선택하세요.');
+      return;
+    }
+    window.print();
+  };
+
+  const handleImageDownload = () => {
+    if (!selected) {
+      alert('출고 목록에서 거래처를 먼저 선택하세요.');
+      return;
+    }
+    if (details.length === 0) {
+      alert('이미지로 저장할 출고 상세가 없습니다.');
+      return;
+    }
+    const width = 980;
+    const rowHeight = 26;
+    const headerHeight = 104;
+    const height = headerHeight + (details.length + 2) * rowHeight + 28;
+    const totalQty = details.reduce((a, b) => a + (b.OutQuantity || 0), 0);
+    const totalAmount = details.reduce((a, b) => a + (b.Amount || 0), 0);
+    const rowSvg = details.map((item, i) => {
+      const y = headerHeight + i * rowHeight;
+      return `
+        <rect x="24" y="${y}" width="932" height="${rowHeight}" fill="${i % 2 ? '#f8fafc' : '#ffffff'}" stroke="#d7dde5"/>
+        <text x="36" y="${y + 17}" font-size="13">${escSvg(item.ShipmentDtm)}</text>
+        <text x="145" y="${y + 17}" font-size="13">${escSvg(item.CounName)}</text>
+        <text x="240" y="${y + 17}" font-size="13">${escSvg(item.FlowerName)}</text>
+        <text x="345" y="${y + 17}" font-size="13">${escSvg(item.ProdName)}</text>
+        <text x="720" y="${y + 17}" font-size="13">${escSvg(item.unit)}</text>
+        <text x="830" y="${y + 17}" font-size="13" text-anchor="end">${escSvg(fmt(item.OutQuantity))}</text>
+        <text x="942" y="${y + 17}" font-size="13" text-anchor="end">${escSvg(fmt(item.Amount))}</text>`;
+    }).join('');
+    const totalY = headerHeight + details.length * rowHeight;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="#ffffff"/>
+      <text x="24" y="34" font-size="22" font-weight="700">${escSvg(selected.CustName)} 출고 상세</text>
+      <text x="24" y="60" font-size="13" fill="#526071">차수 ${escSvg(weekInput.value || selected.OrderWeek)} · ${escSvg(selected.CustArea || '')} · ${escSvg(selected.Manager || '')}</text>
+      <rect x="24" y="76" width="932" height="28" fill="#e8eef6" stroke="#cfd7e2"/>
+      <text x="36" y="95" font-size="13" font-weight="700">출고일</text>
+      <text x="145" y="95" font-size="13" font-weight="700">국가</text>
+      <text x="240" y="95" font-size="13" font-weight="700">꽃</text>
+      <text x="345" y="95" font-size="13" font-weight="700">품목명</text>
+      <text x="720" y="95" font-size="13" font-weight="700">단위</text>
+      <text x="830" y="95" font-size="13" font-weight="700" text-anchor="end">출고수량</text>
+      <text x="942" y="95" font-size="13" font-weight="700" text-anchor="end">금액</text>
+      ${rowSvg}
+      <rect x="24" y="${totalY}" width="932" height="${rowHeight}" fill="#eef7ee" stroke="#cfd7e2"/>
+      <text x="36" y="${totalY + 17}" font-size="13" font-weight="700">합계</text>
+      <text x="830" y="${totalY + 17}" font-size="13" font-weight="700" text-anchor="end">${escSvg(fmt(totalQty))}</text>
+      <text x="942" y="${totalY + 17}" font-size="13" font-weight="700" text-anchor="end">${escSvg(fmt(totalAmount))}</text>
+    </svg>`;
+    downloadTextFile(makeDatedFilename(`출고상세_${selected.CustName}`, 'svg'), svg, 'image/svg+xml;charset=utf-8;');
+  };
+
   return (
     <div>
       <div className="filter-bar">
@@ -51,8 +110,8 @@ export default function ShipmentView() {
         </select>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
-          <button className="btn btn-secondary">🖨️ 출고물량표 출력</button>
-          <button className="btn btn-secondary">📷 이미지 다운로드</button>
+          <button className="btn btn-secondary" onClick={handlePrint}>🖨️ 출고물량표 출력</button>
+          <button className="btn btn-secondary" onClick={handleImageDownload}>📷 이미지 다운로드</button>
         </div>
       </div>
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}

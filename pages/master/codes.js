@@ -26,7 +26,7 @@ export default function Codes() {
         <div className="card-header">
           <span className="card-title">{tabs[tab]} 목록</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            <button className="btn btn-primary btn-sm">💾 저장 / Guardar</button>
+            <button className="btn btn-primary btn-sm" disabled title="꽃 탭의 행별 저장 버튼만 현재 저장됩니다.">💾 저장 / Guardar</button>
             <button className="btn btn-secondary btn-sm" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
           </div>
         </div>
@@ -40,9 +40,9 @@ export default function Codes() {
                     <tr key={c.CounKey}>
                       <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', fontSize: 12 }}>{c.CounKey}</td>
                       <td className="name">{c.CounName}</td>
-                      <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={c.isSelectFlower} /></td>
-                      <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={c.isUseOrderCode} /></td>
-                      <td className="num"><input type="number" defaultValue={c.Sort} style={{ width: 60, height: 24, border: '1px solid var(--border2)', borderRadius: 4, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', padding: '0 4px', background: 'var(--bg)' }} /></td>
+                      <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={c.isSelectFlower} disabled title="국가 코드는 현재 조회 전용입니다." /></td>
+                      <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={c.isUseOrderCode} disabled title="국가 코드는 현재 조회 전용입니다." /></td>
+                      <td className="num"><input type="number" defaultValue={c.Sort} readOnly title="국가 코드는 현재 조회 전용입니다." style={{ width: 60, height: 24, border: '1px solid var(--border2)', borderRadius: 4, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', padding: '0 4px', background: 'var(--bg)' }} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -69,7 +69,7 @@ export default function Codes() {
                 <tbody>
                   {data.farms.map(f => (
                     <tr key={f.FarmKey}>
-                      <td><input className="form-control" defaultValue={f.FarmName} style={{ height: 28, fontSize: 13, width: 200 }} /></td>
+                      <td><input className="form-control" defaultValue={f.FarmName} readOnly title="농장 코드는 현재 조회 전용입니다." style={{ height: 28, fontSize: 13, width: 200 }} /></td>
                       <td><span className="badge badge-gray">{f.CounName}</span></td>
                     </tr>
                   ))}
@@ -109,8 +109,8 @@ function FlowerRow({ flower, onSaved }) {
   const cell = { width: 70, height: 24, border: '1px solid var(--border2)', borderRadius: 4, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', padding: '0 4px', background: 'var(--bg)' };
   return (
     <tr>
-      <td><input className="form-control" defaultValue={flower.FlowerName} style={{ height: 28, fontSize: 13, width: 180 }} /></td>
-      <td className="num"><input type="number" defaultValue={flower.Sort} style={cell} /></td>
+      <td><input className="form-control" defaultValue={flower.FlowerName} readOnly title="꽃 이름은 현재 조회 전용입니다." style={{ height: 28, fontSize: 13, width: 180 }} /></td>
+      <td className="num"><input type="number" defaultValue={flower.Sort} readOnly title="정렬순번은 현재 조회 전용입니다." style={cell} /></td>
       <td className="num"><input type="number" step="0.1" value={f.BoxWeight} onChange={e => setF(x => ({ ...x, BoxWeight: e.target.value }))} style={cell} /></td>
       <td className="num"><input type="number" step="0.1" value={f.BoxCBM} onChange={e => setF(x => ({ ...x, BoxCBM: e.target.value }))} style={cell} /></td>
       <td className="num"><input type="number" value={f.StemsPerBox} onChange={e => setF(x => ({ ...x, StemsPerBox: e.target.value }))} style={cell} /></td>

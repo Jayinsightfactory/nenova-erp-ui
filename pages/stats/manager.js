@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const gc = g => g >= 0 ? 'var(--green)' : 'var(--red)';
@@ -31,6 +32,16 @@ export default function SalesManager() {
   const totalCur = data.reduce((a, b) => a + (b.curSales || 0), 0);
   const totalPrev = data.reduce((a, b) => a + (b.prevSales || 0), 0);
   const managers = [...new Set(data.map(r => r.manager).filter(Boolean))];
+  const handleExport = () => {
+    downloadCsv(makeDatedFilename(`담당자실적_${curWeek || weekInput.value}`), [
+      { label: '지역', value: r => r.area },
+      { label: '담당자', value: r => r.manager },
+      { label: '거래처명', value: r => r.CustName },
+      { label: '현재 차수', value: r => r.curSales },
+      { label: '전 차수', value: r => r.prevSales },
+      { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+    ], data);
+  };
 
   return (
     <div>
@@ -48,7 +59,7 @@ export default function SalesManager() {
         </select>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
-          <button className="btn btn-secondary">{t('엑셀')}</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={loading || data.length === 0}>{t('엑셀')}</button>
         </div>
       </div>
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}

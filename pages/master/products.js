@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/displayName';
+import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 export default function Products() {
   const { t } = useLang();
@@ -124,6 +125,24 @@ export default function Products() {
 
   const noAliasCount = products.filter(p => !p.DisplayName).length;
 
+  const handleExport = () => {
+    downloadCsv(makeDatedFilename('품목목록'), [
+      { label: '품목코드', value: p => p.ProdCode },
+      { label: '품목명(DB)', value: p => p.ProdName },
+      { label: '자연어명', value: p => getDisplayName(p) },
+      { label: '꽃', value: p => p.FlowerName },
+      { label: '국가', value: p => p.CounName },
+      { label: '출고단가', value: p => p.Cost },
+      { label: '출고단위', value: p => p.OutUnit },
+      { label: '1박스단수', value: p => p.BunchOf1Box },
+      { label: '1단송이', value: p => p.SteamOf1Bunch },
+      { label: '박스무게', value: p => p.BoxWeight },
+      { label: '박스CBM', value: p => p.BoxCBM },
+      { label: '관세율', value: p => p.TariffRate },
+      { label: '재고', value: p => p.Stock },
+    ], filtered);
+  };
+
   return (
     <div>
       <div className="filter-bar">
@@ -150,7 +169,7 @@ export default function Products() {
           </button>
           <button className="btn btn-success" onClick={() => { setForm({}); setSelected(null); setShowModal(true); }}>＋ 신규 / Nuevo</button>
           <button className="btn btn-secondary" onClick={() => selected && (setForm({ ...selected }), setShowModal(true))}>✏️ 수정 / Editar</button>
-          <button className="btn btn-secondary">📊 엑셀 / Excel</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={loading || filtered.length === 0}>📊 엑셀 / Excel</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>

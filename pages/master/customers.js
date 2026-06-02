@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const OUTDAY_MAP = { 0: '', 4: '수요일', 5: '목요일', 6: '금요일', 7: '토요일', 1: '일요일', 2: '월요일', 3: '화요일' };
 
@@ -41,6 +42,20 @@ export default function Customers() {
     } catch (e) { alert(e.message); } finally { setSaving(false); }
   };
 
+  const handleExport = () => {
+    downloadCsv(makeDatedFilename('거래처목록'), [
+      { label: '거래처코드', value: c => c.CustCode },
+      { label: '거래처명', value: c => c.CustName },
+      { label: '지역', value: c => c.CustArea },
+      { label: '대표자', value: c => c.CEO },
+      { label: '담당자', value: c => c.Manager },
+      { label: '전화', value: c => c.Tel },
+      { label: '모바일', value: c => c.Mobile },
+      { label: '기본출고요일', value: c => OUTDAY_MAP[c.BaseOutDay] || '' },
+      { label: '주문코드', value: c => c.OrderCode },
+    ], filtered);
+  };
+
   return (
     <div>
       <div className="filter-bar">
@@ -49,7 +64,7 @@ export default function Customers() {
           <button className="btn btn-primary" onClick={load}>{t('새로고침')}</button>
           <button className="btn btn-success" onClick={openNew}>＋ 신규 / Nuevo</button>
           <button className="btn btn-secondary" onClick={() => selected && openEdit(selected)}>✏️ 수정 / Editar</button>
-          <button className="btn btn-secondary">📊 엑셀 / Excel</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={loading || filtered.length === 0}>📊 엑셀 / Excel</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>

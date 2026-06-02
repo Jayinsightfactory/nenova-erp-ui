@@ -346,9 +346,9 @@ export default function Warehouse() {
             <span className="card-title">입고 상세 목록</span>
             {selected && <span style={{fontSize:12,color:'var(--blue)',fontWeight:600}}>{selected.FarmName} · {selected.InvoiceNo}</span>}
             <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-              <button className="btn btn-success btn-sm">＋ 신규 / Nuevo</button>
-              <button className="btn btn-secondary btn-sm">✏️ 수정 / Editar</button>
-              <button className="btn btn-danger btn-sm">🗑️ 삭제 / Eliminar</button>
+              <button className="btn btn-success btn-sm" disabled title="상세 품목은 입고 업로드로 등록합니다.">＋ 신규 / Nuevo</button>
+              <button className="btn btn-secondary btn-sm" disabled title="상세 품목 직접 수정 API는 아직 연결되어 있지 않습니다.">✏️ 수정 / Editar</button>
+              <button className="btn btn-danger btn-sm" disabled title="상세 품목 삭제 API는 아직 연결되어 있지 않습니다.">🗑️ 삭제 / Eliminar</button>
             </div>
           </div>
           {selectedKey && (

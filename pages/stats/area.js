@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { apiGet } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const gc = g => g >= 0 ? 'var(--green)' : 'var(--red)';
@@ -30,6 +31,34 @@ export default function AreaSales() {
   const totalPrev = byArea.reduce((a, b) => a + (b.prevSales || 0), 0);
   const weekList = [...new Set(allWeeks.map(r => r.week))];
   const areaList = [...new Set(allWeeks.map(r => r.area))];
+  const allWeekRows = areaList.map(area => {
+    const row = { area };
+    for (const w of weekList) row[w] = allWeeks.find(r => r.area === area && r.week === w)?.sales || '';
+    return row;
+  });
+
+  const handleExport = () => {
+    downloadSectionsCsv(makeDatedFilename(`지역별판매_${data?.curWeek || weekInput.value}`), [
+      {
+        title: `[${data?.curWeek}] 지역별 판매액 비교`,
+        columns: [
+          { label: '지역', value: r => r.area },
+          { label: '현재 차수', value: r => r.curSales },
+          { label: '전 차수', value: r => r.prevSales },
+          { label: '증감률', value: r => `${growth(r.curSales, r.prevSales)}%` },
+        ],
+        rows: byArea,
+      },
+      {
+        title: '지역별 판매액 비교 (전체차수)',
+        columns: [
+          { label: '지역', value: r => r.area },
+          ...weekList.map(w => ({ label: w, value: r => r[w] })),
+        ],
+        rows: allWeekRows,
+      },
+    ]);
+  };
 
   return (
     <div>
@@ -37,7 +66,7 @@ export default function AreaSales() {
         <WeekInput weekInput={weekInput} label="차수" />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
-          <button className="btn btn-secondary">{t('엑셀')}</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={loading || !data}>{t('엑셀')}</button>
         </div>
       </div>
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}

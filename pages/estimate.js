@@ -2427,8 +2427,8 @@ export default function Estimate() {
                 }}>
                 ＋ 불량/검역 등록 / Reg. Defecto
               </button>
-              <button className="btn btn-sm">✏️ 수정 / Editar</button>
-              <button className="btn btn-sm" style={{color:'var(--red)'}}>🗑️ 삭제 / Eliminar</button>
+              <button className="btn btn-sm" disabled title="견적 품목은 표 안의 수량/단가 수정 적용 버튼으로 변경하세요.">✏️ 수정 / Editar</button>
+              <button className="btn btn-sm" disabled title="견적 품목 삭제 API는 아직 연결되어 있지 않습니다." style={{color:'var(--red)'}}>🗑️ 삭제 / Eliminar</button>
             </div>
           </div>
 
