@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { useWeekInput } from '../../lib/useWeekInput';
+import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
@@ -16,6 +16,20 @@ const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDi
 const applyTarget = r => rowChanged(r) || shipmentNeedsApply(r);
 const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
 const rowBg = r => r?.status === '주문없음' ? '#eff6ff' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
+
+function getDefaultImportWeek() {
+  const current = getCurrentWeek();
+  const match = String(current || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return current;
+  let year = Number(match[1]);
+  let week = Number(match[2]) + 1;
+  const seq = match[3];
+  if (week > 52) {
+    year += 1;
+    week = 1;
+  }
+  return `${year}-${String(week).padStart(2, '0')}-${seq}`;
+}
 
 function buildPivotModel(sourceRows) {
   const customers = new Map();
@@ -83,7 +97,7 @@ function buildPivotModel(sourceRows) {
 
 export default function DistributeImport() {
   const router = useRouter();
-  const weekInput = useWeekInput('');
+  const weekInput = useWeekInput(getDefaultImportWeek());
   const fileRef = useRef(null);
   const applyResultRef = useRef(null);
   const [file, setFile] = useState(null);
