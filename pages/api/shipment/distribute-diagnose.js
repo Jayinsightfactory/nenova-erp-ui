@@ -41,7 +41,12 @@ async function handler(req, res) {
       `SELECT TOP 200 sm.ShipmentKey, sd.SdetailKey, sm.CustKey, sd.ProdKey, p.ProdName,
               sd.OutQuantity,
               ISNULL(SUM(sdt.ShipmentQuantity),0) AS ShipmentDateQty,
-              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipmentDtm
+              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipmentDtm,
+              MIN(CONVERT(NVARCHAR(10), sdt.ShipmentDtm, 120)) AS ShipmentDateDtm,
+              SUM(CASE WHEN sdt.ShipmentDtm IS NULL
+                         OR sd.ShipmentDtm IS NULL
+                         OR CONVERT(date, sdt.ShipmentDtm) <> CONVERT(date, sd.ShipmentDtm)
+                       THEN 1 ELSE 0 END) AS DateMismatchCount
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          LEFT JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
@@ -52,6 +57,10 @@ async function handler(req, res) {
                  sd.OutQuantity, sd.ShipmentDtm
        HAVING ISNULL(SUM(sdt.ShipmentQuantity),0) <> ISNULL(sd.OutQuantity,0)
            OR sd.ShipmentDtm IS NULL
+           OR SUM(CASE WHEN sdt.ShipmentDtm IS NULL
+                         OR sd.ShipmentDtm IS NULL
+                         OR CONVERT(date, sdt.ShipmentDtm) <> CONVERT(date, sd.ShipmentDtm)
+                       THEN 1 ELSE 0 END) > 0
         ORDER BY sm.CustKey, sd.ProdKey`,
       { wk: { type: sql.NVarChar, value: week } }
     );

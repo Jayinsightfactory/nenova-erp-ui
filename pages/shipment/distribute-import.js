@@ -12,7 +12,7 @@ const statusText = status => status === '주문없음' ? '신규추가' : status
 const rowChanged = r => r?.status !== '동일';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
-const shipmentNeedsApply = r => hasQtyDiff(shipmentDiffQty(r));
+const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
 const applyTarget = r => rowChanged(r) || shipmentNeedsApply(r);
 const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
 const rowBg = r => r?.status === '주문없음' ? '#eff6ff' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
