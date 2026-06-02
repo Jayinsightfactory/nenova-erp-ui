@@ -2,6 +2,7 @@
 // 즐겨찾기 CRUD — UserFavorite 테이블 자동 생성
 // GET    ?page=stock-status  → 유저별 즐겨찾기 목록
 // POST   { page, name, filterData }  → 저장
+// PUT    { favoriteKey, name, filterData } → 수정 (본인 것만)
 // DELETE { favoriteKey }  → 삭제 (본인 것만)
 
 import { query, sql } from '../../lib/db';
@@ -64,6 +65,33 @@ export default withAuth(async function handler(req, res) {
         }
       );
       return res.status(200).json({ success: true, favoriteKey: result.recordset[0].FavoriteKey });
+    }
+
+    // PUT: 즐겨찾기 수정
+    if (req.method === 'PUT') {
+      const { favoriteKey, name, filterData } = req.body;
+      if (!favoriteKey || !name || !filterData) {
+        return res.status(400).json({ success: false, error: 'favoriteKey, name, filterData 필요' });
+      }
+      try { JSON.parse(filterData); } catch { return res.status(400).json({ success: false, error: 'filterData는 유효한 JSON이어야 합니다' }); }
+
+      const result = await query(
+        `UPDATE UserFavorite
+            SET FavName=@name,
+                FilterData=@data
+          WHERE FavoriteKey=@fk
+            AND UserID=@uid`,
+        {
+          fk:   { type: sql.Int, value: parseInt(favoriteKey) },
+          uid:  { type: sql.NVarChar, value: uid },
+          name: { type: sql.NVarChar, value: name },
+          data: { type: sql.NVarChar, value: filterData },
+        }
+      );
+      if (result.rowsAffected?.[0] === 0) {
+        return res.status(404).json({ success: false, error: '수정할 즐겨찾기를 찾지 못했습니다' });
+      }
+      return res.status(200).json({ success: true, favoriteKey: parseInt(favoriteKey) });
     }
 
     // DELETE: 즐겨찾기 삭제
