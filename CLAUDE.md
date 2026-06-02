@@ -27,11 +27,13 @@
 | 필드 | 값 | 설명 |
 |------|------|------|
 | OutQuantity | qty | 출고수량 |
-| EstQuantity | qty | 출고일지정수량 (= OutQuantity) |
+| EstQuantity | 환산 기준 수량 | 금액/견적 기준 수량. 단/송이 환산 품목은 OutQuantity와 다를 수 있음 |
 | BoxQuantity | qty | 박스수량 |
 | BunchQuantity | qty × BunchOf1Box | 단수량 |
 | SteamQuantity | qty × SteamOf1Box | 송이수량 |
 | ShipmentDtm | calcShipDate() | 업체별 기본출고일 |
+
+⚠️ `EstQuantity = OutQuantity`로 일괄 보정 금지. 카네이션/수국/루스커스처럼 박스 출고지만 단/송이 금액 기준을 쓰는 품목은 `EstQuantity`가 15, 25, 30 등으로 정상적으로 달라진다.
 
 ### 규칙 3: 출고일(ShipmentDtm) 계산
 ```
@@ -110,8 +112,14 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
 | checkEstQty | 불일치+빈레코드 확인 | ❌ 읽기 |
 | ghostShipments | 고스트 출고 레코드 | ❌ 읽기 |
 | cleanupZero | Out=0 빈 레코드 삭제 | ⚠️ DELETE |
-| syncEstQty | Est=Out 강제 동기화 | ⚠️ UPDATE |
+| syncEstQty | Est=Out 강제 동기화 | 🚫 비활성화됨. 사용 금지 |
 | deleteSdetail | 특정 SdetailKey 삭제 | ⚠️ DELETE |
+
+### 분배 진단/수리 API
+| API | 용도 | DB 수정 |
+|-----|------|---------|
+| `GET /api/shipment/distribute-diagnose?week=23-01` | 중복 ShipmentMaster, ShipmentDetail.CustKey 누락, ShipmentDate 수량/일자 불일치, 키넘버링, SP 존재 진단 | ❌ 읽기 |
+| `POST /api/shipment/distribute-diagnose` `{ week, action:'repairMissingCustKey' }` | 기존 출고상세의 `CustKey`가 비었거나 `ShipmentMaster.CustKey`와 다를 때 같은 값으로 복구 | ⚠️ UPDATE |
 
 ## 🚫 배포 주의
 - `xlsx-js-style` 사용 금지 (Turbopack 실패)
