@@ -115,14 +115,15 @@ export default function DistributeImport() {
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
   const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
   const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
+  const shipmentRows = useMemo(() => rows.filter(shipmentNeedsApply), [rows]);
   const visibleRows = useMemo(() => {
-    const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'unmatched' ? [] : rows;
+    const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : filter === 'unmatched' ? [] : rows;
     return base.slice(0, 1000);
-  }, [rows, applyRows, changedRows, filter]);
+  }, [rows, applyRows, changedRows, shipmentRows, filter]);
   const pivotModel = useMemo(() => {
-    const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : rows;
+    const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
     return buildPivotModel(source);
-  }, [rows, applyRows, changedRows, filter]);
+  }, [rows, applyRows, changedRows, shipmentRows, filter]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -154,8 +155,9 @@ export default function DistributeImport() {
       setFilter('apply');
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
+      const shipmentDiffCount = (data.rows || []).filter(shipmentNeedsApply).length;
       if (!options.preserveMessage) {
-        setMessage(`검증 완료: 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배반영 ${applyCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
+        setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
       }
     } catch (e) {
       setError(e.message);
@@ -248,7 +250,7 @@ export default function DistributeImport() {
             <div style={st.kpis}>
               <Kpi label="전체 표시" value={rows.length} />
               <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
-              <Kpi label="분배반영" value={applyRows.length} warn={applyRows.length > changedRows.length} />
+              <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
               <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
             </div>
@@ -268,13 +270,13 @@ export default function DistributeImport() {
                 </div>
                 <div style={st.tableWrap}>
                   <table style={st.table}>
-                    <thead><tr><th>업체</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>변경품목</th></tr></thead>
+                    <thead><tr><th>업체</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>주문변경품목</th><th>분배반영품목</th></tr></thead>
                     <tbody>
                       {(preview.summaryByCustomer || []).map(r => (
                         <tr key={r.custName}>
                           <td>{r.custName}</td><td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td>
                           <td>{fmt(r.uploadQty)}</td><td style={{ color: r.changeQty ? '#b45309' : '#475569' }}>{fmt(r.changeQty)}</td>
-                          <td style={{ color: r.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(r.shipmentDiffQty)}</td><td>{r.changedLines}</td>
+                          <td style={{ color: r.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(r.shipmentDiffQty)}</td><td>{r.changedLines}</td><td>{r.shipmentChangedLines}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -296,6 +298,7 @@ export default function DistributeImport() {
                   <div style={st.segment}>
                     <button onClick={() => setFilter('apply')} style={filter === 'apply' ? st.segOn : st.seg}>적용대상</button>
                     <button onClick={() => setFilter('changed')} style={filter === 'changed' ? st.segOn : st.seg}>주문변경만</button>
+                    <button onClick={() => setFilter('shipment')} style={filter === 'shipment' ? st.segOn : st.seg}>분배차이만</button>
                     <button onClick={() => setFilter('all')} style={filter === 'all' ? st.segOn : st.seg}>전체</button>
                     <button onClick={() => setFilter('unmatched')} style={filter === 'unmatched' ? st.segOn : st.seg}>미매칭</button>
                   </div>
@@ -375,7 +378,7 @@ function PivotComparison({ model }) {
             {model.customers.map(c => (
               <th key={c.key} style={st.pivotCustHead}>
                 <div style={st.custName}>{c.name}</div>
-                <div style={st.custMeta}>엑셀 {fmt(c.uploadQty)} / 주문변경 {fmt(c.changeQty)}</div>
+                <div style={st.custMeta}>엑셀 {fmt(c.uploadQty)} / 주문변경 {fmt(c.changeQty)} / 분배차이 {fmt(c.shipmentDiffQty)}</div>
               </th>
             ))}
             <th style={st.pivotTotalHead}>주문등록</th>
@@ -390,7 +393,7 @@ function PivotComparison({ model }) {
             <tr key={p.key}>
               <td style={st.pivotProductCell}>
                 <div style={{ fontWeight: 700 }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 주문변경 {p.changedLines}건</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{p.outUnit || '박스'} · 주문변경 {p.changedLines}건 · 분배반영 {p.shipmentChangedLines}건</div>
               </td>
               {model.customers.map(c => {
                 const r = p.cells.get(c.key);
