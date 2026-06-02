@@ -22,14 +22,35 @@
 4. 배포 확인 기록
    - 배포한 경우 운영 `git-log` 확인 결과와 커밋 해시를 문서에 남긴다.
 
+5. 일일 대화 원장
+   - 하루 안에 여러 기능/사고/검증이 이어지는 긴 세션은 `docs/DAILY_CONVERSATION_LOG_YYYY-MM-DD.md`를 만든다.
+   - 사용자가 “오늘 대화 저장”, “작업내역 저장”, “MD 저장”을 요청하면 반드시 생성 또는 갱신한다.
+   - 원장에는 원문 전문 대신 검색/재개에 필요한 모든 사용자 요청, 언급 파일, 결정, 검증, 커밋, 남은 위험을 항목화해 남긴다.
+   - 기능별 상세 문서와 `work_history.md`를 연결하는 인덱스 역할을 한다.
+
+6. 작업 시작 전 문서 검색
+   - DB 쓰기, `nenova.exe` 호환성, 출고분배, 주문등록, 견적서, 재고, 챗봇 라우팅 작업 전에는 먼저 관련 MD와 코드 검색을 한다.
+   - 기본 검색 예:
+     ```powershell
+     rg -n "관련키워드|테이블명|오류문구|화면명" docs pages lib components
+     ```
+   - 반복 확인 키워드: `OrderYearWeek`, `KeyNumbering`, `ShipmentDate`, `ShipmentDetail`, `OrderDetail`, `StockHistory`, `재고조정`, `출고일`, `nenova.exe`, `PRIMARY KEY`, `deadlock`.
+
+7. 기록 계층
+   - `DAILY_CONVERSATION_LOG_YYYY-MM-DD.md`: 하루 대화/요청/결정 전체 원장.
+   - 기능별/사고별 MD: 원인, 수정, 검증, 재발방지 상세.
+   - `work_history.md`: 날짜별 핵심 요약과 상세 문서 링크.
+   - Git commit: 실제 변경 단위의 기계적 이력.
+
 ## 이번에 보강한 기록
 
 - `docs/INCOMING_PAYMENT_SIDE_TABS_2026-05-25.md`
   - 입고단가/송금 우측 탭 작업의 사용자 요청, 구현 내용, DB 기준, 검증 결과를 기록했다.
+- `docs/DAILY_CONVERSATION_LOG_2026-06-02.md`
+  - 2026-06-02 긴 세션의 사용자 요청, 언급 파일, 구현/배포 커밋, 위험 이슈, 남은 확인사항을 일일 원장으로 저장했다.
 
 ## 주의
 
 기존 `docs/work_history.md`, `docs/NENOVA_PROJECT_PLAN_STATUS.md` 일부는 콘솔에서 한글이 깨져 보이는 인코딩 문제가 있다.
 
 기존 문서를 무리하게 수정해 기록을 훼손하지 않고, 새 작업별 문서를 추가하는 방식을 우선 사용한다.
-

@@ -776,3 +776,23 @@ collapsed: Set  // 접힌 행 그룹
   - 기존 `OrderHistory` 조회 API를 사용하므로 신규 DB 쓰기 없음.
 - 검증:
   - `next build` 통과.
+
+---
+
+## 2026-06-02 일일 대화 원장 및 작업기록 방식 보완
+
+- 요청: 오늘 대화내용 전체를 MD에 저장하고, 검색해서 작업내역 관리방식을 보완해야 함.
+- 저장 문서:
+  - [DAILY_CONVERSATION_LOG_2026-06-02.md](DAILY_CONVERSATION_LOG_2026-06-02.md)
+- 확인한 기존 기준:
+  - [WORK_RECORD_POLICY_2026-05-25.md](WORK_RECORD_POLICY_2026-05-25.md)
+  - [WEB_VS_ERP_CONFLICTS.md](WEB_VS_ERP_CONFLICTS.md)
+  - [NENOVA_PROJECT_PLAN_STATUS.md](NENOVA_PROJECT_PLAN_STATUS.md)
+  - `pages/dev/project-plan.js`, `pages/dev/history.js`, `pages/dev/action-log.js`
+- 보완 내용:
+  - 긴 세션은 `docs/DAILY_CONVERSATION_LOG_YYYY-MM-DD.md` 일일 대화 원장으로 별도 저장.
+  - 사용자 요청, 언급 파일, 결정, 검증, 커밋, 남은 위험을 한 문서에 묶어 검색 가능하게 함.
+  - 기능별/사고별 상세 문서와 `work_history.md`는 원장 링크 중심으로 연결.
+  - DB 쓰기/`nenova.exe` 호환 작업 전 `rg` 검색 체크를 기록 정책에 추가.
+- 검증:
+  - 문서 변경이므로 빌드 불필요. `git diff --check`로 공백 오류 확인 대상.
