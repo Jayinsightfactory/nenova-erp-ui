@@ -17,6 +17,16 @@ type: history
 - 원칙: `nenova.exe` 버튼, 저장 프로시저, 기존 ERP row, 운영 데이터 불일치 여부를 확인한 뒤에만 코드 수정
 - 출고분배는 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`, `ShipmentMaster/Detail`, `ShipmentDate`, `ShipmentHistory` 충돌 여부를 먼저 확인
 
+### 2026-06-02 23-01 출고분배 엑셀 업로드 출고일 밀림 보정
+
+- 증상: 엑셀 업로드 신규 분배 행의 출고일이 기존 `nenova.exe` 분배 행보다 6일 뒤로 저장됨.
+- 대표 사례: 공주플라워 중매 1523 / `CARNATION Mariposa`가 `0 → 1`로 신규 분배되었으나 `2026-06-09`로 저장됨. 정상 출고일은 같은 업체 기존 행과 같은 `2026-06-03`.
+- 원인: 웹 출고일 계산이 차수 시작일 이후의 수요일을 찾아서 `23-01` 기준일이 다음 주로 밀림.
+- 조치: 출고일 계산을 “차수 시작일의 직전/당일 수요일 + `Customer.BaseOutDay` 오프셋”으로 통일.
+- 운영 보정: `23-01` 동일 패턴 18건의 `ShipmentDetail.ShipmentDtm`과 `ShipmentDate.ShipmentDtm`을 함께 보정.
+- 후속 확인: `shipmentDateMismatch=0`, `shipmentDateBaseMismatch=0`, `missingCustKey=0`, `duplicateMasters=0`, `keyNumberingNeedsSync=0`.
+- 상세 문서: [SHIPMENT_IMPORT_DATE_BASE_OUTDAY_FIX_2026-06-02.md](SHIPMENT_IMPORT_DATE_BASE_OUTDAY_FIX_2026-06-02.md)
+
 ### 2026-05-25 21-01 국내왁스 출고분배 장애
 
 - 증상: `nenova.exe`에서 21-01 국내왁스 일괄출고분배 버튼이 동작하지 않음
