@@ -30,6 +30,11 @@
 
 ## Fixed In This Audit
 
+- `pages/api/orders/index.js`
+  - Paste order registration (`/orders/paste` -> `/api/orders`) now syncs `KeyNumbering` after new `OrderMaster` and `OrderDetail` inserts.
+  - Existing `OrderMaster` rows reused by paste registration now backfill empty `OrderYearWeek` when the column exists.
+  - This closes the direct "등록만" path gap after the initial shipment/import audit.
+
 - `lib/shipmentImport.js`
   - Excel shipment import apply now separates order units from shipment units.
   - Order registration still uses order-unit conversion.

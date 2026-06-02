@@ -49,6 +49,28 @@ async function tryInsertWithRetry(tQ, table, keyCol, buildInsert, maxRetry = 5) 
   throw lastErr || new Error(`${table} INSERT 재시도 ${maxRetry}회 모두 실패`);
 }
 
+async function syncKeyNumbering(tQ, category, table, keyCol) {
+  const allowed = {
+    OrderMasterKey: ['OrderMaster', 'OrderMasterKey'],
+    OrderDetailKey: ['OrderDetail', 'OrderDetailKey'],
+  };
+  const [safeTable, safeKeyCol] = allowed[category] || [];
+  if (safeTable !== table || safeKeyCol !== keyCol) throw new Error('invalid key numbering sync target');
+
+  await tQ(
+    `IF EXISTS (SELECT 1 FROM KeyNumbering WHERE Category=@cat)
+       UPDATE KeyNumbering
+          SET LastKeyNo = CASE WHEN LastKeyNo < x.MaxKey THEN x.MaxKey ELSE LastKeyNo END
+         FROM KeyNumbering
+         CROSS JOIN (SELECT ISNULL(MAX(${keyCol}),0) AS MaxKey FROM ${table}) x
+        WHERE Category=@cat
+     ELSE
+       INSERT INTO KeyNumbering (Category, LastKeyNo, Descr)
+       SELECT @cat, ISNULL(MAX(${keyCol}),0), '' FROM ${table}`,
+    { cat: { type: sql.NVarChar, value: category } }
+  );
+}
+
 const columnExistsCache = {};
 async function columnExists(tableName, columnName) {
   const key = `${tableName}.${columnName}`;
@@ -269,12 +291,22 @@ async function createOrder(req, res) {
         mk = existing.recordset[0].OrderMasterKey;
         await appLog('createOrder', 'OM_FOUND', `mk=${mk}`);
         // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
+        const ywk = orderYear + (orderWeek || '').replace('-', '');
+        const yearWeekPatch = hasOrderYearWeekColumn
+          ? `OrderYearWeek = CASE WHEN OrderYearWeek IS NULL OR OrderYearWeek = '' THEN @ywk ELSE OrderYearWeek END,`
+          : '';
         await tQuery(
           `UPDATE OrderMaster SET
+             ${yearWeekPatch}
              Manager   = CASE WHEN Manager   IS NULL OR Manager   = '' THEN @mgr ELSE Manager END,
              OrderCode = CASE WHEN OrderCode IS NULL OR OrderCode = '' THEN @oc  ELSE OrderCode END
            WHERE OrderMasterKey = @mk`,
-          { mgr: { type: sql.NVarChar, value: mgr }, oc: { type: sql.NVarChar, value: resolvedOrderCode }, mk: { type: sql.Int, value: mk } }
+          {
+            ywk: { type: sql.NVarChar, value: ywk },
+            mgr: { type: sql.NVarChar, value: mgr },
+            oc: { type: sql.NVarChar, value: resolvedOrderCode },
+            mk: { type: sql.Int, value: mk },
+          }
         );
       } else {
         mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
@@ -306,6 +338,7 @@ async function createOrder(req, res) {
             );
           }
         });
+        await syncKeyNumbering(tQuery, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       }
 
       const detailResults = [];
@@ -449,6 +482,7 @@ async function createOrder(req, res) {
               }
             );
           });
+          await syncKeyNumbering(tQuery, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
           await insertOrderHistory(tQuery, newDetailKey, '0', String(outQty), historyDescr, uid);
           changedProdKeys.add(Number(prodKey));
           detailResults.push({ prodKey, prodName: item.prodName, qty, unit, status: 'OK' });
