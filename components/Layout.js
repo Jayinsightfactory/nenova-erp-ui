@@ -16,7 +16,7 @@ function ClientDate() {
   return <span style={{color:'var(--text3)', fontSize:11}}>{dt}</span>;
 }
 
-const MENU_ITEMS = [
+export const MENU_ITEMS = [
   {
     group: '주문관리',
     items: [
