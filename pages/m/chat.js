@@ -1,5 +1,5 @@
 // pages/m/chat.js — 모바일 챗봇 페이지 (내부 직원용)
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -61,6 +61,18 @@ function productLabel(p) {
   return `${name}${group ? ` / ${group}` : ''}`.trim();
 }
 
+function customerMatchesQuery(customer, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  return [
+    customer?.CustName,
+    customer?.CustArea,
+    customer?.Manager,
+    customer?.OrderCode,
+    customer?.CustCode,
+  ].some(v => String(v || '').toLowerCase().includes(q));
+}
+
 function cleanDirectText(content) {
   return String(content || '')
     .split('\n')
@@ -84,26 +96,32 @@ function cardToPlainText(card) {
 }
 
 function messagesToDirectAnswer(messages = []) {
-  const lines = [];
+  const textLines = [];
+  const cardLines = [];
+  let hasDetailedText = false;
   for (const msg of messages || []) {
     if (msg.type === 'text') {
+      if (String(msg.content || '').includes('\n\n')) hasDetailedText = true;
       const text = cleanDirectText(msg.content);
-      if (text) lines.push(text);
+      if (text) {
+        textLines.push(text);
+      }
     } else if (msg.type === 'card') {
       const text = cardToPlainText(msg.card);
-      if (text) lines.push(text);
+      if (text) cardLines.push(text);
     } else if (msg.type === 'cards') {
       for (const card of msg.cards || []) {
         const text = cardToPlainText(card);
-        if (text) lines.push(text);
+        if (text) cardLines.push(text);
       }
     }
   }
+  const lines = hasDetailedText ? textLines : [...textLines, ...cardLines];
   return lines.join('\n\n').trim() || '조회 결과가 없습니다.';
 }
 
 function introMessage(user) {
-  return `안녕하세요, ${user?.userName || user?.userId || ''}님\n위에서 기준차수, 업체, 품종을 선택해 버튼을 누르거나 자유롭게 질문하세요.`;
+  return `안녕하세요, ${user?.userName || user?.userId || ''}님\n차수, 담당자, 업체, 품종을 선택해 버튼을 누르거나 자유롭게 질문하세요.`;
 }
 
 function normalizeSavedChatMessage(msg) {
@@ -128,8 +146,10 @@ export default function MobileChat() {
   const [directOpen, setDirectOpen] = useState(true);
   const [weeks, setWeeks] = useState([]);
   const [directWeek, setDirectWeek] = useState('');
+  const [shipmentWeek2, setShipmentWeek2] = useState('');
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [selectedManager, setSelectedManager] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
-  const [customerOptions, setCustomerOptions] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [productQuery, setProductQuery] = useState('');
   const [productOptions, setProductOptions] = useState([]);
@@ -204,20 +224,28 @@ export default function MobileChat() {
   }, [authChecked, me]);
 
   useEffect(() => {
-    const q = customerQuery.trim();
-    if (q.length < 1) {
-      setCustomerOptions([]);
-      return;
+    if (!authChecked || !me) return;
+    fetch('/api/customers/search')
+      .then(r => r.json())
+      .then(d => setAllCustomers(d.customers || []))
+      .catch(() => setAllCustomers([]));
+  }, [authChecked, me]);
+
+  const managerOptions = useMemo(() => (
+    [...new Set(allCustomers.map(c => c.Manager || '미지정'))]
+      .sort((a, b) => a.localeCompare(b, 'ko'))
+  ), [allCustomers]);
+
+  const customerOptions = useMemo(() => {
+    let list = allCustomers;
+    if (selectedManager) {
+      list = list.filter(c => (c.Manager || '미지정') === selectedManager);
     }
-    const ctrl = new AbortController();
-    const t = setTimeout(() => {
-      fetch(`/api/customers/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
-        .then(r => r.json())
-        .then(d => setCustomerOptions((d.customers || []).slice(0, 12)))
-        .catch(() => {});
-    }, 180);
-    return () => { clearTimeout(t); ctrl.abort(); };
-  }, [customerQuery]);
+    list = list.filter(c => customerMatchesQuery(c, customerQuery));
+    return list
+      .sort((a, b) => `${a.CustArea || ''}${a.CustName || ''}`.localeCompare(`${b.CustArea || ''}${b.CustName || ''}`, 'ko'))
+      .slice(0, 30);
+  }, [allCustomers, selectedManager, customerQuery]);
 
   useEffect(() => {
     const q = productQuery.trim();
@@ -301,23 +329,24 @@ export default function MobileChat() {
     if (!week || sending) return;
     const prod = selectedProduct;
     const cust = selectedCustomer;
-    if ((kind === 'stock' || kind === 'farm') && !prod?.ProdKey) return;
+    const week2 = toChatOrderWeek(shipmentWeek2);
+    const shipmentWeeks = [...new Set([week, week2].filter(isValidOrderWeek))];
+    if (kind === 'farm' && !prod?.ProdKey) return;
     if (kind === 'shipment' && !cust?.CustKey) return;
 
     if (kind === 'stock') {
       setDirectOpen(false);
-      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 재고 알려줘`, {
+      send(`${formatWeekDisplayLocal(week)} 재고 확인`, {
         intent: 'stock',
         mode: 'weekStockStatus',
         week,
-        prodKey: prod.ProdKey,
         hideZero: true,
       }, { directAnswerOnly: true });
       return;
     }
     if (kind === 'farm') {
       setDirectOpen(false);
-      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 농장 수량 알려줘`, {
+      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 농장 품목수량확인`, {
         intent: 'stock',
         mode: 'incomingFarm',
         week,
@@ -327,11 +356,16 @@ export default function MobileChat() {
       return;
     }
     setDirectOpen(false);
-    send(`${formatWeekDisplayLocal(week)} ${cust.CustName} ${prod?.ProdName ? `${prod.DisplayName || prod.ProdName} ` : ''}출고 품목수량 알려줘`, {
+    const weekText = shipmentWeeks.map(formatWeekDisplayLocal).join(',');
+    const managerText = selectedManager ? `${selectedManager} 담당 ` : '';
+    const sumText = shipmentWeeks.length > 1 ? ' 합산수량' : '';
+    send(`${weekText} ${managerText}${cust.CustName} 출고 수량 확인${sumText}`, {
       intent: 'shipment',
       mode: 'items',
-      week,
+      week: shipmentWeeks[0],
+      weeks: shipmentWeeks,
       custKey: cust.CustKey,
+      ...(selectedManager ? { manager: selectedManager } : {}),
       ...(prod?.ProdKey ? { prodKey: prod.ProdKey, prodName: prod.DisplayName || prod.ProdName } : {}),
     }, { directAnswerOnly: true });
   }
@@ -394,6 +428,15 @@ export default function MobileChat() {
         weeks={weeks}
         week={directWeek}
         setWeek={setDirectWeek}
+        shipmentWeek2={shipmentWeek2}
+        setShipmentWeek2={setShipmentWeek2}
+        managerOptions={managerOptions}
+        selectedManager={selectedManager}
+        setSelectedManager={(manager) => {
+          setSelectedManager(manager);
+          setSelectedCustomer(null);
+          setCustomerQuery('');
+        }}
         customerQuery={customerQuery}
         setCustomerQuery={setCustomerQuery}
         customerOptions={customerOptions}
@@ -574,6 +617,11 @@ function DirectLookupPanel({
   weeks,
   week,
   setWeek,
+  shipmentWeek2,
+  setShipmentWeek2,
+  managerOptions,
+  selectedManager,
+  setSelectedManager,
   customerQuery,
   setCustomerQuery,
   customerOptions,
@@ -592,19 +640,31 @@ function DirectLookupPanel({
       <button type="button" className="m-direct-toggle" onClick={() => setOpen(!open)}>
         <span>질문 버튼</span>
         <span className="m-direct-status">
-          {week ? formatWeekDisplayLocal(week) : '차수 선택'}{selectedCustomer ? ` · ${selectedCustomer.CustName}` : ''}{selectedProduct ? ` · ${selectedProduct.DisplayName || selectedProduct.ProdName}` : ''}
+          {week ? formatWeekDisplayLocal(week) : '차수 선택'}{shipmentWeek2 ? ` + ${formatWeekDisplayLocal(shipmentWeek2)}` : ''}{selectedManager ? ` · ${selectedManager}` : ''}{selectedCustomer ? ` · ${selectedCustomer.CustName}` : ''}{selectedProduct ? ` · ${selectedProduct.DisplayName || selectedProduct.ProdName}` : ''}
         </span>
         <span>{open ? '접기' : '열기'}</span>
       </button>
       {open && (
         <div className="m-direct-body">
           <WeekWheel weeks={weeks} value={week} onChange={setWeek} />
+          <WeekSelectField
+            label="출고 합산차수"
+            weeks={weeks}
+            value={shipmentWeek2}
+            onChange={setShipmentWeek2}
+          />
+
+          <ManagerSelect
+            managers={managerOptions}
+            value={selectedManager}
+            onChange={setSelectedManager}
+          />
 
           <SearchPickField
-            label="업체"
+            label="업체선택"
             value={customerQuery}
             setValue={(v) => { setCustomerQuery(v); setSelectedCustomer(null); }}
-            placeholder="업체명 입력"
+            placeholder={selectedManager ? `${selectedManager} 업체 검색` : '업체명 입력'}
             selectedText={selectedCustomer ? customerLabel(selectedCustomer) : ''}
             onClear={() => { setSelectedCustomer(null); setCustomerQuery(''); }}
             options={customerOptions}
@@ -630,23 +690,23 @@ function DirectLookupPanel({
             <button
               type="button"
               disabled={sending || !week || !selectedProduct}
-              onClick={() => onRun('stock')}
-            >
-              재고조회
-            </button>
-            <button
-              type="button"
-              disabled={sending || !week || !selectedProduct}
               onClick={() => onRun('farm')}
             >
-              농장확인
+              농장 품목수량확인
             </button>
             <button
               type="button"
               disabled={sending || !week || !selectedCustomer}
               onClick={() => onRun('shipment')}
             >
-              출고품목수량확인
+              출고 수량 확인
+            </button>
+            <button
+              type="button"
+              disabled={sending || !week}
+              onClick={() => onRun('stock')}
+            >
+              차수 재고
             </button>
           </div>
         </div>
@@ -715,7 +775,7 @@ function DirectLookupPanel({
           border-radius: 8px;
           background: #2563eb;
           color: #fff;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 900;
           cursor: pointer;
         }
@@ -728,6 +788,75 @@ function DirectLookupPanel({
         }
       `}</style>
     </section>
+  );
+}
+
+function WeekSelectField({ label, weeks, value, onChange }) {
+  const list = weeks?.length ? weeks : [];
+  return (
+    <label className="m-small-select">
+      <span>{label}</span>
+      <select value={value || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">선택 안함</option>
+        {list.slice(0, 80).map(w => (
+          <option key={w} value={w}>{formatWeekDisplayLocal(w)}</option>
+        ))}
+      </select>
+      <style jsx>{`
+        .m-small-select {
+          display: grid;
+          gap: 4px;
+          color: #475569;
+          font-size: 11px;
+          font-weight: 900;
+        }
+        .m-small-select select {
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 0 10px;
+          background: #fff;
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 800;
+        }
+      `}</style>
+    </label>
+  );
+}
+
+function ManagerSelect({ managers, value, onChange }) {
+  return (
+    <label className="m-small-select">
+      <span>담당자선택</span>
+      <select value={value || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">전체 담당자</option>
+        {(managers || []).map(m => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+      <style jsx>{`
+        .m-small-select {
+          display: grid;
+          gap: 4px;
+          color: #475569;
+          font-size: 11px;
+          font-weight: 900;
+        }
+        .m-small-select select {
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 0 10px;
+          background: #fff;
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 800;
+        }
+      `}</style>
+    </label>
   );
 }
 
