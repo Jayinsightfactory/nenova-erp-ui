@@ -1205,3 +1205,17 @@ collapsed: Set  // 접힌 행 그룹
   - 삭제: `pages/api/sales/revenue-fetch.js`, `lib/ecountSalesInquiry.js` (OAPI pull 불가로 폐기).
 - 절대기준 유지: ECOUNT 원본 읽기만(엑셀 다운로드본 업로드), 쓰기/push 없음. 저장은 네노바웹 파일 저장소(`data/sales-revenue-batches.json`)에만.
 - 검증: 파서 로직 python으로 실제 파일 대조 통과. 로컬 `next build`는 이 PC에 Node 미설치로 미실행 → 서버(GitHub Actions) 빌드가 권위 검증.
+- 배포: 커밋 `111bba1` push → GitHub Actions 빌드 성공, 운영 라우트/페이지 200·401 확인.
+
+### 2026-06-03 영업매출관리 과거데이터 영구보존 + 셀 직접수정 + 수정이력
+
+- 요청: 매출비교.xlsx 과거 데이터도 웹에 영구 보존(새 매출만 추가, 과거는 유지), 모든 셀 웹에서 수정 가능, 수정 이력(수정자·시각·이전→이후) 남기기. 결정: 전체 월(1~6월) 임포트, 수동수정 칸은 ECOUNT 업로드로부터 보호.
+- 추가/변경:
+  - `data/sales-revenue-history-seed.json` (커밋): 매출비교.xlsx 전체 월 시트에서 (지점·통용명·차수·연도)→금액 1,222셀 추출(python/openpyxl). 차수 1~23, 합계 6,217,036,961.
+  - `lib/salesRevenueCells.js`: 셀 저장소(시드 baseline + 수동 override(locked) + 수정 이력 로그) + editCell/listCellHistory.
+  - `lib/salesRevenueBatches.js` `buildSummary` 개편: 값 우선순위 = 수동수정 > ECOUNT집계(live) > 과거시드. 차수 컬럼 동적(데이터 ∪ 기본). 셀에 source/locked/conflict 부여.
+  - `pages/api/sales/revenue-cell.js` (POST 수정 / GET 이력).
+  - `pages/sales/revenue-management.js`: 비교표 차수 동적, 금액 셀 클릭 인라인 수정→저장, 출처색상(ECOUNT 초록/수동 노랑/과거 기본·충돌 빨강), '수정 이력' 모달.
+  - `pages/api/sales/revenue-export.js`: 동적 차수 사용.
+  - `.gitignore`: `sales-revenue-cells.json`, `sales-revenue-cell-history.json` 런타임 제외(시드는 커밋).
+- 동작: ECOUNT 업로드는 새 (연도·차수) 칸만 채우고 과거 시드는 그대로 표시·보존. 수동수정 칸은 locked라 이후 업로드가 덮지 않음(다르면 conflict 표시). 모든 수정은 이력에 기록.

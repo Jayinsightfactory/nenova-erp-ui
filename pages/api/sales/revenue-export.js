@@ -51,12 +51,13 @@ export default withAuth(async function handler(req, res) {
 
   try {
     const summary = buildSummary({ channel, mappings });
+    const weeks = summary.weeks && summary.weeks.length ? summary.weeks : COMPARE_WEEKS;
     const wb = new ExcelJS.Workbook();
 
     // ── 시트1: 차수별 매출 비교 (매출비교.xlsx 형태)
     const ws = wb.addWorksheet('차수별매출비교', { views: [{ state: 'frozen', xSplit: 2, ySplit: 4 }] });
 
-    const groups = [...COMPARE_WEEKS.map(w => `${w}차`), '총매출'];
+    const groups = [...weeks.map(w => `${w}차`), '총매출'];
     const FIRST_DATA_COL = 3; // A=여백, B=업체 통용명, C~=데이터
     const lastCol = 2 + groups.length * 3;
 
@@ -135,14 +136,14 @@ export default withAuth(async function handler(req, res) {
         gcell.fill = solid(C_GROWTH);
       };
 
-      COMPARE_WEEKS.forEach((w, gi) => {
+      weeks.forEach((w, gi) => {
         const v2 = c.weeks?.[w]?.[y2]?.total || 0;
         const v3 = c.weeks?.[w]?.[y3]?.total || 0;
         t2 += v2; t3 += v3;
         writeTriple(FIRST_DATA_COL + gi * 3, v2, v3);
       });
       // 총매출 그룹
-      writeTriple(FIRST_DATA_COL + COMPARE_WEEKS.length * 3, t2, t3);
+      writeTriple(FIRST_DATA_COL + weeks.length * 3, t2, t3);
       r++;
     }
 

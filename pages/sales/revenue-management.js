@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { BASE_CUSTOMERS, COMPARE_WEEKS } from '../../lib/salesRevenueConfig';
 
@@ -67,6 +67,12 @@ export default function SalesRevenueManagement() {
   const searchTimer = useRef(null);
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
+  const [weeks, setWeeks] = useState(COMPARE_WEEKS);
+  const [editing, setEditing] = useState(null); // { canonical, week, year }
+  const [editVal, setEditVal] = useState('');
+  const savedRef = useRef(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRows, setHistoryRows] = useState([]);
 
   // 저장된 Batch 기반 요약 로드 (이카운트 API 호출 없음)
   const loadSummary = useCallback(async () => {
@@ -75,6 +81,7 @@ export default function SalesRevenueManagement() {
       const d = await apiGet('/api/sales/revenue-summary', { channel, year: fetchYear, week });
       setCustomers(d.summary?.customers?.length ? d.summary.customers : scaffoldCustomers());
       setTotals(d.summary?.totals || null);
+      if (d.summary?.weeks?.length) setWeeks(d.summary.weeks);
       setCurrentBatch(d.currentBatch || { meta: null, raw: [], review: [], totals: null });
     } catch (e) {
       setMappingErr(e.message);
@@ -128,6 +135,7 @@ export default function SalesRevenueManagement() {
       if (d.summary) {
         setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers());
         setTotals(d.summary.totals || null);
+        if (d.summary.weeks?.length) setWeeks(d.summary.weeks);
       }
       if (d.batch) setCurrentBatch(d.batch);
       setFetchMsg(d.message || '업로드 완료');
@@ -206,6 +214,80 @@ export default function SalesRevenueManagement() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── 비교표 셀 직접 수정 ─────────────────────────────
+  const getCell = (row, w, y) => row?.weeks?.[w]?.[y] || null;
+
+  const startEdit = (canonical, w, y, cur) => {
+    savedRef.current = false;
+    setEditing({ canonical, week: w, year: y });
+    setEditVal(cur ? String(cur) : '');
+  };
+  const cancelEdit = () => { savedRef.current = true; setEditing(null); setEditVal(''); };
+
+  const saveCell = async (canonical, w, y, prev) => {
+    if (savedRef.current) return;       // Enter+blur 중복 방지
+    savedRef.current = true;
+    setEditing(null);
+    const amount = Number(String(editVal).replace(/[^\d.\-]/g, ''));
+    if (!Number.isFinite(amount) || amount === Number(prev || 0)) return;
+    try {
+      const d = await apiPost('/api/sales/revenue-cell', {
+        channel, canonicalName: canonical, week: w, year: y, amount, prev: prev ?? '',
+      });
+      if (d.summary) {
+        setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers());
+        setTotals(d.summary.totals || null);
+        if (d.summary.weeks?.length) setWeeks(d.summary.weeks);
+      }
+      setFetchMsg(d.message || '셀을 수정했습니다.');
+    } catch (e) {
+      setFetchMsg(`셀 수정 오류: ${e.message}`);
+    }
+  };
+
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    try {
+      const d = await apiGet('/api/sales/revenue-cell');
+      setHistoryRows(d.history || []);
+    } catch { setHistoryRows([]); }
+  };
+
+  const renderAmt = (row, w, y) => {
+    const cell = getCell(row, w, y);
+    const val = cell?.total || 0;
+    const isEd = editing && editing.canonical === row.canonicalName && editing.week === w && editing.year === y;
+    if (isEd) {
+      return (
+        <td style={{ padding: 0 }}>
+          <input
+            autoFocus
+            className="filter-input"
+            value={editVal}
+            onChange={e => setEditVal(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') saveCell(row.canonicalName, w, y, val);
+              else if (e.key === 'Escape') cancelEdit();
+            }}
+            onBlur={() => saveCell(row.canonicalName, w, y, val)}
+            style={{ width: '100%', textAlign: 'right', boxSizing: 'border-box' }}
+          />
+        </td>
+      );
+    }
+    const st = { textAlign: 'right', fontFamily: 'var(--mono)', cursor: 'pointer' };
+    let title = '클릭하여 수정';
+    if (cell?.source === 'manual') { st.fontWeight = 'bold'; st.background = '#FFF6DA'; title = `수동수정: ${cell.updatedBy || ''} ${(cell.updatedAt || '').slice(0, 16).replace('T', ' ')}`; }
+    else if (cell?.source === 'ecount') { st.color = '#0A7A55'; title = 'ECOUNT 업로드'; }
+    else if (cell?.source === 'history') { title = '과거 데이터(매출비교.xlsx)'; }
+    if (cell?.conflict) st.background = '#FDE2E2';
+    return (
+      <td style={st} title={title} onClick={() => startEdit(row.canonicalName, w, y, val)}>
+        {val ? fmt(val) : ''}
+      </td>
+    );
   };
 
   return (
@@ -424,19 +506,26 @@ export default function SalesRevenueManagement() {
       <section style={styles.panel}>
         <div style={styles.panelHead}>
           <strong>차수별 매출 비교표</strong>
-          <span>엑셀형 전체 업체 목록 · 저장 Batch 기준</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--text3)' }}>
+              셀 클릭=직접수정 ·{' '}
+              <span style={{ color: '#0A7A55' }}>ECOUNT</span> /{' '}
+              <span style={{ background: '#FFF6DA', padding: '0 3px' }}>수동수정</span> / 과거(매출비교.xlsx)
+            </span>
+            <button className="btn" onClick={openHistory}>수정 이력</button>
+          </span>
         </div>
         <div className="table-wrap">
           <table className="tbl">
             <thead>
               <tr>
                 <th rowSpan="2">업체 통용명</th>
-                {COMPARE_WEEKS.map(w => <th key={w} colSpan="4" style={{ textAlign: 'center' }}>{w}차</th>)}
+                {weeks.map(w => <th key={w} colSpan="4" style={{ textAlign: 'center' }}>{w}차</th>)}
                 <th rowSpan="2">원본 거래처명</th>
                 <th rowSpan="2">매칭상태</th>
               </tr>
               <tr>
-                {COMPARE_WEEKS.map(w => (
+                {weeks.map(w => (
                   <FragmentHeaders key={w} years={years} />
                 ))}
               </tr>
@@ -445,13 +534,15 @@ export default function SalesRevenueManagement() {
               {compareRows.map(row => (
                 <tr key={row.canonicalName}>
                   <td className="name">{row.canonicalName}</td>
-                  {COMPARE_WEEKS.map(w => (
-                    <Cells
-                      key={w}
-                      y1={cellTotal(row, w, years.y1)}
-                      y2={cellTotal(row, w, years.y2)}
-                      y3={cellTotal(row, w, years.y3)}
-                    />
+                  {weeks.map(w => (
+                    <Fragment key={w}>
+                      {renderAmt(row, w, years.y1)}
+                      {renderAmt(row, w, years.y2)}
+                      {renderAmt(row, w, years.y3)}
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--mono)' }}>
+                        {growth(getCell(row, w, years.y3)?.total || 0, getCell(row, w, years.y2)?.total || 0)}
+                      </td>
+                    </Fragment>
                   ))}
                   <td>{(row.sourceNames || []).join(', ')}</td>
                   <td>{row.status || ''}</td>
@@ -461,6 +552,38 @@ export default function SalesRevenueManagement() {
           </table>
         </div>
       </section>
+
+      {historyOpen && (
+        <div style={styles.modalBack} onClick={() => setHistoryOpen(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <div style={styles.panelHead}>
+              <strong>매출 수정 이력</strong>
+              <button className="btn" onClick={() => setHistoryOpen(false)}>닫기</button>
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 420 }}>
+              <table className="tbl">
+                <thead>
+                  <tr><th>일시</th><th>업체</th><th>차수</th><th>연도</th><th>이전</th><th>변경</th><th>수정자</th></tr>
+                </thead>
+                <tbody>
+                  {historyRows.length === 0 && <tr><td colSpan="7" style={styles.empty}>수정 이력이 없습니다.</td></tr>}
+                  {historyRows.map((h, i) => (
+                    <tr key={i}>
+                      <td>{(h.at || '').slice(0, 16).replace('T', ' ')}</td>
+                      <td>{h.canonicalName}</td>
+                      <td>{h.week}차</td>
+                      <td>{h.year}</td>
+                      <td style={styles.num}>{h.prev == null ? '' : fmt(h.prev)}</td>
+                      <td style={styles.num}>{fmt(h.next)}</td>
+                      <td>{h.by || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -577,5 +700,22 @@ const styles = {
   num: {
     textAlign: 'right',
     fontFamily: 'var(--mono)',
+  },
+  modalBack: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.35)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    background: 'var(--surface, #FFF)',
+    border: '1px solid var(--border2)',
+    padding: 10,
+    width: 'min(760px, 92vw)',
+    maxHeight: '80vh',
+    overflow: 'auto',
   },
 };

@@ -33,6 +33,9 @@ data/product-master-diagnosis.json
 data/category-overrides.backup-*.json
 data/product-master-rollback-*.sql
 
-# 영업매출관리 — 이카운트 조회 결과/매칭 런타임 저장본 (서버에서 생성, 커밋 금지)
+# 영업매출관리 — 이카운트 조회 결과/매칭/수정 런타임 저장본 (서버에서 생성, 커밋 금지)
+# (단, data/sales-revenue-history-seed.json 은 과거 데이터 시드라 커밋 대상)
 data/sales-revenue-batches.json
 data/sales-revenue-customer-mappings.json
+data/sales-revenue-cells.json
+data/sales-revenue-cell-history.json
