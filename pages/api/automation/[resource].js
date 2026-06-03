@@ -95,6 +95,8 @@ export default async function handler(req, res) {
       channel: s.channel,
       weeks: s.weeks,
       totals: s.totals,
+      salesByYear: s.salesByYear,
+      salesTotal: s.salesTotal,
       customerCount: s.customers.length,
       customers: s.customers,
     });

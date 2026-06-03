@@ -44,7 +44,7 @@
             {
               "id": "m1",
               "name": "메시지",
-              "value": "=📊 영업매출 요약 ({{ $json.channel }})\n업체수: {{ $json.customerCount }}\n원본합계: {{ $json.totals.rawTotal }}원\n미매칭: {{ $json.totals.unmatchedAmount }}원 ({{ $json.totals.unmatchedCount }}건)",
+              "value": "=📊 영업매출 요약 ({{ $json.channel }})\n업체수: {{ $json.customerCount }}\n매출합계: {{ $json.salesTotal }}원\n연도별: {{ JSON.stringify($json.salesByYear) }}\nECOUNT업로드합계: {{ $json.totals.rawTotal }}원 / 미매칭: {{ $json.totals.unmatchedAmount }}원",
               "type": "string"
             }
           ]

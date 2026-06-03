@@ -37,8 +37,10 @@
           "assignments": [
             { "id": "a1", "name": "지점", "value": "={{ $json.channel }}", "type": "string" },
             { "id": "a2", "name": "업체수", "value": "={{ $json.customerCount }}", "type": "number" },
-            { "id": "a3", "name": "원본합계", "value": "={{ $json.totals.rawTotal }}", "type": "number" },
-            { "id": "a4", "name": "미매칭금액", "value": "={{ $json.totals.unmatchedAmount }}", "type": "number" }
+            { "id": "a3", "name": "매출합계", "value": "={{ $json.salesTotal }}", "type": "number" },
+            { "id": "a4", "name": "연도별합계", "value": "={{ JSON.stringify($json.salesByYear) }}", "type": "string" },
+            { "id": "a5", "name": "ECOUNT업로드합계", "value": "={{ $json.totals.rawTotal }}", "type": "number" },
+            { "id": "a6", "name": "미매칭금액", "value": "={{ $json.totals.unmatchedAmount }}", "type": "number" }
           ]
         },
         "options": {}
