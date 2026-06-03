@@ -12,12 +12,13 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUTOMATION_API_TOKEN: ${{ secrets.AUTOMATION_API_TOKEN }}
         with:
           host: 172.233.89.171
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: ANTHROPIC_API_KEY
+          envs: ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -36,6 +37,17 @@ jobs:
               echo "✅ ANTHROPIC_API_KEY synced (len=${#ANTHROPIC_API_KEY})"
             else
               echo "⚠️  ANTHROPIC_API_KEY GitHub Secret 이 비어있음 — 챗봇 LLM 비활성"
+            fi
+            echo "=== .env.local 환경변수 동기화 (AUTOMATION_API_TOKEN) ==="
+            if [ -n "$AUTOMATION_API_TOKEN" ]; then
+              if grep -q '^AUTOMATION_API_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^AUTOMATION_API_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "AUTOMATION_API_TOKEN=$AUTOMATION_API_TOKEN" >> .env.local
+              echo "✅ AUTOMATION_API_TOKEN synced (len=${#AUTOMATION_API_TOKEN})"
+            else
+              echo "ℹ️  AUTOMATION_API_TOKEN GitHub Secret 미설정 — n8n 브리지 API 비활성(503)"
             fi
             echo "=== npm install ==="
             npm install --omit=dev
