@@ -2,13 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-
-const QUICK_PROMPTS = [
-  { icon: '📦', text: '오늘 출고 확정 업체' },
-  { icon: '🌸', text: '이번 주 재고 부족 품목' },
-  { icon: '💰', text: '이번 달 매출' },
-  { icon: '📋', text: '승인 대기 주문' },
-];
+import { getCurrentWeek } from '../../lib/useWeekInput';
 
 function formatWeekDisplayLocal(week) {
   const raw = String(week || '').trim();
@@ -35,6 +29,39 @@ function toChatOrderWeek(value) {
   const normalized = normalizeWeekInput(value);
   const m = normalized.match(/^\d{4}-(\d{2}-\d{2})$/);
   return m ? m[1] : normalized;
+}
+
+function isValidOrderWeek(value) {
+  const m = String(value || '').match(/^(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const week = Number(m[1]);
+  const seq = Number(m[2]);
+  return week >= 1 && week <= 52 && seq >= 1 && seq <= 4;
+}
+
+function weekSortKey(value) {
+  const m = String(value || '').match(/^(\d{2})-(\d{2})$/);
+  if (!m) return 0;
+  return Number(m[1]) * 10 + Number(m[2]);
+}
+
+function buildNearbyWeeks(baseWeek, radius = 6) {
+  const base = toChatOrderWeek(baseWeek || getCurrentWeek());
+  const m = base.match(/^(\d{2})-(\d{2})$/);
+  const baseMajor = m ? Number(m[1]) : 1;
+  const out = [];
+  for (let w = Math.max(1, baseMajor - radius); w <= Math.min(52, baseMajor + radius); w += 1) {
+    for (let seq = 1; seq <= 4; seq += 1) {
+      out.push(`${String(w).padStart(2, '0')}-${String(seq).padStart(2, '0')}`);
+    }
+  }
+  return out;
+}
+
+function buildWeekCandidates(dbWeeks = [], baseWeek = getCurrentWeek()) {
+  const base = toChatOrderWeek(baseWeek);
+  const set = new Set([base, ...buildNearbyWeeks(base), ...dbWeeks.map(toChatOrderWeek)].filter(isValidOrderWeek));
+  return [...set].sort((a, b) => weekSortKey(b) - weekSortKey(a));
 }
 
 function customerLabel(c) {
@@ -107,7 +134,7 @@ export default function MobileChat() {
               {
                 role: 'bot',
                 type: 'text',
-                content: `안녕하세요, ${d.user.userName || d.user.userId}님 👋\n무엇을 도와드릴까요?\n\n아래 빠른 메뉴를 누르거나 자유롭게 질문하세요.`,
+                content: `안녕하세요, ${d.user.userName || d.user.userId}님 👋\n상단 바로 조회에서 기준차수, 업체, 품종을 선택하거나 자유롭게 질문하세요.`,
                 ts: Date.now(),
               },
             ]);
@@ -125,11 +152,16 @@ export default function MobileChat() {
     fetch('/api/orders/weeks')
       .then(r => r.json())
       .then(d => {
-        const list = (d.weeks || []).filter(Boolean);
+        const base = toChatOrderWeek(getCurrentWeek());
+        const list = buildWeekCandidates((d.weeks || []).filter(Boolean), base);
         setWeeks(list);
-        setDirectWeek(prev => prev || list[0] || '');
+        setDirectWeek(prev => prev || base);
       })
-      .catch(() => {});
+      .catch(() => {
+        const base = toChatOrderWeek(getCurrentWeek());
+        setWeeks(buildWeekCandidates([], base));
+        setDirectWeek(prev => prev || base);
+      });
   }, [authChecked, me]);
 
   useEffect(() => {
@@ -284,7 +316,7 @@ export default function MobileChat() {
             setMessages([{
               role: 'bot',
               type: 'text',
-              content: `안녕하세요, ${me?.userName || me?.userId || ''}님 👋\n무엇을 도와드릴까요?\n\n아래 빠른 메뉴를 누르거나 자유롭게 질문하세요.`,
+              content: `안녕하세요, ${me?.userName || me?.userId || ''}님 👋\n상단 바로 조회에서 기준차수, 업체, 품종을 선택하거나 자유롭게 질문하세요.`,
               ts: Date.now(),
             }]);
             setInput('');
@@ -344,22 +376,6 @@ export default function MobileChat() {
           </div>
         )}
       </div>
-
-      {/* 빠른 메뉴 (메시지가 인사뿐일 때만 표시) */}
-      {messages.length <= 1 && !sending && (
-        <div className="m-quick">
-          {QUICK_PROMPTS.map(q => (
-            <button
-              key={q.text}
-              className="m-quick-btn"
-              onClick={() => send(q.text)}
-            >
-              <span className="m-quick-icon">{q.icon}</span>
-              <span>{q.text}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* 입력 영역 */}
       <form
@@ -470,30 +486,6 @@ export default function MobileChat() {
           gap: 10px;
           -webkit-overflow-scrolling: touch;
         }
-        .m-quick {
-          flex-shrink: 0;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          padding: 0 12px 12px;
-        }
-        .m-quick-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px;
-          background: white;
-          border: 1px solid #E2E8F0;
-          border-radius: 12px;
-          font-size: 13px;
-          color: #2D3748;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.15s;
-          min-height: 44px;
-        }
-        .m-quick-btn:active { background: #EDF2F7; }
-        .m-quick-icon { font-size: 18px; flex-shrink: 0; }
         .m-inputbar {
           flex-shrink: 0;
           display: flex;
@@ -560,18 +552,7 @@ function DirectLookupPanel({
       </button>
       {open && (
         <div className="m-direct-body">
-          <label className="m-direct-field">
-            <span>차수</span>
-            <input
-              list="chat-week-list"
-              value={week || ''}
-              onChange={e => setWeek(e.target.value)}
-              placeholder="예: 23-01"
-            />
-            <datalist id="chat-week-list">
-              {weeks.slice(0, 80).map(w => <option key={w} value={w}>{formatWeekDisplayLocal(w)}</option>)}
-            </datalist>
-          </label>
+          <WeekWheel weeks={weeks} value={week} onChange={setWeek} />
 
           <SearchPickField
             label="업체"
@@ -709,6 +690,122 @@ function DirectLookupPanel({
         }
       `}</style>
     </section>
+  );
+}
+
+function WeekWheel({ weeks, value, onChange }) {
+  const list = weeks?.length ? weeks : buildWeekCandidates([], getCurrentWeek());
+  const selected = isValidOrderWeek(toChatOrderWeek(value)) ? toChatOrderWeek(value) : list[0];
+  const wheelRef = useRef(null);
+  const scrollTimerRef = useRef(null);
+
+  useEffect(() => {
+    const el = wheelRef.current;
+    if (!el) return;
+    const active = el.querySelector(`button[data-week="${selected}"]`);
+    if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [selected]);
+
+  const handleWheelScroll = () => {
+    const el = wheelRef.current;
+    if (!el) return;
+    clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      const center = el.scrollTop + (el.clientHeight / 2);
+      let best = null;
+      let bestDistance = Infinity;
+      for (const btn of Array.from(el.querySelectorAll('button[data-week]'))) {
+        const mid = btn.offsetTop + (btn.offsetHeight / 2);
+        const distance = Math.abs(mid - center);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = btn;
+        }
+      }
+      const next = best?.dataset?.week;
+      if (next && next !== selected) onChange(next);
+    }, 160);
+  };
+
+  return (
+    <div className="m-week-box">
+      <div className="m-week-head">
+        <span>기준차수</span>
+        <span>{formatWeekDisplayLocal(selected)}</span>
+      </div>
+      <div className="m-week-wheel" aria-label="기준차수 선택" ref={wheelRef} onScroll={handleWheelScroll}>
+        {list.slice(0, 80).map(w => {
+          const active = w === selected;
+          return (
+            <button
+              type="button"
+              key={w}
+              data-week={w}
+              className={active ? 'active' : ''}
+              onClick={() => onChange(w)}
+            >
+              {formatWeekDisplayLocal(w)}
+            </button>
+          );
+        })}
+      </div>
+      <div className="m-week-help">위아래로 밀어서 기준차수를 선택하세요.</div>
+      <style jsx>{`
+        .m-week-box {
+          display: grid;
+          gap: 5px;
+        }
+        .m-week-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          color: #475569;
+          font-size: 11px;
+          font-weight: 900;
+        }
+        .m-week-head span:last-child {
+          color: #1d4ed8;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 999px;
+          padding: 2px 8px;
+        }
+        .m-week-wheel {
+          height: 96px;
+          overflow-y: auto;
+          display: grid;
+          gap: 4px;
+          padding: 4px;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          background: #f8fafc;
+          scroll-snap-type: y mandatory;
+          -webkit-overflow-scrolling: touch;
+        }
+        .m-week-wheel button {
+          min-height: 30px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #fff;
+          color: #334155;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          scroll-snap-align: center;
+        }
+        .m-week-wheel button.active {
+          background: #2563eb;
+          color: #fff;
+          border-color: #2563eb;
+          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+        }
+        .m-week-help {
+          color: #64748b;
+          font-size: 11px;
+          line-height: 1.3;
+        }
+      `}</style>
+    </div>
   );
 }
 
