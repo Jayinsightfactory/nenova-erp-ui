@@ -1,0 +1,55 @@
+name: Setup n8n Korean overlay (one-shot)
+
+# 수동 실행: GitHub → Actions → "Setup n8n Korean overlay (one-shot)" → Run workflow
+# n8n 서브도메인 nginx 에 한글 오버레이 스크립트(sub_filter) 주입.
+# 선행: setup-n8n-subdomain 완료(인증서/서브도메인) + translate.js 배포(public/n8n-ko/translate.js).
+#
+# 안전: nginx 백업 → python 주입 → nginx -t 통과해야만 reload, 실패 시 자동 롤백(무중단). idempotent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'n8n 서브도메인'
+        required: true
+        default: 'n8n.nenovaweb.com'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH inject Korean overlay
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOMAIN: ${{ inputs.domain }}
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          envs: DOMAIN
+          command_timeout: 10m
+          script: |
+            export PATH=$PATH:/usr/local/bin:/usr/bin
+            DOMAIN="${DOMAIN:-n8n.nenovaweb.com}"
+            echo "==================== [1/3] translate.js 배포 확인 ===================="
+            echo "https translate.js:"; curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "https://nenovaweb.com/n8n-ko/translate.js" || true
+
+            echo "==================== [2/3] nginx conf 찾기 ===================="
+            CONF=$(grep -rlE "server_name[^;]*$DOMAIN" /etc/nginx 2>/dev/null | head -1)
+            PYI=/var/www/nenova-erp/deploy/n8n/inject-subfilter.py
+            if [ -z "$CONF" ]; then echo "ERR: $DOMAIN nginx conf 없음(서브도메인 설정 먼저)"; exit 1; fi
+            echo "conf: $CONF"
+            if grep -q "n8n-ko/translate.js" "$CONF"; then
+              echo "이미 주입됨 → 건너뜀"
+            else
+              BAK="$CONF.bak.$(date +%s)"; cp "$CONF" "$BAK"; echo "backup: $BAK"
+              python3 "$PYI" "$CONF"; RC=$?
+              if [ $RC -ne 0 ]; then echo "주입 실패(rc=$RC) → 롤백"; cp "$BAK" "$CONF"; fi
+              if nginx -t; then systemctl reload nginx && echo "nginx reloaded"; else echo "nginx -t 실패 → 롤백"; cp "$BAK" "$CONF"; nginx -t || true; fi
+            fi
+
+            echo "==================== [3/3] 검증 ===================="
+            echo "주입된 script 태그 응답에 포함되는지:"
+            curl -s "https://$DOMAIN/" | grep -o "n8n-ko/translate.js" | head -1 || echo "(주입 문자열 미발견 - 잠시 후 재확인)"
+            echo "DONE. 브라우저에서 https://$DOMAIN 새로고침 → 우하단 🇰🇷 한글 ON 버튼 확인."
