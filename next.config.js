@@ -28,6 +28,15 @@ const nextConfig = {
       { source: '/uploads/photos/:path*', destination: '/api/public/photo/:path*' },
     ];
   },
+  async headers() {
+    return [
+      // n8n 한글 오버레이는 자주 갱신되므로 항상 최신본을 받도록 캐시 비활성
+      {
+        source: '/n8n-ko/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
