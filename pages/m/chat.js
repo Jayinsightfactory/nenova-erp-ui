@@ -61,6 +61,47 @@ function productLabel(p) {
   return `${name}${group ? ` / ${group}` : ''}`.trim();
 }
 
+function cleanDirectText(content) {
+  return String(content || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !/^(제가 이해한 조건|검색 경로|조회된 후보\/행):/.test(line))
+    .join('\n');
+}
+
+function cardToPlainText(card) {
+  if (!card) return '';
+  const lines = [];
+  if (card.title) lines.push(card.title);
+  if (card.subtitle) lines.push(card.subtitle);
+  for (const row of card.rows || []) {
+    const label = String(row?.label || '').trim();
+    const value = String(row?.value || '').trim();
+    if (label || value) lines.push(`${label}${label && value ? ' ' : ''}${value}`.trim());
+  }
+  if (card.footer) lines.push(card.footer);
+  return lines.join('\n');
+}
+
+function messagesToDirectAnswer(messages = []) {
+  const lines = [];
+  for (const msg of messages || []) {
+    if (msg.type === 'text') {
+      const text = cleanDirectText(msg.content);
+      if (text) lines.push(text);
+    } else if (msg.type === 'card') {
+      const text = cardToPlainText(msg.card);
+      if (text) lines.push(text);
+    } else if (msg.type === 'cards') {
+      for (const card of msg.cards || []) {
+        const text = cardToPlainText(card);
+        if (text) lines.push(text);
+      }
+    }
+  }
+  return lines.join('\n\n').trim() || '조회 결과가 없습니다.';
+}
+
 export default function MobileChat() {
   const router = useRouter();
   const [me, setMe] = useState(null);
@@ -188,7 +229,7 @@ export default function MobileChat() {
   }, [messages, sending]);
 
   // ── 메시지 전송 (payload 는 structured intent — 선택지 버튼에서 전달)
-  async function send(text, payload = null) {
+  async function send(text, payload = null, options = {}) {
     const q = (text ?? input).trim();
     if (!q || sending) return;
     setInput('');
@@ -218,7 +259,11 @@ export default function MobileChat() {
       });
       const d = await r.json();
       if (d?.success) {
-        const botMsgs = (d.messages || [{ type: 'text', content: d.content || '...' }]).map(m => ({
+        const rawMessages = d.messages || [{ type: 'text', content: d.content || '...' }];
+        const visibleMessages = options.directAnswerOnly
+          ? [{ type: 'text', content: messagesToDirectAnswer(rawMessages) }]
+          : rawMessages;
+        const botMsgs = visibleMessages.map(m => ({
           role: 'bot',
           ...m,
           ts: Date.now(),
@@ -245,32 +290,35 @@ export default function MobileChat() {
     if (kind === 'shipment' && !cust?.CustKey) return;
 
     if (kind === 'stock') {
-      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 재고조회`, {
+      setDirectOpen(false);
+      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 재고 알려줘`, {
         intent: 'stock',
         mode: 'weekStockStatus',
         week,
         prodKey: prod.ProdKey,
         hideZero: true,
-      });
+      }, { directAnswerOnly: true });
       return;
     }
     if (kind === 'farm') {
-      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 농장확인`, {
+      setDirectOpen(false);
+      send(`${formatWeekDisplayLocal(week)} ${prod.DisplayName || prod.ProdName} 농장 수량 알려줘`, {
         intent: 'stock',
         mode: 'incomingFarm',
         week,
         prodKey: prod.ProdKey,
         groupBy: 'product',
-      });
+      }, { directAnswerOnly: true });
       return;
     }
-    send(`${formatWeekDisplayLocal(week)} ${cust.CustName} ${prod?.ProdName ? `${prod.DisplayName || prod.ProdName} ` : ''}출고품목수량확인`, {
+    setDirectOpen(false);
+    send(`${formatWeekDisplayLocal(week)} ${cust.CustName} ${prod?.ProdName ? `${prod.DisplayName || prod.ProdName} ` : ''}출고 품목수량 알려줘`, {
       intent: 'shipment',
       mode: 'items',
       week,
       custKey: cust.CustKey,
       ...(prod?.ProdKey ? { prodKey: prod.ProdKey, prodName: prod.DisplayName || prod.ProdName } : {}),
-    });
+    }, { directAnswerOnly: true });
   }
 
   if (!authChecked) {
@@ -586,9 +634,6 @@ function DirectLookupPanel({
               출고품목수량확인
             </button>
           </div>
-          <div className="m-direct-hint">
-            출고품목수량은 업체만 선택하면 전체 품목, 품종까지 선택하면 해당 품목만 조회합니다.
-          </div>
         </div>
       )}
       <style jsx>{`
@@ -665,11 +710,6 @@ function DirectLookupPanel({
           background: #cbd5e1;
           color: #64748b;
           cursor: not-allowed;
-        }
-        .m-direct-hint {
-          color: #64748b;
-          font-size: 11px;
-          line-height: 1.35;
         }
       `}</style>
     </section>
