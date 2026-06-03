@@ -1035,3 +1035,16 @@ collapsed: Set  // 접힌 행 그룹
   - `/shipment/distribute-import`의 `업로드 품종 일괄분배` 버튼을 비활성화.
   - `/api/shipment/distribute-import-prealign`도 기본적으로 409 응답으로 차단.
   - 향후 실제 사용하려면 `usp_DistributeTotal/One/Clear` 파라미터와 결과를 읽기 전용으로 확인하고, 테스트 차수에서 1:1 대조 후 전산 SP 경로로 재구성해야 함.
+
+### 2026-06-03 출고분배 웹 저장 경로 기준 보정
+
+- 사용자 기준:
+  - "웹 직접 저장은 전산 SP와 완전 동일 경로가 아니다"의 의미는 웹 작업 자체를 금지한다는 뜻이 아니라, 웹 작업 때문에 `nenova.exe`와 충돌이 생기면 안 된다는 뜻.
+  - 웹에서 `nenova.exe`와 같은 전산 SP 경로를 쓸 수 있으면 그 경로를 우선 사용한다.
+- 반영:
+  - `/api/shipment/distribute-diagnose` 응답에 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear`의 실제 운영 DB 파라미터 목록을 추가.
+  - 이 변경은 읽기 전용 진단이며 주문/분배/재고 데이터는 수정하지 않는다.
+- 후속 원칙:
+  - 출고분배 엑셀업로드의 사전 일괄분배는 웹 직접 INSERT/UPDATE로 다시 열지 않는다.
+  - 운영 DB에서 SP 파라미터와 호출 단위가 확인되면, 업로드 품종별 `usp_DistributeOne` 또는 동일한 전산 SP 호출 경로로 재구성한다.
+  - SP 호출 전에는 확정 차수, `KeyNumbering` 역전, 기존 출고일 누락/불일치 진단을 먼저 보여주고 이상이 있으면 실행을 막는다.

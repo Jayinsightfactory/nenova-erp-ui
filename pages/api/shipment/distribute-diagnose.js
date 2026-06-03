@@ -372,7 +372,42 @@ async function handler(req, res) {
         ORDER BY v.ProcedureName`
     );
 
+    const distributionProcedureParams = await query(
+      `SELECT v.ProcedureName,
+              prm.parameter_id AS ParameterId,
+              prm.name AS ParameterName,
+              TYPE_NAME(prm.user_type_id) AS TypeName,
+              prm.max_length AS MaxLength,
+              prm.precision AS Precision,
+              prm.scale AS Scale,
+              prm.is_output AS IsOutput,
+              prm.has_default_value AS HasDefaultValue
+         FROM (VALUES
+           (N'usp_DistributeTotal'),
+           (N'usp_DistributeOne'),
+           (N'usp_DistributeClear')
+         ) v(ProcedureName)
+         LEFT JOIN sys.objects obj
+           ON obj.object_id = OBJECT_ID(N'dbo.' + v.ProcedureName, N'P')
+          AND obj.type = N'P'
+         LEFT JOIN sys.parameters prm
+           ON prm.object_id = obj.object_id
+        ORDER BY v.ProcedureName, prm.parameter_id`
+    );
+
     const keyNeedsSync = keyNumbering.recordset.filter(r => Number(r.NeedsSync) === 1);
+    const procedureRows = procedures.recordset || [];
+    const distributionParamRows = (distributionProcedureParams.recordset || []).filter(r => r.ParameterName);
+    const distributionProcedureShapes = ['usp_DistributeTotal', 'usp_DistributeOne', 'usp_DistributeClear'].map((name) => {
+      const params = distributionParamRows.filter(r => r.ProcedureName === name);
+      return {
+        ProcedureName: name,
+        ExistsInDb: Number(procedureRows.find(r => r.ProcedureName === name)?.ExistsInDb || 0),
+        ParameterCount: params.length,
+        InputParameters: params.filter(r => !r.IsOutput).map(r => r.ParameterName),
+        OutputParameters: params.filter(r => r.IsOutput).map(r => r.ParameterName),
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -393,6 +428,8 @@ async function handler(req, res) {
       estMismatch: estMismatch.recordset,
       keyNumbering: keyNumbering.recordset,
       procedures: procedures.recordset,
+      distributionProcedureShapes,
+      distributionProcedureParams: distributionParamRows,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
