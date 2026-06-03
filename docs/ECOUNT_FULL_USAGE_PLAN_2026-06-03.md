@@ -13,6 +13,83 @@
 - 기존 `NENOVA_ECOUNT_ERP_MATCH_AUDIT.md`
 - 운영 안전 원칙: ECOUNT 전송/저장/삭제/일괄반영은 사용자 승인 전 실행 금지
 
+## 최상위 작업 원칙
+
+### 1. ECOUNT 원본 데이터 쓰기 금지
+
+이 기획/조사/구현 단계에서 ECOUNT에 데이터를 넣거나 변경하는 작업을 하지 않는다.
+
+금지 작업:
+
+- 판매입력 저장/전송
+- 구매입력 저장/전송
+- 자동분개/회계반영 실행
+- 세금계산서 발행/전자발송/단계변경
+- 거래처/품목/계정/부서/외화/카드/계좌 마스터 저장
+- 입출금/카드 전표처리
+- 일괄반영, 마감, 삭제, 수정, 저장 버튼 클릭
+
+허용 작업:
+
+- ECOUNT 화면 읽기
+- 필터/컬럼/버튼 구조 확인
+- 저장을 수반하지 않는 조회
+- API endpoint 문서 확인
+- API 호출이 필요할 경우 pull/read-only 성격만 사용
+- ECOUNT 엑셀을 사용자가 직접 내려받아 업로드한 뒤 웹에서 비교
+
+기본 구현 원칙:
+
+- ECOUNT `push` API는 새 기능 개발 중 기본 비활성 또는 명시 승인 단계 뒤에만 노출한다.
+- 모든 신규 기능은 `preview -> compare -> approve -> push` 단계로 구성하되, 이번 조사 단계에서는 `push`를 실행하지 않는다.
+- Claude in Chrome 조사도 읽기 전용만 허용한다.
+
+### 2. 기존 nenovaweb 메뉴 재사용, 중복 개발 금지
+
+이미 네노바웹에 구현된 메뉴와 기능을 새로 중복 생성하지 않는다.
+
+재사용 기준:
+
+- 판매 관련: 기존 `/sales/status`, `/api/sales/status`, `/api/ecount/sales-push`
+- 채권 관련: 기존 `/sales/ar`, `/api/sales/ar`
+- 세금계산서 관련: 기존 `/sales/tax-invoice`, `/api/ecount/accounting`
+- 구매 관련: 기존 `/purchase/status`, `/api/purchase`, `/api/ecount/purchase-push`
+- 입출금/계좌 관련: 기존 `/finance/bank`, `/api/finance/bank`
+- 외화/환율 관련: 기존 `/finance/exchange`, `/api/finance/exchange`
+- 거래처/품목/단가 마스터: 기존 `/master/customers`, `/master/products`, `/master/pricing`
+- ECOUNT 허브/로그: 기존 `/ecount/dashboard`, `/api/ecount/status`, `/api/ecount/session`, `/api/ecount/sync-log`
+
+새 메뉴는 기존 메뉴 안에 들어가기 어려운 "ECOUNT 원본 대조/검증 전용"일 때만 만든다.
+
+새 메뉴 후보도 기존 업무 화면을 대체하지 않고 연결한다.
+
+- `/ecount/master`: 기존 마스터 화면의 ECOUNT 코드 대조 허브
+- `/ecount/sales`: 기존 판매현황의 ECOUNT 검증 허브
+- `/ecount/ar`: 기존 채권현황의 ECOUNT 검증 허브
+- `/ecount/purchase`: 기존 구매현황의 ECOUNT 검증 허브
+- `/ecount/tax`: 기존 세금계산서 진행단계의 ECOUNT 검증 허브
+
+### 3. ECOUNT API 호출 제한 고려
+
+ECOUNT API는 호출 횟수 제한이 있을 수 있으므로 무분별한 실시간 호출을 하지 않는다.
+
+호출 절약 원칙:
+
+- 화면 로딩마다 ECOUNT API를 직접 호출하지 않는다.
+- 수동 `새로고침/원본조회` 버튼을 눌렀을 때만 호출한다.
+- 같은 조건의 조회 결과는 서버 캐시/DB 스냅샷에 저장한다.
+- 마스터 목록은 1일 1회 또는 사용자가 요청한 때만 갱신한다.
+- 판매/구매/채권/세금계산서 대조는 기간/차수 단위로 배치 조회한다.
+- 원본 대조가 반복되는 화면은 `EcountMatchAudit`의 마지막 검증 결과를 먼저 보여준다.
+- API 미지원/호출량 부담 화면은 ECOUNT 엑셀 업로드 기반 대조를 우선한다.
+
+기술 설계:
+
+- `EcountEndpointMap`에 endpoint별 마지막 호출시각과 캐시 TTL을 기록한다.
+- `EcountUploadBatch`로 엑셀 업로드 원본을 재사용한다.
+- `EcountMatchAudit`로 대조 결과를 저장해 같은 데이터 재검증을 줄인다.
+- 개발/조사 단계 raw endpoint 테스트는 소량 샘플, 사용자 승인, 로그 기록 후 실행한다.
+
 ## 현재 결론
 
 현재 `nenovaweb`의 `/ecount/dashboard`는 ECOUNT 전체 업무 대체 화면이 아니다.
@@ -218,10 +295,10 @@ ECOUNT 마스터 매칭 화면.
 | `GET /api/ecount/master/departments` | 부서 원본 조회 |
 | `GET /api/ecount/master/currencies` | 외화/환율 원본 조회 |
 | `POST /api/ecount/sales/preview` | 판매전송 전 검증 |
-| `POST /api/ecount/sales/push` | 판매전송 실행 |
+| 기존 `POST /api/ecount/sales-push` | 판매전송 실행. 신규 중복 API 생성 금지, 승인 단계 뒤에만 사용 |
 | `POST /api/ecount/sales/verify` | ECOUNT 판매현황과 대조 |
 | `POST /api/ecount/purchase/preview` | 구매전송 전 검증 |
-| `POST /api/ecount/purchase/push` | 구매전송 실행 |
+| 기존 `POST /api/ecount/purchase-push` | 구매전송 실행. 신규 중복 API 생성 금지, 승인 단계 뒤에만 사용 |
 | `POST /api/ecount/purchase/verify` | 구매현황 원본 대조 |
 | `POST /api/ecount/ar/verify` | 채권 원본 대조 |
 | `POST /api/ecount/tax/verify` | 세금계산서 진행단계 대조 |
@@ -396,7 +473,11 @@ Nenova ECOUNT 화면 매칭 조사 요청.
 
 중요:
 - 운영 ECOUNT에서 저장, 삭제, 전송, 일괄반영, 전표생성, 세금계산서 발행 버튼은 절대 누르지 말 것.
-- 조회, 필터 확인, 컬럼 확인, 엑셀 다운로드 가능 여부 확인만 한다.
+- ECOUNT에 데이터를 넣거나 바꾸는 작업은 절대 하지 말 것.
+- 조회, 필터 확인, 컬럼 확인, 조회용 엑셀 다운로드 가능 여부 확인만 한다.
+- 실제 엑셀 다운로드도 저장/반영/전표생성과 연결된 버튼이면 누르지 말 것.
+- nenovaweb 기존 메뉴에 이미 있는 기능과 중복되는 새 메뉴를 제안하지 말고, 기존 메뉴에 검증 탭/대조 상태를 추가하는 방향을 우선할 것.
+- ECOUNT API는 횟수 제한이 있을 수 있으므로 화면마다 반복 호출하는 설계를 제안하지 말고, 캐시/수동조회/배치/엑셀 업로드 대조 방식을 우선 검토할 것.
 - API 키/세션/쿠키/개인정보는 답변에 노출하지 말 것.
 
 조사 목적:
