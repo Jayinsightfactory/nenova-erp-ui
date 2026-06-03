@@ -275,10 +275,13 @@ export default function Distribute() {
   const handleSpDistribute = async (action) => {
     if (!week) { setErr('차수를 입력하세요.'); return; }
     if (action === 'one' && !selectedProd) { setErr('개별 전산 출고분배는 품목을 먼저 선택하세요.'); return; }
+    if (action === 'group' && !prodGroup) { setErr('꽃/품목그룹을 선택하세요. 전체 차수 실행은 사용하지 않습니다.'); return; }
 
     const label = action === 'one'
       ? `${week}차 ${selectedProd.DisplayName || selectedProd.ProdName} 개별 출고분배`
-      : `${week}차 전체 일괄출고분배`;
+      : action === 'group'
+        ? `${week}차 ${prodGroup} 일괄출고분배`
+        : `${week}차 전체 일괄출고분배`;
     if (!confirm(`${label}를 전산 nenova.exe와 같은 저장 프로시저 경로로 실행하시겠습니까?\n\n실행 전 KeyNumbering/확정상태를 확인하고, 실행 후 출고일/중복 출고상세 검증에 실패하면 롤백합니다.`)) return;
 
     setSpLoading(true);
@@ -302,6 +305,7 @@ export default function Distribute() {
           week,
           year: new Date().getFullYear().toString(),
           prodKey: action === 'one' ? selectedProd.ProdKey : undefined,
+          prodGroup: action === 'group' ? prodGroup : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -584,8 +588,8 @@ export default function Distribute() {
           <button className="btn btn-secondary btn-sm" onClick={handleUnfix} disabled={fixLoading||!isFixed}>
             ↩️ 확정취소 / Cancelar / Anular
           </button>
-          <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('total')} disabled={spLoading || fixLoading || isFixed || !week}>
-            {spLoading ? '전산분배 중...' : '전산 일괄출고분배'}
+          <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('group')} disabled={spLoading || fixLoading || isFixed || !week || !prodGroup} title="선택한 차수와 꽃/품목그룹만 dbo.usp_DistributeOne 경로로 일괄 분배합니다.">
+            {spLoading ? '전산분배 중...' : '전산 선택꽃 일괄출고분배'}
           </button>
           <button className="btn btn-primary btn-sm" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saving}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleHistory}>📋 내역 조회 / Historial</button>

@@ -76,29 +76,29 @@ async function loadProcedureShape(procedureName) {
 function resolveShape(procedureName, shapeRows, action) {
   const inputs = shapeRows.filter(row => !isOutput(row));
   const outputs = shapeRows.filter(row => isOutput(row));
-  const expectedCount = action === 'one' ? 3 : 2;
+  const expectedCount = ['one', 'group'].includes(action) ? 3 : 2;
   let yearParam = findParamByName(inputs, [/year/i, /yyyy/i, /yr/i, /년도/, /연도/]);
   let weekParam = findParamByName(inputs, [/week/i, /wk/i, /차수/, /주차/]);
-  let prodParam = action === 'one'
+  let prodParam = ['one', 'group'].includes(action)
     ? findParamByName(inputs, [/prod/i, /product/i, /flower/i, /품목/, /item/i])
     : null;
   let mappingMode = 'name';
 
-  if ((!yearParam || !weekParam || (action === 'one' && !prodParam)) && inputs.length === expectedCount) {
-    const positionLooksSafe = action === 'one'
+  if ((!yearParam || !weekParam || (['one', 'group'].includes(action) && !prodParam)) && inputs.length === expectedCount) {
+    const positionLooksSafe = ['one', 'group'].includes(action)
       ? isIntLike(inputs[0]) && isTextLike(inputs[1]) && isIntLike(inputs[2])
       : isIntLike(inputs[0]) && isTextLike(inputs[1]);
     if (positionLooksSafe) {
       yearParam = inputs[0];
       weekParam = inputs[1];
-      prodParam = action === 'one' ? inputs[2] : null;
+      prodParam = ['one', 'group'].includes(action) ? inputs[2] : null;
       mappingMode = 'position';
     }
   }
 
   const mapped = new Set([yearParam, weekParam, prodParam].filter(Boolean).map(paramName));
   const extraInputs = inputs.filter(row => !mapped.has(paramName(row)));
-  if (!yearParam || !weekParam || (action === 'one' && !prodParam) || extraInputs.length) {
+  if (!yearParam || !weekParam || (['one', 'group'].includes(action) && !prodParam) || extraInputs.length) {
     const desc = inputs.map(row => `${paramName(row)} ${row.TypeName}`).join(', ');
     throw new Error(`dbo.${procedureName} 파라미터 구조가 안전한 ${expectedCount}입력 형태로 확인되지 않았습니다. 확인값: ${desc}`);
   }
@@ -106,12 +106,48 @@ function resolveShape(procedureName, shapeRows, action) {
   return { yearParam, weekParam, prodParam, outputs, mappingMode };
 }
 
-async function assertWeekNotFixed(q, week, prodKey = null) {
+async function loadGroupProducts(q, week, prodGroup) {
+  const result = await q(
+    `SELECT DISTINCT p.ProdKey, p.ProdName
+       FROM OrderMaster om
+       JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+       JOIN Product p ON p.ProdKey=od.ProdKey
+      WHERE om.OrderWeek=@wk
+        AND ISNULL(om.isDeleted,0)=0
+        AND ISNULL(od.isDeleted,0)=0
+        AND ISNULL(p.isDeleted,0)=0
+        AND ISNULL(p.CountryFlower,N'')=@pg
+      ORDER BY p.ProdName`,
+    {
+      wk: { type: sql.NVarChar, value: week },
+      pg: { type: sql.NVarChar, value: prodGroup },
+    }
+  );
+  return result.recordset || [];
+}
+
+function prodFilterClause(prodKeys) {
+  if (!prodKeys?.length) return '';
+  return `AND sd.ProdKey IN (${prodKeys.map((_, i) => `@pk${i}`).join(',')})`;
+}
+
+function prodFilterParams(prodKeys) {
+  const params = {};
+  (prodKeys || []).forEach((prodKey, i) => {
+    params[`pk${i}`] = { type: sql.Int, value: Number(prodKey) };
+  });
+  return params;
+}
+
+async function assertWeekNotFixed(q, week, prodKey = null, prodKeys = []) {
   const params = { wk: { type: sql.NVarChar, value: week } };
   let prodClause = '';
   if (prodKey) {
     params.pk = { type: sql.Int, value: Number(prodKey) };
     prodClause = 'AND sd.ProdKey=@pk';
+  } else if (prodKeys.length) {
+    Object.assign(params, prodFilterParams(prodKeys));
+    prodClause = prodFilterClause(prodKeys);
   }
   const fixed = await q(
     `SELECT TOP 10 c.CustName, p.ProdName, sm.isFix AS MasterFix, sd.isFix AS DetailFix
@@ -152,12 +188,15 @@ async function assertKeyNumberingReady(q) {
   return result.recordset || [];
 }
 
-async function loadSummary(q, week, prodKey = null) {
+async function loadSummary(q, week, prodKey = null, prodKeys = []) {
   const params = { wk: { type: sql.NVarChar, value: week } };
   let prodClause = '';
   if (prodKey) {
     params.pk = { type: sql.Int, value: Number(prodKey) };
     prodClause = 'AND sd.ProdKey=@pk';
+  } else if (prodKeys.length) {
+    Object.assign(params, prodFilterParams(prodKeys));
+    prodClause = prodFilterClause(prodKeys);
   }
   const result = await q(
     `WITH detail AS (
@@ -218,7 +257,7 @@ async function executeProcedure(q, { procedureName, action, shapeRows, orderYear
     `${paramName(shape.yearParam)}=@argYear`,
     `${paramName(shape.weekParam)}=@argWeek`,
   ];
-  if (action === 'one') inputAssignments.push(`${paramName(shape.prodParam)}=@argProdKey`);
+  if (['one', 'group'].includes(action)) inputAssignments.push(`${paramName(shape.prodParam)}=@argProdKey`);
   const outputAssignments = shape.outputs.map((row, i) => `${paramName(row)}=@out${i} OUTPUT`);
   const selectOutputs = shape.outputs.map((row, i) => `@out${i} AS [${outputAlias(paramName(row))}]`);
   const selectSql = [`@returnCode AS ReturnCode`, ...selectOutputs].join(', ');
@@ -234,7 +273,7 @@ SELECT ${selectSql}, @mappingMode AS MappingMode;`;
     argWeek: { type: sql.NVarChar, value: week },
     mappingMode: { type: sql.NVarChar, value: shape.mappingMode },
   };
-  if (action === 'one') params.argProdKey = { type: sql.Int, value: Number(prodKey) };
+  if (['one', 'group'].includes(action)) params.argProdKey = { type: sql.Int, value: Number(prodKey) };
 
   const result = await q(execSql, params);
   const recordsets = result.recordsets || [];
@@ -252,40 +291,59 @@ function failureSignals(execResult) {
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const action = String(req.body?.action || 'total').trim();
-  if (!['total', 'one'].includes(action)) return res.status(400).json({ success: false, error: 'action은 total 또는 one만 가능합니다.' });
+  if (!['total', 'one', 'group'].includes(action)) return res.status(400).json({ success: false, error: 'action은 total, group, one만 가능합니다.' });
 
   try {
     const week = normalizeOrderWeek(req.body?.week || '');
     const orderYear = normalizeOrderYear(String(req.body?.year || req.body?.week || ''), new Date().getFullYear().toString());
     const prodKey = action === 'one' ? Number(req.body?.prodKey || 0) : null;
+    const prodGroup = String(req.body?.prodGroup || '').trim();
     if (!week) throw new Error('차수 필요');
     if (action === 'one' && !prodKey) throw new Error('개별 출고분배는 품목 선택이 필요합니다.');
+    if (action === 'group' && !prodGroup) throw new Error('꽃/품목그룹을 선택하세요.');
 
-    const procedureName = action === 'one' ? 'usp_DistributeOne' : 'usp_DistributeTotal';
+    const procedureName = ['one', 'group'].includes(action) ? 'usp_DistributeOne' : 'usp_DistributeTotal';
     const shapeRows = await loadProcedureShape(procedureName);
 
     const result = await withTransaction(async (tQ) => {
-      await assertWeekNotFixed(tQ, week, prodKey);
+      const groupProducts = action === 'group' ? await loadGroupProducts(tQ, week, prodGroup) : [];
+      if (action === 'group' && groupProducts.length === 0) throw new Error(`${week}차 ${prodGroup} 주문 품목이 없습니다.`);
+      const prodKeys = groupProducts.map(row => Number(row.ProdKey));
+      await assertWeekNotFixed(tQ, week, prodKey, prodKeys);
       const keyNumbering = await assertKeyNumberingReady(tQ);
-      const before = await loadSummary(tQ, week, prodKey);
-      const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey });
-      const failures = failureSignals(execResult);
-      if (failures.length) {
-        throw new Error(`${procedureName} 실패 반환값: ${failures.map(row => `${row.key}=${row.value}`).join(', ')}`);
+      const before = await loadSummary(tQ, week, prodKey, prodKeys);
+      const executed = [];
+      if (action === 'group') {
+        for (const product of groupProducts) {
+          const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey: product.ProdKey });
+          const failures = failureSignals(execResult);
+          if (failures.length) {
+            throw new Error(`${product.ProdName} ${procedureName} 실패 반환값: ${failures.map(row => `${row.key}=${row.value}`).join(', ')}`);
+          }
+          executed.push({ prodKey: product.ProdKey, prodName: product.ProdName, execResult });
+        }
+      } else {
+        const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey });
+        const failures = failureSignals(execResult);
+        if (failures.length) {
+          throw new Error(`${procedureName} 실패 반환값: ${failures.map(row => `${row.key}=${row.value}`).join(', ')}`);
+        }
+        executed.push({ prodKey, execResult });
       }
-      const after = await loadSummary(tQ, week, prodKey);
+      const after = await loadSummary(tQ, week, prodKey, prodKeys);
       if (after.dateIssueCount > 0) throw new Error(`전산 분배 후 출고일/출고수량 불일치 ${after.dateIssueCount}건이 감지되어 롤백했습니다.`);
       if (after.duplicateDetailGroups > 0) throw new Error(`전산 분배 후 중복 출고상세 ${after.duplicateDetailGroups}그룹이 감지되어 롤백했습니다.`);
-      return { keyNumbering, before, after, execResult };
+      return { keyNumbering, before, after, executed };
     }, { retries: 3, baseDelay: 250 });
 
     const logs = [
-      `${week}차 ${action === 'one' ? '개별' : '일괄'} 출고분배 완료`,
+      `${week}차 ${action === 'one' ? '개별' : action === 'group' ? `${prodGroup} 일괄` : '전체 일괄'} 출고분배 완료`,
       `실행 경로: dbo.${procedureName}`,
+      action === 'group' ? `선택 꽃/품목그룹: ${prodGroup}, 실행 품목 ${result.executed.length}개` : null,
       `분배 전: 품목 ${result.before.productCount}개, 업체 ${result.before.customerCount}곳, 출고합계 ${result.before.outQuantity}`,
       `분배 후: 품목 ${result.after.productCount}개, 업체 ${result.after.customerCount}곳, 출고합계 ${result.after.outQuantity}`,
       `출고일 문제 ${result.after.dateIssueCount}건, 중복 출고상세 ${result.after.duplicateDetailGroups}그룹`,
-    ];
+    ].filter(Boolean);
 
     return res.status(200).json({
       success: true,
@@ -293,6 +351,7 @@ async function handler(req, res) {
       week,
       orderYear,
       prodKey,
+      prodGroup,
       procedureName,
       logs,
       ...result,
