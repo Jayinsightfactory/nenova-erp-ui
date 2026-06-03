@@ -246,7 +246,9 @@ SELECT ${selectSql}, @mappingMode AS MappingMode;`;
     mappingMode: { type: sql.NVarChar, value: shape.mappingMode },
   }, { retries: 3, baseDelay: 250 });
 
-  return result.recordset?.[0] || {};
+  const recordsets = result.recordsets || [];
+  const finalRecordset = recordsets.length ? recordsets[recordsets.length - 1] : result.recordset;
+  return finalRecordset?.[0] || {};
 }
 
 function buildProductTargets(rows) {

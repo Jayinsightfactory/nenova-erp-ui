@@ -1069,3 +1069,24 @@ collapsed: Set  // 접힌 행 그룹
   - UI의 `업로드 품종 일괄분배` 버튼은 계속 비활성화.
   - 즉, 지금 배포 상태에서는 위험한 직접저장 자동분배가 운영에서 실행되지 않는다.
   - 실제 활성화는 로그인 상태에서 `/api/shipment/distribute-diagnose`로 SP 파라미터를 확인하고, 테스트 차수에서 `nenova.exe` 결과와 1:1 대조한 뒤에만 진행한다.
+
+### 2026-06-03 출고분배 화면 전산 SP 버튼 추가
+
+- 요청: `nenova.exe`에 있는 기존 일괄출고분배 기능을 네노바웹에서도 사용할 수 있게 한다.
+- 기준:
+  - 웹 자체 분배 계산/직접저장이 아니라 `nenova.exe`와 같은 저장 프로시저 경로를 실행한다.
+  - 전체 일괄은 `dbo.usp_DistributeTotal`, 선택 품목 개별은 `dbo.usp_DistributeOne` 경로를 사용한다.
+- 반영:
+  - 새 API `/api/shipment/distribute-sp` 추가.
+  - `action=total`: `usp_DistributeTotal` 실행.
+  - `action=one`: 선택 품목 기준 `usp_DistributeOne` 실행.
+  - 실행 전 `KeyNumbering`, 확정 출고 포함 여부, SP 파라미터 구조를 확인한다.
+  - 실행은 트랜잭션 내부에서 수행하고, 실행 후 `ShipmentDate` 수량/일자 불일치 또는 중복 `ShipmentDetail`이 감지되면 롤백한다.
+  - SP 반환값 중 `ReturnCode`, `oResult` 등 실패 신호가 0이 아니면 롤백한다.
+  - `/shipment/distribute` 상단에 `전산 일괄출고분배` 버튼 추가.
+  - 품목 기준 우측 영역에 `전산 개별출고분배` 버튼 추가.
+  - 기존 화면 계산 버튼은 `화면 비율계산`, `주문수량 채우기`로 이름을 바꿔 전산 저장 버튼과 구분.
+- 주의:
+  - 이 버튼은 운영 데이터를 실제 변경하는 전산 SP 실행 버튼이다.
+  - 확정 상태에서는 비활성화/차단한다.
+  - 사후 검증 로그는 업체/품목/출고합계 중심으로 표시한다.

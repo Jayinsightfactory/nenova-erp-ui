@@ -72,6 +72,8 @@ export default function Distribute() {
   const [isFixed, setIsFixed] = useState(false);
   const [validateResult, setValidateResult] = useState(null);
   const [showValidate, setShowValidate] = useState(false);
+  const [spLoading, setSpLoading] = useState(false);
+  const [spModal, setSpModal] = useState(null);
 
   // 탭2: 출고요일 설정
   const [shipDayConfigs, setShipDayConfigs] = useState({}); // { 'prodGroup|suffix': '월,화,수' }
@@ -268,6 +270,65 @@ export default function Distribute() {
       setTimeout(() => setSuccessMsg(''), 3000);
       handleSearch();
     } catch(e) { setErr(e.message); } finally { setFixLoading(false); }
+  };
+
+  const handleSpDistribute = async (action) => {
+    if (!week) { setErr('차수를 입력하세요.'); return; }
+    if (action === 'one' && !selectedProd) { setErr('개별 전산 출고분배는 품목을 먼저 선택하세요.'); return; }
+
+    const label = action === 'one'
+      ? `${week}차 ${selectedProd.DisplayName || selectedProd.ProdName} 개별 출고분배`
+      : `${week}차 전체 일괄출고분배`;
+    if (!confirm(`${label}를 전산 nenova.exe와 같은 저장 프로시저 경로로 실행하시겠습니까?\n\n실행 전 KeyNumbering/확정상태를 확인하고, 실행 후 출고일/중복 출고상세 검증에 실패하면 롤백합니다.`)) return;
+
+    setSpLoading(true);
+    setErr('');
+    setSuccessMsg('');
+    setSpModal({
+      running: true,
+      title: label,
+      logs: [
+        `${label} 시작`,
+        '전산 저장 프로시저 확인 중',
+        'KeyNumbering, 확정상태, 출고일 정합성을 함께 검사합니다.',
+      ],
+    });
+    try {
+      const res = await fetch('/api/shipment/distribute-sp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          week,
+          year: new Date().getFullYear().toString(),
+          prodKey: action === 'one' ? selectedProd.ProdKey : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || '전산 출고분배 실행 실패');
+      setSpModal({
+        running: false,
+        title: label,
+        logs: data.logs || [],
+        before: data.before,
+        after: data.after,
+        procedureName: data.procedureName,
+      });
+      setSuccessMsg(`✅ ${label} 완료`);
+      setTimeout(() => setSuccessMsg(''), 5000);
+      await handleSearch();
+      if (action === 'one' && selectedProd) await selectProd(selectedProd);
+    } catch (e) {
+      setErr(e.message);
+      setSpModal(prev => ({
+        ...(prev || { title: label }),
+        running: false,
+        failed: true,
+        logs: [...((prev || {}).logs || []), `오류: ${e.message}`],
+      }));
+    } finally {
+      setSpLoading(false);
+    }
   };
 
   const handleHistory = async () => {
@@ -523,6 +584,9 @@ export default function Distribute() {
           <button className="btn btn-secondary btn-sm" onClick={handleUnfix} disabled={fixLoading||!isFixed}>
             ↩️ 확정취소 / Cancelar / Anular
           </button>
+          <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('total')} disabled={spLoading || fixLoading || isFixed || !week}>
+            {spLoading ? '전산분배 중...' : '전산 일괄출고분배'}
+          </button>
           <button className="btn btn-primary btn-sm" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saving}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleHistory}>📋 내역 조회 / Historial</button>
           <button className="btn btn-success btn-sm" onClick={() => handleExcelDownload()} disabled={excelDownloading}>
@@ -569,6 +633,58 @@ export default function Distribute() {
               </table>
               <button className="btn btn-primary" style={{width:'100%', height:36, fontSize:13}}
                 onClick={() => setSaveModal(null)}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {spModal && (
+        <div className="modal-overlay" onClick={() => !spModal.running && setSpModal(null)}>
+          <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header" style={{background:spModal.failed?'#FDECEC':'#E8F8E8', borderBottom:`2px solid ${spModal.failed?'#CC3333':'#66BB66'}`}}>
+              <span className="modal-title" style={{color:spModal.failed?'#AA0000':'#006600'}}>
+                {spModal.running ? '전산 출고분배 진행 중' : spModal.failed ? '전산 출고분배 중단' : '전산 출고분배 완료'}
+              </span>
+            </div>
+            <div className="modal-body" style={{padding:'18px 22px'}}>
+              <div style={{fontSize:15,fontWeight:800,marginBottom:10}}>{spModal.title}</div>
+              {spModal.procedureName && (
+                <div style={{fontSize:12,color:'var(--text3)',marginBottom:10}}>실행 경로: dbo.{spModal.procedureName}</div>
+              )}
+              {spModal.before && spModal.after && (
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,marginBottom:14}}>
+                  <thead>
+                    <tr style={{background:'#F8FAFC'}}>
+                      <th style={{padding:6,border:'1px solid var(--border)'}}>구분</th>
+                      <th style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>품목</th>
+                      <th style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>업체</th>
+                      <th style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>출고합계</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{padding:6,border:'1px solid var(--border)'}}>분배 전</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>{fmt(spModal.before.productCount)}</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>{fmt(spModal.before.customerCount)}</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>{fmt(spModal.before.outQuantity)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{padding:6,border:'1px solid var(--border)'}}>분배 후</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>{fmt(spModal.after.productCount)}</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right'}}>{fmt(spModal.after.customerCount)}</td>
+                      <td style={{padding:6,border:'1px solid var(--border)',textAlign:'right',fontWeight:800,color:'var(--blue)'}}>{fmt(spModal.after.outQuantity)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+              <div style={{border:'1px solid var(--border)',borderRadius:6,background:'#FAFAFA',padding:10,maxHeight:240,overflowY:'auto',fontSize:12,lineHeight:1.7}}>
+                {(spModal.logs || []).map((line, i) => (
+                  <div key={i} style={{color:line.startsWith('오류')?'var(--red)':'var(--text2)'}}>• {line}</div>
+                ))}
+              </div>
+              <button className="btn btn-primary" style={{width:'100%',height:36,marginTop:14}} disabled={spModal.running} onClick={() => setSpModal(null)}>
+                확인
+              </button>
             </div>
           </div>
         </div>
@@ -689,8 +805,9 @@ export default function Distribute() {
                   <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
                     <input type="radio" name="distMode" checked={distMode==='prior'} onChange={()=>setDistMode('prior')}/> 우선 분배
                   </label>
-                  <button className="btn btn-secondary btn-sm" onClick={autoDistribute} disabled={!selectedProd || custDist.length === 0} title="화면 입력값만 자동 계산합니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">📋 일괄 출고분배 / Distrib. masiva</button>
-                  <button className="btn btn-secondary btn-sm" onClick={fillOrderQuantities} disabled={!selectedProd || custDist.length === 0} title="주문수량을 출고수량 입력값으로 채웁니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">📦 개별 출고분배 / Distrib. indiv.</button>
+                  <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('one')} disabled={spLoading || !selectedProd || custDist.length === 0 || isFixed} title="nenova.exe 개별출고분배와 같은 dbo.usp_DistributeOne 경로로 저장합니다.">전산 개별출고분배</button>
+                  <button className="btn btn-secondary btn-sm" onClick={autoDistribute} disabled={!selectedProd || custDist.length === 0} title="화면 입력값만 자동 계산합니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">화면 비율계산</button>
+                  <button className="btn btn-secondary btn-sm" onClick={fillOrderQuantities} disabled={!selectedProd || custDist.length === 0} title="주문수량을 출고수량 입력값으로 채웁니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">주문수량 채우기</button>
                   <button className="btn btn-secondary btn-sm" onClick={()=>{const o={};custDist.forEach(c=>{o[c.CustKey]=0;});setOutInputs(o);setOutQty(0);}}>🔄 개별 초기화</button>
                 </div>
                 {/* 입고/출고/잔량 */}
