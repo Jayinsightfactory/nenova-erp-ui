@@ -947,3 +947,20 @@ collapsed: Set  // 접힌 행 그룹
   - 챗봇 조회/표시 기능만 변경. 주문, 분배, 재고 원장 쓰기 없음.
 - 검증:
   - `next build` 통과.
+
+### 2026-06-03 ECOUNT 100% 활용/매칭 기획
+
+- 요청: 경영지원부 ECOUNT 활용현황 문서와 로그인된 ECOUNT 화면을 기준으로, `nenovaweb` ECOUNT 페이지를 100% 활용할 수 있게 기획.
+- 확인 자료:
+  - `경영지원부 이카운트 ERP 활용현황_26.03.04.docx`
+  - 현재 `/ecount/dashboard`, `/api/ecount/*`, `lib/ecount.js`
+  - 기존 `NENOVA_ECOUNT_ERP_MATCH_AUDIT.md`
+- 결론:
+  - 현재 네노바웹은 ECOUNT 전체 대체가 아니라 일부 `push`/동기화 로그 중심.
+  - 100% 활용을 위해서는 ECOUNT 원본 화면별 컬럼, 필터, 버튼, 원본 조회 가능 여부를 먼저 수집하고, 마스터 코드/판매/채권/세금계산서/구매/입출금/회계원장 순서로 대조 구조를 만들어야 함.
+- 산출물:
+  - `docs/ECOUNT_FULL_USAGE_PLAN_2026-06-03.md`
+  - 화면별 매칭표, 단계별 구현 우선순위, DB/API 설계, Claude in Chrome 읽기전용 조사 프롬프트 포함.
+- 안전성:
+  - ECOUNT API 키 원문은 기록하지 않음.
+  - 운영 ECOUNT 저장/삭제/전송/일괄반영은 조사 단계에서 금지.
