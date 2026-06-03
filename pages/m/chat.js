@@ -45,8 +45,20 @@ function weekSortKey(value) {
   return Number(m[1]) * 10 + Number(m[2]);
 }
 
+function shiftMajorWeek(value, delta) {
+  const base = toChatOrderWeek(value || getCurrentWeek());
+  const m = base.match(/^(\d{2})-(\d{2})$/);
+  if (!m) return base;
+  const nextWeek = Math.min(52, Math.max(1, Number(m[1]) + delta));
+  return `${String(nextWeek).padStart(2, '0')}-${m[2]}`;
+}
+
+function getDefaultBaseWeek() {
+  return shiftMajorWeek(getCurrentWeek(), 1);
+}
+
 function buildNearbyWeeks(baseWeek, radius = 6) {
-  const base = toChatOrderWeek(baseWeek || getCurrentWeek());
+  const base = toChatOrderWeek(baseWeek || getDefaultBaseWeek());
   const m = base.match(/^(\d{2})-(\d{2})$/);
   const baseMajor = m ? Number(m[1]) : 1;
   const out = [];
@@ -58,10 +70,15 @@ function buildNearbyWeeks(baseWeek, radius = 6) {
   return out;
 }
 
-function buildWeekCandidates(dbWeeks = [], baseWeek = getCurrentWeek()) {
+function buildWeekCandidates(dbWeeks = [], baseWeek = getDefaultBaseWeek()) {
   const base = toChatOrderWeek(baseWeek);
-  const set = new Set([base, ...buildNearbyWeeks(base), ...dbWeeks.map(toChatOrderWeek)].filter(isValidOrderWeek));
-  return [...set].sort((a, b) => weekSortKey(b) - weekSortKey(a));
+  const nearby = [...new Set([base, ...buildNearbyWeeks(base, 10)].filter(isValidOrderWeek))]
+    .sort((a, b) => weekSortKey(b) - weekSortKey(a));
+  const nearbySet = new Set(nearby);
+  const rest = [...new Set(dbWeeks.map(toChatOrderWeek).filter(isValidOrderWeek))]
+    .filter(w => !nearbySet.has(w))
+    .sort((a, b) => weekSortKey(b) - weekSortKey(a));
+  return [...nearby, ...rest];
 }
 
 function customerLabel(c) {
@@ -152,13 +169,13 @@ export default function MobileChat() {
     fetch('/api/orders/weeks')
       .then(r => r.json())
       .then(d => {
-        const base = toChatOrderWeek(getCurrentWeek());
+        const base = getDefaultBaseWeek();
         const list = buildWeekCandidates((d.weeks || []).filter(Boolean), base);
         setWeeks(list);
         setDirectWeek(prev => prev || base);
       })
       .catch(() => {
-        const base = toChatOrderWeek(getCurrentWeek());
+        const base = getDefaultBaseWeek();
         setWeeks(buildWeekCandidates([], base));
         setDirectWeek(prev => prev || base);
       });
@@ -694,38 +711,16 @@ function DirectLookupPanel({
 }
 
 function WeekWheel({ weeks, value, onChange }) {
-  const list = weeks?.length ? weeks : buildWeekCandidates([], getCurrentWeek());
+  const list = weeks?.length ? weeks : buildWeekCandidates([], getDefaultBaseWeek());
   const selected = isValidOrderWeek(toChatOrderWeek(value)) ? toChatOrderWeek(value) : list[0];
   const wheelRef = useRef(null);
-  const scrollTimerRef = useRef(null);
 
   useEffect(() => {
     const el = wheelRef.current;
     if (!el) return;
     const active = el.querySelector(`button[data-week="${selected}"]`);
-    if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (active) active.scrollIntoView({ block: 'center' });
   }, [selected]);
-
-  const handleWheelScroll = () => {
-    const el = wheelRef.current;
-    if (!el) return;
-    clearTimeout(scrollTimerRef.current);
-    scrollTimerRef.current = setTimeout(() => {
-      const center = el.scrollTop + (el.clientHeight / 2);
-      let best = null;
-      let bestDistance = Infinity;
-      for (const btn of Array.from(el.querySelectorAll('button[data-week]'))) {
-        const mid = btn.offsetTop + (btn.offsetHeight / 2);
-        const distance = Math.abs(mid - center);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          best = btn;
-        }
-      }
-      const next = best?.dataset?.week;
-      if (next && next !== selected) onChange(next);
-    }, 160);
-  };
 
   return (
     <div className="m-week-box">
@@ -733,7 +728,7 @@ function WeekWheel({ weeks, value, onChange }) {
         <span>기준차수</span>
         <span>{formatWeekDisplayLocal(selected)}</span>
       </div>
-      <div className="m-week-wheel" aria-label="기준차수 선택" ref={wheelRef} onScroll={handleWheelScroll}>
+      <div className="m-week-wheel" aria-label="기준차수 선택" ref={wheelRef}>
         {list.slice(0, 80).map(w => {
           const active = w === selected;
           return (
@@ -749,7 +744,7 @@ function WeekWheel({ weeks, value, onChange }) {
           );
         })}
       </div>
-      <div className="m-week-help">위아래로 밀어서 기준차수를 선택하세요.</div>
+      <div className="m-week-help">위아래로 밀어 찾은 뒤 원하는 기준차수를 누르세요.</div>
       <style jsx>{`
         .m-week-box {
           display: grid;
