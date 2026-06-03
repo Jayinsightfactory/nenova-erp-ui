@@ -1,0 +1,71 @@
+{
+  "name": "[예시] 매일 아침 매출요약 알림",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "days", "triggerAtHour": 8 }
+          ]
+        }
+      },
+      "id": "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa",
+      "name": "매일 08시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [380, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://nenovaweb.com/api/automation/sales-revenue-summary",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "channel", "value": "양재동" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb",
+      "name": "네노바웹 매출요약 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [620, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_YOUR_CREDENTIAL", "name": "nenovaweb-token" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "m1",
+              "name": "메시지",
+              "value": "=📊 영업매출 요약 ({{ $json.channel }})\n업체수: {{ $json.customerCount }}\n원본합계: {{ $json.totals.rawTotal }}원\n미매칭: {{ $json.totals.unmatchedAmount }}원 ({{ $json.totals.unmatchedCount }}건)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cccccccc-3333-4333-8333-cccccccccccc",
+      "name": "메시지 구성",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [860, 300]
+    }
+  ],
+  "connections": {
+    "매일 08시": {
+      "main": [ [ { "node": "네노바웹 매출요약 조회", "type": "main", "index": 0 } ] ]
+    },
+    "네노바웹 매출요약 조회": {
+      "main": [ [ { "node": "메시지 구성", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "settings": {},
+  "active": false
+}
