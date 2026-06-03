@@ -1164,3 +1164,44 @@ collapsed: Set  // 접힌 행 그룹
   - ECOUNT 원본 쓰기/push 금지.
   - 조회 결과만 네노바웹 비교용 Batch/Raw 저장.
   - 미매칭 업체는 검색/확정 저장 후 다음 조회부터 자동 적용.
+
+### 2026-06-03 영업매출관리 ECOUNT read-only 조회/저장/비교표 구현
+
+- 요청: 인계서 기준으로 ECOUNT read-only 조회 → 비교용 저장 → 매칭 → 비교표 연결을 이어서 구현.
+- 추가 파일:
+  - `lib/salesRevenueConfig.js`: BASE_CUSTOMERS/COMPARE_WEEKS/BUILT_IN_ALIASES 공유(fs 의존 없음, 서버·클라이언트 공용).
+  - `lib/salesRevenueBatches.js`: `data/sales-revenue-batches.json` 파일 기반 Batch/Raw 저장소 + 매핑 동적 적용 + 비교표 요약 빌더.
+  - `lib/ecountSalesInquiry.js`: ECOUNT 판매현황 read-only 조회. 쓰기성 endpoint 정규식 하드 차단(save/delete/push/전송/저장 등). endpoint는 `ECOUNT_SALES_INQUIRY_ENDPOINT` 환경변수(기본 `Sale/GetSaleList`)로 설정. 응답 컬럼 관용 정규화(영문키+한글헤더).
+  - `pages/api/sales/revenue-fetch.js` (POST): (연도/차수/지점) Batch 우선 반환, force 시 ECOUNT 조회·저장. 실패 시 기존 저장본 유지. withActionLog(LOW).
+  - `pages/api/sales/revenue-summary.js` (GET): 저장 Batch 기반 업체별/차수별/연도별 비교표 + 현재 Batch 원본/검토 리스트 반환. ECOUNT 호출 없음.
+- 수정 파일:
+  - `pages/sales/revenue-management.js`: 하드코딩 샘플(SAMPLE_2025_BY_WEEK/RAW_2025_WEEK_24) 제거. 화면 로딩 시 summary만 로드(ECOUNT 호출 없음). `이카운트 API 조회 및 저장`=force:false, `강제 재조회`=force:true. 매핑 저장 후 summary 재조회로 즉시 반영. 조회연도 입력 추가.
+  - `.gitignore`: `data/sales-revenue-batches.json`, `data/sales-revenue-customer-mappings.json` 런타임 저장본 커밋 제외.
+- 핵심 기준 준수:
+  - ECOUNT 원본 쓰기/push 없음. read-only 조회 결과만 네노바웹 파일 저장소에 보관.
+  - 화면 로딩만으로 ECOUNT 미호출. 버튼 클릭 시에만 호출.
+  - 매핑은 저장 시점에 굽지 않고 읽는 시점에 동적 적용 → 확정 저장한 매핑이 재조회 없이 즉시·계속 자동 적용.
+  - 기존 주문/출고/재고/ECOUNT 원본 테이블 미수정. DB 스키마 변경 없음(파일 저장).
+- 검증:
+  - 로컬 `next build`는 이 PC에 Node 미설치로 실행 불가 → import/참조 정합성 정적 검증 완료(모든 export·page는 fs-free config만 import).
+  - 권위 빌드 검증은 서버(GitHub Actions `Deploy to Cafe24`의 `npm run build`)에서 수행. 배포(push)는 사용자 승인 후 진행 예정.
+- 후속 확인 필요:
+  - 실제 ECOUNT OAPI 판매현황 조회 endpoint/응답 컬럼을 ECOUNT 홈페이지·개발자페이지에서 확정 → `ECOUNT_SALES_INQUIRY_ENDPOINT` 및 `normalizeSalesRow` 키 매핑 조정.
+
+### 2026-06-03 ECOUNT OAPI 판매현황 조회 부재 확인 + 엑셀 업로드 방식으로 전환
+
+- 조사(Claude in Chrome, 사무실 pc, 모두 읽기 전용 / 저장·전송 버튼 미클릭):
+  - 세션 공유로 ERP 자동 로그인(zone `cc`, "(주) 네노바").
+  - `재고I > 영업관리 > 판매현황`(prgId E040207) 조회 실행 → 컬럼 확인: 일자-No./거래처명/품목명/수량/단가(vat포함)/공급가액/부가세/합계/적요.
+  - `정보관리 > API인증키발급 > [API매뉴얼]`(`sboapicc.ecount.com/ECERP/OAPIView/OAPIManual`) 및 `API 직접실행(사전테스트)` 콘솔에서 전체 OAPI 목록 확인.
+- 결론: **ECOUNT OAPI에 기간별 판매현황 조회(read) endpoint가 없음.** 영업관리 OAPI는 입력만(견적서입력/주문서입력/판매입력=`Sale/SaveSale`). 조회 가능 OAPI는 품목조회/발주서조회/재고현황뿐. → API pull로 판매현황 불가.
+- 방향 전환(사용자 결정): "물량표 업로드처럼" ECOUNT 판매현황 엑셀 업로드 → 자동 매칭 → 매출비교표 반영 → 매칭결과 다운로드.
+- 추가/변경 파일:
+  - `lib/salesRevenueExcel.js`: ECOUNT 판매현황 엑셀 헤더기반 파서. 실제 `25년 24차_양재동.xlsx`로 23행/합계 59,354,000 검증.
+  - `pages/api/sales/revenue-import-excel.js` (POST, multipart): formidable 업로드 → 파싱 → Batch 저장(sourceType `ecount_excel`) → 매칭 적용 → 요약 반환. withActionLog(LOW).
+  - `pages/api/sales/revenue-export.js` (GET): 시트1 차수별매출비교 + 시트2 원본매칭내역 xlsx 다운로드.
+  - (보강) 매출비교.xlsx와 동일한 색상/시트구조 요구 → `exceljs` 의존성 추가(사용자 승인). `xlsx`(커뮤니티판)는 색상 쓰기 불가, `xlsx-js-style`은 Turbopack 빌드 실패로 금지라 exceljs 채택. 매출비교.xlsx 테마색(accent3/1/4 lighter80% → EBF1DE/DCE6F2/E6E0EC)을 RGB로 추출해 2단 헤더(차수 그룹 + 전년/당년/성장률)·#,##0/0.0% 서식으로 재현. 서버 `npm install --omit=dev`가 exceljs 설치.
+  - `pages/sales/revenue-management.js`: 버튼을 `이카운트 판매현황 엑셀 업로드` + `매칭결과 엑셀 다운로드`로 교체. 업로드 시 조회연도/차수/지점 기준 저장·자동매칭·비교표 반영.
+  - 삭제: `pages/api/sales/revenue-fetch.js`, `lib/ecountSalesInquiry.js` (OAPI pull 불가로 폐기).
+- 절대기준 유지: ECOUNT 원본 읽기만(엑셀 다운로드본 업로드), 쓰기/push 없음. 저장은 네노바웹 파일 저장소(`data/sales-revenue-batches.json`)에만.
+- 검증: 파서 로직 python으로 실제 파일 대조 통과. 로컬 `next build`는 이 PC에 Node 미설치로 미실행 → 서버(GitHub Actions) 빌드가 권위 검증.
