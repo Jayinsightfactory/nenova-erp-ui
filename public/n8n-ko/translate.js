@@ -49,7 +49,61 @@
     'Node executed successfully': '노드가 성공적으로 실행되었습니다', 'Workflow executed successfully': '워크플로우가 성공적으로 실행되었습니다',
     'Error': '오류', 'Warning': '경고', 'Success': '성공', 'Loading': '로딩 중', 'Logs': '로그',
     'Clear execution': '실행 지우기', 'Read our docs': '문서 보기',
-    'Copy': '복사', 'Paste': '붙여넣기', 'Edit': '편집', 'Add': '추가', 'Remove': '제거'
+    'Copy': '복사', 'Paste': '붙여넣기', 'Edit': '편집', 'Add': '추가', 'Remove': '제거',
+
+    // ── 트리거 선택 패널 ──
+    'What triggers this workflow?': '이 워크플로우를 무엇이 시작하나요?',
+    "When clicking ‘Execute workflow’": "‘워크플로우 실행’ 클릭 시",
+    'Trigger manually': '수동으로 시작', 'On app event': '앱 이벤트로', 'On webhook call': '웹훅 호출로',
+    'On form submission': '폼 제출로', 'On chat message': '채팅 메시지로',
+    'When chat message received': '채팅 메시지 수신 시', 'When Executed by Another Workflow': '다른 워크플로우가 실행할 때',
+    'On a schedule': '스케줄로', 'Other ways…': '다른 방법…', 'Other ways...': '다른 방법...',
+    'Add another trigger': '트리거 추가', 'Add Trigger': '트리거 추가',
+
+    // ── 노드 검색/카테고리 ──
+    'What happens next?': '다음에 무엇을 하나요?', 'Search nodes...': '노드 검색...', 'Search nodes…': '노드 검색…',
+    'Recommended': '추천', 'Action in an app': '앱에서 동작', 'Data transformation': '데이터 변환',
+    'Flow': '흐름', 'Core': '코어', 'Files': '파일', 'Advanced AI': '고급 AI', 'Human in the loop': '사람 개입',
+    'Triggers': '트리거', 'Actions': '동작', 'Add Action': '동작 추가', 'Results': '결과', 'No results': '결과 없음',
+
+    // ── 자주 쓰는 노드 ──
+    'Schedule Trigger': '스케줄 트리거', 'Webhook': '웹훅', 'HTTP Request': 'HTTP 요청',
+    'Respond to Webhook': '웹훅 응답', 'Edit Fields (Set)': '필드 편집(Set)', 'Edit Fields': '필드 편집',
+    'Code': '코드', 'If': '조건(IF)', 'Switch': '스위치', 'Merge': '병합', 'Filter': '필터',
+    'Loop Over Items (Split in Batches)': '항목 반복(배치 분할)', 'Loop Over Items': '항목 반복',
+    'Wait': '대기', 'No Operation, do nothing': '아무 작업 안 함', 'No Operation': '작업 없음',
+    'Aggregate': '집계', 'Summarize': '요약', 'Sort': '정렬', 'Limit': '제한', 'Remove Duplicates': '중복 제거',
+    'Date & Time': '날짜 및 시간', 'Compare Datasets': '데이터셋 비교', 'Split Out': '분리',
+    'HTML': 'HTML', 'Markdown': '마크다운', 'XML': 'XML', 'Crypto': '암호화', 'Compression': '압축',
+    'Convert to File': '파일로 변환', 'Extract from File': '파일에서 추출',
+    'Read/Write Files from Disk': '디스크 파일 읽기/쓰기', 'Send Email': '이메일 보내기',
+    'Email Trigger (IMAP)': '이메일 트리거(IMAP)', 'Execute Command': '명령 실행',
+    'Execute Workflow': '워크플로우 실행', 'Execute Sub-workflow': '하위 워크플로우 실행',
+    'AI Agent': 'AI 에이전트', 'Basic LLM Chain': '기본 LLM 체인', 'Google Sheets': '구글 시트',
+
+    // ── 노드 매개변수 ──
+    'Resource': '리소스', 'Operation': '작업', 'Options': '옵션', 'Add Option': '옵션 추가',
+    'Add Field': '필드 추가', 'Add Value': '값 추가', 'Add Condition': '조건 추가', 'Add Header': '헤더 추가',
+    'Fields to Set': '설정할 필드', 'Keep Only Set': '설정한 값만 유지', 'Include Other Input Fields': '다른 입력 필드 포함',
+    'Send Headers': '헤더 전송', 'Send Body': '본문 전송', 'Header Parameters': '헤더 파라미터',
+    'Body': '본문', 'Body Content Type': '본문 콘텐츠 유형', 'Specify Body': '본문 지정', 'Headers': '헤더',
+    'Response': '응답', 'Conditions': '조건', 'Combine': '결합', 'Mode': '모드',
+    'Expression': '표현식', 'Fixed': '고정값', 'String': '문자열', 'Number': '숫자', 'Boolean': '불리언',
+    'Array': '배열', 'Object': '객체', 'Date': '날짜',
+    'Continue On Fail': '실패해도 계속', 'Always Output Data': '항상 데이터 출력', 'Execute Once': '한 번만 실행',
+    'Retry On Fail': '실패 시 재시도', 'On Error': '오류 시', 'Notes': '메모',
+
+    // ── 스케줄 트리거 ──
+    'Trigger Rules': '트리거 규칙', 'Trigger Interval': '트리거 주기', 'Seconds': '초', 'Minutes': '분',
+    'Hours': '시간', 'Days': '일', 'Weeks': '주', 'Months': '개월',
+    'Trigger at Hour': '실행 시(시각)', 'Trigger at Minute': '실행 분', 'Trigger on Weekdays': '실행 요일',
+    'Cron Expression': 'Cron 표현식', 'Custom (Cron)': '사용자 지정(Cron)', 'Add Rule': '규칙 추가',
+    'Seconds Between Triggers': '트리거 간격(초)',
+
+    // ── 실행/패널 ──
+    'Execution': '실행', 'Running': '실행 중', 'Succeeded': '성공', 'Failed': '실패', 'Waiting': '대기 중',
+    'Canceled': '취소됨', 'Pin data': '데이터 고정', 'Unpin': '고정 해제', 'Edit Output': '출력 편집',
+    'Run': '실행', 'Created 4 June': '6월 4일 생성'
   };
 
   var enabled = localStorage.getItem('n8nKo') !== 'off';
