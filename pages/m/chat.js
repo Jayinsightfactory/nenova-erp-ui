@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { getCurrentWeek } from '../../lib/useWeekInput';
 
 function formatWeekDisplayLocal(week) {
   const raw = String(week || '').trim();
@@ -45,40 +44,9 @@ function weekSortKey(value) {
   return Number(m[1]) * 10 + Number(m[2]);
 }
 
-function shiftMajorWeek(value, delta) {
-  const base = toChatOrderWeek(value || getCurrentWeek());
-  const m = base.match(/^(\d{2})-(\d{2})$/);
-  if (!m) return base;
-  const nextWeek = Math.min(52, Math.max(1, Number(m[1]) + delta));
-  return `${String(nextWeek).padStart(2, '0')}-${m[2]}`;
-}
-
-function getDefaultBaseWeek() {
-  return shiftMajorWeek(getCurrentWeek(), 1);
-}
-
-function buildNearbyWeeks(baseWeek, radius = 6) {
-  const base = toChatOrderWeek(baseWeek || getDefaultBaseWeek());
-  const m = base.match(/^(\d{2})-(\d{2})$/);
-  const baseMajor = m ? Number(m[1]) : 1;
-  const out = [];
-  for (let w = Math.max(1, baseMajor - radius); w <= Math.min(52, baseMajor + radius); w += 1) {
-    for (let seq = 1; seq <= 4; seq += 1) {
-      out.push(`${String(w).padStart(2, '0')}-${String(seq).padStart(2, '0')}`);
-    }
-  }
-  return out;
-}
-
-function buildWeekCandidates(dbWeeks = [], baseWeek = getDefaultBaseWeek()) {
-  const base = toChatOrderWeek(baseWeek);
-  const nearby = [...new Set([base, ...buildNearbyWeeks(base, 10)].filter(isValidOrderWeek))]
+function buildDataWeekOptions(dbWeeks = []) {
+  return [...new Set(dbWeeks.map(toChatOrderWeek).filter(isValidOrderWeek))]
     .sort((a, b) => weekSortKey(b) - weekSortKey(a));
-  const nearbySet = new Set(nearby);
-  const rest = [...new Set(dbWeeks.map(toChatOrderWeek).filter(isValidOrderWeek))]
-    .filter(w => !nearbySet.has(w))
-    .sort((a, b) => weekSortKey(b) - weekSortKey(a));
-  return [...nearby, ...rest];
 }
 
 function customerLabel(c) {
@@ -169,15 +137,13 @@ export default function MobileChat() {
     fetch('/api/orders/weeks')
       .then(r => r.json())
       .then(d => {
-        const base = getDefaultBaseWeek();
-        const list = buildWeekCandidates((d.weeks || []).filter(Boolean), base);
+        const list = buildDataWeekOptions((d.weeks || []).filter(Boolean));
         setWeeks(list);
-        setDirectWeek(prev => prev || base);
+        setDirectWeek(prev => (prev && list.includes(toChatOrderWeek(prev)) ? toChatOrderWeek(prev) : (list[0] || '')));
       })
       .catch(() => {
-        const base = getDefaultBaseWeek();
-        setWeeks(buildWeekCandidates([], base));
-        setDirectWeek(prev => prev || base);
+        setWeeks([]);
+        setDirectWeek('');
       });
   }, [authChecked, me]);
 
@@ -711,7 +677,7 @@ function DirectLookupPanel({
 }
 
 function WeekWheel({ weeks, value, onChange }) {
-  const list = weeks?.length ? weeks : buildWeekCandidates([], getDefaultBaseWeek());
+  const list = weeks?.length ? weeks : [];
   const selected = isValidOrderWeek(toChatOrderWeek(value)) ? toChatOrderWeek(value) : list[0];
   const wheelRef = useRef(null);
 
@@ -726,10 +692,12 @@ function WeekWheel({ weeks, value, onChange }) {
     <div className="m-week-box">
       <div className="m-week-head">
         <span>기준차수</span>
-        <span>{formatWeekDisplayLocal(selected)}</span>
+        <span>{selected ? formatWeekDisplayLocal(selected) : '데이터 없음'}</span>
       </div>
       <div className="m-week-wheel" aria-label="기준차수 선택" ref={wheelRef}>
-        {list.slice(0, 80).map(w => {
+        {list.length === 0 ? (
+          <div className="m-week-empty">실제 데이터가 있는 차수가 없습니다.</div>
+        ) : list.slice(0, 80).map(w => {
           const active = w === selected;
           return (
             <button
@@ -744,7 +712,7 @@ function WeekWheel({ weeks, value, onChange }) {
           );
         })}
       </div>
-      <div className="m-week-help">위아래로 밀어 찾은 뒤 원하는 기준차수를 누르세요.</div>
+      <div className="m-week-help">NENOVA.EXE 운영 데이터가 있는 차수만 표시합니다.</div>
       <style jsx>{`
         .m-week-box {
           display: grid;
@@ -793,6 +761,15 @@ function WeekWheel({ weeks, value, onChange }) {
           color: #fff;
           border-color: #2563eb;
           box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+        }
+        .m-week-empty {
+          min-height: 84px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 800;
         }
         .m-week-help {
           color: #64748b;
