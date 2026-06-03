@@ -987,3 +987,19 @@ collapsed: Set  // 접힌 행 그룹
   - 실제 홈페이지 확인 전에는 어떤 항목도 `100% 검증완료`로 표시하지 않도록 제한.
   - `EcountEndpointMap` 설계에 `VerifiedFromHomepage`, `MenuPath`, `ScreenshotNote`, `WriteRiskMemo` 필드 추가.
   - Claude in Chrome 조사 프롬프트에도 실제 홈페이지 확인 필수 조건 추가.
+
+### 2026-06-03 출고분배 엑셀 업로드 사전 일괄분배 버튼 추가
+
+- 요청: 출고분배 엑셀 업로드에서 `검증하기` 전에, 업로드한 파일의 품종/품목 범위에 대해 먼저 일괄 출고분배를 실행하고 그 뒤 검증할 수 있게 변경.
+- 반영:
+  - `/shipment/distribute-import` 상단에 `업로드 품종 일괄분배` 버튼 추가.
+  - 새 API `/api/shipment/distribute-import-prealign` 추가.
+  - 엑셀 파일을 읽어 업체/품목을 매칭한 뒤, 매칭된 업로드 품목 범위의 기존 주문등록 수량을 기준으로 `ShipmentDetail`, `ShipmentDate`를 먼저 정렬.
+  - 주문등록 수량은 변경하지 않음. 최종 엑셀 변경 적용은 기존 `승인 후 주문등록+분배` 버튼에서만 실행.
+  - 작업 결과는 업체명, 품목명, 주문기준 수량, 출고분배 변화, 처리내용, 출고일로 표시.
+- 안전성:
+  - 확정된 차수는 실행 차단.
+  - `KeyNumbering` 동기화, `ShipmentMaster` 기존 row 재사용, `ShipmentDate` 재작성, 출고일 계산 기준은 기존 엑셀 업로드 적용 로직과 동일 방향.
+  - `OrderMaster`, `OrderDetail`은 사전 일괄분배 단계에서 수정하지 않음.
+- 검증:
+  - 번들 Node로 `next build` 통과.

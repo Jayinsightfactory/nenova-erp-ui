@@ -108,6 +108,8 @@ export default function DistributeImport() {
   const [message, setMessage] = useState('');
   const [applyResult, setApplyResult] = useState(null);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [preAligning, setPreAligning] = useState(false);
+  const [preAlignResult, setPreAlignResult] = useState(null);
   const [filter, setFilter] = useState('apply');
   const [viewMode, setViewMode] = useState('pivot');
 
@@ -167,6 +169,48 @@ export default function DistributeImport() {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePreAlign = async () => {
+    if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
+    if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
+    if (!confirm(`${weekInput.value}차 업로드 파일에서 매칭되는 품목 범위를 먼저 일괄 출고분배합니다.\n\n기준: 기존 주문등록 수량\n변경: 출고분배/출고일만 정리\n주문등록 수량은 변경하지 않습니다.\n\n이 작업 후 검증하기를 눌러 엑셀 변경분을 다시 확인하세요.`)) return;
+
+    setPreAligning(true);
+    setError('');
+    setMessage('');
+    setPreview(null);
+    setApplyResult(null);
+    setApplyModalOpen(false);
+    setPreAlignResult({
+      running: true,
+      logs: [
+        `${weekInput.value}차 업로드 품종 일괄 출고분배 시작`,
+        '엑셀 파일에서 업체와 품목을 읽고, 기존 주문등록 수량 기준으로 출고분배를 맞추는 중입니다.',
+      ],
+      appliedRows: [],
+    });
+    try {
+      const form = new FormData();
+      form.append('week', weekInput.value);
+      form.append('file', file);
+      const res = await fetch('/api/shipment/distribute-import-prealign', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '일괄 출고분배 실패');
+      setPreAlignResult(data);
+      setMessage(`업로드 품종 일괄 출고분배 완료: 반영 ${data.appliedCount || 0}건, 이미 동일 ${data.skippedNoChangeCount || 0}건. 이제 검증하기로 엑셀 변경분을 확인하세요.`);
+    } catch (e) {
+      setError(e.message);
+      setPreAlignResult(prev => ({
+        ...(prev || {}),
+        running: false,
+        failed: true,
+        error: e.message,
+        logs: [...((prev || {}).logs || []), `오류: ${e.message}`],
+      }));
+    } finally {
+      setPreAligning(false);
     }
   };
 
@@ -243,16 +287,31 @@ export default function DistributeImport() {
             type="file"
             accept=".xlsx,.xls"
             style={{ display: 'none' }}
-            onChange={e => setFile(e.target.files?.[0] || null)}
+            onChange={e => {
+              setFile(e.target.files?.[0] || null);
+              setPreview(null);
+              setApplyResult(null);
+              setPreAlignResult(null);
+              setMessage('');
+              setError('');
+            }}
           />
           <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
           <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <button style={st.preAlignBtn} onClick={handlePreAlign} disabled={preAligning || loading || applying || !file}>
+            {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
+          </button>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용 중...' : '승인 후 주문등록+분배'}</button>
         </div>
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
+        {preAlignResult && (
+          <div style={{ marginBottom: 12 }}>
+            <PreAlignResultLog result={preAlignResult} />
+          </div>
+        )}
         {applyResult && (
           <div ref={applyResultRef} style={{ marginBottom: 12 }}>
             <ApplyResultLog result={applyResult} />
@@ -512,6 +571,88 @@ function ApplyResultLog({ result }) {
   );
 }
 
+function PreAlignResultLog({ result }) {
+  const rows = result.appliedRows || [];
+  const summary = [
+    { label: '업로드 품목', value: result.productCount || 0, tone: '#0f766e' },
+    { label: '대상 업체', value: result.customerCount || 0, tone: '#2563eb' },
+    { label: '분배 반영', value: result.shipmentChangedCount || result.appliedCount || 0, tone: '#15803d' },
+    { label: '이미 동일', value: result.skippedNoChangeCount || 0, tone: '#64748b' },
+    { label: '주문없음 제외', value: result.skippedNoOrderCount || 0, tone: '#b45309' },
+  ];
+  return (
+    <div style={st.panel}>
+      <div style={st.panelHead}>
+        <strong>업로드 품종 사전 일괄분배 내역</strong>
+        <span style={{ fontSize: 12, color: result.running ? '#b45309' : result.failed ? '#b91c1c' : '#166534', fontWeight: 800 }}>
+          {result.running ? '처리 중' : result.failed ? '오류 발생' : `분배 ${fmt(result.appliedCount)}건 반영`}
+        </span>
+      </div>
+      <div style={st.applyResultBody}>
+        <div style={st.applySummaryGrid}>
+          {summary.map(s => (
+            <div key={s.label} style={st.applySummaryCard}>
+              <span>{s.label}</span>
+              <strong style={{ color: s.tone }}>{fmt(s.value)}</strong>
+            </div>
+          ))}
+        </div>
+        {(result.logs || []).length > 0 && (
+          <div style={st.applyLogBox}>
+            {(result.logs || []).map((l, i) => <div key={i}>{l}</div>)}
+          </div>
+        )}
+        {result.error && (
+          <div style={st.applyErrorBox}>{result.error}</div>
+        )}
+        {result.running && (
+          <div style={st.applyStepBox}>
+            <div>업로드 엑셀에서 업체와 품목을 매칭하고 있습니다.</div>
+            <div>매칭된 품목만 기존 주문등록 수량 기준으로 출고분배와 출고일을 정리합니다.</div>
+            <div>주문등록 수량은 변경하지 않습니다.</div>
+          </div>
+        )}
+        <div style={st.applyTableWrap}>
+          <table style={st.table}>
+            <thead>
+              <tr>
+                <th>업체명</th>
+                <th>품목명</th>
+                <th>주문기준 수량</th>
+                <th>출고분배 변화</th>
+                <th>처리 내용</th>
+                <th>출고일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.running ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>작업이 끝나면 업체별 사전 분배 내역이 여기에 표시됩니다.</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: '#64748b' }}>사전 분배로 변경된 행이 없습니다.</td></tr>
+              ) : rows.slice(0, 1000).map((r, i) => (
+                <tr key={`${r.key || i}-${r.shipmentDetailKey || ''}`}>
+                  <td>{r.custName}</td>
+                  <td>{r.displayName || r.prodName}</td>
+                  <td>{fmt(r.orderQty)}</td>
+                  <td style={{ color: '#15803d', fontWeight: 800 }}>{fmt(r.beforeQty)} → {fmt(r.afterQty)}</td>
+                  <td>
+                    <span style={{
+                      ...st.actionBadge,
+                      background: r.shipmentAction === '분배삭제' ? '#fee2e2' : r.shipmentAction === '출고일정리' ? '#fef3c7' : '#dcfce7',
+                      color: r.shipmentAction === '분배삭제' ? '#991b1b' : r.shipmentAction === '출고일정리' ? '#92400e' : '#166534',
+                    }}>{r.shipmentAction}</span>
+                  </td>
+                  <td>{r.shipDate || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ApplyResultContent({ result }) {
   const rows = result.appliedRows || [];
   const summary = [
@@ -634,6 +775,7 @@ const st = {
   fileName: { flex: 1, color: '#475569', fontSize: 13 },
   secondaryBtn: { height: 34, padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   primaryBtn: { height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
+  preAlignBtn: { height: 34, padding: '0 16px', border: 0, background: '#0f766e', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },
