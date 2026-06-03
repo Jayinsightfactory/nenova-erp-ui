@@ -1017,3 +1017,21 @@ collapsed: Set  // 접힌 행 그룹
   - 기존재고 저장본은 `UserFavorite`만 사용. 주문/분배/재고 원장 DB에는 쓰지 않음.
 - 검증:
   - 번들 Node로 `next build` 통과.
+
+### 2026-06-03 출고분배 엑셀 업로드 사전 일괄분배 MD 재점검 및 비활성화
+
+- 요청: `업로드 품종 일괄분배`가 `nenova.exe` 적용 과정과 동일한지, 문제 생김 요소를 MD 기준으로 확인.
+- 확인한 MD:
+  - `docs/PAGE_DATA_INPUT_DB_PARITY_AUDIT_2026-05-26.md`
+  - `docs/ESTIMATE_EDIT_EXE_PARITY_AUDIT_2026-05-26.md`
+  - `docs/NENOVA_EXE_REPORTED_ISSUES_RECHECK_2026-05-26.md`
+  - `docs/PRE_WORK_CONFLICT_CHECK_2026-05-25.md`
+  - `CLAUDE.md`
+- 결론:
+  - `nenova.exe`의 일괄/개별 출고분배는 `usp_DistributeTotal`, `usp_DistributeOne`, `usp_DistributeClear` 전산 SP 경로.
+  - 웹 직접 출고분배 저장은 `ShipmentMaster`, `ShipmentDetail`, `ShipmentDate`, `ShipmentHistory`, `KeyNumbering`을 직접 갱신하는 경로로, 전산 SP와 완전 동일 경로가 아님.
+  - 따라서 `업로드 품종 일괄분배`를 바로 운영 쓰기 버튼으로 열어두면 중복 `ShipmentDetail`, `KeyNumbering`, 출고일/단가/히스토리, `nenova.exe` 표시 차이 위험이 있음.
+- 조치:
+  - `/shipment/distribute-import`의 `업로드 품종 일괄분배` 버튼을 비활성화.
+  - `/api/shipment/distribute-import-prealign`도 기본적으로 409 응답으로 차단.
+  - 향후 실제 사용하려면 `usp_DistributeTotal/One/Clear` 파라미터와 결과를 읽기 전용으로 확인하고, 테스트 차수에서 1:1 대조 후 전산 SP 경로로 재구성해야 함.

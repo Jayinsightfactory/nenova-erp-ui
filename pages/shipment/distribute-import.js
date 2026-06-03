@@ -100,6 +100,7 @@ export default function DistributeImport() {
   const weekInput = useWeekInput(getDefaultImportWeek());
   const fileRef = useRef(null);
   const applyResultRef = useRef(null);
+  const preAlignAvailable = false;
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -173,6 +174,10 @@ export default function DistributeImport() {
   };
 
   const handlePreAlign = async () => {
+    if (!preAlignAvailable) {
+      setError('업로드 품종 일괄분배는 전산 nenova.exe의 usp_DistributeTotal/One/Clear 경로와 1:1 검증이 끝날 때까지 비활성화했습니다. 먼저 검증하기로 변경분을 확인한 뒤 승인 후 주문등록+분배를 사용하세요.');
+      return;
+    }
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
     if (!confirm(`${weekInput.value}차 업로드 파일에서 매칭되는 품목 범위를 먼저 일괄 출고분배합니다.\n\n기준: 기존 주문등록 수량\n변경: 출고분배/출고일만 정리\n주문등록 수량은 변경하지 않습니다.\n\n이 작업 후 검증하기를 눌러 엑셀 변경분을 다시 확인하세요.`)) return;
@@ -298,7 +303,12 @@ export default function DistributeImport() {
           />
           <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
           <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
-          <button style={st.preAlignBtn} onClick={handlePreAlign} disabled={preAligning || loading || applying || !file}>
+          <button
+            style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
+            onClick={handlePreAlign}
+            disabled={preAligning || loading || applying || !file || !preAlignAvailable}
+            title="전산 nenova.exe의 usp_DistributeTotal/One/Clear 경로와 1:1 검증이 끝날 때까지 비활성화"
+          >
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
@@ -776,6 +786,7 @@ const st = {
   secondaryBtn: { height: 34, padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   primaryBtn: { height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   preAlignBtn: { height: 34, padding: '0 16px', border: 0, background: '#0f766e', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
+  preAlignDisabledBtn: { height: 34, padding: '0 16px', border: '1px solid #cbd5e1', background: '#e2e8f0', color: '#64748b', borderRadius: 6, cursor: 'not-allowed', fontWeight: 700 },
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },

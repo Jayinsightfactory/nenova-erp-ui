@@ -11,6 +11,12 @@ export const config = {
 
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
+  if (process.env.SHIPMENT_IMPORT_PREDISTRIBUTE_ENABLED !== 'true') {
+    return res.status(409).json({
+      success: false,
+      error: '업로드 품종 일괄분배는 전산 nenova.exe의 usp_DistributeTotal/One/Clear 경로와 1:1 검증이 끝날 때까지 비활성화되었습니다. 먼저 검증하기로 변경분을 확인한 뒤 승인 후 주문등록+분배를 사용하세요.',
+    });
+  }
 
   const form = formidable({
     maxFileSize: 30 * 1024 * 1024,
