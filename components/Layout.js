@@ -79,6 +79,12 @@ export const MENU_ITEMS = [
     ]
   },
   {
+    group: '자동화',
+    items: [
+      { href: '/automation', labelKey: '🔗 업무 자동화(n8n)', popup: false },
+    ]
+  },
+  {
     group: '코드관리',
     items: [
       { href: '/master/customers', labelKey: '거래처관리',           popup: true },

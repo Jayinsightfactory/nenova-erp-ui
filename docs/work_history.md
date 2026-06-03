@@ -1219,3 +1219,13 @@ collapsed: Set  // 접힌 행 그룹
   - `pages/api/sales/revenue-export.js`: 동적 차수 사용.
   - `.gitignore`: `sales-revenue-cells.json`, `sales-revenue-cell-history.json` 런타임 제외(시드는 커밋).
 - 동작: ECOUNT 업로드는 새 (연도·차수) 칸만 채우고 과거 시드는 그대로 표시·보존. 수동수정 칸은 locked라 이후 업로드가 덮지 않음(다르면 conflict 표시). 모든 수정은 이력에 기록.
+- 배포: 커밋 `1d1a5f0` push → 빌드 성공(404→500→401), 운영 라우트/페이지 확인.
+
+### 2026-06-03 업무 자동화(n8n) 자체호스팅 연동
+
+- 요청: 직원들이 각자 업무에 맞게 쓰는 n8n을 네노바웹에 붙이기. 결정: 실제 n8n 자체호스팅 + 연동 / 기존 Cafe24 VPS에 docker / 경로 `nenovaweb.com/n8n` / 공용 1계정.
+- 네노바웹 통합(코드):
+  - `pages/automation.js`: `/n8n/`(같은 출처)을 iframe 임베드 + "새 탭에서 열기" + 안내. 메뉴 `자동화 > 🔗 업무 자동화(n8n)` 추가(`components/Layout.js`).
+- 서버 설치 키트(레포 reference, 배포 스크립트는 미실행 → 사용자가 SSH 실행):
+  - `deploy/n8n/docker-compose.yml`(127.0.0.1:5678 바인딩, N8N_PATH=/n8n/, sqlite, mem limit), `deploy/n8n/nginx-n8n-location.conf`(`^~ /n8n/` 프록시+WebSocket), `deploy/n8n/.env.example`(N8N_ENCRYPTION_KEY), `docs/N8N_SETUP.md`(설치·보안·백업·트러블슈팅).
+- 보안: 포트 로컬바인딩+nginx만 노출, 암호화키 보존, ERP DB 관리자 계정을 n8n에 저장 금지(필요시 토큰 read API 브리지 — 추후). n8n 설치/ nginx 수정은 서버 수작업 필요(저는 push→Next 빌드만 트리거 가능).

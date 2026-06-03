@@ -1,0 +1,38 @@
+# n8n self-host (Cafe24 VPS, ERP와 같은 서버, 경로 https://nenovaweb.com/n8n/)
+# 사용: 이 파일과 .env 를 서버의 /opt/n8n/ 등에 두고  `docker compose up -d`
+#
+# 보안 핵심:
+#  - 포트를 127.0.0.1 에만 바인딩 → 외부에서 직접 접근 불가, 오직 nginx(HTTPS)로만 노출
+#  - N8N_ENCRYPTION_KEY 는 .env 에 보관(자격증명 암호화). 분실 시 저장된 credential 복호화 불가
+#  - 같은 서버이므로 워크플로우에 ERP DB 관리자 계정 등 민감정보 저장 금지
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"        # localhost 전용. nginx가 /n8n/ 으로 프록시
+    environment:
+      - N8N_HOST=nenovaweb.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_PATH=/n8n/               # 서브경로 운영
+      - WEBHOOK_URL=https://nenovaweb.com/n8n/
+      - N8N_EDITOR_BASE_URL=https://nenovaweb.com/n8n/
+      - N8N_PROXY_HOPS=1             # nginx 1단 프록시 뒤
+      - N8N_SECURE_COOKIE=true       # HTTPS 전제
+      - N8N_RUNNERS_ENABLED=true
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
+      - DB_TYPE=sqlite               # 소규모 팀이면 sqlite로 충분(볼륨에 보존)
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    deploy:
+      resources:
+        limits:
+          memory: 1024m              # ERP와 자원 경합 방지(서버 사양 보고 조정)
+
+volumes:
+  n8n_data:
