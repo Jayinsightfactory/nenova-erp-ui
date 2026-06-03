@@ -102,6 +102,21 @@ function messagesToDirectAnswer(messages = []) {
   return lines.join('\n\n').trim() || '조회 결과가 없습니다.';
 }
 
+function introMessage(user) {
+  return `안녕하세요, ${user?.userName || user?.userId || ''}님\n위에서 기준차수, 업체, 품종을 선택해 버튼을 누르거나 자유롭게 질문하세요.`;
+}
+
+function normalizeSavedChatMessage(msg) {
+  if (!msg || typeof msg !== 'object') return msg;
+  if (typeof msg.content !== 'string') return msg;
+  return {
+    ...msg,
+    content: msg.content
+      .replace('상단 바로 조회에서 기준차수, 업체, 품종을 선택하거나 자유롭게 질문하세요.', '위에서 기준차수, 업체, 품종을 선택해 버튼을 누르거나 자유롭게 질문하세요.')
+      .replace(/바로\s*조회/g, '질문 버튼'),
+  };
+}
+
 export default function MobileChat() {
   const router = useRouter();
   const [me, setMe] = useState(null);
@@ -140,7 +155,7 @@ export default function MobileChat() {
       if (!raw) return null;
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr) || arr.length === 0) return null;
-      return arr;
+      return arr.map(normalizeSavedChatMessage);
     } catch (_) { return null; }
   };
 
@@ -160,7 +175,7 @@ export default function MobileChat() {
               {
                 role: 'bot',
                 type: 'text',
-                content: `안녕하세요, ${d.user.userName || d.user.userId}님 👋\n상단 바로 조회에서 기준차수, 업체, 품종을 선택하거나 자유롭게 질문하세요.`,
+                content: introMessage(d.user),
                 ts: Date.now(),
               },
             ]);
@@ -347,7 +362,7 @@ export default function MobileChat() {
             setMessages([{
               role: 'bot',
               type: 'text',
-              content: `안녕하세요, ${me?.userName || me?.userId || ''}님 👋\n상단 바로 조회에서 기준차수, 업체, 품종을 선택하거나 자유롭게 질문하세요.`,
+              content: introMessage(me),
               ts: Date.now(),
             }]);
             setInput('');
@@ -575,7 +590,7 @@ function DirectLookupPanel({
   return (
     <section className={`m-direct ${open ? 'open' : 'closed'}`}>
       <button type="button" className="m-direct-toggle" onClick={() => setOpen(!open)}>
-        <span>바로 조회</span>
+        <span>질문 버튼</span>
         <span className="m-direct-status">
           {week ? formatWeekDisplayLocal(week) : '차수 선택'}{selectedCustomer ? ` · ${selectedCustomer.CustName}` : ''}{selectedProduct ? ` · ${selectedProduct.DisplayName || selectedProduct.ProdName}` : ''}
         </span>
