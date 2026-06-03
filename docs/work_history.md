@@ -977,3 +977,13 @@ collapsed: Set  // 접힌 행 그룹
   - 기존 메뉴 재사용 기준 명시: 판매, 채권, 세금계산서, 구매, 입출금, 환율, 마스터, ECOUNT 허브는 기존 메뉴/API 우선.
   - API 호출 제한 대응 명시: 수동조회, 서버 캐시, DB 스냅샷, 배치 조회, 엑셀 업로드 대조, `EcountMatchAudit` 재사용.
   - Claude in Chrome 조사 프롬프트에도 같은 제약 추가.
+
+### 2026-06-03 ECOUNT 홈페이지 직접 검증 원칙 추가
+
+- 추가 요청: 워드파일 이미지는 잘 보이지 않으므로, 실제 ECOUNT 홈페이지에서 직접 확인해서 100% 검증해야 함.
+- 반영:
+  - `docs/ECOUNT_FULL_USAGE_PLAN_2026-06-03.md`에 `ECOUNT 홈페이지 직접 검증 필수` 원칙 추가.
+  - 검증 기준 우선순위 명시: 실제 ECOUNT 화면 > 조회용 엑셀 원본 > read-only API 응답 > 워드 텍스트 > 워드 이미지.
+  - 실제 홈페이지 확인 전에는 어떤 항목도 `100% 검증완료`로 표시하지 않도록 제한.
+  - `EcountEndpointMap` 설계에 `VerifiedFromHomepage`, `MenuPath`, `ScreenshotNote`, `WriteRiskMemo` 필드 추가.
+  - Claude in Chrome 조사 프롬프트에도 실제 홈페이지 확인 필수 조건 추가.
