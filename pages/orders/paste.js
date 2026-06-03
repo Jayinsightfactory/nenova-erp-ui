@@ -936,28 +936,39 @@ export default function PasteOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockBaseWeek]);
 
-  const saveStockNote = async () => {
+  const buildStockNotePayload = (baseWeek) => ({
+    baseWeek,
+    orderWeek: week,
+    pasteText,
+    baseStockText,
+    remainStockText,
+    savedAt: new Date().toISOString(),
+  });
+
+  const stockNoteName = (baseWeek, mode = 'save') => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return mode === 'add'
+      ? `기존재고 ${formatWeekDisplay(baseWeek)} ${hh}:${mm}`
+      : `기존재고 ${formatWeekDisplay(baseWeek)}`;
+  };
+
+  const saveStockNote = async ({ forceCreate = false } = {}) => {
     const baseWeek = stockBaseWeek || week;
     if (!baseWeek) { alert('기존재고 기준차수를 먼저 선택하세요.'); return; }
     if (!baseStockText.trim() && !pasteText.trim() && !remainStockText.trim()) {
       alert('저장할 기존재고, 수정내역, 잔량재고 중 하나 이상 입력하세요.');
       return;
     }
-    const data = {
-      baseWeek,
-      orderWeek: week,
-      pasteText,
-      baseStockText,
-      remainStockText,
-      savedAt: new Date().toISOString(),
-    };
-    const name = `기존재고 ${formatWeekDisplay(baseWeek)}`;
+    const data = buildStockNotePayload(baseWeek);
+    const name = stockNoteName(baseWeek, forceCreate ? 'add' : 'save');
     setStockNoteSaving(true);
     try {
       const payload = { name, filterData: JSON.stringify(data) };
       let saved;
       const existingNote = savedStockNote?.data?.baseWeek === baseWeek ? savedStockNote : null;
-      if (existingNote?.FavoriteKey) {
+      if (!forceCreate && existingNote?.FavoriteKey) {
         saved = await apiPut('/api/favorites', {
           favoriteKey: existingNote.FavoriteKey,
           ...payload,
@@ -975,10 +986,31 @@ export default function PasteOrderPage() {
         data,
       };
       setSavedStockNote(note);
-      setStockNoteStatus(`${existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료: ${formatWeekDisplay(baseWeek)}`);
+      setStockNoteStatus(`${forceCreate ? '추가저장' : existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료: ${formatWeekDisplay(baseWeek)}`);
       refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek);
     } catch (e) {
       alert(`기존재고 저장 실패: ${e.message}`);
+    } finally {
+      setStockNoteSaving(false);
+    }
+  };
+
+  const deleteStockNote = async () => {
+    const baseWeek = stockBaseWeek || week;
+    const existingNote = savedStockNote?.data?.baseWeek === baseWeek ? savedStockNote : null;
+    if (!existingNote?.FavoriteKey) {
+      alert('삭제할 기존재고 저장본이 없습니다.');
+      return;
+    }
+    if (!confirm(`${formatWeekDisplay(baseWeek)} 기존재고 저장본을 삭제하시겠습니까?\n입력창의 내용은 지우지 않고, 저장본만 삭제합니다.`)) return;
+    setStockNoteSaving(true);
+    try {
+      await apiDelete('/api/favorites', { favoriteKey: existingNote.FavoriteKey });
+      setSavedStockNote(null);
+      const next = await loadStockNote(baseWeek, { apply: false });
+      setStockNoteStatus(next ? `삭제 완료: ${formatWeekDisplay(baseWeek)} 이전 저장본 있음` : `삭제 완료: ${formatWeekDisplay(baseWeek)}`);
+    } catch (e) {
+      alert(`기존재고 삭제 실패: ${e.message}`);
     } finally {
       setStockNoteSaving(false);
     }
@@ -1846,6 +1878,9 @@ export default function PasteOrderPage() {
   const matchedCustomerKey = orders.map(o => o.custMatch?.CustKey || o.custMatch?.CustName || o.custName || '').join('|');
   const matchingDone = orders.length > 0 && unmatchedQueue.length === 0;
   const cachedEntries = Object.keys(mappingCache).length;
+  const activeStockBaseWeek = stockBaseWeek || week;
+  const currentStockNote = savedStockNote?.data?.baseWeek === activeStockBaseWeek ? savedStockNote : null;
+  const hasStockNoteText = !!(pasteText.trim() || baseStockText.trim() || remainStockText.trim());
 
   const loadOrderHistorySummary = async (targetWeek = week, sourceOrders = orders) => {
     if (!targetWeek) {
@@ -2274,7 +2309,7 @@ export default function PasteOrderPage() {
               style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
               value={pasteText}
-              onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (savedStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
+              onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
           </div>
 
@@ -2298,18 +2333,32 @@ export default function PasteOrderPage() {
                 {weeks.map(w => <option key={w} value={w}>{formatWeekDisplay(w)}</option>)}
               </datalist>
               <button
-                onClick={() => loadStockNote(stockBaseWeek, { apply: true })}
-                disabled={!savedStockNote || stockNoteLoading}
-                style={{ height: 26, padding: '0 9px', border: '1px solid #94a3b8', borderRadius: 5, background: savedStockNote ? '#fff' : '#f1f5f9', color: savedStockNote ? '#334155' : '#94a3b8', fontSize: 11, fontWeight: 800, cursor: savedStockNote ? 'pointer' : 'default' }}
+                onClick={() => loadStockNote(activeStockBaseWeek, { apply: true })}
+                disabled={!currentStockNote || stockNoteLoading}
+                style={{ height: 26, padding: '0 9px', border: '1px solid #94a3b8', borderRadius: 5, background: currentStockNote ? '#fff' : '#f1f5f9', color: currentStockNote ? '#334155' : '#94a3b8', fontSize: 11, fontWeight: 800, cursor: currentStockNote ? 'pointer' : 'default' }}
               >
                 불러오기
               </button>
               <button
-                onClick={saveStockNote}
-                disabled={stockNoteSaving || (!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim())}
-                style={{ height: 26, padding: '0 10px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : 'pointer' }}
+                onClick={() => saveStockNote({ forceCreate: true })}
+                disabled={stockNoteSaving || !hasStockNoteText}
+                style={{ height: 26, padding: '0 10px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
-                {stockNoteSaving ? '저장중' : (savedStockNote?.data?.baseWeek === (stockBaseWeek || week) ? '수정저장' : '저장하기')}
+                추가저장
+              </button>
+              <button
+                onClick={() => saveStockNote()}
+                disabled={stockNoteSaving || !currentStockNote || !hasStockNoteText}
+                style={{ height: 26, padding: '0 10px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !currentStockNote || !hasStockNoteText ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : currentStockNote && hasStockNoteText ? 'pointer' : 'default' }}
+              >
+                {stockNoteSaving ? '저장중' : '수정저장'}
+              </button>
+              <button
+                onClick={deleteStockNote}
+                disabled={stockNoteSaving || !currentStockNote}
+                style={{ height: 26, padding: '0 10px', border: '1px solid #dc2626', borderRadius: 5, background: stockNoteSaving || !currentStockNote ? '#fee2e2' : '#fff', color: currentStockNote ? '#dc2626' : '#fca5a5', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : currentStockNote ? 'pointer' : 'default' }}
+              >
+                삭제
               </button>
             </div>
             {stockNoteStatus && (
@@ -2321,7 +2370,7 @@ export default function PasteOrderPage() {
               style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'기존재고\n블루 2\n라벤더 14\n화이트 1'}
               value={baseStockText}
-              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (savedStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
+              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
           </div>
 
@@ -2336,7 +2385,7 @@ export default function PasteOrderPage() {
               style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #80cbc4', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'잔량재고\n21-1\n블루 2\n라벤더 14\n화이트 1'}
               value={remainStockText}
-              onChange={e => { setRemainStockText(e.target.value); setStockDraft(null); if (savedStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
+              onChange={e => { setRemainStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
           </div>
         </div>
