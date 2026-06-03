@@ -1048,3 +1048,24 @@ collapsed: Set  // 접힌 행 그룹
   - 출고분배 엑셀업로드의 사전 일괄분배는 웹 직접 INSERT/UPDATE로 다시 열지 않는다.
   - 운영 DB에서 SP 파라미터와 호출 단위가 확인되면, 업로드 품종별 `usp_DistributeOne` 또는 동일한 전산 SP 호출 경로로 재구성한다.
   - SP 호출 전에는 확정 차수, `KeyNumbering` 역전, 기존 출고일 누락/불일치 진단을 먼저 보여주고 이상이 있으면 실행을 막는다.
+
+### 2026-06-03 출고분배 엑셀 업로드 사전분배 SP 경로 보강
+
+- 재확인한 기존 오류 이력:
+  - `ShipmentDetail_PK` 중복: `KeyNumbering.Category='ShipmentDetailKey'`가 실제 최대키보다 뒤처져 `usp_DistributeOne`이 중복키로 INSERT 시도.
+  - 출고일 누락/밀림: 신규 분배의 `ShipmentDetail.ShipmentDtm`과 `ShipmentDate.ShipmentDtm`이 전산 기준보다 6일 뒤로 저장된 이력.
+  - `ShipmentDate` 누락/수량 불일치: 견적서관리/확정에서 "출고수량과 출고일지정수량이 다름" 오류 가능.
+  - `OrderYearWeek` 없는 환경에서 직접 컬럼 참조 오류.
+  - SQL Server deadlock 1205 재시도 필요.
+  - `usp_DistributeOne`이 실패를 `-1` 같은 반환값으로만 줄 수 있어 화면에서 원인이 숨겨지는 이력.
+- 조치:
+  - `/api/shipment/distribute-import-prealign`에서 예전 웹 직접저장 함수 `preDistributeImportProductsToOrders` 호출 제거.
+  - 기존 `SHIPMENT_IMPORT_PREDISTRIBUTE_ENABLED=true`만으로 직접저장 경로가 다시 열리지 않게 차단.
+  - 새 실행 조건은 `SHIPMENT_IMPORT_PREDISTRIBUTE_SP_ENABLED=true`이며, 실행 시에도 `dbo.usp_DistributeOne` 파라미터를 운영 DB에서 읽어 연도/차수/품목 3입력 구조로 확인될 때만 호출.
+  - SP 호출 전 `KeyNumbering` 역전, 확정된 출고 포함 여부를 먼저 차단.
+  - SP 호출 후 품목별 분배합계, 업체수, `ShipmentDate` 합계/일자 문제를 다시 조회해 로그로 반환.
+  - `ReturnCode`, `oResult` 등 실패 반환값이 0이 아니면 중단.
+- 현재 상태:
+  - UI의 `업로드 품종 일괄분배` 버튼은 계속 비활성화.
+  - 즉, 지금 배포 상태에서는 위험한 직접저장 자동분배가 운영에서 실행되지 않는다.
+  - 실제 활성화는 로그인 상태에서 `/api/shipment/distribute-diagnose`로 SP 파라미터를 확인하고, 테스트 차수에서 `nenova.exe` 결과와 1:1 대조한 뒤에만 진행한다.
