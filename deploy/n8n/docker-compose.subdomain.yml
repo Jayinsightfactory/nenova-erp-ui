@@ -1,0 +1,33 @@
+# n8n self-host — 서브도메인 모드 (https://n8n.nenovaweb.com, 루트 경로)
+# n8n은 서브경로(/n8n)보다 서브도메인을 공식 권장. 루트로 돌려야 REST/정적/에디터가 정상.
+# 사용: /opt/n8n/docker-compose.yml 로 복사 후 `docker compose up -d` (기존 .env 의 암호화키 보존)
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"        # localhost 전용, nginx(HTTPS)로만 노출
+    environment:
+      - N8N_HOST=n8n.nenovaweb.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.nenovaweb.com/
+      - N8N_EDITOR_BASE_URL=https://n8n.nenovaweb.com/
+      - N8N_PROXY_HOPS=1
+      - N8N_SECURE_COOKIE=true
+      - N8N_RUNNERS_ENABLED=true
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
+      - DB_TYPE=sqlite
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n     # 기존 볼륨 그대로 사용(워크플로우/계정 보존)
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+
+volumes:
+  n8n_data:

@@ -1,0 +1,73 @@
+name: Setup n8n subdomain (one-shot)
+
+# 수동 실행: GitHub → Actions → "Setup n8n subdomain (one-shot)" → Run workflow
+# 선행조건: DNS A 레코드  n8n.nenovaweb.com → 172.233.89.171  추가 + 전파 완료.
+#
+# 하는 일(기존 SSH_PASSWORD 시크릿 사용, 비밀번호 입력 불필요):
+#  1) DNS 해석 확인(미해석이면 중단)
+#  2) certbot 설치 → nginx 서브도메인 블록 배치 → Let's Encrypt 인증서 발급(+HTTPS 리다이렉트)
+#  3) n8n 을 루트 경로/서브도메인 설정으로 재구성(기존 볼륨·암호화키·계정 보존)
+#  4) https://<domain>/rest/settings 가 JSON 으로 응답하는지 검증
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'n8n 서브도메인'
+        required: true
+        default: 'n8n.nenovaweb.com'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH configure n8n subdomain
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOMAIN: ${{ inputs.domain }}
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          envs: DOMAIN
+          command_timeout: 20m
+          script: |
+            export PATH=$PATH:/usr/local/bin:/usr/bin
+            DOMAIN="${DOMAIN:-n8n.nenovaweb.com}"
+            echo "==================== [1/5] DNS 확인 ($DOMAIN) ===================="
+            SVRIP=$(hostname -I 2>/dev/null | awk '{print $1}')
+            RES=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -1)
+            echo "server ip(추정): $SVRIP / DNS resolves: ${RES:-(none)}"
+            if [ -z "$RES" ]; then
+              echo "ERR: $DOMAIN DNS 미해석. 도메인 콘솔에서 A 레코드(-> 172.233.89.171) 추가/전파 후 재실행."
+              exit 1
+            fi
+
+            echo "==================== [2/5] certbot 설치 ===================="
+            if ! command -v certbot >/dev/null 2>&1; then
+              apt-get update -y && apt-get install -y certbot python3-certbot-nginx
+            fi
+            certbot --version || { echo "ERR: certbot 설치 실패"; exit 1; }
+
+            echo "==================== [3/5] nginx 블록 + 인증서 ===================="
+            cp -f /var/www/nenova-erp/deploy/n8n/nginx-n8n-subdomain.conf /etc/nginx/conf.d/n8n-subdomain.conf
+            if nginx -t; then systemctl reload nginx; else echo "ERR: nginx -t 실패(블록)"; exit 1; fi
+            certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || echo "WARN: certbot 발급 실패(로그 확인)"
+            nginx -t && systemctl reload nginx || true
+
+            echo "==================== [4/5] n8n 루트/서브도메인 재구성 ===================="
+            if [ ! -f /opt/n8n/.env ]; then
+              printf "N8N_ENCRYPTION_KEY=%s\n" "$(openssl rand -hex 24)" > /opt/n8n/.env; chmod 600 /opt/n8n/.env
+            fi
+            cp -f /var/www/nenova-erp/deploy/n8n/docker-compose.subdomain.yml /opt/n8n/docker-compose.yml
+            cd /opt/n8n
+            docker compose up -d
+            sleep 6
+            docker compose ps
+
+            echo "==================== [5/5] 검증 ===================="
+            echo "-- local:"; curl -s -o /dev/null -w "%{http_code} %{content_type}\n" http://127.0.0.1:5678/rest/settings || true
+            echo "-- https settings (JSON 이어야 정상):"
+            curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "https://$DOMAIN/rest/settings" || true
+            echo "DONE. 브라우저: https://$DOMAIN  (첫 접속 시 owner 공용계정 생성 — 강한 비밀번호)"
