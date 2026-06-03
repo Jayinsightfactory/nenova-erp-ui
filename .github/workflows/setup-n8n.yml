@@ -1,0 +1,84 @@
+name: Setup n8n (one-shot)
+
+# 수동 실행 전용: GitHub → Actions → "Setup n8n (one-shot)" → Run workflow
+# 기존 배포와 동일하게 SSH_PASSWORD 시크릿으로 서버에 접속해 n8n을 설치/기동하고
+# nginx에 /n8n/ 프록시를 추가한다. (비밀번호 입력 불필요)
+#
+# 안전장치:
+#  - docker 없으면 설치, n8n은 127.0.0.1:5678 로만 바인딩(격리)
+#  - N8N_ENCRYPTION_KEY 는 최초 1회만 생성(.env 있으면 보존)
+#  - nginx 는 백업 → 삽입(별도 python 스크립트) → `nginx -t` 통과해야만 reload, 실패 시 자동 롤백(무중단)
+#  - 재실행 안전(idempotent)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH install n8n on Cafe24
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 20m
+          script: |
+            export PATH=$PATH:/usr/local/bin:/usr/bin
+            echo "==================== [1/5] repo kit ===================="
+            cd /var/www/nenova-erp || { echo "ERR: repo path missing"; exit 1; }
+            git log --oneline -1
+            ls -al deploy/n8n/ || { echo "ERR: deploy/n8n missing (deploy master first)"; exit 1; }
+
+            echo "==================== [2/5] docker ===================="
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "installing docker"; curl -fsSL https://get.docker.com | sh
+            fi
+            docker --version
+            docker compose version || { echo "ERR: docker compose plugin missing"; exit 1; }
+            systemctl enable --now docker 2>/dev/null || true
+
+            echo "==================== [3/5] n8n up ===================="
+            mkdir -p /opt/n8n
+            cp -f /var/www/nenova-erp/deploy/n8n/docker-compose.yml /opt/n8n/docker-compose.yml
+            if [ ! -f /opt/n8n/.env ]; then
+              printf "N8N_ENCRYPTION_KEY=%s\n" "$(openssl rand -hex 24)" > /opt/n8n/.env
+              chmod 600 /opt/n8n/.env
+              echo ".env created (new encryption key)"
+            else
+              echo ".env exists -> key preserved"
+            fi
+            cd /opt/n8n
+            docker compose pull
+            docker compose up -d
+            sleep 5
+            docker compose ps
+
+            echo "==================== [4/5] nginx /n8n/ ===================="
+            CONF=$(grep -rlE "server_name[^;]*nenovaweb" /etc/nginx 2>/dev/null | head -1)
+            SNIP=/var/www/nenova-erp/deploy/n8n/nginx-n8n-location.conf
+            PYI=/var/www/nenova-erp/deploy/n8n/insert-nginx-location.py
+            if [ -z "$CONF" ]; then
+              echo "WARN: nenovaweb nginx conf not found -> skip (manual: docs/N8N_SETUP.md)"
+            elif grep -q "location \^~ /n8n/" "$CONF"; then
+              echo "already configured -> skip ($CONF)"
+            else
+              echo "target conf: $CONF"
+              BAK="$CONF.bak.$(date +%s)"; cp "$CONF" "$BAK"; echo "backup: $BAK"
+              python3 "$PYI" "$CONF" "$SNIP"; RC=$?
+              if [ $RC -ne 0 ]; then
+                echo "insert failed (rc=$RC) -> rollback"; cp "$BAK" "$CONF"
+              fi
+              if nginx -t; then
+                systemctl reload nginx && echo "nginx reloaded"
+              else
+                echo "nginx -t failed -> rollback (no downtime)"; cp "$BAK" "$CONF"; nginx -t || true
+              fi
+            fi
+
+            echo "==================== [5/5] verify ===================="
+            echo "-- n8n local:"; curl -sI http://127.0.0.1:5678/n8n/ | head -1 || true
+            echo "-- external:"; curl -sI https://nenovaweb.com/n8n/ | head -1 || true
+            echo "DONE. 브라우저에서 https://nenovaweb.com/n8n/ 첫 접속 시 owner(공용) 계정 생성."
