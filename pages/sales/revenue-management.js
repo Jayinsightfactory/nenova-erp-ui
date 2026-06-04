@@ -74,6 +74,14 @@ export default function SalesRevenueManagement() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
 
+  // 차수별 비교표: 상단 가로 스크롤바 + 본문 스크롤 동기화
+  const cmpTopRef = useRef(null);
+  const cmpBodyRef = useRef(null);
+  const cmpTblRef = useRef(null);
+  const [cmpScrollW, setCmpScrollW] = useState(0);
+  const syncFromTop = () => { if (cmpBodyRef.current && cmpTopRef.current) cmpBodyRef.current.scrollLeft = cmpTopRef.current.scrollLeft; };
+  const syncFromBody = () => { if (cmpBodyRef.current && cmpTopRef.current) cmpTopRef.current.scrollLeft = cmpBodyRef.current.scrollLeft; };
+
   // 저장된 Batch 기반 요약 로드 (이카운트 API 호출 없음)
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -153,6 +161,15 @@ export default function SalesRevenueManagement() {
   };
 
   const compareRows = useMemo(() => customers, [customers]);
+
+  // 비교표 가로폭 측정 → 상단 가로 스크롤바 spacer 너비 동기화
+  useEffect(() => {
+    const measure = () => setCmpScrollW(cmpTblRef.current ? cmpTblRef.current.scrollWidth : 0);
+    measure();
+    const t = setTimeout(measure, 50); // 폰트/레이아웃 안정 후 재측정
+    window.addEventListener('resize', measure);
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure); };
+  }, [compareRows, weeks, years]);
 
   const kpi = useMemo(() => {
     const sel = week || '24';
@@ -515,11 +532,15 @@ export default function SalesRevenueManagement() {
             <button className="btn" onClick={openHistory}>수정 이력</button>
           </span>
         </div>
-        <div className="table-wrap">
-          <table className="tbl">
+        {/* 상단 가로 스크롤바 (본문과 동기화) */}
+        <div className="cmp-scroll-top" ref={cmpTopRef} onScroll={syncFromTop}>
+          <div style={{ width: cmpScrollW || 1, height: 1 }} />
+        </div>
+        <div className="table-wrap cmp-wrap" ref={cmpBodyRef} onScroll={syncFromBody}>
+          <table className="tbl cmp-tbl" ref={cmpTblRef}>
             <thead>
               <tr>
-                <th rowSpan="2">업체 통용명</th>
+                <th rowSpan="2" className="cmp-stick-col">업체 통용명</th>
                 {weeks.map(w => <th key={w} colSpan="4" style={{ textAlign: 'center' }}>{w}차</th>)}
                 <th rowSpan="2">원본 거래처명</th>
                 <th rowSpan="2">매칭상태</th>
@@ -533,7 +554,7 @@ export default function SalesRevenueManagement() {
             <tbody>
               {compareRows.map(row => (
                 <tr key={row.canonicalName}>
-                  <td className="name">{row.canonicalName}</td>
+                  <td className="name cmp-stick-col">{row.canonicalName}</td>
                   {weeks.map(w => (
                     <Fragment key={w}>
                       {renderAmt(row, w, years.y1)}
@@ -552,6 +573,21 @@ export default function SalesRevenueManagement() {
           </table>
         </div>
       </section>
+
+      <style jsx global>{`
+        /* 영업매출 비교표 — 상단 가로 스크롤바 + 첫 열/차수 헤더 고정 */
+        .cmp-scroll-top { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border2); border-bottom: none; }
+        .cmp-wrap { max-height: 72vh; overflow: auto; }
+        /* 차수 헤더 행: 전역 .tbl thead 가 이미 sticky top, 가로 스크롤 시 배경 유지 */
+        .cmp-tbl thead th { background: var(--header-bg); }
+        /* 업체 통용명(첫 열) 좌측 고정 */
+        .cmp-tbl .cmp-stick-col { position: sticky; left: 0; border-right: 2px solid var(--border); }
+        .cmp-tbl tbody td.cmp-stick-col { z-index: 1; background: #fff; }
+        .cmp-tbl tbody tr:nth-child(even) td.cmp-stick-col { background: var(--row-alt); }
+        .cmp-tbl tbody tr:hover td.cmp-stick-col { background: #E8F0FF; }
+        /* 좌상단 코너(헤더 첫 열): top+left 둘 다 고정, 최상위 */
+        .cmp-tbl thead th.cmp-stick-col { z-index: 4; }
+      `}</style>
 
       {historyOpen && (
         <div style={styles.modalBack} onClick={() => setHistoryOpen(false)}>
