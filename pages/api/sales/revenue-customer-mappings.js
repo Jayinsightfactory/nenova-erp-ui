@@ -2,6 +2,7 @@ import { withAuth } from '../../../lib/auth';
 import {
   loadSalesRevenueMappings,
   saveSalesRevenueMapping,
+  deleteSalesRevenueMapping,
 } from '../../../lib/salesRevenueMappings';
 
 export default withAuth(function handler(req, res) {
@@ -43,6 +44,16 @@ export default withAuth(function handler(req, res) {
       key: result.key,
       mapping: result.mapping,
     });
+  }
+
+  if (req.method === 'DELETE') {
+    const key = req.query?.key || req.body?.key;
+    if (!key) return res.status(400).json({ success: false, error: 'key 필요' });
+    const result = deleteSalesRevenueMapping(key);
+    if (!result.deleted) {
+      return res.status(404).json({ success: false, error: result.reason || '삭제 실패' });
+    }
+    return res.status(200).json({ success: true, key: result.key });
   }
 
   return res.status(405).end();

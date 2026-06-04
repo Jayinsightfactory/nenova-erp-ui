@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { BASE_CUSTOMERS, COMPARE_WEEKS } from '../../lib/salesRevenueConfig';
+import RevenueMappingModal from '../../components/sales/RevenueMappingModal';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -73,6 +74,7 @@ export default function SalesRevenueManagement() {
   const savedRef = useRef(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
+  const [mappingListOpen, setMappingListOpen] = useState(false);
 
   // 차수별 비교표: 상단 가로 스크롤바 + 본문 스크롤 동기화
   const cmpTopRef = useRef(null);
@@ -472,9 +474,14 @@ export default function SalesRevenueManagement() {
                   선택: {selectedCust.CustName} / {selectedCust.CustArea || '-'}
                 </div>
               )}
-              <button className="btn btn-primary" onClick={saveMapping} disabled={saving || !selectedSource} style={{ marginTop: 8 }}>
-                {saving ? '저장중...' : '이 매칭 확정 저장'}
-              </button>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={saveMapping} disabled={saving || !selectedSource}>
+                  {saving ? '저장중...' : '이 매칭 확정 저장'}
+                </button>
+                <button className="btn" onClick={() => setMappingListOpen(true)}>
+                  📋 매칭 내역 보기·수정
+                </button>
+              </div>
               {msg && <div className={msg.includes('오류') ? 'banner-err' : 'banner-ok'} style={{ marginTop: 8 }}>{msg}</div>}
             </div>
           </div>
@@ -588,6 +595,12 @@ export default function SalesRevenueManagement() {
         /* 좌상단 코너(헤더 첫 열): top+left 둘 다 고정, 최상위 */
         .cmp-tbl thead th.cmp-stick-col { z-index: 4; }
       `}</style>
+
+      <RevenueMappingModal
+        open={mappingListOpen}
+        onClose={() => setMappingListOpen(false)}
+        onChanged={() => loadSummary()}
+      />
 
       {historyOpen && (
         <div style={styles.modalBack} onClick={() => setHistoryOpen(false)}>
