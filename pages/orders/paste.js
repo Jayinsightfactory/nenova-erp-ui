@@ -4,6 +4,7 @@ import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteHighlight from '../../components/orders/PasteHighlight';
+import StockNotePicker from '../../components/orders/StockNotePicker';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
@@ -761,6 +762,8 @@ export default function PasteOrderPage() {
   const [pasteText, setPasteText] = useState('');
   const [showMapModal, setShowMapModal] = useState(false);
   const [showHighlight, setShowHighlight] = useState(false);
+  const [showStockPicker, setShowStockPicker] = useState(false);
+  const [stockNotesAll, setStockNotesAll] = useState([]);
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState([]);
   const [parseError, setParseError] = useState('');
@@ -931,6 +934,37 @@ export default function PasteOrderPage() {
     } finally {
       setStockNoteLoading(false);
     }
+  };
+
+  // 시작재고 여러 개 불러오기 — 저장된 모든 시작재고 목록을 피커로 열어 다중 선택
+  const openStockPicker = async () => {
+    setStockNoteLoading(true);
+    try {
+      const d = await apiGet('/api/favorites', { page: STOCK_NOTE_PAGE });
+      const notes = (d.favorites || [])
+        .map(parseStockNoteFavorite)
+        .filter(f => f.data?.baseWeek);
+      setStockNotesAll(notes);
+      setShowStockPicker(true);
+    } catch (e) {
+      setStockNoteStatus(`저장본 조회 실패: ${e.message}`);
+    } finally {
+      setStockNoteLoading(false);
+    }
+  };
+
+  // 피커에서 선택한 시작재고들을 합쳐(또는 교체로) 기존재고 입력에 넣는다.
+  const applyPickedStock = (combinedText, mode) => {
+    setBaseStockText(prev => {
+      const next = mode === 'append'
+        ? [prev.trim(), combinedText.trim()].filter(Boolean).join('\n')
+        : combinedText.trim();
+      refreshStockDraft(pasteText, next, week, remainStockText, stockBaseWeek);
+      return next;
+    });
+    setOrders([]);
+    setShowStockPicker(false);
+    setStockNoteStatus(mode === 'append' ? '선택한 시작재고를 기존 입력에 합쳤습니다.' : '선택한 시작재고로 교체했습니다.');
   };
 
   useEffect(() => {
@@ -2359,6 +2393,14 @@ export default function PasteOrderPage() {
                 불러오기
               </button>
               <button
+                onClick={openStockPicker}
+                disabled={stockNoteLoading}
+                style={{ height: 26, padding: '0 9px', border: '1px solid #1565c0', borderRadius: 5, background: '#e3f2fd', color: '#0d47a1', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                title="저장된 시작재고를 여러 개 골라 합쳐서 불러옵니다."
+              >
+                📚 여러 개
+              </button>
+              <button
                 onClick={() => saveStockNote({ forceCreate: true })}
                 disabled={stockNoteSaving || !hasStockNoteText}
                 style={{ height: 26, padding: '0 10px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
@@ -3158,6 +3200,13 @@ export default function PasteOrderPage() {
         </div>
       )}
       <MappingStatusModal open={showMapModal} onClose={() => setShowMapModal(false)} />
+      <StockNotePicker
+        open={showStockPicker}
+        notes={stockNotesAll}
+        formatWeek={formatWeekDisplay}
+        onApply={applyPickedStock}
+        onClose={() => setShowStockPicker(false)}
+      />
     </Layout>
   );
 }
