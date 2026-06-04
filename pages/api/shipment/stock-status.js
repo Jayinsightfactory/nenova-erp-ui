@@ -1153,7 +1153,7 @@ async function updateOutQty(req, res) {
           // ShipmentMaster가 정말 없을 때만 생성
           // OrderYear/OrderYearWeek 채움 (전산 ViewShipment.OrderYearWeek2 매칭용)
           const yr = String(new Date().getFullYear());
-          const ywk = yr + (week || '').replace('-', '');
+          const ywk = yr + (week || '').split('-')[0];
           const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
           const newSk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (candidateSk) => {
             const shipmentMasterParams = {
@@ -1435,7 +1435,7 @@ async function addOrder(req, res) {
           await appLog('addOrder', 'OM_INSERT', `new mk=${candidateMk} ck=${ck} wk=${normWeek}`);
           // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
           // OrderYearWeek 채워 인덱스/조회 일치
-          const ywk = normYear + (normWeek || '').replace('-', '');
+          const ywk = normYear + (normWeek || '').split('-')[0];
           const orderMasterParams = {
             mk: { type: sql.Int, value: candidateMk },
             yr:  { type: sql.NVarChar, value: normYear },
@@ -1652,7 +1652,7 @@ async function addOrderDelta(req, res) {
       if (om.recordset.length === 0) {
         mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (candidateMk) => {
           // 전산 ViewOrder INNER JOIN 충돌 방지: Manager + OrderYearWeek 채움
-          const ywk2 = normYear2 + (normWeek2 || '').replace('-', '');
+          const ywk2 = normYear2 + (normWeek2 || '').split('-')[0];
           const orderMasterParams = {
             mk:  { type: sql.Int, value: candidateMk },
             yr:  { type: sql.NVarChar, value: normYear2 },

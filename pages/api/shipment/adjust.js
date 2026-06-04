@@ -445,7 +445,7 @@ async function postAdjust(req, res) {
             mk:  { type: sql.Int,      value: newMk },
             yr:  { type: sql.NVarChar, value: orderYear },
             wk:  { type: sql.NVarChar, value: orderWeek },
-            ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').replace('-', '') },
+            ywk: { type: sql.NVarChar, value: orderYear + (orderWeek || '').split('-')[0] },
             mgr: { type: sql.NVarChar, value: '관리자' },
             ck:  { type: sql.Int,      value: ck },
             uid: { type: sql.NVarChar, value: 'admin' },

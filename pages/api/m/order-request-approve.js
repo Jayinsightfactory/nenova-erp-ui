@@ -67,7 +67,7 @@ async function handler(req, res) {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const orderKey = await withTransaction(async (tQ) => {
       const year = new Date().getFullYear().toString();
-      const ywk = year + (reqRow.OrderWeek || '').replace('-', '');
+      const ywk = year + (reqRow.OrderWeek || '').split('-')[0];
 
       // 동일 CustKey+OrderWeek OrderMaster 찾기 (실제 컬럼: OrderMasterKey)
       const existing = await tQ(
@@ -98,7 +98,7 @@ async function handler(req, res) {
               `INSERT INTO OrderMaster
                  (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, Descr,
                   isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-               VALUES (@ok, GETDATE(), @yr, @wk, @ywk, @mgr, @ck, '', '',
+               VALUES (@ok, GETDATE(), @yr, @wk, @ywk, COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@mgr), (SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'), 'admin'), @ck, '', '',
                        0, @uid, GETDATE(), @uid, GETDATE())`,
               orderMasterParams
             );
@@ -107,7 +107,7 @@ async function handler(req, res) {
               `INSERT INTO OrderMaster
                  (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, Descr,
                   isDeleted, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm)
-               VALUES (@ok, GETDATE(), @yr, @wk, @mgr, @ck, '', '',
+               VALUES (@ok, GETDATE(), @yr, @wk, COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@mgr), (SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'), 'admin'), @ck, '', '',
                        0, @uid, GETDATE(), @uid, GETDATE())`,
               orderMasterParams
             );

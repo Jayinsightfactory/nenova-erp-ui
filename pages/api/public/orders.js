@@ -238,7 +238,7 @@ async function createOrder(req, res) {
         // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 비어있으면 'admin' fallback
         // OrderYearWeek 채워 인덱스 일치
         const yr = year || String(new Date().getFullYear());
-        const ywk = yr + (week || '').replace('-', '');
+        const ywk = yr + (week || '').split('-')[0];
         const orderMasterParams = {
           year:      { type: sql.NVarChar, value: yr },
           week:      { type: sql.NVarChar, value: week },
@@ -256,14 +256,14 @@ async function createOrder(req, res) {
             await tQ(
               `INSERT INTO OrderMaster
                  (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, OrderYearWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-               VALUES (@mk, GETDATE(), @year, @week, @ywk, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+               VALUES (@mk, GETDATE(), @year, @week, @ywk, COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager), (SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'), 'admin'), @ck, @orderCode, 0, 'API', GETDATE())`,
               params
             );
           } else {
             await tQ(
               `INSERT INTO OrderMaster
                  (OrderMasterKey, OrderDtm, OrderYear, OrderWeek, Manager, CustKey, OrderCode, isDeleted, CreateID, CreateDtm)
-               VALUES (@mk, GETDATE(), @year, @week, @manager, @ck, @orderCode, 0, 'API', GETDATE())`,
+               VALUES (@mk, GETDATE(), @year, @week, COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager), (SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'), 'admin'), @ck, @orderCode, 0, 'API', GETDATE())`,
               params
             );
           }

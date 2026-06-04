@@ -194,8 +194,9 @@ async function createShipment(req, res) {
 
     const { shipmentKey, results } = await withTransaction(async (tQ) => {
       const smResult = await tQ(
-        `SELECT ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0`,
+        `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+          WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0
+          ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
         {
           ck:   { type: sql.Int,      value: parseInt(resolvedCustKey) },
           week: { type: sql.NVarChar, value: resolvedWeek },
@@ -207,7 +208,7 @@ async function createShipment(req, res) {
         const shipmentMasterParams = {
           yr:  { type: sql.NVarChar, value: resolvedYear },
           wk:  { type: sql.NVarChar, value: resolvedWeek },
-          ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').replace('-', '') },
+          ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').split('-')[0] },
           ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
         };
         sk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (nextKey) => {
