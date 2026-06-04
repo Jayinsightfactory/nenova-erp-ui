@@ -146,7 +146,6 @@ export default function MobileChat() {
   const [loadingStage, setLoadingStage] = useState(''); // 로딩 단계 표시
   const [directOpen, setDirectOpen] = useState(true);
   const [modifyOpen, setModifyOpen] = useState(false);
-  const [modifyWeek, setModifyWeek] = useState('');
   const [weeks, setWeeks] = useState([]);
   const [directWeek, setDirectWeek] = useState('');
   const [shipmentWeek2, setShipmentWeek2] = useState('');
@@ -358,6 +357,18 @@ export default function MobileChat() {
       }, { directAnswerOnly: true });
       return;
     }
+    if (kind === 'order') {
+      setDirectOpen(false);
+      const label = cust?.CustKey
+        ? `${formatWeekDisplayLocal(week)} ${cust.CustName} 주문 확인`
+        : `${formatWeekDisplayLocal(week)} 주문 확인`;
+      send(label, {
+        intent: 'order',
+        week,
+        ...(cust?.CustKey ? { custKey: cust.CustKey, mode: 'byItem' } : {}),
+      }, { directAnswerOnly: true });
+      return;
+    }
     setDirectOpen(false);
     const weekText = shipmentWeeks.map(formatWeekDisplayLocal).join(',');
     const managerText = selectedManager ? `${selectedManager} 담당 ` : '';
@@ -452,14 +463,13 @@ export default function MobileChat() {
         setSelectedProduct={setSelectedProduct}
         sending={sending}
         onRun={sendDirect}
+        onOpenModify={() => { setDirectOpen(false); setModifyOpen(true); }}
       />
 
       <OrderModifyPanel
         open={modifyOpen}
         setOpen={setModifyOpen}
-        weeks={weeks}
-        week={modifyWeek}
-        setWeek={setModifyWeek}
+        week={toChatOrderWeek(directWeek)}
       />
 
       {/* 메시지 영역 */}
@@ -645,11 +655,12 @@ function DirectLookupPanel({
   setSelectedProduct,
   sending,
   onRun,
+  onOpenModify,
 }) {
   return (
     <section className={`m-direct ${open ? 'open' : 'closed'}`}>
       <button type="button" className="m-direct-toggle" onClick={() => setOpen(!open)}>
-        <span>질문 버튼</span>
+        <span>🔎 기준차수 빠른조회</span>
         <span className="m-direct-status">
           {week ? formatWeekDisplayLocal(week) : '차수 선택'}{shipmentWeek2 ? ` + ${formatWeekDisplayLocal(shipmentWeek2)}` : ''}{selectedManager ? ` · ${selectedManager}` : ''}{selectedCustomer ? ` · ${selectedCustomer.CustName}` : ''}{selectedProduct ? ` · ${selectedProduct.DisplayName || selectedProduct.ProdName}` : ''}
         </span>
@@ -658,6 +669,15 @@ function DirectLookupPanel({
       {open && (
         <div className="m-direct-body">
           <WeekWheel weeks={weeks} value={week} onChange={setWeek} />
+
+          {/* 기준차수만으로 바로 결과 — 패스트 트랙 */}
+          <div className="m-direct-actions fast">
+            <button type="button" disabled={sending || !week} onClick={() => onRun('stock')}>📦 재고확인</button>
+            <button type="button" disabled={sending || !week} onClick={() => onRun('order')}>📋 주문확인</button>
+            <button type="button" disabled={sending || !week} onClick={onOpenModify}>✏️ 주문수정</button>
+          </div>
+          <div className="m-direct-sub">아래에서 업체·품목을 선택하면 출고량·농장 확인이 활성화됩니다</div>
+
           <WeekSelectField
             label="출고 합산차수"
             weeks={weeks}
@@ -700,24 +720,17 @@ function DirectLookupPanel({
           <div className="m-direct-actions">
             <button
               type="button"
-              disabled={sending || !week || !selectedProduct}
-              onClick={() => onRun('farm')}
-            >
-              농장 품목수량확인
-            </button>
-            <button
-              type="button"
               disabled={sending || !week || !selectedCustomer}
               onClick={() => onRun('shipment')}
             >
-              출고 수량 확인
+              🚚 출고량확인
             </button>
             <button
               type="button"
-              disabled={sending || !week}
-              onClick={() => onRun('stock')}
+              disabled={sending || !week || !selectedProduct}
+              onClick={() => onRun('farm')}
             >
-              차수 재고
+              🌾 농장확인
             </button>
           </div>
         </div>
@@ -792,6 +805,8 @@ function DirectLookupPanel({
         }
         .m-direct-actions button:nth-child(2) { background: #0f766e; }
         .m-direct-actions button:nth-child(3) { background: #7c3aed; }
+        .m-direct-actions.fast button:nth-child(3) { background: #ea580c; }
+        .m-direct-sub { font-size: 10px; color: #64748b; font-weight: 700; text-align: center; margin: -2px 0 2px; }
         .m-direct-actions button:disabled {
           background: #cbd5e1;
           color: #64748b;

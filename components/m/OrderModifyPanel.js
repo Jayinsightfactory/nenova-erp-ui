@@ -22,7 +22,7 @@ async function snapshotQty(custName, week) {
   return map;
 }
 
-export default function OrderModifyPanel({ open, setOpen, weeks = [], week, setWeek }) {
+export default function OrderModifyPanel({ open, setOpen, week }) {
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState(null);
@@ -36,7 +36,6 @@ export default function OrderModifyPanel({ open, setOpen, weeks = [], week, setW
     try {
       const d = await apiPost('/api/orders/parse-paste', { text });
       if (!d.success) throw new Error(d.error || '매칭 실패');
-      if (!week && d.detectedWeek) setWeek(d.detectedWeek);
       setOrders(d.orders || []);
       if (!(d.orders || []).length) setErr('인식된 주문이 없습니다.');
     } catch (e) { setErr(e.message || String(e)); }
@@ -102,11 +101,8 @@ export default function OrderModifyPanel({ open, setOpen, weeks = [], week, setW
       {open && (
         <div className="m-mod-body">
           <div className="m-mod-field">
-            <span>차수</span>
-            <select value={week || ''} onChange={e => setWeek(e.target.value)}>
-              <option value="">선택</option>
-              {weeks.map(w => <option key={w} value={w}>{w}차</option>)}
-            </select>
+            <span>기준차수</span>
+            <b style={{ color: week ? '#9a3412' : '#b91c1c' }}>{week ? `${week}차` : '⚠️ 위에서 기준차수를 먼저 선택하세요'}</b>
           </div>
 
           <textarea
