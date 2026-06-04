@@ -5,6 +5,7 @@
 //   DELETE { key }                                    → 매핑 삭제
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
+import { BASE_CUSTOMERS } from '../../lib/salesRevenueConfig';
 
 export default function RevenueMappingModal({ open, onClose, onChanged }) {
   const [rows, setRows] = useState([]);     // [{ key, ecountName, canonicalName, custArea, custName, note, savedAt, _edit }]
@@ -13,6 +14,24 @@ export default function RevenueMappingModal({ open, onClose, onChanged }) {
   const [busyKey, setBusyKey] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  const [newEcount, setNewEcount] = useState('');
+  const [newCanon, setNewCanon] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const addMapping = async () => {
+    const ecount = newEcount.trim();
+    const canon = newCanon.trim();
+    if (!ecount || !canon) { alert('이카운트 원본 거래처명과 통용명을 모두 입력하세요.'); return; }
+    setAdding(true); setErr(''); setMsg('');
+    try {
+      await apiPost('/api/sales/revenue-customer-mappings', { ecountName: ecount, canonicalName: canon });
+      setMsg(`추가됨: ${ecount} → ${canon}`);
+      setNewEcount(''); setNewCanon('');
+      await load();
+      onChanged?.();
+    } catch (e) { setErr(e.message || String(e)); }
+    finally { setAdding(false); }
+  };
 
   const load = async () => {
     setLoading(true); setErr(''); setMsg('');
@@ -95,6 +114,22 @@ export default function RevenueMappingModal({ open, onClose, onChanged }) {
           </div>
         </div>
 
+        {/* 새 매칭 직접 추가 (원본 없는 통용명: 꽃동산/레바논 등) */}
+        <div style={S.addBar}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#37474f' }}>＋ 새 매칭</span>
+          <input value={newEcount} onChange={e => setNewEcount(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addMapping(); }}
+            placeholder="이카운트 원본 거래처명" style={{ ...S.input, width: 220 }} />
+          <span style={{ color: '#90a4ae' }}>→</span>
+          <input value={newCanon} onChange={e => setNewCanon(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addMapping(); }}
+            list="rev-canon-list" placeholder="통용명 (예: 꽃동산, 레바논)" style={{ ...S.input, width: 180 }} />
+          <datalist id="rev-canon-list">
+            {(BASE_CUSTOMERS || []).map(n => <option key={n} value={n} />)}
+          </datalist>
+          <button onClick={addMapping} disabled={adding} style={S.addBtn}>{adding ? '추가중…' : '추가'}</button>
+        </div>
+
         <div style={{ padding: '6px 12px', fontSize: 12, color: '#667085', display: 'flex', gap: 12 }}>
           <span>총 {rows.length}건 · 표시 {filtered.length}건</span>
           {err && <span style={{ color: '#c0392b' }}>오류: {err}</span>}
@@ -164,4 +199,6 @@ const S = {
   actOn: { border: 'none', background: '#1565c0', color: '#fff', fontWeight: 700 },
   actDel: { border: '1px solid #ef9a9a', color: '#c0392b' },
   empty: { color: '#90a4ae', fontSize: 13, padding: 24, textAlign: 'center' },
+  addBar: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid #eceff1', background: '#f3f8ff', flexWrap: 'wrap' },
+  addBtn: { border: 'none', background: '#2e7d32', color: '#fff', borderRadius: 5, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
 };
