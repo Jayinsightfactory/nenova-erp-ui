@@ -37,6 +37,22 @@ export default function DistributeRepair() {
     finally { setTraceLoading(false); }
   };
 
+  const [mgrDiag, setMgrDiag] = useState(null);
+  const [mgrBusy, setMgrBusy] = useState(false);
+  const runManagerCheck = async () => {
+    setMgrBusy(true); setErr(''); setMsg(''); setMgrDiag(null);
+    try { setMgrDiag(await apiGet('/api/shipment/order-manager-fix', { week })); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setMgrBusy(false); }
+  };
+  const runManagerFix = async () => {
+    if (!confirm(`${week} 차수 — Manager 정정\nOrderMaster.Manager 가 UserInfo 에 없는 주문 ${mgrDiag?.brokenCount || 0}건을 유효 관리자 UserID(${mgrDiag?.adminUserId})로 변경합니다.\n(전산 분배 grid 에 거래처가 다시 뜨도록) 진행할까요?`)) return;
+    setMgrBusy(true); setErr(''); setMsg('');
+    try { const d = await apiPost('/api/shipment/order-manager-fix', { week, action: 'fix' }); setMsg(d.message || '완료'); await runManagerCheck(); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setMgrBusy(false); }
+  };
+
   const cleanGhostMaster = async (g) => {
     if (!confirm(`고스트 마스터 정리\n업체: ${g.custName} (${g.custKey})\nShipmentKey: ${g.shipmentKey}\n사유: ${g.reason}\n\n이 빈/숨겨진 분배 마스터를 삭제해 주문 취소가 가능하게 합니다.\n(확정 아님 + 실제 표시분배 0건 확인됨) 진행할까요?`)) return;
     setCleaning(g.shipmentKey); setErr(''); setMsg('');
@@ -159,7 +175,30 @@ export default function DistributeRepair() {
         )}
 
         <div style={{ marginTop: 22, borderTop: '1px solid #e0e0e0', paddingTop: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>주문 vs 분배 대조 (품목/업체로 검색)</div>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>① Manager 정정 — 전산 분배 grid 에 거래처가 안 뜨는 주문 복구</div>
+          <p style={{ fontSize: 12, color: '#607d8b', marginTop: 0 }}>
+            OrderMaster.Manager 가 UserInfo.UserID 에 없으면 ViewOrder 에서 탈락 → 전산 주문/분배 화면에 거래처가 안 뜸.
+            (웹이 Manager 에 '관리자' 문자열을 잘못 넣어 발생) 아래로 진단 후 유효 UserID 로 정정.
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: '#90a4ae' }}>차수 {week}</span>
+            <button onClick={runManagerCheck} disabled={mgrBusy} style={btnPrimary}>{mgrBusy ? '확인 중…' : '🔍 Manager 진단'}</button>
+            {mgrDiag && (
+              <button onClick={runManagerFix} disabled={mgrBusy || !(mgrDiag.brokenCount > 0)} style={btnRepair}>
+                🛠 Manager 정정 ({mgrDiag.brokenCount || 0}건)
+              </button>
+            )}
+          </div>
+          {mgrDiag && (
+            <div style={{ fontSize: 12, color: '#455a64', marginBottom: 12 }}>
+              <div>유효 관리자 UserID: <b>{String(mgrDiag.adminUserId ?? '(못 찾음)')}</b> · 깨진 주문 <b style={{ color: mgrDiag.brokenCount ? '#c0392b' : '#2e7d32' }}>{mgrDiag.brokenCount}건</b></div>
+              {mgrDiag.broken?.length > 0 && (
+                <div style={{ marginTop: 4 }}>대상: {mgrDiag.broken.map(b => `${b.CustName}(Manager='${b.Manager}')`).join(', ')}</div>
+              )}
+            </div>
+          )}
+
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, marginTop: 4 }}>② 주문 vs 분배 대조 (품목/업체로 검색)</div>
           <p style={{ fontSize: 12, color: '#607d8b', marginTop: 0 }}>
             “주문등록엔 나오는데 분배엔 안 나옴”을 품목별로 확인합니다. 예: <code>문라이트</code>, <code>라벤더</code>, <code>아이엠</code>.
           </p>

@@ -270,7 +270,11 @@ async function createOrder(req, res) {
       return res.status(400).json({ success: false, error: e.message });
     }
     const uid = req.user?.userId || 'nenovaSS3';
-    const mgr = '관리자'; // 전산 호환 (전산은 Manager='관리자' 기준으로 주문 표시)
+    // Manager 에는 UserInfo.UserID 가 들어가야 ViewOrder 의 INNER JOIN UserInfo(om.Manager=ui.UserID)
+    // 를 통과한다. 문자열 '관리자'(=UserName) 를 넣으면 그 주문이 ViewOrder 에서 탈락 → 전산 분배
+    // grid 에 거래처가 안 뜸. '관리자' 계정의 실제 UserID(보통 'admin') 로 해석해 넣는다.
+    const mgrRow = await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
+    const mgr = mgrRow.recordset[0]?.UserID || 'admin';
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');

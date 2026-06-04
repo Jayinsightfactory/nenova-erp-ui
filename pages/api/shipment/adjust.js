@@ -452,14 +452,14 @@ async function postAdjust(req, res) {
             await tQ(
               `INSERT INTO OrderMaster
                  (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,OrderYearWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-               VALUES (@mk,GETDATE(),@yr,@wk,@ywk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+               VALUES (@mk,GETDATE(),@yr,@wk,@ywk,COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'),@uid),@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
               orderMasterParams
             );
           } else {
             await tQ(
               `INSERT INTO OrderMaster
                  (OrderMasterKey,OrderDtm,OrderYear,OrderWeek,Manager,CustKey,OrderCode,Descr,isDeleted,CreateID,CreateDtm,LastUpdateID,LastUpdateDtm)
-               VALUES (@mk,GETDATE(),@yr,@wk,@mgr,@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
+               VALUES (@mk,GETDATE(),@yr,@wk,COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'),@uid),@ck,'','',0,@uid,GETDATE(),@uid,GETDATE())`,
               orderMasterParams
             );
           }
