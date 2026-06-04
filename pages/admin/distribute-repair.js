@@ -18,6 +18,20 @@ export default function DistributeRepair() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
+  const [traceQ, setTraceQ] = useState('');
+  const [traceRows, setTraceRows] = useState(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+
+  const runTrace = async () => {
+    if (!traceQ.trim()) { alert('업체명 또는 품목 키워드를 입력하세요.'); return; }
+    setTraceLoading(true); setErr(''); setTraceRows(null);
+    try {
+      const d = await apiGet('/api/shipment/item-trace', { week, q: traceQ.trim() });
+      setTraceRows(d.rows || []);
+    } catch (e) { setErr(e.message || String(e)); }
+    finally { setTraceLoading(false); }
+  };
+
   const runDiagnose = async () => {
     setLoading(true); setErr(''); setMsg(''); setDiag(null);
     try {
@@ -127,6 +141,54 @@ export default function DistributeRepair() {
             )}
           </>
         )}
+
+        <div style={{ marginTop: 22, borderTop: '1px solid #e0e0e0', paddingTop: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>주문 vs 분배 대조 (품목/업체로 검색)</div>
+          <p style={{ fontSize: 12, color: '#607d8b', marginTop: 0 }}>
+            “주문등록엔 나오는데 분배엔 안 나옴”을 품목별로 확인합니다. 예: <code>문라이트</code>, <code>라벤더</code>, <code>아이엠</code>.
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+            <input value={traceQ} onChange={e => setTraceQ(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') runTrace(); }}
+              placeholder="업체명 또는 품목 키워드" style={{ ...inp, width: 240, marginLeft: 0 }} />
+            <span style={{ fontSize: 12, color: '#90a4ae' }}>차수 {week}</span>
+            <button onClick={runTrace} disabled={traceLoading} style={btnPrimary}>
+              {traceLoading ? '조회 중…' : '🔎 주문/분배 조회'}
+            </button>
+          </div>
+          {traceRows && traceRows.length === 0 && (
+            <div style={{ fontSize: 13, color: '#90a4ae' }}>{week} 차수에 “{traceQ}” 관련 주문이 없습니다.</div>
+          )}
+          {traceRows && traceRows.length > 0 && (
+            <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                <thead><tr>{['업체', '품목', '주문수량', '분배수량', 'ShipDate합계', '출고일', '상태'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {traceRows.map((r, i) => {
+                    const bad = r.status !== '정상';
+                    return (
+                      <tr key={i} style={bad ? { background: '#fff5f5' } : {}}>
+                        <td style={td}>{r.custName}</td>
+                        <td style={td}>{r.prodName}</td>
+                        <td style={td}>{r.orderQty}</td>
+                        <td style={{ ...td, fontWeight: 700, color: r.shipQty == null ? '#c0392b' : '#1b5e20' }}>{r.shipQty == null ? '없음' : r.shipQty}</td>
+                        <td style={td}>{r.shipDateQty == null ? '-' : r.shipDateQty}</td>
+                        <td style={td}>{r.shipDtm || '-'}</td>
+                        <td style={{ ...td, color: bad ? '#c0392b' : '#2e7d32', fontWeight: 700 }} title={r.reason}>{r.status}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {traceRows && traceRows.some(r => r.status === '분배없음') && (
+            <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 6 }}>
+              ※ <b>분배없음</b> = 주문만 있고 분배(ShipmentDetail)가 안 만들어진 상태입니다.
+              붙여넣기 주문에서 해당 품목을 <b>🚀 일괄 등록+분배</b>(또는 등록 후 🚀 일괄 분배)로 한 번 더 저장하면 분배가 생성됩니다.
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );
