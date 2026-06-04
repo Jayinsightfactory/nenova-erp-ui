@@ -4,6 +4,31 @@
 
 ---
 
+## [2026-06-04] 세션 — 견적 누락(OrderYearWeek) + 전산호환 불변식 전수감사
+
+### 작업 내용
+- **23-01 베트남 호접난 견적서관리 누락** 근본원인: 견적(GetData/GetDetail)이 raw `sm.OrderYearWeek` 로 필터하는데
+  웹이 full('20262301'), 전산은 대차수('202623') → 누락. (실측 21/22차=전산 vs 23차=웹 비교로 확정)
+- `108790f` adjust/distribute/orders OrderYearWeek 대차수화 + pivotStats 계산식화 + fix-orderyearweek 보정도구
+- `782c3d9` fix-orderyearweek OrderMaster 컬럼 columnExists 가드
+- **전수 감사**(11개 쓰기파일, 병렬 4에이전트) → `a8f643b` 전 경로 OrderYearWeek 대차수 + Manager UserID 검증
+  (shipmentImport/stock-status/public/orders/public/shipments/order-request-approve/adjust)
+- 문서: `docs/ERP_COMPAT_INVARIANTS_2026-06-04.md` (불변식 1~8 + 사건 + 감사결과)
+
+### 변경된 파일
+- adjust/distribute/orders/shipmentImport/stock-status/public(orders,shipments)/order-request-approve: OrderYearWeek 대차수, Manager UserID
+- pivotStats.js: ShipmentMaster 범위쿼리 raw→yearWeekExpr
+- pages/api/shipment/fix-orderyearweek.js, estimate-visibility.js(다차수/GetDetail조인/raw 비교): 신규/보강
+- docs/ERP_COMPAT_INVARIANTS_2026-06-04.md: 신규
+
+### 다음 작업 예정 (별도 검토)
+- estimate/update-cost EstQuantity fallback(Est=Out 강제 위험), Estimate/Descr 무한 append, orders updateOrder manager 무검증.
+
+### 미결 이슈 / 블로킹
+- 없음 (견적 누락 해결, 전 쓰기경로 불변식 1·2·6 정합화).
+
+---
+
 ## [2026-06-04] 세션 — 출고분배 거래처 누락/분배 안 보임 종합 수정 (dnSpy 근본원인)
 
 ### 작업 내용
