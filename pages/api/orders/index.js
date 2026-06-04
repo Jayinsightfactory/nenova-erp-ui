@@ -295,7 +295,7 @@ async function createOrder(req, res) {
         mk = existing.recordset[0].OrderMasterKey;
         await appLog('createOrder', 'OM_FOUND', `mk=${mk}`);
         // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
-        const ywk = orderYear + (orderWeek || '').replace('-', '');
+        const ywk = orderYear + (orderWeek || '').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수
         const yearWeekPatch = hasOrderYearWeekColumn
           ? `OrderYearWeek = CASE WHEN OrderYearWeek IS NULL OR OrderYearWeek = '' THEN @ywk ELSE OrderYearWeek END,`
           : '';
@@ -315,7 +315,7 @@ async function createOrder(req, res) {
       } else {
         mk = await tryInsertWithRetry(tQuery, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           await appLog('createOrder', 'OM_INSERT', `new mk=${newMk} ck=${resolvedCustKey} wk=${orderWeek}`);
-          const ywk = orderYear + (orderWeek || '').replace('-', '');
+          const ywk = orderYear + (orderWeek || '').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수
           const params = {
             mk:       { type: sql.Int,      value: newMk },
             year:     { type: sql.NVarChar, value: orderYear },

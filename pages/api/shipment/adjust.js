@@ -355,7 +355,9 @@ async function postAdjust(req, res) {
   }
 
   const { week: orderWeek, year: orderYear } = normWeek(week);
-  const ywk = (year || orderYear) + orderWeek.replace('-', '');
+  // OrderYearWeek 컬럼은 전산 포맷 = 연도 + 대차수(세부차수 '-NN' 제외). 예: 23-01 → '202623'
+  // (뷰의 OrderYearWeek2 = 연도+세부차수전체 는 별개. 견적 GetData/GetDetail 은 raw OrderYearWeek 로 필터)
+  const ywk = (year || orderYear) + orderWeek.split('-')[0];
   const ck = parseInt(custKey);
   const pk = parseInt(prodKey);
   const uid = req.user?.userId || 'system';

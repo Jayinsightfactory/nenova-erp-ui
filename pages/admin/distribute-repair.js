@@ -66,6 +66,22 @@ export default function DistributeRepair() {
     finally { setEstBusy(false); }
   };
 
+  const [oywDiag, setOywDiag] = useState(null);
+  const [oywBusy, setOywBusy] = useState(false);
+  const runOywCheck = async () => {
+    setOywBusy(true); setErr(''); setMsg(''); setOywDiag(null);
+    try { setOywDiag(await apiGet('/api/shipment/fix-orderyearweek', { week })); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setOywBusy(false); }
+  };
+  const runOywFix = async () => {
+    if (!confirm(`${week} 차수 — OrderYearWeek 전산 포맷 보정\n출고마스터 ${oywDiag?.shipmentMismatch || 0} / 주문마스터 ${oywDiag?.orderMismatch || 0}건을 전산 포맷(연도+대차수)으로 변경합니다.\n(견적서관리에 뜨도록) 진행할까요?`)) return;
+    setOywBusy(true); setErr(''); setMsg('');
+    try { const d = await apiPost('/api/shipment/fix-orderyearweek', { week, action: 'fix' }); setMsg(d.message || '완료'); await runOywCheck(); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setOywBusy(false); }
+  };
+
   const cleanGhostMaster = async (g) => {
     if (!confirm(`고스트 마스터 정리\n업체: ${g.custName} (${g.custKey})\nShipmentKey: ${g.shipmentKey}\n사유: ${g.reason}\n\n이 빈/숨겨진 분배 마스터를 삭제해 주문 취소가 가능하게 합니다.\n(확정 아님 + 실제 표시분배 0건 확인됨) 진행할까요?`)) return;
     setCleaning(g.shipmentKey); setErr(''); setMsg('');
@@ -357,7 +373,20 @@ export default function DistributeRepair() {
             <span style={{ fontSize: 12, color: '#90a4ae' }}>차수 {week}</span>
             <button onClick={() => runEstCheck()} disabled={estBusy} style={btnPrimary}>{estBusy ? '진단 중…' : '🔍 견적 노출 진단'}</button>
             <button onClick={() => runEstCheck('21-01,22-01,23-01')} disabled={estBusy} style={btnRepairAlt}>21·22·23차 비교</button>
+            <span style={{ width: 1, height: 22, background: '#cfd8dc' }} />
+            <button onClick={runOywCheck} disabled={oywBusy} style={btnPrimary}>{oywBusy ? '확인 중…' : '🔧 OrderYearWeek 진단'}</button>
+            {oywDiag && (oywDiag.shipmentMismatch > 0 || oywDiag.orderMismatch > 0) && (
+              <button onClick={runOywFix} disabled={oywBusy} style={btnRepair}>
+                🛠 포맷 보정 (출고 {oywDiag.shipmentMismatch}/주문 {oywDiag.orderMismatch})
+              </button>
+            )}
           </div>
+          {oywDiag && (
+            <div style={{ fontSize: 12, marginBottom: 8, color: (oywDiag.shipmentMismatch || oywDiag.orderMismatch) ? '#c0392b' : '#2e7d32' }}>
+              OrderYearWeek 포맷 불일치 — 출고마스터 <b>{oywDiag.shipmentMismatch}</b> / 주문마스터 <b>{oywDiag.orderMismatch}</b>건
+              {oywDiag.sample?.length > 0 && <span style={{ color: '#607d8b' }}> · 예: {oywDiag.sample.slice(0, 3).map(s => `${s.CustName}(${s.Cur}→${s.Correct})`).join(', ')}</span>}
+            </div>
+          )}
           {estData && (
             <>
               <div style={{ fontSize: 12, marginBottom: 6 }}>

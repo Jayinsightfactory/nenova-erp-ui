@@ -447,7 +447,7 @@ async function saveDistribute(req, res) {
     const userName = req.user?.userName || uid;
     const week = normalizeOrderWeek(rawWeek);
     const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
-    const ywk = orderYear + (week||'').replace('-','');
+    const ywk = orderYear + (week||'').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수 (세부차수 제외)
 
     await assertProductScopeNotFixed(query, week, prodKey);
 
