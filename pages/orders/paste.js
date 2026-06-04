@@ -1621,7 +1621,26 @@ export default function PasteOrderPage() {
       action: it.action || '추가',  // 기본 추가
     })).filter(x => x.qty > 0);
 
-    if (targets.length === 0) { alert('처리할 품목이 없습니다.'); return; }
+    // ⚠️ 일괄분배에서 빠지는 항목(=전산에 안 들어가는 항목)을 명확히 경고.
+    //   - 품목 미매칭(prodKey 없음): 매칭을 먼저 잡아야 등록됨
+    //   - 수량 0/미입력: 등록 대상 아님
+    //   - skip(제외 체크): 사용자가 의도적으로 뺀 것
+    const excluded = (order.items || [])
+      .filter(it => it.skip || !it.prodKey || !(parseFloat(it.qty) > 0))
+      .map(it => {
+        const name = it.inputName || it.prodName || it.displayName || '(이름없음)';
+        const reason = it.skip ? '제외표시'
+          : !it.prodKey ? '품목 미매칭'
+          : '수량없음';
+        return `· ${name}${it.qty ? ` ${it.qty}${it.unit || ''}` : ''} — ${reason}`;
+      });
+
+    if (targets.length === 0) {
+      alert(excluded.length
+        ? `등록할 매칭된 품목이 없습니다.\n\n아래 ${excluded.length}개는 등록되지 않습니다:\n${excluded.join('\n')}\n\n품목 매칭(✎ 품목변경)을 먼저 잡아주세요.`
+        : '처리할 품목이 없습니다.');
+      return;
+    }
     if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
 
     // 미리보기: ADD/CANCEL 자동 분기
@@ -1630,7 +1649,11 @@ export default function PasteOrderPage() {
       return `${x.prodName}: ${isCancel ? '−' : '+'}${x.qty}${x.unit} (${isCancel ? '취소' : '추가'})`;
     });
 
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 주문등록+분배 동시 − / 0이 되면 주문상세 삭제)`)) return;
+    const excludedBlock = excluded.length
+      ? `\n\n⚠️ 아래 ${excluded.length}개는 전산에 등록되지 않습니다(매칭 필요):\n${excluded.join('\n')}`
+      : '';
+
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 주문등록+분배 동시 − / 0이 되면 주문상세 삭제)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
