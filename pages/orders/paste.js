@@ -147,11 +147,15 @@ function favoriteItemFromOrderItem(it, allProducts = []) {
   };
 }
 
+// 품목군(카테고리) 접두어 — base/변동 매칭 시 제거해 '카네이션 문라이트' == '문라이트' 로 맞춘다.
+const STOCK_CATEGORY_RE = /(미니\s*카네이션|미니카네|mini\s*carnation|카네이션|카네|carnation|스프레이\s*장미|spray\s*rose|장미|로즈|rose|수국|hydrangea|루스커스|ruscus|알스트로\w*|alstroe?meria|거베라|gerbera|리시안\w*|lisianthus|튤립|tulip|소국|만수국|국화|chrysanthemum|칼라|카라|calla|해바라기|sunflower|안개|gypsophila|스타티스|statice|솔리다고|solidago)/gi;
+
 function stockNorm(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/[()[\]{}]/g, ' ')
     .replace(/[|:：,ㆍ·]/g, ' ')
+    .replace(STOCK_CATEGORY_RE, ' ')   // 품목군 접두어 제거(양쪽 동일 적용)
     .replace(/\s+/g, '')
     .trim();
 }
