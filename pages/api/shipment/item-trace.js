@@ -27,11 +27,19 @@ async function handler(req, res) {
               ISNULL(sm.isDeleted,0)                           AS MasterDeleted,
               ISNULL(sm.isFix,0)                               AS MasterFix,
               sdSum.ShipDateQty, sdSum.ShipDateCnt, sdSum.ShipDateDistinctDtm,
-              sfSum.ShipFarmQty, sfSum.ShipFarmCnt
+              sfSum.ShipFarmQty, sfSum.ShipFarmCnt,
+              -- ViewOrder(전산 분배 grid 원천) INNER JOIN 적격성: 하나라도 실패하면 거래처가 분배 grid에서 사라짐
+              om.Manager, p.CounName,
+              ISNULL(c.isDeleted,0)                            AS CustDel,
+              ISNULL(p.isDeleted,0)                            AS ProdDel,
+              CASE WHEN ct.CounName IS NULL THEN 0 ELSE 1 END  AS CountryOK,
+              CASE WHEN ui.UserID   IS NULL THEN 0 ELSE 1 END  AS ManagerOK
          FROM OrderMaster om
          JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
          JOIN Customer c ON c.CustKey=om.CustKey
          JOIN Product  p ON p.ProdKey=od.ProdKey
+         LEFT JOIN Country  ct ON p.CounName = ct.CounName
+         LEFT JOIN UserInfo ui ON om.Manager = ui.UserID
          OUTER APPLY (
             SELECT TOP 1 sm.ShipmentKey, sm.CustKey, sm.isDeleted, sm.isFix
               FROM ShipmentMaster sm
@@ -71,13 +79,23 @@ async function handler(req, res) {
       const shipFarmQty = x.ShipFarmQty == null ? null : Number(x.ShipFarmQty);
       const shipFarmCnt = Number(x.ShipFarmCnt || 0);
       const shipDateCnt = Number(x.ShipDateCnt || 0);
+
+      // ViewOrder 적격성 — 전산 분배 grid 는 ViewOrder 기반이라, 이게 실패하면 거래처가 grid 에서 사라짐(분배 입력 불가)
+      const voReasons = [];
+      if (Number(x.CustDel) === 1) voReasons.push('업체삭제(isDeleted=1)');
+      if (Number(x.ProdDel) === 1) voReasons.push('품목삭제(isDeleted=1)');
+      if (Number(x.CountryOK) === 0) voReasons.push(`품목 CounName '${x.CounName || '(빈값)'}' 가 Country 테이블에 없음`);
+      if (Number(x.ManagerOK) === 0) voReasons.push(`Manager '${x.Manager || '(빈값)'}' 가 UserInfo.UserID 에 없음`);
+      const viewOrderVisible = voReasons.length === 0;
+
       let status, reason;
-      if (shipQty == null) { status = '분배없음'; reason = '주문은 있으나 ShipmentDetail 미생성 → 분배 필요'; }
+      if (!viewOrderVisible) { status = '전산주문숨김'; reason = `ViewOrder 탈락 → 분배 grid 에 거래처 안 뜸: ${voReasons.join(' / ')}`; }
+      else if (shipQty == null) { status = '분배없음'; reason = '주문은 있으나 ShipmentDetail 미생성 → 분배 필요'; }
       else if (shipQty === 0) { status = '분배0'; reason = '분배수량 0 (빈 출고라인)'; }
-      else if (!x.ShipDtm) { status = '출고일없음'; reason = 'ShipmentDtm 비어있음 → 전산 분배화면에서 안 보임'; }
-      else if (shipDateCnt === 0) { status = 'ShipmentDate없음'; reason = 'ShipmentDate 행 없음 → 분배화면(거래처목록) INNER JOIN ShipmentDate 에서 누락'; }
+      else if (!x.ShipDtm) { status = '출고일없음'; reason = 'ShipmentDtm 비어있음'; }
+      else if (shipDateCnt === 0) { status = 'ShipmentDate없음'; reason = 'ShipmentDate 행 없음'; }
       else if (shipDateQty == null || Math.abs((shipDateQty || 0) - shipQty) > 0.001) { status = 'ShipmentDate불일치'; reason = `ShipmentDate합계(${shipDateQty ?? '없음'})≠분배수량(${shipQty})`; }
-      else if (shipFarmCnt === 0) { status = '농장미배정'; reason = 'ShipmentFarm 행 없음 → 농장별 분배 비어있음(웹이 ShipmentFarm 미작성)'; }
+      else if (shipFarmCnt === 0) { status = '농장미배정'; reason = 'ShipmentFarm 행 없음(웹 미작성) — 농장별 배정만 비고 거래처/수량은 표시됨'; }
       else if (Number(x.ShipCustKey || 0) !== Number(x.MasterCustKey || 0)) { status = 'CustKey불일치'; reason = `상세CustKey(${x.ShipCustKey})≠마스터(${x.MasterCustKey})`; }
       else status = '정상';
       return {
@@ -89,6 +107,8 @@ async function handler(req, res) {
         masterCustKey: x.MasterCustKey ?? null,
         sdetailKey: x.SdetailKey ?? null,
         masterFix: Number(x.MasterFix || 0),
+        manager: x.Manager ?? null, counName: x.CounName ?? null,
+        viewOrderVisible,
         status, reason: reason || '',
       };
     });
