@@ -651,12 +651,17 @@ async function postAdjust(req, res) {
           // CustKey 는 항상 주문/마스터 업체(@ck)로 일치시킨다.
           //  전산이 미리 만든 빈 ShipmentDetail 의 CustKey 가 0/NULL/다른값이면
           //  nenova.exe 분배 화면이 그 행을 안 보여준다(= 분배 누락). repairMissingCustKey 와 동일 불변식.
+          // ShipmentDtm 은 항상 업체 BaseOutDay 기준 출고일(@dt)로 강제.
+          //  ISNULL 유지 시 전산/구버전이 만든 틀린 출고일(6일 밀림 등)이 남아
+          //  nenova.exe 분배 화면(출고일별)에서 다른 날짜에 박혀 "분배 안 보임" 발생.
+          //  distribute.js 는 삭제+재생성으로 항상 올바른 날짜를 쓰므로 그와 동치로 맞춤.
+          //  (직후 ShipmentDate 를 이 ShipmentDtm 으로 재생성 → 부분보정 아님, 2026-06-02 문서 준수)
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@estQty,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
              CustKey=@ck,
              Cost=@cost, Amount=@amount, Vat=@vat,
-             ShipmentDtm=ISNULL(ShipmentDtm,@dt)
+             ShipmentDtm=@dt
            WHERE SdetailKey=@dk`,
           { dk: { type: sql.Int, value: targetSdk },
             ck: { type: sql.Int, value: ck },
