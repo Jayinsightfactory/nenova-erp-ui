@@ -20,14 +20,16 @@ export default function DistributeRepair() {
 
   const [traceQ, setTraceQ] = useState('');
   const [traceRows, setTraceRows] = useState(null);
+  const [traceRaw, setTraceRaw] = useState(null);
   const [traceLoading, setTraceLoading] = useState(false);
 
   const runTrace = async () => {
     if (!traceQ.trim()) { alert('업체명 또는 품목 키워드를 입력하세요.'); return; }
-    setTraceLoading(true); setErr(''); setTraceRows(null);
+    setTraceLoading(true); setErr(''); setTraceRows(null); setTraceRaw(null);
     try {
       const d = await apiGet('/api/shipment/item-trace', { week, q: traceQ.trim() });
       setTraceRows(d.rows || []);
+      setTraceRaw(d.raw || []);
     } catch (e) { setErr(e.message || String(e)); }
     finally { setTraceLoading(false); }
   };
@@ -186,6 +188,45 @@ export default function DistributeRepair() {
             <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 6 }}>
               ※ <b>분배없음</b> = 주문만 있고 분배(ShipmentDetail)가 안 만들어진 상태입니다.
               붙여넣기 주문에서 해당 품목을 <b>🚀 일괄 등록+분배</b>(또는 등록 후 🚀 일괄 분배)로 한 번 더 저장하면 분배가 생성됩니다.
+            </div>
+          )}
+
+          {traceRaw && traceRaw.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+                실제 분배 레코드 전체 (삭제 플래그 포함) — 전산 표시 여부 진단
+                {traceRaw.some(r => r.ghost) && <span style={{ color: '#c0392b', marginLeft: 8 }}>⚠ 고스트 {traceRaw.filter(r => r.ghost).length}건</span>}
+              </div>
+              <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                  <thead><tr>{['업체', '품목', 'ShipKey', 'SdKey', '수량', '출고일', '마스터삭제', '품목삭제', '업체삭제', 'sd삭제', '전산표시'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {traceRaw.map((r, i) => (
+                      <tr key={i} style={r.ghost ? { background: '#ffebee' } : (!r.visibleInErp ? { background: '#fff8e1' } : {})}>
+                        <td style={td}>{r.custName}</td>
+                        <td style={td}>{r.prodName}</td>
+                        <td style={td}>{r.shipmentKey}</td>
+                        <td style={td}>{r.sdetailKey}</td>
+                        <td style={{ ...td, fontWeight: 700 }}>{r.outQty}</td>
+                        <td style={td}>{r.shipDtm || '-'}</td>
+                        <td style={{ ...td, color: r.smDel ? '#c0392b' : '#bbb', fontWeight: r.smDel ? 700 : 400 }}>{r.smDel ? 'Y' : '·'}</td>
+                        <td style={{ ...td, color: r.prodDel ? '#c0392b' : '#bbb', fontWeight: r.prodDel ? 700 : 400 }}>{r.prodDel ? 'Y' : '·'}</td>
+                        <td style={{ ...td, color: r.custDel ? '#c0392b' : '#bbb', fontWeight: r.custDel ? 700 : 400 }}>{r.custDel ? 'Y' : '·'}</td>
+                        <td style={{ ...td, color: r.sdDel ? '#e65100' : '#bbb' }}>{r.sdDel ? 'Y' : '·'}</td>
+                        <td style={{ ...td, color: r.visibleInErp ? '#2e7d32' : '#c0392b', fontWeight: 700 }} title={r.hiddenReason}>
+                          {r.visibleInErp ? '표시' : `숨김(${r.hiddenReason})`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {traceRaw.some(r => r.ghost) && (
+                <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 6 }}>
+                  ⚠ <b>고스트</b> = 분배수량이 있는데 마스터/품목/업체가 삭제 처리돼 전산 화면엔 안 보이지만, 취소는 막는 레코드입니다.
+                  위 <b>SdKey</b>를 알려주시면 해당 고스트 분배를 안전하게 정리(삭제)해 취소가 되도록 하겠습니다.
+                </div>
+              )}
             </div>
           )}
         </div>

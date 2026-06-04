@@ -82,7 +82,52 @@ async function handler(req, res) {
       };
     });
 
-    return res.status(200).json({ success: true, week, q, count: rows.length, rows });
+    // 2) RAW 조회 — 모든 ShipmentDetail(삭제 플래그 무관) + 마스터/품목/업체 isDeleted.
+    //    nenova.exe ViewShipment 는 sm.isDeleted=0 AND p.isDeleted=0 AND c.isDeleted=0 만 표시(sd.isDeleted 무시).
+    //    → 마스터/품목/업체가 삭제 처리되면 분배가 DB엔 있어도 전산 화면엔 안 보이지만, 취소 차단은 됨(고스트).
+    const raw = await query(
+      `SELECT TOP 300
+              sm.ShipmentKey, sm.OrderWeek AS SmWeek, ISNULL(sm.isDeleted,0) AS SmDel,
+              ISNULL(sm.isFix,0) AS SmFix, sm.CustKey AS SmCust, ISNULL(sm.WebCreated,0) AS WebCreated,
+              sd.SdetailKey, sd.OutQuantity, sd.CustKey AS SdCust,
+              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS SdDtm, ISNULL(sd.isDeleted,0) AS SdDel,
+              c.CustName, ISNULL(c.isDeleted,0) AS CustDel,
+              p.ProdName, p.DisplayName, ISNULL(p.isDeleted,0) AS ProdDel
+         FROM ShipmentDetail sd
+         JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+         JOIN Product p ON p.ProdKey=sd.ProdKey
+         LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+        WHERE sm.OrderWeek=@wk
+          AND ( c.CustName LIKE @q OR p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q )
+        ORDER BY c.CustName, p.ProdName, sm.ShipmentKey`,
+      { wk: { type: sql.NVarChar, value: week }, q: { type: sql.NVarChar, value: `%${q}%` } }
+    );
+
+    const rawRows = (raw.recordset || []).map(x => {
+      const hidden = [];
+      if (Number(x.SmDel) === 1) hidden.push('마스터삭제');
+      if (Number(x.ProdDel) === 1) hidden.push('품목삭제');
+      if (Number(x.CustDel) === 1) hidden.push('업체삭제');
+      const visible = hidden.length === 0; // 전산 ViewShipment 표시 여부 (sd.isDeleted 는 무시됨)
+      return {
+        custName: x.CustName, prodName: x.DisplayName || x.ProdName,
+        shipmentKey: x.ShipmentKey, sdetailKey: x.SdetailKey,
+        outQty: Number(x.OutQuantity || 0),
+        smDel: Number(x.SmDel), sdDel: Number(x.SdDel), prodDel: Number(x.ProdDel), custDel: Number(x.CustDel),
+        smFix: Number(x.SmFix), webCreated: Number(x.WebCreated),
+        smCust: x.SmCust, sdCust: x.SdCust, shipDtm: x.SdDtm || null, smWeek: x.SmWeek,
+        visibleInErp: visible,
+        ghost: !visible && Number(x.OutQuantity || 0) !== 0, // 안 보이는데 수량 있음 = 취소 차단 고스트
+        hiddenReason: hidden.join('+') || '',
+      };
+    });
+
+    return res.status(200).json({
+      success: true, week, q,
+      count: rows.length, rows,
+      rawCount: rawRows.length, raw: rawRows,
+      ghostCount: rawRows.filter(r => r.ghost).length,
+    });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
