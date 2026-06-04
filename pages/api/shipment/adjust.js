@@ -648,10 +648,13 @@ async function postAdjust(req, res) {
       if (sdRow) {
         targetSdk = sdRow.SdetailKey;
         await tQ(
+          // CustKey 는 항상 주문/마스터 업체(@ck)로 일치시킨다.
+          //  전산이 미리 만든 빈 ShipmentDetail 의 CustKey 가 0/NULL/다른값이면
+          //  nenova.exe 분배 화면이 그 행을 안 보여준다(= 분배 누락). repairMissingCustKey 와 동일 불변식.
           `UPDATE ShipmentDetail SET
              OutQuantity=@oq, EstQuantity=@estQty,
              BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-             CustKey=ISNULL(CustKey,@ck),
+             CustKey=@ck,
              Cost=@cost, Amount=@amount, Vat=@vat,
              ShipmentDtm=ISNULL(ShipmentDtm,@dt)
            WHERE SdetailKey=@dk`,
