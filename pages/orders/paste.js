@@ -1273,6 +1273,29 @@ export default function PasteOrderPage() {
     });
   };
 
+  // 매칭 확인 화면에서 품목을 인라인으로 바로 바꾼다(해제→큐 거치지 않음). 저장매칭도 학습.
+  const reassignItemProduct = (oid, idx, prod) => {
+    const order = orders.find(o => o.id === oid);
+    const item = order?.items?.[idx];
+    updateItem(oid, idx, {
+      prodKey: prod.ProdKey,
+      prodName: prod.ProdName,
+      displayName: prod.DisplayName,
+      flowerName: prod.FlowerName,
+      counName: prod.CounName,
+      confidence: 99,
+      confidenceLabel: 'high',
+      fromMapping: false,
+      mappingMatchType: 'direct-select',
+      mappingChanged: true,
+      fallbackSuspect: false,
+      prodEditOpen: false,
+      prodSearch: '',
+      prodSearchResults: [],
+    });
+    if (item?.inputName) learnItemMapping({ ...item }, prod);
+  };
+
   const learnItemMapping = (item, prodOverride = null) => {
     const prod = prodOverride || allProducts.find(p => Number(p.ProdKey) === Number(item?.prodKey));
     if (!item?.inputName || !prod) return null;
@@ -2649,6 +2672,7 @@ export default function PasteOrderPage() {
                               const color = isLow ? '#c62828' : conf === 'high' ? '#1b5e20' : '#0d47a1';
                               const bgConf = isLow ? '#ffebee' : conf === 'high' ? '#e8f5e9' : '#e3f2fd';
                               return (
+                                <>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                   <span style={{ color, fontWeight: 600, fontSize: 12 }}>
                                     {icon} {it.displayName || it.prodName}
@@ -2684,11 +2708,42 @@ export default function PasteOrderPage() {
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
                                   {moqText && <span style={{ fontSize: 10, background: '#fff3e0', color: '#ef6c00', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{moqText}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
-                                  <button onClick={() => clearProductMatchForChange(order.id, idx)}
-                                    style={{ fontSize: 10, padding: '1px 5px', background: 'none', border: '1px solid #ddd', borderRadius: 3, cursor: 'pointer', color: '#aaa', marginLeft: 'auto' }}>
-                                    변경
+                                  <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: it.prodEditOpen ? [] : filterProducts(allProducts, it.inputName || '').slice(0, 10) })}
+                                    style={{ fontSize: 10, padding: '1px 6px', background: it.prodEditOpen ? '#1565c0' : 'none', color: it.prodEditOpen ? '#fff' : '#777', border: '1px solid #bbb', borderRadius: 3, cursor: 'pointer', marginLeft: 'auto' }}>
+                                    {it.prodEditOpen ? '닫기' : '✎ 품목변경'}
                                   </button>
                                 </div>
+                                {it.prodEditOpen && (
+                                  <div style={{ marginTop: 5, padding: 6, border: '1px solid #90caf9', borderRadius: 6, background: '#f5fbff' }}>
+                                    <input
+                                      autoFocus
+                                      value={it.prodSearch || ''}
+                                      onChange={e => handleProdSearch(order.id, idx, e.target.value)}
+                                      placeholder="품목명으로 검색 (예: 문라이트, mariposa)"
+                                      style={{ width: '100%', padding: '5px 8px', border: '1px solid #90caf9', borderRadius: 5, fontSize: 12, boxSizing: 'border-box' }}
+                                    />
+                                    <div style={{ maxHeight: 170, overflow: 'auto', marginTop: 4 }}>
+                                      {(it.prodSearchResults || []).length === 0 && (
+                                        <div style={{ fontSize: 11, color: '#90a4ae', padding: 6 }}>검색어를 입력하세요.</div>
+                                      )}
+                                      {(it.prodSearchResults || []).map(p => (
+                                        <button key={p.ProdKey} onClick={() => reassignItemProduct(order.id, idx, p)}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', border: 0, borderBottom: '1px solid #e3f2fd', background: Number(p.ProdKey) === Number(it.prodKey) ? '#e3f2fd' : '#fff', cursor: 'pointer', fontSize: 12 }}>
+                                          <b>{p.DisplayName || p.ProdName}</b>
+                                          <span style={{ color: '#90a4ae', marginLeft: 6, fontSize: 11 }}>{[p.CounName, p.FlowerName].filter(Boolean).join(' · ')}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                                      <button onClick={() => clearProductMatchForChange(order.id, idx)}
+                                        style={{ fontSize: 11, padding: '3px 8px', background: '#fff', border: '1px solid #e57373', color: '#c62828', borderRadius: 4, cursor: 'pointer' }}>
+                                        매칭 해제(미매칭)
+                                      </button>
+                                      <span style={{ fontSize: 10, color: '#78909c', alignSelf: 'center' }}>선택하면 이 입력명은 저장매칭으로 학습됩니다.</span>
+                                    </div>
+                                  </div>
+                                )}
+                                </>
                               );
                             })() : it.skip ? null : (
                               <span style={{ fontSize: 11, color: isCurrentQ ? '#f57f17' : '#bbb' }}>
