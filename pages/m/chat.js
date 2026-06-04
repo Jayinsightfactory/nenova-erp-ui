@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import OrderModifyPanel from '../../components/m/OrderModifyPanel';
+import { getCurrentWeek } from '../../lib/useWeekInput';
 
 function formatWeekDisplayLocal(week) {
   const raw = String(week || '').trim();
@@ -216,8 +217,11 @@ export default function MobileChat() {
       .then(r => r.json())
       .then(d => {
         const list = buildDataWeekOptions((d.weeks || []).filter(Boolean));
-        setWeeks(list);
-        setDirectWeek(prev => (prev && list.includes(toChatOrderWeek(prev)) ? toChatOrderWeek(prev) : (list[0] || '')));
+        // 기본 기준차수 = 오늘 날짜 기준 현재 차수(예: '23-01'). 목록 최대값(52-02 등) 아님.
+        const cur = toChatOrderWeek(getCurrentWeek());
+        const merged = (cur && !list.includes(cur)) ? [cur, ...list] : list;
+        setWeeks(merged);
+        setDirectWeek(prev => (prev && merged.includes(toChatOrderWeek(prev)) ? toChatOrderWeek(prev) : (cur || merged[0] || '')));
       })
       .catch(() => {
         setWeeks([]);
