@@ -44,9 +44,14 @@ async function handler(req, res) {
              ORDER BY sd.SdetailKey ASC
          ) sd
          OUTER APPLY (
-            SELECT SUM(sdt.ShipmentQuantity) AS ShipDateQty
+            SELECT SUM(sdt.ShipmentQuantity) AS ShipDateQty, COUNT(*) AS ShipDateCnt,
+                   COUNT(DISTINCT CONVERT(date, sdt.ShipmentDtm)) AS ShipDateDistinctDtm
               FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey
          ) sdSum
+         OUTER APPLY (
+            SELECT SUM(sf.ShipmentQuantity) AS ShipFarmQty, COUNT(*) AS ShipFarmCnt
+              FROM ShipmentFarm sf WHERE sf.SdetailKey=sd.SdetailKey
+         ) sfSum
         WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
           AND ( c.CustName LIKE @q
                 OR p.ProdName LIKE @q
@@ -62,17 +67,22 @@ async function handler(req, res) {
       const orderQty = Number(x.OrderQty || 0);
       const shipQty = x.ShipQty == null ? null : Number(x.ShipQty);
       const shipDateQty = x.ShipDateQty == null ? null : Number(x.ShipDateQty);
+      const shipFarmQty = x.ShipFarmQty == null ? null : Number(x.ShipFarmQty);
+      const shipFarmCnt = Number(x.ShipFarmCnt || 0);
+      const shipDateCnt = Number(x.ShipDateCnt || 0);
       let status, reason;
       if (shipQty == null) { status = '분배없음'; reason = '주문은 있으나 ShipmentDetail 미생성 → 분배 필요'; }
       else if (shipQty === 0) { status = '분배0'; reason = '분배수량 0 (빈 출고라인)'; }
       else if (!x.ShipDtm) { status = '출고일없음'; reason = 'ShipmentDtm 비어있음 → 전산 분배화면에서 안 보임'; }
+      else if (shipDateCnt === 0) { status = 'ShipmentDate없음'; reason = 'ShipmentDate 행 없음 → 분배화면(거래처목록) INNER JOIN ShipmentDate 에서 누락'; }
       else if (shipDateQty == null || Math.abs((shipDateQty || 0) - shipQty) > 0.001) { status = 'ShipmentDate불일치'; reason = `ShipmentDate합계(${shipDateQty ?? '없음'})≠분배수량(${shipQty})`; }
+      else if (shipFarmCnt === 0) { status = '농장미배정'; reason = 'ShipmentFarm 행 없음 → 농장별 분배 비어있음(웹이 ShipmentFarm 미작성)'; }
       else if (Number(x.ShipCustKey || 0) !== Number(x.MasterCustKey || 0)) { status = 'CustKey불일치'; reason = `상세CustKey(${x.ShipCustKey})≠마스터(${x.MasterCustKey})`; }
       else status = '정상';
       return {
         custName: x.CustName, custKey: x.CustKey,
         prodName: x.DisplayName || x.ProdName, prodKey: x.ProdKey,
-        orderQty, shipQty, shipDateQty,
+        orderQty, shipQty, shipDateQty, shipFarmQty, shipFarmCnt, shipDateCnt,
         shipDtm: x.ShipDtm || null,
         shipCustKey: x.ShipCustKey ?? null,
         masterCustKey: x.MasterCustKey ?? null,

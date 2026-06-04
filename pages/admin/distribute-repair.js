@@ -178,7 +178,7 @@ export default function DistributeRepair() {
           {traceRows && traceRows.length > 0 && (
             <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
               <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
-                <thead><tr>{['업체', '품목', '주문수량', '분배수량', 'ShipDate합계', '출고일', '상태'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                <thead><tr>{['업체', '품목', '주문수량', '분배수량', 'ShipDate합계', 'ShipFarm', '출고일', '상태'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
                 <tbody>
                   {traceRows.map((r, i) => {
                     const bad = r.status !== '정상';
@@ -189,6 +189,7 @@ export default function DistributeRepair() {
                         <td style={td}>{r.orderQty}</td>
                         <td style={{ ...td, fontWeight: 700, color: r.shipQty == null ? '#c0392b' : '#1b5e20' }}>{r.shipQty == null ? '없음' : r.shipQty}</td>
                         <td style={td}>{r.shipDateQty == null ? '-' : r.shipDateQty}</td>
+                        <td style={{ ...td, color: (r.shipFarmCnt === 0 && r.shipQty) ? '#c0392b' : '#607d8b', fontWeight: r.shipFarmCnt === 0 && r.shipQty ? 700 : 400 }}>{r.shipFarmCnt === 0 ? '없음' : r.shipFarmQty}</td>
                         <td style={td}>{r.shipDtm || '-'}</td>
                         <td style={{ ...td, color: bad ? '#c0392b' : '#2e7d32', fontWeight: 700 }} title={r.reason}>{r.status}</td>
                       </tr>
