@@ -26,7 +26,8 @@ async function handler(req, res) {
               sd.SdetailKey,
               ISNULL(sm.isDeleted,0)                           AS MasterDeleted,
               ISNULL(sm.isFix,0)                               AS MasterFix,
-              sdSum.ShipDateQty
+              sdSum.ShipDateQty, sdSum.ShipDateCnt, sdSum.ShipDateDistinctDtm,
+              sfSum.ShipFarmQty, sfSum.ShipFarmCnt
          FROM OrderMaster om
          JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
          JOIN Customer c ON c.CustKey=om.CustKey
