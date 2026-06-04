@@ -14,10 +14,20 @@ import { normalizeOrderWeek } from '../../../lib/orderUtils';
 // 전산 포맷 식 (OrderWeek 에 '-' 없으면 전체 사용)
 const CORRECT = (t) => `${t}.OrderYear + LEFT(${t}.OrderWeek, CHARINDEX('-', ${t}.OrderWeek + '-') - 1)`;
 
+async function colExists(table, column) {
+  const r = await query(
+    `SELECT CASE WHEN COL_LENGTH(@t, @c) IS NULL THEN 0 ELSE 1 END AS h`,
+    { t: { type: sql.NVarChar, value: `dbo.${table}` }, c: { type: sql.NVarChar, value: column } }
+  );
+  return Number(r.recordset[0]?.h || 0) === 1;
+}
+
 async function handler(req, res) {
   const week = normalizeOrderWeek(req.query?.week || req.body?.week || '');
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   const uid = req.user?.userId || 'system';
+  // OrderMaster 에는 OrderYearWeek 컬럼이 없을 수 있음(환경별). ShipmentMaster 만 견적에 쓰임.
+  const omHasCol = await colExists('OrderMaster', 'OrderYearWeek');
 
   try {
     if (req.method === 'GET') {
@@ -29,15 +39,19 @@ async function handler(req, res) {
           ORDER BY c.CustName`,
         { wk: { type: sql.NVarChar, value: week } }
       );
-      const om = await query(
-        `SELECT COUNT(*) AS cnt FROM OrderMaster om
-          WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
-        { wk: { type: sql.NVarChar, value: week } }
-      );
+      let orderMismatch = 0;
+      if (omHasCol) {
+        const om = await query(
+          `SELECT COUNT(*) AS cnt FROM OrderMaster om
+            WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
+          { wk: { type: sql.NVarChar, value: week } }
+        );
+        orderMismatch = Number(om.recordset[0]?.cnt || 0);
+      }
       return res.status(200).json({
-        success: true, week,
+        success: true, week, omHasCol,
         shipmentMismatch: sm.recordset.length,
-        orderMismatch: Number(om.recordset[0]?.cnt || 0),
+        orderMismatch,
         sample: sm.recordset.slice(0, 30),
       });
     }
@@ -51,15 +65,19 @@ async function handler(req, res) {
             WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND sm.OrderYearWeek <> ${CORRECT('sm')}`,
           { wk: { type: sql.NVarChar, value: week } }
         );
-        const omU = await tQ(
-          `UPDATE om SET om.OrderYearWeek = ${CORRECT('om')}, om.LastUpdateID=@uid, om.LastUpdateDtm=GETDATE()
-             FROM OrderMaster om
-            WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
-          { wk: { type: sql.NVarChar, value: week }, uid: { type: sql.NVarChar, value: uid } }
-        );
+        let orderUpdated = 0;
+        if (omHasCol) {
+          const omU = await tQ(
+            `UPDATE om SET om.OrderYearWeek = ${CORRECT('om')}, om.LastUpdateID=@uid, om.LastUpdateDtm=GETDATE()
+               FROM OrderMaster om
+              WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
+            { wk: { type: sql.NVarChar, value: week }, uid: { type: sql.NVarChar, value: uid } }
+          );
+          orderUpdated = omU.rowsAffected?.[0] || 0;
+        }
         return {
           shipmentUpdated: smU.rowsAffected?.[0] || 0,
-          orderUpdated: omU.rowsAffected?.[0] || 0,
+          orderUpdated,
         };
       });
       return res.status(200).json({
