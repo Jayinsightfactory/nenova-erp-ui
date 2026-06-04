@@ -157,6 +157,7 @@ export default function MobileChat() {
   const [productQuery, setProductQuery] = useState('');
   const [productOptions, setProductOptions] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [directQty, setDirectQty] = useState('');
   const scrollRef = useRef(null);
 
   // ── localStorage 영속 히스토리 키
@@ -388,6 +389,45 @@ export default function MobileChat() {
     }, { directAnswerOnly: true });
   }
 
+  async function handleOrderAdd() {
+    const week = toChatOrderWeek(directWeek);
+    const cust = selectedCustomer;
+    const prod = selectedProduct;
+    const qty = parseFloat(directQty);
+    if (!week || !cust?.CustKey || !prod?.ProdKey || !(qty > 0) || sending) return;
+    const unit = prod.OutUnit || '단';
+    const nm = prod.DisplayName || prod.ProdName;
+    const year = (week.match(/^(\d{4})-/) || [])[1] || String(new Date().getFullYear());
+    const snap = async () => {
+      try {
+        const r = await fetch(`/api/orders?custName=${encodeURIComponent(cust.CustName)}&week=${encodeURIComponent(week)}`, { credentials: 'include' });
+        const d = await r.json();
+        const o = d.orders?.find(x => x.custName === cust.CustName) || d.orders?.[0];
+        const it = (o?.items || []).find(i => Number(i.prodKey) === Number(prod.ProdKey));
+        return it ? Number(it.qty || 0) : 0;
+      } catch { return null; }
+    };
+    setSending(true);
+    try {
+      const before = await snap();
+      const res = await fetch('/api/orders', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custKey: cust.CustKey, week, year, items: [{ prodKey: prod.ProdKey, prodName: nm, qty, unit }], delta: true, source: 'chat-add' }),
+      });
+      const d = await res.json();
+      const after = await snap();
+      const content = d.success
+        ? `✅ ${cust.CustName} · ${formatWeekDisplayLocal(week)} 주문추가\n${nm} +${qty}${unit}\n수량: ${before == null ? '?' : before} → ${after == null ? '?' : after}${unit}`
+        : `❌ 주문추가 실패: ${d.error || '알 수 없는 오류'}`;
+      setMessages(prev => [...prev, { role: 'bot', type: 'text', content, ts: Date.now() }]);
+      if (d.success) setDirectQty('');
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'bot', type: 'text', content: `❌ 주문추가 오류: ${e.message || e}`, ts: Date.now() }]);
+    } finally {
+      setSending(false);
+    }
+  }
+
   if (!authChecked) {
     return (
       <div className="m-loading">
@@ -465,6 +505,9 @@ export default function MobileChat() {
         productOptions={productOptions}
         selectedProduct={selectedProduct}
         setSelectedProduct={setSelectedProduct}
+        directQty={directQty}
+        setDirectQty={setDirectQty}
+        onOrderAdd={handleOrderAdd}
         sending={sending}
         onRun={sendDirect}
         onOpenModify={() => { setDirectOpen(false); setModifyOpen(true); }}
@@ -657,6 +700,9 @@ function DirectLookupPanel({
   productOptions,
   selectedProduct,
   setSelectedProduct,
+  directQty,
+  setDirectQty,
+  onOrderAdd,
   sending,
   onRun,
   onOpenModify,
@@ -677,10 +723,9 @@ function DirectLookupPanel({
           {/* 기준차수만으로 바로 결과 — 패스트 트랙 */}
           <div className="m-direct-actions fast">
             <button type="button" disabled={sending || !week} onClick={() => onRun('stock')}>📦 재고확인</button>
-            <button type="button" disabled={sending || !week} onClick={() => onRun('order')}>📋 주문확인</button>
             <button type="button" disabled={sending || !week} onClick={onOpenModify}>✏️ 주문수정</button>
           </div>
-          <div className="m-direct-sub">아래에서 업체·품목을 선택하면 출고량·농장 확인이 활성화됩니다</div>
+          <div className="m-direct-sub">업체 선택 → 출고량·주문확인 / 품목+수량 선택 → 농장확인·주문추가</div>
 
           <WeekSelectField
             label="출고 합산차수"
@@ -721,21 +766,30 @@ function DirectLookupPanel({
             onPick={(p) => { setSelectedProduct(p); setProductQuery(p.DisplayName || p.ProdName || ''); }}
           />
 
+          {/* 수량 + 주문추가: 품목·수량 + 업체 선택 시 그 수량만큼 주문 추가 */}
+          <div className="m-qty-row">
+            <span className="m-qty-label">수량</span>
+            <input
+              className="m-qty-input"
+              type="number" min="0" inputMode="decimal"
+              value={directQty}
+              onChange={e => setDirectQty(e.target.value)}
+              placeholder={selectedProduct ? `${selectedProduct.OutUnit || '단'} 단위 수량` : '품목 먼저 선택'}
+            />
+            <button
+              type="button"
+              className="m-add-btn"
+              disabled={sending || !week || !selectedCustomer || !selectedProduct || !(parseFloat(directQty) > 0)}
+              onClick={onOrderAdd}
+            >
+              ➕ 주문추가
+            </button>
+          </div>
+
           <div className="m-direct-actions">
-            <button
-              type="button"
-              disabled={sending || !week || !selectedCustomer}
-              onClick={() => onRun('shipment')}
-            >
-              🚚 출고량확인
-            </button>
-            <button
-              type="button"
-              disabled={sending || !week || !selectedProduct}
-              onClick={() => onRun('farm')}
-            >
-              🌾 농장확인
-            </button>
+            <button type="button" disabled={sending || !week || !selectedCustomer} onClick={() => onRun('shipment')}>🚚 출고량확인</button>
+            <button type="button" disabled={sending || !week || !selectedCustomer} onClick={() => onRun('order')}>📋 주문확인</button>
+            <button type="button" disabled={sending || !week || !selectedProduct} onClick={() => onRun('farm')}>🌾 농장확인</button>
           </div>
         </div>
       )}
@@ -811,6 +865,11 @@ function DirectLookupPanel({
         .m-direct-actions button:nth-child(3) { background: #7c3aed; }
         .m-direct-actions.fast button:nth-child(3) { background: #ea580c; }
         .m-direct-sub { font-size: 10px; color: #64748b; font-weight: 700; text-align: center; margin: -2px 0 2px; }
+        .m-qty-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+        .m-qty-label { font-size: 11px; color: #475569; font-weight: 800; }
+        .m-qty-input { min-height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 10px; font-size: 14px; width: 100%; }
+        .m-add-btn { min-height: 36px; border: 0; border-radius: 8px; background: #16a34a; color: #fff; font-size: 12px; font-weight: 900; padding: 0 12px; white-space: nowrap; cursor: pointer; }
+        .m-add-btn:disabled { background: #cbd5e1; }
         .m-direct-actions button:disabled {
           background: #cbd5e1;
           color: #64748b;
