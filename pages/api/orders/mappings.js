@@ -3,11 +3,19 @@
 // POST { inputToken, prodKey, prodName, displayName, flowerName, counName } → 매핑 저장
 
 import { withAuth } from '../../../lib/auth';
-import { loadMappings, saveMapping, normalizeToken } from '../../../lib/parseMappings';
+import { loadMappings, saveMapping, deleteMapping, normalizeToken } from '../../../lib/parseMappings';
 
 export default withAuth(function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({ success: true, mappings: loadMappings() });
+  }
+
+  if (req.method === 'DELETE') {
+    const key = (req.query.key || req.body?.key || '').toString();
+    if (!key) return res.status(400).json({ success: false, error: 'key 필요' });
+    const result = deleteMapping(key);
+    if (!result.deleted) return res.status(404).json({ success: false, error: result.reason || '삭제 실패' });
+    return res.status(200).json({ success: true, key: result.key });
   }
 
   if (req.method === 'POST') {

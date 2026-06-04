@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
+import MappingStatusModal from '../../components/orders/MappingStatusModal';
+import PasteHighlight from '../../components/orders/PasteHighlight';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
@@ -757,6 +759,8 @@ export default function PasteOrderPage() {
   const WEEK_PAGE_SIZE = 6;
   const [showOldWeeks, setShowOldWeeks] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [showHighlight, setShowHighlight] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState([]);
   const [parseError, setParseError] = useState('');
@@ -2197,6 +2201,20 @@ export default function PasteOrderPage() {
             주문즐겨찾기
           </button>
           <button
+            onClick={() => setShowMapModal(true)}
+            style={{ padding: '6px 16px', background: '#00897b', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            title="저장된 품목/거래처 매칭을 보고 중복을 삭제합니다."
+          >
+            🗂 매칭 현황
+          </button>
+          <button
+            onClick={() => setShowHighlight(v => !v)}
+            style={{ padding: '6px 16px', background: showHighlight ? '#6a1b9a' : '#9c27b0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            title="붙여넣기 텍스트를 차수/추가·취소/거래처/품목 색으로 표시합니다."
+          >
+            🖍 하이라이트 {showHighlight ? 'ON' : 'OFF'}
+          </button>
+          <button
             onClick={openWeekPivot}
             style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
@@ -2311,6 +2329,7 @@ export default function PasteOrderPage() {
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
+            {showHighlight && <PasteHighlight text={pasteText} customers={allCustomers} />}
           </div>
 
           <div style={{ border: '1px solid #b8c7d9', borderRadius: 8, padding: 12, background: '#f8fbff', minWidth: 0 }}>
@@ -3138,6 +3157,7 @@ export default function PasteOrderPage() {
           </div>
         </div>
       )}
+      <MappingStatusModal open={showMapModal} onClose={() => setShowMapModal(false)} />
     </Layout>
   );
 }
