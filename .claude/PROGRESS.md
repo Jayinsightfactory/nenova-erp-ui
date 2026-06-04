@@ -4,6 +4,34 @@
 
 ---
 
+## [2026-06-04] 세션 — 출고분배 거래처 누락/분배 안 보임 종합 수정 (dnSpy 근본원인)
+
+### 작업 내용
+- **근본원인 확정**: nenova.exe 출고분배 grid 원천 `ViewOrder` 가 `INNER JOIN UserInfo ON om.Manager=ui.UserID`.
+  웹이 `OrderMaster.Manager` 에 `'관리자'`(UserName) 를 넣어(UserID='admin' 이어야 함) 웹전용 주문이
+  ViewOrder 에서 탈락 → 전산 분배 grid 에 거래처(아이엠/수아레) 안 뜸 → 분배 입력 불가.
+- `e348379` Manager 를 `UserInfo`(UserName='관리자')→UserID(fallback 'admin') 로 해석 저장 (adjust.js, orders POST)
+  + 기존 깨진 주문 정정 API/버튼(`order-manager-fix`)
+- `0408f06` adjust UPDATE 출고일(ShipmentDtm) 강제 정정(분배 다른 날짜 박힘 방지)
+- `de197d0` adjust UPDATE ShipmentDetail.CustKey 강제 일치
+- `3c62951` 일괄분배 미매칭 품목 확인창 경고
+- 진단/보정 도구 `/admin/distribute-repair` 신설(item-trace, distribute-diagnose 연동, ghost-master-cleanup)
+- `aed3cf1` ShipmentDetail.isDeleted 참조 제거(실제 컬럼 없음 → SQL 500)
+
+### 변경된 파일
+- `pages/api/shipment/adjust.js`, `pages/api/orders/index.js`: Manager=UserID, 출고일/CustKey 강제, 비고 최신2건
+- `pages/api/shipment/order-manager-fix.js`, `item-trace.js`, `ghost-master-cleanup.js`: 신규(진단/보정)
+- `pages/admin/distribute-repair.js`: 신규(통합 진단/보정 페이지)
+- `docs/SHIPMENT_DISTRIBUTE_VISIBILITY_FIX_2026-06-04.md`: 신규(상세 회고)
+
+### 다음 작업 예정
+- 웹 분배가 `ShipmentFarm`(농장별 배정)도 작성하도록 — nenova.exe btnSave 구조 확인 후.
+
+### 미결 이슈 / 블로킹
+- "농장미배정"(ShipmentFarm 없음)은 거래처/수량은 전산에 정상 표시되나 농장별 배정만 비어있음 — 별도 과제.
+
+---
+
 ## [2026-04-24] 세션 #3 — 붙여넣기 학습/파서 dangling 복구 + .claude/ 문서 체계 도입
 
 ### 작업 내용

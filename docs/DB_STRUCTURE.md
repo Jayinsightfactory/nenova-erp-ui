@@ -81,7 +81,7 @@
 - **`OutQuantity`** — OutUnit 기준 **단일값** (환산 아님, 또 환산 금지)
 - `Amount` (공급가), `Cost` (원가), `Vat`
 - `Descr` NVARCHAR — 메모 + 자동 변경 로그 (TR_ShipmentDetail_OutQty_Log 트리거가 OutQuantity 변경 시 자동 append)
-- `isDeleted`
+- ⚠️ **`isDeleted` 컬럼 없음** (원본 ShipmentDetail 엔 isDeleted/Cost·아님 주의: Cost/Amount/Vat 는 있음, **isDeleted 는 없음**). `sd.isDeleted` 쿼리하면 `Invalid column name 'isDeleted'` SQL 500. 전산 `ViewShipment` 도 sd.isDeleted 를 안 봄. (2026-06-04 확인)
 
 > **환산 공식 (단일, 절대 바꾸지 말 것)** — `shipment/distribute.js`, `shipment/stock-status.js`
 > ```js
