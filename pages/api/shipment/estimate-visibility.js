@@ -31,8 +31,13 @@ async function handler(req, res) {
               CASE WHEN om.OrderMasterKey IS NULL THEN 0 ELSE 1 END AS OrderOK,
               CASE WHEN ui.UserID IS NULL THEN 0 ELSE 1 END AS ManagerOK,
               (SELECT COUNT(*) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateCnt,
+              -- 전산 견적은 sdd.ShipmentDtm = pd.BaseYmd 정확(시각 포함) 매칭. 날짜만 맞고 시각 다르면 탈락.
+              (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON pd.BaseYmd = sdt.ShipmentDtm
+                 WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodExactCnt,
               (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON CONVERT(date,pd.BaseYmd)=CONVERT(date,sdt.ShipmentDtm)
-                 WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodDayCnt
+                 WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodDateCnt,
+              (SELECT TOP 1 CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateRaw,
+              (SELECT TOP 1 CONVERT(NVARCHAR(30), pd.BaseYmd, 121) FROM PeriodDay pd WHERE CONVERT(date,pd.BaseYmd)=CONVERT(date,sd.ShipmentDtm)) AS PeriodRaw
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
@@ -61,14 +66,22 @@ async function handler(req, res) {
       if (Number(x.OrderOK) === 0) reasons.push('해당 업체/차수 주문(OrderMaster)이 없음');
       else if (Number(x.ManagerOK) === 0) reasons.push(`주문 Manager '${x.Manager || '(빈값)'}' 가 UserInfo.UserID 에 없음`);
       if (Number(x.ShipDateCnt) === 0) reasons.push('ShipmentDate 행 없음');
-      else if (Number(x.PeriodDayCnt) === 0) reasons.push(`출고일 '${x.ShipDtm}' 이 PeriodDay(영업일)에 없음`);
+      else if (Number(x.PeriodExactCnt) === 0) {
+        if (Number(x.PeriodDateCnt) > 0) {
+          reasons.push(`출고일 시각 불일치: ShipmentDate=${x.ShipDateRaw} vs PeriodDay=${x.PeriodRaw} (전산은 정확매칭 → 견적 탈락)`);
+        } else {
+          reasons.push(`출고일 '${x.ShipDtm}' 이 PeriodDay(영업일)에 없음`);
+        }
+      }
       const visible = reasons.length === 0;
       return {
         custName: x.CustName, prodName: x.ProdName, counName: x.CounName, flowerName: x.FlowerName,
         outQty: Number(x.OutQuantity || 0), estQty: Number(x.EstQuantity || 0),
         shipDtm: x.ShipDtm, isFix: Number(x.SmFix), sdetailKey: x.SdetailKey,
         countryOK: Number(x.CountryOK) === 1, managerOK: Number(x.ManagerOK) === 1,
-        shipDateCnt: Number(x.ShipDateCnt), periodDayCnt: Number(x.PeriodDayCnt),
+        shipDateCnt: Number(x.ShipDateCnt),
+        periodExactCnt: Number(x.PeriodExactCnt), periodDateCnt: Number(x.PeriodDateCnt),
+        shipDateRaw: x.ShipDateRaw, periodRaw: x.PeriodRaw,
         manager: x.Manager,
         visibleInEstimate: visible,
         reason: visible ? '정상(견적 노출)' : reasons.join(' / '),
