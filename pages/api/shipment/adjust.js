@@ -12,6 +12,7 @@ import { withTransaction, query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -625,7 +626,8 @@ async function postAdjust(req, res) {
                 ISNULL(BunchQuantity,0) AS curBunch,
                 ISNULL(SteamQuantity,0) AS curSteam,
                 ISNULL(OutQuantity,0)   AS curOut,
-                ISNULL(Cost,0)          AS curCost
+                ISNULL(Cost,0)          AS curCost,
+                ISNULL(Descr,'')        AS curDescr
            FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
@@ -691,15 +693,16 @@ async function postAdjust(req, res) {
       }
 
       if (targetSdk) {
-        const conciseLog = `붙여넣기분배 ${fmtQty(qtyBefore)}>${fmtQty(qtyAfter)}(${formatSignedQty(qtyAfter - qtyBefore)})`;
+        // 전산 비고(Descr): "담당자+이전>이후" 항목을 맨 뒤 2건만 콤마로 표기(최신화).
+        //   예) "임16>12,임12>14"  — 전체 이력은 ShipmentHistory 에 별도 보존.
+        const entry = changeEntry(userName, qtyBefore, qtyAfter);
+        const prevDescr = sdRow ? String(sdRow.curDescr || '') : '';
+        const newDescr = appendDescr(prevDescr, entry);
         await tQ(
-          `UPDATE ShipmentDetail
-              SET Descr = ISNULL(NULLIF(Descr,''), '') +
-                          CASE WHEN ISNULL(Descr,'')='' THEN '' ELSE CHAR(10) END + @descr
-            WHERE SdetailKey=@dk`,
+          `UPDATE ShipmentDetail SET Descr=@descr WHERE SdetailKey=@dk`,
           {
             dk:    { type: sql.Int,      value: targetSdk },
-            descr: { type: sql.NVarChar, value: conciseLog },
+            descr: { type: sql.NVarChar, value: newDescr },
           }
         );
         await insertShipmentHistory(
@@ -707,7 +710,7 @@ async function postAdjust(req, res) {
           targetSdk,
           String(outQBefore),
           String(outQAfter),
-          conciseLog,
+          entry,
           uid
         );
       }

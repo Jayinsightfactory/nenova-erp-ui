@@ -7,6 +7,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { changeEntry } from '../../../lib/shipmentDescr';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -443,6 +444,7 @@ async function saveDistribute(req, res) {
   const { week: rawWeek, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
     const uid = req.user?.userId || 'system';
+    const userName = req.user?.userName || uid;
     const week = normalizeOrderWeek(rawWeek);
     const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
     const ywk = orderYear + (week||'').replace('-','');
@@ -573,7 +575,8 @@ async function saveDistribute(req, res) {
             : (bunchQty > 0 ? bunchQty : steamQty > 0 ? steamQty : boxQty);
         const amount = Math.round(amtBase * unitCost / 1.1);
         const vat    = Math.round(amtBase * unitCost / 11);
-        const logEntry = `출고분배 ${oldQty}>${qty}`;
+        // 전산 비고: "담당자+이전>이후" (신규 분배 단건). 예) "임0>12"
+        const logEntry = changeEntry(userName, oldQty, qty);
 
         const newSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
           await tQuery(
