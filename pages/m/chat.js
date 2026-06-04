@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import OrderModifyPanel from '../../components/m/OrderModifyPanel';
 
 function formatWeekDisplayLocal(week) {
   const raw = String(week || '').trim();
@@ -144,6 +145,8 @@ export default function MobileChat() {
   const [sending, setSending] = useState(false);
   const [loadingStage, setLoadingStage] = useState(''); // 로딩 단계 표시
   const [directOpen, setDirectOpen] = useState(true);
+  const [modifyOpen, setModifyOpen] = useState(false);
+  const [modifyWeek, setModifyWeek] = useState('');
   const [weeks, setWeeks] = useState([]);
   const [directWeek, setDirectWeek] = useState('');
   const [shipmentWeek2, setShipmentWeek2] = useState('');
@@ -449,6 +452,14 @@ export default function MobileChat() {
         setSelectedProduct={setSelectedProduct}
         sending={sending}
         onRun={sendDirect}
+      />
+
+      <OrderModifyPanel
+        open={modifyOpen}
+        setOpen={setModifyOpen}
+        weeks={weeks}
+        week={modifyWeek}
+        setWeek={setModifyWeek}
       />
 
       {/* 메시지 영역 */}
