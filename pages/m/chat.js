@@ -1056,7 +1056,7 @@ function WeekWheel({ weeks, value, onChange }) {
 
 function SearchPickField({ label, value, setValue, placeholder, selectedText, onClear, options, optionKey, renderOption, onPick }) {
   return (
-    <label className="m-pick-field">
+    <div className="m-pick-field">
       <span>{label}</span>
       {selectedText ? (
         <div className="m-picked">
@@ -1076,6 +1076,7 @@ function SearchPickField({ label, value, setValue, placeholder, selectedText, on
                 <button
                   type="button"
                   key={o[optionKey]}
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => onPick(o)}
                 >
                   {renderOption(o)}
@@ -1158,7 +1159,7 @@ function SearchPickField({ label, value, setValue, placeholder, selectedText, on
         }
         .m-pick-list button:active { background: #eff6ff; }
       `}</style>
-    </label>
+    </div>
   );
 }
 
