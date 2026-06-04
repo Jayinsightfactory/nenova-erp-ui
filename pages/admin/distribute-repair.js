@@ -56,11 +56,13 @@ export default function DistributeRepair() {
   const [estQ, setEstQ] = useState('');
   const [estData, setEstData] = useState(null);
   const [estBusy, setEstBusy] = useState(false);
-  const runEstCheck = async () => {
+  const runEstCheck = async (weeksArg) => {
     if (!estQ.trim()) { alert('품목/국가/업체 키워드를 입력하세요.'); return; }
     setEstBusy(true); setErr(''); setEstData(null);
-    try { setEstData(await apiGet('/api/shipment/estimate-visibility', { week, q: estQ.trim() })); }
-    catch (e) { setErr(e.message || String(e)); }
+    try {
+      const params = weeksArg ? { weeks: weeksArg, q: estQ.trim() } : { week, q: estQ.trim() };
+      setEstData(await apiGet('/api/shipment/estimate-visibility', params));
+    } catch (e) { setErr(e.message || String(e)); }
     finally { setEstBusy(false); }
   };
 
@@ -353,7 +355,8 @@ export default function DistributeRepair() {
             <input value={estQ} onChange={e => setEstQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') runEstCheck(); }}
               placeholder="품목/국가/업체 키워드" style={{ ...inp, width: 220, marginLeft: 0 }} />
             <span style={{ fontSize: 12, color: '#90a4ae' }}>차수 {week}</span>
-            <button onClick={runEstCheck} disabled={estBusy} style={btnPrimary}>{estBusy ? '진단 중…' : '🔍 견적 노출 진단'}</button>
+            <button onClick={() => runEstCheck()} disabled={estBusy} style={btnPrimary}>{estBusy ? '진단 중…' : '🔍 견적 노출 진단'}</button>
+            <button onClick={() => runEstCheck('21-01,22-01,23-01')} disabled={estBusy} style={btnRepairAlt}>21·22·23차 비교</button>
           </div>
           {estData && (
             <>
@@ -363,10 +366,11 @@ export default function DistributeRepair() {
               {estData.rows?.length > 0 ? (
                 <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
                   <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
-                    <thead><tr>{['업체', '품목', '국가', '확정', '출고수량', '출고일', 'ViewShip', 'ViewOrder', '견적노출', '사유'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['차수', '업체', '품목', '국가', '확정', '출고수량', '출고일', 'ViewShip', 'ViewOrder', '견적노출', '사유'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {estData.rows.map((r, i) => (
                         <tr key={i} style={r.visibleInEstimate ? {} : { background: '#ffe0e0' }}>
+                          <td style={{ ...td, fontWeight: 700 }}>{r.week}</td>
                           <td style={td}>{r.custName}</td>
                           <td style={td}>{r.prodName}</td>
                           <td style={td}>{r.counName || '-'}</td>

@@ -12,14 +12,18 @@ import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
-  const week = normalizeOrderWeek(req.query.week || '');
   const q = String(req.query.q || '').trim();
-  if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+  // week 또는 weeks(콤마) 지원 — 여러 차수 비교
+  const rawWeeks = String(req.query.weeks || req.query.week || '').split(',').map(w => normalizeOrderWeek(w.trim())).filter(Boolean);
+  if (rawWeeks.length === 0) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!q) return res.status(400).json({ success: false, error: '검색어 필요' });
+  const wkParams = {};
+  rawWeeks.forEach((w, i) => { wkParams[`w${i}`] = { type: sql.NVarChar, value: w }; });
+  const wkIn = rawWeeks.map((_, i) => `@w${i}`).join(',');
 
   try {
     const r = await query(
-      `SELECT TOP 200
+      `SELECT TOP 400
               c.CustName, p.ProdName, p.CounName, p.FlowerName,
               sm.CustKey, sd.ProdKey, sm.OrderWeek,
               ISNULL(sm.isFix,0) AS SmFix, sd.OutQuantity, sd.EstQuantity, sd.SdetailKey,
@@ -39,11 +43,11 @@ async function handler(req, res) {
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
          JOIN Customer c ON c.CustKey=sm.CustKey
-        WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+        WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
           AND ( p.ProdName LIKE @q OR ISNULL(p.CounName,'') LIKE @q
                 OR ISNULL(p.FlowerName,'') LIKE @q OR c.CustName LIKE @q )
-        ORDER BY p.CounName, p.ProdName, c.CustName`,
-      { wk: { type: sql.NVarChar, value: week }, q: { type: sql.NVarChar, value: `%${q}%` } }
+        ORDER BY p.ProdName, sm.OrderWeek, c.CustName`,
+      { ...wkParams, q: { type: sql.NVarChar, value: `%${q}%` } }
     );
 
     const rows = (r.recordset || []).map(x => {
@@ -64,6 +68,7 @@ async function handler(req, res) {
       }
       const visible = reasons.length === 0;
       return {
+        week: x.OrderWeek,
         custName: x.CustName, prodName: x.ProdName, counName: x.CounName,
         outQty: Number(x.OutQuantity || 0), estQty: Number(x.EstQuantity || 0),
         shipDtm: x.ShipDtm, isFix: Number(x.SmFix), sdetailKey: x.SdetailKey,
@@ -75,7 +80,7 @@ async function handler(req, res) {
     });
 
     return res.status(200).json({
-      success: true, week, q,
+      success: true, weeks: rawWeeks, q,
       count: rows.length,
       hiddenCount: rows.filter(x => !x.visibleInEstimate).length,
       rows,
