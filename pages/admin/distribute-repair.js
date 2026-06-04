@@ -366,7 +366,7 @@ export default function DistributeRepair() {
               {estData.rows?.length > 0 ? (
                 <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
                   <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
-                    <thead><tr>{['차수', '업체', '품목', '국가', '확정', '출고수량', '출고일', 'ViewShip', 'ViewOrder', '견적노출', '사유'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['차수', '업체', '품목', '국가', '확정', '출고수량', '출고일', 'Web', 'YearWeek2', 'ViewShip', 'ViewOrder', '견적노출', '사유'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {estData.rows.map((r, i) => (
                         <tr key={i} style={r.visibleInEstimate ? {} : { background: '#ffe0e0' }}>
@@ -377,10 +377,12 @@ export default function DistributeRepair() {
                           <td style={{ ...td, color: r.isFix ? '#2e7d32' : '#90a4ae' }}>{r.isFix ? '확정' : '·'}</td>
                           <td style={td}>{r.outQty}</td>
                           <td style={td}>{r.shipDtm || '-'}</td>
+                          <td style={{ ...td, color: r.webCreated ? '#e65100' : '#90a4ae' }}>{r.webCreated ? '웹' : '전산'}</td>
+                          <td style={td}>{r.vsYW2 || '-'}</td>
                           <td style={{ ...td, color: r.inViewShipment ? '#2e7d32' : '#b71c1c', fontWeight: 700 }}>{r.inViewShipment ? 'O' : 'X'}</td>
                           <td style={{ ...td, color: r.inViewOrder ? '#2e7d32' : '#b71c1c', fontWeight: 700 }}>{r.inViewOrder ? 'O' : 'X'}</td>
                           <td style={{ ...td, color: r.visibleInEstimate ? '#2e7d32' : '#b71c1c', fontWeight: 700 }}>{r.visibleInEstimate ? '노출' : '누락'}</td>
-                          <td style={{ ...td, color: r.visibleInEstimate ? '#607d8b' : '#b71c1c', maxWidth: 360, whiteSpace: 'normal' }}>{r.reason}</td>
+                          <td style={{ ...td, color: r.visibleInEstimate ? '#607d8b' : '#b71c1c', maxWidth: 340, whiteSpace: 'normal' }}>{r.reason}</td>
                         </tr>
                       ))}
                     </tbody>

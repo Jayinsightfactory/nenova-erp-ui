@@ -38,7 +38,16 @@ async function handler(req, res) {
               (SELECT COUNT(*) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateCnt,
               (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON pd.BaseYmd=sdt.ShipmentDtm WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodExactCnt,
               (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON CONVERT(date,pd.BaseYmd)=CONVERT(date,sdt.ShipmentDtm) WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodDateCnt,
-              (SELECT TOP 1 CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateRaw
+              (SELECT TOP 1 CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateRaw,
+              ISNULL(sm.WebCreated,0) AS WebCreated, sm.OrderYearWeek AS SmYW, sm.OrderYear AS SmYear,
+              (SELECT TOP 1 vs.OrderYearWeek2 FROM ViewShipment vs WHERE vs.SdetailKey=sd.SdetailKey) AS VS_YW2,
+              -- 실제 GetDetail 조인(ViewShipment⨝ViewOrder⨝ShipmentDate⨝PeriodDay)을 이 SdetailKey 로 그대로 재현
+              (SELECT COUNT(*)
+                 FROM ViewShipment vs
+                 JOIN ViewOrder vo ON vs.OrderYearWeek2 = vo.OrderYearWeek2
+                 JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
+                 JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
+                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetail
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
@@ -66,13 +75,21 @@ async function handler(req, res) {
           ? `출고일 시각 불일치(ShipmentDate=${x.ShipDateRaw}) — PeriodDay 정확매칭 실패`
           : `출고일 '${x.ShipDtm}' 이 PeriodDay 에 없음`);
       }
-      const visible = reasons.length === 0;
+      // 실제 견적 조인 재현 결과가 최종 판정
+      const inGetDetail = Number(x.InGetDetail) > 0;
+      if (inGetDetail && reasons.length === 0) {
+        // 모든 개별 조건 통과 + 실제 조인도 통과
+      } else if (!inGetDetail && reasons.length === 0) {
+        reasons.push(`실제 견적조인(GetDetail) 탈락 — 개별조건은 통과인데 조인 결과 0 (OrderYearWeek2='${x.VS_YW2}' 로 ViewOrder 매칭 실패 의심)`);
+      }
+      const visible = inGetDetail;
       return {
         week: x.OrderWeek,
         custName: x.CustName, prodName: x.ProdName, counName: x.CounName,
         outQty: Number(x.OutQuantity || 0), estQty: Number(x.EstQuantity || 0),
         shipDtm: x.ShipDtm, isFix: Number(x.SmFix), sdetailKey: x.SdetailKey,
-        inViewShipment: inVS, inViewOrder: inVO, orderDetailRaw: ordRaw,
+        inViewShipment: inVS, inViewOrder: inVO, orderDetailRaw: ordRaw, inGetDetail,
+        webCreated: Number(x.WebCreated), smYW: x.SmYW, vsYW2: x.VS_YW2,
         shipDateCnt: Number(x.ShipDateCnt), periodExactCnt: Number(x.PeriodExactCnt), periodDateCnt: Number(x.PeriodDateCnt),
         visibleInEstimate: visible,
         reason: visible ? '정상(견적 노출)' : reasons.join(' / '),
