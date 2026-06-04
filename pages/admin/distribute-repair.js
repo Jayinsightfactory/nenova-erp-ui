@@ -42,6 +42,7 @@ export default function DistributeRepair() {
   const s = diag?.summary || {};
   const baseRows = diag?.shipmentDateBaseMismatch || [];
   const custRows = diag?.missingCustKey || [];
+  const dateRows = diag?.shipmentDateMismatch || [];
 
   return (
     <Layout>
@@ -107,8 +108,22 @@ export default function DistributeRepair() {
                   rows={custRows.map(r => [r.MasterCustKey, r.DetailCustKey, r.ProdName, r.OutQuantity])} />
               </Section>
             )}
-            {baseRows.length === 0 && custRows.length === 0 && (
-              <div style={{ fontSize: 13, color: '#1b5e20', padding: '8px 0' }}>이 차수에는 출고일/ CustKey 어긋난 분배가 없습니다. ✅</div>
+            {dateRows.length > 0 && (
+              <Section title={`출고일/수량 불일치 (${dateRows.length}) — ShipmentDate 합계≠출고수량 또는 출고일 비어있음`}>
+                <Table head={['CustKey', '품목', '출고수량', 'ShipmentDate합계', '상세 출고일', 'Date 출고일']}
+                  rows={dateRows.map(r => [r.CustKey, r.ProdName, r.OutQuantity, r.ShipmentDateQty, r.ShipmentDtm || '(없음)', r.ShipmentDateDtm || '(없음)'])} hot={3} />
+                <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 4 }}>
+                  ※ ShipmentDate 합계가 출고수량과 다르거나 출고일이 비어 있으면 전산 확정(usp_ShipmentFix)에서 막힐 수 있습니다.
+                  해당 품목을 붙여넣기 분배로 다시 한 번 저장하면(수량 그대로) ShipmentDate가 재생성되어 맞춰집니다.
+                </div>
+              </Section>
+            )}
+            <div style={{ fontSize: 12, color: '#607d8b', marginTop: 10, lineHeight: 1.6 }}>
+              ⓘ <b>Est 불일치</b>는 보정 대상이 아닙니다 — 카네이션/수국/루스커스처럼 박스 출고에 단·송이 금액
+              기준을 쓰는 품목은 EstQuantity가 정상적으로 다릅니다(규칙 2). 강제로 맞추면 견적 금액이 깨집니다.
+            </div>
+            {baseRows.length === 0 && custRows.length === 0 && dateRows.length === 0 && (
+              <div style={{ fontSize: 13, color: '#1b5e20', padding: '8px 0' }}>이 차수에는 출고일/CustKey/출고일수량 어긋난 분배가 없습니다. ✅</div>
             )}
           </>
         )}
