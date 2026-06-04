@@ -21,17 +21,31 @@ export default function DistributeRepair() {
   const [traceQ, setTraceQ] = useState('');
   const [traceRows, setTraceRows] = useState(null);
   const [traceRaw, setTraceRaw] = useState(null);
+  const [traceGm, setTraceGm] = useState(null);
   const [traceLoading, setTraceLoading] = useState(false);
+  const [cleaning, setCleaning] = useState(0);
 
   const runTrace = async () => {
     if (!traceQ.trim()) { alert('업체명 또는 품목 키워드를 입력하세요.'); return; }
-    setTraceLoading(true); setErr(''); setTraceRows(null); setTraceRaw(null);
+    setTraceLoading(true); setErr(''); setMsg(''); setTraceRows(null); setTraceRaw(null); setTraceGm(null);
     try {
       const d = await apiGet('/api/shipment/item-trace', { week, q: traceQ.trim() });
       setTraceRows(d.rows || []);
       setTraceRaw(d.raw || []);
+      setTraceGm(d.ghostMasters || []);
     } catch (e) { setErr(e.message || String(e)); }
     finally { setTraceLoading(false); }
+  };
+
+  const cleanGhostMaster = async (g) => {
+    if (!confirm(`고스트 마스터 정리\n업체: ${g.custName} (${g.custKey})\nShipmentKey: ${g.shipmentKey}\n사유: ${g.reason}\n\n이 빈/숨겨진 분배 마스터를 삭제해 주문 취소가 가능하게 합니다.\n(확정 아님 + 실제 표시분배 0건 확인됨) 진행할까요?`)) return;
+    setCleaning(g.shipmentKey); setErr(''); setMsg('');
+    try {
+      const d = await apiPost('/api/shipment/ghost-master-cleanup', { shipmentKey: g.shipmentKey });
+      setMsg(d.message || '정리 완료');
+      await runTrace();
+    } catch (e) { setErr(e.message || String(e)); }
+    finally { setCleaning(0); }
   };
 
   const runDiagnose = async () => {
@@ -224,7 +238,53 @@ export default function DistributeRepair() {
               {traceRaw.some(r => r.ghost) && (
                 <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 6 }}>
                   ⚠ <b>고스트</b> = 분배수량이 있는데 마스터/품목/업체가 삭제 처리돼 전산 화면엔 안 보이지만, 취소는 막는 레코드입니다.
-                  위 <b>SdKey</b>를 알려주시면 해당 고스트 분배를 안전하게 정리(삭제)해 취소가 되도록 하겠습니다.
+                </div>
+              )}
+            </div>
+          )}
+
+          {traceGm && traceGm.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
+                출고 마스터(취소 게이트 단위) — nenova.exe 는 ShipmentMaster 존재로 취소를 막음
+                {traceGm.some(g => g.blocksCancelButHidden) && <span style={{ color: '#c0392b', marginLeft: 8 }}>⚠ 취소차단 고스트 {traceGm.filter(g => g.blocksCancelButHidden).length}건</span>}
+              </div>
+              <div style={{ fontSize: 11, color: '#90a4ae', marginBottom: 4 }}>
+                전산 취소 게이트: <code>COUNT(*) FROM ShipmentMaster WHERE 연도+차수+업체</code> (isDeleted 무시) · 화면: ViewShipment(표시가능 분배 필요)
+              </div>
+              <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                  <thead><tr>{['업체', 'ShipKey', '확정', '상세수', '수량≠0', '표시가능', '전산표시', '사유', '정리'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {traceGm.map((g, i) => (
+                      <tr key={i} style={g.blocksCancelButHidden ? { background: '#ffebee' } : {}}>
+                        <td style={td}>{g.custName}</td>
+                        <td style={td}>{g.shipmentKey}</td>
+                        <td style={{ ...td, color: g.smFix ? '#c0392b' : '#bbb' }}>{g.smFix ? '확정' : '·'}</td>
+                        <td style={td}>{g.detailCnt}</td>
+                        <td style={td}>{g.nzCnt}</td>
+                        <td style={{ ...td, fontWeight: 700, color: g.visCnt > 0 ? '#1b5e20' : '#c0392b' }}>{g.visCnt}</td>
+                        <td style={{ ...td, color: g.visibleInErp ? '#2e7d32' : '#c0392b', fontWeight: 700 }}>{g.visibleInErp ? '표시' : '숨김'}</td>
+                        <td style={td} title={g.reason}>{g.reason}</td>
+                        <td style={td}>
+                          {g.blocksCancelButHidden && g.safeToClean ? (
+                            <button onClick={() => cleanGhostMaster(g)} disabled={cleaning === g.shipmentKey}
+                              style={{ ...btnRepairAlt, padding: '4px 10px', fontSize: 12 }}>
+                              {cleaning === g.shipmentKey ? '정리중…' : '🧹 정리'}
+                            </button>
+                          ) : g.smFix ? <span style={{ fontSize: 11, color: '#90a4ae' }}>확정-불가</span>
+                            : g.visibleInErp ? <span style={{ fontSize: 11, color: '#90a4ae' }}>정상</span>
+                            : <span style={{ fontSize: 11, color: '#e65100' }}>실제분배有</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {traceGm.some(g => g.blocksCancelButHidden && g.safeToClean) && (
+                <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 6 }}>
+                  ⚠ <b>취소차단 고스트</b> = 전산엔 안 보이지만 ShipmentMaster가 남아 취소를 막는 빈/숨겨진 마스터입니다.
+                  <b>🧹 정리</b>를 누르면 그 ShipmentKey만 안전하게 삭제(확정 아님 + 실제 표시분배 0 재검증)되어 주문 취소가 됩니다.
                 </div>
               )}
             </div>

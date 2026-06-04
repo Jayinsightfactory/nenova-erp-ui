@@ -122,11 +122,56 @@ async function handler(req, res) {
       };
     });
 
+    // 3) 마스터 단위 고스트 — nenova.exe 취소 게이트와 동일 단위.
+    //    FormOrderAdd 는 SELECT COUNT(*) FROM ShipmentMaster WHERE OrderYear+OrderWeek+CustKey (isDeleted 무시!)
+    //    로 분배 존재를 판단해 취소를 막는다. 반면 ViewShipment 는 sm.isDeleted=0 + 표시가능 detail 이 있어야 보인다.
+    //    → 표시 안 되는데(=VisibleDetail 0 / 마스터·업체 삭제) 게이트엔 잡히는 마스터 = 취소 차단 고스트.
+    const gm = await query(
+      `SELECT sm.ShipmentKey, sm.CustKey, c.CustName,
+              ISNULL(sm.isDeleted,0) AS SmDel, ISNULL(sm.isFix,0) AS SmFix,
+              ISNULL(sm.WebCreated,0) AS WebCreated, ISNULL(c.isDeleted,0) AS CustDel,
+              (SELECT COUNT(*) FROM ShipmentDetail sd WHERE sd.ShipmentKey=sm.ShipmentKey) AS DetailCnt,
+              (SELECT COUNT(*) FROM ShipmentDetail sd WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)<>0) AS NzCnt,
+              (SELECT COUNT(*) FROM ShipmentDetail sd JOIN Product p ON p.ProdKey=sd.ProdKey
+                 WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)<>0 AND ISNULL(p.isDeleted,0)=0) AS VisCnt
+         FROM ShipmentMaster sm
+         JOIN Customer c ON c.CustKey=sm.CustKey
+        WHERE sm.OrderWeek=@wk
+          AND ( c.CustName LIKE @q
+                OR EXISTS ( SELECT 1 FROM ShipmentDetail sd JOIN Product p ON p.ProdKey=sd.ProdKey
+                             WHERE sd.ShipmentKey=sm.ShipmentKey
+                               AND (p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q) ) )
+        ORDER BY c.CustName, sm.ShipmentKey`,
+      { wk: { type: sql.NVarChar, value: week }, q: { type: sql.NVarChar, value: `%${q}%` } }
+    );
+
+    const ghostMasters = (gm.recordset || []).map(x => {
+      const smDel = Number(x.SmDel), custDel = Number(x.CustDel), visCnt = Number(x.VisCnt);
+      const visibleInErp = smDel === 0 && custDel === 0 && visCnt > 0;
+      const reasons = [];
+      if (smDel === 1) reasons.push('마스터삭제');
+      if (custDel === 1) reasons.push('업체삭제');
+      if (visCnt === 0) reasons.push('표시가능분배0');
+      return {
+        shipmentKey: x.ShipmentKey, custKey: x.CustKey, custName: x.CustName,
+        smDel, smFix: Number(x.SmFix), webCreated: Number(x.WebCreated), custDel,
+        detailCnt: Number(x.DetailCnt), nzCnt: Number(x.NzCnt), visCnt,
+        visibleInErp,
+        // 취소 게이트(COUNT ShipmentMaster, isDeleted 무시)엔 잡히지만 ViewShipment 엔 안 보임 = 고스트
+        blocksCancelButHidden: !visibleInErp,
+        // 안전 정리 후보: 확정(isFix) 아니고, 표시가능 분배 0(실제 분배 없음)
+        safeToClean: Number(x.SmFix) === 0 && visCnt === 0,
+        reason: reasons.join('+') || '정상표시',
+      };
+    });
+
     return res.status(200).json({
       success: true, week, q,
       count: rows.length, rows,
       rawCount: rawRows.length, raw: rawRows,
       ghostCount: rawRows.filter(r => r.ghost).length,
+      ghostMasters,
+      ghostMasterCount: ghostMasters.filter(g => g.blocksCancelButHidden).length,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
