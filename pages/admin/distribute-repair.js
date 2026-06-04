@@ -53,6 +53,17 @@ export default function DistributeRepair() {
     finally { setMgrBusy(false); }
   };
 
+  const [estQ, setEstQ] = useState('');
+  const [estData, setEstData] = useState(null);
+  const [estBusy, setEstBusy] = useState(false);
+  const runEstCheck = async () => {
+    if (!estQ.trim()) { alert('품목/국가/업체 키워드를 입력하세요.'); return; }
+    setEstBusy(true); setErr(''); setEstData(null);
+    try { setEstData(await apiGet('/api/shipment/estimate-visibility', { week, q: estQ.trim() })); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setEstBusy(false); }
+  };
+
   const cleanGhostMaster = async (g) => {
     if (!confirm(`고스트 마스터 정리\n업체: ${g.custName} (${g.custKey})\nShipmentKey: ${g.shipmentKey}\n사유: ${g.reason}\n\n이 빈/숨겨진 분배 마스터를 삭제해 주문 취소가 가능하게 합니다.\n(확정 아님 + 실제 표시분배 0건 확인됨) 진행할까요?`)) return;
     setCleaning(g.shipmentKey); setErr(''); setMsg('');
@@ -329,6 +340,49 @@ export default function DistributeRepair() {
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 22, borderTop: '1px solid #e0e0e0', paddingTop: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>견적서관리 노출 진단 (확정했는데 견적에 안 뜨는 품목)</div>
+          <p style={{ fontSize: 12, color: '#607d8b', marginTop: 0 }}>
+            확정 출고가 견적서관리에 뜨려면 ViewShipment + ViewOrder(국가/Manager) + ShipmentDate + PeriodDay(출고일)를 모두 통과해야 합니다.
+            예: <code>호접난</code>, <code>베트남</code>, <code>orchid</code>.
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+            <input value={estQ} onChange={e => setEstQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') runEstCheck(); }}
+              placeholder="품목/국가/업체 키워드" style={{ ...inp, width: 220, marginLeft: 0 }} />
+            <span style={{ fontSize: 12, color: '#90a4ae' }}>차수 {week}</span>
+            <button onClick={runEstCheck} disabled={estBusy} style={btnPrimary}>{estBusy ? '진단 중…' : '🔍 견적 노출 진단'}</button>
+          </div>
+          {estData && (
+            <>
+              <div style={{ fontSize: 12, marginBottom: 6 }}>
+                조회 {estData.count}건 · <b style={{ color: estData.hiddenCount ? '#c0392b' : '#2e7d32' }}>견적 누락 {estData.hiddenCount}건</b>
+                {' · '}Country 테이블 베트남 존재: <b style={{ color: estData.countryHas베트남 ? '#2e7d32' : '#c0392b' }}>{estData.countryHas베트남 ? 'O' : 'X(없음)'}</b>
+              </div>
+              {estData.rows?.length > 0 ? (
+                <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
+                  <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                    <thead><tr>{['업체', '품목', '국가', '확정', '출고수량', '출고일', '견적노출', '사유'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {estData.rows.map((r, i) => (
+                        <tr key={i} style={r.visibleInEstimate ? {} : { background: '#ffe0e0' }}>
+                          <td style={td}>{r.custName}</td>
+                          <td style={td}>{r.prodName}</td>
+                          <td style={{ ...td, color: r.countryOK ? '#37474f' : '#b71c1c', fontWeight: r.countryOK ? 400 : 700 }}>{r.counName || '-'}</td>
+                          <td style={{ ...td, color: r.isFix ? '#2e7d32' : '#90a4ae' }}>{r.isFix ? '확정' : '·'}</td>
+                          <td style={td}>{r.outQty}</td>
+                          <td style={td}>{r.shipDtm || '-'}</td>
+                          <td style={{ ...td, color: r.visibleInEstimate ? '#2e7d32' : '#b71c1c', fontWeight: 700 }}>{r.visibleInEstimate ? '노출' : '누락'}</td>
+                          <td style={{ ...td, color: r.visibleInEstimate ? '#607d8b' : '#b71c1c', maxWidth: 380, whiteSpace: 'normal' }}>{r.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div style={{ fontSize: 13, color: '#90a4ae' }}>해당 키워드의 확정 출고가 없습니다.</div>}
+            </>
           )}
         </div>
       </div>
