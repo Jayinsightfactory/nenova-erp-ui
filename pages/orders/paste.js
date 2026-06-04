@@ -1058,10 +1058,11 @@ export default function PasteOrderPage() {
     }
   };
 
-  const copyStockDraft = async () => {
-    if (!stockDraft?.copyText) return;
+  const copyStockDraft = async (textOverride) => {
+    const text = (typeof textOverride === 'string' && textOverride.trim()) ? textOverride : stockDraft?.copyText;
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(stockDraft.copyText);
+      await navigator.clipboard.writeText(text);
       setStockCopied(true);
       setTimeout(() => setStockCopied(false), 1800);
     } catch {
@@ -3217,6 +3218,9 @@ export default function PasteOrderPage() {
 
 function StockDraftPanel({ draft, copied, onCopy }) {
   const hasData = draft.remainRows.length > 0 || draft.historyRows.length > 0 || draft.extraRows.length > 0 || draft.confirmRows.length > 0;
+  const [edited, setEdited] = useState(draft.copyText || '');
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { setEdited(draft.copyText || ''); setDirty(false); }, [draft.copyText]);
   return (
     <div style={{ border: '1px solid #b0bec5', borderRadius: 8, marginBottom: 16, overflow: 'hidden', background: '#fff' }}>
       <div style={{ background: '#37474f', color: '#fff', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -3230,11 +3234,11 @@ function StockDraftPanel({ draft, copied, onCopy }) {
           </span>
         )}
         <button
-          onClick={onCopy}
+          onClick={() => onCopy(edited)}
           disabled={!hasData}
           style={{ marginLeft: 'auto', padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.5)', background: copied ? '#2e7d32' : '#fff', color: copied ? '#fff' : '#263238', fontSize: 12, fontWeight: 700, cursor: hasData ? 'pointer' : 'default', opacity: hasData ? 1 : 0.5 }}
         >
-          {copied ? '복사됨' : '결과 복사'}
+          {copied ? '복사됨' : (dirty ? '수정본 복사' : '결과 복사')}
         </button>
       </div>
 
@@ -3245,6 +3249,30 @@ function StockDraftPanel({ draft, copied, onCopy }) {
             <StockStat label="잔량" value={draft.remainRows.length} />
             <StockStat label="히스토리" value={draft.historyRows.length} />
             <StockStat label="확인필요" value={draft.confirmRows.length} alert={draft.confirmRows.length > 0} />
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 12, color: '#455a64', fontWeight: 700 }}>
+                결과 (수정 가능) {dirty && <span style={{ color: '#e65100' }}>· 수정됨</span>}
+              </span>
+              <button
+                onClick={() => { setEdited(draft.copyText || ''); setDirty(false); }}
+                style={{ marginLeft: 'auto', fontSize: 11, border: '1px solid #cfd8dc', background: '#fff', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
+                title="자동 계산 결과로 되돌립니다."
+              >
+                ↺ 원본으로
+              </button>
+            </div>
+            <textarea
+              value={edited}
+              onChange={e => { setEdited(e.target.value); setDirty(true); }}
+              spellCheck={false}
+              style={{ width: '100%', height: 210, padding: '8px 10px', border: `1px solid ${dirty ? '#fb8c00' : '#b0bec5'}`, borderRadius: 6, fontSize: 12, lineHeight: 1.5, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', whiteSpace: 'pre', background: '#fff' }}
+            />
+            <div style={{ fontSize: 11, color: '#90a4ae', marginTop: 3 }}>
+              잔량/히스토리 결과를 직접 고친 뒤 위 “{dirty ? '수정본 복사' : '결과 복사'}”로 복사합니다. 입력 텍스트를 바꾸면 자동 계산본으로 다시 채워집니다.
+            </div>
           </div>
 
           {draft.historyRows.length > 0 && (
