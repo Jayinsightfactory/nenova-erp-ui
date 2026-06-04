@@ -100,7 +100,7 @@ async function handler(req, res) {
               sm.ShipmentKey, sm.OrderWeek AS SmWeek, ISNULL(sm.isDeleted,0) AS SmDel,
               ISNULL(sm.isFix,0) AS SmFix, sm.CustKey AS SmCust, ISNULL(sm.WebCreated,0) AS WebCreated,
               sd.SdetailKey, sd.OutQuantity, sd.CustKey AS SdCust,
-              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS SdDtm, ISNULL(sd.isDeleted,0) AS SdDel,
+              CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS SdDtm,
               c.CustName, ISNULL(c.isDeleted,0) AS CustDel,
               p.ProdName, p.DisplayName, ISNULL(p.isDeleted,0) AS ProdDel
          FROM ShipmentDetail sd
@@ -123,7 +123,7 @@ async function handler(req, res) {
         custName: x.CustName, prodName: x.DisplayName || x.ProdName,
         shipmentKey: x.ShipmentKey, sdetailKey: x.SdetailKey,
         outQty: Number(x.OutQuantity || 0),
-        smDel: Number(x.SmDel), sdDel: Number(x.SdDel), prodDel: Number(x.ProdDel), custDel: Number(x.CustDel),
+        smDel: Number(x.SmDel), prodDel: Number(x.ProdDel), custDel: Number(x.CustDel),
         smFix: Number(x.SmFix), webCreated: Number(x.WebCreated),
         smCust: x.SmCust, sdCust: x.SdCust, shipDtm: x.SdDtm || null, smWeek: x.SmWeek,
         visibleInErp: visible,

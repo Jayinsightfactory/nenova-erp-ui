@@ -214,7 +214,7 @@ export default function DistributeRepair() {
               </div>
               <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6 }}>
                 <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
-                  <thead><tr>{['업체', '품목', 'ShipKey', 'SdKey', '수량', '출고일', '마스터삭제', '품목삭제', '업체삭제', 'sd삭제', '전산표시'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['업체', '품목', 'ShipKey', 'SdKey', '수량', '출고일', '마스터삭제', '품목삭제', '업체삭제', '전산표시'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {traceRaw.map((r, i) => (
                       <tr key={i} style={r.ghost ? { background: '#ffebee' } : (!r.visibleInErp ? { background: '#fff8e1' } : {})}>
@@ -227,7 +227,6 @@ export default function DistributeRepair() {
                         <td style={{ ...td, color: r.smDel ? '#c0392b' : '#bbb', fontWeight: r.smDel ? 700 : 400 }}>{r.smDel ? 'Y' : '·'}</td>
                         <td style={{ ...td, color: r.prodDel ? '#c0392b' : '#bbb', fontWeight: r.prodDel ? 700 : 400 }}>{r.prodDel ? 'Y' : '·'}</td>
                         <td style={{ ...td, color: r.custDel ? '#c0392b' : '#bbb', fontWeight: r.custDel ? 700 : 400 }}>{r.custDel ? 'Y' : '·'}</td>
-                        <td style={{ ...td, color: r.sdDel ? '#e65100' : '#bbb' }}>{r.sdDel ? 'Y' : '·'}</td>
                         <td style={{ ...td, color: r.visibleInErp ? '#2e7d32' : '#c0392b', fontWeight: 700 }} title={r.hiddenReason}>
                           {r.visibleInErp ? '표시' : `숨김(${r.hiddenReason})`}
                         </td>
