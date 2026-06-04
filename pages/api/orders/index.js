@@ -567,7 +567,9 @@ async function updateOrder(req, res) {
         const sets = [];
         const params = { mk: { type: sql.Int, value: orderMasterKey } };
         if (manager !== undefined) {
-          sets.push('Manager = @mgr');
+          // Manager 는 UserInfo.UserID 여야 ViewOrder INNER JOIN 통과. 입력이 UserID/UserName 어느쪽이든
+          // 유효 UserID 로 해석, 실패 시 '관리자' 계정(fallback 'admin').
+          sets.push("Manager = COALESCE((SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@mgr OR UserName=@mgr), (SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자'), 'admin')");
           params.mgr = { type: sql.NVarChar, value: manager };
         }
         if (orderCode !== undefined) {
