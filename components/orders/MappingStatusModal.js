@@ -10,6 +10,15 @@ import { filterProducts, getDisplayName } from '../../lib/displayName';
 
 const FALLBACK_THRESHOLD = 5;
 
+// 거래처명 오염 감지에서 제외할 토큰(국가/꽃/색/수식어) — 거래처가 우연히 같은 이름이어도 오탐 방지
+const POLLUTION_EXCLUDE = new Set([
+  '콜롬비아', '콜', '중국', '네덜란드', '에콰도르', '에콰', '태국', '호주', '베트남', '스페인', 'nl',
+  '수국', '장미', '카네이션', '카네', '루스커스', '튤립', '알스트로', '소재',
+  '화이트', '블루', '연핑크', '진핑크', '핑크', '그린', '연그린', '진그린', '레드', '라벤더', '라벤다',
+  '피치', '옐로', '오렌지', '퍼플', '크림', '살몬', '버건디', '샴페인',
+  '차', '여분', '여분코드', '변경사항',
+]);
+
 export default function MappingStatusModal({ open, onClose }) {
   const [tab, setTab] = useState('product');
   const [prodMap, setProdMap] = useState({});
@@ -25,14 +34,17 @@ export default function MappingStatusModal({ open, onClose }) {
   const [editCurKey, setEditCurKey] = useState(null); // 현재 prodKey (선택표시용)
   const [editQuery, setEditQuery] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [custList, setCustList] = useState([]);     // 거래처명 오염 감지용 전체 거래처
 
   const load = async () => {
     setLoading(true); setErr('');
     try {
-      const [p, c] = await Promise.all([
+      const [p, c, cu] = await Promise.all([
         apiGet('/api/orders/mappings').catch(() => ({ mappings: {} })),
         apiGet('/api/orders/customer-mappings').catch(() => ({ mappings: {} })),
+        apiGet('/api/master', { entity: 'customers' }).catch(() => ({ data: [] })),
       ]);
+      setCustList(cu.data || cu.customers || []);
       setProdMap(p.mappings || {});
       setCustMap(c.mappings || {});
     } catch (e) { setErr(e.message); }
@@ -130,12 +142,53 @@ export default function MappingStatusModal({ open, onClose }) {
     finally { setSavingEdit(false); }
   };
 
+  // 품목 검색 — 토큰 AND 부분일치(숫자 cm 포함) + 한↔영/자모 보강. "pink mondial 50" 같은 입력도 잡음.
   const editCandidates = useMemo(() => {
     if (!editKeys.length || !products) return [];
-    const q = editQuery.trim();
+    const q = editQuery.trim().toLowerCase();
     if (!q) return [];
-    return filterProducts(products, q).slice(0, 12);
+    const toks = q.split(/\s+/).filter(Boolean);
+    const hay = p => `${p.ProdName || ''} ${p.DisplayName || ''} ${p.FlowerName || ''} ${p.CounName || ''}`.toLowerCase();
+    const andHits = products.filter(p => { const h = hay(p); return toks.every(t => h.includes(t)); });
+    const fuzzy = filterProducts(products, editQuery).slice(0, 20);
+    const seen = new Set(); const out = [];
+    for (const p of [...andHits, ...fuzzy]) { const k = Number(p.ProdKey); if (!seen.has(k)) { seen.add(k); out.push(p); } }
+    return out.slice(0, 20);
   }, [editKeys, products, editQuery]);
+
+  // ── 거래처명 오염 감지 (품목 매핑 키에 거래처 이름이 섞인 경우)
+  const custNameSet = useMemo(() => {
+    const s = new Set();
+    const norm = x => String(x || '').toLowerCase().replace(/\s+/g, '');
+    for (const c of custList) {
+      const n = norm(c.CustName); if (n.length >= 2) s.add(n);
+      const first = norm(String(c.CustName || '').split(/[\s/]/)[0]); if (first.length >= 2) s.add(first);
+    }
+    for (const v of Object.values(custMap)) { const n = norm(v.custName); if (n.length >= 2) s.add(n); }
+    return s;
+  }, [custList, custMap]);
+
+  const pollutedCustomer = (key) => {
+    if (!custNameSet.size) return null;
+    const toks = String(key || '').toLowerCase().split(/\s+/);
+    for (let t of toks) {
+      t = t.replace(/[()]/g, '');
+      if (t.length >= 2 && !POLLUTION_EXCLUDE.has(t) && custNameSet.has(t)) return t;
+    }
+    return null;
+  };
+
+  const pollutedKeys = useMemo(
+    () => Object.keys(prodMap).filter(k => pollutedCustomer(k)),
+    [prodMap, custNameSet]   // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const cleanupPolluted = async () => {
+    if (!pollutedKeys.length) return;
+    if (!window.confirm(`거래처명이 섞인 품목 매핑 ${pollutedKeys.length}개를 삭제할까요?\n(거래처명 없는 깨끗한 입력 매핑은 유지됩니다)`)) return;
+    for (const k of pollutedKeys) { try { await apiDelete('/api/orders/mappings', { key: k }); } catch { /* skip */ } }
+    setProdMap(prev => { const n = { ...prev }; for (const k of pollutedKeys) delete n[k]; return n; });
+  };
 
   if (!open) return null;
 
@@ -167,6 +220,14 @@ export default function MappingStatusModal({ open, onClose }) {
             총 {total}개 · <span style={{ color: '#c0392b' }}>중복의심 {dupGroups}그룹</span>
           </span>
         </div>
+
+        {tab === 'product' && pollutedKeys.length > 0 && (
+          <div style={{ padding: '6px 10px 0' }}>
+            <button onClick={cleanupPolluted} style={S.cleanBtn} title="품목 매핑 키에 거래처 이름이 섞인 입력을 일괄 삭제합니다 (깨끗한 입력은 유지)">
+              ⚠ 거래처명 섞인 입력 {pollutedKeys.length}개 정리
+            </button>
+          </div>
+        )}
 
         {err && <div style={{ color: '#c0392b', padding: '6px 12px', fontSize: 12 }}>오류: {err}</div>}
 
@@ -228,15 +289,19 @@ export default function MappingStatusModal({ open, onClose }) {
                   </span>
                 </div>
                 <div style={S.chips}>
-                  {g.keys.map(k => (
-                    <span key={k.key} style={{ ...S.chip, ...(editKeys.includes(k.key) ? S.chipEditing : {}) }} title={`저장: ${(k.savedAt || '').slice(0, 16).replace('T', ' ')}`}>
+                  {g.keys.map(k => {
+                    const poll = tab === 'product' ? pollutedCustomer(k.key) : null;
+                    return (
+                    <span key={k.key} style={{ ...S.chip, ...(editKeys.includes(k.key) ? S.chipEditing : {}), ...(poll ? S.chipPolluted : {}) }} title={poll ? `거래처명 "${poll}" 섞임 — 정리 권장` : `저장: ${(k.savedAt || '').slice(0, 16).replace('T', ' ')}`}>
+                      {poll && <span style={{ color: '#c0392b', fontWeight: 700 }}>⚠</span>}
                       {k.key}
                       {tab === 'product' && (
                         <button onClick={() => startEdit(k.key)} style={S.chipEdit} title="이 입력의 품목 변경">✎</button>
                       )}
                       <button onClick={() => del(k.key)} style={S.chipX} title="이 입력 매핑 삭제">×</button>
                     </span>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -263,6 +328,8 @@ const S = {
   chip: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2ff', border: '1px solid #d6deff', borderRadius: 12, padding: '2px 4px 2px 8px', fontSize: 12 },
   headEdit: { border: '1px solid #d1c4e9', background: '#ede7f6', color: '#5e35b1', borderRadius: 12, padding: '1px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 700 },
   chipEditing: { background: '#fff7e6', border: '1px solid #ffd591' },
+  chipPolluted: { background: '#fdecea', border: '1px solid #f3b7b1' },
+  cleanBtn: { border: '1px solid #f3b7b1', background: '#fff5f5', color: '#c0392b', borderRadius: 16, padding: '4px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
   chipEdit: { border: 0, background: '#ede7f6', color: '#5e35b1', borderRadius: '50%', width: 16, height: 16, lineHeight: '14px', cursor: 'pointer', fontSize: 11, padding: 0 },
   chipX: { border: 0, background: '#c5cae9', color: '#1a237e', borderRadius: '50%', width: 16, height: 16, lineHeight: '14px', cursor: 'pointer', fontSize: 12, padding: 0 },
   empty: { color: '#90a4ae', fontSize: 13, padding: 20, textAlign: 'center' },
