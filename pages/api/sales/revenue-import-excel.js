@@ -15,9 +15,10 @@ import formidable from 'formidable';
 import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
+import { query } from '../../../lib/db';
 import { parseEcountSalesAoa } from '../../../lib/salesRevenueExcel';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
-import { saveBatch, viewBatchRaw, buildSummary } from '../../../lib/salesRevenueBatches';
+import { saveBatch, viewBatchRaw, buildSummary, buildCustomerDir } from '../../../lib/salesRevenueBatches';
 
 export const config = {
   api: { bodyParser: false },
@@ -89,6 +90,11 @@ async function handler(req, res) {
   );
 
   const view = viewBatchRaw(saved, mappings);
+  let customerDir = null;
+  try {
+    const r = await query(`SELECT CustKey, CustName, Manager FROM Customer WHERE isDeleted=0`);
+    customerDir = buildCustomerDir(r.recordset);
+  } catch { customerDir = null; }
   return res.status(200).json({
     success: true,
     fileName: file.originalFilename || 'upload.xlsx',
@@ -97,7 +103,7 @@ async function handler(req, res) {
     period: { dateFrom: parsed.dateFrom, dateTo: parsed.dateTo },
     skipped: parsed.skipped,
     batch: view,
-    summary: buildSummary({ channel, mappings }),
+    summary: buildSummary({ channel, mappings, customerDir }),
     message: `판매현황 엑셀 ${saved.rawCount}건(합계 ${saved.rawTotal.toLocaleString()})을 ${salesYear}년 ${orderWeek}차로 저장하고 매칭을 적용했습니다.`,
   });
 }

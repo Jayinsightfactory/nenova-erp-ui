@@ -8,10 +8,11 @@
 // ⚠️ 읽기 전용. 이카운트 API를 호출하지 않는다. 저장된 Batch만 읽어 매핑을 적용해 반환한다.
 
 import { withAuth } from '../../../lib/auth';
+import { query } from '../../../lib/db';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
-import { buildSummary, getBatch, viewBatchRaw } from '../../../lib/salesRevenueBatches';
+import { buildSummary, buildCustomerDir, getBatch, viewBatchRaw } from '../../../lib/salesRevenueBatches';
 
-export default withAuth(function handler(req, res) {
+export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'GET only' });
   }
@@ -19,7 +20,14 @@ export default withAuth(function handler(req, res) {
   const { channel = null, year, week } = req.query || {};
   const mappings = loadSalesRevenueMappings();
 
-  const summary = buildSummary({ channel, mappings });
+  // 거래처 master(담당자) — 담당자 분류용. 실패해도 요약은 진행(담당자 미지정).
+  let customerDir = null;
+  try {
+    const r = await query(`SELECT CustKey, CustName, Manager FROM Customer WHERE isDeleted=0`);
+    customerDir = buildCustomerDir(r.recordset);
+  } catch { customerDir = null; }
+
+  const summary = buildSummary({ channel, mappings, customerDir });
 
   let currentBatch = { meta: null, raw: [], review: [], totals: null };
   if (year && week) {

@@ -38,6 +38,8 @@ function scaffoldCustomers(channel = '양재동') {
 export default function SalesRevenueManagement() {
   const currentYear = new Date().getFullYear();
   const [channel, setChannel] = useState('양재동');
+  const [managers, setManagers] = useState([]);   // 담당자 목록
+  const [selMgr, setSelMgr] = useState('');        // 담당자 필터('' = 전체)
   const [fetchYear, setFetchYear] = useState(String(currentYear));
   const [week, setWeek] = useState('24');
   const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
@@ -89,7 +91,8 @@ export default function SalesRevenueManagement() {
     setLoading(true);
     try {
       const d = await apiGet('/api/sales/revenue-summary', { channel, year: fetchYear, week });
-      setCustomers(d.summary?.customers?.length ? d.summary.customers : scaffoldCustomers());
+      setCustomers(d.summary?.customers?.length ? d.summary.customers : scaffoldCustomers(channel));
+      setManagers(d.summary?.managers || []);
       setTotals(d.summary?.totals || null);
       if (d.summary?.weeks?.length) setWeeks(d.summary.weeks);
       setCurrentBatch(d.currentBatch || { meta: null, raw: [], review: [], totals: null });
@@ -143,7 +146,8 @@ export default function SalesRevenueManagement() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '업로드 실패');
       if (d.summary) {
-        setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers());
+        setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers(channel));
+        setManagers(d.summary.managers || []);
         setTotals(d.summary.totals || null);
         if (d.summary.weeks?.length) setWeeks(d.summary.weeks);
       }
@@ -162,7 +166,10 @@ export default function SalesRevenueManagement() {
     window.open(`/api/sales/revenue-export?${qs}`, '_blank');
   };
 
-  const compareRows = useMemo(() => customers, [customers]);
+  const compareRows = useMemo(
+    () => (selMgr ? customers.filter(c => (c.manager || '미지정') === selMgr) : customers),
+    [customers, selMgr]
+  );
 
   // 비교표 가로폭 측정 → 상단 가로 스크롤바 spacer 너비 동기화
   useEffect(() => {
@@ -256,7 +263,8 @@ export default function SalesRevenueManagement() {
         channel, canonicalName: canonical, week: w, year: y, amount, prev: prev ?? '',
       });
       if (d.summary) {
-        setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers());
+        setCustomers(d.summary.customers?.length ? d.summary.customers : scaffoldCustomers(channel));
+        setManagers(d.summary.managers || []);
         setTotals(d.summary.totals || null);
         if (d.summary.weeks?.length) setWeeks(d.summary.weeks);
       }
@@ -317,6 +325,11 @@ export default function SalesRevenueManagement() {
           <option value="양재동">양재동</option>
           <option value="지방">지방</option>
           <option value="전체">전체</option>
+        </select>
+        <span className="filter-label">담당자</span>
+        <select className="filter-select" value={selMgr} onChange={e => setSelMgr(e.target.value)}>
+          <option value="">전체</option>
+          {managers.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
         <span className="filter-label">조회연도</span>
         <input
@@ -562,7 +575,12 @@ export default function SalesRevenueManagement() {
             <tbody>
               {compareRows.map(row => (
                 <tr key={row.canonicalName}>
-                  <td className="name cmp-stick-col">{row.canonicalName}</td>
+                  <td className="name cmp-stick-col">
+                    {row.canonicalName}
+                    {row.manager && row.manager !== '미지정' && (
+                      <span style={{ marginLeft: 6, fontSize: 10, color: '#6b7280', fontWeight: 600 }}>· {row.manager}</span>
+                    )}
+                  </td>
                   {weeks.map(w => (
                     <Fragment key={w}>
                       {renderAmt(row, w, years.y1)}
