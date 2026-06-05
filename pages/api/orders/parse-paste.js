@@ -366,6 +366,14 @@ function applyFlowerContext(name, flowerContext) {
   return productName.includes(flowerContext) ? productName : `${flowerContext} ${productName}`;
 }
 
+// 자연어 파서 단위 정규화 — 한글 "스팀/스템"(stem) → 송이, 없으면 품종 기본단위.
+function normNatUnit(u, flowerContext) {
+  const raw = String(u || '').trim();
+  if (/스팀|스템|stems?|steam/i.test(raw)) return '송이';
+  if (raw) return raw;
+  return flowerContext === '장미' ? '단' : '박스';
+}
+
 function isNaturalCustomerLine(line) {
   const s = String(line || '').trim();
   if (!s) return false;
@@ -403,6 +411,10 @@ function parseNaturalSectionOrders(text) {
       const lineWithoutWeek = line.replace(/(?:^|\s)\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?/, ' ');
       if (explicitHeaderFlowerContext && /추가|취소/.test(line) && !/\d+\s*(박스|단|송이|개)/.test(lineWithoutWeek)) return;
       if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
+      // 차수가 붙은 줄에 수량(숫자)이 없으면 섹션 헤더(예: "23-2 중국 발주 추가",
+      //  "23-2차 네덜란드 발주 추가") → 품목 아님. 소비하고 다음 줄로(여분코드 오등록 방지).
+      const headerRemainder = lineWithoutWeek.replace(/추가|취소|발주|변경사항|재고|잔량|출고/g, ' ').trim();
+      if (!/\d/.test(headerRemainder)) return;
     }
 
     const flowerOnly = normalizeFlowerContext(line);
@@ -411,12 +423,12 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박스|단|송이|개)?\s*(추가|취소)\s*$/);
+    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박스|단|송이|개|스팀|스템|stems?|steam)?\s*(추가|취소)\s*$/i);
     if (m && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(m[2] || '1')) || 1;
       const productName = applyFlowerContext(m[1].trim(), flowerContext);
-      const unit = m[3] || (flowerContext === '장미' ? '단' : '박스');
+      const unit = normNatUnit(m[3], flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
@@ -431,12 +443,12 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?\s*$/);
+    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개|스팀|스템|stems?|steam)?\s*$/i);
     if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
       const productName = applyFlowerContext(qtyOnly[1].trim(), flowerContext);
-      const unit = qtyOnly[3] || (flowerContext === '장미' ? '단' : '박스');
+      const unit = normNatUnit(qtyOnly[3], flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
