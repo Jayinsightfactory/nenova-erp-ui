@@ -64,9 +64,10 @@ async function handler(req, res) {
       readSheetValues({ spreadsheetId: id, range: BIZ_RANGE }),
       readSheetValues({ spreadsheetId: id, range: DEC_RANGE }).catch(() => []),
     ]);
-    logs = lv.slice(1).map(rowToLog).filter(l => l.sender || l.text);
-    events = bv.slice(1).map(rowToEvent).filter(e => e.sender || e.product || e.eventType);
-    decisions = dv.slice(1).map(rowToDecision).filter(d => d.issueId || d.content);
+    // 시트가 커져도 안 느려지게 최근 N행만 처리(append-only라 뒤쪽이 최신).
+    logs = lv.slice(1).slice(-15000).map(rowToLog).filter(l => l.sender || l.text);
+    events = bv.slice(1).slice(-10000).map(rowToEvent).filter(e => e.sender || e.product || e.eventType);
+    decisions = dv.slice(1).slice(-5000).map(rowToDecision).filter(d => d.issueId || d.content);
   } catch (e) { kakaoAvailable = false; kakaoError = e.message; }
 
   const matchFilters = x => (!qWeek || majorWeek(x.week) === qWeek) && (!qRoom || x.room.includes(qRoom)) && (!qStage || (x.pipeline || stageOfRoom(x.room)) === qStage);
