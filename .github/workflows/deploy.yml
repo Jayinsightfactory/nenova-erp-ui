@@ -13,12 +13,14 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AUTOMATION_API_TOKEN: ${{ secrets.AUTOMATION_API_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
         with:
           host: 172.233.89.171
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN
+          envs: ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -48,6 +50,28 @@ jobs:
               echo "✅ AUTOMATION_API_TOKEN synced (len=${#AUTOMATION_API_TOKEN})"
             else
               echo "ℹ️  AUTOMATION_API_TOKEN GitHub Secret 미설정 — n8n 브리지 API 비활성(503)"
+            fi
+            echo "=== .env.local 환경변수 동기화 (GOOGLE_SERVICE_ACCOUNT_JSON) ==="
+            if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+              if grep -q '^GOOGLE_SERVICE_ACCOUNT_JSON=' .env.local 2>/dev/null; then
+                grep -v '^GOOGLE_SERVICE_ACCOUNT_JSON=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "GOOGLE_SERVICE_ACCOUNT_JSON=$GOOGLE_SERVICE_ACCOUNT_JSON" >> .env.local
+              echo "✅ GOOGLE_SERVICE_ACCOUNT_JSON synced (len=${#GOOGLE_SERVICE_ACCOUNT_JSON})"
+            else
+              echo "ℹ️  GOOGLE_SERVICE_ACCOUNT_JSON GitHub Secret 미설정 — 카카오 시트 연동 비활성"
+            fi
+            echo "=== .env.local 환경변수 동기화 (KAKAO_SHEET_ID) ==="
+            if [ -n "$KAKAO_SHEET_ID" ]; then
+              if grep -q '^KAKAO_SHEET_ID=' .env.local 2>/dev/null; then
+                grep -v '^KAKAO_SHEET_ID=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "KAKAO_SHEET_ID=$KAKAO_SHEET_ID" >> .env.local
+              echo "✅ KAKAO_SHEET_ID synced"
+            else
+              echo "ℹ️  KAKAO_SHEET_ID 미설정 — 기본 시트ID 사용"
             fi
             echo "=== npm install ==="
             npm install --omit=dev
