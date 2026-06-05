@@ -517,6 +517,7 @@ export default function MobileChat() {
         open={modifyOpen}
         setOpen={setModifyOpen}
         week={toChatOrderWeek(directWeek)}
+        weeks={weeks}
         customers={allCustomers}
       />
 

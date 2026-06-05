@@ -14,6 +14,11 @@ const yearOf = (week) => {
   return m ? m[1] : String(new Date().getFullYear());
 };
 
+const fmtWeek = (w) => {
+  const m = String(w || '').match(/^(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[1])}-${Number(m[2])}차` : (w ? `${w}차` : '');
+};
+
 async function snapshotQty(custName, week) {
   const map = {};
   try {
@@ -24,18 +29,25 @@ async function snapshotQty(custName, week) {
   return map;
 }
 
-export default function OrderModifyPanel({ open, setOpen, week, customers }) {
+export default function OrderModifyPanel({ open, setOpen, week, weeks, customers }) {
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState(null);
   const [registering, setRegistering] = useState(false);
   const [results, setResults] = useState(null);
   const [err, setErr] = useState('');
-  const [detectedWeek, setDetectedWeek] = useState(''); // 텍스트에서 감지한 차수 (WW-SS) — 기준차수보다 우선
+  const [detectedWeek, setDetectedWeek] = useState(''); // 텍스트에서 감지한 차수 (WW-SS) — 최우선
+  const [pickedWeek, setPickedWeek] = useState('');      // 패널에서 직접 선택한 차수
   const [showHighlight, setShowHighlight] = useState(false);
 
-  // 텍스트에 차수가 있으면(예 "25-1") 그 차수로 등록, 없으면 기준차수.
-  const effectiveWeek = detectedWeek || week;
+  // 우선순위: 텍스트 차수("25-1") > 패널 선택 차수 > 기준차수(빠른조회).
+  const baseWeek = pickedWeek || week;
+  const effectiveWeek = detectedWeek || baseWeek;
+  const weekOpts = (() => {
+    const list = (weeks || []).slice();
+    if (baseWeek && !list.includes(baseWeek)) list.unshift(baseWeek);
+    return list;
+  })();
 
   const runMatch = async () => {
     if (!text.trim()) { setErr('수정할 주문 텍스트를 입력하세요.'); return; }
@@ -142,12 +154,20 @@ export default function OrderModifyPanel({ open, setOpen, week, customers }) {
         <div className="m-mod-body">
           <div className="m-mod-field">
             <span>등록 차수</span>
-            <b style={{ color: effectiveWeek ? '#9a3412' : '#b91c1c' }}>
-              {effectiveWeek ? `${effectiveWeek}차` : '⚠️ 위에서 기준차수를 먼저 선택하세요'}
+            <div className="m-mod-wkpick">
+              <select
+                value={baseWeek || ''}
+                onChange={e => setPickedWeek(e.target.value)}
+                disabled={!!detectedWeek}
+                title={detectedWeek ? '텍스트에 차수가 있어 그 차수로 등록됩니다' : '등록할 차수를 선택하세요'}
+              >
+                {!baseWeek && <option value="">차수 선택</option>}
+                {weekOpts.map(w => <option key={w} value={w}>{fmtWeek(w)}</option>)}
+              </select>
               {detectedWeek
-                ? <span className="m-mod-badge">📅 텍스트 차수 적용{week && week !== detectedWeek ? ` (기준 ${week} 무시)` : ''}</span>
-                : (week ? <span className="m-mod-badge base">기준차수</span> : null)}
-            </b>
+                ? <span className="m-mod-badge">📅 텍스트 {fmtWeek(detectedWeek)} 우선{baseWeek && baseWeek !== detectedWeek ? ` (선택 ${fmtWeek(baseWeek)} 무시)` : ''}</span>
+                : <span className="m-mod-badge base">→ {effectiveWeek ? `${fmtWeek(effectiveWeek)} 등록` : '⚠️ 차수 선택'}</span>}
+            </div>
           </div>
 
           <textarea
@@ -229,6 +249,9 @@ export default function OrderModifyPanel({ open, setOpen, week, customers }) {
         .m-mod-body { display: grid; gap: 8px; padding: 10px 12px 12px; }
         .m-mod-field { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: 12px; font-weight: 800; color: #475569; }
         .m-mod-field select { min-height: 34px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 8px; font-size: 13px; }
+        .m-mod-wkpick { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .m-mod-wkpick select { min-height: 34px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 8px; font-size: 13px; font-weight: 800; color: #9a3412; background: #fff; }
+        .m-mod-wkpick select:disabled { opacity: 0.6; background: #f1f5f9; }
         .m-mod-badge { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #1565c0; padding: 2px 7px; border-radius: 10px; vertical-align: middle; }
         .m-mod-badge.base { background: #94a3b8; }
         .m-mod-hl-toggle { width: 100%; min-height: 32px; border: 1px solid #d8b4fe; border-radius: 8px; background: #faf5ff; color: #7e22ce; font-size: 12px; font-weight: 800; cursor: pointer; }
