@@ -133,7 +133,7 @@ export default function SalesRevenueManagement() {
   const uploadExcel = async (selected) => {
     const f = selected || file;
     if (!f) { setFetchMsg('먼저 ECOUNT 판매현황 엑셀 파일을 선택하세요.'); return; }
-    if (!fetchYear || !week) { setFetchMsg('조회연도와 차수를 입력하세요.'); return; }
+    // 차수는 파일 기간으로 자동 산출하므로 선택 불필요. (연도/차수는 인식 실패 시 폴백용으로만 전송)
     setFetching(true);
     setFetchMsg('');
     try {
@@ -152,6 +152,9 @@ export default function SalesRevenueManagement() {
         if (d.summary.weeks?.length) setWeeks(d.summary.weeks);
       }
       if (d.batch) setCurrentBatch(d.batch);
+      // 파일 기간으로 자동 판정된 연도/차수를 비교 뷰에 반영
+      if (d.detected?.year) setFetchYear(d.detected.year);
+      if (d.detected?.week) setWeek(d.detected.week);
       setFetchMsg(d.message || '업로드 완료');
     } catch (e) {
       setFetchMsg(`업로드 오류: ${e.message}`);
@@ -344,8 +347,9 @@ export default function SalesRevenueManagement() {
           value={week}
           onChange={e => setWeek(e.target.value.replace(/[^\d]/g, '').slice(0, 2))}
           style={{ width: 46, textAlign: 'center' }}
+          title="비교표 조회용. 업로드 시 차수는 파일 기간으로 자동 판정됩니다."
         />
-        <span className="filter-label">차</span>
+        <span className="filter-label">차 <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(업로드는 파일 기간으로 자동)</span></span>
         <span className="filter-label">기간</span>
         <input className="filter-input" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
         <span style={{ color: 'var(--text3)' }}>~</span>
@@ -382,7 +386,7 @@ export default function SalesRevenueManagement() {
 
       <div className="banner-warn" style={{ marginBottom: 6 }}>
         이카운트 OAPI에는 판매현황 조회 API가 없어, <b>이카운트 판매현황 화면에서 받은 엑셀을 업로드</b>하면 네노바웹 비교용 저장소에 보관·매칭합니다. 이카운트 원본에 쓰기/전송(push)은 하지 않습니다.
-        업로드 시 선택한 <b>조회연도/차수/지점</b> 기준으로 저장되고, 같은 키로 다시 업로드하면 갱신됩니다.
+        업로드하면 <b>파일 상단 조회기간(시작일)으로 연도·차수를 자동 판정</b>해 저장합니다(차수 수동선택 불필요). 지점은 선택값을 사용하고, 같은 (연도/차수/지점)으로 다시 업로드하면 갱신됩니다.
         표는 업체 전체 행을 먼저 깔고 저장 데이터가 있는 업체만 금액을 채웁니다. 저장한 업체명 매칭은 다음 업로드부터 계속 자동 적용됩니다. 매칭 결과는 <b>매칭결과 엑셀 다운로드</b>로 내보낼 수 있습니다.
       </div>
       {fetchMsg && <div className={fetchMsg.includes('오류') || fetchMsg.includes('실패') ? 'banner-err' : 'banner-ok'} style={{ marginBottom: 6 }}>{fetchMsg}</div>}

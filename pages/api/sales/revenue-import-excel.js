@@ -16,7 +16,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { query } from '../../../lib/db';
-import { parseEcountSalesAoa } from '../../../lib/salesRevenueExcel';
+import { parseEcountSalesAoa, weekNumFromDate } from '../../../lib/salesRevenueExcel';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
 import { saveBatch, viewBatchRaw, buildSummary, buildCustomerDir } from '../../../lib/salesRevenueBatches';
 
@@ -45,14 +45,12 @@ async function handler(req, res) {
   }
 
   const file = firstVal(files.file);
-  const salesYear = String(firstVal(fields.salesYear) || '').trim();
-  const orderWeek = String(firstVal(fields.orderWeek) || '').trim();
+  // 폼의 연도/차수는 "수동 보정"용 폴백일 뿐. 기본은 파일 기간으로 자동 산출한다.
+  const formYear = String(firstVal(fields.salesYear) || '').trim();
+  const formWeek = String(firstVal(fields.orderWeek) || '').trim();
   const channel = String(firstVal(fields.channel) || '양재동').trim();
 
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
-  if (!salesYear || !orderWeek) {
-    return res.status(400).json({ success: false, error: '조회연도(salesYear), 차수(orderWeek)를 입력하세요.' });
-  }
 
   let parsed;
   try {
@@ -70,6 +68,18 @@ async function handler(req, res) {
   if (!parsed.rows.length) {
     return res.status(400).json({ success: false, error: '엑셀에서 판매 데이터 행을 찾지 못했습니다.' });
   }
+
+  // ── 차수 자동 산출: 파일 헤더 조회기간의 "시작일(dateFrom)" 기준. 폼 값은 폴백.
+  const detected = weekNumFromDate(parsed.dateFrom);
+  const salesYear = detected?.year || formYear;
+  const orderWeek = detected?.week || formWeek;
+  if (!salesYear || !orderWeek) {
+    return res.status(400).json({
+      success: false,
+      error: '파일 조회기간을 인식하지 못했고 수동 차수도 없습니다. 엑셀 상단 "회사명 : … / 시작일 ~ 종료일" 형식을 확인하세요.',
+    });
+  }
+  const weekAuto = !!detected;
 
   const mappings = loadSalesRevenueMappings(true);
   const saved = saveBatch(
@@ -101,10 +111,11 @@ async function handler(req, res) {
     rawCount: saved.rawCount,
     rawTotal: saved.rawTotal,
     period: { dateFrom: parsed.dateFrom, dateTo: parsed.dateTo },
+    detected: { year: salesYear, week: orderWeek, auto: weekAuto, dateFrom: parsed.dateFrom, dateTo: parsed.dateTo },
     skipped: parsed.skipped,
     batch: view,
     summary: buildSummary({ channel, mappings, customerDir }),
-    message: `판매현황 엑셀 ${saved.rawCount}건(합계 ${saved.rawTotal.toLocaleString()})을 ${salesYear}년 ${orderWeek}차로 저장하고 매칭을 적용했습니다.`,
+    message: `판매현황 엑셀 ${saved.rawCount}건(합계 ${saved.rawTotal.toLocaleString()})을 ${salesYear}년 ${orderWeek}차${weekAuto ? `(기간 ${parsed.dateFrom}~${parsed.dateTo} 자동판정)` : '(수동)'}로 저장하고 매칭을 적용했습니다.`,
   });
 }
 
