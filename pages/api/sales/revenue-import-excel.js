@@ -15,10 +15,9 @@ import formidable from 'formidable';
 import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
-import { query } from '../../../lib/db';
 import { parseEcountSalesAoa, weekNumFromDate } from '../../../lib/salesRevenueExcel';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
-import { saveBatch, viewBatchRaw, buildSummary, buildCustomerDir } from '../../../lib/salesRevenueBatches';
+import { makeBatchObject, viewBatchRaw } from '../../../lib/salesRevenueBatches';
 
 export const config = {
   api: { bodyParser: false },
@@ -81,41 +80,36 @@ async function handler(req, res) {
   }
   const weekAuto = !!detected;
 
+  // ⚠️ 저장하지 않는다(미리보기 전용). 사용자가 "저장"을 눌러 /api/sales/revenue-save 로 커밋한다.
   const mappings = loadSalesRevenueMappings(true);
-  const saved = saveBatch(
-    {
-      sourceType: 'ecount_excel',
-      salesYear,
-      orderWeek,
-      channel,
-      dateFrom: parsed.dateFrom || '',
-      dateTo: parsed.dateTo || '',
-      fetchedBy: req.user?.userName || req.user?.userId || '',
-      ecountEndpoint: 'excel-upload',
-      fileName: file.originalFilename || 'upload.xlsx',
-      apiStatus: 'success',
-      memo: parsed.companyLine || '',
-    },
-    parsed.rows
-  );
+  const meta = {
+    sourceType: 'ecount_excel',
+    salesYear,
+    orderWeek,
+    channel,
+    dateFrom: parsed.dateFrom || '',
+    dateTo: parsed.dateTo || '',
+    fetchedBy: req.user?.userName || req.user?.userId || '',
+    ecountEndpoint: 'excel-upload',
+    fileName: file.originalFilename || 'upload.xlsx',
+    apiStatus: 'success',
+    memo: parsed.companyLine || '',
+  };
+  const previewObj = makeBatchObject(meta, parsed.rows);
+  const view = viewBatchRaw(previewObj, mappings);
 
-  const view = viewBatchRaw(saved, mappings);
-  let customerDir = null;
-  try {
-    const r = await query(`SELECT CustKey, CustName, Manager FROM Customer WHERE isDeleted=0`);
-    customerDir = buildCustomerDir(r.recordset);
-  } catch { customerDir = null; }
   return res.status(200).json({
     success: true,
-    fileName: file.originalFilename || 'upload.xlsx',
-    rawCount: saved.rawCount,
-    rawTotal: saved.rawTotal,
+    preview: true,
+    fileName: meta.fileName,
+    rawCount: previewObj.rawCount,
+    rawTotal: previewObj.rawTotal,
     period: { dateFrom: parsed.dateFrom, dateTo: parsed.dateTo },
     detected: { year: salesYear, week: orderWeek, auto: weekAuto, dateFrom: parsed.dateFrom, dateTo: parsed.dateTo },
     skipped: parsed.skipped,
-    batch: view,
-    summary: buildSummary({ channel, mappings, customerDir }),
-    message: `판매현황 엑셀 ${saved.rawCount}건(합계 ${saved.rawTotal.toLocaleString()})을 ${salesYear}년 ${orderWeek}차${weekAuto ? `(기간 ${parsed.dateFrom}~${parsed.dateTo} 자동판정)` : '(수동)'}로 저장하고 매칭을 적용했습니다.`,
+    batch: view,                 // 매칭 적용된 미리보기 (저장 전)
+    pending: { meta, rows: parsed.rows },   // "저장" 시 그대로 commit
+    message: `미리보기: ${previewObj.rawCount}건(합계 ${previewObj.rawTotal.toLocaleString()}) · ${salesYear}년 ${orderWeek}차${weekAuto ? `(기간 ${parsed.dateFrom}~${parsed.dateTo} 자동판정)` : '(수동)'}. "저장"을 눌러야 반영됩니다.`,
   });
 }
 
