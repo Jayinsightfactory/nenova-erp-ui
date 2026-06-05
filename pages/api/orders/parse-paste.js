@@ -219,6 +219,21 @@ const KO_EN_KEYWORDS = {
   '살몬': 'SALMON',
   '버건디': 'BURGUNDY',
   '샴페인': 'CHAMPAGNE',
+  // ── 수입방 빈출 꽃 종류(genus) — 2026-06-05. LLM 후보 SQL 필터가 해당 품목군을 포함하도록.
+  '알륨': 'ALLIUM',
+  '아가판서스': 'AGAPANTHUS',
+  '아가판투스': 'AGAPANTHUS',
+  '에린지움': 'ERYNGIUM',
+  '스키미아': 'SKIMMIA',
+  '스키미야': 'SKIMMIA',
+  '히아신스': 'HYACINTH',
+  '히야신스': 'HYACINTH',
+  '안시리움': 'ANTHURIUM',
+  '안스리움': 'ANTHURIUM',
+  '안슬리움': 'ANTHURIUM',
+  '그라시오사': 'GRACIOSA',
+  '카라': 'CALLA',
+  '칼라': 'CALLA',
 };
 
 export const config = { api: { responseLimit: false, bodyParser: { sizeLimit: '1mb' } } };
