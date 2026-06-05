@@ -193,8 +193,8 @@ export default function MappingStatusModal({ open, onClose }) {
   if (!open) return null;
 
   return (
-    <div style={S.back} onClick={onClose}>
-      <div style={S.modal} onClick={e => e.stopPropagation()}>
+    <div style={S.back} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={S.modal} onMouseDown={e => e.stopPropagation()}>
         <div style={S.head}>
           <strong style={{ fontSize: 15 }}>저장된 매칭 현황</strong>
           <div style={{ display: 'flex', gap: 6 }}>
