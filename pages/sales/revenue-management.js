@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
-import { BASE_CUSTOMERS, COMPARE_WEEKS } from '../../lib/salesRevenueConfig';
+import { COMPARE_WEEKS, baseCustomersForChannel } from '../../lib/salesRevenueConfig';
 import RevenueMappingModal from '../../components/sales/RevenueMappingModal';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -24,9 +24,9 @@ function cellTotal(row, week, year) {
   return row?.weeks?.[week]?.[year]?.total || 0;
 }
 
-// 비교표 초기 골격: 저장 데이터가 없어도 기본 업체 전체 행을 보여준다.
-function scaffoldCustomers() {
-  return BASE_CUSTOMERS.map(name => ({
+// 비교표 초기 골격: 저장 데이터가 없어도 기본 업체 전체 행을 보여준다. (채널별 base)
+function scaffoldCustomers(channel = '양재동') {
+  return baseCustomersForChannel(channel).map(name => ({
     canonicalName: name,
     isBase: true,
     weeks: {},
@@ -48,7 +48,7 @@ export default function SalesRevenueManagement() {
     y3: String(currentYear),
   });
 
-  const [customers, setCustomers] = useState(scaffoldCustomers);
+  const [customers, setCustomers] = useState(() => scaffoldCustomers('양재동'));
   const [totals, setTotals] = useState(null);
   const [currentBatch, setCurrentBatch] = useState({ meta: null, raw: [], review: [], totals: null });
 
@@ -315,6 +315,7 @@ export default function SalesRevenueManagement() {
         <span className="filter-label">지점</span>
         <select className="filter-select" value={channel} onChange={e => setChannel(e.target.value)}>
           <option value="양재동">양재동</option>
+          <option value="지방">지방</option>
           <option value="전체">전체</option>
         </select>
         <span className="filter-label">조회연도</span>
