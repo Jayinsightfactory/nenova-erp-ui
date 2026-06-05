@@ -6,6 +6,7 @@
 //  - 결과: 등록 전/후 /api/orders 스냅샷으로 품목별 수량 변화 표시
 import { useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
+import { findLocalMapping, findCustomerLocalMapping } from '../../lib/pasteLocalMapping';
 
 const yearOf = (week) => {
   const m = String(week || '').match(/^(\d{4})-/);
@@ -36,8 +37,34 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
     try {
       const d = await apiPost('/api/orders/parse-paste', { text });
       if (!d.success) throw new Error(d.error || '매칭 실패');
-      setOrders(d.orders || []);
-      if (!(d.orders || []).length) setErr('인식된 주문이 없습니다.');
+      let orders = d.orders || [];
+
+      // 저장된 매핑 폴백 (웹 붙여넣기의 applyCache 동등) — parse-paste 미매칭 보완
+      try {
+        const [pm, cm] = await Promise.all([
+          apiGet('/api/orders/mappings').catch(() => ({ mappings: {} })),
+          apiGet('/api/orders/customer-mappings').catch(() => ({ mappings: {} })),
+        ]);
+        const prodMap = pm.mappings || {};
+        const custMap = cm.mappings || {};
+        orders = orders.map(o => {
+          let custMatch = o.custMatch;
+          if (!custMatch) {
+            const ch = findCustomerLocalMapping(o.custName, custMap);
+            if (ch?.custKey) custMatch = { CustKey: Number(ch.custKey), CustName: ch.custName || o.custName, CustArea: ch.custArea || '' };
+          }
+          const items = (o.items || []).map(it => {
+            if (it.prodKey) return it;
+            const hit = findLocalMapping(it.inputName, prodMap);
+            if (!hit?.prodKey) return it;
+            return { ...it, prodKey: Number(hit.prodKey), prodName: hit.prodName || it.prodName, displayName: hit.displayName || hit.prodName || it.prodName, fromMapping: true };
+          });
+          return { ...o, custMatch, items };
+        });
+      } catch { /* 폴백 실패해도 parse-paste 결과는 표시 */ }
+
+      setOrders(orders);
+      if (!orders.length) setErr('인식된 주문이 없습니다.');
     } catch (e) { setErr(e.message || String(e)); }
     finally { setParsing(false); }
   };
