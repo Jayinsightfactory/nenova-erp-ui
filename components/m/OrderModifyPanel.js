@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { findLocalMapping, findCustomerLocalMapping } from '../../lib/pasteLocalMapping';
+import PasteHighlight from '../orders/PasteHighlight';
 
 const yearOf = (week) => {
   const m = String(week || '').match(/^(\d{4})-/);
@@ -23,21 +24,32 @@ async function snapshotQty(custName, week) {
   return map;
 }
 
-export default function OrderModifyPanel({ open, setOpen, week }) {
+export default function OrderModifyPanel({ open, setOpen, week, customers }) {
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [orders, setOrders] = useState(null);
   const [registering, setRegistering] = useState(false);
   const [results, setResults] = useState(null);
   const [err, setErr] = useState('');
+  const [detectedWeek, setDetectedWeek] = useState(''); // 텍스트에서 감지한 차수 (WW-SS) — 기준차수보다 우선
+  const [showHighlight, setShowHighlight] = useState(false);
+
+  // 텍스트에 차수가 있으면(예 "25-1") 그 차수로 등록, 없으면 기준차수.
+  const effectiveWeek = detectedWeek || week;
 
   const runMatch = async () => {
     if (!text.trim()) { setErr('수정할 주문 텍스트를 입력하세요.'); return; }
-    setParsing(true); setErr(''); setOrders(null); setResults(null);
+    setParsing(true); setErr(''); setOrders(null); setResults(null); setDetectedWeek('');
     try {
       const d = await apiPost('/api/orders/parse-paste', { text });
       if (!d.success) throw new Error(d.error || '매칭 실패');
       let orders = d.orders || [];
+
+      // 텍스트에 차수가 있으면("25-1" 등) 기준차수 대신 그 차수로 등록 (웹 붙여넣기와 동일)
+      if (d.detectedWeek) {
+        const m = String(d.detectedWeek).match(/^(\d{1,2})-(\d{1,2})$/);
+        if (m) setDetectedWeek(`${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`);
+      }
 
       // 저장된 매핑 폴백 (웹 붙여넣기의 applyCache 동등) — parse-paste 미매칭 보완
       try {
@@ -70,7 +82,8 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
   };
 
   const runRegister = async () => {
-    if (!week) { setErr('차수를 선택하세요.'); return; }
+    const wk = effectiveWeek;
+    if (!wk) { setErr('차수를 선택하세요.'); return; }
     if (!orders?.length) { setErr('먼저 매칭하세요.'); return; }
     setRegistering(true); setErr(''); setResults(null);
     const out = [];
@@ -82,7 +95,7 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
         const unmatched = (order.items || []).filter(it => !it.prodKey);
         if (!matched.length) { out.push({ custName: cust.CustName, skip: '매칭된 품목 없음', unmatched: unmatched.map(u => u.inputName) }); continue; }
 
-        const before = await snapshotQty(cust.CustName, week);
+        const before = await snapshotQty(cust.CustName, wk);
         const items = matched.map(it => ({
           prodKey: it.prodKey,
           prodName: it.prodName,
@@ -91,10 +104,10 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
         }));
         let okMsg = '', okFlag = false;
         try {
-          const d = await apiPost('/api/orders', { custKey: cust.CustKey, week, year: yearOf(week), items, delta: true, source: 'chat-modify' });
+          const d = await apiPost('/api/orders', { custKey: cust.CustKey, week: wk, year: yearOf(wk), items, delta: true, source: 'chat-modify' });
           okFlag = !!d.success; okMsg = d.error || '';
         } catch (e) { okMsg = e.message || String(e); }
-        const after = await snapshotQty(cust.CustName, week);
+        const after = await snapshotQty(cust.CustName, wk);
 
         out.push({
           custName: cust.CustName,
@@ -112,7 +125,7 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
     finally { setRegistering(false); }
   };
 
-  const reset = () => { setText(''); setOrders(null); setResults(null); setErr(''); };
+  const reset = () => { setText(''); setOrders(null); setResults(null); setErr(''); setDetectedWeek(''); };
 
   const matchedCount = (orders || []).reduce((s, o) => s + (o.items || []).filter(i => i.prodKey).length, 0);
   const unmatchedCount = (orders || []).reduce((s, o) => s + (o.items || []).filter(i => !i.prodKey).length, 0);
@@ -121,30 +134,42 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
     <div className="m-mod">
       <button type="button" className="m-mod-toggle" onClick={() => setOpen(!open)}>
         <span>✏️ 주문수정</span>
-        <span className="m-mod-status">{week ? `${week}차` : '차수 미선택'}{orders ? ` · 매칭 ${matchedCount}/${matchedCount + unmatchedCount}` : ''}</span>
+        <span className="m-mod-status">{effectiveWeek ? `${effectiveWeek}차${detectedWeek ? '(텍스트)' : ''}` : '차수 미선택'}{orders ? ` · 매칭 ${matchedCount}/${matchedCount + unmatchedCount}` : ''}</span>
         <span>{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <div className="m-mod-body">
           <div className="m-mod-field">
-            <span>기준차수</span>
-            <b style={{ color: week ? '#9a3412' : '#b91c1c' }}>{week ? `${week}차` : '⚠️ 위에서 기준차수를 먼저 선택하세요'}</b>
+            <span>등록 차수</span>
+            <b style={{ color: effectiveWeek ? '#9a3412' : '#b91c1c' }}>
+              {effectiveWeek ? `${effectiveWeek}차` : '⚠️ 위에서 기준차수를 먼저 선택하세요'}
+              {detectedWeek
+                ? <span className="m-mod-badge">📅 텍스트 차수 적용{week && week !== detectedWeek ? ` (기준 ${week} 무시)` : ''}</span>
+                : (week ? <span className="m-mod-badge base">기준차수</span> : null)}
+            </b>
           </div>
 
           <textarea
             className="m-mod-text"
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder={'수정할 주문을 붙여넣으세요.\n예)\n미카엘\n프라우드 2단 추가\n장미 화이트 1박스 취소'}
+            placeholder={'수정할 주문을 붙여넣으세요.\n예)\n25-1 미카엘\n프라우드 2단 추가\n장미 화이트 1박스 취소\n(첫 줄에 25-1 처럼 차수를 적으면 그 차수로 등록됩니다)'}
             rows={4}
           />
+
+          <button type="button" className="m-mod-hl-toggle" onClick={() => setShowHighlight(v => !v)}>
+            🖍 입력 감지 하이라이트 {showHighlight ? 'ON ▲' : 'OFF ▼'}
+          </button>
+          {showHighlight && text.trim() && (
+            <PasteHighlight text={text} customers={customers} />
+          )}
 
           <div className="m-mod-actions">
             <button type="button" onClick={runMatch} disabled={parsing || !text.trim()} className="m-mod-btn primary">
               {parsing ? '매칭 중…' : '🔍 매칭'}
             </button>
-            <button type="button" onClick={runRegister} disabled={registering || !orders?.length || !week} className="m-mod-btn ok">
+            <button type="button" onClick={runRegister} disabled={registering || !orders?.length || !effectiveWeek} className="m-mod-btn ok">
               {registering ? '등록 중…' : '✅ 등록'}
             </button>
             <button type="button" onClick={reset} disabled={parsing || registering} className="m-mod-btn">초기화</button>
@@ -204,6 +229,9 @@ export default function OrderModifyPanel({ open, setOpen, week }) {
         .m-mod-body { display: grid; gap: 8px; padding: 10px 12px 12px; }
         .m-mod-field { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; font-size: 12px; font-weight: 800; color: #475569; }
         .m-mod-field select { min-height: 34px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 8px; font-size: 13px; }
+        .m-mod-badge { margin-left: 6px; font-size: 10px; font-weight: 800; color: #fff; background: #1565c0; padding: 2px 7px; border-radius: 10px; vertical-align: middle; }
+        .m-mod-badge.base { background: #94a3b8; }
+        .m-mod-hl-toggle { width: 100%; min-height: 32px; border: 1px solid #d8b4fe; border-radius: 8px; background: #faf5ff; color: #7e22ce; font-size: 12px; font-weight: 800; cursor: pointer; }
         .m-mod-text { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; font-size: 13px; resize: vertical; font-family: inherit; }
         .m-mod-actions { display: flex; gap: 6px; }
         .m-mod-btn { flex: 1; min-height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }

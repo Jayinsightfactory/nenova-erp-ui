@@ -517,6 +517,7 @@ export default function MobileChat() {
         open={modifyOpen}
         setOpen={setModifyOpen}
         week={toChatOrderWeek(directWeek)}
+        customers={allCustomers}
       />
 
       {/* 메시지 영역 */}
