@@ -11,8 +11,9 @@
 
 import ExcelJS from 'exceljs';
 import { withAuth } from '../../../lib/auth';
+import { query } from '../../../lib/db';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
-import { buildSummary, listBatches, viewBatchRaw } from '../../../lib/salesRevenueBatches';
+import { buildSummary, buildCustomerDir, listBatches, viewBatchRaw } from '../../../lib/salesRevenueBatches';
 import { MONTH_WEEK_GROUPS } from '../../../lib/salesRevenueConfig';
 
 // 매출비교.xlsx 테마색(lighter 80%) → ARGB
@@ -47,9 +48,22 @@ export default withAuth(async function handler(req, res) {
   const author = req.user?.userName || req.user?.userId || '';
 
   const mappings = loadSalesRevenueMappings();
+  const manager = String(req.query.manager || '').trim();   // '' 또는 '전체' = 전체
 
   try {
-    const summary = buildSummary({ channel, mappings });
+    let customerDir = null;
+    try {
+      const cr = await query(`SELECT CustKey, CustName, Manager FROM Customer WHERE isDeleted=0`);
+      customerDir = buildCustomerDir(cr.recordset);
+    } catch { customerDir = null; }
+
+    const summary = buildSummary({ channel, mappings, customerDir });
+    // 담당자 필터: 선택 시 해당 담당자 업체만 (월별 시트 + 원본매칭내역 둘 다)
+    const mgrSel = manager && manager !== '전체';
+    const exportCustomers = mgrSel
+      ? summary.customers.filter(c => (c.manager || '미지정') === manager)
+      : summary.customers;
+    const mgrCanonSet = mgrSel ? new Set(exportCustomers.map(c => c.canonicalName)) : null;
     const weeksSet = new Set(summary.weeks || []);
     // 데이터가 있는 월만 시트로(없으면 전체 월)
     let monthGroups = MONTH_WEEK_GROUPS.filter(g => g.weeks.some(w => weeksSet.has(w)));
@@ -87,7 +101,7 @@ export default withAuth(async function handler(req, res) {
       // 행1 제목
       ws.mergeCells(1, 1, 1, lastCol);
       const title = ws.getCell(1, 1);
-      title.value = `${channel || '양재동'} ${mg.month}월(${wkRange}) 매출 비교내역`;
+      title.value = `${channel || '양재동'}${mgrSel ? ` · ${manager} 담당` : ''} ${mg.month}월(${wkRange}) 매출 비교내역`;
       title.font = { bold: true, size: 14 };
       title.alignment = { horizontal: 'center', vertical: 'middle' };
       ws.getRow(1).height = 30;
@@ -129,7 +143,7 @@ export default withAuth(async function handler(req, res) {
 
       // 데이터 행
       let r = 5;
-      for (const c of summary.customers) {
+      for (const c of exportCustomers) {
         const nameCell = ws.getCell(r, 2);
         nameCell.value = c.canonicalName;
         nameCell.font = { bold: true };
@@ -180,6 +194,7 @@ export default withAuth(async function handler(req, res) {
     for (const b of batches) {
       const { raw } = viewBatchRaw(b, mappings);
       for (const rr of raw) {
+        if (mgrCanonSet && !mgrCanonSet.has(rr.canonicalName)) continue;
         const row = ws2.addRow([
           b.salesYear, b.orderWeek, b.channel, rr.ecountDateNo, rr.ecountCustName, rr.canonicalName, rr.productName,
           rr.quantity, rr.unitPriceVatIncluded, rr.supplyAmount, rr.vat, rr.totalAmount, rr.remark, rr.mappingStatus,
@@ -191,7 +206,7 @@ export default withAuth(async function handler(req, res) {
     }
 
     const buf = await wb.xlsx.writeBuffer();
-    const fileName = `영업매출비교_${channel || '양재동'}_${y3}.xlsx`;
+    const fileName = `영업매출비교_${channel || '양재동'}${mgrSel ? `_${manager}` : ''}_${y3}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
     res.setHeader('Content-Length', buf.byteLength);

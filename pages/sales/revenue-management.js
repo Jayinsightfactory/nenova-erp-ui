@@ -77,6 +77,7 @@ export default function SalesRevenueManagement() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
   const [pending, setPending] = useState(null);          // 업로드 미리보기(저장 전)
+  const [dlMgr, setDlMgr] = useState('');                 // 다운로드 담당자('' = 전체)
   const [batchHistOpen, setBatchHistOpen] = useState(false);
   const [batchHist, setBatchHist] = useState([]);
   const [mappingListOpen, setMappingListOpen] = useState(false);
@@ -203,9 +204,11 @@ export default function SalesRevenueManagement() {
     } catch (e) { alert(`롤백 실패: ${e.message}`); }
   };
 
-  // 매칭된 비교 결과를 엑셀로 다운로드 (쿠키 인증 → 같은 출처 새 탭)
+  // 매칭된 비교 결과를 엑셀로 다운로드 (쿠키 인증 → 같은 출처 새 탭). 담당자 선택 시 그 담당자만.
   const downloadExport = () => {
-    const qs = new URLSearchParams({ channel, y1: years.y1, y2: years.y2, y3: years.y3 }).toString();
+    const params = { channel, y1: years.y1, y2: years.y2, y3: years.y3 };
+    if (dlMgr) params.manager = dlMgr;
+    const qs = new URLSearchParams(params).toString();
     window.open(`/api/sales/revenue-export?${qs}`, '_blank');
   };
 
@@ -428,7 +431,14 @@ export default function SalesRevenueManagement() {
             </>
           )}
           <button className="btn" onClick={openBatchHist}>업로드 이력</button>
-          <button className="btn" onClick={downloadExport}>매칭결과 엑셀 다운로드</button>
+          <span className="filter-label" style={{ marginLeft: 8 }}>다운로드</span>
+          <select className="filter-select" value={dlMgr} onChange={e => setDlMgr(e.target.value)} title="다운로드 범위 — 전체 또는 특정 담당자">
+            <option value="">전체</option>
+            {managers.map(m => <option key={m} value={m}>{m} 담당</option>)}
+          </select>
+          <button className="btn" onClick={downloadExport}>
+            매칭결과 엑셀 다운로드{dlMgr ? ` (${dlMgr})` : ''}
+          </button>
           <button className="btn" onClick={loadSummary} disabled={loading}>저장본 새로고침</button>
         </div>
       </div>
