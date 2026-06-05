@@ -208,21 +208,24 @@ async function handler(req, res) {
   });
 
   // ── 7) nenova.exe(ViewOrder) 요청→처리 매칭 ──
-  let orders = []; const weeksInPlay = [...new Set(ev.map(e => majorWeek(e.week)).filter(w => /^\d{1,3}$/.test(w)))];
-  try {
-    // 차수 없으면 전체 ViewOrder 스캔 금지(타임아웃 방지). 안전한 2자리 차수만, 최대 40개.
-    const safe = [...new Set(weeksInPlay.map(w => w.padStart(2, '0')).filter(w => /^\d{2}$/.test(w)))].slice(0, 40);
-    if (safe.length) {
+  let orders = []; let sqlSkipped = false;
+  const weeksInPlay = [...new Set(ev.map(e => majorWeek(e.week)).filter(w => /^\d{1,3}$/.test(w)))];
+  const sqlWeek = (qWeek || '').padStart(2, '0');
+  // ViewOrder(무거운 뷰)는 "차수 선택 시 그 한 차수만" 조회한다. 전체 조회는 타임아웃 → 전산매칭 보류.
+  if (/^\d{2}$/.test(sqlWeek)) {
+    try {
       const r = await query(
         `SELECT TOP 20000 vo.OrderWeek, vo.Manager, ui.UserName AS ManagerName, vo.CustName, vo.ProdName,
                 ISNULL(px.DisplayName, vo.ProdName) AS DisplayName, vo.FlowerName, vo.CounName,
                 CONVERT(NVARCHAR(16), vo.OrderDtm, 120) AS OrderDtm
          FROM ViewOrder vo LEFT JOIN Product px ON vo.ProdKey = px.ProdKey
          LEFT JOIN UserInfo ui ON ui.UserID = vo.Manager
-         WHERE LEFT(vo.OrderWeek, 2) IN (${safe.map(w => `'${w}'`).join(',')})`);
+         WHERE vo.OrderWeek LIKE '${sqlWeek}%'`);
       orders = r.recordset || [];
-    }
-  } catch { /* SQL 보조 — 실패해도 진행 */ }
+    } catch { /* SQL 보조 — 실패해도 진행 */ }
+  } else {
+    sqlSkipped = true;  // 차수 미선택 → 전산 매칭 생략(빠른 로딩)
+  }
   const ordersByWeek = new Map(); orders.forEach(o => { const w = majorWeek(o.OrderWeek).padStart(2, '0'); if (!ordersByWeek.has(w)) ordersByWeek.set(w, []); ordersByWeek.get(w).push(o); });
   const tracking = []; const flowEdge = new Map();
   for (const e of ev) {
@@ -254,7 +257,7 @@ async function handler(req, res) {
 
   const processedCnt = tracking.filter(t => t.processed).length;
   return res.status(200).json({
-    success: true, kakaoAvailable, kakaoError, filters: { week: qWeek, room: qRoom, stage: qStage },
+    success: true, kakaoAvailable, kakaoError, sqlSkipped, filters: { week: qWeek, room: qRoom, stage: qStage },
     totals: { logs: lg.length, events: ev.length, requests: tracking.length, processed: processedCnt, unprocessed: tracking.length - processedCnt,
       senders: bySender.size, issues: decisions.length, unresolved: unresolved.length, resolved: resolvedCnt, orders: orders.length },
     bySender: vals(bySender), byWeek: [...byWeek.values()].sort((a, b) => a.key.localeCompare(b.key)), byRoom: vals(byRoom), byType: vals(byType), byStage: vals(byStage),

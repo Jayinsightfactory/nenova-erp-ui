@@ -220,7 +220,8 @@ export default function WorkflowAnalysis() {
           </div>
         )}
 
-        {tab === 'sql' && (
+        {tab === 'sql' && (<>
+          {d.sqlSkipped && <div style={banner('#eff6ff', '#1d4ed8')}>전산(ViewOrder) 매칭은 무거워서 <b>차수를 선택</b>해야 조회됩니다. 위 "차수"에 숫자(예: 23) 입력 후 조회하세요.</div>}
           <Table cols={['시각', '발신자', '차수', '품목', '수량', '방향', '거래처', '매칭', '처리담당자']} rows={d.tracking}
             render={r => [
               <td key="1" style={td}>{(r.time || '').slice(0, 16)}</td>, <td key="2" style={td}>{r.sender}</td>, <td key="3" style={td}>{r.week}</td>,
@@ -229,7 +230,7 @@ export default function WorkflowAnalysis() {
               <td key="7" style={td}>{r.customer}</td>,
               <td key="8" style={td}>{r.processed ? <span style={chip('#dcfce7', '#166534')}>처리 {r.matchScore}</span> : <span style={chip('#fee2e2', '#991b1b')}>미매칭</span>}</td>,
               <td key="9" style={td}>{r.processedBy || '-'}</td>]} />
-        )}
+        </>)}
       </>)}
     </div>
   );
