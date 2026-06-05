@@ -1,6 +1,6 @@
 // pages/admin/workflow.js
 // 직원간 업무플로우 분석 — nenovakakao 기획(파이프라인+흐름+라이프사이클+이슈) 풀반영.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -69,13 +69,24 @@ export default function WorkflowAnalysis() {
   const [tab, setTab] = useState('pipeline');
   const [week, setWeek] = useState(''); const [room, setRoom] = useState(''); const [stage, setStage] = useState('');
   const [d, setD] = useState(null); const [loading, setLoading] = useState(false); const [err, setErr] = useState('');
+  const [progress, setProgress] = useState(0); const timer = useRef(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setErr('');
+    setLoading(true); setErr(''); setProgress(4);
+    if (timer.current) clearInterval(timer.current);
+    // 경과시간 기반 추정 진행률(서버가 실시간 %를 주지 않으므로 95%까지 점근, 완료 시 100%)
+    timer.current = setInterval(() => setProgress(p => Math.min(95, p + Math.max(0.5, (95 - p) * 0.05))), 200);
     try { const r = await apiGet('/api/admin/workflow', { week, room, stage }); if (!r.success) throw new Error(r.error); setD(r); }
-    catch (e) { setErr(e.message); setD(null); } finally { setLoading(false); }
+    catch (e) { setErr(e.message); setD(null); }
+    finally {
+      if (timer.current) { clearInterval(timer.current); timer.current = null; }
+      setProgress(100); setLoading(false);
+      setTimeout(() => setProgress(0), 600);
+    }
   }, [week, room, stage]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { if (timer.current) clearInterval(timer.current); }; }, [load]);
+
+  const stageMsg = progress < 30 ? '① 카카오 대화 시트 읽는 중…' : progress < 65 ? '② 주문(ViewOrder) 매칭 중…' : progress < 100 ? '③ 업무플로우 분석 중…' : '완료';
 
   const t = d?.totals || {};
   const pRate = t.requests ? Math.round((t.processed / t.requests) * 100) : 0;
@@ -94,8 +105,20 @@ export default function WorkflowAnalysis() {
           <option value="">전체</option>
           {['IMPORT', 'QC', 'INVENTORY', 'ORDER', 'DISTRIBUTE', 'FIELD', 'SYSTEM'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button onClick={load} disabled={loading} style={btn}>{loading ? '조회중…' : '조회'}</button>
+        <button onClick={load} disabled={loading} style={btn}>{loading ? `조회중 ${Math.round(progress)}%` : '조회'}</button>
       </div>
+
+      {loading && (
+        <div style={{ ...card, marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+            <span>{stageMsg}</span><b style={{ color: '#1d4ed8' }}>{Math.round(progress)}%</b>
+          </div>
+          <div style={{ height: 10, background: '#e2e8f0', borderRadius: 5, overflow: 'hidden' }}>
+            <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg,#1d4ed8,#3b82f6)', borderRadius: 5, transition: 'width .2s ease' }} />
+          </div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>카톡 데이터량·주문 매칭에 따라 수 초~수십 초 걸릴 수 있습니다.</div>
+        </div>
+      )}
 
       {err && <div style={banner('#fef2f2', '#b91c1c')}>오류: {err}</div>}
       {d && !d.kakaoAvailable && <div style={banner('#fffbeb', '#92400e')}>⚠️ 카카오 Google Sheet 미연동 — 서버 env <b>GOOGLE_SERVICE_ACCOUNT_JSON</b>, <b>KAKAO_SHEET_ID</b> 설정 필요. ({d.kakaoError})</div>}
@@ -110,7 +133,7 @@ export default function WorkflowAnalysis() {
         {TABS.map(([k, lab]) => <button key={k} onClick={() => setTab(k)} style={tab === k ? tabOn : tabOff}>{lab}</button>)}
       </div>
 
-      {!d ? <div style={muted}>불러오는 중…</div> : (<>
+      {!d ? null : (<>
         {tab === 'pipeline' && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
