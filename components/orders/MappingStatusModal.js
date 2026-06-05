@@ -20,7 +20,9 @@ export default function MappingStatusModal({ open, onClose }) {
   // 품목 재지정(잘못 매핑된 입력의 품목만 변경)
   const [products, setProducts] = useState(null);   // null=미로딩
   const [prodLoading, setProdLoading] = useState(false);
-  const [editKey, setEditKey] = useState('');       // 수정 중인 입력토큰
+  const [editKeys, setEditKeys] = useState([]);     // 수정 중인 입력토큰들 (1개=chip, N개=그룹 전체)
+  const [editTitle, setEditTitle] = useState('');   // 에디터 헤더 라벨
+  const [editCurKey, setEditCurKey] = useState(null); // 현재 prodKey (선택표시용)
   const [editQuery, setEditQuery] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -34,7 +36,7 @@ export default function MappingStatusModal({ open, onClose }) {
       setProdMap(p.mappings || {});
       setCustMap(c.mappings || {});
     } catch (e) { setErr(e.message); }
-    finally { setLoading(false); setEditKey(''); setEditQuery(''); }
+    finally { setLoading(false); setEditKeys([]); setEditQuery(''); }
   };
 
   useEffect(() => { if (open) load(); }, [open]);
@@ -88,45 +90,52 @@ export default function MappingStatusModal({ open, onClose }) {
     finally { setProdLoading(false); }
   };
 
-  const startEdit = (key) => { setEditKey(key); setEditQuery(''); ensureProducts(); };
-  const cancelEdit = () => { setEditKey(''); setEditQuery(''); };
+  // 단일 입력(chip) 품목 변경
+  const startEdit = (key) => {
+    setEditKeys([key]); setEditTitle(`“${key}”`); setEditCurKey(prodMap[key]?.prodKey ?? null);
+    setEditQuery(''); ensureProducts();
+  };
+  // 그룹 헤더 — 같은 품목으로 묶인 입력 전체를 한 번에 다른 품목으로 재지정
+  const startEditGroup = (g) => {
+    setEditKeys(g.keys.map(k => k.key));
+    setEditTitle(`그룹 “${g.targetName}” · 입력 ${g.keys.length}개 전체`);
+    setEditCurKey(g.targetId ?? null);
+    setEditQuery(''); ensureProducts();
+  };
+  const cancelEdit = () => { setEditKeys([]); setEditQuery(''); };
 
-  // 같은 입력토큰에 새 prodKey 로 덮어쓰기 (force: 명시적 수정이므로 fallback 경고 무시)
+  // 입력토큰(들)에 새 prodKey 로 덮어쓰기 (force: 명시적 수정이므로 fallback 경고 무시)
   const saveEdit = async (prod) => {
-    if (!editKey || !prod) return;
+    if (!editKeys.length || !prod) return;
+    if (editKeys.length > 1 && !window.confirm(`입력 ${editKeys.length}개 전체를 “${prod.DisplayName || prod.ProdName}” (으)로 변경할까요?`)) return;
     setSavingEdit(true);
+    const next = {
+      prodKey: prod.ProdKey,
+      prodName: prod.ProdName,
+      displayName: prod.DisplayName || prod.ProdName,
+      flowerName: prod.FlowerName,
+      counName: prod.CounName,
+    };
     try {
-      await apiPost('/api/orders/mappings', {
-        inputToken: editKey,
-        prodKey: prod.ProdKey,
-        prodName: prod.ProdName,
-        displayName: prod.DisplayName || prod.ProdName,
-        flowerName: prod.FlowerName,
-        counName: prod.CounName,
-        force: true,
+      for (const k of editKeys) {
+        await apiPost('/api/orders/mappings', { inputToken: k, ...next, force: true });
+      }
+      setProdMap(prev => {
+        const n = { ...prev };
+        for (const k of editKeys) if (n[k]) n[k] = { ...n[k], ...next };
+        return n;
       });
-      setProdMap(prev => ({
-        ...prev,
-        [editKey]: {
-          ...prev[editKey],
-          prodKey: prod.ProdKey,
-          prodName: prod.ProdName,
-          displayName: prod.DisplayName || prod.ProdName,
-          flowerName: prod.FlowerName,
-          counName: prod.CounName,
-        },
-      }));
       cancelEdit();
     } catch (e) { alert(`품목 변경 실패: ${e.message}`); }
     finally { setSavingEdit(false); }
   };
 
   const editCandidates = useMemo(() => {
-    if (!editKey || !products) return [];
+    if (!editKeys.length || !products) return [];
     const q = editQuery.trim();
     if (!q) return [];
     return filterProducts(products, q).slice(0, 12);
-  }, [editKey, products, editQuery]);
+  }, [editKeys, products, editQuery]);
 
   if (!open) return null;
 
@@ -162,14 +171,11 @@ export default function MappingStatusModal({ open, onClose }) {
         {err && <div style={{ color: '#c0392b', padding: '6px 12px', fontSize: 12 }}>오류: {err}</div>}
 
         <div style={S.body}>
-          {tab === 'product' && editKey && (
+          {tab === 'product' && editKeys.length > 0 && (
             <div style={S.editor}>
               <div style={S.editorHead}>
                 <span style={{ fontSize: 12 }}>
-                  🔧 <b>“{editKey}”</b> 품목 변경 — 현재:{' '}
-                  <span style={{ color: '#c0392b' }}>
-                    {prodMap[editKey]?.displayName || prodMap[editKey]?.prodName || `품목#${prodMap[editKey]?.prodKey}`}
-                  </span>
+                  🔧 <b>{editTitle}</b> 품목 변경
                 </span>
                 <button onClick={cancelEdit} style={S.btn}>취소</button>
               </div>
@@ -189,7 +195,7 @@ export default function MappingStatusModal({ open, onClose }) {
               )}
               <div style={S.candList}>
                 {editCandidates.map(p => {
-                  const sel = Number(p.ProdKey) === Number(prodMap[editKey]?.prodKey);
+                  const sel = Number(p.ProdKey) === Number(editCurKey);
                   return (
                     <button key={p.ProdKey} disabled={savingEdit || sel} onClick={() => saveEdit(p)} style={{ ...S.cand, ...(sel ? S.candSel : {}) }}>
                       <b>{getDisplayName(p)}</b>
@@ -210,6 +216,9 @@ export default function MappingStatusModal({ open, onClose }) {
               <div key={String(g.targetId) + g.targetName} style={{ ...S.group, ...(dup ? S.groupDup : {}) }}>
                 <div style={S.groupHead}>
                   <span style={{ fontWeight: 700 }}>{g.targetName}</span>
+                  {tab === 'product' && g.targetId != null && (
+                    <button onClick={() => startEditGroup(g)} style={S.headEdit} title="이 그룹 전체의 품목을 한 번에 변경">✎ 품목변경</button>
+                  )}
                   <span style={{ color: '#90a4ae', fontSize: 11 }}>{tab === 'product' ? 'prodKey' : 'custKey'} {String(g.targetId)}</span>
                   <span style={{
                     marginLeft: 'auto', fontSize: 11, padding: '1px 7px', borderRadius: 10,
@@ -220,7 +229,7 @@ export default function MappingStatusModal({ open, onClose }) {
                 </div>
                 <div style={S.chips}>
                   {g.keys.map(k => (
-                    <span key={k.key} style={{ ...S.chip, ...(editKey === k.key ? S.chipEditing : {}) }} title={`저장: ${(k.savedAt || '').slice(0, 16).replace('T', ' ')}`}>
+                    <span key={k.key} style={{ ...S.chip, ...(editKeys.includes(k.key) ? S.chipEditing : {}) }} title={`저장: ${(k.savedAt || '').slice(0, 16).replace('T', ' ')}`}>
                       {k.key}
                       {tab === 'product' && (
                         <button onClick={() => startEdit(k.key)} style={S.chipEdit} title="이 입력의 품목 변경">✎</button>
@@ -252,6 +261,7 @@ const S = {
   groupHead: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 13 },
   chips: { display: 'flex', flexWrap: 'wrap', gap: 4 },
   chip: { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2ff', border: '1px solid #d6deff', borderRadius: 12, padding: '2px 4px 2px 8px', fontSize: 12 },
+  headEdit: { border: '1px solid #d1c4e9', background: '#ede7f6', color: '#5e35b1', borderRadius: 12, padding: '1px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 700 },
   chipEditing: { background: '#fff7e6', border: '1px solid #ffd591' },
   chipEdit: { border: 0, background: '#ede7f6', color: '#5e35b1', borderRadius: '50%', width: 16, height: 16, lineHeight: '14px', cursor: 'pointer', fontSize: 11, padding: 0 },
   chipX: { border: 0, background: '#c5cae9', color: '#1a237e', borderRadius: '50%', width: 16, height: 16, lineHeight: '14px', cursor: 'pointer', fontSize: 12, padding: 0 },
