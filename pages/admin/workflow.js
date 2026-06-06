@@ -63,7 +63,9 @@ function Table({ cols, rows, render, empty = '데이터 없음', max = 520 }) {
   );
 }
 
-const TABS = [['pipeline', '🏭 파이프라인'], ['summary', '📊 요약'], ['flow', '🔄 흐름분석'], ['lifecycle', '♻ 라이프사이클'], ['issues', '⚠ 이슈'], ['people', '👥 직원·네트워크'], ['sql', '🔗 요청→처리(전산)']];
+const TABS = [['pipeline', '🏭 파이프라인'], ['summary', '📊 요약'], ['chasu', '🧭 차수 타임라인'], ['flow', '🔄 흐름분석'], ['issuetrack', '🗂 이슈트래킹'], ['people', '👥 직원·네트워크'], ['sql', '🔗 요청→처리(전산)']];
+
+const STAGE_COLOR = { IMPORT: '#0891b2', QC: '#dc2626', INVENTORY: '#ca8a04', ORDER: '#1d4ed8', DISTRIBUTE: '#16a34a', FIELD: '#9333ea', SYSTEM: '#64748b', '': '#94a3b8' };
 
 export default function WorkflowAnalysis() {
   const [tab, setTab] = useState('pipeline');
@@ -138,10 +140,10 @@ export default function WorkflowAnalysis() {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
               {(d.stageBoard || []).map((s, i) => (
-                <div key={s.key} style={{ ...card, borderTop: `3px solid ${P[i % P.length]}` }}>
+                <div key={s.key} style={{ ...card, borderTop: `3px solid ${STAGE_COLOR[s.key] || P[i % P.length]}` }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{s.name}<span style={{ color: '#94a3b8', fontWeight: 600 }}> · {s.key}</span></div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#1e293b', margin: '2px 0' }}>{fmt(s.events)}<span style={{ fontSize: 12, color: '#64748b' }}> 이벤트</span></div>
-                  <div style={{ fontSize: 11, color: '#475569' }}>변경 {s.change} · <span style={{ color: '#dc2626' }}>불량 {s.defect}</span> · <span style={{ color: '#ea580c' }}>미해결 {s.unresolved}</span></div>
+                  <div style={{ fontSize: 11, color: '#475569' }}>변경 {s.change} · 참여 {s.senders}명 · <span style={{ color: '#ea580c' }}>미해결 {s.unresolved}</span></div>
                 </div>
               ))}
             </div>
@@ -180,40 +182,75 @@ export default function WorkflowAnalysis() {
           </div>
         )}
 
-        {tab === 'lifecycle' && (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <Bar data={(d.lifecycle?.byChasu || []).map(c => ({ key: `${c.week}차`, count: c.defect }))} label="차수별 불량(DEFECT) 건수" />
-            <div><div style={secT}>차수별 라이프사이클 (변경/불량)</div>
-              <Table cols={['차수', '총이벤트', '발주변경', '불량']} rows={d.lifecycle?.byChasu}
-                render={r => [<td key="1" style={td}>{r.week}차</td>, <td key="2" style={tdR}>{r.total}</td>, <td key="3" style={tdR}>{r.change}</td>, <td key="4" style={{ ...tdR, color: r.defect ? '#dc2626' : '#475569' }}>{r.defect}</td>]} max={260} />
-            </div>
-            <div><div style={secT}>품목별 불량률</div>
-              <Table cols={['품목', '언급', '불량', '불량률%', '거래처별 불량']} rows={d.lifecycle?.itemDefects}
-                render={r => [<td key="1" style={td}>{r.item}</td>, <td key="2" style={tdR}>{r.mentions}</td>, <td key="3" style={tdR}>{r.defects}</td>, <td key="4" style={{ ...tdR, color: r.rate > 20 ? '#dc2626' : '#475569' }}>{r.rate}%</td>, <td key="5" style={td}>{Object.entries(r.byTrader || {}).map(([k, v]) => `${k}:${v}`).join(', ')}</td>]} max={220} />
-            </div>
-            <div style={card}>
-              <div style={cardTitle}>주문변경 → 불량 전환율</div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: (d.lifecycle?.conversion?.rate || 0) > 30 ? '#dc2626' : '#16a34a' }}>{d.lifecycle?.conversion?.rate || 0}%</div>
-              <div style={muted}>변경 차수·품목 조합 {d.lifecycle?.conversion?.total || 0}건 중 {d.lifecycle?.conversion?.withDefect || 0}건에서 이후 불량 발생</div>
-            </div>
+        {tab === 'chasu' && (
+          <div>
+            {!week ? <div style={banner('#eff6ff', '#1d4ed8')}>위 "차수"에 숫자(예: 23)를 입력하고 <b>조회</b>하면, 그 차수의 <b>전사 업무흐름</b>이 단계별·시간순으로 펼쳐집니다.</div>
+              : (d.chasuFlow || []).length === 0 ? <div style={muted}>{week}차 이벤트가 없습니다. (최근 데이터 범위 밖이거나 미수집)</div>
+                : (<>
+                  <div style={secT}>{week}차 전사 업무흐름 — 시간순 {d.chasuFlow.length}건 (색=단계: 🔵수입 🔴검수 🟡재고 🔷발주 🟢출고)</div>
+                  <div style={{ ...card, padding: 0, overflow: 'auto', maxHeight: 640 }}>
+                    {d.chasuFlow.map((f, i) => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '64px 84px 1fr', gap: 8, padding: '7px 10px', borderBottom: '1px solid #f1f5f9', borderLeft: `4px solid ${STAGE_COLOR[f.stageKey] || '#94a3b8'}` }}>
+                        <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{f.time || ''}</span>
+                        <span><span style={{ ...chip('#f1f5f9', STAGE_COLOR[f.stageKey] || '#475569'), fontSize: 10 }}>{f.stage}</span></span>
+                        <span style={{ fontSize: 12, minWidth: 0 }}>
+                          <b style={{ color: '#0f172a' }}>{f.sender || '?'}</b>
+                          <span style={{ color: '#94a3b8' }}> · {f.room}</span>
+                          <span style={{ marginLeft: 6, color: f.direction === '-' ? '#dc2626' : '#1d4ed8', fontWeight: 700 }}>{f.etLabel}</span>
+                          {f.product && f.product !== '품목미분류' && <span style={{ marginLeft: 6 }}>{f.product}{f.qty ? ` ${f.qty}${f.unit}` : ''}</span>}
+                          {f.customer && <span style={{ marginLeft: 6, color: '#7c3aed' }}>[{f.customer}]</span>}
+                          {f.summary && <div style={{ color: '#475569', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.summary}>{f.summary}</div>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>)}
           </div>
         )}
 
-        {tab === 'issues' && (
+        {tab === 'issuetrack' && (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={grid2}><Bar data={d.issues?.byStage} label="미해결 이슈 — 단계별" /><Bar data={d.issues?.byRoom} label="미해결 이슈 — 방별" /></div>
-            <div><div style={secT}>미해결 이슈 체인 ({d.issues?.unresolved || 0} / 전체 {d.issues?.total || 0})</div>
+            <div style={banner('#f5f3ff', '#6d28d9')}>실제 대화·의사결정 이력에서 자동 도출한 <b>"이슈 → 대응"</b> 패턴입니다(매뉴얼 초안). 어떤 이슈에 누가·어떻게 대응했는지, 거래처가 무엇을 요청·문제삼는지.</div>
+
+            <div><div style={secT}>① 이슈 유형별 대응 패턴 — 누가·어떤 단계·평균 소요·해결</div>
+              <Table cols={['이슈 유형', '건수', '주 대응자', '담당 단계', '평균소요(분)', '해결/미해결']} rows={d.issueTracking?.issueTypes}
+                render={r => [
+                  <td key="1" style={{ ...td, fontWeight: 700 }}>{r.type}</td>, <td key="2" style={tdR}>{r.count}</td>,
+                  <td key="3" style={td}>{(r.responders || []).map(x => `${x.name}(${x.n})`).join(', ') || '-'}</td>,
+                  <td key="4" style={td}>{(r.stages || []).map(x => x.name).join(', ') || '-'}</td>,
+                  <td key="5" style={tdR}>{r.avgMin ?? '-'}</td>,
+                  <td key="6" style={td}><span style={{ color: '#16a34a' }}>{r.resolved}</span> / <span style={{ color: '#dc2626' }}>{r.unresolved}</span></td>]} max={300} />
+            </div>
+
+            <div><div style={secT}>② 거래처별 요청/이슈 — 무엇을 요청·문제삼나 + 어느 단계에서 처리</div>
+              <Table cols={['거래처', '건수', '요청/이슈 유형', '처리 단계', '샘플(원문)']} rows={d.issueTracking?.customerIssues}
+                render={r => [
+                  <td key="1" style={{ ...td, fontWeight: 700 }}>{r.customer}</td>, <td key="2" style={tdR}>{r.count}</td>,
+                  <td key="3" style={td}>{(r.types || []).map(x => `${x.name}(${x.n})`).join(', ')}</td>,
+                  <td key="4" style={td}>{(r.stages || []).map(x => x.name).join(', ')}</td>,
+                  <td key="5" style={td} title={(r.samples || []).map(s => s.summary).join('  /  ')}>{(r.samples?.[0]?.summary || '').slice(0, 44)}</td>]} max={300} />
+            </div>
+
+            <div><div style={secT}>③ 단계별 담당 (이슈 발생 시 누가 봐야 하나) — pipeline_config</div>
+              <div style={grid2}>
+                {Object.entries(d.issueTracking?.stageRoles || {}).map(([st, ppl]) => (
+                  <div key={st} style={card}><div style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>{st}</div><div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{ppl.join(', ')}</div></div>
+                ))}
+              </div>
+            </div>
+
+            <div><div style={secT}>④ 미해결 이슈 ({d.issues?.unresolved || 0} / 전체 {d.issues?.total || 0})</div>
               <Table cols={['시각', '발생방', '단계', '이슈내용', '대응자', '결과']} rows={d.issues?.list}
-                render={r => [<td key="1" style={td}>{r.time}</td>, <td key="2" style={td}>{r.room}</td>, <td key="3" style={td}>{r.pipeline}</td>, <td key="4" style={td} title={r.content}>{(r.content || '').slice(0, 40)}</td>, <td key="5" style={td}>{r.responder || '-'}</td>, <td key="6" style={{ ...td, color: '#dc2626' }}>{r.result}</td>]} />
+                render={r => [<td key="1" style={td}>{r.time}</td>, <td key="2" style={td}>{r.room}</td>, <td key="3" style={td}>{r.pipeline}</td>, <td key="4" style={td} title={r.content}>{(r.content || '').slice(0, 40)}</td>, <td key="5" style={td}>{r.responder || '-'}</td>, <td key="6" style={{ ...td, color: '#dc2626' }}>{r.result}</td>]} max={260} />
             </div>
           </div>
         )}
 
         {tab === 'people' && (
           <div style={{ display: 'grid', gap: 12 }}>
-            <div><div style={secT}>직원별 업무 (역할/단계 · 활동·요청·불량보고·응답)</div>
-              <Table cols={['이름', '역할', '단계', '이벤트', '요청', '불량보고', '이슈응답']} rows={d.people}
-                render={r => [<td key="1" style={{ ...td, fontWeight: 700 }}>{r.name}</td>, <td key="2" style={td}>{r.role || '-'}</td>, <td key="3" style={td}>{r.stage || '-'}</td>, <td key="4" style={tdR}>{r.events}</td>, <td key="5" style={tdR}>{r.requests}</td>, <td key="6" style={{ ...tdR, color: r.defectsReported ? '#dc2626' : '#475569' }}>{r.defectsReported}</td>, <td key="7" style={tdR}>{r.responses}</td>]} max={320} />
+            <div><div style={secT}>직원별 업무 (역할/단계 · 활동·요청·이슈응답)</div>
+              <Table cols={['이름', '역할', '단계', '이벤트', '요청', '이슈응답']} rows={d.people}
+                render={r => [<td key="1" style={{ ...td, fontWeight: 700 }}>{r.name}</td>, <td key="2" style={td}>{r.role || '-'}</td>, <td key="3" style={td}>{r.stage || '-'}</td>, <td key="4" style={tdR}>{r.events}</td>, <td key="5" style={tdR}>{r.requests}</td>, <td key="6" style={tdR}>{r.responses}</td>]} max={320} />
             </div>
             <div><div style={secT}>요청 → 처리 흐름 (영업/카톡 → 전산 담당)</div><FlowGraph flow={d.network?.flow} /></div>
             <div><div style={secT}>직원 공동참여 네트워크 (같은 스레드 참여)</div><CoworkGraph cowork={d.network?.cowork} /></div>

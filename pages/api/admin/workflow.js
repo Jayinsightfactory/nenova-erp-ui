@@ -8,7 +8,7 @@ import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
 import { getKakaoSheetId, readSheetValues } from '../../../lib/googleSheets';
 import { scoreMatch } from '../../../lib/displayName';
-import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES } from '../../../lib/workflowConfig';
+import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES, KEY_PERSONNEL } from '../../../lib/workflowConfig';
 
 const LOG_RANGE = '이벤트로그!A:F';
 const BIZ_RANGE = '비즈니스이벤트!A:P';
@@ -159,37 +159,73 @@ async function handler(req, res) {
   }
   noResponse.sort((a, b) => (b.waitMin === '무응답' ? 1e9 : b.waitMin) - (a.waitMin === '무응답' ? 1e9 : a.waitMin));
 
-  // ── 4) 라이프사이클 (_lifecycle_analysis.py) ──
+  // ── 4) 차수별 활동 ──
   const chasuEv = new Map();
   for (const e of ev) { const c = majorWeek(e.week); if (!c) continue; if (!chasuEv.has(c)) chasuEv.set(c, []); chasuEv.get(c).push(e); }
   const byChasu = [...chasuEv.entries()].map(([c, evs]) => {
     const tc = {}; evs.forEach(e => { tc[e.eventType] = (tc[e.eventType] || 0) + 1; });
-    return { week: c, total: evs.length, change: tc.ORDER_CHANGE || 0, defect: tc.DEFECT || 0, types: tc };
+    return { week: c, total: evs.length, change: tc.ORDER_CHANGE || 0, types: tc };
   }).sort((a, b) => Number(a.week) - Number(b.week));
 
-  // 품목별 불량률
-  const ITEMS = ['카네이션', '수국', '장미', '루스커스', '튤립'];
-  const itemDefects = ITEMS.map(it => {
-    const all = ev.filter(e => e.product === it || (e.product !== it && e.summary.includes(it)));
-    const defects = all.filter(e => e.eventType === 'DEFECT');
-    const traderDef = {}; defects.forEach(d => { if (d.customer) traderDef[d.customer] = (traderDef[d.customer] || 0) + 1; });
-    return { item: it, mentions: all.length, defects: defects.length, rate: all.length ? +(defects.length / all.length * 100).toFixed(1) : 0, byTrader: traderDef };
-  }).filter(x => x.mentions > 0).sort((a, b) => b.defects - a.defects);
+  // ── 4b) 이슈트래킹 (데이터 기반 도출) ── 불량 대신 "어떤 요청/이슈 → 누가 어떤 업무" ──
+  const issueCategory = (txt) => {
+    const c = String(txt || '');
+    if (/취소/.test(c)) return '취소 요청';
+    if (/대체|컨펌|승인/.test(c)) return '대체·컨펌';
+    if (/추가|발주|요청/.test(c)) return '추가·발주 요청';
+    if (/변경/.test(c)) return '변경 요청';
+    if (/입고|출고|배송|배차|도착|스케줄|항공|세관|일정/.test(c)) return '물류·일정';
+    if (/재고|수량|잔량|확인/.test(c)) return '재고·수량 확인';
+    if (/가격|단가|원가|네고|비싸|위안|원/.test(c)) return '가격·단가';
+    if (/품질|상태|클레임|문제|불량/.test(c)) return '품질·클레임';
+    return '기타';
+  };
+  const topN = (m, n = 4) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ name: k, n: v }));
 
-  // 주문변경→불량 전환율
-  const defectPairs = new Set();
-  ev.filter(e => e.eventType === 'DEFECT').forEach(d => { const c = majorWeek(d.week); if (c) { defectPairs.add(`${c}|${d.product}`); defectPairs.add(`${c}|`); } });
-  const changePairs = new Map();
-  ev.filter(e => e.eventType === 'ORDER_CHANGE').forEach(o => { const c = majorWeek(o.week); if (c) { const k = `${c}|${o.product}`; if (!changePairs.has(k)) changePairs.set(k, 0); changePairs.set(k, changePairs.get(k) + 1); } });
-  let changeTotal = 0, changeDefect = 0; const conversions = [];
-  for (const [k, cnt] of changePairs) { changeTotal++; const [c, p] = k.split('|'); const has = defectPairs.has(k) || defectPairs.has(`${c}|`); if (has) { changeDefect++; conversions.push({ week: c, product: p, changes: cnt }); } }
-  const conversionRate = changeTotal ? +(changeDefect / changeTotal * 100).toFixed(1) : 0;
-
-  // 미해결 이슈 체인
+  // 미해결 이슈
   const unresolved = decisions.filter(d => /미해결|미처리|보류|진행/.test(d.result) || d.result === '정보없음');
   const issuesByStage = new Map(), issuesByRoom = new Map();
   for (const u of unresolved) { bump(issuesByStage, stageName(u.pipeline), 0); bump(issuesByRoom, u.room, 0); }
   const resolvedCnt = decisions.length - unresolved.length;
+
+  // ① 이슈 유형별 대응 패턴 (의사결정추적): 유형 → 대응자·평균소요·결과·단계·샘플
+  const itMap = new Map();
+  for (const d of decisions) {
+    const cat = issueCategory(d.content || d.response);
+    if (!itMap.has(cat)) itMap.set(cat, { type: cat, count: 0, responders: new Map(), durations: [], resolved: 0, unresolved: 0, stages: new Map(), samples: [] });
+    const it = itMap.get(cat); it.count++;
+    if (d.responder) it.responders.set(d.responder, (it.responders.get(d.responder) || 0) + 1);
+    if (d.durationMin) it.durations.push(d.durationMin);
+    if (/미해결|미처리|보류|진행|정보없음/.test(d.result)) it.unresolved++; else it.resolved++;
+    const st = stageName(d.pipeline); if (st) it.stages.set(st, (it.stages.get(st) || 0) + 1);
+    if (it.samples.length < 5 && (d.content || d.response)) it.samples.push({ content: d.content, action: d.response, by: d.responder, result: d.result, time: d.time, room: d.room });
+  }
+  const issueTypes = [...itMap.values()].map(it => ({
+    type: it.type, count: it.count, responders: topN(it.responders), stages: topN(it.stages),
+    avgMin: it.durations.length ? Math.round(it.durations.reduce((a, b) => a + b, 0) / it.durations.length) : null,
+    resolved: it.resolved, unresolved: it.unresolved, samples: it.samples,
+  })).sort((a, b) => b.count - a.count);
+
+  // ② 거래처별 요청/이슈 패턴 (비즈니스이벤트): 거래처 → 무엇을 요청/문제삼나 + 어느 단계에서 처리 + 샘플
+  const custMap = new Map();
+  for (const e of ev) {
+    if (!e.customer) continue;
+    if (!custMap.has(e.customer)) custMap.set(e.customer, { customer: e.customer, count: 0, types: new Map(), stages: new Map(), samples: [] });
+    const c = custMap.get(e.customer); c.count++;
+    const tlabel = e.eventType ? `${e.eventType}${EVENT_TYPES[e.eventType] ? `(${EVENT_TYPES[e.eventType]})` : ''}` : '기타';
+    c.types.set(tlabel, (c.types.get(tlabel) || 0) + 1);
+    const st = stageName(e.pipeline || stageOfRoom(e.room)); if (st) c.stages.set(st, (c.stages.get(st) || 0) + 1);
+    if (c.samples.length < 5 && e.summary) c.samples.push({ week: majorWeek(e.week), type: e.eventType, product: prodLabel(e), summary: e.summary, time: e.time, room: e.room });
+  }
+  const customerIssues = [...custMap.values()].map(c => ({
+    customer: c.customer, count: c.count, types: topN(c.types, 5), stages: topN(c.stages, 4), samples: c.samples,
+  })).sort((a, b) => b.count - a.count).slice(0, 80);
+
+  // ③ 단계별 담당 인물 (pipeline_config) — "이 단계 이슈는 이 사람들이"
+  const stageRoles = {};
+  for (const [name, info] of Object.entries(KEY_PERSONNEL)) {
+    const sn = stageName(info.stage); (stageRoles[sn] ||= []).push(`${name} · ${info.role}`);
+  }
 
   // ── 5) 직원별 (역할/단계 + 활동 + 응답자) ──
   const respondCount = new Map(); decisions.forEach(d => { if (d.responder) respondCount.set(d.responder, (respondCount.get(d.responder) || 0) + 1); });
@@ -205,7 +241,8 @@ async function handler(req, res) {
   const stageBoard = STAGE_ORDER.map(key => {
     const stEv = ev.filter(e => (e.pipeline || stageOfRoom(e.room)) === key);
     const stIssues = unresolved.filter(u => u.pipeline === key);
-    return { key, name: stageName(key), events: stEv.length, change: stEv.filter(e => e.eventType === 'ORDER_CHANGE').length, defect: stEv.filter(e => e.eventType === 'DEFECT').length, unresolved: stIssues.length };
+    const senders = new Set(stEv.map(e => e.sender).filter(Boolean));
+    return { key, name: stageName(key), events: stEv.length, change: stEv.filter(e => e.eventType === 'ORDER_CHANGE').length, senders: senders.size, unresolved: stIssues.length };
   });
 
   // ── 7) nenova.exe(ViewOrder) 요청→처리 매칭 ──
@@ -256,6 +293,17 @@ async function handler(req, res) {
     cowork: [...coEdges.entries()].map(([k, v]) => { const [a, b] = k.split('↔'); return { a, b, count: v }; }).sort((x, y) => y.count - x.count).slice(0, 40),
   };
 
+  // ── 9) 차수별 전사 업무흐름 타임라인 (차수 선택 시) — 단계 시간순 ──
+  let chasuFlow = [];
+  if (qWeek) {
+    chasuFlow = ev.filter(e => majorWeek(e.week) === qWeek).map(e => {
+      const stKey = e.pipeline || stageOfRoom(e.room);
+      return { time: e.time, t: parseMin(e.time) ?? 99999, stageKey: STAGE_ORDER.includes(stKey) ? stKey : '', stage: stageName(stKey),
+        room: e.room, sender: e.sender, eventType: e.eventType, etLabel: EVENT_TYPES[e.eventType] || e.eventType, product: prodLabel(e),
+        customer: e.customer, direction: e.direction, qty: e.quantity, unit: e.unit, summary: e.summary };
+    }).sort((a, b) => a.t - b.t).slice(0, 800);
+  }
+
   const processedCnt = tracking.filter(t => t.processed).length;
   return res.status(200).json({
     success: true, kakaoAvailable, kakaoError, sqlSkipped, filters: { week: qWeek, room: qRoom, stage: qStage },
@@ -263,8 +311,10 @@ async function handler(req, res) {
       senders: bySender.size, issues: decisions.length, unresolved: unresolved.length, resolved: resolvedCnt, orders: orders.length },
     bySender: vals(bySender), byWeek: [...byWeek.values()].sort((a, b) => a.key.localeCompare(b.key)), byRoom: vals(byRoom), byType: vals(byType), byStage: vals(byStage),
     stageBoard,
+    chasuFlow,
     flow: { responsePairs, roomResp: roomResp.slice(0, 20), threads, crossRoom: crossRoom.slice(0, 40), noResponse: noResponse.slice(0, 60) },
-    lifecycle: { byChasu, itemDefects, conversion: { total: changeTotal, withDefect: changeDefect, rate: conversionRate, detail: conversions.sort((a, b) => b.changes - a.changes).slice(0, 30) } },
+    byChasu,
+    issueTracking: { issueTypes, customerIssues, stageRoles },
     issues: { total: decisions.length, unresolved: unresolved.length, resolved: resolvedCnt, byStage: vals(issuesByStage), byRoom: vals(issuesByRoom), list: unresolved.slice(0, 200) },
     people, tracking: tracking.sort((a, b) => String(b.time).localeCompare(String(a.time))).slice(0, 300), network, weeksInPlay,
   });
