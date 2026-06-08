@@ -324,12 +324,11 @@ function makeSheet(rows, customers, farms, meta) {
   rows.forEach((row, idx) => {
     const excelRow = dataStart + idx;
     if (summaryCols['주문']) {
-      ws[encodeCell(excelRow, summaryCols['주문'])] = {
-        t: 'n',
-        v: q(row, row.totalOrder),
-        f: `SUM(${encodeCell(excelRow, 2)}:${encodeCell(excelRow, Math.max(2, summaryCols['주문'] - 1))})`,
-        s: STYLES.summary,
-      };
+      // 거래처 컬럼이 1개 이상일 때만 SUM(거래처범위). 입고전용 시트(거래처 없음)면 값만 — 자기참조(순환) 방지.
+      const lastCustCol = summaryCols['주문'] - 1;
+      const cell = { t: 'n', v: q(row, row.totalOrder), s: STYLES.summary };
+      if (lastCustCol >= 2) cell.f = `SUM(${encodeCell(excelRow, 2)}:${encodeCell(excelRow, lastCustCol)})`;
+      ws[encodeCell(excelRow, summaryCols['주문'])] = cell;
     }
     if (summaryCols['잔량']) {
       const inCell = encodeCell(excelRow, summaryCols['입고']);

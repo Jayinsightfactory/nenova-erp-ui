@@ -148,6 +148,7 @@ export default function Pivot() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [volBusy, setVolBusy] = useState('');   // 물량표 다운로드 진행 표시
 
   // 행 추가 컬럼 토글
   const [showOutDate,  setShowOutDate]  = useState(false);
@@ -272,7 +273,8 @@ export default function Pivot() {
 
   const handleVolumeExcel = async () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
-    setErr('');
+    setErr(''); setVolBusy('물량표 생성 중… (수십 초 걸릴 수 있어요)');
+    try {
     const qs = new URLSearchParams({
       orderYear: yearInput.value,
       weekStart: weekStartInput.value,
@@ -298,18 +300,22 @@ export default function Pivot() {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(a.href);
+    } catch (e) { setErr('물량표 다운로드 오류: ' + (e.message || e)); }
+    finally { setVolBusy(''); }
   };
 
   // 차수×품종별 별도 파일(개별 다운로드 여러 번)
   const handleVolumeExcelByFlower = async () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
-    setErr('');
+    setErr(''); setVolBusy('품종 목록 불러오는 중…');
     const base = { orderYear: yearInput.value, weekStart: weekStartInput.value, weekEnd: weekEndInput.value || weekStartInput.value };
     try {
       const listRes = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, list: '1' })}`);
       const ld = await listRes.json();
       if (!ld.success || !ld.items?.length) { setErr(ld.error || '품종 데이터가 없습니다.'); return; }
-      for (const it of ld.items) {
+      for (let i = 0; i < ld.items.length; i++) {
+        const it = ld.items[i];
+        setVolBusy(`${i + 1}/${ld.items.length} 다운로드 중: ${it.species}`);
         const r = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, species: it.key })}`);
         if (!r.ok) continue;
         const blob = await r.blob();
@@ -320,7 +326,9 @@ export default function Pivot() {
         URL.revokeObjectURL(a.href);
         await new Promise(res => setTimeout(res, 450));
       }
-    } catch (e) { setErr('개별 다운로드 실패: ' + (e.message || e)); }
+      setVolBusy(`완료 — ${ld.items.length}개 파일`);
+      setTimeout(() => setVolBusy(''), 2500);
+    } catch (e) { setErr('개별 다운로드 실패: ' + (e.message || e)); setVolBusy(''); }
   };
 
   // 그룹핑
@@ -513,8 +521,9 @@ export default function Pivot() {
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
-        <button className="btn btn-success" onClick={handleVolumeExcel}>물량표 다운받기</button>
-        <button className="btn btn-success" onClick={handleVolumeExcelByFlower} style={{background:'#1565c0'}}>차수·품종별(개별)</button>
+        <button className="btn btn-success" onClick={handleVolumeExcel} disabled={!!volBusy}>{volBusy ? '생성 중…' : '물량표 다운받기'}</button>
+        <button className="btn btn-success" onClick={handleVolumeExcelByFlower} disabled={!!volBusy} style={{background:'#1565c0'}}>차수·품종별(개별)</button>
+        {volBusy && <span style={{marginLeft:8,fontSize:12,color:'#1565c0',fontWeight:700}}>⏳ {volBusy}</span>}
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>
             {loading ? '⏳ 로딩 중...' : t('새로고침')}
