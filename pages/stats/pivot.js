@@ -149,6 +149,9 @@ export default function Pivot() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [volBusy, setVolBusy] = useState('');   // 물량표 다운로드 진행 표시
+  const [pickOpen, setPickOpen] = useState(false);   // 품종 선택 다운로드 모달
+  const [pickItems, setPickItems] = useState([]);
+  const [pickSel, setPickSel] = useState(new Set());
 
   // 행 추가 컬럼 토글
   const [showOutDate,  setShowOutDate]  = useState(false);
@@ -304,8 +307,8 @@ export default function Pivot() {
     finally { setVolBusy(''); }
   };
 
-  // 차수×품종별 별도 파일(개별 다운로드 여러 번)
-  const handleVolumeExcelByFlower = async () => {
+  // 차수×품종별 — 품종 목록 불러와 선택 모달 열기
+  const openPick = async () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
     setErr(''); setVolBusy('품종 목록 불러오는 중…');
     const base = { orderYear: yearInput.value, weekStart: weekStartInput.value, weekEnd: weekEndInput.value || weekStartInput.value };
@@ -313,9 +316,27 @@ export default function Pivot() {
       const listRes = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, list: '1' })}`);
       const ld = await listRes.json();
       if (!ld.success || !ld.items?.length) { setErr(ld.error || '품종 데이터가 없습니다.'); return; }
-      for (let i = 0; i < ld.items.length; i++) {
-        const it = ld.items[i];
-        setVolBusy(`${i + 1}/${ld.items.length} 다운로드 중: ${it.species}`);
+      setPickItems(ld.items);
+      setPickSel(new Set(ld.items.map(i => i.key)));   // 기본: 전체 선택
+      setPickOpen(true);
+    } catch (e) { setErr('품종 목록 조회 실패: ' + (e.message || e)); }
+    finally { setVolBusy(''); }
+  };
+
+  const toggleSel = (key) => setPickSel(prev => {
+    const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n;
+  });
+
+  // 선택된 품종만 다운로드(개별 파일)
+  const downloadPicked = async () => {
+    const items = pickItems.filter(i => pickSel.has(i.key));
+    if (!items.length) { setErr('다운로드할 품종을 선택하세요.'); return; }
+    setPickOpen(false); setErr('');
+    const base = { orderYear: yearInput.value, weekStart: weekStartInput.value, weekEnd: weekEndInput.value || weekStartInput.value };
+    try {
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        setVolBusy(`${i + 1}/${items.length} 다운로드 중: ${it.species}`);
         const r = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, species: it.key })}`);
         if (!r.ok) continue;
         const blob = await r.blob();
@@ -326,7 +347,7 @@ export default function Pivot() {
         URL.revokeObjectURL(a.href);
         await new Promise(res => setTimeout(res, 450));
       }
-      setVolBusy(`완료 — ${ld.items.length}개 파일`);
+      setVolBusy(`완료 — ${items.length}개 파일`);
       setTimeout(() => setVolBusy(''), 2500);
     } catch (e) { setErr('개별 다운로드 실패: ' + (e.message || e)); setVolBusy(''); }
   };
@@ -522,7 +543,7 @@ export default function Pivot() {
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
         <button className="btn btn-success" onClick={handleVolumeExcel} disabled={!!volBusy}>{volBusy ? '생성 중…' : '물량표 다운받기'}</button>
-        <button className="btn btn-success" onClick={handleVolumeExcelByFlower} disabled={!!volBusy} style={{background:'#1565c0'}}>차수·품종별(개별)</button>
+        <button className="btn btn-success" onClick={openPick} disabled={!!volBusy} style={{background:'#1565c0'}}>차수·품종별(선택)</button>
         {volBusy && <span style={{marginLeft:8,fontSize:12,color:'#1565c0',fontWeight:700}}>⏳ {volBusy}</span>}
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>
@@ -1054,6 +1075,43 @@ export default function Pivot() {
               <button className="btn btn-primary" onClick={applyFilterEditor}>OK</button>
               <button className="btn" onClick={()=>setShowFilterEditor(false)}>Cancel</button>
               <button className="btn" onClick={applyFilterEditor}>Apply</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 차수·품종별 선택 다운로드 모달 */}
+      {pickOpen && createPortal(
+        <div onMouseDown={(e)=>{ if(e.target===e.currentTarget) setPickOpen(false); }}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:9999,
+            display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#fff',borderRadius:8,width:420,maxHeight:'80vh',
+            display:'flex',flexDirection:'column',boxShadow:'0 8px 32px rgba(0,0,0,.3)'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',
+              display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <b style={{fontSize:14}}>다운로드할 품종 선택 ({pickSel.size}/{pickItems.length})</b>
+              <button className="btn btn-sm" onClick={()=>setPickOpen(false)}>✕</button>
+            </div>
+            <div style={{padding:'8px 16px',borderBottom:'1px solid var(--border)',display:'flex',gap:6}}>
+              <button className="btn btn-sm" onClick={()=>setPickSel(new Set(pickItems.map(i=>i.key)))}>전체 선택</button>
+              <button className="btn btn-sm" onClick={()=>setPickSel(new Set())}>전체 해제</button>
+            </div>
+            <div style={{padding:'8px 16px',overflowY:'auto',flex:1}}>
+              {pickItems.map(it => (
+                <label key={it.key} style={{display:'flex',alignItems:'center',gap:8,
+                  padding:'6px 4px',cursor:'pointer',fontSize:13,borderBottom:'1px solid #f0f0f0'}}>
+                  <input type="checkbox" checked={pickSel.has(it.key)} onChange={()=>toggleSel(it.key)} />
+                  <span>{it.species}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{padding:'10px 16px',borderTop:'1px solid var(--border)',
+              display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn" onClick={()=>setPickOpen(false)}>취소</button>
+              <button className="btn btn-success" onClick={downloadPicked} disabled={!pickSel.size}>
+                선택 {pickSel.size}개 다운로드
+              </button>
             </div>
           </div>
         </div>,
