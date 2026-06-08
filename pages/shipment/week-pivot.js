@@ -335,17 +335,7 @@ function removeFlowerFromName(name, flower = '') {
 function pivotProdName(product) {
   if (!product) return '';
   const display = cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
-  let name = removeFlowerFromName(display, product.flower);
-  const flower = String(product.flower || '');
-  // 수국: 영어 제거하고 한글만 (블루/버건디/진핑크/진그린/라벤더 …)
-  if (/수국|hydrangea/i.test(flower)) {
-    name = name.replace(/[A-Za-z]+/g, ' ').replace(/\s+/g, ' ').trim() || name;
-  }
-  // 장미: 품목명에서 cm 사이즈 제거 (예: "프라우드 60cm" → "프라우드")
-  if (/장미|rose/i.test(flower)) {
-    name = name.replace(/\d+\s*~?\s*\d*\s*cm/gi, ' ').replace(/\s+/g, ' ').trim() || name;
-  }
-  return name;
+  return removeFlowerFromName(display, product.flower);
 }
 
 function cleanDescrText(text) {
@@ -369,7 +359,6 @@ export default function WeekPivot() {
 
   const [loading,     setLoading]     = useState(false);
   const [custRows,    setCustRows]    = useState([]);
-  const [incomingFarms, setIncomingFarms] = useState([]); // 농장별 입고 (WarehouseMaster.CustKey=농장)
   const [startStocks, setStartStocks] = useState({});
   const [confirmedStocks, setConfirmedStocks] = useState({}); // 차수 확정(isFix=1)된 DB 잔량
   const [user,        setUser]        = useState(null);
@@ -515,11 +504,9 @@ export default function WeekPivot() {
       const custRes = await custResp.json();
       if (custRes.success) {
         setCustRows(custRes.rows || []);
-        setIncomingFarms(custRes.incomingFarms || []);
       } else {
         setApiError(custRes.error || 'API 오류');
         setCustRows([]);
-        setIncomingFarms([]);
       }
       // 시작재고 초기화 (DB 저장값)
       if (ssResp.ok) {
@@ -808,114 +795,6 @@ export default function WeekPivot() {
         return [];
       }
     };
-    // ★ 차수×품종별 별도 엑셀(ExcelJS) — 입고 농장+수량, 잔량 음수 빨강, 업체/농장 위쪽맞춤
-    const downloadPivotByFlower = async () => {
-      const _xl = await import('exceljs');
-      const ExcelJS = _xl.default || _xl;
-      const weekNumOf = (wk) => String(wk).replace(/-/g, '');
-
-      // 농장별 입고 맵 + 입고전용(주문없는) 품목 정보
-      const farmInByPk = {}; const farmProdInfo = {};
-      (incomingFarms || []).forEach(r => {
-        const k = `${r.ProdKey}-${r.OrderWeek}`;
-        (farmInByPk[k] = farmInByPk[k] || []).push({ farm: r.FarmName || '(농장미상)', qty: Number(r.inQty || 0) });
-        if (!farmProdInfo[r.ProdKey]) farmProdInfo[r.ProdKey] = { coun: r.CounName || '', flower: r.FlowerName || '', name: r.ProdName, displayName: r.DisplayName, outUnit: r.OutUnit };
-      });
-      const infoOf = (pk) => prodMap[pk] || farmProdInfo[pk] || { coun: '', flower: '기타', name: '', displayName: '' };
-      const nameOf = (pk) => pivotProdName(infoOf(pk));
-      const allPk = [...new Set([...prodKeys, ...Object.keys(farmProdInfo).map(Number)])];
-      const farmSum = (pk, wk) => (farmInByPk[`${pk}-${wk}`] || []).reduce((a, x) => a + x.qty, 0);
-
-      const HEAD = { bold: true }; const FILL_HEAD = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF3F8' } };
-      const FILL_RED = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } }; const FONT_RED = { color: { argb: 'FF9C0006' }, bold: true };
-      const TOP = { vertical: 'top' };
-
-      let fileCount = 0;
-      for (const wk of weeks) {
-        const weekNum = weekNumOf(wk);
-        const groups = {};
-        allPk.forEach(pk => {
-          const hasOut = custKeys.some(ck => (dataMap[`${pk}-${ck}-${wk}`] || 0) > 0);
-          const hasIn = farmSum(pk, wk) !== 0 || (inMap[`${pk}-${wk}`] || 0) > 0;
-          if (!hasOut && !hasIn) return;
-          const p = infoOf(pk); const key = `${p.coun || ''}|${p.flower || '기타'}`;
-          (groups[key] = groups[key] || { coun: p.coun || '', flower: p.flower || '기타', pks: [] }).pks.push(pk);
-        });
-
-        for (const g of Object.values(groups)) {
-          const species = `${g.coun}${g.flower}`;
-          const wb = new ExcelJS.Workbook();
-          const ws = wb.addWorksheet((species || '품종').slice(0, 28));
-          ws.columns = [{ width: 14 }, { width: 12 }, { width: 30 }, { width: 9 }, { width: 11 }, { width: 13 }, { width: 11 }, { width: 13 }, { width: 28 }];
-
-          ws.mergeCells(1, 1, 1, 9);
-          const tc = ws.getCell(1, 1); tc.value = `차수(${weekNum}) 품종(${species})`;
-          tc.font = { bold: true, size: 14 }; tc.alignment = { horizontal: 'center', vertical: 'middle' };
-          ws.getRow(1).height = 26; ws.addRow([]);
-
-          // 출고: 지역 > 업체 > 품목
-          areaGroups.forEach(ag => {
-            const areaCusts = custKeys.filter(ck => custMap[ck].area === ag.area);
-            if (!areaCusts.some(ck => g.pks.some(pk => (dataMap[`${pk}-${ck}-${wk}`] || 0) > 0))) return;
-            const ar = ws.addRow([`▶ ${ag.area}`]); ar.getCell(1).font = { bold: true };
-            areaCusts.forEach(ck => {
-              const custPks = g.pks.filter(pk => (dataMap[`${pk}-${ck}-${wk}`] || 0) > 0);
-              if (!custPks.length) return;
-              const cr = ws.addRow([`  ${cShort(ck)}`]); cr.getCell(1).font = { bold: true }; cr.getCell(1).alignment = TOP;
-              const hr = ws.addRow(['국가', '꽃', '품명', '수량', '품목단가', '공급가액', '부가세', '총금액', '비고']);
-              hr.eachCell(c => { c.font = HEAD; c.fill = FILL_HEAD; });
-              let tQ = 0, tS = 0, tV = 0, tG = 0;
-              custPks.forEach(pk => {
-                const p = infoOf(pk); const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-                const uc = unitCostFor(pk, ck, wk); const m = calcMoney(v, uc);
-                ws.addRow([p.coun, p.flower, nameOf(pk), v, uc || '', m.supply || '', m.vat || '', m.gross || '', (descrMap[`${pk}-${ck}-${wk}`] || '').replace(/\n/g, ' ')]);
-                tQ += v; tS += m.supply; tV += m.vat; tG += m.gross;
-              });
-              const sub = ws.addRow(['', '', '업체 합계', tQ, '', tS || '', tV || '', tG || '', '']); sub.eachCell(c => { c.font = { bold: true }; });
-              ws.addRow([]);
-            });
-          });
-
-          // 재고요약 (잔량 음수 빨강)
-          ws.addRow([]); const rh = ws.addRow(['▶ 재고요약']); rh.getCell(1).font = { bold: true };
-          const sh = ws.addRow(['국가', '꽃', '품명', '시작', '입고', '출고', '잔량']); sh.eachCell(c => { c.font = HEAD; c.fill = FILL_HEAD; });
-          g.pks.forEach(pk => {
-            const p = infoOf(pk);
-            const wkSS = startStocks[`${pk}-${wk}`]?.stock;
-            const prevRS = startStocks[`${pk}-${weeks[0]}`]?.stock ?? (prevStockMap[pk] || 0);
-            const wStart = wkSS != null ? wkSS : prevRS;
-            const inQ = (inMap[`${pk}-${wk}`] || 0) || farmSum(pk, wk);
-            const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
-            const remain = wStart + inQ - wOut;
-            if (wOut > 0 || inQ > 0 || wStart > 0) {
-              const r = ws.addRow([p.coun, p.flower, nameOf(pk), wStart || '', inQ || '', wOut || '', remain]);
-              if (remain < 0) { const rc = r.getCell(7); rc.fill = FILL_RED; rc.font = FONT_RED; }
-            }
-          });
-
-          // 입고 (농장별) — 농장 + 품명 + 수량 (농장 위쪽맞춤)
-          ws.addRow([]); const fh = ws.addRow(['▶ 입고 (농장별)']); fh.getCell(1).font = { bold: true };
-          const fhh = ws.addRow(['농장', '국가', '꽃', '품명', '입고수량']); fhh.eachCell(c => { c.font = HEAD; c.fill = FILL_HEAD; });
-          let anyFarm = false;
-          g.pks.forEach(pk => (farmInByPk[`${pk}-${wk}`] || []).forEach(f => {
-            anyFarm = true; const p = infoOf(pk);
-            const r = ws.addRow([f.farm, p.coun, p.flower, nameOf(pk), f.qty]); r.getCell(1).alignment = TOP;
-          }));
-          if (!anyFarm) ws.addRow(['(입고 없음)']);
-
-          ws.eachRow(row => { [4, 5, 6, 7, 8].forEach(ci => { const c = row.getCell(ci); if (typeof c.value === 'number') c.numFmt = '#,##0'; }); });
-
-          const buf = await wb.xlsx.writeBuffer();
-          const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url; a.download = `${weekNum}_${species}.xlsx`;
-          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-          fileCount++; await new Promise(res => setTimeout(res, 400));
-        }
-      }
-      if (fileCount === 0) alert('다운로드할 데이터가 없습니다.');
-    };
-
     const downloadPivotExcel = async () => {
       const wb = XLSX.utils.book_new();
 
@@ -1448,8 +1327,7 @@ export default function WeekPivot() {
               style={{padding:'1px 6px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2,color:'#666'}}
               title="기본값으로 초기화">↺</button>
           </div>
-          <button onClick={downloadPivotByFlower} style={{...st.addBtn,background:'#2e7d32'}}>📥 엑셀(차수·품종별)</button>
-          <button onClick={downloadPivotExcel} style={{...st.addBtn,background:'#607d8b'}}>📥 통합(구버전)</button>
+          <button onClick={downloadPivotExcel} style={{...st.addBtn,background:'#2e7d32'}}>📥 엑셀</button>
           <button onClick={()=>router.push(`/shipment/distribute-import?week=${encodeURIComponent(weekFrom || weeks[0] || '')}`)}
             style={{...st.addBtn,background:'#0f766e'}}>검증 업로드</button>
           <button onClick={()=>{
