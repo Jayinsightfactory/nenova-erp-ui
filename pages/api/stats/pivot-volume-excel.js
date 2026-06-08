@@ -153,7 +153,8 @@ function volumeProdLabel(row) {
         .trim() || name;
     }
   } else if (/장미|rose/i.test(fl)) {
-    name = name.replace(/\d+\s*~?\s*\d*\s*cm/gi, ' ').replace(/\s{2,}/g, ' ').trim() || name;
+    // "cm" 글자만 제거, 숫자(50/60)는 유지 (예: "프라우드 60cm" → "프라우드 60")
+    name = name.replace(/\s*cm\b/gi, '').replace(/\s{2,}/g, ' ').trim() || name;
   }
   return name;
 }
