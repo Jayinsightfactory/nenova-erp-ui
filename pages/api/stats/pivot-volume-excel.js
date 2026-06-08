@@ -122,11 +122,24 @@ function cleanProductLabel(name) {
     .trim();
 }
 
+// 수국 특이 고정매칭 (원본명 기준 → 고정 표기). 식별: mojito=진, (bw)/화이트베이스=연.
+const HYDRANGEA_FIXED = [
+  { test: /mojito|모히또/i, to: '미니그린모히또(진)' },
+  { test: /\(bw\)|화이트\s*베이스|white\s*base/i, to: '미니그린(연)' },
+];
+
 // flower별 품목명: 수국=한글 색상명만(괄호/슬래시/공백 제거), 장미=cm 제거
 function volumeProdLabel(row) {
-  let name = cleanProductLabel(row?.prodName);
+  const raw = String(row?.prodName || '');
   const fl = String(row?.flower || '');
-  if (/수국|hydrangea|루스커스|ruscus/i.test(fl)) {
+  const isHydra = /수국|hydrangea|루스커스|ruscus/i.test(fl);
+  // 수국 특이 고정매칭 (원본명 기준 — mojito/화이트베이스 등 영어 토큰으로 식별)
+  if (isHydra) {
+    const fixed = HYDRANGEA_FIXED.find(m => m.test.test(raw));
+    if (fixed) return fixed.to;
+  }
+  let name = cleanProductLabel(raw);
+  if (isHydra) {
     const korean = (name.match(/[가-힣][가-힣\s]*/g) || []).join(' ').trim();
     if (korean) {
       // 한글 색상명: 내부 공백 제거 (미니 그린 베이스 → 미니그린베이스, 블루, 진그린 …)
