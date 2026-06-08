@@ -113,6 +113,10 @@ export default function DistributeImport() {
   const [preAlignResult, setPreAlignResult] = useState(null);
   const [filter, setFilter] = useState('apply');
   const [viewMode, setViewMode] = useState('pivot');
+  const [unmatchedModalOpen, setUnmatchedModalOpen] = useState(false);
+  const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
+  const custOverridesRef = useRef({});
+  const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
 
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
@@ -128,6 +132,19 @@ export default function DistributeImport() {
     const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
     return buildPivotModel(source);
   }, [rows, applyRows, changedRows, shipmentRows, filter]);
+
+  // 파일엔 있는데 업체 매칭 실패한 미매칭 라벨(중복 제거)
+  const unmatchedCustomers = useMemo(() => {
+    const map = new Map();
+    for (const u of preview?.unmatched || []) {
+      if (!/업체/.test(u.reason || '')) continue;
+      const label = u.customerLabel || '';
+      if (!label) continue;
+      if (!map.has(label)) map.set(label, { label, count: 0, sample: u.productLabel || '' });
+      map.get(label).count += 1;
+    }
+    return [...map.values()];
+  }, [preview]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -155,6 +172,9 @@ export default function DistributeImport() {
       const form = new FormData();
       form.append('week', weekInput.value);
       form.append('file', file);
+      if (Object.keys(custOverridesRef.current).length) {
+        form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
+      }
       const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
@@ -166,6 +186,10 @@ export default function DistributeImport() {
       if (!options.preserveMessage) {
         setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
       }
+      // 파일엔 있는데 업체 매칭 실패한 경우 → 알림 팝업 자동 표시(수동 매칭)
+      const hasUnmatchedCust = (data.unmatched || []).some(u => /업체/.test(u.reason || ''));
+      if (hasUnmatchedCust) setUnmatchedModalOpen(true);
+      else setUnmatchedModalOpen(false);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -217,6 +241,18 @@ export default function DistributeImport() {
     } finally {
       setPreAligning(false);
     }
+  };
+
+  const pickOverride = (label, custKey) => {
+    const next = { ...custOverridesRef.current };
+    if (custKey) next[label] = Number(custKey);
+    else delete next[label];
+    setOverrides(next);
+  };
+
+  const handleReverify = async () => {
+    setUnmatchedModalOpen(false);
+    await handlePreview();
   };
 
   const handleApply = async () => {
@@ -299,6 +335,8 @@ export default function DistributeImport() {
               setPreAlignResult(null);
               setMessage('');
               setError('');
+              setOverrides({});
+              setUnmatchedModalOpen(false);
             }}
           />
           <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
@@ -332,6 +370,23 @@ export default function DistributeImport() {
           open={applyModalOpen}
           onClose={() => setApplyModalOpen(false)}
         />
+        <UnmatchedCustomerModal
+          open={unmatchedModalOpen}
+          items={unmatchedCustomers}
+          options={preview?.customerOptions || []}
+          overrides={custOverrides}
+          onPick={pickOverride}
+          onReverify={handleReverify}
+          onClose={() => setUnmatchedModalOpen(false)}
+          loading={loading}
+        />
+
+        {preview && unmatchedCustomers.length > 0 && (
+          <div style={st.unmatchedBanner}>
+            ⚠️ 파일에 있지만 매칭 안 된 업체 {unmatchedCustomers.length}곳이 있습니다.
+            <button style={st.unmatchedBannerBtn} onClick={() => setUnmatchedModalOpen(true)}>업체 매칭하기</button>
+          </div>
+        )}
 
         {preview && (
           <>
@@ -747,6 +802,62 @@ function ApplyResultContent({ result }) {
   );
 }
 
+function UnmatchedCustomerModal({ open, items, options, overrides, onPick, onReverify, onClose, loading }) {
+  if (!open) return null;
+  const resolvedCount = items.filter(it => overrides[it.label]).length;
+  return (
+    <div style={st.modalOverlay}>
+      <div style={{ ...st.modalCard, width: 'min(720px, 96vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 업체 매칭">
+        <div style={st.modalHead}>
+          <div>
+            <div style={st.modalTitle}>⚠️ 미매칭 업체 — 수동 매칭</div>
+            <div style={{ ...st.modalSubtitle, color: '#b45309' }}>
+              파일엔 있지만 거래처를 못 찾은 업체 {items.length}곳 · 선택 {resolvedCount}곳
+            </div>
+          </div>
+          <button type="button" style={st.modalCloseBtn} onClick={onClose}>닫기</button>
+        </div>
+        <div style={{ padding: 14, overflow: 'auto' }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+            엑셀의 업체명을 실제 거래처로 지정한 뒤 <b>다시 검증</b>을 누르면 해당 업체가 매칭됩니다.
+          </div>
+          <table style={st.table}>
+            <thead><tr><th>엑셀 업체 라벨</th><th>건수</th><th>→ 실제 거래처 선택</th></tr></thead>
+            <tbody>
+              {items.map(it => (
+                <tr key={it.label} style={{ background: overrides[it.label] ? '#ecfdf5' : '#fff7ed' }}>
+                  <td style={{ fontWeight: 700 }}>{it.label}</td>
+                  <td>{it.count}</td>
+                  <td>
+                    <select
+                      style={st.custSelect}
+                      value={overrides[it.label] || ''}
+                      onChange={e => onPick(it.label, e.target.value)}
+                    >
+                      <option value="">— 거래처 선택 —</option>
+                      {options.map(o => (
+                        <option key={o.custKey} value={o.custKey}>
+                          {o.area ? `[${o.area}] ` : ''}{o.custName}{o.orderCode ? ` (${o.orderCode})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" style={st.secondaryBtn} onClick={onClose}>나중에</button>
+          <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || resolvedCount === 0}>
+            {loading ? '검증 중...' : `선택한 업체로 다시 검증 (${resolvedCount})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Kpi({ label, value, warn, danger }) {
   return (
     <div style={{ ...st.kpi, borderColor: danger ? '#ef4444' : warn ? '#f59e0b' : '#dbe3ef' }}>
@@ -790,6 +901,9 @@ const st = {
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },
+  unmatchedBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
+  unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
+  custSelect: { minWidth: 280, height: 30, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', background: '#fff' },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 },
   modalCard: { width: 'min(1120px, 96vw)', maxHeight: '88vh', overflow: 'hidden', background: '#fff', borderRadius: 8, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
   modalHead: { minHeight: 56, padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

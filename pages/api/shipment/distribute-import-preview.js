@@ -28,13 +28,18 @@ async function handler(req, res) {
 
   const file = Array.isArray(files.file) ? files.file[0] : files.file;
   const week = Array.isArray(fields.week) ? fields.week[0] : fields.week;
+  const rawOverrides = Array.isArray(fields.customerOverrides) ? fields.customerOverrides[0] : fields.customerOverrides;
+  let customerOverrides = {};
+  if (rawOverrides) {
+    try { customerOverrides = JSON.parse(rawOverrides) || {}; } catch {}
+  }
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
   try {
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     const parsed = parseAllocationWorkbook(XLSX, workbook, { sourceName: file.originalFilename || 'upload.xlsx' });
-    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week });
+    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week, customerOverrides });
     return res.status(200).json({
       ...preview,
       fileName: file.originalFilename || 'upload.xlsx',
