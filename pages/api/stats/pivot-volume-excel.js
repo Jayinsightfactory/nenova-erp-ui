@@ -57,6 +57,21 @@ const STYLES = {
     border: BORDER,
     numFmt: 'General',
   },
+  // 잔량 음수 빨강 하이라이트
+  summaryRed: {
+    font: { bold: true, name: '맑은 고딕', sz: 9, color: { rgb: '9C0006' } },
+    fill: { fgColor: { rgb: 'FFC7CE' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: BORDER,
+    numFmt: 'General',
+  },
+  // 업체/농장 헤더 위쪽맞춤
+  headerTop: {
+    font: { bold: true, name: '맑은 고딕', sz: 9 },
+    fill: { fgColor: { rgb: 'E8EEF4' } },
+    alignment: { horizontal: 'center', vertical: 'top', wrapText: true },
+    border: BORDER,
+  },
 };
 
 function n(value) {
@@ -105,6 +120,19 @@ function cleanProductLabel(name) {
     .replace(/^[\s/／-]+|[\s/／-]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// flower별 품목명: 수국=한글만(영어 제거), 장미=cm 제거
+function volumeProdLabel(row) {
+  let name = cleanProductLabel(row?.prodName);
+  const fl = String(row?.flower || '');
+  if (/수국|hydrangea|루스커스|ruscus/i.test(fl)) {
+    name = name.replace(/[A-Za-z]+/g, ' ').replace(/\s{2,}/g, ' ').trim() || name;
+  }
+  if (/장미|rose/i.test(fl)) {
+    name = name.replace(/\d+\s*~?\s*\d*\s*cm/gi, ' ').replace(/\s{2,}/g, ' ').trim() || name;
+  }
+  return name;
 }
 
 function dutchColorLabel(descr) {
@@ -226,7 +254,7 @@ function makeSheet(rows, customers, farms, meta) {
 
   colPlan.forEach((col, idx) => {
     if (col.type === 'product') {
-      aoa[0][idx] = `${meta.weekLabel}${meta.flower || ''}`;
+      aoa[0][idx] = `차수(${String(meta.weekLabel || '').replace(/-/g, '')}) 품종(${meta.species || meta.flower || ''})`;
       aoa[1][idx] = '';
       aoa[2][idx] = '';
     } else if (col.type === 'color') {
@@ -252,7 +280,7 @@ function makeSheet(rows, customers, farms, meta) {
   rows.forEach(row => {
     const line = [];
     colPlan.forEach(col => {
-      if (col.type === 'product') line.push(cleanProductLabel(row.prodName));
+      if (col.type === 'product') line.push(volumeProdLabel(row));
       else if (col.type === 'color') line.push(isNetherlands(row) ? dutchColorLabel(row.productDescr) : '');
       else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
       else if (col.type === 'summary' && col.label === '주문') line.push(q(row, row.totalOrder) || '');
@@ -325,16 +353,22 @@ function makeSheet(rows, customers, farms, meta) {
       : { t: 's', v: String(value || ''), s: STYLES.summary };
   });
 
-  ws.A1 = { t: 's', v: `${meta.orderYear} ${meta.weekLabel} ${meta.sheetName} 통합 물량표` };
+  const weekNum = String(meta.weekLabel || '').replace(/-/g, '');
+  ws.A1 = { t: 's', v: `차수(${weekNum}) 품종(${meta.species || meta.flower || ''})` };
   for (let r = 1; r <= totalRow; r += 1) {
     colPlan.forEach((col, idx) => {
       const addr = encodeCell(r, idx + 1);
       if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-      if (r <= 3) ws[addr].s = r === 1 ? STYLES.title : STYLES.header;
-      else if (r === totalRow) ws[addr].s = STYLES.summary;
+      const cellVal = typeof ws[addr].v === 'number' ? ws[addr].v : null;
+      const remainNeg = col.type === 'summary' && col.label === '잔량' && cellVal != null && cellVal < 0;
+      if (r <= 3) {
+        ws[addr].s = r === 1 ? STYLES.title
+          : (r === 3 && (col.type === 'customer' || col.type === 'farm')) ? STYLES.headerTop  // #5 업체/농장 위쪽맞춤
+          : STYLES.header;
+      } else if (r === totalRow) ws[addr].s = remainNeg ? STYLES.summaryRed : STYLES.summary;
       else if (col.type === 'product') ws[addr].s = STYLES.text;
       else if (col.type === 'color') ws[addr].s = STYLES.text;
-      else if (col.type === 'summary') ws[addr].s = STYLES.summary;
+      else if (col.type === 'summary') ws[addr].s = remainNeg ? STYLES.summaryRed : STYLES.summary;  // #4 잔량 음수 빨강
       else ws[addr].s = STYLES.number;
     });
   }
@@ -344,6 +378,8 @@ function makeSheet(rows, customers, farms, meta) {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   const { weekStart, weekEnd, orderYear } = req.query;
+  const onlyKey = req.query.species ? String(req.query.species) : null;   // 시트별 별도파일: 이 품종만
+  const listMode = req.query.list === '1' || req.query.list === 'true';   // 품종 목록만 반환
 
   try {
     const data = await getPivotStats({ weekStart, weekEnd, orderYear });
@@ -371,10 +407,23 @@ export default withAuth(async function handler(req, res) {
         groups.get(key).rows.push(row);
       });
 
+    const weekNum = String(data.weekStart || '').replace(/-/g, '');
+    const speciesOf = (g) => g.countryOnly ? g.country : `${g.country || ''}${g.flower || ''}`;
+
+    // 시트별 별도파일: 품종 목록만 반환 (페이지가 이걸 받아 품종마다 개별 다운로드)
+    if (listMode) {
+      const items = [...groups.entries()]
+        .filter(([, g]) => g.rows.some(r => n(r.totalOrder) > 0 || n(r.totalIncoming) > 0))
+        .map(([key, g]) => ({ key, species: speciesOf(g), fileName: `${weekNum}_${speciesOf(g)}.xlsx` }));
+      return res.status(200).json({ success: true, weekNum, items });
+    }
+
     const usedSheetNames = new Set();
-    for (const group of groups.values()) {
+    for (const [key, group] of groups) {
+      if (onlyKey && key !== onlyKey) continue;
       const sheetRows = group.rows
-        .filter(row => n(row.totalOrder) > 0)
+        // 입고만 있고 주문이 없는 품목도 포함(24-01 농장·수량 누락 수정). 기존엔 주문>0만 남겨 드롭됐음.
+        .filter(row => n(row.totalOrder) > 0 || n(row.totalIncoming) > 0)
         .sort((a, b) => group.countryOnly
           ? `${normalizeVolumeFlower(a.flower)}${a.prodName}`.localeCompare(`${normalizeVolumeFlower(b.flower)}${b.prodName}`)
           : String(a.prodName).localeCompare(String(b.prodName)));
@@ -386,6 +435,7 @@ export default withAuth(async function handler(req, res) {
         orderYear: data.orderYear,
         weekLabel,
         flower: group.flower,
+        species: group.countryOnly ? group.country : `${group.country || ''}${group.flower || ''}`,
         sheetName,
       });
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -396,7 +446,9 @@ export default withAuth(async function handler(req, res) {
       XLSX.utils.book_append_sheet(wb, ws, '데이터없음');
     }
 
-    const fileBase = `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표.xlsx`;
+    const fileBase = (onlyKey && groups.get(onlyKey))
+      ? `${weekNum}_${speciesOf(groups.get(onlyKey))}.xlsx`
+      : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표.xlsx`;
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileBase)}`);

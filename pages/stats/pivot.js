@@ -300,6 +300,29 @@ export default function Pivot() {
     URL.revokeObjectURL(a.href);
   };
 
+  // 차수×품종별 별도 파일(개별 다운로드 여러 번)
+  const handleVolumeExcelByFlower = async () => {
+    if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
+    setErr('');
+    const base = { orderYear: yearInput.value, weekStart: weekStartInput.value, weekEnd: weekEndInput.value || weekStartInput.value };
+    try {
+      const listRes = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, list: '1' })}`);
+      const ld = await listRes.json();
+      if (!ld.success || !ld.items?.length) { setErr(ld.error || '품종 데이터가 없습니다.'); return; }
+      for (const it of ld.items) {
+        const r = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, species: it.key })}`);
+        if (!r.ok) continue;
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = it.fileName || `${it.species}.xlsx`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+        await new Promise(res => setTimeout(res, 450));
+      }
+    } catch (e) { setErr('개별 다운로드 실패: ' + (e.message || e)); }
+  };
+
   // 그룹핑
   const allCusts = data?.customers || [];
   const farms  = data?.farms || [];
@@ -491,6 +514,7 @@ export default function Pivot() {
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
         <button className="btn btn-success" onClick={handleVolumeExcel}>물량표 다운받기</button>
+        <button className="btn btn-success" onClick={handleVolumeExcelByFlower} style={{background:'#1565c0'}}>차수·품종별(개별)</button>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>
             {loading ? '⏳ 로딩 중...' : t('새로고침')}
