@@ -404,7 +404,19 @@ function makeSheet(rows, customers, farms, meta) {
       else ws[addr].s = STYLES.number;
     });
   }
-  return ws;
+
+  // 재업로드(출고분배) 정확 매칭용 키맵: 거래처열→custKey, 품목행→prodKey
+  const keymap = [];
+  colPlan.forEach((col, idx) => {
+    if (col.type === 'customer' && col.customer?.custKey) {
+      keymap.push({ kind: 'cust', idx: idx + 1, key: Number(col.customer.custKey) });
+    }
+  });
+  rows.forEach((row, i) => {
+    if (row?.prodKey) keymap.push({ kind: 'prod', idx: dataStart + i, key: Number(row.prodKey) });
+  });
+
+  return { ws, keymap };
 }
 
 export default withAuth(async function handler(req, res) {
@@ -451,6 +463,7 @@ export default withAuth(async function handler(req, res) {
     }
 
     const usedSheetNames = new Set();
+    const globalKeymap = [];   // 재업로드 정확 매칭용: { sheet, kind, idx, key }
     for (const [key, group] of groups) {
       if (onlyKey && key !== onlyKey) continue;
       const sheetRows = group.rows
@@ -463,7 +476,7 @@ export default withAuth(async function handler(req, res) {
       const sheetName = group.sheetNameBase
         ? makePivotVolumeSheetName(group.sheetNameBase, '', usedSheetNames)
         : makePivotVolumeSheetName(group.country, group.flower, usedSheetNames);
-      const ws = makeSheet(sheetRows, customers, farms, {
+      const { ws, keymap } = makeSheet(sheetRows, customers, farms, {
         orderYear: data.orderYear,
         weekLabel,
         country: group.country,
@@ -472,11 +485,22 @@ export default withAuth(async function handler(req, res) {
         sheetName,
       });
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      (keymap || []).forEach(k => globalKeymap.push({ sheet: sheetName, kind: k.kind, idx: k.idx, key: k.key }));
     }
 
     if (!wb.SheetNames.length) {
       const ws = XLSX.utils.aoa_to_sheet([['통합 물량표'], [], ['데이터 없음']]);
       XLSX.utils.book_append_sheet(wb, ws, '데이터없음');
+    }
+
+    // 숨김 키맵 시트: 재업로드(출고분배) 시 이름이 아닌 키로 정확 매칭 → 업체/품목 누락 방지
+    if (globalKeymap.length) {
+      const kmAoa = [['type', 'sheet', 'idx', 'key'],
+        ...globalKeymap.map(k => [k.kind, k.sheet, k.idx, k.key])];
+      const kmWs = XLSX.utils.aoa_to_sheet(kmAoa);
+      XLSX.utils.book_append_sheet(wb, kmWs, '_keymap');
+      if (!wb.Workbook) wb.Workbook = {};
+      wb.Workbook.Sheets = wb.SheetNames.map(name => ({ Hidden: name === '_keymap' ? 1 : 0 }));
     }
 
     const fileBase = (onlyKey && groups.get(onlyKey))
