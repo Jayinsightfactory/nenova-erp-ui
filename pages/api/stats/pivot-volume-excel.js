@@ -122,14 +122,24 @@ function cleanProductLabel(name) {
     .trim();
 }
 
-// flower별 품목명: 수국=한글만(영어 제거), 장미=cm 제거
+// flower별 품목명: 수국=한글 색상명만(괄호/슬래시/공백 제거), 장미=cm 제거
 function volumeProdLabel(row) {
   let name = cleanProductLabel(row?.prodName);
   const fl = String(row?.flower || '');
   if (/수국|hydrangea|루스커스|ruscus/i.test(fl)) {
-    name = name.replace(/[A-Za-z]+/g, ' ').replace(/\s{2,}/g, ' ').trim() || name;
-  }
-  if (/장미|rose/i.test(fl)) {
+    const korean = (name.match(/[가-힣][가-힣\s]*/g) || []).join(' ').trim();
+    if (korean) {
+      // 한글 색상명: 내부 공백 제거 (미니 그린 베이스 → 미니그린베이스, 블루, 진그린 …)
+      name = korean.replace(/\s+/g, '');
+    } else {
+      // 한글 없음(Ruscus 등): 괄호/슬래시/점 제거, 숫자 앞에만 한 칸 유지 (Ruscus Green→RuscusGreen, rusucus 70 유지)
+      name = name.replace(/[()[\]<>\/／.]/g, ' ')
+        .replace(/\s+/g, ' ').trim()
+        .replace(/\s+(?=\D)/g, '')
+        .replace(/\s+(?=\d)/g, ' ')
+        .trim() || name;
+    }
+  } else if (/장미|rose/i.test(fl)) {
     name = name.replace(/\d+\s*~?\s*\d*\s*cm/gi, ' ').replace(/\s{2,}/g, ' ').trim() || name;
   }
   return name;
