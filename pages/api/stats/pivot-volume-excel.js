@@ -405,15 +405,16 @@ function makeSheet(rows, customers, farms, meta) {
     });
   }
 
-  // 재업로드(출고분배) 정확 매칭용 키맵: 거래처열→custKey, 품목행→prodKey
+  // 재업로드(출고분배) 정확 매칭용 키맵: 셀 "텍스트"(업체명/품목명)→키.
+  // 위치(컬럼/행 index)가 아니라 실제 셀 텍스트로 매칭 → 중간 품목열 삽입 등 레이아웃 변화에도 안 깨짐.
   const keymap = [];
   colPlan.forEach((col, idx) => {
     if (col.type === 'customer' && col.customer?.custKey) {
-      keymap.push({ kind: 'cust', idx: idx + 1, key: Number(col.customer.custKey) });
+      keymap.push({ kind: 'cust', label: String(aoa[2][idx] ?? ''), key: Number(col.customer.custKey) });
     }
   });
-  rows.forEach((row, i) => {
-    if (row?.prodKey) keymap.push({ kind: 'prod', idx: dataStart + i, key: Number(row.prodKey) });
+  rows.forEach((row) => {
+    if (row?.prodKey) keymap.push({ kind: 'prod', label: volumeProdLabel(row), key: Number(row.prodKey) });
   });
 
   return { ws, keymap };
@@ -485,7 +486,7 @@ export default withAuth(async function handler(req, res) {
         sheetName,
       });
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      (keymap || []).forEach(k => globalKeymap.push({ sheet: sheetName, kind: k.kind, idx: k.idx, key: k.key }));
+      (keymap || []).forEach(k => globalKeymap.push({ sheet: sheetName, kind: k.kind, label: k.label, key: k.key }));
     }
 
     if (!wb.SheetNames.length) {
@@ -493,10 +494,10 @@ export default withAuth(async function handler(req, res) {
       XLSX.utils.book_append_sheet(wb, ws, '데이터없음');
     }
 
-    // 숨김 키맵 시트: 재업로드(출고분배) 시 이름이 아닌 키로 정확 매칭 → 업체/품목 누락 방지
+    // 숨김 키맵 시트: 재업로드(출고분배) 시 셀 텍스트(label)→키로 정확 매칭 → 업체/품목 누락 방지
     if (globalKeymap.length) {
-      const kmAoa = [['type', 'sheet', 'idx', 'key'],
-        ...globalKeymap.map(k => [k.kind, k.sheet, k.idx, k.key])];
+      const kmAoa = [['type', 'sheet', 'label', 'key'],
+        ...globalKeymap.map(k => [k.kind, k.sheet, k.label, k.key])];
       const kmWs = XLSX.utils.aoa_to_sheet(kmAoa);
       XLSX.utils.book_append_sheet(wb, kmWs, '_keymap');
       if (!wb.Workbook) wb.Workbook = {};
