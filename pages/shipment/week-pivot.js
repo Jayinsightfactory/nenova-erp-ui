@@ -335,7 +335,17 @@ function removeFlowerFromName(name, flower = '') {
 function pivotProdName(product) {
   if (!product) return '';
   const display = cleanDisplayName(product.displayName, product.name) || suggestedPivotProdName(product.name);
-  return removeFlowerFromName(display, product.flower);
+  let name = removeFlowerFromName(display, product.flower);
+  const flower = String(product.flower || '');
+  // 수국: 영어 제거하고 한글만 (블루/버건디/진핑크/진그린/라벤더 …)
+  if (/수국|hydrangea/i.test(flower)) {
+    name = name.replace(/[A-Za-z]+/g, ' ').replace(/\s+/g, ' ').trim() || name;
+  }
+  // 장미: 품목명에서 cm 사이즈 제거 (예: "프라우드 60cm" → "프라우드")
+  if (/장미|rose/i.test(flower)) {
+    name = name.replace(/\d+\s*~?\s*\d*\s*cm/gi, ' ').replace(/\s+/g, ' ').trim() || name;
+  }
+  return name;
 }
 
 function cleanDescrText(text) {
