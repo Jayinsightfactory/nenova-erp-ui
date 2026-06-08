@@ -478,9 +478,28 @@ export default withAuth(async function handler(req, res) {
         params
       );
 
+      // 농장별 입고 (WarehouseMaster.CustKey = 농장). 주문이 없어 위 rows에서 빠지는 입고품목도 여기 포함된다.
+      const farmIn = await query(
+        `SELECT wm.OrderWeek, wm.CustKey AS FarmKey, ISNULL(fc.CustName, N'') AS FarmName,
+                wd.ProdKey, p.ProdName, ISNULL(p.DisplayName, p.ProdName) AS DisplayName,
+                p.FlowerName, p.CounName, p.OutUnit,
+                SUM(ISNULL(wd.OutQuantity,0)) AS inQty
+           FROM WarehouseDetail wd
+           JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
+           LEFT JOIN Customer fc ON fc.CustKey = wm.CustKey
+           JOIN Product p ON p.ProdKey = wd.ProdKey
+          WHERE wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo
+            AND ISNULL(wm.isDeleted,0) = 0
+          GROUP BY wm.OrderWeek, wm.CustKey, fc.CustName, wd.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit
+         HAVING SUM(ISNULL(wd.OutQuantity,0)) <> 0
+          ORDER BY wm.OrderWeek, p.CounName, p.FlowerName, p.ProdName, fc.CustName`,
+        params
+      );
+
       return res.status(200).json({
         success: true,
         rows: [...(result.recordset || []), ...(shipmentOnly.recordset || [])],
+        incomingFarms: farmIn.recordset || [],
       });
     }
 
