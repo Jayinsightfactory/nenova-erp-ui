@@ -98,6 +98,13 @@ function isNetherlands(rowOrMeta) {
     normalizeCountryName(rowOrMeta?.sheetName) === '네덜란드';
 }
 
+// 중국·네덜란드 시트는 업체명 아래에 CL(OrderCode)을 함께 표시
+function showsCustomerCL(meta) {
+  if (isNetherlands(meta)) return true;
+  const c = normalizeCountryName(meta?.country || meta?.species || meta?.sheetName);
+  return c === '중국';
+}
+
 function countryOnlySheetName(country) {
   const normalized = normalizeCountryName(country);
   return COUNTRY_ONLY_SHEETS.has(normalized) ? normalized : '';
@@ -289,7 +296,9 @@ function makeSheet(rows, customers, farms, meta) {
       const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
       aoa[0][idx] = isRegionStart ? col.group : '';
       aoa[1][idx] = col.day || '';
-      aoa[2][idx] = col.label;
+      // 중국·네덜란드 시트: 업체명 아래 줄에 CL(OrderCode) 추가 표시
+      const cl = String(col.customer?.orderCode || '').trim();
+      aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${col.label}\n${cl}` : col.label;
     } else if (col.type === 'summary') {
       aoa[0][idx] = '';
       aoa[1][idx] = '';
@@ -457,6 +466,7 @@ export default withAuth(async function handler(req, res) {
       const ws = makeSheet(sheetRows, customers, farms, {
         orderYear: data.orderYear,
         weekLabel,
+        country: group.country,
         flower: group.flower,
         species: group.countryOnly ? group.country : `${group.country || ''}${group.flower || ''}`,
         sheetName,
