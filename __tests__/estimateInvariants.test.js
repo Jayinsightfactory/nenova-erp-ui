@@ -71,11 +71,11 @@ async function main() {
   assert('합 480', parts[0].expQty + parts[1].expQty === 480);
 
   console.log('\n=== distributeUnits 수국 화이트 (주광 23-01) ===');
-  const hydr = { OutUnit: '박스', EstUnit: '단', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 30 };
+  const hydr = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 30 };
   const thu = distributeUnits(10, hydr);
   const sun = distributeUnits(180, hydr);
-  assert('목 10박스=300단', thu.box === 10 && thu.estQty === 300);
-  assert('일 180박스=5400단', sun.box === 180 && sun.estQty === 5400);
+  assert('목 10박스=300송이', thu.box === 10 && thu.estQty === 300);
+  assert('일 180박스=5400송이', sun.box === 180 && sun.estQty === 5400);
   assert('목≠전량190', thu.estQty !== 5700);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);

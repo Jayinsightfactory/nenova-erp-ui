@@ -29,6 +29,7 @@ import { withAuth } from '../../../lib/auth';
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 
 const DEFAULT_REF = ['22-01', '22-02'];
 
@@ -262,6 +263,184 @@ async function handler(req, res) {
       });
     }
 
+    // POST — 다중 ShipmentDate 를 날짜별 ShipmentDetail 로 분할.
+    // nenova.exe 견적은 ViewShipment.EstQuantity(=ShipmentDetail.EstQuantity)를 표시하므로,
+    // 한 SdetailKey 에 날짜가 2개 이상이면 날짜 필터 후에도 총량이 반복 표시된다.
+    if (String(req.body?.action) === 'splitDateDetails') {
+      const custKw = String(req.body?.cust || req.query?.cust || '').trim();
+      const splitParams = { ...wkParams, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } };
+      const result = await withTransaction(async (tQ) => {
+        const candidates = await tQ(
+          `SELECT sd.SdetailKey
+             FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
+             JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+             JOIN Customer c ON c.CustKey = sm.CustKey
+             CROSS APPLY (
+               SELECT COUNT(*) AS DateCount
+                 FROM ShipmentDate sdt
+                WHERE sdt.SdetailKey = sd.SdetailKey
+             ) dc
+            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0
+              AND (@cust='' OR c.CustName LIKE @cust)
+              AND dc.DateCount > 1
+            ORDER BY sd.SdetailKey`,
+          splitParams
+        );
+
+        let splitDetails = 0;
+        let insertedDetails = 0;
+        const samples = [];
+
+        for (const c of candidates.recordset || []) {
+          const detail = await tQ(
+            `SELECT TOP 1 sd.*
+               FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
+              WHERE sd.SdetailKey=@dk`,
+            { dk: { type: sql.Int, value: c.SdetailKey } }
+          );
+          const sd = detail.recordset?.[0];
+          if (!sd) continue;
+
+          const dates = await tQ(
+            `SELECT SdetailKey, ShipmentDtm, ISNULL(ShipmentQuantity,0) AS ShipmentQuantity,
+                    ISNULL(EstQuantity,0) AS EstQuantity, ISNULL(Cost,0) AS Cost,
+                    ISNULL(Amount,0) AS Amount, ISNULL(Vat,0) AS Vat
+               FROM ShipmentDate WITH (UPDLOCK, HOLDLOCK)
+              WHERE SdetailKey=@dk
+              ORDER BY ShipmentDtm, ShipmentQuantity`,
+            { dk: { type: sql.Int, value: sd.SdetailKey } }
+          );
+          const rows = dates.recordset || [];
+          if (rows.length <= 1) continue;
+
+          const totalOut = Number(sd.OutQuantity || 0);
+          const scale = (value, outQty) => {
+            if (!totalOut) return 0;
+            return Math.round((Number(value || 0) * Number(outQty || 0) / totalOut) * 10000) / 10000;
+          };
+          const splitRow = (dateRow) => ({
+            outQty: Number(dateRow.ShipmentQuantity || 0),
+            estQty: Number(dateRow.EstQuantity || 0),
+            box: scale(sd.BoxQuantity, dateRow.ShipmentQuantity),
+            bunch: scale(sd.BunchQuantity, dateRow.ShipmentQuantity),
+            steam: scale(sd.SteamQuantity, dateRow.ShipmentQuantity),
+            amount: Number(dateRow.Amount || 0),
+            vat: Number(dateRow.Vat || 0),
+            cost: Number(sd.Cost || dateRow.Cost || 0),
+          });
+
+          const first = rows[0];
+          const firstSplit = splitRow(first);
+          await tQ(
+            `UPDATE ShipmentDetail
+                SET ShipmentDtm=@dt,
+                    OutQuantity=@outQty,
+                    EstQuantity=@estQty,
+                    BoxQuantity=@box,
+                    BunchQuantity=@bunch,
+                    SteamQuantity=@steam,
+                    Cost=@cost,
+                    Amount=@amount,
+                    Vat=@vat
+              WHERE SdetailKey=@dk`,
+            {
+              dk: { type: sql.Int, value: sd.SdetailKey },
+              dt: { type: sql.DateTime, value: first.ShipmentDtm },
+              outQty: { type: sql.Float, value: firstSplit.outQty },
+              estQty: { type: sql.Float, value: firstSplit.estQty },
+              box: { type: sql.Float, value: firstSplit.box },
+              bunch: { type: sql.Float, value: firstSplit.bunch },
+              steam: { type: sql.Float, value: firstSplit.steam },
+              cost: { type: sql.Float, value: firstSplit.cost },
+              amount: { type: sql.Float, value: firstSplit.amount },
+              vat: { type: sql.Float, value: firstSplit.vat },
+            }
+          );
+          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: sd.SdetailKey } });
+          await tQ(
+            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+             VALUES (@dk,@dt,@outQty,@estQty,@cost,@amount,@vat)`,
+            {
+              dk: { type: sql.Int, value: sd.SdetailKey },
+              dt: { type: sql.DateTime, value: first.ShipmentDtm },
+              outQty: { type: sql.Float, value: firstSplit.outQty },
+              estQty: { type: sql.Float, value: firstSplit.estQty },
+              cost: { type: sql.Float, value: firstSplit.cost },
+              amount: { type: sql.Float, value: firstSplit.amount },
+              vat: { type: sql.Float, value: firstSplit.vat },
+            }
+          );
+
+          for (const dateRow of rows.slice(1)) {
+            const part = splitRow(dateRow);
+            const newDk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (key) => {
+              await tQ(
+                `INSERT INTO ShipmentDetail
+                   (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                    BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+                 VALUES
+                   (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@box,@bunch,@steam,@cost,@amount,@vat,@isFix,@descr)`,
+                {
+                  dk: { type: sql.Int, value: key },
+                  sk: { type: sql.Int, value: sd.ShipmentKey },
+                  ck: { type: sql.Int, value: sd.CustKey },
+                  pk: { type: sql.Int, value: sd.ProdKey },
+                  dt: { type: sql.DateTime, value: dateRow.ShipmentDtm },
+                  outQty: { type: sql.Float, value: part.outQty },
+                  estQty: { type: sql.Float, value: part.estQty },
+                  box: { type: sql.Float, value: part.box },
+                  bunch: { type: sql.Float, value: part.bunch },
+                  steam: { type: sql.Float, value: part.steam },
+                  cost: { type: sql.Float, value: part.cost },
+                  amount: { type: sql.Float, value: part.amount },
+                  vat: { type: sql.Float, value: part.vat },
+                  isFix: { type: sql.Bit, value: !!sd.isFix },
+                  descr: { type: sql.NVarChar, value: sd.Descr || '' },
+                }
+              );
+            });
+            await tQ(
+              `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
+               VALUES (@dk,@dt,@outQty,@estQty,@cost,@amount,@vat)`,
+              {
+                dk: { type: sql.Int, value: newDk },
+                dt: { type: sql.DateTime, value: dateRow.ShipmentDtm },
+                outQty: { type: sql.Float, value: part.outQty },
+                estQty: { type: sql.Float, value: part.estQty },
+                cost: { type: sql.Float, value: part.cost },
+                amount: { type: sql.Float, value: part.amount },
+                vat: { type: sql.Float, value: part.vat },
+              }
+            );
+            insertedDetails += 1;
+          }
+
+          splitDetails += 1;
+          if (samples.length < 10) {
+            samples.push({
+              originalSdetailKey: sd.SdetailKey,
+              prodKey: sd.ProdKey,
+              originalOut: Number(sd.OutQuantity || 0),
+              parts: rows.map(r => ({ date: r.ShipmentDtm, outQty: r.ShipmentQuantity, estQty: r.EstQuantity })),
+            });
+          }
+        }
+
+        if (insertedDetails > 0) {
+          await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+        }
+        return { splitDetails, insertedDetails, samples };
+      });
+
+      return res.status(200).json({
+        success: true,
+        action: 'splitDateDetails',
+        weeks,
+        cust: custKw || null,
+        ...result,
+      });
+    }
+
     // POST — 보정
     if (String(req.body?.action) !== 'fix') {
       return res.status(400).json({ success: false, error: 'action=fix 필요' });
@@ -319,7 +498,7 @@ async function handler(req, res) {
         );
         estDetailUpdated = e1.rowsAffected?.[0] || 0;
         // ShipmentDate 는 전산 견적(nenova.exe)이 출고일별로 직접 읽는 테이블이다.
-        // Detail 전체 Est/Amount/Vat 를 각 날짜에 복제하면 목요일 10박스 행도 전체 5700단으로 보인다.
+        // Detail 전체 Est/Amount/Vat 를 각 날짜에 복제하면 목요일 10박스 행도 전체 5700송이로 보인다.
         const e2 = await tQ(
           `UPDATE sdt
               SET sdt.EstQuantity = x.DateEst,
