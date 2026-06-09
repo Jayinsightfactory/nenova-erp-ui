@@ -264,6 +264,11 @@ async function loadItems(sk, byDate = false) {
     ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
        ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,`
     : ``;
+  const estimateUnitCols = byDate
+    ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+       ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+       CAST(NULL AS FLOAT) AS DateShipQty,`
+    : ``;
   const result = await query(
     `SELECT * FROM (
        -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
@@ -378,6 +383,7 @@ async function loadItems(sk, byDate = false) {
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.CounName, '')                    AS CounName,
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
+         ${estimateUnitCols}
          e.Unit,
          e.Quantity,
          CASE WHEN e.Unit = N'박스' THEN e.Quantity
