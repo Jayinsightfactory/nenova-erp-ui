@@ -15,7 +15,11 @@
 //
 //  ② EstQuantity 환산 오류 (견적 "합계 틀림")
 //     - 단 품목인데 업로드 버그로 OutQuantity 의 N배로 부풀려짐(장미/알스트로).
-//     - 보정: 기준비율로 재계산(단=×1 → OutQuantity) 하고 Amount/Vat 재산출.
+//     - usp_DistributeOne 확정 규약: EstQuantity 는 EstUnit 기준 수량(ROUND).
+//       단(EstUnit=단,OutUnit=단) → EstQuantity = OutQuantity. 박스 → OutQuantity×BunchOf1Box.
+//       하지만 수국은 마스터 BunchOf1Box 가 비어 proc 식 재현 시 0 이 되므로, 정상 차수(22차)
+//       실비율로 보정한다(박스 정상값은 비율 일치로 자동 제외, 단 ×N 만 OutQuantity 로 복원).
+//     - 금액: Amount = ROUND(Cost×Est/1.1, 0), Vat = Cost×Est − Amount (proc 과 동일).
 //
 //  GET  ?week=23-01[&weeks=23-01,23-02][&ref=22-01,22-02][&q=검색어]   → 진단(읽기 전용)
 //  GET  ?proc=1                                                          → usp_DistributeOne 원문 덤프
@@ -203,12 +207,14 @@ async function handler(req, res) {
       if (fixEst) {
         // 기준 차수 비율로 EstQuantity 재계산 + Amount/Vat 재산출.
         // 기준비율이 있는 품목만(rr.Ratio IS NOT NULL) 보정 → 22차에 없던 품목은 손대지 않음.
+        // 금액/부가세는 usp_DistributeOne 과 100% 동일하게:
+        //   Amount = ROUND(Cost*Est/1.1, 0),  Vat = Cost*Est - Amount  (←/11 아님)
         const e1 = await tQ(
           `WITH ${refRatioCte}
            UPDATE sd
               SET sd.EstQuantity = x.ExpEst,
-                  sd.Amount = ROUND(ISNULL(NULLIF(sd.Cost,0),0) * x.ExpEst / 1.1, 0),
-                  sd.Vat    = ROUND(ISNULL(NULLIF(sd.Cost,0),0) * x.ExpEst / 11, 0)
+                  sd.Amount = ROUND(ISNULL(sd.Cost,0) * x.ExpEst / 1.1, 0),
+                  sd.Vat    = (ISNULL(sd.Cost,0) * x.ExpEst) - ROUND(ISNULL(sd.Cost,0) * x.ExpEst / 1.1, 0)
              FROM ShipmentDetail sd WITH (UPDLOCK, ROWLOCK)
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              LEFT JOIN refRatio rr ON rr.ProdKey = sd.ProdKey
