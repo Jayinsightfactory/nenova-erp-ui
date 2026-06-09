@@ -1971,14 +1971,8 @@ export default function Estimate() {
       }
       let lastManager = null;
       for (const ship of printShips) {
-        if (byManager) {
-          const m = getShipmentManager(ship);
-          if (m !== lastManager) {
-            printPages.push(buildManagerCoverPage(m, mgrCusts[m], week));
-            lastManager = m;
-          }
-        }
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        let custPages = [];
         try {
           const fetchPromises = keys.map(k =>
             fetch(`/api/estimate?shipmentKey=${k}`, { credentials: 'same-origin' })
@@ -1986,11 +1980,23 @@ export default function Estimate() {
               .then(d => d.success ? (d.items || []) : [])
           );
           const allItems = await Promise.all(fetchPromises);
-          const rows = allItems.flat();
-          printPages.push(...buildCustomerPrintPages(ship.CustName, rows));
+          // 견적서 관리의 요일(출고일) 필터를 일괄 인쇄에도 동일 적용 —
+          // nenova.exe 처럼 선택한 요일에 지정된 출고분만 견적에 포함.
+          const rows = filterItemsByWeekday(allItems.flat());
+          custPages = buildCustomerPrintPages(ship.CustName, rows);
         } catch (e) {
           console.error(`[print] ${ship.CustName} 실패:`, e);
         }
+        // 요일 필터로 해당 거래처에 출력할 항목이 없으면 표지/페이지 모두 생략
+        if (custPages.length === 0) continue;
+        if (byManager) {
+          const m = getShipmentManager(ship);
+          if (m !== lastManager) {
+            printPages.push(buildManagerCoverPage(m, mgrCusts[m], week));
+            lastManager = m;
+          }
+        }
+        printPages.push(...custPages);
       }
       if (printPages.length === 0) {
         alert('출력할 데이터가 없습니다.');
