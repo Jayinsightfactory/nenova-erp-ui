@@ -496,6 +496,32 @@ function getShipmentManager(ship) {
   return manager || '담당자 미지정';
 }
 
+// ── 담당자별 인쇄 구분 표지(간지) — 전체 업체 일괄 인쇄 시 담당자 단위로 묶어
+//    각 담당자 시작 위치에 한 장 삽입. 인쇄물을 담당자별로 분류하기 쉬워진다.
+function buildManagerCoverPage(manager, custNames = [], weekLabel = '') {
+  const escHtml = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const names = (custNames || []).filter(Boolean);
+  const list = names.map(n => `<li>${escHtml(n)}</li>`).join('');
+  const sub = weekLabel ? `${escHtml(weekLabel)}차 · 거래처 ${names.length}곳` : `거래처 ${names.length}곳`;
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<style>
+.mgr-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:235mm;text-align:center;font-family:'Malgun Gothic','맑은 고딕',sans-serif;}
+.mgr-cover .mgr-label{font-size:13pt;color:#666;letter-spacing:.4em;margin-bottom:7mm;}
+.mgr-cover .mgr-name{font-size:38pt;font-weight:800;color:#10243b;margin-bottom:5mm;}
+.mgr-cover .mgr-sub{font-size:12pt;color:#1a4f8b;margin-bottom:9mm;}
+.mgr-cover ul.mgr-list{columns:2;column-gap:16mm;list-style:none;padding:0;margin:0;font-size:10.5pt;color:#333;text-align:left;max-width:155mm;width:100%;}
+.mgr-cover ul.mgr-list li{padding:1.4mm 2mm;border-bottom:1px dotted #cfd8e3;break-inside:avoid;}
+</style></head><body>
+<div class="mgr-cover">
+  <div class="mgr-label">담 당 자</div>
+  <div class="mgr-name">${escHtml(manager)}</div>
+  <div class="mgr-sub">${sub}</div>
+  <ul class="mgr-list">${list}</ul>
+</div>
+</body></html>`;
+}
+
 function compareShipmentsByManager(a, b) {
   const managerDiff = getShipmentManager(a).localeCompare(getShipmentManager(b), 'ko');
   if (managerDiff !== 0) return managerDiff;
@@ -889,6 +915,7 @@ export default function Estimate() {
     serialNo:  '',
     showBoxQty: true,
     showDistribDesc: true,
+    printByManager: true,    // 전체 업체 일괄 인쇄 시 담당자별로 묶고 구분 표지 삽입
   });
 
   // 불량/검역 폼
@@ -1934,7 +1961,24 @@ export default function Estimate() {
         .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
         .filter(Boolean);
       const printShips = [...selectedShips].sort(compareShipmentsByManager);
+      const byManager = opts.printByManager !== false;
+      // 담당자별 거래처 목록(표지에 표시) 사전 집계
+      const mgrCusts = {};
+      if (byManager) {
+        for (const s of printShips) {
+          const m = getShipmentManager(s);
+          (mgrCusts[m] = mgrCusts[m] || []).push(s.CustName);
+        }
+      }
+      let lastManager = null;
       for (const ship of printShips) {
+        if (byManager) {
+          const m = getShipmentManager(ship);
+          if (m !== lastManager) {
+            printPages.push(buildManagerCoverPage(m, mgrCusts[m], week));
+            lastManager = m;
+          }
+        }
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         try {
           const fetchPromises = keys.map(k =>
@@ -2754,6 +2798,15 @@ export default function Estimate() {
                     />
                     적요에 차수별 수량 표시
                   </label>
+                  {selectedGroups.size > 0 && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox"
+                        checked={printOpts.printByManager !== false}
+                        onChange={e => setPrintOpts(o => ({ ...o, printByManager: e.target.checked }))}
+                      />
+                      담당자별로 모아서 인쇄 (담당자 구분 표지 삽입)
+                    </label>
+                  )}
                 </div>
               </div>
 
