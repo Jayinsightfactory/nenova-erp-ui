@@ -61,6 +61,41 @@ async function handler(req, res) {
     }
   }
 
+  // 0-b) ShipmentDate(출고일별 분할) 진단 — 한 SdetailKey 가 여러 출고일로 나뉘는지 확인용
+  if (req.method === 'GET' && (req.query?.shipdates != null)) {
+    try {
+      const wk = normalizeOrderWeek(String(req.query.shipdates || '').trim());
+      const custKw = String(req.query.cust || '').trim();
+      const rows = await query(
+        `SELECT sm.OrderWeek, c.CustName, ISNULL(c.Manager,'') AS Manager, p.ProdName,
+                p.OutUnit, p.EstUnit, sd.SdetailKey,
+                sd.EstQuantity AS DetailEst, sd.OutQuantity AS DetailOut, sd.Cost,
+                sd.Amount AS DetailAmount, sd.Vat AS DetailVat,
+                CONVERT(NVARCHAR(10), sdd.ShipmentDtm, 120) AS DateYmd,
+                sdd.ShipmentQuantity AS DateShipQty, sdd.EstQuantity AS DateEst,
+                sdd.Amount AS DateAmount, sdd.Vat AS DateVat,
+                cnt.DateCount
+           FROM ShipmentMaster sm
+           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+           JOIN Customer c ON c.CustKey = sm.CustKey
+           JOIN Product p ON p.ProdKey = sd.ProdKey
+           JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
+           CROSS APPLY (SELECT COUNT(*) AS DateCount FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey) cnt
+          WHERE sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
+            AND (@cust='' OR c.CustName LIKE @cust)
+          ORDER BY c.CustName, p.ProdName, sdd.ShipmentDtm`,
+        { wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } }
+      );
+      const split = (rows.recordset || []).filter(r => r.DateCount > 1);
+      return res.status(200).json({
+        success: true, week: wk, totalRows: rows.recordset?.length || 0,
+        splitDetailRows: split.length, rows: rows.recordset || [],
+      });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // 0) usp_DistributeOne(정답 산식) 원문 덤프 — nenova 가 실제로 쓰는 EstQuantity 로직 확인용
   if (req.method === 'GET' && String(req.query?.proc || '') === '1') {
     try {
