@@ -31,11 +31,17 @@ async function handler(req, res) {
 
   const limit = toInt(req.query.limit);
   const week = String(req.query.week || '').trim();
+  const prod = String(req.query.prod || req.query.product || '').trim();
   const params = { limit: { type: sql.Int, value: limit } };
   let weekWhere = '';
   if (week) {
     weekWhere = 'AND sm.OrderWeek = @week';
     params.week = { type: sql.NVarChar, value: week };
+  }
+  let prodWhere = '';
+  if (prod) {
+    prodWhere = 'AND (p.ProdName LIKE @prod OR p.FlowerName LIKE @prod)';
+    params.prod = { type: sql.NVarChar, value: `%${prod}%` };
   }
 
   const farmExists = await hasObject('dbo.ShipmentFarm');
@@ -87,7 +93,7 @@ async function handler(req, res) {
      LEFT JOIN Customer c ON c.CustKey = sm.CustKey
      LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
      WHERE ISNULL(sm.isDeleted,0)=0
-       AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')
+       ${prod ? prodWhere : "AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')"}
        ${weekWhere}
      ORDER BY sd.SdetailKey DESC`,
     params

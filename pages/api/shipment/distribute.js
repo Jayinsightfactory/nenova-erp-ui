@@ -98,6 +98,13 @@ async function assertWeekNotFixed(q, orderWeek) {
   }
 }
 
+// 출고일을 자정(UTC) 으로 고정 — mssql useUTC=true 환경에서 정오/로컬자정 Date 는
+// 시간대 변환으로 03:00 등으로 저장돼 PeriodDay.BaseYmd(자정) 정확매칭이 깨진다(견적 누락).
+function toUtcMidnight(date) {
+  if (!date || Number.isNaN(date.getTime?.())) return null;
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0));
+}
+
 function weekToShipDate(weekStr, yearStr) {
   try {
     const year = parseInt(yearStr) || new Date().getFullYear();
@@ -111,7 +118,7 @@ function weekToShipDate(weekStr, yearStr) {
     monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
     const offsets = [0, 0, 3, 5];
     monday.setDate(monday.getDate() + (offsets[delivNum] ?? 0));
-    return monday;
+    return toUtcMidnight(monday);
   } catch { return null; }
 }
 
@@ -129,7 +136,7 @@ function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
     const offsets = [0, 4, 5, 6, 1, 3, 2];
     const normalizedBaseDay = Number.isFinite(Number(baseDay)) ? Number(baseDay) : 0;
     wednesday.setDate(wednesday.getDate() + (offsets[normalizedBaseDay] ?? 0));
-    return wednesday;
+    return toUtcMidnight(wednesday);
   } catch { return null; }
 }
 

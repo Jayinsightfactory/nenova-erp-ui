@@ -82,6 +82,30 @@ export default function DistributeRepair() {
     finally { setOywBusy(false); }
   };
 
+  // 출고일 시각불일치(견적 누락) + EstQuantity 환산오류(견적 금액) 진단/보정
+  const [perRepair, setPerRepair] = useState(null);
+  const [perBusy, setPerBusy] = useState(false);
+  const runPeriodCheck = async () => {
+    setPerBusy(true); setErr(''); setMsg(''); setPerRepair(null);
+    try { setPerRepair(await apiGet('/api/shipment/estimate-period-repair', estQ.trim() ? { week, q: estQ.trim() } : { week })); }
+    catch (e) { setErr(e.message || String(e)); }
+    finally { setPerBusy(false); }
+  };
+  const runPeriodFix = async (fixEst) => {
+    const c = perRepair || {};
+    const txt = `${week} 차수 — 견적 출고일${fixEst ? '/견적수량(금액)' : ''} 보정\n`
+      + `출고일 시각불일치 ${c.dateMismatchCount || 0}건` + (fixEst ? ` · 견적수량(금액) ${c.estMismatchCount || 0}건` : '')
+      + (c.fixedWeekRowCount ? `\n(확정행 ${c.fixedWeekRowCount}건 포함 — 재고/OutQuantity 는 변경하지 않습니다)` : '')
+      + `\n진행할까요?`;
+    if (!confirm(txt)) return;
+    setPerBusy(true); setErr(''); setMsg('');
+    try {
+      const d = await apiPost('/api/shipment/estimate-period-repair', { week, action: 'fix', fixDate: true, fixEst: !!fixEst });
+      setMsg(d.message || '완료'); await runPeriodCheck();
+    } catch (e) { setErr(e.message || String(e)); }
+    finally { setPerBusy(false); }
+  };
+
   const cleanGhostMaster = async (g) => {
     if (!confirm(`고스트 마스터 정리\n업체: ${g.custName} (${g.custKey})\nShipmentKey: ${g.shipmentKey}\n사유: ${g.reason}\n\n이 빈/숨겨진 분배 마스터를 삭제해 주문 취소가 가능하게 합니다.\n(확정 아님 + 실제 표시분배 0건 확인됨) 진행할까요?`)) return;
     setCleaning(g.shipmentKey); setErr(''); setMsg('');
@@ -380,7 +404,26 @@ export default function DistributeRepair() {
                 🛠 포맷 보정 (출고 {oywDiag.shipmentMismatch}/주문 {oywDiag.orderMismatch})
               </button>
             )}
+            <span style={{ width: 1, height: 22, background: '#cfd8dc' }} />
+            <button onClick={runPeriodCheck} disabled={perBusy} style={btnPrimary}>{perBusy ? '확인 중…' : '🕒 출고일/견적수량 진단'}</button>
+            {perRepair && (perRepair.dateMismatchCount > 0 || perRepair.estMismatchCount > 0) && (
+              <>
+                <button onClick={() => runPeriodFix(false)} disabled={perBusy} style={btnRepair}>
+                  🛠 출고일 보정 ({perRepair.dateMismatchCount})
+                </button>
+                <button onClick={() => runPeriodFix(true)} disabled={perBusy} style={btnRepair}>
+                  🛠 출고일+금액 보정 (날짜 {perRepair.dateMismatchCount}/수량 {perRepair.estMismatchCount})
+                </button>
+              </>
+            )}
           </div>
+          {perRepair && (
+            <div style={{ fontSize: 12, marginBottom: 8, color: (perRepair.dateMismatchCount || perRepair.estMismatchCount) ? '#c0392b' : '#2e7d32' }}>
+              출고일 시각불일치 <b>{perRepair.dateMismatchCount}</b>건 · 견적수량(금액) 오류 <b>{perRepair.estMismatchCount}</b>건
+              {perRepair.fixedWeekRowCount > 0 && <span style={{ color: '#e65100' }}> · 확정행 포함 {perRepair.fixedWeekRowCount}건(재고 미변경)</span>}
+              {perRepair.estSamples?.length > 0 && <span style={{ color: '#607d8b' }}> · 예: {perRepair.estSamples.slice(0, 3).map(s => `${s.CustName}/${s.ProdName}(est ${s.EstQuantity}→${s.ExpEst})`).join(', ')}</span>}
+            </div>
+          )}
           {oywDiag && (
             <div style={{ fontSize: 12, marginBottom: 8, color: (oywDiag.shipmentMismatch || oywDiag.orderMismatch) ? '#c0392b' : '#2e7d32' }}>
               OrderYearWeek 포맷 불일치 — 출고마스터 <b>{oywDiag.shipmentMismatch}</b> / 주문마스터 <b>{oywDiag.orderMismatch}</b>건

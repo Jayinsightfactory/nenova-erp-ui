@@ -19,6 +19,7 @@ async function handler(req, res) {
   const limit = toInt(req.query.limit || req.body?.limit);
   const apply = req.method === 'POST' || req.query.apply === '1';
   const week = String(req.query.week || req.body?.week || '').trim();
+  const prod = String(req.query.prod || req.query.product || req.body?.prod || '').trim();
   const scope = String(req.query.scope || req.body?.scope || 'web-edits').trim();
   const allCostSources = scope === 'all' || scope === 'all-cost-sources';
 
@@ -28,7 +29,12 @@ async function handler(req, res) {
     weekWhere = 'AND sm.OrderWeek = @week';
     params.week = { type: sql.NVarChar, value: week };
   }
-  const editWhere = allCostSources ? '' : "AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')";
+  let prodWhere = '';
+  if (prod) {
+    prodWhere = 'AND (p.ProdName LIKE @prod OR p.FlowerName LIKE @prod)';
+    params.prod = { type: sql.NVarChar, value: `%${prod}%` };
+  }
+  const editWhere = (allCostSources || prod) ? '' : "AND (ISNULL(sd.Descr,'') LIKE N'%] 단가 %→%' OR ISNULL(sd.Descr,'') LIKE N'%단가 %>%')";
 
   const selectSql = `
     SELECT TOP (@limit)
@@ -66,6 +72,7 @@ async function handler(req, res) {
     WHERE ISNULL(sm.isDeleted,0)=0
       ${editWhere}
       ${weekWhere}
+      ${prodWhere}
       AND (
         ABS(ISNULL(sdt.Cost,0) - ISNULL(sd.Cost,0)) > 0.001
         OR ABS(ISNULL(sdt.Amount,0) - ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 1.1, 0)) > 0.001

@@ -243,10 +243,6 @@ function buildEstimateHtml({
     return (a.ProdName || '').localeCompare(b.ProdName || '');
   });
   rows = sortedRows;
-
-  const totalSupply = rows.reduce((a, r) => a + (r.Amount || 0), 0);
-  const totalVat    = rows.reduce((a, r) => a + (r.Vat || 0), 0);
-  const totalAmt    = totalSupply + totalVat;
   const fmtN = n => Number(n || 0).toLocaleString();
 
   // 품목명: [차감유형] ProdName (정상출고는 prefix 없음)
@@ -288,9 +284,17 @@ function buildEstimateHtml({
       if (r.outDate) g._outDates.add(r.outDate);
     });
     rows = Object.values(groups).map(g => {
-      if (isAlstroRow(g) && (Number(g.Quantity) || 0) > 0) {
-        const total = (Number(g.Amount) || 0) + (Number(g.Vat) || 0);
-        if (total > 0) g.Cost = Math.round(total / (Number(g.Quantity) || 1));
+      const qty = Number(g.Quantity) || 0;
+      const supply = Number(g.Amount) || 0;
+      const vat = Number(g.Vat) || 0;
+      // 23-01/23-02 등 차수 합산 후에도 단가×수량=공급가가 맞도록 실효 단가 재계산
+      // (Freedom 장미처럼 출고분배는 맞는데 견적 출력 합계만 틀리던 케이스)
+      if (qty > 0) {
+        if (isAlstroRow(g) && (supply + vat) > 0) {
+          g.Cost = Math.round((supply + vat) / qty);
+        } else if (supply > 0) {
+          g.Cost = Math.round(supply / qty);
+        }
       }
       const parts = Object.entries(g._breakdown)
         .filter(([_, v]) => v > 0)
@@ -300,6 +304,10 @@ function buildEstimateHtml({
       return g;
     });
   }
+
+  const totalSupply = rows.reduce((a, r) => a + (Number(r.Amount) || 0), 0);
+  const totalVat    = rows.reduce((a, r) => a + (Number(r.Vat) || 0), 0);
+  const totalAmt    = totalSupply + totalVat;
 
   const itemRows = rows.map((r, i) => {
     const deduct = isDeduct(r);
