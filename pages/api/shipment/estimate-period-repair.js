@@ -19,10 +19,13 @@ import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
-// 전산(nenova.exe) 규약: EstQuantity = OutQuantity (실데이터로 확인 — Freedom OutUnit='단' 9행 모두 Est=Out).
-// 과거 웹 업로드 버그만 Est = Out × BunchOf1Box(예 10배)로 들어갔다. 따라서 기대값은 OutQuantity.
-// (p 인자는 시그니처 호환용, 현재 식에서는 미사용)
-const EXP_EST = (sd /* , p */) => `${sd}.OutQuantity`;
+// 전산(nenova.exe) 규약: EstQuantity 는 "단(bunch) 환산수량".
+//  - 박스 품목: Est = OutQuantity × BunchOf1Box (실데이터: 카네이션 박스 모두 Est=Out×15 → 정상)
+//  - 단/송이 품목: Est = OutQuantity (입력이 이미 단/송이). 과거 버그만 Out×BunchOf1Box(10배).
+// 따라서 박스 품목은 기대값이 현재값과 같아 자동 제외되고, 단/송이의 부풀려진 행만 잡힌다.
+const EXP_EST = (sd, p) => `CASE
+  WHEN ISNULL(${p}.OutUnit, N'박스') = N'박스' AND ISNULL(${p}.BunchOf1Box,0) > 0 THEN ${sd}.OutQuantity * ${p}.BunchOf1Box
+  ELSE ${sd}.OutQuantity END`;
 
 function parseWeeks(req) {
   const raw = String(req.query?.weeks || req.query?.week || req.body?.weeks || req.body?.week || '');
