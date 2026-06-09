@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node web.js"
+    "start": "node web.js",
+    "test:estimate": "node __tests__/estimateInvariants.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
