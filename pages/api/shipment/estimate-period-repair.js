@@ -40,12 +40,6 @@ function parseWeeks(raw) {
   return String(raw || '').split(',').map(w => normalizeOrderWeek(w.trim())).filter(Boolean);
 }
 
-function agentDebugLog(hypothesisId, message, data = {}) {
-  // #region agent log
-  fetch('http://127.0.0.1:7474/ingest/a0422b17-2238-4edf-9629-527898dfcfbd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '9f5faa' }, body: JSON.stringify({ sessionId: '9f5faa', runId: 'pre-fix', hypothesisId, location: 'pages/api/shipment/estimate-period-repair.js:agentDebugLog', message, data, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
-}
-
 async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
     return res.status(405).json({ success: false, error: 'GET/POST only' });
@@ -100,36 +94,6 @@ async function handler(req, res) {
         { wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } }
       );
       const split = (rows.recordset || []).filter(r => r.DateCount > 1);
-      const focused = (rows.recordset || []).filter(r => (
-        String(r.CustName || '').includes('주광')
-        || String(r.ProdName || '').toLowerCase().includes('hydrangea')
-        || String(r.ProdName || '').includes('수국')
-      ));
-      agentDebugLog('H1,H2,H3,H4', 'shipdates diagnostic raw rows', {
-        week: wk,
-        totalRows: rows.recordset?.length || 0,
-        splitRows: split.length,
-        focused: focused.slice(0, 20).map(r => ({
-          shipmentKey: r.ShipmentKey,
-          custKey: r.CustKey,
-          prodKey: r.ProdKey,
-          prodName: r.ProdName,
-          sdetailKey: r.SdetailKey,
-          outUnit: r.OutUnit,
-          estUnit: r.EstUnit,
-          bunchOf1Box: r.BunchOf1Box,
-          steamOf1Bunch: r.SteamOf1Bunch,
-          steamOf1Box: r.SteamOf1Box,
-          detailOut: r.DetailOut,
-          detailEst: r.DetailEst,
-          dateYmd: r.DateYmd,
-          dateShipQty: r.DateShipQty,
-          dateEst: r.DateEst,
-          dateAmount: r.DateAmount,
-          dateVat: r.DateVat,
-          dateCount: r.DateCount,
-        })),
-      });
       return res.status(200).json({
         success: true, week: wk, totalRows: rows.recordset?.length || 0,
         splitDetailRows: split.length, rows: rows.recordset || [],
@@ -269,7 +233,6 @@ async function handler(req, res) {
     // POST — ShipmentDate.EstQuantity 를 usp_DistributeOne 과 동일(distributeUnits)하게 재동기화
     if (String(req.body?.action) === 'syncDateEst') {
       const result = await withTransaction(async (tQ) => syncShipmentDateEstForWeeks(tQ, wkIn, wkParams, sql));
-      agentDebugLog('H6', 'syncDateEst completed', { weeks, ...result });
       return res.status(200).json({ success: true, action: 'syncDateEst', weeks, ...result });
     }
 
@@ -387,7 +350,6 @@ async function handler(req, res) {
         }
         return { mergedGroups, removedDetails, dateRowsSynced, samples };
       });
-      agentDebugLog('H6', 'mergeDateDetails completed', { weeks, cust: custKw || null, ...result });
       return res.status(200).json({ success: true, action: 'mergeDateDetails', weeks, cust: custKw || null, ...result });
     }
 
