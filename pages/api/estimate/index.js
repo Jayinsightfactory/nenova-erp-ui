@@ -4,6 +4,7 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -251,24 +252,18 @@ async function getEstimates(req, res) {
 // 단가 수정은 update-cost API 를 통해 ShipmentDetail 을 직접 UPDATE 하므로
 // 모든 화면(견적서/매출/미수금/세금계산서/eCount)이 일관된 값을 봄
 async function loadItems(sk, byDate = false) {
-  // byDate=true (인쇄 전용): ShipmentDate(출고일별)로 행을 펼치고 날짜별 ShipmentQuantity
-  //   비중으로 수량/금액을 비례 배분 → nenova 요일필터와 동일. (그리드/편집은 SdetailKey 단위라
-  //   기본 false 로 ShipmentDetail 1행만 반환해 편집 키 충돌을 피한다.)
+  // byDate=true: nenova.exe FormEstimateView.GetDetail 과 동일 — ShipmentDate 행마다 1줄,
+  //   수량=해당 출고일의 ShipmentQuantity(OutUnit) → distributeUnits 로 EstQuantity/박스 산출.
+  //   (과거 버그: Detail 총 EstQuantity × 비율 배분 → 수국 화이트 목 10박스인데 190박스 전량 표시)
   const dateJoin = byDate
-    ? `LEFT JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
-       CROSS APPLY (
-         SELECT SUM(z.ShipmentQuantity) AS sumShip, COUNT(*) AS dateCnt
-         FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey
-       ) dagg
-       CROSS APPLY (
-         SELECT CASE WHEN ISNULL(dagg.sumShip,0) <> 0 THEN sdd.ShipmentQuantity * 1.0 / dagg.sumShip
-                     WHEN ISNULL(dagg.dateCnt,0) > 0 THEN 1.0 / dagg.dateCnt
-                     ELSE 1.0 END AS r
-       ) ratioA`
-    : `CROSS APPLY (SELECT 1.0 AS r) ratioA`;
-  const outDateExpr = byDate
-    ? `COALESCE(sdd.ShipmentDtm, sd.ShipmentDtm)`
-    : `sd.ShipmentDtm`;
+    ? `INNER JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey`
+    : ``;
+  const outDateExpr = byDate ? `sdd.ShipmentDtm` : `sd.ShipmentDtm`;
+  const dateShipQtyCol = byDate ? `sdd.ShipmentQuantity AS DateShipQty,` : ``;
+  const productUnitCols = byDate
+    ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+       ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,`
+    : ``;
   const result = await query(
     `SELECT * FROM (
        -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
@@ -285,44 +280,39 @@ async function loadItems(sk, byDate = false) {
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.CounName, '')                    AS CounName,
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
-         -- 표시 단위/수량: nenova.exe 견적(FormEstimateView.GetDetail)과 동일하게
-         --   EstUnit + EstQuantity 를 그대로 사용. (ViewShipment.EstQuantity, Product.EstUnit)
-         --   EstUnit/EstQuantity 가 비어있는 레거시 행만 Bunch/Steam/Box 파생값으로 폴백.
+         ${productUnitCols}
+         ${dateShipQtyCol}
+         -- 표시 단위/수량: nenova.exe 견적 — EstUnit + EstQuantity (byDate 시 JS에서 ShipmentQuantity 기준 재산출)
          ISNULL(NULLIF(p.EstUnit, N''),
            CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
                 WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
                 ELSE N'박스' END)                   AS Unit,
-         -- 출고일별 분할(ShipmentDate) 비례 배분: 날짜별 ShipmentQuantity 비중(ratioA.r)으로
-         --   수량/박스/금액/부가세를 쪼갠다. (ShipmentDate.EstQuantity/Amount 는 날짜마다 총합이
-         --   복제 저장돼 있어 신뢰 불가 → 총 EstQuantity × 날짜비중 으로 산출, nenova 요일필터와 일치)
-         ROUND((CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
+         CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
               WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-              ELSE sd.BoxQuantity END) * ratioA.r, 0) AS Quantity,
-         (CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+              ELSE sd.BoxQuantity END              AS Quantity,
+         CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN sd.SteamQuantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
-              ELSE 0 END) * ratioA.r                AS BoxQty,
-         -- Cost: sd.Cost → cpc.Cost (거래처고정) → p.Cost
+              ELSE 0 END                           AS BoxQty,
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
-         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 fallback Cost 로 환산 (날짜비중 적용)
-         ROUND(ISNULL(NULLIF(sd.Amount, 0),
+         ISNULL(NULLIF(sd.Amount, 0),
            ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
-         ) * ratioA.r, 0) AS Amount,
-          ROUND(ISNULL(NULLIF(sd.Vat, 0),
+         ) AS Amount,
+          ISNULL(NULLIF(sd.Vat, 0),
             ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
               * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                      WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                      ELSE sd.BoxQuantity END
               / 11, 0)
-          ) * ratioA.r, 0) AS Vat,
-          ISNULL(sd.BunchQuantity, 0) * ratioA.r     AS RawBunchQuantity,
-          ISNULL(sd.SteamQuantity, 0) * ratioA.r     AS RawSteamQuantity,
-          ISNULL(sd.BoxQuantity, 0) * ratioA.r       AS RawBoxQuantity,
+          ) AS Vat,
+          ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
+          ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,
+          ISNULL(sd.BoxQuantity, 0)                  AS RawBoxQuantity,
           ''                                        AS Descr,
           CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
        FROM ShipmentDetail sd
@@ -482,7 +472,32 @@ async function loadItems(sk, byDate = false) {
        outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
-  return result.recordset;
+  if (!byDate) return result.recordset;
+  return result.recordset.map((row) => {
+    const dateQty = Number(row.DateShipQty);
+    if (!Number.isFinite(dateQty)) return row;
+    const units = distributeUnits(dateQty, {
+      OutUnit: row.OutUnit,
+      EstUnit: row.EstUnit,
+      BunchOf1Box: row.BunchOf1Box,
+      SteamOf1Bunch: row.SteamOf1Bunch,
+      SteamOf1Box: row.SteamOf1Box,
+    });
+    const cost = Number(row.Cost) || 0;
+    const { amount, vat } = amountVatFromCostEst(cost, units.estQty);
+    const estUnit = row.EstUnit || row.Unit;
+    return {
+      ...row,
+      Unit: estUnit,
+      Quantity: units.estQty,
+      BoxQty: units.box,
+      Amount: amount,
+      Vat: vat,
+      RawBunchQuantity: units.bunch,
+      RawSteamQuantity: units.steam,
+      RawBoxQuantity: units.box,
+    };
+  });
 }
 
 function normalizeEstimateTypeInput(estimateType, unit) {

@@ -9,8 +9,9 @@ async function main() {
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
-    splitEstByShipQty,
+    splitEstByDistributeUnits,
   } = await import('../lib/estimateInvariants.js');
+  const { distributeUnits } = await import('../lib/distributeUnits.js');
 
   let pass = 0;
   let fail = 0;
@@ -55,14 +56,27 @@ async function main() {
   );
   assert('분할 합=Detail', split.ok);
 
-  console.log('\n=== splitEstByShipQty (16+32 → 160+320) ===');
-  const parts = splitEstByShipQty(480, [
-    { ShipmentQuantity: 16, ShipmentDtm: '2026-06-04' },
-    { ShipmentQuantity: 32, ShipmentDtm: '2026-06-07' },
-  ]);
+  console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
+  const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };
+  const parts = splitEstByDistributeUnits(
+    [
+      { ShipmentQuantity: 16, ShipmentDtm: '2026-06-04' },
+      { ShipmentQuantity: 32, ShipmentDtm: '2026-06-07' },
+    ],
+    steamProd,
+    700
+  );
   assert('expQty 160', parts[0].expQty === 160);
   assert('expQty 320', parts[1].expQty === 320);
   assert('합 480', parts[0].expQty + parts[1].expQty === 480);
+
+  console.log('\n=== distributeUnits 수국 화이트 (주광 23-01) ===');
+  const hydr = { OutUnit: '박스', EstUnit: '단', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 30 };
+  const thu = distributeUnits(10, hydr);
+  const sun = distributeUnits(180, hydr);
+  assert('목 10박스=300단', thu.box === 10 && thu.estQty === 300);
+  assert('일 180박스=5400단', sun.box === 180 && sun.estQty === 5400);
+  assert('목≠전량190', thu.estQty !== 5700);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   process.exit(fail > 0 ? 1 : 0);

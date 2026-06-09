@@ -16,9 +16,10 @@ import {
   filterItemsByWeekday,
   checkSplitSumInvariant,
   checkCostQtyInvariant,
-  splitEstByShipQty,
+  splitEstByDistributeUnits,
   weekdayKrFromYmd,
 } from '../../../lib/estimateInvariants';
+import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -72,7 +73,9 @@ export default withAuth(async function handler(req, res) {
 
       // ── 2) 분할 SdetailKey — ShipmentQuantity 비중 합계 검증
       const splitRows = await query(
-        `SELECT sm.OrderWeek, c.CustName, sd.SdetailKey, p.ProdName, p.EstUnit,
+        `SELECT sm.OrderWeek, c.CustName, sd.SdetailKey, p.ProdName, p.EstUnit, p.OutUnit,
+                ISNULL(p.BunchOf1Box,0) AS BunchOf1Box, ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
+                ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
                 sd.EstQuantity AS DetailEst, sd.Amount AS DetailAmt, sd.Vat AS DetailVat,
                 sd.Cost,
                 sdd.ShipmentQuantity AS DateShipQty,
@@ -111,25 +114,28 @@ export default withAuth(async function handler(req, res) {
           const inSk = g.dateRows.some((r) => r.ShipmentKey === skFilter);
           if (!inSk && !(await sdInShipment(Number(sdKey), skFilter))) continue;
         }
-        const parts = splitEstByShipQty(g.meta.DetailEst, g.dateRows.map((r) => ({
-          ShipmentQuantity: r.DateShipQty,
-          ShipmentDtm: r.DateYmd,
-        })));
+        const product = {
+          OutUnit: g.meta.OutUnit,
+          EstUnit: g.meta.EstUnit,
+          BunchOf1Box: g.meta.BunchOf1Box,
+          SteamOf1Bunch: g.meta.SteamOf1Bunch,
+          SteamOf1Box: g.meta.SteamOf1Box,
+        };
+        const parts = splitEstByDistributeUnits(
+          g.dateRows.map((r) => ({ ShipmentQuantity: r.DateShipQty, ShipmentDtm: r.DateYmd })),
+          product,
+          Number(g.meta.Cost) || 0
+        );
         const expSum = parts.reduce((s, p) => s + p.expQty, 0);
         const qtyOk = Math.abs(expSum - Number(g.meta.DetailEst)) <= 1;
 
-        const apiRows = g.dateRows.map((r) => {
-          const ratio = Number(g.meta.SumShip) > 0
-            ? Number(r.DateShipQty) / Number(g.meta.SumShip)
-            : 1 / g.dateRows.length;
-          return {
-            Quantity: Math.round(Number(g.meta.DetailEst) * ratio),
-            Amount: Math.round(Number(g.meta.DetailAmt) * ratio),
-            Vat: Math.round(Number(g.meta.DetailVat) * ratio),
-            outDate: r.DateYmd,
-            Cost: Number(g.meta.Cost),
-          };
-        });
+        const apiRows = parts.map((p) => ({
+          Quantity: p.expQty,
+          Amount: p.expAmount,
+          Vat: p.expVat,
+          outDate: p.ShipmentDtm,
+          Cost: Number(g.meta.Cost),
+        }));
         const inv = checkSplitSumInvariant(apiRows, {
           EstQuantity: g.meta.DetailEst,
           Amount: g.meta.DetailAmt,
@@ -293,41 +299,34 @@ async function sdInShipment(sdetailKey, shipmentKey) {
   return (r.recordset?.length || 0) > 0;
 }
 
-/** estimate index loadItems 와 동일 결과 — 내부 SQL 재호출 */
+/** estimate index loadItems(byDate) 와 동일 — ShipmentDate.ShipmentQuantity + distributeUnits */
 async function fetchEstimateItems(shipmentKey, byDate) {
-  const { query: q, sql: s } = await import('../../../lib/db');
-  const dateJoin = byDate
-    ? `LEFT JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
-       CROSS APPLY (
-         SELECT SUM(z.ShipmentQuantity) AS sumShip, COUNT(*) AS dateCnt
-         FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey
-       ) dagg
-       CROSS APPLY (
-         SELECT CASE WHEN ISNULL(dagg.sumShip,0) <> 0 THEN sdd.ShipmentQuantity * 1.0 / dagg.sumShip
-                     WHEN ISNULL(dagg.dateCnt,0) > 0 THEN 1.0 / dagg.dateCnt
-                     ELSE 1.0 END AS r
-       ) ratioA`
-    : `CROSS APPLY (SELECT 1.0 AS r) ratioA`;
-  const outDateExpr = byDate ? `COALESCE(sdd.ShipmentDtm, sd.ShipmentDtm)` : `sd.ShipmentDtm`;
-
+  const dateJoin = byDate ? `INNER JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey` : ``;
+  const outDateExpr = byDate ? `sdd.ShipmentDtm` : `sd.ShipmentDtm`;
+  const extraCols = byDate
+    ? `sdd.ShipmentQuantity AS DateShipQty,
+       p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+       ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,`
+    : ``;
   const estQtyExpr = `CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
        WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
        WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
        ELSE sd.BoxQuantity END`;
-  const r = await q(
+  const r = await query(
     `SELECT sd.SdetailKey, sd.ProdKey, p.ProdName, p.EstUnit,
+            ${extraCols}
             ISNULL(NULLIF(p.EstUnit, N''),
               CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
                    ELSE N'박스' END) AS Unit,
-            ROUND((${estQtyExpr}) * ratioA.r, 0) AS Quantity,
+            (${estQtyExpr}) AS Quantity,
             ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
-            ROUND(ISNULL(NULLIF(sd.Amount, 0),
+            ISNULL(NULLIF(sd.Amount, 0),
               ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 1.1, 0)
-            ) * ratioA.r, 0) AS Amount,
-            ROUND(ISNULL(NULLIF(sd.Vat, 0),
+            ) AS Amount,
+            ISNULL(NULLIF(sd.Vat, 0),
               ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 11, 0)
-            ) * ratioA.r, 0) AS Vat,
+            ) AS Vat,
             N'정상출고' AS EstimateType,
             CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
        FROM ShipmentDetail sd
@@ -336,7 +335,28 @@ async function fetchEstimateItems(shipmentKey, byDate) {
        LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
        LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
       WHERE sd.ShipmentKey = @sk`,
-    { sk: { type: s.Int, value: shipmentKey } }
+    { sk: { type: sql.Int, value: shipmentKey } }
   );
-  return r.recordset || [];
+  const rows = r.recordset || [];
+  if (!byDate) return rows;
+  return rows.map((row) => {
+    const dateQty = Number(row.DateShipQty);
+    if (!Number.isFinite(dateQty)) return row;
+    const units = distributeUnits(dateQty, {
+      OutUnit: row.OutUnit,
+      EstUnit: row.EstUnit,
+      BunchOf1Box: row.BunchOf1Box,
+      SteamOf1Bunch: row.SteamOf1Bunch,
+      SteamOf1Box: row.SteamOf1Box,
+    });
+    const cost = Number(row.Cost) || 0;
+    const { amount, vat } = amountVatFromCostEst(cost, units.estQty);
+    return {
+      ...row,
+      Unit: row.EstUnit || row.Unit,
+      Quantity: units.estQty,
+      Amount: amount,
+      Vat: vat,
+    };
+  });
 }

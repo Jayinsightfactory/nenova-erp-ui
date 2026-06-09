@@ -20,6 +20,7 @@ type: reference
 | 6 | **ShipmentMaster 재사용**: `WHERE CustKey+OrderWeek+isDeleted=0 ORDER BY isFix DESC, ShipmentKey ASC`. 새로 만들지 말고 재사용. WebCreated=1 | 중복 마스터 / 확정 안 됨 / 두 번 보임 | WEB_VS_ERP_CONFLICTS #8 |
 | 7 | **isDeleted**: `ShipmentDetail` 엔 컬럼 **없음**(`sd.isDeleted` 쿼리 시 SQL 500). ShipmentMaster/Product/Customer/OrderMaster/OrderDetail 엔 있음 → 필터 필수 | sd.isDeleted 쿼리 시 500; isDeleted 필터 누락 시 고스트 포함 | [[shipmentdetail-no-isdeleted-column]] |
 | 8 | **PK 생성 = `safeNextKey` + `tryInsertWithRetry`** (IDENTITY 아님, 전산 race) | PK 충돌 | 루트 CLAUDE.md 규칙 4 |
+| 9 | **견적 byDate(요일필터) = ShipmentDate 행마다 `ShipmentQuantity`(OutUnit) → `distributeUnits` 로 EstQuantity 산출**. Detail 총 Est × 날짜비율 배분 금지. ShipmentDate.EstQuantity/Amount 는 날짜마다 총합 복제 저장돼 신뢰 불가 | 목요일 견적에 일요일분까지 합산(수국 화이트 190박스 전량 등) | FormEstimateView.GetDetail (dnSpy), `lib/distributeUnits.js` |
 
 ## 진단/보정 도구 — `/admin/distribute-repair`
 - 차수 진단(출고일 6일밀림/CustKey/중복마스터/출고일·수량/Est/키넘버링) + 출고일·CustKey 보정
