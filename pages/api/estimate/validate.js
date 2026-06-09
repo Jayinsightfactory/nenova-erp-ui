@@ -310,24 +310,31 @@ async function fetchEstimateItems(shipmentKey, byDate) {
     : `CROSS APPLY (SELECT 1.0 AS r) ratioA`;
   const outDateExpr = byDate ? `COALESCE(sdd.ShipmentDtm, sd.ShipmentDtm)` : `sd.ShipmentDtm`;
 
+  const estQtyExpr = `CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
+       WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+       WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
+       ELSE sd.BoxQuantity END`;
   const r = await q(
     `SELECT sd.SdetailKey, sd.ProdKey, p.ProdName, p.EstUnit,
             ISNULL(NULLIF(p.EstUnit, N''),
               CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
                    ELSE N'박스' END) AS Unit,
-            ROUND((CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
-                 WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
-                 WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-                 ELSE sd.BoxQuantity END) * ratioA.r, 0) AS Quantity,
-            ISNULL(NULLIF(sd.Cost, 0), ISNULL(p.Cost, 0)) AS Cost,
-            ROUND(ISNULL(NULLIF(sd.Amount, 0), 0) * ratioA.r, 0) AS Amount,
-            ROUND(ISNULL(NULLIF(sd.Vat, 0), 0) * ratioA.r, 0) AS Vat,
+            ROUND((${estQtyExpr}) * ratioA.r, 0) AS Quantity,
+            ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
+            ROUND(ISNULL(NULLIF(sd.Amount, 0),
+              ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 1.1, 0)
+            ) * ratioA.r, 0) AS Amount,
+            ROUND(ISNULL(NULLIF(sd.Vat, 0),
+              ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 11, 0)
+            ) * ratioA.r, 0) AS Vat,
             N'정상출고' AS EstimateType,
             CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
        FROM ShipmentDetail sd
        ${dateJoin}
+       LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
        LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
+       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
       WHERE sd.ShipmentKey = @sk`,
     { sk: { type: s.Int, value: shipmentKey } }
   );
