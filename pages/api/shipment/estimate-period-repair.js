@@ -8,9 +8,10 @@
 //       (OutQuantity/재고 미변경 → 확정 차수에도 안전)
 //
 //  ② EstQuantity 환산 오류 (견적 "합계 틀림")
-//     - 박스단위 품목인데 EstQuantity 가 단(bunch)으로 들어가 금액이 BunchOf1Box 배로 부풀려짐.
-//     - 보정: EstQuantity 를 OutUnit 기준(박스→OutQuantity, 단→×BunchOf1Box, 송이→×SteamOf1Box)으로
-//       재계산하고 Amount/Vat 을 다시 산출. (전산 행은 이미 정상이라 대상에서 자동 제외)
+//     - 단(bunch) 단위 품목인데 업로드 버그로 EstQuantity 가 OutQuantity 의 10배로 부풀려짐(장미/알스트로).
+//     - 보정: 단 품목의 EstQuantity 를 OutQuantity 로 되돌리고 Amount/Vat 재산출.
+//       박스 품목은 박스당 단수가 마스터에 신뢰성 있게 없어(수국=null) SQL 로 기대값 재현이 불가 →
+//       자동 보정에서 제외(현재값 유지). 박스 누락의 진짜 원인은 ① 출고일 불일치이며 fixDate 가 처리.
 //
 //  GET  ?week=23-01[&weeks=23-01,23-02][&q=검색어]   → 진단(읽기 전용, 변경 없음)
 //  POST { week|weeks, action:'fix', fixDate=true, fixEst=false }
@@ -20,12 +21,17 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 // 전산(nenova.exe) 규약: EstQuantity 는 "단(bunch) 환산수량".
-//  - 박스 품목: Est = OutQuantity × BunchOf1Box (실데이터: 카네이션 박스 모두 Est=Out×15 → 정상)
-//  - 단/송이 품목: Est = OutQuantity (입력이 이미 단/송이). 과거 버그만 Out×BunchOf1Box(10배).
-// 따라서 박스 품목은 기대값이 현재값과 같아 자동 제외되고, 단/송이의 부풀려진 행만 잡힌다.
+//  - 단 품목: Est = OutQuantity (입력이 이미 단). 과거 업로드 버그만 Out×10 으로 부풀림 → 이것만 보정.
+//  - 박스 품목: Est = OutQuantity × (박스당 단수). 그러나 박스당 단수가 Product.BunchOf1Box 에
+//    신뢰성 있게 들어있지 않다(예: 수국은 0/null 이지만 실제 1박스=30단, 카네이션은 15 로 채워짐).
+//    → 박스 품목의 기대값을 SQL 만으로 정확히 재현할 수 없어, 자동 보정 대상에서 제외한다.
+//      (박스 EstQuantity 는 현재값을 그대로 기대값으로 두어 절대 변경되지 않게 함. 수국 30→1 파괴 방지)
+//      박스 품목이 견적서에서 빠지는 진짜 원인은 출고일 시각 불일치이며 그것은 fixDate 가 해결한다.
+//  - 송이 등 기타 단위: 확증 데이터가 없어 보수적으로 현재값 유지(미보정).
+// 결과적으로 EstBroken 으로 잡히는 것은 "단 품목인데 Est ≠ Out" 인 장미/알스트로 부풀림 행뿐이다.
 const EXP_EST = (sd, p) => `CASE
-  WHEN ISNULL(${p}.OutUnit, N'박스') = N'박스' AND ISNULL(${p}.BunchOf1Box,0) > 0 THEN ${sd}.OutQuantity * ${p}.BunchOf1Box
-  ELSE ${sd}.OutQuantity END`;
+  WHEN ISNULL(${p}.OutUnit, N'박스') = N'단' THEN ${sd}.OutQuantity
+  ELSE ${sd}.EstQuantity END`;
 
 function parseWeeks(req) {
   const raw = String(req.query?.weeks || req.query?.week || req.body?.weeks || req.body?.week || '');
