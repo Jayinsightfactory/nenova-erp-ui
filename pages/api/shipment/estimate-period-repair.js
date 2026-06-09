@@ -36,6 +36,12 @@ function parseWeeks(raw) {
   return String(raw || '').split(',').map(w => normalizeOrderWeek(w.trim())).filter(Boolean);
 }
 
+function agentDebugLog(hypothesisId, message, data = {}) {
+  // #region agent log
+  fetch('http://127.0.0.1:7474/ingest/a0422b17-2238-4edf-9629-527898dfcfbd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '9f5faa' }, body: JSON.stringify({ sessionId: '9f5faa', runId: 'pre-fix', hypothesisId, location: 'pages/api/shipment/estimate-period-repair.js:agentDebugLog', message, data, timestamp: Date.now() }) }).catch(() => {});
+  // #endregion
+}
+
 async function handler(req, res) {
   if (!['GET', 'POST'].includes(req.method)) {
     return res.status(405).json({ success: false, error: 'GET/POST only' });
@@ -68,7 +74,10 @@ async function handler(req, res) {
       const custKw = String(req.query.cust || '').trim();
       const rows = await query(
         `SELECT sm.OrderWeek, c.CustName, ISNULL(c.Manager,'') AS Manager, p.ProdName,
-                p.OutUnit, p.EstUnit, sd.SdetailKey,
+                sm.ShipmentKey, c.CustKey, p.ProdKey,
+                p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+                sd.SdetailKey,
                 sd.EstQuantity AS DetailEst, sd.OutQuantity AS DetailOut, sd.Cost,
                 sd.Amount AS DetailAmount, sd.Vat AS DetailVat,
                 CONVERT(NVARCHAR(10), sdd.ShipmentDtm, 120) AS DateYmd,
@@ -87,6 +96,36 @@ async function handler(req, res) {
         { wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } }
       );
       const split = (rows.recordset || []).filter(r => r.DateCount > 1);
+      const focused = (rows.recordset || []).filter(r => (
+        String(r.CustName || '').includes('주광')
+        || String(r.ProdName || '').toLowerCase().includes('hydrangea')
+        || String(r.ProdName || '').includes('수국')
+      ));
+      agentDebugLog('H1,H2,H3,H4', 'shipdates diagnostic raw rows', {
+        week: wk,
+        totalRows: rows.recordset?.length || 0,
+        splitRows: split.length,
+        focused: focused.slice(0, 20).map(r => ({
+          shipmentKey: r.ShipmentKey,
+          custKey: r.CustKey,
+          prodKey: r.ProdKey,
+          prodName: r.ProdName,
+          sdetailKey: r.SdetailKey,
+          outUnit: r.OutUnit,
+          estUnit: r.EstUnit,
+          bunchOf1Box: r.BunchOf1Box,
+          steamOf1Bunch: r.SteamOf1Bunch,
+          steamOf1Box: r.SteamOf1Box,
+          detailOut: r.DetailOut,
+          detailEst: r.DetailEst,
+          dateYmd: r.DateYmd,
+          dateShipQty: r.DateShipQty,
+          dateEst: r.DateEst,
+          dateAmount: r.DateAmount,
+          dateVat: r.DateVat,
+          dateCount: r.DateCount,
+        })),
+      });
       return res.status(200).json({
         success: true, week: wk, totalRows: rows.recordset?.length || 0,
         splitDetailRows: split.length, rows: rows.recordset || [],
@@ -279,16 +318,27 @@ async function handler(req, res) {
           wkParams
         );
         estDetailUpdated = e1.rowsAffected?.[0] || 0;
+        // ShipmentDate 는 전산 견적(nenova.exe)이 출고일별로 직접 읽는 테이블이다.
+        // Detail 전체 Est/Amount/Vat 를 각 날짜에 복제하면 목요일 10박스 행도 전체 5700단으로 보인다.
         const e2 = await tQ(
           `UPDATE sdt
-              SET sdt.EstQuantity = sd.EstQuantity, sdt.Amount = sd.Amount, sdt.Vat = sd.Vat
+              SET sdt.EstQuantity = x.DateEst,
+                  sdt.Amount = ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0),
+                  sdt.Vat = (ISNULL(sd.Cost,0) * x.DateEst) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0)
              FROM ShipmentDate sdt WITH (UPDLOCK, ROWLOCK)
              JOIN ShipmentDetail sd ON sd.SdetailKey = sdt.SdetailKey
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+             CROSS APPLY (
+               SELECT CASE
+                 WHEN ISNULL(sd.OutQuantity,0) <> 0
+                   THEN ROUND(ISNULL(sd.EstQuantity,0) * ISNULL(sdt.ShipmentQuantity,0) / sd.OutQuantity, 0)
+                 ELSE ISNULL(sd.EstQuantity,0)
+               END AS DateEst
+             ) x
             WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
-              AND ( ABS(ISNULL(sdt.EstQuantity,0) - ISNULL(sd.EstQuantity,0)) > 0.001
-                 OR ABS(ISNULL(sdt.Amount,0) - ISNULL(sd.Amount,0)) > 0.001
-                 OR ABS(ISNULL(sdt.Vat,0) - ISNULL(sd.Vat,0)) > 0.001 )`,
+              AND ( ABS(ISNULL(sdt.EstQuantity,0) - x.DateEst) > 0.001
+                 OR ABS(ISNULL(sdt.Amount,0) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0)) > 0.001
+                 OR ABS(ISNULL(sdt.Vat,0) - ((ISNULL(sd.Cost,0) * x.DateEst) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0))) > 0.001 )`,
           wkParams
         );
         estDateSynced = e2.rowsAffected?.[0] || 0;
