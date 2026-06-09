@@ -1975,7 +1975,7 @@ export default function Estimate() {
         let custPages = [];
         try {
           const fetchPromises = keys.map(k =>
-            fetch(`/api/estimate?shipmentKey=${k}`, { credentials: 'same-origin' })
+            fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
               .then(r => r.json())
               .then(d => d.success ? (d.items || []) : [])
           );
@@ -2004,9 +2004,20 @@ export default function Estimate() {
       }
       await printInIframe(buildEstimatePrintBundle(printPages));
     } else {
-      // 단일 선택 — 기존 흐름
+      // 단일 선택 — 출고일별(byDate) 항목으로 요일필터 적용 후 인쇄
       const custName = selectedShip?.CustName || '';
-      const refreshedItems = await reloadSelectedShipmentItems();
+      const keys = (selectedShip?.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+      let refreshedItems = [];
+      if (keys.length > 0) {
+        const results = await Promise.all(keys.map(k =>
+          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(d => d.success ? (d.items || []) : [])
+        ));
+        refreshedItems = results.flat();
+      } else {
+        refreshedItems = await reloadSelectedShipmentItems();
+      }
       const printPages = buildCustomerPrintPages(custName, filterItemsByWeekday(refreshedItems));
       if (printPages.length === 0) {
         alert('출력할 데이터가 없습니다.');

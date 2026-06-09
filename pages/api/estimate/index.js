@@ -143,7 +143,8 @@ async function getEstimates(req, res) {
   // ── shipmentKey 직접 지정 시: 해당 건 상세만 반환 (왼쪽 목록 불필요)
   if (shipmentKey) {
     try {
-      const items = await loadItems(parseInt(shipmentKey));
+      const byDate = req.query.byDate === '1' || req.query.byDate === 'true';
+      const items = await loadItems(parseInt(shipmentKey), byDate);
       return res.status(200).json({ success: true, source: 'real_db', shipments: [], items });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
@@ -249,7 +250,25 @@ async function getEstimates(req, res) {
 // 14차 패턴: ShipmentDetail.Cost/Amount/Vat 를 그대로 읽음 (DB = Truth)
 // 단가 수정은 update-cost API 를 통해 ShipmentDetail 을 직접 UPDATE 하므로
 // 모든 화면(견적서/매출/미수금/세금계산서/eCount)이 일관된 값을 봄
-async function loadItems(sk) {
+async function loadItems(sk, byDate = false) {
+  // byDate=true (인쇄 전용): ShipmentDate(출고일별)로 행을 펼치고 날짜별 ShipmentQuantity
+  //   비중으로 수량/금액을 비례 배분 → nenova 요일필터와 동일. (그리드/편집은 SdetailKey 단위라
+  //   기본 false 로 ShipmentDetail 1행만 반환해 편집 키 충돌을 피한다.)
+  const dateJoin = byDate
+    ? `LEFT JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
+       CROSS APPLY (
+         SELECT SUM(z.ShipmentQuantity) AS sumShip, COUNT(*) AS dateCnt
+         FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey
+       ) dagg
+       CROSS APPLY (
+         SELECT CASE WHEN ISNULL(dagg.sumShip,0) <> 0 THEN sdd.ShipmentQuantity * 1.0 / dagg.sumShip
+                     WHEN ISNULL(dagg.dateCnt,0) > 0 THEN 1.0 / dagg.dateCnt
+                     ELSE 1.0 END AS r
+       ) ratioA`
+    : `CROSS APPLY (SELECT 1.0 AS r) ratioA`;
+  const outDateExpr = byDate
+    ? `COALESCE(sdd.ShipmentDtm, sd.ShipmentDtm)`
+    : `sd.ShipmentDtm`;
   const result = await query(
     `SELECT * FROM (
        -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
@@ -273,37 +292,41 @@ async function loadItems(sk) {
            CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
                 WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
                 ELSE N'박스' END)                   AS Unit,
-         CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
+         -- 출고일별 분할(ShipmentDate) 비례 배분: 날짜별 ShipmentQuantity 비중(ratioA.r)으로
+         --   수량/박스/금액/부가세를 쪼갠다. (ShipmentDate.EstQuantity/Amount 는 날짜마다 총합이
+         --   복제 저장돼 있어 신뢰 불가 → 총 EstQuantity × 날짜비중 으로 산출, nenova 요일필터와 일치)
+         ROUND((CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
               WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-              ELSE sd.BoxQuantity END              AS Quantity,
-         CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
+              ELSE sd.BoxQuantity END) * ratioA.r, 0) AS Quantity,
+         (CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN sd.SteamQuantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
-              ELSE 0 END                           AS BoxQty,
+              ELSE 0 END) * ratioA.r                AS BoxQty,
          -- Cost: sd.Cost → cpc.Cost (거래처고정) → p.Cost
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
-         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 fallback Cost 로 환산
-         ISNULL(NULLIF(sd.Amount, 0),
+         -- Amount/Vat: sd.Amount 있으면 그대로, 없으면 fallback Cost 로 환산 (날짜비중 적용)
+         ROUND(ISNULL(NULLIF(sd.Amount, 0),
            ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
-         ) AS Amount,
-          ISNULL(NULLIF(sd.Vat, 0),
+         ) * ratioA.r, 0) AS Amount,
+          ROUND(ISNULL(NULLIF(sd.Vat, 0),
             ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
               * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                      WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                      ELSE sd.BoxQuantity END
               / 11, 0)
-          ) AS Vat,
-          ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
-          ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,
-          ISNULL(sd.BoxQuantity, 0)                  AS RawBoxQuantity,
+          ) * ratioA.r, 0) AS Vat,
+          ISNULL(sd.BunchQuantity, 0) * ratioA.r     AS RawBunchQuantity,
+          ISNULL(sd.SteamQuantity, 0) * ratioA.r     AS RawSteamQuantity,
+          ISNULL(sd.BoxQuantity, 0) * ratioA.r       AS RawBoxQuantity,
           ''                                        AS Descr,
-          CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate
+          CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
        FROM ShipmentDetail sd
+       ${dateJoin}
        LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
        LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
@@ -381,7 +404,7 @@ async function loadItems(sk) {
           NULL                                      AS RawSteamQuantity,
           NULL                                      AS RawBoxQuantity,
           ISNULL(e.Descr, '')                       AS Descr,
-          CONVERT(NVARCHAR(10), sd2.ShipmentDtm, 120) AS outDate
+          CONVERT(NVARCHAR(10), COALESCE(e.EstimateDtm, sd2.ShipmentDtm), 120) AS outDate
        FROM Estimate e
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
        LEFT JOIN CodeInfo ci
