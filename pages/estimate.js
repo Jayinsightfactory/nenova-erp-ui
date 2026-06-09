@@ -305,6 +305,15 @@ function buildEstimateHtml({
     });
   }
 
+  // ── 최종 정렬: 품종(국가+꽃) 우선순위 1차 → 같은 품종 안에서는 품목명 ABC 순.
+  // (합산 전 정렬은 출고일을 품목명보다 먼저 보므로, 같은 품종에서 출고일이 빠른 품목이
+  //  앞서는 문제가 있었음. 예: CARNATION Brut(06-03) 가 CARNATION Apple Tea(06-07) 보다 먼저.)
+  rows.sort((a, b) => {
+    const pa = priorityOf(a); const pb = priorityOf(b);
+    if (pa !== pb) return pa - pb;
+    return (a.ProdName || '').localeCompare(b.ProdName || '', 'en', { numeric: true, sensitivity: 'base' });
+  });
+
   const totalSupply = rows.reduce((a, r) => a + (Number(r.Amount) || 0), 0);
   const totalVat    = rows.reduce((a, r) => a + (Number(r.Vat) || 0), 0);
   const totalAmt    = totalSupply + totalVat;
