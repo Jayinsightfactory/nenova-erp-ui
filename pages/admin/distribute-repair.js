@@ -85,23 +85,26 @@ export default function DistributeRepair() {
   // 출고일 시각불일치(견적 누락) + EstQuantity 환산오류(견적 금액) 진단/보정
   const [perRepair, setPerRepair] = useState(null);
   const [perBusy, setPerBusy] = useState(false);
-  const runPeriodCheck = async () => {
+  const runPeriodCheck = async (allWeeks) => {
     setPerBusy(true); setErr(''); setMsg(''); setPerRepair(null);
-    try { setPerRepair(await apiGet('/api/shipment/estimate-period-repair', estQ.trim() ? { week, q: estQ.trim() } : { week })); }
-    catch (e) { setErr(e.message || String(e)); }
+    try {
+      const params = allWeeks ? { all: 1 } : (estQ.trim() ? { week, q: estQ.trim() } : { week });
+      setPerRepair(await apiGet('/api/shipment/estimate-period-repair', params));
+    } catch (e) { setErr(e.message || String(e)); }
     finally { setPerBusy(false); }
   };
-  const runPeriodFix = async (fixEst) => {
+  // 특정 차수 보정 (전수 결과에서 차수 클릭 시 그 차수만; 미지정 시 현재 week)
+  const runPeriodFix = async (fixEst, targetWeek) => {
     const c = perRepair || {};
-    const txt = `${week} 차수 — 견적 출고일${fixEst ? '/견적수량(금액)' : ''} 보정\n`
-      + `출고일 시각불일치 ${c.dateMismatchCount || 0}건` + (fixEst ? ` · 견적수량(금액) ${c.estMismatchCount || 0}건` : '')
-      + (c.fixedWeekRowCount ? `\n(확정행 ${c.fixedWeekRowCount}건 포함 — 재고/OutQuantity 는 변경하지 않습니다)` : '')
+    const wk = targetWeek || week;
+    const txt = `${wk} 차수 — 견적 출고일${fixEst ? '/견적수량(금액)' : ''} 보정\n`
+      + (targetWeek ? '' : `출고일 시각불일치 ${c.dateMismatchCount || 0}건` + (fixEst ? ` · 견적수량(금액) ${c.estMismatchCount || 0}건` : '') + (c.fixedWeekRowCount ? `\n(확정행 ${c.fixedWeekRowCount}건 포함 — 재고/OutQuantity 는 변경하지 않습니다)` : ''))
       + `\n진행할까요?`;
     if (!confirm(txt)) return;
     setPerBusy(true); setErr(''); setMsg('');
     try {
-      const d = await apiPost('/api/shipment/estimate-period-repair', { week, action: 'fix', fixDate: true, fixEst: !!fixEst });
-      setMsg(d.message || '완료'); await runPeriodCheck();
+      const d = await apiPost('/api/shipment/estimate-period-repair', { week: wk, action: 'fix', fixDate: true, fixEst: !!fixEst });
+      setMsg(d.message || '완료'); await runPeriodCheck(c.scope === 'all');
     } catch (e) { setErr(e.message || String(e)); }
     finally { setPerBusy(false); }
   };
@@ -405,8 +408,9 @@ export default function DistributeRepair() {
               </button>
             )}
             <span style={{ width: 1, height: 22, background: '#cfd8dc' }} />
-            <button onClick={runPeriodCheck} disabled={perBusy} style={btnPrimary}>{perBusy ? '확인 중…' : '🕒 출고일/견적수량 진단'}</button>
-            {perRepair && (perRepair.dateMismatchCount > 0 || perRepair.estMismatchCount > 0) && (
+            <button onClick={() => runPeriodCheck(false)} disabled={perBusy} style={btnPrimary}>{perBusy ? '확인 중…' : '🕒 출고일/견적수량 진단'}</button>
+            <button onClick={() => runPeriodCheck(true)} disabled={perBusy} style={btnRepairAlt}>🌐 전수 점검(모든 차수)</button>
+            {perRepair && perRepair.scope !== 'all' && (perRepair.dateMismatchCount > 0 || perRepair.estMismatchCount > 0) && (
               <>
                 <button onClick={() => runPeriodFix(false)} disabled={perBusy} style={btnRepair}>
                   🛠 출고일 보정 ({perRepair.dateMismatchCount})
@@ -419,9 +423,44 @@ export default function DistributeRepair() {
           </div>
           {perRepair && (
             <div style={{ fontSize: 12, marginBottom: 8, color: (perRepair.dateMismatchCount || perRepair.estMismatchCount) ? '#c0392b' : '#2e7d32' }}>
-              출고일 시각불일치 <b>{perRepair.dateMismatchCount}</b>건 · 견적수량(금액) 오류 <b>{perRepair.estMismatchCount}</b>건
+              {perRepair.scope === 'all' ? '전수' : `${week}차`} 점검 · 출고일 시각불일치 <b>{perRepair.dateMismatchCount}</b>건 · 견적수량(금액) 오류 <b>{perRepair.estMismatchCount}</b>건
               {perRepair.fixedWeekRowCount > 0 && <span style={{ color: '#e65100' }}> · 확정행 포함 {perRepair.fixedWeekRowCount}건(재고 미변경)</span>}
-              {perRepair.estSamples?.length > 0 && <span style={{ color: '#607d8b' }}> · 예: {perRepair.estSamples.slice(0, 3).map(s => `${s.CustName}/${s.ProdName}(est ${s.EstQuantity}→${s.ExpEst})`).join(', ')}</span>}
+            </div>
+          )}
+          {/* 전수 점검: 차수별 요약 + 차수별 보정 버튼 */}
+          {perRepair?.affectedWeeks?.length > 0 && (
+            <div style={{ marginBottom: 8, border: '1px solid #ffcc80', borderRadius: 6, padding: 8, background: '#fff8e1' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>차수별 이슈 ({perRepair.affectedWeeks.length}개 차수)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {perRepair.affectedWeeks.map((w, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
+                    <b>{w.week}</b>
+                    <span style={{ fontSize: 11, color: '#c0392b' }}>날짜 {w.dateBroken}/수량 {w.estBroken} · {w.products}품목</span>
+                    <button onClick={() => runPeriodFix(true, w.week)} disabled={perBusy} style={{ ...btnRepair, padding: '2px 8px', fontSize: 11 }}>🛠 보정</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* 품목별 상세 */}
+          {perRepair?.byProduct?.length > 0 && (
+            <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: 6, marginBottom: 8 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+                <thead><tr>{['차수', '품목', '국가', '날짜깨짐', '수량깨짐', '확정포함', '행수'].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {perRepair.byProduct.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ ...td, fontWeight: 700 }}>{r.OrderWeek}</td>
+                      <td style={td}>{r.ProdName}</td>
+                      <td style={td}>{r.CounName || '-'}</td>
+                      <td style={{ ...td, color: r.DateBroken > 0 ? '#b71c1c' : '#90a4ae', fontWeight: 700 }}>{r.DateBroken}</td>
+                      <td style={{ ...td, color: r.EstBroken > 0 ? '#b71c1c' : '#90a4ae', fontWeight: 700 }}>{r.EstBroken}</td>
+                      <td style={{ ...td, color: r.FixedBroken > 0 ? '#e65100' : '#90a4ae' }}>{r.FixedBroken}</td>
+                      <td style={td}>{r.TotalRows}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           {oywDiag && (

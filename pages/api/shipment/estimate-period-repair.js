@@ -52,40 +52,75 @@ async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const r = await query(
-        `SELECT TOP 500
-                sm.OrderWeek, c.CustName, p.ProdName, ISNULL(p.OutUnit,N'박스') AS OutUnit,
-                sd.SdetailKey, ISNULL(sm.isFix,0) AS SmFix,
-                ISNULL(sd.OutQuantity,0) AS OutQuantity, ISNULL(sd.EstQuantity,0) AS EstQuantity,
-                ${EXP_EST('sd','p')} AS ExpEst,
-                CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) AS DateDtm,
-                CONVERT(NVARCHAR(30), pm.BaseYmd, 121) AS PeriodBaseYmd,
-                CASE WHEN sdt.ShipmentDtm IS NOT NULL AND pm.BaseYmd IS NOT NULL
-                          AND sdt.ShipmentDtm <> pm.BaseYmd THEN 1 ELSE 0 END AS DateBroken,
-                CASE WHEN ABS(ISNULL(sd.EstQuantity,0) - (${EXP_EST('sd','p')})) > 0.001 THEN 1 ELSE 0 END AS EstBroken
-           FROM ShipmentMaster sm
-           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-           JOIN Product p ON p.ProdKey = sd.ProdKey
-           JOIN Customer c ON c.CustKey = sm.CustKey
-           OUTER APPLY (SELECT TOP 1 sdt0.ShipmentDtm FROM ShipmentDate sdt0 WHERE sdt0.SdetailKey = sd.SdetailKey) sdt
-           OUTER APPLY (SELECT TOP 1 pd.BaseYmd FROM PeriodDay pd
-                         WHERE CONVERT(date, pd.BaseYmd) = CONVERT(date, sdt.ShipmentDtm) ORDER BY pd.BaseYmd) pm
-          WHERE ${weekFilter} AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0${qFilter}
-          ORDER BY sm.OrderWeek, p.ProdName, c.CustName`,
+      // 깨진 행 판정 CTE (전 품목/전 차수 정확 집계 — TOP 제한 없음)
+      const flaggedCte = `
+        WITH flagged AS (
+          SELECT sm.OrderWeek, p.ProdName, ISNULL(p.CounName,N'') AS CounName, ISNULL(p.FlowerName,N'') AS FlowerName,
+                 c.CustName, p.OutUnit, sd.SdetailKey, ISNULL(sm.isFix,0) AS SmFix,
+                 ISNULL(sd.OutQuantity,0) AS OutQuantity, ISNULL(sd.EstQuantity,0) AS EstQuantity,
+                 ${EXP_EST('sd','p')} AS ExpEst,
+                 CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) AS DateDtm,
+                 CONVERT(NVARCHAR(30), pm.BaseYmd, 121) AS PeriodBaseYmd,
+                 CASE WHEN sdt.ShipmentDtm IS NOT NULL AND pm.BaseYmd IS NOT NULL
+                           AND sdt.ShipmentDtm <> pm.BaseYmd THEN 1 ELSE 0 END AS DateBroken,
+                 CASE WHEN ABS(ISNULL(sd.EstQuantity,0) - (${EXP_EST('sd','p')})) > 0.001 THEN 1 ELSE 0 END AS EstBroken
+            FROM ShipmentMaster sm
+            JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+            JOIN Product p ON p.ProdKey = sd.ProdKey
+            JOIN Customer c ON c.CustKey = sm.CustKey
+            OUTER APPLY (SELECT TOP 1 sdt0.ShipmentDtm FROM ShipmentDate sdt0 WHERE sdt0.SdetailKey = sd.SdetailKey) sdt
+            OUTER APPLY (SELECT TOP 1 pd.BaseYmd FROM PeriodDay pd
+                          WHERE CONVERT(date, pd.BaseYmd) = CONVERT(date, sdt.ShipmentDtm) ORDER BY pd.BaseYmd) pm
+           WHERE ${weekFilter} AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0${qFilter}
+        )`;
+
+      // 1) 차수+품목별 집계 (깨진 것만)
+      const agg = await query(
+        `${flaggedCte}
+         SELECT OrderWeek, ProdName, CounName, FlowerName,
+                COUNT(*) AS TotalRows,
+                SUM(DateBroken) AS DateBroken,
+                SUM(EstBroken)  AS EstBroken,
+                SUM(CASE WHEN (DateBroken=1 OR EstBroken=1) AND SmFix=1 THEN 1 ELSE 0 END) AS FixedBroken
+           FROM flagged
+          WHERE DateBroken=1 OR EstBroken=1
+          GROUP BY OrderWeek, ProdName, CounName, FlowerName
+          ORDER BY OrderWeek, ProdName`,
         baseParams
       );
-      const rows = r.recordset || [];
-      const dateBroken = rows.filter(x => Number(x.DateBroken) === 1);
-      const estBroken = rows.filter(x => Number(x.EstBroken) === 1);
+      // 2) 상세 샘플 (깨진 행 TOP 200)
+      const samp = await query(
+        `${flaggedCte}
+         SELECT TOP 200 OrderWeek, CustName, ProdName, CounName, OutUnit, SdetailKey, SmFix,
+                OutQuantity, EstQuantity, ExpEst, DateDtm, PeriodBaseYmd, DateBroken, EstBroken
+           FROM flagged
+          WHERE DateBroken=1 OR EstBroken=1
+          ORDER BY OrderWeek, ProdName, CustName`,
+        baseParams
+      );
+
+      const byProduct = agg.recordset || [];
+      const samples = samp.recordset || [];
+      const dateMismatchCount = byProduct.reduce((a, x) => a + Number(x.DateBroken || 0), 0);
+      const estMismatchCount = byProduct.reduce((a, x) => a + Number(x.EstBroken || 0), 0);
+      const fixedWeekRowCount = byProduct.reduce((a, x) => a + Number(x.FixedBroken || 0), 0);
+      // 차수별 롤업
+      const weekMap = {};
+      for (const x of byProduct) {
+        const w = x.OrderWeek;
+        weekMap[w] = weekMap[w] || { week: w, dateBroken: 0, estBroken: 0, products: 0 };
+        weekMap[w].dateBroken += Number(x.DateBroken || 0);
+        weekMap[w].estBroken += Number(x.EstBroken || 0);
+        weekMap[w].products += 1;
+      }
       return res.status(200).json({
-        success: true, weeks, q: q || null,
-        scanned: rows.length,
-        dateMismatchCount: dateBroken.length,
-        estMismatchCount: estBroken.length,
-        fixedWeekRowCount: rows.filter(x => Number(x.SmFix) === 1 && (Number(x.DateBroken) === 1 || Number(x.EstBroken) === 1)).length,
-        dateSamples: dateBroken.slice(0, 50),
-        estSamples: estBroken.slice(0, 50),
-        hint: 'POST { week|weeks, action:"fix", fixDate:true, fixEst:true } 로 보정. fixEst 는 금액 변경이므로 기본 false.',
+        success: true, scope: scanAll ? 'all' : weeks, q: q || null,
+        dateMismatchCount, estMismatchCount, fixedWeekRowCount,
+        affectedWeeks: Object.values(weekMap),
+        byProduct,
+        dateSamples: samples.filter(x => Number(x.DateBroken) === 1).slice(0, 100),
+        estSamples: samples.filter(x => Number(x.EstBroken) === 1).slice(0, 100),
+        hint: '차수별로 POST { week, action:"fix", fixDate:true, fixEst:true } 보정. 전수 진단은 GET ?all=1.',
       });
     }
 
