@@ -289,12 +289,11 @@ function buildEstimateHtml({
       const vat = Number(g.Vat) || 0;
       // 23-01/23-02 등 차수 합산 후에도 단가×수량=공급가가 맞도록 실효 단가 재계산
       // (Freedom 장미처럼 출고분배는 맞는데 견적 출력 합계만 틀리던 케이스)
-      if (qty > 0) {
-        if (isAlstroRow(g) && (supply + vat) > 0) {
-          g.Cost = Math.round((supply + vat) / qty);
-        } else if (supply > 0) {
-          g.Cost = Math.round(supply / qty);
-        }
+      // 단가 = nenova.exe 견적과 동일: 저장된 Cost(부가세 포함 단가) = (공급가액+부가세)/수량.
+      // (차수 합산 후에도 단가×수량 = 공급가액+부가세 유지. 과거엔 정상출고를 공급가액/수량으로
+      //  계산해 부가세가 빠진 단가가 표시돼 nenova 와 어긋났음.)
+      if (qty > 0 && (supply + vat) > 0) {
+        g.Cost = Math.round((supply + vat) / qty);
       }
       const parts = Object.entries(g._breakdown)
         .filter(([_, v]) => v > 0)

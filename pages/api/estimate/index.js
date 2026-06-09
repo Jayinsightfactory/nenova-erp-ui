@@ -266,12 +266,15 @@ async function loadItems(sk) {
          ISNULL(p.FlowerName, '')                  AS FlowerName,
          ISNULL(p.CounName, '')                    AS CounName,
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
-         -- 표시 단위: BunchQty>0 단, SteamQty>0 송이, 그 외 박스 (옛 양식 우선순위)
-         -- 카네이션처럼 OutUnit='박스' 라도 Bunch 가 채워져 있으면 단 단위로 표시
-         CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
-              WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
-              ELSE N'박스' END                     AS Unit,
-         CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+         -- 표시 단위/수량: nenova.exe 견적(FormEstimateView.GetDetail)과 동일하게
+         --   EstUnit + EstQuantity 를 그대로 사용. (ViewShipment.EstQuantity, Product.EstUnit)
+         --   EstUnit/EstQuantity 가 비어있는 레거시 행만 Bunch/Steam/Box 파생값으로 폴백.
+         ISNULL(NULLIF(p.EstUnit, N''),
+           CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
+                WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
+                ELSE N'박스' END)                   AS Unit,
+         CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
+              WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
               ELSE sd.BoxQuantity END              AS Quantity,
          CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
