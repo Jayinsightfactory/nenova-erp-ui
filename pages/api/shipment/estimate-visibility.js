@@ -47,7 +47,15 @@ async function handler(req, res) {
                  JOIN ViewOrder vo ON vs.OrderYearWeek2 = vo.OrderYearWeek2
                  JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
                  JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
-                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetail
+                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetail,
+              (SELECT COUNT(*)
+                 FROM ViewShipment vs
+                 JOIN ViewOrder vo ON vs.OrderYearWeek2 = vo.OrderYearWeek2
+                  AND vs.CustKey = vo.CustKey
+                  AND vs.ProdKey = vo.ProdKey
+                 JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
+                 JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
+                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetailByCustProd
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
@@ -76,7 +84,9 @@ async function handler(req, res) {
           : `출고일 '${x.ShipDtm}' 이 PeriodDay 에 없음`);
       }
       // 실제 견적 조인 재현 결과가 최종 판정
-      const inGetDetail = Number(x.InGetDetail) > 0;
+      const getDetailRows = Number(x.InGetDetail || 0);
+      const getDetailRowsByCustProd = Number(x.InGetDetailByCustProd || 0);
+      const inGetDetail = getDetailRows > 0;
       if (inGetDetail && reasons.length === 0) {
         // 모든 개별 조건 통과 + 실제 조인도 통과
       } else if (!inGetDetail && reasons.length === 0) {
@@ -89,6 +99,7 @@ async function handler(req, res) {
         outQty: Number(x.OutQuantity || 0), estQty: Number(x.EstQuantity || 0),
         shipDtm: x.ShipDtm, isFix: Number(x.SmFix), sdetailKey: x.SdetailKey,
         inViewShipment: inVS, inViewOrder: inVO, orderDetailRaw: ordRaw, inGetDetail,
+        getDetailRows, getDetailRowsByCustProd,
         webCreated: Number(x.WebCreated), smYW: x.SmYW, vsYW2: x.VS_YW2,
         shipDateCnt: Number(x.ShipDateCnt), periodExactCnt: Number(x.PeriodExactCnt), periodDateCnt: Number(x.PeriodDateCnt),
         visibleInEstimate: visible,
