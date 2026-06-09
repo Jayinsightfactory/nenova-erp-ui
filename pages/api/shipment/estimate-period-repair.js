@@ -41,6 +41,26 @@ async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'GET/POST only' });
   }
 
+  // 0-a) 제품 마스터 조회 — 환산 컬럼(OutUnit/EstUnit/BunchOf1Box/SteamOf1Bunch/SteamOf1Box) 확인용
+  if (req.method === 'GET' && (req.query?.master != null)) {
+    try {
+      const kw = String(req.query.master || '').trim();
+      const rows = await query(
+        `SELECT TOP 200 ProdKey, ProdName, OutUnit, EstUnit,
+                ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch,
+                ISNULL(SteamOf1Box,0) AS SteamOf1Box, ISNULL(CounName,'') AS CounName, ISNULL(FlowerName,'') AS FlowerName
+           FROM Product
+          WHERE ISNULL(isDeleted,0)=0
+            AND (@kw='' OR ProdName LIKE @kw OR ISNULL(FlowerName,'') LIKE @kw)
+          ORDER BY ProdName`,
+        { kw: { type: sql.NVarChar, value: kw ? `%${kw}%` : '' } }
+      );
+      return res.status(200).json({ success: true, count: rows.recordset?.length || 0, products: rows.recordset || [] });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // 0) usp_DistributeOne(정답 산식) 원문 덤프 — nenova 가 실제로 쓰는 EstQuantity 로직 확인용
   if (req.method === 'GET' && String(req.query?.proc || '') === '1') {
     try {
