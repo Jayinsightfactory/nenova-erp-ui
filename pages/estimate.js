@@ -890,6 +890,12 @@ export default function Estimate() {
     showDistribDesc: true,
   });
 
+  // 인쇄 다이얼로그용 — 선택 거래처의 출고일(byDate) 분포.
+  //   그리드는 출고상세 대표일자 1개로 합산돼 보이지만(분할품목 전량이 한 날짜로),
+  //   실제 인쇄는 ShipmentDate 기준 출고일별로 쪼개진다. 다이얼로그에서 이 분포를
+  //   요일별 실제 품목수/수량으로 보여줘, 요일 선택이 인쇄에 정확히 반영됨을 확인시킨다.
+  const [printDayInfo, setPrintDayInfo] = useState({ loading: false, days: [] });
+
   // 불량/검역 폼
   const [defectForm, setDefectForm] = useState({
     estimateType: '',
@@ -1988,6 +1994,44 @@ export default function Estimate() {
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
+  // ── 인쇄 다이얼로그가 열리면, 선택 거래처의 실제 출고일(byDate) 분포를 계산.
+  //   인쇄와 동일한 byDate 데이터를 그대로 집계하므로, 다이얼로그에 보이는 요일별
+  //   품목수/수량 = 그 요일만 골라 인쇄했을 때의 결과와 정확히 일치한다.
+  useEffect(() => {
+    if (!showPrintDialog) return;
+    let cancelled = false;
+    const ships = selectedGroups.size > 0
+      ? Array.from(selectedGroups).map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g)).filter(Boolean)
+      : (selectedShip ? [selectedShip] : []);
+    const keys = ships.flatMap(s => (s.ShipmentKeys || '').split(',').map(Number).filter(Boolean));
+    if (keys.length === 0) { setPrintDayInfo({ loading: false, days: [] }); return; }
+    setPrintDayInfo({ loading: true, days: [] });
+    (async () => {
+      try {
+        const results = await Promise.all(keys.map(k =>
+          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+            .then(r => r.json()).then(d => d.success ? (d.items || []) : [])
+        ));
+        if (cancelled) return;
+        const names = ['일','월','화','수','목','금','토'];
+        const map = new Map();
+        results.flat()
+          .filter(i => i.EstimateType === '정상출고' && i.outDate)
+          .forEach(it => {
+            const wd = names[new Date(it.outDate).getDay()];
+            const cur = map.get(wd) || { wd, count: 0, qty: 0 };
+            cur.count += 1; cur.qty += Number(it.Quantity) || 0;
+            map.set(wd, cur);
+          });
+        const days = WEEKDAYS.filter(w => map.has(w)).map(w => map.get(w));
+        setPrintDayInfo({ loading: false, days });
+      } catch (_) {
+        if (!cancelled) setPrintDayInfo({ loading: false, days: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showPrintDialog, selectedGroups, selectedShip, shipments]);
+
   // 품목 옵션 (검색 가능 드롭다운용)
   const prodOptions = products.map(p => ({
     value: String(p.ProdKey),
@@ -2696,6 +2740,61 @@ export default function Estimate() {
               <button className="btn btn-sm" onClick={() => setShowPrintDialog(false)}>✕</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* 출고요일 선택 — 실제 출고일(byDate) 분포 기준. 인쇄와 동일 데이터라 여기 수치=인쇄 결과 */}
+              <div className="form-group" style={{ background:'#f1f8e9', border:'1px solid #c5e1a5', borderRadius:6, padding:'8px 12px' }}>
+                <label className="form-label" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  출고요일 선택
+                  <span style={{ fontSize:10, fontWeight:'normal', color:'var(--text3)' }}>(이 거래처 실제 출고일 기준 — 선택한 요일만 인쇄)</span>
+                </label>
+                {printDayInfo.loading ? (
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>출고일 분포 불러오는 중…</div>
+                ) : printDayInfo.days.length === 0 ? (
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>출고일 정보가 없습니다.</div>
+                ) : (
+                  <>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}>
+                      {printDayInfo.days.map(d => {
+                        const on = activeWD.size === 7 || activeWD.size === 0 || activeWD.has(d.wd);
+                        return (
+                          <button key={d.wd} type="button"
+                            onClick={() => setActiveWD(new Set([d.wd]))}
+                            title="이 출고요일만 인쇄"
+                            style={{
+                              padding:'4px 10px', fontSize:12, fontWeight:700, cursor:'pointer', borderRadius:14,
+                              border:`1.5px solid ${on ? '#2e7d32' : '#bbb'}`,
+                              background: on ? '#2e7d32' : '#fff', color: on ? '#fff' : '#666',
+                            }}>
+                            {d.wd} · {d.count}품목 · {d.qty.toLocaleString()}
+                          </button>
+                        );
+                      })}
+                      <button type="button" onClick={() => setActiveWD(new Set(WEEKDAYS))}
+                        title="모든 출고요일 인쇄"
+                        style={{
+                          padding:'4px 10px', fontSize:12, fontWeight:700, cursor:'pointer', borderRadius:14,
+                          border:`1.5px solid ${activeWD.size === 7 ? '#1565c0' : '#bbb'}`,
+                          background: activeWD.size === 7 ? '#1565c0' : '#fff', color: activeWD.size === 7 ? '#fff' : '#666',
+                        }}>
+                        전체 출고일
+                      </button>
+                    </div>
+                    {(() => {
+                      const sel = printDayInfo.days.filter(d => activeWD.size === 7 || activeWD.size === 0 || activeWD.has(d.wd));
+                      const cnt = sel.reduce((s, d) => s + d.count, 0);
+                      const qty = sel.reduce((s, d) => s + d.qty, 0);
+                      const isAll = activeWD.size === 7 || activeWD.size === 0;
+                      return (
+                        <div style={{ fontSize:11, marginTop:6, color: isAll ? '#c62828' : '#2e7d32', fontWeight:600 }}>
+                          {isAll
+                            ? `⚠ 전체 출고일 인쇄 (${cnt}품목 · ${qty.toLocaleString()}) — 특정 요일만 인쇄하려면 위 요일을 클릭`
+                            : `✔ 인쇄 대상: ${sel.map(d => d.wd).join('·')}요일 (${cnt}품목 · ${qty.toLocaleString()})`}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
 
               {/* 출력일자 (= 일련번호 기준) */}
               <div className="form-group">
