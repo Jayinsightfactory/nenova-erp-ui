@@ -24,12 +24,15 @@
 //  GET  ?week=23-01[&weeks=23-01,23-02][&ref=22-01,22-02][&q=검색어]   → 진단(읽기 전용)
 //  GET  ?proc=1                                                          → usp_DistributeOne 원문 덤프
 //  GET  ?all=1[&ref=...]                                                 → 전수 진단
-//  POST { week|weeks, ref?, action:'fix', fixDate=true, fixEst=false }   → 보정
+//  POST { week|weeks, action:'syncDateEst' }                             → ShipmentDate Est/금액 distributeUnits 재동기화
+//  POST { week|weeks, cust?, action:'mergeDateDetails' }                 → split 잔재 복원(1 Detail + N Date)
+//  POST { week|weeks, ref?, action:'fix', fixDate=true, fixEst=false }   → 보정(fixEst 시 syncDateEst 포함)
 import { withAuth } from '../../../lib/auth';
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
+import { syncShipmentDateEstBySdetailKey, syncShipmentDateEstForWeeks } from '../../../lib/syncShipmentDateEst.js';
 
 const DEFAULT_REF = ['22-01', '22-02'];
 
@@ -259,185 +262,142 @@ async function handler(req, res) {
         byProduct,
         dateSamples: samples.filter(x => Number(x.DateBroken) === 1).slice(0, 100),
         estSamples: samples.filter(x => Number(x.EstBroken) === 1).slice(0, 100),
-        hint: `기준 차수(${refWeeks.join(',')})의 품목별 비율로 비교. 보정: POST { week, ref, action:"fix", fixDate:true, fixEst:true }. 프로시저 원문: GET ?proc=1`,
+        hint: `보정: POST { week, ref, action:"fix", fixDate:true, fixEst:true }. ShipmentDate만: action:"syncDateEst". split 잔재: action:"mergeDateDetails". proc: GET ?proc=1`,
       });
     }
 
-    // POST — 다중 ShipmentDate 를 날짜별 ShipmentDetail 로 분할.
-    // nenova.exe 견적은 ViewShipment.EstQuantity(=ShipmentDetail.EstQuantity)를 표시하므로,
-    // 한 SdetailKey 에 날짜가 2개 이상이면 날짜 필터 후에도 총량이 반복 표시된다.
-    if (String(req.body?.action) === 'splitDateDetails') {
+    // POST — ShipmentDate.EstQuantity 를 usp_DistributeOne 과 동일(distributeUnits)하게 재동기화
+    if (String(req.body?.action) === 'syncDateEst') {
+      const result = await withTransaction(async (tQ) => syncShipmentDateEstForWeeks(tQ, wkIn, wkParams, sql));
+      agentDebugLog('H6', 'syncDateEst completed', { weeks, ...result });
+      return res.status(200).json({ success: true, action: 'syncDateEst', weeks, ...result });
+    }
+
+    // POST — 웹 splitDateDetails 로 쪼개진 ShipmentDetail 을 전산 구조(1 Detail + N ShipmentDate)로 복원
+    if (String(req.body?.action) === 'mergeDateDetails') {
       const custKw = String(req.body?.cust || req.query?.cust || '').trim();
-      const splitParams = { ...wkParams, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } };
+      const mergeParams = { ...wkParams, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } };
       const result = await withTransaction(async (tQ) => {
-        const candidates = await tQ(
-          `SELECT sd.SdetailKey
+        const groups = await tQ(
+          `SELECT sd.ShipmentKey, sd.CustKey, sd.ProdKey,
+                  MIN(sd.SdetailKey) AS KeepKey,
+                  COUNT(*) AS DetailCnt,
+                  SUM(ISNULL(sd.OutQuantity,0)) AS SumOut,
+                  SUM(ISNULL(sd.EstQuantity,0)) AS SumEst,
+                  SUM(ISNULL(sd.BoxQuantity,0)) AS SumBox,
+                  SUM(ISNULL(sd.BunchQuantity,0)) AS SumBunch,
+                  SUM(ISNULL(sd.SteamQuantity,0)) AS SumSteam,
+                  SUM(ISNULL(sd.Amount,0)) AS SumAmount,
+                  SUM(ISNULL(sd.Vat,0)) AS SumVat,
+                  MAX(ISNULL(sd.Cost,0)) AS Cost
              FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              JOIN Customer c ON c.CustKey = sm.CustKey
-             CROSS APPLY (
-               SELECT COUNT(*) AS DateCount
-                 FROM ShipmentDate sdt
-                WHERE sdt.SdetailKey = sd.SdetailKey
-             ) dc
             WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0
               AND (@cust='' OR c.CustName LIKE @cust)
-              AND dc.DateCount > 1
-            ORDER BY sd.SdetailKey`,
-          splitParams
+            GROUP BY sd.ShipmentKey, sd.CustKey, sd.ProdKey
+           HAVING COUNT(*) > 1`,
+          mergeParams
         );
-
-        let splitDetails = 0;
-        let insertedDetails = 0;
+        let mergedGroups = 0;
+        let removedDetails = 0;
+        let dateRowsSynced = 0;
         const samples = [];
-
-        for (const c of candidates.recordset || []) {
-          const detail = await tQ(
-            `SELECT TOP 1 sd.*
-               FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
-              WHERE sd.SdetailKey=@dk`,
-            { dk: { type: sql.Int, value: c.SdetailKey } }
+        for (const g of groups.recordset || []) {
+          const keepKey = g.KeepKey;
+          const extras = await tQ(
+            `SELECT sd.SdetailKey
+               FROM ShipmentDetail sd
+              WHERE sd.ShipmentKey=@sk AND sd.CustKey=@ck AND sd.ProdKey=@pk AND sd.SdetailKey<>@keep`,
+            {
+              sk: { type: sql.Int, value: g.ShipmentKey },
+              ck: { type: sql.Int, value: g.CustKey },
+              pk: { type: sql.Int, value: g.ProdKey },
+              keep: { type: sql.Int, value: keepKey },
+            }
           );
-          const sd = detail.recordset?.[0];
-          if (!sd) continue;
+          const extraKeys = (extras.recordset || []).map(r => r.SdetailKey);
+          if (!extraKeys.length) continue;
 
           const dates = await tQ(
-            `SELECT SdetailKey, ShipmentDtm, ISNULL(ShipmentQuantity,0) AS ShipmentQuantity,
-                    ISNULL(EstQuantity,0) AS EstQuantity, ISNULL(Cost,0) AS Cost,
-                    ISNULL(Amount,0) AS Amount, ISNULL(Vat,0) AS Vat
-               FROM ShipmentDate WITH (UPDLOCK, HOLDLOCK)
-              WHERE SdetailKey=@dk
-              ORDER BY ShipmentDtm, ShipmentQuantity`,
-            { dk: { type: sql.Int, value: sd.SdetailKey } }
+            `SELECT sdt.SdateKey, sdt.SdetailKey, sdt.ShipmentDtm, sdt.ShipmentQuantity,
+                    sdt.EstQuantity, sdt.Cost, sdt.Amount, sdt.Vat
+               FROM ShipmentDate sdt
+              WHERE sdt.SdetailKey IN (${[keepKey, ...extraKeys].map((_, i) => `@dk${i}`).join(',')})`,
+            Object.fromEntries([keepKey, ...extraKeys].map((k, i) => [`dk${i}`, { type: sql.Int, value: k }]))
           );
-          const rows = dates.recordset || [];
-          if (rows.length <= 1) continue;
+          const minDtm = (dates.recordset || []).reduce((m, r) => {
+            const t = new Date(r.ShipmentDtm).getTime();
+            return m == null || t < m ? t : m;
+          }, null);
 
-          const totalOut = Number(sd.OutQuantity || 0);
-          const scale = (value, outQty) => {
-            if (!totalOut) return 0;
-            return Math.round((Number(value || 0) * Number(outQty || 0) / totalOut) * 10000) / 10000;
-          };
-          const splitRow = (dateRow) => ({
-            outQty: Number(dateRow.ShipmentQuantity || 0),
-            estQty: Number(dateRow.EstQuantity || 0),
-            box: scale(sd.BoxQuantity, dateRow.ShipmentQuantity),
-            bunch: scale(sd.BunchQuantity, dateRow.ShipmentQuantity),
-            steam: scale(sd.SteamQuantity, dateRow.ShipmentQuantity),
-            amount: Number(dateRow.Amount || 0),
-            vat: Number(dateRow.Vat || 0),
-            cost: Number(sd.Cost || dateRow.Cost || 0),
-          });
-
-          const first = rows[0];
-          const firstSplit = splitRow(first);
-          await tQ(
-            `UPDATE ShipmentDetail
-                SET ShipmentDtm=@dt,
-                    OutQuantity=@outQty,
-                    EstQuantity=@estQty,
-                    BoxQuantity=@box,
-                    BunchQuantity=@bunch,
-                    SteamQuantity=@steam,
-                    Cost=@cost,
-                    Amount=@amount,
-                    Vat=@vat
-              WHERE SdetailKey=@dk`,
-            {
-              dk: { type: sql.Int, value: sd.SdetailKey },
-              dt: { type: sql.DateTime, value: first.ShipmentDtm },
-              outQty: { type: sql.Float, value: firstSplit.outQty },
-              estQty: { type: sql.Float, value: firstSplit.estQty },
-              box: { type: sql.Float, value: firstSplit.box },
-              bunch: { type: sql.Float, value: firstSplit.bunch },
-              steam: { type: sql.Float, value: firstSplit.steam },
-              cost: { type: sql.Float, value: firstSplit.cost },
-              amount: { type: sql.Float, value: firstSplit.amount },
-              vat: { type: sql.Float, value: firstSplit.vat },
-            }
-          );
-          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: sd.SdetailKey } });
-          await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-             VALUES (@dk,@dt,@outQty,@estQty,@cost,@amount,@vat)`,
-            {
-              dk: { type: sql.Int, value: sd.SdetailKey },
-              dt: { type: sql.DateTime, value: first.ShipmentDtm },
-              outQty: { type: sql.Float, value: firstSplit.outQty },
-              estQty: { type: sql.Float, value: firstSplit.estQty },
-              cost: { type: sql.Float, value: firstSplit.cost },
-              amount: { type: sql.Float, value: firstSplit.amount },
-              vat: { type: sql.Float, value: firstSplit.vat },
-            }
-          );
-
-          for (const dateRow of rows.slice(1)) {
-            const part = splitRow(dateRow);
-            const newDk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (key) => {
-              await tQ(
-                `INSERT INTO ShipmentDetail
-                   (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
-                    BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-                 VALUES
-                   (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@box,@bunch,@steam,@cost,@amount,@vat,@isFix,@descr)`,
-                {
-                  dk: { type: sql.Int, value: key },
-                  sk: { type: sql.Int, value: sd.ShipmentKey },
-                  ck: { type: sql.Int, value: sd.CustKey },
-                  pk: { type: sql.Int, value: sd.ProdKey },
-                  dt: { type: sql.DateTime, value: dateRow.ShipmentDtm },
-                  outQty: { type: sql.Float, value: part.outQty },
-                  estQty: { type: sql.Float, value: part.estQty },
-                  box: { type: sql.Float, value: part.box },
-                  bunch: { type: sql.Float, value: part.bunch },
-                  steam: { type: sql.Float, value: part.steam },
-                  cost: { type: sql.Float, value: part.cost },
-                  amount: { type: sql.Float, value: part.amount },
-                  vat: { type: sql.Float, value: part.vat },
-                  isFix: { type: sql.Bit, value: !!sd.isFix },
-                  descr: { type: sql.NVarChar, value: sd.Descr || '' },
-                }
-              );
-            });
+          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey IN (${extraKeys.map((_, i) => `@x${i}`).join(',')})`,
+            Object.fromEntries(extraKeys.map((k, i) => [`x${i}`, { type: sql.Int, value: k }])));
+          for (const d of dates.recordset || []) {
+            if (Number(d.SdetailKey) === Number(keepKey)) continue;
             await tQ(
               `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-               VALUES (@dk,@dt,@outQty,@estQty,@cost,@amount,@vat)`,
+               VALUES (@dk,@dt,@sq,@eq,@cost,@amount,@vat)`,
               {
-                dk: { type: sql.Int, value: newDk },
-                dt: { type: sql.DateTime, value: dateRow.ShipmentDtm },
-                outQty: { type: sql.Float, value: part.outQty },
-                estQty: { type: sql.Float, value: part.estQty },
-                cost: { type: sql.Float, value: part.cost },
-                amount: { type: sql.Float, value: part.amount },
-                vat: { type: sql.Float, value: part.vat },
+                dk: { type: sql.Int, value: keepKey },
+                dt: { type: sql.DateTime, value: d.ShipmentDtm },
+                sq: { type: sql.Float, value: d.ShipmentQuantity },
+                eq: { type: sql.Float, value: d.EstQuantity },
+                cost: { type: sql.Float, value: d.Cost },
+                amount: { type: sql.Float, value: d.Amount },
+                vat: { type: sql.Float, value: d.Vat },
               }
             );
-            insertedDetails += 1;
           }
+          await tQ(
+            `UPDATE ShipmentDetail
+                SET ShipmentDtm=@dt, OutQuantity=@outQ, EstQuantity=@estQ,
+                    BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
+                    Amount=@amount, Vat=@vat, Cost=@cost
+              WHERE SdetailKey=@keep`,
+            {
+              keep: { type: sql.Int, value: keepKey },
+              dt: { type: sql.DateTime, value: minDtm != null ? new Date(minDtm) : new Date() },
+              outQ: { type: sql.Float, value: g.SumOut },
+              estQ: { type: sql.Float, value: g.SumEst },
+              box: { type: sql.Float, value: g.SumBox },
+              bunch: { type: sql.Float, value: g.SumBunch },
+              steam: { type: sql.Float, value: g.SumSteam },
+              amount: { type: sql.Float, value: g.SumAmount },
+              vat: { type: sql.Float, value: g.SumVat },
+              cost: { type: sql.Float, value: g.Cost },
+            }
+          );
+          await tQ(`DELETE FROM ShipmentDetail WHERE SdetailKey IN (${extraKeys.map((_, i) => `@r${i}`).join(',')})`,
+            Object.fromEntries(extraKeys.map((k, i) => [`r${i}`, { type: sql.Int, value: k }])));
 
-          splitDetails += 1;
+          const sync = await syncShipmentDateEstBySdetailKey(tQ, keepKey, sql);
+          dateRowsSynced += sync.updated;
+          removedDetails += extraKeys.length;
+          mergedGroups += 1;
           if (samples.length < 10) {
             samples.push({
-              originalSdetailKey: sd.SdetailKey,
-              prodKey: sd.ProdKey,
-              originalOut: Number(sd.OutQuantity || 0),
-              parts: rows.map(r => ({ date: r.ShipmentDtm, outQty: r.ShipmentQuantity, estQty: r.EstQuantity })),
+              keepKey, removedKeys: extraKeys, prodKey: g.ProdKey,
+              sumOut: g.SumOut, sumEst: g.SumEst, dateSync: sync.rows,
             });
           }
         }
-
-        if (insertedDetails > 0) {
+        if (removedDetails > 0) {
           await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
         }
-        return { splitDetails, insertedDetails, samples };
+        return { mergedGroups, removedDetails, dateRowsSynced, samples };
       });
+      agentDebugLog('H6', 'mergeDateDetails completed', { weeks, cust: custKw || null, ...result });
+      return res.status(200).json({ success: true, action: 'mergeDateDetails', weeks, cust: custKw || null, ...result });
+    }
 
-      return res.status(200).json({
-        success: true,
-        action: 'splitDateDetails',
-        weeks,
-        cust: custKw || null,
-        ...result,
+    // splitDateDetails 는 전산(usp_DistributeOne) 구조와 불일치 — 사용 금지
+    if (String(req.body?.action) === 'splitDateDetails') {
+      return res.status(400).json({
+        success: false,
+        error: 'splitDateDetails 는 전산 구조(1 ShipmentDetail + N ShipmentDate)와 달라 사용할 수 없습니다. '
+          + 'mergeDateDetails 로 복원한 뒤 syncDateEst 를 실행하세요.',
+        useInstead: { action: 'mergeDateDetails', then: 'syncDateEst' },
       });
     }
 
@@ -497,30 +457,8 @@ async function handler(req, res) {
           wkParams
         );
         estDetailUpdated = e1.rowsAffected?.[0] || 0;
-        // ShipmentDate 는 전산 견적(nenova.exe)이 출고일별로 직접 읽는 테이블이다.
-        // Detail 전체 Est/Amount/Vat 를 각 날짜에 복제하면 목요일 10박스 행도 전체 5700송이로 보인다.
-        const e2 = await tQ(
-          `UPDATE sdt
-              SET sdt.EstQuantity = x.DateEst,
-                  sdt.Amount = ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0),
-                  sdt.Vat = (ISNULL(sd.Cost,0) * x.DateEst) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0)
-             FROM ShipmentDate sdt WITH (UPDLOCK, ROWLOCK)
-             JOIN ShipmentDetail sd ON sd.SdetailKey = sdt.SdetailKey
-             JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
-             CROSS APPLY (
-               SELECT CASE
-                 WHEN ISNULL(sd.OutQuantity,0) <> 0
-                   THEN ROUND(ISNULL(sd.EstQuantity,0) * ISNULL(sdt.ShipmentQuantity,0) / sd.OutQuantity, 0)
-                 ELSE ISNULL(sd.EstQuantity,0)
-               END AS DateEst
-             ) x
-            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
-              AND ( ABS(ISNULL(sdt.EstQuantity,0) - x.DateEst) > 0.001
-                 OR ABS(ISNULL(sdt.Amount,0) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0)) > 0.001
-                 OR ABS(ISNULL(sdt.Vat,0) - ((ISNULL(sd.Cost,0) * x.DateEst) - ROUND(ISNULL(sd.Cost,0) * x.DateEst / 1.1, 0))) > 0.001 )`,
-          wkParams
-        );
-        estDateSynced = e2.rowsAffected?.[0] || 0;
+        const sync = await syncShipmentDateEstForWeeks(tQ, wkIn, wkParams, sql);
+        estDateSynced = sync.dateRowsUpdated;
       }
 
       return { dateDetailUpdated, dateDateUpdated, estDetailUpdated, estDateSynced };

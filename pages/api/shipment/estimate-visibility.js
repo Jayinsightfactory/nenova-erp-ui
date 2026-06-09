@@ -55,7 +55,13 @@ async function handler(req, res) {
                   AND vs.ProdKey = vo.ProdKey
                  JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
                  JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
-                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetailByCustProd
+                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetailByCustProd,
+              -- 전산 구조 위반: 같은 출고+거래처+품목에 ShipmentDetail 이 2건 이상(웹 splitDateDetails 잔재)
+              (SELECT COUNT(*)
+                 FROM ShipmentDetail z
+                WHERE z.ShipmentKey = sm.ShipmentKey
+                  AND z.CustKey = sm.CustKey
+                  AND z.ProdKey = sd.ProdKey) AS DetailSplitCnt
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
@@ -86,6 +92,7 @@ async function handler(req, res) {
       // 실제 견적 조인 재현 결과가 최종 판정
       const getDetailRows = Number(x.InGetDetail || 0);
       const getDetailRowsByCustProd = Number(x.InGetDetailByCustProd || 0);
+      const detailSplitCnt = Number(x.DetailSplitCnt || 0);
       const inGetDetail = getDetailRows > 0;
       if (inGetDetail && reasons.length === 0) {
         // 모든 개별 조건 통과 + 실제 조인도 통과
@@ -100,6 +107,8 @@ async function handler(req, res) {
         shipDtm: x.ShipDtm, isFix: Number(x.SmFix), sdetailKey: x.SdetailKey,
         inViewShipment: inVS, inViewOrder: inVO, orderDetailRaw: ordRaw, inGetDetail,
         getDetailRows, getDetailRowsByCustProd,
+        detailSplitCnt,
+        exeStructureBroken: detailSplitCnt > 1,
         webCreated: Number(x.WebCreated), smYW: x.SmYW, vsYW2: x.VS_YW2,
         shipDateCnt: Number(x.ShipDateCnt), periodExactCnt: Number(x.PeriodExactCnt), periodDateCnt: Number(x.PeriodDateCnt),
         visibleInEstimate: visible,

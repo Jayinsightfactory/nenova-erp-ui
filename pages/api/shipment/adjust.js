@@ -13,6 +13,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
+import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -732,17 +733,21 @@ async function postAdjust(req, res) {
         );
       }
 
-      // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
-      // 정책: 기존 ShipmentDate 행 모두 삭제 후 ShipmentDtm 기준 단일 행 INSERT
-      //       (출고일별 분배는 견적서/분배 화면에서 별도 입력하지 않으므로 단일화)
-      // OutQuantity 가 0 으로 떨어지면 ShipmentDate 도 비우기
+      // ShipmentDate 동기화 — 전산(usp_DistributeOne) 구조: 1 Detail + N ShipmentDate 유지
       if (targetSdk) {
-        await tQ(
-          `DELETE FROM ShipmentDate WHERE SdetailKey=@dk`,
+        const dateCnt = await tQ(
+          `SELECT COUNT(*) AS c FROM ShipmentDate WHERE SdetailKey=@dk`,
           { dk: { type: sql.Int, value: targetSdk } }
         );
+        const multiDate = Number(dateCnt.recordset?.[0]?.c || 0) > 1;
+        if (multiDate) {
+          throw new Error(
+            '출고일별 분배가 여러 건인 출고입니다. ADD/CANCEL 로 ShipmentDate 를 단일화하지 않습니다. '
+            + '전산 출고분배(usp_DistributeOne) 화면에서 수정하세요.'
+          );
+        }
+        await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: targetSdk } });
         if (u.outQ > 0) {
-          // ShipmentDtm 은 ShipmentDetail 에서 가져옴 (방금 UPDATE/INSERT 한 값)
           await tQ(
             `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
              SELECT @dk, ShipmentDtm, @oq, @estQty, @cost, @amount, @vat FROM ShipmentDetail WHERE SdetailKey=@dk`,
@@ -755,6 +760,7 @@ async function postAdjust(req, res) {
               vat: { type: sql.Float, value: vat },
             }
           );
+          await syncShipmentDateEstBySdetailKey(tQ, targetSdk, sql);
         }
       }
 
