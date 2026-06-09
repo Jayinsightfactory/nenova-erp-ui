@@ -76,10 +76,22 @@ function getRecentFixStatusRange(parentWeek, count = FIX_STATUS_COUNT) {
 }
 
 const DAY_KR = ['일','월','화','수','목','금','토'];
+// YYYY-MM-DD → 로컬 요일(0=일). new Date('YYYY-MM-DD') 는 UTC 자정이라 KST 에서 요일이 틀어질 수 있음.
+function weekdayFromYmd(ymd) {
+  const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return -1;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay();
+}
+function weekdayKrFromYmd(ymd) {
+  const d = weekdayFromYmd(ymd);
+  return d >= 0 ? DAY_KR[d] : '';
+}
 function fmtDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${String(d.getDate()).padStart(2,'0')}(${DAY_KR[d.getDay()]})`;
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  const day = weekdayKrFromYmd(dateStr);
+  return `${m[3]}(${day})`;
 }
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -267,7 +279,8 @@ function buildEstimateHtml({
     const groups = {};   // key = `${EstimateType}|${ProdKey}|${Unit}|${Cost}`
     rows.forEach(r => {
       const costKey = Number(r.Cost || 0).toFixed(4);
-      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}|${r.Unit || ''}|${costKey}`;
+      // 출고일이 다른 행은 합산하지 않음(주광 등 요일별 분배 품목 — 요일 필터 후에도 날짜별 유지)
+      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}|${r.Unit || ''}|${costKey}|${r.outDate || ''}`;
       if (!groups[key]) groups[key] = { ...r, Quantity: 0, BoxQty: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
       const g = groups[key];
       g.Quantity += (Number(r.Quantity) || 0);
@@ -989,7 +1002,7 @@ export default function Estimate() {
     setItemLoading(true);
     // ShipmentKeys가 여러 개인 경우 모두 로드 후 합산
     const keys = (shipmentKeys || '').split(',').map(Number).filter(Boolean);
-    Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk }).then(d => d.items || [])))
+    Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then(d => d.items || [])))
       .then(results => setItems(results.flat()))
       .catch(() => setItems([]))
       .finally(() => setItemLoading(false));
@@ -1005,7 +1018,7 @@ export default function Estimate() {
     const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
     if (!ship) return [];
     const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-    const results = await Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk }).then(d => d.items || [])));
+    const results = await Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then(d => d.items || [])));
     const nextItems = results.flat();
     setItems(nextItems);
     return nextItems;
@@ -1056,13 +1069,14 @@ export default function Estimate() {
     .filter(Boolean))];
 
   const getItemEditKey = (item) => {
-    if (item?.SdetailKey != null) return `sd:${item.SdetailKey}`;
+    if (item?.SdetailKey != null) {
+      return item.outDate ? `sd:${item.SdetailKey}@${item.outDate}` : `sd:${item.SdetailKey}`;
+    }
     if (item?.EstimateKey != null) return `est:${item.EstimateKey}`;
     return '';
   };
-
   const isEstimateEditKey = (key) => String(key || '').startsWith('est:');
-  const parseEditKeyNumber = (key) => parseInt(String(key || '').split(':')[1] || key, 10);
+  const parseEditKeyNumber = (key) => parseInt(String(key || '').split('@')[0].split(':')[1] || key, 10);
 
   const runLimited = async (items, limit, worker) => {
     const results = new Array(items.length);
@@ -1765,10 +1779,12 @@ export default function Estimate() {
   // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
   const ALL_WD = ['월','화','수','목','금','토','일'];
   const filterItemsByWeekday = useCallback((sourceItems) => sourceItems.filter(item => {
-    if (activeWD.size === 0 || activeWD.size === 7) return true;  // 전체 or 0개 → 모두 표시
+    if (activeWD.size === 7) return true;  // 전체 요일만 모두 표시
+    if (activeWD.size === 0) return false; // 미선택 시 없음(인쇄 실수 방지)
     const dayMap = {'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0};
     if (!item.outDate) return false;
-    return [...activeWD].some(wd => dayMap[wd] === new Date(item.outDate).getDay());
+    const dow = weekdayFromYmd(item.outDate);
+    return dow >= 0 && [...activeWD].some(wd => dayMap[wd] === dow);
   }), [activeWD]);
   const filteredItems = filterItemsByWeekday(items);
 
@@ -1848,6 +1864,10 @@ export default function Estimate() {
   //       부모 페이지는 절대 영향 받지 않음.
   const doActualPrint = useCallback(async (opts) => {
     const week = weekNum || '';
+    if (activeWD.size === 0) {
+      alert('출고요일을 선택하세요. (상단 출고요일 필터 또는 인쇄 옵션에서 요일을 클릭)');
+      return;
+    }
 
     // ── 숨김 iframe 에 HTML 주입 후 인쇄 (부모 창 영향 없음)
     const printInIframe = (html) => new Promise((resolve) => {
@@ -1990,7 +2010,7 @@ export default function Estimate() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday]);
+  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
@@ -2013,18 +2033,22 @@ export default function Estimate() {
             .then(r => r.json()).then(d => d.success ? (d.items || []) : [])
         ));
         if (cancelled) return;
-        const names = ['일','월','화','수','목','금','토'];
         const map = new Map();
         results.flat()
           .filter(i => i.EstimateType === '정상출고' && i.outDate)
           .forEach(it => {
-            const wd = names[new Date(it.outDate).getDay()];
+            const wd = weekdayKrFromYmd(it.outDate);
+            if (!wd) return;
             const cur = map.get(wd) || { wd, count: 0, qty: 0 };
             cur.count += 1; cur.qty += Number(it.Quantity) || 0;
             map.set(wd, cur);
           });
         const days = WEEKDAYS.filter(w => map.has(w)).map(w => map.get(w));
         setPrintDayInfo({ loading: false, days });
+        // 출고일이 2개 이상(주광 등)이면 기본 '전체 요일' 대신 첫 출고요일만 선택 — 합산 인쇄 방지
+        if (ships.length === 1 && days.length >= 1) {
+          setActiveWD(prev => (prev.size === 7 ? new Set([days[0].wd]) : prev));
+        }
       } catch (_) {
         if (!cancelled) setPrintDayInfo({ loading: false, days: [] });
       }
@@ -2755,7 +2779,7 @@ export default function Estimate() {
                   <>
                     <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}>
                       {printDayInfo.days.map(d => {
-                        const on = activeWD.size === 7 || activeWD.size === 0 || activeWD.has(d.wd);
+                        const on = activeWD.has(d.wd);
                         return (
                           <button key={d.wd} type="button"
                             onClick={() => setActiveWD(new Set([d.wd]))}
@@ -2780,10 +2804,10 @@ export default function Estimate() {
                       </button>
                     </div>
                     {(() => {
-                      const sel = printDayInfo.days.filter(d => activeWD.size === 7 || activeWD.size === 0 || activeWD.has(d.wd));
+                      const sel = printDayInfo.days.filter(d => activeWD.size === 7 || activeWD.has(d.wd));
                       const cnt = sel.reduce((s, d) => s + d.count, 0);
                       const qty = sel.reduce((s, d) => s + d.qty, 0);
-                      const isAll = activeWD.size === 7 || activeWD.size === 0;
+                      const isAll = activeWD.size === 7;
                       return (
                         <div style={{ fontSize:11, marginTop:6, color: isAll ? '#c62828' : '#2e7d32', fontWeight:600 }}>
                           {isAll
