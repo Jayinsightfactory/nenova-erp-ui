@@ -10,9 +10,18 @@ async function handler(req, res) {
       rawYear: req.body?.year,
       rows: req.body?.rows,
       user: req.user,
+      ackQtyWarnings: !!req.body?.ackQtyWarnings,
     });
     return res.status(200).json(result);
   } catch (e) {
+    if (e.code === 'QTY_WARNING') {
+      return res.status(409).json({
+        success: false,
+        error: e.message,
+        code: e.code,
+        qtyWarnings: e.qtyWarnings,
+      });
+    }
     return res.status(500).json({ success: false, error: e.message });
   }
 }

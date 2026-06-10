@@ -4,9 +4,16 @@ import Layout from '../../components/Layout';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
-const fmtUpload = r => Number(r.quantityMultiplier || 1) > 1
-  ? `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(r.quantityMultiplier)})`
-  : fmt(r.uploadQty);
+const fmtUpload = r => {
+  const mult = Number(r.quantityMultiplier || 1);
+  if (mult > 1) return `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(mult)})`;
+  if (r.excelQty != null && !Number.isNaN(Number(r.excelQty)) && Number(r.excelQty) !== Number(r.uploadQty)) {
+    const unit = r.excelUnit ? ` ${r.excelUnit}` : '';
+    return `${fmt(r.uploadQty)} (←${fmt(r.excelQty)}${unit})`;
+  }
+  return fmt(r.uploadQty);
+};
+const qtyWarningText = r => (r.qtyWarnings || []).filter(w => w.severity === 'critical').map(w => w.message).join(' / ');
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
 const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '삭제대상' : status;
 const rowChanged = r => r?.status !== '동일';
@@ -123,6 +130,7 @@ export default function DistributeImport() {
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
   const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
   const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
+  const qtyWarningRows = useMemo(() => rows.filter(r => r.hasQtyWarning), [rows]);
   const shipmentRows = useMemo(() => rows.filter(shipmentNeedsApply), [rows]);
   const visibleRows = useMemo(() => {
     const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : filter === 'unmatched' ? [] : rows;
@@ -267,7 +275,20 @@ export default function DistributeImport() {
     }
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
-    if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}`)) return;
+    let ackQtyWarnings = false;
+    if (qtyWarningRows.length) {
+      const sample = qtyWarningRows.slice(0, 3).map(r => `· ${r.custName} / ${r.prodName}: ${qtyWarningText(r)}`).join('\n');
+      const ok = confirm(
+        `⚠ 수량 단위 이상 징후 ${qtyWarningRows.length}건이 있습니다.\n` +
+        `${sample}${qtyWarningRows.length > 3 ? `\n... 외 ${qtyWarningRows.length - 3}건` : ''}\n\n` +
+        '박스/단/송이 혼동(예: 10배) 가능성이 있습니다.\n' +
+        '그래도 적용하시겠습니까? (취소 권장)'
+      );
+      if (!ok) return;
+      ackQtyWarnings = true;
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}`)) {
+      return;
+    }
     setApplying(true); setError(''); setMessage('');
     const initialApplyResult = {
       running: true,
@@ -283,10 +304,15 @@ export default function DistributeImport() {
       const res = await fetch('/api/shipment/distribute-import-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week: preview.week, rows: applyRows }),
+        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || '적용 실패');
+      if (!data.success) {
+        if (res.status === 409 && data.code === 'QTY_WARNING') {
+          throw new Error(data.error || '수량 단위 이상 징후로 적용이 차단되었습니다. 검증 화면을 다시 확인하세요.');
+        }
+        throw new Error(data.error || '적용 실패');
+      }
       setApplyResult(data);
       setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문삭제 ${data.orderDeletedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건`);
       await handlePreview({ preserveMessage: true, preserveApplyResult: true });
@@ -387,6 +413,12 @@ export default function DistributeImport() {
             <button style={st.unmatchedBannerBtn} onClick={() => setUnmatchedModalOpen(true)}>업체 매칭하기</button>
           </div>
         )}
+        {preview && qtyWarningRows.length > 0 && (
+          <div style={st.qtyWarnBanner}>
+            ⚠️ 수량 단위 이상 징후 {qtyWarningRows.length}건 — 박스/단/송이 혼동(10배 등) 가능성. 적용 전 반드시 확인하세요.
+            <button style={st.unmatchedBannerBtn} onClick={() => { setFilter('all'); setViewMode('list'); }}>경고 행 보기</button>
+          </div>
+        )}
 
         {preview && (
           <>
@@ -396,6 +428,7 @@ export default function DistributeImport() {
               <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
               <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
+              <Kpi label="수량경고" value={qtyWarningRows.length} danger={qtyWarningRows.length > 0} />
             </div>
 
             <div style={st.grid}>
@@ -455,14 +488,16 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>수량경고</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
-                        <tr key={r.key} style={{ background: rowBg(r) }}>
+                        <tr key={r.key} style={{ background: r.hasQtyWarning ? '#fef2f2' : rowBg(r) }}>
                           <td>{rowStatusText(r)}</td><td>{r.custName}</td><td>{r.displayName || r.prodName}</td><td>{r.outUnit}</td>
                           <td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td><td>{fmtUpload(r)}</td>
-                          <td>{fmt(r.changeQty)}</td><td>{fmt(shipmentDiffQty(r))}</td><td>{(r.cells || []).slice(0, 2).join(', ')}</td>
+                          <td>{fmt(r.changeQty)}</td><td>{fmt(shipmentDiffQty(r))}</td>
+                          <td style={{ color: r.hasQtyWarning ? '#b91c1c', fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{qtyWarningText(r)}</td>
+                          <td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -902,6 +937,7 @@ const st = {
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },
   unmatchedBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
+  qtyWarnBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   custSelect: { minWidth: 280, height: 30, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', background: '#fff' },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 },
