@@ -13,7 +13,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
-import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
+import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -734,34 +734,10 @@ async function postAdjust(req, res) {
       }
 
       // ShipmentDate 동기화 — 전산(usp_DistributeOne) 구조: 1 Detail + N ShipmentDate 유지
-      if (targetSdk) {
-        const dateCnt = await tQ(
-          `SELECT COUNT(*) AS c FROM ShipmentDate WHERE SdetailKey=@dk`,
-          { dk: { type: sql.Int, value: targetSdk } }
-        );
-        const multiDate = Number(dateCnt.recordset?.[0]?.c || 0) > 1;
-        if (multiDate) {
-          throw new Error(
-            '출고일별 분배가 여러 건인 출고입니다. ADD/CANCEL 로 ShipmentDate 를 단일화하지 않습니다. '
-            + '전산 출고분배(usp_DistributeOne) 화면에서 수정하세요.'
-          );
-        }
-        await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: targetSdk } });
-        if (u.outQ > 0) {
-          await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-             SELECT @dk, ShipmentDtm, @oq, @estQty, @cost, @amount, @vat FROM ShipmentDetail WHERE SdetailKey=@dk`,
-            {
-              dk: { type: sql.Int, value: targetSdk },
-              oq: { type: sql.Float, value: u.outQ },
-              estQty: { type: sql.Float, value: amountBase },
-              cost: { type: sql.Float, value: unitCost },
-              amount: { type: sql.Float, value: amount },
-              vat: { type: sql.Float, value: vat },
-            }
-          );
-          await syncShipmentDateEstBySdetailKey(tQ, targetSdk, sql);
-        }
+      if (targetSdk && u.outQ > 0) {
+        await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, { shipDtm: defaultShipDate });
+      } else if (targetSdk) {
+        await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql);
       }
 
       // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고

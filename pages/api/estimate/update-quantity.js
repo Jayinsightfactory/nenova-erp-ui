@@ -1,5 +1,6 @@
 import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -191,9 +192,6 @@ export default withAuth(async function handler(req, res) {
       if (next.outQuantity > 0 && dateCount === 0) {
         throw new Error('ShipmentDate가 없는 출고입니다. 출고분배 화면에서 출고일을 먼저 동기화한 뒤 수량을 수정하세요.');
       }
-      if (next.outQuantity > 0 && dateCount > 1) {
-        throw new Error('출고일별 분배가 여러 건인 출고입니다. 견적서관리에서 수량을 단일 출고일로 덮어쓰지 않도록 출고분배 화면에서 수정하세요.');
-      }
       const amountBase = next.bunch > 0 ? next.bunch : next.steam > 0 ? next.steam : next.box;
       const amount = Math.round(amountBase * Number(row.Cost || 0) / 1.1);
       const vat = Math.round(amountBase * Number(row.Cost || 0) / 11);
@@ -220,24 +218,9 @@ export default withAuth(async function handler(req, res) {
         }
       );
 
-      await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@sdk`, {
-        sdk: { type: sql.Int, value: sdetailKey },
+      await refreshShipmentDatesAfterDetailChange(tQ, sdetailKey, sql, {
+        shipDtm: next.outQuantity > 0 ? row.ShipmentDtm : undefined,
       });
-      if (next.outQuantity > 0) {
-        await tQ(
-          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-           VALUES (@sdk, @dt, @qty, @estQuantity, @cost, @amount, @vat)`,
-          {
-            sdk: { type: sql.Int, value: sdetailKey },
-            dt: { type: sql.DateTime, value: row.ShipmentDtm },
-            qty: { type: sql.Float, value: next.outQuantity },
-            estQuantity: { type: sql.Float, value: amountBase },
-            cost: { type: sql.Float, value: Number(row.Cost || 0) },
-            amount: { type: sql.Float, value: amount },
-            vat: { type: sql.Float, value: vat },
-          }
-        );
-      }
 
       await tQ(
         `INSERT INTO ShipmentHistory

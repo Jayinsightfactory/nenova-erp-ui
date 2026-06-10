@@ -7,6 +7,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
 async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
@@ -1230,20 +1231,9 @@ async function updateOutQty(req, res) {
               cost: { type: sql.Float, value: unitCost },
               sdk: { type: sql.Int, value: targetSdk }, ...shipDtmParam }
           );
-          // ShipmentDate 동기화 — 전산 SP usp_ShipmentFix 의 출고일 합 검증 통과용
-          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@sdk`,
-            { sdk: { type: sql.Int, value: targetSdk } });
-          await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-             SELECT @sdk, ShipmentDtm, @qty, @estQty, ISNULL(Cost,0), ISNULL(Amount,0), ISNULL(Vat,0)
-               FROM ShipmentDetail
-              WHERE SdetailKey=@sdk`,
-            {
-              sdk: { type: sql.Int, value: targetSdk },
-              qty: { type: sql.Float, value: units.outQty },
-              estQty: { type: sql.Float, value: estQty },
-            }
-          );
+          await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, {
+            shipDtm: finalDate ? new Date(finalDate) : foundSD.ShipmentDtm,
+          });
         }
       } else if ((mode === 'delta' ? qty : qty) > 0) {
         // SdetailKey는 IDENTITY 아님 → 안전한 MAX+1
@@ -1274,18 +1264,9 @@ async function updateOutQty(req, res) {
             );
           });
           await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
-          // ShipmentDate 동기화 (신규 INSERT)
-          await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-             SELECT @nk, ShipmentDtm, @qty, @estQty, ISNULL(Cost,0), ISNULL(Amount,0), ISNULL(Vat,0)
-               FROM ShipmentDetail
-              WHERE SdetailKey=@nk`,
-            {
-              nk: { type: sql.Int, value: nk },
-              qty: { type: sql.Float, value: units.outQty },
-              estQty: { type: sql.Float, value: estQty },
-            }
-          );
+          await refreshShipmentDatesAfterDetailChange(tQ, nk, sql, {
+            shipDtm: finalDate ? new Date(finalDate) : undefined,
+          });
         }
       }
     });

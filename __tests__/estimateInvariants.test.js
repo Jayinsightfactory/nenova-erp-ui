@@ -12,6 +12,7 @@ async function main() {
     splitEstByDistributeUnits,
   } = await import('../lib/estimateInvariants.js');
   const { distributeUnits } = await import('../lib/distributeUnits.js');
+  const { scaleShipmentDateQtys } = await import('../lib/syncShipmentDateEst.js');
 
   let pass = 0;
   let fail = 0;
@@ -77,6 +78,17 @@ async function main() {
   assert('목 10박스=300송이', thu.box === 10 && thu.estQty === 300);
   assert('일 180박스=5400송이', sun.box === 180 && sun.estQty === 5400);
   assert('목≠전량190', thu.estQty !== 5700);
+
+  console.log('\n=== scaleShipmentDateQtys (다중 출고일 비율 스케일) ===');
+  const dateRows = [
+    { SdateKey: 1, ShipmentQuantity: 10 },
+    { SdateKey: 2, ShipmentQuantity: 180 },
+  ];
+  const scaled = scaleShipmentDateQtys(dateRows, 190, 200);
+  const scaledSum = scaled.reduce((s, r) => s + r.newShipQty, 0);
+  assert('합=200', scaledSum === 200);
+  assert('목 비율 유지(≈11)', scaled[0].newShipQty === 11);
+  assert('일 나머지(189)', scaled[1].newShipQty === 189);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   process.exit(fail > 0 ? 1 : 0);

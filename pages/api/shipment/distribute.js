@@ -8,6 +8,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
 import { changeEntry } from '../../../lib/shipmentDescr';
+import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -539,24 +540,16 @@ async function saveDistribute(req, res) {
         `SELECT SdetailKey, OutQuantity FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
-      const oldQty = oldSd.recordset[0]?.OutQuantity || 0;
+      const oldRow = oldSd.recordset[0];
+      const oldQty = oldRow?.OutQuantity || 0;
+      const qty = parseFloat(outQty) || 0;
 
-      await tQuery(
-        `DELETE sdt
-           FROM ShipmentDate sdt
-           JOIN ShipmentDetail sd ON sdt.SdetailKey=sd.SdetailKey
-          WHERE sd.ShipmentKey=@sk AND sd.ProdKey=@pk`,
-        { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
-      );
-
-      // 기존 삭제
-      await tQuery(
-        `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-        { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
-      );
-
-      if (parseFloat(outQty) > 0) {
-        const qty = parseFloat(outQty);
+      if (qty <= 0) {
+        if (oldRow?.SdetailKey) {
+          await tQuery(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
+          await tQuery(`DELETE FROM ShipmentDetail WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
+        }
+      } else {
         const unitCost = resolvedCost;
         let boxQty = 0;
         let bunchQty = 0;
@@ -581,49 +574,61 @@ async function saveDistribute(req, res) {
             ? (bunchQty > 0 ? bunchQty : canonicalOutQty)
             : (bunchQty > 0 ? bunchQty : steamQty > 0 ? steamQty : boxQty);
         const amount = Math.round(amtBase * unitCost / 1.1);
-        const vat    = Math.round(amtBase * unitCost / 11);
-        // 전산 비고: "담당자+이전>이후" (신규 분배 단건). 예) "임0>12"
+        const vat = Math.round(amtBase * unitCost / 11);
         const logEntry = changeEntry(userName, oldQty, qty);
 
-        const newSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
+        let targetSdk = oldRow?.SdetailKey;
+        if (targetSdk) {
           await tQuery(
-            `INSERT INTO ShipmentDetail
-               (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
-                BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
-             VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+            `UPDATE ShipmentDetail
+                SET CustKey=@ck, ShipmentDtm=@dt, OutQuantity=@outQty, EstQuantity=@estQty,
+                    BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+                    Cost=@cost, Amount=@amount, Vat=@vat, Descr=@log
+              WHERE SdetailKey=@dk`,
             {
-              dk:     { type: sql.Int,      value: newKey },
-              sk:     { type: sql.Int,      value: sk },
-              ck:     { type: sql.Int,      value: parseInt(custKey) },
-              pk:     { type: sql.Int,      value: parseInt(prodKey) },
-              dt:     { type: sql.DateTime, value: resolvedShipDate },
-              outQty: { type: sql.Float,    value: canonicalOutQty },
-              estQty: { type: sql.Float,    value: amtBase },
-              bq:     { type: sql.Float,    value: boxQty },
-              bnq:    { type: sql.Float,    value: bunchQty },
-              sq:     { type: sql.Float,    value: steamQty },
-              cost:   { type: sql.Float,    value: unitCost },
-              amount: { type: sql.Float,    value: amount },
-              vat:    { type: sql.Float,    value: vat },
-              log:    { type: sql.NVarChar, value: logEntry },
+              dk: { type: sql.Int, value: targetSdk },
+              ck: { type: sql.Int, value: parseInt(custKey) },
+              dt: { type: sql.DateTime, value: resolvedShipDate },
+              outQty: { type: sql.Float, value: canonicalOutQty },
+              estQty: { type: sql.Float, value: amtBase },
+              bq: { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty },
+              sq: { type: sql.Float, value: steamQty },
+              cost: { type: sql.Float, value: unitCost },
+              amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat },
+              log: { type: sql.NVarChar, value: logEntry },
             }
           );
-        });
-        await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
-        await tQuery(
-          `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-           VALUES (@dk, @dt, @qty, @estQty, @cost, @amount, @vat)`,
-          {
-            dk:  { type: sql.Int,      value: newSdk },
-            dt:  { type: sql.DateTime, value: resolvedShipDate },
-            qty: { type: sql.Float,    value: canonicalOutQty },
-            estQty: { type: sql.Float, value: amtBase },
-            cost: { type: sql.Float,   value: unitCost },
-            amount: { type: sql.Float, value: amount },
-            vat: { type: sql.Float,    value: vat },
-          }
-        );
-        await insertShipmentHistory(tQuery, newSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
+        } else {
+          targetSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
+            await tQuery(
+              `INSERT INTO ShipmentDetail
+                 (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                  BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+               VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+              {
+                dk: { type: sql.Int, value: newKey },
+                sk: { type: sql.Int, value: sk },
+                ck: { type: sql.Int, value: parseInt(custKey) },
+                pk: { type: sql.Int, value: parseInt(prodKey) },
+                dt: { type: sql.DateTime, value: resolvedShipDate },
+                outQty: { type: sql.Float, value: canonicalOutQty },
+                estQty: { type: sql.Float, value: amtBase },
+                bq: { type: sql.Float, value: boxQty },
+                bnq: { type: sql.Float, value: bunchQty },
+                sq: { type: sql.Float, value: steamQty },
+                cost: { type: sql.Float, value: unitCost },
+                amount: { type: sql.Float, value: amount },
+                vat: { type: sql.Float, value: vat },
+                log: { type: sql.NVarChar, value: logEntry },
+              }
+            );
+          });
+          await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+        }
+        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
+        await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
       }
       return sk;
     });
