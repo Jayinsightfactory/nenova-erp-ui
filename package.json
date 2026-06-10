@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node web.js",
-    "test:estimate": "node __tests__/estimateInvariants.test.js"
+    "test:estimate": "node __tests__/estimateInvariants.test.js",
+    "test:shipment": "node __tests__/syncShipmentDateEst.test.js",
+    "test:smoke": "node __tests__/nenovawebSmoke.test.js",
+    "test:all": "node __tests__/estimateInvariants.test.js && node __tests__/syncShipmentDateEst.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",

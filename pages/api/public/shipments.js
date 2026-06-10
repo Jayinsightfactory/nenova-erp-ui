@@ -31,6 +31,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
+import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
@@ -265,20 +266,30 @@ async function createShipment(req, res) {
         const amount = Math.round(estQty * cost / 1.1);
         const vat = Math.round(estQty * cost / 11);
 
+        const shipDate = item.shipDate ? new Date(item.shipDate) : new Date();
         const oldRows = await tQ(
           `SELECT SdetailKey FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
             WHERE ShipmentKey=@sk AND ProdKey=@pk`,
           { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
         );
-        for (const old of oldRows.recordset) {
-          await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: old.SdetailKey } });
-        }
-        await tQ(
-          `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
-          { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
-        );
+        const oldList = oldRows.recordset || [];
 
-        if (qty > 0) {
+        if (qty <= 0) {
+          for (const old of oldList) {
+            await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: old.SdetailKey } });
+          }
+          await tQ(
+            `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+            { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+          );
+        } else if (oldList.length > 1) {
+          for (const old of oldList) {
+            await tQ(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: old.SdetailKey } });
+          }
+          await tQ(
+            `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+            { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
+          );
           const detailKey = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (nextKey) => {
             await tQ(
               `INSERT INTO ShipmentDetail
@@ -290,30 +301,40 @@ async function createShipment(req, res) {
                   @box, @bunch, @steam, @qty, @estQty,
                   @cost, @amount, @vat, 0, 'API', GETDATE())`,
               {
-                dk:     { type: sql.Int,      value: nextKey },
-                sk:     { type: sql.Int,      value: sk },
-                ck:     { type: sql.Int,      value: parseInt(resolvedCustKey) },
-                pk:     { type: sql.Int,      value: parseInt(prodKey) },
-                dt:     { type: sql.DateTime, value: item.shipDate ? new Date(item.shipDate) : new Date() },
-                box:    { type: sql.Float,    value: units.box },
-                bunch:  { type: sql.Float,    value: units.bunch },
-                steam:  { type: sql.Float,    value: units.steam },
-                qty:    { type: sql.Float,    value: units.outQty },
-                estQty: { type: sql.Float,    value: estQty },
-                cost:   { type: sql.Float,    value: cost },
-                amount: { type: sql.Float,    value: amount },
-                vat:    { type: sql.Float,    value: vat },
+                dk: { type: sql.Int, value: nextKey },
+                sk: { type: sql.Int, value: sk },
+                ck: { type: sql.Int, value: parseInt(resolvedCustKey) },
+                pk: { type: sql.Int, value: parseInt(prodKey) },
+                dt: { type: sql.DateTime, value: shipDate },
+                box: { type: sql.Float, value: units.box },
+                bunch: { type: sql.Float, value: units.bunch },
+                steam: { type: sql.Float, value: units.steam },
+                qty: { type: sql.Float, value: units.outQty },
+                estQty: { type: sql.Float, value: estQty },
+                cost: { type: sql.Float, value: cost },
+                amount: { type: sql.Float, value: amount },
+                vat: { type: sql.Float, value: vat },
               }
             );
           });
           await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+          await refreshShipmentDatesAfterDetailChange(tQ, detailKey, sql, { shipDtm: shipDate });
+        } else if (oldList.length === 1) {
+          const detailKey = oldList[0].SdetailKey;
           await tQ(
-            `INSERT INTO ShipmentDate (SdetailKey, ShipmentDtm, ShipmentQuantity, EstQuantity, Cost, Amount, Vat)
-             SELECT @dk, ShipmentDtm, @qty, @estQty, @cost, @amount, @vat
-               FROM ShipmentDetail
+            `UPDATE ShipmentDetail
+                SET CustKey=@ck, ShipmentDtm=@dt,
+                    BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
+                    OutQuantity=@qty, EstQuantity=@estQty,
+                    Cost=@cost, Amount=@amount, Vat=@vat
               WHERE SdetailKey=@dk`,
             {
               dk: { type: sql.Int, value: detailKey },
+              ck: { type: sql.Int, value: parseInt(resolvedCustKey) },
+              dt: { type: sql.DateTime, value: shipDate },
+              box: { type: sql.Float, value: units.box },
+              bunch: { type: sql.Float, value: units.bunch },
+              steam: { type: sql.Float, value: units.steam },
               qty: { type: sql.Float, value: units.outQty },
               estQty: { type: sql.Float, value: estQty },
               cost: { type: sql.Float, value: cost },
@@ -321,6 +342,37 @@ async function createShipment(req, res) {
               vat: { type: sql.Float, value: vat },
             }
           );
+          await refreshShipmentDatesAfterDetailChange(tQ, detailKey, sql, { shipDtm: shipDate });
+        } else {
+          const detailKey = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (nextKey) => {
+            await tQ(
+              `INSERT INTO ShipmentDetail
+                 (SdetailKey, ShipmentKey, CustKey, ProdKey, ShipmentDtm,
+                  BoxQuantity, BunchQuantity, SteamQuantity, OutQuantity, EstQuantity,
+                  Cost, Amount, Vat, isFix, CreateID, CreateDtm)
+               VALUES
+                 (@dk, @sk, @ck, @pk, @dt,
+                  @box, @bunch, @steam, @qty, @estQty,
+                  @cost, @amount, @vat, 0, 'API', GETDATE())`,
+              {
+                dk: { type: sql.Int, value: nextKey },
+                sk: { type: sql.Int, value: sk },
+                ck: { type: sql.Int, value: parseInt(resolvedCustKey) },
+                pk: { type: sql.Int, value: parseInt(prodKey) },
+                dt: { type: sql.DateTime, value: shipDate },
+                box: { type: sql.Float, value: units.box },
+                bunch: { type: sql.Float, value: units.bunch },
+                steam: { type: sql.Float, value: units.steam },
+                qty: { type: sql.Float, value: units.outQty },
+                estQty: { type: sql.Float, value: estQty },
+                cost: { type: sql.Float, value: cost },
+                amount: { type: sql.Float, value: amount },
+                vat: { type: sql.Float, value: vat },
+              }
+            );
+          });
+          await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+          await refreshShipmentDatesAfterDetailChange(tQ, detailKey, sql, { shipDtm: shipDate });
         }
         results.push({ prodKey, prodName: item.prodName, qty, cost, amount, status: 'OK' });
       }
