@@ -359,26 +359,26 @@ function buildEstimateHtml({
 <title>견적서 — ${custName}</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; font-size:9pt; padding:10mm 12mm; }
-h1 { text-align:center; font-size:20pt; font-weight:bold; letter-spacing:16px; text-decoration:underline; margin-bottom:10px; }
+body { font-family:Gulim,'굴림','Malgun Gothic','맑은 고딕',sans-serif; font-size:9pt; padding:10mm 15mm; }
+/* exe ReportEstimate: xrLabel1 굴림 16pt Bold+Underline */
+h1 { text-align:center; font-family:Gulim,'굴림',serif; font-size:16pt; font-weight:bold;
+     letter-spacing:0.42em; text-decoration:underline; margin-bottom:6px; line-height:1.2; }
 table { width:100%; border-collapse:collapse; }
-.hdr-outer { border:1px solid #555; }
-.hdr-left  { width:48%; vertical-align:top; border-right:1px solid #555; }
-.hdr-right { width:52%; vertical-align:top; padding:0; }
-.hdr-row td { border:1px solid #ccc; padding:3px 8px; font-size:8.5pt; }
-.hdr-key   { background:#f5f5f5; font-weight:bold; width:68px; }
-/* 로고: 헤더 영역 가운데 정렬 + 사장님 양식과 동일한 사이즈 */
-.logo-area { text-align:center; border-bottom:1px solid #555; padding:6px 8px; margin:0; line-height:0; background:#fff; height:64px; overflow:hidden;
-             display:flex; align-items:center; justify-content:center; }
-.logo-area img { display:block; height:52px; max-height:52px; max-width:90%; object-fit:contain; }
-@media print { .logo-area { height:58px; padding:4px 6px; } .logo-area img { height:48px; max-height:48px; } }
-/* 회사정보: 실제 테이블 2셀 (왼쪽정렬, 줄바꿈 방지, 셀 경계선) */
-.co-table { width:100%; border-collapse:collapse; table-layout:fixed; }
-.co-table td { border:1px solid #999; padding:4px 6px; font-size:7.5pt;
-               white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-               text-align:left; vertical-align:middle; }
-.co-table td.co-key { background:#f5f5f5; font-weight:bold; color:#333; width:40%; }
-.co-table td.co-val { width:60%; }
+.hdr-outer { border:1px solid #555; table-layout:fixed; }
+/* exe: 좌 47.9% / 우 51.3% (0.1mm 기준 861.7 / 923.4) */
+.hdr-left  { width:47.9%; vertical-align:top; border-right:1px solid #555; }
+.hdr-right { width:51.3%; vertical-align:top; padding:0; }
+/* exe: 라벨열 27.3mm 고정(Weight 1:2.15625) — 좌·우 동일 너비로 세로줄 맞춤 */
+.info-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.info-table td { border:1px solid #999; padding:2px 5px; font-size:8pt;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                text-align:left; vertical-align:middle; line-height:1.35; }
+.info-table td.info-key { background:#f5f5f5; font-weight:bold; color:#333; width:27.3mm; }
+.info-table td.info-val { width:auto; font-size:8pt; }
+/* 로고: exe xrPictureBox1 약 55.5×18mm, Zoom */
+.logo-area { text-align:center; border-bottom:1px solid #555; padding:2mm 3mm; margin:0; line-height:0; background:#fff;
+             height:18mm; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.logo-area img { display:block; height:16mm; max-height:16mm; max-width:92%; object-fit:contain; }
 .greet     { font-size:8pt; padding:6px 8px; border-top:1px solid #ddd; line-height:1.7; }
 .amt-row   { border:1px solid #555; border-top:none; padding:5px 10px;
              display:flex; justify-content:space-between; align-items:center; margin-bottom:0; }
@@ -387,23 +387,25 @@ table { width:100%; border-collapse:collapse; }
 .item-th   { background:#e8e8e8; border:1px solid #888; padding:3px 5px; font-size:8.5pt; text-align:center; }
 .item-td   { border:1px solid #ccc; padding:2px 5px; font-size:8.5pt; vertical-align:middle; }
 .foot-row td { background:#f5f5f5; border:1px solid #888; padding:3px 8px; font-size:8.5pt; font-weight:bold; }
-@media print { body{padding:5mm 8mm;} @page{size:A4;margin:8mm;} }
+@media print { body{padding:10mm 15mm;} @page{size:A4;margin:10mm 15mm;}
+  .logo-area{height:18mm;padding:1.5mm 2mm;} .logo-area img{height:16mm;max-height:16mm;} }
 </style>
 </head><body>
-<h1>견 &nbsp; 적 &nbsp; 서</h1>
+<h1>견적서</h1>
 
 <table class="hdr-outer">
   <tr>
     <td class="hdr-left">
-      <!-- 왼쪽: 수신/청조 그리드 -->
-      <table style="width:100%;border-collapse:collapse;">
-        <tr class="hdr-row"><td class="hdr-key">일련번호</td><td>${serialDisplay}</td></tr>
-        <tr class="hdr-row"><td class="hdr-key">수&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;신</td><td><b>${custName}</b></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">참&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">TEL/FAX</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">결제조건</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">유효기간</td><td></td></tr>
-        <tr class="hdr-row"><td class="hdr-key">비&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;고</td><td>${bigoLabel}</td></tr>
+      <!-- 왼쪽: 수신/청조 그리드 (exe xrTable2) -->
+      <table class="info-table">
+        <colgroup><col style="width:27.3mm"><col></colgroup>
+        <tr><td class="info-key">일련번호</td><td class="info-val">${serialDisplay}</td></tr>
+        <tr><td class="info-key">수&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;신</td><td class="info-val"><b>${custName}</b></td></tr>
+        <tr><td class="info-key">참&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;조</td><td class="info-val"></td></tr>
+        <tr><td class="info-key">TEL/FAX</td><td class="info-val"></td></tr>
+        <tr><td class="info-key">결제조건</td><td class="info-val"></td></tr>
+        <tr><td class="info-key">유효기간</td><td class="info-val"></td></tr>
+        <tr><td class="info-key">비&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;고</td><td class="info-val">${bigoLabel}</td></tr>
       </table>
       <div class="greet">
         1. 귀사의 일익 번창하심을 기원합니다.<br>
@@ -417,13 +419,14 @@ table { width:100%; border-collapse:collapse; }
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
         <div style="display:none;padding:8px 10px;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;text-align:left;">NENOVA</div>
       </div>
-      <table class="co-table">
-        <tr><td class="co-key">사업자등록번호</td><td class="co-val">134-86-94367</td></tr>
-        <tr><td class="co-key">회사명/대표</td><td class="co-val">(주)네노바 / 김원배</td></tr>
-        <tr><td class="co-key">주소</td><td class="co-val">서울 서초구 언남길 15-7, 102호</td></tr>
-        <tr><td class="co-key">업태/종목</td><td class="co-val">도매 / 무역</td></tr>
-        <tr><td class="co-key">계좌번호</td><td class="co-val">하나 630-008129-149</td></tr>
-        <tr><td class="co-key">TEL / FAX</td><td class="co-val">02-575-8003 / 02-576-8003</td></tr>
+      <table class="info-table">
+        <colgroup><col style="width:27.3mm"><col></colgroup>
+        <tr><td class="info-key">사업자등록번호</td><td class="info-val">134-86-94367</td></tr>
+        <tr><td class="info-key">회사명/대표</td><td class="info-val">(주)네노바 / 김원배</td></tr>
+        <tr><td class="info-key">주소</td><td class="info-val">서울 서초구 언남길 15-7, 102호</td></tr>
+        <tr><td class="info-key">업태/종목</td><td class="info-val">도매 / 무역</td></tr>
+        <tr><td class="info-key">계좌번호</td><td class="info-val">하나 630-008129-149</td></tr>
+        <tr><td class="info-key">TEL/FAX</td><td class="info-val">02-575-8003 / 02-576-8003</td></tr>
       </table>
     </td>
   </tr>
