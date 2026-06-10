@@ -32,6 +32,8 @@ const KO_EN_KEYWORDS = {
   '안개': 'GYPSOPHILA',
   '해바라기': 'SUNFLOWER',
   '알스트로': 'ALSTROEMERIA',
+  '알스트로메리아': 'ALSTROEMERIA',
+  '휘슬러': 'WHISTLER',
   '스타티스': 'STATICE',
   '호주': '호주',
   '소재': '호주',
@@ -260,8 +262,19 @@ function parseCompactWeek(line) {
   return m ? `${m[1].padStart(2, '0')}-01` : null;
 }
 
+/** 한글 키워드 사전 — 토큰 분리 없이 부분 문자열로도 꽃/품종 필터 추출 */
+function detectKoEnFromText(text) {
+  const found = new Set();
+  const src = String(text || '');
+  const keys = Object.keys(KO_EN_KEYWORDS).sort((a, b) => b.length - a.length);
+  for (const ko of keys) {
+    if (src.includes(ko)) found.add(KO_EN_KEYWORDS[ko]);
+  }
+  return [...found];
+}
+
 function parseCompactFlowerContext(line, currentFlower = '') {
-  const m = String(line || '').match(/(수국|장미|카네이션|카네|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안|튤립)/);
+  const m = String(line || '').match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안|튤립)/);
   if (!m) return currentFlower;
   if (m[1] === '카네') return '카네이션';
   if (m[1] === '리시안') return '리시안셔스';
@@ -372,6 +385,7 @@ function parseCompactStockOrders(text) {
 function normalizeFlowerContext(line) {
   const s = String(line || '').trim().replace(/\s+/g, '');
   if (s === '카네') return '카네이션';
+  if (/^알스트로(?:메리아)?$/i.test(s)) return '알스트로';
   return /^(수국|장미|카네이션|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|튤립)$/.test(s) ? s : '';
 }
 
@@ -608,8 +622,7 @@ export default withAuth(async function handler(req, res) {
   try {
     // ── Step 1: 텍스트 첫 줄에서 꽃 품종 키워드 선(先) 추출
     const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
-    const koTokensAll = (cleanText.match(/[가-힣]+/g) || []);
-    const detectedFlowers = [...new Set(koTokensAll.flatMap(t => KO_EN_KEYWORDS[t] ? [KO_EN_KEYWORDS[t]] : []))];
+    const detectedFlowers = detectKoEnFromText(cleanText);
 
     // ── Step 2: 꽃 품종 기준으로 DB에서 해당 품목만 조회 (없으면 전체 최대 300)
     let prodFilter = '';

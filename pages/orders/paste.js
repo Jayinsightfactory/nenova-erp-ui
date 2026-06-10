@@ -148,7 +148,7 @@ function favoriteItemFromOrderItem(it, allProducts = []) {
 }
 
 // 품목군(카테고리) 접두어 — base/변동 매칭 시 제거해 '카네이션 문라이트' == '문라이트' 로 맞춘다.
-const STOCK_CATEGORY_RE = /(미니\s*카네이션|미니카네|mini\s*carnation|카네이션|카네|carnation|스프레이\s*장미|spray\s*rose|장미|로즈|rose|수국|hydrangea|루스커스|ruscus|알스트로\w*|alstroe?meria|거베라|gerbera|리시안\w*|lisianthus|튤립|tulip|소국|만수국|국화|chrysanthemum|칼라|카라|calla|해바라기|sunflower|안개|gypsophila|스타티스|statice|솔리다고|solidago)/gi;
+const STOCK_CATEGORY_RE = /(미니\s*카네이션|미니카네|mini\s*carnation|카네이션|카네|carnation|스프레이\s*장미|spray\s*rose|장미|로즈|rose|수국|hydrangea|루스커스|ruscus|알스트로(?:메리아)?|alstroe?meria|거베라|gerbera|리시안[\w가-힣]*|lisianthus|튤립|tulip|소국|만수국|국화|chrysanthemum|칼라|카라|calla|해바라기|sunflower|안개|gypsophila|스타티스|statice|솔리다고|solidago)/gi;
 
 function stockNorm(text) {
   return String(text || '')
@@ -210,6 +210,7 @@ function normalizeFlowerContext(line) {
   const s = String(line || '').trim().replace(/\s+/g, '');
   if (s === '카네') return '카네이션';
   if (s === '리시안') return '리시안셔스';
+  if (/^알스트로(?:메리아)?$/i.test(s)) return '알스트로';
   return /^(수국|장미|카네이션|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|튤립)$/.test(s) ? s : '';
 }
 
@@ -393,7 +394,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
 
     const lineWeek = parseWeekFromLine(line, selectedWeek);
     if (lineWeek) {
-      const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
+      const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
       if (headerFlower) currentFlower = headerFlower;
       if (/여분\s*주문|여분주문/.test(line)) {
         mode = 'extra';

@@ -9,15 +9,16 @@ const RE_WEEK = /(\d{1,2}\s*-\s*\d{1,2}\s*차?|CL\s*\d+|\d{4}\s*\/\s*\d{1,2}\s*\
 const RE_ADD = /추가/;
 const RE_CANCEL = /취소|삭제/;
 const RE_QTY = /-?\d[\d,\.]*\s*(박스|단|송이|개|스팀|st|box|cm)?/i;
+const RE_FLOWER = /(알스트로(?:메리아)?|수국|장미|카네이션|카네|루스커스|튤립|리시안(?:셔스)?|호주|레몬잎)/gi;
 // 줄 안 토큰 강조용 (캡처 그룹으로 split)
-const RE_TOKENS = /(\d{1,2}\s*-\s*\d{1,2}\s*차?|CL\s*\d+|추가|취소|삭제|-?\d[\d,\.]*\s*(?:박스|단|송이|개|스팀|st|box)?)/gi;
+const RE_TOKENS = /(\d{1,2}\s*-\s*\d{1,2}\s*차?|CL\s*\d+|알스트로(?:메리아)?|수국|장미|카네이션|카네|루스커스|튤립|리시안(?:셔스)?|추가|취소|삭제|-?\d[\d,\.]*\s*(?:박스|단|송이|개|스팀|st|box)?|화이트\s*\([^)]+\)|[가-힣A-Za-z]+\([^)]+\))/gi;
 
 const C = {
   week: { bar: '#1565c0', bg: '#e3f2fd', tok: { background: '#bbdefb', color: '#0d47a1' } },
   add: { bar: '#2e7d32', bg: '#e8f5e9', tok: { background: '#c8e6c9', color: '#1b5e20' } },
   cancel: { bar: '#c62828', bg: '#ffebee', tok: { background: '#ffcdd2', color: '#b71c1c' } },
   customer: { bar: '#e65100', bg: '#fff3e0' },
-  product: { bar: '#6a1b9a', bg: '#f3e5f5' },
+  product: { bar: '#6a1b9a', bg: '#f3e5f5', tok: { background: '#e1bee7', color: '#4a148c' } },
   plain: { bar: 'transparent', bg: 'transparent' },
 };
 
@@ -35,12 +36,13 @@ function buildCustomerSet(customers) {
 function classifyLine(line, custSet) {
   const t = line.trim();
   if (!t) return 'plain';
+  const hasQty = RE_QTY.test(t) && /\d/.test(t);
+  if (hasQty) return 'product';
   if (RE_WEEK.test(t) && /차|cl|발주|변경|추가|취소|월/i.test(t)) return 'week';
   if (RE_CANCEL.test(t)) return 'cancel';
-  if (RE_ADD.test(t)) return 'add';
+  if (RE_ADD.test(t) && !RE_FLOWER.test(t)) return 'add';
   const head = t.toLowerCase().split(/[\s/(]/)[0];
   if (custSet.has(t.toLowerCase()) || custSet.has(head)) return 'customer';
-  if (RE_QTY.test(t) && /\d/.test(t)) return 'product';
   // 숫자 없는 짧은 이름 줄 → 거래처로 추정
   if (!/\d/.test(t) && t.length <= 14 && !/[:：!?~.]/.test(t)) return 'customer';
   return 'plain';
@@ -54,6 +56,12 @@ function renderTokens(line) {
     if (RE_CANCEL.test(p) && !/\d/.test(p)) return <span key={i} style={tok(C.cancel.tok)}>{p}</span>;
     if (/^(\d{1,2}\s*-\s*\d{1,2}\s*차?|CL\s*\d+)$/i.test(p.trim())) return <span key={i} style={tok(C.week.tok)}>{p}</span>;
     if (/^-?\d[\d,\.]*\s*(박스|단|송이|개|스팀|st|box)?$/i.test(p.trim())) return <span key={i} style={{ fontWeight: 700 }}>{p}</span>;
+    if (/^(알스트로(?:메리아)?|수국|장미|카네이션|카네|루스커스|튤립|리시안(?:셔스)?)$/i.test(p.trim())) {
+      return <span key={i} style={tok(C.product.tok)}>{p}</span>;
+    }
+    if (/화이트\s*\([^)]+\)|[가-힣A-Za-z]+\([^)]+\)/i.test(p.trim())) {
+      return <span key={i} style={tok(C.product.tok)}>{p}</span>;
+    }
     return <span key={i}>{p}</span>;
   });
 }
