@@ -514,7 +514,28 @@ function isManagedProduct(prod) {
   return countryOk && flowerOk;
 }
 
-function productMatchSummary(productName, products) {
+function buildResolvedMatchMap(orders, products) {
+  const map = new Map();
+  for (const o of orders || []) {
+    for (const it of o.items || []) {
+      if (it.skip || !it.prodKey) continue;
+      const prod = (products || []).find((p) => Number(p.ProdKey) === Number(it.prodKey));
+      const label = it.displayName || prod?.DisplayName || it.prodName || getDisplayName(prod) || '';
+      const entry = { status: 'matched', names: [label] };
+      [it.inputName, it.prodName, it.displayName, label].forEach((name) => {
+        const key = stockNorm(name);
+        if (key) map.set(key, entry);
+      });
+    }
+  }
+  return map;
+}
+
+function productMatchSummary(productName, products, resolvedMatches) {
+  const resolvedKey = stockNorm(productName);
+  if (resolvedKey && resolvedMatches?.has(resolvedKey)) {
+    return resolvedMatches.get(resolvedKey);
+  }
   if (!productName || !products?.length) return { status: 'unknown', names: [] };
   const scored = products
     .map(prod => ({ prod, score: scoreMatch(productName, prod, '') }))
@@ -528,7 +549,7 @@ function productMatchSummary(productName, products) {
   return { status: 'unmatched', names: [] };
 }
 
-function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, stockBaseWeek, products }) {
+function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches }) {
   const base = parseBaseStockText(baseText);
   const finalRemain = parseBaseStockText(remainText);
   const { records, extraRows } = parseKakaoStockRecords(text, selectedWeek);
@@ -566,7 +587,7 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, s
       const reportedRemain = record.reportedRemain != null ? record.reportedRemain : finalInputRemain;
       if (finalInputRemain != null) usedFinalRemainKeys.add(productKey);
       const closeRemain = reportedRemain != null ? reportedRemain : calcRemain;
-      const match = productMatchSummary(record.productName, products);
+      const match = productMatchSummary(record.productName, products, resolvedMatches);
       const warnings = [];
 
       if (!hasBase && sortedIdx === 0) {
@@ -613,7 +634,7 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, s
   finalRemain.rows.forEach(row => {
     const productKey = stockNorm(row.name);
     if (!productKey || usedFinalRemainKeys.has(productKey) || recordsByProduct.has(productKey)) return;
-    const match = productMatchSummary(row.name, products);
+    const match = productMatchSummary(row.name, products, resolvedMatches);
     const warnings = [];
     if (match.status === 'ambiguous') {
       warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
@@ -652,7 +673,7 @@ function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, s
   base.rows.forEach(row => {
     const productKey = stockNorm(row.name);
     if (!productKey || shownRemainKeys.has(productKey)) return;
-    const match = productMatchSummary(row.name, products);
+    const match = productMatchSummary(row.name, products, resolvedMatches);
     const warnings = [];
     if (match.status === 'ambiguous') {
       warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
@@ -766,7 +787,7 @@ export default function PasteOrderPage() {
   const [showOldWeeks, setShowOldWeeks] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [showMapModal, setShowMapModal] = useState(false);
-  const [showHighlight, setShowHighlight] = useState(false);
+  const [showHighlight, setShowHighlight] = useState(true);
   const [showStockPicker, setShowStockPicker] = useState(false);
   const [stockNotesAll, setStockNotesAll] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -887,7 +908,14 @@ export default function PasteOrderPage() {
     }),
   }));
 
-  const refreshStockDraft = (nextText = pasteText, nextBase = baseStockText, nextWeek = week, nextRemain = remainStockText, nextBaseWeek = stockBaseWeek) => {
+  const refreshStockDraft = (
+    nextText = pasteText,
+    nextBase = baseStockText,
+    nextWeek = week,
+    nextRemain = remainStockText,
+    nextBaseWeek = stockBaseWeek,
+    ordersForMatch = orders
+  ) => {
     const draft = buildKakaoStockDraft({
       text: nextText,
       baseText: nextBase,
@@ -895,11 +923,21 @@ export default function PasteOrderPage() {
       selectedWeek: nextWeek,
       stockBaseWeek: nextBaseWeek,
       products: allProducts,
+      resolvedMatches: buildResolvedMatchMap(ordersForMatch, allProducts),
     });
     setStockDraft(draft);
     setStockCopied(false);
     return draft;
   };
+
+  // 주문 품목 매칭이 끝나면 잔량/히스토리 복사본의 확인필요(품목후보)도 함께 갱신
+  useEffect(() => {
+    if (!pasteText.trim() || orders.length === 0) return;
+    const hasResolved = orders.some((o) => o.items.some((it) => it.prodKey && !it.skip));
+    if (!hasResolved) return;
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
 
   const loadStockNote = async (targetBaseWeek = stockBaseWeek, { apply = false } = {}) => {
     if (!targetBaseWeek) {
