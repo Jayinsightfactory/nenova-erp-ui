@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { apiGet } from '../../lib/useApi';
+import { useColumnResize } from '../../lib/useColumnResize';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
 import { useLang } from '../../lib/i18n';
@@ -230,6 +230,18 @@ export default function Pivot() {
   const [dragField,     setDragField]     = useState(null);        // { id, from } 현재 드래그 중
   const [zoneHover,     setZoneHover]     = useState(null);        // 드롭 하이라이트 중인 zone id
   const [openFilterChip,setOpenFilterChip]= useState(null);        // 값 체크 드롭다운 열린 필터 필드 id
+
+  // 열 너비 (텍스트보다 좁게 — 드래그 리사이즈, localStorage 유지)
+  const [colWidths, setColWidths] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('pivotColWidths') || '{}'); } catch { return {}; }
+  });
+  const saveColWidth = useCallback((idx, w) => {
+    setColWidths((prev) => {
+      const next = { ...prev, [idx]: w };
+      try { localStorage.setItem('pivotColWidths', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // 측정/행 토글 ↔ 필드 id 매핑 (Field List 가 기존 state 를 구동)
   const measureState = {
@@ -783,6 +795,23 @@ export default function Pivot() {
       + (showArrival?1:0) + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
   [showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr]);
 
+  const pivotColLayoutKey = useMemo(() => JSON.stringify({
+    compact, columnZone, colGroupOrder,
+    showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr,
+    showSections, nc: sortedCusts.length, nf: farms.length, showCost, showDistCost,
+  }), [compact, columnZone, colGroupOrder, showArea, showOutDate, showInPrice, showInTotal, showArrival,
+    showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost]);
+
+  const pivotTableRef = useColumnResize(
+    [loading, data, pivotColLayoutKey],
+    {
+      headerSelector: 'thead tr.pivot-col-header-row th',
+      minWidth: 18,
+      widths: colWidths,
+      onResize: saveColWidth,
+    },
+  );
+
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
       {/* 툴바 */}
@@ -1066,7 +1095,7 @@ export default function Pivot() {
         ) : data.rows?.length === 0 ? (
           <div className="empty-state"><div className="empty-icon">🔍</div><div className="empty-text">해당 차수에 데이터가 없습니다.</div></div>
         ) : (
-          <table className="tbl tbl-pivot" style={{fontSize:11}}>
+          <table ref={pivotTableRef} className="tbl tbl-pivot" style={{fontSize:11}}>
             <thead>
               {/* 1행: 주문년도 */}
               <tr style={{background:'#C0CCE0'}}>
@@ -1125,8 +1154,8 @@ export default function Pivot() {
                 </tr>
               ))}
 
-              {/* 컬럼 헤더 행 */}
-              <tr style={{background:'var(--header-bg)'}}>
+              {/* 컬럼 헤더 행 — 열 너비 드래그 (우측 가장자리) */}
+              <tr className="pivot-col-header-row" style={{background:'var(--header-bg)'}}>
                 <ColHeader label="국가"    sortKey="country" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
                   filter={filters.country} filterOptions={countryOptions}/>
                 <ColHeader label="꽃"      sortKey="flower"  sorts={sorts} onSort={handleSort} onFilter={handleFilter}
@@ -1264,11 +1293,11 @@ export default function Pivot() {
                       ...(!isFC ? gFlower.items.map((r,idx)=>(
                         <tr key={`i-${r.prodKey}-${idx}`} style={{background:idx%2===0?'#fff':'var(--row-alt)'}}>
                           <td></td><td></td>
-                          <td style={{fontSize:11,fontWeight:500,borderRight: showArea?'none':'2px solid var(--border2)',padding:'1px 4px'}}>
+                          <td style={{fontSize:11,fontWeight:500,borderRight: showArea?'none':'2px solid var(--border2)',padding:'1px 4px'}} title={r.prodName}>
                             {r.prodName}
                           </td>
-                          {showArea     && <td style={{fontSize:10,borderRight:'2px solid var(--border2)',color:'var(--text3)'}}>{r.area||''}</td>}
-                          {showOutDate  && <td style={{fontSize:10}}>{r.outDate||''}</td>}
+                          {showArea     && <td style={{fontSize:10,borderRight:'2px solid var(--border2)',color:'var(--text3)'}} title={r.area||''}>{r.area||''}</td>}
+                          {showOutDate  && <td style={{fontSize:10}} title={r.outDate||''}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fN(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fN(r.inTotal)}</td>}
                           {showArrival  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fN(r.arrivalCost)}</td>}
