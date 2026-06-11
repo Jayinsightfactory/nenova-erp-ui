@@ -8,6 +8,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { distributeUnits } from '../../../lib/distributeUnits.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
 async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
@@ -92,21 +93,17 @@ function toOrderUnits(qty, unit, product = {}) {
 }
 
 function toShipmentUnits(outQty, product = {}) {
-  const qty = Number(outQty || 0);
-  const b1b = Number(product.BunchOf1Box || 0);
-  const s1b = Number(product.SteamOf1Box || 0);
+  const units = distributeUnits(outQty, product);
   return {
-    box: qty,
-    bunch: b1b > 0 ? qty * b1b : 0,
-    steam: s1b > 0 ? qty * s1b : 0,
-    outQty: qty,
+    box: units.box,
+    bunch: units.bunch,
+    steam: units.steam,
+    outQty: units.outQty,
   };
 }
 
-function estimateQuantityFromShipmentUnits(units) {
-  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
-  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
-  return Number(units.box || 0);
+function estimateQuantityFromShipmentUnits(units, product = {}) {
+  return distributeUnits(units.outQty ?? units.box ?? 0, product).estQty;
 }
 
 async function getProductStockRemarkColumn(q = query) {
@@ -1213,7 +1210,7 @@ async function updateOutQty(req, res) {
             { sdk: { type: sql.Int, value: targetSdk } });
         } else {
           const units = toShipmentUnits(finalQty, productInfo);
-          const estQty = estimateQuantityFromShipmentUnits(units);
+          const estQty = estimateQuantityFromShipmentUnits(units, productInfo);
           const unitCost = Number(foundSD.Cost || 0) || Number(productInfo.Cost || 0);
           await tQ(
             `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@estQty,
@@ -1240,7 +1237,7 @@ async function updateOutQty(req, res) {
         const insertQty = qty > 0 ? qty : 0;
         if (insertQty > 0) {
           const units = toShipmentUnits(insertQty, productInfo);
-          const estQty = estimateQuantityFromShipmentUnits(units);
+          const estQty = estimateQuantityFromShipmentUnits(units, productInfo);
           const unitCost = Number(productInfo.Cost || 0);
           const nk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (candidateDk) => {
             await tQ(

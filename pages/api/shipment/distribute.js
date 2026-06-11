@@ -9,6 +9,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
 import { changeEntry } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -461,15 +462,11 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT BunchOf1Box, SteamOf1Box, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
+      `SELECT OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
-    // BunchOf1Box/SteamOf1Box null 시 0 사용 (기본값 1은 잘못된 환산 유발)
-    // Keep nenova.exe-compatible stable writes: input qty is box-based for ShipmentDetail.
-    const productOutUnit = 'box';
-    const bunchOf1Box = prodInfo.recordset[0]?.BunchOf1Box ?? 0;
-    const steamOf1Box = prodInfo.recordset[0]?.SteamOf1Box ?? 0;
-    const productCost = Number(prodInfo.recordset[0]?.ProductCost || 0) || 0;
+    const product = prodInfo.recordset[0] || {};
+    const productCost = Number(product.ProductCost || 0) || 0;
 
     const priceInfo = await query(
       `SELECT TOP 1
@@ -551,30 +548,9 @@ async function saveDistribute(req, res) {
         }
       } else {
         const unitCost = resolvedCost;
-        let boxQty = 0;
-        let bunchQty = 0;
-        let steamQty = 0;
-        if (productOutUnit === '단') {
-          bunchQty = qty;
-          boxQty = bunchOf1Box > 0 ? qty / bunchOf1Box : 0;
-          steamQty = bunchOf1Box > 0 && steamOf1Box > 0 ? boxQty * steamOf1Box : 0;
-        } else if (productOutUnit === '송이') {
-          steamQty = qty;
-          boxQty = steamOf1Box > 0 ? qty / steamOf1Box : 0;
-          bunchQty = steamOf1Box > 0 && bunchOf1Box > 0 ? boxQty * bunchOf1Box : 0;
-        } else {
-          boxQty = qty;
-          bunchQty = bunchOf1Box > 0 ? qty * bunchOf1Box : 0;
-          steamQty = steamOf1Box > 0 ? qty * steamOf1Box : 0;
-        }
-        const canonicalOutQty = qty;
-        const amtBase = productOutUnit === '송이'
-          ? (steamQty > 0 ? steamQty : canonicalOutQty)
-          : productOutUnit === '단'
-            ? (bunchQty > 0 ? bunchQty : canonicalOutQty)
-            : (bunchQty > 0 ? bunchQty : steamQty > 0 ? steamQty : boxQty);
-        const amount = Math.round(amtBase * unitCost / 1.1);
-        const vat = Math.round(amtBase * unitCost / 11);
+        const units = distributeUnits(qty, product);
+        const { box: boxQty, bunch: bunchQty, steam: steamQty, outQty: canonicalOutQty, estQty } = units;
+        const { amount, vat } = amountVatFromCostEst(unitCost, estQty);
         const logEntry = changeEntry(userName, oldQty, qty);
 
         let targetSdk = oldRow?.SdetailKey;
@@ -590,7 +566,7 @@ async function saveDistribute(req, res) {
               ck: { type: sql.Int, value: parseInt(custKey) },
               dt: { type: sql.DateTime, value: resolvedShipDate },
               outQty: { type: sql.Float, value: canonicalOutQty },
-              estQty: { type: sql.Float, value: amtBase },
+              estQty: { type: sql.Float, value: estQty },
               bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty },
               sq: { type: sql.Float, value: steamQty },
@@ -614,7 +590,7 @@ async function saveDistribute(req, res) {
                 pk: { type: sql.Int, value: parseInt(prodKey) },
                 dt: { type: sql.DateTime, value: resolvedShipDate },
                 outQty: { type: sql.Float, value: canonicalOutQty },
-                estQty: { type: sql.Float, value: amtBase },
+                estQty: { type: sql.Float, value: estQty },
                 bq: { type: sql.Float, value: boxQty },
                 bnq: { type: sql.Float, value: bunchQty },
                 sq: { type: sql.Float, value: steamQty },

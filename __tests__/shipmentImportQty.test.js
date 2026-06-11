@@ -62,7 +62,25 @@ async function main() {
       roseBoxProduct
     );
     assert('환산 후 주문과 일치 → critical 없음', !converted.some(w => w.severity === 'critical'));
-    assert('ROSE_ALLOC_CONVERTED info', converted.some(w => w.code === 'ROSE_ALLOC_CONVERTED'));
+    assert('ROSE_ALLOC_CONVERTED info', converted.some(w => w.code === 'BUNCH_ALLOC_CONVERTED'));
+  }
+
+  console.log('\n=== 카네이션 물량표 단→박스 (BunchOf1Box=15) ===');
+  {
+    const carnationProduct = { OutUnit: '박스', BunchOf1Box: 15, SteamOf1Box: 0 };
+    const row = { sheetName: '2301카네', productFamily: 'carnation', excelQty: 45, uploadQty: 45 };
+    const out = normalizeUploadQtyForProduct(row, carnationProduct);
+    assert('45단 → 3박스', Math.abs(out - 3) < 0.001);
+  }
+
+  console.log('\n=== distributeUnits OutUnit 기준 (출고분배·재고 PATCH) ===');
+  {
+    const { distributeUnits } = await import('../lib/distributeUnits.js');
+    const rose = { OutUnit: '박스', BunchOf1Box: 10, SteamOf1Box: 100, EstUnit: '박스' };
+    const bunchProd = { OutUnit: '단', BunchOf1Box: 10, SteamOf1Bunch: 0, EstUnit: '단' };
+    assert('박스 5', distributeUnits(5, rose).outQty === 5 && distributeUnits(5, rose).box === 5);
+    assert('단 10 → outQty 10', distributeUnits(10, bunchProd).outQty === 10);
+    assert('단 10 → box 1', Math.abs(distributeUnits(10, bunchProd).box - 1) < 0.001);
   }
 
   console.log('\n=== detectQtyWarnings (10배 오류 탐지) ===');

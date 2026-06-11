@@ -8,7 +8,7 @@ const fmtUpload = r => {
   const mult = Number(r.quantityMultiplier || 1);
   if (mult > 1) return `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(mult)})`;
   if (r.excelQty != null && !Number.isNaN(Number(r.excelQty)) && Number(r.excelQty) !== Number(r.uploadQty)) {
-    const unit = r.excelUnit ? ` ${r.excelUnit}` : (r.productFamily === 'rose' && !r.excelUnit ? ' 단' : '');
+    const unit = r.excelUnit ? ` ${r.excelUnit}` : ((r.productFamily === 'rose' || r.productFamily === 'carnation' || r.productFamily === 'minicarnation') && !r.excelUnit ? ' 단' : '');
     return `${fmt(r.uploadQty)} (←${fmt(r.excelQty)}${unit})`;
   }
   return fmt(r.uploadQty);
