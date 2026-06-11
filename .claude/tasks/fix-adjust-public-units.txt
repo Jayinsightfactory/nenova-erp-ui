@@ -1,0 +1,31 @@
+[CONTEXT]
+- Project: nenova-erp-ui @ C:\Users\USER\nenova-erp-ui, branch master
+- 감사 문서: docs/OUTUNIT_WRITE_AUDIT_2026-06-10.md
+- HIGH GAP: pages/api/shipment/adjust.js ShipmentDetail 경로 — qtyAfter = curOut(박스) + delta(userUnit) 미환산 → 10배
+- OrderDetail 경로는 toAllUnits로 userUnit 일관 처리 → 정상. ShipmentDetail도 동일 패턴으로 통일.
+- MED GAP: pages/api/public/shipments.js — item.unit 미사용, qty 박스 가정
+
+[TASK]
+1. **adjust.js FIX (필수)**
+   - ShipmentDetail ADD/CANCEL 경로에서 delta를 userUnit 기준으로 curOut과 일관되게 처리
+   - OrderDetail 경로와 동일한 환산 패턴(toAllUnits 또는 qtyForUnit + distributeUnits) 적용
+   - 장미(B1B=10) paste.js 분배조정 "10단" ADD → OutQuantity=1박스 (not 10)
+   - __tests__/shipmentImportQty.test.js 또는 신규 __tests__/adjustUnit.test.js 에 adjust 환산 pure 함수 테스트 추가
+
+2. **public/shipments.js FIX (가능하면)**
+   - item.unit 있으면 OutUnit 기준 환산 후 toShipmentUnits/distributeUnits 사용
+   - unit 없으면 기존 박스 가정 유지 (하위호환)
+
+3. **문서 업데이트**
+   - OUTUNIT_WRITE_AUDIT: adjust.js, public/shipments.js 상태를 FIXED/OK 로 갱신
+
+[CONSTRAINTS]
+- 최소 diff, 기존 toAllUnits/distributeUnits 재사용
+- repair/probe 스크립트는 건드리지 말 것
+- git commit/push 하지 말 것 (Cursor가 검증 후 처리)
+
+[VERIFY]
+npm run test:import-qty
+npm run test:repair-unit
+npm run build
+git diff --stat

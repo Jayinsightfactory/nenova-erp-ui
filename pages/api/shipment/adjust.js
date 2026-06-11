@@ -14,6 +14,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -160,24 +161,6 @@ function qtyForUnit(row, userUnit, keys) {
       : Number(row?.[keys.box] || 0);
   if (unitQty !== 0) return unitQty;
   return Number(row?.[keys.out] || 0);
-}
-
-function toShipmentUnits(outQty, bunchOf1Box, steamOf1Box) {
-  const qty = Number(outQty || 0);
-  const b1b = Number(bunchOf1Box || 0);
-  const s1b = Number(steamOf1Box || 0);
-  return {
-    box: qty,
-    bunch: b1b > 0 ? qty * b1b : 0,
-    steam: s1b > 0 ? qty * s1b : 0,
-    outQ: qty,
-  };
-}
-
-function estimateQuantityFromShipmentUnits(units) {
-  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
-  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
-  return Number(units.box || 0);
 }
 
 async function getProductFixScope(q, prodKey) {
@@ -644,14 +627,21 @@ async function postAdjust(req, res) {
       );
       const sdRow = sdCur.recordset[0];
       const qtyBefore = !sdRow ? 0 : Number(sdRow.curOut || 0);
-      const qtyAfter  = type === 'ADD' ? qtyBefore + delta : qtyBefore - delta;
+      // delta 는 userUnit(박스/단/송이) 기준 — curOut(OutQuantity=OutUnit 기준)에 더하기 전에
+      // OutUnit 으로 환산한다. (장미 B1B=10: '10단 ADD' → OutQuantity +1박스, not +10).
+      // OrderDetail 측과 단위 기준을 통일해 출고/주문 비대칭(잔량 마이너스)을 막는다.
+      const adj = computeShipmentAdjustUnits({
+        curOut: qtyBefore, delta, type, unit: userUnit,
+        outUnit: prodOutUnit, bunchOf1Box: B1B, steamOf1Box: S1B,
+      });
+      const qtyAfter = adj.qtyAfter;
       if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore})보다 큼`);
 
-      const u = toShipmentUnits(qtyAfter, B1B, S1B);
+      const u = adj.units;
       const outQBefore = qtyBefore;
       const outQAfter  = u.outQ;
       const unitCost = Number(sdRow?.curCost || 0) || defaultUnitCost;
-      const amountBase = estimateQuantityFromShipmentUnits(u);
+      const amountBase = adj.estQty;
       const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
       let targetSdk;

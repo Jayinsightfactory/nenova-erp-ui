@@ -151,6 +151,35 @@ async function req(path, { method = 'GET', token, body } = {}) {
     console.log('    (byDate 행 없음 — 출고 상세 미생성 가능)');
   }
 
+  // [5] 단위 환산 정합 (exe vs 웹) — OutUnit=박스 + BunchOf1Box>1 품목에서
+  //     출고/주문 비율 ≈ BunchOf1Box 면 단(묶음)을 박스로 저장한 10배 의심.
+  //     distribute?type=products 가 품목별 OutUnit·BunchOf1Box·주문합(orderQty)·출고합(outQty) 제공.
+  const prodRes = await req(`/api/shipment/distribute?type=products&week=${WEEK}`, { token });
+  const products = prodRes.json?.products || [];
+  const unitSuspects = [];
+  for (const p of products) {
+    const outUnit = String(p.OutUnit || '').trim();
+    const b1b = Number(p.BunchOf1Box || 0);
+    const orderQty = Number(p.orderQty || 0);
+    const outQty = Number(p.outQty || 0);
+    if (outUnit !== '박스' || !(b1b > 1) || !(orderQty > 0) || !(outQty > 0)) continue;
+    const ratio = outQty / orderQty;
+    if (ratio >= b1b * 0.85 && ratio <= b1b * 1.15) {
+      unitSuspects.push({ name: p.ProdName || '', b1b, orderQty, outQty, ratio });
+    }
+  }
+  console.log(`\n[5] 단위 환산 정합 (OutUnit=박스·B1B>1, 출고/주문 ≈ B1B) — HTTP ${prodRes.status}`);
+  console.log(`    주문 품목 ${products.length}종 중 단→박스 10배 의심 ${unitSuspects.length}건`);
+  unitSuspects
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 12)
+    .forEach((s) => {
+      console.log(
+        `      ${s.name.slice(0, 28)} | 주문${s.orderQty}박스 출고${s.outQty} | 비율≈${Math.round(s.ratio)} (B1B=${s.b1b}) ⚠`
+      );
+    });
+  if (!unitSuspects.length) console.log('    단→박스 10배 의심 없음 (출고/주문 비율 정상)');
+
   const printBad = samples.reduce((acc, x) => acc + x.badCost, 0);
   console.log('\n=== 종합 판정 ===');
   const issues = [];
@@ -158,6 +187,7 @@ async function req(path, { method = 'GET', token, body } = {}) {
   if (dateCnt) issues.push(`출고일 불일치 ${dateCnt}건`);
   if (estCnt) issues.push(`EstQuantity 불일치 ${estCnt}건`);
   if (mismatches.length) issues.push(`Detail↔Date↔View 불일치 ${mismatches.length}건`);
+  if (unitSuspects.length) issues.push(`단→박스 10배 의심 ${unitSuspects.length}건`);
   if (printBad) issues.push(`웹 인쇄 금액식 불일치 ${printBad}행`);
 
   if (!shipments.length && shipRows.length) {
@@ -173,6 +203,10 @@ async function req(path, { method = 'GET', token, body } = {}) {
   issues.forEach((i) => console.log(`  • ${i}`));
   if (mismatches.length) {
     console.log('  ※ Detail↔Date 불일치 → /api/dev/estimate-cost-date-sync 로 복구 가능');
+  }
+  if (unitSuspects.length) {
+    console.log(`  ※ 단→박스 10배 의심 → 진단: node scripts/probe-unit-mismatch.js ${WEEK}`);
+    console.log(`               보정(dry-run): node scripts/repair-unit-mismatch.js --week=${WEEK}`);
   }
   process.exit(issues.some((i) => i.includes('Est') || i.includes('출고일') || i.includes('불변')) ? 1 : 0);
 })().catch((e) => {

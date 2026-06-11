@@ -32,6 +32,8 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { toOrderUnits } from '../../../lib/shipmentImportQty';
+import { normalizeOrderUnit } from '../../../lib/orderUtils';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
@@ -250,6 +252,7 @@ async function createShipment(req, res) {
         const prod = await tQ(
           `SELECT ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
                   ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
+                  p.OutUnit,
                   ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost
              FROM Product p
              LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=@ck AND cpc.ProdKey=p.ProdKey
@@ -260,7 +263,23 @@ async function createShipment(req, res) {
 
         const productInfo = prod.recordset[0];
         const qty = parseFloat(item.qty) || 0;
-        const units = toShipmentUnits(qty, productInfo);
+        // item.unit 이 있으면 OutUnit 기준으로 환산(장미 OutUnit=박스·B1B=10: '10단' → 1박스).
+        // 없으면 외부 API 계약상 박스(OutUnit) 기준으로 간주(기존 호출자 호환 — 회귀 방지)하되,
+        // B1B>1 박스 품목이면 단(묶음) 수량을 박스로 잘못 보낸 10배 위험을 경고로 응답한다.
+        const itemUnit = item.unit || item.outUnit || '';
+        const outUnit = normalizeOrderUnit(productInfo.OutUnit, '박스');
+        const b1b = Number(productInfo.BunchOf1Box || 0);
+        let unitWarning = null;
+        let outQtyBase;
+        if (itemUnit) {
+          outQtyBase = toOrderUnits(qty, itemUnit, productInfo).outQty;
+        } else {
+          outQtyBase = qty;
+          if (qty > 0 && outUnit === '박스' && b1b > 1) {
+            unitWarning = `unit 미지정 — ${qty}을(를) 박스로 저장했습니다. 단(묶음) 수량이면 unit:'단' 을 명시하세요(박스당 ${b1b}단).`;
+          }
+        }
+        const units = toShipmentUnits(outQtyBase, productInfo);
         const estQty = estimateQuantityFromShipmentUnits(units);
         const cost = parseFloat(item.cost) || Number(productInfo.Cost || 0);
         const amount = Math.round(estQty * cost / 1.1);
@@ -374,18 +393,27 @@ async function createShipment(req, res) {
           await syncKeyNumbering(tQ, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
           await refreshShipmentDatesAfterDetailChange(tQ, detailKey, sql, { shipDtm: shipDate });
         }
-        results.push({ prodKey, prodName: item.prodName, qty, cost, amount, status: 'OK' });
+        results.push({
+          prodKey, prodName: item.prodName,
+          qty, unit: itemUnit || null, outQty: units.outQty,
+          cost, amount, status: 'OK',
+          ...(unitWarning ? { warning: unitWarning } : {}),
+        });
       }
 
       return { shipmentKey: sk, results };
     });
 
+    const warnings = results
+      .filter(r => r.warning)
+      .map(r => ({ prodKey: r.prodKey, prodName: r.prodName, warning: r.warning }));
     return res.status(201).json({
       success: true,
       shipmentKey,
       week: resolvedWeek,
       savedItems: results.filter(r => r.status === 'OK').length,
       failedItems: results.filter(r => r.status !== 'OK'),
+      ...(warnings.length ? { warnings } : {}),
       results,
     });
   } catch (err) {

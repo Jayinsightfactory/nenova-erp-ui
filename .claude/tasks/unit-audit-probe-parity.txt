@@ -1,0 +1,58 @@
+[CONTEXT]
+- Project: nenova-erp-ui
+- Path: C:\Users\USER\nenova-erp-ui
+- Branch: master (최근 커밋 7fb4500 — import/distribute/stock 단위 hardening)
+- 배경: 장미 물량표 엑셀은 단, DB/웹은 박스 → 10배 잔량 오류. 일부는 이미 고침(shipmentImportQty, distributeUnits, stock-status PATCH).
+- 기존 도구:
+  - lib/unitMismatchAudit.js, lib/shipmentImportQty.js, lib/distributeUnits.js
+  - scripts/probe-import-qty-2401.js, scripts/probe-unit-mismatch.js (읽기 전용)
+  - scripts/compare-week-exe.js (24-01 exe vs web API 비교)
+  - npm run test:import-qty, test:probe-2401, test:probe-unit, test:compare-week
+- Agents: shipment-import-guard, db-schema-guard, code-reviewer, deploy-verifier
+
+[TASK — 3개 모두 수행]
+
+## 작업 A: OutUnit 쓰기 경로 전체 감사
+1. repo 전체에서 OrderDetail/ShipmentDetail/Estimate 등 **수량을 DB에 쓰는** API·lib·페이지 경로를 grep/탐색.
+2. OutUnit=박스 + BunchOf1Box>1 품목에 대해 **단→박스 혼동 가능한 경로** 목록 작성.
+3. 이미 distribute.js, stock-status PATCH, distribute-import apply 가 distributeUnits/normalizeUploadQty 쓰는지 확인.
+4. **누락된 경로**가 있으면 최소 diff로 distributeUnits 또는 normalizeUploadQtyForProduct 적용.
+5. 결과를 docs/OUTUNIT_WRITE_AUDIT_2026-06-10.md 에 표로 정리 (경로, 현재 처리, 위험도, 조치).
+
+## 작업 B: 24-01 DB probe + 보정 스크립트
+1. probe-import-qty-2401.js, probe-unit-mismatch.js 실행 (.env.local 있으면). 없으면 스크립트만 완성하고 "DB 없음" 명시.
+2. scripts/repair-unit-mismatch.js 신규 작성:
+   - **기본 dry-run** (--apply 없으면 SELECT+리포트만)
+   - 대상: OutUnit=박스, BunchOf1Box>1, BunchQuantity≈OutQty×B1B, 주문 대비 OutQty≈B1B배 의심 행
+   - --week=24-01 --cust=주광 (옵션) --apply 시에만 ShipmentDetail/OrderDetail OutQuantity를 B1B로 나눠 수정
+   - 트랜잭션, 행별 before/after 로그, --limit N
+   - UPDATE 전 사용자 확인용 요약 출력
+3. package.json에 "repair:unit-mismatch": "node scripts/repair-unit-mismatch.js" 추가
+4. __tests__ 또는 repair 스크립트 내 pure 함수 단위 테스트 (ratio 판별 로직)
+
+## 작업 C: exe vs web parity (24-01)
+1. scripts/compare-week-exe.js 검토·보강:
+   - OutUnit/수량 불일치 항목 섹션 추가 (validate/repair 결과 + shipment distribute GET 비교)
+   - 단→박스 의심 ratio (shipOut/orderBox ≈ BunchOf1Box) 요약
+2. compare-week 실행 결과를 docs/PARITY_24-01_2026-06-10.md 에 요약 (실행 못하면 스크립트만 완성)
+3. shipment-import-guard 관점에서 import 경로와 parity 리포트 cross-reference 한 줄 권고
+
+[CONSTRAINTS]
+- CLAUDE.md / .claude/agents/shipment-import-guard.md 규칙 준수
+- 수술식 diff — 요청 범위 밖 리팩터 금지
+- hydrangea 물량표는 단→박스 auto-convert 제외 (기존 isBunchAllocationImportRow 규칙 유지)
+- repair 스크립트: --apply 없이는 절대 UPDATE 금지
+- git commit/push 하지 말 것
+
+[VERIFY]
+npm run test:import-qty
+npm run build
+git diff --stat
+(가능하면) npm run test:probe-unit -- 24-01
+(가능하면) npm run test:compare-week -- 24-01
+
+[OUTPUT]
+작업 완료 보고:
+- A: 감사표 요약 + 수정한 파일
+- B: probe 결과(또는 DB없음) + repair 사용법
+- C: parity 리포트 요약 + compare-week 변경점
