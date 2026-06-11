@@ -12,7 +12,10 @@ import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
 import { useLang } from '../../lib/i18n';
-import { PIVOT_FIELDS, FIELD_BY_ID, ZONES, DEFAULT_LAYOUT, canDropInZone } from '../../lib/pivotFieldRegistry';
+import { PIVOT_FIELDS, FIELD_BY_ID, ZONES, canDropInZone, COL_GROUP_LABELS } from '../../lib/pivotFieldRegistry';
+
+const DND_FIELD_ID = 'application/x-pivot-field-id';
+const DND_FIELD_FROM = 'application/x-pivot-field-from';
 
 const fN = n => (!n || n === 0) ? '' : Number(n).toFixed(2);
 
@@ -217,7 +220,7 @@ export default function Pivot() {
   const [dragOverIdx,   setDragOverIdx]   = useState(null);
 
   // ── Field List (exe DevExpress PivotGrid 형) — 행/열/필터/값 4영역 드래그
-  const [showFieldList, setShowFieldList] = useState(false);
+  const [showFieldList, setShowFieldList] = useState(true);
   const [filterZone,    setFilterZone]    = useState([]);          // 필터영역에 놓인 필드 id[]
   const [fieldFilters,  setFieldFilters]  = useState({});          // { fieldId: [선택값] }  (없음/빈배열 = 전체)
   const [dragField,     setDragField]     = useState(null);        // { id, from } 현재 드래그 중
@@ -269,6 +272,7 @@ export default function Pivot() {
       const l = JSON.parse(raw);
       if (Array.isArray(l.filter)) setFilterZone(l.filter.filter(id => FIELD_BY_ID[id]));
       if (l.fieldFilters && typeof l.fieldFilters === 'object') setFieldFilters(l.fieldFilters);
+      if (Array.isArray(l.colGroupOrder)) setColGroupOrder(l.colGroupOrder);
       if (typeof l.showFieldList === 'boolean') setShowFieldList(l.showFieldList);
     } catch {}
   }, []);
@@ -281,26 +285,41 @@ export default function Pivot() {
         data:   PIVOT_FIELDS.filter(f => f.zone === 'data' && isFieldActive(f.id)).map(f => f.id),
         filter: filterZone,
         fieldFilters,
+        colGroupOrder,
         showFieldList,
       };
       localStorage.setItem('pivotFieldLayout', JSON.stringify(layout));
     } catch {}
-  }, [filterZone, fieldFilters, showFieldList, isFieldActive]);
+  }, [filterZone, fieldFilters, colGroupOrder, showFieldList, isFieldActive]);
 
-  // 필드 드롭 처리 — zone 으로 끌어다 놓기
-  const handleFieldDrop = useCallback((zoneId) => {
+  // 필드 드롭 — dataTransfer 우선 (React state 타이밍 이슈 방지)
+  const readDropPayload = useCallback((e) => {
+    const id = e?.dataTransfer?.getData(DND_FIELD_ID) || e?.dataTransfer?.getData('text/plain') || dragField?.id;
+    const from = e?.dataTransfer?.getData(DND_FIELD_FROM) || dragField?.from || '__tray__';
+    return { id: id || '', from };
+  }, [dragField]);
+
+  const startFieldDrag = useCallback((id, from) => (e) => {
+    e.dataTransfer.setData(DND_FIELD_ID, id);
+    e.dataTransfer.setData(DND_FIELD_FROM, from);
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragField({ id, from });
+  }, []);
+
+  const handleFieldDrop = useCallback((zoneId, dropId, dropFrom, e) => {
     setZoneHover(null);
-    const drag = dragField;
+    const payload = dropId ? { id: dropId, from: dropFrom || '__tray__' } : readDropPayload(e);
     setDragField(null);
-    if (!drag) return;
-    const { id, from } = drag;
+    const { id, from } = payload;
+    if (!id) return;
     if (from === zoneId) return;
     if (zoneId === 'filter') {
-      if (!canDropInZone(id, 'filter') || !FIELD_BY_ID[id]?.dataKey) return;  // 값 필터는 데이터키 있는 필드만
+      if (!canDropInZone(id, 'filter')) return;
       setFilterZone(z => z.includes(id) ? z : [...z, id]);
       return;
     }
-    if (zoneId === '__tray__') {                 // 트레이로 끌어내기 = 제거
+    if (zoneId === '__tray__') {
       if (from === 'filter') {
         setFilterZone(z => z.filter(x => x !== id));
         setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
@@ -310,7 +329,7 @@ export default function Pivot() {
       return;
     }
     if (canDropInZone(id, zoneId)) setFieldActive(id, true);
-  }, [dragField, setFieldActive]);
+  }, [readDropPayload, setFieldActive]);
 
   // 필터영역 필드 제거
   const removeFilterField = useCallback((id) => {
@@ -324,21 +343,40 @@ export default function Pivot() {
   const [showFilterEditor,  setShowFilterEditor]  = useState(false);
   const [draftConds,        setDraftConds]         = useState([]);
 
+  const captureLayout = useCallback(() => ({
+    showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
+    showArea, showDescr, showSections, viewMode, showFieldList,
+    filterZone, fieldFilters, colGroupOrder, filters, filterConditions,
+  }), [showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
+    showArea, showDescr, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, filters, filterConditions]);
+
+  const applyLayout = useCallback((cfg) => {
+    if (!cfg) return;
+    setShowOutDate(!!cfg.showOutDate); setShowInPrice(!!cfg.showInPrice);
+    setShowInTotal(!!cfg.showInTotal); setShowAWB(!!cfg.showAWB);
+    setShowCost(!!cfg.showCost); setShowDistCost(!!cfg.showDistCost);
+    setShowArrival(!!cfg.showArrival); setShowQty(cfg.showQty !== false);
+    setShowAmount(!!cfg.showAmount); setShowArea(!!cfg.showArea); setShowDescr(!!cfg.showDescr);
+    if (cfg.showSections) setShowSections(cfg.showSections);
+    if (cfg.viewMode === 'compact' || cfg.viewMode === 'detail') setViewMode(cfg.viewMode);
+    if (typeof cfg.showFieldList === 'boolean') setShowFieldList(cfg.showFieldList);
+    if (Array.isArray(cfg.filterZone)) setFilterZone(cfg.filterZone.filter(id => FIELD_BY_ID[id]));
+    if (cfg.fieldFilters && typeof cfg.fieldFilters === 'object') setFieldFilters(cfg.fieldFilters);
+    if (Array.isArray(cfg.colGroupOrder)) setColGroupOrder(cfg.colGroupOrder);
+    if (cfg.filters && typeof cfg.filters === 'object') setFilters(cfg.filters);
+    if (Array.isArray(cfg.filterConditions)) setFilterConditions(cfg.filterConditions);
+  }, []);
+
   const saveFav = () => {
     if (!favName.trim()) return;
-    const cfg = { name:favName, showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showSections, viewMode };
+    const cfg = { name: favName.trim(), ...captureLayout() };
     const next = [...favorites, cfg];
     setFavorites(next);
     localStorage.setItem('pivotFavs', JSON.stringify(next));
     setFavName(''); setShowFavMenu(false);
   };
   const loadFav = fav => {
-    setShowOutDate(fav.showOutDate); setShowInPrice(fav.showInPrice);
-    setShowInTotal(fav.showInTotal); setShowAWB(fav.showAWB); setShowCost(fav.showCost||false);
-    setShowDistCost(fav.showDistCost||false);
-    setShowArrival(fav.showArrival||false);
-    setShowQty(fav.showQty); setShowSections(fav.showSections || {});
-    if (fav.viewMode === 'compact' || fav.viewMode === 'detail') setViewMode(fav.viewMode);
+    applyLayout(fav);
     setShowFavMenu(false);
   };
   const delFav = idx => {
@@ -715,7 +753,7 @@ export default function Pivot() {
                   ⭐ 즐겨찾기
                 </div>
                 <div style={{padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>현재 설정 저장</div>
+                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>현재 설정 저장 (필드·필터·그룹순서·구분 포함)</div>
                   <div style={{display:'flex',gap:4}}>
                     <input className="filter-input" style={{flex:1,height:22}} placeholder="이름..."
                       value={favName} onChange={e=>setFavName(e.target.value)}/>
@@ -744,59 +782,18 @@ export default function Pivot() {
         ■ Pivot 통계
       </div>
 
-      {/* 행 토글 버튼 */}
+      {/* 툴바 — 필드 토글은 Field List 로 통합 (중복 버튼 제거) */}
       <div style={{padding:'3px 8px',background:'#EEF4FA',border:'1px solid var(--border)',borderTop:'none',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',flexShrink:0}}>
-        {/* Field List 패널 토글 (exe PivotGrid Field List) */}
         <button className={`btn btn-sm ${showFieldList?'btn-primary':''}`} style={{height:22,fontSize:11,fontWeight:700}}
-          title="필드를 행/열/필터/값 영역으로 드래그 (exe PivotGrid Field List)"
+          title="필드를 행/열/필터/값 영역으로 드래그"
           onClick={()=>setShowFieldList(s=>!s)}>🗂 필드 목록</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
-        {/* 행 추가 컬럼 */}
-        {[
-          {label:'품목명',  active:true,   onClick:null,                     disabled:true},
-          {label:'지역',    active:showArea, onClick:()=>setShowArea(s=>!s)},
-          {label:'출고일',  active:showOutDate, onClick:()=>setShowOutDate(s=>!s)},
-          {label:'입고단가',active:showInPrice,  onClick:()=>setShowInPrice(s=>!s)},
-          {label:'입고총단가',active:showInTotal,onClick:()=>setShowInTotal(s=>!s)},
-          {label:'AWB',     active:showAWB, onClick:()=>setShowAWB(s=>!s)},
-          {label:'판매단가',active:showCost, onClick:()=>setShowCost(s=>!s)},
-          {label:'분배단가',active:showDistCost, onClick:()=>setShowDistCost(s=>!s)},
-          {label:'도착원가',active:showArrival, onClick:()=>setShowArrival(s=>!s)},
-          {label:'판매금액',active:showAmount, onClick:()=>setShowAmount(s=>!s)},
-          {label:'비고',   active:showDescr, onClick:()=>setShowDescr(s=>!s)},
-        ].map(b=>(
-          <button key={b.label}
-            className={`btn btn-sm ${b.active?'btn-primary':''}`}
-            style={{height:22,fontSize:11}}
-            onClick={b.onClick} disabled={b.disabled}
-          >{b.label}</button>
-        ))}
-        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
-        {/* ── 뷰 모드: compact(거래처/농장 합계) ↔ detail(전개) */}
         <button className={`btn btn-sm ${compact?'btn-primary':''}`} style={{height:22,fontSize:11}}
-          title="exe 스타일 — 02.주문/03.입고를 품목당 1열 합계로"
-          onClick={()=>setViewMode('compact')}>▣ 합계(compact)</button>
+          title="02.주문/03.입고 품목당 1열 합계 (exe)"
+          onClick={()=>setViewMode('compact')}>▣ 합계</button>
         <button className={`btn btn-sm ${!compact?'btn-primary':''}`} style={{height:22,fontSize:11}}
-          title="거래처명/농장명 별로 열 전개"
-          onClick={()=>setViewMode('detail')}>▦ 거래처/농장(detail)</button>
-        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
-        <button className={`btn btn-sm ${showQty?'btn-primary':''}`} style={{height:22,fontSize:11}}
-          onClick={()=>setShowQty(s=>!s)}>수량</button>
-        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
-        {/* 구분 표시 토글 */}
-        {[
-          {k:'prev',    l:'01.전재고'},
-          {k:'order',   l:'02.주문'},
-          {k:'incoming',l:'03.입고'},
-          {k:'none',    l:'03.미발주'},
-          {k:'cur',     l:'05.현재고'},
-        ].map(s=>(
-          <button key={s.k}
-            className={`btn btn-sm ${showSections[s.k]?'btn-primary':''}`}
-            style={{height:22,fontSize:11}}
-            onClick={()=>setShowSections(p=>({...p,[s.k]:!p[s.k]}))}
-          >{s.l}</button>
-        ))}
+          title="거래처·농장 열 전개"
+          onClick={()=>setViewMode('detail')}>▦ 상세</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>setCollapsed(new Set())}>▼ 펼침</button>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>{
@@ -805,36 +802,7 @@ export default function Pivot() {
             (gc._sortedFlowers||Object.values(gc.flowers||{})).forEach(gf=>keys.add(gc.country+'|'+gf.flower));});
           setCollapsed(keys);
         }}>▶ 닫기</button>
-        <span style={{borderLeft:'1px solid var(--border)',margin:'0 6px'}}></span>
-        {/* ── 02.주문 컬럼 그룹 순서 (드래그로 변경) */}
-        <span style={{fontSize:10,color:'var(--text3)',fontWeight:'bold',whiteSpace:'nowrap'}}>그룹순서:</span>
-        {colGroupOrder.map((lv, idx) => (
-          <span key={lv}
-            draggable
-            onDragStart={e => { e.dataTransfer.setData('cgIdx', String(idx)); setDragOverIdx(idx); }}
-            onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
-            onDrop={e => {
-              e.preventDefault();
-              const from = parseInt(e.dataTransfer.getData('cgIdx'));
-              if (from === idx) { setDragOverIdx(null); return; }
-              const next = [...colGroupOrder];
-              const [removed] = next.splice(from, 1);
-              next.splice(idx, 0, removed);
-              setColGroupOrder(next);
-              setDragOverIdx(null);
-            }}
-            onDragEnd={() => setDragOverIdx(null)}
-            style={{
-              padding:'2px 8px', height:22, fontSize:11,
-              border:`1px solid ${dragOverIdx===idx?'var(--blue)':'var(--border2)'}`,
-              borderRadius:3,
-              background: dragOverIdx===idx ? '#e8f0fe' : '#f0f4f8',
-              cursor:'grab', userSelect:'none',
-              display:'inline-flex', alignItems:'center', gap:4,
-            }}>
-            <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>{lv}
-          </span>
-        ))}
+        <span style={{fontSize:10,color:'var(--text3)',marginLeft:4}}>필드·필터·그룹순서 → 🗂 필드 목록</span>
       </div>
 
       {/* ── Field List 패널 (exe DevExpress PivotGrid 형 — 행/열/필터/값 드래그) ── */}
@@ -846,7 +814,21 @@ export default function Pivot() {
           cursor: locked?'default':'grab', userSelect:'none',
           display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap', position:'relative',
         });
-        const startDrag = (id, from) => (e) => { e.dataTransfer.setData('fieldId', id); setDragField({ id, from }); };
+        const startDrag = startFieldDrag;
+        const onZoneDragOver = (zoneId) => (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setZoneHover(zoneId);
+        };
+        const onZoneDrop = (zoneId) => (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleFieldDrop(zoneId, null, null, e);
+        };
+        const addFieldToDefaultZone = (f) => {
+          const z = f.zone === 'column' ? 'column' : f.zone === 'data' ? 'data' : 'row';
+          handleFieldDrop(z, f.id, '__tray__');
+        };
         const Chip = ({ f, zoneId, removable }) => (
           <span draggable={!f.locked} onDragStart={startDrag(f.id, zoneId)} onDragEnd={()=>{ setDragField(null); setZoneHover(null); }}
             style={chipStyle(true, f.locked)} title={f.locked?'고정 필드(제거 불가)':'드래그하여 영역 이동'}>
@@ -871,9 +853,9 @@ export default function Pivot() {
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {ZONES.map(z=>(
                 <div key={z.id}
-                  onDragOver={e=>{ e.preventDefault(); setZoneHover(z.id); }}
+                  onDragOver={onZoneDragOver(z.id)}
                   onDragLeave={()=>setZoneHover(h=>h===z.id?null:h)}
-                  onDrop={e=>{ e.preventDefault(); handleFieldDrop(z.id); }}
+                  onDrop={onZoneDrop(z.id)}
                   style={{flex:'1 1 160px', minWidth:150, minHeight:46,
                     border:`2px dashed ${zoneHover===z.id?'var(--blue)':'var(--border2)'}`,
                     borderRadius:5, background: zoneHover===z.id?'#eaf2ff':'#fff', padding:'4px 6px'}}>
@@ -931,17 +913,64 @@ export default function Pivot() {
                 </div>
               ))}
             </div>
-            {/* 사용 가능 필드 트레이 (드래그하여 영역에 추가 / 칩을 여기로 끌면 제거) */}
-            <div onDragOver={e=>{ e.preventDefault(); setZoneHover('__tray__'); }}
+            {/* 거래처 열 그룹순서 — detail 모드 + 02.주문 표시 시 */}
+            {!compact && showSections.order && (
+              <div style={{marginTop:6,padding:'4px 8px',background:'#eef8ee',borderRadius:4,display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontSize:10,fontWeight:'bold',color:'var(--text3)'}}>02.주문 그룹순서:</span>
+                {colGroupOrder.map((lv, idx) => (
+                  <span key={lv}
+                    draggable
+                    onDragStart={e => { e.dataTransfer.setData('cgIdx', String(idx)); e.dataTransfer.effectAllowed='move'; setDragOverIdx(idx); }}
+                    onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const from = parseInt(e.dataTransfer.getData('cgIdx'), 10);
+                      if (Number.isNaN(from) || from === idx) { setDragOverIdx(null); return; }
+                      const next = [...colGroupOrder];
+                      const [removed] = next.splice(from, 1);
+                      next.splice(idx, 0, removed);
+                      setColGroupOrder(next);
+                      setDragOverIdx(null);
+                    }}
+                    onDragEnd={() => setDragOverIdx(null)}
+                    style={{
+                      padding:'2px 8px', height:22, fontSize:11,
+                      border:`1px solid ${dragOverIdx===idx?'var(--blue)':'var(--border2)'}`,
+                      borderRadius:3,
+                      background: dragOverIdx===idx ? '#e8f0fe' : '#fff',
+                      cursor:'grab', userSelect:'none',
+                      display:'inline-flex', alignItems:'center', gap:4,
+                    }}>
+                    <span style={{fontSize:9,color:'var(--text3)'}}>⠿</span>{lv}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* 구분(섹션) — exe Filter 와 동일 */}
+            <div style={{marginTop:6,padding:'4px 0',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{fontSize:10,fontWeight:'bold',color:'var(--text3)'}}>구분:</span>
+              {[
+                {k:'prev',l:'01.전재고'},{k:'order',l:'02.주문'},{k:'incoming',l:'03.입고'},
+                {k:'none',l:'03.미발주'},{k:'cur',l:'05.현재고'},
+              ].map(s => (
+                <button key={s.k} type="button"
+                  className={`btn btn-sm ${showSections[s.k]?'btn-primary':''}`}
+                  style={{height:20,fontSize:10}}
+                  onClick={()=>setShowSections(p=>({...p,[s.k]:!p[s.k]}))}>{s.l}</button>
+              ))}
+            </div>
+            {/* 사용 가능 필드 트레이 */}
+            <div onDragOver={onZoneDragOver('__tray__')}
               onDragLeave={()=>setZoneHover(h=>h==='__tray__'?null:h)}
-              onDrop={e=>{ e.preventDefault(); handleFieldDrop('__tray__'); }}
+              onDrop={onZoneDrop('__tray__')}
               style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',
                 background: zoneHover==='__tray__'?'#fff3f0':'transparent',borderRadius:4}}>
               <span style={{fontSize:10,fontWeight:'bold',color:'var(--text3)',marginRight:2}}>사용 가능:</span>
               {trayFields.length===0 ? <span style={{fontSize:10,color:'var(--text3)'}}>(모든 필드 배치됨)</span>
                 : trayFields.map(f=>(
                   <span key={f.id} draggable onDragStart={startDrag(f.id,'__tray__')} onDragEnd={()=>{ setDragField(null); setZoneHover(null); }}
-                    style={chipStyle(false,false)} title={`드래그: ${ZONES.find(z=>z.id===f.zone)?.label}${f.dataKey?' / 필터':''}`}>
+                    onDoubleClick={()=>addFieldToDefaultZone(f)}
+                    style={{...chipStyle(false,false), cursor:'grab'}} title={`드래그 또는 더블클릭 → ${ZONES.find(z=>z.id===f.zone)?.label}`}>
                     <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>{f.label}
                     {f.kind==='measure' && <span style={{fontSize:8,color:'var(--blue)'}}>∑</span>}
                   </span>
