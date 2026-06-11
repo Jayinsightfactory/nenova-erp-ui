@@ -1,0 +1,46 @@
+[CONTEXT]
+- Project: nenova-erp-ui @ C:\Users\USER\nenova-erp-ui, branch master (uncommitted pivot compact/distCost work)
+- 이해 문서: docs/PIVOT_FIELD_DRAG_UNDERSTANDING.md (dnSpy: bbtnQuantityPivot=업체별 품목 통계, DevExpress PivotGrid)
+- Agents: freight-pipeline-engineer (도착원가), nenova-orchestrator (분해)
+- 기존: lib/pivotStats.js, lib/pivotDistCost.js, pages/stats/pivot.js (compact/detail, distCost, filter editor)
+
+[TASK — Phase 1: 데이터 (freight-pipeline-engineer)]
+1. lib/pivotFreightArrival.js 신규
+   - getArrivalCostsForWeekRange({ weekStart, weekEnd, orderYear })
+   - FreightCostDetail 스냅샷 우선 (ArrivalPerBunch/Stem + Product.OutUnit → displayArrivalKRW 동치)
+   - 없으면 loadFreightData 로직 축약 재사용 또는 computeFreightCost inline (freight/index.js 패턴)
+   - 반환: Map prodKey → { arrivalCost, arrivalPerStem, arrivalPerBunch, displayUnit, source:'snapshot'|'live' }
+   - 다중 행: 입고수량(inQty) 가중평균
+2. lib/pivotStats.js — rows[].arrivalCost 추가 (운송기준원가와 동일)
+3. scripts/probe-pivot-arrival.js — 24-02 샘플 prod 3건 freight 탭 vs pivot 비교 (read-only)
+4. __tests__/pivotFreightArrival.test.js — mock 가중평균
+5. docs/PIVOT_DATA_SPEC_CODEX.md § 도착원가 추가
+
+[TASK — Phase 2: UI 필드 드래그 (Claude)]
+1. lib/pivotFieldRegistry.js — PIVOT_FIELDS 전체 (품목명, 지역, 출고일, 입고단가, 입고총단가, AWB, 비고, 거래처명, 농장명, 수량, 판매단가, 분배단가, 도착원가, 구분)
+2. pages/stats/pivot.js 리팩터
+   - 상단: **필드 버튼 전부 draggable** (exe PivotGrid Field List)
+   - Drop zones: **행 | 열 | 필터 | 값(측정)** — HTML5 DnD
+   - 필터 zone에 놓인 필드: ColHeader ▼ 체크 필터 자동 연결
+   - 하단바: `[구분] In [02. 주문, 03. 입고] And [국가] = [콜롬비아]` 형식 (showSections + filterConditions 통합 표시)
+   - **도착원가** 토글/측정 필드 — row.arrivalCost 표시 (freight 탭과 동일 숫자)
+   - **단가** = 판매단가(saleCost) + 분배단가(distCost) 드래그 가능
+   - localStorage pivotFieldLayout 저장
+   - compact/detail + 물량표 export 하위호환 유지
+3. package.json: test:pivot-freight, probe:pivot-arrival
+
+[CONSTRAINTS]
+- freightCalc.js 변경 최소 — 변경 시 freightCalc.test.js 238/238
+- commit/push 금지
+- 수술식 diff
+
+[VERIFY]
+npm run test:pivot
+npm run test:pivot-freight
+npm run test:import-qty
+npm run build
+git diff --stat
+
+[OUTPUT]
+- docs/work-reports/2026-06-11_pivot-field-drag-arrival.md (완료 보고 초안)
+- exe vs web 필드 드래그 차이표

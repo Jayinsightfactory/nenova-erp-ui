@@ -1,0 +1,45 @@
+[CONTEXT]
+- Project: nenova-erp-ui @ C:\Users\USER\nenova-erp-ui, branch master
+- Pivot: pages/stats/pivot.js, lib/pivotStats.js, pages/api/stats/pivot-data.js
+- exe 스크린샷 기준: 행=국가>꽃>품목명, 열=주문년도>주문차수>구분 — **02.주문|03.입고 2값열**(거래처/농장 미전개 compact 모드)
+- 웹 현재: 02.주문=거래처 N열, 03.입고=농장 M열 (detail 모드)
+- Codex 영역(데이터): lib/pivotStats.js — 아래 SQL/집계를 **직접 구현** (Codex spec 대기 없이 exe 정합으로)
+- Claude 영역(UI): pages/stats/pivot.js — exe 레이아웃·필터·분배단가
+
+[TASK A — 데이터 lib/pivotStats.js]
+1. ShipmentDetail.Cost 조회 추가 → rows[].distCostOrders = { [custName]: cost } (OutQuantity>0, 동일 cust+prod 다행이면 OutQuantity 가중 평균 또는 MAX Cost — 주석으로 선택 이유)
+2. rows[].summary 유지: totalOrder, totalIncoming (이미 있음)
+3. docs/PIVOT_DATA_SPEC_CODEX.md 작성 (집계 공식, SQL, API 스키마 — Codex 산출물 형식)
+
+[TASK B — UI pages/stats/pivot.js exe parity]
+1. **뷰 모드** 토글: `compact`(exe 기본) | `detail`(현재 거래처/농장 전개)
+   - compact: 02.주문 1열( totalOrder ), 03.입고 1열( totalIncoming ) — 스크린샷과 동일
+   - detail: 기존 sortedCusts / farms 전개 유지
+2. **분배단가** 토글 `showDistCost`: 02.주문 셀에 distCostOrders[custName] 표시 (compact에선 품목 행 옆 또는 주문열 하위)
+   - 기존 showCost(판매가격/costOrders)와 구분 — 라벨 "분배단가" / "판매단가"
+3. **필터 exe 스타일** 하단바:
+   - 활성 조건을 `[구분] In [02. 주문, 03. 입고] And [국가] = [콜롬비아]` 텍스트로 표시
+   - 각 조건 × 제거, + 조건 추가 → Filter Editor 연동
+   - 구분 In/Not In 멀티선택 (anyof) 기본 지원
+4. **필드 버튼 바** (exe 상단): 품목명, 지역, 출고일, 입고단가, 거래처명/농장명, 입고총단가, AWB, 비고, 수량 — 클릭=행/열 토글 (최소: 기존 show* 버튼과 통합, 레이블 exe와 동일)
+5. compact 모드 기본값 ON, localStorage `pivotViewMode` 저장
+6. CSV/엑셀 export에 distCostOrders 반영
+
+[TASK C — 테스트]
+- __tests__/pivotStats.test.js (pure): distCostOrders 집계 mock, compact summary totals
+- npm run test:pivot 추가
+
+[CONSTRAINTS]
+- pivot-volume-excel.js API response shape 깨지지 않게 (rows 필드 additive only)
+- 최소 diff, 기존 Filter Editor/즐겨찾기 유지
+- commit/push 금지
+
+[VERIFY]
+npm run test:pivot
+npm run build
+git diff --stat
+
+[OUTPUT]
+- exe vs web 차이표 (구현 후)
+- compact/detail 스크린 설명
+- distCostOrders 샘플 JSON

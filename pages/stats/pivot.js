@@ -12,8 +12,24 @@ import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
 import { useLang } from '../../lib/i18n';
+import { PIVOT_FIELDS, FIELD_BY_ID, ZONES, DEFAULT_LAYOUT, canDropInZone } from '../../lib/pivotFieldRegistry';
 
 const fN = n => (!n || n === 0) ? '' : Number(n).toFixed(2);
+
+// 행 대표 분배단가 — compact 뷰용. 거래처별 분배단가를 주문수량으로 가중 평균.
+// Σ(orders[c]·distCostOrders[c]) / Σ(orders[c] for c in distCostOrders)
+const rowDistCostAvg = r => {
+  const dc = r?.distCostOrders || {};
+  const ord = r?.orders || {};
+  let num = 0, den = 0;
+  for (const c of Object.keys(dc)) {
+    const cost = Number(dc[c] || 0);
+    if (!(cost > 0)) continue;
+    const q = Number(ord[c] || 0) || 1;  // 주문수량 없으면 균등 가중
+    num += q * cost; den += q;
+  }
+  return den > 0 ? num / den : 0;
+};
 
 // 정렬 방향 토글
 const nextSort = s => s === null ? 'asc' : s === 'asc' ? 'desc' : null;
@@ -163,6 +179,16 @@ export default function Pivot() {
   const [showAmount,   setShowAmount]   = useState(false);
   const [showQty,      setShowQty]      = useState(true);
   const [showArea,     setShowArea]     = useState(false);
+  const [showDistCost, setShowDistCost] = useState(false);  // 분배단가(ShipmentDetail.Cost) 표시
+  const [showArrival,  setShowArrival]  = useState(false);  // 도착원가(=/freight displayArrivalKRW) 표시
+
+  // ── 뷰 모드: compact(exe 기본 — 02.주문/03.입고 1열 합계) | detail(거래처/농장 전개)
+  const [viewMode, setViewMode] = useState('compact');
+  useEffect(() => {
+    try { const v = localStorage.getItem('pivotViewMode'); if (v === 'compact' || v === 'detail') setViewMode(v); } catch {}
+  }, []);
+  useEffect(() => { try { localStorage.setItem('pivotViewMode', viewMode); } catch {} }, [viewMode]);
+  const compact = viewMode === 'compact';
 
   // 열 구분 표시 여부
   const [showSections, setShowSections] = useState({ prev:true, order:true, incoming:true, none:true, cur:true });
@@ -190,6 +216,109 @@ export default function Pivot() {
   const [colGroupOrder, setColGroupOrder] = useState(['지역', '비고', '거래처명']);
   const [dragOverIdx,   setDragOverIdx]   = useState(null);
 
+  // ── Field List (exe DevExpress PivotGrid 형) — 행/열/필터/값 4영역 드래그
+  const [showFieldList, setShowFieldList] = useState(false);
+  const [filterZone,    setFilterZone]    = useState([]);          // 필터영역에 놓인 필드 id[]
+  const [fieldFilters,  setFieldFilters]  = useState({});          // { fieldId: [선택값] }  (없음/빈배열 = 전체)
+  const [dragField,     setDragField]     = useState(null);        // { id, from } 현재 드래그 중
+  const [zoneHover,     setZoneHover]     = useState(null);        // 드롭 하이라이트 중인 zone id
+  const [openFilterChip,setOpenFilterChip]= useState(null);        // 값 체크 드롭다운 열린 필터 필드 id
+
+  // 측정/행 토글 ↔ 필드 id 매핑 (Field List 가 기존 state 를 구동)
+  const measureState = {
+    qty:         [showQty,      setShowQty],
+    saleCost:    [showCost,     setShowCost],
+    distCost:    [showDistCost, setShowDistCost],
+    arrivalCost: [showArrival,  setShowArrival],
+    amount:      [showAmount,   setShowAmount],
+  };
+  const rowOptState = {
+    area:    [showArea,    setShowArea],
+    outDate: [showOutDate, setShowOutDate],
+    inPrice: [showInPrice, setShowInPrice],
+    inTotal: [showInTotal, setShowInTotal],
+    awb:     [showAWB,     setShowAWB],
+    descr:   [showDescr,   setShowDescr],
+  };
+
+  // 필드가 현재 자기 영역에서 활성인지 (Field List 칩 렌더링용)
+  const isFieldActive = useCallback((id) => {
+    const f = FIELD_BY_ID[id];
+    if (!f) return false;
+    if (f.locked) return true;                                   // 국가/꽃/품목명/구분 = 항상 활성
+    if (measureState[id]) return measureState[id][0];
+    if (rowOptState[id])  return rowOptState[id][0];
+    if (id === 'custName' || id === 'farmName') return viewMode === 'detail';
+    return false;
+  }, [showQty, showCost, showDistCost, showArrival, showAmount, showArea, showOutDate, showInPrice, showInTotal, showAWB, showDescr, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 필드를 자기 영역에 켜기/끄기 (locked 제외)
+  const setFieldActive = useCallback((id, on) => {
+    const f = FIELD_BY_ID[id];
+    if (!f || f.locked) return;
+    if (measureState[id]) { measureState[id][1](on); return; }
+    if (rowOptState[id])  { rowOptState[id][1](on); return; }
+    if (id === 'custName' || id === 'farmName') setViewMode(on ? 'detail' : 'compact');
+  }, [showQty, showCost, showDistCost, showArrival, showAmount, showArea, showOutDate, showInPrice, showInTotal, showAWB, showDescr]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // pivotFieldLayout 복원 (필터영역 배치 + 값 체크) — 마운트 1회
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('pivotFieldLayout');
+      if (!raw) return;
+      const l = JSON.parse(raw);
+      if (Array.isArray(l.filter)) setFilterZone(l.filter.filter(id => FIELD_BY_ID[id]));
+      if (l.fieldFilters && typeof l.fieldFilters === 'object') setFieldFilters(l.fieldFilters);
+      if (typeof l.showFieldList === 'boolean') setShowFieldList(l.showFieldList);
+    } catch {}
+  }, []);
+  // 레이아웃 변경 시 저장 (값 영역 활성 측정 + 행 옵션도 함께 스냅샷)
+  useEffect(() => {
+    try {
+      const layout = {
+        row:    PIVOT_FIELDS.filter(f => f.zone === 'row' && isFieldActive(f.id)).map(f => f.id),
+        column: PIVOT_FIELDS.filter(f => f.zone === 'column' && isFieldActive(f.id)).map(f => f.id),
+        data:   PIVOT_FIELDS.filter(f => f.zone === 'data' && isFieldActive(f.id)).map(f => f.id),
+        filter: filterZone,
+        fieldFilters,
+        showFieldList,
+      };
+      localStorage.setItem('pivotFieldLayout', JSON.stringify(layout));
+    } catch {}
+  }, [filterZone, fieldFilters, showFieldList, isFieldActive]);
+
+  // 필드 드롭 처리 — zone 으로 끌어다 놓기
+  const handleFieldDrop = useCallback((zoneId) => {
+    setZoneHover(null);
+    const drag = dragField;
+    setDragField(null);
+    if (!drag) return;
+    const { id, from } = drag;
+    if (from === zoneId) return;
+    if (zoneId === 'filter') {
+      if (!canDropInZone(id, 'filter') || !FIELD_BY_ID[id]?.dataKey) return;  // 값 필터는 데이터키 있는 필드만
+      setFilterZone(z => z.includes(id) ? z : [...z, id]);
+      return;
+    }
+    if (zoneId === '__tray__') {                 // 트레이로 끌어내기 = 제거
+      if (from === 'filter') {
+        setFilterZone(z => z.filter(x => x !== id));
+        setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
+      } else {
+        setFieldActive(id, false);
+      }
+      return;
+    }
+    if (canDropInZone(id, zoneId)) setFieldActive(id, true);
+  }, [dragField, setFieldActive]);
+
+  // 필터영역 필드 제거
+  const removeFilterField = useCallback((id) => {
+    setFilterZone(z => z.filter(x => x !== id));
+    setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
+    if (openFilterChip === id) setOpenFilterChip(null);
+  }, [openFilterChip]);
+
   // ── Filter Editor
   const [filterConditions, setFilterConditions] = useState([]);
   const [showFilterEditor,  setShowFilterEditor]  = useState(false);
@@ -197,7 +326,7 @@ export default function Pivot() {
 
   const saveFav = () => {
     if (!favName.trim()) return;
-    const cfg = { name:favName, showOutDate, showInPrice, showInTotal, showAWB, showCost, showQty, showSections };
+    const cfg = { name:favName, showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showSections, viewMode };
     const next = [...favorites, cfg];
     setFavorites(next);
     localStorage.setItem('pivotFavs', JSON.stringify(next));
@@ -206,7 +335,10 @@ export default function Pivot() {
   const loadFav = fav => {
     setShowOutDate(fav.showOutDate); setShowInPrice(fav.showInPrice);
     setShowInTotal(fav.showInTotal); setShowAWB(fav.showAWB); setShowCost(fav.showCost||false);
+    setShowDistCost(fav.showDistCost||false);
+    setShowArrival(fav.showArrival||false);
     setShowQty(fav.showQty); setShowSections(fav.showSections || {});
+    if (fav.viewMode === 'compact' || fav.viewMode === 'detail') setViewMode(fav.viewMode);
     setShowFavMenu(false);
   };
   const delFav = idx => {
@@ -239,13 +371,16 @@ export default function Pivot() {
     if (showOutDate) hdrs.push('출고일');
     if (showInPrice) hdrs.push('입고단가');
     if (showInTotal) hdrs.push('입고총단가');
+    if (showArrival) hdrs.push('도착원가');
     if (showAWB)     hdrs.push('AWB');
     if (showAmount)  hdrs.push('판매금액');
     if (showDescr)   hdrs.push('비고');
     if (showSections.prev)     hdrs.push('01.전재고');
-    if (showSections.order)    custs.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`단가_${c.custName}`); });
-    if (showSections.order)    hdrs.push('02.주문Total');
-    if (showSections.incoming) farms.forEach(f=>hdrs.push(`입고_${f}`));
+    if (showSections.order && !compact) custs.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`판매단가_${c.custName}`); if(showDistCost) hdrs.push(`분배단가_${c.custName}`); });
+    if (showSections.order)    hdrs.push(compact?'02.주문':'02.주문Total');
+    if (showSections.order && compact && showDistCost) hdrs.push('분배단가');
+    if (showSections.incoming && !compact) farms.forEach(f=>hdrs.push(`입고_${f}`));
+    if (showSections.incoming && compact)  hdrs.push('03.입고');
     if (showSections.none)     hdrs.push('03.미발주');
     if (showSections.cur)      hdrs.push('05.현재고');
 
@@ -256,13 +391,16 @@ export default function Pivot() {
       if (showOutDate) row.push(r.outDate||'');
       if (showInPrice) row.push(r.inPrice||0);
       if (showInTotal) row.push(r.inTotal||0);
+      if (showArrival) row.push(r.arrivalCost||0);
       if (showAWB)     row.push(r.awb||'');
       if (showAmount)  row.push((r.cost||0)*(r.totalOrder||0));
       if (showDescr)   row.push(r.descr||'');
       if (showSections.prev)     row.push(r.prevStock||0);
-      if (showSections.order)    custs.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); });
+      if (showSections.order && !compact) custs.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); if(showDistCost) row.push(r.distCostOrders?.[c.custName]||0); });
       if (showSections.order)    row.push(r.totalOrder||0);
-      if (showSections.incoming) farms.forEach(f=>row.push(r.incoming?.[f]||0));
+      if (showSections.order && compact && showDistCost) row.push(rowDistCostAvg(r)||0);
+      if (showSections.incoming && !compact) farms.forEach(f=>row.push(r.incoming?.[f]||0));
+      if (showSections.incoming && compact)  row.push(r.totalIncoming||0);
       if (showSections.none)     row.push(r.noneOut||0);
       if (showSections.cur)      row.push(r.curStock||0);
       rows.push(row);
@@ -383,6 +521,13 @@ export default function Pivot() {
     return [...new Set(data.rows.map(r=>String(r[key]||'')).filter(Boolean))].sort().slice(0,60);
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 필터영역 필드(레지스트리 id) → 데이터 distinct 값
+  const getValuesForFieldId = useCallback((id) => {
+    const key = FIELD_BY_ID[id]?.dataKey;
+    if (!key || !data?.rows) return [];
+    return [...new Set(data.rows.map(r=>String(r[key]??'')).filter(v=>v!==''))].sort().slice(0,200);
+  }, [data]);
+
   // 필터 적용 (__EMPTY__ = 전체 해제 + Filter Editor 조건)
   const filteredRows = useMemo(() => (data?.rows||[]).filter(r => {
     if (filters.area?.includes('__EMPTY__'))     return false;
@@ -410,8 +555,16 @@ export default function Pivot() {
       if (cond.op === 'lt'  && !(Number(val) <  Number(cond.value))) return false;
       if (cond.op === 'lte' && !(Number(val) <= Number(cond.value))) return false;
     }
+    // Field List 필터영역 값 체크 (anyof — 빈 선택은 전체 통과)
+    for (const id of filterZone) {
+      const sel = fieldFilters[id];
+      if (!sel || sel.length === 0) continue;
+      const key = FIELD_BY_ID[id]?.dataKey;
+      if (!key) continue;
+      if (!sel.includes(String(r[key] ?? ''))) return false;
+    }
     return true;
-  }), [data, filters, filterConditions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [data, filters, filterConditions, filterZone, fieldFilters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 거래처 그룹값 추출 (colGroupOrder용)
   const getCustVal = useCallback((cust, level) => {
@@ -515,8 +668,8 @@ export default function Pivot() {
   // showCost는 업체별 셀 내부에 스택으로 표시되므로 고정 컬럼 아님
   const totalFixedCols = useMemo(() =>
     3 + (showArea?1:0) + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0)
-      + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
-  [showArea, showOutDate, showInPrice, showInTotal, showAWB, showAmount, showDescr]);
+      + (showArrival?1:0) + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
+  [showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr]);
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
@@ -593,6 +746,11 @@ export default function Pivot() {
 
       {/* 행 토글 버튼 */}
       <div style={{padding:'3px 8px',background:'#EEF4FA',border:'1px solid var(--border)',borderTop:'none',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',flexShrink:0}}>
+        {/* Field List 패널 토글 (exe PivotGrid Field List) */}
+        <button className={`btn btn-sm ${showFieldList?'btn-primary':''}`} style={{height:22,fontSize:11,fontWeight:700}}
+          title="필드를 행/열/필터/값 영역으로 드래그 (exe PivotGrid Field List)"
+          onClick={()=>setShowFieldList(s=>!s)}>🗂 필드 목록</button>
+        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         {/* 행 추가 컬럼 */}
         {[
           {label:'품목명',  active:true,   onClick:null,                     disabled:true},
@@ -601,7 +759,9 @@ export default function Pivot() {
           {label:'입고단가',active:showInPrice,  onClick:()=>setShowInPrice(s=>!s)},
           {label:'입고총단가',active:showInTotal,onClick:()=>setShowInTotal(s=>!s)},
           {label:'AWB',     active:showAWB, onClick:()=>setShowAWB(s=>!s)},
-          {label:'판매가격',active:showCost, onClick:()=>setShowCost(s=>!s)},
+          {label:'판매단가',active:showCost, onClick:()=>setShowCost(s=>!s)},
+          {label:'분배단가',active:showDistCost, onClick:()=>setShowDistCost(s=>!s)},
+          {label:'도착원가',active:showArrival, onClick:()=>setShowArrival(s=>!s)},
           {label:'판매금액',active:showAmount, onClick:()=>setShowAmount(s=>!s)},
           {label:'비고',   active:showDescr, onClick:()=>setShowDescr(s=>!s)},
         ].map(b=>(
@@ -611,6 +771,14 @@ export default function Pivot() {
             onClick={b.onClick} disabled={b.disabled}
           >{b.label}</button>
         ))}
+        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
+        {/* ── 뷰 모드: compact(거래처/농장 합계) ↔ detail(전개) */}
+        <button className={`btn btn-sm ${compact?'btn-primary':''}`} style={{height:22,fontSize:11}}
+          title="exe 스타일 — 02.주문/03.입고를 품목당 1열 합계로"
+          onClick={()=>setViewMode('compact')}>▣ 합계(compact)</button>
+        <button className={`btn btn-sm ${!compact?'btn-primary':''}`} style={{height:22,fontSize:11}}
+          title="거래처명/농장명 별로 열 전개"
+          onClick={()=>setViewMode('detail')}>▦ 거래처/농장(detail)</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <button className={`btn btn-sm ${showQty?'btn-primary':''}`} style={{height:22,fontSize:11}}
           onClick={()=>setShowQty(s=>!s)}>수량</button>
@@ -669,6 +837,120 @@ export default function Pivot() {
         ))}
       </div>
 
+      {/* ── Field List 패널 (exe DevExpress PivotGrid 형 — 행/열/필터/값 드래그) ── */}
+      {showFieldList && (() => {
+        const chipStyle = (active, locked) => ({
+          padding:'2px 7px', height:22, fontSize:11, borderRadius:3,
+          border:`1px solid ${active?'var(--blue)':'var(--border2)'}`,
+          background: active?'#e8f0fe':'#f4f6f9', color: active?'#1a4d8f':'var(--text2)',
+          cursor: locked?'default':'grab', userSelect:'none',
+          display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap', position:'relative',
+        });
+        const startDrag = (id, from) => (e) => { e.dataTransfer.setData('fieldId', id); setDragField({ id, from }); };
+        const Chip = ({ f, zoneId, removable }) => (
+          <span draggable={!f.locked} onDragStart={startDrag(f.id, zoneId)} onDragEnd={()=>{ setDragField(null); setZoneHover(null); }}
+            style={chipStyle(true, f.locked)} title={f.locked?'고정 필드(제거 불가)':'드래그하여 영역 이동'}>
+            {!f.locked && <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>}
+            {f.label}
+            {f.kind==='measure' && <span style={{fontSize:8,color:'var(--blue)'}}>∑</span>}
+            {removable && !f.locked && (
+              <span style={{cursor:'pointer',color:'var(--red)',fontSize:12,marginLeft:1}}
+                onClick={(e)=>{ e.stopPropagation();
+                  if (zoneId==='filter') removeFilterField(f.id); else setFieldActive(f.id, false); }}>×</span>
+            )}
+          </span>
+        );
+        const zoneActiveFields = (zoneId) => {
+          if (zoneId==='filter') return filterZone.map(id=>FIELD_BY_ID[id]).filter(Boolean);
+          return PIVOT_FIELDS.filter(f=>f.zone===zoneId && isFieldActive(f.id));
+        };
+        // 트레이: 자기 영역에서 비활성인 필드(고정 제외)
+        const trayFields = PIVOT_FIELDS.filter(f=>!f.locked && f.zone!=='filter' && !isFieldActive(f.id));
+        return (
+          <div style={{padding:'6px 8px',background:'#F7FAFE',border:'1px solid var(--border)',borderTop:'none',flexShrink:0}}>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {ZONES.map(z=>(
+                <div key={z.id}
+                  onDragOver={e=>{ e.preventDefault(); setZoneHover(z.id); }}
+                  onDragLeave={()=>setZoneHover(h=>h===z.id?null:h)}
+                  onDrop={e=>{ e.preventDefault(); handleFieldDrop(z.id); }}
+                  style={{flex:'1 1 160px', minWidth:150, minHeight:46,
+                    border:`2px dashed ${zoneHover===z.id?'var(--blue)':'var(--border2)'}`,
+                    borderRadius:5, background: zoneHover===z.id?'#eaf2ff':'#fff', padding:'4px 6px'}}>
+                  <div style={{fontSize:10,fontWeight:'bold',color:'var(--text3)',marginBottom:3}}>{z.label}</div>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                    {zoneActiveFields(z.id).map(f=>(
+                      <span key={f.id} style={{position:'relative',display:'inline-block'}}>
+                        <span onClick={z.id==='filter'?()=>setOpenFilterChip(o=>o===f.id?null:f.id):undefined}
+                          style={{cursor:z.id==='filter'?'pointer':(f.locked?'default':'grab')}}>
+                          <Chip f={f} zoneId={z.id} removable />
+                          {z.id==='filter' && (fieldFilters[f.id]?.length>0) && (
+                            <span style={{fontSize:8,color:'#fff',background:'var(--blue)',borderRadius:8,padding:'0 4px',marginLeft:2}}>
+                              {fieldFilters[f.id].length}
+                            </span>
+                          )}
+                        </span>
+                        {/* 필터 값 체크 드롭다운 */}
+                        {z.id==='filter' && openFilterChip===f.id && (
+                          <div style={{position:'absolute',top:'100%',left:0,zIndex:500,marginTop:2,
+                            background:'#fff',border:'2px solid var(--border2)',borderRadius:4,minWidth:160,
+                            maxHeight:240,overflowY:'auto',boxShadow:'2px 3px 10px rgba(0,0,0,.25)'}}
+                            onClick={e=>e.stopPropagation()}>
+                            <div style={{padding:'4px 8px',background:'#f0f4fa',fontSize:10,color:'var(--text3)',
+                              display:'flex',gap:6,position:'sticky',top:0}}>
+                              <span style={{cursor:'pointer',color:'var(--blue)'}}
+                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:getValuesForFieldId(f.id)}))}>전체</span>
+                              <span style={{cursor:'pointer',color:'var(--blue)'}}
+                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:[]}))}>해제</span>
+                              <span style={{marginLeft:'auto',cursor:'pointer'}} onClick={()=>setOpenFilterChip(null)}>닫기</span>
+                            </div>
+                            {getValuesForFieldId(f.id).map(v=>{
+                              const sel = fieldFilters[f.id]||[];
+                              const checked = sel.length===0 ? true : sel.includes(v);
+                              return (
+                                <label key={v} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 9px',fontSize:11,cursor:'pointer'}}>
+                                  <input type="checkbox" checked={checked} onChange={e=>{
+                                    setFieldFilters(ff=>{
+                                      const base = (ff[f.id]&&ff[f.id].length>0) ? ff[f.id] : getValuesForFieldId(f.id);
+                                      let next = e.target.checked ? [...new Set([...base,v])] : base.filter(x=>x!==v);
+                                      const all = getValuesForFieldId(f.id);
+                                      if (next.length===all.length) next = [];  // 전부 선택 = 필터 없음
+                                      return {...ff,[f.id]:next};
+                                    });
+                                  }} />
+                                  {v}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </span>
+                    ))}
+                    {zoneActiveFields(z.id).length===0 && <span style={{fontSize:10,color:'var(--text3)'}}>여기로 드래그</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 사용 가능 필드 트레이 (드래그하여 영역에 추가 / 칩을 여기로 끌면 제거) */}
+            <div onDragOver={e=>{ e.preventDefault(); setZoneHover('__tray__'); }}
+              onDragLeave={()=>setZoneHover(h=>h==='__tray__'?null:h)}
+              onDrop={e=>{ e.preventDefault(); handleFieldDrop('__tray__'); }}
+              style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)',display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',
+                background: zoneHover==='__tray__'?'#fff3f0':'transparent',borderRadius:4}}>
+              <span style={{fontSize:10,fontWeight:'bold',color:'var(--text3)',marginRight:2}}>사용 가능:</span>
+              {trayFields.length===0 ? <span style={{fontSize:10,color:'var(--text3)'}}>(모든 필드 배치됨)</span>
+                : trayFields.map(f=>(
+                  <span key={f.id} draggable onDragStart={startDrag(f.id,'__tray__')} onDragEnd={()=>{ setDragField(null); setZoneHover(null); }}
+                    style={chipStyle(false,false)} title={`드래그: ${ZONES.find(z=>z.id===f.zone)?.label}${f.dataKey?' / 필터':''}`}>
+                    <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>{f.label}
+                    {f.kind==='measure' && <span style={{fontSize:8,color:'var(--blue)'}}>∑</span>}
+                  </span>
+                ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 피벗 테이블 */}
       <div style={{flex:1,overflow:'auto',border:'1px solid var(--border2)',borderTop:'none'}}>
         {loading ? <div className="skeleton" style={{height:300,margin:16}}></div>
@@ -677,7 +959,7 @@ export default function Pivot() {
         ) : data.rows?.length === 0 ? (
           <div className="empty-state"><div className="empty-icon">🔍</div><div className="empty-text">해당 차수에 데이터가 없습니다.</div></div>
         ) : (
-          <table className="tbl" style={{fontSize:11, minWidth: 500+(showSections.order?custs.length*70:0)+(showSections.incoming?farms.length*70:0)}}>
+          <table className="tbl" style={{fontSize:11, minWidth: 500+(showSections.order?(compact?70:custs.length*70):0)+(showSections.incoming?(compact?70:farms.length*70):0)}}>
             <thead>
               {/* 1행: 주문년도 */}
               <tr style={{background:'#C0CCE0'}}>
@@ -685,8 +967,8 @@ export default function Pivot() {
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
                 {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
                 {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
                 {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
               </tr>
@@ -695,8 +977,8 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8CCBC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8CCBC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.none     && <th style={{background:'#D8D4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.cur      && <th style={{background:'#C4C4DC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
               </tr>
@@ -705,14 +987,14 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
-                {showSections.order    && <th colSpan={sortedCusts.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
-                {showSections.incoming && <th colSpan={farms.length||1} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
+                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
+                {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
                 {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10}}>∨ 03. 미발주</th>}
                 {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10}}>∨ 05. 현재고</th>}
               </tr>
 
-              {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) */}
-              {showSections.order && custGroupHeaders.map(({level, cells}) => (
+              {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) — detail 모드 전용 */}
+              {!compact && showSections.order && custGroupHeaders.map(({level, cells}) => (
                 <tr key={`gh-${level}`} style={{background:'#D0E8D0'}}>
                   <th colSpan={totalFixedCols} style={{background:'#E8EEF4',borderRight:'2px solid var(--border2)'}} />
                   {showSections.prev && <th style={{background:'#C8D0E8'}} />}
@@ -746,6 +1028,7 @@ export default function Pivot() {
                 {showOutDate  && <th style={{fontSize:10,minWidth:80}}>출고일</th>}
                 {showInPrice  && <th style={{fontSize:10,minWidth:70,textAlign:'right'}}>입고단가</th>}
                 {showInTotal  && <th style={{fontSize:10,minWidth:80,textAlign:'right'}}>입고총단가</th>}
+                {showArrival  && <th style={{fontSize:10,minWidth:80,textAlign:'right'}} title="/freight 운송기준원가와 동일 (도착원가/표시단위)">도착원가</th>}
                 {showAWB      && <th style={{fontSize:10,minWidth:80}}>AWB</th>}
                 {showAmount   && <th style={{fontSize:10,minWidth:80,textAlign:'right'}}>판매금액</th>}
                 {showDescr    && <th style={{fontSize:10,minWidth:80}}>비고</th>}
@@ -753,8 +1036,8 @@ export default function Pivot() {
                 {showSections.prev && (
                   <ColHeader label="전재고" sortKey="prevStock" sorts={sorts} onSort={handleSort}/>
                 )}
-                {/* 02. 주문 — sortedCusts 순서로 렌더링 */}
-                {showSections.order && sortedCusts.map((c,ci)=>(
+                {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
+                {!compact && showSections.order && sortedCusts.map((c,ci)=>(
                   <th key={c.custName} style={{textAlign:'center',minWidth:showCost?80:65,fontSize:10,background:'#D4ECD4',
                     maxWidth:showCost?110:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
@@ -767,19 +1050,23 @@ export default function Pivot() {
                 ))}
                 {showSections.order && (
                   <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold',
-                    minWidth:70,borderLeft:'2px solid var(--border2)'}}>
-                    02. 주문 Total
+                    minWidth:70,borderLeft: compact?undefined:'2px solid var(--border2)'}}>
+                    {compact ? '02. 주문' : '02. 주문 Total'}
+                    {compact && showDistCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 분배단가</div>}
                   </th>
                 )}
-                {/* 03. 입고 — 농장별 */}
-                {showSections.incoming && farms.map(f=>(
+                {/* 03. 입고 — detail: 농장별 / compact: Total 1열만 */}
+                {!compact && showSections.incoming && farms.map(f=>(
                   <th key={f} style={{textAlign:'center',minWidth:70,fontSize:10,background:'#E8DCCC',
                     maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f}>
                     ∨ {f.length>8?f.slice(0,8)+'…':f}
                   </th>
                 ))}
-                {showSections.incoming && farms.length===0 && (
+                {!compact && showSections.incoming && farms.length===0 && (
                   <th style={{background:'#E8DCCC',textAlign:'center',fontSize:10,minWidth:70}}>입고 없음</th>
+                )}
+                {compact && showSections.incoming && (
+                  <th style={{background:'#E0D4C4',textAlign:'center',fontSize:10,fontWeight:'bold',minWidth:70}}>03. 입고</th>
                 )}
                 {/* 03. 미발주 */}
                 {showSections.none && (
@@ -797,14 +1084,17 @@ export default function Pivot() {
               ) : sortedCountries.map(gCountry => {
                 const ck = gCountry.country;
                 const isCC = collapsed.has(ck);
-                const cTot = { prev:0, order:0, none:0, cur:0, custO:{}, farmI:{} };
+                const cTot = { prev:0, order:0, none:0, cur:0, inc:0, custO:{}, farmI:{} };
                 Object.values(gCountry.flowers).forEach(gf=>gf.items.forEach(r=>{
                   cTot.prev  += r.prevStock||0;
                   cTot.order += r.totalOrder||0;
+                  cTot.inc   += r.totalIncoming||0;
                   cTot.none  += r.noneOut||0;
                   cTot.cur   += r.curStock||0;
-                  custs.forEach(c=>{cTot.custO[c.custName]=(cTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
-                  farms.forEach(f=>{cTot.farmI[f]=(cTot.farmI[f]||0)+(r.incoming?.[f]||0);});
+                  if (!compact) {
+                    custs.forEach(c=>{cTot.custO[c.custName]=(cTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
+                    farms.forEach(f=>{cTot.farmI[f]=(cTot.farmI[f]||0)+(r.incoming?.[f]||0);});
+                  }
                 }));
                 return [
                   <tr key={`c-${ck}`} style={{background:'#D0DDE8',cursor:'pointer'}} onClick={()=>toggleCollapse(ck)}>
@@ -812,10 +1102,11 @@ export default function Pivot() {
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
                     {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fN(cTot.prev)}</td>}
-                    {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fN(cTot.custO[c.custName])}</td>)}
+                    {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fN(cTot.custO[c.custName])}</td>)}
                     {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(cTot.order)}</td>}
-                    {showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fN(cTot.farmI[f])}</td>)}
-                    {showSections.incoming && farms.length===0 && <td></td>}
+                    {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fN(cTot.farmI[f])}</td>)}
+                    {!compact && showSections.incoming && farms.length===0 && <td></td>}
+                    {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCC8B8'}}>{fN(cTot.inc)}</td>}
                     {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#D8D0A8'}}>{fN(cTot.none)}</td>}
                     {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#BEBEDE'}}>{fN(cTot.cur)}</td>}
                   </tr>,
@@ -823,14 +1114,17 @@ export default function Pivot() {
                   ...(!isCC ? (gCountry._sortedFlowers || Object.values(gCountry.flowers)).map(gFlower=>{
                     const fk = ck+'|'+gFlower.flower;
                     const isFC = collapsed.has(fk);
-                    const fTot = { prev:0, order:0, none:0, cur:0, custO:{}, farmI:{} };
+                    const fTot = { prev:0, order:0, none:0, cur:0, inc:0, custO:{}, farmI:{} };
                     gFlower.items.forEach(r=>{
                       fTot.prev  += r.prevStock||0;
                       fTot.order += r.totalOrder||0;
+                      fTot.inc   += r.totalIncoming||0;
                       fTot.none  += r.noneOut||0;
                       fTot.cur   += r.curStock||0;
-                      custs.forEach(c=>{fTot.custO[c.custName]=(fTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
-                      farms.forEach(f=>{fTot.farmI[f]=(fTot.farmI[f]||0)+(r.incoming?.[f]||0);});
+                      if (!compact) {
+                        custs.forEach(c=>{fTot.custO[c.custName]=(fTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
+                        farms.forEach(f=>{fTot.farmI[f]=(fTot.farmI[f]||0)+(r.incoming?.[f]||0);});
+                      }
                     });
 
                     return [
@@ -840,10 +1134,11 @@ export default function Pivot() {
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
                         {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fN(fTot.prev)}</td>}
-                        {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fN(fTot.custO[c.custName])}</td>)}
+                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fN(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B4D0B4'}}>{fN(fTot.order)}</td>}
-                        {showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fN(fTot.farmI[f])}</td>)}
-                        {showSections.incoming && farms.length===0 && <td></td>}
+                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fN(fTot.farmI[f])}</td>)}
+                        {!compact && showSections.incoming && farms.length===0 && <td></td>}
+                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCCCC0'}}>{fN(fTot.inc)}</td>}
                         {showSections.none     && <td className="num" style={{background:'#DDD8B0'}}>{fN(fTot.none)}</td>}
                         {showSections.cur      && <td className="num" style={{background:'#C4C4E0'}}>{fN(fTot.cur)}</td>}
                       </tr>,
@@ -858,31 +1153,45 @@ export default function Pivot() {
                           {showOutDate  && <td style={{fontSize:10}}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fN(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fN(r.inTotal)}</td>}
+                          {showArrival  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fN(r.arrivalCost)}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fN((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)',maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.descr}>{r.descr||''}</td>}
                           {showSections.prev && (
                             <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fN(r.prevStock)}</td>
                           )}
-                          {showSections.order && sortedCusts.map(c=>(
-                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showCost?'1.2':'inherit',padding:showCost?'1px 4px':'inherit'}}>
+                          {!compact && showSections.order && sortedCusts.map(c=>{
+                            const showStack = showCost || showDistCost;
+                            return (
+                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showStack?'1.2':'inherit',padding:showStack?'1px 4px':'inherit'}}>
                               {showQty && fN(r.orders?.[c.custName])}
                               {showCost && (r.costOrders?.[c.custName]||0)>0 && (
-                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}}>{fN(r.costOrders?.[c.custName])}</div>
+                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}} title="판매단가">{fN(r.costOrders?.[c.custName])}</div>
+                              )}
+                              {showDistCost && (r.distCostOrders?.[c.custName]||0)>0 && (
+                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic'}} title="분배단가">{fN(r.distCostOrders?.[c.custName])}</div>
                               )}
                             </td>
-                          ))}
+                          );})}
                           {showSections.order && (
-                            <td className="num" style={{fontWeight:'bold',background:'#E8F8E8',borderLeft:'2px solid var(--border2)',color:(r.totalOrder||0)>0?'#006600':'var(--text3)'}}>
+                            <td className="num" style={{fontWeight:'bold',background:'#E8F8E8',borderLeft: compact?undefined:'2px solid var(--border2)',color:(r.totalOrder||0)>0?'#006600':'var(--text3)',lineHeight:compact&&showDistCost?'1.2':'inherit'}}>
                               {fN(r.totalOrder)}
+                              {compact && showDistCost && rowDistCostAvg(r)>0 && (
+                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(주문 가중 평균)">{fN(rowDistCostAvg(r))}</div>
+                              )}
                             </td>
                           )}
-                          {showSections.incoming && farms.map(f=>(
+                          {!compact && showSections.incoming && farms.map(f=>(
                             <td key={f} className="num" style={{background:'#FFF8F0',color:(r.incoming?.[f]||0)>0?'var(--amber)':'var(--text3)'}}>
                               {fN(r.incoming?.[f])}
                             </td>
                           ))}
-                          {showSections.incoming && farms.length===0 && <td></td>}
+                          {!compact && showSections.incoming && farms.length===0 && <td></td>}
+                          {compact && showSections.incoming && (
+                            <td className="num" style={{fontWeight:'bold',background:'#FFF3E6',color:(r.totalIncoming||0)>0?'var(--amber)':'var(--text3)'}}>
+                              {fN(r.totalIncoming)}
+                            </td>
+                          )}
                           {showSections.none && (
                             <td className="num" style={{background:'#FFFCE8',color:(r.noneOut||0)>0?'var(--amber)':'var(--text3)'}}>{fN(r.noneOut)}</td>
                           )}
@@ -899,10 +1208,11 @@ export default function Pivot() {
                           {gFlower.flower} Total
                         </td>
                         {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fN(fTot.prev)}</td>}
-                        {showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fN(fTot.custO[c.custName])}</td>)}
+                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fN(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(fTot.order)}</td>}
-                        {showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.farmI[f])}</td>)}
-                        {showSections.incoming && farms.length===0 && <td></td>}
+                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.farmI[f])}</td>)}
+                        {!compact && showSections.incoming && farms.length===0 && <td></td>}
+                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.inc)}</td>}
                         {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#DAD4AC'}}>{fN(fTot.none)}</td>}
                         {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#C0C0DC'}}>{fN(fTot.cur)}</td>}
                       </tr>,
@@ -919,6 +1229,27 @@ export default function Pivot() {
       <div style={{padding:'4px 10px', background:'#f0f4fa', borderTop:'2px solid var(--border2)',
         display:'flex', alignItems:'center', gap:5, fontSize:11, flexWrap:'wrap', flexShrink:0, minHeight:32}}>
 
+        {/* 통합 필터 요약 — [구분] In [02.주문, 03.입고] And [국가] = [콜롬비아] 형식 */}
+        {(() => {
+          const secLabels = { prev:'01.전재고', order:'02.주문', incoming:'03.입고', none:'03.미발주', cur:'05.현재고' };
+          const onSecs = Object.keys(secLabels).filter(k=>showSections[k]).map(k=>secLabels[k]);
+          const parts = [];
+          parts.push(<span key="sec"><b style={{color:'var(--text2)'}}>[구분]</b> In [{onSecs.join(', ')}]</span>);
+          filterZone.forEach(id=>{
+            const sel = fieldFilters[id];
+            if (!sel || sel.length===0) return;
+            const lbl = FIELD_BY_ID[id]?.label || id;
+            const op = sel.length===1 ? '=' : 'In';
+            parts.push(<span key={`fz-${id}`}> <b style={{color:'#3b7dd8'}}>And</b> <b style={{color:'var(--text2)'}}>[{lbl}]</b> {op} [{sel.join(', ')}]</span>);
+          });
+          filterConditions.forEach((c,i)=>{
+            const opTxt = {eq:'=',neq:'≠',gt:'>',gte:'≥',lt:'<',lte:'≤',contains:'Contains',notcontains:'Does not contain',beginswith:'Begins with',endswith:'Ends with',anyof:'In'}[c.op]||c.op;
+            const val = c.op==='anyof' ? (c.values||[]).join(', ') : c.value;
+            parts.push(<span key={`fc-${i}`}> <b style={{color:'#3b7dd8'}}>And</b> <b style={{color:'var(--text2)'}}>[{c.field}]</b> {opTxt} [{val}]</span>);
+          });
+          return <span style={{flexBasis:'100%',fontSize:10,color:'var(--text3)',marginBottom:2,whiteSpace:'normal'}}>{parts}</span>;
+        })()}
+
         {/* 구분 섹션 토글 칩 */}
         <span style={{fontSize:10,color:'var(--text3)',fontWeight:'bold',marginRight:2}}>구분</span>
         {[
@@ -933,6 +1264,22 @@ export default function Pivot() {
               color: showSections[s.k] ? '#fff' : 'var(--text2)',
               border:`1px solid ${showSections[s.k]?'#2a6cc8':'var(--border)'}`,
             }}>{s.l}</span>
+        ))}
+
+        {/* Field List 필터영역 칩 (값 선택 후 표시) */}
+        {filterZone.filter(id=>fieldFilters[id]?.length>0).map(id => (
+          <span key={`fzchip-${id}`} style={{display:'flex',alignItems:'center',gap:3}}>
+            <span style={{color:'#3b7dd8',fontWeight:'bold',fontSize:10}}>And</span>
+            <span style={{background:'#fff',border:'1px solid var(--border2)',borderRadius:3,
+              padding:'1px 6px',display:'flex',alignItems:'center',gap:3,fontSize:10}}>
+              <span style={{color:'var(--text2)',fontWeight:'bold'}}>{FIELD_BY_ID[id]?.label||id}</span>
+              <span style={{color:'var(--text3)'}}>{fieldFilters[id].length===1?'=':'In'}</span>
+              {fieldFilters[id].slice(0,4).map(v=><span key={v} style={{background:'#e8f0fe',borderRadius:2,padding:'0 4px'}}>{v}</span>)}
+              {fieldFilters[id].length>4 && <span style={{color:'var(--text3)'}}>+{fieldFilters[id].length-4}</span>}
+              <span style={{cursor:'pointer',color:'var(--red)',marginLeft:2,fontSize:12}}
+                onClick={()=>setFieldFilters(ff=>({...ff,[id]:[]}))}>×</span>
+            </span>
+          </span>
         ))}
 
         {/* Filter Editor로 추가된 조건 */}

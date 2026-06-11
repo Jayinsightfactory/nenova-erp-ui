@@ -4,6 +4,28 @@
 
 ---
 
+## [2026-06-12] 세션 — Pivot 필드 드래그(Field List) + 도착원가
+
+### 작업 내용 (미커밋, 2단계 분업)
+- **Phase 1 (freight-pipeline-engineer)**: 도착원가 데이터층. `lib/pivotArrivalCalc.js`(순수 가중평균) + `lib/pivotFreightArrival.js`(`getArrivalCostsForWeekRange` — 스냅샷/라이브 + 입고수량 가중평균). `pivotStats.js` rows[]에 `arrivalCost`/`arrivalMeta` additive. **`freightCalc.js` 무변경(zero diff) → 238/238 유지.**
+  - 소스규칙: FreightCost 스냅샷 우선, 단 AWB 그룹에 OutUnit='박스' 품목 있으면 전체 라이브 계산(스냅샷에 박스당 컬럼 없음 → freight 탭 정합 보장).
+- **Phase 2 (Claude)**: `lib/pivotFieldRegistry.js`(16필드 메타) + `pages/stats/pivot.js` Field List 패널(행/열/필터/값 HTML5 DnD), 도착원가 측정 고정열, 필터존 값체크, 하단 `[구분] In […] And […]` 통합 요약바, `localStorage pivotFieldLayout`. 기존 compact/detail·export·즐겨찾기 무손상.
+
+### 변경된 파일
+- 신규: lib/pivotFieldRegistry.js, lib/pivotFreightArrival.js, lib/pivotArrivalCalc.js, __tests__/pivotFreightArrival.test.js, scripts/probe-pivot-arrival.js, docs/work-reports/2026-06-11_pivot-field-drag-arrival.md
+- 수정: lib/pivotStats.js(+42), pages/stats/pivot.js(+443), package.json(test:pivot-freight/probe:pivot-arrival), docs/PIVOT_DATA_SPEC_CODEX.md(§7)
+
+### 검증
+- freightCalc 238/238, test:pivot, test:pivot-freight(17), test:import-qty 모두 pass. `npm run build` ✓ Compiled successfully(/stats/pivot 포함). 잔여 warning 1건=next.config.js NFT(무관).
+
+### 다음 작업 예정
+- 운영 DB 에서 `npm run probe:pivot-arrival`(24-02 3건) ±0.01 parity 확인. 커밋/푸시는 사용자 승인 대기.
+
+### 미결 이슈 / 블로킹
+- 행/열 임의 재피벗(거래처를 행으로 등)은 13/14차 검증 shape 보호 위해 미구현(의도적).
+
+---
+
 ## [2026-06-04] 세션 — 견적 누락(OrderYearWeek) + 전산호환 불변식 전수감사
 
 ### 작업 내용

@@ -1,20 +1,23 @@
 ---
-description: Cursor는 지휘탑 — 작업은 Claude Code 터미널에 위임·지시. Cursor가 claude -p 로 프롬프트 전달.
+description: Cursor 지휘탑 — Claude/Codex 위임 + 매 작업 종료 시 work-reports 완료 보고 필수
 alwaysApply: true
 ---
 
-# Cursor → Claude 위임 (기본)
+# Cursor → Claude / Codex 위임
 
-1. **Cursor**: 사용자 요청 분석, Claude용 지시문 작성, `claude -p` 실행, diff/테스트/배포 검증
-2. **Claude 터미널**: 실제 코드 수정·스크립트·다중 파일 작업
-3. **사용자**: Claude 터미널에 직접 타이핑하지 않아도 됨 — Cursor가 대신 지시
+1. **Cursor**: 요청 분석, **역할 분담**, 지시문 작성, `claude -p`, 검증, **완료 보고**
+2. **Claude**: 구현 (`.claude/tasks/*-claude.txt`)
+3. **Codex**: SQL·집계·알고리즘 설계 (`.claude/tasks/codex-*.md`)
+4. **완료 보고**: `docs/work-reports/YYYY-MM-DD_{slug}.md` + 채팅 「작업 완료 보고」
+
+템플릿: `.claude/tasks/_COMPLETION_REPORT_TEMPLATE.md`
 
 ## nenova
 
 - 경로: `C:\Users\USER\nenova-erp-ui`
-- Agent: `.claude/agents/` (shipment-import-guard, deploy-verifier, db-schema-guard 등)
-- 배포: Cursor가 push → GitHub Actions → nenovaweb.com
+- Agent: `.claude/agents/`
+- 배포: push → GitHub Actions → nenovaweb.com
 
 ## Cursor만 직접
 
-- `git status` / `git push` / `gh` / `npm run test:smoke` / ping 검증
+- git / gh / ping / smoke
