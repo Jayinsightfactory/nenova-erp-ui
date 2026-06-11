@@ -807,6 +807,7 @@ export default function Pivot() {
     {
       headerSelector: 'thead tr.pivot-col-header-row th',
       minWidth: 18,
+      defaultWidth: 52,
       widths: colWidths,
       onResize: saveColWidth,
     },
@@ -1087,8 +1088,8 @@ export default function Pivot() {
         );
       })()}
 
-      {/* 피벗 테이블 */}
-      <div style={{flex:1,overflow:'auto',border:'1px solid var(--border2)',borderTop:'none'}}>
+      {/* 피벗 테이블 — 가로·세로 스크롤 (열 많을 때 이동바) */}
+      <div className="pivot-table-scroll" style={{border:'1px solid var(--border2)',borderTop:'none'}}>
         {loading ? <div className="skeleton" style={{height:300,margin:16}}></div>
         : !data ? (
           <div className="empty-state"><div className="empty-icon">📊</div><div className="empty-text">차수 입력 후 새로고침</div></div>

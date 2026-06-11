@@ -101,8 +101,15 @@ body {
 
 /* ── 품목명 폭 제한 ── */
 .tbl td.prod-name, .tbl .prod-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
-/* Pivot 통계 — 고정 레이아웃 + 말줄임 (텍스트보다 열을 좁게 가능) */
-.tbl.tbl-pivot { table-layout: fixed; width: 100%; min-width: 100%; }
+/* Pivot 통계 — 고정 레이아웃 + 말줄임 + 가로 스크롤 (열 합계 > 화면) */
+.pivot-table-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tbl.tbl-pivot { table-layout: auto; width: max-content; min-width: 100%; }
 .tbl.tbl-pivot th, .tbl.tbl-pivot td {
   padding: 1px 4px;
   overflow: hidden;
