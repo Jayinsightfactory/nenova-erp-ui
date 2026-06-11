@@ -77,8 +77,8 @@ jobs:
             npm install --omit=dev
             echo "=== build ==="
             rm -rf .next
-            npm run build 2>&1 || true
-            if [ ! -d ".next" ] && [ ! -d ".next/server" ]; then echo "❌ 빌드 실패"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            if ! npm run build 2>&1; then echo "❌ 빌드 실패 — pm2 재시작 건너뜀"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            if [ ! -d ".next/server" ]; then echo "❌ .next/server 누락 — 빌드 산출물 없음"; exit 1; fi
             echo "=== pm2 restart ==="
             pm2 restart nenova-erp
             echo "✅ 배포 완료"

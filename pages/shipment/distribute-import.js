@@ -493,10 +493,16 @@ export default function DistributeImport() {
                     <tbody>
                       {visibleRows.map(r => (
                         <tr key={r.key} style={{ background: r.hasQtyWarning ? '#fef2f2' : rowBg(r) }}>
-                          <td>{rowStatusText(r)}</td><td>{r.custName}</td><td>{r.displayName || r.prodName}</td><td>{r.outUnit}</td>
-                          <td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td><td>{fmtUpload(r)}</td>
-                          <td>{fmt(r.changeQty)}</td><td>{fmt(shipmentDiffQty(r))}</td>
-                          <td style={{ color: r.hasQtyWarning ? '#b91c1c', fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{qtyWarningText(r)}</td>
+                          <td>{rowStatusText(r)}</td>
+                          <td>{r.custName}</td>
+                          <td>{r.displayName || r.prodName}</td>
+                          <td>{r.outUnit}</td>
+                          <td>{fmt(r.orderQty)}</td>
+                          <td>{fmt(r.currentOutQty)}</td>
+                          <td>{fmtUpload(r)}</td>
+                          <td>{fmt(r.changeQty)}</td>
+                          <td>{fmt(shipmentDiffQty(r))}</td>
+                          <td style={r.hasQtyWarning ? st.qtyWarnCell : undefined}>{qtyWarningText(r)}</td>
                           <td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
                       ))}
@@ -962,6 +968,7 @@ const st = {
   actionBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 },
   tableWrap: { height: 220, overflow: 'auto' },
   tableWrapLarge: { maxHeight: 560, overflow: 'auto' },
+  qtyWarnCell: { color: '#b91c1c', fontSize: 11, maxWidth: 220, whiteSpace: 'normal' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   panelActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   segment: { display: 'flex', gap: 4 },
