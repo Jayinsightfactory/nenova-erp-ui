@@ -96,6 +96,15 @@ async function main() {
     assert('summary.totalIncoming = 25', summary.totalIncoming === 25);
   }
 
+  console.log('\n=== cleanPivotProdName: 꽃/품종 접두어 제거 ===');
+  {
+    const { cleanPivotProdName } = await import('../lib/pivotProdName.js');
+    assert('ROSE / Freedom 50cm → Freedom 50cm', cleanPivotProdName('ROSE / Freedom 50cm', '장미') === 'Freedom 50cm');
+    assert('CARNATION Crimea → Crimea', cleanPivotProdName('CARNATION Crimea', '카네이션') === 'Crimea');
+    assert('ALSTROMERIA Dubai → Dubai', cleanPivotProdName('ALSTROMERIA Dubai', '알스트로') === 'Dubai');
+    assert('빈 입력', cleanPivotProdName('', '장미') === '');
+  }
+
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
 
