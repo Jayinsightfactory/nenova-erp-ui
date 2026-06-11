@@ -1,0 +1,55 @@
+---
+description: Cursor 컨트롤 타워 — Claude/Codex/Cursor 역할 분배. 모든 작업 요청 시 먼저 라우팅 판단.
+alwaysApply: true
+---
+
+# AI 오케스트레이터 (Cursor = 지휘탑)
+
+사용자 지시를 받으면 **먼저 라우팅**을 선언한 뒤 실행한다.
+
+## 라우팅 결정 트리
+
+```
+요청 수신
+  │
+  ├─ UI·1~3파일·브라우저 디버깅·빠른 수정 ──► Cursor 직접 (Composer/Agent)
+  │
+  ├─ 10+파일 리팩토링 / 백엔드 아키텍처 / 대량 테스트 / .claude/agents/ 도메인
+  │   ──► Claude Code CLI (`claude -p`)
+  │   └─ nenova: `.claude/agents/nenova-orchestrator.md` 로 specialist 분해
+  │
+  ├─ SQL 튜닝·알고리즘·3회+ 디버깅 실패·성능 근본원인
+  │   ──► Codex 프롬프트 패키징 (delegate-codex 스킬)
+  │
+  └─ 배포·PR·git push ──► Cursor + gh (사용자 명시 시만 push)
+```
+
+## 역할 매트릭스
+
+| 담당 | 잘하는 것 | 실행 방식 |
+|------|-----------|-----------|
+| **Cursor** | UI, 단일 API, 스모크, Browser Use, PR/배포 | 직접 편집 + Shell |
+| **Claude Code** | shipmentImport, parse-paste, freight, DB 스키마, 10+파일 | `claude -p` + `.claude/agents/*` |
+| **Codex** | 난제 버그, EXPLAIN/SQL, 수학·비율 알고리즘 | 프롬프트 출력 → 사용자 또는 Cursor 적용 |
+
+## Claude Code 위임 시 (필수)
+
+1. `git status` 확인
+2. `CLAUDE.md` + 관련 agent md 읽기
+3. PowerShell here-string으로 `claude -p` 실행
+4. 완료 후 `git diff --stat` + 테스트 결과 검토
+5. **커밋/푸시는 사용자 요청 시만**
+
+## Nenova specialist 매핑 (요약)
+
+- `lib/shipmentImport*`, 엑셀 업로드 수량/단위 → Cursor 또는 Claude (다중 파일)
+- `OrderMaster*` / SQL 스키마 → `db-schema-guard`
+- `lib/freightCalc.js` → `freight-pipeline-engineer`
+- `parse-paste` / order-mappings → `paste-mapping-curator`
+- 배포 검증 → `deploy-verifier`
+
+## 응답 형식
+
+**[라우팅]** Cursor / Claude Code / Codex 중 선택 + 이유
+
+**[목표] → [실행 계획] → [코드/명령어]**

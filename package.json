@@ -11,6 +11,7 @@
     "test:smoke": "node __tests__/nenovawebSmoke.test.js",
     "test:compare-week": "node scripts/compare-week-exe.js",
     "test:import-qty": "node __tests__/shipmentImportQty.test.js",
+    "test:probe-2401": "node scripts/probe-import-qty-2401.js",
     "test:all": "node __tests__/estimateInvariants.test.js && node __tests__/syncShipmentDateEst.test.js && node __tests__/parsePasteAlstro.test.js"
   },
   "dependencies": {

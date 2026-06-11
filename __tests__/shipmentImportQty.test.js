@@ -103,6 +103,42 @@ async function main() {
     assert('주광 50 vs peer ~5 → PEER_OUTLIER', rows[2].qtyWarnings.some(w => w.code === 'PEER_OUTLIER'));
   }
 
+  console.log('\n=== 24-01 주광 단독주문: DB·엑셀 모두 10배 (peer 없음) → 같은업체 다른품목 ===');
+  {
+    // 주광이 그 장미를 단독 주문해 prodKey peer 가 없고, DB 주문/분배·엑셀이 모두 50(10배).
+    // 같은 업체의 다른 장미는 5박스대 → 박스당 10단(BunchOf1Box) 비율로 잡아야 한다.
+    const { appendCustomerPeerQtyWarnings } = await import('../lib/shipmentImportQty.js');
+    const productByKey = new Map([
+      [1, { BunchOf1Box: 10, OutUnit: '박스' }],
+      [2, { BunchOf1Box: 10, OutUnit: '박스' }],
+      [3, { BunchOf1Box: 10, OutUnit: '박스' }],
+    ]);
+    const rows = [
+      { key: '주광|1', custKey: 7, prodKey: 1, custName: '주광', outUnit: '박스', uploadQty: 5, qtyWarnings: [], hasQtyWarning: false },
+      { key: '주광|2', custKey: 7, prodKey: 2, custName: '주광', outUnit: '박스', uploadQty: 6, qtyWarnings: [], hasQtyWarning: false },
+      { key: '주광|3', custKey: 7, prodKey: 3, custName: '주광', outUnit: '박스', uploadQty: 50, qtyWarnings: [], hasQtyWarning: false },
+    ];
+    appendCustomerPeerQtyWarnings(rows, productByKey);
+    assert('주광 장미 50 vs 다른품목 ~5 → CUST_PEER_BUNCH', rows[2].qtyWarnings.some(w => w.code === 'CUST_PEER_BUNCH'));
+    assert('정상 5박스 행은 경고 없음', !rows[0].hasQtyWarning && !rows[1].hasQtyWarning);
+  }
+  {
+    // 오탐 방지: 비율이 BunchOf1Box(10)와 안 맞으면(큰 단독 주문일 수 있음) 경고 없음.
+    const { appendCustomerPeerQtyWarnings } = await import('../lib/shipmentImportQty.js');
+    const productByKey = new Map([
+      [1, { BunchOf1Box: 10, OutUnit: '박스' }],
+      [2, { BunchOf1Box: 10, OutUnit: '박스' }],
+      [3, { BunchOf1Box: 10, OutUnit: '박스' }],
+    ]);
+    const rows = [
+      { key: '주광|1', custKey: 7, prodKey: 1, custName: '주광', outUnit: '박스', uploadQty: 8, qtyWarnings: [], hasQtyWarning: false },
+      { key: '주광|2', custKey: 7, prodKey: 2, custName: '주광', outUnit: '박스', uploadQty: 8, qtyWarnings: [], hasQtyWarning: false },
+      { key: '주광|3', custKey: 7, prodKey: 3, custName: '주광', outUnit: '박스', uploadQty: 50, qtyWarnings: [], hasQtyWarning: false },
+    ];
+    appendCustomerPeerQtyWarnings(rows, productByKey);
+    assert('비율 6.25배(≠10) → 경고 없음 (오탐 방지)', !rows[2].hasQtyWarning);
+  }
+
   console.log('\n=== hasCriticalQtyWarnings ===');
   assert(
     '집계 플래그',
