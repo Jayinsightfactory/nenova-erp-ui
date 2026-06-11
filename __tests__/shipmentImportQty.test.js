@@ -24,6 +24,47 @@ async function main() {
     assert('5단 → 0.5박스 (BunchOf1Box=10)', Math.abs(out - 0.5) < 0.001);
   }
 
+  console.log('\n=== 장미 물량표(업체별 열) 단→박스 자동 환산 ===');
+  {
+    const row = {
+      sheetName: '2301장미',
+      productFamily: 'rose',
+      productLabel: 'Freedom 50',
+      excelQty: 50,
+      uploadQty: 50,
+    };
+    const out = normalizeUploadQtyForProduct(row, roseBoxProduct);
+    assert('50단 물량표 → 5박스', Math.abs(out - 5) < 0.001);
+  }
+  {
+    const pivot = normalizeUploadQtyForProduct(
+      { sourceType: 'weekPivot', productFamily: 'rose', excelQty: 50, uploadQty: 50 },
+      roseBoxProduct
+    );
+    assert('차수피벗(단위열 없음)은 장미 자동환산 안 함', Math.abs(pivot - 50) < 0.001);
+  }
+  {
+    const explicitBox = normalizeUploadQtyForProduct(
+      { productFamily: 'rose', excelQty: 5, excelUnit: '박스', uploadQty: 5 },
+      roseBoxProduct
+    );
+    assert('단위열=박스면 그대로', Math.abs(explicitBox - 5) < 0.001);
+  }
+  {
+    const converted = detectQtyWarnings(
+      {
+        productFamily: 'rose',
+        sheetName: '2301장미',
+        orderQty: 5,
+        uploadQty: 5,
+        excelQty: 50,
+      },
+      roseBoxProduct
+    );
+    assert('환산 후 주문과 일치 → critical 없음', !converted.some(w => w.severity === 'critical'));
+    assert('ROSE_ALLOC_CONVERTED info', converted.some(w => w.code === 'ROSE_ALLOC_CONVERTED'));
+  }
+
   console.log('\n=== detectQtyWarnings (10배 오류 탐지) ===');
   {
     const bad = detectQtyWarnings(
