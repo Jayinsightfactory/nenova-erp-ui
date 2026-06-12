@@ -8,6 +8,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { apiGet } from '../../lib/useApi';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
@@ -21,7 +23,11 @@ import {
 const DND_FIELD_ID = 'application/x-pivot-field-id';
 const DND_FIELD_FROM = 'application/x-pivot-field-from';
 
-const fN = n => (!n || n === 0) ? '' : Number(n).toFixed(2);
+const formatPivotNum = (n, showDecimals) => {
+  if (!n || n === 0) return '';
+  const v = Number(n);
+  return showDecimals ? v.toFixed(2) : String(Math.round(v));
+};
 
 // 행 대표 분배단가 — compact 뷰용. 거래처별 분배단가를 주문수량으로 가중 평균.
 // Σ(orders[c]·distCostOrders[c]) / Σ(orders[c] for c in distCostOrders)
@@ -86,7 +92,7 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
   }, [showFilter]);
 
   return (
-    <th style={{textAlign:'center', fontSize:11, position:'relative', cursor:'pointer',
+    <th style={{textAlign:'left', fontSize:11, position:'relative', cursor:'pointer',
       background:'#D4DDE8', whiteSpace:'nowrap'}}
       onClick={() => onSort(sortKey)}
     >
@@ -163,7 +169,15 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
 }
 
 export default function Pivot() {
+  const router = useRouter();
   const { t } = useLang();
+  const [showDecimals, setShowDecimals] = useState(() => {
+    try { return localStorage.getItem('pivotShowDecimals') !== '0'; } catch { return true; }
+  });
+  const fmtNum = useCallback((n) => formatPivotNum(n, showDecimals), [showDecimals]);
+  useEffect(() => {
+    try { localStorage.setItem('pivotShowDecimals', showDecimals ? '1' : '0'); } catch {}
+  }, [showDecimals]);
   const yearInput = useYearInput(new Date().getFullYear().toString());
   const weekStartInput = useWeekInput('');
   const weekEndInput   = useWeekInput('');
@@ -315,6 +329,8 @@ export default function Pivot() {
       if (l.fieldFilters && typeof l.fieldFilters === 'object') setFieldFilters(l.fieldFilters);
       if (Array.isArray(l.colGroupOrder)) setColGroupOrder(l.colGroupOrder);
       if (Array.isArray(l.visibleCustNames)) setVisibleCustNames(l.visibleCustNames);
+      if (l.colWidths && typeof l.colWidths === 'object') setColWidths(l.colWidths);
+      if (typeof l.showDecimals === 'boolean') setShowDecimals(l.showDecimals);
       if (Array.isArray(l.columnZone)) {
         setColumnZone(l.columnZone.filter(id => FIELD_BY_ID[id]));
         if (l.columnZone.includes('custName') || l.columnZone.includes('farmName')) setViewMode('detail');
@@ -343,11 +359,13 @@ export default function Pivot() {
         colGroupOrder,
         columnZone,
         visibleCustNames,
+        colWidths,
+        showDecimals,
         showFieldList,
       };
       localStorage.setItem('pivotFieldLayout', JSON.stringify(layout));
     } catch {}
-  }, [filterZone, fieldFilters, colGroupOrder, columnZone, visibleCustNames, showFieldList, isFieldActive]);
+  }, [filterZone, fieldFilters, colGroupOrder, columnZone, visibleCustNames, colWidths, showDecimals, showFieldList, isFieldActive]);
 
   // 필드 드롭 — dataTransfer 우선 (React state 타이밍 이슈 방지)
   const readDropPayload = useCallback((e) => {
@@ -457,9 +475,9 @@ export default function Pivot() {
   const captureLayout = useCallback(() => ({
     showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
     showArea, showDescr, columnZone, showSections, viewMode, showFieldList,
-    filterZone, fieldFilters, colGroupOrder, visibleCustNames, filters, filterConditions,
+    filterZone, fieldFilters, colGroupOrder, visibleCustNames, colWidths, showDecimals, filters, filterConditions,
   }), [showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
-    showArea, showDescr, columnZone, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, visibleCustNames, filters, filterConditions]);
+    showArea, showDescr, columnZone, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, visibleCustNames, colWidths, showDecimals, filters, filterConditions]);
 
   const applyLayout = useCallback((cfg) => {
     if (!cfg) return;
@@ -476,6 +494,8 @@ export default function Pivot() {
     if (cfg.fieldFilters && typeof cfg.fieldFilters === 'object') setFieldFilters(cfg.fieldFilters);
     if (Array.isArray(cfg.colGroupOrder)) setColGroupOrder(cfg.colGroupOrder);
     if (Array.isArray(cfg.visibleCustNames)) setVisibleCustNames(cfg.visibleCustNames);
+    if (cfg.colWidths && typeof cfg.colWidths === 'object') setColWidths(cfg.colWidths);
+    if (typeof cfg.showDecimals === 'boolean') setShowDecimals(cfg.showDecimals);
     if (cfg.filters && typeof cfg.filters === 'object') setFilters(cfg.filters);
     if (Array.isArray(cfg.filterConditions)) setFilterConditions(cfg.filterConditions);
   }, []);
@@ -926,7 +946,27 @@ export default function Pivot() {
   );
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 72px)'}}>
+    <>
+      <Head><title>Pivot 통계 - nenova ERP</title></Head>
+      <style>{`body { overflow: hidden; margin: 0; }`}</style>
+      <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'var(--bg)'}}>
+      {/* 전체화면 상단바 (사이드메뉴 없음) */}
+      <div style={{
+        height:28, flexShrink:0, background:'linear-gradient(to right,#000080,#1084d0)',
+        display:'flex', alignItems:'center', padding:'0 10px', color:'#fff', fontSize:12, fontWeight:'bold', gap:8,
+      }}>
+        <span>Pivot 통계</span>
+        <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
+          <label style={{display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:'normal', cursor:'pointer'}}>
+            <input type="checkbox" checked={showDecimals} onChange={e=>setShowDecimals(e.target.checked)} />
+            소수점
+          </label>
+          <button type="button" onClick={() => (window.opener ? window.close() : router.push('/dashboard'))} style={{
+            background:'none', border:'1px solid rgba(255,255,255,.4)', color:'#fff', cursor:'pointer', fontSize:11, padding:'1px 8px',
+          }}>닫기</button>
+        </span>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,padding:'4px 6px'}}>
       {/* 툴바 */}
       <div className="filter-bar">
         <YearInput yearInput={yearInput} label="주문년도" />
@@ -945,6 +985,14 @@ export default function Pivot() {
         <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
           onClick={() => { weekStartInput.nextWeek(); weekEndInput.nextWeek(); }}
           title="범위 전체 주차+1">&gt;&gt;</button>
+        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
+        <span className="filter-label" title="숫자 소수점(.00) 표시">소수점</span>
+        <button type="button" className="btn btn-sm"
+          onClick={() => setShowDecimals(s => !s)}
+          style={{height:22, fontSize:11, fontWeight: showDecimals ? 700 : 400,
+            background: showDecimals ? '#e8f0fe' : undefined, borderColor: showDecimals ? 'var(--blue)' : undefined}}>
+          {showDecimals ? '.00 ON' : '정수'}
+        </button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
@@ -978,7 +1026,7 @@ export default function Pivot() {
                   ⭐ 즐겨찾기
                 </div>
                 <div style={{padding:'6px 8px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>현재 설정 저장 (필드·필터·그룹순서·구분 포함)</div>
+                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>필드·필터·그룹·열 너비·소수점 포함</div>
                   <div style={{display:'flex',gap:4}}>
                     <input className="filter-input" style={{flex:1,height:22}} placeholder="이름..."
                       value={favName} onChange={e=>setFavName(e.target.value)}/>
@@ -1397,7 +1445,7 @@ export default function Pivot() {
                 )}
                 {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
                 {!compact && showSections.order && sortedCusts.map((c,ci)=>(
-                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'center',fontSize:10,background:'#D4ECD4',
+                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'left',fontSize:10,background:'#D4ECD4',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
                   }}
@@ -1464,15 +1512,15 @@ export default function Pivot() {
                     <td colSpan={totalFixedCols} style={{padding:'2px 8px',fontWeight:'bold',fontSize:12,borderRight:'2px solid var(--border2)'}}>
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
-                    {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fN(cTot.prev)}</td>}
-                    {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fN(cTot.custO[c.custName])}</td>)}
-                    {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(cTot.order)}</td>}
-                    {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fN(cTot.farmI[f])}</td>)}
+                    {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fmtNum(cTot.prev)}</td>}
+                    {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fmtNum(cTot.custO[c.custName])}</td>)}
+                    {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fmtNum(cTot.order)}</td>}
+                    {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fmtNum(cTot.farmI[f])}</td>)}
                     {!compact && showSections.incoming && farms.length===0 && <td></td>}
-                    {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCC8B8'}}>{fN(cTot.inc)}</td>}
-                    {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D4C4B0'}}>{fN(cTot.out)}</td>}
-                    {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#D8D0A8'}}>{fN(cTot.none)}</td>}
-                    {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#BEBEDE'}}>{fN(cTot.cur)}</td>}
+                    {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCC8B8'}}>{fmtNum(cTot.inc)}</td>}
+                    {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D4C4B0'}}>{fmtNum(cTot.out)}</td>}
+                    {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#D8D0A8'}}>{fmtNum(cTot.none)}</td>}
+                    {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#BEBEDE'}}>{fmtNum(cTot.cur)}</td>}
                   </tr>,
 
                   ...(!isCC ? (gCountry._sortedFlowers || Object.values(gCountry.flowers)).map(gFlower=>{
@@ -1498,15 +1546,15 @@ export default function Pivot() {
                         <td colSpan={totalFixedCols-1} style={{padding:'2px 8px',fontWeight:'bold',fontSize:11,borderRight:'2px solid var(--border2)'}}>
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
-                        {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fN(fTot.prev)}</td>}
-                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fN(fTot.custO[c.custName])}</td>)}
-                        {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B4D0B4'}}>{fN(fTot.order)}</td>}
-                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fN(fTot.farmI[f])}</td>)}
+                        {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fmtNum(fTot.prev)}</td>}
+                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
+                        {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B4D0B4'}}>{fmtNum(fTot.order)}</td>}
+                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fmtNum(fTot.farmI[f])}</td>)}
                         {!compact && showSections.incoming && farms.length===0 && <td></td>}
-                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCCCC0'}}>{fN(fTot.inc)}</td>}
-                        {showSections.out      && <td className="num" style={{background:'#D8C8B4'}}>{fN(fTot.out)}</td>}
-                        {showSections.none     && <td className="num" style={{background:'#DDD8B0'}}>{fN(fTot.none)}</td>}
-                        {showSections.cur      && <td className="num" style={{background:'#C4C4E0'}}>{fN(fTot.cur)}</td>}
+                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCCCC0'}}>{fmtNum(fTot.inc)}</td>}
+                        {showSections.out      && <td className="num" style={{background:'#D8C8B4'}}>{fmtNum(fTot.out)}</td>}
+                        {showSections.none     && <td className="num" style={{background:'#DDD8B0'}}>{fmtNum(fTot.none)}</td>}
+                        {showSections.cur      && <td className="num" style={{background:'#C4C4E0'}}>{fmtNum(fTot.cur)}</td>}
                       </tr>,
 
                       ...(!isFC ? gFlower.items.map((r,idx)=>(
@@ -1517,56 +1565,56 @@ export default function Pivot() {
                           </td>
                           {showArea     && <td style={{fontSize:10,borderRight:'2px solid var(--border2)',color:'var(--text3)'}} title={r.area||''}>{r.area||''}</td>}
                           {showOutDate  && <td style={{fontSize:10}} title={r.outDate||''}>{r.outDate||''}</td>}
-                          {showInPrice  && <td className="num" style={{fontSize:10}}>{fN(r.inPrice)}</td>}
-                          {showInTotal  && <td className="num" style={{fontSize:10}}>{fN(r.inTotal)}</td>}
-                          {showArrival  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fN(r.arrivalCost)}</td>}
+                          {showInPrice  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inPrice)}</td>}
+                          {showInTotal  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inTotal)}</td>}
+                          {showArrival  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fmtNum(r.arrivalCost)}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
-                          {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fN((r.cost||0)*(r.totalOrder||0))}</td>}
+                          {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fmtNum((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)'}} title={r.descr}>{r.descr||''}</td>}
                           {showSections.prev && (
-                            <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fN(r.prevStock)}</td>
+                            <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fmtNum(r.prevStock)}</td>
                           )}
                           {!compact && showSections.order && sortedCusts.map(c=>{
                             const showStack = showCost || showDistCost;
                             return (
                             <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showStack?'1.2':'inherit',padding:showStack?'1px 4px':'inherit'}}>
-                              {showQty && fN(r.orders?.[c.custName])}
+                              {showQty && fmtNum(r.orders?.[c.custName])}
                               {showCost && (r.costOrders?.[c.custName]||0)>0 && (
-                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}} title="판매단가">{fN(r.costOrders?.[c.custName])}</div>
+                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}} title="판매단가">{fmtNum(r.costOrders?.[c.custName])}</div>
                               )}
                               {showDistCost && (r.distCostOrders?.[c.custName]||0)>0 && (
-                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic'}} title="분배단가">{fN(r.distCostOrders?.[c.custName])}</div>
+                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic'}} title="분배단가">{fmtNum(r.distCostOrders?.[c.custName])}</div>
                               )}
                             </td>
                           );})}
                           {showSections.order && (
                             <td className="num" style={{fontWeight:'bold',background:'#E8F8E8',borderLeft: compact?undefined:'2px solid var(--border2)',color:(r.totalOrder||0)>0?'#006600':'var(--text3)',lineHeight:compact&&showDistCost?'1.2':'inherit'}}>
-                              {fN(r.totalOrder)}
+                              {fmtNum(r.totalOrder)}
                               {compact && showDistCost && rowDistCostAvg(r)>0 && (
-                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(주문 가중 평균)">{fN(rowDistCostAvg(r))}</div>
+                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(주문 가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
                               )}
                             </td>
                           )}
                           {!compact && showSections.incoming && farms.map(f=>(
                             <td key={f} className="num" style={{background:'#FFF8F0',color:(r.incoming?.[f]||0)>0?'var(--amber)':'var(--text3)'}}>
-                              {fN(r.incoming?.[f])}
+                              {fmtNum(r.incoming?.[f])}
                             </td>
                           ))}
                           {!compact && showSections.incoming && farms.length===0 && <td></td>}
                           {compact && showSections.incoming && (
                             <td className="num" style={{fontWeight:'bold',background:'#FFF3E6',color:(r.totalIncoming||0)>0?'var(--amber)':'var(--text3)'}}>
-                              {fN(r.totalIncoming)}
+                              {fmtNum(r.totalIncoming)}
                             </td>
                           )}
                           {showSections.out && (
-                            <td className="num" style={{background:'#FFF0E8',color:(r.confirmedOut||0)>0?'#884400':'var(--text3)'}}>{fN(r.confirmedOut)}</td>
+                            <td className="num" style={{background:'#FFF0E8',color:(r.confirmedOut||0)>0?'#884400':'var(--text3)'}}>{fmtNum(r.confirmedOut)}</td>
                           )}
                           {showSections.none && (
-                            <td className="num" style={{background:'#FFFCE8',color:(r.noneOut||0)>0?'var(--amber)':'var(--text3)'}}>{fN(r.noneOut)}</td>
+                            <td className="num" style={{background:'#FFFCE8',color:(r.noneOut||0)>0?'var(--amber)':'var(--text3)'}}>{fmtNum(r.noneOut)}</td>
                           )}
                           {showSections.cur && (
                             <td className="num" style={{background:'#F4F4FF',color:(r.curStock||0)<0?'var(--red)':(r.curStock||0)>0?'var(--blue)':'var(--text3)'}}>
-                              {fN(r.curStock)}
+                              {fmtNum(r.curStock)}
                             </td>
                           )}
                         </tr>
@@ -1576,15 +1624,15 @@ export default function Pivot() {
                         <td colSpan={totalFixedCols} style={{padding:'2px 16px',fontSize:11,color:'var(--text3)',borderRight:'2px solid var(--border2)'}}>
                           {gFlower.flower} Total
                         </td>
-                        {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fN(fTot.prev)}</td>}
-                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fN(fTot.custO[c.custName])}</td>)}
-                        {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fN(fTot.order)}</td>}
-                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.farmI[f])}</td>)}
+                        {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fmtNum(fTot.prev)}</td>}
+                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
+                        {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fmtNum(fTot.order)}</td>}
+                        {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.farmI[f])}</td>)}
                         {!compact && showSections.incoming && farms.length===0 && <td></td>}
-                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fN(fTot.inc)}</td>}
-                        {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D0C0A8'}}>{fN(fTot.out)}</td>}
-                        {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#DAD4AC'}}>{fN(fTot.none)}</td>}
-                        {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#C0C0DC'}}>{fN(fTot.cur)}</td>}
+                        {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.inc)}</td>}
+                        {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D0C0A8'}}>{fmtNum(fTot.out)}</td>}
+                        {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#DAD4AC'}}>{fmtNum(fTot.none)}</td>}
+                        {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#C0C0DC'}}>{fmtNum(fTot.cur)}</td>}
                       </tr>,
                     ];
                   }) : []),
@@ -1845,6 +1893,8 @@ export default function Pivot() {
         </div>,
         document.body
       )}
+      </div>
     </div>
+    </>
   );
 }
