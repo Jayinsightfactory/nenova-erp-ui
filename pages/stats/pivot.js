@@ -20,6 +20,7 @@ import {
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
+import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
   buildPivotExportGrid,
   rowMatchesExportFilter,
@@ -407,7 +408,8 @@ export default function Pivot() {
   const [showQty,      setShowQty]      = useState(true);
   const [showArea,     setShowArea]     = useState(false);
   const [showDistCost, setShowDistCost] = useState(false);  // 분배단가(ShipmentDetail.Cost) 표시
-  const [showArrival,  setShowArrival]  = useState(false);  // 도착원가(=/freight displayArrivalKRW) 표시
+  const [showArrival,     setShowArrival]     = useState(false);  // 도착원가(=/freight displayArrivalKRW) 표시
+  const [showArrivalVat,  setShowArrivalVat]  = useState(false);  // 도착원가 × 1.1 (부가세포)
 
   // ── 뷰 모드: compact(exe 기본 — 02.주문/03.입고 1열 합계) | detail(거래처/농장 전개)
   const [viewMode, setViewMode] = useState('compact');
@@ -477,7 +479,8 @@ export default function Pivot() {
     qty:         [showQty,      setShowQty],
     saleCost:    [showCost,     setShowCost],
     distCost:    [showDistCost, setShowDistCost],
-    arrivalCost: [showArrival,  setShowArrival],
+    arrivalCost:    [showArrival,    setShowArrival],
+    arrivalCostVat: [showArrivalVat, setShowArrivalVat],
     amount:      [showAmount,   setShowAmount],
   };
   const rowOptState = {
@@ -500,7 +503,7 @@ export default function Pivot() {
     if (measureState[id]) return measureState[id][0];
     if (rowOptState[id])  return rowOptState[id][0];
     return false;
-  }, [showQty, showCost, showDistCost, showArrival, showAmount, showArea, showOutDate, showInPrice, showInTotal, showAWB, showDescr, columnZone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showQty, showCost, showDistCost, showArrival, showArrivalVat, showAmount, showArea, showOutDate, showInPrice, showInTotal, showAWB, showDescr, columnZone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 필드를 자기 영역에 켜기/끄기 (locked 제외)
   const setFieldActive = useCallback((id, on) => {
@@ -679,10 +682,10 @@ export default function Pivot() {
   const [draftConds,        setDraftConds]         = useState([]);
 
   const captureLayout = useCallback(() => ({
-    showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
+    showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showArrivalVat, showQty, showAmount,
     showArea, showDescr, columnZone, showSections, viewMode, showFieldList,
     filterZone, fieldFilters, colGroupOrder, visibleCustNames, colWidths, showDecimals, filters, filterConditions,
-  }), [showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
+  }), [showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showArrivalVat, showQty, showAmount,
     showArea, showDescr, columnZone, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, visibleCustNames, colWidths, showDecimals, filters, filterConditions]);
 
   const applyLayout = useCallback((cfg) => {
@@ -690,7 +693,7 @@ export default function Pivot() {
     setShowOutDate(!!cfg.showOutDate); setShowInPrice(!!cfg.showInPrice);
     setShowInTotal(!!cfg.showInTotal); setShowAWB(!!cfg.showAWB);
     setShowCost(!!cfg.showCost); setShowDistCost(!!cfg.showDistCost);
-    setShowArrival(!!cfg.showArrival); setShowQty(cfg.showQty !== false);
+    setShowArrival(!!cfg.showArrival); setShowArrivalVat(!!cfg.showArrivalVat); setShowQty(cfg.showQty !== false);
     setShowAmount(!!cfg.showAmount); setShowArea(!!cfg.showArea); setShowDescr(!!cfg.showDescr);
     if (Array.isArray(cfg.columnZone)) setColumnZone(cfg.columnZone.filter(id => FIELD_BY_ID[id]));
     else if (cfg.showSections) setColumnZone(columnZoneFromSections(cfg.showSections, cfg.colGroupOrder));
@@ -1076,7 +1079,7 @@ export default function Pivot() {
     }
     const exportWeeks = Array.isArray(data.weeks) && data.weeks.length > 1 ? data.weeks : null;
     const exportOpts = {
-      showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
+      showArea, showOutDate, showInPrice, showInTotal, showArrival, showArrivalVat, showAWB, showDescr, showAmount,
       showQty, showCost, showDistCost,
       showSections,
       compact,
@@ -1107,7 +1110,7 @@ export default function Pivot() {
     URL.revokeObjectURL(a.href);
   }, [
     data, filteredRows, sortedCusts, farms, visibleCustNames,
-    showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
+    showArea, showOutDate, showInPrice, showInTotal, showArrival, showArrivalVat, showAWB, showDescr, showAmount,
     showQty, showCost, showDistCost, showSections, compact,
     showOrderCustCols, showOutCustCols, showIncomingFarmCols, showIncomingCompactTotal,
     weekStartInput.value, weekEndInput.value, weekHeaderLabel,
@@ -1179,15 +1182,15 @@ export default function Pivot() {
   // showCost는 업체별 셀 내부에 스택으로 표시되므로 고정 컬럼 아님
   const totalFixedCols = useMemo(() =>
     3 + (showArea?1:0) + (showOutDate?1:0) + (showInPrice?1:0) + (showInTotal?1:0)
-      + (showArrival?1:0) + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
-  [showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr]);
+      + (showArrival?1:0) + (showArrivalVat?1:0) + (showAWB?1:0) + (showAmount?1:0) + (showDescr?1:0),
+  [showArea, showOutDate, showInPrice, showInTotal, showArrival, showArrivalVat, showAWB, showAmount, showDescr]);
 
   const pivotColLayoutKey = useMemo(() => JSON.stringify({
     compact, columnZone, colGroupOrder,
-    showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr,
+    showArea, showOutDate, showInPrice, showInTotal, showArrival, showArrivalVat, showAWB, showAmount, showDescr,
     showSections, nc: sortedCusts.length, nf: farms.length, showCost, showDistCost,
     showOrderCustCols, showOutCustCols, nw: displayWeeks.length,
-  }), [compact, columnZone, colGroupOrder, showArea, showOutDate, showInPrice, showInTotal, showArrival,
+  }), [compact, columnZone, colGroupOrder, showArea, showOutDate, showInPrice, showInTotal, showArrival, showArrivalVat,
     showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost,
     showOrderCustCols, showOutCustCols, displayWeeks.length]);
 
@@ -1325,6 +1328,13 @@ export default function Pivot() {
         <button className={`btn btn-sm ${!compact?'btn-primary':''}`} style={{height:22,fontSize:11}}
           title="거래처·농장 열 전개"
           onClick={()=>setViewMode('detail')}>▦ 상세</button>
+        <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
+        <button className={`btn btn-sm ${showArrival?'btn-primary':''}`} style={{height:22,fontSize:11}}
+          title="/freight 운송기준원가 (displayArrivalKRW)"
+          onClick={()=>setShowArrival(s=>!s)}>도착원가</button>
+        <button className={`btn btn-sm ${showArrivalVat?'btn-primary':''}`} style={{height:22,fontSize:11}}
+          title="도착원가 × 1.1 (부가세포함)"
+          onClick={()=>setShowArrivalVat(s=>!s)}>도착원가(부가세포)</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>setCollapsed(new Set())}>▼ 펼침</button>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>{
@@ -1716,7 +1726,8 @@ export default function Pivot() {
                 {showOutDate  && <th style={{fontSize:10}}>출고일</th>}
                 {showInPrice  && <th style={{fontSize:10,textAlign:'right'}}>입고단가</th>}
                 {showInTotal  && <th style={{fontSize:10,textAlign:'right'}}>입고총단가</th>}
-                {showArrival  && <th style={{fontSize:10,textAlign:'right'}} title="/freight 운송기준원가">도착원가</th>}
+                {showArrival     && <th style={{fontSize:10,textAlign:'right'}} title="/freight 운송기준원가">도착원가</th>}
+                {showArrivalVat  && <th style={{fontSize:10,textAlign:'right'}} title="도착원가 × 1.1">도착원가(부가세포)</th>}
                 {showAWB      && <th style={{fontSize:10}}>AWB</th>}
                 {showAmount   && <th style={{fontSize:10,textAlign:'right'}}>판매금액</th>}
                 {showDescr    && <th style={{fontSize:10}}>비고</th>}
@@ -1876,7 +1887,8 @@ export default function Pivot() {
                           {showOutDate  && <td style={{fontSize:10}} title={r.outDate||''}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inTotal)}</td>}
-                          {showArrival  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fmtNum(r.arrivalCost)}</td>}
+                          {showArrival     && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가 (=/freight${r.arrivalMeta?.source?` · ${r.arrivalMeta.source}`:''})`}>{fmtNum(r.arrivalCost)}</td>}
+                          {showArrivalVat  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#6b4500':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가×1.1 (부가세포)`}>{fmtNum(arrivalCostWithVat(r.arrivalCost))}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fmtNum((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)'}} title={r.descr}>{r.descr||''}</td>}

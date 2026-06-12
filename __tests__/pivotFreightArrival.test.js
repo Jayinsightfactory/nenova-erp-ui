@@ -122,6 +122,14 @@ async function main() {
     assert('live source 보존', mLive[9].source === 'live');
   }
 
+  console.log('\n=== arrivalCostWithVat ===');
+  {
+    const { arrivalCostWithVat, ARRIVAL_VAT_MULTIPLIER } = await import('../lib/pivotArrivalCalc.js');
+    assert('배율 1.1', ARRIVAL_VAT_MULTIPLIER === 1.1);
+    assert('30000 → 33000', near(arrivalCostWithVat(30000), 33000));
+    assert('0 → 0', arrivalCostWithVat(0) === 0);
+  }
+
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
 

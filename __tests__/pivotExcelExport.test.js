@@ -14,7 +14,6 @@ async function main() {
     buildPivotExportGrid,
     rowsToCsvAoA,
     formatExportCell,
-    formatPivotMeasureCell,
   } = await import('../lib/pivotExcelExport.js');
 
   console.log('=== rowHasPivotQty ===');
@@ -38,15 +37,7 @@ async function main() {
     outOnly,
   ));
 
-  console.log('\n=== formatPivotMeasureCell stacked ===');
-  const stacked = formatPivotMeasureCell(
-    { qty: 2, dist: 6000, amt: 12000 },
-    { showQty: true, showCost: false, showDistCost: true, mode: 'detail' },
-  );
-  assert('3줄 스택', stacked === '2\n6000\n12000');
-  assert('0 수량 → 빈칸', formatPivotMeasureCell({ qty: 0, dist: 1 }, { showQty: true, showDistCost: true, mode: 'detail' }) === '');
-
-  console.log('\n=== buildPivotExportColumns ===');
+  console.log('\n=== buildPivotExportColumns — 합산용 분리 열 ===');
   const cols = buildPivotExportColumns({
     showArea: false, showOutDate: false, showInPrice: false, showInTotal: false,
     showArrival: false, showAWB: false, showDescr: false, showAmount: false,
@@ -57,8 +48,10 @@ async function main() {
     showIncomingFarmCols: false, showIncomingCompactTotal: false,
     sortedCusts: [{ custName: '신라호텔' }], farms: [],
   });
-  assert('거래처 1열(스택)', cols.some(c => c.header === '신라호텔' && c.isMeasure));
-  assert('_수량 접미사 없음', !cols.some(c => c.header.includes('_수량')));
+  assert('거래처 수량 열', cols.some(c => c.header === '신라호텔_수량'));
+  assert('거래처 분배단가 열', cols.some(c => c.header === '신라호텔_분배단가'));
+  assert('거래처 분배금액 열', cols.some(c => c.header === '신라호텔_분배금액'));
+  assert('주문Total 수량 열', cols.some(c => c.header === '02.주문Total_수량'));
 
   const byWeek = {
     '04-01': { rows: [{ prodKey: 1, orders: {}, totalOrder: 0 }] },
@@ -77,13 +70,16 @@ async function main() {
     byWeek,
     weekLabel: w => `2026-${w}`,
   });
-  assert('차수별 02.주문 1열', grid.some(c => c.header === '2026-04-01_02.주문' && c.isMeasure));
+  assert('차수별 02.주문_수량 열', grid.some(c => c.header === '2026-04-01_02.주문_수량'));
+  assert('차수별 02.주문_분배금액 열', grid.some(c => c.header === '2026-04-01_02.주문_분배금액'));
 
   const rows = [
     { prodKey: 1, country: 'K', flower: 'F', prodName: 'P', orders: { 신라호텔: 2 }, distCostOrders: { 신라호텔: 100 }, totalOrder: 2 },
   ];
   const aoa = rowsToCsvAoA(cols, rows, { blankZero: true });
   assert('합계행 포함', aoa.length === 3);
+  const qtyIdx = cols.findIndex(c => c.header === '신라호텔_수량');
+  assert('수량 셀 숫자', aoa[1][qtyIdx] === 2);
   assert('0 셀 빈칸', formatExportCell(0) === '');
 
   const wr = getPivotWeekRow({ prodKey: 1, prodName: 'X' }, '04-02', byWeek);
