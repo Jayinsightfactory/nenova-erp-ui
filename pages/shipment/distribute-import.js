@@ -15,7 +15,7 @@ const fmtUpload = r => {
 };
 const qtyWarningText = r => (r.qtyWarnings || []).filter(w => w.severity === 'critical').map(w => w.message).join(' / ');
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
-const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '삭제대상' : status;
+const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '분배삭제' : status;
 const rowChanged = r => r?.status !== '동일';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
@@ -183,7 +183,7 @@ export default function DistributeImport() {
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
       }
-      const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form });
+      const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
@@ -265,16 +265,23 @@ export default function DistributeImport() {
 
   const handleApply = async () => {
     if (!preview) return;
-    if ((preview.unmatched || []).length > 0) {
-      setError('미매칭 행이 있습니다. 품목/업체 매칭을 먼저 확인하세요.');
+    const custUnmatched = (preview.unmatched || []).filter(u => /업체/.test(u.reason || ''));
+    if (custUnmatched.length > 0) {
+      setError(`미매칭 업체 ${custUnmatched.length}곳이 있습니다. 업체 매칭을 먼저 완료하세요.`);
+      setUnmatchedModalOpen(true);
       return;
     }
     if (!applyRows.length) {
-      setError('적용할 주문변경/분배반영 대상이 없습니다.');
+      setError('적용할 주문변경/분배반영 대상이 없습니다. 분배차이 또는 주문변경 행이 있는지 확인하세요.');
       return;
     }
+    const prodUnmatched = (preview.unmatched || []).filter(u => /품목/.test(u.reason || ''));
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
+    const shipmentOnlyText = shipmentRows.length && !orderChangeRows.length
+      ? `\n분배만 반영 ${shipmentRows.length}건 — 주문등록은 유지하고 출고분배 수량만 변경합니다.`
+      : '';
+    const prodWarnText = prodUnmatched.length ? `\n(품목 미매칭 ${prodUnmatched.length}건은 제외하고 적용합니다.)` : '';
     let ackQtyWarnings = false;
     if (qtyWarningRows.length) {
       const sample = qtyWarningRows.slice(0, 3).map(r => `· ${r.custName} / ${r.prodName}: ${qtyWarningText(r)}`).join('\n');
@@ -286,7 +293,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}${shipmentOnlyText}${prodWarnText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -304,9 +311,15 @@ export default function DistributeImport() {
       const res = await fetch('/api/shipment/distribute-import-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`서버 응답 오류 (${res.status}). 로그인 세션이 만료됐을 수 있습니다.`);
+      }
       if (!data.success) {
         if (res.status === 409 && data.code === 'QTY_WARNING') {
           throw new Error(data.error || '수량 단위 이상 징후로 적용이 차단되었습니다. 검증 화면을 다시 확인하세요.');
@@ -314,7 +327,11 @@ export default function DistributeImport() {
         throw new Error(data.error || '적용 실패');
       }
       setApplyResult(data);
-      setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문삭제 ${data.orderDeletedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건`);
+      if ((data.appliedCount || 0) === 0) {
+        setMessage(`적용 완료: 변경 없음 (이미 DB와 동일 ${data.skippedNoChangeCount || 0}건). 검증하기를 다시 눌러 최신 상태를 확인하세요.`);
+      } else {
+        setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건 (주문삭제 ${data.orderDeletedCount || 0}건)`);
+      }
       await handlePreview({ preserveMessage: true, preserveApplyResult: true });
     } catch (e) {
       setError(e.message);
