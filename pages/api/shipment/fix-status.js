@@ -274,7 +274,46 @@ async function loadNegativeRows(from, to) {
   );
 }
 
-async function loadUnfixTargets(from, to) {
+async function loadCategoriesInRange(from, to) {
+  return await query(
+    `SELECT DISTINCT LTRIM(RTRIM(p.CountryFlower)) AS CountryFlower
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
+      WHERE sm.isDeleted = 0
+        AND ISNULL(sd.OutQuantity, 0) > 0
+        AND p.CountryFlower IS NOT NULL
+        AND LTRIM(RTRIM(p.CountryFlower)) <> ''
+        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
+      ORDER BY LTRIM(RTRIM(p.CountryFlower))`,
+    {
+      defaultYear: { type: sql.NVarChar, value: from.year },
+      fromKey:     { type: sql.NVarChar, value: from.key },
+      toKey:       { type: sql.NVarChar, value: to.key },
+    }
+  );
+}
+
+function normalizeCountryFlowerFilter(countryFlowers) {
+  const values = Array.isArray(countryFlowers)
+    ? countryFlowers
+    : String(countryFlowers || '').split(',');
+  return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))];
+}
+
+async function loadUnfixTargets(from, to, countryFlowersFilter = null) {
+  const countryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  const cfWhere = countryFlowers.length
+    ? `AND LTRIM(RTRIM(p.CountryFlower)) IN (${countryFlowers.map((_, i) => `@cf${i}`).join(', ')})`
+    : '';
+  const params = {
+    defaultYear: { type: sql.NVarChar, value: from.year },
+    fromKey:     { type: sql.NVarChar, value: from.key },
+    toKey:       { type: sql.NVarChar, value: to.key },
+  };
+  countryFlowers.forEach((cf, i) => {
+    params[`cf${i}`] = { type: sql.NVarChar, value: cf };
+  });
   return await query(
     `SELECT
        ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
@@ -289,13 +328,10 @@ async function loadUnfixTargets(from, to) {
        AND p.CountryFlower IS NOT NULL
        AND LTRIM(RTRIM(p.CountryFlower)) <> ''
        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
+       ${cfWhere}
      GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek, p.CountryFlower
      ORDER BY WeekKey DESC, p.CountryFlower`,
-    {
-      defaultYear: { type: sql.NVarChar, value: from.year },
-      fromKey:     { type: sql.NVarChar, value: from.key },
-      toKey:       { type: sql.NVarChar, value: to.key },
-    }
+    params
   );
 }
 
@@ -324,9 +360,10 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const { fromWeek, toWeek } = req.query;
       const { from, to } = normalizeRange(fromWeek, toWeek);
-      const [statusRes, negativeRes] = await Promise.all([
+      const [statusRes, negativeRes, categoryRes] = await Promise.all([
         loadWeekStatus(from, to),
         loadNegativeRows(from, to),
+        loadCategoriesInRange(from, to),
       ]);
 
       const negativeByWeek = {};
@@ -352,12 +389,14 @@ export default withAuth(async function handler(req, res) {
         toWeek: `${to.year}-${to.week}`,
         weeks,
         negative: negativeRes.recordset,
+        categories: categoryRes.recordset.map(r => r.CountryFlower).filter(Boolean),
       });
     }
 
     if (req.method === 'POST') {
-      const { fromWeek, toWeek, force } = req.body || {};
+      const { fromWeek, toWeek, force, countryFlowers } = req.body || {};
       const { from, to } = normalizeRange(fromWeek, toWeek);
+      const cfFilter = normalizeCountryFlowerFilter(countryFlowers);
       const later = await loadLaterFixed(to);
       if (later.recordset.length > 0 && !force) {
         return res.status(409).json({
@@ -368,7 +407,7 @@ export default withAuth(async function handler(req, res) {
         });
       }
 
-      const targetRes = await loadUnfixTargets(from, to);
+      const targetRes = await loadUnfixTargets(from, to, cfFilter.length ? cfFilter : null);
       const targets = targetRes.recordset;
       if (targets.length === 0) {
         return res.status(200).json({ success: true, message: '확정 취소 대상이 없습니다.', results: [], errors: [] });

@@ -19,6 +19,12 @@ import {
   PIVOT_FIELDS, FIELD_BY_ID, ZONES, canDropInZone, COL_GROUP_LABELS, COL_GROUP_FIELD_MAP,
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
+import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
+import {
+  buildPivotExportColumns,
+  rowHasPivotQty,
+  rowsToCsvAoA,
+} from '../../lib/pivotExcelExport';
 
 const DND_FIELD_ID = 'application/x-pivot-field-id';
 const DND_FIELD_FROM = 'application/x-pivot-field-from';
@@ -614,65 +620,6 @@ export default function Pivot() {
 
   useEffect(() => { load(); }, []);
 
-  const handleExcel = () => {
-    if (!data) return;
-    let exportCusts = data.customers || [];
-    if (visibleCustNames.length > 0) {
-      if (visibleCustNames.includes('__NONE__')) exportCusts = [];
-      else {
-        const pick = new Set(visibleCustNames);
-        exportCusts = exportCusts.filter(c => pick.has(c.custName));
-      }
-    }
-    const farms = data.farms || [];
-    const hdrs = ['국가','꽃','품목명'];
-    if (showArea)    hdrs.push('지역');
-    if (showOutDate) hdrs.push('출고일');
-    if (showInPrice) hdrs.push('입고단가');
-    if (showInTotal) hdrs.push('입고총단가');
-    if (showArrival) hdrs.push('도착원가');
-    if (showAWB)     hdrs.push('AWB');
-    if (showAmount)  hdrs.push('판매금액');
-    if (showDescr)   hdrs.push('비고');
-    if (showSections.prev)     hdrs.push('01.전재고');
-    if (showSections.order && !compact) exportCusts.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`판매단가_${c.custName}`); if(showDistCost) hdrs.push(`분배단가_${c.custName}`); });
-    if (showSections.order)    hdrs.push(compact?'02.주문':'02.주문Total');
-    if (showSections.order && compact && showDistCost) hdrs.push('분배단가');
-    if (showSections.incoming && !compact) farms.forEach(f=>hdrs.push(`입고_${f}`));
-    if (showSections.incoming && compact)  hdrs.push('03.입고');
-    if (showSections.out)      hdrs.push('04.출고');
-    if (showSections.none)     hdrs.push('03.미발주');
-    if (showSections.cur)      hdrs.push('05.현재고');
-
-    const rows = [hdrs];
-    filteredRows.forEach(r=>{
-      const row=[r.country,r.flower,r.prodName];
-      if (showArea)    row.push(r.area||'');
-      if (showOutDate) row.push(r.outDate||'');
-      if (showInPrice) row.push(r.inPrice||0);
-      if (showInTotal) row.push(r.inTotal||0);
-      if (showArrival) row.push(r.arrivalCost||0);
-      if (showAWB)     row.push(r.awb||'');
-      if (showAmount)  row.push((r.cost||0)*(r.totalOrder||0));
-      if (showDescr)   row.push(r.descr||'');
-      if (showSections.prev)     row.push(r.prevStock||0);
-      if (showSections.order && !compact) exportCusts.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); if(showDistCost) row.push(r.distCostOrders?.[c.custName]||0); });
-      if (showSections.order)    row.push(r.totalOrder||0);
-      if (showSections.order && compact && showDistCost) row.push(rowDistCostAvg(r)||0);
-      if (showSections.incoming && !compact) farms.forEach(f=>row.push(r.incoming?.[f]||0));
-      if (showSections.incoming && compact)  row.push(r.totalIncoming||0);
-      if (showSections.out)      row.push(r.confirmedOut||0);
-      if (showSections.none)     row.push(r.noneOut||0);
-      if (showSections.cur)      row.push(r.curStock||0);
-      rows.push(row);
-    });
-
-    const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download=`Pivot통계_${weekStartInput.value}.csv`; a.click();
-  };
-
   const handleVolumeExcel = async () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
     setErr(''); setVolBusy('물량표 생성 중… (수십 초 걸릴 수 있어요)');
@@ -957,6 +904,46 @@ export default function Pivot() {
   }, [columnZone]);
   const orderSectionOnTop = !showOrderCustCols || !custBeforeSection('secOrder');
   const outSectionOnTop = !showOutCustCols || !custBeforeSection('secOut');
+
+  const handleExcel = useCallback(() => {
+    if (!data) return;
+    let exportCusts = sortedCusts;
+    if (visibleCustNames.length > 0) {
+      if (visibleCustNames.includes('__NONE__')) exportCusts = [];
+      else {
+        const pick = new Set(visibleCustNames);
+        exportCusts = sortedCusts.filter(c => pick.has(c.custName));
+      }
+    }
+    const exportRows = filteredRows.filter(rowHasPivotQty);
+    if (!exportRows.length) {
+      setErr('엑셀로 내보낼 수량(주문·입고·출고)이 있는 행이 없습니다.');
+      return;
+    }
+    const columns = buildPivotExportColumns({
+      showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
+      showQty, showCost, showDistCost,
+      showSections,
+      compact,
+      showOrderCustCols, showOutCustCols, showIncomingFarmCols, showIncomingCompactTotal,
+      sortedCusts: exportCusts,
+      farms,
+    });
+    const aoa = rowsToCsvAoA(columns, exportRows, { includeTotal: true });
+    const csv = aoa.map(row => row.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Pivot통계_${weekStartInput.value}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, [
+    data, filteredRows, sortedCusts, farms, visibleCustNames,
+    showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
+    showQty, showCost, showDistCost, showSections, compact,
+    showOrderCustCols, showOutCustCols, showIncomingFarmCols, showIncomingCompactTotal,
+    weekStartInput.value,
+  ]);
 
   const openFilterEditor = useCallback(() => {
     const sectionCond = { field:'구분', sections:{...showSections} };

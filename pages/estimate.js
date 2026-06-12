@@ -7,6 +7,12 @@ import { apiGet, apiPost } from '../lib/useApi';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
+import {
+  FIX_CATEGORY_PRESETS,
+  categoriesForPreset,
+  normalizeCategoryList,
+  resolveCountryFlowerFilter,
+} from '../lib/fixStatusCategories';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -596,6 +602,10 @@ export default function Estimate() {
   const [fixLogSince, setFixLogSince] = useState(0);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
+  const [fixStatusBatchCount, setFixStatusBatchCount] = useState(FIX_STATUS_COUNT);
+  const [fixStatusAvailableCategories, setFixStatusAvailableCategories] = useState([]);
+  const [fixStatusSelectedCategories, setFixStatusSelectedCategories] = useState([]);
+  const [fixStatusCategoryPreset, setFixStatusCategoryPreset] = useState('all');
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
   // 주문 vs 출고 불일치 검증
   const [mismatch, setMismatch] = useState(null); // { total, shortageCount, overflowCount, items }
@@ -724,7 +734,46 @@ export default function Estimate() {
   const getSelectedFixRange = () => {
     const selectedParent = parseInt(weekNum, 10);
     if (!Number.isFinite(selectedParent)) return null;
-    return getRecentFixStatusRange(selectedParent, FIX_STATUS_COUNT);
+    return getRecentFixStatusRange(selectedParent, fixStatusBatchCount);
+  };
+
+  const getFixStatusCountryFlowers = () => {
+    if (fixStatusCategoryPreset === 'all' || !fixStatusSelectedCategories.length) return [];
+    return resolveCountryFlowerFilter(fixStatusSelectedCategories, fixStatusAvailableCategories);
+  };
+
+  const ensureFixStatusCategorySelection = () => {
+    if (fixStatusCategoryPreset === 'all') return true;
+    const cf = resolveCountryFlowerFilter(fixStatusSelectedCategories, fixStatusAvailableCategories);
+    if (cf.length > 0) return true;
+    alert('선택한 카테고리가 조회 구간에 없습니다. 카테고리를 다시 선택하거나 「전체」를 사용하세요.');
+    return false;
+  };
+
+  const fixStatusCategoryLabel = () => {
+    const cf = getFixStatusCountryFlowers();
+    if (!cf.length) return '전체 카테고리';
+    if (cf.length <= 2) return cf.join(', ');
+    return `${cf.slice(0, 2).join(', ')} 외 ${cf.length - 2}개`;
+  };
+
+  const applyFixStatusCategoryPreset = (presetId) => {
+    setFixStatusCategoryPreset(presetId);
+    if (presetId === 'all') {
+      setFixStatusSelectedCategories([]);
+      return;
+    }
+    setFixStatusSelectedCategories(categoriesForPreset(presetId, fixStatusAvailableCategories));
+  };
+
+  const toggleFixStatusCategory = (category) => {
+    setFixStatusCategoryPreset('custom');
+    setFixStatusSelectedCategories(prev => {
+      const set = new Set(prev);
+      if (set.has(category)) set.delete(category);
+      else set.add(category);
+      return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+    });
   };
 
   const checkFixStatus = async () => {
@@ -742,6 +791,9 @@ export default function Estimate() {
         .filter(w => Number(w.masterCount || 0) > 0 || Number(w.detailCount || 0) > 0)
         .sort((a, b) => String(b.WeekKey || b.OrderWeek).localeCompare(String(a.WeekKey || a.OrderWeek)));
       setSelectedFixStatusWeeks(new Set());
+      setFixStatusAvailableCategories(normalizeCategoryList(data.categories || []));
+      setFixStatusSelectedCategories([]);
+      setFixStatusCategoryPreset('all');
       setFixStatusModal({ ...data, weeks, range });
     } catch (e) {
       alert(`확정 현황 확인 오류: ${e.message}`);
@@ -794,7 +846,12 @@ export default function Estimate() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ fromWeek, toWeek, force }),
+        body: JSON.stringify({
+          fromWeek,
+          toWeek,
+          force,
+          ...(getFixStatusCountryFlowers().length ? { countryFlowers: getFixStatusCountryFlowers() } : {}),
+        }),
       });
       const data = await res.json();
       if (!data.success) {
@@ -1258,7 +1315,7 @@ export default function Estimate() {
     }
   };
 
-  const doFixAll = async (weekList, force = false) => {
+  const doFixAll = async (weekList, force = false, countryFlowers = []) => {
     setFixWorking(true);
     setFixServerLogs([]);
     setFixLogWeeks(weekList || []);
@@ -1286,7 +1343,12 @@ export default function Estimate() {
       try {
         const r = await fetch('/api/shipment/fix', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ week: wk, action: 'fix', force }),
+          body: JSON.stringify({
+            week: wk,
+            action: 'fix',
+            force,
+            ...(countryFlowers.length ? { countryFlowers } : {}),
+          }),
         });
         const d = await r.json();
         results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount });
@@ -2100,13 +2162,16 @@ export default function Estimate() {
 
   const unfixSelectedFixStatusWeeks = async (force = false) => {
     const rows = fixStatusTargetRows;
+    if (!ensureFixStatusCategorySelection()) return;
+    const countryFlowers = getFixStatusCountryFlowers();
+    const categoryNote = countryFlowers.length ? `\n\n카테고리: ${countryFlowers.join(', ')}` : '';
     if (!rows.length) {
       alert('확정취소할 차수를 선택하거나, 확정/부분확정 차수가 있어야 합니다.');
       return;
     }
     const ordered = [...rows].sort((a, b) => String(b.WeekKey || b.OrderWeek).localeCompare(String(a.WeekKey || a.OrderWeek)));
     const weekLabels = ordered.map(w => w.OrderWeek);
-    if (!force && !confirm(`선택한 ${ordered.length}개 차수를 확정취소할까요?\n\n${weekLabels.join(', ')}\n\n높은 차수부터 낮은 차수 순서로 처리됩니다.`)) {
+    if (!force && !confirm(`선택한 ${ordered.length}개 차수를 확정취소할까요?\n\n${weekLabels.join(', ')}\n\n높은 차수부터 낮은 차수 순서로 처리됩니다.${categoryNote}`)) {
       return;
     }
 
@@ -2124,7 +2189,12 @@ export default function Estimate() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: row.OrderWeek, action: 'unfix', force: true }),
+          body: JSON.stringify({
+            week: row.OrderWeek,
+            action: 'unfix',
+            force: true,
+            ...(countryFlowers.length ? { countryFlowers } : {}),
+          }),
         });
         const data = await res.json();
         if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
@@ -2151,17 +2221,20 @@ export default function Estimate() {
 
   const fixSelectedFixStatusWeeks = async () => {
     const rows = fixStatusFixTargetRows;
+    if (!ensureFixStatusCategorySelection()) return;
+    const countryFlowers = getFixStatusCountryFlowers();
+    const categoryNote = countryFlowers.length ? `\n\n카테고리: ${countryFlowers.join(', ')}` : '';
     if (!rows.length) {
       alert('확정할 차수를 선택하거나, 미확정/부분확정 차수가 있어야 합니다.');
       return;
     }
     const ordered = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek)));
     const weekLabels = ordered.map(w => w.OrderWeek).filter(Boolean);
-    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.`)) {
+    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.${categoryNote}`)) {
       return;
     }
     setFixStatusModal(null);
-    await doFixAll(weekLabels);
+    await doFixAll(weekLabels, false, countryFlowers);
   };
 
   return (
@@ -3026,6 +3099,12 @@ export default function Estimate() {
                 <span style={{ background:'#e3f2fd', color:'#1565c0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   조회 {fixStatusRows.length}차수
                 </span>
+                <span style={{ background:'#f3e5f5', color:'#6a1b9a', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  범위 {fixStatusBatchCount}차수
+                </span>
+                <span style={{ background:'#fce4ec', color:'#ad1457', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  {fixStatusCategoryLabel()}
+                </span>
                 <span style={{ background:'#ede7f6', color:'#4527a0', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   선택 {selectedFixStatusWeeks.size}차수
                 </span>
@@ -3038,6 +3117,94 @@ export default function Estimate() {
                 <span style={{ background: fixStatusNegativeCount > 0 ? '#ffebee' : '#e8f5e9', color: fixStatusNegativeCount > 0 ? '#c62828' : '#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   음수재고 {fixStatusNegativeCount}건
                 </span>
+              </div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:10, fontSize:12 }}>
+                <span style={{ fontWeight:700, color:'#444' }}>조회 차수</span>
+                {[10, 20, 40].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={fixStatusLoading || rangeUnfixWorking || fixWorking}
+                    onClick={async () => {
+                      setFixStatusBatchCount(n);
+                      if (!weekNum) return;
+                      setFixStatusLoading(true);
+                      try {
+                        const range = getRecentFixStatusRange(parseInt(weekNum, 10), n);
+                        const res = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, { credentials: 'same-origin' });
+                        const data = await res.json();
+                        if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
+                        const weeks = (data.weeks || [])
+                          .filter(w => Number(w.masterCount || 0) > 0 || Number(w.detailCount || 0) > 0)
+                          .sort((a, b) => String(b.WeekKey || b.OrderWeek).localeCompare(String(a.WeekKey || a.OrderWeek)));
+                        setFixStatusAvailableCategories(normalizeCategoryList(data.categories || []));
+                        setFixStatusModal(prev => ({ ...prev, ...data, weeks, range }));
+                      } catch (e) {
+                        alert(`확정 현황 재조회 오류: ${e.message}`);
+                      } finally {
+                        setFixStatusLoading(false);
+                      }
+                    }}
+                    style={{
+                      padding:'4px 10px', borderRadius:14, cursor:'pointer', fontWeight:700,
+                      border:`1.5px solid ${fixStatusBatchCount === n ? '#1565c0' : '#bbb'}`,
+                      background: fixStatusBatchCount === n ? '#1565c0' : '#fff',
+                      color: fixStatusBatchCount === n ? '#fff' : '#555',
+                    }}
+                  >
+                    {n}차수
+                  </button>
+                ))}
+              </div>
+              <div style={{ marginBottom:12, padding:'10px 12px', background:'#fafafa', border:'1px solid #e0e0e0', borderRadius:8 }}>
+                <div style={{ fontSize:12, fontWeight:800, color:'#333', marginBottom:8 }}>
+                  카테고리 범위 (일괄 확정/취소)
+                </div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
+                  {FIX_CATEGORY_PRESETS.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={rangeUnfixWorking || fixWorking}
+                      onClick={() => applyFixStatusCategoryPreset(p.id)}
+                      style={{
+                        padding:'4px 10px', borderRadius:14, cursor:'pointer', fontSize:11, fontWeight:700,
+                        border:`1.5px solid ${fixStatusCategoryPreset === p.id ? '#6a1b9a' : '#ccc'}`,
+                        background: fixStatusCategoryPreset === p.id ? '#6a1b9a' : '#fff',
+                        color: fixStatusCategoryPreset === p.id ? '#fff' : '#555',
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {fixStatusAvailableCategories.length > 0 ? (
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', maxHeight:88, overflowY:'auto' }}>
+                    {fixStatusAvailableCategories.map(cf => {
+                      const checked = fixStatusCategoryPreset === 'all' || fixStatusSelectedCategories.includes(cf);
+                      return (
+                        <label key={cf} style={{
+                          display:'inline-flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:12,
+                          border:`1px solid ${checked ? '#6a1b9a' : '#ddd'}`, background: checked ? '#f3e5f5' : '#fff',
+                          fontSize:11, cursor:'pointer',
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={fixStatusCategoryPreset === 'all'}
+                            onChange={() => toggleFixStatusCategory(cf)}
+                          />
+                          {cf}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize:11, color:'#777' }}>조회 구간에 카테고리 데이터가 없습니다.</div>
+                )}
+                <div style={{ fontSize:11, color:'#666', marginTop:8, lineHeight:1.5 }}>
+                  예: <strong>카네이션</strong>만 선택하면 10차수 일괄 확정/취소가 카네이션 카테고리에만 적용됩니다. 장미·수국 등 다른 카테고리는 그대로 유지됩니다.
+                </div>
               </div>
               <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
                 먼저 현황을 확인한 뒤, 현재 선택 차수는 확정하고 과거 차수 수정이 필요하면 구간 확정취소를 진행합니다.
@@ -3147,7 +3314,7 @@ export default function Estimate() {
                 disabled={rangeUnfixWorking || fixStatusTargetRows.length === 0}
                 style={{ background:'#fff7ed', color:'#bf360c', borderColor:'#ef6c00', fontWeight:700 }}
               >
-                {rangeUnfixWorking ? (rangeUnfixStatus || '취소중...') : `선택 확정취소 (${fixStatusTargetRows.length}차수)`}
+                {rangeUnfixWorking ? (rangeUnfixStatus || '취소중...') : `선택 확정취소 (${fixStatusTargetRows.length}차수 · ${fixStatusCategoryLabel()})`}
               </button>
               <button
                 className="btn"
@@ -3155,7 +3322,7 @@ export default function Estimate() {
                 disabled={fixWorking || rangeUnfixWorking || fixStatusFixTargetRows.length === 0}
                 style={{ background:'#2e7d32', color:'#fff', borderColor:'#2e7d32', fontWeight:700 }}
               >
-                {fixWorking ? '확정중...' : `선택 차수 확정하기 (${fixStatusFixTargetRows.length}차수)`}
+                {fixWorking ? '확정중...' : `선택 차수 확정하기 (${fixStatusFixTargetRows.length}차수 · ${fixStatusCategoryLabel()})`}
               </button>
             </div>
           </div>

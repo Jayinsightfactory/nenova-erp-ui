@@ -12,7 +12,7 @@
     "test:compare-week": "node scripts/compare-week-exe.js",
     "test:import-qty": "node __tests__/shipmentImportQty.test.js",
     "test:adjust-unit": "node __tests__/adjustUnit.test.js",
-    "test:pivot": "node __tests__/pivotStats.test.js",
+    "test:pivot": "node __tests__/pivotStats.test.js && node __tests__/pivotVolumeRows.test.js && node __tests__/pivotExcelExport.test.js",
     "test:pivot-freight": "node __tests__/pivotFreightArrival.test.js",
     "probe:pivot-arrival": "node scripts/probe-pivot-arrival.js",
     "test:repair-unit": "node __tests__/unitMismatchRepair.test.js",

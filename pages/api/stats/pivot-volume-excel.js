@@ -5,6 +5,7 @@ import XLSX from 'xlsx-js-style';
 import { withAuth } from '../../../lib/auth';
 import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
+import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
 
 const FLOWER_PREFIX = {
   '카네이션': '카',
@@ -316,8 +317,8 @@ function makeSheet(rows, customers, farms, meta) {
       if (col.type === 'product') line.push(volumeProdLabel(row));
       else if (col.type === 'color') line.push(isNetherlands(row) ? dutchColorLabel(row.productDescr) : '');
       else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
-      else if (col.type === 'summary' && col.label === '주문') line.push(q(row, row.totalOrder) || '');
-      else if (col.type === 'summary' && col.label === '입고') line.push(q(row, row.totalIncoming) || '');
+      else if (col.type === 'summary' && col.label === '주문') line.push(q(row, sumOrderQty(row)) || '');
+      else if (col.type === 'summary' && col.label === '입고') line.push(q(row, sumIncomingQty(row)) || '');
       else if (col.type === 'summary' && col.label === '재고') line.push(q(row, row.prevStock) || '');
       else if (col.type === 'summary' && col.label === '잔량') line.push(q(row, row.curStock) || '');
       else if (col.type === 'farm') line.push(q(row, row.incoming?.[col.farm]) || '');
@@ -331,8 +332,8 @@ function makeSheet(rows, customers, farms, meta) {
     if (col.type === 'product') totals.push('합계');
     else if (col.type === 'color') totals.push('');
     else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, row.orders?.[col.customer.custName]), 0) || '');
-    else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalOrder), 0) || '');
-    else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, row.totalIncoming), 0) || '');
+    else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, sumOrderQty(row)), 0) || '');
+    else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, sumIncomingQty(row)), 0) || '');
     else if (col.type === 'summary' && col.label === '재고') totals.push(rows.reduce((sum, row) => sum + q(row, row.prevStock), 0) || '');
     else if (col.type === 'summary' && col.label === '잔량') totals.push(rows.reduce((sum, row) => sum + q(row, row.curStock), 0) || '');
     else if (col.type === 'farm') totals.push(rows.reduce((sum, row) => sum + q(row, row.incoming?.[col.farm]), 0) || '');
@@ -359,7 +360,7 @@ function makeSheet(rows, customers, farms, meta) {
     if (summaryCols['주문']) {
       // 거래처 컬럼이 1개 이상일 때만 SUM(거래처범위). 입고전용 시트(거래처 없음)면 값만 — 자기참조(순환) 방지.
       const lastCustCol = summaryCols['주문'] - 1;
-      const cell = { t: 'n', v: q(row, row.totalOrder), s: STYLES.summary };
+      const cell = { t: 'n', v: q(row, sumOrderQty(row)), s: STYLES.summary };
       if (lastCustCol >= 2) cell.f = `SUM(${encodeCell(excelRow, 2)}:${encodeCell(excelRow, lastCustCol)})`;
       ws[encodeCell(excelRow, summaryCols['주문'])] = cell;
     }
@@ -435,7 +436,7 @@ export default withAuth(async function handler(req, res) {
 
     const groups = new Map();
     (data.rows || [])
-      .filter(row => n(row.totalOrder) > 0 || n(row.totalIncoming) > 0)
+      .filter(includePivotVolumeRow)
       .forEach(row => {
         const countrySheet = countryOnlySheetName(row.country);
         const flower = normalizeVolumeFlower(row.flower);
@@ -458,7 +459,7 @@ export default withAuth(async function handler(req, res) {
     // 시트별 별도파일: 품종 목록만 반환 (페이지가 이걸 받아 품종마다 개별 다운로드)
     if (listMode) {
       const items = [...groups.entries()]
-        .filter(([, g]) => g.rows.some(r => n(r.totalOrder) > 0 || n(r.totalIncoming) > 0))
+        .filter(([, g]) => g.rows.some(includePivotVolumeRow))
         .map(([key, g]) => ({ key, species: speciesOf(g), fileName: `${weekNum}_${speciesOf(g)}.xlsx` }));
       return res.status(200).json({ success: true, weekNum, items });
     }
@@ -468,8 +469,8 @@ export default withAuth(async function handler(req, res) {
     for (const [key, group] of groups) {
       if (onlyKey && key !== onlyKey) continue;
       const sheetRows = group.rows
-        // 입고만 있고 주문이 없는 품목도 포함(24-01 농장·수량 누락 수정). 기존엔 주문>0만 남겨 드롭됐음.
-        .filter(row => n(row.totalOrder) > 0 || n(row.totalIncoming) > 0)
+        // 주문만·입고만 있는 품목 모두 포함 (totalOrder/totalIncoming 0 이어도 orders/incoming 맵 확인)
+        .filter(includePivotVolumeRow)
         .sort((a, b) => group.countryOnly
           ? `${normalizeVolumeFlower(a.flower)}${a.prodName}`.localeCompare(`${normalizeVolumeFlower(b.flower)}${b.prodName}`)
           : String(a.prodName).localeCompare(String(b.prodName)));
