@@ -110,20 +110,30 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-.tbl.tbl-pivot { table-layout: fixed; margin-left: 0; margin-right: auto; }
-.tbl.tbl-pivot th, .tbl.tbl-pivot td { text-align: left; }
+.tbl.tbl-pivot { table-layout: fixed; margin-left: 0; margin-right: auto; border-collapse: collapse; border-spacing: 0; }
+.tbl.tbl-pivot th, .tbl.tbl-pivot td { text-align: left; box-sizing: border-box; }
 .tbl.tbl-pivot th, .tbl.tbl-pivot td {
-  padding: 1px 4px;
+  padding: 0 1px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  line-height: 1.15;
 }
 .tbl.tbl-pivot thead tr.pivot-col-header-row th {
   position: relative;
   overflow: hidden;
+  padding: 0 1px;
+  line-height: 1.1;
+  font-size: 10px;
 }
-.tbl.tbl-pivot .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl.tbl-pivot .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding: 0 1px;
+  font-size: 10px;
+  line-height: 1.15;
+}
 .tbl.tbl-pivot td.prod-name, .tbl.tbl-pivot .prod-name { max-width: none; }
 
 /* ── 테이블 스크롤 영역: 높이 제한 + 가로/세로 스크롤 ── */

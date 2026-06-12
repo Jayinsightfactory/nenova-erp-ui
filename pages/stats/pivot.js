@@ -263,7 +263,7 @@ export default function Pivot() {
       return next;
     });
   }, []);
-  const custColWidth = colWidths['g:cust'] ?? 56;
+  const custColWidth = colWidths['g:cust'] ?? 40;
   const setCustColWidth = useCallback((w) => saveColWidth('g:cust', w), [saveColWidth]);
 
   // 측정/행 토글 ↔ 필드 id 매핑 (Field List 가 기존 state 를 구동)
@@ -937,9 +937,9 @@ export default function Pivot() {
     [loading, data, pivotColLayoutKey, custColWidth],
     {
       headerSelector: 'thead tr.pivot-col-header-row th',
-      minWidth: 18,
-      defaultWidth: 52,
-      defaultGroupWidths: { cust: 56, farm: 56 },
+      minWidth: 8,
+      defaultWidth: 36,
+      defaultGroupWidths: { cust: 40, farm: 40 },
       widths: colWidths,
       onResize: saveColWidth,
     },
@@ -1000,7 +1000,7 @@ export default function Pivot() {
         {!compact && showSections.order && sortedCusts.length > 0 && (
           <>
             <span className="filter-label" title="업체 열 너비 — 모든 거래처 열에 동시 적용">업체열</span>
-            <input type="range" min={18} max={120} step={2} value={custColWidth}
+            <input type="range" min={8} max={120} step={1} value={custColWidth}
               onChange={e => setCustColWidth(Number(e.target.value))}
               style={{width:72,height:22,verticalAlign:'middle',cursor:'pointer'}} />
             <span style={{fontSize:10,color:'var(--text3)',minWidth:28}}>{custColWidth}px</span>
@@ -1445,14 +1445,12 @@ export default function Pivot() {
                 )}
                 {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
                 {!compact && showSections.order && sortedCusts.map((c,ci)=>(
-                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'left',fontSize:10,background:'#D4ECD4',
+                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#D4ECD4',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
                   }}
-                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''}`}>
-                    <div style={{fontSize:9,fontWeight:'bold'}}>{c.custName.length>8?c.custName.slice(0,8)+'…':c.custName}</div>
-                    <div style={{fontSize:9,color:'var(--text3)'}}>{c.orderCode}</div>
-                    {showCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 단가</div>}
+                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
+                    {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
                   </th>
                 ))}
                 {showSections.order && (
@@ -1560,7 +1558,7 @@ export default function Pivot() {
                       ...(!isFC ? gFlower.items.map((r,idx)=>(
                         <tr key={`i-${r.prodKey}-${idx}`} style={{background:idx%2===0?'#fff':'var(--row-alt)'}}>
                           <td></td><td></td>
-                          <td style={{fontSize:11,fontWeight:500,borderRight: showArea?'none':'2px solid var(--border2)',padding:'1px 4px'}} title={r.prodName}>
+                          <td style={{fontSize:11,fontWeight:500,borderRight: showArea?'none':'2px solid var(--border2)',padding:'0 1px'}} title={r.prodName}>
                             {r.prodName}
                           </td>
                           {showArea     && <td style={{fontSize:10,borderRight:'2px solid var(--border2)',color:'var(--text3)'}} title={r.area||''}>{r.area||''}</td>}
@@ -1577,7 +1575,7 @@ export default function Pivot() {
                           {!compact && showSections.order && sortedCusts.map(c=>{
                             const showStack = showCost || showDistCost;
                             return (
-                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showStack?'1.2':'inherit',padding:showStack?'1px 4px':'inherit'}}>
+                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showStack?'1.15':'inherit',padding:'0 1px'}}>
                               {showQty && fmtNum(r.orders?.[c.custName])}
                               {showCost && (r.costOrders?.[c.custName]||0)>0 && (
                                 <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}} title="판매단가">{fmtNum(r.costOrders?.[c.custName])}</div>
