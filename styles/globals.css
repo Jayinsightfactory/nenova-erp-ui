@@ -95,7 +95,7 @@ body {
 .tbl tbody tr:nth-child(even):hover { background: #E8F0FF; }
 .tbl tfoot tr  { background: var(--header-bg); font-weight: bold; position: sticky; bottom: 0; z-index: 2; }
 .tbl tfoot td  { padding: 3px 6px; border: 1px solid var(--border); }
-.tbl th        { resize: horizontal; overflow: hidden; }
+.tbl:not(.tbl-pivot) th { resize: horizontal; overflow: hidden; }
 .num           { text-align: right; font-family: var(--mono); }
 .name          { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 
@@ -109,7 +109,7 @@ body {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
-.tbl.tbl-pivot { table-layout: auto; width: max-content; min-width: 100%; }
+.tbl.tbl-pivot { table-layout: fixed; width: max-content; min-width: 100%; }
 .tbl.tbl-pivot th, .tbl.tbl-pivot td {
   padding: 1px 4px;
   overflow: hidden;
@@ -225,8 +225,8 @@ input[type="radio"]    { cursor: pointer; accent-color: var(--blue); }
 /* ── 컬럼 리사이즈 ── */
 .tbl th.resizable { position: relative; user-select: none; }
 .tbl th.resizable .col-resize-handle {
-  position: absolute; right: 0; top: 0; bottom: 0; width: 5px;
-  cursor: col-resize; background: transparent; z-index: 2;
+  position: absolute; right: 0; top: 0; bottom: 0; width: 8px;
+  cursor: col-resize; background: transparent; z-index: 5;
 }
 .tbl th.resizable .col-resize-handle:hover,
 .tbl th.resizable .col-resize-handle.dragging { background: var(--blue); opacity: 0.4; }

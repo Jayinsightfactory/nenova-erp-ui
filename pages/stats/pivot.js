@@ -222,6 +222,9 @@ export default function Pivot() {
 
   // ── 컬럼 그룹 순서 (드래그로 변경 → 02.주문 섹션 계층 결정)
   const [colGroupOrder, setColGroupOrder] = useState(['지역', '비고', '거래처명']);
+  const [visibleCustNames, setVisibleCustNames] = useState([]); // 빈 배열 = 전체 표시
+  const [showCustPicker, setShowCustPicker] = useState(false);
+  const custPickerRef = useRef(null);
   const [dragOverIdx,   setDragOverIdx]   = useState(null);
 
   // ── Field List (exe DevExpress PivotGrid 형) — 행/열/필터/값 4영역 드래그
@@ -238,11 +241,14 @@ export default function Pivot() {
   });
   const saveColWidth = useCallback((idx, w) => {
     setColWidths((prev) => {
-      const next = { ...prev, [idx]: w };
+      const key = typeof idx === 'string' ? idx : String(idx);
+      const next = { ...prev, [key]: w };
       try { localStorage.setItem('pivotColWidths', JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
+  const custColWidth = colWidths['g:cust'] ?? 56;
+  const setCustColWidth = useCallback((w) => saveColWidth('g:cust', w), [saveColWidth]);
 
   // 측정/행 토글 ↔ 필드 id 매핑 (Field List 가 기존 state 를 구동)
   const measureState = {
@@ -306,6 +312,7 @@ export default function Pivot() {
       if (Array.isArray(l.filter)) setFilterZone(l.filter.filter(id => FIELD_BY_ID[id]));
       if (l.fieldFilters && typeof l.fieldFilters === 'object') setFieldFilters(l.fieldFilters);
       if (Array.isArray(l.colGroupOrder)) setColGroupOrder(l.colGroupOrder);
+      if (Array.isArray(l.visibleCustNames)) setVisibleCustNames(l.visibleCustNames);
       if (Array.isArray(l.columnZone)) {
         setColumnZone(l.columnZone.filter(id => FIELD_BY_ID[id]));
         if (l.columnZone.includes('custName') || l.columnZone.includes('farmName')) setViewMode('detail');
@@ -324,11 +331,12 @@ export default function Pivot() {
         fieldFilters,
         colGroupOrder,
         columnZone,
+        visibleCustNames,
         showFieldList,
       };
       localStorage.setItem('pivotFieldLayout', JSON.stringify(layout));
     } catch {}
-  }, [filterZone, fieldFilters, colGroupOrder, columnZone, showFieldList, isFieldActive]);
+  }, [filterZone, fieldFilters, colGroupOrder, columnZone, visibleCustNames, showFieldList, isFieldActive]);
 
   // 필드 드롭 — dataTransfer 우선 (React state 타이밍 이슈 방지)
   const readDropPayload = useCallback((e) => {
@@ -345,55 +353,84 @@ export default function Pivot() {
     setDragField({ id, from });
   }, []);
 
-  const handleFieldDrop = useCallback((zoneId, dropId, dropFrom, e) => {
-    setZoneHover(null);
-    const payload = dropId ? { id: dropId, from: dropFrom || '__tray__' } : readDropPayload(e);
-    setDragField(null);
-    const { id, from } = payload;
-    if (!id) return;
-    if (from === zoneId) return;
-    if (zoneId === 'filter') {
-      if (!canDropInZone(id, 'filter')) return;
-      setFilterZone(z => z.includes(id) ? z : [...z, id]);
-      return;
-    }
-    if (zoneId === '__tray__') {
-      if (from === 'filter') {
-        setFilterZone(z => z.filter(x => x !== id));
-        setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
-      } else if (from === 'column') {
-        if (id === 'area' || id === 'descr') {
-          setColumnZone(z => z.filter(x => x !== id));
-          const lbl = id === 'area' ? '지역' : '비고';
-          setColGroupOrder(o => o.filter(x => x !== lbl));
-        } else {
-          setFieldActive(id, false);
-        }
-      } else {
-        setFieldActive(id, false);
-      }
-      return;
-    }
-    if (zoneId === 'column') {
-      if (!canDropInZone(id, 'column')) return;
-      if (id === 'area' || id === 'descr') {
-        setColumnZone(z => z.includes(id) ? z : [...z, id]);
-        const lbl = id === 'area' ? '지역' : '비고';
-        setColGroupOrder(o => o.includes(lbl) ? o : [...o, lbl]);
-        return;
-      }
-      setFieldActive(id, true);
-      return;
-    }
-    if (canDropInZone(id, zoneId)) setFieldActive(id, true);
-  }, [readDropPayload, setFieldActive]);
-
-  // 필터영역 필드 제거
   const removeFilterField = useCallback((id) => {
     setFilterZone(z => z.filter(x => x !== id));
     setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
     if (openFilterChip === id) setOpenFilterChip(null);
   }, [openFilterChip]);
+
+  const removeFromColumnZone = useCallback((id) => {
+    setColumnZone((z) => {
+      const next = z.filter((x) => x !== id);
+      if (id === 'area') setColGroupOrder((o) => o.filter((x) => x !== '지역'));
+      if (id === 'descr') setColGroupOrder((o) => o.filter((x) => x !== '비고'));
+      if (id === 'custName') setColGroupOrder((o) => o.filter((x) => x !== '거래처명'));
+      if (!next.includes('custName') && !next.includes('farmName')) setViewMode('compact');
+      return next;
+    });
+  }, []);
+
+  const removeFieldFromZone = useCallback((id, zoneId) => {
+    if (zoneId === 'filter') {
+      removeFilterField(id);
+      return;
+    }
+    if (zoneId === 'column') {
+      removeFromColumnZone(id);
+      return;
+    }
+    setFieldActive(id, false);
+  }, [removeFilterField, removeFromColumnZone, setFieldActive]);
+
+  const handleFieldDrop = useCallback((zoneId, dropId, dropFrom, e) => {
+    setZoneHover(null);
+    const payload = dropId ? { id: dropId, from: dropFrom || '__tray__' } : readDropPayload(e);
+    setDragField(null);
+    const { id, from } = payload;
+    if (!id || !FIELD_BY_ID[id]) return;
+    if (from === zoneId) return;
+
+    const clearFromSource = () => {
+      if (from === 'filter') removeFilterField(id);
+      else if (from === 'column') removeFromColumnZone(id);
+      else if (from === 'row' || from === 'data') setFieldActive(id, false);
+    };
+
+    if (zoneId === '__tray__') {
+      clearFromSource();
+      return;
+    }
+    if (!canDropInZone(id, zoneId)) return;
+    if (from !== '__tray__') clearFromSource();
+
+    if (zoneId === 'filter') {
+      setFilterZone(z => z.includes(id) ? z : [...z, id]);
+      return;
+    }
+    if (zoneId === 'column') {
+      if (id === 'area' || id === 'descr') {
+        if (rowOptState[id]) rowOptState[id][1](false);
+        setColumnZone(z => z.includes(id) ? z : [...z, id]);
+        const lbl = id === 'area' ? '지역' : '비고';
+        setColGroupOrder(o => o.includes(lbl) ? o : [...o, lbl]);
+      } else {
+        setFieldActive(id, true);
+      }
+      return;
+    }
+    if (zoneId === 'row' || zoneId === 'data') {
+      setColumnZone(z => {
+        if (!z.includes(id)) return z;
+        const next = z.filter(x => x !== id);
+        if (id === 'area') setColGroupOrder(o => o.filter(x => x !== '지역'));
+        if (id === 'descr') setColGroupOrder(o => o.filter(x => x !== '비고'));
+        if (id === 'custName') setColGroupOrder(o => o.filter(x => x !== '거래처명'));
+        if (!next.includes('custName') && !next.includes('farmName')) setViewMode('compact');
+        return next;
+      });
+      setFieldActive(id, true);
+    }
+  }, [readDropPayload, setFieldActive, removeFilterField, removeFromColumnZone]);
 
   // ── Filter Editor
   const [filterConditions, setFilterConditions] = useState([]);
@@ -403,9 +440,9 @@ export default function Pivot() {
   const captureLayout = useCallback(() => ({
     showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
     showArea, showDescr, columnZone, showSections, viewMode, showFieldList,
-    filterZone, fieldFilters, colGroupOrder, filters, filterConditions,
+    filterZone, fieldFilters, colGroupOrder, visibleCustNames, filters, filterConditions,
   }), [showOutDate, showInPrice, showInTotal, showAWB, showCost, showDistCost, showArrival, showQty, showAmount,
-    showArea, showDescr, columnZone, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, filters, filterConditions]);
+    showArea, showDescr, columnZone, showSections, viewMode, showFieldList, filterZone, fieldFilters, colGroupOrder, visibleCustNames, filters, filterConditions]);
 
   const applyLayout = useCallback((cfg) => {
     if (!cfg) return;
@@ -421,6 +458,7 @@ export default function Pivot() {
     if (Array.isArray(cfg.filterZone)) setFilterZone(cfg.filterZone.filter(id => FIELD_BY_ID[id]));
     if (cfg.fieldFilters && typeof cfg.fieldFilters === 'object') setFieldFilters(cfg.fieldFilters);
     if (Array.isArray(cfg.colGroupOrder)) setColGroupOrder(cfg.colGroupOrder);
+    if (Array.isArray(cfg.visibleCustNames)) setVisibleCustNames(cfg.visibleCustNames);
     if (cfg.filters && typeof cfg.filters === 'object') setFilters(cfg.filters);
     if (Array.isArray(cfg.filterConditions)) setFilterConditions(cfg.filterConditions);
   }, []);
@@ -460,7 +498,14 @@ export default function Pivot() {
 
   const handleExcel = () => {
     if (!data) return;
-    const custs = data.customers || [];
+    let exportCusts = data.customers || [];
+    if (visibleCustNames.length > 0) {
+      if (visibleCustNames.includes('__NONE__')) exportCusts = [];
+      else {
+        const pick = new Set(visibleCustNames);
+        exportCusts = exportCusts.filter(c => pick.has(c.custName));
+      }
+    }
     const farms = data.farms || [];
     const hdrs = ['국가','꽃','품목명'];
     if (showArea)    hdrs.push('지역');
@@ -472,7 +517,7 @@ export default function Pivot() {
     if (showAmount)  hdrs.push('판매금액');
     if (showDescr)   hdrs.push('비고');
     if (showSections.prev)     hdrs.push('01.전재고');
-    if (showSections.order && !compact) custs.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`판매단가_${c.custName}`); if(showDistCost) hdrs.push(`분배단가_${c.custName}`); });
+    if (showSections.order && !compact) exportCusts.forEach(c=>{ hdrs.push(`주문_${c.custName}`); if(showCost) hdrs.push(`판매단가_${c.custName}`); if(showDistCost) hdrs.push(`분배단가_${c.custName}`); });
     if (showSections.order)    hdrs.push(compact?'02.주문':'02.주문Total');
     if (showSections.order && compact && showDistCost) hdrs.push('분배단가');
     if (showSections.incoming && !compact) farms.forEach(f=>hdrs.push(`입고_${f}`));
@@ -493,7 +538,7 @@ export default function Pivot() {
       if (showAmount)  row.push((r.cost||0)*(r.totalOrder||0));
       if (showDescr)   row.push(r.descr||'');
       if (showSections.prev)     row.push(r.prevStock||0);
-      if (showSections.order && !compact) custs.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); if(showDistCost) row.push(r.distCostOrders?.[c.custName]||0); });
+      if (showSections.order && !compact) exportCusts.forEach(c=>{ row.push(r.orders?.[c.custName]||0); if(showCost) row.push(r.costOrders?.[c.custName]||0); if(showDistCost) row.push(r.distCostOrders?.[c.custName]||0); });
       if (showSections.order)    row.push(r.totalOrder||0);
       if (showSections.order && compact && showDistCost) row.push(rowDistCostAvg(r)||0);
       if (showSections.incoming && !compact) farms.forEach(f=>row.push(r.incoming?.[f]||0));
@@ -592,11 +637,58 @@ export default function Pivot() {
   const allCusts = data?.customers || [];
   const farms  = data?.farms || [];
 
-  const custs = useMemo(() =>
-    custFilter
-      ? allCusts.filter(c => c.custName.toLowerCase().includes(custFilter.toLowerCase()) || c.area?.toLowerCase().includes(custFilter.toLowerCase()))
-      : allCusts,
-  [allCusts, custFilter]);
+  const custs = useMemo(() => {
+    let list = allCusts;
+    if (custFilter) {
+      list = list.filter(c =>
+        c.custName.toLowerCase().includes(custFilter.toLowerCase())
+        || c.area?.toLowerCase().includes(custFilter.toLowerCase()));
+    }
+    if (visibleCustNames.length > 0) {
+      if (visibleCustNames.includes('__NONE__')) return [];
+      const pick = new Set(visibleCustNames);
+      list = list.filter(c => pick.has(c.custName));
+    }
+    return list;
+  }, [allCusts, custFilter, visibleCustNames]);
+
+  const custColPickCount = visibleCustNames.includes('__NONE__') ? 0
+    : visibleCustNames.length === 0 ? allCusts.length : visibleCustNames.length;
+
+  const isCustColChecked = useCallback((name) => {
+    if (visibleCustNames.length === 0) return true;
+    return visibleCustNames.includes(name);
+  }, [visibleCustNames]);
+
+  const toggleCustColPick = useCallback((name, checked) => {
+    setVisibleCustNames(prev => {
+      const allNames = allCusts.map(c => c.custName);
+      let cur = prev.length === 0 ? [...allNames] : [...prev];
+      let next = checked ? [...new Set([...cur, name])] : cur.filter(n => n !== name);
+      if (next.length >= allNames.length) next = [];
+      return next;
+    });
+  }, [allCusts]);
+
+  useEffect(() => {
+    if (!showCustPicker) return;
+    const close = (e) => {
+      if (custPickerRef.current?.contains(e.target)) return;
+      setShowCustPicker(false);
+    };
+    const t = setTimeout(() => document.addEventListener('click', close), 50);
+    return () => { clearTimeout(t); document.removeEventListener('click', close); };
+  }, [showCustPicker]);
+
+  useEffect(() => {
+    if (!data?.customers?.length || visibleCustNames.length === 0) return;
+    if (visibleCustNames.includes('__NONE__')) return;
+    const valid = new Set(data.customers.map(c => c.custName));
+    setVisibleCustNames(prev => {
+      const next = prev.filter(n => valid.has(n));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 필터 옵션 (필터용) — 데이터 변경 시만 재계산
   const areaOptions    = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.area).filter(Boolean))].sort(),    [data]);
@@ -674,6 +766,7 @@ export default function Pivot() {
     for (const id of filterZone) {
       const sel = fieldFilters[id];
       if (!sel || sel.length === 0) continue;
+      if (sel.includes('__EMPTY__')) return false;
       if (id === 'custName') {
         const hasOrder = sel.some(name => Number(r.orders?.[name] || 0) > 0);
         if (!hasOrder) return false;
@@ -804,11 +897,12 @@ export default function Pivot() {
     showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost]);
 
   const pivotTableRef = useColumnResize(
-    [loading, data, pivotColLayoutKey],
+    [loading, data, pivotColLayoutKey, custColWidth],
     {
       headerSelector: 'thead tr.pivot-col-header-row th',
       minWidth: 18,
       defaultWidth: 52,
+      defaultGroupWidths: { cust: 56, farm: 56 },
       widths: colWidths,
       onResize: saveColWidth,
     },
@@ -838,6 +932,15 @@ export default function Pivot() {
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
+        {!compact && showSections.order && sortedCusts.length > 0 && (
+          <>
+            <span className="filter-label" title="업체 열 너비 — 모든 거래처 열에 동시 적용">업체열</span>
+            <input type="range" min={18} max={120} step={2} value={custColWidth}
+              onChange={e => setCustColWidth(Number(e.target.value))}
+              style={{width:72,height:22,verticalAlign:'middle',cursor:'pointer'}} />
+            <span style={{fontSize:10,color:'var(--text3)',minWidth:28}}>{custColWidth}px</span>
+          </>
+        )}
         <button className="btn btn-success" onClick={handleVolumeExcel} disabled={!!volBusy}>{volBusy ? '생성 중…' : '물량표 다운받기'}</button>
         <button className="btn btn-success" onClick={openPick} disabled={!!volBusy} style={{background:'#1565c0'}}>차수·품종별(선택)</button>
         {volBusy && <span style={{marginLeft:8,fontSize:12,color:'#1565c0',fontWeight:700}}>⏳ {volBusy}</span>}
@@ -922,6 +1025,7 @@ export default function Pivot() {
         const startDrag = startFieldDrag;
         const onZoneDragOver = (zoneId) => (e) => {
           e.preventDefault();
+          e.stopPropagation();
           e.dataTransfer.dropEffect = 'move';
           setZoneHover(zoneId);
         };
@@ -931,17 +1035,34 @@ export default function Pivot() {
           handleFieldDrop(zoneId, null, null, e);
         };
         const addFieldToDefaultZone = (f) => {
-          const z = f.sectionKey || f.id === 'custName' || f.id === 'farmName' || f.columnGroup
-            ? 'column' : f.zone === 'data' ? 'data' : 'row';
-          handleFieldDrop(z, f.id, '__tray__');
+          if (canDropInZone(f.id, 'filter') && f.filterable) handleFieldDrop('filter', f.id, '__tray__');
+          else if (canDropInZone(f.id, 'column')) handleFieldDrop('column', f.id, '__tray__');
+          else if (canDropInZone(f.id, 'data')) handleFieldDrop('data', f.id, '__tray__');
+          else handleFieldDrop('row', f.id, '__tray__');
         };
-        const removeFromZone = (f, zoneId) => {
-          if (zoneId === 'filter') removeFilterField(f.id);
-          else if (zoneId === 'column' && (f.id === 'area' || f.id === 'descr')) handleFieldDrop('__tray__', f.id, 'column');
-          else setFieldActive(f.id, false);
+        const isFilterAllDeselected = (id) => fieldFilters[id]?.includes('__EMPTY__');
+        const isFilterValueChecked = (id, v) => {
+          const sel = fieldFilters[id];
+          if (isFilterAllDeselected(id)) return false;
+          if (!sel || sel.length === 0) return true;
+          return sel.includes(v);
         };
+        const toggleFilterValue = (id, v, checked) => {
+          setFieldFilters(ff => {
+            const all = getValuesForFieldId(id);
+            let cur;
+            if (ff[id]?.includes('__EMPTY__')) cur = [];
+            else if (!ff[id]?.length) cur = [...all];
+            else cur = [...ff[id]];
+            let next = checked ? [...new Set([...cur, v])] : cur.filter(x => x !== v);
+            if (next.length >= all.length) next = [];
+            return { ...ff, [id]: next };
+          });
+        };
+        const removeFromZone = (f, zoneId) => removeFieldFromZone(f.id, zoneId);
         const Chip = ({ f, zoneId, removable }) => (
           <span draggable={!f.locked} onDragStart={startDrag(f.id, zoneId)} onDragEnd={()=>{ setDragField(null); setZoneHover(null); }}
+            onDragOver={onZoneDragOver(zoneId)} onDrop={onZoneDrop(zoneId)}
             style={chipStyle(true, f.locked)} title={f.locked?'고정 필드(제거 불가)':'드래그하여 영역 이동'}>
             {!f.locked && <span style={{fontSize:9,color:'var(--text3)',lineHeight:1}}>⠿</span>}
             {f.label}
@@ -955,18 +1076,15 @@ export default function Pivot() {
         const zoneActiveFields = (zoneId) => {
           if (zoneId==='filter') return filterZone.map(id=>FIELD_BY_ID[id]).filter(Boolean);
           if (zoneId==='column') return columnZone.map(id=>FIELD_BY_ID[id]).filter(Boolean);
+          if (zoneId==='data') return PIVOT_FIELDS.filter(f=>f.kind==='measure' && isFieldActive(f.id));
           return PIVOT_FIELDS.filter(f=>f.zone==='row' && (f.locked || isFieldActive(f.id)));
         };
-        const trayFields = PIVOT_FIELDS.filter(f => {
-          if (f.locked) return false;
-          if (f.sectionKey || f.id === 'custName' || f.id === 'farmName') return !columnZone.includes(f.id);
-          if (f.columnGroup && (f.id === 'area' || f.id === 'descr')) {
-            return !columnZone.includes(f.id) && !rowOptState[f.id]?.[0];
-          }
-          if (f.zone === 'row') return !rowOptState[f.id]?.[0];
-          if (f.kind === 'measure') return !measureState[f.id]?.[0];
-          return false;
-        });
+        const isFieldPlaced = (f) =>
+          columnZone.includes(f.id)
+          || filterZone.includes(f.id)
+          || !!measureState[f.id]?.[0]
+          || !!rowOptState[f.id]?.[0];
+        const trayFields = PIVOT_FIELDS.filter((f) => !f.locked && !isFieldPlaced(f));
         return (
           <div style={{padding:'6px 8px',background:'#F7FAFE',border:'1px solid var(--border)',borderTop:'none',flexShrink:0}}>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -979,16 +1097,20 @@ export default function Pivot() {
                     border:`2px dashed ${zoneHover===z.id?'var(--blue)':'var(--border2)'}`,
                     borderRadius:5, background: zoneHover===z.id?'#eaf2ff':'#fff', padding:'4px 6px'}}>
                   <div style={{fontSize:10,fontWeight:'bold',color:'var(--text3)',marginBottom:3}}>{z.label}</div>
-                  <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}
+                    onDragOver={onZoneDragOver(z.id)} onDrop={onZoneDrop(z.id)}>
                     {zoneActiveFields(z.id).map(f=>(
                       <span key={f.id} style={{position:'relative',display:'inline-block'}}>
                         <span onClick={z.id==='filter'?()=>setOpenFilterChip(o=>o===f.id?null:f.id):undefined}
                           style={{cursor:z.id==='filter'?'pointer':(f.locked?'default':'grab')}}>
                           <Chip f={f} zoneId={z.id} removable />
-                          {z.id==='filter' && (fieldFilters[f.id]?.length>0) && (
+                          {z.id==='filter' && fieldFilters[f.id]?.length>0 && !isFilterAllDeselected(f.id) && (
                             <span style={{fontSize:8,color:'#fff',background:'var(--blue)',borderRadius:8,padding:'0 4px',marginLeft:2}}>
                               {fieldFilters[f.id].length}
                             </span>
+                          )}
+                          {z.id==='filter' && isFilterAllDeselected(f.id) && (
+                            <span style={{fontSize:8,color:'#fff',background:'var(--red)',borderRadius:8,padding:'0 4px',marginLeft:2}}>0</span>
                           )}
                         </span>
                         {/* 필터 값 체크 드롭다운 */}
@@ -1000,29 +1122,19 @@ export default function Pivot() {
                             <div style={{padding:'4px 8px',background:'#f0f4fa',fontSize:10,color:'var(--text3)',
                               display:'flex',gap:6,position:'sticky',top:0}}>
                               <span style={{cursor:'pointer',color:'var(--blue)'}}
-                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:getValuesForFieldId(f.id)}))}>전체</span>
-                              <span style={{cursor:'pointer',color:'var(--blue)'}}
-                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:[]}))}>해제</span>
+                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:[]}))}>전체선택</span>
+                              <span style={{cursor:'pointer',color:'var(--red)'}}
+                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:['__EMPTY__']}))}>전체해제</span>
                               <span style={{marginLeft:'auto',cursor:'pointer'}} onClick={()=>setOpenFilterChip(null)}>닫기</span>
                             </div>
-                            {getValuesForFieldId(f.id).map(v=>{
-                              const sel = fieldFilters[f.id]||[];
-                              const checked = sel.length===0 ? true : sel.includes(v);
-                              return (
-                                <label key={v} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 9px',fontSize:11,cursor:'pointer'}}>
-                                  <input type="checkbox" checked={checked} onChange={e=>{
-                                    setFieldFilters(ff=>{
-                                      const base = (ff[f.id]&&ff[f.id].length>0) ? ff[f.id] : getValuesForFieldId(f.id);
-                                      let next = e.target.checked ? [...new Set([...base,v])] : base.filter(x=>x!==v);
-                                      const all = getValuesForFieldId(f.id);
-                                      if (next.length===all.length) next = [];  // 전부 선택 = 필터 없음
-                                      return {...ff,[f.id]:next};
-                                    });
-                                  }} />
-                                  {v}
-                                </label>
-                              );
-                            })}
+                            {getValuesForFieldId(f.id).map(v=>(
+                              <label key={v} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 9px',fontSize:11,cursor:'pointer'}}>
+                                <input type="checkbox"
+                                  checked={isFilterValueChecked(f.id, v)}
+                                  onChange={e=>toggleFilterValue(f.id, v, e.target.checked)} />
+                                {v}
+                              </label>
+                            ))}
                           </div>
                         )}
                       </span>
@@ -1063,6 +1175,62 @@ export default function Pivot() {
                     <span style={{fontSize:9,color:'var(--text3)'}}>⠿</span>{lv}
                   </span>
                 ))}
+                {colGroupOrder.includes('거래처명') && columnZone.includes('custName') && (
+                  <span ref={custPickerRef} style={{position:'relative',display:'inline-block'}}>
+                    <button type="button"
+                      onClick={(e) => { e.stopPropagation(); setShowCustPicker(s => !s); }}
+                      style={{
+                        padding:'2px 8px', height:22, fontSize:11, cursor:'pointer',
+                        border:`1px solid ${visibleCustNames.length && !visibleCustNames.includes('__NONE__') ? 'var(--blue)' : 'var(--border2)'}`,
+                        borderRadius:3,
+                        background: visibleCustNames.length && !visibleCustNames.includes('__NONE__') ? '#e8f0fe' : '#fff',
+                        color: visibleCustNames.length && !visibleCustNames.includes('__NONE__') ? '#1a4d8f' : 'var(--text2)',
+                        fontWeight: visibleCustNames.length && !visibleCustNames.includes('__NONE__') ? 'bold' : 'normal',
+                      }}
+                      title="02.주문 열에 표시할 거래처 선택">
+                      거래처 선택 ({custColPickCount}/{allCusts.length}) ▼
+                    </button>
+                    {showCustPicker && (
+                      <div style={{
+                        position:'absolute', top:'100%', left:0, zIndex:600, marginTop:2,
+                        background:'#fff', border:'2px solid var(--border2)', borderRadius:4,
+                        minWidth:220, maxWidth:320, maxHeight:280, overflowY:'auto',
+                        boxShadow:'3px 4px 12px rgba(0,0,0,.25)', padding:'4px 0',
+                      }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{padding:'4px 8px', borderBottom:'1px solid var(--border)', display:'flex', gap:6, fontSize:10}}>
+                          <button type="button" className="btn btn-sm" style={{height:20,fontSize:10,padding:'0 6px'}}
+                            onClick={() => setVisibleCustNames([])}>전체</button>
+                          <button type="button" className="btn btn-sm" style={{height:20,fontSize:10,padding:'0 6px'}}
+                            onClick={() => setVisibleCustNames(['__NONE__'])}>전체해제</button>
+                        </div>
+                        {allCusts.length === 0 ? (
+                          <div style={{padding:8,fontSize:10,color:'var(--text3)'}}>거래처 없음</div>
+                        ) : allCusts.map(c => (
+                          <label key={c.custName} style={{
+                            display:'flex', alignItems:'center', gap:6, padding:'3px 8px',
+                            fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0',
+                          }}>
+                            <input type="checkbox"
+                              checked={visibleCustNames.includes('__NONE__') ? false : isCustColChecked(c.custName)}
+                              onChange={e => {
+                                if (visibleCustNames.includes('__NONE__')) {
+                                  setVisibleCustNames([c.custName]);
+                                  return;
+                                }
+                                toggleCustColPick(c.custName, e.target.checked);
+                              }} />
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+                              title={`${c.area || ''} / ${c.custName}${c.custDescr ? ' / ' + c.custDescr : ''}`}>
+                              {c.custName}
+                            </span>
+                            <span style={{fontSize:9,color:'var(--text3)',flexShrink:0}}>{c.orderCode}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </span>
+                )}
               </div>
             )}
             <div style={{marginTop:4,fontSize:10,color:'var(--text3)'}}>
@@ -1180,7 +1348,7 @@ export default function Pivot() {
                 )}
                 {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
                 {!compact && showSections.order && sortedCusts.map((c,ci)=>(
-                  <th key={c.custName} style={{textAlign:'center',fontSize:10,background:'#D4ECD4',
+                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'center',fontSize:10,background:'#D4ECD4',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
                   }}
@@ -1199,7 +1367,7 @@ export default function Pivot() {
                 )}
                 {/* 03. 입고 — detail: 농장별 / compact: Total 1열만 */}
                 {!compact && showSections.incoming && farms.map(f=>(
-                  <th key={f} style={{textAlign:'center',fontSize:10,background:'#E8DCCC',
+                  <th key={f} data-resize-group="farm" style={{textAlign:'center',fontSize:10,background:'#E8DCCC',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f}>
                     ∨ {f.length>8?f.slice(0,8)+'…':f}
                   </th>
@@ -1392,6 +1560,10 @@ export default function Pivot() {
             const sel = fieldFilters[id];
             if (!sel || sel.length===0) return;
             const lbl = FIELD_BY_ID[id]?.label || id;
+            if (sel.includes('__EMPTY__')) {
+              parts.push(<span key={`fz-${id}`}> <b style={{color:'#3b7dd8'}}>And</b> <b style={{color:'var(--text2)'}}>[{lbl}]</b> = [없음]</span>);
+              return;
+            }
             const op = sel.length===1 ? '=' : 'In';
             parts.push(<span key={`fz-${id}`}> <b style={{color:'#3b7dd8'}}>And</b> <b style={{color:'var(--text2)'}}>[{lbl}]</b> {op} [{sel.join(', ')}]</span>);
           });
@@ -1427,9 +1599,15 @@ export default function Pivot() {
             <span style={{background:'#fff',border:'1px solid var(--border2)',borderRadius:3,
               padding:'1px 6px',display:'flex',alignItems:'center',gap:3,fontSize:10}}>
               <span style={{color:'var(--text2)',fontWeight:'bold'}}>{FIELD_BY_ID[id]?.label||id}</span>
-              <span style={{color:'var(--text3)'}}>{fieldFilters[id].length===1?'=':'In'}</span>
-              {fieldFilters[id].slice(0,4).map(v=><span key={v} style={{background:'#e8f0fe',borderRadius:2,padding:'0 4px'}}>{v}</span>)}
-              {fieldFilters[id].length>4 && <span style={{color:'var(--text3)'}}>+{fieldFilters[id].length-4}</span>}
+              {fieldFilters[id].includes('__EMPTY__') ? (
+                <span style={{color:'var(--red)'}}>= 없음</span>
+              ) : (
+                <>
+                  <span style={{color:'var(--text3)'}}>{fieldFilters[id].length===1?'=':'In'}</span>
+                  {fieldFilters[id].slice(0,4).map(v=><span key={v} style={{background:'#e8f0fe',borderRadius:2,padding:'0 4px'}}>{v}</span>)}
+                  {fieldFilters[id].length>4 && <span style={{color:'var(--text3)'}}>+{fieldFilters[id].length-4}</span>}
+                </>
+              )}
               <span style={{cursor:'pointer',color:'var(--red)',marginLeft:2,fontSize:12}}
                 onClick={()=>setFieldFilters(ff=>({...ff,[id]:[]}))}>×</span>
             </span>
