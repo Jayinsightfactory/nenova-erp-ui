@@ -96,6 +96,20 @@ async function main() {
     assert('summary.totalIncoming = 25', summary.totalIncoming === 25);
   }
 
+  console.log('\n=== aggregateOutOrders: 거래처별 확정 출고 합계 ===');
+  {
+    const { aggregateOutOrders } = await import('../lib/pivotDistCost.js');
+    const m = aggregateOutOrders([
+      { prodKey: 10, custName: '신라호텔', outQty: 100 },
+      { prodKey: 10, custName: '신라호텔', outQty: 50 },
+      { prodKey: 10, custName: 'B호텔', outQty: 20 },
+      { prodKey: 10, custName: '', outQty: 5 },
+    ]);
+    assert('신라호텔 150', m[10]['신라호텔'] === 150);
+    assert('B호텔 20', m[10]['B호텔'] === 20);
+    assert('빈 custName 무시', m[10][''] == null);
+  }
+
   console.log('\n=== cleanPivotProdName: 꽃/품종 접두어 제거 ===');
   {
     const { cleanPivotProdName } = await import('../lib/pivotProdName.js');

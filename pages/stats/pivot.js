@@ -44,6 +44,28 @@ const rowDistCostAvg = r => {
   return den > 0 ? num / den : 0;
 };
 
+// 수량 > 0 일 때만 해당 거래처 단가를 수량 아래 스택
+const renderStackedMeasures = (qty, sale, dist, { showQty, showCost, showDistCost, fmtNum }) => {
+  const q = Number(qty || 0);
+  return (
+    <>
+      {showQty && fmtNum(q)}
+      {showCost && q > 0 && (
+        <div style={{ fontSize: 9, color: 'var(--blue)', fontStyle: 'italic' }} title="판매단가">{fmtNum(sale)}</div>
+      )}
+      {showDistCost && q > 0 && (
+        <div style={{ fontSize: 9, color: 'var(--amber)', fontStyle: 'italic' }} title="분배단가">{fmtNum(dist)}</div>
+      )}
+    </>
+  );
+};
+
+const stackedCellStyle = (qty, extra = {}) => {
+  const q = Number(qty || 0);
+  const stack = q > 0;
+  return { lineHeight: stack ? '1.15' : 'inherit', padding: '0 1px', verticalAlign: 'top', ...extra };
+};
+
 // 정렬 방향 토글
 const nextSort = s => s === null ? 'asc' : s === 'asc' ? 'desc' : null;
 const SortIcon = ({ dir }) => dir === 'asc' ? ' ▲' : dir === 'desc' ? ' ▼' : ' ▲';
@@ -526,7 +548,7 @@ export default function Pivot() {
       weekStart: weekStartInput.value,
       weekEnd: weekEndInput.value || weekStartInput.value,
     })
-      .then(d => { setData(d); setCollapsed(new Set()); setFilters({}); })
+      .then(d => { setData(d); setCollapsed(new Set()); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
@@ -857,6 +879,14 @@ export default function Pivot() {
     });
   }, [sortedCusts, colGroupOrder, getCustVal]);
 
+  // 거래처명이 열에 있을 때만 업체별 컬럼 (02.주문 / 04.출고 각각)
+  const showCustDetail = !compact && columnZone.includes('custName');
+  const showOrderCustCols = showSections.order && showCustDetail;
+  const showOutCustCols = showSections.out && showCustDetail;
+  const orderColSpan = showSections.order ? (showOrderCustCols ? sortedCusts.length + 1 : 1) : 0;
+  const outColSpan = showSections.out ? (showOutCustCols ? sortedCusts.length + 1 : 1) : 0;
+  const measureOpts = { showQty, showCost, showDistCost, fmtNum };
+
   const openFilterEditor = useCallback(() => {
     const sectionCond = { field:'구분', sections:{...showSections} };
     const rest = filterConditions.filter(c => c.field !== '구분');
@@ -930,8 +960,10 @@ export default function Pivot() {
     compact, columnZone, colGroupOrder,
     showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr,
     showSections, nc: sortedCusts.length, nf: farms.length, showCost, showDistCost,
+    showOrderCustCols, showOutCustCols,
   }), [compact, columnZone, colGroupOrder, showArea, showOutDate, showInPrice, showInTotal, showArrival,
-    showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost]);
+    showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost,
+    showOrderCustCols, showOutCustCols]);
 
   const pivotTableRef = useColumnResize(
     [loading, data, pivotColLayoutKey, custColWidth],
@@ -997,7 +1029,7 @@ export default function Pivot() {
         <span className="filter-label">거래처</span>
         <input className="filter-input" style={{width:100,height:22,fontSize:11}} placeholder="거래처 검색..."
           value={custFilter} onChange={e=>setCustFilter(e.target.value)} />
-        {!compact && showSections.order && sortedCusts.length > 0 && (
+        {!compact && (showOrderCustCols || showOutCustCols) && sortedCusts.length > 0 && (
           <>
             <span className="filter-label" title="업체 열 너비 — 모든 거래처 열에 동시 적용">업체열</span>
             <input type="range" min={8} max={120} step={1} value={custColWidth}
@@ -1221,7 +1253,7 @@ export default function Pivot() {
               ))}
             </div>
             {/* 02.주문 열 그룹순서 — 지역/비고/거래처명이 열 영역에 있을 때 */}
-            {!compact && showSections.order && colGroupOrder.some(l => columnZone.includes(COL_GROUP_FIELD_MAP[l])) && (
+            {!compact && (showOrderCustCols || showOutCustCols) && colGroupOrder.some(l => columnZone.includes(COL_GROUP_FIELD_MAP[l])) && (
               <div style={{marginTop:6,padding:'4px 8px',background:'#eef8ee',borderRadius:4,display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:10,fontWeight:'bold',color:'var(--text3)'}}>02.주문 그룹순서:</span>
                 {colGroupOrder.map((lv, idx) => (
@@ -1251,7 +1283,7 @@ export default function Pivot() {
                     <span style={{fontSize:9,color:'var(--text3)'}}>⠿</span>{lv}
                   </span>
                 ))}
-                {colGroupOrder.includes('거래처명') && columnZone.includes('custName') && (
+                {colGroupOrder.includes('거래처명') && columnZone.includes('custName') && (showOrderCustCols || showOutCustCols) && (
                   <span ref={custPickerRef} style={{position:'relative',display:'inline-block'}}>
                     <button type="button"
                       onClick={(e) => { e.stopPropagation(); setShowCustPicker(s => !s); }}
@@ -1370,9 +1402,9 @@ export default function Pivot() {
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
                 {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
                 {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.out      && <th style={{background:'#D0C0A8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D0C0A8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
                 {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
                 {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
               </tr>
@@ -1381,9 +1413,9 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8CCBC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.out      && <th style={{background:'#D4C4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D4C4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.none     && <th style={{background:'#D8D4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
                 {showSections.cur      && <th style={{background:'#C4C4DC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
               </tr>
@@ -1392,30 +1424,35 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
-                {showSections.order    && <th colSpan={compact?1:sortedCusts.length+1} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
+                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
                 {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
-                {showSections.out      && <th style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>}
+                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>}
                 {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10}}>∨ 03. 미발주</th>}
                 {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10}}>∨ 05. 현재고</th>}
               </tr>
 
-              {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) — detail 모드 전용 */}
-              {!compact && showSections.order && custGroupHeaders.map(({level, cells}) => (
-                <tr key={`gh-${level}`} style={{background:'#D0E8D0'}}>
+              {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) — detail + 거래처명 */}
+              {!compact && (showOrderCustCols || showOutCustCols) && custGroupHeaders.map(({level, cells}) => (
+                <tr key={`gh-${level}`} style={{background: showOrderCustCols ? '#D0E8D0' : '#E8E0D0'}}>
                   <th colSpan={totalFixedCols} style={{background:'#E8EEF4',borderRight:'2px solid var(--border2)'}} />
                   {showSections.prev && <th style={{background:'#C8D0E8'}} />}
-                  {cells.map((cell, ci) => (
-                    <th key={ci} colSpan={cell.colspan} style={{
+                  {showOrderCustCols && cells.map((cell, ci) => (
+                    <th key={`ord-${ci}`} colSpan={cell.colspan} style={{
                       textAlign:'center', fontSize:10, background:'#BEDFBE',
                       borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
                       fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
-                    }}>
-                      {cell.value}
-                    </th>
+                    }}>{cell.value}</th>
                   ))}
-                  <th style={{background:'#AECFAE'}} />
+                  {showSections.order && (showOrderCustCols ? <th style={{background:'#AECFAE'}} /> : <th colSpan={1} style={{background:'#AECFAE'}} />)}
                   {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
-                  {showSections.out && <th style={{background:'#D4C8B8'}} />}
+                  {showOutCustCols && cells.map((cell, ci) => (
+                    <th key={`out-${ci}`} colSpan={cell.colspan} style={{
+                      textAlign:'center', fontSize:10, background:'#DCC8B0',
+                      borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
+                      fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
+                    }}>{cell.value}</th>
+                  ))}
+                  {showSections.out && (showOutCustCols ? <th style={{background:'#C8B898'}} /> : <th style={{background:'#D4C8B8'}} />)}
                   {showSections.none && <th style={{background:'#DCD8B0'}} />}
                   {showSections.cur  && <th style={{background:'#C8C8E0'}} />}
                 </tr>
@@ -1444,8 +1481,8 @@ export default function Pivot() {
                   <ColHeader label="전재고" sortKey="prevStock" sorts={sorts} onSort={handleSort}/>
                 )}
                 {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
-                {!compact && showSections.order && sortedCusts.map((c,ci)=>(
-                  <th key={c.custName} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#D4ECD4',
+                {showOrderCustCols && sortedCusts.map((c,ci)=>(
+                  <th key={`ord-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#D4ECD4',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                     borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
                   }}
@@ -1455,7 +1492,7 @@ export default function Pivot() {
                 ))}
                 {showSections.order && (
                   <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold',
-                    borderLeft: compact?undefined:'2px solid var(--border2)'}}>
+                    borderLeft: showOrderCustCols?'2px solid var(--border2)':undefined}}>
                     {compact ? '02. 주문' : '02. 주문 Total'}
                     {compact && showDistCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 분배단가</div>}
                   </th>
@@ -1473,8 +1510,23 @@ export default function Pivot() {
                 {compact && showSections.incoming && (
                   <th style={{background:'#E0D4C4',textAlign:'center',fontSize:10,fontWeight:'bold'}}>03. 입고</th>
                 )}
+                {showOutCustCols && sortedCusts.map((c,ci)=>(
+                  <th key={`out-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#ECDCD4',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                    borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
+                  }}
+                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
+                    {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
+                  </th>
+                ))}
                 {showSections.out && (
-                  <ColHeader label="출고" sortKey="confirmedOut" sorts={sorts} onSort={handleSort}/>
+                  showOutCustCols ? (
+                    <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold',borderLeft:'2px solid var(--border2)'}}>
+                      04. 출고 Total
+                    </th>
+                  ) : (
+                    <ColHeader label="출고" sortKey="confirmedOut" sorts={sorts} onSort={handleSort}/>
+                  )
                 )}
                 {/* 03. 미발주 */}
                 {showSections.none && (
@@ -1492,7 +1544,7 @@ export default function Pivot() {
               ) : sortedCountries.map(gCountry => {
                 const ck = gCountry.country;
                 const isCC = collapsed.has(ck);
-                const cTot = { prev:0, order:0, out:0, none:0, cur:0, inc:0, custO:{}, farmI:{} };
+                const cTot = { prev:0, order:0, out:0, none:0, cur:0, inc:0, custO:{}, custOut:{}, farmI:{} };
                 Object.values(gCountry.flowers).forEach(gf=>gf.items.forEach(r=>{
                   cTot.prev  += r.prevStock||0;
                   cTot.order += r.totalOrder||0;
@@ -1501,7 +1553,10 @@ export default function Pivot() {
                   cTot.none  += r.noneOut||0;
                   cTot.cur   += r.curStock||0;
                   if (!compact) {
-                    custs.forEach(c=>{cTot.custO[c.custName]=(cTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
+                    custs.forEach(c=>{
+                      cTot.custO[c.custName]=(cTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);
+                      cTot.custOut[c.custName]=(cTot.custOut[c.custName]||0)+(r.outOrders?.[c.custName]||0);
+                    });
                     farms.forEach(f=>{cTot.farmI[f]=(cTot.farmI[f]||0)+(r.incoming?.[f]||0);});
                   }
                 }));
@@ -1511,11 +1566,12 @@ export default function Pivot() {
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
                     {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fmtNum(cTot.prev)}</td>}
-                    {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fmtNum(cTot.custO[c.custName])}</td>)}
+                    {!compact && showOrderCustCols && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#C8DCC8'}}>{fmtNum(cTot.custO[c.custName])}</td>)}
                     {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fmtNum(cTot.order)}</td>}
                     {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fmtNum(cTot.farmI[f])}</td>)}
                     {!compact && showSections.incoming && farms.length===0 && <td></td>}
                     {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCC8B8'}}>{fmtNum(cTot.inc)}</td>}
+                    {showOutCustCols && sortedCusts.map(c=><td key={`out-${c.custName}`} className="num" style={{background:'#DCC4B4'}}>{fmtNum(cTot.custOut[c.custName])}</td>)}
                     {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D4C4B0'}}>{fmtNum(cTot.out)}</td>}
                     {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#D8D0A8'}}>{fmtNum(cTot.none)}</td>}
                     {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#BEBEDE'}}>{fmtNum(cTot.cur)}</td>}
@@ -1524,7 +1580,7 @@ export default function Pivot() {
                   ...(!isCC ? (gCountry._sortedFlowers || Object.values(gCountry.flowers)).map(gFlower=>{
                     const fk = ck+'|'+gFlower.flower;
                     const isFC = collapsed.has(fk);
-                    const fTot = { prev:0, order:0, out:0, none:0, cur:0, inc:0, custO:{}, farmI:{} };
+                    const fTot = { prev:0, order:0, out:0, none:0, cur:0, inc:0, custO:{}, custOut:{}, farmI:{} };
                     gFlower.items.forEach(r=>{
                       fTot.prev  += r.prevStock||0;
                       fTot.order += r.totalOrder||0;
@@ -1533,7 +1589,10 @@ export default function Pivot() {
                       fTot.none  += r.noneOut||0;
                       fTot.cur   += r.curStock||0;
                       if (!compact) {
-                        custs.forEach(c=>{fTot.custO[c.custName]=(fTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);});
+                        custs.forEach(c=>{
+                          fTot.custO[c.custName]=(fTot.custO[c.custName]||0)+(r.orders?.[c.custName]||0);
+                          fTot.custOut[c.custName]=(fTot.custOut[c.custName]||0)+(r.outOrders?.[c.custName]||0);
+                        });
                         farms.forEach(f=>{fTot.farmI[f]=(fTot.farmI[f]||0)+(r.incoming?.[f]||0);});
                       }
                     });
@@ -1545,11 +1604,12 @@ export default function Pivot() {
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
                         {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fmtNum(fTot.prev)}</td>}
-                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
+                        {!compact && showOrderCustCols && sortedCusts.map(c=><td key={c.custName} className="num" style={{background:'#CCE0CC'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B4D0B4'}}>{fmtNum(fTot.order)}</td>}
                         {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fmtNum(fTot.farmI[f])}</td>)}
                         {!compact && showSections.incoming && farms.length===0 && <td></td>}
                         {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#DCCCC0'}}>{fmtNum(fTot.inc)}</td>}
+                        {showOutCustCols && sortedCusts.map(c=><td key={`out-${c.custName}`} className="num" style={{background:'#D8C8B4'}}>{fmtNum(fTot.custOut[c.custName])}</td>)}
                         {showSections.out      && <td className="num" style={{background:'#D8C8B4'}}>{fmtNum(fTot.out)}</td>}
                         {showSections.none     && <td className="num" style={{background:'#DDD8B0'}}>{fmtNum(fTot.none)}</td>}
                         {showSections.cur      && <td className="num" style={{background:'#C4C4E0'}}>{fmtNum(fTot.cur)}</td>}
@@ -1572,24 +1632,18 @@ export default function Pivot() {
                           {showSections.prev && (
                             <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fmtNum(r.prevStock)}</td>
                           )}
-                          {!compact && showSections.order && sortedCusts.map(c=>{
-                            const showStack = showCost || showDistCost;
+                          {showOrderCustCols && sortedCusts.map(c=>{
+                            const q = r.orders?.[c.custName];
                             return (
-                            <td key={c.custName} className="num" style={{background:'#F4FFF4',color:(r.orders?.[c.custName]||0)>0?'#006600':'var(--text3)',lineHeight:showStack?'1.15':'inherit',padding:'0 1px'}}>
-                              {showQty && fmtNum(r.orders?.[c.custName])}
-                              {showCost && (r.costOrders?.[c.custName]||0)>0 && (
-                                <div style={{fontSize:9,color:'var(--blue)',fontStyle:'italic'}} title="판매단가">{fmtNum(r.costOrders?.[c.custName])}</div>
-                              )}
-                              {showDistCost && (r.distCostOrders?.[c.custName]||0)>0 && (
-                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic'}} title="분배단가">{fmtNum(r.distCostOrders?.[c.custName])}</div>
-                              )}
+                            <td key={c.custName} className="num" style={stackedCellStyle(q, {background:'#F4FFF4',color:Number(q||0)>0?'#006600':'var(--text3)'})}>
+                              {renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
                             </td>
                           );})}
                           {showSections.order && (
-                            <td className="num" style={{fontWeight:'bold',background:'#E8F8E8',borderLeft: compact?undefined:'2px solid var(--border2)',color:(r.totalOrder||0)>0?'#006600':'var(--text3)',lineHeight:compact&&showDistCost?'1.2':'inherit'}}>
-                              {fmtNum(r.totalOrder)}
-                              {compact && showDistCost && rowDistCostAvg(r)>0 && (
-                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(주문 가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
+                            <td className="num" style={stackedCellStyle(r.totalOrder, {fontWeight:'bold',background:'#E8F8E8',borderLeft: showOrderCustCols?'2px solid var(--border2)':undefined,color:(r.totalOrder||0)>0?'#006600':'var(--text3)'})}>
+                              {showQty && fmtNum(r.totalOrder)}
+                              {showDistCost && Number(r.totalOrder||0) > 0 && (
+                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
                               )}
                             </td>
                           )}
@@ -1604,8 +1658,17 @@ export default function Pivot() {
                               {fmtNum(r.totalIncoming)}
                             </td>
                           )}
+                          {showOutCustCols && sortedCusts.map(c=>{
+                            const q = r.outOrders?.[c.custName];
+                            return (
+                            <td key={`out-${c.custName}`} className="num" style={stackedCellStyle(q, {background:'#FFF0E8',color:Number(q||0)>0?'#884400':'var(--text3)'})}>
+                              {renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
+                            </td>
+                          );})}
                           {showSections.out && (
-                            <td className="num" style={{background:'#FFF0E8',color:(r.confirmedOut||0)>0?'#884400':'var(--text3)'}}>{fmtNum(r.confirmedOut)}</td>
+                            <td className="num" style={stackedCellStyle(showOutCustCols ? r.confirmedOut : r.confirmedOut, {fontWeight: showOutCustCols?'bold':undefined,background:'#FFF0E8',color:(r.confirmedOut||0)>0?'#884400':'var(--text3)',borderLeft: showOutCustCols?'2px solid var(--border2)':undefined})}>
+                              {showOutCustCols ? fmtNum(r.confirmedOut) : renderStackedMeasures(r.confirmedOut, null, rowDistCostAvg(r), measureOpts)}
+                            </td>
                           )}
                           {showSections.none && (
                             <td className="num" style={{background:'#FFFCE8',color:(r.noneOut||0)>0?'var(--amber)':'var(--text3)'}}>{fmtNum(r.noneOut)}</td>
@@ -1623,11 +1686,12 @@ export default function Pivot() {
                           {gFlower.flower} Total
                         </td>
                         {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fmtNum(fTot.prev)}</td>}
-                        {!compact && showSections.order    && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
+                        {!compact && showOrderCustCols && sortedCusts.map(c=><td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8'}}>{fmtNum(fTot.custO[c.custName])}</td>)}
                         {showSections.order    && <td className="num" style={{fontWeight:'bold',background:'#B0CEB0'}}>{fmtNum(fTot.order)}</td>}
                         {!compact && showSections.incoming && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.farmI[f])}</td>)}
                         {!compact && showSections.incoming && farms.length===0 && <td></td>}
                         {compact && showSections.incoming && <td className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.inc)}</td>}
+                        {showOutCustCols && sortedCusts.map(c=><td key={`out-${c.custName}`} className="num" style={{fontWeight:'bold',background:'#D0C0A8'}}>{fmtNum(fTot.custOut[c.custName])}</td>)}
                         {showSections.out      && <td className="num" style={{fontWeight:'bold',background:'#D0C0A8'}}>{fmtNum(fTot.out)}</td>}
                         {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#DAD4AC'}}>{fmtNum(fTot.none)}</td>}
                         {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#C0C0DC'}}>{fmtNum(fTot.cur)}</td>}
