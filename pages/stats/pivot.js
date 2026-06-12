@@ -21,8 +21,9 @@ import {
 } from '../../lib/pivotFieldRegistry';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import {
-  buildPivotExportColumns,
+  buildPivotExportGrid,
   rowHasPivotQty,
+  rowHasPivotQtyInWeeks,
   rowsToCsvAoA,
 } from '../../lib/pivotExcelExport';
 
@@ -45,12 +46,23 @@ const lineDistAmt = (qty, unit) => {
   return q > 0 && u > 0 ? q * u : 0;
 };
 
-const rowDistAmtSum = (r, mapKey) => {
+const rowDistAmtSum = (r, mapKey, custNames = null) => {
   const qm = mapKey === 'outOrders' ? (r.outOrders || {}) : (r.orders || {});
   const dc = r.distCostOrders || {};
+  const keys = custNames?.length ? custNames : Object.keys(qm);
   let sum = 0;
-  for (const c of Object.keys(qm)) sum += lineDistAmt(qm[c], dc[c]);
+  for (const c of keys) sum += lineDistAmt(qm[c], dc[c]);
   return sum;
+};
+
+const rowOrderTotalForCusts = (r, custNames) => {
+  if (!custNames?.length) return sumOrderQty(r);
+  return custNames.reduce((s, n) => s + Number(r.orders?.[n] || 0), 0);
+};
+
+const rowOutTotalForCusts = (r, custNames) => {
+  if (!custNames?.length) return Number(r.confirmedOut || 0);
+  return custNames.reduce((s, n) => s + Number(r.outOrders?.[n] || 0), 0);
 };
 
 const emptyTot = () => ({
@@ -61,21 +73,39 @@ const emptyTot = () => ({
 
 const addRowToTot = (tot, r, custs, farms) => {
   tot.prev += r.prevStock || 0;
-  tot.order += r.totalOrder || 0;
   tot.inc += r.totalIncoming || 0;
-  tot.out += r.confirmedOut || 0;
   tot.none += r.noneOut || 0;
   tot.cur += r.curStock || 0;
-  tot.orderAmt += rowDistAmtSum(r, 'orders');
-  tot.outAmt += rowDistAmtSum(r, 'outOrders');
+  const custNames = custs.map(c => c.custName);
+  let orderSum = 0;
+  let outSum = 0;
+  let orderAmt = 0;
+  let outAmt = 0;
   custs.forEach(c => {
-    tot.custO[c.custName] = (tot.custO[c.custName] || 0) + (r.orders?.[c.custName] || 0);
-    tot.custOut[c.custName] = (tot.custOut[c.custName] || 0) + (r.outOrders?.[c.custName] || 0);
-    tot.custOAmt[c.custName] = (tot.custOAmt[c.custName] || 0)
-      + lineDistAmt(r.orders?.[c.custName], r.distCostOrders?.[c.custName]);
-    tot.custOutAmt[c.custName] = (tot.custOutAmt[c.custName] || 0)
-      + lineDistAmt(r.outOrders?.[c.custName], r.distCostOrders?.[c.custName]);
+    const oq = Number(r.orders?.[c.custName] || 0);
+    const outq = Number(r.outOrders?.[c.custName] || 0);
+    orderSum += oq;
+    outSum += outq;
+    const oa = lineDistAmt(oq, r.distCostOrders?.[c.custName]);
+    const outa = lineDistAmt(outq, r.distCostOrders?.[c.custName]);
+    orderAmt += oa;
+    outAmt += outa;
+    tot.custO[c.custName] = (tot.custO[c.custName] || 0) + oq;
+    tot.custOut[c.custName] = (tot.custOut[c.custName] || 0) + outq;
+    tot.custOAmt[c.custName] = (tot.custOAmt[c.custName] || 0) + oa;
+    tot.custOutAmt[c.custName] = (tot.custOutAmt[c.custName] || 0) + outa;
   });
+  if (custs.length > 0) {
+    tot.order += orderSum;
+    tot.out += outSum;
+    tot.orderAmt += orderAmt;
+    tot.outAmt += outAmt;
+  } else {
+    tot.order += r.totalOrder || 0;
+    tot.out += r.confirmedOut || 0;
+    tot.orderAmt += rowDistAmtSum(r, 'orders');
+    tot.outAmt += rowDistAmtSum(r, 'outOrders');
+  }
   farms.forEach(f => { tot.farmI[f] = (tot.farmI[f] || 0) + (r.incoming?.[f] || 0); });
 };
 
@@ -146,6 +176,8 @@ function PivotWeekMeasureCells({
   measureOpts, fmtNum, weekBorder = {},
 }) {
   const useTot = !!tot;
+  const custNames = sortedCusts.map(c => c.custName);
+  const scopeCustTotals = custNames.length > 0;
   const cells = [];
   const push = (el) => cells.push(el);
 
@@ -162,8 +194,8 @@ function PivotWeekMeasureCells({
     });
   }
   if (showSections.order) {
-    const q = useTot ? tot.order : r.totalOrder;
-    const amt = useTot ? tot.orderAmt : rowDistAmtSum(r, 'orders');
+    const q = useTot ? tot.order : rowOrderTotalForCusts(r, scopeCustTotals ? custNames : null);
+    const amt = useTot ? tot.orderAmt : rowDistAmtSum(r, 'orders', scopeCustTotals ? custNames : null);
     push(<td key="ord-tot" className="num" style={stackedCellStyle(q, { fontWeight: 'bold', background: useTot ? '#B0CEB0' : '#E8F8E8', borderLeft: showOrderCustCols ? '2px solid var(--border2)' : undefined, color: (q || 0) > 0 ? '#006600' : 'var(--text3)', ...weekBorder })}>
       {renderTotalStack(q, amt, measureOpts)}
       {!useTot && showDistCost && Number(r.totalOrder || 0) > 0 && (
@@ -189,8 +221,8 @@ function PivotWeekMeasureCells({
     });
   }
   if (showSections.out) {
-    const q = useTot ? tot.out : r.confirmedOut;
-    const amt = useTot ? tot.outAmt : rowDistAmtSum(r, 'outOrders');
+    const q = useTot ? tot.out : rowOutTotalForCusts(r, scopeCustTotals ? custNames : null);
+    const amt = useTot ? tot.outAmt : rowDistAmtSum(r, 'outOrders', scopeCustTotals ? custNames : null);
     push(<td key="out" className="num" style={stackedCellStyle(q, { fontWeight: showOutCustCols || useTot ? 'bold' : undefined, background: useTot ? '#D4C4B0' : '#FFF0E8', color: (q || 0) > 0 ? '#884400' : 'var(--text3)', borderLeft: showOutCustCols ? '2px solid var(--border2)' : undefined, ...weekBorder })}>
       {showOutCustCols || useTot
         ? renderTotalStack(q, amt, measureOpts)
@@ -1043,12 +1075,17 @@ export default function Pivot() {
         exportCusts = sortedCusts.filter(c => pick.has(c.custName));
       }
     }
-    const exportRows = filteredRows.filter(rowHasPivotQty);
+    const exportWeeks = Array.isArray(data.weeks) && data.weeks.length > 1 ? data.weeks : null;
+    const exportRows = filteredRows.filter(r => (
+      exportWeeks
+        ? rowHasPivotQtyInWeeks(r, exportWeeks, data.byWeek)
+        : rowHasPivotQty(r)
+    ));
     if (!exportRows.length) {
       setErr('엑셀로 내보낼 수량(주문·입고·출고)이 있는 행이 없습니다.');
       return;
     }
-    const columns = buildPivotExportColumns({
+    const columns = buildPivotExportGrid({
       showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
       showQty, showCost, showDistCost,
       showSections,
@@ -1056,13 +1093,20 @@ export default function Pivot() {
       showOrderCustCols, showOutCustCols, showIncomingFarmCols, showIncomingCompactTotal,
       sortedCusts: exportCusts,
       farms,
+      weeks: exportWeeks,
+      byWeek: data.byWeek,
+      weekLabel: (week) => weekHeaderLabel(week),
     });
-    const aoa = rowsToCsvAoA(columns, exportRows, { includeTotal: true });
-    const csv = aoa.map(row => row.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+    const aoa = rowsToCsvAoA(columns, exportRows, { includeTotal: true, blankZero: true });
+    const csv = aoa.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `Pivot통계_${weekStartInput.value}.csv`;
+    const wEnd = weekEndInput.value || weekStartInput.value;
+    const rangeLabel = wEnd && wEnd !== weekStartInput.value
+      ? `${weekStartInput.value}~${wEnd}`
+      : weekStartInput.value;
+    a.download = `Pivot통계_${rangeLabel}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }, [
@@ -1070,7 +1114,7 @@ export default function Pivot() {
     showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
     showQty, showCost, showDistCost, showSections, compact,
     showOrderCustCols, showOutCustCols, showIncomingFarmCols, showIncomingCompactTotal,
-    weekStartInput.value,
+    weekStartInput.value, weekEndInput.value, weekHeaderLabel,
   ]);
 
   const openFilterEditor = useCallback(() => {
