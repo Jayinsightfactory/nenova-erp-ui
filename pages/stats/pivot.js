@@ -887,6 +887,15 @@ export default function Pivot() {
   const outColSpan = showSections.out ? (showOutCustCols ? sortedCusts.length + 1 : 1) : 0;
   const measureOpts = { showQty, showCost, showDistCost, fmtNum };
 
+  // columnZone 순서: 거래처명이 secOrder/secOut 보다 앞이면 헤더에서도 거래처명 → 구분 순
+  const custBeforeSection = useCallback((secId) => {
+    const ci = columnZone.indexOf('custName');
+    const si = columnZone.indexOf(secId);
+    return ci >= 0 && si >= 0 && ci < si;
+  }, [columnZone]);
+  const orderSectionOnTop = !showOrderCustCols || !custBeforeSection('secOrder');
+  const outSectionOnTop = !showOutCustCols || !custBeforeSection('secOut');
+
   const openFilterEditor = useCallback(() => {
     const sectionCond = { field:'구분', sections:{...showSections} };
     const rest = filterConditions.filter(c => c.field !== '구분');
@@ -1424,9 +1433,11 @@ export default function Pivot() {
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
                 {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
-                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
+                {showSections.order    && orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
+                {showSections.order    && !orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#D8E8D8',textAlign:'center',fontSize:10}}></th>}
                 {showSections.incoming && <th colSpan={compact?1:(farms.length||1)} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
-                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>}
+                {showSections.out      && outSectionOnTop && <th colSpan={outColSpan} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>}
+                {showSections.out      && !outSectionOnTop && <th colSpan={outColSpan} style={{background:'#E8DED8',textAlign:'center',fontSize:10}}></th>}
                 {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10}}>∨ 03. 미발주</th>}
                 {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10}}>∨ 05. 현재고</th>}
               </tr>
@@ -1522,7 +1533,7 @@ export default function Pivot() {
                 {showSections.out && (
                   showOutCustCols ? (
                     <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold',borderLeft:'2px solid var(--border2)'}}>
-                      04. 출고 Total
+                      {outSectionOnTop ? '04. 출고 Total' : 'Total'}
                     </th>
                   ) : (
                     <ColHeader label="출고" sortKey="confirmedOut" sorts={sorts} onSort={handleSort}/>
@@ -1537,6 +1548,41 @@ export default function Pivot() {
                   <ColHeader label="현재고" sortKey="curStock" sorts={sorts} onSort={handleSort}/>
                 )}
               </tr>
+
+              {/* 구분 행 (거래처명이 구분보다 앞일 때 — columnZone 순서) */}
+              {(!orderSectionOnTop && showSections.order) || (!outSectionOnTop && showSections.out) ? (
+                <tr style={{background:'#D0D8E8'}}>
+                  <th colSpan={totalFixedCols} style={{borderRight:'2px solid var(--border2)'}}></th>
+                  {showSections.prev && <th style={{background:'#C8D0E8'}} />}
+                  {showSections.order && !orderSectionOnTop && (
+                    showOrderCustCols ? (
+                      <>
+                        {sortedCusts.map(c => (
+                          <th key={`ord-sec-${c.custName}`} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>
+                        ))}
+                        <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>02. 주문 Total</th>
+                      </>
+                    ) : (
+                      <th style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>
+                    )
+                  )}
+                  {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
+                  {showSections.out && !outSectionOnTop && (
+                    showOutCustCols ? (
+                      <>
+                        {sortedCusts.map(c => (
+                          <th key={`out-sec-${c.custName}`} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>
+                        ))}
+                        <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>04. 출고 Total</th>
+                      </>
+                    ) : (
+                      <th style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>
+                    )
+                  )}
+                  {showSections.none && <th style={{background:'#DCD8B0'}} />}
+                  {showSections.cur && <th style={{background:'#C8C8E0'}} />}
+                </tr>
+              ) : null}
             </thead>
             <tbody>
               {sortedCountries.length===0 ? (
