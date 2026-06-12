@@ -1,0 +1,23 @@
+[CONTEXT]
+- Project: nenova-erp-ui Pivot 통계
+- Path: C:\Users\USER\nenova-erp-ui
+- Files changed: pages/stats/pivot.js, lib/pivotFieldRegistry.js, lib/useColumnResize.js, styles/globals.css
+
+[ISSUES FIXED]
+1. 도착원가/판매단가(측정 필드)를 필터 영역에 넣으면 그리드에 안 보임 → 필터에서 제외, 값 영역으로 자동 이동
+2. 필터 드롭다운·거래처 선택에 검색 입력 추가
+3. 가로 스크롤바 사라짐 → colgroup 합계 width + overflow-x:auto
+
+[TASK — Codex 검증]
+다음 가설이 맞는지 코드 기준으로 검증하고, 누락·회귀 위험을 지적하세요.
+
+1. arrivalCost/saleCost가 filterZone에 있으면 useEffect가 값 영역으로 옮기고 showArrival/showCost를 켜는가?
+2. filterZone에 measure를 드롭하면 handleFieldDrop이 값 영역으로 redirect하는가?
+3. canDropInZone이 measure를 filter에 false 반환하는가?
+4. syncTableWidth()가 열 합계 > viewport일 때 가로 스크롤을 유발하는가?
+5. fieldFilters __EMPTY__ / 전체선택 / 개별체크 로직이 filteredRows와 일치하는가?
+
+[OUTPUT]
+- 각 항목 PASS/FAIL + 근거 (파일:라인)
+- 추가 수정 제안 (minimal diff)
+- 수동 QA 체크리스트 5항목

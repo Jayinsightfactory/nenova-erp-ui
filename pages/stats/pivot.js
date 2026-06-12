@@ -234,6 +234,8 @@ export default function Pivot() {
   const [dragField,     setDragField]     = useState(null);        // { id, from } 현재 드래그 중
   const [zoneHover,     setZoneHover]     = useState(null);        // 드롭 하이라이트 중인 zone id
   const [openFilterChip,setOpenFilterChip]= useState(null);        // 값 체크 드롭다운 열린 필터 필드 id
+  const [filterValueSearch, setFilterValueSearch] = useState('');
+  const [custPickerSearch, setCustPickerSearch] = useState('');
 
   // 열 너비 (텍스트보다 좁게 — 드래그 리사이즈, localStorage 유지)
   const [colWidths, setColWidths] = useState(() => {
@@ -320,6 +322,15 @@ export default function Pivot() {
       if (typeof l.showFieldList === 'boolean') setShowFieldList(l.showFieldList);
     } catch {}
   }, []);
+  // 측정(원가·단가) 필드는 필터가 아닌 값 영역 — 잘못 배치된 항목 자동 이동
+  useEffect(() => {
+    const misplaced = filterZone.filter(id => FIELD_BY_ID[id]?.kind === 'measure');
+    if (!misplaced.length) return;
+    setFilterZone(z => z.filter(id => !misplaced.includes(id)));
+    misplaced.forEach(id => setFieldActive(id, true));
+  }, [filterZone, setFieldActive]);
+  useEffect(() => { setFilterValueSearch(''); }, [openFilterChip]);
+  useEffect(() => { if (!showCustPicker) setCustPickerSearch(''); }, [showCustPicker]);
   // 레이아웃 변경 시 저장 (값 영역 활성 측정 + 행 옵션도 함께 스냅샷)
   useEffect(() => {
     try {
@@ -398,6 +409,12 @@ export default function Pivot() {
 
     if (zoneId === '__tray__') {
       clearFromSource();
+      return;
+    }
+    // 측정(도착원가·판매단가 등) → 필터 대신 값 영역에 표시
+    if (zoneId === 'filter' && FIELD_BY_ID[id]?.kind === 'measure') {
+      if (from !== '__tray__') clearFromSource();
+      setFieldActive(id, true);
       return;
     }
     if (!canDropInZone(id, zoneId)) return;
@@ -1127,7 +1144,15 @@ export default function Pivot() {
                                 onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:['__EMPTY__']}))}>전체해제</span>
                               <span style={{marginLeft:'auto',cursor:'pointer'}} onClick={()=>setOpenFilterChip(null)}>닫기</span>
                             </div>
-                            {getValuesForFieldId(f.id).map(v=>(
+                            <div style={{padding:'4px 8px',position:'sticky',top:28,background:'#fff',borderBottom:'1px solid var(--border)'}}>
+                              <input type="text" className="filter-input" placeholder="값 검색..."
+                                value={filterValueSearch}
+                                onChange={e=>setFilterValueSearch(e.target.value)}
+                                style={{width:'100%',height:22,fontSize:11,boxSizing:'border-box'}} />
+                            </div>
+                            {getValuesForFieldId(f.id)
+                              .filter(v => !filterValueSearch.trim() || v.toLowerCase().includes(filterValueSearch.trim().toLowerCase()))
+                              .map(v=>(
                               <label key={v} style={{display:'flex',alignItems:'center',gap:6,padding:'3px 9px',fontSize:11,cursor:'pointer'}}>
                                 <input type="checkbox"
                                   checked={isFilterValueChecked(f.id, v)}
@@ -1135,6 +1160,9 @@ export default function Pivot() {
                                 {v}
                               </label>
                             ))}
+                            {getValuesForFieldId(f.id).filter(v => !filterValueSearch.trim() || v.toLowerCase().includes(filterValueSearch.trim().toLowerCase())).length===0 && (
+                              <div style={{padding:8,fontSize:10,color:'var(--text3)'}}>검색 결과 없음</div>
+                            )}
                           </div>
                         )}
                       </span>
@@ -1204,9 +1232,21 @@ export default function Pivot() {
                           <button type="button" className="btn btn-sm" style={{height:20,fontSize:10,padding:'0 6px'}}
                             onClick={() => setVisibleCustNames(['__NONE__'])}>전체해제</button>
                         </div>
+                        <div style={{padding:'4px 8px', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'#fff', zIndex:1}}>
+                          <input type="text" className="filter-input" placeholder="거래처명·코드·지역 검색..."
+                            value={custPickerSearch}
+                            onChange={e=>setCustPickerSearch(e.target.value)}
+                            style={{width:'100%',height:22,fontSize:11,boxSizing:'border-box'}} />
+                        </div>
                         {allCusts.length === 0 ? (
                           <div style={{padding:8,fontSize:10,color:'var(--text3)'}}>거래처 없음</div>
-                        ) : allCusts.map(c => (
+                        ) : allCusts.filter(c => {
+                          const q = custPickerSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          return c.custName.toLowerCase().includes(q)
+                            || (c.orderCode||'').toLowerCase().includes(q)
+                            || (c.area||'').toLowerCase().includes(q);
+                        }).map(c => (
                           <label key={c.custName} style={{
                             display:'flex', alignItems:'center', gap:6, padding:'3px 8px',
                             fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0',
@@ -1227,6 +1267,15 @@ export default function Pivot() {
                             <span style={{fontSize:9,color:'var(--text3)',flexShrink:0}}>{c.orderCode}</span>
                           </label>
                         ))}
+                        {allCusts.length > 0 && allCusts.filter(c => {
+                          const q = custPickerSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          return c.custName.toLowerCase().includes(q)
+                            || (c.orderCode||'').toLowerCase().includes(q)
+                            || (c.area||'').toLowerCase().includes(q);
+                        }).length === 0 && (
+                          <div style={{padding:8,fontSize:10,color:'var(--text3)'}}>검색 결과 없음</div>
+                        )}
                       </div>
                     )}
                   </span>
@@ -1234,7 +1283,7 @@ export default function Pivot() {
               </div>
             )}
             <div style={{marginTop:4,fontSize:10,color:'var(--text3)'}}>
-              구분(01~05)·지역·비고·거래처/농장 → <b>열</b> 영역에 드래그 · 하단 칩으로 토글
+              구분(01~05)·지역·비고·거래처/농장 → <b>열</b> · 도착원가·판매단가 → <b>값</b> · 차원 필터 → <b>필터</b>
             </div>
             {/* 사용 가능 필드 트레이 */}
             <div onDragOver={onZoneDragOver('__tray__')}

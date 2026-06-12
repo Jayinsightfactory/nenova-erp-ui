@@ -106,7 +106,8 @@ body {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 .tbl.tbl-pivot { table-layout: fixed; width: max-content; min-width: 100%; }
