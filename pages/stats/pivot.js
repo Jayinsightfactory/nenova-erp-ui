@@ -22,8 +22,7 @@ import {
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import {
   buildPivotExportGrid,
-  rowHasPivotQty,
-  rowHasPivotQtyInWeeks,
+  rowMatchesExportFilter,
   rowsToCsvAoA,
 } from '../../lib/pivotExcelExport';
 
@@ -1076,16 +1075,7 @@ export default function Pivot() {
       }
     }
     const exportWeeks = Array.isArray(data.weeks) && data.weeks.length > 1 ? data.weeks : null;
-    const exportRows = filteredRows.filter(r => (
-      exportWeeks
-        ? rowHasPivotQtyInWeeks(r, exportWeeks, data.byWeek)
-        : rowHasPivotQty(r)
-    ));
-    if (!exportRows.length) {
-      setErr('엑셀로 내보낼 수량(주문·입고·출고)이 있는 행이 없습니다.');
-      return;
-    }
-    const columns = buildPivotExportGrid({
+    const exportOpts = {
       showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showDescr, showAmount,
       showQty, showCost, showDistCost,
       showSections,
@@ -1096,7 +1086,13 @@ export default function Pivot() {
       weeks: exportWeeks,
       byWeek: data.byWeek,
       weekLabel: (week) => weekHeaderLabel(week),
-    });
+    };
+    const exportRows = filteredRows.filter(r => rowMatchesExportFilter(r, exportOpts));
+    if (!exportRows.length) {
+      setErr('엑셀로 내보낼 수량(주문·입고·출고)이 있는 행이 없습니다.');
+      return;
+    }
+    const columns = buildPivotExportGrid(exportOpts);
     const aoa = rowsToCsvAoA(columns, exportRows, { includeTotal: true, blankZero: true });
     const csv = aoa.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });

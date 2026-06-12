@@ -8,51 +8,66 @@ const assert = (label, cond) => {
 async function main() {
   const {
     rowHasPivotQty,
-    rowHasPivotQtyInWeeks,
+    rowMatchesExportFilter,
     getPivotWeekRow,
     buildPivotExportColumns,
     buildPivotExportGrid,
     rowsToCsvAoA,
     formatExportCell,
+    formatPivotMeasureCell,
   } = await import('../lib/pivotExcelExport.js');
 
   console.log('=== rowHasPivotQty ===');
   assert('주문만', rowHasPivotQty({ totalOrder: 0, orders: { A: 5 }, incoming: {} }));
   assert('전재고만 → 제외', !rowHasPivotQty({ prevStock: 100, orders: {}, incoming: {} }));
-  assert('입고만', rowHasPivotQty({ totalIncoming: 10, incoming: { F: 10 } }));
 
-  console.log('\n=== rowHasPivotQtyInWeeks ===');
-  const base = { prodKey: 1, country: 'K', flower: 'F', prodName: 'P', orders: {}, totalOrder: 0 };
-  const byWeek = {
-    '04-01': { rows: [{ prodKey: 1, orders: {}, totalOrder: 0 }] },
-    '04-02': { rows: [{ prodKey: 1, orders: { A: 3 }, totalOrder: 3 }] },
+  console.log('\n=== rowMatchesExportFilter (표시 구분만) ===');
+  const outOnly = {
+    showSections: { prev: false, order: false, incoming: false, out: true, none: false, cur: false },
+    showOrderCustCols: false,
+    showOutCustCols: true,
+    sortedCusts: [{ custName: '신라호텔' }],
+    farms: [],
   };
-  assert('04-01만 0 → 04-02에 수량 있으면 포함', rowHasPivotQtyInWeeks(base, ['04-01', '04-02'], byWeek));
-  assert('모든 차수 0 → 제외', !rowHasPivotQtyInWeeks(base, ['04-01'], byWeek));
+  assert('출고 0 주문만 → 제외', !rowMatchesExportFilter(
+    { orders: { 신라호텔: 7 }, outOrders: {}, confirmedOut: 0 },
+    outOnly,
+  ));
+  assert('출고 있으면 포함', rowMatchesExportFilter(
+    { orders: {}, outOrders: { 신라호텔: 2 }, confirmedOut: 2 },
+    outOnly,
+  ));
 
-  console.log('\n=== formatExportCell ===');
-  assert('0 → 빈칸', formatExportCell(0) === '');
-  assert('5 유지', formatExportCell(5) === 5);
+  console.log('\n=== formatPivotMeasureCell stacked ===');
+  const stacked = formatPivotMeasureCell(
+    { qty: 2, dist: 6000, amt: 12000 },
+    { showQty: true, showCost: false, showDistCost: true, mode: 'detail' },
+  );
+  assert('3줄 스택', stacked === '2\n6000\n12000');
+  assert('0 수량 → 빈칸', formatPivotMeasureCell({ qty: 0, dist: 1 }, { showQty: true, showDistCost: true, mode: 'detail' }) === '');
 
   console.log('\n=== buildPivotExportColumns ===');
   const cols = buildPivotExportColumns({
     showArea: false, showOutDate: false, showInPrice: false, showInTotal: false,
-    showArrival: false, showAWB: false, showDescr: false, showAmount: true,
+    showArrival: false, showAWB: false, showDescr: false, showAmount: false,
     showQty: true, showCost: false, showDistCost: true,
-    showSections: { prev: true, order: true, incoming: false, out: true, none: false, cur: false },
-    compact: true,
-    showOrderCustCols: false, showOutCustCols: false,
+    showSections: { prev: false, order: true, incoming: false, out: false, none: false, cur: false },
+    compact: false,
+    showOrderCustCols: true, showOutCustCols: false,
     showIncomingFarmCols: false, showIncomingCompactTotal: false,
-    sortedCusts: [], farms: [],
+    sortedCusts: [{ custName: '신라호텔' }], farms: [],
   });
-  assert('전재고 컬럼', cols.some(c => c.header === '01.전재고'));
-  assert('분배금액 컬럼', cols.some(c => c.header.includes('분배금액')));
+  assert('거래처 1열(스택)', cols.some(c => c.header === '신라호텔' && c.isMeasure));
+  assert('_수량 접미사 없음', !cols.some(c => c.header.includes('_수량')));
 
-  console.log('\n=== buildPivotExportGrid multi-week ===');
+  const byWeek = {
+    '04-01': { rows: [{ prodKey: 1, orders: {}, totalOrder: 0 }] },
+    '04-02': { rows: [{ prodKey: 1, orders: { A: 3 }, totalOrder: 3 }] },
+  };
   const grid = buildPivotExportGrid({
     showArea: false, showOutDate: false, showInPrice: false, showInTotal: false,
     showArrival: false, showAWB: false, showDescr: false, showAmount: false,
-    showQty: true, showCost: false, showDistCost: false,
+    showQty: true, showCost: false, showDistCost: true,
     showSections: { prev: false, order: true, incoming: false, out: false, none: false, cur: false },
     compact: true,
     showOrderCustCols: false, showOutCustCols: false,
@@ -62,15 +77,14 @@ async function main() {
     byWeek,
     weekLabel: w => `2026-${w}`,
   });
-  assert('차수별 02.주문 컬럼', grid.some(c => c.header === '2026-04-01_02.주문_수량'));
-  assert('차수2 컬럼', grid.some(c => c.header === '2026-04-02_02.주문_수량'));
+  assert('차수별 02.주문 1열', grid.some(c => c.header === '2026-04-01_02.주문' && c.isMeasure));
 
   const rows = [
-    { prodKey: 1, country: 'K', flower: 'F', prodName: 'P', prevStock: 10, orders: { A: 2 }, distCostOrders: { A: 100 }, totalOrder: 2, confirmedOut: 0 },
+    { prodKey: 1, country: 'K', flower: 'F', prodName: 'P', orders: { 신라호텔: 2 }, distCostOrders: { 신라호텔: 100 }, totalOrder: 2 },
   ];
-  const aoa = rowsToCsvAoA(cols, rows.filter(rowHasPivotQty), { blankZero: true });
+  const aoa = rowsToCsvAoA(cols, rows, { blankZero: true });
   assert('합계행 포함', aoa.length === 3);
-  assert('0 셀 빈칸', aoa[1][cols.findIndex(c => c.header === '04.출고_수량')] === '');
+  assert('0 셀 빈칸', formatExportCell(0) === '');
 
   const wr = getPivotWeekRow({ prodKey: 1, prodName: 'X' }, '04-02', byWeek);
   assert('차수행 조회', wr.totalOrder === 3);
