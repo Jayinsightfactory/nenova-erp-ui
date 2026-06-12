@@ -6,13 +6,13 @@
 //   구분별 열: 02.주문=거래처명, 03.입고=농장명
 //   즐겨찾기: 현재 설정 저장/불러오기
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { apiGet } from '../../lib/useApi';
 import { useColumnResize } from '../../lib/useColumnResize';
-import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput } from '../../lib/useWeekInput';
+import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput, formatWeekDisplay } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
 import { useLang } from '../../lib/i18n';
 import {
@@ -124,6 +124,94 @@ const renderTotalStack = (qty, amt, { showQty, showDistCost, fmtNum }) => (
     )}
   </>
 );
+
+const weekBlockBorder = (wi) => (wi > 0 ? { borderLeft: '2px solid var(--border2)' } : {});
+
+function pivotRowForWeek(baseRow, week, weekRowMap) {
+  if (!week || !weekRowMap) return baseRow;
+  const wr = weekRowMap[week]?.[baseRow.prodKey];
+  if (wr) return wr;
+  return {
+    ...baseRow,
+    prevStock: 0, totalOrder: 0, totalIncoming: 0, confirmedOut: 0, noneOut: 0, curStock: 0,
+    orders: {}, outOrders: {}, incoming: {}, distCostOrders: {}, costOrders: {},
+    inPrice: 0, inTotal: 0, awb: '', outDate: '', arrivalCost: 0, arrivalMeta: null,
+  };
+}
+
+/** 02~05 구분 열 1차수분 — 행(r) 또는 소계(tot) */
+function PivotWeekMeasureCells({
+  r, tot, sortedCusts, farms, showSections, showOrderCustCols, showOutCustCols,
+  showIncomingFarmCols, showIncomingCompactTotal, compact, showDistCost,
+  measureOpts, fmtNum, weekBorder = {},
+}) {
+  const useTot = !!tot;
+  const cells = [];
+  const push = (el) => cells.push(el);
+
+  if (showSections.prev) {
+    push(<td key="prev" className="num" style={{ ...weekBorder, ...(useTot ? { fontWeight: 'bold' } : {}), background: useTot ? '#C4CCE4' : '#F0F4FF', color: (useTot ? tot.prev : r.prevStock) > 0 ? 'var(--blue)' : 'var(--text3)' }}>{fmtNum(useTot ? tot.prev : r.prevStock)}</td>);
+  }
+  if (showOrderCustCols) {
+    sortedCusts.forEach(c => {
+      const q = useTot ? tot.custO[c.custName] : r.orders?.[c.custName];
+      const amt = useTot ? tot.custOAmt[c.custName] : lineDistAmt(q, r.distCostOrders?.[c.custName]);
+      push(<td key={`ord-${c.custName}`} className="num" style={{ background: useTot ? '#C8DCC8' : '#F4FFF4', lineHeight: '1.15', verticalAlign: 'top', padding: '0 1px', color: Number(q || 0) > 0 ? '#006600' : 'var(--text3)' }}>
+        {useTot ? renderTotalStack(q, amt, measureOpts) : renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
+      </td>);
+    });
+  }
+  if (showSections.order) {
+    const q = useTot ? tot.order : r.totalOrder;
+    const amt = useTot ? tot.orderAmt : rowDistAmtSum(r, 'orders');
+    push(<td key="ord-tot" className="num" style={stackedCellStyle(q, { fontWeight: 'bold', background: useTot ? '#B0CEB0' : '#E8F8E8', borderLeft: showOrderCustCols ? '2px solid var(--border2)' : undefined, color: (q || 0) > 0 ? '#006600' : 'var(--text3)', ...weekBorder })}>
+      {renderTotalStack(q, amt, measureOpts)}
+      {!useTot && showDistCost && Number(r.totalOrder || 0) > 0 && (
+        <div style={{ fontSize: 9, color: 'var(--amber)', fontStyle: 'italic', fontWeight: 'normal' }} title="분배단가(가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
+      )}
+    </td>);
+  }
+  if (showIncomingFarmCols) {
+    if (farms.length === 0) push(<td key="inc-empty" style={weekBorder} />);
+    else farms.forEach(f => push(<td key={`inc-${f}`} className="num" style={{ background: useTot ? '#DCC8B8' : '#FFF8F0', color: (useTot ? tot.farmI[f] : r.incoming?.[f]) > 0 ? 'var(--amber)' : 'var(--text3)' }}>{fmtNum(useTot ? tot.farmI[f] : r.incoming?.[f])}</td>));
+  }
+  if (showIncomingCompactTotal) {
+    const q = useTot ? tot.inc : r.totalIncoming;
+    push(<td key="inc-cmp" className="num" style={{ fontWeight: 'bold', background: useTot ? '#DCC8B8' : '#FFF3E6', color: (q || 0) > 0 ? 'var(--amber)' : 'var(--text3)', ...weekBorder }}>{fmtNum(q)}</td>);
+  }
+  if (showOutCustCols) {
+    sortedCusts.forEach(c => {
+      const q = useTot ? tot.custOut[c.custName] : r.outOrders?.[c.custName];
+      const amt = useTot ? tot.custOutAmt[c.custName] : lineDistAmt(q, r.distCostOrders?.[c.custName]);
+      push(<td key={`out-${c.custName}`} className="num" style={{ background: useTot ? '#DCC4B4' : '#FFF0E8', lineHeight: '1.15', verticalAlign: 'top', padding: '0 1px', color: Number(q || 0) > 0 ? '#884400' : 'var(--text3)' }}>
+        {useTot ? renderTotalStack(q, amt, measureOpts) : renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
+      </td>);
+    });
+  }
+  if (showSections.out) {
+    const q = useTot ? tot.out : r.confirmedOut;
+    const amt = useTot ? tot.outAmt : rowDistAmtSum(r, 'outOrders');
+    push(<td key="out" className="num" style={stackedCellStyle(q, { fontWeight: showOutCustCols || useTot ? 'bold' : undefined, background: useTot ? '#D4C4B0' : '#FFF0E8', color: (q || 0) > 0 ? '#884400' : 'var(--text3)', borderLeft: showOutCustCols ? '2px solid var(--border2)' : undefined, ...weekBorder })}>
+      {showOutCustCols || useTot
+        ? renderTotalStack(q, amt, measureOpts)
+        : renderStackedMeasures(q, null, rowDistCostAvg(r), measureOpts)}
+    </td>);
+  }
+  if (showSections.none) {
+    push(<td key="none" className="num" style={{ fontWeight: useTot ? 'bold' : undefined, background: useTot ? '#D8D0A8' : '#FFFCE8', color: (useTot ? tot.none : r.noneOut) > 0 ? 'var(--amber)' : 'var(--text3)', ...weekBorder }}>{fmtNum(useTot ? tot.none : r.noneOut)}</td>);
+  }
+  if (showSections.cur) {
+    const q = useTot ? tot.cur : r.curStock;
+    push(<td key="cur" className="num" style={{ fontWeight: useTot ? 'bold' : undefined, background: useTot ? '#BEBEDE' : '#F4F4FF', color: q < 0 ? 'var(--red)' : q > 0 ? 'var(--blue)' : 'var(--text3)', ...weekBorder }}>{fmtNum(q)}</td>);
+  }
+  return <>{cells}</>;
+}
+
+function sumTotForWeek(items, week, weekRowMap, custs, farms) {
+  const t = emptyTot();
+  items.forEach(r => addRowToTot(t, pivotRowForWeek(r, week, weekRowMap), custs, farms));
+  return t;
+}
 
 const stackedCellStyle = (qty, extra = {}) => {
   const q = Number(qty || 0);
@@ -608,12 +696,21 @@ export default function Pivot() {
   const load = () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
     setLoading(true); setErr('');
+    const wStart = weekStartInput.value;
+    const wEnd = weekEndInput.value || weekStartInput.value;
     apiGet('/api/stats/pivot-data', {
       orderYear: yearInput.value,
-      weekStart: weekStartInput.value,
-      weekEnd: weekEndInput.value || weekStartInput.value,
+      weekStart: wStart,
+      weekEnd: wEnd,
     })
-      .then(d => { setData(d); setCollapsed(new Set()); })
+      .then(d => {
+        setData(d);
+        setCollapsed(new Set());
+        if (Array.isArray(d.weeks) && d.weeks.length > 1) {
+          setVolBusy(`${d.weeks.length}개 차수 열 전개`);
+          setTimeout(() => setVolBusy(''), 2000);
+        }
+      })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
@@ -896,6 +993,37 @@ export default function Pivot() {
   const outColSpan = showSections.out ? (showOutCustCols ? sortedCusts.length + 1 : 1) : 0;
   const measureOpts = { showQty, showCost, showDistCost, fmtNum };
 
+  const displayWeeks = useMemo(() => {
+    if (Array.isArray(data?.weeks) && data.weeks.length > 1) return data.weeks;
+    return [null];
+  }, [data?.weeks]);
+
+  const multiWeek = displayWeeks.length > 1 && displayWeeks[0] != null;
+
+  const weekRowMap = useMemo(() => {
+    if (!multiWeek || !data?.byWeek) return null;
+    const m = {};
+    for (const w of displayWeeks) {
+      m[w] = {};
+      for (const row of (data.byWeek[w]?.rows || [])) {
+        m[w][row.prodKey] = row;
+      }
+    }
+    return m;
+  }, [data?.byWeek, displayWeeks, multiWeek]);
+
+  const weekHeaderLabel = useCallback((week) => {
+    if (!week) return weekStartInput.value;
+    const y = data?.orderYear || yearInput.value;
+    return formatWeekDisplay(`${y}-${week}`) || `${y}-${week}`;
+  }, [data?.orderYear, yearInput.value, weekStartInput.value]);
+
+  const measureCellProps = {
+    sortedCusts, farms, showSections, showOrderCustCols, showOutCustCols,
+    showIncomingFarmCols, showIncomingCompactTotal, compact, showDistCost,
+    measureOpts, fmtNum,
+  };
+
   // columnZone 순서: 거래처명이 secOrder/secOut 보다 앞이면 헤더에서도 거래처명 → 구분 순
   const custBeforeSection = useCallback((secId) => {
     const ci = columnZone.indexOf('custName');
@@ -1018,10 +1146,10 @@ export default function Pivot() {
     compact, columnZone, colGroupOrder,
     showArea, showOutDate, showInPrice, showInTotal, showArrival, showAWB, showAmount, showDescr,
     showSections, nc: sortedCusts.length, nf: farms.length, showCost, showDistCost,
-    showOrderCustCols, showOutCustCols,
+    showOrderCustCols, showOutCustCols, nw: displayWeeks.length,
   }), [compact, columnZone, colGroupOrder, showArea, showOutDate, showInPrice, showInTotal, showArrival,
     showAWB, showAmount, showDescr, showSections, sortedCusts.length, farms.length, showCost, showDistCost,
-    showOrderCustCols, showOutCustCols]);
+    showOrderCustCols, showOutCustCols, displayWeeks.length]);
 
   const pivotTableRef = useColumnResize(
     [loading, data, pivotColLayoutKey, custColWidth],
@@ -1454,67 +1582,83 @@ export default function Pivot() {
         ) : (
           <table ref={pivotTableRef} className="tbl tbl-pivot" style={{fontSize:11}}>
             <thead>
-              {/* 1행: 주문년도 */}
+              {/* 1행: 주문년도 — 차수별 반복 */}
               <tr style={{background:'#C0CCE0'}}>
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)', fontSize:11, padding:'2px 8px', textAlign:'left'}}>
                 </th>
-                {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#B8D8B8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D0C0A8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
-                {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10}}>{data?.orderYear || yearInput.value}</th>}
+                {displayWeeks.map((week, wi) => (
+                  <Fragment key={`yr-${week ?? 'one'}`}>
+                    {showSections.prev     && <th style={{background:'#B8C8E0', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                    {showSections.order    && <th colSpan={orderColSpan} style={{background:'#B8D8B8', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                    {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8C8B0', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                    {showSections.out      && <th colSpan={outColSpan} style={{background:'#D0C0A8', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                    {showSections.none     && <th style={{background:'#D8D0A0', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                    {showSections.cur      && <th style={{background:'#C0C0D8', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{data?.orderYear || yearInput.value}</th>}
+                  </Fragment>
+                ))}
               </tr>
               {/* 2행: 주문차수 */}
               <tr style={{background:'#C8D4E4'}}>
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
-                {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.order    && <th colSpan={orderColSpan} style={{background:'#C0D8C0', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8CCBC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.out      && <th colSpan={outColSpan} style={{background:'#D4C4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.none     && <th style={{background:'#D8D4AC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
-                {showSections.cur      && <th style={{background:'#C4C4DC', textAlign:'center', fontSize:10}}>{weekStartInput.value}</th>}
+                {displayWeeks.map((week, wi) => (
+                  <Fragment key={`wk-${week ?? 'one'}`}>
+                    {showSections.prev     && <th style={{background:'#C0CCE4', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                    {showSections.order    && <th colSpan={orderColSpan} style={{background:'#C0D8C0', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                    {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8CCBC', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                    {showSections.out      && <th colSpan={outColSpan} style={{background:'#D4C4AC', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                    {showSections.none     && <th style={{background:'#D8D4AC', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                    {showSections.cur      && <th style={{background:'#C4C4DC', textAlign:'center', fontSize:10, ...weekBlockBorder(wi)}}>{weekHeaderLabel(week)}</th>}
+                  </Fragment>
+                ))}
               </tr>
               {/* 3행: 구분 */}
               <tr style={{background:'#D0D8E8'}}>
                 <th colSpan={totalFixedCols}
                   style={{borderRight:'2px solid var(--border2)'}}></th>
-                {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10}}>∨ 01. 전재고</th>}
-                {showSections.order    && orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>}
-                {showSections.order    && !orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#D8E8D8',textAlign:'center',fontSize:10}}></th>}
-                {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8CCC0',textAlign:'center',fontSize:10}}>∨ 03. 입고</th>}
-                {showSections.out      && outSectionOnTop && <th colSpan={outColSpan} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>}
-                {showSections.out      && !outSectionOnTop && <th colSpan={outColSpan} style={{background:'#E8DED8',textAlign:'center',fontSize:10}}></th>}
-                {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10}}>∨ 03. 미발주</th>}
-                {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10}}>∨ 05. 현재고</th>}
+                {displayWeeks.map((week, wi) => (
+                  <Fragment key={`sec-${week ?? 'one'}`}>
+                    {showSections.prev     && <th style={{background:'#C8D0E8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 01. 전재고</th>}
+                    {showSections.order    && orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#C8D8C8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 02. 주문</th>}
+                    {showSections.order    && !orderSectionOnTop && <th colSpan={orderColSpan} style={{background:'#D8E8D8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}></th>}
+                    {showSections.incoming && <th colSpan={showIncomingFarmCols ? (farms.length||1) : 1} style={{background:'#D8CCC0',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 03. 입고</th>}
+                    {showSections.out      && outSectionOnTop && <th colSpan={outColSpan} style={{background:'#D4C8B8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 04. 출고</th>}
+                    {showSections.out      && !outSectionOnTop && <th colSpan={outColSpan} style={{background:'#E8DED8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}></th>}
+                    {showSections.none     && <th style={{background:'#DCD8B0',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 03. 미발주</th>}
+                    {showSections.cur      && <th style={{background:'#C8C8E0',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 05. 현재고</th>}
+                  </Fragment>
+                ))}
               </tr>
 
               {/* 그룹 헤더 행 (colGroupOrder에서 마지막 레벨 제외한 각 레벨) — detail + 거래처명 */}
               {(showOrderCustCols || showOutCustCols) && custGroupHeaders.map(({level, cells}) => (
                 <tr key={`gh-${level}`} style={{background: showOrderCustCols ? '#D0E8D0' : '#E8E0D0'}}>
                   <th colSpan={totalFixedCols} style={{background:'#E8EEF4',borderRight:'2px solid var(--border2)'}} />
-                  {showSections.prev && <th style={{background:'#C8D0E8'}} />}
-                  {showOrderCustCols && cells.map((cell, ci) => (
-                    <th key={`ord-${ci}`} colSpan={cell.colspan} style={{
-                      textAlign:'center', fontSize:10, background:'#BEDFBE',
-                      borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
-                      fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
-                    }}>{cell.value}</th>
+                  {displayWeeks.map((week, wi) => (
+                    <Fragment key={`gh-${level}-${week ?? 'one'}`}>
+                      {showSections.prev && <th style={{background:'#C8D0E8', ...weekBlockBorder(wi)}} />}
+                      {showOrderCustCols && cells.map((cell, ci) => (
+                        <th key={`ord-${ci}`} colSpan={cell.colspan} style={{
+                          textAlign:'center', fontSize:10, background:'#BEDFBE',
+                          borderLeft: ci>0 ? '2px solid var(--border2)' : weekBlockBorder(wi).borderLeft || 'none',
+                          fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
+                        }}>{cell.value}</th>
+                      ))}
+                      {showSections.order && (showOrderCustCols ? <th style={{background:'#AECFAE'}} /> : <th colSpan={1} style={{background:'#AECFAE'}} />)}
+                      {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
+                      {showOutCustCols && cells.map((cell, ci) => (
+                        <th key={`out-${ci}`} colSpan={cell.colspan} style={{
+                          textAlign:'center', fontSize:10, background:'#DCC8B0',
+                          borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
+                          fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
+                        }}>{cell.value}</th>
+                      ))}
+                      {showSections.out && (showOutCustCols ? <th style={{background:'#C8B898'}} /> : <th style={{background:'#D4C8B8'}} />)}
+                      {showSections.none && <th style={{background:'#DCD8B0'}} />}
+                      {showSections.cur  && <th style={{background:'#C8C8E0'}} />}
+                    </Fragment>
                   ))}
-                  {showSections.order && (showOrderCustCols ? <th style={{background:'#AECFAE'}} /> : <th colSpan={1} style={{background:'#AECFAE'}} />)}
-                  {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
-                  {showOutCustCols && cells.map((cell, ci) => (
-                    <th key={`out-${ci}`} colSpan={cell.colspan} style={{
-                      textAlign:'center', fontSize:10, background:'#DCC8B0',
-                      borderLeft: ci>0 ? '2px solid var(--border2)' : 'none',
-                      fontWeight:'bold', padding:'2px 4px', whiteSpace:'nowrap',
-                    }}>{cell.value}</th>
-                  ))}
-                  {showSections.out && (showOutCustCols ? <th style={{background:'#C8B898'}} /> : <th style={{background:'#D4C8B8'}} />)}
-                  {showSections.none && <th style={{background:'#DCD8B0'}} />}
-                  {showSections.cur  && <th style={{background:'#C8C8E0'}} />}
                 </tr>
               ))}
 
@@ -1536,100 +1680,103 @@ export default function Pivot() {
                 {showAWB      && <th style={{fontSize:10}}>AWB</th>}
                 {showAmount   && <th style={{fontSize:10,textAlign:'right'}}>판매금액</th>}
                 {showDescr    && <th style={{fontSize:10}}>비고</th>}
-                {/* 01. 전재고 */}
-                {showSections.prev && (
-                  <ColHeader label="전재고" sortKey="prevStock" sorts={sorts} onSort={handleSort}/>
-                )}
-                {/* 02. 주문 — detail: 거래처별 / compact: Total 1열만 */}
-                {showOrderCustCols && sortedCusts.map((c,ci)=>(
-                  <th key={`ord-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#D4ECD4',
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                    borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
-                  }}
-                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
-                    {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
-                  </th>
+                {displayWeeks.map((week, wi) => (
+                  <Fragment key={`colh-${week ?? 'one'}`}>
+                    {showSections.prev && (
+                      <ColHeader label="전재고" sortKey="prevStock" sorts={sorts} onSort={handleSort}/>
+                    )}
+                    {showOrderCustCols && sortedCusts.map((c,ci)=>(
+                      <th key={`ord-${week ?? 'one'}-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#D4ECD4',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                        borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : weekBlockBorder(wi).borderLeft,
+                      }}
+                        title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
+                        {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
+                      </th>
+                    ))}
+                    {showSections.order && (
+                      <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold',
+                        borderLeft: showOrderCustCols?'2px solid var(--border2)':weekBlockBorder(wi).borderLeft}}>
+                        {compact ? '02. 주문' : '02. 주문 Total'}
+                        {compact && showDistCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 분배단가</div>}
+                      </th>
+                    )}
+                    {showIncomingFarmCols && farms.map(f=>(
+                      <th key={`${week ?? 'one'}-${f}`} data-resize-group="farm" style={{textAlign:'center',fontSize:10,background:'#E8DCCC',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f}>
+                        ∨ {f.length>8?f.slice(0,8)+'…':f}
+                      </th>
+                    ))}
+                    {showIncomingFarmCols && farms.length===0 && (
+                      <th style={{background:'#E8DCCC',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>입고 없음</th>
+                    )}
+                    {showIncomingCompactTotal && (
+                      <th style={{background:'#E0D4C4',textAlign:'center',fontSize:10,fontWeight:'bold', ...weekBlockBorder(wi)}}>03. 입고</th>
+                    )}
+                    {showOutCustCols && sortedCusts.map((c,ci)=>(
+                      <th key={`out-${week ?? 'one'}-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#ECDCD4',
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                        borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
+                      }}
+                        title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
+                        {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
+                      </th>
+                    ))}
+                    {showSections.out && (
+                      showOutCustCols ? (
+                        <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold',borderLeft:'2px solid var(--border2)'}}>
+                          {outSectionOnTop ? '04. 출고 Total' : 'Total'}
+                        </th>
+                      ) : (
+                        <ColHeader label="출고" sortKey="confirmedOut" sorts={sorts} onSort={handleSort}/>
+                      )
+                    )}
+                    {showSections.none && (
+                      <ColHeader label="미발주" sortKey="noneOut" sorts={sorts} onSort={handleSort}/>
+                    )}
+                    {showSections.cur && (
+                      <ColHeader label="현재고" sortKey="curStock" sorts={sorts} onSort={handleSort}/>
+                    )}
+                  </Fragment>
                 ))}
-                {showSections.order && (
-                  <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold',
-                    borderLeft: showOrderCustCols?'2px solid var(--border2)':undefined}}>
-                    {compact ? '02. 주문' : '02. 주문 Total'}
-                    {compact && showDistCost && <div style={{fontSize:8,color:'var(--blue)',marginTop:1}}>수량 / 분배단가</div>}
-                  </th>
-                )}
-                {/* 03. 입고 — detail: 농장별 / compact: Total 1열만 */}
-                {showIncomingFarmCols && farms.map(f=>(
-                  <th key={f} data-resize-group="farm" style={{textAlign:'center',fontSize:10,background:'#E8DCCC',
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f}>
-                    ∨ {f.length>8?f.slice(0,8)+'…':f}
-                  </th>
-                ))}
-                {showIncomingFarmCols && farms.length===0 && (
-                  <th style={{background:'#E8DCCC',textAlign:'center',fontSize:10}}>입고 없음</th>
-                )}
-                {showIncomingCompactTotal && (
-                  <th style={{background:'#E0D4C4',textAlign:'center',fontSize:10,fontWeight:'bold'}}>03. 입고</th>
-                )}
-                {showOutCustCols && sortedCusts.map((c,ci)=>(
-                  <th key={`out-${c.custName}`} data-resize-group="cust" style={{textAlign:'left',fontSize:9,background:'#ECDCD4',
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                    borderLeft: ci>0 && sortedCusts[ci-1] && getCustVal(sortedCusts[ci-1],colGroupOrder[colGroupOrder.length-2]) !== getCustVal(c,colGroupOrder[colGroupOrder.length-2]) ? '1px solid var(--border2)' : undefined,
-                  }}
-                    title={`${c.area} / ${c.custName}${c.custDescr?' / '+c.custDescr:''} (${c.orderCode})`}>
-                    {c.custName.length>6?c.custName.slice(0,6)+'…':c.custName}
-                  </th>
-                ))}
-                {showSections.out && (
-                  showOutCustCols ? (
-                    <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold',borderLeft:'2px solid var(--border2)'}}>
-                      {outSectionOnTop ? '04. 출고 Total' : 'Total'}
-                    </th>
-                  ) : (
-                    <ColHeader label="출고" sortKey="confirmedOut" sorts={sorts} onSort={handleSort}/>
-                  )
-                )}
-                {/* 03. 미발주 */}
-                {showSections.none && (
-                  <ColHeader label="미발주" sortKey="noneOut" sorts={sorts} onSort={handleSort}/>
-                )}
-                {/* 05. 현재고 */}
-                {showSections.cur && (
-                  <ColHeader label="현재고" sortKey="curStock" sorts={sorts} onSort={handleSort}/>
-                )}
               </tr>
 
               {/* 구분 행 (거래처명이 구분보다 앞일 때 — columnZone 순서) */}
               {(!orderSectionOnTop && showSections.order) || (!outSectionOnTop && showSections.out) ? (
                 <tr style={{background:'#D0D8E8'}}>
                   <th colSpan={totalFixedCols} style={{borderRight:'2px solid var(--border2)'}}></th>
-                  {showSections.prev && <th style={{background:'#C8D0E8'}} />}
-                  {showSections.order && !orderSectionOnTop && (
-                    showOrderCustCols ? (
-                      <>
-                        {sortedCusts.map(c => (
-                          <th key={`ord-sec-${c.custName}`} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>
-                        ))}
-                        <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>02. 주문 Total</th>
-                      </>
-                    ) : (
-                      <th style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>
-                    )
-                  )}
-                  {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0'}} />}
-                  {showSections.out && !outSectionOnTop && (
-                    showOutCustCols ? (
-                      <>
-                        {sortedCusts.map(c => (
-                          <th key={`out-sec-${c.custName}`} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>
-                        ))}
-                        <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>04. 출고 Total</th>
-                      </>
-                    ) : (
-                      <th style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>
-                    )
-                  )}
-                  {showSections.none && <th style={{background:'#DCD8B0'}} />}
-                  {showSections.cur && <th style={{background:'#C8C8E0'}} />}
+                  {displayWeeks.map((week, wi) => (
+                    <Fragment key={`sec2-${week ?? 'one'}`}>
+                      {showSections.prev && <th style={{background:'#C8D0E8', ...weekBlockBorder(wi)}} />}
+                      {showSections.order && !orderSectionOnTop && (
+                        showOrderCustCols ? (
+                          <>
+                            {sortedCusts.map(c => (
+                              <th key={`ord-sec-${week ?? 'one'}-${c.custName}`} style={{background:'#C8D8C8',textAlign:'center',fontSize:10}}>∨ 02. 주문</th>
+                            ))}
+                            <th style={{background:'#B8D4B8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>02. 주문 Total</th>
+                          </>
+                        ) : (
+                          <th style={{background:'#C8D8C8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 02. 주문</th>
+                        )
+                      )}
+                      {showSections.incoming && <th colSpan={Math.max(farms.length,1)} style={{background:'#D8CCC0', ...weekBlockBorder(wi)}} />}
+                      {showSections.out && !outSectionOnTop && (
+                        showOutCustCols ? (
+                          <>
+                            {sortedCusts.map(c => (
+                              <th key={`out-sec-${week ?? 'one'}-${c.custName}`} style={{background:'#D4C8B8',textAlign:'center',fontSize:10}}>∨ 04. 출고</th>
+                            ))}
+                            <th style={{background:'#D4B8A8',textAlign:'center',fontSize:10,fontWeight:'bold'}}>04. 출고 Total</th>
+                          </>
+                        ) : (
+                          <th style={{background:'#D4C8B8',textAlign:'center',fontSize:10, ...weekBlockBorder(wi)}}>∨ 04. 출고</th>
+                        )
+                      )}
+                      {showSections.none && <th style={{background:'#DCD8B0', ...weekBlockBorder(wi)}} />}
+                      {showSections.cur && <th style={{background:'#C8C8E0', ...weekBlockBorder(wi)}} />}
+                    </Fragment>
+                  ))}
                 </tr>
               ) : null}
             </thead>
@@ -1641,37 +1788,20 @@ export default function Pivot() {
                 const isCC = collapsed.has(ck);
                 const cTot = emptyTot();
                 Object.values(gCountry.flowers).forEach(gf=>gf.items.forEach(r=> addRowToTot(cTot, r, custs, farms)));
+                const cAllItems = Object.values(gCountry.flowers).flatMap(gf => gf.items);
                 return [
                   <tr key={`c-${ck}`} style={{background:'#D0DDE8',cursor:'pointer'}} onClick={()=>toggleCollapse(ck)}>
                     <td colSpan={totalFixedCols} style={{padding:'2px 8px',fontWeight:'bold',fontSize:12,borderRight:'2px solid var(--border2)'}}>
                       {isCC?'▶':'∨'} {gCountry.country}
                     </td>
-                    {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#C4CCE4'}}>{fmtNum(cTot.prev)}</td>}
-                    {showOrderCustCols && sortedCusts.map(c=>(
-                      <td key={c.custName} className="num" style={{background:'#C8DCC8',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                        {renderTotalStack(cTot.custO[c.custName], cTot.custOAmt[c.custName], measureOpts)}
-                      </td>
+                    {displayWeeks.map((week, wi) => (
+                      <PivotWeekMeasureCells
+                        key={`c-${ck}-${week ?? 'one'}`}
+                        tot={multiWeek ? sumTotForWeek(cAllItems, week, weekRowMap, custs, farms) : cTot}
+                        {...measureCellProps}
+                        weekBorder={weekBlockBorder(wi)}
+                      />
                     ))}
-                    {showSections.order    && (
-                      <td className="num" style={{fontWeight:'bold',background:'#B0CEB0',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                        {renderTotalStack(cTot.order, cTot.orderAmt, measureOpts)}
-                      </td>
-                    )}
-                    {showIncomingFarmCols && farms.map(f=><td key={f} className="num" style={{background:'#DCC8B8'}}>{fmtNum(cTot.farmI[f])}</td>)}
-                    {showIncomingFarmCols && farms.length===0 && <td></td>}
-                    {showIncomingCompactTotal && <td className="num" style={{fontWeight:'bold',background:'#DCC8B8'}}>{fmtNum(cTot.inc)}</td>}
-                    {showOutCustCols && sortedCusts.map(c=>(
-                      <td key={`out-${c.custName}`} className="num" style={{background:'#DCC4B4',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                        {renderTotalStack(cTot.custOut[c.custName], cTot.custOutAmt[c.custName], measureOpts)}
-                      </td>
-                    ))}
-                    {showSections.out      && (
-                      <td className="num" style={{fontWeight:'bold',background:'#D4C4B0',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                        {renderTotalStack(cTot.out, cTot.outAmt, measureOpts)}
-                      </td>
-                    )}
-                    {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#D8D0A8'}}>{fmtNum(cTot.none)}</td>}
-                    {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#BEBEDE'}}>{fmtNum(cTot.cur)}</td>}
                   </tr>,
 
                   ...(!isCC ? (gCountry._sortedFlowers || Object.values(gCountry.flowers)).map(gFlower=>{
@@ -1686,32 +1816,14 @@ export default function Pivot() {
                         <td colSpan={totalFixedCols-1} style={{padding:'2px 8px',fontWeight:'bold',fontSize:11,borderRight:'2px solid var(--border2)'}}>
                           {isFC?'▶':'∨'} {gFlower.flower} <span style={{fontSize:10,color:'var(--text3)'}}>({gFlower.items.length})</span>
                         </td>
-                        {showSections.prev     && <td className="num" style={{background:'#CCD4EC'}}>{fmtNum(fTot.prev)}</td>}
-                        {showOrderCustCols && sortedCusts.map(c=>(
-                          <td key={c.custName} className="num" style={{background:'#CCE0CC',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.custO[c.custName], fTot.custOAmt[c.custName], measureOpts)}
-                          </td>
+                        {displayWeeks.map((week, wi) => (
+                          <PivotWeekMeasureCells
+                            key={`f-${fk}-${week ?? 'one'}`}
+                            tot={multiWeek ? sumTotForWeek(gFlower.items, week, weekRowMap, custs, farms) : fTot}
+                            {...measureCellProps}
+                            weekBorder={weekBlockBorder(wi)}
+                          />
                         ))}
-                        {showSections.order    && (
-                          <td className="num" style={{fontWeight:'bold',background:'#B4D0B4',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.order, fTot.orderAmt, measureOpts)}
-                          </td>
-                        )}
-                        {showIncomingFarmCols && farms.map(f=><td key={f} className="num" style={{background:'#DCCCC0'}}>{fmtNum(fTot.farmI[f])}</td>)}
-                        {showIncomingFarmCols && farms.length===0 && <td></td>}
-                        {showIncomingCompactTotal && <td className="num" style={{fontWeight:'bold',background:'#DCCCC0'}}>{fmtNum(fTot.inc)}</td>}
-                        {showOutCustCols && sortedCusts.map(c=>(
-                          <td key={`out-${c.custName}`} className="num" style={{background:'#D8C8B4',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.custOut[c.custName], fTot.custOutAmt[c.custName], measureOpts)}
-                          </td>
-                        ))}
-                        {showSections.out      && (
-                          <td className="num" style={{background:'#D8C8B4',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.out, fTot.outAmt, measureOpts)}
-                          </td>
-                        )}
-                        {showSections.none     && <td className="num" style={{background:'#DDD8B0'}}>{fmtNum(fTot.none)}</td>}
-                        {showSections.cur      && <td className="num" style={{background:'#C4C4E0'}}>{fmtNum(fTot.cur)}</td>}
                       </tr>,
 
                       ...(!isFC ? gFlower.items.map((r,idx)=>(
@@ -1728,57 +1840,14 @@ export default function Pivot() {
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fmtNum((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)'}} title={r.descr}>{r.descr||''}</td>}
-                          {showSections.prev && (
-                            <td className="num" style={{background:'#F0F4FF',color:(r.prevStock||0)>0?'var(--blue)':'var(--text3)'}}>{fmtNum(r.prevStock)}</td>
-                          )}
-                          {showOrderCustCols && sortedCusts.map(c=>{
-                            const q = r.orders?.[c.custName];
-                            return (
-                            <td key={c.custName} className="num" style={stackedCellStyle(q, {background:'#F4FFF4',color:Number(q||0)>0?'#006600':'var(--text3)'})}>
-                              {renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
-                            </td>
-                          );})}
-                          {showSections.order && (
-                            <td className="num" style={stackedCellStyle(r.totalOrder, {fontWeight:'bold',background:'#E8F8E8',borderLeft: showOrderCustCols?'2px solid var(--border2)':undefined,color:(r.totalOrder||0)>0?'#006600':'var(--text3)'})}>
-                              {renderTotalStack(r.totalOrder, rowDistAmtSum(r, 'orders'), measureOpts)}
-                              {showDistCost && Number(r.totalOrder||0) > 0 && (
-                                <div style={{fontSize:9,color:'var(--amber)',fontStyle:'italic',fontWeight:'normal'}} title="분배단가(가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
-                              )}
-                            </td>
-                          )}
-                          {showIncomingFarmCols && farms.map(f=>(
-                            <td key={f} className="num" style={{background:'#FFF8F0',color:(r.incoming?.[f]||0)>0?'var(--amber)':'var(--text3)'}}>
-                              {fmtNum(r.incoming?.[f])}
-                            </td>
+                          {displayWeeks.map((week, wi) => (
+                            <PivotWeekMeasureCells
+                              key={`i-${r.prodKey}-${week ?? 'one'}`}
+                              r={pivotRowForWeek(r, week, weekRowMap)}
+                              {...measureCellProps}
+                              weekBorder={weekBlockBorder(wi)}
+                            />
                           ))}
-                          {showIncomingFarmCols && farms.length===0 && <td></td>}
-                          {showIncomingCompactTotal && (
-                            <td className="num" style={{fontWeight:'bold',background:'#FFF3E6',color:(r.totalIncoming||0)>0?'var(--amber)':'var(--text3)'}}>
-                              {fmtNum(r.totalIncoming)}
-                            </td>
-                          )}
-                          {showOutCustCols && sortedCusts.map(c=>{
-                            const q = r.outOrders?.[c.custName];
-                            return (
-                            <td key={`out-${c.custName}`} className="num" style={stackedCellStyle(q, {background:'#FFF0E8',color:Number(q||0)>0?'#884400':'var(--text3)'})}>
-                              {renderStackedMeasures(q, r.costOrders?.[c.custName], r.distCostOrders?.[c.custName], measureOpts)}
-                            </td>
-                          );})}
-                          {showSections.out && (
-                            <td className="num" style={stackedCellStyle(r.confirmedOut, {fontWeight: showOutCustCols?'bold':undefined,background:'#FFF0E8',color:(r.confirmedOut||0)>0?'#884400':'var(--text3)',borderLeft: showOutCustCols?'2px solid var(--border2)':undefined})}>
-                              {showOutCustCols
-                                ? renderTotalStack(r.confirmedOut, rowDistAmtSum(r, 'outOrders'), measureOpts)
-                                : renderStackedMeasures(r.confirmedOut, null, rowDistCostAvg(r), measureOpts)}
-                            </td>
-                          )}
-                          {showSections.none && (
-                            <td className="num" style={{background:'#FFFCE8',color:(r.noneOut||0)>0?'var(--amber)':'var(--text3)'}}>{fmtNum(r.noneOut)}</td>
-                          )}
-                          {showSections.cur && (
-                            <td className="num" style={{background:'#F4F4FF',color:(r.curStock||0)<0?'var(--red)':(r.curStock||0)>0?'var(--blue)':'var(--text3)'}}>
-                              {fmtNum(r.curStock)}
-                            </td>
-                          )}
                         </tr>
                       )) : []),
 
@@ -1786,32 +1855,14 @@ export default function Pivot() {
                         <td colSpan={totalFixedCols} style={{padding:'2px 16px',fontSize:11,color:'var(--text3)',borderRight:'2px solid var(--border2)'}}>
                           {gFlower.flower} Total
                         </td>
-                        {showSections.prev     && <td className="num" style={{fontWeight:'bold',background:'#CAD2EA'}}>{fmtNum(fTot.prev)}</td>}
-                        {showOrderCustCols && sortedCusts.map(c=>(
-                          <td key={c.custName} className="num" style={{fontWeight:'bold',background:'#C8DCC8',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.custO[c.custName], fTot.custOAmt[c.custName], measureOpts)}
-                          </td>
+                        {displayWeeks.map((week, wi) => (
+                          <PivotWeekMeasureCells
+                            key={`ft-${fk}-${week ?? 'one'}`}
+                            tot={multiWeek ? sumTotForWeek(gFlower.items, week, weekRowMap, custs, farms) : fTot}
+                            {...measureCellProps}
+                            weekBorder={weekBlockBorder(wi)}
+                          />
                         ))}
-                        {showSections.order    && (
-                          <td className="num" style={{fontWeight:'bold',background:'#B0CEB0',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.order, fTot.orderAmt, measureOpts)}
-                          </td>
-                        )}
-                        {showIncomingFarmCols && farms.map(f=><td key={f} className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.farmI[f])}</td>)}
-                        {showIncomingFarmCols && farms.length===0 && <td></td>}
-                        {showIncomingCompactTotal && <td className="num" style={{fontWeight:'bold',background:'#D8C8B4'}}>{fmtNum(fTot.inc)}</td>}
-                        {showOutCustCols && sortedCusts.map(c=>(
-                          <td key={`out-${c.custName}`} className="num" style={{fontWeight:'bold',background:'#D0C0A8',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.custOut[c.custName], fTot.custOutAmt[c.custName], measureOpts)}
-                          </td>
-                        ))}
-                        {showSections.out      && (
-                          <td className="num" style={{fontWeight:'bold',background:'#D0C0A8',lineHeight:'1.15',verticalAlign:'top',padding:'0 1px'}}>
-                            {renderTotalStack(fTot.out, fTot.outAmt, measureOpts)}
-                          </td>
-                        )}
-                        {showSections.none     && <td className="num" style={{fontWeight:'bold',background:'#DAD4AC'}}>{fmtNum(fTot.none)}</td>}
-                        {showSections.cur      && <td className="num" style={{fontWeight:'bold',background:'#C0C0DC'}}>{fmtNum(fTot.cur)}</td>}
                       </tr>,
                     ];
                   }) : []),
