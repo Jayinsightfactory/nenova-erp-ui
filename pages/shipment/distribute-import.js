@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
+import { importProductOverrideKey } from '../../lib/shipmentImportQty';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -121,9 +122,13 @@ export default function DistributeImport() {
   const [filter, setFilter] = useState('apply');
   const [viewMode, setViewMode] = useState('pivot');
   const [unmatchedModalOpen, setUnmatchedModalOpen] = useState(false);
+  const [matchTab, setMatchTab] = useState('customer');
   const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
+  const [prodOverrides, setProdOverrides] = useState({});   // { productOverrideKey: prodKey }
   const custOverridesRef = useRef({});
+  const prodOverridesRef = useRef({});
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
+  const setProdOverridesState = next => { prodOverridesRef.current = next; setProdOverrides(next); };
 
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
@@ -133,9 +138,10 @@ export default function DistributeImport() {
   const qtyWarningRows = useMemo(() => rows.filter(r => r.hasQtyWarning), [rows]);
   const shipmentRows = useMemo(() => rows.filter(shipmentNeedsApply), [rows]);
   const visibleRows = useMemo(() => {
-    const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : filter === 'unmatched' ? [] : rows;
+    if (filter === 'unmatched') return (preview?.unmatched || []).slice(0, 1000);
+    const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
     return base.slice(0, 1000);
-  }, [rows, applyRows, changedRows, shipmentRows, filter]);
+  }, [rows, applyRows, changedRows, shipmentRows, filter, preview?.unmatched]);
   const pivotModel = useMemo(() => {
     const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
     return buildPivotModel(source);
@@ -148,11 +154,46 @@ export default function DistributeImport() {
       if (!/업체/.test(u.reason || '')) continue;
       const label = u.customerLabel || '';
       if (!label) continue;
-      if (!map.has(label)) map.set(label, { label, count: 0, sample: u.productLabel || '' });
+      if (!map.has(label)) {
+        map.set(label, {
+          label,
+          count: 0,
+          sample: u.productLabel || '',
+          matchKind: u.matchKind || 'customer',
+          suggestedCustomers: u.suggestedCustomers || [],
+        });
+      }
       map.get(label).count += 1;
     }
     return [...map.values()];
   }, [preview]);
+
+  const unmatchedProducts = useMemo(() => {
+    const map = new Map();
+    for (const u of preview?.unmatched || []) {
+      if (!/품목/.test(u.reason || '')) continue;
+      const key = u.productOverrideKey || importProductOverrideKey(u);
+      if (!key) continue;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          productLabel: u.productLabel || '',
+          sheetName: u.sheetName || '',
+          productFamily: u.productFamily || '',
+          count: 0,
+          sampleCustomer: u.customerLabel || '',
+          matchKind: u.matchKind || 'product',
+          suggestedProducts: u.suggestedProducts || [],
+        });
+      }
+      map.get(key).count += 1;
+    }
+    return [...map.values()];
+  }, [preview]);
+
+  const unmatchedQtyCount = (preview?.unmatched || []).filter(u => Number(u.uploadQty || u.excelQty || 0) !== 0).length;
+  const custMatchPending = unmatchedCustomers.filter(it => !custOverrides[it.label]).length;
+  const prodMatchPending = unmatchedProducts.filter(it => !prodOverrides[it.key]).length;
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -183,6 +224,9 @@ export default function DistributeImport() {
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
       }
+      if (Object.keys(prodOverridesRef.current).length) {
+        form.append('productOverrides', JSON.stringify(prodOverridesRef.current));
+      }
       const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
@@ -194,10 +238,16 @@ export default function DistributeImport() {
       if (!options.preserveMessage) {
         setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
       }
-      // 파일엔 있는데 업체 매칭 실패한 경우 → 알림 팝업 자동 표시(수동 매칭)
-      const hasUnmatchedCust = (data.unmatched || []).some(u => /업체/.test(u.reason || ''));
-      if (hasUnmatchedCust) setUnmatchedModalOpen(true);
-      else setUnmatchedModalOpen(false);
+      if ((data.unmatched || []).length > 0) {
+        const hasCust = (data.unmatched || []).some(u => /업체/.test(u.reason || ''));
+        setMatchTab(hasCust ? 'customer' : 'product');
+        setUnmatchedModalOpen(true);
+      } else {
+        setUnmatchedModalOpen(false);
+        if (options.preserveModal) {
+          setMessage(prev => prev || '미매칭 매칭 완료. 검증 결과를 확인하세요.');
+        }
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -258,16 +308,22 @@ export default function DistributeImport() {
     setOverrides(next);
   };
 
+  const pickProdOverride = (key, prodKey) => {
+    const next = { ...prodOverridesRef.current };
+    if (prodKey) next[key] = Number(prodKey);
+    else delete next[key];
+    setProdOverridesState(next);
+  };
+
   const handleReverify = async () => {
-    setUnmatchedModalOpen(false);
-    await handlePreview();
+    await handlePreview({ preserveModal: true });
   };
 
   const handleApply = async () => {
     if (!preview) return;
-    const custUnmatched = (preview.unmatched || []).filter(u => /업체/.test(u.reason || ''));
-    if (custUnmatched.length > 0) {
-      setError(`미매칭 업체 ${custUnmatched.length}곳이 있습니다. 업체 매칭을 먼저 완료하세요.`);
+    if (unmatchedQtyCount > 0) {
+      setError(`미매칭 ${unmatchedQtyCount}건 — 업체·품목 매칭을 완료한 뒤 다시 검증하세요. (업체 ${custMatchPending} / 품목 ${prodMatchPending})`);
+      setMatchTab(custMatchPending > 0 ? 'customer' : 'product');
       setUnmatchedModalOpen(true);
       return;
     }
@@ -275,13 +331,11 @@ export default function DistributeImport() {
       setError('적용할 주문변경/분배반영 대상이 없습니다. 분배차이 또는 주문변경 행이 있는지 확인하세요.');
       return;
     }
-    const prodUnmatched = (preview.unmatched || []).filter(u => /품목/.test(u.reason || ''));
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
     const shipmentOnlyText = shipmentRows.length && !orderChangeRows.length
       ? `\n분배만 반영 ${shipmentRows.length}건 — 주문등록은 유지하고 출고분배 수량만 변경합니다.`
       : '';
-    const prodWarnText = prodUnmatched.length ? `\n(품목 미매칭 ${prodUnmatched.length}건은 제외하고 적용합니다.)` : '';
     let ackQtyWarnings = false;
     if (qtyWarningRows.length) {
       const sample = qtyWarningRows.slice(0, 3).map(r => `· ${r.custName} / ${r.prodName}: ${qtyWarningText(r)}`).join('\n');
@@ -293,7 +347,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}${shipmentOnlyText}${prodWarnText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}${shipmentOnlyText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -379,6 +433,7 @@ export default function DistributeImport() {
               setMessage('');
               setError('');
               setOverrides({});
+              setProdOverridesState({});
               setUnmatchedModalOpen(false);
             }}
           />
@@ -413,21 +468,32 @@ export default function DistributeImport() {
           open={applyModalOpen}
           onClose={() => setApplyModalOpen(false)}
         />
-        <UnmatchedCustomerModal
+        <UnmatchedMatchingModal
           open={unmatchedModalOpen}
-          items={unmatchedCustomers}
-          options={preview?.customerOptions || []}
-          overrides={custOverrides}
-          onPick={pickOverride}
+          matchTab={matchTab}
+          onTabChange={setMatchTab}
+          customerItems={unmatchedCustomers}
+          productItems={unmatchedProducts}
+          customerOptions={preview?.customerOptions || []}
+          productOptions={preview?.productOptions || []}
+          custOverrides={custOverrides}
+          prodOverrides={prodOverrides}
+          onPickCustomer={pickOverride}
+          onPickProduct={pickProdOverride}
           onReverify={handleReverify}
           onClose={() => setUnmatchedModalOpen(false)}
           loading={loading}
+          custPending={custMatchPending}
+          prodPending={prodMatchPending}
         />
 
-        {preview && unmatchedCustomers.length > 0 && (
+        {preview && unmatchedQtyCount > 0 && (
           <div style={st.unmatchedBanner}>
-            ⚠️ 파일에 있지만 매칭 안 된 업체 {unmatchedCustomers.length}곳이 있습니다.
-            <button style={st.unmatchedBannerBtn} onClick={() => setUnmatchedModalOpen(true)}>업체 매칭하기</button>
+            ⚠️ 미매칭 {unmatchedQtyCount}건 — 업체 {custMatchPending} / 품목 {prodMatchPending} 매칭 필요
+            <button style={st.unmatchedBannerBtn} onClick={() => {
+              setMatchTab(custMatchPending > 0 ? 'customer' : 'product');
+              setUnmatchedModalOpen(true);
+            }}>매칭하기</button>
           </div>
         )}
         {preview && qtyWarningRows.length > 0 && (
@@ -860,56 +926,147 @@ function ApplyResultContent({ result }) {
   );
 }
 
-function UnmatchedCustomerModal({ open, items, options, overrides, onPick, onReverify, onClose, loading }) {
+function MatchKindBadge({ kind }) {
+  const label = kind === 'both' ? '업체+품목' : kind === 'product' ? '품목' : '업체';
+  const bg = kind === 'both' ? '#fef3c7' : kind === 'product' ? '#dbeafe' : '#ffedd5';
+  const color = kind === 'both' ? '#92400e' : kind === 'product' ? '#1d4ed8' : '#9a3412';
+  return <span style={{ ...st.matchKindBadge, background: bg, color }}>{label}</span>;
+}
+
+function SuggestSelect({ value, onChange, suggested = [], options = [], renderSuggested, renderOption, placeholder }) {
+  const suggestedIds = new Set(suggested.map(s => String(s.custKey ?? s.prodKey)));
+  return (
+    <select style={st.custSelect} value={value || ''} onChange={e => onChange(e.target.value)}>
+      <option value="">{placeholder || '— 선택 —'}</option>
+      {suggested.map(s => (
+        <option key={`s-${s.custKey ?? s.prodKey}`} value={s.custKey ?? s.prodKey}>
+          ★ {renderSuggested(s)}
+        </option>
+      ))}
+      {suggested.length > 0 && options.some(o => !suggestedIds.has(String(o.custKey ?? o.prodKey))) && (
+        <option disabled>────────</option>
+      )}
+      {options.filter(o => !suggestedIds.has(String(o.custKey ?? o.prodKey))).map(o => (
+        <option key={o.custKey ?? o.prodKey} value={o.custKey ?? o.prodKey}>
+          {renderOption(o)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function UnmatchedMatchingModal({
+  open, matchTab, onTabChange,
+  customerItems, productItems,
+  customerOptions, productOptions,
+  custOverrides, prodOverrides,
+  onPickCustomer, onPickProduct,
+  onReverify, onClose, loading,
+  custPending, prodPending,
+}) {
   if (!open) return null;
-  const resolvedCount = items.filter(it => overrides[it.label]).length;
+  const custResolved = customerItems.filter(it => custOverrides[it.label]).length;
+  const prodResolved = productItems.filter(it => prodOverrides[it.key]).length;
+  const canReverify = custResolved + prodResolved > 0;
   return (
     <div style={st.modalOverlay}>
-      <div style={{ ...st.modalCard, width: 'min(720px, 96vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 업체 매칭">
+      <div style={{ ...st.modalCard, width: 'min(860px, 96vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 매칭">
         <div style={st.modalHead}>
           <div>
-            <div style={st.modalTitle}>⚠️ 미매칭 업체 — 수동 매칭</div>
+            <div style={st.modalTitle}>⚠️ 미매칭 — 업체/품목 수동 매칭</div>
             <div style={{ ...st.modalSubtitle, color: '#b45309' }}>
-              파일엔 있지만 거래처를 못 찾은 업체 {items.length}곳 · 선택 {resolvedCount}곳
+              추천 후보를 확인하고 거래처·품목을 지정한 뒤 <b>다시 검증</b>하세요.
             </div>
           </div>
           <button type="button" style={st.modalCloseBtn} onClick={onClose}>닫기</button>
         </div>
-        <div style={{ padding: 14, overflow: 'auto' }}>
-          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-            엑셀의 업체명을 실제 거래처로 지정한 뒤 <b>다시 검증</b>을 누르면 해당 업체가 매칭됩니다.
-          </div>
-          <table style={st.table}>
-            <thead><tr><th>엑셀 업체 라벨</th><th>건수</th><th>→ 실제 거래처 선택</th></tr></thead>
-            <tbody>
-              {items.map(it => (
-                <tr key={it.label} style={{ background: overrides[it.label] ? '#ecfdf5' : '#fff7ed' }}>
-                  <td style={{ fontWeight: 700 }}>{it.label}</td>
-                  <td>{it.count}</td>
-                  <td>
-                    <select
-                      style={st.custSelect}
-                      value={overrides[it.label] || ''}
-                      onChange={e => onPick(it.label, e.target.value)}
-                    >
-                      <option value="">— 거래처 선택 —</option>
-                      {options.map(o => (
-                        <option key={o.custKey} value={o.custKey}>
-                          {o.area ? `[${o.area}] ` : ''}{o.custName}{o.orderCode ? ` (${o.orderCode})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" style={st.secondaryBtn} onClick={onClose}>나중에</button>
-          <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || resolvedCount === 0}>
-            {loading ? '검증 중...' : `선택한 업체로 다시 검증 (${resolvedCount})`}
+        <div style={st.matchTabRow}>
+          <button type="button" style={matchTab === 'customer' ? st.matchTabOn : st.matchTabOff} onClick={() => onTabChange('customer')}>
+            업체 미매칭 {customerItems.length > 0 ? `(${custPending} 남음)` : '(0)'}
           </button>
+          <button type="button" style={matchTab === 'product' ? st.matchTabOn : st.matchTabOff} onClick={() => onTabChange('product')}>
+            품목 미매칭 {productItems.length > 0 ? `(${prodPending} 남음)` : '(0)'}
+          </button>
+        </div>
+        <div style={{ padding: 14, overflow: 'auto', maxHeight: '52vh' }}>
+          {matchTab === 'customer' ? (
+            customerItems.length === 0 ? (
+              <div style={{ color: '#64748b', fontSize: 13 }}>업체 미매칭 없음</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                  엑셀 업체명 → 실제 거래처. ★ 표시는 추천 후보입니다.
+                </div>
+                <table style={st.table}>
+                  <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>→ 거래처 선택</th></tr></thead>
+                  <tbody>
+                    {customerItems.map(it => (
+                      <tr key={it.label} style={{ background: custOverrides[it.label] ? '#ecfdf5' : '#fff7ed' }}>
+                        <td><MatchKindBadge kind={it.matchKind === 'both' ? 'both' : 'customer'} /></td>
+                        <td style={{ fontWeight: 700 }}>{it.label}</td>
+                        <td>{it.count}</td>
+                        <td style={{ fontSize: 11, color: '#64748b' }}>{it.sample || '—'}</td>
+                        <td>
+                          <SuggestSelect
+                            value={custOverrides[it.label] || ''}
+                            onChange={v => onPickCustomer(it.label, v)}
+                            suggested={it.suggestedCustomers}
+                            options={customerOptions}
+                            renderSuggested={s => `${s.area ? `[${s.area}] ` : ''}${s.custName}${s.orderCode ? ` (${s.orderCode})` : ''}`}
+                            renderOption={o => `${o.area ? `[${o.area}] ` : ''}${o.custName}${o.orderCode ? ` (${o.orderCode})` : ''}`}
+                            placeholder="— 거래처 선택 —"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )
+          ) : productItems.length === 0 ? (
+            <div style={{ color: '#64748b', fontSize: 13 }}>품목 미매칭 없음</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                엑셀 품목명 → DB 품목. 시트·품종별로 구분됩니다. ★ 표시는 추천 후보입니다.
+              </div>
+              <table style={st.table}>
+                <thead><tr><th>구분</th><th>시트</th><th>엑셀 품목</th><th>건수</th><th>→ DB 품목 선택</th></tr></thead>
+                <tbody>
+                  {productItems.map(it => (
+                    <tr key={it.key} style={{ background: prodOverrides[it.key] ? '#ecfdf5' : '#eff6ff' }}>
+                      <td><MatchKindBadge kind={it.matchKind === 'both' ? 'both' : 'product'} /></td>
+                      <td style={{ fontSize: 11 }}>{it.sheetName || '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{it.productLabel}{it.productFamily ? <span style={{ fontWeight: 400, color: '#64748b' }}> ({it.productFamily})</span> : null}</td>
+                      <td>{it.count}</td>
+                      <td>
+                        <SuggestSelect
+                          value={prodOverrides[it.key] || ''}
+                          onChange={v => onPickProduct(it.key, v)}
+                          suggested={it.suggestedProducts}
+                          options={productOptions}
+                          renderSuggested={s => `${s.displayName || s.prodName} · ${s.outUnit || ''}`}
+                          renderOption={o => `${o.displayName || o.prodName} · ${o.outUnit || ''}`}
+                          placeholder="— 품목 선택 —"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: '#64748b' }}>
+            업체 {custResolved}/{customerItems.length} · 품목 {prodResolved}/{productItems.length} 선택됨
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" style={st.secondaryBtn} onClick={onClose}>나중에</button>
+            <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || !canReverify}>
+              {loading ? '검증 중...' : '선택 반영 후 다시 검증'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -929,10 +1086,11 @@ function SimpleUnmatched({ rows }) {
   return (
     <div style={st.tableWrapLarge}>
       <table style={st.table}>
-        <thead><tr><th>사유</th><th>시트</th><th>행</th><th>업체 라벨</th><th>품목 라벨</th><th>수량</th></tr></thead>
+        <thead><tr><th>구분</th><th>사유</th><th>시트</th><th>행</th><th>업체 라벨</th><th>품목 라벨</th><th>수량</th></tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} style={{ background: '#fee2e2' }}>
+              <td><MatchKindBadge kind={r.matchKind || (/품목/.test(r.reason) && /업체/.test(r.reason) ? 'both' : /품목/.test(r.reason) ? 'product' : 'customer')} /></td>
               <td>{r.reason}</td><td>{r.sheetName}</td><td>{r.rowNo}</td><td>{r.customerLabel}</td><td>{r.productLabel}</td><td>{fmt(r.uploadQty)}</td>
             </tr>
           ))}
@@ -963,6 +1121,10 @@ const st = {
   qtyWarnBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   custSelect: { minWidth: 280, height: 30, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', background: '#fff' },
+  matchTabRow: { display: 'flex', gap: 6, padding: '8px 14px 0', borderBottom: '1px solid #e2e8f0' },
+  matchTabOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12 },
+  matchTabOff: { border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 600, fontSize: 12 },
+  matchKindBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 800 },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 },
   modalCard: { width: 'min(1120px, 96vw)', maxHeight: '88vh', overflow: 'hidden', background: '#fff', borderRadius: 8, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
   modalHead: { minHeight: 56, padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

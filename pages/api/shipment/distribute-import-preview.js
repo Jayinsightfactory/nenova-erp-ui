@@ -29,9 +29,14 @@ async function handler(req, res) {
   const file = Array.isArray(files.file) ? files.file[0] : files.file;
   const week = Array.isArray(fields.week) ? fields.week[0] : fields.week;
   const rawOverrides = Array.isArray(fields.customerOverrides) ? fields.customerOverrides[0] : fields.customerOverrides;
+  const rawProdOverrides = Array.isArray(fields.productOverrides) ? fields.productOverrides[0] : fields.productOverrides;
   let customerOverrides = {};
+  let productOverrides = {};
   if (rawOverrides) {
     try { customerOverrides = JSON.parse(rawOverrides) || {}; } catch {}
+  }
+  if (rawProdOverrides) {
+    try { productOverrides = JSON.parse(rawProdOverrides) || {}; } catch {}
   }
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
@@ -39,7 +44,7 @@ async function handler(req, res) {
   try {
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     const parsed = parseAllocationWorkbook(XLSX, workbook, { sourceName: file.originalFilename || 'upload.xlsx' });
-    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week, customerOverrides });
+    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week, customerOverrides, productOverrides });
     return res.status(200).json({
       ...preview,
       fileName: file.originalFilename || 'upload.xlsx',

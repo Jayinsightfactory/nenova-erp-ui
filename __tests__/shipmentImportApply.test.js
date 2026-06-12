@@ -6,9 +6,19 @@ const assert = (label, cond) => {
 };
 
 async function main() {
-  const { resolveImportOrderSyncPlan } = await import('../lib/shipmentImportQty.js');
+  const {
+    resolveImportOrderSyncPlan,
+    importProductOverrideKey,
+    classifyImportUnmatchedReason,
+  } = await import('../lib/shipmentImportQty.js');
 
-  console.log('=== resolveImportOrderSyncPlan ===');
+  console.log('=== importProductOverrideKey / classify ===');
+  assert('품목키', importProductOverrideKey({ sheetName: '2301장미', productLabel: 'Freedom', productFamily: 'rose' }).includes('freedom'));
+  assert('업체+품목', classifyImportUnmatchedReason(false, false).matchKind === 'both');
+  assert('품목만', classifyImportUnmatchedReason(true, false).matchKind === 'product');
+  assert('업체만', classifyImportUnmatchedReason(false, true).matchKind === 'customer');
+
+  console.log('\n=== resolveImportOrderSyncPlan ===');
   {
     const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 10 });
     assert('주문=엑셀 → skip', p.action === 'skip' && !p.allowOrderDelete);
