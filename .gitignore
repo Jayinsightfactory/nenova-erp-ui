@@ -49,3 +49,4 @@ public/uploads/catalog/**
 
 # 카달로그 추출기 ZIP 로컬 참조 (커밋 금지)
 _catalog-ref/
+_catalog-ref-browser/

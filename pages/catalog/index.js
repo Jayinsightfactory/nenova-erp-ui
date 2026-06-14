@@ -566,7 +566,7 @@ export default function CatalogPage() {
           )}
           <label className="btn btn-sm btn-primary" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="카탈로그 추출기 PPTX/XLSX — 이미지+품목명 자동매칭">
             {imageBusy ? '…' : '📂 카탈로그원본'}
-            <input type="file" accept=".pptx,.xlsx,.xls,.json" style={{ display: 'none' }} disabled={imageBusy} onChange={handleCatalogSource} />
+            <input type="file" accept=".pptx,.xlsx,.xls,.json,.zip" style={{ display: 'none' }} disabled={imageBusy} onChange={handleCatalogSource} />
           </label>
           <label className="btn btn-sm" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="파일명: ProdKey 또는 품목명.jpg">
             {imageBusy ? '이미지…' : '📁 이미지 일괄'}

@@ -12,7 +12,7 @@ import { groupByProdKey, listImages } from '../../../../lib/catalogImages';
 export const config = { api: { bodyParser: false } };
 
 const MAX_SIZE = 80 * 1024 * 1024;
-const SOURCE_EXT = ['.pptx', '.xlsx', '.xls', '.json'];
+const SOURCE_EXT = ['.pptx', '.xlsx', '.xls', '.json', '.zip'];
 
 async function loadProducts() {
   const r = await query(
@@ -89,7 +89,7 @@ export default withAuth(async function handler(req, res) {
   const name = file.originalFilename || 'upload.pptx';
   const ext = name.toLowerCase().slice(name.lastIndexOf('.'));
   if (!SOURCE_EXT.includes(ext)) {
-    return res.status(400).json({ success: false, error: 'PPTX, XLSX, JSON 만 지원합니다.' });
+    return res.status(400).json({ success: false, error: 'PPTX, XLSX, JSON, ZIP 만 지원합니다.' });
   }
 
   try {
