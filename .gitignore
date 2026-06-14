@@ -39,3 +39,6 @@ data/sales-revenue-batches.json
 data/sales-revenue-customer-mappings.json
 data/sales-revenue-cells.json
 data/sales-revenue-cell-history.json
+
+# 카달로그 추출기 ZIP 로컬 참조 (커밋 금지)
+_catalog-ref/

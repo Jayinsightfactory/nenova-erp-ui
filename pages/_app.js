@@ -7,6 +7,8 @@ const NO_LAYOUT = [
   '/',
   '/shipment/week-pivot',
   '/stats/pivot',
+  '/catalog',
+  '/catalog/print',
   '/incoming-price',
   '/admin/category-overrides',
   '/orders/paste',
