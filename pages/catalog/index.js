@@ -19,6 +19,10 @@ import {
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
 
+function findProd(prods, prodKey) {
+  return prods.find(p => String(p.ProdKey) === String(prodKey));
+}
+
 function lineImageFields(byProdKey, prodKey) {
   const img = pickPrimaryImageRecord(byProdKey, prodKey);
   return img
@@ -47,6 +51,7 @@ export default function CatalogPage() {
   const [perPage, setPerPage] = useState(8);
 
   const [selectedFlower, setSelectedFlower] = useState('__all__');
+  const [flowerSearch, setFlowerSearch] = useState('');
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
@@ -60,6 +65,12 @@ export default function CatalogPage() {
 
   const flowerGroups = useMemo(() => groupProductsByFlower(products), [products]);
 
+  const filteredFlowerGroups = useMemo(() => {
+    const q = flowerSearch.trim().toLowerCase();
+    if (!q) return flowerGroups;
+    return flowerGroups.filter(({ flower }) => flower.toLowerCase().includes(q));
+  }, [flowerGroups, flowerSearch]);
+
   const visibleProducts = useMemo(
     () => filterProducts(products, { flower: selectedFlower, search }),
     [products, selectedFlower, search],
@@ -67,7 +78,7 @@ export default function CatalogPage() {
 
   const syncLinesFromProducts = useCallback((prods, imgMap) => {
     setLines(prev => prev.map(line => {
-      const prod = prods.find(p => p.ProdKey === line.prodKey);
+      const prod = findProd(prods, line.prodKey);
       if (!prod) return line;
       const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
       const img = pickPrimaryImageRecord(imgMap, line.prodKey);
@@ -82,8 +93,7 @@ export default function CatalogPage() {
     }));
   }, [useVatArrival]);
 
-  const loadData = useCallback(async (opts = {}) => {
-    const syncLines = opts.syncLines !== false;
+  const loadData = useCallback(async () => {
     if (costMode === 'selected' && !selectedWeekInput.value) {
       setErr('선택 차수를 지정하거나 [최근원가] 모드를 사용하세요.');
       return;
@@ -105,7 +115,7 @@ export default function CatalogPage() {
       setLatestWeek(data.arrivalStats?.latestWeek || data.costMeta?.latestWeek || null);
       if (data.arrivalStats?.error && !(data.arrivalStats?.fromUpload > 0)) {
         setErr(`도착원가: ${data.arrivalStats.error}`);
-      } else if (data.arrivalStats?.withArrival === 0) {
+      } else if (data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
         const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
         setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor}) — 엑셀 업로드 가능`);
       }
@@ -117,16 +127,32 @@ export default function CatalogPage() {
       } catch (e) {
         console.warn('[catalog] images:', e.message);
       }
-      if (syncLines && lines.length) syncLinesFromProducts(prods, imgMap);
+      setLines(prev => {
+        if (!prev.length) return prev;
+        return prev.map(line => {
+          const prod = findProd(prods, line.prodKey);
+          if (!prod) return line;
+          const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
+          const img = pickPrimaryImageRecord(imgMap, line.prodKey);
+          return {
+            ...line,
+            arrivalCost: arrival,
+            arrivalUnit: prod.arrivalUnit || line.arrivalUnit,
+            salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
+            imageId: line.imageId || img?.id || null,
+            imageUrl: line.imageUrl || absCatalogUrl(img?.url) || null,
+          };
+        });
+      });
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
     }
-  }, [yearInput.value, costMode, selectedWeekInput.value, custKey, syncLinesFromProducts, lines.length]);
+  }, [yearInput.value, costMode, selectedWeekInput.value, custKey, useVatArrival, latestWeek]);
 
   useEffect(() => {
-    loadData({ syncLines: false });
+    loadData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -164,7 +190,7 @@ export default function CatalogPage() {
   useEffect(() => {
     if (!products.length || !lines.length) return;
     setLines(prev => prev.map(line => {
-      const prod = products.find(p => p.ProdKey === line.prodKey);
+      const prod = findProd(products, line.prodKey);
       if (!prod) return line;
       return { ...line, arrivalCost: effectiveArrival(prod.arrivalCost, useVatArrival) };
     }));
@@ -264,6 +290,11 @@ export default function CatalogPage() {
     window.open('/catalog/print', 'catalogPrint', 'width=1100,height=820,scrollbars=yes');
   };
 
+  const openPreview = () => {
+    if (!lines.length) { alert('카탈로그에 담긴 품목이 없습니다.'); return; }
+    window.open('/catalog/preview', 'catalogPreview', 'width=1100,height=900,scrollbars=yes');
+  };
+
   const handleArrivalFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -289,7 +320,7 @@ export default function CatalogPage() {
         count: data.matchedCount,
         matchedCount: data.matchedCount,
       });
-      await loadData({ syncLines: lines.length > 0 });
+      await loadData();
       if (data.unmatchedCount > 0) {
         setErr(`엑셀 ${data.matchedCount}건 적용 · 미매칭 ${data.unmatchedCount}행 (ProdKey/품목명 확인)`);
       }
@@ -309,7 +340,7 @@ export default function CatalogPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '초기화 실패');
       setUploadMeta(null);
-      await loadData({ syncLines: lines.length > 0 });
+      await loadData();
     } catch (ex) {
       setErr(ex.message);
     } finally {
@@ -446,6 +477,7 @@ export default function CatalogPage() {
               <option value={6}>6개형</option>
               <option value={8}>8개형</option>
             </select>
+            <button className="btn btn-primary" onClick={openPreview} disabled={!lines.length}>👁 미리보기</button>
             <button className="btn" onClick={openPrint} disabled={!lines.length}>🖨 인쇄</button>
             <button className="btn btn-success" onClick={handlePpt} disabled={!lines.length || pptBusy}>
               {pptBusy ? 'PPT 생성 중…' : '📊 PPT 다운로드'}
@@ -456,7 +488,7 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가(최근원가·엑셀) → ② 품종·품목 → ③ <b>이미지</b>(📷) → ④ 판매단가 → ⑤ 인쇄/PPT
+          <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭 업로드) → ④ 단가 → ⑤ <b>미리보기</b> → 인쇄/PPT
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
               품목 {products.length}
@@ -483,15 +515,27 @@ export default function CatalogPage() {
         <div className="catalog-layout">
           <aside className="catalog-sidebar card">
             <div className="card-header"><span className="card-title">② 품종</span></div>
+            <div style={{ padding: '4px 6px' }}>
+              <input
+                className="filter-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                placeholder="품종 검색…"
+                value={flowerSearch}
+                onChange={e => setFlowerSearch(e.target.value)}
+              />
+            </div>
             <div className="catalog-sidebar-body">
               <button type="button" className={`catalog-flower-item ${selectedFlower === '__all__' ? 'active' : ''}`} onClick={() => setSelectedFlower('__all__')}>
                 전체 <span className="badge badge-gray">{products.length}</span>
               </button>
-              {flowerGroups.map(({ flower, items }) => (
+              {filteredFlowerGroups.map(({ flower, items }) => (
                 <button key={flower} type="button" className={`catalog-flower-item ${selectedFlower === flower ? 'active' : ''}`} onClick={() => setSelectedFlower(flower)}>
                   {flower} <span className="badge badge-gray">{items.length}</span>
                 </button>
               ))}
+              {flowerSearch && !filteredFlowerGroups.length && (
+                <div style={{ padding: 8, fontSize: 11, color: 'var(--text3)' }}>검색 결과 없음</div>
+              )}
             </div>
           </aside>
 
@@ -567,7 +611,7 @@ export default function CatalogPage() {
                   )}
                   {lines.map(line => {
                     const m = marginPct(line.arrivalCost, line.salePrice);
-                    const prod = products.find(p => p.ProdKey === line.prodKey) || line;
+                    const prod = findProd(products, line.prodKey) || line;
                     return (
                       <tr key={line.id}>
                         <td>
@@ -580,9 +624,15 @@ export default function CatalogPage() {
                         <td>
                           <input className="form-control" style={{ width: '100%', minWidth: 90 }} value={line.catalogName} onChange={e => updateLine(line.id, { catalogName: e.target.value })} />
                         </td>
-                        <td className="num" style={{ color: 'var(--amber)', whiteSpace: 'nowrap' }}>
-                          {fmtNum(line.arrivalCost) || '—'}
-                          <div style={{ fontSize: 10, color: 'var(--text3)' }}>/{line.arrivalUnit}</div>
+                        <td>
+                          <input
+                            type="number"
+                            className="form-control num"
+                            style={{ width: 72, textAlign: 'right', color: 'var(--amber)' }}
+                            value={line.arrivalCost || ''}
+                            onChange={e => updateLine(line.id, { arrivalCost: Number(e.target.value) || 0 })}
+                          />
+                          <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'right' }}>/{line.arrivalUnit}</div>
                         </td>
                         <td>
                           <input type="number" className="form-control num" style={{ width: 80, textAlign: 'right' }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
