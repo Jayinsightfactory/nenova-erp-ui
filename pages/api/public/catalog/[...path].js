@@ -8,6 +8,7 @@ const MIME = {
   '.png': 'image/png',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
 };
 
 export default function handler(req, res) {

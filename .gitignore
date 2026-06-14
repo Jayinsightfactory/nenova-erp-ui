@@ -45,6 +45,7 @@ data/catalog-images.json
 data/catalog-arrival-overrides.json
 public/uploads/catalog/**
 !public/uploads/catalog/.gitkeep
+!public/uploads/catalog/_bulk_import/.gitkeep
 
 # 카달로그 추출기 ZIP 로컬 참조 (커밋 금지)
 _catalog-ref/

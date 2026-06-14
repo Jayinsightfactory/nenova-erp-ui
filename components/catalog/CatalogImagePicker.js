@@ -7,6 +7,7 @@ import {
   setCatalogPrimary,
   uploadCatalogImage,
 } from '../../lib/catalogImageClient';
+import { absCatalogUrl } from '../../lib/catalogUtils';
 
 export default function CatalogImagePicker({
   open,
@@ -108,7 +109,7 @@ export default function CatalogImagePicker({
               className={`catalog-img-tile ${selectedImageId === img.id ? 'selected' : ''} ${img.isPrimary ? 'primary' : ''}`}
             >
               <button type="button" className="catalog-img-tile-btn" onClick={() => onSelect?.(img)}>
-                <img src={img.url} alt="" />
+                <img src={absCatalogUrl(img.url)} alt="" />
               </button>
               {img.isPrimary && <span className="catalog-img-badge">대표</span>}
               <div className="catalog-img-actions">

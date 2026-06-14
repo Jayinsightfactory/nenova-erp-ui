@@ -41,6 +41,8 @@ export default function CatalogPage() {
   const [arrivalStats, setArrivalStats] = useState(null);
   const [uploadMeta, setUploadMeta] = useState(null);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageInfo, setImageInfo] = useState(null);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [imagesByProd, setImagesByProd] = useState({});
@@ -124,8 +126,11 @@ export default function CatalogPage() {
         const imgData = await apiGet('/api/catalog/images');
         imgMap = imgData.byProdKey || {};
         setImagesByProd(imgMap);
+        const regCount = Object.keys(imgMap).filter(k => imgMap[k]?.length).length;
+        setImageInfo({ registered: regCount, total: imgData.images?.length || 0 });
       } catch (e) {
         console.warn('[catalog] images:', e.message);
+        setImageInfo({ error: e.message });
       }
       setLines(prev => {
         if (!prev.length) return prev;
@@ -352,6 +357,62 @@ export default function CatalogPage() {
     window.open('/api/catalog/arrival-upload?template=1', '_blank');
   };
 
+  const reloadImages = async () => {
+    const imgData = await apiGet('/api/catalog/images');
+    const imgMap = imgData.byProdKey || {};
+    setImagesByProd(imgMap);
+    const regCount = Object.keys(imgMap).filter(k => imgMap[k]?.length).length;
+    setImageInfo({ registered: regCount, total: imgData.images?.length || 0 });
+    if (lines.length && products.length) {
+      syncLinesFromProducts(products, imgMap);
+    }
+    return imgMap;
+  };
+
+  const handleBulkImages = async (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!files.length) return;
+    setImageBusy(true);
+    setErr('');
+    try {
+      const fd = new FormData();
+      files.forEach(f => fd.append('file', f));
+      const res = await fetch('/api/catalog/images/bulk-import', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '일괄 업로드 실패');
+      await reloadImages();
+      setErr(`이미지 ${data.matchedCount}건 등록 · 스킵 ${data.skipped?.length || 0} · 미매칭 ${data.unmatched?.length || 0} (파일명=ProdKey/품목명)`);
+    } catch (ex) {
+      setErr(`이미지 일괄업로드: ${ex.message}`);
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const scanBulkFolder = async () => {
+    setImageBusy(true);
+    setErr('');
+    try {
+      const res = await fetch('/api/catalog/images/bulk-import?scan=1', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '폴더 스캔 실패');
+      await reloadImages();
+      setErr(`서버 폴더에서 이미지 ${data.matchedCount}건 등록 · 미매칭 ${data.unmatched?.length || 0}`);
+    } catch (ex) {
+      setErr(`폴더 가져오기: ${ex.message}`);
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
   const [pptBusy, setPptBusy] = useState(false);
 
   const handlePpt = async () => {
@@ -398,7 +459,7 @@ export default function CatalogPage() {
     return (
       <div
         style={style}
-        title="이미지 관리"
+        title="클릭 → 이미지 업로드/관리"
         onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
         onKeyDown={onClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onClick(); } } : undefined}
         role={onClick ? 'button' : undefined}
@@ -472,6 +533,13 @@ export default function CatalogPage() {
               엑셀 초기화 ({uploadMeta.count})
             </button>
           )}
+          <label className="btn btn-sm" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="파일명: ProdKey 또는 품목명.jpg">
+            {imageBusy ? '이미지…' : '📁 이미지 일괄'}
+            <input type="file" accept="image/*,.bmp" multiple style={{ display: 'none' }} disabled={imageBusy} onChange={handleBulkImages} />
+          </label>
+          <button type="button" className="btn btn-sm" onClick={scanBulkFolder} disabled={imageBusy} title="서버 public/uploads/catalog/_bulk_import 폴더">
+            폴더가져오기
+          </button>
           <div className="page-actions">
             <select className="filter-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
               <option value={6}>6개형</option>
@@ -486,6 +554,15 @@ export default function CatalogPage() {
         </div>
 
         {err && <div className="banner-warn">{err}</div>}
+        {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
+          <div className="banner-warn" style={{ background: '#fff8e6' }}>
+            <b>이미지 0품목</b> — 카탈로그 이미지는 ERP 품목과 자동 연결되지 않습니다.
+            📷 클릭(개별) · <b>📁 이미지 일괄</b>(파일명=ProdKey 또는 품목명) · <b>폴더가져오기</b>(서버 _bulk_import)
+          </div>
+        )}
+        {imageInfo?.error && (
+          <div className="banner-warn">이미지 목록 로드 실패: {imageInfo.error}</div>
+        )}
 
         <div className="catalog-flow-hint banner-info">
           <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭 업로드) → ④ 단가 → ⑤ <b>미리보기</b> → 인쇄/PPT
