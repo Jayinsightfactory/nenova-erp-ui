@@ -398,16 +398,47 @@ export default function CatalogPage() {
     setImageBusy(true);
     setErr('');
     try {
-      const res = await fetch('/api/catalog/images/bulk-import?scan=1', {
+      const [imgRes, srcRes] = await Promise.all([
+        fetch('/api/catalog/images/bulk-import?scan=1', { method: 'POST', credentials: 'include' }),
+        fetch('/api/catalog/images/import-source?scan=1', { method: 'POST', credentials: 'include' }),
+      ]);
+      const imgData = await imgRes.json();
+      const srcData = await srcRes.json();
+      await reloadImages();
+      const parts = [];
+      if (imgData.success && imgData.matchedCount) parts.push(`이미지파일 ${imgData.matchedCount}건`);
+      if (srcData.success && srcData.matchedCount) parts.push(`카탈로그원본 ${srcData.matchedCount}건`);
+      if (!parts.length) {
+        throw new Error(srcData.error || imgData.error || '등록된 항목 없음 — _bulk_import 폴더 확인');
+      }
+      setErr(`폴더 가져오기: ${parts.join(' · ')}`);
+    } catch (ex) {
+      setErr(`폴더 가져오기: ${ex.message}`);
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const handleCatalogSource = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImageBusy(true);
+    setErr('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/catalog/images/import-source', {
         method: 'POST',
+        body: fd,
         credentials: 'include',
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || '폴더 스캔 실패');
+      if (!res.ok || !data.success) throw new Error(data.error || '가져오기 실패');
       await reloadImages();
-      setErr(`서버 폴더에서 이미지 ${data.matchedCount}건 등록 · 미매칭 ${data.unmatched?.length || 0}`);
+      setErr(`카탈로그 원본: ${data.message} · 미매칭 ${data.unmatched?.length || 0}건`);
     } catch (ex) {
-      setErr(`폴더 가져오기: ${ex.message}`);
+      setErr(`카탈로그 원본: ${ex.message}`);
     } finally {
       setImageBusy(false);
     }
@@ -533,11 +564,15 @@ export default function CatalogPage() {
               엑셀 초기화 ({uploadMeta.count})
             </button>
           )}
+          <label className="btn btn-sm btn-primary" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="카탈로그 추출기 PPTX/XLSX — 이미지+품목명 자동매칭">
+            {imageBusy ? '…' : '📂 카탈로그원본'}
+            <input type="file" accept=".pptx,.xlsx,.xls,.json" style={{ display: 'none' }} disabled={imageBusy} onChange={handleCatalogSource} />
+          </label>
           <label className="btn btn-sm" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="파일명: ProdKey 또는 품목명.jpg">
             {imageBusy ? '이미지…' : '📁 이미지 일괄'}
             <input type="file" accept="image/*,.bmp" multiple style={{ display: 'none' }} disabled={imageBusy} onChange={handleBulkImages} />
           </label>
-          <button type="button" className="btn btn-sm" onClick={scanBulkFolder} disabled={imageBusy} title="서버 public/uploads/catalog/_bulk_import 폴더">
+          <button type="button" className="btn btn-sm" onClick={scanBulkFolder} disabled={imageBusy} title="서버 _bulk_import 폴더 (PPTX·이미지)">
             폴더가져오기
           </button>
           <div className="page-actions">
@@ -556,8 +591,9 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
         {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
           <div className="banner-warn" style={{ background: '#fff8e6' }}>
-            <b>이미지 0품목</b> — 카탈로그 이미지는 ERP 품목과 자동 연결되지 않습니다.
-            📷 클릭(개별) · <b>📁 이미지 일괄</b>(파일명=ProdKey 또는 품목명) · <b>폴더가져오기</b>(서버 _bulk_import)
+            <b>이미지 0품목</b> — ERP와 자동 연결되지 않습니다. 올려주신 <b>카탈로그 PPTX/XLSX</b>는
+            <b> 📂 카탈로그원본</b>으로 가져오세요 (추출기처럼 이미지+품목명 매칭).
+            개별 📷 · 📁 이미지일괄 · 폴더가져오기(_bulk_import)도 가능합니다.
           </div>
         )}
         {imageInfo?.error && (
