@@ -62,14 +62,13 @@ export default function CatalogPage() {
     [products, selectedFlower, search],
   );
 
-  const loadImages = useCallback(async (prodKeys) => {
-    if (!prodKeys?.length) {
+  const loadImages = useCallback(async () => {
+    try {
       const data = await apiGet('/api/catalog/images');
       setImagesByProd(data.byProdKey || {});
-      return;
+    } catch (e) {
+      console.warn('[catalog] images load:', e.message);
     }
-    const data = await apiGet('/api/catalog/images', { prodKeys: prodKeys.join(',') });
-    setImagesByProd(prev => ({ ...prev, ...(data.byProdKey || {}) }));
   }, []);
 
   const loadData = useCallback(async (opts = {}) => {
@@ -90,9 +89,7 @@ export default function CatalogPage() {
       const prods = data.products || [];
       setProducts(prods);
       setCustomers(data.customers || []);
-      if (prods.length) {
-        await loadImages(prods.map(p => p.ProdKey));
-      }
+      await loadImages();
     } catch (e) {
       setErr(e.message);
     } finally {

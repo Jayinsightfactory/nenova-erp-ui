@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   deleteCatalogImage,
+  fetchCatalogImages,
   replaceCatalogImage,
   resizeImageFile,
   setCatalogPrimary,
@@ -24,9 +25,7 @@ export default function CatalogImagePicker({
   if (!open) return null;
 
   const refresh = async () => {
-    const res = await fetch(`/api/catalog/images?prodKey=${prodKey}`, { credentials: 'include' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '조회 실패');
+    const data = await fetchCatalogImages(prodKey);
     onImagesChange?.(prodKey, data.images || []);
     return data.images || [];
   };

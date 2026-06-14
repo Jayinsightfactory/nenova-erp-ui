@@ -52,7 +52,13 @@ export default withAuth(async function handler(req, res) {
     return res.status(404).json({ success: false, error: '이미지를 찾을 수 없습니다.' });
   }
 
-  if (req.method === 'PUT') {
+  if (req.method === 'PUT' || req.method === 'PATCH') {
+    if (req.query.action === 'primary') {
+      const image = setPrimaryImage(id);
+      if (!image) return res.status(404).json({ success: false, error: 'not found' });
+      return res.status(200).json({ success: true, image });
+    }
+
     const contentType = req.headers['content-type'] || '';
     if (contentType.includes('application/json')) {
       try {
@@ -99,6 +105,6 @@ export default withAuth(async function handler(req, res) {
     return res.status(200).json({ success: true, id });
   }
 
-  res.setHeader('Allow', 'PUT, DELETE');
+  res.setHeader('Allow', 'PUT, PATCH, DELETE');
   return res.status(405).end();
 });
