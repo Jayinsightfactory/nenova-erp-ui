@@ -5,6 +5,7 @@ import {
   getLatestWarehouseWeek,
   getArrivalCostsWithFallback,
 } from '../../../lib/catalogArrival';
+import { loadArrivalOverrides, overridesToArrivalMap } from '../../../lib/catalogArrivalOverrides';
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
 
 export default withAuth(async function handler(req, res) {
@@ -108,6 +109,10 @@ export default withAuth(async function handler(req, res) {
       arrivalError = '선택 차수를 지정하세요.';
     }
 
+    const uploadStore = loadArrivalOverrides();
+    const uploadMap = overridesToArrivalMap(uploadStore.items);
+    let fromUpload = 0;
+
     let customerCosts = {};
     if (custKey) {
       const ck = parseInt(custKey, 10);
@@ -124,19 +129,26 @@ export default withAuth(async function handler(req, res) {
 
     let withArrival = 0;
     const products = productsRes.recordset.map(p => {
-      const arr = arrivalMap[p.ProdKey] || {};
+      const calc = arrivalMap[p.ProdKey] || {};
+      const uploaded = uploadMap[p.ProdKey];
+      const arr = uploaded || calc;
+      if (uploaded) fromUpload += 1;
       const arrivalCost = Number(arr.arrivalCost || 0);
       if (arrivalCost > 0) withArrival += 1;
       return {
         ...p,
         arrivalCost,
         arrivalUnit: arr.displayUnit || p.OutUnit || '단',
-        arrivalSource: arr.source || null,
-        arrivalWeek: arr.arrivalWeek || null,
-        arrivalIsFallback: !!arr.isFallback,
+        arrivalSource: uploaded ? 'upload' : (arr.source || null),
+        arrivalWeek: uploaded ? null : (arr.arrivalWeek || null),
+        arrivalIsFallback: uploaded ? false : !!arr.isFallback,
         customerCost: customerCosts[p.ProdKey] ?? null,
       };
     });
+
+    costMeta.fromUpload = fromUpload;
+    costMeta.uploadFileName = uploadStore.fileName || null;
+    costMeta.uploadUpdatedAt = uploadStore.updatedAt || null;
 
     return res.status(200).json({
       success: true,
@@ -146,13 +158,21 @@ export default withAuth(async function handler(req, res) {
       weekInput: weekStart || null,
       costMode: mode,
       costMeta,
+      uploadMeta: {
+        fileName: uploadStore.fileName,
+        updatedAt: uploadStore.updatedAt,
+        count: Object.keys(uploadStore.items || {}).length,
+        matchedCount: uploadStore.matchedCount || 0,
+      },
       arrivalStats: {
         total: products.length,
         withArrival,
         fromFallback: costMeta.fromFallback,
+        fromUpload,
         weeksScanned: costMeta.weeksScanned,
         latestWeek: costMeta.latestWeek,
         anchorWeek: costMeta.anchorWeek,
+        uploadFileName: uploadStore.fileName || null,
         error: arrivalError,
       },
       products,

@@ -35,6 +35,8 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [arrivalStats, setArrivalStats] = useState(null);
+  const [uploadMeta, setUploadMeta] = useState(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [imagesByProd, setImagesByProd] = useState({});
@@ -99,12 +101,13 @@ export default function CatalogPage() {
       setProducts(prods);
       setCustomers(data.customers || []);
       setArrivalStats(data.arrivalStats || null);
+      setUploadMeta(data.uploadMeta || null);
       setLatestWeek(data.arrivalStats?.latestWeek || data.costMeta?.latestWeek || null);
-      if (data.arrivalStats?.error) {
+      if (data.arrivalStats?.error && !(data.arrivalStats?.fromUpload > 0)) {
         setErr(`도착원가: ${data.arrivalStats.error}`);
       } else if (data.arrivalStats?.withArrival === 0) {
         const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
-        setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor})`);
+        setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor}) — 엑셀 업로드 가능`);
       }
       let imgMap = {};
       try {
@@ -261,6 +264,63 @@ export default function CatalogPage() {
     window.open('/catalog/print', 'catalogPrint', 'width=1100,height=820,scrollbars=yes');
   };
 
+  const handleArrivalFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadBusy(true);
+    setErr('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('orderYear', yearInput.value);
+      const res = await fetch('/api/catalog/arrival-upload', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || '업로드 실패');
+      }
+      setUploadMeta({
+        fileName: data.fileName,
+        updatedAt: data.updatedAt,
+        count: data.matchedCount,
+        matchedCount: data.matchedCount,
+      });
+      await loadData({ syncLines: lines.length > 0 });
+      if (data.unmatchedCount > 0) {
+        setErr(`엑셀 ${data.matchedCount}건 적용 · 미매칭 ${data.unmatchedCount}행 (ProdKey/품목명 확인)`);
+      }
+    } catch (ex) {
+      setErr(`엑셀 업로드: ${ex.message}`);
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const clearArrivalUpload = async () => {
+    if (!uploadMeta?.count) return;
+    if (!confirm('업로드한 도착원가를 초기화하고 시스템 원가로 되돌릴까요?')) return;
+    setUploadBusy(true);
+    try {
+      const res = await fetch('/api/catalog/arrival-upload', { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '초기화 실패');
+      setUploadMeta(null);
+      await loadData({ syncLines: lines.length > 0 });
+    } catch (ex) {
+      setErr(ex.message);
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const downloadArrivalTemplate = () => {
+    window.open('/api/catalog/arrival-upload?template=1', '_blank');
+  };
+
   const [pptBusy, setPptBusy] = useState(false);
 
   const handlePpt = async () => {
@@ -368,9 +428,19 @@ export default function CatalogPage() {
             <input type="checkbox" checked={useVatArrival} onChange={e => setUseVatArrival(e.target.checked)} />
             도착원가(부가세포)
           </label>
-          <button className="btn btn-primary" onClick={() => loadData()} disabled={loading}>
+          <button className="btn btn-primary" onClick={() => loadData()} disabled={loading || uploadBusy}>
             {loading ? '불러오는 중…' : '① 도착원가 불러오기'}
           </button>
+          <label className="btn" style={{ cursor: uploadBusy ? 'wait' : 'pointer', margin: 0 }}>
+            {uploadBusy ? '엑셀 처리…' : '📥 도착원가 엑셀'}
+            <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} disabled={uploadBusy} onChange={handleArrivalFile} />
+          </label>
+          <button type="button" className="btn btn-sm" onClick={downloadArrivalTemplate} title="ProdKey·품목명·도착원가 양식">양식</button>
+          {uploadMeta?.count > 0 && (
+            <button type="button" className="btn btn-sm btn-danger" onClick={clearArrivalUpload} disabled={uploadBusy} title={uploadMeta.fileName || ''}>
+              엑셀 초기화 ({uploadMeta.count})
+            </button>
+          )}
           <div className="page-actions">
             <select className="filter-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
               <option value={6}>6개형</option>
@@ -386,7 +456,7 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가(최근원가 기본) → ② 품종·품목 → ③ <b>이미지</b>(📷) → ④ 판매단가 → ⑤ 인쇄/PPT
+          <b>작업 순서</b> — ① 도착원가(최근원가·엑셀) → ② 품종·품목 → ③ <b>이미지</b>(📷) → ④ 판매단가 → ⑤ 인쇄/PPT
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
               품목 {products.length}
@@ -395,6 +465,12 @@ export default function CatalogPage() {
               )}
               {arrivalStats?.fromFallback > 0 && (
                 <> · 이전차수 {arrivalStats.fromFallback}건</>
+              )}
+              {arrivalStats?.fromUpload > 0 && (
+                <> · <span style={{ color: 'var(--blue)' }}>엑셀 {arrivalStats.fromUpload}건</span></>
+              )}
+              {uploadMeta?.fileName && (
+                <> · {uploadMeta.fileName}</>
               )}
               {arrivalStats?.latestWeek && costMode === 'recent' && (
                 <> · 기준 {arrivalStats.latestWeek}</>
@@ -453,6 +529,7 @@ export default function CatalogPage() {
                         {arrival > 0 && (
                           <span style={{ fontSize: 10, color: 'var(--text3)' }}>
                             {' '}/{prod.arrivalUnit || prod.OutUnit}
+                            {prod.arrivalSource === 'upload' && <> · 엑셀</>}
                             {prod.arrivalIsFallback && prod.arrivalWeek && (
                               <> · {prod.arrivalWeek}</>
                             )}
