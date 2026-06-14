@@ -37,7 +37,7 @@ async function main() {
     outOnly,
   ));
 
-  console.log('\n=== buildPivotExportColumns — 합산용 분리 열 ===');
+  console.log('\n=== buildPivotExportColumns — UI 동일 세로 스택 열 ===');
   const cols = buildPivotExportColumns({
     showArea: false, showOutDate: false, showInPrice: false, showInTotal: false,
     showArrival: false, showAWB: false, showDescr: false, showAmount: false,
@@ -48,10 +48,9 @@ async function main() {
     showIncomingFarmCols: false, showIncomingCompactTotal: false,
     sortedCusts: [{ custName: '신라호텔' }], farms: [],
   });
-  assert('거래처 수량 열', cols.some(c => c.header === '신라호텔_수량'));
-  assert('거래처 분배단가 열', cols.some(c => c.header === '신라호텔_분배단가'));
-  assert('거래처 분배금액 열', cols.some(c => c.header === '신라호텔_분배금액'));
-  assert('주문Total 수량 열', cols.some(c => c.header === '02.주문Total_수량'));
+  assert('거래처 1열', cols.some(c => c.header === '신라호텔' && c.isMeasure));
+  assert('분리 수량열 없음', !cols.some(c => c.header === '신라호텔_수량'));
+  assert('주문 Total 1열', cols.some(c => c.header === '02.주문 Total' && c.isMeasure));
 
   const byWeek = {
     '04-01': { rows: [{ prodKey: 1, orders: {}, totalOrder: 0 }] },
@@ -70,16 +69,16 @@ async function main() {
     byWeek,
     weekLabel: w => `2026-${w}`,
   });
-  assert('차수별 02.주문_수량 열', grid.some(c => c.header === '2026-04-01_02.주문_수량'));
-  assert('차수별 02.주문_분배금액 열', grid.some(c => c.header === '2026-04-01_02.주문_분배금액'));
+  assert('차수별 02.주문 1열', grid.some(c => c.header === '2026-04-01_02.주문' && c.isMeasure));
+  assert('차수별 분리 수량열 없음', !grid.some(c => c.header === '2026-04-01_02.주문_수량'));
 
   const rows = [
     { prodKey: 1, country: 'K', flower: 'F', prodName: 'P', orders: { 신라호텔: 2 }, distCostOrders: { 신라호텔: 100 }, totalOrder: 2 },
   ];
   const aoa = rowsToCsvAoA(cols, rows, { blankZero: true });
   assert('합계행 포함', aoa.length === 3);
-  const qtyIdx = cols.findIndex(c => c.header === '신라호텔_수량');
-  assert('수량 셀 숫자', aoa[1][qtyIdx] === 2);
+  const custIdx = cols.findIndex(c => c.header === '신라호텔');
+  assert('세로 스택 셀', aoa[1][custIdx] === '2\n100\n200');
   assert('0 셀 빈칸', formatExportCell(0) === '');
 
   const wr = getPivotWeekRow({ prodKey: 1, prodName: 'X' }, '04-02', byWeek);
