@@ -2,15 +2,33 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { getArrivalCostsForWeekRange } from '../../../lib/pivotFreightArrival';
+import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const { orderYear, weekStart, weekEnd, custKey } = req.query;
-  const year = orderYear || new Date().getFullYear();
-  const wEnd = weekEnd || weekStart;
 
   try {
+    let parsed = { orderYear: orderYear || String(new Date().getFullYear()), weekStart: '', weekEnd: '' };
+    let weekParseError = null;
+
+    if (weekStart) {
+      try {
+        const start = splitCatalogWeekForApi(weekStart, orderYear);
+        const end = weekEnd
+          ? splitCatalogWeekForApi(weekEnd, start.orderYear)
+          : start;
+        parsed = {
+          orderYear: start.orderYear,
+          weekStart: start.weekStart,
+          weekEnd: end.weekStart || start.weekStart,
+        };
+      } catch (e) {
+        weekParseError = e.message;
+      }
+    }
+
     const [productsRes, customersRes, flowersRes] = await Promise.all([
       query(
         `SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName,
@@ -28,14 +46,17 @@ export default withAuth(async function handler(req, res) {
     ]);
 
     let arrivalMap = {};
-    if (weekStart) {
+    let arrivalError = weekParseError || null;
+
+    if (parsed.weekStart && !weekParseError) {
       try {
         arrivalMap = await getArrivalCostsForWeekRange({
-          weekStart,
-          weekEnd: wEnd,
-          orderYear: year,
+          weekStart: parsed.weekStart,
+          weekEnd: parsed.weekEnd,
+          orderYear: parsed.orderYear,
         });
-      } catch (_) {
+      } catch (e) {
+        arrivalError = e.message;
         arrivalMap = {};
       }
     }
@@ -54,11 +75,14 @@ export default withAuth(async function handler(req, res) {
       }
     }
 
+    let withArrival = 0;
     const products = productsRes.recordset.map(p => {
       const arr = arrivalMap[p.ProdKey] || {};
+      const arrivalCost = Number(arr.arrivalCost || 0);
+      if (arrivalCost > 0) withArrival += 1;
       return {
         ...p,
-        arrivalCost: arr.arrivalCost || 0,
+        arrivalCost,
         arrivalUnit: arr.displayUnit || p.OutUnit || '단',
         arrivalSource: arr.source || null,
         customerCost: customerCosts[p.ProdKey] ?? null,
@@ -67,9 +91,15 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      orderYear: String(year),
-      weekStart: weekStart || null,
-      weekEnd: weekStart ? wEnd : null,
+      orderYear: parsed.orderYear,
+      weekStart: parsed.weekStart || null,
+      weekEnd: parsed.weekEnd || null,
+      weekInput: weekStart || null,
+      arrivalStats: {
+        total: products.length,
+        withArrival,
+        error: arrivalError,
+      },
       products,
       customers: customersRes.recordset,
       flowers: flowersRes.recordset,

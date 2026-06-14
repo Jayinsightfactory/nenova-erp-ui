@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
+import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { apiGet } from '../../lib/useApi';
+import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
 import {
+  absCatalogUrl,
   displayProductName,
   effectiveArrival,
   filterProducts,
@@ -16,24 +19,21 @@ import {
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
 
-function useWeekInput(initial = '') {
-  const [value, setValue] = useState(initial);
-  return { value, setValue, onChange: e => setValue(e.target.value) };
-}
-
 function lineImageFields(byProdKey, prodKey) {
   const img = pickPrimaryImageRecord(byProdKey, prodKey);
-  return img ? { imageId: img.id, imageUrl: img.url } : { imageId: null, imageUrl: null };
+  return img
+    ? { imageId: img.id, imageUrl: absCatalogUrl(img.url) }
+    : { imageId: null, imageUrl: null };
 }
 
 export default function CatalogPage() {
-  const year = new Date().getFullYear();
-  const yearInput = useWeekInput(String(year));
+  const yearInput = useYearInput(String(new Date().getFullYear()));
   const weekStartInput = useWeekInput('');
   const weekEndInput = useWeekInput('');
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [arrivalStats, setArrivalStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [imagesByProd, setImagesByProd] = useState({});
@@ -62,19 +62,27 @@ export default function CatalogPage() {
     [products, selectedFlower, search],
   );
 
-  const loadImages = useCallback(async () => {
-    try {
-      const data = await apiGet('/api/catalog/images');
-      setImagesByProd(data.byProdKey || {});
-    } catch (e) {
-      console.warn('[catalog] images load:', e.message);
-    }
-  }, []);
+  const syncLinesFromProducts = useCallback((prods, imgMap) => {
+    setLines(prev => prev.map(line => {
+      const prod = prods.find(p => p.ProdKey === line.prodKey);
+      if (!prod) return line;
+      const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
+      const img = pickPrimaryImageRecord(imgMap, line.prodKey);
+      return {
+        ...line,
+        arrivalCost: arrival,
+        arrivalUnit: prod.arrivalUnit || line.arrivalUnit,
+        salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
+        imageId: line.imageId || img?.id || null,
+        imageUrl: line.imageUrl || absCatalogUrl(img?.url) || null,
+      };
+    }));
+  }, [useVatArrival]);
 
   const loadData = useCallback(async (opts = {}) => {
     const requireWeek = opts.requireWeek !== false;
     if (requireWeek && !weekStartInput.value) {
-      setErr('차수(week)를 입력한 뒤 [도착원가 불러오기]를 누르세요.');
+      setErr('차수를 선택한 뒤 [도착원가 불러오기]를 누르세요.');
       return;
     }
     setLoading(true);
@@ -89,13 +97,27 @@ export default function CatalogPage() {
       const prods = data.products || [];
       setProducts(prods);
       setCustomers(data.customers || []);
-      await loadImages();
+      setArrivalStats(data.arrivalStats || null);
+      if (data.arrivalStats?.error) {
+        setErr(`도착원가: ${data.arrivalStats.error}`);
+      } else if (requireWeek && data.arrivalStats?.withArrival === 0) {
+        setErr(`선택 차수(${data.weekStart || weekStartInput.value})에 입고·도착원가 데이터가 없습니다. 차수·연도를 확인하세요.`);
+      }
+      let imgMap = {};
+      try {
+        const imgData = await apiGet('/api/catalog/images');
+        imgMap = imgData.byProdKey || {};
+        setImagesByProd(imgMap);
+      } catch (e) {
+        console.warn('[catalog] images:', e.message);
+      }
+      if (requireWeek) syncLinesFromProducts(prods, imgMap);
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
     }
-  }, [yearInput.value, weekStartInput.value, weekEndInput.value, custKey, loadImages]);
+  }, [yearInput.value, weekStartInput.value, weekEndInput.value, custKey, syncLinesFromProducts]);
 
   useEffect(() => {
     loadData({ requireWeek: false });
@@ -116,12 +138,31 @@ export default function CatalogPage() {
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      lines, catalogTitle, custKey, perPage, useVatArrival,
+      lines: lines.map(l => ({
+        ...l,
+        imageUrl: absCatalogUrl(l.imageUrl),
+      })),
+      catalogTitle, custKey, perPage, useVatArrival,
       custName, orderYear: yearInput.value,
       weekStart: weekStartInput.value,
       weekEnd: weekEndInput.value,
     }));
   }, [lines, catalogTitle, custKey, perPage, useVatArrival, custName, yearInput.value, weekStartInput.value, weekEndInput.value]);
+
+  useEffect(() => {
+    if (!products.length || !lines.length) return;
+    setLines(prev => prev.map(line => {
+      const prod = products.find(p => p.ProdKey === line.prodKey);
+      if (!prod) return line;
+      return { ...line, arrivalCost: effectiveArrival(prod.arrivalCost, useVatArrival) };
+    }));
+  }, [useVatArrival]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (products.length && Object.keys(imagesByProd).length) {
+      syncLinesFromProducts(products, imagesByProd);
+    }
+  }, [imagesByProd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPicker = (prod, lineId) => {
     const line = lineId ? lines.find(l => l.id === lineId) : null;
@@ -135,7 +176,7 @@ export default function CatalogPage() {
 
   const applyImageToLines = (prodKey, img) => {
     const fields = img
-      ? { imageId: img.id, imageUrl: img.url }
+      ? { imageId: img.id, imageUrl: absCatalogUrl(img.url) }
       : { imageId: null, imageUrl: null };
     setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
   };
@@ -211,12 +252,28 @@ export default function CatalogPage() {
     window.open('/catalog/print', 'catalogPrint', 'width=1100,height=820,scrollbars=yes');
   };
 
-  const handlePpt = () => {
-    alert(
-      'PPT 생성은 카달로그 추출기(브라우저) 엔진과 연동 예정입니다.\n\n'
-      + '현재: 품목·이미지·단가 구성 → 인쇄/PDF\n'
-      + '다음: PPTX 슬라이드 내보내기',
-    );
+  const [pptBusy, setPptBusy] = useState(false);
+
+  const handlePpt = async () => {
+    if (!lines.length) return;
+    setPptBusy(true);
+    setErr('');
+    try {
+      const weekLabel = weekStartInput.value
+        ? `${yearInput.value} · ${weekStartInput.value}`
+        : '';
+      await exportCatalogPpt({
+        title: catalogTitle,
+        lines: lines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
+        perPage,
+        custName,
+        weekLabel,
+      });
+    } catch (e) {
+      setErr(`PPT 생성 실패: ${e.message}`);
+    } finally {
+      setPptBusy(false);
+    }
   };
 
   const renderThumb = (prod, { size = 44, onClick, lineId } = {}) => {
@@ -246,7 +303,7 @@ export default function CatalogPage() {
         tabIndex={onClick ? 0 : undefined}
       >
         {url ? (
-          <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={absCatalogUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <span style={{ fontWeight: 700, fontSize: size > 50 ? 14 : 11, color: 'var(--text3)' }}>
             {prod.FlowerName?.slice(0, 2) || '📷'}
@@ -274,13 +331,10 @@ export default function CatalogPage() {
       )}
 
       <div className="catalog-page">
-        <div className="filter-bar" style={{ marginBottom: 4 }}>
-          <span className="filter-label">연도</span>
-          <input className="filter-input" style={{ width: 64 }} value={yearInput.value} onChange={yearInput.onChange} />
-          <span className="filter-label">차수</span>
-          <input className="filter-input" style={{ width: 72 }} placeholder="17-02" value={weekStartInput.value} onChange={weekStartInput.onChange} />
-          <span className="filter-label">~</span>
-          <input className="filter-input" style={{ width: 72 }} placeholder="동일" value={weekEndInput.value} onChange={weekEndInput.onChange} />
+        <div className="filter-bar" style={{ marginBottom: 4, flexWrap: 'wrap' }}>
+          <YearInput yearInput={yearInput} label="연도" />
+          <WeekSpinInput weekInput={weekStartInput} label="차수" />
+          <WeekSpinInput weekInput={weekEndInput} label="~차수" />
           <span className="filter-label">거래처</span>
           <select className="filter-select" style={{ minWidth: 160 }} value={custKey} onChange={e => setCustKey(e.target.value)}>
             <option value="">— 선택 —</option>
@@ -303,7 +357,9 @@ export default function CatalogPage() {
               <option value={8}>8개형</option>
             </select>
             <button className="btn" onClick={openPrint} disabled={!lines.length}>🖨 인쇄</button>
-            <button className="btn btn-success" onClick={handlePpt} disabled={!lines.length}>📊 PPT 생성</button>
+            <button className="btn btn-success" onClick={handlePpt} disabled={!lines.length || pptBusy}>
+              {pptBusy ? 'PPT 생성 중…' : '📊 PPT 다운로드'}
+            </button>
           </div>
         </div>
 
@@ -313,7 +369,11 @@ export default function CatalogPage() {
           <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭) → ④ 판매단가 → ⑤ 인쇄/PPT
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
-              품목 {products.length} · 이미지 등록 {Object.keys(imagesByProd).filter(k => imagesByProd[k]?.length).length}
+              품목 {products.length}
+              {arrivalStats && arrivalStats.withArrival > 0 && (
+                <> · 도착원가 {arrivalStats.withArrival}건</>
+              )}
+              · 이미지 {Object.keys(imagesByProd).filter(k => imagesByProd[k]?.length).length}품목
             </span>
           )}
         </div>
