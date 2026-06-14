@@ -132,13 +132,13 @@ const renderStackedMeasures = (qty, sale, dist, { showQty, showCost, showDistCos
     <>
       {showQty && fmtNum(q)}
       {showCost && q > 0 && (
-        <div style={{ fontSize: 9, color: 'var(--blue)', fontStyle: 'italic' }} title="판매단가">{fmtNum(sale)}</div>
+        <div style={{ fontSize: 10, color: 'var(--blue)', fontStyle: 'italic', fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }} title="판매단가">{fmtNum(sale)}</div>
       )}
       {showDistCost && q > 0 && (
         <>
-          <div style={{ fontSize: 9, color: 'var(--amber)', fontStyle: 'italic' }} title="분배단가">{fmtNum(dist)}</div>
+          <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic', fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }} title="분배단가">{fmtNum(dist)}</div>
           {amt > 0 && (
-            <div style={{ fontSize: 9, color: '#2e7d32', fontWeight: 600 }} title="분배금액">{fmtNum(amt)}</div>
+            <div style={{ fontSize: 10, color: '#2e7d32', fontWeight: 600, fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }} title="분배금액">{fmtNum(amt)}</div>
           )}
         </>
       )}
@@ -150,7 +150,7 @@ const renderTotalStack = (qty, amt, { showQty, showDistCost, fmtNum }) => (
   <>
     {showQty && fmtNum(qty)}
     {showDistCost && Number(amt || 0) > 0 && (
-      <div style={{ fontSize: 9, color: '#2e7d32', fontWeight: 600, lineHeight: 1.15 }} title="분배금액 합계">{fmtNum(amt)}</div>
+      <div style={{ fontSize: 10, color: '#2e7d32', fontWeight: 600, lineHeight: 1.15, fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }} title="분배금액 합계">{fmtNum(amt)}</div>
     )}
   </>
 );
@@ -199,7 +199,7 @@ function PivotWeekMeasureCells({
     push(<td key="ord-tot" className="num" style={stackedCellStyle(q, { fontWeight: 'bold', background: useTot ? '#B0CEB0' : '#E8F8E8', borderLeft: showOrderCustCols ? '2px solid var(--border2)' : undefined, color: (q || 0) > 0 ? '#006600' : 'var(--text3)', ...weekBorder })}>
       {renderTotalStack(q, amt, measureOpts)}
       {!useTot && showDistCost && Number(r.totalOrder || 0) > 0 && (
-        <div style={{ fontSize: 9, color: 'var(--amber)', fontStyle: 'italic', fontWeight: 'normal' }} title="분배단가(가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
+        <div style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic', fontWeight: 'normal', fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }} title="분배단가(가중 평균)">{fmtNum(rowDistCostAvg(r))}</div>
       )}
     </td>);
   }

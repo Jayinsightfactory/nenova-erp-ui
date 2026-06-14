@@ -24,7 +24,8 @@
   --amber-bg: #FFF8E0;
   --header-bg:#D4D0C8; /* 윈도우 클래식 헤더 색 */
   --row-alt:  #F9F9F9;
-  --mono:     'Courier New', monospace;
+  /* 숫자·코드 — Courier New 대신 Windows 가독성 우선 */
+  --mono:     'Segoe UI', 'Malgun Gothic', '맑은 고딕', system-ui, sans-serif;
 }
 
 body {
@@ -96,7 +97,7 @@ body {
 .tbl tfoot tr  { background: var(--header-bg); font-weight: bold; position: sticky; bottom: 0; z-index: 2; }
 .tbl tfoot td  { padding: 3px 6px; border: 1px solid var(--border); }
 .tbl:not(.tbl-pivot) th { resize: horizontal; overflow: hidden; }
-.num           { text-align: right; font-family: var(--mono); }
+.num           { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums lining-nums; font-weight: 500; -webkit-font-smoothing: antialiased; }
 .name          { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── 품목명 폭 제한 ── */
@@ -129,14 +130,16 @@ body {
 }
 .tbl.tbl-pivot .num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
   padding: 0 1px;
-  font-size: 10px;
-  line-height: 1.15;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
 }
 .tbl.tbl-pivot td.prod-name, .tbl.tbl-pivot .prod-name { max-width: none; }
 
-/* ── 테이블 스크롤 영역: 높이 제한 + 가로/세로 스크롤 ── */
+input[type="number"] { font-family: var(--mono); font-variant-numeric: tabular-nums lining-nums; }
+
 .table-scroll  { overflow: auto; max-height: calc(100vh - 220px); position: relative; }
 
 
@@ -148,7 +151,7 @@ body {
 .kpi-grid      { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
 .kpi-card      { background: var(--surface); border: 1px solid var(--border2); padding: 8px 10px; }
 .kpi-label     { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
-.kpi-value     { font-size: 18px; font-weight: bold; font-family: var(--mono); color: var(--text1); }
+.kpi-value     { font-size: 18px; font-weight: 700; font-family: var(--mono); font-variant-numeric: tabular-nums lining-nums; color: var(--text1); }
 .kpi-sub       { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .kpi-accent .kpi-value { color: var(--blue); }
 .kpi-green .kpi-value  { color: var(--green); }
