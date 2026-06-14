@@ -1,21 +1,33 @@
 // GET — 카탈로그 작성용 마스터 + 도착원가
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { getArrivalCostsForWeekRange } from '../../../lib/pivotFreightArrival';
+import {
+  getLatestWarehouseWeek,
+  getArrivalCostsWithFallback,
+} from '../../../lib/catalogArrival';
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const { orderYear, weekStart, weekEnd, custKey } = req.query;
+  const {
+    orderYear,
+    weekStart,
+    weekEnd,
+    custKey,
+    costMode = 'recent',
+  } = req.query;
+
+  const mode = costMode === 'selected' ? 'selected' : 'recent';
 
   try {
-    let parsed = { orderYear: orderYear || String(new Date().getFullYear()), weekStart: '', weekEnd: '' };
+    const year = orderYear || String(new Date().getFullYear());
+    let parsed = { orderYear: year, weekStart: '', weekEnd: '' };
     let weekParseError = null;
 
     if (weekStart) {
       try {
-        const start = splitCatalogWeekForApi(weekStart, orderYear);
+        const start = splitCatalogWeekForApi(weekStart, year);
         const end = weekEnd
           ? splitCatalogWeekForApi(weekEnd, start.orderYear)
           : start;
@@ -28,6 +40,8 @@ export default withAuth(async function handler(req, res) {
         weekParseError = e.message;
       }
     }
+
+    const latest = await getLatestWarehouseWeek(year);
 
     const [productsRes, customersRes, flowersRes] = await Promise.all([
       query(
@@ -47,18 +61,51 @@ export default withAuth(async function handler(req, res) {
 
     let arrivalMap = {};
     let arrivalError = weekParseError || null;
+    let costMeta = {
+      mode,
+      latestWeek: latest?.weekStart || null,
+      latestOrderYear: latest?.orderYear || year,
+      anchorWeek: null,
+      weeksScanned: 0,
+      fromFallback: 0,
+    };
 
-    if (parsed.weekStart && !weekParseError) {
+    if (mode === 'recent') {
+      const anchor = latest?.weekStart;
+      costMeta.anchorWeek = anchor;
+      if (anchor) {
+        try {
+          const fb = await getArrivalCostsWithFallback({
+            orderYear: latest?.orderYear || year,
+            anchorWeek: anchor,
+          });
+          arrivalMap = fb.map;
+          costMeta.weeksScanned = fb.weeksScanned;
+          costMeta.fromFallback = fb.fromFallback;
+          costMeta.anchorWeek = fb.anchorWeek;
+        } catch (e) {
+          arrivalError = e.message;
+          arrivalMap = {};
+        }
+      } else {
+        arrivalError = '입고 데이터가 있는 최신 차수를 찾을 수 없습니다.';
+      }
+    } else if (parsed.weekStart && !weekParseError) {
+      costMeta.anchorWeek = parsed.weekStart;
       try {
-        arrivalMap = await getArrivalCostsForWeekRange({
-          weekStart: parsed.weekStart,
-          weekEnd: parsed.weekEnd,
+        const fb = await getArrivalCostsWithFallback({
           orderYear: parsed.orderYear,
+          anchorWeek: parsed.weekStart,
         });
+        arrivalMap = fb.map;
+        costMeta.weeksScanned = fb.weeksScanned;
+        costMeta.fromFallback = fb.fromFallback;
       } catch (e) {
         arrivalError = e.message;
         arrivalMap = {};
       }
+    } else if (mode === 'selected' && !parsed.weekStart) {
+      arrivalError = '선택 차수를 지정하세요.';
     }
 
     let customerCosts = {};
@@ -85,19 +132,27 @@ export default withAuth(async function handler(req, res) {
         arrivalCost,
         arrivalUnit: arr.displayUnit || p.OutUnit || '단',
         arrivalSource: arr.source || null,
+        arrivalWeek: arr.arrivalWeek || null,
+        arrivalIsFallback: !!arr.isFallback,
         customerCost: customerCosts[p.ProdKey] ?? null,
       };
     });
 
     return res.status(200).json({
       success: true,
-      orderYear: parsed.orderYear,
+      orderYear: parsed.orderYear || year,
       weekStart: parsed.weekStart || null,
       weekEnd: parsed.weekEnd || null,
       weekInput: weekStart || null,
+      costMode: mode,
+      costMeta,
       arrivalStats: {
         total: products.length,
         withArrival,
+        fromFallback: costMeta.fromFallback,
+        weeksScanned: costMeta.weeksScanned,
+        latestWeek: costMeta.latestWeek,
+        anchorWeek: costMeta.anchorWeek,
         error: arrivalError,
       },
       products,

@@ -28,9 +28,10 @@ function lineImageFields(byProdKey, prodKey) {
 
 export default function CatalogPage() {
   const yearInput = useYearInput(String(new Date().getFullYear()));
-  const weekStartInput = useWeekInput('');
-  const weekEndInput = useWeekInput('');
+  const selectedWeekInput = useWeekInput('');
 
+  const [costMode, setCostMode] = useState('recent');
+  const [latestWeek, setLatestWeek] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [arrivalStats, setArrivalStats] = useState(null);
@@ -80,9 +81,9 @@ export default function CatalogPage() {
   }, [useVatArrival]);
 
   const loadData = useCallback(async (opts = {}) => {
-    const requireWeek = opts.requireWeek !== false;
-    if (requireWeek && !weekStartInput.value) {
-      setErr('차수를 선택한 뒤 [도착원가 불러오기]를 누르세요.');
+    const syncLines = opts.syncLines !== false;
+    if (costMode === 'selected' && !selectedWeekInput.value) {
+      setErr('선택 차수를 지정하거나 [최근원가] 모드를 사용하세요.');
       return;
     }
     setLoading(true);
@@ -90,18 +91,20 @@ export default function CatalogPage() {
     try {
       const data = await apiGet('/api/catalog/bootstrap', {
         orderYear: yearInput.value,
-        weekStart: weekStartInput.value || undefined,
-        weekEnd: weekEndInput.value || weekStartInput.value || undefined,
+        costMode,
+        weekStart: costMode === 'selected' ? selectedWeekInput.value : undefined,
         custKey: custKey || undefined,
       });
       const prods = data.products || [];
       setProducts(prods);
       setCustomers(data.customers || []);
       setArrivalStats(data.arrivalStats || null);
+      setLatestWeek(data.arrivalStats?.latestWeek || data.costMeta?.latestWeek || null);
       if (data.arrivalStats?.error) {
         setErr(`도착원가: ${data.arrivalStats.error}`);
-      } else if (requireWeek && data.arrivalStats?.withArrival === 0) {
-        setErr(`선택 차수(${data.weekStart || weekStartInput.value})에 입고·도착원가 데이터가 없습니다. 차수·연도를 확인하세요.`);
+      } else if (data.arrivalStats?.withArrival === 0) {
+        const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
+        setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor})`);
       }
       let imgMap = {};
       try {
@@ -111,16 +114,16 @@ export default function CatalogPage() {
       } catch (e) {
         console.warn('[catalog] images:', e.message);
       }
-      if (requireWeek) syncLinesFromProducts(prods, imgMap);
+      if (syncLines && lines.length) syncLinesFromProducts(prods, imgMap);
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
     }
-  }, [yearInput.value, weekStartInput.value, weekEndInput.value, custKey, syncLinesFromProducts]);
+  }, [yearInput.value, costMode, selectedWeekInput.value, custKey, syncLinesFromProducts, lines.length]);
 
   useEffect(() => {
-    loadData({ requireWeek: false });
+    loadData({ syncLines: false });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -133,21 +136,27 @@ export default function CatalogPage() {
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
       if (saved.useVatArrival != null) setUseVatArrival(saved.useVatArrival);
+      if (saved.costMode) setCostMode(saved.costMode);
+      if (saved.selectedWeek) selectedWeekInput.setValue(saved.selectedWeek);
     } catch (_) { /* ignore */ }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const displayWeek = costMode === 'selected'
+      ? selectedWeekInput.value
+      : latestWeek;
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       lines: lines.map(l => ({
         ...l,
         imageUrl: absCatalogUrl(l.imageUrl),
       })),
-      catalogTitle, custKey, perPage, useVatArrival,
+      catalogTitle, custKey, perPage, useVatArrival, costMode,
+      selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
-      weekStart: weekStartInput.value,
-      weekEnd: weekEndInput.value,
+      weekStart: displayWeek || null,
+      weekEnd: null,
     }));
-  }, [lines, catalogTitle, custKey, perPage, useVatArrival, custName, yearInput.value, weekStartInput.value, weekEndInput.value]);
+  }, [lines, catalogTitle, custKey, perPage, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
 
   useEffect(() => {
     if (!products.length || !lines.length) return;
@@ -259,9 +268,11 @@ export default function CatalogPage() {
     setPptBusy(true);
     setErr('');
     try {
-      const weekLabel = weekStartInput.value
-        ? `${yearInput.value} · ${weekStartInput.value}`
-        : '';
+      const weekLabel = costMode === 'selected' && selectedWeekInput.value
+        ? `${yearInput.value} · ${selectedWeekInput.value}`
+        : latestWeek
+          ? `${yearInput.value} · ${latestWeek} (최근원가)`
+          : '';
       await exportCatalogPpt({
         title: catalogTitle,
         lines: lines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
@@ -333,8 +344,17 @@ export default function CatalogPage() {
       <div className="catalog-page">
         <div className="filter-bar" style={{ marginBottom: 4, flexWrap: 'wrap' }}>
           <YearInput yearInput={yearInput} label="연도" />
-          <WeekSpinInput weekInput={weekStartInput} label="차수" />
-          <WeekSpinInput weekInput={weekEndInput} label="~차수" />
+          <span className="filter-label">최신 차수</span>
+          <span className="filter-input" style={{ width: 72, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--header-bg)', fontWeight: 600 }}>
+            {latestWeek || (loading ? '…' : '—')}
+          </span>
+          <select className="filter-select" style={{ minWidth: 100 }} value={costMode} onChange={e => setCostMode(e.target.value)}>
+            <option value="recent">최근원가</option>
+            <option value="selected">선택차수</option>
+          </select>
+          {costMode === 'selected' && (
+            <WeekSpinInput weekInput={selectedWeekInput} label="선택 차수" />
+          )}
           <span className="filter-label">거래처</span>
           <select className="filter-select" style={{ minWidth: 160 }} value={custKey} onChange={e => setCustKey(e.target.value)}>
             <option value="">— 선택 —</option>
@@ -348,7 +368,7 @@ export default function CatalogPage() {
             <input type="checkbox" checked={useVatArrival} onChange={e => setUseVatArrival(e.target.checked)} />
             도착원가(부가세포)
           </label>
-          <button className="btn btn-primary" onClick={() => loadData({ requireWeek: true })} disabled={loading}>
+          <button className="btn btn-primary" onClick={() => loadData()} disabled={loading}>
             {loading ? '불러오는 중…' : '① 도착원가 불러오기'}
           </button>
           <div className="page-actions">
@@ -366,12 +386,18 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭) → ④ 판매단가 → ⑤ 인쇄/PPT
+          <b>작업 순서</b> — ① 도착원가(최근원가 기본) → ② 품종·품목 → ③ <b>이미지</b>(📷) → ④ 판매단가 → ⑤ 인쇄/PPT
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
               품목 {products.length}
               {arrivalStats && arrivalStats.withArrival > 0 && (
                 <> · 도착원가 {arrivalStats.withArrival}건</>
+              )}
+              {arrivalStats?.fromFallback > 0 && (
+                <> · 이전차수 {arrivalStats.fromFallback}건</>
+              )}
+              {arrivalStats?.latestWeek && costMode === 'recent' && (
+                <> · 기준 {arrivalStats.latestWeek}</>
               )}
               · 이미지 {Object.keys(imagesByProd).filter(k => imagesByProd[k]?.length).length}품목
             </span>
@@ -400,9 +426,9 @@ export default function CatalogPage() {
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
             <div className="catalog-product-grid">
-              {!products.length && (
+              {!products.length && !loading && (
                 <div className="empty-state" style={{ gridColumn: '1/-1' }}>
-                  <div className="empty-text">차수 입력 후 [도착원가 불러오기]를 실행하세요.</div>
+                  <div className="empty-text">[도착원가 불러오기]로 최근원가를 불러오세요.</div>
                 </div>
               )}
               {visibleProducts.map(prod => {
@@ -424,7 +450,14 @@ export default function CatalogPage() {
                       <div className="catalog-prod-name">{displayProductName(prod)}</div>
                       <div className="catalog-prod-cost">
                         도착 <strong className="num">{fmtNum(arrival) || '—'}</strong>
-                        {arrival > 0 && <span style={{ fontSize: 10, color: 'var(--text3)' }}> /{prod.arrivalUnit || prod.OutUnit}</span>}
+                        {arrival > 0 && (
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+                            {' '}/{prod.arrivalUnit || prod.OutUnit}
+                            {prod.arrivalIsFallback && prod.arrivalWeek && (
+                              <> · {prod.arrivalWeek}</>
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
