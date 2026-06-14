@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
+import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
 import { apiGet } from '../../lib/useApi';
 import {
   displayProductName,
@@ -10,6 +11,7 @@ import {
   groupProductsByFlower,
   marginPct,
   newCatalogLine,
+  pickPrimaryImageRecord,
 } from '../../lib/catalogUtils';
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
@@ -17,6 +19,11 @@ const STORAGE_KEY = 'nenovaCatalogDraft';
 function useWeekInput(initial = '') {
   const [value, setValue] = useState(initial);
   return { value, setValue, onChange: e => setValue(e.target.value) };
+}
+
+function lineImageFields(byProdKey, prodKey) {
+  const img = pickPrimaryImageRecord(byProdKey, prodKey);
+  return img ? { imageId: img.id, imageUrl: img.url } : { imageId: null, imageUrl: null };
 }
 
 export default function CatalogPage() {
@@ -29,6 +36,7 @@ export default function CatalogPage() {
   const [err, setErr] = useState('');
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [imagesByProd, setImagesByProd] = useState({});
 
   const [custKey, setCustKey] = useState('');
   const [catalogTitle, setCatalogTitle] = useState('NENOVA 카탈로그');
@@ -39,6 +47,8 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
+
+  const [picker, setPicker] = useState(null);
 
   const custName = useMemo(
     () => customers.find(c => String(c.CustKey) === String(custKey))?.CustName || '',
@@ -51,6 +61,16 @@ export default function CatalogPage() {
     () => filterProducts(products, { flower: selectedFlower, search }),
     [products, selectedFlower, search],
   );
+
+  const loadImages = useCallback(async (prodKeys) => {
+    if (!prodKeys?.length) {
+      const data = await apiGet('/api/catalog/images');
+      setImagesByProd(data.byProdKey || {});
+      return;
+    }
+    const data = await apiGet('/api/catalog/images', { prodKeys: prodKeys.join(',') });
+    setImagesByProd(prev => ({ ...prev, ...(data.byProdKey || {}) }));
+  }, []);
 
   const loadData = useCallback(async (opts = {}) => {
     const requireWeek = opts.requireWeek !== false;
@@ -67,14 +87,18 @@ export default function CatalogPage() {
         weekEnd: weekEndInput.value || weekStartInput.value || undefined,
         custKey: custKey || undefined,
       });
-      setProducts(data.products || []);
+      const prods = data.products || [];
+      setProducts(prods);
       setCustomers(data.customers || []);
+      if (prods.length) {
+        await loadImages(prods.map(p => p.ProdKey));
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
     }
-  }, [yearInput.value, weekStartInput.value, weekEndInput.value, custKey]);
+  }, [yearInput.value, weekStartInput.value, weekEndInput.value, custKey, loadImages]);
 
   useEffect(() => {
     loadData({ requireWeek: false });
@@ -102,6 +126,46 @@ export default function CatalogPage() {
     }));
   }, [lines, catalogTitle, custKey, perPage, useVatArrival, custName, yearInput.value, weekStartInput.value, weekEndInput.value]);
 
+  const openPicker = (prod, lineId) => {
+    const line = lineId ? lines.find(l => l.id === lineId) : null;
+    setPicker({
+      prodKey: prod.ProdKey,
+      prodLabel: displayProductName(prod),
+      lineId: lineId || null,
+      selectedImageId: line?.imageId || pickPrimaryImageRecord(imagesByProd, prod.ProdKey)?.id || null,
+    });
+  };
+
+  const applyImageToLines = (prodKey, img) => {
+    const fields = img
+      ? { imageId: img.id, imageUrl: img.url }
+      : { imageId: null, imageUrl: null };
+    setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
+  };
+
+  const handlePickerSelect = (img) => {
+    if (!picker) return;
+    applyImageToLines(picker.prodKey, img);
+    setPicker(p => (p ? { ...p, selectedImageId: img?.id || null } : p));
+  };
+
+  const handleImagesChange = (prodKey, images) => {
+    setImagesByProd(prev => ({ ...prev, [String(prodKey)]: images }));
+  };
+
+  const addProductLine = (prod) => {
+    const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
+    const sale = prod.customerCost ?? prod.Cost ?? 0;
+    const imgFields = lineImageFields(imagesByProd, prod.ProdKey);
+    return newCatalogLine(prod, {
+      arrivalCost: arrival,
+      arrivalUnit: prod.arrivalUnit,
+      salePrice: sale,
+      catalogName: displayProductName(prod),
+      ...imgFields,
+    });
+  };
+
   const toggleProduct = (prod) => {
     const key = prod.ProdKey;
     if (checkedKeys.has(key)) {
@@ -113,15 +177,8 @@ export default function CatalogPage() {
       setLines(prev => prev.filter(l => l.prodKey !== key));
       return;
     }
-    const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
-    const sale = prod.customerCost ?? prod.Cost ?? 0;
     setCheckedKeys(prev => new Set(prev).add(key));
-    setLines(prev => [...prev, newCatalogLine(prod, {
-      arrivalCost: arrival,
-      arrivalUnit: prod.arrivalUnit,
-      salePrice: sale,
-      catalogName: displayProductName(prod),
-    })]);
+    setLines(prev => [...prev, addProductLine(prod)]);
   };
 
   const updateLine = (id, patch) => {
@@ -146,14 +203,7 @@ export default function CatalogPage() {
     const nextKeys = new Set(checkedKeys);
     const newLines = toAdd.map(prod => {
       nextKeys.add(prod.ProdKey);
-      const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
-      const sale = prod.customerCost ?? prod.Cost ?? 0;
-      return newCatalogLine(prod, {
-        arrivalCost: arrival,
-        arrivalUnit: prod.arrivalUnit,
-        salePrice: sale,
-        catalogName: displayProductName(prod),
-      });
+      return addProductLine(prod);
     });
     setCheckedKeys(nextKeys);
     setLines(prev => [...prev, ...newLines]);
@@ -167,14 +217,64 @@ export default function CatalogPage() {
   const handlePpt = () => {
     alert(
       'PPT 생성은 카달로그 추출기(브라우저) 엔진과 연동 예정입니다.\n\n'
-      + '현재 단계: 품종·품목 선택 → 도착원가 확인 → 판매단가 입력 → 인쇄/PDF\n'
-      + '다음 단계: 선택 품목을 PPTX 슬라이드로 내보내기',
+      + '현재: 품목·이미지·단가 구성 → 인쇄/PDF\n'
+      + '다음: PPTX 슬라이드 내보내기',
+    );
+  };
+
+  const renderThumb = (prod, { size = 44, onClick, lineId } = {}) => {
+    const img = pickPrimaryImageRecord(imagesByProd, prod.ProdKey);
+    const line = lineId ? lines.find(l => l.id === lineId) : null;
+    const url = line?.imageUrl || img?.url;
+    const style = {
+      width: size,
+      height: size,
+      borderRadius: 4,
+      flexShrink: 0,
+      overflow: 'hidden',
+      background: 'var(--header-bg)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: onClick ? 'pointer' : 'default',
+      border: '1px solid var(--border)',
+    };
+    return (
+      <div
+        style={style}
+        title="이미지 관리"
+        onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+        onKeyDown={onClick ? (e) => { if (e.key === 'Enter') { e.stopPropagation(); onClick(); } } : undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+      >
+        {url ? (
+          <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <span style={{ fontWeight: 700, fontSize: size > 50 ? 14 : 11, color: 'var(--text3)' }}>
+            {prod.FlowerName?.slice(0, 2) || '📷'}
+          </span>
+        )}
+      </div>
     );
   };
 
   return (
     <>
       <Head><title>거래처 카탈로그 | NENOVA</title></Head>
+
+      {picker && (
+        <CatalogImagePicker
+          open
+          prodKey={picker.prodKey}
+          prodLabel={picker.prodLabel}
+          images={imagesByProd[String(picker.prodKey)] || []}
+          selectedImageId={picker.selectedImageId}
+          onClose={() => setPicker(null)}
+          onImagesChange={handleImagesChange}
+          onSelect={handlePickerSelect}
+        />
+      )}
 
       <div className="catalog-page">
         <div className="filter-bar" style={{ marginBottom: 4 }}>
@@ -201,7 +301,7 @@ export default function CatalogPage() {
             {loading ? '불러오는 중…' : '① 도착원가 불러오기'}
           </button>
           <div className="page-actions">
-            <select className="filter-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))} title="인쇄/PPT 슬라이드당 품목 수">
+            <select className="filter-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
               <option value={6}>6개형</option>
               <option value={8}>8개형</option>
             </select>
@@ -213,51 +313,33 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 차수로 <b>도착원가</b> 확인 → ② 품종·품목 선택 → ③ 카탈로그명·<b>판매단가</b> 입력 → ④ 인쇄 또는 PPT
+          <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭) → ④ 판매단가 → ⑤ 인쇄/PPT
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
-              품목 {products.length} · 도착원가 있음 {products.filter(p => p.arrivalCost > 0).length}
+              품목 {products.length} · 이미지 등록 {Object.keys(imagesByProd).filter(k => imagesByProd[k]?.length).length}
             </span>
           )}
         </div>
 
         <div className="catalog-layout">
-          {/* 품종 */}
           <aside className="catalog-sidebar card">
             <div className="card-header"><span className="card-title">② 품종</span></div>
             <div className="catalog-sidebar-body">
-              <button
-                type="button"
-                className={`catalog-flower-item ${selectedFlower === '__all__' ? 'active' : ''}`}
-                onClick={() => setSelectedFlower('__all__')}
-              >
+              <button type="button" className={`catalog-flower-item ${selectedFlower === '__all__' ? 'active' : ''}`} onClick={() => setSelectedFlower('__all__')}>
                 전체 <span className="badge badge-gray">{products.length}</span>
               </button>
               {flowerGroups.map(({ flower, items }) => (
-                <button
-                  key={flower}
-                  type="button"
-                  className={`catalog-flower-item ${selectedFlower === flower ? 'active' : ''}`}
-                  onClick={() => setSelectedFlower(flower)}
-                >
-                  {flower}
-                  <span className="badge badge-gray">{items.length}</span>
+                <button key={flower} type="button" className={`catalog-flower-item ${selectedFlower === flower ? 'active' : ''}`} onClick={() => setSelectedFlower(flower)}>
+                  {flower} <span className="badge badge-gray">{items.length}</span>
                 </button>
               ))}
             </div>
           </aside>
 
-          {/* 품목 선택 */}
           <section className="catalog-center card">
             <div className="card-header">
               <span className="card-title">③ 세부 품목</span>
-              <input
-                className="filter-input"
-                style={{ marginLeft: 'auto', width: 180 }}
-                placeholder="품목명 검색…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <input className="filter-input" style={{ marginLeft: 'auto', width: 180 }} placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
             <div className="catalog-product-grid">
@@ -279,7 +361,7 @@ export default function CatalogPage() {
                     tabIndex={0}
                   >
                     <input type="checkbox" readOnly checked={checked} tabIndex={-1} />
-                    <div className="catalog-prod-thumb">{prod.FlowerName?.slice(0, 2) || '품'}</div>
+                    {renderThumb(prod, { onClick: () => openPicker(prod) })}
                     <div className="catalog-prod-meta">
                       <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
                       <div className="catalog-prod-name">{displayProductName(prod)}</div>
@@ -294,7 +376,6 @@ export default function CatalogPage() {
             </div>
           </section>
 
-          {/* 카탈로그 구성 */}
           <section className="catalog-right card">
             <div className="card-header">
               <span className="card-title">④ 단가·이름 ({lines.length})</span>
@@ -304,6 +385,7 @@ export default function CatalogPage() {
               <table className="tbl">
                 <thead>
                   <tr>
+                    <th style={{ width: 48 }}>이미지</th>
                     <th>품종</th>
                     <th>카탈로그명</th>
                     <th style={{ textAlign: 'right' }}>도착원가</th>
@@ -314,33 +396,29 @@ export default function CatalogPage() {
                 </thead>
                 <tbody>
                   {!lines.length && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 24 }}>품목을 선택하세요</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 24 }}>품목을 선택하세요</td></tr>
                   )}
                   {lines.map(line => {
                     const m = marginPct(line.arrivalCost, line.salePrice);
+                    const prod = products.find(p => p.ProdKey === line.prodKey) || line;
                     return (
                       <tr key={line.id}>
+                        <td>
+                          {renderThumb(
+                            { ...prod, ProdKey: line.prodKey, FlowerName: line.flowerName },
+                            { size: 40, lineId: line.id, onClick: () => openPicker(prod, line.id) },
+                          )}
+                        </td>
                         <td style={{ fontSize: 11 }}>{line.flowerName}</td>
                         <td>
-                          <input
-                            className="form-control"
-                            style={{ width: '100%', minWidth: 100 }}
-                            value={line.catalogName}
-                            onChange={e => updateLine(line.id, { catalogName: e.target.value })}
-                          />
+                          <input className="form-control" style={{ width: '100%', minWidth: 90 }} value={line.catalogName} onChange={e => updateLine(line.id, { catalogName: e.target.value })} />
                         </td>
                         <td className="num" style={{ color: 'var(--amber)', whiteSpace: 'nowrap' }}>
                           {fmtNum(line.arrivalCost) || '—'}
                           <div style={{ fontSize: 10, color: 'var(--text3)' }}>/{line.arrivalUnit}</div>
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            className="form-control num"
-                            style={{ width: 88, textAlign: 'right' }}
-                            value={line.salePrice || ''}
-                            onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })}
-                          />
+                          <input type="number" className="form-control num" style={{ width: 80, textAlign: 'right' }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
                         </td>
                         <td className="num" style={{ color: m != null && m < 15 ? 'var(--red)' : 'var(--green)', fontSize: 11 }}>
                           {m != null ? fmtPct(m) : '—'}
@@ -361,7 +439,7 @@ export default function CatalogPage() {
       <style jsx global>{`
         .catalog-page { display: flex; flex-direction: column; height: calc(100vh - 8px); padding: 4px; box-sizing: border-box; }
         .catalog-flow-hint { flex-shrink: 0; margin-bottom: 4px; font-size: 12px; }
-        .catalog-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px 1fr 420px; gap: 4px; }
+        .catalog-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px 1fr 460px; gap: 4px; }
         .catalog-sidebar { display: flex; flex-direction: column; min-height: 0; }
         .catalog-sidebar-body { flex: 1; overflow-y: auto; padding: 4px; }
         .catalog-flower-item {
@@ -379,14 +457,9 @@ export default function CatalogPage() {
         .catalog-prod-card {
           border: 1px solid var(--border2); border-radius: 4px; padding: 8px; cursor: pointer;
           background: var(--surface); display: flex; gap: 8px; align-items: flex-start;
-          transition: border-color 0.12s, background 0.12s;
         }
         .catalog-prod-card:hover { border-color: var(--blue); background: var(--blue-bg); }
         .catalog-prod-card.checked { border-color: var(--green); background: var(--green-bg); }
-        .catalog-prod-thumb {
-          width: 44px; height: 44px; border-radius: 4px; background: var(--header-bg);
-          display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;
-        }
         .catalog-prod-meta { min-width: 0; flex: 1; }
         .catalog-prod-flower { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .catalog-prod-name { font-size: 12px; font-weight: 600; margin: 2px 0; line-height: 1.25; }
@@ -394,7 +467,7 @@ export default function CatalogPage() {
         .catalog-lines-wrap { flex: 1; min-height: 0; border: none; }
         @media (max-width: 1100px) {
           .catalog-layout { grid-template-columns: 140px 1fr; grid-template-rows: 1fr auto; }
-          .catalog-right { grid-column: 1 / -1; max-height: 240px; }
+          .catalog-right { grid-column: 1 / -1; max-height: 260px; }
         }
       `}</style>
     </>

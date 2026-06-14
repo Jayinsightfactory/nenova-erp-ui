@@ -40,5 +40,10 @@ data/sales-revenue-customer-mappings.json
 data/sales-revenue-cells.json
 data/sales-revenue-cell-history.json
 
+# 카탈로그 이미지 — 런타임 업로드 + 인덱스 (커밋 금지)
+data/catalog-images.json
+public/uploads/catalog/**
+!public/uploads/catalog/.gitkeep
+
 # 카달로그 추출기 ZIP 로컬 참조 (커밋 금지)
 _catalog-ref/

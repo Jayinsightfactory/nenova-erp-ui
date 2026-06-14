@@ -61,7 +61,13 @@ export default function CatalogPrintPage() {
           <div className={`catalog-print-grid per-${draft.perPage || 8}`}>
             {pageLines.map(line => (
               <article key={line.id} className="catalog-print-item">
-                <div className="thumb">{line.flowerName?.slice(0, 2) || '품'}</div>
+                <div className="thumb">
+                  {line.imageUrl ? (
+                    <img src={line.imageUrl} alt="" className="thumb-img" />
+                  ) : (
+                    line.flowerName?.slice(0, 2) || '품'
+                  )}
+                </div>
                 <div className="names">
                   <div className="ko">{line.catalogName}</div>
                   <div className="meta">{line.counName} · {line.flowerName}</div>
@@ -119,6 +125,10 @@ export default function CatalogPrintPage() {
           width: 28mm; height: 22mm; background: #f5f5f5; border-radius: 3px;
           display: flex; align-items: center; justify-content: center;
           font-size: 14pt; font-weight: 700; color: #888; margin-bottom: 3mm;
+          overflow: hidden;
+        }
+        .catalog-print-item .thumb-img {
+          width: 100%; height: 100%; object-fit: contain; background: #fff;
         }
         .catalog-print-item .ko { font-size: 11pt; font-weight: 700; line-height: 1.3; }
         .catalog-print-item .meta { font-size: 8pt; color: #888; margin-top: 1mm; }

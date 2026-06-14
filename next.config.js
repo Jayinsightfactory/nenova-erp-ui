@@ -26,6 +26,7 @@ const nextConfig = {
       // 런타임 업로드 사진 — /uploads/photos/YYYY/MM/DD/uuid.jpg (인증 없음)
       // public/ 은 빌드 시점 고정이므로 API 라우트로 파일시스템 직접 스트리밍
       { source: '/uploads/photos/:path*', destination: '/api/public/photo/:path*' },
+      { source: '/uploads/catalog/:path*', destination: '/api/public/catalog/:path*' },
     ];
   },
   async headers() {
