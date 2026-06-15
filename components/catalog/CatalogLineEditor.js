@@ -2,6 +2,7 @@ import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { fmtArrivalCostMeta, fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
 
 const KOR_SOURCE_LABEL = {
+  catalog: '저장',
   display: 'DB',
   mapping: '매칭',
   suggest: '자동',

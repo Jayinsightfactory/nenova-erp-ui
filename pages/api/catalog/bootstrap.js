@@ -14,6 +14,7 @@ import {
   findMappingKorNameByProdKey,
   resolveCatalogProductNames,
 } from '../../../lib/catalogNameResolve';
+import { findCatalogMatchByProdKey } from '../../../lib/catalogNameResolve.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -155,7 +156,8 @@ export default withAuth(async function handler(req, res) {
       const arrivalCost = Number(resolved.arrivalCost || 0);
       if (arrivalCost > 0) withArrival += 1;
       const mappingKorName = findMappingKorNameByProdKey(p.ProdKey, mappings);
-      const names = resolveCatalogProductNames(p, mappingKorName);
+      const catalogMatch = findCatalogMatchByProdKey(p.ProdKey, mappings);
+      const names = resolveCatalogProductNames(p, mappingKorName, mappings);
       return {
         ...p,
         arrivalCost,
@@ -170,6 +172,9 @@ export default withAuth(async function handler(req, res) {
         arrivalIsFallback: uploaded ? false : !!arr.isFallback,
         customerCost: customerCosts[p.ProdKey] ?? null,
         mappingKorName,
+        catalogMatchEngName: catalogMatch?.engName || names.engName || null,
+        catalogMatchKorName: catalogMatch?.korName || names.korName || null,
+        catalogMatchKey: catalogMatch?.key || null,
         suggestedKorName: names.suggestedKor,
         suggestedEngName: names.engName,
         catalogKorName: names.korName,

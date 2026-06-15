@@ -10,6 +10,7 @@ const assert = (label, cond) => {
 
 async function main() {
   const {
+    findCatalogMatchByProdKey,
     findMappingKorNameByProdKey,
     resolveCatalogProductNames,
   } = await import('../lib/catalogNameResolve.js');
@@ -20,9 +21,15 @@ async function main() {
       displayName: '수국 다크핑크',
       prodName: 'HYDRANGEA DARK PINK',
     },
+    '콜롬비아 장미 queens crown': {
+      prodKey: 200,
+      displayName: '퀸즈 크라운',
+      engName: 'Queens crown',
+      source: 'catalog',
+    },
   };
 
-  assert('mapping lookup', findMappingKorNameByProdKey(100, mappings) === '콜롬비아 수국 다크핑크');
+  assert('mapping lookup', findMappingKorNameByProdKey(100, mappings) === '수국 다크핑크');
 
   const prod = {
     ProdKey: 100,
@@ -30,10 +37,15 @@ async function main() {
     DisplayName: '',
     mappingKorName: '콜롬비아 수국 다크핑크',
   };
-  const names = resolveCatalogProductNames(prod, prod.mappingKorName);
+  const names = resolveCatalogProductNames(prod, prod.mappingKorName, mappings);
   assert('kor from mapping', names.korName.includes('수국'));
   assert('eng from prod', names.engName.length > 0);
-  assert('kor source mapping', names.korSource === 'mapping');
+
+  const saved = findCatalogMatchByProdKey(200, mappings);
+  assert('catalog match lookup', saved?.korName === '퀸즈 크라운');
+  const names2 = resolveCatalogProductNames({ ProdKey: 200, ProdName: 'ROSE X' }, null, mappings);
+  assert('catalog saved names', names2.korName === '퀸즈 크라운' && names2.korSource === 'catalog');
+  assert('catalog saved eng', names2.engName === 'Queens crown');
 }
 
 main().catch((e) => {

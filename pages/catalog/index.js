@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
 import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
@@ -7,6 +7,7 @@ import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
+import { persistCatalogImageSelection, persistCatalogProductMatch } from '../../lib/catalogMatchClient';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
 import {
@@ -90,6 +91,51 @@ export default function CatalogPage() {
   const [draftBusy, setDraftBusy] = useState(false);
 
   const [picker, setPicker] = useState(null);
+  const [matchSaveInfo, setMatchSaveInfo] = useState('');
+  const persistTimers = useRef({});
+
+  const applySavedMatchToProduct = useCallback((prodKey, { engName, korName }) => {
+    setProducts(prev => prev.map(p => {
+      if (String(p.ProdKey) !== String(prodKey)) return p;
+      return {
+        ...p,
+        catalogMatchEngName: engName || p.catalogMatchEngName,
+        catalogMatchKorName: korName || p.catalogMatchKorName,
+        catalogEngName: engName || p.catalogEngName,
+        catalogKorName: korName || p.catalogKorName,
+        mappingKorName: korName || p.mappingKorName,
+        korNameSource: (engName || korName) ? 'catalog' : p.korNameSource,
+      };
+    }));
+  }, []);
+
+  const queuePersistMatch = useCallback((line) => {
+    const prod = findProd(products, line?.prodKey);
+    if (!prod || !line?.prodKey) return;
+    const eng = String(line.engName || '').trim();
+    const kor = String(line.korName || '').trim();
+    if (!eng && !kor && !line.imageId) return;
+
+    clearTimeout(persistTimers.current[line.prodKey]);
+    persistTimers.current[line.prodKey] = setTimeout(async () => {
+      try {
+        await persistCatalogProductMatch({
+          prodKey: line.prodKey,
+          prodName: prod.ProdName,
+          flowerName: prod.FlowerName,
+          counName: prod.CounName,
+          engName: eng,
+          korName: kor,
+          imageId: line.imageId || undefined,
+        });
+        applySavedMatchToProduct(line.prodKey, { engName: eng, korName: kor });
+        setMatchSaveInfo(`매칭 저장: ${kor || eng || prod.ProdName}`);
+      } catch (e) {
+        console.warn('[catalog] match persist:', e.message);
+        setMatchSaveInfo(`매칭 저장 실패: ${e.message}`);
+      }
+    }, 700);
+  }, [products, applySavedMatchToProduct]);
 
   const fieldVisibility = useMemo(
     () => normalizeCatalogFields(catalogFields),
@@ -399,10 +445,27 @@ export default function CatalogPage() {
     setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
   };
 
-  const handlePickerSelect = (img) => {
+  const handlePickerSelect = async (img) => {
     if (!picker) return;
     applyImageToLines(picker.prodKey, img);
     setPicker(p => (p ? { ...p, selectedImageId: img?.id || null } : p));
+    if (!img?.id) return;
+    const prod = findProd(products, picker.prodKey);
+    const line = lines.find(l => l.prodKey === picker.prodKey);
+    try {
+      await persistCatalogImageSelection({
+        prodKey: picker.prodKey,
+        imageId: img.id,
+        prod,
+        line,
+      });
+      const data = await apiGet('/api/catalog/images', { prodKey: picker.prodKey });
+      handleImagesChange(picker.prodKey, data.images || []);
+      setMatchSaveInfo(`대표 이미지 저장: ${prod?.ProdName || picker.prodKey}`);
+    } catch (e) {
+      console.warn('[catalog] image match persist:', e.message);
+      setMatchSaveInfo(`이미지 저장 실패: ${e.message}`);
+    }
   };
 
   const handleImagesChange = (prodKey, images) => {
@@ -482,7 +545,14 @@ export default function CatalogPage() {
   };
 
   const updateLine = (id, patch) => {
-    setLines(prev => prev.map(l => (l.id === id ? { ...l, ...patch } : l)));
+    setLines(prev => prev.map(l => {
+      if (l.id !== id) return l;
+      const next = { ...l, ...patch };
+      if ('engName' in patch || 'korName' in patch) {
+        queuePersistMatch(next);
+      }
+      return next;
+    }));
   };
 
   const removeLine = (id) => {
@@ -1048,6 +1118,7 @@ export default function CatalogPage() {
         </div>
 
         {err && <div className="banner-warn">{err}</div>}
+        {matchSaveInfo && !err && <div className="banner-ok">{matchSaveInfo}</div>}
         {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
           <div className="banner-warn" style={{ background: '#fff8e6' }}>
             <b>이미지 0품목</b> — 사진은 서버의 <b>카달로그_통합본.pptx</b>에서 자동 등록됩니다.
