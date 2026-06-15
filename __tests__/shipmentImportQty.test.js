@@ -73,6 +73,39 @@ async function main() {
     assert('45단 → 3박스', Math.abs(out - 3) < 0.001);
   }
 
+  console.log('\n=== 콜롬비아카네이션 물량표 — 박스 그대로 ===');
+  {
+    const { isBoxAllocationImportSheet } = await import('../lib/shipmentImportQty.js');
+    const carnationProduct = { OutUnit: '박스', BunchOf1Box: 15, CountryFlower: '콜롬비아카네이션' };
+    const row = {
+      sheetName: '콜롬비아카네이션',
+      productFamily: 'carnation',
+      excelQty: 1,
+      uploadQty: 1,
+      orderQty: 1,
+      currentOutQty: 1,
+    };
+    assert('sheet 감지', isBoxAllocationImportSheet(row, carnationProduct));
+    const out = normalizeUploadQtyForProduct(row, carnationProduct);
+    assert('1박스 유지 (1/15 오류 없음)', Math.abs(out - 1) < 0.001);
+    const warns = detectQtyWarnings({ ...row, uploadQty: out, excelQty: 1 }, carnationProduct);
+    assert('수량경고 없음', !warns.some(w => w.severity === 'critical'));
+  }
+
+  console.log('\n=== 장미: 주문=5박스 엑셀=5 → 박스 (단 50 아님) ===');
+  {
+    const row = {
+      sheetName: '2301장미',
+      productFamily: 'rose',
+      excelQty: 5,
+      uploadQty: 5,
+      orderQty: 5,
+      currentOutQty: 5,
+    };
+    const out = normalizeUploadQtyForProduct(row, roseBoxProduct);
+    assert('5박스 유지', Math.abs(out - 5) < 0.001);
+  }
+
   console.log('\n=== distributeUnits OutUnit 기준 (출고분배·재고 PATCH) ===');
   {
     const { distributeUnits } = await import('../lib/distributeUnits.js');
