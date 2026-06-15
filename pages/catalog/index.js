@@ -11,7 +11,7 @@ import {
   filterProducts,
   fmtNum,
   fmtPct,
-  groupProductsByFlower,
+  groupProductsByCountryFlower,
   marginPct,
   newCatalogLine,
   pickPrimaryImageRecord,
@@ -52,7 +52,7 @@ export default function CatalogPage() {
   const [useVatArrival, setUseVatArrival] = useState(true);
   const [perPage, setPerPage] = useState(8);
 
-  const [selectedFlower, setSelectedFlower] = useState('__all__');
+  const [selectedGroup, setSelectedGroup] = useState('__all__');
   const [flowerSearch, setFlowerSearch] = useState('');
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState([]);
@@ -65,17 +65,20 @@ export default function CatalogPage() {
     [customers, custKey],
   );
 
-  const flowerGroups = useMemo(() => groupProductsByFlower(products), [products]);
+  const productGroups = useMemo(() => groupProductsByCountryFlower(products), [products]);
 
-  const filteredFlowerGroups = useMemo(() => {
+  const filteredProductGroups = useMemo(() => {
     const q = flowerSearch.trim().toLowerCase();
-    if (!q) return flowerGroups;
-    return flowerGroups.filter(({ flower }) => flower.toLowerCase().includes(q));
-  }, [flowerGroups, flowerSearch]);
+    if (!q) return productGroups;
+    return productGroups.filter(({ label, counName, flowerName }) => {
+      const hay = `${label} ${counName} ${flowerName}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [productGroups, flowerSearch]);
 
   const visibleProducts = useMemo(
-    () => filterProducts(products, { flower: selectedFlower, search }),
-    [products, selectedFlower, search],
+    () => filterProducts(products, { countryFlower: selectedGroup, search }),
+    [products, selectedGroup, search],
   );
 
   const syncLinesFromProducts = useCallback((prods, imgMap) => {
@@ -643,15 +646,15 @@ export default function CatalogPage() {
               />
             </div>
             <div className="catalog-sidebar-body">
-              <button type="button" className={`catalog-flower-item ${selectedFlower === '__all__' ? 'active' : ''}`} onClick={() => setSelectedFlower('__all__')}>
+              <button type="button" className={`catalog-flower-item ${selectedGroup === '__all__' ? 'active' : ''}`} onClick={() => setSelectedGroup('__all__')}>
                 전체 <span className="badge badge-gray">{products.length}</span>
               </button>
-              {filteredFlowerGroups.map(({ flower, items }) => (
-                <button key={flower} type="button" className={`catalog-flower-item ${selectedFlower === flower ? 'active' : ''}`} onClick={() => setSelectedFlower(flower)}>
-                  {flower} <span className="badge badge-gray">{items.length}</span>
+              {filteredProductGroups.map(({ key, label, items }) => (
+                <button key={key} type="button" className={`catalog-flower-item ${selectedGroup === key ? 'active' : ''}`} onClick={() => setSelectedGroup(key)}>
+                  {label} <span className="badge badge-gray">{items.length}</span>
                 </button>
               ))}
-              {flowerSearch && !filteredFlowerGroups.length && (
+              {flowerSearch && !filteredProductGroups.length && (
                 <div style={{ padding: 8, fontSize: 11, color: 'var(--text3)' }}>검색 결과 없음</div>
               )}
             </div>

@@ -47,10 +47,15 @@ export default withAuth(async function handler(req, res) {
 
     const [productsRes, customersRes, flowersRes] = await Promise.all([
       query(
-        `SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName,
-                Cost, OutUnit, EstUnit, Descr
-         FROM Product WHERE isDeleted=0
-         ORDER BY CounName, FlowerName, ProdName`,
+        `SELECT p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
+                p.CountryFlower, p.Cost, p.OutUnit, p.EstUnit, p.Descr,
+                c.Sort AS cSort, f.Sort AS fSort, f.OrderNo AS fOrderNo
+         FROM Product p
+         LEFT JOIN Country c ON p.CounName = c.CounName AND c.isDeleted = 0
+         LEFT JOIN Flower f ON p.FlowerName = f.FlowerName AND f.isDeleted = 0
+         WHERE p.isDeleted = 0
+         ORDER BY ISNULL(c.Sort, 9999), ISNULL(f.Sort, 9999), ISNULL(f.OrderNo, 9999),
+                  p.CountryFlower, p.ProdName`,
       ),
       query(
         `SELECT CustKey, CustCode, CustName, CustArea, OrderCode
