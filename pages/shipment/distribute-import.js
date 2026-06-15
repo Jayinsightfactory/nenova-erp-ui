@@ -16,14 +16,14 @@ const fmtUpload = r => {
 };
 const qtyWarningText = r => (r.qtyWarnings || []).filter(w => w.severity === 'critical').map(w => w.message).join(' / ');
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
-const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '분배삭제' : status;
-const rowChanged = r => r?.status !== '동일';
+const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '분배삭제' : status === '확정차단' ? '확정차단' : status;
+const rowChanged = r => r?.status !== '동일' && r?.status !== '확정차단';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
 const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
-const applyTarget = r => rowChanged(r) || shipmentNeedsApply(r);
+const applyTarget = r => !r.fixBlocked && (rowChanged(r) || shipmentNeedsApply(r));
 const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
-const rowBg = r => r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
+const rowBg = r => r?.fixBlocked ? '#f3f4f6' : r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
 
 function getDefaultImportWeek() {
   const current = getCurrentWeek();
@@ -131,7 +131,8 @@ export default function DistributeImport() {
   const setProdOverridesState = next => { prodOverridesRef.current = next; setProdOverrides(next); };
 
   const rows = preview?.rows || [];
-  const changedRows = useMemo(() => rows.filter(r => r.status !== '동일'), [rows]);
+  const changedRows = useMemo(() => rows.filter(r => r.status !== '동일' && !r.fixBlocked), [rows]);
+  const fixBlockedRows = useMemo(() => rows.filter(r => r.fixBlocked), [rows]);
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
   const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
   const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
@@ -328,7 +329,12 @@ export default function DistributeImport() {
       return;
     }
     if (!applyRows.length) {
-      setError('적용할 주문변경/분배반영 대상이 없습니다. 분배차이 또는 주문변경 행이 있는지 확인하세요.');
+      const blocked = (preview?.fixBlockedCount || 0);
+      setError(
+        blocked > 0
+          ? `적용 가능한 행이 없습니다. 확정 차단 ${blocked}건 — 미확정 품종만 적용됩니다. 검증 화면에서 '확정차단' 행을 확인하세요.`
+          : '적용할 주문변경/분배반영 대상이 없습니다. 분배차이 또는 주문변경 행이 있는지 확인하세요.',
+      );
       return;
     }
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
@@ -347,7 +353,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${orderCreateText}${orderChangeText}${shipmentOnlyText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -511,6 +517,8 @@ export default function DistributeImport() {
               <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
               <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
               <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
+              <Kpi label="적용가능" value={applyRows.length} warn={applyRows.length > 0} />
+              <Kpi label="확정차단" value={fixBlockedRows.length} danger={fixBlockedRows.length > 0} />
               <Kpi label="수량경고" value={qtyWarningRows.length} danger={qtyWarningRows.length > 0} />
             </div>
 
@@ -575,8 +583,8 @@ export default function DistributeImport() {
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
-                        <tr key={r.key} style={{ background: r.hasQtyWarning ? '#fef2f2' : rowBg(r) }}>
-                          <td>{rowStatusText(r)}</td>
+                        <tr key={r.key} style={{ background: r.fixBlocked ? rowBg(r) : (r.hasQtyWarning ? '#fef2f2' : rowBg(r)) }}>
+                          <td title={r.fixBlockReason || ''}>{rowStatusText(r)}</td>
                           <td>{r.custName}</td>
                           <td>{r.displayName || r.prodName}</td>
                           <td>{r.outUnit}</td>
