@@ -1,15 +1,20 @@
 import { useMemo } from 'react';
 import {
-  buildCatalogExportPages,
   formatOriginLabel,
   layoutCssVars,
 } from '../../lib/catalogLayout';
+import { resolveCatalogPages } from '../../lib/catalogSlides';
 import { absCatalogUrl, catalogLineNames, fmtCatalogSalePrice } from '../../lib/catalogUtils';
 
 export function useCatalogPages(draft) {
   return useMemo(() => {
     if (!draft?.lines?.length) return [];
-    return buildCatalogExportPages(draft.lines, { perPage: draft.perPage || 8 });
+    return resolveCatalogPages({
+      lines: draft.lines,
+      composerSlides: draft.composerSlides,
+      perPage: draft.perPage || 8,
+      imagesByProd: draft.imagesByProd,
+    });
   }, [draft]);
 }
 

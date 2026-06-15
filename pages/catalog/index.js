@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
+import CatalogSlideComposer, { setCatalogDragData } from '../../components/catalog/CatalogSlideComposer';
 import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
@@ -9,6 +10,7 @@ import {
   displayProductName,
   effectiveArrival,
   filterProducts,
+  fmtArrivalDisplay,
   fmtNum,
   fmtPct,
   groupProductsByCountryFlower,
@@ -18,6 +20,16 @@ import {
   deriveCatalogNames,
   productGroupKey,
 } from '../../lib/catalogUtils';
+import {
+  addGroupToComposer,
+  assignComposerSlot,
+  clearComposerSlot,
+  newComposerSlide,
+  removeComposerSlide,
+  resizeComposerSlides,
+  sanitizeComposerSlides,
+  sortProductsImageFirst,
+} from '../../lib/catalogSlides';
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
 
@@ -61,6 +73,7 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
+  const [composerSlides, setComposerSlides] = useState([]);
 
   const [picker, setPicker] = useState(null);
 
@@ -81,8 +94,16 @@ export default function CatalogPage() {
   }, [productGroups, flowerSearch]);
 
   const visibleProducts = useMemo(
-    () => filterProducts(products, { countryFlower: selectedGroup, search }),
-    [products, selectedGroup, search],
+    () => sortProductsImageFirst(
+      filterProducts(products, { countryFlower: selectedGroup, search }),
+      imagesByProd,
+    ),
+    [products, selectedGroup, search, imagesByProd],
+  );
+
+  const linesById = useMemo(
+    () => Object.fromEntries(lines.map(l => [l.id, l])),
+    [lines],
   );
 
   const syncLinesFromProducts = useCallback((prods, imgMap) => {
@@ -178,6 +199,7 @@ export default function CatalogPage() {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (saved.lines?.length) setLines(saved.lines);
+      if (saved.composerSlides?.length) setComposerSlides(saved.composerSlides);
       if (saved.catalogTitle) setCatalogTitle(saved.catalogTitle);
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
@@ -198,13 +220,19 @@ export default function CatalogPage() {
         ...l,
         imageUrl: absCatalogUrl(l.imageUrl),
       })),
+      composerSlides,
       catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode,
       selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
     }));
-  }, [lines, catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+  }, [lines, composerSlides, catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+
+  useEffect(() => {
+    const valid = new Set(lines.map(l => l.id));
+    setComposerSlides(prev => sanitizeComposerSlides(prev, valid, perPage));
+  }, [lines, perPage]);
 
   useEffect(() => {
     if (!products.length || !lines.length) return;
@@ -312,6 +340,116 @@ export default function CatalogPage() {
     });
     setCheckedKeys(nextKeys);
     setLines(prev => [...prev, ...newLines]);
+  };
+
+  const handleComposerDropGroup = useCallback((groupKey) => {
+    const group = productGroups.find(g => g.key === groupKey);
+    const targets = sortProductsImageFirst(group?.items || [], imagesByProd);
+
+    setLines(prev => {
+      const existingKeys = new Set(prev.map(l => l.prodKey));
+      const missing = targets.filter(p => !existingKeys.has(p.ProdKey));
+      const added = missing.map(p => addProductLine(p));
+      if (added.length) {
+        setCheckedKeys(keys => {
+          const next = new Set(keys);
+          missing.forEach(p => next.add(p.ProdKey));
+          return next;
+        });
+      }
+      const merged = [...prev, ...added];
+      setComposerSlides(slPrev => addGroupToComposer(slPrev, {
+        groupKey,
+        lines: merged,
+        perPage,
+        imagesByProd,
+        groupMeta: group,
+      }));
+      return merged;
+    });
+  }, [productGroups, imagesByProd, perPage, addProductLine]);
+
+  const placeLineOnComposer = useCallback((line) => {
+    if (!line) return;
+    setComposerSlides(prev => {
+      for (const sl of prev) {
+        const idx = (sl.slots || []).findIndex(s => !s);
+        if (idx >= 0) return assignComposerSlot(prev, sl.id, idx, line.id);
+      }
+      const sl = newComposerSlide({
+        titleBig: line.flowerName || '미분류',
+        titleSmall: line.counName || '',
+        perPage,
+      });
+      return assignComposerSlot([...prev, sl], sl.id, 0, line.id);
+    });
+  }, [perPage]);
+
+  const handleComposerAutoSlot = useCallback((data) => {
+    if (data.type === 'group') {
+      handleComposerDropGroup(data.groupKey);
+      return;
+    }
+    if (data.type === 'line') {
+      const line = linesById[data.lineId];
+      if (line) placeLineOnComposer(line);
+      return;
+    }
+    if (data.type === 'prod') {
+      const existing = lines.find(l => String(l.prodKey) === String(data.prodKey));
+      if (existing) {
+        placeLineOnComposer(existing);
+        return;
+      }
+      const prod = findProd(products, data.prodKey);
+      if (!prod) return;
+      const line = addProductLine(prod);
+      setCheckedKeys(prev => new Set(prev).add(prod.ProdKey));
+      setLines(prev => [...prev, line]);
+      placeLineOnComposer(line);
+    }
+  }, [handleComposerDropGroup, linesById, lines, products, addProductLine, placeLineOnComposer]);
+
+  const handleComposerDropSlot = useCallback((slideId, slotIndex, data) => {
+    if (!data) return;
+    if (data.type === 'group') {
+      handleComposerDropGroup(data.groupKey);
+      return;
+    }
+    if (data.type === 'line') {
+      const line = linesById[data.lineId];
+      if (line) setComposerSlides(prev => assignComposerSlot(prev, slideId, slotIndex, line.id));
+      return;
+    }
+    if (data.type === 'prod') {
+      const existing = lines.find(l => String(l.prodKey) === String(data.prodKey));
+      if (existing) {
+        setComposerSlides(prev => assignComposerSlot(prev, slideId, slotIndex, existing.id));
+        return;
+      }
+      const prod = findProd(products, data.prodKey);
+      if (!prod) return;
+      const line = addProductLine(prod);
+      setCheckedKeys(prev => new Set(prev).add(prod.ProdKey));
+      setLines(prev => [...prev, line]);
+      setComposerSlides(prev => assignComposerSlot(prev, slideId, slotIndex, line.id));
+    }
+  }, [handleComposerDropGroup, linesById, lines, products, addProductLine]);
+
+  const handlePerPageChange = (next) => {
+    setComposerSlides(prev => (prev.length
+      ? resizeComposerSlides(prev, next, linesById)
+      : prev));
+    setPerPage(next);
+  };
+
+  const handleAddEmptySlide = () => {
+    const ref = lines[0];
+    setComposerSlides(prev => [...prev, newComposerSlide({
+      titleBig: ref?.flowerName || '미분류',
+      titleSmall: ref?.counName || '',
+      perPage,
+    })]);
   };
 
   const openPrint = () => {
@@ -478,6 +616,8 @@ export default function CatalogPage() {
       await exportCatalogPpt({
         fileName: catalogTitle,
         lines: lines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
+        composerSlides,
+        imagesByProd,
         perPage,
         showNames,
         showPrice,
@@ -595,10 +735,6 @@ export default function CatalogPage() {
             폴더가져오기
           </button>
           <div className="page-actions">
-            <select className="filter-select" value={perPage} onChange={e => setPerPage(Number(e.target.value))}>
-              <option value={6}>6개형</option>
-              <option value={8}>8개형</option>
-            </select>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }} title="PPT·미리보기·인쇄에 품목명 표시">
               <input type="checkbox" checked={showNames} onChange={e => setShowNames(e.target.checked)} />
               이름
@@ -628,9 +764,9 @@ export default function CatalogPage() {
         )}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가(SQL 자동) → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭 업로드) → ④ 단가 → ⑤ <b>미리보기</b> → 인쇄/PPT
+          <b>작업 순서</b> — ① 도착원가 → ② 품종 → ③ 품목 선택 → <b>④ PPT 슬라이드</b>(8/10칸·드래그) → ⑤ 단가·도착원가 확인 → 미리보기/PPT
           <span style={{ marginLeft: 8, color: 'var(--text3)', fontSize: 11 }}>
-            도착원가 = 입고원장(FOB+운임) 자동계산 · 엑셀 업로드는 덮어쓰기용(선택)
+            도착원가(단/송이)는 확인용 · PPT에는 미포함 · 사진 없는 품목은 목록 후순위
           </span>
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
@@ -672,7 +808,18 @@ export default function CatalogPage() {
                 전체 <span className="badge badge-gray">{products.length}</span>
               </button>
               {filteredProductGroups.map(({ key, label, items }) => (
-                <button key={key} type="button" className={`catalog-flower-item ${selectedGroup === key ? 'active' : ''}`} onClick={() => setSelectedGroup(key)}>
+                <button
+                  key={key}
+                  type="button"
+                  className={`catalog-flower-item ${selectedGroup === key ? 'active' : ''}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setCatalogDragData(e, { type: 'group', groupKey: key });
+                    e.stopPropagation();
+                  }}
+                  onClick={() => setSelectedGroup(key)}
+                  title="PPT 편집기로 끌어 슬라이드 자동 추가"
+                >
                   {label} <span className="badge badge-gray">{items.length}</span>
                 </button>
               ))}
@@ -697,14 +844,21 @@ export default function CatalogPage() {
               {visibleProducts.map(prod => {
                 const checked = checkedKeys.has(prod.ProdKey);
                 const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
+                const hasImg = Boolean(pickPrimaryImageRecord(imagesByProd, prod.ProdKey));
                 return (
                   <div
                     key={prod.ProdKey}
-                    className={`catalog-prod-card ${checked ? 'checked' : ''}`}
+                    className={`catalog-prod-card ${checked ? 'checked' : ''} ${!hasImg ? 'no-image' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      setCatalogDragData(e, { type: 'prod', prodKey: prod.ProdKey });
+                      e.stopPropagation();
+                    }}
                     onClick={() => toggleProduct(prod)}
                     onKeyDown={e => e.key === 'Enter' && toggleProduct(prod)}
                     role="button"
                     tabIndex={0}
+                    title={hasImg ? 'PPT 칸으로 끌어 배치' : '사진 없음 — 후순위 · PPT 칸으로 끌어 배치'}
                   >
                     <input type="checkbox" readOnly checked={checked} tabIndex={-1} />
                     {renderThumb(prod, { onClick: () => openPicker(prod) })}
@@ -712,18 +866,10 @@ export default function CatalogPage() {
                       <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
                       <div className="catalog-prod-name">{displayProductName(prod)}</div>
                       <div className="catalog-prod-cost">
-                        도착 <strong className="num">{fmtNum(arrival) || '—'}</strong>
-                        {arrival > 0 && (
-                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>
-                            {' '}/{prod.arrivalUnit || prod.saleUnit || prod.OutUnit}
-                            {prod.arrivalRawUnit && prod.arrivalRawUnit !== prod.arrivalUnit && prod.arrivalRawCost > 0 && (
-                              <> · 원본 {fmtNum(prod.arrivalRawCost)}/{prod.arrivalRawUnit}</>
-                            )}
-                            {prod.arrivalSource === 'upload' && <> · 엑셀</>}
-                            {prod.arrivalIsFallback && prod.arrivalWeek && (
-                              <> · {prod.arrivalWeek}</>
-                            )}
-                          </span>
+                        도착 <strong className="num">{fmtArrivalDisplay(arrival, prod.arrivalUnit || prod.saleUnit || prod.OutUnit)}</strong>
+                        {prod.arrivalSource === 'upload' && <span style={{ fontSize: 10, color: 'var(--text3)' }}> · 엑셀</span>}
+                        {prod.arrivalIsFallback && prod.arrivalWeek && (
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}> · {prod.arrivalWeek}</span>
                         )}
                       </div>
                     </div>
@@ -735,65 +881,83 @@ export default function CatalogPage() {
 
           <section className="catalog-right card">
             <div className="card-header">
-              <span className="card-title">④ 단가·이름 ({lines.length})</span>
-              {custName && <span style={{ fontSize: 11, color: 'var(--blue)' }}>{custName}</span>}
+              <span className="card-title">④ PPT 슬라이드</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{composerSlides.length}장 · {perPage}칸</span>
             </div>
-            <div className="table-wrap catalog-lines-wrap">
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th style={{ width: 48 }}>이미지</th>
-                    <th>품종</th>
-                    <th>카탈로그명</th>
-                    <th style={{ textAlign: 'right' }}>도착원가</th>
-                    <th style={{ textAlign: 'right' }}>판매단가</th>
-                    <th style={{ textAlign: 'right' }}>마진</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {!lines.length && (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 24 }}>품목을 선택하세요</td></tr>
-                  )}
-                  {lines.map(line => {
-                    const m = marginPct(line.arrivalCost, line.salePrice);
-                    const prod = findProd(products, line.prodKey) || line;
-                    return (
-                      <tr key={line.id}>
-                        <td>
-                          {renderThumb(
-                            { ...prod, ProdKey: line.prodKey, FlowerName: line.flowerName },
-                            { size: 40, lineId: line.id, onClick: () => openPicker(prod, line.id) },
-                          )}
-                        </td>
-                        <td style={{ fontSize: 11 }}>{line.flowerName}</td>
-                        <td>
-                          <input className="form-control" style={{ width: '100%', minWidth: 90 }} value={line.catalogName} onChange={e => updateLine(line.id, { catalogName: e.target.value })} />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="form-control num"
-                            style={{ width: 72, textAlign: 'right', color: 'var(--amber)' }}
-                            value={line.arrivalCost || ''}
-                            onChange={e => updateLine(line.id, { arrivalCost: Number(e.target.value) || 0 })}
-                          />
-                          <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'right' }}>/{line.arrivalUnit || line.saleUnit}</div>
-                        </td>
-                        <td>
-                          <input type="number" className="form-control num" style={{ width: 80, textAlign: 'right' }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
-                        </td>
-                        <td className="num" style={{ color: m != null && m < 15 ? 'var(--red)' : 'var(--green)', fontSize: 11 }}>
-                          {m != null ? fmtPct(m) : '—'}
-                        </td>
-                        <td>
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => removeLine(line.id)}>✕</button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <CatalogSlideComposer
+              perPage={perPage}
+              onPerPageChange={handlePerPageChange}
+              slides={composerSlides}
+              linesById={linesById}
+              showNames={showNames}
+              showPrice={showPrice}
+              onDropZone={handleComposerDropGroup}
+              onDropAutoSlot={handleComposerAutoSlot}
+              onDropSlot={handleComposerDropSlot}
+              onClearSlot={(slideId, slotIndex) => {
+                setComposerSlides(prev => clearComposerSlot(prev, slideId, slotIndex));
+              }}
+              onRemoveSlide={(slideId) => {
+                setComposerSlides(prev => removeComposerSlide(prev, slideId));
+              }}
+              onAddEmptySlide={handleAddEmptySlide}
+            />
+            <div className="catalog-price-panel">
+              <div className="catalog-price-hdr">
+                <span className="card-title">⑤ 단가·도착원가 확인 ({lines.length})</span>
+                <span style={{ fontSize: 10, color: 'var(--text3)' }}>PPT 미포함</span>
+                {custName && <span style={{ fontSize: 11, color: 'var(--blue)' }}>{custName}</span>}
+              </div>
+              <div className="table-wrap catalog-lines-wrap">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>Img</th>
+                      <th>품종</th>
+                      <th>카탈로그명</th>
+                      <th style={{ textAlign: 'right' }}>도착원가</th>
+                      <th style={{ textAlign: 'right' }}>판매단가</th>
+                      <th style={{ textAlign: 'right' }}>마진</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!lines.length && (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>품목을 선택하세요</td></tr>
+                    )}
+                    {lines.map(line => {
+                      const m = marginPct(line.arrivalCost, line.salePrice);
+                      const prod = findProd(products, line.prodKey) || line;
+                      return (
+                        <tr key={line.id}>
+                          <td>
+                            {renderThumb(
+                              { ...prod, ProdKey: line.prodKey, FlowerName: line.flowerName },
+                              { size: 32, lineId: line.id, onClick: () => openPicker(prod, line.id) },
+                            )}
+                          </td>
+                          <td style={{ fontSize: 10 }}>{line.flowerName}</td>
+                          <td>
+                            <input className="form-control" style={{ width: '100%', minWidth: 80, fontSize: 11 }} value={line.catalogName} onChange={e => updateLine(line.id, { catalogName: e.target.value })} />
+                          </td>
+                          <td style={{ textAlign: 'right', fontSize: 11, color: 'var(--amber)', whiteSpace: 'nowrap' }}>
+                            {fmtArrivalDisplay(line.arrivalCost, line.arrivalUnit || line.saleUnit)}
+                          </td>
+                          <td>
+                            <input type="number" className="form-control num" style={{ width: 72, textAlign: 'right', fontSize: 11 }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
+                          </td>
+                          <td className="num" style={{ color: m != null && m < 15 ? 'var(--red)' : 'var(--green)', fontSize: 10 }}>
+                            {m != null ? fmtPct(m) : '—'}
+                          </td>
+                          <td>
+                            <button type="button" className="btn btn-sm btn-danger" onClick={() => removeLine(line.id)}>✕</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </div>
@@ -802,7 +966,7 @@ export default function CatalogPage() {
       <style jsx global>{`
         .catalog-page { display: flex; flex-direction: column; height: calc(100vh - 8px); padding: 4px; box-sizing: border-box; }
         .catalog-flow-hint { flex-shrink: 0; margin-bottom: 4px; font-size: 12px; }
-        .catalog-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px 1fr 460px; gap: 4px; }
+        .catalog-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px 1fr 520px; gap: 4px; }
         .catalog-sidebar { display: flex; flex-direction: column; min-height: 0; }
         .catalog-sidebar-body { flex: 1; overflow-y: auto; padding: 4px; }
         .catalog-flower-item {
@@ -823,14 +987,30 @@ export default function CatalogPage() {
         }
         .catalog-prod-card:hover { border-color: var(--blue); background: var(--blue-bg); }
         .catalog-prod-card.checked { border-color: var(--green); background: var(--green-bg); }
+        .catalog-prod-card.no-image { opacity: 0.72; border-style: dashed; }
         .catalog-prod-meta { min-width: 0; flex: 1; }
         .catalog-prod-flower { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .catalog-prod-name { font-size: 12px; font-weight: 600; margin: 2px 0; line-height: 1.25; }
         .catalog-prod-cost { font-size: 11px; }
-        .catalog-lines-wrap { flex: 1; min-height: 0; border: none; }
+        .catalog-lines-wrap { flex: 1; min-height: 0; border: none; max-height: 180px; }
+        .catalog-price-panel {
+          flex-shrink: 0;
+          border-top: 2px solid var(--border2);
+          display: flex;
+          flex-direction: column;
+          max-height: 200px;
+        }
+        .catalog-price-hdr {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 8px;
+          background: var(--header-bg);
+          font-size: 11px;
+        }
         @media (max-width: 1100px) {
           .catalog-layout { grid-template-columns: 140px 1fr; grid-template-rows: 1fr auto; }
-          .catalog-right { grid-column: 1 / -1; max-height: 260px; }
+          .catalog-right { grid-column: 1 / -1; max-height: 420px; }
         }
       `}</style>
     </>

@@ -1,7 +1,7 @@
 // Pivot 도착원가 집계 순수함수 검증
 // 실행: node __tests__/pivotFreightArrival.test.js
 //
-// aggregateArrivalCosts(records) 의 weighted-average / edge case 를 커버.
+// aggregateArrivalCosts(records) 의 MAX 집계 / edge case 를 커버.
 // DB 없이 node 단독 실행 가능 (lib/pivotFreightArrival.js 순수함수만 import).
 
 const assert = (label, cond) => {
@@ -32,17 +32,15 @@ async function main() {
     assert('source = snapshot', m[10].source === 'snapshot');
   }
 
-  // ── 2. 다중 AWB 가중평균 ───────────────────────────────────────────────────
-  console.log('\n=== 다중 AWB — 입고수량 가중평균 ===');
+  // ── 2. 다중 AWB — 최고가 농장 ─────────────────────────────────────────────
+  console.log('\n=== 다중 AWB — 최고가 농장(MAX) ===');
   {
-    // (10 × 20000 + 30 × 25000) / 40 = (200000 + 750000) / 40 = 23750
     const m = aggregateArrivalCosts([
       { prodKey: 1, inQty: 10, displayArrivalKRW: 20000, arrivalPerStem: 2000, arrivalPerBunch: null, displayUnit: '단', source: 'live' },
       { prodKey: 1, inQty: 30, displayArrivalKRW: 25000, arrivalPerStem: 2500, arrivalPerBunch: null, displayUnit: '단', source: 'live' },
     ]);
-    assert('가중평균 23750 (MAX 25000 아님)', near(m[1].arrivalCost, 23750));
-    // arrivalPerStem: (10×2000 + 30×2500)/40 = (20000+75000)/40 = 2375
-    assert('arrivalPerStem 가중평균 2375', near(m[1].arrivalPerStem, 2375));
+    assert('MAX 25000 (가중평균 23750 아님)', near(m[1].arrivalCost, 25000));
+    assert('arrivalPerStem = 2500 (최고가 행)', near(m[1].arrivalPerStem, 2500));
   }
 
   // ── 3. inQty=0 행 제외 ────────────────────────────────────────────────────
@@ -72,8 +70,8 @@ async function main() {
       { prodKey: 11, inQty: 5, displayArrivalKRW: 20000, arrivalPerStem: 2000, displayUnit: '박스', source: 'live' },
       { prodKey: 10, inQty: 5, displayArrivalKRW: 12000, arrivalPerStem: 1200, displayUnit: '단', source: 'snapshot' },
     ]);
-    // prodKey 10: (5×10000 + 5×12000)/10 = 11000
-    assert('p10 가중평균 11000', near(m[10].arrivalCost, 11000));
+    // prodKey 10: MAX(10000, 12000) = 12000
+    assert('p10 MAX 12000', near(m[10].arrivalCost, 12000));
     assert('p11 = 20000', near(m[11].arrivalCost, 20000));
     assert('p11 displayUnit = 박스', m[11].displayUnit === '박스');
     assert('p11 source = live', m[11].source === 'live');
@@ -89,15 +87,14 @@ async function main() {
     assert('source=live 우선', m[5].source === 'live');
   }
 
-  // ── 7. arrivalPerBunch 가중평균 ───────────────────────────────────────────
-  console.log('\n=== arrivalPerBunch 가중평균 ===');
+  // ── 7. arrivalPerBunch — 최고가 행 ───────────────────────────────────────
+  console.log('\n=== arrivalPerBunch — 최고가 행 ===');
   {
-    // (10×30000 + 10×40000)/20 = 35000
     const m = aggregateArrivalCosts([
       { prodKey: 7, inQty: 10, displayArrivalKRW: 30000, arrivalPerStem: 3000, arrivalPerBunch: 30000, displayUnit: '단', source: 'snapshot' },
       { prodKey: 7, inQty: 10, displayArrivalKRW: 40000, arrivalPerStem: 4000, arrivalPerBunch: 40000, displayUnit: '단', source: 'snapshot' },
     ]);
-    assert('arrivalPerBunch 가중평균 35000', near(m[7].arrivalPerBunch, 35000));
+    assert('arrivalPerBunch MAX 40000', near(m[7].arrivalPerBunch, 40000));
   }
 
   // ── 8. arrivalPerBunch=null 행은 평균에서 제외 ────────────────────────────

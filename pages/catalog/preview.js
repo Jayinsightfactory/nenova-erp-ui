@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import CatalogPreviewPages, { CATALOG_PREVIEW_STYLES } from '../../components/catalog/CatalogPreviewPages';
-import { buildCatalogExportPages } from '../../lib/catalogLayout';
+import { resolveCatalogPages } from '../../lib/catalogSlides';
 import { absCatalogUrl } from '../../lib/catalogUtils';
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
@@ -37,7 +37,11 @@ export default function CatalogPreviewPage() {
   }, []);
 
   const pageCount = draft?.lines?.length
-    ? buildCatalogExportPages(draft.lines, { perPage: draft.perPage || 8 }).length
+    ? resolveCatalogPages({
+      lines: draft.lines,
+      composerSlides: draft.composerSlides,
+      perPage: draft.perPage || 8,
+    }).length
     : 0;
 
   return (
@@ -50,7 +54,7 @@ export default function CatalogPreviewPage() {
       <div className="preview-toolbar no-print">
         <Link href="/catalog" className="preview-link">← 편집</Link>
         <strong>카탈로그 미리보기</strong>
-        <span>{draft?.lines?.length || 0}품목 · {pageCount}슬라이드 · 16:9 ({draft?.perPage || 8}개형)</span>
+        <span>{draft?.lines?.length || 0}품목 · {pageCount}슬라이드 · 16:9 ({draft?.perPage || 8}칸)</span>
         <button type="button" onClick={() => window.open('/catalog/print', 'catalogPrint', 'width=1100,height=820')}>
           🖨 인쇄/PDF
         </button>
