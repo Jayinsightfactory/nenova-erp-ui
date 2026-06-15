@@ -330,10 +330,10 @@ export default function CatalogSlideComposer({
         }
         .composer-slide-stage {
           width: 100%;
-          max-width: 1280px;
+          max-width: none;
           margin: 0 auto;
           aspect-ratio: 16 / 9;
-          max-height: min(52vh, 520px);
+          max-height: min(62vh, 560px);
           padding: 10px 14px 12px;
           box-sizing: border-box;
           background: #fff;

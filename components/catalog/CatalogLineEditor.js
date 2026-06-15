@@ -1,5 +1,5 @@
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
-import { fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
+import { fmtArrivalCostMeta, fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
 
 const KOR_SOURCE_LABEL = {
   display: 'DB',
@@ -20,12 +20,17 @@ export default function CatalogLineEditor({
   renderThumb,
   findProd,
   openPicker,
+  costContext,
 }) {
   return (
     <div className="catalog-line-editor">
       <div className="catalog-line-editor-toolbar">
         <span className="editor-title">⑤ 품목 텍스트 편집 ({lines.length})</span>
-        <span className="editor-hint">영문·한글·단가·기타1~3 — PPT에 표시 · 도착원가는 확인용</span>
+        <span className="editor-hint">
+          도착원가 = 확인용(PPT 미포함)
+          {costContext?.displayWeek ? ` · 기준 ${costContext.displayWeek}` : ''}
+          {costContext?.vatLabel ? ` · ${costContext.vatLabel}` : ''}
+        </span>
         <button type="button" className="btn btn-sm btn-primary" onClick={onApplyKorAll} disabled={!lines.length}>
           한글명 일괄적용(매칭)
         </button>
@@ -42,7 +47,7 @@ export default function CatalogLineEditor({
               <th style={{ minWidth: 72 }}>기타1</th>
               <th style={{ minWidth: 72 }}>기타2</th>
               <th style={{ minWidth: 72 }}>기타3</th>
-              <th style={{ width: 96 }}>도착원가</th>
+              <th style={{ width: 108 }}>도착원가</th>
               <th style={{ width: 48 }}>마진</th>
               <th style={{ width: 28 }} />
             </tr>
@@ -124,8 +129,16 @@ export default function CatalogLineEditor({
                       />
                     </td>
                   ))}
-                  <td className="num" style={{ fontSize: 10, color: 'var(--amber)', whiteSpace: 'nowrap' }}>
-                    {fmtArrivalDisplay(line.arrivalCost, line.arrivalUnit || line.saleUnit)}
+                  <td className="arrival-cell" onClick={e => e.stopPropagation()}>
+                    <div className="arrival-amt num">
+                      {fmtArrivalDisplay(line.arrivalCost, line.arrivalUnit || line.saleUnit)}
+                    </div>
+                    <div className="arrival-meta">
+                      {fmtArrivalCostMeta(
+                        { ...prod, arrivalWeek: line.arrivalWeek, arrivalSource: line.arrivalSource, arrivalIsFallback: line.arrivalIsFallback },
+                        costContext,
+                      ).text}
+                    </div>
                   </td>
                   <td className="num" style={{ fontSize: 10, color: m != null && m < 15 ? 'var(--red)' : 'var(--green)' }}>
                     {m != null ? fmtPct(m) : '—'}
@@ -177,6 +190,9 @@ export default function CatalogLineEditor({
         .line-row:hover { background: var(--blue-bg); }
         .kor-cell { display: flex; gap: 2px; align-items: center; }
         .kor-cell .btn { padding: 2px 6px; font-size: 11px; flex-shrink: 0; }
+        .arrival-cell { font-size: 10px; vertical-align: top; }
+        .arrival-amt { color: var(--amber); font-weight: 600; white-space: nowrap; }
+        .arrival-meta { color: var(--text3); font-size: 9px; line-height: 1.2; margin-top: 2px; white-space: nowrap; }
       `}</style>
     </div>
   );
