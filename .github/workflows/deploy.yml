@@ -74,6 +74,12 @@ jobs:
               echo "ℹ️  KAKAO_SHEET_ID 미설정 — 기본 시트ID 사용"
             fi
             echo "=== npm install ==="
+            mkdir -p public/uploads/catalog/_bulk_import data
+            if [ -f public/uploads/catalog/_bulk_import/*통합본*.pptx ] 2>/dev/null || ls public/uploads/catalog/_bulk_import/*통합본*.pptx 1>/dev/null 2>&1; then
+              echo "✅ 카달로그 통합본 PPTX — 서버에 있음 (카탈로그 진입 시 자동 등록)"
+            else
+              echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
+            fi
             npm install --omit=dev
             echo "=== build ==="
             rm -rf .next

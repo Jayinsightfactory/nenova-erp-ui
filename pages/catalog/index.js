@@ -117,9 +117,14 @@ export default function CatalogPage() {
       setLatestWeek(data.arrivalStats?.latestWeek || data.costMeta?.latestWeek || null);
       if (data.arrivalStats?.error && !(data.arrivalStats?.fromUpload > 0)) {
         setErr(`도착원가: ${data.arrivalStats.error}`);
-      } else if (data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
+      } else       if (data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
         const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
         setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor}) — 엑셀 업로드 가능`);
+      }
+      if (data.imageAutoImport?.ran && data.imageAutoImport.message) {
+        setErr(data.imageAutoImport.message);
+      } else if (data.imageAutoImport?.error) {
+        setErr(`통합본 자동등록: ${data.imageAutoImport.error}`);
       }
       let imgMap = {};
       try {
@@ -591,9 +596,9 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
         {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
           <div className="banner-warn" style={{ background: '#fff8e6' }}>
-            <b>이미지 0품목</b> — 사진은 <b>카달로그_통합본.pptx</b> 기준입니다.
-            <b> 📂 통합본 가져오기</b>로 해당 파일을 올리면 품목별 사진+이름이 ERP에 연결됩니다 (약 391품목).
-            서버에 통합본을 두었다면 <b>폴더가져오기</b>도 가능합니다.
+            <b>이미지 0품목</b> — 사진은 서버의 <b>카달로그_통합본.pptx</b>에서 자동 등록됩니다.
+            통합본을 서버 <code>_bulk_import</code>에 한 번만 두면 매번 업로드할 필요 없습니다.
+            최초 1회는 <b>📂 통합본 가져오기</b> 또는 <b>① 도착원가 불러오기</b> 시 자동 처리됩니다.
           </div>
         )}
         {imageInfo?.error && (

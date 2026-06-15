@@ -7,6 +7,7 @@ import {
 } from '../../../lib/catalogArrival';
 import { loadArrivalOverrides, overridesToArrivalMap } from '../../../lib/catalogArrivalOverrides';
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
+import { ensureIntegratedCatalogImages, findIntegratedPptx } from '../../../lib/catalogAutoImport';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -150,6 +151,21 @@ export default withAuth(async function handler(req, res) {
     costMeta.uploadFileName = uploadStore.fileName || null;
     costMeta.uploadUpdatedAt = uploadStore.updatedAt || null;
 
+    let imageAutoImport = { ran: false, integratedOnServer: !!findIntegratedPptx() };
+    if (req.query.autoImport !== '0') {
+      try {
+        imageAutoImport = {
+          ...imageAutoImport,
+          ...(await ensureIntegratedCatalogImages(
+            productsRes.recordset,
+            req.user?.userId || req.user?.userName || 'auto',
+          )),
+        };
+      } catch (e) {
+        imageAutoImport = { ...imageAutoImport, ran: false, error: e.message };
+      }
+    }
+
     return res.status(200).json({
       success: true,
       orderYear: parsed.orderYear || year,
@@ -178,6 +194,7 @@ export default withAuth(async function handler(req, res) {
       products,
       customers: customersRes.recordset,
       flowers: flowersRes.recordset,
+      imageAutoImport,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
