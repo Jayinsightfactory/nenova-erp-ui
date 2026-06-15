@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
+import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
 import CatalogSlideComposer, { setCatalogDragData } from '../../components/catalog/CatalogSlideComposer';
 import { exportCatalogPpt } from '../../lib/catalogPptExport';
+import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
+import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
 import {
@@ -12,12 +15,9 @@ import {
   filterProducts,
   fmtArrivalDisplay,
   fmtNum,
-  fmtPct,
   groupProductsByCountryFlower,
-  marginPct,
   newCatalogLine,
   pickPrimaryImageRecord,
-  deriveCatalogNames,
   productGroupKey,
 } from '../../lib/catalogUtils';
 import {
@@ -65,8 +65,7 @@ export default function CatalogPage() {
   const [catalogTitle, setCatalogTitle] = useState('NENOVA 카탈로그');
   const [useVatArrival, setUseVatArrival] = useState(true);
   const [perPage, setPerPage] = useState(8);
-  const [showNames, setShowNames] = useState(true);
-  const [showPrice, setShowPrice] = useState(true);
+  const [catalogFields, setCatalogFields] = useState({ ...DEFAULT_CATALOG_FIELDS });
 
   const [selectedGroup, setSelectedGroup] = useState('__all__');
   const [flowerSearch, setFlowerSearch] = useState('');
@@ -74,9 +73,15 @@ export default function CatalogPage() {
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
   const [composerSlides, setComposerSlides] = useState([]);
-  const [pricePanelOpen, setPricePanelOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(true);
+  const [selectedLineId, setSelectedLineId] = useState(null);
 
   const [picker, setPicker] = useState(null);
+
+  const fieldVisibility = useMemo(
+    () => normalizeCatalogFields(catalogFields),
+    [catalogFields],
+  );
 
   const custName = useMemo(
     () => customers.find(c => String(c.CustKey) === String(custKey))?.CustName || '',
@@ -199,13 +204,30 @@ export default function CatalogPage() {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
-      if (saved.lines?.length) setLines(saved.lines);
+      if (saved.lines?.length) {
+        setLines(saved.lines.map(l => ({
+          ...l,
+          extra1: l.extra1 ?? '',
+          extra2: l.extra2 ?? '',
+          extra3: l.extra3 ?? '',
+        })));
+      }
       if (saved.composerSlides?.length) setComposerSlides(saved.composerSlides);
       if (saved.catalogTitle) setCatalogTitle(saved.catalogTitle);
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
-      if (saved.showNames != null) setShowNames(saved.showNames);
-      if (saved.showPrice != null) setShowPrice(saved.showPrice);
+      if (saved.catalogFields) setCatalogFields({ ...DEFAULT_CATALOG_FIELDS, ...saved.catalogFields });
+      else if (saved.showNames != null || saved.showPrice != null) {
+        setCatalogFields(normalizeCatalogFields({
+          showNames: saved.showNames,
+          showPrice: saved.showPrice,
+          showExtra1: saved.showExtra1,
+          showExtra2: saved.showExtra2,
+          showExtra3: saved.showExtra3,
+        }));
+      }
+      if (saved.editorOpen != null) setEditorOpen(saved.editorOpen);
+      else if (saved.pricePanelOpen != null) setEditorOpen(saved.pricePanelOpen);
       if (saved.useVatArrival != null) setUseVatArrival(saved.useVatArrival);
       if (saved.costMode) setCostMode(saved.costMode);
       if (saved.selectedWeek) selectedWeekInput.setValue(saved.selectedWeek);
@@ -222,13 +244,13 @@ export default function CatalogPage() {
         imageUrl: absCatalogUrl(l.imageUrl),
       })),
       composerSlides,
-      catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode,
+      catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode,
       selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
     }));
-  }, [lines, composerSlides, catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+  }, [lines, composerSlides, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
 
   useEffect(() => {
     const valid = new Set(lines.map(l => l.id));
@@ -240,7 +262,7 @@ export default function CatalogPage() {
     setLines(prev => prev.map(line => {
       const prod = findProd(products, line.prodKey);
       if (!prod) return line;
-      const names = deriveCatalogNames(prod);
+      const names = resolveCatalogProductNames(prod, prod.mappingKorName);
       return {
         ...line,
         arrivalCost: effectiveArrival(prod.arrivalCost, useVatArrival),
@@ -250,6 +272,9 @@ export default function CatalogPage() {
         fOrderNo: line.fOrderNo ?? prod.fOrderNo ?? null,
         engName: line.engName || names.engName,
         korName: line.korName || names.korName,
+        extra1: line.extra1 ?? '',
+        extra2: line.extra2 ?? '',
+        extra3: line.extra3 ?? '',
       };
     }));
   }, [useVatArrival, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -291,14 +316,53 @@ export default function CatalogPage() {
     const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
     const sale = prod.customerCost ?? prod.Cost ?? 0;
     const imgFields = lineImageFields(imagesByProd, prod.ProdKey);
+    const names = resolveCatalogProductNames(prod, prod.mappingKorName);
     return newCatalogLine(prod, {
       arrivalCost: arrival,
       arrivalUnit: prod.arrivalUnit,
       salePrice: sale,
       catalogName: displayProductName(prod),
+      engName: names.engName,
+      korName: names.korName,
       ...imgFields,
     });
   };
+
+  const applyMatchingKor = useCallback((lineId) => {
+    setLines(prev => prev.map(line => {
+      if (line.id !== lineId) return line;
+      const prod = findProd(products, line.prodKey);
+      if (!prod) return line;
+      const names = resolveCatalogProductNames(prod, prod.mappingKorName);
+      return {
+        ...line,
+        korName: names.korName || line.korName,
+        engName: line.engName || names.engName,
+      };
+    }));
+  }, [products]);
+
+  const applyMatchingKorAll = useCallback(() => {
+    setLines(prev => prev.map(line => {
+      const prod = findProd(products, line.prodKey);
+      if (!prod) return line;
+      const names = resolveCatalogProductNames(prod, prod.mappingKorName);
+      return {
+        ...line,
+        korName: names.korName || line.korName,
+        engName: line.engName || names.engName,
+      };
+    }));
+  }, [products]);
+
+  const toggleCatalogField = (key) => {
+    setCatalogFields(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const focusLine = useCallback((lineId) => {
+    setSelectedLineId(lineId);
+    setEditorOpen(true);
+  }, []);
 
   const toggleProduct = (prod) => {
     const key = prod.ProdKey;
@@ -620,8 +684,7 @@ export default function CatalogPage() {
         composerSlides,
         imagesByProd,
         perPage,
-        showNames,
-        showPrice,
+        catalogFields: fieldVisibility,
       });
     } catch (e) {
       setErr(`PPT 생성 실패: ${e.message}`);
@@ -735,15 +798,21 @@ export default function CatalogPage() {
           <button type="button" className="btn btn-sm" onClick={scanBulkFolder} disabled={imageBusy} title="서버 _bulk_import 폴더 (PPTX·이미지)">
             폴더가져오기
           </button>
-          <div className="page-actions">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }} title="PPT·미리보기·인쇄에 품목명 표시">
-              <input type="checkbox" checked={showNames} onChange={e => setShowNames(e.target.checked)} />
-              이름
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }} title="PPT·미리보기·인쇄에 판매단가 표시">
-              <input type="checkbox" checked={showPrice} onChange={e => setShowPrice(e.target.checked)} />
-              단가
-            </label>
+          <div className="page-actions catalog-field-toggles">
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>PPT표시:</span>
+            {[
+              ['showEng', '영문'],
+              ['showKor', '한글'],
+              ['showPrice', '단가'],
+              ['showExtra1', '기타1'],
+              ['showExtra2', '기타2'],
+              ['showExtra3', '기타3'],
+            ].map(([key, label]) => (
+              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }} title={`PPT·미리보기 ${label} 표시`}>
+                <input type="checkbox" checked={!!catalogFields[key]} onChange={() => toggleCatalogField(key)} />
+                {label}
+              </label>
+            ))}
             <button className="btn btn-primary" onClick={openPreview} disabled={!lines.length}>👁 미리보기</button>
             <button className="btn" onClick={openPrint} disabled={!lines.length}>🖨 인쇄</button>
             <button className="btn btn-success" onClick={handlePpt} disabled={!lines.length || pptBusy}>
@@ -765,9 +834,9 @@ export default function CatalogPage() {
         )}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가 → ② 품종 → ③ 품목 선택 → <b>④ PPT 슬라이드</b>(8/10칸·드래그) → ⑤ 단가·도착원가 확인 → 미리보기/PPT
+          <b>작업 순서</b> — ① 도착원가 → ② 품종 → ③ 품목 → ④ PPT 배치 → <b>⑤ 텍스트 편집</b>(영문·한글·단가·기타) → 미리보기/PPT
           <span style={{ marginLeft: 8, color: 'var(--text3)', fontSize: 11 }}>
-            도착원가(단/송이)는 확인용 · PPT에는 미포함 · 사진 없는 품목은 목록 후순위
+            한글명 = 품명매칭·DB·자동제안 · ↵버튼으로 적용 · 도착원가는 PPT 미포함
           </span>
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
@@ -866,6 +935,11 @@ export default function CatalogPage() {
                     <div className="catalog-prod-meta">
                       <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
                       <div className="catalog-prod-name">{displayProductName(prod)}</div>
+                      {(prod.catalogKorName || prod.mappingKorName) && (
+                        <div className="catalog-prod-kor" title={`한글 제안 (${prod.korNameSource || '—'})`}>
+                          {prod.catalogKorName || prod.mappingKorName}
+                        </div>
+                      )}
                       <div className="catalog-prod-cost">
                         도착 <strong className="num">{fmtArrivalDisplay(arrival, prod.arrivalUnit || prod.saleUnit || prod.OutUnit)}</strong>
                         {prod.arrivalSource === 'upload' && <span style={{ fontSize: 10, color: 'var(--text3)' }}> · 엑셀</span>}
@@ -880,7 +954,7 @@ export default function CatalogPage() {
             </div>
           </section>
 
-          <section className="catalog-ppt-panel card">
+          <section className={`catalog-ppt-panel card ${editorOpen ? 'with-editor' : ''}`}>
             <div className="card-header">
               <span className="card-title">④ PPT 슬라이드</span>
               <span style={{ fontSize: 10, color: 'var(--text3)' }}>{composerSlides.length}장 · {perPage}칸 · 16:9</span>
@@ -888,9 +962,9 @@ export default function CatalogPage() {
                 type="button"
                 className="btn btn-sm"
                 style={{ marginLeft: 'auto' }}
-                onClick={() => setPricePanelOpen(v => !v)}
+                onClick={() => setEditorOpen(v => !v)}
               >
-                {pricePanelOpen ? '⑤ 단가 패널 닫기' : `⑤ 단가·도착원가 (${lines.length})`}
+                {editorOpen ? '⑤ 편집 패널 닫기' : `⑤ 텍스트 편집 (${lines.length})`}
               </button>
             </div>
             <CatalogSlideComposer
@@ -898,8 +972,7 @@ export default function CatalogPage() {
               onPerPageChange={handlePerPageChange}
               slides={composerSlides}
               linesById={linesById}
-              showNames={showNames}
-              showPrice={showPrice}
+              catalogFields={fieldVisibility}
               onDropZone={handleComposerDropGroup}
               onDropAutoSlot={handleComposerAutoSlot}
               onDropSlot={handleComposerDropSlot}
@@ -910,65 +983,22 @@ export default function CatalogPage() {
                 setComposerSlides(prev => removeComposerSlide(prev, slideId));
               }}
               onAddEmptySlide={handleAddEmptySlide}
+              onSelectLine={focusLine}
             />
-            {pricePanelOpen && (
-            <div className="catalog-price-panel">
-              <div className="catalog-price-hdr">
-                <span className="card-title">⑤ 단가·도착원가 확인 ({lines.length})</span>
-                <span style={{ fontSize: 10, color: 'var(--text3)' }}>PPT 미포함</span>
-                {custName && <span style={{ fontSize: 11, color: 'var(--blue)' }}>{custName}</span>}
-              </div>
-              <div className="table-wrap catalog-lines-wrap">
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 40 }}>Img</th>
-                      <th>품종</th>
-                      <th>카탈로그명</th>
-                      <th style={{ textAlign: 'right' }}>도착원가</th>
-                      <th style={{ textAlign: 'right' }}>판매단가</th>
-                      <th style={{ textAlign: 'right' }}>마진</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {!lines.length && (
-                      <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>품목을 선택하세요</td></tr>
-                    )}
-                    {lines.map(line => {
-                      const m = marginPct(line.arrivalCost, line.salePrice);
-                      const prod = findProd(products, line.prodKey) || line;
-                      return (
-                        <tr key={line.id}>
-                          <td>
-                            {renderThumb(
-                              { ...prod, ProdKey: line.prodKey, FlowerName: line.flowerName },
-                              { size: 32, lineId: line.id, onClick: () => openPicker(prod, line.id) },
-                            )}
-                          </td>
-                          <td style={{ fontSize: 10 }}>{line.flowerName}</td>
-                          <td>
-                            <input className="form-control" style={{ width: '100%', minWidth: 80, fontSize: 11 }} value={line.catalogName} onChange={e => updateLine(line.id, { catalogName: e.target.value })} />
-                          </td>
-                          <td style={{ textAlign: 'right', fontSize: 11, color: 'var(--amber)', whiteSpace: 'nowrap' }}>
-                            {fmtArrivalDisplay(line.arrivalCost, line.arrivalUnit || line.saleUnit)}
-                          </td>
-                          <td>
-                            <input type="number" className="form-control num" style={{ width: 72, textAlign: 'right', fontSize: 11 }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
-                          </td>
-                          <td className="num" style={{ color: m != null && m < 15 ? 'var(--red)' : 'var(--green)', fontSize: 10 }}>
-                            {m != null ? fmtPct(m) : '—'}
-                          </td>
-                          <td>
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => removeLine(line.id)}>✕</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {editorOpen && (
+              <CatalogLineEditor
+                lines={lines}
+                products={products}
+                selectedLineId={selectedLineId}
+                onSelectLine={setSelectedLineId}
+                onUpdateLine={updateLine}
+                onRemoveLine={removeLine}
+                onApplyKor={applyMatchingKor}
+                onApplyKorAll={applyMatchingKorAll}
+                renderThumb={renderThumb}
+                findProd={findProd}
+                openPicker={openPicker}
+              />
             )}
           </section>
         </div>
@@ -982,8 +1012,17 @@ export default function CatalogPage() {
           min-height: 0;
           display: grid;
           grid-template-columns: 160px 1fr;
-          grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
+          grid-template-rows: minmax(0, 32%) minmax(0, 1fr);
           gap: 4px;
+        }
+        .catalog-ppt-panel.with-editor :global(.catalog-composer) {
+          max-height: 52%;
+        }
+        .catalog-field-toggles {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
         }
         .catalog-sidebar { grid-row: 1; min-height: 0; }
         .catalog-center { grid-row: 1; grid-column: 2; min-height: 0; }
@@ -1018,23 +1057,8 @@ export default function CatalogPage() {
         .catalog-prod-meta { min-width: 0; flex: 1; }
         .catalog-prod-flower { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .catalog-prod-name { font-size: 12px; font-weight: 600; margin: 2px 0; line-height: 1.25; }
+        .catalog-prod-kor { font-size: 10px; color: var(--blue); line-height: 1.2; margin-bottom: 2px; }
         .catalog-prod-cost { font-size: 11px; }
-        .catalog-lines-wrap { flex: 1; min-height: 0; border: none; max-height: 140px; }
-        .catalog-price-panel {
-          flex-shrink: 0;
-          border-top: 2px solid var(--border2);
-          display: flex;
-          flex-direction: column;
-          max-height: 160px;
-        }
-        .catalog-price-hdr {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 4px 8px;
-          background: var(--header-bg);
-          font-size: 11px;
-        }
         @media (max-width: 900px) {
           .catalog-layout { grid-template-columns: 120px 1fr; grid-template-rows: minmax(0, 34%) minmax(0, 1fr); }
         }

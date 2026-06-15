@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import {
   absCatalogUrl,
   catalogLineNames,
-  fmtCatalogSalePrice,
 } from '../../lib/catalogUtils';
+import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
 import { formatOriginLabel } from '../../lib/catalogLayout';
 import {
   catalogGridCols,
@@ -46,11 +46,11 @@ function MiniSlot({
   line,
   slotIndex,
   slideId,
-  showNames,
-  showPrice,
+  catalogFields,
   onDropSlot,
   onClearSlot,
   onDragLine,
+  onSelectLine,
 }) {
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -76,13 +76,14 @@ function MiniSlot({
     );
   }
 
-  const { eng, kor } = catalogLineNames(line);
-  const priceLabel = showPrice ? fmtCatalogSalePrice(line) : '';
+  const { eng } = catalogLineNames(line);
+  const cellLines = buildCatalogCellLines(line, catalogFields);
 
   return (
     <div
       className="composer-slot filled"
       draggable
+      onClick={() => onSelectLine?.(line.id)}
       onDragStart={(e) => {
         setCatalogDragData(e, { type: 'line', lineId: line.id });
         onDragLine?.(line.id);
@@ -106,12 +107,16 @@ function MiniSlot({
           <span>{eng?.slice(0, 2) || '품'}</span>
         )}
       </div>
-      {showNames && (
-        <div className="composer-slot-name">
-          {eng || kor || line.catalogName || line.prodName}
-        </div>
-      )}
-      {priceLabel ? <div className="composer-slot-price">{priceLabel}</div> : null}
+      <div className="composer-slot-text">
+        {cellLines.map(row => (
+          <div
+            key={row.kind}
+            className={row.kind === 'price' ? 'composer-slot-price' : row.kind.startsWith('extra') ? 'composer-slot-extra' : 'composer-slot-name'}
+          >
+            {row.text}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -121,14 +126,14 @@ export default function CatalogSlideComposer({
   onPerPageChange,
   slides,
   linesById,
-  showNames,
-  showPrice,
+  catalogFields,
   onDropZone,
   onDropSlot,
   onDropAutoSlot,
   onClearSlot,
   onRemoveSlide,
   onAddEmptySlide,
+  onSelectLine,
 }) {
   const slotCount = perPageSlotCount(perPage);
   const cols = catalogGridCols(perPage);
@@ -210,13 +215,13 @@ export default function CatalogSlideComposer({
                     <MiniSlot
                       key={`${slide.id}-${idx}`}
                       line={line}
-                      slotIndex={idx}
-                      slideId={slide.id}
-                      showNames={showNames}
-                      showPrice={showPrice}
-                      onDropSlot={onDropSlot}
-                      onClearSlot={onClearSlot}
-                    />
+                    slotIndex={idx}
+                    slideId={slide.id}
+                    catalogFields={catalogFields}
+                    onDropSlot={onDropSlot}
+                    onClearSlot={onClearSlot}
+                    onSelectLine={onSelectLine}
+                  />
                   );
                 })}
               </div>
@@ -370,22 +375,39 @@ export default function CatalogSlideComposer({
         .composer-slot-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .composer-slot-img span { font-size: 11px; font-weight: 700; color: #bbb; }
         .composer-slot-name {
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 600;
-          line-height: 1.15;
+          line-height: 1.1;
           text-align: center;
           overflow: hidden;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           width: 100%;
+        }
+        .composer-slot-text {
+          width: 100%;
           flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          max-height: 38%;
+          overflow: hidden;
+        }
+        .composer-slot-extra {
+          font-size: 8px;
+          color: var(--text3);
+          text-align: center;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
         }
         .composer-slot-price {
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 700;
           color: var(--red);
           flex-shrink: 0;
+          text-align: center;
         }
       `}</style>
     </div>

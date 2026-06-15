@@ -4,7 +4,8 @@ import {
   layoutCssVars,
 } from '../../lib/catalogLayout';
 import { resolveCatalogPages } from '../../lib/catalogSlides';
-import { absCatalogUrl, catalogLineNames, fmtCatalogSalePrice } from '../../lib/catalogUtils';
+import { absCatalogUrl } from '../../lib/catalogUtils';
+import { buildCatalogCellLines, hasCatalogCellText, normalizeCatalogFields } from '../../lib/catalogLineText';
 
 export function useCatalogPages(draft) {
   return useMemo(() => {
@@ -24,8 +25,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
 
   const per = draft.perPage || 8;
   const slideStyle = layoutCssVars(per, draft.spacing || 'wide');
-  const showNames = draft.showNames !== false;
-  const showPrice = draft.showPrice !== false;
+  const fields = normalizeCatalogFields(draft);
 
   return (
     <>
@@ -47,25 +47,31 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
 
           <div className={`catalog-slide-grid per-${per}`}>
             {page.lines.map(line => {
-              const { eng, kor } = catalogLineNames(line);
-              const priceLabel = showPrice ? fmtCatalogSalePrice(line) : '';
+              const cellLines = buildCatalogCellLines(line, fields);
               return (
                 <article key={line.id} className="catalog-slide-item">
                   <div className="catalog-slide-img">
                     {line.imageUrl ? (
                       <img src={absCatalogUrl(line.imageUrl)} alt="" />
                     ) : (
-                      <span className="catalog-slide-ph">{eng?.slice(0, 2) || '품'}</span>
+                      <span className="catalog-slide-ph">{line.engName?.slice(0, 2) || '품'}</span>
                     )}
                   </div>
-                  {(showNames || priceLabel) ? (
+                  {hasCatalogCellText(line, fields) ? (
                     <div className="catalog-slide-names">
-                      {showNames && eng ? <div className="eng-name">{eng}</div> : null}
-                      {showNames && kor ? <div className="kor-name">{kor}</div> : null}
-                      {showNames && !eng && !kor ? (
-                        <div className="eng-name">{line.catalogName || line.prodName}</div>
-                      ) : null}
-                      {priceLabel ? <div className="price-name">{priceLabel}</div> : null}
+                      {cellLines.map(row => (
+                        <div
+                          key={`${line.id}-${row.kind}`}
+                          className={
+                            row.kind === 'price' ? 'price-name'
+                              : row.kind.startsWith('extra') ? 'extra-name'
+                                : 'eng-name'
+                          }
+                          style={row.kind.startsWith('extra') ? { fontSize: '10pt', color: '#444' } : undefined}
+                        >
+                          {row.text}
+                        </div>
+                      ))}
                     </div>
                   ) : null}
                 </article>

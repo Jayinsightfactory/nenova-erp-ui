@@ -9,6 +9,11 @@ import { loadArrivalOverrides, overridesToArrivalMap } from '../../../lib/catalo
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
 import { resolveCatalogArrivalDisplay, catalogSaleUnit } from '../../../lib/catalogUnitMatch';
 import { ensureIntegratedCatalogImages, findIntegratedPptx } from '../../../lib/catalogAutoImport';
+import { loadMappings } from '../../../lib/parseMappings';
+import {
+  findMappingKorNameByProdKey,
+  resolveCatalogProductNames,
+} from '../../../lib/catalogNameResolve';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -135,6 +140,7 @@ export default withAuth(async function handler(req, res) {
     }
 
     let withArrival = 0;
+    const mappings = loadMappings();
     const products = productsRes.recordset.map(p => {
       const calc = arrivalMap[p.ProdKey] || {};
       const uploaded = uploadMap[p.ProdKey];
@@ -148,6 +154,8 @@ export default withAuth(async function handler(req, res) {
       });
       const arrivalCost = Number(resolved.arrivalCost || 0);
       if (arrivalCost > 0) withArrival += 1;
+      const mappingKorName = findMappingKorNameByProdKey(p.ProdKey, mappings);
+      const names = resolveCatalogProductNames(p, mappingKorName);
       return {
         ...p,
         arrivalCost,
@@ -161,6 +169,12 @@ export default withAuth(async function handler(req, res) {
         arrivalWeek: uploaded ? null : (arr.arrivalWeek || null),
         arrivalIsFallback: uploaded ? false : !!arr.isFallback,
         customerCost: customerCosts[p.ProdKey] ?? null,
+        mappingKorName,
+        suggestedKorName: names.suggestedKor,
+        suggestedEngName: names.engName,
+        catalogKorName: names.korName,
+        catalogEngName: names.engName,
+        korNameSource: names.korSource,
       };
     });
 
