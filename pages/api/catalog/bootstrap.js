@@ -7,6 +7,7 @@ import {
 } from '../../../lib/catalogArrival';
 import { loadArrivalOverrides, overridesToArrivalMap } from '../../../lib/catalogArrivalOverrides';
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
+import { resolveCatalogArrivalDisplay, catalogSaleUnit } from '../../../lib/catalogUnitMatch';
 import { ensureIntegratedCatalogImages, findIntegratedPptx } from '../../../lib/catalogAutoImport';
 
 export default withAuth(async function handler(req, res) {
@@ -139,12 +140,23 @@ export default withAuth(async function handler(req, res) {
       const uploaded = uploadMap[p.ProdKey];
       const arr = uploaded || calc;
       if (uploaded) fromUpload += 1;
-      const arrivalCost = Number(arr.arrivalCost || 0);
+      const resolved = resolveCatalogArrivalDisplay(p, {
+        arrivalCost: arr.arrivalCost,
+        displayUnit: arr.displayUnit,
+        arrivalPerStem: arr.arrivalPerStem,
+        arrivalPerBunch: arr.arrivalPerBunch,
+      });
+      const arrivalCost = Number(resolved.arrivalCost || 0);
       if (arrivalCost > 0) withArrival += 1;
       return {
         ...p,
         arrivalCost,
-        arrivalUnit: arr.displayUnit || p.OutUnit || '단',
+        arrivalUnit: resolved.arrivalUnit || catalogSaleUnit(p),
+        saleUnit: resolved.saleUnit || catalogSaleUnit(p),
+        arrivalRawCost: resolved.rawCost || 0,
+        arrivalRawUnit: resolved.rawUnit || null,
+        arrivalUnitMatch: resolved.matchedBy || null,
+        arrivalUnitMismatch: !!resolved.unitMismatch,
         arrivalSource: uploaded ? 'upload' : (arr.source || null),
         arrivalWeek: uploaded ? null : (arr.arrivalWeek || null),
         arrivalIsFallback: uploaded ? false : !!arr.isFallback,

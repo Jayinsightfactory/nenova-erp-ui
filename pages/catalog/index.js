@@ -715,7 +715,10 @@ export default function CatalogPage() {
                         도착 <strong className="num">{fmtNum(arrival) || '—'}</strong>
                         {arrival > 0 && (
                           <span style={{ fontSize: 10, color: 'var(--text3)' }}>
-                            {' '}/{prod.arrivalUnit || prod.OutUnit}
+                            {' '}/{prod.arrivalUnit || prod.saleUnit || prod.OutUnit}
+                            {prod.arrivalRawUnit && prod.arrivalRawUnit !== prod.arrivalUnit && prod.arrivalRawCost > 0 && (
+                              <> · 원본 {fmtNum(prod.arrivalRawCost)}/{prod.arrivalRawUnit}</>
+                            )}
                             {prod.arrivalSource === 'upload' && <> · 엑셀</>}
                             {prod.arrivalIsFallback && prod.arrivalWeek && (
                               <> · {prod.arrivalWeek}</>
@@ -775,7 +778,7 @@ export default function CatalogPage() {
                             value={line.arrivalCost || ''}
                             onChange={e => updateLine(line.id, { arrivalCost: Number(e.target.value) || 0 })}
                           />
-                          <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'right' }}>/{line.arrivalUnit}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'right' }}>/{line.arrivalUnit || line.saleUnit}</div>
                         </td>
                         <td>
                           <input type="number" className="form-control num" style={{ width: 80, textAlign: 'right' }} value={line.salePrice || ''} onChange={e => updateLine(line.id, { salePrice: Number(e.target.value) || 0 })} />
