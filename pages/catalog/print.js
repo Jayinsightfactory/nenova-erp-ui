@@ -41,8 +41,8 @@ export default function CatalogPrintPage() {
       </Head>
 
       <div className="print-toolbar no-print">
-        <button type="button" onClick={() => window.print()}>🖨 인쇄 / PDF 저장 (가로)</button>
-        <span>{draft.lines.length}품목 · {pages.length}페이지 · A4 가로</span>
+        <button type="button" onClick={() => window.print()}>🖨 인쇄 / PDF 저장 (16:9)</button>
+        <span>{draft.lines.length}품목 · {pages.length}슬라이드 · 16:9 ({draft.perPage || 8}개형)</span>
       </div>
 
       <CatalogPreviewPages draft={draft} mode="print" />

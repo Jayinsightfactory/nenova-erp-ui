@@ -15,6 +15,8 @@ import {
   marginPct,
   newCatalogLine,
   pickPrimaryImageRecord,
+  deriveCatalogNames,
+  productGroupKey,
 } from '../../lib/catalogUtils';
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
@@ -205,9 +207,19 @@ export default function CatalogPage() {
     setLines(prev => prev.map(line => {
       const prod = findProd(products, line.prodKey);
       if (!prod) return line;
-      return { ...line, arrivalCost: effectiveArrival(prod.arrivalCost, useVatArrival) };
+      const names = deriveCatalogNames(prod);
+      return {
+        ...line,
+        arrivalCost: effectiveArrival(prod.arrivalCost, useVatArrival),
+        countryFlower: line.countryFlower || prod.CountryFlower || productGroupKey(prod),
+        cSort: line.cSort ?? prod.cSort ?? null,
+        fSort: line.fSort ?? prod.fSort ?? null,
+        fOrderNo: line.fOrderNo ?? prod.fOrderNo ?? null,
+        engName: line.engName || names.engName,
+        korName: line.korName || names.korName,
+      };
     }));
-  }, [useVatArrival]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useVatArrival, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (products.length && Object.keys(imagesByProd).length) {
@@ -459,17 +471,10 @@ export default function CatalogPage() {
     setPptBusy(true);
     setErr('');
     try {
-      const weekLabel = costMode === 'selected' && selectedWeekInput.value
-        ? `${yearInput.value} · ${selectedWeekInput.value}`
-        : latestWeek
-          ? `${yearInput.value} · ${latestWeek} (최근원가)`
-          : '';
       await exportCatalogPpt({
-        title: catalogTitle,
+        fileName: catalogTitle,
         lines: lines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
         perPage,
-        custName,
-        weekLabel,
       });
     } catch (e) {
       setErr(`PPT 생성 실패: ${e.message}`);
