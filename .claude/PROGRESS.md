@@ -4,6 +4,27 @@
 
 ---
 
+## [2026-06-15] 세션 — 도착원가 SQL 자동화 + 카탈로그 export + 배포
+
+### 작업 내용
+- **원가자료 Excel 8종 vs ERP** 대조: Cloudland/Holex/Premium Greens 일치, Ecuador→La Rosaleda AWB그룹, 태국→Krung, NZ/SUNPRIDE 품목명 불일치.
+- **핵심 버그**: GW/CW가 `OutQuantity`에만 있는 BILL(Cloudland) → `freightWeightOfRow()`에 OutQuantity 추가 → live 도착원가 자동 계산 복구.
+- **카탈로그**: 이름/단가 PPT·미리보기 체크박스(기본 ON). Excel 업로드 = 덮어쓰기(선택) UI 명확화.
+- **배포**: `e7f747c` → Cafe24 success.
+
+### 변경된 파일 (커밋됨)
+- `lib/freightCalc.js`, `lib/pivotFreightArrival.js`, `pages/api/freight/index.js`, `pages/api/freight/excel.js`
+- `pages/catalog/index.js`, `lib/catalogPptExport.js`, `lib/catalogUtils.js`, `components/catalog/CatalogPreviewPages.js`
+- `scripts/probe-pivot-arrival.js` (yws 계산 fix)
+
+### 인계 문서
+- `docs/CLAUDE_HANDOFF_CATALOG_ARRIVAL_2026-06-15.md`
+
+### 다음 작업 예정
+- Holex FOB 3건, NZ Bloom/Royal Base 품목명 매핑, probe 스크립트 정리.
+
+---
+
 ## [2026-06-12] 세션 — Pivot 필드 드래그(Field List) + 도착원가
 
 ### 작업 내용 (미커밋, 2단계 분업)
