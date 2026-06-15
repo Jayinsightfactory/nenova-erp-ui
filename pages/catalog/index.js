@@ -407,7 +407,7 @@ export default function CatalogPage() {
       await reloadImages();
       const parts = [];
       if (imgData.success && imgData.matchedCount) parts.push(`이미지파일 ${imgData.matchedCount}건`);
-      if (srcData.success && srcData.matchedCount) parts.push(`카탈로그원본 ${srcData.matchedCount}건`);
+      if (srcData.success && srcData.matchedCount) parts.push(`통합본 ${srcData.matchedCount}건`);
       if (!parts.length) {
         throw new Error(srcData.error || imgData.error || '등록된 항목 없음 — _bulk_import 폴더 확인');
       }
@@ -436,7 +436,7 @@ export default function CatalogPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '가져오기 실패');
       await reloadImages();
-      setErr(`카탈로그 원본: ${data.message} · 미매칭 ${data.unmatched?.length || 0}건`);
+      setErr(`통합본: ${data.message} · 미매칭 ${data.unmatched?.length || 0}건`);
     } catch (ex) {
       setErr(`카탈로그 원본: ${ex.message}`);
     } finally {
@@ -564,9 +564,9 @@ export default function CatalogPage() {
               엑셀 초기화 ({uploadMeta.count})
             </button>
           )}
-          <label className="btn btn-sm btn-primary" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="카탈로그 추출기 PPTX/XLSX — 이미지+품목명 자동매칭">
-            {imageBusy ? '…' : '📂 카탈로그원본'}
-            <input type="file" accept=".pptx,.xlsx,.xls,.json,.zip" style={{ display: 'none' }} disabled={imageBusy} onChange={handleCatalogSource} />
+          <label className="btn btn-sm btn-primary" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="카달로그_통합본.pptx — 품목별 사진+이름 (391품목)">
+            {imageBusy ? '…' : '📂 통합본 가져오기'}
+            <input type="file" accept=".pptx,.zip" style={{ display: 'none' }} disabled={imageBusy} onChange={handleCatalogSource} />
           </label>
           <label className="btn btn-sm" style={{ cursor: imageBusy ? 'wait' : 'pointer', margin: 0 }} title="파일명: ProdKey 또는 품목명.jpg">
             {imageBusy ? '이미지…' : '📁 이미지 일괄'}
@@ -591,9 +591,9 @@ export default function CatalogPage() {
         {err && <div className="banner-warn">{err}</div>}
         {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
           <div className="banner-warn" style={{ background: '#fff8e6' }}>
-            <b>이미지 0품목</b> — ERP와 자동 연결되지 않습니다. 올려주신 <b>카탈로그 PPTX/XLSX</b>는
-            <b> 📂 카탈로그원본</b>으로 가져오세요 (추출기처럼 이미지+품목명 매칭).
-            개별 📷 · 📁 이미지일괄 · 폴더가져오기(_bulk_import)도 가능합니다.
+            <b>이미지 0품목</b> — 사진은 <b>카달로그_통합본.pptx</b> 기준입니다.
+            <b> 📂 통합본 가져오기</b>로 해당 파일을 올리면 품목별 사진+이름이 ERP에 연결됩니다 (약 391품목).
+            서버에 통합본을 두었다면 <b>폴더가져오기</b>도 가능합니다.
           </div>
         )}
         {imageInfo?.error && (

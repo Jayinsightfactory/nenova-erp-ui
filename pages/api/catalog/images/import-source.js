@@ -13,12 +13,10 @@ export const config = { api: { bodyParser: false } };
 
 const MAX_SIZE = 80 * 1024 * 1024;
 const SOURCE_EXT = ['.pptx', '.xlsx', '.xls', '.json', '.zip'];
+const INTEGRATED_PPTX_RE = /통합본|integrated/i;
 
-async function loadProducts() {
-  const r = await query(
-    `SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName FROM Product WHERE isDeleted=0`,
-  );
-  return r.recordset;
+function isIntegratedPptx(name) {
+  return INTEGRATED_PPTX_RE.test(name) && name.toLowerCase().endsWith('.pptx');
 }
 
 function listSourceFiles() {
@@ -29,7 +27,21 @@ function listSourceFiles() {
     const ext = ent.name.toLowerCase().slice(ent.name.lastIndexOf('.'));
     if (SOURCE_EXT.includes(ext)) out.push(path.join(BULK_IMPORT_DIR, ent.name));
   }
+  // 카달로그_통합본.pptx — 사진 기준 파일 (있으면 이것만 사용)
+  const integrated = out.filter(p => isIntegratedPptx(path.basename(p)));
+  if (integrated.length) {
+    integrated.sort((a, b) => path.basename(a).localeCompare(path.basename(b), 'ko'));
+    return [integrated[0]];
+  }
+  out.sort((a, b) => path.basename(a).localeCompare(path.basename(b), 'ko'));
   return out;
+}
+
+async function loadProducts() {
+  const r = await query(
+    `SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName FROM Product WHERE isDeleted=0`,
+  );
+  return r.recordset;
 }
 
 export default withAuth(async function handler(req, res) {
