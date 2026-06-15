@@ -1,0 +1,44 @@
+name: Upload catalog integrated PPTX
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch containing deploy-assets/catalog/카달로그_통합본.pptx'
+        required: true
+        default: 'catalog-upload-once'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Verify asset
+        run: |
+          test -f "deploy-assets/catalog/카달로그_통합본.pptx"
+          ls -la "deploy-assets/catalog/카달로그_통합본.pptx"
+
+      - name: SCP to Cafe24 VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: "deploy-assets/catalog/카달로그_통합본.pptx"
+          target: "/var/www/nenova-erp/public/uploads/catalog/_bulk_import/"
+          strip_components: 2
+
+      - name: Verify on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            ls -la /var/www/nenova-erp/public/uploads/catalog/_bulk_import/
+            echo "✅ 카달로그_통합본.pptx 업로드 완료"
