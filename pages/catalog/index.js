@@ -111,6 +111,11 @@ export default function CatalogPage() {
     };
   }, [arrivalStats, latestWeek, costMode, selectedWeekInput.value, useVatArrival]);
 
+  const custName = useMemo(
+    () => customers.find(c => String(c.CustKey) === String(custKey))?.CustName || '',
+    [customers, custKey],
+  );
+
   const buildDraftPayload = useCallback(() => buildCatalogDraftPayload({
     catalogTitle,
     custKey,
@@ -164,11 +169,6 @@ export default function CatalogPage() {
   useEffect(() => {
     refreshDraftList();
   }, [refreshDraftList]);
-
-  const custName = useMemo(
-    () => customers.find(c => String(c.CustKey) === String(custKey))?.CustName || '',
-    [customers, custKey],
-  );
 
   const productGroups = useMemo(() => groupProductsByCountryFlower(products), [products]);
 

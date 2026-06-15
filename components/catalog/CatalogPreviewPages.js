@@ -42,7 +42,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
                 <span className="title-small">{formatOriginLabel(page.titleSmall)}</span>
               ) : null}
             </div>
-            <div className="catalog-slide-logo">NENOVA</div>
+            <img className="catalog-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
           </header>
 
           <div className={`catalog-slide-grid per-${per}`}>
@@ -127,11 +127,10 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
         }
         .catalog-slide-logo {
           flex-shrink: 0;
-          font-size: 11pt;
-          font-weight: 900;
-          letter-spacing: 0.18em;
-          color: #1a3a6b;
-          padding-top: 0.15cm;
+          width: 4.72cm;
+          height: 2.85cm;
+          object-fit: contain;
+          object-position: top right;
         }
         .catalog-slide-grid {
           position: absolute;
