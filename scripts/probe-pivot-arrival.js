@@ -28,7 +28,7 @@ const cfg = {
 // 차수 설정
 const PROBE_YEAR  = '2024';
 const PROBE_WEEK  = '24-02';
-const PROBE_YWS   = '202402'; // OrderYear + REPLACE(OrderWeek,'-','')
+const PROBE_YWS   = PROBE_YEAR + PROBE_WEEK.replace(/-/g, ''); // OrderYear + REPLACE(OrderWeek,'-','')
 
 (async () => {
   const pool = await sql.connect(cfg);

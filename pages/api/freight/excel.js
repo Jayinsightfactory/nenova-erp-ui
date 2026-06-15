@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost } from '../../../lib/freightCalc';
+import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
 import { loadOverrides as loadCategoryOverrides } from '../../../lib/categoryOverrides';
 
 export default withAuth(async function handler(req, res) {
@@ -111,7 +111,8 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
          FROM WarehouseMaster WHERE WarehouseKey IN (${keyCSV}) AND isDeleted=0 ORDER BY WarehouseKey`
     ),
     query(
-      `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
+      `SELECT wd.WdetailKey, wd.WarehouseKey, wd.ProdKey, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity,
+              ISNULL(wd.OutQuantity,0) AS OutQuantity, wd.UPrice, wd.TPrice, wd.OrderCode,
           wm.FarmName,
           p.ProdName, p.FlowerName, p.CounName, p.SteamOf1Bunch, p.Cost, p.OutUnit,
           p.BoxWeight AS P_BoxWeight, p.BoxCBM AS P_BoxCBM, p.TariffRate AS P_TariffRate
@@ -141,6 +142,10 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const extractedGW   = isRatePattern ? (Number(freightMainRow.BunchQuantity) || 0) : 0;
   const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
+  const gwRows = freightRows.filter(r => isGrossWeightItem(r.ProdName));
+  const cwRows = freightRows.filter(r => isChargeableWeightItem(r.ProdName));
+  const extractedGwFromRow = gwRows.reduce((a, r) => a + freightWeightOfRow(r), 0);
+  const extractedCwFromRow = cwRows.reduce((a, r) => a + freightWeightOfRow(r), 0);
   const snap = fcRes.recordset[0] || null;
   const primary = (masters.length > 0 ? masters : mastersAll)[0];
   const sumF = (f) => masters.map(m => Number(m[f])).filter(v => !Number.isNaN(v) && v !== 0).reduce((a,b)=>a+b,0) || null;
@@ -226,8 +231,8 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
     return n > 0 ? n : fallback;
   };
   const invoiceUSD = pickOv(ovMaster.invoiceUSD, dbInvoiceUSD);
-  const gw = pickNonZero(ovMaster.gw, snap?.GrossWeight ?? sumF('GrossWeight') ?? extractedGW ?? 0);
-  const cw = pickNonZero(ovMaster.cw, snap?.ChargeableWeight ?? sumF('ChargeableWeight') ?? extractedGW ?? 0);
+  const gw = pickNonZero(ovMaster.gw, snap?.GrossWeight ?? (extractedGwFromRow > 1 ? extractedGwFromRow : null) ?? sumF('GrossWeight') ?? extractedGW ?? 0);
+  const cw = pickNonZero(ovMaster.cw, snap?.ChargeableWeight ?? (extractedCwFromRow > 1 ? extractedCwFromRow : null) ?? sumF('ChargeableWeight') ?? extractedGW ?? 0);
   const rate = pickNonZero(ovMaster.rateUSD, snap?.FreightRateUSD ?? firstF('FreightRateUSD') ?? extractedRate ?? 0);
   const docFee = pickNonZero(ovMaster.docFeeUSD, snap?.DocFeeUSD ?? firstF('DocFeeUSD') ?? extractedDoc ?? 0);
   const exchangeRate = pickOv(ovMaster.exchangeRate, snap?.ExchangeRate || 0);

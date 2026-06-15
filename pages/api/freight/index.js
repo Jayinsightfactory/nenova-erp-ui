@@ -5,7 +5,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
 import { loadOverrides } from '../../../lib/categoryOverrides';
 
 const DEFAULT_CUSTOMS = {
@@ -169,23 +169,10 @@ async function loadFreightData(res, keys, awbLabel) {
   const extractedRate  = isRatePattern ? (Number(freightMainRow.UPrice) || 0) : 0;
   const extractedDoc   = freightDocRows.reduce((a, r) => a + (Number(r.TPrice) || 0), 0);
 
-  // 품목명이 "GROSS WEIGHT" / "CHARGEABLE WEIGHT" 인 특수행에서 무게값 추출
-  // 실제 DB: 오타 "weigth" + 무게값이 Box/Bunch/Steam 어느 컬럼에든 올 수 있음
-  // (Yunnan Melody 는 SteamQuantity 에 554, FREIGHTWISE 는 BunchQuantity 에)
-  const isGwName = (n) => /^\s*gross\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
-  const isCwName = (n) => /^\s*chargeable\s*weig[h]?t[h]?\s*$/i.test(String(n || '').trim());
-  // Box/Bunch/Steam 중 1보다 큰 최대값 = 실제 무게 (더미값 1은 스킵)
-  const weightOfRow = (r) => {
-    const vals = [Number(r.BoxQuantity) || 0, Number(r.BunchQuantity) || 0, Number(r.SteamQuantity) || 0];
-    const realVals = vals.filter(v => v > 1);
-    return realVals.length > 0 ? Math.max(...realVals) : 0;
-  };
-  // 이제 isFreightItem 에 Gross/Chargeable weigth 패턴이 포함되므로 freightRows 에 섞여 들어감
-  // freightRows 에서 GW/CW 행만 뽑아 weightOfRow 로 무게 추출
-  const gwRows = freightRows.filter(r => isGwName(r.ProdName));
-  const cwRows = freightRows.filter(r => isCwName(r.ProdName));
-  const extractedGwFromRow = gwRows.reduce((a, r) => a + weightOfRow(r), 0);
-  const extractedCwFromRow = cwRows.reduce((a, r) => a + weightOfRow(r), 0);
+  const gwRows = freightRows.filter(r => isGrossWeightItem(r.ProdName));
+  const cwRows = freightRows.filter(r => isChargeableWeightItem(r.ProdName));
+  const extractedGwFromRow = gwRows.reduce((a, r) => a + freightWeightOfRow(r), 0);
+  const extractedCwFromRow = cwRows.reduce((a, r) => a + freightWeightOfRow(r), 0);
 
   // 대표 마스터: primary 기준 + 집계값 + FREIGHTWISE 에서 추출한 GW/Rate/DocFee fallback
   const master = {

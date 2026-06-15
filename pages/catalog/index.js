@@ -53,6 +53,8 @@ export default function CatalogPage() {
   const [catalogTitle, setCatalogTitle] = useState('NENOVA 카탈로그');
   const [useVatArrival, setUseVatArrival] = useState(true);
   const [perPage, setPerPage] = useState(8);
+  const [showNames, setShowNames] = useState(true);
+  const [showPrice, setShowPrice] = useState(true);
 
   const [selectedGroup, setSelectedGroup] = useState('__all__');
   const [flowerSearch, setFlowerSearch] = useState('');
@@ -124,7 +126,7 @@ export default function CatalogPage() {
         setErr(`도착원가: ${data.arrivalStats.error}`);
       } else       if (data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
         const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
-        setErr(`도착원가 데이터가 없습니다. (기준 차수: ${anchor}) — 엑셀 업로드 가능`);
+        setErr(`도착원가 자동 계산 결과가 없습니다. (기준 차수: ${anchor}) — 입고원장·운송기준원가(/freight) 데이터를 확인하세요.`);
       }
       if (data.imageAutoImport?.ran && data.imageAutoImport.message) {
         setErr(data.imageAutoImport.message);
@@ -179,6 +181,8 @@ export default function CatalogPage() {
       if (saved.catalogTitle) setCatalogTitle(saved.catalogTitle);
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
+      if (saved.showNames != null) setShowNames(saved.showNames);
+      if (saved.showPrice != null) setShowPrice(saved.showPrice);
       if (saved.useVatArrival != null) setUseVatArrival(saved.useVatArrival);
       if (saved.costMode) setCostMode(saved.costMode);
       if (saved.selectedWeek) selectedWeekInput.setValue(saved.selectedWeek);
@@ -194,13 +198,13 @@ export default function CatalogPage() {
         ...l,
         imageUrl: absCatalogUrl(l.imageUrl),
       })),
-      catalogTitle, custKey, perPage, useVatArrival, costMode,
+      catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode,
       selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
     }));
-  }, [lines, catalogTitle, custKey, perPage, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+  }, [lines, catalogTitle, custKey, perPage, showNames, showPrice, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
 
   useEffect(() => {
     if (!products.length || !lines.length) return;
@@ -475,6 +479,8 @@ export default function CatalogPage() {
         fileName: catalogTitle,
         lines: lines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
         perPage,
+        showNames,
+        showPrice,
       });
     } catch (e) {
       setErr(`PPT 생성 실패: ${e.message}`);
@@ -567,8 +573,8 @@ export default function CatalogPage() {
           <button className="btn btn-primary" onClick={() => loadData()} disabled={loading || uploadBusy}>
             {loading ? '불러오는 중…' : '① 도착원가 불러오기'}
           </button>
-          <label className="btn" style={{ cursor: uploadBusy ? 'wait' : 'pointer', margin: 0 }}>
-            {uploadBusy ? '엑셀 처리…' : '📥 도착원가 엑셀'}
+          <label className="btn" style={{ cursor: uploadBusy ? 'wait' : 'pointer', margin: 0 }} title="선택: SQL 자동 계산값을 수동으로 덮어쓸 때만 사용">
+            {uploadBusy ? '엑셀 처리…' : '📥 도착원가 덮어쓰기(선택)'}
             <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} disabled={uploadBusy} onChange={handleArrivalFile} />
           </label>
           <button type="button" className="btn btn-sm" onClick={downloadArrivalTemplate} title="ProdKey·품목명·도착원가 양식">양식</button>
@@ -593,6 +599,14 @@ export default function CatalogPage() {
               <option value={6}>6개형</option>
               <option value={8}>8개형</option>
             </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }} title="PPT·미리보기·인쇄에 품목명 표시">
+              <input type="checkbox" checked={showNames} onChange={e => setShowNames(e.target.checked)} />
+              이름
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }} title="PPT·미리보기·인쇄에 판매단가 표시">
+              <input type="checkbox" checked={showPrice} onChange={e => setShowPrice(e.target.checked)} />
+              단가
+            </label>
             <button className="btn btn-primary" onClick={openPreview} disabled={!lines.length}>👁 미리보기</button>
             <button className="btn" onClick={openPrint} disabled={!lines.length}>🖨 인쇄</button>
             <button className="btn btn-success" onClick={handlePpt} disabled={!lines.length || pptBusy}>
@@ -614,7 +628,10 @@ export default function CatalogPage() {
         )}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가 → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭 업로드) → ④ 단가 → ⑤ <b>미리보기</b> → 인쇄/PPT
+          <b>작업 순서</b> — ① 도착원가(SQL 자동) → ② 품종·품목 → ③ <b>이미지</b>(📷 클릭 업로드) → ④ 단가 → ⑤ <b>미리보기</b> → 인쇄/PPT
+          <span style={{ marginLeft: 8, color: 'var(--text3)', fontSize: 11 }}>
+            도착원가 = 입고원장(FOB+운임) 자동계산 · 엑셀 업로드는 덮어쓰기용(선택)
+          </span>
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
               품목 {products.length}
