@@ -169,7 +169,8 @@ export default function CatalogSlideComposer({
         onDragOver={handleDropZoneOver}
         onDrop={handleDropZone}
       >
-        품종(②) 또는 품목(③)을 여기로 끌어오면 → 슬라이드에 자동 추가됩니다
+        <span className="composer-drop-icon">↓</span>
+        <span>품종(②) 또는 품목(③)을 여기로 끌어오면 슬라이드에 자동 추가</span>
       </div>
 
       <div className="composer-slides">
@@ -197,26 +198,28 @@ export default function CatalogSlideComposer({
                 삭제
               </button>
             </header>
-            <div
-              className="composer-grid"
-              style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-            >
-              {Array.from({ length: slotCount }, (_, idx) => {
-                const lineId = slide.slots?.[idx] ?? null;
-                const line = lineId ? linesById[lineId] : null;
-                return (
-                  <MiniSlot
-                    key={`${slide.id}-${idx}`}
-                    line={line}
-                    slotIndex={idx}
-                    slideId={slide.id}
-                    showNames={showNames}
-                    showPrice={showPrice}
-                    onDropSlot={onDropSlot}
-                    onClearSlot={onClearSlot}
-                  />
-                );
-              })}
+            <div className="composer-slide-stage">
+              <div
+                className="composer-grid"
+                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
+              >
+                {Array.from({ length: slotCount }, (_, idx) => {
+                  const lineId = slide.slots?.[idx] ?? null;
+                  const line = lineId ? linesById[lineId] : null;
+                  return (
+                    <MiniSlot
+                      key={`${slide.id}-${idx}`}
+                      line={line}
+                      slotIndex={idx}
+                      slideId={slide.id}
+                      showNames={showNames}
+                      showPrice={showPrice}
+                      onDropSlot={onDropSlot}
+                      onClearSlot={onClearSlot}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </article>
         ))}
@@ -241,23 +244,34 @@ export default function CatalogSlideComposer({
         .composer-label { font-size: 11px; color: var(--text3); }
         .composer-hint { font-size: 10px; color: var(--text3); margin-left: auto; }
         .composer-drop-banner {
-          margin: 6px 8px 0;
-          padding: 8px 10px;
+          margin: 8px 12px 0;
+          padding: 14px 16px;
+          min-height: 48px;
           border: 2px dashed var(--blue);
-          border-radius: 4px;
+          border-radius: 6px;
           background: var(--blue-bg);
-          font-size: 11px;
+          font-size: 13px;
           text-align: center;
           color: var(--blue);
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+        }
+        .composer-drop-icon {
+          font-size: 20px;
+          font-weight: 700;
+          line-height: 1;
         }
         .composer-slides {
           flex: 1;
           overflow-y: auto;
-          padding: 8px;
+          overflow-x: hidden;
+          padding: 10px 12px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
         }
         .composer-empty {
           padding: 24px 12px;
@@ -267,9 +281,21 @@ export default function CatalogSlideComposer({
         }
         .composer-slide-card {
           border: 1px solid var(--border2);
-          border-radius: 4px;
+          border-radius: 6px;
           background: var(--surface);
           overflow: hidden;
+        }
+        .composer-slide-stage {
+          width: 100%;
+          max-width: 1280px;
+          margin: 0 auto;
+          aspect-ratio: 16 / 9;
+          max-height: min(52vh, 520px);
+          padding: 10px 14px 12px;
+          box-sizing: border-box;
+          background: #fff;
+          display: flex;
+          flex-direction: column;
         }
         .composer-slide-hdr {
           display: flex;
@@ -284,21 +310,25 @@ export default function CatalogSlideComposer({
         .composer-origin { margin-left: 6px; font-size: 10px; color: var(--text3); }
         .composer-slide-no { margin-left: auto; font-size: 10px; color: var(--text3); }
         .composer-grid {
+          flex: 1;
+          min-height: 0;
           display: grid;
           grid-template-rows: repeat(2, 1fr);
-          gap: 4px;
-          padding: 6px;
+          gap: 6px;
         }
         .composer-slot {
           position: relative;
           border: 1px dashed var(--border2);
-          border-radius: 3px;
-          min-height: 72px;
+          border-radius: 4px;
+          min-height: 0;
+          height: 100%;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 3px;
+          justify-content: center;
+          padding: 4px;
           background: #fff;
+          overflow: hidden;
         }
         .composer-slot.empty {
           justify-content: center;
@@ -309,35 +339,38 @@ export default function CatalogSlideComposer({
           border-color: var(--green);
           cursor: grab;
         }
-        .composer-slot-ph { font-size: 18px; color: var(--text3); }
+        .composer-slot-ph { font-size: 22px; color: var(--text3); }
         .composer-slot-clear {
           position: absolute;
-          top: 0;
-          right: 0;
+          top: 2px;
+          right: 2px;
+          z-index: 2;
           border: none;
-          background: rgba(0,0,0,0.45);
+          background: rgba(0,0,0,0.5);
           color: #fff;
-          width: 16px;
-          height: 16px;
-          font-size: 11px;
+          width: 18px;
+          height: 18px;
+          font-size: 12px;
           line-height: 1;
           cursor: pointer;
-          border-radius: 0 2px 0 2px;
+          border-radius: 2px;
           padding: 0;
         }
         .composer-slot-img {
-          width: 36px;
-          height: 36px;
+          width: min(100%, 72px);
+          height: min(55%, 80px);
+          flex: 1 1 auto;
+          max-height: 80px;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          flex-shrink: 0;
+          flex-shrink: 1;
         }
         .composer-slot-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .composer-slot-img span { font-size: 10px; font-weight: 700; color: #bbb; }
+        .composer-slot-img span { font-size: 11px; font-weight: 700; color: #bbb; }
         .composer-slot-name {
-          font-size: 9px;
+          font-size: 10px;
           font-weight: 600;
           line-height: 1.15;
           text-align: center;
@@ -346,11 +379,13 @@ export default function CatalogSlideComposer({
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           width: 100%;
+          flex-shrink: 0;
         }
         .composer-slot-price {
-          font-size: 8px;
+          font-size: 9px;
           font-weight: 700;
           color: var(--red);
+          flex-shrink: 0;
         }
       `}</style>
     </div>

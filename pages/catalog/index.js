@@ -74,6 +74,7 @@ export default function CatalogPage() {
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
   const [composerSlides, setComposerSlides] = useState([]);
+  const [pricePanelOpen, setPricePanelOpen] = useState(false);
 
   const [picker, setPicker] = useState(null);
 
@@ -879,10 +880,18 @@ export default function CatalogPage() {
             </div>
           </section>
 
-          <section className="catalog-right card">
+          <section className="catalog-ppt-panel card">
             <div className="card-header">
               <span className="card-title">④ PPT 슬라이드</span>
-              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{composerSlides.length}장 · {perPage}칸</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{composerSlides.length}장 · {perPage}칸 · 16:9</span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setPricePanelOpen(v => !v)}
+              >
+                {pricePanelOpen ? '⑤ 단가 패널 닫기' : `⑤ 단가·도착원가 (${lines.length})`}
+              </button>
             </div>
             <CatalogSlideComposer
               perPage={perPage}
@@ -902,6 +911,7 @@ export default function CatalogPage() {
               }}
               onAddEmptySlide={handleAddEmptySlide}
             />
+            {pricePanelOpen && (
             <div className="catalog-price-panel">
               <div className="catalog-price-hdr">
                 <span className="card-title">⑤ 단가·도착원가 확인 ({lines.length})</span>
@@ -959,6 +969,7 @@ export default function CatalogPage() {
                 </table>
               </div>
             </div>
+            )}
           </section>
         </div>
       </div>
@@ -966,7 +977,23 @@ export default function CatalogPage() {
       <style jsx global>{`
         .catalog-page { display: flex; flex-direction: column; height: calc(100vh - 8px); padding: 4px; box-sizing: border-box; }
         .catalog-flow-hint { flex-shrink: 0; margin-bottom: 4px; font-size: 12px; }
-        .catalog-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px 1fr 520px; gap: 4px; }
+        .catalog-layout {
+          flex: 1;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: 160px 1fr;
+          grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
+          gap: 4px;
+        }
+        .catalog-sidebar { grid-row: 1; min-height: 0; }
+        .catalog-center { grid-row: 1; grid-column: 2; min-height: 0; }
+        .catalog-ppt-panel {
+          grid-row: 2;
+          grid-column: 1 / -1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
         .catalog-sidebar { display: flex; flex-direction: column; min-height: 0; }
         .catalog-sidebar-body { flex: 1; overflow-y: auto; padding: 4px; }
         .catalog-flower-item {
@@ -976,10 +1003,10 @@ export default function CatalogPage() {
         }
         .catalog-flower-item:hover { background: var(--blue-bg); }
         .catalog-flower-item.active { background: var(--blue-sel); font-weight: bold; border-color: var(--border2); }
-        .catalog-center, .catalog-right { display: flex; flex-direction: column; min-height: 0; }
+        .catalog-center { display: flex; flex-direction: column; min-height: 0; }
         .catalog-product-grid {
           flex: 1; overflow-y: auto; padding: 8px;
-          display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; align-content: start;
+          display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 6px; align-content: start;
         }
         .catalog-prod-card {
           border: 1px solid var(--border2); border-radius: 4px; padding: 8px; cursor: pointer;
@@ -992,13 +1019,13 @@ export default function CatalogPage() {
         .catalog-prod-flower { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .catalog-prod-name { font-size: 12px; font-weight: 600; margin: 2px 0; line-height: 1.25; }
         .catalog-prod-cost { font-size: 11px; }
-        .catalog-lines-wrap { flex: 1; min-height: 0; border: none; max-height: 180px; }
+        .catalog-lines-wrap { flex: 1; min-height: 0; border: none; max-height: 140px; }
         .catalog-price-panel {
           flex-shrink: 0;
           border-top: 2px solid var(--border2);
           display: flex;
           flex-direction: column;
-          max-height: 200px;
+          max-height: 160px;
         }
         .catalog-price-hdr {
           display: flex;
@@ -1008,9 +1035,8 @@ export default function CatalogPage() {
           background: var(--header-bg);
           font-size: 11px;
         }
-        @media (max-width: 1100px) {
-          .catalog-layout { grid-template-columns: 140px 1fr; grid-template-rows: 1fr auto; }
-          .catalog-right { grid-column: 1 / -1; max-height: 420px; }
+        @media (max-width: 900px) {
+          .catalog-layout { grid-template-columns: 120px 1fr; grid-template-rows: minmax(0, 34%) minmax(0, 1fr); }
         }
       `}</style>
     </>
