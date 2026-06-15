@@ -4,6 +4,7 @@ import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
 import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
 import CatalogSlideComposer, { setCatalogDragData } from '../../components/catalog/CatalogSlideComposer';
 import { exportCatalogPpt } from '../../lib/catalogPptExport';
+import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { apiGet } from '../../lib/useApi';
@@ -25,9 +26,12 @@ import {
   assignComposerSlot,
   clearComposerSlot,
   newComposerSlide,
+  placeLineOnComposer as assignLineToComposer,
   removeComposerSlide,
   resizeComposerSlides,
   sanitizeComposerSlides,
+  SLIDE_TARGET_AUTO,
+  SLIDE_TARGET_NEW,
   sortProductsImageFirst,
 } from '../../lib/catalogSlides';
 
@@ -73,8 +77,15 @@ export default function CatalogPage() {
   const [lines, setLines] = useState([]);
   const [checkedKeys, setCheckedKeys] = useState(new Set());
   const [composerSlides, setComposerSlides] = useState([]);
+  const [activeSlideTarget, setActiveSlideTarget] = useState(SLIDE_TARGET_AUTO);
   const [editorOpen, setEditorOpen] = useState(true);
   const [selectedLineId, setSelectedLineId] = useState(null);
+
+  const [savedDraftId, setSavedDraftId] = useState(null);
+  const [savedDraftName, setSavedDraftName] = useState('');
+  const [draftList, setDraftList] = useState([]);
+  const [draftPickId, setDraftPickId] = useState('');
+  const [draftBusy, setDraftBusy] = useState(false);
 
   const [picker, setPicker] = useState(null);
 
@@ -82,6 +93,60 @@ export default function CatalogPage() {
     () => normalizeCatalogFields(catalogFields),
     [catalogFields],
   );
+
+  const buildDraftPayload = useCallback(() => buildCatalogDraftPayload({
+    catalogTitle,
+    custKey,
+    custName,
+    perPage,
+    catalogFields,
+    editorOpen,
+    useVatArrival,
+    costMode,
+    selectedWeek: selectedWeekInput.value,
+    orderYear: yearInput.value,
+    activeSlideTarget,
+    lines,
+    composerSlides,
+    checkedKeys: [...checkedKeys],
+  }), [
+    catalogTitle, custKey, custName, perPage, catalogFields, editorOpen,
+    useVatArrival, costMode, selectedWeekInput.value, yearInput.value,
+    activeSlideTarget, lines, composerSlides, checkedKeys,
+  ]);
+
+  const applyDraftPayload = useCallback((payload, meta = {}) => {
+    if (!payload) return;
+    setCatalogTitle(payload.catalogTitle || meta.name || 'NENOVA 카탈로그');
+    setCustKey(payload.custKey || '');
+    setPerPage(payload.perPage || 8);
+    setCatalogFields({ ...DEFAULT_CATALOG_FIELDS, ...(payload.catalogFields || {}) });
+    setEditorOpen(payload.editorOpen !== false);
+    setUseVatArrival(payload.useVatArrival !== false);
+    setCostMode(payload.costMode || 'recent');
+    if (payload.selectedWeek) selectedWeekInput.setValue(payload.selectedWeek);
+    if (payload.orderYear) yearInput.setValue(String(payload.orderYear));
+    setActiveSlideTarget(payload.activeSlideTarget || SLIDE_TARGET_AUTO);
+    setLines(normalizeLoadedLines(payload.lines));
+    setComposerSlides(payload.composerSlides || []);
+    setCheckedKeys(new Set(payload.checkedKeys || payload.lines?.map(l => l.prodKey) || []));
+    setSavedDraftId(meta.id || null);
+    setSavedDraftName(meta.name || payload.catalogTitle || '');
+    setSelectedLineId(null);
+  }, [selectedWeekInput, yearInput]);
+
+  const refreshDraftList = useCallback(async () => {
+    try {
+      const data = await apiGet('/api/catalog/drafts');
+      setDraftList(data.drafts || []);
+    } catch (e) {
+      console.warn('[catalog] drafts list:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDraftList();
+  }, [refreshDraftList]);
 
   const custName = useMemo(
     () => customers.find(c => String(c.CustKey) === String(custKey))?.CustName || '',
@@ -213,6 +278,11 @@ export default function CatalogPage() {
         })));
       }
       if (saved.composerSlides?.length) setComposerSlides(saved.composerSlides);
+      if (saved.activeSlideTarget) setActiveSlideTarget(saved.activeSlideTarget);
+      if (saved.savedDraftId) {
+        setSavedDraftId(saved.savedDraftId);
+        setSavedDraftName(saved.savedDraftName || '');
+      }
       if (saved.catalogTitle) setCatalogTitle(saved.catalogTitle);
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
@@ -244,13 +314,16 @@ export default function CatalogPage() {
         imageUrl: absCatalogUrl(l.imageUrl),
       })),
       composerSlides,
+      activeSlideTarget,
+      savedDraftId,
+      savedDraftName,
       catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode,
       selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
     }));
-  }, [lines, composerSlides, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+  }, [lines, composerSlides, activeSlideTarget, savedDraftId, savedDraftName, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
 
   useEffect(() => {
     const valid = new Set(lines.map(l => l.id));
@@ -429,26 +502,23 @@ export default function CatalogPage() {
         perPage,
         imagesByProd,
         groupMeta: group,
+        targetSlideId: activeSlideTarget,
       }));
       return merged;
     });
-  }, [productGroups, imagesByProd, perPage, addProductLine]);
+  }, [productGroups, imagesByProd, perPage, addProductLine, activeSlideTarget]);
 
   const placeLineOnComposer = useCallback((line) => {
     if (!line) return;
-    setComposerSlides(prev => {
-      for (const sl of prev) {
-        const idx = (sl.slots || []).findIndex(s => !s);
-        if (idx >= 0) return assignComposerSlot(prev, sl.id, idx, line.id);
-      }
-      const sl = newComposerSlide({
+    setComposerSlides(prev => assignLineToComposer(prev, line.id, {
+      perPage,
+      targetSlideId: activeSlideTarget,
+      defaultTitle: {
         titleBig: line.flowerName || '미분류',
         titleSmall: line.counName || '',
-        perPage,
-      });
-      return assignComposerSlot([...prev, sl], sl.id, 0, line.id);
-    });
-  }, [perPage]);
+      },
+    }));
+  }, [perPage, activeSlideTarget]);
 
   const handleComposerAutoSlot = useCallback((data) => {
     if (data.type === 'group') {
@@ -510,11 +580,104 @@ export default function CatalogPage() {
 
   const handleAddEmptySlide = () => {
     const ref = lines[0];
-    setComposerSlides(prev => [...prev, newComposerSlide({
+    const sl = newComposerSlide({
       titleBig: ref?.flowerName || '미분류',
       titleSmall: ref?.counName || '',
       perPage,
-    })]);
+    });
+    setComposerSlides(prev => [...prev, sl]);
+    setActiveSlideTarget(sl.id);
+  };
+
+  const handleSelectSlideTarget = useCallback((targetId) => {
+    setActiveSlideTarget(targetId || SLIDE_TARGET_AUTO);
+  }, []);
+
+  const handleSaveDraft = async () => {
+    if (!lines.length) {
+      alert('저장할 품목이 없습니다.');
+      return;
+    }
+    const defaultName = savedDraftName || catalogTitle || '카탈로그';
+    const name = window.prompt('카탈로그 저장 이름', defaultName);
+    if (!name?.trim()) return;
+    setDraftBusy(true);
+    setErr('');
+    try {
+      const res = await fetch('/api/catalog/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: savedDraftId || undefined,
+          name: name.trim(),
+          payload: buildDraftPayload(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '저장 실패');
+      setSavedDraftId(data.draft.id);
+      setSavedDraftName(data.draft.name);
+      setCatalogTitle(name.trim());
+      await refreshDraftList();
+      setErr(`카탈로그 저장됨: ${data.draft.name} (${data.draft.lineCount}품목 · ${data.draft.slideCount}슬라이드)`);
+    } catch (e) {
+      setErr(`카탈로그 저장: ${e.message}`);
+    } finally {
+      setDraftBusy(false);
+    }
+  };
+
+  const handleLoadDraft = async () => {
+    if (!draftPickId) {
+      alert('불러올 저장본을 선택하세요.');
+      return;
+    }
+    if (lines.length && !confirm('현재 작업을 덮어쓰고 저장본을 불러올까요?')) return;
+    setDraftBusy(true);
+    setErr('');
+    try {
+      const data = await apiGet('/api/catalog/drafts', { id: draftPickId });
+      if (!data.draft?.payload) throw new Error('저장본 데이터가 없습니다.');
+      applyDraftPayload(data.draft.payload, data.draft);
+      setDraftPickId(data.draft.id);
+      await loadData();
+      setErr(`불러옴: ${data.draft.name} (${data.draft.payload.lines?.length || 0}품목)`);
+    } catch (e) {
+      setErr(`카탈로그 불러오기: ${e.message}`);
+    } finally {
+      setDraftBusy(false);
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    const id = draftPickId || savedDraftId;
+    if (!id) {
+      alert('삭제할 저장본을 선택하세요.');
+      return;
+    }
+    const target = draftList.find(d => d.id === id);
+    if (!confirm(`"${target?.name || id}" 저장본을 삭제할까요?`)) return;
+    setDraftBusy(true);
+    try {
+      const res = await fetch(`/api/catalog/drafts?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '삭제 실패');
+      if (savedDraftId === id) {
+        setSavedDraftId(null);
+        setSavedDraftName('');
+      }
+      if (draftPickId === id) setDraftPickId('');
+      await refreshDraftList();
+      setErr('저장본 삭제됨');
+    } catch (e) {
+      setErr(`저장본 삭제: ${e.message}`);
+    } finally {
+      setDraftBusy(false);
+    }
   };
 
   const openPrint = () => {
@@ -798,6 +961,35 @@ export default function CatalogPage() {
           <button type="button" className="btn btn-sm" onClick={scanBulkFolder} disabled={imageBusy} title="서버 _bulk_import 폴더 (PPTX·이미지)">
             폴더가져오기
           </button>
+          <span className="filter-label">카탈로그</span>
+          <select
+            className="filter-select"
+            style={{ minWidth: 160 }}
+            value={draftPickId}
+            onChange={e => setDraftPickId(e.target.value)}
+            disabled={draftBusy}
+          >
+            <option value="">— 저장본 선택 —</option>
+            {draftList.map(d => (
+              <option key={d.id} value={d.id}>
+                {d.name} ({d.lineCount}품목 · {d.slideCount}장 · {d.updatedAt?.slice(0, 10) || ''})
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn btn-sm btn-primary" onClick={handleLoadDraft} disabled={draftBusy || !draftPickId}>
+            📂 불러오기
+          </button>
+          <button type="button" className="btn btn-sm btn-success" onClick={handleSaveDraft} disabled={draftBusy || !lines.length}>
+            💾 {savedDraftId ? '저장' : '새로 저장'}
+          </button>
+          <button type="button" className="btn btn-sm btn-danger" onClick={handleDeleteDraft} disabled={draftBusy || !(draftPickId || savedDraftId)}>
+            🗑
+          </button>
+          {savedDraftId && (
+            <span style={{ fontSize: 11, color: 'var(--blue)' }} title={savedDraftId}>
+              편집중: {savedDraftName}
+            </span>
+          )}
           <div className="page-actions catalog-field-toggles">
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>PPT표시:</span>
             {[
@@ -834,9 +1026,9 @@ export default function CatalogPage() {
         )}
 
         <div className="catalog-flow-hint banner-info">
-          <b>작업 순서</b> — ① 도착원가 → ② 품종 → ③ 품목 → ④ PPT 배치 → <b>⑤ 텍스트 편집</b>(영문·한글·단가·기타) → 미리보기/PPT
+          <b>작업 순서</b> — ① 도착원가 → ② 품종 → ③ 품목 → ④ PPT(슬라이드 선택) → ⑤ 텍스트 → 💾저장 → 미리보기/PPT
           <span style={{ marginLeft: 8, color: 'var(--text3)', fontSize: 11 }}>
-            한글명 = 품명매칭·DB·자동제안 · ↵버튼으로 적용 · 도착원가는 PPT 미포함
+            슬라이드 1·2 지정 후 추가 · 저장본 불러와 수정 재사용
           </span>
           {products.length > 0 && (
             <span style={{ marginLeft: 12, color: 'var(--text3)' }}>
@@ -981,9 +1173,12 @@ export default function CatalogPage() {
               }}
               onRemoveSlide={(slideId) => {
                 setComposerSlides(prev => removeComposerSlide(prev, slideId));
+                setActiveSlideTarget(t => (t === slideId ? SLIDE_TARGET_AUTO : t));
               }}
               onAddEmptySlide={handleAddEmptySlide}
               onSelectLine={focusLine}
+              activeSlideTarget={activeSlideTarget}
+              onSelectSlideTarget={handleSelectSlideTarget}
             />
             {editorOpen && (
               <CatalogLineEditor

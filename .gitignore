@@ -44,6 +44,8 @@ data/sales-revenue-cell-history.json
 data/catalog-images.json
 data/catalog-source-meta.json
 data/catalog-arrival-overrides.json
+data/catalog-drafts/**
+!data/catalog-drafts/.gitkeep
 public/uploads/catalog/**
 !public/uploads/catalog/.gitkeep
 !public/uploads/catalog/_bulk_import/.gitkeep

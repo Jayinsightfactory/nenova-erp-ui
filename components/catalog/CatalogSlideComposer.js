@@ -8,6 +8,8 @@ import { formatOriginLabel } from '../../lib/catalogLayout';
 import {
   catalogGridCols,
   perPageSlotCount,
+  SLIDE_TARGET_AUTO,
+  SLIDE_TARGET_NEW,
 } from '../../lib/catalogSlides';
 
 const DND_GROUP = 'application/x-nenova-catalog-group';
@@ -134,6 +136,8 @@ export default function CatalogSlideComposer({
   onRemoveSlide,
   onAddEmptySlide,
   onSelectLine,
+  activeSlideTarget,
+  onSelectSlideTarget,
 }) {
   const slotCount = perPageSlotCount(perPage);
   const cols = catalogGridCols(perPage);
@@ -166,7 +170,22 @@ export default function CatalogSlideComposer({
         <button type="button" className="btn btn-sm" onClick={onAddEmptySlide} title="빈 슬라이드 추가">
           + 슬라이드
         </button>
-        <span className="composer-hint">품종을 아래로 끌면 자동 추가 · 품목은 칸에 직접 배치</span>
+        <span className="composer-label">추가 대상</span>
+        <select
+          className="filter-select"
+          value={activeSlideTarget || SLIDE_TARGET_AUTO}
+          onChange={e => onSelectSlideTarget?.(e.target.value)}
+          title="품종/품목 드롭 시 넣을 슬라이드"
+        >
+          <option value={SLIDE_TARGET_AUTO}>자동(빈 칸)</option>
+          <option value={SLIDE_TARGET_NEW}>+ 새 슬라이드</option>
+          {slides.map((sl, i) => (
+            <option key={sl.id} value={sl.id}>
+              슬라이드 {i + 1} — {sl.titleBig}
+            </option>
+          ))}
+        </select>
+        <span className="composer-hint">슬라이드 헤더 클릭 → 대상 지정 · 품목은 칸에 직접 배치</span>
       </div>
 
       <div
@@ -184,14 +203,21 @@ export default function CatalogSlideComposer({
             품목을 선택한 뒤 품종을 끌어오거나, 품목 카드를 칸에 직접 놓으세요.
           </div>
         )}
-        {slides.map((slide, si) => (
-          <article key={slide.id} className="composer-slide-card">
-            <header className="composer-slide-hdr">
+        {slides.map((slide, si) => {
+          const isTarget = activeSlideTarget === slide.id;
+          return (
+          <article key={slide.id} className={`composer-slide-card ${isTarget ? 'target-slide' : ''}`}>
+            <header
+              className="composer-slide-hdr"
+              onClick={() => onSelectSlideTarget?.(slide.id)}
+              title="클릭 → 이 슬라이드를 추가 대상으로"
+            >
               <div>
                 <strong>{slide.titleBig}</strong>
                 {slide.titleSmall ? (
                   <span className="composer-origin">{formatOriginLabel(slide.titleSmall)}</span>
                 ) : null}
+                {isTarget ? <span className="composer-target-badge">← 추가 대상</span> : null}
               </div>
               <span className="composer-slide-no">#{si + 1}</span>
               <button
@@ -227,7 +253,8 @@ export default function CatalogSlideComposer({
               </div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       <style jsx>{`
@@ -289,6 +316,17 @@ export default function CatalogSlideComposer({
           border-radius: 6px;
           background: var(--surface);
           overflow: hidden;
+        }
+        .composer-slide-card.target-slide {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 2px var(--blue-bg);
+        }
+        .composer-slide-hdr { cursor: pointer; }
+        .composer-target-badge {
+          margin-left: 8px;
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--blue);
         }
         .composer-slide-stage {
           width: 100%;
@@ -414,4 +452,4 @@ export default function CatalogSlideComposer({
   );
 }
 
-export { DND_GROUP, DND_PROD, DND_LINE };
+export { DND_GROUP, DND_PROD, DND_LINE, SLIDE_TARGET_AUTO, SLIDE_TARGET_NEW };

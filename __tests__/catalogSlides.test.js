@@ -12,6 +12,7 @@ async function main() {
   const {
     addGroupToComposer,
     assignComposerSlot,
+    placeLinesOnComposer,
     perPageSlotCount,
     resizeComposerSlides,
     resolveCatalogPages,
@@ -52,6 +53,13 @@ async function main() {
     slots: ['l1', null, 'l2', null, null, null, null, null],
   }], 's1', 1, 'l2');
   assert('slot move', moved[0].slots[1] === 'l2' && moved[0].slots[2] === null);
+
+  const targeted = placeLinesOnComposer([
+    { id: 's1', titleBig: 'A', titleSmall: '', slots: ['l1', null, null, null, null, null, null, null] },
+    { id: 's2', titleBig: 'B', titleSmall: '', slots: [null, null, null, null, null, null, null, null] },
+  ], ['l9'], { perPage: 8, targetSlideId: 's2' });
+  assert('place on slide 2', targeted[1].slots[0] === 'l9');
+  assert('slide 1 untouched', targeted[0].slots[1] === null);
 
   const linesById = {
     l1: { id: 'l1', flowerName: '카네이션', counName: '콜롬비아' },
