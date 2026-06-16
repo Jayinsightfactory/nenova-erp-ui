@@ -421,7 +421,7 @@ table { width:100%; border-collapse:collapse; }
     <td class="hdr-right">
       <!-- 오른쪽: NENOVA 로고 (로컬 base64 인라인) + 회사정보 -->
       <div class="logo-area">
-        <img src="${logoDataUrl || '/nenova-logo.png'}" alt="NENOVA"
+        <img src="${logoDataUrl || ''}" alt="NENOVA"
              onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
         <div style="display:none;padding:8px 10px;font-size:18pt;font-weight:900;letter-spacing:4px;color:#1a3a6b;font-family:'Arial Black',Arial,sans-serif;text-align:left;">NENOVA</div>
       </div>
@@ -907,25 +907,53 @@ export default function Estimate() {
   const [loading, setLoading] = useState(false);
   const [itemLoading, setItemLoading] = useState(false);
 
-  // 견적서 로고 (base64 데이터 URL) — iframe srcdoc 내에서도 안정적으로 표시되도록 인라인 삽입.
-  // 외부 URL 의존시 CORS/HTTPS 제한으로 로고 누락될 수 있음.
+  // 견적서 로고 (base64 데이터 URL) — iframe srcdoc 에서는 상대 URL이 동작하지 않아 반드시 인라인.
   const [logoDataUrl, setLogoDataUrl] = useState(null);
+  const logoDataUrlRef = useRef(null);
+  const logoLoadPromiseRef = useRef(null);
+
+  const blobToDataUrl = useCallback((blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  }), []);
+
+  const loadEstimateLogoDataUrl = useCallback(async () => {
+    if (logoDataUrlRef.current) return logoDataUrlRef.current;
+    if (logoLoadPromiseRef.current) return logoLoadPromiseRef.current;
+
+    logoLoadPromiseRef.current = (async () => {
+      const paths = ['/nenova-logo-estimate.png', '/nenova-logo.png'];
+      for (const path of paths) {
+        try {
+          const res = await fetch(path);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          if (!blob || blob.size < 64) continue;
+          const dataUrl = await blobToDataUrl(blob);
+          if (!String(dataUrl || '').startsWith('data:image/')) continue;
+          logoDataUrlRef.current = dataUrl;
+          setLogoDataUrl(dataUrl);
+          return dataUrl;
+        } catch {
+          /* try next path */
+        }
+      }
+      return null;
+    })();
+
+    try {
+      return await logoLoadPromiseRef.current;
+    } finally {
+      logoLoadPromiseRef.current = null;
+    }
+  }, [blobToDataUrl]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    fetch('/nenova-logo.png')
-      .then(r => r.ok ? r.blob() : null)
-      .then(b => {
-        if (!b) return null;
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(b);
-        });
-      })
-      .then(dataUrl => { if (dataUrl) setLogoDataUrl(dataUrl); })
-      .catch(() => { /* 실패시 buildEstimateHtml 의 /nenova-logo.png fallback 사용 */ });
-  }, []);
+    loadEstimateLogoDataUrl().catch(() => {});
+  }, [loadEstimateLogoDataUrl]);
 
   // WeekDay 필터 — 기본값: 전체 요일 선택
   const [activeWD, setActiveWD] = useState(new Set(['월','화','수','목','금','토','일']));
@@ -1934,6 +1962,8 @@ export default function Estimate() {
       return;
     }
 
+    const printLogoDataUrl = await loadEstimateLogoDataUrl();
+
     // ── 숨김 iframe 에 HTML 주입 후 인쇄 (부모 창 영향 없음)
     const printInIframe = (html) => new Promise((resolve) => {
       const iframe = document.createElement('iframe');
@@ -1974,7 +2004,7 @@ export default function Estimate() {
         const bigoLabel = `${week}차 종합견적서`;
         return [buildEstimateHtml({
           bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
-          custName: oneCustName, rows: printRows, logoDataUrl,
+          custName: oneCustName, rows: printRows, logoDataUrl: printLogoDataUrl,
           aggregate: true,
           showBoxQty: opts.showBoxQty !== false,
           showDistribDesc: opts.showDistribDesc !== false,
@@ -2009,7 +2039,7 @@ export default function Estimate() {
       ];
       return pages.map(({ bigoLabel, rows, aggregate }) => buildEstimateHtml({
         bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
-        custName: oneCustName, rows, logoDataUrl, aggregate,
+        custName: oneCustName, rows, logoDataUrl: printLogoDataUrl, aggregate,
         showBoxQty: opts.showBoxQty !== false,
         showDistribDesc: opts.showDistribDesc !== false,
       }));
@@ -2075,7 +2105,7 @@ export default function Estimate() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, logoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
+  }, [filteredItems, selectedShip, weekNum, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
 
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
