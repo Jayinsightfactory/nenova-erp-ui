@@ -14,6 +14,7 @@ const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
 const ORDER_TEMPLATE_PAGE = 'paste-order-template';
 const STOCK_NOTE_PAGE = 'paste-stock-note';
+const STOCK_BASE_WEEK_KEY = 'nenova_paste_stock_base_week';
 
 // 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
 function getDefaultWeek() {
@@ -247,6 +248,100 @@ function parseBaseStockText(text) {
     byKey[stockNorm(name)] = row;
   });
   return { rows, byKey };
+}
+
+function loadStockBaseWeek(defaultWeek) {
+  try {
+    return localStorage.getItem(STOCK_BASE_WEEK_KEY) || defaultWeek || '';
+  } catch {
+    return defaultWeek || '';
+  }
+}
+
+function saveStockBaseWeek(value) {
+  try {
+    if (value) localStorage.setItem(STOCK_BASE_WEEK_KEY, value);
+  } catch { /* ignore */ }
+}
+
+function resolveProductForStockName(name, products, cache) {
+  if (!name || !products?.length) return { prod: null, matchStatus: 'unmatched', candidates: [] };
+  const hit = findLocalMapping(name, cache);
+  if (hit?.prodKey) {
+    const prod = products.find(p => Number(p.ProdKey) === Number(hit.prodKey));
+    if (prod && !isMixBoxMismatch(name, prod)) return { prod, matchStatus: 'mapping' };
+  }
+  const scored = products
+    .map(p => ({ prod: p, score: isMixBoxMismatch(name, p) ? 0 : scoreMatch(name, p, '') }))
+    .filter(x => x.score >= 55)
+    .sort((a, b) => b.score - a.score);
+  const managed = scored.filter(x => isManagedProduct(x.prod));
+  const pool = managed.length > 0 ? managed : scored;
+  if (pool.length === 1) {
+    return { prod: pool[0].prod, matchStatus: managed.length === 1 ? 'auto' : 'outside' };
+  }
+  if (pool.length > 1) {
+    return { prod: null, matchStatus: 'ambiguous', candidates: pool.slice(0, 8).map(x => x.prod) };
+  }
+  return { prod: null, matchStatus: 'unmatched', candidates: [] };
+}
+
+function buildBaseStockMatchRows(text, products, cache, prevMatches = []) {
+  const parsed = parseBaseStockText(text);
+  const prevByKey = {};
+  (prevMatches || []).forEach(m => {
+    const key = stockNorm(m.name);
+    if (key) prevByKey[key] = m;
+  });
+  return parsed.rows.map(row => {
+    const key = stockNorm(row.name);
+    const prev = prevByKey[key];
+    if (prev?.prodKey) {
+      const prod = (products || []).find(p => Number(p.ProdKey) === Number(prev.prodKey));
+      if (prod) {
+        return {
+          name: row.name,
+          qty: row.qty,
+          unit: row.unit || prev.unit || '',
+          idx: row.idx,
+          prodKey: prod.ProdKey,
+          prodName: prod.ProdName,
+          displayName: prod.DisplayName || prod.ProdName,
+          matchStatus: prev.matchStatus === 'manual' ? 'manual' : 'saved',
+          fromMapping: !!prev.fromMapping,
+        };
+      }
+    }
+    const resolved = resolveProductForStockName(row.name, products, cache);
+    if (resolved.prod) {
+      return {
+        name: row.name,
+        qty: row.qty,
+        unit: row.unit || '',
+        idx: row.idx,
+        prodKey: resolved.prod.ProdKey,
+        prodName: resolved.prod.ProdName,
+        displayName: resolved.prod.DisplayName || resolved.prod.ProdName,
+        matchStatus: resolved.matchStatus,
+        fromMapping: resolved.matchStatus === 'mapping',
+      };
+    }
+    return {
+      name: row.name,
+      qty: row.qty,
+      unit: row.unit || '',
+      idx: row.idx,
+      prodKey: null,
+      prodName: null,
+      displayName: null,
+      matchStatus: resolved.matchStatus,
+      candidates: (resolved.candidates || []).map(p => ({
+        prodKey: p.ProdKey,
+        prodName: p.ProdName,
+        displayName: p.DisplayName || p.ProdName,
+      })),
+    };
+  });
 }
 
 function parseHeadNameRemain(line) {
@@ -514,7 +609,7 @@ function isManagedProduct(prod) {
   return countryOk && flowerOk;
 }
 
-function buildResolvedMatchMap(orders, products) {
+function buildResolvedMatchMap(orders, products, stockMatches = []) {
   const map = new Map();
   for (const o of orders || []) {
     for (const it of o.items || []) {
@@ -527,6 +622,16 @@ function buildResolvedMatchMap(orders, products) {
         if (key) map.set(key, entry);
       });
     }
+  }
+  for (const m of stockMatches || []) {
+    if (!m?.prodKey) continue;
+    const prod = (products || []).find((p) => Number(p.ProdKey) === Number(m.prodKey));
+    const label = m.displayName || m.prodName || getDisplayName(prod) || '';
+    const entry = { status: 'matched', names: [label] };
+    [m.name, m.prodName, m.displayName, label].forEach((name) => {
+      const key = stockNorm(name);
+      if (key) map.set(key, entry);
+    });
   }
   return map;
 }
@@ -809,6 +914,9 @@ export default function PasteOrderPage() {
   const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
   const [stockBaseWeek, setStockBaseWeek] = useState('');
   const [baseStockText, setBaseStockText] = useState('');
+  const [baseStockMatches, setBaseStockMatches] = useState([]);
+  const [baseStockMatchEditIdx, setBaseStockMatchEditIdx] = useState(null);
+  const [pendingParseAfterLoad, setPendingParseAfterLoad] = useState(false);
   const [remainStockText, setRemainStockText] = useState('');
   const [stockDraft, setStockDraft] = useState(null);
   const [stockCopied, setStockCopied] = useState(false);
@@ -851,7 +959,7 @@ export default function PasteOrderPage() {
         const ws = [...nearby, ...dbWeeks];
         setWeeks(ws);
         setWeek(def);
-        setStockBaseWeek(def);
+        setStockBaseWeek(loadStockBaseWeek(def));
         setWeekPage(0);
       }
     });
@@ -914,7 +1022,8 @@ export default function PasteOrderPage() {
     nextWeek = week,
     nextRemain = remainStockText,
     nextBaseWeek = stockBaseWeek,
-    ordersForMatch = orders
+    ordersForMatch = orders,
+    stockMatchesForDraft = baseStockMatches,
   ) => {
     const draft = buildKakaoStockDraft({
       text: nextText,
@@ -923,11 +1032,58 @@ export default function PasteOrderPage() {
       selectedWeek: nextWeek,
       stockBaseWeek: nextBaseWeek,
       products: allProducts,
-      resolvedMatches: buildResolvedMatchMap(ordersForMatch, allProducts),
+      resolvedMatches: buildResolvedMatchMap(ordersForMatch, allProducts, stockMatchesForDraft),
     });
     setStockDraft(draft);
     setStockCopied(false);
     return draft;
+  };
+
+  const rematchBaseStock = (text = baseStockText, prevMatches = baseStockMatches) => {
+    if (!text.trim()) {
+      setBaseStockMatches([]);
+      return [];
+    }
+    const cache = { ...mappingCache, ...loadCache() };
+    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches);
+    setBaseStockMatches(rows);
+    refreshStockDraft(pasteText, text, week, remainStockText, stockBaseWeek, orders, rows);
+    return rows;
+  };
+
+  const applyBaseStockProduct = (idx, prod, saveToCache = true) => {
+    if (!prod) return;
+    const sourceRow = baseStockMatches[idx];
+    setBaseStockMatches(prev => prev.map((row, i) => {
+      if (i !== idx) return row;
+      return {
+        ...row,
+        prodKey: prod.ProdKey,
+        prodName: prod.ProdName,
+        displayName: prod.DisplayName || prod.ProdName,
+        matchStatus: 'manual',
+        fromMapping: false,
+      };
+    }));
+    if (saveToCache && sourceRow?.name) {
+      const key = cacheKey(sourceRow.name);
+      const next = { ...mappingCache, ...loadCache(), [key]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
+      saveCache(next);
+      setMappingCache(next);
+    }
+    setBaseStockMatchEditIdx(null);
+    setTimeout(() => {
+      setBaseStockMatches(cur => {
+        refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, cur);
+        return cur;
+      });
+    }, 0);
+  };
+
+  const selectStockBaseWeek = (w) => {
+    setStockBaseWeek(w);
+    saveStockBaseWeek(w);
+    setStockDraft(null);
   };
 
   // 주문 품목 매칭이 끝나면 잔량/히스토리 복사본의 확인필요(품목후보)도 함께 갱신
@@ -935,9 +1091,16 @@ export default function PasteOrderPage() {
     if (!pasteText.trim() || orders.length === 0) return;
     const hasResolved = orders.some((o) => o.items.some((it) => it.prodKey && !it.skip));
     if (!hasResolved) return;
-    refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders);
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, baseStockMatches);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
+
+  useEffect(() => {
+    if (!pendingParseAfterLoad || !pasteText.trim() || parsing || !allProducts.length) return;
+    setPendingParseAfterLoad(false);
+    handleParse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingParseAfterLoad, pasteText, allProducts.length]);
 
   const loadStockNote = async (targetBaseWeek = stockBaseWeek, { apply = false } = {}) => {
     if (!targetBaseWeek) {
@@ -958,12 +1121,34 @@ export default function PasteOrderPage() {
         setPasteText(hit.data.pasteText || '');
         setBaseStockText(hit.data.baseStockText || '');
         setRemainStockText(hit.data.remainStockText || '');
-        setWeek(hit.data.orderWeek || week);
+        selectStockBaseWeek(hit.data.baseWeek || targetBaseWeek);
+        const cache = { ...mappingCache, ...loadCache() };
+        const matches = buildBaseStockMatchRows(
+          hit.data.baseStockText || '',
+          allProducts,
+          cache,
+          hit.data.baseStockMatches || [],
+        );
+        setBaseStockMatches(matches);
         setOrders([]);
         setParseError('');
         setQueueIdx(0);
         setStockDraft(null);
-        setStockNoteStatus(`${formatWeekDisplay(targetBaseWeek)} 저장본을 불러왔습니다.`);
+        refreshStockDraft(
+          hit.data.pasteText || '',
+          hit.data.baseStockText || '',
+          week,
+          hit.data.remainStockText || '',
+          hit.data.baseWeek || targetBaseWeek,
+          [],
+          matches,
+        );
+        const savedOrderWeek = hit.data.orderWeek;
+        const orderWeekHint = savedOrderWeek && savedOrderWeek !== week
+          ? ` (저장 시 등록차수 ${formatWeekDisplay(savedOrderWeek)})`
+          : '';
+        setStockNoteStatus(`${formatWeekDisplay(hit.data.baseWeek || targetBaseWeek)} 저장본을 불러왔습니다.${orderWeekHint}`);
+        setPendingParseAfterLoad(!!(hit.data.pasteText || '').trim());
       } else if (hit) {
         setStockNoteStatus(`${formatWeekDisplay(targetBaseWeek)} 저장본 있음`);
       } else {
@@ -1002,7 +1187,7 @@ export default function PasteOrderPage() {
       const next = mode === 'append'
         ? [prev.trim(), combinedText.trim()].filter(Boolean).join('\n')
         : combinedText.trim();
-      refreshStockDraft(pasteText, next, week, remainStockText, stockBaseWeek);
+      rematchBaseStock(next, []);
       return next;
     });
     setOrders([]);
@@ -1023,6 +1208,7 @@ export default function PasteOrderPage() {
     pasteText,
     baseStockText,
     remainStockText,
+    baseStockMatches: baseStockMatches.filter(m => m.prodKey),
     savedAt: new Date().toISOString(),
   });
 
@@ -1068,7 +1254,7 @@ export default function PasteOrderPage() {
       };
       setSavedStockNote(note);
       setStockNoteStatus(`${forceCreate ? '추가저장' : existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료: ${formatWeekDisplay(baseWeek)}`);
-      refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek);
+      refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek, orders, baseStockMatches);
     } catch (e) {
       alert(`기존재고 저장 실패: ${e.message}`);
     } finally {
@@ -2378,9 +2564,14 @@ export default function PasteOrderPage() {
           )}
         </div>
 
-        {/* 차수 선택 */}
+        {/* 등록 차수 — 주문등록·분배에 사용 (기준차수와 별도) */}
         <div style={{ marginBottom: 12 }}>
-          <label style={labelS}>차수</label>
+          <label style={labelS}>
+            등록 차수
+            <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+              주문등록·분배 · 기준차수와 별도 선택 가능
+            </span>
+          </label>
           {/* 2026 차수 (신형식) */}
           {(() => {
             const newWeeks = weeks.filter(w => w.match(/^\d{4}-/));
@@ -2461,20 +2652,52 @@ export default function PasteOrderPage() {
               <label style={{ ...labelS, marginBottom: 0 }}>
                 기존재고
                 <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                  시작 기준
+                  시작 기준 · 등록차수와 별도
                 </span>
               </label>
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#475569', fontWeight: 800 }}>기준차수</span>
-              <input
-                list="paste-stock-base-week-list"
-                value={stockBaseWeek || ''}
-                onChange={e => { setStockBaseWeek(e.target.value); setStockDraft(null); }}
-                placeholder={week || '2026-23-01'}
-                style={{ width: 108, height: 26, border: '1px solid #b8c7d9', borderRadius: 5, padding: '0 7px', fontSize: 12, boxSizing: 'border-box' }}
-              />
-              <datalist id="paste-stock-base-week-list">
-                {weeks.map(w => <option key={w} value={w}>{formatWeekDisplay(w)}</option>)}
-              </datalist>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#475569', fontWeight: 800 }}>기준차수</span>
+                <input
+                  list="paste-stock-base-week-list"
+                  value={stockBaseWeek || ''}
+                  onChange={e => { selectStockBaseWeek(e.target.value); setStockNoteStatus(''); }}
+                  placeholder={week || '2026-23-01'}
+                  style={{ width: 108, height: 26, border: '1px solid #b8c7d9', borderRadius: 5, padding: '0 7px', fontSize: 12, boxSizing: 'border-box' }}
+                />
+                <datalist id="paste-stock-base-week-list">
+                  {weeks.map(w => <option key={w} value={w}>{formatWeekDisplay(w)}</option>)}
+                </datalist>
+                {stockBaseWeek && (
+                  <span style={{ fontSize: 11, color: '#1565c0', fontWeight: 700 }}>
+                    선택: {formatWeekDisplay(stockBaseWeek)}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>빠른선택</span>
+                {weeks.filter(w => w.match(/^\d{4}-/)).slice(0, 12).map(w => (
+                  <button
+                    key={`base-${w}`}
+                    type="button"
+                    onClick={() => selectStockBaseWeek(w)}
+                    style={{
+                      padding: '2px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
+                      border: stockBaseWeek === w ? '2px solid #0f766e' : '1px solid #cbd5e1',
+                      background: stockBaseWeek === w ? '#0f766e' : '#fff',
+                      color: stockBaseWeek === w ? '#fff' : '#334155',
+                      fontWeight: stockBaseWeek === w ? 700 : 500,
+                    }}
+                  >
+                    {formatWeekDisplay(w)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
               <button
                 onClick={() => loadStockNote(activeStockBaseWeek, { apply: true })}
                 disabled={!currentStockNote || stockNoteLoading}
@@ -2499,10 +2722,10 @@ export default function PasteOrderPage() {
               </button>
               <button
                 onClick={() => saveStockNote()}
-                disabled={stockNoteSaving || !currentStockNote || !hasStockNoteText}
-                style={{ height: 26, padding: '0 10px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !currentStockNote || !hasStockNoteText ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : currentStockNote && hasStockNoteText ? 'pointer' : 'default' }}
+                disabled={stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week)}
+                style={{ height: 26, padding: '0 10px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week) ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
-                {stockNoteSaving ? '저장중' : '수정저장'}
+                {stockNoteSaving ? '저장중' : (currentStockNote ? '수정저장' : '저장하기')}
               </button>
               <button
                 onClick={deleteStockNote}
@@ -2518,11 +2741,22 @@ export default function PasteOrderPage() {
               </div>
             )}
             <textarea
-              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', height: 320, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'기존재고\n블루 2\n라벤더 14\n화이트 1'}
               value={baseStockText}
-              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
+              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 저장 필요'); }}
             />
+            {baseStockText.trim() && (
+              <BaseStockMatchPanel
+                rows={baseStockMatches}
+                editIdx={baseStockMatchEditIdx}
+                setEditIdx={setBaseStockMatchEditIdx}
+                allProducts={allProducts}
+                onRematch={() => rematchBaseStock()}
+                onPickProduct={(idx, prod) => applyBaseStockProduct(idx, prod, true)}
+                buildCandidates={buildCandidates}
+              />
+            )}
           </div>
 
           <div style={{ border: '1px solid #b2dfdb', borderRadius: 8, padding: 12, background: '#f3fffd', minWidth: 0 }}>
@@ -3330,6 +3564,95 @@ export default function PasteOrderPage() {
         onClose={() => setShowStockPicker(false)}
       />
     </Layout>
+  );
+}
+
+function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch, onPickProduct, buildCandidates }) {
+  const [search, setSearch] = useState('');
+  const matchedCount = rows.filter(r => r.prodKey).length;
+  const statusColor = (s) => {
+    if (s === 'matched' || s === 'auto' || s === 'mapping' || s === 'saved' || s === 'manual') return '#2e7d32';
+    if (s === 'ambiguous') return '#e65100';
+    return '#c62828';
+  };
+  const statusLabel = (s) => {
+    if (s === 'manual') return '수동';
+    if (s === 'saved') return '저장본';
+    if (s === 'mapping') return '저장매칭';
+    if (s === 'auto') return '자동';
+    if (s === 'ambiguous') return '후보복수';
+    if (s === 'outside') return '범위밖';
+    return '미매칭';
+  };
+
+  useEffect(() => { if (editIdx == null) setSearch(''); }, [editIdx]);
+
+  const editingRow = editIdx != null ? rows[editIdx] : null;
+  const candidates = editingRow
+    ? (search.trim()
+      ? buildCandidates(editingRow.name, search)
+      : (editingRow.candidates || []).map(c => {
+          const prod = allProducts.find(p => Number(p.ProdKey) === Number(c.prodKey));
+          return prod ? { prod, score: 80 } : null;
+        }).filter(Boolean).concat(buildCandidates(editingRow.name, '')).slice(0, 10))
+    : [];
+
+  return (
+    <div style={{ marginTop: 8, border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+        <strong style={{ fontSize: 12, color: '#334155' }}>기존재고 품목 매칭</strong>
+        <span style={{ fontSize: 11, color: matchedCount === rows.length ? '#2e7d32' : '#e65100', fontWeight: 700 }}>
+          {matchedCount}/{rows.length} 매칭
+        </span>
+        <button type="button" onClick={onRematch} style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', border: '1px solid #94a3b8', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+          🔄 다시 매칭
+        </button>
+      </div>
+      <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+        {rows.map((row, idx) => (
+          <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap' }}>
+            <span style={{ minWidth: 72, fontWeight: 700, color: '#334155' }}>{row.name}</span>
+            <span style={{ color: '#64748b' }}>{row.qty}{row.unit || ''}</span>
+            <span style={{ color: statusColor(row.matchStatus), fontWeight: 700, fontSize: 11 }}>
+              {row.prodKey ? (row.displayName || row.prodName) : statusLabel(row.matchStatus)}
+            </span>
+            <button type="button" onClick={() => setEditIdx(editIdx === idx ? null : idx)} style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', border: '1px solid #1565c0', borderRadius: 4, background: '#e3f2fd', color: '#0d47a1', cursor: 'pointer' }}>
+              {editIdx === idx ? '닫기' : '✎ 품목지정'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {editingRow && (
+        <div style={{ padding: 8, background: '#fafafa', borderTop: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 11, color: '#475569', marginBottom: 4 }}>
+            「{editingRow.name}」 → ERP 품목 선택
+          </div>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="품명 검색..."
+            style={{ width: '100%', boxSizing: 'border-box', padding: '4px 8px', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 4, marginBottom: 6 }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
+            {candidates.map(({ prod, score }) => (
+              <button
+                key={prod.ProdKey}
+                type="button"
+                onClick={() => onPickProduct(editIdx, prod)}
+                style={{ textAlign: 'left', padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11 }}
+              >
+                {getDisplayName(prod) || prod.ProdName}
+                <span style={{ color: '#94a3b8', marginLeft: 6 }}>{prod.CounName} · {prod.FlowerName}</span>
+                <span style={{ color: '#cbd5e1', marginLeft: 6 }}>{score}</span>
+              </button>
+            ))}
+            {candidates.length === 0 && (
+              <div style={{ fontSize: 11, color: '#94a3b8', padding: 4 }}>후보 없음 — 검색어를 바꿔보세요.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
