@@ -7,6 +7,7 @@ import { apiGet, apiPost } from '../lib/useApi';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
+import { filterItemsByWeekday as filterEstimateItemsByWeekday } from '../lib/estimateInvariants';
 import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
@@ -1871,14 +1872,10 @@ export default function Estimate() {
 
   // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
   const ALL_WD = ['월','화','수','목','금','토','일'];
-  const filterItemsByWeekday = useCallback((sourceItems) => sourceItems.filter(item => {
-    if (activeWD.size === 7) return true;  // 전체 요일만 모두 표시
-    if (activeWD.size === 0) return false; // 미선택 시 없음(인쇄 실수 방지)
-    const dayMap = {'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0};
-    if (!item.outDate) return false;
-    const dow = weekdayFromYmd(item.outDate);
-    return dow >= 0 && [...activeWD].some(wd => dayMap[wd] === dow);
-  }), [activeWD]);
+  const filterItemsByWeekday = useCallback(
+    (sourceItems) => filterEstimateItemsByWeekday(sourceItems, activeWD),
+    [activeWD],
+  );
   const filteredItems = filterItemsByWeekday(items);
 
   const totalQty    = filteredItems.reduce((a,b) => a+(b.Quantity||0), 0);

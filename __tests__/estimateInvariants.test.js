@@ -34,6 +34,13 @@ async function main() {
   const thuOnly = filterItemsByWeekday(lavRows, new Set(['목']));
   assert('목요일만 1행', thuOnly.length === 1);
   assert('목요일 수량 160', thuOnly[0]?.Quantity === 160);
+  const withDed = [
+    ...lavRows,
+    { ProdKey: 99, ProdName: 'HYDRANGEA White', Quantity: -2, outDate: '2026-06-01', EstimateType: '불량차감/송이' },
+  ];
+  const thuWithDed = filterItemsByWeekday(withDed, new Set(['목']));
+  assert('목 필터 + 차감 1행 포함', thuWithDed.length === 2);
+  assert('차감 행 유지', thuWithDed.some(r => r.EstimateType === '불량차감/송이'));
   const all = filterItemsByWeekday(lavRows, new Set(['월', '화', '수', '목', '금', '토', '일']));
   assert('전체 7요일 2행', all.length === 2);
   assert('미선택 0행', filterItemsByWeekday(lavRows, new Set()).length === 0);
