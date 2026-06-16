@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 // Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
+import { isWeekPivotCellFixed } from '../../lib/weekPivotFix';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────
@@ -1264,10 +1265,7 @@ export default function StockStatus() {
       const log = `[전산 ${h.ChangeDtm} ${h.type}] ${h.before}→${h.after}`;
       descrMap[dk] = (descrMap[dk] || '') + '\n' + log;
     });
-    // isFix: CustKey-OrderWeek 단위로 확정 여부
-    const isFixed = (ck, wk) => {
-      return rows.some(r => r.CustKey===ck && r.OrderWeek===wk && r.isFix);
-    };
+    const isFixed = (pk, ck, wk) => isWeekPivotCellFixed(rows, pk, ck, wk);
 
     if (weeks.length === 0 || prodKeys.length === 0) return <div style={st.empty}>필터 조건에 맞는 데이터 없음
       <div style={{marginTop:10}}><button onClick={()=>{setFilterCoun(new Set());setFilterFlower('');setFilterSearch('');setPvMgr('');setPvCusts(new Set());setPvFlowers(new Set());setPvShowOnlyOut(false);setActiveFavKey(null);}}
@@ -1824,7 +1822,7 @@ export default function StockStatus() {
                                   </td>
                                 )}
                                 {(() => {
-                                  const fixed = isFixed(ck, wk);
+                                  const fixed = isFixed(pk, ck, wk);
                                   return (
                                     <td style={{...st.td,textAlign:'right',fontSize:10,
                                         cursor: fixed?'not-allowed':'pointer',

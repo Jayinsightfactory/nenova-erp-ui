@@ -9,6 +9,7 @@ import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { suggestDisplayName } from '../../lib/displayName';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { buildWeekPivotDimensionOptions } from '../../lib/pivotFilterOptions';
+import { isWeekPivotCellFixed, weekPivotFixState } from '../../lib/weekPivotFix';
 import * as XLSX from 'xlsx';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
@@ -761,16 +762,8 @@ export default function WeekPivot() {
       // 품목별 이월재고 (DB ProductStock 기준) — startStocks 미입력 시 기본값
       if(!(r.ProdKey in prevStockMap)) prevStockMap[r.ProdKey]=r.prevStock||0;
     });
-    const isFixed=(ck,wk)=>rows.some(r=>r.CustKey===ck&&r.OrderWeek===wk&&r.isFix);
-    // 차수 단위 확정 상태: 'fixed' (전체 확정), 'unfixed' (전체 미확정), 'partial' (일부 — 잘못된 상태), 'empty'
-    const weekFixState=(wk)=>{
-      const wkRows=rows.filter(r=>r.OrderWeek===wk&&((r.outQty||0)>0||(r.orderQty||0)>0));
-      if(wkRows.length===0) return 'empty';
-      const fixedRows=wkRows.filter(r=>r.isFix);
-      if(fixedRows.length===0) return 'unfixed';
-      if(fixedRows.length===wkRows.length) return 'fixed';
-      return 'partial';
-    };
+    const isFixed=(pk,ck,wk)=>isWeekPivotCellFixed(rows,pk,ck,wk);
+    const weekFixState=(wk)=>weekPivotFixState(rows,wk);
 
     if(weeks.length===0) return <div style={st.empty}>해당 차수에 주문 데이터 없음<br/><span style={{fontSize:11,color:'#bbb'}}>custRows: {custRows.length}행</span></div>;
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
@@ -1433,7 +1426,7 @@ export default function WeekPivot() {
                 const stateConfig={
                   fixed:    {bg:'#2e7d32', label:'🔒 확정',     desc:'전체 확정 — 수정 불가'},
                   unfixed:  {bg:'#1a237e', label:'✏️ 미확정',   desc:'전체 미확정 — 수정 가능'},
-                  partial:  {bg:'#e65100', label:'⚠ 부분확정',  desc:'일부만 확정 — 비정상 상태 (DB 정합성 점검 필요)'},
+                  partial:  {bg:'#e65100', label:'⚠ 부분확정',  desc:'일부 출고라인만 확정 (품종/업체별 부분 확정)'},
                   empty:    {bg:'#455a64', label:'(빈차수)',    desc:'주문/출고 없음'},
                 }[fixState] || {bg:'#1a237e',label:'',desc:''};
                 return (
@@ -1560,7 +1553,7 @@ export default function WeekPivot() {
                                   </td>
                                 )}
                                 {(()=>{
-                                  const fixed=isFixed(ck,wk);
+                                  const fixed=isFixed(pk,ck,wk);
                                   return (
                                     <td className="pv-cell" style={{...st.td,textAlign:'right',fontSize:pvFontSize,cursor:fixed?'not-allowed':'pointer',
                                         borderLeft:ci===0?'2px solid #e0e0e0':'none',color:v>0?'#1565c0':'#ddd',

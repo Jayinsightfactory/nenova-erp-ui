@@ -353,7 +353,7 @@ export default withAuth(async function handler(req, res) {
              MAX(sd2.ShipmentDtm) AS ShipmentDtm,
              MAX(NULLIF(sd2.Cost,0)) AS Cost,
              MAX(ISNULL(sm2.CreateID,'')) AS CreateID,
-             MAX(CAST(ISNULL(sm2.isFix,0) AS INT)) AS isFix,
+             MAX(CAST(ISNULL(sd2.isFix,0) AS INT)) AS isFix,
              MIN(sd2.SdetailKey) AS SdetailKey,
              STUFF((
                SELECT CHAR(10) + sd3.Descr
@@ -437,7 +437,7 @@ export default withAuth(async function handler(req, res) {
              MAX(sd.ShipmentDtm) AS ShipmentDtm,
              MAX(NULLIF(sd.Cost,0)) AS Cost,
              MAX(ISNULL(sm.CreateID,'')) AS CreateID,
-             MAX(CAST(ISNULL(sm.isFix,0) AS INT)) AS isFix,
+             MAX(CAST(ISNULL(sd.isFix,0) AS INT)) AS isFix,
              MIN(sd.SdetailKey) AS SdetailKey,
              STUFF((
                SELECT CHAR(10) + sd3.Descr
