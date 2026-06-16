@@ -4,7 +4,7 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { applyByDateRowQuantities } from '../../../lib/estimateInvariants.js';
+import { applyByDateRowQuantities, filterActiveEstimateShipmentRows } from '../../../lib/estimateInvariants.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -370,6 +370,7 @@ async function loadItems(sk, byDate = false) {
            END AS SteamsPerBox
        ) boxRule
        WHERE sd.ShipmentKey = @sk
+         AND ISNULL(sd.OutQuantity, 0) <> 0
        UNION ALL
        -- ② 차감 (Estimate) — 단가 수정 대상 아님, SdetailKey=NULL
        SELECT
@@ -478,7 +479,7 @@ async function loadItems(sk, byDate = false) {
        outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
-  if (!byDate) return result.recordset;
+  if (!byDate) return filterActiveEstimateShipmentRows(result.recordset);
   return applyByDateRowQuantities(result.recordset);
 }
 

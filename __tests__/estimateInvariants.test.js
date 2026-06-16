@@ -12,6 +12,7 @@ async function main() {
     checkSplitSumInvariant,
     splitEstByDistributeUnits,
     applyByDateRowQuantities,
+    filterActiveEstimateShipmentRows,
   } = await import('../lib/estimateInvariants.js');
   const { distributeUnits } = await import('../lib/distributeUnits.js');
   const { scaleShipmentDateQtys } = await import('../lib/syncShipmentDateEst.js');
@@ -106,6 +107,15 @@ async function main() {
   };
   const remapped = applyByDateRowQuantities([normalRow])[0];
   assert('정상출고 16박스→160송이', remapped.Quantity === 160);
+
+  console.log('\n=== filterActiveEstimateShipmentRows (OutQuantity=0 유령행) ===');
+  const ghosts = filterActiveEstimateShipmentRows([
+    { EstimateType: '정상출고', ProdName: 'MEL ROSE', Quantity: 0, Cost: 0, Amount: 0, Vat: 0 },
+    { EstimateType: '정상출고', ProdName: 'Freedom', Quantity: 60, Cost: 13700, Amount: 747273, Vat: 74727 },
+    { EstimateType: '단가차감', ProdName: 'ROSE', Quantity: 0, Cost: 2700, Amount: 0, Vat: 0 },
+  ]);
+  assert('유령 정상출고 제외', ghosts.length === 2);
+  assert('차감 0수량 유지', ghosts.some(r => r.EstimateType === '단가차감'));
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

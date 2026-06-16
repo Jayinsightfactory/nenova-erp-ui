@@ -4,6 +4,22 @@
 
 ---
 
+## [2026-06-16] 세션 — 견적 Orange Flame / 그린화원 24차
+
+### 작업 내용
+- **Orange Flame (exe):** 운영 진단 → ShipmentDate 동기화 이미 정상(DetailEst=DateEst=15, Cost 일치). 과거 Date 미동기화 이슈는 syncShipmentDateEst 커밋들로 해소됨.
+- **그린화원 (web):** OutQuantity=0 유령 ShipmentDetail 8건이 byDate 견적 API에 0수량·0단가로 노출 → `loadItems` SQL 필터 + `filterActiveEstimateShipmentRows` 추가.
+- 진단 스크립트: `scripts/probe-estimate-orange-green-24.mjs`
+- 문서: `docs/work-reports/2026-06-16_estimate-orange-green-24.md`
+
+### 변경된 파일
+- `pages/api/estimate/index.js`, `lib/estimateInvariants.js`, `__tests__/estimateInvariants.test.js`
+
+### 다음 작업 예정
+- push → 배포 후 probe 재실행으로 그린화원 bad rows 0 확인.
+
+---
+
 ## [2026-06-15] 세션 — 도착원가 SQL 자동화 + 카탈로그 export + 배포
 
 ### 작업 내용
