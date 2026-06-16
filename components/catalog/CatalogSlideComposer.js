@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   absCatalogUrl,
   catalogLineNames,
@@ -103,11 +103,13 @@ function MiniSlot({
         ×
       </button>
       <div className="composer-slot-img">
-        {line.imageUrl ? (
-          <img src={absCatalogUrl(line.imageUrl)} alt="" />
-        ) : (
-          <span>{eng?.slice(0, 2) || '품'}</span>
-        )}
+        <div className="composer-slot-img-frame">
+          {line.imageUrl ? (
+            <img src={absCatalogUrl(line.imageUrl)} alt="" />
+          ) : (
+            <span>{eng?.slice(0, 2) || '품'}</span>
+          )}
+        </div>
       </div>
       <div className="composer-slot-text">
         {cellLines.map(row => (
@@ -138,9 +140,40 @@ export default function CatalogSlideComposer({
   onSelectLine,
   activeSlideTarget,
   onSelectSlideTarget,
+  editorOpen = true,
 }) {
   const slotCount = perPageSlotCount(perPage);
   const cols = catalogGridCols(perPage);
+
+  const [expandedSlideId, setExpandedSlideId] = useState(null);
+
+  useEffect(() => {
+    if (!slides.length) {
+      setExpandedSlideId(null);
+      return;
+    }
+    const targetIsSlide = activeSlideTarget
+      && activeSlideTarget !== SLIDE_TARGET_AUTO
+      && activeSlideTarget !== SLIDE_TARGET_NEW
+      && slides.some(s => s.id === activeSlideTarget);
+    if (targetIsSlide) {
+      setExpandedSlideId(activeSlideTarget);
+      return;
+    }
+    setExpandedSlideId(prev => (
+      prev && slides.some(s => s.id === prev) ? prev : slides[slides.length - 1].id
+    ));
+  }, [slides, activeSlideTarget]);
+
+  const toggleSlideExpanded = useCallback((slideId, e) => {
+    e?.stopPropagation();
+    setExpandedSlideId(prev => (prev === slideId ? null : slideId));
+  }, []);
+
+  const focusSlide = useCallback((slideId) => {
+    setExpandedSlideId(slideId);
+    onSelectSlideTarget?.(slideId);
+  }, [onSelectSlideTarget]);
 
   const handleDropZone = useCallback((e) => {
     e.preventDefault();
@@ -185,7 +218,7 @@ export default function CatalogSlideComposer({
             </option>
           ))}
         </select>
-        <span className="composer-hint">슬라이드 헤더 클릭 → 대상 지정 · 품목은 칸에 직접 배치</span>
+        <span className="composer-hint">▶ 접기/펼치기 · 헤더 클릭 → 대상 지정 · 품목은 칸에 직접 배치</span>
       </div>
 
       <div
@@ -205,14 +238,27 @@ export default function CatalogSlideComposer({
         )}
         {slides.map((slide, si) => {
           const isTarget = activeSlideTarget === slide.id;
+          const isExpanded = expandedSlideId === slide.id;
           return (
-          <article key={slide.id} className={`composer-slide-card ${isTarget ? 'target-slide' : ''}`}>
+          <article
+            key={slide.id}
+            className={`composer-slide-card ${isTarget ? 'target-slide' : ''} ${isExpanded ? 'expanded' : 'collapsed'}`}
+          >
             <header
               className="composer-slide-hdr"
-              onClick={() => onSelectSlideTarget?.(slide.id)}
-              title="클릭 → 이 슬라이드를 추가 대상으로"
+              onClick={() => focusSlide(slide.id)}
+              title="클릭 → 펼치기 + 추가 대상 지정"
             >
-              <div>
+              <button
+                type="button"
+                className="composer-slide-toggle"
+                onClick={(e) => toggleSlideExpanded(slide.id, e)}
+                title={isExpanded ? '접기' : '펼치기'}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? '▼' : '▶'}
+              </button>
+              <div className="composer-slide-titles">
                 <strong>{slide.titleBig}</strong>
                 {slide.titleSmall ? (
                   <span className="composer-origin">{formatOriginLabel(slide.titleSmall)}</span>
@@ -223,13 +269,14 @@ export default function CatalogSlideComposer({
               <button
                 type="button"
                 className="btn btn-sm btn-danger"
-                onClick={() => onRemoveSlide(slide.id)}
+                onClick={(e) => { e.stopPropagation(); onRemoveSlide(slide.id); }}
                 title="슬라이드 삭제"
               >
                 삭제
               </button>
             </header>
-            <div className="composer-slide-stage">
+            {isExpanded ? (
+            <div className={`composer-slide-stage ${editorOpen ? 'with-editor' : 'full'}`}>
               <div
                 className="composer-grid"
                 style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
@@ -252,6 +299,11 @@ export default function CatalogSlideComposer({
                 })}
               </div>
             </div>
+            ) : (
+              <div className="composer-slide-collapsed-hint">
+                {(slide.slots || []).filter(Boolean).length}칸 배치됨 · ▶ 클릭하여 펼치기
+              </div>
+            )}
           </article>
           );
         })}
@@ -328,17 +380,60 @@ export default function CatalogSlideComposer({
           font-weight: 700;
           color: var(--blue);
         }
+        .composer-slide-card.collapsed {
+          flex-shrink: 0;
+        }
+        .composer-slide-card.expanded {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .composer-slide-toggle {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 11px;
+          color: var(--text3);
+          padding: 0 4px;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        .composer-slide-titles {
+          min-width: 0;
+          flex: 1;
+        }
+        .composer-slide-hdr .btn-danger {
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+        .composer-slide-collapsed-hint {
+          padding: 4px 10px 8px 28px;
+          font-size: 10px;
+          color: var(--text3);
+          background: var(--header-bg);
+          border-top: 1px solid var(--border);
+        }
         .composer-slide-stage {
           width: 100%;
           max-width: none;
           margin: 0 auto;
           aspect-ratio: 16 / 9;
-          max-height: min(62vh, 560px);
-          padding: 10px 14px 12px;
+          padding: 8px 10px 10px;
           box-sizing: border-box;
           background: #fff;
           display: flex;
           flex-direction: column;
+          min-height: 0;
+        }
+        .composer-slide-stage.full {
+          max-height: min(calc(100vh - 180px), 720px);
+        }
+        .composer-slide-stage.with-editor {
+          max-height: min(calc(100vh - 320px), 640px);
+        }
+        .composer-slide-card.expanded .composer-slide-stage {
+          flex: 1;
         }
         .composer-slide-hdr {
           display: flex;
@@ -351,13 +446,14 @@ export default function CatalogSlideComposer({
         }
         .composer-slide-hdr strong { font-size: 13px; }
         .composer-origin { margin-left: 6px; font-size: 10px; color: var(--text3); }
-        .composer-slide-no { margin-left: auto; font-size: 10px; color: var(--text3); }
+        .composer-slide-no { font-size: 10px; color: var(--text3); flex-shrink: 0; }
         .composer-grid {
           flex: 1;
           min-height: 0;
           display: grid;
-          grid-template-rows: repeat(2, 1fr);
-          gap: 6px;
+          grid-template-rows: repeat(2, minmax(0, 1fr));
+          column-gap: 4px;
+          row-gap: 4px;
         }
         .composer-slot {
           position: relative;
@@ -365,11 +461,11 @@ export default function CatalogSlideComposer({
           border-radius: 4px;
           min-height: 0;
           height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 4px;
+          display: grid;
+          grid-template-rows: minmax(0, 1fr) minmax(2.4em, 38%);
+          align-items: stretch;
+          justify-items: center;
+          padding: 1px 2px 2px;
           background: #fff;
           overflow: hidden;
         }
@@ -400,20 +496,48 @@ export default function CatalogSlideComposer({
           padding: 0;
         }
         .composer-slot-img {
-          width: min(100%, 72px);
-          height: min(55%, 80px);
-          flex: 1 1 auto;
-          max-height: 80px;
+          width: 100%;
+          min-height: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          flex-shrink: 1;
         }
-        .composer-slot-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .composer-slot-img span { font-size: 11px; font-weight: 700; color: #bbb; }
+        .composer-slot-img-frame {
+          height: 100%;
+          width: auto;
+          max-width: 100%;
+          max-height: 100%;
+          aspect-ratio: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .composer-slot-img-frame img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: block;
+        }
+        .composer-slot-img-frame span {
+          font-size: clamp(8px, 1vw, 11px);
+          font-weight: 700;
+          color: #bbb;
+        }
+        .composer-slot-text {
+          width: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          gap: 0;
+          overflow: hidden;
+          padding-top: 1px;
+        }
         .composer-slot-name {
-          font-size: 9px;
+          font-size: clamp(7px, 0.85vw, 10px);
           font-weight: 600;
           line-height: 1.1;
           text-align: center;
@@ -422,15 +546,6 @@ export default function CatalogSlideComposer({
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           width: 100%;
-        }
-        .composer-slot-text {
-          width: 100%;
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          max-height: 38%;
-          overflow: hidden;
         }
         .composer-slot-extra {
           font-size: 8px;

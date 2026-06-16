@@ -63,6 +63,7 @@ export default withAuth(async function handler(req, res) {
 
   const products = await loadProducts();
   const uploadedBy = req.user?.userId || req.user?.userName || null;
+  const forceReplace = req.query.force === '1' || req.query.replace === '1';
 
   if (req.query.scan === '1') {
     const files = listSourceFiles();
@@ -75,7 +76,7 @@ export default withAuth(async function handler(req, res) {
     const merged = { matched: [], skipped: [], unmatched: [], matchedCount: 0, sources: [] };
     for (const fp of files) {
       const buf = fs.readFileSync(fp);
-      const r = await importCatalogSourceBuffer(buf, path.basename(fp), products, uploadedBy);
+      const r = await importCatalogSourceBuffer(buf, path.basename(fp), products, uploadedBy, { forceReplace });
       merged.sources.push({ file: path.basename(fp), ...r });
       merged.matched.push(...r.matched);
       merged.skipped.push(...r.skipped);
@@ -106,7 +107,7 @@ export default withAuth(async function handler(req, res) {
 
   try {
     const buf = fs.readFileSync(file.filepath);
-    const result = await importCatalogSourceBuffer(buf, name, products, uploadedBy);
+    const result = await importCatalogSourceBuffer(buf, name, products, uploadedBy, { forceReplace });
     return res.status(200).json({
       success: true,
       ...result,

@@ -23,6 +23,7 @@ import {
   newCatalogLine,
   pickPrimaryImageRecord,
   productGroupKey,
+  repairCatalogLineNames,
 } from '../../lib/catalogUtils';
 import {
   addGroupToComposer,
@@ -499,10 +500,17 @@ export default function CatalogPage() {
       const prod = findProd(products, line.prodKey);
       if (!prod) return line;
       const names = resolveCatalogProductNames(prod, prod.mappingKorName);
+      const repaired = repairCatalogLineNames({
+        ...line,
+        engName: line.engName || names.engName,
+        korName: line.korName || names.korName,
+        prodName: prod.ProdName,
+        catalogName: line.catalogName || displayProductName(prod),
+      });
       return {
         ...line,
-        korName: names.korName || line.korName,
-        engName: line.engName || names.engName,
+        korName: repaired.korName || names.korName || line.korName,
+        engName: repaired.engName || names.engName || line.engName,
       };
     }));
   }, [products]);
@@ -512,10 +520,17 @@ export default function CatalogPage() {
       const prod = findProd(products, line.prodKey);
       if (!prod) return line;
       const names = resolveCatalogProductNames(prod, prod.mappingKorName);
+      const repaired = repairCatalogLineNames({
+        ...line,
+        engName: line.engName || names.engName,
+        korName: line.korName || names.korName,
+        prodName: prod.ProdName,
+        catalogName: line.catalogName || displayProductName(prod),
+      });
       return {
         ...line,
-        korName: names.korName || line.korName,
-        engName: line.engName || names.engName,
+        korName: repaired.korName || names.korName || line.korName,
+        engName: repaired.engName || names.engName || line.engName,
       };
     }));
   }, [products]);
@@ -982,7 +997,7 @@ export default function CatalogPage() {
         tabIndex={onClick ? 0 : undefined}
       >
         {url ? (
-          <img src={absCatalogUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={absCatalogUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         ) : (
           <span style={{ fontWeight: 700, fontSize: size > 50 ? 14 : 11, color: 'var(--text3)' }}>
             {prod.FlowerName?.slice(0, 2) || '📷'}
@@ -1293,6 +1308,7 @@ export default function CatalogPage() {
               onSelectLine={focusLine}
               activeSlideTarget={activeSlideTarget}
               onSelectSlideTarget={handleSelectSlideTarget}
+              editorOpen={editorOpen}
             />
             {editorOpen && (
               <CatalogLineEditor
