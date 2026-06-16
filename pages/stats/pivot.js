@@ -19,6 +19,7 @@ import {
   PIVOT_FIELDS, FIELD_BY_ID, ZONES, canDropInZone, COL_GROUP_LABELS, COL_GROUP_FIELD_MAP,
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
+import { buildPivotDimensionOptions } from '../../lib/pivotFilterOptions';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
@@ -699,7 +700,9 @@ export default function Pivot() {
     else if (cfg.showSections) setColumnZone(columnZoneFromSections(cfg.showSections, cfg.colGroupOrder));
     if (cfg.viewMode === 'compact' || cfg.viewMode === 'detail') setViewMode(cfg.viewMode);
     if (typeof cfg.showFieldList === 'boolean') setShowFieldList(cfg.showFieldList);
-    if (Array.isArray(cfg.filterZone)) setFilterZone(cfg.filterZone.filter(id => FIELD_BY_ID[id]));
+    if (Array.isArray(cfg.filterZone)) {
+      setFilterZone(cfg.filterZone.filter((id) => FIELD_BY_ID[id] && !FIELD_BY_ID[id].locked));
+    }
     if (cfg.fieldFilters && typeof cfg.fieldFilters === 'object') setFieldFilters(cfg.fieldFilters);
     if (Array.isArray(cfg.colGroupOrder)) setColGroupOrder(cfg.colGroupOrder);
     if (Array.isArray(cfg.visibleCustNames)) setVisibleCustNames(cfg.visibleCustNames);
@@ -886,11 +889,12 @@ export default function Pivot() {
     });
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 필터 옵션 (필터용) — 데이터 변경 시만 재계산
-  const areaOptions    = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.area).filter(Boolean))].sort(),    [data]);
-  const countryOptions = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.country).filter(Boolean))].sort(), [data]);
-  const flowerOptions  = useMemo(() => [...new Set((data?.rows||[]).map(r=>r.flower).filter(Boolean))].sort(),  [data]);
-  const prodNameOptions= useMemo(() => [...new Set((data?.rows||[]).map(r=>r.prodName).filter(Boolean))].sort(),[data]);
+  // 필터 옵션 — 국가→꽃→품목명 계층 연동 (exe PivotGrid Prefilter 와 동일)
+  const areaOptions = useMemo(() => [...new Set((data?.rows || []).map((r) => r.area).filter(Boolean))].sort(), [data]);
+  const { countryOptions, flowerOptions, prodNameOptions } = useMemo(
+    () => buildPivotDimensionOptions(data?.rows, filters),
+    [data, filters],
+  );
 
   // ── Filter Editor: 필드 → row 키 매핑
   const COND_FIELD_MAP = {
@@ -904,12 +908,24 @@ export default function Pivot() {
   const getFieldValues = useCallback((field) => {
     const key = COND_FIELD_MAP[field];
     if (!key || !data?.rows) return [];
+    if (key === 'country' || key === 'flower' || key === 'prodName') {
+      const opts = buildPivotDimensionOptions(data.rows, filters);
+      if (key === 'country') return opts.countryOptions;
+      if (key === 'flower') return opts.flowerOptions;
+      return opts.prodNameOptions;
+    }
     return [...new Set(data.rows.map(r=>String(r[key]||'')).filter(Boolean))].sort().slice(0,60);
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 필터영역 필드(레지스트리 id) → 데이터 distinct 값
   const getValuesForFieldId = useCallback((id) => {
     if (!data) return [];
+    if (id === 'country' || id === 'flower' || id === 'prodName') {
+      const opts = buildPivotDimensionOptions(data.rows, filters);
+      if (id === 'country') return opts.countryOptions;
+      if (id === 'flower') return opts.flowerOptions;
+      return opts.prodNameOptions;
+    }
     if (id === 'custName') {
       return [...new Set((data.customers || []).map(c => c.custName).filter(Boolean))].sort();
     }
@@ -929,7 +945,7 @@ export default function Pivot() {
     const key = FIELD_BY_ID[id]?.dataKey;
     if (!key || !data.rows) return [];
     return [...new Set(data.rows.map(r => String(r[key] ?? '')).filter(v => v !== ''))].sort().slice(0, 200);
-  }, [data]);
+  }, [data, filters]);
 
   // 필터 적용 (__EMPTY__ = 전체 해제 + Filter Editor 조건)
   const filteredRows = useMemo(() => (data?.rows||[]).filter(r => {

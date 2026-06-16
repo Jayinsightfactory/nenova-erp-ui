@@ -7,6 +7,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { suggestDisplayName } from '../../lib/displayName';
+import { useColumnResize } from '../../lib/useColumnResize';
+import { buildWeekPivotDimensionOptions } from '../../lib/pivotFilterOptions';
 import * as XLSX from 'xlsx';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
@@ -366,7 +368,6 @@ export default function WeekPivot() {
 
   // 공통 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
-  const [filterFlower, setFilterFlower] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
 
   // 피벗 전용 필터
@@ -390,19 +391,70 @@ export default function WeekPivot() {
   const [pvFontSize, setPvFontSize] = useState(10);
   const [pvCellWidth, setPvCellWidth] = useState(44);
   const [pvCellPad, setPvCellPad] = useState(2);
+  const [pvDescrWidth, setPvDescrWidth] = useState(320);
+  const [pvProdColWidth, setPvProdColWidth] = useState(150);
+  const [pvRowMinHeight, setPvRowMinHeight] = useState(22);
+  const [wpColWidths, setWpColWidths] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wp_col_w') || '{}'); } catch { return {}; }
+  });
   const [pvFiltersOpen, setPvFiltersOpen] = useState(false); // 기본 닫힘 (엑셀 같은 느낌)
+  const saveWpColWidth = useCallback((idx, w) => {
+    setWpColWidths((prev) => {
+      const key = typeof idx === 'string' ? idx : String(idx);
+      const next = { ...prev, [key]: w };
+      try { localStorage.setItem('wp_col_w', JSON.stringify(next)); } catch {}
+      if (key === 'g:cust') setPvCellWidth(w);
+      if (key === 'g:descr') setPvDescrWidth(w);
+      if (key === 'g:prod') setPvProdColWidth(w);
+      return next;
+    });
+  }, []);
   useEffect(() => {
     try {
       const fs = parseInt(localStorage.getItem('wp_fs')); if (fs >= 7 && fs <= 20) setPvFontSize(fs);
       const cw = parseInt(localStorage.getItem('wp_cw')); if (cw >= 24 && cw <= 120) setPvCellWidth(cw);
       const cp = parseInt(localStorage.getItem('wp_cp')); if (cp >= 0 && cp <= 12) setPvCellPad(cp);
+      const dw = parseInt(localStorage.getItem('wp_dw')); if (dw >= 80 && dw <= 800) setPvDescrWidth(dw);
+      const pw = parseInt(localStorage.getItem('wp_pw')); if (pw >= 80 && pw <= 320) setPvProdColWidth(pw);
+      const rh = parseInt(localStorage.getItem('wp_rh')); if (rh >= 18 && rh <= 80) setPvRowMinHeight(rh);
       const fo = localStorage.getItem('wp_fo'); if (fo === '1') setPvFiltersOpen(true);
     } catch {}
   }, []);
   useEffect(() => { try { localStorage.setItem('wp_fs', String(pvFontSize)); } catch {} }, [pvFontSize]);
   useEffect(() => { try { localStorage.setItem('wp_cw', String(pvCellWidth)); } catch {} }, [pvCellWidth]);
   useEffect(() => { try { localStorage.setItem('wp_cp', String(pvCellPad)); } catch {} }, [pvCellPad]);
+  useEffect(() => { try { localStorage.setItem('wp_dw', String(pvDescrWidth)); } catch {} }, [pvDescrWidth]);
+  useEffect(() => { try { localStorage.setItem('wp_pw', String(pvProdColWidth)); } catch {} }, [pvProdColWidth]);
+  useEffect(() => { try { localStorage.setItem('wp_rh', String(pvRowMinHeight)); } catch {} }, [pvRowMinHeight]);
   useEffect(() => { try { localStorage.setItem('wp_fo', pvFiltersOpen ? '1' : '0'); } catch {} }, [pvFiltersOpen]);
+  const wpPivotLayoutKey = useMemo(() => {
+    const wks = [...new Set(custRows.map((r) => r.OrderWeek))].sort();
+    const cks = new Set(custRows.map((r) => r.CustKey));
+    const pks = new Set(custRows.map((r) => r.ProdKey));
+    return `${wks.join(',')}|c${cks.size}|p${pks.size}|d${pvDescrOpen ? 1 : 0}`;
+  }, [custRows, pvDescrOpen]);
+
+  const wpTableRef = useColumnResize(
+    [wpPivotLayoutKey, loading, pvCellWidth, pvDescrWidth, pvProdColWidth, wpColWidths],
+    {
+      headerSelector: 'thead tr.wp-col-header-row th',
+      minWidth: 8,
+      defaultWidth: 40,
+      leadingColWidth: wpColWidths['g:prod'] ?? pvProdColWidth,
+      defaultGroupWidths: {
+        cust: wpColWidths['g:cust'] ?? pvCellWidth,
+        descr: wpColWidths['g:descr'] ?? pvDescrWidth,
+        stock: 48,
+      },
+      widths: wpColWidths,
+      onResize: saveWpColWidth,
+    },
+  );
+
+  const weekPivotDimOptions = useMemo(
+    () => buildWeekPivotDimensionOptions(custRows, filterCoun),
+    [custRows, filterCoun],
+  );
 
   // 가로 스크롤 동기화 (위/아래 두 개)
   const pvTopScrollRef = useRef(null);
@@ -431,7 +483,7 @@ export default function WeekPivot() {
     const filterState = {
       weekFrom, weekTo: weekToInput.value,
       pvMgr, pvCusts: [...pvCusts], pvFlowers: [...pvFlowers], pvShowOnlyOut,
-      filterCoun, filterFlower, filterSearch,
+      filterCoun, pvFlowers: [...pvFlowers], filterSearch,
     };
     try {
       await fetch('/api/favorites', {
@@ -452,7 +504,7 @@ export default function WeekPivot() {
       if (f.pvFlowers) setPvFlowers(new Set(f.pvFlowers));
       if (f.pvShowOnlyOut !== undefined) setPvShowOnlyOut(f.pvShowOnlyOut);
       if (f.filterCoun !== undefined) setFilterCoun(f.filterCoun);
-      if (f.filterFlower !== undefined) setFilterFlower(f.filterFlower);
+      if (f.filterFlower !== undefined && f.filterFlower) setPvFlowers(new Set([f.filterFlower]));
       if (f.filterSearch !== undefined) setFilterSearch(f.filterSearch);
     } catch {}
   };
@@ -641,18 +693,16 @@ export default function WeekPivot() {
 
   // 필터 적용
   const applyFilter = useCallback((rows) => rows.filter(r => {
-    if (filterCoun   && !r.CounName?.includes(filterCoun))     return false;
-    if (filterFlower && !r.FlowerName?.includes(filterFlower)) return false;
+    if (filterCoun && r.CounName !== filterCoun) return false;
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
       const dn = (r.DisplayName || '').toLowerCase();
       if (!r.ProdName?.toLowerCase().includes(q) && !dn.includes(q) && !r.FlowerName?.toLowerCase().includes(q) && !r.CustName?.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [filterCoun, filterFlower, filterSearch]);
+  }), [filterCoun, filterSearch]);
 
   const filteredCustRows = useMemo(() => applyFilter(custRows), [custRows, applyFilter]);
-  const allCounNames     = useMemo(() => [...new Set(custRows.map(r=>r.CounName).filter(Boolean))].sort(), [custRows]);
 
   // ─────────────────────────────────────────────────────────────
   // 피벗 렌더링
@@ -1279,21 +1329,18 @@ export default function WeekPivot() {
         {/* 국가 필터 */}
         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
           <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>국가:</span>
-          <button onClick={()=>{setFilterCoun('');setFilterFlower('');}} style={chipS(!filterCoun)}>전체</button>
-          {allCounNames.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setFilterFlower('');}} style={chipS(filterCoun===c)}>{c}</button>))}
+          <button onClick={()=>{setFilterCoun('');setPvFlowers(new Set());}} style={chipS(!filterCoun)}>전체</button>
+          {weekPivotDimOptions.countries.map(c=>(<button key={c} onClick={()=>{setFilterCoun(prev=>prev===c?'':c);setPvFlowers(new Set());}} style={chipS(filterCoun===c)}>{c}</button>))}
         </div>
         </>)}
         {/* 꽃 필터 (국가 선택 시) */}
-        {pvFiltersOpen&&filterCoun&&(()=>{
-          const flowers=[...new Set(custRows.filter(r=>r.CounName===filterCoun).map(r=>r.FlowerName).filter(Boolean))].sort();
-          return (
+        {pvFiltersOpen&&filterCoun&&weekPivotDimOptions.flowers.length>0&&(
             <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:4}}>
               <span style={{fontSize:10,color:'#888',lineHeight:'22px'}}>꽃:</span>
               <button onClick={()=>setPvFlowers(new Set())} style={chipS(pvFlowers.size===0)}>전체</button>
-              {flowers.map(f=>{const active=pvFlowers.has(f);return(<button key={f} onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);active?n.delete(f):n.add(f);return n;})} style={chipS(active)}>{f}</button>);})}
+              {weekPivotDimOptions.flowers.map(f=>{const active=pvFlowers.has(f);return(<button key={f} onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);active?n.delete(f):n.add(f);return n;})} style={chipS(active)}>{f}</button>);})}
             </div>
-          );
-        })()}
+        )}
         {/* 옵션 + 버튼 */}
         <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
           <button onClick={()=>setPvFiltersOpen(v=>!v)}
@@ -1323,7 +1370,17 @@ export default function WeekPivot() {
             <span style={{fontSize:9,minWidth:14,textAlign:'center',fontWeight:700}}>{pvCellPad}</span>
             <button onClick={()=>setPvCellPad(v=>Math.min(12,v+1))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
             <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
-            <button onClick={()=>{setPvFontSize(10);setPvCellWidth(44);setPvCellPad(2);}}
+            <span style={{fontSize:9,color:'#666'}} title="비고 열 너비">비고</span>
+            <button onClick={()=>{ const v=Math.max(80,pvDescrWidth-20); setPvDescrWidth(v); saveWpColWidth('g:descr', v); }} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>-</button>
+            <span style={{fontSize:9,minWidth:22,textAlign:'center',fontWeight:700}}>{pvDescrWidth}</span>
+            <button onClick={()=>{ const v=Math.min(800,pvDescrWidth+20); setPvDescrWidth(v); saveWpColWidth('g:descr', v); }} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
+            <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
+            <span style={{fontSize:9,color:'#666'}} title="행 높이">↕</span>
+            <button onClick={()=>setPvRowMinHeight(v=>Math.max(18,v-2))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>-</button>
+            <span style={{fontSize:9,minWidth:18,textAlign:'center',fontWeight:700}}>{pvRowMinHeight}</span>
+            <button onClick={()=>setPvRowMinHeight(v=>Math.min(80,v+2))} style={{padding:'1px 5px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2}}>+</button>
+            <span style={{width:1,height:14,background:'#ccc',margin:'0 3px'}} />
+            <button onClick={()=>{setPvFontSize(10);setPvCellWidth(44);setPvCellPad(2);setPvDescrWidth(320);setPvProdColWidth(150);setPvRowMinHeight(22);}}
               style={{padding:'1px 6px',fontSize:9,border:'1px solid #ccc',background:'#fff',cursor:'pointer',borderRadius:2,color:'#666'}}
               title="기본값으로 초기화">↺</button>
           </div>
@@ -1339,10 +1396,13 @@ export default function WeekPivot() {
 
         {/* 피벗 테이블 — 보기옵션 동적 적용 */}
         <style>{`
-          .wp-pivot table { font-size: ${pvFontSize}px !important; }
-          .wp-pivot td, .wp-pivot th { padding: ${pvCellPad}px ${Math.max(2,pvCellPad)}px !important; }
+          .wp-pivot table.tbl { font-size: ${pvFontSize}px !important; table-layout: fixed; }
+          .wp-pivot td, .wp-pivot th { padding: ${pvCellPad}px ${Math.max(2,pvCellPad)}px !important; min-height: ${pvRowMinHeight}px; }
+          .wp-pivot .wp-prod-col { width: ${pvProdColWidth}px !important; min-width: ${pvProdColWidth}px !important; max-width: ${pvProdColWidth}px !important; }
           .wp-pivot .pv-cell { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth}px !important; }
           .wp-pivot .pv-cust-head { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth + 16}px !important; }
+          .wp-pivot .pv-descr-cell { white-space: nowrap; overflow-x: auto; overflow-y: hidden; max-width: ${pvDescrWidth}px; }
+          .wp-pivot th.resizable .col-resize-handle { position: absolute; top: 0; right: 0; width: 5px; height: 100%; cursor: col-resize; }
           /* 상단 가로스크롤 미러 */
           .wp-top-scroll { overflow-x: auto; overflow-y: hidden; height: 14px; margin-bottom: 2px; background: #f5f5f5; border-radius: 3px; }
           .wp-top-scroll > div { height: 1px; }
@@ -1364,10 +1424,10 @@ export default function WeekPivot() {
                }
              }}
              style={{overflowX:'auto',overflowY:'auto',maxHeight:`calc(100vh - ${pvFiltersOpen ? 200 : 90}px)`,position:'relative'}}>
-        <table style={{...st.table,fontSize:pvFontSize,borderCollapse:'collapse'}}>
+        <table ref={wpTableRef} className="tbl" style={{...st.table,fontSize:pvFontSize,borderCollapse:'collapse'}}>
           <thead style={{position:'sticky',top:0,zIndex:4}}>
             <tr style={st.thead}>
-              <th style={{...st.th,position:'sticky',left:0,background:'#263238',zIndex:3}} rowSpan={3}>품명</th>
+              <th className="wp-prod-col" style={{...st.th,position:'sticky',left:0,background:'#263238',zIndex:3}} rowSpan={3}>품명</th>
               {weeks.map(wk=>{
                 const fixState=weekFixState(wk);
                 const stateConfig={
@@ -1404,24 +1464,24 @@ export default function WeekPivot() {
                 </React.Fragment>
               ))}
             </tr>
-            <tr style={st.thead}>
+            <tr className="wp-col-header-row" style={st.thead}>
               {weeks.map(wk=>(
                 <React.Fragment key={wk}>
                   {custKeys.map((ck,ci)=>(
                     <React.Fragment key={`${wk}-${ck}`}>
                       {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
-                      <th className="pv-cust-head" style={{...st.th,fontSize:Math.max(9,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'keep-all',lineHeight:'1.25',padding:'4px 3px',borderLeft:ci===0?'2px solid #fff':'none',minWidth:50,maxWidth:90}} title={cShort(ck)}>
+                      <th className="pv-cust-head" data-resize-group="cust" style={{...st.th,position:'relative',fontSize:Math.max(9,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'keep-all',lineHeight:'1.25',padding:'4px 3px',borderLeft:ci===0?'2px solid #fff':'none'}} title={cShort(ck)}>
                         {cShort(ck)}
                       </th>
                     </React.Fragment>
                   ))}
-                  <th style={{...st.th,background:'#006064',textAlign:'center',fontSize:8}}>시작재고</th>
-                  <th style={{...st.th,background:'#004d40',textAlign:'center',fontSize:8,minWidth:50}}>시작비고</th>
-                  <th style={{...st.th,background:'#1565c0',textAlign:'center',fontSize:8}}>입고</th>
-                  <th style={{...st.th,background:'#ad1457',textAlign:'center',fontSize:8}}>출고</th>
-                  <th style={{...st.th,background:'#4a148c',textAlign:'center',fontSize:8}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
-                  <th style={{...st.th,background:'#283593',textAlign:'center',fontSize:8}} title="DB 저장값 (ProductStock.Stock)">잔량(DB)</th>
-                  <th style={{...st.th,background:'#37474f',textAlign:'center',fontSize:8,minWidth:pvDescrOpen?100:30,cursor:'pointer'}}
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#006064',textAlign:'center',fontSize:8}}>시작재고</th>
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#004d40',textAlign:'center',fontSize:8}}>시작비고</th>
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#1565c0',textAlign:'center',fontSize:8}}>입고</th>
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#ad1457',textAlign:'center',fontSize:8}}>출고</th>
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#4a148c',textAlign:'center',fontSize:8}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
+                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#283593',textAlign:'center',fontSize:8}} title="DB 저장값 (ProductStock.Stock)">잔량(DB)</th>
+                  <th data-resize-group="descr" style={{...st.th,position:'relative',background:'#37474f',textAlign:'center',fontSize:8,minWidth:pvDescrOpen?pvDescrWidth:30,cursor:'pointer'}}
                       onClick={()=>setPvDescrOpen(p=>!p)}>{pvDescrOpen?'비고 ▾':'▸'}</th>
                 </React.Fragment>
               ))}
@@ -1460,12 +1520,12 @@ export default function WeekPivot() {
                     const rowBg = isSel ? '#FFF8E1' : (pi%2===0?'#fff':'#f5f5f5');
                     return (
                   <tr style={{background:rowBg, outline: isSel?'1px solid #FFA000':'none', outlineOffset:'-1px'}}>
-                    <td style={{...st.td,position:'sticky',left:0,background:rowBg,zIndex:1,minWidth:150,
+                    <td className="wp-prod-col" style={{...st.td,position:'sticky',left:0,background:rowBg,zIndex:1,
                                 borderLeft: isSel?'4px solid #FF6F00':'4px solid transparent', boxSizing:'border-box'}}>
                       <span style={{...st.clickCell,fontSize:8,color:filterCoun===p.coun?'#1565c0':'#999'}}
-                            onClick={()=>setFilterCoun(prev=>prev===p.coun?'':p.coun)}>{p.coun}</span>
-                      <span style={{...st.clickCell,fontSize:8,color:filterFlower===p.flower?'#2e7d32':'#999',marginLeft:2}}
-                            onClick={()=>setFilterFlower(prev=>prev===p.flower?'':p.flower)}>·{p.flower}</span>
+                            onClick={()=>{setFilterCoun(prev=>prev===p.coun?'':p.coun);setPvFlowers(new Set());}}>{p.coun}</span>
+                      <span style={{...st.clickCell,fontSize:8,color:pvFlowers.has(p.flower)?'#2e7d32':'#999',marginLeft:2}}
+                            onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);n.has(p.flower)?n.delete(p.flower):n.add(p.flower);return n;})}>·{p.flower}</span>
                       <div style={{display:'flex',alignItems:'flex-start',gap:4,marginTop:2}}>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontWeight:600,fontSize:12,cursor:'pointer',color:isSel?'#E65100':undefined,lineHeight:1.15,wordBreak:'break-word'}}
@@ -1554,21 +1614,22 @@ export default function WeekPivot() {
                               return {ck,lines};
                             }).filter(x=>x.lines.length);
                             const cnt=custLogs.reduce((a,x)=>a+x.lines.length,0);
-                            const maxLineLen=custLogs.reduce((a,x)=>Math.max(a,...x.lines.map(l=>l.length)),0);
-                            const dynWidth=pvDescrOpen?Math.max(100,maxLineLen*6):30;
+                            const descrW = pvDescrOpen ? (wpColWidths['g:descr'] ?? pvDescrWidth) : 30;
                             return (
-                              <td style={{...st.td,fontSize:8,color:'#555',width:dynWidth,minWidth:dynWidth,maxWidth:pvDescrOpen?'none':30,
-                                          whiteSpace:'pre-line',lineHeight:'1.3',cursor:'pointer',verticalAlign:'top',padding:'2px 4px'}}
+                              <td className="pv-descr-cell" style={{...st.td,fontSize:8,color:'#555',width:descrW,minWidth:descrW,maxWidth:descrW,
+                                          lineHeight:'1.3',cursor:'pointer',verticalAlign:'middle',padding:'2px 4px'}}
                                   onClick={()=>setPvDescrOpen(p=>!p)}>
                                 {pvDescrOpen?(
-                                  custLogs.map(({ck,lines})=>lines.map((line,li)=>(
-                                    <div key={`${ck}-${li}`} style={{display:'flex',alignItems:'flex-start',gap:2,marginBottom:1}}>
-                                      <span style={{flex:1,fontSize:7,color:'#555',lineHeight:'1.3',wordBreak:'break-all'}}>{line}</span>
-                                      <span title="수정내역 삭제"
-                                        style={{cursor:'pointer',color:'#e53935',fontSize:9,flexShrink:0,lineHeight:'1.3',padding:'0 1px'}}
-                                        onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:pivotProdName(p),line,allLines:lines});}}>✕</span>
-                                    </div>
-                                  )))
+                                  <div style={{display:'flex',flexDirection:'row',flexWrap:'nowrap',gap:10,alignItems:'center',minWidth:'max-content'}}>
+                                    {custLogs.flatMap(({ck,lines})=>lines.map((line,li)=>(
+                                      <span key={`${ck}-${li}`} style={{display:'inline-flex',alignItems:'center',gap:2,whiteSpace:'nowrap',flexShrink:0}}>
+                                        <span style={{fontSize:7,color:'#555'}}>{line}</span>
+                                        <span title="수정내역 삭제"
+                                          style={{cursor:'pointer',color:'#e53935',fontSize:9,lineHeight:'1.3',padding:'0 1px'}}
+                                          onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:pivotProdName(p),line,allLines:lines});}}>✕</span>
+                                      </span>
+                                    )))}
+                                  </div>
                                 ):(
                                   cnt>0?<span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span>:''
                                 )}
