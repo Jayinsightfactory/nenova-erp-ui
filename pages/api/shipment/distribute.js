@@ -619,8 +619,8 @@ async function insertShipmentHistory(tQuery, sdetailKey, before, after, descr, u
   try {
     await tQuery(
       `INSERT INTO ShipmentHistory
-         (SdetailKey, ShipmentDtm, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
-       SELECT @dk, ShipmentDtm, N'수정', N'OutQuantity', @before, @after, @descr, @uid, GETDATE()
+         (SdetailKey, ShipmentDtm, ChangeType, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+       SELECT @dk, ShipmentDtm, N'수정', @before, @after, @descr, @uid, GETDATE()
          FROM ShipmentDetail
         WHERE SdetailKey=@dk`,
       {

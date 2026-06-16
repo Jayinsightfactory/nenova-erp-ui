@@ -226,8 +226,8 @@ export default withAuth(async function handler(req, res) {
 
       await tQ(
         `INSERT INTO ShipmentHistory
-           (SdetailKey, ShipmentDtm, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
-         VALUES (@sdk, @dt, N'수정', N'OutQuantity', @before, @after, @descr, @uid, GETDATE())`,
+           (SdetailKey, ShipmentDtm, ChangeType, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+         VALUES (@sdk, @dt, N'수정', @before, @after, @descr, @uid, GETDATE())`,
         {
           sdk: { type: sql.Int, value: sdetailKey },
           dt: { type: sql.DateTime, value: row.ShipmentDtm },

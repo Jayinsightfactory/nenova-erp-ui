@@ -144,6 +144,10 @@
 
 `/api/estimate/update-quantity`는 **해당 `ShipmentDetail.isFix`** 만 검사한다. 카테고리별 부분 확정해제 후 `ShipmentMaster.isFix`가 1로 남아 있어도, 품목 행이 해제(`sd.isFix=0`)되면 수량 저장을 허용한다. (차수피벗·`fix-status`의 품목별 확정 표시와 동일 기준)
 
+### ShipmentHistory INSERT (2026-06-10)
+
+`ShipmentHistory`에는 `ColumName` 컬럼이 없다 (`OrderHistory` 전용). 수량 수정 시 이력 INSERT는 `ChangeType`, `BeforeValue`, `AfterValue`, `Descr`만 사용한다.
+
 ## 남은 위험
 
 이번 검증으로 견적서관리의 단가/수량 수정 정책은 `nenova.exe` 충돌을 줄이는 쪽으로 확인됐다.
