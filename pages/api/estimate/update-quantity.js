@@ -141,6 +141,7 @@ export default withAuth(async function handler(req, res) {
                 ISNULL(sd.Cost,0) AS Cost,
                 ISNULL(sd.Amount,0) AS Amount,
                 ISNULL(sd.Vat,0) AS Vat,
+                ISNULL(sd.isFix,0) AS detailIsFix,
                 ISNULL(sm.isFix,0) AS isFix,
                 sm.OrderWeek,
                 p.OutUnit, p.BunchOf1Box, p.SteamOf1Box
@@ -158,7 +159,8 @@ export default withAuth(async function handler(req, res) {
 
       if (cur.recordset.length === 0) throw new Error(`SdetailKey=${sdetailKey} 행을 찾을 수 없습니다.`);
       const row = cur.recordset[0];
-      if (Number(row.isFix || 0) === 1) {
+      const detailFixed = Number(row.detailIsFix || 0) === 1;
+      if (detailFixed) {
         throw new Error(`[${row.OrderWeek}] 확정된 차수입니다. 먼저 확정취소 후 수량을 수정하세요.`);
       }
 

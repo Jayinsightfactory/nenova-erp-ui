@@ -19,6 +19,7 @@ import {
   normalizeCategoryList,
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
+import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1146,13 +1147,7 @@ export default function Estimate() {
       .filter(Boolean);
   };
 
-  const getFixCycleWeeksForEditedItems = (editedItems, ship) => {
-    const editedWeeks = sortWeeksAsc((editedItems || []).map(it => it.OrderWeek).filter(Boolean));
-    if (editedWeeks.length === 0) return [];
-    const firstEditedWeek = editedWeeks[0];
-    return getFixedWeeksFromShip(ship)
-      .filter(wk => String(wk).localeCompare(String(firstEditedWeek)) >= 0);
-  };
+  const getFixCycleWeeksForEditedItems = (editedItems, ship) => buildFixCycleWeeks(editedItems, ship);
 
   const getCountryFlowersForEditedItems = (editedItems) => [...new Set((editedItems || [])
     .map(it => String(it.CountryFlower || '').trim())
