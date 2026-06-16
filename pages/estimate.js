@@ -11,6 +11,7 @@ import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
   filterPrintTargetItems,
   isEstimateDeductionRow,
+  isPrintableEstimateRow,
 } from '../lib/estimateInvariants';
 import {
   FIX_CATEGORY_PRESETS,
@@ -211,11 +212,6 @@ function mapEstimateType(t) {
 }
 
 // ── 견적서 HTML 생성 — PDF 실제 서식과 동일
-function isPrintableEstimateRow(row) {
-  const qty = Number(row?.Quantity) || 0;
-  return qty !== 0;
-}
-
 function buildEstimateHtml({
   bigoLabel,
   serialNo,

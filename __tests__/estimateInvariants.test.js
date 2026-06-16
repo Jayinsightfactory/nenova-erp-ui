@@ -52,6 +52,10 @@ async function main() {
   assert('종합출고: 차감 포함 2행', totalPrint.length === 2);
   const selectPrint = filterPrintTargetItems(mixed, new Set(['목']), 'select');
   assert('선출고: 정상출고만 1행', selectPrint.length === 1);
+  const zeroDed = [
+    { ProdKey: 3, Quantity: 0, Amount: 0, Vat: 0, EstimateType: '불량차감/송이', ProdName: 'ROSE Test' },
+  ];
+  assert('수량0 차감도 인쇄 대상', filterPrintTargetItems(zeroDed, new Set(['월', '화', '수', '목', '금', '토', '일']), 'total').length === 1);
   const all = filterItemsByWeekday(lavRows, new Set(['월', '화', '수', '목', '금', '토', '일']));
   assert('전체 7요일 2행', all.length === 2);
   assert('미선택 0행', filterItemsByWeekday(lavRows, new Set()).length === 0);
