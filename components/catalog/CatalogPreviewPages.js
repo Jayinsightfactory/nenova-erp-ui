@@ -67,7 +67,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
                               : row.kind.startsWith('extra') ? 'extra-name'
                                 : 'eng-name'
                           }
-                          style={row.kind.startsWith('extra') ? { fontSize: '10pt', color: '#444' } : undefined}
+                          style={row.kind.startsWith('extra') ? { fontSize: '10pt', color: '#000' } : undefined}
                         >
                           {row.text}
                         </div>
@@ -184,7 +184,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
         .catalog-slide-names .kor-name {
           font-size: 14pt;
           font-weight: 700;
-          color: #222;
+          color: #000;
           line-height: 1.2;
           word-break: keep-all;
           overflow-wrap: anywhere;
@@ -192,7 +192,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
         .catalog-slide-names .price-name {
           font-size: 12pt;
           font-weight: 700;
-          color: #c0392b;
+          color: #000;
           line-height: 1.2;
           margin-top: 0.05cm;
         }

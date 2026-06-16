@@ -34,6 +34,7 @@ import {
   removeComposerSlide,
   resizeComposerSlides,
   sanitizeComposerSlides,
+  updateComposerSlide,
   SLIDE_TARGET_AUTO,
   SLIDE_TARGET_NEW,
   sortProductsImageFirst,
@@ -707,6 +708,10 @@ export default function CatalogPage() {
     setActiveSlideTarget(targetId || SLIDE_TARGET_AUTO);
   }, []);
 
+  const handleUpdateSlide = useCallback((slideId, patch) => {
+    setComposerSlides(prev => updateComposerSlide(prev, slideId, patch));
+  }, []);
+
   const handleSaveDraft = async () => {
     if (!lines.length) {
       alert('저장할 품목이 없습니다.');
@@ -1305,6 +1310,7 @@ export default function CatalogPage() {
                 setActiveSlideTarget(t => (t === slideId ? SLIDE_TARGET_AUTO : t));
               }}
               onAddEmptySlide={handleAddEmptySlide}
+              onUpdateSlide={handleUpdateSlide}
               onSelectLine={focusLine}
               activeSlideTarget={activeSlideTarget}
               onSelectSlideTarget={handleSelectSlideTarget}

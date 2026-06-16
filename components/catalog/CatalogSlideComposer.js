@@ -4,7 +4,7 @@ import {
   catalogLineNames,
 } from '../../lib/catalogUtils';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
-import { formatOriginLabel } from '../../lib/catalogLayout';
+import { formatOriginLabel, normalizeOriginInput } from '../../lib/catalogLayout';
 import {
   catalogGridCols,
   perPageSlotCount,
@@ -137,6 +137,7 @@ export default function CatalogSlideComposer({
   onClearSlot,
   onRemoveSlide,
   onAddEmptySlide,
+  onUpdateSlide,
   onSelectLine,
   activeSlideTarget,
   onSelectSlideTarget,
@@ -277,6 +278,34 @@ export default function CatalogSlideComposer({
             </header>
             {isExpanded ? (
             <div className={`composer-slide-stage ${editorOpen ? 'with-editor' : 'full'}`}>
+              <div
+                className="composer-slide-meta"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <label className="composer-meta-field">
+                  <span>품종</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={slide.titleBig || ''}
+                    placeholder="카네이션"
+                    onChange={(e) => onUpdateSlide?.(slide.id, { titleBig: e.target.value })}
+                  />
+                </label>
+                <label className="composer-meta-field">
+                  <span>원산지</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={slide.titleSmall || ''}
+                    placeholder="콜롬비아"
+                    onChange={(e) => onUpdateSlide?.(slide.id, {
+                      titleSmall: normalizeOriginInput(e.target.value),
+                    })}
+                  />
+                </label>
+                <img className="composer-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
+              </div>
               <div
                 className="composer-grid"
                 style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
@@ -419,12 +448,55 @@ export default function CatalogSlideComposer({
           max-width: none;
           margin: 0 auto;
           aspect-ratio: 16 / 9;
-          padding: 8px 10px 10px;
+          padding: 6px 10px 10px;
           box-sizing: border-box;
           background: #fff;
           display: flex;
           flex-direction: column;
           min-height: 0;
+        }
+        .composer-slide-meta {
+          flex-shrink: 0;
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          padding: 2px 0 6px;
+          border-bottom: 1px solid var(--border);
+          margin-bottom: 4px;
+        }
+        .composer-meta-field {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .composer-meta-field span {
+          font-size: 9px;
+          color: var(--text3);
+          font-weight: 600;
+        }
+        .composer-meta-field :global(.form-control) {
+          font-size: 12px;
+          font-weight: 700;
+          color: #000;
+          padding: 2px 6px;
+          height: 26px;
+        }
+        .composer-meta-field:first-child {
+          flex: 1;
+          max-width: 140px;
+        }
+        .composer-meta-field:nth-child(2) {
+          flex: 1;
+          max-width: 160px;
+        }
+        .composer-slide-logo {
+          margin-left: auto;
+          height: 36px;
+          width: auto;
+          max-width: 100px;
+          object-fit: contain;
+          flex-shrink: 0;
         }
         .composer-slide-stage.full {
           max-height: min(calc(100vh - 180px), 720px);
@@ -546,10 +618,11 @@ export default function CatalogSlideComposer({
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           width: 100%;
+          color: #000;
         }
         .composer-slot-extra {
           font-size: 8px;
-          color: var(--text3);
+          color: #000;
           text-align: center;
           overflow: hidden;
           white-space: nowrap;
@@ -558,7 +631,7 @@ export default function CatalogSlideComposer({
         .composer-slot-price {
           font-size: 8px;
           font-weight: 700;
-          color: var(--red);
+          color: #000;
           flex-shrink: 0;
           text-align: center;
         }
