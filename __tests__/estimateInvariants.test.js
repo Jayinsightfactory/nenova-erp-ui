@@ -6,6 +6,7 @@ async function main() {
     weekdayFromYmd,
     weekdayKrFromYmd,
     filterItemsByWeekday,
+    filterPrintTargetItems,
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
@@ -41,6 +42,16 @@ async function main() {
   const thuWithDed = filterItemsByWeekday(withDed, new Set(['목']));
   assert('목 필터 + 차감 1행 포함', thuWithDed.length === 2);
   assert('차감 행 유지', thuWithDed.some(r => r.EstimateType === '불량차감/송이'));
+
+  console.log('\n=== filterPrintTargetItems (종합/선출고) ===');
+  const mixed = [
+    { ProdKey: 1, Quantity: 10, outDate: '2026-06-04', EstimateType: '정상출고' },
+    { ProdKey: 2, Quantity: -2, outDate: '2026-06-01', EstimateType: '불량차감/송이' },
+  ];
+  const totalPrint = filterPrintTargetItems(mixed, new Set(['목']), 'total');
+  assert('종합출고: 차감 포함 2행', totalPrint.length === 2);
+  const selectPrint = filterPrintTargetItems(mixed, new Set(['목']), 'select');
+  assert('선출고: 정상출고만 1행', selectPrint.length === 1);
   const all = filterItemsByWeekday(lavRows, new Set(['월', '화', '수', '목', '금', '토', '일']));
   assert('전체 7요일 2행', all.length === 2);
   assert('미선택 0행', filterItemsByWeekday(lavRows, new Set()).length === 0);

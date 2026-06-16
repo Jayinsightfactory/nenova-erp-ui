@@ -2,12 +2,16 @@
 // 견적서 관리
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
-import { filterItemsByWeekday as filterEstimateItemsByWeekday } from '../lib/estimateInvariants';
+import {
+  filterItemsByWeekday as filterEstimateItemsByWeekday,
+  filterPrintTargetItems,
+  isEstimateDeductionRow,
+} from '../lib/estimateInvariants';
 import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
@@ -997,6 +1001,7 @@ export default function Estimate() {
   //   실제 인쇄는 ShipmentDate 기준 출고일별로 쪼개진다. 다이얼로그에서 이 분포를
   //   요일별 실제 품목수/수량으로 보여줘, 요일 선택이 인쇄에 정확히 반영됨을 확인시킨다.
   const [printDayInfo, setPrintDayInfo] = useState({ loading: false, days: [] });
+  const [printDialogItems, setPrintDialogItems] = useState([]);
 
   // 불량/검역 폼
   const [defectForm, setDefectForm] = useState({
@@ -1878,6 +1883,16 @@ export default function Estimate() {
   );
   const filteredItems = filterItemsByWeekday(items);
 
+  const printPreviewItems = useMemo(() => {
+    if (!showPrintDialog) return [];
+    return filterPrintTargetItems(printDialogItems, activeWD, printOpts.outType);
+  }, [showPrintDialog, printDialogItems, activeWD, printOpts.outType]);
+
+  const printPreviewSupply = printPreviewItems.reduce((a, b) => a + (Number(b.Amount) || 0), 0);
+  const printPreviewVat = printPreviewItems.reduce((a, b) => a + (Number(b.Vat) || 0), 0);
+  const printPreviewDedCount = printPreviewItems.filter(isEstimateDeductionRow).length;
+  const printPreviewShipCount = printPreviewItems.length - printPreviewDedCount;
+
   const totalQty    = filteredItems.reduce((a,b) => a+(b.Quantity||0), 0);
   const totalCost   = filteredItems.reduce((a,b) => a+(b.Cost||0), 0);
   const totalSupply = filteredItems.reduce((a,b) => a+(b.Amount||0), 0);
@@ -1939,10 +1954,12 @@ export default function Estimate() {
   const handlePrint = () => {
     // 다중 선택이 있으면 그것만 사용, 없으면 현재 단일 선택 사용
     if (selectedGroups.size > 0) {
+      setPrintOpts(o => ({ ...o, outType: 'total' }));
       setShowPrintDialog(true);
       return;
     }
     if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
+    setPrintOpts(o => ({ ...o, outType: 'total' }));
     setShowPrintDialog(true);
   };
 
@@ -1991,10 +2008,7 @@ export default function Estimate() {
 
     // ── 한 거래처분 인쇄 페이지 생성 — rows 와 custName 받아 splitMode 에 따라 페이지 배열 반환
     const buildCustomerPrintPages = (oneCustName, oneRows) => {
-      const printRows = oneRows.filter(i => {
-        if (!isPrintableEstimateRow(i)) return false;
-        return opts.outType === 'select' ? i.EstimateType === '정상출고' : true;
-      });
+      const printRows = filterPrintTargetItems(oneRows, activeWD, opts.outType);
       if (!printRows.length) return [];
 
       if (opts.splitMode === 'combined') {
@@ -2116,8 +2130,13 @@ export default function Estimate() {
       ? Array.from(selectedGroups).map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g)).filter(Boolean)
       : (selectedShip ? [selectedShip] : []);
     const keys = ships.flatMap(s => (s.ShipmentKeys || '').split(',').map(Number).filter(Boolean));
-    if (keys.length === 0) { setPrintDayInfo({ loading: false, days: [] }); return; }
+    if (keys.length === 0) {
+      setPrintDayInfo({ loading: false, days: [] });
+      setPrintDialogItems([]);
+      return;
+    }
     setPrintDayInfo({ loading: true, days: [] });
+    setPrintDialogItems([]);
     (async () => {
       try {
         const results = await Promise.all(keys.map(k =>
@@ -2125,8 +2144,10 @@ export default function Estimate() {
             .then(r => r.json()).then(d => d.success ? (d.items || []) : [])
         ));
         if (cancelled) return;
+        const flatItems = results.flat();
+        setPrintDialogItems(flatItems);
         const map = new Map();
-        results.flat()
+        flatItems
           .filter(i => i.EstimateType === '정상출고' && i.outDate)
           .forEach(it => {
             const wd = weekdayKrFromYmd(it.outDate);
@@ -2142,7 +2163,10 @@ export default function Estimate() {
           setActiveWD(prev => (prev.size === 7 ? new Set([days[0].wd]) : prev));
         }
       } catch (_) {
-        if (!cancelled) setPrintDayInfo({ loading: false, days: [] });
+        if (!cancelled) {
+          setPrintDayInfo({ loading: false, days: [] });
+          setPrintDialogItems([]);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -2911,11 +2935,14 @@ export default function Estimate() {
                       const cnt = sel.reduce((s, d) => s + d.count, 0);
                       const qty = sel.reduce((s, d) => s + d.qty, 0);
                       const isAll = activeWD.size === 7;
+                      const dedNote = printOpts.outType === 'total' && printPreviewDedCount > 0
+                        ? ` · 차감 ${printPreviewDedCount}건 포함`
+                        : (printOpts.outType === 'select' ? ' · 차감 제외(선출고)' : '');
                       return (
                         <div style={{ fontSize:11, marginTop:6, color: isAll ? '#c62828' : '#2e7d32', fontWeight:600 }}>
                           {isAll
-                            ? `⚠ 전체 출고일 인쇄 (${cnt}품목 · ${qty.toLocaleString()}) — 특정 요일만 인쇄하려면 위 요일을 클릭`
-                            : `✔ 인쇄 대상: ${sel.map(d => d.wd).join('·')}요일 (${cnt}품목 · ${qty.toLocaleString()})`}
+                            ? `⚠ 전체 출고일 인쇄 (${cnt}품목 · ${qty.toLocaleString()}${dedNote}) — 특정 요일만 인쇄하려면 위 요일을 클릭`
+                            : `✔ 인쇄 대상: ${sel.map(d => d.wd).join('·')}요일 (${cnt}품목 · ${qty.toLocaleString()}${dedNote})`}
                         </div>
                       );
                     })()}
@@ -3000,18 +3027,36 @@ export default function Estimate() {
                 </div>
               </div>
 
-              {/* 미리보기 요약 */}
+              {/* 미리보기 요약 — 인쇄와 동일 byDate 데이터 + 출고구분(outType) 반영 */}
               <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', fontSize: 11, color: 'var(--text2)' }}>
-                {selectedGroups.size > 0 ? (
+                {printDayInfo.loading ? (
+                  <div>미리보기 계산 중…</div>
+                ) : selectedGroups.size > 0 ? (
                   <>
                     <div>선택 거래처: <b>{selectedGroups.size}건</b></div>
+                    <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
+                    <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
+                      {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
+                        <span style={{ color: '#A0522D' }}> (정상 {printPreviewShipCount} + 차감 {printPreviewDedCount})</span>
+                      )}
+                    </div>
+                    <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
+                      {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
+                    </div>
                   </>
                 ) : (
                   <>
                     <div>거래처: <b>{selectedShip?.CustName || '-'}</b></div>
                     <div>차수: <b>{weekNum || '-'}</b></div>
-                    <div>항목수: <b>{filteredItems.length}건</b></div>
-                    <div>합계: <b>₩{(totalSupply + totalVat).toLocaleString()}</b> (공급가 ₩{totalSupply.toLocaleString()} + 세액 ₩{totalVat.toLocaleString()})</div>
+                    <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
+                    <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
+                      {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
+                        <span style={{ color: '#A0522D' }}> (정상 {printPreviewShipCount} + 차감 {printPreviewDedCount})</span>
+                      )}
+                    </div>
+                    <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
+                      {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
+                    </div>
                   </>
                 )}
               </div>
