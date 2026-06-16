@@ -11,6 +11,7 @@ async function main() {
     checkCostQtyInvariant,
     checkSplitSumInvariant,
     splitEstByDistributeUnits,
+    applyByDateRowQuantities,
   } = await import('../lib/estimateInvariants.js');
   const { distributeUnits } = await import('../lib/distributeUnits.js');
   const { scaleShipmentDateQtys } = await import('../lib/syncShipmentDateEst.js');
@@ -78,6 +79,33 @@ async function main() {
     { EstQuantity: 480, Amount: 305455, Vat: 30545 }
   );
   assert('분할 합=Detail', split.ok);
+
+  console.log('\n=== applyByDateRowQuantities (차감 수량 유지) ===');
+  const dedRow = {
+    EstimateType: '불량차감/송이',
+    DateShipQty: null,
+    OutUnit: '박스',
+    EstUnit: '송이',
+    SteamOf1Box: 10,
+    Quantity: -5,
+    Amount: -3182,
+    Vat: -318,
+    Cost: 700,
+  };
+  const kept = applyByDateRowQuantities([dedRow])[0];
+  assert('차감 Quantity 유지', kept.Quantity === -5);
+  assert('차감 Amount 유지', kept.Amount === -3182);
+  const normalRow = {
+    EstimateType: '정상출고',
+    DateShipQty: 16,
+    OutUnit: '박스',
+    EstUnit: '송이',
+    SteamOf1Box: 10,
+    Quantity: 999,
+    Cost: 700,
+  };
+  const remapped = applyByDateRowQuantities([normalRow])[0];
+  assert('정상출고 16박스→160송이', remapped.Quantity === 160);
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

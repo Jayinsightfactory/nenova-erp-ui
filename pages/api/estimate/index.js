@@ -4,7 +4,7 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits';
+import { applyByDateRowQuantities } from '../../../lib/estimateInvariants.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -479,31 +479,7 @@ async function loadItems(sk, byDate = false) {
     { sk: { type: sql.Int, value: sk } }
   );
   if (!byDate) return result.recordset;
-  return result.recordset.map((row) => {
-    const dateQty = Number(row.DateShipQty);
-    if (!Number.isFinite(dateQty)) return row;
-    const units = distributeUnits(dateQty, {
-      OutUnit: row.OutUnit,
-      EstUnit: row.EstUnit,
-      BunchOf1Box: row.BunchOf1Box,
-      SteamOf1Bunch: row.SteamOf1Bunch,
-      SteamOf1Box: row.SteamOf1Box,
-    });
-    const cost = Number(row.Cost) || 0;
-    const { amount, vat } = amountVatFromCostEst(cost, units.estQty);
-    const estUnit = row.EstUnit || row.Unit;
-    return {
-      ...row,
-      Unit: estUnit,
-      Quantity: units.estQty,
-      BoxQty: units.box,
-      Amount: amount,
-      Vat: vat,
-      RawBunchQuantity: units.bunch,
-      RawSteamQuantity: units.steam,
-      RawBoxQuantity: units.box,
-    };
-  });
+  return applyByDateRowQuantities(result.recordset);
 }
 
 function normalizeEstimateTypeInput(estimateType, unit) {
