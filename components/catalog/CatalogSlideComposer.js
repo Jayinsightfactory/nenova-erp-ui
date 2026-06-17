@@ -125,17 +125,6 @@ function MiniSlot({
           )}
         </div>
       </div>
-      {cropLineId === line.id && line.imageUrl ? (
-        <div className="composer-slot-crop" onClick={e => e.stopPropagation()}>
-          <CatalogImageCropEditor
-            compact
-            imageUrl={line.imageUrl}
-            source={line}
-            onSave={transform => onSaveLineCrop?.(line, transform)}
-            onClose={() => onToggleCropLine?.(null)}
-          />
-        </div>
-      ) : null}
       <div className="composer-slot-text">
         {cellLines.map(row => (
           <div
@@ -216,6 +205,8 @@ export default function CatalogSlideComposer({
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   };
+
+  const cropLine = cropLineId ? linesById[cropLineId] : null;
 
   return (
     <div className="catalog-composer">
@@ -370,6 +361,36 @@ export default function CatalogSlideComposer({
           );
         })}
       </div>
+
+      {cropLine?.imageUrl ? (
+        <div
+          className="catalog-crop-modal-overlay"
+          onClick={() => onToggleCropLine?.(null)}
+          role="presentation"
+        >
+          <div
+            className="catalog-crop-modal"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="이미지 위치·확대"
+          >
+            <div className="catalog-crop-modal-head">
+              <strong>{cropLine.engName || cropLine.catalogName || '이미지 위치/확대'}</strong>
+              <button type="button" className="btn btn-sm" onClick={() => onToggleCropLine?.(null)}>닫기</button>
+            </div>
+            <p className="catalog-crop-modal-sub">드래그·슬라이더로 위치/확대 — 칸보다 크면 잘림</p>
+            <CatalogImageCropEditor
+              imageUrl={cropLine.imageUrl}
+              source={cropLine}
+              onSave={async (transform) => {
+                await onSaveLineCrop?.(cropLine, transform);
+              }}
+              onClose={() => onToggleCropLine?.(null)}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <style jsx>{`
         .catalog-composer {
@@ -628,13 +649,6 @@ export default function CatalogSlideComposer({
         .composer-slot.filled .composer-slot-img-frame:hover {
           border-color: var(--blue);
         }
-        .composer-slot-crop {
-          width: 100%;
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          padding: 2px 0;
-        }
         .composer-slot-img-frame img {
           width: 100%;
           height: 100%;
@@ -682,6 +696,26 @@ export default function CatalogSlideComposer({
           color: #000;
           flex-shrink: 0;
           text-align: center;
+        }
+        .catalog-crop-modal-overlay {
+          position: fixed; inset: 0; z-index: 6000;
+          background: rgba(15, 23, 42, 0.45);
+          display: flex; align-items: center; justify-content: center;
+          padding: 16px;
+        }
+        .catalog-crop-modal {
+          width: min(420px, 96vw);
+          max-height: 90vh; overflow-y: auto;
+          background: #fff; border-radius: 8px;
+          box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+          border: 1px solid var(--border2);
+          padding: 12px 14px 14px;
+        }
+        .catalog-crop-modal-head {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .catalog-crop-modal-sub {
+          font-size: 11px; color: var(--text3); margin: 4px 0 8px;
         }
       `}</style>
     </div>

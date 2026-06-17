@@ -12,6 +12,8 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 async function main() {
   const {
+    compactProductKorHint,
+    compactProductTitle,
     deriveCatalogNames,
     repairCatalogLineNames,
     splitEngKor,
@@ -20,6 +22,18 @@ async function main() {
   assert(
     'bracket prefix + slash',
     eq(splitEngKor('[ 오경] ROSE CHINA / 프라우드'), { eng: 'ROSE CHINA', kor: '프라우드' }),
+  );
+  assert(
+    'compact title strips paren kor',
+    eq(compactProductTitle({ ProdName: 'ROSE CHINA (프라우드)' }), 'ROSE CHINA'),
+  );
+  assert(
+    'compact kor hint from paren',
+    eq(compactProductKorHint({ ProdName: 'ROSE CHINA (프라우드)' }), '프라우드'),
+  );
+  assert(
+    'compact title from slash display',
+    eq(compactProductTitle({ DisplayName: '[ 오경] ROSE CHINA / 프라우드' }), 'ROSE CHINA'),
   );
   assert(
     'mixed eng+kor',

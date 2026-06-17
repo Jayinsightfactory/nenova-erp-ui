@@ -15,6 +15,8 @@ import { useCatalogDragSelect } from '../../lib/useCatalogDragSelect';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
 import {
   absCatalogUrl,
+  compactProductKorHint,
+  compactProductTitle,
   displayProductName,
   effectiveArrival,
   filterProducts,
@@ -98,7 +100,7 @@ export default function CatalogPage() {
   const [checkedKeys, setCheckedKeys] = useState(new Set());
   const [composerSlides, setComposerSlides] = useState([]);
   const [activeSlideTarget, setActiveSlideTarget] = useState(SLIDE_TARGET_AUTO);
-  const [editorOpen, setEditorOpen] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [expandedProdKeys, setExpandedProdKeys] = useState(new Set());
   const [cropLineId, setCropLineId] = useState(null);
   const [selectedLineId, setSelectedLineId] = useState(null);
@@ -208,7 +210,7 @@ export default function CatalogPage() {
     setCustKey(payload.custKey || '');
     setPerPage(payload.perPage || 8);
     setCatalogFields({ ...DEFAULT_CATALOG_FIELDS, ...(payload.catalogFields || {}) });
-    setEditorOpen(payload.editorOpen !== false);
+    setEditorOpen(payload.editorOpen === true);
     setUseVatArrival(payload.useVatArrival !== false);
     setCostMode(payload.costMode || 'recent');
     if (payload.selectedWeek) selectedWeekInput.setValue(payload.selectedWeek);
@@ -1375,7 +1377,7 @@ export default function CatalogPage() {
                     {renderThumb(prod, { size: 36, onClick: () => openPicker(prod) })}
                     <div className="catalog-prod-meta">
                       <div className="catalog-prod-name-row">
-                        <div className="catalog-prod-name">{displayProductName(prod)}</div>
+                        <div className="catalog-prod-name">{compactProductTitle(prod)}</div>
                         <button
                           type="button"
                           className="catalog-prod-expand"
@@ -1388,11 +1390,17 @@ export default function CatalogPage() {
                       {expandedProdKeys.has(prod.ProdKey) && (
                         <div className="catalog-prod-extra">
                           <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
-                          {(prod.catalogKorName || prod.mappingKorName) && (
-                            <div className="catalog-prod-kor" title={`한글 제안 (${prod.korNameSource || '—'})`}>
-                              {prod.catalogKorName || prod.mappingKorName}
-                            </div>
-                          )}
+                          {(() => {
+                            const titleKor = compactProductKorHint(prod);
+                            const mapped = prod.catalogKorName || prod.mappingKorName;
+                            const kor = mapped || titleKor;
+                            if (!kor) return null;
+                            return (
+                              <div className="catalog-prod-kor" title={mapped ? `한글 제안 (${prod.korNameSource || '—'})` : '품목명 한글'}>
+                                {kor}
+                              </div>
+                            );
+                          })()}
                           <div className="catalog-prod-cost">
                             <div>
                               도착 <strong className="num">{fmtArrivalDisplay(arrival, prod.arrivalUnit || prod.saleUnit || prod.OutUnit)}</strong>
