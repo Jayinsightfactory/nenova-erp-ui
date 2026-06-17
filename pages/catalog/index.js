@@ -601,26 +601,32 @@ export default function CatalogPage() {
     setEditorOpen(true);
   }, []);
 
-  const selectProductsIfUnchecked = useCallback((prodKeys) => {
-    const list = (Array.isArray(prodKeys) ? prodKeys : [prodKeys]).filter(Number.isFinite);
+  const toggleProductsByKeys = useCallback((prodKeys) => {
+    const list = [...new Set((Array.isArray(prodKeys) ? prodKeys : [prodKeys]).filter(Number.isFinite))];
     if (!list.length) return;
     setCheckedKeys(prev => {
       const n = new Set(prev);
-      list.forEach(pk => n.add(pk));
+      list.forEach(pk => {
+        if (n.has(pk)) n.delete(pk);
+        else n.add(pk);
+      });
       return n;
     });
     setLines(prev => {
-      const existing = new Set(prev.map(l => l.prodKey));
-      const added = list
-        .filter(pk => !existing.has(pk))
-        .map(pk => findProd(products, pk))
-        .filter(Boolean)
-        .map(prod => addProductLine(prod));
-      return added.length ? [...prev, ...added] : prev;
+      let lines = prev;
+      list.forEach(pk => {
+        if (lines.some(l => l.prodKey === pk)) {
+          lines = lines.filter(l => l.prodKey !== pk);
+        } else {
+          const prod = findProd(products, pk);
+          if (prod) lines = [...lines, addProductLine(prod)];
+        }
+      });
+      return lines;
     });
   }, [products, imagesByProd, useVatArrival]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { dragging: dragSelecting, marquee, onPointerDown: onGridPointerDown, shouldSuppressClick } = useCatalogDragSelect(selectProductsIfUnchecked);
+  const { dragging: dragSelecting, marquee, onPointerDown: onGridPointerDown, shouldSuppressClick } = useCatalogDragSelect(toggleProductsByKeys);
 
   const toggleProdExpanded = (prodKey, e) => {
     e?.stopPropagation();
@@ -634,18 +640,7 @@ export default function CatalogPage() {
 
   const toggleProduct = (prod) => {
     if (shouldSuppressClick()) return;
-    const key = prod.ProdKey;
-    if (checkedKeys.has(key)) {
-      setCheckedKeys(prev => {
-        const n = new Set(prev);
-        n.delete(key);
-        return n;
-      });
-      setLines(prev => prev.filter(l => l.prodKey !== key));
-      return;
-    }
-    setCheckedKeys(prev => new Set(prev).add(key));
-    setLines(prev => [...prev, addProductLine(prod)]);
+    toggleProductsByKeys([prod.ProdKey]);
   };
 
   const updateLine = (id, patch) => {
@@ -1329,7 +1324,7 @@ export default function CatalogPage() {
                 </span>
               )}
               <input className="filter-input" style={{ marginLeft: 'auto', width: 180 }} placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
-              <span className="catalog-drag-select-hint" title="카드 사이 빈 공간에서 드래그 → 구간 선택">빈 공간 드래그 선택</span>
+              <span className="catalog-drag-select-hint" title="빈 공간 드래그 — 선택/해제 토글 (클릭과 동일)">빈 공간 드래그 토글</span>
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
             <div
