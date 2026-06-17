@@ -438,6 +438,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const logLabel = logContext.label || '';
   await runLimited(uniqueKeys, 1, async (prodKey) => {
     try {
+      await logFix(`${logPrefix}_item_start`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${completed + 1}/${total}`);
       const r = await queryWithDeadlockRetry(
         `DECLARE @r INT, @m NVARCHAR(200);
          EXEC dbo.usp_StockCalculation

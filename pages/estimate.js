@@ -20,6 +20,7 @@ import {
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
+import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -109,6 +110,7 @@ function fmtDate(dateStr) {
 
 const fmt = n => Number(n || 0).toLocaleString();
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
+const FIX_UNFIX_FETCH_TIMEOUT_MS = 20 * 60 * 1000;
 
 function parseAppLogTime(value) {
   const text = String(value || '').trim();
@@ -116,6 +118,24 @@ function parseAppLogTime(value) {
   const dt = new Date(`${text.replace(' ', 'T')}+09:00`);
   const ms = dt.getTime();
   return Number.isFinite(ms) ? ms : 0;
+}
+
+async function postShipmentFix(body, { timeoutMs = FIX_UNFIX_FETCH_TIMEOUT_MS } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch('/api/shipment/fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── 한글 금액 변환 (52,434,150 → "오천이백사십삼만사천일백오십원 정")
@@ -639,12 +659,16 @@ export default function Estimate() {
     const logWeeks = fixLogWeeks.length ? fixLogWeeks : [`${String(weekNum || '').padStart(2, '0')}-`];
     const refreshLogs = async () => {
       try {
-        const data = await apiGet('/api/dev/app-log', { limit: 40, category: 'shipmentFix' });
+        const data = await apiGet('/api/dev/app-log', { limit: 120, category: 'shipmentFix' });
         if (stopped) return;
         const logs = (data.logs || [])
           .filter(l => !fixLogSince || parseAppLogTime(l.CreateDtm) >= fixLogSince)
           .filter(l => logWeeks.some(wk => String(l.Detail || '').includes(wk)))
-          .slice(0, 12)
+          .filter(l => {
+            const step = String(l.Step || '');
+            return step.startsWith('fix_') || step.startsWith('stock_calc') || step.includes('_stock_calc');
+          })
+          .slice(-40)
           .reverse();
         setFixServerLogs(logs);
       } catch {
@@ -665,13 +689,13 @@ export default function Estimate() {
     const logWeeks = fixLogWeeks;
     const refreshLogs = async () => {
       try {
-        const data = await apiGet('/api/dev/app-log', { limit: 60, category: 'shipmentFix' });
+        const data = await apiGet('/api/dev/app-log', { limit: 120, category: 'shipmentFix' });
         if (stopped) return;
         const logs = (data.logs || [])
           .filter(l => !fixLogSince || parseAppLogTime(l.CreateDtm) >= fixLogSince)
           .filter(l => String(l.Step || '').startsWith('unfix_'))
           .filter(l => logWeeks.length === 0 || logWeeks.some(wk => String(l.Detail || '').includes(wk)))
-          .slice(0, 12)
+          .slice(-40)
           .reverse();
         setFixServerLogs(logs);
       } catch {
@@ -691,13 +715,11 @@ export default function Estimate() {
     if (!subWeek) return;
     if (!confirm(`[${subWeek}] 차수 확정을 취소하시겠습니까?\n취소 후 단가/수량 수정 가능합니다.`)) return;
     setUnfixingWeek(subWeek);
+    setFixLogWeeks([subWeek]);
+    setFixLogSince(Date.now() - 3000);
+    setFixServerLogs([]);
     try {
-      const r = await fetch('/api/shipment/fix', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ week: subWeek, action: 'unfix', force }),
-      });
-      const d = await r.json();
+      const { data: d } = await postShipmentFix({ week: subWeek, action: 'unfix', force });
       if (!d.success) {
         // 후속차수 확정 경고면 강제 진행 옵션 제공
         if (d.warning === 'LATER_FIXED_EXISTS') {
@@ -1182,13 +1204,13 @@ export default function Estimate() {
     .filter(Number.isFinite))];
 
   const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = []) => {
-    const r = await fetch('/api/shipment/fix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ week, action, force: true, countryFlowers, stockProdKeys }),
+    const { data: d } = await postShipmentFix({
+      week,
+      action,
+      force: true,
+      countryFlowers,
+      stockProdKeys,
     });
-    const d = await r.json();
     if (!d.success) {
       throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
     }
@@ -1345,7 +1367,6 @@ export default function Estimate() {
     setFixServerLogs([]);
     setFixLogWeeks(weekList || []);
     setFixLogSince(Date.now() - 3000);
-    const results = [];
     setFixProgress({
       phase: 'fixing',
       title: `${weekNum}차 및 하위차수 출고 확정 진행 중`,
@@ -1357,6 +1378,7 @@ export default function Estimate() {
       message: `${weekList.length}개 세부차수를 낮은 차수부터 순서대로 확정합니다.`,
       results: [],
     });
+    const results = [];
     for (let i = 0; i < weekList.length; i += 1) {
       const wk = weekList[i];
       setFixProgress(prev => ({
@@ -1366,19 +1388,18 @@ export default function Estimate() {
         message: `${wk} 확정 중입니다. 재고 계산까지 함께 처리합니다.`,
       }));
       try {
-        const r = await fetch('/api/shipment/fix', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            week: wk,
-            action: 'fix',
-            force,
-            ...(countryFlowers.length ? { countryFlowers } : {}),
-          }),
+        const { data: d } = await postShipmentFix({
+          week: wk,
+          action: 'fix',
+          force,
+          ...(countryFlowers.length ? { countryFlowers } : {}),
         });
-        const d = await r.json();
-        results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount });
+        results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount, stockErrors: d.stockErrors?.length || 0 });
       } catch (e) {
-        results.push({ week: wk, ok: false, error: e.message });
+        const msg = e?.name === 'AbortError'
+          ? `요청 시간 초과(${Math.round(FIX_UNFIX_FETCH_TIMEOUT_MS / 60000)}분) — 재고 재계산 진행 중일 수 있습니다`
+          : e.message;
+        results.push({ week: wk, ok: false, error: msg });
       }
       const success = results.filter(x => x.ok).length;
       const failed = results.length - success;
@@ -2227,18 +2248,21 @@ export default function Estimate() {
       const warnings = [];
       for (const row of ordered) {
         setRangeUnfixStatus(`${row.OrderWeek} 확정취소 중`);
-        const res = await fetch('/api/shipment/fix', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
+        let data;
+        try {
+          ({ data } = await postShipmentFix({
             week: row.OrderWeek,
             action: 'unfix',
             force: true,
             ...(countryFlowers.length ? { countryFlowers } : {}),
-          }),
-        });
-        const data = await res.json();
+          }));
+        } catch (e) {
+          if (e?.name === 'AbortError') {
+            errors.push(`${row.OrderWeek}: 요청 시간 초과(${Math.round(FIX_UNFIX_FETCH_TIMEOUT_MS / 60000)}분) — 서버에서 usp_StockCalculation 재고 재계산이 아직 진행 중일 수 있습니다. 잠시 후 확정 현황을 다시 조회하세요.`);
+            continue;
+          }
+          throw e;
+        }
         if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
         else if (data.stockWarning) warnings.push(`${row.OrderWeek}: 재고 재계산 경고 ${data.stockErrors?.length || 0}건`);
       }
@@ -3148,7 +3172,7 @@ export default function Estimate() {
 
       {fixStatusModal && (
         <div className="modal-overlay" onClick={() => !(fixWorking || rangeUnfixWorking) && setFixStatusModal(null)}>
-          <div className="modal" style={{ maxWidth: 760, maxHeight: '82vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 980, width: 'min(96vw, 980px)', maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
                 🔎 확정 현황 — {fixStatusModal.range.fromWeek} ~ {fixStatusModal.range.toWeek}
@@ -3279,34 +3303,7 @@ export default function Estimate() {
                 </div>
               )}
               {(rangeUnfixWorking || rangeUnfixStatus) && (
-                <div style={{ marginBottom:10, border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden' }}>
-                  <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333' }}>
-                    확정취소 서버 로그
-                  </div>
-                  <div style={{ maxHeight:150, overflowY:'auto', background:'#fff' }}>
-                    {fixServerLogs.length === 0 ? (
-                      <div style={{ padding:'10px', fontSize:12, color:'#777' }}>서버 로그 수신 대기 중입니다.</div>
-                    ) : fixServerLogs.map((l, i) => {
-                      const isError = Boolean(l.IsError);
-                      return (
-                        <div key={`${l.CreateDtm}-${l.Step}-${i}`} style={{
-                          display:'grid',
-                          gridTemplateColumns:'82px 135px 1fr',
-                          gap:8,
-                          alignItems:'center',
-                          padding:'6px 10px',
-                          borderBottom:'1px solid #f1f1f1',
-                          fontSize:11,
-                          color: isError ? '#c62828' : '#333',
-                        }}>
-                          <span style={{ color:'#777', fontFamily:'var(--mono)' }}>{String(l.CreateDtm || '').slice(11, 19)}</span>
-                          <span style={{ fontWeight:800 }}>{l.Step || '-'}</span>
-                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.Detail || ''}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <ShipmentFixLogPanel logs={fixServerLogs} action="unfix" />
               )}
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                 <thead>
@@ -3394,7 +3391,7 @@ export default function Estimate() {
 
       {fixProgress && (
         <div className="modal-overlay" onClick={e => e.stopPropagation()}>
-          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 920, width: 'min(96vw, 920px)' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">{fixProgress.title || '출고 확정 진행 중'}</span>
             </div>
@@ -3432,36 +3429,7 @@ export default function Estimate() {
               <div style={{ marginTop:14, fontSize:13, lineHeight:1.5, color:'#333', fontWeight:600 }}>
                 {fixProgress.message}
               </div>
-              <div style={{ marginTop:12, border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden' }}>
-                <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333' }}>
-                  서버 처리 로그
-                </div>
-                <div style={{ maxHeight:150, overflowY:'auto', background:'#fff' }}>
-                  {fixServerLogs.length === 0 ? (
-                    <div style={{ padding:'10px', fontSize:12, color:'#777' }}>
-                      서버 로그 수신 대기 중입니다.
-                    </div>
-                  ) : fixServerLogs.map((l, i) => {
-                    const isError = Boolean(l.IsError);
-                    return (
-                      <div key={`${l.CreateDtm}-${l.Step}-${i}`} style={{
-                        display:'grid',
-                        gridTemplateColumns:'82px 110px 1fr',
-                        gap:8,
-                        alignItems:'center',
-                        padding:'6px 10px',
-                        borderBottom:'1px solid #f1f1f1',
-                        fontSize:11,
-                        color: isError ? '#c62828' : '#333',
-                      }}>
-                        <span style={{ color:'#777', fontFamily:'var(--mono)' }}>{String(l.CreateDtm || '').slice(11, 19)}</span>
-                        <span style={{ fontWeight:800 }}>{l.Step || '-'}</span>
-                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.Detail || ''}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <ShipmentFixLogPanel logs={fixServerLogs} action="fix" />
               {fixProgress.results?.length > 0 && (
                 <div style={{ marginTop:12, borderTop:'1px solid #eee', paddingTop:10 }}>
                   {fixProgress.results.map((r, i) => (
