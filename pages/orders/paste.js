@@ -4,7 +4,9 @@ import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteHighlight from '../../components/orders/PasteHighlight';
+import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
+import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
@@ -230,21 +232,46 @@ function isNaturalCustomerLine(line) {
   return true;
 }
 
-function parseBaseStockText(text) {
+function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   const rows = [];
   const byKey = {};
-  String(text || '').split(/\r?\n/).forEach((raw, idx) => {
+  const skip = new Set(excludedLineNos || []);
+  let currentFlower = '';
+  String(text || '').split(/\r?\n/).forEach((raw, lineIdx) => {
+    if (skip.has(lineIdx)) return;
     const line = raw.trim();
     if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
     if (/^\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
+
+    const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
+    if (headerFlower && /변경사항|차\s*$/.test(line)) {
+      currentFlower = headerFlower;
+      return;
+    }
+
+    const flowerOnly = normalizeFlowerContext(line);
+    if (flowerOnly && !/\d/.test(line)) {
+      currentFlower = flowerOnly;
+      return;
+    }
+
     const cleaned = line.replace(/^[-*•]\s*/, '').trim();
     const m = cleaned.match(/^(.+?)[\s:：]*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?$/);
     if (!m) return;
     const name = m[1].trim();
     const qty = parseStockNumber(m[2]);
     if (!name || qty == null) return;
-    const row = { name, qty, unit: m[3] || '', idx };
+    const matchName = applyFlowerContext(name, currentFlower);
+    const row = {
+      name,
+      matchName,
+      flowerContext: currentFlower,
+      qty,
+      unit: m[3] || '',
+      idx: lineIdx,
+    };
     rows.push(row);
+    byKey[stockNorm(matchName)] = row;
     byKey[stockNorm(name)] = row;
   });
   return { rows, byKey };
@@ -273,7 +300,7 @@ function resolveProductForStockName(name, products, cache) {
   }
   const scored = products
     .map(p => ({ prod: p, score: isMixBoxMismatch(name, p) ? 0 : scoreMatch(name, p, '') }))
-    .filter(x => x.score >= 55)
+    .filter(x => x.score >= 40)
     .sort((a, b) => b.score - a.score);
   const managed = scored.filter(x => isManagedProduct(x.prod));
   const pool = managed.length > 0 ? managed : scored;
@@ -281,26 +308,34 @@ function resolveProductForStockName(name, products, cache) {
     return { prod: pool[0].prod, matchStatus: managed.length === 1 ? 'auto' : 'outside' };
   }
   if (pool.length > 1) {
+    const top = pool[0];
+    const gap = top.score - (pool[1]?.score || 0);
+    if (top.score >= 50 && gap >= 10) {
+      return { prod: top.prod, matchStatus: managed.some(x => x.prod.ProdKey === top.prod.ProdKey) ? 'auto' : 'outside' };
+    }
     return { prod: null, matchStatus: 'ambiguous', candidates: pool.slice(0, 8).map(x => x.prod) };
   }
-  return { prod: null, matchStatus: 'unmatched', candidates: [] };
+  return { prod: null, matchStatus: 'unmatched', candidates: scored.slice(0, 5).map(x => x.prod) };
 }
 
-function buildBaseStockMatchRows(text, products, cache, prevMatches = []) {
-  const parsed = parseBaseStockText(text);
+function buildBaseStockMatchRows(text, products, cache, prevMatches = [], excludedLineNos = []) {
+  const parsed = parseBaseStockText(text, { excludedLineNos });
   const prevByKey = {};
   (prevMatches || []).forEach(m => {
     const key = stockNorm(m.name);
     if (key) prevByKey[key] = m;
   });
   return parsed.rows.map(row => {
-    const key = stockNorm(row.name);
-    const prev = prevByKey[key];
+    const key = stockNorm(row.matchName || row.name);
+    const prev = prevByKey[key] || prevByKey[stockNorm(row.name)];
+    const lookupName = row.matchName || row.name;
     if (prev?.prodKey) {
       const prod = (products || []).find(p => Number(p.ProdKey) === Number(prev.prodKey));
       if (prod) {
         return {
           name: row.name,
+          matchName: lookupName,
+          flowerContext: row.flowerContext || '',
           qty: row.qty,
           unit: row.unit || prev.unit || '',
           idx: row.idx,
@@ -312,10 +347,12 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = []) {
         };
       }
     }
-    const resolved = resolveProductForStockName(row.name, products, cache);
+    const resolved = resolveProductForStockName(lookupName, products, cache);
     if (resolved.prod) {
       return {
         name: row.name,
+        matchName: lookupName,
+        flowerContext: row.flowerContext || '',
         qty: row.qty,
         unit: row.unit || '',
         idx: row.idx,
@@ -328,6 +365,8 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = []) {
     }
     return {
       name: row.name,
+      matchName: lookupName,
+      flowerContext: row.flowerContext || '',
       qty: row.qty,
       unit: row.unit || '',
       idx: row.idx,
@@ -628,7 +667,7 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
     const prod = (products || []).find((p) => Number(p.ProdKey) === Number(m.prodKey));
     const label = m.displayName || m.prodName || getDisplayName(prod) || '';
     const entry = { status: 'matched', names: [label] };
-    [m.name, m.prodName, m.displayName, label].forEach((name) => {
+    [m.name, m.matchName, m.prodName, m.displayName, label].forEach((name) => {
       const key = stockNorm(name);
       if (key) map.set(key, entry);
     });
@@ -644,7 +683,7 @@ function productMatchSummary(productName, products, resolvedMatches) {
   if (!productName || !products?.length) return { status: 'unknown', names: [] };
   const scored = products
     .map(prod => ({ prod, score: scoreMatch(productName, prod, '') }))
-    .filter(x => x.score >= 55)
+    .filter(x => x.score >= 40)
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
   const managed = scored.filter(x => isManagedProduct(x.prod));
@@ -654,10 +693,15 @@ function productMatchSummary(productName, products, resolvedMatches) {
   return { status: 'unmatched', names: [] };
 }
 
-function buildKakaoStockDraft({ text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches }) {
-  const base = parseBaseStockText(baseText);
+function buildKakaoStockDraft({
+  text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches,
+  pasteExcludedLineNos = [], baseExcludedLineNos = [],
+}) {
+  const filteredText = textWithoutExcludedLines(text, pasteExcludedLineNos);
+  const filteredBase = textWithoutExcludedLines(baseText, baseExcludedLineNos);
+  const base = parseBaseStockText(filteredBase, { excludedLineNos: baseExcludedLineNos });
   const finalRemain = parseBaseStockText(remainText);
-  const { records, extraRows } = parseKakaoStockRecords(text, selectedWeek);
+  const { records, extraRows } = parseKakaoStockRecords(filteredText, selectedWeek);
   const confirmRows = [];
   const productWeekCounts = {};
 
@@ -893,6 +937,9 @@ export default function PasteOrderPage() {
   const [pasteText, setPasteText] = useState('');
   const [showMapModal, setShowMapModal] = useState(false);
   const [showHighlight, setShowHighlight] = useState(true);
+  const [showExcludeHighlight, setShowExcludeHighlight] = useState(true);
+  const [pasteExcludedLines, setPasteExcludedLines] = useState([]);
+  const [baseStockExcludedLines, setBaseStockExcludedLines] = useState([]);
   const [showStockPicker, setShowStockPicker] = useState(false);
   const [stockNotesAll, setStockNotesAll] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -1033,6 +1080,8 @@ export default function PasteOrderPage() {
       stockBaseWeek: nextBaseWeek,
       products: allProducts,
       resolvedMatches: buildResolvedMatchMap(ordersForMatch, allProducts, stockMatchesForDraft),
+      pasteExcludedLineNos: pasteExcludedLines,
+      baseExcludedLineNos: baseStockExcludedLines,
     });
     setStockDraft(draft);
     setStockCopied(false);
@@ -1045,7 +1094,7 @@ export default function PasteOrderPage() {
       return [];
     }
     const cache = { ...mappingCache, ...loadCache() };
-    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches);
+    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches, baseStockExcludedLines);
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, text, week, remainStockText, stockBaseWeek, orders, rows);
     return rows;
@@ -1295,8 +1344,18 @@ export default function PasteOrderPage() {
     }
   };
 
+  useEffect(() => {
+    if (!allProducts.length || !baseStockText.trim()) {
+      if (!baseStockText.trim()) setBaseStockMatches([]);
+      return undefined;
+    }
+    const t = setTimeout(() => rematchBaseStock(), 350);
+    return () => clearTimeout(t);
+  }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleParse = async () => {
     if (!pasteText.trim()) return;
+    const textForParse = textWithoutExcludedLines(pasteText, pasteExcludedLines);
     refreshStockDraft(pasteText, baseStockText, week, remainStockText);
     setParsing(true);
     setOrders([]);
@@ -1309,7 +1368,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ text: pasteText }),
+        body: JSON.stringify({ text: textForParse }),
       });
       const d = await res.json();
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
@@ -1623,7 +1682,7 @@ export default function PasteOrderPage() {
         return an.localeCompare(bn, 'ko');
       });
     const topScore = scored[0]?.score || 0;
-    const baseMin = searchQuery ? 50 : 55;
+    const baseMin = searchQuery ? 45 : 48;
     if (topScore < baseMin) return [];
     const nearTop = topScore >= 70 ? topScore - 18 : topScore >= 55 ? topScore - 12 : topScore;
     const minScore = Math.max(baseMin, nearTop);
@@ -2488,7 +2547,7 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '16px 20px', maxWidth: 1180, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+      <div style={{ padding: '16px 20px', maxWidth: 1320, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
@@ -2516,6 +2575,13 @@ export default function PasteOrderPage() {
             title="저장된 품목/거래처 매칭을 보고 중복을 삭제합니다."
           >
             🗂 매칭 현황
+          </button>
+          <button
+            onClick={() => setShowExcludeHighlight(v => !v)}
+            style={{ padding: '6px 16px', background: showExcludeHighlight ? '#546e7a' : '#90a4ae', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            title="드래그로 선택한 줄은 AI·품목매칭에서 제외됩니다."
+          >
+            🚫 제외 하이라이트 {showExcludeHighlight ? 'ON' : 'OFF'}
           </button>
           <button
             onClick={() => setShowHighlight(v => !v)}
@@ -2630,27 +2696,35 @@ export default function PasteOrderPage() {
           })()}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14, marginBottom: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, marginBottom: 14 }}>
           <div style={{ border: '1px solid #c5cae9', borderRadius: 8, padding: 12, background: '#f7f8ff', minWidth: 0 }}>
             <label style={labelS}>
-              텍스트 붙여넣기
+              붙여넣기 주문등록
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                 주문/변경사항 · 저장 포함
               </span>
             </label>
             <textarea
-              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              style={{ width: '100%', height: 520, padding: '10px 12px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
+            {showExcludeHighlight && (
+              <PasteExcludeHighlight
+                text={pasteText}
+                excludedLines={pasteExcludedLines}
+                onExcludedLinesChange={setPasteExcludedLines}
+                title="제외 하이라이트 (주문)"
+              />
+            )}
             {showHighlight && <PasteHighlight text={pasteText} customers={allCustomers} />}
           </div>
 
           <div style={{ border: '1px solid #b8c7d9', borderRadius: 8, padding: 12, background: '#f8fbff', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
               <label style={{ ...labelS, marginBottom: 0 }}>
-                기존재고
+                기초재고 입력
                 <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                   시작 기준 · 등록차수와 별도
                 </span>
@@ -2741,11 +2815,20 @@ export default function PasteOrderPage() {
               </div>
             )}
             <textarea
-              style={{ width: '100%', height: 320, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
-              placeholder={'기존재고\n블루 2\n라벤더 14\n화이트 1'}
+              style={{ width: '100%', height: 360, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              placeholder={'수국\n블루 2\n라벤더 14\n화이트 1'}
               value={baseStockText}
               onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 저장 필요'); }}
             />
+            {showExcludeHighlight && (
+              <PasteExcludeHighlight
+                text={baseStockText}
+                excludedLines={baseStockExcludedLines}
+                onExcludedLinesChange={setBaseStockExcludedLines}
+                title="제외 하이라이트 (기초재고)"
+                hint="메모·별도 정보 줄은 드래그로 제외하세요. 매칭 대상이 아닙니다."
+              />
+            )}
             {baseStockText.trim() && (
               <BaseStockMatchPanel
                 rows={baseStockMatches}
@@ -2757,21 +2840,6 @@ export default function PasteOrderPage() {
                 buildCandidates={buildCandidates}
               />
             )}
-          </div>
-
-          <div style={{ border: '1px solid #b2dfdb', borderRadius: 8, padding: 12, background: '#f3fffd', minWidth: 0 }}>
-            <label style={labelS}>
-              잔량재고
-              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                최종 잔량
-              </span>
-            </label>
-            <textarea
-              style={{ width: '100%', height: 430, padding: '10px 12px', border: '1px solid #80cbc4', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
-              placeholder={'잔량재고\n21-1\n블루 2\n라벤더 14\n화이트 1'}
-              value={remainStockText}
-              onChange={e => { setRemainStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
-            />
           </div>
         </div>
 
@@ -3600,7 +3668,7 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
   return (
     <div style={{ marginTop: 8, border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 12, color: '#334155' }}>기존재고 품목 매칭</strong>
+        <strong style={{ fontSize: 12, color: '#334155' }}>기초재고 입력 = 매칭결과</strong>
         <span style={{ fontSize: 11, color: matchedCount === rows.length ? '#2e7d32' : '#e65100', fontWeight: 700 }}>
           {matchedCount}/{rows.length} 매칭
         </span>
@@ -3608,15 +3676,26 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
           🔄 다시 매칭
         </button>
       </div>
-      <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
         {rows.map((row, idx) => (
-          <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap' }}>
-            <span style={{ minWidth: 72, fontWeight: 700, color: '#334155' }}>{row.name}</span>
-            <span style={{ color: '#64748b' }}>{row.qty}{row.unit || ''}</span>
-            <span style={{ color: statusColor(row.matchStatus), fontWeight: 700, fontSize: 11 }}>
-              {row.prodKey ? (row.displayName || row.prodName) : statusLabel(row.matchStatus)}
-            </span>
-            <button type="button" onClick={() => setEditIdx(editIdx === idx ? null : idx)} style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', border: '1px solid #1565c0', borderRadius: 4, background: '#e3f2fd', color: '#0d47a1', cursor: 'pointer' }}>
+          <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>
+              <span style={{ fontWeight: 700, color: '#334155' }}>{row.name}</span>
+              <span style={{ color: '#64748b', marginLeft: 6 }}>{row.qty}{row.unit || ''}</span>
+              <span style={{ color: '#94a3b8', margin: '0 8px', fontWeight: 700 }}>=</span>
+              <span style={{ color: statusColor(row.matchStatus), fontWeight: 700 }}>
+                {row.prodKey ? (row.displayName || row.prodName) : statusLabel(row.matchStatus)}
+              </span>
+              {row.prodKey && row.matchStatus ? (
+                <span style={{ color: '#94a3b8', fontSize: 10, marginLeft: 6 }}>({statusLabel(row.matchStatus)})</span>
+              ) : null}
+              {row.matchName && row.matchName !== row.name ? (
+                <span style={{ display: 'block', fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                  매칭키: {row.matchName}
+                </span>
+              ) : null}
+            </div>
+            <button type="button" onClick={() => setEditIdx(editIdx === idx ? null : idx)} style={{ flexShrink: 0, fontSize: 11, padding: '2px 8px', border: '1px solid #1565c0', borderRadius: 4, background: '#e3f2fd', color: '#0d47a1', cursor: 'pointer' }}>
               {editIdx === idx ? '닫기' : '✎ 품목지정'}
             </button>
           </div>
