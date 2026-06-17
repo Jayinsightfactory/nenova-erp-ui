@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
+import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
@@ -131,11 +132,44 @@ async function postShipmentFix(body, { timeoutMs = FIX_UNFIX_FETCH_TIMEOUT_MS } 
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const data = await res.json().catch(() => ({}));
+    let data;
+    try {
+      data = await parseJsonResponse(res);
+    } catch (e) {
+      data = {
+        success: false,
+        error: e.message,
+        _ambiguousResponse: true,
+        _httpStatus: res.status,
+      };
+    }
     return { res, data };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchWeekFixStatus(week) {
+  const res = await fetch(
+    `/api/shipment/fix-status?fromWeek=${encodeURIComponent(week)}&toWeek=${encodeURIComponent(week)}`,
+    { credentials: 'same-origin' },
+  );
+  const data = await parseJsonResponse(res).catch(() => ({}));
+  return (data.weeks || []).find(w => w.OrderWeek === week) || null;
+}
+
+async function reconcileFixResultAfterAmbiguousResponse(week, data) {
+  if (data?.success || !data?._ambiguousResponse) return data;
+  const row = await fetchWeekFixStatus(week);
+  if (row?.status === 'FIXED') {
+    return {
+      success: true,
+      message: `[${week}] 확정 완료 (응답 지연 — 서버에서 이미 처리됨)`,
+      updatedCount: row.fixedDetailCount,
+      _recoveredFromAmbiguousResponse: true,
+    };
+  }
+  return data;
 }
 
 // ── 한글 금액 변환 (52,434,150 → "오천이백사십삼만사천일백오십원 정")
@@ -1388,18 +1422,24 @@ export default function Estimate() {
         message: `${wk} 확정 중입니다. 재고 계산까지 함께 처리합니다.`,
       }));
       try {
-        const { data: d } = await postShipmentFix({
+        let { data: d } = await postShipmentFix({
           week: wk,
           action: 'fix',
           force,
           ...(countryFlowers.length ? { countryFlowers } : {}),
         });
+        d = await reconcileFixResultAfterAmbiguousResponse(wk, d);
         results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount, stockErrors: d.stockErrors?.length || 0 });
       } catch (e) {
         const msg = e?.name === 'AbortError'
           ? `요청 시간 초과(${Math.round(FIX_UNFIX_FETCH_TIMEOUT_MS / 60000)}분) — 재고 재계산 진행 중일 수 있습니다`
           : e.message;
-        results.push({ week: wk, ok: false, error: msg });
+        const recovered = await reconcileFixResultAfterAmbiguousResponse(wk, { success: false, _ambiguousResponse: true, error: msg });
+        if (recovered.success) {
+          results.push({ week: wk, ok: true, message: recovered.message, count: recovered.updatedCount, stockErrors: 0 });
+        } else {
+          results.push({ week: wk, ok: false, error: msg });
+        }
       }
       const success = results.filter(x => x.ok).length;
       const failed = results.length - success;
