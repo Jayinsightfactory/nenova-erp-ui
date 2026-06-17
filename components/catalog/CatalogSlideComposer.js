@@ -394,7 +394,7 @@ export default function CatalogSlideComposer({
         </div>
       ) : null}
 
-      <style jsx>{`
+      <style jsx global>{`
         .catalog-composer {
           display: flex;
           flex-direction: column;
