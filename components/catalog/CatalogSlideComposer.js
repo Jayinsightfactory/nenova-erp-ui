@@ -16,11 +16,19 @@ import {
 
 const DND_GROUP = 'application/x-nenova-catalog-group';
 const DND_PROD = 'application/x-nenova-catalog-prod';
+const DND_PROD_KEYS = 'application/x-nenova-catalog-prod-keys';
 const DND_LINE = 'application/x-nenova-catalog-line';
 
 export function parseCatalogDragData(e) {
   const group = e.dataTransfer.getData(DND_GROUP);
   if (group) return { type: 'group', groupKey: group };
+  const prodKeysRaw = e.dataTransfer.getData(DND_PROD_KEYS);
+  if (prodKeysRaw) {
+    try {
+      const prodKeys = JSON.parse(prodKeysRaw).map(Number).filter(Number.isFinite);
+      if (prodKeys.length) return { type: 'prod-batch', prodKeys };
+    } catch { /* ignore */ }
+  }
   const prod = e.dataTransfer.getData(DND_PROD);
   if (prod) return { type: 'prod', prodKey: prod };
   const line = e.dataTransfer.getData(DND_LINE);
@@ -38,8 +46,13 @@ export function setCatalogDragData(e, payload) {
     e.dataTransfer.setData(DND_GROUP, payload.groupKey);
     e.dataTransfer.setData('text/plain', `group:${payload.groupKey}`);
   } else if (payload.type === 'prod') {
-    e.dataTransfer.setData(DND_PROD, payload.prodKey);
+    e.dataTransfer.setData(DND_PROD, String(payload.prodKey));
     e.dataTransfer.setData('text/plain', `prod:${payload.prodKey}`);
+    const keys = (Array.isArray(payload.prodKeys) ? payload.prodKeys : [payload.prodKey])
+      .map(Number).filter(Number.isFinite);
+    if (keys.length > 1) {
+      e.dataTransfer.setData(DND_PROD_KEYS, JSON.stringify(keys));
+    }
   } else if (payload.type === 'line') {
     e.dataTransfer.setData(DND_LINE, payload.lineId);
     e.dataTransfer.setData('text/plain', `line:${payload.lineId}`);
@@ -200,7 +213,7 @@ export default function CatalogSlideComposer({
     e.preventDefault();
     const data = parseCatalogDragData(e);
     if (data?.type === 'group') onDropZone(data.groupKey);
-    else if (data && (data.type === 'prod' || data.type === 'line')) onDropAutoSlot?.(data);
+    else if (data && (data.type === 'prod' || data.type === 'prod-batch' || data.type === 'line')) onDropAutoSlot?.(data);
   }, [onDropZone, onDropAutoSlot]);
 
   const handleDropZoneOver = (e) => {
@@ -501,7 +514,7 @@ export default function CatalogSlideComposer({
         }
         .composer-slide-stage {
           width: 100%;
-          max-width: none;
+          max-width: min(100%, 520px);
           margin: 0 auto;
           aspect-ratio: 16 / 9;
           padding: 6px 10px 10px;
@@ -555,10 +568,10 @@ export default function CatalogSlideComposer({
           flex-shrink: 0;
         }
         .composer-slide-stage.full {
-          max-height: min(calc(100vh - 180px), 720px);
+          max-height: min(calc(100vh - 220px), 292px);
         }
         .composer-slide-stage.with-editor {
-          max-height: min(calc(100vh - 320px), 640px);
+          max-height: min(calc(100vh - 360px), 270px);
         }
         .composer-slide-card.expanded .composer-slide-stage {
           flex: 1;
@@ -605,7 +618,7 @@ export default function CatalogSlideComposer({
           border-color: var(--green);
           cursor: grab;
           display: grid;
-          grid-template-rows: minmax(0, 25%) minmax(0, 1fr);
+          grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
           align-items: stretch;
         }
         .composer-slot.filled.selected {
@@ -642,10 +655,10 @@ export default function CatalogSlideComposer({
         }
         .composer-slot-img-frame {
           height: 100%;
-          width: auto;
+          width: 100%;
           max-width: 100%;
           max-height: 100%;
-          aspect-ratio: 1;
+          aspect-ratio: unset;
           display: flex;
           align-items: center;
           justify-content: center;

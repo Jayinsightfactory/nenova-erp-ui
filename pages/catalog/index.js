@@ -36,6 +36,7 @@ import {
   clearComposerSlot,
   newComposerSlide,
   placeLineOnComposer as assignLineToComposer,
+  placeLinesOnComposer,
   removeComposerSlide,
   resizeComposerSlides,
   sanitizeComposerSlides,
@@ -685,13 +686,7 @@ export default function CatalogPage() {
   const addVisibleFlower = () => {
     const toAdd = visibleProducts.filter(p => !checkedKeys.has(p.ProdKey));
     if (!toAdd.length) return;
-    const nextKeys = new Set(checkedKeys);
-    const newLines = toAdd.map(prod => {
-      nextKeys.add(prod.ProdKey);
-      return addProductLine(prod);
-    });
-    setCheckedKeys(nextKeys);
-    setLines(prev => [...prev, ...newLines]);
+    placeProdKeysOnComposer(toAdd.map(p => p.ProdKey));
   };
 
   const handleComposerDropGroup = useCallback((groupKey) => {
@@ -734,6 +729,42 @@ export default function CatalogPage() {
     }));
   }, [perPage, activeSlideTarget]);
 
+  const placeProdKeysOnComposer = useCallback((prodKeys) => {
+    const list = [...new Set((Array.isArray(prodKeys) ? prodKeys : [prodKeys]).map(Number).filter(Number.isFinite))];
+    if (!list.length) return;
+    setLines(prev => {
+      const existingKeys = new Set(prev.map(l => l.prodKey));
+      const added = list
+        .filter(pk => !existingKeys.has(pk))
+        .map(pk => findProd(products, pk))
+        .filter(Boolean)
+        .map(prod => addProductLine(prod));
+      const merged = added.length ? [...prev, ...added] : prev;
+      if (added.length) {
+        setCheckedKeys(keys => {
+          const next = new Set(keys);
+          added.forEach(l => next.add(l.prodKey));
+          return next;
+        });
+      }
+      const lineIds = list
+        .map(pk => merged.find(l => Number(l.prodKey) === Number(pk))?.id)
+        .filter(Boolean);
+      if (lineIds.length) {
+        const first = merged.find(l => lineIds.includes(l.id));
+        setComposerSlides(slPrev => placeLinesOnComposer(slPrev, lineIds, {
+          perPage,
+          targetSlideId: activeSlideTarget,
+          defaultTitle: {
+            titleBig: first?.flowerName || '미분류',
+            titleSmall: first?.counName || '',
+          },
+        }));
+      }
+      return merged;
+    });
+  }, [products, addProductLine, perPage, activeSlideTarget]);
+
   const handleComposerAutoSlot = useCallback((data) => {
     if (data.type === 'group') {
       handleComposerDropGroup(data.groupKey);
@@ -744,20 +775,13 @@ export default function CatalogPage() {
       if (line) placeLineOnComposer(line);
       return;
     }
-    if (data.type === 'prod') {
-      const existing = lines.find(l => String(l.prodKey) === String(data.prodKey));
-      if (existing) {
-        placeLineOnComposer(existing);
-        return;
-      }
-      const prod = findProd(products, data.prodKey);
-      if (!prod) return;
-      const line = addProductLine(prod);
-      setCheckedKeys(prev => new Set(prev).add(prod.ProdKey));
-      setLines(prev => [...prev, line]);
-      placeLineOnComposer(line);
+    if (data.type === 'prod-batch' || data.type === 'prod') {
+      const keys = data.type === 'prod-batch'
+        ? data.prodKeys
+        : (data.prodKeys?.length > 1 ? data.prodKeys : [data.prodKey]);
+      placeProdKeysOnComposer(keys);
     }
-  }, [handleComposerDropGroup, linesById, lines, products, addProductLine, placeLineOnComposer]);
+  }, [handleComposerDropGroup, linesById, placeProdKeysOnComposer, placeLineOnComposer]);
 
   const handleComposerDropSlot = useCallback((slideId, slotIndex, data) => {
     if (!data) return;
@@ -1318,14 +1342,16 @@ export default function CatalogPage() {
           </aside>
 
           <section className="catalog-center card">
-            <div className="card-header">
+            <div className="card-header catalog-center-hdr">
               <span className="card-title">③ 세부 품목</span>
+            </div>
+            <div className="catalog-center-toolbar">
               {costContext.displayWeek && (
                 <span className="catalog-cost-chip">
                   도착원가 {costContext.displayWeek} · {costContext.vatLabel}
                 </span>
               )}
-              <input className="filter-input" style={{ marginLeft: 'auto', width: 180 }} placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input className="filter-input catalog-prod-search" placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
               <span className="catalog-drag-select-hint" title="빈 공간 드래그 — 선택/해제 토글 (클릭과 동일)">빈 공간 드래그 토글</span>
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
@@ -1364,7 +1390,10 @@ export default function CatalogPage() {
                     draggable={!dragSelecting}
                     onDragStart={(e) => {
                       if (dragSelecting) { e.preventDefault(); return; }
-                      setCatalogDragData(e, { type: 'prod', prodKey: prod.ProdKey });
+                      const prodKeys = checkedKeys.has(prod.ProdKey) && checkedKeys.size > 1
+                        ? [...checkedKeys]
+                        : [prod.ProdKey];
+                      setCatalogDragData(e, { type: 'prod', prodKey: prod.ProdKey, prodKeys });
                       e.stopPropagation();
                     }}
                     onClick={() => toggleProduct(prod)}
@@ -1519,12 +1548,28 @@ export default function CatalogPage() {
           border-radius: 3px;
         }
         .catalog-cost-chip {
-          font-size: 10px;
+          font-size: 11px;
+          font-weight: 600;
           color: var(--blue);
           background: var(--blue-bg);
-          padding: 2px 6px;
+          padding: 3px 8px;
           border-radius: 3px;
-          margin-left: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .catalog-center-hdr { padding-bottom: 4px; }
+        .catalog-center-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 8px 6px;
+          border-bottom: 1px solid var(--border);
+        }
+        .catalog-prod-search {
+          flex: 1;
+          min-width: 120px;
+          max-width: 200px;
         }
         .catalog-field-toggles {
           display: flex;
