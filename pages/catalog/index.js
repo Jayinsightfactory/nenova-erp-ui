@@ -8,6 +8,11 @@ import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalo
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { catalogImageFieldsFromRecord, catalogImageStyle } from '../../lib/catalogImagePosition';
+import {
+  buildCatalogAutoFitTransform,
+  loadCatalogImageNaturalSize,
+  needsCatalogImageAutoFit,
+} from '../../lib/catalogImageAutoFit';
 import { persistCatalogImageSelection, persistCatalogProductMatch } from '../../lib/catalogMatchClient';
 import { updateCatalogImagePosition } from '../../lib/catalogImageClient';
 import { apiGet } from '../../lib/useApi';
@@ -54,7 +59,11 @@ function findProd(prods, prodKey) {
 
 function lineImageFields(byProdKey, prodKey) {
   const img = pickPrimaryImageRecord(byProdKey, prodKey);
-  if (!img) return { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50, imageScale: 100 };
+  if (!img) return {
+    imageId: null, imageUrl: null,
+    imagePosX: 50, imagePosY: 50, imageScale: 100, imageRotate: 0,
+    imageAutoAdjusted: false, imageManualAdjusted: false,
+  };
   const fields = catalogImageFieldsFromRecord(img);
   return {
     imageId: fields.imageId,
@@ -62,6 +71,9 @@ function lineImageFields(byProdKey, prodKey) {
     imagePosX: fields.imagePosX,
     imagePosY: fields.imagePosY,
     imageScale: fields.imageScale,
+    imageRotate: fields.imageRotate,
+    imageAutoAdjusted: fields.imageAutoAdjusted,
+    imageManualAdjusted: fields.imageManualAdjusted,
   };
 }
 
@@ -277,12 +289,18 @@ export default function CatalogPage() {
             imagePosX: f.imagePosX,
             imagePosY: f.imagePosY,
             imageScale: f.imageScale,
+            imageRotate: f.imageRotate,
+            imageAutoAdjusted: f.imageAutoAdjusted,
+            imageManualAdjusted: f.imageManualAdjusted,
           };
         })()
         : {
           imagePosX: line.imagePosX ?? 50,
           imagePosY: line.imagePosY ?? 50,
           imageScale: line.imageScale ?? 100,
+          imageRotate: line.imageRotate ?? 0,
+          imageAutoAdjusted: line.imageAutoAdjusted ?? false,
+          imageManualAdjusted: line.imageManualAdjusted ?? false,
         };
       return {
         ...line,
@@ -485,9 +503,16 @@ export default function CatalogPage() {
           imagePosX: f.imagePosX,
           imagePosY: f.imagePosY,
           imageScale: f.imageScale,
+          imageRotate: f.imageRotate,
+          imageAutoAdjusted: f.imageAutoAdjusted,
+          imageManualAdjusted: f.imageManualAdjusted,
         };
       })()
-      : { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50, imageScale: 100 };
+      : {
+        imageId: null, imageUrl: null,
+        imagePosX: 50, imagePosY: 50, imageScale: 100, imageRotate: 0,
+        imageAutoAdjusted: false, imageManualAdjusted: false,
+      };
     setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
   };
 
@@ -529,6 +554,9 @@ export default function CatalogPage() {
         imagePosX: f.imagePosX,
         imagePosY: f.imagePosY,
         imageScale: f.imageScale,
+        imageRotate: f.imageRotate,
+        imageAutoAdjusted: f.imageAutoAdjusted,
+        imageManualAdjusted: f.imageManualAdjusted,
       };
     }));
   };
@@ -657,12 +685,26 @@ export default function CatalogPage() {
     }));
   };
 
-  const saveLineImageTransform = async (line, { posX, posY, scale }) => {
-    const patch = { imagePosX: posX, imagePosY: posY, imageScale: scale };
+  const saveLineImageTransform = async (line, {
+    posX, posY, scale, rotate, autoAdjusted, manualAdjusted,
+  }) => {
+    const isManual = manualAdjusted === true;
+    const patch = {
+      imagePosX: posX,
+      imagePosY: posY,
+      imageScale: scale,
+      imageRotate: rotate ?? 0,
+      imageAutoAdjusted: isManual ? false : !!autoAdjusted,
+      imageManualAdjusted: isManual,
+    };
     updateLine(line.id, patch);
     if (line.imageId) {
       try {
-        await updateCatalogImagePosition(line.imageId, { posX, posY, scale });
+        await updateCatalogImagePosition(line.imageId, {
+          posX, posY, scale, rotate,
+          autoAdjusted: patch.imageAutoAdjusted,
+          manualAdjusted: patch.imageManualAdjusted,
+        });
         const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
         handleImagesChange(line.prodKey, data.images || []);
       } catch (e) {
@@ -670,6 +712,31 @@ export default function CatalogPage() {
       }
     }
   };
+
+  const autoFitDoneRef = useRef(new Set());
+
+  const runAutoFitForLine = useCallback(async (line) => {
+    if (!line?.imageUrl) return;
+    const img = pickImageForLine(imagesByProd, line);
+    const source = { ...img, ...line };
+    if (!needsCatalogImageAutoFit(source)) return;
+    const key = `${line.id}:${line.imageId || line.imageUrl}`;
+    if (autoFitDoneRef.current.has(key)) return;
+    autoFitDoneRef.current.add(key);
+    try {
+      const { width, height } = await loadCatalogImageNaturalSize(absCatalogUrl(line.imageUrl));
+      const t = buildCatalogAutoFitTransform(width, height);
+      await saveLineImageTransform(line, t);
+    } catch (e) {
+      autoFitDoneRef.current.delete(key);
+      console.warn('[catalog] auto-fit:', e.message);
+    }
+  }, [imagesByProd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!lines.length) return;
+    lines.forEach(line => { runAutoFitForLine(line); });
+  }, [lines, imagesByProd, runAutoFitForLine]);
 
   const removeLine = (id) => {
     const line = lines.find(l => l.id === id);

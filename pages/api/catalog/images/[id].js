@@ -69,11 +69,15 @@ export default withAuth(async function handler(req, res) {
           if (!image) return res.status(404).json({ success: false, error: 'not found' });
           return res.status(200).json({ success: true, image });
         }
-        if (body.posX != null || body.posY != null || body.scale != null) {
+        if (body.posX != null || body.posY != null || body.scale != null || body.rotate != null
+          || body.autoAdjusted != null || body.manualAdjusted != null) {
           const image = updateImagePosition(id, {
             posX: body.posX ?? 50,
             posY: body.posY ?? 50,
             scale: body.scale ?? 100,
+            rotate: body.rotate ?? 0,
+            autoAdjusted: body.autoAdjusted,
+            manualAdjusted: body.manualAdjusted,
           });
           if (!image) return res.status(404).json({ success: false, error: 'not found' });
           return res.status(200).json({ success: true, image });

@@ -133,6 +133,9 @@ function MiniSlot({
         {line.imageUrl ? (
           <div className="catalog-slide-img-inner">
             <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} draggable={false} />
+            {line.imageAutoAdjusted ? (
+              <span className="composer-slot-auto-badge" title="칸 크기에 자동 맞춤됨">자동</span>
+            ) : null}
           </div>
         ) : (
           <span className="catalog-slide-ph">{eng?.slice(0, 2) || '품'}</span>
@@ -405,7 +408,15 @@ export default function CatalogSlideComposer({
             aria-label="이미지 위치·확대"
           >
             <div className="catalog-crop-modal-head">
-              <strong>{cropLine.engName || cropLine.catalogName || '이미지 위치/확대'}</strong>
+              <div className="catalog-crop-modal-head-titles">
+                <strong>{cropLine.engName || cropLine.catalogName || '이미지 위치/확대'}</strong>
+                {cropLine.imageAutoAdjusted ? (
+                  <label className="catalog-crop-modal-auto" title="칸 크기에 맞게 자동 확대·중앙 정렬됨">
+                    <input type="checkbox" checked readOnly disabled />
+                    <span>자동수정됨</span>
+                  </label>
+                ) : null}
+              </div>
               <button type="button" className="btn btn-sm" onClick={() => onToggleCropLine?.(null)}>닫기</button>
             </div>
             <p className="catalog-crop-modal-sub">
@@ -673,8 +684,24 @@ export default function CatalogSlideComposer({
           padding: 12px 14px 14px;
         }
         .catalog-crop-modal-head {
-          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
         }
+        .catalog-crop-modal-head-titles {
+          display: flex; flex-direction: column; gap: 4px; min-width: 0;
+        }
+        .catalog-crop-modal-auto {
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 10px; font-weight: 500; color: var(--blue);
+          cursor: default;
+        }
+        .catalog-crop-modal-auto input { margin: 0; accent-color: var(--blue); }
+        .composer-slot-auto-badge {
+          position: absolute; right: 2px; bottom: 2px;
+          font-size: 8px; line-height: 1.2; padding: 1px 3px;
+          background: rgba(37, 99, 235, 0.9); color: #fff;
+          border-radius: 2px; pointer-events: none;
+        }
+        .catalog-slide-img-inner { position: relative; }
         .catalog-crop-modal-sub {
           font-size: 11px; color: var(--text3); margin: 4px 0 8px;
         }

@@ -31,6 +31,7 @@ export default function CatalogPrintPage() {
           imagePosX: l.imagePosX ?? 50,
           imagePosY: l.imagePosY ?? 50,
           imageScale: l.imageScale ?? 100,
+          imageRotate: l.imageRotate ?? 0,
         }));
       }
       setDraft(parsed);
