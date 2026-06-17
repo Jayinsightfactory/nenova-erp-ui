@@ -10,6 +10,7 @@ import {
   relPathFor,
   replaceImageFile,
   setPrimaryImage,
+  updateImagePosition,
   ensureCatalogDirs,
 } from '../../../../lib/catalogImages';
 
@@ -65,6 +66,14 @@ export default withAuth(async function handler(req, res) {
         const body = await readJsonBody(req);
         if (body.isPrimary) {
           const image = setPrimaryImage(id);
+          if (!image) return res.status(404).json({ success: false, error: 'not found' });
+          return res.status(200).json({ success: true, image });
+        }
+        if (body.posX != null || body.posY != null) {
+          const image = updateImagePosition(id, {
+            posX: body.posX ?? 50,
+            posY: body.posY ?? 50,
+          });
           if (!image) return res.status(404).json({ success: false, error: 'not found' });
           return res.status(200).json({ success: true, image });
         }

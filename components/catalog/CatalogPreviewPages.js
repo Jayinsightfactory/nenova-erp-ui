@@ -3,6 +3,7 @@ import {
   formatOriginLabel,
   layoutCssVars,
 } from '../../lib/catalogLayout';
+import { catalogImageStyle } from '../../lib/catalogImagePosition';
 import { resolveCatalogPages } from '../../lib/catalogSlides';
 import { absCatalogUrl } from '../../lib/catalogUtils';
 import { buildCatalogCellLines, hasCatalogCellText, normalizeCatalogFields } from '../../lib/catalogLineText';
@@ -19,7 +20,7 @@ export function useCatalogPages(draft) {
   }, [draft]);
 }
 
-export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
+export default function CatalogPreviewPages({ draft }) {
   const pages = useCatalogPages(draft);
   if (!draft?.lines?.length) return null;
 
@@ -35,15 +36,13 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
           className="catalog-slide"
           style={slideStyle}
         >
-          <header className="catalog-slide-hdr">
-            <div className="catalog-slide-hdr-titles">
-              <span className="title-big">{page.titleBig}</span>
-              {page.titleSmall ? (
-                <span className="title-small">{formatOriginLabel(page.titleSmall)}</span>
-              ) : null}
-            </div>
-            <img className="catalog-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
-          </header>
+          <div className="catalog-slide-hdr">
+            <span className="title-big">{page.titleBig}</span>
+            {page.titleSmall ? (
+              <span className="title-small">{formatOriginLabel(page.titleSmall)}</span>
+            ) : null}
+          </div>
+          <img className="catalog-slide-logo" src="/nenova-logo.png" alt="" />
 
           <div className={`catalog-slide-grid per-${per}`}>
             {page.lines.map(line => {
@@ -52,7 +51,7 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
                 <article key={line.id} className="catalog-slide-item">
                   <div className="catalog-slide-img">
                     {line.imageUrl ? (
-                      <img src={absCatalogUrl(line.imageUrl)} alt="" />
+                      <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
                     ) : (
                       <span className="catalog-slide-ph">{line.engName?.slice(0, 2) || '품'}</span>
                     )}
@@ -78,10 +77,6 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
               );
             })}
           </div>
-
-          {mode === 'preview' && pi === 0 ? (
-            <div className="catalog-slide-hint">카탈로그 추출기 16:9 · {per}개형</div>
-          ) : null}
         </section>
       ))}
 
@@ -100,37 +95,32 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
         }
         .catalog-slide-hdr {
           position: absolute;
-          left: 0.546cm;
-          top: 1.412cm;
-          right: 0.4cm;
-          height: 2cm;
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
+          left: var(--hdr-left);
+          top: var(--hdr-top);
           z-index: 2;
-        }
-        .catalog-slide-hdr-titles {
-          flex: 1;
-          min-width: 0;
+          max-width: calc(var(--slide-w) - var(--hdr-left) - var(--logo-w) - 0.6cm);
           line-height: 1.15;
         }
         .catalog-slide-hdr .title-big {
-          font-size: 36pt;
+          font-size: var(--hdr-big-pt);
           font-weight: 700;
           color: #000;
         }
         .catalog-slide-hdr .title-small {
-          font-size: 12pt;
+          font-size: var(--hdr-sub-pt);
           font-weight: 700;
           color: #000;
           margin-left: 0.35em;
         }
         .catalog-slide-logo {
-          flex-shrink: 0;
-          width: 4.72cm;
-          height: 2.85cm;
+          position: absolute;
+          left: var(--logo-left);
+          top: var(--logo-top);
+          width: var(--logo-w);
+          height: var(--logo-h);
           object-fit: contain;
           object-position: top right;
+          z-index: 2;
         }
         .catalog-slide-grid {
           position: absolute;
@@ -162,9 +152,8 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
           overflow: hidden;
         }
         .catalog-slide-img img {
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: contain;
+          width: 100%;
+          height: 100%;
         }
         .catalog-slide-ph {
           font-size: 14pt;
@@ -196,18 +185,15 @@ export default function CatalogPreviewPages({ draft, mode = 'preview' }) {
           line-height: 1.2;
           margin-top: 0.05cm;
         }
-        .catalog-slide-hint {
-          position: absolute;
-          bottom: 2mm;
-          right: 4mm;
-          font-size: 8pt;
-          color: #ccc;
-        }
         @media print {
           .catalog-slide {
             page-break-after: always;
+            page-break-inside: avoid;
             box-shadow: none !important;
             margin: 0 auto !important;
+          }
+          .catalog-slide:last-child {
+            page-break-after: auto;
           }
         }
       `}</style>
@@ -220,6 +206,11 @@ export const CATALOG_PREVIEW_STYLES = `
   @page { size: 33.867cm 19.05cm; margin: 0; }
   @media print {
     .no-print { display: none !important; }
-    html, body { background: #fff; margin: 0; }
+    html, body { background: #fff; margin: 0; padding: 0; }
+    .catalog-slide {
+      break-inside: avoid;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
   }
 `;

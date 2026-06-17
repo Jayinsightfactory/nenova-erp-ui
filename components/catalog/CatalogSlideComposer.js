@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { catalogImageStyle } from '../../lib/catalogImagePosition';
 import {
   absCatalogUrl,
   catalogLineNames,
@@ -105,7 +106,7 @@ function MiniSlot({
       <div className="composer-slot-img">
         <div className="composer-slot-img-frame">
           {line.imageUrl ? (
-            <img src={absCatalogUrl(line.imageUrl)} alt="" />
+            <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
           ) : (
             <span>{eng?.slice(0, 2) || '품'}</span>
           )}
@@ -590,7 +591,6 @@ export default function CatalogSlideComposer({
         .composer-slot-img-frame img {
           width: 100%;
           height: 100%;
-          object-fit: contain;
           display: block;
         }
         .composer-slot-img-frame span {

@@ -17,6 +17,8 @@ export default function CatalogPrintPage() {
         parsed.lines = parsed.lines.map(l => ({
           ...l,
           imageUrl: absCatalogUrl(l.imageUrl),
+          imagePosX: l.imagePosX ?? 50,
+          imagePosY: l.imagePosY ?? 50,
         }));
       }
       setDraft(parsed);
@@ -36,7 +38,7 @@ export default function CatalogPrintPage() {
   return (
     <>
       <Head>
-        <title>{draft.catalogTitle || '카탈로그'} — 인쇄</title>
+        <title>{draft.catalogTitle || 'NENOVA 카탈로그'}</title>
         <style>{CATALOG_PREVIEW_STYLES}</style>
       </Head>
 

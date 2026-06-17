@@ -7,8 +7,10 @@ import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
+import { catalogImageFieldsFromRecord, catalogImageStyle } from '../../lib/catalogImagePosition';
 import { persistCatalogImageSelection, persistCatalogProductMatch } from '../../lib/catalogMatchClient';
 import { apiGet } from '../../lib/useApi';
+import { useCatalogDragSelect } from '../../lib/useCatalogDragSelect';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
 import {
   absCatalogUrl,
@@ -48,9 +50,20 @@ function findProd(prods, prodKey) {
 
 function lineImageFields(byProdKey, prodKey) {
   const img = pickPrimaryImageRecord(byProdKey, prodKey);
-  return img
-    ? { imageId: img.id, imageUrl: absCatalogUrl(img.url) }
-    : { imageId: null, imageUrl: null };
+  if (!img) return { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50 };
+  const fields = catalogImageFieldsFromRecord(img);
+  return {
+    imageId: fields.imageId,
+    imageUrl: absCatalogUrl(fields.imageUrl),
+    imagePosX: fields.imagePosX,
+    imagePosY: fields.imagePosY,
+  };
+}
+
+function pickImageForLine(imgMap, line) {
+  const list = imgMap?.[String(line.prodKey)] || imgMap?.[line.prodKey] || [];
+  if (line.imageId) return list.find(i => i.id === line.imageId) || pickPrimaryImageRecord(imgMap, line.prodKey);
+  return pickPrimaryImageRecord(imgMap, line.prodKey);
 }
 
 export default function CatalogPage() {
@@ -247,7 +260,18 @@ export default function CatalogPage() {
       const prod = findProd(prods, line.prodKey);
       if (!prod) return line;
       const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
-      const img = pickPrimaryImageRecord(imgMap, line.prodKey);
+      const img = pickImageForLine(imgMap, line);
+      const imgFields = img
+        ? (() => {
+          const f = catalogImageFieldsFromRecord(img);
+          return {
+            imageId: line.imageId || f.imageId || null,
+            imageUrl: line.imageUrl || absCatalogUrl(f.imageUrl) || null,
+            imagePosX: f.imagePosX,
+            imagePosY: f.imagePosY,
+          };
+        })()
+        : { imagePosX: line.imagePosX ?? 50, imagePosY: line.imagePosY ?? 50 };
       return {
         ...line,
         arrivalCost: arrival,
@@ -256,8 +280,7 @@ export default function CatalogPage() {
         arrivalSource: prod.arrivalSource || line.arrivalSource || null,
         arrivalIsFallback: prod.arrivalIsFallback ?? line.arrivalIsFallback ?? false,
         salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
-        imageId: line.imageId || img?.id || null,
-        imageUrl: line.imageUrl || absCatalogUrl(img?.url) || null,
+        ...imgFields,
       };
     }));
   }, [useVatArrival]);
@@ -442,8 +465,16 @@ export default function CatalogPage() {
 
   const applyImageToLines = (prodKey, img) => {
     const fields = img
-      ? { imageId: img.id, imageUrl: absCatalogUrl(img.url) }
-      : { imageId: null, imageUrl: null };
+      ? (() => {
+        const f = catalogImageFieldsFromRecord(img);
+        return {
+          imageId: f.imageId,
+          imageUrl: absCatalogUrl(f.imageUrl),
+          imagePosX: f.imagePosX,
+          imagePosY: f.imagePosY,
+        };
+      })()
+      : { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50 };
     setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
   };
 
@@ -472,6 +503,20 @@ export default function CatalogPage() {
 
   const handleImagesChange = (prodKey, images) => {
     setImagesByProd(prev => ({ ...prev, [String(prodKey)]: images }));
+    setLines(prev => prev.map(l => {
+      if (String(l.prodKey) !== String(prodKey)) return l;
+      const img = l.imageId
+        ? images.find(i => i.id === l.imageId)
+        : (images.find(i => i.isPrimary) || images[0]);
+      if (!img) return l;
+      const f = catalogImageFieldsFromRecord(img);
+      return {
+        ...l,
+        imageUrl: absCatalogUrl(f.imageUrl),
+        imagePosX: f.imagePosX,
+        imagePosY: f.imagePosY,
+      };
+    }));
   };
 
   const addProductLine = (prod) => {
@@ -545,7 +590,23 @@ export default function CatalogPage() {
     setEditorOpen(true);
   }, []);
 
+  const selectProductIfUnchecked = useCallback((prodKey) => {
+    setCheckedKeys(prev => {
+      if (prev.has(prodKey)) return prev;
+      return new Set(prev).add(prodKey);
+    });
+    setLines(prev => {
+      if (prev.some(l => l.prodKey === prodKey)) return prev;
+      const prod = findProd(products, prodKey);
+      if (!prod) return prev;
+      return [...prev, addProductLine(prod)];
+    });
+  }, [products, imagesByProd, useVatArrival]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { dragging: dragSelecting, onPointerDown: onGridPointerDown, shouldSuppressClick } = useCatalogDragSelect(selectProductIfUnchecked);
+
   const toggleProduct = (prod) => {
+    if (shouldSuppressClick()) return;
     const key = prod.ProdKey;
     if (checkedKeys.has(key)) {
       setCheckedKeys(prev => {
@@ -979,6 +1040,7 @@ export default function CatalogPage() {
     const img = pickPrimaryImageRecord(imagesByProd, prod.ProdKey);
     const line = lineId ? lines.find(l => l.id === lineId) : null;
     const url = line?.imageUrl || img?.url;
+    const posSource = line?.imageId ? line : (img || line);
     const style = {
       width: size,
       height: size,
@@ -994,6 +1056,7 @@ export default function CatalogPage() {
     };
     return (
       <div
+        className="catalog-thumb"
         style={style}
         title="클릭 → 이미지 업로드/관리"
         onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
@@ -1002,7 +1065,7 @@ export default function CatalogPage() {
         tabIndex={onClick ? 0 : undefined}
       >
         {url ? (
-          <img src={absCatalogUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <img src={absCatalogUrl(url)} alt="" style={catalogImageStyle(posSource)} />
         ) : (
           <span style={{ fontWeight: 700, fontSize: size > 50 ? 14 : 11, color: 'var(--text3)' }}>
             {prod.FlowerName?.slice(0, 2) || '📷'}
@@ -1225,9 +1288,13 @@ export default function CatalogPage() {
                 </span>
               )}
               <input className="filter-input" style={{ marginLeft: 'auto', width: 180 }} placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
+              <span className="catalog-drag-select-hint" title="품목 위를 드래그하면 iPhone처럼 연속 선택">드래그 다중선택</span>
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
-            <div className="catalog-product-grid">
+            <div
+              className={`catalog-product-grid ${dragSelecting ? 'drag-selecting' : ''}`}
+              onPointerDown={onGridPointerDown}
+            >
               {!products.length && !loading && (
                 <div className="empty-state" style={{ gridColumn: '1/-1' }}>
                   <div className="empty-text">[도착원가 불러오기]로 최근원가를 불러오세요.</div>
@@ -1240,9 +1307,11 @@ export default function CatalogPage() {
                 return (
                   <div
                     key={prod.ProdKey}
+                    data-prod-key={prod.ProdKey}
                     className={`catalog-prod-card ${checked ? 'checked' : ''} ${!hasImg ? 'no-image' : ''}`}
-                    draggable
+                    draggable={!dragSelecting}
                     onDragStart={(e) => {
+                      if (dragSelecting) { e.preventDefault(); return; }
                       setCatalogDragData(e, { type: 'prod', prodKey: prod.ProdKey });
                       e.stopPropagation();
                     }}
@@ -1400,6 +1469,15 @@ export default function CatalogPage() {
         .catalog-product-grid {
           flex: 1; overflow-y: auto; padding: 6px;
           display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 5px; align-content: start;
+          touch-action: pan-y;
+        }
+        .catalog-product-grid.drag-selecting {
+          user-select: none; cursor: crosshair;
+        }
+        .catalog-product-grid.drag-selecting .catalog-prod-card { cursor: crosshair; }
+        .catalog-drag-select-hint {
+          font-size: 10px; color: var(--text3); padding: 2px 6px; border: 1px dashed var(--border2);
+          border-radius: 3px; white-space: nowrap;
         }
         .catalog-prod-card {
           border: 1px solid var(--border2); border-radius: 4px; padding: 8px; cursor: pointer;
