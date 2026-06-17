@@ -87,4 +87,12 @@ jobs:
             if [ ! -d ".next/server" ]; then echo "❌ .next/server 누락 — 빌드 산출물 없음"; exit 1; fi
             echo "=== pm2 restart ==="
             pm2 restart nenova-erp
+            sleep 3
+            echo "=== post-deploy smoke (로컬) ==="
+            export SMOKE_BASE_URL=http://127.0.0.1:3000
+            if ! node __tests__/nenovawebSmoke.test.js; then
+              echo "❌ post-deploy smoke 실패 — pm2 logs 확인"
+              pm2 logs nenova-erp --nostream --lines 20 2>&1
+              exit 1
+            fi
             echo "✅ 배포 완료"

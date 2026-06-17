@@ -6,6 +6,8 @@ type: history
 
 # nenova ERP — 전체 작업 이력
 
+> **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 오류·재작업·열린 이슈 **마스터 색인** (프로젝트 시작~현재)
+
 ---
 
 ## 2026-05-25 우선순위 변경

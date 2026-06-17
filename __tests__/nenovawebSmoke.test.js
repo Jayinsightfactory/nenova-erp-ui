@@ -89,6 +89,18 @@ async function main() {
   assert('public shipments GET 200', pubRes.status === 200, `status=${pubRes.status}`);
   assert('public shipments success', pubJson.success !== false);
 
+  console.log('\n--- 24차 견적 회귀 (Orange Flame + 그린화원) ---');
+  const { runEstimateRegressionChecks } = await import('../lib/smokeEstimateRegression.js');
+  const authedRequest = (path) => request(path, { token });
+  const estimateChecks = await runEstimateRegressionChecks(authedRequest);
+  for (const chk of estimateChecks) {
+    if (chk.skip) {
+      console.log(`  (skip) ${chk.label}: ${chk.detail || ''}`);
+      continue;
+    }
+    assert(chk.label, chk.ok, chk.detail || '');
+  }
+
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   process.exit(fail > 0 ? 1 : 0);
 }
