@@ -604,6 +604,9 @@ export default function CatalogSlideComposer({
           border-style: solid;
           border-color: var(--green);
           cursor: grab;
+          display: grid;
+          grid-template-rows: minmax(0, 25%) minmax(0, 1fr);
+          align-items: stretch;
         }
         .composer-slot.filled.selected {
           border-color: var(--blue);
@@ -627,9 +630,10 @@ export default function CatalogSlideComposer({
           padding: 0;
         }
         .composer-slot-img {
+          grid-row: 1;
           width: 100%;
-          flex: 0 0 25%;
-          max-height: 25%;
+          height: 100%;
+          max-height: 100%;
           min-height: 0;
           display: flex;
           align-items: center;
@@ -640,6 +644,7 @@ export default function CatalogSlideComposer({
           height: 100%;
           width: auto;
           max-width: 100%;
+          max-height: 100%;
           aspect-ratio: 1;
           display: flex;
           align-items: center;
@@ -670,8 +675,8 @@ export default function CatalogSlideComposer({
           color: #bbb;
         }
         .composer-slot-text {
+          grid-row: 2;
           width: 100%;
-          flex: 1;
           min-height: 0;
           display: flex;
           flex-direction: column;
