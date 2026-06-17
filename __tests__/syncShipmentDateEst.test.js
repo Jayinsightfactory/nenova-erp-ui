@@ -80,6 +80,10 @@ function makeMockTq(initial) {
       state.dates = [];
       return { recordset: [], rowsAffected: [1] };
     }
+    if (s.includes('DELETE FROM ShipmentDetail')) {
+      state.detail = null;
+      return { recordset: [], rowsAffected: [1] };
+    }
     return { recordset: [] };
   };
 
@@ -139,15 +143,16 @@ async function main() {
   assert('mode=single-update', singleRes.mode === 'single-update');
   assert('단일 ShipmentQuantity=OutQuantity', single.state.dates[0].ShipmentQuantity === 50);
 
-  console.log('\n=== refresh: OutQuantity=0 → ShipmentDate 삭제 ===');
+  console.log('\n=== refresh: OutQuantity=0 → Detail+Date 삭제 ===');
   const cleared = makeMockTq({
     detail: { SdetailKey: 101, OutQuantity: 0, Cost: 500, ShipmentDtm: new Date('2026-06-04') },
     dates: [{ SdateKey: 6, ShipmentDtm: '2026-06-04', ShipmentQuantity: 10, EstQuantity: 100, Cost: 500, Amount: 0, Vat: 0 }],
     product: { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 },
   });
   const clearRes = await refreshShipmentDatesAfterDetailChange(cleared.tQ, 101, fakeSql);
-  assert('mode=cleared', clearRes.mode === 'cleared');
+  assert('mode=purged-zero-detail', clearRes.mode === 'purged-zero-detail');
   assert('dates 비움', (cleared.state.dates || []).length === 0);
+  assert('detail 삭제', cleared.state.detail == null);
 
   console.log('\n=== refresh: ShipmentDate 없음 → INSERT ===');
   const insert = makeMockTq({

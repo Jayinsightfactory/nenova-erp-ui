@@ -15,6 +15,7 @@ import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
+import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -647,35 +648,42 @@ async function postAdjust(req, res) {
       let targetSdk;
       if (sdRow) {
         targetSdk = sdRow.SdetailKey;
-        await tQ(
-          // CustKey 는 항상 주문/마스터 업체(@ck)로 일치시킨다.
-          //  전산이 미리 만든 빈 ShipmentDetail 의 CustKey 가 0/NULL/다른값이면
-          //  nenova.exe 분배 화면이 그 행을 안 보여준다(= 분배 누락). repairMissingCustKey 와 동일 불변식.
-          // ShipmentDtm 은 항상 업체 BaseOutDay 기준 출고일(@dt)로 강제.
-          //  ISNULL 유지 시 전산/구버전이 만든 틀린 출고일(6일 밀림 등)이 남아
-          //  nenova.exe 분배 화면(출고일별)에서 다른 날짜에 박혀 "분배 안 보임" 발생.
-          //  distribute.js 는 삭제+재생성으로 항상 올바른 날짜를 쓰므로 그와 동치로 맞춤.
-          //  (직후 ShipmentDate 를 이 ShipmentDtm 으로 재생성 → 부분보정 아님, 2026-06-02 문서 준수)
-          `UPDATE ShipmentDetail SET
-             OutQuantity=@oq, EstQuantity=@estQty,
-             BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
-             CustKey=@ck,
-             Cost=@cost, Amount=@amount, Vat=@vat,
-             ShipmentDtm=@dt
-           WHERE SdetailKey=@dk`,
-          { dk: { type: sql.Int, value: targetSdk },
-            ck: { type: sql.Int, value: ck },
-            dt: { type: sql.DateTime, value: defaultShipDate },
-            oq: { type: sql.Float, value: u.outQ },
-            estQty: { type: sql.Float, value: amountBase },
-            bq: { type: sql.Float, value: u.box },
-            bnq:{ type: sql.Float, value: u.bunch },
-            sq: { type: sql.Float, value: u.steam },
-            cost: { type: sql.Float, value: unitCost },
-            amount: { type: sql.Float, value: amount },
-            vat: { type: sql.Float, value: vat } }
-        );
-      } else if (type === 'ADD') {
+        if (!isActiveShipmentOutQty(u.outQ)) {
+          await purgeZeroOutShipmentDetail(tQ, targetSdk, sql);
+          const entry = changeEntry(userName, qtyBefore, qtyAfter);
+          await insertShipmentHistory(tQ, targetSdk, String(outQBefore), '0', entry, uid);
+          targetSdk = null;
+        } else {
+          await tQ(
+            // CustKey 는 항상 주문/마스터 업체(@ck)로 일치시킨다.
+            //  전산이 미리 만든 빈 ShipmentDetail 의 CustKey 가 0/NULL/다른값이면
+            //  nenova.exe 분배 화면이 그 행을 안 보여준다(= 분배 누락). repairMissingCustKey 와 동일 불변식.
+            // ShipmentDtm 은 항상 업체 BaseOutDay 기준 출고일(@dt)로 강제.
+            //  ISNULL 유지 시 전산/구버전이 만든 틀린 출고일(6일 밀림 등)이 남아
+            //  nenova.exe 분배 화면(출고일별)에서 다른 날짜에 박혀 "분배 안 보임" 발생.
+            //  distribute.js 는 삭제+재생성으로 항상 올바른 날짜를 쓰므로 그와 동치로 맞춤.
+            //  (직후 ShipmentDate 를 이 ShipmentDtm 으로 재생성 → 부분보정 아님, 2026-06-02 문서 준수)
+            `UPDATE ShipmentDetail SET
+               OutQuantity=@oq, EstQuantity=@estQty,
+               BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+               CustKey=@ck,
+               Cost=@cost, Amount=@amount, Vat=@vat,
+               ShipmentDtm=@dt
+             WHERE SdetailKey=@dk`,
+            { dk: { type: sql.Int, value: targetSdk },
+              ck: { type: sql.Int, value: ck },
+              dt: { type: sql.DateTime, value: defaultShipDate },
+              oq: { type: sql.Float, value: u.outQ },
+              estQty: { type: sql.Float, value: amountBase },
+              bq: { type: sql.Float, value: u.box },
+              bnq:{ type: sql.Float, value: u.bunch },
+              sq: { type: sql.Float, value: u.steam },
+              cost: { type: sql.Float, value: unitCost },
+              amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat } }
+          );
+        }
+      } else if (type === 'ADD' && canInsertShipmentDetail(u.outQ)) {
         // ShipmentDtm: Customer.BaseOutDay first, then the old week/delivery fallback.
         const sdk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (newSdk) => {
           await tQ(
@@ -724,10 +732,8 @@ async function postAdjust(req, res) {
       }
 
       // ShipmentDate 동기화 — 전산(usp_DistributeOne) 구조: 1 Detail + N ShipmentDate 유지
-      if (targetSdk && u.outQ > 0) {
+      if (targetSdk && isActiveShipmentOutQty(u.outQ)) {
         await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, { shipDtm: defaultShipDate });
-      } else if (targetSdk) {
-        await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql);
       }
 
       // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고

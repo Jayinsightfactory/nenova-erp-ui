@@ -125,7 +125,7 @@ deploy_head: f10dcce
 | 이슈 | 증상 | 조치 | 상태 |
 |------|------|------|------|
 | ShipmentDate Cost/Est 비움 | exe 수량·단가 빈칸 (Orange Flame) | write-path sync | ✅ |
-| OutQuantity=0 유령 Detail | web 0행 (그린화원 24차) | SQL filter + invariants | ✅ `988eb5c` |
+| OutQuantity=0 유령 Detail | web 0행 (그린화원 24차) | 읽기: SQL filter `988eb5c` · **쓰기: purge guard** | ✅ read+write |
 | fix-cycle 다른 차수 | 확정 차수 오류 | edited weeks 수집 | ✅ |
 | Freedom 23-1/2 합산 | 출력 HTML 집계 | 코드 수정 | ✅ [ESTIMATE_PRINT_FREEDOM_23](ESTIMATE_PRINT_FREEDOM_23_FIX_2026-06-09.md) |
 | Estimate.Descr 무한 append | 메모 비대 | ⏸ cap 미구현 | 열림 |
@@ -266,7 +266,7 @@ rg "shipment/adjust" pages
 | `/api/shipment/distribute-diagnose` | SP 파라미터, KeyNumbering |
 | `scripts/probe-estimate-orange-green-24.mjs` | 견적 상세 덤프 (`--strict` = assert) |
 | `npm run probe:estimate-24:strict` | 24차 Orange Flame Detail↔Date + 그린화원 byDate |
-| `lib/smokeEstimateRegression.js` | smoke/probe 공용 회귀 검사 |
+| `lib/shipmentDetailWriteGuard.js` | OutQuantity=0 Detail INSERT 차단·purge |
 | `npm run test:smoke` | 운영 ping+로그인+23-01 주광+**24차 견적 회귀** |
 | `npm run test:smoke:estimate` | 회귀 단위 + strict probe |
 | `npm run test:adjust-unit` | 단위 환산 |

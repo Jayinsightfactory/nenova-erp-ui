@@ -34,6 +34,11 @@
 |------|------|
 | `pages/api/estimate/index.js` | `loadItems`: `AND ISNULL(sd.OutQuantity,0) <> 0` + 비-byDate도 `filterActiveEstimateShipmentRows` |
 | `lib/estimateInvariants.js` | `filterActiveEstimateShipmentRows()` — 정상출고 유령행 제외, 차감 행은 유지 |
+| `lib/shipmentDetailWriteGuard.js` | **쓰기 경로** OutQuantity=0 시 Detail+Date purge, INSERT 가드 |
+| `lib/syncShipmentDateEst.js` | `refreshShipmentDatesAfterDetailChange` — zero OutQuantity → Detail 삭제 |
+| `pages/api/shipment/adjust.js` | CANCEL→0 시 UPDATE 대신 purge |
+| `pages/api/estimate/update-quantity.js` | 수량 0 → purge |
+| `lib/shipmentImport.js` | 유령 shell 정리·분배삭제 purge 통일 |
 | `__tests__/estimateInvariants.test.js` | 유령행 필터 테스트 추가 |
 | `scripts/probe-estimate-orange-green-24.mjs` | Orange Flame / 그린화원 진단 스크립트 |
 

@@ -1,6 +1,7 @@
 import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -197,6 +198,35 @@ export default withAuth(async function handler(req, res) {
       const amountBase = next.bunch > 0 ? next.bunch : next.steam > 0 ? next.steam : next.box;
       const amount = Math.round(amountBase * Number(row.Cost || 0) / 1.1);
       const vat = Math.round(amountBase * Number(row.Cost || 0) / 11);
+
+      if (!isActiveShipmentOutQty(next.outQuantity)) {
+        await tQ(
+          `INSERT INTO ShipmentHistory
+             (SdetailKey, ShipmentDtm, ChangeType, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+           VALUES (@sdk, @dt, N'수정', @before, @after, @descr, @uid, GETDATE())`,
+          {
+            sdk: { type: sql.Int, value: sdetailKey },
+            dt: { type: sql.DateTime, value: row.ShipmentDtm },
+            before: { type: sql.NVarChar, value: String(row.OutQuantity || 0) },
+            after: { type: sql.NVarChar, value: '0' },
+            descr: { type: sql.NVarChar, value: `수량 ${oldQuantity}${unit}>0${unit}` },
+            uid: { type: sql.NVarChar, value: uid },
+          }
+        );
+        await purgeZeroOutShipmentDetail(tQ, sdetailKey, sql);
+        return {
+          sdetailKey,
+          shipmentKey: row.ShipmentKey,
+          orderWeek: row.OrderWeek,
+          oldQuantity,
+          newQuantity: 0,
+          oldOutQuantity: Number(row.OutQuantity || 0),
+          newOutQuantity: 0,
+          amount: 0,
+          vat: 0,
+          purged: true,
+        };
+      }
 
       await tQ(
         `UPDATE ShipmentDetail

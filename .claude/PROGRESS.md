@@ -11,6 +11,7 @@
 - **paste** 기준차수/등록차수 분리, 저장하기, 저장본 품목 매칭 (`f10dcce` 배포).
 - week-pivot·paste 분배 경로 감사 MD (2026-06-16).
 - **smoke** 24차 견적 회귀 (Orange Flame Detail↔Date, 그린화원 byDate) + deploy 후 자동 smoke.
+- **유령행 쓰기 차단** `shipmentDetailWriteGuard` — adjust/import/update-quantity + refresh purge.
 
 ### 다음 작업 예정
 - 마스터 §5 열린 이슈 순차 처리 (ShipmentFarm, ProductStock 진단, pivot exe side-by-side).
