@@ -20,8 +20,9 @@ export default function CatalogPreviewPage() {
           parsed.lines = parsed.lines.map(l => ({
             ...l,
             imageUrl: absCatalogUrl(l.imageUrl),
-            imagePosX: l.imagePosX ?? 50,
-            imagePosY: l.imagePosY ?? 50,
+          imagePosX: l.imagePosX ?? 50,
+          imagePosY: l.imagePosY ?? 50,
+          imageScale: l.imageScale ?? 100,
           }));
         }
         setDraft(parsed);

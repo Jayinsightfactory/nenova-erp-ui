@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import CatalogImageCropEditor from './CatalogImageCropEditor';
 import {
   deleteCatalogImage,
   fetchCatalogImages,
@@ -8,88 +9,8 @@ import {
   updateCatalogImagePosition,
   uploadCatalogImage,
 } from '../../lib/catalogImageClient';
-import { catalogImageStyle, resolveCatalogImagePosition } from '../../lib/catalogImagePosition';
+import { catalogImageStyle } from '../../lib/catalogImagePosition';
 import { absCatalogUrl } from '../../lib/catalogUtils';
-
-function clampPos(n) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) return 50;
-  return Math.min(100, Math.max(0, Math.round(v)));
-}
-
-function CatalogImagePositionEditor({ img, busy, onSave, onClose }) {
-  const startRef = useRef(null);
-  const { posX: initX, posY: initY } = resolveCatalogImagePosition(img);
-  const [posX, setPosX] = useState(initX);
-  const [posY, setPosY] = useState(initY);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setPosX(initX);
-    setPosY(initY);
-  }, [img.id, initX, initY]);
-
-  const applySave = async () => {
-    setSaving(true);
-    try {
-      await onSave({ posX, posY });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onFramePointerDown = (e) => {
-    if (busy || saving) return;
-    e.preventDefault();
-    startRef.current = { x: e.clientX, y: e.clientY, posX, posY };
-    const onMove = (ev) => {
-      const st = startRef.current;
-      if (!st) return;
-      const dx = ev.clientX - st.x;
-      const dy = ev.clientY - st.y;
-      setPosX(clampPos(st.posX + dx * 0.35));
-      setPosY(clampPos(st.posY + dy * 0.35));
-    };
-    const onUp = () => {
-      startRef.current = null;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
-  return (
-    <div className="catalog-img-pos-panel">
-      <div
-        className="catalog-img-pos-frame"
-        onPointerDown={onFramePointerDown}
-        title="드래그하여 꽃 위치 조정"
-      >
-        <img src={absCatalogUrl(img.url)} alt="" style={catalogImageStyle({ posX, posY })} draggable={false} />
-      </div>
-      <div className="catalog-img-pos-sliders">
-        <label>
-          <span>가로</span>
-          <input type="range" min={0} max={100} value={posX} disabled={busy || saving} onChange={e => setPosX(Number(e.target.value))} />
-          <span>{posX}%</span>
-        </label>
-        <label>
-          <span>세로</span>
-          <input type="range" min={0} max={100} value={posY} disabled={busy || saving} onChange={e => setPosY(Number(e.target.value))} />
-          <span>{posY}%</span>
-        </label>
-      </div>
-      <div className="catalog-img-pos-actions">
-        <button type="button" className="btn btn-sm" disabled={busy || saving} onClick={() => { setPosX(50); setPosY(50); }}>중앙</button>
-        <button type="button" className="btn btn-sm btn-primary" disabled={busy || saving} onClick={applySave}>
-          {saving ? '저장…' : '적용'}
-        </button>
-        <button type="button" className="btn btn-sm" disabled={busy || saving} onClick={onClose}>닫기</button>
-      </div>
-    </div>
-  );
-}
 
 export default function CatalogImagePicker({
   open,
@@ -157,14 +78,14 @@ export default function CatalogImagePicker({
     }
   };
 
-  const handlePositionSave = async (id, { posX, posY }) => {
+  const handlePositionSave = async (id, transform) => {
     setBusy(true);
     setMsg('');
     try {
-      const image = await updateCatalogImagePosition(id, { posX, posY });
+      const image = await updateCatalogImagePosition(id, transform);
       await refresh();
       if (selectedImageId === id) onSelect?.(image);
-      setMsg('이미지 위치를 저장했습니다.');
+      setMsg('이미지 위치·크기를 저장했습니다.');
       setEditingPosId(null);
     } catch (e) {
       setMsg(e.message);
@@ -199,7 +120,7 @@ export default function CatalogImagePicker({
           <strong>📷 {prodLabel || `품목 #${prodKey}`}</strong>
           <button type="button" className="btn btn-sm" onClick={onClose}>닫기</button>
         </div>
-        <p className="catalog-img-modal-sub">추가 · 교체 · 대표 · 위치 조정 · 삭제 (JPEG 자동 리사이즈)</p>
+        <p className="catalog-img-modal-sub">추가 · 교체 · 대표 · 위치/확대(자르기) · 삭제</p>
         {msg && <div className="banner-ok" style={{ margin: '0 0 8px' }}>{msg}</div>}
 
         <div className="catalog-img-grid">
@@ -209,7 +130,9 @@ export default function CatalogImagePicker({
               className={`catalog-img-tile ${selectedImageId === img.id ? 'selected' : ''} ${img.isPrimary ? 'primary' : ''}`}
             >
               <button type="button" className="catalog-img-tile-btn" onClick={() => onSelect?.(img)}>
-                <img src={absCatalogUrl(img.url)} alt="" style={catalogImageStyle(img)} />
+                <div className="catalog-img-tile-preview">
+                  <img src={absCatalogUrl(img.url)} alt="" style={catalogImageStyle(img)} />
+                </div>
               </button>
               {img.isPrimary && <span className="catalog-img-badge">대표</span>}
               <div className="catalog-img-actions">
@@ -229,10 +152,11 @@ export default function CatalogImagePicker({
                 <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={() => handleDelete(img.id)}>삭제</button>
               </div>
               {editingPosId === img.id && (
-                <CatalogImagePositionEditor
-                  img={img}
+                <CatalogImageCropEditor
+                  imageUrl={img.url}
+                  source={img}
                   busy={busy}
-                  onSave={pos => handlePositionSave(img.id, pos)}
+                  onSave={transform => handlePositionSave(img.id, transform)}
                   onClose={() => setEditingPosId(null)}
                 />
               )}
@@ -265,28 +189,15 @@ export default function CatalogImagePicker({
         .catalog-img-tile-btn {
           display: block; width: 100%; padding: 0; border: none; background: transparent; cursor: pointer;
         }
-        .catalog-img-tile-btn img {
-          width: 100%; height: 100px; display: block; background: #fafafa;
+        .catalog-img-tile-preview {
+          width: 100%; height: 100px; overflow: hidden; background: #fafafa; display: block;
         }
+        .catalog-img-tile-preview img { width: 100%; height: 100%; display: block; }
         .catalog-img-badge {
           position: absolute; top: 8px; left: 8px; font-size: 10px; background: var(--green); color: #fff;
           padding: 1px 6px; border-radius: 3px; font-weight: 700;
         }
         .catalog-img-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-        .catalog-img-pos-panel {
-          margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border2);
-        }
-        .catalog-img-pos-frame {
-          width: 100%; height: 140px; border: 1px solid var(--border2); border-radius: 4px;
-          overflow: hidden; background: #fafafa; cursor: grab; touch-action: none;
-        }
-        .catalog-img-pos-frame:active { cursor: grabbing; }
-        .catalog-img-pos-frame img { width: 100%; height: 100%; }
-        .catalog-img-pos-sliders { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-        .catalog-img-pos-sliders label {
-          display: grid; grid-template-columns: 28px 1fr 36px; gap: 6px; align-items: center; font-size: 11px;
-        }
-        .catalog-img-pos-actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
         .catalog-img-add {
           border: 2px dashed var(--border2); border-radius: 4px; min-height: 140px;
           display: flex; align-items: center; justify-content: center; cursor: pointer;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import CatalogImageCropEditor from './CatalogImageCropEditor';
 import { catalogImageStyle } from '../../lib/catalogImagePosition';
 import {
   absCatalogUrl,
@@ -50,6 +51,10 @@ function MiniSlot({
   slotIndex,
   slideId,
   catalogFields,
+  selectedLineId,
+  cropLineId,
+  onToggleCropLine,
+  onSaveLineCrop,
   onDropSlot,
   onClearSlot,
   onDragLine,
@@ -84,7 +89,7 @@ function MiniSlot({
 
   return (
     <div
-      className="composer-slot filled"
+      className={`composer-slot filled ${selectedLineId === line.id ? 'selected' : ''}`}
       draggable
       onClick={() => onSelectLine?.(line.id)}
       onDragStart={(e) => {
@@ -104,7 +109,15 @@ function MiniSlot({
         ×
       </button>
       <div className="composer-slot-img">
-        <div className="composer-slot-img-frame">
+        <div
+          className="composer-slot-img-frame"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectLine?.(line.id);
+            if (line.imageUrl) onToggleCropLine?.(cropLineId === line.id ? null : line.id);
+          }}
+          title="클릭 → 위치/확대 편집"
+        >
           {line.imageUrl ? (
             <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
           ) : (
@@ -112,6 +125,17 @@ function MiniSlot({
           )}
         </div>
       </div>
+      {cropLineId === line.id && line.imageUrl ? (
+        <div className="composer-slot-crop" onClick={e => e.stopPropagation()}>
+          <CatalogImageCropEditor
+            compact
+            imageUrl={line.imageUrl}
+            source={line}
+            onSave={transform => onSaveLineCrop?.(line, transform)}
+            onClose={() => onToggleCropLine?.(null)}
+          />
+        </div>
+      ) : null}
       <div className="composer-slot-text">
         {cellLines.map(row => (
           <div
@@ -140,6 +164,10 @@ export default function CatalogSlideComposer({
   onAddEmptySlide,
   onUpdateSlide,
   onSelectLine,
+  selectedLineId,
+  cropLineId,
+  onToggleCropLine,
+  onSaveLineCrop,
   activeSlideTarget,
   onSelectSlideTarget,
   editorOpen = true,
@@ -321,6 +349,10 @@ export default function CatalogSlideComposer({
                     slotIndex={idx}
                     slideId={slide.id}
                     catalogFields={catalogFields}
+                    selectedLineId={selectedLineId}
+                    cropLineId={cropLineId}
+                    onToggleCropLine={onToggleCropLine}
+                    onSaveLineCrop={onSaveLineCrop}
                     onDropSlot={onDropSlot}
                     onClearSlot={onClearSlot}
                     onSelectLine={onSelectLine}
@@ -534,11 +566,10 @@ export default function CatalogSlideComposer({
           border-radius: 4px;
           min-height: 0;
           height: 100%;
-          display: grid;
-          grid-template-rows: minmax(0, 1fr) minmax(2.4em, 38%);
-          align-items: stretch;
-          justify-items: center;
-          padding: 1px 2px 2px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 2px 2px 3px;
           background: #fff;
           overflow: hidden;
         }
@@ -550,6 +581,10 @@ export default function CatalogSlideComposer({
           border-style: solid;
           border-color: var(--green);
           cursor: grab;
+        }
+        .composer-slot.filled.selected {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 2px var(--blue-bg);
         }
         .composer-slot-ph { font-size: 22px; color: var(--text3); }
         .composer-slot-clear {
@@ -570,23 +605,35 @@ export default function CatalogSlideComposer({
         }
         .composer-slot-img {
           width: 100%;
-          min-height: 0;
+          flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
+          min-height: 0;
         }
         .composer-slot-img-frame {
-          height: 100%;
-          width: auto;
-          max-width: 100%;
-          max-height: 100%;
+          width: 25%;
+          max-width: 25%;
           aspect-ratio: 1;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
           flex-shrink: 0;
+          cursor: pointer;
+          border: 1px solid transparent;
+          border-radius: 3px;
+        }
+        .composer-slot.filled .composer-slot-img-frame:hover {
+          border-color: var(--blue);
+        }
+        .composer-slot-crop {
+          width: 100%;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 2px 0;
         }
         .composer-slot-img-frame img {
           width: 100%;
@@ -600,13 +647,14 @@ export default function CatalogSlideComposer({
         }
         .composer-slot-text {
           width: 100%;
+          flex: 1;
           min-height: 0;
           display: flex;
           flex-direction: column;
           justify-content: flex-start;
           gap: 0;
           overflow: hidden;
-          padding-top: 1px;
+          padding-top: 2px;
         }
         .composer-slot-name {
           font-size: clamp(7px, 0.85vw, 10px);

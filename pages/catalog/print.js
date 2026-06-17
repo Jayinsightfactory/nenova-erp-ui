@@ -5,6 +5,17 @@ import { absCatalogUrl } from '../../lib/catalogUtils';
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
 
+function runPrint() {
+  const prev = document.title;
+  document.title = '\u200B';
+  const restore = () => {
+    document.title = prev;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  window.print();
+}
+
 export default function CatalogPrintPage() {
   const [draft, setDraft] = useState(null);
 
@@ -19,6 +30,7 @@ export default function CatalogPrintPage() {
           imageUrl: absCatalogUrl(l.imageUrl),
           imagePosX: l.imagePosX ?? 50,
           imagePosY: l.imagePosY ?? 50,
+          imageScale: l.imageScale ?? 100,
         }));
       }
       setDraft(parsed);
@@ -38,27 +50,32 @@ export default function CatalogPrintPage() {
   return (
     <>
       <Head>
-        <title>{draft.catalogTitle || 'NENOVA 카탈로그'}</title>
+        <title>{'\u200B'}</title>
         <style>{CATALOG_PREVIEW_STYLES}</style>
       </Head>
 
       <div className="print-toolbar no-print">
-        <button type="button" onClick={() => window.print()}>🖨 인쇄 / PDF 저장 (16:9)</button>
-        <span>{draft.lines.length}품목 · {pages.length}슬라이드 · 16:9 ({draft.perPage || 8}개형)</span>
+        <button type="button" onClick={runPrint}>🖨 인쇄 / PDF 저장 (16:9)</button>
+        <span>{draft.lines.length}품목 · {pages.length}슬라이드</span>
+        <span className="print-hint">
+          Chrome/Edge: 인쇄 창 → <strong>더보기</strong> → <strong>머리글 및 바닥글</strong> 끄기 (날짜·URL·페이지번호 제거)
+        </span>
       </div>
 
-      <CatalogPreviewPages draft={draft} mode="print" />
+      <CatalogPreviewPages draft={draft} />
 
       <style jsx global>{`
         .print-toolbar {
           position: sticky; top: 0; z-index: 10;
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
           padding: 10px 16px; background: #333; color: #fff;
         }
         .print-toolbar button {
           padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
           background: #0066cc; color: #fff; font-weight: 600;
         }
+        .print-hint { font-size: 11px; color: #ccc; flex: 1; min-width: 200px; }
+        .print-hint strong { color: #fff; }
       `}</style>
     </>
   );

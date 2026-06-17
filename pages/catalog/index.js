@@ -9,6 +9,7 @@ import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalo
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { catalogImageFieldsFromRecord, catalogImageStyle } from '../../lib/catalogImagePosition';
 import { persistCatalogImageSelection, persistCatalogProductMatch } from '../../lib/catalogMatchClient';
+import { updateCatalogImagePosition } from '../../lib/catalogImageClient';
 import { apiGet } from '../../lib/useApi';
 import { useCatalogDragSelect } from '../../lib/useCatalogDragSelect';
 import { useWeekInput, useYearInput, YearInput, WeekSpinInput } from '../../lib/useWeekInput';
@@ -50,13 +51,14 @@ function findProd(prods, prodKey) {
 
 function lineImageFields(byProdKey, prodKey) {
   const img = pickPrimaryImageRecord(byProdKey, prodKey);
-  if (!img) return { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50 };
+  if (!img) return { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50, imageScale: 100 };
   const fields = catalogImageFieldsFromRecord(img);
   return {
     imageId: fields.imageId,
     imageUrl: absCatalogUrl(fields.imageUrl),
     imagePosX: fields.imagePosX,
     imagePosY: fields.imagePosY,
+    imageScale: fields.imageScale,
   };
 }
 
@@ -97,6 +99,8 @@ export default function CatalogPage() {
   const [composerSlides, setComposerSlides] = useState([]);
   const [activeSlideTarget, setActiveSlideTarget] = useState(SLIDE_TARGET_AUTO);
   const [editorOpen, setEditorOpen] = useState(true);
+  const [expandedProdKeys, setExpandedProdKeys] = useState(new Set());
+  const [cropLineId, setCropLineId] = useState(null);
   const [selectedLineId, setSelectedLineId] = useState(null);
 
   const [savedDraftId, setSavedDraftId] = useState(null);
@@ -269,9 +273,14 @@ export default function CatalogPage() {
             imageUrl: line.imageUrl || absCatalogUrl(f.imageUrl) || null,
             imagePosX: f.imagePosX,
             imagePosY: f.imagePosY,
+            imageScale: f.imageScale,
           };
         })()
-        : { imagePosX: line.imagePosX ?? 50, imagePosY: line.imagePosY ?? 50 };
+        : {
+          imagePosX: line.imagePosX ?? 50,
+          imagePosY: line.imagePosY ?? 50,
+          imageScale: line.imageScale ?? 100,
+        };
       return {
         ...line,
         arrivalCost: arrival,
@@ -472,9 +481,10 @@ export default function CatalogPage() {
           imageUrl: absCatalogUrl(f.imageUrl),
           imagePosX: f.imagePosX,
           imagePosY: f.imagePosY,
+          imageScale: f.imageScale,
         };
       })()
-      : { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50 };
+      : { imageId: null, imageUrl: null, imagePosX: 50, imagePosY: 50, imageScale: 100 };
     setLines(prev => prev.map(l => (l.prodKey === prodKey ? { ...l, ...fields } : l)));
   };
 
@@ -515,6 +525,7 @@ export default function CatalogPage() {
         imageUrl: absCatalogUrl(f.imageUrl),
         imagePosX: f.imagePosX,
         imagePosY: f.imagePosY,
+        imageScale: f.imageScale,
       };
     }));
   };
@@ -590,20 +601,36 @@ export default function CatalogPage() {
     setEditorOpen(true);
   }, []);
 
-  const selectProductIfUnchecked = useCallback((prodKey) => {
+  const selectProductsIfUnchecked = useCallback((prodKeys) => {
+    const list = (Array.isArray(prodKeys) ? prodKeys : [prodKeys]).filter(Number.isFinite);
+    if (!list.length) return;
     setCheckedKeys(prev => {
-      if (prev.has(prodKey)) return prev;
-      return new Set(prev).add(prodKey);
+      const n = new Set(prev);
+      list.forEach(pk => n.add(pk));
+      return n;
     });
     setLines(prev => {
-      if (prev.some(l => l.prodKey === prodKey)) return prev;
-      const prod = findProd(products, prodKey);
-      if (!prod) return prev;
-      return [...prev, addProductLine(prod)];
+      const existing = new Set(prev.map(l => l.prodKey));
+      const added = list
+        .filter(pk => !existing.has(pk))
+        .map(pk => findProd(products, pk))
+        .filter(Boolean)
+        .map(prod => addProductLine(prod));
+      return added.length ? [...prev, ...added] : prev;
     });
   }, [products, imagesByProd, useVatArrival]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { dragging: dragSelecting, onPointerDown: onGridPointerDown, shouldSuppressClick } = useCatalogDragSelect(selectProductIfUnchecked);
+  const { dragging: dragSelecting, marquee, onPointerDown: onGridPointerDown, shouldSuppressClick } = useCatalogDragSelect(selectProductsIfUnchecked);
+
+  const toggleProdExpanded = (prodKey, e) => {
+    e?.stopPropagation();
+    setExpandedProdKeys(prev => {
+      const n = new Set(prev);
+      if (n.has(prodKey)) n.delete(prodKey);
+      else n.add(prodKey);
+      return n;
+    });
+  };
 
   const toggleProduct = (prod) => {
     if (shouldSuppressClick()) return;
@@ -630,6 +657,20 @@ export default function CatalogPage() {
       }
       return next;
     }));
+  };
+
+  const saveLineImageTransform = async (line, { posX, posY, scale }) => {
+    const patch = { imagePosX: posX, imagePosY: posY, imageScale: scale };
+    updateLine(line.id, patch);
+    if (line.imageId) {
+      try {
+        await updateCatalogImagePosition(line.imageId, { posX, posY, scale });
+        const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
+        handleImagesChange(line.prodKey, data.images || []);
+      } catch (e) {
+        setMatchSaveInfo(`이미지 저장 실패: ${e.message}`);
+      }
+    }
   };
 
   const removeLine = (id) => {
@@ -1288,13 +1329,27 @@ export default function CatalogPage() {
                 </span>
               )}
               <input className="filter-input" style={{ marginLeft: 'auto', width: 180 }} placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
-              <span className="catalog-drag-select-hint" title="품목 위를 드래그하면 iPhone처럼 연속 선택">드래그 다중선택</span>
+              <span className="catalog-drag-select-hint" title="카드 사이 빈 공간에서 드래그 → 구간 선택">빈 공간 드래그 선택</span>
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
             </div>
             <div
               className={`catalog-product-grid ${dragSelecting ? 'drag-selecting' : ''}`}
               onPointerDown={onGridPointerDown}
             >
+              {marquee?.active ? (
+                <div
+                  className="catalog-marquee-box"
+                  style={{
+                    position: 'fixed',
+                    left: marquee.left,
+                    top: marquee.top,
+                    width: marquee.width,
+                    height: marquee.height,
+                    pointerEvents: 'none',
+                    zIndex: 50,
+                  }}
+                />
+              ) : null}
               {!products.length && !loading && (
                 <div className="empty-state" style={{ gridColumn: '1/-1' }}>
                   <div className="empty-text">[도착원가 불러오기]로 최근원가를 불러오세요.</div>
@@ -1322,23 +1377,37 @@ export default function CatalogPage() {
                     title={hasImg ? 'PPT 칸으로 끌어 배치' : '사진 없음 — 후순위 · PPT 칸으로 끌어 배치'}
                   >
                     <input type="checkbox" readOnly checked={checked} tabIndex={-1} />
-                    {renderThumb(prod, { onClick: () => openPicker(prod) })}
+                    {renderThumb(prod, { size: 36, onClick: () => openPicker(prod) })}
                     <div className="catalog-prod-meta">
-                      <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
-                      <div className="catalog-prod-name">{displayProductName(prod)}</div>
-                      {(prod.catalogKorName || prod.mappingKorName) && (
-                        <div className="catalog-prod-kor" title={`한글 제안 (${prod.korNameSource || '—'})`}>
-                          {prod.catalogKorName || prod.mappingKorName}
+                      <div className="catalog-prod-name-row">
+                        <div className="catalog-prod-name">{displayProductName(prod)}</div>
+                        <button
+                          type="button"
+                          className="catalog-prod-expand"
+                          onClick={(e) => toggleProdExpanded(prod.ProdKey, e)}
+                          title="한글명·도착원가 펼치기"
+                        >
+                          {expandedProdKeys.has(prod.ProdKey) ? '▲' : '▼'}
+                        </button>
+                      </div>
+                      {expandedProdKeys.has(prod.ProdKey) && (
+                        <div className="catalog-prod-extra">
+                          <div className="catalog-prod-flower">{prod.CounName} · {prod.FlowerName}</div>
+                          {(prod.catalogKorName || prod.mappingKorName) && (
+                            <div className="catalog-prod-kor" title={`한글 제안 (${prod.korNameSource || '—'})`}>
+                              {prod.catalogKorName || prod.mappingKorName}
+                            </div>
+                          )}
+                          <div className="catalog-prod-cost">
+                            <div>
+                              도착 <strong className="num">{fmtArrivalDisplay(arrival, prod.arrivalUnit || prod.saleUnit || prod.OutUnit)}</strong>
+                            </div>
+                            <div className="catalog-prod-cost-meta">
+                              {fmtArrivalCostMeta(prod, costContext).text}
+                            </div>
+                          </div>
                         </div>
                       )}
-                      <div className="catalog-prod-cost">
-                        <div>
-                          도착 <strong className="num">{fmtArrivalDisplay(arrival, prod.arrivalUnit || prod.saleUnit || prod.OutUnit)}</strong>
-                        </div>
-                        <div className="catalog-prod-cost-meta">
-                          {fmtArrivalCostMeta(prod, costContext).text}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 );
@@ -1381,6 +1450,10 @@ export default function CatalogPage() {
               onAddEmptySlide={handleAddEmptySlide}
               onUpdateSlide={handleUpdateSlide}
               onSelectLine={focusLine}
+              selectedLineId={selectedLineId}
+              cropLineId={cropLineId}
+              onToggleCropLine={setCropLineId}
+              onSaveLineCrop={saveLineImageTransform}
               activeSlideTarget={activeSlideTarget}
               onSelectSlideTarget={handleSelectSlideTarget}
               editorOpen={editorOpen}
@@ -1468,27 +1541,39 @@ export default function CatalogPage() {
         .catalog-center { display: flex; flex-direction: column; min-height: 0; }
         .catalog-product-grid {
           flex: 1; overflow-y: auto; padding: 6px;
-          display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 5px; align-content: start;
+          display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; align-content: start;
           touch-action: pan-y;
+          position: relative;
         }
         .catalog-product-grid.drag-selecting {
           user-select: none; cursor: crosshair;
         }
-        .catalog-product-grid.drag-selecting .catalog-prod-card { cursor: crosshair; }
+        .catalog-marquee-box {
+          border: 2px solid var(--blue);
+          background: rgba(0, 102, 204, 0.12);
+          border-radius: 2px;
+        }
         .catalog-drag-select-hint {
           font-size: 10px; color: var(--text3); padding: 2px 6px; border: 1px dashed var(--border2);
           border-radius: 3px; white-space: nowrap;
         }
         .catalog-prod-card {
-          border: 1px solid var(--border2); border-radius: 4px; padding: 8px; cursor: pointer;
-          background: var(--surface); display: flex; gap: 8px; align-items: flex-start;
+          border: 1px solid var(--border2); border-radius: 4px; padding: 6px; cursor: pointer;
+          background: var(--surface); display: flex; gap: 6px; align-items: flex-start;
         }
         .catalog-prod-card:hover { border-color: var(--blue); background: var(--blue-bg); }
         .catalog-prod-card.checked { border-color: var(--green); background: var(--green-bg); }
         .catalog-prod-card.no-image { opacity: 0.72; border-style: dashed; }
         .catalog-prod-meta { min-width: 0; flex: 1; }
-        .catalog-prod-flower { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .catalog-prod-name { font-size: 12px; font-weight: 600; margin: 2px 0; line-height: 1.25; }
+        .catalog-prod-name-row { display: flex; align-items: flex-start; gap: 2px; }
+        .catalog-prod-expand {
+          flex-shrink: 0; border: none; background: transparent; cursor: pointer;
+          font-size: 9px; color: var(--text3); padding: 0 2px; line-height: 1.2;
+        }
+        .catalog-prod-expand:hover { color: var(--blue); }
+        .catalog-prod-extra { margin-top: 4px; }
+        .catalog-prod-flower { font-size: 9px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .catalog-prod-name { font-size: 11px; font-weight: 600; line-height: 1.25; flex: 1; min-width: 0; }
         .catalog-prod-kor { font-size: 10px; color: var(--blue); line-height: 1.2; margin-bottom: 2px; }
         .catalog-prod-cost { font-size: 10px; line-height: 1.25; }
         .catalog-prod-cost-meta { font-size: 9px; color: var(--text3); margin-top: 1px; }
