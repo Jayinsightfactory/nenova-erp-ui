@@ -4,31 +4,32 @@ import {
   computeCatalogAutoFitScale,
   needsCatalogImageAutoFit,
 } from '../lib/catalogImageAutoFit.js';
+import { catalogImageRotatePad } from '../lib/catalogImagePosition.js';
 
 describe('catalogImageAutoFit', () => {
-  it('square image stays at 100%', () => {
-    expect(computeCatalogAutoFitScale(800, 800)).toBe(100);
+  it('cover default scale is 100%', () => {
+    expect(computeCatalogAutoFitScale()).toBe(100);
   });
 
-  it('landscape image scales to fill square', () => {
-    expect(computeCatalogAutoFitScale(1600, 800)).toBe(200);
-  });
-
-  it('portrait image scales to fill square', () => {
-    expect(computeCatalogAutoFitScale(600, 1200)).toBe(200);
-  });
-
-  it('buildAutoFit sets center and auto flag', () => {
-    const t = buildCatalogAutoFitTransform(1200, 600);
+  it('buildAutoFit sets cover fill and auto flag', () => {
+    const t = buildCatalogAutoFitTransform();
     expect(t).toMatchObject({
-      posX: 50, posY: 50, scale: 200, rotate: 0,
+      posX: 50, posY: 50, scale: 100, rotate: 0,
       autoAdjusted: true, manualAdjusted: false,
     });
   });
 
-  it('needs auto-fit for default transform only', () => {
+  it('needs auto-fit for default or legacy contain scale', () => {
     expect(needsCatalogImageAutoFit({ scale: 100, posX: 50, posY: 50 })).toBe(true);
-    expect(needsCatalogImageAutoFit({ autoAdjusted: true, scale: 200 })).toBe(false);
+    expect(needsCatalogImageAutoFit({ autoAdjusted: true, scale: 200 })).toBe(true);
+    expect(needsCatalogImageAutoFit({ autoAdjusted: true, scale: 100 })).toBe(false);
     expect(needsCatalogImageAutoFit({ manualAdjusted: true, scale: 100 })).toBe(false);
+  });
+});
+
+describe('catalogImageRotatePad', () => {
+  it('pads 90deg rotation', () => {
+    expect(catalogImageRotatePad(90)).toBeGreaterThan(1);
+    expect(catalogImageRotatePad(0)).toBe(1);
   });
 });

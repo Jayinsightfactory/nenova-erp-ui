@@ -77,6 +77,13 @@ export const CATALOG_SLIDE_CSS = `
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+  }
+  .catalog-img-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
   .catalog-slide-img-inner img {
     display: block;

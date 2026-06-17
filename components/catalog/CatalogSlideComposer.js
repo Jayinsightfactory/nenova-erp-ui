@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import CatalogImageCropEditor from './CatalogImageCropEditor';
-import { catalogImageStyle } from '../../lib/catalogImagePosition';
+import CatalogSlideImage from './CatalogSlideImage';
 import {
   absCatalogUrl,
   catalogLineNames,
@@ -131,12 +131,12 @@ function MiniSlot({
         title="클릭 → 위치/확대 (PPT와 동일 크기)"
       >
         {line.imageUrl ? (
-          <div className="catalog-slide-img-inner">
-            <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} draggable={false} />
+          <>
+            <CatalogSlideImage source={line} src={absCatalogUrl(line.imageUrl)} />
             {line.imageAutoAdjusted ? (
               <span className="composer-slot-auto-badge" title="칸 크기에 자동 맞춤됨">자동</span>
             ) : null}
-          </div>
+          </>
         ) : (
           <span className="catalog-slide-ph">{eng?.slice(0, 2) || '품'}</span>
         )}
@@ -351,7 +351,7 @@ export default function CatalogSlideComposer({
                 PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage)} (정사각)
               </p>
               <div className="composer-ppt-viewport">
-                <div className="catalog-slide composer-ppt-mirror" style={layoutCssVars(perPage)}>
+                <div className="catalog-slide composer-ppt-mirror" style={layoutCssVars(perPage, 'wide')}>
                   <div className="catalog-slide-hdr">
                     <span className="title-big">{slide.titleBig || '품종'}</span>
                     {slide.titleSmall ? (
@@ -696,12 +696,13 @@ export default function CatalogSlideComposer({
         }
         .catalog-crop-modal-auto input { margin: 0; accent-color: var(--blue); }
         .composer-slot-auto-badge {
-          position: absolute; right: 2px; bottom: 2px;
+          position: absolute; right: 2px; bottom: 2px; z-index: 2;
           font-size: 8px; line-height: 1.2; padding: 1px 3px;
           background: rgba(37, 99, 235, 0.9); color: #fff;
           border-radius: 2px; pointer-events: none;
         }
         .catalog-slide-img-inner { position: relative; }
+        .catalog-slide-img { position: relative; }
         .catalog-crop-modal-sub {
           font-size: 11px; color: var(--text3); margin: 4px 0 8px;
         }

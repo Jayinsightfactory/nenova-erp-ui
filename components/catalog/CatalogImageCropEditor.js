@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { catalogImageStyle, normalizeRotate, resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
+import {
+  CATALOG_POS_MAX,
+  CATALOG_POS_MIN,
+  clampCatalogPos,
+  normalizeRotate,
+  resolveCatalogImageTransform,
+} from '../../lib/catalogImagePosition';
+import CatalogSlideImage from './CatalogSlideImage';
 import { absCatalogUrl } from '../../lib/catalogUtils';
-
-function clampPos(n) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) return 50;
-  return Math.min(100, Math.max(0, Math.round(v)));
-}
 
 function clampScale(n) {
   const v = Number(n);
@@ -14,7 +15,7 @@ function clampScale(n) {
   return Math.min(400, Math.max(100, Math.round(v)));
 }
 
-const NUDGE = 2;
+const NUDGE = 8;
 
 /** 슬라이드/PPT 칸과 동일한 정사각 — 드래그·슬라이더·회전 */
 export default function CatalogImageCropEditor({
@@ -64,8 +65,8 @@ export default function CatalogImageCropEditor({
   };
 
   const nudge = (dx, dy) => {
-    if (dx) setPosX(v => clampPos(v + dx));
-    if (dy) setPosY(v => clampPos(v + dy));
+    if (dx) setPosX(v => clampCatalogPos(v + dx));
+    if (dy) setPosY(v => clampCatalogPos(v + dy));
   };
 
   const onFramePointerDown = (e) => {
@@ -78,8 +79,8 @@ export default function CatalogImageCropEditor({
       if (!st) return;
       const dx = ev.clientX - st.x;
       const dy = ev.clientY - st.y;
-      setPosX(clampPos(st.posX + dx * 0.5));
-      setPosY(clampPos(st.posY + dy * 0.5));
+      setPosX(clampCatalogPos(st.posX + dx * 1.4));
+      setPosY(clampCatalogPos(st.posY + dy * 1.4));
     };
     const onUp = () => {
       startRef.current = null;
@@ -97,13 +98,11 @@ export default function CatalogImageCropEditor({
     <div className={`catalog-crop-editor ${compact ? 'compact' : ''}`}>
       <div
         className="catalog-crop-frame"
-        style={{ height: frameH }}
+        style={{ height: frameH, maxHeight: frameH }}
         onPointerDown={onFramePointerDown}
-        title="드래그로 상하·좌우 이동 (PPT 칸과 동일)"
+        title="드래그로 상하·좌우 이동 (채우기 기준 · PPT 칸과 동일)"
       >
-        <div className="catalog-crop-frame-inner">
-          <img src={absCatalogUrl(imageUrl)} alt="" style={catalogImageStyle(preview)} draggable={false} />
-        </div>
+        <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
       </div>
 
       <div className="catalog-crop-nudge">
@@ -122,16 +121,16 @@ export default function CatalogImageCropEditor({
         <label>
           <span>확대</span>
           <input type="range" min={100} max={400} value={scale} disabled={disabled} onChange={e => setScale(clampScale(e.target.value))} />
-          <span>{scale}%</span>
+          <span>{scale}% {scale === 100 ? '채우기' : ''}</span>
         </label>
         <label>
           <span>가로</span>
-          <input type="range" min={0} max={100} value={posX} disabled={disabled} onChange={e => setPosX(Number(e.target.value))} />
+          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posX} disabled={disabled} onChange={e => setPosX(clampCatalogPos(e.target.value))} />
           <span>{posX}</span>
         </label>
         <label>
           <span>세로</span>
-          <input type="range" min={0} max={100} value={posY} disabled={disabled} onChange={e => setPosY(Number(e.target.value))} />
+          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posY} disabled={disabled} onChange={e => setPosY(clampCatalogPos(e.target.value))} />
           <span>{posY}</span>
         </label>
         <label>
@@ -179,14 +178,12 @@ export default function CatalogImageCropEditor({
         .catalog-crop-frame {
           width: 100%; border: 1px solid var(--border2); border-radius: 4px;
           overflow: hidden; background: #fafafa; cursor: grab; touch-action: none;
+          aspect-ratio: 1;
         }
-        .catalog-crop-frame-inner {
+        .catalog-crop-frame :global(.catalog-slide-img-inner) {
           width: 100%; height: 100%;
-          overflow: hidden;
-          display: flex; align-items: center; justify-content: center;
         }
         .catalog-crop-frame:active { cursor: grabbing; }
-        .catalog-crop-frame-inner :global(img) { display: block; }
         .catalog-crop-nudge {
           margin-top: 8px; display: flex; align-items: center; gap: 8px;
         }

@@ -7,10 +7,10 @@ import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
-import { catalogImageFieldsFromRecord, catalogImageStyle } from '../../lib/catalogImagePosition';
+import { catalogImageFieldsFromRecord } from '../../lib/catalogImagePosition';
+import CatalogSlideImage from '../../components/catalog/CatalogSlideImage';
 import {
   buildCatalogAutoFitTransform,
-  loadCatalogImageNaturalSize,
   needsCatalogImageAutoFit,
 } from '../../lib/catalogImageAutoFit';
 import { persistCatalogImageSelection, persistCatalogProductMatch } from '../../lib/catalogMatchClient';
@@ -724,8 +724,7 @@ export default function CatalogPage() {
     if (autoFitDoneRef.current.has(key)) return;
     autoFitDoneRef.current.add(key);
     try {
-      const { width, height } = await loadCatalogImageNaturalSize(absCatalogUrl(line.imageUrl));
-      const t = buildCatalogAutoFitTransform(width, height);
+      const t = buildCatalogAutoFitTransform();
       await saveLineImageTransform(line, t);
     } catch (e) {
       autoFitDoneRef.current.delete(key);
@@ -1194,7 +1193,7 @@ export default function CatalogPage() {
         tabIndex={onClick ? 0 : undefined}
       >
         {url ? (
-          <img src={absCatalogUrl(url)} alt="" style={catalogImageStyle(posSource)} />
+          <CatalogSlideImage source={posSource || {}} src={absCatalogUrl(url)} />
         ) : (
           <span style={{ fontWeight: 700, fontSize: size > 50 ? 14 : 11, color: 'var(--text3)' }}>
             {prod.FlowerName?.slice(0, 2) || '📷'}

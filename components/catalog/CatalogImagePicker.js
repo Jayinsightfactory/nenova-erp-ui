@@ -9,7 +9,7 @@ import {
   updateCatalogImagePosition,
   uploadCatalogImage,
 } from '../../lib/catalogImageClient';
-import { catalogImageStyle } from '../../lib/catalogImagePosition';
+import CatalogSlideImage from '../../components/catalog/CatalogSlideImage';
 import { absCatalogUrl } from '../../lib/catalogUtils';
 
 export default function CatalogImagePicker({
@@ -131,7 +131,7 @@ export default function CatalogImagePicker({
             >
               <button type="button" className="catalog-img-tile-btn" onClick={() => onSelect?.(img)}>
                 <div className="catalog-img-tile-preview">
-                  <img src={absCatalogUrl(img.url)} alt="" style={catalogImageStyle(img)} />
+                  <CatalogSlideImage source={img} src={absCatalogUrl(img.url)} />
                 </div>
               </button>
               {img.isPrimary && <span className="catalog-img-badge">대표</span>}

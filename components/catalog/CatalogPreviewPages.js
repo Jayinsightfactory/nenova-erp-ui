@@ -3,7 +3,7 @@ import {
   formatOriginLabel,
   layoutCssVars,
 } from '../../lib/catalogLayout';
-import { catalogImageStyle } from '../../lib/catalogImagePosition';
+import CatalogSlideImage from './CatalogSlideImage';
 import { resolveCatalogPages } from '../../lib/catalogSlides';
 import { absCatalogUrl } from '../../lib/catalogUtils';
 import { buildCatalogCellLines, hasCatalogCellText, normalizeCatalogFields } from '../../lib/catalogLineText';
@@ -52,9 +52,7 @@ export default function CatalogPreviewPages({ draft }) {
                 <article key={line.id} className="catalog-slide-item">
                   <div className="catalog-slide-img">
                     {line.imageUrl ? (
-                      <div className="catalog-slide-img-inner">
-                        <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
-                      </div>
+                      <CatalogSlideImage source={line} src={absCatalogUrl(line.imageUrl)} />
                     ) : (
                       <span className="catalog-slide-ph">{line.engName?.slice(0, 2) || '품'}</span>
                     )}
