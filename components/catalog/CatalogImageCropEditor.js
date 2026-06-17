@@ -80,7 +80,9 @@ export default function CatalogImageCropEditor({
         onPointerDown={onFramePointerDown}
         title="드래그: 위치 · 확대: 넘치는 부분 자르기"
       >
-        <img src={absCatalogUrl(imageUrl)} alt="" style={catalogImageStyle(preview)} draggable={false} />
+        <div className="catalog-crop-frame-inner">
+          <img src={absCatalogUrl(imageUrl)} alt="" style={catalogImageStyle(preview)} draggable={false} />
+        </div>
       </div>
       <div className="catalog-crop-sliders">
         <label>
@@ -112,8 +114,13 @@ export default function CatalogImageCropEditor({
           width: 100%; border: 1px solid var(--border2); border-radius: 4px;
           overflow: hidden; background: #fafafa; cursor: grab; touch-action: none;
         }
+        .catalog-crop-frame-inner {
+          width: 100%; height: 100%;
+          overflow: hidden;
+          display: flex; align-items: center; justify-content: center;
+        }
         .catalog-crop-frame:active { cursor: grabbing; }
-        .catalog-crop-frame :global(img) { width: 100%; height: 100%; display: block; }
+        .catalog-crop-frame-inner :global(img) { display: block; }
         .catalog-crop-sliders { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
         .catalog-crop-sliders label {
           display: grid; grid-template-columns: 32px 1fr 40px; gap: 6px; align-items: center; font-size: 10px;

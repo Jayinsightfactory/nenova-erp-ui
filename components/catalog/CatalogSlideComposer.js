@@ -118,11 +118,13 @@ function MiniSlot({
           }}
           title="클릭 → 위치/확대 편집"
         >
-          {line.imageUrl ? (
-            <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
-          ) : (
-            <span>{eng?.slice(0, 2) || '품'}</span>
-          )}
+          <div className="composer-slot-img-inner">
+            {line.imageUrl ? (
+              <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
+            ) : (
+              <span>{eng?.slice(0, 2) || '품'}</span>
+            )}
+          </div>
         </div>
       </div>
       <div className="composer-slot-text">
@@ -626,16 +628,18 @@ export default function CatalogSlideComposer({
         }
         .composer-slot-img {
           width: 100%;
-          flex-shrink: 0;
+          flex: 0 0 25%;
+          max-height: 25%;
+          min-height: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          min-height: 0;
         }
         .composer-slot-img-frame {
-          width: 25%;
-          max-width: 25%;
+          height: 100%;
+          width: auto;
+          max-width: 100%;
           aspect-ratio: 1;
           display: flex;
           align-items: center;
@@ -649,12 +653,18 @@ export default function CatalogSlideComposer({
         .composer-slot.filled .composer-slot-img-frame:hover {
           border-color: var(--blue);
         }
-        .composer-slot-img-frame img {
+        .composer-slot-img-inner {
           width: 100%;
           height: 100%;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .composer-slot-img-inner img {
           display: block;
         }
-        .composer-slot-img-frame span {
+        .composer-slot-img-inner span {
           font-size: clamp(8px, 1vw, 11px);
           font-weight: 700;
           color: #bbb;
