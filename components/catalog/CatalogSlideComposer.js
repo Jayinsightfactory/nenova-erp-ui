@@ -6,9 +6,9 @@ import {
   catalogLineNames,
 } from '../../lib/catalogUtils';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
-import { formatOriginLabel, normalizeOriginInput } from '../../lib/catalogLayout';
+import { catalogPptImageSizeLabel, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
+import { CATALOG_SLIDE_CSS } from './catalogSlideCss';
 import {
-  catalogGridCols,
   perPageSlotCount,
   SLIDE_TARGET_AUTO,
   SLIDE_TARGET_NEW,
@@ -87,7 +87,7 @@ function MiniSlot({
   if (!line) {
     return (
       <div
-        className="composer-slot empty"
+        className="catalog-slide-item composer-slot empty"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         title="품목을 여기로 끌어다 놓으세요"
@@ -101,8 +101,8 @@ function MiniSlot({
   const cellLines = buildCatalogCellLines(line, catalogFields);
 
   return (
-    <div
-      className={`composer-slot filled ${selectedLineId === line.id ? 'selected' : ''}`}
+    <article
+      className={`catalog-slide-item composer-slot filled ${selectedLineId === line.id ? 'selected' : ''}`}
       draggable
       onClick={() => onSelectLine?.(line.id)}
       onDragStart={(e) => {
@@ -121,36 +121,40 @@ function MiniSlot({
       >
         ×
       </button>
-      <div className="composer-slot-img">
-        <div
-          className="composer-slot-img-frame"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectLine?.(line.id);
-            if (line.imageUrl) onToggleCropLine?.(cropLineId === line.id ? null : line.id);
-          }}
-          title="클릭 → 위치/확대 편집"
-        >
-          <div className="composer-slot-img-inner">
-            {line.imageUrl ? (
-              <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} />
-            ) : (
-              <span>{eng?.slice(0, 2) || '품'}</span>
-            )}
+      <div
+        className="catalog-slide-img"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectLine?.(line.id);
+          if (line.imageUrl) onToggleCropLine?.(cropLineId === line.id ? null : line.id);
+        }}
+        title="클릭 → 위치/확대 (PPT와 동일 크기)"
+      >
+        {line.imageUrl ? (
+          <div className="catalog-slide-img-inner">
+            <img src={absCatalogUrl(line.imageUrl)} alt="" style={catalogImageStyle(line)} draggable={false} />
           </div>
+        ) : (
+          <span className="catalog-slide-ph">{eng?.slice(0, 2) || '품'}</span>
+        )}
+      </div>
+      {hasCatalogCellText(line, catalogFields) ? (
+        <div className="catalog-slide-names">
+          {cellLines.map(row => (
+            <div
+              key={row.kind}
+              className={
+                row.kind === 'price' ? 'price-name'
+                  : row.kind.startsWith('extra') ? 'extra-name'
+                    : row.kind === 'kor' ? 'kor-name' : 'eng-name'
+              }
+            >
+              {row.text}
+            </div>
+          ))}
         </div>
-      </div>
-      <div className="composer-slot-text">
-        {cellLines.map(row => (
-          <div
-            key={row.kind}
-            className={row.kind === 'price' ? 'composer-slot-price' : row.kind.startsWith('extra') ? 'composer-slot-extra' : 'composer-slot-name'}
-          >
-            {row.text}
-          </div>
-        ))}
-      </div>
-    </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -177,7 +181,6 @@ export default function CatalogSlideComposer({
   editorOpen = true,
 }) {
   const slotCount = perPageSlotCount(perPage);
-  const cols = catalogGridCols(perPage);
 
   const [expandedSlideId, setExpandedSlideId] = useState(null);
 
@@ -312,7 +315,7 @@ export default function CatalogSlideComposer({
               </button>
             </header>
             {isExpanded ? (
-            <div className={`composer-slide-stage ${editorOpen ? 'with-editor' : 'full'}`}>
+            <div className="composer-slide-stage">
               <div
                 className="composer-slide-meta"
                 onClick={(e) => e.stopPropagation()}
@@ -341,30 +344,41 @@ export default function CatalogSlideComposer({
                 </label>
                 <img className="composer-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
               </div>
-              <div
-                className="composer-grid"
-                style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-              >
-                {Array.from({ length: slotCount }, (_, idx) => {
-                  const lineId = slide.slots?.[idx] ?? null;
-                  const line = lineId ? linesById[lineId] : null;
-                  return (
-                    <MiniSlot
-                      key={`${slide.id}-${idx}`}
-                      line={line}
-                    slotIndex={idx}
-                    slideId={slide.id}
-                    catalogFields={catalogFields}
-                    selectedLineId={selectedLineId}
-                    cropLineId={cropLineId}
-                    onToggleCropLine={onToggleCropLine}
-                    onSaveLineCrop={onSaveLineCrop}
-                    onDropSlot={onDropSlot}
-                    onClearSlot={onClearSlot}
-                    onSelectLine={onSelectLine}
-                  />
-                  );
-                })}
+              <p className="composer-ppt-hint">
+                PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage)} (정사각)
+              </p>
+              <div className="composer-ppt-viewport">
+                <div className="catalog-slide composer-ppt-mirror" style={layoutCssVars(perPage)}>
+                  <div className="catalog-slide-hdr">
+                    <span className="title-big">{slide.titleBig || '품종'}</span>
+                    {slide.titleSmall ? (
+                      <span className="title-small">{formatOriginLabel(slide.titleSmall)}</span>
+                    ) : null}
+                  </div>
+                  <img className="catalog-slide-logo" src="/nenova-logo.png" alt="" />
+                  <div className="catalog-slide-grid">
+                    {Array.from({ length: slotCount }, (_, idx) => {
+                      const lineId = slide.slots?.[idx] ?? null;
+                      const line = lineId ? linesById[lineId] : null;
+                      return (
+                        <MiniSlot
+                          key={`${slide.id}-${idx}`}
+                          line={line}
+                          slotIndex={idx}
+                          slideId={slide.id}
+                          catalogFields={catalogFields}
+                          selectedLineId={selectedLineId}
+                          cropLineId={cropLineId}
+                          onToggleCropLine={onToggleCropLine}
+                          onSaveLineCrop={onSaveLineCrop}
+                          onDropSlot={onDropSlot}
+                          onClearSlot={onClearSlot}
+                          onSelectLine={onSelectLine}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
             ) : (
@@ -394,7 +408,9 @@ export default function CatalogSlideComposer({
               <strong>{cropLine.engName || cropLine.catalogName || '이미지 위치/확대'}</strong>
               <button type="button" className="btn btn-sm" onClick={() => onToggleCropLine?.(null)}>닫기</button>
             </div>
-            <p className="catalog-crop-modal-sub">드래그·슬라이더로 위치/확대 — 칸보다 크면 잘림</p>
+            <p className="catalog-crop-modal-sub">
+              PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
+            </p>
             <CatalogImageCropEditor
               imageUrl={cropLine.imageUrl}
               source={cropLine}
@@ -408,6 +424,7 @@ export default function CatalogSlideComposer({
       ) : null}
 
       <style jsx global>{`
+        ${CATALOG_SLIDE_CSS}
         .catalog-composer {
           display: flex;
           flex-direction: column;
@@ -514,15 +531,77 @@ export default function CatalogSlideComposer({
         }
         .composer-slide-stage {
           width: 100%;
-          max-width: min(100%, 520px);
-          margin: 0 auto;
-          aspect-ratio: 16 / 9;
-          padding: 6px 10px 10px;
+          padding: 6px 8px 10px;
           box-sizing: border-box;
           background: #fff;
           display: flex;
           flex-direction: column;
           min-height: 0;
+        }
+        .composer-ppt-hint {
+          font-size: 10px;
+          color: var(--text3);
+          margin: 0 0 6px 2px;
+        }
+        .composer-ppt-viewport {
+          width: 100%;
+          overflow: auto;
+          display: flex;
+          justify-content: center;
+          min-height: 0;
+          flex: 1;
+        }
+        .composer-ppt-mirror {
+          zoom: 0.48;
+          margin: 0 auto;
+          flex-shrink: 0;
+        }
+        .composer-ppt-mirror.catalog-slide {
+          margin: 0 auto;
+        }
+        .composer-ppt-mirror .catalog-slide-item.composer-slot {
+          position: relative;
+          box-sizing: border-box;
+        }
+        .composer-ppt-mirror .catalog-slide-item.composer-slot.filled {
+          border: 2px solid var(--green);
+          border-radius: 2px;
+          cursor: grab;
+        }
+        .composer-ppt-mirror .catalog-slide-item.composer-slot.filled.selected {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 2px var(--blue-bg);
+        }
+        .composer-ppt-mirror .catalog-slide-item.composer-slot.empty {
+          border: 1px dashed var(--border2);
+          background: var(--header-bg);
+          justify-content: center;
+        }
+        .composer-ppt-mirror .catalog-slide-img {
+          cursor: pointer;
+        }
+        .composer-ppt-mirror .catalog-slide-img:hover {
+          outline: 1px solid var(--blue);
+        }
+        .composer-slot-ph { font-size: 22px; color: var(--text3); }
+        .composer-slot-clear {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          z-index: 3;
+          border: none;
+          background: rgba(0,0,0,0.5);
+          color: #fff;
+          width: 18px;
+          height: 18px;
+          font-size: 12px;
+          line-height: 1;
+          cursor: pointer;
+          border-radius: 2px;
+          padding: 0;
+        }
+        .composer-slide-card.expanded .composer-slide-stage {
+          flex: 1;
         }
         .composer-slide-meta {
           flex-shrink: 0;
@@ -567,15 +646,6 @@ export default function CatalogSlideComposer({
           object-fit: contain;
           flex-shrink: 0;
         }
-        .composer-slide-stage.full {
-          max-height: min(calc(100vh - 220px), 292px);
-        }
-        .composer-slide-stage.with-editor {
-          max-height: min(calc(100vh - 360px), 270px);
-        }
-        .composer-slide-card.expanded .composer-slide-stage {
-          flex: 1;
-        }
         .composer-slide-hdr {
           display: flex;
           align-items: center;
@@ -588,143 +658,6 @@ export default function CatalogSlideComposer({
         .composer-slide-hdr strong { font-size: 13px; }
         .composer-origin { margin-left: 6px; font-size: 10px; color: var(--text3); }
         .composer-slide-no { font-size: 10px; color: var(--text3); flex-shrink: 0; }
-        .composer-grid {
-          flex: 1;
-          min-height: 0;
-          display: grid;
-          grid-template-rows: repeat(2, minmax(0, 1fr));
-          column-gap: 4px;
-          row-gap: 4px;
-        }
-        .composer-slot {
-          position: relative;
-          border: 1px dashed var(--border2);
-          border-radius: 4px;
-          min-height: 0;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 2px 2px 3px;
-          background: #fff;
-          overflow: hidden;
-        }
-        .composer-slot.empty {
-          justify-content: center;
-          background: var(--header-bg);
-        }
-        .composer-slot.filled {
-          border-style: solid;
-          border-color: var(--green);
-          cursor: grab;
-          display: grid;
-          grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
-          align-items: stretch;
-        }
-        .composer-slot.filled.selected {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 2px var(--blue-bg);
-        }
-        .composer-slot-ph { font-size: 22px; color: var(--text3); }
-        .composer-slot-clear {
-          position: absolute;
-          top: 2px;
-          right: 2px;
-          z-index: 2;
-          border: none;
-          background: rgba(0,0,0,0.5);
-          color: #fff;
-          width: 18px;
-          height: 18px;
-          font-size: 12px;
-          line-height: 1;
-          cursor: pointer;
-          border-radius: 2px;
-          padding: 0;
-        }
-        .composer-slot-img {
-          grid-row: 1;
-          width: 100%;
-          height: 100%;
-          max-height: 100%;
-          min-height: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-        }
-        .composer-slot-img-frame {
-          height: 100%;
-          width: 100%;
-          max-width: 100%;
-          max-height: 100%;
-          aspect-ratio: unset;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          flex-shrink: 0;
-          cursor: pointer;
-          border: 1px solid transparent;
-          border-radius: 3px;
-        }
-        .composer-slot.filled .composer-slot-img-frame:hover {
-          border-color: var(--blue);
-        }
-        .composer-slot-img-inner {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .composer-slot-img-inner img {
-          display: block;
-        }
-        .composer-slot-img-inner span {
-          font-size: clamp(8px, 1vw, 11px);
-          font-weight: 700;
-          color: #bbb;
-        }
-        .composer-slot-text {
-          grid-row: 2;
-          width: 100%;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          gap: 0;
-          overflow: hidden;
-          padding-top: 2px;
-        }
-        .composer-slot-name {
-          font-size: clamp(7px, 0.85vw, 10px);
-          font-weight: 600;
-          line-height: 1.1;
-          text-align: center;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          width: 100%;
-          color: #000;
-        }
-        .composer-slot-extra {
-          font-size: 8px;
-          color: #000;
-          text-align: center;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-        }
-        .composer-slot-price {
-          font-size: 8px;
-          font-weight: 700;
-          color: #000;
-          flex-shrink: 0;
-          text-align: center;
-        }
         .catalog-crop-modal-overlay {
           position: fixed; inset: 0; z-index: 6000;
           background: rgba(15, 23, 42, 0.45);

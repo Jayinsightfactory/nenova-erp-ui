@@ -78,7 +78,7 @@ export default function CatalogImageCropEditor({
         className="catalog-crop-frame"
         style={{ height: frameH }}
         onPointerDown={onFramePointerDown}
-        title="드래그: 위치 · 확대: 넘치는 부분 자르기"
+        title="드래그: 위치 · 확대 (PPT 정사각 칸과 동일)"
       >
         <div className="catalog-crop-frame-inner">
           <img src={absCatalogUrl(imageUrl)} alt="" style={catalogImageStyle(preview)} draggable={false} />
