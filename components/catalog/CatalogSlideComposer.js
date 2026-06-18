@@ -5,7 +5,7 @@ import {
   absCatalogUrl,
   catalogLineNames,
 } from '../../lib/catalogUtils';
-import { resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
+import { normalizeCatalogLineForRender, resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
 import { catalogPptImageSizeLabel, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
 import { CATALOG_SLIDE_CSS } from './catalogSlideCss';
@@ -100,6 +100,7 @@ function MiniSlot({
 
   const { eng } = catalogLineNames(line);
   const cellLines = buildCatalogCellLines(line, catalogFields);
+  const renderLine = normalizeCatalogLineForRender(line);
 
   return (
     <article
@@ -133,7 +134,11 @@ function MiniSlot({
       >
         {line.imageUrl ? (
           <>
-            <CatalogSlideImage source={line} src={absCatalogUrl(line.imageUrl)} />
+            <CatalogSlideImage
+              source={renderLine}
+              src={absCatalogUrl(line.imageUrl)}
+              key={`${line.id}-${renderLine.imagePosX}-${renderLine.imagePosY}-${renderLine.imageScale}-${renderLine.imageRotate}`}
+            />
             {line.imageAutoAdjusted ? (
               <span className="composer-slot-auto-badge" title="칸 크기에 자동 맞춤됨">자동</span>
             ) : null}

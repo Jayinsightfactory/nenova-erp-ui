@@ -80,10 +80,9 @@ export const CATALOG_SLIDE_CSS = `
     position: relative;
   }
   .catalog-img-stage {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     flex-shrink: 0;
+    overflow: hidden;
   }
   .catalog-slide-img-inner img {
     display: block;
