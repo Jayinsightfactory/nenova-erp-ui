@@ -28,7 +28,7 @@ export default function CatalogLineEditor({
       <div className="catalog-line-editor-toolbar">
         <span className="editor-title">⑤ 품목 텍스트 편집 ({lines.length})</span>
         <span className="editor-hint">
-          도착원가 = 확인용(PPT 미포함)
+          PPT 슬롯에 배치된 품목만 · 상단 PPT표시 체크는 슬롯·인쇄·PPT에 즉시 반영
           {costContext?.displayWeek ? ` · 기준 ${costContext.displayWeek}` : ''}
           {costContext?.vatLabel ? ` · ${costContext.vatLabel}` : ''}
         </span>
@@ -57,7 +57,7 @@ export default function CatalogLineEditor({
             {!lines.length && (
               <tr>
                 <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text3)', padding: 20 }}>
-                  품목을 선택하거나 PPT 칸에 끌어다 놓으세요
+                  PPT 슬라이드 칸에 배치된 품목만 표시됩니다
                 </td>
               </tr>
             )}

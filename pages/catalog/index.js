@@ -39,6 +39,7 @@ import {
   addGroupToComposer,
   assignComposerSlot,
   clearComposerSlot,
+  collectPlacedLineIds,
   newComposerSlide,
   placeLineOnComposer as assignLineToComposer,
   placeLinesOnComposer,
@@ -287,6 +288,16 @@ export default function CatalogPage() {
     [lines],
   );
 
+  const placedLineIds = useMemo(
+    () => collectPlacedLineIds(composerSlides),
+    [composerSlides],
+  );
+
+  const editorLines = useMemo(
+    () => lines.filter(l => placedLineIds.has(l.id)),
+    [lines, placedLineIds],
+  );
+
   const syncLinesFromProducts = useCallback((prods, imgMap) => {
     setLines(prev => prev.map(line => {
       const prod = findProd(prods, line.prodKey);
@@ -373,9 +384,7 @@ export default function CatalogPage() {
     }
   }, [yearInput.value, costMode, selectedWeekInput.value, custKey, useVatArrival, latestWeek]);
 
-  useEffect(() => {
-    loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 도착원가·품목 목록은 ① 불러오기 버튼으로만 로드 (페이지 진입 시 자동 조회 없음)
 
   useEffect(() => {
     try {
@@ -457,7 +466,7 @@ export default function CatalogPage() {
         extra3: line.extra3 ?? '',
       };
     }));
-  }, [useVatArrival, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useVatArrival, products]);
 
   useEffect(() => {
     if (products.length && Object.keys(imagesByProd).length) {
@@ -1529,7 +1538,7 @@ export default function CatalogPage() {
                 style={{ marginLeft: 'auto' }}
                 onClick={() => setEditorOpen(v => !v)}
               >
-                {editorOpen ? '⑤ 편집 패널 닫기' : `⑤ 텍스트 편집 (${lines.length})`}
+                {editorOpen ? '⑤ 편집 패널 닫기' : `⑤ 텍스트 편집 (${editorLines.length})`}
               </button>
             </div>
             <CatalogSlideComposer
@@ -1545,8 +1554,13 @@ export default function CatalogPage() {
                 setComposerSlides(prev => clearComposerSlot(prev, slideId, slotIndex));
               }}
               onRemoveSlide={(slideId) => {
+                const removedIds = new Set(
+                  (composerSlides.find(s => s.id === slideId)?.slots || []).filter(Boolean),
+                );
                 setComposerSlides(prev => removeComposerSlide(prev, slideId));
                 setActiveSlideTarget(t => (t === slideId ? SLIDE_TARGET_AUTO : t));
+                if (cropLineId && removedIds.has(cropLineId)) setCropLineId(null);
+                setSelectedLineId(cur => (cur && removedIds.has(cur) ? null : cur));
               }}
               onAddEmptySlide={handleAddEmptySlide}
               onUpdateSlide={handleUpdateSlide}
@@ -1562,7 +1576,7 @@ export default function CatalogPage() {
             />
             {editorOpen && (
               <CatalogLineEditor
-                lines={lines}
+                lines={editorLines}
                 products={products}
                 selectedLineId={selectedLineId}
                 onSelectLine={setSelectedLineId}

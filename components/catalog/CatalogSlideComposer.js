@@ -60,6 +60,14 @@ export function setCatalogDragData(e, payload) {
   }
 }
 
+function fieldsRenderKey(fields) {
+  if (!fields) return '0';
+  return [
+    fields.showEng, fields.showKor, fields.showPrice,
+    fields.showExtra1, fields.showExtra2, fields.showExtra3,
+  ].map(v => (v ? '1' : '0')).join('');
+}
+
 function MiniSlot({
   line,
   slotIndex,
@@ -101,6 +109,7 @@ function MiniSlot({
   const { eng } = catalogLineNames(line);
   const cellLines = buildCatalogCellLines(line, catalogFields);
   const renderLine = normalizeCatalogLineForRender(line);
+  const pptFieldKey = fieldsRenderKey(catalogFields);
 
   return (
     <article
@@ -148,7 +157,7 @@ function MiniSlot({
         )}
       </div>
       {hasCatalogCellText(line, catalogFields) ? (
-        <div className="catalog-slide-names">
+        <div className="catalog-slide-names" key={pptFieldKey}>
           {cellLines.map(row => (
             <div
               key={row.kind}
@@ -394,7 +403,7 @@ export default function CatalogSlideComposer({
                     ) : null}
                   </div>
                   <img className="catalog-slide-logo" src="/nenova-logo.png" alt="" />
-                  <div className="catalog-slide-grid">
+                  <div className="catalog-slide-grid" key={fieldsRenderKey(catalogFields)}>
                     {Array.from({ length: slotCount }, (_, idx) => {
                       const lineId = slide.slots?.[idx] ?? null;
                       const line = lineId ? lineWithCropDraft(linesById[lineId]) : null;
