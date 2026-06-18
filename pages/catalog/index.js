@@ -53,6 +53,16 @@ import {
 
 const STORAGE_KEY = 'nenovaCatalogDraft';
 
+function readSavedCatalog() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function findProd(prods, prodKey) {
   return prods.find(p => String(p.ProdKey) === String(prodKey));
 }
@@ -109,10 +119,13 @@ export default function CatalogPage() {
   const [selectedGroup, setSelectedGroup] = useState('__all__');
   const [flowerSearch, setFlowerSearch] = useState('');
   const [search, setSearch] = useState('');
-  const [lines, setLines] = useState([]);
-  const [checkedKeys, setCheckedKeys] = useState(new Set());
-  const [composerSlides, setComposerSlides] = useState([]);
-  const [activeSlideTarget, setActiveSlideTarget] = useState(SLIDE_TARGET_AUTO);
+  const [lines, setLines] = useState(() => normalizeLoadedLines(readSavedCatalog()?.lines || []));
+  const [checkedKeys, setCheckedKeys] = useState(() => {
+    const saved = readSavedCatalog();
+    return new Set(saved?.checkedKeys || saved?.lines?.map(l => l.prodKey) || []);
+  });
+  const [composerSlides, setComposerSlides] = useState(() => readSavedCatalog()?.composerSlides || []);
+  const [activeSlideTarget, setActiveSlideTarget] = useState(() => readSavedCatalog()?.activeSlideTarget || SLIDE_TARGET_AUTO);
   const [editorOpen, setEditorOpen] = useState(false);
   const [expandedProdKeys, setExpandedProdKeys] = useState(new Set());
   const [cropLineId, setCropLineId] = useState(null);
@@ -342,14 +355,14 @@ export default function CatalogPage() {
           const prod = findProd(prods, line.prodKey);
           if (!prod) return line;
           const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
-          const img = pickPrimaryImageRecord(imgMap, line.prodKey);
+          const img = pickImageForLine(imgMap, line) || pickPrimaryImageRecord(imgMap, line.prodKey);
+          const imgFields = mergeLineImageFields(line, img);
           return {
             ...line,
             arrivalCost: arrival,
             arrivalUnit: prod.arrivalUnit || line.arrivalUnit,
             salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
-            imageId: line.imageId || img?.id || null,
-            imageUrl: line.imageUrl || absCatalogUrl(img?.url) || null,
+            ...imgFields,
           };
         });
       });
@@ -366,14 +379,8 @@ export default function CatalogPage() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (saved.lines?.length) {
-        setLines(saved.lines.map(l => normalizeLoadedLines([l])[0]));
-      }
-      if (saved.composerSlides?.length) setComposerSlides(saved.composerSlides);
-      if (saved.activeSlideTarget) setActiveSlideTarget(saved.activeSlideTarget);
+      const saved = readSavedCatalog();
+      if (!saved) return;
       if (saved.savedDraftId) {
         setSavedDraftId(saved.savedDraftId);
         setSavedDraftName(saved.savedDraftName || '');
@@ -396,6 +403,7 @@ export default function CatalogPage() {
       if (saved.useVatArrival != null) setUseVatArrival(saved.useVatArrival);
       if (saved.costMode) setCostMode(saved.costMode);
       if (saved.selectedWeek) selectedWeekInput.setValue(saved.selectedWeek);
+      if (saved.orderYear) yearInput.setValue(String(saved.orderYear));
     } catch (_) { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -671,7 +679,6 @@ export default function CatalogPage() {
       imageAutoAdjusted: isManual ? false : !!autoAdjusted,
       imageManualAdjusted: isManual,
     };
-    updateLine(line.id, patch);
 
     const imageId = line.imageId
       || pickImageForLine(imagesByProd, line)?.id
@@ -682,20 +689,27 @@ export default function CatalogPage() {
 
     if (imageId) {
       try {
-        await updateCatalogImagePosition(imageId, {
+        const savedImage = await updateCatalogImagePosition(imageId, {
           posX, posY, scale, rotate,
           autoAdjusted: patch.imageAutoAdjusted,
           manualAdjusted: patch.imageManualAdjusted,
         });
-        if (!line.imageId) {
-          updateLine(line.id, { imageId });
-        }
+        const fields = catalogImageFieldsFromRecord(savedImage);
+        updateLine(line.id, {
+          ...fields,
+          imageManualAdjusted: true,
+          imageAutoAdjusted: fields.imageAutoAdjusted,
+        });
         const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
         setImagesByProd(prev => ({ ...prev, [String(line.prodKey)]: data.images || [] }));
       } catch (e) {
         setMatchSaveInfo(`이미지 위치 저장 실패: ${e.message}`);
         return false;
       }
+    } else {
+      updateLine(line.id, patch);
+      setMatchSaveInfo(`이미지 위치 저장됨(품목만): ${line.engName || line.catalogName || line.prodKey} — 이미지 등록 시 서버에도 반영됩니다`);
+      return true;
     }
 
     setMatchSaveInfo(`이미지 위치 저장됨: ${line.engName || line.catalogName || line.prodKey}`);
