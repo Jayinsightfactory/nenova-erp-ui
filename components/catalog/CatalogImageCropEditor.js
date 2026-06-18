@@ -97,8 +97,8 @@ export default function CatalogImageCropEditor({
       if (!st) return;
       const dx = ev.clientX - st.x;
       const dy = ev.clientY - st.y;
-      setPosX(clampCatalogPos(st.posX + dx * DRAG_SENS));
-      setPosY(clampCatalogPos(st.posY + dy * DRAG_SENS));
+      setPosX(clampCatalogPos(st.posX - dx * DRAG_SENS));
+      setPosY(clampCatalogPos(st.posY - dy * DRAG_SENS));
     };
     const onUp = () => {
       startRef.current = null;
@@ -132,12 +132,12 @@ export default function CatalogImageCropEditor({
       <div className="catalog-crop-nudge">
         <span className="catalog-crop-nudge-label">이동</span>
         <div className="catalog-crop-nudge-pad">
-          <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(0, -NUDGE)} title="위">↑</button>
+          <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(0, NUDGE)} title="위">↑</button>
           <div className="catalog-crop-nudge-mid">
-            <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(-NUDGE, 0)} title="왼쪽">←</button>
-            <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(NUDGE, 0)} title="오른쪽">→</button>
+            <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(NUDGE, 0)} title="왼쪽">←</button>
+            <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(-NUDGE, 0)} title="오른쪽">→</button>
           </div>
-          <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(0, NUDGE)} title="아래">↓</button>
+          <button type="button" className="btn btn-sm" disabled={disabled} onClick={() => nudge(0, -NUDGE)} title="아래">↓</button>
         </div>
       </div>
 

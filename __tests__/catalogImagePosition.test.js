@@ -3,6 +3,8 @@ import {
   catalogCoverBox,
   catalogImagePanRange,
   catalogImageStyle,
+  lineHasStoredImageTransform,
+  mergeLineImageFields,
 } from '../lib/catalogImagePosition.js';
 
 describe('catalogCoverBox', () => {
@@ -34,6 +36,22 @@ describe('catalogCoverBox', () => {
     expect(at100.needsZoomForPan).toBe(true);
     expect(at150.needsZoomForPan).toBe(false);
     expect(at150.canPanX).toBe(true);
+  });
+});
+
+describe('mergeLineImageFields', () => {
+  it('keeps line transform when custom values without manual flag', () => {
+    const line = { imagePosX: 8, imagePosY: 53, imageScale: 138, imageRotate: 0 };
+    const img = { id: 'a', url: '/x.jpg', posX: 50, posY: 50, scale: 100, rotate: 0 };
+    const merged = mergeLineImageFields(line, img);
+    expect(merged.imagePosX).toBe(8);
+    expect(merged.imageScale).toBe(138);
+    expect(merged.imageManualAdjusted).toBe(true);
+  });
+
+  it('detects stored transform', () => {
+    expect(lineHasStoredImageTransform({ imagePosX: 50, imageScale: 100 })).toBe(false);
+    expect(lineHasStoredImageTransform({ imagePosX: 10, imageScale: 100 })).toBe(true);
   });
 });
 

@@ -64,6 +64,20 @@ function readSavedCatalog() {
   }
 }
 
+/** 이미지 위치 적용 직후 sessionStorage에 반영 (재접속 전 useEffect 대기 방지) */
+function patchSavedCatalogLine(lineId, patch) {
+  if (typeof window === 'undefined' || !lineId) return;
+  try {
+    const saved = readSavedCatalog() || {};
+    const nextLines = normalizeLoadedLines(
+      (saved.lines || []).map(l => (l.id === lineId ? { ...l, ...patch } : l)),
+    );
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, lines: nextLines }));
+  } catch {
+    /* ignore */
+  }
+}
+
 function findProd(prods, prodKey) {
   return prods.find(p => String(p.ProdKey) === String(prodKey));
 }
@@ -514,7 +528,7 @@ export default function CatalogPage() {
     if (products.length && Object.keys(imagesByProd).length) {
       syncLinesFromProducts(products, imagesByProd);
     }
-  }, [imagesByProd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imagesByProd, syncLinesFromProducts]);
 
   const openPicker = (prod, lineId) => {
     const line = lineId ? lines.find(l => l.id === lineId) : null;
@@ -746,11 +760,13 @@ export default function CatalogPage() {
           manualAdjusted: patch.imageManualAdjusted,
         });
         const fields = catalogImageFieldsFromRecord(savedImage);
-        updateLine(line.id, {
+        const linePatch = {
           ...fields,
           imageManualAdjusted: true,
           imageAutoAdjusted: fields.imageAutoAdjusted,
-        });
+        };
+        updateLine(line.id, linePatch);
+        patchSavedCatalogLine(line.id, linePatch);
         const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
         setImagesByProd(prev => ({ ...prev, [String(line.prodKey)]: data.images || [] }));
       } catch (e) {
@@ -759,6 +775,7 @@ export default function CatalogPage() {
       }
     } else {
       updateLine(line.id, patch);
+      patchSavedCatalogLine(line.id, patch);
       setMatchSaveInfo(`이미지 위치 저장됨(품목만): ${line.engName || line.catalogName || line.prodKey} — 이미지 등록 시 서버에도 반영됩니다`);
       return true;
     }
