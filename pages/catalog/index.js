@@ -4,7 +4,7 @@ import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
 import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
 import CatalogSlideComposer, { setCatalogDragData } from '../../components/catalog/CatalogSlideComposer';
 import { exportCatalogPpt } from '../../lib/catalogPptExport';
-import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
+import { buildCatalogDraftPayload, normalizeLoadedLines, patchCatalogWorkLines, readCatalogWorkDraft, writeCatalogWorkDraft } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { catalogImageFieldsFromRecord, mergeLineImageFields } from '../../lib/catalogImagePosition';
@@ -51,34 +51,6 @@ import {
   SLIDE_TARGET_NEW,
   sortProductsImageFirst,
 } from '../../lib/catalogSlides';
-
-const STORAGE_KEY = 'nenovaCatalogDraft';
-
-function readSavedCatalog() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** 적용 직후 전체 lines를 sessionStorage에 반영 */
-function flushCatalogSessionLines(nextLines) {
-  if (typeof window === 'undefined' || !Array.isArray(nextLines)) return;
-  try {
-    const saved = readSavedCatalog() || {};
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      ...saved,
-      lines: normalizeLoadedLines(
-        nextLines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
-      ),
-    }));
-  } catch {
-    /* ignore */
-  }
-}
 
 function resolveLineImageId(line, imagesByProd) {
   const list = imagesByProd?.[String(line.prodKey)] || imagesByProd?.[line.prodKey] || [];
@@ -149,13 +121,13 @@ export default function CatalogPage() {
   const [selectedGroup, setSelectedGroup] = useState('__all__');
   const [flowerSearch, setFlowerSearch] = useState('');
   const [search, setSearch] = useState('');
-  const [lines, setLines] = useState(() => normalizeLoadedLines(readSavedCatalog()?.lines || []));
+  const [lines, setLines] = useState(() => normalizeLoadedLines(readCatalogWorkDraft()?.lines || []));
   const [checkedKeys, setCheckedKeys] = useState(() => {
-    const saved = readSavedCatalog();
+    const saved = readCatalogWorkDraft();
     return new Set(saved?.checkedKeys || saved?.lines?.map(l => l.prodKey) || []);
   });
-  const [composerSlides, setComposerSlides] = useState(() => readSavedCatalog()?.composerSlides || []);
-  const [activeSlideTarget, setActiveSlideTarget] = useState(() => readSavedCatalog()?.activeSlideTarget || SLIDE_TARGET_AUTO);
+  const [composerSlides, setComposerSlides] = useState(() => readCatalogWorkDraft()?.composerSlides || []);
+  const [activeSlideTarget, setActiveSlideTarget] = useState(() => readCatalogWorkDraft()?.activeSlideTarget || SLIDE_TARGET_AUTO);
   const [editorOpen, setEditorOpen] = useState(false);
   const [expandedProdKeys, setExpandedProdKeys] = useState(new Set());
   const [cropLineId, setCropLineId] = useState(null);
@@ -466,7 +438,7 @@ export default function CatalogPage() {
 
   useEffect(() => {
     try {
-      const saved = readSavedCatalog();
+      const saved = readCatalogWorkDraft();
       if (!saved) return;
       if (saved.savedDraftId) {
         setSavedDraftId(saved.savedDraftId);
@@ -498,7 +470,7 @@ export default function CatalogPage() {
     const displayWeek = costMode === 'selected'
       ? selectedWeekInput.value
       : latestWeek;
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+    writeCatalogWorkDraft({
       lines: lines.map(l => ({
         ...l,
         imageUrl: absCatalogUrl(l.imageUrl),
@@ -512,8 +484,9 @@ export default function CatalogPage() {
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
-    }));
-  }, [lines, composerSlides, activeSlideTarget, savedDraftId, savedDraftName, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value]);
+      checkedKeys: [...checkedKeys],
+    });
+  }, [lines, composerSlides, activeSlideTarget, savedDraftId, savedDraftName, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value, checkedKeys]);
 
   useEffect(() => {
     const valid = new Set(lines.map(l => l.id));
@@ -777,7 +750,7 @@ export default function CatalogPage() {
       skipImageSyncRef.current = true;
       setLines(prev => {
         const next = prev.map(l => (l.id === line.id ? { ...l, ...linePatch } : l));
-        flushCatalogSessionLines(next);
+        patchCatalogWorkLines(next);
         return next;
       });
       if (savedImage && imageId) {

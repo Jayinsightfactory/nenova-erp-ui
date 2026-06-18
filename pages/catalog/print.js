@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import CatalogPreviewPages, { CATALOG_PREVIEW_STYLES, useCatalogPages } from '../../components/catalog/CatalogPreviewPages';
 import { absCatalogUrl } from '../../lib/catalogUtils';
-
-const STORAGE_KEY = 'nenovaCatalogDraft';
+import { readCatalogWorkDraft } from '../../lib/catalogDraft';
 
 function runPrint() {
   const prev = document.title;
@@ -21,9 +20,8 @@ export default function CatalogPrintPage() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
+      const parsed = readCatalogWorkDraft();
+      if (!parsed) return;
       if (parsed.lines) {
         parsed.lines = parsed.lines.map(l => ({
           ...l,

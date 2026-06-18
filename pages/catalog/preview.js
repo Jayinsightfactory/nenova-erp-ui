@@ -4,8 +4,7 @@ import Link from 'next/link';
 import CatalogPreviewPages, { CATALOG_PREVIEW_STYLES } from '../../components/catalog/CatalogPreviewPages';
 import { resolveCatalogPages } from '../../lib/catalogSlides';
 import { absCatalogUrl } from '../../lib/catalogUtils';
-
-const STORAGE_KEY = 'nenovaCatalogDraft';
+import { readCatalogWorkDraft } from '../../lib/catalogDraft';
 
 export default function CatalogPreviewPage() {
   const [draft, setDraft] = useState(null);
@@ -13,9 +12,8 @@ export default function CatalogPreviewPage() {
   useEffect(() => {
     const read = () => {
       try {
-        const raw = sessionStorage.getItem(STORAGE_KEY);
-        if (!raw) { setDraft(null); return; }
-        const parsed = JSON.parse(raw);
+        const parsed = readCatalogWorkDraft();
+        if (!parsed) { setDraft(null); return; }
         if (parsed.lines) {
           parsed.lines = parsed.lines.map(l => ({
             ...l,
