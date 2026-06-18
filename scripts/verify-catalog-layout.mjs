@@ -194,13 +194,14 @@ async function main() {
 
           await setScale(100);
           const at100 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame-inner img');
-            const frame = document.querySelector('.catalog-crop-modal .catalog-crop-frame');
+            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
+            const frame = document.querySelector('.catalog-crop-modal .catalog-slide-img');
             if (!img || !frame) return null;
             const fr = frame.getBoundingClientRect();
             const ir = img.getBoundingClientRect();
             return {
               frameW: fr.width,
+              frameH: fr.height,
               imgW: ir.width,
               objectFit: getComputedStyle(img).objectFit,
             };
@@ -208,7 +209,7 @@ async function main() {
 
           await setScale(101);
           const at101 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame-inner img');
+            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
             if (!img) return null;
             const ir = img.getBoundingClientRect();
             return { imgW: ir.width, objectFit: getComputedStyle(img).objectFit };
@@ -216,11 +217,16 @@ async function main() {
 
           await setScale(110);
           const at110 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame-inner img');
+            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
             return img ? { imgW: img.getBoundingClientRect().width } : null;
           });
 
           if (at100 && at101) {
+            if (Math.abs(at100.frameW - at100.frameH) < 2) {
+              ok('crop frame square', `${at100.frameW.toFixed(0)}×${at100.frameH.toFixed(0)}`);
+            } else {
+              bad('crop frame square', `${at100.frameW.toFixed(0)}×${at100.frameH.toFixed(0)}`);
+            }
             const jumpRatio = at101.imgW / at100.imgW;
             if (at101.objectFit === 'contain') ok('crop preview object-fit', 'contain');
             else bad('crop preview object-fit', at101.objectFit);

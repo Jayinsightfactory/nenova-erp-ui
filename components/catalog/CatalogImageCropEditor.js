@@ -9,6 +9,8 @@ import {
 import CatalogSlideImage from './CatalogSlideImage';
 import { absCatalogUrl } from '../../lib/catalogUtils';
 
+const CROP_PREVIEW_PX = 280;
+
 function clampScale(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return 100;
@@ -16,13 +18,16 @@ function clampScale(n) {
 }
 
 const NUDGE = 8;
+const DRAG_SENS = (CATALOG_POS_MAX - CATALOG_POS_MIN) / CROP_PREVIEW_PX;
 
-/** 슬라이드/PPT 칸과 동일한 정사각 — 드래그·슬라이더·회전 */
+/** 슬롯/PPT와 동일 DOM·비율 — 편집 중 슬롯 실시간 미리보기 연동 */
 export default function CatalogImageCropEditor({
   imageUrl,
   source,
+  slideStyle = {},
   busy = false,
   compact = false,
+  onPreviewChange,
   onSave,
   onClose,
 }) {
@@ -46,9 +51,21 @@ export default function CatalogImageCropEditor({
     source?.posX, source?.posY, source?.scale, source?.rotate,
   ]);
 
+  const previewCb = useRef(onPreviewChange);
+  previewCb.current = onPreviewChange;
+
+  useEffect(() => {
+    previewCb.current?.({ posX, posY, scale, rotate });
+  }, [posX, posY, scale, rotate]);
+
   const preview = {
     posX, posY, scale, rotate,
     imagePosX: posX, imagePosY: posY, imageScale: scale, imageRotate: rotate,
+  };
+
+  const previewVars = {
+    ...slideStyle,
+    '--cell-img': `${compact ? 160 : CROP_PREVIEW_PX}px`,
   };
 
   const applySave = async () => {
@@ -79,8 +96,8 @@ export default function CatalogImageCropEditor({
       if (!st) return;
       const dx = ev.clientX - st.x;
       const dy = ev.clientY - st.y;
-      setPosX(clampCatalogPos(st.posX + dx * 1.4));
-      setPosY(clampCatalogPos(st.posY + dy * 1.4));
+      setPosX(clampCatalogPos(st.posX + dx * DRAG_SENS));
+      setPosY(clampCatalogPos(st.posY + dy * DRAG_SENS));
     };
     const onUp = () => {
       startRef.current = null;
@@ -91,18 +108,20 @@ export default function CatalogImageCropEditor({
     window.addEventListener('pointerup', onUp);
   };
 
-  const frameH = compact ? 120 : 220;
   const disabled = busy || saving;
 
   return (
     <div className={`catalog-crop-editor ${compact ? 'compact' : ''}`}>
+      <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 정사각 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
       <div
-        className="catalog-crop-frame"
-        style={{ height: frameH, maxHeight: frameH }}
+        className="catalog-crop-slot-mirror"
+        style={previewVars}
         onPointerDown={onFramePointerDown}
-        title="드래그로 상하·좌우 이동 (채우기 기준 · PPT 칸과 동일)"
+        title="드래그로 상하·좌우 이동"
       >
-        <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
+        <div className="catalog-slide-img">
+          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
+        </div>
       </div>
 
       <div className="catalog-crop-nudge">
@@ -175,15 +194,20 @@ export default function CatalogImageCropEditor({
 
       <style jsx>{`
         .catalog-crop-editor { margin-top: 6px; }
-        .catalog-crop-frame {
-          width: 100%; border: 1px solid var(--border2); border-radius: 4px;
-          overflow: hidden; background: #fafafa; cursor: grab; touch-action: none;
-          aspect-ratio: 1;
+        .catalog-crop-wysiwyg-hint {
+          font-size: 10px; color: var(--text3); margin: 0 0 8px; text-align: center;
         }
-        .catalog-crop-frame :global(.catalog-slide-img-inner) {
-          width: 100%; height: 100%;
+        .catalog-crop-slot-mirror {
+          margin: 0 auto;
+          width: fit-content;
+          cursor: grab;
+          touch-action: none;
         }
-        .catalog-crop-frame:active { cursor: grabbing; }
+        .catalog-crop-slot-mirror :global(.catalog-slide-img) {
+          border: 2px solid var(--blue);
+          box-shadow: 0 0 0 2px var(--blue-bg);
+        }
+        .catalog-crop-slot-mirror:active { cursor: grabbing; }
         .catalog-crop-nudge {
           margin-top: 8px; display: flex; align-items: center; gap: 8px;
         }

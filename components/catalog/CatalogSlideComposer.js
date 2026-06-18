@@ -5,6 +5,7 @@ import {
   absCatalogUrl,
   catalogLineNames,
 } from '../../lib/catalogUtils';
+import { resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
 import { catalogPptImageSizeLabel, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
 import { CATALOG_SLIDE_CSS } from './catalogSlideCss';
@@ -186,6 +187,34 @@ export default function CatalogSlideComposer({
   const slotCount = perPageSlotCount(perPage);
 
   const [expandedSlideId, setExpandedSlideId] = useState(null);
+  const [cropDraft, setCropDraft] = useState(null);
+
+  const cropLine = cropLineId ? linesById[cropLineId] : null;
+
+  useEffect(() => {
+    if (!cropLine) {
+      setCropDraft(null);
+      return;
+    }
+    const t = resolveCatalogImageTransform(cropLine);
+    setCropDraft({ posX: t.posX, posY: t.posY, scale: t.scale, rotate: t.rotate });
+  }, [cropLineId, cropLine?.imagePosX, cropLine?.imagePosY, cropLine?.imageScale, cropLine?.imageRotate]);
+
+  const lineWithCropDraft = useCallback((line) => {
+    if (!line || line.id !== cropLineId || !cropDraft) return line;
+    return {
+      ...line,
+      imagePosX: cropDraft.posX,
+      imagePosY: cropDraft.posY,
+      imageScale: cropDraft.scale,
+      imageRotate: cropDraft.rotate,
+    };
+  }, [cropLineId, cropDraft]);
+
+  const closeCropModal = useCallback(() => {
+    setCropDraft(null);
+    onToggleCropLine?.(null);
+  }, [onToggleCropLine]);
 
   useEffect(() => {
     if (!slides.length) {
@@ -226,8 +255,6 @@ export default function CatalogSlideComposer({
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   };
-
-  const cropLine = cropLineId ? linesById[cropLineId] : null;
 
   return (
     <div className="catalog-composer">
@@ -362,7 +389,7 @@ export default function CatalogSlideComposer({
                   <div className="catalog-slide-grid">
                     {Array.from({ length: slotCount }, (_, idx) => {
                       const lineId = slide.slots?.[idx] ?? null;
-                      const line = lineId ? linesById[lineId] : null;
+                      const line = lineId ? lineWithCropDraft(linesById[lineId]) : null;
                       return (
                         <MiniSlot
                           key={`${slide.id}-${idx}`}
@@ -397,7 +424,7 @@ export default function CatalogSlideComposer({
       {cropLine?.imageUrl ? (
         <div
           className="catalog-crop-modal-overlay"
-          onClick={() => onToggleCropLine?.(null)}
+          onClick={closeCropModal}
           role="presentation"
         >
           <div
@@ -417,7 +444,7 @@ export default function CatalogSlideComposer({
                   </label>
                 ) : null}
               </div>
-              <button type="button" className="btn btn-sm" onClick={() => onToggleCropLine?.(null)}>닫기</button>
+              <button type="button" className="btn btn-sm" onClick={closeCropModal}>닫기</button>
             </div>
             <p className="catalog-crop-modal-sub">
               PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
@@ -425,11 +452,16 @@ export default function CatalogSlideComposer({
             <CatalogImageCropEditor
               imageUrl={cropLine.imageUrl}
               source={cropLine}
+              slideStyle={layoutCssVars(perPage, 'wide')}
+              onPreviewChange={setCropDraft}
               onSave={async (transform) => {
                 const ok = await onSaveLineCrop?.(cropLine, transform);
-                if (ok !== false) onToggleCropLine?.(null);
+                if (ok !== false) {
+                  setCropDraft(null);
+                  onToggleCropLine?.(null);
+                }
               }}
-              onClose={() => onToggleCropLine?.(null)}
+              onClose={closeCropModal}
             />
           </div>
         </div>
