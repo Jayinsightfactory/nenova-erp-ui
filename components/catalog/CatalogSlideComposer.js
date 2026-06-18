@@ -426,7 +426,8 @@ export default function CatalogSlideComposer({
               imageUrl={cropLine.imageUrl}
               source={cropLine}
               onSave={async (transform) => {
-                await onSaveLineCrop?.(cropLine, transform);
+                const ok = await onSaveLineCrop?.(cropLine, transform);
+                if (ok !== false) onToggleCropLine?.(null);
               }}
               onClose={() => onToggleCropLine?.(null)}
             />

@@ -7,7 +7,7 @@ import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { buildCatalogDraftPayload, normalizeLoadedLines } from '../../lib/catalogDraft';
 import { DEFAULT_CATALOG_FIELDS, normalizeCatalogFields } from '../../lib/catalogLineText';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
-import { catalogImageFieldsFromRecord } from '../../lib/catalogImagePosition';
+import { catalogImageFieldsFromRecord, mergeLineImageFields } from '../../lib/catalogImagePosition';
 import CatalogSlideImage from '../../components/catalog/CatalogSlideImage';
 import {
   buildCatalogAutoFitTransform,
@@ -280,28 +280,7 @@ export default function CatalogPage() {
       if (!prod) return line;
       const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
       const img = pickImageForLine(imgMap, line);
-      const imgFields = img
-        ? (() => {
-          const f = catalogImageFieldsFromRecord(img);
-          return {
-            imageId: line.imageId || f.imageId || null,
-            imageUrl: line.imageUrl || absCatalogUrl(f.imageUrl) || null,
-            imagePosX: f.imagePosX,
-            imagePosY: f.imagePosY,
-            imageScale: f.imageScale,
-            imageRotate: f.imageRotate,
-            imageAutoAdjusted: f.imageAutoAdjusted,
-            imageManualAdjusted: f.imageManualAdjusted,
-          };
-        })()
-        : {
-          imagePosX: line.imagePosX ?? 50,
-          imagePosY: line.imagePosY ?? 50,
-          imageScale: line.imageScale ?? 100,
-          imageRotate: line.imageRotate ?? 0,
-          imageAutoAdjusted: line.imageAutoAdjusted ?? false,
-          imageManualAdjusted: line.imageManualAdjusted ?? false,
-        };
+      const imgFields = mergeLineImageFields(line, img);
       return {
         ...line,
         arrivalCost: arrival,
@@ -391,12 +370,7 @@ export default function CatalogPage() {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (saved.lines?.length) {
-        setLines(saved.lines.map(l => ({
-          ...l,
-          extra1: l.extra1 ?? '',
-          extra2: l.extra2 ?? '',
-          extra3: l.extra3 ?? '',
-        })));
+        setLines(saved.lines.map(l => normalizeLoadedLines([l])[0]));
       }
       if (saved.composerSlides?.length) setComposerSlides(saved.composerSlides);
       if (saved.activeSlideTarget) setActiveSlideTarget(saved.activeSlideTarget);
@@ -547,10 +521,10 @@ export default function CatalogPage() {
         ? images.find(i => i.id === l.imageId)
         : (images.find(i => i.isPrimary) || images[0]);
       if (!img) return l;
-      const f = catalogImageFieldsFromRecord(img);
+      const f = mergeLineImageFields(l, img);
       return {
         ...l,
-        imageUrl: absCatalogUrl(f.imageUrl),
+        imageUrl: absCatalogUrl(f.imageUrl || l.imageUrl),
         imagePosX: f.imagePosX,
         imagePosY: f.imagePosY,
         imageScale: f.imageScale,
@@ -698,19 +672,34 @@ export default function CatalogPage() {
       imageManualAdjusted: isManual,
     };
     updateLine(line.id, patch);
-    if (line.imageId) {
+
+    const imageId = line.imageId
+      || pickImageForLine(imagesByProd, line)?.id
+      || pickPrimaryImageRecord(imagesByProd, line.prodKey)?.id;
+
+    const fitKey = `${line.id}:${imageId || line.imageUrl}`;
+    autoFitDoneRef.current.add(fitKey);
+
+    if (imageId) {
       try {
-        await updateCatalogImagePosition(line.imageId, {
+        await updateCatalogImagePosition(imageId, {
           posX, posY, scale, rotate,
           autoAdjusted: patch.imageAutoAdjusted,
           manualAdjusted: patch.imageManualAdjusted,
         });
+        if (!line.imageId) {
+          updateLine(line.id, { imageId });
+        }
         const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
-        handleImagesChange(line.prodKey, data.images || []);
+        setImagesByProd(prev => ({ ...prev, [String(line.prodKey)]: data.images || [] }));
       } catch (e) {
-        setMatchSaveInfo(`이미지 저장 실패: ${e.message}`);
+        setMatchSaveInfo(`이미지 위치 저장 실패: ${e.message}`);
+        return false;
       }
     }
+
+    setMatchSaveInfo(`이미지 위치 저장됨: ${line.engName || line.catalogName || line.prodKey}`);
+    return true;
   };
 
   const autoFitDoneRef = useRef(new Set());
