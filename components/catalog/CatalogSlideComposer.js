@@ -191,14 +191,15 @@ export default function CatalogSlideComposer({
 
   const cropLine = cropLineId ? linesById[cropLineId] : null;
 
+  // 모달을 열 때만 초기화 — 편집 중 cropDraft가 라인 동기화에 의해 되돌아가지 않게
   useEffect(() => {
-    if (!cropLine) {
+    if (!cropLineId || !cropLine) {
       setCropDraft(null);
       return;
     }
     const t = resolveCatalogImageTransform(cropLine);
     setCropDraft({ posX: t.posX, posY: t.posY, scale: t.scale, rotate: t.rotate });
-  }, [cropLineId, cropLine?.imagePosX, cropLine?.imagePosY, cropLine?.imageScale, cropLine?.imageRotate]);
+  }, [cropLineId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lineWithCropDraft = useCallback((line) => {
     if (!line || line.id !== cropLineId || !cropDraft) return line;
@@ -450,9 +451,9 @@ export default function CatalogSlideComposer({
               PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
             </p>
             <CatalogImageCropEditor
+              key={cropLineId}
               imageUrl={cropLine.imageUrl}
               source={cropLine}
-              slideStyle={layoutCssVars(perPage, 'wide')}
               onPreviewChange={setCropDraft}
               onSave={async (transform) => {
                 const ok = await onSaveLineCrop?.(cropLine, transform);

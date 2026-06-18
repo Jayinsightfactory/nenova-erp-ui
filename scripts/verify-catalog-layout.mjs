@@ -194,8 +194,8 @@ async function main() {
 
           await setScale(100);
           const at100 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
-            const frame = document.querySelector('.catalog-crop-modal .catalog-slide-img');
+            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame img');
+            const frame = document.querySelector('.catalog-crop-modal .catalog-crop-frame');
             if (!img || !frame) return null;
             const fr = frame.getBoundingClientRect();
             const ir = img.getBoundingClientRect();
@@ -209,7 +209,7 @@ async function main() {
 
           await setScale(101);
           const at101 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
+            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame img');
             if (!img) return null;
             const ir = img.getBoundingClientRect();
             return { imgW: ir.width, objectFit: getComputedStyle(img).objectFit };
@@ -217,7 +217,7 @@ async function main() {
 
           await setScale(110);
           const at110 = await page.evaluate(() => {
-            const img = document.querySelector('.catalog-crop-modal .catalog-slide-img img');
+            const img = document.querySelector('.catalog-crop-modal .catalog-crop-frame img');
             return img ? { imgW: img.getBoundingClientRect().width } : null;
           });
 

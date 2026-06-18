@@ -18,7 +18,7 @@ function clampScale(n) {
 }
 
 const NUDGE = 8;
-const DRAG_SENS = (CATALOG_POS_MAX - CATALOG_POS_MIN) / CROP_PREVIEW_PX;
+const DRAG_SENS = 1.2;
 
 /** 슬롯/PPT와 동일 DOM·비율 — 편집 중 슬롯 실시간 미리보기 연동 */
 export default function CatalogImageCropEditor({
@@ -39,22 +39,24 @@ export default function CatalogImageCropEditor({
   const [rotate, setRotate] = useState(init.rotate);
   const [saving, setSaving] = useState(false);
 
+  // 다른 품목/이미지로 바뀔 때만 초기화 — 편집 중 라인 동기화가 슬라이더를 되돌리지 않게
   useEffect(() => {
     const next = resolveCatalogImageTransform(source);
     setPosX(next.posX);
     setPosY(next.posY);
     setScale(next.scale);
     setRotate(next.rotate);
-  }, [
-    source?.imageId, source?.id,
-    source?.imagePosX, source?.imagePosY, source?.imageScale, source?.imageRotate,
-    source?.posX, source?.posY, source?.scale, source?.rotate,
-  ]);
+  }, [source?.imageId, source?.id]);
 
   const previewCb = useRef(onPreviewChange);
   previewCb.current = onPreviewChange;
+  const skipPreviewEmit = useRef(true);
 
   useEffect(() => {
+    if (skipPreviewEmit.current) {
+      skipPreviewEmit.current = false;
+      return;
+    }
     previewCb.current?.({ posX, posY, scale, rotate });
   }, [posX, posY, scale, rotate]);
 
@@ -63,10 +65,7 @@ export default function CatalogImageCropEditor({
     imagePosX: posX, imagePosY: posY, imageScale: scale, imageRotate: rotate,
   };
 
-  const previewVars = {
-    ...slideStyle,
-    '--cell-img': `${compact ? 160 : CROP_PREVIEW_PX}px`,
-  };
+  const framePx = compact ? 160 : CROP_PREVIEW_PX;
 
   const applySave = async () => {
     setSaving(true);
@@ -114,14 +113,12 @@ export default function CatalogImageCropEditor({
     <div className={`catalog-crop-editor ${compact ? 'compact' : ''}`}>
       <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 정사각 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
       <div
-        className="catalog-crop-slot-mirror"
-        style={previewVars}
+        className="catalog-crop-frame"
+        style={{ width: framePx, height: framePx }}
         onPointerDown={onFramePointerDown}
         title="드래그로 상하·좌우 이동"
       >
-        <div className="catalog-slide-img">
-          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
-        </div>
+        <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
       </div>
 
       <div className="catalog-crop-nudge">
@@ -197,17 +194,25 @@ export default function CatalogImageCropEditor({
         .catalog-crop-wysiwyg-hint {
           font-size: 10px; color: var(--text3); margin: 0 0 8px; text-align: center;
         }
-        .catalog-crop-slot-mirror {
+        .catalog-crop-frame {
           margin: 0 auto;
-          width: fit-content;
-          cursor: grab;
-          touch-action: none;
-        }
-        .catalog-crop-slot-mirror :global(.catalog-slide-img) {
           border: 2px solid var(--blue);
           box-shadow: 0 0 0 2px var(--blue-bg);
+          border-radius: 2px;
+          overflow: hidden;
+          background: #fff;
+          cursor: grab;
+          touch-action: none;
+          flex-shrink: 0;
         }
-        .catalog-crop-slot-mirror:active { cursor: grabbing; }
+        .catalog-crop-frame :global(.catalog-slide-img-inner) {
+          width: 100%;
+          height: 100%;
+        }
+        .catalog-crop-frame :global(img) {
+          pointer-events: none;
+        }
+        .catalog-crop-frame:active { cursor: grabbing; }
         .catalog-crop-nudge {
           margin-top: 8px; display: flex; align-items: center; gap: 8px;
         }
