@@ -25,9 +25,11 @@ export default withAuth(async function handler(req, res) {
     weekEnd,
     custKey,
     costMode = 'recent',
+    skipArrival,
   } = req.query;
 
   const mode = costMode === 'selected' ? 'selected' : 'recent';
+  const skipArrivalLoad = skipArrival === '1' || skipArrival === 'true';
 
   try {
     const year = orderYear || String(new Date().getFullYear());
@@ -50,7 +52,7 @@ export default withAuth(async function handler(req, res) {
       }
     }
 
-    const latest = await getLatestWarehouseWeek(year);
+    const latest = skipArrivalLoad ? null : await getLatestWarehouseWeek(year);
 
     const [productsRes, customersRes, flowersRes] = await Promise.all([
       query(
@@ -84,42 +86,44 @@ export default withAuth(async function handler(req, res) {
       fromFallback: 0,
     };
 
-    if (mode === 'recent') {
-      const anchor = latest?.weekStart;
-      costMeta.anchorWeek = anchor;
-      if (anchor) {
+    if (!skipArrivalLoad) {
+      if (mode === 'recent') {
+        const anchor = latest?.weekStart;
+        costMeta.anchorWeek = anchor;
+        if (anchor) {
+          try {
+            const fb = await getArrivalCostsWithFallback({
+              orderYear: latest?.orderYear || year,
+              anchorWeek: anchor,
+            });
+            arrivalMap = fb.map;
+            costMeta.weeksScanned = fb.weeksScanned;
+            costMeta.fromFallback = fb.fromFallback;
+            costMeta.anchorWeek = fb.anchorWeek;
+          } catch (e) {
+            arrivalError = e.message;
+            arrivalMap = {};
+          }
+        } else {
+          arrivalError = '입고 데이터가 있는 최신 차수를 찾을 수 없습니다.';
+        }
+      } else if (parsed.weekStart && !weekParseError) {
+        costMeta.anchorWeek = parsed.weekStart;
         try {
           const fb = await getArrivalCostsWithFallback({
-            orderYear: latest?.orderYear || year,
-            anchorWeek: anchor,
+            orderYear: parsed.orderYear,
+            anchorWeek: parsed.weekStart,
           });
           arrivalMap = fb.map;
           costMeta.weeksScanned = fb.weeksScanned;
           costMeta.fromFallback = fb.fromFallback;
-          costMeta.anchorWeek = fb.anchorWeek;
         } catch (e) {
           arrivalError = e.message;
           arrivalMap = {};
         }
-      } else {
-        arrivalError = '입고 데이터가 있는 최신 차수를 찾을 수 없습니다.';
+      } else if (mode === 'selected' && !parsed.weekStart) {
+        arrivalError = '선택 차수를 지정하세요.';
       }
-    } else if (parsed.weekStart && !weekParseError) {
-      costMeta.anchorWeek = parsed.weekStart;
-      try {
-        const fb = await getArrivalCostsWithFallback({
-          orderYear: parsed.orderYear,
-          anchorWeek: parsed.weekStart,
-        });
-        arrivalMap = fb.map;
-        costMeta.weeksScanned = fb.weeksScanned;
-        costMeta.fromFallback = fb.fromFallback;
-      } catch (e) {
-        arrivalError = e.message;
-        arrivalMap = {};
-      }
-    } else if (mode === 'selected' && !parsed.weekStart) {
-      arrivalError = '선택 차수를 지정하세요.';
     }
 
     const uploadStore = loadArrivalOverrides();
@@ -225,7 +229,8 @@ export default withAuth(async function handler(req, res) {
         latestWeek: costMeta.latestWeek,
         anchorWeek: costMeta.anchorWeek,
         uploadFileName: uploadStore.fileName || null,
-        error: arrivalError,
+        skipped: skipArrivalLoad,
+        error: skipArrivalLoad ? null : arrivalError,
       },
       products,
       customers: customersRes.recordset,

@@ -318,6 +318,67 @@ export default function CatalogPage() {
     }));
   }, [useVatArrival]);
 
+  const refreshCatalogImages = useCallback(async () => {
+    try {
+      const imgData = await apiGet('/api/catalog/images');
+      const imgMap = imgData.byProdKey || {};
+      setImagesByProd(imgMap);
+      const regCount = Object.keys(imgMap).filter(k => imgMap[k]?.length).length;
+      setImageInfo({ registered: regCount, total: imgData.images?.length || 0 });
+      return imgMap;
+    } catch (e) {
+      console.warn('[catalog] images:', e.message);
+      setImageInfo({ error: e.message });
+      return {};
+    }
+  }, []);
+
+  const mergeBootstrapLines = useCallback((prods, imgMap) => {
+    setLines(prev => {
+      if (!prev.length) return prev;
+      return prev.map(line => {
+        const prod = findProd(prods, line.prodKey);
+        if (!prod) return line;
+        const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
+        const img = pickImageForLine(imgMap, line) || pickPrimaryImageRecord(imgMap, line.prodKey);
+        const imgFields = mergeLineImageFields(line, img);
+        return {
+          ...line,
+          arrivalCost: arrival,
+          arrivalUnit: prod.arrivalUnit || line.arrivalUnit,
+          salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
+          ...imgFields,
+        };
+      });
+    });
+  }, [useVatArrival]);
+
+  /** 페이지 진입 — 품목·이미지·거래처만 (도착원가 SQL 스캔 없음) */
+  const loadProductsLite = useCallback(async () => {
+    setLoading(true);
+    setErr('');
+    try {
+      const data = await apiGet('/api/catalog/bootstrap', {
+        orderYear: yearInput.value,
+        costMode: 'recent',
+        skipArrival: '1',
+        autoImport: '0',
+        custKey: custKey || undefined,
+      });
+      const prods = data.products || [];
+      setProducts(prods);
+      setCustomers(data.customers || []);
+      setArrivalStats(data.arrivalStats || null);
+      setUploadMeta(data.uploadMeta || null);
+      const imgMap = await refreshCatalogImages();
+      mergeBootstrapLines(prods, imgMap);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [yearInput.value, custKey, refreshCatalogImages, mergeBootstrapLines]);
+
   const loadData = useCallback(async () => {
     if (costMode === 'selected' && !selectedWeekInput.value) {
       setErr('선택 차수를 지정하거나 [최근원가] 모드를 사용하세요.');
@@ -338,9 +399,9 @@ export default function CatalogPage() {
       setArrivalStats(data.arrivalStats || null);
       setUploadMeta(data.uploadMeta || null);
       setLatestWeek(data.arrivalStats?.latestWeek || data.costMeta?.latestWeek || null);
-      if (data.arrivalStats?.error && !(data.arrivalStats?.fromUpload > 0)) {
+      if (!data.arrivalStats?.skipped && data.arrivalStats?.error && !(data.arrivalStats?.fromUpload > 0)) {
         setErr(`도착원가: ${data.arrivalStats.error}`);
-      } else       if (data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
+      } else if (!data.arrivalStats?.skipped && data.arrivalStats?.withArrival === 0 && !(data.arrivalStats?.fromUpload > 0)) {
         const anchor = data.arrivalStats?.anchorWeek || latestWeek || '—';
         setErr(`도착원가 자동 계산 결과가 없습니다. (기준 차수: ${anchor}) — 입고원장·운송기준원가(/freight) 데이터를 확인하세요.`);
       }
@@ -351,40 +412,21 @@ export default function CatalogPage() {
       }
       let imgMap = {};
       try {
-        const imgData = await apiGet('/api/catalog/images');
-        imgMap = imgData.byProdKey || {};
-        setImagesByProd(imgMap);
-        const regCount = Object.keys(imgMap).filter(k => imgMap[k]?.length).length;
-        setImageInfo({ registered: regCount, total: imgData.images?.length || 0 });
-      } catch (e) {
-        console.warn('[catalog] images:', e.message);
-        setImageInfo({ error: e.message });
+        imgMap = await refreshCatalogImages();
+      } catch {
+        imgMap = {};
       }
-      setLines(prev => {
-        if (!prev.length) return prev;
-        return prev.map(line => {
-          const prod = findProd(prods, line.prodKey);
-          if (!prod) return line;
-          const arrival = effectiveArrival(prod.arrivalCost, useVatArrival);
-          const img = pickImageForLine(imgMap, line) || pickPrimaryImageRecord(imgMap, line.prodKey);
-          const imgFields = mergeLineImageFields(line, img);
-          return {
-            ...line,
-            arrivalCost: arrival,
-            arrivalUnit: prod.arrivalUnit || line.arrivalUnit,
-            salePrice: line.salePrice > 0 ? line.salePrice : (prod.customerCost ?? prod.Cost ?? 0),
-            ...imgFields,
-          };
-        });
-      });
+      mergeBootstrapLines(prods, imgMap);
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
     }
-  }, [yearInput.value, costMode, selectedWeekInput.value, custKey, useVatArrival, latestWeek]);
+  }, [yearInput.value, costMode, selectedWeekInput.value, custKey, useVatArrival, latestWeek, refreshCatalogImages, mergeBootstrapLines]);
 
-  // 도착원가·품목 목록은 ① 불러오기 버튼으로만 로드 (페이지 진입 시 자동 조회 없음)
+  useEffect(() => {
+    loadProductsLite();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     try {
@@ -1342,6 +1384,11 @@ export default function CatalogPage() {
 
         {err && <div className="banner-warn">{err}</div>}
         {matchSaveInfo && !err && <div className="banner-ok">{matchSaveInfo}</div>}
+        {!err && arrivalStats?.skipped && (
+          <div className="banner-info" style={{ marginBottom: 4 }}>
+            품목 목록은 준비됨 — <b>① 도착원가 불러오기</b>를 누르면 도착원가·기준 차수가 조회됩니다.
+          </div>
+        )}
         {!err && imageInfo?.registered === 0 && !imageInfo?.error && products.length > 0 && (
           <div className="banner-warn" style={{ background: '#fff8e6' }}>
             <b>이미지 0품목</b> — 사진은 서버의 <b>카달로그_통합본.pptx</b>에서 자동 등록됩니다.
@@ -1453,7 +1500,7 @@ export default function CatalogPage() {
               ) : null}
               {!products.length && !loading && (
                 <div className="empty-state" style={{ gridColumn: '1/-1' }}>
-                  <div className="empty-text">[도착원가 불러오기]로 최근원가를 불러오세요.</div>
+                  <div className="empty-text">품목 목록을 불러오지 못했습니다. 새로고침 후 다시 시도하세요.</div>
                 </div>
               )}
               {visibleProducts.map(prod => {
