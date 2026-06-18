@@ -64,18 +64,33 @@ function readSavedCatalog() {
   }
 }
 
-/** 이미지 위치 적용 직후 sessionStorage에 반영 (재접속 전 useEffect 대기 방지) */
-function patchSavedCatalogLine(lineId, patch) {
-  if (typeof window === 'undefined' || !lineId) return;
+/** 적용 직후 전체 lines를 sessionStorage에 반영 */
+function flushCatalogSessionLines(nextLines) {
+  if (typeof window === 'undefined' || !Array.isArray(nextLines)) return;
   try {
     const saved = readSavedCatalog() || {};
-    const nextLines = normalizeLoadedLines(
-      (saved.lines || []).map(l => (l.id === lineId ? { ...l, ...patch } : l)),
-    );
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, lines: nextLines }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...saved,
+      lines: normalizeLoadedLines(
+        nextLines.map(l => ({ ...l, imageUrl: absCatalogUrl(l.imageUrl) })),
+      ),
+    }));
   } catch {
     /* ignore */
   }
+}
+
+function resolveLineImageId(line, imagesByProd) {
+  const list = imagesByProd?.[String(line.prodKey)] || imagesByProd?.[line.prodKey] || [];
+  if (line.imageId && list.some(i => i.id === line.imageId)) return line.imageId;
+  const url = absCatalogUrl(line.imageUrl);
+  if (url) {
+    const matched = list.find(i => absCatalogUrl(i.url) === url);
+    if (matched?.id) return matched.id;
+  }
+  return pickImageForLine(imagesByProd, line)?.id
+    || pickPrimaryImageRecord(imagesByProd, line.prodKey)?.id
+    || null;
 }
 
 function findProd(prods, prodKey) {
@@ -155,6 +170,12 @@ export default function CatalogPage() {
   const [picker, setPicker] = useState(null);
   const [matchSaveInfo, setMatchSaveInfo] = useState('');
   const persistTimers = useRef({});
+  const linesRef = useRef(lines);
+  const imagesByProdRef = useRef(imagesByProd);
+  const skipImageSyncRef = useRef(false);
+
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => { imagesByProdRef.current = imagesByProd; }, [imagesByProd]);
 
   const applySavedMatchToProduct = useCallback((prodKey, { engName, korName }) => {
     setProducts(prev => prev.map(p => {
@@ -313,6 +334,7 @@ export default function CatalogPage() {
   );
 
   const syncLinesFromProducts = useCallback((prods, imgMap) => {
+    if (skipImageSyncRef.current) return;
     setLines(prev => prev.map(line => {
       const prod = findProd(prods, line.prodKey);
       if (!prod) return line;
@@ -745,12 +767,31 @@ export default function CatalogPage() {
       imageManualAdjusted: isManual,
     };
 
-    const imageId = line.imageId
-      || pickImageForLine(imagesByProd, line)?.id
-      || pickPrimaryImageRecord(imagesByProd, line.prodKey)?.id;
+    const imgMap = imagesByProdRef.current;
+    const imageId = resolveLineImageId(line, imgMap);
 
     const fitKey = `${line.id}:${imageId || line.imageUrl}`;
     autoFitDoneRef.current.add(fitKey);
+
+    const applyLinePatch = (linePatch, savedImage) => {
+      skipImageSyncRef.current = true;
+      setLines(prev => {
+        const next = prev.map(l => (l.id === line.id ? { ...l, ...linePatch } : l));
+        flushCatalogSessionLines(next);
+        return next;
+      });
+      if (savedImage && imageId) {
+        const key = String(line.prodKey);
+        setImagesByProd(prev => {
+          const list = prev[key] || [];
+          const updated = list.some(i => i.id === imageId)
+            ? list.map(i => (i.id === imageId ? savedImage : i))
+            : [...list, savedImage];
+          return { ...prev, [key]: updated };
+        });
+      }
+      window.setTimeout(() => { skipImageSyncRef.current = false; }, 0);
+    };
 
     if (imageId) {
       try {
@@ -762,20 +803,17 @@ export default function CatalogPage() {
         const fields = catalogImageFieldsFromRecord(savedImage);
         const linePatch = {
           ...fields,
+          imageId: savedImage.id || imageId,
           imageManualAdjusted: true,
           imageAutoAdjusted: fields.imageAutoAdjusted,
         };
-        updateLine(line.id, linePatch);
-        patchSavedCatalogLine(line.id, linePatch);
-        const data = await apiGet('/api/catalog/images', { prodKey: line.prodKey });
-        setImagesByProd(prev => ({ ...prev, [String(line.prodKey)]: data.images || [] }));
+        applyLinePatch(linePatch, savedImage);
       } catch (e) {
         setMatchSaveInfo(`이미지 위치 저장 실패: ${e.message}`);
         return false;
       }
     } else {
-      updateLine(line.id, patch);
-      patchSavedCatalogLine(line.id, patch);
+      applyLinePatch({ ...patch, imageId: null }, null);
       setMatchSaveInfo(`이미지 위치 저장됨(품목만): ${line.engName || line.catalogName || line.prodKey} — 이미지 등록 시 서버에도 반영됩니다`);
       return true;
     }
