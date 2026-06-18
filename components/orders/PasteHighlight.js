@@ -67,20 +67,37 @@ function renderTokens(line) {
 }
 function tok(s) { return { ...s, borderRadius: 3, padding: '0 3px', fontWeight: 700 }; }
 
-export default function PasteHighlight({ text, customers }) {
+export default function PasteHighlight({ text, customers, embedded = false }) {
   const custSet = useMemo(() => buildCustomerSet(customers), [customers]);
   const lines = (text || '').split('\n');
 
   return (
-    <div style={{ border: '1px solid #cfd8dc', borderRadius: 6, background: '#fff', marginTop: 8 }}>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '6px 10px', borderBottom: '1px solid #eceff1', fontSize: 11 }}>
+    <div style={{
+      border: '1px solid #cfd8dc', borderRadius: 6, background: '#fff',
+      marginTop: embedded ? 0 : 8,
+      flex: embedded ? '1 1 auto' : undefined,
+      minHeight: embedded ? 120 : undefined,
+      display: embedded ? 'flex' : 'block',
+      flexDirection: embedded ? 'column' : undefined,
+      minWidth: 0,
+    }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '5px 8px', borderBottom: '1px solid #eceff1', fontSize: 10, flexShrink: 0 }}>
         <Legend c={C.week.bar} t="차수/날짜" />
         <Legend c={C.add.bar} t="추가" />
         <Legend c={C.cancel.bar} t="취소/삭제" />
         <Legend c={C.customer.bar} t="거래처" />
         <Legend c={C.product.bar} t="품목+수량" />
       </div>
-      <div style={{ maxHeight: 430, overflow: 'auto', padding: '4px 0', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.5 }}>
+      <div style={{
+        maxHeight: embedded ? 'none' : 430,
+        flex: embedded ? 1 : undefined,
+        minHeight: embedded ? 0 : undefined,
+        overflow: 'auto',
+        padding: '2px 0',
+        fontFamily: 'monospace',
+        fontSize: 12,
+        lineHeight: 1.4,
+      }}>
         {lines.map((line, i) => {
           const cat = classifyLine(line, custSet);
           const col = C[cat] || C.plain;

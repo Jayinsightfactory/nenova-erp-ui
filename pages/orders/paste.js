@@ -2547,7 +2547,7 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '16px 20px', maxWidth: 1320, margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+      <div style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
@@ -2696,8 +2696,9 @@ export default function PasteOrderPage() {
           })()}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, marginBottom: 14 }}>
-          <div style={{ border: '1px solid #c5cae9', borderRadius: 8, padding: 12, background: '#f7f8ff', minWidth: 0 }}>
+        <div className="paste-input-grid" style={{ marginBottom: 12 }}>
+          {/* 1열: 주문 붙여넣기 */}
+          <div className="paste-col paste-col-order">
             <label style={labelS}>
               붙여넣기 주문등록
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
@@ -2705,60 +2706,79 @@ export default function PasteOrderPage() {
               </span>
             </label>
             <textarea
-              style={{ width: '100%', height: 520, padding: '10px 12px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              className="paste-main-ta"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
-            {showExcludeHighlight && (
-              <PasteExcludeHighlight
-                text={pasteText}
-                excludedLines={pasteExcludedLines}
-                onExcludedLinesChange={setPasteExcludedLines}
-                title="제외 하이라이트 (주문)"
-              />
-            )}
-            {showHighlight && <PasteHighlight text={pasteText} customers={allCustomers} />}
           </div>
 
-          <div style={{ border: '1px solid #b8c7d9', borderRadius: 8, padding: 12, background: '#f8fbff', minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
-              <label style={{ ...labelS, marginBottom: 0 }}>
-                기초재고 입력
-                <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                  시작 기준 · 등록차수와 별도
-                </span>
-              </label>
+          {/* 2열: 주문 제외·하이라이트 */}
+          <div className="paste-col paste-col-order-side">
+            <label style={{ ...labelS, marginBottom: 6 }}>
+              주문 보조
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                제외 · 색상 미리보기
+              </span>
+            </label>
+            <div className="paste-col-side-scroll">
+              {showExcludeHighlight ? (
+                <PasteExcludeHighlight
+                  text={pasteText}
+                  excludedLines={pasteExcludedLines}
+                  onExcludedLinesChange={setPasteExcludedLines}
+                  title="제외 하이라이트 (주문)"
+                  embedded
+                />
+              ) : (
+                <div className="paste-side-off">🚫 제외 하이라이트 OFF — 상단 버튼으로 켜세요</div>
+              )}
+              {showHighlight ? (
+                <PasteHighlight text={pasteText} customers={allCustomers} embedded />
+              ) : (
+                <div className="paste-side-off">🖍 하이라이트 OFF — 차수/거래처/품목 색 표시</div>
+              )}
             </div>
+          </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+          {/* 3열: 기초재고 */}
+          <div className="paste-col paste-col-stock">
+            <label style={{ ...labelS, marginBottom: 4 }}>
+              기초재고 입력
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                시작 기준 · 등록차수와 별도
+              </span>
+            </label>
+
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: '#475569', fontWeight: 800 }}>기준차수</span>
                 <input
                   list="paste-stock-base-week-list"
                   value={stockBaseWeek || ''}
                   onChange={e => { selectStockBaseWeek(e.target.value); setStockNoteStatus(''); }}
                   placeholder={week || '2026-23-01'}
-                  style={{ width: 108, height: 26, border: '1px solid #b8c7d9', borderRadius: 5, padding: '0 7px', fontSize: 12, boxSizing: 'border-box' }}
+                  style={{ width: 100, height: 24, border: '1px solid #b8c7d9', borderRadius: 5, padding: '0 6px', fontSize: 11, boxSizing: 'border-box' }}
                 />
                 <datalist id="paste-stock-base-week-list">
                   {weeks.map(w => <option key={w} value={w}>{formatWeekDisplay(w)}</option>)}
                 </datalist>
                 {stockBaseWeek && (
-                  <span style={{ fontSize: 11, color: '#1565c0', fontWeight: 700 }}>
-                    선택: {formatWeekDisplay(stockBaseWeek)}
+                  <span style={{ fontSize: 10, color: '#1565c0', fontWeight: 700 }}>
+                    {formatWeekDisplay(stockBaseWeek)}
                   </span>
                 )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>빠른선택</span>
-                {weeks.filter(w => w.match(/^\d{4}-/)).slice(0, 12).map(w => (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>빠른</span>
+                {weeks.filter(w => w.match(/^\d{4}-/)).slice(0, 8).map(w => (
                   <button
                     key={`base-${w}`}
                     type="button"
                     onClick={() => selectStockBaseWeek(w)}
                     style={{
-                      padding: '2px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
+                      padding: '1px 8px', borderRadius: 12, fontSize: 10, cursor: 'pointer',
                       border: stockBaseWeek === w ? '2px solid #0f766e' : '1px solid #cbd5e1',
                       background: stockBaseWeek === w ? '#0f766e' : '#fff',
                       color: stockBaseWeek === w ? '#fff' : '#334155',
@@ -2771,18 +2791,18 @@ export default function PasteOrderPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
               <button
                 onClick={() => loadStockNote(activeStockBaseWeek, { apply: true })}
                 disabled={!currentStockNote || stockNoteLoading}
-                style={{ height: 26, padding: '0 9px', border: '1px solid #94a3b8', borderRadius: 5, background: currentStockNote ? '#fff' : '#f1f5f9', color: currentStockNote ? '#334155' : '#94a3b8', fontSize: 11, fontWeight: 800, cursor: currentStockNote ? 'pointer' : 'default' }}
+                style={{ height: 24, padding: '0 8px', border: '1px solid #94a3b8', borderRadius: 5, background: currentStockNote ? '#fff' : '#f1f5f9', color: currentStockNote ? '#334155' : '#94a3b8', fontSize: 10, fontWeight: 800, cursor: currentStockNote ? 'pointer' : 'default' }}
               >
                 불러오기
               </button>
               <button
                 onClick={openStockPicker}
                 disabled={stockNoteLoading}
-                style={{ height: 26, padding: '0 9px', border: '1px solid #1565c0', borderRadius: 5, background: '#e3f2fd', color: '#0d47a1', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                style={{ height: 24, padding: '0 8px', border: '1px solid #1565c0', borderRadius: 5, background: '#e3f2fd', color: '#0d47a1', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}
                 title="저장된 시작재고를 여러 개 골라 합쳐서 불러옵니다."
               >
                 📚 여러 개
@@ -2790,58 +2810,127 @@ export default function PasteOrderPage() {
               <button
                 onClick={() => saveStockNote({ forceCreate: true })}
                 disabled={stockNoteSaving || !hasStockNoteText}
-                style={{ height: 26, padding: '0 10px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
+                style={{ height: 24, padding: '0 8px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 10, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
                 추가저장
               </button>
               <button
                 onClick={() => saveStockNote()}
                 disabled={stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week)}
-                style={{ height: 26, padding: '0 10px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week) ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
+                style={{ height: 24, padding: '0 8px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week) ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 10, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
                 {stockNoteSaving ? '저장중' : (currentStockNote ? '수정저장' : '저장하기')}
               </button>
               <button
                 onClick={deleteStockNote}
                 disabled={stockNoteSaving || !currentStockNote}
-                style={{ height: 26, padding: '0 10px', border: '1px solid #dc2626', borderRadius: 5, background: stockNoteSaving || !currentStockNote ? '#fee2e2' : '#fff', color: currentStockNote ? '#dc2626' : '#fca5a5', fontSize: 11, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : currentStockNote ? 'pointer' : 'default' }}
+                style={{ height: 24, padding: '0 8px', border: '1px solid #dc2626', borderRadius: 5, background: stockNoteSaving || !currentStockNote ? '#fee2e2' : '#fff', color: currentStockNote ? '#dc2626' : '#fca5a5', fontSize: 10, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : currentStockNote ? 'pointer' : 'default' }}
               >
                 삭제
               </button>
             </div>
             {stockNoteStatus && (
-              <div style={{ fontSize: 11, color: stockNoteStatus.includes('실패') ? '#c62828' : '#0f766e', marginBottom: 6, fontWeight: 700 }}>
+              <div style={{ fontSize: 10, color: stockNoteStatus.includes('실패') ? '#c62828' : '#0f766e', marginBottom: 4, fontWeight: 700 }}>
                 {stockNoteStatus}
               </div>
             )}
             <textarea
-              style={{ width: '100%', height: 360, padding: '10px 12px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.45, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              className="paste-main-ta"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'수국\n블루 2\n라벤더 14\n화이트 1'}
               value={baseStockText}
               onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 저장 필요'); }}
             />
-            {showExcludeHighlight && (
-              <PasteExcludeHighlight
-                text={baseStockText}
-                excludedLines={baseStockExcludedLines}
-                onExcludedLinesChange={setBaseStockExcludedLines}
-                title="제외 하이라이트 (기초재고)"
-                hint="메모·별도 정보 줄은 드래그로 제외하세요. 매칭 대상이 아닙니다."
-              />
-            )}
-            {baseStockText.trim() && (
-              <BaseStockMatchPanel
-                rows={baseStockMatches}
-                editIdx={baseStockMatchEditIdx}
-                setEditIdx={setBaseStockMatchEditIdx}
-                allProducts={allProducts}
-                onRematch={() => rematchBaseStock()}
-                onPickProduct={(idx, prod) => applyBaseStockProduct(idx, prod, true)}
-                buildCandidates={buildCandidates}
-              />
-            )}
+          </div>
+
+          {/* 4열: 기초재고 제외·품목매칭 */}
+          <div className="paste-col paste-col-stock-side">
+            <label style={{ ...labelS, marginBottom: 6 }}>
+              기초재고 보조
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                제외 · 품목 매칭
+              </span>
+            </label>
+            <div className="paste-col-side-scroll">
+              {showExcludeHighlight ? (
+                <PasteExcludeHighlight
+                  text={baseStockText}
+                  excludedLines={baseStockExcludedLines}
+                  onExcludedLinesChange={setBaseStockExcludedLines}
+                  title="제외 하이라이트 (기초재고)"
+                  hint="메모·별도 정보 줄은 드래그로 제외하세요."
+                  embedded
+                />
+              ) : (
+                <div className="paste-side-off">🚫 제외 하이라이트 OFF</div>
+              )}
+              {baseStockText.trim() ? (
+                <BaseStockMatchPanel
+                  rows={baseStockMatches}
+                  editIdx={baseStockMatchEditIdx}
+                  setEditIdx={setBaseStockMatchEditIdx}
+                  allProducts={allProducts}
+                  onRematch={() => rematchBaseStock()}
+                  onPickProduct={(idx, prod) => applyBaseStockProduct(idx, prod, true)}
+                  buildCandidates={buildCandidates}
+                  embedded
+                />
+              ) : (
+                <div className="paste-side-off">기초재고를 입력하면 품목 매칭이 표시됩니다.</div>
+              )}
+            </div>
           </div>
         </div>
+
+        <style jsx global>{`
+          .paste-input-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            align-items: stretch;
+          }
+          .paste-col {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: min(500px, calc(100vh - 260px));
+          }
+          .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
+          .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; }
+          .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; }
+          .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; }
+          .paste-col .paste-main-ta {
+            flex: 1;
+            min-height: 160px;
+          }
+          .paste-col-side-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .paste-side-off {
+            font-size: 11px;
+            color: #94a3b8;
+            border: 1px dashed #cbd5e1;
+            border-radius: 6px;
+            padding: 10px;
+            line-height: 1.45;
+            background: #fff;
+          }
+          @media (max-width: 1500px) {
+            .paste-input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .paste-col { min-height: 380px; }
+          }
+          @media (max-width: 768px) {
+            .paste-input-grid { grid-template-columns: 1fr; }
+            .paste-col { min-height: 280px; }
+          }
+        `}</style>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
           <button
@@ -3635,7 +3724,7 @@ export default function PasteOrderPage() {
   );
 }
 
-function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch, onPickProduct, buildCandidates }) {
+function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch, onPickProduct, buildCandidates, embedded = false }) {
   const [search, setSearch] = useState('');
   const matchedCount = rows.filter(r => r.prodKey).length;
   const statusColor = (s) => {
@@ -3666,7 +3755,18 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
     : [];
 
   return (
-    <div style={{ marginTop: 8, border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', overflow: 'hidden' }}>
+    <div style={{
+      marginTop: embedded ? 0 : 8,
+      border: '1px solid #cbd5e1',
+      borderRadius: 6,
+      background: '#fff',
+      overflow: 'hidden',
+      flex: embedded ? '1 1 auto' : undefined,
+      minHeight: embedded ? 140 : undefined,
+      display: embedded ? 'flex' : 'block',
+      flexDirection: embedded ? 'column' : undefined,
+      minWidth: 0,
+    }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
         <strong style={{ fontSize: 12, color: '#334155' }}>기초재고 입력 = 매칭결과</strong>
         <span style={{ fontSize: 11, color: matchedCount === rows.length ? '#2e7d32' : '#e65100', fontWeight: 700 }}>
@@ -3676,7 +3776,7 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
           🔄 다시 매칭
         </button>
       </div>
-      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+      <div style={{ flex: embedded ? 1 : undefined, minHeight: embedded ? 0 : undefined, maxHeight: embedded ? 'none' : 240, overflowY: 'auto' }}>
         {rows.map((row, idx) => (
           <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>

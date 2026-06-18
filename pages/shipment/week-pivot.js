@@ -1402,6 +1402,15 @@ export default function WeekPivot() {
           /* 스크롤바 두껍게 — 잡기 쉽게 */
           .wp-top-scroll::-webkit-scrollbar, .wp-pivot::-webkit-scrollbar { height: 14px; }
           .wp-top-scroll::-webkit-scrollbar-thumb, .wp-pivot::-webkit-scrollbar-thumb { background: #1976d2; border-radius: 7px; }
+          /* 업체명 헤더 — 밝은 배경 + 진한 글씨 (전역 .tbl thead 덮어씀) */
+          .wp-pivot thead tr.wp-col-header-row { background: #f1f5f9 !important; color: #0f172a !important; }
+          .wp-pivot thead tr.wp-area-header-row { background: #dbeafe !important; color: #1e3a8a !important; }
+          .wp-pivot thead tr.wp-col-header-row th.pv-cust-head {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+            font-size: max(10px, ${pvFontSize}px) !important;
+          }
+          .wp-pivot thead tr.wp-area-header-row th { color: #1e3a8a !important; }
         `}</style>
         {/* 상단 가로 스크롤 미러 — 표를 위로 안 올려도 가로이동 가능 */}
         <div ref={pvTopScrollRef} className="wp-top-scroll"
@@ -1447,34 +1456,34 @@ export default function WeekPivot() {
                 );
               })}
             </tr>
-            <tr style={st.thead}>
+            <tr className="wp-area-header-row" style={st.theadArea}>
               {weeks.map(wk=>(
                 <React.Fragment key={wk}>
                   {areaGroups.map((ag,ai)=>(
-                    <th key={`${wk}-a${ai}`} colSpan={ag.count} style={{...st.th,textAlign:'center',background:'#455a64',fontSize:9,borderLeft:ai===0?'2px solid #fff':'none'}}>{ag.area}</th>
+                    <th key={`${wk}-a${ai}`} colSpan={ag.count} style={{...st.thArea,borderLeft:ai===0?'2px solid #fff':'none'}}>{ag.area}</th>
                   ))}
-                  <th colSpan={stockCols} style={{...st.th,textAlign:'center',background:'#004d40',fontSize:9}}>재고</th>
+                  <th colSpan={stockCols} style={{...st.thArea,background:'#ccfbf1',color:'#115e59'}}>재고</th>
                 </React.Fragment>
               ))}
             </tr>
-            <tr className="wp-col-header-row" style={st.thead}>
+            <tr className="wp-col-header-row" style={st.theadCust}>
               {weeks.map(wk=>(
                 <React.Fragment key={wk}>
                   {custKeys.map((ck,ci)=>(
                     <React.Fragment key={`${wk}-${ck}`}>
-                      {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.th,background:'#ff8f00',fontSize:7,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
-                      <th className="pv-cust-head" data-resize-group="cust" style={{...st.th,position:'relative',fontSize:Math.max(9,pvFontSize-1),textAlign:'center',whiteSpace:'normal',wordBreak:'keep-all',lineHeight:'1.25',padding:'4px 3px',borderLeft:ci===0?'2px solid #fff':'none'}} title={cShort(ck)}>
+                      {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.thCust,background:'#fed7aa',color:'#9a3412',fontSize:9,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
+                      <th className="pv-cust-head" data-resize-group="cust" style={{...st.thCust,position:'relative',fontSize:Math.max(10,pvFontSize),background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}} title={cShort(ck)}>
                         {cShort(ck)}
                       </th>
                     </React.Fragment>
                   ))}
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#006064',textAlign:'center',fontSize:8}}>시작재고</th>
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#004d40',textAlign:'center',fontSize:8}}>시작비고</th>
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#1565c0',textAlign:'center',fontSize:8}}>입고</th>
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#ad1457',textAlign:'center',fontSize:8}}>출고</th>
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#4a148c',textAlign:'center',fontSize:8}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
-                  <th data-resize-group="stock" style={{...st.th,position:'relative',background:'#283593',textAlign:'center',fontSize:8}} title="DB 저장값 (ProductStock.Stock)">잔량(DB)</th>
-                  <th data-resize-group="descr" style={{...st.th,position:'relative',background:'#37474f',textAlign:'center',fontSize:8,minWidth:pvDescrOpen?pvDescrWidth:30,cursor:'pointer'}}
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#ccfbf1',color:'#115e59',fontSize:9}}>시작재고</th>
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#99f6e4',color:'#134e4a',fontSize:9}}>시작비고</th>
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#bfdbfe',color:'#1e40af',fontSize:9}}>입고</th>
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#fbcfe8',color:'#9d174d',fontSize:9}}>출고</th>
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#e9d5ff',color:'#6b21a8',fontSize:9}} title="시작재고 + 입고 - 출고 (실시간 계산)">잔량(계산)</th>
+                  <th data-resize-group="stock" style={{...st.thCust,background:'#c7d2fe',color:'#3730a3',fontSize:9}} title="DB 저장값 (ProductStock.Stock)">잔량(DB)</th>
+                  <th data-resize-group="descr" style={{...st.thCust,background:'#e2e8f0',color:'#334155',fontSize:9,minWidth:pvDescrOpen?pvDescrWidth:30,cursor:'pointer'}}
                       onClick={()=>setPvDescrOpen(p=>!p)}>{pvDescrOpen?'비고 ▾':'▸'}</th>
                 </React.Fragment>
               ))}
@@ -1500,7 +1509,7 @@ export default function WeekPivot() {
                           {custKeys.map((ck,ci)=>(
                             <React.Fragment key={`r-${wk}-${ck}`}>
                               {ci>0&&ci%CUST_REPEAT===0&&<td style={{...st.td,background:'#eceff1',fontSize:7,color:'#888',textAlign:'center'}}>품명</td>}
-                              <td style={{...st.td,fontSize:8,textAlign:'center',color:'#555',fontWeight:600,whiteSpace:'normal',wordBreak:'break-all',background:'#eceff1',borderLeft:ci===0?'2px solid #ccc':'none'}}>{cShort(ck)}</td>
+                              <td style={{...st.td,fontSize:9,textAlign:'center',color:'#1e293b',fontWeight:700,whiteSpace:'normal',wordBreak:'break-all',background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}}>{cShort(ck)}</td>
                             </React.Fragment>
                           ))}
                           <td colSpan={stockCols} style={{...st.td,background:'#eceff1'}}></td>
@@ -1918,7 +1927,11 @@ const hst = {
 const st = {
   table:     { width:'100%', borderCollapse:'collapse', fontSize:12, marginBottom:8 },
   thead:     { background:'#37474f', color:'#fff' },
+  theadArea: { background:'#dbeafe', color:'#1e3a8a' },
+  theadCust: { background:'#f1f5f9', color:'#0f172a' },
   th:        { padding:'6px 8px', textAlign:'left', borderRight:'1px solid #546e7a', whiteSpace:'nowrap', fontWeight:600, fontSize:11 },
+  thArea:    { padding:'5px 6px', textAlign:'center', borderRight:'1px solid #93c5fd', whiteSpace:'nowrap', fontWeight:700, fontSize:10, color:'#1e3a8a', background:'#dbeafe' },
+  thCust:    { padding:'5px 4px', textAlign:'center', whiteSpace:'normal', wordBreak:'keep-all', lineHeight:'1.3', fontWeight:700, fontSize:11, color:'#0f172a', borderRight:'1px solid #cbd5e1', borderBottom:'2px solid #64748b' },
   td:        { padding:'4px 6px', borderBottom:'1px solid #e0e0e0', borderRight:'1px solid #f0f0f0', fontSize:11 },
   clickCell: { cursor:'pointer', textDecoration:'underline', textDecorationColor:'#bbb', textUnderlineOffset:2 },
   empty:     { textAlign:'center', padding:'80px 20px', color:'#999', fontSize:14 },

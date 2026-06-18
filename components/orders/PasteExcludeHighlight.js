@@ -8,6 +8,7 @@ export default function PasteExcludeHighlight({
   onExcludedLinesChange,
   title = '제외 하이라이트',
   hint = '드래그로 선택한 줄은 AI·품목매칭에서 제외됩니다.',
+  embedded = false,
 }) {
   const lines = String(text || '').split('\n');
   const dragRef = useRef(null);
@@ -25,8 +26,16 @@ export default function PasteExcludeHighlight({
   const excludedSet = new Set(excludedLines || []);
 
   return (
-    <div style={{ border: '1px solid #cfd8dc', borderRadius: 6, background: '#fff', marginTop: 8 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #eceff1', fontSize: 11 }}>
+    <div style={{
+      border: '1px solid #cfd8dc', borderRadius: 6, background: '#fff',
+      marginTop: embedded ? 0 : 8,
+      flex: embedded ? '1 1 auto' : undefined,
+      minHeight: embedded ? 120 : undefined,
+      display: embedded ? 'flex' : 'block',
+      flexDirection: embedded ? 'column' : undefined,
+      minWidth: 0,
+    }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '5px 8px', borderBottom: '1px solid #eceff1', fontSize: 11, flexShrink: 0 }}>
         <strong style={{ color: '#455a64' }}>{title}</strong>
         <span style={{ color: '#78909c' }}>{hint}</span>
         {excludedSet.size > 0 && (
@@ -40,7 +49,17 @@ export default function PasteExcludeHighlight({
         )}
       </div>
       <div
-        style={{ maxHeight: 280, overflow: 'auto', padding: '4px 0', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.5, userSelect: 'none' }}
+        style={{
+          maxHeight: embedded ? 'none' : 280,
+          flex: embedded ? 1 : undefined,
+          minHeight: embedded ? 0 : undefined,
+          overflow: 'auto',
+          padding: '2px 0',
+          fontFamily: 'monospace',
+          fontSize: 12,
+          lineHeight: 1.4,
+          userSelect: 'none',
+        }}
         onMouseLeave={() => { if (dragRef.current != null) finishDrag(hoverLine); }}
       >
         {lines.map((line, i) => {
