@@ -19,17 +19,18 @@ describe('catalogImageAutoFit', () => {
     });
   });
 
-  it('needs auto-fit for default or legacy contain scale', () => {
-    expect(needsCatalogImageAutoFit({ scale: 100, posX: 50, posY: 50 })).toBe(true);
+  it('needs auto-fit only for legacy contain scale', () => {
+    expect(needsCatalogImageAutoFit({ scale: 100, posX: 50, posY: 50 })).toBe(false);
     expect(needsCatalogImageAutoFit({ autoAdjusted: true, scale: 200 })).toBe(true);
     expect(needsCatalogImageAutoFit({ autoAdjusted: true, scale: 100 })).toBe(false);
-    expect(needsCatalogImageAutoFit({ manualAdjusted: true, scale: 100 })).toBe(false);
+    expect(needsCatalogImageAutoFit({ manualAdjusted: true, scale: 200 })).toBe(false);
   });
 });
 
 describe('catalogImageRotatePad', () => {
   it('pads 90deg rotation', () => {
-    expect(catalogImageRotatePad(90)).toBeGreaterThan(1);
+    expect(catalogImageRotatePad(90)).toBe(1);
+    expect(catalogImageRotatePad(45)).toBeGreaterThan(1);
     expect(catalogImageRotatePad(0)).toBe(1);
   });
 });

@@ -736,9 +736,9 @@ export default function CatalogPage() {
   }, [imagesByProd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!lines.length) return;
+    if (!lines.length || cropLineId) return;
     lines.forEach(line => { runAutoFitForLine(line); });
-  }, [lines, imagesByProd, runAutoFitForLine]);
+  }, [lines, imagesByProd, runAutoFitForLine, cropLineId]);
 
   const removeLine = (id) => {
     const line = lines.find(l => l.id === id);

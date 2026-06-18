@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   CATALOG_POS_MAX,
   CATALOG_POS_MIN,
@@ -38,6 +38,8 @@ export default function CatalogImageCropEditor({
   const [scale, setScale] = useState(init.scale);
   const [rotate, setRotate] = useState(init.rotate);
   const [saving, setSaving] = useState(false);
+  const [panRange, setPanRange] = useState(null);
+  const onPanRange = useCallback((range) => setPanRange(range), []);
 
   // 다른 품목/이미지로 바뀔 때만 초기화 — 편집 중 라인 동기화가 슬라이더를 되돌리지 않게
   useEffect(() => {
@@ -108,10 +110,14 @@ export default function CatalogImageCropEditor({
   };
 
   const disabled = busy || saving;
+  const panHint = panRange?.needsZoomForPan && scale <= 100;
 
   return (
     <div className={`catalog-crop-editor ${compact ? 'compact' : ''}`}>
       <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 정사각 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
+      {panHint ? (
+        <p className="catalog-crop-pan-hint">정사각에 가까운 이미지는 확대(100% 초과) 후 위치 조절이 됩니다</p>
+      ) : null}
       <div
         className="catalog-crop-frame"
         style={{ '--cell-img': `${framePx}px` }}
@@ -119,7 +125,7 @@ export default function CatalogImageCropEditor({
         title="드래그로 상하·좌우 이동"
       >
         <div className="catalog-slide-img">
-          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
+          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} onPanRange={onPanRange} />
         </div>
       </div>
 
@@ -200,6 +206,9 @@ export default function CatalogImageCropEditor({
         .catalog-crop-editor { margin-top: 6px; }
         .catalog-crop-wysiwyg-hint {
           font-size: 10px; color: var(--text3); margin: 0 0 8px; text-align: center;
+        }
+        .catalog-crop-pan-hint {
+          font-size: 10px; color: var(--amber, #b45309); margin: 0 0 8px; text-align: center;
         }
         .catalog-crop-frame {
           margin: 0 auto;
