@@ -2913,7 +2913,7 @@ export default function PasteOrderPage() {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 10px;
-            align-items: stretch;
+            align-items: start;
           }
           .paste-col {
             min-width: 0;
@@ -2921,13 +2921,20 @@ export default function PasteOrderPage() {
             flex-direction: column;
             padding: 10px;
             border-radius: 8px;
-            min-height: min(500px, calc(100vh - 260px));
           }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
-          .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; }
-          .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; }
-          .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; }
-          .paste-col .paste-main-ta {
+          .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: min(500px, calc(100vh - 260px)); }
+          /* 1열: textarea 고정 높이 — 다른 열 높이에 끌려가지 않게 */
+          .paste-col-order .paste-main-ta {
+            flex: 0 0 auto;
+            height: min(280px, calc(100vh - 380px));
+            min-height: 140px;
+            max-height: 360px;
+            overflow-y: auto;
+          }
+          .paste-col:not(.paste-col-order) .paste-main-ta {
             flex: 1;
             min-height: 160px;
           }
@@ -2939,6 +2946,7 @@ export default function PasteOrderPage() {
             margin-top: 8px;
             padding-top: 8px;
             border-top: 1px solid #c5cae9;
+            background: #f7f8ff;
           }
           .paste-col-side-scroll {
             flex: 1;
@@ -2959,11 +2967,12 @@ export default function PasteOrderPage() {
           }
           @media (max-width: 1500px) {
             .paste-input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .paste-col { min-height: 380px; }
+            .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 380px; }
           }
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
-            .paste-col { min-height: 280px; }
+            .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
+            .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
           }
         `}</style>
 
