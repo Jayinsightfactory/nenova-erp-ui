@@ -2712,6 +2712,32 @@ export default function PasteOrderPage() {
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
+            <div className="paste-order-actions">
+              <button
+                type="button"
+                onClick={handleParse}
+                disabled={parsing || !pasteText.trim()}
+                style={{ width: '100%', padding: '9px 12px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: parsing || !pasteText.trim() ? 0.55 : 1 }}
+              >
+                {parsing ? '🤖 분석 중...' : '🤖 Claude로 분석'}
+              </button>
+              {parseError && <div style={{ color: '#c62828', fontSize: 12, lineHeight: 1.4 }}>❌ {parseError}</div>}
+              {orders.length > 0 && (
+                <div style={{ fontSize: 12, color: '#555', lineHeight: 1.45 }}>
+                  {detectedWeek && (
+                    <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#fff', background: '#1565c0', padding: '2px 8px', borderRadius: 8, marginBottom: 4 }}>
+                      📅 적용 차수 {detectedWeek}
+                    </span>
+                  )}
+                  <div>
+                    <b style={{ color: '#1a237e' }}>{orders.length}개 거래처</b>
+                    {totalAdd > 0 && <> · <b style={{ color: '#2e7d32' }}>추가 {totalAdd}</b></>}
+                    {totalCancel > 0 && <> · <b style={{ color: '#c62828' }}>취소 {totalCancel}</b></>}
+                    {unmatchedQueue.length > 0 && <> · <b style={{ color: '#e65100' }}>미매칭 {unmatchedQueue.length}</b></>}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 2열: 주문 제외·하이라이트 */}
@@ -2905,6 +2931,15 @@ export default function PasteOrderPage() {
             flex: 1;
             min-height: 160px;
           }
+          .paste-order-actions {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #c5cae9;
+          }
           .paste-col-side-scroll {
             flex: 1;
             min-height: 0;
@@ -2934,13 +2969,6 @@ export default function PasteOrderPage() {
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
           <button
-            onClick={handleParse}
-            disabled={parsing || !pasteText.trim()}
-            style={{ padding: '9px 24px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: parsing ? 0.7 : 1 }}
-          >
-            {parsing ? '🤖 분석 중...' : '🤖 Claude로 분석'}
-          </button>
-          <button
             onClick={() => refreshStockDraft()}
             disabled={!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()}
             style={{ padding: '9px 18px', background: '#455a64', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!pasteText.trim() && !baseStockText.trim() && !remainStockText.trim()) ? 0.5 : 1 }}
@@ -2951,22 +2979,8 @@ export default function PasteOrderPage() {
             <input type="checkbox" checked readOnly disabled />
             ➕ 기존 수량에 항상 더하기
           </label>
-          {parseError && <span style={{ color: '#c62828', fontSize: 13 }}>❌ {parseError}</span>}
-          {orders.length > 0 && (
-            <span style={{ fontSize: 13, color: '#555' }}>
-              {detectedWeek && (
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: '#1565c0', padding: '3px 10px', borderRadius: 10, marginRight: 8 }}>
-                  📅 적용 차수 {detectedWeek}
-                </span>
-              )}
-              <b style={{ color: '#1a237e' }}>{orders.length}개 거래처</b>
-              {totalAdd > 0 && <> / <b style={{ color: '#2e7d32' }}>추가 {totalAdd}건</b></>}
-              {totalCancel > 0 && <> / <b style={{ color: '#c62828' }}>취소 {totalCancel}건</b></>}
-              {unmatchedQueue.length > 0 && <> / <b style={{ color: '#e65100' }}>미매칭 {unmatchedQueue.length}개</b></>}
-              {stockDraft && !matchingDone && (
-                <> / <b style={{ color: '#607d8b' }}>최종 확인 대기</b></>
-              )}
-            </span>
+          {stockDraft && !matchingDone && orders.length > 0 && (
+            <span style={{ fontSize: 12, color: '#607d8b', fontWeight: 700 }}>최종 확인 대기</span>
           )}
         </div>
 
