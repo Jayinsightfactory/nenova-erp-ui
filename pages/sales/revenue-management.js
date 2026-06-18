@@ -1,7 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import { COMPARE_WEEKS, baseCustomersForChannel } from '../../lib/salesRevenueConfig';
+import { allUploadMatchesResolved, buildUploadMatchItems } from '../../lib/salesRevenuePendingMatch';
 import RevenueMappingModal from '../../components/sales/RevenueMappingModal';
+import RevenueUploadMatchPanel from '../../components/sales/RevenueUploadMatchPanel';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -75,10 +77,12 @@ export default function SalesRevenueManagement() {
   const [editVal, setEditVal] = useState('');
   const savedRef = useRef(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTab, setHistoryTab] = useState('upload'); // upload | cell
   const [historyRows, setHistoryRows] = useState([]);
   const [pending, setPending] = useState(null);          // 업로드 미리보기(저장 전)
+  const [uploadMatchOpen, setUploadMatchOpen] = useState(false);
+  const [sessionConfirmed, setSessionConfirmed] = useState({}); // 이번 업로드 세션 매칭 확정
   const [dlMgr, setDlMgr] = useState('');                 // 다운로드 담당자('' = 전체)
-  const [batchHistOpen, setBatchHistOpen] = useState(false);
   const [batchHist, setBatchHist] = useState([]);
   const [mappingListOpen, setMappingListOpen] = useState(false);
 
@@ -133,7 +137,24 @@ export default function SalesRevenueManagement() {
     return () => clearTimeout(searchTimer.current);
   }, [custSearch]);
 
-  // ECOUNT 판매현황 엑셀 업로드 → 미리보기만(저장 X). 저장은 saveUpload 로 커밋.
+  const refreshPendingBatch = async (pendingMeta, pendingRows) => {
+    if (!pendingMeta || !pendingRows?.length) return;
+    try {
+      const d = await apiPost('/api/sales/revenue-preview', { meta: pendingMeta, rows: pendingRows });
+      if (d.batch) setCurrentBatch(d.batch);
+    } catch { /* 미리보기 갱신 실패는 무시 */ }
+  };
+
+  const uploadMatchItems = useMemo(
+    () => (pending?.rows ? buildUploadMatchItems(pending.rows, mappings, channel, sessionConfirmed) : []),
+    [pending?.rows, mappings, channel, sessionConfirmed]
+  );
+  const uploadMatchReady = useMemo(
+    () => allUploadMatchesResolved(uploadMatchItems),
+    [uploadMatchItems]
+  );
+
+  // ECOUNT 판매현황 엑셀 업로드 → 미리보기만(비교표 반영 X). 매칭 완료 후 saveUpload.
   const uploadExcel = async (selected) => {
     const f = selected || file;
     if (!f) { setFetchMsg('먼저 ECOUNT 판매현황 엑셀 파일을 선택하세요.'); return; }
@@ -148,12 +169,13 @@ export default function SalesRevenueManagement() {
       const res = await fetch('/api/sales/revenue-import-excel', { method: 'POST', credentials: 'include', body: form });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '업로드 실패');
-      // 미리보기 — 아직 저장 안 됨
+      setSessionConfirmed({});
       setPending(d.pending ? { meta: d.pending.meta, rows: d.pending.rows, detected: d.detected, rawCount: d.rawCount, rawTotal: d.rawTotal, fileName: d.fileName } : null);
       if (d.batch) setCurrentBatch(d.batch);
       if (d.detected?.year) setFetchYear(d.detected.year);
       if (d.detected?.week) setWeek(d.detected.week);
-      setFetchMsg(d.message || '미리보기 완료 — "저장"을 누르세요.');
+      setUploadMatchOpen(true);
+      setFetchMsg(d.message || '업로드 완료 — 업체 매칭 후 저장하세요. 비교표에는 아직 반영되지 않았습니다.');
     } catch (e) {
       setFetchMsg(`업로드 오류: ${e.message}`);
     } finally {
@@ -161,9 +183,49 @@ export default function SalesRevenueManagement() {
     }
   };
 
-  // 미리보기 → 실제 저장(커밋) + 이력
+  const confirmUploadMapping = async (ecountName, canonicalName) => {
+    setSaving(true);
+    setMsg('');
+    try {
+      if (canonicalName !== ecountName) {
+        const data = await apiPost('/api/sales/revenue-customer-mappings', {
+          ecountName,
+          canonicalName: canonicalName.trim(),
+          custKey: null,
+          custName: '',
+          custArea: '',
+        });
+        setMappings(prev => ({ ...prev, [data.key]: data.mapping }));
+      }
+      setSessionConfirmed(prev => ({
+        ...prev,
+        [ecountName]: { canonicalName: canonicalName.trim(), status: 'confirmed' },
+      }));
+      if (pending?.meta && pending?.rows) await refreshPendingBatch(pending.meta, pending.rows);
+      setMsg(`「${ecountName}」→「${canonicalName}」 매칭을 확정했습니다.`);
+    } catch (e) {
+      setMsg(`매칭 오류: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const markUploadAsNew = (ecountName) => {
+    setSessionConfirmed(prev => ({
+      ...prev,
+      [ecountName]: { canonicalName: ecountName, status: 'new' },
+    }));
+    setMsg(`「${ecountName}」을(를) 신규 업체로 표시했습니다.`);
+  };
+
+  // 미리보기 + 매칭 완료 → 실제 저장(비교표 반영) + 이력
   const saveUpload = async () => {
     if (!pending?.meta || !pending?.rows?.length) { setFetchMsg('저장할 미리보기가 없습니다.'); return; }
+    if (!uploadMatchReady) {
+      setUploadMatchOpen(true);
+      setFetchMsg('모든 거래처 매칭을 완료한 뒤 저장하세요.');
+      return;
+    }
     setSaving(true);
     setFetchMsg('');
     try {
@@ -177,7 +239,9 @@ export default function SalesRevenueManagement() {
       }
       if (d.batch) setCurrentBatch(d.batch);
       setPending(null);
-      setFetchMsg(d.message || '저장 완료');
+      setSessionConfirmed({});
+      setUploadMatchOpen(false);
+      setFetchMsg(d.message || '저장 완료 — 비교표에 반영되었습니다.');
     } catch (e) {
       setFetchMsg(`저장 오류: ${e.message}`);
     } finally {
@@ -185,22 +249,38 @@ export default function SalesRevenueManagement() {
     }
   };
 
-  const cancelPending = () => { setPending(null); setCurrentBatch({ meta: null, raw: [], review: [], totals: null }); setFetchMsg('미리보기를 취소했습니다.'); };
+  const cancelPending = () => {
+    setPending(null);
+    setSessionConfirmed({});
+    setUploadMatchOpen(false);
+    setCurrentBatch({ meta: null, raw: [], review: [], totals: null });
+    setFetchMsg('업로드를 취소했습니다. 비교표는 변경되지 않았습니다.');
+  };
 
-  // 업로드 저장 이력 + 롤백
-  const openBatchHist = async () => {
-    setBatchHistOpen(true);
-    try { const d = await apiGet('/api/sales/revenue-batch-history'); setBatchHist(d.history || []); }
-    catch { setBatchHist([]); }
+  // 수정 이력(업로드 취소·롤백 + 셀 수정 통합)
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryTab('upload');
+    try {
+      const [cellD, batchD] = await Promise.all([
+        apiGet('/api/sales/revenue-cell'),
+        apiGet('/api/sales/revenue-batch-history'),
+      ]);
+      setHistoryRows(cellD.history || []);
+      setBatchHist(batchD.history || []);
+    } catch {
+      setHistoryRows([]);
+      setBatchHist([]);
+    }
   };
   const rollbackBatch = async (id) => {
-    if (!window.confirm('이 저장을 롤백할까요?\n저장 직전 상태로 되돌립니다(신규 저장이면 삭제).')) return;
+    if (!window.confirm('이 업로드를 취소(롤백)할까요?\n비교표가 저장 직전 상태로 되돌아갑니다.')) return;
     try {
       const d = await apiDelete('/api/sales/revenue-batch-history', { id });
       if (!d.success) throw new Error(d.error || '롤백 실패');
       const h = await apiGet('/api/sales/revenue-batch-history'); setBatchHist(h.history || []);
       loadSummary();
-      setFetchMsg(d.message || '롤백 완료');
+      setFetchMsg(d.message || '업로드 취소 완료');
     } catch (e) { alert(`롤백 실패: ${e.message}`); }
   };
 
@@ -320,14 +400,6 @@ export default function SalesRevenueManagement() {
     }
   };
 
-  const openHistory = async () => {
-    setHistoryOpen(true);
-    try {
-      const d = await apiGet('/api/sales/revenue-cell');
-      setHistoryRows(d.history || []);
-    } catch { setHistoryRows([]); }
-  };
-
   const renderAmt = (row, w, y) => {
     const cell = getCell(row, w, y);
     const val = cell?.total || 0;
@@ -424,13 +496,21 @@ export default function SalesRevenueManagement() {
           </button>
           {pending && (
             <>
-              <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={saveUpload} disabled={saving}>
-                {saving ? '저장중...' : `💾 저장 (${pending.detected?.week}차 ${pending.rawCount}건)`}
+              <button className="btn" onClick={() => setUploadMatchOpen(true)} disabled={saving}>
+                🔗 업체 매칭 ({uploadMatchItems.filter(it => it.resolved).length}/{uploadMatchItems.length})
               </button>
-              <button className="btn" onClick={cancelPending} disabled={saving}>취소</button>
+              <button
+                className="btn btn-primary"
+                style={{ background: uploadMatchReady ? '#16a34a' : '#94a3b8', borderColor: uploadMatchReady ? '#16a34a' : '#94a3b8' }}
+                onClick={saveUpload}
+                disabled={saving || !uploadMatchReady}
+                title={uploadMatchReady ? '비교표에 반영' : '매칭 완료 후 저장 가능'}
+              >
+                {saving ? '저장중...' : `💾 비교표 반영 (${pending.detected?.week}차)`}
+              </button>
+              <button className="btn" onClick={cancelPending} disabled={saving}>업로드 취소</button>
             </>
           )}
-          <button className="btn" onClick={openBatchHist}>업로드 이력</button>
           <span className="filter-label" style={{ marginLeft: 8 }}>다운로드</span>
           <select className="filter-select" value={dlMgr} onChange={e => setDlMgr(e.target.value)} title="다운로드 범위 — 전체 또는 특정 담당자">
             <option value="">전체</option>
@@ -445,16 +525,18 @@ export default function SalesRevenueManagement() {
 
       <div className="banner-warn" style={{ marginBottom: 6 }}>
         이카운트 OAPI에는 판매현황 조회 API가 없어, <b>이카운트 판매현황 화면에서 받은 엑셀을 업로드</b>하면 네노바웹 비교용 저장소에 보관·매칭합니다. 이카운트 원본에 쓰기/전송(push)은 하지 않습니다.
-        업로드하면 <b>파일 상단 조회기간(시작일)으로 연도·차수를 자동 판정</b>해 저장합니다(차수 수동선택 불필요). 지점은 선택값을 사용하고, 같은 (연도/차수/지점)으로 다시 업로드하면 갱신됩니다.
-        표는 업체 전체 행을 먼저 깔고 저장 데이터가 있는 업체만 금액을 채웁니다. 저장한 업체명 매칭은 다음 업로드부터 계속 자동 적용됩니다. 매칭 결과는 <b>매칭결과 엑셀 다운로드</b>로 내보낼 수 있습니다.
+        업로드 직후에는 <b>비교표에 바로 반영되지 않습니다</b> — <b>매출 비교표 기준 업체와 엑셀 거래처를 매칭</b>한 뒤 「비교표 반영」을 눌러야 합니다.
+        <b>수정 이력</b>에서 저장 건을 <b>업로드 취소(롤백)</b>할 수 있습니다. 확정한 업체명 매칭은 다음 업로드부터 자동 적용됩니다.
       </div>
       {fetchMsg && <div className={fetchMsg.includes('오류') || fetchMsg.includes('실패') ? 'banner-err' : 'banner-ok'} style={{ marginBottom: 6 }}>{fetchMsg}</div>}
       {pending && (
         <div style={{ marginBottom: 6, padding: '8px 12px', border: '1px solid #f59e0b', background: '#fffbeb', borderRadius: 6, fontSize: 13, color: '#92400e', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <b>📋 미리보기 (아직 저장 안 됨)</b>
+          <b>📋 업로드 대기 (비교표 미반영)</b>
           <span>{pending.detected?.year}년 <b>{pending.detected?.week}차</b> / {pending.meta?.channel} · {fmt(pending.rawCount)}건 · 합계 {fmt(pending.rawTotal)} · {pending.fileName}</span>
-          <button className="btn btn-primary" style={{ background: '#16a34a', borderColor: '#16a34a', marginLeft: 'auto' }} onClick={saveUpload} disabled={saving}>{saving ? '저장중...' : '💾 저장'}</button>
-          <button className="btn" onClick={cancelPending} disabled={saving}>취소</button>
+          <span>매칭 {uploadMatchItems.filter(it => it.resolved).length}/{uploadMatchItems.length}</span>
+          <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => setUploadMatchOpen(true)} disabled={saving}>🔗 업체 매칭</button>
+          <button className="btn btn-primary" style={{ background: uploadMatchReady ? '#16a34a' : '#94a3b8', borderColor: uploadMatchReady ? '#16a34a' : '#94a3b8' }} onClick={saveUpload} disabled={saving || !uploadMatchReady}>{saving ? '저장중...' : '💾 비교표 반영'}</button>
+          <button className="btn" onClick={cancelPending} disabled={saving}>업로드 취소</button>
         </div>
       )}
       {currentBatch.meta && (
@@ -621,7 +703,7 @@ export default function SalesRevenueManagement() {
               <span style={{ color: '#0A7A55' }}>ECOUNT</span> /{' '}
               <span style={{ background: '#FFF6DA', padding: '0 3px' }}>수동수정</span> / 과거(매출비교.xlsx)
             </span>
-            <button className="btn" onClick={openHistory}>수정 이력</button>
+            <button className="btn" onClick={openHistory}>수정 이력 · 업로드 취소</button>
           </span>
         </div>
         {/* 상단 가로 스크롤바 (본문과 동기화) */}
@@ -692,72 +774,90 @@ export default function SalesRevenueManagement() {
         onChanged={() => loadSummary()}
       />
 
+      <RevenueUploadMatchPanel
+        open={uploadMatchOpen}
+        pending={pending}
+        channel={channel}
+        mappings={mappings}
+        sessionConfirmed={sessionConfirmed}
+        onConfirm={confirmUploadMapping}
+        onMarkNew={markUploadAsNew}
+        onClose={() => setUploadMatchOpen(false)}
+        saving={saving}
+      />
+
       {historyOpen && (
-        <div style={styles.modalBack} onClick={() => setHistoryOpen(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalBack} onMouseDown={e => { if (e.target === e.currentTarget) setHistoryOpen(false); }}>
+          <div style={{ ...styles.modal, width: 'min(900px, 94vw)' }} onMouseDown={e => e.stopPropagation()}>
             <div style={styles.panelHead}>
-              <strong>매출 수정 이력</strong>
+              <strong>수정 이력 · 업로드 취소</strong>
               <button className="btn" onClick={() => setHistoryOpen(false)}>닫기</button>
             </div>
-            <div className="table-wrap" style={{ maxHeight: 420 }}>
-              <table className="tbl">
-                <thead>
-                  <tr><th>일시</th><th>업체</th><th>차수</th><th>연도</th><th>이전</th><th>변경</th><th>수정자</th></tr>
-                </thead>
-                <tbody>
-                  {historyRows.length === 0 && <tr><td colSpan="7" style={styles.empty}>수정 이력이 없습니다.</td></tr>}
-                  {historyRows.map((h, i) => (
-                    <tr key={i}>
-                      <td>{(h.at || '').slice(0, 16).replace('T', ' ')}</td>
-                      <td>{h.canonicalName}</td>
-                      <td>{h.week}차</td>
-                      <td>{h.year}</td>
-                      <td style={styles.num}>{h.prev == null ? '' : fmt(h.prev)}</td>
-                      <td style={styles.num}>{fmt(h.next)}</td>
-                      <td>{h.by || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <button type="button" className="btn" style={historyTab === 'upload' ? { background: '#E8F0FF', borderColor: '#1166BB' } : {}} onClick={() => setHistoryTab('upload')}>
+                업로드 ({batchHist.length})
+              </button>
+              <button type="button" className="btn" style={historyTab === 'cell' ? { background: '#E8F0FF', borderColor: '#1166BB' } : {}} onClick={() => setHistoryTab('cell')}>
+                셀 수정 ({historyRows.length})
+              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {batchHistOpen && (
-        <div style={styles.modalBack} onMouseDown={e => { if (e.target === e.currentTarget) setBatchHistOpen(false); }}>
-          <div style={styles.modal} onMouseDown={e => e.stopPropagation()}>
-            <div style={styles.panelHead}>
-              <strong>업로드 저장 이력 — 롤백 가능</strong>
-              <button className="btn" onClick={() => setBatchHistOpen(false)}>닫기</button>
-            </div>
-            <div className="table-wrap" style={{ maxHeight: 440 }}>
-              <table className="tbl">
-                <thead>
-                  <tr><th>저장일시</th><th>지점</th><th>차수</th><th>연도</th><th>파일</th><th>건수</th><th>합계</th><th>직전</th><th>저장자</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {batchHist.length === 0 && <tr><td colSpan="10" style={styles.empty}>저장 이력이 없습니다.</td></tr>}
-                  {batchHist.map(h => (
-                    <tr key={h.id}>
-                      <td>{(h.ts || '').slice(0, 16).replace('T', ' ')}</td>
-                      <td>{h.channel}</td>
-                      <td>{h.orderWeek}차</td>
-                      <td>{h.salesYear}</td>
-                      <td title={h.fileName} style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.fileName || '-'}</td>
-                      <td style={styles.num}>{fmt(h.rawCount)}</td>
-                      <td style={styles.num}>{fmt(h.rawTotal)}</td>
-                      <td style={styles.num}>{h.action === 'replace' ? `교체(이전 ${fmt(h.prevRawTotal)})` : '신규'}</td>
-                      <td>{h.by || '-'}</td>
-                      <td><button className="btn" style={{ color: '#c0392b', borderColor: '#f3b7b1' }} onClick={() => rollbackBatch(h.id)}>롤백</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ padding: '6px 10px', fontSize: 11, color: 'var(--text3)' }}>
-              롤백 = 그 저장 직전 상태로 되돌립니다(신규 저장이면 해당 차수 저장본 삭제). 항목은 이력에서 제거됩니다.
-            </div>
+            {historyTab === 'upload' ? (
+              <>
+                <div className="table-wrap" style={{ maxHeight: 420 }}>
+                  <table className="tbl">
+                    <thead>
+                      <tr><th>저장일시</th><th>지점</th><th>차수</th><th>연도</th><th>파일</th><th>건수</th><th>합계</th><th>구분</th><th>저장자</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                      {batchHist.length === 0 && <tr><td colSpan="10" style={styles.empty}>업로드 이력이 없습니다.</td></tr>}
+                      {batchHist.map(h => (
+                        <tr key={h.id}>
+                          <td>{(h.ts || '').slice(0, 16).replace('T', ' ')}</td>
+                          <td>{h.channel}</td>
+                          <td>{h.orderWeek}차</td>
+                          <td>{h.salesYear}</td>
+                          <td title={h.fileName} style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.fileName || '-'}</td>
+                          <td style={styles.num}>{fmt(h.rawCount)}</td>
+                          <td style={styles.num}>{fmt(h.rawTotal)}</td>
+                          <td>{h.action === 'replace' ? `교체(이전 ${fmt(h.prevRawTotal)})` : '신규'}</td>
+                          <td>{h.by || '-'}</td>
+                          <td>
+                            <button className="btn" style={{ color: '#c0392b', borderColor: '#f3b7b1' }} onClick={() => rollbackBatch(h.id)}>
+                              업로드 취소
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ padding: '6px 2px', fontSize: 11, color: 'var(--text3)' }}>
+                  업로드 취소 = 해당 저장을 되돌립니다(신규 저장이면 해당 차수 저장본 삭제). 비교표 금액이 직전 상태로 복원됩니다.
+                </div>
+              </>
+            ) : (
+              <div className="table-wrap" style={{ maxHeight: 420 }}>
+                <table className="tbl">
+                  <thead>
+                    <tr><th>일시</th><th>업체</th><th>차수</th><th>연도</th><th>이전</th><th>변경</th><th>수정자</th></tr>
+                  </thead>
+                  <tbody>
+                    {historyRows.length === 0 && <tr><td colSpan="7" style={styles.empty}>셀 수정 이력이 없습니다.</td></tr>}
+                    {historyRows.map((h, i) => (
+                      <tr key={i}>
+                        <td>{(h.at || '').slice(0, 16).replace('T', ' ')}</td>
+                        <td>{h.canonicalName}</td>
+                        <td>{h.week}차</td>
+                        <td>{h.year}</td>
+                        <td style={styles.num}>{h.prev == null ? '' : fmt(h.prev)}</td>
+                        <td style={styles.num}>{fmt(h.next)}</td>
+                        <td>{h.by || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

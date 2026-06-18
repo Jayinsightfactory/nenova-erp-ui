@@ -109,7 +109,7 @@ async function handler(req, res) {
     skipped: parsed.skipped,
     batch: view,                 // 매칭 적용된 미리보기 (저장 전)
     pending: { meta, rows: parsed.rows },   // "저장" 시 그대로 commit
-    message: `미리보기: ${previewObj.rawCount}건(합계 ${previewObj.rawTotal.toLocaleString()}) · ${salesYear}년 ${orderWeek}차${weekAuto ? `(기간 ${parsed.dateFrom}~${parsed.dateTo} 자동판정)` : '(수동)'}. "저장"을 눌러야 반영됩니다.`,
+    message: `미리보기: ${previewObj.rawCount}건(합계 ${previewObj.rawTotal.toLocaleString()}) · ${salesYear}년 ${orderWeek}차${weekAuto ? `(기간 ${parsed.dateFrom}~${parsed.dateTo} 자동판정)` : '(수동)'}. 업체 매칭 후 "비교표 반영"을 눌러야 반영됩니다.`,
   });
 }
 
