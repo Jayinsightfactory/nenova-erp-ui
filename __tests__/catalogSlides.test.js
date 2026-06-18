@@ -87,7 +87,8 @@ async function main() {
     }],
     perPage: 8,
   });
-  assert('composer pages order', pages[0].lines.map(l => l.id).join(',') === 'l2,l1');
+  assert('composer pages slot order', pages[0].slots.map(l => l?.id).join(',') === 'l2,l1,,,,,,');
+  assert('composer pages lines compact', pages[0].lines.map(l => l.id).join(',') === 'l2,l1');
 }
 
 main().catch((e) => {

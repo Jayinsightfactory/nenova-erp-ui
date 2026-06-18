@@ -1541,6 +1541,7 @@ export default function CatalogPage() {
               cropLineId={cropLineId}
               onToggleCropLine={setCropLineId}
               onSaveLineCrop={saveLineImageTransform}
+              onUpdateLine={updateLine}
               activeSlideTarget={activeSlideTarget}
               onSelectSlideTarget={handleSelectSlideTarget}
               editorOpen={editorOpen}

@@ -127,9 +127,9 @@ function MiniSlot({
         onClick={(e) => {
           e.stopPropagation();
           onSelectLine?.(line.id);
-          if (line.imageUrl) onToggleCropLine?.(cropLineId === line.id ? null : line.id);
+          onToggleCropLine?.(cropLineId === line.id ? null : line.id);
         }}
-        title="클릭 → 위치/확대 (PPT와 동일 크기)"
+        title="클릭 → 품목명·이미지 위치/확대"
       >
         {line.imageUrl ? (
           <>
@@ -180,6 +180,7 @@ export default function CatalogSlideComposer({
   cropLineId,
   onToggleCropLine,
   onSaveLineCrop,
+  onUpdateLine,
   activeSlideTarget,
   onSelectSlideTarget,
   editorOpen = true,
@@ -422,7 +423,7 @@ export default function CatalogSlideComposer({
         })}
       </div>
 
-      {cropLine?.imageUrl ? (
+      {cropLine ? (
         <div
           className="catalog-crop-modal-overlay"
           onClick={closeCropModal}
@@ -433,11 +434,11 @@ export default function CatalogSlideComposer({
             onClick={e => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="이미지 위치·확대"
+            aria-label="품목 편집"
           >
             <div className="catalog-crop-modal-head">
               <div className="catalog-crop-modal-head-titles">
-                <strong>{cropLine.engName || cropLine.catalogName || '이미지 위치/확대'}</strong>
+                <strong>품목 편집</strong>
                 {cropLine.imageAutoAdjusted ? (
                   <label className="catalog-crop-modal-auto" title="칸 크기에 맞게 자동 확대·중앙 정렬됨">
                     <input type="checkbox" checked readOnly disabled />
@@ -447,23 +448,54 @@ export default function CatalogSlideComposer({
               </div>
               <button type="button" className="btn btn-sm" onClick={closeCropModal}>닫기</button>
             </div>
-            <p className="catalog-crop-modal-sub">
-              PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
-            </p>
-            <CatalogImageCropEditor
-              key={cropLineId}
-              imageUrl={cropLine.imageUrl}
-              source={cropLine}
-              onPreviewChange={setCropDraft}
-              onSave={async (transform) => {
-                const ok = await onSaveLineCrop?.(cropLine, transform);
-                if (ok !== false) {
-                  setCropDraft(null);
-                  onToggleCropLine?.(null);
-                }
-              }}
-              onClose={closeCropModal}
-            />
+
+            <div className="catalog-slot-name-fields">
+              <label className="catalog-slot-name-field">
+                <span>영문명</span>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={cropLine.engName || ''}
+                  placeholder="영문명"
+                  onChange={e => onUpdateLine?.(cropLine.id, { engName: e.target.value })}
+                />
+              </label>
+              <label className="catalog-slot-name-field">
+                <span>한글명</span>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={cropLine.korName || ''}
+                  placeholder="한글명"
+                  onChange={e => onUpdateLine?.(cropLine.id, { korName: e.target.value })}
+                />
+              </label>
+            </div>
+            <p className="catalog-slot-name-hint">영문·한글명은 입력 즉시 자동 저장됩니다</p>
+
+            {cropLine.imageUrl ? (
+              <>
+                <p className="catalog-crop-modal-sub">
+                  PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
+                </p>
+                <CatalogImageCropEditor
+                  key={cropLineId}
+                  imageUrl={cropLine.imageUrl}
+                  source={lineWithCropDraft(cropLine)}
+                  onPreviewChange={setCropDraft}
+                  onSave={async (transform) => {
+                    const ok = await onSaveLineCrop?.(cropLine, transform);
+                    if (ok !== false) {
+                      setCropDraft(null);
+                      onToggleCropLine?.(null);
+                    }
+                  }}
+                  onClose={closeCropModal}
+                />
+              </>
+            ) : (
+              <p className="catalog-crop-no-img">이미지가 없습니다. 하단 품목 목록에서 이미지를 선택하세요.</p>
+            )}
           </div>
         </div>
       ) : null}
@@ -739,6 +771,30 @@ export default function CatalogSlideComposer({
         .catalog-slide-img { position: relative; }
         .catalog-crop-modal-sub {
           font-size: 11px; color: var(--text3); margin: 4px 0 8px;
+        }
+        .catalog-slot-name-fields {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin: 8px 0 4px;
+        }
+        .catalog-slot-name-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 11px;
+        }
+        .catalog-slot-name-field span { color: var(--text3); font-size: 10px; }
+        .catalog-slot-name-hint {
+          font-size: 10px;
+          color: var(--text3);
+          margin: 0 0 8px;
+        }
+        .catalog-crop-no-img {
+          font-size: 12px;
+          color: var(--text2);
+          margin: 12px 0;
+          text-align: center;
         }
       `}</style>
     </div>
