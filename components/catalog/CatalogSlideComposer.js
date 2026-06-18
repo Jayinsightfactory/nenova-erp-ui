@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import CatalogImageCropEditor from './CatalogImageCropEditor';
 import CatalogSlideImage from './CatalogSlideImage';
 import {
@@ -189,6 +189,7 @@ export default function CatalogSlideComposer({
 
   const [expandedSlideId, setExpandedSlideId] = useState(null);
   const [cropDraft, setCropDraft] = useState(null);
+  const backdropDownRef = useRef(false);
 
   const cropLine = cropLineId ? linesById[cropLineId] : null;
 
@@ -426,7 +427,15 @@ export default function CatalogSlideComposer({
       {cropLine ? (
         <div
           className="catalog-crop-modal-overlay"
-          onClick={closeCropModal}
+          onMouseDown={(e) => {
+            backdropDownRef.current = e.target === e.currentTarget;
+          }}
+          onMouseUp={(e) => {
+            if (backdropDownRef.current && e.target === e.currentTarget) {
+              closeCropModal();
+            }
+            backdropDownRef.current = false;
+          }}
           role="presentation"
         >
           <div

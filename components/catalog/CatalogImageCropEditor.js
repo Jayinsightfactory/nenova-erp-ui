@@ -114,11 +114,13 @@ export default function CatalogImageCropEditor({
       <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 정사각 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
       <div
         className="catalog-crop-frame"
-        style={{ width: framePx, height: framePx }}
+        style={{ '--cell-img': `${framePx}px` }}
         onPointerDown={onFramePointerDown}
         title="드래그로 상하·좌우 이동"
       >
-        <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
+        <div className="catalog-slide-img">
+          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} />
+        </div>
       </div>
 
       <div className="catalog-crop-nudge">
@@ -133,20 +135,24 @@ export default function CatalogImageCropEditor({
         </div>
       </div>
 
-      <div className="catalog-crop-sliders">
+      <div
+        className="catalog-crop-sliders"
+        onMouseDown={e => e.stopPropagation()}
+        onPointerDown={e => e.stopPropagation()}
+      >
         <label>
           <span>확대</span>
-          <input type="range" min={100} max={400} value={scale} disabled={disabled} onChange={e => setScale(clampScale(e.target.value))} />
+          <input type="range" min={100} max={400} value={scale} disabled={disabled} onInput={e => setScale(clampScale(e.target.value))} onChange={e => setScale(clampScale(e.target.value))} />
           <span>{scale}% {scale === 100 ? '채우기' : ''}</span>
         </label>
         <label>
           <span>가로</span>
-          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posX} disabled={disabled} onChange={e => setPosX(clampCatalogPos(e.target.value))} />
+          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posX} disabled={disabled} onInput={e => setPosX(clampCatalogPos(e.target.value))} onChange={e => setPosX(clampCatalogPos(e.target.value))} />
           <span>{posX}</span>
         </label>
         <label>
           <span>세로</span>
-          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posY} disabled={disabled} onChange={e => setPosY(clampCatalogPos(e.target.value))} />
+          <input type="range" min={CATALOG_POS_MIN} max={CATALOG_POS_MAX} value={posY} disabled={disabled} onInput={e => setPosY(clampCatalogPos(e.target.value))} onChange={e => setPosY(clampCatalogPos(e.target.value))} />
           <span>{posY}</span>
         </label>
         <label>
@@ -157,6 +163,7 @@ export default function CatalogImageCropEditor({
             max={180}
             value={rotate}
             disabled={disabled}
+            onInput={e => setRotate(normalizeRotate(e.target.value))}
             onChange={e => setRotate(normalizeRotate(e.target.value))}
           />
           <span>{rotate}°</span>
@@ -196,18 +203,16 @@ export default function CatalogImageCropEditor({
         }
         .catalog-crop-frame {
           margin: 0 auto;
-          border: 2px solid var(--blue);
-          box-shadow: 0 0 0 2px var(--blue-bg);
-          border-radius: 2px;
-          overflow: hidden;
-          background: #fff;
+          width: fit-content;
+          border: none;
+          background: transparent;
           cursor: grab;
           touch-action: none;
           flex-shrink: 0;
         }
-        .catalog-crop-frame :global(.catalog-slide-img-inner) {
-          width: 100%;
-          height: 100%;
+        .catalog-crop-frame :global(.catalog-slide-img) {
+          border: 2px solid var(--blue);
+          box-shadow: 0 0 0 2px var(--blue-bg);
         }
         .catalog-crop-frame :global(img) {
           pointer-events: none;
