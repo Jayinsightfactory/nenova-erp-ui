@@ -27,6 +27,21 @@ async function main() {
   assert('콜롬비아 꽃=장미+수국', co.flowerOptions.join(',') === '수국,장미');
   assert('콜롬비아+장미 품목 2개', buildPivotDimensionOptions(rows, { country: ['콜롬비아'], flower: ['장미'] }).prodNameOptions.length === 2);
 
+  console.log('\n=== pruneDimensionFilters ===');
+  const { pruneDimensionFilters, pruneFieldFilters } = await import('../lib/pivotFilterOptions.js');
+  const nlRows = [
+    { country: '네덜란드', flower: '튤립', prodName: 'A' },
+    { country: '네덜란드', flower: '스키미아', prodName: 'B' },
+    { country: '네덜란드', flower: '아가판서스', prodName: 'C' },
+  ];
+  const stale = pruneDimensionFilters({
+    country: ['네덜란드'],
+    flower: ['스키미아', '아가판서스', '안시리움'],
+  }, nlRows);
+  assert('stale flower pruned', stale.flower?.join(',') === '스키미아,아가판서스');
+  const ff = pruneFieldFilters({ custName: ['없는업체', '콜롬비아상사'] }, rows, [{ custName: '콜롬비아상사' }]);
+  assert('invalid cust removed', ff.custName?.join(',') === '콜롬비아상사');
+
   console.log('\n=== buildWeekPivotDimensionOptions ===');
   const wrows = [
     { ProdKey: 1, CounName: '콜롬비아', FlowerName: '장미' },

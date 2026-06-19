@@ -19,7 +19,7 @@ import {
   PIVOT_FIELDS, FIELD_BY_ID, ZONES, canDropInZone, COL_GROUP_LABELS, COL_GROUP_FIELD_MAP,
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
-import { buildPivotDimensionOptions } from '../../lib/pivotFilterOptions';
+import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters } from '../../lib/pivotFilterOptions';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
@@ -430,7 +430,19 @@ export default function Pivot() {
 
   // 열 필터
   const [filters, setFilters] = useState({});
-  const handleFilter = useCallback((key, vals) => setFilters(f => ({ ...f, [key]: vals })), []);
+  const handleFilter = useCallback((key, vals) => {
+    setFilters((f) => {
+      let next = { ...f, [key]: vals };
+      if (key === 'country') {
+        delete next.flower;
+        delete next.prodName;
+      } else if (key === 'flower') {
+        delete next.prodName;
+      }
+      if (data?.rows?.length) next = pruneDimensionFilters(next, data.rows);
+      return next;
+    });
+  }, [data?.rows]);
 
   // 접기
   const [collapsed, setCollapsed] = useState(new Set());
@@ -754,6 +766,19 @@ export default function Pivot() {
 
   useEffect(() => { load(); }, []);
 
+  // 차수 데이터 로드 후 — 저장된/이전 컬럼·필드 필터가 품목을 숨기지 않게 정리
+  useEffect(() => {
+    if (!data?.rows?.length) return;
+    setFilters((f) => {
+      const pruned = pruneDimensionFilters(f, data.rows);
+      return JSON.stringify(pruned) === JSON.stringify(f) ? f : pruned;
+    });
+    setFieldFilters((ff) => {
+      const pruned = pruneFieldFilters(ff, data.rows, data.customers);
+      return JSON.stringify(pruned) === JSON.stringify(ff) ? ff : pruned;
+    });
+  }, [data?.rows, data?.customers]);
+
   const handleVolumeExcel = async () => {
     if (!weekStartInput.value) { setErr('차수를 입력하세요.'); return; }
     setErr(''); setVolBusy('물량표 생성 중… (수십 초 걸릴 수 있어요)');
@@ -980,8 +1005,11 @@ export default function Pivot() {
       if (!sel || sel.length === 0) continue;
       if (sel.includes('__EMPTY__')) return false;
       if (id === 'custName') {
-        const hasOrder = sel.some(name => Number(r.orders?.[name] || 0) > 0);
-        if (!hasOrder) return false;
+        const hasQty = sel.some(name =>
+          Number(r.orders?.[name] || 0) > 0 ||
+          Number(r.outOrders?.[name] || 0) > 0,
+        );
+        if (!hasQty) return false;
         continue;
       }
       if (id === 'farmName') {
@@ -995,6 +1023,13 @@ export default function Pivot() {
     }
     return true;
   }), [data, filters, filterConditions, filterZone, fieldFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalRowCount = data?.rows?.length || 0;
+  const visibleRowCount = filteredRows.length;
+  const hasDimColumnFilter = ['country', 'flower', 'prodName', 'area'].some(
+    (k) => filters[k]?.length && !filters[k]?.includes('__EMPTY__'),
+  );
+  const clearColumnFilters = useCallback(() => setFilters({}), []);
 
   // ── 거래처 그룹값 추출 (colGroupOrder용)
   const getCustVal = useCallback((cust, level) => {
@@ -1328,8 +1363,21 @@ export default function Pivot() {
       {err && <div className="banner-err">{err}</div>}
 
       {/* ■ Pivot 통계 헤더 */}
-      <div style={{padding:'2px 8px',background:'var(--header-bg)',border:'1px solid var(--border)',borderTop:'none',fontSize:12,fontWeight:'bold',flexShrink:0}}>
-        ■ Pivot 통계
+      <div style={{padding:'2px 8px',background:'var(--header-bg)',border:'1px solid var(--border)',borderTop:'none',fontSize:12,fontWeight:'bold',flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
+        <span>■ Pivot 통계</span>
+        {totalRowCount > 0 && (
+          <span style={{
+            fontSize: 10, fontWeight: 'normal',
+            color: visibleRowCount < totalRowCount ? '#c62828' : 'var(--text3)',
+          }}>
+            품목 {visibleRowCount}/{totalRowCount}
+            {visibleRowCount < totalRowCount ? ' · 필터로 일부만 표시 중' : ''}
+          </span>
+        )}
+        {hasDimColumnFilter && (
+          <button type="button" className="btn btn-sm" style={{ height: 20, fontSize: 10, marginLeft: 'auto' }}
+            onClick={clearColumnFilters}>컬럼필터 해제</button>
+        )}
       </div>
 
       {/* 툴바 — 필드 토글은 Field List 로 통합 (중복 버튼 제거) */}
@@ -1951,6 +1999,22 @@ export default function Pivot() {
           const onSecs = Object.keys(secLabels).filter(k=>showSections[k]).map(k=>secLabels[k]);
           const parts = [];
           parts.push(<span key="sec"><b style={{color:'var(--text2)'}}>[구분]</b> In [{onSecs.join(', ')}]</span>);
+          [
+            { key: 'country', label: '국가' },
+            { key: 'flower', label: '꽃' },
+            { key: 'prodName', label: '품목명(색상)' },
+            { key: 'area', label: '지역' },
+          ].forEach(({ key, label }) => {
+            const sel = filters[key];
+            if (!sel?.length || sel.includes('__EMPTY__')) return;
+            const op = sel.length === 1 ? '=' : 'In';
+            parts.push(
+              <span key={`col-${key}`}>
+                {' '}<b style={{ color: '#3b7dd8' }}>And</b>{' '}
+                <b style={{ color: 'var(--text2)' }}>[{label}]</b> {op} [{sel.join(', ')}]
+              </span>,
+            );
+          });
           filterZone.forEach(id=>{
             const sel = fieldFilters[id];
             if (!sel || sel.length===0) return;
