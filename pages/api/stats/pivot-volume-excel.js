@@ -5,18 +5,8 @@ import XLSX from 'xlsx-js-style';
 import { withAuth } from '../../../lib/auth';
 import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
+import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCustDays';
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
-
-const FLOWER_PREFIX = {
-  '카네이션': '카',
-  '수국': '수',
-  '장미': '장',
-  '알스트로': '알',
-  '중국': '중',
-  '태국': '태',
-};
-
-const DAY_ORDER = { '목': 0, '금': 1, '토': 2, '일': 3, '화': 4, '수': 5, '월': 6 };
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
 const COUNTRY_ONLY_SHEETS = new Set(['중국', '태국', '호주', '네덜란드']);
@@ -181,30 +171,6 @@ function extractCustomerAbbr(customer) {
     if (head) return head;
   }
   return customerDisplayLabel(customer);
-}
-
-function extractDays(customer, flower) {
-  const prefix = FLOWER_PREFIX[flower];
-  if (!prefix) return [];
-  const descr = String(customer?.custDescr || '').trim();
-  if (!descr) return [];
-
-  const days = [];
-  const re = new RegExp(`${prefix}[-.\\s]*([일월화수목금토][,일월화수목금토]*)`, 'gi');
-  for (const match of descr.matchAll(re)) {
-    const dayText = String(match[1] || '');
-    for (const dayMatch of dayText.matchAll(/[일월화수목금토]/g)) {
-      const day = dayMatch[0];
-      if (!days.includes(day)) days.push(day);
-    }
-  }
-  return days.sort((a, b) => (DAY_ORDER[a] ?? 99) - (DAY_ORDER[b] ?? 99));
-}
-
-function pickDataDay(days) {
-  if (!days.length) return '';
-  if (days.includes('일')) return '일';
-  return days[0] || '';
 }
 
 function makeCustomerGroups(rows, customers, flower) {
