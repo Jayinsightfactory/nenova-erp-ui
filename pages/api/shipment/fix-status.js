@@ -380,7 +380,10 @@ export default withAuth(async function handler(req, res) {
         if (detailCount > 0 && unfixedDetailCount === 0) status = 'FIXED';
         else if (fixedDetailCount > 0 && unfixedDetailCount > 0) status = 'PARTIAL';
         else if (unfixedDetailCount > 0) status = 'UNFIXED';
-        return { ...w, status, negativeCount };
+        const stockFixStatus = Number(w.stockMasterCount) > 0
+          ? (Number(w.stockFixed) === 1 ? 'FIXED' : 'OPEN')
+          : 'NONE';
+        return { ...w, status, stockFixStatus, negativeCount };
       });
 
       return res.status(200).json({

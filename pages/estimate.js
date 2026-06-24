@@ -2264,6 +2264,11 @@ export default function Estimate() {
     if (status === 'UNFIXED') return { text: '미확정', bg: '#e3f2fd', color: '#1565c0' };
     return { text: '출고없음', bg: '#f5f5f5', color: '#777' };
   };
+  const stockFixBadge = (stockFixStatus) => {
+    if (stockFixStatus === 'FIXED') return { text: '마감', bg: '#e8f5e9', color: '#2e7d32' };
+    if (stockFixStatus === 'OPEN') return { text: '미마감', bg: '#fff3e0', color: '#e65100' };
+    return { text: '-', bg: '#f5f5f5', color: '#777' };
+  };
 
   const unfixSelectedFixStatusWeeks = async (force = false) => {
     const rows = fixStatusTargetRows;
@@ -3336,8 +3341,8 @@ export default function Estimate() {
                 </div>
               </div>
               <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
-                먼저 현황을 확인한 뒤, 현재 선택 차수는 확정하고 과거 차수 수정이 필요하면 구간 확정취소를 진행합니다.
-                음수재고가 있으면 확정 버튼을 눌러도 서버에서 확정이 차단됩니다.
+                출고확정은 <strong>ShipmentDetail.isFix</strong> 기준입니다. 재고마감은 <strong>StockMaster.isFix</strong>(전산 재고 계산 마감) 기준으로, nenova.exe 재고 화면과 맞춰 보세요.
+                출고는 확정인데 재고가 미마감이면 exe에서 차수가 풀린 것처럼·재고가 마이너스로 보일 수 있습니다.
               </div>
               {(rangeUnfixWorking || rangeUnfixStatus) && (
                 <div style={{ marginBottom:10, padding:'8px 10px', background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, color:'#9a3412', fontSize:12, fontWeight:800 }}>
@@ -3352,7 +3357,8 @@ export default function Estimate() {
                   <tr style={{ background:'#f5f5f5', borderBottom:'2px solid #999' }}>
                     <th style={{ padding:'6px', textAlign:'center', width:42 }}>선택</th>
                     <th style={{ padding:'6px', textAlign:'center', width:80 }}>차수</th>
-                    <th style={{ padding:'6px', textAlign:'center', width:90 }}>상태</th>
+                    <th style={{ padding:'6px', textAlign:'center', width:90 }}>출고확정</th>
+                    <th style={{ padding:'6px', textAlign:'center', width:80 }}>재고마감</th>
                     <th style={{ padding:'6px', textAlign:'left' }}>미확정 카테고리</th>
                     <th style={{ padding:'6px', textAlign:'right' }}>음수재고</th>
                   </tr>
@@ -3360,6 +3366,7 @@ export default function Estimate() {
                 <tbody>
                   {fixStatusRows.map(w => {
                     const badge = fixStatusBadge(w.status);
+                    const stockBadge = stockFixBadge(w.stockFixStatus);
                     const selected = selectedFixStatusWeeks.has(w.OrderWeek);
                     const selectable = Number(w.detailCount || 0) > 0 && w.status !== 'NO_SHIPMENT';
                     return (
@@ -3389,6 +3396,12 @@ export default function Estimate() {
                             {badge.text}
                           </span>
                         </td>
+                        <td style={{ padding:'5px 6px', textAlign:'center' }}>
+                          <span style={{ background: stockBadge.bg, color: stockBadge.color, padding:'2px 8px', borderRadius:12, fontWeight:700 }}
+                            title="StockMaster.isFix — nenova.exe 재고 마감(usp_StockCalculation)">
+                            {stockBadge.text}
+                          </span>
+                        </td>
                         <td style={{ padding:'5px 6px', textAlign:'left', color: w.unfixedCategories ? '#c62828' : '#777', fontWeight: w.unfixedCategories ? 700 : 400 }}>
                           {w.unfixedCategories || '-'}
                         </td>
@@ -3400,7 +3413,7 @@ export default function Estimate() {
                   })}
                   {fixStatusRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding:16, textAlign:'center', color:'#777' }}>
+                      <td colSpan={6} style={{ padding:16, textAlign:'center', color:'#777' }}>
                         조회된 차수 현황이 없습니다.
                       </td>
                     </tr>
