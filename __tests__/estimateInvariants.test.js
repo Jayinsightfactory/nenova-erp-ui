@@ -12,6 +12,7 @@ async function main() {
     isPrintableEstimateRow,
     isEstimateDeductionRow,
     sanitizeEstimateDescrForDisplay,
+    sanitizeDescrTextForPrint,
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
@@ -83,6 +84,8 @@ async function main() {
   ) === '1차 10단, 2차 5단');
   assert('운영로그 판별', isOperationalEstimateDescr('임16>12,임12>14'));
   assert('일반 메모는 유지', formatEstimatePrintDescr({ EstimateType: '정상출고', Descr: '특별요청' }) === '특별요청');
+  assert('혼합 비고 메모만', sanitizeDescrTextForPrint('특별요청\n임재용0>1') === '특별요청');
+  assert('임재용0>1 단독 제거', sanitizeDescrTextForPrint('임재용0>1') === '');
   const all = filterItemsByWeekday(lavRows, new Set(['월', '화', '수', '목', '금', '토', '일']));
   assert('전체 7요일 2행', all.length === 2);
   assert('미선택 0행', filterItemsByWeekday(lavRows, new Set()).length === 0);
