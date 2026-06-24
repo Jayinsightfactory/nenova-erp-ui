@@ -10,6 +10,8 @@ async function main() {
     formatEstimatePrintDescr,
     isOperationalEstimateDescr,
     isPrintableEstimateRow,
+    isEstimateDeductionRow,
+    sanitizeEstimateDescrForDisplay,
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
@@ -69,7 +71,12 @@ async function main() {
 
   console.log('\n=== formatEstimatePrintDescr (적요) ===');
   assert('변경이력 Descr 제외', formatEstimatePrintDescr({ EstimateType: '정상출고', Descr: '임16>12,임12>14' }) === '');
-  assert('차감 출고일', formatEstimatePrintDescr({ EstimateType: '불량차감/송이', outDate: '2026-06-04' }) === '4일');
+  assert('차감 출고일', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', outDate: '2026-06-04' }
+  ) === '4일');
+  assert('차감 Descr 로그 미출력', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '차감수량 10>8', outDate: '2026-06-04' }
+  ) === '4일');
   assert('차수별 분배(옵션)', formatEstimatePrintDescr(
     { EstimateType: '정상출고', _distribDesc: '1차 10단, 2차 5단' },
     { showDistribDesc: true }
@@ -126,14 +133,24 @@ async function main() {
   const remapped = applyByDateRowQuantities([normalRow])[0];
   assert('정상출고 16박스→160송이', remapped.Quantity === 160);
 
-  console.log('\n=== filterActiveEstimateShipmentRows (OutQuantity=0 유령행) ===');
+  console.log('\n=== filterActiveEstimateShipmentRows (OutQuantity=0 유령행·수량0 차감) ===');
   const ghosts = filterActiveEstimateShipmentRows([
     { EstimateType: '정상출고', ProdName: 'MEL ROSE', Quantity: 0, Cost: 0, Amount: 0, Vat: 0 },
     { EstimateType: '정상출고', ProdName: 'Freedom', Quantity: 60, Cost: 13700, Amount: 747273, Vat: 74727 },
-    { EstimateType: '단가차감', ProdName: 'ROSE', Quantity: 0, Cost: 2700, Amount: 0, Vat: 0 },
+    { EstimateKey: 99, EstimateType: '단가차감', ProdName: 'ROSE', Quantity: 0, Cost: 2700, Amount: 0, Vat: 0 },
+    { EstimateKey: 100, EstimateType: '불량차감/송이', ProdName: 'ROSE', Quantity: -3, Cost: 700, Amount: -1918, Vat: -192 },
   ]);
   assert('유령 정상출고 제외', ghosts.length === 2);
-  assert('차감 0수량 유지', ghosts.some(r => r.EstimateType === '단가차감'));
+  assert('수량0 단가차감 제외', !ghosts.some(r => r.EstimateType === '단가차감'));
+  assert('수량 음수 불량차감 유지', ghosts.some(r => r.EstimateType === '불량차감/송이'));
+
+  console.log('\n=== isEstimateDeductionRow (Estimate 전용 행) ===');
+  assert('EstimateKey+SdetailKey null', isEstimateDeductionRow({ EstimateKey: 1, EstimateType: 'fee03' }));
+  assert('정상출고 ShipmentDetail', !isEstimateDeductionRow({ EstimateKey: null, SdetailKey: 10, EstimateType: '정상출고' }));
+
+  console.log('\n=== sanitizeEstimateDescrForDisplay (차감 비고) ===');
+  assert('차감수량 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '차감수량 5>3' }) === '');
+  assert('차감단가 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '\n차감단가 700>650' }) === '');
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

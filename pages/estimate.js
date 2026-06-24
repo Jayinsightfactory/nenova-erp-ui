@@ -14,6 +14,7 @@ import {
   formatEstimatePrintDescr,
   isEstimateDeductionRow,
   isPrintableEstimateRow,
+  sanitizeEstimateDescrForDisplay,
 } from '../lib/estimateInvariants';
 import {
   FIX_CATEGORY_PRESETS,
@@ -285,7 +286,7 @@ function buildEstimateHtml({
   // ── 사장님 지정 정렬 우선순위
   // 콜롬비아 수국→알스트로→루스커스→카네이션→장미 → 네덜란드 → 호주 → 중국 → 에콰도르
   // → 운송료 → 운임 → 그 외 차감
-  const isDeductRow = r => r.EstimateType && r.EstimateType !== '정상출고';
+  const isDeductRow = isEstimateDeductionRow;
   const priorityOf = r => {
     const isDed = isDeductRow(r);
     const country = r.CounName || '';
@@ -1978,7 +1979,8 @@ export default function Estimate() {
 
   // ── 엑셀 다운 (쿼리 데이터 기반)
   const handleExcel = () => {
-    if (!filteredItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
+    const printableItems = filteredItems.filter(isPrintableEstimateRow);
+    if (!printableItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
     const custName = selectedShip?.CustName || '';
     const week = weekNum || '';
     const rows = [
@@ -1986,11 +1988,14 @@ export default function Estimate() {
       [],
       ['품목명','단위','출고일','수량','단가','공급가액','부가세','구분'],
     ];
-    filteredItems.forEach(i => rows.push([
+    printableItems.forEach(i => rows.push([
       i.ProdName, i.Unit, i.outDate||'', i.Quantity, i.Cost, i.Amount, i.Vat, i.EstimateType||''
     ]));
+    const sumQty = printableItems.reduce((a, b) => a + (b.Quantity || 0), 0);
+    const sumSupply = printableItems.reduce((a, b) => a + (b.Amount || 0), 0);
+    const sumVat = printableItems.reduce((a, b) => a + (b.Vat || 0), 0);
     rows.push([]);
-    rows.push(['합계','','', totalQty, '', totalSupply, totalVat, '']);
+    rows.push(['합계','','', sumQty, '', sumSupply, sumVat, '']);
     const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
     const a = document.createElement('a');
@@ -2737,7 +2742,7 @@ export default function Estimate() {
                           {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
                         </td></tr>
                       : filteredItems.map((item, i) => {
-                          const isDed = item.EstimateType && item.EstimateType !== '정상출고';
+                          const isDed = isEstimateDeductionRow(item);
                           const sdk = item.SdetailKey;
                           const editKey = getItemEditKey(item);
                           const editVal = editKey ? (costEdits[editKey] ?? '') : '';
@@ -2819,7 +2824,7 @@ export default function Estimate() {
                             </td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--text3)'}}>{fmt(item.Vat)}</td>
-                            <td style={{fontSize:11, color:'var(--text3)'}}>{item.Descr||''}</td>
+                            <td style={{fontSize:11, color:'var(--text3)'}}>{sanitizeEstimateDescrForDisplay(item)}</td>
                           </tr>
                           );
                         })}
