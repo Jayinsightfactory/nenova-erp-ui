@@ -4,6 +4,12 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import {
+  deriveExeAlignedStatus,
+  deriveShipmentDetailStatus,
+  deriveStockFixStatus,
+  reconcileWeekAfterScopedOperation,
+} from '../../../lib/shipmentFixReconcile';
 
 function parseWeek(input) {
   const raw = String(input || '').trim();
@@ -168,6 +174,25 @@ async function loadWeekStatus(from, to) {
        FROM StockMaster
        WHERE OrderWeek IS NOT NULL
        GROUP BY ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '')
+     ),
+     mismatch AS (
+       SELECT
+         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
+         SUM(CASE WHEN ISNULL(sm.isFix,0)<>ISNULL(sd.isFix,0) AND ISNULL(sd.OutQuantity,0)>0 THEN 1 ELSE 0 END) AS masterDetailMismatchCount
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+       WHERE sm.isDeleted = 0
+       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
+     ),
+     neg_live AS (
+       SELECT
+         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
+         COUNT(DISTINCT p.ProdKey) AS negativeLiveCount
+       FROM ShipmentMaster sm
+       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
+       JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
+       WHERE sm.isDeleted = 0 AND ISNULL(sd.OutQuantity,0) > 0 AND ISNULL(p.Stock,0) < 0
+       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
      )
      SELECT
        w.OrderYear,
@@ -182,11 +207,15 @@ async function loadWeekStatus(from, to) {
        ISNULL(ship.fixedCategoryCount, 0) AS fixedCategoryCount,
        ISNULL(unfixed_category.unfixedCategories, N'') AS unfixedCategories,
        ISNULL(stock.stockFixed, 0) AS stockFixed,
-       ISNULL(stock.stockMasterCount, 0) AS stockMasterCount
+       ISNULL(stock.stockMasterCount, 0) AS stockMasterCount,
+       ISNULL(mismatch.masterDetailMismatchCount, 0) AS masterDetailMismatchCount,
+       ISNULL(neg_live.negativeLiveCount, 0) AS negativeLiveCount
      FROM week_set w
      LEFT JOIN ship ON ship.WeekKey = w.WeekKey
      LEFT JOIN unfixed_category ON unfixed_category.WeekKey = w.WeekKey
      LEFT JOIN stock ON stock.WeekKey = w.WeekKey
+     LEFT JOIN mismatch ON mismatch.WeekKey = w.WeekKey
+     LEFT JOIN neg_live ON neg_live.WeekKey = w.WeekKey
      WHERE w.WeekKey BETWEEN @fromKey AND @toKey
      ORDER BY w.WeekKey DESC`,
     {
@@ -376,14 +405,26 @@ export default withAuth(async function handler(req, res) {
         const fixedDetailCount = Number(w.fixedDetailCount) || 0;
         const unfixedDetailCount = Number(w.unfixedDetailCount) || 0;
         const negativeCount = negativeByWeek[w.WeekKey] || 0;
-        let status = 'NO_SHIPMENT';
-        if (detailCount > 0 && unfixedDetailCount === 0) status = 'FIXED';
-        else if (fixedDetailCount > 0 && unfixedDetailCount > 0) status = 'PARTIAL';
-        else if (unfixedDetailCount > 0) status = 'UNFIXED';
-        const stockFixStatus = Number(w.stockMasterCount) > 0
-          ? (Number(w.stockFixed) === 1 ? 'FIXED' : 'OPEN')
-          : 'NONE';
-        return { ...w, status, stockFixStatus, negativeCount };
+        const shipmentStatus = deriveShipmentDetailStatus({ detailCount, fixedDetailCount, unfixedDetailCount });
+        const stockFixStatus = deriveStockFixStatus({
+          stockMasterCount: Number(w.stockMasterCount) || 0,
+          stockFixed: Number(w.stockFixed) || 0,
+        });
+        const parity = deriveExeAlignedStatus({
+          shipmentStatus,
+          stockFixStatus,
+          negativeLiveCount: Number(w.negativeLiveCount) || 0,
+          masterDetailMismatchCount: Number(w.masterDetailMismatchCount) || 0,
+        });
+        return {
+          ...w,
+          status: parity.status,
+          shipmentStatus,
+          stockFixStatus,
+          exeAligned: parity.exeAligned,
+          parityWarnings: parity.warnings,
+          negativeCount,
+        };
       });
 
       return res.status(200).json({
@@ -428,6 +469,7 @@ export default withAuth(async function handler(req, res) {
       const errors = [];
       const stockResults = [];
       const stockErrors = [];
+      const stockByWeek = {};
       for (const t of callTargets) {
         try {
           const prodKeys = await loadShipmentProdKeys(t.OrderWeek, procedureShape.hasCountryFlower ? t.CountryFlower : null);
@@ -445,7 +487,12 @@ export default withAuth(async function handler(req, res) {
             const stock = await runStockCalculationForProducts(t.OrderYear, t.OrderWeek, uid, prodKeys);
             stockResults.push(...stock.results);
             stockErrors.push(...stock.errors);
-            results.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', message: row.message || '' });
+            const weekLabel = `${t.OrderYear}-${t.OrderWeek}`;
+            if (!stockByWeek[weekLabel]) {
+              stockByWeek[weekLabel] = { orderYear: t.OrderYear, orderWeek: t.OrderWeek, prodKeys: [] };
+            }
+            stockByWeek[weekLabel].prodKeys.push(...stock.results.map((s) => s.prodKey));
+            results.push({ week: weekLabel, countryFlower: t.CountryFlower || 'ALL', message: row.message || '' });
           } else {
             errors.push({ week: `${t.OrderYear}-${t.OrderWeek}`, countryFlower: t.CountryFlower || 'ALL', code: row.result, message: row.message || 'unknown' });
           }
@@ -454,16 +501,32 @@ export default withAuth(async function handler(req, res) {
         }
       }
 
-      const hasStockWarning = stockErrors.length > 0;
+      const reconcileByWeek = {};
+      for (const [weekLabel, info] of Object.entries(stockByWeek)) {
+        reconcileByWeek[weekLabel] = await reconcileWeekAfterScopedOperation({
+          q: query,
+          sqlTypes: sql,
+          orderYear: info.orderYear,
+          orderWeek: info.orderWeek,
+          uid,
+          alreadyCalculatedProdKeys: info.prodKeys,
+          scopeLabel: cfFilter.length ? `bulk-unfix:${cfFilter.join(',')}` : 'bulk-unfix',
+          forceFullWeekRecalc: cfFilter.length > 0,
+        });
+      }
+
+      const reconcileStockErrors = Object.values(reconcileByWeek).flatMap((r) => r.stockErrors || []);
+      const hasStockWarning = stockErrors.length > 0 || reconcileStockErrors.length > 0;
       return res.status(errors.length ? 207 : 200).json({
-        success: errors.length === 0,
+        success: errors.length === 0 && reconcileStockErrors.length === 0,
         message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length}건` +
-                 (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length}건` : ''),
+                 (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length + reconcileStockErrors.length}건` : ''),
         results,
         errors,
         stockResults,
         stockErrors,
         stockWarning: hasStockWarning,
+        reconcileByWeek,
       });
     }
 

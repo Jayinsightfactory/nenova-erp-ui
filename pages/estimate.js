@@ -22,6 +22,7 @@ import {
   normalizeCategoryList,
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
+import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 
@@ -163,12 +164,23 @@ async function fetchWeekFixStatus(week) {
 async function reconcileFixResultAfterAmbiguousResponse(week, data) {
   if (data?.success || !data?._ambiguousResponse) return data;
   const row = await fetchWeekFixStatus(week);
-  if (row?.status === 'FIXED') {
+  if (row?.exeAligned || row?.status === 'FIXED') {
     return {
       success: true,
       message: `[${week}] 확정 완료 (응답 지연 — 서버에서 이미 처리됨)`,
       updatedCount: row.fixedDetailCount,
       _recoveredFromAmbiguousResponse: true,
+      parity: row,
+    };
+  }
+  if (row?.status === 'FIXED_PENDING_STOCK') {
+    return {
+      success: true,
+      message: `[${week}] 출고 확정됨 — 재고 마감 미완(exe 정합 확인 필요)`,
+      updatedCount: row.fixedDetailCount,
+      _recoveredFromAmbiguousResponse: true,
+      parity: row,
+      stockWarning: true,
     };
   }
   return data;
@@ -1427,7 +1439,11 @@ export default function Estimate() {
           ...(countryFlowers.length ? { countryFlowers } : {}),
         });
         d = await reconcileFixResultAfterAmbiguousResponse(wk, d);
-        results.push({ week: wk, ok: d.success, message: d.message, error: d.error, count: d.updatedCount, stockErrors: d.stockErrors?.length || 0 });
+        if (!d.success) {
+          results.push({ week: wk, ok: false, error: formatFixApiErrorMessage(d, wk), message: d.message });
+        } else {
+          results.push({ week: wk, ok: true, message: d.message, count: d.updatedCount, stockErrors: (d.stockErrors?.length || 0) + (d.reconcile?.stockErrors?.length || 0) });
+        }
       } catch (e) {
         const msg = e?.name === 'AbortError'
           ? `요청 시간 초과(${Math.round(FIX_UNFIX_FETCH_TIMEOUT_MS / 60000)}분) — 재고 재계산 진행 중일 수 있습니다`
@@ -2252,14 +2268,26 @@ export default function Estimate() {
     ? fixStatusRows.filter(w => selectedFixStatusWeeks.has(w.OrderWeek))
     : [];
   const fixStatusActionBaseRows = selectedFixStatusRows.length ? selectedFixStatusRows : fixStatusRows;
+  const resolveFixCountryFlowersForRows = (rows, selectedCategories) => {
+    const partialRows = rows.filter((w) => w.shipmentStatus === 'PARTIAL' || w.status === 'PARTIAL');
+    if (!partialRows.length) {
+      return resolveCountryFlowerFilter(selectedCategories, fixStatusAvailableCategories);
+    }
+    const allUnfixed = partialRows.flatMap((w) => parseUnfixedCategoryLabels(w.unfixedCategories));
+    const merged = [...new Set([...(selectedCategories || []), ...allUnfixed])];
+    return resolveCountryFlowerFilter(merged, fixStatusAvailableCategories);
+  };
+
   const fixStatusTargetRows = fixStatusActionBaseRows
-    .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL');
+    .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL' || w.status === 'FIXED_PENDING_STOCK');
   const fixStatusFixTargetRows = fixStatusActionBaseRows
     .filter(w => Number(w.detailCount || 0) > 0)
     .filter(w => w.status === 'UNFIXED' || w.status === 'PARTIAL');
   const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
+  const fixStatusExeMisalignedCount = fixStatusRows.filter(w => w.exeAligned === false && w.shipmentStatus === 'FIXED').length;
   const fixStatusBadge = (status) => {
     if (status === 'FIXED') return { text: '확정', bg: '#e8f5e9', color: '#2e7d32' };
+    if (status === 'FIXED_PENDING_STOCK') return { text: '출고확정·재고미정합', bg: '#fff3e0', color: '#e65100' };
     if (status === 'PARTIAL') return { text: '부분확정', bg: '#fff8e1', color: '#ef6c00' };
     if (status === 'UNFIXED') return { text: '미확정', bg: '#e3f2fd', color: '#1565c0' };
     return { text: '출고없음', bg: '#f5f5f5', color: '#777' };
@@ -2310,8 +2338,16 @@ export default function Estimate() {
           }
           throw e;
         }
-        if (!data.success) errors.push(`${row.OrderWeek}: ${data.error || data.message || '실패'}`);
-        else if (data.stockWarning) warnings.push(`${row.OrderWeek}: 재고 재계산 경고 ${data.stockErrors?.length || 0}건`);
+        if (!data.success) errors.push(formatFixApiErrorMessage(data, row.OrderWeek));
+        else {
+          if (data.requiresAllCategoryFix) {
+            warnings.push(`${row.OrderWeek}: 재확정 시 미확정 카테고리 전체 확정 필요 (${(data.pendingUnfixedCategories || []).join(', ')})`);
+          }
+          if (data.stockWarning) warnings.push(`${row.OrderWeek}: 재고 재계산 경고 ${(data.stockErrors?.length || 0) + (data.reconcile?.stockErrors?.length || 0)}건`);
+          if (data.parity && !data.parity.exeAligned) {
+            warnings.push(`${row.OrderWeek}: exe 정합 미완 — ${(data.parity.warnings || []).slice(0, 2).join('; ')}`);
+          }
+        }
       }
       setRangeUnfixStatus('확정취소 완료 — 현황 갱신 중');
       if (errors.length) {
@@ -2335,19 +2371,67 @@ export default function Estimate() {
   const fixSelectedFixStatusWeeks = async () => {
     const rows = fixStatusFixTargetRows;
     if (!ensureFixStatusCategorySelection()) return;
-    const countryFlowers = getFixStatusCountryFlowers();
-    const categoryNote = countryFlowers.length ? `\n\n카테고리: ${countryFlowers.join(', ')}` : '';
+    const partialInSelection = rows.some((w) => w.shipmentStatus === 'PARTIAL' || w.status === 'PARTIAL');
+    const countryFlowers = partialInSelection
+      ? resolveFixCountryFlowersForRows(rows, fixStatusSelectedCategories)
+      : getFixStatusCountryFlowers();
+    const categoryNote = countryFlowers.length
+      ? `\n\n카테고리: ${countryFlowers.join(', ')}`
+      : '';
+    const partialNote = partialInSelection && fixStatusCategoryPreset !== 'all'
+      ? '\n\n부분확정 차수는 미확정 카테고리를 한 번에 확정합니다 (exe 정합).'
+      : '';
     if (!rows.length) {
       alert('확정할 차수를 선택하거나, 미확정/부분확정 차수가 있어야 합니다.');
       return;
     }
     const ordered = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek)));
     const weekLabels = ordered.map(w => w.OrderWeek).filter(Boolean);
-    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.${categoryNote}`)) {
+    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.${categoryNote}${partialNote}`)) {
       return;
     }
     setFixStatusModal(null);
     await doFixAll(weekLabels, false, countryFlowers);
+  };
+
+  const reconcileSelectedFixStatusWeeks = async () => {
+    const base = selectedFixStatusRows.length ? selectedFixStatusRows : fixStatusRows.filter(w => w.exeAligned === false && Number(w.detailCount || 0) > 0);
+    const rows = base.filter(w => w.status === 'FIXED_PENDING_STOCK' || w.stockFixStatus === 'OPEN' || Number(w.negativeLiveCount || 0) > 0);
+    if (!rows.length) {
+      alert('재고 정합 복구 대상 차수가 없습니다.\n(출고 확정됐으나 재고 마감 미완·음수재고 차수만 대상)');
+      return;
+    }
+    const weekLabels = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek))).map(w => w.OrderWeek);
+    if (!confirm(`${weekLabels.length}개 차수에 대해 차수 전체 재고 재계산(usp_StockCalculation)을 실행할까요?\n\n${weekLabels.join(', ')}\n\n카테고리 부분 확정/취소 후 exe와 어긋난 경우 복구용입니다.`)) {
+      return;
+    }
+    setRangeUnfixWorking(true);
+    setRangeUnfixStatus('재고 정합 복구 시작');
+    const errors = [];
+    try {
+      for (const wk of weekLabels) {
+        setRangeUnfixStatus(`${wk} 재고 재계산 중`);
+        const res = await fetch('/api/shipment/fix-reconcile', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week: wk, forceFullWeekRecalc: true }),
+        });
+        const data = await parseJsonResponse(res).catch(() => ({}));
+        if (!data.success) errors.push(`${wk}: ${data.message || data.error || '실패'}`);
+      }
+      if (errors.length) {
+        alert(`일부 복구 실패\n\n${errors.slice(0, 8).join('\n')}`);
+      } else {
+        alert(`재고 정합 복구 완료: ${weekLabels.join(', ')}`);
+      }
+      await checkFixStatus();
+    } catch (e) {
+      alert(`재고 정합 복구 오류: ${e.message}`);
+    } finally {
+      setRangeUnfixWorking(false);
+      setRangeUnfixStatus('');
+    }
   };
 
   return (
@@ -3251,6 +3335,9 @@ export default function Estimate() {
                 <span style={{ background: fixStatusNegativeCount > 0 ? '#ffebee' : '#e8f5e9', color: fixStatusNegativeCount > 0 ? '#c62828' : '#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
                   음수재고 {fixStatusNegativeCount}건
                 </span>
+                <span style={{ background: fixStatusExeMisalignedCount > 0 ? '#fff3e0' : '#e8f5e9', color: fixStatusExeMisalignedCount > 0 ? '#e65100' : '#2e7d32', padding:'4px 10px', borderRadius:14, fontWeight:700 }}>
+                  exe미정합 {fixStatusExeMisalignedCount}차수
+                </span>
               </div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:10, fontSize:12 }}>
                 <span style={{ fontWeight:700, color:'#444' }}>조회 차수</span>
@@ -3337,12 +3424,14 @@ export default function Estimate() {
                   <div style={{ fontSize:11, color:'#777' }}>조회 구간에 카테고리 데이터가 없습니다.</div>
                 )}
                 <div style={{ fontSize:11, color:'#666', marginTop:8, lineHeight:1.5 }}>
-                  예: <strong>카네이션</strong>만 선택하면 10차수 일괄 확정/취소가 카네이션 카테고리에만 적용됩니다. 장미·수국 등 다른 카테고리는 그대로 유지됩니다.
+                  예: <strong>카네이션</strong>만 선택하면 해당 카테고리만 확정/취소됩니다.
+                  <strong>부분확정 차수</strong>는 미확정 카테고리를 한 번에 확정해야 하며, 이전 차수는 <strong>전 카테고리</strong> 기준으로 검사합니다.
+                  작업 후 차수 전체 재고 재계산이 자동 실행됩니다.
                 </div>
               </div>
               <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
-                출고확정은 <strong>ShipmentDetail.isFix</strong> 기준입니다. 재고마감은 <strong>StockMaster.isFix</strong>(전산 재고 계산 마감) 기준으로, nenova.exe 재고 화면과 맞춰 보세요.
-                출고는 확정인데 재고가 미마감이면 exe에서 차수가 풀린 것처럼·재고가 마이너스로 보일 수 있습니다.
+                <strong>출고확정</strong>(ShipmentDetail) · <strong>재고마감</strong>(StockMaster) · <strong>exe정합</strong>(둘 다 + Product.Stock)을 함께 봅니다.
+                카테고리만 확정/취소해도 자동으로 차수 전체 <code>usp_StockCalculation</code>이 돌아갑니다. 그래도 exe미정합이 남으면 <strong>재고 정합 복구</strong>를 실행하세요.
               </div>
               {(rangeUnfixWorking || rangeUnfixStatus) && (
                 <div style={{ marginBottom:10, padding:'8px 10px', background:'#fff7ed', border:'1px solid #fed7aa', borderRadius:8, color:'#9a3412', fontSize:12, fontWeight:800 }}>
@@ -3359,6 +3448,7 @@ export default function Estimate() {
                     <th style={{ padding:'6px', textAlign:'center', width:80 }}>차수</th>
                     <th style={{ padding:'6px', textAlign:'center', width:90 }}>출고확정</th>
                     <th style={{ padding:'6px', textAlign:'center', width:80 }}>재고마감</th>
+                    <th style={{ padding:'6px', textAlign:'center', width:72 }}>exe</th>
                     <th style={{ padding:'6px', textAlign:'left' }}>미확정 카테고리</th>
                     <th style={{ padding:'6px', textAlign:'right' }}>음수재고</th>
                   </tr>
@@ -3402,6 +3492,16 @@ export default function Estimate() {
                             {stockBadge.text}
                           </span>
                         </td>
+                        <td style={{ padding:'5px 6px', textAlign:'center' }}>
+                          <span style={{
+                            background: w.exeAligned ? '#e8f5e9' : '#ffebee',
+                            color: w.exeAligned ? '#2e7d32' : '#c62828',
+                            padding:'2px 8px', borderRadius:12, fontWeight:700,
+                          }}
+                            title={(w.parityWarnings || []).join('\n') || (w.exeAligned ? 'nenova.exe 정합' : 'exe 미정합')}>
+                            {w.exeAligned ? 'OK' : '!'}
+                          </span>
+                        </td>
                         <td style={{ padding:'5px 6px', textAlign:'left', color: w.unfixedCategories ? '#c62828' : '#777', fontWeight: w.unfixedCategories ? 700 : 400 }}>
                           {w.unfixedCategories || '-'}
                         </td>
@@ -3413,7 +3513,7 @@ export default function Estimate() {
                   })}
                   {fixStatusRows.length === 0 && (
                     <tr>
-                      <td colSpan={6} style={{ padding:16, textAlign:'center', color:'#777' }}>
+                      <td colSpan={7} style={{ padding:16, textAlign:'center', color:'#777' }}>
                         조회된 차수 현황이 없습니다.
                       </td>
                     </tr>
@@ -3421,8 +3521,17 @@ export default function Estimate() {
                 </tbody>
               </table>
             </div>
-            <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)', flexWrap:'wrap' }}>
               <button className="btn" onClick={() => setFixStatusModal(null)} disabled={fixWorking || rangeUnfixWorking}>닫기</button>
+              <button
+                className="btn"
+                onClick={async () => { await reconcileSelectedFixStatusWeeks(); }}
+                disabled={rangeUnfixWorking || fixWorking || fixStatusExeMisalignedCount === 0}
+                style={{ background:'#e8eaf6', color:'#283593', borderColor:'#3949ab', fontWeight:700 }}
+                title="카테고리 부분 작업 후 남은 재고 마감·음수재고 복구"
+              >
+                {rangeUnfixWorking ? (rangeUnfixStatus || '처리중...') : `재고 정합 복구 (${fixStatusExeMisalignedCount || 0}차수)`}
+              </button>
               <button
                 className="btn"
                 onClick={async () => { await unfixSelectedFixStatusWeeks(false); }}

@@ -4,6 +4,7 @@
  */
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { deriveExeAlignedStatus, deriveShipmentDetailStatus } from '../../../lib/shipmentFixReconcile';
 
 function parseWeek(input) {
   const raw = String(input || '').trim();
@@ -115,14 +116,21 @@ async function handler(req, res) {
   }
 
   const s = summary.recordset[0] || {};
-  const webStatus = Number(s.detailUnfixedOutRows || 0) === 0 && Number(s.detailCount || 0) > 0
-    ? 'FIXED'
-    : Number(s.detailFixedOutRows || 0) > 0 && Number(s.detailUnfixedOutRows || 0) > 0
-      ? 'PARTIAL'
-      : 'UNFIXED';
-
+  const webShipmentStatus = deriveShipmentDetailStatus({
+    detailCount: Number(s.detailCount || 0),
+    fixedDetailCount: Number(s.detailFixedOutRows || 0),
+    unfixedDetailCount: Number(s.detailUnfixedOutRows || 0),
+  });
   const stockRows = stockMaster.recordset || [];
   const stockFixed = stockRows.some((r) => Number(r.isFix) === 1);
+  const stockFixStatus = stockRows.length > 0 ? (stockFixed ? 'FIXED' : 'OPEN') : 'NONE';
+  const parity = deriveExeAlignedStatus({
+    shipmentStatus: webShipmentStatus,
+    stockFixStatus,
+    negativeLiveCount: (negativeProductStock.recordset || []).length,
+    masterDetailMismatchCount: Number(s.masterDetailMismatchRows || 0),
+  });
+  const webStatus = parity.status;
 
   const risks = [];
   if (Number(s.masterDetailMismatchRows || 0) > 0) {
@@ -137,8 +145,8 @@ async function handler(req, res) {
   if ((negativeProductStock.recordset || []).length > 0) {
     risks.push(`Product.Stock 음수 ${negativeProductStock.recordset.length}품목 (exe 실시간 재고)`);
   }
-  if (webStatus === 'FIXED' && !stockFixed && stockRows.length > 0) {
-    risks.push('웹 fix-status=FIXED(Detail) 이지만 StockMaster 미확정 — 사용자 체감 “exe는 풀림, 웹은 확정” 패턴');
+  if (webStatus === 'FIXED_PENDING_STOCK' || (webShipmentStatus === 'FIXED' && !stockFixed && stockRows.length > 0)) {
+    risks.push('웹 출고확정(Detail) 이지만 StockMaster 미확정 — 사용자 체감 “exe는 풀림, 웹은 확정” 패턴');
   }
 
   return res.status(200).json({
@@ -146,6 +154,9 @@ async function handler(req, res) {
     week: `${year}-${week}`,
     summary: s,
     webFixStatus: webStatus,
+    webShipmentStatus,
+    exeAligned: parity.exeAligned,
+    parityWarnings: parity.warnings,
     stockMaster: stockRows,
     stockMasterFixed: stockFixed,
     viewMismatches: viewCompare.recordset,

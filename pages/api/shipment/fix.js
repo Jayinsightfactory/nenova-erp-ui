@@ -5,6 +5,8 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { reconcileWeekAfterScopedOperation } from '../../../lib/shipmentFixReconcile';
+import { evaluatePartialCategoryFixBlock, labelsFromCategoryTargets } from '../../../lib/shipmentFixGuards';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -587,15 +589,28 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
-  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, allowedCountryFlowers);
+  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
   if (lowerUnfixedWeeks.length > 0) {
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
-    await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels}`, true);
+    await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels} (all-categories)`, true);
     return res.status(409).json({
       success: false,
       code: 'LOWER_UNFIXED_EXISTS',
       lowerWeeks: lowerUnfixedWeeks,
-      error: `[${week}] 확정 불가: 이전 차수 미확정 출고가 남아 있습니다. 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
+      error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (전 카테고리 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
+    });
+  }
+
+  const allUnfixedTargets = await loadShipmentCategoryTargets(orderWeek, 0, null);
+  const partialFixGuard = evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
+  if (partialFixGuard.blocked) {
+    await logFix('partial_category_fix_block', `${orderYear}/${orderWeek} remaining=${partialFixGuard.remainingCategories?.join(',')}`, true);
+    return res.status(409).json({
+      success: false,
+      code: partialFixGuard.code,
+      unfixedCount: partialFixGuard.unfixedCount,
+      remainingCategories: partialFixGuard.remainingCategories,
+      error: partialFixGuard.error,
     });
   }
 
@@ -726,15 +741,35 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     });
   }
 
-  await logFix('fix_done', `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length}`, errors.length > 0 || stockErrors.length > 0);
+  const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
+  const reconcile = await reconcileWeekAfterScopedOperation({
+    q: query,
+    sqlTypes: sql,
+    orderYear,
+    orderWeek,
+    uid,
+    logFix,
+    alreadyCalculatedProdKeys,
+    scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
+    forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+  });
+
+  await logFix(
+    'fix_done',
+    `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length} reconcile=${reconcile.recalculatedCount}`,
+    errors.length > 0 || stockErrors.length > 0 || !reconcile.parity.exeAligned,
+  );
   return res.status(200).json({
-    success: errors.length === 0 && stockErrors.length === 0,
+    success: errors.length === 0 && stockErrors.length === 0 && reconcile.stockErrors.length === 0,
     message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
-             (errors.length > 0 || stockErrors.length > 0 ? ` (${errors.length + stockErrors.length}개 실패)` : ''),
+             (errors.length > 0 || stockErrors.length > 0 ? ` (${errors.length + stockErrors.length}개 실패)` : '') +
+             (reconcile.parity.exeAligned ? '' : ' · exe 정합 미완(재고마감/음수재고 확인)'),
     results,
     errors,
     stockResults,
     stockErrors,
+    reconcile,
+    parity: reconcile.parity,
   });
 }
 
@@ -833,20 +868,49 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       }
     }
 
-    const hasStockWarning = stockErrors.length > 0;
-    await logFix('unfix_done', `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length}`, errors.length > 0 || stockErrors.length > 0);
+    const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
+    const reconcile = await reconcileWeekAfterScopedOperation({
+      q: query,
+      sqlTypes: sql,
+      orderYear,
+      orderWeek,
+      uid,
+      logFix,
+      alreadyCalculatedProdKeys,
+      scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'unfix',
+      forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+    });
+
+    const pendingUnfixed = await loadShipmentCategoryTargets(orderWeek, 0, null);
+    const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);
+    const requiresAllCategoryFix = pendingUnfixed.length > 1;
+
+    const hasStockWarning = stockErrors.length > 0 || reconcile.stockErrors.length > 0;
+    await logFix(
+      'unfix_done',
+      `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length} reconcile=${reconcile.recalculatedCount} pendingUnfixed=${pendingUnfixed.length}`,
+      errors.length > 0 || hasStockWarning,
+    );
     return res.status(200).json({
-      success: errors.length === 0,
+      success: errors.length === 0 && reconcile.stockErrors.length === 0,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +
                (errors.length > 0 ? ` (${errors.length}개 실패)` : '') +
-               (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length}건` : '') +
-               (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : ''),
+               (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length + reconcile.stockErrors.length}건` : '') +
+               (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : '') +
+               (requiresAllCategoryFix
+                 ? ` · 재확정 시 미확정 ${pendingUnfixed.length}개 카테고리를 한 번에 확정하세요 (${pendingUnfixedLabels.join(', ')})`
+                 : '') +
+               (reconcile.parity.exeAligned ? '' : ' · exe 정합 미완(재고마감/음수재고 확인)'),
       results,
       errors,
       stockResults,
       stockErrors,
       stockWarning: hasStockWarning,
       laterFixed,
+      reconcile,
+      parity: reconcile.parity,
+      pendingUnfixedCategories: pendingUnfixedLabels,
+      requiresAllCategoryFix,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
