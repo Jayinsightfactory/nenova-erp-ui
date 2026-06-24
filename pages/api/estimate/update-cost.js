@@ -178,19 +178,16 @@ export default withAuth(async function handler(req, res) {
 
           const newAmount = Math.round(Number(row.Quantity || 0) * it.cost / 1.1);
           const newVat = Math.round(Number(row.Quantity || 0) * it.cost / 11);
-          const logLine = `\n차감단가 ${row.OldCost}>${it.cost}`;
 
           await tQ(
             `UPDATE Estimate
-                SET Cost=@cost, Amount=@amount, Vat=@vat,
-                    Descr = ISNULL(Descr,'') + @log
+                SET Cost=@cost, Amount=@amount, Vat=@vat
               WHERE EstimateKey=@ek`,
             {
               ek: { type: sql.Int, value: it.estimateKey },
               cost: { type: sql.Float, value: it.cost },
               amount: { type: sql.Float, value: newAmount },
               vat: { type: sql.Float, value: newVat },
-              log: { type: sql.NVarChar, value: logLine },
             }
           );
 
@@ -256,7 +253,7 @@ export default withAuth(async function handler(req, res) {
 
         // 단가 변경 로그는 ShipmentDetail.Descr(분배 비고)에 누적하지 않는다.
         //  분배 비고는 "담당자+수량변경 최신 2건" 전용(lib/shipmentDescr) — 단가로그가 섞이면 무한증가/오염.
-        //  단가 변경 이력은 Estimate.Descr(아래) + 반환 changes[] 로 남는다.
+        //  단가 변경 이력은 API 응답 changes[] 로만 남긴다 (Estimate.Descr 비고 오염 방지).
         await tQ(
           `UPDATE ShipmentDetail
               SET Cost=@cost, Amount=@amount, Vat=@vat

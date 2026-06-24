@@ -128,7 +128,8 @@ deploy_head: f10dcce
 | OutQuantity=0 유령 Detail | web 0행 (그린화원 24차) | 읽기: SQL filter `988eb5c` · **쓰기: purge guard** | ✅ read+write |
 | fix-cycle 다른 차수 | 확정 차수 오류 | edited weeks 수집 | ✅ |
 | Freedom 23-1/2 합산 | 출력 HTML 집계 | 코드 수정 | ✅ [ESTIMATE_PRINT_FREEDOM_23](ESTIMATE_PRINT_FREEDOM_23_FIX_2026-06-09.md) |
-| Estimate.Descr 무한 append | 메모 비대 | ⏸ cap 미구현 | 열림 |
+| 견적 비고 `차감단가` 표시 | 단가 수정마다 비고 누적 | update-cost Descr 미기록 + API sanitize | ✅ |
+| Estimate.Descr 무한 append (`차감수량` 등) | 메모 비대 | 화면 sanitize ✅ · DB cap 미구현 | ⏸ |
 | pivotStats StockMaster yws | full 포맷 경계 | ⏸ | 열림 |
 
 ### H. 확정 (isFix) / 부분확정
@@ -138,6 +139,10 @@ deploy_head: f10dcce
 | 차수 전체 확정이 미확정 품목군 분배까지 차단 | CountryFlower 품목군 체크 | ✅ |
 | week-pivot UI vs API 확정 범위 불일치 | UI=셀, API=품목군 | ⚠️ UX 주의 (감사 MD) |
 | fix-status 구간 취소 | 구현됨 | 🔶 운영 실측 일부 |
+| 25-01 웹 확정 vs exe 풀림·음수 | reconcile + guards + UI 이중표시 | ✅ [SHIPMENT_FIX_EXE_RECONCILE](SHIPMENT_FIX_EXE_RECONCILE.md) |
+| 카테고리 fix 후 ProductStock 어긋남 | scoped op 후 차수 전체 `usp_StockCalculation` | ✅ `shipmentFixReconcile.js` |
+| 부분 카테고리 fix (2+ 미확정) | `PARTIAL_CATEGORY_FIX_BLOCKED` | ✅ `shipmentFixGuards.js` |
+| `Product.Stock` 음수 (이중재고 drift) | `repair-negative-product-stock.js` | ✅ 2026-06-24 운영 0건 |
 
 ### I. 붙여넣기 주문등록
 
@@ -199,18 +204,20 @@ deploy_head: f10dcce
 | 2026-06-09~10 | OutUnit 감사+FIX, 24-01 parity |
 | 2026-06-11 | pivot exe parity, adjust ShipmentDetail 환산 |
 | 2026-06-15 | 도착원가 GW/CW, 카탈로그 export |
-| 2026-06-16 | 견적 유령행 filter, paste 기준차수+매칭, week-pivot 감사 MD |
+| 2026-06-16 | 견적 유령행 filter, paste 기준차수, week-pivot 감사, **출고 확정 exe reconcile** |
+| 2026-06-24 | 견적 인쇄 규칙, EXE 비고 DB정리, **견적 비고 차감단가 숨김**, 25-01 bulk 재확정, **Product.Stock 음수 0** |
 
 ---
 
-## 5. 🔴 열린 이슈 / 미완 (2026-06-16)
+## 5. 🔴 열린 이슈 / 미완 (2026-06-24)
 
 ### 운영·데이터
 
 1. **과거 ShipmentDetail.CustKey 누락** — 신규 경로는 OK, legacy row는 `/admin/distribute-repair` 선택 보정
-2. **Product.Stock vs ProductStock** — 차이 진단·보정 미완 ([NENOVA_PROJECT_PLAN](NENOVA_PROJECT_PLAN_STATUS.md))
+2. **`StockMaster.isFix=0` after web fix** — UI `FIXED_PENDING_STOCK`; 음수와 별개 ([SHIPMENT_FIX_EXE_RECONCILE](SHIPMENT_FIX_EXE_RECONCILE.md))
 3. **ShipmentFarm(농장 배정)** — 웹 분배가 exe btnSave 수준 미구현 ([PROGRESS 2026-06-04](.claude/PROGRESS.md))
 4. **fix-status 구간 확정취소** — 운영 실측 일부
+5. **Product.Stock 재발** — `repair-negative-product-stock.js` / `probe-negative-stock-week.js` 운영 도구 있음
 
 ### 기능·Parity
 

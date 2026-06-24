@@ -1,8 +1,8 @@
 # 작업 인계 — 견적 인쇄 / 25차 미카엘 / 확정현황 불일치 (2026-06-24)
 
-> 브랜치: `master`  
-> 최종 배포: `6437260` 이후 (fix-parity-audit) + 본 문서 커밋 예정  
-> 운영: https://nenovaweb.com
+> 브랜치: `master` · 배포: `8142a9a`  
+> 운영: https://nenovaweb.com  
+> **확정·재고 통합 가이드:** [`SHIPMENT_FIX_EXE_RECONCILE.md`](../SHIPMENT_FIX_EXE_RECONCILE.md)
 
 ---
 
@@ -13,7 +13,8 @@
 | 견적서 인쇄 — 수량0·비고 로그 (웹) | ✅ 배포 | `f49455a`, `7eb1b5d` |
 | 견적서 인쇄 — 차감 행 동일 규칙 | ✅ 배포 | `7eb1b5d` |
 | NENOVA.EXE 인쇄 비고 (`임재용0>1`) | ✅ DB 정리 + 가이드 | `1289f98`, dnSpy 문서 |
-| 25-01 확정: exe 풀림 vs 웹 확정 | 🔍 원인 규명 + UI 보완 | 이 문서 §4 |
+| 견적서 관리 비고 `차감단가` 누적 | ✅ 코드 (미배포) | [단가 비고 숨김](2026-06-24_estimate-descr-unit-cost-hide.md) |
+| 25-01 확정: exe 풀림 vs 웹 확정 | ✅ 복구 완료 | §4 + [음수 복구](2026-06-24_negative-product-stock-repair.md) |
 
 ---
 
@@ -96,7 +97,7 @@ node scripts/probe-fix-parity-audit.mjs 25-01
 # 또는 GET /api/dev/fix-parity-audit?week=25-01
 ```
 
-**결과 요약 (`2026-25-01`):**
+**결과 요약 (`2026-25-01`, 복구 전):**
 
 | 지표 | 값 | 의미 |
 |------|-----|------|
@@ -141,15 +142,19 @@ node scripts/probe-fix-parity-audit.mjs 25-01
 | `pages/estimate.js` | 확정현황 모달 — **출고확정** / **재고마감** 열 분리 + 안내 문구 |
 | `scripts/probe-fix-parity-audit.mjs` | CLI 프로브 |
 
-### 4.5 권장 조치 (운영)
+### 4.5 운영 조치 (2026-06-24 완료)
 
-1. **nenovaweb** 견적서 → 확정현황 → `25-01` 확인  
-   - 출고확정: 확정 / 재고마감: **미마감** 이면 본 진단과 일치.
-2. **재고 마감**: 전산과 동일하게 `usp_StockCalculation` 경로로 25-01 재고 재계산·마감 (웹 확정현황에서 카테고리별 확정 시 `fix.js`가 SP 호출).
-3. **Product.Stock 음수 17품목**:  
-   - `usp_ShipmentFixCancel` / 부분 확정취소 이력 확인 (`AppLog` `shipmentFix`)  
-   - 필요 시 해당 차수 **카테고리별 확정취소 → 데이터 정리 → 낮은 차수부터 재확정** (기존 20~24차 운영 패턴과 동일).
-4. `distribute-diagnose?week=25-01`: `missingCustKey` 200건, `estMismatch` 200건 — 별도 데이터 품질 이슈(확정 표시와는 별개이나 재고·분배에 영향 가능).
+| 단계 | 작업 | 결과 |
+|------|------|------|
+| 1 | `bulk-refix-weeks.mjs` 20-01~25-02 | 출고확정 전 차수 FIXED |
+| 2 | `probe-reconcile-week.mjs 25-01` | 153품목 calc, 음수 잔존 |
+| 3 | `repair-negative-product-stock.js` | **17+26품목, 음수 0** |
+| 4 | 20-01~25-02 검증 | `negativeLiveCount: 0` |
+
+**잔여:** `StockMaster.isFix=0` → UI `FIXED_PENDING_STOCK` (exe “재고 마감” 표시와 별개, 음수 아님).  
+**별도:** `distribute-diagnose?week=25-01` `missingCustKey` 200건 — 확정 표시와 무관한 데이터 품질.
+
+재발 시 → [`SHIPMENT_FIX_EXE_RECONCILE.md`](../SHIPMENT_FIX_EXE_RECONCILE.md) §4
 
 ---
 
@@ -161,6 +166,7 @@ node scripts/probe-fix-parity-audit.mjs 25-01
 | `58c617c` | 피벗 필터 prune — 품목 누락 수정 |
 | `f49455a`~`1289f98` | 견적 인쇄 + EXE 비고 정리 |
 | `724da43`~`6437260` | fix-parity-audit |
+| `407b2d4`~`8142a9a` | reconcile + guards + 음수 복구 스크립트 |
 
 ---
 
@@ -171,6 +177,7 @@ node __tests__/estimateInvariants.test.js
 node scripts/probe-fix-unfix-status.mjs 25-01
 node scripts/probe-fix-parity-audit.mjs 25-01
 node scripts/probe-estimate-descr-25-michael.mjs
+node scripts/probe-negative-stock-week.js 2026 25-01
 npm run test:smoke   # 운영 SMOKE_BASE_URL 설정 시
 ```
 
@@ -181,15 +188,15 @@ npm run test:smoke   # 운영 SMOKE_BASE_URL 설정 시
 | 항목 | 비고 |
 |------|------|
 | NENOVA.EXE `FormPrintEstimate` dnSpy 패치 | DB 정리만으로는 수량 수정 시 비고 재누적 |
-| `estimate/index.js` `SubWeeksFix` | `ShipmentMaster.isFix` 기준 — Detail과 어긋날 때 배지 오류 가능 |
-| fix-status `negativeCount` vs `Product.Stock` | 계산식 상이 — 음수 건수 불일치 시 `fix-parity-audit` 우선 |
-| 25-01 `missingCustKey` 200건 | `ShipmentDetail.CustKey` NULL — `distribute-diagnose` |
+| `StockMaster.isFix=0` | reconcile/fix 후에도 0 — `FIXED_PENDING_STOCK` |
+| 25-02 `PARTIAL` | 일부 카테고리 미확정 (음수와 별개) |
+| 25-01 `missingCustKey` 200건 | `ShipmentDetail.CustKey` NULL |
 
 ---
 
 ## 8. 관련 문서
 
-- [`docs/NENOVA_EXE_PRINT_DESCR_PATCH.md`](../NENOVA_EXE_PRINT_DESCR_PATCH.md)
-- [`docs/WEB_VS_ERP_CONFLICTS.md`](../WEB_VS_ERP_CONFLICTS.md) §7~9 (DetailFix, 이중 재고)
-- [`docs/NENOVA_EXE_DNSPY_ESTIMATE_EDIT_VERIFY_2026-05-26.md`](../NENOVA_EXE_DNSPY_ESTIMATE_EDIT_VERIFY_2026-05-26.md)
-- [`docs/work-reports/2026-06-16_estimate-orange-green-24.md`](2026-06-16_estimate-orange-green-24.md)
+- [`SHIPMENT_FIX_EXE_RECONCILE.md`](../SHIPMENT_FIX_EXE_RECONCILE.md) — 확정·reconcile·음수 복구 **통합 가이드**
+- [`2026-06-24_negative-product-stock-repair.md`](2026-06-24_negative-product-stock-repair.md)
+- [`NENOVA_EXE_PRINT_DESCR_PATCH.md`](../NENOVA_EXE_PRINT_DESCR_PATCH.md)
+- [`WEB_VS_ERP_CONFLICTS.md`](../WEB_VS_ERP_CONFLICTS.md) §7~9

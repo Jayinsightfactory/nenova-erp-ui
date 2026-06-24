@@ -154,6 +154,11 @@ async function main() {
   console.log('\n=== sanitizeEstimateDescrForDisplay (차감 비고) ===');
   assert('차감수량 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '차감수량 5>3' }) === '');
   assert('차감단가 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '\n차감단가 700>650' }) === '');
+  assert('차감단가 다중줄 숨김', sanitizeEstimateDescrForDisplay({
+    EstimateKey: 1,
+    Descr: '차감단가 14000>12000\n차감단가 12000>11500',
+  }) === '');
+  assert('실제 메모 유지', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '배송 지연' }) === '배송 지연');
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

@@ -8,6 +8,26 @@ type: history
 
 > **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 오류·재작업·열린 이슈 **마스터 색인** (프로젝트 시작~현재)
 
+### 2026-06-24 견적서 비고 — 단가 변경 내역 숨김
+
+- 증상: 견적서 관리 비고에 `차감단가 14000>12000` 등 단가 수정 로그 누적 표시
+- 조치: `update-cost.js` — `Estimate.Descr` append 중단 · `estimate/index.js` — 조회 시 sanitize
+- 보고: [work-reports/2026-06-24_estimate-descr-unit-cost-hide.md](work-reports/2026-06-24_estimate-descr-unit-cost-hide.md)
+- exe/기존 DB: `estimate-print-descr-cleanup` API 또는 dnSpy 패치
+
+### 2026-06-24 출고 확정 · Product.Stock 음수 복구 (운영)
+
+- 증상: 25-01 nenovaweb **확정** vs exe **풀림 + 마이너스 17품목**
+- 원인: 카테고리 scoped fix 후 차수 전체 재고 calc 누락 + `Product.Stock`/`ProductStock` 이중재고 drift
+- 코드: `lib/shipmentFixReconcile.js`, `shipmentFixGuards.js`, fix/reconcile API, `estimate.js` exe 열 — [SHIPMENT_FIX_EXE_RECONCILE.md](SHIPMENT_FIX_EXE_RECONCILE.md)
+- 운영: `bulk-refix-weeks.mjs` 20-01~25-02 → `repair-negative-product-stock.js` — **음수 0** (20-01~25-02)
+- 보고: [work-reports/2026-06-24_negative-product-stock-repair.md](work-reports/2026-06-24_negative-product-stock-repair.md)
+
+### 2026-06-16 출고 확정 exe 정합 재설계
+
+- 카테고리별 확정 편의 유지 + 작업 후 자동 reconcile + API 가드 (하위 차수, 부분 카테고리 fix 차단)
+- 배포 `407b2d4`, `73e2dc3` — [work-reports/2026-06-16_shipment-fix-exe-reconcile.md](work-reports/2026-06-16_shipment-fix-exe-reconcile.md)
+
 ---
 
 ## 2026-05-25 우선순위 변경

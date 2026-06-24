@@ -4,7 +4,7 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { applyByDateRowQuantities, filterActiveEstimateShipmentRows } from '../../../lib/estimateInvariants.js';
+import { applyByDateRowQuantities, filterActiveEstimateShipmentRows, sanitizeDescrTextForPrint } from '../../../lib/estimateInvariants.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -479,8 +479,15 @@ async function loadItems(sk, byDate = false) {
        outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
-  if (!byDate) return filterActiveEstimateShipmentRows(result.recordset);
-  return applyByDateRowQuantities(result.recordset);
+  if (!byDate) return sanitizeItemDescrs(filterActiveEstimateShipmentRows(result.recordset));
+  return sanitizeItemDescrs(applyByDateRowQuantities(result.recordset));
+}
+
+function sanitizeItemDescrs(rows) {
+  return (rows || []).map((row) => ({
+    ...row,
+    Descr: sanitizeDescrTextForPrint(row.Descr),
+  }));
 }
 
 function normalizeEstimateTypeInput(estimateType, unit) {
