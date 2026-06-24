@@ -7,6 +7,9 @@ async function main() {
     weekdayKrFromYmd,
     filterItemsByWeekday,
     filterPrintTargetItems,
+    formatEstimatePrintDescr,
+    isOperationalEstimateDescr,
+    isPrintableEstimateRow,
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
@@ -57,7 +60,22 @@ async function main() {
   const zeroDed = [
     { ProdKey: 3, Quantity: 0, Amount: 0, Vat: 0, EstimateType: '불량차감/송이', ProdName: 'ROSE Test' },
   ];
-  assert('수량0 차감도 인쇄 대상', filterPrintTargetItems(zeroDed, new Set(['월', '화', '수', '목', '금', '토', '일']), 'total').length === 1);
+  assert('수량0 차감 제외', filterPrintTargetItems(zeroDed, new Set(['월', '화', '수', '목', '금', '토', '일']), 'total').length === 0);
+
+  console.log('\n=== isPrintableEstimateRow (nenova.exe FormPrintEstimate) ===');
+  assert('수량0 정상출고 제외(금액 있어도)', !isPrintableEstimateRow({ EstimateType: '정상출고', Quantity: 0, Amount: 1000, Vat: 100 }));
+  assert('수량>0 단가0 출력', isPrintableEstimateRow({ EstimateType: '정상출고', Quantity: 10, Cost: 0, Amount: 0, Vat: 0 }));
+  assert('수량 음수 차감 출력', isPrintableEstimateRow({ EstimateType: '불량차감/송이', Quantity: -2, Amount: -100, Vat: -10 }));
+
+  console.log('\n=== formatEstimatePrintDescr (적요) ===');
+  assert('변경이력 Descr 제외', formatEstimatePrintDescr({ EstimateType: '정상출고', Descr: '임16>12,임12>14' }) === '');
+  assert('차감 출고일', formatEstimatePrintDescr({ EstimateType: '불량차감/송이', outDate: '2026-06-04' }) === '4일');
+  assert('차수별 분배(옵션)', formatEstimatePrintDescr(
+    { EstimateType: '정상출고', _distribDesc: '1차 10단, 2차 5단' },
+    { showDistribDesc: true }
+  ) === '1차 10단, 2차 5단');
+  assert('운영로그 판별', isOperationalEstimateDescr('임16>12,임12>14'));
+  assert('일반 메모는 유지', formatEstimatePrintDescr({ EstimateType: '정상출고', Descr: '특별요청' }) === '특별요청');
   const all = filterItemsByWeekday(lavRows, new Set(['월', '화', '수', '목', '금', '토', '일']));
   assert('전체 7요일 2행', all.length === 2);
   assert('미선택 0행', filterItemsByWeekday(lavRows, new Set()).length === 0);

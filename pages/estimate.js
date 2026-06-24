@@ -11,6 +11,7 @@ import { useDropdownNav } from '../lib/useDropdownNav';
 import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
   filterPrintTargetItems,
+  formatEstimatePrintDescr,
   isEstimateDeductionRow,
   isPrintableEstimateRow,
 } from '../lib/estimateInvariants';
@@ -276,9 +277,9 @@ function buildEstimateHtml({
   logoDataUrl,
   aggregate = false,
   showBoxQty = true,
-  showDistribDesc = true,
+  showDistribDesc = false,
 }) {
-  // ── 인쇄용: 수량 또는 단가가 0인 행 제거
+  // ── 인쇄용: 수량 0 행 제거 (단가 0·금액 0이어도 수량>0 이면 출력)
   rows = rows.map(normalizeEstimatePrintRow).filter(isPrintableEstimateRow);
 
   // ── 사장님 지정 정렬 우선순위
@@ -328,12 +329,7 @@ function buildEstimateHtml({
   // 차감 여부 판별
   const isDeduct = isDeductRow;
 
-  // 적요: 차감 행은 출고일(DD일), 정상출고는 Descr 또는 빈 값
-  const descLabel = r => {
-    if (isDeduct(r) && r.outDate) return new Date(r.outDate).getDate() + '일';
-    if (showDistribDesc && r._distribDesc) return r._distribDesc;  // 차수별 분배 표시 (1차 N단, 2차 M단)
-    return r.Descr || '';
-  };
+  const descLabel = r => formatEstimatePrintDescr(r, { showDistribDesc });
 
   // ── 같은 ProdKey 끼리 항상 합산 + 차수별 breakdown 적요에 표시 (1차/2차 모두 보이게)
   // aggregate 옵션 제거 — 항상 활성화 (옛 명세 사장님 요구사항)
@@ -377,6 +373,7 @@ function buildEstimateHtml({
       g._distribDesc = parts.join(', ');
       return g;
     });
+    rows = rows.filter(isPrintableEstimateRow);
   }
 
   // ── 최종 정렬: 품종(국가+꽃) 우선순위 1차 → 같은 품종 안에서는 품목명 ABC 순.
@@ -1046,7 +1043,7 @@ export default function Estimate() {
     outType:   'total',      // 'total' | 'select'
     serialNo:  '',
     showBoxQty: true,
-    showDistribDesc: true,
+    showDistribDesc: false,
   });
 
   // 인쇄 다이얼로그용 — 선택 거래처의 출고일(byDate) 분포.
@@ -2070,7 +2067,7 @@ export default function Estimate() {
           custName: oneCustName, rows: printRows, logoDataUrl: printLogoDataUrl,
           aggregate: true,
           showBoxQty: opts.showBoxQty !== false,
-          showDistribDesc: opts.showDistribDesc !== false,
+          showDistribDesc: opts.showDistribDesc === true,
         })];
       }
 
@@ -2104,7 +2101,7 @@ export default function Estimate() {
         bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
         custName: oneCustName, rows, logoDataUrl: printLogoDataUrl, aggregate,
         showBoxQty: opts.showBoxQty !== false,
-        showDistribDesc: opts.showDistribDesc !== false,
+        showDistribDesc: opts.showDistribDesc === true,
       }));
     };
 
@@ -3074,7 +3071,7 @@ export default function Estimate() {
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                     <input type="checkbox"
-                      checked={printOpts.showDistribDesc !== false}
+                      checked={printOpts.showDistribDesc === true}
                       onChange={e => setPrintOpts(o => ({ ...o, showDistribDesc: e.target.checked }))}
                     />
                     적요에 차수별 수량 표시
