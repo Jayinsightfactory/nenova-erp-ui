@@ -67,7 +67,7 @@ async function handler(req, res) {
   );
 
   const stockMaster = await query(
-    `SELECT StockKey, OrderYear, OrderWeek, ISNULL(isFix,0) AS isFix, CreateID, CreateDtm
+    `SELECT StockKey, OrderYear, OrderWeek, ISNULL(isFix,0) AS isFix
        FROM StockMaster
       WHERE OrderWeek=@wk`,
     params
@@ -97,17 +97,22 @@ async function handler(req, res) {
     params
   );
 
-  const recentUnfix = await query(
-    `SELECT TOP 20 CreateDtm, Step, Detail, IsError
-       FROM AppLog
-      WHERE Category=N'shipmentFix'
-        AND (Detail LIKE @wkPat OR Detail LIKE @wkPat2)
-      ORDER BY CreateDtm DESC`,
-    {
-      wkPat: { type: sql.NVarChar, value: `%${week}%` },
-      wkPat2: { type: sql.NVarChar, value: `%/${week.replace('-', '/')}%` },
-    }
-  );
+  let recentUnfix = { recordset: [] };
+  try {
+    recentUnfix = await query(
+      `SELECT TOP 20 ActionDtm AS LogDtm, Step, Detail, IsError
+         FROM AppLog
+        WHERE Category=N'shipmentFix'
+          AND (Detail LIKE @wkPat OR Detail LIKE @wkPat2)
+        ORDER BY ActionDtm DESC`,
+      {
+        wkPat: { type: sql.NVarChar, value: `%${week}%` },
+        wkPat2: { type: sql.NVarChar, value: `%/${week.replace('-', '/')}%` },
+      }
+    );
+  } catch {
+    /* AppLog 스키마 차이 시 무시 */
+  }
 
   const s = summary.recordset[0] || {};
   const webStatus = Number(s.detailUnfixedOutRows || 0) === 0 && Number(s.detailCount || 0) > 0
