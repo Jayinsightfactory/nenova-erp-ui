@@ -19,6 +19,7 @@ deploy_head: f10dcce
 1. 본 문서 §5「열린 이슈」 + §2「불변식 9항」 스캔
 2. 수정 대상이 DB 쓰기면 → docs/PRE_WORK_CONFLICT_CHECK_2026-05-25.md 체크리스트
 3. 출고/주문/견적이면 → docs/ERP_COMPAT_INVARIANTS_2026-06-04.md (불변식 1~9)
+3b. 재고·확정·차주 잔량이면 → docs/STOCK_INTEGRITY_DESIGN.md (금지·체크리스트)
 4. 단위(박스/단/송이) 건드리면 → docs/OUTUNIT_WRITE_AUDIT_2026-06-10.md
 5. 운영 데이터 의심 → /admin/distribute-repair 또는 scripts/probe-*
 6. 코드 수정 → npm run build (+ 해당 test:*)
@@ -142,7 +143,19 @@ deploy_head: f10dcce
 | 25-01 웹 확정 vs exe 풀림·음수 | reconcile + guards + UI 이중표시 | ✅ [SHIPMENT_FIX_EXE_RECONCILE](SHIPMENT_FIX_EXE_RECONCILE.md) |
 | 카테고리 fix 후 ProductStock 어긋남 | scoped op 후 차수 전체 `usp_StockCalculation` | ✅ `shipmentFixReconcile.js` |
 | 부분 카테고리 fix (2+ 미확정) | `PARTIAL_CATEGORY_FIX_BLOCKED` | ✅ `shipmentFixGuards.js` |
-| `Product.Stock` 음수 (이중재고 drift) | `repair-negative-product-stock.js` | ✅ 2026-06-24 운영 0건 |
+| `Product.Stock` 음수 (이중재고 drift) | reconcile + **repair-negative apply 금지** | ✅ [STOCK_INTEGRITY_DESIGN](STOCK_INTEGRITY_DESIGN.md) |
+| 26-1 유령잔량 (웹복구·live↔ps) | undo-web-recovery + sync-week-stock-to-live | ✅ 2026-06-25 |
+
+### K. 재고 정합 (Product.Stock ↔ ProductStock)
+
+| 이슈 | 증상 | 조치 | 상태 |
+|------|------|------|------|
+| `repair-negative-product-stock --apply` | 웹복구 유령재고, 차주 전파 | **운영 금지** | 🚫 |
+| 전주 ProductStock 이월 | 26-1 ps만 남음 (네덜란드) | `sync-week-stock-to-live` | ✅ 절차화 |
+| live만 과다 | exe 실시간 ≠ 차수잔량 | live→ps (History 없이) | ✅ 절차화 |
+| 차주 오픈 미점검 | gap 누적 | §4.2 주간 checklist | 📋 [STOCK_INTEGRITY_DESIGN](STOCK_INTEGRITY_DESIGN.md) |
+| 수동 adj26 품목 | 배치 sync 덮어쓰기 | 스킵 규칙 R4 | ✅ |
+
 
 ### I. 붙여넣기 주문등록
 
@@ -217,7 +230,7 @@ deploy_head: f10dcce
 2. **`StockMaster.isFix=0` after web fix** — UI `FIXED_PENDING_STOCK`; 음수와 별개 ([SHIPMENT_FIX_EXE_RECONCILE](SHIPMENT_FIX_EXE_RECONCILE.md))
 3. **ShipmentFarm(농장 배정)** — 웹 분배가 exe btnSave 수준 미구현 ([PROGRESS 2026-06-04](.claude/PROGRESS.md))
 4. **fix-status 구간 확정취소** — 운영 실측 일부
-5. **Product.Stock 재발** — `repair-negative-product-stock.js` / `probe-negative-stock-week.js` 운영 도구 있음
+5. **Product.Stock 재발** — `STOCK_INTEGRITY_DESIGN.md` 사다리. `repair-negative --apply` 금지
 
 ### 기능·Parity
 

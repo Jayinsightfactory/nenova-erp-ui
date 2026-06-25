@@ -39,8 +39,10 @@
 
 ## 재발 방지
 
-- `repair-negative-product-stock.js` **운영 재실행 금지** (음수 → ProductStock 동기화는 과출고 시 유령재고 유발)
-- 음수는 `ShipmentDetail` 확정 정합 + `usp_StockCalculation` 범위 내에서만 처리
+→ **[STOCK_INTEGRITY_DESIGN.md](../STOCK_INTEGRITY_DESIGN.md)** (전사 설계·체크리스트)
+
+- `repair-negative-product-stock.js` **운영 재실행 금지**
+- 차주 오픈: `probe-week-stock-gaps` → `sync-week-stock-to-live`
 
 ## 26-01 전체 잔량 동기화 (2026-06-25 추가)
 

@@ -8,6 +8,12 @@ type: history
 
 > **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 오류·재작업·열린 이슈 **마스터 색인** (프로젝트 시작~현재)
 
+### 2026-06-25 재고 정합 설계 (유령재고 재발 방지)
+
+- 사건: 웹복구 43건 + 26-1 live↔ProductStock 177품목 정리
+- 설계: [STOCK_INTEGRITY_DESIGN.md](STOCK_INTEGRITY_DESIGN.md) — 금지·복구 사다리·차주 체크리스트·불변식 R1~R5
+- `repair-negative-product-stock.js --apply` **운영 금지**
+
 ### 2026-06-25 26-01 웹복구 유령재고 제거 (운영)
 
 - 증상: 26-1차 재고 급증 — 25차 `repair-negative-product-stock` 웹복구 43건이 ProductStock 전파

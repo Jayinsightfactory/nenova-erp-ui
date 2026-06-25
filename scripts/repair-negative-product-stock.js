@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
  * Product.Stock 음수 복구 — ProductStock(25-02 → 25-01) 스냅샷과 동기화
- * Usage: node scripts/repair-negative-product-stock.js 25-01 [--apply]
+ *
+ * 🚫 운영 --apply 금지 (2026-06-24 사고: 26-1 유령재고 +1,665)
+ *    → docs/STOCK_INTEGRITY_DESIGN.md §2.3 복구 사다리 사용
+ *
+ * Usage: node scripts/repair-negative-product-stock.js 25-01          # dry-run only
+ *        node scripts/repair-negative-product-stock.js 25-01 --apply # 🚫 DO NOT
  */
 const fs = require('fs');
 const path = require('path');
@@ -117,50 +122,15 @@ async function main() {
   }
 
   if (!APPLY) {
-    console.log('\nAdd --apply to execute.');
+    console.log('\nDry-run only. --apply is blocked — see docs/STOCK_INTEGRITY_DESIGN.md');
     await pool.close();
     return;
   }
 
-  let ok = 0;
-  for (const t of targets) {
-    try {
-      await repairOne(pool, t);
-      ok += 1;
-      await pool.request()
-        .input('yr', sql.NVarChar, YEAR)
-        .input('wk', sql.NVarChar, t.sourceWeek || REF_WEEK)
-        .input('pk', sql.Int, t.prodKey)
-        .input('uid', sql.NVarChar, UID)
-        .query(`
-          DECLARE @r INT, @m NVARCHAR(200);
-          EXEC dbo.usp_StockCalculation
-               @OrderYear=@yr, @OrderWeek=@wk, @ProdKey=@pk,
-               @iUserID=@uid, @oResult=@r OUTPUT, @oMessage=@m OUTPUT;
-          SELECT ISNULL(@r,0) AS result, @m AS message;`);
-    } catch (e) {
-      console.error(`FAIL pk=${t.prodKey}:`, e.message);
-    }
-  }
-
-  const remain = await pool.request()
-    .input('wk', sql.NVarChar, REF_WEEK)
-    .input('yr', sql.NVarChar, YEAR)
-    .query(ALL_2026 ? `
-    SELECT COUNT(*) AS cnt FROM Product p
-     WHERE p.isDeleted=0 AND ISNULL(p.Stock,0) < 0
-       AND EXISTS (
-         SELECT 1 FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
-         WHERE sd.ProdKey=p.ProdKey AND ISNULL(sm.OrderYear,@yr)=@yr AND sm.isDeleted=0
-       )` : `
-    SELECT COUNT(*) AS cnt FROM Product p
-     WHERE p.isDeleted=0 AND ISNULL(p.Stock,0) < 0
-       AND EXISTS (
-         SELECT 1 FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
-         WHERE sd.ProdKey=p.ProdKey AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0
-       )`);
-  console.log(`\nDone: repaired=${ok}/${targets.length}, negative remaining=${remain.recordset[0].cnt}`);
+  console.error('\n🚫 BLOCKED: --apply is disabled for this script.');
+  console.error('   2026-06-24 run caused phantom stock in 26-01. See docs/STOCK_INTEGRITY_DESIGN.md');
   await pool.close();
+  process.exit(1);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
