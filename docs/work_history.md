@@ -13,6 +13,7 @@ type: history
 - 증상: 26-1차 재고 급증 — 25차 `repair-negative-product-stock` 웹복구 43건이 ProductStock 전파
 - 조치: `undo-web-recovery-stock.js --apply` — 23 전량복구 + 20 이력삭제(26-1 수동조정 유지)
 - 보고: [work-reports/2026-06-25_undo-web-recovery-26-01.md](work-reports/2026-06-25_undo-web-recovery-26-01.md)
+- 26-01 전체: `sync-week-stock-to-live.js` 119품목 추가 (수동조정 29건 스킵)
 
 ### 2026-06-24 견적서 비고 — 단가 변경 내역 숨김
 

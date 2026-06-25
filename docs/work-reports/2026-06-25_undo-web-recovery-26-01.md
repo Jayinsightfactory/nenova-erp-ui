@@ -42,12 +42,18 @@
 - `repair-negative-product-stock.js` **운영 재실행 금지** (음수 → ProductStock 동기화는 과출고 시 유령재고 유발)
 - 음수는 `ShipmentDetail` 확정 정합 + `usp_StockCalculation` 범위 내에서만 처리
 
-## 스크립트
+## 26-01 전체 잔량 동기화 (2026-06-25 추가)
 
-```bash
-node scripts/probe-web-recovery-stock.js 26-01
-node scripts/classify-web-recovery-26.js 26-01
-node scripts/undo-web-recovery-stock.js          # dry-run
-node scripts/undo-web-recovery-stock.js --apply
-node scripts/probe-26-stock-positive.js 26-01 5
-```
+`sync-week-stock-to-live.js 26-01 --min=5 --apply`
+
+| 구분 | 건수 |
+|------|------|
+| 네덜란드 (선행) | 58 |
+| **전체 잔여** | **119** |
+| 합계 처리 | 177 (중복 없음) |
+
+- `ps→live` 89 — 차수잔량(ProductStock) 유령 제거
+- `live→ps` 88 — 실시간(Product.Stock)만 과다 시 ps 기준 정리
+- **스킵 29건** — 26-1 수동 StockHistory(`adj26≠0`) 유지 (장미·수국·호주 등)
+
+검증: 26-01 gap≥5 **29건**(전부 수동조정 품목), 네덜란드 **0건**
