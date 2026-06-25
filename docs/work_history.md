@@ -8,6 +8,12 @@ type: history
 
 > **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 오류·재작업·열린 이슈 **마스터 색인** (프로젝트 시작~현재)
 
+### 2026-06-25 26-01 웹복구 유령재고 제거 (운영)
+
+- 증상: 26-1차 재고 급증 — 25차 `repair-negative-product-stock` 웹복구 43건이 ProductStock 전파
+- 조치: `undo-web-recovery-stock.js --apply` — 23 전량복구 + 20 이력삭제(26-1 수동조정 유지)
+- 보고: [work-reports/2026-06-25_undo-web-recovery-26-01.md](work-reports/2026-06-25_undo-web-recovery-26-01.md)
+
 ### 2026-06-24 견적서 비고 — 단가 변경 내역 숨김
 
 - 증상: 견적서 관리 비고에 `차감단가 14000>12000` 등 단가 수정 로그 누적 표시
