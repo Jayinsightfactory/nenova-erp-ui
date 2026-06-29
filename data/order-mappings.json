@@ -228,7 +228,8 @@
     "prodName": "CARNATION Caroline Gold",
     "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-28T06:12:22.264Z"
+    "manual": true,
+    "savedAt": "2026-06-29T01:42:33.958Z"
   },
   "콜롬비아 카네이션 이케바나": {
     "prodKey": 411,
@@ -356,12 +357,13 @@
     "savedAt": "2026-04-28T06:12:22.264Z"
   },
   "콜롬비아 카네이션 캐롤라인 골드": {
-    "prodKey": 364,
-    "prodName": "CARNATION Caroline",
-    "displayName": null,
+    "prodKey": 365,
+    "prodName": "CARNATION Caroline Gold",
     "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.994Z",
+    "manual": true,
+    "savedAt": "2026-06-29T01:42:33.958Z",
+    "displayName": null,
     "auto": true
   },
   "콜롬비아 장미 만달라": {
@@ -726,12 +728,13 @@
     "auto": true
   },
   "콜롬비아 차 카네이션 캐롤라인 골드": {
-    "prodKey": 364,
-    "prodName": "CARNATION Caroline",
-    "displayName": null,
+    "prodKey": 365,
+    "prodName": "CARNATION Caroline Gold",
     "flowerName": "카네이션",
     "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.998Z",
+    "manual": true,
+    "savedAt": "2026-06-29T01:42:33.958Z",
+    "displayName": null,
     "auto": true
   },
   "네덜란드 란드 다이너스티": {

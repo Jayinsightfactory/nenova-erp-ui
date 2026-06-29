@@ -1893,15 +1893,18 @@ export default function PasteOrderPage() {
     const order = orders.find(o => o.id === oid);
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
 
-    const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => ({
+    const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
+      const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
+      return {
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
       displayName: it.displayName,
       flowerName: it.flowerName,
       counName: it.counName,
       qty: parseFloat(it.qty) || 0,
-      unit: normalizeOrderUnit(it.unit, '단'),
+      unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
       action: it.action || '추가',  // 기본 추가
-    })).filter(x => x.qty > 0);
+    };
+    }).filter(x => x.qty > 0);
 
     // ⚠️ 일괄분배에서 빠지는 항목(=전산에 안 들어가는 항목)을 명확히 경고.
     //   - 품목 미매칭(prodKey 없음): 매칭을 먼저 잡아야 등록됨
