@@ -183,11 +183,44 @@ export default function MappingStatusModal({ open, onClose }) {
     [prodMap, custNameSet]   // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const legacyAutoFallbackKeys = useMemo(() => {
+    const byPk = new Map();
+    for (const [key, v] of Object.entries(prodMap)) {
+      const pk = Number(v?.prodKey);
+      if (!pk) continue;
+      if (!byPk.has(pk)) byPk.set(pk, []);
+      byPk.get(pk).push(key);
+    }
+    const out = [];
+    for (const [key, v] of Object.entries(prodMap)) {
+      if (v?.auto !== true || !v?.prodKey) continue;
+      const siblings = (byPk.get(Number(v.prodKey)) || []).filter(k => k !== key);
+      if (siblings.length >= FALLBACK_THRESHOLD) out.push(key);
+    }
+    return out;
+  }, [prodMap]);
+
   const cleanupPolluted = async () => {
     if (!pollutedKeys.length) return;
     if (!window.confirm(`거래처명이 섞인 품목 매핑 ${pollutedKeys.length}개를 삭제할까요?\n(거래처명 없는 깨끗한 입력 매핑은 유지됩니다)`)) return;
     for (const k of pollutedKeys) { try { await apiDelete('/api/orders/mappings', { key: k }); } catch { /* skip */ } }
     setProdMap(prev => { const n = { ...prev }; for (const k of pollutedKeys) delete n[k]; return n; });
+  };
+
+  const cleanupLegacyAutoFallback = async () => {
+    if (!legacyAutoFallbackKeys.length) return;
+    if (!window.confirm(
+      `auto 학습 + 과다매핑(5+키) 의심 ${legacyAutoFallbackKeys.length}개를 삭제할까요?\n\n`
+      + 'parse-paste 가 거부하는 오매칭입니다. 삭제 후 다음 붙여넣기에서 정확 매핑을 다시 학습합니다.',
+    )) return;
+    for (const k of legacyAutoFallbackKeys) {
+      try { await apiDelete('/api/orders/mappings', { key: k }); } catch { /* skip */ }
+    }
+    setProdMap(prev => {
+      const n = { ...prev };
+      for (const k of legacyAutoFallbackKeys) delete n[k];
+      return n;
+    });
   };
 
   if (!open) return null;
@@ -221,11 +254,18 @@ export default function MappingStatusModal({ open, onClose }) {
           </span>
         </div>
 
-        {tab === 'product' && pollutedKeys.length > 0 && (
-          <div style={{ padding: '6px 10px 0' }}>
-            <button onClick={cleanupPolluted} style={S.cleanBtn} title="품목 매핑 키에 거래처 이름이 섞인 입력을 일괄 삭제합니다 (깨끗한 입력은 유지)">
-              ⚠ 거래처명 섞인 입력 {pollutedKeys.length}개 정리
-            </button>
+        {tab === 'product' && (pollutedKeys.length > 0 || legacyAutoFallbackKeys.length > 0) && (
+          <div style={{ padding: '6px 10px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {pollutedKeys.length > 0 && (
+              <button onClick={cleanupPolluted} style={S.cleanBtn} title="품목 매핑 키에 거래처 이름이 섞인 입력을 일괄 삭제합니다 (깨끗한 입력은 유지)">
+                ⚠ 거래처명 섞인 입력 {pollutedKeys.length}개 정리
+              </button>
+            )}
+            {legacyAutoFallbackKeys.length > 0 && (
+              <button onClick={cleanupLegacyAutoFallback} style={{ ...S.cleanBtn, borderColor: '#e65100', color: '#bf360c', background: '#fff8e1' }} title="auto=true 이고 같은 품목에 5개 이상 매핑된 legacy fallback">
+                ⚠ auto fallback 의심 {legacyAutoFallbackKeys.length}개 정리
+              </button>
+            )}
           </div>
         )}
 

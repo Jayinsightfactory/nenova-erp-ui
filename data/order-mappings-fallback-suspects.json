@@ -2725,5 +2725,192 @@
     "auto": true,
     "quarantinedAt": "2026-05-26T04:37:21.625Z",
     "quarantineReason": "auto mapping contained chat memo/country-conflict noise; keep out of natural fuzzy matching"
+  },
+  "콜롬비아 수국 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.984Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.601Z"
+  },
+  "콜롬비아 장미 몬디알화이트": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.992Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.612Z"
+  },
+  "콜롬비아 장미 몬디알화이트 (나투)": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.992Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.613Z"
+  },
+  "콜롬비아 카네이션 헤르메스 오렌지": {
+    "prodKey": 409,
+    "prodName": "CARNATION Hermes Orange",
+    "displayName": null,
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.993Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.614Z"
+  },
+  "콜롬비아 카네이션 -헤르메스 오렌지": {
+    "prodKey": 409,
+    "prodName": "CARNATION Hermes Orange",
+    "displayName": null,
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.993Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.615Z"
+  },
+  "콜롬비아 장미 몬디알": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.994Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.617Z"
+  },
+  "콜롬비아 장미 화이트 몬디알": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.996Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.619Z"
+  },
+  "콜롬비아 장미 몬디알 (나투)": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.997Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.619Z"
+  },
+  "콜롬비아 수국 화이트 미우 ( )": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:23.999Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.623Z"
+  },
+  "콜롬비아 수국 화이트 주광 ( )": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.623Z"
+  },
+  "콜롬비아 장미 몬디알 화이트 (에스페)": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.623Z"
+  },
+  "콜롬비아 차 장미 몬디알화이트": {
+    "prodKey": 1425,
+    "prodName": "ROSE / Mondial White 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.000Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.624Z"
+  },
+  "콜롬비아 차 수국 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.003Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.627Z"
+  },
+  "콜롬비아 수국 대구희경 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.627Z"
+  },
+  "콜롬비아 수국 영림 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.004Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.628Z"
+  },
+  "콜롬비아 베트남 호접 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.005Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.628Z"
+  },
+  "콜롬비아 수국 주광 화이트": {
+    "prodKey": 889,
+    "prodName": "Hydrangea White (화이트)",
+    "displayName": null,
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "savedAt": "2026-04-20T02:24:24.005Z",
+    "auto": true,
+    "_purgedReason": "legacy-auto-fallback",
+    "_purgedAt": "2026-06-29T01:31:16.628Z"
   }
 }

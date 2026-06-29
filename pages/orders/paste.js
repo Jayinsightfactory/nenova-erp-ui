@@ -7,6 +7,7 @@ import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
+import { resolveCachedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
@@ -293,10 +294,9 @@ function saveStockBaseWeek(value) {
 
 function resolveProductForStockName(name, products, cache) {
   if (!name || !products?.length) return { prod: null, matchStatus: 'unmatched', candidates: [] };
-  const hit = findLocalMapping(name, cache);
-  if (hit?.prodKey) {
-    const prod = products.find(p => Number(p.ProdKey) === Number(hit.prodKey));
-    if (prod && !isMixBoxMismatch(name, prod)) return { prod, matchStatus: 'mapping' };
+  const resolved = resolveCachedProductMapping(name, cache, products, {});
+  if (resolved.ok) {
+    return { prod: resolved.prod, matchStatus: 'mapping' };
   }
   const scored = products
     .map(p => ({ prod: p, score: isMixBoxMismatch(name, p) ? 0 : scoreMatch(name, p, '') }))
@@ -1042,12 +1042,9 @@ export default function PasteOrderPage() {
     ...o,
     items: o.items.map(it => {
       if (it.prodKey) return it;
-      if (it.ambiguousCountry) return it;
-      const hit = findLocalMapping(it.inputName, cache);
-      if (!hit) return it;
-      const prod = prods.find(p => Number(p.ProdKey) === Number(hit.prodKey));
-      if (!prod) return it;
-      if (isMixBoxMismatch(it.inputName, prod)) return it;
+      const resolved = resolveCachedProductMapping(it.inputName, cache, prods, it);
+      if (!resolved.ok) return it;
+      const prod = resolved.prod;
       return {
         ...it,
         prodKey: prod.ProdKey,
@@ -1668,7 +1665,8 @@ export default function PasteOrderPage() {
   // - 자동 후보는 입력명 기준으로 매우 가까운 것만 표시
   // - 검색어 입력 시에도 낮은 점수 후보는 제외
   const buildCandidates = (inputName, searchQuery) => {
-    const savedHit = findLocalMapping(inputName, mappingCache);
+    const resolved = resolveCachedProductMapping(inputName, mappingCache, allProducts, {});
+    const savedHit = resolved.ok ? resolved.hit : null;
     const scored = allProducts
       .map(p => {
         const baseScore = scoreProduct(inputName, p, searchQuery);

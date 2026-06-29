@@ -1,13 +1,4 @@
 {
-  "콜롬비아 수국 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.984Z",
-    "auto": true
-  },
   "프라우드 a급": {
     "prodKey": 2760,
     "prodName": "[오경] ROSE CHINA / 프라우드 ( Proud) ",
@@ -77,24 +68,6 @@
     "displayName": null,
     "flowerName": "장미",
     "counName": "중국",
-    "savedAt": "2026-04-20T02:24:23.992Z",
-    "auto": true
-  },
-  "콜롬비아 장미 몬디알화이트": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.992Z",
-    "auto": true
-  },
-  "콜롬비아 장미 몬디알화이트 (나투)": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
     "savedAt": "2026-04-20T02:24:23.992Z",
     "auto": true
   },
@@ -216,15 +189,6 @@
     "counName": "콜롬비아",
     "savedAt": "2026-04-28T06:12:22.264Z"
   },
-  "콜롬비아 카네이션 헤르메스 오렌지": {
-    "prodKey": 409,
-    "prodName": "CARNATION Hermes Orange",
-    "displayName": null,
-    "flowerName": "카네이션",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.993Z",
-    "auto": true
-  },
   "콜롬비아 카네이션 노비아": {
     "prodKey": 456,
     "prodName": "CARNATION Novia",
@@ -244,15 +208,6 @@
   "콜롬비아 차 카네이션 카라멜": {
     "prodKey": 363,
     "prodName": "CARNATION Caramel",
-    "displayName": null,
-    "flowerName": "카네이션",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.993Z",
-    "auto": true
-  },
-  "콜롬비아 카네이션 -헤르메스 오렌지": {
-    "prodKey": 409,
-    "prodName": "CARNATION Hermes Orange",
     "displayName": null,
     "flowerName": "카네이션",
     "counName": "콜롬비아",
@@ -475,15 +430,6 @@
     "savedAt": "2026-04-20T02:24:23.994Z",
     "auto": true
   },
-  "콜롬비아 장미 몬디알": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.994Z",
-    "auto": true
-  },
   "중국 멜로디 블랙잭 (번 박스)": {
     "prodKey": 2755,
     "prodName": "[MEL] CHINA Eucalyptus / 블랙잭 (베이비 블루) (대) 1Kg",
@@ -702,15 +648,6 @@
     "savedAt": "2026-04-20T02:24:23.996Z",
     "auto": true
   },
-  "콜롬비아 장미 화이트 몬디알": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.996Z",
-    "auto": true
-  },
   "콜롬비아 장미 핑크 몬디알": {
     "prodKey": 1437,
     "prodName": "ROSE / Pink Mondial 40cm",
@@ -726,15 +663,6 @@
     "flowerName": "카네이션",
     "counName": "콜롬비아",
     "savedAt": "2026-04-28T06:12:22.265Z"
-  },
-  "콜롬비아 장미 몬디알 (나투)": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.997Z",
-    "auto": true
   },
   "콜롬비아 카네이션 캐롤라인": {
     "prodKey": 364,
@@ -860,24 +788,6 @@
     "savedAt": "2026-04-20T02:24:23.999Z",
     "auto": true
   },
-  "콜롬비아 수국 화이트 미우 ( )": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:23.999Z",
-    "auto": true
-  },
-  "콜롬비아 수국 화이트 주광 ( )": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.000Z",
-    "auto": true
-  },
   "콜롬비아 장미 블루 화이트": {
     "prodKey": 1411,
     "prodName": "ROSE / Lollipop White Blue 40cm",
@@ -914,15 +824,6 @@
     "savedAt": "2026-04-20T02:24:24.000Z",
     "auto": true
   },
-  "콜롬비아 장미 몬디알 화이트 (에스페)": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.000Z",
-    "auto": true
-  },
   "만달라 mq (번박스)": {
     "prodKey": 2592,
     "prodName": "ROSE CHINA / 만달라(Mandala) MQ",
@@ -946,15 +847,6 @@
     "prodName": "Minicarnation Anni",
     "displayName": null,
     "flowerName": "미니카네이션",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.000Z",
-    "auto": true
-  },
-  "콜롬비아 차 장미 몬디알화이트": {
-    "prodKey": 1425,
-    "prodName": "ROSE / Mondial White 40cm",
-    "displayName": null,
-    "flowerName": "장미",
     "counName": "콜롬비아",
     "savedAt": "2026-04-20T02:24:24.000Z",
     "auto": true
@@ -1299,15 +1191,6 @@
     "savedAt": "2026-04-20T02:24:24.003Z",
     "auto": true
   },
-  "콜롬비아 차 수국 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.003Z",
-    "auto": true
-  },
   "콜롬비아 차 수국 연그린": {
     "prodKey": 883,
     "prodName": "Hydrangea S/GN (연그린)",
@@ -1380,24 +1263,6 @@
     "savedAt": "2026-04-20T02:24:24.004Z",
     "auto": true
   },
-  "콜롬비아 수국 대구희경 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.004Z",
-    "auto": true
-  },
-  "콜롬비아 수국 영림 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.004Z",
-    "auto": true
-  },
   "콜롬비아 카네이션 클리어 워터": {
     "prodKey": 423,
     "prodName": "CARNATION Clear Water",
@@ -1423,15 +1288,6 @@
     "savedAt": "2026-04-20T02:24:24.005Z",
     "auto": true
   },
-  "콜롬비아 베트남 호접 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.005Z",
-    "auto": true
-  },
   "레몬잎": {
     "prodKey": 2255,
     "prodName": "레몬잎 운송료",
@@ -1453,15 +1309,6 @@
   "콜롬비아 수국 주광 연그린": {
     "prodKey": 883,
     "prodName": "Hydrangea S/GN (연그린)",
-    "displayName": null,
-    "flowerName": "수국",
-    "counName": "콜롬비아",
-    "savedAt": "2026-04-20T02:24:24.005Z",
-    "auto": true
-  },
-  "콜롬비아 수국 주광 화이트": {
-    "prodKey": 889,
-    "prodName": "Hydrangea White (화이트)",
     "displayName": null,
     "flowerName": "수국",
     "counName": "콜롬비아",
