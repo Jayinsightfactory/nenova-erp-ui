@@ -25,6 +25,15 @@ import {
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
+import {
+  applyStatementPrintAmounts,
+  computePrintPreviewTotals,
+  ESTIMATE_PRINT_FORMAT,
+  getEstimateVarietyLabel,
+  getPrintFormatBigoSuffix,
+  getPrintFormatDocTitle,
+  isStatementPrintFormat,
+} from '../lib/estimatePrintFormats';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
@@ -313,7 +322,10 @@ function buildEstimateHtml({
   aggregate = false,
   showBoxQty = true,
   showDistribDesc = false,
+  printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE,
 }) {
+  const statementFormat = isStatementPrintFormat(printFormat);
+  const docTitle = getPrintFormatDocTitle(printFormat);
   // ── 인쇄용: 수량 0 행 제거 (단가 0·금액 0이어도 수량>0 이면 출력)
   rows = rows.map(normalizeEstimatePrintRow).filter(isPrintableEstimateRow);
 
@@ -411,6 +423,10 @@ function buildEstimateHtml({
     rows = rows.filter(isPrintableEstimateRow);
   }
 
+  if (statementFormat) {
+    rows = rows.map(applyStatementPrintAmounts);
+  }
+
   // ── 최종 정렬: 품종(국가+꽃) 우선순위 1차 → 같은 품종 안에서는 품목명 ABC 순.
   // (합산 전 정렬은 출고일을 품목명보다 먼저 보므로, 같은 품종에서 출고일이 빠른 품목이
   //  앞서는 문제가 있었음. 예: CARNATION Brut(06-03) 가 CARNATION Apple Tea(06-07) 보다 먼저.)
@@ -424,6 +440,12 @@ function buildEstimateHtml({
   const totalVat    = rows.reduce((a, r) => a + (Number(r.Vat) || 0), 0);
   const totalAmt    = totalSupply + totalVat;
 
+  const productNameCell = (r) => {
+    const variety = statementFormat ? getEstimateVarietyLabel(r) : '';
+    const varietyPrefix = variety ? `${variety} ` : '';
+    return `${varietyPrefix}${typeLabel(r.EstimateType)}${r.ProdName || ''}`;
+  };
+
   const itemRows = rows.map((r, i) => {
     const deduct = isDeduct(r);
     const rowBg  = deduct ? 'background:#FFF8DC;' : '';
@@ -434,7 +456,7 @@ function buildEstimateHtml({
     return `
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${productNameCell(r)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
       ${boxCell}
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
@@ -448,9 +470,13 @@ function buildEstimateHtml({
   const boxHeader = showBoxQty ? '<th class="item-th" style="width:46px">박스</th>' : '';
   const footerLabelColspan = showBoxQty ? 5 : 4;
 
+  const greetLine2 = statementFormat
+    ? '2. 하기와 같이 거래 명세를 전달드립니다.'
+    : '2. 하기와 같이 견적드리오니 검토하기 바랍니다.';
+
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
-<title>견적서 — ${custName}</title>
+<title>${docTitle} — ${custName}</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:Gulim,'굴림','Malgun Gothic','맑은 고딕',sans-serif; font-size:9pt; padding:10mm 15mm; }
@@ -485,7 +511,7 @@ table { width:100%; border-collapse:collapse; }
   .logo-area{height:18mm;padding:1.5mm 2mm;} .logo-area img{height:16mm;max-height:16mm;} }
 </style>
 </head><body>
-<h1>견적서</h1>
+<h1>${docTitle}</h1>
 
 <table class="hdr-outer">
   <tr>
@@ -503,7 +529,7 @@ table { width:100%; border-collapse:collapse; }
       </table>
       <div class="greet">
         1. 귀사의 일익 번창하심을 기원합니다.<br>
-        2. 하기와 같이 견적드리오니 검토하기 바랍니다.
+        ${greetLine2}
       </div>
     </td>
     <td class="hdr-right">
@@ -574,16 +600,17 @@ function extractEstimateStyle(html) {
   return match ? match[1] : '';
 }
 
-function buildEstimatePrintBundle(htmlPages) {
+function buildEstimatePrintBundle(htmlPages, printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) {
   const pages = (htmlPages || []).filter(Boolean);
   if (pages.length === 0) return '';
   const style = [...new Set(pages.map(extractEstimateStyle).filter(Boolean))].join('\n');
   const sections = pages
     .map(html => `<section class="print-page">${extractEstimateBody(html)}</section>`)
     .join('\n');
+  const bundleTitle = `${getPrintFormatDocTitle(printFormat)} 일괄 인쇄`;
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
-<title>견적서 일괄 인쇄</title>
+<title>${bundleTitle}</title>
 <style>
 ${style}
 body { padding:0 !important; }
@@ -1074,7 +1101,7 @@ export default function Estimate() {
   const [printOpts, setPrintOpts] = useState({
     printDate: new Date().toISOString().slice(0, 10),
     splitMode: 'combined',   // 'combined' | 'split'
-    docTitle:  '견 적 서',
+    printFormat: ESTIMATE_PRINT_FORMAT.ESTIMATE, // 'estimate' | 'statement'
     outType:   'total',      // 'total' | 'select'
     serialNo:  '',
     showBoxQty: true,
@@ -1979,8 +2006,13 @@ export default function Estimate() {
     return filterPrintTargetItems(printDialogItems, activeWD, printOpts.outType);
   }, [showPrintDialog, printDialogItems, activeWD, printOpts.outType]);
 
-  const printPreviewSupply = printPreviewItems.reduce((a, b) => a + (Number(b.Amount) || 0), 0);
-  const printPreviewVat = printPreviewItems.reduce((a, b) => a + (Number(b.Vat) || 0), 0);
+  const printPreviewTotals = useMemo(() => {
+    if (!showPrintDialog) return { supply: 0, vat: 0, total: 0, approximate: false };
+    return computePrintPreviewTotals(printPreviewItems, printOpts.printFormat);
+  }, [showPrintDialog, printPreviewItems, printOpts.printFormat]);
+
+  const printPreviewSupply = printPreviewTotals.supply;
+  const printPreviewVat = printPreviewTotals.vat;
   const printPreviewDedCount = printPreviewItems.filter(isEstimateDeductionRow).length;
   const printPreviewShipCount = printPreviewItems.length - printPreviewDedCount;
 
@@ -2045,17 +2077,29 @@ export default function Estimate() {
     a.click();
   };
 
+  const openPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
+    setPrintOpts(o => ({ ...o, outType: 'total', printFormat }));
+    setShowPrintDialog(true);
+  };
+
   // ── 견적서 출력 버튼 → 출력 다이얼로그 열기
   const handlePrint = () => {
     // 다중 선택이 있으면 그것만 사용, 없으면 현재 단일 선택 사용
     if (selectedGroups.size > 0) {
-      setPrintOpts(o => ({ ...o, outType: 'total' }));
-      setShowPrintDialog(true);
+      openPrintDialog(ESTIMATE_PRINT_FORMAT.ESTIMATE);
       return;
     }
     if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
-    setPrintOpts(o => ({ ...o, outType: 'total' }));
-    setShowPrintDialog(true);
+    openPrintDialog(ESTIMATE_PRINT_FORMAT.ESTIMATE);
+  };
+
+  const handleStatementPrint = () => {
+    if (selectedGroups.size > 0) {
+      openPrintDialog(ESTIMATE_PRINT_FORMAT.STATEMENT);
+      return;
+    }
+    if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
+    openPrintDialog(ESTIMATE_PRINT_FORMAT.STATEMENT);
   };
 
   // ── 실제 인쇄 실행
@@ -2105,15 +2149,24 @@ export default function Estimate() {
     const buildCustomerPrintPages = (oneCustName, oneRows) => {
       const printRows = filterPrintTargetItems(oneRows, activeWD, opts.outType);
       if (!printRows.length) return [];
+      const bigoSuffix = getPrintFormatBigoSuffix(opts.printFormat);
+      const htmlOpts = {
+        serialNo: opts.serialNo,
+        printDate: opts.printDate,
+        custName: oneCustName,
+        logoDataUrl: printLogoDataUrl,
+        showBoxQty: opts.showBoxQty !== false,
+        showDistribDesc: opts.showDistribDesc === true,
+        printFormat: opts.printFormat || ESTIMATE_PRINT_FORMAT.ESTIMATE,
+      };
 
       if (opts.splitMode === 'combined') {
-        const bigoLabel = `${week}차 종합견적서`;
+        const bigoLabel = `${week}차 ${bigoSuffix}`;
         return [buildEstimateHtml({
-          bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
-          custName: oneCustName, rows: printRows, logoDataUrl: printLogoDataUrl,
+          bigoLabel,
+          rows: printRows,
           aggregate: true,
-          showBoxQty: opts.showBoxQty !== false,
-          showDistribDesc: opts.showDistribDesc === true,
+          ...htmlOpts,
         })];
       }
 
@@ -2144,10 +2197,8 @@ export default function Estimate() {
         })),
       ];
       return pages.map(({ bigoLabel, rows, aggregate }) => buildEstimateHtml({
-        bigoLabel, serialNo: opts.serialNo, printDate: opts.printDate,
-        custName: oneCustName, rows, logoDataUrl: printLogoDataUrl, aggregate,
-        showBoxQty: opts.showBoxQty !== false,
-        showDistribDesc: opts.showDistribDesc === true,
+        bigoLabel, rows, aggregate,
+        ...htmlOpts,
       }));
     };
 
@@ -2186,7 +2237,7 @@ export default function Estimate() {
         alert('출력할 데이터가 없습니다.');
         return;
       }
-      await printInIframe(buildEstimatePrintBundle(printPages));
+      await printInIframe(buildEstimatePrintBundle(printPages, opts.printFormat));
     } else {
       // 단일 선택 — 출고일별(byDate) 항목으로 요일필터 적용 후 인쇄
       const custName = selectedShip?.CustName || '';
@@ -2207,7 +2258,7 @@ export default function Estimate() {
         alert('출력할 데이터가 없습니다.');
         return;
       }
-      await printInIframe(buildEstimatePrintBundle(printPages));
+      await printInIframe(buildEstimatePrintBundle(printPages, opts.printFormat));
     }
 
     setShowPrintDialog(false);
@@ -2588,6 +2639,7 @@ export default function Estimate() {
           <button className="btn btn-primary" onClick={() => load(false)}>🔄 조회 / Buscar</button>
           <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
+          <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
           <button className="btn" onClick={handleExcel}>📊 엑셀 다운</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
@@ -3073,7 +3125,7 @@ export default function Estimate() {
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
-                🖨️ 견적서 출력 옵션
+                🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 옵션
                 {selectedGroups.size > 0 && (
                   <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#2e7d32',
                                  padding:'2px 8px', borderRadius:10, marginLeft:8 }}>
@@ -3141,6 +3193,26 @@ export default function Estimate() {
                     })()}
                   </>
                 )}
+              </div>
+
+              {/* 인쇄 양식 */}
+              <div className="form-group">
+                <label className="form-label">인쇄 양식</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    [ESTIMATE_PRINT_FORMAT.ESTIMATE, '견적서 (기존)'],
+                    [ESTIMATE_PRINT_FORMAT.STATEMENT, '거래명세표 (품종 표시 · 단가=공급가액 · 부가세 0.1%)'],
+                  ].map(([v, l]) => (
+                    <label key={v} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, cursor: 'pointer', fontSize: 12 }}>
+                      <input type="radio" name="printFormat" value={v}
+                        checked={printOpts.printFormat === v}
+                        onChange={() => setPrintOpts(o => ({ ...o, printFormat: v }))}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>{l}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* 출력일자 (= 일련번호 기준) */}
@@ -3227,6 +3299,7 @@ export default function Estimate() {
                 ) : selectedGroups.size > 0 ? (
                   <>
                     <div>선택 거래처: <b>{selectedGroups.size}건</b></div>
+                    <div>양식: <b>{isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'}</b></div>
                     <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
                     <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
                       {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
@@ -3235,12 +3308,16 @@ export default function Estimate() {
                     </div>
                     <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
                       {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
+                      {printPreviewTotals.approximate && (
+                        <span style={{ color: 'var(--text3)' }}> · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산</span>
+                      )}
                     </div>
                   </>
                 ) : (
                   <>
                     <div>거래처: <b>{selectedShip?.CustName || '-'}</b></div>
                     <div>차수: <b>{weekNum || '-'}</b></div>
+                    <div>양식: <b>{isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'}</b></div>
                     <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
                     <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
                       {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
@@ -3249,6 +3326,9 @@ export default function Estimate() {
                     </div>
                     <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
                       {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
+                      {printPreviewTotals.approximate && (
+                        <span style={{ color: 'var(--text3)' }}> · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산</span>
+                      )}
                     </div>
                   </>
                 )}
@@ -3256,7 +3336,7 @@ export default function Estimate() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={() => doActualPrint(printOpts)}>
-                🖨️ 출력 실행
+                🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 실행
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
             </div>
