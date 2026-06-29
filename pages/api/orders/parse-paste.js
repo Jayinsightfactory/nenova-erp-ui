@@ -17,6 +17,11 @@ import { defaultUnit, normalizeOrderUnit } from '../../../lib/orderUtils';
 import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
 import { loadCustomerMappings, findCustomerMapping } from '../../../lib/customerMappings';
 import { scoreMatch } from '../../../lib/displayName';
+import {
+  filterRoseCandidatesByCountry,
+  isChinaRoseProduct,
+  wantsChinaRoseInput,
+} from '../../../lib/parsePasteRoseCountry';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -506,10 +511,6 @@ function normalizeAction(action, inputName = '') {
   return '추가';
 }
 
-function hasExplicitCountry(text) {
-  return /(중국|china|콜롬비아|colombia|콜장미|에콰도르|에콰|ecuador)/i.test(String(text || ''));
-}
-
 function extractCm(text) {
   const m = String(text || '').match(/(\d{2})\s*(?:cm|센치)/i);
   return m ? Number(m[1]) : null;
@@ -522,10 +523,6 @@ function productCm(prod) {
 function isRoseProduct(prod) {
   const text = `${prod?.FlowerName || ''} ${prod?.ProdName || ''} ${prod?.DisplayName || ''}`;
   return /(장미|rose)/i.test(text);
-}
-
-function countryKey(prod) {
-  return String(prod?.CounName || '').trim().toLowerCase() || 'unknown';
 }
 
 function isMixBoxName(prod) {
@@ -559,7 +556,6 @@ function resolveRoseCandidate(item, chosenProd, allProducts) {
   const isRoseInput = /(장미|rose)/i.test(input) || isRoseProduct(chosenProd);
   if (!isRoseInput) return { prod: chosenProd, ambiguousCountry: false, reason: null };
 
-  const explicitCountry = hasExplicitCountry(input);
   const explicitCm = extractCm(input);
   let candidates = allProducts
     .filter(isRoseProduct)
@@ -581,19 +577,22 @@ function resolveRoseCandidate(item, chosenProd, allProducts) {
     return { prod: chosenProd, ambiguousCountry: false, reason: null };
   }
 
-  const topScore = candidates[0].score;
-  const top = candidates.filter(x => x.score >= topScore - 5);
-  const countries = new Set(top.map(x => countryKey(x.prod)));
+  const { candidates: countryFiltered } = filterRoseCandidatesByCountry(input, candidates);
+  if (countryFiltered.length) candidates = countryFiltered;
 
-  if (!explicitCountry && countries.size > 1) {
-    return {
-      prod: null,
-      ambiguousCountry: true,
-      reason: '같은 장미 품종이 여러 국가에 있어 국가 선택 필요',
-    };
+  // 중국 명시인데 중국 품목이 없으면 수동 확인
+  if (wantsChinaRoseInput(input) && chosenProd && !isChinaRoseProduct(chosenProd)) {
+    const chinaPick = candidates.find((x) => isChinaRoseProduct(x.prod));
+    if (!chinaPick && !isChinaRoseProduct(candidates[0]?.prod)) {
+      return {
+        prod: null,
+        ambiguousCountry: true,
+        reason: '중국 장미로 입력됐으나 매칭 품목이 없습니다',
+      };
+    }
   }
 
-  return { prod: top[0].prod, ambiguousCountry: false, reason: null };
+  return { prod: candidates[0].prod, ambiguousCountry: false, reason: null };
 }
 
 function findBestProductCandidate(inputName, allProducts) {
@@ -747,10 +746,10 @@ Caroline | 2
 
 품목 매칭 우선순위 (★ CountryFlower 추론):
 - 같은 품종이 여러 국가에 있을 때 (예: "프라우드"가 중국장미와 콜롬비아장미에 모두 존재):
-  ★ 텍스트에 "중국" 키워드 포함 → CountryFlower='중국장미' 우선
-  ★ "콜" / "콜롬비아" 키워드 포함 → CountryFlower='콜롬비아장미' 우선
+  ★ 국가 미명시 → **콜롬비아 장미 기본** (prodKey 매칭)
+  ★ "中" / "중국" / "중" / "china" 포함 → 중국장미 우선
+  ★ "콜" / "콜롬비아" 키워드 포함 → 콜롬비아장미 우선
   ★ "에콰" / "에콰도르" → 에콰도르장미
-  ★ 키워드 없고 동일 품종이 여러 국가에 있으면 → prodKey=null (사용자 수동 선택)
   ★ 섹션 헤더에 "중국 변경사항" 같이 국가 명시되면 그 섹션 전체 적용
 - custKey: 거래처 목록에서 가장 유사한 CustKey, 없으면 null
 - prodKey: 위 규칙대로 CountryFlower 추론 후 매칭. 못 찾으면 null (사용자 수동 매칭)
