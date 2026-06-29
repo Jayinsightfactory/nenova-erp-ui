@@ -26,15 +26,22 @@ import {
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
 import {
-  applyStatementPrintAmounts,
   computePrintPreviewTotals,
   ESTIMATE_PRINT_FORMAT,
+  getEstimateOriginCountry,
   getEstimateSpecLabel,
-  getEstimateVarietyLabel,
+  getStatementProductName,
   getPrintFormatBigoSuffix,
   getPrintFormatDocTitle,
   isStatementPrintFormat,
 } from '../lib/estimatePrintFormats';
+import {
+  buildEstimatePrintSheetAoa,
+  estimateTypeLabel,
+  prepareEstimatePrintRows,
+  sanitizeExcelSheetName,
+} from '../lib/estimatePrintPrepare';
+import * as XLSX from 'xlsx';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
@@ -325,121 +332,14 @@ function buildEstimateHtml({
   showDistribDesc = false,
   printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE,
 }) {
-  const statementFormat = isStatementPrintFormat(printFormat);
   const docTitle = getPrintFormatDocTitle(printFormat);
-  // ── 인쇄용: 수량 0 행 제거 (단가 0·금액 0이어도 수량>0 이면 출력)
-  rows = rows.map(normalizeEstimatePrintRow).filter(isPrintableEstimateRow);
-
-  // ── 사장님 지정 정렬 우선순위
-  // 콜롬비아 수국→알스트로→루스커스→카네이션→장미 → 네덜란드 → 호주 → 중국 → 에콰도르
-  // → 운송료 → 운임 → 그 외 차감
-  const isDeductRow = isEstimateDeductionRow;
-  const priorityOf = r => {
-    const isDed = isDeductRow(r);
-    const country = r.CounName || '';
-    const flower = r.FlowerName || '';
-    const prod = r.ProdName || '';
-    if (!isDed) {
-      if (/콜롬비아/.test(country)) {
-        if (/수국/.test(flower)) return 1;
-        if (/알스트로/.test(flower)) return 2;
-        if (/루스커스/.test(flower)) return 3;
-        if (/카네이션/.test(flower)) return 4;
-        if (/장미/.test(flower)) return 5;
-        return 6;
-      }
-      if (/네덜란드/.test(country)) return 10;
-      if (/호주/.test(country)) return 11;
-      if (/중국/.test(country)) return 12;
-      if (/에콰도르/.test(country)) return 13;
-      return 50;
-    }
-    if (/운송/.test(prod)) return 79;
-    if (/운임/.test(prod)) return 80;
-    return 99;
-  };
-  const sortedRows = [...rows].sort((a, b) => {
-    const pa = priorityOf(a); const pb = priorityOf(b);
-    if (pa !== pb) return pa - pb;
-    const adt = a.outDate || ''; const bdt = b.outDate || '';
-    if (adt !== bdt) return adt.localeCompare(bdt);
-    return (a.ProdName || '').localeCompare(b.ProdName || '');
-  });
-  rows = sortedRows;
+  const prepared = prepareEstimatePrintRows(rows, { printFormat, showDistribDesc });
+  const { rows: printRows, totals, statementFormat, descLabel } = prepared;
   const fmtN = n => Number(n || 0).toLocaleString();
-
-  // 품목명: [차감유형] ProdName (정상출고는 prefix 없음)
-  const typeLabel = t => {
-    if (!t || t === '정상출고') return '';
-    return '[' + mapEstimateType(t) + '] ';
-  };
-
-  // 차감 여부 판별
-  const isDeduct = isDeductRow;
-
-  const descLabel = r => formatEstimatePrintDescr(r, { showDistribDesc });
-
-  // ── 같은 ProdKey 끼리 항상 합산 + 차수별 breakdown 적요에 표시 (1차/2차 모두 보이게)
-  // aggregate 옵션 제거 — 항상 활성화 (옛 명세 사장님 요구사항)
-  {
-    const groups = {};   // key = `${EstimateType}|${ProdKey}|${Unit}|${Cost}`
-    rows.forEach(r => {
-      const costKey = Number(r.Cost || 0).toFixed(4);
-      // 출고일이 다른 행은 합산하지 않음(주광 등 요일별 분배 품목 — 요일 필터 후에도 날짜별 유지)
-      const key = `${r.EstimateType || '정상출고'}|${r.ProdKey || r.ProdName}|${r.Unit || ''}|${costKey}|${r.outDate || ''}`;
-      if (!groups[key]) groups[key] = { ...r, Quantity: 0, BoxQty: 0, Amount: 0, Vat: 0, _breakdown: {}, _outDates: new Set() };
-      const g = groups[key];
-      g.Quantity += (Number(r.Quantity) || 0);
-      g.BoxQty   += (Number(r.BoxQty)   || 0);
-      g.Amount   += (Number(r.Amount)   || 0);
-      g.Vat      += (Number(r.Vat)      || 0);
-      // OrderWeek 형식 "14-01" → "1차" / "14-02" → "2차"
-      const ow = r.OrderWeek || '';
-      const subM = ow.match(/-(\d+)$/);
-      const subLabel = subM ? `${parseInt(subM[1])}차` : (ow || '');
-      if (subLabel) {
-        g._breakdown[subLabel] = (g._breakdown[subLabel] || 0) + (Number(r.Quantity) || 0);
-      }
-      if (r.outDate) g._outDates.add(r.outDate);
-    });
-    rows = Object.values(groups).map(g => {
-      const qty = Number(g.Quantity) || 0;
-      const supply = Number(g.Amount) || 0;
-      const vat = Number(g.Vat) || 0;
-      // 23-01/23-02 등 차수 합산 후에도 단가×수량=공급가가 맞도록 실효 단가 재계산
-      // (Freedom 장미처럼 출고분배는 맞는데 견적 출력 합계만 틀리던 케이스)
-      // 단가 = nenova.exe 견적과 동일: 저장된 Cost(부가세 포함 단가) = (공급가액+부가세)/수량.
-      // (차수 합산 후에도 단가×수량 = 공급가액+부가세 유지. 과거엔 정상출고를 공급가액/수량으로
-      //  계산해 부가세가 빠진 단가가 표시돼 nenova 와 어긋났음.)
-      if (qty > 0 && (supply + vat) > 0) {
-        g.Cost = Math.round((supply + vat) / qty);
-      }
-      const parts = Object.entries(g._breakdown)
-        .filter(([_, v]) => v > 0)
-        .sort(([a],[b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k} ${fmtN(v)}${g.Unit||''}`);
-      g._distribDesc = parts.join(', ');
-      return g;
-    });
-    rows = rows.filter(isPrintableEstimateRow);
-  }
-
-  if (statementFormat) {
-    rows = rows.map(applyStatementPrintAmounts);
-  }
-
-  // ── 최종 정렬: 품종(국가+꽃) 우선순위 1차 → 같은 품종 안에서는 품목명 ABC 순.
-  // (합산 전 정렬은 출고일을 품목명보다 먼저 보므로, 같은 품종에서 출고일이 빠른 품목이
-  //  앞서는 문제가 있었음. 예: CARNATION Brut(06-03) 가 CARNATION Apple Tea(06-07) 보다 먼저.)
-  rows.sort((a, b) => {
-    const pa = priorityOf(a); const pb = priorityOf(b);
-    if (pa !== pb) return pa - pb;
-    return (a.ProdName || '').localeCompare(b.ProdName || '', 'en', { numeric: true, sensitivity: 'base' });
-  });
-
-  const totalSupply = rows.reduce((a, r) => a + (Number(r.Amount) || 0), 0);
-  const totalVat    = rows.reduce((a, r) => a + (Number(r.Vat) || 0), 0);
-  const totalAmt    = totalSupply + totalVat;
+  const totalSupply = totals.supply;
+  const totalVat = totals.vat;
+  const totalAmt = totals.total;
+  const isDeduct = isEstimateDeductionRow;
 
   const td = (content, style = '') =>
     `<td style="border:1px solid #bbb;padding:2px 5px;vertical-align:middle;${style}">${content}</td>`;
@@ -450,16 +350,17 @@ function buildEstimateHtml({
   let footerLabelColspan;
 
   if (statementFormat) {
-    itemRows = rows.map((r, i) => {
+    itemRows = printRows.map((r, i) => {
       const deduct = isDeduct(r);
       const rowBg = deduct ? 'background:#FFF8DC;' : '';
-      const origin = getEstimateVarietyLabel(r);
+      const origin = getEstimateOriginCountry(r);
       const spec = getEstimateSpecLabel(r);
       const qty = Number(r.Quantity) || 0;
+      const productName = `${estimateTypeLabel(r.EstimateType)}${getStatementProductName(r)}`;
       return `
     <tr>
       ${td(i + 1, `${rowBg}text-align:center;width:24px`)}
-      ${td(`${typeLabel(r.EstimateType)}${r.ProdName || ''}`, rowBg)}
+      ${td(productName, rowBg)}
       ${td(origin, `${rowBg}text-align:center;white-space:nowrap;font-size:8pt`)}
       ${td(r.Unit || '', `${rowBg}text-align:center;white-space:nowrap`)}
       ${td(spec, `${rowBg}text-align:center;white-space:nowrap;font-size:8pt;color:#555`)}
@@ -493,7 +394,7 @@ function buildEstimateHtml({
       <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
     </tr>`;
   } else {
-    itemRows = rows.map((r, i) => {
+    itemRows = printRows.map((r, i) => {
       const deduct = isDeduct(r);
       const rowBg  = deduct ? 'background:#FFF8DC;' : '';
       const amtClr = '';
@@ -503,7 +404,7 @@ function buildEstimateHtml({
       return `
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${estimateTypeLabel(r.EstimateType)}${r.ProdName || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
       ${boxCell}
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
@@ -2317,6 +2218,125 @@ export default function Estimate() {
     setShowPrintDialog(false);
   }, [filteredItems, selectedShip, weekNum, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
 
+  const doActualExcelExport = useCallback(async (opts) => {
+    const week = weekNum || '';
+    if (activeWD.size === 0) {
+      alert('출고요일을 선택하세요. (상단 출고요일 필터 또는 인쇄 옵션에서 요일을 클릭)');
+      return;
+    }
+
+    const bigoSuffix = getPrintFormatBigoSuffix(opts.printFormat);
+    const sheetOpts = {
+      week,
+      printDate: opts.printDate,
+      serialNo: opts.serialNo,
+      printFormat: opts.printFormat || ESTIMATE_PRINT_FORMAT.ESTIMATE,
+      showBoxQty: opts.showBoxQty !== false,
+      showDistribDesc: opts.showDistribDesc === true,
+    };
+
+    const appendSheet = (sheets, custName, oneRows, bigoLabel) => {
+      const printRows = filterPrintTargetItems(oneRows, activeWD, opts.outType);
+      if (!printRows.length) return;
+      const baseName = sanitizeExcelSheetName(custName);
+      let name = baseName;
+      let n = 2;
+      while (sheets.some(s => s.name === name)) {
+        name = sanitizeExcelSheetName(`${baseName}_${n}`);
+        n += 1;
+      }
+      sheets.push({
+        name,
+        aoa: buildEstimatePrintSheetAoa({
+          custName,
+          bigoLabel,
+          rows: printRows,
+          ...sheetOpts,
+        }),
+      });
+    };
+
+    const sheets = [];
+
+    if (selectedGroups.size > 0) {
+      const groupArr = Array.from(selectedGroups);
+      const printShips = groupArr
+        .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
+        .filter(Boolean)
+        .sort(compareShipmentsByManager);
+      for (const ship of printShips) {
+        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        try {
+          const results = await Promise.all(keys.map(k =>
+            fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+              .then(r => r.json())
+              .then(d => d.success ? (d.items || []) : [])
+          ));
+          const rows = filterItemsByWeekday(results.flat());
+          if (opts.splitMode === 'combined') {
+            appendSheet(sheets, ship.CustName, rows, `${week}차 ${bigoSuffix}`);
+          } else {
+            const groups = {};
+            filterPrintTargetItems(rows, activeWD, opts.outType).forEach(r => {
+              const g = getFlowerGroup(r);
+              if (!groups[g]) groups[g] = [];
+              groups[g].push(r);
+            });
+            Object.entries(groups).forEach(([g, gRows]) => {
+              appendSheet(sheets, `${ship.CustName}_${g}`, gRows, `${week}차 ${g}`);
+            });
+          }
+        } catch (e) {
+          console.error(`[excel] ${ship.CustName} 실패:`, e);
+        }
+      }
+    } else {
+      const custName = selectedShip?.CustName || '';
+      const keys = (selectedShip?.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+      let refreshedItems = [];
+      if (keys.length > 0) {
+        const results = await Promise.all(keys.map(k =>
+          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(d => d.success ? (d.items || []) : [])
+        ));
+        refreshedItems = results.flat();
+      } else {
+        refreshedItems = await reloadSelectedShipmentItems();
+      }
+      const rows = filterItemsByWeekday(refreshedItems);
+      if (opts.splitMode === 'combined') {
+        appendSheet(sheets, custName, rows, `${week}차 ${bigoSuffix}`);
+      } else {
+        const groups = {};
+        filterPrintTargetItems(rows, activeWD, opts.outType).forEach(r => {
+          const g = getFlowerGroup(r);
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(r);
+        });
+        Object.entries(groups).forEach(([g, gRows]) => {
+          appendSheet(sheets, `${custName}_${g}`, gRows, `${week}차 ${g}`);
+        });
+      }
+    }
+
+    if (sheets.length === 0) {
+      alert('출력할 데이터가 없습니다.');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    sheets.forEach(({ name, aoa }) => {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
+    });
+    const title = getPrintFormatDocTitle(opts.printFormat);
+    const fileName = sheets.length > 1
+      ? `${title}_${week}차_일괄.xlsx`
+      : `${title}_${sheets[0].name}_${week}차.xlsx`;
+    XLSX.writeFile(wb, fileName.replace(/[\\/?*[\]:]/g, '_'));
+    setShowPrintDialog(false);
+  }, [weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
+
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
   // ── 인쇄 다이얼로그가 열리면, 선택 거래처의 실제 출고일(byDate) 분포를 계산.
@@ -3390,6 +3410,9 @@ export default function Estimate() {
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={() => doActualPrint(printOpts)}>
                 🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 실행
+              </button>
+              <button className="btn" onClick={() => doActualExcelExport(printOpts)}>
+                📊 Excel 다운로드
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
             </div>
