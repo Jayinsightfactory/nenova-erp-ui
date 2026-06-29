@@ -21,7 +21,6 @@ import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
   normalizeCategoryList,
-  parseUnfixedCategoryLabels,
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
@@ -119,8 +118,18 @@ const WEEKDAYS = ['월','화','수','목','금','토','일'];
 const FIX_UNFIX_FETCH_TIMEOUT_MS = 20 * 60 * 1000;
 const ESTIMATE_MODAL_Z_INDEX = 2000;
 
+/** 미확정 카테고리 문자열 → 라벨 배열 (estimate.js 번들에 직접 포함) */
+function parseUnfixedCategoryLabels(text) {
+  return String(text || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
 function EstimateModalPortal({ zIndex = ESTIMATE_MODAL_Z_INDEX, onBackdropClick, children }) {
-  if (typeof document === 'undefined') return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted || typeof document === 'undefined') return null;
   return createPortal(
     <div className="modal-overlay" style={{ zIndex }} onClick={onBackdropClick}>
       {children}
