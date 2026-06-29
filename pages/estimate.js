@@ -36,12 +36,15 @@ import {
   isStatementPrintFormat,
 } from '../lib/estimatePrintFormats';
 import {
-  buildEstimatePrintSheetAoa,
   estimateTypeLabel,
   prepareEstimatePrintRows,
   sanitizeExcelSheetName,
 } from '../lib/estimatePrintPrepare';
-import * as XLSX from 'xlsx';
+import {
+  buildEstimatePrintWorkbook,
+  buildEstimatePrintWorksheet,
+  downloadEstimatePrintWorkbook,
+} from '../lib/estimatePrintExcel';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
@@ -2004,31 +2007,14 @@ export default function Estimate() {
     } catch(e) { alert(e.message); } finally { setSaving(false); }
   };
 
-  // ── 엑셀 다운 (쿼리 데이터 기반)
+  // ── 엑셀 다운 → 인쇄 옵션(인쇄와 동일 양식) 다이얼로그
   const handleExcel = () => {
-    const printableItems = filteredItems.filter(isPrintableEstimateRow);
-    if (!printableItems.length) { alert('출력할 데이터가 없습니다. 먼저 조회하세요.'); return; }
-    const custName = selectedShip?.CustName || '';
-    const week = weekNum || '';
-    const rows = [
-      [`견적서 — ${custName} / ${week}`],
-      [],
-      ['품목명','단위','출고일','수량','단가','공급가액','부가세','구분'],
-    ];
-    printableItems.forEach(i => rows.push([
-      i.ProdName, i.Unit, i.outDate||'', i.Quantity, i.Cost, i.Amount, i.Vat, i.EstimateType||''
-    ]));
-    const sumQty = printableItems.reduce((a, b) => a + (b.Quantity || 0), 0);
-    const sumSupply = printableItems.reduce((a, b) => a + (b.Amount || 0), 0);
-    const sumVat = printableItems.reduce((a, b) => a + (b.Vat || 0), 0);
-    rows.push([]);
-    rows.push(['합계','','', sumQty, '', sumSupply, sumVat, '']);
-    const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `견적서_${custName}_${week}.csv`;
-    a.click();
+    if (selectedGroups.size > 0) {
+      openPrintDialog(printOpts.printFormat || ESTIMATE_PRINT_FORMAT.STATEMENT);
+      return;
+    }
+    if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
+    openPrintDialog(printOpts.printFormat || ESTIMATE_PRINT_FORMAT.STATEMENT);
   };
 
   const openPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
@@ -2247,7 +2233,7 @@ export default function Estimate() {
       }
       sheets.push({
         name,
-        aoa: buildEstimatePrintSheetAoa({
+        worksheet: buildEstimatePrintWorksheet({
           custName,
           bigoLabel,
           rows: printRows,
@@ -2325,15 +2311,12 @@ export default function Estimate() {
       return;
     }
 
-    const wb = XLSX.utils.book_new();
-    sheets.forEach(({ name, aoa }) => {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
-    });
+    const wb = buildEstimatePrintWorkbook(sheets);
     const title = getPrintFormatDocTitle(opts.printFormat);
     const fileName = sheets.length > 1
       ? `${title}_${week}차_일괄.xlsx`
       : `${title}_${sheets[0].name}_${week}차.xlsx`;
-    XLSX.writeFile(wb, fileName.replace(/[\\/?*[\]:]/g, '_'));
+    downloadEstimatePrintWorkbook(wb, fileName);
     setShowPrintDialog(false);
   }, [weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
 
@@ -2713,7 +2696,7 @@ export default function Estimate() {
           <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
           <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
-          <button className="btn" onClick={handleExcel}>📊 엑셀 다운</button>
+          <button className="btn" onClick={handleExcel} title="인쇄와 동일한 양식으로 Excel 저장">📊 인쇄·엑셀</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
@@ -3412,7 +3395,7 @@ export default function Estimate() {
                 🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 실행
               </button>
               <button className="btn" onClick={() => doActualExcelExport(printOpts)}>
-                📊 Excel 다운로드
+                📊 Excel 다운로드 (인쇄와 동일)
               </button>
               <button className="btn" onClick={() => setShowPrintDialog(false)}>취소</button>
             </div>

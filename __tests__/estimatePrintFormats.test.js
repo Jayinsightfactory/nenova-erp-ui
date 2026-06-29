@@ -23,7 +23,7 @@ async function main() {
   assert('에콰도르', getEstimateOriginCountry({ CounName: '에콰도르', FlowerName: '장미' }) === '에콰도르');
 
   console.log('\n=== getStatementProductName ===');
-  assert('Hydrangea Lavender', getStatementProductName({ ProdName: 'HYDRANGEA Lavender' }) === 'Lavender');
+  assert('Hydrangea Blue', getStatementProductName({ ProdName: 'Hydrangea Blue (블루)' }) === 'Blue (블루)');
   assert('Carnation Fifi', getStatementProductName({ ProdName: 'CARNATION Fifi' }) === 'Fifi');
   assert('중국 프라우드', getStatementProductName({ ProdName: 'ROSE CHINA / 프라우드 (White proud) 75-80cm' }) === '프라우드 (White proud)');
   assert('Momentum', getStatementProductName({ ProdName: 'ROSE / Momentum 50cm' }) === 'Momentum');
