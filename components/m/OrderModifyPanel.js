@@ -6,7 +6,7 @@
 //  - 결과: 등록 전/후 /api/orders 스냅샷으로 품목별 수량 변화 표시
 import { useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
-import { findLocalMapping, findCustomerLocalMapping } from '../../lib/pasteLocalMapping';
+import { resolveCachedProductMapping, findCustomerLocalMapping } from '../../lib/pasteLocalMapping';
 import PasteHighlight from '../orders/PasteHighlight';
 
 const yearOf = (week) => {
@@ -79,8 +79,9 @@ export default function OrderModifyPanel({ open, setOpen, week, weeks, customers
           }
           const items = (o.items || []).map(it => {
             if (it.prodKey) return it;
-            const hit = findLocalMapping(it.inputName, prodMap);
-            if (!hit?.prodKey) return it;
+            const resolved = resolveCachedProductMapping(it.inputName, prodMap, null, it);
+            if (!resolved.ok) return it;
+            const hit = resolved.hit;
             return { ...it, prodKey: Number(hit.prodKey), prodName: hit.prodName || it.prodName, displayName: hit.displayName || hit.prodName || it.prodName, fromMapping: true };
           });
           return { ...o, custMatch, items };
