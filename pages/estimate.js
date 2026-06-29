@@ -29,6 +29,7 @@ import {
   applyStatementPrintAmounts,
   computePrintPreviewTotals,
   ESTIMATE_PRINT_FORMAT,
+  getEstimateSpecLabel,
   getEstimateVarietyLabel,
   getPrintFormatBigoSuffix,
   getPrintFormatDocTitle,
@@ -440,23 +441,69 @@ function buildEstimateHtml({
   const totalVat    = rows.reduce((a, r) => a + (Number(r.Vat) || 0), 0);
   const totalAmt    = totalSupply + totalVat;
 
-  const productNameCell = (r) => {
-    const variety = statementFormat ? getEstimateVarietyLabel(r) : '';
-    const varietyPrefix = variety ? `${variety} ` : '';
-    return `${varietyPrefix}${typeLabel(r.EstimateType)}${r.ProdName || ''}`;
-  };
+  const td = (content, style = '') =>
+    `<td style="border:1px solid #bbb;padding:2px 5px;vertical-align:middle;${style}">${content}</td>`;
 
-  const itemRows = rows.map((r, i) => {
-    const deduct = isDeduct(r);
-    const rowBg  = deduct ? 'background:#FFF8DC;' : '';
-    const amtClr = '';
-    const boxCell = showBoxQty
-      ? `<td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>`
-      : '';
-    return `
+  let itemRows;
+  let tableHead;
+  let tableFoot;
+  let footerLabelColspan;
+
+  if (statementFormat) {
+    itemRows = rows.map((r, i) => {
+      const deduct = isDeduct(r);
+      const rowBg = deduct ? 'background:#FFF8DC;' : '';
+      const origin = getEstimateVarietyLabel(r);
+      const spec = getEstimateSpecLabel(r);
+      const qty = Number(r.Quantity) || 0;
+      return `
+    <tr>
+      ${td(i + 1, `${rowBg}text-align:center;width:24px`)}
+      ${td(`${typeLabel(r.EstimateType)}${r.ProdName || ''}`, rowBg)}
+      ${td(origin, `${rowBg}text-align:center;white-space:nowrap;font-size:8pt`)}
+      ${td(r.Unit || '', `${rowBg}text-align:center;white-space:nowrap`)}
+      ${td(spec, `${rowBg}text-align:center;white-space:nowrap;font-size:8pt;color:#555`)}
+      ${td(fmtN(qty), `${rowBg}text-align:right;white-space:nowrap`)}
+      ${td(fmtN(r.Cost), `${rowBg}text-align:right`)}
+      ${td(fmtN(r.Amount), `${rowBg}text-align:right`)}
+      ${td(fmtN(r.Vat), `${rowBg}text-align:right`)}
+      ${td(descLabel(r), `${rowBg}font-size:7.5pt;color:#555`)}
+    </tr>`;
+    }).join('');
+
+    tableHead = `
+    <tr>
+      <th class="item-th" style="width:24px">번호</th>
+      <th class="item-th">품목</th>
+      <th class="item-th" style="width:52px">원산지</th>
+      <th class="item-th" style="width:32px">단위</th>
+      <th class="item-th" style="width:42px">규격</th>
+      <th class="item-th" style="width:42px">수량</th>
+      <th class="item-th" style="width:52px">단가</th>
+      <th class="item-th" style="width:62px">금액</th>
+      <th class="item-th" style="width:52px">세액</th>
+      <th class="item-th" style="width:88px">비고</th>
+    </tr>`;
+    footerLabelColspan = 7;
+    tableFoot = `
+    <tr class="foot-row">
+      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">합계</td>
+      <td style="text-align:right">${fmtN(totalSupply)}</td>
+      <td style="text-align:right">${fmtN(totalVat)}</td>
+      <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
+    </tr>`;
+  } else {
+    itemRows = rows.map((r, i) => {
+      const deduct = isDeduct(r);
+      const rowBg  = deduct ? 'background:#FFF8DC;' : '';
+      const amtClr = '';
+      const boxCell = showBoxQty
+        ? `<td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>`
+        : '';
+      return `
     <tr>
       <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${productNameCell(r)}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${typeLabel(r.EstimateType)}${r.ProdName || ''}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
       ${boxCell}
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
@@ -464,11 +511,31 @@ function buildEstimateHtml({
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
       <td style="${rowBg}border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${descLabel(r)}</td>
     </tr>`;
-  }).join('');
+    }).join('');
+
+    const boxHeader = showBoxQty ? '<th class="item-th" style="width:46px">박스</th>' : '';
+    footerLabelColspan = showBoxQty ? 5 : 4;
+    tableHead = `
+    <tr>
+      <th class="item-th" style="width:24px">순번</th>
+      <th class="item-th">품목명[규격]</th>
+      <th class="item-th" style="width:54px">수량</th>
+      ${boxHeader}
+      <th class="item-th" style="width:54px">단가</th>
+      <th class="item-th" style="width:74px">공급가액</th>
+      <th class="item-th" style="width:60px">부가세</th>
+      <th class="item-th" style="width:108px">적요</th>
+    </tr>`;
+    tableFoot = `
+    <tr class="foot-row">
+      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">공급가액 합계</td>
+      <td style="text-align:right">${fmtN(totalSupply)}</td>
+      <td style="text-align:right">${fmtN(totalVat)}</td>
+      <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
+    </tr>`;
+  }
 
   const serialDisplay = serialNo || printDate;
-  const boxHeader = showBoxQty ? '<th class="item-th" style="width:46px">박스</th>' : '';
-  const footerLabelColspan = showBoxQty ? 5 : 4;
 
   const greetLine2 = statementFormat
     ? '2. 하기와 같이 거래 명세를 전달드립니다.'
@@ -561,25 +628,11 @@ table { width:100%; border-collapse:collapse; }
 <!-- 품목 테이블 -->
 <table>
   <thead>
-    <tr>
-      <th class="item-th" style="width:24px">순번</th>
-      <th class="item-th">품목명[규격]</th>
-      <th class="item-th" style="width:54px">수량</th>
-      ${boxHeader}
-      <th class="item-th" style="width:54px">단가</th>
-      <th class="item-th" style="width:74px">공급가액</th>
-      <th class="item-th" style="width:60px">부가세</th>
-      <th class="item-th" style="width:108px">적요</th>
-    </tr>
+    ${tableHead}
   </thead>
   <tbody>${itemRows}</tbody>
   <tfoot>
-    <tr class="foot-row">
-      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">공급가액 합계</td>
-      <td style="text-align:right">${fmtN(totalSupply)}</td>
-      <td style="text-align:right">${fmtN(totalVat)}</td>
-      <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
-    </tr>
+    ${tableFoot}
   </tfoot>
 </table>
 <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}</script>
@@ -3201,7 +3254,7 @@ export default function Estimate() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
                     [ESTIMATE_PRINT_FORMAT.ESTIMATE, '견적서 (기존)'],
-                    [ESTIMATE_PRINT_FORMAT.STATEMENT, '거래명세표 (품종 표시 · 단가=공급가액 · 부가세 0.1%)'],
+                    [ESTIMATE_PRINT_FORMAT.STATEMENT, '거래명세표 (원산지·단위·수량·금액·세액 10%)'],
                   ].map(([v, l]) => (
                     <label key={v} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, cursor: 'pointer', fontSize: 12 }}>
                       <input type="radio" name="printFormat" value={v}
