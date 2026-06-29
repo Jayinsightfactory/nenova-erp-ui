@@ -3,6 +3,7 @@
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { apiGet, apiPost } from '../lib/useApi';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { getCurrentWeek } from '../lib/useWeekInput';
@@ -20,6 +21,7 @@ import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
   normalizeCategoryList,
+  parseUnfixedCategoryLabels,
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
@@ -115,6 +117,17 @@ function fmtDate(dateStr) {
 const fmt = n => Number(n || 0).toLocaleString();
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
 const FIX_UNFIX_FETCH_TIMEOUT_MS = 20 * 60 * 1000;
+const ESTIMATE_MODAL_Z_INDEX = 2000;
+
+function EstimateModalPortal({ zIndex = ESTIMATE_MODAL_Z_INDEX, onBackdropClick, children }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex }} onClick={onBackdropClick}>
+      {children}
+    </div>,
+    document.body,
+  );
+}
 
 function parseAppLogTime(value) {
   const text = String(value || '').trim();
@@ -1406,25 +1419,28 @@ export default function Estimate() {
     }
   };
 
-  const doFixAll = async (weekList, force = false, countryFlowers = []) => {
-    setFixWorking(true);
-    setFixServerLogs([]);
-    setFixLogWeeks(weekList || []);
-    setFixLogSince(Date.now() - 3000);
-    setFixProgress({
-      phase: 'fixing',
-      title: `${weekNum}차 및 하위차수 출고 확정 진행 중`,
-      currentWeek: '',
-      total: weekList.length,
-      done: 0,
-      success: 0,
-      failed: 0,
-      message: `${weekList.length}개 세부차수를 낮은 차수부터 순서대로 확정합니다.`,
-      results: [],
-    });
+  const doFixAll = async (weekList, force = false, countryFlowers = [], opts = {}) => {
+    const weeks = weekList || [];
+    if (!opts.skipProgressInit) {
+      setFixWorking(true);
+      setFixServerLogs([]);
+      setFixLogWeeks(weeks);
+      setFixLogSince(Date.now() - 3000);
+      setFixProgress({
+        phase: 'fixing',
+        title: opts.title || `${weekNum}차 및 하위차수 출고 확정 진행 중`,
+        currentWeek: '',
+        total: weeks.length,
+        done: 0,
+        success: 0,
+        failed: 0,
+        message: `${weeks.length}개 세부차수를 낮은 차수부터 순서대로 확정합니다.`,
+        results: [],
+      });
+    }
     const results = [];
-    for (let i = 0; i < weekList.length; i += 1) {
-      const wk = weekList[i];
+    for (let i = 0; i < weeks.length; i += 1) {
+      const wk = weeks[i];
       setFixProgress(prev => ({
         ...(prev || {}),
         currentWeek: wk,
@@ -1463,10 +1479,10 @@ export default function Estimate() {
         success,
         failed,
         results: results.slice(-5),
-        message: `${wk} 처리 완료. 남은 차수 ${Math.max(weekList.length - i - 1, 0)}개`,
+        message: `${wk} 처리 완료. 남은 차수 ${Math.max(weeks.length - i - 1, 0)}개`,
       }));
     }
-    setFixModal({ stage: 'done', results });
+    setFixModal({ stage: 'done', results, title: opts.resultTitle });
     setFixWorking(false);
     setFixProgress(null);
     load(true); // 화면 갱신
@@ -2282,7 +2298,10 @@ export default function Estimate() {
     .filter(w => w.status === 'FIXED' || w.status === 'PARTIAL' || w.status === 'FIXED_PENDING_STOCK');
   const fixStatusFixTargetRows = fixStatusActionBaseRows
     .filter(w => Number(w.detailCount || 0) > 0)
-    .filter(w => w.status === 'UNFIXED' || w.status === 'PARTIAL');
+    .filter(w => {
+      const ship = w.shipmentStatus || w.status;
+      return ship === 'UNFIXED' || ship === 'PARTIAL';
+    });
   const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
   const fixStatusExeMisalignedCount = fixStatusRows.filter(w => w.exeAligned === false && w.shipmentStatus === 'FIXED').length;
   const fixStatusBadge = (status) => {
@@ -2369,29 +2388,48 @@ export default function Estimate() {
   };
 
   const fixSelectedFixStatusWeeks = async () => {
-    const rows = fixStatusFixTargetRows;
-    if (!ensureFixStatusCategorySelection()) return;
-    const partialInSelection = rows.some((w) => w.shipmentStatus === 'PARTIAL' || w.status === 'PARTIAL');
-    const countryFlowers = partialInSelection
-      ? resolveFixCountryFlowersForRows(rows, fixStatusSelectedCategories)
-      : getFixStatusCountryFlowers();
-    const categoryNote = countryFlowers.length
-      ? `\n\n카테고리: ${countryFlowers.join(', ')}`
-      : '';
-    const partialNote = partialInSelection && fixStatusCategoryPreset !== 'all'
-      ? '\n\n부분확정 차수는 미확정 카테고리를 한 번에 확정합니다 (exe 정합).'
-      : '';
-    if (!rows.length) {
-      alert('확정할 차수를 선택하거나, 미확정/부분확정 차수가 있어야 합니다.');
-      return;
+    try {
+      const rows = fixStatusFixTargetRows;
+      if (!ensureFixStatusCategorySelection()) return;
+      if (!rows.length) {
+        alert('확정할 차수를 선택하거나, 미확정/부분확정 차수가 있어야 합니다.');
+        return;
+      }
+      const partialInSelection = rows.some((w) => w.shipmentStatus === 'PARTIAL' || w.status === 'PARTIAL');
+      const countryFlowers = partialInSelection
+        ? resolveFixCountryFlowersForRows(rows, fixStatusSelectedCategories)
+        : getFixStatusCountryFlowers();
+      const ordered = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek)));
+      const weekLabels = ordered.map(w => w.OrderWeek).filter(Boolean);
+      const progressTitle = `선택 ${weekLabels.length}차수 출고 확정 진행 중`;
+      setFixWorking(true);
+      setFixServerLogs([]);
+      setFixLogWeeks(weekLabels);
+      setFixLogSince(Date.now() - 3000);
+      setFixProgress({
+        phase: 'fixing',
+        title: progressTitle,
+        currentWeek: '',
+        total: weekLabels.length,
+        done: 0,
+        success: 0,
+        failed: 0,
+        message: `${weekLabels.join(', ')} — 낮은 차수부터 순서대로 확정합니다.`,
+        results: [],
+      });
+      setFixStatusModal(null);
+      await doFixAll(weekLabels, false, countryFlowers, {
+        skipProgressInit: true,
+        title: progressTitle,
+        resultTitle: `선택 ${weekLabels.length}차수 확정 결과`,
+      });
+    } catch (e) {
+      console.error('[fix-status] fix failed', e);
+      setFixModal({ stage: 'error', error: e.message });
+      setFixWorking(false);
+      setFixProgress(null);
+      alert(`확정 처리 오류: ${e.message}`);
     }
-    const ordered = [...rows].sort((a, b) => String(a.WeekKey || a.OrderWeek).localeCompare(String(b.WeekKey || b.OrderWeek)));
-    const weekLabels = ordered.map(w => w.OrderWeek).filter(Boolean);
-    if (!confirm(`선택한 ${weekLabels.length}개 차수를 확정할까요?\n\n${weekLabels.join(', ')}\n\n낮은 차수부터 높은 차수 순서로 처리됩니다.${categoryNote}${partialNote}`)) {
-      return;
-    }
-    setFixStatusModal(null);
-    await doFixAll(weekLabels, false, countryFlowers);
   };
 
   const reconcileSelectedFixStatusWeeks = async () => {
@@ -3522,7 +3560,7 @@ export default function Estimate() {
               </table>
             </div>
             <div style={{ display:'flex', gap:8, padding:12, justifyContent:'flex-end', borderTop:'1px solid var(--border)', flexWrap:'wrap' }}>
-              <button className="btn" onClick={() => setFixStatusModal(null)} disabled={fixWorking || rangeUnfixWorking}>닫기</button>
+              <button type="button" className="btn" onClick={() => setFixStatusModal(null)} disabled={fixWorking || rangeUnfixWorking}>닫기</button>
               <button
                 className="btn"
                 onClick={async () => { await reconcileSelectedFixStatusWeeks(); }}
@@ -3541,8 +3579,9 @@ export default function Estimate() {
                 {rangeUnfixWorking ? (rangeUnfixStatus || '취소중...') : `선택 확정취소 (${fixStatusTargetRows.length}차수 · ${fixStatusCategoryLabel()})`}
               </button>
               <button
+                type="button"
                 className="btn"
-                onClick={async () => { await fixSelectedFixStatusWeeks(); }}
+                onClick={() => { fixSelectedFixStatusWeeks(); }}
                 disabled={fixWorking || rangeUnfixWorking || fixStatusFixTargetRows.length === 0}
                 style={{ background:'#2e7d32', color:'#fff', borderColor:'#2e7d32', fontWeight:700 }}
               >
@@ -3554,7 +3593,7 @@ export default function Estimate() {
       )}
 
       {fixProgress && (
-        <div className="modal-overlay" onClick={e => e.stopPropagation()}>
+        <EstimateModalPortal onBackdropClick={e => e.stopPropagation()}>
           <div className="modal" style={{ maxWidth: 920, width: 'min(96vw, 920px)' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">{fixProgress.title || '출고 확정 진행 중'}</span>
@@ -3609,17 +3648,17 @@ export default function Estimate() {
               )}
             </div>
           </div>
-        </div>
+        </EstimateModalPortal>
       )}
 
       {/* ── 차수 확정 모달 (사전검증 결과 + 강제진행 + 결과) ── */}
       {fixModal && (
-        <div className="modal-overlay" onClick={() => !fixWorking && setFixModal(null)}>
+        <EstimateModalPortal onBackdropClick={() => !fixWorking && setFixModal(null)}>
           <div className="modal" style={{ maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
                 {fixModal.stage === 'preview' && `🔍 ${fixModal.week}차 확정 — 사전검증 결과`}
-                {fixModal.stage === 'done'    && `📋 ${weekNum}차 확정 결과`}
+                {fixModal.stage === 'done'    && `📋 ${fixModal.title || `${weekNum}차 확정 결과`}`}
                 {fixModal.stage === 'error'   && '❌ 차수 확정 오류'}
               </span>
               {!fixWorking && (
@@ -3739,7 +3778,7 @@ export default function Estimate() {
               )}
             </div>
           </div>
-        </div>
+        </EstimateModalPortal>
       )}
 
       {/* ── 불량/검역 등록 모달 ── */}
