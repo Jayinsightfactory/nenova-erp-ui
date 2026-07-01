@@ -75,11 +75,15 @@ async function main() {
 
   console.log('\n=== formatEstimatePrintDescr (적요) ===');
   assert('변경이력 Descr 제외', formatEstimatePrintDescr({ EstimateType: '정상출고', Descr: '임16>12,임12>14' }) === '');
-  assert('차감 출고일', formatEstimatePrintDescr(
-    { EstimateKey: 1, EstimateType: '불량차감/송이', outDate: '2026-06-04' }
+  assert('차감 출고일(옵션)', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', outDate: '2026-06-04' },
+    { showDeductionOutDay: true },
   ) === '4일');
+  assert('차감 출고일 기본 미표시', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', outDate: '2026-06-04' },
+  ) === '');
   assert('차감 Descr 로그 표시(EXE 동일)', formatEstimatePrintDescr(
-    { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '차감수량 10>8', outDate: '2026-06-04' }
+    { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '차감수량 10>8', outDate: '2026-06-04' },
   ) === '차감수량 10>8');
   assert('차감 사용자 메모 우선', formatEstimatePrintDescr(
     { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '현장 확인 필요', outDate: '2026-06-04' }

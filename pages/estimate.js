@@ -30,7 +30,7 @@ import {
   ESTIMATE_PRINT_FORMAT,
   getEstimateOriginCountry,
   getEstimateSpecLabel,
-  getStatementProductName,
+  formatPrintProductName,
   getPrintFormatBigoSuffix,
   getPrintFormatDocTitle,
   isStatementPrintFormat,
@@ -333,10 +333,11 @@ function buildEstimateHtml({
   aggregate = false,
   showBoxQty = true,
   showDistribDesc = false,
+  showDeductionOutDay = false,
   printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE,
 }) {
   const docTitle = getPrintFormatDocTitle(printFormat);
-  const prepared = prepareEstimatePrintRows(rows, { printFormat, showDistribDesc });
+  const prepared = prepareEstimatePrintRows(rows, { printFormat, showDistribDesc, showDeductionOutDay });
   const { rows: printRows, totals, statementFormat, descLabel } = prepared;
   const fmtN = n => Number(n || 0).toLocaleString();
   const totalSupply = totals.supply;
@@ -344,8 +345,13 @@ function buildEstimateHtml({
   const totalAmt = totals.total;
   const isDeduct = isEstimateDeductionRow;
 
-  const td = (content, style = '') =>
-    `<td style="border:1px solid #bbb;padding:2px 5px;vertical-align:middle;${style}">${content}</td>`;
+  const td = (content, style = '') => {
+    const esc = String(content ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<td style="border:1px solid #bbb;padding:2px 5px;vertical-align:middle;${style}">${esc}</td>`;
+  };
 
   let itemRows;
   let tableHead;
@@ -359,7 +365,7 @@ function buildEstimateHtml({
       const origin = getEstimateOriginCountry(r);
       const spec = getEstimateSpecLabel(r);
       const qty = Number(r.Quantity) || 0;
-      const productName = `${estimateTypeLabel(r.EstimateType)}${getStatementProductName(r)}`;
+      const productName = `${estimateTypeLabel(r.EstimateType)}${formatPrintProductName(r, printFormat)}`;
       return `
     <tr>
       ${td(i + 1, `${rowBg}text-align:center;width:24px`)}
@@ -413,7 +419,7 @@ function buildEstimateHtml({
       <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
       <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${descLabel(r)}</td>
+      <td style="${rowBg}border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${String(descLabel(r) ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
     </tr>`;
     }).join('');
 
@@ -1063,6 +1069,7 @@ export default function Estimate() {
     serialNo:  '',
     showBoxQty: true,
     showDistribDesc: false,
+    showDeductionOutDay: false,
   });
 
   // 인쇄 다이얼로그용 — 선택 거래처의 출고일(byDate) 분포.
@@ -2097,6 +2104,7 @@ export default function Estimate() {
         logoDataUrl: printLogoDataUrl,
         showBoxQty: opts.showBoxQty !== false,
         showDistribDesc: opts.showDistribDesc === true,
+        showDeductionOutDay: opts.showDeductionOutDay === true,
         printFormat: opts.printFormat || ESTIMATE_PRINT_FORMAT.ESTIMATE,
       };
 
@@ -2219,6 +2227,7 @@ export default function Estimate() {
       printFormat: opts.printFormat || ESTIMATE_PRINT_FORMAT.ESTIMATE,
       showBoxQty: opts.showBoxQty !== false,
       showDistribDesc: opts.showDistribDesc === true,
+      showDeductionOutDay: opts.showDeductionOutDay === true,
     };
 
     const appendSheet = (sheets, custName, oneRows, bigoLabel) => {
@@ -2735,11 +2744,11 @@ export default function Estimate() {
             {loading
               ? <div className="skeleton" style={{height:200, margin:12}}></div>
               : (
-                <table className="tbl">
+                <table className="tbl estimate-ship-list">
                   <thead>
                     <tr>
-                      <th style={{width:28}}>
-                        <input type="checkbox"
+                      <th className="estimate-ship-cb-col">
+                        <input type="checkbox" className="estimate-ship-cb"
                           ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < shipments.length; }}
                           checked={shipments.length > 0 && selectedGroups.size === shipments.length}
                           onChange={() => {
@@ -2798,8 +2807,8 @@ export default function Estimate() {
                             onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
                             style={{cursor:'pointer', background: checked ? '#e3f2fd' : undefined}}
                           >
-                            <td onClick={e => e.stopPropagation()}>
-                              <input type="checkbox" checked={checked}
+                            <td className="estimate-ship-cb-col" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" className="estimate-ship-cb" checked={checked}
                                 onChange={() => {
                                   setSelectedGroups(prev => {
                                     const n = new Set(prev);
@@ -3068,7 +3077,10 @@ export default function Estimate() {
                             </td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--text3)'}}>{fmt(item.Vat)}</td>
-                            <td style={{fontSize:11, color:'var(--text3)'}}>{sanitizeEstimateDescrForDisplay(item)}</td>
+                            <td style={{fontSize:11, color:'var(--text3)'}}>{sanitizeEstimateDescrForDisplay(item, {
+                              showDistribDesc: printOpts.showDistribDesc === true,
+                              showDeductionOutDay: printOpts.showDeductionOutDay === true,
+                            })}</td>
                           </tr>
                           );
                         })}
@@ -3090,7 +3102,7 @@ export default function Estimate() {
           </div>
 
           {/* WeekDay 필터 바 */}
-          <div style={{padding:'5px 10px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', background:'var(--bg)'}}>
+          <div style={{padding:'5px 10px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'var(--bg)'}}>
             <span style={{fontSize:11, color:'var(--text3)'}}>출고요일 필터:</span>
             {WEEKDAYS.map(d => (
               <span key={d} className={`chip ${activeWD.has(d)?'chip-active':'chip-inactive'}`} onClick={() => toggleWD(d)}>{d}</span>
@@ -3098,6 +3110,22 @@ export default function Estimate() {
             {activeWD.size < 7 && (
               <button className="btn btn-sm" style={{height:20, fontSize:10}} onClick={() => setActiveWD(new Set(['월','화','수','목','금','토','일']))}>전체선택</button>
             )}
+            <span style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+            <span style={{fontSize:11, color:'var(--text3)'}}>비고 표시:</span>
+            <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input type="checkbox"
+                checked={printOpts.showDeductionOutDay === true}
+                onChange={e => setPrintOpts(o => ({ ...o, showDeductionOutDay: e.target.checked }))}
+              />
+              출고일(N일)
+            </label>
+            <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input type="checkbox"
+                checked={printOpts.showDistribDesc === true}
+                onChange={e => setPrintOpts(o => ({ ...o, showDistribDesc: e.target.checked }))}
+              />
+              차수별 수량
+            </label>
           </div>
         </div>
       </div>
@@ -3269,6 +3297,15 @@ export default function Estimate() {
                     </label>
                   ))}
                 </div>
+                {isStatementPrintFormat(printOpts.printFormat) ? (
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.45 }}>
+                    거래명세표 품목 열: hydrangea·rose / 등 꽃 종류명은 제외하고 품종명만 표시됩니다.
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.45 }}>
+                    견적서 양식은 품목명을 DB 그대로 출력합니다. 품종명만 필요하면 「거래명세표」를 선택하세요.
+                  </div>
+                )}
               </div>
 
               {/* 출력일자 (= 일련번호 기준) */}
@@ -3343,7 +3380,14 @@ export default function Estimate() {
                       checked={printOpts.showDistribDesc === true}
                       onChange={e => setPrintOpts(o => ({ ...o, showDistribDesc: e.target.checked }))}
                     />
-                    적요에 차수별 수량 표시
+                    적요에 차수별 수량 표시 <span style={{ color: 'var(--text3)' }}>(정상출고)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={printOpts.showDeductionOutDay === true}
+                      onChange={e => setPrintOpts(o => ({ ...o, showDeductionOutDay: e.target.checked }))}
+                    />
+                    적요에 출고일(N일) 표시 <span style={{ color: 'var(--text3)' }}>(차감·비고 없을 때)</span>
                   </label>
                 </div>
               </div>
@@ -4032,6 +4076,25 @@ export default function Estimate() {
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .estimate-ship-list input[type="checkbox"].estimate-ship-cb {
+          width: 22px;
+          height: 22px;
+          min-width: 22px;
+          min-height: 22px;
+          cursor: pointer;
+          accent-color: var(--blue);
+        }
+        .estimate-ship-list th.estimate-ship-cb-col,
+        .estimate-ship-list td.estimate-ship-cb-col {
+          width: 40px;
+          min-width: 40px;
+          text-align: center;
+          padding: 6px 4px;
+          vertical-align: middle;
+        }
+      `}</style>
     </div>
   );
 }

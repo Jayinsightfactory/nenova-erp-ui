@@ -108,6 +108,7 @@ export default function DistributeImport() {
   const weekInput = useWeekInput(getDefaultImportWeek());
   const fileRef = useRef(null);
   const applyResultRef = useRef(null);
+  const comparisonRef = useRef(null);
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -141,12 +142,24 @@ export default function DistributeImport() {
   const visibleRows = useMemo(() => {
     if (filter === 'unmatched') return (preview?.unmatched || []).slice(0, 1000);
     const base = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
-    return base.slice(0, 1000);
+    const source = base.length > 0 ? base : rows;
+    return source.slice(0, 1000);
   }, [rows, applyRows, changedRows, shipmentRows, filter, preview?.unmatched]);
-  const pivotModel = useMemo(() => {
-    const source = filter === 'apply' ? applyRows : filter === 'changed' ? changedRows : filter === 'shipment' ? shipmentRows : rows;
-    return buildPivotModel(source);
+  const pivotSourceRows = useMemo(() => {
+    const filtered = filter === 'apply' ? applyRows
+      : filter === 'changed' ? changedRows
+      : filter === 'shipment' ? shipmentRows
+      : filter === 'unmatched' ? []
+      : rows;
+    if (filtered.length > 0 || filter === 'unmatched') return filtered;
+    return rows;
   }, [rows, applyRows, changedRows, shipmentRows, filter]);
+  const pivotModel = useMemo(() => buildPivotModel(pivotSourceRows), [pivotSourceRows]);
+  const pivotFilterFallback = pivotSourceRows.length > 0 && (
+    (filter === 'apply' && applyRows.length === 0) ||
+    (filter === 'changed' && changedRows.length === 0) ||
+    (filter === 'shipment' && shipmentRows.length === 0)
+  );
 
   // 파일엔 있는데 업체 매칭 실패한 미매칭 라벨(중복 제거)
   const unmatchedCustomers = useMemo(() => {
@@ -232,12 +245,15 @@ export default function DistributeImport() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
-      setFilter('apply');
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
       const shipmentDiffCount = (data.rows || []).filter(shipmentNeedsApply).length;
+      const rowCount = (data.rows || []).length;
+      const nextFilter = applyCount > 0 ? 'apply' : rowCount > 0 ? 'all' : 'apply';
+      setFilter(nextFilter);
       if (!options.preserveMessage) {
-        setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건`);
+        const viewHint = applyCount === 0 && rowCount > 0 ? ' (변경 없음 — 전체 비교 표시)' : '';
+        setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건${viewHint}`);
       }
       if ((data.unmatched || []).length > 0) {
         const hasCust = (data.unmatched || []).some(u => /업체/.test(u.reason || ''));
@@ -247,6 +263,11 @@ export default function DistributeImport() {
         setUnmatchedModalOpen(false);
         if (options.preserveModal) {
           setMessage(prev => prev || '미매칭 매칭 완료. 검증 결과를 확인하세요.');
+        }
+        if (rowCount > 0) {
+          requestAnimationFrame(() => {
+            comparisonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
         }
       }
     } catch (e) {
@@ -552,7 +573,7 @@ export default function DistributeImport() {
               </section>
             </div>
 
-            <div style={st.panel}>
+            <div ref={comparisonRef} style={st.panel}>
               <div style={st.panelHead}>
                 <strong>업체별 품목 수량 비교</strong>
                 <div style={st.panelActions}>
@@ -574,7 +595,12 @@ export default function DistributeImport() {
               {filter === 'unmatched' ? (
                 <SimpleUnmatched rows={preview.unmatched || []} />
               ) : viewMode === 'pivot' ? (
-                <PivotComparison model={pivotModel} />
+                <PivotComparison
+                  model={pivotModel}
+                  filter={filter}
+                  filterFallback={pivotFilterFallback}
+                  onShowAll={() => setFilter('all')}
+                />
               ) : (
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
@@ -632,9 +658,24 @@ export default function DistributeImport() {
   );
 }
 
-function PivotComparison({ model }) {
+function PivotComparison({ model, filter, filterFallback, onShowAll }) {
   if (!model.products.length) {
-    return <div style={{ padding: 18, color: '#64748b' }}>표시할 품목 수량이 없습니다.</div>;
+    const filterLabel = filter === 'apply' ? '적용대상'
+      : filter === 'changed' ? '주문변경'
+      : filter === 'shipment' ? '분배차이'
+      : '선택';
+    return (
+      <div style={{ padding: 18, color: '#64748b', lineHeight: 1.6 }}>
+        {filter !== 'all' && filter !== 'unmatched'
+          ? `${filterLabel} 필터에 표시할 품목이 없습니다.`
+          : '표시할 품목 수량이 없습니다.'}
+        {filter !== 'all' && onShowAll && (
+          <div style={{ marginTop: 10 }}>
+            <button style={st.unmatchedBannerBtn} onClick={onShowAll}>전체 비교 보기</button>
+          </div>
+        )}
+      </div>
+    );
   }
   const totals = model.customers.reduce((acc, c) => {
     acc.orderQty += c.orderQty;
@@ -646,6 +687,11 @@ function PivotComparison({ model }) {
   }, { orderQty: 0, currentOutQty: 0, uploadQty: 0, changeQty: 0, shipmentDiffQty: 0 });
   return (
     <div style={st.pivotWrap}>
+      {filterFallback && (
+        <div style={{ padding: '10px 12px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', color: '#1e40af', fontSize: 12, fontWeight: 700 }}>
+          {filter === 'apply' ? '적용대상' : filter === 'changed' ? '주문변경' : '분배차이'} 필터에 해당 행이 없어 전체 비교를 표시합니다.
+        </div>
+      )}
       <table style={st.pivotTable}>
         <thead>
           <tr>
@@ -941,6 +987,111 @@ function MatchKindBadge({ kind }) {
   return <span style={{ ...st.matchKindBadge, background: bg, color }}>{label}</span>;
 }
 
+function customerOptionLabel(o) {
+  const area = o.area || o.CustArea || '';
+  const name = o.custName || o.CustName || '';
+  const code = o.orderCode || o.OrderCode || '';
+  return `${area ? `[${area}] ` : ''}${name}${code ? ` (${code})` : ''}`;
+}
+
+function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [remote, setRemote] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const wrapRef = useRef(null);
+
+  const pickLabel = (custKey) => {
+    const s = suggested.find(x => String(x.custKey) === String(custKey));
+    if (s) return customerOptionLabel(s);
+    const r = remote.find(x => String(x.CustKey) === String(custKey));
+    if (r) return customerOptionLabel(r);
+    return '';
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || query.trim().length < 1) {
+      setRemote([]);
+      return undefined;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' });
+        const d = await res.json();
+        setRemote(d.customers || []);
+      } catch {
+        setRemote([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, open]);
+
+  const suggestedIds = new Set(suggested.map(s => String(s.custKey)));
+  const searchHits = remote.filter(c => !suggestedIds.has(String(c.CustKey)));
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', minWidth: 220 }}>
+      <input
+        style={{ ...st.custSelect, width: '100%', boxSizing: 'border-box' }}
+        value={open ? query : (pickLabel(value) || query)}
+        placeholder={placeholder || '거래처명·코드 검색'}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          if (!e.target.value) onChange('');
+        }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && (
+        <div style={st.searchDropdown}>
+          {suggested.map(s => (
+            <button
+              key={`s-${s.custKey}`}
+              type="button"
+              style={st.searchPickRow}
+              onClick={() => { onChange(String(s.custKey)); setQuery(''); setOpen(false); }}
+            >
+              ★ {customerOptionLabel(s)}
+            </button>
+          ))}
+          {suggested.length > 0 && (searchHits.length > 0 || loading) && (
+            <div style={st.searchSectionLabel}>검색 결과</div>
+          )}
+          {loading && <div style={st.searchHint}>검색 중…</div>}
+          {!loading && query.trim() && searchHits.length === 0 && (
+            <div style={st.searchHint}>검색 결과 없음</div>
+          )}
+          {searchHits.map(c => (
+            <button
+              key={c.CustKey}
+              type="button"
+              style={st.searchPickRow}
+              onClick={() => { onChange(String(c.CustKey)); setQuery(''); setOpen(false); }}
+            >
+              {customerOptionLabel(c)}
+            </button>
+          ))}
+          {!query.trim() && suggested.length === 0 && (
+            <div style={st.searchHint}>이름·코드·Descr 일부를 입력하세요</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SuggestSelect({ value, onChange, suggested = [], options = [], renderSuggested, renderOption, placeholder }) {
   const suggestedIds = new Set(suggested.map(s => String(s.custKey ?? s.prodKey)));
   return (
@@ -1003,7 +1154,7 @@ function UnmatchedMatchingModal({
             ) : (
               <>
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-                  엑셀 업체명 → 실제 거래처. ★ 표시는 추천 후보입니다.
+                  엑셀 업체명 → 실제 거래처. ★ 추천 후보 우선 · 이름/코드 입력으로 전체 검색 가능합니다.
                 </div>
                 <table style={st.table}>
                   <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>→ 거래처 선택</th></tr></thead>
@@ -1015,14 +1166,11 @@ function UnmatchedMatchingModal({
                         <td>{it.count}</td>
                         <td style={{ fontSize: 11, color: '#64748b' }}>{it.sample || '—'}</td>
                         <td>
-                          <SuggestSelect
+                          <CustomerSearchSelect
                             value={custOverrides[it.label] || ''}
                             onChange={v => onPickCustomer(it.label, v)}
                             suggested={it.suggestedCustomers}
-                            options={customerOptions}
-                            renderSuggested={s => `${s.area ? `[${s.area}] ` : ''}${s.custName}${s.orderCode ? ` (${s.orderCode})` : ''}`}
-                            renderOption={o => `${o.area ? `[${o.area}] ` : ''}${o.custName}${o.orderCode ? ` (${o.orderCode})` : ''}`}
-                            placeholder="— 거래처 선택 —"
+                            placeholder="거래처 검색·선택"
                           />
                         </td>
                       </tr>
@@ -1129,6 +1277,10 @@ const st = {
   qtyWarnBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   custSelect: { minWidth: 280, height: 30, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', background: '#fff' },
+  searchDropdown: { position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', maxHeight: 220, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 20px rgba(0,0,0,.12)', marginTop: 2 },
+  searchPickRow: { display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '8px 10px', fontSize: 12, cursor: 'pointer' },
+  searchSectionLabel: { padding: '4px 10px', fontSize: 10, color: '#94a3b8', borderTop: '1px solid #f1f5f9' },
+  searchHint: { padding: 8, fontSize: 12, color: '#64748b' },
   matchTabRow: { display: 'flex', gap: 6, padding: '8px 14px 0', borderBottom: '1px solid #e2e8f0' },
   matchTabOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12 },
   matchTabOff: { border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 600, fontSize: 12 },
