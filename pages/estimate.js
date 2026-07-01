@@ -30,7 +30,7 @@ import {
   ESTIMATE_PRINT_FORMAT,
   getEstimateOriginCountry,
   getEstimateSpecLabel,
-  formatPrintProductName,
+  getStatementProductName,
   getPrintFormatBigoSuffix,
   getPrintFormatDocTitle,
   isStatementPrintFormat,
@@ -365,7 +365,7 @@ function buildEstimateHtml({
       const origin = getEstimateOriginCountry(r);
       const spec = getEstimateSpecLabel(r);
       const qty = Number(r.Quantity) || 0;
-      const productName = `${estimateTypeLabel(r.EstimateType)}${formatPrintProductName(r, printFormat)}`;
+      const productName = `${estimateTypeLabel(r.EstimateType)}${getStatementProductName(r)}`;
       return `
     <tr>
       ${td(i + 1, `${rowBg}text-align:center;width:24px`)}
@@ -2747,8 +2747,9 @@ export default function Estimate() {
                 <table className="tbl estimate-ship-list">
                   <thead>
                     <tr>
-                      <th className="estimate-ship-cb-col">
-                        <input type="checkbox" className="estimate-ship-cb"
+                      <th style={{ width: 40, minWidth: 40, textAlign: 'center', padding: '6px 4px' }}>
+                        <input type="checkbox"
+                          style={{ width: 22, height: 22, minWidth: 22, minHeight: 22, cursor: 'pointer', accentColor: 'var(--blue)' }}
                           ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < shipments.length; }}
                           checked={shipments.length > 0 && selectedGroups.size === shipments.length}
                           onChange={() => {
@@ -2807,8 +2808,10 @@ export default function Estimate() {
                             onClick={() => selectShipment(groupId, s.CustKey, s.ShipmentKeys)}
                             style={{cursor:'pointer', background: checked ? '#e3f2fd' : undefined}}
                           >
-                            <td className="estimate-ship-cb-col" onClick={e => e.stopPropagation()}>
-                              <input type="checkbox" className="estimate-ship-cb" checked={checked}
+                            <td style={{ width: 40, minWidth: 40, textAlign: 'center', padding: '6px 4px' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox"
+                                style={{ width: 22, height: 22, minWidth: 22, minHeight: 22, cursor: 'pointer', accentColor: 'var(--blue)' }}
+                                checked={checked}
                                 onChange={() => {
                                   setSelectedGroups(prev => {
                                     const n = new Set(prev);
@@ -4077,24 +4080,6 @@ export default function Estimate() {
         </div>
       )}
 
-      <style jsx global>{`
-        .estimate-ship-list input[type="checkbox"].estimate-ship-cb {
-          width: 22px;
-          height: 22px;
-          min-width: 22px;
-          min-height: 22px;
-          cursor: pointer;
-          accent-color: var(--blue);
-        }
-        .estimate-ship-list th.estimate-ship-cb-col,
-        .estimate-ship-list td.estimate-ship-cb-col {
-          width: 40px;
-          min-width: 40px;
-          text-align: center;
-          padding: 6px 4px;
-          vertical-align: middle;
-        }
-      `}</style>
     </div>
   );
 }
