@@ -8,11 +8,14 @@ async function main() {
     filterItemsByWeekday,
     filterPrintTargetItems,
     formatEstimatePrintDescr,
+    formatEstimateDeductionDescr,
+    formatEstimateDescrForRow,
     isOperationalEstimateDescr,
     isPrintableEstimateRow,
     isEstimateDeductionRow,
     sanitizeEstimateDescrForDisplay,
     sanitizeDescrTextForPrint,
+    mergeEstimateDescrRaw,
     estimateAggregateKey,
     checkCostQtyInvariant,
     checkSplitSumInvariant,
@@ -75,9 +78,15 @@ async function main() {
   assert('차감 출고일', formatEstimatePrintDescr(
     { EstimateKey: 1, EstimateType: '불량차감/송이', outDate: '2026-06-04' }
   ) === '4일');
-  assert('차감 Descr 로그 미출력', formatEstimatePrintDescr(
+  assert('차감 Descr 로그 표시(EXE 동일)', formatEstimatePrintDescr(
     { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '차감수량 10>8', outDate: '2026-06-04' }
-  ) === '4일');
+  ) === '차감수량 10>8');
+  assert('차감 사용자 메모 우선', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '현장 확인 필요', outDate: '2026-06-04' }
+  ) === '현장 확인 필요');
+  assert('차감 혼합 비고 전체', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '검역차감/송이', DescrRaw: '현장 확인\n차감수량 10>8', outDate: '2026-06-04' }
+  ) === '현장 확인, 차감수량 10>8');
   assert('차수별 분배(옵션)', formatEstimatePrintDescr(
     { EstimateType: '정상출고', _distribDesc: '1차 10단, 2차 5단' },
     { showDistribDesc: true }
@@ -151,14 +160,31 @@ async function main() {
   assert('EstimateKey+SdetailKey null', isEstimateDeductionRow({ EstimateKey: 1, EstimateType: 'fee03' }));
   assert('정상출고 ShipmentDetail', !isEstimateDeductionRow({ EstimateKey: null, SdetailKey: 10, EstimateType: '정상출고' }));
 
+  console.log('\n=== mergeEstimateDescrRaw (byDate Detail+Date) ===');
+  assert('출고일 운영로그만 있어도 분배 메모 병합', sanitizeDescrTextForPrint(
+    mergeEstimateDescrRaw('특별요청', '임16>12')
+  ) === '특별요청');
+  assert('DateDescr 우선이 아닌 병합', mergeEstimateDescrRaw('배송 지연', '임1>2', '배송 지연') === '배송 지연,임1>2');
+
   console.log('\n=== sanitizeEstimateDescrForDisplay (차감 비고) ===');
-  assert('차감수량 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '차감수량 5>3' }) === '');
-  assert('차감단가 로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '\n차감단가 700>650' }) === '');
-  assert('차감단가 다중줄 숨김', sanitizeEstimateDescrForDisplay({
-    EstimateKey: 1,
-    Descr: '차감단가 14000>12000\n차감단가 12000>11500',
-  }) === '');
-  assert('실제 메모 유지', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, Descr: '배송 지연' }) === '배송 지연');
+  assert('차감수량 로그 표시', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, EstimateType: '단가차감/송이', Descr: '차감수량 5>3' }) === '차감수량 5>3');
+  assert('차감단가 로그 표시', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, EstimateType: '불량차감/박스', Descr: '차감단가 700>650' }) === '차감단가 700>650');
+  assert('희경 단가차감 메모', sanitizeEstimateDescrForDisplay({
+    EstimateKey: 7389, EstimateType: '단가차감/단', Descr: '25년도 불량차감 미적용건',
+  }) === '25년도 불량차감 미적용건');
+  assert('불량차감 사용자 메모', sanitizeEstimateDescrForDisplay({
+    EstimateKey: 7278, EstimateType: '불량차감/박스', Descr: '어버이날 78박스',
+  }) === '어버이날 78박스');
+  assert('정상출고 운영로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateType: '정상출고', Descr: '임16>12' }) === '');
+  assert('차감 혼합 메모 유지', sanitizeEstimateDescrForDisplay({
+    EstimateKey: 1, EstimateType: '검역차감/송이', DescrRaw: '현장 확인\n차감수량 10>8',
+  }) === '현장 확인, 차감수량 10>8');
+
+  console.log('\n=== appendDescr (사용자 메모 보존) ===');
+  const { appendDescr } = await import('../lib/shipmentDescr.js');
+  assert('메모+수량변동 혼합', appendDescr('특별요청,임16>12', '임12>14') === '특별요청,임16>12,임12>14');
+  assert('메모만 유지', appendDescr('배송 지연', '임16>12') === '배송 지연,임16>12');
+  assert('운영만 2건', appendDescr('임1>2,임3>4', '임5>6') === '임3>4,임5>6');
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

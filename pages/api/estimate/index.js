@@ -4,7 +4,12 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { applyByDateRowQuantities, filterActiveEstimateShipmentRows, sanitizeDescrTextForPrint } from '../../../lib/estimateInvariants.js';
+import {
+  applyByDateRowQuantities,
+  filterActiveEstimateShipmentRows,
+  formatEstimateDescrForRow,
+  mergeEstimateDescrRaw,
+} from '../../../lib/estimateInvariants.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -233,7 +238,8 @@ async function getEstimates(req, res) {
     if (masterResult.recordset.length > 0) {
       const firstRow = masterResult.recordset[0];
       const keys = (firstRow.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-      const allItems = await Promise.all(keys.map(k => loadItems(k)));
+      // nenova.exe 견적과 동일: 출고일별(byDate) + ShipmentDetail/ShipmentDate 비고 병합
+      const allItems = await Promise.all(keys.map(k => loadItems(k, true)));
       items = allItems.flat();
     }
 
@@ -260,6 +266,7 @@ async function loadItems(sk, byDate = false) {
     : ``;
   const outDateExpr = byDate ? `sdd.ShipmentDtm` : `sd.ShipmentDtm`;
   const dateShipQtyCol = byDate ? `sdd.ShipmentQuantity AS DateShipQty,` : ``;
+  const dateDescrCol = byDate ? `ISNULL(sdd.Descr, N'')` : `N''`;
   const productUnitCols = byDate
     ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
        ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,`
@@ -318,7 +325,9 @@ async function loadItems(sk, byDate = false) {
           ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
           ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,
           ISNULL(sd.BoxQuantity, 0)                  AS RawBoxQuantity,
-          ''                                        AS Descr,
+          ISNULL(sd.Descr, N'')                      AS DetailDescr,
+          ${dateDescrCol}                            AS DateDescr,
+          ISNULL(sd.Descr, N'')                      AS Descr,
           CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
        FROM ShipmentDetail sd
        ${dateJoin}
@@ -400,6 +409,8 @@ async function loadItems(sk, byDate = false) {
           NULL                                      AS RawBunchQuantity,
           NULL                                      AS RawSteamQuantity,
           NULL                                      AS RawBoxQuantity,
+          N''                                       AS DetailDescr,
+          N''                                       AS DateDescr,
           ISNULL(e.Descr, '')                       AS Descr,
           CONVERT(NVARCHAR(10), COALESCE(e.EstimateDtm, sd2.ShipmentDtm), 120) AS outDate
        FROM Estimate e
@@ -484,10 +495,15 @@ async function loadItems(sk, byDate = false) {
 }
 
 function sanitizeItemDescrs(rows) {
-  return (rows || []).map((row) => ({
-    ...row,
-    Descr: sanitizeDescrTextForPrint(row.Descr),
-  }));
+  return (rows || []).map((row) => {
+    const raw = mergeEstimateDescrRaw(row.DetailDescr, row.DateDescr, row.Descr);
+    const display = formatEstimateDescrForRow({ ...row, DescrRaw: raw });
+    return {
+      ...row,
+      DescrRaw: raw,
+      Descr: display,
+    };
+  });
 }
 
 function normalizeEstimateTypeInput(estimateType, unit) {
