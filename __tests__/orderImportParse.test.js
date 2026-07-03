@@ -12,7 +12,7 @@ const SAMPLE_ROWS = [
 ];
 
 async function main() {
-  const { parseOrderImportSheetRows, normalizeVisionItems } = await import('../lib/orderImportParse.js');
+  const { parseOrderImportSheetRows, normalizeVisionItems, parseRaumOrderQty } = await import('../lib/orderImportParse.js');
   const {
     normalizeImportUnit,
     inferImportUnitFromName,
@@ -47,6 +47,26 @@ async function main() {
   ];
   const inferred = parseOrderImportSheetRows(QTY_INFER, { sourceName: 'infer' });
   assert(inferred.rows.length === 2, `qty infer expected 2 rows, got ${inferred.rows.length}`);
+
+  const RAUM_ROWS = [
+    ['라움 27차(7월7일(화) 출고)', '', '', '', ''],
+    ['품 명', '칼 라', '요청수량', '발주수량', '예상잔량'],
+    ['수국', '화이트', '1988대', '67박스(2010대)', '85대'],
+    ['', '연핑크', '215대', '8박스(240대)', '25대'],
+    ['장미', '몬디알 화이트', '159단', '16박스(160단)', '6단'],
+    ['', '코랄리프', '10단', '', '10단'],
+    ['', '마루치', '5단', '', '5단'],
+  ];
+  const raum = parseOrderImportSheetRows(RAUM_ROWS, { sourceName: 'raum' });
+  assert(raum.rows.length === 3, `raum expected 3 rows (empty 발주수량 skip), got ${raum.rows.length}`);
+  assert(raum.rows[0].inputName === '수국 화이트', `raum name: ${raum.rows[0]?.inputName}`);
+  assert(raum.rows[0].qty === 67, `raum qty from 발주수량: ${raum.rows[0]?.qty}`);
+  assert(raum.rows[0].unit === '박스', `raum unit: ${raum.rows[0]?.unit}`);
+  assert(raum.rows[2].inputName === '장미 몬디알 화이트', `raum rose: ${raum.rows[2]?.inputName}`);
+  assert(raum.rows[2].qty === 16, `raum rose qty: ${raum.rows[2]?.qty}`);
+
+  assert(parseRaumOrderQty('67박스(2010대)').qty === 67, 'parse box qty');
+  assert(parseRaumOrderQty('16박스(160단)').unit === '박스', 'parse box unit');
 
   assert(normalizeImportUnit('대') === '박스', '대 -> 박스');
   assert(normalizeImportUnit('stem') === '송이', 'stem -> 송이');
