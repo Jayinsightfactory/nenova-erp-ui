@@ -2329,6 +2329,87 @@ export default function Estimate() {
     setShowPrintDialog(false);
   }, [weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
 
+  /** 주문등록(ViewOrder) 품목 → 거래명세표 Excel (인쇄·엑셀과 동일 양식) */
+  const handleOrderStatementExcel = useCallback(async () => {
+    const ships = selectedGroups.size > 0
+      ? Array.from(selectedGroups)
+        .map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g))
+        .filter(Boolean)
+      : (selectedShip ? [selectedShip] : []);
+
+    if (!ships.length) {
+      alert('출고 목록에서 거래처를 선택하세요.');
+      return;
+    }
+    const pw = weekNum || ships[0]?.ParentWeek || '';
+    if (!pw) {
+      alert('차수를 입력하세요.');
+      return;
+    }
+
+    const printDate = new Date().toISOString().slice(0, 10);
+    const sheets = [];
+    const skipped = [];
+
+    for (const ship of ships) {
+      try {
+        const d = await apiGet('/api/estimate/order-statement-rows', {
+          custKey: ship.CustKey,
+          parentWeek: ship.ParentWeek || pw,
+        });
+        if (!d.success) throw new Error(d.error || '조회 실패');
+        if (!d.rows?.length) {
+          skipped.push(ship.CustName);
+          continue;
+        }
+        let name = sanitizeExcelSheetName(ship.CustName);
+        let n = 2;
+        while (sheets.some(s => s.name === name)) {
+          name = sanitizeExcelSheetName(`${ship.CustName}_${n}`);
+          n += 1;
+        }
+        const weekLabel = ship.ParentWeek || pw;
+        sheets.push({
+          name,
+          worksheet: buildEstimatePrintWorksheet({
+            custName: ship.CustName,
+            week: `${weekLabel}차`,
+            printDate,
+            serialNo: '',
+            printFormat: ESTIMATE_PRINT_FORMAT.STATEMENT,
+            rows: d.rows,
+            showBoxQty: false,
+            showDistribDesc: false,
+            showDeductionOutDay: false,
+            bigoLabel: `${weekLabel}차 종합거래명세표 (주문등록)`,
+          }),
+        });
+      } catch (e) {
+        console.error('[order-statement-excel]', ship.CustName, e);
+        skipped.push(`${ship.CustName} (${e.message})`);
+      }
+    }
+
+    if (sheets.length === 0) {
+      alert(
+        skipped.length
+          ? `주문등록 품목이 없습니다.\n${skipped.join('\n')}`
+          : '주문등록 품목이 없습니다. 해당 차수·거래처에 주문이 등록되어 있는지 확인하세요.',
+      );
+      return;
+    }
+
+    const wb = buildEstimatePrintWorkbook(sheets);
+    const fileName = sheets.length > 1
+      ? `거래명세표_주문등록_${pw}차_일괄.xlsx`
+      : `거래명세표_주문등록_${sheets[0].name}_${pw}차.xlsx`;
+    downloadEstimatePrintWorkbook(wb, fileName);
+
+    if (skipped.length) {
+      alert(`다운로드 완료 (${sheets.length}건).\n주문 없음/실패: ${skipped.join(', ')}`);
+    }
+  }, [weekNum, selectedGroups, shipments, selectedShip]);
+
   const toggleWD = d => { const n = new Set(activeWD); n.has(d) ? n.delete(d) : n.add(d); setActiveWD(n); };
 
   // ── 인쇄 다이얼로그가 열리면, 선택 거래처의 실제 출고일(byDate) 분포를 계산.
@@ -2705,6 +2786,7 @@ export default function Estimate() {
           <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
           <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
+          <button className="btn" onClick={handleOrderStatementExcel} title="주문등록(ViewOrder) 품목·단위·단가 기준 거래명세표 Excel">📥 주문→거래명세표 Excel</button>
           <button className="btn" onClick={handleExcel} title="인쇄와 동일한 양식으로 Excel 저장">📊 인쇄·엑셀</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>

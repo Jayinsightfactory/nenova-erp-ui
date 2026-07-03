@@ -7,6 +7,32 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { scoreMatch, getDisplayName } from '../../lib/displayName';
 import { mergeRegisterItems } from '../../lib/orderImportRegister';
+import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
+import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
+import { sanitizeExcelSheetName } from '../../lib/estimatePrintPrepare';
+import {
+  buildEstimatePrintWorkbook,
+  buildEstimatePrintWorksheet,
+  downloadEstimatePrintWorkbook,
+} from '../../lib/estimatePrintExcel';
+
+const DEFAULT_CUST_SEARCH = '라움';
+const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
+
+function getNearby2026Weeks(range = 4) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const start = new Date(year, 0, 1);
+  const dayOfYear = Math.floor((now - start) / 86400000) + 1;
+  const curWeek = Math.min(Math.ceil(dayOfYear / 7), 52);
+  const weeks = [];
+  for (let w = Math.max(1, curWeek - range); w <= curWeek + range; w += 1) {
+    for (let s = 1; s <= 3; s += 1) {
+      weeks.push(`${year}-${String(w).padStart(2, '0')}-${String(s).padStart(2, '0')}`);
+    }
+  }
+  return weeks;
+}
 
 function unitSourceLabel(source) {
   if (source === 'upload') return '엑셀열';
@@ -282,6 +308,8 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
 
 export default function OrderImportPage() {
   const [week, setWeek] = useState(getCurrentWeek());
+  const [weeks, setWeeks] = useState([]);
+  const [showOldWeeks, setShowOldWeeks] = useState(false);
   const [cust, setCust] = useState(null);
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -290,23 +318,150 @@ export default function OrderImportPage() {
   const [sourceType, setSourceType] = useState('');
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [statementLoading, setStatementLoading] = useState(false);
   const [resultMsg, setResultMsg] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [editProdIdx, setEditProdIdx] = useState(null);
   const fileRef = useRef(null);
 
+  const loadDefaultCust = useCallback(async () => {
+    const cd = await apiGet('/api/customers/search', { q: DEFAULT_CUST_SEARCH });
+    const raum = (cd.customers || []).find(c => /라움/i.test(c.CustName));
+    if (raum) return { CustKey: raum.CustKey, CustName: raum.CustName };
+    return null;
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
         const d = await apiGet('/api/products/search');
         setAllProducts(d.products || []);
-        const cd = await apiGet('/api/customers/search', { q: '라움' });
-        const raum = (cd.customers || []).find(c => /라움/i.test(c.CustName));
-        if (raum) setCust({ CustKey: raum.CustKey, CustName: raum.CustName });
+
+        let nextCust = null;
+        try {
+          const saved = localStorage.getItem(IMPORT_CUST_STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed?.CustKey && parsed?.CustName) nextCust = parsed;
+          }
+        } catch { /* ignore */ }
+        if (!nextCust) nextCust = await loadDefaultCust();
+        if (nextCust) setCust(nextCust);
       } catch { /* ignore */ }
     })();
+  }, [loadDefaultCust]);
+
+  useEffect(() => {
+    if (cust?.CustKey) {
+      try {
+        localStorage.setItem(IMPORT_CUST_STORAGE_KEY, JSON.stringify(cust));
+      } catch { /* ignore */ }
+    }
+  }, [cust]);
+
+  useEffect(() => {
+    apiGet('/api/orders/weeks').then((d) => {
+      if (!d.success) return;
+      const def = getCurrentWeek();
+      const nearby = getNearby2026Weeks(4);
+      const dbWeeks = (d.weeks || []).filter(w => !nearby.includes(w));
+      setWeeks([...nearby, ...dbWeeks]);
+      setWeek(def);
+    }).catch(() => {
+      setWeeks(getNearby2026Weeks(4));
+    });
   }, []);
+
+  const openTemplateWindow = useCallback(() => {
+    const suffix = week ? `?week=${encodeURIComponent(week)}&popup=1` : '?popup=1';
+    const popup = window.open(
+      `/orders/paste-template${suffix}`,
+      'pasteOrderTemplatePopup',
+      'width=1440,height=920,left=30,top=20,resizable=yes,scrollbars=yes',
+    );
+    if (!popup) window.location.href = `/orders/paste-template${suffix}`;
+  }, [week]);
+
+  const handleStatementExcel = useCallback(async () => {
+    if (!cust?.CustKey) {
+      alert('거래처를 선택하세요.');
+      return;
+    }
+    if (!week) {
+      alert('차수를 선택하세요.');
+      return;
+    }
+
+    const pw = parentWeekFromFullWeek(week);
+    const printDate = new Date().toISOString().slice(0, 10);
+    const weekLabel = pw || week;
+    setStatementLoading(true);
+
+    try {
+      const gridRows = buildStatementRowsFromImportItems(
+        mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0)),
+        allProducts,
+      );
+
+      let rows = gridRows;
+      let sourceLabel = '업로드 화면';
+
+      if (!rows.length) {
+        const d = await apiGet('/api/estimate/order-statement-rows', {
+          custKey: cust.CustKey,
+          parentWeek: pw,
+          week: pw,
+        });
+        if (!d.success) throw new Error(d.error || '조회 실패');
+        rows = d.rows || [];
+        sourceLabel = '주문등록(DB)';
+      }
+
+      if (!rows.length) {
+        alert('거래명세표로 내려받을 품목이 없습니다.\n업로드 후 매칭하거나, 해당 차수에 주문을 등록했는지 확인하세요.');
+        return;
+      }
+
+      const sheetName = sanitizeExcelSheetName(cust.CustName);
+      const wb = buildEstimatePrintWorkbook([{
+        name: sheetName,
+        worksheet: buildEstimatePrintWorksheet({
+          custName: cust.CustName,
+          week: `${weekLabel}차`,
+          printDate,
+          serialNo: '',
+          printFormat: ESTIMATE_PRINT_FORMAT.STATEMENT,
+          rows,
+          showBoxQty: false,
+          showDistribDesc: false,
+          showDeductionOutDay: false,
+          bigoLabel: `${weekLabel}차 종합거래명세표 (${sourceLabel})`,
+        }),
+      }]);
+
+      downloadEstimatePrintWorkbook(
+        wb,
+        `거래명세표_${cust.CustName}_${weekLabel}차.xlsx`,
+      );
+    } catch (e) {
+      alert(e.message || '거래명세표 다운로드 실패');
+    } finally {
+      setStatementLoading(false);
+    }
+  }, [allProducts, cust, items, week]);
+
+  const resetDefaultCust = async () => {
+    try {
+      const next = await loadDefaultCust();
+      if (next) setCust(next);
+      else alert(`「${DEFAULT_CUST_SEARCH}」 거래처를 찾을 수 없습니다.`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const isDefaultCust = !!cust?.CustName && /라움/i.test(cust.CustName);
 
   const uploadFile = useCallback(async (file) => {
     if (!file) return;
@@ -437,21 +592,154 @@ export default function OrderImportPage() {
     };
   }, [items]);
 
+  const newWeeks = weeks.filter(w => w.match(/^\d{4}-/));
+  const oldWeeks = weeks.filter(w => !w.match(/^\d{4}-/));
+
   return (
     <Layout title="업로드 주문등록">
       <div style={st.page}>
         <div style={st.card}>
-          <div style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+            <div style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
+            <button
+              type="button"
+              onClick={openTemplateWindow}
+              style={{
+                padding: '8px 18px',
+                background: '#5e35b1',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(94,53,177,0.25)',
+              }}
+              title="새 창에서 원본 차수 주문 불러오기, 즐겨찾기 저장/수정, 등록대상 차수 주문등록"
+            >
+              주문즐겨찾기
+            </button>
+            <button
+              type="button"
+              onClick={handleStatementExcel}
+              disabled={statementLoading || !cust?.CustKey}
+              style={{
+                ...st.btn,
+                background: '#00897b',
+                color: '#fff',
+                opacity: statementLoading || !cust?.CustKey ? 0.55 : 1,
+              }}
+              title="업로드 화면 품목 또는 등록된 주문(ViewOrder) 기준 거래명세표 Excel"
+            >
+              {statementLoading ? '다운로드 중…' : '📥 거래명세표 Excel'}
+            </button>
+          </div>
           <div style={st.sub}>
-            라움 등 거래처 발주표(카톡 이미지·엑셀)를 업로드하면 품목·단위 자동매칭 후 주문등록합니다.
-            업로드 후 <b>수량·단위·품목 매칭</b>은 모두 수정 가능합니다 (자동매칭 품목도 「품목 변경」).
+            기본 거래처 <b>라움</b> · 발주표(카톡 이미지·엑셀) 업로드 후 품목·단위 자동매칭·주문등록.
+            업로드 후 <b>수량·단위·품목 매칭</b>은 모두 수정 가능 (자동매칭 품목도 「품목 변경」).
           </div>
 
-          <div style={st.row}>
-            <span style={st.label}>거래처</span>
-            <CustomerSearchSelect value={cust?.CustKey || ''} onChange={setCust} />
-            <span style={st.label}>차수</span>
-            <input style={st.input} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="2026-28-01" />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ ...st.label, display: 'block', marginBottom: 6 }}>
+              거래처
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                기본 라움 · 검색으로 변경
+              </span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <CustomerSearchSelect value={cust?.CustKey || ''} onChange={setCust} />
+              {isDefaultCust && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#1a237e', background: '#e8eaf6', padding: '4px 10px', borderRadius: 10 }}>
+                  기본: 라움
+                </span>
+              )}
+              {!isDefaultCust && cust?.CustName && (
+                <button
+                  type="button"
+                  onClick={resetDefaultCust}
+                  style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '5px 10px' }}
+                >
+                  ↺ 라움으로
+                </button>
+              )}
+              {cust?.CustName && (
+                <span style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
+                  선택: {cust.CustName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ ...st.label, display: 'block', marginBottom: 6 }}>
+              등록 차수
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                주변 차수 선택 · 직접 입력 가능
+              </span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: '#1a237e', fontWeight: 700, background: '#e8eaf6', padding: '2px 8px', borderRadius: 10 }}>2026</span>
+              {newWeeks.map(w => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setWeek(w)}
+                  style={{
+                    padding: '5px 22px',
+                    borderRadius: 20,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    border: week === w ? '2px solid #1a237e' : '1px solid #c5cae9',
+                    background: week === w ? '#1a237e' : '#f3f4ff',
+                    color: week === w ? '#fff' : '#1a237e',
+                    fontWeight: week === w ? 700 : 500,
+                  }}
+                >
+                  {formatWeekDisplay(w)}
+                </button>
+              ))}
+            </div>
+            {oldWeeks.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowOldWeeks(v => !v)}
+                  style={{ fontSize: 11, color: '#888', background: 'none', border: '1px solid #ddd', borderRadius: 10, padding: '2px 10px', cursor: 'pointer', marginBottom: 4 }}
+                >
+                  {showOldWeeks ? '▲' : '▼'} 이전 차수 (25년도) {oldWeeks.length}개
+                </button>
+                {showOldWeeks && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
+                    {oldWeeks.map(w => (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => setWeek(w)}
+                        style={{
+                          padding: '4px 11px',
+                          borderRadius: 20,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          border: week === w ? '2px solid #888' : '1px solid #ddd',
+                          background: week === w ? '#666' : '#f9f9f9',
+                          color: week === w ? '#fff' : '#888',
+                        }}
+                      >
+                        {formatWeekDisplay(w)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <input style={st.input} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="2026-28-01" />
+              {week && (
+                <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600 }}>
+                  선택: {formatWeekDisplay(week)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div
