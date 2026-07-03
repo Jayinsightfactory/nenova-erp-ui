@@ -34,26 +34,9 @@ import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { toOrderUnits } from '../../../lib/shipmentImportQty';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { distributeUnits, estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
 
 const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
-
-function toShipmentUnits(outQty, product = {}) {
-  const qty = Number(outQty || 0);
-  const b1b = Number(product.BunchOf1Box || 0);
-  const s1b = Number(product.SteamOf1Box || 0);
-  return {
-    box: qty,
-    bunch: b1b > 0 ? qty * b1b : 0,
-    steam: s1b > 0 ? qty * s1b : 0,
-    outQty: qty,
-  };
-}
-
-function estimateQuantityFromShipmentUnits(units) {
-  if (Number(units.bunch || 0) > 0) return Number(units.bunch || 0);
-  if (Number(units.steam || 0) > 0) return Number(units.steam || 0);
-  return Number(units.box || 0);
-}
 
 function checkApiKey(req, res) {
   const key = req.headers['x-api-key'] || req.query.apiKey;
@@ -251,8 +234,9 @@ async function createShipment(req, res) {
 
         const prod = await tQ(
           `SELECT ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                  ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
                   ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
-                  p.OutUnit,
+                  p.OutUnit, p.EstUnit,
                   ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0)) AS Cost
              FROM Product p
              LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=@ck AND cpc.ProdKey=p.ProdKey
@@ -279,11 +263,15 @@ async function createShipment(req, res) {
             unitWarning = `unit 미지정 — ${qty}을(를) 박스로 저장했습니다. 단(묶음) 수량이면 unit:'단' 을 명시하세요(박스당 ${b1b}단).`;
           }
         }
-        const units = toShipmentUnits(outQtyBase, productInfo);
-        const estQty = estimateQuantityFromShipmentUnits(units);
+        const distributed = distributeUnits(outQtyBase, productInfo);
+        const units = {
+          box: distributed.box,
+          bunch: distributed.bunch,
+          steam: distributed.steam,
+          outQty: distributed.outQty,
+        };
         const cost = parseFloat(item.cost) || Number(productInfo.Cost || 0);
-        const amount = Math.round(estQty * cost / 1.1);
-        const vat = Math.round(estQty * cost / 11);
+        const { estQty, amount, vat } = estimateFromOutQuantity(outQtyBase, cost, productInfo);
 
         const shipDate = item.shipDate ? new Date(item.shipDate) : new Date();
         const oldRows = await tQ(

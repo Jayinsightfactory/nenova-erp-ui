@@ -94,6 +94,7 @@ async function main() {
   const {
     refreshShipmentDatesAfterDetailChange,
     scaleShipmentDateQtys,
+    reconcileShipmentDateAmountsFromDetail,
   } = await import('../lib/syncShipmentDateEst.js');
   const { distributeUnits } = await import('../lib/distributeUnits.js');
 
@@ -167,6 +168,68 @@ async function main() {
   assert('1행 생성', insert.state.dates.length === 1);
   assert('INSERT 수량=12', insert.state.dates[0].ShipmentQuantity === 12);
 
+  console.log('\n=== exe 정합: distributeUnits(OutQuantity) — Detail·Date 동일 금액 (희경 유형 방지) ===');
+  const { estimateFromOutQuantity } = await import('../lib/distributeUnits.js');
+  const heeProduct = { OutUnit: '박스', EstUnit: '박스', BunchOf1Box: 10, SteamOf1Bunch: 0, SteamOf1Box: 0 };
+  const cost = 2000;
+  const outQty = 74;
+  const est = estimateFromOutQuantity(outQty, cost, heeProduct);
+  assert('EstUnit=박스 → estQty=OutQuantity(박스)', est.estQty === 74);
+  assert('amount=74*cost/1.1', est.amount === 134545);
+
+  const heeRefresh = makeMockTq({
+    detail: {
+      SdetailKey: 79258,
+      OutQuantity: outQty,
+      Cost: cost,
+      EstQuantity: est.estQty,
+      Amount: est.amount,
+      Vat: est.vat,
+      ShipmentDtm: new Date('2026-06-04'),
+    },
+    dates: [{
+      SdateKey: 2,
+      ShipmentDtm: '2026-06-04',
+      ShipmentQuantity: 75,
+      EstQuantity: 750,
+      Cost: cost,
+      Amount: 1363636,
+      Vat: 136364,
+    }],
+    product: heeProduct,
+  });
+  const heeRefreshRes = await refreshShipmentDatesAfterDetailChange(heeRefresh.tQ, 79258, fakeSql);
+  assert('refresh 후 Date Amount=Detail', heeRefresh.state.dates[0].Amount === est.amount);
+  assert('refresh 후 Date EstQuantity=Detail', heeRefresh.state.dates[0].EstQuantity === est.estQty);
+  assert('sync만으로 정합( reconcile 불필요)', heeRefreshRes.reconcile === undefined);
+
+  console.log('\n=== reconcile: 레거시 복구 (기존 Detail≠Date 불일치) ===');
+  const legacyDetailAmt = 1345455;
+  const legacy = makeMockTq({
+    detail: {
+      SdetailKey: 79257,
+      OutQuantity: 74,
+      Cost: cost,
+      EstQuantity: 740,
+      Amount: legacyDetailAmt,
+      Vat: 134545,
+      ShipmentDtm: new Date('2026-06-04'),
+    },
+    dates: [{
+      SdateKey: 1,
+      ShipmentDtm: '2026-06-04',
+      ShipmentQuantity: 74,
+      EstQuantity: 74,
+      Cost: cost,
+      Amount: 134545,
+      Vat: 13455,
+    }],
+    product: heeProduct,
+  });
+  const recRes = await reconcileShipmentDateAmountsFromDetail(legacy.tQ, 79257, fakeSql);
+  assert('legacy reconcile', recRes.reconciled === true);
+  assert('legacy Date Amount=Detail', legacy.state.dates[0].Amount === legacyDetailAmt);
+
   console.log('\n=== 웹 경로 정적 회귀 검사 (위험 패턴) ===');
   const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
   const mustUseRefresh = [
@@ -182,6 +245,8 @@ async function main() {
     assert(`${f} → refreshShipmentDatesAfterDetailChange 사용`, src.includes('refreshShipmentDatesAfterDetailChange'));
   }
   const updateQty = read('pages/api/estimate/update-quantity.js');
+  assert('견적 수량: distributeUnits(OutQuantity) 사용', updateQty.includes('estimateFromOutQuantity'));
+  assert('견적 수량: bunch 우선 amountBase 금지', !updateQty.includes('amountBase'));
   assert('견적 수량: 다중출고일 차단 제거', !updateQty.includes('dateCount > 1'));
   assert('견적 수량: DELETE+단일INSERT 패턴 제거', !updateQty.includes('DELETE FROM ShipmentDate WHERE SdetailKey=@sdk'));
   const distribute = read('pages/api/shipment/distribute.js');

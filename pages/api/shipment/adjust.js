@@ -364,8 +364,9 @@ async function postAdjust(req, res) {
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
-                ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B,
+        `SELECT ProdName, OutUnit, EstUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+                ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Bunch,0) AS S1Bn,
+                ISNULL(SteamOf1Box,0) AS S1B,
                 ISNULL(Cost,0) AS ProductCost
            FROM Product WHERE ProdKey=@pk`,
         { pk: { type: sql.Int, value: pk } }
@@ -634,6 +635,7 @@ async function postAdjust(req, res) {
       const adj = computeShipmentAdjustUnits({
         curOut: qtyBefore, delta, type, unit: userUnit,
         outUnit: prodOutUnit, bunchOf1Box: B1B, steamOf1Box: S1B,
+        steamOf1Bunch: prod.S1Bn, estUnit: prod.EstUnit,
       });
       const qtyAfter = adj.qtyAfter;
       if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore})보다 큼`);

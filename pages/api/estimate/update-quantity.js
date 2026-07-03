@@ -2,6 +2,7 @@ import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
+import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -108,15 +109,13 @@ export default withAuth(async function handler(req, res) {
         const vat = Math.round(nextQuantity * Number(row.Cost || 0) / 11);
         await tQ(
           `UPDATE Estimate
-              SET Quantity=@qty, Amount=@amount, Vat=@vat,
-                  Descr = ISNULL(Descr,'') + @descr
+              SET Quantity=@qty, Amount=@amount, Vat=@vat
             WHERE EstimateKey=@ek`,
           {
             ek: { type: sql.Int, value: estimateKey },
             qty: { type: sql.Float, value: nextQuantity },
             amount: { type: sql.Float, value: amount },
             vat: { type: sql.Float, value: vat },
-            descr: { type: sql.NVarChar, value: `\n차감수량 ${oldQuantity}>${nextQuantity}` },
           }
         );
 
@@ -145,7 +144,7 @@ export default withAuth(async function handler(req, res) {
                 ISNULL(sd.isFix,0) AS detailIsFix,
                 ISNULL(sm.isFix,0) AS isFix,
                 sm.OrderWeek,
-                p.OutUnit, p.BunchOf1Box, p.SteamOf1Box
+                p.OutUnit, p.EstUnit, p.BunchOf1Box, p.SteamOf1Bunch, p.SteamOf1Box
            FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
            JOIN ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) ON sm.ShipmentKey = sd.ShipmentKey
            JOIN Product p ON p.ProdKey = sd.ProdKey
@@ -195,9 +194,14 @@ export default withAuth(async function handler(req, res) {
       if (next.outQuantity > 0 && dateCount === 0) {
         throw new Error('ShipmentDate가 없는 출고입니다. 출고분배 화면에서 출고일을 먼저 동기화한 뒤 수량을 수정하세요.');
       }
-      const amountBase = next.bunch > 0 ? next.bunch : next.steam > 0 ? next.steam : next.box;
-      const amount = Math.round(amountBase * Number(row.Cost || 0) / 1.1);
-      const vat = Math.round(amountBase * Number(row.Cost || 0) / 11);
+      const product = {
+        OutUnit: row.OutUnit,
+        EstUnit: row.EstUnit,
+        BunchOf1Box: row.BunchOf1Box,
+        SteamOf1Bunch: row.SteamOf1Bunch,
+        SteamOf1Box: row.SteamOf1Box,
+      };
+      const { estQty, amount, vat } = estimateFromOutQuantity(next.outQuantity, Number(row.Cost || 0), product);
 
       if (!isActiveShipmentOutQty(next.outQuantity)) {
         await tQ(
@@ -244,7 +248,7 @@ export default withAuth(async function handler(req, res) {
           bunch: { type: sql.Float, value: next.bunch },
           steam: { type: sql.Float, value: next.steam },
           outQuantity: { type: sql.Float, value: next.outQuantity },
-          estQuantity: { type: sql.Float, value: amountBase },
+          estQuantity: { type: sql.Float, value: estQty },
           amount: { type: sql.Float, value: amount },
           vat: { type: sql.Float, value: vat },
         }

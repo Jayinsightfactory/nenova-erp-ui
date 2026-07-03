@@ -15,8 +15,8 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0001;
 async function main() {
   const { computeShipmentAdjustUnits } = await import('../lib/adjustUnits.js');
 
-  // 장미: OutUnit=박스, 박스당 10단·100송이
-  const roseBox = { outUnit: '박스', bunchOf1Box: 10, steamOf1Box: 100 };
+  // 장미: OutUnit=박스, EstUnit=단, 박스당 10단·100송이
+  const roseBox = { outUnit: '박스', estUnit: '단', bunchOf1Box: 10, steamOf1Box: 100 };
 
   console.log('=== 장미(B1B=10) 단 입력 ADD — 10단 → +1박스 (10배 버그 차단) ===');
   {
@@ -52,7 +52,7 @@ async function main() {
 
   console.log('\n=== 카네이션(B1B=15) 단 ADD — 45단 → 3박스 ===');
   {
-    const carnation = { outUnit: '박스', bunchOf1Box: 15, steamOf1Box: 0 };
+    const carnation = { outUnit: '박스', estUnit: '단', bunchOf1Box: 15, steamOf1Box: 0 };
     const r = computeShipmentAdjustUnits({ curOut: 0, delta: 45, type: 'ADD', unit: '단', ...carnation });
     assert('45단 → 3박스', near(r.qtyAfter, 3));
     assert('bunch 45 (3×15)', near(r.units.bunch, 45));

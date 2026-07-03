@@ -31,6 +31,8 @@
 
 import { withTransaction, sql, query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
+import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 1회)
 let _wpcEnsured = null;
@@ -208,17 +210,19 @@ export default withAuth(async function handler(req, res) {
           continue;
         }
 
-        // 기존 값 조회 (UPDLOCK) — Box/Bunch/Steam 모두 가져와서 Amount 계산 안전화
+        // 기존 값 조회 (UPDLOCK) — OutQuantity + Product.EstUnit (exe distributeUnits)
         const cur = await tQ(
-          `SELECT SdetailKey, ProdKey,
-                  ISNULL(BunchQuantity,0) AS BunchQty,
-                  ISNULL(BoxQuantity,0)   AS BoxQty,
-                  ISNULL(SteamQuantity,0) AS SteamQty,
-                  ISNULL(OutQuantity,0)   AS OutQty,
-                  ISNULL(Cost,0) AS OldCost, ISNULL(Amount,0) AS OldAmount,
-                  ISNULL(Vat,0) AS OldVat
-             FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
-            WHERE SdetailKey=@sdk AND ShipmentKey=@sk`,
+          `SELECT sd.SdetailKey, sd.ProdKey,
+                  ISNULL(sd.OutQuantity,0)   AS OutQty,
+                  ISNULL(sd.Cost,0) AS OldCost, ISNULL(sd.Amount,0) AS OldAmount,
+                  ISNULL(sd.Vat,0) AS OldVat,
+                  p.OutUnit, p.EstUnit,
+                  ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
+                  ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
+                  ISNULL(p.SteamOf1Box,0) AS SteamOf1Box
+             FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
+             JOIN Product p ON p.ProdKey = sd.ProdKey
+            WHERE sd.SdetailKey=@sdk AND sd.ShipmentKey=@sk`,
           { sdk: { type: sql.Int, value: it.sdetailKey }, sk: { type: sql.Int, value: it.shipmentKey } }
         );
         if (cur.recordset.length === 0) {
@@ -241,45 +245,33 @@ export default withAuth(async function handler(req, res) {
           throw err;
         }
 
-        // 금액 계산 기준수량 — Bunch>0 우선, 없으면 Steam, 마지막 Box (BunchQty=0 박스단위 품목 케이스 보정)
-        // 옛 코드는 Bunch만 봤기 때문에 박스단위 품목에서 Amount=0 으로 잘못 갱신되던 버그 수정
-        const bunchQty = row.BunchQty;
-        const baseQty = bunchQty > 0 ? bunchQty
-                      : row.SteamQty > 0 ? row.SteamQty
-                      : row.BoxQty > 0 ? row.BoxQty
-                      : (row.OutQty || 0);
-        const newAmount = Math.round(baseQty * it.cost / 1.1);
-        const newVat    = Math.round(baseQty * it.cost / 11);
+        const product = {
+          OutUnit: row.OutUnit,
+          EstUnit: row.EstUnit,
+          BunchOf1Box: row.BunchOf1Box,
+          SteamOf1Bunch: row.SteamOf1Bunch,
+          SteamOf1Box: row.SteamOf1Box,
+        };
+        const { estQty, amount: newAmount, vat: newVat } = estimateFromOutQuantity(
+          row.OutQty,
+          it.cost,
+          product,
+        );
 
-        // 단가 변경 로그는 ShipmentDetail.Descr(분배 비고)에 누적하지 않는다.
-        //  분배 비고는 "담당자+수량변경 최신 2건" 전용(lib/shipmentDescr) — 단가로그가 섞이면 무한증가/오염.
-        //  단가 변경 이력은 API 응답 changes[] 로만 남긴다 (Estimate.Descr 비고 오염 방지).
         await tQ(
           `UPDATE ShipmentDetail
-              SET Cost=@cost, Amount=@amount, Vat=@vat
+              SET Cost=@cost, EstQuantity=@est, Amount=@amount, Vat=@vat
             WHERE SdetailKey=@sdk`,
           {
             sdk:    { type: sql.Int,      value: it.sdetailKey },
             cost:   { type: sql.Float,    value: it.cost },
+            est:    { type: sql.Float,    value: estQty },
             amount: { type: sql.Float,    value: newAmount },
             vat:    { type: sql.Float,    value: newVat },
           }
         );
 
-        await tQ(
-          `UPDATE sdt
-              SET Cost=@cost,
-                  EstQuantity=ISNULL(NULLIF(sdt.EstQuantity,0), ISNULL(NULLIF(sd.EstQuantity,0), sdt.ShipmentQuantity)),
-                  Amount=ROUND(@cost * ROUND(ISNULL(NULLIF(sdt.EstQuantity,0), ISNULL(NULLIF(sd.EstQuantity,0), sdt.ShipmentQuantity)), 0) / 1.1, 0),
-                  Vat=ROUND(@cost * ROUND(ISNULL(NULLIF(sdt.EstQuantity,0), ISNULL(NULLIF(sd.EstQuantity,0), sdt.ShipmentQuantity)), 0) / 11, 0)
-             FROM ShipmentDate sdt
-             JOIN ShipmentDetail sd ON sd.SdetailKey = sdt.SdetailKey
-            WHERE sdt.SdetailKey=@sdk`,
-          {
-            sdk:  { type: sql.Int,   value: it.sdetailKey },
-            cost: { type: sql.Float, value: it.cost },
-          }
-        );
+        await syncShipmentDateEstBySdetailKey(tQ, it.sdetailKey, sql);
 
         changes.push({
           sdetailKey: it.sdetailKey,
@@ -292,7 +284,7 @@ export default withAuth(async function handler(req, res) {
           newAmount,
           oldVat: row.OldVat,
           newVat,
-          bunchQty,
+          estQty,
         });
       }
 
