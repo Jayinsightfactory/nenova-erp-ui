@@ -19,15 +19,13 @@ export default withAuth(function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { inputToken, prodKey, prodName, displayName, flowerName, counName, force } = req.body;
+    const { inputToken, prodKey, prodName, displayName, flowerName, counName, unit, force } = req.body;
     if (!inputToken || !prodKey) {
       return res.status(400).json({ success: false, error: 'inputToken, prodKey 필요' });
     }
-    const result = saveMapping(
-      inputToken,
-      { prodKey: parseInt(prodKey), prodName, displayName, flowerName, counName },
-      { force: !!force }
-    );
+    const prodInfo = { prodKey: parseInt(prodKey), prodName, displayName, flowerName, counName };
+    if (unit) prodInfo.unit = unit;
+    const result = saveMapping(inputToken, prodInfo, { force: !!force });
     if (!result.saved && result.reason === 'fallback-suspect') {
       // 사용자에게 경고 + force 재시도 안내. 409 Conflict.
       return res.status(409).json({

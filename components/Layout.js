@@ -22,6 +22,7 @@ export const MENU_ITEMS = [
     items: [
       { href: '/orders/new',   labelKey: '주문등록',          popup: false },
       { href: '/orders/paste', labelKey: '붙여넣기 주문등록',  popup: true  },
+      { href: '/orders/import', labelKey: '업로드 주문등록',    popup: false },
       { href: '/orders/kakao-audit', labelKey: '카톡 변경 검증', popup: false },
       { href: '/orders',       labelKey: '주문관리',          popup: false },
       { href: '/warehouse',    labelKey: '발주관리',          popup: false },
@@ -99,6 +100,7 @@ export const MENU_ITEMS = [
       { href: '/admin/chat-audit', labelKey: '챗봇 질문/처리현황', popup: false },
       { href: '/admin/workflow',   labelKey: '📊 업무플로우 분석',   popup: false },
       { href: '/dev/project-plan',  labelKey: '작업/기획 현황',       popup: false },
+      { href: '/demo/tenant-studio', labelKey: '🎨 테넌트 스튜디오',   popup: true },
     ]
   },
 ];

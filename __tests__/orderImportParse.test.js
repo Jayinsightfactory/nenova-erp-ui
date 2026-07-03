@@ -1,0 +1,65 @@
+// __tests__/orderImportParse.test.js
+// 실행: node __tests__/orderImportParse.test.js
+
+const SAMPLE_ROWS = [
+  ['', '', '', ''],
+  ['7/8 입고 네노바', '', '', ''],
+  ['', '품명', '단위', '수량'],
+  [1, '수국 화이트', '대', 1843],
+  [2, '수국 연핑크', '대', 215],
+  [3, '장미 몬디알 화이트', '단', 133],
+  [4, '페탈 장미 화이트', 'stem', 7],
+];
+
+async function main() {
+  const { parseOrderImportSheetRows, normalizeVisionItems } = await import('../lib/orderImportParse.js');
+  const {
+    normalizeImportUnit,
+    inferImportUnitFromName,
+    resolveImportUnit,
+    learnUnitsFromRows,
+    findImportUnit,
+    loadImportUnits,
+  } = await import('../lib/orderImportUnits.js');
+
+  let passed = 0;
+  let failed = 0;
+  const assert = (cond, msg) => {
+    if (cond) passed++;
+    else { failed++; console.error('FAIL:', msg); }
+  };
+
+  const parsed = parseOrderImportSheetRows(SAMPLE_ROWS, { sourceName: 'test' });
+  assert(parsed.rows.length === 4, `expected 4 rows, got ${parsed.rows.length}`);
+
+  assert(normalizeImportUnit('대') === '박스', '대 -> 박스');
+  assert(normalizeImportUnit('stem') === '송이', 'stem -> 송이');
+  assert(normalizeImportUnit('단') === '단', '단 -> 단');
+
+  assert(inferImportUnitFromName('수국 화이트') === '박스', 'infer hydrangea');
+  assert(inferImportUnitFromName('장미 몬디알') === '단', 'infer rose');
+  assert(inferImportUnitFromName('페탈 장미 화이트') === '송이', 'infer petal rose');
+
+  const imageRow = { inputName: '장미 몬디야l 화이트', unit: '', qty: 26 };
+  learnUnitsFromRows(parsed.rows, { source: 'test' });
+  const catalog = loadImportUnits(true);
+  const fromCatalog = findImportUnit('장미 몬디알 화이트', catalog);
+  assert(fromCatalog?.unit === '단', 'catalog rose unit');
+
+  const resolved = resolveImportUnit(null, '수국 화이트', { sourceUnit: '', unitCatalog: catalog });
+  assert(resolved.unit === '박스' && resolved.unitSource === 'catalog', 'image uses excel-learned unit');
+
+  const resolvedExplicit = resolveImportUnit(null, '수국 화이트', { sourceUnit: '대' });
+  assert(resolvedExplicit.unit === '박스' && resolvedExplicit.unitSource === 'upload', 'excel explicit unit');
+
+  const vision = normalizeVisionItems([{ inputName: '호접 화이트', qty: 15 }]);
+  assert(vision.rows.length === 1 && vision.rows[0].unit === '', 'image no unit');
+
+  const resolvedImage = resolveImportUnit(null, '호접 화이트', { sourceUnit: '', unitCatalog: catalog });
+  assert(resolvedImage.unit === '박스', '호접 from catalog or infer');
+
+  console.log(`orderImportParse.test: ${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+}
+
+main().catch(e => { console.error(e); process.exit(1); });
