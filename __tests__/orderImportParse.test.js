@@ -32,6 +32,22 @@ async function main() {
   const parsed = parseOrderImportSheetRows(SAMPLE_ROWS, { sourceName: 'test' });
   assert(parsed.rows.length === 4, `expected 4 rows, got ${parsed.rows.length}`);
 
+  const DIRECT_HEADER = [
+    ['No', '품명', '단위', '수량'],
+    [1, '수국 화이트', '대', 100],
+    [2, '장미 핑크', '단', 50],
+  ];
+  const direct = parseOrderImportSheetRows(DIRECT_HEADER, { sourceName: 'direct' });
+  assert(direct.rows.length === 2, `direct header expected 2 rows, got ${direct.rows.length}`);
+
+  const QTY_INFER = [
+    ['품목명', '단위', ''],
+    ['호접 화이트', '대', 120],
+    ['카네이션 레드', '단', 30],
+  ];
+  const inferred = parseOrderImportSheetRows(QTY_INFER, { sourceName: 'infer' });
+  assert(inferred.rows.length === 2, `qty infer expected 2 rows, got ${inferred.rows.length}`);
+
   assert(normalizeImportUnit('대') === '박스', '대 -> 박스');
   assert(normalizeImportUnit('stem') === '송이', 'stem -> 송이');
   assert(normalizeImportUnit('단') === '단', '단 -> 단');

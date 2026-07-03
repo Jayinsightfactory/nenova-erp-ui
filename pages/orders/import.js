@@ -8,6 +8,7 @@ import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { scoreMatch, getDisplayName } from '../../lib/displayName';
 import { mergeRegisterItems } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
+import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
 import { sanitizeExcelSheetName } from '../../lib/estimatePrintPrepare';
 import {
@@ -18,6 +19,55 @@ import {
 
 const DEFAULT_CUST_SEARCH = '라움';
 const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
+const IMPORT_MAPPING_KEY = 'nenova_import_local_mappings';
+
+function loadLocalImportMappings() {
+  try { return JSON.parse(localStorage.getItem(IMPORT_MAPPING_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveLocalImportMapping(inputName, prod, unit) {
+  if (!inputName || !prod?.ProdKey) return;
+  try {
+    const key = String(inputName).trim().toLowerCase();
+    const cache = loadLocalImportMappings();
+    cache[key] = {
+      prodKey: prod.ProdKey,
+      prodName: prod.ProdName,
+      displayName: prod.DisplayName || prod.ProdName,
+      flowerName: prod.FlowerName,
+      counName: prod.CounName,
+      unit: unit || '',
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(IMPORT_MAPPING_KEY, JSON.stringify(cache));
+  } catch { /* ignore */ }
+}
+
+async function persistItemMapping(item, prod, { force = true } = {}) {
+  if (!item?.inputName || !prod?.ProdKey) return;
+  saveLocalImportMapping(item.inputName, prod, item.unit);
+  try {
+    await apiPost('/api/orders/mappings', {
+      inputToken: item.inputName,
+      prodKey: prod.ProdKey,
+      prodName: prod.ProdName,
+      displayName: prod.DisplayName || prod.ProdName,
+      flowerName: prod.FlowerName,
+      counName: prod.CounName,
+      unit: item.unit,
+      force,
+    });
+    if (item.unit) {
+      await apiPost('/api/orders/import-units', {
+        inputName: item.inputName,
+        unit: item.unit,
+        source: 'manual',
+      });
+    }
+  } catch (e) {
+    console.warn('[import] mapping save failed:', e?.message || e);
+  }
+}
 
 function getNearby2026Weeks(range = 4) {
   const now = new Date();
@@ -158,7 +208,7 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
   );
 }
 
-function ProductPicker({ row, allProducts, onPick, compact = false }) {
+function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = false }) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
@@ -201,29 +251,8 @@ function ProductPicker({ row, allProducts, onPick, compact = false }) {
       .slice(0, 12);
   }, [search, allProducts, row.inputName]);
 
-  const saveMapping = async (prod) => {
-    try {
-      await apiPost('/api/orders/mappings', {
-        inputToken: row.inputName,
-        prodKey: prod.ProdKey,
-        prodName: prod.ProdName,
-        displayName: prod.DisplayName || prod.ProdName,
-        flowerName: prod.FlowerName,
-        counName: prod.CounName,
-        unit: row.unit,
-      });
-      if (row.unit) {
-        await apiPost('/api/orders/import-units', {
-          inputName: row.inputName,
-          unit: row.unit,
-          source: 'manual',
-        });
-      }
-    } catch { /* mapping save optional */ }
-  };
-
   const pick = (prod) => {
-    saveMapping(prod);
+    if (onPersistMapping) onPersistMapping(row, prod);
     onPick(prod);
     setOpen(false);
     setSearch('');
@@ -275,7 +304,7 @@ function ProductPicker({ row, allProducts, onPick, compact = false }) {
   );
 }
 
-function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear }) {
+function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear, onPersistMapping }) {
   const hasMatch = !!row.prodKey;
 
   return (
@@ -299,6 +328,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
           row={row}
           allProducts={allProducts}
           onPick={onPick}
+          onPersistMapping={onPersistMapping}
           compact={hasMatch}
         />
       )}
@@ -324,6 +354,19 @@ export default function OrderImportPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [editProdIdx, setEditProdIdx] = useState(null);
   const fileRef = useRef(null);
+
+  useEffect(() => {
+    const draft = loadImportDraft();
+    if (!draft?.items?.length) return;
+    setItems(draft.items);
+    setSummary(draft.summary || null);
+    setLogs(draft.logs || []);
+    setFileName(draft.fileName || '');
+    setSourceType(draft.sourceType || '');
+    if (draft.week) setWeek(draft.week);
+    if (draft.cust?.CustKey) setCust(draft.cust);
+    setResultMsg(`💾 이전 매칭 ${draft.items.length}건 복원 (${draft.fileName || '업로드'})`);
+  }, []);
 
   const loadDefaultCust = useCallback(async () => {
     const cd = await apiGet('/api/customers/search', { q: DEFAULT_CUST_SEARCH });
@@ -359,6 +402,22 @@ export default function OrderImportPage() {
       } catch { /* ignore */ }
     }
   }, [cust]);
+
+  useEffect(() => {
+    if (!items.length) return undefined;
+    const timer = setTimeout(() => {
+      saveImportDraft({
+        items,
+        summary,
+        logs,
+        fileName,
+        sourceType,
+        week,
+        cust,
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [items, summary, logs, fileName, sourceType, week, cust]);
 
   useEffect(() => {
     apiGet('/api/orders/weeks').then((d) => {
@@ -476,7 +535,10 @@ export default function OrderImportPage() {
         body: fd,
       });
       const d = await res.json();
-      if (!d.success) throw new Error(d.error || '파싱 실패');
+      if (!d.success) {
+        const detail = (d.logs || []).slice(-4).join('\n');
+        throw new Error(detail ? `${d.error || '파싱 실패'}\n\n${detail}` : (d.error || '파싱 실패'));
+      }
       setItems(d.items || []);
       setSummary(d.summary || null);
       setLogs(d.logs || []);
@@ -501,15 +563,32 @@ export default function OrderImportPage() {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
 
+  const handlePersistMapping = useCallback((row, prod) => {
+    persistItemMapping(row, prod, { force: true });
+  }, []);
+
   const pickProduct = (idx, prod) => {
     const current = items[idx];
-    updateItem(idx, {
+    const nextRow = {
+      ...current,
       prodKey: prod.ProdKey,
       prodName: prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
       flowerName: prod.FlowerName,
       counName: prod.CounName,
       unit: current?.unit || normalizeOrderUnit(prod.OutUnit || '박스'),
+      fromMapping: false,
+      mappingMatchType: 'manual',
+      confidence: 1,
+      confidenceLabel: 'high',
+    };
+    updateItem(idx, {
+      prodKey: nextRow.prodKey,
+      prodName: nextRow.prodName,
+      displayName: nextRow.displayName,
+      flowerName: nextRow.flowerName,
+      counName: nextRow.counName,
+      unit: nextRow.unit,
       fromMapping: false,
       mappingMatchType: 'manual',
       confidence: 1,
@@ -575,6 +654,7 @@ export default function OrderImportPage() {
       if (!d.success) throw new Error(d.error || '저장 실패');
       const okCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
       setResultMsg(`✅ ${okCount}개 저장 완료 — OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
+      clearImportDraft();
     } catch (e) {
       setResultMsg(`❌ ${e.message}`);
     } finally {
@@ -880,6 +960,7 @@ export default function OrderImportPage() {
                           onToggleEdit={() => setEditProdIdx(editProdIdx === idx ? null : idx)}
                           onPick={(p) => pickProduct(idx, p)}
                           onClear={() => clearProduct(idx)}
+                          onPersistMapping={handlePersistMapping}
                         />
                       </td>
                       <td style={st.td}>

@@ -16,6 +16,7 @@ import {
 import { matchImportRows, summarizeMatches } from '../../../lib/orderImportMatch';
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadImportUnits, learnUnitsFromRows } from '../../../lib/orderImportUnits';
+import { persistImportMatchMappings } from '../../../lib/persistImportMappings';
 
 export const config = {
   api: { bodyParser: false },
@@ -156,7 +157,13 @@ async function handler(req, res) {
       parsedRows = vision.rows;
       logs.push(...vision.logs);
     } else if (isExcelFile(file)) {
-      const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
+      const buf = fs.readFileSync(file.filepath);
+      const workbook = XLSX.read(buf, {
+        type: 'buffer',
+        cellDates: false,
+        cellNF: false,
+        cellStyles: false,
+      });
       const parsed = parseOrderImportWorkbook(XLSX, workbook, {
         sourceName: file.originalFilename || 'upload.xlsx',
       });
@@ -167,7 +174,11 @@ async function handler(req, res) {
     }
 
     if (parsedRows.length === 0) {
-      return res.status(400).json({ success: false, error: '파싱된 품목이 없습니다.', logs });
+      return res.status(400).json({
+        success: false,
+        error: logs.find(l => l.includes('헤더')) || '파싱된 품목이 없습니다. 품명·수량 열이 있는 시트인지 확인하세요.',
+        logs,
+      });
     }
 
     if (sourceType === 'excel') {
@@ -203,6 +214,10 @@ async function handler(req, res) {
     }
 
     const summary = summarizeMatches(items);
+    const mappingSaved = persistImportMatchMappings(items);
+    if (mappingSaved.length > 0) {
+      logs.push(`품목 매핑 저장 ${mappingSaved.length}건 (다음 업로드 재사용)`);
+    }
 
     return res.status(200).json({
       success: true,
