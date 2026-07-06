@@ -262,80 +262,41 @@ function deriveOrderWeek(week) {
 }
 
 async function loadNegativeGuardRows(orderYear, orderWeek) {
-  const orderYearWeek = orderYear + String(orderWeek || '').replace('-', '');
+  // usp_ShipmentFix 의 음수검사와 동일 공식:
+  //   ProductStock.Stock(현 OrderYearWeek 스냅샷) - SUM(미확정 출고) < 0
+  // (전산 SP 는 ViewShipment.OrderYearWeek 와 StockMaster.OrderYearWeek 을 직접 매칭한다)
   const result = await query(
-    `WITH out_qty AS (
-       SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
-       FROM ShipmentMaster sm
-       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
-       GROUP BY sd.ProdKey
-     ),
-     in_qty AS (
-       SELECT wd.ProdKey, SUM(ISNULL(wd.OutQuantity, 0)) AS inQty
-       FROM WarehouseMaster wm
-       JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
-       WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
-       GROUP BY wd.ProdKey
-     ),
-     adjust_qty AS (
-       SELECT sh.ProdKey, SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
-       FROM StockHistory sh
-       WHERE sh.OrderWeek = @wk
-         AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
-       GROUP BY sh.ProdKey
-     ),
-     stock_base AS (
-       SELECT
-         p.ProdKey,
-         p.ProdName,
-         p.FlowerName,
-         p.CounName,
-         ISNULL(prev.prevStock, ISNULL(p.Stock, 0)) AS prevStock,
-         ISNULL(p.Stock, 0) AS productStock,
-         ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) AS inQty,
-         ISNULL(aq.adjustQty, 0) AS adjustQty,
-         ISNULL(oq.outQty, 0) AS outQty
-       FROM out_qty oq
-       JOIN Product p ON p.ProdKey = oq.ProdKey AND p.isDeleted = 0
-       LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
-       LEFT JOIN adjust_qty aq ON aq.ProdKey = oq.ProdKey
-       OUTER APPLY (
-         SELECT TOP 1 ps.Stock AS prevStock
-         FROM ProductStock ps
-         JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-         WHERE ps.ProdKey = p.ProdKey
-           AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
-           AND (sm2.isFix IS NULL OR sm2.isFix = 1)
-         ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
-       ) prev
-     )
-     SELECT
-       ProdKey,
-       ProdName,
-       FlowerName,
-       CounName,
-       prevStock,
-       productStock,
-       inQty,
-       outQty,
-       prevStock + inQty - outQty AS remain,
-       productStock + inQty - outQty AS productRemain
-     FROM stock_base
-     WHERE prevStock + inQty - outQty < 0
-        OR productStock + inQty - outQty < 0
-     ORDER BY FlowerName, ProdName`,
+    `SELECT vs.ProdKey,
+            MAX(vs.ProdName)   AS ProdName,
+            MAX(vs.FlowerName) AS FlowerName,
+            MAX(vs.CounName)   AS CounName,
+            ISNULL(ns.Stock, 0) AS productStock,
+            ISNULL(ns.Stock, 0) AS prevStock,
+            0 AS inQty,
+            SUM(vs.OutQuantity) AS outQty,
+            ISNULL(ns.Stock, 0) - SUM(vs.OutQuantity) AS remain,
+            SUM(vs.OutQuantity) - ISNULL(ns.Stock, 0) AS shortage
+       FROM ViewShipment vs
+       LEFT JOIN (
+         SELECT ps.ProdKey, ps.Stock, sm.OrderYearWeek
+           FROM StockMaster sm
+           JOIN ProductStock ps ON sm.StockKey = ps.StockKey
+       ) ns ON ns.ProdKey = vs.ProdKey AND ns.OrderYearWeek = vs.OrderYearWeek
+      WHERE vs.OrderYear = @yr AND vs.OrderWeek = @wk AND ISNULL(vs.DetailFix, 0) = 0
+      GROUP BY vs.ProdKey, ns.Stock
+      HAVING ROUND(ISNULL(ns.Stock, 0) - SUM(vs.OutQuantity), 0) < 0
+      ORDER BY MAX(vs.FlowerName), MAX(vs.ProdName)`,
     {
-      wk:  { type: sql.NVarChar, value: orderWeek },
-      yr:  { type: sql.NVarChar, value: orderYear },
-      ywk: { type: sql.NVarChar, value: orderYearWeek },
+      yr: { type: sql.NVarChar, value: orderYear },
+      wk: { type: sql.NVarChar, value: orderWeek },
     }
   );
 
   return result.recordset.map(r => ({
     ...r,
     remain: Math.round(Number(r.remain || 0) * 1000) / 1000,
-    productRemain: Math.round(Number(r.productRemain || 0) * 1000) / 1000,
+    shortage: Math.round(Number(r.shortage || 0) * 1000) / 1000,
+    productRemain: Math.round(Number(r.remain || 0) * 1000) / 1000,
   }));
 }
 
