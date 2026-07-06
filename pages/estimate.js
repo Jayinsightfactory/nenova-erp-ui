@@ -1518,7 +1518,11 @@ export default function Estimate() {
         message: `${wk} 처리 완료. 남은 차수 ${Math.max(weeks.length - i - 1, 0)}개`,
       }));
     }
-    setFixModal({ stage: 'done', results, title: opts.resultTitle });
+    setFixModal({
+      stage: 'done', results, title: opts.resultTitle,
+      weekList: weeks, countryFlowers, resultTitle: opts.resultTitle,
+      autoStockAddUsed: !!opts.autoStockAdd,
+    });
     setFixWorking(false);
     setFixProgress(null);
     load(true); // 화면 갱신
@@ -4147,9 +4151,31 @@ export default function Estimate() {
                   </button>
                 </>
               )}
-              {fixModal.stage === 'done' && (
-                <button className="btn btn-primary" onClick={() => setFixModal(null)}>닫기</button>
-              )}
+              {fixModal.stage === 'done' && (() => {
+                const negFail = (fixModal.results || []).some(
+                  r => !r.ok && /마이너스|잔량|음수/.test(String(r.error || '')));
+                return (
+                  <>
+                    {negFail && !fixModal.autoStockAddUsed && (
+                      <button
+                        className="btn"
+                        style={{ background: '#2e7d32', color: '#fff', borderColor: '#1b5e20', fontWeight: 700 }}
+                        disabled={fixWorking}
+                        onClick={() => {
+                          if (!confirm('음수 잔량으로 확정 실패한 차수에 부족분만큼 재고를 자동 추가한 뒤 다시 확정합니다.\n\n(전산과 동일한 재고조정 → 재고재계산 → 확정)\n\n진행하시겠습니까?')) return;
+                          doFixAll(fixModal.weekList, false, fixModal.countryFlowers || [], {
+                            autoStockAdd: true,
+                            resultTitle: fixModal.resultTitle || '재고 추가 후 재확정 결과',
+                          });
+                        }}
+                      >
+                        📦 재고 추가 후 재확정
+                      </button>
+                    )}
+                    <button className="btn btn-primary" onClick={() => setFixModal(null)}>닫기</button>
+                  </>
+                );
+              })()}
               {fixModal.stage === 'error' && (
                 <button className="btn" onClick={() => setFixModal(null)}>닫기</button>
               )}
