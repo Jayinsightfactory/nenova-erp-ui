@@ -87,7 +87,12 @@ jobs:
             if [ ! -d ".next/server" ]; then echo "❌ .next/server 누락 — 빌드 산출물 없음"; exit 1; fi
             echo "=== pm2 restart ==="
             pm2 restart nenova-erp
-            sleep 3
+            echo "=== pm2 워밍업 대기 (Next 초기화 — 스모크 오탐 방지) ==="
+            for i in $(seq 1 15); do
+              if curl -sf http://127.0.0.1:3000/api/ping >/dev/null 2>&1; then echo "warmup OK (${i}s)"; break; fi
+              sleep 1
+            done
+            sleep 2
             echo "=== post-deploy smoke (로컬) ==="
             export SMOKE_BASE_URL=http://127.0.0.1:3000
             if ! node __tests__/nenovawebSmoke.test.js; then
