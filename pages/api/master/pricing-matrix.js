@@ -3,6 +3,8 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { useExeParityFlag } from '../../../lib/exeParity/common.js';
+import { sqlCustomerProdCostSelect } from '../../../lib/exeCustomerProdCostSql.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getMatrix(req, res);
@@ -13,7 +15,23 @@ export default withAuth(async function handler(req, res) {
 // GET: 업체 목록 + 품목 목록 + 단가 매트릭스
 async function getMatrix(req, res) {
   try {
-    const { custKeys, flowerName, counName, prodSearch } = req.query;
+    const { custKeys, flowerName, counName, prodSearch, countryFlower, exeParity } = req.query;
+    const useExe = useExeParityFlag(exeParity);
+    const selectedKeys = custKeys
+      ? custKeys.split(',').map((k) => parseInt(k, 10)).filter((k) => !Number.isNaN(k))
+      : [];
+
+    if (useExe && selectedKeys.length === 1 && countryFlower) {
+      const result = await query(sqlCustomerProdCostSelect(), {
+        custKey: { type: sql.Int, value: selectedKeys[0] },
+        countryFlower: { type: sql.NVarChar, value: countryFlower },
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        costs: result.recordset,
+      });
+    }
 
     // 업체 목록 (담당자 있는 업체 전체 — 필터용)
     const custResult = await query(
@@ -23,11 +41,6 @@ async function getMatrix(req, res) {
        ORDER BY CustName`
     );
     const allCustomers = custResult.recordset;
-
-    // 선택된 업체 키 파싱
-    const selectedKeys = custKeys
-      ? custKeys.split(',').map(k => parseInt(k)).filter(k => !isNaN(k))
-      : [];
 
     // 품목 조건 구성
     const prodParams = {};

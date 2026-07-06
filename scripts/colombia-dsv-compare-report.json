@@ -1,0 +1,423 @@
+{
+  "generatedAt": "2026-06-15T01:51:16.490Z",
+  "latestDbWeek": {
+    "OrderYear": "2026",
+    "OrderWeek": "25-01"
+  },
+  "colombia25": {
+    "excelWeek": "25-1",
+    "excelProducts": 152,
+    "dbCompareWeek": "25-01",
+    "dbProducts": 182,
+    "excelOnlyFlowers": [
+      "CARNATION",
+      "ROSE",
+      "ALSTROMERIA",
+      "RUSCUS"
+    ],
+    "dbOnlyFlowers": [
+      "수국",
+      "카네이션",
+      "장미",
+      "알스트로",
+      "루스커스"
+    ],
+    "excelOnlyCount": 0,
+    "priceMismatchCount": 8,
+    "excelOnlySample": [],
+    "priceMismatchSample": [
+      {
+        "name": "ROSE / Mondial White 50cm",
+        "excelFob": 0.35,
+        "dbFob": 0.41,
+        "dbFarm": "Construnorte"
+      },
+      {
+        "name": "ROSE / Mondial White 60cm",
+        "excelFob": 0.38,
+        "dbFob": 0.48,
+        "dbFarm": "Daflor"
+      },
+      {
+        "name": "ROSE / Mondial White 60cm",
+        "excelFob": 0.39,
+        "dbFob": 0.48,
+        "dbFarm": "Daflor"
+      },
+      {
+        "name": "ROSE / Freedom 50cm",
+        "excelFob": 0.34,
+        "dbFob": 0.3,
+        "dbFarm": "Maxiflores"
+      },
+      {
+        "name": "ROSE / Playa Blanca 50cm",
+        "excelFob": 0.37,
+        "dbFob": 0.35,
+        "dbFarm": "Maxiflores"
+      },
+      {
+        "name": "ROSE / Playa Blanca 60cm",
+        "excelFob": 0.4,
+        "dbFob": 0.65,
+        "dbFarm": "Matina"
+      },
+      {
+        "name": "ROSE / Shimmer 50cm",
+        "excelFob": 0.34,
+        "dbFob": 0.39,
+        "dbFarm": "Esperance Roses"
+      },
+      {
+        "name": "ROSE / Pink Mondial 50cm",
+        "excelFob": 0.34,
+        "dbFob": 0.39,
+        "dbFarm": "Esperance Roses"
+      }
+    ]
+  },
+  "dsv": {
+    "excelProducts": 124,
+    "dbHydrangeaRuscusRecent": 83,
+    "dsvExcelOnlyCount": 66,
+    "farmNotInDb": [
+      "magenta",
+      "riscanevo",
+      "surandina",
+      "los cacahuates",
+      "granja santana"
+    ],
+    "dsvExcelOnlySample": [
+      {
+        "item": "수국",
+        "farm": "Balverde",
+        "color": "ALBARICOQUE",
+        "size": "Select",
+        "name": "수국 Balverde ALBARICOQUE Select",
+        "fob": 0.8,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Balverde",
+        "color": "LAVANDER",
+        "size": "Select",
+        "name": "수국 Balverde LAVANDER Select",
+        "fob": 0.8,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Antioquia Floral",
+        "color": "L.PINK",
+        "size": "Select",
+        "name": "수국 Antioquia Floral L.PINK Select",
+        "fob": 0.85,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Antioquia Floral",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 Antioquia Floral ESMERALD Premium",
+        "fob": 0.9,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Magenta",
+        "color": "WHITE",
+        "size": "Select",
+        "name": "수국 Magenta WHITE Select",
+        "fob": 0.56,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Magenta",
+        "color": "L.PINK",
+        "size": "Select",
+        "name": "수국 Magenta L.PINK Select",
+        "fob": 0.87,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Magenta",
+        "color": "LAVANDER",
+        "size": "Select",
+        "name": "수국 Magenta LAVANDER Select",
+        "fob": 0.87,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 Pietrasanta ESMERALD Premium",
+        "fob": 1,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "LIME GREEN",
+        "size": "Select",
+        "name": "수국 Pietrasanta LIME GREEN Select",
+        "fob": 0.85,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "L.PINK",
+        "size": "Select",
+        "name": "수국 Pietrasanta L.PINK Select",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "HOT PINK",
+        "size": "Select",
+        "name": "수국 Pietrasanta HOT PINK Select",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "ROSEWOOD",
+        "size": "Select",
+        "name": "수국 Pietrasanta ROSEWOOD Select",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Pietrasanta",
+        "color": "LAVANDER",
+        "size": "Select",
+        "name": "수국 Pietrasanta LAVANDER Select",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "RISCANEVO",
+        "color": "WHITE",
+        "size": "Select",
+        "name": "수국 RISCANEVO WHITE Select",
+        "fob": 0.53,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "RISCANEVO",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 RISCANEVO ESMERALD Premium",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Chaquiro",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 Chaquiro ESMERALD Premium",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "LIME GREEN",
+        "size": "Select",
+        "name": "수국 Green land LIME GREEN Select",
+        "fob": 0.9,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 Green land ESMERALD Premium",
+        "fob": 0.9,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "MINI GREEN",
+        "size": "Select",
+        "name": "수국 Green land MINI GREEN Select",
+        "fob": 0.35,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "PEACH",
+        "size": "Select",
+        "name": "수국 Green land PEACH Select",
+        "fob": 0.85,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "GOLD PEACH",
+        "size": "Select",
+        "name": "수국 Green land GOLD PEACH Select",
+        "fob": 0.85,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Green land",
+        "color": "LAVANDER",
+        "size": "Select",
+        "name": "수국 Green land LAVANDER Select",
+        "fob": 0.82,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Surandina",
+        "color": "WHITE",
+        "size": "Premium",
+        "name": "수국 Surandina WHITE Premium",
+        "fob": 0.53,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Surandina",
+        "color": "LIME GREEN",
+        "size": "Select",
+        "name": "수국 Surandina LIME GREEN Select",
+        "fob": 0.7,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Surandina",
+        "color": "ESMERALD",
+        "size": "Premium",
+        "name": "수국 Surandina ESMERALD Premium",
+        "fob": 0.75,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Surandina",
+        "color": "MINI GREEN",
+        "size": "Select",
+        "name": "수국 Surandina MINI GREEN Select",
+        "fob": 0.37,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Los Cacahuates",
+        "color": "WHITE",
+        "size": "Premium",
+        "name": "수국 Los Cacahuates WHITE Premium",
+        "fob": 0.52,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Los Cacahuates",
+        "color": "BLUE",
+        "size": "Premium",
+        "name": "수국 Los Cacahuates BLUE Premium",
+        "fob": 0.55,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Los Cacahuates",
+        "color": "L.PINK",
+        "size": "Select",
+        "name": "수국 Los Cacahuates L.PINK Select",
+        "fob": 0.7,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      },
+      {
+        "item": "수국",
+        "farm": "Los Cacahuates",
+        "color": "HOTPINK",
+        "size": "Select",
+        "name": "수국 Los Cacahuates HOTPINK Select",
+        "fob": 0.7,
+        "cnfKrw": 0,
+        "sheet": "수국",
+        "sourceSheet": "수국"
+      }
+    ]
+  }
+}

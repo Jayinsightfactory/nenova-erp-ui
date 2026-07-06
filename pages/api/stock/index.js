@@ -4,6 +4,9 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
+import { sqlStockViewGetData, sqlStockViewHistory } from '../../../lib/exeStockViewSql.js';
+import { mapStockViewRow } from '../../../lib/exeParity/mapResponses.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getStock(req, res);
@@ -12,13 +15,20 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getStock(req, res) {
-  const { week: rawWeek, prodName, type, prodKey } = req.query;
+  const { week: rawWeek, prodName, type, prodKey, countryFlower, exeParity } = req.query;
   const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
+  const useExe = useExeParityFlag(exeParity);
 
-  // ── 재고 입/출고 내역 조회 (오른쪽 패널용)
+  // ── 재고 입/출고 내역 (FormStockView focus)
   if (type === 'history') {
-    if (!week || !prodKey) return res.status(400).json({ success: false, error: 'week, prodKey 필요' });
+    if (!prodKey) return res.status(400).json({ success: false, error: 'prodKey 필요' });
     try {
+      if (useExe) {
+        const result = await query(sqlStockViewHistory(), {
+          prodKey: { type: sql.Int, value: parseInt(prodKey, 10) },
+        });
+        return res.status(200).json({ success: true, source: 'real_db_exe_parity', history: result.recordset });
+      }
       const result = await query(
         `SELECT '입고' AS 구분, wm.InputDate AS 일자,
                 wd.OutQuantity AS 변경수량, wm.FarmName AS 비고
@@ -57,6 +67,35 @@ async function getStock(req, res) {
     params.name = { type: sql.NVarChar, value: `%${prodName}%` };
   }
   try {
+    if (useExe && week) {
+      const oyw = normalizeOrderYearWeek2(
+        (await query(
+          `SELECT TOP 1 OrderYearWeek FROM StockMaster WHERE REPLACE(OrderWeek,'-','') LIKE @pw + '%' ORDER BY OrderYearWeek DESC`,
+          { pw: { type: sql.NVarChar, value: week.split('-')[0] } }
+        )).recordset[0]?.OrderYearWeek || week.replace(/-/g, '')
+      );
+      const before = await resolveBeforeOrderYearWeek(query, sql, oyw);
+      const params = {
+        orderYearWeek: { type: sql.NVarChar, value: oyw },
+        beforeOrderYearWeek: { type: sql.NVarChar, value: before || oyw },
+      };
+      if (countryFlower) params.countryFlower = { type: sql.NVarChar, value: countryFlower };
+      let sqlText = sqlStockViewGetData({ countryFlower: countryFlower || null });
+      if (prodName) {
+        sqlText = `SELECT * FROM (${sqlText}) s WHERE s.ProdName LIKE @name OR s.FlowerName LIKE @name`;
+        params.name = { type: sql.NVarChar, value: `%${prodName}%` };
+      }
+      const result = await query(sqlText, params);
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        orderYearWeek: oyw,
+        count: result.recordset.length,
+        stock: result.recordset.map(mapStockViewRow),
+      });
+    }
+
+    const listParams = { ...params, week: { type: sql.NVarChar, value: week || '' } };
     const result = await query(
       `SELECT
         p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
@@ -80,7 +119,7 @@ async function getStock(req, res) {
        LEFT JOIN ProductStock ps ON p.ProdKey = ps.ProdKey AND ps.StockKey = sm2.StockKey
        ${where}
        ORDER BY p.CounName, p.FlowerName, p.ProdName`,
-      { ...params, week: { type: sql.NVarChar, value: week || '' } }
+      listParams
     );
     return res.status(200).json({
       success: true,

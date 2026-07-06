@@ -4,7 +4,24 @@ import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput'
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
-const PROD_GROUPS = ['콜롬비아카네이션','콜롬비아장미','콜롬비아수국','콜롬비아알스트로','에콰도르장미','네덜란드','중국기타','국내왁스'];
+const PG_SEP = '::';
+const pgLabel = (country, flower) => `${country || ''}${flower || ''}`;
+const countryFlowerFromGroup = (prodGroup, prodGroups) => {
+  if (!prodGroup) return '';
+  const g = prodGroups.find((x) => x.key === prodGroup);
+  if (g?.country && g?.flower) return pgLabel(g.country, g.flower);
+  if (prodGroup.includes(PG_SEP)) {
+    const [country, flower] = prodGroup.split(PG_SEP);
+    return pgLabel(country, flower);
+  }
+  return prodGroup;
+};
+const shipDayGroupKey = (item) => {
+  const country = String(item?.CounName || '').trim();
+  const flower = String(item?.FlowerName || '').trim();
+  if (country && flower) return `${country}${PG_SEP}${flower}`;
+  return String(item?.CountryFlower || '').trim();
+};
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
 function weekToShipDate(weekStr, year = new Date().getFullYear()) {
@@ -23,6 +40,27 @@ function weekToShipDate(weekStr, year = new Date().getFullYear()) {
 }
 const WEEK_SUFFIXES = ['-01', '-02'];
 const DAY_NAMES = ['월','화','수','목','금'];
+const DAY_NAMES_TAB2 = ['월','화','수','목','금','토','일'];
+const EXE_DAY_NUM = { 월: 2, 화: 3, 수: 4, 목: 5, 금: 6, 토: 7, 일: 1 };
+
+function mapCustWeekGridRow(row) {
+  const dayByKr = {};
+  for (const d of DAY_NAMES_TAB2) {
+    dayByKr[d] = Number(row[`day${EXE_DAY_NUM[d]}`]) || 0;
+  }
+  const totalOut = Number(row.OutQuantity) || 0;
+  const daySum = Object.values(dayByKr).reduce((a, b) => a + b, 0);
+  return {
+    ProdKey: row.ProdKey,
+    ProdName: row.ProdName,
+    OutUnit: row.OutUnit,
+    EstUnit: row.EstUnit,
+    SdetailKey: row.SdetailKey,
+    출고수량: totalOut || daySum,
+    _exeWeekGrid: true,
+    _dayByKr: dayByKr,
+  };
+}
 
 // 출고수량을 요일별로 자동 균등 분배
 function autoSplitQty(totalQty, dayCount) {
@@ -38,6 +76,8 @@ export default function Distribute() {
   const weekInput = useWeekInput('');
   const week = weekInput.value;
   const [prodGroup, setProdGroup] = useState('');
+  const [prodGroups, setProdGroups] = useState([]);
+  const [prodGroupsLoading, setProdGroupsLoading] = useState(false);
   const [viewMode, setViewMode] = useState('prod'); // 'prod'=품목기준 'cust'=업체기준
 
   // 품목기준
@@ -87,6 +127,12 @@ export default function Distribute() {
   const [tab2Items, setTab2Items] = useState([]);
   const [tab2Loading, setTab2Loading] = useState(false);
   const [excelDownloading, setExcelDownloading] = useState(false);
+  const [pivotRows, setPivotRows] = useState([]);
+  const [pivotLoading, setPivotLoading] = useState(false);
+  const [tab2UsesExeGrid, setTab2UsesExeGrid] = useState(false);
+  const [selectedDistCust, setSelectedDistCust] = useState(null);
+  const [farmRows, setFarmRows] = useState([]);
+  const [farmLoading, setFarmLoading] = useState(false);
 
   // ── 출고요일 설정 로드
   const loadShipDayConfigs = useCallback(async () => {
@@ -103,13 +149,41 @@ export default function Distribute() {
 
   useEffect(() => { loadShipDayConfigs(); }, [loadShipDayConfigs]);
 
+  // 품목그룹 목록 — DB CounName+FlowerName (nenova.exe / 주문등록 동일)
+  const loadProdGroups = useCallback(async (wk) => {
+    setProdGroupsLoading(true);
+    try {
+      const d = await apiGet('/api/shipment/distribute', { type: 'groups', ...(wk ? { week: wk } : {}) });
+      return d.groups || [];
+    } catch (e) {
+      return [];
+    } finally {
+      setProdGroupsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const groups = await loadProdGroups(week || '');
+      if (cancelled) return;
+      setProdGroups(groups);
+      setProdGroup(prev => (prev && groups.some(g => g.key === prev) ? prev : ''));
+    })();
+    return () => { cancelled = true; };
+  }, [week, loadProdGroups]);
+
+  const selectedProdGroupLabel = prodGroups.find(g => g.key === prodGroup)?.label || prodGroup.replace(PG_SEP, '');
+
   // 출고요일 설정 저장
   const saveShipDayConfigs = async () => {
     setShipDaySaving(true); setErr('');
     try {
       const configs = Object.entries(shipDayConfigs).map(([key, days]) => {
-        const [prodGroup, weekSuffix] = key.split('|');
-        return { prodGroup, weekSuffix, custKey: 0, shipDays: days };
+        const lastPipe = key.lastIndexOf('|');
+        const prodGroupKey = lastPipe > 0 ? key.slice(0, lastPipe) : key;
+        const weekSuffix = lastPipe > 0 ? key.slice(lastPipe + 1) : '-01';
+        return { prodGroup: prodGroupKey, weekSuffix, custKey: 0, shipDays: days };
       });
       const res = await fetch('/api/shipment/ship-days', {
         method: 'POST',
@@ -151,14 +225,33 @@ export default function Distribute() {
     if (!week || !ck) return;
     setTab2CustKey(ck);
     setTab2Loading(true);
+    const cf = countryFlowerFromGroup(prodGroup, prodGroups);
     try {
-      const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: ck });
-      const items = d.items || [];
+      let items = [];
+      let usesExe = false;
+      if (cf) {
+        const d = await apiGet('/api/shipment/distribute', {
+          type: 'custWeekGrid',
+          week,
+          custKey: ck,
+          countryFlower: cf,
+        });
+        items = (d.rows || []).map(mapCustWeekGridRow);
+        usesExe = items.length > 0;
+      }
+      if (!usesExe) {
+        const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: ck });
+        items = d.items || [];
+      }
+      setTab2UsesExeGrid(usesExe);
       setTab2Items(items);
-      // 자동 일별 분배 초기화
       const newInputs = {};
       items.forEach(item => {
-        const days = getShipDays(ck, item.ProdKey, item.CountryFlower || '');
+        if (item._exeWeekGrid && item._dayByKr) {
+          newInputs[`${ck}|${item.ProdKey}`] = { ...item._dayByKr };
+          return;
+        }
+        const days = getShipDays(ck, item.ProdKey, shipDayGroupKey(item));
         const totalQty = item.출고수량 || item.주문수량 || 0;
         if (days.length > 0 && totalQty > 0) {
           const splits = autoSplitQty(totalQty, days.length);
@@ -280,7 +373,7 @@ export default function Distribute() {
     const label = action === 'one'
       ? `${week}차 ${selectedProd.DisplayName || selectedProd.ProdName} 개별 출고분배`
       : action === 'group'
-        ? `${week}차 ${prodGroup} 일괄출고분배`
+        ? `${week}차 ${selectedProdGroupLabel} 일괄출고분배`
         : `${week}차 전체 일괄출고분배`;
     if (!confirm(`${label}를 전산 nenova.exe와 같은 저장 프로시저 경로로 실행하시겠습니까?\n\n실행 전 KeyNumbering/확정상태를 확인하고, 실행 후 출고일/중복 출고상세 검증에 실패하면 롤백합니다.`)) return;
 
@@ -306,6 +399,7 @@ export default function Distribute() {
           year: new Date().getFullYear().toString(),
           prodKey: action === 'one' ? selectedProd.ProdKey : undefined,
           prodGroup: action === 'group' ? prodGroup : undefined,
+          distributionType: distMode === 'prior' ? 2 : 1, // 2=우선 분배, 1=비율 분배 (nenova.exe @DistributionType)
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -335,6 +429,32 @@ export default function Distribute() {
     }
   };
 
+  // 개별 초기화 — nenova.exe "개별 초기화"(usp_DistributeClear) 와 동일. 선택 품목의 출고분배를 되돌린다.
+  const handleClearOne = async () => {
+    if (!week) { setErr('차수를 입력하세요.'); return; }
+    if (!selectedProd?.ProdKey) { setErr('초기화할 품목을 먼저 선택하세요.'); return; }
+    const label = `${week}차 ${selectedProd.DisplayName || selectedProd.ProdName} 개별 초기화`;
+    if (!confirm(`${label}\n\n선택 품목의 출고분배를 전산 nenova.exe와 동일한 경로(usp_DistributeClear)로 되돌립니다.\n확정된 분배는 먼저 확정취소해야 합니다. 계속하시겠습니까?`)) return;
+    setSpLoading(true); setErr(''); setSuccessMsg('');
+    try {
+      const res = await fetch('/api/shipment/distribute-clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week, year: new Date().getFullYear().toString(), prodKey: selectedProd.ProdKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || '개별 초기화 실패');
+      setSuccessMsg(`✅ ${label} 완료`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+      await handleSearch();
+      if (selectedProd) await selectProd(selectedProd);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSpLoading(false);
+    }
+  };
+
   const handleHistory = async () => {
     if (!week) { setErr('차수를 입력하세요.'); return; }
     try {
@@ -353,10 +473,19 @@ export default function Distribute() {
     setLoading(true); setErr('');
     setSelectedProd(null); setCustDist([]); setSelectedCust(null); setCustItems([]);
 
+    const cf = countryFlowerFromGroup(prodGroup, prodGroups);
+
     try {
       const [prodRes, custRes] = await Promise.all([
-        apiGet('/api/shipment/distribute', { type: 'products', week, prodGroup }),
-        apiGet('/api/shipment/distribute', { type: 'custList', week }),
+        apiGet('/api/shipment/distribute', {
+          type: 'products',
+          week,
+          ...(prodGroup && { prodGroup }),
+          ...(cf && { countryFlower: cf }),
+        }),
+        apiGet('/api/shipment/distribute', cf
+          ? { type: 'customers', week, countryFlower: cf }
+          : { type: 'custList', week }),
       ]);
       setProducts(prodRes.products || []);
       const customers = custRes.customers || [];
@@ -382,9 +511,29 @@ export default function Distribute() {
     } catch(e) { setErr(e.message); } finally { setLoading(false); }
   };
 
+  const loadPivotRows = useCallback(async () => {
+    const cf = countryFlowerFromGroup(prodGroup, prodGroups);
+    if (!week || !cf) { setPivotRows([]); return; }
+    setPivotLoading(true);
+    try {
+      const d = await apiGet('/api/shipment/distribute', { type: 'pivot', week, countryFlower: cf });
+      setPivotRows(d.rows || []);
+    } catch {
+      setPivotRows([]);
+    } finally {
+      setPivotLoading(false);
+    }
+  }, [week, prodGroup, prodGroups]);
+
+  useEffect(() => {
+    if (tab === 2) loadPivotRows();
+  }, [tab, loadPivotRows]);
+
   // 품목 클릭 → 거래처 분배 정보 로드
   const selectProd = async (prod) => {
     setSelectedProd(prod);
+    setSelectedDistCust(null);
+    setFarmRows([]);
     setInQty(prod.inQty || 0);
     setOutQty(prod.outQty || 0);
     setDistLoading(true);
@@ -398,6 +547,28 @@ export default function Distribute() {
       setInQty(prod.inQty || 0);
       setOutQty(d.totalOut || 0);
     } catch(e) { setErr(e.message); } finally { setDistLoading(false); }
+  };
+
+  const selectDistCustRow = async (c) => {
+    setSelectedDistCust(c);
+    if (!c?.SdetailKey || !selectedProd?.ProdKey) {
+      setFarmRows([]);
+      return;
+    }
+    setFarmLoading(true);
+    try {
+      const d = await apiGet('/api/shipment/distribute', {
+        type: 'shipmentFarms',
+        prodKey: selectedProd.ProdKey,
+        sdetailKey: c.SdetailKey,
+      });
+      setFarmRows(d.farms || []);
+    } catch (e) {
+      setFarmRows([]);
+      setErr(e.message);
+    } finally {
+      setFarmLoading(false);
+    }
   };
 
   // 업체 선택 → 해당 업체 주문 품목 로드
@@ -568,9 +739,9 @@ export default function Distribute() {
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',flexShrink:0}}>
         <WeekInput weekInput={weekInput} label="차수" />
         <span className="filter-label">품목</span>
-        <select className="filter-select" value={prodGroup} onChange={e=>setProdGroup(e.target.value)} style={{minWidth:160}}>
-          <option value="">전체</option>
-          {PROD_GROUPS.map(g=><option key={g}>{g}</option>)}
+        <select className="filter-select" value={prodGroup} onChange={e=>setProdGroup(e.target.value)} style={{minWidth:200}} disabled={prodGroupsLoading}>
+          <option value="">{prodGroupsLoading ? '품목그룹 로드중...' : '전체'}</option>
+          {prodGroups.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
         </select>
         <span className="filter-label">거래처</span>
         <input className="filter-input" placeholder="거래처명 입력 후 조회▶" value={custFilter||''}
@@ -810,6 +981,7 @@ export default function Distribute() {
                     <input type="radio" name="distMode" checked={distMode==='prior'} onChange={()=>setDistMode('prior')}/> 우선 분배
                   </label>
                   <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('one')} disabled={spLoading || !selectedProd || custDist.length === 0 || isFixed} title="nenova.exe 개별출고분배와 같은 dbo.usp_DistributeOne 경로로 저장합니다.">전산 개별출고분배</button>
+                  <button className="btn btn-warning btn-sm" onClick={handleClearOne} disabled={spLoading || !selectedProd || isFixed} title="nenova.exe 개별 초기화와 같은 dbo.usp_DistributeClear 경로로 이 품목의 출고분배를 DB에서 되돌립니다. (확정된 분배는 먼저 확정취소)">전산 개별 초기화</button>
                   <button className="btn btn-secondary btn-sm" onClick={autoDistribute} disabled={!selectedProd || custDist.length === 0} title="화면 입력값만 자동 계산합니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">화면 비율계산</button>
                   <button className="btn btn-secondary btn-sm" onClick={fillOrderQuantities} disabled={!selectedProd || custDist.length === 0} title="주문수량을 출고수량 입력값으로 채웁니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">주문수량 채우기</button>
                   <button className="btn btn-secondary btn-sm" onClick={()=>{const o={};custDist.forEach(c=>{o[c.CustKey]=0;});setOutInputs(o);setOutQty(0);}}>🔄 개별 초기화</button>
@@ -856,8 +1028,11 @@ export default function Distribute() {
                                 const boxQty = selectedProd.OutUnit==='박스' ? outVal : 0;
                                 const bunchQty = selectedProd.OutUnit==='박스' ? Math.floor(outVal*(selectedProd.BunchOf1Box||1)) : selectedProd.OutUnit==='단' ? outVal : 0;
                                 const steamQty = Math.floor(outVal*(selectedProd.SteamOf1Box||1));
+                                const isSel = selectedDistCust?.CustKey === c.CustKey;
                                 return (
-                                  <tr key={c.CustKey}>
+                                  <tr key={c.CustKey}
+                                    onClick={() => selectDistCustRow(c)}
+                                    style={{ cursor: 'pointer', background: isSel ? 'var(--blue-bg)' : undefined }}>
                                     <td className="name">{c.CustName}</td>
                                     <td style={{fontFamily:'var(--mono)',fontSize:11}}>{c.주문코드}</td>
                                     <td style={{fontSize:11}}>{c.단위}</td>
@@ -872,7 +1047,7 @@ export default function Distribute() {
                                     <td className="num">{boxQty||'—'}</td>
                                     <td className="num">{bunchQty||'—'}</td>
                                     <td className="num">{steamQty||'—'}</td>
-                                    <td className="num">{fmt(selectedProd.Cost||0)}</td>
+                                    <td className="num">{fmt(c.Cost || selectedProd.Cost || 0)}</td>
                                     <td style={{fontSize:11,color:'var(--text3)'}}>{c.비고||'—'}</td>
                                   </tr>
                                 );
@@ -888,6 +1063,45 @@ export default function Distribute() {
                             </tr>
                           </tfoot>
                         </table>
+                        {/* exe 농장 정보 (grdViewShipment_FocusedRowChanged) */}
+                        <div style={{borderTop:'2px solid var(--border)',padding:'8px 14px',background:'#FAFAFA'}}>
+                          <div style={{fontSize:12,fontWeight:700,marginBottom:8,color:'var(--text2)'}}>
+                            ≡ 농장 정보
+                            {selectedDistCust ? ` — ${selectedDistCust.CustName}` : ' (거래처 행 클릭)'}
+                          </div>
+                          {farmLoading ? (
+                            <div className="skeleton" style={{height:60,borderRadius:6}} />
+                          ) : !selectedDistCust ? (
+                            <div style={{fontSize:11,color:'var(--text3)'}}>위 분배표에서 거래처를 클릭하면 농장별 입고/출고 잔량이 표시됩니다.</div>
+                          ) : farmRows.length === 0 ? (
+                            <div style={{fontSize:11,color:'var(--text3)'}}>농장 데이터 없음</div>
+                          ) : (
+                            <table className="tbl" style={{fontSize:11}}>
+                              <thead>
+                                <tr>
+                                  <th>농장명</th><th>코드</th><th>주문코드</th>
+                                  <th style={{textAlign:'right'}}>입고</th>
+                                  <th style={{textAlign:'right'}}>출고</th>
+                                  <th style={{textAlign:'right'}}>잔량</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {farmRows.map((f, i) => (
+                                  <tr key={i}>
+                                    <td>{f.FarmName}</td>
+                                    <td style={{fontFamily:'var(--mono)'}}>{f.FarmCode}</td>
+                                    <td style={{fontFamily:'var(--mono)'}}>{f.OrderCode}</td>
+                                    <td className="num">{(f.wOutQuantity ?? 0).toLocaleString()}</td>
+                                    <td className="num">{(f.sOutQuantity ?? 0).toLocaleString()}</td>
+                                    <td className="num" style={{fontWeight:700,color:(f.Remainuantity||0)<0?'var(--red)':'var(--green)'}}>
+                                      {(f.Remainuantity ?? 0).toLocaleString()}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
                       </>
                     )}
                 </div>
@@ -1006,16 +1220,16 @@ export default function Distribute() {
                   </tr>
                 </thead>
                 <tbody>
-                  {PROD_GROUPS.map(pg => (
-                    <tr key={pg}>
-                      <td style={{fontWeight:600,fontSize:12}}>{pg}</td>
+                  {prodGroups.map(pg => (
+                    <tr key={pg.key}>
+                      <td style={{fontWeight:600,fontSize:12}}>{pg.label}</td>
                       {WEEK_SUFFIXES.map(s => DAY_NAMES.map(d => {
-                        const key = `${pg}|${s}`;
+                        const key = `${pg.key}|${s}`;
                         const checked = (shipDayConfigs[key] || '').split(',').includes(d);
                         return (
                           <td key={s+d} style={{textAlign:'center',padding:'3px 2px'}}>
                             <input type="checkbox" checked={checked}
-                              onChange={() => toggleShipDay(pg, s, d)}
+                              onChange={() => toggleShipDay(pg.key, s, d)}
                               style={{cursor:'pointer',width:16,height:16}} />
                           </td>
                         );
@@ -1033,6 +1247,9 @@ export default function Distribute() {
             <div style={{borderRight:'1px solid var(--border)',overflowY:'auto'}}>
               <div style={{padding:'8px 12px',background:'#F0F7FF',borderBottom:'1px solid var(--border)',fontSize:11,fontWeight:700}}>
                 업체 선택 → 일별 분배
+                {countryFlowerFromGroup(prodGroup, prodGroups) && (
+                  <span style={{marginLeft:8,fontWeight:400,color:'var(--blue)'}}>(exe custWeekGrid)</span>
+                )}
               </div>
               {custList.length === 0
                 ? <div style={{padding:20,textAlign:'center',color:'var(--text3)',fontSize:12}}>차수 조회 후 표시</div>
@@ -1061,9 +1278,9 @@ export default function Distribute() {
                   <table className="tbl" style={{fontSize:12}}>
                     <thead>
                       <tr>
-                        <th>국가</th><th>꽃</th><th>품목명</th><th>단위</th>
+                        <th>품목명</th><th>단위</th>
                         <th style={{textAlign:'right'}}>출고수량</th>
-                        {DAY_NAMES.map(d => (
+                        {(tab2UsesExeGrid ? DAY_NAMES_TAB2 : DAY_NAMES).map(d => (
                           <th key={d} style={{textAlign:'center',color:'var(--blue)',width:65}}>{d}</th>
                         ))}
                         <th style={{textAlign:'right'}}>합계</th>
@@ -1072,24 +1289,25 @@ export default function Distribute() {
                     </thead>
                     <tbody>
                       {tab2Items.length === 0
-                        ? <tr><td colSpan={12} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>출고 데이터 없음 (탭1에서 먼저 분배하세요)</td></tr>
+                        ? <tr><td colSpan={(tab2UsesExeGrid ? DAY_NAMES_TAB2 : DAY_NAMES).length + 5} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>
+                            {tab2UsesExeGrid ? '출고 데이터 없음' : '출고 데이터 없음 (탭1에서 먼저 분배하세요)'}
+                          </td></tr>
                         : tab2Items.filter(item => (item.출고수량 || 0) > 0).map((item, i) => {
                           const totalQty = item.출고수량 || 0;
-                          const days = getShipDays(tab2CustKey, item.ProdKey, item.CountryFlower || '');
+                          const dayCols = tab2UsesExeGrid ? DAY_NAMES_TAB2 : DAY_NAMES;
+                          const days = tab2UsesExeGrid ? dayCols : getShipDays(tab2CustKey, item.ProdKey, shipDayGroupKey(item));
                           const key = `${tab2CustKey}|${item.ProdKey}`;
                           const dayInputs = dailyQtyInputs[key] || {};
-                          const daySum = Object.values(dayInputs).reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                          const daySum = dayCols.reduce((a, d) => a + (parseFloat(dayInputs[d]) || 0), 0);
                           const diff = totalQty - daySum;
 
                           return (
                             <tr key={i} style={{background: diff !== 0 ? '#FFF3E0' : undefined}}>
-                              <td style={{fontSize:11}}>{item.CounName}</td>
-                              <td style={{fontSize:11}}>{item.FlowerName}</td>
                               <td style={{fontWeight:500}}>{item.DisplayName || item.ProdName}</td>
                               <td style={{fontSize:11}}>{item.OutUnit}</td>
                               <td className="num" style={{fontWeight:700,color:'var(--blue)'}}>{totalQty}</td>
-                              {DAY_NAMES.map(d => {
-                                const isActive = days.includes(d);
+                              {dayCols.map(d => {
+                                const isActive = tab2UsesExeGrid || days.includes(d);
                                 return (
                                   <td key={d} style={{textAlign:'center',padding:'2px 3px',background: isActive ? '#E3F2FD' : '#F5F5F5'}}>
                                     {isActive ? (
@@ -1120,9 +1338,9 @@ export default function Distribute() {
                     {tab2Items.filter(item => (item.출고수량 || 0) > 0).length > 0 && (
                       <tfoot>
                         <tr className="foot">
-                          <td colSpan={4}>합계</td>
+                          <td colSpan={2}>합계</td>
                           <td className="num">{tab2Items.reduce((a, b) => a + (b.출고수량 || 0), 0)}</td>
-                          {DAY_NAMES.map(d => {
+                          {(tab2UsesExeGrid ? DAY_NAMES_TAB2 : DAY_NAMES).map(d => {
                             const dayTotal = tab2Items.filter(item => (item.출고수량 || 0) > 0).reduce((a, item) => {
                               const key = `${tab2CustKey}|${item.ProdKey}`;
                               return a + (parseFloat(dailyQtyInputs[key]?.[d]) || 0);
@@ -1132,7 +1350,8 @@ export default function Distribute() {
                           <td className="num">
                             {tab2Items.filter(item => (item.출고수량 || 0) > 0).reduce((a, item) => {
                               const key = `${tab2CustKey}|${item.ProdKey}`;
-                              return a + Object.values(dailyQtyInputs[key] || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+                              const dayCols = tab2UsesExeGrid ? DAY_NAMES_TAB2 : DAY_NAMES;
+                              return a + dayCols.reduce((s, d) => s + (parseFloat(dailyQtyInputs[key]?.[d]) || 0), 0);
                             }, 0)}
                           </td>
                           <td></td>
@@ -1146,48 +1365,46 @@ export default function Distribute() {
         </div>
       )}
 
-      {/* 탭3: 출고 분배 집계 */}
+      {/* 탭3: 출고 분배 집계 (exe GetPivotData) */}
       {tab === 2 && (
         <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
-          <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center'}}>
-            {['차수','품목명','지역','담당자','주문수량','출고수량'].map(f=>(
-              <span key={f} className={`chip ${f==='주문수량'||f==='출고수량'?'chip-active':'chip-inactive'}`}>{f}</span>
-            ))}
+          <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',justifyContent:'space-between'}}>
+            <span style={{fontSize:12,color:'var(--text2)'}}>
+              {countryFlowerFromGroup(prodGroup, prodGroups)
+                ? `품목그룹 ${selectedProdGroupLabel} — 출고>0 집계 (nenova.exe GetPivotData)`
+                : '품목그룹을 선택하고 조회하세요'}
+            </span>
+            <button className="btn btn-secondary btn-sm" onClick={loadPivotRows} disabled={pivotLoading || !countryFlowerFromGroup(prodGroup, prodGroups)}>새로고침</button>
           </div>
           <div style={{overflowX:'auto'}}>
-            <table className="tbl" style={{minWidth:600}}>
-              <thead>
-                <tr>
-                  <th>국가</th><th>꽃</th><th>품목명(색상)</th>
-                  {custList.map(c=><th key={c.CustKey} colSpan={2} style={{textAlign:'center',color:'var(--blue)',fontSize:11}}>{c.CustName}</th>)}
-                </tr>
-                <tr>
-                  <th colSpan={3}></th>
-                  {custList.map(c=>[
-                    <th key={`${c.CustKey}-o`} style={{textAlign:'right',fontSize:10}}>주문</th>,
-                    <th key={`${c.CustKey}-s`} style={{textAlign:'right',fontSize:10}}>출고</th>
-                  ])}
-                </tr>
-              </thead>
-              <tbody>
-                {products.map(p=>(
-                  <tr key={p.ProdKey}>
-                    <td style={{fontSize:11}}>{p.CounName}</td>
-                    <td style={{fontSize:11}}>{p.FlowerName}</td>
-                    <td style={{fontSize:12}}>{p.DisplayName || p.ProdName}</td>
-                    {custList.map(c=>{
-                      const oq = p.orderQty || 0;
-                      const sq = p.outQty || 0;
-                      return [
-                        <td key={`${c.CustKey}-o`} className="num" style={{fontSize:11}}>{oq||''}</td>,
-                        <td key={`${c.CustKey}-s`} className="num" style={{fontSize:11}}>{sq||''}</td>
-                      ];
-                    })}
+            {pivotLoading ? (
+              <div className="skeleton" style={{margin:16,height:200,borderRadius:8}} />
+            ) : (
+              <table className="tbl" style={{minWidth:800,fontSize:12}}>
+                <thead>
+                  <tr>
+                    <th>국가</th><th>꽃</th><th>품목</th><th>거래처</th><th>지역</th><th>담당</th>
+                    <th style={{textAlign:'right'}}>주문</th><th style={{textAlign:'right'}}>출고</th>
                   </tr>
-                ))}
-                {products.length === 0 && <tr><td colSpan={3+custList.length*2} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>조회 후 표시됩니다</td></tr>}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pivotRows.length === 0 ? (
+                    <tr><td colSpan={8} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>데이터 없음</td></tr>
+                  ) : pivotRows.map((r, i) => (
+                    <tr key={`${r.CustName}-${r.ProdName}-${i}`}>
+                      <td>{r.CounName}</td>
+                      <td>{r.FlowerName}</td>
+                      <td className="name">{r.ProdName}</td>
+                      <td className="name">{r.CustName}</td>
+                      <td>{r.CustArea}</td>
+                      <td>{r.Manager}</td>
+                      <td className="num">{(r.oOutQuantity ?? 0).toLocaleString()}</td>
+                      <td className="num" style={{fontWeight:700,color:'var(--blue)'}}>{(r.sOutQuantity ?? 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

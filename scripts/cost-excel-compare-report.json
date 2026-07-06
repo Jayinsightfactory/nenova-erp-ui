@@ -1,0 +1,218 @@
+[
+  {
+    "file": "24-1 2중국 원가자료.xlsx",
+    "sheet": "24-1 CLOUD",
+    "excelFarm": "",
+    "excelWeek": "24-1",
+    "dbWeek": "24-01",
+    "excelProducts": 11,
+    "dbMasters": 1,
+    "dbMasterSample": [
+      "Cloudland 2026-24-01 AWB:999-93212291"
+    ],
+    "matched": 11,
+    "priceMismatch": 0,
+    "excelOnly": 0,
+    "dbOnly": 2,
+    "mismatches": [],
+    "excelOnlySample": [],
+    "dbOnlySample": [
+      "Chargeable weight FOB:0",
+      "Gross weight FOB:0"
+    ]
+  },
+  {
+    "file": "24-1 Ecuador 원가자료.xlsx",
+    "sheet": "24-1",
+    "excelFarm": "",
+    "excelWeek": "24-1",
+    "dbWeek": "24-01",
+    "excelProducts": 8,
+    "dbMasters": 1,
+    "dbMasterSample": [
+      "Freightwise Ecuador 2026-24-01 AWB:006-45432564"
+    ],
+    "matched": 0,
+    "priceMismatch": 0,
+    "excelOnly": 8,
+    "dbOnly": 2,
+    "mismatches": [],
+    "excelOnlySample": [
+      "Ecuador Electric MO AS295 FOB:0.65 Q:1",
+      "Ecuador Channel AS154 FOB:0.65 Q:1",
+      "Ecuador Dark Navy Blue D73 FOB:0.65 Q:1",
+      "Ecuador Royal Blue D29 FOB:0.65 Q:1",
+      "Ecuador Tinted Dark Whisper AS033 FOB:0.65 Q:1"
+    ],
+    "dbOnlySample": [
+      "Chargeable weight FOB:0",
+      "Gross weight FOB:0"
+    ]
+  },
+  {
+    "file": "24-2 NL 원가자료.xlsx",
+    "sheet": "24-2 (H)",
+    "excelFarm": "NL 원가자료",
+    "excelWeek": "24-2",
+    "dbWeek": "24-02",
+    "excelProducts": 37,
+    "dbMasters": 1,
+    "dbMasterSample": [
+      "Holex 2026-24-02 AWB:180-50704872"
+    ],
+    "matched": 34,
+    "priceMismatch": 3,
+    "excelOnly": 0,
+    "dbOnly": 2,
+    "mismatches": [
+      {
+        "excel": "Anthurium Graciosa 15cm",
+        "excelFob": 2.47,
+        "dbName": "Anthurium Graciosa 15cm",
+        "dbFob": 2.86,
+        "diff": 0.3899999999999997,
+        "score": 1
+      },
+      {
+        "excel": "Agapanthus / Eyfori White 70cm",
+        "excelFob": 1.25,
+        "dbName": "Agapanthus / Eyfori White 70cm",
+        "dbFob": 0.64,
+        "diff": 0.61,
+        "score": 1
+      },
+      {
+        "excel": "Tulip / Single Royal Virgen White1",
+        "excelFob": 0.78,
+        "dbName": "Tulip / Single Royal Virgen White1",
+        "dbFob": 0.59,
+        "diff": 0.19000000000000006,
+        "score": 1
+      }
+    ],
+    "excelOnlySample": [],
+    "dbOnlySample": [
+      "Chargeable weight FOB:0",
+      "Gross weight FOB:0"
+    ]
+  },
+  {
+    "file": "Hood Canal원가자료 .xlsx",
+    "sheet": "17-1",
+    "excelFarm": "Hood Canal 원가자료",
+    "excelWeek": "17-01",
+    "dbWeek": "17-01",
+    "excelProducts": 1,
+    "dbMasters": 1,
+    "dbMasterSample": [
+      "Hood Canal 2026-17-01 AWB:180-18988966"
+    ],
+    "matched": 1,
+    "priceMismatch": 0,
+    "excelOnly": 0,
+    "dbOnly": 0,
+    "mismatches": [],
+    "excelOnlySample": [],
+    "dbOnlySample": []
+  },
+  {
+    "file": "NZBLOOM원가자료.xlsx",
+    "sheet": "Sheet1",
+    "excelFarm": "NEWZELAND NZBLOOM 원가자료",
+    "excelWeek": "",
+    "dbWeek": "",
+    "excelProducts": 0,
+    "dbMasters": 8,
+    "dbMasterSample": [
+      "NZ Bloom  2026-01-01 AWB:18079043075",
+      "NZ Bloom  2025-51-01 AWB:180",
+      "NZ Bloom  2025-50-01 AWB:18079043020"
+    ],
+    "matched": 0,
+    "priceMismatch": 0,
+    "excelOnly": 0,
+    "dbOnly": 42,
+    "mismatches": [],
+    "excelOnlySample": [],
+    "dbOnlySample": [
+      "Hydrangea / New Zealand. AA Dark Blue , Renate FOB:4.86",
+      "Hydrangea / New Zealand. AA Dark Blue , Renate FOB:4.86",
+      "Hydrangea / New Zealand. AA Pink (Hot) 40cm+ (limiited), (Alpine Glow (Hot Pink)) FOB:5.25",
+      "Hydrangea / New Zealand. AAA Pink (Hot) 40cm+ (limiited), (Alpine Glow (Hot Pink)) FOB:6.88",
+      "Hydrangea / New Zealand. AAA Pink (Hot) 40cm+ (limiited), (Masja (Hot Pink)) FOB:6.88"
+    ]
+  },
+  {
+    "file": "PREMIUM GREENS원가자료.xlsx",
+    "sheet": "13-1",
+    "excelFarm": "PREMIUM GREENS 원가자료",
+    "excelWeek": "13-01",
+    "dbWeek": "13-01",
+    "excelProducts": 8,
+    "dbMasters": 1,
+    "dbMasterSample": [
+      "Premium Greens  2026-13-01 AWB:081-61076702 "
+    ],
+    "matched": 8,
+    "priceMismatch": 0,
+    "excelOnly": 0,
+    "dbOnly": 0,
+    "mismatches": [],
+    "excelOnlySample": [],
+    "dbOnlySample": []
+  },
+  {
+    "file": "VT SUNPRIDE (RB)원가자료 (2026) (1).xlsx",
+    "sheet": "100kg",
+    "excelFarm": "베트남 SUNPRIDE _x000b_(Royal Base) 원가자료",
+    "excelWeek": "",
+    "dbWeek": "",
+    "excelProducts": 0,
+    "dbMasters": 5,
+    "dbMasterSample": [
+      "Royal Base 2026-24-01 AWB:73805998926",
+      "Royal Base 2026-22-01 AWB:73805998484",
+      "Royal Base 2026-19-01 AWB:738-05997961"
+    ],
+    "matched": 0,
+    "priceMismatch": 0,
+    "excelOnly": 0,
+    "dbOnly": 15,
+    "mismatches": [],
+    "excelOnlySample": [],
+    "dbOnlySample": [
+      "ORCHID VIETNAM / 호접란  보라블루　( Spray slight French blue)  FOB:9.75",
+      "ORCHID VIETNAM / 호접란  연노랑　( Single dyed color YELLOW) FOB:8.75",
+      "ORCHID VIETNAM / 호접란  연블루　( Spray slight soft blue)  FOB:9.75",
+      "ORCHID VIETNAM / 호접란  연핑크 7 (Party grade Single Sprayed 7F, Soft Pink)  FOB:13.5",
+      "ORCHID VIETNAM / 호접란  핑크 7 (Party grade Single Sprayed 7F, Perfect Pink)  FOB:13.5"
+    ]
+  },
+  {
+    "file": "태국 덴파레 원가 자료 - EXCEL 2026 (1) (1) (2).xlsx",
+    "sheet": "23",
+    "excelFarm": "Thailand 원가자료",
+    "excelWeek": "22-1",
+    "dbWeek": "22-01",
+    "excelProducts": 20,
+    "dbMasters": 4,
+    "dbMasterSample": [
+      "태국 AWB 2026-05-01 AWB:21707745452",
+      "태국 AWB 2026-04-01 AWB:217-07745441 ",
+      "태국 AWB 2026-03-01 AWB:21707745430"
+    ],
+    "matched": 0,
+    "priceMismatch": 0,
+    "excelOnly": 20,
+    "dbOnly": 0,
+    "mismatches": [],
+    "excelOnlySample": [
+      "Krung / Den. Big White (화이트) L FOB:0.37 Q:10",
+      "Krung / Den. Big White (화이트) XL FOB:0.4 Q:10",
+      "Krung / Den. Burana Jade (그린) XL FOB:0.49 Q:10",
+      "Krung / Den. Jinda Sweet (피치) L FOB:0.43 Q:10",
+      "Krung / Den. Jinda Sweet (피치) XL FOB:0.46 Q:10"
+    ],
+    "dbOnlySample": []
+  }
+]

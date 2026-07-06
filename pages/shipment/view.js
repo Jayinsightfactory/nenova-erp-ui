@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useLang } from '../../lib/i18n';
 import { downloadTextFile, makeDatedFilename } from '../../lib/exportUtils';
 
@@ -21,7 +21,7 @@ export default function ShipmentView() {
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/shipment', { week: weekInput.value, custName: custFilter, area: areaFilter })
+    apiGetExe('/api/shipment', { week: weekInput.value, custName: custFilter, area: areaFilter })
       .then(d => { setShipments(d.shipments || []); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -32,7 +32,7 @@ export default function ShipmentView() {
   const selectRow = (id) => {
     setSelectedId(id);
     setDetailLoading(true);
-    apiGet(`/api/shipment/${id}`)
+    apiGetExe(`/api/shipment/${id}`)
       .then(d => setDetails(d.items || []))
       .catch(() => setDetails([]))
       .finally(() => setDetailLoading(false));

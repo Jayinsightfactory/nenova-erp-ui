@@ -10,6 +10,15 @@ import {
   formatEstimateDescrForRow,
   mergeEstimateDescrRaw,
 } from '../../../lib/estimateInvariants.js';
+import {
+  activeWdKrToExeSqlIn,
+  buildEstimateOrderYearWeek,
+  mapExeDetailRowToWebItem,
+  sqlEstimateGetData,
+  sqlEstimateGetDetail,
+  sqlEstimateGetExcelDetail,
+  sqlEstimateGetPrintDetail,
+} from '../../../lib/exeEstimateViewSql.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -52,9 +61,120 @@ export default withAuth(async function handler(req, res) {
   return res.status(405).end();
 });
 
+async function resolveOrderYearWeek(parentWeek) {
+  const pw = String(parentWeek || '').split('-')[0];
+  const r = await query(
+    `SELECT TOP 1 sm.OrderYear, sm.OrderYearWeek
+       FROM ShipmentMaster sm
+      WHERE sm.isDeleted = 0
+        AND LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek + N'-') - 1) = @pw
+      ORDER BY sm.CreateDtm DESC`,
+    { pw: { type: sql.NVarChar, value: pw } }
+  );
+  const row = r.recordset[0];
+  if (row?.OrderYearWeek) {
+    return { orderYear: row.OrderYear, orderYearWeek: String(row.OrderYearWeek) };
+  }
+  const year = row?.OrderYear || new Date().getFullYear();
+  return {
+    orderYear: year,
+    orderYearWeek: buildEstimateOrderYearWeek(year, pw),
+  };
+}
+
+function parseWeekDaysQuery(raw) {
+  if (!raw || raw === 'all') return null;
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+async function loadExeDetailItems({ orderYearWeek, custKey }) {
+  const result = await query(
+    sqlEstimateGetDetail({ orderYearWeek, custKey }),
+    {
+      orderYearWeek: { type: sql.NVarChar, value: orderYearWeek },
+      custKey: { type: sql.Int, value: parseInt(custKey, 10) },
+    }
+  );
+  return result.recordset.map((row) => {
+    const item = mapExeDetailRowToWebItem(row);
+    const display = formatEstimateDescrForRow({ ...item, DescrRaw: item.Descr });
+    return { ...item, Descr: display };
+  });
+}
+
+async function loadExePrintDetailItems({ orderYearWeek, custKey, weekDayIn }) {
+  const result = await query(
+    sqlEstimateGetPrintDetail({ orderYearWeek, custKey, weekDayIn }),
+    {
+      orderYearWeek: { type: sql.NVarChar, value: orderYearWeek },
+      custKey: { type: sql.Int, value: parseInt(custKey, 10) },
+    }
+  );
+  return result.recordset.map((row) => {
+    const sort = Number(row.Sort) || 0;
+    const estQty = Number(row.EstQuantity) || 0;
+    const isDeduction = sort !== 0;
+    return {
+      ProdKey: row.ProdKey,
+      ProdName: row.ProdName,
+      Quantity: estQty,
+      Cost: Number(row.Cost) || 0,
+      Amount: Number(row.Amount) || 0,
+      Vat: Number(row.Vat) || 0,
+      Descr: row.Descr || '',
+      EstimateType: isDeduction ? (row.EstimateTypeRaw || '') : '정상출고',
+      OrderNo: row.OrderNo,
+      GroupNo: row.GroupNo,
+      GroupName: row.GroupName,
+      UnitQuantity: row.UnitQuantity,
+      RowNum: row.RowNum,
+      _exeParity: true,
+      _exePrint: true,
+    };
+  });
+}
+
+async function loadExeExcelDetailItems({ orderYearWeek, custKey, weekDayIn }) {
+  const result = await query(
+    sqlEstimateGetExcelDetail({ orderYearWeek, custKey, weekDayIn }),
+    {
+      orderYearWeek: { type: sql.NVarChar, value: orderYearWeek },
+      custKey: { type: sql.Int, value: parseInt(custKey, 10) },
+    }
+  );
+  return result.recordset;
+}
+
 async function getEstimates(req, res) {
-  const { week, custKey, shipmentKey, includeUnfixed, view } = req.query;
+  const { week, custKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
+  const useExeParity = exeParity !== '0' && exeParity !== 'false';
   const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
+
+  if (view === 'excelDetail') {
+    if (!week || !custKey) {
+      return res.status(400).json({ success: false, error: 'week, custKey 필요' });
+    }
+    try {
+      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
+      const rows = await loadExeExcelDetailItems({
+        orderYearWeek,
+        custKey: parseInt(custKey, 10),
+        weekDayIn: wdIn,
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        orderYearWeek,
+        rows,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 
   if (view === 'types') {
     try {
@@ -150,6 +270,36 @@ async function getEstimates(req, res) {
   if (shipmentKey) {
     try {
       const byDate = req.query.byDate === '1' || req.query.byDate === 'true';
+      if (byDate && useExeParity && custKey && week) {
+        const { orderYearWeek } = await resolveOrderYearWeek(week);
+        const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
+        if (isPrint) {
+          const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
+          const items = await loadExePrintDetailItems({
+            orderYearWeek,
+            custKey: parseInt(custKey, 10),
+            weekDayIn: wdIn,
+          });
+          return res.status(200).json({
+            success: true,
+            source: 'real_db_exe_print',
+            orderYearWeek,
+            shipments: [],
+            items,
+          });
+        }
+        const items = await loadExeDetailItems({
+          orderYearWeek,
+          custKey: parseInt(custKey, 10),
+        });
+        return res.status(200).json({
+          success: true,
+          source: 'real_db_exe_parity',
+          orderYearWeek,
+          shipments: [],
+          items,
+        });
+      }
       const items = await loadItems(parseInt(shipmentKey), byDate);
       return res.status(200).json({ success: true, source: 'real_db', shipments: [], items });
     } catch (err) {
@@ -157,25 +307,110 @@ async function getEstimates(req, res) {
     }
   }
 
-  // parentWeek: "14-01" → "14" (앞 주차 번호만 추출, 하이픈 포함 시)
+  // ── 거래처+차수 상세 (exe GetDetail 1회 조회)
+  if (custKey && week && (req.query.byDate === '1' || req.query.byDate === 'true') && req.query.itemsOnly === '1') {
+    try {
+      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
+      if (isPrint) {
+        const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
+        const items = await loadExePrintDetailItems({
+          orderYearWeek,
+          custKey: parseInt(custKey, 10),
+          weekDayIn: wdIn,
+        });
+        return res.status(200).json({
+          success: true,
+          source: 'real_db_exe_print',
+          orderYearWeek,
+          shipments: [],
+          items,
+        });
+      }
+      const items = await loadExeDetailItems({
+        orderYearWeek,
+        custKey: parseInt(custKey, 10),
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        orderYearWeek,
+        shipments: [],
+        items,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   const parentWeek = week ? week.split('-')[0] : '';
 
-  // 전산과 동일: 기본은 isFix=1 (확정된 출고)만 표시.
-  // includeUnfixed=1 시 미확정도 포함 (사장님 미리보기/검토용)
-  let where = showUnfixed
-    ? 'WHERE sm.isDeleted = 0'
-    : 'WHERE sm.isDeleted = 0 AND sm.isFix = 1';
-  const params = {};
-  if (week) {
-    // OrderWeek = "14-01" 형식 → LEFT 2자리가 parentWeek와 일치하는 것 모두 조회
-    where += ' AND LEFT(sm.OrderWeek, LEN(@parentWeek)) = @parentWeek';
-    params.parentWeek = { type: sql.NVarChar, value: parentWeek };
-  }
-  if (custKey) { where += ' AND sm.CustKey = @custKey'; params.custKey = { type: sql.Int, value: parseInt(custKey) }; }
-
   try {
-    // 출고 목록 (왼쪽 패널) — 부모주차+거래처 기준으로 그룹핑 (14-01, 14-02 → "14"로 묶음)
-    const masterResult = await query(
+    const { orderYearWeek } = week ? await resolveOrderYearWeek(week) : { orderYearWeek: null };
+    const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
+    const ck = custKey ? parseInt(custKey, 10) : null;
+
+    let masterResult;
+    if (useExeParity && orderYearWeek && !showUnfixed) {
+      masterResult = await query(
+        sqlEstimateGetData({ orderYearWeek, custKey: ck, weekDayIn: wdIn }),
+        {
+          orderYearWeek: { type: sql.NVarChar, value: orderYearWeek },
+          ...(ck ? { custKey: { type: sql.Int, value: ck } } : {}),
+        }
+      );
+      if (masterResult.recordset.length) {
+        const custKeys = masterResult.recordset.map((r) => r.CustKey).join(',');
+        const [extra, fixMeta] = await Promise.all([
+          query(
+            `SELECT CustKey, ISNULL(Manager,'') AS Manager, ISNULL(CustArea,'') AS CustArea
+               FROM Customer WHERE CustKey IN (${custKeys})`,
+            {}
+          ),
+          query(
+            `SELECT sm.CustKey,
+                    STUFF((
+                      SELECT ',' + sm2.OrderWeek + ':' + CAST(MAX(CAST(sd2.isFix AS INT)) AS NVARCHAR(1))
+                        FROM ShipmentMaster sm2
+                        JOIN ShipmentDetail sd2 ON sm2.ShipmentKey = sd2.ShipmentKey
+                       WHERE sm2.CustKey = sm.CustKey
+                         AND sm2.OrderYearWeek = @orderYearWeek
+                         AND sm2.isDeleted = 0
+                       GROUP BY sm2.OrderWeek
+                       FOR XML PATH(''), TYPE
+                    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS SubWeeksFix
+               FROM ShipmentMaster sm
+              WHERE sm.OrderYearWeek = @orderYearWeek
+                AND sm.CustKey IN (${custKeys})
+                AND sm.isDeleted = 0
+              GROUP BY sm.CustKey`,
+            { orderYearWeek: { type: sql.NVarChar, value: orderYearWeek } }
+          ),
+        ]);
+        const map = Object.fromEntries(extra.recordset.map((r) => [r.CustKey, r]));
+        const fixMap = Object.fromEntries(fixMeta.recordset.map((r) => [r.CustKey, r.SubWeeksFix || '']));
+        masterResult.recordset.forEach((r) => {
+          const c = map[r.CustKey] || {};
+          r.Manager = c.Manager || '';
+          r.CustArea = c.CustArea || '';
+          r.ParentWeek = r.ParentWeek || parentWeek;
+          r.SubWeeksFix = fixMap[r.CustKey] || '';
+        });
+      }
+    } else {
+      let where = showUnfixed
+        ? 'WHERE sm.isDeleted = 0'
+        : 'WHERE sm.isDeleted = 0 AND sm.isFix = 1';
+      const params = {};
+      if (week) {
+        where += ' AND LEFT(sm.OrderWeek, LEN(@parentWeek)) = @parentWeek';
+        params.parentWeek = { type: sql.NVarChar, value: parentWeek };
+      }
+      if (custKey) {
+        where += ' AND sm.CustKey = @custKey';
+        params.custKey = { type: sql.Int, value: parseInt(custKey, 10) };
+      }
+      masterResult = await query(
       `SELECT
         LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1) AS ParentWeek,
         sm.CustKey, c.CustName,
@@ -231,20 +466,28 @@ async function getEstimates(req, res) {
        ${where}
        GROUP BY LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1), sm.CustKey, c.CustName, c.Manager, c.CustArea
        ORDER BY ParentWeek DESC, c.CustName`, params
-    );
+      );
+    }
 
-    // 견적서 상세 — 첫 번째 그룹의 모든 ShipmentKey 항목 합산
     let items = [];
     if (masterResult.recordset.length > 0) {
       const firstRow = masterResult.recordset[0];
-      const keys = (firstRow.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-      // nenova.exe 견적과 동일: 출고일별(byDate) + ShipmentDetail/ShipmentDate 비고 병합
-      const allItems = await Promise.all(keys.map(k => loadItems(k, true)));
-      items = allItems.flat();
+      if (useExeParity && orderYearWeek && !showUnfixed && firstRow.CustKey) {
+        items = await loadExeDetailItems({
+          orderYearWeek,
+          custKey: firstRow.CustKey,
+        });
+      } else {
+        const keys = (firstRow.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        const allItems = await Promise.all(keys.map((k) => loadItems(k, true)));
+        items = allItems.flat();
+      }
     }
 
     return res.status(200).json({
-      success: true, source: 'real_db',
+      success: true,
+      source: useExeParity && !showUnfixed ? 'real_db_exe_parity' : 'real_db',
+      orderYearWeek: orderYearWeek || undefined,
       shipments: masterResult.recordset,
       items,
     });

@@ -1,9 +1,15 @@
-# nenova.exe 견적서 인쇄 비고(적요) — dnSpy 패치 가이드
+# nenova.exe 견적서 비고(적요) — dnSpy 패치 가이드
 
 ## 배경
 
-- **웹** (`nenovaweb.com/estimate` 인쇄): `formatEstimatePrintDescr` / `sanitizeDescrTextForPrint` 로 운영 로그 제외 ✅
-- **nenova.exe** (`FormPrintEstimate`): DB `ShipmentDate.Descr` (`sdd.Descr AS Descr`) · `Estimate.Descr` 를 **필터 없이** 리포트에 바인딩
+- **웹** (`nenovaweb.com/estimate` 견적서 관리·인쇄): `sanitizeEstimateDescrForDisplay` / `formatEstimatePrintDescr` 로 운영 로그 제외 ✅
+- **nenova.exe**
+  - `FormEstimateView` (견적서 **관리** 그리드): `Estimate.Descr` 를 **필터 없이** 비고 컬럼에 표시
+  - `FormPrintEstimate` (견적 **인쇄**): 동일
+- **웹 API** `update-quantity.js`: 차감 수량 수정 시 `Estimate.Descr`에 `차감수량` append **중단** (2026-06-16)
+- **DB 트리거** `tr_Estimate_SanitizeDescr`: exe/웹이 차감 행에 운영 로그를 쓰면 INSERT/UPDATE 직후 비움
+
+검역차감 예: 비고 `차감수량 -1>-2차감수량 -2>-1` → DB·화면 모두 **빈칸**
 
 25차 **(주)미카엘플라워** 예: `ShipmentDetail.Descr = "임재용0>1"` → exe 견적 인쇄 적요에 그대로 표시.
 

@@ -8,6 +8,7 @@
  * Usage:
  *   node scripts/sync-week-stock-to-live.js 26-01 --country=네덜란드
  *   node scripts/sync-week-stock-to-live.js 26-01 --country=네덜란드 --apply
+ *   node scripts/sync-week-stock-to-live.js 26-01 --include-manual --apply
  */
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +24,8 @@ const WEEK = process.argv.find((a) => /^\d{2}-\d{2}$/.test(a)) || '26-01';
 const countryArg = process.argv.find((a) => a.startsWith('--country='));
 const COUNTRY = countryArg ? countryArg.slice('--country='.length) : '';
 const MIN_GAP = Number(process.argv.find((a) => a.startsWith('--min='))?.split('=')[1] || 5);
+const INCLUDE_MANUAL = process.argv.includes('--include-manual');
+const NO_OUT_GUARD = process.argv.includes('--no-out-guard');
 const UID = 'nenovaSS3';
 const YWS = YEAR + WEEK.replace('-', '');
 const MANUAL = `(sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))`;
@@ -66,7 +69,8 @@ async function loadTargets(pool) {
     SELECT p.ProdKey, p.ProdName,
            ISNULL(p.Stock,0) AS live,
            ISNULL(cur.Stock,0) AS ps,
-           ISNULL(adj26.adjQty,0) AS adj26
+           ISNULL(adj26.adjQty,0) AS adj26,
+           ISNULL(out26.outQty,0) AS out26
       FROM Product p
       OUTER APPLY (
         SELECT TOP 1 ps.Stock FROM ProductStock ps
@@ -78,6 +82,11 @@ async function loadTargets(pool) {
           FROM StockHistory sh
          WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@yr AND sh.OrderWeek=@wk AND ${MANUAL}
       ) adj26
+      OUTER APPLY (
+        SELECT SUM(ISNULL(sd.OutQuantity,0)) outQty FROM ShipmentDetail sd
+          JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey AND ISNULL(sm.isDeleted,0)=0
+         WHERE sd.ProdKey=p.ProdKey AND sm.OrderYear=@yr AND sm.OrderWeek=@wk
+      ) out26
      WHERE ISNULL(p.isDeleted,0)=0 AND cur.Stock IS NOT NULL
        ${countryFilter}
      ORDER BY p.ProdKey`);
@@ -86,24 +95,29 @@ async function loadTargets(pool) {
   for (const row of r.recordset) {
     const live = Number(row.live);
     const ps = Number(row.ps);
+    const out26 = Number(row.out26);
     const gap = live - ps;
     if (Math.abs(gap) < MIN_GAP) continue;
-    if (Math.abs(Number(row.adj26)) >= 0.01) continue;
+    if (!INCLUDE_MANUAL && Math.abs(Number(row.adj26)) >= 0.01) continue;
 
+    const safeLive = Math.max(0, live);
     let targetLive;
     let mode;
     let beforeVal;
     let afterVal;
-    if (ps > live) {
-      targetLive = live;
+    if (ps > safeLive) {
+      targetLive = safeLive;
       mode = 'ps→live';
       beforeVal = ps;
-      afterVal = live;
+      afterVal = safeLive;
+    } else if (!NO_OUT_GUARD && ps === 0 && out26 > 0 && safeLive > 0 && safeLive <= out26 + 1) {
+      // 출고 대비 live가 이미 부족분 수준 — ps=0으로 내리지 않음 (--no-out-guard 로 우회)
+      continue;
     } else {
-      targetLive = ps;
+      targetLive = Math.max(0, ps);
       mode = 'live→ps';
       beforeVal = live;
-      afterVal = ps;
+      afterVal = Math.max(0, ps);
     }
 
     targets.push({
@@ -127,7 +141,7 @@ async function main() {
   const targets = await loadTargets(pool);
   const label = COUNTRY || '전체';
 
-  console.log(`Mode: ${APPLY ? 'APPLY' : 'DRY-RUN'} | ${WEEK} ${label} | targets=${targets.length} (gap>=${MIN_GAP}, adj26=0)\n`);
+  console.log(`Mode: ${APPLY ? 'APPLY' : 'DRY-RUN'} | ${WEEK} ${label} | targets=${targets.length} (gap>=${MIN_GAP}${INCLUDE_MANUAL ? ', include-manual' : ', adj26=0'})\n`);
 
   const byMode = { 'ps→live': 0, 'live→ps': 0 };
   for (const t of targets) {
@@ -157,7 +171,7 @@ async function main() {
           .input('uid', sql.NVarChar, UID)
           .input('yr', sql.NVarChar, YEAR)
           .input('wk', sql.NVarChar, WEEK)
-          .input('descr', sql.NVarChar, `26-01잔량정리:${t.mode} ps${t.ps}→live${t.targetLive}`)
+          .input('descr', sql.NVarChar, `${WEEK}잔량정리:${t.mode} ps${t.ps}→live${t.targetLive}`)
           .query(`
             BEGIN TRANSACTION;
             INSERT INTO StockHistory

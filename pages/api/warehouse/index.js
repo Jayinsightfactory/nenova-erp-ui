@@ -1,6 +1,8 @@
 // pages/api/warehouse/index.js
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { useExeParityFlag } from '../../../lib/exeParity/common.js';
+import { sqlWarehouseViewGetData } from '../../../lib/exeWarehouseViewSql.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getWarehouse(req, res);
@@ -33,13 +35,23 @@ async function patchFreight(req, res) {
 }
 
 async function getWarehouse(req, res) {
-  const { startDate, endDate } = req.query;
-  let where = 'WHERE wm.isDeleted = 0';
-  const params = {};
-  if (startDate) { where += ' AND CAST(wm.InputDate AS DATE) >= @start'; params.start = { type: sql.NVarChar, value: startDate }; }
-  if (endDate)   { where += ' AND CAST(wm.InputDate AS DATE) <= @end';   params.end   = { type: sql.NVarChar, value: endDate }; }
+  const { startDate, endDate, exeParity } = req.query;
+  const useExe = useExeParityFlag(exeParity);
 
   try {
+    if (useExe && startDate && endDate) {
+      const result = await query(sqlWarehouseViewGetData(), {
+        startDate: { type: sql.Date, value: new Date(startDate) },
+        endDate: { type: sql.Date, value: new Date(endDate) },
+      });
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', masters: result.recordset });
+    }
+
+    let where = 'WHERE wm.isDeleted = 0';
+    const params = {};
+    if (startDate) { where += ' AND CAST(wm.InputDate AS DATE) >= @start'; params.start = { type: sql.NVarChar, value: startDate }; }
+    if (endDate)   { where += ' AND CAST(wm.InputDate AS DATE) <= @end';   params.end   = { type: sql.NVarChar, value: endDate }; }
+
     const masterResult = await query(
       `SELECT wm.WarehouseKey, wm.OrderYear, wm.OrderWeek, wm.FarmName,
         wm.InvoiceNo, wm.OrderNo AS AWB,

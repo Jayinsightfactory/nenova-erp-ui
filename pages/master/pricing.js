@@ -181,9 +181,31 @@ export default function Pricing() {
       custKeys: [...selectedKeys].join(','),
       ...(counName   && { counName }),
       ...(flowerName && { flowerName }),
+      ...(counName && flowerName && { countryFlower: `${counName}${flowerName}` }),
       ...(prodSearch && { prodSearch }),
     })
       .then(d => {
+        if (d.source === 'real_db_exe_parity' && Array.isArray(d.costs)) {
+          const prods = d.costs.map((r) => ({
+            ProdKey: r.ProdKey,
+            ProdName: r.ProdName,
+            FlowerName: r.FlowerName,
+            CounName: r.CounName,
+            DefaultCost: r.Cost,
+          }));
+          setProducts(prods);
+          const lc = {};
+          const ck = [...selectedKeys][0];
+          prods.forEach((p) => {
+            const key = `${ck}_${p.ProdKey}`;
+            lc[key] = p.DefaultCost ?? '';
+          });
+          setCosts({});
+          setLocalCosts(lc);
+          setChanged(new Set());
+          setSearched(true);
+          return;
+        }
         setProducts(d.products || []);
         setCosts(d.costs || {});
         const lc = {};

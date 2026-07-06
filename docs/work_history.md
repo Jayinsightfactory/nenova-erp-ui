@@ -6,7 +6,30 @@ type: history
 
 # nenova ERP — 전체 작업 이력
 
-> **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 오류·재작업·열린 이슈 **마스터 색인** (프로젝트 시작~현재)
+> **작업 시작 전:** [NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md](NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) · [REGRESSION_PREVENTION_GUIDE.md](REGRESSION_PREVENTION_GUIDE.md) — 오류·재발 방지 **마스터 색인** (프로젝트 시작~현재)
+
+### 2026-06-16 재발 방지 MD 정리 (세션 2)
+
+- **원장:** [REGRESSION_PREVENTION_GUIDE.md](REGRESSION_PREVENTION_GUIDE.md) — 버그 패턴 ID·테스트·rg 키워드
+- **세션 상세:** [work-reports/2026-06-16_session-regression-prevention-compilation.md](work-reports/2026-06-16_session-regression-prevention-compilation.md)
+- **코드(미배포):** 견적 화면/인쇄 비고 병합 · distribute-import 비교표 UX
+- **증상:** 대구희경 26차 인쇄 비고 누락 · 26-01 분배검증 비교표 빈 화면
+
+### 2026-06-16 화이트라벨 ERP 청사진
+
+- 파일·코드 A~E 분류, 레이어 모델, 타겟 디렉터리, 업체 온보딩 체크리스트
+- `config/tenant.schema.json`, `config/tenant.nenova.example.json`, `lib/tenant.js` (Phase 1 스캐폴드)
+- 보고: [BLUEPRINT_WHITE_LABEL_ERP.md](BLUEPRINT_WHITE_LABEL_ERP.md) · [ops_SCRIPTS_INDEX.md](ops_SCRIPTS_INDEX.md)
+
+### 2026-06-16 재고 복구 · 견적 비고(EXE) · 주문즐겨찾기 업체 변경
+
+- **26-02 유령재고:** 잘못된 fix 스크립트 롤백 → `sync-week-stock-to-live.js 26-02 --no-out-guard` · `fix-26-02-live-remain.js` 삭제
+- **25차 전 품종:** `recalc-gap-products.js` 25-01~26-02 연쇄 (25-01 gaps 0, 26-02 음수 4건은 수동조정)
+- **네덜란드 25-01:** 동일 gap 패턴 → `recalc-gap-products --country=네덜란드`
+- **견적 차감 비고:** `update-quantity.js` Descr append 제거 · DB 트리거 · cleanup 스크립트 · EXE 패치 문서
+- **주문 즐겨찾기:** `paste-template.js` — 등록 시 업체 검색·변경 (`RegisterCustomerPicker`)
+- 보고: [work-reports/2026-06-16_session-stock-estimate-paste-template.md](work-reports/2026-06-16_session-stock-estimate-paste-template.md)
+- **미배포·미커밋** — 다음 작업 시 문서 하단 체크리스트 확인
 
 ### 2026-06-25 재고 정합 설계 (유령재고 재발 방지)
 
@@ -709,6 +732,9 @@ collapsed: Set  // 접힌 행 그룹
 - `Layout` (`components/Layout.js`): 사이드바 + 탑바
 
 ### 주요 버그 패턴 (재발 방지)
+
+> **전수 패턴·체크리스트:** [REGRESSION_PREVENTION_GUIDE.md](REGRESSION_PREVENTION_GUIDE.md)
+
 - `ShipmentDetail` 원본에 `isDeleted/Cost/Amount/Vat` 없음 → `p.Cost` 사용
 - `overflow:auto` 컨테이너 내 `position:absolute` 드롭다운 → `createPortal`
 - custFilter 검색 후 `setCustFilter('')` 호출 주의

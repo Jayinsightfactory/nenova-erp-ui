@@ -3,6 +3,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { query, withTransaction, sql } from '../../../lib/db';
 import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { buildProdGroupWhere } from '../../../lib/shipmentProdGroups.js';
 
 function paramName(row) {
   return String(row?.ParameterName || '').trim();
@@ -73,40 +74,40 @@ async function loadProcedureShape(procedureName) {
   return rows;
 }
 
+// nenova.exe 전산 SP 파라미터를 이름 기준으로 매핑한다.
+//  usp_DistributeOne  : @DistributionType,@OrderYear,@OrderWeek,@ProdKey,@iUserID,@oResult(out)
+//  usp_DistributeTotal: @DistributionType,@OrderYear,@OrderWeek,@CountryFlower,@iUserID,@oResult(out)
+// 모든 입력 파라미터를 인식·전달해야 SP 가 정상 실행된다(구버전은 year/week/prod 만 넘겨 실행 실패).
 function resolveShape(procedureName, shapeRows, action) {
   const inputs = shapeRows.filter(row => !isOutput(row));
   const outputs = shapeRows.filter(row => isOutput(row));
-  const expectedCount = ['one', 'group'].includes(action) ? 3 : 2;
-  let yearParam = findParamByName(inputs, [/year/i, /yyyy/i, /yr/i, /년도/, /연도/]);
-  let weekParam = findParamByName(inputs, [/week/i, /wk/i, /차수/, /주차/]);
-  let prodParam = ['one', 'group'].includes(action)
-    ? findParamByName(inputs, [/prod/i, /product/i, /flower/i, /품목/, /item/i])
-    : null;
-  let mappingMode = 'name';
+  const yearParam = findParamByName(inputs, [/year/i, /년도/, /연도/]);
+  const weekParam = findParamByName(inputs, [/week/i, /차수/, /주차/]);
+  const distTypeParam = findParamByName(inputs, [/distribut.*type/i, /^@?distributiontype$/i, /type/i]);
+  const userParam = findParamByName(inputs, [/user/i, /userid/i]);
+  const prodParam = findParamByName(inputs, [/prod/i, /product/i, /품목/, /item/i]);
+  const countryFlowerParam = findParamByName(inputs, [/country/i, /flower/i, /꽃/]);
 
-  if ((!yearParam || !weekParam || (['one', 'group'].includes(action) && !prodParam)) && inputs.length === expectedCount) {
-    const positionLooksSafe = ['one', 'group'].includes(action)
-      ? isIntLike(inputs[0]) && isTextLike(inputs[1]) && isIntLike(inputs[2])
-      : isIntLike(inputs[0]) && isTextLike(inputs[1]);
-    if (positionLooksSafe) {
-      yearParam = inputs[0];
-      weekParam = inputs[1];
-      prodParam = ['one', 'group'].includes(action) ? inputs[2] : null;
-      mappingMode = 'position';
-    }
-  }
-
-  const mapped = new Set([yearParam, weekParam, prodParam].filter(Boolean).map(paramName));
-  const extraInputs = inputs.filter(row => !mapped.has(paramName(row)));
-  if (!yearParam || !weekParam || (['one', 'group'].includes(action) && !prodParam) || extraInputs.length) {
+  if (!yearParam || !weekParam) {
     const desc = inputs.map(row => `${paramName(row)} ${row.TypeName}`).join(', ');
-    throw new Error(`dbo.${procedureName} 파라미터 구조가 안전한 ${expectedCount}입력 형태로 확인되지 않았습니다. 확인값: ${desc}`);
+    throw new Error(`dbo.${procedureName} 연도/차수 파라미터를 확인하지 못했습니다. 확인값: ${desc}`);
+  }
+  const targetOk = ['one', 'group'].includes(action) ? !!prodParam : true;
+  if (!targetOk) {
+    throw new Error(`dbo.${procedureName} 품목(ProdKey) 파라미터를 확인하지 못했습니다.`);
+  }
+  // 안전장치: 인식하지 못한 입력이 있으면 중단 (예상치 못한 시그니처)
+  const mapped = new Set([yearParam, weekParam, distTypeParam, userParam, prodParam, countryFlowerParam].filter(Boolean).map(paramName));
+  const extraInputs = inputs.filter(row => !mapped.has(paramName(row)));
+  if (extraInputs.length) {
+    throw new Error(`dbo.${procedureName} 미인식 파라미터: ${extraInputs.map(row => `${paramName(row)} ${row.TypeName}`).join(', ')}`);
   }
 
-  return { yearParam, weekParam, prodParam, outputs, mappingMode };
+  return { yearParam, weekParam, distTypeParam, userParam, prodParam, countryFlowerParam, outputs };
 }
 
 async function loadGroupProducts(q, week, prodGroup) {
+  const { clause: groupClause, params: groupParams } = buildProdGroupWhere(prodGroup);
   const result = await q(
     `SELECT DISTINCT p.ProdKey, p.ProdName
        FROM OrderMaster om
@@ -116,11 +117,11 @@ async function loadGroupProducts(q, week, prodGroup) {
         AND ISNULL(om.isDeleted,0)=0
         AND ISNULL(od.isDeleted,0)=0
         AND ISNULL(p.isDeleted,0)=0
-        AND ISNULL(p.CountryFlower,N'')=@pg
+        ${groupClause}
       ORDER BY p.ProdName`,
     {
       wk: { type: sql.NVarChar, value: week },
-      pg: { type: sql.NVarChar, value: prodGroup },
+      ...groupParams,
     }
   );
   return result.recordset || [];
@@ -250,14 +251,35 @@ async function loadSummary(q, week, prodKey = null, prodKeys = []) {
   };
 }
 
-async function executeProcedure(q, { procedureName, action, shapeRows, orderYear, week, prodKey }) {
+async function executeProcedure(q, { procedureName, action, shapeRows, orderYear, week, prodKey, countryFlower, distributionType, uid }) {
   const shape = resolveShape(procedureName, shapeRows, action);
   const outputDecl = shape.outputs.map((row, i) => `DECLARE @out${i} ${sqlTypeDeclaration(row)};`).join('\n');
+
   const inputAssignments = [
     `${paramName(shape.yearParam)}=@argYear`,
     `${paramName(shape.weekParam)}=@argWeek`,
   ];
-  if (['one', 'group'].includes(action)) inputAssignments.push(`${paramName(shape.prodParam)}=@argProdKey`);
+  const params = {
+    argYear: { type: sql.Int, value: Number(orderYear) },
+    argWeek: { type: sql.NVarChar, value: week },
+  };
+  if (shape.distTypeParam) {
+    inputAssignments.push(`${paramName(shape.distTypeParam)}=@argDistType`);
+    params.argDistType = { type: sql.Int, value: Number(distributionType) === 2 ? 2 : 1 }; // 2=우선, 1=비율
+  }
+  if (shape.prodParam && ['one', 'group'].includes(action)) {
+    inputAssignments.push(`${paramName(shape.prodParam)}=@argProdKey`);
+    params.argProdKey = { type: sql.Int, value: Number(prodKey) };
+  }
+  if (shape.countryFlowerParam && action === 'total') {
+    inputAssignments.push(`${paramName(shape.countryFlowerParam)}=@argCountryFlower`);
+    params.argCountryFlower = { type: sql.NVarChar, value: String(countryFlower || '') };
+  }
+  if (shape.userParam) {
+    inputAssignments.push(`${paramName(shape.userParam)}=@argUser`);
+    params.argUser = { type: sql.NVarChar, value: String(uid || 'admin') };
+  }
+
   const outputAssignments = shape.outputs.map((row, i) => `${paramName(row)}=@out${i} OUTPUT`);
   const selectOutputs = shape.outputs.map((row, i) => `@out${i} AS [${outputAlias(paramName(row))}]`);
   const selectSql = [`@returnCode AS ReturnCode`, ...selectOutputs].join(', ');
@@ -266,14 +288,7 @@ async function executeProcedure(q, { procedureName, action, shapeRows, orderYear
 DECLARE @returnCode INT;
 ${outputDecl}
 EXEC @returnCode = dbo.${procedureName} ${[...inputAssignments, ...outputAssignments].join(', ')};
-SELECT ${selectSql}, @mappingMode AS MappingMode;`;
-
-  const params = {
-    argYear: { type: sql.Int, value: Number(orderYear) },
-    argWeek: { type: sql.NVarChar, value: week },
-    mappingMode: { type: sql.NVarChar, value: shape.mappingMode },
-  };
-  if (['one', 'group'].includes(action)) params.argProdKey = { type: sql.Int, value: Number(prodKey) };
+SELECT ${selectSql};`;
 
   const result = await q(execSql, params);
   const recordsets = result.recordsets || [];
@@ -298,6 +313,9 @@ async function handler(req, res) {
     const orderYear = normalizeOrderYear(String(req.body?.year || req.body?.week || ''), new Date().getFullYear().toString());
     const prodKey = action === 'one' ? Number(req.body?.prodKey || 0) : null;
     const prodGroup = String(req.body?.prodGroup || '').trim();
+    const countryFlower = String(req.body?.countryFlower || '').trim();
+    const distributionType = Number(req.body?.distributionType) === 2 ? 2 : 1; // 2=우선, 1=비율(기본)
+    const uid = req.user?.userId || 'admin';
     if (!week) throw new Error('차수 필요');
     if (action === 'one' && !prodKey) throw new Error('개별 출고분배는 품목 선택이 필요합니다.');
     if (action === 'group' && !prodGroup) throw new Error('꽃/품목그룹을 선택하세요.');
@@ -315,7 +333,7 @@ async function handler(req, res) {
       const executed = [];
       if (action === 'group') {
         for (const product of groupProducts) {
-          const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey: product.ProdKey });
+          const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey: product.ProdKey, countryFlower, distributionType, uid });
           const failures = failureSignals(execResult);
           if (failures.length) {
             throw new Error(`${product.ProdName} ${procedureName} 실패 반환값: ${failures.map(row => `${row.key}=${row.value}`).join(', ')}`);
@@ -323,7 +341,7 @@ async function handler(req, res) {
           executed.push({ prodKey: product.ProdKey, prodName: product.ProdName, execResult });
         }
       } else {
-        const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey });
+        const execResult = await executeProcedure(tQ, { procedureName, action, shapeRows, orderYear, week, prodKey, countryFlower, distributionType, uid });
         const failures = failureSignals(execResult);
         if (failures.length) {
           throw new Error(`${procedureName} 실패 반환값: ${failures.map(row => `${row.key}=${row.value}`).join(', ')}`);

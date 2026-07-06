@@ -169,10 +169,14 @@ async function main() {
   assert('INSERT 수량=12', insert.state.dates[0].ShipmentQuantity === 12);
 
   console.log('\n=== exe 정합: distributeUnits(OutQuantity) — Detail·Date 동일 금액 (희경 유형 방지) ===');
-  const { estimateFromOutQuantity } = await import('../lib/distributeUnits.js');
-  const heeProduct = { OutUnit: '박스', EstUnit: '박스', BunchOf1Box: 10, SteamOf1Bunch: 0, SteamOf1Box: 0 };
+  const { estimateFromOutQuantity, shipmentUnitsFromUserInput } = await import('../lib/distributeUnits.js');
+  const heeProduct = { OutUnit: '박스', EstUnit: '박스', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 0 };
   const cost = 2000;
   const outQty = 74;
+  const units74 = shipmentUnitsFromUserInput(74, '박스', heeProduct);
+  assert('현지상차 BunchOf1Box=0 → bunch=0', units74.bunch === 0);
+  assert('현지상차 74박스 → estQty=74', units74.estQty === 74);
+  assert('현지상차 outQuantity=74', units74.outQuantity === 74);
   const est = estimateFromOutQuantity(outQty, cost, heeProduct);
   assert('EstUnit=박스 → estQty=OutQuantity(박스)', est.estQty === 74);
   assert('amount=74*cost/1.1', est.amount === 134545);
@@ -246,7 +250,10 @@ async function main() {
   }
   const updateQty = read('pages/api/estimate/update-quantity.js');
   assert('견적 수량: distributeUnits(OutQuantity) 사용', updateQty.includes('estimateFromOutQuantity'));
+  assert('견적 수량: shipmentUnitsFromUserInput 사용', updateQty.includes('shipmentUnitsFromUserInput'));
   assert('견적 수량: bunch 우선 amountBase 금지', !updateQty.includes('amountBase'));
+  assert('견적 수량: BunchOf1Box 기본값 10 폴백 금지', !updateQty.includes('|| 10'));
+  assert('견적 수량: getUnitsPerBox 제거', !updateQty.includes('getUnitsPerBox'));
   assert('견적 수량: 다중출고일 차단 제거', !updateQty.includes('dateCount > 1'));
   assert('견적 수량: DELETE+단일INSERT 패턴 제거', !updateQty.includes('DELETE FROM ShipmentDate WHERE SdetailKey=@sdk'));
   const distribute = read('pages/api/shipment/distribute.js');

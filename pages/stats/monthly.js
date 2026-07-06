@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useLang } from '../../lib/i18n';
 import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
@@ -19,7 +19,7 @@ export default function MonthlySales() {
   const load = () => {
     setLoading(true);
     const now = new Date(date);
-    apiGet('/api/stats/sales', { type: 'monthly', month: now.getMonth() + 1, year: now.getFullYear() })
+    apiGetExe('/api/stats/sales', { type: 'monthly', month: now.getMonth() + 1, year: now.getFullYear() })
       .then(d => { setData(d); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));

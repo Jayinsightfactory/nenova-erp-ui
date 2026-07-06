@@ -38,6 +38,7 @@
 
 7. 기록 계층
    - `DAILY_CONVERSATION_LOG_YYYY-MM-DD.md`: 하루 대화/요청/결정 전체 원장.
+   - **`REGRESSION_PREVENTION_GUIDE.md`**: 버그·수정 패턴 원장(재발 방지 ID, 테스트, rg).
    - 기능별/사고별 MD: 원인, 수정, 검증, 재발방지 상세.
    - `work_history.md`: 날짜별 핵심 요약과 상세 문서 링크.
    - Git commit: 실제 변경 단위의 기계적 이력.

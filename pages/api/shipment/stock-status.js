@@ -1,5 +1,5 @@
 // pages/api/shipment/stock-status.js
-// GET  ?weekFrom&weekTo&view=products|customers|managers|pivot  → 조회
+// GET  ?weekFrom&weekTo&view=products|customers|managers|pivot|quantityPivot  → 조회
 // PATCH { custKey, prodKey, week, outQty, descrLog }             → 출고수량 수정 + 비고 로그
 // POST  { action:'addOrder', custKey, prodKey, week, qty }       → 주문 추가/수정
 // DELETE { custKey, prodKey, week, lineIdx }                     → 수정내역 특정 줄 삭제
@@ -8,7 +8,8 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
-import { distributeUnits } from '../../../lib/distributeUnits.js';
+import { useExeParityFlag, normalizeOrderYearWeek2 } from '../../../lib/exeParity/common.js';
+import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
 async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
@@ -143,7 +144,8 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET')    return res.status(405).end();
 
   // 차수 파라미터
-  let { weekFrom, weekTo, week, view, prodKey } = req.query;
+  let { weekFrom, weekTo, week, view, prodKey, exeParity } = req.query;
+  const useExe = useExeParityFlag(exeParity);
   if (week && !weekFrom) { weekFrom = week; weekTo = week; }
   if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
   if (!weekTo) weekTo = weekFrom;
@@ -552,6 +554,21 @@ export default withAuth(async function handler(req, res) {
         params
       );
       return res.status(200).json({ success: true, rows: result.recordset });
+    }
+
+    // ── FormQuantityPivot (exe 차수 피벗)
+    if (view === 'quantityPivot') {
+      const wf = normalizeOrderYearWeek2(weekFrom.replace(/-/g, ''));
+      const wt = normalizeOrderYearWeek2(weekTo.replace(/-/g, ''));
+      const result = await query(sqlQuantityPivotGetData(), {
+        weekFrom: { type: sql.NVarChar, value: wf },
+        weekTo: { type: sql.NVarChar, value: wt },
+      });
+      return res.status(200).json({
+        success: true,
+        source: useExe ? 'real_db_exe_parity' : 'real_db_exe_parity',
+        rows: result.recordset,
+      });
     }
 
     // ── 모아보기 피벗

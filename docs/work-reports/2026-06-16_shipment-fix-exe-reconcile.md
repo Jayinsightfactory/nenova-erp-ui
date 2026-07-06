@@ -1,7 +1,7 @@
-# 작업 완료 보고 — 출고 확정 exe 정합 재설계
+# 작업 완료 — 출고 확정 exe 정합 재설계
 
-**일자:** 2026-06-16  
-**AI:** Cursor (직접 구현)
+**일자:** 2026-06-16 (후속 운영: 2026-06-24)  
+**설계 문서:** [`SHIPMENT_FIX_EXE_RECONCILE.md`](../SHIPMENT_FIX_EXE_RECONCILE.md)
 
 ## 목표
 
@@ -11,27 +11,37 @@
 
 ## 변경 요약
 
-1. **`lib/shipmentFixReconcile.js`** — exe 정합 판정 + 차수 전체 재고 재계산
-2. **`fix.js`** — 카테고리 fix/unfix 후 자동 reconcile (`forceFullWeekRecalc` when scoped)
-3. **`fix-status.js`** — `FIXED_PENDING_STOCK`, `exeAligned`, bulk unfix 후 reconcile
-4. **`fix-reconcile.js`** — 수동 복구 API
-5. **`estimate.js`** — exe 열, 재고 정합 복구 버튼, 경고 메시지
-6. **`fix-parity-audit.js`** — 복합 status 정렬
-7. **`scripts/probe-reconcile-week.mjs`** — 운영 복구 CLI
-8. **`docs/SHIPMENT_FIX_EXE_RECONCILE.md`** — 설계 문서
+| # | 파일 | 내용 |
+|---|------|------|
+| 1 | `lib/shipmentFixReconcile.js` | exe 정합 판정 + 차수 전체 재고 재계산 |
+| 2 | `lib/shipmentFixGuards.js` | 하위 차수·부분 카테고리 fix 가드 |
+| 3 | `pages/api/shipment/fix.js` | scoped fix/unfix 후 reconcile |
+| 4 | `pages/api/shipment/fix-status.js` | `FIXED_PENDING_STOCK`, `exeAligned` |
+| 5 | `pages/api/shipment/fix-reconcile.js` | 수동 복구 API |
+| 6 | `pages/estimate.js` | exe 열, 재고 정합 복구 버튼 |
+| 7 | `scripts/probe-reconcile-week.mjs` | 운영 CLI |
 
 ## 검증
 
 - `node __tests__/shipmentFixReconcile.test.js` — 통과
-- `node __tests__/fixStatusCategories.test.js` — 통과
+- `node __tests__/shipmentFixGuards.test.js` — 통과
 
-## 배포 후
+## 배포
 
-1. 운영 배포
-2. `node scripts/probe-reconcile-week.mjs 25-01 --apply`
-3. 확정현황에서 25-01 `exe` 열 OK 확인
+| 커밋 | 내용 |
+|------|------|
+| `407b2d4` | reconcile + guards + UI |
+| `73e2dc3` | reconcile API `NVarChar` hotfix |
+
+## 2026-06-24 운영 후속
+
+| 작업 | 결과 |
+|------|------|
+| `bulk-refix-weeks.mjs` 20-01~25-02 | 출고확정 전 차수 FIXED, API 오류 0 |
+| `probe-reconcile-week.mjs 25-01` | 153품목 calc OK, 음수 잔존 |
+| `repair-negative-product-stock.js` | **음수 43품목 → 0** — [상세](2026-06-24_negative-product-stock-repair.md) |
 
 ## 미완 / 한계
 
-- `Product.Stock` 음수가 SP 대칭 오류가 아닌 **실재고 부족**이면 reconcile만으로는 해결 안 됨 → 전체 unfix/재확정 필요
-- EXE 견적 비고(`Descr` 누적)는 별도 — `NENOVA_EXE_PRINT_DESCR_PATCH.md`
+- `StockMaster.isFix=0` — reconcile 후에도 UI `FIXED_PENDING_STOCK` 가능
+- EXE 견적 비고 — [`NENOVA_EXE_PRINT_DESCR_PATCH.md`](../NENOVA_EXE_PRINT_DESCR_PATCH.md)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
-import { apiGet, apiPost } from '../lib/useApi';
+import { apiPost } from '../lib/useApi';
+import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 
 const fmt  = n => Number(n || 0).toLocaleString();
@@ -24,7 +25,7 @@ export default function Stock() {
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/stock', { week: weekInput.value, prodName: search })
+    apiGetExe('/api/stock', { week: weekInput.value, prodName: search })
       .then(d => { setStock(d.stock || []); setSelectedIdx(null); setHistory([]); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -37,7 +38,7 @@ export default function Stock() {
     const s = stock[i];
     if (!s) return;
     setHistLoading(true);
-    apiGet('/api/stock', { type: 'history', week: weekInput.value, prodKey: s.ProdKey })
+    apiGetExe('/api/stock', { type: 'history', week: weekInput.value, prodKey: s.ProdKey })
       .then(d => setHistory(d.history || []))
       .catch(() => setHistory([]))
       .finally(() => setHistLoading(false));

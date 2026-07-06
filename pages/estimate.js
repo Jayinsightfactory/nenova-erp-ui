@@ -17,6 +17,8 @@ import {
   isPrintableEstimateRow,
   sanitizeEstimateDescrForDisplay,
 } from '../lib/estimateInvariants';
+import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
+import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
 import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
@@ -1138,6 +1140,7 @@ export default function Estimate() {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       custKey: selectedCust?.CustKey || '',
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
+      ...(activeWD.size < 7 ? { weekDays: [...activeWD].join(',') } : {}),
     })
       .then(d => {
         setShipments(d.shipments || []);
@@ -1163,18 +1166,38 @@ export default function Estimate() {
     const t = setTimeout(() => load(true), 200); // 입력 디바운스
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekNum, selectedCust?.CustKey, autoLoad, includeUnfixed]);
+  }, [weekNum, selectedCust?.CustKey, autoLoad, includeUnfixed, activeWD]);
 
-  // ── 출고 목록 행 클릭 → 해당 그룹의 모든 ShipmentKey 견적 상세 로드
+  // exe: GetDetail=전체 로드 → grdViewEstimate ActiveFilterString(WeekDay 코드)
+  const filterItemsByWeekday = useCallback(
+    (sourceItems) => {
+      const rows = sourceItems || [];
+      if (rows.length && rows.every((r) => r._exeParity && r.WeekDay != null)) {
+        return filterItemsByExeWeekDay(rows, activeWD);
+      }
+      return filterEstimateItemsByWeekday(rows, activeWD);
+    },
+    [activeWD],
+  );
+
+  // ── 출고 목록 행 클릭 → exe GetDetail 1회 조회 (FormEstimateView parity)
   const selectShipment = (groupId, custKey, shipmentKeys) => {
     setSelectedId(groupId);
     setSelectedCustKey(custKey);
     setItemLoading(true);
-    // ShipmentKeys가 여러 개인 경우 모두 로드 후 합산
-    const keys = (shipmentKeys || '').split(',').map(Number).filter(Boolean);
-    Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then(d => d.items || [])))
-      .then(results => setItems(results.flat()))
-      .catch(() => setItems([]))
+    const detailParams = {
+      week: weekNum,
+      custKey,
+      byDate: 1,
+      itemsOnly: 1,
+    };
+    apiGet('/api/estimate', detailParams)
+      .then((d) => setItems(d.items || []))
+      .catch(() => {
+        const keys = (shipmentKeys || '').split(',').map(Number).filter(Boolean);
+        return Promise.all(keys.map((sk) => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then((r) => r.items || [])))
+          .then((results) => setItems(results.flat()));
+      })
       .finally(() => setItemLoading(false));
     // 주문 vs 출고 불일치 자동 검증
     if (custKey && weekNum) {
@@ -1187,12 +1210,24 @@ export default function Estimate() {
   const reloadSelectedShipmentItems = useCallback(async () => {
     const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
     if (!ship) return [];
-    const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-    const results = await Promise.all(keys.map(sk => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then(d => d.items || [])));
-    const nextItems = results.flat();
-    setItems(nextItems);
-    return nextItems;
-  }, [selectedId, shipments]);
+    try {
+      const d = await apiGet('/api/estimate', {
+        week: weekNum,
+        custKey: ship.CustKey,
+        byDate: 1,
+        itemsOnly: 1,
+      });
+      const nextItems = d.items || [];
+      setItems(nextItems);
+      return nextItems;
+    } catch {
+      const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+      const results = await Promise.all(keys.map((sk) => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then((r) => r.items || [])));
+      const nextItems = results.flat();
+      setItems(nextItems);
+      return nextItems;
+    }
+  }, [selectedId, shipments, weekNum]);
 
   const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
 
@@ -1453,6 +1488,7 @@ export default function Estimate() {
           action: 'fix',
           force,
           ...(countryFlowers.length ? { countryFlowers } : {}),
+          ...(opts.autoStockAdd ? { autoStockAdd: true } : {}),
         });
         d = await reconcileFixResultAfterAmbiguousResponse(wk, d);
         if (!d.success) {
@@ -1957,12 +1993,8 @@ export default function Estimate() {
     setCostResult(null);
   }
 
-  // ── WeekDay 필터 적용 (7개 전체 선택 = 모두 표시, 일부 선택 = 해당 요일만)
+  // ── WeekDay 필터 (exe ActiveFilterString — filterItemsByWeekday 위에서 정의)
   const ALL_WD = ['월','화','수','목','금','토','일'];
-  const filterItemsByWeekday = useCallback(
-    (sourceItems) => filterEstimateItemsByWeekday(sourceItems, activeWD),
-    [activeWD],
-  );
   const filteredItems = filterItemsByWeekday(items);
 
   const printPreviewItems = useMemo(() => {
@@ -2023,6 +2055,48 @@ export default function Estimate() {
     if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
     openPrintDialog(printOpts.printFormat || ESTIMATE_PRINT_FORMAT.STATEMENT);
   };
+
+  /** exe btnExcel — GetExcelDetail → 이카운트 업로드 xlsx */
+  const handleEcountExcel = useCallback(async () => {
+    if (!weekNum) { alert('차수를 입력하세요.'); return; }
+    if (activeWD.size === 0) { alert('출고요일을 선택하세요.'); return; }
+
+    let targets = [];
+    if (selectedGroups.size > 0) {
+      targets = [...selectedGroups]
+        .map((id) => shipments.find((s) => `${s.ParentWeek}_${s.CustKey}` === id))
+        .filter(Boolean);
+    } else if (selectedShip) {
+      targets = [selectedShip];
+    } else {
+      alert('좌측에서 업체를 선택하거나 체크박스로 선택하세요.');
+      return;
+    }
+
+    const weekDays = [...activeWD].join(',');
+    const allRows = [];
+    try {
+      for (const ship of targets) {
+        const d = await apiGet('/api/estimate', {
+          view: 'excelDetail',
+          week: weekNum,
+          custKey: ship.CustKey,
+          weekDays,
+        });
+        if (d.success && d.rows?.length) allRows.push(...d.rows);
+      }
+      if (!allRows.length) {
+        alert('이카운트 업로드용 데이터가 없습니다. (확정 견적·EstQuantity>0·선택 요일)');
+        return;
+      }
+      const fname = `이카운트_견적업로드_${weekNum}차_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      downloadEcountUploadWorkbook(allRows, fname);
+      setSuccessMsg(`✅ 이카운트 Excel ${allRows.length}행 저장`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (e) {
+      alert(e.message || '이카운트 Excel 저장 실패');
+    }
+  }, [weekNum, activeWD, selectedGroups, selectedShip, shipments]);
 
   const openPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
     setPrintOpts(o => ({ ...o, outType: 'total', printFormat }));
@@ -2787,6 +2861,7 @@ export default function Estimate() {
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
           <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
           <button className="btn" onClick={handleOrderStatementExcel} title="주문등록(ViewOrder) 품목·단위·단가 기준 거래명세표 Excel">📥 주문→거래명세표 Excel</button>
+          <button className="btn" onClick={handleEcountExcel} title="nenova.exe GetExcelDetail — 이카운트 견적 업로드용">📤 이카운트 Excel</button>
           <button className="btn" onClick={handleExcel} title="인쇄와 동일한 양식으로 Excel 저장">📊 인쇄·엑셀</button>
           <button className="btn" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
@@ -3993,9 +4068,14 @@ export default function Estimate() {
                       <div style={{ fontSize: 11, marginBottom: 4 }}>
                         <span style={{ background: '#ffebee', color: '#b71c1c', padding: '1px 6px', borderRadius: 3, fontWeight: 700 }}>마이너스 잔량 {iss.negative.length}건</span>
                         <ul style={{ margin: '4px 0 0 16px', color: '#555' }}>
-                          {iss.negative.slice(0, 5).map((n, i) => (
-                            <li key={i}>{n.ProdName} (전재고 {n.prevStock} + 입고 {n.inQty} - 출고 {n.outQty} = {n.remain})</li>
+                          {iss.negative.slice(0, 30).map((n, i) => (
+                            <li key={i}>
+                              <b style={{ color: '#6a1b9a' }}>{n.FlowerName || ''}</b> {n.ProdName}
+                              {' '}— <b style={{ color: '#c62828' }}>부족 {Math.abs(Number(n.remain) || 0)}</b>
+                              <span style={{ color: '#999' }}> (전재고 {n.prevStock} + 입고 {n.inQty} - 출고 {n.outQty} = {n.remain})</span>
+                            </li>
                           ))}
+                          {iss.negative.length > 30 && <li style={{ color: '#999' }}>… 외 {iss.negative.length - 30}건</li>}
                         </ul>
                       </div>
                     )}
@@ -4037,6 +4117,26 @@ export default function Estimate() {
               {fixModal.stage === 'preview' && (
                 <>
                   <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
+                  {(() => {
+                    const negRows = Object.values(fixModal.allIssues || {}).flatMap(iss => iss.negative || []);
+                    if (!negRows.length) return null;
+                    return (
+                      <button
+                        className="btn"
+                        style={{ background: '#2e7d32', color: '#fff', borderColor: '#1b5e20', fontWeight: 700 }}
+                        onClick={() => {
+                          const lines = negRows.slice(0, 30).map(n =>
+                            `· ${n.FlowerName || ''} ${n.ProdName} : 부족 ${Math.abs(Number(n.remain) || 0)}`);
+                          const more = negRows.length > 30 ? `\n… 외 ${negRows.length - 30}건` : '';
+                          if (!confirm(`음수 잔량 ${negRows.length}건에 부족분만큼 재고를 자동 추가한 뒤 확정합니다.\n\n${lines.join('\n')}${more}\n\n진행하시겠습니까?`)) return;
+                          doFixAll(fixModal.weekList, false, [], { autoStockAdd: true });
+                        }}
+                        disabled={fixWorking}
+                      >
+                        📦 재고 추가 후 확정 (음수 {negRows.length}건)
+                      </button>
+                    );
+                  })()}
                   <button
                     className="btn"
                     style={{ background: '#c62828', color: '#fff', borderColor: '#a01818', fontWeight: 700 }}

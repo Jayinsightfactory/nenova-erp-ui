@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useLang } from '../../lib/i18n';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
@@ -14,26 +13,36 @@ export default function SalesManager() {
   const [curWeek, setCurWeek] = useState('');
   const [prevWeek, setPrevWeek] = useState('');
   const [loading, setLoading] = useState(true);
-  const weekInput = useWeekInput('');
+  const [searchDate, setSearchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [managerFilter, setManagerFilter] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
   const [err, setErr] = useState('');
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/stats/sales', { type: 'manager', week: weekInput.value, manager: managerFilter, area: areaFilter })
-      .then(d => { setData(d.data || []); setCurWeek(d.curWeek); setPrevWeek(d.prevWeek); setErr(''); })
+    apiGetExe('/api/stats/sales', {
+      type: 'manager',
+      searchDate,
+      manager: managerFilter,
+      area: areaFilter,
+    })
+      .then(d => {
+        setData(d.data || []);
+        setCurWeek(d.curWeek || d.orderYearWeek1?.substring(4) || '');
+        setPrevWeek(d.prevWeek || d.orderYearWeek2?.substring(4) || '');
+        setErr('');
+      })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (weekInput.value) load(); }, [weekInput.value]);
+  useEffect(() => { if (searchDate) load(); }, [searchDate]);
 
   const totalCur = data.reduce((a, b) => a + (b.curSales || 0), 0);
   const totalPrev = data.reduce((a, b) => a + (b.prevSales || 0), 0);
   const managers = [...new Set(data.map(r => r.manager).filter(Boolean))];
   const handleExport = () => {
-    downloadCsv(makeDatedFilename(`담당자실적_${curWeek || weekInput.value}`), [
+    downloadCsv(makeDatedFilename(`담당자실적_${curWeek || searchDate}`), [
       { label: '지역', value: r => r.area },
       { label: '담당자', value: r => r.manager },
       { label: '거래처명', value: r => r.CustName },
@@ -46,7 +55,8 @@ export default function SalesManager() {
   return (
     <div>
       <div className="filter-bar">
-        <WeekInput weekInput={weekInput} label="차수" />
+        <span className="filter-label">기준일</span>
+        <input type="date" className="filter-input" value={searchDate} onChange={e => setSearchDate(e.target.value)} />
         <span className="filter-label">담당자</span>
         <select className="filter-select" value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
           <option value="">전체</option>
@@ -66,7 +76,7 @@ export default function SalesManager() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">[{curWeek}] 지역별 담당자 실적</span>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>vs {prevWeek}</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>vs {prevWeek} (exe FormSalesManagerView)</span>
         </div>
         {loading ? <div className="skeleton" style={{ margin: 16, height: 300, borderRadius: 8 }}></div> : (
           <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>

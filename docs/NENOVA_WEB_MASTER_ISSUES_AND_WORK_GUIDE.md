@@ -17,6 +17,7 @@ deploy_head: f10dcce
 
 ```
 1. 본 문서 §5「열린 이슈」 + §2「불변식 9항」 스캔
+1b. 버그/회귀 의심 → docs/REGRESSION_PREVENTION_GUIDE.md 해당 도메인 표
 2. 수정 대상이 DB 쓰기면 → docs/PRE_WORK_CONFLICT_CHECK_2026-05-25.md 체크리스트
 3. 출고/주문/견적이면 → docs/ERP_COMPAT_INVARIANTS_2026-06-04.md (불변식 1~9)
 3b. 재고·확정·차주 잔량이면 → docs/STOCK_INTEGRITY_DESIGN.md (금지·체크리스트)
@@ -37,6 +38,7 @@ deploy_head: f10dcce
 
 | 목적 | 문서 |
 |------|------|
+| **재발 방지 패턴 원장** | [REGRESSION_PREVENTION_GUIDE.md](REGRESSION_PREVENTION_GUIDE.md) |
 | **작업 전 충돌 체크** | [PRE_WORK_CONFLICT_CHECK_2026-05-25.md](PRE_WORK_CONFLICT_CHECK_2026-05-25.md) |
 | **전산 호환 불변식 (필수)** | [ERP_COMPAT_INVARIANTS_2026-06-04.md](ERP_COMPAT_INVARIANTS_2026-06-04.md) |
 | **웹↔EXE 충돌 9건 + 해결** | [WEB_VS_ERP_CONFLICTS.md](WEB_VS_ERP_CONFLICTS.md) |
@@ -130,7 +132,8 @@ deploy_head: f10dcce
 | fix-cycle 다른 차수 | 확정 차수 오류 | edited weeks 수집 | ✅ |
 | Freedom 23-1/2 합산 | 출력 HTML 집계 | 코드 수정 | ✅ [ESTIMATE_PRINT_FREEDOM_23](ESTIMATE_PRINT_FREEDOM_23_FIX_2026-06-09.md) |
 | 견적 비고 `차감단가` 표시 | 단가 수정마다 비고 누적 | update-cost Descr 미기록 + API sanitize | ✅ |
-| Estimate.Descr 무한 append (`차감수량` 등) | 메모 비대 | 화면 sanitize ✅ · DB cap 미구현 | ⏸ |
+| **화면 비고 O · 인쇄 X** | byDate Descr 우선순위 + 합산 시 첫 행만 | `mergeEstimateDescrRaw` + `estimatePrintPrepare` 병합 | ✅ (미배포) |
+| Estimate.Descr 무한 append (`차감수량` 등) | 메모 비대 | 화면 sanitize ✅ · DB 트리거 · cap 미구현 | 🔶 트리거 운영 apply 확인 |
 | pivotStats StockMaster yws | full 포맷 경계 | ⏸ | 열림 |
 
 ### H. 확정 (isFix) / 부분확정
@@ -172,6 +175,8 @@ deploy_head: f10dcce
 |------|------|------|
 | 셀=adjust 주문+분배 동시 | 설계됨 | ✅ [week-pivot audit](work-reports/2026-06-16_week-pivot-order-distribute-audit.md) |
 | 엑셀 누락 행 삭제대상 | preview 보강 | ✅ |
+| **검증 후 비교표 빈 화면** | 적용대상 0 + 필터 | `전체` 자동·폴백 | ✅ (미배포) |
+| **확정차단 전체·적용 0** | FULLY_FIXED 품종 | 확정취소 후 적용 (정책) | 📋 UX 안내 |
 | 업로드 품종 일괄분배 (직접 INSERT) | **비활성화** | 🚫 의도적 차단 |
 | 전산 SP 버튼 | distribute-sp API | ✅ 2026-06-03 |
 
@@ -257,6 +262,8 @@ deploy_head: f10dcce
 
 ## 6. 재발 방지 — 코드 전 검색 키워드
 
+**패턴 원장:** [REGRESSION_PREVENTION_GUIDE.md](REGRESSION_PREVENTION_GUIDE.md) — 증상별 ID(G-03, J-01 등)와 테스트 매트릭스.
+
 ```bash
 # sd.isDeleted (500)
 rg "sd\.isDeleted" pages lib
@@ -270,8 +277,14 @@ rg "'관리자'" pages/api lib
 # ShipmentDate 동기화 누락 경로
 rg "ShipmentDetail" pages/api --glob "*.js" | rg -v syncShipmentDate
 
-# unit 없이 adjust
-rg "shipment/adjust" pages
+# Descr append (운영 로그 오염)
+rg "appendDescr|Descr.*append|차감수량|차감단가" pages/api lib
+
+# 견적 인쇄 비고 병합
+rg "mergeEstimateDescrRaw|DetailDescr|DateDescr|prepareEstimatePrintRows" lib pages
+
+# 분배 import 필터·확정차단
+rg "applyTarget|fixBlocked|pivotSourceRows" pages/shipment/distribute-import.js
 ```
 
 **테이블 함정:** `ShipmentDetail`에 `isDeleted`, `Cost`, `Amount`, `Vat` **없음** → `Product.Cost` / `CustomerProdCost` 사용.
@@ -326,13 +339,13 @@ npm run probe:estimate-24:strict
 | 하려는 작업 | 먼저 읽을 것 |
 |-------------|--------------|
 | 출고분배/ adjust / distribute | PRE_WORK + ERP_COMPAT §3~4 + OUTUNIT |
-| 견적서 API/UI | ERP_COMPAT + estimate work-reports + dnSpy MD |
+| 견적서 API/UI | **REGRESSION_PREVENTION §1** + ERP_COMPAT + estimate work-reports + dnSpy MD |
 | 붙여넣기/매칭 | PASTE_* + paste.js + §I |
 | 차수피벗 셀/주문추가 | week-pivot audit 2026-06-16 |
-| 엑셀 업로드 분배 | SHIPMENT_IMPORT_DATE + work_history 2026-06-03 차단 |
+| 엑셀 업로드 분배 | **REGRESSION_PREVENTION §2** + SHIPMENT_IMPORT_DATE + work_history 2026-06-03 차단 |
 | Pivot/도착원가 | PIVOT_DATA_SPEC + freight handoff |
 | 새 API INSERT | WEB_VS_ERP #1 + tryInsertWithRetry + syncKeyNumbering |
 
 ---
 
-*이 문서는 `work_history.md`, `.claude/PROGRESS.md`, `docs/work-reports/*` 갱신 시 함께 업데이트한다.*
+*이 문서는 `work_history.md`, `REGRESSION_PREVENTION_GUIDE.md`, `.claude/PROGRESS.md`, `docs/work-reports/*` 갱신 시 함께 업데이트한다.*

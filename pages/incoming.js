@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { apiGet } from '../lib/useApi';
+import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 import Head from 'next/head';
 
@@ -100,7 +100,7 @@ export default function Warehouse() {
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/warehouse', { startDate, endDate })
+    apiGetExe('/api/warehouse', { startDate, endDate })
       .then(d => { setMasters(d.masters||[]); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -120,7 +120,7 @@ export default function Warehouse() {
   const selectMaster = (wk) => {
     setSelectedKey(wk);
     setDetailLoading(true);
-    apiGet(`/api/warehouse/${wk}`)
+    apiGetExe(`/api/warehouse/${wk}`)
       .then(d => setDetails(d.items||[]))
       .catch(() => setDetails([]))
       .finally(() => setDetailLoading(false));

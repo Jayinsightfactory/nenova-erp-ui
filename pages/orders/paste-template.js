@@ -1,5 +1,5 @@
 // pages/orders/paste-template.js — 붙여넣기 주문등록용 주문 즐겨찾기 큰 창
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
@@ -102,6 +102,108 @@ function shiftWeekByOrder(value, delta) {
   return hasYear ? `${year}-${body}` : body;
 }
 
+function RegisterCustomerPicker({
+  registerCust,
+  favoriteCustName,
+  onSelect,
+  onReset,
+  disabled,
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const wrapRef = useRef(null);
+  const changed = favoriteCustName && registerCust?.custName
+    && String(registerCust.custName) !== String(favoriteCustName);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 1) {
+      setResults([]);
+      return undefined;
+    }
+    const t = setTimeout(() => {
+      setLoading(true);
+      apiGet('/api/customers/search', { q })
+        .then((d) => {
+          setResults(d.customers || []);
+          setOpen(true);
+        })
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const pick = (cust) => {
+    onSelect({ custKey: cust.CustKey, custName: cust.CustName || '' });
+    setQuery('');
+    setResults([]);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ display: 'grid', gap: 5, minWidth: 280, position: 'relative' }}>
+      <span style={{ fontSize: 12, fontWeight: 800, color: '#7c3aed' }}>등록 업체</span>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13, fontWeight: 900, color: '#0f172a' }}>
+          {registerCust?.custName || '업체 미선택'}
+        </span>
+        {changed && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '2px 8px' }}>
+            원본 {favoriteCustName}
+          </span>
+        )}
+        {changed && (
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={disabled}
+            style={{ height: 24, padding: '0 8px', border: '1px solid #cbd5e1', borderRadius: 5, background: '#fff', fontSize: 11, cursor: disabled ? 'not-allowed' : 'pointer' }}
+          >
+            원본으로
+          </button>
+        )}
+      </div>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => { if (results.length) setOpen(true); }}
+        disabled={disabled}
+        placeholder="다른 업체명 검색 후 선택"
+        style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', fontSize: 13, boxSizing: 'border-box', background: disabled ? '#f8fafc' : '#fff' }}
+      />
+      {open && results.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 220, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 24px rgba(15,23,42,0.12)', zIndex: 20 }}>
+          {results.map((cust) => (
+            <button
+              key={cust.CustKey}
+              type="button"
+              onClick={() => pick(cust)}
+              style={{ width: '100%', textAlign: 'left', border: 0, borderBottom: '1px solid #eef2f7', background: Number(registerCust?.custKey) === Number(cust.CustKey) ? '#f5f3ff' : '#fff', padding: '8px 10px', cursor: 'pointer' }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 13 }}>{cust.CustName}</div>
+              <div style={{ marginTop: 2, fontSize: 11, color: '#64748b' }}>
+                {[cust.CustArea, cust.Manager, cust.OrderCode].filter(Boolean).join(' · ')}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {loading && <span style={{ fontSize: 11, color: '#64748b' }}>검색 중…</span>}
+    </div>
+  );
+}
+
 function WeekInput({ label, value, onChange, weeks, accent }) {
   const listId = `${label.replace(/\s+/g, '-')}-weeks`;
   const shift = (delta) => onChange(shiftWeekByOrder(value, delta));
@@ -146,6 +248,11 @@ export default function PasteTemplateWindow() {
   const [status, setStatus] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [registerResult, setRegisterResult] = useState(null);
+  const [registerCust, setRegisterCust] = useState({ custKey: null, custName: '' });
+
+  const syncRegisterCust = (custKey, custName) => {
+    setRegisterCust({ custKey: custKey || null, custName: custName || '' });
+  };
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -217,6 +324,7 @@ export default function PasteTemplateWindow() {
       items,
       resultMsg: '',
     });
+    syncRegisterCust(order.custKey, order.custName);
     setRegisterResult(null);
     setSelectedFavoriteKey('');
     setStatus(`${order.custName || ''} 원본 주문 ${items.length}품목을 불러왔습니다.`);
@@ -244,7 +352,7 @@ export default function PasteTemplateWindow() {
   const loadFavoriteDraft = (favoriteKey) => {
     setSelectedFavoriteKey(favoriteKey);
     const fav = orderTemplates.find(f => Number(f.FavoriteKey) === Number(favoriteKey));
-    if (!fav?.data) { setDraft(null); return; }
+    if (!fav?.data) { setDraft(null); syncRegisterCust(null, ''); return; }
     setDraft({
       favoriteKey: fav.FavoriteKey,
       name: fav.FavName,
@@ -254,6 +362,7 @@ export default function PasteTemplateWindow() {
       items: (fav.data.items || []).map(it => ({ ...it, unit: normalizeOrderUnit(it.unit) })),
       resultMsg: '',
     });
+    syncRegisterCust(fav.data.custKey, fav.data.custName);
     setRegisterResult(null);
     setSelectedSourceId('');
     setStatus(`${fav.FavName} 즐겨찾기를 불러왔습니다.`);
@@ -327,6 +436,7 @@ export default function PasteTemplateWindow() {
       await apiDelete('/api/favorites', { favoriteKey: draft.favoriteKey });
       await loadTemplates();
       setDraft(null);
+      syncRegisterCust(null, '');
       setSelectedFavoriteKey('');
       setStatus('즐겨찾기를 삭제했습니다.');
     } catch (e) {
@@ -337,17 +447,18 @@ export default function PasteTemplateWindow() {
   };
 
   const registerDraft = async () => {
-    if (!draft?.custKey) { alert('등록할 거래처가 없습니다.'); return; }
+    if (!registerCust?.custKey) { alert('등록할 업체를 선택하세요.'); return; }
     const registerWeek = normalizeWeekInput(targetWeek);
     if (!registerWeek) { alert('등록대상 차수를 입력하세요.'); return; }
     setTargetWeek(registerWeek);
     const payload = payloadFromDraft();
     if (!payload.items.length) { alert('등록할 품목수량이 없습니다.'); return; }
-    if (!confirm(`${draft.custName} / ${formatWeekDisplay(registerWeek)}\n${payload.items.length}개 품목을 주문등록합니다.\n\n진행할까요?`)) return;
+    const registerLabel = registerCust.custName || draft?.custName || '';
+    if (!confirm(`${registerLabel} / ${formatWeekDisplay(registerWeek)}\n${payload.items.length}개 품목을 주문등록합니다.\n\n진행할까요?`)) return;
     setSaving(true);
     try {
       const d = await apiPost('/api/orders', {
-        custKey: draft.custKey,
+        custKey: registerCust.custKey,
         week: registerWeek,
         year: yearFromWeek(registerWeek),
         items: payload.items,
@@ -356,8 +467,8 @@ export default function PasteTemplateWindow() {
       });
       if (!d.success) throw new Error(d.error || '주문등록 실패');
 
-      const verify = await apiGet('/api/orders', { custName: draft.custName, week: registerWeek });
-      const verifiedOrder = (verify.orders || []).find(o => Number(o.custKey) === Number(draft.custKey)) || null;
+      const verify = await apiGet('/api/orders', { custName: registerLabel, week: registerWeek });
+      const verifiedOrder = (verify.orders || []).find(o => Number(o.custKey) === Number(registerCust.custKey)) || null;
       const resultRows = (d.results || []).map(r => {
         const draftItem = payload.items.find(it => Number(it.prodKey) === Number(r.prodKey)) || {};
         const verifiedItem = (verifiedOrder?.items || []).find(it => Number(it.prodKey) === Number(r.prodKey)) || null;
@@ -383,7 +494,7 @@ export default function PasteTemplateWindow() {
       setRegisterResult({
         orderMasterKey: d.orderMasterKey,
         week: registerWeek,
-        custName: draft.custName,
+        custName: registerLabel,
         source: d.source || 'real_db',
         message: d.message || '',
         warning: d.warning || '',
@@ -391,13 +502,13 @@ export default function PasteTemplateWindow() {
         rows: resultRows,
       });
       setDraft(prev => prev ? ({ ...prev, resultMsg: `주문등록 완료: OrderKey ${d.orderMasterKey} · 전산조회 ${okCount}/${resultRows.length}개 일치` }) : prev);
-      setStatus(`${draft.custName} / ${formatWeekDisplay(registerWeek)} 주문등록 완료 · 전산조회 ${okCount}/${resultRows.length}개 일치`);
+      setStatus(`${registerLabel} / ${formatWeekDisplay(registerWeek)} 주문등록 완료 · 전산조회 ${okCount}/${resultRows.length}개 일치`);
     } catch (e) {
       setDraft(prev => prev ? ({ ...prev, resultMsg: `주문등록 실패: ${e.message}` }) : prev);
       setRegisterResult({
         orderMasterKey: null,
         week: registerWeek,
-        custName: draft.custName,
+        custName: registerLabel,
         source: 'error',
         message: `주문등록 실패: ${e.message}`,
         warning: '',
@@ -514,11 +625,27 @@ export default function PasteTemplateWindow() {
                   disabled={!draft}
                   style={{ minWidth: 300, height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', fontSize: 14, fontWeight: 800, background: draft ? '#fff' : '#f8fafc' }}
                 />
-                <span style={{ fontSize: 13, fontWeight: 900, color: '#334155' }}>{draft?.custName || '업체 미선택'}</span>
                 {draft?.sourceWeek && <span style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fef3c7', borderRadius: 999, padding: '4px 9px' }}>원본 {formatWeekDisplay(draft.sourceWeek)}</span>}
                 {draft && <span style={{ fontSize: 12, fontWeight: 800, color: '#0f766e', background: '#ccfbf1', borderRadius: 999, padding: '4px 9px' }}>{draft.items?.length || 0}품목 · 합계 {fmtQty(totalQty)}</span>}
               </div>
-              <WeekInput label="등록대상 차수" value={targetWeek} onChange={changeTargetWeek} weeks={weeks} accent="#15803d" />
+              <div style={{ display: 'flex', gap: 14, alignItems: 'end', flexWrap: 'wrap' }}>
+                <RegisterCustomerPicker
+                  registerCust={registerCust}
+                  favoriteCustName={draft?.custName || ''}
+                  disabled={!draft || saving}
+                  onSelect={(cust) => {
+                    setRegisterResult(null);
+                    setRegisterCust(cust);
+                    setDraft(prev => prev ? ({ ...prev, resultMsg: '' }) : prev);
+                  }}
+                  onReset={() => {
+                    setRegisterResult(null);
+                    syncRegisterCust(draft?.custKey, draft?.custName);
+                    setDraft(prev => prev ? ({ ...prev, resultMsg: '' }) : prev);
+                  }}
+                />
+                <WeekInput label="등록대상 차수" value={targetWeek} onChange={changeTargetWeek} weeks={weeks} accent="#15803d" />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button
@@ -610,8 +737,8 @@ export default function PasteTemplateWindow() {
               </div>
               <button
                 onClick={registerDraft}
-                disabled={saving || !draft?.items?.length || !targetWeek}
-                style={{ height: 38, padding: '0 18px', border: 'none', borderRadius: 7, background: saving || !draft?.items?.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}
+                disabled={saving || !draft?.items?.length || !targetWeek || !registerCust?.custKey}
+                style={{ height: 38, padding: '0 18px', border: 'none', borderRadius: 7, background: saving || !draft?.items?.length || !registerCust?.custKey ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: saving ? 'wait' : 'pointer' }}
               >
                 등록대상 차수에 주문등록하기
               </button>

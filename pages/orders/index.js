@@ -6,7 +6,8 @@
 //   - 차수/품목 필터, 박스/단/송이 합계 표시
 
 import { useState, useEffect } from 'react';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
+import { mapExeOrderViewToOrders } from '../../lib/exeParity/mapResponses.js';
 import { useLang } from '../../lib/i18n';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -41,9 +42,15 @@ export default function OrderList() {
     // 차수 필터 있으면 날짜 무시하고 차수 기준 조회
     const params = weekFilter
       ? { week: weekFilter, custName }
-      : { startDate, endDate, custName };
-    apiGet('/api/orders', params)
-      .then(d => setOrders(d.orders || []))
+      : { startDate, endDate, custName, view: 'exe' };
+    apiGetExe('/api/orders', params)
+      .then((d) => {
+        if (d.rows && Array.isArray(d.rows)) {
+          setOrders(mapExeOrderViewToOrders(d.rows));
+        } else {
+          setOrders(d.orders || []);
+        }
+      })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };

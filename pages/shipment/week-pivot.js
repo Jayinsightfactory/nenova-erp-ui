@@ -366,6 +366,9 @@ export default function WeekPivot() {
   const [confirmedStocks, setConfirmedStocks] = useState({}); // 차수 확정(isFix=1)된 DB 잔량
   const [user,        setUser]        = useState(null);
   const [apiError,    setApiError]    = useState('');
+  const [showExeQtyPivot, setShowExeQtyPivot] = useState(false);
+  const [exeQtyRows, setExeQtyRows] = useState([]);
+  const [exeQtyLoading, setExeQtyLoading] = useState(false);
 
   // 공통 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
@@ -585,6 +588,21 @@ export default function WeekPivot() {
     } catch(e) { setApiError(e.message); }
     finally { setLoading(false); }
   }, [router, user?.userName, user?.userId]);
+
+  const loadExeQuantityPivot = useCallback(async (wf, wt) => {
+    if (!wf || !wt) return;
+    setExeQtyLoading(true);
+    try {
+      const qs = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=quantityPivot`;
+      const r = await fetch(`/api/shipment/stock-status?${qs}`);
+      const d = await r.json();
+      setExeQtyRows(d.success ? (d.rows || []) : []);
+    } catch {
+      setExeQtyRows([]);
+    } finally {
+      setExeQtyLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (weekFrom && weekTo) loadData(weekFrom, weekTo);
@@ -1761,6 +1779,18 @@ export default function WeekPivot() {
           style={{...hst.hBtn,background:'rgba(255,255,255,0.2)',border:'1px solid rgba(255,255,255,0.4)'}}>
           {loading?'로딩중...':'🔄 새로고침'}
         </button>
+        <button
+          onClick={() => {
+            const next = !showExeQtyPivot;
+            setShowExeQtyPivot(next);
+            if (next) loadExeQuantityPivot(weekFrom, weekTo);
+          }}
+          disabled={!hasWeek || exeQtyLoading}
+          style={{...hst.hBtn, background: showExeQtyPivot ? '#ff6f00' : 'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.35)'}}
+          title="nenova.exe FormQuantityPivot.GetData"
+        >
+          {exeQtyLoading ? 'exe피벗...' : '📋 exe 차수피벗'}
+        </button>
         <button onClick={()=>setShowAddOrder(true)}
           style={{...hst.hBtn,background:'#43a047',border:'1px solid #388e3c'}}>
           ➕ 주문추가
@@ -1908,6 +1938,45 @@ export default function WeekPivot() {
                 } catch(e){alert('오류: '+e.message);}
               }} style={{padding:'7px 20px',background:'#d32f2f',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontSize:12,fontWeight:700}}>삭제</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showExeQtyPivot && (
+        <div style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:'40vh',background:'#fff',borderTop:'2px solid #1976d2',boxShadow:'0 -4px 16px rgba(0,0,0,0.15)',zIndex:200,display:'flex',flexDirection:'column'}}>
+          <div style={{padding:'8px 12px',background:'#e3f2fd',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <strong style={{fontSize:13}}>exe FormQuantityPivot — {weekFrom} ~ {weekTo} ({exeQtyRows.length}행)</strong>
+            <button onClick={() => loadExeQuantityPivot(weekFrom, weekTo)} disabled={exeQtyLoading} style={{marginRight:8,padding:'4px 10px',fontSize:12}}>새로고침</button>
+            <button onClick={() => setShowExeQtyPivot(false)} style={{padding:'4px 10px',fontSize:12}}>닫기</button>
+          </div>
+          <div style={{overflow:'auto',flex:1}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+              <thead style={{position:'sticky',top:0,background:'#f5f5f5'}}>
+                <tr>
+                  <th style={{padding:4,textAlign:'left'}}>구분</th>
+                  <th style={{padding:4}}>차수</th>
+                  <th style={{padding:4,textAlign:'left'}}>품목</th>
+                  <th style={{padding:4,textAlign:'left'}}>거래처</th>
+                  <th style={{padding:4,textAlign:'right'}}>수량</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exeQtyRows.length === 0 ? (
+                  <tr><td colSpan={5} style={{textAlign:'center',padding:24,color:'#888'}}>{exeQtyLoading ? '로딩중...' : '데이터 없음'}</td></tr>
+                ) : exeQtyRows.slice(0, 500).map((r, i) => (
+                  <tr key={i} style={{borderBottom:'1px solid #eee'}}>
+                    <td style={{padding:'3px 6px'}}>{r.ListType}</td>
+                    <td style={{padding:'3px 6px',textAlign:'center'}}>{r.OrderWeek}</td>
+                    <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
+                    <td style={{padding:'3px 6px'}}>{r.CustName || '—'}</td>
+                    <td style={{padding:'3px 6px',textAlign:'right',fontFamily:'monospace'}}>{Number(r.Quantity || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {exeQtyRows.length > 500 && (
+              <div style={{padding:8,fontSize:11,color:'#888',textAlign:'center'}}>상위 500행만 표시 (전체 {exeQtyRows.length}행)</div>
+            )}
           </div>
         </div>
       )}

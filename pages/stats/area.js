@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useLang } from '../../lib/i18n';
 import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
@@ -12,18 +11,18 @@ export default function AreaSales() {
   const { t } = useLang();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const weekInput = useWeekInput('');
+  const [searchDate, setSearchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [err, setErr] = useState('');
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/stats/sales', { type: 'area', week: weekInput.value })
+    apiGetExe('/api/stats/sales', { type: 'area', searchDate })
       .then(d => { setData(d); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (weekInput.value) load(); }, [weekInput.value]);
+  useEffect(() => { if (searchDate) load(); }, [searchDate]);
 
   const byArea = data?.byArea || [];
   const allWeeks = data?.allWeeks || [];
@@ -38,7 +37,7 @@ export default function AreaSales() {
   });
 
   const handleExport = () => {
-    downloadSectionsCsv(makeDatedFilename(`지역별판매_${data?.curWeek || weekInput.value}`), [
+    downloadSectionsCsv(makeDatedFilename(`지역별판매_${data?.curWeek || searchDate}`), [
       {
         title: `[${data?.curWeek}] 지역별 판매액 비교`,
         columns: [
@@ -63,7 +62,8 @@ export default function AreaSales() {
   return (
     <div>
       <div className="filter-bar">
-        <WeekInput weekInput={weekInput} label="차수" />
+        <span className="filter-label">기준일</span>
+        <input type="date" className="filter-input" value={searchDate} onChange={e => setSearchDate(e.target.value)} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
           <button className="btn btn-secondary" onClick={handleExport} disabled={loading || !data}>{t('엑셀')}</button>

@@ -6,6 +6,13 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, validateOrderWeek, resolveOrderWeekQuery } from '../../../lib/orderUtils';
 import { withActionLog } from '../../../lib/withActionLog';
+import { useExeParityFlag } from '../../../lib/exeParity/common.js';
+import { sqlOrderViewGetData } from '../../../lib/exeOrderViewSql.js';
+import {
+  sqlOrderAddGetDataCountry,
+  sqlOrderAddGetDataFlower,
+  sqlOrderAddGetDataProduct,
+} from '../../../lib/exeOrderAddSql.js';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -133,26 +140,71 @@ export default withAuth(withActionLog(async function handler(req, res) {
 
 // ── 조회: 실제 DB ──────────────────────────────
 async function getOrders(req, res) {
-  const { week, startDate, endDate, custName } = req.query;
+  const { week, startDate, endDate, custName, countryFlower, exeParity, view, orderMasterKey } = req.query;
+  const useExe = useExeParityFlag(exeParity) || view === 'exe';
+
+  if (view === 'add' && orderMasterKey != null && String(orderMasterKey) !== '') {
+    try {
+      const mk = parseInt(orderMasterKey, 10);
+      const p = { orderMasterKey: { type: sql.Int, value: mk } };
+      const [products, flowers, countries] = await Promise.all([
+        query(sqlOrderAddGetDataProduct(), p),
+        query(sqlOrderAddGetDataFlower(), p),
+        query(sqlOrderAddGetDataCountry(), p),
+      ]);
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        orderMasterKey: mk,
+        products: products.recordset,
+        flowers: flowers.recordset,
+        countries: countries.recordset,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  if (useExe && startDate && endDate) {
+    try {
+      const params = {
+        startDate: { type: sql.Date, value: new Date(startDate) },
+        endDate: { type: sql.Date, value: new Date(endDate) },
+      };
+      if (countryFlower) params.countryFlower = { type: sql.NVarChar, value: countryFlower };
+      const result = await query(
+        sqlOrderViewGetData({ countryFlower: countryFlower || null }),
+        params
+      );
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', rows: result.recordset });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 
   let where = 'WHERE 1=1';
   const params = {};
 
   if (week) {
-    const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-    where += ' AND vo.OrderWeek = @week';
-    params.week = { type: sql.NVarChar, value: normWeek };
-    // 연도 필터 — '29-01'만으로 조회 시 2025/2026 이 섞여 25년 주문이 매칭되던 버그 방지.
-    let orderYear = req.query.year;
-    try { orderYear = orderYear || resolveOrderWeekQuery(week).year; } catch { /* keep param */ }
-    if (orderYear) {
-      if (orderYear === '2025' || orderYear === '2024') {
-        // 구형 레거시: OrderYear 가 비어있는 옛 행도 포함
-        where += ` AND (vo.OrderYear = @orderYear OR vo.OrderYear IS NULL OR vo.OrderYear = N'')`;
-      } else {
-        where += ' AND vo.OrderYear = @orderYear';
+    try {
+      const yearParam = req.query.year;
+      const v = validateOrderWeek(String(week));
+      const resolved = resolveOrderWeekQuery(week);
+      const orderYear = yearParam || resolved.year;
+      where += ' AND vo.OrderWeek = @week';
+      params.week = { type: sql.NVarChar, value: v.week };
+      if (orderYear) {
+        if (orderYear === '2025' || orderYear === '2024') {
+          where += ` AND (vo.OrderYear = @orderYear OR vo.OrderYear IS NULL OR vo.OrderYear = N'')`;
+        } else {
+          where += ' AND vo.OrderYear = @orderYear';
+        }
+        params.orderYear = { type: sql.NVarChar, value: String(orderYear) };
       }
-      params.orderYear = { type: sql.NVarChar, value: String(orderYear) };
+    } catch {
+      const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
+      where += ' AND vo.OrderWeek = @week';
+      params.week = { type: sql.NVarChar, value: normWeek };
     }
   }
   if (startDate) {
@@ -275,7 +327,8 @@ async function createOrder(req, res) {
     let orderYear, orderWeek;
     try {
       const v = validateOrderWeek(week || '');
-      orderYear = v.year || year || new Date().getFullYear().toString();
+      const resolved = resolveOrderWeekQuery(week || '');
+      orderYear = v.year || year || resolved.year || new Date().getFullYear().toString();
       orderWeek = v.week;
     } catch (e) {
       await appLog('createOrder', '검증실패', e.message, true);
@@ -288,18 +341,26 @@ async function createOrder(req, res) {
     const mgrRow = await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
     const mgr = mgrRow.recordset[0]?.UserID || 'admin';
 
-    await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} wk=${orderWeek}`);
+    await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} yr=${orderYear} wk=${orderWeek}`);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys } = await withTransaction(async (tQuery) => {
-      // 기존 OrderMaster 확인 (같은 업체+차수)
+      // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       const existing = await tQuery(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
          WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+           AND (
+             OrderYear = @year
+             OR (@year IN (N'2025', N'2024') AND (OrderYear IS NULL OR OrderYear = N''))
+           )
          ORDER BY OrderMasterKey ASC`,
-        { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: orderWeek } }
+        {
+          ck: { type: sql.Int, value: resolvedCustKey },
+          wk: { type: sql.NVarChar, value: orderWeek },
+          year: { type: sql.NVarChar, value: orderYear },
+        }
       );
 
       let mk;

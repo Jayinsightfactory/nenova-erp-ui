@@ -1,10 +1,19 @@
-// pages/api/shipment/[id].js — 출고 상세 조회
+// pages/api/shipment/[id].js — exe FormShipmentView.GetDetail
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { useExeParityFlag } from '../../../lib/exeParity/common.js';
+import { sqlShipmentViewGetDetail } from '../../../lib/exeShipmentViewSql.js';
 
 export default withAuth(async function handler(req, res) {
-  const { id } = req.query;
+  const { id, exeParity } = req.query;
+  const useExe = useExeParityFlag(exeParity);
   try {
+    if (useExe) {
+      const result = await query(sqlShipmentViewGetDetail(), {
+        shipmentKey: { type: sql.Int, value: parseInt(id, 10) },
+      });
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', items: result.recordset });
+    }
     const result = await query(
       `SELECT
         sd.SdetailKey, sd.ShipmentKey, sd.ProdKey,
@@ -17,7 +26,7 @@ export default withAuth(async function handler(req, res) {
        JOIN Product p ON sd.ProdKey = p.ProdKey
        WHERE sd.ShipmentKey = @id
        ORDER BY p.CounName, p.FlowerName, p.ProdName`,
-      { id: { type: sql.Int, value: parseInt(id) } }
+      { id: { type: sql.Int, value: parseInt(id, 10) } }
     );
     return res.status(200).json({ success: true, source: 'real_db', items: result.recordset });
   } catch (err) {

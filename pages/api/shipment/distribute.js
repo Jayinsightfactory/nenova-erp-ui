@@ -10,6 +10,16 @@ import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils'
 import { changeEntry } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
+import { buildProdGroupWhere, loadShipmentProdGroups, parseProdGroupKey, prodGroupLabel } from '../../../lib/shipmentProdGroups.js';
+import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
+import {
+  sqlDistributeGetProductList,
+  sqlDistributeGetCustomerList,
+  sqlDistributeGetCustWeekGrid,
+  sqlDistributeGetProductShipmentGrid,
+  sqlDistributeGetShipmentFarmGrid,
+  sqlDistributeGetPivotData,
+} from '../../../lib/exeShipmentDistributionSql.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -207,21 +217,127 @@ export default withAuth(withActionLog(async function handler(req, res) {
   return res.status(405).end();
 }, { actionType: 'SHIPMENT_WRITE', affectedTable: 'ShipmentMaster/Detail', riskLevel: 'HIGH' }));
 
+async function resolveDistributeWeekMeta(week) {
+  const r = await query(
+    `SELECT TOP 1 OrderYear, OrderWeek, OrderYearWeek FROM ShipmentMaster
+      WHERE OrderWeek=@w AND isDeleted=0 ORDER BY CreateDtm DESC`,
+    { w: { type: sql.NVarChar, value: week } }
+  );
+  const row = r.recordset[0] || {};
+  const oyw = normalizeOrderYearWeek2(row.OrderYearWeek || week.replace(/-/g, ''));
+  return {
+    orderYear: String(row.OrderYear || new Date().getFullYear()),
+    orderWeek: row.OrderWeek || week,
+    orderYearWeek: oyw,
+    orderYearWeekPrefix: oyw.substring(0, 6),
+  };
+}
+
+function countryFlowerFromProdGroup(prodGroup) {
+  const parsed = parseProdGroupKey(prodGroup);
+  if (!parsed) return null;
+  if (parsed.countryFlower) return parsed.countryFlower;
+  if (parsed.country && parsed.flower) return prodGroupLabel(parsed.country, parsed.flower);
+  return null;
+}
+
+function mapExeDistributeProductRow(row) {
+  return {
+    ProdKey: row.ProdKey,
+    ProdName: row.ProdName,
+    OutUnit: row.OutUnit,
+    EstUnit: row.EstUnit,
+    prevStock: Number(row.BeforeStock) || 0,
+    inQty: Number(row.wOutQuantity) || 0,
+    outQty: Number(row.sOutQuantity) || 0,
+    orderQty: Number(row.wOutQuantity) || 0,
+    Stock: Number(row.Stock) || 0,
+    wBoxQuantity: row.wBoxQuantity,
+    wBunchQuantity: row.wBunchQuantity,
+    wSteamQuantity: row.wSteamQuantity,
+    sEstQuantity: row.sEstQuantity,
+    _exeParity: true,
+  };
+}
+
+function mapExeProductShipmentRow(row) {
+  const orderQty = Number(row.oOutQuantity) || 0;
+  const outQty = Number(row.sOutQuantity) || 0;
+  return {
+    CustKey: row.CustKey,
+    CustName: row.CustName,
+    SdetailKey: row.SdetailKey,
+    ProdKey: row.ProdKey,
+    주문코드: row.OrderCode,
+    단위: row.OutUnit,
+    주문수량: orderQty,
+    출고수량: outQty,
+    차이: orderQty - outQty,
+    출고Box: row.sBoxQuantity,
+    출고Bunch: row.sBunchQuantity,
+    출고Steam: row.sSteamQuantity,
+    Cost: Number(row.Cost) || 0,
+    비고: row.Descr || '',
+    EstUnit: row.EstUnit,
+    BunchOf1Box: row.BunchOf1Box,
+    SteamOf1Bunch: row.SteamOf1Bunch,
+    SteamOf1Box: row.SteamOf1Box,
+    _exeParity: true,
+  };
+}
+
 async function getDistribute(req, res) {
-  let { type, week, prodGroup, custKey } = req.query;
+  let { type, week, prodGroup, custKey, countryFlower, exeParity } = req.query;
+  const useExe = useExeParityFlag(exeParity);
   if (week) week = normalizeOrderWeek(week);
 
   try {
+    // ── 품목그룹 목록 (CounName+FlowerName — nenova.exe / 주문등록 동일)
+    if (type === 'groups') {
+      const groups = await loadShipmentProdGroups(query, { week: week || undefined });
+      return res.status(200).json({ success: true, groups });
+    }
+
     // ── 품목 목록 (왼쪽 패널): 차수+품목그룹 기준 입고/출고/현재고
     if (type === 'products') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
-      let prodWhere = '';
-      const params = { week: { type: sql.NVarChar, value: week } };
-      if (prodGroup) {
-        prodWhere = 'AND p.CountryFlower = @pg';
-        params.pg = { type: sql.NVarChar, value: prodGroup };
+      if (useExe && countryFlower) {
+        const meta = await resolveDistributeWeekMeta(week);
+        const before = await resolveBeforeOrderYearWeek(query, sql, meta.orderYearWeek);
+        const result = await query(sqlDistributeGetProductList(), {
+          orderYear: { type: sql.NVarChar, value: meta.orderYear },
+          orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+          countryFlower: { type: sql.NVarChar, value: countryFlower },
+          beforeOrderYearWeek: { type: sql.NVarChar, value: before || meta.orderYearWeek },
+        });
+        return res.status(200).json({
+          success: true,
+          source: 'real_db_exe_parity',
+          products: result.recordset.map(mapExeDistributeProductRow),
+        });
       }
+
+      const cfFromGroup = countryFlowerFromProdGroup(prodGroup);
+      if (useExe && cfFromGroup) {
+        const meta = await resolveDistributeWeekMeta(week);
+        const before = await resolveBeforeOrderYearWeek(query, sql, meta.orderYearWeek);
+        const result = await query(sqlDistributeGetProductList(), {
+          orderYear: { type: sql.NVarChar, value: meta.orderYear },
+          orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+          countryFlower: { type: sql.NVarChar, value: cfFromGroup },
+          beforeOrderYearWeek: { type: sql.NVarChar, value: before || meta.orderYearWeek },
+        });
+        return res.status(200).json({
+          success: true,
+          source: 'real_db_exe_parity',
+          products: result.recordset.map(mapExeDistributeProductRow),
+        });
+      }
+
+      const params = { week: { type: sql.NVarChar, value: week } };
+      const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
+      Object.assign(params, groupParams);
 
       const result = await query(
         `SELECT
@@ -270,6 +386,26 @@ async function getDistribute(req, res) {
     if (type === 'custDist') {
       const { prodKey } = req.query;
       if (!week || !prodKey) return res.status(400).json({ success: false, error: 'week, prodKey 필요' });
+
+      if (useExe) {
+        const meta = await resolveDistributeWeekMeta(week);
+        const result = await query(sqlDistributeGetProductShipmentGrid(), {
+          orderYear: { type: sql.NVarChar, value: meta.orderYear },
+          orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+          prodKey: { type: sql.Int, value: parseInt(prodKey, 10) },
+        });
+        const customers = result.recordset.map(mapExeProductShipmentRow);
+        const totalOrder = customers.reduce((a, b) => a + (b.주문수량 || 0), 0);
+        const totalOut = customers.reduce((a, b) => a + (b.출고수량 || 0), 0);
+        return res.status(200).json({
+          success: true,
+          source: 'real_db_exe_parity',
+          customers,
+          totalOrder,
+          totalOut,
+          remain: totalOrder - totalOut,
+        });
+      }
 
       const result = await query(
         `SELECT
@@ -352,6 +488,74 @@ async function getDistribute(req, res) {
       return res.status(200).json({ success: true, source: 'real_db', items: result.recordset });
     }
 
+    // ── exe GetCustomerList (업체 탭)
+    if (type === 'customers') {
+      if (!week || !countryFlower) return res.status(400).json({ success: false, error: 'week, countryFlower 필요' });
+      const meta = await resolveDistributeWeekMeta(week);
+      const result = await query(sqlDistributeGetCustomerList(), {
+        orderYear: { type: sql.NVarChar, value: meta.orderYear },
+        orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+        countryFlower: { type: sql.NVarChar, value: countryFlower },
+      });
+      return res.status(200).json({
+        success: true,
+        source: useExe ? 'real_db_exe_parity' : 'real_db',
+        customers: result.recordset,
+      });
+    }
+
+    // ── exe 요일별 출고 그리드 (거래처 선택 후)
+    if (type === 'custWeekGrid') {
+      if (!week || !custKey || !countryFlower) {
+        return res.status(400).json({ success: false, error: 'week, custKey, countryFlower 필요' });
+      }
+      const meta = await resolveDistributeWeekMeta(week);
+      const result = await query(sqlDistributeGetCustWeekGrid(), {
+        orderYear: { type: sql.NVarChar, value: meta.orderYear },
+        orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+        countryFlower: { type: sql.NVarChar, value: countryFlower },
+        custKey: { type: sql.Int, value: parseInt(custKey, 10) },
+        orderYearWeekPrefix: { type: sql.NVarChar, value: meta.orderYearWeekPrefix },
+      });
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', rows: result.recordset });
+    }
+
+    // ── exe GetPivotData (출고 분배 집계)
+    if (type === 'pivot') {
+      const cf = countryFlower || countryFlowerFromProdGroup(prodGroup);
+      if (!week || !cf) {
+        return res.status(400).json({ success: false, error: 'week, countryFlower(또는 prodGroup) 필요' });
+      }
+      const meta = await resolveDistributeWeekMeta(week);
+      const result = await query(sqlDistributeGetPivotData(), {
+        orderYear: { type: sql.NVarChar, value: meta.orderYear },
+        orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
+        countryFlower: { type: sql.NVarChar, value: cf },
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        rows: result.recordset,
+      });
+    }
+
+    // ── exe grdViewShipment_FocusedRowChanged (농장 잔량)
+    if (type === 'shipmentFarms') {
+      const { prodKey, sdetailKey } = req.query;
+      if (!prodKey || !sdetailKey) {
+        return res.status(400).json({ success: false, error: 'prodKey, sdetailKey 필요' });
+      }
+      const result = await query(sqlDistributeGetShipmentFarmGrid(), {
+        prodKey: { type: sql.Int, value: parseInt(prodKey, 10) },
+        sdetailKey: { type: sql.Int, value: parseInt(sdetailKey, 10) },
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_parity',
+        farms: result.recordset,
+      });
+    }
+
     // ── 거래처 목록 (드롭다운용)
     if (type === 'custList') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
@@ -399,12 +603,9 @@ async function getDistribute(req, res) {
     if (type === 'summary') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
-      let prodWhere = '';
       const params = { week: { type: sql.NVarChar, value: week } };
-      if (prodGroup) {
-        prodWhere = 'AND p.CountryFlower = @pg';
-        params.pg = { type: sql.NVarChar, value: prodGroup };
-      }
+      const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
+      Object.assign(params, groupParams);
 
       // 거래처 목록
       const custResult = await query(
@@ -442,7 +643,7 @@ async function getDistribute(req, res) {
       });
     }
 
-    return res.status(400).json({ success: false, error: 'type 파라미터 필요 (products|custDist|custItems|custList|dates|summary)' });
+    return res.status(400).json({ success: false, error: 'type 파라미터 필요 (groups|products|custDist|custItems|custList|dates|summary)' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

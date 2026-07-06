@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCurrentWeek } from '../../lib/useWeekInput';
-import { apiGet } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useLang } from '../../lib/i18n';
 import { downloadSectionsCsv, makeDatedFilename } from '../../lib/exportUtils';
 
@@ -10,20 +9,18 @@ export default function SalesAnalysis() {
   const { t } = useLang();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [week, setWeek] = useState('');
+  const [searchDate, setSearchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [err, setErr] = useState('');
 
   const load = () => {
     setLoading(true);
-    apiGet('/api/stats/sales', { type: 'analysis', week })
+    apiGetExe('/api/stats/sales', { type: 'analysis', searchDate })
       .then(d => { setData(d); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { setWeek(getCurrentWeek()); }, []);
-
-  useEffect(() => { if (week) load(); }, [week]);
+  useEffect(() => { if (searchDate) load(); }, [searchDate]);
 
   if (loading) return <div className="skeleton" style={{height:400,borderRadius:12}}></div>;
 
@@ -40,7 +37,7 @@ export default function SalesAnalysis() {
   const prevDefect = defects.reduce((a,b)=>a+(b.prevAmount||0),0);
 
   const handleExport = () => {
-    downloadSectionsCsv(makeDatedFilename(`매출물량분석_${data?.curWeek || week}`), [
+    downloadSectionsCsv(makeDatedFilename(`매출물량분석_${data?.curWeek || searchDate}`), [
       {
         title: `[${data?.curWeek}] 매출액`,
         columns: [
@@ -85,8 +82,8 @@ export default function SalesAnalysis() {
   return (
     <div>
       <div className="filter-bar">
-        <span className="filter-label">차수</span>
-        <input className="filter-input" placeholder="빈칸=최신" value={week} onChange={e=>setWeek(e.target.value)} style={{width:100}} />
+        <span className="filter-label">기준일</span>
+        <input type="date" className="filter-input" value={searchDate} onChange={e => setSearchDate(e.target.value)} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>{t('조회')}</button>
           <button className="btn btn-secondary" onClick={handleExport}>{t('엑셀')}</button>

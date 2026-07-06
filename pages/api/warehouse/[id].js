@@ -1,10 +1,19 @@
-// pages/api/warehouse/[id].js — 입고 상세 (오른쪽 패널)
+// pages/api/warehouse/[id].js — exe FormWarehouseView.GetDetail
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { useExeParityFlag } from '../../../lib/exeParity/common.js';
+import { sqlWarehouseViewGetDetail } from '../../../lib/exeWarehouseViewSql.js';
 
 export default withAuth(async function handler(req, res) {
-  const { id } = req.query;
+  const { id, exeParity } = req.query;
+  const useExe = useExeParityFlag(exeParity);
   try {
+    if (useExe) {
+      const result = await query(sqlWarehouseViewGetDetail(), {
+        warehouseKey: { type: sql.Int, value: parseInt(id, 10) },
+      });
+      return res.status(200).json({ success: true, source: 'real_db_exe_parity', items: result.recordset });
+    }
     const result = await query(
       `SELECT wd.WdetailKey, wd.ProdKey,
         ISNULL(p.ProdName, '') AS ProdName,

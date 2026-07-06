@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
- * ShipmentDetail ↔ ShipmentDate Amount/Vat 불일치 복구
+ * ShipmentDetail ↔ ShipmentDate Amount/Vat 불일치 복구 (레거시 수동용)
  * node scripts/repair-sdetail-date-amount.mjs [SdetailKey] [--dry-run]
+ *
+ * ⚠️ Detail.Amount 가 이미 틀린 경우(희경 740×Cost 유형) Date 를 Detail 로 맞추면 악화됨.
+ *    먼저 Detail EstQuantity/Amount 가 exe 규칙(OutQuantity×EstUnit)과 맞는지 확인할 것.
  */
 import fs from 'fs';
 import path from 'path';

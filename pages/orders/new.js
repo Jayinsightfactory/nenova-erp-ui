@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
+import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 import { useColumnResize } from '../../lib/useColumnResize';
@@ -49,6 +50,15 @@ export default function OrderNew() {
 
   // 수량: { prodKey: { box, bunch, steam } }
   const [quantities, setQuantities] = useState({});
+
+  const [orderMasterKey, setOrderMasterKey] = useState(null);
+  // exe FormOrderAdd 3-grid
+  const [exeCountries, setExeCountries] = useState([]);
+  const [exeFlowers, setExeFlowers] = useState([]);
+  const [exeProducts, setExeProducts] = useState([]);
+  const [exeSelCountry, setExeSelCountry] = useState(null);
+  const [exeSelFlower, setExeSelFlower] = useState(null);
+  const [exeGridMode, setExeGridMode] = useState(false);
 
   // UI 상태
   const [saving, setSaving] = useState(false);
@@ -161,7 +171,73 @@ export default function OrderNew() {
       .finally(() => setProdLoading(false));
   };
 
-  // ── 필터된 그룹 (왼쪽 패널 검색)
+  const loadExeAddGrids = async (mk = 0) => {
+    try {
+      const add = await apiGetExe('/api/orders', { orderMasterKey: mk || 0, view: 'add' });
+      const countries = add.countries || [];
+      const flowers = add.flowers || [];
+      const products = add.products || [];
+      setExeCountries(countries);
+      setExeFlowers(flowers);
+      setExeProducts(products);
+      setExeGridMode(true);
+      if (countries[0]) applyExeCountry(countries[0], flowers, products);
+      else {
+        setExeSelCountry(null);
+        setExeSelFlower(null);
+        setProdList([]);
+      }
+      return { countries, flowers, products };
+    } catch {
+      setExeGridMode(false);
+      return null;
+    }
+  };
+
+  const applyExeProducts = (countryFlower, flowerName, products = exeProducts) => {
+    const list = products.filter(
+      (p) => p.CountryFlower === countryFlower && p.FlowerName === flowerName
+    );
+    setProdList(list);
+    setSelectedGroup(null);
+  };
+
+  const applyExeFlower = (countryRow, flowerRow, products = exeProducts) => {
+    setExeSelFlower(flowerRow);
+    applyExeProducts(countryRow.CountryFlower, flowerRow.FlowerName, products);
+  };
+
+  const applyExeCountry = (row, flowers = exeFlowers, products = exeProducts) => {
+    setExeSelCountry(row);
+    if (row.isSelectFlower) {
+      const filtered = flowers
+        .filter((f) => f.CounName === row.CountryFlower)
+        .sort((a, b) => (Number(b.OrderCnt) - Number(a.OrderCnt))
+          || String(a.FlowerName || '').localeCompare(String(b.FlowerName || ''), 'ko'));
+      if (filtered[0]) applyExeFlower(row, filtered[0], products);
+      else {
+        setExeSelFlower(null);
+        setProdList([]);
+      }
+    } else {
+      const flowerName = row.FlowerName || '';
+      setExeSelFlower({ FlowerName: flowerName });
+      applyExeProducts(row.CountryFlower, flowerName, products);
+    }
+  };
+
+  const filteredExeCountries = exeCountries.filter((c) =>
+    !groupSearch
+    || (c.CountryFlower || '').includes(groupSearch)
+    || (c.FlowerName || '').includes(groupSearch)
+  );
+
+  const filteredExeFlowers = (exeSelCountry?.isSelectFlower
+    ? exeFlowers.filter((f) => f.CounName === exeSelCountry.CountryFlower)
+    : []
+  ).sort((a, b) => (Number(b.OrderCnt) - Number(a.OrderCnt))
+    || String(a.FlowerName || '').localeCompare(String(b.FlowerName || ''), 'ko'));
+
   const filteredGroups = groupSearch
     ? prodGroups.filter(g => g.label.includes(groupSearch) || g.country.includes(groupSearch) || g.flower.includes(groupSearch))
     : prodGroups;
@@ -322,6 +398,9 @@ export default function OrderNew() {
     setGroupSearch(''); setProdSearch('');
     setCollapsedCountries(new Set());
     setSelectedGroup(null); setProdList([]); setErr(''); setSuccessMsg('');
+    setOrderMasterKey(null);
+    setExeCountries([]); setExeFlowers([]); setExeProducts([]);
+    setExeSelCountry(null); setExeSelFlower(null); setExeGridMode(false);
   };
 
   // ── 조회 (거래처+차수 기준 기존 주문 로드)
@@ -333,29 +412,54 @@ export default function OrderNew() {
       const d = await apiGet('/api/orders', { custName: selectedCust.CustName, week: weekInput.value });
       const found = d.orders?.[0];
       if (!found || !found.items?.length) {
+        setOrderMasterKey(null);
+        setQuantities({});
+        await loadExeAddGrids(0);
         setSuccessMsg(`[${weekInput.value}] ${selectedCust.CustName} 기존 주문이 없습니다. 수량을 입력하세요.`);
         setTimeout(() => setSuccessMsg(''), 3000);
         return;
       }
-      // 기존 주문 수량을 quantities에 로드
-      const newQty = {};
-      found.items.forEach(item => {
-        if (!item.prodKey) return;
-        newQty[item.prodKey] = {
-          box:        item.unit === '박스' ? (item.boxQty || item.qty || 0) : 0,
-          bunch:      item.unit === '단'   ? (item.bunchQty || item.qty || 0) : 0,
-          steam:      item.unit === '송이' ? (item.steamQty || item.qty || 0) : 0,
-          // box/bunch/steam 모두 합산 (기존 프로그램은 단위별로 저장)
-          prodName:   item.prodName   || '',
-          counName:   item.counName   || '',
-          flowerName: item.flowerName || '',
-        };
-        // 여러 단위가 있을 경우 합산
-        if ((item.boxQty||0) > 0)   newQty[item.prodKey].box   = item.boxQty;
-        if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch = item.bunchQty;
-        if ((item.steamQty||0) > 0) newQty[item.prodKey].steam = item.steamQty;
-      });
+      const mk = found.id || found.orderMasterKey;
+      setOrderMasterKey(mk || null);
+
+      // exe FormOrderAdd.GetDataProduct — Box/Bunch/Steam 정확 매핑
+      let newQty = {};
+      if (mk) {
+        try {
+          const add = await apiGetExe('/api/orders', { orderMasterKey: mk, view: 'add' });
+          (add.products || []).forEach((p) => {
+            if (!(p.OrderBox || p.OrderBunch || p.OrderSteam || p.OrderCnt)) return;
+            newQty[p.ProdKey] = {
+              box: Number(p.OrderBox) || 0,
+              bunch: Number(p.OrderBunch) || 0,
+              steam: Number(p.OrderSteam) || 0,
+              prodName: p.ProdName || '',
+              counName: p.CounName || '',
+              flowerName: p.FlowerName || '',
+            };
+          });
+        } catch {
+          newQty = {};
+        }
+      }
+      if (Object.keys(newQty).length === 0) {
+        found.items.forEach(item => {
+          if (!item.prodKey) return;
+          newQty[item.prodKey] = {
+            box:        item.unit === '박스' ? (item.boxQty || item.qty || 0) : 0,
+            bunch:      item.unit === '단'   ? (item.bunchQty || item.qty || 0) : 0,
+            steam:      item.unit === '송이' ? (item.steamQty || item.qty || 0) : 0,
+            prodName:   item.prodName   || '',
+            counName:   item.counName   || '',
+            flowerName: item.flowerName || '',
+          };
+          if ((item.boxQty||0) > 0)   newQty[item.prodKey].box   = item.boxQty;
+          if ((item.bunchQty||0) > 0) newQty[item.prodKey].bunch = item.bunchQty;
+          if ((item.steamQty||0) > 0) newQty[item.prodKey].steam = item.steamQty;
+        });
+      }
       setQuantities(newQty);
+      await loadExeAddGrids(mk || 0);
       setSuccessMsg(`✅ [${weekInput.value}] 기존 주문 ${found.items.length}개 품목 로드됨`);
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch(e) { setErr(e.message); }
@@ -778,7 +882,7 @@ export default function OrderNew() {
         <div style={{ borderRight: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* 패널 헤더 */}
           <div style={{ padding: '3px 6px', background: 'var(--header-bg)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 'bold' }}>
-            ≡ 품목 정보
+            ≡ 품목 정보 {exeGridMode && <span style={{ color: 'var(--blue)', fontWeight: 'normal' }}>(exe)</span>}
           </div>
           {/* 검색 입력창 (빨간 표시된 부분) */}
           <div style={{ padding: '3px 4px', borderBottom: '1px solid var(--border)', background: '#FFF' }}>
@@ -800,6 +904,27 @@ export default function OrderNew() {
                 </tr>
               </thead>
               <tbody>
+                {exeGridMode ? (
+                  filteredExeCountries.map((c) => {
+                    const sel = exeSelCountry?.CountryFlower === c.CountryFlower
+                      && exeSelCountry?.FlowerName === c.FlowerName;
+                    const label = c.isSelectFlower ? c.CountryFlower : `${c.CountryFlower} ${c.FlowerName || ''}`.trim();
+                    return (
+                      <tr
+                        key={`${c.CounKey}-${c.CountryFlower}-${c.FlowerName}`}
+                        onClick={() => applyExeCountry(c)}
+                        style={{
+                          cursor: 'pointer',
+                          background: sel ? 'var(--blue-sel)' : Number(c.OrderCnt) > 0 ? '#FFFFD0' : undefined,
+                        }}
+                      >
+                        <td style={{ fontSize: 11, fontWeight: Number(c.OrderCnt) > 0 ? 'bold' : 'normal' }}>{label}</td>
+                        <td className="num" style={{ fontSize: 11 }}>{Number(c.OrderCnt || 0).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                <>
                 {/* 전체 보기 행 */}
                 <tr
                   onClick={() => { setSelectedGroup(null); setProdList([]); }}
@@ -852,6 +977,8 @@ export default function OrderNew() {
                     }) : []),
                   ];
                 })}
+                </>
+                )}
               </tbody>
               <tfoot>
                 <tr>
@@ -876,6 +1003,30 @@ export default function OrderNew() {
               {t('수량 초기화')}
             </button>
           </div>
+          {exeGridMode && exeSelCountry?.isSelectFlower && (
+            <div style={{ maxHeight: 120, overflowY: 'auto', borderBottom: '1px solid var(--border)' }}>
+              <table className="tbl" style={{ fontSize: 11 }}>
+                <thead>
+                  <tr><th>꽃종류</th><th style={{ textAlign: 'right' }}>주문수량</th></tr>
+                </thead>
+                <tbody>
+                  {filteredExeFlowers.map((f) => {
+                    const sel = exeSelFlower?.FlowerName === f.FlowerName;
+                    return (
+                      <tr
+                        key={f.FlowerKey || f.FlowerName}
+                        onClick={() => applyExeFlower(exeSelCountry, f)}
+                        style={{ cursor: 'pointer', background: sel ? 'var(--blue-sel)' : undefined }}
+                      >
+                        <td>{f.FlowerName}</td>
+                        <td className="num">{Number(f.OrderCnt || 0).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
           {/* 검색 입력창 (빨간 표시된 부분) */}
           <div style={{ padding: '3px 4px', borderBottom: '1px solid var(--border)', background: '#FFF', display: 'flex', gap: 4 }}>
             <input

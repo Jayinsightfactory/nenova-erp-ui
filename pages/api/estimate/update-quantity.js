@@ -2,57 +2,13 @@ import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
-import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
+import { estimateFromOutQuantity, shipmentUnitsFromUserInput } from '../../../lib/distributeUnits.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
   if (['단', 'bunch'].includes(u)) return '단';
   if (['송이', 'steam', 'stem'].includes(u)) return '송이';
   return '박스';
-}
-
-function positiveNumber(value) {
-  const n = Number(value || 0);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-function getUnitsPerBox(product) {
-  const rowBox = positiveNumber(product.BoxQuantity);
-  const rowBunch = positiveNumber(product.BunchQuantity);
-  const rowSteam = positiveNumber(product.SteamQuantity);
-  const rowBunchPerBox = rowBox > 0 && rowBunch > 0 ? rowBunch / rowBox : 0;
-  const rowSteamPerBox = rowBox > 0 && rowSteam > 0 ? rowSteam / rowBox : 0;
-
-  return {
-    bunchPerBox: rowBunchPerBox || positiveNumber(product.BunchOf1Box) || 10,
-    steamPerBox: rowSteamPerBox || positiveNumber(product.SteamOf1Box) || 0,
-  };
-}
-
-function toAllUnits(quantity, unit, product) {
-  const q = Number(quantity) || 0;
-  const { bunchPerBox: b1b, steamPerBox: s1b } = getUnitsPerBox(product);
-  const outUnit = normalizeUnit(product.OutUnit);
-  let box = 0;
-  let bunch = 0;
-  let steam = 0;
-
-  if (unit === '단') {
-    bunch = q;
-    box = b1b > 0 ? q / b1b : 0;
-    steam = b1b > 0 && s1b > 0 ? box * s1b : 0;
-  } else if (unit === '송이') {
-    steam = q;
-    box = s1b > 0 ? q / s1b : 0;
-    bunch = s1b > 0 && b1b > 0 ? box * b1b : 0;
-  } else {
-    box = q;
-    bunch = b1b > 0 ? q * b1b : 0;
-    steam = s1b > 0 ? q * s1b : 0;
-  }
-
-  const outQuantity = outUnit === '단' ? bunch : outUnit === '송이' ? steam : box;
-  return { box, bunch, steam, outQuantity };
 }
 
 export default withAuth(async function handler(req, res) {
@@ -178,7 +134,14 @@ export default withAuth(async function handler(req, res) {
         throw err;
       }
 
-      const next = toAllUnits(quantity, unit, row);
+      const product = {
+        OutUnit: row.OutUnit,
+        EstUnit: row.EstUnit,
+        BunchOf1Box: row.BunchOf1Box,
+        SteamOf1Bunch: row.SteamOf1Bunch,
+        SteamOf1Box: row.SteamOf1Box,
+      };
+      const next = shipmentUnitsFromUserInput(quantity, unit, product);
       const dateSummary = await tQ(
         `SELECT COUNT(*) AS dateCount,
                 ISNULL(SUM(ShipmentQuantity),0) AS dateQty
@@ -194,13 +157,6 @@ export default withAuth(async function handler(req, res) {
       if (next.outQuantity > 0 && dateCount === 0) {
         throw new Error('ShipmentDate가 없는 출고입니다. 출고분배 화면에서 출고일을 먼저 동기화한 뒤 수량을 수정하세요.');
       }
-      const product = {
-        OutUnit: row.OutUnit,
-        EstUnit: row.EstUnit,
-        BunchOf1Box: row.BunchOf1Box,
-        SteamOf1Bunch: row.SteamOf1Bunch,
-        SteamOf1Box: row.SteamOf1Box,
-      };
       const { estQty, amount, vat } = estimateFromOutQuantity(next.outQuantity, Number(row.Cost || 0), product);
 
       if (!isActiveShipmentOutQty(next.outQuantity)) {

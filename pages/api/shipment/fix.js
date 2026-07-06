@@ -589,6 +589,39 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
+  // ── 재고 추가 후 확정 — 음수(현재재고+입고+재고조정-출고<0) 품목에 부족분만큼
+  //    '재고조정'(+) 을 넣고 재고 재계산 → 확정 가능 상태로. (사용자 명시 옵션 autoStockAdd)
+  if (req.body?.autoStockAdd === true) {
+    const negForAdd = (await loadNegativeGuardRows(orderYear, orderWeek)).filter(r => Number(r.remain) < 0);
+    if (negForAdd.length) {
+      for (const r of negForAdd) {
+        const shortage = Math.abs(Number(r.remain) || 0);
+        const addQty = Math.ceil(shortage);
+        if (addQty <= 0) continue;
+        const before = Number(r.productStock ?? r.prevStock ?? 0);
+        await query(
+          `INSERT INTO StockHistory
+             (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ProdKey)
+           VALUES (GETDATE(), @yr, @wk, @uid, N'재고조정', N'재고수량', @before, @after, @descr, @pk)`,
+          {
+            yr: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: orderWeek },
+            uid: { type: sql.NVarChar, value: uid },
+            before: { type: sql.Float, value: before },
+            after: { type: sql.Float, value: before + addQty },
+            descr: { type: sql.NVarChar, value: `[확정용 재고추가] ${r.ProdName} 부족 ${shortage} 보충` },
+            pk: { type: sql.Int, value: Number(r.ProdKey) },
+          }
+        );
+      }
+      await runStockCalculationForProducts(
+        orderYear, orderWeek, uid, negForAdd.map(r => Number(r.ProdKey)),
+        { prefix: 'auto_stock_add', label: '재고추가후확정' }
+      );
+      await logFix('auto_stock_add', `${orderYear}/${orderWeek} added stock for ${negForAdd.length} products`);
+    }
+  }
+
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
   if (lowerUnfixedWeeks.length > 0) {
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
