@@ -1,0 +1,44 @@
+name: Renew SSL Cert (nenovaweb.com)
+
+# 수동 실행 전용 — Let's Encrypt 인증서 갱신 + nginx reload.
+# 만료/자동갱신 실패 시 GitHub Actions 탭에서 "Run workflow" 또는 gh workflow run 으로 실행.
+on:
+  workflow_dispatch:
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH certbot renew
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            set -e
+            echo "==================== [1/4] 현재 인증서 만료일 ===================="
+            echo | openssl s_client -connect nenovaweb.com:443 -servername nenovaweb.com 2>/dev/null | openssl x509 -noout -dates || true
+
+            echo "==================== [2/4] certbot 갱신 시도 ===================="
+            # 만료됐어도 renew 가 재발급함. nginx 플러그인 우선, 실패 시 webroot/standalone fallback 안내.
+            if ! certbot renew --non-interactive --force-renewal 2>&1; then
+              echo "⚠️ certbot renew 실패 — nginx 인증(HTTP-01, 80포트) 확인 필요"
+              certbot certificates 2>&1 | head -40 || true
+              exit 1
+            fi
+
+            echo "==================== [3/4] nginx 재적용 ===================="
+            if nginx -t; then
+              systemctl reload nginx || nginx -s reload
+              echo "nginx reloaded"
+            else
+              echo "❌ nginx -t 실패 — reload 건너뜀"; exit 1
+            fi
+
+            echo "==================== [4/4] 갱신 후 만료일 확인 ===================="
+            sleep 2
+            echo | openssl s_client -connect nenovaweb.com:443 -servername nenovaweb.com 2>/dev/null | openssl x509 -noout -dates -issuer
+            echo "✅ 인증서 갱신 완료"
