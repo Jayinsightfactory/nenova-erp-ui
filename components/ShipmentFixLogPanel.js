@@ -23,8 +23,8 @@ export default function ShipmentFixLogPanel({
     : '카테고리별 usp_ShipmentFix → 품목별 usp_StockCalculation 순차 실행.';
 
   return (
-    <div style={{ border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden' }}>
-      <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333' }}>
+    <div style={{ border:'1px solid #e0e0e0', borderRadius:8, overflow:'hidden', flex:'1 1 auto', display:'flex', flexDirection:'column', minHeight:0 }}>
+      <div style={{ padding:'7px 10px', background:'#fafafa', borderBottom:'1px solid #e0e0e0', fontSize:12, fontWeight:800, color:'#333', flex:'0 0 auto' }}>
         {action === 'unfix' ? '확정취소' : '확정'} 서버 로그
         {prog?.total ? (
           <span style={{ marginLeft:8, fontWeight:700, color: prog.isError ? '#c62828' : '#1565c0' }}>
@@ -47,7 +47,7 @@ export default function ShipmentFixLogPanel({
           })}
         </div>
       )}
-      <div style={{ maxHeight:320, overflowY:'auto', background:'#fff' }}>
+      <div style={{ flex:'1 1 auto', minHeight:140, maxHeight:'none', overflowY:'auto', background:'#fff' }}>
         {logs.length === 0 ? (
           <div style={{ padding:'10px', fontSize:12, color:'#777' }}>{emptyText}</div>
         ) : logs.map((l, i) => {

@@ -3950,11 +3950,12 @@ export default function Estimate() {
 
       {fixProgress && (
         <EstimateModalPortal onBackdropClick={e => e.stopPropagation()}>
-          <div className="modal" style={{ maxWidth: 920, width: 'min(96vw, 920px)' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+          <div className="modal" style={{ maxWidth: '98vw', width: 'min(98vw, 1200px)', height: '82vh', maxHeight: '94vh', minWidth: 420, minHeight: 340, resize: 'both', overflow: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ flex: '0 0 auto' }}>
               <span className="modal-title">{fixProgress.title || '출고 확정 진행 중'}</span>
+              <span style={{ fontSize: 11, color: '#999', marginLeft: 8 }}>↘ 우하단을 드래그하면 창 크기를 조절할 수 있습니다</span>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ flex: '1 1 auto', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, fontSize:12, color:'#555' }}>
                 <span>{fixProgress.currentWeek ? `현재 ${fixProgress.currentWeek}` : '대상 확인 중'}</span>
                 <span style={{ fontWeight:700 }}>{fixProgressDone}/{fixProgressTotal || '-'} 완료</span>
@@ -4010,7 +4011,7 @@ export default function Estimate() {
       {/* ── 차수 확정 모달 (사전검증 결과 + 강제진행 + 결과) ── */}
       {fixModal && (
         <EstimateModalPortal onBackdropClick={() => !fixWorking && setFixModal(null)}>
-          <div className="modal" style={{ maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ width: 'min(96vw, 860px)', maxWidth: '96vw', height: '80vh', maxHeight: '92vh', minWidth: 380, minHeight: 300, resize: 'both', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
                 {fixModal.stage === 'preview' && `🔍 ${fixModal.week}차 확정 — 사전검증 결과`}
