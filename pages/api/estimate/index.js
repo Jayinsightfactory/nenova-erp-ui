@@ -150,7 +150,9 @@ async function loadExeExcelDetailItems({ orderYearWeek, custKey, weekDayIn }) {
 
 async function getEstimates(req, res) {
   const { week, custKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
-  const useExeParity = exeParity !== '0' && exeParity !== 'false';
+  // exe-parity 견적 SQL(sqlEstimateGetData)에 컬럼오류(ShipmentKey) 잔존 → 기본 OFF.
+  // 정상 작동하는 비exe 경로가 기본. 검증용으로만 ?exeParity=1 명시 시 exe 사용.
+  const useExeParity = exeParity === '1' || exeParity === 'true';
   const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
 
   if (view === 'excelDetail') {
