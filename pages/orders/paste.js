@@ -7,10 +7,10 @@ import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
-import { resolveCachedProductMapping } from '../../lib/pasteLocalMapping';
+import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
-import { defaultUnit, normalizeOrderUnit } from '../../lib/orderUtils';
+import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -18,6 +18,20 @@ const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
 const ORDER_TEMPLATE_PAGE = 'paste-order-template';
 const STOCK_NOTE_PAGE = 'paste-stock-note';
 const STOCK_BASE_WEEK_KEY = 'nenova_paste_stock_base_week';
+
+/** 주문 API — 연도+차수 항상 함께 전달 (29-01만내면 25년 주문이 섞이는 버그 방지) */
+function orderQueryParams(w) {
+  const q = resolveOrderWeekQuery(w);
+  return { week: w, year: q.year };
+}
+
+function pickOrderForWeek(ordersList, custName, targetWeek) {
+  if (!ordersList?.length) return null;
+  const byYear = ordersList.find((r) => r.custName === custName && orderRowMatchesWeek(r, targetWeek));
+  if (byYear) return byYear;
+  const byCust = ordersList.find((r) => r.custName === custName) || ordersList[0];
+  return orderRowMatchesWeek(byCust, targetWeek) ? byCust : null;
+}
 
 // 오늘 기준 2026 차수 (항상 신형식 YYYY-WW-SS)
 function getDefaultWeek() {
@@ -204,6 +218,32 @@ function weekSortValue(weekValue) {
   const m = String(weekValue || '').match(/^(?:\d{4}-)?(\d{1,2})-(\d{1,2})$/);
   if (!m) return 0;
   return Number(m[1]) * 10 + Number(m[2]);
+}
+
+// 붙여넣기 텍스트 안에 적힌 차수들을 모두 수집 (오차수 등록 방지 가드용)
+// 예: "27-1 수국 변경사항" 을 28-01 차수로 등록하려는 실수를 잡는다.
+function collectTextWeeks(text, selectedWeek) {
+  const set = new Set();
+  String(text || '').split(/\r?\n/).forEach((line) => {
+    const w = parseWeekFromLine(line, selectedWeek);
+    if (w) set.add(w);
+  });
+  return [...set];
+}
+
+// 선택 등록차수와 텍스트 차수가 다르면 확인창을 띄운다. 취소 시 false 반환(중단).
+function confirmWeekMatch(text, selectedWeek, fmt) {
+  const textWeeks = collectTextWeeks(text, selectedWeek);
+  const mismatched = textWeeks.filter((w) => w && w !== selectedWeek);
+  if (mismatched.length === 0) return true;
+  const shown = mismatched.map((w) => (fmt ? fmt(w) : w)).join(', ');
+  return confirm(
+    `⚠️ 오차수 등록 경고\n\n`
+    + `붙여넣은 내용의 차수: ${shown}\n`
+    + `현재 등록 차수: ${fmt ? fmt(selectedWeek) : selectedWeek}\n\n`
+    + `서로 다릅니다. 27차 주문을 28차에 등록하는 식의 실수일 수 있습니다.\n`
+    + `정말 "${fmt ? fmt(selectedWeek) : selectedWeek}" 차수로 등록/분배하시겠습니까?`
+  );
 }
 
 function isSeparatorLine(line) {
@@ -1037,12 +1077,11 @@ export default function PasteOrderPage() {
     }
   };
 
-  // 캐시 적용: 이미 알고 있는 inputName은 자동 매칭
+  // 캐시 적용: 저장 매칭(수동 재매칭·학습)이 Claude/자동매칭보다 우선
   const applyCache = (rawOrders, cache, prods) => rawOrders.map(o => ({
     ...o,
     items: o.items.map(it => {
-      if (it.prodKey) return it;
-      const resolved = resolveCachedProductMapping(it.inputName, cache, prods, it);
+      const resolved = lookupSavedProductMapping(it.inputName, cache, prods);
       if (!resolved.ok) return it;
       const prod = resolved.prod;
       return {
@@ -1053,12 +1092,104 @@ export default function PasteOrderPage() {
         flowerName: prod.FlowerName,
         counName: prod.CounName,
         fromMapping: true,
+        mappingMatchType: resolved.mappingKey ? 'saved' : (it.mappingMatchType || 'saved'),
+        mappingMatchKey: resolved.mappingKey || null,
         confidence: 0.95,
         confidenceLabel: 'high',
+        fallbackSuspect: false,
+        ambiguousCountry: false,
         unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
       };
     }),
   }));
+
+  /** 이번 화면에서 수동 재매칭한 품목 → 재분석 전 캐시에 합침 */
+  const collectSessionMappingCache = (sourceOrders = orders) => {
+    const extra = {};
+    for (const o of sourceOrders || []) {
+      for (const it of o.items || []) {
+        if (!it.prodKey || !it.inputName) continue;
+        const key = cacheKey(it.inputName);
+        if (!key) continue;
+        if (it.mappingChanged || it.mappingMatchType === 'direct-select' || it.fromMapping) {
+          extra[key] = {
+            prodKey: it.prodKey,
+            prodName: it.prodName,
+            displayName: it.displayName,
+            flowerName: it.flowerName,
+            counName: it.counName,
+          };
+        }
+      }
+    }
+    return extra;
+  };
+
+  const loadMergedMappingCache = async (sourceOrders = orders) => {
+    const sessionCache = collectSessionMappingCache(sourceOrders);
+    let serverMappings = {};
+    try {
+      const r = await fetch('/api/orders/mappings', { credentials: 'same-origin' });
+      const d = await r.json();
+      if (d.success) serverMappings = d.mappings || {};
+    } catch { /* offline */ }
+    const local = loadCache();
+    const merged = { ...serverMappings, ...local, ...mappingCache, ...sessionCache };
+    if (Object.keys(sessionCache).length > 0) {
+      saveCache({ ...local, ...sessionCache });
+    }
+    setMappingCache(merged);
+    return merged;
+  };
+
+  const reloadRegisteredOrdersForWeek = async (targetWeek, sourceOrders = orders) => {
+    if (!targetWeek || !sourceOrders?.length) {
+      setRegisteredOrders({});
+      return;
+    }
+    const next = {};
+    await Promise.all(sourceOrders.map(async (o) => {
+      if (!o.custMatch?.CustName) return;
+      try {
+        const od = await apiGet('/api/orders', {
+          custName: o.custMatch.CustName,
+          ...orderQueryParams(targetWeek),
+        });
+        const matched = pickOrderForWeek(od.orders, o.custMatch.CustName, targetWeek);
+        if (matched) next[o.id] = matched;
+      } catch { /* ignore */ }
+    }));
+    setRegisteredOrders(next);
+  };
+
+  const selectRegistrationWeek = (w) => {
+    setWeek(w);
+    setRegisteredOrders({});
+    if (orders.length > 0) reloadRegisteredOrdersForWeek(w, orders);
+  };
+
+  useEffect(() => {
+    if (!week || orders.length === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      const next = {};
+      await Promise.all(orders.map(async (o) => {
+        if (!o.custMatch?.CustName) return;
+        try {
+          const od = await apiGet('/api/orders', {
+            custName: o.custMatch.CustName,
+            ...orderQueryParams(week),
+          });
+          if (cancelled) return;
+          const matched = pickOrderForWeek(od.orders, o.custMatch.CustName, week);
+          if (matched) next[o.id] = matched;
+        } catch { /* ignore */ }
+      }));
+      if (!cancelled) setRegisteredOrders(next);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [week]);
 
   const refreshStockDraft = (
     nextText = pasteText,
@@ -1370,19 +1501,26 @@ export default function PasteOrderPage() {
       const d = await res.json();
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
 
-      const cache = { ...mappingCache, ...loadCache() };
+      const cache = await loadMergedMappingCache(orders);
       setMappingCache(cache);
       setCustomerMappingCache(loadCustomerCache());
 
-      // 감지된 차수 자동 적용 ("WW-SS" → 현재 연도 붙여서 "YYYY-WW-SS")
+      // 감지된 차수 자동 적용 — 등록 차수에 이미 고른 연도(예: 2026)를 유지
       let effectiveWeek = week;
       if (d.detectedWeek) {
-        const year = new Date().getFullYear();
-        const autoWeek = `${year}-${d.detectedWeek}`;
         setDetectedWeek(d.detectedWeek);
-        setWeek(autoWeek);
-        effectiveWeek = autoWeek;
-        refreshStockDraft(pasteText, baseStockText, autoWeek, remainStockText);
+        let detWeekPart = d.detectedWeek;
+        try { detWeekPart = validateOrderWeek(d.detectedWeek).week; } catch { /* keep raw */ }
+        const cur = resolveOrderWeekQuery(week);
+        if (week.match(/^\d{4}-/) && cur.week === detWeekPart) {
+          effectiveWeek = week;
+        } else {
+          const selectedYear = week.match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
+          const autoWeek = `${selectedYear}-${d.detectedWeek}`;
+          setWeek(autoWeek);
+          effectiveWeek = autoWeek;
+          refreshStockDraft(pasteText, baseStockText, autoWeek, remainStockText);
+        }
       } else {
         setDetectedWeek('');
       }
@@ -1414,10 +1552,10 @@ export default function PasteOrderPage() {
         applied.forEach(async (o) => {
           if (!o.custMatch) return;
           try {
-            const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, week: effectiveWeek });
+            const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, ...orderQueryParams(effectiveWeek) });
             if (od.success && od.orders?.length > 0) {
-              const matched = od.orders.find(r => r.custName === o.custMatch.CustName) || od.orders[0];
-              setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
+              const matched = pickOrderForWeek(od.orders, o.custMatch.CustName, effectiveWeek);
+              if (matched) setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
             }
           } catch { /* 조회 실패 무시 */ }
         });
@@ -1490,15 +1628,17 @@ export default function PasteOrderPage() {
     // 비동기로 기존 주문 + 분배 fetch
     (async () => {
       try {
-        const od = await apiGet('/api/orders', { custName: customer.CustName, week });
+        const od = await apiGet('/api/orders', { custName: customer.CustName, ...orderQueryParams(week) });
         if (od.success && od.orders?.length > 0) {
-          const matched = od.orders.find(r => r.custName === customer.CustName) || od.orders[0];
-          setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
-          await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
-        } else {
-          // 기존 주문 없음 — empty 상태로 미리보기 표시 (분배 가능 안내)
-          setRegisteredOrders(prev => ({ ...prev, [oid]: { custKey: customer.CustKey, custName: customer.CustName, week, items: [], prevSnapshot: {} } }));
+          const matched = pickOrderForWeek(od.orders, customer.CustName, week);
+          if (matched) {
+            setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
+            await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+            return;
+          }
         }
+        // 기존 주문 없음 — empty 상태로 미리보기 표시 (분배 가능 안내)
+        setRegisteredOrders(prev => ({ ...prev, [oid]: { custKey: customer.CustKey, custName: customer.CustName, week, items: [], prevSnapshot: {} } }));
       } catch { /* 조회 실패 무시 */ }
     })();
   };
@@ -1639,6 +1779,9 @@ export default function PasteOrderPage() {
       mappingSavedAt: null,
       pendingLearning: saveToCache,
     });
+    if (saveToCache && inputName) {
+      learnItemMapping({ inputName, unit: currentItem.unit }, prod);
+    }
     setDisambigSearch('');
     setDisambigResults([]);
     // queueIdx는 그대로 — 이 항목이 사라지면서 다음 항목이 자동으로 currentQ가 됨
@@ -1892,6 +2035,15 @@ export default function PasteOrderPage() {
   const handleBulkDistribute = async (oid) => {
     const order = orders.find(o => o.id === oid);
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
+    if (bulkRunning) return; // 중복 실행 방지 (진행 중 재클릭)
+
+    // 이미 등록+분배된 주문을 다시 실행하면 가산(중복 폭증)되므로 재확인
+    if (bulkResult && bulkResult.orderId === oid && bulkResult.okCount > 0) {
+      if (!confirm('이 주문은 이미 일괄 등록+분배가 완료되었습니다.\n다시 실행하면 수량이 추가로 가산(중복)됩니다.\n\n그래도 다시 진행하시겠습니까?')) return;
+    }
+
+    // 오차수 등록 방지 — 붙여넣은 텍스트 차수 vs 선택 등록차수
+    if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
 
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
       const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
@@ -2008,7 +2160,7 @@ export default function PasteOrderPage() {
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
     try {
-      const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+      const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
       if (od.success && od.orders?.length > 0) {
         const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
         setRegisteredOrders(prev => ({
@@ -2129,7 +2281,7 @@ export default function PasteOrderPage() {
         setShipmentQtys(prev => ({ ...prev, [key]: shipQty }));
         // ADD/CANCEL 모두 OrderDetail 이 변경됨 → registeredOrders 도 다시 조회
         if (adjustModal.type === 'ADD' || adjustModal.type === 'CANCEL' || d.orderDeleted) {
-          const od = await apiGet('/api/orders', { custName: adjustModal.custName, week: adjustModal.week });
+          const od = await apiGet('/api/orders', { custName: adjustModal.custName, ...orderQueryParams(adjustModal.week) });
           setRegisteredOrders(prev => {
             const oid = Object.keys(prev).find(k => prev[k]?.custKey === adjustModal.custKey && prev[k]?.week === adjustModal.week);
             if (!oid) return prev;
@@ -2165,6 +2317,15 @@ export default function PasteOrderPage() {
 
     if (!order?.custMatch) { alert('거래처를 확인하세요.'); return; }
     if (!week) { alert('차수를 선택하세요.'); return; }
+    if (order.saving) return; // 중복 클릭(저장 진행 중) 방지
+
+    // 이미 등록된 주문 재등록 시 가산(중복) 경고
+    if (registeredOrders[oid]) {
+      if (!confirm('이 주문은 이미 등록되었습니다.\n다시 등록하면 기존 수량에 추가로 가산(중복)됩니다.\n\n그래도 다시 등록하시겠습니까?')) return;
+    }
+
+    // 오차수 등록 방지 — 붙여넣은 텍스트 차수 vs 선택 등록차수
+    if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
 
     const registerItems = order.items
       .filter(it => !it.skip && it.prodKey)
@@ -2192,7 +2353,7 @@ export default function PasteOrderPage() {
 
     if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 품목이 없습니다.'); return; }
 
-    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const { week: orderWeek, year: orderYear } = resolveOrderWeekQuery(week);
 
     updateOrder(oid, { saving: true, resultMsg: '' });
 
@@ -2200,7 +2361,7 @@ export default function PasteOrderPage() {
     const prevSnapshot = {};
     let prevItems = [];
     try {
-      const pre = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+      const pre = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
       if (pre.success) {
         const preMatch = pre.orders?.find(o => o.custName === order.custMatch.CustName) || pre.orders?.[0];
         prevItems = preMatch?.items || [];
@@ -2213,7 +2374,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week, year: yearFromWeek, items, delta: true, source: 'paste' }),
+        body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste' }),
       });
       const d = await res.json();
       if (d.success) {
@@ -2230,12 +2391,13 @@ export default function PasteOrderPage() {
           updateOrder(oid, { pendingCustomerLearning: null });
         }
         try {
-          const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, week });
+          const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
           if (od.success && od.orders?.length > 0) {
-            const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
-            setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot } }));
-            // 각 품목의 현재 분배(ShipmentDetail.OutQuantity) 가져오기
-            await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+            const matched = pickOrderForWeek(od.orders, order.custMatch.CustName, week);
+            if (matched) {
+              setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot } }));
+              await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+            }
           }
         } catch { /* 조회 실패해도 저장은 완료 */ }
         loadOrderHistorySummary(week, orders);
@@ -2429,7 +2591,7 @@ export default function PasteOrderPage() {
     if (!week) { alert('불러올 차수를 먼저 선택하세요.'); return; }
     setSourceOrderLoading(true);
     try {
-      const d = await apiGet('/api/orders', { week });
+      const d = await apiGet('/api/orders', orderQueryParams(week));
       const list = d.orders || [];
       setSourceOrdersForTemplate(list);
       if (!list.length) alert(`${formatWeekDisplay(week)} 주문등록 내역이 없습니다.`);
@@ -2494,18 +2656,18 @@ export default function PasteOrderPage() {
     if (!confirm(`${templateDraft.custName} / ${formatWeekDisplay(week)}\n즐겨찾기 ${items.length}개 품목을 주문등록하시겠습니까?`)) return;
     setTemplateSaving(true);
     try {
-      const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+      const { week: orderWeek, year: orderYear } = resolveOrderWeekQuery(week);
       const d = await apiPost('/api/orders', {
         custKey: templateDraft.custKey,
-        week,
-        year: yearFromWeek,
+        week: orderWeek,
+        year: orderYear,
         items,
         delta: true,
         source: 'paste-template',
       });
       if (!d.success) throw new Error(d.error || '주문등록 실패');
       setTemplateDraft(prev => prev ? ({ ...prev, resultMsg: `등록 완료 — OrderKey ${d.orderMasterKey}` }) : prev);
-      const od = await apiGet('/api/orders', { custName: templateDraft.custName, week });
+      const od = await apiGet('/api/orders', { custName: templateDraft.custName, ...orderQueryParams(week) });
       if (od.success && od.orders?.length > 0) {
         const matched = od.orders.find(o => Number(o.custKey) === Number(templateDraft.custKey)) || od.orders[0];
         setRegisteredOrders(prev => ({ ...prev, [`template-${templateDraft.favoriteKey || 'new'}`]: matched }));
@@ -2649,7 +2811,7 @@ export default function PasteOrderPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 4 }}>
                   <span style={{ fontSize: 11, color: '#1a237e', fontWeight: 700, background: '#e8eaf6', padding: '2px 8px', borderRadius: 10 }}>2026</span>
                   {newWeeks.map(w => (
-                    <button key={w} onClick={() => setWeek(w)}
+                    <button key={w} onClick={() => selectRegistrationWeek(w)}
                       style={{
                         padding: '5px 22px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
                         border: week === w ? '2px solid #1a237e' : '1px solid #c5cae9',
@@ -2672,7 +2834,7 @@ export default function PasteOrderPage() {
                     {showOldWeeks && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                         {oldWeeks.map(w => (
-                          <button key={w} onClick={() => setWeek(w)}
+                          <button key={w} onClick={() => selectRegistrationWeek(w)}
                             style={{
                               padding: '4px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
                               border: week === w ? '2px solid #888' : '1px solid #ddd',
@@ -3287,6 +3449,7 @@ export default function PasteOrderPage() {
               {/* 등록 후 DB 주문내역 */}
               {registeredOrders[order.id] && (() => {
                 const ro = registeredOrders[order.id];
+                const weekMismatch = week && ro.week && !orderRowMatchesWeek(ro, week);
                 const hasSnapshot = Object.prototype.hasOwnProperty.call(ro, 'prevSnapshot');
                 const prevSnap = hasSnapshot ? (ro.prevSnapshot || {}) : {};
                 const items = ro.items || [];
@@ -3305,6 +3468,11 @@ export default function PasteOrderPage() {
                   <div style={{ borderTop: '2px solid #2e7d32', background: '#f1f8e9' }}>
                     <div style={{ padding: '8px 16px', fontWeight: 700, fontSize: 13, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       📋 DB 저장 내역 — {ro.custName} / {formatWeekDisplay(ro.week)}
+                      {weekMismatch && (
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#ffebee', color: '#c62828', border: '1px solid #ef9a9a' }}>
+                          ⚠️ 등록차수 {formatWeekDisplay(week)}와 다름 — 재조회 필요
+                        </span>
+                      )}
                       {ro._fallback && (
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#fff8e1', color: '#8a5a00', border: '1px solid #ffca28' }}>
                           처리 직후 내역
