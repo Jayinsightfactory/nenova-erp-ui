@@ -83,8 +83,10 @@ export default function Dashboard() {
       openPopup(item.href, label, 1440, 900);
       return;
     }
+    // 새 창은 사이드바 없는 팝업 모드로 — 메인 창 메뉴와 중복 방지. window.opener 감지가
+    // 런처/COOP 환경에서 실패해도 확실히 팝업모드로 뜨도록 ?popup=1 을 명시한다.
     window.open(
-      item.href,
+      `${item.href}${item.href.includes('?') ? '&' : '?'}popup=1`,
       item.href.replace(/[^a-z0-9]/gi, '_') || '_blank',
       `width=${Math.max(1200, screen.width - 80)},height=${Math.max(760, screen.height - 80)},left=20,top=20,resizable=yes,scrollbars=yes`
     );
