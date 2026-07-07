@@ -550,9 +550,11 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
 
-  // ── 재고 추가 후 확정 — 음수(현재재고+입고+재고조정-출고<0) 품목에 부족분만큼
-  //    '재고조정'(+) 을 넣고 재고 재계산 → 확정 가능 상태로. (사용자 명시 옵션 autoStockAdd)
-  if (req.body?.autoStockAdd === true) {
+  // ── 재고 추가 후 확정 — [비활성화됨 2026-07-07]
+  //    재고조정(+)이 영구 주입이라 usp_StockCalculation cascade(한번에 1~2주만 전파)로
+  //    앞차수 재고를 부풀리는 문제 확인. 재설계 전까지 env 게이트로 차단(기본 OFF).
+  //    재활성화하려면 서버 .env.local 에 ENABLE_AUTO_STOCK_ADD=1.
+  if (req.body?.autoStockAdd === true && process.env.ENABLE_AUTO_STOCK_ADD === '1') {
     const negForAdd = (await loadNegativeGuardRows(orderYear, orderWeek)).filter(r => Number(r.remain) < 0);
     if (negForAdd.length) {
       for (const r of negForAdd) {

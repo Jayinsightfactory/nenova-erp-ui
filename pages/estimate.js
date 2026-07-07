@@ -4124,6 +4124,7 @@ export default function Estimate() {
                   <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
                   {(() => {
                     const negRows = Object.values(fixModal.allIssues || {}).flatMap(iss => iss.negative || []);
+                    if (true) return null; // [비활성화 2026-07-07] 재고조정이 앞차수 부풀림 유발 — 재설계 전까지 숨김
                     if (!negRows.length) return null;
                     return (
                       <button
@@ -4157,7 +4158,7 @@ export default function Estimate() {
                   r => !r.ok && /마이너스|잔량|음수/.test(String(r.error || '')));
                 return (
                   <>
-                    {negFail && !fixModal.autoStockAddUsed && (
+                    {false && negFail && !fixModal.autoStockAddUsed && (/* [비활성화 2026-07-07] 재고추가후확정 부풀림 문제 */
                       <button
                         className="btn"
                         style={{ background: '#2e7d32', color: '#fff', borderColor: '#1b5e20', fontWeight: 700 }}
