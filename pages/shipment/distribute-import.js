@@ -1079,7 +1079,7 @@ function computeDropdownRect(anchorEl, estimatedHeight = 320) {
   };
 }
 
-function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) {
+function CustomerSearchSelect({ value, onChange, suggested = [], options = [], placeholder }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [remote, setRemote] = useState([]);
@@ -1094,6 +1094,8 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
     if (s) return customerOptionLabel(s);
     const r = remote.find(x => String(x.CustKey) === String(custKey));
     if (r) return customerOptionLabel(r);
+    const o = options.find(x => String(x.custKey ?? x.CustKey) === String(custKey));
+    if (o) return customerOptionLabel(o);
     return '';
   };
 
@@ -1300,6 +1302,7 @@ function UnmatchedMatchingModal({
                                 value={custOverrides[it.label] || ''}
                                 onChange={v => onPickCustomer(it.label, v)}
                                 suggested={it.suggestedCustomers}
+                                options={customerOptions}
                                 placeholder="거래처 검색·선택"
                               />
                             )}
