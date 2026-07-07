@@ -317,6 +317,65 @@ async function main() {
     assert('targets 에 없는 (custKey,prodKey) 는 checked/mismatch 에 영향 없음', scoped.checked === 1 && scoped.mismatchCount === 0);
   }
 
+  console.log('\n=== resolveImportCustomerOverrideKey (미매칭 모달 "선택했는데 다른 업체로 매칭" 방지) ===');
+  {
+    const { resolveImportCustomerOverrideKey } = await import('../lib/shipmentImportQty.js');
+
+    // 미매칭 모달은 원본 라벨(alias 정규화 전) 기준으로 override 를 저장한다.
+    // "수연선출고" → alias 로 "수연원예" 로 정규화되는데, override 는 원본 라벨로 저장됐다.
+    const overrideMapRaw = new Map();
+    overrideMapRaw.set('수연선출고', 55); // importMatchNormText('수연선출고') === '수연선출고' (공백/특수문자 없음)
+    assert(
+      '원본 라벨로 저장된 override 는 원본 라벨 조회로 찾는다',
+      resolveImportCustomerOverrideKey('수연선출고', '수연원예', overrideMapRaw) === 55
+    );
+    assert(
+      '원본 라벨로 저장된 override 가 다른 라벨(정규화 후 값)에 새지 않는다',
+      resolveImportCustomerOverrideKey('영림선출고', '영림원예', overrideMapRaw) === 0
+    );
+
+    // 정규화 라벨로 저장된 경우도(과거 저장분 호환) 찾아야 한다.
+    const overrideMapNormalized = new Map();
+    overrideMapNormalized.set('영림원예', 77);
+    assert(
+      '정규화 라벨로 저장된 override 도 정규화 라벨 조회로 찾는다(하위호환)',
+      resolveImportCustomerOverrideKey('영림선출고', '영림원예', overrideMapNormalized) === 77
+    );
+
+    // 서로 다른 두 원본 라벨이 우연히 같은 override map 에 각각 다른 custKey 로 저장됐을 때
+    // 서로 섞이지 않아야 한다("태림선출고"→100, "영보"→200 인데 태림선출고 조회 시 100만 나와야 함).
+    const overrideMapDual = new Map();
+    overrideMapDual.set('태림선출고', 100);
+    overrideMapDual.set('영보', 200);
+    assert('태림선출고 조회 → 100(다른 라벨 200 과 안 섞임)', resolveImportCustomerOverrideKey('태림선출고', '태림선출고', overrideMapDual) === 100);
+    assert('영보 조회 → 200(다른 라벨 100 과 안 섞임)', resolveImportCustomerOverrideKey('영보', '영보', overrideMapDual) === 200);
+
+    // override 가 전혀 없는 라벨은 0(미지정) — fuzzy 폴백으로 넘어가야 함을 나타낸다.
+    assert('override 없는 라벨은 0', resolveImportCustomerOverrideKey('전혀다른라벨', '전혀다른라벨', overrideMapDual) === 0);
+  }
+
+  console.log('\n=== isImportIgnoreCustomerValue (농장 등 비거래처 열 "제외" 표시) ===');
+  {
+    const { isImportIgnoreCustomerValue, IMPORT_IGNORE_CUSTOMER_VALUE } = await import('../lib/shipmentImportQty.js');
+    assert('sentinel 값은 ignore로 판정', isImportIgnoreCustomerValue(IMPORT_IGNORE_CUSTOMER_VALUE));
+    assert('일반 custKey(숫자)는 ignore 아님', !isImportIgnoreCustomerValue(123));
+    assert('빈 값은 ignore 아님', !isImportIgnoreCustomerValue('') && !isImportIgnoreCustomerValue(undefined) && !isImportIgnoreCustomerValue(null));
+  }
+
+  console.log('\n=== isRowFromIgnoredCustomer (콜롬비아 농장 열 완전 스킵 — 주문/분배 모두 미반영) ===');
+  {
+    const { isRowFromIgnoredCustomer } = await import('../lib/shipmentImportQty.js');
+    // 농장 라벨(아유라 등)을 "제외" 처리하면 원본 라벨로 매칭되어 스킵돼야 한다.
+    const ignored = new Set(['아유라', '콜리브리', '돈유세비오', 'multiflora', 'invosflowers']);
+    assert('제외 처리된 농장 라벨(원본=정규화 동일)은 스킵 대상', isRowFromIgnoredCustomer('아유라', '아유라', ignored));
+    assert('MULTIFLORA(대소문자 무관 정규화) 스킵 대상', isRowFromIgnoredCustomer('MULTIFLORA', 'MULTIFLORA', ignored));
+    assert('제외 안 된 정상 거래처는 스킵 대상 아님', !isRowFromIgnoredCustomer('주광', '주광', ignored));
+    // alias 로 원본↔정규화 라벨이 달라도(예: "수연선출고"→"수연원예") 원본 라벨 기준 제외가 걸려야 한다.
+    const ignoredRaw = new Set(['수연선출고']);
+    assert('원본 라벨 기준 제외 — alias 정규화 후 라벨과 달라도 스킵', isRowFromIgnoredCustomer('수연선출고', '수연원예', ignoredRaw));
+    assert('제외 안 된 다른 라벨(alias 대상)은 스킵 안 됨', !isRowFromIgnoredCustomer('영림선출고', '영림원예', ignoredRaw));
+  }
+
   console.log('\n=== hasCriticalQtyWarnings ===');
   assert(
     '집계 플래그',

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { importProductOverrideKey } from '../../lib/shipmentImportQty';
+import { importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -326,7 +327,8 @@ export default function DistributeImport() {
 
   const pickOverride = (label, custKey) => {
     const next = { ...custOverridesRef.current };
-    if (custKey) next[label] = Number(custKey);
+    if (isImportIgnoreCustomerValue(custKey)) next[label] = IMPORT_IGNORE_CUSTOMER_VALUE;
+    else if (custKey) next[label] = Number(custKey);
     else delete next[label];
     setOverrides(next);
   };
@@ -1059,14 +1061,35 @@ function customerOptionLabel(o) {
   return `${area ? `[${area}] ` : ''}${name}${code ? ` (${code})` : ''}`;
 }
 
+// 드롭다운을 모달 밖(document.body)에 portal 로 띄우기 위한 위치 계산.
+// 모달 content 가 overflow:auto 라 position:absolute 드롭다운이 모달 경계에 잘리는 문제 방지.
+function computeDropdownRect(anchorEl, estimatedHeight = 320) {
+  if (!anchorEl) return null;
+  const r = anchorEl.getBoundingClientRect();
+  const viewportH = window.innerHeight;
+  const spaceBelow = viewportH - r.bottom;
+  const spaceAbove = r.top;
+  const openUp = spaceBelow < Math.min(estimatedHeight, 240) && spaceAbove > spaceBelow;
+  return {
+    left: r.left,
+    width: Math.max(r.width, 260),
+    top: openUp ? undefined : r.bottom + 2,
+    bottom: openUp ? viewportH - r.top + 2 : undefined,
+    maxHeight: Math.max(160, (openUp ? spaceAbove : spaceBelow) - 12),
+  };
+}
+
 function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [remote, setRemote] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [rect, setRect] = useState(null);
   const wrapRef = useRef(null);
+  const inputRef = useRef(null);
 
   const pickLabel = (custKey) => {
+    if (isImportIgnoreCustomerValue(custKey)) return '';
     const s = suggested.find(x => String(x.custKey) === String(custKey));
     if (s) return customerOptionLabel(s);
     const r = remote.find(x => String(x.CustKey) === String(custKey));
@@ -1074,10 +1097,29 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
     return '';
   };
 
+  const recomputeRect = useCallback(() => {
+    setRect(computeDropdownRect(inputRef.current));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    recomputeRect();
+    const onScroll = () => recomputeRect();
+    const onResize = () => recomputeRect();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open, recomputeRect]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (wrapRef.current && wrapRef.current.contains(e.target)) return;
+      if (e.target.closest?.('[data-cust-search-dropdown]')) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -1106,9 +1148,60 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
   const suggestedIds = new Set(suggested.map(s => String(s.custKey)));
   const searchHits = remote.filter(c => !suggestedIds.has(String(c.CustKey)));
 
+  const dropdown = open && rect && typeof document !== 'undefined' ? createPortal(
+    <div
+      data-cust-search-dropdown="1"
+      style={{
+        ...st.searchDropdownFixed,
+        left: rect.left,
+        width: rect.width,
+        top: rect.top,
+        bottom: rect.bottom,
+        maxHeight: rect.maxHeight,
+      }}
+    >
+      {suggested.map(s => (
+        <button
+          key={`s-${s.custKey}`}
+          type="button"
+          style={st.searchPickRow}
+          onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+          onClick={() => { onChange(String(s.custKey)); setQuery(''); setOpen(false); }}
+        >
+          ★ {customerOptionLabel(s)}
+        </button>
+      ))}
+      {suggested.length > 0 && (searchHits.length > 0 || loading) && (
+        <div style={st.searchSectionLabel}>검색 결과</div>
+      )}
+      {loading && <div style={st.searchHint}>검색 중…</div>}
+      {!loading && query.trim() && searchHits.length === 0 && (
+        <div style={st.searchHint}>검색 결과 없음</div>
+      )}
+      {searchHits.map(c => (
+        <button
+          key={c.CustKey}
+          type="button"
+          style={st.searchPickRow}
+          onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+          onClick={() => { onChange(String(c.CustKey)); setQuery(''); setOpen(false); }}
+        >
+          {customerOptionLabel(c)}
+        </button>
+      ))}
+      {!query.trim() && suggested.length === 0 && (
+        <div style={st.searchHint}>이름·코드·Descr 일부를 입력하세요</div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <div ref={wrapRef} style={{ position: 'relative', minWidth: 220 }}>
       <input
+        ref={inputRef}
         style={{ ...st.custSelect, width: '100%', boxSizing: 'border-box' }}
         value={open ? query : (pickLabel(value) || query)}
         placeholder={placeholder || '거래처명·코드 검색'}
@@ -1119,44 +1212,7 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
         }}
         onFocus={() => setOpen(true)}
       />
-      {open && (
-        <div style={st.searchDropdown}>
-          {suggested.map(s => (
-            <button
-              key={`s-${s.custKey}`}
-              type="button"
-              style={st.searchPickRow}
-              onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-              onClick={() => { onChange(String(s.custKey)); setQuery(''); setOpen(false); }}
-            >
-              ★ {customerOptionLabel(s)}
-            </button>
-          ))}
-          {suggested.length > 0 && (searchHits.length > 0 || loading) && (
-            <div style={st.searchSectionLabel}>검색 결과</div>
-          )}
-          {loading && <div style={st.searchHint}>검색 중…</div>}
-          {!loading && query.trim() && searchHits.length === 0 && (
-            <div style={st.searchHint}>검색 결과 없음</div>
-          )}
-          {searchHits.map(c => (
-            <button
-              key={c.CustKey}
-              type="button"
-              style={st.searchPickRow}
-              onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-              onClick={() => { onChange(String(c.CustKey)); setQuery(''); setOpen(false); }}
-            >
-              {customerOptionLabel(c)}
-            </button>
-          ))}
-          {!query.trim() && suggested.length === 0 && (
-            <div style={st.searchHint}>이름·코드·Descr 일부를 입력하세요</div>
-          )}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
@@ -1226,24 +1282,41 @@ function UnmatchedMatchingModal({
                   엑셀 업체명 → 실제 거래처. ★ 추천 후보 우선 · 이름/코드 입력으로 전체 검색 가능합니다.
                 </div>
                 <table style={st.table}>
-                  <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>→ 거래처 선택</th></tr></thead>
+                  <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>→ 거래처 선택</th><th>제외</th></tr></thead>
                   <tbody>
-                    {customerItems.map(it => (
-                      <tr key={it.label} style={{ background: custOverrides[it.label] ? '#ecfdf5' : '#fff7ed' }}>
-                        <td><MatchKindBadge kind={it.matchKind === 'both' ? 'both' : 'customer'} /></td>
-                        <td style={{ fontWeight: 700 }}>{it.label}</td>
-                        <td>{it.count}</td>
-                        <td style={{ fontSize: 11, color: '#64748b' }}>{it.sample || '—'}</td>
-                        <td>
-                          <CustomerSearchSelect
-                            value={custOverrides[it.label] || ''}
-                            onChange={v => onPickCustomer(it.label, v)}
-                            suggested={it.suggestedCustomers}
-                            placeholder="거래처 검색·선택"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {customerItems.map(it => {
+                      const ignored = isImportIgnoreCustomerValue(custOverrides[it.label]);
+                      return (
+                        <tr key={it.label} style={{ background: ignored ? '#f1f5f9' : custOverrides[it.label] ? '#ecfdf5' : '#fff7ed' }}>
+                          <td><MatchKindBadge kind={it.matchKind === 'both' ? 'both' : 'customer'} /></td>
+                          <td style={{ fontWeight: 700 }}>{it.label}</td>
+                          <td>{it.count}</td>
+                          <td style={{ fontSize: 11, color: '#64748b' }}>{it.sample || '—'}</td>
+                          <td>
+                            {ignored ? (
+                              <span style={st.ignoreBadge}>제외됨(분배 안 함)</span>
+                            ) : (
+                              <CustomerSearchSelect
+                                value={custOverrides[it.label] || ''}
+                                onChange={v => onPickCustomer(it.label, v)}
+                                suggested={it.suggestedCustomers}
+                                placeholder="거래처 검색·선택"
+                              />
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              style={ignored ? st.unignoreBtn : st.ignoreBtn}
+                              onClick={() => onPickCustomer(it.label, ignored ? '' : IMPORT_IGNORE_CUSTOMER_VALUE)}
+                              title="거래처가 아닌 열(농장 등)이면 제외 처리 — 주문·분배 모두 건드리지 않습니다."
+                            >
+                              {ignored ? '제외 취소' : '제외(농장 등)'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </>
@@ -1347,6 +1420,9 @@ const st = {
   unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   custSelect: { minWidth: 300, height: 38, fontSize: 14, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', background: '#fff' },
   searchDropdown: { position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', minWidth: 340, maxHeight: 400, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 10px 28px rgba(0,0,0,.16)', marginTop: 2 },
+  // 모달(zIndex 5000) content 가 overflow:auto 라 절대위치 드롭다운이 잘리는 문제 방지 —
+  // document.body 에 portal 로 띄우고 position:fixed + 입력창 getBoundingClientRect 기준 좌표.
+  searchDropdownFixed: { position: 'fixed', zIndex: 5100, minWidth: 260, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 10px 28px rgba(0,0,0,.22)' },
   searchPickRow: { display: 'block', width: '100%', textAlign: 'left', border: 0, borderBottom: '1px solid #f1f5f9', background: '#fff', padding: '11px 12px', fontSize: 14, lineHeight: 1.35, cursor: 'pointer' },
   searchSectionLabel: { padding: '4px 10px', fontSize: 10, color: '#94a3b8', borderTop: '1px solid #f1f5f9' },
   searchHint: { padding: 8, fontSize: 12, color: '#64748b' },
@@ -1354,6 +1430,9 @@ const st = {
   matchTabOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12 },
   matchTabOff: { border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', borderRadius: '6px 6px 0 0', padding: '6px 12px', cursor: 'pointer', fontWeight: 600, fontSize: 12 },
   matchKindBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 800 },
+  ignoreBadge: { display: 'inline-block', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, background: '#e2e8f0', color: '#475569' },
+  ignoreBtn: { border: '1px solid #cbd5e1', background: '#fff', color: '#475569', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' },
+  unignoreBtn: { border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' },
   modalOverlay: { position: 'fixed', inset: 0, zIndex: 5000, background: 'rgba(15,23,42,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 },
   modalCard: { width: 'min(1120px, 96vw)', maxHeight: '88vh', overflow: 'hidden', background: '#fff', borderRadius: 8, boxShadow: '0 24px 80px rgba(15,23,42,0.28)', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column' },
   modalHead: { minHeight: 56, padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
