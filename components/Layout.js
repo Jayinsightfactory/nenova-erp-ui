@@ -116,6 +116,10 @@ export function openPopup(href, label, w = 1280, h = 820) {
   );
 }
 
+// 메인 앱 진입 경로 — 이 경로들은 자식창(window.opener)으로 열려도
+// 절대 사이드바를 자동으로 숨기지 않는다(사용자가 탐색에 쓰는 메인 창일 수 있음).
+const MAIN_ENTRY_PATHS = ['/dashboard', '/login', '/'];
+
 export default function Layout({ children, title }) {
   const router = useRouter();
   const { lang, t, toggleLang } = useLang();
@@ -127,6 +131,29 @@ export default function Layout({ children, title }) {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
   }, []);
 
+  // 자식창(window.opener로 열린 창) 감지 — hydration 안전.
+  // SSR/첫 렌더는 false(기존과 동일) → 마운트 후 클라이언트에서만 판정.
+  // cross-origin opener 접근이 예외를 던져도 "자식창"으로 간주(중복 사이드바 방지).
+  const [isChildWindow, setIsChildWindow] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.opener && window.opener !== window) setIsChildWindow(true);
+    } catch {
+      // cross-origin opener → 접근 예외 = 자식창
+      setIsChildWindow(true);
+    }
+  }, []);
+
+  // 사용자 수동 접기/펴기 토글 (자식창 자동 접힘을 언제든 복구 가능)
+  // null = 미설정(자동 판정 따름), true = 강제 접힘, false = 강제 펼침
+  const [sidebarOverride, setSidebarOverride] = useState(null);
+
+  // ?popup=1 이 아니면서, 자식창이고, 메인 진입 경로가 아니면 기본 접힘.
+  // 사용자가 토글하면 그 값이 우선.
+  const isMainEntry = MAIN_ENTRY_PATHS.includes(router.pathname);
+  const autoCollapse = isChildWindow && !isMainEntry;
+  const sidebarSuppressed = sidebarOverride === null ? autoCollapse : sidebarOverride;
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('nenovaUser');
@@ -136,8 +163,8 @@ export default function Layout({ children, title }) {
   const pageTitle = title || MENU_ITEMS.flatMap(g => g.items)
     .find(i => i.href === router.pathname)?.labelKey || 'nenova ERP';
 
-  // ── 팝업 모드
-  if (isPopup) {
+  // ── 팝업 모드 (?popup=1 이거나, 자식창 자동 접힘 / 사용자 강제 접힘)
+  if (isPopup || sidebarSuppressed) {
     return (
       <>
         <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
@@ -154,6 +181,15 @@ export default function Layout({ children, title }) {
                 {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}
               </span>
               {user && <span style={{fontSize:11, opacity:.8}}>{user.userName}</span>}
+              {/* ?popup=1 정식 팝업이 아닌 자동 접힘/강제 접힘일 때만 '메뉴 펼치기' 노출 → 언제든 사이드바 복구 가능 */}
+              {!isPopup && (
+                <button onClick={() => setSidebarOverride(false)}
+                  style={{background:'none', border:'1px solid rgba(255,255,255,.5)', color:'#fff',
+                    cursor:'pointer', fontSize:10, padding:'1px 6px'}}
+                  title={t('메뉴 펼치기')}>
+                  ☰ {t('메뉴')}
+                </button>
+              )}
               <button onClick={toggleLang}
                 style={{background:'none', border:'1px solid rgba(255,255,255,.5)', color:'#fff',
                   cursor:'pointer', fontSize:10, padding:'1px 6px'}}>
@@ -249,6 +285,12 @@ export default function Layout({ children, title }) {
                   {t('로그아웃')}
                 </button>
               )}
+              {/* 사이드바 접기 — 자식창에서 자동 펼침을 되돌리거나, 좁은 화면에서 메뉴 숨김 */}
+              <button className="btn btn-sm"
+                onClick={() => setSidebarOverride(true)}
+                title={t('메뉴 접기')}>
+                ☰
+              </button>
               <button className="btn btn-sm"
                 onClick={() => window.opener ? window.close() : router.push('/dashboard')}
                 style={{ borderColor:'#999' }}
