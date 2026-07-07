@@ -126,6 +126,7 @@ export default function DistributeImport() {
   const [matchTab, setMatchTab] = useState('customer');
   const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
   const [prodOverrides, setProdOverrides] = useState({});   // { productOverrideKey: prodKey }
+  const [shipmentOnly, setShipmentOnly] = useState(false);  // true: 주문(OrderDetail) 미변경, 출고분배만 반영
   const custOverridesRef = useRef({});
   const prodOverridesRef = useRef({});
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
@@ -360,8 +361,11 @@ export default function DistributeImport() {
     }
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
-    const shipmentOnlyText = shipmentRows.length && !orderChangeRows.length
+    const shipmentOnlyInfoText = shipmentRows.length && !orderChangeRows.length
       ? `\n분배만 반영 ${shipmentRows.length}건 — 주문등록은 유지하고 출고분배 수량만 변경합니다.`
+      : '';
+    const shipmentOnlyModeText = shipmentOnly
+      ? '\n※ 분배전용 모드: 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.'
       : '';
     let ackQtyWarnings = false;
     if (qtyWarningRows.length) {
@@ -374,14 +378,14 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 주문등록 및 출고분배로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 ${shipmentOnly ? '출고분배' : '주문등록+출고분배'}로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyInfoText}${shipmentOnlyModeText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
     const initialApplyResult = {
       running: true,
       logs: [
-        `${preview.week}차 일괄 주문등록+분배 적용 시작`,
+        `${preview.week}차 일괄 ${shipmentOnly ? '출고분배(주문 미변경)' : '주문등록+분배'} 적용 시작`,
         `적용대상 ${applyRows.length}건을 서버 트랜잭션으로 처리 중입니다.`,
       ],
       appliedRows: [],
@@ -393,7 +397,7 @@ export default function DistributeImport() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings }),
+        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly }),
       });
       let data;
       try {
@@ -408,11 +412,16 @@ export default function DistributeImport() {
         throw new Error(data.error || '적용 실패');
       }
       setApplyResult(data);
+      const verifyMismatchCount = data.verification?.mismatchCount || 0;
+      const verifyText = verifyMismatchCount > 0
+        ? ` ⚠ 사후 검증 불일치 ${verifyMismatchCount}건 — 아래 검증 결과를 확인하세요.`
+        : data.verification?.checked ? ` (사후 검증 ${data.verification.checked}건 정상 반영 확인)` : '';
       if ((data.appliedCount || 0) === 0) {
-        setMessage(`적용 완료: 변경 없음 (이미 DB와 동일 ${data.skippedNoChangeCount || 0}건). 검증하기를 다시 눌러 최신 상태를 확인하세요.`);
+        setMessage(`적용 완료: 변경 없음 (이미 DB와 동일 ${data.skippedNoChangeCount || 0}건). 검증하기를 다시 눌러 최신 상태를 확인하세요.${verifyText}`);
       } else {
-        setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건 (주문삭제 ${data.orderDeletedCount || 0}건)`);
+        setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건 (주문삭제 ${data.orderDeletedCount || 0}건)${verifyText}`);
       }
+      if (verifyMismatchCount > 0) setError(`사후 검증에서 미반영·불일치 ${verifyMismatchCount}건이 발견됐습니다. 적용 내역 아래 검증 결과 표를 확인하세요.`);
       await handlePreview({ preserveMessage: true, preserveApplyResult: true });
     } catch (e) {
       setError(e.message);
@@ -475,7 +484,13 @@ export default function DistributeImport() {
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
-          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용 중...' : '승인 후 주문등록+분배'}</button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }} title="켜면 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.">
+            <input type="checkbox" checked={shipmentOnly} onChange={e => setShipmentOnly(e.target.checked)} />
+            분배만 반영(주문 미변경)
+          </label>
+          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>
+            {applying ? '적용 중...' : shipmentOnly ? '승인 후 분배만 반영' : '승인 후 주문등록+분배'}
+          </button>
         </div>
 
         {error && <div style={st.error}>{error}</div>}
@@ -896,6 +911,55 @@ function PreAlignResultLog({ result }) {
   );
 }
 
+function VerificationBanner({ verification }) {
+  if (!verification) return null;
+  const { checked = 0, matched = 0, mismatchCount = 0, mismatches = [], error } = verification;
+  if (error) {
+    return (
+      <div style={st.verifyErrorBox}>
+        ⚠ 사후 검증 실패(반영 여부 미확인): {error}
+      </div>
+    );
+  }
+  if (!checked) return null;
+  const hasMismatch = mismatchCount > 0;
+  return (
+    <div style={hasMismatch ? st.verifyMismatchBox : st.verifyOkBox}>
+      <div style={st.verifyHead}>
+        {hasMismatch
+          ? `⚠ 사후 검증: 정상 반영 ${fmt(matched)}건 / 미반영·불일치 ${fmt(mismatchCount)}건`
+          : `✅ 사후 검증: 정상 반영 ${fmt(matched)}건 (확인 ${fmt(checked)}건 전체 일치)`}
+      </div>
+      {hasMismatch && (
+        <div style={st.verifyTableWrap}>
+          <table style={st.table}>
+            <thead>
+              <tr>
+                <th>거래처</th>
+                <th>품목</th>
+                <th>의도 수량</th>
+                <th>실제 DB 수량</th>
+                <th>사유</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mismatches.map((m, i) => (
+                <tr key={`${m.custKey}-${m.prodKey}-${i}`}>
+                  <td>{m.custName}</td>
+                  <td>{m.prodName}</td>
+                  <td>{fmt(m.intended)}</td>
+                  <td style={{ color: '#b91c1c', fontWeight: 800 }}>{fmt(m.actual)}</td>
+                  <td>{m.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ApplyResultContent({ result }) {
   const rows = result.appliedRows || [];
   const summary = [
@@ -915,6 +979,7 @@ function ApplyResultContent({ result }) {
           </div>
         ))}
       </div>
+      {!result.running && <VerificationBanner verification={result.verification} />}
       {(result.logs || []).length > 0 && (
         <div style={st.applyLogBox}>
           {(result.logs || []).map((l, i) => <div key={i}>{l}</div>)}
@@ -1061,6 +1126,8 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
               key={`s-${s.custKey}`}
               type="button"
               style={st.searchPickRow}
+              onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
               onClick={() => { onChange(String(s.custKey)); setQuery(''); setOpen(false); }}
             >
               ★ {customerOptionLabel(s)}
@@ -1078,6 +1145,8 @@ function CustomerSearchSelect({ value, onChange, suggested = [], placeholder }) 
               key={c.CustKey}
               type="button"
               style={st.searchPickRow}
+              onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
               onClick={() => { onChange(String(c.CustKey)); setQuery(''); setOpen(false); }}
             >
               {customerOptionLabel(c)}
@@ -1129,7 +1198,7 @@ function UnmatchedMatchingModal({
   const canReverify = custResolved + prodResolved > 0;
   return (
     <div style={st.modalOverlay}>
-      <div style={{ ...st.modalCard, width: 'min(860px, 96vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 매칭">
+      <div style={{ ...st.modalCard, width: 'min(1100px, 97vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 매칭">
         <div style={st.modalHead}>
           <div>
             <div style={st.modalTitle}>⚠️ 미매칭 — 업체/품목 수동 매칭</div>
@@ -1147,7 +1216,7 @@ function UnmatchedMatchingModal({
             품목 미매칭 {productItems.length > 0 ? `(${prodPending} 남음)` : '(0)'}
           </button>
         </div>
-        <div style={{ padding: 14, overflow: 'auto', maxHeight: '52vh' }}>
+        <div style={{ padding: 16, overflow: 'auto', maxHeight: '72vh' }}>
           {matchTab === 'customer' ? (
             customerItems.length === 0 ? (
               <div style={{ color: '#64748b', fontSize: 13 }}>업체 미매칭 없음</div>
@@ -1276,9 +1345,9 @@ const st = {
   unmatchedBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   qtyWarnBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   unmatchedBannerBtn: { height: 30, padding: '0 14px', border: 0, background: '#ea580c', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
-  custSelect: { minWidth: 280, height: 30, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', background: '#fff' },
-  searchDropdown: { position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', maxHeight: 220, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 20px rgba(0,0,0,.12)', marginTop: 2 },
-  searchPickRow: { display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '8px 10px', fontSize: 12, cursor: 'pointer' },
+  custSelect: { minWidth: 300, height: 38, fontSize: 14, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', background: '#fff' },
+  searchDropdown: { position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', minWidth: 340, maxHeight: 400, overflow: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 10px 28px rgba(0,0,0,.16)', marginTop: 2 },
+  searchPickRow: { display: 'block', width: '100%', textAlign: 'left', border: 0, borderBottom: '1px solid #f1f5f9', background: '#fff', padding: '11px 12px', fontSize: 14, lineHeight: 1.35, cursor: 'pointer' },
   searchSectionLabel: { padding: '4px 10px', fontSize: 10, color: '#94a3b8', borderTop: '1px solid #f1f5f9' },
   searchHint: { padding: 8, fontSize: 12, color: '#64748b' },
   matchTabRow: { display: 'flex', gap: 6, padding: '8px 14px 0', borderBottom: '1px solid #e2e8f0' },
@@ -1303,6 +1372,11 @@ const st = {
   applyLogBox: { border: '1px solid #cbd5e1', borderRadius: 8, background: '#0f172a', color: '#e2e8f0', padding: 10, marginBottom: 10, maxHeight: 120, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12, lineHeight: 1.55 },
   applyErrorBox: { border: '1px solid #fecaca', borderRadius: 8, background: '#fee2e2', color: '#991b1b', padding: 10, marginBottom: 10, fontSize: 12, fontWeight: 700 },
   applyStepBox: { border: '1px solid #fde68a', borderRadius: 8, background: '#fffbeb', color: '#92400e', padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 },
+  verifyOkBox: { border: '1px solid #bbf7d0', borderRadius: 8, background: '#f0fdf4', color: '#166534', padding: 10, marginBottom: 10, fontSize: 12, fontWeight: 700 },
+  verifyMismatchBox: { border: '2px solid #fca5a5', borderRadius: 8, background: '#fee2e2', color: '#991b1b', padding: 10, marginBottom: 10, fontSize: 12 },
+  verifyErrorBox: { border: '1px solid #fde68a', borderRadius: 8, background: '#fffbeb', color: '#92400e', padding: 10, marginBottom: 10, fontSize: 12, fontWeight: 700 },
+  verifyHead: { fontWeight: 800, marginBottom: 6 },
+  verifyTableWrap: { maxHeight: 220, overflow: 'auto', border: '1px solid #fca5a5', borderRadius: 6, background: '#fff' },
   applyTableWrap: { maxHeight: 340, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 },
   actionBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 },
   tableWrap: { height: 220, overflow: 'auto' },

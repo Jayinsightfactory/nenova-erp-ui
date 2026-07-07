@@ -11,6 +11,7 @@ async function handler(req, res) {
       rows: req.body?.rows,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
+      shipmentOnly: !!req.body?.shipmentOnly,
     });
     return res.status(200).json(result);
   } catch (e) {

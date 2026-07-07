@@ -1,6 +1,6 @@
 # 재고 정합 설계 — 유령재고·이중재고 drift 재발 방지
 
-> **최종 갱신:** 2026-06-25 (전체 차수 검증·진동 패턴 반영)  
+> **최종 갱신:** 2026-07-07 (autoStockAdd 부풀림 사고·복원 반영 — §2.2·R11·§8)  
 > **사건:** [26-01 웹복구·잔량 정리](work-reports/2026-06-25_undo-web-recovery-26-01.md) · [25-01 음수 복구](work-reports/2026-06-24_negative-product-stock-repair.md)  
 > **연계:** [출고 확정 exe 정합](SHIPMENT_FIX_EXE_RECONCILE.md) · [ERP 불변식](ERP_COMPAT_INVARIANTS_2026-06-04.md)
 
@@ -55,6 +55,7 @@ nenova는 **같은 품목에 재고가 두 갈래**로 존재한다.
 | 금지 | 이유 |
 |------|------|
 | `repair-negative-product-stock.js --apply` | 음수를 과거 `ProductStock`으로 올리면 **유령 재고** (2026-06-24 사고) |
+| **`autoStockAdd`(확정용 재고추가) — 음수를 `재고조정 StockHistory` 주입으로 0 채움** | 확정된 과거 차수에 주입하면 `usp_StockCalculation` cascade로 **차주(27·28차)로 부풀림 전파** (2026-07-06 사고). R3 위반(단일 축). **재설계 전 재활성 금지** — 음수 해소는 실제 `입고(WarehouseDetail)`로 |
 | scoped fix 후 `usp_StockCalculation` 생략 | `ProductStock` / `StockMaster` drift |
 | `Product.Stock`만 UPDATE하고 차수 재계산 생략 | live ↔ ps 분리 |
 | `StockHistory`에 차수잔량·live **둘 다** 잘못된 delta 기록 | 26-1 네덜란드 1차 sync 실패 원인 |
@@ -274,6 +275,7 @@ node scripts/fix-ng-weeks-remain.js --apply --current=26-01
 | R8 | `sync` → `reconcile` → `sync` **연쇄 실행 금지** — `*잔량정리:` 이력이 삭제되며 진동 |
 | R9 | exe 가드 보정은 `Descr`=`수동보정:차수잔량`; `음수정리:`는 reconcile이 삭제한다 |
 | R10 | 가드·수동보정 직후 `align-live-to-ps` **금지** — live를 ps로 되돌려 확정 재차단 |
+| R11 | 음수 재고를 `재고조정 StockHistory` 주입으로 0 채우면(=`autoStockAdd`) 확정 차수에선 **차주로 부풀림 전파** — 음수 해소는 실제 `입고(WarehouseDetail)` 또는 과출고 정정으로. 되돌릴 땐 **차수별 순delta=0** 롤백 + 전 차수 `usp_StockCalculation` 재계산 |
 
 ---
 
@@ -285,6 +287,8 @@ node scripts/fix-ng-weeks-remain.js --apply --current=26-01
 | 2026-06-25 | 26-1 잔량 급증 신고 | `undo-web-recovery` + NL/전체 `sync-week-stock-to-live` |
 | 2026-06-25 | 전체 61차 검증·복구 | sync↔reconcile↔align **진동** 확인, §4.4~4.6·R6~R10 추가 |
 | 2026-06-25 | 본 설계 문서 | 재발 방지 절차 고정 |
+| 2026-07-06 | `autoStockAdd`(재고추가후확정) 24-02~26-02 재고조정 **+21,826** 주입 → 27·28차 부풀림 전파 | 기능 비활성(`ENABLE_AUTO_STOCK_ADD` 게이트+UI) |
+| 2026-07-07 | 27-1/2차 정상재고 복원 | `revert-script`로 **차수별 순delta=0** 롤백 확인 후 207품목 × 전 차수(23-01~28-02) `usp_StockCalculation` 재계산. 27차 **psGap=0** 복원, 26-02→27-01→27-02 흐름 매끄러움(6,340→9,600→10,707). **수량/ShipmentHistory 무변경**. R11 신설 |
 
 ---
 

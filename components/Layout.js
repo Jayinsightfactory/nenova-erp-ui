@@ -55,6 +55,7 @@ export const MENU_ITEMS = [
     group: '채권관리',
     items: [
       { href: '/sales/status',       labelKey: '판매현황',           popup: false },
+      { href: '/sales/weekly-shipment', labelKey: '차수매출관리',    popup: true  },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },
       { href: '/catalog',              labelKey: '거래처 카탈로그', popup: true },
       { href: '/sales/ar',           labelKey: '거래처별 채권',      popup: false },

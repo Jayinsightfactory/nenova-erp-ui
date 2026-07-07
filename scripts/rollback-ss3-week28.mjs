@@ -30,6 +30,13 @@ const pool = await sql.connect({
   options: { encrypt: false, trustServerCertificate: true, requestTimeout: 300000 },
 });
 
+console.log('━'.repeat(72));
+console.log('⚠️  롤백 주의사항 (실행 전 필독) — docs/ROLLBACK_SAFETY_CHECKLIST.md');
+console.log('  1) 수량은 delta(BeforeValue→AfterValue)로만 되돌린다. 타 계정 수정분 보존.');
+console.log('  2) 빈 마스터를 isDeleted=1 로 남기지 않는다 — 활성 주문 있으면 exe가 재활용→숨김 트랩.');
+console.log('  3) 관련 없는 거래처/품목/차수/수량은 절대 안 건드린다. dry-run 표 먼저 확인.');
+console.log('  4) 삭제 전 이력(ShipmentHistory/OrderHistory) 기록 + 대상 백업.');
+console.log('━'.repeat(72));
 console.log(`모드: ${APPLY ? '★ APPLY (실제 적용) ★' : 'DRY-RUN'}  라움White전체제거: ${RAUM_WHITE_FULL}\n`);
 
 // ── 1) 주문(OrderDetail) 대상 ──────────────────────────────
@@ -166,10 +173,18 @@ try {
           AND NOT EXISTS (SELECT 1 FROM OrderDetail WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0)`);
   }
   for (const sk of shipmentKeys) {
+    // ⚠️ 빈 마스터라도 '해당 거래처가 그 차수에 활성 주문이 있으면' isDeleted=1 로 남기지 않는다.
+    //    (nenova.exe 가 재분배 시 삭제된 빈 마스터를 CustKey+OrderWeek 로 재활용 → 사용자 입력이
+    //     숨겨지는 트랩. 2026-07-06 28-01 루스커스 사고. memory: rollback-empty-master-isdeleted-reuse)
     await R().input('sk', sql.Int, sk).query(
-      `UPDATE ShipmentMaster SET isDeleted=1, LastUpdateID='${ID}', LastUpdateDtm=GETDATE()
-        WHERE ShipmentKey=@sk AND ISNULL(isDeleted,0)=0
-          AND NOT EXISTS (SELECT 1 FROM ShipmentDetail WHERE ShipmentKey=@sk)`);
+      `UPDATE sm SET isDeleted=1, LastUpdateID='${ID}', LastUpdateDtm=GETDATE()
+         FROM ShipmentMaster sm
+        WHERE sm.ShipmentKey=@sk AND ISNULL(sm.isDeleted,0)=0
+          AND NOT EXISTS (SELECT 1 FROM ShipmentDetail WHERE ShipmentKey=@sk)
+          AND NOT EXISTS (
+            SELECT 1 FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+             WHERE om.CustKey=sm.CustKey AND om.OrderYear=sm.OrderYear AND om.OrderWeek=sm.OrderWeek
+               AND ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0)`);
   }
   await tx.commit();
   console.log('\n✅ 커밋 완료 — 주문+분배 롤백 적용.');

@@ -44,7 +44,14 @@ async function handler(req, res) {
   try {
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     const parsed = parseAllocationWorkbook(XLSX, workbook, { sourceName: file.originalFilename || 'upload.xlsx' });
-    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week, customerOverrides, productOverrides });
+    const preview = await buildImportPreview({
+      parsedRows: parsed.rows,
+      rawWeek: week,
+      customerOverrides,
+      productOverrides,
+      custKeysInScope: parsed.custKeysInScope,
+      prodKeysInScope: parsed.prodKeysInScope,
+    });
     return res.status(200).json({
       ...preview,
       fileName: file.originalFilename || 'upload.xlsx',

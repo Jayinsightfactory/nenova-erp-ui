@@ -19,6 +19,7 @@ deploy_head: f10dcce
 1. 본 문서 §5「열린 이슈」 + §2「불변식 9항」 스캔
 1b. 버그/회귀 의심 → docs/REGRESSION_PREVENTION_GUIDE.md 해당 도메인 표
 2. 수정 대상이 DB 쓰기면 → docs/PRE_WORK_CONFLICT_CHECK_2026-05-25.md 체크리스트
+2b. **롤백/분배삭제/되돌리기/취소면 → docs/ROLLBACK_SAFETY_CHECKLIST.md (R-1~R-6, 30초 필독)**
 3. 출고/주문/견적이면 → docs/ERP_COMPAT_INVARIANTS_2026-06-04.md (불변식 1~9)
 3b. 재고·확정·차주 잔량이면 → docs/STOCK_INTEGRITY_DESIGN.md (금지·체크리스트)
 4. 단위(박스/단/송이) 건드리면 → docs/OUTUNIT_WRITE_AUDIT_2026-06-10.md
