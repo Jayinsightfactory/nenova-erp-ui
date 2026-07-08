@@ -10,8 +10,12 @@ import { getKakaoSheetId, readSheetValues } from '../../../lib/googleSheets';
 import { scoreMatch } from '../../../lib/displayName';
 import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES, KEY_PERSONNEL } from '../../../lib/workflowConfig';
 
-const LOG_RANGE = '이벤트로그!A:F';
-const BIZ_RANGE = '비즈니스이벤트!A:P';
+// 2026-07-08 최신화: nenovakakao가 메시지분류/이벤트로그/비즈니스이벤트 3개 탭을
+// 동일한 10열 통합 스키마(시각/방이름/발신자/원문/AI분류/품목/차수/수량/관리자수정/비고)로
+// 재구성함(구 스키마 — 이벤트로그 A:F 6열, 비즈니스이벤트 A:P 16열 — 은 폐기됨, 실측 확인).
+// 의사결정추적(A:K 11열)은 구조 그대로라 변경 없음.
+const LOG_RANGE = '이벤트로그!A:J';
+const BIZ_RANGE = '비즈니스이벤트!A:J';
 const DEC_RANGE = '의사결정추적!A:K';
 
 const norm = v => String(v ?? '').trim();
@@ -28,15 +32,21 @@ function parseMin(t) {
   return null;
 }
 
+// 신 스키마: A시각 B방이름 C발신자 D원문 E AI분류 F품목 G차수 H수량 I관리자수정 J비고
+// ⚠️ customer/direction/variety/unit 전용 컬럼이 더 이상 없음(옛 스키마엔 있었음) — 값 없이
+// 안전하게 비워둠(하위 로직이 빈 값을 우아하게 처리하도록 이미 설계돼 있어 깨지지 않음).
+// 거래처별 탭(customerIssues)은 이 필드가 항상 비어 향후 표시가 비게 됨 — 원문(D)에서
+// 거래처명을 별도 매칭하는 후속 작업 전까지는 알려진 제약으로 남긴다.
 function rowToEvent(r) {
+  const room = norm(r[1]);
   return {
-    eventId: norm(r[0]), time: norm(r[1]), eventType: norm(r[2]), week: norm(r[3]), product: norm(r[4]),
-    variety: norm(r[5]), quantity: parseQty(r[6]), unit: norm(r[7]) || '개', direction: norm(r[8]),
-    customer: norm(r[9]), room: norm(r[10]), pipeline: norm(r[11]) || stageOfRoom(r[10]),
-    sender: norm(r[12]), summary: norm(r[13]), relId: norm(r[14]), triggerMsgId: norm(r[15]),
+    eventId: '', time: norm(r[0]), eventType: norm(r[4]), week: norm(r[6]), product: norm(r[5]),
+    variety: '', quantity: parseQty(r[7]), unit: '개', direction: '',
+    customer: '', room, pipeline: stageOfRoom(room),
+    sender: norm(r[2]), summary: norm(r[3]), relId: '', triggerMsgId: '',
   };
 }
-function rowToLog(r) { return { time: norm(r[0]), room: norm(r[1]), pipeline: norm(r[2]), sender: norm(r[3]), text: norm(r[4]), msgId: norm(r[5]) }; }
+function rowToLog(r) { const room = norm(r[1]); return { time: norm(r[0]), room, pipeline: stageOfRoom(room), sender: norm(r[2]), text: norm(r[3]), msgId: '' }; }
 function rowToDecision(r) {
   return {
     issueId: norm(r[0]), time: norm(r[1]), room: norm(r[2]), pipeline: norm(r[3]) || stageOfRoom(r[2]),

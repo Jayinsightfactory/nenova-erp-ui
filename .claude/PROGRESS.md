@@ -4,6 +4,39 @@
 
 ---
 
+## [2026-07-08] 세션 — 업무플로우 분석(/admin/workflow) 카카오 시트 스키마 최신화
+
+### 작업 내용
+- **핵심 버그 발견+수정**: nenovakakao가 `메시지분류`/`이벤트로그`/`비즈니스이벤트` 3개 탭을 동일한
+  10열 통합 스키마(시각/방이름/발신자/원문/AI분류/품목/차수/수량/관리자수정/비고)로 재구성했는데,
+  `pages/api/admin/workflow.js`는 2026-06-09 포팅 당시 구 스키마(이벤트로그 A:F 6열, 비즈니스이벤트
+  A:P 16열, customer/direction/variety 등 별도 컬럼 존재 가정)를 그대로 쓰고 있어 **모든 컬럼이
+  완전히 밀려서** 읽히고 있었음(예: sender 자리에 원문 텍스트, eventType 자리에 발신자명 등).
+  Google Sheets API 실측(다른 저장소 mindmap-viewer의 kakao-debug 진단 엔드포인트로 헤더 3개 탭
+  교차확인) 후 신 스키마에 맞춰 `rowToEvent`/`rowToLog` 재작성, `LOG_RANGE`/`BIZ_RANGE`를 `A:J`로
+  축소. 실제 시트 행 데이터로 단위검증 완료(로컬, Node 스크립트).
+- `lib/workflowConfig.js`: EVENT_TYPES에 실측 확인된 AI분류 코드 `COMM_INFO`(정보공유) 추가.
+- 로컬 dev 서버로 문법/파싱 확인(SQL/ViewOrder 매칭 구간은 미변경, 미검증 — 인증토큰 발급이 크리덴셜
+  생성으로 분류돼 차단됨. 배포 후 실 카카오 시트 연결 상태에서 `/admin/workflow` 확인 필요).
+
+### 변경된 파일
+- `pages/api/admin/workflow.js`: LOG_RANGE/BIZ_RANGE 축소, rowToEvent/rowToLog 신스키마 재작성
+- `lib/workflowConfig.js`: EVENT_TYPES에 COMM_INFO 추가
+
+### 알려진 제약(후속 과제)
+- `customer`/`direction`/`variety`/`unit` 전용 컬럼이 신 스키마엔 없음 → 항상 빈 값:
+  - 이슈트래킹 탭 "② 거래처별 요청/이슈 패턴"은 당분간 항상 빈 결과("데이터 없음")
+  - 차수 타임라인 탭의 취소(-)/추가 색상 구분 무력화(항상 "추가"로 표시)
+  - 필요시 원문(D열, summary 필드에 이미 있음)에서 거래처명 텍스트 매칭 추출을 별도 기능으로 추가 가능
+- EVENT_TYPES는 딱 1개 실측 코드만 확인·반영. 전체 AI분류 taxonomy는 nenovakakao repo(`_flow_analysis.py`
+  등)에서 확인 필요 — 매칭 안 되는 코드는 원본 그대로 표시되므로 화면이 깨지진 않음(안전한 성능저하).
+
+### 다음 작업 예정
+- 사용자 승인 후 커밋/푸시 → Cafe24 배포 → 실 카카오 시트 연동 상태에서 `/admin/workflow` 라이브 확인.
+- 여유 있으면 거래처 텍스트매칭(원문→Customer 마스터) 추가로 issueTracking §2 복구.
+
+---
+
 ## [2026-06-16] 세션 — 마스터 이슈 가이드 + paste 기준차수
 
 ### 작업 내용
