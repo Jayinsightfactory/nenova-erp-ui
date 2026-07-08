@@ -1293,8 +1293,10 @@ function productOptionLabel(p) {
   return [name, unit, cf].filter(Boolean).join(' · ');
 }
 
-/** 품목 검색+선택 — CustomerSearchSelect 와 동일 UX (★추천 + 전체 검색, portal 드롭다운) */
-function ProductSearchSelect({ value, onChange, suggested = [], options = [], placeholder }) {
+/** 품목 검색+선택 — CustomerSearchSelect 와 동일 UX (★추천 + 전체 검색, portal 드롭다운).
+ * contextText(시트명·품종)가 있으면 그 국가·품종에 맞는 품목을 위로 정렬 —
+ * 예: 콜롬비아수국 시트에서 hydrangea 검색 시 콜롬비아 수국이 네덜란드보다 먼저. */
+function ProductSearchSelect({ value, onChange, suggested = [], options = [], placeholder, contextText = '' }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [remote, setRemote] = useState([]);
@@ -1351,7 +1353,22 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
       try {
         const res = await fetch(`/api/products/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' });
         const d = await res.json();
-        setRemote((d.products || []).slice(0, 60));
+        const ctx = String(contextText || '').replace(/\s+/g, '');
+        const list = [...(d.products || [])];
+        if (ctx) {
+          // 업로드 시트 맥락 점수: 국가·품종이 시트명(예: '콜롬비아수국')에 들어있으면 우선.
+          // 잘라내기 전에 정렬해야 맥락에 맞는 품목이 표시 한도에 밀려 사라지지 않는다.
+          const score = (p) => {
+            let s = 0;
+            const coun = String(p.CounName || '').replace(/\s+/g, '');
+            const flower = String(p.FlowerName || '').replace(/\s+/g, '');
+            if (coun && ctx.includes(coun)) s += 2;
+            if (flower && ctx.includes(flower)) s += 1;
+            return s;
+          };
+          list.sort((a, b) => score(b) - score(a));
+        }
+        setRemote(list.slice(0, 200));
       } catch {
         setRemote([]);
       } finally {
@@ -1359,7 +1376,7 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
       }
     }, 250);
     return () => clearTimeout(t);
-  }, [query, open]);
+  }, [query, open, contextText]);
 
   const suggestedIds = new Set(suggested.map(s => String(s.prodKey)));
   const searchHits = remote.filter(p => !suggestedIds.has(String(p.ProdKey)));
@@ -1407,6 +1424,9 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
           {productOptionLabel(p)}
         </button>
       ))}
+      {remote.length >= 200 && (
+        <div style={st.searchHint}>결과가 많아 200건까지만 표시 — 검색어를 더 입력하세요</div>
+      )}
       {!query.trim() && suggested.length === 0 && (
         <div style={st.searchHint}>품목명·코드·품종 일부를 입력하세요</div>
       )}
@@ -1561,6 +1581,7 @@ function UnmatchedMatchingModal({
                           suggested={it.suggestedProducts}
                           options={productOptions}
                           placeholder="품목 검색·선택"
+                          contextText={`${it.sheetName || ''} ${it.productFamily || ''} ${it.productLabel || ''}`}
                         />
                       </td>
                     </tr>
