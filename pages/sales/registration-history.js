@@ -6,9 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 
 function getDefaultWeek() {
+  // 기본 = 대차수(합산 모드). '27' → 27-01+27-02 합산이 27차.
   const current = getCurrentWeek();
   const m = String(current || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? `${m[2]}-${m[3]}` : current;
+  return m ? m[2] : current;
 }
 const fmt = n => Number(n || 0).toLocaleString();
 const TYPE_META = {
@@ -25,7 +26,8 @@ export default function SalesRegistrationHistoryPage() {
   const [message, setMessage] = useState('');
   const [data, setData] = useState(null);            // { snapshots, live }
   const [selKey, setSelKey] = useState(null);        // 선택 스냅샷
-  const [rows, setRows] = useState([]);              // 선택 스냅샷 행
+  const [selCombined, setSelCombined] = useState(null); // 대차수 합산 보기 { type, snaps }
+  const [rows, setRows] = useState([]);              // 선택 스냅샷(또는 합산) 행
   const [selCust, setSelCust] = useState(null);      // 업체 시트 선택
   const [viewTab, setViewTab] = useState('cust');    // cust | flower
   const [diff, setDiff] = useState(null);            // 기준 vs 현재 diff
@@ -38,19 +40,35 @@ export default function SalesRegistrationHistoryPage() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
-      const baseline = (d.snapshots || []).find(s => s.SnapshotType === 'TUE_FINAL');
-      const first = baseline || (d.snapshots || [])[0];
-      if (first) await selectSnapshot(first.SnapshotKey);
-      else { setSelKey(null); setRows([]); }
+      const tueSnaps = (d.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
+      if (d.majorMode && tueSnaps.length > 0) {
+        await selectCombined('TUE_FINAL', tueSnaps);
+      } else {
+        const first = tueSnaps[0] || (d.snapshots || [])[0];
+        if (first) await selectSnapshot(first.SnapshotKey);
+        else { setSelKey(null); setSelCombined(null); setRows([]); }
+      }
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
 
+  const fetchRows = async (key) => {
+    const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&rows=${key}`, { credentials: 'same-origin' });
+    const d = await res.json();
+    return d.rows || [];
+  };
+
   const selectSnapshot = async (key) => {
-    setSelKey(key); setSelCust(null);
+    setSelKey(key); setSelCombined(null); setSelCust(null);
+    try { setRows(await fetchRows(key)); } catch { setRows([]); }
+  };
+
+  // 대차수 합산 보기 — 세부차수별 해당 타입 스냅샷 행을 합쳐 27차 전체로
+  const selectCombined = async (type, snaps) => {
+    setSelKey(null); setSelCust(null);
+    setSelCombined({ type, snaps });
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&rows=${key}`, { credentials: 'same-origin' });
-      const d = await res.json();
-      setRows(d.rows || []);
+      const all = await Promise.all(snaps.map(s => fetchRows(s.SnapshotKey)));
+      setRows(all.flat());
     } catch { setRows([]); }
   };
 
@@ -88,8 +106,12 @@ export default function SalesRegistrationHistoryPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const baseline = (data?.snapshots || []).find(s => s.SnapshotType === 'TUE_FINAL');
-  const baselineTotal = baseline ? Number(baseline.TotalAmount) + Number(baseline.TotalVat) : null;
+  // 기준 합계 = 세부차수별 TUE_FINAL 총합 (대차수 모드면 27-01+27-02 합산이 27차 기준)
+  const tueSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
+  const wedSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'WED_CHECK');
+  const baselineTotal = tueSnapshots.length
+    ? tueSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
+    : null;
   const liveTotal = data?.live?.total ?? null;
   const driftAmt = baselineTotal != null && liveTotal != null ? liveTotal - baselineTotal : null;
 
@@ -138,7 +160,7 @@ export default function SalesRegistrationHistoryPage() {
 
       <div style={st.bar}>
         <label style={st.label}>차수</label>
-        <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="예: 28-01" />
+        <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27=차수 전체 / 27-01" title="27 처럼 대차수만 넣으면 27-01+27-02 합산(=27차)으로 봅니다" />
         <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
         <button
           style={{ ...st.primaryBtn, background: '#16a34a' }}
@@ -164,7 +186,28 @@ export default function SalesRegistrationHistoryPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: 12, alignItems: 'start' }}>
         {/* 좌: 스냅샷 타임라인 */}
         <div style={st.panel}>
-          <div style={st.panelHead}><strong>스냅샷 타임라인</strong></div>
+          <div style={st.panelHead}><strong>스냅샷 타임라인{data?.majorMode ? ` — ${data.week}차 (${(data.subweeks || []).join(' + ')})` : ''}</strong></div>
+          {data?.majorMode && tueSnapshots.length > 0 && (
+            <div style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button
+                style={selCombined?.type === 'TUE_FINAL' ? st.combinedOn : st.combinedBtn}
+                onClick={() => selectCombined('TUE_FINAL', tueSnapshots)}
+              >
+                🔒 화요일 최종분배 합산 ({data.week}차 전체) — {fmt(Math.round(tueSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
+              </button>
+              {wedSnapshots.length > 0 && (
+                <button
+                  style={selCombined?.type === 'WED_CHECK' ? st.combinedOn : st.combinedBtn}
+                  onClick={() => selectCombined('WED_CHECK', wedSnapshots)}
+                >
+                  🔒 수요일 점검 합산 — {fmt(Math.round(wedSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
+                </button>
+              )}
+              <button style={st.tinyBtn} onClick={() => runDiff(tueSnapshots.map(s => s.SnapshotKey).join(','))}>
+                화요일 기준 합산 vs 현재 DB 비교
+              </button>
+            </div>
+          )}
           <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
             {(data?.snapshots || []).length === 0 && (
               <div style={{ padding: 12, fontSize: 12, color: '#64748b' }}>
@@ -180,6 +223,7 @@ export default function SalesRegistrationHistoryPage() {
                   onClick={() => selectSnapshot(s.SnapshotKey)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 10, fontWeight: 800, color: meta.color, background: meta.bg, borderRadius: 999, padding: '2px 8px' }}>{meta.label}</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#0f766e', background: '#ccfbf1', borderRadius: 999, padding: '2px 8px' }}>{s.OrderWeek}</span>
                     <span style={{ fontSize: 11, color: '#64748b' }}>#{s.SnapshotKey}</span>
                     <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>{s.takenAt}</span>
                   </div>
@@ -266,12 +310,18 @@ export default function SalesRegistrationHistoryPage() {
             </div>
           )}
 
-          {selSnap && (
+          {(selSnap || selCombined) && (
             <div style={st.panel}>
               <div style={st.panelHead}>
                 <strong>
-                  #{selSnap.SnapshotKey} {(TYPE_META[selSnap.SnapshotType] || {}).label} · {selSnap.takenAt}
-                  <span style={{ marginLeft: 10, color: '#1d4ed8' }}>{fmt(Math.round(Number(selSnap.TotalAmount) + Number(selSnap.TotalVat)))}원</span>
+                  {selCombined
+                    ? `${(TYPE_META[selCombined.type] || {}).label} 합산 — ${selCombined.snaps.map(s => `${s.OrderWeek}(#${s.SnapshotKey})`).join(' + ')}`
+                    : `#${selSnap.SnapshotKey} ${(TYPE_META[selSnap.SnapshotType] || {}).label} · ${selSnap.OrderWeek} · ${selSnap.takenAt}`}
+                  <span style={{ marginLeft: 10, color: '#1d4ed8' }}>
+                    {fmt(Math.round(selCombined
+                      ? selCombined.snaps.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
+                      : Number(selSnap.TotalAmount) + Number(selSnap.TotalVat)))}원
+                  </span>
                 </strong>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button style={viewTab === 'cust' ? st.segOn : st.seg} onClick={() => setViewTab('cust')}>업체별 매출</button>
@@ -377,5 +427,7 @@ const st = {
   panelHead: { minHeight: 40, padding: '6px 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   seg: { background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: '#475569' },
+  combinedBtn: { background: '#fff', border: '1px solid #1d4ed8', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer', color: '#1d4ed8', textAlign: 'left' },
+  combinedOn: { background: '#1d4ed8', border: '1px solid #1d4ed8', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer', color: '#fff', textAlign: 'left' },
   segOn: { background: '#1d4ed8', border: '1px solid #1d4ed8', borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: '#fff' },
 };

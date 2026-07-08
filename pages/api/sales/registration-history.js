@@ -13,8 +13,26 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const rawWeek = String(req.query.week || '').trim();
       if (!rawWeek) return res.status(400).json({ success: false, error: 'week 필요' });
-      const week = normalizeOrderWeek(rawWeek);
-      const orderYear = resolveActiveOrderYear(rawWeek, req.query.year);
+      // 대차수 모드: '27' 처럼 세부차수 없이 입력하면 27-01+27-02 를 합산해 27차로 본다
+      const majorMode = /^\d{1,2}$/.test(rawWeek);
+      const major = majorMode ? rawWeek.padStart(2, '0') : null;
+      const week = majorMode ? null : normalizeOrderWeek(rawWeek);
+      const orderYear = resolveActiveOrderYear(majorMode ? `${major}-01` : rawWeek, req.query.year);
+      const subweeks = majorMode
+        ? (await query(
+            `SELECT OrderWeek FROM (
+               SELECT DISTINCT OrderWeek FROM ShipmentMaster
+                WHERE ISNULL(isDeleted,0)=0 AND OrderWeek LIKE @pfx AND ISNULL(OrderYearWeek,'') = @yw
+               UNION
+               SELECT DISTINCT OrderWeek FROM WebSalesSnapshot WHERE OrderWeek LIKE @pfx AND OrderYear=@yr
+             ) t ORDER BY OrderWeek`,
+            {
+              pfx: { type: sql.NVarChar, value: `${major}-%` },
+              yw: { type: sql.NVarChar, value: `${orderYear}${major}` },
+              yr: { type: sql.NVarChar, value: String(orderYear) },
+            }
+          )).recordset.map(x => x.OrderWeek)
+        : [week];
 
       // 스냅샷 상세 행
       if (req.query.rows) {
@@ -22,11 +40,12 @@ export default withAuth(async function handler(req, res) {
         return res.status(200).json({ success: true, rows });
       }
 
-      // diff: from 스냅샷 → to(스냅샷키 또는 'current')
+      // diff: from 스냅샷 → to(스냅샷키 또는 'current'). diffFrom 은 콤마목록 허용(합산 diff)
       if (req.query.diffFrom) {
-        const baseRows = await getSnapshotRows(req.query.diffFrom);
+        const fromKeys = String(req.query.diffFrom).split(',').map(Number).filter(Boolean);
+        const baseRows = (await Promise.all(fromKeys.map(k => getSnapshotRows(k)))).flat();
         const toRows = req.query.diffTo === 'current' || !req.query.diffTo
-          ? await captureCurrentRows(week)
+          ? (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat()
           : await getSnapshotRows(req.query.diffTo);
         const diff = diffRowSets(baseRows, toRows);
         return res.status(200).json({ success: true, diff });
@@ -34,31 +53,41 @@ export default withAuth(async function handler(req, res) {
 
       // 변경 주체 추적 — 기준 스냅샷 이후 ShipmentHistory (누가/언제/얼마→얼마)
       if (req.query.changeLog) {
-        const snaps = await listSnapshots(week, orderYear);
-        const baseline = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
-        if (!baseline) return res.status(200).json({ success: true, entries: [], noBaseline: true });
-        const r = await query(
-          `SELECT TOP 200 sh.SdetailKey, CONVERT(varchar(19), sh.ChangeDtm, 120) AS changeDtm,
-                  sh.ChangeType, sh.BeforeValue, sh.AfterValue, sh.Descr, sh.ChangeID,
-                  c.CustName, p.ProdName
-             FROM ShipmentHistory sh
-             LEFT JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
-             LEFT JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-             LEFT JOIN Customer c ON sm.CustKey = c.CustKey
-             LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
-            WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since
-            ORDER BY sh.ChangeDtm DESC`,
-          { week: { type: sql.NVarChar, value: week }, since: { type: sql.DateTime, value: new Date(baseline.takenAt) } }
-        );
-        return res.status(200).json({ success: true, entries: r.recordset, baselineAt: baseline.takenAt });
+        const entries = [];
+        let baselineAt = null;
+        for (const w of subweeks) {
+          const snaps = await listSnapshots(w, orderYear);
+          const baseline = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
+          if (!baseline) continue;
+          if (!baselineAt || baseline.takenAt < baselineAt) baselineAt = baseline.takenAt;
+          const r = await query(
+            `SELECT TOP 200 sh.SdetailKey, CONVERT(varchar(19), sh.ChangeDtm, 120) AS changeDtm,
+                    sh.ChangeType, sh.BeforeValue, sh.AfterValue, sh.Descr, sh.ChangeID,
+                    c.CustName, p.ProdName, sm.OrderWeek
+               FROM ShipmentHistory sh
+               LEFT JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
+               LEFT JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+               LEFT JOIN Customer c ON sm.CustKey = c.CustKey
+               LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
+              WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since
+              ORDER BY sh.ChangeDtm DESC`,
+            { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(baseline.takenAt) } }
+          );
+          entries.push(...r.recordset);
+        }
+        if (baselineAt == null) return res.status(200).json({ success: true, entries: [], noBaseline: true });
+        entries.sort((a, b) => (a.changeDtm < b.changeDtm ? 1 : -1));
+        return res.status(200).json({ success: true, entries: entries.slice(0, 200), baselineAt });
       }
 
-      // 기본: 스냅샷 목록 + 현재 라이브 합계
-      const [snapshots, currRows] = await Promise.all([listSnapshots(week, orderYear), captureCurrentRows(week)]);
-      const liveAmount = currRows.reduce((s, r) => s + Number(r.Amount || 0) + Number(r.Vat || 0), 0);
+      // 기본: 스냅샷 목록(세부차수 합침) + 현재 라이브 합계(합산)
+      const snapLists = await Promise.all(subweeks.map(w => listSnapshots(w, orderYear)));
+      const snapshots = snapLists.flat().sort((a, b) => a.SnapshotKey - b.SnapshotKey);
+      const currAll = (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat();
+      const liveAmount = currAll.reduce((s, r) => s + Number(r.Amount || 0) + Number(r.Vat || 0), 0);
       return res.status(200).json({
-        success: true, week, orderYear, snapshots,
-        live: { rowCnt: currRows.length, total: liveAmount },
+        success: true, week: majorMode ? major : week, orderYear, majorMode, subweeks, snapshots,
+        live: { rowCnt: currAll.length, total: liveAmount },
       });
     }
 
@@ -66,17 +95,34 @@ export default withAuth(async function handler(req, res) {
       const action = String(req.body?.action || '');
       const rawWeek = String(req.body?.week || '').trim();
       if (!rawWeek) return res.status(400).json({ success: false, error: 'week 필요' });
-      const week = normalizeOrderWeek(rawWeek);
-      const orderYear = resolveActiveOrderYear(rawWeek, req.body?.year);
+      const majorMode = /^\d{1,2}$/.test(rawWeek);
+      const major = majorMode ? rawWeek.padStart(2, '0') : null;
+      const orderYear = resolveActiveOrderYear(majorMode ? `${major}-01` : rawWeek, req.body?.year);
+      const weeks = majorMode
+        ? (await query(
+            `SELECT DISTINCT OrderWeek FROM ShipmentMaster
+              WHERE ISNULL(isDeleted,0)=0 AND OrderWeek LIKE @pfx AND ISNULL(OrderYearWeek,'') = @yw
+              ORDER BY OrderWeek`,
+            { pfx: { type: sql.NVarChar, value: `${major}-%` }, yw: { type: sql.NVarChar, value: `${orderYear}${major}` } }
+          )).recordset.map(x => x.OrderWeek)
+        : [normalizeOrderWeek(rawWeek)];
       const actor = req.user?.userName || req.user?.userId || 'user';
 
       if (action === 'manual') {
-        const r = await takeSnapshot({ week, orderYear, type: 'MANUAL', actor, note: req.body?.note || '수동 스냅샷' });
-        return res.status(200).json({ success: true, ...r });
+        const results = [];
+        for (const w of weeks) results.push({ week: w, ...(await takeSnapshot({ week: w, orderYear, type: 'MANUAL', actor, note: req.body?.note || '수동 스냅샷' })) });
+        const first = results[0] || {};
+        return res.status(200).json({ success: true, results, ...first });
       }
       if (action === 'checkNow') {
-        const r = await detectAndRecordChange(week, orderYear, actor);
-        return res.status(200).json({ success: true, ...r });
+        const results = [];
+        for (const w of weeks) results.push({ week: w, ...(await detectAndRecordChange(w, orderYear, actor)) });
+        const changedList = results.filter(r => r.changed);
+        return res.status(200).json({
+          success: true, results,
+          changed: changedList.length > 0,
+          note: changedList.map(r => `${r.week}: ${r.note}`).join(' / '),
+        });
       }
       return res.status(400).json({ success: false, error: '알 수 없는 action' });
     }
