@@ -418,12 +418,23 @@ export default function DistributeImport() {
     };
     setApplyResult(initialApplyResult);
     setApplyModalOpen(true);
+    // 실시간 진행 로그 — 서버 트랜잭션이 도는 동안 몇 건째/어떤 업체·품목을 입력 중인지 폴링으로 표시
+    const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const pollTimer = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
+        const d = await r.json();
+        if (d?.progress) {
+          setApplyResult(prev => (prev && prev.running ? { ...prev, progress: d.progress } : prev));
+        }
+      } catch { /* 폴링 실패는 무시 — 본 요청이 결과를 준다 */ }
+    }, 900);
     try {
       const res = await fetch('/api/shipment/distribute-import-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly }),
+        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly, jobId }),
       });
       let data;
       try {
@@ -460,6 +471,7 @@ export default function DistributeImport() {
       }));
       setApplyModalOpen(true);
     } finally {
+      clearInterval(pollTimer);
       setApplying(false);
     }
   };
@@ -1020,6 +1032,30 @@ function ApplyResultContent({ result }) {
       )}
       {result.error && (
         <div style={st.applyErrorBox}>{result.error}</div>
+      )}
+      {result.running && result.progress && (
+        <div style={{ border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#1d4ed8', marginBottom: 6 }}>
+            <span>{result.progress.stage}</span>
+            <span>{result.progress.done}/{result.progress.total}건</span>
+          </div>
+          <div style={{ height: 8, background: '#dbeafe', borderRadius: 999, overflow: 'hidden', marginBottom: 6 }}>
+            <div style={{
+              height: '100%',
+              width: `${result.progress.total > 0 ? Math.min(100, Math.round(result.progress.done / result.progress.total * 100)) : 0}%`,
+              background: '#2563eb',
+              transition: 'width .4s',
+            }} />
+          </div>
+          {result.progress.current && (
+            <div style={{ fontSize: 12, color: '#334155' }}>지금 처리 중: <b>{result.progress.current}</b></div>
+          )}
+          {(result.progress.logs || []).length > 0 && (
+            <div style={{ ...st.applyLogBox, maxHeight: 180, marginTop: 8 }}>
+              {result.progress.logs.slice(-40).map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          )}
+        </div>
       )}
       {result.running && (
         <div style={st.applyStepBox}>
