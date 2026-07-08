@@ -181,6 +181,23 @@ async function main() {
   assert('EstUnit=박스 → estQty=OutQuantity(박스)', est.estQty === 74);
   assert('amount=74*cost/1.1', est.amount === 134545);
 
+  console.log('\n=== 수국 분수박스: OutQuantity 소수2자리 확정 (5.17 vs 5.166667 갈림 방지) ===');
+  // 수국: 박스 출고 + 송이 견적, 1박스=30송이. 155송이 입력 = 5.1666…박스 → exe 저장규칙(2자리)=5.17
+  const suguProduct = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 30 };
+  const sugu = shipmentUnitsFromUserInput(155, '송이', suguProduct);
+  assert('155송이 → outQuantity=5.17 (2자리 확정)', sugu.outQuantity === 5.17);
+  assert('155송이 → box=5.17', sugu.box === 5.17);
+  assert('155송이 → steam=155 (입력 그대로)', sugu.steam === 155);
+  assert('155송이 → estQty=155 (5.17박스×30 반올림)', sugu.estQty === 155);
+  // 30의 배수(정수 박스)는 기존과 완전 동일
+  const sugu150 = shipmentUnitsFromUserInput(150, '송이', suguProduct);
+  assert('150송이 → outQuantity=5 (변화 없음)', sugu150.outQuantity === 5);
+  assert('150송이 → estQty=150', sugu150.estQty === 150);
+  // 박스 단위 정수 입력도 무변화
+  const sugu6 = shipmentUnitsFromUserInput(6, '박스', suguProduct);
+  assert('6박스 → outQuantity=6', sugu6.outQuantity === 6);
+  assert('6박스 → steam=180', sugu6.steam === 180);
+
   const heeRefresh = makeMockTq({
     detail: {
       SdetailKey: 79258,
