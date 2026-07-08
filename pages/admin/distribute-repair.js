@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import Layout from '../../components/Layout';
+// Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { apiGet, apiPost } from '../../lib/useApi';
 
 export default function DistributeRepair() {
@@ -147,7 +147,7 @@ export default function DistributeRepair() {
   const dateRows = diag?.shipmentDateMismatch || [];
 
   return (
-    <Layout>
+    <>
       <Head><title>출고분배 진단/보정</title></Head>
       <div style={{ padding: 16, maxWidth: 1000 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -505,7 +505,7 @@ export default function DistributeRepair() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

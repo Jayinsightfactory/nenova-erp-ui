@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../../components/Layout';
+// Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 
 const inputStyle = {
   height: 32,
@@ -57,7 +57,7 @@ export default function IncomingKakaoSummaryPage() {
   const items = data?.items || [];
 
   return (
-    <Layout title="수입방 카톡 수량집계">
+    <>
       <div style={{ padding: 18, maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div>
@@ -163,7 +163,7 @@ export default function IncomingKakaoSummaryPage() {
           </table>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

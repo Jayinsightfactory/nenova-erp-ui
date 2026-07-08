@@ -1,7 +1,7 @@
 // pages/orders/import.js — 이미지/엑셀 업로드 주문등록 (라움 등 거래처 발주표)
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import Layout from '../../components/Layout';
+// Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
@@ -676,7 +676,7 @@ export default function OrderImportPage() {
   const oldWeeks = weeks.filter(w => !w.match(/^\d{4}-/));
 
   return (
-    <Layout title="업로드 주문등록">
+    <>
       <div style={st.page}>
         <div style={st.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -983,6 +983,6 @@ export default function OrderImportPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

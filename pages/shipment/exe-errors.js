@@ -1,7 +1,7 @@
 // 전산 오류 진단 — nenova.exe 오류알림이 "왜 생겼고 어디서 생겼는지" 차수 단위로 스캔.
 // 읽기 전용: DB 를 절대 수정하지 않는다 (수리는 각 항목의 해결 안내 경로로).
 import { useState } from 'react';
-import Layout from '../../components/Layout';
+// Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 
 function getDefaultWeek() {
@@ -37,7 +37,7 @@ export default function ExeErrorsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div style={st.page}>
         <h1 style={st.h1}>🩺 전산 오류 진단</h1>
         <p style={st.desc}>
@@ -153,7 +153,7 @@ export default function ExeErrorsPage() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

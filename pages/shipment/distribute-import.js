@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
-import Layout from '../../components/Layout';
+// Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
 
@@ -477,7 +477,7 @@ export default function DistributeImport() {
   };
 
   return (
-    <Layout>
+    <>
       <div style={st.page}>
         <div style={st.toolbar}>
           <div>
@@ -714,7 +714,7 @@ export default function DistributeImport() {
           cursor: not-allowed;
         }
       `}</style>
-    </Layout>
+    </>
   );
 }
 
