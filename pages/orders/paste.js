@@ -11,6 +11,7 @@ import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../li
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
+import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -2711,6 +2712,16 @@ export default function PasteOrderPage() {
   return (
     <Layout title="붙여넣기 주문등록">
       <div style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+        <CollapsibleTop
+          storageKey="orders-paste"
+          summary={(
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <b>📋 붙여넣기</b>
+              <span style={{ whiteSpace: 'nowrap' }}>등록차수 {week ? formatWeekDisplay(week) : '미선택'}</span>
+              {orders.length > 0 && <span style={{ whiteSpace: 'nowrap' }}>파싱 {orders.length}건</span>}
+            </span>
+          )}
+        >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a237e', margin: 0 }}>
             📋 붙여넣기 주문등록
@@ -2858,6 +2869,7 @@ export default function PasteOrderPage() {
             );
           })()}
         </div>
+        </CollapsibleTop>
 
         <div className="paste-input-grid" style={{ marginBottom: 12 }}>
           {/* 1열: 주문 붙여넣기 */}
