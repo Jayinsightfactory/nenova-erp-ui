@@ -107,13 +107,18 @@ export const MENU_ITEMS = [
   },
 ];
 
-export function openPopup(href, label, w = 1280, h = 820) {
-  const left = Math.max(0, (screen.width  - w) / 2);
-  const top  = Math.max(0, (screen.height - h) / 2);
+export function openPopup(href, label, w, h) {
+  // 기본 크기 = 화면의 94% (최소 1200×760) — 시트형 화면이 잘리지 않게 여유 있게.
+  const availW = window.screen?.availWidth || 1600;
+  const availH = window.screen?.availHeight || 900;
+  const width  = Math.min(availW, Math.max(1200, Math.round(w || availW * 0.94)));
+  const height = Math.min(availH, Math.max(760, Math.round(h || availH * 0.94)));
+  const left = Math.max(0, (availW - width) / 2);
+  const top  = Math.max(0, (availH - height) / 2);
   window.open(
-    `${href}?popup=1`,
+    `${href}${href.includes('?') ? '&' : '?'}popup=1`,
     label || href,
-    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
   );
 }
 

@@ -80,7 +80,7 @@ export default function Dashboard() {
     if (!item?.href) return;
     const label = item.label || t(item.labelKey || item.href);
     if (item.popup) {
-      openPopup(item.href, label, 1440, 900);
+      openPopup(item.href, label);
       return;
     }
     // 새 창은 사이드바 없는 팝업 모드로 — 메인 창 메뉴와 중복 방지. window.opener 감지가

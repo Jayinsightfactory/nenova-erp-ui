@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } fr
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
+import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
 
@@ -493,6 +494,24 @@ export default function DistributeImport() {
           </div>
         </div>
 
+        <CollapsibleTop
+          storageKey="distribute-import"
+          summary={(
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <b>{weekInput.value}</b>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                {file ? file.name : '파일 미선택'}
+              </span>
+              {preview && (
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  적용 {applyRows.length} · 미매칭 {(preview.unmatched || []).length} · ⚠경고 {qtyWarningRows.length}
+                </span>
+              )}
+              <button style={st.miniBtn} onClick={handlePreview} disabled={loading}>{loading ? '검증중…' : '검증'}</button>
+              <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용중…' : '적용'}</button>
+            </span>
+          )}
+        >
         <div style={st.uploadBand}>
           <input
             ref={fileRef}
@@ -531,15 +550,6 @@ export default function DistributeImport() {
           </button>
         </div>
 
-        {error && <div style={st.error}>{error}</div>}
-        {message && <div style={st.message}>{message}</div>}
-        {staleOverrideWarnings.length > 0 && (
-          <div style={{ ...st.error, background: '#fef2f2', borderColor: '#ef4444' }}>
-            ⚠ 매칭 반영 실패 {staleOverrideWarnings.length}건 — 지정한 매칭이 검증 결과에 적용되지 않고 미매칭으로 되돌아왔습니다.
-            같은 항목을 다시 지정하지 말고 이 메시지를 관리자에게 알려주세요.
-            <div style={{ fontSize: 11, marginTop: 4 }}>{staleOverrideWarnings.join(' · ')}</div>
-          </div>
-        )}
         {preAlignResult && (
           <div style={{ marginBottom: 12 }}>
             <PreAlignResultLog result={preAlignResult} />
@@ -548,6 +558,60 @@ export default function DistributeImport() {
         {applyResult && (
           <div ref={applyResultRef} style={{ marginBottom: 12 }}>
             <ApplyResultLog result={applyResult} />
+          </div>
+        )}
+        {preview && (
+          <div style={st.kpis}>
+            <Kpi label="전체 표시" value={rows.length} />
+            <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
+            <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
+            <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
+            <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
+            <Kpi label="적용가능" value={applyRows.length} warn={applyRows.length > 0} />
+            <Kpi label="확정차단" value={fixBlockedRows.length} danger={fixBlockedRows.length > 0} />
+            <Kpi label="수량경고" value={qtyWarningRows.length} danger={qtyWarningRows.length > 0} />
+          </div>
+        )}
+        {preview && (
+          <div style={st.grid}>
+            <section style={st.panel}>
+              <div style={st.panelHead}>
+                <strong>검증 로그</strong>
+              </div>
+              <div style={st.logBox}>
+                {(preview.logs || []).map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+            </section>
+            <section style={st.panel}>
+              <div style={st.panelHead}>
+                <strong>업체별 합계</strong>
+              </div>
+              <div style={st.tableWrap}>
+                <table style={st.table}>
+                  <thead><tr><th>업체</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>주문변경품목</th><th>분배반영품목</th></tr></thead>
+                  <tbody>
+                    {(preview.summaryByCustomer || []).map(r => (
+                      <tr key={r.custName}>
+                        <td>{r.custName}</td><td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td>
+                        <td>{fmt(r.uploadQty)}</td><td style={{ color: r.changeQty ? '#b45309' : '#475569' }}>{fmt(r.changeQty)}</td>
+                        <td style={{ color: r.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(r.shipmentDiffQty)}</td><td>{r.changedLines}</td><td>{r.shipmentChangedLines}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+        </CollapsibleTop>
+
+        {error && <div style={st.error}>{error}</div>}
+        {message && <div style={st.message}>{message}</div>}
+        {staleOverrideWarnings.length > 0 && (
+          <div style={{ ...st.error, background: '#fef2f2', borderColor: '#ef4444' }}>
+            ⚠ 매칭 반영 실패 {staleOverrideWarnings.length}건 — 지정한 매칭이 검증 결과에 적용되지 않고 미매칭으로 되돌아왔습니다.
+            같은 항목을 다시 지정하지 말고 이 메시지를 관리자에게 알려주세요.
+            <div style={{ fontSize: 11, marginTop: 4 }}>{staleOverrideWarnings.join(' · ')}</div>
           </div>
         )}
         <ApplyProgressModal
@@ -592,47 +656,6 @@ export default function DistributeImport() {
 
         {preview && (
           <>
-            <div style={st.kpis}>
-              <Kpi label="전체 표시" value={rows.length} />
-              <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
-              <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
-              <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
-              <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
-              <Kpi label="적용가능" value={applyRows.length} warn={applyRows.length > 0} />
-              <Kpi label="확정차단" value={fixBlockedRows.length} danger={fixBlockedRows.length > 0} />
-              <Kpi label="수량경고" value={qtyWarningRows.length} danger={qtyWarningRows.length > 0} />
-            </div>
-
-            <div style={st.grid}>
-              <section style={st.panel}>
-                <div style={st.panelHead}>
-                  <strong>검증 로그</strong>
-                </div>
-                <div style={st.logBox}>
-                  {(preview.logs || []).map((l, i) => <div key={i}>{l}</div>)}
-                </div>
-              </section>
-              <section style={st.panel}>
-                <div style={st.panelHead}>
-                  <strong>업체별 합계</strong>
-                </div>
-                <div style={st.tableWrap}>
-                  <table style={st.table}>
-                    <thead><tr><th>업체</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>주문변경품목</th><th>분배반영품목</th></tr></thead>
-                    <tbody>
-                      {(preview.summaryByCustomer || []).map(r => (
-                        <tr key={r.custName}>
-                          <td>{r.custName}</td><td>{fmt(r.orderQty)}</td><td>{fmt(r.currentOutQty)}</td>
-                          <td>{fmt(r.uploadQty)}</td><td style={{ color: r.changeQty ? '#b45309' : '#475569' }}>{fmt(r.changeQty)}</td>
-                          <td style={{ color: r.shipmentDiffQty ? '#15803d' : '#475569' }}>{fmt(r.shipmentDiffQty)}</td><td>{r.changedLines}</td><td>{r.shipmentChangedLines}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </div>
-
             <div ref={comparisonRef} style={st.panel}>
               <div style={st.panelHead}>
                 <strong>업체별 품목 수량 비교</strong>
@@ -1650,6 +1673,8 @@ const st = {
   preAlignDisabledBtn: { height: 34, padding: '0 16px', border: '1px solid #cbd5e1', background: '#e2e8f0', color: '#64748b', borderRadius: 6, cursor: 'not-allowed', fontWeight: 700 },
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
+  miniBtn: { border: '1px solid #2563eb', color: '#2563eb', background: '#fff', borderRadius: 6, fontSize: 11, fontWeight: 800, padding: '2px 10px', cursor: 'pointer' },
+  miniApplyBtn: { border: '1px solid #15803d', color: '#fff', background: '#16a34a', borderRadius: 6, fontSize: 11, fontWeight: 800, padding: '2px 10px', cursor: 'pointer' },
   message: { padding: 10, background: '#dcfce7', color: '#166534', borderRadius: 6, marginBottom: 10 },
   unmatchedBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
   qtyWarnBanner: { display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, marginBottom: 12, fontWeight: 700 },
@@ -1695,14 +1720,14 @@ const st = {
   applyTableWrap: { maxHeight: 340, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 },
   actionBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 },
   tableWrap: { height: 220, overflow: 'auto' },
-  tableWrapLarge: { maxHeight: 560, overflow: 'auto' },
+  tableWrapLarge: { maxHeight: 'calc(100vh - 240px)', overflow: 'auto' },
   qtyWarnCell: { color: '#b91c1c', fontSize: 11, maxWidth: 220, whiteSpace: 'normal' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   panelActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   segment: { display: 'flex', gap: 4 },
   seg: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
   segOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
-  pivotWrap: { maxHeight: 640, overflow: 'auto', background: '#fff' },
+  pivotWrap: { maxHeight: 'calc(100vh - 240px)', overflow: 'auto', background: '#fff' },
   pivotTable: { width: 'max-content', minWidth: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 },
   pivotStickyHead: { position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '8px 10px', textAlign: 'left' },
   pivotCustHead: { position: 'sticky', top: 0, zIndex: 3, minWidth: 132, maxWidth: 150, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '7px 8px', textAlign: 'center', verticalAlign: 'top' },

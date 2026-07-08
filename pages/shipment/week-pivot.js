@@ -1407,6 +1407,9 @@ export default function WeekPivot() {
 
         {/* 피벗 테이블 — 보기옵션 동적 적용 */}
         <style>{`
+          /* 피벗을 화면높이 기준 자체 스크롤 박스로 — 하단 행이 페이지 밖으로 잘리지 않고,
+             sticky 헤더(품명·업체)가 박스 안에서 유지되며 가로스크롤바도 항상 손에 닿는다. */
+          .wp-pivot { max-height: calc(100vh - ${pvFiltersOpen ? 250 : 155}px); overflow: auto; }
           .wp-pivot table.tbl { font-size: ${pvFontSize}px !important; table-layout: fixed; }
           .wp-pivot td, .wp-pivot th { padding: ${pvCellPad}px ${Math.max(2,pvCellPad)}px !important; min-height: ${pvRowMinHeight}px; }
           .wp-pivot .wp-prod-col { width: ${pvProdColWidth}px !important; min-width: ${pvProdColWidth}px !important; max-width: ${pvProdColWidth}px !important; }
