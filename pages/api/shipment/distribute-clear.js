@@ -5,14 +5,14 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { withTransaction, sql } from '../../../lib/db';
-import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   const uid = req.user?.userId || 'admin';
   const week = normalizeOrderWeek(req.body?.week || '');
-  const orderYear = normalizeOrderYear(String(req.body?.year || req.body?.week || ''), new Date().getFullYear().toString());
+  const orderYear = resolveActiveOrderYear(req.body?.week, req.body?.year);
   const prodKey = Number(req.body?.prodKey || 0);
   if (!week) return res.status(400).json({ success: false, error: '차수(week) 필요' });
   if (!prodKey) return res.status(400).json({ success: false, error: '초기화할 품목(prodKey) 필요' });

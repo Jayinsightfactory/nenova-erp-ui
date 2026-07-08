@@ -327,8 +327,9 @@ async function createOrder(req, res) {
     let orderYear, orderWeek;
     try {
       const v = validateOrderWeek(week || '');
-      const resolved = resolveOrderWeekQuery(week || '');
-      orderYear = v.year || year || resolved.year || new Date().getFullYear().toString();
+      // 신규 주문 생성은 현재 연도 기준 — resolveOrderWeekQuery 의 NN-NN→2025 레거시 규칙 금지
+      // (레거시 규칙은 조회 전용. 생성에 타면 2025 주문이 생김 — 2026-07-08 연도분열 사고와 동류)
+      orderYear = v.year || year || new Date().getFullYear().toString();
       orderWeek = v.week;
     } catch (e) {
       await appLog('createOrder', '검증실패', e.message, true);

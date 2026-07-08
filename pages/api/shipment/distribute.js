@@ -6,7 +6,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { changeEntry } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
@@ -656,7 +656,7 @@ async function saveDistribute(req, res) {
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
     const week = normalizeOrderWeek(rawWeek);
-    const orderYear = year || normalizeOrderYear(rawWeek, new Date().getFullYear().toString());
+    const orderYear = resolveActiveOrderYear(rawWeek, year);
     const ywk = orderYear + (week||'').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수 (세부차수 제외)
 
     await assertProductScopeNotFixed(query, week, prodKey);

@@ -14,7 +14,7 @@
 
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { buildOrderYearWeek, normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { buildOrderYearWeek, normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 
 const MANUAL_STOCK_CHANGE_FILTER =
   `(sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))`;
@@ -28,7 +28,7 @@ async function handler(req, res) {
   let week, year, yws;
   try {
     week = normalizeOrderWeek(rawWeek);
-    year = normalizeOrderYear(rawWeek, String(req.query.year || new Date().getFullYear()));
+    year = resolveActiveOrderYear(rawWeek, req.query.year);
     yws = buildOrderYearWeek(year, week);
   } catch (e) {
     return res.status(400).json({ success: false, error: `차수 형식 오류: ${e.message}` });

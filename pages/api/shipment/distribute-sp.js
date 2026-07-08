@@ -2,7 +2,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { query, withTransaction, sql } from '../../../lib/db';
-import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { buildProdGroupWhere } from '../../../lib/shipmentProdGroups.js';
 
 function paramName(row) {
@@ -310,7 +310,7 @@ async function handler(req, res) {
 
   try {
     const week = normalizeOrderWeek(req.body?.week || '');
-    const orderYear = normalizeOrderYear(String(req.body?.year || req.body?.week || ''), new Date().getFullYear().toString());
+    const orderYear = resolveActiveOrderYear(req.body?.week, req.body?.year);
     const prodKey = action === 'one' ? Number(req.body?.prodKey || 0) : null;
     const prodGroup = String(req.body?.prodGroup || '').trim();
     const countryFlower = String(req.body?.countryFlower || '').trim();

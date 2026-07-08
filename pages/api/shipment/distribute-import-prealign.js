@@ -4,7 +4,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { query, sql, isDeadlockError } from '../../../lib/db';
-import { normalizeOrderYear } from '../../../lib/orderUtils';
+import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { parseAllocationWorkbook, buildImportPreview } from '../../../lib/shipmentImport';
 
 export const config = {
@@ -311,7 +311,7 @@ async function handler(req, res) {
     if (productTargets.length === 0) throw new Error('업로드 파일에서 DB 품목으로 매칭된 행이 없습니다.');
 
     const normalizedWeek = preview.week || week;
-    const orderYear = normalizeOrderYear(String(year || week || ''), new Date().getFullYear().toString());
+    const orderYear = resolveActiveOrderYear(week, year);
     const prodKeys = productTargets.map(row => row.prodKey);
     const shapeRows = await loadDistributeOneShape();
     resolveDistributeOneShape(shapeRows);

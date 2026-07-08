@@ -3,7 +3,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek, normalizeOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import { sqlStockViewGetData, sqlStockViewHistory } from '../../../lib/exeStockViewSql.js';
 import { mapStockViewRow } from '../../../lib/exeParity/mapResponses.js';
@@ -148,7 +148,8 @@ async function adjustStock(req, res) {
     const stockQty = parseFloat(qty);
     if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
 
-    const orderYear = normalizeOrderYear(rawWeek, await resolveOrderYear(week));
+    // 재고조정은 현재 운영 차수 기준 — NN-NN→2025 레거시 규칙 금지 (StockHistory 연도 오염 방지)
+    const orderYear = resolveActiveOrderYear(rawWeek, '', await resolveOrderYear(week));
     const uid = req.user?.userId || 'admin';
     const beforeResult = await query(
       `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
