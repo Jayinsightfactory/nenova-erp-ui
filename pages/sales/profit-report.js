@@ -5,41 +5,14 @@
 import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
+import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
 
 function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? m[2] : '';
 }
-const n0 = v => (v == null || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = v => (v == null || Number.isNaN(v) ? '' : Math.round(v).toLocaleString());
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
-
-function computeRow(row, edits) {
-  const e = edits[row.category] || {};
-  const pick = (col, fallback) => {
-    const ev = e[col];
-    if (ev !== undefined) return ev === '' ? null : Number(ev);
-    const mv = row.manual[col];
-    if (mv != null) return Number(mv);
-    return fallback;
-  };
-  const N = row.auto.N, L = row.auto.L, O = row.auto.O, Q = row.auto.Q;
-  // E/F 자동 평가액은 "회색 참고값"으로만 표시 — 재고 스냅샷 신뢰도가 품종별로 달라
-  // (미관리 품종은 누적 오류) 계산에는 입력·저장값만 사용한다.
-  const E = pick('E', null), F = pick('F', null);
-  const H = pick('H', null), R = pick('R', null);
-  const S = pick('S', row.auto.S || null);
-  const C = N + L + O;
-  const P = Q * n0(R);
-  const T = n0(S) * n0(R);
-  const G = P + T;
-  const noEnd = row.variant === 'noEnding';
-  const I = noEnd ? n0(E) + G + n0(H) : n0(E) + G + n0(H) - n0(F);
-  const J = noEnd ? C - I + n0(F) : C - I;
-  const K = noEnd ? (C + n0(F) !== 0 ? J / (C + n0(F)) : null) : (C !== 0 ? J / C : null);
-  const M = C !== 0 ? -(L / C) : null;
-  return { N, L, O, Q, E, F, H, R, S, C, P, T, G, I, J, K, M };
-}
 
 export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
@@ -88,19 +61,14 @@ export default function ProfitReportPage() {
   };
 
   const rowsCalc = useMemo(() => {
-    const rows = (data?.rows || []).map(r => ({ ...r, calc: computeRow(r, edits) }));
-    const nonDeduct = rows.filter(r => r.category !== '공제');
-    const sum = (sel, list = rows) => list.reduce((s, r) => s + n0(sel(r.calc)), 0);
-    const totals = {
-      C: sum(c => c.C), E: sum(c => c.E), F: sum(c => c.F), J: sum(c => c.J), L: sum(c => c.L, nonDeduct),
-      G: sum(c => c.G, nonDeduct), H: sum(c => c.H, nonDeduct), I: sum(c => c.I, nonDeduct),
-      N: sum(c => c.N, nonDeduct), O: sum(c => c.O, nonDeduct), P: sum(c => c.P, nonDeduct),
-      Q: sum(c => c.Q, nonDeduct), S: sum(c => c.S, nonDeduct), T: sum(c => c.T, nonDeduct),
-    };
-    totals.K = totals.C + totals.F !== 0 ? totals.J / (totals.C + totals.F) : null;
-    totals.M = totals.C !== 0 ? -(totals.L / totals.C) : null;
-    return { rows, totals };
+    const rows = (data?.rows || []).map(r => ({ ...r, calc: computeProfitRow(r, edits) }));
+    return { rows, totals: computeProfitTotals(rows) };
   }, [data, edits]);
+
+  const downloadExcel = async () => {
+    if (Object.keys(edits).length > 0) await save();  // 수정 중이던 값을 먼저 저장해 파일에 반영
+    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1`;
+  };
 
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
   const dirty = Object.keys(edits).length > 0;
@@ -139,6 +107,10 @@ export default function ProfitReportPage() {
           <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
             {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
+          </button>
+          <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
+            title="원본 양식과 100% 동일한 셀 구성으로 다운로드 (수정 중이면 저장 후)">
+            📥 엑셀 다운로드
           </button>
         </div>
       </div>

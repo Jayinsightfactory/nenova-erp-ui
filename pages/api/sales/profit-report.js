@@ -12,15 +12,10 @@ function parseMajor(raw) {
   return m ? m[1].padStart(2, '0') : null;
 }
 
-export default withAuth(async function handler(req, res) {
-  try {
-    if (req.method === 'GET') {
-      const major = parseMajor(req.query.week);
-      if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
-      const prevMajor = String(Number(major) - 1).padStart(2, '0');
-
-      const [N, est, Q, S, rates, cur, prev, stockEnd, stockBegin] = await Promise.all([
+// GET/엑셀 공용 — 보고서 행 데이터 구성
+async function loadReportData(major, orderYear) {
+  const prevMajor = String(Number(major) - 1).padStart(2, '0');
+  const [N, est, Q, S, rates, cur, prev, stockEnd, stockBegin] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -63,10 +58,28 @@ export default withAuth(async function handler(req, res) {
         };
       });
 
-      return res.status(200).json({
-        success: true, major, orderYear, rows, note: cur.note, rates,
-        stockWeeks: { begin: stockBegin.week, end: stockEnd.week },
-      });
+  return { rows, note: cur.note, rates, stockWeeks: { begin: stockBegin.week, end: stockEnd.week } };
+}
+
+export default withAuth(async function handler(req, res) {
+  try {
+    if (req.method === 'GET') {
+      const major = parseMajor(req.query.week);
+      if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
+      const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
+      const data = await loadReportData(major, orderYear);
+
+      // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
+      if (req.query.excel === '1') {
+        const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
+        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note });
+        const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="profit-report-${major}.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+        return res.status(200).send(buf);
+      }
+
+      return res.status(200).json({ success: true, major, orderYear, ...data });
     }
 
     if (req.method === 'POST') {
