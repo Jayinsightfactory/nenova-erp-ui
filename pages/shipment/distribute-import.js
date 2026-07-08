@@ -130,6 +130,7 @@ export default function DistributeImport() {
   const [shipmentOnly, setShipmentOnly] = useState(false);  // true: 주문(OrderDetail) 미변경, 출고분배만 반영
   const custOverridesRef = useRef({});
   const prodOverridesRef = useRef({});
+  const verifiedOverridesRef = useRef({ cust: {}, prod: {} });  // 직전 검증에 보낸 override 스냅샷
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
   const setProdOverridesState = next => { prodOverridesRef.current = next; setProdOverrides(next); };
 
@@ -211,6 +212,23 @@ export default function DistributeImport() {
   const custMatchPending = unmatchedCustomers.filter(it => !custOverrides[it.label]).length;
   const prodMatchPending = unmatchedProducts.filter(it => !prodOverrides[it.key]).length;
 
+  // 미매칭 분류 무결성 가드 — 직전 검증에 override 를 보냈는데도 같은 라벨이 미매칭으로
+  // 되돌아왔으면 반영 실패(회귀)다. 예전 "선택했는데 다른 업체로 매칭" 류 버그를 침묵 속에
+  // 재발시키지 않도록 명시적으로 경고한다. (아직 검증 안 돌린 신규 선택은 대상 아님)
+  const staleOverrideWarnings = useMemo(() => {
+    const sent = verifiedOverridesRef.current || { cust: {}, prod: {} };
+    const out = [];
+    for (const it of unmatchedCustomers) {
+      const ov = sent.cust[it.label];
+      if (ov && !isImportIgnoreCustomerValue(ov)) out.push(`업체 "${it.label}" (지정 custKey=${ov})`);
+    }
+    for (const it of unmatchedProducts) {
+      const ov = sent.prod[it.key];
+      if (ov) out.push(`품목 "${it.productLabel}" (지정 prodKey=${ov})`);
+    }
+    return out;
+  }, [unmatchedCustomers, unmatchedProducts, preview]);
+
   useEffect(() => {
     if (!router.isReady) return;
     const qWeek = Array.isArray(router.query.week) ? router.query.week[0] : router.query.week;
@@ -243,6 +261,12 @@ export default function DistributeImport() {
       if (Object.keys(prodOverridesRef.current).length) {
         form.append('productOverrides', JSON.stringify(prodOverridesRef.current));
       }
+      // 이번 검증에 실제로 보낸 override 스냅샷 — 검증 결과의 미매칭과 대조해
+      // "지정했는데 반영 안 됨"(회귀)을 조용히 넘기지 않고 잡아낸다.
+      verifiedOverridesRef.current = {
+        cust: { ...custOverridesRef.current },
+        prod: { ...prodOverridesRef.current },
+      };
       const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
@@ -497,6 +521,13 @@ export default function DistributeImport() {
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
+        {staleOverrideWarnings.length > 0 && (
+          <div style={{ ...st.error, background: '#fef2f2', borderColor: '#ef4444' }}>
+            ⚠ 매칭 반영 실패 {staleOverrideWarnings.length}건 — 지정한 매칭이 검증 결과에 적용되지 않고 미매칭으로 되돌아왔습니다.
+            같은 항목을 다시 지정하지 말고 이 메시지를 관리자에게 알려주세요.
+            <div style={{ fontSize: 11, marginTop: 4 }}>{staleOverrideWarnings.join(' · ')}</div>
+          </div>
+        )}
         {preAlignResult && (
           <div style={{ marginBottom: 12 }}>
             <PreAlignResultLog result={preAlignResult} />
@@ -1219,6 +1250,153 @@ function CustomerSearchSelect({ value, onChange, suggested = [], options = [], p
   );
 }
 
+function productOptionLabel(p) {
+  const name = p.displayName || p.DisplayName || p.prodName || p.ProdName || '';
+  const unit = p.outUnit || p.OutUnit || '';
+  const cf = p.countryFlower || p.CountryFlower || '';
+  return [name, unit, cf].filter(Boolean).join(' · ');
+}
+
+/** 품목 검색+선택 — CustomerSearchSelect 와 동일 UX (★추천 + 전체 검색, portal 드롭다운) */
+function ProductSearchSelect({ value, onChange, suggested = [], options = [], placeholder }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [remote, setRemote] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [rect, setRect] = useState(null);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const pickLabel = (prodKey) => {
+    const s = suggested.find(x => String(x.prodKey) === String(prodKey));
+    if (s) return productOptionLabel(s);
+    const r = remote.find(x => String(x.ProdKey) === String(prodKey));
+    if (r) return productOptionLabel(r);
+    const o = options.find(x => String(x.prodKey ?? x.ProdKey) === String(prodKey));
+    if (o) return productOptionLabel(o);
+    return '';
+  };
+
+  const recomputeRect = useCallback(() => {
+    setRect(computeDropdownRect(inputRef.current));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    recomputeRect();
+    const onScroll = () => recomputeRect();
+    const onResize = () => recomputeRect();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open, recomputeRect]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (wrapRef.current && wrapRef.current.contains(e.target)) return;
+      if (e.target.closest?.('[data-cust-search-dropdown]')) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || query.trim().length < 1) {
+      setRemote([]);
+      return undefined;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(query.trim())}`, { credentials: 'same-origin' });
+        const d = await res.json();
+        setRemote((d.products || []).slice(0, 60));
+      } catch {
+        setRemote([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, open]);
+
+  const suggestedIds = new Set(suggested.map(s => String(s.prodKey)));
+  const searchHits = remote.filter(p => !suggestedIds.has(String(p.ProdKey)));
+
+  const dropdown = open && rect && typeof document !== 'undefined' ? createPortal(
+    <div
+      data-cust-search-dropdown="1"
+      style={{
+        ...st.searchDropdownFixed,
+        left: rect.left,
+        width: rect.width,
+        top: rect.top,
+        bottom: rect.bottom,
+        maxHeight: rect.maxHeight,
+      }}
+    >
+      {suggested.map(s => (
+        <button
+          key={`s-${s.prodKey}`}
+          type="button"
+          style={st.searchPickRow}
+          onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+          onClick={() => { onChange(String(s.prodKey)); setQuery(''); setOpen(false); }}
+        >
+          ★ {productOptionLabel(s)}
+        </button>
+      ))}
+      {suggested.length > 0 && (searchHits.length > 0 || loading) && (
+        <div style={st.searchSectionLabel}>검색 결과</div>
+      )}
+      {loading && <div style={st.searchHint}>검색 중…</div>}
+      {!loading && query.trim() && searchHits.length === 0 && (
+        <div style={st.searchHint}>검색 결과 없음</div>
+      )}
+      {searchHits.map(p => (
+        <button
+          key={p.ProdKey}
+          type="button"
+          style={st.searchPickRow}
+          onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+          onClick={() => { onChange(String(p.ProdKey)); setQuery(''); setOpen(false); }}
+        >
+          {productOptionLabel(p)}
+        </button>
+      ))}
+      {!query.trim() && suggested.length === 0 && (
+        <div style={st.searchHint}>품목명·코드·품종 일부를 입력하세요</div>
+      )}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', minWidth: 220 }}>
+      <input
+        ref={inputRef}
+        style={{ ...st.custSelect, width: '100%', boxSizing: 'border-box' }}
+        value={open ? query : (pickLabel(value) || query)}
+        placeholder={placeholder || '품목명·코드 검색'}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          if (!e.target.value) onChange('');
+        }}
+        onFocus={() => setOpen(true)}
+      />
+      {dropdown}
+    </div>
+  );
+}
+
 function SuggestSelect({ value, onChange, suggested = [], options = [], renderSuggested, renderOption, placeholder }) {
   const suggestedIds = new Set(suggested.map(s => String(s.custKey ?? s.prodKey)));
   return (
@@ -1329,7 +1507,7 @@ function UnmatchedMatchingModal({
           ) : (
             <>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-                엑셀 품목명 → DB 품목. 시트·품종별로 구분됩니다. ★ 표시는 추천 후보입니다.
+                엑셀 품목명 → DB 품목. 시트·품종별로 구분됩니다. ★ 추천 후보 우선 · 이름/코드/품종 입력으로 전체 검색 가능합니다.
               </div>
               <table style={st.table}>
                 <thead><tr><th>구분</th><th>시트</th><th>엑셀 품목</th><th>건수</th><th>→ DB 품목 선택</th></tr></thead>
@@ -1341,14 +1519,12 @@ function UnmatchedMatchingModal({
                       <td style={{ fontWeight: 700 }}>{it.productLabel}{it.productFamily ? <span style={{ fontWeight: 400, color: '#64748b' }}> ({it.productFamily})</span> : null}</td>
                       <td>{it.count}</td>
                       <td>
-                        <SuggestSelect
+                        <ProductSearchSelect
                           value={prodOverrides[it.key] || ''}
                           onChange={v => onPickProduct(it.key, v)}
                           suggested={it.suggestedProducts}
                           options={productOptions}
-                          renderSuggested={s => `${s.displayName || s.prodName} · ${s.outUnit || ''}`}
-                          renderOption={o => `${o.displayName || o.prodName} · ${o.outUnit || ''}`}
-                          placeholder="— 품목 선택 —"
+                          placeholder="품목 검색·선택"
                         />
                       </td>
                     </tr>

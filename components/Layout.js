@@ -42,6 +42,7 @@ export const MENU_ITEMS = [
       { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },
       { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
       { href: '/shipment/history',       labelKey: '출고내역조회',  popup: false },
+      { href: '/shipment/exe-errors',    labelKey: '전산 오류 진단', popup: false },
       { href: '/estimate',            labelKey: '견적서 관리',  popup: true },
     ]
   },
