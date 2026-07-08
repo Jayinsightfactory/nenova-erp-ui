@@ -35,18 +35,6 @@ async function main() {
     const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 5 });
     assert('신규 → sync', p.action === 'sync');
   }
-  {
-    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 0, cleanupZeroOrder: true });
-    assert('잔재정리 ON + 엑셀0 → sync, 삭제허용', p.action === 'sync' && p.allowOrderDelete === true);
-  }
-  {
-    const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 0, cleanupZeroOrder: true });
-    assert('잔재정리 ON + 둘다0 → skip', p.action === 'skip' && !p.allowOrderDelete);
-  }
-  {
-    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 8, cleanupZeroOrder: true });
-    assert('잔재정리 ON + 엑셀>0 → sync, 삭제금지 유지', p.action === 'sync' && !p.allowOrderDelete);
-  }
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
