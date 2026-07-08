@@ -10,11 +10,14 @@ import { getKakaoSheetId, readSheetValues } from '../../../lib/googleSheets';
 import { scoreMatch } from '../../../lib/displayName';
 import { stageOfRoom, stageName, personRole, STAGE_ORDER, EVENT_TYPES, KEY_PERSONNEL } from '../../../lib/workflowConfig';
 
-// 2026-07-08 최신화: nenovakakao가 메시지분류/이벤트로그/비즈니스이벤트 3개 탭을
-// 동일한 10열 통합 스키마(시각/방이름/발신자/원문/AI분류/품목/차수/수량/관리자수정/비고)로
-// 재구성함(구 스키마 — 이벤트로그 A:F 6열, 비즈니스이벤트 A:P 16열 — 은 폐기됨, 실측 확인).
-// 의사결정추적(A:K 11열)은 구조 그대로라 변경 없음.
-const LOG_RANGE = '이벤트로그!A:J';
+// 2026-07-08 정정: 앞선 "최신화" 진단이 curl 유니코드 정규화 문제로 메시지분류 탭(다른 스키마)을
+// 잘못 읽어 오판이었음 — nenova-erp-ui 자체 리더로 최근 실제 행을 직접 덤프해 재확인 완료.
+// 실측 헤더:
+//   이벤트로그(6열)     A시각 B방이름 C파이프라인 D발신자 E원문 F메시지ID  ← 기존 A:F 매핑 그대로 정확
+//   비즈니스이벤트(10열) A이벤트ID B시각 C이벤트타입 D차수 E품목 F품종 G수량 H단위 I방향 J거래처
+//     (기존 A:P 16열 가정 중 처음 10개 필드는 정확했음 — room/pipeline/sender/summary/relId/
+//      triggerMsgId(구 인덱스10~15)에 해당하는 컬럼만 시트에서 없어짐, 나머지는 원래 코드가 맞았음)
+const LOG_RANGE = '이벤트로그!A:F';
 const BIZ_RANGE = '비즈니스이벤트!A:J';
 const DEC_RANGE = '의사결정추적!A:K';
 
@@ -32,21 +35,20 @@ function parseMin(t) {
   return null;
 }
 
-// 신 스키마: A시각 B방이름 C발신자 D원문 E AI분류 F품목 G차수 H수량 I관리자수정 J비고
-// ⚠️ customer/direction/variety/unit 전용 컬럼이 더 이상 없음(옛 스키마엔 있었음) — 값 없이
-// 안전하게 비워둠(하위 로직이 빈 값을 우아하게 처리하도록 이미 설계돼 있어 깨지지 않음).
-// 거래처별 탭(customerIssues)은 이 필드가 항상 비어 향후 표시가 비게 됨 — 원문(D)에서
-// 거래처명을 별도 매칭하는 후속 작업 전까지는 알려진 제약으로 남긴다.
+// 비즈니스이벤트: room/pipeline/sender/summary/relId/triggerMsgId 컬럼은 시트에서 사라짐 →
+// 빈값(하위 로직이 이미 빈 값을 우아하게 처리하도록 설계돼 있어 깨지지 않음). 대신 같은 이벤트의
+// 방/발신자 맥락은 이벤트로그 탭(rowToLog)이 별도로 제공 — 아래 흐름분석(logs 기반)에서 커버됨.
 function rowToEvent(r) {
-  const room = norm(r[1]);
   return {
-    eventId: '', time: norm(r[0]), eventType: norm(r[4]), week: norm(r[6]), product: norm(r[5]),
-    variety: '', quantity: parseQty(r[7]), unit: '개', direction: '',
-    customer: '', room, pipeline: stageOfRoom(room),
-    sender: norm(r[2]), summary: norm(r[3]), relId: '', triggerMsgId: '',
+    eventId: norm(r[0]), time: norm(r[1]), eventType: norm(r[2]), week: norm(r[3]), product: norm(r[4]),
+    variety: norm(r[5]), quantity: parseQty(r[6]), unit: norm(r[7]) || '개', direction: norm(r[8]),
+    customer: norm(r[9]), room: '', pipeline: '',
+    sender: '', summary: '', relId: '', triggerMsgId: '',
   };
 }
-function rowToLog(r) { const room = norm(r[1]); return { time: norm(r[0]), room, pipeline: stageOfRoom(room), sender: norm(r[2]), text: norm(r[3]), msgId: '' }; }
+// 이벤트로그: C열 "파이프라인"은 한글 표시명("발주/영업")이라 코드 내부 키("ORDER")와 안 맞음 →
+// 방이름으로 stageOfRoom 재도출(이미 코드 전역에서 쓰는 키 체계와 일관성 유지).
+function rowToLog(r) { const room = norm(r[1]); return { time: norm(r[0]), room, pipeline: stageOfRoom(room), sender: norm(r[3]), text: norm(r[4]), msgId: norm(r[5]) }; }
 function rowToDecision(r) {
   return {
     issueId: norm(r[0]), time: norm(r[1]), room: norm(r[2]), pipeline: norm(r[3]) || stageOfRoom(r[2]),
