@@ -132,9 +132,11 @@ export default function Layout({ children, title }) {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
   }, []);
 
-  // 자식창(window.opener로 열린 창) 감지 — hydration 안전.
-  // SSR/첫 렌더는 false(기존과 동일) → 마운트 후 클라이언트에서만 판정.
-  // cross-origin opener 접근이 예외를 던져도 "자식창"으로 간주(중복 사이드바 방지).
+  // 자식창 감지 — hydration 안전. SSR/첫 렌더는 false → 마운트 후 클라이언트에서만 판정.
+  // 세 갈래 모두 잡아야 사이드바 중복이 안 생긴다:
+  //  1) window.opener 로 열린 팝업창
+  //  2) iframe 내부 (런처가 페이지를 iframe 으로 임베드 — opener 없음, 부모에 이미 메뉴 있음)
+  //  3) ?popup=1 로 열린 창에서 메뉴로 다른 페이지 이동 (쿼리가 사라져도 같은 창이면 팝업 유지)
   const [isChildWindow, setIsChildWindow] = useState(false);
   useEffect(() => {
     try {
@@ -143,6 +145,16 @@ export default function Layout({ children, title }) {
       // cross-origin opener → 접근 예외 = 자식창
       setIsChildWindow(true);
     }
+    try {
+      if (window.self !== window.top) setIsChildWindow(true); // iframe 내부
+    } catch {
+      setIsChildWindow(true); // cross-origin top → iframe
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (qs.get('popup') === '1') sessionStorage.setItem('nvPopupWin', '1');
+      if (sessionStorage.getItem('nvPopupWin') === '1') setIsChildWindow(true);
+    } catch { /* sessionStorage 불가 환경은 무시 */ }
   }, []);
 
   // 사용자 수동 접기/펴기 토글 (자식창 자동 접힘을 언제든 복구 가능)
