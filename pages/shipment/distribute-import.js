@@ -128,6 +128,7 @@ export default function DistributeImport() {
   const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
   const [prodOverrides, setProdOverrides] = useState({});   // { productOverrideKey: prodKey }
   const [shipmentOnly, setShipmentOnly] = useState(false);  // true: 주문(OrderDetail) 미변경, 출고분배만 반영
+  const [cleanupZeroOrder, setCleanupZeroOrder] = useState(false);  // true: 엑셀=0 인 주문 잔재도 0 처리 (exe 미분배 표시 해소)
   const custOverridesRef = useRef({});
   const prodOverridesRef = useRef({});
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
@@ -369,6 +370,9 @@ export default function DistributeImport() {
     const shipmentOnlyModeText = shipmentOnly
       ? '\n※ 분배전용 모드: 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.'
       : '';
+    const cleanupZeroOrderText = !shipmentOnly && cleanupZeroOrder
+      ? '\n※ 주문 잔재 정리 ON: 엑셀 수량이 0인 행은 주문등록도 0 처리(soft delete)합니다. 전산 미분배 표시가 사라집니다.'
+      : '';
     let ackQtyWarnings = false;
     if (qtyWarningRows.length) {
       const sample = qtyWarningRows.slice(0, 3).map(r => `· ${r.custName} / ${r.prodName}: ${qtyWarningText(r)}`).join('\n');
@@ -380,7 +384,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 ${shipmentOnly ? '출고분배' : '주문등록+출고분배'}로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyInfoText}${shipmentOnlyModeText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 ${shipmentOnly ? '출고분배' : '주문등록+출고분배'}로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyInfoText}${shipmentOnlyModeText}${cleanupZeroOrderText}\n\n${!shipmentOnly && cleanupZeroOrder ? '※ 주문 잔재 정리 모드: 엑셀=0 행은 주문등록도 0 처리됩니다.' : '※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.'}`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -399,7 +403,7 @@ export default function DistributeImport() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly }),
+        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly, cleanupZeroOrder: !shipmentOnly && cleanupZeroOrder }),
       });
       let data;
       try {
@@ -490,6 +494,12 @@ export default function DistributeImport() {
             <input type="checkbox" checked={shipmentOnly} onChange={e => setShipmentOnly(e.target.checked)} />
             분배만 반영(주문 미변경)
           </label>
+          {!shipmentOnly && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#b45309', whiteSpace: 'nowrap' }} title="엑셀 수량이 0(또는 삭제)인데 주문등록에 수량이 남아있는 잔재를 주문 0 처리합니다. 잔재를 남기면 전산(exe)이 '미분배'로 계속 표시합니다. 분배는 변경되지 않습니다.">
+              <input type="checkbox" checked={cleanupZeroOrder} onChange={e => setCleanupZeroOrder(e.target.checked)} />
+              주문 잔재 정리(엑셀=0이면 주문도 0)
+            </label>
+          )}
           <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>
             {applying ? '적용 중...' : shipmentOnly ? '승인 후 분배만 반영' : '승인 후 주문등록+분배'}
           </button>
