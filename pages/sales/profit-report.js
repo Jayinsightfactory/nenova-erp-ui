@@ -24,7 +24,9 @@ function computeRow(row, edits) {
     return fallback;
   };
   const N = row.auto.N, L = row.auto.L, O = row.auto.O, Q = row.auto.Q;
-  const E = pick('E', row.auto.E ?? null), F = pick('F', row.auto.F ?? null);
+  // E/F 자동 평가액은 "회색 참고값"으로만 표시 — 재고 스냅샷 신뢰도가 품종별로 달라
+  // (미관리 품종은 누적 오류) 계산에는 입력·저장값만 사용한다.
+  const E = pick('E', null), F = pick('F', null);
   const H = pick('H', null), R = pick('R', null);
   const S = pick('S', row.auto.S || null);
   const C = N + L + O;
@@ -141,8 +143,9 @@ export default function ProfitReportPage() {
         </div>
       </div>
       <div style={st.hint}>
-        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / 기초·기말재고는 <b>DB 재고평가액(재고수량×환산×품목단가÷1.1)</b>이
-        회색 기본값으로 채워지며 실사·담당자 단가로 수정 가능(노랑=수정중·초록=저장됨). 포워딩(USD)은 비우면 BILL 추정치.
+        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / 기초·기말재고 칸의 <b>회색 숫자는 DB 재고평가 참고값</b>
+        (수국은 담당자 단가 2600 기준 적용) — 재고관리가 안 되는 품종은 참고값이 부정확할 수 있어 <b>계산에는 입력·저장한 값만</b> 사용합니다.
+        포워딩(USD)은 비우면 BILL 추정치 사용(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
       </div>
