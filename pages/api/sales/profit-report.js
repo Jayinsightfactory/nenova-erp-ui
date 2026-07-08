@@ -4,7 +4,7 @@ import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
-  currencyRates, loadManual, saveManual,
+  stockValueByCategory, currencyRates, loadManual, saveManual,
 } from '../../../lib/profitReport';
 
 function parseMajor(raw) {
@@ -20,14 +20,16 @@ export default withAuth(async function handler(req, res) {
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
-      const [N, est, Q, S, rates, cur, prev] = await Promise.all([
+      const [N, est, Q, S, rates, cur, prev, stockEnd, stockBegin] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),
         currencyRates(),
         loadManual(major, orderYear),
-        loadManual(prevMajor, orderYear), // 전차수 기말재고(F) → 이번 기초(E) 기본값
+        loadManual(prevMajor, orderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값
+        stockValueByCategory(major, orderYear),      // F 자동: 이번 차수말 재고평가액
+        stockValueByCategory(prevMajor, orderYear),  // E 자동: 전차수말 재고평가액
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -47,9 +49,11 @@ export default withAuth(async function handler(req, res) {
             O: Number(est.O[key] || 0),
             Q: Number(Q[key] || 0),
             S: Number(S[key] || 0),
+            E: stockBegin.values[key] != null ? Math.round(stockBegin.values[key]) : null, // 전차수말 DB 재고평가
+            F: stockEnd.values[key] != null ? Math.round(stockEnd.values[key]) : null,     // 이번차수말 DB 재고평가
           },
           manual: {
-            E: man.E ?? (prevF ?? null),   // 기초 = 전차수 기말 이월(수정 가능)
+            E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 저장 기말 > (auto)
             F: man.F ?? null,
             H: man.H ?? null,
             R: man.R ?? null,
@@ -61,6 +65,7 @@ export default withAuth(async function handler(req, res) {
 
       return res.status(200).json({
         success: true, major, orderYear, rows, note: cur.note, rates,
+        stockWeeks: { begin: stockBegin.week, end: stockEnd.week },
       });
     }
 

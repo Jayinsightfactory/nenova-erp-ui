@@ -24,7 +24,8 @@ function computeRow(row, edits) {
     return fallback;
   };
   const N = row.auto.N, L = row.auto.L, O = row.auto.O, Q = row.auto.Q;
-  const E = pick('E', null), F = pick('F', null), H = pick('H', null), R = pick('R', null);
+  const E = pick('E', row.auto.E ?? null), F = pick('F', row.auto.F ?? null);
+  const H = pick('H', null), R = pick('R', null);
   const S = pick('S', row.auto.S || null);
   const C = N + L + O;
   const P = Q * n0(R);
@@ -105,15 +106,20 @@ export default function ProfitReportPage() {
   const EditCell = ({ row, col, width = 86 }) => {
     const e = edits[row.category]?.[col];
     const base = row.manual[col];
-    const auto = col === 'S' ? row.auto.S : null;
+    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : null;
     const val = e !== undefined ? e : (base != null ? base : '');
-    const placeholder = col === 'S' && auto ? String(Math.round(auto * 100) / 100) : (col === 'E' && row.inheritedE ? '' : '');
+    const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
+    const titles = {
+      S: '비우면 DB 추정치(회색 표시값) 사용, 입력하면 수기값 우선',
+      E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 DB 재고평가액 사용)' : '비우면 DB 재고평가액(재고수량×환산×품목단가÷1.1) 사용',
+      F: '비우면 DB 재고평가액(재고수량×환산×품목단가÷1.1) 사용 — 실사·담당자 단가로 수정 가능',
+    };
     return (
       <input
         style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : '#fff') }}
         value={val}
         placeholder={placeholder}
-        title={col === 'S' ? '비우면 DB 추정치(placeholder) 사용, 입력하면 수기값 우선' : row.inheritedE && col === 'E' ? '전차수 기말재고에서 자동 이월됨' : ''}
+        title={titles[col] || ''}
         onChange={ev => setEdit(row.category, col, ev.target.value.replace(/[^0-9.\-]/g, ''))}
       />
     );
@@ -135,8 +141,9 @@ export default function ProfitReportPage() {
         </div>
       </div>
       <div style={st.hint}>
-        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / 수기(노랑=수정중·초록=저장됨): 기초·기말재고, 그외통관비, 환율, 포워딩.
-        포워딩(USD)은 비우면 BILL 기반 추정치 사용. 기초재고는 전차수 기말에서 자동 이월.
+        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / 기초·기말재고는 <b>DB 재고평가액(재고수량×환산×품목단가÷1.1)</b>이
+        회색 기본값으로 채워지며 실사·담당자 단가로 수정 가능(노랑=수정중·초록=저장됨). 포워딩(USD)은 비우면 BILL 추정치.
+        {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
       </div>
 
