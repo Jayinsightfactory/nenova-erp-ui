@@ -132,14 +132,22 @@ export default function SalesRegistrationHistoryPage() {
       <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
       <p style={st.desc}>
         매주 <b>화요일 17:00 최종 분배 적용</b>과 <b>수요일 16:00 점검</b> 기준값이 자동으로 고정 저장됩니다(수정 불가).
-        이후 수치가 바뀌면 — 웹·전산·AI 작업 무엇이든 — <b>변경감지</b> 스냅샷이 자동 기록되어 어디가 얼마나 달라졌는지 추적합니다.
+        이후에는 <b>[🔄 최신화]</b> 버튼을 누르는 시점에 현재 DB 를 대조해 — 웹·전산·AI 작업 무엇이든 — 달라진 값을
+        <b> 변경감지</b> 스냅샷으로 기록합니다.
       </p>
 
       <div style={st.bar}>
         <label style={st.label}>차수</label>
         <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="예: 28-01" />
         <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-        <button style={st.secondaryBtn} onClick={() => post('checkNow')} disabled={loading}>지금 변경검사</button>
+        <button
+          style={{ ...st.primaryBtn, background: '#16a34a' }}
+          onClick={() => post('checkNow')}
+          disabled={loading}
+          title="현재 DB를 마지막 스냅샷과 대조 — 달라졌으면 변경감지 스냅샷을 기록합니다 (자동 폴링 없음, 이 버튼이 최신화)"
+        >
+          🔄 최신화 (변경검사)
+        </button>
         <button style={st.secondaryBtn} onClick={() => post('manual')} disabled={loading}>수동 스냅샷</button>
         {driftAmt != null && (
           <span style={{ fontSize: 13, fontWeight: 800, color: Math.abs(driftAmt) > 0.5 ? '#dc2626' : '#059669' }}>
