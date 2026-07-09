@@ -4,6 +4,31 @@
 
 ---
 
+## [2026-07-09 17:05] 세션(session-b worktree) — 매출이익 보고서 재고평가 엑셀방식 + 판매등록 마감 스냅샷
+
+### 작업 내용 (04ac14f 로 master 배포·검증 완료, GitHub Actions 29003267293 success)
+- `525ef33` fix(profit-report): 기초·기말재고 자동평가를 엑셀 원본 방식(실제 매입원가)으로 전환
+  - F기말 = (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량 (엑셀 26차 수국·카네 소수점 일치 검증)
+  - 매입 없는 주 = 품목별 최근 매입 외화단가×환율 → 최후 fallback 재고단가표. E기초 = 전차수 F 이월
+  - **단위 발견**: 이카운트 구매현황 수량(D열) = WarehouseDetail.**EstQuantity** 우선 (26차 5개 카테고리 완전일치).
+    재고수량은 품목별 최근 전표 EstQuantity÷BoxQuantity 로 환산 — 분모·분자 단위 일치가 핵심
+  - WarehouseDetail 엔 isDeleted 없음(wm만 필터), DB_STRUCTURE.md 147-150 불완전(컬럼 다수 누락) — 문서 갱신 필요
+  - 검증: scripts/verify-profit-stock-26.mjs · diag-purchase-qty-26.mjs (읽기전용)
+- `04ac14f` feat(sales-history): 판매등록 마감(TUE_CLOSE) 스냅샷
+  - 차수 확정본 = **다음주 화요일**까지 수정분(그다음 수요일부터 수정금지, 사장님 확인) — 차주 수 00:00 자동 고정+지각생성
+  - 예: 28차(기준수요일 07-08) 마감 = 07-15(수) 00:00. 배포 직후 27차는 지각 생성으로 소급(비고 명시)
+
+### 변경된 파일
+- lib/profitReport.js · lib/profitReportCalc.js · pages/api/sales/profit-report.js · pages/sales/profit-report.js
+- lib/salesSnapshot.js · pages/sales/registration-history.js
+- scripts/verify-profit-stock-26.mjs · scripts/diag-purchase-qty-26.mjs (신규)
+
+### 미결 이슈 / 블로킹
+- 재고 스냅샷 vs 실사 괴리(장미 400단·호주 7,100 등 드리프트) → 보고서 자동값에 그대로 반영됨. 실사값 셀 입력이 우선. 근본 해결은 STOCK_INTEGRITY 절차 별건
+- docs/DB_STRUCTURE.md WarehouseDetail 절 갱신 필요(누락 컬럼·isDeleted 없음 명시)
+
+---
+
 ## [2026-07-08 후속] 라이브 검증 중 발견한 2건 추가 수정
 
 ### stageOfRoom('') 오분류 버그 (수정 완료)
