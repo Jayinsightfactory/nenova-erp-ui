@@ -7,6 +7,14 @@ export default withAuth(async function handler(req, res) {
 
   const { dateFrom, dateTo, week, custKey, manager } = req.query;
 
+  // 날짜 기준: 'ship'(출고일 ShipmentDtm, 기본) | 'confirm'(확정일=ECOUNT 전표일자)
+  //   확정일 = 출고일이 속한 차수의 끝 화요일(= 출고일 on-or-after 다음 화요일). ECOUNT 는 이 날짜로 매출을 단다.
+  //   DATEFIRST 무관: '19000102'(화요일) 기준 요일차로 계산.
+  const basis = String(req.query.dateBasis || 'ship') === 'confirm' ? 'confirm' : 'ship';
+  const dateExpr = basis === 'confirm'
+    ? `DATEADD(DAY, (7 - (DATEDIFF(DAY, '19000102', sd.ShipmentDtm) % 7)) % 7, CONVERT(DATE, sd.ShipmentDtm))`
+    : `CONVERT(DATE, sd.ShipmentDtm)`;
+
   try {
     const params = {
       dateFrom: { type: sql.Date,    value: dateFrom || null },
@@ -21,7 +29,8 @@ export default withAuth(async function handler(req, res) {
     //   박스수(OutQuantity)를 곱하면 환산품목(카네이션·수국·루스커스 등)에서 10~15배 작게 나왔다.
     const result = await query(
       `SELECT
-        CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS shipDate,
+        CONVERT(NVARCHAR(10), ${dateExpr}, 120) AS shipDate,
+        CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS outDate,
         sm.OrderWeek AS week,
         c.Manager AS manager,
         c.CustKey, c.CustName, c.CustArea,
@@ -37,12 +46,12 @@ export default withAuth(async function handler(req, res) {
       JOIN Product p ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
       WHERE sm.isDeleted = 0 AND ISNULL(sd.isFix, 0) = 1
-        AND (@dateFrom IS NULL OR CONVERT(DATE, sd.ShipmentDtm) >= @dateFrom)
-        AND (@dateTo   IS NULL OR CONVERT(DATE, sd.ShipmentDtm) <= @dateTo)
+        AND (@dateFrom IS NULL OR ${dateExpr} >= @dateFrom)
+        AND (@dateTo   IS NULL OR ${dateExpr} <= @dateTo)
         AND (@week     IS NULL OR sm.OrderWeek = @week)
         AND (@custKey  IS NULL OR c.CustKey = @custKey)
         AND (@manager  IS NULL OR c.Manager = @manager)
-      ORDER BY sd.ShipmentDtm, c.CustName, p.ProdName`,
+      ORDER BY ${dateExpr}, c.CustName, p.ProdName`,
       params
     );
 

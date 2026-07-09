@@ -29,6 +29,7 @@ export default function SalesStatus() {
   const [dateTo, setDateTo] = useState(today);
   const [week, setWeek] = useState('');
   const [manager, setManager] = useState('');
+  const [dateBasis, setDateBasis] = useState('ship'); // 'ship'(출고일) | 'confirm'(확정일=ECOUNT 전표일자)
 
   // 거래처 검색
   const [custSearch, setCustSearch] = useState('');
@@ -98,6 +99,7 @@ export default function SalesStatus() {
     if (week)     params.week     = week;
     if (manager)  params.manager  = manager;
     if (selectedCust) params.custKey = selectedCust.CustKey;
+    if (dateBasis === 'confirm') params.dateBasis = 'confirm';
 
     apiGet('/api/sales/status', params)
       .then(d => {
@@ -106,7 +108,7 @@ export default function SalesStatus() {
       })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo, week, manager, selectedCust]);
+  }, [dateFrom, dateTo, week, manager, selectedCust, dateBasis]);
 
   // 초기 로드
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -248,7 +250,18 @@ export default function SalesStatus() {
     <div>
       {/* ── 필터 바 */}
       <div className="filter-bar" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="filter-label">기간</span>
+        {/* 날짜 기준: 출고일(물류 실제) vs 확정일(=ECOUNT 전표일자, 차수 확정 화요일) */}
+        <span className="filter-label" title="출고일=실제 출고날짜 / 확정일=차수 확정 화요일(ECOUNT 전표일자와 동일)">기준</span>
+        <div style={{ display: 'inline-flex', border: '1px solid var(--border2)', borderRadius: 6, overflow: 'hidden' }}>
+          <button type="button" onClick={() => setDateBasis('ship')}
+            style={{ padding: '3px 10px', fontSize: 12, fontWeight: dateBasis === 'ship' ? 700 : 400, border: 'none', cursor: 'pointer',
+              background: dateBasis === 'ship' ? 'var(--blue)' : '#fff', color: dateBasis === 'ship' ? '#fff' : 'var(--text2)' }}>출고일</button>
+          <button type="button" onClick={() => setDateBasis('confirm')}
+            title="ECOUNT와 같은 날짜 기준(차수 확정 화요일)"
+            style={{ padding: '3px 10px', fontSize: 12, fontWeight: dateBasis === 'confirm' ? 700 : 400, border: 'none', borderLeft: '1px solid var(--border2)', cursor: 'pointer',
+              background: dateBasis === 'confirm' ? 'var(--blue)' : '#fff', color: dateBasis === 'confirm' ? '#fff' : 'var(--text2)' }}>확정일(ECOUNT)</button>
+        </div>
+        <span className="filter-label" style={{ marginLeft: 6 }}>기간</span>
         <input
           type="date" className="filter-input"
           value={dateFrom} onChange={e => setDateFrom(e.target.value)}
