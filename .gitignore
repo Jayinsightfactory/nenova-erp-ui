@@ -59,3 +59,8 @@ _exe-pngs/
 _logo-*.png
 _tmp-*.png
 .claude/tasks/
+
+# ECOUNT 스크래퍼 세션(민감)
+scripts/ecount-scraper/storageState.json
+scripts/ecount-scraper/node_modules/
+scripts/ecount-scraper/package*.json

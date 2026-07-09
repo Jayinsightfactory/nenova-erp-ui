@@ -64,6 +64,7 @@ export const MENU_ITEMS = [
       { href: '/sales/ar',           labelKey: '거래처별 채권',      popup: false },
       { href: '/sales/tax-invoice',  labelKey: '세금계산서 진행단계', popup: false },
       { href: '/ecount/dashboard',   labelKey: '이카운트 연동',       popup: false },
+      { href: '/ecount',             labelKey: 'ECOUNT 수집 데이터', popup: false },
     ]
   },
   {
