@@ -89,6 +89,61 @@ export default function SalesRegistrationHistoryPage() {
     } catch { /* ignore */ }
   };
 
+  // 업체 클릭 → 새 창에 "기존 vs 변경" 품목·수량·단가 상세
+  const openCustDetail = (g) => {
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const n = v => Number(v || 0).toLocaleString();
+    const kindMeta = { changed: ['수정', '#b45309', '#fef3c7'], added: ['추가', '#1d4ed8', '#dbeafe'], removed: ['삭제', '#dc2626', '#fee2e2'], same: ['동일', '#64748b', '#f1f5f9'] };
+    const qtyOf = s => s ? (s.outQty || s.estQty) : 0;
+    const cellCmp = (a, b, fmtv) => { const diff = Math.abs(Number(a || 0) - Number(b || 0)) > 0.001; return `<td style="text-align:right;${diff ? 'color:#dc2626;font-weight:800' : ''}">${fmtv}</td>`; };
+    const rowsHtml = (g.items || []).map(it => {
+      const [klabel, kcolor, kbg] = kindMeta[it.kind] || kindMeta.same;
+      const b = it.before, a = it.after;
+      return `<tr style="background:${it.kind === 'same' ? '#fff' : kbg + '55'}">
+        <td>${esc(it.prodName)}</td>
+        <td style="text-align:center"><span style="font-size:11px;font-weight:800;color:${kcolor};background:${kbg};border-radius:999px;padding:2px 8px">${klabel}</span></td>
+        ${b ? `<td style="text-align:right">${n(qtyOf(b))}${b.unit ? `<span style="color:#94a3b8"> ${esc(b.unit)}</span>` : ''}</td><td style="text-align:right">${n(b.unitPrice)}</td><td style="text-align:right">${n(b.total)}</td>`
+             : `<td colspan="3" style="text-align:center;color:#94a3b8">—</td>`}
+        ${a ? cellCmp(b && qtyOf(b), qtyOf(a), n(qtyOf(a)) + (a.unit ? `<span style="color:#94a3b8"> ${esc(a.unit)}</span>` : ''))
+              + cellCmp(b && b.unitPrice, a.unitPrice, n(a.unitPrice))
+              + cellCmp(b && b.total, a.total, n(a.total))
+             : `<td colspan="3" style="text-align:center;color:#94a3b8">—</td>`}
+        <td style="text-align:right;font-weight:800;color:${((a ? a.total : 0) - (b ? b.total : 0)) === 0 ? '#64748b' : (((a ? a.total : 0) - (b ? b.total : 0)) > 0 ? '#dc2626' : '#2563eb')}">${((a ? a.total : 0) - (b ? b.total : 0)) > 0 ? '+' : ''}${n((a ? a.total : 0) - (b ? b.total : 0))}</td>
+      </tr>`;
+    }).join('');
+    const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(g.custName)} — 기존 vs 변경</title>
+      <style>
+        body{font-family:'Malgun Gothic',system-ui,sans-serif;margin:0;padding:20px;color:#0f172a;background:#f8fafc}
+        h1{font-size:18px;margin:0 0 4px} .sub{color:#64748b;font-size:13px;margin-bottom:14px}
+        .tot{display:flex;gap:18px;margin:0 0 16px;flex-wrap:wrap}
+        .tot div{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px}
+        .tot b{display:block;font-size:20px;margin-top:2px}
+        table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:13px}
+        th,td{padding:8px 10px;border-bottom:1px solid #eef2f7} th{background:#f1f5f9;font-size:12px;text-align:center;color:#475569}
+        thead .grp th{background:#e2e8f0;font-weight:800}
+        td:first-child{font-weight:600} .delta{font-size:15px}
+      </style></head><body>
+      <h1>${esc(g.custName)}</h1>
+      <div class="sub">화요일 최종분배 기준 → 현재 DB 비교 · 수정 ${g.changedCnt} · 추가 ${g.addedCnt} · 삭제 ${g.removedCnt}</div>
+      <div class="tot">
+        <div>기준 금액<b>${n(g.baseTotal)}원</b></div>
+        <div>현재 금액<b>${n(g.currTotal)}원</b></div>
+        <div>차이<b style="color:${g.delta === 0 ? '#059669' : (g.delta > 0 ? '#dc2626' : '#2563eb')}">${g.delta > 0 ? '+' : ''}${n(g.delta)}원</b></div>
+      </div>
+      <table>
+        <thead>
+          <tr class="grp"><th rowspan="2">품목</th><th rowspan="2">구분</th><th colspan="3">기존(화요일 기준)</th><th colspan="3">변경(현재)</th><th rowspan="2">Δ 금액</th></tr>
+          <tr><th>수량</th><th>단가</th><th>금액(VAT포함)</th><th>수량</th><th>단가</th><th>금액(VAT포함)</th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <p style="color:#94a3b8;font-size:12px;margin-top:12px">단가 = 금액 ÷ 견적기준수량(EstQuantity), 원 단위 반올림. 빨강 = 기준과 달라진 값.</p>
+      </body></html>`;
+    const w = window.open('', '_blank', 'width=920,height=680,scrollbars=yes');
+    if (!w) { alert('팝업이 차단되었습니다. 팝업 허용 후 다시 눌러주세요.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
   const post = async (action) => {
     setMessage(''); setError('');
     try {
@@ -253,30 +308,34 @@ export default function SalesRegistrationHistoryPage() {
                 </span>
               </div>
               {diff.hasDiff && (
-                <div style={{ maxHeight: 260, overflow: 'auto' }}>
-                  <table style={st.table}>
-                    <thead><tr><th>구분</th><th>업체</th><th>품목</th><th>변경 내용</th></tr></thead>
-                    <tbody>
-                      {diff.changed.map((r, i) => (
-                        <tr key={`c${i}`}>
-                          <td style={{ color: '#b45309', fontWeight: 700 }}>수정</td>
-                          <td>{r.CustName}</td><td>{r.ProdName}</td>
-                          <td style={{ fontSize: 11 }}>
-                            {Object.entries(r.diffs).map(([f, v]) => `${f}: ${fmt(v.before)}→${fmt(v.after)}`).join(' · ')}
-                          </td>
-                        </tr>
-                      ))}
-                      {diff.added.map((r, i) => (
-                        <tr key={`a${i}`}><td style={{ color: '#1d4ed8', fontWeight: 700 }}>추가</td><td>{r.CustName}</td><td>{r.ProdName}</td>
-                          <td style={{ fontSize: 11 }}>수량 {fmt(r.EstQuantity)} · 금액 {fmt(Math.round(Number(r.Amount) + Number(r.Vat)))}원</td></tr>
-                      ))}
-                      {diff.removed.map((r, i) => (
-                        <tr key={`r${i}`}><td style={{ color: '#dc2626', fontWeight: 700 }}>삭제</td><td>{r.CustName}</td><td>{r.ProdName}</td>
-                          <td style={{ fontSize: 11 }}>수량 {fmt(r.EstQuantity)} · 금액 {fmt(Math.round(Number(r.Amount) + Number(r.Vat)))}원</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div style={{ padding: '6px 10px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #eef2f7' }}>
+                    업체를 클릭하면 새 창에 <b>기존(화요일 기준) vs 변경(현재)</b> 품목·수량·단가가 나란히 표시됩니다.
+                  </div>
+                  <div style={{ maxHeight: 320, overflow: 'auto' }}>
+                    <table style={st.table}>
+                      <thead><tr><th>업체</th><th style={{ textAlign: 'right' }}>기준 금액</th><th style={{ textAlign: 'right' }}>현재 금액</th><th style={{ textAlign: 'right' }}>차이</th><th>변경</th></tr></thead>
+                      <tbody>
+                        {(diff.byCust || []).map((g, i) => (
+                          <tr key={`g${i}`} style={{ cursor: 'pointer' }} onClick={() => openCustDetail(g)}
+                            title="클릭 → 새 창에서 품목별 기존 vs 변경 보기">
+                            <td style={{ fontWeight: 700, color: '#0369a1', textDecoration: 'underline' }}>{g.custName}</td>
+                            <td style={{ textAlign: 'right' }}>{fmt(g.baseTotal)}</td>
+                            <td style={{ textAlign: 'right' }}>{fmt(g.currTotal)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 800, color: g.delta === 0 ? '#64748b' : (g.delta > 0 ? '#dc2626' : '#2563eb') }}>
+                              {g.delta > 0 ? '+' : ''}{fmt(g.delta)}
+                            </td>
+                            <td style={{ fontSize: 11 }}>
+                              {g.changedCnt ? <span style={{ color: '#b45309', fontWeight: 700 }}>수정 {g.changedCnt} </span> : null}
+                              {g.addedCnt ? <span style={{ color: '#1d4ed8', fontWeight: 700 }}>추가 {g.addedCnt} </span> : null}
+                              {g.removedCnt ? <span style={{ color: '#dc2626', fontWeight: 700 }}>삭제 {g.removedCnt}</span> : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           )}
