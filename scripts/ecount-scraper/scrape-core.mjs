@@ -98,9 +98,15 @@ export async function collectOne(page, base, ds) {
   return { rows, screenTotal, screenRowCnt: rows.filter(r => !r.isSubtotal).length };
 }
 
-export async function postIngest(nenova, cookie, ds, payload) {
+// auth: 토큰(권장, 상주 데몬) 또는 로그인쿠키. 토큰이 있으면 Authorization 헤더로 전송.
+export async function postIngest(nenova, auth, ds, payload) {
+  const token = process.env.NENOVA_TOKEN || '';
+  const cookie = typeof auth === 'string' ? auth : '';
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  else if (cookie) headers.Cookie = cookie;
   const res = await fetch(`${nenova}/api/ecount/ingest`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
+    method: 'POST', headers,
     body: JSON.stringify({ dataset: ds, source: 'owner-pc', ...payload }),
   });
   return await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }));

@@ -3,7 +3,7 @@
 // 사람은 최초 1회(또는 만료 시)만 열린 창에서 직접 로그인. ⛔ 자동 로그인 안 함(읽기 전용).
 //
 // 사용: node daemon.mjs
-// 환경변수: INTERVAL_MIN(기본 30) · NENOVA_URL · NENOVA_COOKIE(nenovaweb 인증쿠키) · HEADLESS=1(창 숨김; 최초 로그인 후에만 권장)
+// 환경변수: INTERVAL_MIN(기본 30) · NENOVA_URL · NENOVA_TOKEN(권장: nenovaweb 토큰=MOYI_API_TOKEN 값) · NENOVA_COOKIE(대안: 로그인쿠키) · HEADLESS=1(창 숨김; 최초 로그인 후에만 권장)
 import { chromium } from 'playwright';
 import fs from 'fs';
 import { PROFILE, DEFS, ERP_ROOT, installGuard, ensureBooted, collectOne, postIngest, isLoginPage } from './scrape-core.mjs';
