@@ -102,10 +102,11 @@ export default function ProfitReportPage() {
   const EditCell = ({ row, col, width = 86 }) => {
     const e = edits[row.category]?.[col];
     const base = row.manual[col];
-    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : null;
+    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : null;
     const val = e !== undefined ? e : (base != null ? base : '');
     const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
     const titles = {
+      R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
       S: '비우면 DB 추정치(회색 표시값) 사용, 입력하면 수기값 우선',
       E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 DB 재고평가액 사용)' : '비우면 DB 재고평가액(재고수량×환산×품목단가÷1.1) 사용',
       F: '비우면 DB 재고평가액(재고수량×환산×품목단가÷1.1) 사용 — 실사·담당자 단가로 수정 가능',
@@ -147,6 +148,7 @@ export default function ProfitReportPage() {
       <div style={st.hint}>
         자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기초·기말재고 = 확정 후 재고수량 스냅샷 × [🏷 재고단가표]</b>
         (기초=전차수말, 기말=이번차수말 · 단가 우선순위: 지정 &gt; 수국표 &gt; 품목Cost) — 회색 자동값이 계산에 쓰이며, 셀에 직접 입력하면 그 값이 우선.
+        환율(R)도 기본환율 자동 적용(USD 기본 · 네덜란드=EUR · 중국=CNY · 일본=JPY, 청구서 환율로 수정 가능).
         포워딩(USD)은 비우면 BILL 추정치 사용(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}

@@ -5,7 +5,7 @@ import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
   stockValueByCategory, currencyRates, loadManual, saveManual,
-  stockPriceRows, saveStockPrices,
+  stockPriceRows, saveStockPrices, currencyCodeForCategory,
 } from '../../../lib/profitReport';
 
 function parseMajor(raw) {
@@ -32,11 +32,14 @@ async function loadReportData(major, orderYear) {
       const extraHasData = [N, est.L, est.O, Q, S].some(m => Math.abs(Number(m?.[EXTRA_CATEGORY] || 0)) > 0.001);
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
+      const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
       const rows = keys.map(key => {
         const def = CATEGORIES.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
         const prevF = prev.manual[key]?.F;
+        const curCode = currencyCodeForCategory(key);
         return {
+          currency: curCode,
           category: key,
           variant: def.variant || 'normal',
           auto: {
@@ -47,6 +50,7 @@ async function loadReportData(major, orderYear) {
             S: Number(S[key] || 0),
             E: stockBegin.values[key] != null ? Math.round(stockBegin.values[key]) : null, // 전차수말 DB 재고평가
             F: stockEnd.values[key] != null ? Math.round(stockEnd.values[key]) : null,     // 이번차수말 DB 재고평가
+            R: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,        // CurrencyMaster 기본 환율
           },
           manual: {
             E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 저장 기말 > (auto)
