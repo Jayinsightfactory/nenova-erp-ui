@@ -16,10 +16,11 @@ const COOKIE = process.env.NENOVA_COOKIE || '';
   const ctx = await chromium.launchPersistentContext(PROFILE, { headless: !process.env.SHOW, viewport: { width: 1600, height: 900 }, acceptDownloads: true });
   await installGuard(ctx);
   const page = ctx.pages()[0] || await ctx.newPage();
-  if (!(await ensureBooted(page))) { console.error('ECOUNT 로그인 만료 — login-save.mjs 재실행하거나 daemon.mjs 사용.'); await ctx.close(); process.exit(1); }
+  const base = await ensureBooted(page);
+  if (!base) { console.error('ECOUNT 로그인 만료 — login-save.mjs 재실행하거나 daemon.mjs 사용.'); await ctx.close(); process.exit(1); }
   for (const ds of list) {
     try {
-      const data = await collectOne(page, ds);
+      const data = await collectOne(page, base, ds);
       if (!data.rows.length) { console.log(`[${ds}] 0행 — 엑셀 파싱실패. SHOW=1 점검.`); continue; }
       const r = await postIngest(NENOVA, COOKIE, ds, data);
       console.log(`[${ds}] rows=${data.rows.length} 합계=${data.screenTotal ?? '?'} → ${r.success ? `${r.status} ${r.score}점 #${r.snapshotKey}` : '전송실패:' + r.error}`);

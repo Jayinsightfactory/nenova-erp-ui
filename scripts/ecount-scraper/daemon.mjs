@@ -17,17 +17,16 @@ async function waitForLogin(page) {
   await page.goto('https://login.ecount.com/').catch(() => {});
   console.log(`\n⚠ [${now()}] ECOUNT 로그인이 필요합니다. 열린 창에서 직접 로그인하세요(등록 팝업까지).`);
   console.log('   로그인되면 자동으로 감지해 수집을 시작/재개합니다. (창은 절대 닫지 마세요)\n');
-  // 앱 화면으로 들어갈 때까지 폴링
   for (;;) {
     await page.waitForTimeout(3000);
     if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { console.log(`✅ [${now()}] 로그인 감지됨.`); return; }
   }
 }
 
-async function cycle(page) {
+async function cycle(page, base) {
   for (const ds of Object.keys(DEFS)) {
     try {
-      const data = await collectOne(page, ds);
+      const data = await collectOne(page, base, ds);
       if (!data.rows.length) { console.log(`  [${ds}] 0행(파싱실패)`); continue; }
       const r = await postIngest(NENOVA, COOKIE, ds, data);
       console.log(`  [${ds}] rows=${data.rows.length} 합계=${data.screenTotal ?? '?'} → ${r.success ? `${r.status} ${r.score}점 #${r.snapshotKey}` : '전송실패:' + r.error}`);
@@ -44,14 +43,18 @@ async function cycle(page) {
   await installGuard(ctx);
   const page = ctx.pages()[0] || await ctx.newPage();
 
-  if (!(await ensureBooted(page))) await waitForLogin(page);
+  let base = await ensureBooted(page);
+  if (!base) { await waitForLogin(page); base = await ensureBooted(page); }
   console.log(`\n🟢 [${now()}] ECOUNT 상주 수집 데몬 시작 — ${INTERVAL / 60000}분 주기. (창을 닫지 마세요)`);
 
   for (;;) {
     console.log(`\n───── [${now()}] 수집 사이클 ─────`);
-    try { await cycle(page); }
+    try { await cycle(page, base); }
     catch (e) {
-      if (e.message === 'LOGIN_EXPIRED') { console.log(`\n⚠ [${now()}] 세션 만료 감지 — 재로그인 대기.`); await waitForLogin(page); continue; }
+      if (e.message === 'LOGIN_EXPIRED') {
+        console.log(`\n⚠ [${now()}] 세션 만료 감지 — 재로그인 대기.`);
+        await waitForLogin(page); base = await ensureBooted(page); continue;
+      }
       console.error('사이클 오류:', e.message);
     }
     await new Promise(r => setTimeout(r, INTERVAL));

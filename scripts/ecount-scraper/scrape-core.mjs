@@ -9,11 +9,12 @@ export const PROFILE = path.join(__dirname, 'ecount-profile');
 const DL = path.join(__dirname, '_downloads');
 export const ERP_ROOT = 'https://logincc.ecount.com/ec5/view/erp';
 
+// hash = ECOUNT SPA 메뉴 해시(브라우저 조사로 확보). 세션ID 유지한 채 이 해시로 앱내 이동해야 로그인 안 튕김.
 export const DEFS = {
-  cash: { prgId: 'E010205', form: false, map: { refDate: ['일자', '입출금일'], flow: ['구분'], account: ['계좌번호', '계좌'], custName: ['거래처명', '거래처'], amount: ['금액'], balance: ['원화잔액', '잔액'], counterBank: ['상대은행', '지점'] }, numFields: ['amount', 'balance'] },
-  ar: { prgId: 'E040214', form: true, map: { custName: ['거래처명'], salesTotal: ['매출합계'], receiptTotal: ['수급합계', '수금합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], agingMonth: ['미회수'] }, numFields: ['salesTotal', 'receiptTotal', 'etcDiff', 'balance'] },
-  ap: { prgId: 'E040309', form: true, map: { custCode: ['거래처코드'], custName: ['거래처명'], openingDebt: ['기초채무'], stockBuy: ['재고매입'], acctBuy: ['회계매입'], payTotal: ['지급합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], unbilled: ['미청구'] }, numFields: ['openingDebt', 'stockBuy', 'acctBuy', 'payTotal', 'etcDiff', 'balance', 'unbilled'] },
-  sales: { prgId: 'E040207', form: true, map: { refDate: ['일자'], custName: ['거래처명'], prodName: ['품목명', '품목'], qty: ['수량'], unitPrice: ['단가'], supplyAmt: ['공급가액'], vat: ['부가세'], total: ['합계'], memo: ['적요'] }, numFields: ['qty', 'unitPrice', 'supplyAmt', 'vat', 'total'] },
+  cash: { prgId: 'E010205', form: false, hash: '#menuType=MENUTREE_000001&menuSeq=MENUTREE_002563&groupSeq=MENUTREE_002562&prgId=E010205&depth=3', map: { refDate: ['일자', '입출금일'], flow: ['구분'], account: ['계좌번호', '계좌'], custName: ['거래처명', '거래처'], amount: ['금액'], balance: ['원화잔액', '잔액'], counterBank: ['상대은행', '지점'] }, numFields: ['amount', 'balance'] },
+  ar: { prgId: 'E040214', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000500&groupSeq=MENUTREE_000030&prgId=E040214&depth=4', map: { custName: ['거래처명'], salesTotal: ['매출합계'], receiptTotal: ['수급합계', '수금합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], agingMonth: ['미회수'] }, numFields: ['salesTotal', 'receiptTotal', 'etcDiff', 'balance'] },
+  ap: { prgId: 'E040309', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000517&groupSeq=MENUTREE_000031&prgId=E040309&depth=4', map: { custCode: ['거래처코드'], custName: ['거래처명'], openingDebt: ['기초채무'], stockBuy: ['재고매입'], acctBuy: ['회계매입'], payTotal: ['지급합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], unbilled: ['미청구'] }, numFields: ['openingDebt', 'stockBuy', 'acctBuy', 'payTotal', 'etcDiff', 'balance', 'unbilled'] },
+  sales: { prgId: 'E040207', form: true, hash: '#menuType=MENUTREE_000004&menuSeq=MENUTREE_000494&groupSeq=MENUTREE_000030&prgId=E040207&depth=4', map: { refDate: ['일자'], custName: ['거래처명'], prodName: ['품목명', '품목'], qty: ['수량'], unitPrice: ['단가'], supplyAmt: ['공급가액'], vat: ['부가세'], total: ['합계'], memo: ['적요'] }, numFields: ['qty', 'unitPrice', 'supplyAmt', 'vat', 'total'] },
 };
 const READONLY_PRGIDS = new Set(Object.values(DEFS).map(d => d.prgId));
 const WRITE_RE = /(save|insert|update|delete|remove|regist|modify|submit|\/ins\b|\/upd\b|\/del\b)/i;
@@ -34,11 +35,12 @@ export async function installGuard(ctx) {
 
 export function isLoginPage(page) { return /login\.ecount\.com/i.test(page.url()); }
 
-// 앱 세션 부팅: 루트로 이동해 쿠키→세션 복원 유도. 로그인 화면이면 false.
+// 앱 세션 부팅: 루트로 이동해 쿠키→세션 복원. 성공 시 세션ID 포함된 base URL(해시 제외) 반환, 실패 시 null.
 export async function ensureBooted(page) {
   await page.goto(ERP_ROOT, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2500);
-  return !isLoginPage(page);
+  if (isLoginPage(page)) return null;
+  return page.url().split('#')[0];   // 예: https://logincc.ecount.com/ec5/view/erp?w_flag=1&ec_req_sid=CC-...
 }
 
 function findHeaderRow(aoa, labels) {
@@ -71,12 +73,13 @@ function parseExcel(buf, def) {
   return { rows, screenTotal };
 }
 
-// 한 화면 수집(Excel 내보내기). 로그인 만료면 throw.
-export async function collectOne(page, ds) {
+// 한 화면 수집(Excel 내보내기). base=ensureBooted 가 준 세션포함 URL. 로그인 만료면 throw.
+export async function collectOne(page, base, ds) {
   const def = DEFS[ds];
   if (!READONLY_PRGIDS.has(def.prgId)) throw new Error(`조회 화면 아님: ${def.prgId}`);
-  await page.goto(`${ERP_ROOT}#prgId=${def.prgId}`, { waitUntil: 'networkidle' }).catch(() => {});
-  await page.waitForTimeout(2500);
+  // 세션ID 유지: base(세션query 포함) + 정확한 메뉴 해시로 앱내 이동. full goto 로 딥링크 접속 금지.
+  await page.goto(base + def.hash, { waitUntil: 'networkidle' }).catch(() => {});
+  await page.waitForTimeout(2800);
   if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
   const dlP = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
