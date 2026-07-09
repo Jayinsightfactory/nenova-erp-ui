@@ -134,8 +134,10 @@ export default withAuth(withActionLog(async function handler(req, res) {
       p.ProdKey,
       p.ProdName,
       ISNULL(p.ProdCode, '') AS PROD_CD,
-      sd.OutQuantity AS QTY,
-      ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) AS UnitCost
+      sd.EstQuantity AS QTY,
+      ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) AS UnitCost,
+      ISNULL(sd.Amount, 0) AS StoredSupply,
+      ISNULL(sd.Vat, 0)    AS StoredVat
     FROM ShipmentMaster sm
     JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
     JOIN Customer c        ON sm.CustKey = c.CustKey AND c.isDeleted = 0
@@ -156,11 +158,13 @@ export default withAuth(withActionLog(async function handler(req, res) {
         details:     [],
       };
     }
+    // 금액은 저장된 분배금액(sd.Amount/Vat)을 그대로 전송 = 전산·판매현황과 일치.
+    // ⚠ 예전엔 cost×OutQuantity 재계산 → 환산품목(카네이션·수국 등) 10~15배 축소된 값이 eCount로 나갔음.
+    // QTY 는 EstQuantity(환산 송이/단, 단가와 같은 단위)라 QTY×UNIT_PRICE ≈ 공급가+부가세로 정합.
     const cost      = Math.round(Number(row.UnitCost) || 0);
     const qty       = Math.round(Number(row.QTY)      || 0);
-    const totalAmt  = cost * qty;
-    const supplyAmt = Math.round(totalAmt / 1.1);
-    const vatAmt    = totalAmt - supplyAmt;
+    const supplyAmt = Math.round(Number(row.StoredSupply) || 0);
+    const vatAmt    = Math.round(Number(row.StoredVat)    || 0);
 
     shipmentMap[row.ShipmentKey].details.push({
       PROD_CD:    row.PROD_CD || row.ProdName,
