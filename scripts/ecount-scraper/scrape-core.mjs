@@ -67,7 +67,10 @@ function parseExcel(buf, def) {
     const r = aoa[i]; const first = String(r[0] ?? '').trim();
     if (/합계|총계|총\s*합/.test(r.map(x => String(x ?? '')).join(''))) { const t = idx.total ?? idx.balance ?? idx.amount ?? idx.supplyAmt; if (t != null) screenTotal = num(r[t]); continue; }
     const o = {}; for (const [f, j] of Object.entries(idx)) o[f] = def.numFields.includes(f) ? num(r[j]) : String(r[j] ?? '').trim();
-    o.isSubtotal = /계$/.test(first) && !o.custCode;
+    // 소계/총계 행 판정: ECOUNT 는 거래처코드 칸에 '…계'(예 '/  계' 전체총계, '00134 / 박성수 계' 거래처소계)를 넣어
+    // 값이 비어있지 않으므로 !custCode 가드로는 못 걸러진다 → 코드칸이 '계'로 끝나면 소계/총계로 간주(중복합산 방지).
+    const codeStr = String(o.custCode ?? '').replace(/\s+/g, '');
+    o.isSubtotal = (o.custCode && /계$/.test(codeStr)) || (/계$/.test(first) && !o.custCode);
     if (Object.entries(o).some(([k, v]) => def.numFields.includes(k) && v !== 0) || o.custName || o.custCode) rows.push(o);
   }
   return { rows, screenTotal };
