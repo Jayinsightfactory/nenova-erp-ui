@@ -67,3 +67,4 @@ scripts/ecount-scraper/package*.json
 scripts/ecount-scraper/ecount-profile/
 scripts/ecount-scraper/_*.mjs
 scripts/ecount-scraper/_debug.png
+scripts/ecount-scraper/_downloads/

@@ -1,112 +1,136 @@
-// ECOUNT 4종 자동수집 — owner PC 에서 실행. 전용 크롬 프로필(ecount-profile) 로그인 상태 재사용.
+// ECOUNT 4종 자동수집 — owner PC. 전용 크롬 프로필(ecount-profile) 로그인 재사용.
+// 화면 그리드는 가상스크롤(보이는 행만 DOM)이라 → Excel 내보내기로 전체 데이터를 받아 파싱한다.
 // 사용: node run.mjs [sales ar ap cash]  (인자 없으면 4종 전부)
-// 환경변수: NENOVA_URL(기본 https://nenovaweb.com), NENOVA_COOKIE(nenovaweb 인증 쿠키), SHOW=1(창 보이기)
+// 환경변수: NENOVA_URL, NENOVA_COOKIE(nenovaweb 인증쿠키), SHOW=1(창 보이기)
 //
-// ⛔⛔ 절대 원칙: ECOUNT 는 읽기 전용. 입력·수정·저장·삭제 절대 금지. ⛔⛔
-//   조회(검색/F8)와 화면 읽기만 한다. 2중 하드가드:
-//   1) prgId 화이트리스트: 조회 4화면 외 이동 거부(입력화면 접근 불가).
-//   2) 네트워크 가드: Save/Insert/Update/Delete/Write 요청은 abort(전송 차단).
+// ⛔ ECOUNT 읽기 전용. 입력·수정·저장 절대 금지. 가드: prgId 화이트리스트 + 쓰기요청 abort.
 import { chromium } from 'playwright';
+import XLSX from 'xlsx';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROFILE = path.join(__dirname, 'ecount-profile');
+const DL = path.join(__dirname, '_downloads');
 const NENOVA = process.env.NENOVA_URL || 'https://nenovaweb.com';
 const COOKIE = process.env.NENOVA_COOKIE || '';
 const ERP = 'https://logincc.ecount.com/ec5/view/erp';
 
+// 데이터셋: prgId(조회화면) + 헤더라벨→필드 매핑(엑셀 컬럼명 기준, 정렬 바뀌어도 안전) + 숫자필드
 const DEFS = {
-  cash:  { prgId: 'E010205', form: false, parse: parseCash },  // 입/출금계좌 조회
-  ar:    { prgId: 'E040214', form: true,  parse: parseAR },    // 거래처별채권(조회)
-  ap:    { prgId: 'E040309', form: true,  parse: parseAP },    // 거래처별채무(조회)
-  sales: { prgId: 'E040207', form: true,  parse: parseSales }, // 판매현황(조회)
+  cash: { prgId: 'E010205', form: false, map: { refDate: ['일자', '입출금일'], flow: ['구분'], account: ['계좌번호', '계좌'], custName: ['거래처명', '거래처'], amount: ['금액'], balance: ['원화잔액', '잔액'], counterBank: ['상대은행', '지점'] }, numFields: ['amount', 'balance'] },
+  ar: { prgId: 'E040214', form: true, map: { custName: ['거래처명'], salesTotal: ['매출합계'], receiptTotal: ['수급합계', '수금합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], agingMonth: ['미회수'] }, numFields: ['salesTotal', 'receiptTotal', 'etcDiff', 'balance'] },
+  ap: { prgId: 'E040309', form: true, map: { custCode: ['거래처코드'], custName: ['거래처명'], openingDebt: ['기초채무'], stockBuy: ['재고매입'], acctBuy: ['회계매입'], payTotal: ['지급합계'], etcDiff: ['기타할인', '기타'], balance: ['잔액'], unbilled: ['미청구'] }, numFields: ['openingDebt', 'stockBuy', 'acctBuy', 'payTotal', 'etcDiff', 'balance', 'unbilled'] },
+  sales: { prgId: 'E040207', form: true, map: { refDate: ['일자'], custName: ['거래처명'], prodName: ['품목명', '품목'], qty: ['수량'], unitPrice: ['단가'], supplyAmt: ['공급가액'], vat: ['부가세'], total: ['합계'], memo: ['적요'] }, numFields: ['qty', 'unitPrice', 'supplyAmt', 'vat', 'total'] },
 };
 const READONLY_PRGIDS = new Set(Object.values(DEFS).map(d => d.prgId));
-const WRITE_URL_RE = /(save|insert|update|delete|remove|write|regist|create|modify|\/ins|\/upd|\/del|submit)/i;
-function num(s) { const x = Number(String(s ?? '').replace(/[,\s₩]/g, '')); return Number.isFinite(x) ? x : 0; }
+// 쓰기 판정: save/insert/update/delete/remove 등 — 단 excel/export/download/report/view/list 등 조회·내보내기는 제외.
+const WRITE_RE = /(save|insert|update|delete|remove|regist|modify|submit|\/ins\b|\/upd\b|\/del\b)/i;
+const READ_RE = /(excel|export|download|print|report|view|list|search|inquiry|getdata|cache|grid|menu|resource)/i;
+function num(s) { const x = Number(String(s ?? '').replace(/[,\s₩원]/g, '')); return Number.isFinite(x) ? x : 0; }
 
-// 모든 프레임(iframe 포함)에서 그리드 행 추출 — 가장 행이 많은 프레임 채택
-async function gridRowsAllFrames(page) {
-  let best = [];
-  for (const f of page.frames()) {
-    try {
-      const rows = await f.evaluate(() => {
-        const o = [];
-        for (const tr of document.querySelectorAll('table tr, [role="row"], .cell-row, tr.gridRow')) {
-          const cells = [...tr.querySelectorAll('td, [role="gridcell"], .cell')].map(td => (td.innerText || '').trim());
-          if (cells.filter(Boolean).length >= 3) o.push(cells);
-        }
-        return o;
-      });
-      if (rows.length > best.length) best = rows;
-    } catch { /* cross-origin frame skip */ }
+function findHeaderRow(aoa, labels) {
+  // 헤더 후보: dataset 라벨을 가장 많이 포함한 행
+  let best = -1, bestHit = 0;
+  const flat = Object.values(labels).flat();
+  for (let i = 0; i < Math.min(aoa.length, 15); i++) {
+    const row = aoa[i].map(c => String(c ?? ''));
+    const hit = flat.filter(lbl => row.some(c => c.includes(lbl))).length;
+    if (hit > bestHit) { bestHit = hit; best = i; }
   }
-  return best;
+  return bestHit >= 2 ? best : -1;
 }
-async function screenMeta(page) {
-  let txt = '';
-  for (const f of page.frames()) { try { txt += '\n' + await f.evaluate(() => document.body.innerText); } catch {} }
-  const per = txt.match(/(\d{4}\/\d{2}\/\d{2})\s*~\s*(\d{4}\/\d{2}\/\d{2})/);
-  const cnt = txt.match(/총\s*([\d,]+)\s*건/);
-  return {
-    periodFrom: per ? per[1].replace(/\//g, '-') : null,
-    periodTo: per ? per[2].replace(/\//g, '-') : null,
-    screenRowCnt: cnt ? Number(cnt[1].replace(/,/g, '')) : null,
-  };
+function colIndexByLabel(headerRow, labels) {
+  const idx = {};
+  const cells = headerRow.map(c => String(c ?? '').replace(/\s+/g, ''));
+  for (const [field, cands] of Object.entries(labels)) {
+    for (const lbl of cands) { const j = cells.findIndex(c => c.includes(lbl.replace(/\s+/g, ''))); if (j >= 0) { idx[field] = j; break; } }
+  }
+  return idx;
+}
+function parseExcel(buf, def) {
+  const wb = XLSX.read(buf, { type: 'buffer' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  const hr = findHeaderRow(aoa, def.map);
+  if (hr < 0) return { rows: [], screenTotal: null };
+  const idx = colIndexByLabel(aoa[hr], def.map);
+  const rows = []; let screenTotal = null;
+  for (let i = hr + 1; i < aoa.length; i++) {
+    const r = aoa[i]; const first = String(r[0] ?? '').trim();
+    // 합계/총계 행 → screenTotal(금액계열 최댓값 컬럼)
+    if (/합계|총계|총\s*합/.test(r.map(x => String(x ?? '')).join(''))) {
+      const tot = idx.total ?? idx.balance ?? idx.amount ?? idx.supplyAmt;
+      if (tot != null) screenTotal = num(r[tot]); continue;
+    }
+    const obj = {};
+    for (const [field, j] of Object.entries(idx)) obj[field] = def.numFields.includes(field) ? num(r[j]) : String(r[j] ?? '').trim();
+    obj.isSubtotal = /계$/.test(first) && !obj.custCode; // 담당자 소계행(채권)
+    const hasData = Object.entries(obj).some(([k, v]) => def.numFields.includes(k) && v !== 0) || obj.custName || obj.custCode;
+    if (hasData) rows.push(obj);
+  }
+  return { rows, screenTotal };
 }
 
-function parseCash(c) { return { refDate: c[0], flow: c[1], account: c[2], custName: c[5] || c[4], amount: num(c[6]), balance: num(c[9]), counterBank: c[10] }; }
-function parseAR(c)   { return { custName: c[0], salesTotal: num(c[1]), receiptTotal: num(c[2]), etcDiff: num(c[3]), balance: num(c[4]), agingMonth: c[5], isSubtotal: /계$/.test((c[0]||'').trim()) }; }
-function parseAP(c)   { return { custCode: c[0], custName: c[1], openingDebt: num(c[2]), stockBuy: num(c[3]), acctBuy: num(c[4]), payTotal: num(c[5]), etcDiff: num(c[6]), balance: num(c[7]), unbilled: num(c[8]) }; }
-function parseSales(c){ return { refDate: c[0], custName: c[1], prodName: c[2], qty: num(c[3]), unitPrice: num(c[4]), supplyAmt: num(c[5]), vat: num(c[6]), total: num(c[7]), memo: c[8] }; }
-
-async function collect(page, ds) {
+async function collect(ctx, page, ds) {
   const def = DEFS[ds];
-  if (!READONLY_PRGIDS.has(def.prgId)) throw new Error(`조회 화면이 아닌 prgId 접근 차단: ${def.prgId}`);
-  await page.goto(`${ERP}#menuType=MENUTREE&prgId=${def.prgId}`, { waitUntil: 'networkidle' }).catch(() => {});
+  if (!READONLY_PRGIDS.has(def.prgId)) throw new Error(`조회 화면 아님: ${def.prgId}`);
+  await page.goto(`${ERP}#prgId=${def.prgId}`, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2500);
-  if (/login\.ecount\.com/i.test(page.url())) throw new Error('ECOUNT 로그인 만료 — login-save.mjs 재실행 필요');
+  if (/login\.ecount\.com/i.test(page.url())) throw new Error('ECOUNT 로그인 만료 — login-save.mjs 재실행');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
-  const raw = await gridRowsAllFrames(page);
-  const meta = await screenMeta(page);
-  const rows = raw.map(def.parse).filter(r => r && (r.custName || r.custCode || r.amount || r.balance || r.total));
-  return { rows, ...meta, screenTotal: null };
+  // Excel 버튼 클릭 → 다운로드 대기 (여러 프레임/셀렉터 시도)
+  const clickExcel = async () => {
+    for (const f of [page, ...page.frames()]) {
+      for (const loc of [f.getByRole?.('button', { name: /^Excel$/i }), f.locator?.('button:has-text("Excel")'), f.locator?.('a:has-text("Excel")'), f.locator?.('text=Excel')]) {
+        try { if (loc && await loc.first().isVisible({ timeout: 800 })) { await loc.first().click({ timeout: 1500 }); return true; } } catch {}
+      }
+    }
+    return false;
+  };
+  const dlPromise = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
+  const clicked = await clickExcel();
+  if (!clicked) throw new Error('Excel 버튼을 찾지 못함 (SHOW=1 로 화면 확인 필요)');
+  const dl = await dlPromise;
+  if (!dl) throw new Error('Excel 다운로드가 시작되지 않음(팝업/형식선택 가능 — SHOW=1 확인)');
+  fs.mkdirSync(DL, { recursive: true });
+  const file = path.join(DL, `${ds}.xlsx`);
+  await dl.saveAs(file);
+  const buf = fs.readFileSync(file);
+  const { rows, screenTotal } = parseExcel(buf, def);
+  return { rows, screenTotal, screenRowCnt: rows.filter(r => !r.isSubtotal).length };
 }
 
 async function postIngest(ds, payload) {
   const res = await fetch(`${NENOVA}/api/ecount/ingest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(COOKIE ? { Cookie: COOKIE } : {}) },
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(COOKIE ? { Cookie: COOKIE } : {}) },
     body: JSON.stringify({ dataset: ds, source: 'owner-pc', ...payload }),
   });
   return await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }));
 }
 
 (async () => {
-  if (!fs.existsSync(PROFILE)) { console.error('ecount-profile 없음 — 먼저 login-save.mjs 로 로그인하세요.'); process.exit(1); }
+  if (!fs.existsSync(PROFILE)) { console.error('ecount-profile 없음 — login-save.mjs 먼저.'); process.exit(1); }
   const targets = process.argv.slice(2).filter(a => DEFS[a]);
   const list = targets.length ? targets : ['sales', 'ar', 'ap', 'cash'];
-  const ctx = await chromium.launchPersistentContext(PROFILE, { headless: !process.env.SHOW, viewport: { width: 1600, height: 900 } });
+  const ctx = await chromium.launchPersistentContext(PROFILE, { headless: !process.env.SHOW, viewport: { width: 1600, height: 900 }, acceptDownloads: true });
   await ctx.route('**/*', route => {
     const u = route.request().url(); const m = route.request().method();
-    // ECOUNT 호스트로 가는 요청만 판정(구글광고 등 3rd-party 는 대상 아님). 경로에 쓰기패턴이면 차단.
     let host = '', pathq = '';
     try { const url = new URL(u); host = url.hostname; pathq = url.pathname + url.search; } catch {}
     const isEcount = /(^|\.)ecount\.com$/i.test(host);
-    if (isEcount && (WRITE_URL_RE.test(pathq) || ['PUT', 'DELETE', 'PATCH'].includes(m))) {
-      console.error(`🛑 [READ-ONLY GUARD] ECOUNT 쓰기 차단: ${m} ${u.slice(0, 110)}`); return route.abort();
-    }
+    const isWrite = (WRITE_RE.test(pathq) && !READ_RE.test(pathq)) || ['PUT', 'DELETE', 'PATCH'].includes(m);
+    if (isEcount && isWrite) { console.error(`🛑 [READ-ONLY GUARD] ECOUNT 쓰기 차단: ${m} ${u.slice(0, 100)}`); return route.abort(); }
     return route.continue();
   });
   const page = ctx.pages()[0] || await ctx.newPage();
   for (const ds of list) {
     try {
-      const data = await collect(page, ds);
-      if (!data.rows.length) { console.log(`[${ds}] 0행 — 화면 구조/세션 확인 필요(SHOW=1 로 창 띄워 점검)`); continue; }
-      const r = COOKIE || NENOVA ? await postIngest(ds, data) : { success: false, error: 'NENOVA 미설정' };
-      console.log(`[${ds}] rows=${data.rows.length} 기간=${data.periodFrom}~${data.periodTo} → ${r.success ? `${r.status} ${r.score}점 (#${r.snapshotKey})` : '전송실패: ' + r.error}`);
+      const data = await collect(ctx, page, ds);
+      if (!data.rows.length) { console.log(`[${ds}] 0행 — 엑셀 파싱 실패(헤더 못 찾음). SHOW=1 로 점검.`); continue; }
+      const r = await postIngest(ds, data);
+      console.log(`[${ds}] rows=${data.rows.length} 화면합계=${data.screenTotal ?? '?'} → ${r.success ? `${r.status} ${r.score}점 (#${r.snapshotKey})` : '전송실패: ' + r.error}`);
     } catch (e) { console.error(`[${ds}] 오류:`, e.message); }
   }
   await ctx.close(); process.exit(0);
