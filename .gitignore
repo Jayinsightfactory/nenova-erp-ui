@@ -64,3 +64,6 @@ _tmp-*.png
 scripts/ecount-scraper/storageState.json
 scripts/ecount-scraper/node_modules/
 scripts/ecount-scraper/package*.json
+scripts/ecount-scraper/ecount-profile/
+scripts/ecount-scraper/_*.mjs
+scripts/ecount-scraper/_debug.png
