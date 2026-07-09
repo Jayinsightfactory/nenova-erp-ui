@@ -91,8 +91,12 @@ async function postIngest(ds, payload) {
   const ctx = await chromium.launchPersistentContext(PROFILE, { headless: !process.env.SHOW, viewport: { width: 1600, height: 900 } });
   await ctx.route('**/*', route => {
     const u = route.request().url(); const m = route.request().method();
-    if (/ecount\.com/i.test(u) && (WRITE_URL_RE.test(u) || ['PUT', 'DELETE', 'PATCH'].includes(m))) {
-      console.error(`🛑 [READ-ONLY GUARD] 차단: ${m} ${u.slice(0, 110)}`); return route.abort();
+    // ECOUNT 호스트로 가는 요청만 판정(구글광고 등 3rd-party 는 대상 아님). 경로에 쓰기패턴이면 차단.
+    let host = '', pathq = '';
+    try { const url = new URL(u); host = url.hostname; pathq = url.pathname + url.search; } catch {}
+    const isEcount = /(^|\.)ecount\.com$/i.test(host);
+    if (isEcount && (WRITE_URL_RE.test(pathq) || ['PUT', 'DELETE', 'PATCH'].includes(m))) {
+      console.error(`🛑 [READ-ONLY GUARD] ECOUNT 쓰기 차단: ${m} ${u.slice(0, 110)}`); return route.abort();
     }
     return route.continue();
   });

@@ -18,7 +18,9 @@ const WRITE_RE = /(save|insert|update|delete|remove|regist|create|modify|\/ins|\
   // 로그인 창에서도 쓰기성 요청 차단(로그인 자체는 허용)
   await ctx.route('**/*', route => {
     const u = route.request().url();
-    if (/ecount\.com/i.test(u) && WRITE_RE.test(u) && !/login/i.test(u)) { console.error('🛑 쓰기성 요청 차단:', u.slice(0, 100)); return route.abort(); }
+    let host = '', pathq = '';
+    try { const url = new URL(u); host = url.hostname; pathq = url.pathname + url.search; } catch {}
+    if (/(^|\.)ecount\.com$/i.test(host) && WRITE_RE.test(pathq) && !/login/i.test(pathq)) { console.error('🛑 쓰기성 요청 차단:', u.slice(0, 100)); return route.abort(); }
     return route.continue();
   });
   const page = ctx.pages()[0] || await ctx.newPage();
