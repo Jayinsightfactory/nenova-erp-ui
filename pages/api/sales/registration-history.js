@@ -3,7 +3,7 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear, normalizeOrderWeek } from '../../../lib/orderUtils';
 import {
-  listSnapshots, getSnapshotRows, captureCurrentRows, diffRowSets,
+  listSnapshots, getSnapshotRows, captureCurrentRows, diffRowSets, buildBaselineCompare,
   takeSnapshot, detectAndRecordChange, startSalesSnapshotScheduler,
 } from '../../../lib/salesSnapshot';
 
@@ -49,6 +49,45 @@ export default withAuth(async function handler(req, res) {
           : await getSnapshotRows(req.query.diffTo);
         const diff = diffRowSets(baseRows, toRows);
         return res.status(200).json({ success: true, diff });
+      }
+
+      // 업체별 3기준 비교: 화요일(TUE_FINAL) / 수요일(WED_CHECK) / 현재(live) 금액 + 차액 + 품목별 + 변경자
+      if (req.query.compare3) {
+        const tueRows = [], wedRows = [];
+        let tueBaselineAt = null;
+        for (const w of subweeks) {
+          const snaps = await listSnapshots(w, orderYear);
+          const tue = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
+          const wed = [...snaps].reverse().find(s => s.SnapshotType === 'WED_CHECK'); // 최신 수요일 점검
+          if (tue) { tueRows.push(...await getSnapshotRows(tue.SnapshotKey)); if (!tueBaselineAt || tue.takenAt < tueBaselineAt) tueBaselineAt = tue.takenAt; }
+          if (wed) wedRows.push(...await getSnapshotRows(wed.SnapshotKey));
+        }
+        const currRows = (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat();
+        // 변경자: 화요일 기준 이후 ShipmentHistory (SdetailKey → 변경자ID 집합)
+        const changerByRefKey = new Map();
+        if (tueBaselineAt) {
+          for (const w of subweeks) {
+            const r = await query(
+              `SELECT DISTINCT sh.SdetailKey, sh.ChangeID
+                 FROM ShipmentHistory sh
+                 JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
+                 JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+                WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since AND sh.ChangeID IS NOT NULL`,
+              { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(tueBaselineAt) } }
+            );
+            for (const row of r.recordset) {
+              const k = Number(row.SdetailKey);
+              if (!changerByRefKey.has(k)) changerByRefKey.set(k, new Set());
+              changerByRefKey.get(k).add(row.ChangeID);
+            }
+          }
+        }
+        const changerArr = new Map([...changerByRefKey].map(([k, v]) => [k, [...v]]));
+        const byCust = buildBaselineCompare({ tueRows, wedRows, currRows, changerByRefKey: changerArr });
+        return res.status(200).json({
+          success: true, week: majorMode ? major : week, hasTue: tueRows.length > 0, hasWed: wedRows.length > 0,
+          tueBaselineAt, byCust,
+        });
       }
 
       // 변경 주체 추적 — 기준 스냅샷 이후 ShipmentHistory (누가/언제/얼마→얼마)

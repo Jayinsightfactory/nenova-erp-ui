@@ -32,9 +32,10 @@ export default function SalesRegistrationHistoryPage() {
   const [viewTab, setViewTab] = useState('cust');    // cust | flower
   const [diff, setDiff] = useState(null);            // 기준 vs 현재 diff
   const [changeLog, setChangeLog] = useState(null);
+  const [compare, setCompare] = useState(null);      // 화/수/수정 3기준 비교
 
   const load = async () => {
-    setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setSelCust(null);
+    setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setCompare(null); setSelCust(null);
     try {
       const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -87,6 +88,60 @@ export default function SalesRegistrationHistoryPage() {
       const d = await res.json();
       if (d.success) setChangeLog(d);
     } catch { /* ignore */ }
+  };
+
+  const loadCompare = async () => {
+    try {
+      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&compare3=1`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (d.success) setCompare(d);
+    } catch { /* ignore */ }
+  };
+
+  // 업체 클릭 → 새 창에 품목별 화요일/수요일/현재(수정) 금액 + 차액 + 변경자
+  const openCustCompare = (c, hasWed) => {
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const n = v => Number(v || 0).toLocaleString();
+    const dCol = d => d === 0 ? '#64748b' : (d > 0 ? '#dc2626' : '#2563eb');
+    const rowsHtml = (c.items || []).map(it => {
+      const chg = Math.abs(it.delta) > 0.5;
+      return `<tr style="background:${chg ? '#fff7ed' : '#fff'}">
+        <td>${esc(it.prodName)}${it.rowType === 'EST' ? '<span style="color:#b91c1c;font-size:11px"> (차감)</span>' : ''}</td>
+        <td style="text-align:right">${n(it.tue)}</td>
+        <td style="text-align:right">${it.wed == null ? '<span style="color:#cbd5e1">—</span>' : n(it.wed)}</td>
+        <td style="text-align:right;font-weight:700">${n(it.curr)}</td>
+        <td style="text-align:right;font-weight:800;color:${dCol(it.delta)}">${it.delta > 0 ? '+' : ''}${n(it.delta)}</td>
+        <td style="font-size:12px;color:#7c3aed;font-weight:700">${esc((it.changers || []).join(', '))}</td>
+      </tr>`;
+    }).join('');
+    const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(c.custName)} — 화/수/수정 비교</title>
+      <style>
+        body{font-family:'Malgun Gothic',system-ui,sans-serif;margin:0;padding:20px;color:#0f172a;background:#f8fafc}
+        h1{font-size:18px;margin:0 0 4px} .sub{color:#64748b;font-size:13px;margin-bottom:14px}
+        .tot{display:flex;gap:14px;margin:0 0 16px;flex-wrap:wrap}
+        .tot div{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;min-width:120px}
+        .tot b{display:block;font-size:19px;margin-top:2px}
+        table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:13px}
+        th,td{padding:8px 10px;border-bottom:1px solid #eef2f7} th{background:#f1f5f9;font-size:12px;color:#475569}
+        td:first-child{font-weight:600}
+      </style></head><body>
+      <h1>${esc(c.custName)}</h1>
+      <div class="sub">화요일 최종분배 → 수요일 점검 → 현재(수정) 금액 비교 · 품목금액(VAT포함)</div>
+      <div class="tot">
+        <div>화요일 기준<b>${n(c.tue)}원</b></div>
+        <div>수요일 기준<b>${c.wed == null ? '<span style="color:#94a3b8;font-size:14px">스냅샷 없음</span>' : n(c.wed) + '원'}</b></div>
+        <div>현재(수정)<b>${n(c.curr)}원</b></div>
+        <div>차액(현재−화요일)<b style="color:${dCol(c.delta)}">${c.delta > 0 ? '+' : ''}${n(c.delta)}원</b></div>
+      </div>
+      <table>
+        <thead><tr><th style="text-align:left">품목</th><th style="text-align:right">화요일 기준</th><th style="text-align:right">수요일 기준</th><th style="text-align:right">현재(수정)</th><th style="text-align:right">차액</th><th style="text-align:left">변경자</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <p style="color:#94a3b8;font-size:12px;margin-top:12px">주황 배경 = 화요일 기준과 금액이 달라진 품목. 변경자 = 화요일 이후 해당 품목을 수정한 사람(ShipmentHistory).${hasWed ? '' : ' 이 차수는 수요일 점검 스냅샷이 없어 수요일 열은 —.'}</p>
+      </body></html>`;
+    const w = window.open('', '_blank', 'width=980,height=680,scrollbars=yes');
+    if (!w) { alert('팝업이 차단되었습니다. 팝업 허용 후 다시 눌러주세요.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
   };
 
   // 업체 클릭 → 새 창에 "기존 vs 변경" 품목·수량·단가 상세
@@ -385,6 +440,7 @@ export default function SalesRegistrationHistoryPage() {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button style={viewTab === 'cust' ? st.segOn : st.seg} onClick={() => setViewTab('cust')}>업체별 매출</button>
                   <button style={viewTab === 'flower' ? st.segOn : st.seg} onClick={() => setViewTab('flower')}>품종별 판매금액</button>
+                  <button style={viewTab === 'compare' ? st.segOn : st.seg} onClick={() => { setViewTab('compare'); if (!compare) loadCompare(); }}>화/수/수정 비교</button>
                 </div>
               </div>
 
@@ -439,6 +495,49 @@ export default function SalesRegistrationHistoryPage() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                </div>
+              ) : viewTab === 'compare' ? (
+                <div style={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}>
+                  {!compare ? (
+                    <div style={{ padding: 16, fontSize: 13, color: '#64748b' }}>불러오는 중…</div>
+                  ) : (
+                    <>
+                      <div style={{ padding: '6px 10px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #eef2f7' }}>
+                        업체를 클릭하면 새 창에 <b>품목별 화요일/수요일/현재 금액 + 변경자</b>가 나옵니다.
+                        {compare.hasWed ? '' : ' (이 차수는 수요일 점검 스냅샷이 없어 수요일 열은 —)'}
+                      </div>
+                      <table style={st.table}>
+                        <thead><tr>
+                          <th>업체</th>
+                          <th style={{ textAlign: 'right' }}>화요일 기준</th>
+                          <th style={{ textAlign: 'right' }}>수요일 기준</th>
+                          <th style={{ textAlign: 'right' }}>현재(수정)</th>
+                          <th style={{ textAlign: 'right' }}>차액</th>
+                        </tr></thead>
+                        <tbody>
+                          {(compare.byCust || []).map(c => (
+                            <tr key={c.custKey ?? c.custName} style={{ cursor: 'pointer', background: c.changed ? '#fff7ed' : undefined }}
+                              onClick={() => openCustCompare(c, compare.hasWed)} title="클릭 → 새 창에서 품목별 화/수/수정 + 변경자">
+                              <td style={{ fontWeight: 700, color: '#0369a1', textDecoration: 'underline' }}>{c.custName}</td>
+                              <td style={{ textAlign: 'right' }}>{fmt(c.tue)}</td>
+                              <td style={{ textAlign: 'right', color: c.wed == null ? '#cbd5e1' : undefined }}>{c.wed == null ? '—' : fmt(c.wed)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(c.curr)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 800, color: c.delta === 0 ? '#64748b' : (c.delta > 0 ? '#dc2626' : '#2563eb') }}>
+                                {c.delta > 0 ? '+' : ''}{fmt(c.delta)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+                            <td>합계</td>
+                            <td style={{ textAlign: 'right' }}>{fmt((compare.byCust || []).reduce((s, c) => s + c.tue, 0))}</td>
+                            <td style={{ textAlign: 'right' }}>{compare.hasWed ? fmt((compare.byCust || []).reduce((s, c) => s + (c.wed || 0), 0)) : '—'}</td>
+                            <td style={{ textAlign: 'right' }}>{fmt((compare.byCust || []).reduce((s, c) => s + c.curr, 0))}</td>
+                            <td style={{ textAlign: 'right' }}>{(() => { const d = (compare.byCust || []).reduce((s, c) => s + c.delta, 0); return `${d > 0 ? '+' : ''}${fmt(d)}`; })()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </>
                   )}
                 </div>
               ) : (
