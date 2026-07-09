@@ -242,6 +242,10 @@ input[type="radio"]    { cursor: pointer; accent-color: var(--blue); }
 .tbl th.resizable .col-resize-handle {
   position: absolute; right: 0; top: 0; bottom: 0; width: 8px;
   cursor: col-resize; background: transparent; z-index: 5;
+  /* 항상 보이는 얇은 세로 구분선 = "여기 잡아끌면 열 너비 조절" 힌트 (발견성) */
+  border-right: 2px solid rgba(37, 99, 235, .28);
 }
 .tbl th.resizable .col-resize-handle:hover,
-.tbl th.resizable .col-resize-handle.dragging { background: var(--blue); opacity: 0.4; }
+.tbl th.resizable .col-resize-handle.dragging {
+  background: var(--blue); opacity: 0.45; border-right-color: var(--blue);
+}

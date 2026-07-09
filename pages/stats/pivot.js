@@ -262,6 +262,7 @@ const SortIcon = ({ dir }) => dir === 'asc' ? ' ▲' : dir === 'desc' ? ' ▼' :
 function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOptions }) {
   const [showFilter, setShowFilter] = useState(false);
   const [dropPos,    setDropPos]    = useState({ top: 0, left: 0 });
+  const [q,          setQ]          = useState(''); // 필터 옵션 검색어
   const btnRef = useRef(null);
   const dir    = sorts[sortKey] || null;
 
@@ -293,7 +294,7 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
 
   // 외부 클릭 시 닫기
   useEffect(() => {
-    if (!showFilter) return;
+    if (!showFilter) { setQ(''); return; } // 닫히면 검색어 초기화
     const close = e => setShowFilter(false);
     const t = setTimeout(() => document.addEventListener('click', close), 50);
     return () => { clearTimeout(t); document.removeEventListener('click', close); };
@@ -343,13 +344,24 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
           borderRadius: 4,
         }} onClick={e => e.stopPropagation()}>
 
-          {/* 전체선택/해제 상태 표시 행 */}
-          <div style={{padding:'4px 8px', background:'#f0f4fa', borderBottom:'1px solid var(--border)',
-            fontSize:10, color:'var(--text3)'}}>
-            {label} 필터 ({allDeselected ? '전체해제' : !filter?.length ? '전체선택' : `${filter.length}/${filterOptions.length}개`})
+          {/* 전체선택/해제 상태 표시 행 + 검색창 (sticky) */}
+          <div style={{position:'sticky', top:0, background:'#fff', zIndex:1, borderBottom:'1px solid var(--border)'}}>
+            <div style={{padding:'4px 8px', background:'#f0f4fa', fontSize:10, color:'var(--text3)'}}>
+              {label} 필터 ({allDeselected ? '전체해제' : !filter?.length ? '전체선택' : `${filter.length}/${filterOptions.length}개`})
+            </div>
+            {filterOptions.length > 6 && (
+              <div style={{padding:'4px 6px'}}>
+                <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="검색…"
+                  onClick={e => e.stopPropagation()}
+                  style={{width:'100%', boxSizing:'border-box', fontSize:11, padding:'3px 6px',
+                    border:'1px solid var(--border2)', borderRadius:3}} />
+              </div>
+            )}
           </div>
 
-          {filterOptions.map(opt => (
+          {filterOptions
+            .filter(opt => !q || String(opt).toLowerCase().includes(q.toLowerCase()))
+            .map(opt => (
             <label key={opt} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px',
               fontSize:11, cursor:'pointer',
               background: isChecked(opt) ? '#f0f6ff' : '#fff'}}>
