@@ -150,9 +150,10 @@ async function loadExeExcelDetailItems({ orderYearWeek, custKey, weekDayIn }) {
 
 async function getEstimates(req, res) {
   const { week, custKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
-  // exe-parity 견적 SQL(sqlEstimateGetData)에 컬럼오류(ShipmentKey) 잔존 → 기본 OFF.
-  // 정상 작동하는 비exe 경로가 기본. 검증용으로만 ?exeParity=1 명시 시 exe 사용.
-  const useExeParity = exeParity === '1' || exeParity === 'true';
+  // exe-parity 견적 SQL 을 nenova.exe v1.0.15 방식(ViewShipment/ViewOrder·ProdKey·DetailFix)으로
+  // 정합 + GetDetail ShipmentKey 버그 수정 완료(2026-07-09, 4쿼리 실DB 총액일치) → 기본 ON.
+  // 되돌림: ?exeParity=0 (문제 시 기존 웹 자체 로직으로 복귀).
+  const useExeParity = !(exeParity === '0' || exeParity === 'false');
   const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
 
   if (view === 'excelDetail') {
