@@ -75,7 +75,7 @@ async function getList(req, res) {
       JOIN Customer c ON sm.CustKey = c.CustKey AND c.isDeleted = 0
       JOIN Product p ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = p.ProdKey
-      WHERE sm.isDeleted = 0 AND sm.isFix = 1
+      WHERE sm.isDeleted = 0 AND ISNULL(sd.isFix, 0) = 1
         AND (@dateFrom IS NULL OR CONVERT(DATE, sd.ShipmentDtm) >= CONVERT(DATE, @dateFrom))
         AND (@dateTo   IS NULL OR CONVERT(DATE, sd.ShipmentDtm) <= CONVERT(DATE, @dateTo))
         ${custWhere}
@@ -147,7 +147,7 @@ async function getLedger(req, res) {
       JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
       JOIN Product p ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = sm.CustKey AND cpc.ProdKey = p.ProdKey
-      WHERE sm.CustKey = @ck AND sm.isDeleted = 0 AND sm.isFix = 1
+      WHERE sm.CustKey = @ck AND sm.isDeleted = 0 AND ISNULL(sd.isFix, 0) = 1
       GROUP BY sm.ShipmentKey
       ORDER BY MAX(sd.ShipmentDtm) ASC`,
       { ck: { type: sql.Int, value: ckInt } }
