@@ -68,7 +68,7 @@ async function getList(req, res) {
       `SELECT
         c.CustKey, c.CustName, c.CustArea, c.Manager,
         COUNT(DISTINCT sm.ShipmentKey) AS shipCount,
-        SUM(ROUND(ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) * sd.OutQuantity / 1.1, 0)) AS totalSales,
+        SUM(ISNULL(sd.Amount, 0) + ISNULL(sd.Vat, 0)) AS totalSales,
         MAX(CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)) AS lastShipDtm
       FROM ShipmentMaster sm
       JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
@@ -139,7 +139,7 @@ async function getLedger(req, res) {
       `SELECT
         MAX(CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)) AS entryDate,
         N'출고' AS entryType,
-        SUM(ROUND(ISNULL(cpc.Cost, ISNULL(p.Cost, 0)) * sd.OutQuantity / 1.1, 0)) AS amount,
+        SUM(ISNULL(sd.Amount, 0) + ISNULL(sd.Vat, 0)) AS amount,
         sm.ShipmentKey,
         NULL AS memo,
         NULL AS bankAccount
