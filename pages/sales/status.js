@@ -379,17 +379,19 @@ export default function SalesStatus() {
           {[
             { label: '건수',         value: fmt(summary.rowCount) },
             { label: '거래처수',     value: fmt(summary.custCount) },
-            { label: '공급가액',     value: fmt(summary.totalSupply) },
+            { label: '총매출(정상출고)', value: fmt(summary.grossSupply != null ? summary.grossSupply : summary.totalSupply) },
+            { label: `차감(${fmt(summary.deductCount || 0)}건)`, value: fmt(summary.deductSupply || 0), deduct: true },
+            { label: '순공급가액',   value: fmt(summary.totalSupply) },
             { label: '부가세',       value: fmt(summary.totalVat) },
-            { label: '합계금액',     value: fmt(summary.totalAmt), highlight: true },
+            { label: '순매출(합계)', value: fmt(summary.totalAmt), highlight: true },
           ].map(card => (
             <div key={card.label} className="card" style={{
-              flex: '1 1 130px', minWidth: 120, padding: '10px 14px', textAlign: 'center',
+              flex: '1 1 120px', minWidth: 110, padding: '10px 14px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{card.label}</div>
               <div style={{
                 fontSize: 16, fontWeight: 700,
-                color: card.highlight ? 'var(--blue)' : 'var(--text)',
+                color: card.highlight ? 'var(--blue)' : card.deduct ? 'var(--red, #dc2626)' : 'var(--text)',
                 fontFamily: 'var(--mono)',
               }}>{card.value}</div>
             </div>
@@ -446,8 +448,9 @@ export default function SalesStatus() {
                     </tr>
                   ) : rows.map((r, i) => {
                     const total = Number(r.supplyAmt || 0) + Number(r.vatAmt || 0);
+                    const isDed = r.rowType === 'EST';
                     return (
-                      <tr key={i}>
+                      <tr key={i} style={isDed ? { background: 'var(--red-bg, #fff5f5)', color: 'var(--red, #dc2626)' } : undefined}>
                         <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{r.shipDate}</td>
                         <td style={{ fontFamily: 'var(--mono)', fontWeight: 700 }}>{r.week}</td>
                         <td className="name">{r.CustName}</td>
@@ -456,7 +459,7 @@ export default function SalesStatus() {
                             <span className="badge badge-gray" style={{ fontSize: 10 }}>{r.CustArea}</span>
                           )}
                         </td>
-                        <td style={{ fontSize: 12 }}>{r.DisplayName || r.ProdName}</td>
+                        <td style={{ fontSize: 12 }}>{isDed ? <span title="차감(반품·할인)">↩ {r.DisplayName || r.ProdName}</span> : (r.DisplayName || r.ProdName)}</td>
                         <td style={{ fontSize: 11, color: 'var(--text3)' }}>{r.OutUnit}</td>
                         <td className="num">{fmt(r.qty)}</td>
                         <td className="num" style={{ color: 'var(--text3)', fontSize: 11 }}>{fmt(r.unitCost)}</td>
