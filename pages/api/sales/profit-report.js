@@ -5,6 +5,7 @@ import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
   stockValueByCategory, currencyRates, loadManual, saveManual,
+  stockPriceRows, saveStockPrices,
 } from '../../../lib/profitReport';
 
 function parseMajor(raw) {
@@ -67,6 +68,14 @@ export default withAuth(async function handler(req, res) {
       const major = parseMajor(req.query.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
+
+      // 재고 평가단가표 (기초/기말 스냅샷에 재고 있는 품목만)
+      if (req.query.stockPrices === '1') {
+        const prevMajor = String(Number(major) - 1).padStart(2, '0');
+        const list = await stockPriceRows(major, prevMajor, orderYear);
+        return res.status(200).json({ success: true, ...list });
+      }
+
       const data = await loadReportData(major, orderYear);
 
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
@@ -87,6 +96,10 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+      if (req.body?.action === 'stockPrices') {
+        await saveStockPrices(req.body?.prices || {}, actor);
+        return res.status(200).json({ success: true });
+      }
       await saveManual(major, orderYear, req.body?.values || {}, req.body?.note, actor);
       return res.status(200).json({ success: true });
     }

@@ -70,6 +70,32 @@ export default function ProfitReportPage() {
     window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1`;
   };
 
+  // ── 재고 평가단가표 모달
+  const [priceModal, setPriceModal] = useState(null);   // { beginWeek, endWeek, rows }
+  const [priceEdits, setPriceEdits] = useState({});
+  const openPriceModal = async () => {
+    setPriceEdits({});
+    try {
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&stockPrices=1`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '단가표 조회 실패');
+      setPriceModal(d);
+    } catch (e) { setError(e.message); }
+  };
+  const savePrices = async () => {
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, prices: priceEdits }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '저장 실패');
+      setPriceModal(null);
+      setMessage('재고단가표 저장 — 기초/기말 자동 평가액이 갱신되었습니다.');
+      await load();
+    } catch (e) { setError(e.message); }
+  };
+
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
   const dirty = Object.keys(edits).length > 0;
 
@@ -112,11 +138,15 @@ export default function ProfitReportPage() {
             title="원본 양식과 100% 동일한 셀 구성으로 다운로드 (수정 중이면 저장 후)">
             📥 엑셀 다운로드
           </button>
+          <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
+            title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
+            🏷 재고단가표
+          </button>
         </div>
       </div>
       <div style={st.hint}>
-        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / 기초·기말재고 칸의 <b>회색 숫자는 DB 재고평가 참고값</b>
-        (수국은 담당자 단가 2600 기준 적용) — 재고관리가 안 되는 품종은 참고값이 부정확할 수 있어 <b>계산에는 입력·저장한 값만</b> 사용합니다.
+        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기초·기말재고 = 확정 후 재고수량 스냅샷 × [🏷 재고단가표]</b>
+        (기초=전차수말, 기말=이번차수말 · 단가 우선순위: 지정 &gt; 수국표 &gt; 품목Cost) — 회색 자동값이 계산에 쓰이며, 셀에 직접 입력하면 그 값이 우선.
         포워딩(USD)은 비우면 BILL 추정치 사용(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
@@ -202,6 +232,63 @@ export default function ProfitReportPage() {
           />
         </div>
       )}
+
+      {priceModal && (
+        <div style={st.modalOverlay}>
+          <div style={st.modalCard}>
+            <div style={st.panelHead}>
+              <strong>🏷 재고 평가단가표 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)에 재고 있는 품목</strong>
+              <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>닫기</button>
+            </div>
+            <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
+              단가를 입력하면 <b>지정단가</b>로 저장되어 이후 매주 자동 적용됩니다. 비우면 지정 해제(수국표/품목Cost로 복귀).
+              평가액 = 재고수량 × 박스당수량 × 단가 ÷ 1.1
+            </div>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <table style={st.table}>
+                <thead>
+                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>품목Cost</th><th>적용단가(출처)</th><th style={{ textAlign: 'right' }}>지정단가 입력</th></tr>
+                </thead>
+                <tbody>
+                  {(priceModal.rows || []).map(r => {
+                    const edit = priceEdits[r.ProdKey];
+                    const shown = edit !== undefined ? edit : (r.SetPrice ?? '');
+                    return (
+                      <tr key={r.ProdKey}>
+                        <td>{r.Category}</td>
+                        <td>{r.ProdName}</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(r.StockBegin)}</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(r.StockEnd)}</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(r.UnitPerBox)}</td>
+                        <td style={{ textAlign: 'right', color: r.Cost ? undefined : '#dc2626' }}>{fmt(r.Cost)}</td>
+                        <td>
+                          {fmt(r.AppliedPrice)}
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: r.AppliedSource === '지정' ? '#166534' : r.AppliedSource === '수국표' ? '#1d4ed8' : '#64748b' }}>
+                            {r.AppliedSource}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <input
+                            style={{ ...st.cellInput, width: 90, background: edit !== undefined ? '#fef9c3' : (r.SetPrice != null ? '#ecfdf5' : '#fff') }}
+                            value={shown}
+                            onChange={e => setPriceEdits(prev => ({ ...prev, [r.ProdKey]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>취소</button>
+              <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
+                단가 저장 ({Object.keys(priceEdits).length}건)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -224,4 +311,7 @@ const st = {
   tdNum: { border: '1px solid #e2e8f0', padding: '5px 8px', textAlign: 'right', whiteSpace: 'nowrap' },
   cellInput: { border: '1px solid #cbd5e1', borderRadius: 5, padding: '3px 6px', fontSize: 12, textAlign: 'right' },
   noteArea: { width: '100%', minHeight: 90, border: '1px solid #cbd5e1', borderRadius: 8, padding: 10, fontSize: 13, boxSizing: 'border-box' },
+  panelHead: { minHeight: 44, padding: '6px 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalCard: { width: 'min(1000px, 96vw)', maxHeight: '86vh', background: '#fff', borderRadius: 12, boxShadow: '0 24px 80px rgba(15,23,42,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
 };
