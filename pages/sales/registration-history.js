@@ -1,5 +1,6 @@
 // 판매등록 히스토리 — 차수별 분배(매출) 고정 스냅샷과 변경 이력.
-// 화 17:00(최종 분배 적용, 불변) · 수 16:00(점검, 불변) · 변경감지(CHANGE) · 수동(MANUAL).
+// 화 17:00(최종 분배 적용, 불변) · 수 16:00(점검, 불변) · 차주 수 00:00(판매등록 마감, 불변) · 변경감지(CHANGE) · 수동(MANUAL).
+// 판매등록은 차주 화요일까지 수정 가능(그다음 수요일부터 수정금지) — 마감 스냅샷(TUE_CLOSE)이 차수 확정본.
 // 화요일 이후 수치가 바뀌면(AI 작업 포함) 어디가 얼마나 달라졌는지 찾아내는 화면.
 import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
@@ -15,6 +16,7 @@ const fmt = n => Number(n || 0).toLocaleString();
 const TYPE_META = {
   TUE_FINAL: { label: '🔒 화요일 최종분배', color: '#1d4ed8', bg: '#dbeafe' },
   WED_CHECK: { label: '🔒 수요일 점검', color: '#7c3aed', bg: '#ede9fe' },
+  TUE_CLOSE: { label: '🔒 판매등록 마감(차주 화)', color: '#166534', bg: '#dcfce7' },
   CHANGE: { label: '⚠ 변경감지', color: '#b91c1c', bg: '#fee2e2' },
   MANUAL: { label: '📌 수동', color: '#334155', bg: '#e2e8f0' },
 };
@@ -219,6 +221,7 @@ export default function SalesRegistrationHistoryPage() {
   // 기준 합계 = 세부차수별 TUE_FINAL 총합 (대차수 모드면 27-01+27-02 합산이 27차 기준)
   const tueSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
   const wedSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'WED_CHECK');
+  const closeSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_CLOSE');
   const baselineTotal = tueSnapshots.length
     ? tueSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
     : null;
@@ -264,7 +267,8 @@ export default function SalesRegistrationHistoryPage() {
       <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
       <p style={st.desc}>
         매주 <b>화요일 17:00 최종 분배 적용</b>과 <b>수요일 16:00 점검</b> 기준값이 자동으로 고정 저장됩니다(수정 불가).
-        이후에는 <b>[🔄 최신화]</b> 버튼을 누르는 시점에 현재 DB 를 대조해 — 웹·전산·AI 작업 무엇이든 — 달라진 값을
+        판매등록은 <b>차주 화요일까지 수정 가능</b>(그다음 수요일부터 수정금지)하므로, <b>차주 수요일 00:00에 판매등록 마감</b> 스냅샷이
+        차수 확정본으로 고정됩니다. 이후에는 <b>[🔄 최신화]</b> 버튼을 누르는 시점에 현재 DB 를 대조해 — 웹·전산·AI 작업 무엇이든 — 달라진 값을
         <b> 변경감지</b> 스냅샷으로 기록합니다.
       </p>
 
@@ -311,6 +315,15 @@ export default function SalesRegistrationHistoryPage() {
                   onClick={() => selectCombined('WED_CHECK', wedSnapshots)}
                 >
                   🔒 수요일 점검 합산 — {fmt(Math.round(wedSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
+                </button>
+              )}
+              {closeSnapshots.length > 0 && (
+                <button
+                  style={selCombined?.type === 'TUE_CLOSE' ? st.combinedOn : st.combinedBtn}
+                  onClick={() => selectCombined('TUE_CLOSE', closeSnapshots)}
+                  title="차주 화요일까지의 판매등록 수정분이 반영된 차수 확정본 — 이후 수요일부터 수정금지"
+                >
+                  🔒 판매등록 마감 합산 (차수 확정본) — {fmt(Math.round(closeSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
                 </button>
               )}
               <button style={st.tinyBtn} onClick={() => runDiff(tueSnapshots.map(s => s.SnapshotKey).join(','))}>
