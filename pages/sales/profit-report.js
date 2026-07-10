@@ -111,7 +111,7 @@ export default function ProfitReportPage() {
     const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
     const titles = {
       R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
-      S: '비우면 [🚢 포워딩 입력] 화면 저장값(또는 BILL 추정치) 사용, 입력하면 수기값 우선',
+      S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
       H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
       E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
       F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
@@ -162,7 +162,7 @@ export default function ProfitReportPage() {
         자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
         (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — 회색 자동값이 계산에 쓰이며, 셀에 직접 입력하면 그 값이 우선. H·R·S를 고치면 자동 F도 즉시 재계산.
         환율(R)도 기본환율 자동 적용(USD 기본 · 네덜란드=EUR · 중국=CNY · 일본=JPY, 청구서 환율로 수정 가능).
-        포워딩(USD)은 비우면 BILL 추정치 사용(노랑=수정중·초록=저장됨).
+        포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
       </div>

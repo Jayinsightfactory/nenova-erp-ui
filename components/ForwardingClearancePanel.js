@@ -68,18 +68,10 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
   }, [week]);
   useEffect(() => { if (week) load(); }, [week, load]);
 
-  const directValue = (row) => {
-    if (directEdits[row.category] !== undefined) return directEdits[row.category];
-    if (row.saved != null) return row.saved;
-    if (row.carry != null) return row.carry;
-    return '';
-  };
-  const airValue = (c) => {
-    if (airEdits[c.orderWeek] !== undefined) return airEdits[c.orderWeek];
-    if (c.savedAirRateUSD != null) return c.savedAirRateUSD;
-    if (c.carryAirRateUSD != null) return c.carryAirRateUSD;
-    return '';
-  };
+  // 입력칸 = 수기 override 값만(자동감지값은 placeholder로 보여주고 입력칸엔 안 채움) — 자동감지가 1순위이므로
+  // "저장값 없으면 자동감지 그대로 쓰인다"는 걸 화면에서 분명히 하기 위함(2026-07-10).
+  const directValue = (row) => (directEdits[row.category] !== undefined ? directEdits[row.category] : (row.saved ?? ''));
+  const airValue = (c) => (airEdits[c.orderWeek] !== undefined ? airEdits[c.orderWeek] : (c.savedAirRateUSD ?? ''));
 
   const saveDirect = async (row) => {
     setSaving(row.category); setError('');
@@ -116,10 +108,10 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
   return (
     <div>
       <div style={st.hint}>
-        5개 국가 모두 우리 DB엔 없는 값 — 매주 외부 소스(인보이스·freightwise류 웹조회·엑셀)를 보고 USD로 직접 입력합니다.
-        콜롬비아 카네이션·장미·알스트로·루스커스는 항공료단가(USD/kg) 하나만 입력하면 [📦 그외통관비 입력]에서 저장한 GW/CW·박스수량 비율로
-        자동 배분됩니다(GW≈CW면 무게비율, 아니면 CBM비율). 저장값 없으면 <b style={{ color: '#e65100' }}>전차수 값</b>이 기본으로 채워집니다.
-        🕘 아이콘으로 수정 이력을 볼 수 있습니다.
+        <b style={{ color: '#166534' }}>입고관리에서 자동감지</b>됩니다(WarehouseDetail의 '운송료'/'SERVICE FEE' 라인을 농장·인보이스로 국가 판별).
+        회색 자동감지값이 그대로 계산에 쓰이며, 새 농장이라 못 잡혔거나 값을 고칠 땐 아래 입력칸에 직접 넣으면 그 값이 우선(override)됩니다.
+        콜롬비아 카네이션·장미·알스트로·루스커스는 반차수 총액을 [📦 그외통관비 입력]에서 저장한 GW/CW·박스수량 비율로 자동 배분됩니다
+        (GW≈CW면 무게비율, 아니면 CBM비율). 🕘 아이콘으로 수정 이력을 볼 수 있습니다.
       </div>
       {loading && <span style={{ fontSize: 12, color: '#64748b' }}>로딩중…</span>}
       {error && <div style={st.error}>{error}</div>}
@@ -128,17 +120,19 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
       {data && (
         <>
           <div style={st.panel}>
-            <div style={st.panelHead}><strong>국가별 포워딩(USD) 직접입력</strong></div>
+            <div style={st.panelHead}><strong>국가별 포워딩(USD)</strong></div>
             <table style={st.table}>
-              <thead><tr><th style={st.th}>국가</th><th style={st.th}>USD 금액</th><th style={st.th}></th></tr></thead>
+              <thead><tr><th style={st.th}>국가</th><th style={st.th}>자동감지(USD)</th><th style={st.th}>override 입력</th><th style={st.th}></th></tr></thead>
               <tbody>
                 {data.direct.map((row) => {
-                  const carried = row.saved == null && row.carry != null;
+                  const overridden = row.saved != null;
+                  const missing = row.auto == null && row.saved == null;
                   return (
-                    <tr key={row.category} style={{ background: carried ? '#fff7ed' : '#fff' }}>
+                    <tr key={row.category} style={{ background: overridden ? '#fef9c3' : missing ? '#fff7ed' : '#fff' }}>
                       <td style={st.tdLabel}>{COUNTRY_LABEL[row.category] || row.category}</td>
+                      <td style={st.tdNum}>{row.auto != null ? fmt2(row.auto) : <span style={{ color: '#dc2626' }}>미감지</span>}</td>
                       <td style={st.tdNum}>
-                        <input style={st.cellInput} value={directValue(row)}
+                        <input style={st.cellInput} value={directValue(row)} placeholder={row.auto != null ? String(row.auto) : '직접 입력'}
                           onChange={(e) => setDirectEdits((p) => ({ ...p, [row.category]: e.target.value.replace(/[^0-9.\-]/g, '') }))} />
                       </td>
                       <td style={st.tdNum}>
@@ -159,15 +153,17 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
           <div style={st.panel}>
             <div style={st.panelHead}><strong>콜롬비아 4품목 항공료단가 (반차수별)</strong></div>
             {(data.colombia || []).map((c) => {
-              const carried = c.savedAirRateUSD == null && c.carryAirRateUSD != null;
+              const overridden = c.savedAirRateUSD != null;
+              const missing = !c.autoAirTotal && !overridden;
               return (
-                <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: carried ? '#fff7ed' : '#fff' }}>
+                <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: overridden ? '#fef9c3' : missing ? '#fff7ed' : '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
                     <span style={{ fontSize: 11, color: '#64748b' }}>GW={c.gw ?? '-'} CW={c.cw ?? '-'} (그외통관비 입력 화면 저장값)</span>
+                    <span style={{ fontSize: 11, color: '#166534', fontWeight: 700 }}>자동감지 {fmt2(c.autoAirTotal)} USD</span>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', fontSize: 12 }}>
-                      항공료단가(USD/kg)
-                      <input style={st.cellInput} value={airValue(c)}
+                      항공료 총액 override(USD)
+                      <input style={st.cellInput} value={airValue(c)} placeholder={String(c.autoAirTotal ?? '')}
                         onChange={(e) => setAirEdits((p) => ({ ...p, [c.orderWeek]: e.target.value.replace(/[^0-9.\-]/g, '') }))} />
                     </label>
                     <button style={st.tinyBtn} onClick={() => saveAir(c)} disabled={saving === c.orderWeek}>
