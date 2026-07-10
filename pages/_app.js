@@ -15,6 +15,8 @@ const NO_LAYOUT = [
   '/orders/paste-template',
   '/orders/mapping-status',
   '/orders/kakao-audit',
+  '/sales/customs-clearance',
+  '/sales/forwarding-clearance',
 ];
 
 export default function App({ Component, pageProps }) {

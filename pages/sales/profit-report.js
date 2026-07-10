@@ -102,12 +102,13 @@ export default function ProfitReportPage() {
   const EditCell = ({ row, col, width = 86 }) => {
     const e = edits[row.category]?.[col];
     const base = row.manual[col];
-    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : null;
+    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
     const val = e !== undefined ? e : (base != null ? base : '');
     const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
     const titles = {
       R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
-      S: '비우면 DB 추정치(회색 표시값) 사용, 입력하면 수기값 우선',
+      S: '비우면 [🚢 포워딩 입력] 화면 저장값(또는 BILL 추정치) 사용, 입력하면 수기값 우선',
+      H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
       E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
       F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
     };
@@ -142,6 +143,16 @@ export default function ProfitReportPage() {
           <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
             title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
             🏷 재고단가표
+          </button>
+          <button style={st.secondaryBtn}
+            onClick={() => window.open(`/sales/customs-clearance?week=${encodeURIComponent(weekInput.value)}`, 'customsClearance', 'width=1100,height=860,scrollbars=yes')}
+            title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스">
+            📦 그외통관비 입력
+          </button>
+          <button style={st.secondaryBtn}
+            onClick={() => window.open(`/sales/forwarding-clearance?week=${encodeURIComponent(weekInput.value)}`, 'forwardingClearance', 'width=1000,height=800,scrollbars=yes')}
+            title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스">
+            🚢 포워딩 입력
           </button>
         </div>
       </div>
