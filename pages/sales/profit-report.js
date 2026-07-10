@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
+import CustomsClearancePanel from '../../components/CustomsClearancePanel';
+import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 
 function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -23,6 +25,8 @@ export default function ProfitReportPage() {
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});   // { category: { colKey: 'value' } }
   const [note, setNote] = useState('');
+  const [showCustoms, setShowCustoms] = useState(false);
+  const [showForwarding, setShowForwarding] = useState(false);
 
   const load = async () => {
     setLoading(true); setError(''); setMessage(''); setEdits({});
@@ -144,15 +148,13 @@ export default function ProfitReportPage() {
             title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
             🏷 재고단가표
           </button>
-          <button style={st.secondaryBtn}
-            onClick={() => window.open(`/sales/customs-clearance?week=${encodeURIComponent(weekInput.value)}`, 'customsClearance', 'width=1100,height=860,scrollbars=yes')}
-            title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스">
-            📦 그외통관비 입력
+          <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
+            title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+            📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
           </button>
-          <button style={st.secondaryBtn}
-            onClick={() => window.open(`/sales/forwarding-clearance?week=${encodeURIComponent(weekInput.value)}`, 'forwardingClearance', 'width=1000,height=800,scrollbars=yes')}
-            title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스">
-            🚢 포워딩 입력
+          <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
+            title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+            🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
           </button>
         </div>
       </div>
@@ -167,6 +169,29 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
+
+      {data && showCustoms && (
+        <div style={st.embedPanel}>
+          <div style={st.embedPanelHead}>
+            <strong>📦 그외통관비 입력 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
+          </div>
+          <div style={st.embedPanelBody}>
+            <CustomsClearancePanel week={weekInput.value} onSaved={load} />
+          </div>
+        </div>
+      )}
+      {data && showForwarding && (
+        <div style={st.embedPanel}>
+          <div style={st.embedPanelHead}>
+            <strong>🚢 포워딩 입력 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
+          </div>
+          <div style={st.embedPanelBody}>
+            <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
+          </div>
+        </div>
+      )}
 
       {data && (
         <div style={st.tableWrap}>
@@ -313,6 +338,11 @@ const st = {
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
   weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '7px 10px', fontSize: 14, width: 70 },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  toggleBtnOn: { background: '#1d4ed8', color: '#fff', border: '1px solid #1d4ed8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  embedPanel: { border: '2px solid #1d4ed8', borderRadius: 10, marginBottom: 12, overflow: 'hidden', background: '#fff' },
+  embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
+  embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
+  tinyCloseBtn: { background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer' },
   hint: { fontSize: 11.5, color: '#64748b', marginBottom: 10, lineHeight: 1.6 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
