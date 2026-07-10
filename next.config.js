@@ -18,6 +18,24 @@ const buildVersion = commitSha
 const nextConfig = {
   serverExternalPackages: ['mssql'],
   generateBuildId: async () => `build-${Date.now()}`,
+  // 2026-07-10 Turbopack 프로덕션 빌드가 hydration 안 되는 산출물을 만드는 장애(런타임 엔트리 미실행,
+  // __NEXT_P 미등록 — 전 페이지 버튼 무반응)로 webpack 빌드로 전환. 아래는 webpack 용 브라우저 폴리필 설정:
+  // pptxgenjs(카탈로그 PPT)가 node:fs/https 등을 조건부 참조 — 클라이언트 번들에서는 비활성 처리.
+  webpack: (config, { isServer, webpack }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+          resource.request = resource.request.replace(/^node:/, '');
+        })
+      );
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false, https: false, http: false, zlib: false,
+        path: false, os: false, crypto: false, stream: false, child_process: false,
+      };
+    }
+    return config;
+  },
   env: {
     NEXT_PUBLIC_BUILD_VERSION: buildVersion,
   },
