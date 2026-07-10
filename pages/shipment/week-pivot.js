@@ -674,41 +674,89 @@ export default function WeekPivot() {
     }
   }, [weekFrom, weekTo, startStockText, loadData]);
 
-  // 피벗 셀 수량 저장 — ADD/CANCEL 단일 액션 + ShipmentAdjustment 이력 자동 기록
-  const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
+  // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
+  // 적용은 셀별 /api/shipment/adjust 순차 호출(개별 커밋 — 주문+분배+조정이력 한 트랜잭션, 기존 검증 로직 그대로).
+  const [pendingEdits, setPendingEdits] = useState({});   // `${pk}-${ck}-${wk}` → {pk,ck,wk,oldQty,newQty,custName,prodName}
+  const [applying, setApplying] = useState(false);
+  const [applyLog, setApplyLog] = useState([]);           // {t:'info'|'ok'|'warn'|'err', ts, msg}
+  const [showApplyLog, setShowApplyLog] = useState(false);
+  const pendingCount = Object.keys(pendingEdits).length;
+
+  const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
-    if (qty === old) { setPvEdit(null); return; }
-    const diff = qty - old;
-    const type = diff > 0 ? 'ADD' : 'CANCEL';
-    const delta = Math.abs(diff);
-    const callApi = async (force = false) => {
-      const r = await fetch('/api/shipment/adjust', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, type, qty: delta, memo: `${custName} 셀편집`, force }),
-      });
-      return await r.json();
-    };
-    try {
-      let d = await callApi(false);
-      // 입고 미등록/초과 → 강제 진행 옵션
-      if (!d.success && d.error && (d.error.includes('입고 미등록') || (d.error.includes('입고') && d.error.includes('초과')))) {
-        if (confirm(`${d.error}\n\n그래도 진행할까요?`)) {
-          d = await callApi(true);
-        } else {
-          setPvEdit(null);
-          return;
+    const key = `${pk}-${ck}-${wk}`;
+    setPendingEdits(prev => {
+      const n = { ...prev };
+      if (qty === old) delete n[key];   // 원래값으로 되돌리면 대기 해제
+      else n[key] = { pk, ck, wk, oldQty: old, newQty: qty, custName, prodName };
+      return n;
+    });
+    setPvEdit(null);
+  }, []);
+
+  const applyPendingEdits = useCallback(async () => {
+    const items = Object.values(pendingEdits);
+    if (!items.length || applying) return;
+    setApplying(true); setShowApplyLog(true);
+    const ts = () => new Date().toLocaleTimeString('ko-KR', { hour12: false });
+    const log = (t, msg) => setApplyLog(prev => [...prev, { t, ts: ts(), msg }]);
+    log('info', `── 일괄 적용 시작: ${items.length}건 ──`);
+    let ok = 0, forced = 0, fail = 0;
+    for (const it of items) {
+      const diff = it.newQty - it.oldQty;
+      const type = diff > 0 ? 'ADD' : 'CANCEL';
+      const delta = Math.abs(diff);
+      const label = `${it.custName} × ${it.prodName} [${it.wk}] ${it.oldQty}→${it.newQty} (${type} ${delta})`;
+      log('info', `적용중: ${label}`);
+      const call = async (force) => {
+        const r = await fetch('/api/shipment/adjust', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custKey: it.ck, prodKey: it.pk, week: it.wk, type, qty: delta, memo: `${it.custName} 셀편집(일괄)`, force }),
+        });
+        return await r.json();
+      };
+      try {
+        let d = await call(false);
+        let wasForced = false;
+        // 입고 미등록/초과는 자동 강제 진행 — 전차수 입고·이월 잔량이 있을 수 있음 (경고는 로그로 남김)
+        const forceable = !d.success && d.error && (d.error.includes('force=true') || d.error.includes('입고 미등록') || (d.error.includes('입고') && d.error.includes('초과')));
+        if (forceable) {
+          log('warn', `⚠ 입고 경고 자동 진행(전차수 이월 잔량 가능): ${String(d.error).split('\n')[0]}`);
+          d = await call(true);
+          wasForced = true;
         }
+        if (d.success) {
+          ok += 1; if (wasForced) forced += 1;
+          log('ok', `✅ 완료${wasForced ? '(강제)' : ''}: ${label}`);
+          setPendingEdits(prev => { const n = { ...prev }; delete n[`${it.pk}-${it.ck}-${it.wk}`]; return n; });
+        } else {
+          fail += 1;
+          log('err', `❌ 실패: ${label} — ${String(d.error || '알 수 없는 오류').split('\n')[0]}`);
+        }
+      } catch (e) {
+        fail += 1;
+        log('err', `❌ 오류: ${label} — ${e.message}`);
       }
-      if (d.success) {
-        setPvEdit(null);
-        loadData(weekFrom, weekTo);
-      } else {
-        alert(`${type} 실패: ${d.error}`);
-      }
-    } catch (e) { alert('오류: ' + e.message); }
-  }, [weekFrom, weekTo, loadData]);
+    }
+    log('info', `── 완료: 성공 ${ok}건${forced ? ` (입고경고 강제 ${forced}건 포함)` : ''} · 실패 ${fail}건${fail ? ' — 실패 셀은 주황 대기 상태로 남음, 원인 해결 후 다시 [변경 시작]' : ''} ──`);
+    setApplying(false);
+    loadData(weekFrom, weekTo);
+  }, [pendingEdits, applying, weekFrom, weekTo, loadData]);
+
+  // ── 빈 행 추가 (주문 없는 업체/품목을 피벗에 노출만 — DB 기록 없음, 수량 입력 후 [변경 시작]으로 등록)
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [vCusts, setVCusts] = useState([]);   // 노출용 가상 업체
+  const [vProds, setVProds] = useState([]);   // 노출용 가상 품목
+  const [vmCusts, setVmCusts] = useState(null);  // 마스터 목록 (지연 로드)
+  const [vmProds, setVmProds] = useState(null);
+  const [vCustSearch, setVCustSearch] = useState('');
+  const [vProdSearch, setVProdSearch] = useState('');
+  useEffect(() => {
+    if (!showAddRow || vmCusts != null) return;
+    fetch('/api/master?entity=customers').then(r => r.json()).then(d => { if (d.success) setVmCusts(d.data || []); }).catch(() => setVmCusts([]));
+    fetch('/api/master?entity=products').then(r => r.json()).then(d => { if (d.success) setVmProds(d.data || []); }).catch(() => setVmProds([]));
+  }, [showAddRow, vmCusts]);
 
   // 필터 적용
   const applyFilter = useCallback((rows) => rows.filter(r => {
@@ -742,6 +790,8 @@ export default function WeekPivot() {
     const weeks = [...new Set(rows.map(r=>r.OrderWeek))].sort();
     const custMap = {};
     rows.forEach(r=>{ custMap[r.CustKey]={name:r.CustName,area:r.CustArea||'기타',descr:r.CustDescr,baseOutDay:r.BaseOutDay}; });
+    // 가상 업체(빈 열) — 주문 없어도 노출, 셀은 0에서 편집 가능
+    vCusts.forEach(c=>{ if(!custMap[c.CustKey]) custMap[c.CustKey]={name:c.CustName,area:c.CustArea||'기타',descr:c.CustDescr,baseOutDay:c.BaseOutDay,virtual:true}; });
     const custKeys = Object.keys(custMap).map(Number)
       .sort((a,b)=>((custMap[a].area+custMap[a].name).localeCompare(custMap[b].area+custMap[b].name,'ko')));
 
@@ -764,6 +814,8 @@ export default function WeekPivot() {
         }
       }
     });
+    // 가상 품목(빈 행) — 주문 없어도 노출, 셀은 0에서 편집 가능
+    vProds.forEach(p=>{ if(!prodMap[p.ProdKey]) prodMap[p.ProdKey]={name:p.ProdName,displayName:p.DisplayName,coun:p.CounName,flower:p.FlowerName,unit:p.OutUnit,virtual:true}; });
     const prodKeys = Object.keys(prodMap).map(Number).sort((a,b)=>
       ((prodMap[a].coun||'')+(prodMap[a].flower||'')+(prodMap[a].name||'')).localeCompare(
        (prodMap[b].coun||'')+(prodMap[b].flower||'')+(prodMap[b].name||''),'ko'));
@@ -1584,12 +1636,15 @@ export default function WeekPivot() {
                                 )}
                                 {(()=>{
                                   const fixed=isFixed(pk,ck,wk);
+                                  const pend=pendingEdits[`${pk}-${ck}-${wk}`];
                                   return (
                                     <td className="pv-cell" style={{...st.td,textAlign:'right',fontSize:pvFontSize,cursor:fixed?'not-allowed':'pointer',
-                                        borderLeft:ci===0?'2px solid #e0e0e0':'none',color:v>0?'#1565c0':'#ddd',
-                                        background:fixed?'#f5f5f5':pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
-                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)});}}>
-                                      {v>0?fmt(v):'·'}
+                                        borderLeft:ci===0?'2px solid #e0e0e0':'none',color:pend?'#e65100':v>0?'#1565c0':'#ddd',
+                                        fontWeight:pend?800:undefined,
+                                        background:fixed?'#f5f5f5':pend?'#ffe0b2':pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
+                                        title={pend?`변경 대기: ${pend.oldQty} → ${pend.newQty} — [▶ 변경 시작]을 눌러야 적용됩니다`:undefined}
+                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p)});}}>
+                                      {pend?`${v>0?fmt(v):0}→${fmt(pend.newQty)}`:(v>0?fmt(v):'·')}
                                       {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
                                     </td>
                                   );
@@ -1720,10 +1775,17 @@ export default function WeekPivot() {
                 <input type="number" value={pvEdit.newVal} onChange={e=>setPvEdit(p=>({...p,newVal:parseFloat(e.target.value)||0}))}
                   style={{width:60,textAlign:'center',fontSize:16,fontWeight:700,border:'2px solid #1976d2',borderRadius:6,padding:'4px'}} />
               </div>
+              <div style={{fontSize:11,color:'#e65100',marginBottom:10}}>
+                여러 셀을 수정한 뒤 상단 <b>[▶ 변경 시작]</b>을 눌러야 실제 주문·분배가 적용됩니다.
+              </div>
               <div style={{display:'flex',gap:8,justifyContent:'center'}}>
                 <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
-                <button onClick={()=>savePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName)}
-                  style={{padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>저장</button>
+                {pendingEdits[`${pvEdit.pk}-${pvEdit.ck}-${pvEdit.wk}`]&&(
+                  <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.val,pvEdit.val,pvEdit.custName,pvEdit.prodName)}
+                    style={{padding:'8px 16px',border:'1px solid #e65100',color:'#e65100',background:'#fff',borderRadius:5,cursor:'pointer',fontWeight:700}}>대기 해제</button>
+                )}
+                <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.prodName)}
+                  style={{padding:'8px 24px',background:'#e65100',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>변경 대기에 추가</button>
               </div>
             </div>
           </div>
@@ -1798,6 +1860,31 @@ export default function WeekPivot() {
           style={{...hst.hBtn,background:'#43a047',border:'1px solid #388e3c'}}>
           ➕ 주문추가
         </button>
+        <button onClick={()=>setShowAddRow(true)}
+          style={{...hst.hBtn,background:'#0277bd',border:'1px solid #01579b'}}
+          title="주문 없는 업체·품목을 피벗에 빈 행/열로 노출 (DB 기록 없음 — 수량 입력 후 [변경 시작]으로 등록)">
+          🔎 빈 행 추가{(vCusts.length+vProds.length)>0?` (${vCusts.length+vProds.length})`:''}
+        </button>
+        <button onClick={applyPendingEdits} disabled={applying||pendingCount===0}
+          style={{...hst.hBtn,fontWeight:800,
+            background:pendingCount>0?'#d84315':'rgba(255,255,255,0.12)',
+            border:pendingCount>0?'1px solid #bf360c':'1px solid rgba(255,255,255,0.3)',
+            opacity:applying?0.6:1}}
+          title="대기 중인 셀 변경을 순서대로 적용 — 주문등록 안 된 품목은 주문+분배까지 처리. 입고 미등록/초과는 자동 강제 진행(로그 기록)">
+          {applying?'적용중...':`▶ 변경 시작${pendingCount>0?` (${pendingCount})`:''}`}
+        </button>
+        {pendingCount>0&&!applying&&(
+          <button onClick={()=>{if(confirm(`대기 중인 변경 ${pendingCount}건을 모두 취소할까요?`))setPendingEdits({});}}
+            style={{...hst.hBtn,background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.3)',fontSize:10}}>
+            대기 전체취소
+          </button>
+        )}
+        {applyLog.length>0&&(
+          <button onClick={()=>setShowApplyLog(v=>!v)}
+            style={{...hst.hBtn,background:showApplyLog?'#455a64':'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.3)',fontSize:10}}>
+            📜 적용로그
+          </button>
+        )}
         <button onClick={()=>setShowStartStockText(true)}
           style={{...hst.hBtn,background:'#6a1b9a',border:'1px solid #4a148c'}}>
           🧾 기초재고 입력
@@ -1830,6 +1917,26 @@ export default function WeekPivot() {
         <span style={{marginLeft:'auto',fontSize:11,opacity:0.7}}>{user?.userName||''}</span>
         <button onClick={()=>window.close()} style={{...hst.hBtn,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.3)',fontSize:11}}>✕ 닫기</button>
       </div>
+
+      {/* 적용 로그 패널 — 진행중/성공/경고/실패 로그 */}
+      {showApplyLog&&applyLog.length>0&&(
+        <div style={{margin:'8px 10px 0',border:'1px solid #cfd8dc',borderRadius:8,background:'#fff',overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#37474f',color:'#fff',fontSize:12,fontWeight:700}}>
+            📜 변경 적용 로그 {applying&&<span style={{fontWeight:400,fontSize:11,opacity:0.8}}>— 적용 중...</span>}
+            <button onClick={()=>setApplyLog([])} disabled={applying}
+              style={{marginLeft:'auto',padding:'1px 8px',fontSize:10,border:'1px solid rgba(255,255,255,0.4)',borderRadius:4,background:'transparent',color:'#fff',cursor:'pointer'}}>비우기</button>
+            <button onClick={()=>setShowApplyLog(false)}
+              style={{padding:'1px 8px',fontSize:10,border:'1px solid rgba(255,255,255,0.4)',borderRadius:4,background:'transparent',color:'#fff',cursor:'pointer'}}>접기</button>
+          </div>
+          <div ref={el=>{if(el)el.scrollTop=el.scrollHeight;}} style={{maxHeight:180,overflow:'auto',padding:'6px 10px',fontSize:11,fontFamily:'Consolas,Menlo,monospace',lineHeight:1.6}}>
+            {applyLog.map((l,i)=>(
+              <div key={i} style={{color:l.t==='ok'?'#2e7d32':l.t==='warn'?'#e65100':l.t==='err'?'#c62828':'#546e7a',fontWeight:l.t==='info'?400:600}}>
+                <span style={{color:'#90a4ae',marginRight:6}}>{l.ts}</span>{l.msg}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 본문 */}
       <div style={{padding:'8px 10px'}}>
@@ -1865,6 +1972,97 @@ export default function WeekPivot() {
           onClose={()=>setShowAddOrder(false)}
           onSuccess={()=>loadData(weekFrom,weekTo)}
         />
+      )}
+
+      {/* 빈 행 추가 모달 — 주문 없는 업체/품목을 피벗에 노출만 (DB 기록 없음) */}
+      {showAddRow && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2500,display:'flex',alignItems:'center',justifyContent:'center'}}
+             onClick={e=>e.target===e.currentTarget&&setShowAddRow(false)}>
+          <div style={{background:'#fff',borderRadius:10,width:'min(880px,94vw)',maxHeight:'88vh',overflow:'auto',boxShadow:'0 8px 32px rgba(0,0,0,0.3)'}}>
+            <div style={{background:'#0277bd',color:'#fff',padding:'12px 18px',borderRadius:'10px 10px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <b>🔎 빈 행 추가 — 업체/품목을 피벗에 노출</b>
+              <button onClick={()=>setShowAddRow(false)} style={{background:'none',border:'none',color:'#fff',fontSize:20,cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:16}}>
+              <div style={{fontSize:12,color:'#e65100',fontWeight:700,marginBottom:12}}>
+                여기서 추가하면 피벗에 빈 행/열로 <u>노출만</u> 됩니다 (DB 기록 없음).
+                셀에 수량을 입력하고 [▶ 변경 시작]을 눌러야 주문등록+분배가 실제 적용됩니다.
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                {/* 업체 */}
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>업체 검색 → 열 추가</div>
+                  <input value={vCustSearch} onChange={e=>setVCustSearch(e.target.value)} placeholder="업체명/지역 검색..."
+                    style={{width:'100%',padding:'6px 9px',border:'1px solid #ccc',borderRadius:5,fontSize:12,marginBottom:6}} />
+                  <div style={{border:'1px solid #e0e0e0',borderRadius:6,maxHeight:240,overflow:'auto'}}>
+                    {vmCusts==null?<div style={{padding:10,fontSize:11,color:'#999'}}>목록 로딩중...</div>:
+                      (vmCusts.filter(c=>{const q=vCustSearch.toLowerCase();return !q||c.CustName?.toLowerCase().includes(q)||c.CustArea?.toLowerCase().includes(q);}).slice(0,60).map(c=>{
+                        const added=vCusts.some(x=>x.CustKey===c.CustKey);
+                        return (
+                          <div key={c.CustKey} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 8px',borderBottom:'1px solid #f0f0f0',fontSize:12}}>
+                            <span style={{flex:1}}>{c.CustName}<span style={{color:'#999',fontSize:10}}> {c.CustArea||''}</span></span>
+                            <button disabled={added} onClick={()=>setVCusts(prev=>[...prev,c])}
+                              style={{padding:'2px 10px',fontSize:11,border:'1px solid',borderRadius:4,cursor:added?'default':'pointer',
+                                borderColor:added?'#ccc':'#0277bd',background:added?'#f5f5f5':'#e1f5fe',color:added?'#999':'#01579b',fontWeight:700}}>
+                              {added?'추가됨':'+ 열 추가'}
+                            </button>
+                          </div>
+                        );
+                      }))}
+                  </div>
+                </div>
+                {/* 품목 */}
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>품목 검색 → 행 추가</div>
+                  <input value={vProdSearch} onChange={e=>setVProdSearch(e.target.value)} placeholder="품명/한글명/국가 검색..."
+                    style={{width:'100%',padding:'6px 9px',border:'1px solid #ccc',borderRadius:5,fontSize:12,marginBottom:6}} />
+                  <div style={{border:'1px solid #e0e0e0',borderRadius:6,maxHeight:240,overflow:'auto'}}>
+                    {vmProds==null?<div style={{padding:10,fontSize:11,color:'#999'}}>목록 로딩중...</div>:
+                      (vmProds.filter(p=>{const q=vProdSearch.toLowerCase();return !q||p.ProdName?.toLowerCase().includes(q)||p.DisplayName?.toLowerCase().includes(q)||p.CounName?.toLowerCase().includes(q)||p.FlowerName?.toLowerCase().includes(q);}).slice(0,80).map(p=>{
+                        const added=vProds.some(x=>x.ProdKey===p.ProdKey);
+                        return (
+                          <div key={p.ProdKey} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 8px',borderBottom:'1px solid #f0f0f0',fontSize:12}}>
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.ProdName}>
+                              {p.DisplayName||p.ProdName}<span style={{color:'#999',fontSize:10}}> {p.CounName||''}·{p.FlowerName||''}</span>
+                            </span>
+                            <button disabled={added} onClick={()=>setVProds(prev=>[...prev,p])}
+                              style={{padding:'2px 10px',fontSize:11,border:'1px solid',borderRadius:4,cursor:added?'default':'pointer',
+                                borderColor:added?'#ccc':'#0277bd',background:added?'#f5f5f5':'#e1f5fe',color:added?'#999':'#01579b',fontWeight:700}}>
+                              {added?'추가됨':'+ 행 추가'}
+                            </button>
+                          </div>
+                        );
+                      }))}
+                  </div>
+                </div>
+              </div>
+              {/* 현재 노출 목록 */}
+              {(vCusts.length>0||vProds.length>0)&&(
+                <div style={{marginTop:12,padding:'8px 10px',background:'#f5f9ff',border:'1px solid #bbdefb',borderRadius:6}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'#1565c0',marginBottom:4}}>피벗에 노출 중 (새로고침해도 유지, 페이지 닫으면 사라짐 — 수량 등록되면 자동으로 실데이터 행이 됨)</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                    {vCusts.map(c=>(
+                      <span key={`c${c.CustKey}`} style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 8px',fontSize:11,background:'#e3f2fd',border:'1px solid #90caf9',borderRadius:10}}>
+                        🏢 {c.CustName}
+                        <span style={{cursor:'pointer',color:'#e53935',fontWeight:700}} onClick={()=>setVCusts(prev=>prev.filter(x=>x.CustKey!==c.CustKey))}>✕</span>
+                      </span>
+                    ))}
+                    {vProds.map(p=>(
+                      <span key={`p${p.ProdKey}`} style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 8px',fontSize:11,background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:10}}>
+                        🌸 {p.DisplayName||p.ProdName}
+                        <span style={{cursor:'pointer',color:'#e53935',fontWeight:700}} onClick={()=>setVProds(prev=>prev.filter(x=>x.ProdKey!==p.ProdKey))}>✕</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}>
+                <button onClick={()=>setShowAddRow(false)}
+                  style={{padding:'8px 24px',background:'#0277bd',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>닫기</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 기초재고 텍스트 입력 모달 */}
