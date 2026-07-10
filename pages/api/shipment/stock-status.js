@@ -6,7 +6,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { useExeParityFlag, normalizeOrderYearWeek2 } from '../../../lib/exeParity/common.js';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql.js';
@@ -1558,6 +1558,8 @@ async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {
 // ── PUT: 시작재고(startStock) 저장
 // { prodKey, week, stock, remark }
 // StockMaster에 isFix=2(시작재고 전용) 레코드를 사용하여 ProductStock에 저장
+// ⚠️ isFix 는 2026-07-10까지 bit 컬럼이었음(2 저장 불가 + 조회조건 항상 불일치 → 매번 중복 행 생성).
+// docs/migrations/2026-07-10_stockmaster_isfix_tinyint.sql 로 tinyint 전환 후에만 정상 동작.
 async function saveStartStock(req, res) {
   const { prodKey, week, stock, remark } = req.body;
   if (!prodKey || !week) {
@@ -1567,19 +1569,21 @@ async function saveStartStock(req, res) {
     const pk      = parseInt(prodKey);
     const stockVal = parseFloat(stock) || 0;
     const remarkVal = remark || '';
+    const orderYear = resolveActiveOrderYear(week, req.body?.year);
+    const ywk = orderYear + String(week).replace('-', '');
 
     await withTransaction(async (tQ) => {
-      // StockMaster: isFix=2 를 시작재고 전용 마커로 사용
+      // StockMaster: isFix=2 를 시작재고 전용 마커로 사용 (연도까지 일치해야 같은 앵커로 취급)
       let smResult = await tQ(
-        `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND isFix=2`,
-        { wk: { type: sql.NVarChar, value: week } }
+        `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND OrderYear=@yr AND isFix=2`,
+        { wk: { type: sql.NVarChar, value: week }, yr: { type: sql.NVarChar, value: orderYear } }
       );
 
       let sk;
       if (smResult.recordset.length === 0) {
         const ins = await tQ(
-          `INSERT INTO StockMaster (OrderWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, 2)`,
-          { wk: { type: sql.NVarChar, value: week } }
+          `INSERT INTO StockMaster (OrderWeek, OrderYear, OrderYearWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, @yr, @ywk, 2)`,
+          { wk: { type: sql.NVarChar, value: week }, yr: { type: sql.NVarChar, value: orderYear }, ywk: { type: sql.NVarChar, value: ywk } }
         );
         sk = ins.recordset[0].StockKey;
       } else {
