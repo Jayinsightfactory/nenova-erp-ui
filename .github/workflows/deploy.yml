@@ -8,6 +8,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (hydration 스모크 스크립트용)
+        uses: actions/checkout@v4
+
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -113,3 +116,11 @@ jobs:
               exit 1
             fi
             echo "✅ 배포 완료"
+
+      # 화면은 그려져도 React가 시동 안 되는 "조용한 장애" 감지 (2026-07-10 Turbopack 사고 재발 방지)
+      # API 스모크는 이 유형을 못 잡는다 — Actions 러너의 실브라우저로 fiber 부착 여부를 직접 확인
+      - name: Hydration smoke (실브라우저)
+        run: |
+          npm install puppeteer-core --no-save --no-audit --no-fund
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
+            node scripts/hydration-smoke.js https://nenovaweb.com/login

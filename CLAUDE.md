@@ -124,6 +124,12 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
 | `POST /api/shipment/distribute-diagnose` `{ week, action:'repairMissingCustKey' }` | 기존 출고상세의 `CustKey`가 비었거나 `ShipmentMaster.CustKey`와 다를 때 같은 값으로 복구 | ⚠️ UPDATE |
 
 ## 🚫 배포 주의
-- `xlsx-js-style` 사용 금지 (Turbopack 실패)
+- **빌드는 webpack 고정** (`next build --webpack`, package.json) — **Turbopack 복귀 금지.**
+  2026-07-10 장애: Turbopack 프로덕션 빌드가 hydration 불능 산출물 생성(전 페이지 버튼 무반응,
+  콘솔 에러 0, API 스모크는 전부 통과하는 "조용한 장애"). 재빌드·코드 revert 무효, webpack 전환으로만 복구.
+  pptxgenjs의 node: scheme 은 next.config.js webpack 폴백으로 처리됨.
+- 배포 후 **Hydration smoke**(Actions 러너 실브라우저, `scripts/hydration-smoke.js`)가 자동 검사 —
+  버튼에 React fiber 미부착이면 워크플로 실패. "버튼이 안 눌린다" 신고 = 이 유형 의심, fiber 키 확인이 3초 진단.
+- `xlsx-js-style`: webpack 전환으로 사용 가능 (매출이익 보고서 엑셀 생성에 사용 중) — 과거 금지 사유(Turbopack 실패)는 소멸
 - `set -e` 사용 주의 (경고를 에러로 처리)
 - 빌드 실패 시 pm2 재시작하면 502 → `.next` 확인 필수

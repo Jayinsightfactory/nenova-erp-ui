@@ -4,6 +4,29 @@
 
 ---
 
+## [2026-07-10 11:20] 세션(session-b) #2 — 🚨 Turbopack hydration 운영장애 복구 + 차수피벗 일괄적용
+
+### 운영장애 (오전 배포부터 전 페이지 버튼 무반응)
+- 신고 증상: "차수피벗 콜롬비아 버튼 누르면 페이지 꺼짐" → 실체는 **사이트 전체 hydration 정지**
+  (화면은 그려지나 React 미시동 — 로그인 폼이 네이티브 제출, 콘솔 에러 0, API 스모크 통과)
+- 소거 검증: 코드 revert 무효 · 재빌드 무효 · deps 무변화(next 16.2.1 고정) · 캐시 무관(rm -rf .next)
+  → **Turbopack 프로덕션 번들의 페이지 런타임 엔트리 미실행 버그** 확정 (수동 eval 시 "chunk path empty" 노출)
+- 복구: `ef69fad` build → **next build --webpack** + next.config.js webpack 폴백(pptxgenjs node: scheme).
+  로컬·라이브 실크롬 검증(fiber 부착·React 이벤트 정상). **Turbopack 복귀 금지** (CLAUDE.md 배포주의 갱신)
+- 재발방지: `scripts/hydration-smoke.js` + deploy.yml **Hydration smoke 단계**(Actions 러너 실브라우저) 추가
+
+### 차수피벗 기능 (aa2b15e·b0c45a2 배포)
+- 셀 편집 = 즉시 적용 → **변경 대기(주황 old→new) + [▶ 변경 시작] 일괄 적용** (셀별 adjust 순차, 개별 커밋)
+- 입고 미등록/초과 = 자동 강제 진행(전차수 이월잔량 케이스, 로그 기록) / 취소량초과·취소대상없음 = 실패 유지·재시도
+- 적용 로그 패널(진행/성공/강제/실패 실시간) · [🔎 빈 행 추가](주문 없는 업체/품목 노출→수량입력→변경시작)
+- PivotErrorBoundary(렌더 크래시 시 원인표시+다시그리기) + 리사이즈 colgroup 재초기화 키에 필터상태 포함
+
+### 미결
+- 배포 직후 열려 있던 직원 창은 새로고침 필요(구 청크 메모리 상태)
+- 스모크 계정(nenovaSS3)으로 검증하느라 사장님 Chrome 로그인 교체됨 — 본인 계정 재로그인 필요
+
+---
+
 ## [2026-07-09 17:05] 세션(session-b worktree) — 매출이익 보고서 재고평가 엑셀방식 + 판매등록 마감 스냅샷
 
 ### 작업 내용 (04ac14f 로 master 배포·검증 완료, GitHub Actions 29003267293 success)
