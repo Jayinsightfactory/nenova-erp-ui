@@ -351,51 +351,6 @@ function cleanDescrText(text) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 렌더링 크래시 안전망 — 오류 시 빈 화면(페이지 꺼짐) 대신 원인 표시 + 복구 버튼
-// (2026-07-10 "콜롬비아 필터 클릭 시 페이지 꺼짐" 대응: 원인 표면화 + 즉시 복구)
-// ─────────────────────────────────────────────────────────────
-class PivotErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { err: null, info: null }; }
-  static getDerivedStateFromError(err) { return { err }; }
-  componentDidCatch(err, info) {
-    this.setState({ info });
-    try { console.error('[week-pivot render crash]', err, info?.componentStack); } catch {}
-  }
-  render() {
-    if (this.state.err) {
-      return (
-        <div style={{ padding: 24, background: '#fff', border: '2px solid #ef5350', borderRadius: 10, margin: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#c62828', marginBottom: 8 }}>
-            ⚠ 화면 렌더링 오류 — 페이지가 꺼지는 대신 여기서 멈췄습니다
-          </div>
-          <div style={{ fontSize: 12, color: '#555', marginBottom: 10 }}>
-            아래 오류 내용을 캡처해서 전달해 주시면 바로 수정할 수 있습니다. [다시 그리기]를 누르면 대부분 이어서 사용 가능합니다.
-          </div>
-          <pre style={{ fontSize: 11, background: '#fafafa', border: '1px solid #eee', borderRadius: 6, padding: 10, whiteSpace: 'pre-wrap', maxHeight: 220, overflow: 'auto' }}>
-            {String(this.state.err?.message || this.state.err)}
-            {'\n'}
-            {String(this.state.info?.componentStack || '').slice(0, 1500)}
-          </pre>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={() => this.setState({ err: null, info: null })}
-              style={{ padding: '8px 18px', background: '#1976d2', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 700 }}>
-              다시 그리기
-            </button>
-            <button onClick={() => window.location.reload()}
-              style={{ padding: '8px 18px', border: '1px solid #ccc', background: '#f5f5f5', borderRadius: 5, cursor: 'pointer' }}>
-              전체 새로고침
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-// 에러 경계가 잡을 수 있도록 렌더 함수를 "자식 컴포넌트" 안에서 실행 (부모 render 중 throw 는 경계가 못 잡음)
-function PivotBody({ render }) { return render(); }
-
-// ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
 export default function WeekPivot() {
@@ -429,25 +384,6 @@ export default function WeekPivot() {
   const [pvEdit,        setPvEdit]        = useState(null);
   const [pvNameEdit,    setPvNameEdit]    = useState(null);
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
-
-  // ── 셀 일괄 적용(변경 대기) + 빈 행 추가 상태 — 콜백은 loadData 정의 뒤에 있음
-  const [pendingEdits, setPendingEdits] = useState({});   // `${pk}-${ck}-${wk}` → {pk,ck,wk,oldQty,newQty,custName,prodName}
-  const [applying, setApplying] = useState(false);
-  const [applyLog, setApplyLog] = useState([]);           // {t:'info'|'ok'|'warn'|'err', ts, msg}
-  const [showApplyLog, setShowApplyLog] = useState(false);
-  const pendingCount = Object.keys(pendingEdits).length;
-  const [showAddRow, setShowAddRow] = useState(false);
-  const [vCusts, setVCusts] = useState([]);   // 노출용 가상 업체 (빈 열)
-  const [vProds, setVProds] = useState([]);   // 노출용 가상 품목 (빈 행)
-  const [vmCusts, setVmCusts] = useState(null);  // 마스터 목록 (지연 로드)
-  const [vmProds, setVmProds] = useState(null);
-  const [vCustSearch, setVCustSearch] = useState('');
-  const [vProdSearch, setVProdSearch] = useState('');
-  useEffect(() => {
-    if (!showAddRow || vmCusts != null) return;
-    fetch('/api/master?entity=customers').then(r => r.json()).then(d => { if (d.success) setVmCusts(d.data || []); }).catch(() => setVmCusts([]));
-    fetch('/api/master?entity=products').then(r => r.json()).then(d => { if (d.success) setVmProds(d.data || []); }).catch(() => setVmProds([]));
-  }, [showAddRow, vmCusts]);
 
   const [showAddOrder,  setShowAddOrder]  = useState(false);
   const [showStartStockText, setShowStartStockText] = useState(false);
@@ -495,18 +431,12 @@ export default function WeekPivot() {
   useEffect(() => { try { localStorage.setItem('wp_pw', String(pvProdColWidth)); } catch {} }, [pvProdColWidth]);
   useEffect(() => { try { localStorage.setItem('wp_rh', String(pvRowMinHeight)); } catch {} }, [pvRowMinHeight]);
   useEffect(() => { try { localStorage.setItem('wp_fo', pvFiltersOpen ? '1' : '0'); } catch {} }, [pvFiltersOpen]);
-  // ⚠ 필터로 열 구성이 바뀌면 리사이즈 훅(colgroup DOM 직접조작)을 반드시 재초기화해야 한다 —
-  // 키에 필터 상태가 빠지면 stale colgroup이 React 재조정과 충돌해 페이지가 통째로 죽을 수 있음(2026-07-10 콜롬비아 필터 크래시)
   const wpPivotLayoutKey = useMemo(() => {
     const wks = [...new Set(custRows.map((r) => r.OrderWeek))].sort();
     const cks = new Set(custRows.map((r) => r.CustKey));
     const pks = new Set(custRows.map((r) => r.ProdKey));
-    const fl = [...pvFlowers].sort().join('.');
-    const pc = [...pvCusts].sort().join('.');
-    const vk = vCusts.map(c => `c${c.CustKey}`).concat(vProds.map(p => `p${p.ProdKey}`)).join('.');
-    return `${wks.join(',')}|c${cks.size}|p${pks.size}|d${pvDescrOpen ? 1 : 0}`
-      + `|f${filterCoun}|fl${fl}|m${pvMgr}|pc${pc}|oo${pvShowOnlyOut ? 1 : 0}|s${filterSearch}|v${vk}`;
-  }, [custRows, pvDescrOpen, filterCoun, pvFlowers, pvMgr, pvCusts, pvShowOnlyOut, filterSearch, vCusts, vProds]);
+    return `${wks.join(',')}|c${cks.size}|p${pks.size}|d${pvDescrOpen ? 1 : 0}`;
+  }, [custRows, pvDescrOpen]);
 
   const wpTableRef = useColumnResize(
     [wpPivotLayoutKey, loading, pvCellWidth, pvDescrWidth, pvProdColWidth, wpColWidths],
@@ -746,6 +676,12 @@ export default function WeekPivot() {
 
   // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
   // 적용은 셀별 /api/shipment/adjust 순차 호출(개별 커밋 — 주문+분배+조정이력 한 트랜잭션, 기존 검증 로직 그대로).
+  const [pendingEdits, setPendingEdits] = useState({});   // `${pk}-${ck}-${wk}` → {pk,ck,wk,oldQty,newQty,custName,prodName}
+  const [applying, setApplying] = useState(false);
+  const [applyLog, setApplyLog] = useState([]);           // {t:'info'|'ok'|'warn'|'err', ts, msg}
+  const [showApplyLog, setShowApplyLog] = useState(false);
+  const pendingCount = Object.keys(pendingEdits).length;
+
   const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
@@ -808,6 +744,19 @@ export default function WeekPivot() {
     loadData(weekFrom, weekTo);
   }, [pendingEdits, applying, weekFrom, weekTo, loadData]);
 
+  // ── 빈 행 추가 (주문 없는 업체/품목을 피벗에 노출만 — DB 기록 없음, 수량 입력 후 [변경 시작]으로 등록)
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [vCusts, setVCusts] = useState([]);   // 노출용 가상 업체
+  const [vProds, setVProds] = useState([]);   // 노출용 가상 품목
+  const [vmCusts, setVmCusts] = useState(null);  // 마스터 목록 (지연 로드)
+  const [vmProds, setVmProds] = useState(null);
+  const [vCustSearch, setVCustSearch] = useState('');
+  const [vProdSearch, setVProdSearch] = useState('');
+  useEffect(() => {
+    if (!showAddRow || vmCusts != null) return;
+    fetch('/api/master?entity=customers').then(r => r.json()).then(d => { if (d.success) setVmCusts(d.data || []); }).catch(() => setVmCusts([]));
+    fetch('/api/master?entity=products').then(r => r.json()).then(d => { if (d.success) setVmProds(d.data || []); }).catch(() => setVmProds([]));
+  }, [showAddRow, vmCusts]);
 
   // 필터 적용
   const applyFilter = useCallback((rows) => rows.filter(r => {
@@ -2012,9 +1961,7 @@ export default function WeekPivot() {
         ) : loading ? (
           <div style={st.empty}>데이터 로딩중...</div>
         ) : (
-          <PivotErrorBoundary>
-            <PivotBody render={renderWeekPivot} />
-          </PivotErrorBoundary>
+          renderWeekPivot()
         )}
       </div>
 
