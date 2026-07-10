@@ -81,6 +81,39 @@ export default function EcountReconcilePage() {
         </div>
       )}
 
+      {s && data.breakdown && (
+        <div style={{ marginBottom: 14, border: `2px solid ${s.reconciled ? '#86efac' : '#fca5a5'}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px', background: s.reconciled ? '#f0fdf4' : '#fef2f2', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 800, color: s.reconciled ? '#166534' : '#b91c1c' }}>
+              {s.reconciled ? '✅ 실질 일치 (차이는 설명 가능 = 오차 아님)' : '⚠ 미설명 차이 있음 — 확인 필요'}
+            </span>
+            <span style={{ fontSize: 13, color: '#475569' }}>
+              총 차이 {won(s.diff)}원 = 설명된 {won(s.explained)}원 + <b>미설명 {won(s.unexplained)}원</b>
+              {s.web ? ` (${(Math.abs(s.unexplained) / Math.abs(s.web) * 100).toFixed(2)}%)` : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {data.breakdown.map((b) => (
+              <div key={b.key} style={{ flex: '1 1 220px', minWidth: 200, padding: '10px 14px', borderTop: '1px solid #eef2f7', borderRight: '1px solid #eef2f7' }}>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>
+                  {b.key === 'import' ? '📦 ' : b.key === 'special' ? '🧾 ' : '❓ '}{b.label}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'ui-monospace,monospace',
+                  color: b.key === 'other' ? (s.reconciled ? '#16a34a' : '#dc2626') : '#334155' }}>
+                  {b.amount > 0 ? '+' : ''}{won(b.amount)}
+                </div>
+                {b.top.length > 0 && (
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, lineHeight: 1.5 }}>
+                    {b.top.map((t, i) => <div key={i}>· {t.cust}: {t.diff > 0 ? '+' : ''}{won(t.diff)}</div>)}
+                  </div>
+                )}
+                {b.top.length === 0 && <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>해당 없음</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {data && !data.noEcount && (
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '6px 12px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #eef2f7', background: '#f8fafc' }}>

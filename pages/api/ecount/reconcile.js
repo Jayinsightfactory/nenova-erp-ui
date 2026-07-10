@@ -14,6 +14,17 @@ const norm = (s) => String(s || '')
 // 확정일 = 출고일 on-or-after 다음 화요일 (ECOUNT 전표일자 기준). DATEFIRST 무관.
 const confirmExpr = (col) => `DATEADD(DAY, (7 - (DATEDIFF(DAY, '19000102', ${col}) % 7)) % 7, CONVERT(DATE, ${col}))`;
 
+// 품목명 → 차이 분류. "설명되는 차이"인지 자동 판정(1.4% 잔차를 오차 아닌 것으로 인식하게).
+//   import  = 수입품(호접란 등) 전표 타이밍 — ECOUNT가 출고차수 아닌 결제/정산일에 계상
+//   special = ECOUNT 특수입력/조정(판매요청·운송료·단가차감 등) — 웹 출고에 없는 ECOUNT 전용 항목
+//   else    = 미설명(진짜 확인 필요) → 0에 가까워야 "실질 일치"
+const CAT = {
+  import:  /호접란|ORCHID|수입|IMPORT/i,
+  special: /판매요청|운송료|운송|단가\s*차감|택배|배송|기타|할인|봉사료|조정/i,
+};
+const classify = (name) => (CAT.import.test(name || '') ? 'import' : CAT.special.test(name || '') ? 'special' : 'other');
+const CAT_LABEL = { import: '수입품 전표 타이밍', special: 'ECOUNT 특수입력·조정', other: '미설명(확인 필요)' };
+
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   const month = String(req.query.month || '').trim(); // 'YYYY-MM'
@@ -103,13 +114,37 @@ export default withAuth(async function handler(req, res) {
     const webTotal = byCust.reduce((a, c) => a + c.web, 0);
     const ecTotal = byCust.reduce((a, c) => a + c.ecount, 0);
 
+    // ── 차이 자동 분류: 총차이 = 수입타이밍 + 특수입력 + 미설명.
+    //   기여도는 거래처 단위 순액으로 집계 → 같은 거래처 내 상쇄(불량차감↔품목 등)가 정리돼 미설명이 깨끗해진다.
+    const buckets = { import: 0, special: 0, other: 0 };
+    const contrib = { import: new Map(), special: new Map(), other: new Map() };
+    for (const c of byCust) {
+      for (const it of c.items) {
+        const cat = classify(it.name);
+        buckets[cat] += it.diff;
+        contrib[cat].set(c.name, (contrib[cat].get(c.name) || 0) + it.diff);
+      }
+    }
+    const breakdown = ['import', 'special', 'other'].map((k) => ({
+      key: k, label: CAT_LABEL[k], amount: Math.round(buckets[k]),
+      top: [...contrib[k].entries()]
+        .map(([cust, diff]) => ({ cust, diff: Math.round(diff) }))
+        .filter((x) => Math.abs(x.diff) >= 1000)
+        .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 5),
+    }));
+    const unexplained = Math.round(buckets.other);
+    const explained = Math.round(buckets.import + buckets.special);
+    const reconciled = Math.abs(unexplained) < Math.max(50000, Math.abs(webTotal) * 0.001); // 미설명<0.1% → 실질 일치
+
     return res.status(200).json({
       success: true, month, snapshotKey: snapKey,
       summary: {
         web: webTotal, ecount: ecTotal, diff: ecTotal - webTotal,
+        explained, unexplained, reconciled,
         matchedCustCount: byCust.filter((c) => Math.abs(c.diff) < 1000).length,
         diffCustCount: byCust.filter((c) => Math.abs(c.diff) >= 1000).length,
       },
+      breakdown,
       byCust,
     });
   } catch (err) {
