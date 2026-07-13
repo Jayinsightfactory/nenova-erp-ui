@@ -129,7 +129,8 @@ export default withAuth(async function handler(req, res) {
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
       if (req.query.excel === '1') {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
-        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note });
+        const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
+        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note, visibleCols });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="profit-report-${major}.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`);

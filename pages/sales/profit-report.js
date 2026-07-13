@@ -2,7 +2,7 @@
 // 자동(SQL): N순수매출·L불량·O그외매출·Q구매외화·S포워딩USD(추정) / 수기: E기초·F기말·H통관비·R환율·S수정·비고
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
@@ -15,6 +15,59 @@ function getDefaultMajor() {
 }
 const fmt = v => (v == null || Number.isNaN(v) ? '' : Math.round(v).toLocaleString());
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
+const fx = v => (v ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '');
+
+// 컬럼 정의 — 표시/숨김 토글 + 엑셀 다운로드 필터에 공용으로 쓰는 단일 소스
+const COLUMN_DEFS = [
+  { key: 'category', label: '품명' },
+  { key: 'C', label: '매출액' },
+  { key: 'D', label: '매출비율' },
+  { key: 'E', label: '기초상품재고액', editable: true },
+  { key: 'F', label: '기말상품재고액', editable: true },
+  { key: 'G', label: '매입액(상품+포워딩)' },
+  { key: 'H', label: '그외통관비', editable: true, editWidth: 74 },
+  { key: 'I', label: '매출원가', bold: true },
+  { key: 'J', label: '매출이익', bold: true },
+  { key: 'K', label: '이익률' },
+  { key: 'L', label: '불량금액', color: '#1d4ed8' },
+  { key: 'M', label: '불량율' },
+  { key: 'N', label: '순수매출액', color: '#1d4ed8' },
+  { key: 'O', label: '그 외 매출액', color: '#1d4ed8' },
+  { key: 'P', label: '상품 금액(구매)' },
+  { key: 'Q', label: '구매금액(외화)', color: '#1d4ed8' },
+  { key: 'R', label: '환율', editable: true, editWidth: 70 },
+  { key: 'S', label: '포워딩(USD)', editable: true, editWidth: 86 },
+  { key: 'T', label: '포워딩 원화환산' },
+  { key: 'U', label: '상품구매비율' },
+];
+const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
+const LS_KEY = 'nenova_profitReport_visibleCols_v1';
+
+// 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
+function readonlyValue(key, obj, ctx) {
+  switch (key) {
+    case 'C': return fmt(obj.C);
+    case 'D': return pct(ctx.D);
+    case 'E': return fmt(obj.E);
+    case 'F': return fmt(obj.F);
+    case 'G': return fmt(obj.G);
+    case 'H': return fmt(obj.H);
+    case 'I': return fmt(obj.I);
+    case 'J': return fmt(obj.J);
+    case 'K': return pct(obj.K);
+    case 'L': return fmt(obj.L);
+    case 'M': return pct(obj.M);
+    case 'N': return fmt(obj.N);
+    case 'O': return fmt(obj.O);
+    case 'P': return fmt(obj.P);
+    case 'Q': return fx(obj.Q);
+    case 'R': return obj.R ? fmt(obj.R) : '';
+    case 'S': return fx(obj.S);
+    case 'T': return fmt(obj.T);
+    case 'U': return pct(ctx.U);
+    default: return '';
+  }
+}
 
 export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
@@ -25,8 +78,32 @@ export default function ProfitReportPage() {
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});   // { category: { colKey: 'value' } }
   const [note, setNote] = useState('');
-  const [showCustoms, setShowCustoms] = useState(false);
-  const [showForwarding, setShowForwarding] = useState(false);
+  const [showCustoms, setShowCustoms] = useState(true);   // 2026-07-13: 클릭 없이 바로 보이도록 기본 열림
+  const [showForwarding, setShowForwarding] = useState(true);
+
+  // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
+  const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
+  const [showColPicker, setShowColPicker] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      if (Array.isArray(saved) && saved.length) setVisibleCols(saved.filter(k => ALL_COL_KEYS.includes(k)));
+    } catch { /* 무시 — 기본값(전체표시) 유지 */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(visibleCols)); } catch { /* 저장 불가 환경 무시 */ }
+  }, [visibleCols]);
+  const isVisible = key => visibleCols.includes(key);
+  const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && isVisible(cd.key));
+
+  // ── 보기 모드: 카테고리별(기본, 편집가능) / 차수별(비교, 읽기전용+펼치기)
+  const [viewMode, setViewMode] = useState('category');
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [weeksLoading, setWeeksLoading] = useState(false);
+  const [weeksData, setWeeksData] = useState([]); // [{ major, rows, totals, error }]
+  const [expandedWeeks, setExpandedWeeks] = useState(new Set());
 
   const load = async () => {
     setLoading(true); setError(''); setMessage(''); setEdits({});
@@ -39,6 +116,45 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const loadWeeksRange = async () => {
+    const from = Number(rangeFrom), to = Number(rangeTo);
+    if (!from || !to || from > to) { setError('차수 범위를 확인하세요 (예: 25 ~ 30)'); return; }
+    setWeeksLoading(true); setError('');
+    try {
+      const majors = [];
+      for (let m = to; m >= from; m--) majors.push(String(m).padStart(2, '0')); // 최신 차수가 위로
+      const results = await Promise.all(majors.map(async (mj) => {
+        try {
+          const res = await fetch(`/api/sales/profit-report?week=${mj}`, { credentials: 'same-origin' });
+          const d = await res.json();
+          if (!d.success) return { major: mj, error: d.error || '조회 실패' };
+          const rows = (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
+          const totals = computeProfitTotals(rows);
+          return { major: mj, rows, totals };
+        } catch (e) { return { major: mj, error: e.message }; }
+      }));
+      setWeeksData(results);
+    } finally { setWeeksLoading(false); }
+  };
+
+  const switchToWeeksView = () => {
+    setViewMode('weeks');
+    if (!rangeFrom || !rangeTo) {
+      const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
+      setRangeFrom(String(Math.max(1, cur - 5)).padStart(2, '0'));
+      setRangeTo(String(cur).padStart(2, '0'));
+    }
+  };
+  useEffect(() => {
+    if (viewMode === 'weeks' && rangeFrom && rangeTo && weeksData.length === 0 && !weeksLoading) loadWeeksRange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+  const toggleExpand = mj => setExpandedWeeks(prev => {
+    const n = new Set(prev);
+    n.has(mj) ? n.delete(mj) : n.add(mj);
+    return n;
+  });
 
   const save = async () => {
     setSaving(true); setError(''); setMessage('');
@@ -71,7 +187,8 @@ export default function ProfitReportPage() {
 
   const downloadExcel = async () => {
     if (Object.keys(edits).length > 0) await save();  // 수정 중이던 값을 먼저 저장해 파일에 반영
-    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1`;
+    const colsParam = visibleCols.filter(k => k !== 'category').join(',');
+    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
   };
 
   // ── 재고 평가단가표 모달
@@ -129,33 +246,109 @@ export default function ProfitReportPage() {
 
   const { rows, totals } = rowsCalc;
 
+  // 읽기전용 세부표 — 차수별 뷰에서 펼쳤을 때 쓰는 카테고리별 내역(편집 불가)
+  const ReadonlyDetailTable = ({ rows: wRows, totals: wTotals }) => (
+    <table style={st.table}>
+      <thead>
+        <tr>
+          {isVisible('category') && <th style={{ ...st.th, ...st.stickyCol, background: '#334155', zIndex: 3 }}>품명</th>}
+          {shownColumns.map(cd => <th key={cd.key} style={st.th}>{cd.label}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {wRows.map(row => {
+          const c = row.calc;
+          const D = wTotals.C !== 0 ? c.C / wTotals.C : null;
+          const U = wTotals.P !== 0 ? c.P / wTotals.P : null;
+          return (
+            <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
+              {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+              {shownColumns.map(cd => (
+                <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
+                  {readonlyValue(cd.key, c, { D, U })}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
+        <tr style={{ background: '#e2e8f0', fontWeight: 800 }}>
+          {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
+          {shownColumns.map(cd => (
+            <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (wTotals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
+              {readonlyValue(cd.key, wTotals, { D: 1, U: 1 })}
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+
   return (
     <div style={st.page}>
       <div style={st.bar}>
         <h1 style={st.h1}>📈 주차별 매출이익 보고서{data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <label style={st.label}>차수</label>
-          <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
-          <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-          <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
-            {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
-          </button>
-          <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
-            title="원본 양식과 100% 동일한 셀 구성으로 다운로드 (수정 중이면 저장 후)">
-            📥 엑셀 다운로드
-          </button>
-          <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
-            title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
-            🏷 재고단가표
-          </button>
-          <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
-            title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
-            📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
-          </button>
-          <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
-            title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
-            🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
-          </button>
+          <div style={st.viewToggleWrap}>
+            <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
+            <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>
+          </div>
+          {viewMode === 'category' ? (
+            <>
+              <label style={st.label}>차수</label>
+              <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
+              <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
+                {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
+              </button>
+              <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
+                title="원본 양식과 동일한 첫 시트 + 현재 화면에 표시된 컬럼만 담은 두번째 시트, 총 2개 시트로 다운로드">
+                📥 엑셀 다운로드
+              </button>
+              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
+                title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
+                🏷 재고단가표
+              </button>
+              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
+                title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+                📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
+              </button>
+              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
+                title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+                🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
+              </button>
+            </>
+          ) : (
+            <>
+              <label style={st.label}>차수범위</label>
+              <input style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
+              <span style={{ color: '#94a3b8' }}>~</span>
+              <input style={{ ...st.weekInput, width: 50 }} value={rangeTo} onChange={e => setRangeTo(e.target.value.replace(/\D/g, ''))} placeholder="30" />
+              <button style={st.primaryBtn} onClick={loadWeeksRange} disabled={weeksLoading}>{weeksLoading ? '조회 중…' : '조회'}</button>
+            </>
+          )}
+          <div style={{ position: 'relative' }}>
+            <button style={st.secondaryBtn} onClick={() => setShowColPicker(v => !v)} title="표시할 컬럼을 선택합니다 — 선택은 브라우저에 저장돼 다음에 열어도 유지됩니다">
+              ⚙ 컬럼 ({visibleCols.length}/{ALL_COL_KEYS.length})
+            </button>
+            {showColPicker && (
+              <div style={st.colPicker}>
+                <div style={st.colPickerHead}>
+                  <span>표시할 컬럼</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button style={st.colPickerMiniBtn} onClick={() => setVisibleCols(ALL_COL_KEYS)}>전체</button>
+                    <button style={st.colPickerMiniBtn} onClick={() => setVisibleCols(['category'])}>해제</button>
+                  </div>
+                </div>
+                {COLUMN_DEFS.map(cd => (
+                  <label key={cd.key} style={st.colPickerRow}>
+                    <input type="checkbox" checked={isVisible(cd.key)} onChange={() => toggleCol(cd.key)} />
+                    {cd.label}
+                  </label>
+                ))}
+                <button style={{ ...st.primaryBtn, width: '100%', marginTop: 6 }} onClick={() => setShowColPicker(false)}>닫기</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div style={st.hint}>
@@ -170,7 +363,7 @@ export default function ProfitReportPage() {
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
 
-      {data && showCustoms && (
+      {viewMode === 'category' && data && showCustoms && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
             <strong>📦 그외통관비 입력 — {data.major}차</strong>
@@ -181,7 +374,7 @@ export default function ProfitReportPage() {
           </div>
         </div>
       )}
-      {data && showForwarding && (
+      {viewMode === 'category' && data && showForwarding && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
             <strong>🚢 포워딩 입력 — {data.major}차</strong>
@@ -193,13 +386,13 @@ export default function ProfitReportPage() {
         </div>
       )}
 
-      {data && (
+      {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
           <table style={st.table}>
             <thead>
               <tr>
-                {['품명', '매출액', '매출비율', '기초상품재고액', '기말상품재고액', '매입액(상품+포워딩)', '그외통관비', '매출원가', '매출이익', '이익률', '불량금액', '불량율', '순수매출액', '그 외 매출액', '상품 금액(구매)', '구매금액(외화)', '환율', '포워딩(USD)', '포워딩 원화환산', '상품구매비율']
-                  .map((h, i) => <th key={i} style={{ ...st.th, ...(i === 0 ? { ...st.stickyCol, background: '#1e293b', zIndex: 3 } : {}) }}>{h}</th>)}
+                {isVisible('category') && <th style={{ ...st.th, ...st.stickyCol, background: '#1e293b', zIndex: 3 }}>품명</th>}
+                {shownColumns.map(cd => <th key={cd.key} style={st.th}>{cd.label}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -209,57 +402,81 @@ export default function ProfitReportPage() {
                 const U = totals.P !== 0 ? c.P / totals.P : null;
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-                    <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>
-                    <td style={st.tdNum}>{fmt(c.C)}</td>
-                    <td style={st.tdNum}>{pct(D)}</td>
-                    <td style={st.tdNum}><EditCell row={row} col="E" /></td>
-                    <td style={st.tdNum}><EditCell row={row} col="F" /></td>
-                    <td style={st.tdNum}>{fmt(c.G)}</td>
-                    <td style={st.tdNum}><EditCell row={row} col="H" width={74} /></td>
-                    <td style={{ ...st.tdNum, fontWeight: 700 }}>{fmt(c.I)}</td>
-                    <td style={{ ...st.tdNum, fontWeight: 700, color: c.J < 0 ? '#dc2626' : '#166534' }}>{fmt(c.J)}</td>
-                    <td style={st.tdNum}>{pct(c.K)}</td>
-                    <td style={{ ...st.tdNum, color: '#1d4ed8' }}>{fmt(c.L)}</td>
-                    <td style={st.tdNum}>{pct(c.M)}</td>
-                    <td style={{ ...st.tdNum, color: '#1d4ed8' }}>{fmt(c.N)}</td>
-                    <td style={{ ...st.tdNum, color: '#1d4ed8' }}>{fmt(c.O)}</td>
-                    <td style={st.tdNum}>{fmt(c.P)}</td>
-                    <td style={{ ...st.tdNum, color: '#1d4ed8' }}>{c.Q ? Number(c.Q).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}</td>
-                    <td style={st.tdNum}><EditCell row={row} col="R" width={70} /></td>
-                    <td style={st.tdNum}><EditCell row={row} col="S" width={86} /></td>
-                    <td style={st.tdNum}>{fmt(c.T)}</td>
-                    <td style={st.tdNum}>{pct(U)}</td>
+                    {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+                    {shownColumns.map(cd => (
+                      <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
+                        {cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} /> : readonlyValue(cd.key, c, { D, U })}
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
               <tr style={{ background: '#e2e8f0', fontWeight: 800 }}>
-                <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>
-                <td style={st.tdNum}>{fmt(totals.C)}</td>
-                <td style={st.tdNum}>{pct(1)}</td>
-                <td style={st.tdNum}>{fmt(totals.E)}</td>
-                <td style={st.tdNum}>{fmt(totals.F)}</td>
-                <td style={st.tdNum}>{fmt(totals.G)}</td>
-                <td style={st.tdNum}>{fmt(totals.H)}</td>
-                <td style={st.tdNum}>{fmt(totals.I)}</td>
-                <td style={{ ...st.tdNum, color: totals.J < 0 ? '#dc2626' : '#166534' }}>{fmt(totals.J)}</td>
-                <td style={st.tdNum}>{pct(totals.K)}</td>
-                <td style={st.tdNum}>{fmt(totals.L)}</td>
-                <td style={st.tdNum}>{pct(totals.M)}</td>
-                <td style={st.tdNum}>{fmt(totals.N)}</td>
-                <td style={st.tdNum}>{fmt(totals.O)}</td>
-                <td style={st.tdNum}>{fmt(totals.P)}</td>
-                <td style={st.tdNum}>{totals.Q ? Number(totals.Q).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}</td>
-                <td style={st.tdNum}></td>
-                <td style={st.tdNum}>{totals.S ? Number(totals.S).toLocaleString(undefined, { maximumFractionDigits: 2 }) : ''}</td>
-                <td style={st.tdNum}>{fmt(totals.T)}</td>
-                <td style={st.tdNum}>{pct(1)}</td>
+                {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
+                {shownColumns.map(cd => (
+                  <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (totals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
+                    {readonlyValue(cd.key, totals, { D: 1, U: 1 })}
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
         </div>
       )}
 
-      {data && (
+      {viewMode === 'weeks' && (
+        <div style={st.tableWrap}>
+          <table style={st.table}>
+            <thead>
+              <tr>
+                <th style={{ ...st.th, ...st.stickyCol, background: '#1e293b', zIndex: 3 }}>차수</th>
+                {shownColumns.map(cd => <th key={cd.key} style={st.th}>{cd.label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {weeksData.map(w => {
+                if (w.error) {
+                  return (
+                    <tr key={w.major}>
+                      <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{Number(w.major)}차</td>
+                      <td style={{ ...st.td, color: '#dc2626' }} colSpan={shownColumns.length}>조회 실패: {w.error}</td>
+                    </tr>
+                  );
+                }
+                const expanded = expandedWeeks.has(w.major);
+                return (
+                  <Fragment key={w.major}>
+                    <tr style={{ cursor: 'pointer', background: expanded ? '#eff6ff' : undefined }} onClick={() => toggleExpand(w.major)}>
+                      <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700, background: expanded ? '#eff6ff' : '#f8fafc' }}>
+                        {expanded ? '▼' : '▶'} {Number(w.major)}차
+                      </td>
+                      {shownColumns.map(cd => (
+                        <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (w.totals.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
+                          {readonlyValue(cd.key, w.totals, { D: 1, U: 1 })}
+                        </td>
+                      ))}
+                    </tr>
+                    {expanded && (
+                      <tr>
+                        <td colSpan={shownColumns.length + 1} style={{ padding: 0, border: '1px solid #e2e8f0' }}>
+                          <div style={{ padding: 8, background: '#f8fafc' }}>
+                            <ReadonlyDetailTable rows={w.rows} totals={w.totals} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+              {weeksData.length === 0 && !weeksLoading && (
+                <tr><td style={st.td} colSpan={shownColumns.length + 1}>차수 범위를 입력하고 조회하세요.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 4 }}>비고사항</div>
           <textarea
@@ -338,7 +555,15 @@ const st = {
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
   weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '7px 10px', fontSize: 14, width: 70 },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  secondaryBtn: { background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   toggleBtnOn: { background: '#1d4ed8', color: '#fff', border: '1px solid #1d4ed8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  viewToggleWrap: { display: 'flex', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' },
+  viewToggleOn: { background: '#1e293b', color: '#fff', border: 'none', padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  viewToggleOff: { background: '#fff', color: '#334155', border: 'none', padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  colPicker: { position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, boxShadow: '0 12px 32px rgba(15,23,42,0.18)', padding: 10, width: 220, maxHeight: '60vh', overflow: 'auto', zIndex: 20 },
+  colPickerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#334155', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' },
+  colPickerMiniBtn: { background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '2px 7px', fontSize: 10, cursor: 'pointer' },
+  colPickerRow: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#334155', padding: '3px 2px', cursor: 'pointer' },
   embedPanel: { border: '2px solid #1d4ed8', borderRadius: 10, marginBottom: 12, overflow: 'hidden', background: '#fff' },
   embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
   embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
