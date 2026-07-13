@@ -171,10 +171,11 @@ export default function ProfitReportPage() {
   const [weeksData, setWeeksData] = useState([]); // [{ major, rows, totals, error }]
   const [expandedWeeks, setExpandedWeeks] = useState(new Set());
 
-  const load = async () => {
+  const load = async (weekOverride) => {
+    const wk = weekOverride ?? weekInput.value;
     setLoading(true); setError(''); setMessage(''); setEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
@@ -182,6 +183,12 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const stepWeek = delta => {
+    const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
+    const next = String(Math.max(1, cur + delta)).padStart(2, '0');
+    weekInput.setValue(next);
+    load(next);
+  };
 
   const loadWeeksRange = async () => {
     const from = Number(rangeFrom), to = Number(rangeTo);
@@ -338,8 +345,14 @@ export default function ProfitReportPage() {
           {viewMode === 'category' ? (
             <>
               <label style={st.label}>차수</label>
-              <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
-              <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+              <div style={st.weekStepperWrap}>
+                <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
+                <div style={st.weekStepperBtns}>
+                  <button style={st.weekStepperBtn} onClick={() => stepWeek(1)} disabled={loading} title="다음 차수">▲</button>
+                  <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} disabled={loading} title="이전 차수">▼</button>
+                </div>
+              </div>
+              <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
               <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
@@ -628,7 +641,10 @@ const st = {
   bar: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' },
   h1: { fontSize: 18, fontWeight: 800, margin: 0 },
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
-  weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '7px 10px', fontSize: 14, width: 70 },
+  weekInput: { border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', padding: '7px 10px', fontSize: 14, width: 70 },
+  weekStepperWrap: { display: 'flex', alignItems: 'stretch' },
+  weekStepperBtns: { display: 'flex', flexDirection: 'column', border: '1px solid #cbd5e1', borderRadius: '0 8px 8px 0', overflow: 'hidden' },
+  weekStepperBtn: { background: '#f8fafc', border: 'none', borderBottom: '1px solid #e2e8f0', color: '#334155', fontSize: 9, padding: '0 6px', cursor: 'pointer', lineHeight: 1, flex: 1 },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   toggleBtnOn: { background: '#1d4ed8', color: '#fff', border: '1px solid #1d4ed8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
