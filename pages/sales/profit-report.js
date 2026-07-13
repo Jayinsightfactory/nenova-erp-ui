@@ -220,12 +220,23 @@ export default function ProfitReportPage() {
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
   const dirty = Object.keys(edits).length > 0;
 
+  // 재고 스냅샷 확인 필요 — 수기입력도 없고, 앵커(실사 시작재고)도 없이 오염 가능성 있는 ProductStock
+  // 스냅샷에만 의존 중인 E/F. lib/profitReport.js stockSnapshotByCategory 의 anchored 플래그 기반.
+  const needsCheck = (row, col) => {
+    if (col !== 'E' && col !== 'F') return false;
+    if (row.manual[col] != null) return false; // 수기입력 있으면 확인 불필요(사용자가 이미 확정)
+    const anchored = col === 'E' ? row.stockAnchored?.begin : row.stockAnchored?.end;
+    return anchored === false;
+  };
+  const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(r, 'F'));
+
   const EditCell = ({ row, col, width = 86 }) => {
     const e = edits[row.category]?.[col];
     const base = row.manual[col];
     const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
     const val = e !== undefined ? e : (base != null ? base : '');
     const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
+    const warn = needsCheck(row, col);
     const titles = {
       R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
       S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
@@ -233,18 +244,20 @@ export default function ProfitReportPage() {
       E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
       F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
     };
+    const title = warn ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}` : (titles[col] || '');
     return (
       <input
-        style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : '#fff') }}
+        style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
         value={val}
         placeholder={placeholder}
-        title={titles[col] || ''}
+        title={title}
         onChange={ev => setEdit(row.category, col, ev.target.value.replace(/[^0-9.\-]/g, ''))}
       />
     );
   };
 
   const { rows, totals } = rowsCalc;
+  const needsAttention = attentionRows(rows);
 
   // 읽기전용 세부표 — 차수별 뷰에서 펼쳤을 때 쓰는 카테고리별 내역(편집 불가)
   const ReadonlyDetailTable = ({ rows: wRows, totals: wTotals }) => (
@@ -362,6 +375,13 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
+
+      {viewMode === 'category' && data && needsAttention.length > 0 && (
+        <div style={st.attentionBanner}>
+          ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
+          {needsAttention.map(r => r.category).join(', ')}
+        </div>
+      )}
 
       {viewMode === 'category' && data && showCustoms && (
         <div style={st.embedPanel}>
@@ -571,6 +591,7 @@ const st = {
   hint: { fontSize: 11.5, color: '#64748b', marginBottom: 10, lineHeight: 1.6 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
+  attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
   tableWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 220px)', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff' },
   table: { borderCollapse: 'collapse', fontSize: 12, minWidth: 1800 },
   th: { position: 'sticky', top: 0, background: '#1e293b', color: '#fff', padding: '7px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 2 },

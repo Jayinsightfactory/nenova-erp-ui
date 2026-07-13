@@ -85,6 +85,12 @@ async function loadReportData(major, orderYear) {
           category: key,
           variant: def.variant || 'normal',
           stock,
+          // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
+          // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)
+          stockAnchored: {
+            begin: stockBegin.anchored?.[key] ?? null,
+            end: stockEnd.anchored?.[key] ?? null,
+          },
           auto: {
             N: Number(N[key] || 0),
             L: Number(est.L[key] || 0),
