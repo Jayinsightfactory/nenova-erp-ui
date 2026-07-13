@@ -69,6 +69,44 @@ function readonlyValue(key, obj, ctx) {
   }
 }
 
+// 재고 스냅샷 확인 필요 — 수기입력도 없고, 앵커(실사 시작재고)도 없이 오염 가능성 있는 ProductStock
+// 스냅샷에만 의존 중인 E/F. lib/profitReport.js stockSnapshotByCategory 의 anchored 플래그 기반.
+function needsCheck(row, col) {
+  if (col !== 'E' && col !== 'F') return false;
+  if (row.manual[col] != null) return false; // 수기입력 있으면 확인 불필요(사용자가 이미 확정)
+  const anchored = col === 'E' ? row.stockAnchored?.begin : row.stockAnchored?.end;
+  return anchored === false;
+}
+const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(r, 'F'));
+
+// 모듈 스코프에 고정 — 컴포넌트 내부에 정의하면 렌더될 때마다 새 함수 identity 가 생겨
+// React 가 매번 다른 컴포넌트로 취급해 <input> 을 언마운트시킴(입력 중 포커스 튕김 버그의 원인).
+function EditCell({ row, col, width = 86, edits, setEdit }) {
+  const e = edits[row.category]?.[col];
+  const base = row.manual[col];
+  const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
+  const val = e !== undefined ? e : (base != null ? base : '');
+  const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
+  const warn = needsCheck(row, col);
+  const titles = {
+    R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
+    S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
+    H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
+    E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
+    F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
+  };
+  const title = warn ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}` : (titles[col] || '');
+  return (
+    <input
+      style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
+      value={val}
+      placeholder={placeholder}
+      title={title}
+      onChange={ev => setEdit(row.category, col, ev.target.value.replace(/[^0-9.\-]/g, ''))}
+    />
+  );
+}
+
 export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
   const [loading, setLoading] = useState(false);
@@ -219,42 +257,6 @@ export default function ProfitReportPage() {
 
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
   const dirty = Object.keys(edits).length > 0;
-
-  // 재고 스냅샷 확인 필요 — 수기입력도 없고, 앵커(실사 시작재고)도 없이 오염 가능성 있는 ProductStock
-  // 스냅샷에만 의존 중인 E/F. lib/profitReport.js stockSnapshotByCategory 의 anchored 플래그 기반.
-  const needsCheck = (row, col) => {
-    if (col !== 'E' && col !== 'F') return false;
-    if (row.manual[col] != null) return false; // 수기입력 있으면 확인 불필요(사용자가 이미 확정)
-    const anchored = col === 'E' ? row.stockAnchored?.begin : row.stockAnchored?.end;
-    return anchored === false;
-  };
-  const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(r, 'F'));
-
-  const EditCell = ({ row, col, width = 86 }) => {
-    const e = edits[row.category]?.[col];
-    const base = row.manual[col];
-    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
-    const val = e !== undefined ? e : (base != null ? base : '');
-    const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
-    const warn = needsCheck(row, col);
-    const titles = {
-      R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
-      S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
-      H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
-      E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-      F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
-    };
-    const title = warn ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}` : (titles[col] || '');
-    return (
-      <input
-        style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
-        value={val}
-        placeholder={placeholder}
-        title={title}
-        onChange={ev => setEdit(row.category, col, ev.target.value.replace(/[^0-9.\-]/g, ''))}
-      />
-    );
-  };
 
   const { rows, totals } = rowsCalc;
   const needsAttention = attentionRows(rows);
@@ -425,7 +427,7 @@ export default function ProfitReportPage() {
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} /> : readonlyValue(cd.key, c, { D, U })}
+                        {cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
