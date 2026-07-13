@@ -42,6 +42,7 @@ const COLUMN_DEFS = [
 ];
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
 const LS_KEY = 'nenova_profitReport_visibleCols_v1';
+const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
 
 // 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
 function readonlyValue(key, obj, ctx) {
@@ -134,6 +135,33 @@ export default function ProfitReportPage() {
   const isVisible = key => visibleCols.includes(key);
   const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && isVisible(cd.key));
+
+  // ── 컬럼 프리셋 — 이름 붙여 여러 개 저장, 목록에서 골라 바로 전환
+  const [colPresets, setColPresets] = useState({}); // { 프리셋이름: [colKey, ...] }
+  const [newPresetName, setNewPresetName] = useState('');
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_PRESET_KEY) || 'null');
+      if (saved && typeof saved === 'object') setColPresets(saved);
+    } catch { /* 무시 */ }
+  }, []);
+  const savePreset = () => {
+    const name = newPresetName.trim();
+    if (!name) return;
+    setColPresets(prev => {
+      const next = { ...prev, [name]: visibleCols };
+      try { localStorage.setItem(LS_PRESET_KEY, JSON.stringify(next)); } catch { /* 저장 불가 환경 무시 */ }
+      return next;
+    });
+    setNewPresetName('');
+  };
+  const applyPreset = name => { if (colPresets[name]) setVisibleCols(colPresets[name]); };
+  const deletePreset = name => setColPresets(prev => {
+    const next = { ...prev };
+    delete next[name];
+    try { localStorage.setItem(LS_PRESET_KEY, JSON.stringify(next)); } catch { /* 저장 불가 환경 무시 */ }
+    return next;
+  });
 
   // ── 보기 모드: 카테고리별(기본, 편집가능) / 차수별(비교, 읽기전용+펼치기)
   const [viewMode, setViewMode] = useState('category');
@@ -360,7 +388,32 @@ export default function ProfitReportPage() {
                     {cd.label}
                   </label>
                 ))}
-                <button style={{ ...st.primaryBtn, width: '100%', marginTop: 6 }} onClick={() => setShowColPicker(false)}>닫기</button>
+
+                <div style={st.colPickerDivider} />
+                <div style={st.colPickerHead}><span>프리셋</span></div>
+                {Object.keys(colPresets).length === 0 && (
+                  <div style={{ fontSize: 11, color: '#94a3b8', padding: '2px 2px 6px' }}>저장된 프리셋이 없습니다</div>
+                )}
+                {Object.keys(colPresets).map(name => (
+                  <div key={name} style={st.presetRow}>
+                    <button style={st.presetApplyBtn} onClick={() => applyPreset(name)} title={`이 프리셋 적용 (${(colPresets[name] || []).length}개 컬럼)`}>
+                      ★ {name}
+                    </button>
+                    <button style={st.presetDelBtn} onClick={() => deletePreset(name)} title="프리셋 삭제">✕</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                  <input
+                    style={st.presetNameInput}
+                    value={newPresetName}
+                    onChange={e => setNewPresetName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') savePreset(); }}
+                    placeholder="새 프리셋 이름"
+                  />
+                  <button style={st.colPickerMiniBtn} onClick={savePreset} disabled={!newPresetName.trim()} title="지금 체크한 컬럼 구성을 이 이름으로 저장">저장</button>
+                </div>
+
+                <button style={{ ...st.primaryBtn, width: '100%', marginTop: 8 }} onClick={() => setShowColPicker(false)}>닫기</button>
               </div>
             )}
           </div>
@@ -586,6 +639,11 @@ const st = {
   colPickerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#334155', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' },
   colPickerMiniBtn: { background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '2px 7px', fontSize: 10, cursor: 'pointer' },
   colPickerRow: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#334155', padding: '3px 2px', cursor: 'pointer' },
+  colPickerDivider: { borderTop: '1px solid #e2e8f0', margin: '8px 0 6px' },
+  presetRow: { display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 },
+  presetApplyBtn: { flex: 1, textAlign: 'left', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5, padding: '4px 7px', fontSize: 12, color: '#334155', cursor: 'pointer' },
+  presetDelBtn: { background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', padding: '2px 5px' },
+  presetNameInput: { flex: 1, border: '1px solid #cbd5e1', borderRadius: 5, padding: '4px 7px', fontSize: 12, minWidth: 0 },
   embedPanel: { border: '2px solid #1d4ed8', borderRadius: 10, marginBottom: 12, overflow: 'hidden', background: '#fff' },
   embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
   embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
