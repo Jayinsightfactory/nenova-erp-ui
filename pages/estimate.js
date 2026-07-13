@@ -1707,8 +1707,12 @@ export default function Estimate() {
         week,
         custKey: selectedShip.CustKey,
       };
-      const cycleWeeks = [];
-      const cycleCountryFlowers = [];
+      // 2026-07-13: 확정된 차수에서 단가를 수정하면 확정해제→적용→재확정 사이클을 타야 하는데
+      // cycleWeeks 가 항상 빈 배열로 고정돼 있어서 이 사이클이 아예 동작하지 않던 버그.
+      // (서버 update-cost.js 의 확정차수 차단도 꺼져있어 직접 UPDATE는 "성공"하지만, 이후 재확정
+      //  시점에 값이 되돌아가는 것으로 관측됨 — 수량수정(applyQtyEdits)과 동일한 방식으로 수정.)
+      const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
+      const cycleCountryFlowers = getCountryFlowersForEditedItems(allItems);
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',

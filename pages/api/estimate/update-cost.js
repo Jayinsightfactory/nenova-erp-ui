@@ -139,7 +139,11 @@ export default withAuth(async function handler(req, res) {
         .filter(sk => smMap[sk].wasFixed && items.some(it => it.shipmentKey === sk && it.sdetailKey))
         .map(sk => smMap[sk].orderWeek)
         .filter(Boolean);
-      if (false && fixedWeeks.length > 0) {
+      // 2026-07-13: 재활성화 — 클라이언트(applyCostEdits)가 이제 확정 사이클을 제대로 태우므로
+      // (getFixCycleWeeksForEditedItems 로 cycleWeeks 산출), 이 서버측 차단은 사이클을 안 거치고
+      // 직접 호출된 경우를 막는 안전망. 꺼져있던 동안 확정된 차수에 단가가 "일단 저장"됐다가
+      // 재확정 시점에 값이 되돌아가는 문제가 있었음.
+      if (fixedWeeks.length > 0) {
         const err = new Error(
           `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
           `${[...new Set(fixedWeeks)].join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`
