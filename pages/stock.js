@@ -3,10 +3,22 @@ import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
 import { apiPost } from '../lib/useApi';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
+import { runEditWithFixCycle } from '../lib/fixCycleClient';
 
 const fmt  = n => Number(n || 0).toLocaleString();
 const fmtF = n => Number(n || 0) === 0 ? '—' : Number(n).toFixed(2);
 const ADJUST_TYPES = ['불량차감','검역차감','검수차감','기타차감','재고조정'];
+
+async function postAdjustBatch(payload) {
+  const res = await fetch('/api/stock/adjust-batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
+}
 
 export default function Stock() {
   const { t } = useLang();
@@ -22,6 +34,12 @@ export default function Stock() {
   const [successMsg, setSuccessMsg] = useState('');
   const [history, setHistory] = useState([]);
   const [histLoading, setHistLoading] = useState(false);
+
+  // ── 재고 일괄수정 (인라인 편집 → 전체적용)
+  const [edits, setEdits] = useState({});          // { ProdKey: 목표재고(number|'') }
+  const [applying, setApplying] = useState(false);
+  const [applyMsg, setApplyMsg] = useState('');
+  const [applyResults, setApplyResults] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -49,6 +67,63 @@ export default function Stock() {
   // exe stock calculation: previous/current ProductStock + in - out + StockHistory delta
   const calcStock = (s) => (s.prevStock || 0) + (s.inQty || 0) - (s.outQty || 0) + (s.adjustQty || 0);
   const calcPrevStock = (s) => s.prevStock || 0;
+
+  const isRowDirty = (s) => {
+    if (!(s.ProdKey in edits)) return false;
+    const v = edits[s.ProdKey];
+    if (v === '' || v === null || v === undefined || Number.isNaN(Number(v))) return false;
+    return Math.abs(Number(v) - calcStock(s)) > 0.0001;
+  };
+  const pendingCount = stock.filter(isRowDirty).length;
+
+  const applyAllEdits = async () => {
+    const week = weekInput.value;
+    if (!week) { alert('차수를 입력하세요.'); return; }
+    const list = stock.filter(isRowDirty).map(s => ({
+      prodKey: s.ProdKey,
+      prodName: s.ProdName,
+      before: calcStock(s),
+      afterStock: Number(edits[s.ProdKey]),
+    }));
+    if (list.length === 0) { alert('변경된 값이 없습니다.'); return; }
+    if (!confirm(
+      `[${week}] ${list.length}건을 적용하시겠습니까?\n\n` +
+      list.map(x => `${x.prodName}: ${fmtF(x.before)} → ${fmtF(x.afterStock)}`).join('\n')
+    )) return;
+
+    const editsPayload = list.map(({ prodKey, afterStock, prodName }) => ({
+      prodKey, afterStock, descr: `재고관리 일괄수정 (${prodName})`,
+    }));
+
+    setApplying(true); setApplyMsg('적용 중'); setApplyResults(null);
+    try {
+      let outcome = await postAdjustBatch({ week, edits: editsPayload });
+      if (!outcome.data.success && outcome.data.code === 'WEEK_FIXED') {
+        const cycleResult = await runEditWithFixCycle({
+          weeks: [week],
+          progress: setApplyMsg,
+          apply: async () => {
+            const r = await postAdjustBatch({ week, force: true, edits: editsPayload });
+            return r.data;
+          },
+        });
+        outcome = { data: cycleResult };
+      }
+      setApplyResults(outcome.data);
+      if (outcome.data?.success) {
+        setEdits({});
+        setSuccessMsg(`✅ 재고 일괄수정 완료 (${list.length}건)`);
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } else {
+        alert('일부 실패: ' + (outcome.data?.error || outcome.data?.message || '알 수 없는 오류'));
+      }
+      load();
+    } catch (e) {
+      alert('일괄수정 오류: ' + e.message);
+    } finally {
+      setApplying(false); setApplyMsg('');
+    }
+  };
 
   // 조정 등록 모달 열기 - 사진과 동일한 폼
   const openAdjust = (prod) => {
@@ -105,13 +180,33 @@ export default function Stock() {
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
           <button className="btn btn-secondary" onClick={()=>openAdjust(null)}>📝 조정등록</button>
+          <button className="btn btn-primary" onClick={applyAllEdits} disabled={pendingCount===0 || applying}
+            style={{background: pendingCount>0 ? undefined : 'var(--border)', opacity: pendingCount>0?1:0.6}}>
+            {applying ? `⏳ ${applyMsg||'적용 중'}` : `✅ 전체적용 (${pendingCount})`}
+          </button>
+          {pendingCount>0 && !applying && (
+            <button className="btn btn-secondary" onClick={()=>setEdits({})}>↩️ 편집 취소</button>
+          )}
           <button className="btn btn-secondary" onClick={handleExcel}>📊 엑셀 / Excel</button>
-          <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
+          <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : window.history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
 
       {err && <div style={{padding:'8px 14px',background:'var(--red-bg)',color:'var(--red)',borderRadius:8,marginBottom:10,fontSize:13}}>⚠️ {err}</div>}
       {successMsg && <div style={{padding:'8px 14px',background:'var(--green-bg)',color:'var(--green)',borderRadius:8,marginBottom:10,fontSize:13}}>{successMsg}</div>}
+      {pendingCount>0 && !applying && (
+        <div style={{padding:'8px 14px',background:'#fff9c4',color:'#8d6e00',borderRadius:8,marginBottom:10,fontSize:13}}>
+          ✏️ {pendingCount}건 재고 수정 대기 중 — 값을 다 고친 뒤 [전체적용]을 누르세요. 차수가 확정 상태면 자동으로 확정해제→적용→재확정합니다.
+        </div>
+      )}
+      {applyResults && !applying && (
+        <div style={{padding:'8px 14px',background: applyResults.success ? 'var(--green-bg)' : 'var(--red-bg)',
+          color: applyResults.success ? 'var(--green)' : 'var(--red)', borderRadius:8, marginBottom:10, fontSize:13,
+          display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <span>{applyResults.message || (applyResults.success ? '적용 완료' : '일부 실패')}</span>
+          <button className="btn btn-secondary btn-sm" onClick={()=>setApplyResults(null)}>✕</button>
+        </div>
+      )}
 
       <div className="split-panel">
         {/* 왼쪽: 재고 목록 */}
@@ -139,6 +234,8 @@ export default function Stock() {
                     : stock.map((s,i) => {
                       const stockQty = calcStock(s);
                       const prevStockQty = calcPrevStock(s);
+                      const dirty = isRowDirty(s);
+                      const cellVal = s.ProdKey in edits ? edits[s.ProdKey] : stockQty;
                       return (
                         <tr key={s.ProdKey} className={selectedIdx===i?'selected':''} onClick={()=>selectRow(i)} style={{cursor:'pointer'}}>
                           <td style={{fontSize:11}}>{s.CounName}</td>
@@ -149,7 +246,23 @@ export default function Stock() {
                           <td className="num" style={{color:'var(--blue)'}}>{s.inQty?fmtF(s.inQty):'—'}</td>
                           <td className="num">{s.outQty?fmtF(s.outQty):'—'}</td>
                           <td className="num" style={{color:'var(--amber)'}}>{s.adjustQty?fmtF(s.adjustQty):'—'}</td>
-                          <td className="num" style={{fontWeight:700,color:stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)'}}>{fmtF(stockQty)}</td>
+                          <td className="num" style={{padding:'2px 4px'}} onClick={e=>e.stopPropagation()}>
+                            <input
+                              type="number"
+                              value={cellVal}
+                              onChange={e => {
+                                const v = e.target.value;
+                                setEdits(prev => ({ ...prev, [s.ProdKey]: v === '' ? '' : parseFloat(v) }));
+                              }}
+                              disabled={applying}
+                              style={{
+                                width: 78, textAlign:'right', fontSize:12, fontWeight:700, padding:'3px 5px',
+                                border: `1px solid ${dirty ? '#f9a825' : 'var(--border)'}`, borderRadius:4,
+                                background: dirty ? '#fffde7' : 'transparent',
+                                color: stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)',
+                              }}
+                            />
+                          </td>
                         </tr>
                       );
                     })}

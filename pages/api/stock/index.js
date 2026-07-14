@@ -177,6 +177,15 @@ async function adjustStock(req, res) {
         }
       );
 
+      // nenova.exe FormStockAdd.btnSave_Click 과 동일 순서 — usp_StockCalculation은 ProductStock
+      // (차수별 스냅샷)만 갱신하고 Product.Stock은 절대 건드리지 않는다(SP 본문 직접 확인, 2026-07-14).
+      // 이 UPDATE가 빠지면 exe 재고조정 화면 "현재고"·확정검증(negativeLiveCount)이 웹 조정을 못 보고
+      // 옛 값 기준으로 계속 동작한다 — 이 파일 최초 작성 시점부터 있던 사전 존재 버그였음.
+      await tQuery(
+        `UPDATE Product SET Stock = ROUND(@after, 2) WHERE ProdKey = @pk`,
+        { after: { type: sql.Float, value: after }, pk: { type: sql.Int, value: pk } }
+      );
+
       await tQuery(
         stockCalculationSql(),
         {
