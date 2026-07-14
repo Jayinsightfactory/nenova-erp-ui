@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
-import { apiPost } from '../lib/useApi';
+import { apiPost, apiGet } from '../lib/useApi';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 import { runEditWithFixCycle } from '../lib/fixCycleClient';
@@ -41,6 +41,12 @@ export default function Stock() {
   const [applyMsg, setApplyMsg] = useState('');
   const [applyResults, setApplyResults] = useState(null);
 
+  // ── 차수별 재고 피벗 + 품종 그룹 접기
+  const [pivotOn, setPivotOn] = useState(false);
+  const [pivotData, setPivotData] = useState(null);   // { weeks: ['26-01',...], stocks: { ProdKey: { '26-01': n } } }
+  const [pivotLoading, setPivotLoading] = useState(false);
+  const [collapsed, setCollapsed] = useState(new Set()); // 접힌 품종그룹 키
+
   const load = () => {
     setLoading(true);
     apiGetExe('/api/stock', { week: weekInput.value, prodName: search })
@@ -49,7 +55,29 @@ export default function Stock() {
       .finally(() => setLoading(false));
   };
 
+  const loadPivot = () => {
+    if (!weekInput.value) return;
+    setPivotLoading(true);
+    apiGet('/api/stock', { type: 'weekPivot', week: weekInput.value })
+      .then(d => setPivotData({ weeks: d.weeks || [], stocks: d.stocks || {} }))
+      .catch(e => { setErr(e.message); setPivotData(null); })
+      .finally(() => setPivotLoading(false));
+  };
+
   useEffect(() => { if (weekInput.value) load(); }, [weekInput.value]);
+  useEffect(() => { if (pivotOn) loadPivot(); }, [pivotOn, weekInput.value]);
+
+  // 조회 차수(짧은 형식 '28-01') — 피벗의 마지막 열은 현재 라이브 계산이라 스냅샷 열에서 제외
+  const curWeekShort = String(weekInput.value || '').replace(/^\d{4}-/, '');
+  const pastWeeks = pivotOn && pivotData ? pivotData.weeks.filter(w => w !== curWeekShort) : [];
+  const groupKeyOf = (s) => `${s.CounName || '기타'} · ${s.FlowerName || '기타'}`;
+  const colCount = pivotOn ? 4 + pastWeeks.length + 1 : 9;
+
+  const toggleGroup = (k) => setCollapsed(prev => {
+    const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
+  });
+  const collapseAll = () => setCollapsed(new Set(stock.map(groupKeyOf)));
+  const expandAll = () => setCollapsed(new Set());
 
   const selectRow = (i) => {
     setSelectedIdx(i);
@@ -179,6 +207,9 @@ export default function Stock() {
           onKeyDown={e=>e.key==='Enter'&&load()} />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
+          <button className={pivotOn?'btn btn-primary':'btn btn-secondary'} onClick={()=>setPivotOn(v=>!v)}>
+            {pivotLoading ? '⏳ 차수별 재고' : '📅 차수별 재고'}
+          </button>
           <button className="btn btn-secondary" onClick={()=>openAdjust(null)}>📝 조정등록</button>
           <button className="btn btn-primary" onClick={applyAllEdits} disabled={pendingCount===0 || applying}
             style={{background: pendingCount>0 ? undefined : 'var(--border)', opacity: pendingCount>0?1:0.6}}>
@@ -208,62 +239,106 @@ export default function Stock() {
         </div>
       )}
 
-      <div className="split-panel">
-        {/* 왼쪽: 재고 목록 */}
+      <div className={selected ? 'split-panel' : ''}>
+        {/* 왼쪽: 재고 목록 — 품목 미선택 시 전체 폭 */}
         <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
           <div className="card-header">
             <span className="card-title">재고 목록</span>
-            <span style={{fontSize:12,color:'var(--text3)'}}>{stock.length}개</span>
+            <span style={{display:'flex',gap:6,alignItems:'center'}}>
+              <button className="btn btn-secondary btn-sm" onClick={collapseAll}>▸ 전체 접기</button>
+              <button className="btn btn-secondary btn-sm" onClick={expandAll}>▾ 전체 펼치기</button>
+              <span style={{fontSize:12,color:'var(--text3)'}}>{stock.length}개</span>
+            </span>
           </div>
-          <div style={{overflowY:'auto',flex:1}}>
+          <div style={{overflowY:'auto',overflowX:'auto',flex:1}}>
             {loading ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div> : (
               <table className="tbl">
                 <thead>
                   <tr>
                     <th>국가</th><th>꽃</th><th>품목명(색상)</th><th>단위</th>
-                    <th style={{textAlign:'right',color:'var(--text3)'}}>전 차수 재고</th>
-                    <th style={{textAlign:'right',color:'var(--blue)'}}>현 차수 입고</th>
-                    <th style={{textAlign:'right'}}>현 차수 출고</th>
-                    <th style={{textAlign:'right',color:'var(--amber)'}}>현 차수 조정</th>
-                    <th style={{textAlign:'right',color:'var(--green)'}}>재고수량</th>
+                    {pivotOn ? (
+                      <>
+                        {pastWeeks.map(w => (
+                          <th key={w} style={{textAlign:'right',color:'var(--text3)',whiteSpace:'nowrap'}}>{w} 재고</th>
+                        ))}
+                        <th style={{textAlign:'right',color:'var(--green)',whiteSpace:'nowrap'}}>{curWeekShort} 재고(수정)</th>
+                      </>
+                    ) : (
+                      <>
+                        <th style={{textAlign:'right',color:'var(--text3)'}}>전 차수 재고</th>
+                        <th style={{textAlign:'right',color:'var(--blue)'}}>현 차수 입고</th>
+                        <th style={{textAlign:'right'}}>현 차수 출고</th>
+                        <th style={{textAlign:'right',color:'var(--amber)'}}>현 차수 조정</th>
+                        <th style={{textAlign:'right',color:'var(--green)'}}>재고수량</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {stock.length === 0
-                    ? <tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음 — 조회 버튼을 클릭하세요</td></tr>
+                    ? <tr><td colSpan={colCount} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음 — 조회 버튼을 클릭하세요</td></tr>
                     : stock.map((s,i) => {
+                      const gk = groupKeyOf(s);
+                      const isFirstOfGroup = i === 0 || groupKeyOf(stock[i-1]) !== gk;
+                      const groupHeader = isFirstOfGroup ? (
+                        <tr key={`g-${gk}`} onClick={()=>toggleGroup(gk)}
+                          style={{cursor:'pointer',background:'var(--bg)',borderTop:'2px solid var(--border2)'}}>
+                          <td colSpan={colCount} style={{fontSize:12,fontWeight:800,padding:'5px 8px',color:'var(--text2)'}}>
+                            {collapsed.has(gk) ? '▸' : '▾'} {gk}
+                            <span style={{fontWeight:400,color:'var(--text3)',marginLeft:6}}>
+                              ({stock.filter(x=>groupKeyOf(x)===gk).length}개)
+                            </span>
+                          </td>
+                        </tr>
+                      ) : null;
+                      if (collapsed.has(gk)) return groupHeader ? <Fragment key={s.ProdKey}>{groupHeader}</Fragment> : null;
+
                       const stockQty = calcStock(s);
                       const prevStockQty = calcPrevStock(s);
                       const dirty = isRowDirty(s);
                       const cellVal = s.ProdKey in edits ? edits[s.ProdKey] : stockQty;
+                      const pv = pivotOn && pivotData ? (pivotData.stocks[s.ProdKey] || {}) : {};
                       return (
-                        <tr key={s.ProdKey} className={selectedIdx===i?'selected':''} onClick={()=>selectRow(i)} style={{cursor:'pointer'}}>
-                          <td style={{fontSize:11}}>{s.CounName}</td>
-                          <td style={{fontSize:11}}>{s.FlowerName}</td>
-                          <td style={{fontSize:12}}>{s.ProdName}</td>
-                          <td style={{fontSize:11,color:'var(--text3)'}}>{s.OutUnit}</td>
-                          <td className="num" style={{color:'var(--text3)'}}>{prevStockQty!==0?fmtF(prevStockQty):'—'}</td>
-                          <td className="num" style={{color:'var(--blue)'}}>{s.inQty?fmtF(s.inQty):'—'}</td>
-                          <td className="num">{s.outQty?fmtF(s.outQty):'—'}</td>
-                          <td className="num" style={{color:'var(--amber)'}}>{s.adjustQty?fmtF(s.adjustQty):'—'}</td>
-                          <td className="num" style={{padding:'2px 4px'}} onClick={e=>e.stopPropagation()}>
-                            <input
-                              type="number"
-                              value={cellVal}
-                              onChange={e => {
-                                const v = e.target.value;
-                                setEdits(prev => ({ ...prev, [s.ProdKey]: v === '' ? '' : parseFloat(v) }));
-                              }}
-                              disabled={applying}
-                              style={{
-                                width: 78, textAlign:'right', fontSize:12, fontWeight:700, padding:'3px 5px',
-                                border: `1px solid ${dirty ? '#f9a825' : 'var(--border)'}`, borderRadius:4,
-                                background: dirty ? '#fffde7' : 'transparent',
-                                color: stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)',
-                              }}
-                            />
-                          </td>
-                        </tr>
+                        <Fragment key={s.ProdKey}>
+                          {groupHeader}
+                          <tr className={selectedIdx===i?'selected':''} onClick={()=>selectRow(i)} style={{cursor:'pointer'}}>
+                            <td style={{fontSize:11}}>{s.CounName}</td>
+                            <td style={{fontSize:11}}>{s.FlowerName}</td>
+                            <td style={{fontSize:12}}>{s.ProdName}</td>
+                            <td style={{fontSize:11,color:'var(--text3)'}}>{s.OutUnit}</td>
+                            {pivotOn ? (
+                              pastWeeks.map(w => (
+                                <td key={w} className="num" style={{color:(pv[w]||0)<0?'var(--red)':'var(--text2)'}}>
+                                  {pv[w] != null && pv[w] !== 0 ? fmtF(pv[w]) : '—'}
+                                </td>
+                              ))
+                            ) : (
+                              <>
+                                <td className="num" style={{color:'var(--text3)'}}>{prevStockQty!==0?fmtF(prevStockQty):'—'}</td>
+                                <td className="num" style={{color:'var(--blue)'}}>{s.inQty?fmtF(s.inQty):'—'}</td>
+                                <td className="num">{s.outQty?fmtF(s.outQty):'—'}</td>
+                                <td className="num" style={{color:'var(--amber)'}}>{s.adjustQty?fmtF(s.adjustQty):'—'}</td>
+                              </>
+                            )}
+                            <td className="num" style={{padding:'2px 4px'}} onClick={e=>e.stopPropagation()}>
+                              <input
+                                type="number"
+                                value={cellVal}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setEdits(prev => ({ ...prev, [s.ProdKey]: v === '' ? '' : parseFloat(v) }));
+                                }}
+                                disabled={applying}
+                                style={{
+                                  width: 78, textAlign:'right', fontSize:12, fontWeight:700, padding:'3px 5px',
+                                  border: `1px solid ${dirty ? '#f9a825' : 'var(--border)'}`, borderRadius:4,
+                                  background: dirty ? '#fffde7' : 'transparent',
+                                  color: stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)',
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        </Fragment>
                       );
                     })}
                 </tbody>
@@ -272,7 +347,8 @@ export default function Stock() {
           </div>
         </div>
 
-        {/* 오른쪽: 재고 입/출고 내역 */}
+        {/* 오른쪽: 재고 입/출고 내역 — 품목 선택 시에만 표시 */}
+        {selected && (
         <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
           <div className="card-header">
             <span className="card-title">재고 입/출고 내역</span>
@@ -280,6 +356,7 @@ export default function Stock() {
               <span style={{display:'flex',gap:6,alignItems:'center'}}>
                 <span style={{fontSize:12,color:'var(--blue)',fontWeight:600}}>{selected.ProdName}</span>
                 <button className="btn btn-secondary btn-sm" onClick={()=>openAdjust(selected)}>📝 조정등록</button>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setSelectedIdx(null)}>✕ 닫기</button>
               </span>
             )}
           </div>
@@ -330,10 +407,9 @@ export default function Stock() {
                   </table>
               }
             </div>
-          ) : (
-            <div className="empty-state"><div className="empty-icon">📦</div><div className="empty-text">왼쪽에서 품목을 선택하세요</div></div>
-          )}
+          ) : null}
         </div>
+        )}
       </div>
 
       {/* 재고 조정 등록 모달 — 사진과 동일 */}
