@@ -79,10 +79,32 @@ export default function Stock() {
   const collapseAll = () => setCollapsed(new Set(stock.map(groupKeyOf)));
   const expandAll = () => setCollapsed(new Set());
 
-  const selectRow = (i) => {
-    setSelectedIdx(i);
-    const s = stock[i];
+  // ── 품종(국가·꽃) 칩 필터 — 선택 없음 = 전체 표시
+  const [selCoun, setSelCoun] = useState(new Set());
+  const [selFlower, setSelFlower] = useState(new Set());
+  const counList = [...new Set(stock.map(s => s.CounName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const flowerList = [...new Set(stock
+    .filter(s => selCoun.size === 0 || selCoun.has(s.CounName))
+    .map(s => s.FlowerName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const toggleSet = (setter) => (v) => setter(prev => {
+    const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n;
+  });
+  const toggleCoun = toggleSet(setSelCoun);
+  const toggleFlower = toggleSet(setSelFlower);
+  const visibleStock = stock.filter(s =>
+    (selCoun.size === 0 || selCoun.has(s.CounName)) &&
+    (selFlower.size === 0 || selFlower.has(s.FlowerName)));
+  const chipStyle = (active) => ({
+    padding:'2px 9px', borderRadius:12, border:'1px solid', fontSize:11, cursor:'pointer',
+    fontWeight: active?700:400,
+    borderColor: active?'var(--blue)':'var(--border)',
+    background: active?'var(--blue)':'var(--surface)',
+    color: active?'#fff':'var(--text2)',
+  });
+
+  const selectRow = (s) => {
     if (!s) return;
+    setSelectedIdx(stock.findIndex(x => x.ProdKey === s.ProdKey));
     setHistLoading(true);
     apiGetExe('/api/stock', { type: 'history', week: weekInput.value, prodKey: s.ProdKey })
       .then(d => setHistory(d.history || []))
@@ -239,6 +261,26 @@ export default function Stock() {
         </div>
       )}
 
+      {/* 품종 칩 필터 — 선택 없음 = 전체 */}
+      {stock.length > 0 && (
+        <div style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',marginBottom:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:5}}>
+            <span style={{fontSize:11,fontWeight:700,color:'var(--text3)',whiteSpace:'nowrap'}}>국가</span>
+            <button style={chipStyle(selCoun.size===0)} onClick={()=>{setSelCoun(new Set());setSelFlower(new Set());}}>전체</button>
+            {counList.map(c => (
+              <button key={c} style={chipStyle(selCoun.has(c))} onClick={()=>toggleCoun(c)}>{c}</button>
+            ))}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+            <span style={{fontSize:11,fontWeight:700,color:'var(--text3)',whiteSpace:'nowrap'}}>품종</span>
+            <button style={chipStyle(selFlower.size===0)} onClick={()=>setSelFlower(new Set())}>전체</button>
+            {flowerList.map(f => (
+              <button key={f} style={chipStyle(selFlower.has(f))} onClick={()=>toggleFlower(f)}>{f}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={selected ? 'split-panel' : ''}>
         {/* 왼쪽: 재고 목록 — 품목 미선택 시 전체 폭 */}
         <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
@@ -247,7 +289,9 @@ export default function Stock() {
             <span style={{display:'flex',gap:6,alignItems:'center'}}>
               <button className="btn btn-secondary btn-sm" onClick={collapseAll}>▸ 전체 접기</button>
               <button className="btn btn-secondary btn-sm" onClick={expandAll}>▾ 전체 펼치기</button>
-              <span style={{fontSize:12,color:'var(--text3)'}}>{stock.length}개</span>
+              <span style={{fontSize:12,color:'var(--text3)'}}>
+                {visibleStock.length !== stock.length ? `${visibleStock.length} / ` : ''}{stock.length}개
+              </span>
             </span>
           </div>
           <div style={{overflowY:'auto',overflowX:'auto',flex:1}}>
@@ -275,18 +319,20 @@ export default function Stock() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stock.length === 0
-                    ? <tr><td colSpan={colCount} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음 — 조회 버튼을 클릭하세요</td></tr>
-                    : stock.map((s,i) => {
+                  {visibleStock.length === 0
+                    ? <tr><td colSpan={colCount} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>
+                        {stock.length === 0 ? '데이터 없음 — 조회 버튼을 클릭하세요' : '선택한 품종에 해당하는 품목 없음'}
+                      </td></tr>
+                    : visibleStock.map((s,i) => {
                       const gk = groupKeyOf(s);
-                      const isFirstOfGroup = i === 0 || groupKeyOf(stock[i-1]) !== gk;
+                      const isFirstOfGroup = i === 0 || groupKeyOf(visibleStock[i-1]) !== gk;
                       const groupHeader = isFirstOfGroup ? (
                         <tr key={`g-${gk}`} onClick={()=>toggleGroup(gk)}
                           style={{cursor:'pointer',background:'var(--bg)',borderTop:'2px solid var(--border2)'}}>
                           <td colSpan={colCount} style={{fontSize:12,fontWeight:800,padding:'5px 8px',color:'var(--text2)'}}>
                             {collapsed.has(gk) ? '▸' : '▾'} {gk}
                             <span style={{fontWeight:400,color:'var(--text3)',marginLeft:6}}>
-                              ({stock.filter(x=>groupKeyOf(x)===gk).length}개)
+                              ({visibleStock.filter(x=>groupKeyOf(x)===gk).length}개)
                             </span>
                           </td>
                         </tr>
@@ -301,7 +347,7 @@ export default function Stock() {
                       return (
                         <Fragment key={s.ProdKey}>
                           {groupHeader}
-                          <tr className={selectedIdx===i?'selected':''} onClick={()=>selectRow(i)} style={{cursor:'pointer'}}>
+                          <tr className={selected?.ProdKey===s.ProdKey?'selected':''} onClick={()=>selectRow(s)} style={{cursor:'pointer'}}>
                             <td style={{fontSize:11}}>{s.CounName}</td>
                             <td style={{fontSize:11}}>{s.FlowerName}</td>
                             <td style={{fontSize:12}}>{s.ProdName}</td>
