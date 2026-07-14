@@ -117,7 +117,11 @@ export default withAuth(async function handler(req, res) {
       const row = cur.recordset[0];
       const detailFixed = Number(row.detailIsFix || 0) === 1;
       if (detailFixed) {
-        throw new Error(`[${row.OrderWeek}] 확정된 차수입니다. 먼저 확정취소 후 수량을 수정하세요.`);
+        // 2026-07-14: 코드 부여 — 클라이언트(applyQtyEdits)가 이 코드를 보고
+        // 자동 확정해제→적용→재확정 사이클을 태운다 (단가수정과 동일 패턴)
+        const err = new Error(`[${row.OrderWeek}] 확정된 차수입니다. 먼저 확정취소 후 수량을 수정하세요.`);
+        err.code = 'FIXED_WEEK';
+        throw err;
       }
 
       const oldQuantity = unit === '단'

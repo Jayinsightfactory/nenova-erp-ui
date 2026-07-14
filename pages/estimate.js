@@ -1555,52 +1555,60 @@ export default function Estimate() {
 
       if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
 
-      const shipmentPending = pending.filter(p => !p.isEstimate);
-      const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentPending.map(p => p.item), selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentPending.map(p => p.item));
-      const cycleStockProdKeys = getProdKeysForEditedItems(shipmentPending.map(p => p.item));
-      if (cycleWeeks.length > 0) {
+      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 한 행만 사이클 후 재시도"
+      //   (단가수정과 동일 패턴). 미확정 행은 즉시 저장되고, 진짜 확정된 행만 자동 확정해제→재확정을
+      //   탄다. 이미 저장된 행은 재시도하지 않아 STALE_DATA 오탐도 없다.
+      const postOneQty = async (p) => {
         setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+          step: 'save',
+          label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
         }]);
-      }
-
-      const runQuantityUpdate = async () => {
-        return await runLimited(pending, 4, async (p) => {
-          setCostApplyLog(prev => [...prev, {
-            step: 'save',
-            label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
-          }]);
-          const r = await fetch('/api/estimate/update-quantity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-              sdetailKey: p.isEstimate ? undefined : p.keyNumber,
-              estimateKey: p.isEstimate ? p.keyNumber : undefined,
-              shipmentKey: p.item.ShipmentKey,
-              quantity: p.newQty,
-              unit: p.item.Unit,
-              expectedOldQuantity: p.oldQty,
-            }),
-          });
-          const d = await r.json();
-          const result = { key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error };
-          if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
-          return result;
+        const r = await fetch('/api/estimate/update-quantity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            sdetailKey: p.isEstimate ? undefined : p.keyNumber,
+            estimateKey: p.isEstimate ? p.keyNumber : undefined,
+            shipmentKey: p.item.ShipmentKey,
+            quantity: p.newQty,
+            unit: p.item.Unit,
+            expectedOldQuantity: p.oldQty,
+          }),
         });
+        const d = await r.json();
+        return {
+          key: p.keyNumber, ok: d.success, code: d.code,
+          oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error,
+          pendingRef: p,
+        };
       };
 
-      const results = cycleWeeks.length > 0
-        ? await runEditWithFixCycle({
-            weeks: cycleWeeks,
-            countryFlowers: cycleCountryFlowers,
-            stockProdKeys: cycleStockProdKeys,
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply: runQuantityUpdate,
-          })
-        : await runQuantityUpdate();
+      // 1차: 전 행 직접 저장 (실패해도 수집만 — 행 단위 독립)
+      const firstPass = await runLimited(pending, 4, postOneQty);
+      let results = firstPass;
+
+      // FIXED_WEEK 로 거절된 행만 자동 사이클 후 재시도
+      const fixedFails = firstPass.filter(r => !r.ok && r.code === 'FIXED_WEEK');
+      if (fixedFails.length > 0) {
+        const fixedPending = fixedFails.map(r => r.pendingRef);
+        const cycleWeeks = getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip);
+        const cycleCountryFlowers = getCountryFlowersForEditedItems(fixedPending.map(p => p.item));
+        const cycleStockProdKeys = getProdKeysForEditedItems(fixedPending.map(p => p.item));
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정된 상세 ${fixedFails.length}건 감지 → 자동 확정 사이클: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+        }]);
+        const retryResults = await runEditWithFixCycle({
+          weeks: cycleWeeks,
+          countryFlowers: cycleCountryFlowers,
+          stockProdKeys: cycleStockProdKeys,
+          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+          apply: async () => await runLimited(fixedPending, 4, postOneQty),
+        });
+        // pendingRef 객체 identity 로 매핑 (keyNumber 는 est/sd 간 충돌 가능)
+        results = firstPass.map(r => retryResults.find(x => x.pendingRef === r.pendingRef) || r);
+      }
 
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
