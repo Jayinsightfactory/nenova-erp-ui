@@ -168,29 +168,39 @@ export default withAuth(async function handler(req, res) {
       //   시점에 되돌아가는 단위는 상세행이므로, 상세가 미확정이면 직접 수정해도 안전하다.
       const sdItems = items.filter(it => it.sdetailKey);
       let fixedWeeks = [];
+      let fixedCategories = [];
       if (sdItems.length > 0) {
         const sdkParams = {};
         sdItems.forEach((it, i) => { sdkParams[`sdk${i}`] = { type: sql.Int, value: it.sdetailKey }; });
+        // 카테고리 라벨은 fix API 의 countryFlowerLabelSql 과 동일 규칙 — 클라이언트가
+        // 이 목록을 그대로 확정 사이클의 countryFlowers 로 쓴다 (화면 아이템의 CountryFlower
+        // 누락으로 스코프가 빠져 사이클이 헛돌던 2026-07-14 신고 대응)
         const fixedRows = await tQ(
-          `SELECT DISTINCT sm.OrderWeek
+          `SELECT DISTINCT sm.OrderWeek,
+                  ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CountryFlower, N''))), N''),
+                    ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CounName, N''))), N''),
+                      ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.FlowerName, N''))), N''), N'(분류없음)'))) AS CategoryLabel
              FROM ShipmentDetail sd
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+             JOIN Product p ON p.ProdKey = sd.ProdKey
             WHERE sd.SdetailKey IN (${sdItems.map((_, i) => `@sdk${i}`).join(',')})
               AND ISNULL(sd.isFix, 0) = 1`,
           sdkParams
         );
-        fixedWeeks = fixedRows.recordset.map(r => r.OrderWeek).filter(Boolean);
+        fixedWeeks = [...new Set(fixedRows.recordset.map(r => r.OrderWeek).filter(Boolean))];
+        fixedCategories = [...new Set(fixedRows.recordset.map(r => r.CategoryLabel).filter(Boolean))];
       }
       if (fixedWeeks.length > 0) {
         // 진단 로그 (트랜잭션 밖 fire-and-forget) — 클라이언트 자동 사이클이 뒤따르는지 AppLog 로 추적
         logCostGuard('fixed_week_block',
-          `uid=${uid} weeks=${[...new Set(fixedWeeks)].join(',')} sdks=${sdItems.map(it => it.sdetailKey).join(',').slice(0, 300)}`);
+          `uid=${uid} weeks=${fixedWeeks.join(',')} cats=${fixedCategories.join(',')} sdks=${sdItems.map(it => it.sdetailKey).join(',').slice(0, 300)}`);
         const err = new Error(
           `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
-          `${[...new Set(fixedWeeks)].join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`
+          `${fixedWeeks.join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`
         );
         err.code = 'FIXED_WEEK';
-        err.fixedWeeks = [...new Set(fixedWeeks)];
+        err.fixedWeeks = fixedWeeks;
+        err.fixedCategories = fixedCategories;
         throw err;
       }
 
@@ -426,6 +436,7 @@ export default withAuth(async function handler(req, res) {
         code: 'FIXED_WEEK',
         error: err.message,
         fixedWeeks: err.fixedWeeks || [],
+        fixedCategories: err.fixedCategories || [],
       });
     }
     return res.status(500).json({ success: false, error: err.message });

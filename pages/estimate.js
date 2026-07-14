@@ -1590,6 +1590,7 @@ export default function Estimate() {
         return {
           key: p.keyNumber, ok: d.success, code: d.code,
           oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error,
+          fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [],
           pendingRef: p,
         };
       };
@@ -1602,8 +1603,15 @@ export default function Estimate() {
       const fixedFails = firstPass.filter(r => !r.ok && r.code === 'FIXED_WEEK');
       if (fixedFails.length > 0) {
         const fixedPending = fixedFails.map(r => r.pendingRef);
-        const cycleWeeks = getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip);
-        const cycleCountryFlowers = getCountryFlowersForEditedItems(fixedPending.map(p => p.item));
+        // 서버가 알려준 확정 차수/카테고리(DB 기준)를 합집합 — 화면 아이템의 필드 누락과 무관하게 스코프 정확
+        const cycleWeeks = sortWeeksAsc([
+          ...getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip),
+          ...fixedFails.flatMap(r => r.fixedWeeks),
+        ]);
+        const cycleCountryFlowers = [...new Set([
+          ...getCountryFlowersForEditedItems(fixedPending.map(p => p.item)),
+          ...fixedFails.flatMap(r => r.fixedCategories),
+        ])];
         const cycleStockProdKeys = getProdKeysForEditedItems(fixedPending.map(p => p.item));
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1757,6 +1765,8 @@ export default function Estimate() {
               `확정해제 후 저장/재확정 과정에서 다시 확정된 데이터가 감지되었습니다.`
             );
             fixedErr.isFixedWeek = true;
+            fixedErr.fixedWeeks = d.fixedWeeks || [];
+            fixedErr.fixedCategories = d.fixedCategories || [];
             throw fixedErr;
           }
           if (d.code === 'STALE_DATA') {
@@ -1778,14 +1788,19 @@ export default function Estimate() {
       try {
         d = await postCostUpdate();
       } catch (firstErr) {
-        if (!firstErr.isFixedWeek || cycleWeeks.length === 0) throw firstErr;
+        // 2026-07-14: 사이클 스코프는 서버가 알려준 "실제 확정된 차수/카테고리"를 합집합으로 사용.
+        //   화면 아이템의 OrderWeek/CountryFlower 누락(차감류 null 차수, 중국장미 등 카테고리 공백)으로
+        //   스코프가 빠지면 해당 카테고리가 안 풀려 저장이 다시 FIXED_WEEK 로 실패하던 문제 대응.
+        const effWeeks = sortWeeksAsc([...cycleWeeks, ...(firstErr.fixedWeeks || [])]);
+        const effCats = [...new Set([...cycleCountryFlowers, ...(firstErr.fixedCategories || [])])];
+        if (!firstErr.isFixedWeek || effWeeks.length === 0) throw firstErr;
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: `확정된 상세 감지 → 자동 확정 사이클: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+          label: `확정된 상세 감지 → 자동 확정 사이클: ${sortWeeksDesc(effWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(effWeeks).join(' 확정 → ')} 확정${effCats.length ? ` / 카테고리 ${effCats.join(', ')}` : ''}`,
         }]);
         d = await runEditWithFixCycle({
-          weeks: cycleWeeks,
-          countryFlowers: cycleCountryFlowers,
+          weeks: effWeeks,
+          countryFlowers: effCats,
           stockProdKeys: [],
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
           apply: postCostUpdate,
