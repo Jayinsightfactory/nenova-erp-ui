@@ -9,8 +9,11 @@ const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocal
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
 const dateStr = v => (v ? String(v).slice(0, 10) : '');
 
-// 행 계산 — 매입액/이익/분배 (매입단가 미입력 행은 null)
+// 행 계산 — 매입액/이익/분배 (매입단가 미입력 행은 null, 사입 행은 손익 제외)
 function computeItemRow(it, nenovaPct) {
+  if (it.consigned) {
+    return { costAmount: null, profit: null, rate: null, nenova: null, miu: null, consigned: true };
+  }
   const cost = it.costPrice != null && it.costPrice !== '' ? Number(it.costPrice) : null;
   const costAmount = cost != null ? cost * Number(it.qty || 0) : null;
   const sale = Number(it.supply || 0);
@@ -25,18 +28,27 @@ function computeItemRow(it, nenovaPct) {
   };
 }
 
+// 합계 — 매출(sale)은 사입 포함(견적서와 일치), 손익(cost/profit/분배)은 사입 제외.
+// 이익율 분모 = 손익대상 매출(pnlSale = 전체 - 사입)
 function computeTotals(items, nenovaPct) {
-  let sale = 0; let cost = 0; let missing = 0;
+  let sale = 0; let consignedSale = 0; let consignedCnt = 0; let cost = 0; let missing = 0;
   for (const it of items) {
-    sale += Number(it.supply || 0);
+    const supply = Number(it.supply || 0);
+    sale += supply;
+    if (it.consigned) {
+      consignedSale += supply;
+      consignedCnt += 1;
+      continue;
+    }
     const r = computeItemRow(it, nenovaPct);
     if (r.costAmount == null) missing += 1;
     else cost += r.costAmount;
   }
-  const profit = sale - cost;
+  const pnlSale = sale - consignedSale;
+  const profit = pnlSale - cost;
   return {
-    sale, cost, missing, profit,
-    rate: sale > 0 ? profit / sale : null,
+    sale, consignedSale, consignedCnt, pnlSale, cost, missing, profit,
+    rate: pnlSale > 0 ? profit / pnlSale : null,
     nenova: profit * (nenovaPct / 100),
     miu: profit * ((100 - nenovaPct) / 100),
   };
@@ -77,23 +89,28 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   const nen = Number(meta.nenovaPct);
   const rows = items.map((it, i) => {
     const r = computeItemRow(it, nen);
-    return `<tr>
+    const costCell = it.consigned ? '<span style="color:#888">사입</span>'
+      : (it.costPrice != null ? fmt1(it.costPrice) : '<span class="missing">미입력</span>');
+    return `<tr${it.consigned ? ' style="background:#f3f4f6;color:#555"' : ''}>
       <td class="ctr">${i + 1}</td>
-      <td>${it.name}</td>
+      <td>${it.name}${it.consigned ? ' <small>(사입)</small>' : ''}</td>
       <td class="ctr">${it.unit || ''}</td>
       ${branches.map(b => `<td class="num">${fmt(it.byBranch?.[b])}</td>`).join('')}
       <td class="num">${fmt(it.qty)}</td>
-      <td class="num">${it.costPrice != null ? fmt1(it.costPrice) : '<span class="missing">미입력</span>'}</td>
+      <td class="num">${costCell}</td>
       <td class="num">${fmt(r.costAmount)}</td>
       <td class="num">${fmt1(it.price)}</td>
       <td class="num">${fmt(it.supply)}</td>
-      <td class="num">${fmt(r.profit)}</td>
+      <td class="num">${it.consigned ? '—' : fmt(r.profit)}</td>
       <td class="num">${pct(r.rate)}</td>
       <td class="num">${fmt(r.nenova)}</td>
       <td class="num">${fmt(r.miu)}</td>
     </tr>`;
   }).join('');
   const missingNote = totals.missing > 0 ? `<div class="note missing">⚠ 매입단가 미입력 품목 ${totals.missing}건 — 총매입/이익은 입력된 품목만 합산된 값입니다.</div>` : '';
+  const consignedNote = totals.consignedSale > 0
+    ? `<div class="note">사입(원산지 없음) ${totals.consignedCnt}건 매출 ${fmt(totals.consignedSale)}원 — 매출액 합계에는 포함, 손익(매입·이익·분배) 계산에서는 제외. 이익율 분모는 손익대상 매출 ${fmt(totals.pnlSale)}원.</div>`
+    : '';
   return `<!doctype html><html><head><meta charset="utf-8"><title>${meta.title}</title><style>${PRINT_CSS}</style></head><body>
     <h1>${meta.title} 손익계산서</h1>
     <div class="sub">견적일 ${dateStr(meta.quoteDate) || '-'} · 순익분배 네노바 ${nen}% : 미우 ${100 - nen}% · VAT 별도</div>
@@ -121,14 +138,22 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
       </tbody>
     </table>
     ${meta.note ? `<div class="note"><b>특이사항</b> ${meta.note}</div>` : ''}
+    ${consignedNote}
     ${missingNote}
   </body></html>`;
 }
 
+// 차수별 손익 — 매출은 사입 포함, 이익은 사입 제외 (분모 = 손익대상 매출)
+function masterProfit(m) {
+  const sale = Number(m.SaleTotal || 0);
+  const pnlSale = sale - Number(m.ConsignedSale || 0);
+  const profit = pnlSale - Number(m.CostTotal || 0);
+  return { sale, pnlSale, profit, rate: pnlSale > 0 ? profit / pnlSale : null };
+}
+
 function buildSummaryPrintHtml(list) {
   const rows = list.map(m => {
-    const profit = Number(m.SaleTotal || 0) - Number(m.CostTotal || 0);
-    const rate = Number(m.SaleTotal) > 0 ? profit / Number(m.SaleTotal) : null;
+    const { profit, rate } = masterProfit(m);
     const nen = Number(m.NenovaPct);
     return `<tr>
       <td class="ctr">${Number(m.MajorWeek)}차</td>
@@ -142,9 +167,10 @@ function buildSummaryPrintHtml(list) {
     </tr>`;
   }).join('');
   const totalSale = list.reduce((a, m) => a + Number(m.SaleTotal || 0), 0);
+  const totalPnlSale = list.reduce((a, m) => a + masterProfit(m).pnlSale, 0);
   const totalCost = list.reduce((a, m) => a + Number(m.CostTotal || 0), 0);
-  const totalProfit = totalSale - totalCost;
-  const totalNen = list.reduce((a, m) => a + (Number(m.SaleTotal || 0) - Number(m.CostTotal || 0)) * Number(m.NenovaPct) / 100, 0);
+  const totalProfit = totalPnlSale - totalCost;
+  const totalNen = list.reduce((a, m) => a + masterProfit(m).profit * Number(m.NenovaPct) / 100, 0);
   const year = list[0]?.OrderYear || new Date().getFullYear();
   return `<!doctype html><html><head><meta charset="utf-8"><title>라움 결산</title><style>${PRINT_CSS}</style></head><body>
     <h1>${year} 라움 손익 결산</h1>
@@ -154,7 +180,7 @@ function buildSummaryPrintHtml(list) {
       <tbody>${rows}
         <tr class="total"><td class="ctr" colspan="2">합계</td>
           <td class="num">${fmt(totalCost)}</td><td class="num">${fmt(totalSale)}</td>
-          <td class="num">${fmt(totalProfit)}</td><td class="num">${pct(totalSale > 0 ? totalProfit / totalSale : null)}</td>
+          <td class="num">${fmt(totalProfit)}</td><td class="num">${pct(totalPnlSale > 0 ? totalProfit / totalPnlSale : null)}</td>
           <td class="num">${fmt(totalNen)}</td><td class="num">${fmt(totalProfit - totalNen)}</td></tr>
       </tbody>
     </table>
@@ -236,6 +262,7 @@ function VerifyPanel({ verification, items }) {
 const HL = {
   merged: '#dcfce7',   // 강남+건대 합산됨
   priceDiff: '#ffedd5', // 같은 품목명·다른 단가 → 분리
+  consigned: '#f1f5f9', // 사입(원산지 없음) — 매출 포함·손익 제외
 };
 function multiPriceNames(items) {
   const byName = {};
@@ -246,6 +273,7 @@ function multiPriceNames(items) {
   return new Set(Object.entries(byName).filter(([, s]) => s.size > 1).map(([k]) => k));
 }
 function rowHighlight(it, branches, multiNames) {
+  if (it.consigned) return { bg: HL.consigned, why: '사입(원산지 없음) — 매출 합계에는 포함, 손익 계산에서는 제외' };
   if (multiNames.has(String(it.name || '').trim())) return { bg: HL.priceDiff, why: '같은 품목명이 다른 단가로 존재 — 합산하지 않고 분리 유지 (이월분이면 정상)' };
   const present = branches.filter(b => Number(it.byBranch?.[b] || 0) !== 0);
   if (present.length > 1) return { bg: HL.merged, why: `${present.join('+')} 합산된 행` };
@@ -350,6 +378,7 @@ function BranchComparePanel({ items, sheets, branches }) {
           <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
             <span style={{ background: HL.merged, padding: '0 6px', borderRadius: 3 }}>초록</span> = 강남·건대 양쪽 수량이 합산된 행 ·{' '}
             <span style={{ background: HL.priceDiff, padding: '0 6px', borderRadius: 3 }}>주황</span> = 같은 품목명이지만 단가가 달라 분리 유지된 행(이월분이면 정상) ·{' '}
+            <span style={{ background: HL.consigned, padding: '0 6px', borderRadius: 3, border: '1px solid #cbd5e1' }}>회색</span> = 사입(원산지 없음, 손익 제외) ·{' '}
             <b>·</b> = 해당 지점에 없음 · 지점 합계의 ✓ = 견적서 원본 하단 합계와 일치
           </div>
         </div>
@@ -677,8 +706,7 @@ export default function RaumPnlPage() {
               </thead>
               <tbody>
                 {list.map(m => {
-                  const profit = Number(m.SaleTotal || 0) - Number(m.CostTotal || 0);
-                  const rate = Number(m.SaleTotal) > 0 ? profit / Number(m.SaleTotal) : null;
+                  const { profit, rate } = masterProfit(m);
                   const nen = Number(m.NenovaPct);
                   return (
                     <tr key={m.PnlKey} style={{ cursor: 'pointer' }} onClick={() => openDetail(m.PnlKey)}>
@@ -688,7 +716,9 @@ export default function RaumPnlPage() {
                         {m.ItemCount}{Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(m.CostTotal)}</td>
-                      <td style={{ ...st.td, ...st.num }}>{fmt(m.SaleTotal)}</td>
+                      <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (손익 제외)` : ''}>
+                        {fmt(m.SaleTotal)}{Number(m.ConsignedSale) > 0 ? ' ▪' : ''}
+                      </td>
                       <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(profit)}</td>
                       <td style={{ ...st.td, ...st.num }}>{pct(rate)}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(profit * nen / 100)} <span style={{ color: '#94a3b8' }}>({nen}%)</span></td>
@@ -798,6 +828,10 @@ export default function RaumPnlPage() {
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
+                        {it.consigned ? (
+                          <span style={{ color: '#64748b', fontSize: 12 }} title="사입(원산지 없음) — 매출에는 포함, 손익 계산에서는 제외되므로 매입단가가 필요 없습니다">사입 제외</span>
+                        ) : (
+                        <>
                         <input
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
@@ -812,6 +846,8 @@ export default function RaumPnlPage() {
                         {it.costSource === 'learned' ? <span title="직접 입력 학습값" style={{ marginLeft: 3 }}>🧠</span>
                           : it.costSource === 'arrival' ? <span title={it.refSource || '도착원가 자동'} style={{ marginLeft: 3 }}>🚢</span>
                           : it.costSource === 'manual' ? <span title="직접 입력 — 저장 시 학습됨" style={{ marginLeft: 3 }}>✍</span> : null}
+                        </>
+                        )}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
@@ -856,6 +892,11 @@ export default function RaumPnlPage() {
             </table>
           </div>
 
+          {totals.consignedSale > 0 ? (
+            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, marginTop: 10 }}>
+              ▪ 사입(원산지 없음) {totals.consignedCnt}건 매출 {fmt(totals.consignedSale)}원 — <b>매출액 합계에는 포함</b>(견적서와 일치), <b>손익 계산(매입·이익·8:2 분배)에서는 제외</b>. 이익율 분모 = 손익대상 매출 {fmt(totals.pnlSale)}원.
+            </div>
+          ) : null}
           {totals.missing > 0 ? (
             <div style={{ ...st.warn, marginTop: 10 }}>
               ⚠ 매입단가 미입력 {totals.missing}건 — 도착원가도 학습값도 없는 품목입니다(전산 미매칭 ⚪ 또는 입고이력 없음). 직접 입력하면 다음부터 자동 적용됩니다. 총매입/이익은 입력된 품목만 합산됩니다.

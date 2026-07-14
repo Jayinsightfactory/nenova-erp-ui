@@ -72,7 +72,9 @@ async function handler(req, res) {
       // 전산원가÷1.1 은 참고 표시만(자동입력 안 함)
       let costPrice = null;
       let costSource = null;
-      if (learnedCost != null) {
+      if (it.consigned) {
+        // 사입(원산지 없음) — 손익 계산 제외 대상이라 매입단가 자체가 불필요
+      } else if (learnedCost != null) {
         costPrice = learnedCost;
         costSource = 'learned';
       } else if (ref?.isArrival && ref.refPrice != null) {
@@ -84,9 +86,9 @@ async function handler(req, res) {
         costPrice,
         costSource,
         costLearned: costSource === 'learned',
-        refPrice: ref?.refPrice ?? null,
-        refSource: ref?.refSource ?? null,
-        isArrival: ref?.isArrival ?? false,
+        refPrice: it.consigned ? null : (ref?.refPrice ?? null),
+        refSource: it.consigned ? '사입(원산지 없음) — 손익 제외' : (ref?.refSource ?? null),
+        isArrival: it.consigned ? false : (ref?.isArrival ?? false),
         erpSalePrice: ref?.erpSalePrice ?? null,
         prodKey: ref?.prodKey ?? null,
         prodName: ref?.prodName ?? null,
