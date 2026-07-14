@@ -59,6 +59,7 @@ export const MENU_ITEMS = [
       { href: '/sales/weekly-shipment', labelKey: '차수매출관리',    popup: true  },
       { href: '/sales/registration-history', labelKey: '판매등록 히스토리', popup: true },
       { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서', popup: true },
+      { href: '/raum/pnl',           labelKey: '라움 손익계산서',     popup: true },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },
       { href: '/catalog',              labelKey: '거래처 카탈로그', popup: true },
       { href: '/sales/ar',           labelKey: '거래처별 채권',      popup: false },

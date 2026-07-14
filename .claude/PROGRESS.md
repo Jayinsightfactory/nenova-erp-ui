@@ -4,6 +4,37 @@
 
 ---
 
+## [2026-07-14] 세션(feat/raum-pnl worktree) — 라움 손익계산서 메뉴 신설
+
+### 작업 내용
+- 라움(트라움에스앤씨, CustKey 680) 견적서(거래명세표 xlsx, 강남/건대 시트) 업로드 → 품목+단가 동일 시 합산 →
+  차수별 손익계산서 생성·저장·인쇄. 사장님 수기 엑셀(라움 손익계산서.xlsx) 대체.
+- **손익 기준 (사장님 확정)**: 매출단가=견적서 단가(자동) / 매입단가=수기 입력 / 순익분배 네노바 80 : 미우 20 (차수별 수정 가능)
+- 참고단가 = Product.Cost÷1.1 (전산 품목원가 VAT포함 저장 — 매출이익 보고서 평가단가와 동일 해석).
+  매칭: order-mappings → 토큰 → scoreMatch(60점+, 분배단가=견적단가 3% 가드로 오매칭 차단). 27차 실측 26/48 매칭.
+- 웹 전용 테이블 `WebRaumPnl`/`WebRaumPnlItem` (ensure 패턴, 차수 upsert = 품목 전체 교체)
+- 실파일 E2E: 강남 38품목 20,539,603 + 건대 26품목 2,799,350 = 합산 48품목 23,338,953 — 시트 하단 합계와 1원 일치.
+  수국 화이트 합산 2,648 = ERP 27차 분배수량과 일치. 27차 저장본 생성됨(매입단가는 사장님 입력 대기).
+
+### 변경된 파일
+- `lib/raumPnl.js` (신규): 견적서 파싱/합산 + 참고단가 조회 + WebRaumPnl CRUD
+- `pages/api/raum/pnl-import.js` (신규): 업로드 파싱 API (formidable+xlsx)
+- `pages/api/raum/pnl.js` (신규): 목록/상세/저장/삭제 API
+- `pages/raum/pnl.js` (신규): 업로드→미리보기→매입단가 입력→저장→히스토리→인쇄(iframe srcdoc, A4 가로)
+- `components/Layout.js`: 채권관리 그룹에 "라움 손익계산서" 메뉴 추가
+- `scripts/probe-raum-pnl-cost*.mjs` (신규): 설계 실측 probe (읽기전용)
+
+### 주의/함정 기록
+- SheetJS 날짜 셀은 자정보다 수십 초 이르게 파싱 → +12h 후 날짜부 추출로 보정 (견적일 7/9 오파싱 방지)
+- 견적서 단가와 전산 분배단가는 동일(견적서가 전산에서 생성됨) — 분배단가는 매입단가가 아님
+- worktree에서 `next dev`는 instrumentation.js의 mssql 번들링 문제로 500 — 검증은 `next build --webpack` + NODE_ENV=production node web.js 로
+
+### 미결 이슈
+- 27차 매입단가 48건 사장님 입력 대기 (참고단가 채우기 버튼으로 일괄 가능)
+- 엑셀 다운로드(양식 그대로)는 미구현 — 인쇄로 대체, 필요 시 profitReportExcel 패턴 재사용
+
+---
+
 ## [2026-07-10 11:20] 세션(session-b) #2 — 🚨 Turbopack hydration 운영장애 복구 + 차수피벗 일괄적용
 
 ### 운영장애 (오전 배포부터 전 페이지 버튼 무반응)
