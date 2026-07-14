@@ -60,15 +60,33 @@ async function handler(req, res) {
     }
     const learnKey = (s) => String(s || '').replace(/[\s ]+/g, ' ').trim().toLowerCase();
 
+    if (refs.__arrivalError) {
+      parsed.warnings.push(refs.__arrivalError);
+      delete refs.__arrivalError;
+    }
+
     const items = parsed.items.map(it => {
       const ref = refs[it.name] || null;
       const learnedCost = learned[learnKey(it.name)];
+      // 매입단가 자동입력 우선순위: ① 직접 입력해 학습된 값 ② 도착원가(가장 최근, 100원 반올림)
+      // 전산원가÷1.1 은 참고 표시만(자동입력 안 함)
+      let costPrice = null;
+      let costSource = null;
+      if (learnedCost != null) {
+        costPrice = learnedCost;
+        costSource = 'learned';
+      } else if (ref?.isArrival && ref.refPrice != null) {
+        costPrice = ref.refPrice;
+        costSource = 'arrival';
+      }
       return {
         ...it,
-        costPrice: learnedCost != null ? learnedCost : null, // 학습값 자동 채움, 없으면 수기 입력
-        costLearned: learnedCost != null,
+        costPrice,
+        costSource,
+        costLearned: costSource === 'learned',
         refPrice: ref?.refPrice ?? null,
-        refSource: ref ? `전산원가÷1.1 (${ref.matchType})` : null,
+        refSource: ref?.refSource ?? null,
+        isArrival: ref?.isArrival ?? false,
         erpSalePrice: ref?.erpSalePrice ?? null,
         prodKey: ref?.prodKey ?? null,
         prodName: ref?.prodName ?? null,

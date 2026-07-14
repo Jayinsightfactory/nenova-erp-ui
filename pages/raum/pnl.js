@@ -582,10 +582,12 @@ export default function RaumPnlPage() {
   const setMeta = patch => setDetail(d => ({ ...d, meta: { ...d.meta, ...patch }, unsaved: true }));
 
   const fillRefPrices = () => {
+    const n = detail.items.filter(it => it.refPrice != null).length;
+    if (!window.confirm(`참고단가(도착원가 우선)가 있는 ${n}개 품목의 매입단가를 모두 다시 채울까요?\n직접 입력한 값도 덮어씁니다.`)) return;
     setDetail(d => ({
       ...d,
-      items: d.items.map(it => (it.costPrice == null || it.costPrice === '') && it.refPrice != null
-        ? { ...it, costPrice: it.refPrice }
+      items: d.items.map(it => it.refPrice != null
+        ? { ...it, costPrice: it.refPrice, costSource: it.isArrival ? 'arrival' : 'ref', costLearned: false }
         : it),
       unsaved: true,
     }));
@@ -612,7 +614,8 @@ export default function RaumPnlPage() {
       <h1 style={st.h1}>라움 손익계산서</h1>
       <p style={st.desc}>
         강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.
-        매출단가는 견적서 단가, 매입단가는 직접 입력합니다 (전산 품목원가÷1.1 을 참고단가로 제공). 저장하면 차수별 히스토리가 남습니다.
+        매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠).
+        저장하면 차수별 히스토리가 남습니다.
       </p>
 
       {error ? <div style={st.err}>{error}</div> : null}
@@ -731,8 +734,8 @@ export default function RaumPnlPage() {
               />% : 미우 {Number.isFinite(nenovaPct) ? 100 - nenovaPct : ''}%
             </label>
             {hasRef ? (
-              <button style={st.btn} onClick={fillRefPrices} title="매입단가가 비어있는 행에 전산 참고단가(품목원가÷1.1)를 채웁니다. 채운 뒤 개별 수정 가능.">
-                ⤵ 참고단가 채우기
+              <button style={st.btn} onClick={fillRefPrices} title="참고단가(가장 최근 도착원가 100원 반올림, 없으면 전산원가÷1.1)로 매입단가를 전부 다시 채웁니다.">
+                🚢 도착원가 다시 채우기
               </button>
             ) : null}
             <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
@@ -762,7 +765,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>이익율</th>
                   <th style={st.th}>네노바이익 ({nenovaPct}%)</th>
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
-                  <th style={st.th}>참고단가(전산)</th>
+                  <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
                 </tr>
               </thead>
@@ -799,10 +802,16 @@ export default function RaumPnlPage() {
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
                           placeholder={it.refPrice != null ? String(it.refPrice) : ''}
-                          title={it.costLearned ? '지난 차수에 입력한 매입단가가 자동 입력됨 — 수정하면 저장 시 다시 학습' : '저장하면 이 품목의 매입단가를 기억해 다음 업로드에 자동 입력'}
-                          onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costLearned: false })}
+                          title={
+                            it.costSource === 'learned' ? '직접 입력해 학습된 매입단가가 자동 입력됨 — 수정하면 저장 시 다시 학습'
+                            : it.costSource === 'arrival' ? `가장 최근 도착원가를 100원 단위 반올림해 자동 입력 (${it.refSource || ''}) — 직접 고치면 그 값을 학습`
+                            : '직접 입력하면 저장 시 이 품목의 매입단가를 기억해 다음 업로드에 자동 입력'
+                          }
+                          onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
                         />
-                        {it.costLearned ? <span title="지난 차수 입력값" style={{ marginLeft: 3 }}>🧠</span> : null}
+                        {it.costSource === 'learned' ? <span title="직접 입력 학습값" style={{ marginLeft: 3 }}>🧠</span>
+                          : it.costSource === 'arrival' ? <span title={it.refSource || '도착원가 자동'} style={{ marginLeft: 3 }}>🚢</span>
+                          : it.costSource === 'manual' ? <span title="직접 입력 — 저장 시 학습됨" style={{ marginLeft: 3 }}>✍</span> : null}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
@@ -849,7 +858,7 @@ export default function RaumPnlPage() {
 
           {totals.missing > 0 ? (
             <div style={{ ...st.warn, marginTop: 10 }}>
-              ⚠ 매입단가 미입력 {totals.missing}건 — 총매입/이익은 입력된 품목만 합산됩니다. 참고단가(전산 품목원가÷1.1)를 쓰려면 [⤵ 참고단가 채우기]를 누르세요.
+              ⚠ 매입단가 미입력 {totals.missing}건 — 도착원가도 학습값도 없는 품목입니다(전산 미매칭 ⚪ 또는 입고이력 없음). 직접 입력하면 다음부터 자동 적용됩니다. 총매입/이익은 입력된 품목만 합산됩니다.
             </div>
           ) : null}
 
