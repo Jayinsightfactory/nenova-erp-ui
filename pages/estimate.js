@@ -1711,14 +1711,13 @@ export default function Estimate() {
       // cycleWeeks 가 항상 빈 배열로 고정돼 있어서 이 사이클이 아예 동작하지 않던 버그.
       // (서버 update-cost.js 의 확정차수 차단도 꺼져있어 직접 UPDATE는 "성공"하지만, 이후 재확정
       //  시점에 값이 되돌아가는 것으로 관측됨 — 수량수정(applyQtyEdits)과 동일한 방식으로 수정.)
+      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 할 때만 사이클"로 변경.
+      //   화요일 카테고리별 부분확정 중간상태(마스터=1·상세=0)에서 SubWeeksFix 기준 선제 사이클이
+      //   미확정 카테고리를 조기 재확정하려다 부분확정 가드에 막혀 "직접 확정취소하라" 경고가 뜨던
+      //   문제 수정. 상세가 미확정이면 직접 저장이 안전하고(서버 가드도 상세 기준으로 정정),
+      //   상세가 진짜 확정일 때만 사이클이 필요하다.
       const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
       const cycleCountryFlowers = getCountryFlowersForEditedItems(allItems);
-      if (cycleWeeks.length > 0) {
-        setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
-        }]);
-      }
       const postCostUpdate = async () => {
         allItems.forEach(it => {
           setCostApplyLog(prev => [...prev, {
@@ -1757,15 +1756,23 @@ export default function Estimate() {
         return d;
       };
 
-      const d = cycleWeeks.length > 0
-        ? await runEditWithFixCycle({
-            weeks: cycleWeeks,
-            countryFlowers: cycleCountryFlowers,
-            stockProdKeys: [],
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply: postCostUpdate,
-          })
-        : await postCostUpdate();
+      let d;
+      try {
+        d = await postCostUpdate();
+      } catch (firstErr) {
+        if (!firstErr.isFixedWeek || cycleWeeks.length === 0) throw firstErr;
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정된 상세 감지 → 자동 확정 사이클: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+        }]);
+        d = await runEditWithFixCycle({
+          weeks: cycleWeeks,
+          countryFlowers: cycleCountryFlowers,
+          stockProdKeys: [],
+          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+          apply: postCostUpdate,
+        });
+      }
 
       if (!d.success) {
         if (d.code === 'FIXED_WEEK') {

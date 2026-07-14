@@ -135,14 +135,29 @@ export default withAuth(async function handler(req, res) {
           orderWeek: row.OrderWeek,
         };
       }
-      const fixedWeeks = uniqueSks
-        .filter(sk => smMap[sk].wasFixed && items.some(it => it.shipmentKey === sk && it.sdetailKey))
-        .map(sk => smMap[sk].orderWeek)
-        .filter(Boolean);
       // 2026-07-13: 재활성화 — 클라이언트(applyCostEdits)가 이제 확정 사이클을 제대로 태우므로
       // (getFixCycleWeeksForEditedItems 로 cycleWeeks 산출), 이 서버측 차단은 사이클을 안 거치고
       // 직접 호출된 경우를 막는 안전망. 꺼져있던 동안 확정된 차수에 단가가 "일단 저장"됐다가
       // 재확정 시점에 값이 되돌아가는 문제가 있었음.
+      // 2026-07-14: 검사 기준을 Master.isFix → "수정 대상 상세행의 ShipmentDetail.isFix"로 정정.
+      //   카테고리별 부분확정 중간상태(마스터=1, 상세=0)에서는 사이클이 확정해제를 해도 마스터가
+      //   1로 남아 정당한 수정까지 차단됐음(화요일 분배 진행 중 단가수정 불가 신고). 값이 재확정
+      //   시점에 되돌아가는 단위는 상세행이므로, 상세가 미확정이면 직접 수정해도 안전하다.
+      const sdItems = items.filter(it => it.sdetailKey);
+      let fixedWeeks = [];
+      if (sdItems.length > 0) {
+        const sdkParams = {};
+        sdItems.forEach((it, i) => { sdkParams[`sdk${i}`] = { type: sql.Int, value: it.sdetailKey }; });
+        const fixedRows = await tQ(
+          `SELECT DISTINCT sm.OrderWeek
+             FROM ShipmentDetail sd
+             JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+            WHERE sd.SdetailKey IN (${sdItems.map((_, i) => `@sdk${i}`).join(',')})
+              AND ISNULL(sd.isFix, 0) = 1`,
+          sdkParams
+        );
+        fixedWeeks = fixedRows.recordset.map(r => r.OrderWeek).filter(Boolean);
+      }
       if (fixedWeeks.length > 0) {
         const err = new Error(
           `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
