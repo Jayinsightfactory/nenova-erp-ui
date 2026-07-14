@@ -2628,5 +2628,32 @@
     "counName": "콜롬비아",
     "savedAt": "2026-05-25T11:15:00.000Z",
     "manual": true
+  },
+  "제임스스토리": {
+    "prodKey": 627,
+    "prodName": "ARAN.Juling Red XL",
+    "displayName": null,
+    "flowerName": "아란",
+    "counName": "태국",
+    "savedAt": "2026-07-14T03:00:00.000Z",
+    "auto": false
+  },
+  "피오니 화이트": {
+    "prodKey": 3017,
+    "prodName": "PEONY VIETNAM / 피어니 화이트 (White) ",
+    "displayName": null,
+    "flowerName": "퐁퐁 Pong Pong",
+    "counName": "베트남",
+    "savedAt": "2026-07-14T03:00:00.000Z",
+    "auto": false
+  },
+  "꽃잎용 장미 화이트": {
+    "prodKey": 3207,
+    "prodName": "ROSE CHINA / 화이트 아발란체 (White Avalanche) 40cm",
+    "displayName": null,
+    "flowerName": "장미",
+    "counName": "중국",
+    "savedAt": "2026-07-14T03:00:00.000Z",
+    "auto": false
   }
 }
