@@ -34,6 +34,20 @@ import { withAuth } from '../../../lib/auth';
 import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
 import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
 
+// FIXED_WEEK 차단 진단용 — 사이클 미작동 신고 추적 (AppLog 없어도 무시)
+async function logCostGuard(step, detail) {
+  try {
+    await query(
+      `INSERT INTO AppLog (Category, Step, Detail, IsError)
+       VALUES (N'estimateCost', @step, @detail, 1)`,
+      {
+        step: { type: sql.NVarChar, value: String(step).slice(0, 100) },
+        detail: { type: sql.NVarChar, value: String(detail).slice(0, 1000) },
+      }
+    );
+  } catch { /* 로깅 실패는 무시 */ }
+}
+
 // ── WeekProdCost 테이블 idempotent 생성 (최초 1회)
 let _wpcEnsured = null;
 async function ensureWeekProdCostTable() {
@@ -159,6 +173,9 @@ export default withAuth(async function handler(req, res) {
         fixedWeeks = fixedRows.recordset.map(r => r.OrderWeek).filter(Boolean);
       }
       if (fixedWeeks.length > 0) {
+        // 진단 로그 (트랜잭션 밖 fire-and-forget) — 클라이언트 자동 사이클이 뒤따르는지 AppLog 로 추적
+        logCostGuard('fixed_week_block',
+          `uid=${uid} weeks=${[...new Set(fixedWeeks)].join(',')} sdks=${sdItems.map(it => it.sdetailKey).join(',').slice(0, 300)}`);
         const err = new Error(
           `확정된 차수는 단가를 바로 수정할 수 없습니다. ` +
           `${[...new Set(fixedWeeks)].join(', ')} 차수를 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정하세요.`
