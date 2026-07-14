@@ -258,6 +258,23 @@ async function main() {
        AND NOT EXISTS (SELECT 1 FROM UserInfo u WHERE u.UserID = om.Manager)`, P),
     r => `[${r.OrderWeek}] ${r.CustName} Manager='${r.Manager}' (UserID 아님, omk=${r.OrderMasterKey})`);
 
+  // 음수 이월은 "그 주 출고 없는 품목"이면 확정 검증(잔량검사)을 안 타는 사각지대 —
+  // 여기서 잡아 실사/조정 유도. 과거 차수(23~26차) 잔존 음수는 알려진 legacy(2026-07-14 조사).
+  report('V10', 'ProductStock 음수 스냅샷 (확정검증 사각지대 — 실사/조정 필요)', await run(`
+    SELECT sm.OrderWeek, ps.ProdKey, p.ProdName, p.CounName, ps.Stock,
+           CASE WHEN EXISTS (SELECT 1 FROM ShipmentDetail sd JOIN ShipmentMaster sm2 ON sm2.ShipmentKey=sd.ShipmentKey
+                              WHERE sd.ProdKey=ps.ProdKey AND sm2.OrderWeek=sm.OrderWeek AND sm2.isDeleted=0
+                                AND ISNULL(sd.OutQuantity,0)>0)
+                THEN 1 ELSE 0 END AS hasShipment
+      FROM ProductStock ps
+      JOIN StockMaster sm ON sm.StockKey = ps.StockKey
+      JOIN Product p ON p.ProdKey = ps.ProdKey
+     WHERE sm.OrderWeek LIKE @weekLike
+       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @yr) = @yr
+       AND ps.Stock < -0.01
+     ORDER BY ps.Stock ASC`, P),
+    r => `[${r.OrderWeek}] ${r.CounName}/${r.ProdName} 스냅샷 ${r.Stock}${Number(r.hasShipment) ? '' : ' (그 주 출고 없음 → 확정검증 안 탐)'}`);
+
   // NULL 은 exe 분배가 원래 쓰는 정상 패턴(26·27차 기준선 각 ~200건) — "다른 값" 만 이상
   report('V9', 'CustKey 불일치 (Detail이 다른 거래처 값 → exe 분배화면 누락)', await run(`
     SELECT c.CustName, p.ProdName, sm.OrderWeek, sd.CustKey AS detailCust, sm.CustKey AS masterCust

@@ -235,6 +235,27 @@ async function validate(req, res) {
       { wk }
     );
 
+    // 5. 음수 이월 (검증 사각지대) — 그 차수 스냅샷이 음수인데 그 주 출고가 없어
+    //    확정 잔량검사(미확정 출고 있는 품목만 검사)를 아예 안 타는 품목. 경고 전용(차단 안 함).
+    //    2026-07-14 조사: "음수인데 확정됨"의 실체 — 23~26차에 쌓인 이월 음수가 이 경로로 통과.
+    const carryResult = await query(
+      `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName, ps.Stock
+         FROM ProductStock ps
+         JOIN StockMaster smk ON smk.StockKey = ps.StockKey
+         JOIN Product p ON p.ProdKey = ps.ProdKey AND p.isDeleted = 0
+        WHERE smk.OrderWeek = @wk
+          AND ISNULL(CAST(smk.OrderYear AS NVARCHAR(4)), @yr) = @yr
+          AND ps.Stock < -0.01
+          AND NOT EXISTS (
+            SELECT 1 FROM ShipmentDetail sd
+            JOIN ShipmentMaster sm3 ON sm3.ShipmentKey = sd.ShipmentKey
+            WHERE sd.ProdKey = p.ProdKey AND sm3.OrderWeek = @wk
+              AND sm3.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
+          )
+        ORDER BY ps.Stock ASC`,
+      { wk, yr: { type: sql.NVarChar, value: orderYear } }
+    );
+
     const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length + noInResult.recordset.length;
     return res.status(200).json({
       success: true,
@@ -244,6 +265,7 @@ async function validate(req, res) {
       noIncoming: noInResult.recordset,   // 입고 없는 출고 (4번째 검증)
       duplicate: dupResult.recordset,     // 중복 출고
       negative: negRows,                  // 마이너스 잔량
+      negativeCarry: carryResult.recordset, // 음수 이월 (그 주 출고 없음 → 잔량검사 사각) — 경고 전용
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
