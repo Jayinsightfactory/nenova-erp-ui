@@ -610,7 +610,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
+  // skipStockCalc: 단가수정 경량 사이클용 — 단가는 재고 수치와 무관해 사이클 중간 재계산이
+  // 수학적으로 무변화. 클라이언트가 중간 해제/확정에 true 를 보내고 마지막 재확정만 전체 재계산.
+  const skipStockCalc = req.body?.skipStockCalc === true;
+  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   // ── 재고 추가 후 확정 — [비활성화됨 2026-07-07]
   //    재고조정(+)이 영구 주입이라 usp_StockCalculation cascade(한번에 1~2주만 전파)로
@@ -730,6 +733,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
+        if (skipStockCalc) {
+          results.push({ countryFlower: label, ok: true, message: row.message });
+        } else {
         await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
           prefix: 'stock_calc',
@@ -747,6 +753,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           );
         }
         results.push({ countryFlower: label, ok: true, message: row.message });
+        }
       } else {
         let retryRow = null;
         await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
@@ -800,17 +807,19 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
-  const reconcile = await reconcileWeekAfterScopedOperation({
-    q: query,
-    sqlTypes: sql,
-    orderYear,
-    orderWeek,
-    uid,
-    logFix,
-    alreadyCalculatedProdKeys,
-    scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
-    forceFullWeekRecalc: Boolean(allowedCountryFlowers),
-  });
+  const reconcile = skipStockCalc
+    ? { weekProdKeyCount: 0, recalculatedCount: 0, stockErrors: [], parity: { status: 'RECALC_SKIPPED', exeAligned: true, warnings: [] } }
+    : await reconcileWeekAfterScopedOperation({
+        q: query,
+        sqlTypes: sql,
+        orderYear,
+        orderWeek,
+        uid,
+        logFix,
+        alreadyCalculatedProdKeys,
+        scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
+        forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+      });
 
   await logFix(
     'fix_done',
@@ -845,7 +854,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
+  // skipStockCalc: 단가수정 경량 사이클 — 곧바로 재확정될 예정이라 중간 스냅샷 재계산 생략
+  const skipStockCalc = req.body?.skipStockCalc === true;
+  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   try {
     // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
@@ -899,6 +910,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
+          if (skipStockCalc) {
+            results.push({ countryFlower: label, ok: true, message: row.message });
+          } else {
           await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
           const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
             prefix: 'unfix_stock_calc',
@@ -916,6 +930,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
             );
           }
           results.push({ countryFlower: label, ok: true, message: row.message });
+          }
         } else {
           await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${label} code=${row.result} msg=${row.message || ''}`, true);
           errors.push({ countryFlower: label, code: row.result, message: row.message || 'unknown' });
@@ -927,17 +942,19 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     }
 
     const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
-    const reconcile = await reconcileWeekAfterScopedOperation({
-      q: query,
-      sqlTypes: sql,
-      orderYear,
-      orderWeek,
-      uid,
-      logFix,
-      alreadyCalculatedProdKeys,
-      scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'unfix',
-      forceFullWeekRecalc: Boolean(allowedCountryFlowers),
-    });
+    const reconcile = skipStockCalc
+      ? { weekProdKeyCount: 0, recalculatedCount: 0, stockErrors: [], parity: { status: 'RECALC_SKIPPED', exeAligned: true, warnings: [] } }
+      : await reconcileWeekAfterScopedOperation({
+          q: query,
+          sqlTypes: sql,
+          orderYear,
+          orderWeek,
+          uid,
+          logFix,
+          alreadyCalculatedProdKeys,
+          scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'unfix',
+          forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+        });
 
     const pendingUnfixed = await loadShipmentCategoryTargets(orderWeek, 0, null);
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);

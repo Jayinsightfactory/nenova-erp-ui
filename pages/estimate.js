@@ -1295,13 +1295,14 @@ export default function Estimate() {
     .map(it => Number(it.ProdKey))
     .filter(Number.isFinite))];
 
-  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = []) => {
+  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = [], extraBody = {}) => {
     const { data: d } = await postShipmentFix({
       week,
       action,
       force: true,
       countryFlowers,
       stockProdKeys,
+      ...extraBody,
     });
     if (!d.success) {
       throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
@@ -1309,21 +1310,26 @@ export default function Estimate() {
     return d;
   };
 
-  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply }) => {
+  // lightStock: 단가수정처럼 재고 수치가 안 변하는 편집용 — 사이클 중간 재고 재계산을 전부
+  // 생략(skipStockCalc)하고, 마지막 재확정 1회만 전체 재계산으로 스냅샷을 정리한다.
+  // 수량수정은 재고가 실제로 변하므로 lightStock 을 켜지 말 것.
+  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const unfixedWeeks = [];
     let applyResult = null;
     let applyError = null;
+    const skipBody = lightStock ? { skipStockCalc: true } : {};
     try {
       for (const wk of sortWeeksDesc(targetWeeks)) {
         progress?.(`${wk} 확정해제 중`);
-        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys);
+        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys, skipBody);
         unfixedWeeks.push(wk);
       }
     } catch (err) {
       progress?.(`확정해제 오류 — ${err.message}`);
       for (const wk of sortWeeksAsc(unfixedWeeks)) {
         progress?.(`${wk} 원상복구 재확정 중`);
+        // 원상복구는 안전 우선 — 재계산 생략하지 않음
         await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
       }
       throw err;
@@ -1337,9 +1343,13 @@ export default function Estimate() {
       progress?.(`수정 저장 오류 — ${err.message}`);
     }
 
-    for (const wk of sortWeeksAsc(unfixedWeeks)) {
-      progress?.(`${wk} 재확정 중`);
-      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
+    const refixWeeks = sortWeeksAsc(unfixedWeeks);
+    for (let i = 0; i < refixWeeks.length; i++) {
+      const wk = refixWeeks[i];
+      const isLast = i === refixWeeks.length - 1;
+      progress?.(`${wk} 재확정 중${lightStock && isLast ? ' (재고 정리 재계산 포함)' : ''}`);
+      // 경량 모드: 마지막 재확정만 전체 재계산으로 스냅샷 정리
+      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys, isLast ? {} : skipBody);
     }
 
     if (applyError) throw applyError;
@@ -1779,6 +1789,8 @@ export default function Estimate() {
           stockProdKeys: [],
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
           apply: postCostUpdate,
+          // 단가는 재고 수치와 무관 — 중간 재계산 생략, 마지막 재확정만 정리 재계산
+          lightStock: true,
         });
       }
 
