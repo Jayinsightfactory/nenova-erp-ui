@@ -403,9 +403,54 @@ export default function RaumPnlPage() {
   const setItem = (idx, patch) => {
     setDetail(d => {
       const items = d.items.slice();
-      items[idx] = { ...items[idx], ...patch };
+      const next = { ...items[idx], ...patch };
+      // 수동 행(손실 등)은 수량/매출단가 수정 시 매출액 자동 재계산
+      if (next.isCustom && ('qty' in patch || 'price' in patch)) {
+        next.supply = (Number(next.qty) || 0) * (Number(next.price) || 0);
+      }
+      items[idx] = next;
       return { ...d, items, unsaved: true };
     });
+  };
+
+  const addCustomRow = () => {
+    setDetail(d => ({
+      ...d,
+      items: [...d.items, {
+        seq: d.items.length + 1,
+        _uid: `c${Date.now()}`,
+        name: '손실', unit: '', qty: 1, price: 0, supply: 0, byBranch: {},
+        costPrice: 0, refPrice: null, refSource: null, erpSalePrice: null, prodKey: null,
+        remark: '', isCustom: true,
+      }],
+      unsaved: true,
+    }));
+  };
+
+  const removeItem = (idx) => {
+    setDetail(d => ({ ...d, items: d.items.filter((_, i) => i !== idx), unsaved: true }));
+  };
+
+  const downloadExcel = async () => {
+    setError('');
+    try {
+      const r = await fetch('/api/raum/pnl?excel=1');
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `엑셀 생성 실패 (${r.status})`);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `라움 손익계산서.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      setError(e.message);
+    }
   };
   const setMeta = patch => setDetail(d => ({ ...d, meta: { ...d.meta, ...patch }, unsaved: true }));
 
@@ -461,11 +506,20 @@ export default function RaumPnlPage() {
               style={st.btn}
               onClick={() => printInIframe(buildDetailPrintHtml(detail.meta, detail.items, totals, branches))}
             >🖨 인쇄</button>
+            <button
+              style={{ ...st.btn, opacity: detail.unsaved ? 0.5 : 1 }}
+              disabled={detail.unsaved}
+              title={detail.unsaved ? '저장 후 다운로드할 수 있습니다 (엑셀은 저장본 기준)' : '차수별 시트 + 결산 시트 (수식 포함)'}
+              onClick={downloadExcel}
+            >📥 엑셀 다운로드</button>
             {detail.unsaved ? <span style={{ ...st.badge, background: '#fef3c7', color: '#92400e' }}>저장 전</span>
               : <span style={{ ...st.badge, background: '#dcfce7', color: '#166534' }}>저장됨</span>}
           </>
         ) : (
-          <button style={st.btn} disabled={!list.length} onClick={() => printInIframe(buildSummaryPrintHtml(list))}>🖨 결산표 인쇄</button>
+          <>
+            <button style={st.btn} disabled={!list.length} onClick={() => printInIframe(buildSummaryPrintHtml(list))}>🖨 결산표 인쇄</button>
+            <button style={st.btn} disabled={!list.length} title="차수별 시트 + 결산 시트 (수식 포함)" onClick={downloadExcel}>📥 엑셀 다운로드</button>
+          </>
         )}
       </div>
 
@@ -549,6 +603,9 @@ export default function RaumPnlPage() {
                 ⤵ 참고단가 채우기
               </button>
             ) : null}
+            <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
+              ＋ 손실/수동 행
+            </button>
             {detail.sheets ? (
               <span style={{ fontSize: 12, color: '#64748b' }}>
                 {detail.sheets.map(s => `${s.branch} ${s.itemCount}품목 ${fmt(s.parsedSupply)}원`).join(' · ')} → 합산 {detail.items.length}품목
@@ -582,25 +639,44 @@ export default function RaumPnlPage() {
                   const r = computeItemRow(it, nenovaPct);
                   const erpMismatch = it.erpSalePrice != null && it.price != null && Math.abs(it.erpSalePrice - it.price) > 1;
                   return (
-                    <tr key={`${it.name}|${it.price}`}>
+                    <tr key={it.itemKey ?? it._uid ?? `${it.name}|${it.price}`} style={it.isCustom ? { background: '#fffbeb' } : undefined}>
                       <td style={{ ...st.td, textAlign: 'center' }}>{i + 1}</td>
-                      <td style={st.td} title={it.prodName ? `전산 매칭: ${it.prodName}` : '전산 미매칭'}>
-                        {it.name}{it.prodName ? '' : ' ⚪'}
+                      <td style={st.td} title={it.isCustom ? '수동 추가 행' : (it.prodName ? `전산 매칭: ${it.prodName}` : '전산 미매칭')}>
+                        {it.isCustom ? (
+                          <input style={{ ...st.input, width: 130, textAlign: 'left' }} value={it.name}
+                            onChange={e => setItem(i, { name: e.target.value })} />
+                        ) : <>{it.name}{it.prodName ? '' : ' ⚪'}</>}
+                        {it.isCustom ? ' ✍' : ''}
                       </td>
-                      <td style={{ ...st.td, textAlign: 'center' }}>{it.unit}</td>
+                      <td style={{ ...st.td, textAlign: 'center' }}>
+                        {it.isCustom ? (
+                          <input style={{ ...st.input, width: 40, textAlign: 'center' }} value={it.unit}
+                            onChange={e => setItem(i, { unit: e.target.value })} />
+                        ) : it.unit}
+                      </td>
                       {branches.map(b => <td key={b} style={{ ...st.td, ...st.num }}>{fmt(it.byBranch?.[b])}</td>)}
-                      <td style={{ ...st.td, ...st.num, fontWeight: 600 }}>{fmt(it.qty)}</td>
+                      <td style={{ ...st.td, ...st.num, fontWeight: 600 }}>
+                        {it.isCustom ? (
+                          <input style={{ ...st.input, width: 56 }} value={it.qty}
+                            onChange={e => setItem(i, { qty: e.target.value.replace(/[^0-9.\-]/g, '') })} />
+                        ) : fmt(it.qty)}
+                      </td>
                       <td style={{ ...st.td, ...st.num }}>
                         <input
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
                           placeholder={it.refPrice != null ? String(it.refPrice) : ''}
-                          onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.]/g, '') })}
+                          title={it.costLearned ? '지난 차수에 입력한 매입단가가 자동 입력됨 — 수정하면 저장 시 다시 학습' : '저장하면 이 품목의 매입단가를 기억해 다음 업로드에 자동 입력'}
+                          onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costLearned: false })}
                         />
+                        {it.costLearned ? <span title="지난 차수 입력값" style={{ marginLeft: 3 }}>🧠</span> : null}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
-                        {fmt1(it.price)}{erpMismatch ? ' ⚠' : ''}
+                        {it.isCustom ? (
+                          <input style={{ ...st.input, width: 70 }} value={it.price}
+                            onChange={e => setItem(i, { price: e.target.value.replace(/[^0-9.\-]/g, '') })} />
+                        ) : <>{fmt1(it.price)}{erpMismatch ? ' ⚠' : ''}</>}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(it.supply)}</td>
                       <td style={{ ...st.td, ...st.num, color: r.profit != null && r.profit < 0 ? '#b91c1c' : undefined }}>{fmt(r.profit)}</td>
@@ -608,7 +684,11 @@ export default function RaumPnlPage() {
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.nenova)}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.miu)}</td>
                       <td style={{ ...st.td, ...st.num, color: '#64748b' }} title={it.refSource || ''}>{it.refPrice != null ? fmt1(it.refPrice) : ''}</td>
-                      <td style={{ ...st.td, fontSize: 11.5, color: '#64748b' }}>{it.remark}</td>
+                      <td style={{ ...st.td, fontSize: 11.5, color: '#64748b' }}>
+                        {it.isCustom ? (
+                          <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 수동 행 삭제">✕ 삭제</button>
+                        ) : it.remark}
+                      </td>
                     </tr>
                   );
                 })}

@@ -6,7 +6,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
-import { parseRaumQuoteWorkbook, lookupErpRefPrices, DEFAULT_NENOVA_PCT } from '../../../lib/raumPnl';
+import { parseRaumQuoteWorkbook, lookupErpRefPrices, loadLearnedCosts, DEFAULT_NENOVA_PCT } from '../../../lib/raumPnl';
 
 export const config = {
   api: { bodyParser: false },
@@ -51,11 +51,22 @@ async function handler(req, res) {
       }
     }
 
+    // 지난 차수에 입력·저장한 매입단가 자동 채움 (수정 가능 — 저장하면 다시 학습)
+    let learned = {};
+    try {
+      learned = await loadLearnedCosts(parsed.items.map(it => it.name));
+    } catch (e) {
+      parsed.warnings.push(`학습 매입단가 조회 실패: ${e.message}`);
+    }
+    const learnKey = (s) => String(s || '').replace(/[\s ]+/g, ' ').trim().toLowerCase();
+
     const items = parsed.items.map(it => {
       const ref = refs[it.name] || null;
+      const learnedCost = learned[learnKey(it.name)];
       return {
         ...it,
-        costPrice: null, // 매입단가 — 사용자 수기 입력
+        costPrice: learnedCost != null ? learnedCost : null, // 학습값 자동 채움, 없으면 수기 입력
+        costLearned: learnedCost != null,
         refPrice: ref?.refPrice ?? null,
         refSource: ref ? `전산원가÷1.1 (${ref.matchType})` : null,
         erpSalePrice: ref?.erpSalePrice ?? null,
