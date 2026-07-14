@@ -29,6 +29,7 @@ related:
 | 5 | 단위(박스/단/송이)를 건드리는가? | [OUTUNIT_WRITE_AUDIT_2026-06-10.md](OUTUNIT_WRITE_AUDIT_2026-06-10.md) |
 | 6 | 관련 키워드 `rg` 검색했는가? | 아래 §8 |
 | 7 | 해당 `npm run test:*` 실행했는가? | 아래 §7 |
+| 8 | 확정차수 단가/수량·매출이익 보고서·통관비 편집인가? | [CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md](CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md) |
 
 ---
 

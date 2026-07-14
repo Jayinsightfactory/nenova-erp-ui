@@ -42,6 +42,62 @@
 
 ---
 
+## [2026-07-13 18:00] 세션(session-b) #3 — 매출이익 보고서 통관비 자동화 + 재고 스냅샷 앵커 + 확정차수 편집사이클 버그 수정
+
+> 범위: 2026-07-10 ~ 2026-07-13, 8개 커밋. 매 커밋마다 배포(nenovaweb.com) 완료.
+
+### 작업 내용
+- `a90c36c` **ProductStock 스냅샷 드리프트 대응 + isFix bit 버그 수정** — `lib/profitReport.js`
+  `stockSnapshotByCategory`에 품목별 `isFix IN(1,2)` 앵커 기반 롤링계산(앵커+입고-출고) 추가.
+  근본 원인은 `StockMaster.isFix`가 **bit 컬럼**이라 "시작재고" 마커값 2를 저장 못 하고 SQL Server가
+  조용히 1로 바꿔버려(=확정과 구분 불가) 매번 새 행이 생성되던 것 — **이 버그 때문에 "시작재고 앵커"
+  기능 자체가 이번 세션 전까지 한 번도 정상 동작한 적이 없었음**. `docs/migrations/2026-07-10_stockmaster_isfix_tinyint.sql`
+  (bit→tinyint, SSMS 실행 완료) + `pages/api/shipment/stock-status.js` OrderYear 누락 수정으로 해결.
+  `scripts/audit-stock-drift.mjs` 감사 스크립트 신규(영구 보존, 커밋됨).
+- `42bd474`/`46dd199`/`8385575` **그외통관비(H)·포워딩(S) 자동계산** — 완성본 엑셀 22/23차 실셀
+  역분석 반영, 화면에 입력 패널 임베드(수정이력 포함), 포워딩은 입고관리 SERVICE FEE/운송료 라인
+  자동감지로 수기입력→자동화 전환.
+- `97cc6b0`/`3ccfcde`/`f8147fd`/`1248066`/`55cb15a` 보고서 UX — 컬럼 표시/숨김, 차수별 비교뷰,
+  **재고 스냅샷 미확정 카테고리 "확인 필요" 배너**(앵커도 수기값도 없는 E/F 표시), 컬럼 프리셋 저장,
+  차수 위아래 버튼, 국내(운송료) 수국/Hydrangea → 콜롬비아 수국 분류 수정.
+- `bc7828f` **입력칸 타이핑 중 포커스 튕김 버그 수정** — `EditCell`이 `ProfitReportPage` 내부에 정의돼
+  매 렌더(=매 키입력)마다 새 함수 identity 생성 → React가 다른 컴포넌트로 취급해 `<input>` 언마운트.
+  모듈 스코프로 호이스트 + `edits`/`setEdit` props 전달로 수정.
+- `be76cda` **확정된 차수 단가수정이 재확정 시점에 되돌아가던 버그 수정** — 견적서관리에서 확정
+  (isFix=1) 차수 단가 수정은 확정해제→적용→재확정 사이클을 타야 하는데, `applyCostEdits()`의
+  `cycleWeeks`가 **항상 빈 배열로 하드코딩**돼 있어 사이클이 전혀 동작하지 않았음. 서버측
+  (`update-cost.js`)의 확정차수 차단도 `if (false && ...)`로 꺼져 있어 직접 UPDATE는 "성공"으로
+  보였지만 재확정 시점에 원래 값으로 롤백됨(소재2호 Eryngium 27-02차: 3000→3200 수정 후 3000 복귀
+  관측). `applyQtyEdits`가 이미 쓰던 `getFixCycleWeeksForEditedItems` 패턴을 `applyCostEdits`에도
+  동일 적용 + 서버측 차단 재활성화(안전망).
+
+### 변경된 파일
+- `lib/profitReport.js`, `lib/profitReportExcel.js`, `lib/customsForwarding.js`
+- `pages/sales/profit-report.js`(대폭 확장), `pages/api/sales/profit-report.js`
+- `pages/api/shipment/stock-status.js`, `pages/estimate.js`, `pages/api/estimate/update-cost.js`
+- `docs/migrations/2026-07-10_stockmaster_isfix_tinyint.sql`(신규, SSMS 실행 완료)
+- `scripts/audit-stock-drift.mjs`(신규, 영구 보존)
+
+### 다음 작업 예정
+- 콜롬비아 그외통관비 이중 소스 불일치(아래 미결) — 사용자에게 어느 소스가 정답인지 확인 요청.
+- `docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md` 신규 작성(확정차수 편집류 작업 공통 체크리스트).
+
+### 미결 이슈 / 블로킹
+- **[미해결·미수정] 콜롬비아 그외통관비 소스 이중화**: 농장별 상세 "원가자료.xlsx" 계열과 요약
+  "재고수정.xlsx" 계열이 서로 다른 값/공식을 제시함 — 사용자 확인 전까지 코드 변경 보류.
+  - 백상창고료 단가: 410원/kg(구) vs 460원/kg(신, **현재 코드 `lib/customsForwarding.js` COLOMBIA_RATES.BakSangRate=460 적용 중**)
+  - "겸역차감" 비용 항목이 두 소스 중 한쪽에만 존재 — `computeColombiaCustomsTotal()`에 전혀
+    반영 안 됨(누락 가능성)
+  - 국내운송비: 신 소스는 99,000원 정액, 구 소스는 트럭대수×단가(Truck1t/2.5t/5t) 공식
+    (**현재 코드는 트럭대수 공식 적용 중** — `computeColombiaCustomsTotal`의 `truck` 항)
+  - → 사용자에게 보고만 하고 코드는 건드리지 않음. 다음 세션 작업 전 필수 확인.
+- 재고 스냅샷 드리프트는 24/25/26/27차·다수 카테고리에 걸친 구조적 문제(이번 세션의 앵커 롤링계산은
+  완화책이지 근본 해결 아님) — E/F는 (a) 실사값 수기 입력 또는 (b) 차수피벗 "시작재고" 저장(이제 정상
+  동작) 중 하나로 앵커된 경우만 신뢰 가능. `pages/sales/profit-report.js`의 "확인 필요" 배너로 주별
+  미확정 카테고리 확인 가능.
+
+---
+
 ## [2026-07-10 11:20] 세션(session-b) #2 — 🚨 Turbopack hydration 운영장애 복구 + 차수피벗 일괄적용
 
 ### 운영장애 (오전 배포부터 전 페이지 버튼 무반응)

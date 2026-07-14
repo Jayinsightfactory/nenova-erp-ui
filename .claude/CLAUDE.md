@@ -3,6 +3,7 @@
 > ⚠️ **이 파일을 항상 먼저 읽어라.** 대화 히스토리보다 이 파일이 우선이다.  
 > 📋 **오류·이슈 전체 색인:** [`docs/NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md`](../docs/NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md) — 작업 전 필수.  
 > 🔙 **롤백/분배삭제/취소 작업이면:** [`docs/ROLLBACK_SAFETY_CHECKLIST.md`](../docs/ROLLBACK_SAFETY_CHECKLIST.md) 먼저 (R-1: 빈 마스터 isDeleted=1 금지 등, 30초).  
+> ✏️ **확정차수 단가/수량 수정, 매출이익 보고서 편집, 통관비 입력이면:** [`docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md`](../docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md) 먼저 (C-1: isFix 확인 후 fix-cycle 경유, C-5: bit 컬럼 다값 마커 함정 등, 30초).  
 > 🔗 도메인 규칙 상세: 프로젝트 루트 [`CLAUDE.md`](../CLAUDE.md) · DB 구조 [`docs/DB_STRUCTURE.md`](../docs/DB_STRUCTURE.md)
 > 🤖 **에이전트 팀 활성화** (2026-04-29~): 다도메인/복잡 작업은 `nenova-orchestrator` 가 specialist 에 위임. 자세한 내용 [`.claude/agents/README.md`](agents/README.md) · 도입 배경 [`docs/AGENT_TEAM_ADOPTION.md`](../docs/AGENT_TEAM_ADOPTION.md)
 
