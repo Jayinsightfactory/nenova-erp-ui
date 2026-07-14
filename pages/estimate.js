@@ -1859,6 +1859,12 @@ export default function Estimate() {
     } catch (err) {
       setCostApplyLog(prev => [...prev, { step: 'error', label: `❌ 오류: ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
+      // STALE_DATA = 화면이 옛 단가를 들고 있음(앞선 시도가 이미 저장됐거나 타인이 수정)
+      // → 최신 단가로 화면 자동 갱신. 입력한 수정값(costEdits)은 유지되므로 바로 재적용 가능.
+      if (err.isStaleData) {
+        setCostApplyLog(prev => [...prev, { step: 'cycle', label: '최신 단가로 화면 갱신 중 — 이미 반영된 항목은 값이 일치하게 보입니다' }]);
+        try { await reloadSelectedShipmentItems(); load(true); } catch { /* 갱신 실패는 무시 */ }
+      }
     } finally {
       // 모달은 수동 닫기 — 사용자가 결과를 볼 수 있도록
       setTimeout(() => {
