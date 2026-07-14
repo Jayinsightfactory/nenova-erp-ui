@@ -91,9 +91,8 @@ export default function Stock() {
   });
   const toggleCoun = toggleSet(setSelCoun);
   const toggleFlower = toggleSet(setSelFlower);
-  const visibleStock = stock.filter(s =>
-    (selCoun.size === 0 || selCoun.has(s.CounName)) &&
-    (selFlower.size === 0 || selFlower.has(s.FlowerName)));
+  const [onlyStocked, setOnlyStocked] = useState(true); // 재고수량 있는 품목만 (기본 ON)
+  const searchLive = search.trim().toLowerCase();
   const chipStyle = (active) => ({
     padding:'2px 9px', borderRadius:12, border:'1px solid', fontSize:11, cursor:'pointer',
     fontWeight: active?700:400,
@@ -125,6 +124,16 @@ export default function Stock() {
     return Math.abs(Number(v) - calcStock(s)) > 0.0001;
   };
   const pendingCount = stock.filter(isRowDirty).length;
+
+  // 필터 적용 목록 — calcStock/isRowDirty 선언 뒤에 있어야 함 (TDZ)
+  const visibleStock = stock.filter(s =>
+    (selCoun.size === 0 || selCoun.has(s.CounName)) &&
+    (selFlower.size === 0 || selFlower.has(s.FlowerName)) &&
+    (!onlyStocked || Math.abs(calcStock(s)) > 0.0001 || isRowDirty(s)) &&
+    (!searchLive ||
+      String(s.ProdName || '').toLowerCase().includes(searchLive) ||
+      String(s.FlowerName || '').toLowerCase().includes(searchLive) ||
+      String(s.CounName || '').toLowerCase().includes(searchLive)));
 
   const applyAllEdits = async () => {
     const week = weekInput.value;
@@ -225,8 +234,11 @@ export default function Stock() {
       <div className="filter-bar">
         <WeekInput weekInput={weekInput} label="차수" />
         <span className="filter-label">품목 검색</span>
-        <input className="filter-input" placeholder="품목명 / 꽃" value={search} onChange={e=>setSearch(e.target.value)} style={{minWidth:160}}
-          onKeyDown={e=>e.key==='Enter'&&load()} />
+        <input className="filter-input" placeholder="품목명 / 꽃 (입력 즉시 필터)" value={search} onChange={e=>setSearch(e.target.value)} style={{minWidth:180}} />
+        <button className={onlyStocked?'btn btn-primary btn-sm':'btn btn-secondary btn-sm'}
+          onClick={()=>setOnlyStocked(v=>!v)} title="재고수량이 0이 아닌 품목만 표시">
+          {onlyStocked ? '☑' : '☐'} 재고 있는 품목만
+        </button>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load}>🔄 조회 / Buscar</button>
           <button className={pivotOn?'btn btn-primary':'btn btn-secondary'} onClick={()=>setPivotOn(v=>!v)}>
@@ -366,22 +378,40 @@ export default function Stock() {
                                 <td className="num" style={{color:'var(--amber)'}}>{s.adjustQty?fmtF(s.adjustQty):'—'}</td>
                               </>
                             )}
-                            <td className="num" style={{padding:'2px 4px'}} onClick={e=>e.stopPropagation()}>
-                              <input
-                                type="number"
-                                value={cellVal}
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setEdits(prev => ({ ...prev, [s.ProdKey]: v === '' ? '' : parseFloat(v) }));
-                                }}
-                                disabled={applying}
-                                style={{
-                                  width: 78, textAlign:'right', fontSize:12, fontWeight:700, padding:'3px 5px',
-                                  border: `1px solid ${dirty ? '#f9a825' : 'var(--border)'}`, borderRadius:4,
-                                  background: dirty ? '#fffde7' : 'transparent',
-                                  color: stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)',
-                                }}
-                              />
+                            <td className="num" style={{padding:'2px 4px',whiteSpace:'nowrap'}} onClick={e=>e.stopPropagation()}>
+                              <span style={{display:'inline-flex',alignItems:'center',gap:3}}>
+                                <button disabled={applying}
+                                  onClick={() => setEdits(prev => {
+                                    const cur = s.ProdKey in prev && prev[s.ProdKey] !== '' ? Number(prev[s.ProdKey]) : stockQty;
+                                    return { ...prev, [s.ProdKey]: Math.round((cur - 1) * 100) / 100 };
+                                  })}
+                                  style={{width:26,height:26,fontSize:15,fontWeight:700,lineHeight:'24px',padding:0,
+                                    border:'1px solid var(--border2)',borderRadius:4,cursor:'pointer',
+                                    background:'var(--surface)',color:'var(--red)'}}>−</button>
+                                <input
+                                  type="number"
+                                  value={cellVal}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setEdits(prev => ({ ...prev, [s.ProdKey]: v === '' ? '' : parseFloat(v) }));
+                                  }}
+                                  disabled={applying}
+                                  style={{
+                                    width: 66, textAlign:'right', fontSize:12, fontWeight:700, padding:'4px 5px',
+                                    border: `1px solid ${dirty ? '#f9a825' : 'var(--border)'}`, borderRadius:4,
+                                    background: dirty ? '#fffde7' : 'transparent',
+                                    color: stockQty<=0?'var(--red)':stockQty<10?'var(--amber)':'var(--green)',
+                                  }}
+                                />
+                                <button disabled={applying}
+                                  onClick={() => setEdits(prev => {
+                                    const cur = s.ProdKey in prev && prev[s.ProdKey] !== '' ? Number(prev[s.ProdKey]) : stockQty;
+                                    return { ...prev, [s.ProdKey]: Math.round((cur + 1) * 100) / 100 };
+                                  })}
+                                  style={{width:26,height:26,fontSize:15,fontWeight:700,lineHeight:'24px',padding:0,
+                                    border:'1px solid var(--border2)',borderRadius:4,cursor:'pointer',
+                                    background:'var(--surface)',color:'var(--blue)'}}>＋</button>
+                              </span>
                             </td>
                           </tr>
                         </Fragment>
