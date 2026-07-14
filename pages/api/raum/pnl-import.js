@@ -95,6 +95,7 @@ async function handler(req, res) {
         parsedSupply: s.parsedSupply, summarySupply: s.summarySupply, summaryTotal: s.summaryTotal,
       })),
       items,
+      verification: parsed.verification || null,
       warnings: parsed.warnings,
       existing,
     });

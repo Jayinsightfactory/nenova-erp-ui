@@ -162,6 +162,75 @@ function buildSummaryPrintHtml(list) {
 }
 
 // ── 스타일 ──────────────────────────────────────────────────
+// ── 검증 패널 — 견적서 원본 숫자와 파싱/합산 결과 대조 (✓ 전부 일치해야 안심) ──
+function VerifyPanel({ verification, items }) {
+  const [open, setOpen] = useState(true);
+  if (!verification?.length) {
+    return (
+      <div style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 10px' }}>
+        검증 정보 없음 — 이 기록은 검증 패널 추가 전에 저장됐습니다. 같은 견적서를 다시 업로드하면 생성됩니다.
+      </div>
+    );
+  }
+  const fails = verification.filter(c => !c.ok);
+  const erpMismatch = (items || []).filter(it => it.erpSalePrice != null && it.price != null && Math.abs(it.erpSalePrice - it.price) > 1);
+  const allOk = fails.length === 0;
+  const head = allOk
+    ? `✅ 검증 통과 — 견적서 합계와 ${verification.filter(c => c.ok && !c.info).length}개 항목 모두 일치`
+    : `🚨 검증 실패 ${fails.length}건 — 아래 불일치 항목을 확인하세요 (저장 전 원본 견적서와 대조 필요)`;
+  const n = v => (v == null ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+  return (
+    <div style={{
+      border: `1px solid ${allOk ? '#86efac' : '#fca5a5'}`, background: allOk ? '#f0fdf4' : '#fef2f2',
+      borderRadius: 8, padding: '10px 14px', margin: '0 0 12px', fontSize: 12.5,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <b style={{ color: allOk ? '#166534' : '#991b1b' }}>{head}</b>
+        <span style={{ color: '#64748b' }}>{open ? '▲ 접기' : '▼ 자세히'}</span>
+      </div>
+      {open ? (
+        <table style={{ borderCollapse: 'collapse', marginTop: 8, fontSize: 12 }}>
+          <thead>
+            <tr>
+              {['구분', '항목', '견적서 값', '파싱/합산 값', '차이', '판정'].map(h => (
+                <th key={h} style={{ border: '1px solid #d7dde5', background: '#fff', padding: '3px 10px', fontWeight: 700 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {verification.map((c, i) => (
+              <tr key={i} style={{ background: c.ok ? '#fff' : '#fee2e2' }}>
+                <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }}>{c.group}</td>
+                <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }}>{c.label}</td>
+                {c.info ? (
+                  <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }} colSpan={3}>{c.info}</td>
+                ) : (
+                  <>
+                    <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px', textAlign: 'right' }}>{n(c.sheetVal)}</td>
+                    <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px', textAlign: 'right' }}>{n(c.parsedVal)}</td>
+                    <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px', textAlign: 'right', color: c.ok ? '#94a3b8' : '#b91c1c' }}>{n(c.diff)}</td>
+                  </>
+                )}
+                <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px', textAlign: 'center' }}>{c.ok ? '✓' : '✗'}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }}>전산 교차</td>
+              <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }}>견적단가 ↔ 전산 분배단가</td>
+              <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px' }} colSpan={3}>
+                {erpMismatch.length === 0
+                  ? '매칭된 품목 모두 전산 분배단가와 일치'
+                  : `단가 다른 품목 ${erpMismatch.length}건 (행의 ⚠ 표시) — 이월 품목이면 정상`}
+              </td>
+              <td style={{ border: '1px solid #e2e8f0', padding: '3px 10px', textAlign: 'center' }}>{erpMismatch.length === 0 ? '✓' : '⚠'}</td>
+            </tr>
+          </tbody>
+        </table>
+      ) : null}
+    </div>
+  );
+}
+
 const st = {
   page: { padding: '18px 22px', maxWidth: 1500 },
   h1: { fontSize: 20, fontWeight: 700, margin: '0 0 4px' },
@@ -237,6 +306,7 @@ export default function RaumPnlPage() {
         },
         sheets: j.sheets,
         items: j.items.map(it => ({ ...it, costPrice: it.costPrice ?? null })),
+        verification: j.verification || null,
         warnings,
         unsaved: true,
       });
@@ -269,6 +339,7 @@ export default function RaumPnlPage() {
         },
         sheets: null,
         items: j.items,
+        verification: j.verification || null,
         warnings: [],
         unsaved: false,
       });
@@ -297,6 +368,7 @@ export default function RaumPnlPage() {
           note: meta.note,
           sourceFile: meta.sourceFile,
           items,
+          verification: detail.verification || null,
         }),
       });
       const j = await r.json();
@@ -447,6 +519,7 @@ export default function RaumPnlPage() {
       ) : (
         // ── 상세 (미리보기/편집) ──
         <div>
+          <VerifyPanel verification={detail.verification} items={detail.items} />
           {detail.warnings?.length ? <div style={st.warn}>{detail.warnings.map((w, i) => `⚠ ${w}`).join('\n')}</div> : null}
 
           <div style={{ ...st.bar, gap: 14 }}>

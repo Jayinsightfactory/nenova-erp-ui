@@ -30,7 +30,7 @@ export default withAuth(async function handler(req, res) {
       }
 
       if (action === 'save') {
-        const { orderYear, major, title, quoteDate, nenovaPct, note, sourceFile, items } = req.body || {};
+        const { orderYear, major, title, quoteDate, nenovaPct, note, sourceFile, items, verification } = req.body || {};
         const mj = String(major || '').replace(/[^0-9]/g, '');
         if (!mj || !orderYear) return res.status(400).json({ success: false, error: '차수(major)와 연도(orderYear) 필요' });
         if (!Array.isArray(items) || items.length === 0) {
@@ -41,7 +41,8 @@ export default withAuth(async function handler(req, res) {
           return res.status(400).json({ success: false, error: '네노바 비율은 0~100 사이여야 합니다.' });
         }
         const pnlKey = await saveRaumPnl({
-          orderYear, major: mj, title, quoteDate, nenovaPct: pct, note, sourceFile, items, actor,
+          orderYear, major: mj, title, quoteDate, nenovaPct: pct, note, sourceFile, items,
+          verification: Array.isArray(verification) ? verification : null, actor,
         });
         return res.status(200).json({ success: true, pnlKey });
       }
