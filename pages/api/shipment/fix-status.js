@@ -83,6 +83,37 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const uniqueKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
   const results = [];
   const errors = [];
+  // 2026-07-14: 품목이 많으면 exe 방식(ProdKey=0 전 품목 단일 호출) — fix.js 와 동일 최적화.
+  // 결과 prodKey=0 마커를 reconcileWeekAfterScopedOperation 이 보고 중복 재계산을 건너뛴다.
+  if (uniqueKeys.length > 5) {
+    try {
+      const r = await query(
+        `DECLARE @r INT, @m NVARCHAR(200);
+         EXEC dbo.usp_StockCalculation
+              @OrderYear = @yr,
+              @OrderWeek = @wk,
+              @ProdKey   = 0,
+              @iUserID   = @uid,
+              @oResult   = @r OUTPUT,
+              @oMessage  = @m OUTPUT;
+         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+        {
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          uid: { type: sql.NVarChar, value: uid },
+        }
+      );
+      const row = r.recordset?.[0] || {};
+      if (Number(row.result || 0) === 0) {
+        results.push({ prodKey: 0, ok: true, all: true, message: row.message || '' });
+      } else {
+        errors.push({ prodKey: 0, code: row.result, message: row.message || 'unknown' });
+      }
+    } catch (e) {
+      errors.push({ prodKey: 0, code: -1, message: e.message });
+    }
+    return { results, errors };
+  }
   for (const prodKey of uniqueKeys) {
     try {
       const r = await query(

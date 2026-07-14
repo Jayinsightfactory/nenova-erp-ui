@@ -421,6 +421,46 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const total = uniqueKeys.length;
   const logPrefix = logContext.prefix || 'stock_calc';
   const logLabel = logContext.label || '';
+
+  // 2026-07-14: 품목이 많으면 exe 방식(ProdKey=0 전 품목 단일 호출) — nenova.exe 는 모든 흐름에서
+  // uspStockCalculation(yr, wk, 0) 한 번만 부른다(디컴파일 확인). 품목별 순차 호출은 호출마다
+  // 이후 차수 전체를 cascade 재계산해 카테고리당 수 분씩 걸리던 병목. prodKey=0 결과 마커를 보고
+  // reconcileWeekAfterScopedOperation 이 중복 재계산을 건너뛴다.
+  if (uniqueKeys.length > 5) {
+    try {
+      await logFix(`${logPrefix}_all_start`, `${orderYear}/${orderWeek} ${logLabel} 전품목 단일호출 (요청 ${total}품목)`);
+      const r = await queryWithDeadlockRetry(
+        `DECLARE @r INT, @m NVARCHAR(200);
+         EXEC dbo.usp_StockCalculation
+              @OrderYear = @yr,
+              @OrderWeek = @wk,
+              @ProdKey   = 0,
+              @iUserID   = @uid,
+              @oResult   = @r OUTPUT,
+              @oMessage  = @m OUTPUT;
+         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+        {
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          uid: { type: sql.NVarChar, value: uid },
+        },
+        { retries: 4, baseDelay: 300 }
+      );
+      const row = r.recordset?.[0] || {};
+      if (Number(row.result || 0) === 0) {
+        results.push({ prodKey: 0, ok: true, all: true, message: row.message || '' });
+        await logFix(`${logPrefix}_all_done`, `${orderYear}/${orderWeek} ${logLabel} 전품목 OK`);
+      } else {
+        errors.push({ prodKey: 0, code: row.result, message: row.message || 'unknown' });
+        await logFix(`${logPrefix}_all_error`, `${orderYear}/${orderWeek} ${logLabel} ${row.message || ''}`, true);
+      }
+    } catch (e) {
+      errors.push({ prodKey: 0, code: -1, message: e.message });
+      await logFix(`${logPrefix}_all_error`, `${orderYear}/${orderWeek} ${logLabel} ${e.message}`, true);
+    }
+    return { results, errors };
+  }
+
   await runLimited(uniqueKeys, 1, async (prodKey) => {
     try {
       await logFix(`${logPrefix}_item_start`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${completed + 1}/${total}`);
