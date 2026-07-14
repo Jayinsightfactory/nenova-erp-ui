@@ -98,12 +98,21 @@ export default withAuth(async function handler(req, res) {
   }
 
   // items 정규화: 각 item 은 shipmentKey 가 있어야 함 (없으면 최상위 topSk 브로드캐스트)
+  // 예외: 차감류(Estimate) 행은 화면 아이템에 ShipmentKey 가 null 로 오는 경우가 있어
+  //       (2026-07-14 신고: "#null(2건)" 배치 전체 거절) estimateKey 로 DB 에서 직접 해석한다.
   const items = [];
   for (const it of rawItems) {
     const sdk = it.sdetailKey != null ? parseInt(it.sdetailKey) : null;
     const estimateKey = it.estimateKey != null ? parseInt(it.estimateKey) : null;
-    const itSk = it.shipmentKey != null ? parseInt(it.shipmentKey) : (topSk ? parseInt(topSk) : null);
+    let itSk = it.shipmentKey != null ? parseInt(it.shipmentKey) : (topSk ? parseInt(topSk) : null);
     const cost = parseFloat(it.cost);
+    if (!itSk && estimateKey && !sdk) {
+      const found = await query(
+        `SELECT TOP 1 ShipmentKey FROM Estimate WHERE EstimateKey=@ek`,
+        { ek: { type: sql.Int, value: estimateKey } }
+      );
+      itSk = found.recordset[0]?.ShipmentKey ? parseInt(found.recordset[0].ShipmentKey) : null;
+    }
     if ((!sdk && !estimateKey) || !itSk || Number.isNaN(cost) || cost < 0) {
       return res.status(400).json({
         success: false,
