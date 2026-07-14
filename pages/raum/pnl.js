@@ -2,7 +2,7 @@
 // 매출단가 = 견적서 단가(자동), 매입단가 = 수기 입력(전산 참고단가 = Product.Cost÷1.1 채우기 보조).
 // 순익분배 기본: 네노바 80% : 미우 20% (차수별 수정 가능). 인쇄는 iframe srcdoc 방식(프로젝트 규칙).
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -226,6 +226,133 @@ function VerifyPanel({ verification, items }) {
             </tr>
           </tbody>
         </table>
+      ) : null}
+    </div>
+  );
+}
+
+// ── 강남·건대 비교검증 표 — 원본 지점별 수량/금액이 합산 행으로 어떻게 모였는지 눈으로 대조 ──
+// 초록 = 양쪽 지점이 실제로 합산된 행 / 주황 = 같은 품목인데 단가가 달라 분리 유지된 행(이월분 등)
+const HL = {
+  merged: '#dcfce7',   // 강남+건대 합산됨
+  priceDiff: '#ffedd5', // 같은 품목명·다른 단가 → 분리
+};
+function multiPriceNames(items) {
+  const byName = {};
+  for (const it of items) {
+    const k = String(it.name || '').trim();
+    byName[k] = (byName[k] || new Set()).add(Number(it.price));
+  }
+  return new Set(Object.entries(byName).filter(([, s]) => s.size > 1).map(([k]) => k));
+}
+function rowHighlight(it, branches, multiNames) {
+  if (multiNames.has(String(it.name || '').trim())) return { bg: HL.priceDiff, why: '같은 품목명이 다른 단가로 존재 — 합산하지 않고 분리 유지 (이월분이면 정상)' };
+  const present = branches.filter(b => Number(it.byBranch?.[b] || 0) !== 0);
+  if (present.length > 1) return { bg: HL.merged, why: `${present.join('+')} 합산된 행` };
+  return { bg: null, why: present[0] ? `${present[0]} 단독` : '' };
+}
+
+function BranchComparePanel({ items, sheets, branches }) {
+  const [open, setOpen] = useState(true);
+  if (!branches.length || !items.length) return null;
+  const multiNames = multiPriceNames(items.filter(it => !it.isCustom));
+  const cellTd = { border: '1px solid #e2e8f0', padding: '3px 8px', whiteSpace: 'nowrap' };
+  const numTd = { ...cellTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums' };
+  const branchTotals = Object.fromEntries(branches.map(b => [b, { qty: 0, amt: 0 }]));
+  for (const it of items) {
+    for (const b of branches) {
+      const q = Number(it.byBranch?.[b] || 0);
+      branchTotals[b].qty += q;
+      branchTotals[b].amt += q * Number(it.price || 0);
+    }
+  }
+  const sheetByBranch = Object.fromEntries((sheets || []).map(s => [s.branch, s]));
+  const mergedCnt = items.filter(it => !it.isCustom && branches.filter(b => Number(it.byBranch?.[b] || 0) !== 0).length > 1).length;
+  return (
+    <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 14px', margin: '0 0 12px', fontSize: 12.5, background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setOpen(o => !o)}>
+        <b>🔍 {branches.join('·')} 비교검증</b>
+        <span style={{ background: HL.merged, padding: '1px 8px', borderRadius: 4 }}>합산된 행 {mergedCnt}건</span>
+        <span style={{ background: HL.priceDiff, padding: '1px 8px', borderRadius: 4 }}>단가 달라 분리된 품목 {multiNames.size}개</span>
+        <span style={{ color: '#64748b' }}>{open ? '▲ 접기' : '▼ 펼치기'}</span>
+      </div>
+      {open ? (
+        <div style={{ overflowX: 'auto', marginTop: 8 }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr>
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }} rowSpan={2}>순번</th>
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }} rowSpan={2}>품목명</th>
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }} rowSpan={2}>단가</th>
+                {branches.map(b => (
+                  <th key={b} style={{ ...cellTd, background: '#e0f2fe', fontWeight: 700, textAlign: 'center' }} colSpan={2}>{b}</th>
+                ))}
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700, textAlign: 'center' }} colSpan={2}>합산</th>
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }} rowSpan={2}>판정</th>
+              </tr>
+              <tr>
+                {branches.map(b => (
+                  <Fragment key={b}>
+                    <th style={{ ...cellTd, background: '#e0f2fe', fontWeight: 600 }}>수량</th>
+                    <th style={{ ...cellTd, background: '#e0f2fe', fontWeight: 600 }}>금액</th>
+                  </Fragment>
+                ))}
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 600 }}>수량</th>
+                <th style={{ ...cellTd, background: '#f1f5f9', fontWeight: 600 }}>금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.filter(it => !it.isCustom).map((it, i) => {
+                const hl = rowHighlight(it, branches, multiNames);
+                const priceDiff = multiNames.has(String(it.name || '').trim());
+                return (
+                  <tr key={it.itemKey ?? `${it.name}|${it.price}`} style={hl.bg ? { background: hl.bg } : undefined} title={hl.why}>
+                    <td style={{ ...cellTd, textAlign: 'center' }}>{i + 1}</td>
+                    <td style={{ ...cellTd, fontWeight: priceDiff ? 700 : 400 }}>{it.name}</td>
+                    <td style={{ ...numTd, fontWeight: priceDiff ? 700 : 400, color: priceDiff ? '#c2410c' : undefined }}>{fmt1(it.price)}</td>
+                    {branches.map(b => {
+                      const q = Number(it.byBranch?.[b] || 0);
+                      return (
+                        <Fragment key={b}>
+                          <td style={{ ...numTd, fontWeight: q ? 600 : 400, color: q ? undefined : '#cbd5e1' }}>{q ? fmt(q) : '·'}</td>
+                          <td style={{ ...numTd, color: q ? '#475569' : '#cbd5e1' }}>{q ? fmt(q * Number(it.price || 0)) : '·'}</td>
+                        </Fragment>
+                      );
+                    })}
+                    <td style={{ ...numTd, fontWeight: 700 }}>{fmt(it.qty)}</td>
+                    <td style={{ ...numTd, fontWeight: 700 }}>{fmt(it.supply)}</td>
+                    <td style={{ ...cellTd, fontSize: 11.5, color: '#64748b' }}>{hl.why}</td>
+                  </tr>
+                );
+              })}
+              <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
+                <td style={{ ...cellTd, textAlign: 'center' }} colSpan={3}>지점 합계</td>
+                {branches.map(b => {
+                  const sh = sheetByBranch[b];
+                  const expect = sh?.summarySupply ?? sh?.parsedSupply ?? null;
+                  const ok = expect == null || Math.abs(branchTotals[b].amt - expect) <= 5;
+                  return (
+                    <Fragment key={b}>
+                      <td style={numTd}>{fmt(branchTotals[b].qty)}</td>
+                      <td style={{ ...numTd, color: ok ? undefined : '#b91c1c' }}
+                        title={expect != null ? `견적서 ${b} 공급가액 ${fmt(expect)}원과 ${ok ? '일치' : '불일치!'}` : ''}>
+                        {fmt(branchTotals[b].amt)}{expect != null ? (ok ? ' ✓' : ' ✗') : ''}
+                      </td>
+                    </Fragment>
+                  );
+                })}
+                <td style={numTd}>{fmt(items.filter(it => !it.isCustom).reduce((a, it) => a + Number(it.qty || 0), 0))}</td>
+                <td style={numTd}>{fmt(items.filter(it => !it.isCustom).reduce((a, it) => a + Number(it.supply || 0), 0))}</td>
+                <td style={cellTd}></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+            <span style={{ background: HL.merged, padding: '0 6px', borderRadius: 3 }}>초록</span> = 강남·건대 양쪽 수량이 합산된 행 ·{' '}
+            <span style={{ background: HL.priceDiff, padding: '0 6px', borderRadius: 3 }}>주황</span> = 같은 품목명이지만 단가가 달라 분리 유지된 행(이월분이면 정상) ·{' '}
+            <b>·</b> = 해당 지점에 없음 · 지점 합계의 ✓ = 견적서 원본 하단 합계와 일치
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -474,6 +601,10 @@ export default function RaumPnlPage() {
   const nenovaPct = detail ? Number(detail.meta.nenovaPct) || 0 : 80;
   const totals = useMemo(() => (detail ? computeTotals(detail.items, nenovaPct) : null), [detail, nenovaPct]);
   const hasRef = detail ? detail.items.some(it => it.refPrice != null) : false;
+  const gridMultiNames = useMemo(
+    () => (detail ? multiPriceNames(detail.items.filter(it => !it.isCustom)) : new Set()),
+    [detail]
+  );
 
   // ── 렌더 ──
   return (
@@ -574,6 +705,7 @@ export default function RaumPnlPage() {
         // ── 상세 (미리보기/편집) ──
         <div>
           <VerifyPanel verification={detail.verification} items={detail.items} />
+          <BranchComparePanel items={detail.items} sheets={detail.sheets} branches={branches} />
           {detail.warnings?.length ? <div style={st.warn}>{detail.warnings.map((w, i) => `⚠ ${w}`).join('\n')}</div> : null}
 
           <div style={{ ...st.bar, gap: 14 }}>
@@ -638,8 +770,9 @@ export default function RaumPnlPage() {
                 {detail.items.map((it, i) => {
                   const r = computeItemRow(it, nenovaPct);
                   const erpMismatch = it.erpSalePrice != null && it.price != null && Math.abs(it.erpSalePrice - it.price) > 1;
+                  const hl = it.isCustom ? { bg: '#fffbeb', why: '수동 추가 행' } : rowHighlight(it, branches, gridMultiNames);
                   return (
-                    <tr key={it.itemKey ?? it._uid ?? `${it.name}|${it.price}`} style={it.isCustom ? { background: '#fffbeb' } : undefined}>
+                    <tr key={it.itemKey ?? it._uid ?? `${it.name}|${it.price}`} style={hl.bg ? { background: hl.bg } : undefined} title={hl.why}>
                       <td style={{ ...st.td, textAlign: 'center' }}>{i + 1}</td>
                       <td style={st.td} title={it.isCustom ? '수동 추가 행' : (it.prodName ? `전산 매칭: ${it.prodName}` : '전산 미매칭')}>
                         {it.isCustom ? (
