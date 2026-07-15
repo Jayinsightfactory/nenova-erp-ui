@@ -59,6 +59,57 @@ async function getStock(req, res) {
     }
   }
 
+  // ── 차수별 재고 피벗 — 지정 차수 이하 최근 N개 차수의 ProductStock 스냅샷
+  //    (StockMaster 중복행은 bit isFix 시절 잔재 — ProductStock 행이 가장 많은 StockKey를 대표로 선택)
+  if (type === 'weekPivot') {
+    try {
+      const back = Math.min(Math.max(parseInt(req.query.back || '6', 10) || 6, 2), 12);
+      const orderYear = resolveActiveOrderYear(rawWeek, '');
+      const oyw = orderYear + String(week || '').replace('-', '');
+      const weeksResult = await query(
+        `WITH wk AS (
+           SELECT sm.OrderWeek, sm.OrderYearWeek, sm.StockKey,
+                  ROW_NUMBER() OVER (PARTITION BY sm.OrderYearWeek
+                    ORDER BY (SELECT COUNT(*) FROM ProductStock ps WHERE ps.StockKey = sm.StockKey) DESC,
+                             sm.StockKey DESC) AS rn
+             FROM StockMaster sm
+            WHERE sm.OrderYearWeek <= @oyw AND sm.OrderWeek LIKE '__-__'
+         )
+         SELECT TOP (@back) OrderWeek, OrderYearWeek, StockKey
+           FROM wk WHERE rn = 1
+          ORDER BY OrderYearWeek DESC`,
+        {
+          oyw:  { type: sql.NVarChar, value: oyw },
+          back: { type: sql.Int, value: back },
+        }
+      );
+      const weeks = weeksResult.recordset.reverse(); // 오래된 차수 → 최신 차수
+      if (weeks.length === 0) return res.status(200).json({ success: true, weeks: [], stocks: {} });
+
+      const keyList = weeks.map(w => Number(w.StockKey)).filter(Boolean);
+      const stocksResult = await query(
+        `SELECT ps.StockKey, ps.ProdKey, ISNULL(ps.Stock, 0) AS Stock
+           FROM ProductStock ps
+          WHERE ps.StockKey IN (${keyList.map((_, i) => `@k${i}`).join(',')})`,
+        Object.fromEntries(keyList.map((k, i) => [`k${i}`, { type: sql.Int, value: k }]))
+      );
+      const weekByKey = Object.fromEntries(weeks.map(w => [Number(w.StockKey), w.OrderWeek]));
+      const stocks = {};
+      for (const r of stocksResult.recordset) {
+        const wkLabel = weekByKey[Number(r.StockKey)];
+        if (!wkLabel) continue;
+        (stocks[r.ProdKey] ||= {})[wkLabel] = Number(r.Stock);
+      }
+      return res.status(200).json({
+        success: true,
+        weeks: weeks.map(w => w.OrderWeek),
+        stocks,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   // ── 재고 목록 조회
   let where = 'WHERE p.isDeleted = 0';
   const params = {};
@@ -182,6 +233,15 @@ async function adjustStock(req, res) {
           after:  { type: sql.Float,    value: after },
           descr:  { type: sql.NVarChar, value: descr || '' },
         }
+      );
+
+      // nenova.exe FormStockAdd.btnSave_Click 과 동일 순서 — usp_StockCalculation은 ProductStock
+      // (차수별 스냅샷)만 갱신하고 Product.Stock은 절대 건드리지 않는다(SP 본문 직접 확인, 2026-07-14).
+      // 이 UPDATE가 빠지면 exe 재고조정 화면 "현재고"·확정검증(negativeLiveCount)이 웹 조정을 못 보고
+      // 옛 값 기준으로 계속 동작한다 — 이 파일 최초 작성 시점부터 있던 사전 존재 버그였음.
+      await tQuery(
+        `UPDATE Product SET Stock = ROUND(@after, 2) WHERE ProdKey = @pk`,
+        { after: { type: sql.Float, value: after }, pk: { type: sql.Int, value: pk } }
       );
 
       await tQuery(

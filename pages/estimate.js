@@ -1295,13 +1295,14 @@ export default function Estimate() {
     .map(it => Number(it.ProdKey))
     .filter(Number.isFinite))];
 
-  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = []) => {
+  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = [], extraBody = {}) => {
     const { data: d } = await postShipmentFix({
       week,
       action,
       force: true,
       countryFlowers,
       stockProdKeys,
+      ...extraBody,
     });
     if (!d.success) {
       throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
@@ -1309,21 +1310,26 @@ export default function Estimate() {
     return d;
   };
 
-  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply }) => {
+  // lightStock: 단가수정처럼 재고 수치가 안 변하는 편집용 — 사이클 중간 재고 재계산을 전부
+  // 생략(skipStockCalc)하고, 마지막 재확정 1회만 전체 재계산으로 스냅샷을 정리한다.
+  // 수량수정은 재고가 실제로 변하므로 lightStock 을 켜지 말 것.
+  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const unfixedWeeks = [];
     let applyResult = null;
     let applyError = null;
+    const skipBody = lightStock ? { skipStockCalc: true } : {};
     try {
       for (const wk of sortWeeksDesc(targetWeeks)) {
         progress?.(`${wk} 확정해제 중`);
-        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys);
+        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys, skipBody);
         unfixedWeeks.push(wk);
       }
     } catch (err) {
       progress?.(`확정해제 오류 — ${err.message}`);
       for (const wk of sortWeeksAsc(unfixedWeeks)) {
         progress?.(`${wk} 원상복구 재확정 중`);
+        // 원상복구는 안전 우선 — 재계산 생략하지 않음
         await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
       }
       throw err;
@@ -1337,9 +1343,13 @@ export default function Estimate() {
       progress?.(`수정 저장 오류 — ${err.message}`);
     }
 
-    for (const wk of sortWeeksAsc(unfixedWeeks)) {
-      progress?.(`${wk} 재확정 중`);
-      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
+    const refixWeeks = sortWeeksAsc(unfixedWeeks);
+    for (let i = 0; i < refixWeeks.length; i++) {
+      const wk = refixWeeks[i];
+      const isLast = i === refixWeeks.length - 1;
+      progress?.(`${wk} 재확정 중${lightStock && isLast ? ' (재고 정리 재계산 포함)' : ''}`);
+      // 경량 모드: 마지막 재확정만 전체 재계산으로 스냅샷 정리
+      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys, isLast ? {} : skipBody);
     }
 
     if (applyError) throw applyError;
@@ -1555,52 +1565,68 @@ export default function Estimate() {
 
       if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
 
-      const shipmentPending = pending.filter(p => !p.isEstimate);
-      const cycleWeeks = getFixCycleWeeksForEditedItems(shipmentPending.map(p => p.item), selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(shipmentPending.map(p => p.item));
-      const cycleStockProdKeys = getProdKeysForEditedItems(shipmentPending.map(p => p.item));
-      if (cycleWeeks.length > 0) {
+      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 한 행만 사이클 후 재시도"
+      //   (단가수정과 동일 패턴). 미확정 행은 즉시 저장되고, 진짜 확정된 행만 자동 확정해제→재확정을
+      //   탄다. 이미 저장된 행은 재시도하지 않아 STALE_DATA 오탐도 없다.
+      const postOneQty = async (p) => {
         setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+          step: 'save',
+          label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
         }]);
-      }
-
-      const runQuantityUpdate = async () => {
-        return await runLimited(pending, 4, async (p) => {
-          setCostApplyLog(prev => [...prev, {
-            step: 'save',
-            label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
-          }]);
-          const r = await fetch('/api/estimate/update-quantity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-              sdetailKey: p.isEstimate ? undefined : p.keyNumber,
-              estimateKey: p.isEstimate ? p.keyNumber : undefined,
-              shipmentKey: p.item.ShipmentKey,
-              quantity: p.newQty,
-              unit: p.item.Unit,
-              expectedOldQuantity: p.oldQty,
-            }),
-          });
-          const d = await r.json();
-          const result = { key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error };
-          if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
-          return result;
+        const r = await fetch('/api/estimate/update-quantity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            sdetailKey: p.isEstimate ? undefined : p.keyNumber,
+            estimateKey: p.isEstimate ? p.keyNumber : undefined,
+            shipmentKey: p.item.ShipmentKey,
+            quantity: p.newQty,
+            unit: p.item.Unit,
+            expectedOldQuantity: p.oldQty,
+          }),
         });
+        const d = await r.json();
+        return {
+          key: p.keyNumber, ok: d.success, code: d.code,
+          oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error,
+          fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [],
+          pendingRef: p,
+        };
       };
 
-      const results = cycleWeeks.length > 0
-        ? await runEditWithFixCycle({
-            weeks: cycleWeeks,
-            countryFlowers: cycleCountryFlowers,
-            stockProdKeys: cycleStockProdKeys,
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply: runQuantityUpdate,
-          })
-        : await runQuantityUpdate();
+      // 1차: 전 행 직접 저장 (실패해도 수집만 — 행 단위 독립)
+      const firstPass = await runLimited(pending, 4, postOneQty);
+      let results = firstPass;
+
+      // FIXED_WEEK 로 거절된 행만 자동 사이클 후 재시도
+      const fixedFails = firstPass.filter(r => !r.ok && r.code === 'FIXED_WEEK');
+      if (fixedFails.length > 0) {
+        const fixedPending = fixedFails.map(r => r.pendingRef);
+        // 서버가 알려준 확정 차수/카테고리(DB 기준)를 합집합 — 화면 아이템의 필드 누락과 무관하게 스코프 정확
+        const cycleWeeks = sortWeeksAsc([
+          ...getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip),
+          ...fixedFails.flatMap(r => r.fixedWeeks),
+        ]);
+        const cycleCountryFlowers = [...new Set([
+          ...getCountryFlowersForEditedItems(fixedPending.map(p => p.item)),
+          ...fixedFails.flatMap(r => r.fixedCategories),
+        ])];
+        const cycleStockProdKeys = getProdKeysForEditedItems(fixedPending.map(p => p.item));
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정된 상세 ${fixedFails.length}건 감지 → 자동 확정 사이클: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+        }]);
+        const retryResults = await runEditWithFixCycle({
+          weeks: cycleWeeks,
+          countryFlowers: cycleCountryFlowers,
+          stockProdKeys: cycleStockProdKeys,
+          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+          apply: async () => await runLimited(fixedPending, 4, postOneQty),
+        });
+        // pendingRef 객체 identity 로 매핑 (keyNumber 는 est/sd 간 충돌 가능)
+        results = firstPass.map(r => retryResults.find(x => x.pendingRef === r.pendingRef) || r);
+      }
 
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
@@ -1707,14 +1733,17 @@ export default function Estimate() {
         week,
         custKey: selectedShip.CustKey,
       };
-      const cycleWeeks = [];
-      const cycleCountryFlowers = [];
-      if (cycleWeeks.length > 0) {
-        setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
-        }]);
-      }
+      // 2026-07-13: 확정된 차수에서 단가를 수정하면 확정해제→적용→재확정 사이클을 타야 하는데
+      // cycleWeeks 가 항상 빈 배열로 고정돼 있어서 이 사이클이 아예 동작하지 않던 버그.
+      // (서버 update-cost.js 의 확정차수 차단도 꺼져있어 직접 UPDATE는 "성공"하지만, 이후 재확정
+      //  시점에 값이 되돌아가는 것으로 관측됨 — 수량수정(applyQtyEdits)과 동일한 방식으로 수정.)
+      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 할 때만 사이클"로 변경.
+      //   화요일 카테고리별 부분확정 중간상태(마스터=1·상세=0)에서 SubWeeksFix 기준 선제 사이클이
+      //   미확정 카테고리를 조기 재확정하려다 부분확정 가드에 막혀 "직접 확정취소하라" 경고가 뜨던
+      //   문제 수정. 상세가 미확정이면 직접 저장이 안전하고(서버 가드도 상세 기준으로 정정),
+      //   상세가 진짜 확정일 때만 사이클이 필요하다.
+      const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
+      const cycleCountryFlowers = getCountryFlowersForEditedItems(allItems);
       const postCostUpdate = async () => {
         allItems.forEach(it => {
           setCostApplyLog(prev => [...prev, {
@@ -1736,6 +1765,8 @@ export default function Estimate() {
               `확정해제 후 저장/재확정 과정에서 다시 확정된 데이터가 감지되었습니다.`
             );
             fixedErr.isFixedWeek = true;
+            fixedErr.fixedWeeks = d.fixedWeeks || [];
+            fixedErr.fixedCategories = d.fixedCategories || [];
             throw fixedErr;
           }
           if (d.code === 'STALE_DATA') {
@@ -1753,15 +1784,30 @@ export default function Estimate() {
         return d;
       };
 
-      const d = cycleWeeks.length > 0
-        ? await runEditWithFixCycle({
-            weeks: cycleWeeks,
-            countryFlowers: cycleCountryFlowers,
-            stockProdKeys: [],
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply: postCostUpdate,
-          })
-        : await postCostUpdate();
+      let d;
+      try {
+        d = await postCostUpdate();
+      } catch (firstErr) {
+        // 2026-07-14: 사이클 스코프는 서버가 알려준 "실제 확정된 차수/카테고리"를 합집합으로 사용.
+        //   화면 아이템의 OrderWeek/CountryFlower 누락(차감류 null 차수, 중국장미 등 카테고리 공백)으로
+        //   스코프가 빠지면 해당 카테고리가 안 풀려 저장이 다시 FIXED_WEEK 로 실패하던 문제 대응.
+        const effWeeks = sortWeeksAsc([...cycleWeeks, ...(firstErr.fixedWeeks || [])]);
+        const effCats = [...new Set([...cycleCountryFlowers, ...(firstErr.fixedCategories || [])])];
+        if (!firstErr.isFixedWeek || effWeeks.length === 0) throw firstErr;
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정된 상세 감지 → 자동 확정 사이클: ${sortWeeksDesc(effWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(effWeeks).join(' 확정 → ')} 확정${effCats.length ? ` / 카테고리 ${effCats.join(', ')}` : ''}`,
+        }]);
+        d = await runEditWithFixCycle({
+          weeks: effWeeks,
+          countryFlowers: effCats,
+          stockProdKeys: [],
+          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+          apply: postCostUpdate,
+          // 단가는 재고 수치와 무관 — 중간 재계산 생략, 마지막 재확정만 정리 재계산
+          lightStock: true,
+        });
+      }
 
       if (!d.success) {
         if (d.code === 'FIXED_WEEK') {
@@ -1813,6 +1859,12 @@ export default function Estimate() {
     } catch (err) {
       setCostApplyLog(prev => [...prev, { step: 'error', label: `❌ 오류: ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
+      // STALE_DATA = 화면이 옛 단가를 들고 있음(앞선 시도가 이미 저장됐거나 타인이 수정)
+      // → 최신 단가로 화면 자동 갱신. 입력한 수정값(costEdits)은 유지되므로 바로 재적용 가능.
+      if (err.isStaleData) {
+        setCostApplyLog(prev => [...prev, { step: 'cycle', label: '최신 단가로 화면 갱신 중 — 이미 반영된 항목은 값이 일치하게 보입니다' }]);
+        try { await reloadSelectedShipmentItems(); load(true); } catch { /* 갱신 실패는 무시 */ }
+      }
     } finally {
       // 모달은 수동 닫기 — 사용자가 결과를 볼 수 있도록
       setTimeout(() => {

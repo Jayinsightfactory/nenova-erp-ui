@@ -235,6 +235,27 @@ async function validate(req, res) {
       { wk }
     );
 
+    // 5. 음수 이월 (검증 사각지대) — 그 차수 스냅샷이 음수인데 그 주 출고가 없어
+    //    확정 잔량검사(미확정 출고 있는 품목만 검사)를 아예 안 타는 품목. 경고 전용(차단 안 함).
+    //    2026-07-14 조사: "음수인데 확정됨"의 실체 — 23~26차에 쌓인 이월 음수가 이 경로로 통과.
+    const carryResult = await query(
+      `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName, ps.Stock
+         FROM ProductStock ps
+         JOIN StockMaster smk ON smk.StockKey = ps.StockKey
+         JOIN Product p ON p.ProdKey = ps.ProdKey AND p.isDeleted = 0
+        WHERE smk.OrderWeek = @wk
+          AND ISNULL(CAST(smk.OrderYear AS NVARCHAR(4)), @yr) = @yr
+          AND ps.Stock < -0.01
+          AND NOT EXISTS (
+            SELECT 1 FROM ShipmentDetail sd
+            JOIN ShipmentMaster sm3 ON sm3.ShipmentKey = sd.ShipmentKey
+            WHERE sd.ProdKey = p.ProdKey AND sm3.OrderWeek = @wk
+              AND sm3.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
+          )
+        ORDER BY ps.Stock ASC`,
+      { wk, yr: { type: sql.NVarChar, value: orderYear } }
+    );
+
     const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length + noInResult.recordset.length;
     return res.status(200).json({
       success: true,
@@ -244,6 +265,7 @@ async function validate(req, res) {
       noIncoming: noInResult.recordset,   // 입고 없는 출고 (4번째 검증)
       duplicate: dupResult.recordset,     // 중복 출고
       negative: negRows,                  // 마이너스 잔량
+      negativeCarry: carryResult.recordset, // 음수 이월 (그 주 출고 없음 → 잔량검사 사각) — 경고 전용
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -399,6 +421,46 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const total = uniqueKeys.length;
   const logPrefix = logContext.prefix || 'stock_calc';
   const logLabel = logContext.label || '';
+
+  // 2026-07-14: 품목이 많으면 exe 방식(ProdKey=0 전 품목 단일 호출) — nenova.exe 는 모든 흐름에서
+  // uspStockCalculation(yr, wk, 0) 한 번만 부른다(디컴파일 확인). 품목별 순차 호출은 호출마다
+  // 이후 차수 전체를 cascade 재계산해 카테고리당 수 분씩 걸리던 병목. prodKey=0 결과 마커를 보고
+  // reconcileWeekAfterScopedOperation 이 중복 재계산을 건너뛴다.
+  if (uniqueKeys.length > 5) {
+    try {
+      await logFix(`${logPrefix}_all_start`, `${orderYear}/${orderWeek} ${logLabel} 전품목 단일호출 (요청 ${total}품목)`);
+      const r = await queryWithDeadlockRetry(
+        `DECLARE @r INT, @m NVARCHAR(200);
+         EXEC dbo.usp_StockCalculation
+              @OrderYear = @yr,
+              @OrderWeek = @wk,
+              @ProdKey   = 0,
+              @iUserID   = @uid,
+              @oResult   = @r OUTPUT,
+              @oMessage  = @m OUTPUT;
+         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+        {
+          yr:  { type: sql.NVarChar, value: orderYear },
+          wk:  { type: sql.NVarChar, value: orderWeek },
+          uid: { type: sql.NVarChar, value: uid },
+        },
+        { retries: 4, baseDelay: 300 }
+      );
+      const row = r.recordset?.[0] || {};
+      if (Number(row.result || 0) === 0) {
+        results.push({ prodKey: 0, ok: true, all: true, message: row.message || '' });
+        await logFix(`${logPrefix}_all_done`, `${orderYear}/${orderWeek} ${logLabel} 전품목 OK`);
+      } else {
+        errors.push({ prodKey: 0, code: row.result, message: row.message || 'unknown' });
+        await logFix(`${logPrefix}_all_error`, `${orderYear}/${orderWeek} ${logLabel} ${row.message || ''}`, true);
+      }
+    } catch (e) {
+      errors.push({ prodKey: 0, code: -1, message: e.message });
+      await logFix(`${logPrefix}_all_error`, `${orderYear}/${orderWeek} ${logLabel} ${e.message}`, true);
+    }
+    return { results, errors };
+  }
+
   await runLimited(uniqueKeys, 1, async (prodKey) => {
     try {
       await logFix(`${logPrefix}_item_start`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${completed + 1}/${total}`);
@@ -548,7 +610,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
+  // skipStockCalc: 단가수정 경량 사이클용 — 단가는 재고 수치와 무관해 사이클 중간 재계산이
+  // 수학적으로 무변화. 클라이언트가 중간 해제/확정에 true 를 보내고 마지막 재확정만 전체 재계산.
+  const skipStockCalc = req.body?.skipStockCalc === true;
+  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   // ── 재고 추가 후 확정 — [비활성화됨 2026-07-07]
   //    재고조정(+)이 영구 주입이라 usp_StockCalculation cascade(한번에 1~2주만 전파)로
@@ -668,6 +733,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
+        if (skipStockCalc) {
+          results.push({ countryFlower: label, ok: true, message: row.message });
+        } else {
         await logFix('stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
           prefix: 'stock_calc',
@@ -685,6 +753,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           );
         }
         results.push({ countryFlower: label, ok: true, message: row.message });
+        }
       } else {
         let retryRow = null;
         await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
@@ -738,17 +807,19 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
-  const reconcile = await reconcileWeekAfterScopedOperation({
-    q: query,
-    sqlTypes: sql,
-    orderYear,
-    orderWeek,
-    uid,
-    logFix,
-    alreadyCalculatedProdKeys,
-    scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
-    forceFullWeekRecalc: Boolean(allowedCountryFlowers),
-  });
+  const reconcile = skipStockCalc
+    ? { weekProdKeyCount: 0, recalculatedCount: 0, stockErrors: [], parity: { status: 'RECALC_SKIPPED', exeAligned: true, warnings: [] } }
+    : await reconcileWeekAfterScopedOperation({
+        q: query,
+        sqlTypes: sql,
+        orderYear,
+        orderWeek,
+        uid,
+        logFix,
+        alreadyCalculatedProdKeys,
+        scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
+        forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+      });
 
   await logFix(
     'fix_done',
@@ -783,7 +854,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}`);
+  // skipStockCalc: 단가수정 경량 사이클 — 곧바로 재확정될 예정이라 중간 스냅샷 재계산 생략
+  const skipStockCalc = req.body?.skipStockCalc === true;
+  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   try {
     // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
@@ -837,6 +910,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
+          if (skipStockCalc) {
+            results.push({ countryFlower: label, ok: true, message: row.message });
+          } else {
           await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
           const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
             prefix: 'unfix_stock_calc',
@@ -854,6 +930,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
             );
           }
           results.push({ countryFlower: label, ok: true, message: row.message });
+          }
         } else {
           await logFix('unfix_sp_error', `${orderYear}/${orderWeek} ${label} code=${row.result} msg=${row.message || ''}`, true);
           errors.push({ countryFlower: label, code: row.result, message: row.message || 'unknown' });
@@ -865,17 +942,19 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     }
 
     const alreadyCalculatedProdKeys = stockResults.map((r) => r.prodKey);
-    const reconcile = await reconcileWeekAfterScopedOperation({
-      q: query,
-      sqlTypes: sql,
-      orderYear,
-      orderWeek,
-      uid,
-      logFix,
-      alreadyCalculatedProdKeys,
-      scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'unfix',
-      forceFullWeekRecalc: Boolean(allowedCountryFlowers),
-    });
+    const reconcile = skipStockCalc
+      ? { weekProdKeyCount: 0, recalculatedCount: 0, stockErrors: [], parity: { status: 'RECALC_SKIPPED', exeAligned: true, warnings: [] } }
+      : await reconcileWeekAfterScopedOperation({
+          q: query,
+          sqlTypes: sql,
+          orderYear,
+          orderWeek,
+          uid,
+          logFix,
+          alreadyCalculatedProdKeys,
+          scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'unfix',
+          forceFullWeekRecalc: Boolean(allowedCountryFlowers),
+        });
 
     const pendingUnfixed = await loadShipmentCategoryTargets(orderWeek, 0, null);
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);

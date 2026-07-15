@@ -96,7 +96,7 @@ async function main() {
   check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
   check('Q와 매입수량에서 포워딩 행 이중계상 차단', (reportSource.match(/ProdName,N''\) LIKE N'%운송료%'/g) || []).length >= 2);
   check('전산 호환 재고조회는 요청한 세부차수를 정확히 선택', stockApiSource.includes('WHERE OrderWeek=@week AND OrderYear=@year'));
-  check('F 자동 계산값을 입력 셀 실값으로 표시', pageSource.includes('<EditCell row={row} col="F" autoValue={c.F} />'));
+  check('F 자동 계산값을 입력 셀 실값으로 표시', pageSource.includes("autoValue={cd.key === 'F' ? c.F : undefined}"));
 
   const audited = buildProfitReportAudit([{
     category: '태국', currency: 'USD',

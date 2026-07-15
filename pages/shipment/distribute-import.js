@@ -607,6 +607,18 @@ export default function DistributeImport() {
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
+        {preview && preview.orderYear && (
+          <div style={{ padding: '8px 14px', background: '#e0f2fe', border: '1px solid #0284c7', borderRadius: 8,
+            margin: '0 0 10px', fontSize: 13, color: '#075985' }}>
+            📅 <b>기준연도 {preview.orderYear}년</b> — {preview.week} 차수의 <b>{preview.orderYear}년 주문등록값</b> 대비
+            분배 변경을 검증합니다.
+            {(preview.otherYearWeeks || []).length > 0 && (
+              <span style={{ marginLeft: 8, color: '#9a3412' }}>
+                (타년도 동일차수 데이터 제외됨: {preview.otherYearWeeks.map(o => `${o.year}년 ${o.detailCount}건`).join(', ')})
+              </span>
+            )}
+          </div>
+        )}
         {staleOverrideWarnings.length > 0 && (
           <div style={{ ...st.error, background: '#fef2f2', borderColor: '#ef4444' }}>
             ⚠ 매칭 반영 실패 {staleOverrideWarnings.length}건 — 지정한 매칭이 검증 결과에 적용되지 않고 미매칭으로 되돌아왔습니다.

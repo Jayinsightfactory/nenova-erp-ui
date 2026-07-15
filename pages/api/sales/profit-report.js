@@ -99,6 +99,12 @@ async function loadReportData(major, orderYear) {
           category: key,
           variant: def.variant || 'normal',
           stock,
+          // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
+          // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)
+          stockAnchored: {
+            begin: stockBegin.anchored?.[key] ?? null,
+            end: stockEnd.anchored?.[key] ?? null,
+          },
           auto: {
             N: Number(N[key] || 0),
             L: Number(est.L[key] || 0),
@@ -150,7 +156,10 @@ export default withAuth(async function handler(req, res) {
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
       if (req.query.excel === '1') {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
-        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note, audit: data.audit });
+        const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
+        const buf = buildProfitReportXlsx({
+          major, rows: data.rows, note: data.note, audit: data.audit, visibleCols,
+        });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="profit-report-${major}.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`);

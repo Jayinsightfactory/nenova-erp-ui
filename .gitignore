@@ -55,6 +55,7 @@ _catalog-ref/
 _catalog-ref-browser/
 
 # 임시 산출물 (배포 제외)
+.verify/
 _exe-pngs/
 _logo-*.png
 _tmp-*.png

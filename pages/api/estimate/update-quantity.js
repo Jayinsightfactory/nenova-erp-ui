@@ -100,6 +100,9 @@ export default withAuth(async function handler(req, res) {
                 ISNULL(sd.isFix,0) AS detailIsFix,
                 ISNULL(sm.isFix,0) AS isFix,
                 sm.OrderWeek,
+                ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CountryFlower, N''))), N''),
+                  ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CounName, N''))), N''),
+                    ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.FlowerName, N''))), N''), N'(분류없음)'))) AS CategoryLabel,
                 p.OutUnit, p.EstUnit, p.BunchOf1Box, p.SteamOf1Bunch, p.SteamOf1Box
            FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
            JOIN ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) ON sm.ShipmentKey = sd.ShipmentKey
@@ -117,7 +120,14 @@ export default withAuth(async function handler(req, res) {
       const row = cur.recordset[0];
       const detailFixed = Number(row.detailIsFix || 0) === 1;
       if (detailFixed) {
-        throw new Error(`[${row.OrderWeek}] 확정된 차수입니다. 먼저 확정취소 후 수량을 수정하세요.`);
+        // 2026-07-14: 코드 부여 — 클라이언트(applyQtyEdits)가 이 코드를 보고
+        // 자동 확정해제→적용→재확정 사이클을 태운다 (단가수정과 동일 패턴).
+        // 차수/카테고리는 DB 기준으로 알려줘 화면 아이템의 누락과 무관하게 스코프가 정확하도록.
+        const err = new Error(`[${row.OrderWeek}] 확정된 차수입니다. 먼저 확정취소 후 수량을 수정하세요.`);
+        err.code = 'FIXED_WEEK';
+        err.fixedWeeks = [row.OrderWeek].filter(Boolean);
+        err.fixedCategories = [row.CategoryLabel].filter(Boolean);
+        throw err;
       }
 
       const oldQuantity = unit === '단'
@@ -249,6 +259,8 @@ export default withAuth(async function handler(req, res) {
       error: err.message,
       expected: err.expected,
       actual: err.actual,
+      fixedWeeks: err.fixedWeeks,
+      fixedCategories: err.fixedCategories,
     });
   }
 });
