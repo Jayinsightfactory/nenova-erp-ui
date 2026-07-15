@@ -9,6 +9,7 @@ import {
 } from '../../../lib/profitReport';
 import { computeAutoEndingStock } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
+import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 
 function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -51,17 +52,23 @@ async function loadReportData(major, orderYear) {
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         const prevAutoH = prevCustoms.H[key] ?? 0;
-        // S 포워딩 — 구조화 입력값 우선, 없으면(0) 레거시 FreightCost 추정치로 fallback
-        const autoS = customs.S[key] ? customs.S[key] : Number(S[key] || 0);
-        const prevAutoS = prevCustoms.S[key] ? prevCustoms.S[key] : Number(prevS[key] || 0);
+        // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
+        const structuredSSource = customs.sources?.S?.[key];
+        const prevStructuredSSource = prevCustoms.sources?.S?.[key];
+        const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
+        const hasPrevStructuredS = prevStructuredSSource != null && prevStructuredSSource !== 'missing';
+        const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
+        const prevAutoS = hasPrevStructuredS ? Number(prevCustoms.S[key] || 0) : Number(prevS[key] || 0);
         // F 재료 — 엑셀 방식: (구매+포워딩+통관비)÷매입총수량×기말수량. 클라이언트가 H/R/S 수정 시 즉시 재계산
         const stock = {
+          week: stockEnd.week,
           purchQty: purchQty[key] != null ? Number(purchQty[key]) : 0,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
           recentCost: stockEnd.recentCost[key] != null ? Number(stockEnd.recentCost[key]) : 0,
           tableF: stockEnd.values[key] != null ? stockEnd.values[key] : null,
+          negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
         };
-        // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — placeholder·엑셀생성 기본값
+        // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — 화면 실값·엑셀생성 기본값
         const autoF = computeAutoEndingStock(stock, {
           Q: Number(Q[key] || 0),
           S: man.S ?? autoS,
@@ -80,6 +87,13 @@ async function loadReportData(major, orderYear) {
           H: prevMan.H ?? prevAutoH,
           R: prevMan.R ?? autoR,
         });
+        const source = {
+          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : 'auto',
+          F: man.F != null ? 'manual' : 'auto_exe_stock_view',
+          H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
+          R: man.R != null ? 'manual_invoice' : autoR != null ? 'currency_master_fallback' : 'missing',
+          S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
+        };
         return {
           currency: curCode,
           category: key,
@@ -104,10 +118,17 @@ async function loadReportData(major, orderYear) {
             S: man.S ?? null,              // 포워딩 수기 오버라이드(있으면 auto.S 대신)
           },
           inheritedE: man.E == null && prevF != null,
+          source,
         };
       });
 
-  return { rows, note: cur.note, rates, stockWeeks: { begin: stockBegin.week, end: stockEnd.week } };
+  return {
+    rows,
+    note: cur.note,
+    rates,
+    stockWeeks: { begin: stockBegin.week, end: stockEnd.week },
+    audit: buildProfitReportAudit(rows),
+  };
 }
 
 export default withAuth(async function handler(req, res) {
@@ -129,7 +150,7 @@ export default withAuth(async function handler(req, res) {
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
       if (req.query.excel === '1') {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
-        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note });
+        const buf = buildProfitReportXlsx({ major, rows: data.rows, note: data.note, audit: data.audit });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="profit-report-${major}.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`);

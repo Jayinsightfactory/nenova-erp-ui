@@ -40,8 +40,9 @@ async function main() {
 
   console.log('\n=== sqlEstimateGetData ===');
   const getData = sqlEstimateGetData({ orderYearWeek: '202626', custKey: 42, weekDayIn: '2,3,4,5,6,7,1' });
-  assert('sd.isFix=1', getData.includes('sd.isFix = 1'));
-  assert('OrderMaster JOIN', getData.includes('JOIN OrderMaster om'));
+  assert('ViewShipment source', getData.includes('FROM ViewShipment vs'));
+  assert('ViewOrder JOIN', getData.includes('JOIN ViewOrder vo'));
+  assert('DetailFix=1', getData.includes('vs.DetailFix = 1'));
   assert('EstQuantity > 0', getData.includes('sdd.EstQuantity > 0'));
   assert('custKey param', getData.includes('@custKey'));
   assert('Estimate UNION', getData.includes('FROM Estimate e'));

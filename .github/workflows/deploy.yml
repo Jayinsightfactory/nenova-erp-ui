@@ -14,6 +14,8 @@ jobs:
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
         env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PUBLIC_API_KEY: ${{ secrets.PUBLIC_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AUTOMATION_API_TOKEN: ${{ secrets.AUTOMATION_API_TOKEN }}
           MOYI_API_TOKEN: ${{ secrets.MOYI_API_TOKEN }}
@@ -24,7 +26,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
+          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -32,6 +34,34 @@ jobs:
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
             git reset --hard origin/master
+            echo "=== .env.local 환경변수 동기화 (JWT_SECRET) ==="
+            if [ -n "$JWT_SECRET" ]; then
+              if grep -q '^JWT_SECRET=' .env.local 2>/dev/null; then
+                grep -v '^JWT_SECRET=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "JWT_SECRET=$JWT_SECRET" >> .env.local
+              echo "✅ JWT_SECRET synced (len=${#JWT_SECRET})"
+            elif ! grep -q '^JWT_SECRET=' .env.local 2>/dev/null; then
+              echo "❌ JWT_SECRET 필요 — GitHub Secret 또는 서버 .env.local 에 설정"
+              exit 1
+            else
+              echo "✅ JWT_SECRET already present on server"
+            fi
+            echo "=== .env.local 환경변수 동기화 (PUBLIC_API_KEY) ==="
+            if [ -n "$PUBLIC_API_KEY" ]; then
+              if grep -q '^PUBLIC_API_KEY=' .env.local 2>/dev/null; then
+                grep -v '^PUBLIC_API_KEY=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "PUBLIC_API_KEY=$PUBLIC_API_KEY" >> .env.local
+              echo "✅ PUBLIC_API_KEY synced (len=${#PUBLIC_API_KEY})"
+            elif ! grep -q '^PUBLIC_API_KEY=' .env.local 2>/dev/null; then
+              echo "❌ PUBLIC_API_KEY 필요 — public API smoke 와 외부 연동 보호용"
+              exit 1
+            else
+              echo "✅ PUBLIC_API_KEY already present on server"
+            fi
             echo "=== .env.local 환경변수 동기화 (ANTHROPIC_API_KEY) ==="
             if [ -n "$ANTHROPIC_API_KEY" ]; then
               if grep -q '^ANTHROPIC_API_KEY=' .env.local 2>/dev/null; then

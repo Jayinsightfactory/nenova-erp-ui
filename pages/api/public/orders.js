@@ -1,8 +1,8 @@
 // pages/api/public/orders.js
 // 외부 프로그램용 주문 API (API 키 인증)
 //
-// 인증: 헤더 X-Api-Key: <key> 또는 쿼리 ?apiKey=<key>
-// API 키: 환경변수 PUBLIC_API_KEY (미설정 시 "nenova-api-2026")
+// 인증: 헤더 X-Api-Key: <key> 권장. 레거시 호환으로 쿼리 ?apiKey=<key>도 임시 허용.
+// API 키: 환경변수 PUBLIC_API_KEY. 운영(production)에서는 미설정 시 API 비활성.
 //
 // GET  /api/public/orders         → 주문 조회
 // POST /api/public/orders         → 주문 등록 (실제 DB 저장)
@@ -24,11 +24,22 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 
-const API_KEY = process.env.PUBLIC_API_KEY || 'nenova-api-2026';
+const DEV_ONLY_PUBLIC_API_KEY = 'nenova-api-2026';
+
+function getPublicApiKey() {
+  if (process.env.PUBLIC_API_KEY) return process.env.PUBLIC_API_KEY;
+  if (process.env.NODE_ENV === 'production') return null;
+  return DEV_ONLY_PUBLIC_API_KEY;
+}
 
 function checkApiKey(req, res) {
+  const expected = getPublicApiKey();
+  if (!expected) {
+    res.status(503).json({ success: false, error: 'PUBLIC_API_KEY 서버 미설정' });
+    return false;
+  }
   const key = req.headers['x-api-key'] || req.query.apiKey;
-  if (key !== API_KEY) {
+  if (key !== expected) {
     res.status(401).json({ success: false, error: 'API 키가 올바르지 않습니다. X-Api-Key 헤더를 확인하세요.' });
     return false;
   }

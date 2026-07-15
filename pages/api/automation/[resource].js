@@ -19,8 +19,7 @@
 import jwt from 'jsonwebtoken';
 import { buildSummary } from '../../../lib/salesRevenueBatches';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'nenova2026secretkey';
+import { getJwtSecret } from '../../../lib/auth';
 
 // 프록시 허용 경로(전부 read GET). 여기 없는 경로는 호출 불가.
 const PROXY_ALLOW = new Set([
@@ -51,9 +50,15 @@ async function handleProxy(req, res) {
   const port = process.env.PORT || 3000;
   const qs = fwd.toString();
   const url = `http://127.0.0.1:${port}${target}${qs ? `?${qs}` : ''}`;
+  let jwtSecret;
+  try {
+    jwtSecret = getJwtSecret();
+  } catch (e) {
+    return res.status(503).json({ success: false, error: 'JWT_SECRET 서버 미설정' });
+  }
   const svcJwt = jwt.sign(
     { userId: 'n8n-bridge', userName: 'n8n-bridge', authority: 'read', deptName: 'automation' },
-    JWT_SECRET,
+    jwtSecret,
     { expiresIn: '2m' }
   );
   try {

@@ -47,7 +47,7 @@ export default withAuth(async function handler(req, res) {
           category: cat,
           saved: row,
           carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 기본값으로 제안(사장님 지정)
-          total: computeCountryCustomsTotal(row || {}, rates),
+          total: computeCountryCustomsTotal(row || {}, rates, cat),
         };
       });
 

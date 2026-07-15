@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "node web.js",
+    "audit:prod": "npm audit --omit=dev",
     "test:estimate": "node __tests__/estimateInvariants.test.js && node __tests__/exeEstimateViewSql.test.js && node __tests__/exeParitySql.test.js && node __tests__/estimateEcountExcel.test.js",
     "probe:exe-parity": "node scripts/probe-all-exe-parity.mjs",
     "scan:integrity": "node scripts/scan-integrity.mjs --week-min=1",

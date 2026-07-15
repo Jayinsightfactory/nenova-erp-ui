@@ -103,18 +103,21 @@ export default function ProfitReportPage() {
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
   const dirty = Object.keys(edits).length > 0;
 
-  const EditCell = ({ row, col, width = 86 }) => {
+  const EditCell = ({ row, col, width = 86, autoValue }) => {
     const e = edits[row.category]?.[col];
     const base = row.manual[col];
-    const auto = col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
-    const val = e !== undefined ? e : (base != null ? base : '');
-    const placeholder = auto != null && auto !== 0 ? String(Math.round(auto)) : '';
+    const auto = autoValue !== undefined ? autoValue
+      : col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
+    const displayedAuto = auto == null ? '' : (col === 'R' || col === 'S' ? String(auto) : String(Math.round(auto)));
+    // 파생 자동값은 DB에 복제 저장하지 않고 매 조회 때 다시 계산하되, 셀에는 실제 값으로 표시한다.
+    const val = e !== undefined ? e : (base != null ? base : displayedAuto);
+    const placeholder = e === '' ? displayedAuto : '';
     const titles = {
       R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
       S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
       H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
       E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-      F: '비우면 엑셀 공식 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 매입 없는 주는 최근 매입단가×환율, 실사값 입력 시 그 값 우선',
+      F: `${row.stock?.week || '해당 차수 마지막 세부차수'} 재고수량 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
     };
     return (
       <input
@@ -161,7 +164,7 @@ export default function ProfitReportPage() {
       <div style={st.hint}>
         자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
         (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — 회색 자동값이 계산에 쓰이며, 셀에 직접 입력하면 그 값이 우선. H·R·S를 고치면 자동 F도 즉시 재계산.
-        환율(R)도 기본환율 자동 적용(USD 기본 · 네덜란드=EUR · 중국=CNY · 일본=JPY, 청구서 환율로 수정 가능).
+        환율(R)은 참고용 현재환율 자동 적용(USD 기본 · 네덜란드=EUR · 호주=AUD · 중국=CNY · 일본=JPY)되며, 확정 보고서에는 해당 차수 청구서 환율 입력이 필요합니다.
         포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
@@ -169,6 +172,19 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
+      {data?.audit?.issues?.length > 0 && (
+        <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
+          <strong>검증 필요: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+            {data.audit.issues.slice(0, 10).map((issue, i) => (
+              <li key={`${issue.code}-${issue.category}-${i}`}>
+                <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
+              </li>
+            ))}
+          </ul>
+          {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
+        </div>
+      )}
 
       {data && showCustoms && (
         <div style={st.embedPanel}>
@@ -213,7 +229,7 @@ export default function ProfitReportPage() {
                     <td style={st.tdNum}>{fmt(c.C)}</td>
                     <td style={st.tdNum}>{pct(D)}</td>
                     <td style={st.tdNum}><EditCell row={row} col="E" /></td>
-                    <td style={st.tdNum}><EditCell row={row} col="F" /></td>
+                    <td style={st.tdNum}><EditCell row={row} col="F" autoValue={c.F} /></td>
                     <td style={st.tdNum}>{fmt(c.G)}</td>
                     <td style={st.tdNum}><EditCell row={row} col="H" width={74} /></td>
                     <td style={{ ...st.tdNum, fontWeight: 700 }}>{fmt(c.I)}</td>
@@ -280,7 +296,7 @@ export default function ProfitReportPage() {
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
               단가를 입력하면 <b>지정단가</b>로 저장되어 이후 매주 자동 적용됩니다. 비우면 지정 해제(수국표/품목Cost로 복귀).
-              평가액 = 재고수량 × 박스당수량 × 단가 ÷ 1.1
+              평가액 = ProductStock 재고수량(출고단위) × 적용단가 ÷ 1.1
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>
@@ -346,6 +362,8 @@ const st = {
   hint: { fontSize: 11.5, color: '#64748b', marginBottom: 10, lineHeight: 1.6 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
+  auditError: { background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
+  auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   tableWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 220px)', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff' },
   table: { borderCollapse: 'collapse', fontSize: 12, minWidth: 1800 },
   th: { position: 'sticky', top: 0, background: '#1e293b', color: '#fff', padding: '7px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 2 },
