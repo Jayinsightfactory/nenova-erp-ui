@@ -83,6 +83,7 @@ export const MENU_ITEMS = [
       { href: '/stock',          labelKey: '재고 관리',      popup: true },
       { href: '/stats/monthly',  labelKey: '월별 판매 현황', popup: false },
       { href: '/stats/pivot',    labelKey: 'Pivot 통계',     popup: true },
+      { href: '/stats/pivot-import', labelKey: '수입부 Pivot', popup: true },
       { href: '/stats/area',     labelKey: '지역별 판매 비교',popup: false },
       { href: '/stats/analysis', labelKey: '매출/물량 분석', popup: false },
       { href: '/stats/manager',  labelKey: '영업 사원 실적', popup: false },
