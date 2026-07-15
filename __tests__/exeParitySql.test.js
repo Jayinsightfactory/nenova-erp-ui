@@ -25,7 +25,7 @@ async function main() {
   };
 
   console.log('=== FormEstimateView ===');
-  assert('GetData sd.isFix', sqlEstimateGetData({ orderYearWeek: '202626', custKey: null, weekDayIn: '1,2,3' }).includes('sd.isFix = 1'));
+  assert('GetData DetailFix', sqlEstimateGetData({ orderYearWeek: '202626', custKey: null, weekDayIn: '1,2,3' }).includes('vs.DetailFix = 1'));
   assert('GetDetail ViewShipment', sqlEstimateGetDetail({ orderYearWeek: '202626', custKey: 1 }).includes('ViewShipment'));
   assert('GetExcelDetail GROUP BY', sqlEstimateGetExcelDetail({ orderYearWeek: '202626', custKey: 1, weekDayIn: '1,2,3' }).includes('GROUP BY'));
 

@@ -5,6 +5,7 @@
 const BASE = process.env.SMOKE_BASE_URL || 'https://nenovaweb.com';
 const USER = process.env.SMOKE_USER || 'nenovaSS3';
 const PASS = process.env.SMOKE_PASS || '0000';
+const PUBLIC_API_KEY = process.env.SMOKE_PUBLIC_API_KEY || process.env.PUBLIC_API_KEY || 'nenova-api-2026';
 
 async function request(path, { method = 'GET', token, body } = {}) {
   const headers = { Accept: 'application/json' };
@@ -83,7 +84,8 @@ async function main() {
 
   console.log('\n--- public shipments GET (API 키) ---');
   const pubRes = await fetch(
-    `${BASE}/api/public/shipments?week=23-01&custName=${encodeURIComponent('주광')}&limit=5&apiKey=nenova-api-2026`
+    `${BASE}/api/public/shipments?week=23-01&custName=${encodeURIComponent('주광')}&limit=5`,
+    { headers: { 'X-Api-Key': PUBLIC_API_KEY } }
   );
   const pubJson = await pubRes.json().catch(() => ({}));
   assert('public shipments GET 200', pubRes.status === 200, `status=${pubRes.status}`);

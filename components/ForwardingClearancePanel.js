@@ -1,5 +1,5 @@
 // components/ForwardingClearancePanel.js — 포워딩 입력 패널 (재사용 컴포넌트)
-// 네덜란드/중국/콜롬비아 수국/에콰도르/태국 국가별 USD 직접입력 + 콜롬비아 4품목 항공료단가(반차수 공유값).
+// 네덜란드/중국/콜롬비아 수국/에콰도르/태국 국가별 USD 직접입력 + 콜롬비아 4품목 항공료 총액(반차수 공유값).
 // S(포워딩) 자동값의 소스. week 는 부모가 제어(주차별 매출이익보고서에 임베드되거나 단독 페이지로 사용).
 import { useState, useEffect, useCallback } from 'react';
 
@@ -97,7 +97,7 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
-      setMessage(`${c.orderWeek} 항공료단가 저장 완료 — 매출이익보고서에 자동 반영됩니다`);
+      setMessage(`${c.orderWeek} 항공료 총액 저장 완료 — 매출이익보고서에 자동 반영됩니다`);
       await load();
       onSaved?.();
     } catch (e) { setError(e.message); } finally { setSaving(''); }
@@ -151,7 +151,7 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
           </div>
 
           <div style={st.panel}>
-            <div style={st.panelHead}><strong>콜롬비아 4품목 항공료단가 (반차수별)</strong></div>
+            <div style={st.panelHead}><strong>콜롬비아 4품목 항공료 총액 (반차수별)</strong></div>
             {(data.colombia || []).map((c) => {
               const overridden = c.savedAirRateUSD != null;
               const missing = !c.autoAirTotal && !overridden;
@@ -169,7 +169,7 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
                     <button style={st.tinyBtn} onClick={() => saveAir(c)} disabled={saving === c.orderWeek}>
                       {saving === c.orderWeek ? '저장중' : '저장'}
                     </button>
-                    <HistoryButton orderYear={data.orderYear} scopeType="Colombia" scopeKey={c.orderWeek} fieldLabel={{ AirRateUSD: '항공료단가' }} />
+                    <HistoryButton orderYear={data.orderYear} scopeType="Colombia" scopeKey={c.orderWeek} fieldLabel={{ AirRateUSD: '항공료 총액' }} />
                   </div>
                   <div style={{ fontSize: 12, color: '#334155' }}>
                     배분 미리보기(S, USD): 장미 {fmt2(c.allocationS['콜롬비아 장미'])} · 카네이션 {fmt2(c.allocationS['콜롬비아 카네이션'])} ·

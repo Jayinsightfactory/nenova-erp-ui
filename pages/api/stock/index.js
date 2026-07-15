@@ -119,11 +119,18 @@ async function getStock(req, res) {
   }
   try {
     if (useExe && week) {
+      const requestedYear = resolveActiveOrderYear(rawWeek, '', await resolveOrderYear(week));
       const oyw = normalizeOrderYearWeek2(
         (await query(
-          `SELECT TOP 1 OrderYearWeek FROM StockMaster WHERE REPLACE(OrderWeek,'-','') LIKE @pw + '%' ORDER BY OrderYearWeek DESC`,
-          { pw: { type: sql.NVarChar, value: week.split('-')[0] } }
-        )).recordset[0]?.OrderYearWeek || week.replace(/-/g, '')
+          `SELECT TOP 1 OrderYearWeek
+             FROM StockMaster
+            WHERE OrderWeek=@week AND OrderYear=@year
+            ORDER BY StockKey DESC`,
+          {
+            week: { type: sql.NVarChar, value: week },
+            year: { type: sql.NVarChar, value: requestedYear },
+          }
+        )).recordset[0]?.OrderYearWeek || `${requestedYear}${week.replace(/-/g, '')}`
       );
       const before = await resolveBeforeOrderYearWeek(query, sql, oyw);
       const params = {
