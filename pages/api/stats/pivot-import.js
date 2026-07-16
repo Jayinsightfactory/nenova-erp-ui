@@ -55,6 +55,9 @@ function productFamily(prodName, flowerName) {
   return FLOWER_FAMILY[fl] || fl || pn.toUpperCase() || '(미분류)';
 }
 
+// AWB 정규화 — 같은 운송장이 '16010740553'/'160-10740553' 로 섞여 입력됨 (그룹·태그 매칭용)
+const normAwb = (a) => String(a || '').replace(/[^0-9A-Za-z]/g, '');
+
 // 차수 표기: '22-01' → '22-1'
 const weekShort = (w) => String(w || '').replace(/-0?(\d+)$/, '-$1');
 
@@ -156,7 +159,7 @@ async function buildSettlementExcel(r, payDate) {
   // AWB → 카테고리 태그 (같은 AWB 의 포워더 마스터 InvoiceNo 가 '콜카장'/'콜수국' 태그)
   const tagByAwb = {};
   detail.recordset.forEach(d => {
-    if (d.awb && /[가-힣]/.test(d.invoiceNo)) tagByAwb[d.awb] = d.invoiceNo;
+    if (d.awb && /[가-힣]/.test(d.invoiceNo)) tagByAwb[normAwb(d.awb)] = d.invoiceNo;
   });
 
   // (농장, 차수, 인보이스, 패밀리) 그룹 — 포워더는 별도 시트(운송료)
@@ -170,19 +173,19 @@ async function buildSettlementExcel(r, payDate) {
       groups.set(key, {
         farm: d.farmName || '(농장미상)', week: d.week, awb: d.awb, invoice: d.invoiceNo,
         family, amount: 0, isFwd, orderYear: d.orderYear,
-        tag: tagByAwb[d.awb] || tagFallback(d.counName, d.flowerName),
+        tag: tagByAwb[normAwb(d.awb)] || tagFallback(d.counName, d.flowerName),
       });
     }
     const g = groups.get(key);
     g.amount += Number(d.tprice) || 0;
-    if (!g.tag) g.tag = tagByAwb[d.awb] || tagFallback(d.counName, d.flowerName);
+    if (!g.tag) g.tag = tagByAwb[normAwb(d.awb)] || tagFallback(d.counName, d.flowerName);
     if (d.inputDate && d.inputDate > maxInputDate) maxInputDate = d.inputDate;
   }
 
   const adjustments = await loadAdjustments(r);
   const fwdInvoices = await loadFwdInvoices(r);
   const farmOfAwb = {};
-  detail.recordset.forEach(d => { if (d.awb && !farmOfAwb[d.awb]) farmOfAwb[d.awb] = d.farmName; });
+  detail.recordset.forEach(d => { if (d.awb && !farmOfAwb[normAwb(d.awb)]) farmOfAwb[normAwb(d.awb)] = d.farmName; });
 
   // 시트별(상품대/포워딩) 농장 그룹 구성 — 수기항목은 해당 농장 마지막에 배치
   const buildFarmMap = (isFwdSheet) => {
@@ -197,10 +200,10 @@ async function buildSettlementExcel(r, payDate) {
         amount: Math.round(g.amount * 100) / 100,
         weekTag: `${weekShort(g.week)} ${g.isFwd ? (/[가-힣]/.test(g.invoice) ? g.invoice : g.tag) : g.tag}`.trim(),
         // 포워더 마스터의 InvoiceNo 는 태그(콜카장 등) — FEX 번호는 웹 매핑(WebForwarderInvoice)에서
-        invoice: g.isFwd ? (fwdInvoices[`${g.week}|${String(g.awb).trim()}`] || '') : g.invoice,
+        invoice: g.isFwd ? (fwdInvoices[`${g.week}|${normAwb(g.awb)}`] || '') : g.invoice,
       }));
     adjustments.forEach(a => {
-      const farm = a.farmName || farmOfAwb[a.awb] || '(농장미상)';
+      const farm = a.farmName || farmOfAwb[normAwb(a.awb)] || '(농장미상)';
       if (isForwarder(farm) !== isFwdSheet) return;
       const isBankFee = /수수료/.test(a.label);
       push(farm, {
@@ -312,7 +315,7 @@ async function loadFwdInvoices(r) {
     rangeParams(r)
   );
   const map = {};
-  result.recordset.forEach(x => { map[`${x.OrderWeek}|${String(x.Awb).trim()}`] = x.InvoiceNo; });
+  result.recordset.forEach(x => { map[`${x.OrderWeek}|${normAwb(x.Awb)}`] = x.InvoiceNo; });
   return map;
 }
 

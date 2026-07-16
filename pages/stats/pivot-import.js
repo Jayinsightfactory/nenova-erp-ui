@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 
+const normAwb = (a) => String(a || '').replace(/[^0-9A-Za-z]/g, '');
 const fmt2 = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function PivotImport() {
@@ -95,16 +96,16 @@ export default function PivotImport() {
       const wk = `${r.orderYear}-${r.week}`;
       if (!byWeek.has(wk)) byWeek.set(wk, new Map());
       const byAwb = byWeek.get(wk);
-      const awb = r.awb || '(AWB미상)';
-      if (!byAwb.has(awb)) byAwb.set(awb, { bills: [], adjs: [] });
+      const awb = normAwb(r.awb) || '(AWB미상)';
+      if (!byAwb.has(awb)) byAwb.set(awb, { bills: [], adjs: [], label: r.awb || '(AWB미상)' });
       byAwb.get(awb).bills.push(r);
     }
     for (const a of visibleAdjs) {
       const wk = `${a.orderYear}-${a.week}`;
       if (!byWeek.has(wk)) byWeek.set(wk, new Map());
       const byAwb = byWeek.get(wk);
-      const awb = a.awb || '(AWB미상)';
-      if (!byAwb.has(awb)) byAwb.set(awb, { bills: [], adjs: [] });
+      const awb = normAwb(a.awb) || '(AWB미상)';
+      if (!byAwb.has(awb)) byAwb.set(awb, { bills: [], adjs: [], label: a.awb || '(AWB미상)' });
       byAwb.get(awb).adjs.push(a);
     }
     return byWeek;
@@ -149,7 +150,7 @@ export default function PivotImport() {
 
   // 포워더 인보이스 번호 입력 (FEX-#### 등) — 입고관리 인보이스칸은 태그(콜카장 등)라 별도 저장
   const editFwdInvoice = async (row) => {
-    const cur = fwdInvoices[`${row.week}|${row.awb}`] || '';
+    const cur = fwdInvoices[`${row.week}|${normAwb(row.awb)}`] || '';
     const val = prompt(
       `포워더 인보이스 번호 입력\nAWB ${row.awb} (${row.week} ${row.billNo})\n비우면 삭제됩니다.`, cur);
     if (val === null) return;
@@ -265,7 +266,7 @@ export default function PivotImport() {
                                   )}
                                   {i === 0 && (
                                     <td rowSpan={groupLen} style={{ fontFamily: 'var(--mono)', fontSize: 12, verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                                      {awb}
+                                      {g.label || awb}
                                       <button onClick={() => openAdjModal(g.bills[0], 'awb')} title="이 AWB에 수기항목 추가"
                                         style={plusBtn}>＋</button>
                                     </td>
@@ -275,7 +276,7 @@ export default function PivotImport() {
                                       <>
                                         <span title="포워더 태그(입고관리 인보이스칸)">{r.billNo || '—'}</span>
                                         <span style={{ color: 'var(--blue)', marginLeft: 4 }}>
-                                          {fwdInvoices[`${r.week}|${r.awb}`] || ''}
+                                          {fwdInvoices[`${r.week}|${normAwb(r.awb)}`] || ''}
                                         </span>
                                         <button onClick={() => editFwdInvoice(r)} title="포워더 인보이스 번호(FEX-#### 등) 입력 — 정산서 인보이스넘버 칸에 사용"
                                           style={plusBtn}>✎</button>
@@ -299,7 +300,7 @@ export default function PivotImport() {
                               {g.adjs.map((a) => (
                                 <tr key={`a|${a.key}`} style={adjStyle}>
                                   {g.bills.length === 0 && (
-                                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{awb}</td>
+                                    <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{g.label || awb}</td>
                                   )}
                                   <td style={{ fontSize: 12, fontStyle: 'italic' }}>{a.refNo || a.invoiceNo || '—'}</td>
                                   <td style={{ fontSize: 12 }}>
