@@ -52,23 +52,39 @@ export default function IncomingPricePage() {
     if (Number.isNaN(amt)) { alert('금액을 입력하세요.'); return; }
     setRemitSaving(true);
     try {
+      const isEdit = !!remitModal.key;
       const res = await fetch('/api/incoming-price/remit', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          year, weeks: selectedWeeks.join(','), farmName: remitModal.farm,
-          amountUSD: amt, remitDate: remitModal.date, memo: remitModal.memo || '',
-        }),
+        body: JSON.stringify(isEdit
+          ? { key: remitModal.key, amountUSD: amt, remitDate: remitModal.date, memo: remitModal.memo || '' }
+          : {
+            year, weeks: selectedWeeks.join(','), farmName: remitModal.farm,
+            amountUSD: amt, remitDate: remitModal.date, memo: remitModal.memo || '',
+          }),
       });
       const d = await res.json();
       if (d.success) {
         setRemitModal(null);
         loadRemits();
-        setMsg(`💸 ${remitModal.farm} 송금 기록 저장`);
+        setMsg(`💸 ${remitModal.farm} 송금 기록 ${isEdit ? '수정' : '저장'}`);
         setTimeout(() => setMsg(''), 2500);
       } else alert(d.error || '저장 실패');
     } finally { setRemitSaving(false); }
+  };
+
+  const deleteRemitEntry = async (rm) => {
+    if (!confirm(`${rm.farmName} 송금 기록(${rm.remitDate} · $${Number(rm.amountUSD).toFixed(2)})을 삭제하시겠습니까?`)) return;
+    const res = await fetch('/api/incoming-price/remit', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ key: rm.key }),
+    });
+    const d = await res.json();
+    if (d.success) loadRemits();
+    else alert(d.error || '삭제 실패');
   };
 
   const changeYear = (y) => {
@@ -246,15 +262,20 @@ export default function IncomingPricePage() {
       .filter(c => c.farmName === farm && selectedWeeks.includes(c.orderWeek))
       .filter(c => (Number(c.creditUSD) || 0) !== 0 || String(c.memo || '').trim() !== '');
     const remitEntries = farmRemitsOf(farm);
+    const remitTotal = remitEntries.reduce((s, x) => s + (Number(x.amountUSD) || 0), 0);
+    const hasRemit = remitEntries.length > 0;
+    // 부분송금: 기록은 있으나 기송금 합계가 최종 송금액에 못 미침 (1센트 허용오차)
+    const isFull = hasRemit && remitTotal >= net - 0.005;
     return {
       farm, total, credit, net, savedEntries,
       hasSavedInput: savedEntries.length > 0,
-      remitEntries, hasRemit: remitEntries.length > 0,
+      remitEntries, hasRemit, remitTotal,
+      isFull, isPartial: hasRemit && !isFull,
     };
   });
-  const remittedFarmSummaries = farmSummaries.filter(f => f.hasRemit);
-  const savedFarmSummaries = farmSummaries.filter(f => !f.hasRemit && f.hasSavedInput);
-  const pendingFarmSummaries = farmSummaries.filter(f => !f.hasRemit && !f.hasSavedInput && f.net > 0);
+  const remittedFarmSummaries = farmSummaries.filter(f => f.isFull);
+  const savedFarmSummaries = farmSummaries.filter(f => !f.isFull && f.hasSavedInput);
+  const pendingFarmSummaries = farmSummaries.filter(f => !f.isFull && !f.hasSavedInput && f.net > 0);
   const activeSideRows = sideTab === 'saved' ? savedFarmSummaries
     : sideTab === 'remitted' ? remittedFarmSummaries : pendingFarmSummaries;
 
@@ -737,16 +758,16 @@ export default function IncomingPricePage() {
                   {activeSideRows.map(row => (
                     <div key={row.farm} style={{
                       border: '1px solid #edf0f5',
-                      borderLeft: `4px solid ${row.hasRemit ? '#43a047' : row.hasSavedInput ? '#ffb74d' : '#ef5350'}`,
+                      borderLeft: `4px solid ${row.isFull ? '#43a047' : row.isPartial ? '#ffa726' : row.hasSavedInput ? '#ffb74d' : '#ef5350'}`,
                       borderRadius: 6,
                       padding: '10px 12px',
                       marginBottom: 8,
-                      background: row.hasRemit ? '#fbfffb' : row.hasSavedInput ? '#fffdf8' : '#fffafa',
+                      background: row.isFull ? '#fbfffb' : row.isPartial ? '#fffcf5' : row.hasSavedInput ? '#fffdf8' : '#fffafa',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                         <div style={{ fontWeight: 800, color: '#1a237e', lineHeight: 1.35 }}>{row.farm}</div>
-                        <div style={{ fontSize: 11, color: row.hasRemit ? '#2e7d32' : row.hasSavedInput ? '#e65100' : '#c62828', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                          {row.hasRemit ? '✓ 송금완료' : row.hasSavedInput ? '입력됨' : '미입력'}
+                        <div style={{ fontSize: 11, color: row.isFull ? '#2e7d32' : row.isPartial ? '#ef6c00' : row.hasSavedInput ? '#e65100' : '#c62828', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                          {row.isFull ? '✓ 송금완료' : row.isPartial ? '◐ 부분송금' : row.hasSavedInput ? '입력됨' : '미입력'}
                         </div>
                       </div>
                       <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>
@@ -761,11 +782,30 @@ export default function IncomingPricePage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #eee', marginTop: 6, paddingTop: 6, color: row.net < 0 ? '#c62828' : '#1b5e20' }}>
                           <span>송금액</span><strong>{fmtUSDInt(row.net)}</strong>
                         </div>
+                        {row.hasRemit && (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2e7d32' }}>
+                              <span>기송금</span><strong>- {fmtUSDInt(row.remitTotal)}</strong>
+                            </div>
+                            {row.isPartial && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef6c00', fontWeight: 700 }}>
+                                <span>잔여</span><strong>{fmtUSDInt(row.net - row.remitTotal)}</strong>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
-                      {/* 송금 기록 (완료 카드) */}
+                      {/* 송금 기록 목록 — ✎ 수정 / ✕ 삭제 */}
                       {row.remitEntries.map(rm => (
                         <div key={rm.key} style={{ marginTop: 6, fontSize: 11, color: '#2e7d32', background: '#f0f9f0', borderRadius: 4, padding: '4px 8px' }}>
-                          💸 {rm.remitDate || rm.createDtm?.slice(0, 10)} · {fmtUSDInt(rm.amountUSD)}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ flex: 1 }}>💸 {rm.remitDate || rm.createDtm?.slice(0, 10)} · {fmtUSDInt(rm.amountUSD)}</span>
+                            <button onClick={() => setRemitModal({ key: rm.key, farm: row.farm, amount: String(rm.amountUSD ?? ''), date: rm.remitDate || '', memo: rm.memo || '' })}
+                              title="송금 기록 수정"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#1a237e', padding: '0 2px' }}>✎</button>
+                            <button onClick={() => deleteRemitEntry(rm)} title="송금 기록 삭제"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#c62828', padding: '0 2px' }}>✕</button>
+                          </div>
                           {rm.memo && <div style={{ color: '#666', whiteSpace: 'pre-wrap' }}>{rm.memo}</div>}
                         </div>
                       ))}
@@ -780,22 +820,23 @@ export default function IncomingPricePage() {
                           ))}
                         </div>
                       )}
-                      {/* 송금 기록 버튼 (미완료 카드) */}
-                      {!row.hasRemit && (
-                        <button
-                          onClick={() => {
-                            const d = new Date();
-                            setRemitModal({
-                              farm: row.farm,
-                              amount: (Math.round(row.net * 100) / 100).toFixed(2),
-                              date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-                              memo: '',
-                            });
-                          }}
-                          style={{ width: '100%', marginTop: 8, padding: '6px 8px', borderRadius: 5, border: '1px solid #a5d6a7', background: '#e8f5e9', color: '#1b5e20', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                          💸 송금 기록 남기기
-                        </button>
-                      )}
+                      {/* 송금/추가송금 기록 버튼 — 금액은 잔여액 자동 (완납 후 추가는 0) */}
+                      <button
+                        onClick={() => {
+                          const d = new Date();
+                          const remain = Math.max(0, Math.round((row.net - row.remitTotal) * 100) / 100);
+                          setRemitModal({
+                            farm: row.farm,
+                            amount: remain.toFixed(2),
+                            date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+                            memo: '',
+                          });
+                        }}
+                        style={{ width: '100%', marginTop: 8, padding: '6px 8px', borderRadius: 5, border: '1px solid #a5d6a7', background: row.hasRemit ? '#fff' : '#e8f5e9', color: '#1b5e20', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                        {row.isPartial ? `💸 추가 송금 기록 (잔여 ${fmtUSDInt(row.net - row.remitTotal)})`
+                          : row.isFull ? '＋ 추가 송금 기록'
+                          : '💸 송금 기록 남기기'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -816,9 +857,12 @@ export default function IncomingPricePage() {
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div onClick={e => e.stopPropagation()}
               style={{ background: '#fff', borderRadius: 10, padding: '20px 22px', width: 380, boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#1a237e', marginBottom: 4 }}>💸 송금 기록</div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#1a237e', marginBottom: 4 }}>
+                💸 송금 기록 {remitModal.key ? '수정' : ''}
+              </div>
               <div style={{ fontSize: 12, color: '#888', marginBottom: 14 }}>
                 {remitModal.farm} · {year}년 {selectedWeeks.join(', ')}차
+                {!remitModal.key && ' · 여러 번 나눠 보낸 경우 건별로 각각 기록하세요 (부분송금 자동 표시)'}
               </div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 4 }}>송금일</label>
               <input type="date" value={remitModal.date}
@@ -839,7 +883,7 @@ export default function IncomingPricePage() {
                 </button>
                 <button onClick={saveRemit} disabled={remitSaving}
                   style={{ padding: '7px 18px', borderRadius: 5, border: 'none', background: '#2e7d32', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
-                  {remitSaving ? '저장 중…' : '💾 송금 기록 저장'}
+                  {remitSaving ? '저장 중…' : remitModal.key ? '💾 수정 저장' : '💾 송금 기록 저장'}
                 </button>
               </div>
             </div>

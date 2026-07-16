@@ -1,6 +1,7 @@
 // pages/api/incoming-price/remit.js — 농장 송금 기록 (웹 전용 테이블 WebFarmRemit)
 // GET    ?year=2026&farm=X → 송금 기록 목록 (isDeleted=0)
-// POST   { year, weeks, farmName, amountUSD, remitDate, memo } → 송금 기록 추가
+// POST   { year, weeks, farmName, amountUSD, remitDate, memo } → 송금 기록 추가 (부분송금 = 같은 농장에 여러 건)
+// PUT    { key, amountUSD, remitDate, memo } → 송금 기록 수정
 // DELETE { key } → 소프트 삭제
 
 import { query, sql } from '../../../lib/db';
@@ -74,6 +75,25 @@ export default withAuth(async function handler(req, res) {
           dt: { type: sql.NVarChar, value: String(remitDate || '').trim().slice(0, 10) },
           memo: { type: sql.NVarChar, value: String(memo || '').trim().slice(0, 400) },
           uid: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
+        });
+      return res.status(200).json({ success: true });
+    }
+
+    if (req.method === 'PUT') {
+      const { key, amountUSD, remitDate, memo } = req.body || {};
+      const k = parseInt(key, 10);
+      const amt = parseFloat(amountUSD);
+      if (!k || Number.isNaN(amt)) {
+        return res.status(400).json({ success: false, error: 'key, amountUSD 필요' });
+      }
+      await query(
+        `UPDATE WebFarmRemit SET AmountUSD=@amt, RemitDate=@dt, Memo=@memo
+          WHERE AutoKey=@k AND isDeleted=0`,
+        {
+          k: { type: sql.Int, value: k },
+          amt: { type: sql.Float, value: amt },
+          dt: { type: sql.NVarChar, value: String(remitDate || '').trim().slice(0, 10) },
+          memo: { type: sql.NVarChar, value: String(memo || '').trim().slice(0, 400) },
         });
       return res.status(200).json({ success: true });
     }
