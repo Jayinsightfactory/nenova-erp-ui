@@ -126,14 +126,26 @@ function weekPayDate(year, week) {
   return `${wednesday.getFullYear()}/${p(wednesday.getMonth() + 1)}/${p(wednesday.getDate())}`;
 }
 
-// 차수/품목 태그 폴백 (AWB 에 포워더 한글태그 마스터가 없을 때) — 결제파일 실측 태그 4종
-function tagFallback(counName, flowerName) {
+// 차수/품목 태그 폴백 (AWB 에 포워더 한글태그 마스터가 없을 때) — 결제파일 실측 태그
+// 네덜란드는 '네'+농장 이니셜 (EZ FLOWER→네E, HOLEX→네H)
+function tagFallback(counName, flowerName, farmName) {
   const c = String(counName || ''), f = String(flowerName || '');
   if (/콜롬비아/.test(c)) return /수국/.test(f) ? '콜수국' : '콜카장';
   if (/에콰도르/.test(c)) return '에콰';
   if (/호주/.test(c)) return '호주';
+  if (/네덜란드/.test(c)) {
+    const initial = (String(farmName || '').match(/[A-Za-z]/) || [''])[0].toUpperCase();
+    return `네${initial}`;
+  }
   return '';
 }
+
+// 상품대 시트 통화 섹션 (실양식: 본문(USD) → 네덜란드<EUR> → 호주<AUD>, 섹션마다 헤더·총합계 반복)
+const CURRENCY_SECTIONS = [
+  { label: null, test: c => !/네덜란드|호주/.test(c) },
+  { label: '네덜란드<EUR>', test: c => /네덜란드/.test(c) },
+  { label: '호주<AUD>', test: c => /호주/.test(c) },
+];
 
 async function buildSettlementExcel(r, payDate) {
   // 라인 레벨 조회 — JS 에서 (농장, 차수, 인보이스, 품목패밀리) 로 그룹
@@ -162,23 +174,48 @@ async function buildSettlementExcel(r, payDate) {
     if (d.awb && /[가-힣]/.test(d.invoiceNo)) tagByAwb[normAwb(d.awb)] = d.invoiceNo;
   });
 
+  // 농장 대표 국가 (라인 최다 기준) — 통화 섹션(EUR/AUD) 분류·태그 판정용
+  // (운송료 라인은 CounName 이 '국내'로 들어와 라인 국가만으론 오판)
+  const counCount = new Map();
+  detail.recordset.forEach(d => {
+    if (isForwarder(d.farmName)) return;
+    const m = counCount.get(d.farmName) || {};
+    m[d.counName] = (m[d.counName] || 0) + 1;
+    counCount.set(d.farmName, m);
+  });
+  const counOfFarm = (farm) => {
+    const m = counCount.get(farm) || {};
+    return (Object.entries(m).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+  };
+
+  // 실양식: 상품대 시트의 운송료 라인은 'SERVICE FEE', 네덜란드/호주는 인보이스당 꽃 전체를 한 줄로 축약
+  const FREIGHT_LINE_RE = /운송료|운송비|운임|service\s*fee|freight/i;
+  const NONUSD_ITEM = [[/네덜란드/, 'Tulip'], [/호주/, 'Banker Bush']];
+
   // (농장, 차수, 인보이스, 패밀리) 그룹 — 포워더는 별도 시트(운송료)
   const groups = new Map();
   let maxInputDate = '';
   for (const d of detail.recordset) {
     const isFwd = isForwarder(d.farmName);
-    const family = isFwd ? '운송료' : productFamily(d.ProdName, d.flowerName);
+    const farmCoun = counOfFarm(d.farmName) || d.counName;
+    let family;
+    if (isFwd) family = '운송료';
+    else if (FREIGHT_LINE_RE.test(d.ProdName || '')) family = 'SERVICE FEE';
+    else {
+      const nu = NONUSD_ITEM.find(([re]) => re.test(farmCoun));
+      family = nu ? nu[1] : productFamily(d.ProdName, d.flowerName);
+    }
     const key = `${d.farmName}|${d.week}|${d.invoiceNo}|${family}`;
     if (!groups.has(key)) {
       groups.set(key, {
         farm: d.farmName || '(농장미상)', week: d.week, awb: d.awb, invoice: d.invoiceNo,
         family, amount: 0, isFwd, orderYear: d.orderYear,
-        tag: tagByAwb[normAwb(d.awb)] || tagFallback(d.counName, d.flowerName),
+        tag: tagByAwb[normAwb(d.awb)] || tagFallback(farmCoun, d.flowerName, d.farmName),
       });
     }
     const g = groups.get(key);
     g.amount += Number(d.tprice) || 0;
-    if (!g.tag) g.tag = tagByAwb[normAwb(d.awb)] || tagFallback(d.counName, d.flowerName);
+    if (!g.tag) g.tag = tagByAwb[normAwb(d.awb)] || tagFallback(farmCoun, d.flowerName, d.farmName);
     if (d.inputDate && d.inputDate > maxInputDate) maxInputDate = d.inputDate;
   }
 
@@ -191,9 +228,11 @@ async function buildSettlementExcel(r, payDate) {
   const buildFarmMap = (isFwdSheet) => {
     const byFarm = new Map();
     const push = (farm, row) => { if (!byFarm.has(farm)) byFarm.set(farm, []); byFarm.get(farm).push(row); };
+    // 금액 0 그룹 제외 (GW/CW 메타라인 — 실파일에 없음), SERVICE FEE 는 인보이스 내 마지막 (실파일 순서)
+    const famOrder = (f) => (f === 'SERVICE FEE' ? '￿' : f);
     [...groups.values()]
-      .filter(g => g.isFwd === isFwdSheet)
-      .sort((a, b) => a.week.localeCompare(b.week) || a.invoice.localeCompare(b.invoice) || a.family.localeCompare(b.family))
+      .filter(g => g.isFwd === isFwdSheet && Math.round(g.amount * 100) !== 0)
+      .sort((a, b) => a.week.localeCompare(b.week) || a.invoice.localeCompare(b.invoice) || famOrder(a.family).localeCompare(famOrder(b.family)))
       .forEach(g => push(g.farm, {
         date: weekPayDate(g.orderYear, g.week),
         item: g.isFwd ? '운송료' : g.family,
@@ -226,12 +265,15 @@ async function buildSettlementExcel(r, payDate) {
   const stamp = `${now.getFullYear()}/${p2(now.getMonth() + 1)}/${p2(now.getDate())} (${yoil}) ${ampm} ${h12}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
   const rangeEnd = (maxInputDate || `${r.startYear}/12/31`);
 
-  // aoa 생성 — 엑셀·웹(정산서 보기) 공용. 행 타입(kind): title/header/row/subtotal/grand/stamp
+  // aoa 생성 — 엑셀·웹(정산서 보기) 공용. 행 타입(kind): title/header/row/subtotal/grand/section/blank/stamp
+  // 상품대는 실양식대로 통화 섹션 분리(본문 → 네덜란드<EUR> → 호주<AUD>), 섹션마다 헤더·총합계 반복.
+  // 일자-No. 순번은 시트 전체로 이어짐(실파일 실측: EUR 첫 행이 본문 순번을 이어받음).
   const buildSheetRows = (byFarm, isFwdSheet) => {
     const title = `회사명 : (주) 네노바 /${isFwdSheet ? ' 운송료 /' : ''} ${r.startYear}/01/01  ~ ${rangeEnd} `;
+    const HEADER = { kind: 'header', cells: ['일자-No.', '거래처명', '품목명(규격)', '외화금액', '차수/품목', '인보이스넘버', '결제일'] };
     const out = [
       { kind: 'title', cells: [title, '', '', '', '', '', ''] },
-      { kind: 'header', cells: ['일자-No.', '거래처명', '품목명(규격)', '외화금액', '차수/품목', '인보이스넘버', '결제일'] },
+      HEADER,
     ];
     const seqByDate = {};
     const numberOf = (date) => {
@@ -239,20 +281,35 @@ async function buildSettlementExcel(r, payDate) {
       seqByDate[date] = (seqByDate[date] || 0) + 1;
       return `${date} -${seqByDate[date]}`;
     };
-    let grand = 0;
-    const entries = [...byFarm.entries()]
-      .map(([farm, rows]) => [farmPayName(farm), rows])
-      .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'en', { sensitivity: 'base' }));
-    for (const [payName, rows] of entries) {
-      let sub = 0;
-      rows.forEach(x => {
-        out.push({ kind: 'row', cells: [numberOf(x.date), payName, x.item, x.amount, x.weekTag, x.invoice, payDate] });
-        sub += x.amount;
-      });
-      out.push({ kind: 'subtotal', cells: [`${payName} 계`, '', '', Math.round(sub * 100) / 100, '', '', ''] });
-      grand += sub;
-    }
-    out.push({ kind: 'grand', cells: ['총합계', '', '', Math.round(grand * 100) / 100, '', '', ''] });
+    const allEntries = [...byFarm.entries()]
+      .sort((a, b) => String(farmPayName(a[0])).localeCompare(String(farmPayName(b[0])), 'en', { sensitivity: 'base' }));
+    const sections = isFwdSheet
+      ? [{ label: null, entries: allEntries }]
+      : CURRENCY_SECTIONS.map(s => ({
+          label: s.label,
+          entries: allEntries.filter(([farm]) => s.test(counOfFarm(farm))),
+        }));
+    sections.forEach((sec, si) => {
+      if (sec.entries.length === 0) return;
+      if (sec.label) {
+        out.push({ kind: 'blank', cells: ['', '', '', '', '', '', ''] });
+        out.push({ kind: 'blank', cells: ['', '', '', '', '', '', ''] });
+        out.push({ kind: 'section', cells: [sec.label, '', '', '', '', '', ''] });
+        out.push(HEADER);
+      }
+      let grand = 0;
+      for (const [farm, rows] of sec.entries) {
+        const payName = farmPayName(farm);
+        let sub = 0;
+        rows.forEach(x => {
+          out.push({ kind: 'row', cells: [numberOf(x.date), payName, x.item, x.amount, x.weekTag, x.invoice, payDate] });
+          sub += x.amount;
+        });
+        out.push({ kind: 'subtotal', cells: [`${payName} 계`, '', '', Math.round(sub * 100) / 100, '', '', ''] });
+        grand += sub;
+      }
+      out.push({ kind: 'grand', cells: ['총합계', '', '', Math.round(grand * 100) / 100, '', '', ''] });
+    });
     out.push({ kind: 'stamp', cells: [stamp, '', '', '', '', '', ''] });
     return out;
   };

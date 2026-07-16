@@ -414,6 +414,12 @@ export default function PivotImport() {
                     if (row.kind === 'stamp') return (
                       <tr key={i}><td colSpan={7} style={{ fontSize: 10, color: 'var(--text3)' }}>{row.cells[0]}</td></tr>
                     );
+                    if (row.kind === 'blank') return (
+                      <tr key={i}><td colSpan={7} style={{ height: 8, border: 'none' }} /></tr>
+                    );
+                    if (row.kind === 'section') return (
+                      <tr key={i}><td colSpan={7} style={{ fontWeight: 800, fontSize: 13, background: 'var(--bg)', borderTop: '2px dashed var(--border)' }}>{row.cells[0]}</td></tr>
+                    );
                     const isSub = row.kind === 'subtotal', isGrand = row.kind === 'grand';
                     const neg = Number(row.cells[3]) < 0;
                     return (
