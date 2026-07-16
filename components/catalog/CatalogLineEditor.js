@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
 import { fmtArrivalCostMeta, fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
+import { jamoMatch } from '../../lib/displayName';
 
 const KOR_SOURCE_LABEL = {
   catalog: '저장',
@@ -23,10 +25,30 @@ export default function CatalogLineEditor({
   openPicker,
   costContext,
 }) {
+  // 편집할 품목만 골라 보기 — 영문/한글(자모·초성) 검색
+  const [editFilter, setEditFilter] = useState('');
+  const fq = editFilter.trim().toLowerCase();
+  const visibleLines = !fq ? lines : lines.filter(l => {
+    const texts = [l.engName, l.korName, l.catalogName, l.prodName].filter(Boolean).map(String);
+    return texts.some(t => t.toLowerCase().includes(fq) || jamoMatch(fq, t));
+  });
+
   return (
     <div className="catalog-line-editor">
       <div className="catalog-line-editor-toolbar">
-        <span className="editor-title">⑤ 품목 텍스트 편집 ({lines.length})</span>
+        <span className="editor-title">
+          ⑤ 품목 텍스트 편집 ({fq ? `${visibleLines.length}/${lines.length}` : lines.length})
+        </span>
+        <input
+          className="filter-input"
+          style={{ width: 160, fontSize: 11 }}
+          placeholder="편집할 품목 검색 (한글 가능)…"
+          value={editFilter}
+          onChange={e => setEditFilter(e.target.value)}
+        />
+        {fq && (
+          <button type="button" className="btn btn-sm" onClick={() => setEditFilter('')}>✕</button>
+        )}
         <span className="editor-hint">
           PPT 슬롯에 배치된 품목만 · 상단 PPT표시 체크는 슬롯·인쇄·PPT에 즉시 반영
           {costContext?.displayWeek ? ` · 기준 ${costContext.displayWeek}` : ''}
@@ -54,14 +76,14 @@ export default function CatalogLineEditor({
             </tr>
           </thead>
           <tbody>
-            {!lines.length && (
+            {!visibleLines.length && (
               <tr>
                 <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text3)', padding: 20 }}>
-                  PPT 슬라이드 칸에 배치된 품목만 표시됩니다
+                  {fq ? '검색과 일치하는 품목이 없습니다' : 'PPT 슬라이드 칸에 배치된 품목만 표시됩니다'}
                 </td>
               </tr>
             )}
-            {lines.map(line => {
+            {visibleLines.map(line => {
               const prod = findProd(products, line.prodKey) || line;
               const m = marginPct(line.arrivalCost, line.salePrice);
               const hint = resolveCatalogProductNames(prod, prod?.mappingKorName);

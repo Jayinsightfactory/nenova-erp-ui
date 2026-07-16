@@ -7,7 +7,7 @@ import {
 } from '../../lib/catalogUtils';
 import { normalizeCatalogLineForRender, resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
-import { catalogPptImageSizeLabel, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
+import { catalogPptImageSizeLabel, estimateCatalogAutoTxtHcm, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
 import { CATALOG_SLIDE_CSS } from './catalogSlideCss';
 import {
   perPageSlotCount,
@@ -201,6 +201,11 @@ export default function CatalogSlideComposer({
 }) {
   const slotCount = perPageSlotCount(perPage);
 
+  // 배치된 품목 텍스트 줄수 기준 자동 여백 (PPT 익스포트와 동일 계산)
+  const placedForTxt = slides.flatMap(s => (s.slots || []).map(id => (id ? linesById[id] : null)).filter(Boolean));
+  const autoTxtH = estimateCatalogAutoTxtHcm(placedForTxt, catalogFields, perPage, 'wide');
+  const mirrorVars = layoutCssVars(perPage, 'wide', { txtHcm: autoTxtH });
+
   const [expandedSlideId, setExpandedSlideId] = useState(null);
   const [cropDraft, setCropDraft] = useState(null);
   const backdropDownRef = useRef(false);
@@ -281,10 +286,13 @@ export default function CatalogSlideComposer({
           className="filter-select"
           value={perPage}
           onChange={e => onPerPageChange(Number(e.target.value))}
-          title="슬라이드당 품목 칸 수"
+          title="슬라이드당 품목 칸 수 (1~5칸=1행, 6~10칸=2행)"
         >
-          <option value={8}>8칸 (4×2)</option>
-          <option value={10}>10칸 (5×2)</option>
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+            <option key={n} value={n}>
+              {n}칸 ({n <= 5 ? `${n}×1` : `${Math.ceil(n / 2)}×2`})
+            </option>
+          ))}
         </select>
         <button type="button" className="btn btn-sm" onClick={onAddEmptySlide} title="빈 슬라이드 추가">
           + 슬라이드
@@ -395,7 +403,7 @@ export default function CatalogSlideComposer({
                 PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage)} (정사각)
               </p>
               <div className="composer-ppt-viewport">
-                <div className="catalog-slide composer-ppt-mirror" style={layoutCssVars(perPage, 'wide')}>
+                <div className="catalog-slide composer-ppt-mirror" style={mirrorVars}>
                   <div className="catalog-slide-hdr">
                     <span className="title-big">{slide.titleBig || '품종'}</span>
                     {slide.titleSmall ? (

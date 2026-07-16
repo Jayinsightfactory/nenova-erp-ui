@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import {
+  estimateCatalogAutoTxtHcm,
   formatOriginLabel,
   layoutCssVars,
 } from '../../lib/catalogLayout';
@@ -81,8 +82,11 @@ export default function CatalogPreviewPages({ draft, mode }) {
   if (!draft?.lines?.length) return null;
 
   const per = draft.perPage || 8;
-  const slideStyle = layoutCssVars(per, draft.spacing || 'wide');
   const fields = normalizeCatalogFields(draft);
+  // 텍스트 줄수 기준 자동 여백 — 편집 화면·PPT와 동일 계산
+  const allPlaced = pages.flatMap(pg => (pg.slots || pg.lines || []).filter(Boolean));
+  const autoTxtH = estimateCatalogAutoTxtHcm(allPlaced, fields, per, draft.spacing || 'wide');
+  const slideStyle = layoutCssVars(per, draft.spacing || 'wide', { txtHcm: autoTxtH });
   const isPreview = mode === 'preview';
 
   const slides = pages.map((page, pi) => (

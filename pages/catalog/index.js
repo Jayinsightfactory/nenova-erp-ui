@@ -837,6 +837,22 @@ export default function CatalogPage() {
     placeProdKeysOnComposer(toAdd.map(p => p.ProdKey));
   };
 
+  // 표시 중인 품목 가운데 이미지가 있는 것만 일괄 선택·배치
+  const selectAllWithImage = () => {
+    const toAdd = visibleProducts.filter(p => !checkedKeys.has(p.ProdKey)
+      && pickPrimaryImageRecord(imagesByProd, p.ProdKey));
+    if (!toAdd.length) return;
+    placeProdKeysOnComposer(toAdd.map(p => p.ProdKey));
+  };
+
+  // 선택 전체 해제 — 라인·슬라이드 배치에서도 제거 (1개씩 지울 필요 없음)
+  const clearAllSelected = () => {
+    if (!checkedKeys.size) return;
+    if (!confirm(`선택된 ${checkedKeys.size}개 품목을 모두 해제할까요? (슬라이드 배치에서도 빠집니다)`)) return;
+    setLines(prev => prev.filter(l => !checkedKeys.has(l.prodKey)));
+    setCheckedKeys(new Set());
+  };
+
   const handleComposerDropGroup = useCallback((groupKey) => {
     const group = productGroups.find(g => g.key === groupKey);
     const targets = sortProductsImageFirst(group?.items || [], imagesByProd);
@@ -1507,6 +1523,14 @@ export default function CatalogPage() {
               <input className="filter-input catalog-prod-search" placeholder="품목명 검색…" value={search} onChange={e => setSearch(e.target.value)} />
               <span className="catalog-drag-select-hint" title="빈 공간 드래그 — 선택/해제 토글 (클릭과 동일)">빈 공간 드래그 토글</span>
               <button className="btn btn-sm" onClick={addVisibleFlower} disabled={!visibleProducts.length}>표시 품목 일괄추가</button>
+              <button className="btn btn-sm" onClick={selectAllWithImage} disabled={!visibleProducts.length}
+                title="표시 중인 품목 가운데 이미지가 있는 것만 모두 선택·배치">
+                📷 이미지만 전체선택
+              </button>
+              <button className="btn btn-sm btn-danger" onClick={clearAllSelected} disabled={!checkedKeys.size}
+                title="선택된 품목 전체 해제 — 슬라이드 배치에서도 제거">
+                전체 해제 ({checkedKeys.size})
+              </button>
             </div>
             <div
               className={`catalog-product-grid ${dragSelecting ? 'drag-selecting' : ''}`}
