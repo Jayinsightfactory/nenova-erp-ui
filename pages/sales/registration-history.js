@@ -1,7 +1,7 @@
 // 판매등록 히스토리 — 차수별 분배(매출) 고정 스냅샷과 변경 이력.
 // 화 17:00(최종 분배 적용) · 수 16:00(점검) · 차주 화 17:00(판매등록 마감) · 차주 수 16:00(마감 점검) — 모두 불변.
-// 판매등록은 차주 화요일까지 수정 가능(그다음 수요일부터 수정금지) — 마감 스냅샷(TUE_CLOSE)이 차수 확정본,
-// 마감 점검(CLOSE_CHECK)이 확정본과 다르면 수정금지 위반. 그 외 변경감지(CHANGE)·수동(MANUAL).
+// 기준금액은 기본 화요일 최종분배, 타임라인의 [✓ 적용 확인]으로 다른 스냅샷(예: 수요일)을 기준으로 바꿀 수 있음.
+// 판매등록은 차주 화요일까지 수정 가능(그다음 수요일부터 수정금지) — 마감 스냅샷(TUE_CLOSE)이 차수 확정본.
 import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
@@ -21,24 +21,56 @@ const TYPE_META = {
   CHANGE: { label: '⚠ 변경감지', color: '#b91c1c', bg: '#fee2e2' },
   MANUAL: { label: '📌 수동', color: '#334155', bg: '#e2e8f0' },
 };
+const shortType = (t) => (TYPE_META[t]?.label || t || '').replace('🔒 ', '').replace('⚠ ', '').replace('📌 ', '');
+
+// 접기/열기 패널 — 접혀도 헤더 요약은 보이게 (공간 최대 활용)
+function Section({ title, badge, right, open, onToggle, children, accent }) {
+  return (
+    <div style={{ ...st.panel, ...(accent ? { borderColor: accent } : {}) }}>
+      <div
+        style={{ ...st.panelHead, cursor: 'pointer', userSelect: 'none', background: open ? '#fff' : '#f8fafc' }}
+        onClick={onToggle}
+        title={open ? '접기' : '펼치기'}
+      >
+        <strong style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 11, color: '#64748b', width: 12 }}>{open ? '▾' : '▸'}</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{title}</span>
+          {badge}
+        </strong>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
+          {right}
+        </div>
+      </div>
+      {open && children}
+    </div>
+  );
+}
 
 export default function SalesRegistrationHistoryPage() {
   const weekInput = useWeekInput(getDefaultWeek());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [data, setData] = useState(null);            // { snapshots, live }
+  const [data, setData] = useState(null);            // { snapshots, live, baseline }
   const [selKey, setSelKey] = useState(null);        // 선택 스냅샷
   const [selCombined, setSelCombined] = useState(null); // 대차수 합산 보기 { type, snaps }
   const [rows, setRows] = useState([]);              // 선택 스냅샷(또는 합산) 행
   const [selCust, setSelCust] = useState(null);      // 업체 시트 선택
-  const [viewTab, setViewTab] = useState('cust');    // cust | flower
+  const [viewTab, setViewTab] = useState('cust');    // cust | flower | compare
   const [diff, setDiff] = useState(null);            // 기준 vs 현재 diff
   const [changeLog, setChangeLog] = useState(null);
   const [compare, setCompare] = useState(null);      // 화/수/수정 3기준 비교
+  const [custChanges, setCustChanges] = useState(null); // 업체 추가/취소 (기준 대비)
+
+  // 접기/열기 상태
+  const [tlOpen, setTlOpen] = useState(true);        // 좌측 타임라인
+  const [secLog, setSecLog] = useState(true);        // 변경 로그
+  const [secContent, setSecContent] = useState(true); // 스냅샷 내용
+  const [secDiff, setSecDiff] = useState(true);      // 기준 vs 현재
+  const [logTab, setLogTab] = useState('amount');    // amount | addcancel | history
 
   const load = async () => {
-    setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setCompare(null); setSelCust(null);
+    setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setCompare(null); setSelCust(null); setCustChanges(null);
     try {
       const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -77,7 +109,7 @@ export default function SalesRegistrationHistoryPage() {
   };
 
   const runDiff = async (fromKey) => {
-    setDiff(null);
+    setDiff(null); setSecDiff(true);
     try {
       const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&diffFrom=${fromKey}&diffTo=current`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -100,6 +132,90 @@ export default function SalesRegistrationHistoryPage() {
       if (d.success) setCompare(d);
     } catch { /* ignore */ }
   };
+
+  // ── 기준([적용 확인]) ──────────────────────────────────────────
+  const baselineArr = data?.baseline || [];
+  const baselineKeys = useMemo(() => new Set(baselineArr.map(b => b.snapshotKey)), [baselineArr]);
+  const baselineConfirmed = baselineArr.some(b => b.source === 'confirmed');
+  const baselineSnaps = (data?.snapshots || []).filter(s => baselineKeys.has(s.SnapshotKey));
+  const baselineTotal = baselineSnaps.length
+    ? baselineSnaps.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
+    : null;
+  const baselineTypeLabel = baselineSnaps.length
+    ? [...new Set(baselineSnaps.map(s => shortType(s.SnapshotType)))].join(' + ')
+    : null;
+  const liveTotal = data?.live?.total ?? null;
+  const driftAmt = baselineTotal != null && liveTotal != null ? liveTotal - baselineTotal : null;
+
+  // 업체 추가/취소 (기준 대비) — diff API 재사용, 추가/취소만 필터
+  const loadCustChanges = async () => {
+    if (!baselineKeys.size) { setCustChanges({ added: [], cancelled: [], noBaseline: true }); return; }
+    setCustChanges({ loading: true });
+    try {
+      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&diffFrom=${[...baselineKeys].join(',')}&diffTo=current`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '조회 실패');
+      const by = d.diff?.byCust || [];
+      setCustChanges({
+        added: by.filter(g => Math.abs(g.baseTotal || 0) < 0.5 && Math.abs(g.currTotal || 0) >= 0.5),
+        cancelled: by.filter(g => Math.abs(g.currTotal || 0) < 0.5 && Math.abs(g.baseTotal || 0) >= 0.5),
+      });
+    } catch (e) { setCustChanges({ added: [], cancelled: [], error: e.message }); }
+  };
+
+  const confirmBaseline = async (keys, label) => {
+    if (!window.confirm(`${label}\n\n이 스냅샷을 기준금액으로 적용할까요?\n적용 후 변경검사·차이 비교·변경 로그가 모두 이 기준으로 계산됩니다.`)) return;
+    setMessage(''); setError('');
+    try {
+      const res = await fetch('/api/sales/registration-history', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'confirmBaseline', week: weekInput.value, snapshotKeys: keys }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '기준 적용 실패');
+      setMessage(`✓ 기준 적용됨 — ${d.confirmed.map(c => `${c.week} ${shortType(c.type)}(#${c.snapshotKey})`).join(', ')}`);
+      await load();
+    } catch (e) { setError(e.message); }
+  };
+
+  const resetBaseline = async () => {
+    if (!window.confirm('기준을 화요일 최종분배로 되돌릴까요?')) return;
+    try {
+      const res = await fetch('/api/sales/registration-history', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'resetBaseline', week: weekInput.value }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '실패');
+      setMessage('기준을 화요일 최종분배로 되돌렸습니다.');
+      await load();
+    } catch (e) { setError(e.message); }
+  };
+
+  // ── 총금액 변동 현황 (스냅샷 시간순, Δ직전 = 같은 세부차수 직전 스냅샷 대비) ──
+  const amountLog = useMemo(() => {
+    const snaps = [...(data?.snapshots || [])]
+      .sort((a, b) => String(a.takenAt).localeCompare(String(b.takenAt)) || a.SnapshotKey - b.SnapshotKey);
+    const lastByWeek = new Map();
+    const baseTotalByWeek = new Map();
+    for (const b of baselineArr) {
+      const s = snaps.find(x => x.SnapshotKey === b.snapshotKey);
+      if (s) baseTotalByWeek.set(b.week, Number(s.TotalAmount) + Number(s.TotalVat));
+    }
+    return snaps.map(s => {
+      const total = Number(s.TotalAmount) + Number(s.TotalVat);
+      const prev = lastByWeek.get(s.OrderWeek);
+      lastByWeek.set(s.OrderWeek, total);
+      const baseTotal = baseTotalByWeek.get(s.OrderWeek);
+      return {
+        key: s.SnapshotKey, week: s.OrderWeek, type: s.SnapshotType, takenAt: s.takenAt,
+        total, rowCnt: s.RowCnt, note: s.Note,
+        dPrev: prev == null ? null : total - prev,
+        dBase: baseTotal == null ? null : total - baseTotal,
+        isBase: baselineKeys.has(s.SnapshotKey),
+      };
+    });
+  }, [data, baselineArr, baselineKeys]);
 
   // 업체 클릭 → 새 창에 품목별 화요일/수요일/현재(수정) 금액 + 차액 + 변경자
   const openCustCompare = (c, hasWed) => {
@@ -153,7 +269,7 @@ export default function SalesRegistrationHistoryPage() {
     const n = v => Number(v || 0).toLocaleString();
     const kindMeta = { changed: ['수정', '#b45309', '#fef3c7'], added: ['추가', '#1d4ed8', '#dbeafe'], removed: ['삭제', '#dc2626', '#fee2e2'], same: ['동일', '#64748b', '#f1f5f9'] };
     const qtyOf = s => s ? (s.outQty || s.estQty) : 0;
-    const cellCmp = (a, b, fmtv) => { const diff = Math.abs(Number(a || 0) - Number(b || 0)) > 0.001; return `<td style="text-align:right;${diff ? 'color:#dc2626;font-weight:800' : ''}">${fmtv}</td>`; };
+    const cellCmp = (a, b, fmtv) => { const diffv = Math.abs(Number(a || 0) - Number(b || 0)) > 0.001; return `<td style="text-align:right;${diffv ? 'color:#dc2626;font-weight:800' : ''}">${fmtv}</td>`; };
     const rowsHtml = (g.items || []).map(it => {
       const [klabel, kcolor, kbg] = kindMeta[it.kind] || kindMeta.same;
       const b = it.before, a = it.after;
@@ -182,7 +298,7 @@ export default function SalesRegistrationHistoryPage() {
         td:first-child{font-weight:600} .delta{font-size:15px}
       </style></head><body>
       <h1>${esc(g.custName)}</h1>
-      <div class="sub">화요일 최종분배 기준 → 현재 DB 비교 · 수정 ${g.changedCnt} · 추가 ${g.addedCnt} · 삭제 ${g.removedCnt}</div>
+      <div class="sub">기준 스냅샷 → 현재 DB 비교 · 수정 ${g.changedCnt} · 추가 ${g.addedCnt} · 삭제 ${g.removedCnt}</div>
       <div class="tot">
         <div>기준 금액<b>${n(g.baseTotal)}원</b></div>
         <div>현재 금액<b>${n(g.currTotal)}원</b></div>
@@ -190,7 +306,7 @@ export default function SalesRegistrationHistoryPage() {
       </div>
       <table>
         <thead>
-          <tr class="grp"><th rowspan="2">품목</th><th rowspan="2">구분</th><th colspan="3">기존(화요일 기준)</th><th colspan="3">변경(현재)</th><th rowspan="2">Δ 금액</th></tr>
+          <tr class="grp"><th rowspan="2">품목</th><th rowspan="2">구분</th><th colspan="3">기존(기준)</th><th colspan="3">변경(현재)</th><th rowspan="2">Δ 금액</th></tr>
           <tr><th>수량</th><th>단가</th><th>금액(VAT포함)</th><th>수량</th><th>단가</th><th>금액(VAT포함)</th></tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -219,16 +335,10 @@ export default function SalesRegistrationHistoryPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  // 기준 합계 = 세부차수별 TUE_FINAL 총합 (대차수 모드면 27-01+27-02 합산이 27차 기준)
   const tueSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
   const wedSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'WED_CHECK');
   const closeSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_CLOSE');
   const closeCheckSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'CLOSE_CHECK');
-  const baselineTotal = tueSnapshots.length
-    ? tueSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
-    : null;
-  const liveTotal = data?.live?.total ?? null;
-  const driftAmt = baselineTotal != null && liveTotal != null ? liveTotal - baselineTotal : null;
 
   // 업체별 합산 (Amount+Vat)
   const byCust = useMemo(() => {
@@ -264,15 +374,24 @@ export default function SalesRegistrationHistoryPage() {
 
   const selSnap = (data?.snapshots || []).find(s => s.SnapshotKey === selKey);
 
+  // 대차수 합산 [적용 확인] 대상 — 같은 타입 스냅샷 묶음
+  const combinedConfirm = (type, snaps) => confirmBaseline(
+    snaps.map(s => s.SnapshotKey),
+    `${shortType(type)} 합산 (${snaps.map(s => s.OrderWeek).join(' + ')})`
+  );
+
+  const badgePill = (text, color, bg) => (
+    <span style={{ fontSize: 10, fontWeight: 800, color, background: bg, borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>{text}</span>
+  );
+
   return (
     <div style={st.page}>
-      <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
-      <p style={st.desc}>
-        매주 <b>화요일 17:00 최종 분배 적용</b>과 <b>수요일 16:00 점검</b> 기준값이 자동으로 고정 저장됩니다(수정 불가).
-        판매등록은 <b>차주 화요일까지 수정 가능</b>(그다음 수요일부터 수정금지)하므로, <b>차주 화요일 17:00 판매등록 마감</b>이
-        차수 확정본으로, <b>차주 수요일 16:00 마감 점검</b>이 위반 확인 기준으로 고정됩니다. 이후에는 <b>[🔄 최신화]</b> 버튼을
-        누르는 시점에 현재 DB 를 대조해 — 웹·전산·AI 작업 무엇이든 — 달라진 값을 <b> 변경감지</b> 스냅샷으로 기록합니다.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
+        <span style={{ fontSize: 12, color: '#64748b' }}>
+          화 17시 최종분배·수 16시 점검·차주 화 17시 마감 자동 고정(불변) · 변경검사는 [🔄 최신화] 시점
+        </span>
+      </div>
 
       <div style={st.bar}>
         <label style={st.label}>차수</label>
@@ -287,11 +406,32 @@ export default function SalesRegistrationHistoryPage() {
           🔄 최신화 (변경검사)
         </button>
         <button style={st.secondaryBtn} onClick={() => post('manual')} disabled={loading}>수동 스냅샷</button>
+
+        {/* 기준 상태 배지 — 어떤 스냅샷이 기준금액인지 항상 표시 */}
+        {baselineTotal != null && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800,
+            background: baselineConfirmed ? '#fef9c3' : '#e0f2fe',
+            border: `1px solid ${baselineConfirmed ? '#eab308' : '#7dd3fc'}`,
+            color: baselineConfirmed ? '#854d0e' : '#075985',
+            borderRadius: 999, padding: '5px 12px',
+          }}>
+            📍 기준: {baselineTypeLabel} · {fmt(Math.round(baselineTotal))}원
+            {baselineConfirmed && (
+              <>
+                <span style={{ fontWeight: 400, fontSize: 11 }}>
+                  (적용 확인: {baselineArr.find(b => b.confirmedBy)?.confirmedBy || ''} {String(baselineArr.find(b => b.confirmedDtm)?.confirmedDtm || '').slice(5, 16)})
+                </span>
+                <button style={{ ...st.tinyBtn, borderColor: '#eab308', color: '#854d0e' }} onClick={resetBaseline}>화요일로 되돌리기</button>
+              </>
+            )}
+          </span>
+        )}
         {driftAmt != null && (
           <span style={{ fontSize: 13, fontWeight: 800, color: Math.abs(driftAmt) > 0.5 ? '#dc2626' : '#059669' }}>
             {Math.abs(driftAmt) > 0.5
-              ? `⚠ 현재 DB가 화요일 기준과 ${fmt(Math.round(driftAmt))}원 다릅니다`
-              : '✓ 현재 DB = 화요일 최종분배 기준과 일치'}
+              ? `⚠ 현재 DB가 기준과 ${fmt(Math.round(driftAmt))}원 다릅니다`
+              : '✓ 현재 DB = 기준금액과 일치'}
           </span>
         )}
       </div>
@@ -299,50 +439,60 @@ export default function SalesRegistrationHistoryPage() {
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '330px 1fr', gap: 12, alignItems: 'start' }}>
-        {/* 좌: 스냅샷 타임라인 */}
-        <div style={st.panel}>
-          <div style={st.panelHead}><strong>스냅샷 타임라인{data?.majorMode ? ` — ${data.week}차 (${(data.subweeks || []).join(' + ')})` : ''}</strong></div>
+      <div style={{ display: 'grid', gridTemplateColumns: tlOpen ? '330px 1fr' : '44px 1fr', gap: 12, alignItems: 'start' }}>
+        {/* 좌: 스냅샷 타임라인 (접으면 세로 탭으로 축소 → 우측이 전체 폭 사용) */}
+        {!tlOpen ? (
+          <button
+            onClick={() => setTlOpen(true)}
+            title="스냅샷 타임라인 펼치기"
+            style={{
+              writingMode: 'vertical-rl', textOrientation: 'mixed',
+              border: '1px solid #dbe3ef', borderRadius: 10, background: '#fff', cursor: 'pointer',
+              padding: '14px 8px', fontSize: 12, fontWeight: 800, color: '#334155',
+              minHeight: 200, position: 'sticky', top: 12,
+            }}>
+            ▸ 📸 스냅샷 타임라인 ({(data?.snapshots || []).length})
+          </button>
+        ) : (
+        <div style={{ ...st.panel, position: 'sticky', top: 12 }}>
+          <div style={{ ...st.panelHead, cursor: 'pointer' }} onClick={() => setTlOpen(false)} title="접기 — 우측 공간을 넓게 씁니다">
+            <strong>◂ 스냅샷 타임라인{data?.majorMode ? ` — ${data.week}차 (${(data.subweeks || []).join(' + ')})` : ''}</strong>
+          </div>
           {data?.majorMode && tueSnapshots.length > 0 && (
             <div style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <button
-                style={selCombined?.type === 'TUE_FINAL' ? st.combinedOn : st.combinedBtn}
-                onClick={() => selectCombined('TUE_FINAL', tueSnapshots)}
-              >
-                🔒 화요일 최종분배 합산 ({data.week}차 전체) — {fmt(Math.round(tueSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
-              </button>
-              {wedSnapshots.length > 0 && (
-                <button
-                  style={selCombined?.type === 'WED_CHECK' ? st.combinedOn : st.combinedBtn}
-                  onClick={() => selectCombined('WED_CHECK', wedSnapshots)}
-                >
-                  🔒 수요일 점검 합산 — {fmt(Math.round(wedSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
-                </button>
-              )}
-              {closeSnapshots.length > 0 && (
-                <button
-                  style={selCombined?.type === 'TUE_CLOSE' ? st.combinedOn : st.combinedBtn}
-                  onClick={() => selectCombined('TUE_CLOSE', closeSnapshots)}
-                  title="차주 화요일 17:00까지의 판매등록 수정분이 반영된 차수 확정본 — 이후 수요일부터 수정금지"
-                >
-                  🔒 판매등록 마감 합산 (차수 확정본) — {fmt(Math.round(closeSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
-                </button>
-              )}
-              {closeCheckSnapshots.length > 0 && (
-                <button
-                  style={selCombined?.type === 'CLOSE_CHECK' ? st.combinedOn : st.combinedBtn}
-                  onClick={() => selectCombined('CLOSE_CHECK', closeCheckSnapshots)}
-                  title="차주 수요일 16:00 마감 점검 — 마감 확정본과 다르면 수정금지 위반"
-                >
-                  🔒 마감 점검 합산 (차주 수 16시) — {fmt(Math.round(closeCheckSnapshots.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
-                </button>
-              )}
-              <button style={st.tinyBtn} onClick={() => runDiff(tueSnapshots.map(s => s.SnapshotKey).join(','))}>
-                화요일 기준 합산 vs 현재 DB 비교
+              {[
+                ['TUE_FINAL', tueSnapshots, '화요일 최종분배 합산'],
+                ['WED_CHECK', wedSnapshots, '수요일 점검 합산'],
+                ['TUE_CLOSE', closeSnapshots, '판매등록 마감 합산 (차수 확정본)'],
+                ['CLOSE_CHECK', closeCheckSnapshots, '마감 점검 합산 (차주 수 16시)'],
+              ].filter(([, snaps]) => snaps.length > 0).map(([type, snaps, label]) => {
+                const isBaseType = snaps.every(s => baselineKeys.has(s.SnapshotKey));
+                return (
+                  <div key={type} style={{ display: 'flex', gap: 4, alignItems: 'stretch' }}>
+                    <button
+                      style={{ ...(selCombined?.type === type ? st.combinedOn : st.combinedBtn), flex: 1 }}
+                      onClick={() => selectCombined(type, snaps)}
+                    >
+                      🔒 {label} — {fmt(Math.round(snaps.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)))}원
+                      {isBaseType && ' 📍'}
+                    </button>
+                    <button
+                      style={{ ...st.confirmBtn, ...(isBaseType ? st.confirmBtnOn : {}) }}
+                      title={isBaseType ? '현재 기준금액입니다' : '이 스냅샷 합산을 기준금액으로 적용'}
+                      disabled={isBaseType}
+                      onClick={() => combinedConfirm(type, snaps)}
+                    >
+                      {isBaseType ? '📍 기준' : '✓ 적용 확인'}
+                    </button>
+                  </div>
+                );
+              })}
+              <button style={st.tinyBtn} onClick={() => runDiff([...baselineKeys].join(','))} disabled={!baselineKeys.size}>
+                기준 합산 vs 현재 DB 비교
               </button>
             </div>
           )}
-          <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+          <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
             {(data?.snapshots || []).length === 0 && (
               <div style={{ padding: 12, fontSize: 12, color: '#64748b' }}>
                 이 차수의 스냅샷이 아직 없습니다. 화요일 17:00에 자동 생성되며, 지금 [수동 스냅샷]으로 만들 수도 있습니다.
@@ -351,47 +501,197 @@ export default function SalesRegistrationHistoryPage() {
             {(data?.snapshots || []).map(s => {
               const meta = TYPE_META[s.SnapshotType] || TYPE_META.MANUAL;
               const on = s.SnapshotKey === selKey;
+              const isBase = baselineKeys.has(s.SnapshotKey);
               return (
                 <div key={s.SnapshotKey}
-                  style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', cursor: 'pointer', background: on ? '#f0f9ff' : '#fff' }}
+                  style={{
+                    padding: '8px 10px', borderBottom: '1px solid #eef2f7', cursor: 'pointer',
+                    background: on ? '#f0f9ff' : isBase ? '#fefce8' : '#fff',
+                    borderLeft: isBase ? '3px solid #eab308' : '3px solid transparent',
+                  }}
                   onClick={() => selectSnapshot(s.SnapshotKey)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: meta.color, background: meta.bg, borderRadius: 999, padding: '2px 8px' }}>{meta.label}</span>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: '#0f766e', background: '#ccfbf1', borderRadius: 999, padding: '2px 8px' }}>{s.OrderWeek}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {badgePill(meta.label, meta.color, meta.bg)}
+                    {badgePill(s.OrderWeek, '#0f766e', '#ccfbf1')}
+                    {isBase && badgePill('📍 기준', '#854d0e', '#fef9c3')}
                     <span style={{ fontSize: 11, color: '#64748b' }}>#{s.SnapshotKey}</span>
                     <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>{s.takenAt}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 10, marginTop: 3, fontSize: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 12, alignItems: 'center' }}>
                     <b>{fmt(Math.round(Number(s.TotalAmount) + Number(s.TotalVat)))}원</b>
                     <span style={{ color: '#64748b' }}>{fmt(s.RowCnt)}행</span>
                     <button style={st.tinyBtn} onClick={(e) => { e.stopPropagation(); runDiff(s.SnapshotKey); }}>현재와 비교</button>
+                    {!isBase && (
+                      <button
+                        style={{ ...st.tinyBtn, color: '#854d0e', borderColor: '#eab308', marginLeft: 'auto' }}
+                        title="이 스냅샷을 기준금액으로 적용 — 변경검사·비교가 이 기준으로 계산됩니다"
+                        onClick={(e) => { e.stopPropagation(); confirmBaseline([s.SnapshotKey], `${s.OrderWeek} ${shortType(s.SnapshotType)} #${s.SnapshotKey} (${s.takenAt})`); }}
+                      >
+                        ✓ 적용 확인
+                      </button>
+                    )}
                   </div>
                   {s.Note && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{s.Note}</div>}
                 </div>
               );
             })}
           </div>
-          <div style={{ padding: '8px 10px', borderTop: '1px solid #e2e8f0' }}>
-            <button style={{ ...st.secondaryBtn, width: '100%' }} onClick={loadChangeLog}>변경 주체 로그 보기 (화요일 이후)</button>
-          </div>
         </div>
+        )}
 
-        {/* 우: 선택 스냅샷 내용 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          {diff && (
-            <div style={{ ...st.panel, borderColor: diff.hasDiff ? '#fca5a5' : '#86efac' }}>
-              <div style={st.panelHead}>
-                <strong>#{diff.fromKey} vs 현재 DB</strong>
-                <span style={{ fontSize: 12, fontWeight: 800, color: diff.hasDiff ? '#dc2626' : '#059669' }}>
-                  {diff.hasDiff ? `수정 ${diff.changed.length} · 추가 ${diff.added.length} · 삭제 ${diff.removed.length} · Δ합계 ${fmt(Math.round(diff.amtDelta))}원` : '완전 일치'}
-                </span>
+        {/* 우: 접기/열기 패널 스택 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          {/* ① 변경 로그 — 두 타입(총금액 변동 / 업체 추가·취소) + 수정 이력 */}
+          <Section
+            title="변경 로그"
+            open={secLog}
+            onToggle={() => setSecLog(v => !v)}
+            badge={driftAmt != null && Math.abs(driftAmt) > 0.5
+              ? badgePill(`기준 대비 ${driftAmt > 0 ? '+' : ''}${fmt(Math.round(driftAmt))}원`, '#b91c1c', '#fee2e2')
+              : badgePill('변동 없음', '#166534', '#dcfce7')}
+            right={secLog && (
+              <>
+                <button style={logTab === 'amount' ? st.segOn : st.seg} onClick={() => setLogTab('amount')}>총금액 변동 현황</button>
+                <button style={logTab === 'addcancel' ? st.segOn : st.seg}
+                  onClick={() => { setLogTab('addcancel'); if (!custChanges) loadCustChanges(); }}>
+                  업체 추가/취소
+                </button>
+                <button style={logTab === 'history' ? st.segOn : st.seg}
+                  onClick={() => { setLogTab('history'); if (!changeLog) loadChangeLog(); }}>
+                  수정 이력(누가)
+                </button>
+              </>
+            )}
+          >
+            {logTab === 'amount' && (
+              <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                <table style={st.table}>
+                  <thead><tr>
+                    <th>시각</th><th>차수</th><th>스냅샷</th>
+                    <th style={{ textAlign: 'right' }}>총금액(VAT포함)</th>
+                    <th style={{ textAlign: 'right' }}>Δ 직전</th>
+                    <th style={{ textAlign: 'right' }}>Δ 기준</th>
+                  </tr></thead>
+                  <tbody>
+                    {amountLog.map(r => {
+                      const meta = TYPE_META[r.type] || TYPE_META.MANUAL;
+                      return (
+                        <tr key={r.key} style={{ background: r.isBase ? '#fefce8' : undefined }}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{r.takenAt}</td>
+                          <td>{r.week}</td>
+                          <td>{badgePill(meta.label, meta.color, meta.bg)}{r.isBase ? ' 📍' : ''}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmt(Math.round(r.total))}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: r.dPrev == null || Math.round(r.dPrev) === 0 ? '#94a3b8' : (r.dPrev > 0 ? '#dc2626' : '#2563eb') }}>
+                            {r.dPrev == null ? '—' : `${r.dPrev > 0 ? '+' : ''}${fmt(Math.round(r.dPrev))}`}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: r.dBase == null || Math.round(r.dBase) === 0 ? '#94a3b8' : (r.dBase > 0 ? '#dc2626' : '#2563eb') }}>
+                            {r.dBase == null ? '—' : `${r.dBase > 0 ? '+' : ''}${fmt(Math.round(r.dBase))}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {liveTotal != null && (
+                      <tr style={{ background: '#f0fdf4', fontWeight: 800 }}>
+                        <td>지금</td><td>{data?.week}</td><td>현재 DB</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(Math.round(liveTotal))}</td>
+                        <td style={{ textAlign: 'right' }}>—</td>
+                        <td style={{ textAlign: 'right', color: driftAmt == null || Math.round(driftAmt) === 0 ? '#059669' : (driftAmt > 0 ? '#dc2626' : '#2563eb') }}>
+                          {driftAmt == null ? '—' : `${driftAmt > 0 ? '+' : ''}${fmt(Math.round(driftAmt))}`}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8' }}>
+                  Δ 직전 = 같은 세부차수의 바로 앞 스냅샷 대비 · Δ 기준 = 📍기준 스냅샷 대비 · 노란 행 = 현재 기준
+                </div>
               </div>
+            )}
+
+            {logTab === 'addcancel' && (
+              <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                {!custChanges || custChanges.loading ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#64748b' }}>기준 대비 업체 변동을 계산 중…</div>
+                ) : custChanges.noBaseline ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#b91c1c' }}>기준 스냅샷이 없어 계산할 수 없습니다.</div>
+                ) : custChanges.error ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#b91c1c' }}>{custChanges.error}</div>
+                ) : (custChanges.added.length + custChanges.cancelled.length) === 0 ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#059669' }}>기준 이후 새로 분배된 업체·취소된 업체가 없습니다. (금액 수정은 [수정 이력] 탭)</div>
+                ) : (
+                  <table style={st.table}>
+                    <thead><tr><th>구분</th><th>업체</th><th style={{ textAlign: 'right' }}>기준 금액</th><th style={{ textAlign: 'right' }}>현재 금액</th><th>품목수</th></tr></thead>
+                    <tbody>
+                      {custChanges.added.map((g, i) => (
+                        <tr key={`a${i}`} style={{ cursor: 'pointer', background: '#eff6ff' }} onClick={() => openCustDetail(g)} title="클릭 → 새 창에서 품목별 세부 내역">
+                          <td>{badgePill('➕ 분배추가', '#1d4ed8', '#dbeafe')}</td>
+                          <td style={{ fontWeight: 700, color: '#0369a1', textDecoration: 'underline' }}>{g.custName}</td>
+                          <td style={{ textAlign: 'right', color: '#94a3b8' }}>0</td>
+                          <td style={{ textAlign: 'right', fontWeight: 800 }}>{fmt(g.currTotal)}</td>
+                          <td>{g.addedCnt}</td>
+                        </tr>
+                      ))}
+                      {custChanges.cancelled.map((g, i) => (
+                        <tr key={`c${i}`} style={{ cursor: 'pointer', background: '#fef2f2' }} onClick={() => openCustDetail(g)} title="클릭 → 새 창에서 품목별 세부 내역">
+                          <td>{badgePill('❌ 취소', '#dc2626', '#fee2e2')}</td>
+                          <td style={{ fontWeight: 700, color: '#0369a1', textDecoration: 'underline' }}>{g.custName}</td>
+                          <td style={{ textAlign: 'right' }}>{fmt(g.baseTotal)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 800, color: '#dc2626' }}>0</td>
+                          <td>{g.removedCnt}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8' }}>
+                  📍기준 스냅샷에 없다가 새로 분배된 업체(➕)와 기준엔 있었는데 전부 취소된 업체(❌)만 표시 · 업체 클릭 = 세부 내역
+                </div>
+              </div>
+            )}
+
+            {logTab === 'history' && (
+              <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                {!changeLog ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#64748b' }}>불러오는 중…</div>
+                ) : (changeLog.entries || []).length === 0 ? (
+                  <div style={{ padding: 14, fontSize: 12, color: '#059669' }}>기준 시각({changeLog.baselineAt || '-'}) 이후 수정 이력이 없습니다.</div>
+                ) : (
+                  <table style={st.table}>
+                    <thead><tr><th>시각</th><th>수정자</th><th>업체</th><th>품목</th><th>전→후</th><th>메모</th></tr></thead>
+                    <tbody>
+                      {changeLog.entries.map((e, i) => (
+                        <tr key={i}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{e.changeDtm}</td>
+                          <td style={{ fontWeight: 700 }}>{e.ChangeID}</td>
+                          <td>{e.CustName || '-'}</td><td>{e.ProdName || '-'}</td>
+                          <td>{e.BeforeValue}→{e.AfterValue}</td>
+                          <td style={{ fontSize: 10, color: '#64748b' }}>{e.Descr}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </Section>
+
+          {/* ② 기준 vs 현재 diff */}
+          {diff && (
+            <Section
+              title={`#${diff.fromKey} vs 현재 DB`}
+              open={secDiff}
+              onToggle={() => setSecDiff(v => !v)}
+              accent={diff.hasDiff ? '#fca5a5' : '#86efac'}
+              badge={badgePill(
+                diff.hasDiff ? `수정 ${diff.changed.length} · 추가 ${diff.added.length} · 삭제 ${diff.removed.length} · Δ ${fmt(Math.round(diff.amtDelta))}원` : '완전 일치',
+                diff.hasDiff ? '#b91c1c' : '#166534', diff.hasDiff ? '#fee2e2' : '#dcfce7')}
+            >
               {diff.hasDiff && (
                 <>
                   <div style={{ padding: '6px 10px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #eef2f7' }}>
-                    업체를 클릭하면 새 창에 <b>기존(화요일 기준) vs 변경(현재)</b> 품목·수량·단가가 나란히 표시됩니다.
+                    업체를 클릭하면 새 창에 <b>기존(기준) vs 변경(현재)</b> 품목·수량·단가가 나란히 표시됩니다.
                   </div>
-                  <div style={{ maxHeight: 320, overflow: 'auto' }}>
+                  <div style={{ maxHeight: 300, overflow: 'auto' }}>
                     <table style={st.table}>
                       <thead><tr><th>업체</th><th style={{ textAlign: 'right' }}>기준 금액</th><th style={{ textAlign: 'right' }}>현재 금액</th><th style={{ textAlign: 'right' }}>차이</th><th>변경</th></tr></thead>
                       <tbody>
@@ -416,61 +716,33 @@ export default function SalesRegistrationHistoryPage() {
                   </div>
                 </>
               )}
-            </div>
+            </Section>
           )}
 
-          {changeLog && (
-            <div style={st.panel}>
-              <div style={st.panelHead}>
-                <strong>변경 주체 로그 (ShipmentHistory · 기준 {changeLog.baselineAt || '-'} 이후)</strong>
-                <span style={{ fontSize: 12, color: '#64748b' }}>{(changeLog.entries || []).length}건</span>
-              </div>
-              <div style={{ maxHeight: 220, overflow: 'auto' }}>
-                {(changeLog.entries || []).length === 0 ? (
-                  <div style={{ padding: 12, fontSize: 12, color: '#059669' }}>기준 시각 이후 수정 이력이 없습니다.</div>
-                ) : (
-                  <table style={st.table}>
-                    <thead><tr><th>시각</th><th>수정자</th><th>업체</th><th>품목</th><th>전→후</th><th>메모</th></tr></thead>
-                    <tbody>
-                      {changeLog.entries.map((e, i) => (
-                        <tr key={i}>
-                          <td style={{ whiteSpace: 'nowrap' }}>{e.changeDtm}</td>
-                          <td style={{ fontWeight: 700 }}>{e.ChangeID}</td>
-                          <td>{e.CustName || '-'}</td><td>{e.ProdName || '-'}</td>
-                          <td>{e.BeforeValue}→{e.AfterValue}</td>
-                          <td style={{ fontSize: 10, color: '#64748b' }}>{e.Descr}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          )}
-
+          {/* ③ 선택 스냅샷 내용 */}
           {(selSnap || selCombined) && (
-            <div style={st.panel}>
-              <div style={st.panelHead}>
-                <strong>
-                  {selCombined
-                    ? `${(TYPE_META[selCombined.type] || {}).label} 합산 — ${selCombined.snaps.map(s => `${s.OrderWeek}(#${s.SnapshotKey})`).join(' + ')}`
-                    : `#${selSnap.SnapshotKey} ${(TYPE_META[selSnap.SnapshotType] || {}).label} · ${selSnap.OrderWeek} · ${selSnap.takenAt}`}
-                  <span style={{ marginLeft: 10, color: '#1d4ed8' }}>
-                    {fmt(Math.round(selCombined
-                      ? selCombined.snaps.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
-                      : Number(selSnap.TotalAmount) + Number(selSnap.TotalVat)))}원
-                  </span>
-                </strong>
-                <div style={{ display: 'flex', gap: 6 }}>
+            <Section
+              title={selCombined
+                ? `${(TYPE_META[selCombined.type] || {}).label} 합산`
+                : `#${selSnap.SnapshotKey} ${(TYPE_META[selSnap.SnapshotType] || {}).label} · ${selSnap.OrderWeek}`}
+              open={secContent}
+              onToggle={() => setSecContent(v => !v)}
+              badge={badgePill(
+                `${fmt(Math.round(selCombined
+                  ? selCombined.snaps.reduce((s, x) => s + Number(x.TotalAmount) + Number(x.TotalVat), 0)
+                  : Number(selSnap.TotalAmount) + Number(selSnap.TotalVat)))}원`,
+                '#1d4ed8', '#dbeafe')}
+              right={secContent && (
+                <>
                   <button style={viewTab === 'cust' ? st.segOn : st.seg} onClick={() => setViewTab('cust')}>업체별 매출</button>
                   <button style={viewTab === 'flower' ? st.segOn : st.seg} onClick={() => setViewTab('flower')}>품종별 판매금액</button>
                   <button style={viewTab === 'compare' ? st.segOn : st.seg} onClick={() => { setViewTab('compare'); if (!compare) loadCompare(); }}>화/수/수정 비교</button>
-                </div>
-              </div>
-
+                </>
+              )}
+            >
               {viewTab === 'cust' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: selCust != null ? '1fr 1.4fr' : '1fr', gap: 0 }}>
-                  <div style={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto', borderRight: selCust != null ? '1px solid #e2e8f0' : 'none' }}>
+                  <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto', borderRight: selCust != null ? '1px solid #e2e8f0' : 'none' }}>
                     <table style={st.table}>
                       <thead><tr><th>업체</th><th style={{ textAlign: 'right' }}>매출금액(VAT포함)</th><th>정상출고</th><th>차감</th></tr></thead>
                       <tbody>
@@ -492,7 +764,7 @@ export default function SalesRegistrationHistoryPage() {
                     </table>
                   </div>
                   {selCust != null && (
-                    <div style={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}>
+                    <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
                       <div style={{ padding: '6px 10px', fontSize: 12, fontWeight: 800, color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
                         {custRows[0]?.CustName} — 품목별 (견적서 구조)
                         <button style={{ ...st.tinyBtn, marginLeft: 8 }} onClick={() => setSelCust(null)}>닫기</button>
@@ -522,7 +794,7 @@ export default function SalesRegistrationHistoryPage() {
                   )}
                 </div>
               ) : viewTab === 'compare' ? (
-                <div style={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}>
+                <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
                   {!compare ? (
                     <div style={{ padding: 16, fontSize: 13, color: '#64748b' }}>불러오는 중…</div>
                   ) : (
@@ -565,7 +837,7 @@ export default function SalesRegistrationHistoryPage() {
                   )}
                 </div>
               ) : (
-                <div style={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}>
+                <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
                   <table style={st.table}>
                     <thead><tr><th>품종(국가+꽃)</th><th style={{ textAlign: 'right' }}>판매금액(VAT포함)</th><th style={{ textAlign: 'right' }}>수량(견적단위)</th></tr></thead>
                     <tbody>
@@ -585,7 +857,7 @@ export default function SalesRegistrationHistoryPage() {
                   </table>
                 </div>
               )}
-            </div>
+            </Section>
           )}
         </div>
       </div>
@@ -596,13 +868,14 @@ export default function SalesRegistrationHistoryPage() {
 const st = {
   page: { padding: 16, maxWidth: 1500, margin: '0 auto' },
   h1: { fontSize: 20, fontWeight: 800, margin: '0 0 6px' },
-  desc: { fontSize: 13, color: '#475569', margin: '0 0 12px', lineHeight: 1.6 },
   bar: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
   weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: 100 },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { background: '#fff', color: '#334155', border: '1px solid #94a3b8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   tinyBtn: { background: '#fff', color: '#2563eb', border: '1px solid #93c5fd', borderRadius: 6, padding: '1px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' },
+  confirmBtn: { background: '#fff', color: '#854d0e', border: '1px solid #eab308', borderRadius: 8, padding: '4px 8px', fontSize: 11, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' },
+  confirmBtnOn: { background: '#fef9c3', cursor: 'default' },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 10 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 10 },
   panel: { border: '1px solid #dbe3ef', borderRadius: 10, background: '#fff', overflow: 'hidden' },
