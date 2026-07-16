@@ -156,6 +156,7 @@ export default withAuth(async function handler(req, res) {
                LEFT JOIN Customer c ON sm.CustKey = c.CustKey
                LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
               WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since
+                AND ISNULL(sh.BeforeValue, 0) <> ISNULL(sh.AfterValue, 0) -- 0→0(빈 행 생성)·값 무변경 제외, 수량/금액이 실제로 바뀐 것만
               ORDER BY sh.ChangeDtm DESC`,
             { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(baseline.takenAt) } }
           );
