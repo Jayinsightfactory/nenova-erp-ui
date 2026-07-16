@@ -116,6 +116,7 @@ export default function CatalogPage() {
   const [catalogTitle, setCatalogTitle] = useState('NENOVA 카탈로그');
   const [useVatArrival, setUseVatArrival] = useState(true);
   const [perPage, setPerPage] = useState(8);
+  const [gridCols, setGridCols] = useState(null); // 행×열 모드의 열 수 (null=기존 휴리스틱)
   const [catalogFields, setCatalogFields] = useState({ ...DEFAULT_CATALOG_FIELDS });
 
   const [selectedGroup, setSelectedGroup] = useState('__all__');
@@ -222,6 +223,7 @@ export default function CatalogPage() {
     custKey,
     custName,
     perPage,
+    gridCols,
     catalogFields,
     editorOpen,
     useVatArrival,
@@ -233,7 +235,7 @@ export default function CatalogPage() {
     composerSlides,
     checkedKeys: [...checkedKeys],
   }), [
-    catalogTitle, custKey, custName, perPage, catalogFields, editorOpen,
+    catalogTitle, custKey, custName, perPage, gridCols, catalogFields, editorOpen,
     useVatArrival, costMode, selectedWeekInput.value, yearInput.value,
     activeSlideTarget, lines, composerSlides, checkedKeys,
   ]);
@@ -243,6 +245,7 @@ export default function CatalogPage() {
     setCatalogTitle(payload.catalogTitle || meta.name || 'NENOVA 카탈로그');
     setCustKey(payload.custKey || '');
     setPerPage(payload.perPage || 8);
+    setGridCols(payload.gridCols ?? null);
     setCatalogFields({ ...DEFAULT_CATALOG_FIELDS, ...(payload.catalogFields || {}) });
     setEditorOpen(payload.editorOpen === true);
     setUseVatArrival(payload.useVatArrival !== false);
@@ -447,6 +450,7 @@ export default function CatalogPage() {
       if (saved.catalogTitle) setCatalogTitle(saved.catalogTitle);
       if (saved.custKey) setCustKey(saved.custKey);
       if (saved.perPage) setPerPage(saved.perPage);
+      if (saved.gridCols !== undefined) setGridCols(saved.gridCols ?? null);
       if (saved.catalogFields) setCatalogFields({ ...DEFAULT_CATALOG_FIELDS, ...saved.catalogFields });
       else if (saved.showNames != null || saved.showPrice != null) {
         setCatalogFields(normalizeCatalogFields({
@@ -479,14 +483,14 @@ export default function CatalogPage() {
       activeSlideTarget,
       savedDraftId,
       savedDraftName,
-      catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode,
+      catalogTitle, custKey, perPage, gridCols, catalogFields, editorOpen, useVatArrival, costMode,
       selectedWeek: selectedWeekInput.value,
       custName, orderYear: yearInput.value,
       weekStart: displayWeek || null,
       weekEnd: null,
       checkedKeys: [...checkedKeys],
     });
-  }, [lines, composerSlides, activeSlideTarget, savedDraftId, savedDraftName, catalogTitle, custKey, perPage, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value, checkedKeys]);
+  }, [lines, composerSlides, activeSlideTarget, savedDraftId, savedDraftName, catalogTitle, custKey, perPage, gridCols, catalogFields, editorOpen, useVatArrival, costMode, selectedWeekInput.value, latestWeek, custName, yearInput.value, checkedKeys]);
 
   useEffect(() => {
     const valid = new Set(lines.map(l => l.id));
@@ -980,6 +984,14 @@ export default function CatalogPage() {
     setPerPage(next);
   };
 
+  // 행×열 선택 (예: 2×10=20칸) — 총칸수 변경 시 슬롯 재배치
+  const handleGridChange = (rows, cols) => {
+    const r = Math.min(10, Math.max(1, Math.round(rows) || 1));
+    const c = Math.min(10, Math.max(1, Math.round(cols) || 1));
+    setGridCols(c);
+    handlePerPageChange(r * c);
+  };
+
   const handleAddEmptySlide = () => {
     const ref = lines[0];
     const sl = newComposerSlide({
@@ -1253,6 +1265,7 @@ export default function CatalogPage() {
         composerSlides,
         imagesByProd,
         perPage,
+        gridCols,
         catalogFields: fieldVisibility,
       });
     } catch (e) {
@@ -1642,6 +1655,8 @@ export default function CatalogPage() {
             </div>
             <CatalogSlideComposer
               perPage={perPage}
+              gridCols={gridCols}
+              onGridChange={handleGridChange}
               onPerPageChange={handlePerPageChange}
               slides={composerSlides}
               linesById={linesById}

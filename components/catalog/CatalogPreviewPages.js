@@ -85,8 +85,9 @@ export default function CatalogPreviewPages({ draft, mode }) {
   const fields = normalizeCatalogFields(draft);
   // 텍스트 줄수 기준 자동 여백 — 편집 화면·PPT와 동일 계산
   const allPlaced = pages.flatMap(pg => (pg.slots || pg.lines || []).filter(Boolean));
-  const autoTxtH = estimateCatalogAutoTxtHcm(allPlaced, fields, per, draft.spacing || 'wide');
-  const slideStyle = layoutCssVars(per, draft.spacing || 'wide', { txtHcm: autoTxtH });
+  const gridCols = draft.gridCols || null;
+  const autoTxtH = estimateCatalogAutoTxtHcm(allPlaced, fields, per, draft.spacing || 'wide', { cols: gridCols });
+  const slideStyle = layoutCssVars(per, draft.spacing || 'wide', { txtHcm: autoTxtH, cols: gridCols });
   const isPreview = mode === 'preview';
 
   const slides = pages.map((page, pi) => (

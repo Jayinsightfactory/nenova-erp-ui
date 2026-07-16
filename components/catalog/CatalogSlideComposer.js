@@ -178,6 +178,8 @@ function MiniSlot({
 
 export default function CatalogSlideComposer({
   perPage,
+  gridCols,
+  onGridChange,
   onPerPageChange,
   slides,
   linesById,
@@ -200,11 +202,14 @@ export default function CatalogSlideComposer({
   editorOpen = true,
 }) {
   const slotCount = perPageSlotCount(perPage);
+  // 행×열 표시값 — gridCols 미지정이면 기존 휴리스틱과 동일하게 역산
+  const colsShown = gridCols || Math.ceil(slotCount / (slotCount <= 5 ? 1 : 2));
+  const rowsShown = Math.ceil(slotCount / colsShown);
 
   // 배치된 품목 텍스트 줄수 기준 자동 여백 (PPT 익스포트와 동일 계산)
   const placedForTxt = slides.flatMap(s => (s.slots || []).map(id => (id ? linesById[id] : null)).filter(Boolean));
-  const autoTxtH = estimateCatalogAutoTxtHcm(placedForTxt, catalogFields, perPage, 'wide');
-  const mirrorVars = layoutCssVars(perPage, 'wide', { txtHcm: autoTxtH });
+  const autoTxtH = estimateCatalogAutoTxtHcm(placedForTxt, catalogFields, perPage, 'wide', { cols: gridCols });
+  const mirrorVars = layoutCssVars(perPage, 'wide', { txtHcm: autoTxtH, cols: gridCols });
 
   const [expandedSlideId, setExpandedSlideId] = useState(null);
   const [cropDraft, setCropDraft] = useState(null);
@@ -284,16 +289,26 @@ export default function CatalogSlideComposer({
         <span className="composer-label">PPT 칸 수</span>
         <select
           className="filter-select"
-          value={perPage}
-          onChange={e => onPerPageChange(Number(e.target.value))}
-          title="슬라이드당 품목 칸 수 (1~5칸=1행, 6~10칸=2행)"
+          value={rowsShown}
+          onChange={e => onGridChange?.(Number(e.target.value), colsShown)}
+          title="행 수 (세로 줄 수)"
         >
           {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-            <option key={n} value={n}>
-              {n}칸 ({n <= 5 ? `${n}×1` : `${Math.ceil(n / 2)}×2`})
-            </option>
+            <option key={n} value={n}>{n}행</option>
           ))}
         </select>
+        <span className="composer-label">×</span>
+        <select
+          className="filter-select"
+          value={colsShown}
+          onChange={e => onGridChange?.(rowsShown, Number(e.target.value))}
+          title="열 수 (한 줄에 몇 칸)"
+        >
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+            <option key={n} value={n}>{n}열</option>
+          ))}
+        </select>
+        <span className="composer-label" style={{ fontWeight: 800 }}>= {slotCount}칸</span>
         <button type="button" className="btn btn-sm" onClick={onAddEmptySlide} title="빈 슬라이드 추가">
           + 슬라이드
         </button>
@@ -400,7 +415,7 @@ export default function CatalogSlideComposer({
                 <img className="composer-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
               </div>
               <p className="composer-ppt-hint">
-                PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage)} (정사각)
+                PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage, 'wide', { cols: gridCols })} (정사각)
               </p>
               <div className="composer-ppt-viewport">
                 <div className="catalog-slide composer-ppt-mirror" style={mirrorVars}>
