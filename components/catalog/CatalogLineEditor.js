@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { resolveCatalogProductNames } from '../../lib/catalogNameResolve';
-import { fmtArrivalCostMeta, fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
-import { jamoMatch } from '../../lib/displayName';
+import { catalogKorLooseMatch, fmtArrivalCostMeta, fmtArrivalDisplay, fmtPct, marginPct } from '../../lib/catalogUtils';
 
 const KOR_SOURCE_LABEL = {
   catalog: '저장',
@@ -28,10 +27,8 @@ export default function CatalogLineEditor({
   // 편집할 품목만 골라 보기 — 영문/한글(자모·초성) 검색
   const [editFilter, setEditFilter] = useState('');
   const fq = editFilter.trim().toLowerCase();
-  const visibleLines = !fq ? lines : lines.filter(l => {
-    const texts = [l.engName, l.korName, l.catalogName, l.prodName].filter(Boolean).map(String);
-    return texts.some(t => t.toLowerCase().includes(fq) || jamoMatch(fq, t));
-  });
+  const visibleLines = !fq ? lines : lines.filter(l =>
+    catalogKorLooseMatch(fq, [l.engName, l.korName, l.catalogName, l.prodName]));
 
   return (
     <div className="catalog-line-editor">
