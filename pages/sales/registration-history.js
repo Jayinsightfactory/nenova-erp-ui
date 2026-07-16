@@ -69,43 +69,66 @@ export default function SalesRegistrationHistoryPage() {
   const [secDiff, setSecDiff] = useState(true);      // 기준 vs 현재
   const [logTab, setLogTab] = useState('amount');    // amount | addcancel | history
 
-  const load = async () => {
+  const load = async (weekArg) => {
+    const wk = weekArg ?? weekInput.value;
     setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setCompare(null); setSelCust(null); setCustChanges(null);
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       const tueSnaps = (d.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
       if (d.majorMode && tueSnaps.length > 0) {
-        await selectCombined('TUE_FINAL', tueSnaps);
+        await selectCombined('TUE_FINAL', tueSnaps, wk);
       } else {
         const first = tueSnaps[0] || (d.snapshots || [])[0];
-        if (first) await selectSnapshot(first.SnapshotKey);
+        if (first) await selectSnapshot(first.SnapshotKey, wk);
         else { setSelKey(null); setSelCombined(null); setRows([]); }
       }
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
 
-  const fetchRows = async (key) => {
-    const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&rows=${key}`, { credentials: 'same-origin' });
+  const fetchRows = async (key, weekArg) => {
+    const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekArg ?? weekInput.value)}&rows=${key}`, { credentials: 'same-origin' });
     const d = await res.json();
     return d.rows || [];
   };
 
-  const selectSnapshot = async (key) => {
+  const selectSnapshot = async (key, weekArg) => {
     setSelKey(key); setSelCombined(null); setSelCust(null);
-    try { setRows(await fetchRows(key)); } catch { setRows([]); }
+    try { setRows(await fetchRows(key, weekArg)); } catch { setRows([]); }
   };
 
   // 대차수 합산 보기 — 세부차수별 해당 타입 스냅샷 행을 합쳐 27차 전체로
-  const selectCombined = async (type, snaps) => {
+  const selectCombined = async (type, snaps, weekArg) => {
     setSelKey(null); setSelCust(null);
     setSelCombined({ type, snaps });
     try {
-      const all = await Promise.all(snaps.map(s => fetchRows(s.SnapshotKey)));
+      const all = await Promise.all(snaps.map(s => fetchRows(s.SnapshotKey, weekArg)));
       setRows(all.flat());
     } catch { setRows([]); }
+  };
+
+  // ◀▶ 이전/다음 차수 — 대차수('28')는 ±1, 세부차수('28-01')는 27-02↔28-01↔28-02↔29-01 순서
+  const stepWeek = (dir) => {
+    const v = String(weekInput.value || '').trim();
+    let next = null;
+    const mMajor = v.match(/^(\d{1,2})$/);
+    const mSub = v.match(/^(\d{1,2})-(\d{1,2})$/);
+    if (mMajor) {
+      const n = parseInt(mMajor[1], 10) + dir;
+      if (n < 1 || n > 53) return;
+      next = String(n).padStart(2, '0');
+    } else if (mSub) {
+      let major = parseInt(mSub[1], 10);
+      let sub = parseInt(mSub[2], 10) + dir;
+      if (sub < 1) { major -= 1; sub = 2; }
+      if (sub > 2) { major += 1; sub = 1; }
+      if (major < 1 || major > 53) return;
+      next = `${String(major).padStart(2, '0')}-${String(sub).padStart(2, '0')}`;
+    } else return;
+    weekInput.setValue(next);
+    load(next);
   };
 
   const [diffView, setDiffView] = useState('items'); // items(품목 상세) | cust(업체별 요약)
@@ -421,8 +444,10 @@ export default function SalesRegistrationHistoryPage() {
 
       <div style={st.bar}>
         <label style={st.label}>차수</label>
+        <button style={st.stepBtn} onClick={() => stepWeek(-1)} disabled={loading} title="이전 차수">◀</button>
         <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27=차수 전체 / 27-01" title="27 처럼 대차수만 넣으면 27-01+27-02 합산(=27차)으로 봅니다" />
-        <button style={st.primaryBtn} onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+        <button style={st.stepBtn} onClick={() => stepWeek(1)} disabled={loading} title="다음 차수">▶</button>
+        <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
         <button
           style={{ ...st.primaryBtn, background: '#16a34a' }}
           onClick={() => post('checkNow')}
@@ -959,7 +984,8 @@ const st = {
   h1: { fontSize: 20, fontWeight: 800, margin: '0 0 6px' },
   bar: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
-  weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: 100 },
+  weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: 100, textAlign: 'center' },
+  stepBtn: { background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   secondaryBtn: { background: '#fff', color: '#334155', border: '1px solid #94a3b8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   tinyBtn: { background: '#fff', color: '#2563eb', border: '1px solid #93c5fd', borderRadius: 6, padding: '1px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' },
