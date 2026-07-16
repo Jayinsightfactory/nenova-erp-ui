@@ -22,10 +22,10 @@ export default withAuth(async function handler(req, res) {
 
     const r = await query(
       `SELECT FarmName, OrderWeek, CreditUSD, Memo, isDeleted,
-              ISNULL(UpdateDtm, CreatedDtm) AS ChangeDtm
+              ISNULL(UpdateDtm, CreateDtm) AS ChangeDtm
        FROM FarmCredit
        WHERE ${where}
-       ORDER BY ISNULL(UpdateDtm, CreatedDtm) DESC`,
+       ORDER BY ISNULL(UpdateDtm, CreateDtm) DESC`,
       params
     );
 

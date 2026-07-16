@@ -17,6 +17,9 @@ export default function IncomingPricePage() {
   const [loading, setLoading] = useState(false);
   const [includeFreight, setIncludeFreight] = useState(false);
   const [sideTab, setSideTab] = useState('pending');
+  const [remits, setRemits] = useState([]);          // 송금 기록 (WebFarmRemit, 연도 스코프)
+  const [remitModal, setRemitModal] = useState(null); // { farm, amount, date, memo }
+  const [remitSaving, setRemitSaving] = useState(false);
   const [creditsRaw, setCreditsRaw] = useState([]);  // [{ farmName, orderWeek, creditUSD, memo }]
   const [editCredit, setEditCredit] = useState({});  // { "farm::week": { creditUSD, memo } }
   const [saving, setSaving] = useState({});
@@ -29,6 +32,44 @@ export default function IncomingPricePage() {
       if (d.success) { setAllWeeks(d.weeks || []); setYears(d.years || []); }
     });
   }, [year]);
+
+  const loadRemits = useCallback(() => {
+    apiGet('/api/incoming-price/remit', { year }).then(d => {
+      if (d.success) setRemits(d.remits || []);
+    }).catch(() => {});
+  }, [year]);
+  useEffect(() => { loadRemits(); }, [loadRemits]);
+
+  // 현재 선택 차수와 겹치는 이 농장의 송금 기록
+  const farmRemitsOf = (farm) => remits.filter(r =>
+    r.farmName === farm &&
+    String(r.weeks || '').split(/[,\s]+/).filter(Boolean).some(w => selectedWeeks.includes(w))
+  );
+
+  const saveRemit = async () => {
+    if (!remitModal) return;
+    const amt = parseFloat(remitModal.amount);
+    if (Number.isNaN(amt)) { alert('금액을 입력하세요.'); return; }
+    setRemitSaving(true);
+    try {
+      const res = await fetch('/api/incoming-price/remit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          year, weeks: selectedWeeks.join(','), farmName: remitModal.farm,
+          amountUSD: amt, remitDate: remitModal.date, memo: remitModal.memo || '',
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setRemitModal(null);
+        loadRemits();
+        setMsg(`💸 ${remitModal.farm} 송금 기록 저장`);
+        setTimeout(() => setMsg(''), 2500);
+      } else alert(d.error || '저장 실패');
+    } finally { setRemitSaving(false); }
+  };
 
   const changeYear = (y) => {
     if (y === year) return;
@@ -204,11 +245,18 @@ export default function IncomingPricePage() {
     const savedEntries = creditsRaw
       .filter(c => c.farmName === farm && selectedWeeks.includes(c.orderWeek))
       .filter(c => (Number(c.creditUSD) || 0) !== 0 || String(c.memo || '').trim() !== '');
-    return { farm, total, credit, net, savedEntries, hasSavedInput: savedEntries.length > 0 };
+    const remitEntries = farmRemitsOf(farm);
+    return {
+      farm, total, credit, net, savedEntries,
+      hasSavedInput: savedEntries.length > 0,
+      remitEntries, hasRemit: remitEntries.length > 0,
+    };
   });
-  const savedFarmSummaries = farmSummaries.filter(f => f.hasSavedInput);
-  const pendingFarmSummaries = farmSummaries.filter(f => !f.hasSavedInput && f.net > 0);
-  const activeSideRows = sideTab === 'saved' ? savedFarmSummaries : pendingFarmSummaries;
+  const remittedFarmSummaries = farmSummaries.filter(f => f.hasRemit);
+  const savedFarmSummaries = farmSummaries.filter(f => !f.hasRemit && f.hasSavedInput);
+  const pendingFarmSummaries = farmSummaries.filter(f => !f.hasRemit && !f.hasSavedInput && f.net > 0);
+  const activeSideRows = sideTab === 'saved' ? savedFarmSummaries
+    : sideTab === 'remitted' ? remittedFarmSummaries : pendingFarmSummaries;
 
   return (
     <Layout title="입고단가 / 농장 송금">
@@ -653,21 +701,33 @@ export default function IncomingPricePage() {
                 <button onClick={() => setSideTab('pending')} style={sideTabButtonStyle(sideTab === 'pending', '#c62828')}>
                   송금 필요 {pendingFarmSummaries.length}
                 </button>
-                <button onClick={() => setSideTab('saved')} style={sideTabButtonStyle(sideTab === 'saved', '#2e7d32')}>
+                <button onClick={() => setSideTab('saved')} style={sideTabButtonStyle(sideTab === 'saved', '#e65100')}>
                   입력 있음 {savedFarmSummaries.length}
+                </button>
+                <button onClick={() => setSideTab('remitted')} style={sideTabButtonStyle(sideTab === 'remitted', '#2e7d32')}>
+                  송금 완료 {remittedFarmSummaries.length}
                 </button>
               </div>
               <div style={{ padding: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                  <div style={{ background: '#ffebee', color: '#b71c1c', borderRadius: 6, padding: '8px 10px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700 }}>송금 필요</div>
-                    <div style={{ fontSize: 18, fontWeight: 800 }}>{pendingFarmSummaries.length}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 10 }}>
+                  <div style={{ background: '#ffebee', color: '#b71c1c', borderRadius: 6, padding: '6px 8px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700 }}>송금 필요</div>
+                    <div style={{ fontSize: 17, fontWeight: 800 }}>{pendingFarmSummaries.length}</div>
                   </div>
-                  <div style={{ background: '#e8f5e9', color: '#1b5e20', borderRadius: 6, padding: '8px 10px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700 }}>입력 있음</div>
-                    <div style={{ fontSize: 18, fontWeight: 800 }}>{savedFarmSummaries.length}</div>
+                  <div style={{ background: '#fff3e0', color: '#e65100', borderRadius: 6, padding: '6px 8px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700 }}>입력 있음</div>
+                    <div style={{ fontSize: 17, fontWeight: 800 }}>{savedFarmSummaries.length}</div>
+                  </div>
+                  <div style={{ background: '#e8f5e9', color: '#1b5e20', borderRadius: 6, padding: '6px 8px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700 }}>송금 완료</div>
+                    <div style={{ fontSize: 17, fontWeight: 800 }}>{remittedFarmSummaries.length}</div>
                   </div>
                 </div>
+                <button
+                  onClick={() => window.open('/incoming-price/ledger?popup=1', '송금크레딧내역', 'width=1150,height=700,resizable=yes,scrollbars=yes')}
+                  style={{ width: '100%', marginBottom: 10, padding: '7px 10px', borderRadius: 6, border: '1px solid #c5cae9', background: '#f6f8ff', color: '#1a237e', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                  📒 송금/크레딧 전체 내역 보기
+                </button>
                 <div style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', paddingRight: 2 }}>
                   {activeSideRows.length === 0 && (
                     <div style={{ padding: '24px 8px', textAlign: 'center', color: '#999', fontSize: 13 }}>
@@ -677,16 +737,16 @@ export default function IncomingPricePage() {
                   {activeSideRows.map(row => (
                     <div key={row.farm} style={{
                       border: '1px solid #edf0f5',
-                      borderLeft: `4px solid ${row.hasSavedInput ? '#43a047' : '#ef5350'}`,
+                      borderLeft: `4px solid ${row.hasRemit ? '#43a047' : row.hasSavedInput ? '#ffb74d' : '#ef5350'}`,
                       borderRadius: 6,
                       padding: '10px 12px',
                       marginBottom: 8,
-                      background: row.hasSavedInput ? '#fbfffb' : '#fffafa',
+                      background: row.hasRemit ? '#fbfffb' : row.hasSavedInput ? '#fffdf8' : '#fffafa',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                         <div style={{ fontWeight: 800, color: '#1a237e', lineHeight: 1.35 }}>{row.farm}</div>
-                        <div style={{ fontSize: 11, color: row.hasSavedInput ? '#2e7d32' : '#c62828', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                          {row.hasSavedInput ? '입력됨' : '미입력'}
+                        <div style={{ fontSize: 11, color: row.hasRemit ? '#2e7d32' : row.hasSavedInput ? '#e65100' : '#c62828', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                          {row.hasRemit ? '✓ 송금완료' : row.hasSavedInput ? '입력됨' : '미입력'}
                         </div>
                       </div>
                       <div style={{ marginTop: 8, fontSize: 12, color: '#555' }}>
@@ -702,6 +762,13 @@ export default function IncomingPricePage() {
                           <span>송금액</span><strong>{fmtUSDInt(row.net)}</strong>
                         </div>
                       </div>
+                      {/* 송금 기록 (완료 카드) */}
+                      {row.remitEntries.map(rm => (
+                        <div key={rm.key} style={{ marginTop: 6, fontSize: 11, color: '#2e7d32', background: '#f0f9f0', borderRadius: 4, padding: '4px 8px' }}>
+                          💸 {rm.remitDate || rm.createDtm?.slice(0, 10)} · {fmtUSDInt(rm.amountUSD)}
+                          {rm.memo && <div style={{ color: '#666', whiteSpace: 'pre-wrap' }}>{rm.memo}</div>}
+                        </div>
+                      ))}
                       {row.savedEntries.length > 0 && (
                         <div style={{ marginTop: 8, borderTop: '1px dashed #e0e0e0', paddingTop: 6 }}>
                           {row.savedEntries.map(entry => (
@@ -712,6 +779,22 @@ export default function IncomingPricePage() {
                             </div>
                           ))}
                         </div>
+                      )}
+                      {/* 송금 기록 버튼 (미완료 카드) */}
+                      {!row.hasRemit && (
+                        <button
+                          onClick={() => {
+                            const d = new Date();
+                            setRemitModal({
+                              farm: row.farm,
+                              amount: (Math.round(row.net * 100) / 100).toFixed(2),
+                              date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+                              memo: '',
+                            });
+                          }}
+                          style={{ width: '100%', marginTop: 8, padding: '6px 8px', borderRadius: 5, border: '1px solid #a5d6a7', background: '#e8f5e9', color: '#1b5e20', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                          💸 송금 기록 남기기
+                        </button>
                       )}
                     </div>
                   ))}
@@ -724,6 +807,42 @@ export default function IncomingPricePage() {
         {!loading && !data && selectedWeeks.length === 0 && (
           <div style={{ padding: 60, textAlign: 'center', color: '#aaa', fontSize: 15 }}>
             위에서 차수를 선택하면 농장별 입고단가와 송금액을 확인할 수 있습니다.
+          </div>
+        )}
+
+        {/* 송금 기록 모달 */}
+        {remitModal && (
+          <div onClick={() => !remitSaving && setRemitModal(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: '#fff', borderRadius: 10, padding: '20px 22px', width: 380, boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: '#1a237e', marginBottom: 4 }}>💸 송금 기록</div>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 14 }}>
+                {remitModal.farm} · {year}년 {selectedWeeks.join(', ')}차
+              </div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 4 }}>송금일</label>
+              <input type="date" value={remitModal.date}
+                onChange={e => setRemitModal(p => ({ ...p, date: e.target.value }))}
+                style={{ width: '100%', padding: '7px 8px', border: '1px solid #bbb', borderRadius: 5, fontSize: 13, boxSizing: 'border-box', marginBottom: 10 }} />
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 4 }}>송금액 (USD)</label>
+              <input type="number" step="0.01" value={remitModal.amount}
+                onChange={e => setRemitModal(p => ({ ...p, amount: e.target.value }))}
+                style={{ width: '100%', padding: '7px 8px', border: '1px solid #bbb', borderRadius: 5, fontSize: 13, textAlign: 'right', boxSizing: 'border-box', marginBottom: 10, fontVariantNumeric: 'tabular-nums' }} />
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 4 }}>비고</label>
+              <textarea rows={2} value={remitModal.memo} placeholder="예: 우리은행 T/T, 참조번호…"
+                onChange={e => setRemitModal(p => ({ ...p, memo: e.target.value }))}
+                style={{ width: '100%', padding: '7px 8px', border: '1px solid #bbb', borderRadius: 5, fontSize: 13, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 14 }} />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setRemitModal(null)} disabled={remitSaving}
+                  style={{ padding: '7px 16px', borderRadius: 5, border: '1px solid #ccc', background: '#fff', color: '#666', fontSize: 13, cursor: 'pointer' }}>
+                  취소
+                </button>
+                <button onClick={saveRemit} disabled={remitSaving}
+                  style={{ padding: '7px 18px', borderRadius: 5, border: 'none', background: '#2e7d32', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
+                  {remitSaving ? '저장 중…' : '💾 송금 기록 저장'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
