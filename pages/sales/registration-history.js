@@ -108,14 +108,40 @@ export default function SalesRegistrationHistoryPage() {
     } catch { setRows([]); }
   };
 
-  const runDiff = async (fromKey) => {
+  const [diffView, setDiffView] = useState('items'); // items(품목 상세) | cust(업체별 요약)
+
+  const runDiff = async (fromKey, view) => {
     setDiff(null); setSecDiff(true);
+    if (view) setDiffView(view);
     try {
       const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&diffFrom=${fromKey}&diffTo=current`, { credentials: 'same-origin' });
       const d = await res.json();
       if (d.success) setDiff({ fromKey, ...d.diff });
     } catch { /* ignore */ }
   };
+
+  // 품목 상세 플랫 뷰 — 어느 업체의 어느 품목이 단가 얼마짜리인데 수량이 몇 개 다른지 한 표로
+  const diffItemRows = useMemo(() => {
+    if (!diff?.byCust) return [];
+    const qtyOf = s => (s ? (s.outQty || s.estQty) : 0);
+    const out = [];
+    for (const g of diff.byCust) {
+      for (const it of (g.items || [])) {
+        if (it.kind === 'same') continue;
+        const b = it.before, a = it.after;
+        out.push({
+          custName: g.custName, prodName: it.prodName, kind: it.kind,
+          qtyBefore: qtyOf(b), qtyAfter: qtyOf(a), unit: (a || b)?.unit || '',
+          priceBefore: b ? b.unitPrice : null, priceAfter: a ? a.unitPrice : null,
+          totalBefore: b ? b.total : 0, totalAfter: a ? a.total : 0,
+          delta: Math.round((a ? a.total : 0) - (b ? b.total : 0)),
+          estType: (a || b)?.estType || '',
+        });
+      }
+    }
+    out.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+    return out;
+  }, [diff]);
 
   const loadChangeLog = async () => {
     try {
@@ -428,11 +454,20 @@ export default function SalesRegistrationHistoryPage() {
           </span>
         )}
         {driftAmt != null && (
-          <span style={{ fontSize: 13, fontWeight: 800, color: Math.abs(driftAmt) > 0.5 ? '#dc2626' : '#059669' }}>
-            {Math.abs(driftAmt) > 0.5
-              ? `⚠ 현재 DB가 기준과 ${fmt(Math.round(driftAmt))}원 다릅니다`
-              : '✓ 현재 DB = 기준금액과 일치'}
-          </span>
+          Math.abs(driftAmt) > 0.5 ? (
+            <button
+              onClick={() => runDiff([...baselineKeys].join(','), 'items')}
+              disabled={!baselineKeys.size}
+              title="클릭 → 어느 업체의 어느 품목이 단가·수량 얼마나 다른지 상세 표시"
+              style={{
+                fontSize: 13, fontWeight: 800, color: '#dc2626', background: '#fef2f2',
+                border: '1px solid #fca5a5', borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
+              }}>
+              ⚠ 현재 DB가 기준과 {fmt(Math.round(driftAmt))}원 다릅니다 — 어디가 다른지 보기 ▾
+            </button>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#059669' }}>✓ 현재 DB = 기준금액과 일치</span>
+          )
         )}
       </div>
 
@@ -678,15 +713,69 @@ export default function SalesRegistrationHistoryPage() {
           {/* ② 기준 vs 현재 diff */}
           {diff && (
             <Section
-              title={`#${diff.fromKey} vs 현재 DB`}
+              title={`기준(#${diff.fromKey}) vs 현재 DB — 어디가 다른가`}
               open={secDiff}
               onToggle={() => setSecDiff(v => !v)}
               accent={diff.hasDiff ? '#fca5a5' : '#86efac'}
               badge={badgePill(
                 diff.hasDiff ? `수정 ${diff.changed.length} · 추가 ${diff.added.length} · 삭제 ${diff.removed.length} · Δ ${fmt(Math.round(diff.amtDelta))}원` : '완전 일치',
                 diff.hasDiff ? '#b91c1c' : '#166534', diff.hasDiff ? '#fee2e2' : '#dcfce7')}
+              right={secDiff && diff.hasDiff && (
+                <>
+                  <button style={diffView === 'items' ? st.segOn : st.seg} onClick={() => setDiffView('items')}>품목 상세</button>
+                  <button style={diffView === 'cust' ? st.segOn : st.seg} onClick={() => setDiffView('cust')}>업체별 요약</button>
+                </>
+              )}
             >
-              {diff.hasDiff && (
+              {diff.hasDiff && (diffView === 'items' ? (
+                <div style={{ maxHeight: 380, overflow: 'auto' }}>
+                  <table style={st.table}>
+                    <thead><tr>
+                      <th>업체</th><th>품목</th><th>구분</th>
+                      <th style={{ textAlign: 'right' }}>수량 기준→현재</th>
+                      <th style={{ textAlign: 'right' }}>단가 기준→현재</th>
+                      <th style={{ textAlign: 'right' }}>금액 기준→현재</th>
+                      <th style={{ textAlign: 'right' }}>Δ 금액</th>
+                    </tr></thead>
+                    <tbody>
+                      {diffItemRows.map((r, i) => {
+                        const kindMeta = { changed: ['수정', '#b45309', '#fef3c7'], added: ['추가', '#1d4ed8', '#dbeafe'], removed: ['삭제', '#dc2626', '#fee2e2'] };
+                        const [klabel, kcolor, kbg] = kindMeta[r.kind] || ['—', '#64748b', '#f1f5f9'];
+                        const qtyChanged = r.qtyBefore !== r.qtyAfter;
+                        const priceChanged = r.priceBefore != null && r.priceAfter != null && r.priceBefore !== r.priceAfter;
+                        return (
+                          <tr key={i} style={{ background: `${kbg}44` }}>
+                            <td style={{ fontWeight: 700 }}>{r.custName}</td>
+                            <td>{r.prodName}{r.estType && r.estType !== '정상출고' ? <span style={{ color: '#b91c1c', fontSize: 10 }}> ({r.estType})</span> : ''}</td>
+                            <td>{badgePill(klabel, kcolor, kbg)}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: qtyChanged ? 800 : 400, color: qtyChanged ? '#dc2626' : '#334155' }}>
+                              {fmt(r.qtyBefore)} → {fmt(r.qtyAfter)}{r.unit ? <span style={{ color: '#94a3b8', fontWeight: 400 }}> {r.unit}</span> : ''}
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: priceChanged ? 800 : 400, color: priceChanged ? '#dc2626' : '#334155' }}>
+                              {r.priceBefore == null ? '—' : fmt(r.priceBefore)}{r.priceAfter == null ? ' → —' : ` → ${fmt(r.priceAfter)}`}
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {fmt(Math.round(r.totalBefore))} → {fmt(Math.round(r.totalAfter))}
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 800, color: r.delta === 0 ? '#64748b' : (r.delta > 0 ? '#dc2626' : '#2563eb') }}>
+                              {r.delta > 0 ? '+' : ''}{fmt(r.delta)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+                        <td colSpan={6}>합계 (Δ)</td>
+                        <td style={{ textAlign: 'right', color: '#dc2626' }}>
+                          {(() => { const d = diffItemRows.reduce((s, r) => s + r.delta, 0); return `${d > 0 ? '+' : ''}${fmt(d)}`; })()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8' }}>
+                    Δ금액 큰 순 정렬 · 빨간 굵은 값 = 기준과 달라진 수량/단가 · 단가 = 금액÷견적기준수량 · 수정=같은 행 값 변경, 추가=기준에 없던 행, 삭제=기준에 있었는데 사라진 행
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div style={{ padding: '6px 10px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #eef2f7' }}>
                     업체를 클릭하면 새 창에 <b>기존(기준) vs 변경(현재)</b> 품목·수량·단가가 나란히 표시됩니다.
@@ -715,7 +804,7 @@ export default function SalesRegistrationHistoryPage() {
                     </table>
                   </div>
                 </>
-              )}
+              ))}
             </Section>
           )}
 
