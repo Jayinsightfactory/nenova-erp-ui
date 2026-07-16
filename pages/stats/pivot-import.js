@@ -23,6 +23,7 @@ export default function PivotImport() {
   const [adjModal, setAdjModal] = useState(null); // { week, awb, invoiceNo, farmName, scope:'invoice'|'awb' }
   const [fwdInvoices, setFwdInvoices] = useState({}); // { 'week|awb': 'FEX-1234' } 포워더 인보이스(웹 매핑)
   const [viewMode, setViewMode] = useState('pivot');  // 'pivot' | 'settlement' (정산서 보기 = 결제파일 양식)
+  const [notices, setNotices] = useState([]);         // 조회 시 서버가 탐지한 특이사항 (등록오류·표기혼재)
   const [settlement, setSettlement] = useState(null); // { sheets: [{name, rows:[{kind, cells}]}] }
   const [settleLoading, setSettleLoading] = useState(false);
 
@@ -50,6 +51,7 @@ export default function PivotImport() {
     })
       .then(d => {
         setRows(d.rows || []); setAdjustments(d.adjustments || []); setFwdInvoices(d.fwdInvoices || {});
+        setNotices(d.notices || []);
         setMeta({ orderYear: d.orderYear, weekStart: d.weekStart, weekEnd: d.weekEnd });
         setSelFarms(new Set());
       })
@@ -204,6 +206,24 @@ export default function PivotImport() {
           구분 <b>03. 입고</b> · 값 = <b>입고총단가(USD)</b> · 입고 {rows.length}건 + 수기 {adjustments.length}건 /
           합계 <b>{fmt2(grandTotal)}</b>
           <span style={{ marginLeft: 8, color: 'var(--text3)' }}>행의 [＋]로 Claim·은행수수료 등 수기항목을 추가하세요</span>
+        </div>
+      )}
+
+      {/* 특이사항 배너 — 조회 시 서버 탐지 결과 (등록오류=주황, 표기혼재=파랑) */}
+      {notices.length > 0 && (
+        <div style={{ marginBottom: 8, display: 'grid', gap: 6 }}>
+          {notices.map((n, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              padding: '8px 12px', borderRadius: 8, fontSize: 12.5, lineHeight: 1.55,
+              background: n.level === 'warn' ? '#fff4e0' : '#e8f1fd',
+              border: `1px solid ${n.level === 'warn' ? '#f0b429' : '#8ab8f0'}`,
+              color: n.level === 'warn' ? '#7a4d00' : '#1a4d8f',
+            }}>
+              <span style={{ fontSize: 14 }}>{n.level === 'warn' ? '⚠️' : 'ℹ️'}</span>
+              <span style={{ fontWeight: n.level === 'warn' ? 600 : 400 }}>{n.text}</span>
+            </div>
+          ))}
         </div>
       )}
 

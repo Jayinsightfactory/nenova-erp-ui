@@ -19,15 +19,27 @@ export default withAuth(async function handler(req, res) {
 
 async function handleGet(req, res) {
   const { weeks: weeksParam } = req.query;
+  // 기준연도 — 차수번호는 매년 반복되므로 연도 없이 조회하면 작년 동일차수와 합산됨 (레거시 NULL=요청연도로 간주)
+  const year = String(req.query.year || new Date().getFullYear()).slice(0, 4);
+  const yearParam = { yr: { type: sql.NVarChar, value: year } };
 
-  // 차수 목록
+  // 차수 목록 (기준연도 스코프) + 데이터 있는 연도 목록
   if (!weeksParam) {
-    const r = await query(
-      `SELECT DISTINCT OrderWeek FROM WarehouseMaster
-       WHERE isDeleted=0 AND OrderWeek IS NOT NULL AND OrderWeek<>''
-       ORDER BY OrderWeek DESC`
-    );
-    return res.status(200).json({ success: true, weeks: r.recordset.map(x => x.OrderWeek) });
+    const [r, ys] = await Promise.all([
+      query(
+        `SELECT DISTINCT OrderWeek FROM WarehouseMaster
+         WHERE isDeleted=0 AND OrderWeek IS NOT NULL AND OrderWeek<>''
+           AND ISNULL(CAST(OrderYear AS NVARCHAR(4)), @yr) = @yr
+         ORDER BY OrderWeek DESC`, yearParam
+      ),
+      query(
+        `SELECT DISTINCT CAST(OrderYear AS NVARCHAR(4)) AS yr FROM WarehouseMaster
+         WHERE isDeleted=0 AND OrderYear IS NOT NULL ORDER BY yr DESC`
+      ).catch(() => ({ recordset: [] })),
+    ]);
+    const years = [...new Set([String(new Date().getFullYear()), ...ys.recordset.map(x => x.yr)])]
+      .sort((a, b) => b.localeCompare(a));
+    return res.status(200).json({ success: true, year, years, weeks: r.recordset.map(x => x.OrderWeek) });
   }
 
   const selectedWeeks = weeksParam.split(',').map(w => w.trim()).filter(Boolean);
@@ -62,8 +74,9 @@ async function handleGet(req, res) {
        JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
        LEFT JOIN Product p ON wd.ProdKey = p.ProdKey
        WHERE wm.OrderWeek IN (${weekPlaceholders}) AND wm.isDeleted = 0
+         AND ISNULL(CAST(wm.OrderYear AS NVARCHAR(4)), @yr) = @yr
        ORDER BY wm.FarmName, p.CounName, p.FlowerName, p.ProdName`,
-      weekParams
+      { ...weekParams, ...yearParam }
     ),
     query(
       `SELECT FarmName, OrderWeek, CreditUSD, Memo

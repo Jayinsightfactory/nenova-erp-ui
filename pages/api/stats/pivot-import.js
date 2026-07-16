@@ -412,9 +412,13 @@ export default withAuth(async function handler(req, res) {
           CONVERT(varchar(10), MIN(wm.InputDate), 23) AS inputDate,
           ROUND(SUM(ISNULL(wd.TPrice, 0)), 2) AS inTotal,
           COUNT(wd.WdetailKey) AS lineCount,
-          ROUND(SUM(ISNULL(wd.OutQuantity, 0)), 2) AS qty
+          ROUND(SUM(ISNULL(wd.OutQuantity, 0)), 2) AS qty,
+          SUM(CASE WHEN ISNULL(wd.TPrice, 0) <> 0 THEN 1 ELSE 0 END) AS pricedLines,
+          SUM(CASE WHEN ISNULL(wd.TPrice, 0) <> 0
+                    AND (p.ProdName LIKE N'%운송%' OR p.ProdName LIKE N'%운임%') THEN 1 ELSE 0 END) AS pricedFreightLines
         FROM WarehouseMaster wm
         JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
+        LEFT JOIN Product p ON p.ProdKey = wd.ProdKey
        WHERE ISNULL(wm.isDeleted, 0) = 0
          AND ISNULL(CAST(wm.OrderYear AS NVARCHAR(4)), @startYear) + REPLACE(wm.OrderWeek, '-', '')
              BETWEEN @yws AND @ywe
@@ -428,6 +432,31 @@ export default withAuth(async function handler(req, res) {
     const adjustments = await loadAdjustments(r);
     const fwdInvoices = await loadFwdInvoices(r);
 
+    // 특이사항 자동탐지 — 조회 시 화면 배너로 바로 노출
+    const notices = [];
+    // ① 금액 있는 품목이 전부 운송료(운임)인데 농장명이 포워더가 아닌 마스터 (예: 29-01 'Apollo' 오등록)
+    //    GW/CW 등 금액 0 메타라인은 판정에서 제외
+    result.recordset
+      .filter(x => x.pricedLines > 0 && x.pricedFreightLines === x.pricedLines && !isForwarder(x.farmName))
+      .forEach(x => notices.push({
+        level: 'warn',
+        text: `${x.week} · AWB ${x.awb || '(미상)'} · ${Number(x.inTotal).toLocaleString('en-US', { minimumFractionDigits: 2 })} — 품목이 전부 운송료인데 농장명이 '${x.farmName || '(미상)'}'로 등록됨. 입고관리에서 포워더명(FREIGHTWISE 등)으로 수정해야 정산서 포워딩 시트로 분류됩니다.`,
+      }));
+    // ② 같은 운송장이 대시 유무 등 표기 차이로 여러 개로 입력된 경우 (화면에선 한 그룹으로 합쳐 표시)
+    const awbSpellings = new Map();
+    result.recordset.forEach(x => {
+      if (!x.awb) return;
+      const k = `${x.week}|${normAwb(x.awb)}`;
+      if (!awbSpellings.has(k)) awbSpellings.set(k, new Set());
+      awbSpellings.get(k).add(x.awb);
+    });
+    [...awbSpellings.entries()]
+      .filter(([, s]) => s.size > 1)
+      .forEach(([k, s]) => notices.push({
+        level: 'info',
+        text: `${k.split('|')[0]} — 같은 운송장이 ${[...s].map(a => `'${a}'`).join(' / ')} 로 표기가 달라 한 그룹으로 합쳐 표시했습니다. 입고관리에서 표기를 통일해 주세요.`,
+      }));
+
     return res.status(200).json({
       success: true,
       orderYear: r.startYear,
@@ -436,6 +465,7 @@ export default withAuth(async function handler(req, res) {
       rows: result.recordset,
       adjustments,
       fwdInvoices,
+      notices,
     });
   } catch (err) {
     const status = /필요|형식|범위/.test(err.message) ? 400 : 500;

@@ -11,6 +11,8 @@ const fmtUSDInt = v => v == null ? '' : `$${Number(v).toLocaleString('en-US', { 
 export default function IncomingPricePage() {
   const [allWeeks, setAllWeeks] = useState([]);
   const [selectedWeeks, setSelectedWeeks] = useState([]);
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [years, setYears] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [includeFreight, setIncludeFreight] = useState(false);
@@ -23,10 +25,17 @@ export default function IncomingPricePage() {
   const topScrollRef = useRef(null);
 
   useEffect(() => {
-    apiGet('/api/incoming-price').then(d => {
-      if (d.success) setAllWeeks(d.weeks || []);
+    apiGet('/api/incoming-price', { year }).then(d => {
+      if (d.success) { setAllWeeks(d.weeks || []); setYears(d.years || []); }
     });
-  }, []);
+  }, [year]);
+
+  const changeYear = (y) => {
+    if (y === year) return;
+    setYear(y);
+    setSelectedWeeks([]);
+    setShowAllWeeks(false);
+  };
 
   const toggleWeek = (w) => {
     setSelectedWeeks(prev =>
@@ -39,7 +48,7 @@ export default function IncomingPricePage() {
     setLoading(true);
     setData(null);
     try {
-      const d = await apiGet('/api/incoming-price', { weeks: weeks.join(',') });
+      const d = await apiGet('/api/incoming-price', { weeks: weeks.join(','), year });
       if (d.success) {
         setData(d);
         const raw = d.creditsRaw || [];
@@ -60,7 +69,7 @@ export default function IncomingPricePage() {
         setEditCredit(init);
       }
     } finally { setLoading(false); }
-  }, []);
+  }, [year]);
 
   useEffect(() => { loadData(selectedWeeks); }, [selectedWeeks, loadData]);
 
@@ -119,6 +128,7 @@ export default function IncomingPricePage() {
   const [selCountries,    setSelCountries]    = useState([]);
   const [selFlowers,      setSelFlowers]      = useState([]);
   const [expandedFlowers, setExpandedFlowers] = useState(new Set());
+  const [showAllWeeks,    setShowAllWeeks]    = useState(false);
 
   // 데이터 변경 시 필터·확장 초기화
   useEffect(() => { setSelCountries([]); setSelFlowers([]); setExpandedFlowers(new Set()); }, [data]);
@@ -227,13 +237,31 @@ export default function IncomingPricePage() {
             {msg && <span style={{ color: '#388e3c', fontWeight: 600 }}>{msg}</span>}
           </div>
 
-          {/* 차수 토글 버튼 */}
+          {/* 기준연도 선택 — 차수번호는 매년 반복되므로 연도별로 목록·집계 분리 */}
+          {years.length > 1 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>기준연도:</span>
+              {years.map(y => (
+                <button key={y} onClick={() => changeYear(y)}
+                  style={{
+                    padding: '4px 14px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
+                    border: y === year ? '2px solid #1a237e' : '1px solid #bbb',
+                    background: y === year ? '#1a237e' : '#fff',
+                    color: y === year ? '#fff' : '#333', fontWeight: y === year ? 700 : 400,
+                  }}>
+                  {y}년
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 차수 토글 버튼 — 기본은 최근 20개만, 나머지는 펼치기 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>차수 선택:</span>
             {allWeeks.length === 0 && (
               <span style={{ fontSize: 12, color: '#aaa' }}>로딩 중…</span>
             )}
-            {allWeeks.map(w => {
+            {allWeeks.filter((w, i) => showAllWeeks || i < 20 || selectedWeeks.includes(w)).map(w => {
               const active = selectedWeeks.includes(w);
               return (
                 <button
@@ -255,6 +283,14 @@ export default function IncomingPricePage() {
                 </button>
               );
             })}
+            {allWeeks.length > 20 && (
+              <button
+                onClick={() => setShowAllWeeks(v => !v)}
+                style={{ padding: '4px 10px', borderRadius: 20, border: '1px dashed #9fa8da', background: '#f6f8ff', color: '#3949ab', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+              >
+                {showAllWeeks ? '접기 ▲' : `이전 차수 ${allWeeks.length - 20}개 더 ▼`}
+              </button>
+            )}
             {selectedWeeks.length > 0 && (
               <button
                 onClick={() => setSelectedWeeks([])}
@@ -324,7 +360,7 @@ export default function IncomingPricePage() {
             style={{ overflowX: 'auto', overflowY: 'hidden', height: 10, marginBottom: 4, marginTop: 2 }}
             onScroll={e => { if (tableContainerRef.current) tableContainerRef.current.scrollLeft = e.target.scrollLeft; }}
           >
-            <div style={{ width: activeFarms.length * 130 + 300, height: 1 }} />
+            <div style={{ width: activeFarms.length * 130 + 410, height: 1 }} />
           </div>
         )}
 
@@ -341,18 +377,30 @@ export default function IncomingPricePage() {
         {!loading && data && activeFarms.length > 0 && (
           <div className="incoming-price-workspace" style={{ gap: 16, alignItems: 'start' }}>
             <div style={{ minWidth: 0 }}>
+            {/* 펼침/접힘 툴바 */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+              <button onClick={() => setExpandedFlowers(new Set(flowerGroups.map(g => g.key)))}
+                style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid #c5cae9', background: '#fff', color: '#3949ab', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                ▼ 전체 펼치기
+              </button>
+              <button onClick={() => setExpandedFlowers(new Set())}
+                style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid #c5cae9', background: '#fff', color: '#3949ab', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                ▲ 전체 접기
+              </button>
+              <span style={{ fontSize: 11, color: '#999' }}>표는 세로·가로 스크롤 시 제목줄과 품목명이 고정됩니다</span>
+            </div>
             {/* 메인 테이블 */}
             <div
               ref={tableContainerRef}
-              style={{ overflowX: 'auto' }}
+              style={{ overflow: 'auto', maxHeight: '72vh', border: '1px solid #e0e0e0', borderRadius: 6 }}
               onScroll={e => { if (topScrollRef.current) topScrollRef.current.scrollLeft = e.target.scrollLeft; }}
             >
-            <table style={{ borderCollapse: 'collapse', fontSize: 13, background: '#fff', width: '100%', minWidth: activeFarms.length * 130 + 300 }}>
+            <table style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, background: '#fff', width: '100%', minWidth: activeFarms.length * 130 + 410 }}>
               <thead>
-                <tr style={{ background: '#1a237e', color: '#fff' }}>
-                  <th style={thS(100)}>국가</th>
-                  <th style={thS(110, 'left')}>꽃</th>
-                  <th style={thS(200, 'left')}>품목명</th>
+                <tr style={{ color: '#fff' }}>
+                  <th style={thS(100, 'center', 0)}>국가</th>
+                  <th style={thS(110, 'left', 100)}>꽃</th>
+                  <th style={thS(200, 'left', 210)}>품목명</th>
                   {activeFarms.map(f => (
                     <th key={f} style={thS(130)}>{f}</th>
                   ))}
@@ -367,71 +415,64 @@ export default function IncomingPricePage() {
                       {/* 꽃 요약 행 */}
                       <tr key={group.key}
                         onClick={() => toggleFlowerExpand(group.key)}
-                        style={{ background: '#e8eaf6', cursor: 'pointer', borderBottom: '1px solid #c5cae9' }}>
-                        <td style={tdS(100, 'center', { fontWeight: 700, color: '#1a237e' })}>{group.country}</td>
-                        <td style={{ padding: '7px 8px', fontWeight: 700, color: '#283593' }}>
+                        style={{ background: '#e8eaf6', cursor: 'pointer' }}>
+                        <td style={tdL(0, 100, '#e8eaf6', 'center', { fontWeight: 700, color: '#1a237e' })}>{group.country}</td>
+                        <td style={tdL(100, 110, '#e8eaf6', 'left', { padding: '7px 8px', fontWeight: 700, color: '#283593', whiteSpace: 'nowrap' })}>
                           <span style={{ marginRight: 6 }}>{expanded ? '▼' : '▶'}</span>
                           {group.flower}
-                          <span style={{ fontSize: 11, fontWeight: 400, color: '#888', marginLeft: 6 }}>({cnt}품목)</span>
+                          <span style={{ fontSize: 11, fontWeight: 400, color: '#888', marginLeft: 6 }}>({cnt})</span>
                         </td>
-                        <td style={tdS(200, 'left', { color: '#aaa', fontSize: 11, paddingLeft: 8 })}>
-                          클릭하여 {expanded ? '접기' : '펼치기'}
+                        <td style={tdL(210, 200, '#e8eaf6', 'left', { color: '#9095c9', fontSize: 11, paddingLeft: 8, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>
+                          {expanded ? '' : group.rows.slice(0, 2).map(r => r.displayName || r.prodName).join(', ') + (cnt > 2 ? ` 외 ${cnt - 2}` : '')}
                         </td>
                         {activeFarms.map(farm => {
                           const total = groupFarmTotal(group, farm);
                           return (
-                            <td key={farm} style={tdS(130, 'center', { fontWeight: 700, color: total > 0 ? '#1a237e' : '#ccc' })}>
-                              {total > 0 ? fmtUSDInt(total) : '—'}
+                            <td key={farm} style={tdNum({ fontWeight: 700, color: total > 0 ? '#1a237e' : '#ddd' })}>
+                              {total > 0 ? fmtUSDInt(total) : ''}
                             </td>
                           );
                         })}
                       </tr>
 
                       {/* 세부 품목 행 (펼쳐진 경우) */}
-                      {expanded && group.rows.map((row, idx) => (
-                        <tr key={`${group.key}-${idx}`} style={{ background: idx % 2 === 0 ? '#fafafa' : '#f3f3f3', borderBottom: '1px solid #eee' }}>
-                          <td style={tdS(100, 'center', { color: '#bbb', fontSize: 11 })}></td>
-                          <td style={{ padding: '5px 8px', paddingLeft: 24, color: '#888', fontSize: 11 }}></td>
-                          <td style={tdS(200, 'left', { paddingLeft: 16, fontSize: 12 })}>
+                      {expanded && group.rows.map((row, idx) => {
+                        const rowBg = idx % 2 === 0 ? '#fafafa' : '#f3f3f3';
+                        return (
+                        <tr key={`${group.key}-${idx}`} style={{ background: rowBg }}>
+                          <td style={tdL(0, 100, rowBg)}></td>
+                          <td style={tdL(100, 110, rowBg)}></td>
+                          <td style={tdL(210, 200, rowBg, 'left', { paddingLeft: 16, fontSize: 12 })}>
                             {row.displayName || row.prodName}
                           </td>
                           {activeFarms.map(farm => {
                             const p = row.prices[farm];
                             return (
-                              <td key={farm} style={tdS(130, 'center', p ? { fontSize: 12 } : { color: '#ddd' })}>
+                              <td key={farm} style={tdNum(p ? { fontSize: 12 } : { color: '#eee' })}>
                                 {p ? (
                                   <span title={`합계: ${fmtUSDInt(p.tPrice)}`}>
                                     {fmtUSD(p.uPrice)}
                                   </span>
-                                ) : '—'}
+                                ) : ''}
                               </td>
                             );
                           })}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </>
                   );
                 })}
 
-                {/* 소계 위 컬럼 헤더 반복 행 */}
-                <tr style={{ background: '#1a237e', color: '#fff', borderTop: '3px solid #0d1b6e' }}>
-                  <th style={thS(100)}>국가</th>
-                  <th style={thS(110, 'left')}>꽃</th>
-                  <th style={thS(200, 'left')}>품목명</th>
-                  {activeFarms.map(f => (
-                    <th key={f} style={thS(130)}>{f}</th>
-                  ))}
-                </tr>
-
                 {/* 운송료 행 */}
                 <tr style={{ background: '#e8f5e9', fontStyle: 'italic' }}>
-                  <td style={tdS(100, 'center', { color: '#388e3c' })}>운송료</td>
-                  <td colSpan={2} style={tdS(290, 'left', { paddingLeft: 8, color: '#388e3c' })}>국내 운송비</td>
+                  <td style={tdL(0, 100, '#e8f5e9', 'center', { color: '#388e3c' })}>운송료</td>
+                  <td colSpan={2} style={tdL(100, 310, '#e8f5e9', 'left', { paddingLeft: 8, color: '#388e3c' })}>국내 운송비</td>
                   {activeFarms.map(farm => {
                     const fr = filteredTotals[farm]?.freightTPrice || 0;
                     return (
-                      <td key={farm} style={tdS(130, 'center', { color: fr > 0 ? '#388e3c' : '#ccc' })}>
-                        {fr > 0 ? fmtUSDInt(fr) : '—'}
+                      <td key={farm} style={tdNum({ color: fr > 0 ? '#388e3c' : '#ddd' })}>
+                        {fr > 0 ? fmtUSDInt(fr) : ''}
                       </td>
                     );
                   })}
@@ -442,11 +483,11 @@ export default function IncomingPricePage() {
 
                 {/* 소계 */}
                 <tr style={{ background: '#e3f2fd', fontWeight: 700 }}>
-                  <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12 })}>
+                  <td colSpan={3} style={tdL(0, 410, '#e3f2fd', 'right', { paddingRight: 12 })}>
                     소계 {includeFreight ? '(운송료 포함)' : '(운송료 제외)'}
                   </td>
                   {activeFarms.map(farm => (
-                    <td key={farm} style={tdS(130, 'center', { color: '#1a237e' })}>
+                    <td key={farm} style={tdNum({ color: '#1a237e', fontWeight: 700 })}>
                       {fmtUSDInt(getFarmTotal(farm))}
                     </td>
                   ))}
@@ -454,7 +495,7 @@ export default function IncomingPricePage() {
 
                 {/* 크레딧 입력 — 차수 | 비고 | 금액 테이블 */}
                 <tr style={{ background: '#fff3e0' }}>
-                  <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12, color: '#e65100', fontWeight: 600 })}>
+                  <td colSpan={3} style={tdL(0, 410, '#fff3e0', 'right', { paddingRight: 12, color: '#e65100', fontWeight: 600, verticalAlign: 'top' })}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
                       <span>크레딧 차감 (불량/반품)</span>
                       <button
@@ -547,15 +588,15 @@ export default function IncomingPricePage() {
                   })}
                 </tr>
 
-                {/* 최종 송금액 */}
+                {/* 최종 송금액 — 세로 스크롤 시에도 하단 고정 */}
                 <tr style={{ background: '#1a237e', color: '#fff', fontWeight: 700, fontSize: 14 }}>
-                  <td colSpan={3} style={tdS(390, 'right', { paddingRight: 12, color: '#fff' })}>
+                  <td colSpan={3} style={{ ...tdL(0, 410, '#1a237e', 'right', { paddingRight: 12, color: '#fff' }), position: 'sticky', bottom: 0, zIndex: 4 }}>
                     💸 최종 송금액
                   </td>
                   {activeFarms.map(farm => {
                     const net = getNetPayment(farm);
                     return (
-                      <td key={farm} style={tdS(130, 'center', { color: net < 0 ? '#ff5252' : '#a5d6a7', fontWeight: 700 })}>
+                      <td key={farm} style={{ ...tdNum({ color: net < 0 ? '#ff5252' : '#a5d6a7', fontWeight: 700, background: '#1a237e' }), position: 'sticky', bottom: 0, zIndex: 3 }}>
                         {fmtUSDInt(net)}
                       </td>
                     );
@@ -690,11 +731,24 @@ export default function IncomingPricePage() {
   );
 }
 
-function thS(w, align = 'center') {
-  return { width: w, minWidth: w, padding: '8px 6px', textAlign: align, borderRight: '1px solid rgba(255,255,255,0.2)', fontSize: 12, fontWeight: 700 };
+function thS(w, align = 'center', left = null) {
+  return {
+    width: w, minWidth: w, padding: '8px 6px', textAlign: align, fontSize: 12, fontWeight: 700,
+    background: '#1a237e', position: 'sticky', top: 0, zIndex: left != null ? 5 : 3,
+    ...(left != null ? { left } : {}),
+    borderRight: '1px solid rgba(255,255,255,0.2)', borderBottom: '2px solid #0d1b6e',
+  };
 }
 function tdS(w, align = 'center', extra = {}) {
   return { width: w, minWidth: w, padding: '6px 6px', textAlign: align, borderBottom: '1px solid #f0f0f0', borderRight: '1px solid #eee', fontSize: 13, ...extra };
+}
+// 좌측 고정 셀 — 가로 스크롤해도 국가/꽃/품목명이 보이도록. bg 는 행 배경과 동일하게 지정
+function tdL(left, w, bg, align = 'center', extra = {}) {
+  return { ...tdS(w, align, extra), position: 'sticky', left, background: bg, zIndex: 2 };
+}
+// 금액 셀 — 우측 정렬 + 자릿수 정렬 숫자
+function tdNum(extra = {}) {
+  return tdS(130, 'right', { paddingRight: 12, fontVariantNumeric: 'tabular-nums', ...extra });
 }
 
 function sideTabButtonStyle(active, color) {
