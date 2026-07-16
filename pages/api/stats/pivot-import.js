@@ -180,6 +180,7 @@ async function buildSettlementExcel(r, payDate) {
   }
 
   const adjustments = await loadAdjustments(r);
+  const fwdInvoices = await loadFwdInvoices(r);
   const farmOfAwb = {};
   detail.recordset.forEach(d => { if (d.awb && !farmOfAwb[d.awb]) farmOfAwb[d.awb] = d.farmName; });
 
@@ -195,8 +196,8 @@ async function buildSettlementExcel(r, payDate) {
         item: g.isFwd ? '운송료' : g.family,
         amount: Math.round(g.amount * 100) / 100,
         weekTag: `${weekShort(g.week)} ${g.isFwd ? (/[가-힣]/.test(g.invoice) ? g.invoice : g.tag) : g.tag}`.trim(),
-        // 포워더 마스터의 InvoiceNo 는 태그(콜카장 등)라 인보이스 칸은 비움 — FEX 번호는 수기항목으로
-        invoice: g.isFwd ? '' : g.invoice,
+        // 포워더 마스터의 InvoiceNo 는 태그(콜카장 등) — FEX 번호는 웹 매핑(WebForwarderInvoice)에서
+        invoice: g.isFwd ? (fwdInvoices[`${g.week}|${String(g.awb).trim()}`] || '') : g.invoice,
       }));
     adjustments.forEach(a => {
       const farm = a.farmName || farmOfAwb[a.awb] || '(농장미상)';
@@ -267,8 +268,68 @@ async function buildSettlementExcel(r, payDate) {
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
+// 포워더 인보이스 번호 (FEX-#### 등) — 입고관리 InvoiceNo 칸은 태그(콜카장 등)로 쓰여 DB 에 없음.
+// 웹 전용 매핑: (연도, 차수, AWB) → 인보이스번호. upsert (기존 soft-delete 후 insert)
+let _fwdEnsured = null;
+function ensureFwdTable() {
+  if (_fwdEnsured) return _fwdEnsured;
+  _fwdEnsured = query(
+    `IF OBJECT_ID(N'dbo.WebForwarderInvoice', N'U') IS NULL
+     CREATE TABLE dbo.WebForwarderInvoice (
+       AutoKey INT IDENTITY(1,1) PRIMARY KEY,
+       OrderYear NVARCHAR(4) NOT NULL,
+       OrderWeek NVARCHAR(10) NOT NULL,
+       Awb NVARCHAR(60) NOT NULL,
+       InvoiceNo NVARCHAR(120) NOT NULL,
+       CreateID NVARCHAR(50) NOT NULL,
+       CreateDtm DATETIME NOT NULL DEFAULT GETDATE(),
+       isDeleted BIT NOT NULL DEFAULT 0
+     )`
+  ).catch(e => { _fwdEnsured = null; throw e; });
+  return _fwdEnsured;
+}
+
+async function loadFwdInvoices(r) {
+  await ensureFwdTable();
+  const result = await query(
+    `SELECT OrderWeek, Awb, InvoiceNo FROM WebForwarderInvoice
+      WHERE isDeleted = 0 AND OrderYear + REPLACE(OrderWeek, '-', '') BETWEEN @yws AND @ywe`,
+    rangeParams(r)
+  );
+  const map = {};
+  result.recordset.forEach(x => { map[`${x.OrderWeek}|${String(x.Awb).trim()}`] = x.InvoiceNo; });
+  return map;
+}
+
 export default withAuth(async function handler(req, res) {
   try {
+    // 포워더 인보이스 upsert — { type:'fwdInvoice', week, awb, invoiceNo } (invoiceNo 빈값 = 삭제)
+    if (req.method === 'POST' && req.body?.type === 'fwdInvoice') {
+      await ensureFwdTable();
+      const { week, awb, invoiceNo } = req.body || {};
+      const wk = normalizeOrderWeek(week || '');
+      if (!wk || !String(awb || '').trim()) {
+        return res.status(400).json({ success: false, error: 'week, awb 필요' });
+      }
+      const orderYear = resolveActiveOrderYear(week, '');
+      const params = {
+        yr: { type: sql.NVarChar, value: orderYear },
+        wk: { type: sql.NVarChar, value: wk },
+        awb: { type: sql.NVarChar, value: String(awb).trim() },
+        inv: { type: sql.NVarChar, value: String(invoiceNo || '').trim().slice(0, 120) },
+        uid: { type: sql.NVarChar, value: req.user?.userId || 'admin' },
+      };
+      await query(
+        `UPDATE WebForwarderInvoice SET isDeleted=1
+          WHERE OrderYear=@yr AND OrderWeek=@wk AND Awb=@awb AND isDeleted=0`, params);
+      if (String(invoiceNo || '').trim()) {
+        await query(
+          `INSERT INTO WebForwarderInvoice (OrderYear, OrderWeek, Awb, InvoiceNo, CreateID)
+           VALUES (@yr, @wk, @awb, @inv, @uid)`, params);
+      }
+      return res.status(200).json({ success: true });
+    }
+
     if (req.method === 'POST') {
       await ensureAdjTable();
       const { week, awb, invoiceNo, farmName, label, refNo, amount } = req.body || {};
@@ -342,6 +403,7 @@ export default withAuth(async function handler(req, res) {
     );
 
     const adjustments = await loadAdjustments(r);
+    const fwdInvoices = await loadFwdInvoices(r);
 
     return res.status(200).json({
       success: true,
@@ -350,6 +412,7 @@ export default withAuth(async function handler(req, res) {
       weekEnd: r.we,
       rows: result.recordset,
       adjustments,
+      fwdInvoices,
     });
   } catch (err) {
     const status = /필요|형식|범위/.test(err.message) ? 400 : 500;

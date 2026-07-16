@@ -20,6 +20,7 @@ export default function PivotImport() {
   const [search, setSearch] = useState('');
   const [payDate, setPayDate] = useState(`${new Date().getMonth() + 1}/${new Date().getDate()}`);
   const [adjModal, setAdjModal] = useState(null); // { week, awb, invoiceNo, farmName, scope:'invoice'|'awb' }
+  const [fwdInvoices, setFwdInvoices] = useState({}); // { 'week|awb': 'FEX-1234' } 포워더 인보이스(웹 매핑)
   const [adjForm, setAdjForm] = useState({ label: 'Claim', refNo: '', amount: '' });
   const [saving, setSaving] = useState(false);
 
@@ -31,7 +32,7 @@ export default function PivotImport() {
       weekEnd: weekToInput.value || weekFromInput.value,
     })
       .then(d => {
-        setRows(d.rows || []); setAdjustments(d.adjustments || []);
+        setRows(d.rows || []); setAdjustments(d.adjustments || []); setFwdInvoices(d.fwdInvoices || {});
         setMeta({ orderYear: d.orderYear, weekStart: d.weekStart, weekEnd: d.weekEnd });
         setSelFarms(new Set());
       })
@@ -128,6 +129,18 @@ export default function PivotImport() {
     if (!confirm('이 수기항목을 삭제하시겠습니까?')) return;
     try { await apiDelete('/api/stats/pivot-import', { key }); load(); }
     catch (e) { alert(e.message); }
+  };
+
+  // 포워더 인보이스 번호 입력 (FEX-#### 등) — 입고관리 인보이스칸은 태그(콜카장 등)라 별도 저장
+  const editFwdInvoice = async (row) => {
+    const cur = fwdInvoices[`${row.week}|${row.awb}`] || '';
+    const val = prompt(
+      `포워더 인보이스 번호 입력\nAWB ${row.awb} (${row.week} ${row.billNo})\n비우면 삭제됩니다.`, cur);
+    if (val === null) return;
+    try {
+      await apiPost('/api/stats/pivot-import', { type: 'fwdInvoice', week: row.week, awb: row.awb, invoiceNo: val.trim() });
+      load();
+    } catch (e) { alert(e.message); }
   };
 
   const handleSettlementExcel = () => {
@@ -234,7 +247,18 @@ export default function PivotImport() {
                                         style={plusBtn}>＋</button>
                                     </td>
                                   )}
-                                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, whiteSpace: 'nowrap' }}>{r.billNo || '—'}</td>
+                                  <td style={{ fontFamily: 'var(--mono)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                                    {isFwdFarm(r.farmName) ? (
+                                      <>
+                                        <span title="포워더 태그(입고관리 인보이스칸)">{r.billNo || '—'}</span>
+                                        <span style={{ color: 'var(--blue)', marginLeft: 4 }}>
+                                          {fwdInvoices[`${r.week}|${r.awb}`] || ''}
+                                        </span>
+                                        <button onClick={() => editFwdInvoice(r)} title="포워더 인보이스 번호(FEX-#### 등) 입력 — 정산서 인보이스넘버 칸에 사용"
+                                          style={plusBtn}>✎</button>
+                                      </>
+                                    ) : (r.billNo || '—')}
+                                  </td>
                                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                                     {r.farmName || '(농장미상)'}
                                     <button onClick={() => openAdjModal(r, 'invoice')} title="이 인보이스에 수기항목 추가 (Claim/은행수수료)"
@@ -368,6 +392,9 @@ export default function PivotImport() {
     </div>
   );
 }
+
+// 포워더(운송료) 농장 판정 — API isForwarder 와 동일 규칙
+const isFwdFarm = (farm) => /^freightwise/i.test(String(farm || '')) || String(farm || '').trim().toUpperCase() === 'EXCEL';
 
 const plusBtn = {
   marginLeft: 6, width: 20, height: 20, lineHeight: '18px', padding: 0, fontSize: 12,
