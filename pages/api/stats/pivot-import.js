@@ -223,9 +223,13 @@ async function buildSettlementExcel(r, payDate) {
   const stamp = `${now.getFullYear()}/${p2(now.getMonth() + 1)}/${p2(now.getDate())} (${yoil}) ${ampm} ${h12}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`;
   const rangeEnd = (maxInputDate || `${r.startYear}/12/31`);
 
-  const renderSheet = (byFarm, isFwdSheet) => {
+  // aoa 생성 — 엑셀·웹(정산서 보기) 공용. 행 타입(kind): title/header/row/subtotal/grand/stamp
+  const buildSheetRows = (byFarm, isFwdSheet) => {
     const title = `회사명 : (주) 네노바 /${isFwdSheet ? ' 운송료 /' : ''} ${r.startYear}/01/01  ~ ${rangeEnd} `;
-    const aoa = [[title], ['일자-No.', '거래처명', '품목명(규격)', '외화금액', '차수/품목', '인보이스넘버', '결제일']];
+    const out = [
+      { kind: 'title', cells: [title, '', '', '', '', '', ''] },
+      { kind: 'header', cells: ['일자-No.', '거래처명', '품목명(규격)', '외화금액', '차수/품목', '인보이스넘버', '결제일'] },
+    ];
     const seqByDate = {};
     const numberOf = (date) => {
       if (!date) return '';
@@ -239,22 +243,15 @@ async function buildSettlementExcel(r, payDate) {
     for (const [payName, rows] of entries) {
       let sub = 0;
       rows.forEach(x => {
-        aoa.push([numberOf(x.date), payName, x.item, x.amount, x.weekTag, x.invoice, payDate]);
+        out.push({ kind: 'row', cells: [numberOf(x.date), payName, x.item, x.amount, x.weekTag, x.invoice, payDate] });
         sub += x.amount;
       });
-      aoa.push([`${payName} 계`, '', '', Math.round(sub * 100) / 100, '', '', '']);
+      out.push({ kind: 'subtotal', cells: [`${payName} 계`, '', '', Math.round(sub * 100) / 100, '', '', ''] });
       grand += sub;
     }
-    aoa.push(['총합계', '', '', Math.round(grand * 100) / 100, '', '', '']);
-    aoa.push([stamp, '', '', '', '', '', '']);
-    const wsx = XLSX.utils.aoa_to_sheet(aoa);
-    wsx['!cols'] = [{ wch: 15 }, { wch: 36 }, { wch: 16 }, { wch: 12 }, { wch: 13 }, { wch: 20 }, { wch: 8 }];
-    const range = XLSX.utils.decode_range(wsx['!ref']);
-    for (let R = 2; R <= range.e.r; R++) {
-      const cell = wsx[XLSX.utils.encode_cell({ r: R, c: 3 })];
-      if (cell && typeof cell.v === 'number') cell.z = '#,##0.00';
-    }
-    return wsx;
+    out.push({ kind: 'grand', cells: ['총합계', '', '', Math.round(grand * 100) / 100, '', '', ''] });
+    out.push({ kind: 'stamp', cells: [stamp, '', '', '', '', '', ''] });
+    return out;
   };
 
   // 시트명: 결제일 기준 'YY.MM.DD(상품대)'
@@ -262,9 +259,27 @@ async function buildSettlementExcel(r, payDate) {
   const pd = String(payDate || '').match(/^(\d{1,2})\/(\d{1,2})$/);
   const sheetDate = pd ? `${yy}.${p2(pd[1])}.${p2(pd[2])}` : `${yy}.${p2(now.getMonth() + 1)}.${p2(now.getDate())}`;
 
+  return {
+    sheets: [
+      { name: `${sheetDate}(상품대)`, rows: buildSheetRows(buildFarmMap(false), false) },
+      { name: `${sheetDate}(포워딩)`, rows: buildSheetRows(buildFarmMap(true), true) },
+    ],
+  };
+}
+
+function settlementToXlsx(data) {
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, renderSheet(buildFarmMap(false), false), `${sheetDate}(상품대)`);
-  XLSX.utils.book_append_sheet(wb, renderSheet(buildFarmMap(true), true), `${sheetDate}(포워딩)`);
+  for (const sheet of data.sheets) {
+    const aoa = sheet.rows.map(x => x.cells);
+    const wsx = XLSX.utils.aoa_to_sheet(aoa);
+    wsx['!cols'] = [{ wch: 15 }, { wch: 36 }, { wch: 16 }, { wch: 12 }, { wch: 13 }, { wch: 20 }, { wch: 8 }];
+    const range = XLSX.utils.decode_range(wsx['!ref']);
+    for (let R = 2; R <= range.e.r; R++) {
+      const cell = wsx[XLSX.utils.encode_cell({ r: R, c: 3 })];
+      if (cell && typeof cell.v === 'number') cell.z = '#,##0.00';
+    }
+    XLSX.utils.book_append_sheet(wb, wsx, sheet.name);
+  }
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
@@ -369,10 +384,15 @@ export default withAuth(async function handler(req, res) {
 
     const r = parseRange(req.query);
 
-    if (req.query.excel === '1') {
+    // 정산서 데이터 — excel=1 은 xlsx 다운로드, settlement=1 은 웹 "정산서 보기"용 JSON (동일 생성 경로)
+    if (req.query.excel === '1' || req.query.settlement === '1') {
       const payDate = String(req.query.payDate || '').trim()
         || `${new Date().getMonth() + 1}/${new Date().getDate()}`;
-      const buf = await buildSettlementExcel(r, payDate);
+      const data = await buildSettlementExcel(r, payDate);
+      if (req.query.settlement === '1') {
+        return res.status(200).json({ success: true, ...data });
+      }
+      const buf = settlementToXlsx(data);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition',
         `attachment; filename*=UTF-8''${encodeURIComponent(`수입부정산서_${r.startYear}_${r.ws}_${r.we}.xlsx`)}`);

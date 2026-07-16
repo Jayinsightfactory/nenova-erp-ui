@@ -21,6 +21,22 @@ export default function PivotImport() {
   const [payDate, setPayDate] = useState(`${new Date().getMonth() + 1}/${new Date().getDate()}`);
   const [adjModal, setAdjModal] = useState(null); // { week, awb, invoiceNo, farmName, scope:'invoice'|'awb' }
   const [fwdInvoices, setFwdInvoices] = useState({}); // { 'week|awb': 'FEX-1234' } 포워더 인보이스(웹 매핑)
+  const [viewMode, setViewMode] = useState('pivot');  // 'pivot' | 'settlement' (정산서 보기 = 결제파일 양식)
+  const [settlement, setSettlement] = useState(null); // { sheets: [{name, rows:[{kind, cells}]}] }
+  const [settleLoading, setSettleLoading] = useState(false);
+
+  const loadSettlement = () => {
+    if (!weekFromInput.value) return;
+    setSettleLoading(true);
+    apiGet('/api/stats/pivot-import', {
+      weekStart: weekFromInput.value,
+      weekEnd: weekToInput.value || weekFromInput.value,
+      settlement: '1', payDate,
+    })
+      .then(d => setSettlement({ sheets: d.sheets || [] }))
+      .catch(e => setErr(e.message))
+      .finally(() => setSettleLoading(false));
+  };
   const [adjForm, setAdjForm] = useState({ label: 'Claim', refNo: '', amount: '' });
   const [saving, setSaving] = useState(false);
 
@@ -168,6 +184,12 @@ export default function PivotImport() {
           style={{ width: 64, textAlign: 'center' }} title="정산서 엑셀 결제일 열에 들어갑니다 (예: 7/15)" />
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>{loading ? '조회 중…' : '🔄 조회'}</button>
+          <button className={viewMode === 'pivot' ? 'btn btn-primary' : 'btn btn-secondary'}
+            onClick={() => setViewMode('pivot')}>피벗 보기</button>
+          <button className={viewMode === 'settlement' ? 'btn btn-primary' : 'btn btn-secondary'}
+            onClick={() => { setViewMode('settlement'); loadSettlement(); }} disabled={!weekFromInput.value}>
+            {settleLoading ? '⏳ 정산서' : '🧾 정산서 보기'}
+          </button>
           <button className="btn btn-primary" onClick={handleSettlementExcel} disabled={!weekFromInput.value}
             style={{ background: '#0e7a3d' }}>📄 정산서 엑셀</button>
         </div>
@@ -184,7 +206,7 @@ export default function PivotImport() {
         </div>
       )}
 
-      {rows.length > 0 && (
+      {viewMode === 'pivot' && rows.length > 0 && (
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)' }}>거래처/농장</span>
@@ -197,6 +219,7 @@ export default function PivotImport() {
         </div>
       )}
 
+      {viewMode === 'pivot' && (
       <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
           {loading ? <div className="skeleton" style={{ margin: 16, height: 300, borderRadius: 8 }} /> : (
@@ -338,10 +361,59 @@ export default function PivotImport() {
           )}
         </div>
       </div>
-      {farmColsTruncated && (
+      )}
+      {viewMode === 'pivot' && farmColsTruncated && (
         <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 6 }}>
           ⚠ 농장 열은 금액순 상위 12개까지만 표시됩니다 — 위 칩에서 원하는 농장만 선택하세요. (합계 열은 전체 반영)
         </div>
+      )}
+
+      {/* 정산서 보기 — 결제파일(26.07월 결제.xlsx)과 동일 양식, 엑셀 다운로드와 같은 생성 경로 */}
+      {viewMode === 'settlement' && (
+        settleLoading ? <div className="skeleton" style={{ height: 300, borderRadius: 8 }} /> :
+        !settlement ? <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>차수 조회 후 [🧾 정산서 보기]를 누르세요</div> :
+        settlement.sheets.map(sheet => (
+          <div key={sheet.name} className="card" style={{ overflow: 'hidden', marginBottom: 12 }}>
+            <div className="card-header">
+              <span className="card-title">📄 {sheet.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>엑셀 다운로드와 동일 내용 · Claim/은행수수료는 피벗 보기에서 [＋]로 추가</span>
+            </div>
+            <div style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+              <table className="tbl">
+                <tbody>
+                  {sheet.rows.map((row, i) => {
+                    if (row.kind === 'title') return (
+                      <tr key={i}><td colSpan={7} style={{ fontWeight: 800, fontSize: 13, background: 'var(--bg)' }}>{row.cells[0]}</td></tr>
+                    );
+                    if (row.kind === 'header') return (
+                      <tr key={i} style={{ background: '#fff3b0' }}>
+                        {row.cells.map((c, j) => <th key={j} style={{ fontSize: 12, whiteSpace: 'nowrap', textAlign: j === 3 ? 'right' : 'left' }}>{c}</th>)}
+                      </tr>
+                    );
+                    if (row.kind === 'stamp') return (
+                      <tr key={i}><td colSpan={7} style={{ fontSize: 10, color: 'var(--text3)' }}>{row.cells[0]}</td></tr>
+                    );
+                    const isSub = row.kind === 'subtotal', isGrand = row.kind === 'grand';
+                    const neg = Number(row.cells[3]) < 0;
+                    return (
+                      <tr key={i} style={isGrand ? { background: '#ffe08a', fontWeight: 800 } : isSub ? { background: '#f2efe2', fontWeight: 700 } : undefined}>
+                        <td style={{ fontSize: 11, whiteSpace: 'nowrap', fontFamily: 'var(--mono)' }}>{row.cells[0]}</td>
+                        <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{row.cells[1]}</td>
+                        <td style={{ fontSize: 12 }}>{row.cells[2]}</td>
+                        <td style={{ textAlign: 'right', fontFamily: 'var(--mono)', whiteSpace: 'nowrap', color: neg ? 'var(--red)' : undefined }}>
+                          {row.cells[3] === '' ? '' : fmt2(row.cells[3])}
+                        </td>
+                        <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{row.cells[4]}</td>
+                        <td style={{ fontSize: 11, fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{row.cells[5]}</td>
+                        <td style={{ fontSize: 11 }}>{row.cells[6]}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
       )}
 
       {/* 수기항목(칸추가) 모달 */}
