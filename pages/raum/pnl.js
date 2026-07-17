@@ -80,8 +80,10 @@ function erpCompare(it, qtyByProd) {
   let k = 1;
   const price = it.price != null ? Number(it.price) : null;
   if (erpPrice > 0 && price > 0) {
+    // 계수 탐지는 ±12%(전산 분배단가가 견적과 다른 경우에도 묶음수는 잡히게 — 예: 레드 590.9원/송이 vs 6,300원/단),
+    // 일치 판정 자체는 아래에서 ±2% 로 별도 수행되므로 단가 차이는 그대로 ✗ 로 드러난다.
     for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
-      if (Math.abs(price - erpPrice * cand) <= price * 0.02) { k = cand; break; }
+      if (Math.abs(price - erpPrice * cand) <= price * 0.12) { k = cand; break; }
     }
   }
   const adjQty = erpQty != null ? erpQty / k : null;
