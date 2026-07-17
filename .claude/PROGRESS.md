@@ -4,6 +4,34 @@
 
 ---
 
+## [2026-07-17] 세션(feat/raum-pnl worktree) — 라움 손익 v13: 아이엠 잔량표시·적용로그·자동 정합검증
+
+### 작업 내용 (사장님 요청 3건)
+- **아이엠 잔량 표시**: 라움 견적 < 전산 분배(예: 전산 360 vs 견적 346)면 잔량이 아이엠으로 가는 구조 —
+  대조 칸에 `└ 아이엠 {수량} (잔량 {차이}) · 최초 {시점} · 수정 N회(최종 {시점})` 둘째 줄.
+  아이엠 없으면 `아이엠 분배없음 ⚠`. CustName LIKE N'아이엠%'(456/457), 라움과 같은 창·존(win/prev) 기준,
+  ShipmentHistory(MIN/MAX ChangeDtm + ChangeType=수정 카운트, CONVERT 120 서버포맷 — 시간대 함정 회피).
+  지난 저장본 오표시 방지: `imChecked` 플래그(업로드/새로고침 시에만 세팅)
+- **⚖ 적용 로그를 대조 칸 옆에**: applyErpSyncPlan 이 품목별 적용내역(results.applied) 수집 →
+  적용 후 대조 칸에 초록 `✔ 적용: 수량 a→b [차수] · 단가 c→d` 표시
+- **적용 직후 자동 정합검증**: 신규 `GET /api/raum/pnl-verify-erp?major&year` — verify:week V1~V3 를
+  라움 창(N-01·N-02·(N+1)-01) 범위로 즉시 검사(견적단가·견적금액공식·출고수량합).
+  적용 완료 시 자동 호출, 모달에 `✅ 위반 0건`/`⚠ 위반 목록` 표시 ("절대 문제 생기면 안 됨" 보증)
+- **[↻ 대조 새로고침] 버튼**: 업로드 없이 대조·아이엠 표시를 최신 전산값으로 갱신
+
+### 변경된 파일
+- lib/raumPnl.js: lookupErpRefPrices 에 아이엠 집계(존 분리) + im* 필드
+- pages/api/raum/pnl-erp-rows.js: imRows 추가 / pnl-import.js: im* 전달+imChecked
+- pages/api/raum/pnl-verify-erp.js: 신규 (읽기 전용)
+- pages/raum/pnl.js: erpCompare im 줄, appliedNote, refreshErpCompare im 반영, ↻ 버튼, 모달 검증 표시
+
+### 검증
+- webpack 빌드 ✅ / 로컬 프로덕션 E2E: pnl-verify-erp 28차 위반 0건 ✅, imRows 61건(시점·수정횟수) ✅,
+  28차 업로드 imQty 15품목 ✅, 저장본 열람 시 IM 미표시(가드) → ↻ 후 24줄 표시 ✅(수국 화이트 잔량14=사장님 예시),
+  ⚖ 모달 31건 계획 정상(적용은 안 누름 — 사장님 몫)
+
+---
+
 ## [2026-07-14] 세션(session-b) #4 — 재고관리 일괄수정 + 음수재고 원인규명·정리 + verify:week
 
 ### 재고관리(/stock) 기능 (배포됨: cb4a1bf~d629ada)

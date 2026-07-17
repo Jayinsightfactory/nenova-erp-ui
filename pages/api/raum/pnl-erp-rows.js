@@ -50,12 +50,45 @@ export default withAuth(async function handler(req, res) {
         ORDER BY CustKey`,
       {}
     );
+
+    // 아이엠 분배 (같은 창) — 라움 잔량이 아이엠으로 가는 구조. 품목·존별 수량+최초/최종수정 시점
+    let imRows = [];
+    try {
+      const im = await query(
+        `SELECT sd.ProdKey,
+                CASE WHEN sm.OrderWeek = @wPrev THEN 'prev' ELSE 'win' END AS Zone,
+                SUM(ISNULL(sd.EstQuantity, 0)) AS EstQty,
+                CONVERT(varchar(16), MIN(h.firstDtm), 120) AS FirstDtm,
+                CONVERT(varchar(16), MAX(h.lastDtm), 120) AS LastDtm, SUM(ISNULL(h.modCnt, 0)) AS ModCnt
+           FROM ShipmentDetail sd
+           JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
+           JOIN Customer c ON sm.CustKey = c.CustKey
+          OUTER APPLY (SELECT MIN(sh.ChangeDtm) AS firstDtm, MAX(sh.ChangeDtm) AS lastDtm,
+                              SUM(CASE WHEN sh.ChangeType = N'수정' THEN 1 ELSE 0 END) AS modCnt
+                         FROM ShipmentHistory sh WHERE sh.SdetailKey = sd.SdetailKey) h
+          WHERE ISNULL(sm.isDeleted, 0) = 0
+            AND c.isDeleted = 0 AND c.CustName LIKE N'아이엠%'
+            AND ((sm.OrderWeek IN (@wPrev, @w1) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
+              OR (sm.OrderWeek = @w2 AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))
+          GROUP BY sd.ProdKey, CASE WHEN sm.OrderWeek = @wPrev THEN 'prev' ELSE 'win' END`,
+        {
+          wPrev: { type: sql.NVarChar, value: `${mj}-01` },
+          w1: { type: sql.NVarChar, value: `${mj}-02` },
+          w2: { type: sql.NVarChar, value: `${nextMj}-01` },
+          yw1: { type: sql.NVarChar, value: `${orderYear}${mj}%` },
+          yw2: { type: sql.NVarChar, value: `${orderYear}${nextMj}%` },
+        }
+      );
+      imRows = im.recordset || [];
+    } catch { /* 아이엠 집계 실패는 치명 아님 — 표시만 생략 */ }
+
     return res.status(200).json({
       success: true,
       weeks: [`${mj}-02`, `${nextMj}-01`],  // 기준 창
       prevWeek: `${mj}-01`,                 // 폴백 (창에 없는 쌓아두는 품목만)
       custKey: cust.recordset[0]?.CustKey ?? null,
       rows: r.recordset || [],
+      imRows,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });

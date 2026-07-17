@@ -99,8 +99,34 @@ function erpCompare(it, qtyByProd) {
   if (adjPrice != null) parts.push(`단가 ${fmt1(adjPrice)}${priceOk ? '✓' : ' ✗'}`);
   const bad = qtyOk === false || priceOk === false;
   const unitNote = k > 1 ? ` · 전산 송이단위 ×${k} 환산(원값 ${fmt(erpQty)}송이@${fmt1(erpPrice)})` : '';
+  // 아이엠 잔량 표시 — 라움 견적이 전산 분배보다 적으면(예: 전산 360 vs 견적 346) 잔량이 아이엠으로 가는 구조.
+  // 같은 창의 아이엠 분배량과 최초/수정 시점을 함께 보여준다 (일괄수정으로 라움을 줄인 뒤 확인용).
+  let im = null;
+  const shortfall = adjQty != null && adjQty > quoteQty + 0.005 ? round2(adjQty - quoteQty) : null;
+  // imChecked 가 없으면(지난 저장본) 아이엠 조회를 안 한 상태 — 오표시 방지, [↻ 대조 새로고침]으로 채워짐
+  if (shortfall != null && it.imChecked) {
+    const imQtyAdj = it.imQty != null ? Number(it.imQty) / k : null;
+    const d8 = (s) => (s ? String(s).slice(5, 16).replace('-', '/') : ''); // 'YYYY-MM-DD HH:mm' → 'M/DD HH:mm'
+    if (imQtyAdj != null && imQtyAdj > 0) {
+      const when = it.imModCnt > 0
+        ? `최초 ${d8(it.imFirstDtm)} · 수정 ${it.imModCnt}회(최종 ${d8(it.imLastDtm)})`
+        : `최초 ${d8(it.imFirstDtm)}${it.imFirstDtm ? ' 분배 후 수정 없음' : ''}`;
+      im = {
+        label: `아이엠 ${fmt(imQtyAdj)} (잔량 ${fmt(shortfall)}) · ${when}`,
+        tone: imQtyAdj + 0.005 >= shortfall ? 'ok' : 'warn',
+        title: `라움 견적(${fmt(quoteQty)})이 전산(${fmt(adjQty)})보다 ${fmt(shortfall)} 적음 — 잔량은 아이엠 분배가 일반. 창 안 아이엠 분배 ${fmt(imQtyAdj)}${k > 1 ? ` (전산 ${fmt(it.imQty)}송이 ×${k} 환산)` : ''} · ${when}`,
+      };
+    } else {
+      im = {
+        label: `아이엠 분배없음 ⚠ (잔량 ${fmt(shortfall)})`,
+        tone: 'warn',
+        title: `라움 견적(${fmt(quoteQty)})이 전산(${fmt(adjQty)})보다 ${fmt(shortfall)} 적은데, 같은 창에 아이엠 분배가 없습니다 — 잔량 ${fmt(shortfall)}을 아이엠에 분배해야 할 수 있음`,
+      };
+    }
+  }
   return {
     label: parts.join(' · ') || '—',
+    im,
     tone: bad ? 'bad' : 'ok',
     title: bad
       ? `전산 분배와 다릅니다 — 전산: 수량 ${fmt(adjQty)} / 단가 ${fmt1(adjPrice)}, 견적: 수량 ${fmt(quoteQty)}${quoteQty !== Number(it.qty) ? `(이 행 ${fmt(it.qty)})` : ''} / 단가 ${fmt1(price)}${unitNote}`
@@ -254,7 +280,12 @@ async function postJson(url, body) {
  *    — ①이동(CANCEL→ADD, 단가보존) ②재고 쌍보정(+D/−D) ③신규분배 ④수량/단가 ⑤이동품목 견적정렬
  *  이동이 없으면: 기존 direct-first (FIXED_WEEK 거절분만 사이클) */
 async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
-  const results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, failed: [] };
+  const results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, failed: [], applied: {} };
+  // 품목별 적용 내역 — 완료 후 전산 분배 대조 칸 옆에 초록 '✔ 적용' 으로 표시
+  const noteFor = (prodKey, msg) => {
+    if (prodKey == null) return;
+    (results.applied[prodKey] = results.applied[prodKey] || []).push(msg);
+  };
 
   const postQty = async (e) => postJson('/api/estimate/update-quantity', {
     sdetailKey: e.sdetailKey, shipmentKey: e.shipmentKey,
@@ -278,7 +309,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
         log('  입고 미등록/초과 — force 재시도');
         d = await postJson('/api/shipment/adjust', { ...body, force: true });
       }
-      if (d.success) { results.addOk += 1; added.push(a); }
+      if (d.success) { results.addOk += 1; added.push(a); noteFor(a.prodKey, `신규분배 ${a.week} +${fmt(a.qty)}${a.unit}`); }
       else results.failed.push(`${a.name} 신규분배: ${d.error || '실패'}`);
     }
     if (added.length && typeof fetchRows === 'function') {
@@ -292,14 +323,16 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
             const k = est > 0 && a.qty > 0 ? Math.max(1, Math.round(est / a.qty)) : 1;
             const targetCost = round2((a.price * 1.1) / k);
             if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
-              extraCost.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0) });
+              extraCost.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0), prodKey: a.prodKey });
             }
           }
         }
         if (extraCost.length) {
           const d = await postCost(extraCost);
-          if (d.success) results.costOk += extraCost.length;
-          else results.failed.push(`신규분배 단가 세팅: ${d.error || '실패'}`);
+          if (d.success) {
+            results.costOk += extraCost.length;
+            extraCost.forEach(e => noteFor(e.prodKey, `단가 세팅 ${fmt1(e.cost)}`));
+          } else results.failed.push(`신규분배 단가 세팅: ${d.error || '실패'}`);
         }
       } catch (e) {
         results.failed.push(`신규분배 단가 세팅: ${e.message}`);
@@ -378,7 +411,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     for (const e of edits) {
       log(`수량${viaCycle ? '(사이클)' : ''}: ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
       const d = await postQty(e);
-      if (d.success) { results.qtyOk += 1; continue; }
+      if (d.success) { results.qtyOk += 1; noteFor(e.prodKey, `수량 ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} [${e.orderWeek}]`); continue; }
       if (d.code === 'FIXED_WEEK' && !viaCycle) rejected.push({ e, fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [] });
       else results.failed.push(`${e.prodName} 수량: ${d.error || '실패'}${d.code === 'STALE_DATA' ? ' (조회 후 변경됨 — 새로고침 후 재시도)' : ''}`);
     }
@@ -388,7 +421,11 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     if (!edits.length) return null;
     log(`단가${viaCycle ? '(사이클)' : ''} ${edits.length}건 일괄 적용 …`);
     const d = await postCost(edits);
-    if (d.success) { results.costOk += edits.length; return null; }
+    if (d.success) {
+      results.costOk += edits.length;
+      edits.forEach(e => noteFor(e.prodKey, `단가 ${fmt1(e.oldCost)}→${fmt1(e.cost)} [${e.orderWeek}]`));
+      return null;
+    }
     if (d.code === 'FIXED_WEEK' && !viaCycle) return { fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [] };
     results.failed.push(`단가 일괄: ${d.error || '실패'}`);
     return null;
@@ -1052,7 +1089,17 @@ function ErpSyncModal({ sync, onApply, onClose }) {
           <div style={{ background: results.failed.length ? '#fee2e2' : '#dcfce7', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, margin: '8px 0' }}>
             완료 — 이동 {results.moveOk || 0}건 · 재고보정 {results.stockOk || 0}건 · 신규분배 {results.addOk || 0}건 · 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
             {results.failed.map((f, i) => <div key={i} style={{ color: '#991b1b' }}>✗ {f}</div>)}
-            <div style={{ marginTop: 4, color: '#475569' }}>대조 칸이 새 전산값으로 갱신됐습니다. [💾 저장]을 눌러 스냅샷을 기록하세요.</div>
+            {results.verify ? (
+              results.verify.violations.length ? (
+                <div style={{ marginTop: 4, color: '#991b1b', fontWeight: 700 }}>
+                  ⚠ 정합검증(V1~V3) 위반 {results.verify.violations.length}건 — 전산 견적서 화면에서 반드시 확인하세요
+                  {results.verify.violations.map((v, i) => <div key={i} style={{ fontWeight: 400 }}>✗ [{v.check}] {v.msg}</div>)}
+                </div>
+              ) : (
+                <div style={{ marginTop: 4, color: '#166534', fontWeight: 700 }}>✅ 정합검증(V1~V3) 위반 0건 — 견적단가·견적금액·출고수량 정합 확인됨</div>
+              )
+            ) : null}
+            <div style={{ marginTop: 4, color: '#475569' }}>대조 칸이 새 전산값으로 갱신됐고, 적용된 품목엔 초록 ✔ 로그가 표시됩니다. [💾 저장]을 눌러 스냅샷을 기록하세요.</div>
           </div>
         ) : null}
 
@@ -1348,17 +1395,29 @@ export default function RaumPnlPage() {
       a.est += Number(row.EstQuantity || 0);
       a.amt += Number(row.Amount || 0);
     }
+    // 아이엠 분배 (라움 잔량 확인용) — 라움과 같은 존 기준
+    const imWin = {};
+    const imPrev = {};
+    for (const row of j.imRows || []) {
+      (row.Zone === 'win' ? imWin : imPrev)[row.ProdKey] = row;
+    }
     setDetail(d => ({
       ...d,
       items: d.items.map(it => {
         if (it.prodKey == null) return it;
         const a = winAgg[it.prodKey] || prevAgg[it.prodKey];
         const fromPrev = !winAgg[it.prodKey] && !!prevAgg[it.prodKey];
+        const imRow = fromPrev ? imPrev[it.prodKey] : imWin[it.prodKey];
         return {
           ...it,
           erpQty: a ? a.est : null,
           erpSalePrice: a && a.est > 0 ? Math.round((a.amt / a.est) * 10) / 10 : null,
           erpFromPrev: fromPrev,
+          imChecked: true,
+          imQty: imRow ? Number(imRow.EstQty) : null,
+          imFirstDtm: imRow?.FirstDtm || null,
+          imLastDtm: imRow?.LastDtm || null,
+          imModCnt: imRow ? Number(imRow.ModCnt || 0) : 0,
         };
       }),
       unsaved: true,
@@ -1403,6 +1462,33 @@ export default function RaumPnlPage() {
       });
       log('전산값 재조회 중…');
       await refreshErpCompare();
+      // 적용 내역을 대조 칸 옆에 초록 '✔ 적용' 으로 표시
+      if (results.applied && Object.keys(results.applied).length) {
+        setDetail(d => ({
+          ...d,
+          items: d.items.map(it => (it.prodKey != null && results.applied[it.prodKey]
+            ? { ...it, appliedNote: results.applied[it.prodKey].join(' · ') }
+            : it)),
+        }));
+      }
+      // 적용 직후 자동 정합검증 (verify:week V1~V3 를 라움 창 범위로) — 견적서 금액이 어긋나면 즉시 드러남
+      log('정합검증(V1~V3) 실행 중 — 견적단가·견적금액·출고수량 일치 확인…');
+      try {
+        const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}`).then(r => r.json());
+        if (vr.success) {
+          results.verify = vr;
+          if (vr.violations.length) {
+            log(`⚠ 정합검증 위반 ${vr.violations.length}건 발견:`);
+            vr.violations.forEach(v => log(`  ✗ [${v.check}] ${v.msg}`));
+          } else {
+            log('정합검증(V1~V3) 위반 0건 ✅ — 견적서 금액·수량 정합 확인됨');
+          }
+        } else {
+          log(`정합검증 실패: ${vr.error || '?'} — 전산 견적서 화면에서 직접 확인하세요`);
+        }
+      } catch (e) {
+        log(`정합검증 실패: ${e.message} — 전산 견적서 화면에서 직접 확인하세요`);
+      }
       setSync(s => ({ ...s, running: false, done: true, results }));
     } catch (e) {
       setSync(s => ({ ...s, running: false, done: true, results: { qtyOk: 0, costOk: 0, failed: [`중단: ${e.message}`] } }));
@@ -1606,6 +1692,17 @@ export default function RaumPnlPage() {
               onClick={openErpSync}
               title="전산 분배 대조에서 어긋난 품목의 수량·단가를 견적서 값 기준으로 전산에 일괄 반영합니다 (견적서 관리와 동일 수정 로직·확정차수 자동 사이클). 적용 전 변경 목록을 먼저 보여줍니다."
             >⚖ 전산 일괄수정</button>
+            <button
+              style={st.btn}
+              onClick={async () => {
+                setError('');
+                try {
+                  await refreshErpCompare();
+                  setMessage('전산 분배 대조를 최신 전산값으로 갱신했습니다 (아이엠 분배 포함).');
+                } catch (e) { setError(e.message); }
+              }}
+              title="전산 분배 대조·아이엠 분배 표시를 지금 전산값으로 다시 조회합니다 (업로드 없이 갱신)."
+            >↻ 대조 새로고침</button>
             {detail.sheets ? (
               <span style={{ fontSize: 12, color: '#64748b' }}>
                 {detail.sheets.map(s => `${s.branch} ${s.itemCount}품목 ${fmt(s.parsedSupply)}원`).join(' · ')} → 합산 {detail.items.length}품목
@@ -1632,7 +1729,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
-                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
+                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%. 라움 견적이 전산보다 적으면 잔량의 아이엠 분배 여부·시점이 └ 줄로 표시됩니다. ⚖ 적용 후엔 초록 ✔ 적용 로그가 여기 붙습니다.">전산 분배 대조</th>
                 </tr>
               </thead>
               <tbody>
@@ -1725,6 +1822,12 @@ export default function RaumPnlPage() {
                             ) : null}
                             {!it.isCustom && !it.consigned && cmp.label === '이번차수 분배없음' ? (
                               <button style={{ ...smallBtn, color: '#475569' }} title="이 품목을 사입으로 지정 — 매출에는 포함, 손익 계산·전산 일괄수정에서 제외됩니다 (기억됨)" onClick={() => markConsigned(it.name, true)}>사입 제외</button>
+                            ) : null}
+                            {cmp.im ? (
+                              <div style={{ ...ERP_TONE[cmp.im.tone], fontSize: 11, background: 'transparent', fontWeight: 400 }} title={cmp.im.title}>└ {cmp.im.label}</div>
+                            ) : null}
+                            {it.appliedNote ? (
+                              <div style={{ color: '#166534', fontSize: 11, fontWeight: 600, background: 'transparent' }} title="방금 ⚖ 전산 일괄수정으로 적용된 내용">✔ 적용: {it.appliedNote}</div>
                             ) : null}
                           </td>
                         );
