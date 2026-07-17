@@ -1304,6 +1304,32 @@ export default function RaumPnlPage() {
     }
   };
 
+  // ── 수동 사입 지정/해제 — DB 저장(다음 업로드 자동 적용), 같은 품목명 행 전부 반영 ──
+  const markConsigned = async (name, on) => {
+    setError('');
+    try {
+      const r = await fetch('/api/raum/consigned-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, consigned: on }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '사입 지정 실패');
+      setDetail(d => ({
+        ...d,
+        items: d.items.map(it => (String(it.name).trim() === String(name).trim() && !it.isCustom
+          ? { ...it, consigned: on, consignedManual: on }
+          : it)),
+        unsaved: true,
+      }));
+      setMessage(on
+        ? `사입 제외 지정: ${name} — 매출에는 포함되고 손익 계산에서 빠집니다 (다음 업로드부터 자동)`
+        : `사입 지정 해제: ${name}`);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   // ── 전산 일괄수정 (견적서 값 기준) ──
   const [sync, setSync] = useState(null); // { open, plan, logs, running, done, results }
 
@@ -1690,9 +1716,16 @@ export default function RaumPnlPage() {
                       </td>
                       {(() => {
                         const cmp = erpCompare(it, erpQtyMap);
+                        const smallBtn = { marginLeft: 5, padding: '0 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11 };
                         return (
                           <td style={{ ...st.td, fontSize: 11.5, whiteSpace: 'nowrap', ...ERP_TONE[cmp.tone] }} title={cmp.title}>
                             {cmp.label}
+                            {!it.isCustom && it.consigned && it.consignedManual ? (
+                              <button style={{ ...smallBtn, color: '#b91c1c' }} title="수동 사입 지정을 해제합니다 (다음 업로드부터 다시 손익에 포함)" onClick={() => markConsigned(it.name, false)}>해제</button>
+                            ) : null}
+                            {!it.isCustom && !it.consigned && cmp.label === '이번차수 분배없음' ? (
+                              <button style={{ ...smallBtn, color: '#475569' }} title="이 품목을 사입으로 지정 — 매출에는 포함, 손익 계산·전산 일괄수정에서 제외됩니다 (기억됨)" onClick={() => markConsigned(it.name, true)}>사입 제외</button>
+                            ) : null}
                           </td>
                         );
                       })()}

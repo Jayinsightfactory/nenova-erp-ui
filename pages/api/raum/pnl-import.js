@@ -6,7 +6,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
-import { parseRaumQuoteWorkbook, lookupErpRefPrices, loadLearnedCosts, DEFAULT_NENOVA_PCT } from '../../../lib/raumPnl';
+import { parseRaumQuoteWorkbook, lookupErpRefPrices, loadLearnedCosts, loadRaumConsignedSet, DEFAULT_NENOVA_PCT } from '../../../lib/raumPnl';
 
 export const config = {
   api: { bodyParser: false },
@@ -63,6 +63,20 @@ async function handler(req, res) {
     if (refs.__arrivalError) {
       parsed.warnings.push(refs.__arrivalError);
       delete refs.__arrivalError;
+    }
+
+    // 수동 사입 지정 품목 — 원산지가 있어도 사입(매출 포함·손익 제외)으로 분류 (사장님 지정, DB)
+    let consignedSet = new Set();
+    try {
+      consignedSet = await loadRaumConsignedSet(parsed.items.map(it => it.name));
+    } catch (e) {
+      parsed.warnings.push(`수동 사입 지정 조회 실패: ${e.message}`);
+    }
+    for (const it of parsed.items) {
+      if (!it.consigned && consignedSet.has(learnKey(it.name))) {
+        it.consigned = true;
+        it.consignedManual = true;
+      }
     }
 
     const items = parsed.items.map(it => {
