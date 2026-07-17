@@ -66,7 +66,7 @@ function quoteQtyByProdKey(items) {
   }
   return m;
 }
-function erpCompare(it, qtyByProd) {
+function erpCompare(it, qtyByProd, weeks) {
   if (it.isCustom) return { label: '—', tone: 'muted', title: '수동 추가 행 — 전산 분배 대상 아님' };
   if (it.consigned) return { label: '사입', tone: 'muted', title: '사입(원산지 없음) — 전산 분배 대상 아님' };
   if (it.prodKey == null) return { label: '전산 미매칭 ⚪', tone: 'muted', title: '전산 품목과 매칭되지 않아 비교 불가' };
@@ -124,9 +124,20 @@ function erpCompare(it, qtyByProd) {
       };
     }
   }
+  // (N+1)-01 잔존 분배 — 호텔 N차 분배 정위치는 N-02. w2 에 남아있으면 이동 필요 표시 (사장님 규칙 2026-07-17)
+  let w2Move = null;
+  const w2Qty = Number(it.erpW2Qty || 0);
+  if (w2Qty > 0) {
+    const moveQty = w2Qty / k;
+    w2Move = {
+      label: `${weeks?.w2 || '(N+1)-01'}에 ${fmt(moveQty)} 분배 — ${weeks?.w1 || 'N-02'}로 이동 필요 ⚠`,
+      title: `호텔 분배 정위치는 ${weeks?.w1 || 'N-02'}인데 ${weeks?.w2 || '(N+1)-01'}에 ${fmt(moveQty)}${k > 1 ? ` (전산 ${fmt(w2Qty)}송이 ×${k} 환산)` : ''}이 분배되어 있습니다 — 전산에서 차수 이동 필요`,
+    };
+  }
   return {
     label: parts.join(' · ') || '—',
     im,
+    w2Move,
     tone: bad ? 'bad' : 'ok',
     title: bad
       ? `전산 분배와 다릅니다 — 전산: 수량 ${fmt(adjQty)} / 단가 ${fmt1(adjPrice)}, 견적: 수량 ${fmt(quoteQty)}${quoteQty !== Number(it.qty) ? `(이 행 ${fmt(it.qty)})` : ''} / 단가 ${fmt1(price)}${unitNote}`
@@ -1395,24 +1406,36 @@ export default function RaumPnlPage() {
       a.est += Number(row.EstQuantity || 0);
       a.amt += Number(row.Amount || 0);
     }
+    // (N+1)-01(w2) 잔존 분배 — 호텔 분배 정위치는 N-02 라 w2 분은 '이동 필요' 표시 대상
+    const w2Week = windowWeeks[windowWeeks.length - 1];
+    const w2Agg = {};
+    for (const row of j.rows) {
+      if (row.OrderWeek === w2Week) w2Agg[row.ProdKey] = (w2Agg[row.ProdKey] || 0) + Number(row.EstQuantity || 0);
+    }
     // 아이엠 분배 (라움 잔량 확인용) — 라움과 같은 존 기준
     const imWin = {};
     const imPrev = {};
     for (const row of j.imRows || []) {
       (row.Zone === 'win' ? imWin : imPrev)[row.ProdKey] = row;
     }
+    // 수동 사입 지정(DB) 재적용 — 저장본을 열어도 사입 분류가 유지되게 (지정 추가만, 해제는 DB 삭제로 반영됨)
+    const normKey = (s) => String(s || '').replace(/[\s ]+/g, ' ').trim().toLowerCase();
+    const consignedSet = new Set((j.consignedNames || []).map(normKey));
     setDetail(d => ({
       ...d,
       items: d.items.map(it => {
-        if (it.prodKey == null) return it;
-        const a = winAgg[it.prodKey] || prevAgg[it.prodKey];
-        const fromPrev = !winAgg[it.prodKey] && !!prevAgg[it.prodKey];
-        const imRow = fromPrev ? imPrev[it.prodKey] : imWin[it.prodKey];
+        const dbConsigned = !it.isCustom && !it.consigned && consignedSet.has(normKey(it.name));
+        const base = dbConsigned ? { ...it, consigned: true, consignedManual: true } : it;
+        if (base.prodKey == null) return base;
+        const a = winAgg[base.prodKey] || prevAgg[base.prodKey];
+        const fromPrev = !winAgg[base.prodKey] && !!prevAgg[base.prodKey];
+        const imRow = fromPrev ? imPrev[base.prodKey] : imWin[base.prodKey];
         return {
-          ...it,
+          ...base,
           erpQty: a ? a.est : null,
           erpSalePrice: a && a.est > 0 ? Math.round((a.amt / a.est) * 10) / 10 : null,
           erpFromPrev: fromPrev,
+          erpW2Qty: w2Agg[base.prodKey] || 0,
           imChecked: true,
           imQty: imRow ? Number(imRow.EstQty) : null,
           imFirstDtm: imRow?.FirstDtm || null,
@@ -1424,7 +1447,7 @@ export default function RaumPnlPage() {
     }));
     return {
       rows: j.rows, custKey: j.custKey, windowWeeks,
-      prevWeek: j.prevWeek,
+      prevWeek: j.prevWeek, consignedSet, normKey,
     };
   };
 
@@ -1432,8 +1455,12 @@ export default function RaumPnlPage() {
     setError('');
     try {
       const ctx = await refreshErpCompare();
-      const plan = buildErpSyncPlan(detail.items, ctx.rows, {
-        addWeek: ctx.windowWeeks[ctx.windowWeeks.length - 1], // 신규 분배는 창의 마지막 주((N+1)-01)에 생성
+      // 사입 지정(DB)을 계획에서도 즉시 제외 — setDetail 은 비동기라 이 클로저의 detail 엔 아직 반영 전
+      const planItems = detail.items.map(it => (!it.isCustom && !it.consigned && ctx.consignedSet.has(ctx.normKey(it.name))
+        ? { ...it, consigned: true, consignedManual: true }
+        : it));
+      const plan = buildErpSyncPlan(planItems, ctx.rows, {
+        addWeek: ctx.windowWeeks[0], // 신규 분배는 N-02에 생성 — 호텔 분배 정위치 ((N+1)-01은 이동 필요 대상)
         windowWeeks: ctx.windowWeeks,
         prevWeek: ctx.prevWeek,
       });
@@ -1545,6 +1572,12 @@ export default function RaumPnlPage() {
     [detail]
   );
   const erpQtyMap = useMemo(() => (detail ? quoteQtyByProdKey(detail.items) : {}), [detail]);
+  const weekLabels = useMemo(() => {
+    const major = Number(detail?.meta?.major);
+    if (!major) return null;
+    const p2 = (n) => String(n).padStart(2, '0');
+    return { w1: `${p2(major)}-02`, w2: `${p2(major + 1)}-01` };
+  }, [detail?.meta?.major]);
 
   // ── 렌더 ──
   return (
@@ -1812,7 +1845,7 @@ export default function RaumPnlPage() {
                         ) : it.remark}
                       </td>
                       {(() => {
-                        const cmp = erpCompare(it, erpQtyMap);
+                        const cmp = erpCompare(it, erpQtyMap, weekLabels);
                         const smallBtn = { marginLeft: 5, padding: '0 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11 };
                         return (
                           <td style={{ ...st.td, fontSize: 11.5, whiteSpace: 'nowrap', ...ERP_TONE[cmp.tone] }} title={cmp.title}>
@@ -1822,6 +1855,9 @@ export default function RaumPnlPage() {
                             ) : null}
                             {!it.isCustom && !it.consigned && cmp.label === '이번차수 분배없음' ? (
                               <button style={{ ...smallBtn, color: '#475569' }} title="이 품목을 사입으로 지정 — 매출에는 포함, 손익 계산·전산 일괄수정에서 제외됩니다 (기억됨)" onClick={() => markConsigned(it.name, true)}>사입 제외</button>
+                            ) : null}
+                            {cmp.w2Move ? (
+                              <div style={{ color: '#b45309', fontSize: 11, fontWeight: 600, background: 'transparent' }} title={cmp.w2Move.title}>└ {cmp.w2Move.label}</div>
                             ) : null}
                             {cmp.im ? (
                               <div style={{ ...ERP_TONE[cmp.im.tone], fontSize: 11, background: 'transparent', fontWeight: 400 }} title={cmp.im.title}>└ {cmp.im.label}</div>

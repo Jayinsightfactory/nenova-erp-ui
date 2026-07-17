@@ -3,6 +3,7 @@
 // 창에 분배가 없는 품목(쌓아두는 선입고 품목)만 N-01 행을 폴백으로 사용 — 행에 OrderWeek 로 구분됨.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
+import { loadRaumConsignedAll } from '../../../lib/raumPnl';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -82,6 +83,10 @@ export default withAuth(async function handler(req, res) {
       imRows = im.recordset || [];
     } catch { /* 아이엠 집계 실패는 치명 아님 — 표시만 생략 */ }
 
+    // 수동 사입 지정 명단 — 저장본을 열어 ⚖/새로고침할 때도 사입 분류가 유지되도록 함께 내려준다
+    let consignedNames = [];
+    try { consignedNames = await loadRaumConsignedAll(); } catch { /* 표시만 생략 */ }
+
     return res.status(200).json({
       success: true,
       weeks: [`${mj}-02`, `${nextMj}-01`],  // 기준 창
@@ -89,6 +94,7 @@ export default withAuth(async function handler(req, res) {
       custKey: cust.recordset[0]?.CustKey ?? null,
       rows: r.recordset || [],
       imRows,
+      consignedNames,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });

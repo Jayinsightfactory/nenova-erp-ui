@@ -106,6 +106,7 @@ async function handler(req, res) {
         erpSalePrice: ref?.erpSalePrice ?? null,
         erpQty: ref?.erpQty ?? null,
         erpFromPrev: ref?.erpFromPrev ?? false,
+        erpW2Qty: ref?.erpW2Qty ?? 0,
         imChecked: !!ref,
         imQty: ref?.imQty ?? null,
         imFirstDtm: ref?.imFirstDtm ?? null,
