@@ -8,6 +8,7 @@ import {
   loadCustomsWeekly, saveCustomsWeekly,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
+  mergeCountryGw, mergeColombiaGw,
   computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
 } from '../../../lib/customsForwarding';
 
@@ -49,13 +50,15 @@ export default withAuth(async function handler(req, res) {
           category: cat,
           saved: row,
           carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 기본값으로 제안(사장님 지정)
-          total: computeCountryCustomsTotal(row || {}, rates, cat),
+          // 합계는 입고 GW 기준 병합값으로 — 수기 무게가 없어도 백상창고료가 잡힘 (수기 우선)
+          total: computeCountryCustomsTotal(mergeCountryGw(row, autoGw.countries?.[cat]), rates, cat),
         };
       });
 
       const colombiaOut = colombia.map((c, i) => {
-        const total = computeColombiaCustomsTotal(c.row || {}, rates);
-        const alloc = computeColombiaAllocation(c.row || {}, c.boxQty, rates);
+        const effRow = mergeColombiaGw(c.row, autoGw.colombia?.[c.orderWeek]);
+        const total = computeColombiaCustomsTotal(effRow, rates);
+        const alloc = computeColombiaAllocation(effRow, c.boxQty, rates);
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
