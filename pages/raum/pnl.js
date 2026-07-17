@@ -892,6 +892,81 @@ function BranchComparePanel({ items, sheets, branches }) {
   );
 }
 
+// ── 품목 매칭 편집 모달 (모듈 스코프 — C-6) ──
+// 견적 품목명 ↔ 전산 품목 매칭을 검색해서 바꾼다. DB(WebRaumItemMap) 저장 — 다음 업로드부터 자동 적용, 배포에도 유지.
+function MatchEditorModal({ edit, onPick, onClear, onClose }) {
+  const [q, setQ] = useState('');
+  const [list, setList] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (edit?.open) { setQ(''); setList([]); setErr(''); }
+  }, [edit?.open, edit?.name]);
+  if (!edit?.open) return null;
+  const doSearch = async (term) => {
+    const t = String(term || '').trim();
+    if (!t) return;
+    setSearching(true);
+    setErr('');
+    try {
+      const r = await fetch(`/api/raum/item-mapping?q=${encodeURIComponent(t)}`);
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '검색 실패');
+      setList(j.products || []);
+      if (!(j.products || []).length) setErr('검색 결과 없음 — 다른 검색어로 시도하세요 (영문 품종명도 가능)');
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSearching(false);
+    }
+  };
+  const cellTd = { border: '1px solid #e2e8f0', padding: '4px 8px', fontSize: 12, whiteSpace: 'nowrap' };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 10, padding: '18px 22px', width: 'min(720px, 94vw)', maxHeight: '84vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🔗 품목 매칭 수정 — {edit.name}</div>
+        <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 10 }}>
+          현재 매칭: {edit.current ? <b>{edit.current}</b> : <span style={{ color: '#b91c1c' }}>미매칭 ⚪</span>}
+          {' '}· 선택하면 기억해서 다음 업로드부터 자동 적용됩니다 (전산 분배 대조·도착원가에도 반영)
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <input
+            autoFocus
+            style={{ flex: 1, padding: '7px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13 }}
+            placeholder="전산 품목 검색 (한글/영문 — 예: Damina, 아바란체, Hydrangea)"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') doSearch(q); }}
+          />
+          <button style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #2563eb', background: '#2563eb', color: '#fff', cursor: 'pointer' }} disabled={searching} onClick={() => doSearch(q)}>
+            {searching ? '검색 중…' : '🔍 검색'}
+          </button>
+        </div>
+        {err ? <div style={{ fontSize: 12.5, color: '#b91c1c', marginBottom: 6 }}>{err}</div> : null}
+        {list.length ? (
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr>{['품목명', '분류', '원산지', ''].map(h => <th key={h} style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }}>{h}</th>)}</tr></thead>
+            <tbody>{list.map(p => (
+              <tr key={p.ProdKey} style={{ cursor: 'pointer' }} onClick={() => onPick(p)}>
+                <td style={{ ...cellTd, whiteSpace: 'normal' }}>{p.ProdName}{p.DisplayName ? ` (${p.DisplayName})` : ''}</td>
+                <td style={cellTd}>{p.FlowerName}</td>
+                <td style={cellTd}>{p.CounName}</td>
+                <td style={cellTd}><button style={{ padding: '2px 10px', borderRadius: 5, border: '1px solid #16a34a', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 12 }}>선택</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : null}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {edit.current ? (
+            <button style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fff', color: '#b91c1c', cursor: 'pointer' }} onClick={onClear}>매칭 해제</button>
+          ) : null}
+          <button style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }} onClick={onClose}>닫기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 전산 일괄수정 모달 (모듈 스코프 — C-6 포커스/리마운트 함정 방지) ──
 function ErpSyncModal({ sync, onApply, onClose }) {
   if (!sync?.open) return null;
@@ -1239,6 +1314,39 @@ export default function RaumPnlPage() {
     setDetail(d => ({ ...d, items: d.items.filter((_, i) => i !== idx), unsaved: true }));
   };
 
+  // ── 품목 매칭 편집 ──
+  const [matchEdit, setMatchEdit] = useState(null); // { open, name, current }
+
+  const applyMatch = async (prodKeyOrNull, prodName) => {
+    const name = matchEdit?.name;
+    if (!name) return;
+    try {
+      const r = await fetch('/api/raum/item-mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, prodKey: prodKeyOrNull }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '매칭 저장 실패');
+      // 같은 품목명 행 전부에 반영 (단가 분리 행 포함)
+      setDetail(d => ({
+        ...d,
+        items: d.items.map(it => (String(it.name).trim() === String(name).trim()
+          ? { ...it, prodKey: prodKeyOrNull, prodName: prodKeyOrNull != null ? (j.prodName || prodName) : null, erpQty: null, erpSalePrice: null }
+          : it)),
+        unsaved: true,
+      }));
+      setMatchEdit(null);
+      setMessage(prodKeyOrNull != null
+        ? `매칭 저장: ${name} → ${j.prodName || prodName} (다음 업로드부터 자동 적용)`
+        : `매칭 해제: ${name}`);
+      // 대조값 즉시 갱신
+      try { await refreshErpCompare(); } catch { /* 대조 갱신 실패는 치명 아님 — 재업로드로 갱신 가능 */ }
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   // ── 전산 일괄수정 (견적서 값 기준) ──
   const [sync, setSync] = useState(null); // { open, plan, logs, running, done, results }
 
@@ -1383,6 +1491,12 @@ export default function RaumPnlPage() {
       {error ? <div style={st.err}>{error}</div> : null}
       {message ? <div style={st.ok}>{message}</div> : null}
       <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
+      <MatchEditorModal
+        edit={matchEdit}
+        onPick={(p) => applyMatch(p.ProdKey, p.ProdName)}
+        onClear={() => applyMatch(null)}
+        onClose={() => setMatchEdit(null)}
+      />
 
       <div style={st.bar}>
         <input
@@ -1551,7 +1665,18 @@ export default function RaumPnlPage() {
                         {it.isCustom ? (
                           <input style={{ ...st.input, width: 130, textAlign: 'left' }} value={it.name}
                             onChange={e => setItem(i, { name: e.target.value })} />
-                        ) : <>{it.name}{it.prodName ? '' : ' ⚪'}</>}
+                        ) : (
+                          <>
+                            {it.name}{it.prodName ? '' : ' ⚪'}
+                            {!it.consigned ? (
+                              <button
+                                style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11, color: '#475569' }}
+                                title={`품목 매칭 ${it.prodName ? '수정' : '연결'} — 전산 품목을 검색해서 바꿉니다 (기억됨)`}
+                                onClick={() => setMatchEdit({ open: true, name: it.name, current: it.prodName || null })}
+                              >✎</button>
+                            ) : null}
+                          </>
+                        )}
                         {it.isCustom ? ' ✍' : ''}
                       </td>
                       <td style={{ ...st.td, textAlign: 'center' }}>
