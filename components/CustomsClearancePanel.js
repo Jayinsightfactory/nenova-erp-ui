@@ -33,6 +33,31 @@ const COLOMBIA_FIELDS = [
 // 필드명 → 화면표시 라벨 (이력 팝업용)
 const FIELD_LABEL = Object.fromEntries([...COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys.map((k, i) => [k, `${g.label}${i === 0 ? '(1차)' : '(2차)'}`])), ...COLOMBIA_FIELDS]);
 
+// 입고관리 GW 기준값 힌트 — 있으면 클릭 적용, 없으면 '확인 필요' 표시만(입고 자체가 없을 수 있음: 사용자 방침)
+function GwHint({ auto, current, onApply }) {
+  const a = auto == null ? null : Math.round(Number(auto) * 10) / 10;
+  const cur = current === '' || current == null ? null : Number(current);
+  if (!a) {
+    // 입고 GW 없음 — 수기값이 있을 때만 체크 배지 (미사용 국가 노이즈 방지)
+    if (cur == null || cur === 0) return null;
+    return <span style={{ fontSize: 9, color: '#b45309', fontWeight: 700, whiteSpace: 'nowrap' }} title="입고관리에 Gross weight 라인이 없어 대조 불가 — 값 직접 확인 필요">⚠ 입고GW없음·확인</span>;
+  }
+  const match = cur != null && Math.abs(cur - a) < 1;
+  return (
+    <button
+      type="button"
+      onClick={onApply}
+      title={match ? '입고관리 Gross weight와 일치' : '클릭 → 입고관리 Gross weight 값 적용'}
+      style={{
+        fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+        border: 'none', background: 'none', padding: 0,
+        color: match ? '#059669' : '#dc2626',
+      }}>
+      입고 {a.toLocaleString()}{match ? ' ✓' : ' ↵'}
+    </button>
+  );
+}
+
 function HistoryButton({ orderYear, scopeType, scopeKey }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState(null);
@@ -224,12 +249,22 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                     return (
                       <tr key={row.category} style={{ background: carried ? '#fff7ed' : '#fff' }}>
                         <td style={st.tdLabel}>{row.category}</td>
-                        {COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys).map((f) => (
-                          <td key={f} style={st.tdNum}>
-                            <input style={st.cellInput} value={countryValue(row, f)}
-                              onChange={(e) => setCountryEdit(row.category, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
-                          </td>
-                        ))}
+                        {COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys).map((f) => {
+                          const isGw = f === 'GW1' || f === 'GW2';
+                          const auto = isGw ? data.autoGw?.countries?.[row.category]?.[f] : null;
+                          return (
+                            <td key={f} style={st.tdNum}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                <input style={st.cellInput} value={countryValue(row, f)}
+                                  onChange={(e) => setCountryEdit(row.category, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
+                                {isGw && (
+                                  <GwHint auto={auto} current={countryValue(row, f)}
+                                    onApply={() => setCountryEdit(row.category, f, String(Math.round(Number(auto) * 10) / 10))} />
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
                         <td style={st.tdNum}>{fmt(row.total)}</td>
                         <td style={st.tdNum}>
                           <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
@@ -266,13 +301,21 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {COLOMBIA_FIELDS.map(([f, label]) => (
-                      <label key={f} style={st.rateField}>
-                        <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
-                        <input style={st.input} value={colValue(c, f)}
-                          onChange={(e) => setColEdit(c.orderWeek, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
-                      </label>
-                    ))}
+                    {COLOMBIA_FIELDS.map(([f, label]) => {
+                      const isGw = f === 'GW' || f === 'CW';
+                      const auto = isGw ? data.autoGw?.colombia?.[c.orderWeek]?.[f] : null;
+                      return (
+                        <label key={f} style={st.rateField}>
+                          <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
+                          <input style={st.input} value={colValue(c, f)}
+                            onChange={(e) => setColEdit(c.orderWeek, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
+                          {isGw && (
+                            <GwHint auto={auto} current={colValue(c, f)}
+                              onApply={() => setColEdit(c.orderWeek, f, String(Math.round(Number(auto) * 10) / 10))} />
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                   <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }}>
                     배분 미리보기(H): 장미 {fmt(c.allocationH['콜롬비아 장미'])} · 카네이션 {fmt(c.allocationH['콜롬비아 카네이션'])} ·
