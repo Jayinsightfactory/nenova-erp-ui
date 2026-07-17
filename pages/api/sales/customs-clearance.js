@@ -7,7 +7,7 @@ import {
   getRateConfig, saveRateConfig,
   loadCustomsWeekly, saveCustomsWeekly,
   loadColombiaWeekly, saveColombiaWeekly,
-  weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw,
+  weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
   computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
 } from '../../../lib/customsForwarding';
 
@@ -32,6 +32,7 @@ export default withAuth(async function handler(req, res) {
         weeksForMajor(prevMajor, orderYear),
         loadWarehouseGw(major, orderYear), // 입고관리 GW — 무게 기준값(없으면 화면에서 '확인 필요' 표시)
       ]);
+      const activeCategories = await activeCustomsCategories(major, orderYear); // 이 차수 입고 존재 국가만 기본 노출
 
       const [colombia, prevColombia] = await Promise.all([
         Promise.all(subWeeks.map(async (wk) => {
@@ -65,7 +66,7 @@ export default withAuth(async function handler(req, res) {
         };
       });
 
-      return res.status(200).json({ success: true, major, orderYear, rates, countries, colombia: colombiaOut, autoGw });
+      return res.status(200).json({ success: true, major, orderYear, rates, countries, colombia: colombiaOut, autoGw, activeCategories });
     }
 
     if (req.method === 'POST') {

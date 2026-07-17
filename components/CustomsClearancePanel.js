@@ -103,6 +103,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   const [colombiaEdits, setColombiaEdits] = useState({});
   const [rateEdits, setRateEdits] = useState({});
   const [showRates, setShowRates] = useState(false);
+  const [showAllCats, setShowAllCats] = useState(false);
   const [saving, setSaving] = useState('');
 
   const load = useCallback(async () => {
@@ -192,6 +193,19 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     return countrySum + colSum;
   }, [data]);
 
+  // 이 차수에 입고가 있거나 저장값이 있는 국가만 기본 노출 — 입력칸 다이어트 (나머지는 펼치기)
+  const isRelevantCountry = useCallback((row) => {
+    if ((data?.activeCategories || []).includes(row.category)) return true;
+    const fields = COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys);
+    const hasVal = (obj) => obj && fields.some((f) => n0(obj[f]) !== 0);
+    return hasVal(row.saved) || hasVal(row.carry);
+  }, [data]);
+  const visibleCountries = useMemo(() => {
+    if (!data) return [];
+    return showAllCats ? data.countries : data.countries.filter(isRelevantCountry);
+  }, [data, showAllCats, isRelevantCountry]);
+  const hiddenCatCnt = data ? data.countries.length - data.countries.filter(isRelevantCountry).length : 0;
+
   if (!week) return <div style={{ padding: 16, color: '#94a3b8', fontSize: 12 }}>차수를 먼저 조회하세요.</div>;
 
   return (
@@ -233,7 +247,19 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       {data && (
         <>
           <div style={st.panel}>
-            <div style={st.panelHead}><strong>국가별 그외통관비</strong><span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>합계(콜롬비아 4품목 포함) {fmt(totalAll)}원</span></div>
+            <div style={st.panelHead}>
+              <strong>국가별 그외통관비</strong>
+              {hiddenCatCnt > 0 && (
+                <button
+                  type="button"
+                  style={{ marginLeft: 8, fontSize: 11, border: '1px dashed #94a3b8', background: '#fff', color: '#475569', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
+                  onClick={() => setShowAllCats((v) => !v)}
+                  title="이 차수에 입고·저장값이 없는 국가는 기본 숨김">
+                  {showAllCats ? '입고 있는 국가만 보기 ▲' : `입고 없는 국가 ${hiddenCatCnt}개 펼치기 ▼`}
+                </button>
+              )}
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>합계(콜롬비아 4품목 포함) {fmt(totalAll)}원</span>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={st.table}>
                 <thead>
@@ -244,7 +270,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.countries.map((row) => {
+                  {visibleCountries.map((row) => {
                     const carried = !row.saved && row.carry;
                     return (
                       <tr key={row.category} style={{ background: carried ? '#fff7ed' : '#fff' }}>
