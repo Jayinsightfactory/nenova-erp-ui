@@ -91,6 +91,7 @@ async function handler(req, res) {
         isArrival: it.consigned ? false : (ref?.isArrival ?? false),
         erpSalePrice: ref?.erpSalePrice ?? null,
         erpQty: ref?.erpQty ?? null,
+        erpFromPrev: ref?.erpFromPrev ?? false,
         prodKey: ref?.prodKey ?? null,
         prodName: ref?.prodName ?? null,
       };

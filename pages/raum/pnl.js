@@ -73,7 +73,7 @@ function erpCompare(it, qtyByProd) {
   const erpQty = it.erpQty != null ? Number(it.erpQty) : null;
   const erpPrice = it.erpSalePrice != null ? Number(it.erpSalePrice) : null;
   if ((erpQty == null || erpQty === 0) && erpPrice == null) {
-    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 호텔 차수(전산 N-1+N-2) 라움 분배에 이 품목이 없음 — 이월 품목이거나 다음 차수 첫 주((N+1)-1)에 잘못 입력됐을 수 있음(⚖ 전산 일괄수정이 이동 후보로 잡아줌)' };
+    return { label: '이번차수 분배없음', tone: 'warn', title: '기준 창(전산 N-2·(N+1)-1)에도, 폴백(N-1, 쌓아두는 품목)에도 라움 분배가 없음 — ⚖ 전산 일괄수정이 신규 분배 후보로 잡아줌' };
   }
   const quoteQty = qtyByProd[it.prodKey] || 0;
   // 단위계수 자동 인식 — 전산은 송이, 견적은 단 기준인 품목(알스트로 등: 430송이@630 = 43단@6,300).
@@ -94,6 +94,7 @@ function erpCompare(it, qtyByProd) {
     ? null
     : Math.abs(adjPrice - price) <= Math.max(1, price * 0.02);
   const parts = [];
+  if (it.erpFromPrev) parts.push('(전차수분)'); // 창엔 없고 N-01(쌓아두는 품목)에서 찾음
   if (adjQty != null) parts.push(`수량 ${fmt(adjQty)}${qtyOk ? '✓' : `≠견적 ${fmt(quoteQty)} ✗`}`);
   if (adjPrice != null) parts.push(`단가 ${fmt1(adjPrice)}${priceOk ? '✓' : ' ✗'}`);
   const bad = qtyOk === false || priceOk === false;
@@ -139,57 +140,21 @@ function quoteUnitToUserUnit(u) {
   return '단';
 }
 
-/** 견적서 값 기준 전산 수정 계획
- *  — { moves, stockPairs, costEdits, qtyEdits, addEdits, postMoveTargets, manual, editedWeeks }
- *  호텔 N차 = 전산 N-01+N-02 (windowWeeks). moveWeek((N+1)-01)의 라움 분배는 잘못 입력된 것 —
- *  moveTarget(N-02)으로 이동(주문+분배 CANCEL→ADD, 단가 보존)하고, 이동으로 N-02 잔량이 음수가 되는
- *  품목은 재고 쌍보정(+D at N-02 / −D at moveWeek, StockHistory 재고조정 — 두 차수 합 0이라 이후 차수 불변). */
-function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [], moveWeek, moveTarget, stockAtW2 = {}, liveStock = {} } = {}) {
-  const inWindow = (r) => windowWeeks.includes(r.OrderWeek);
+/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, addEdits, manual, editedWeeks }
+ *  호텔 N차 기준 창 = 전산 N-02+(N+1)-01 (windowWeeks). 창에 분배가 없는 품목(쌓아두는 선입고 품목:
+ *  White Necklace·다미나·델피늄류)만 prevWeek(N-01) 행을 폴백으로 사용 — 수정도 그 행에 적용된다. */
+function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [], prevWeek } = {}) {
   const byProd = {};
-  const moveRows = [];
+  const prevByProd = {};
   for (const r of erpRows) {
-    if (inWindow(r)) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
-    else if (r.OrderWeek === moveWeek) moveRows.push(r);
+    if (windowWeeks.includes(r.OrderWeek)) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
+    else if (r.OrderWeek === prevWeek) (prevByProd[r.ProdKey] = prevByProd[r.ProdKey] || []).push(r);
   }
-
-  // ── 이동 계획: moveWeek 의 모든 라움 행 → moveTarget ──
+  // 이동 기능은 비활성 (사장님 최종 규칙: 창=N-02+(N+1)-01, 창 밖은 폴백 확인만)
   const moves = [];
+  const stockPairs = [];
   const movedProdKeys = new Set();
   const moveManual = [];
-  for (const r of moveRows) {
-    const u = detectRowUnit(r);
-    if (!u) {
-      moveManual.push({ name: r.ProdName, reason: `[${moveWeek}] 행의 금액기준수량(Est=${r.EstQuantity})이 환산필드와 불일치 — 이동 수동 처리 필요` });
-      continue;
-    }
-    moves.push({
-      prodKey: Number(r.ProdKey), name: r.ProdName, categoryLabel: r.CategoryLabel,
-      fromWeek: moveWeek, toWeek: moveTarget,
-      qty: u.curUserQty, unit: u.unit,
-      box: Number(r.OutQuantity || 0), cost: Number(r.Cost || 0),
-      sdetailKey: r.SdetailKey, shipmentKey: r.ShipmentKey,
-    });
-    movedProdKeys.add(Number(r.ProdKey));
-  }
-  // 재고 쌍보정 — 이동 후 N-02 잔량이 음수가 되는 만큼만(D = max(0, 이동박스합 − N-02 잔량)) 최소 주입.
-  // live(Product.Stock) 음수·AfterValue<0(R6) 이 되는 품목은 자동 보정에서 제외(수동 안내).
-  const stockPairs = [];
-  const moveBoxByProd = {};
-  for (const m of moves) moveBoxByProd[m.prodKey] = (moveBoxByProd[m.prodKey] || 0) + m.box;
-  for (const [pkStr, box] of Object.entries(moveBoxByProd)) {
-    const pk = Number(pkStr);
-    const ps = Number(stockAtW2[pk] ?? 0);
-    const D = round2(Math.max(0, box - Math.max(0, ps)));
-    if (D <= 0) continue;
-    const live = Number(liveStock[pk] ?? 0);
-    const name = moves.find(m => m.prodKey === pk)?.name || String(pk);
-    if (live < 0) {
-      moveManual.push({ name, reason: `재고 쌍보정 필요량 ${fmt(D)}박스인데 현재고(live)가 음수(${fmt(live)}) — R6 위반 방지 위해 자동 보정 제외, 재고관리에서 확인 필요` });
-      continue;
-    }
-    stockPairs.push({ prodKey: pk, name, delta: D, live, plusWeek: moveTarget, minusWeek: moveWeek });
-  }
   const groups = {}; // prodKey → { name, unit, qtySum, prices:Set, price(첫 행) }
   const manual = [];
   for (const it of items) {
@@ -208,18 +173,10 @@ function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [], moveWeek,
   const addEdits = [];
   const postMoveTargets = [];
   for (const [pk, g] of Object.entries(groups)) {
-    // 이동 대상 품목은 이동이 끝나야 창 안 수량이 확정됨 — 이동 후 재조회해서 견적 기준으로 정렬
-    if (movedProdKeys.has(Number(pk))) {
-      postMoveTargets.push({
-        prodKey: Number(pk), name: g.name,
-        targetQty: g.qtySum,
-        targetPrice: g.prices.size === 1 ? g.price : null, // 다단가 견적 품목은 단가 정렬 생략
-      });
-      continue;
-    }
-    const rows = byProd[pk] || [];
+    // 창 우선, 없으면 N-01 폴백(쌓아두는 품목) — 수정도 폴백 행에 그대로 적용
+    const rows = (byProd[pk] && byProd[pk].length) ? byProd[pk] : (prevByProd[pk] || []);
     if (!rows.length) {
-      // 어느 세부차수에도 분배가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
+      // 창에도 N-01에도 분배가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
       addEdits.push({
         prodKey: Number(pk), name: g.name,
         qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
@@ -282,7 +239,7 @@ function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [], moveWeek,
   }
   manual.push(...moveManual);
   const editedWeeks = [...new Set([...costEdits, ...qtyEdits].map(e => e.orderWeek))];
-  return { moves, stockPairs, postMoveTargets, costEdits, qtyEdits, addEdits, manual, editedWeeks, moveWeek, moveTarget, windowWeeks };
+  return { moves, stockPairs, postMoveTargets, costEdits, qtyEdits, addEdits, manual, editedWeeks, windowWeeks, prevWeek };
 }
 
 async function postJson(url, body) {
@@ -1355,12 +1312,13 @@ export default function RaumPnlPage() {
     const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
-    // 대조(erpQty)는 호텔 창 안의 행만 — 인접 세부차수 행은 이중분배 방지 판단용으로만 쓴다
+    // 대조(erpQty): 창(N-02·(N+1)-01) 우선, 창에 없는 품목만 N-01 폴백(쌓아두는 품목)
     const windowWeeks = j.weeks || [];
-    const byProd = {};
+    const winAgg = {};
+    const prevAgg = {};
     for (const row of j.rows) {
-      if (!windowWeeks.includes(row.OrderWeek)) continue;
-      const a = byProd[row.ProdKey] = byProd[row.ProdKey] || { est: 0, amt: 0 };
+      const target = windowWeeks.includes(row.OrderWeek) ? winAgg : prevAgg;
+      const a = target[row.ProdKey] = target[row.ProdKey] || { est: 0, amt: 0 };
       a.est += Number(row.EstQuantity || 0);
       a.amt += Number(row.Amount || 0);
     }
@@ -1368,19 +1326,20 @@ export default function RaumPnlPage() {
       ...d,
       items: d.items.map(it => {
         if (it.prodKey == null) return it;
-        const a = byProd[it.prodKey];
+        const a = winAgg[it.prodKey] || prevAgg[it.prodKey];
+        const fromPrev = !winAgg[it.prodKey] && !!prevAgg[it.prodKey];
         return {
           ...it,
           erpQty: a ? a.est : null,
           erpSalePrice: a && a.est > 0 ? Math.round((a.amt / a.est) * 10) / 10 : null,
+          erpFromPrev: fromPrev,
         };
       }),
       unsaved: true,
     }));
     return {
       rows: j.rows, custKey: j.custKey, windowWeeks,
-      moveWeek: j.moveWeek, moveTarget: j.moveTarget,
-      stockAtW2: j.stockAtW2 || {}, liveStock: j.liveStock || {},
+      prevWeek: j.prevWeek,
     };
   };
 
@@ -1389,12 +1348,9 @@ export default function RaumPnlPage() {
     try {
       const ctx = await refreshErpCompare();
       const plan = buildErpSyncPlan(detail.items, ctx.rows, {
-        addWeek: ctx.moveTarget, // 신규 분배도 호텔 창의 마지막 주(N-02)에 생성
+        addWeek: ctx.windowWeeks[ctx.windowWeeks.length - 1], // 신규 분배는 창의 마지막 주((N+1)-01)에 생성
         windowWeeks: ctx.windowWeeks,
-        moveWeek: ctx.moveWeek,
-        moveTarget: ctx.moveTarget,
-        stockAtW2: ctx.stockAtW2,
-        liveStock: ctx.liveStock,
+        prevWeek: ctx.prevWeek,
       });
       setSync({ open: true, plan, custKey: ctx.custKey, logs: [], running: false, done: false, results: null });
     } catch (e) {
@@ -1650,7 +1606,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
-                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 호텔 N차 = 전산 N-1차 + N-2차 분배 합. (N+1)-1차에 잘못 입력된 분배는 ⚖ 전산 일괄수정이 이동 후보로 잡습니다. 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
+                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
                 </tr>
               </thead>
               <tbody>
