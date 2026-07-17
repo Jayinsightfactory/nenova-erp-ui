@@ -3,6 +3,7 @@
 // 순익분배 기본: 네노바 80% : 미우 20% (차수별 수정 가능). 인쇄는 iframe srcdoc 방식(프로젝트 규칙).
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -111,6 +112,190 @@ const ERP_TONE = {
   warn: { color: '#92400e', background: '#fef3c7' },
   muted: { color: '#94a3b8' },
 };
+
+// ── 전산 일괄수정 (견적서 값 → 전산 분배) ─────────────────────
+// 견적서 관리와 동일한 API(update-cost/update-quantity)만 경유 — ShipmentDate 동기화(견적서 금액 정합,
+// verify:week V1~V3)와 낙관적 동시성(STALE_DATA)이 그 안에서 원자적으로 처리된다 (CONFIRMED_WEEK_EDIT C-1·C-3).
+// 확정 행은 서버가 FIXED_WEEK 로 거절 → runEditWithFixCycle(확정해제→적용→재확정, lib/fixCycleClient)로 재시도.
+
+// ERP 행의 수량 편집 단위 — update-quantity 는 '단'=BunchQuantity, '송이'=SteamQuantity, '박스'=BoxQuantity 기준.
+// EstQuantity(금액 기준 수량)와 같은 필드를 찾아 그 단위로 편집해야 금액·환산이 정확히 맞는다.
+function detectRowUnit(row) {
+  const est = Number(row.EstQuantity || 0);
+  const near = (v) => Math.abs(Number(v || 0) - est) < 0.01;
+  if (est > 0 && near(row.SteamQuantity)) return { unit: '송이', curUserQty: Number(row.SteamQuantity) };
+  if (est > 0 && near(row.BunchQuantity)) return { unit: '단', curUserQty: Number(row.BunchQuantity) };
+  if (est > 0 && near(row.BoxQuantity)) return { unit: '박스', curUserQty: Number(row.BoxQuantity) };
+  return null; // Est 가 어느 환산필드와도 안 맞음 — 수동 처리
+}
+
+const round2 = (v) => Math.round(v * 100) / 100;
+
+/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, manual, editedWeeks } */
+function buildErpSyncPlan(items, erpRows) {
+  const byProd = {};
+  for (const r of erpRows) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
+  const groups = {}; // prodKey → { name, qtySum, prices:Set, price(첫 행) }
+  for (const it of items) {
+    if (it.isCustom || it.consigned || it.prodKey == null) continue;
+    const g = groups[it.prodKey] = groups[it.prodKey] || { name: it.name, qtySum: 0, prices: new Set() };
+    g.qtySum += Number(it.qty || 0);
+    g.prices.add(Number(it.price));
+    if (g.price == null) g.price = Number(it.price);
+  }
+  const costEdits = [];
+  const qtyEdits = [];
+  const manual = [];
+  for (const [pk, g] of Object.entries(groups)) {
+    const rows = byProd[pk] || [];
+    if (!rows.length) {
+      manual.push({ name: g.name, reason: '전산에 분배 자체가 없음 — 출고분배 화면에서 추가 필요' });
+      continue;
+    }
+    const estSum = rows.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
+    const amtSum = rows.reduce((a, r) => a + Number(r.Amount || 0), 0);
+    const erpPrice = estSum > 0 ? amtSum / estSum : null;
+    // 단위계수(송이↔단) — 대조 칸과 동일 로직 (±12% 탐지)
+    let k = 1;
+    if (erpPrice > 0 && g.price > 0) {
+      for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
+        if (Math.abs(g.price - erpPrice * cand) <= g.price * 0.12) { k = cand; break; }
+      }
+    }
+    // 단가: Cost 컬럼은 VAT포함 단가(판매단위당) — 견적단가×1.1 을 전산 금액단위(송이 등)로 환산
+    if (g.prices.size > 1) {
+      manual.push({ name: g.name, reason: '견적서에 같은 품목이 서로 다른 단가로 존재(이월 분리 행) — 단가는 수동 확인' });
+    } else {
+      const targetCost = round2((g.price * 1.1) / k);
+      for (const r of rows) {
+        if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
+          costEdits.push({
+            shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey,
+            cost: targetCost, expectedOldCost: Number(r.Cost || 0),
+            prodName: g.name, orderWeek: r.OrderWeek, oldCost: Number(r.Cost || 0),
+            categoryLabel: r.CategoryLabel, prodKey: Number(pk),
+          });
+        }
+      }
+    }
+    // 수량: 품목 합계 기준. 행이 하나일 때만 자동(두 차수 분산이면 어느 주를 고칠지 모호 — 수동)
+    const targetEst = round2(g.qtySum * k);
+    if (Math.abs(estSum - targetEst) > 0.005) {
+      if (rows.length === 1) {
+        const r = rows[0];
+        const u = detectRowUnit(r);
+        if (!u) {
+          manual.push({ name: g.name, reason: `전산 행의 금액기준수량(Est=${r.EstQuantity})이 환산필드와 불일치 — 수동 확인` });
+        } else {
+          qtyEdits.push({
+            sdetailKey: r.SdetailKey, shipmentKey: r.ShipmentKey,
+            quantity: targetEst, unit: u.unit, expectedOldQuantity: u.curUserQty,
+            prodName: g.name, orderWeek: r.OrderWeek, oldQty: u.curUserQty,
+            categoryLabel: r.CategoryLabel, prodKey: Number(pk),
+          });
+        }
+      } else {
+        manual.push({
+          name: g.name,
+          reason: `수량이 두 차수(${[...new Set(rows.map(r => r.OrderWeek))].join('·')})에 나뉘어 있음 (전산 ${fmt(estSum)} vs 견적 ${fmt(targetEst)}) — 어느 차수를 고칠지 수동 결정`,
+        });
+      }
+    }
+  }
+  const editedWeeks = [...new Set([...costEdits, ...qtyEdits].map(e => e.orderWeek))];
+  return { costEdits, qtyEdits, manual, editedWeeks };
+}
+
+async function postJson(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let data = null;
+  try { data = await res.json(); } catch { data = { success: false, error: `HTTP ${res.status}` }; }
+  return data;
+}
+
+/** 계획 적용 — 1차 직접 저장 → FIXED_WEEK 거절분만 확정해제→적용→재확정 사이클로 재시도 */
+async function applyErpSyncPlan(plan, log) {
+  const results = { qtyOk: 0, costOk: 0, failed: [] };
+  const rejectedQty = [];
+  let rejectedCost = [];
+  const serverFixedWeeks = new Set();
+  const serverFixedCats = new Set();
+
+  const postQty = async (e) => postJson('/api/estimate/update-quantity', {
+    sdetailKey: e.sdetailKey, shipmentKey: e.shipmentKey,
+    quantity: e.quantity, unit: e.unit, expectedOldQuantity: e.expectedOldQuantity,
+  });
+  const postCost = async (edits) => postJson('/api/estimate/update-cost', {
+    items: edits.map(e => ({ shipmentKey: e.shipmentKey, sdetailKey: e.sdetailKey, cost: e.cost, expectedOldCost: e.expectedOldCost })),
+    mode: 'once',
+  });
+
+  // 1) 수량 — 행 단위 순차 (견적서 관리와 동일 API)
+  for (const e of plan.qtyEdits) {
+    log(`수량: ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
+    const d = await postQty(e);
+    if (d.success) { results.qtyOk += 1; continue; }
+    if (d.code === 'FIXED_WEEK') {
+      rejectedQty.push(e);
+      (d.fixedWeeks || []).forEach(w => serverFixedWeeks.add(w));
+      (d.fixedCategories || []).forEach(c => serverFixedCats.add(c));
+    } else {
+      results.failed.push(`${e.prodName} 수량: ${d.error || '실패'}${d.code === 'STALE_DATA' ? ' (조회 후 변경됨 — 새로고침 후 재시도)' : ''}`);
+    }
+  }
+  // 2) 단가 — 한 트랜잭션 일괄
+  if (plan.costEdits.length) {
+    log(`단가 ${plan.costEdits.length}건 일괄 적용 …`);
+    const d = await postCost(plan.costEdits);
+    if (d.success) results.costOk = plan.costEdits.length;
+    else if (d.code === 'FIXED_WEEK') {
+      rejectedCost = plan.costEdits;
+      (d.fixedWeeks || []).forEach(w => serverFixedWeeks.add(w));
+      (d.fixedCategories || []).forEach(c => serverFixedCats.add(c));
+    } else {
+      results.failed.push(`단가 일괄: ${d.error || '실패'}`);
+    }
+  }
+
+  // 3) 확정 차수 거절분 — 사이클 (내림차순 확정해제 → 적용 → 오름차순 재확정)
+  if (rejectedQty.length || rejectedCost.length) {
+    const editedWeeks = new Set([...rejectedQty, ...rejectedCost].map(e => e.orderWeek));
+    serverFixedWeeks.forEach(w => editedWeeks.add(w));
+    // 최초 수정 차수 이후로 확정돼 있는 차수도 사이클 대상 (exe 정책 — estimateFixCycle 과 동일)
+    const minWeek = [...editedWeeks].sort()[0];
+    try {
+      const fsRes = await fetch(`/api/shipment/fix-status?fromWeek=${plan.editedWeeks[0]}&toWeek=${[...editedWeeks].sort().pop()}`);
+      const fs = await fsRes.json();
+      for (const w of fs.weeks || []) {
+        if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minWeek) editedWeeks.add(w.OrderWeek);
+      }
+    } catch { /* fix-status 조회 실패 시 편집 차수+서버 통보분만으로 진행 */ }
+    const weeks = [...editedWeeks].sort();
+    const countryFlowers = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.categoryLabel).filter(Boolean).concat([...serverFixedCats]))];
+    const stockProdKeys = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.prodKey).filter(Boolean))];
+    log(`확정 차수 감지 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클 시작 (카테고리 ${countryFlowers.length}개 범위)`);
+    await runEditWithFixCycle({
+      weeks, countryFlowers, stockProdKeys,
+      progress: (m) => log(m),
+      apply: async () => {
+        for (const e of rejectedQty) {
+          log(`수량(사이클): ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
+          const d = await postQty(e);
+          if (d.success) results.qtyOk += 1;
+          else results.failed.push(`${e.prodName} 수량(사이클): ${d.error || '실패'}`);
+        }
+        if (rejectedCost.length) {
+          log(`단가(사이클) ${rejectedCost.length}건 일괄 …`);
+          const d = await postCost(rejectedCost);
+          if (d.success) results.costOk += rejectedCost.length;
+          else results.failed.push(`단가(사이클): ${d.error || '실패'}`);
+        }
+        return { success: true };
+      },
+    });
+  }
+  return results;
+}
 
 // ── 인쇄 (iframe srcdoc — 프로젝트 규칙: Blob+window.open 금지) ──
 function printInIframe(html) {
@@ -445,6 +630,95 @@ function BranchComparePanel({ items, sheets, branches }) {
   );
 }
 
+// ── 전산 일괄수정 모달 (모듈 스코프 — C-6 포커스/리마운트 함정 방지) ──
+function ErpSyncModal({ sync, onApply, onClose }) {
+  if (!sync?.open) return null;
+  const { plan, logs, running, done, results } = sync;
+  const cellTd = { border: '1px solid #e2e8f0', padding: '3px 8px', whiteSpace: 'nowrap', fontSize: 12 };
+  const numTd = { ...cellTd, textAlign: 'right' };
+  const total = plan.costEdits.length + plan.qtyEdits.length;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 10, padding: '18px 22px', width: 'min(880px, 94vw)', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>⚖ 전산 분배를 견적서 값으로 일괄수정</div>
+        <div style={{ fontSize: 12.5, color: '#475569', marginBottom: 12 }}>
+          견적서 관리와 동일한 수정 API를 사용합니다 — 견적서 금액(ShipmentDate)·환산수량이 함께 갱신되고,
+          확정된 차수는 자동으로 <b>확정해제 → 적용 → 재확정</b> 사이클을 탑니다 (수 분 소요될 수 있음).
+          적용 후 전산 견적서 화면에서 금액을 한 번 확인하세요.
+        </div>
+
+        {plan.qtyEdits.length ? (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 13, margin: '8px 0 4px' }}>수량 변경 {plan.qtyEdits.length}건</div>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead><tr>{['품목', '차수', '전산 현재', '→ 견적 기준'].map(h => <th key={h} style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }}>{h}</th>)}</tr></thead>
+              <tbody>{plan.qtyEdits.map(e => (
+                <tr key={`q${e.sdetailKey}`}>
+                  <td style={cellTd}>{e.prodName}</td>
+                  <td style={{ ...cellTd, textAlign: 'center' }}>{e.orderWeek}</td>
+                  <td style={numTd}>{fmt(e.oldQty)}{e.unit}</td>
+                  <td style={{ ...numTd, fontWeight: 700, color: '#1d4ed8' }}>{fmt(e.quantity)}{e.unit}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </>
+        ) : null}
+
+        {plan.costEdits.length ? (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 13, margin: '10px 0 4px' }}>단가 변경 {plan.costEdits.length}건 <span style={{ fontWeight: 400, color: '#64748b' }}>(VAT포함 단가 기준 = 견적단가×1.1)</span></div>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead><tr>{['품목', '차수', '전산 현재', '→ 견적 기준'].map(h => <th key={h} style={{ ...cellTd, background: '#f1f5f9', fontWeight: 700 }}>{h}</th>)}</tr></thead>
+              <tbody>{plan.costEdits.map(e => (
+                <tr key={`c${e.sdetailKey}`}>
+                  <td style={cellTd}>{e.prodName}</td>
+                  <td style={{ ...cellTd, textAlign: 'center' }}>{e.orderWeek}</td>
+                  <td style={numTd}>{fmt1(e.oldCost)}</td>
+                  <td style={{ ...numTd, fontWeight: 700, color: '#1d4ed8' }}>{fmt1(e.cost)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </>
+        ) : null}
+
+        {!total ? <div style={{ fontSize: 13, color: '#166534', margin: '8px 0' }}>✅ 자동으로 적용할 불일치가 없습니다.</div> : null}
+
+        {plan.manual.length ? (
+          <div style={{ background: '#fef3c7', border: '1px solid #fde047', borderRadius: 6, padding: '8px 12px', fontSize: 12, margin: '10px 0' }}>
+            <b>수동 확인 필요 {plan.manual.length}건</b> (자동수정에서 제외)
+            {plan.manual.map((m, i) => <div key={i}>· {m.name} — {m.reason}</div>)}
+          </div>
+        ) : null}
+
+        {logs.length ? (
+          <pre style={{ background: '#0f172a', color: '#e2e8f0', borderRadius: 6, padding: 10, fontSize: 11.5, maxHeight: 200, overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+            {logs.join('\n')}
+          </pre>
+        ) : null}
+
+        {done && results ? (
+          <div style={{ background: results.failed.length ? '#fee2e2' : '#dcfce7', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, margin: '8px 0' }}>
+            완료 — 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
+            {results.failed.map((f, i) => <div key={i} style={{ color: '#991b1b' }}>✗ {f}</div>)}
+            <div style={{ marginTop: 4, color: '#475569' }}>대조 칸이 새 전산값으로 갱신됐습니다. [💾 저장]을 눌러 스냅샷을 기록하세요.</div>
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {!done ? (
+            <button
+              style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dc2626', background: running ? '#fca5a5' : '#dc2626', color: '#fff', fontWeight: 700, cursor: running ? 'wait' : 'pointer' }}
+              disabled={running || !total}
+              onClick={onApply}
+            >{running ? '적용 중… (창을 닫지 마세요)' : `⚠ 전산에 적용 (${total}건)`}</button>
+          ) : null}
+          <button style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }} disabled={running} onClick={onClose}>닫기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const st = {
   page: { padding: '18px 22px', maxWidth: 1500 },
   h1: { fontSize: 20, fontWeight: 700, margin: '0 0 4px' },
@@ -645,6 +919,66 @@ export default function RaumPnlPage() {
     setDetail(d => ({ ...d, items: d.items.filter((_, i) => i !== idx), unsaved: true }));
   };
 
+  // ── 전산 일괄수정 (견적서 값 기준) ──
+  const [sync, setSync] = useState(null); // { open, plan, logs, running, done, results }
+
+  const refreshErpCompare = async () => {
+    // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신
+    const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}`);
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
+    const byProd = {};
+    for (const row of j.rows) {
+      const a = byProd[row.ProdKey] = byProd[row.ProdKey] || { est: 0, amt: 0 };
+      a.est += Number(row.EstQuantity || 0);
+      a.amt += Number(row.Amount || 0);
+    }
+    setDetail(d => ({
+      ...d,
+      items: d.items.map(it => {
+        if (it.prodKey == null) return it;
+        const a = byProd[it.prodKey];
+        return {
+          ...it,
+          erpQty: a ? a.est : null,
+          erpSalePrice: a && a.est > 0 ? Math.round((a.amt / a.est) * 10) / 10 : null,
+        };
+      }),
+      unsaved: true,
+    }));
+    return j.rows;
+  };
+
+  const openErpSync = async () => {
+    setError('');
+    try {
+      const rows = await refreshErpCompare();
+      const plan = buildErpSyncPlan(detail.items, rows);
+      setSync({ open: true, plan, logs: [], running: false, done: false, results: null });
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const applyErpSync = async () => {
+    if (!sync?.plan) return;
+    const total = sync.plan.costEdits.length + sync.plan.qtyEdits.length;
+    if (!window.confirm(
+      `전산 분배 ${total}건(수량 ${sync.plan.qtyEdits.length} · 단가 ${sync.plan.costEdits.length})을 견적서 값으로 수정합니다.\n` +
+      `확정된 차수는 자동으로 확정해제→적용→재확정됩니다.\n계속할까요?`
+    )) return;
+    setSync(s => ({ ...s, running: true, logs: [] }));
+    const log = (m) => setSync(s => (s ? { ...s, logs: [...s.logs, m] } : s));
+    try {
+      const results = await applyErpSyncPlan(sync.plan, log);
+      log('전산값 재조회 중…');
+      await refreshErpCompare();
+      setSync(s => ({ ...s, running: false, done: true, results }));
+    } catch (e) {
+      setSync(s => ({ ...s, running: false, done: true, results: { qtyOk: 0, costOk: 0, failed: [`중단: ${e.message}`] } }));
+    }
+  };
+
   const downloadExcel = async () => {
     setError('');
     try {
@@ -708,6 +1042,7 @@ export default function RaumPnlPage() {
 
       {error ? <div style={st.err}>{error}</div> : null}
       {message ? <div style={st.ok}>{message}</div> : null}
+      <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
 
       <div style={st.bar}>
         <input
@@ -830,6 +1165,11 @@ export default function RaumPnlPage() {
             <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
               ＋ 손실/수동 행
             </button>
+            <button
+              style={{ ...st.btn, borderColor: '#f59e0b' }}
+              onClick={openErpSync}
+              title="전산 분배 대조에서 어긋난 품목의 수량·단가를 견적서 값 기준으로 전산에 일괄 반영합니다 (견적서 관리와 동일 수정 로직·확정차수 자동 사이클). 적용 전 변경 목록을 먼저 보여줍니다."
+            >⚖ 전산 일괄수정</button>
             {detail.sheets ? (
               <span style={{ fontSize: 12, color: '#64748b' }}>
                 {detail.sheets.map(s => `${s.branch} ${s.itemCount}품목 ${fmt(s.parsedSupply)}원`).join(' · ')} → 합산 {detail.items.length}품목
