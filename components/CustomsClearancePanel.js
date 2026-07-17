@@ -104,6 +104,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   const [rateEdits, setRateEdits] = useState({});
   const [showRates, setShowRates] = useState(false);
   const [showAllCats, setShowAllCats] = useState(false);
+  const [editWeights, setEditWeights] = useState(false); // 무게는 입고 GW 자동 — 수기 교정할 때만 입력칸 노출
   const [saving, setSaving] = useState('');
 
   const load = useCallback(async () => {
@@ -249,6 +250,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
           <div style={st.panel}>
             <div style={st.panelHead}>
               <strong>국가별 그외통관비</strong>
+              <button
+                type="button"
+                style={{ marginLeft: 8, fontSize: 11, border: editWeights ? '1px solid #b45309' : '1px dashed #94a3b8', background: editWeights ? '#fff7ed' : '#fff', color: editWeights ? '#b45309' : '#475569', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
+                onClick={() => setEditWeights((v) => !v)}
+                title="무게(GW/CW)는 입고관리 Gross weight 자동값이 기준 — 교정이 필요할 때만 입력칸을 엽니다">
+                {editWeights ? '무게 교정 닫기 \u25b2' : '\u2696 무게 수기교정'}
+              </button>
               {hiddenCatCnt > 0 && (
                 <button
                   type="button"
@@ -278,13 +286,31 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                         {COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys).map((f) => {
                           const isGw = f === 'GW1' || f === 'GW2';
                           const auto = isGw ? data.autoGw?.countries?.[row.category]?.[f] : null;
+                          const cur = countryValue(row, f);
+                          // 무게(GW)는 입고 자동이 기준 — 기본 화면에선 값 표시만, 값이 아예 없으면 입력칸(⚠)
+                          if (isGw && !editWeights) {
+                            const manualVal = n0(cur);
+                            const autoVal = n0(auto);
+                            const eff = manualVal > 0 ? manualVal : autoVal;
+                            if (eff > 0) {
+                              return (
+                                <td key={f} style={st.tdNum}>
+                                  <span
+                                    title={manualVal > 0 ? '수기 저장값 (입고 자동보다 우선)' : '입고관리 Gross weight 자동값 — 교정은 [무게 수기교정]'}
+                                    style={{ fontSize: 11.5, fontWeight: 700, color: manualVal > 0 ? '#b45309' : '#059669' }}>
+                                    {Math.round(eff * 10) / 10}{manualVal > 0 ? '\u270e' : ''}
+                                  </span>
+                                </td>
+                              );
+                            }
+                          }
                           return (
                             <td key={f} style={st.tdNum}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                <input style={st.cellInput} value={countryValue(row, f)}
+                                <input style={st.cellInput} value={cur}
                                   onChange={(e) => setCountryEdit(row.category, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
                                 {isGw && (
-                                  <GwHint auto={auto} current={countryValue(row, f)}
+                                  <GwHint auto={auto} current={cur}
                                     onApply={() => setCountryEdit(row.category, f, String(Math.round(Number(auto) * 10) / 10))} />
                                 )}
                               </div>
@@ -330,13 +356,31 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                     {COLOMBIA_FIELDS.map(([f, label]) => {
                       const isGw = f === 'GW' || f === 'CW';
                       const auto = isGw ? data.autoGw?.colombia?.[c.orderWeek]?.[f] : null;
+                      const cur = colValue(c, f);
+                      if (isGw && !editWeights) {
+                        const manualVal = n0(cur);
+                        const autoVal = n0(auto);
+                        const eff = manualVal > 0 ? manualVal : autoVal;
+                        if (eff > 0) {
+                          return (
+                            <label key={f} style={st.rateField}>
+                              <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
+                              <span
+                                title={manualVal > 0 ? '수기 저장값 (입고 자동보다 우선)' : '입고관리 자동값 — 교정은 [무게 수기교정]'}
+                                style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: manualVal > 0 ? '#b45309' : '#059669' }}>
+                                {Math.round(eff * 10) / 10}{manualVal > 0 ? ' \u270e' : ' (자동)'}
+                              </span>
+                            </label>
+                          );
+                        }
+                      }
                       return (
                         <label key={f} style={st.rateField}>
-                          <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
-                          <input style={st.input} value={colValue(c, f)}
+                          <span style={{ fontSize: 10, color: '#64748b' }}>{label}{isGw ? ' \u26a0직접확인' : ''}</span>
+                          <input style={st.input} value={cur}
                             onChange={(e) => setColEdit(c.orderWeek, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
                           {isGw && (
-                            <GwHint auto={auto} current={colValue(c, f)}
+                            <GwHint auto={auto} current={cur}
                               onApply={() => setColEdit(c.orderWeek, f, String(Math.round(Number(auto) * 10) / 10))} />
                           )}
                         </label>
