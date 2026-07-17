@@ -72,7 +72,7 @@ function erpCompare(it, qtyByProd) {
   const erpQty = it.erpQty != null ? Number(it.erpQty) : null;
   const erpPrice = it.erpSalePrice != null ? Number(it.erpSalePrice) : null;
   if ((erpQty == null || erpQty === 0) && erpPrice == null) {
-    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 차수 라움 분배에 이 품목이 없음 — 이월 품목이면 정상' };
+    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 호텔 차수(전산 N-2·(N+1)-1) 라움 분배에 이 품목이 없음 — 이월 품목이거나 다음 세부차수 분배가 아직 입력 전이면 정상' };
   }
   const quoteQty = qtyByProd[it.prodKey] || 0;
   // 단위계수 자동 인식 — 전산은 송이, 견적은 단 기준인 품목(알스트로 등: 430송이@630 = 43단@6,300).
@@ -856,7 +856,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
-                  <th style={st.th} title="전산에 라움으로 분배된 수량·단가와 견적서 비교 — 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
+                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 호텔 N차 = 전산 N-2차 + (N+1)-1차 분배 합 (호텔 입고가 익주 월~금이라 회사 차수와 한 주 걸침). 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
                 </tr>
               </thead>
               <tbody>
