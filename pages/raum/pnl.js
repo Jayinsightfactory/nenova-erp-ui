@@ -139,10 +139,16 @@ function quoteUnitToUserUnit(u) {
   return '단';
 }
 
-/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, addEdits, manual, editedWeeks } */
-function buildErpSyncPlan(items, erpRows, { addWeek } = {}) {
+/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, addEdits, info, manual, editedWeeks }
+ *  windowWeeks 안의 행만 수정 대상. 인접 세부차수(neighbor) 행이 있으면 이중분배 방지를 위해 ADD 금지. */
+function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [] } = {}) {
+  const inWindow = (r) => windowWeeks.includes(r.OrderWeek);
   const byProd = {};
-  for (const r of erpRows) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
+  const byProdNeighbor = {};
+  for (const r of erpRows) {
+    if (inWindow(r)) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
+    else (byProdNeighbor[r.ProdKey] = byProdNeighbor[r.ProdKey] || []).push(r);
+  }
   const groups = {}; // prodKey → { name, unit, qtySum, prices:Set, price(첫 행) }
   const manual = [];
   for (const it of items) {
@@ -159,15 +165,39 @@ function buildErpSyncPlan(items, erpRows, { addWeek } = {}) {
   const costEdits = [];
   const qtyEdits = [];
   const addEdits = [];
+  const info = [];
   for (const [pk, g] of Object.entries(groups)) {
     const rows = byProd[pk] || [];
     if (!rows.length) {
-      // 분배 자체가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
-      addEdits.push({
-        prodKey: Number(pk), name: g.name,
-        qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
-        week: addWeek, price: g.price,
-      });
+      const nb = byProdNeighbor[pk] || [];
+      if (nb.length) {
+        // 인접 세부차수에 분배 존재 — 창 밖이지만 실물은 분배된 것. ADD 하면 이중분배 → 자동수정 금지.
+        const nbEst = nb.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
+        const nbAmt = nb.reduce((a, r) => a + Number(r.Amount || 0), 0);
+        const nbPrice = nbEst > 0 ? nbAmt / nbEst : null;
+        let k = 1;
+        if (nbPrice > 0 && g.price > 0) {
+          for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
+            if (Math.abs(g.price - nbPrice * cand) <= g.price * 0.12) { k = cand; break; }
+          }
+        }
+        const nbQtyAdj = round2(nbEst / k);
+        const weeksTxt = [...new Set(nb.map(r => r.OrderWeek))].join('·');
+        const qtyOk = Math.abs(nbQtyAdj - g.qtySum) < 0.01;
+        const priceOk = nbPrice == null || Math.abs(nbPrice * k - g.price) <= Math.max(1, g.price * 0.02);
+        if (qtyOk && priceOk) {
+          info.push({ name: g.name, note: `인접 세부차수(${weeksTxt})에 동일하게 분배돼 있음 (${fmt(nbQtyAdj)} · ${fmt1(nbPrice * k)}원) — 세부차수 라벨만 다름, 조치 불필요` });
+        } else {
+          manual.push({ name: g.name, reason: `호텔 창(${windowWeeks.join('·')}) 밖 인접차수(${weeksTxt})에 분배 ${fmt(nbQtyAdj)}${priceOk ? '' : ` · 단가 ${fmt1(nbPrice * k)}`} vs 견적 ${fmt(g.qtySum)} · ${fmt1(g.price)} — 이중분배 위험이 있어 자동수정 제외, 세부차수·수량 확인 필요` });
+        }
+      } else {
+        // 어느 세부차수에도 분배가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
+        addEdits.push({
+          prodKey: Number(pk), name: g.name,
+          qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
+          week: addWeek, price: g.price,
+        });
+      }
       continue;
     }
     const estSum = rows.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
@@ -213,15 +243,18 @@ function buildErpSyncPlan(items, erpRows, { addWeek } = {}) {
           });
         }
       } else {
+        const perWeek = {};
+        for (const r of rows) perWeek[r.OrderWeek] = (perWeek[r.OrderWeek] || 0) + Number(r.EstQuantity || 0);
+        const breakdown = Object.entries(perWeek).map(([w, q]) => `${w}: ${fmt(q)}`).join(' / ');
         manual.push({
           name: g.name,
-          reason: `수량이 두 차수(${[...new Set(rows.map(r => r.OrderWeek))].join('·')})에 나뉘어 있음 (전산 ${fmt(estSum)} vs 견적 ${fmt(targetEst)}) — 어느 차수를 고칠지 수동 결정`,
+          reason: `수량이 두 차수에 나뉘어 있음 (${breakdown} — 합 ${fmt(estSum)} vs 견적 ${fmt(targetEst)}) — 어느 차수를 고칠지 수동 결정`,
         });
       }
     }
   }
   const editedWeeks = [...new Set([...costEdits, ...qtyEdits].map(e => e.orderWeek))];
-  return { costEdits, qtyEdits, addEdits, manual, editedWeeks };
+  return { costEdits, qtyEdits, addEdits, info, manual, editedWeeks };
 }
 
 async function postJson(url, body) {
@@ -765,6 +798,13 @@ function ErpSyncModal({ sync, onApply, onClose }) {
 
         {!total ? <div style={{ fontSize: 13, color: '#166534', margin: '8px 0' }}>✅ 자동으로 적용할 불일치가 없습니다.</div> : null}
 
+        {plan.info?.length ? (
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '8px 12px', fontSize: 12, margin: '10px 0' }}>
+            <b>ℹ 조치 불필요 {plan.info.length}건</b> — 인접 세부차수에 이미 동일하게 분배됨 (이중분배 방지를 위해 제외)
+            {plan.info.map((m, i) => <div key={i}>· {m.name} — {m.note}</div>)}
+          </div>
+        ) : null}
+
         {plan.manual.length ? (
           <div style={{ background: '#fef3c7', border: '1px solid #fde047', borderRadius: 6, padding: '8px 12px', fontSize: 12, margin: '10px 0' }}>
             <b>수동 확인 필요 {plan.manual.length}건</b> (자동수정에서 제외)
@@ -1009,8 +1049,11 @@ export default function RaumPnlPage() {
     const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
+    // 대조(erpQty)는 호텔 창 안의 행만 — 인접 세부차수 행은 이중분배 방지 판단용으로만 쓴다
+    const windowWeeks = j.weeks || [];
     const byProd = {};
     for (const row of j.rows) {
+      if (!windowWeeks.includes(row.OrderWeek)) continue;
       const a = byProd[row.ProdKey] = byProd[row.ProdKey] || { est: 0, amt: 0 };
       a.est += Number(row.EstQuantity || 0);
       a.amt += Number(row.Amount || 0);
@@ -1028,15 +1071,15 @@ export default function RaumPnlPage() {
       }),
       unsaved: true,
     }));
-    return { rows: j.rows, custKey: j.custKey };
+    return { rows: j.rows, custKey: j.custKey, windowWeeks };
   };
 
   const openErpSync = async () => {
     setError('');
     try {
-      const { rows, custKey } = await refreshErpCompare();
+      const { rows, custKey, windowWeeks } = await refreshErpCompare();
       const nextMj = String(Number(detail.meta.major) + 1).padStart(2, '0');
-      const plan = buildErpSyncPlan(detail.items, rows, { addWeek: `${nextMj}-01` });
+      const plan = buildErpSyncPlan(detail.items, rows, { addWeek: `${nextMj}-01`, windowWeeks });
       setSync({ open: true, plan, custKey, logs: [], running: false, done: false, results: null });
     } catch (e) {
       setError(e.message);

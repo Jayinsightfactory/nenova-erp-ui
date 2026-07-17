@@ -32,12 +32,17 @@ export default withAuth(async function handler(req, res) {
          JOIN Product p ON sd.ProdKey = p.ProdKey
         WHERE ISNULL(sm.isDeleted, 0) = 0
           AND c.isDeleted = 0 AND (c.CustName LIKE N'%라움%' OR c.CustName LIKE N'%트라움%')
-          AND ((sm.OrderWeek = @w1 AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
-            OR (sm.OrderWeek = @w2 AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))
+          AND (   (sm.OrderWeek IN (@n1, @w1) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
+               OR (sm.OrderWeek IN (@w2, @n2) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))
         ORDER BY sm.OrderWeek, p.ProdName, sd.SdetailKey`,
       {
+        // 호텔 창 = N-02·(N+1)-01. 인접 세부차수(N-01·(N+1)-02)도 함께 조회 —
+        // 전산 입력이 인접 차수에 들어간 품목(White Necklace 28-01 등)을 "분배없음"으로 오판해
+        // 이중 분배(ADD)하는 사고 방지 (2026-07-17 사장님 지적).
+        n1: { type: sql.NVarChar, value: `${mj}-01` },
         w1: { type: sql.NVarChar, value: `${mj}-02` },
         w2: { type: sql.NVarChar, value: `${nextMj}-01` },
+        n2: { type: sql.NVarChar, value: `${nextMj}-02` },
         yw1: { type: sql.NVarChar, value: `${orderYear}${mj}%` },
         yw2: { type: sql.NVarChar, value: `${orderYear}${nextMj}%` },
       }
@@ -51,7 +56,8 @@ export default withAuth(async function handler(req, res) {
     );
     return res.status(200).json({
       success: true,
-      weeks: [`${mj}-02`, `${nextMj}-01`],
+      weeks: [`${mj}-02`, `${nextMj}-01`],            // 호텔 창 (대조·수정 기준)
+      neighborWeeks: [`${mj}-01`, `${nextMj}-02`],    // 인접 세부차수 (이중분배 방지 참조용)
       custKey: cust.recordset[0]?.CustKey ?? null,
       rows: r.recordset || [],
     });
