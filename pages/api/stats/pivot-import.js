@@ -110,9 +110,9 @@ function farmPayName(dbFarm) {
   return _payNames[String(dbFarm || '').trim()] || String(dbFarm || '').trim();
 }
 
-// 포워더(운송료 시트 대상): FreightWise 계열 + EXCEL(=Excel Transport International, 중국 운송)
-const FORWARDER_RE = /^(freightwise|excel$)/i;
-const isForwarder = (farm) => /^freightwise/i.test(String(farm)) || String(farm).trim().toUpperCase() === 'EXCEL';
+// 포워더(운송료 시트 대상): FreightWise 계열 + EXCEL(=Excel Transport International, 중국 운송) + Apollo
+const FORWARDER_RE = /^(freightwise|excel$|apollo$)/i;
+const isForwarder = (farm) => FORWARDER_RE.test(String(farm).trim());
 
 // 일자 = 차수 기준수요일 + 5일(차주 월요일) — 결제파일 실측: 22차→06/01, 23차→06/08 …
 function weekPayDate(year, week) {
