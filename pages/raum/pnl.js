@@ -509,19 +509,23 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     const countryFlowers = [...new Set(all.map(e => e.categoryLabel).filter(Boolean))];
     const stockProdKeys = [...new Set(all.map(e => e.prodKey).filter(Boolean).concat((plan.postMoveTargets || []).map(t => t.prodKey)))];
     log(`차수 이동 포함 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클로 실행`);
-    await runEditWithFixCycle({
-      weeks, countryFlowers, stockProdKeys,
-      progress: (m) => log(m),
-      apply: async () => {
-        await doMoves();
-        await doStockPairs();
-        await doAdds();
-        await doQtyList(plan.qtyEdits, true);
-        await doCostBatch(plan.costEdits, true);
-        await doPostMoveAlign();
-        return { success: true };
-      },
-    });
+    try {
+      await runEditWithFixCycle({
+        weeks, countryFlowers, stockProdKeys,
+        progress: (m) => log(m),
+        apply: async () => {
+          await doMoves();
+          await doStockPairs();
+          await doAdds();
+          await doQtyList(plan.qtyEdits, true);
+          await doCostBatch(plan.costEdits, true);
+          await doPostMoveAlign();
+          return { success: true };
+        },
+      });
+    } catch (e) {
+      results.failed.push(`확정 사이클 미완: ${e.message} — 수정 반영 여부는 아래 ✔ 적용 로그·검증 결과 기준. 미확정 카테고리는 [차수 확정 현황]에서 재확정하세요.`);
+    }
     return results;
   }
 
@@ -551,15 +555,21 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     const countryFlowers = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.categoryLabel).filter(Boolean).concat(serverCats))];
     const stockProdKeys = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.prodKey).filter(Boolean))];
     log(`확정 차수 감지 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클 시작 (카테고리 ${countryFlowers.length}개 범위)`);
-    await runEditWithFixCycle({
-      weeks, countryFlowers, stockProdKeys,
-      progress: (m) => log(m),
-      apply: async () => {
-        await doQtyList(rejectedQty, true);
-        await doCostBatch(rejectedCost, true);
-        return { success: true };
-      },
-    });
+    try {
+      await runEditWithFixCycle({
+        weeks, countryFlowers, stockProdKeys,
+        progress: (m) => log(m),
+        apply: async () => {
+          await doQtyList(rejectedQty, true);
+          await doCostBatch(rejectedCost, true);
+          return { success: true };
+        },
+      });
+    } catch (e) {
+      // 수정 자체는 apply() 에서 이미 반영됐을 수 있음 (사이클은 재확정 단계에서도 throw) —
+      // 집계를 버리지 말고 실패 사유만 남긴다. 남은 미확정은 차수 확정 현황에서 마무리.
+      results.failed.push(`확정 사이클 미완: ${e.message} — 수정 반영 여부는 아래 ✔ 적용 로그·검증 결과 기준. 미확정 카테고리는 [차수 확정 현황]에서 재확정하세요.`);
+    }
   }
   return results;
 }
@@ -1482,44 +1492,46 @@ export default function RaumPnlPage() {
     )) return;
     setSync(s => ({ ...s, running: true, logs: [] }));
     const log = (m) => setSync(s => (s ? { ...s, logs: [...s.logs, m] } : s));
+    // 어떤 단계가 실패해도 실제 적용 집계·✔ 로그·정합검증은 끝까지 보여준다 (부분 결과 유실 금지)
+    let results;
     try {
-      const results = await applyErpSyncPlan(sync.plan, log, {
+      results = await applyErpSyncPlan(sync.plan, log, {
         custKey: sync.custKey,
         fetchRows: async () => (await refreshErpCompare()).rows,
       });
-      log('전산값 재조회 중…');
-      await refreshErpCompare();
-      // 적용 내역을 대조 칸 옆에 초록 '✔ 적용' 으로 표시
-      if (results.applied && Object.keys(results.applied).length) {
-        setDetail(d => ({
-          ...d,
-          items: d.items.map(it => (it.prodKey != null && results.applied[it.prodKey]
-            ? { ...it, appliedNote: results.applied[it.prodKey].join(' · ') }
-            : it)),
-        }));
-      }
-      // 적용 직후 자동 정합검증 (verify:week V1~V3 를 라움 창 범위로) — 견적서 금액이 어긋나면 즉시 드러남
-      log('정합검증(V1~V3) 실행 중 — 견적단가·견적금액·출고수량 일치 확인…');
-      try {
-        const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}`).then(r => r.json());
-        if (vr.success) {
-          results.verify = vr;
-          if (vr.violations.length) {
-            log(`⚠ 정합검증 위반 ${vr.violations.length}건 발견:`);
-            vr.violations.forEach(v => log(`  ✗ [${v.check}] ${v.msg}`));
-          } else {
-            log('정합검증(V1~V3) 위반 0건 ✅ — 견적서 금액·수량 정합 확인됨');
-          }
-        } else {
-          log(`정합검증 실패: ${vr.error || '?'} — 전산 견적서 화면에서 직접 확인하세요`);
-        }
-      } catch (e) {
-        log(`정합검증 실패: ${e.message} — 전산 견적서 화면에서 직접 확인하세요`);
-      }
-      setSync(s => ({ ...s, running: false, done: true, results }));
     } catch (e) {
-      setSync(s => ({ ...s, running: false, done: true, results: { qtyOk: 0, costOk: 0, failed: [`중단: ${e.message}`] } }));
+      results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, applied: {}, failed: [`중단: ${e.message} — 일부 수정은 이미 반영됐을 수 있음. 아래 검증 결과와 대조 칸을 확인하세요.`] };
     }
+    log('전산값 재조회 중…');
+    try { await refreshErpCompare(); } catch (e) { log(`대조 갱신 실패: ${e.message}`); }
+    // 적용 내역을 대조 칸 옆에 초록 '✔ 적용' 으로 표시
+    if (results.applied && Object.keys(results.applied).length) {
+      setDetail(d => ({
+        ...d,
+        items: d.items.map(it => (it.prodKey != null && results.applied[it.prodKey]
+          ? { ...it, appliedNote: results.applied[it.prodKey].join(' · ') }
+          : it)),
+      }));
+    }
+    // 적용 직후 자동 정합검증 (verify:week V1~V3 를 라움 창 범위로) — 견적서 금액이 어긋나면 즉시 드러남
+    log('정합검증(V1~V3) 실행 중 — 견적단가·견적금액·출고수량 일치 확인…');
+    try {
+      const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}`).then(r => r.json());
+      if (vr.success) {
+        results.verify = vr;
+        if (vr.violations.length) {
+          log(`⚠ 정합검증 위반 ${vr.violations.length}건 발견:`);
+          vr.violations.forEach(v => log(`  ✗ [${v.check}] ${v.msg}`));
+        } else {
+          log('정합검증(V1~V3) 위반 0건 ✅ — 견적서 금액·수량 정합 확인됨');
+        }
+      } else {
+        log(`정합검증 실패: ${vr.error || '?'} — 전산 견적서 화면에서 직접 확인하세요`);
+      }
+    } catch (e) {
+      log(`정합검증 실패: ${e.message} — 전산 견적서 화면에서 직접 확인하세요`);
+    }
+    setSync(s => ({ ...s, running: false, done: true, results }));
   };
 
   const downloadExcel = async () => {
