@@ -142,6 +142,10 @@ function volumeProdLabel(row) {
     if (korean) {
       // 한글 색상명: 내부 공백 제거 (미니 그린 베이스 → 미니그린베이스, 블루, 진그린 …)
       name = korean.replace(/\s+/g, '');
+      // 한글(괄호) 뒤 라틴 접미는 품종 구분자 — 보존. '(염색연그린) AT' vs '(염색연그린) GL' 이
+      // 같은 '염색연그린'으로 합쳐져 업로드 시 한 품목으로 검증되던 문제 (ProdKey 3208/3209)
+      const suffix = (raw.match(/[가-힣)]\s*([A-Za-z]{1,4})\s*$/) || [])[1];
+      if (suffix && !/^cm$/i.test(suffix)) name += suffix.toUpperCase();
     } else {
       // 한글 없음(Ruscus 등): 괄호/슬래시/점 제거, 숫자 앞에만 한 칸 유지 (Ruscus Green→RuscusGreen, rusucus 70 유지)
       name = name.replace(/[()[\]<>\/／.]/g, ' ')
