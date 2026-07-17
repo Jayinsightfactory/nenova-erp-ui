@@ -90,6 +90,7 @@ async function handler(req, res) {
         refSource: it.consigned ? '사입(원산지 없음) — 손익 제외' : (ref?.refSource ?? null),
         isArrival: it.consigned ? false : (ref?.isArrival ?? false),
         erpSalePrice: ref?.erpSalePrice ?? null,
+        erpQty: ref?.erpQty ?? null,
         prodKey: ref?.prodKey ?? null,
         prodName: ref?.prodName ?? null,
       };

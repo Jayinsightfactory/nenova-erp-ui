@@ -54,6 +54,62 @@ function computeTotals(items, nenovaPct) {
   };
 }
 
+// ── 전산 분배 대조 — 견적서 vs 전산 라움 분배(수량·단가) ──────
+// 수량: 같은 전산품목(prodKey)의 견적 행 수량 합 vs 전산 분배수량(EstQuantity 합) — 단가 분리 행도 합쳐 비교.
+// 단가: 행 단가 vs 전산 평균 분배단가(±2% — 세부차수 단가 혼합 평균이라 오차 허용).
+function quoteQtyByProdKey(items) {
+  const m = {};
+  for (const it of items) {
+    if (it.isCustom || it.consigned || it.prodKey == null) continue;
+    m[it.prodKey] = (m[it.prodKey] || 0) + Number(it.qty || 0);
+  }
+  return m;
+}
+function erpCompare(it, qtyByProd) {
+  if (it.isCustom) return { label: '—', tone: 'muted', title: '수동 추가 행 — 전산 분배 대상 아님' };
+  if (it.consigned) return { label: '사입', tone: 'muted', title: '사입(원산지 없음) — 전산 분배 대상 아님' };
+  if (it.prodKey == null) return { label: '전산 미매칭 ⚪', tone: 'muted', title: '전산 품목과 매칭되지 않아 비교 불가' };
+  const erpQty = it.erpQty != null ? Number(it.erpQty) : null;
+  const erpPrice = it.erpSalePrice != null ? Number(it.erpSalePrice) : null;
+  if ((erpQty == null || erpQty === 0) && erpPrice == null) {
+    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 차수 라움 분배에 이 품목이 없음 — 이월 품목이면 정상' };
+  }
+  const quoteQty = qtyByProd[it.prodKey] || 0;
+  // 단위계수 자동 인식 — 전산은 송이, 견적은 단 기준인 품목(알스트로 등: 430송이@630 = 43단@6,300).
+  // 단가 비율이 깨끗한 묶음수(10·20 등)면 그 계수로 환산해 비교. 금액(수량×단가)은 단위와 무관하게 보존됨.
+  let k = 1;
+  const price = it.price != null ? Number(it.price) : null;
+  if (erpPrice > 0 && price > 0) {
+    for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
+      if (Math.abs(price - erpPrice * cand) <= price * 0.02) { k = cand; break; }
+    }
+  }
+  const adjQty = erpQty != null ? erpQty / k : null;
+  const adjPrice = erpPrice != null ? erpPrice * k : null;
+  const qtyOk = adjQty == null ? null : Math.abs(adjQty - quoteQty) < 0.01;
+  const priceOk = adjPrice == null || price == null
+    ? null
+    : Math.abs(adjPrice - price) <= Math.max(1, price * 0.02);
+  const parts = [];
+  if (adjQty != null) parts.push(`수량 ${fmt(adjQty)}${qtyOk ? '✓' : `≠견적 ${fmt(quoteQty)} ✗`}`);
+  if (adjPrice != null) parts.push(`단가 ${fmt1(adjPrice)}${priceOk ? '✓' : ' ✗'}`);
+  const bad = qtyOk === false || priceOk === false;
+  const unitNote = k > 1 ? ` · 전산 송이단위 ×${k} 환산(원값 ${fmt(erpQty)}송이@${fmt1(erpPrice)})` : '';
+  return {
+    label: parts.join(' · ') || '—',
+    tone: bad ? 'bad' : 'ok',
+    title: bad
+      ? `전산 분배와 다릅니다 — 전산: 수량 ${fmt(adjQty)} / 단가 ${fmt1(adjPrice)}, 견적: 수량 ${fmt(quoteQty)}${quoteQty !== Number(it.qty) ? `(이 행 ${fmt(it.qty)})` : ''} / 단가 ${fmt1(price)}${unitNote}`
+      : `전산 분배와 일치 (수량 ${fmt(adjQty)} / 단가 ${fmt1(adjPrice)})${quoteQty !== Number(it.qty || 0) ? ' · 수량은 같은 품목 행 합계 기준' : ''}${unitNote}`,
+  };
+}
+const ERP_TONE = {
+  ok: { color: '#166534' },
+  bad: { color: '#b91c1c', background: '#fee2e2', fontWeight: 600 },
+  warn: { color: '#92400e', background: '#fef3c7' },
+  muted: { color: '#94a3b8' },
+};
+
 // ── 인쇄 (iframe srcdoc — 프로젝트 규칙: Blob+window.open 금지) ──
 function printInIframe(html) {
   const iframe = document.createElement('iframe');
@@ -636,6 +692,7 @@ export default function RaumPnlPage() {
     () => (detail ? multiPriceNames(detail.items.filter(it => !it.isCustom)) : new Set()),
     [detail]
   );
+  const erpQtyMap = useMemo(() => (detail ? quoteQtyByProdKey(detail.items) : {}), [detail]);
 
   // ── 렌더 ──
   return (
@@ -797,6 +854,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
+                  <th style={st.th} title="전산에 라움으로 분배된 수량·단가와 견적서 비교 — 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
                 </tr>
               </thead>
               <tbody>
@@ -867,6 +925,14 @@ export default function RaumPnlPage() {
                           <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 수동 행 삭제">✕ 삭제</button>
                         ) : it.remark}
                       </td>
+                      {(() => {
+                        const cmp = erpCompare(it, erpQtyMap);
+                        return (
+                          <td style={{ ...st.td, fontSize: 11.5, whiteSpace: 'nowrap', ...ERP_TONE[cmp.tone] }} title={cmp.title}>
+                            {cmp.label}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   );
                 })}
@@ -886,7 +952,7 @@ export default function RaumPnlPage() {
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{pct(totals.rate)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.nenova)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.miu)}</td>
-                  <td style={st.td} colSpan={2}></td>
+                  <td style={st.td} colSpan={3}></td>
                 </tr>
               </tbody>
             </table>

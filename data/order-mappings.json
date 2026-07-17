@@ -2655,5 +2655,140 @@
     "counName": "중국",
     "savedAt": "2026-07-14T03:00:00.000Z",
     "auto": false
+  },
+  "알스트로메리아 레드": {
+    "prodKey": 97,
+    "prodName": "ALSTROMERIA Nadya",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "알스트로메리아 연보라": {
+    "prodKey": 59,
+    "prodName": "ALSTROMERIA Lavender ",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "알스트로메리아 피피": {
+    "prodKey": 69,
+    "prodName": "ALSTROMERIA Fifi",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "알스트로메리아 화이트": {
+    "prodKey": 53,
+    "prodName": "ALSTROMERIA Whistler",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "알스트로메리아 연핑크": {
+    "prodKey": 54,
+    "prodName": "ALSTROMERIA Dubai",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 연그린": {
+    "prodKey": 470,
+    "prodName": "CARNATION Prado Mint",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 연보라": {
+    "prodKey": 517,
+    "prodName": "CARNATION Electric Purple",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 부르트": {
+    "prodKey": 359,
+    "prodName": "CARNATION Brut",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "장미 몬디알 연핑크": {
+    "prodKey": 1255,
+    "prodName": "ROSE / Pink Mondial 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "장미 하츠": {
+    "prodKey": 1204,
+    "prodName": "ROSE / Hearts 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "장미 딥실버": {
+    "prodKey": 1239,
+    "prodName": "ROSE / Deep Silver 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "장미 만달라": {
+    "prodKey": 1251,
+    "prodName": "ROSE / Mandala 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "장미 카하라": {
+    "prodKey": 2502,
+    "prodName": "ROSE / Kahala",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "튤립 연핑크": {
+    "prodKey": 1919,
+    "prodName": "Tulip / Single Dynasty L/Pink",
+    "flowerName": "튤립",
+    "counName": "네덜란드",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "수국 피치핑크": {
+    "prodKey": 879,
+    "prodName": "Hydrangea Peach (Florentina) 피치",
+    "flowerName": "수국",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
   }
 }
