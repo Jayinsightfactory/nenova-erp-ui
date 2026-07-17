@@ -73,7 +73,7 @@ function erpCompare(it, qtyByProd) {
   const erpQty = it.erpQty != null ? Number(it.erpQty) : null;
   const erpPrice = it.erpSalePrice != null ? Number(it.erpSalePrice) : null;
   if ((erpQty == null || erpQty === 0) && erpPrice == null) {
-    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 호텔 차수(전산 N-2·(N+1)-1) 라움 분배에 이 품목이 없음 — 이월 품목이거나 다음 세부차수 분배가 아직 입력 전이면 정상' };
+    return { label: '이번차수 분배없음', tone: 'warn', title: '해당 호텔 차수(전산 N-1+N-2) 라움 분배에 이 품목이 없음 — 이월 품목이거나 다음 차수 첫 주((N+1)-1)에 잘못 입력됐을 수 있음(⚖ 전산 일괄수정이 이동 후보로 잡아줌)' };
   }
   const quoteQty = qtyByProd[it.prodKey] || 0;
   // 단위계수 자동 인식 — 전산은 송이, 견적은 단 기준인 품목(알스트로 등: 430송이@630 = 43단@6,300).
@@ -139,15 +139,56 @@ function quoteUnitToUserUnit(u) {
   return '단';
 }
 
-/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, addEdits, info, manual, editedWeeks }
- *  windowWeeks 안의 행만 수정 대상. 인접 세부차수(neighbor) 행이 있으면 이중분배 방지를 위해 ADD 금지. */
-function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [] } = {}) {
+/** 견적서 값 기준 전산 수정 계획
+ *  — { moves, stockPairs, costEdits, qtyEdits, addEdits, postMoveTargets, manual, editedWeeks }
+ *  호텔 N차 = 전산 N-01+N-02 (windowWeeks). moveWeek((N+1)-01)의 라움 분배는 잘못 입력된 것 —
+ *  moveTarget(N-02)으로 이동(주문+분배 CANCEL→ADD, 단가 보존)하고, 이동으로 N-02 잔량이 음수가 되는
+ *  품목은 재고 쌍보정(+D at N-02 / −D at moveWeek, StockHistory 재고조정 — 두 차수 합 0이라 이후 차수 불변). */
+function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [], moveWeek, moveTarget, stockAtW2 = {}, liveStock = {} } = {}) {
   const inWindow = (r) => windowWeeks.includes(r.OrderWeek);
   const byProd = {};
-  const byProdNeighbor = {};
+  const moveRows = [];
   for (const r of erpRows) {
     if (inWindow(r)) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
-    else (byProdNeighbor[r.ProdKey] = byProdNeighbor[r.ProdKey] || []).push(r);
+    else if (r.OrderWeek === moveWeek) moveRows.push(r);
+  }
+
+  // ── 이동 계획: moveWeek 의 모든 라움 행 → moveTarget ──
+  const moves = [];
+  const movedProdKeys = new Set();
+  const moveManual = [];
+  for (const r of moveRows) {
+    const u = detectRowUnit(r);
+    if (!u) {
+      moveManual.push({ name: r.ProdName, reason: `[${moveWeek}] 행의 금액기준수량(Est=${r.EstQuantity})이 환산필드와 불일치 — 이동 수동 처리 필요` });
+      continue;
+    }
+    moves.push({
+      prodKey: Number(r.ProdKey), name: r.ProdName, categoryLabel: r.CategoryLabel,
+      fromWeek: moveWeek, toWeek: moveTarget,
+      qty: u.curUserQty, unit: u.unit,
+      box: Number(r.OutQuantity || 0), cost: Number(r.Cost || 0),
+      sdetailKey: r.SdetailKey, shipmentKey: r.ShipmentKey,
+    });
+    movedProdKeys.add(Number(r.ProdKey));
+  }
+  // 재고 쌍보정 — 이동 후 N-02 잔량이 음수가 되는 만큼만(D = max(0, 이동박스합 − N-02 잔량)) 최소 주입.
+  // live(Product.Stock) 음수·AfterValue<0(R6) 이 되는 품목은 자동 보정에서 제외(수동 안내).
+  const stockPairs = [];
+  const moveBoxByProd = {};
+  for (const m of moves) moveBoxByProd[m.prodKey] = (moveBoxByProd[m.prodKey] || 0) + m.box;
+  for (const [pkStr, box] of Object.entries(moveBoxByProd)) {
+    const pk = Number(pkStr);
+    const ps = Number(stockAtW2[pk] ?? 0);
+    const D = round2(Math.max(0, box - Math.max(0, ps)));
+    if (D <= 0) continue;
+    const live = Number(liveStock[pk] ?? 0);
+    const name = moves.find(m => m.prodKey === pk)?.name || String(pk);
+    if (live < 0) {
+      moveManual.push({ name, reason: `재고 쌍보정 필요량 ${fmt(D)}박스인데 현재고(live)가 음수(${fmt(live)}) — R6 위반 방지 위해 자동 보정 제외, 재고관리에서 확인 필요` });
+      continue;
+    }
+    stockPairs.push({ prodKey: pk, name, delta: D, live, plusWeek: moveTarget, minusWeek: moveWeek });
   }
   const groups = {}; // prodKey → { name, unit, qtySum, prices:Set, price(첫 행) }
   const manual = [];
@@ -165,39 +206,25 @@ function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [] } = {}) {
   const costEdits = [];
   const qtyEdits = [];
   const addEdits = [];
-  const info = [];
+  const postMoveTargets = [];
   for (const [pk, g] of Object.entries(groups)) {
+    // 이동 대상 품목은 이동이 끝나야 창 안 수량이 확정됨 — 이동 후 재조회해서 견적 기준으로 정렬
+    if (movedProdKeys.has(Number(pk))) {
+      postMoveTargets.push({
+        prodKey: Number(pk), name: g.name,
+        targetQty: g.qtySum,
+        targetPrice: g.prices.size === 1 ? g.price : null, // 다단가 견적 품목은 단가 정렬 생략
+      });
+      continue;
+    }
     const rows = byProd[pk] || [];
     if (!rows.length) {
-      const nb = byProdNeighbor[pk] || [];
-      if (nb.length) {
-        // 인접 세부차수에 분배 존재 — 창 밖이지만 실물은 분배된 것. ADD 하면 이중분배 → 자동수정 금지.
-        const nbEst = nb.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
-        const nbAmt = nb.reduce((a, r) => a + Number(r.Amount || 0), 0);
-        const nbPrice = nbEst > 0 ? nbAmt / nbEst : null;
-        let k = 1;
-        if (nbPrice > 0 && g.price > 0) {
-          for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
-            if (Math.abs(g.price - nbPrice * cand) <= g.price * 0.12) { k = cand; break; }
-          }
-        }
-        const nbQtyAdj = round2(nbEst / k);
-        const weeksTxt = [...new Set(nb.map(r => r.OrderWeek))].join('·');
-        const qtyOk = Math.abs(nbQtyAdj - g.qtySum) < 0.01;
-        const priceOk = nbPrice == null || Math.abs(nbPrice * k - g.price) <= Math.max(1, g.price * 0.02);
-        if (qtyOk && priceOk) {
-          info.push({ name: g.name, note: `인접 세부차수(${weeksTxt})에 동일하게 분배돼 있음 (${fmt(nbQtyAdj)} · ${fmt1(nbPrice * k)}원) — 세부차수 라벨만 다름, 조치 불필요` });
-        } else {
-          manual.push({ name: g.name, reason: `호텔 창(${windowWeeks.join('·')}) 밖 인접차수(${weeksTxt})에 분배 ${fmt(nbQtyAdj)}${priceOk ? '' : ` · 단가 ${fmt1(nbPrice * k)}`} vs 견적 ${fmt(g.qtySum)} · ${fmt1(g.price)} — 이중분배 위험이 있어 자동수정 제외, 세부차수·수량 확인 필요` });
-        }
-      } else {
-        // 어느 세부차수에도 분배가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
-        addEdits.push({
-          prodKey: Number(pk), name: g.name,
-          qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
-          week: addWeek, price: g.price,
-        });
-      }
+      // 어느 세부차수에도 분배가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
+      addEdits.push({
+        prodKey: Number(pk), name: g.name,
+        qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
+        week: addWeek, price: g.price,
+      });
       continue;
     }
     const estSum = rows.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
@@ -253,8 +280,9 @@ function buildErpSyncPlan(items, erpRows, { addWeek, windowWeeks = [] } = {}) {
       }
     }
   }
+  manual.push(...moveManual);
   const editedWeeks = [...new Set([...costEdits, ...qtyEdits].map(e => e.orderWeek))];
-  return { costEdits, qtyEdits, addEdits, info, manual, editedWeeks };
+  return { moves, stockPairs, postMoveTargets, costEdits, qtyEdits, addEdits, manual, editedWeeks, moveWeek, moveTarget, windowWeeks };
 }
 
 async function postJson(url, body) {
@@ -264,58 +292,12 @@ async function postJson(url, body) {
   return data;
 }
 
-/** 계획 적용 — ①신규분배(ADD) ②수량 ③단가 직접 저장 → FIXED_WEEK 거절분만 확정해제→적용→재확정 사이클 */
+/** 계획 적용.
+ *  이동(moves)이 있으면: 전체를 확정해제→적용→재확정 사이클 안에서 실행
+ *    — ①이동(CANCEL→ADD, 단가보존) ②재고 쌍보정(+D/−D) ③신규분배 ④수량/단가 ⑤이동품목 견적정렬
+ *  이동이 없으면: 기존 direct-first (FIXED_WEEK 거절분만 사이클) */
 async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
-  const results = { addOk: 0, qtyOk: 0, costOk: 0, failed: [] };
-
-  // 0) 신규 분배 추가 — 차수피벗과 동일 API(/api/shipment/adjust ADD: 주문+출고+출고일 동시 생성)
-  if (plan.addEdits?.length) {
-    if (!custKey) {
-      results.failed.push('신규 분배: 라움 CustKey 조회 실패 — 추가 건너뜀');
-    } else {
-      const addedProdKeys = [];
-      for (const a of plan.addEdits) {
-        log(`신규 분배: ${a.name} [${a.week}] ${fmt(a.qty)}${a.unit} 추가 …`);
-        const body = { custKey, prodKey: a.prodKey, week: a.week, type: 'ADD', qty: a.qty, unit: a.unit, memo: '라움 손익 일괄수정(견적서 기준)' };
-        let d = await postJson('/api/shipment/adjust', body);
-        if (!d.success && /입고/.test(d.error || '')) {
-          log(`  입고 미등록/초과 — force 재시도`);
-          d = await postJson('/api/shipment/adjust', { ...body, force: true });
-        }
-        if (d.success) { results.addOk += 1; addedProdKeys.push(a); }
-        else results.failed.push(`${a.name} 신규분배: ${d.error || '실패'}${/확정/.test(d.error || '') ? ' — 대상 차수가 확정 상태면 차수피벗에서 확정해제 후 재시도' : ''}`);
-      }
-      // 추가된 행의 단가를 견적서 단가로 세팅 (ADD 는 기본단가로 생성됨)
-      if (addedProdKeys.length && typeof fetchRows === 'function') {
-        log('신규 분배 단가를 견적서 단가로 세팅 중 …');
-        try {
-          const freshRows = await fetchRows();
-          const extraCost = [];
-          for (const a of addedProdKeys) {
-            for (const r of freshRows.filter(x => Number(x.ProdKey) === a.prodKey && x.OrderWeek === a.week)) {
-              const est = Number(r.EstQuantity || 0);
-              const k = est > 0 && a.qty > 0 ? Math.max(1, Math.round(est / a.qty)) : 1;
-              const targetCost = round2((a.price * 1.1) / k);
-              if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
-                extraCost.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0) });
-              }
-            }
-          }
-          if (extraCost.length) {
-            const d = await postJson('/api/estimate/update-cost', { items: extraCost, mode: 'once' });
-            if (d.success) results.costOk += extraCost.length;
-            else results.failed.push(`신규분배 단가 세팅: ${d.error || '실패'}`);
-          }
-        } catch (e) {
-          results.failed.push(`신규분배 단가 세팅: ${e.message}`);
-        }
-      }
-    }
-  }
-  const rejectedQty = [];
-  let rejectedCost = [];
-  const serverFixedWeeks = new Set();
-  const serverFixedCats = new Set();
+  const results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, failed: [] };
 
   const postQty = async (e) => postJson('/api/estimate/update-quantity', {
     sdetailKey: e.sdetailKey, shipmentKey: e.shipmentKey,
@@ -326,66 +308,250 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     mode: 'once',
   });
 
-  // 1) 수량 — 행 단위 순차 (견적서 관리와 동일 API)
-  for (const e of plan.qtyEdits) {
-    log(`수량: ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
-    const d = await postQty(e);
-    if (d.success) { results.qtyOk += 1; continue; }
-    if (d.code === 'FIXED_WEEK') {
-      rejectedQty.push(e);
-      (d.fixedWeeks || []).forEach(w => serverFixedWeeks.add(w));
-      (d.fixedCategories || []).forEach(c => serverFixedCats.add(c));
-    } else {
-      results.failed.push(`${e.prodName} 수량: ${d.error || '실패'}${d.code === 'STALE_DATA' ? ' (조회 후 변경됨 — 새로고침 후 재시도)' : ''}`);
+  // ── 신규 분배 추가 — 차수피벗과 동일 API(주문+출고+출고일 동시 생성) + 견적서 단가 세팅 ──
+  const doAdds = async () => {
+    if (!plan.addEdits?.length) return;
+    if (!custKey) { results.failed.push('신규 분배: 라움 CustKey 조회 실패 — 추가 건너뜀'); return; }
+    const added = [];
+    for (const a of plan.addEdits) {
+      log(`신규 분배: ${a.name} [${a.week}] ${fmt(a.qty)}${a.unit} 추가 …`);
+      const body = { custKey, prodKey: a.prodKey, week: a.week, type: 'ADD', qty: a.qty, unit: a.unit, memo: '라움 손익 일괄수정(견적서 기준)' };
+      let d = await postJson('/api/shipment/adjust', body);
+      if (!d.success && /입고/.test(d.error || '')) {
+        log('  입고 미등록/초과 — force 재시도');
+        d = await postJson('/api/shipment/adjust', { ...body, force: true });
+      }
+      if (d.success) { results.addOk += 1; added.push(a); }
+      else results.failed.push(`${a.name} 신규분배: ${d.error || '실패'}`);
     }
-  }
-  // 2) 단가 — 한 트랜잭션 일괄
-  if (plan.costEdits.length) {
-    log(`단가 ${plan.costEdits.length}건 일괄 적용 …`);
-    const d = await postCost(plan.costEdits);
-    if (d.success) results.costOk = plan.costEdits.length;
-    else if (d.code === 'FIXED_WEEK') {
-      rejectedCost = plan.costEdits;
-      (d.fixedWeeks || []).forEach(w => serverFixedWeeks.add(w));
-      (d.fixedCategories || []).forEach(c => serverFixedCats.add(c));
-    } else {
-      results.failed.push(`단가 일괄: ${d.error || '실패'}`);
+    if (added.length && typeof fetchRows === 'function') {
+      log('신규 분배 단가를 견적서 단가로 세팅 중 …');
+      try {
+        const freshRows = await fetchRows();
+        const extraCost = [];
+        for (const a of added) {
+          for (const r of freshRows.filter(x => Number(x.ProdKey) === a.prodKey && x.OrderWeek === a.week)) {
+            const est = Number(r.EstQuantity || 0);
+            const k = est > 0 && a.qty > 0 ? Math.max(1, Math.round(est / a.qty)) : 1;
+            const targetCost = round2((a.price * 1.1) / k);
+            if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
+              extraCost.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0) });
+            }
+          }
+        }
+        if (extraCost.length) {
+          const d = await postCost(extraCost);
+          if (d.success) results.costOk += extraCost.length;
+          else results.failed.push(`신규분배 단가 세팅: ${d.error || '실패'}`);
+        }
+      } catch (e) {
+        results.failed.push(`신규분배 단가 세팅: ${e.message}`);
+      }
     }
+  };
+
+  // ── 차수 이동 — 원천 CANCEL → 목적지 ADD (주문·출고·출고일 함께 이동) ──
+  const doMoves = async () => {
+    for (const m of plan.moves || []) {
+      log(`이동: ${m.name} [${m.fromWeek} → ${m.toWeek}] ${fmt(m.qty)}${m.unit} …`);
+      const memo = `차수이동 ${m.fromWeek}→${m.toWeek} (라움 손익 일괄수정)`;
+      let d = await postJson('/api/shipment/adjust', { custKey, prodKey: m.prodKey, week: m.fromWeek, type: 'CANCEL', qty: m.qty, unit: m.unit, memo });
+      if (!d.success) { results.failed.push(`${m.name} 이동(원천취소): ${d.error || '실패'}`); continue; }
+      const addBody = { custKey, prodKey: m.prodKey, week: m.toWeek, type: 'ADD', qty: m.qty, unit: m.unit, memo };
+      d = await postJson('/api/shipment/adjust', addBody);
+      if (!d.success && /입고/.test(d.error || '')) d = await postJson('/api/shipment/adjust', { ...addBody, force: true });
+      if (!d.success) {
+        results.failed.push(`${m.name} 이동(목적지추가): ${d.error || '실패'} ⚠ 원천(${m.fromWeek})은 이미 취소됨 — 수동 복구 필요`);
+        continue;
+      }
+      results.moveOk += 1;
+    }
+    // 이동 행 단가 보존 — 목적지 새 행의 Cost 를 원천 Cost 로 (견적 정렬 대상이면 뒤에서 다시 견적단가로 덮임)
+    const movedWithCost = (plan.moves || []).filter(m => m.cost > 0);
+    if (movedWithCost.length && typeof fetchRows === 'function') {
+      try {
+        const freshRows = await fetchRows();
+        const costFix = [];
+        for (const m of movedWithCost) {
+          for (const r of freshRows.filter(x => Number(x.ProdKey) === m.prodKey && x.OrderWeek === m.toWeek)) {
+            if (Math.abs(Number(r.Cost || 0) - m.cost) > 0.5) {
+              costFix.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: m.cost, expectedOldCost: Number(r.Cost || 0) });
+            }
+          }
+        }
+        if (costFix.length) {
+          log(`이동 행 단가 보존 ${costFix.length}건 …`);
+          const d = await postCost(costFix);
+          if (!d.success) results.failed.push(`이동 단가 보존: ${d.error || '실패'}`);
+        }
+      } catch (e) {
+        results.failed.push(`이동 단가 보존: ${e.message}`);
+      }
+    }
+  };
+
+  // ── 재고 쌍보정 — +D(목적지 주) / −D(원천 주), StockHistory 재고조정 (두 차수 합 0 → 이후 차수 불변) ──
+  // adjust-batch 는 live(Product.Stock) 기준 afterStock: +D 후 원상복귀시키면 live 순변화 0, 주별 delta 만 남는다.
+  const doStockPairs = async () => {
+    for (const s of plan.stockPairs || []) {
+      log(`재고 쌍보정: ${s.name} — ${s.plusWeek} +${fmt(s.delta)}박스 / ${s.minusWeek} −${fmt(s.delta)}박스 …`);
+      const descr = `수동보정:차수잔량 (차수이동 ${plan.moveWeek}→${plan.moveTarget} 라움)`;
+      let d = await postJson('/api/stock/adjust-batch', {
+        week: s.plusWeek, force: true,
+        edits: [{ prodKey: s.prodKey, afterStock: round2(s.live + s.delta), descr }],
+      });
+      if (!d.success && !(d.results || []).some(x => x.ok)) {
+        results.failed.push(`${s.name} 재고보정(+): ${d.error || JSON.stringify(d.errors || '')}`);
+        continue;
+      }
+      d = await postJson('/api/stock/adjust-batch', {
+        week: s.minusWeek, force: true,
+        edits: [{ prodKey: s.prodKey, afterStock: round2(s.live), descr: `${descr} 상쇄` }],
+      });
+      if (!d.success && !(d.results || []).some(x => x.ok)) {
+        results.failed.push(`${s.name} 재고보정(−): ${d.error || ''} ⚠ +측만 적용됨 — 재고관리에서 ${s.minusWeek} 확인 필요`);
+        continue;
+      }
+      results.stockOk += 1;
+    }
+  };
+
+  const doQtyList = async (edits, viaCycle) => {
+    const rejected = [];
+    for (const e of edits) {
+      log(`수량${viaCycle ? '(사이클)' : ''}: ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
+      const d = await postQty(e);
+      if (d.success) { results.qtyOk += 1; continue; }
+      if (d.code === 'FIXED_WEEK' && !viaCycle) rejected.push({ e, fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [] });
+      else results.failed.push(`${e.prodName} 수량: ${d.error || '실패'}${d.code === 'STALE_DATA' ? ' (조회 후 변경됨 — 새로고침 후 재시도)' : ''}`);
+    }
+    return rejected;
+  };
+  const doCostBatch = async (edits, viaCycle) => {
+    if (!edits.length) return null;
+    log(`단가${viaCycle ? '(사이클)' : ''} ${edits.length}건 일괄 적용 …`);
+    const d = await postCost(edits);
+    if (d.success) { results.costOk += edits.length; return null; }
+    if (d.code === 'FIXED_WEEK' && !viaCycle) return { fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [] };
+    results.failed.push(`단가 일괄: ${d.error || '실패'}`);
+    return null;
+  };
+
+  // ── 이동 품목 — 이동 완료 후 창 안 행을 재조회해 견적 수량·단가로 정렬 ──
+  const doPostMoveAlign = async () => {
+    if (!plan.postMoveTargets?.length || typeof fetchRows !== 'function') return;
+    log('이동 품목을 견적 기준 수량·단가로 정렬 중 …');
+    const freshRows = await fetchRows();
+    const windowRows = freshRows.filter(r => (plan.windowWeeks || []).includes(r.OrderWeek));
+    const qtyList = [];
+    const costList = [];
+    for (const t of plan.postMoveTargets) {
+      const rows = windowRows.filter(r => Number(r.ProdKey) === t.prodKey);
+      if (!rows.length) { results.failed.push(`${t.name} 이동후정렬: 창 안 행 없음`); continue; }
+      const estSum = rows.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
+      const amtSum = rows.reduce((a, r) => a + Number(r.Amount || 0), 0);
+      const erpPrice = estSum > 0 ? amtSum / estSum : null;
+      let k = 1;
+      if (t.targetPrice > 0 && erpPrice > 0) {
+        for (const cand of [1, 5, 10, 12, 20, 25, 30, 50]) {
+          if (Math.abs(t.targetPrice - erpPrice * cand) <= t.targetPrice * 0.12) { k = cand; break; }
+        }
+      }
+      if (t.targetPrice != null) {
+        const targetCost = round2((t.targetPrice * 1.1) / k);
+        for (const r of rows) {
+          if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
+            costList.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0) });
+          }
+        }
+      }
+      const targetEst = round2(t.targetQty * k);
+      if (Math.abs(estSum - targetEst) > 0.005) {
+        // 수량 조정은 이동 목적지(N-02) 행에 — 없으면 유일 행에
+        const target = rows.find(r => r.OrderWeek === plan.moveTarget) || (rows.length === 1 ? rows[0] : null);
+        if (!target) { results.failed.push(`${t.name} 이동후정렬: 대상 행 특정 불가(두 차수 분산) — 수동 확인`); continue; }
+        const u = detectRowUnit(target);
+        if (!u) { results.failed.push(`${t.name} 이동후정렬: 환산필드 불일치 — 수동 확인`); continue; }
+        const othersEst = estSum - Number(target.EstQuantity || 0);
+        const newQty = round2(targetEst - othersEst); // 이 행이 부담할 몫
+        if (newQty < 0) { results.failed.push(`${t.name} 이동후정렬: 목표(${fmt(targetEst)})가 타 행 합(${fmt(othersEst)})보다 작음 — 수동 확인`); continue; }
+        qtyList.push({
+          sdetailKey: target.SdetailKey, shipmentKey: target.ShipmentKey,
+          quantity: newQty, unit: u.unit, expectedOldQuantity: u.curUserQty,
+          prodName: t.name, orderWeek: target.OrderWeek, oldQty: u.curUserQty,
+        });
+      }
+    }
+    await doQtyList(qtyList, true);
+    await doCostBatch(costList, true);
+  };
+
+  // ═══ 실행 ═══
+  if ((plan.moves || []).length) {
+    if (!custKey) { results.failed.push('이동: 라움 CustKey 조회 실패 — 중단'); return results; }
+    // 이동은 확정 차수(N-02)가 대상이므로 처음부터 사이클로 감싼다.
+    // 수량/단가 편집이 걸린 차수(N-01 포함)도 사이클에 넣어야 확정 행 수정이 통과한다.
+    const weekSet = new Set([plan.moveTarget, ...plan.editedWeeks]);
+    const minW = [...weekSet].sort()[0];
+    try {
+      const fs = await fetch(`/api/shipment/fix-status?fromWeek=${minW}&toWeek=${plan.moveWeek}`).then(r => r.json());
+      for (const w of fs.weeks || []) {
+        if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minW) weekSet.add(w.OrderWeek);
+      }
+    } catch { /* fix-status 실패 시 편집 차수만으로 진행 */ }
+    const weeks = [...weekSet].sort();
+    const all = [...plan.moves, ...plan.qtyEdits, ...plan.costEdits];
+    const countryFlowers = [...new Set(all.map(e => e.categoryLabel).filter(Boolean))];
+    const stockProdKeys = [...new Set(all.map(e => e.prodKey).filter(Boolean).concat((plan.postMoveTargets || []).map(t => t.prodKey)))];
+    log(`차수 이동 포함 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클로 실행`);
+    await runEditWithFixCycle({
+      weeks, countryFlowers, stockProdKeys,
+      progress: (m) => log(m),
+      apply: async () => {
+        await doMoves();
+        await doStockPairs();
+        await doAdds();
+        await doQtyList(plan.qtyEdits, true);
+        await doCostBatch(plan.costEdits, true);
+        await doPostMoveAlign();
+        return { success: true };
+      },
+    });
+    return results;
   }
 
-  // 3) 확정 차수 거절분 — 사이클 (내림차순 확정해제 → 적용 → 오름차순 재확정)
+  // ── 이동 없음 — 기존 direct-first 경로 ──
+  await doAdds();
+  const rejectedQtyInfo = await doQtyList(plan.qtyEdits, false);
+  const rejectedCostInfo = await doCostBatch(plan.costEdits, false);
+  const rejectedQty = rejectedQtyInfo.map(x => x.e);
+  const rejectedCost = rejectedCostInfo ? plan.costEdits : [];
   if (rejectedQty.length || rejectedCost.length) {
     const editedWeeks = new Set([...rejectedQty, ...rejectedCost].map(e => e.orderWeek));
-    serverFixedWeeks.forEach(w => editedWeeks.add(w));
-    // 최초 수정 차수 이후로 확정돼 있는 차수도 사이클 대상 (exe 정책 — estimateFixCycle 과 동일)
+    rejectedQtyInfo.forEach(x => x.fixedWeeks.forEach(w => editedWeeks.add(w)));
+    (rejectedCostInfo?.fixedWeeks || []).forEach(w => editedWeeks.add(w));
     const minWeek = [...editedWeeks].sort()[0];
     try {
-      const fsRes = await fetch(`/api/shipment/fix-status?fromWeek=${plan.editedWeeks[0]}&toWeek=${[...editedWeeks].sort().pop()}`);
+      const fsRes = await fetch(`/api/shipment/fix-status?fromWeek=${minWeek}&toWeek=${[...editedWeeks].sort().pop()}`);
       const fs = await fsRes.json();
       for (const w of fs.weeks || []) {
         if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minWeek) editedWeeks.add(w.OrderWeek);
       }
     } catch { /* fix-status 조회 실패 시 편집 차수+서버 통보분만으로 진행 */ }
     const weeks = [...editedWeeks].sort();
-    const countryFlowers = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.categoryLabel).filter(Boolean).concat([...serverFixedCats]))];
+    const serverCats = [
+      ...rejectedQtyInfo.flatMap(x => x.fixedCategories),
+      ...(rejectedCostInfo?.fixedCategories || []),
+    ];
+    const countryFlowers = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.categoryLabel).filter(Boolean).concat(serverCats))];
     const stockProdKeys = [...new Set([...rejectedQty, ...rejectedCost].map(e => e.prodKey).filter(Boolean))];
     log(`확정 차수 감지 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클 시작 (카테고리 ${countryFlowers.length}개 범위)`);
     await runEditWithFixCycle({
       weeks, countryFlowers, stockProdKeys,
       progress: (m) => log(m),
       apply: async () => {
-        for (const e of rejectedQty) {
-          log(`수량(사이클): ${e.prodName} [${e.orderWeek}] ${fmt(e.oldQty)}→${fmt(e.quantity)}${e.unit} …`);
-          const d = await postQty(e);
-          if (d.success) results.qtyOk += 1;
-          else results.failed.push(`${e.prodName} 수량(사이클): ${d.error || '실패'}`);
-        }
-        if (rejectedCost.length) {
-          log(`단가(사이클) ${rejectedCost.length}건 일괄 …`);
-          const d = await postCost(rejectedCost);
-          if (d.success) results.costOk += rejectedCost.length;
-          else results.failed.push(`단가(사이클): ${d.error || '실패'}`);
-        }
+        await doQtyList(rejectedQty, true);
+        await doCostBatch(rejectedCost, true);
         return { success: true };
       },
     });
@@ -732,7 +898,7 @@ function ErpSyncModal({ sync, onApply, onClose }) {
   const { plan, logs, running, done, results } = sync;
   const cellTd = { border: '1px solid #e2e8f0', padding: '3px 8px', whiteSpace: 'nowrap', fontSize: 12 };
   const numTd = { ...cellTd, textAlign: 'right' };
-  const total = plan.costEdits.length + plan.qtyEdits.length + (plan.addEdits?.length || 0);
+  const total = plan.costEdits.length + plan.qtyEdits.length + (plan.addEdits?.length || 0) + (plan.moves?.length || 0);
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 10, padding: '18px 22px', width: 'min(880px, 94vw)', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
@@ -742,6 +908,38 @@ function ErpSyncModal({ sync, onApply, onClose }) {
           확정된 차수는 자동으로 <b>확정해제 → 적용 → 재확정</b> 사이클을 탑니다 (수 분 소요될 수 있음).
           적용 후 전산 견적서 화면에서 금액을 한 번 확인하세요.
         </div>
+
+        {plan.moves?.length ? (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 13, margin: '8px 0 4px' }}>
+              🔀 차수 이동 {plan.moves.length}건 <span style={{ fontWeight: 400, color: '#64748b' }}>({plan.moveWeek}에 잘못 입력된 라움 분배 → {plan.moveTarget}로 주문·분배 이동, 단가 보존)</span>
+            </div>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead><tr>{['품목', '이동', '수량', '단가(보존)'].map(h => <th key={h} style={{ ...cellTd, background: '#fdf4ff', fontWeight: 700 }}>{h}</th>)}</tr></thead>
+              <tbody>{plan.moves.map(m => (
+                <tr key={`m${m.sdetailKey}`}>
+                  <td style={cellTd}>{m.name}</td>
+                  <td style={{ ...cellTd, textAlign: 'center' }}>{m.fromWeek} → <b>{m.toWeek}</b></td>
+                  <td style={{ ...numTd, fontWeight: 700 }}>{fmt(m.qty)}{m.unit}</td>
+                  <td style={numTd}>{fmt1(m.cost)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {plan.stockPairs?.length ? (
+              <div style={{ background: '#fdf4ff', border: '1px solid #e9d5ff', borderRadius: 6, padding: '6px 10px', fontSize: 12, margin: '6px 0' }}>
+                <b>재고 쌍보정 {plan.stockPairs.length}건</b> — 이동으로 {plan.moveTarget} 잔량이 음수가 되는 만큼만 +/− 로 보정 (두 차수 합 0, 이후 차수 영향 없음)
+                {plan.stockPairs.map((s, i) => <div key={i}>· {s.name}: {s.plusWeek} <b>+{fmt1(s.delta)}</b>박스 / {s.minusWeek} <b>−{fmt1(s.delta)}</b>박스</div>)}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#64748b', margin: '4px 0' }}>재고 쌍보정 불필요 — 이동 후에도 {plan.moveTarget} 잔량이 음수가 되지 않습니다.</div>
+            )}
+            {plan.postMoveTargets?.length ? (
+              <div style={{ fontSize: 12, color: '#64748b', margin: '4px 0' }}>
+                이동 후 견적 기준 정렬 대상: {plan.postMoveTargets.map(t => `${t.name}(수량 ${fmt(t.targetQty)}${t.targetPrice != null ? ` · 단가 ${fmt1(t.targetPrice)}` : ''})`).join(', ')}
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
         {plan.addEdits?.length ? (
           <>
@@ -820,7 +1018,7 @@ function ErpSyncModal({ sync, onApply, onClose }) {
 
         {done && results ? (
           <div style={{ background: results.failed.length ? '#fee2e2' : '#dcfce7', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, margin: '8px 0' }}>
-            완료 — 신규분배 {results.addOk || 0}건 · 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
+            완료 — 이동 {results.moveOk || 0}건 · 재고보정 {results.stockOk || 0}건 · 신규분배 {results.addOk || 0}건 · 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
             {results.failed.map((f, i) => <div key={i} style={{ color: '#991b1b' }}>✗ {f}</div>)}
             <div style={{ marginTop: 4, color: '#475569' }}>대조 칸이 새 전산값으로 갱신됐습니다. [💾 저장]을 눌러 스냅샷을 기록하세요.</div>
           </div>
@@ -1071,16 +1269,26 @@ export default function RaumPnlPage() {
       }),
       unsaved: true,
     }));
-    return { rows: j.rows, custKey: j.custKey, windowWeeks };
+    return {
+      rows: j.rows, custKey: j.custKey, windowWeeks,
+      moveWeek: j.moveWeek, moveTarget: j.moveTarget,
+      stockAtW2: j.stockAtW2 || {}, liveStock: j.liveStock || {},
+    };
   };
 
   const openErpSync = async () => {
     setError('');
     try {
-      const { rows, custKey, windowWeeks } = await refreshErpCompare();
-      const nextMj = String(Number(detail.meta.major) + 1).padStart(2, '0');
-      const plan = buildErpSyncPlan(detail.items, rows, { addWeek: `${nextMj}-01`, windowWeeks });
-      setSync({ open: true, plan, custKey, logs: [], running: false, done: false, results: null });
+      const ctx = await refreshErpCompare();
+      const plan = buildErpSyncPlan(detail.items, ctx.rows, {
+        addWeek: ctx.moveTarget, // 신규 분배도 호텔 창의 마지막 주(N-02)에 생성
+        windowWeeks: ctx.windowWeeks,
+        moveWeek: ctx.moveWeek,
+        moveTarget: ctx.moveTarget,
+        stockAtW2: ctx.stockAtW2,
+        liveStock: ctx.liveStock,
+      });
+      setSync({ open: true, plan, custKey: ctx.custKey, logs: [], running: false, done: false, results: null });
     } catch (e) {
       setError(e.message);
     }
@@ -1089,9 +1297,11 @@ export default function RaumPnlPage() {
   const applyErpSync = async () => {
     if (!sync?.plan) return;
     const addCnt = sync.plan.addEdits?.length || 0;
-    const total = sync.plan.costEdits.length + sync.plan.qtyEdits.length + addCnt;
+    const moveCnt = sync.plan.moves?.length || 0;
+    const total = sync.plan.costEdits.length + sync.plan.qtyEdits.length + addCnt + moveCnt;
     if (!window.confirm(
-      `전산 분배 ${total}건(신규추가 ${addCnt} · 수량 ${sync.plan.qtyEdits.length} · 단가 ${sync.plan.costEdits.length})을 견적서 값으로 수정합니다.\n` +
+      `전산 분배 ${total}건(차수이동 ${moveCnt} · 신규추가 ${addCnt} · 수량 ${sync.plan.qtyEdits.length} · 단가 ${sync.plan.costEdits.length})을 견적서 값으로 수정합니다.\n` +
+      (moveCnt ? `${sync.plan.moveWeek}의 라움 분배를 ${sync.plan.moveTarget}로 옮기고 필요한 만큼 재고를 쌍보정합니다.\n` : '') +
       `확정된 차수는 자동으로 확정해제→적용→재확정됩니다.\n계속할까요?`
     )) return;
     setSync(s => ({ ...s, running: true, logs: [] }));
@@ -1326,7 +1536,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
-                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 호텔 N차 = 전산 N-2차 + (N+1)-1차 분배 합 (호텔 입고가 익주 월~금이라 회사 차수와 한 주 걸침). 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
+                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 호텔 N차 = 전산 N-1차 + N-2차 분배 합. (N+1)-1차에 잘못 입력된 분배는 ⚖ 전산 일괄수정이 이동 후보로 잡습니다. 수량은 같은 품목 행 합계 기준, 단가는 ±2%">전산 분배 대조</th>
                 </tr>
               </thead>
               <tbody>

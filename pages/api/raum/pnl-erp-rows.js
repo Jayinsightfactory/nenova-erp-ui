@@ -1,6 +1,7 @@
 // pages/api/raum/pnl-erp-rows.js — 라움 손익 "전산 일괄수정"용 분배 행 조회 (읽기 전용)
-// 호텔 차수 규칙: 호텔 N차 = 전산 N-02 + (N+1)-01. 행 단위(SdetailKey)로 반환해
-// 클라이언트가 update-cost/update-quantity(견적서 관리와 동일 API)로 정확 타겟 수정한다.
+// 호텔 차수 규칙(사장님 재확정 2026-07-17 v2): 호텔 N차 = 전산 N-01 + N-02.
+// (N+1)-01 에 입력된 라움 분배는 잘못 들어간 것 — 이동 후보(moveWeek)로 함께 반환한다.
+// 재고 쌍보정 계산용으로 N-02 차수잔량(ProductStock)과 Product.Stock(live)도 품목별로 반환.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 
@@ -32,22 +33,41 @@ export default withAuth(async function handler(req, res) {
          JOIN Product p ON sd.ProdKey = p.ProdKey
         WHERE ISNULL(sm.isDeleted, 0) = 0
           AND c.isDeleted = 0 AND (c.CustName LIKE N'%라움%' OR c.CustName LIKE N'%트라움%')
-          AND (   (sm.OrderWeek IN (@n1, @w1) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
-               OR (sm.OrderWeek IN (@w2, @n2) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))
+          AND ((sm.OrderWeek IN (@w1, @w2) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
+            OR (sm.OrderWeek = @mv AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))
         ORDER BY sm.OrderWeek, p.ProdName, sd.SdetailKey`,
       {
-        // 호텔 창 = N-02·(N+1)-01. 인접 세부차수(N-01·(N+1)-02)도 함께 조회 —
-        // 전산 입력이 인접 차수에 들어간 품목(White Necklace 28-01 등)을 "분배없음"으로 오판해
-        // 이중 분배(ADD)하는 사고 방지 (2026-07-17 사장님 지적).
-        n1: { type: sql.NVarChar, value: `${mj}-01` },
-        w1: { type: sql.NVarChar, value: `${mj}-02` },
-        w2: { type: sql.NVarChar, value: `${nextMj}-01` },
-        n2: { type: sql.NVarChar, value: `${nextMj}-02` },
+        w1: { type: sql.NVarChar, value: `${mj}-01` },
+        w2: { type: sql.NVarChar, value: `${mj}-02` },
+        mv: { type: sql.NVarChar, value: `${nextMj}-01` },
         yw1: { type: sql.NVarChar, value: `${orderYear}${mj}%` },
         yw2: { type: sql.NVarChar, value: `${orderYear}${nextMj}%` },
       }
     );
-    // 신규 분배 추가(ADD)용 라움 CustKey
+    const rows = r.recordset || [];
+
+    // 이동 시 재고 쌍보정 계산용 — N-02 차수잔량 스냅샷 + live(Product.Stock)
+    const prodKeys = [...new Set(rows.map(x => Number(x.ProdKey)))];
+    let stockAtW2 = {};
+    let liveStock = {};
+    if (prodKeys.length) {
+      const params = Object.fromEntries(prodKeys.map((k, i) => [`p${i}`, { type: sql.Int, value: k }]));
+      const inList = prodKeys.map((_, i) => `@p${i}`).join(',');
+      const s = await query(
+        `SELECT ps.ProdKey, ISNULL(ps.Stock, 0) AS Stock
+           FROM ProductStock ps
+           JOIN StockMaster smk ON ps.StockKey = smk.StockKey
+          WHERE smk.OrderYear = @yr AND smk.OrderWeek = @wk AND ps.ProdKey IN (${inList})`,
+        { ...params, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: `${mj}-02` } }
+      );
+      stockAtW2 = Object.fromEntries((s.recordset || []).map(x => [Number(x.ProdKey), Number(x.Stock)]));
+      const lv = await query(
+        `SELECT ProdKey, ISNULL(Stock, 0) AS Stock FROM Product WHERE ProdKey IN (${inList})`,
+        params
+      );
+      liveStock = Object.fromEntries((lv.recordset || []).map(x => [Number(x.ProdKey), Number(x.Stock)]));
+    }
+
     const cust = await query(
       `SELECT TOP 1 CustKey FROM Customer
         WHERE isDeleted = 0 AND (CustName LIKE N'%트라움%' OR CustName LIKE N'%라움%')
@@ -56,10 +76,13 @@ export default withAuth(async function handler(req, res) {
     );
     return res.status(200).json({
       success: true,
-      weeks: [`${mj}-02`, `${nextMj}-01`],            // 호텔 창 (대조·수정 기준)
-      neighborWeeks: [`${mj}-01`, `${nextMj}-02`],    // 인접 세부차수 (이중분배 방지 참조용)
+      weeks: [`${mj}-01`, `${mj}-02`],   // 호텔 창 (대조·수정 기준)
+      moveWeek: `${nextMj}-01`,          // 잘못 입력된 분배의 이동 원천
+      moveTarget: `${mj}-02`,            // 이동 목적지
       custKey: cust.recordset[0]?.CustKey ?? null,
-      rows: r.recordset || [],
+      stockAtW2,                          // N-02 차수잔량 (이동 후 음수 예측용)
+      liveStock,                          // Product.Stock (쌍보정 AfterValue≥0 가드용)
+      rows,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
