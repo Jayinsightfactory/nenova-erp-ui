@@ -2657,12 +2657,12 @@
     "auto": false
   },
   "알스트로메리아 레드": {
-    "prodKey": 97,
-    "prodName": "ALSTROMERIA Nadya",
+    "prodKey": 67,
+    "prodName": "ALSTROMERIA Red",
     "flowerName": "알스트로",
     "counName": "콜롬비아",
     "displayName": null,
-    "savedAt": "2026-07-17T04:00:00.000Z",
+    "savedAt": "2026-07-17T05:00:00.000Z",
     "auto": false
   },
   "알스트로메리아 연보라": {
@@ -2789,6 +2789,24 @@
     "counName": "콜롬비아",
     "displayName": null,
     "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 쥬리고": {
+    "prodKey": 504,
+    "prodName": "CARNATION Zurigo",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T05:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 화이트": {
+    "prodKey": 447,
+    "prodName": "CARNATION Moon Light",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T05:00:00.000Z",
     "auto": false
   }
 }
