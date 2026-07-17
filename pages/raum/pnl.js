@@ -131,25 +131,43 @@ function detectRowUnit(row) {
 
 const round2 = (v) => Math.round(v * 100) / 100;
 
-/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, manual, editedWeeks } */
-function buildErpSyncPlan(items, erpRows) {
+// 견적서 단위 → adjust API 사용자단위 ('단'=BunchQuantity, '송이'=SteamQuantity, '박스'=BoxQuantity)
+function quoteUnitToUserUnit(u) {
+  const s = String(u || '').trim();
+  if (s === '대' || s === '스팀' || s === '송이') return '송이';
+  if (s === '박스') return '박스';
+  return '단';
+}
+
+/** 견적서 값 기준 전산 수정 계획 — { costEdits, qtyEdits, addEdits, manual, editedWeeks } */
+function buildErpSyncPlan(items, erpRows, { addWeek } = {}) {
   const byProd = {};
   for (const r of erpRows) (byProd[r.ProdKey] = byProd[r.ProdKey] || []).push(r);
-  const groups = {}; // prodKey → { name, qtySum, prices:Set, price(첫 행) }
+  const groups = {}; // prodKey → { name, unit, qtySum, prices:Set, price(첫 행) }
+  const manual = [];
   for (const it of items) {
-    if (it.isCustom || it.consigned || it.prodKey == null) continue;
-    const g = groups[it.prodKey] = groups[it.prodKey] || { name: it.name, qtySum: 0, prices: new Set() };
+    if (it.isCustom || it.consigned) continue;
+    if (it.prodKey == null) {
+      manual.push({ name: it.name, reason: '전산 품목 미매칭(⚪) — 어떤 전산 품목인지 알려주시면 매핑 등록' });
+      continue;
+    }
+    const g = groups[it.prodKey] = groups[it.prodKey] || { name: it.name, unit: it.unit, qtySum: 0, prices: new Set() };
     g.qtySum += Number(it.qty || 0);
     g.prices.add(Number(it.price));
     if (g.price == null) g.price = Number(it.price);
   }
   const costEdits = [];
   const qtyEdits = [];
-  const manual = [];
+  const addEdits = [];
   for (const [pk, g] of Object.entries(groups)) {
     const rows = byProd[pk] || [];
     if (!rows.length) {
-      manual.push({ name: g.name, reason: '전산에 분배 자체가 없음 — 출고분배 화면에서 추가 필요' });
+      // 분배 자체가 없음 → 견적 수량만큼 신규 분배(ADD, 주문+출고 동시 생성)
+      addEdits.push({
+        prodKey: Number(pk), name: g.name,
+        qty: g.qtySum, unit: quoteUnitToUserUnit(g.unit),
+        week: addWeek, price: g.price,
+      });
       continue;
     }
     const estSum = rows.reduce((a, r) => a + Number(r.EstQuantity || 0), 0);
@@ -203,7 +221,7 @@ function buildErpSyncPlan(items, erpRows) {
     }
   }
   const editedWeeks = [...new Set([...costEdits, ...qtyEdits].map(e => e.orderWeek))];
-  return { costEdits, qtyEdits, manual, editedWeeks };
+  return { costEdits, qtyEdits, addEdits, manual, editedWeeks };
 }
 
 async function postJson(url, body) {
@@ -213,9 +231,54 @@ async function postJson(url, body) {
   return data;
 }
 
-/** 계획 적용 — 1차 직접 저장 → FIXED_WEEK 거절분만 확정해제→적용→재확정 사이클로 재시도 */
-async function applyErpSyncPlan(plan, log) {
-  const results = { qtyOk: 0, costOk: 0, failed: [] };
+/** 계획 적용 — ①신규분배(ADD) ②수량 ③단가 직접 저장 → FIXED_WEEK 거절분만 확정해제→적용→재확정 사이클 */
+async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
+  const results = { addOk: 0, qtyOk: 0, costOk: 0, failed: [] };
+
+  // 0) 신규 분배 추가 — 차수피벗과 동일 API(/api/shipment/adjust ADD: 주문+출고+출고일 동시 생성)
+  if (plan.addEdits?.length) {
+    if (!custKey) {
+      results.failed.push('신규 분배: 라움 CustKey 조회 실패 — 추가 건너뜀');
+    } else {
+      const addedProdKeys = [];
+      for (const a of plan.addEdits) {
+        log(`신규 분배: ${a.name} [${a.week}] ${fmt(a.qty)}${a.unit} 추가 …`);
+        const body = { custKey, prodKey: a.prodKey, week: a.week, type: 'ADD', qty: a.qty, unit: a.unit, memo: '라움 손익 일괄수정(견적서 기준)' };
+        let d = await postJson('/api/shipment/adjust', body);
+        if (!d.success && /입고/.test(d.error || '')) {
+          log(`  입고 미등록/초과 — force 재시도`);
+          d = await postJson('/api/shipment/adjust', { ...body, force: true });
+        }
+        if (d.success) { results.addOk += 1; addedProdKeys.push(a); }
+        else results.failed.push(`${a.name} 신규분배: ${d.error || '실패'}${/확정/.test(d.error || '') ? ' — 대상 차수가 확정 상태면 차수피벗에서 확정해제 후 재시도' : ''}`);
+      }
+      // 추가된 행의 단가를 견적서 단가로 세팅 (ADD 는 기본단가로 생성됨)
+      if (addedProdKeys.length && typeof fetchRows === 'function') {
+        log('신규 분배 단가를 견적서 단가로 세팅 중 …');
+        try {
+          const freshRows = await fetchRows();
+          const extraCost = [];
+          for (const a of addedProdKeys) {
+            for (const r of freshRows.filter(x => Number(x.ProdKey) === a.prodKey && x.OrderWeek === a.week)) {
+              const est = Number(r.EstQuantity || 0);
+              const k = est > 0 && a.qty > 0 ? Math.max(1, Math.round(est / a.qty)) : 1;
+              const targetCost = round2((a.price * 1.1) / k);
+              if (Math.abs(Number(r.Cost || 0) - targetCost) > 0.5) {
+                extraCost.push({ shipmentKey: r.ShipmentKey, sdetailKey: r.SdetailKey, cost: targetCost, expectedOldCost: Number(r.Cost || 0) });
+              }
+            }
+          }
+          if (extraCost.length) {
+            const d = await postJson('/api/estimate/update-cost', { items: extraCost, mode: 'once' });
+            if (d.success) results.costOk += extraCost.length;
+            else results.failed.push(`신규분배 단가 세팅: ${d.error || '실패'}`);
+          }
+        } catch (e) {
+          results.failed.push(`신규분배 단가 세팅: ${e.message}`);
+        }
+      }
+    }
+  }
   const rejectedQty = [];
   let rejectedCost = [];
   const serverFixedWeeks = new Set();
@@ -636,7 +699,7 @@ function ErpSyncModal({ sync, onApply, onClose }) {
   const { plan, logs, running, done, results } = sync;
   const cellTd = { border: '1px solid #e2e8f0', padding: '3px 8px', whiteSpace: 'nowrap', fontSize: 12 };
   const numTd = { ...cellTd, textAlign: 'right' };
-  const total = plan.costEdits.length + plan.qtyEdits.length;
+  const total = plan.costEdits.length + plan.qtyEdits.length + (plan.addEdits?.length || 0);
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 10, padding: '18px 22px', width: 'min(880px, 94vw)', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
@@ -646,6 +709,25 @@ function ErpSyncModal({ sync, onApply, onClose }) {
           확정된 차수는 자동으로 <b>확정해제 → 적용 → 재확정</b> 사이클을 탑니다 (수 분 소요될 수 있음).
           적용 후 전산 견적서 화면에서 금액을 한 번 확인하세요.
         </div>
+
+        {plan.addEdits?.length ? (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 13, margin: '8px 0 4px' }}>
+              신규 분배 추가 {plan.addEdits.length}건 <span style={{ fontWeight: 400, color: '#64748b' }}>(전산에 분배가 없는 품목 — 주문+출고 동시 생성, 단가는 견적서 단가로 세팅)</span>
+            </div>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead><tr>{['품목', '대상 차수', '추가 수량', '단가(견적)'].map(h => <th key={h} style={{ ...cellTd, background: '#ecfdf5', fontWeight: 700 }}>{h}</th>)}</tr></thead>
+              <tbody>{plan.addEdits.map(a => (
+                <tr key={`a${a.prodKey}`}>
+                  <td style={cellTd}>{a.name}</td>
+                  <td style={{ ...cellTd, textAlign: 'center' }}>{a.week}</td>
+                  <td style={{ ...numTd, fontWeight: 700, color: '#166534' }}>+{fmt(a.qty)}{a.unit}</td>
+                  <td style={numTd}>{fmt1(a.price)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </>
+        ) : null}
 
         {plan.qtyEdits.length ? (
           <>
@@ -698,7 +780,7 @@ function ErpSyncModal({ sync, onApply, onClose }) {
 
         {done && results ? (
           <div style={{ background: results.failed.length ? '#fee2e2' : '#dcfce7', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, margin: '8px 0' }}>
-            완료 — 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
+            완료 — 신규분배 {results.addOk || 0}건 · 수량 {results.qtyOk}건 · 단가 {results.costOk}건 적용{results.failed.length ? ` · 실패 ${results.failed.length}건` : ''}
             {results.failed.map((f, i) => <div key={i} style={{ color: '#991b1b' }}>✗ {f}</div>)}
             <div style={{ marginTop: 4, color: '#475569' }}>대조 칸이 새 전산값으로 갱신됐습니다. [💾 저장]을 눌러 스냅샷을 기록하세요.</div>
           </div>
@@ -923,7 +1005,7 @@ export default function RaumPnlPage() {
   const [sync, setSync] = useState(null); // { open, plan, logs, running, done, results }
 
   const refreshErpCompare = async () => {
-    // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신
+    // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신 — { rows, custKey } 반환
     const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
@@ -946,15 +1028,16 @@ export default function RaumPnlPage() {
       }),
       unsaved: true,
     }));
-    return j.rows;
+    return { rows: j.rows, custKey: j.custKey };
   };
 
   const openErpSync = async () => {
     setError('');
     try {
-      const rows = await refreshErpCompare();
-      const plan = buildErpSyncPlan(detail.items, rows);
-      setSync({ open: true, plan, logs: [], running: false, done: false, results: null });
+      const { rows, custKey } = await refreshErpCompare();
+      const nextMj = String(Number(detail.meta.major) + 1).padStart(2, '0');
+      const plan = buildErpSyncPlan(detail.items, rows, { addWeek: `${nextMj}-01` });
+      setSync({ open: true, plan, custKey, logs: [], running: false, done: false, results: null });
     } catch (e) {
       setError(e.message);
     }
@@ -962,15 +1045,19 @@ export default function RaumPnlPage() {
 
   const applyErpSync = async () => {
     if (!sync?.plan) return;
-    const total = sync.plan.costEdits.length + sync.plan.qtyEdits.length;
+    const addCnt = sync.plan.addEdits?.length || 0;
+    const total = sync.plan.costEdits.length + sync.plan.qtyEdits.length + addCnt;
     if (!window.confirm(
-      `전산 분배 ${total}건(수량 ${sync.plan.qtyEdits.length} · 단가 ${sync.plan.costEdits.length})을 견적서 값으로 수정합니다.\n` +
+      `전산 분배 ${total}건(신규추가 ${addCnt} · 수량 ${sync.plan.qtyEdits.length} · 단가 ${sync.plan.costEdits.length})을 견적서 값으로 수정합니다.\n` +
       `확정된 차수는 자동으로 확정해제→적용→재확정됩니다.\n계속할까요?`
     )) return;
     setSync(s => ({ ...s, running: true, logs: [] }));
     const log = (m) => setSync(s => (s ? { ...s, logs: [...s.logs, m] } : s));
     try {
-      const results = await applyErpSyncPlan(sync.plan, log);
+      const results = await applyErpSyncPlan(sync.plan, log, {
+        custKey: sync.custKey,
+        fetchRows: async () => (await refreshErpCompare()).rows,
+      });
       log('전산값 재조회 중…');
       await refreshErpCompare();
       setSync(s => ({ ...s, running: false, done: true, results }));

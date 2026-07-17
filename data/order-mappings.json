@@ -2808,5 +2808,86 @@
     "displayName": null,
     "savedAt": "2026-07-17T05:00:00.000Z",
     "auto": false
+  },
+  "장미 몬디알 화이트": {
+    "prodKey": 1276,
+    "prodName": "ROSE / Mondial White 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "장미 쉬머": {
+    "prodKey": 1260,
+    "prodName": "ROSE / Shimmer 50cm",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "장미 화이트 스프레이": {
+    "prodKey": 1300,
+    "prodName": "SPRAY ROSE / Snow Flake",
+    "flowerName": "장미",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "카네이션 다미나": {
+    "prodKey": 383,
+    "prodName": "CARNATION Damina",
+    "flowerName": "카네이션",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "목걸이 덴파레(2m)": {
+    "prodKey": 3219,
+    "prodName": "White Necklace (2m- 130ea)",
+    "flowerName": "화이트붐",
+    "counName": "태국",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "안시리움 화이트": {
+    "prodKey": 181,
+    "prodName": "Anthurium Graciosa 15cm",
+    "flowerName": "안시리움",
+    "counName": "네덜란드",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "델피늄 화이트": {
+    "prodKey": 2560,
+    "prodName": "Delphinium CHINA / 화이트 White ",
+    "flowerName": "기타",
+    "counName": "중국",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "델피늄 연보라": {
+    "prodKey": 3051,
+    "prodName": "Delphinium CHINA / 연보라 Light Purple",
+    "flowerName": "기타",
+    "counName": "중국",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
+  },
+  "호접 화이트": {
+    "prodKey": 3074,
+    "prodName": "ORCHID VIETNAM / 호접란  화이트 8 (Party grade White 8) ",
+    "flowerName": "호접난 Orchid",
+    "counName": "베트남",
+    "displayName": null,
+    "savedAt": "2026-07-17T06:00:00.000Z",
+    "auto": false
   }
 }

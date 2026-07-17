@@ -42,9 +42,17 @@ export default withAuth(async function handler(req, res) {
         yw2: { type: sql.NVarChar, value: `${orderYear}${nextMj}%` },
       }
     );
+    // 신규 분배 추가(ADD)용 라움 CustKey
+    const cust = await query(
+      `SELECT TOP 1 CustKey FROM Customer
+        WHERE isDeleted = 0 AND (CustName LIKE N'%트라움%' OR CustName LIKE N'%라움%')
+        ORDER BY CustKey`,
+      {}
+    );
     return res.status(200).json({
       success: true,
       weeks: [`${mj}-02`, `${nextMj}-01`],
+      custKey: cust.recordset[0]?.CustKey ?? null,
       rows: r.recordset || [],
     });
   } catch (e) {
