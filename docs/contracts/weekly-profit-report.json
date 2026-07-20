@@ -1,0 +1,70 @@
+{
+  "id": "weekly-profit-report",
+  "title": "주차별 매출이익보고서 입고중량·통관비 자동계산 계약",
+  "scope": [
+    "pages/sales/profit-report.js",
+    "pages/sales/customs-clearance.js",
+    "pages/sales/forwarding-clearance.js",
+    "pages/api/sales/profit-report.js",
+    "pages/api/sales/customs-clearance.js",
+    "pages/api/sales/forwarding-clearance.js",
+    "lib/profitReport.js",
+    "lib/profitReportAudit.js",
+    "lib/customsForwarding.js",
+    "lib/colombiaTruck.js",
+    "lib/profitReportCalc.js",
+    "components/CustomsClearancePanel.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "REPORT_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_MANUAL_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "WAREHOUSE_WEIGHT_AUTO_MERGE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다."
+  },
+  "requiredTestFiles": [
+    "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/customsForwardingAuto.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormProfitReport.md",
+    "source": "nenova.exe shared ViewShipment/ViewWarehouse/ViewOrder contract; web-only report has no separate EXE form",
+    "methods": [
+      "ViewShipment fixed-detail selection",
+      "ViewWarehouse warehouse-weight selection",
+      "ViewOrder year/week identity"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "Estimate",
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "WebProfitReport",
+      "CurrencyMaster"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

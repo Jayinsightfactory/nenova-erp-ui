@@ -16,6 +16,7 @@ import {
   assertFarmAssignmentTotal,
   normalizeFarmAssignments,
 } from '../../../lib/shipmentFarmAssignments.js';
+import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
 
 function int(value, name) {
   const n = Number(value);
@@ -59,7 +60,7 @@ async function loadFarmRows({ year, week, prodKey, sdetailKey }, q = query) {
        SELECT vw.OrderYear, vw.OrderWeek, vw.FarmName, vw.OrderCode, vw.ProdKey,
               SUM(vw.OutQuantity) AS wOutQuantity
          FROM ViewWarehouse vw
-        WHERE vw.ProdKey=@pk
+        WHERE ${FARM_CANDIDATE_SCOPE_SQL}
         GROUP BY vw.OrderYear, vw.OrderWeek, vw.FarmName, vw.OrderCode, vw.ProdKey
      ), CurrentFarm AS (
        SELECT sf.FarmKey, SUM(ISNULL(sf.ShipmentQuantity,0)) AS sOutQuantity
@@ -142,7 +143,7 @@ async function saveFarmDistribution(req, res) {
               vw.FarmName
          FROM ViewWarehouse vw
          JOIN Farm f ON vw.FarmName=f.FarmName
-        WHERE vw.ProdKey=@pk
+        WHERE ${FARM_CANDIDATE_SCOPE_SQL}
           AND ISNULL(f.isDeleted,0)=0`,
       {
         yr: { type: sql.NVarChar, value: year },

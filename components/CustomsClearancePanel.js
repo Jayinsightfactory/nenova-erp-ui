@@ -3,6 +3,7 @@
 // H(그외통관비) 자동값의 소스. week 는 부모가 제어(주차별 매출이익보고서에 임베드되거나 단독 페이지로 사용).
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { deriveColombiaTruckAllocation } from '../lib/colombiaTruck';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = (v) => Math.round(n0(v)).toLocaleString();
@@ -29,6 +30,7 @@ const COLOMBIA_FIELDS = [
   ['Truck1t', '트럭 1t 대수'], ['Truck2_5t', '트럭 2.5t 대수'], ['Truck5t', '트럭 5t 대수'],
   ['CustomsFee', '관세료'], ['DisinfectFee', '소독비용'], ['QuarantineDeductFee', '검역비용(차감stems)'],
 ];
+const COLOMBIA_TRUCK_FIELDS = new Set(['Truck1t', 'Truck2_5t', 'Truck5t']);
 
 // 필드명 → 화면표시 라벨 (이력 팝업용)
 const FIELD_LABEL = Object.fromEntries([...COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys.map((k, i) => [k, `${g.label}${i === 0 ? '(1차)' : '(2차)'}`])), ...COLOMBIA_FIELDS]);
@@ -158,7 +160,12 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     setSaving(c.orderWeek); setError('');
     try {
       const out = {};
-      COLOMBIA_FIELDS.forEach(([f]) => { out[f] = colValue(c, f); });
+      const autoGw = data?.autoGw?.colombia?.[c.orderWeek]?.GW;
+      const truckAuto = c.truckAuto || (Number(autoGw) > 0 ? deriveColombiaTruckAllocation(autoGw) : null);
+      COLOMBIA_FIELDS.forEach(([f]) => {
+        if (COLOMBIA_TRUCK_FIELDS.has(f) && truckAuto) out[f] = truckAuto[f];
+        else out[f] = colValue(c, f);
+      });
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ week, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
@@ -355,8 +362,19 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {COLOMBIA_FIELDS.map(([f, label]) => {
                       const isGw = f === 'GW' || f === 'CW';
+                      const isTruck = COLOMBIA_TRUCK_FIELDS.has(f);
                       const auto = isGw ? data.autoGw?.colombia?.[c.orderWeek]?.[f] : null;
                       const cur = colValue(c, f);
+                      if (isTruck && c.truckAuto) {
+                        return (
+                          <label key={f} style={st.rateField}>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
+                            <span title="입고 Gross weight 구간으로 자동 계산" style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: '#059669' }}>
+                              {c.truckAuto[f] || 0} (GW기반 자동)
+                            </span>
+                          </label>
+                        );
+                      }
                       if (isGw && !editWeights) {
                         const manualVal = n0(cur);
                         const autoVal = n0(auto);

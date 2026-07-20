@@ -8,7 +8,8 @@ import {
   loadCustomsWeekly, saveCustomsWeekly,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
-  mergeCountryGw, mergeColombiaGw,
+  mergeCountryGw, mergeColombiaGw, mergeColombiaTruck,
+  deriveColombiaTruckAllocation,
   computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
 } from '../../../lib/customsForwarding';
 
@@ -56,7 +57,8 @@ export default withAuth(async function handler(req, res) {
       });
 
       const colombiaOut = colombia.map((c, i) => {
-        const effRow = mergeColombiaGw(c.row, autoGw.colombia?.[c.orderWeek]);
+        const gwDef = autoGw.colombia?.[c.orderWeek];
+        const effRow = mergeColombiaTruck(mergeColombiaGw(c.row, gwDef), gwDef);
         const total = computeColombiaCustomsTotal(effRow, rates);
         const alloc = computeColombiaAllocation(effRow, c.boxQty, rates);
         return {
@@ -65,6 +67,8 @@ export default withAuth(async function handler(req, res) {
           carry: !c.row && prevColombia[i] ? prevColombia[i] : null,
           boxQty: c.boxQty,
           total,
+          truckAuto: Number(effRow.GW) > 0 ? deriveColombiaTruckAllocation(effRow.GW) : null,
+          truckSource: effRow.truckSource || null,
           allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(alloc[cat].H)])),
         };
       });

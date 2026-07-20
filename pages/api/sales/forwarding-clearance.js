@@ -7,8 +7,9 @@ import {
   FORWARDING_DIRECT_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
   loadColombiaWeekly, saveColombiaWeekly,
-  weeksForMajor, colombiaBoxQtyByCategory,
+  weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw,
   computeColombiaAllocation, autoForwardingByCountry,
+  mergeColombiaGw, mergeColombiaTruck,
 } from '../../../lib/customsForwarding';
 
 function parseMajor(raw) {
@@ -24,13 +25,14 @@ export default withAuth(async function handler(req, res) {
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
-      const [rates, fwd, prevFwd, subWeeks, prevSubWeeks, autoFwd] = await Promise.all([
+      const [rates, fwd, prevFwd, subWeeks, prevSubWeeks, autoFwd, autoGw] = await Promise.all([
         getRateConfig(),
         loadForwardingWeekly(major, orderYear),
         loadForwardingWeekly(prevMajor, orderYear),
         weeksForMajor(major, orderYear),
         weeksForMajor(prevMajor, orderYear),
         autoForwardingByCountry(major, orderYear),
+        loadWarehouseGw(major, orderYear),
       ]);
 
       const direct = FORWARDING_DIRECT_CATEGORIES.map((cat) => ({
@@ -51,13 +53,15 @@ export default withAuth(async function handler(req, res) {
       const colombiaOut = colombia.map((c, i) => {
         const autoAirTotal = autoFwd.colombiaRest[c.orderWeek] || 0;
         const effectiveAirTotal = c.row?.AirRateUSD != null ? Number(c.row.AirRateUSD) : autoAirTotal;
-        const alloc = computeColombiaAllocation({ ...(c.row || {}), AirRateUSD: effectiveAirTotal }, c.boxQty, rates);
+        const gwDef = autoGw.colombia?.[c.orderWeek];
+        const effectiveRow = mergeColombiaTruck(mergeColombiaGw(c.row, gwDef), gwDef);
+        const alloc = computeColombiaAllocation({ ...effectiveRow, AirRateUSD: effectiveAirTotal }, c.boxQty, rates);
         return {
           orderWeek: c.orderWeek,
           autoAirTotal: Math.round(autoAirTotal * 100) / 100, // 입고관리 자동감지 총액(1순위)
           savedAirRateUSD: c.row?.AirRateUSD ?? null,          // 수기 override
           carryAirRateUSD: (c.row?.AirRateUSD == null && prevColombia[i]?.AirRateUSD != null) ? prevColombia[i].AirRateUSD : null,
-          gw: c.row?.GW ?? null, cw: c.row?.CW ?? null, // 그외통관비 입력 화면에서 저장한 값 참고 표시(여기선 읽기전용)
+          gw: effectiveRow.GW ?? null, cw: effectiveRow.CW ?? null, // 입고 GW/CW 자동값 또는 수기값 참고 표시(읽기전용)
           boxQty: c.boxQty,
           allocationS: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(alloc[cat].S * 100) / 100])),
         };
