@@ -11,6 +11,7 @@
     "pages/api/shipment/estimate-visibility.js",
     "pages/api/shipment/item-trace.js",
     "lib/shipmentFarmAssignments.js",
+    "lib/shipmentFarmCandidates.js",
     "components/PivotFarmAssignmentModal.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -39,6 +40,7 @@
     "__tests__/shipmentPivotAdjustContract.test.js",
     "__tests__/shipmentFarmAssignments.test.js",
     "__tests__/shipmentFarmContract.test.js",
+    "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

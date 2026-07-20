@@ -23,6 +23,7 @@ import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { isPivotDistributionMode, resolvePivotAdjustmentPolicy } from '../../../lib/pivotAdjustmentPolicy.js';
 import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../lib/shipmentFarmAssignments.js';
+import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -357,7 +358,7 @@ async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQu
        JOIN Farm f ON vw.FarmName=f.FarmName
       -- FormShipmentDistribution의 농장 후보는 차수/연도가 아니라 품목 전체 ViewWarehouse 범위다.
       -- 신규 주문 생성 시에도 같은 후보 집합을 검증해야 과거 입고분을 현재 출고에 배정할 수 있다.
-      WHERE vw.ProdKey=@pk
+      WHERE ${FARM_CANDIDATE_SCOPE_SQL}
         AND ISNULL(f.isDeleted,0)=0`,
     {
       yr: { type: sql.NVarChar, value: String(year) },

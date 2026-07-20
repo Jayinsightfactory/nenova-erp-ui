@@ -11,10 +11,13 @@ model: sonnet
 2. 대상 기능의 `docs/contracts/*.json`을 찾아 필수 동작·교차연도 fixture·필수 테스트 파일을 확인한다.
 3. 사용자 동작별로 `OrderDetail`, `ShipmentDetail`, 재고 테이블의 전후 상태표를 만든다.
 4. `OrderWeek`가 쓰인 모든 Master 선택·수정·삭제·집계에 `OrderYear`가 있는지 확인한다.
-5. 화면에서 선택한 연도가 GET/POST/PATCH/PUT/DELETE payload에 전달되는지 확인한다.
-6. 현재연도 주문 있음/없음 × ADD/CANCEL 및 전년도 동일 차수 충돌 fixture를 확인한다.
-7. `npm run test:erp-contract`, `npm run guard:erp-writes -- --changed-from HEAD^`, `npm run build`를 실행한다.
-8. 한 항목이라도 실패하면 배포 불가로 판정하고 파일·줄·위반 계약을 명시한다.
+5. 후보를 표시하는 GET과 최종 저장 트랜잭션이 동일한 helper/scope를 쓰는지 확인한다. 농장 후보는 `ViewWarehouse` 전체 이력 + `ProdKey` 범위다.
+6. 화면에서 선택한 연도가 GET/POST/PATCH/PUT/DELETE payload에 전달되는지 확인한다.
+7. 현재연도 주문 있음/없음 × ADD/CANCEL 및 전년도 동일 차수 충돌 fixture를 확인한다.
+8. farm-only 저장이 `ShipmentFarm`/`ShipmentDetail.Descr` 외 `OutQuantity`, `Amount`, `Vat`, `ShipmentDtm`, `isFix`, `Estimate`, `WebProfitReport`를 변경하지 않는지 확인한다.
+9. 견적 노출 조인(`ViewShipment + ViewOrder + ShipmentDate + PeriodDay + DetailFix=1`)과 해당 차수 확정 매출 집계를 read-only로 확인한다.
+10. `npm run test:erp-contract`, `npm run guard:erp-writes -- --changed-from HEAD^`, `npm run build`를 실행한다.
+11. 한 항목이라도 실패하면 배포 불가로 판정하고 파일·줄·위반 계약을 명시한다.
 
 차수피벗의 고정 계약은 다음과 같다.
 
@@ -23,3 +26,5 @@ model: sonnet
 - CANCEL: 주문 유지 + 분배 감소
 - 전년도 동일 차수 Master 사용 금지
 - 수량 0 가짜 주문행 금지
+- 후보 조회와 저장 검증 범위 불일치 금지
+- 농장-only 변경으로 견적/매출 원장 변조 금지

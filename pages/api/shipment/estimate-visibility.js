@@ -48,7 +48,8 @@ async function handler(req, res) {
                  JOIN ViewOrder vo ON vs.OrderYearWeek2 = vo.OrderYearWeek2
                  JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
                  JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
-                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetail,
+                WHERE vs.SdetailKey = sd.SdetailKey
+                  AND vs.DetailFix = 1) AS InGetDetail,
               (SELECT COUNT(*)
                  FROM ViewShipment vs
                  JOIN ViewOrder vo ON vs.OrderYearWeek2 = vo.OrderYearWeek2
@@ -56,7 +57,8 @@ async function handler(req, res) {
                   AND vs.ProdKey = vo.ProdKey
                  JOIN ShipmentDate sdd ON sdd.SdetailKey = vs.SdetailKey
                  JOIN PeriodDay pd ON sdd.ShipmentDtm = pd.BaseYmd
-                WHERE vs.SdetailKey = sd.SdetailKey) AS InGetDetailByCustProd,
+                WHERE vs.SdetailKey = sd.SdetailKey
+                  AND vs.DetailFix = 1) AS InGetDetailByCustProd,
               -- 전산 구조 위반: 같은 출고+거래처+품목에 ShipmentDetail 이 2건 이상(웹 splitDateDetails 잔재)
               (SELECT COUNT(*)
                  FROM ShipmentDetail z

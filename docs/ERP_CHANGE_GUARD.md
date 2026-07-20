@@ -79,3 +79,59 @@ OrderYear + OrderWeek + CustKey + ProdKey
 - `week-pivot`이 선택한 연도를 읽기·쓰기 payload에 일관되게 전달하지 않았고, 시작재고 텍스트 저장도 연도 없이 `StockMaster`를 재사용했다.
 
 앞으로는 문서를 추가하는 것만으로 완료로 보지 않는다. 문서 규칙마다 실행 가능한 테스트 또는 CI 검사 하나 이상을 연결한다.
+
+## 2026-07-20 농장 후보 GET/POST 범위 불일치 회귀
+
+29-02 차수피벗에서 `CARNATION rodas`의 농장배정이 화면에는 보이는데 저장 후
+`nenova.exe`에 반영되지 않는 사례가 발생했다. 원인은 다음 두 조회가 서로 달랐기
+때문이다.
+
+- `FormShipmentDistribution`의 후보 조회: `ViewWarehouse` 전체 이력에서 `ProdKey`만 제한
+- 웹 `adjust`의 최종 트랜잭션 검증: 과거에는 `OrderYear + OrderWeek + ProdKey`를 함께 제한
+
+그 결과 27-02 입고에서 유효한 `TURFLOR` 농장을 29-02 출고에 배정할 수 있었지만,
+최종 저장 단계에서 FarmKey 검증이 실패해 트랜잭션이 롤백됐다. 이 문제는 농장명
+오탈자나 `ViewOrder`의 업체 조인 문제가 아니라 **후보를 읽는 단계와 저장 검증 단계의
+범위가 다르기 때문에** 발생했다.
+
+현재는 `lib/shipmentFarmCandidates.js`의 `FARM_CANDIDATE_SCOPE_SQL`을 모달 GET,
+`farm-distribution` POST, `adjust` 트랜잭션이 함께 사용한다.
+
+```text
+ViewWarehouse vw + Farm f
+WHERE vw.ProdKey=@pk AND Farm.isDeleted=0
+```
+
+연도·차수 제한은 출고 업무키를 찾는 `ShipmentMaster/ShipmentDetail` 조회에는
+필수지만, EXE의 농장 후보 집합에는 적용하지 않는다. 이 두 범위를 각 API에 다시
+쓰면 계약 위반으로 본다.
+
+## 견적서·매출 downstream 영향 계약
+
+주문·분배 기능은 견적서와 매출 화면이 읽는 출고 원장을 간접적으로 사용한다.
+따라서 “테이블을 직접 쓰지 않았다”만으로 영향 없음이라고 판정하지 않고, 아래처럼
+의도된 downstream 변화와 금지된 원장 변조를 구분한다.
+
+| 동작 | Order/Shipment | ShipmentFarm | Estimate 원장 | 견적 노출 | 매출/손익 |
+|---|---|---|---|---|---|
+| farm-only 저장 | 수량·금액·출고일 보존, `Descr`만 갱신 가능 | 전체 재작성 | 보존 | 기존 조건이 같으면 동일 | `Amount/Vat/isFix`가 같으면 동일 |
+| ADD + 현재연도 주문 없음 | 양수 주문 생성 + 출고 증가 | 배정값 저장 | 직접 INSERT 금지 | 확정·날짜·ViewOrder 조건 충족 시 노출 | 확정 전에는 집계 금지, 확정 후 정상 출고로 집계 |
+| ADD + 현재연도 주문 있음 | 주문 보존 + 출고 증가 | 배정값 저장 | 직접 INSERT 금지 | 기존 주문과 출고가 같은 네 키로 조인되어야 함 | 확정 전에는 집계 금지 |
+| CANCEL | 주문 보존 + 출고 감소 | 0이면 삭제 | 보존 | 감소된 출고만 반영 | 확정 상태·SP 정책을 따름 |
+
+견적 노출은 EXE `GetDetail`과 동일하게 `ViewShipment + ViewOrder + ShipmentDate +
+PeriodDay + DetailFix=1`을 통과하고, 확정 출고만 대상으로 한다. 진단 API도
+이 `DetailFix=1` 조건을 반드시 재현한다. 매출·주차별 손익은 저장된
+`ShipmentDetail.Amount/Vat`와 `isFix=1`을 기준으로 하며, 농장배정 API는
+`Estimate`, `WebProfitReport`, 매출 원장에 직접 쓰지 않는다.
+
+변경 후에는 반드시 다음을 읽기 전용으로 기록한다.
+
+1. 같은 네 키의 `ViewOrder`, `ViewShipment`, `ShipmentDate`, `ShipmentFarm`
+2. `/api/shipment/estimate-visibility`의 `visibleInEstimate`, `InGetDetail`
+3. 판매현황의 해당 차수 확정 집계와 대상 품목 행
+4. `ShipmentDetail.OutQuantity/Amount/Vat/isFix`의 변경 전후 값
+
+이 계약은 `__tests__/shipmentDownstreamImpactContract.test.js`가 소스 수준에서
+검사하고, `shipmentFarmContract.test.js`가 GET/POST/트랜잭션의 후보 범위 공유를
+검사한다. 운영 데이터 보정은 이 검증과 코드 배포가 끝난 뒤 별도 단계로 수행한다.

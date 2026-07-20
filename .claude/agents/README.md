@@ -39,7 +39,7 @@
 | 이름 | 모델 | 트리거 |
 |---|---|---|
 | **db-schema-guard** | sonnet | SQL / 컬럼명 / OutUnit / 전산 호환 / isDeleted·isFix |
-| **erp-contract-guardian** | sonnet | 기능 부작용 표 / 교차연도 차수 / dnSpy 계약 / 배포 전 자동검증 |
+| **erp-contract-guardian** | sonnet | 기능 부작용 표 / 교차연도 차수 / dnSpy 계약 / 후보 scope parity / 견적·매출 downstream / 배포 전 자동검증 |
 | **freight-pipeline-engineer** | sonnet | freightCalc.js / 운송원가 / fixture 238/238 / 카테고리 / GW·CW |
 | **paste-mapping-curator** | sonnet | 학습 매핑 / parseMappings / fallback 가드 / data/order-mappings.json |
 | **chat-sql-agent-tuner** | sonnet | lib/chat/* / Text-to-SQL / haiku-sonnet 하이브리드 / 비용 |
