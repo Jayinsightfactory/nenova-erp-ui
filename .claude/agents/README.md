@@ -39,6 +39,7 @@
 | 이름 | 모델 | 트리거 |
 |---|---|---|
 | **db-schema-guard** | sonnet | SQL / 컬럼명 / OutUnit / 전산 호환 / isDeleted·isFix |
+| **erp-contract-guardian** | sonnet | 기능 부작용 표 / 교차연도 차수 / dnSpy 계약 / 배포 전 자동검증 |
 | **freight-pipeline-engineer** | sonnet | freightCalc.js / 운송원가 / fixture 238/238 / 카테고리 / GW·CW |
 | **paste-mapping-curator** | sonnet | 학습 매핑 / parseMappings / fallback 가드 / data/order-mappings.json |
 | **chat-sql-agent-tuner** | sonnet | lib/chat/* / Text-to-SQL / haiku-sonnet 하이브리드 / 비용 |
@@ -61,6 +62,8 @@
 | **session-historian** | sonnet | "작업내역 저장" / 세션 종료 / 메모리 인덱스 |
 
 ## 사용법
+
+ERP 기능 변경 전에는 `.claude/skills/nenova-erp-change-guard/SKILL.md`와 `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`를 함께 적용하고, 대상 계약 JSON을 반드시 등록한다.
 
 ### 자동 호출 (description 기반)
 
@@ -120,6 +123,7 @@
 | 에이전트 | 우선 참조 |
 |---|---|
 | db-schema-guard | `docs/DB_STRUCTURE.md` (트러블 9건) |
+| erp-contract-guardian | `AGENTS.md` + `docs/ERP_FEATURE_CHANGE_CHECKLIST.md` + `docs/ERP_CHANGE_GUARD.md` + `docs/contracts/*.json` |
 | freight-pipeline-engineer | `docs/FREIGHT_PIPELINE.md` |
 | paste-mapping-curator | `feedback_mapping_fallback_guard.md` |
 | chat-sql-agent-tuner | `lib/chat/router.js` 흐름 + `costTracker.js` |
@@ -129,7 +133,7 @@
 
 ## 절대 룰 (전 에이전트 공통)
 
-1. **작업 디렉토리**: `C:\Users\cando\Downloads\nenova-erp-ui10\nenova-erp-ui\` (Downloads 밑!)
+1. **작업 디렉토리**: `git rev-parse --show-toplevel` 결과인 저장소 루트. 사용자별 절대 경로를 문서에 저장하지 않는다.
 2. **푸시는 사용자 명시 요청 시만**: master 직접 푸시는 sandbox 가 차단
 3. **fixture 우선**: `lib/freightCalc.js` 변경 시 238/238 검증 강제
 4. **백업 우선**: DB 마이그레이션 / 매핑 정정 / 롤백 전 백업

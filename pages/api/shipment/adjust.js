@@ -6,9 +6,10 @@
 //     ADD    : OrderDetail += qty, ShipmentDetail += qty, Adjustment(ADD) INSERT
 //     CANCEL : OrderDetail -= qty, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
 //              주문수량이 0으로 돌아가면 OrderDetail 삭제 처리
-//   mode='SHIPMENT_ONLY' (차수피벗 분배수량 편집)
-//     주문수량은 바꾸지 않고 ShipmentDetail 만 증감한다.
-//     주문이 없던 업체는 nenova.exe ViewOrder 기반 분배 그리드 노출을 위해 수량 0 연결행만 만든다.
+//   mode='PIVOT_DISTRIBUTION' (차수피벗 분배수량 편집)
+//     ADD + 현재연도 활성 주문 없음 : 주문등록 + 분배
+//     ADD + 현재연도 활성 주문 있음 : 분배만 변경
+//     CANCEL                      : 주문은 건드리지 않고 분배만 변경
 //
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
@@ -20,13 +21,7 @@ import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
-
-const SHIPMENT_ONLY_MODE = 'SHIPMENT_ONLY';
-const SHIPMENT_ONLY_ORDER_MARKER = '[WEB_SHIPMENT_ONLY_LINK]';
-
-function isShipmentOnlyMode(mode) {
-  return String(mode || '').trim().toUpperCase() === SHIPMENT_ONLY_MODE;
-}
+import { isPivotDistributionMode, resolvePivotAdjustmentPolicy } from '../../../lib/pivotAdjustmentPolicy.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -365,7 +360,7 @@ async function postAdjust(req, res) {
 
   const { week: orderWeek, year: inferredYear } = normWeek(week);
   const orderYear = String(year || inferredYear);
-  const shipmentOnly = isShipmentOnlyMode(mode);
+  const pivotDistribution = isPivotDistributionMode(mode);
   // OrderYearWeek 컬럼은 전산 포맷 = 연도 + 대차수(세부차수 '-NN' 제외). 예: 23-01 → '202623'
   // (뷰의 OrderYearWeek2 = 연도+세부차수전체 는 별개. 견적 GetData/GetDetail 은 raw OrderYearWeek 로 필터)
   const ywk = orderYear + orderWeek.split('-')[0];
@@ -456,7 +451,7 @@ async function postAdjust(req, res) {
       );
       let mk;
       if (om.recordset.length === 0) {
-        if (type === 'CANCEL' && !shipmentOnly) throw new Error('취소 대상 OrderMaster 없음');
+        if (type === 'CANCEL' && !pivotDistribution) throw new Error('취소 대상 OrderMaster 없음');
         if (type === 'ADD') mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           const orderMasterParams = {
             mk:  { type: sql.Int,      value: newMk },
@@ -503,71 +498,22 @@ async function postAdjust(req, res) {
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
         : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
-      let orderQtyAfter = shipmentOnly
-        ? orderQtyBefore
-        : type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore - delta;
+      const hasActiveOrder = Boolean(odRow && orderQtyBefore > 0.0001);
+      const adjustmentPolicy = resolvePivotAdjustmentPolicy({ mode, type, hasActiveOrder });
+      let orderQtyAfter = adjustmentPolicy.mutateOrder
+        ? type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore - delta
+        : orderQtyBefore;
       let orderDeleted = false;
       let orderDeleteReason = '';
       let targetOdk = odRow?.OrderDetailKey;
-      if (!shipmentOnly && type === 'CANCEL' && orderQtyAfter < -0.0001) {
+      if (adjustmentPolicy.mutateOrder && type === 'CANCEL' && orderQtyAfter < -0.0001) {
         throw new Error(`취소량(${delta}${userUnit})이 현재 주문(${orderQtyBefore})보다 큼`);
       }
 
-      // 차수피벗은 분배수량만 바꾼다. 다만 nenova.exe 분배 그리드는 ViewOrder를 기준으로
-      // ViewShipment를 LEFT JOIN하므로, 주문이 없던 업체에는 수량 0 연결행이 필요하다.
-      if (shipmentOnly) {
-        if (type === 'ADD' && !odRow) {
-          if (!mk) throw new Error('분배전용 연결 OrderMaster 생성 실패');
-          const deletedLink = await tQ(
-            `SELECT TOP 1 OrderDetailKey
-               FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
-              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND ISNULL(isDeleted,0)=1
-              ORDER BY OrderDetailKey DESC`,
-            { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
-          );
-          if (deletedLink.recordset[0]) {
-            targetOdk = deletedLink.recordset[0].OrderDetailKey;
-            const descrSet = hasOrderDetailDescrColumn ? `Descr=@descr,` : '';
-            await tQ(
-              `UPDATE OrderDetail SET
-                 BoxQuantity=0, BunchQuantity=0, SteamQuantity=0,
-                 OutQuantity=0, EstQuantity=0, NoneOutQuantity=0,
-                 ${descrSet}
-                 isDeleted=0, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-               WHERE OrderDetailKey=@dk`,
-              {
-                dk: { type: sql.Int, value: targetOdk },
-                descr: { type: sql.NVarChar, value: SHIPMENT_ONLY_ORDER_MARKER },
-                uid: { type: sql.NVarChar, value: uid },
-              }
-            );
-          } else {
-            targetOdk = await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (newOdk) => {
-              const insertCols = hasOrderDetailDescrColumn
-                ? `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
-                    OutQuantity,EstQuantity,NoneOutQuantity,Descr,isDeleted,CreateID,CreateDtm)`
-                : `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
-                    OutQuantity,EstQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)`;
-              const insertValues = hasOrderDetailDescrColumn
-                ? `(@nk,@mk,@pk,0,0,0,0,0,0,@descr,0,@uid,GETDATE())`
-                : `(@nk,@mk,@pk,0,0,0,0,0,0,0,@uid,GETDATE())`;
-              await tQ(
-                `INSERT INTO OrderDetail ${insertCols} VALUES ${insertValues}`,
-                {
-                  nk: { type: sql.Int, value: newOdk },
-                  mk: { type: sql.Int, value: mk },
-                  pk: { type: sql.Int, value: pk },
-                  descr: { type: sql.NVarChar, value: SHIPMENT_ONLY_ORDER_MARKER },
-                  uid: { type: sql.NVarChar, value: 'admin' },
-                }
-              );
-            });
-            await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
-          }
-          await insertOrderHistory(tQ, targetOdk, '0', '0', '차수피벗 분배전용 연결행', uid);
-        }
-      // 기본 호출(붙여넣기 주문등록+분배)은 기존처럼 주문과 분배를 함께 증감한다.
-      } else if (type === 'ADD' || type === 'CANCEL') {
+      // 주문 변경은 정책이 허용한 경우만 수행한다.
+      // 차수피벗은 ADD 대상에 현재연도 활성 주문이 없을 때만 실제 양수 주문을 생성한다.
+      // 기존 주문 ADD 및 모든 CANCEL 은 ShipmentDetail 만 바꾸며 주문수량을 보존한다.
+      if (adjustmentPolicy.mutateOrder && (type === 'ADD' || type === 'CANCEL')) {
         const normalizedOrderAfter = Math.max(0, orderQtyAfter);
         const u = toAllUnits(normalizedOrderAfter);
 
@@ -635,7 +581,9 @@ async function postAdjust(req, res) {
             targetOdk,
             String(orderQtyBefore),
             String(orderQtyAfter),
-            `붙여넣기 주문${type === 'ADD' ? '추가' : '취소'}`,
+            adjustmentPolicy.reason === 'pivot_add_without_order'
+              ? '차수피벗 업체추가 주문등록'
+              : `붙여넣기 주문${type === 'ADD' ? '추가' : '취소'}`,
             uid
           );
         }
@@ -850,37 +798,7 @@ async function postAdjust(req, res) {
       const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
 
-      if (
-        shipmentOnly &&
-        type === 'CANCEL' &&
-        Math.abs(Number(outQAfter || 0)) < 0.0001 &&
-        odRow?.OrderDetailKey &&
-        String(odRow.curDescr || '') === SHIPMENT_ONLY_ORDER_MARKER
-      ) {
-        await tQ(
-          `UPDATE OrderDetail SET
-             isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-           WHERE OrderDetailKey=@dk AND ISNULL(OutQuantity,0)=0`,
-          {
-            dk: { type: sql.Int, value: odRow.OrderDetailKey },
-            uid: { type: sql.NVarChar, value: uid },
-          }
-        );
-        await insertOrderHistory(tQ, odRow.OrderDetailKey, '0', '0', '차수피벗 분배전용 연결행 정리', uid);
-        orderDeleted = true;
-        orderDeleteReason = 'shipment_only_link_cleanup';
-        await tQ(
-          `UPDATE OrderMaster
-              SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-            WHERE OrderMasterKey=@mk
-              AND ISNULL(isDeleted,0)=0
-              AND NOT EXISTS (
-                SELECT 1 FROM OrderDetail
-                 WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
-              )`,
-          { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
-        );
-      } else if (!shipmentOnly && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
+      if (!pivotDistribution && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
         const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
           orderMasterKey: mk,
           orderDetailKey: odRow.OrderDetailKey,
@@ -932,7 +850,8 @@ async function postAdjust(req, res) {
       );
 
       return {
-        mode: shipmentOnly ? SHIPMENT_ONLY_MODE : 'ORDER_AND_SHIPMENT',
+        mode: adjustmentPolicy.mode,
+        policyReason: adjustmentPolicy.reason,
         qtyBefore,
         qtyAfter,
         orderQtyBefore,

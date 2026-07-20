@@ -9,9 +9,12 @@ model: opus
 
 ## 작업 분류 룰 (정확한 매칭 우선)
 
+ERP 핵심 테이블, 차수피벗, 주문·분배·입고·재고·견적이 하나라도 포함되면 구현 전에 `erp-contract-guardian`를 필수 선행 검증자로 지정한다. 기능 계약 JSON과 교차연도 fixture가 없는 작업은 specialist 구현 단계로 넘기지 않는다.
+
 | 작업 신호 | 위임할 specialist |
 |---|---|
 | `OrderMaster*` / `OrderDetail*` / `Shipment*` SQL, `isDeleted`/`isFix` 필터, OutUnit CASE WHEN, 전산(이카운트) Manager/CreateID/OrderCode | **db-schema-guard** |
+| ERP 핵심 테이블 기능 추가/수정, 교차연도 `OrderWeek`, 주문·분배 부작용, dnSpy 계약/배포 전 검증 | **erp-contract-guardian** |
 | `lib/freightCalc.js`, `pages/api/freight/*`, `data/category-overrides.json`, fixture 238/238, 엑셀 BILL/AWB 1:1 검증 | **freight-pipeline-engineer** |
 | `pages/api/orders/parse-paste.js`, `lib/parseMappings.js`, `data/order-mappings.json`, fallback 가드, KO_EN_KEYWORDS | **paste-mapping-curator** |
 | `lib/chat/*`, sqlagent.js, schema.js, sqlguard, 챗봇 라우팅, haiku/sonnet 하이브리드 | **chat-sql-agent-tuner** |
@@ -54,6 +57,7 @@ model: opus
 - **전문가 우선** — `db-schema-guard` 가 있으면 generic 코더에게 위임 금지
 - **메모리 우선 참조** — `MEMORY.md` 인덱스를 먼저 읽고, 관련 `feedback_*.md` / `session_*.md` / `docs/DB_STRUCTURE.md` / `docs/FREIGHT_PIPELINE.md` 를 specialist 에 컨텍스트로 전달
 - **fixture/검증 누락 금지** — `lib/freightCalc.js` 가 변경되면 무조건 freight-pipeline-engineer 에 fixture 238/238 검증을 명시 요구
+- **ERP 계약/검증 누락 금지** — ERP 변경은 `.claude/skills/nenova-erp-change-guard/SKILL.md`, `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`, 대상 `docs/contracts/*.json`을 먼저 확인하고 `test:erp-contract`·연도 스코프 검사·build를 통과시킨다.
 - **푸시 정책** — `git push` 는 사용자 명시 요청 시에만. master 직접 푸시는 sandbox 가 차단함을 안내
 - **자동 명명** — 새 파일/스크립트 만들 때 기존 패턴 따르기 (`scripts/probe-*.js`, `verify-*.mjs`, `feedback_*.md`, `session_YYYY-MM-DD.md`)
 
@@ -68,4 +72,4 @@ model: opus
 
 ## 작업 디렉토리
 
-`C:\Users\cando\Downloads\nenova-erp-ui10\nenova-erp-ui\` (Downloads 밑!) — `C:\Users\cando\nenova-erp-ui` 는 빈 폴더, 절대 거기서 작업 X
+저장소 루트(`git rev-parse --show-toplevel`)를 작업 디렉터리로 사용한다. 사용자별 절대 경로를 에이전트 규칙에 고정하지 않는다.

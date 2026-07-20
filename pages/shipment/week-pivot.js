@@ -52,6 +52,11 @@ function formatShipDateKo(date) {
 // ─────────────────────────────────────────────────────────────
 const UNITS = ['박스', '단', '송이'];
 
+function orderYearFromWeek(week) {
+  const match = String(week || '').match(/^(\d{4})-/);
+  return match ? match[1] : String(new Date().getFullYear());
+}
+
 function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
   const [custSearch, setCustSearch] = useState('');
   const [prodSearch, setProdSearch] = useState('');
@@ -78,7 +83,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
 
   useEffect(() => {
     if (!selCust || !modalWeek.value) { setExistOrders({}); return; }
-    fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&custKey=${selCust.CustKey}`)
+    fetch(`/api/shipment/stock-status?view=existOrders&weekFrom=${modalWeek.value}&weekTo=${modalWeek.value}&orderYear=${orderYearFromWeek(modalWeek.value)}&custKey=${selCust.CustKey}`)
       .then(r=>r.json()).then(d=>{ if(d.success&&d.orders) setExistOrders(d.orders); }).catch(()=>{});
   }, [selCust, modalWeek.value]);
 
@@ -133,7 +138,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
       for (const item of cart) {
         const r = await fetch('/api/shipment/stock-status', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ action:orderAction, custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, qty:item.qty, unit:item.unit }),
+          body: JSON.stringify({ action:orderAction, custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, year:orderYearFromWeek(modalWeek.value), qty:item.qty, unit:item.unit }),
         });
         const d = await r.json();
         if (!d.success) { setError(d.error); allOk=false; break; }
@@ -143,7 +148,7 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
         for (const item of cart) {
           const r = await fetch('/api/shipment/stock-status', {
             method:'PATCH', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, outQty:item.qty, mode:'delta' }),
+            body: JSON.stringify({ custKey:item.cust.CustKey, prodKey:item.prod.ProdKey, week:modalWeek.value, year:orderYearFromWeek(modalWeek.value), outQty:item.qty, mode:'delta' }),
           });
           const d = await r.json();
           if (!d.success) { setError('분배 오류: ' + d.error); allOk=false; break; }
@@ -431,7 +436,7 @@ export default function WeekPivot() {
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
   // ── 셀 일괄 적용(변경 대기) + 빈 행 추가 상태 — 콜백은 loadData 정의 뒤에 있음
-  const [pendingEdits, setPendingEdits] = useState({});   // `${pk}-${ck}-${wk}` → {pk,ck,wk,oldQty,newQty,custName,prodName}
+  const [pendingEdits, setPendingEdits] = useState({});   // `${year}-${pk}-${ck}-${wk}` → {year,pk,ck,wk,oldQty,newQty,custName,prodName}
   const [applying, setApplying] = useState(false);
   const [applyLog, setApplyLog] = useState([]);           // {t:'info'|'ok'|'warn'|'err', ts, msg}
   const [showApplyLog, setShowApplyLog] = useState(false);
@@ -618,7 +623,8 @@ export default function WeekPivot() {
     if (!wf || !wt) return;
     setLoading(true); setApiError('');
     try {
-      const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}`;
+      const orderYear = orderYearFromWeek(wf);
+      const p = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&orderYear=${encodeURIComponent(orderYear)}`;
       // customers 데이터와 시작재고 동시 로드
       const [custResp, ssResp, csResp] = await Promise.all([
         fetch(`/api/shipment/stock-status?${p}&view=customers`),
@@ -663,7 +669,7 @@ export default function WeekPivot() {
     if (!wf || !wt) return;
     setExeQtyLoading(true);
     try {
-      const qs = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&view=quantityPivot`;
+      const qs = `weekFrom=${encodeURIComponent(wf)}&weekTo=${encodeURIComponent(wt)}&orderYear=${encodeURIComponent(orderYearFromWeek(wf))}&view=quantityPivot`;
       const r = await fetch(`/api/shipment/stock-status?${qs}`);
       const d = await r.json();
       setExeQtyRows(d.success ? (d.rows || []) : []);
@@ -687,12 +693,12 @@ export default function WeekPivot() {
     try {
       const r = await fetch('/api/shipment/stock-status', {
         method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ prodKey, week, stock:s, remark:rm }),
+        body: JSON.stringify({ prodKey, week, year:orderYearFromWeek(weekFrom), stock:s, remark:rm }),
       });
       const d = await r.json();
       if (d.success) setStartStocks(prev=>({...prev,[key]:{stock:parseFloat(s)||0,remark:rm}}));
     } catch(e) { console.error(e); }
-  }, [startStocks]);
+  }, [startStocks, weekFrom]);
 
   const saveDisplayName = useCallback(async () => {
     if (!pvNameEdit?.prodKey) return;
@@ -727,7 +733,7 @@ export default function WeekPivot() {
       const r = await fetch('/api/shipment/start-stock-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week: weekFrom, text: startStockText, save }),
+        body: JSON.stringify({ week: weekFrom, year:orderYearFromWeek(weekFrom), text: startStockText, save }),
       });
       const d = await r.json();
       setStartStockResult(d);
@@ -746,19 +752,20 @@ export default function WeekPivot() {
 
   // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
   // 적용은 셀별 /api/shipment/adjust 순차 호출.
-  // 차수피벗은 분배수량 편집 화면이므로 SHIPMENT_ONLY 모드로 주문등록수량은 보존한다.
-  const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName) => {
+  // 차수피벗 계약: ADD+주문없음은 주문등록+분배, ADD+주문있음/CANCEL은 분배만 변경.
+  const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName, year = orderYearFromWeek(weekFrom)) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
-    const key = `${pk}-${ck}-${wk}`;
+    const targetYear = String(year || orderYearFromWeek(weekFrom));
+    const key = `${targetYear}-${pk}-${ck}-${wk}`;
     setPendingEdits(prev => {
       const n = { ...prev };
       if (qty === old) delete n[key];   // 원래값으로 되돌리면 대기 해제
-      else n[key] = { pk, ck, wk, oldQty: old, newQty: qty, custName, prodName };
+      else n[key] = { year: targetYear, pk, ck, wk, oldQty: old, newQty: qty, custName, prodName };
       return n;
     });
     setPvEdit(null);
-  }, []);
+  }, [weekFrom]);
 
   const applyPendingEdits = useCallback(async () => {
     const items = Object.values(pendingEdits);
@@ -781,10 +788,11 @@ export default function WeekPivot() {
             custKey: it.ck,
             prodKey: it.pk,
             week: it.wk,
+            year: it.year,
             type,
             qty: delta,
-            memo: `${it.custName} 셀편집(일괄·분배전용)`,
-            mode: 'SHIPMENT_ONLY',
+            memo: `${it.custName} 셀편집(일괄·차수피벗계약)`,
+            mode: 'PIVOT_DISTRIBUTION',
             force,
           }),
         });
@@ -803,7 +811,7 @@ export default function WeekPivot() {
         if (d.success) {
           ok += 1; if (wasForced) forced += 1;
           log('ok', `✅ 완료${wasForced ? '(강제)' : ''}: ${label}`);
-          setPendingEdits(prev => { const n = { ...prev }; delete n[`${it.pk}-${it.ck}-${it.wk}`]; return n; });
+          setPendingEdits(prev => { const n = { ...prev }; delete n[`${it.year}-${it.pk}-${it.ck}-${it.wk}`]; return n; });
         } else {
           fail += 1;
           log('err', `❌ 실패: ${label} — ${String(d.error || '알 수 없는 오류').split('\n')[0]}`);
@@ -1697,14 +1705,14 @@ export default function WeekPivot() {
                                 )}
                                 {(()=>{
                                   const fixed=isFixed(pk,ck,wk);
-                                  const pend=pendingEdits[`${pk}-${ck}-${wk}`];
+                                  const pend=pendingEdits[`${orderYearFromWeek(weekFrom)}-${pk}-${ck}-${wk}`];
                                   return (
                                     <td className="pv-cell" style={{...st.td,textAlign:'right',fontSize:pvFontSize,cursor:fixed?'not-allowed':'pointer',
                                         borderLeft:ci===0?'2px solid #e0e0e0':'none',color:pend?'#e65100':v>0?'#1565c0':'#ddd',
                                         fontWeight:pend?800:undefined,
                                         background:fixed?'#f5f5f5':pend?'#ffe0b2':pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
                                         title={pend?`변경 대기: ${pend.oldQty} → ${pend.newQty} — [▶ 변경 시작]을 눌러야 적용됩니다`:undefined}
-                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p)});}}>
+                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({year:orderYearFromWeek(weekFrom),pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p)});}}>
                                       {pend?`${v>0?fmt(v):0}→${fmt(pend.newQty)}`:(v>0?fmt(v):'·')}
                                       {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
                                     </td>
@@ -1841,11 +1849,11 @@ export default function WeekPivot() {
               </div>
               <div style={{display:'flex',gap:8,justifyContent:'center'}}>
                 <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
-                {pendingEdits[`${pvEdit.pk}-${pvEdit.ck}-${pvEdit.wk}`]&&(
-                  <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.val,pvEdit.val,pvEdit.custName,pvEdit.prodName)}
+                {pendingEdits[`${pvEdit.year}-${pvEdit.pk}-${pvEdit.ck}-${pvEdit.wk}`]&&(
+                  <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.val,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year)}
                     style={{padding:'8px 16px',border:'1px solid #e65100',color:'#e65100',background:'#fff',borderRadius:5,cursor:'pointer',fontWeight:700}}>대기 해제</button>
                 )}
-                <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.prodName)}
+                <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year)}
                   style={{padding:'8px 24px',background:'#e65100',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>변경 대기에 추가</button>
               </div>
             </div>
@@ -2195,7 +2203,7 @@ export default function WeekPivot() {
               <button onClick={async()=>{
                 const m=pvDescrModal;
                 try {
-                  const r=await fetch('/api/shipment/stock-status',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:m.ck,prodKey:m.pk,week:m.wk,lineIdx:m.lineIdx})});
+                  const r=await fetch('/api/shipment/stock-status',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:m.ck,prodKey:m.pk,week:m.wk,year:orderYearFromWeek(weekFrom),lineIdx:m.lineIdx})});
                   const d=await r.json();
                   if(d.success){setPvDescrModal(null);loadData(weekFrom,weekTo);}
                   else alert('삭제 실패: '+d.error);

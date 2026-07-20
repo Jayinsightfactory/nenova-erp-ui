@@ -1,6 +1,6 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { scoreMatch } from '../../../lib/displayName';
 
 const SECTION_FLOWERS = ['수국', '장미', '알스트로', '카네이션', '루스커스', '튤립', '거베라', '국화'];
@@ -42,16 +42,25 @@ function productScore(row, product) {
   return Math.min(100, score);
 }
 
-async function saveRows(tQ, week, rows) {
+async function saveRows(tQ, week, orderYear, rows) {
   let smResult = await tQ(
-    `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND isFix=2`,
-    { wk: { type: sql.NVarChar, value: week } }
+    `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK)
+     WHERE OrderYear=@yr AND OrderWeek=@wk AND isFix=2`,
+    {
+      yr: { type: sql.Int, value: orderYear },
+      wk: { type: sql.NVarChar, value: week },
+    }
   );
   let sk;
   if (smResult.recordset.length === 0) {
     const ins = await tQ(
-      `INSERT INTO StockMaster (OrderWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, 2)`,
-      { wk: { type: sql.NVarChar, value: week } }
+      `INSERT INTO StockMaster (OrderYear, OrderYearWeek, OrderWeek, isFix)
+       OUTPUT INSERTED.StockKey VALUES (@yr, @ywk, @wk, 2)`,
+      {
+        yr: { type: sql.Int, value: orderYear },
+        ywk: { type: sql.NVarChar, value: `${orderYear}${String(week).replace('-', '')}` },
+        wk: { type: sql.NVarChar, value: week },
+      }
     );
     sk = ins.recordset[0].StockKey;
   } else {
@@ -75,8 +84,9 @@ async function saveRows(tQ, week, rows) {
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { week, text, save } = req.body || {};
+  const { week, year, text, save } = req.body || {};
   const wk = normalizeOrderWeek(week || '');
+  const orderYear = resolveActiveOrderYear(week || '', year);
   if (!wk) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!String(text || '').trim()) return res.status(400).json({ success: false, error: 'text 필요' });
 
@@ -119,10 +129,10 @@ export default withAuth(async function handler(req, res) {
       if (unmatched.length > 0) {
         return res.status(409).json({ success: false, error: '미매칭 품목이 있어 저장하지 않았습니다.', rows: mapped, unmatched });
       }
-      await withTransaction(tQ => saveRows(tQ, wk, matched));
+      await withTransaction(tQ => saveRows(tQ, wk, orderYear, matched));
     }
 
-    return res.status(200).json({ success: true, week: wk, saved: !!save, rows: mapped, matched, unmatched });
+    return res.status(200).json({ success: true, year: orderYear, week: wk, saved: !!save, rows: mapped, matched, unmatched });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
