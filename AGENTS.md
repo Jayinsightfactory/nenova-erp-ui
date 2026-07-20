@@ -10,6 +10,9 @@
 4. `docs/WEB_VS_ERP_CONFLICTS.md`의 작업 대상 View/SP/dnSpy 섹션
 5. `docs/contracts/*.json`의 대상 기능 계약
 6. 대상 API의 읽기·쓰기 테이블과 사용자 동작별 부작용 표
+7. `docs/NENOVA_DNSPY_CLI_WORKFLOW.md`와 대상 기능의 `docs/exe-golden/*.md` 근거 기록
+
+Nenova 연동 기능은 코드를 먼저 작성하지 않는다. 작업 전에 로컬 dnSpy CLI로 실제 `nenova.exe`의 관련 Form/Class/메서드와 SQL 테이블·저장 순서를 확인하고, 동일 업무키에 대한 읽기 전용 DB probe 결과를 남긴 뒤 구현한다. `ViewOrder`와 `ViewShipment` 조회만으로 `ShipmentFarm`, `ShipmentDate`, `OrderDetail`의 동작을 추정해서는 안 된다.
 
 DB 쓰기 기능은 `OrderYear + OrderWeek + CustKey + ProdKey`를 업무 키로 취급한다. `OrderWeek`는 매년 반복되므로 `OrderWeek`만으로 Master를 조회·수정·삭제하거나 집계하지 않는다. PK로 한 행을 지정한 뒤 표시용으로 `OrderWeek`를 읽는 경우만 예외다.
 
@@ -31,6 +34,7 @@ DB 쓰기 기능은 `OrderYear + OrderWeek + CustKey + ProdKey`를 업무 키로
 
 ```powershell
 npm run test:erp-contract
+npm run test:nenova-dnspy-evidence
 npm run test:erp-manifest -- --changed-from HEAD^
 npm run guard:erp-writes -- --changed-from HEAD^
 npm run build

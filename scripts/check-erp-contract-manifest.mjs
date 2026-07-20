@@ -48,9 +48,23 @@ export function validateManifest(manifest, fileName) {
   if (!Array.isArray(manifest.requiredTestFiles) || manifest.requiredTestFiles.length === 0) fail(`${fileName}.requiredTestFiles가 비어 있습니다.`);
   manifest.requiredTestFiles.forEach((file) => requireFile(file, `${fileName}.requiredTestFiles[]`));
 
+  const evidence = manifest.dnspyEvidence;
+  if (evidence?.required !== true) fail(`${fileName}: dnspyEvidence.required=true가 필요합니다.`);
+  requireFile(evidence.record, `${fileName}.dnspyEvidence.record`);
+  requireString(evidence.source, `${fileName}.dnspyEvidence.source`);
+  if (!Array.isArray(evidence.methods) || evidence.methods.length === 0) {
+    fail(`${fileName}.dnspyEvidence.methods가 비어 있습니다.`);
+  }
+  if (!Array.isArray(evidence.tables) || evidence.tables.length === 0) {
+    fail(`${fileName}.dnspyEvidence.tables가 비어 있습니다.`);
+  }
+
   const commands = manifest.requiredCommands;
   if (!Array.isArray(commands) || !commands.includes('npm run test:erp-contract')) {
     fail(`${fileName}.requiredCommands에 npm run test:erp-contract가 필요합니다.`);
+  }
+  if (!commands.includes('npm run test:nenova-dnspy-evidence')) {
+    fail(`${fileName}.requiredCommands에 npm run test:nenova-dnspy-evidence가 필요합니다.`);
   }
   if (!commands.includes('npm run guard:erp-writes -- --changed-from HEAD^')) {
     fail(`${fileName}.requiredCommands에 변경 SQL 스코프 검사가 필요합니다.`);

@@ -21,6 +21,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: npm run test:erp-manifest -- --changed-from "$BASE_SHA"
+      - name: Nenova dnSpy evidence guard
+        run: npm run test:nenova-dnspy-evidence
       - name: ERP behavior contracts
         run: npm run test:erp-contract
       - name: Changed ERP write scope
