@@ -29,7 +29,7 @@ export default function DistributeRepair() {
     if (!traceQ.trim()) { alert('업체명 또는 품목 키워드를 입력하세요.'); return; }
     setTraceLoading(true); setErr(''); setMsg(''); setTraceRows(null); setTraceRaw(null); setTraceGm(null);
     try {
-      const d = await apiGet('/api/shipment/item-trace', { week, q: traceQ.trim() });
+      const d = await apiGet('/api/shipment/item-trace', { year, week, q: traceQ.trim() });
       setTraceRows(d.rows || []);
       setTraceRaw(d.raw || []);
       setTraceGm(d.ghostMasters || []);
@@ -60,7 +60,7 @@ export default function DistributeRepair() {
     if (!estQ.trim()) { alert('품목/국가/업체 키워드를 입력하세요.'); return; }
     setEstBusy(true); setErr(''); setEstData(null);
     try {
-      const params = weeksArg ? { weeks: weeksArg, q: estQ.trim() } : { week, q: estQ.trim() };
+      const params = weeksArg ? { year, weeks: weeksArg, q: estQ.trim() } : { year, week, q: estQ.trim() };
       setEstData(await apiGet('/api/shipment/estimate-visibility', params));
     } catch (e) { setErr(e.message || String(e)); }
     finally { setEstBusy(false); }

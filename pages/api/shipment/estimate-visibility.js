@@ -8,13 +8,14 @@
 //  GET ?week=23-01&q=호접난
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   const q = String(req.query.q || '').trim();
   // week 또는 weeks(콤마) 지원 — 여러 차수 비교
   const rawWeeks = String(req.query.weeks || req.query.week || '').split(',').map(w => normalizeOrderWeek(w.trim())).filter(Boolean);
+  const year = resolveActiveOrderYear(rawWeeks[0], req.query.year || '');
   if (rawWeeks.length === 0) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!q) return res.status(400).json({ success: false, error: '검색어 필요' });
   const wkParams = {};
@@ -29,18 +30,18 @@ async function handler(req, res) {
               ISNULL(sm.isFix,0) AS SmFix, sd.OutQuantity, sd.EstQuantity, sd.SdetailKey,
               CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120) AS ShipDtm,
               -- 실제 전산 뷰에 존재하는지 (해당 업체+품목+주차)
-              (SELECT COUNT(*) FROM ViewShipment vs WHERE vs.CustKey=sm.CustKey AND vs.ProdKey=sd.ProdKey AND vs.OrderWeek=sm.OrderWeek) AS InViewShipment,
-              (SELECT COUNT(*) FROM ViewOrder   vo WHERE vo.CustKey=sm.CustKey AND vo.ProdKey=sd.ProdKey AND vo.OrderWeek=sm.OrderWeek) AS InViewOrder,
+              (SELECT COUNT(*) FROM ViewShipment vs WHERE vs.OrderYear=sm.OrderYear AND vs.CustKey=sm.CustKey AND vs.ProdKey=sd.ProdKey AND vs.OrderWeek=sm.OrderWeek) AS InViewShipment,
+              (SELECT COUNT(*) FROM ViewOrder   vo WHERE vo.OrderYear=sm.OrderYear AND vo.CustKey=sm.CustKey AND vo.ProdKey=sd.ProdKey AND vo.OrderWeek=sm.OrderWeek) AS InViewOrder,
               -- 주문 라인 원본 존재(뷰 필터 무시) → '주문 자체 없음' vs '주문은 있는데 뷰에서 탈락' 구분
               (SELECT COUNT(*) FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
-                 WHERE om.CustKey=sm.CustKey AND om.OrderWeek=sm.OrderWeek AND od.ProdKey=sd.ProdKey
+                 WHERE om.OrderYear=sm.OrderYear AND om.CustKey=sm.CustKey AND om.OrderWeek=sm.OrderWeek AND od.ProdKey=sd.ProdKey
                    AND ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0) AS OrderDetailRaw,
               (SELECT COUNT(*) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateCnt,
               (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON pd.BaseYmd=sdt.ShipmentDtm WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodExactCnt,
               (SELECT COUNT(*) FROM ShipmentDate sdt JOIN PeriodDay pd ON CONVERT(date,pd.BaseYmd)=CONVERT(date,sdt.ShipmentDtm) WHERE sdt.SdetailKey=sd.SdetailKey) AS PeriodDateCnt,
               (SELECT TOP 1 CONVERT(NVARCHAR(30), sdt.ShipmentDtm, 121) FROM ShipmentDate sdt WHERE sdt.SdetailKey=sd.SdetailKey) AS ShipDateRaw,
               ISNULL(sm.WebCreated,0) AS WebCreated, sm.OrderYearWeek AS SmYW, sm.OrderYear AS SmYear,
-              (SELECT TOP 1 vs.OrderYearWeek2 FROM ViewShipment vs WHERE vs.SdetailKey=sd.SdetailKey) AS VS_YW2,
+              (SELECT TOP 1 vs.OrderYearWeek2 FROM ViewShipment vs WHERE vs.OrderYear=sm.OrderYear AND vs.SdetailKey=sd.SdetailKey) AS VS_YW2,
               -- 실제 GetDetail 조인(ViewShipment⨝ViewOrder⨝ShipmentDate⨝PeriodDay)을 이 SdetailKey 로 그대로 재현
               (SELECT COUNT(*)
                  FROM ViewShipment vs
@@ -66,11 +67,11 @@ async function handler(req, res) {
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
          JOIN Customer c ON c.CustKey=sm.CustKey
-        WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
           AND ( p.ProdName LIKE @q OR ISNULL(p.CounName,'') LIKE @q
                 OR ISNULL(p.FlowerName,'') LIKE @q OR c.CustName LIKE @q )
         ORDER BY p.ProdName, sm.OrderWeek, c.CustName`,
-      { ...wkParams, q: { type: sql.NVarChar, value: `%${q}%` } }
+      { ...wkParams, yr: { type: sql.NVarChar, value: year }, q: { type: sql.NVarChar, value: `%${q}%` } }
     );
 
     const rows = (r.recordset || []).map(x => {
@@ -117,7 +118,7 @@ async function handler(req, res) {
     });
 
     return res.status(200).json({
-      success: true, weeks: rawWeeks, q,
+      success: true, year, weeks: rawWeeks, q,
       count: rows.length,
       hiddenCount: rows.filter(x => !x.visibleInEstimate).length,
       rows,

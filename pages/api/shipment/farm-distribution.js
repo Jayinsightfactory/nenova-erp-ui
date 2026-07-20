@@ -5,6 +5,9 @@
 //
 // EXE는 FarmKey를 ViewWarehouse.FarmName -> Farm.FarmKey로 얻은 뒤
 // ShipmentFarm(FarmKey, ShipmentQuantity, SdetailKey)를 같은 저장 흐름에 넣는다.
+// dnSpy의 grdViewShipment_FocusedRowChanged 는 ViewWarehouse 를 선택 차수/연도로
+// 제한하지 않고 ProdKey만 제한한다. 과거 입고차수의 농장도 현재 품목의 후보이므로
+// 웹도 같은 범위를 사용해야 27-02 입고농장을 29-02 출고에 배정할 수 있다.
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
@@ -56,7 +59,7 @@ async function loadFarmRows({ year, week, prodKey, sdetailKey }, q = query) {
        SELECT vw.OrderYear, vw.OrderWeek, vw.FarmName, vw.OrderCode, vw.ProdKey,
               SUM(vw.OutQuantity) AS wOutQuantity
          FROM ViewWarehouse vw
-        WHERE vw.OrderYear=@yr AND vw.OrderWeek=@wk AND vw.ProdKey=@pk
+        WHERE vw.ProdKey=@pk
         GROUP BY vw.OrderYear, vw.OrderWeek, vw.FarmName, vw.OrderCode, vw.ProdKey
      ), CurrentFarm AS (
        SELECT sf.FarmKey, SUM(ISNULL(sf.ShipmentQuantity,0)) AS sOutQuantity
@@ -139,7 +142,7 @@ async function saveFarmDistribution(req, res) {
               vw.FarmName
          FROM ViewWarehouse vw
          JOIN Farm f ON vw.FarmName=f.FarmName
-        WHERE vw.OrderYear=@yr AND vw.OrderWeek=@wk AND vw.ProdKey=@pk
+        WHERE vw.ProdKey=@pk
           AND ISNULL(f.isDeleted,0)=0`,
       {
         yr: { type: sql.NVarChar, value: year },
