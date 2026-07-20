@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 async function main() {
   const { filterFreightGroups, normalizeFreightSearchTerm } = await import('../lib/freightGroupSearch.js');
+  const freightPage = fs.readFileSync(path.join(__dirname, '..', 'pages', 'freight.js'), 'utf8');
   const groups = [
     {
       GroupKey: 'awb:00645360346', AWB: '006-45360346', OrderWeek: '28-02',
@@ -43,6 +46,9 @@ async function main() {
     ['warehouse:42'],
     '검색어가 바뀌어도 현재 선택 그룹은 select 옵션에 남아야 합니다.'
   );
+  assert.match(freightPage, /size=\{groupSearch \?/, '검색 중에는 결과 목록을 펼쳐야 합니다.');
+  assert.match(freightPage, /검색 결과 없음/, '검색 결과가 없을 때 안내 문구를 표시해야 합니다.');
+  assert.match(freightPage, /visibleGroups\.map/, '검색 결과 목록은 필터링된 그룹을 출력해야 합니다.');
 
   console.log('Freight group search tests passed');
 }

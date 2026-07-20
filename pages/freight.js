@@ -371,8 +371,19 @@ export default function FreightPage() {
           {groupSearch ? `${visibleGroups.length}/${groups.length}건` : `${groups.length}건`}
         </span>
         <span className="filter-label">BILL / AWB</span>
-        <select className="filter-input" value={groupKey} onChange={e => setGroupKey(e.target.value)} style={{ minWidth: 380 }}>
+        <select
+          className="filter-input"
+          value={groupKey}
+          onChange={e => setGroupKey(e.target.value)}
+          aria-label="BILL / AWB 선택"
+          // 검색 중에는 결과를 접지 않고 바로 선택할 수 있는 목록으로 표시한다.
+          size={groupSearch ? Math.min(Math.max(visibleGroups.length + 1, 3), 8) : undefined}
+          style={{ minWidth: 380, maxWidth: '100%' }}
+        >
           <option value="">선택하세요</option>
+          {groupSearch && visibleGroups.length === 0 && (
+            <option value="" disabled>검색 결과 없음</option>
+          )}
           {visibleGroups.map(g => (
             <option key={g.GroupKey} value={g.GroupKey}>
               {g.AWB ? `AWB ${g.AWB}` : `[AWB없음]`}
