@@ -12,6 +12,7 @@ model: opus
 | 작업 신호 | 위임할 specialist |
 |---|---|
 | `OrderMaster*` / `OrderDetail*` / `Shipment*` SQL, `isDeleted`/`isFix` 필터, OutUnit CASE WHEN, 전산(이카운트) Manager/CreateID/OrderCode | **db-schema-guard** |
+| ERP 핵심 테이블 기능 추가/수정, 교차연도 `OrderWeek`, 주문·분배 부작용, dnSpy 계약/배포 전 검증 | **erp-contract-guardian** |
 | `lib/freightCalc.js`, `pages/api/freight/*`, `data/category-overrides.json`, fixture 238/238, 엑셀 BILL/AWB 1:1 검증 | **freight-pipeline-engineer** |
 | `pages/api/orders/parse-paste.js`, `lib/parseMappings.js`, `data/order-mappings.json`, fallback 가드, KO_EN_KEYWORDS | **paste-mapping-curator** |
 | `lib/chat/*`, sqlagent.js, schema.js, sqlguard, 챗봇 라우팅, haiku/sonnet 하이브리드 | **chat-sql-agent-tuner** |

@@ -1,0 +1,25 @@
+name: ERP Contract Guard
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: ERP behavior contracts
+        run: npm run test:erp-contract
+      - name: Changed ERP write scope
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: npm run guard:erp-writes -- --changed-from "$BASE_SHA"

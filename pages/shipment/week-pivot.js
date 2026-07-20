@@ -746,7 +746,7 @@ export default function WeekPivot() {
 
   // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
   // 적용은 셀별 /api/shipment/adjust 순차 호출.
-  // 차수피벗은 분배수량 편집 화면이므로 SHIPMENT_ONLY 모드로 주문등록수량은 보존한다.
+  // 차수피벗 계약: ADD+주문없음은 주문등록+분배, ADD+주문있음/CANCEL은 분배만 변경.
   const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
@@ -783,8 +783,8 @@ export default function WeekPivot() {
             week: it.wk,
             type,
             qty: delta,
-            memo: `${it.custName} 셀편집(일괄·분배전용)`,
-            mode: 'SHIPMENT_ONLY',
+            memo: `${it.custName} 셀편집(일괄·차수피벗계약)`,
+            mode: 'PIVOT_DISTRIBUTION',
             force,
           }),
         });
