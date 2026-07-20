@@ -355,7 +355,9 @@ async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQu
             ISNULL(f.FarmCode,SUBSTRING(vw.FarmName,1,1)) AS FarmCode
        FROM ViewWarehouse vw
        JOIN Farm f ON vw.FarmName=f.FarmName
-      WHERE vw.OrderYear=@yr AND vw.OrderWeek=@wk AND vw.ProdKey=@pk
+      -- FormShipmentDistribution의 농장 후보는 차수/연도가 아니라 품목 전체 ViewWarehouse 범위다.
+      -- 신규 주문 생성 시에도 같은 후보 집합을 검증해야 과거 입고분을 현재 출고에 배정할 수 있다.
+      WHERE vw.ProdKey=@pk
         AND ISNULL(f.isDeleted,0)=0`,
     {
       yr: { type: sql.NVarChar, value: String(year) },
