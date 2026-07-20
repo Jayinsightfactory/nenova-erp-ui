@@ -5,6 +5,7 @@ import Head from 'next/head';
 import { apiGet } from '../lib/useApi';
 import { useLang } from '../lib/i18n';
 import { computeFreightCost, normalizeFlower } from '../lib/freightCalc';
+import { filterFreightGroups } from '../lib/freightGroupSearch';
 
 const fmt = (n, d = 0) => (n == null || Number.isNaN(Number(n))) ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
 const fmt2 = n => fmt(n, 2);
@@ -15,6 +16,7 @@ export default function FreightPage() {
   const { t } = useLang();
   const [groups, setGroups] = useState([]);          // AWB 그룹 리스트 ([{ GroupKey, AWB, AllKeys, MergeCount, ... }])
   const [groupKey, setGroupKey] = useState('');      // 선택된 GroupKey
+  const [groupSearch, setGroupSearch] = useState(''); // AWB/농장/차수/인보이스 화면 검색
   const [basis, setBasis] = useState('AUTO');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,6 +38,11 @@ export default function FreightPage() {
   useEffect(() => {
     apiGet('/api/freight').then(d => setGroups(d.groups || [])).catch(e => setErr(e.message));
   }, []);
+
+  const visibleGroups = useMemo(
+    () => filterFreightGroups(groups, groupSearch, groupKey),
+    [groups, groupSearch, groupKey]
+  );
 
   // 그룹 선택시 로드
   useEffect(() => {
@@ -342,10 +349,31 @@ export default function FreightPage() {
 
       {/* 필터 바 */}
       <div className="filter-bar">
+        <span className="filter-label">검색</span>
+        <input
+          className="filter-input"
+          value={groupSearch}
+          onChange={e => setGroupSearch(e.target.value)}
+          placeholder="AWB·농장·차수·인보이스"
+          aria-label="운송기준원가 검색"
+          style={{ width: 220 }}
+        />
+        {groupSearch && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setGroupSearch('')}
+            aria-label="운송기준원가 검색어 지우기"
+            title="검색어 지우기"
+          >✕</button>
+        )}
+        <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>
+          {groupSearch ? `${visibleGroups.length}/${groups.length}건` : `${groups.length}건`}
+        </span>
         <span className="filter-label">BILL / AWB</span>
         <select className="filter-input" value={groupKey} onChange={e => setGroupKey(e.target.value)} style={{ minWidth: 380 }}>
           <option value="">선택하세요</option>
-          {groups.map(g => (
+          {visibleGroups.map(g => (
             <option key={g.GroupKey} value={g.GroupKey}>
               {g.AWB ? `AWB ${g.AWB}` : `[AWB없음]`}
               {g.MergeCount > 1 ? ` · ${g.MergeCount}원장 합산` : ''}

@@ -1,0 +1,61 @@
+{
+  "id": "freight-cost",
+  "title": "운송기준원가 BILL/AWB 검색·스냅샷 계약",
+  "scope": [
+    "pages/freight.js",
+    "pages/api/freight/index.js",
+    "lib/freightGroupSearch.js",
+    "lib/freightCalc.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "FREIGHT_GROUP_SEARCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FREIGHT_SNAPSHOT_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FREIGHT_SNAPSHOT_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 차수명이 2025·2026에 있어도 검색은 현재 로드된 BILL/AWB 그룹만 필터링하고 주문·출고·입고 행을 쓰지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/freightGroupSearch.test.js",
+    "__tests__/freightCalc.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormFreightCost.md",
+    "source": "nenova.exe FormWarehouseView 조회 구조와 WarehouseMaster/WarehouseDetail 키를 기준으로 한 운송기준원가 웹 확장",
+    "methods": [
+      "FormWarehouseView GetData",
+      "FormWarehouseView GetDetail",
+      "WarehouseMaster/WarehouseDetail read scope"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "Flower",
+      "FreightCost",
+      "FreightCostDetail"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
