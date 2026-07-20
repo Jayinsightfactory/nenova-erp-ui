@@ -10,6 +10,7 @@ import { suggestDisplayName } from '../../lib/displayName';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { buildWeekPivotDimensionOptions } from '../../lib/pivotFilterOptions';
 import { isWeekPivotCellFixed, weekPivotFixState } from '../../lib/weekPivotFix';
+import PivotFarmAssignmentModal from '../../components/PivotFarmAssignmentModal';
 import * as XLSX from 'xlsx';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
@@ -432,6 +433,7 @@ export default function WeekPivot() {
   const [pvDescrModal,  setPvDescrModal]  = useState(null);
   const [pvShowOnlyOut, setPvShowOnlyOut] = useState(false);
   const [pvEdit,        setPvEdit]        = useState(null);
+  const [farmModalTarget, setFarmModalTarget] = useState(null);
   const [pvNameEdit,    setPvNameEdit]    = useState(null);
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
 
@@ -753,7 +755,7 @@ export default function WeekPivot() {
   // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
   // 적용은 셀별 /api/shipment/adjust 순차 호출.
   // 차수피벗 계약: ADD+주문없음은 주문등록+분배, ADD+주문있음/CANCEL은 분배만 변경.
-  const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName, year = orderYearFromWeek(weekFrom)) => {
+  const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName, year = orderYearFromWeek(weekFrom), farmAssignments) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
     const targetYear = String(year || orderYearFromWeek(weekFrom));
@@ -761,7 +763,7 @@ export default function WeekPivot() {
     setPendingEdits(prev => {
       const n = { ...prev };
       if (qty === old) delete n[key];   // 원래값으로 되돌리면 대기 해제
-      else n[key] = { year: targetYear, pk, ck, wk, oldQty: old, newQty: qty, custName, prodName };
+      else n[key] = { year: targetYear, pk, ck, wk, oldQty: old, newQty: qty, custName, prodName, farmAssignments };
       return n;
     });
     setPvEdit(null);
@@ -793,6 +795,7 @@ export default function WeekPivot() {
             qty: delta,
             memo: `${it.custName} 셀편집(일괄·차수피벗계약)`,
             mode: 'PIVOT_DISTRIBUTION',
+            ...(Array.isArray(it.farmAssignments) ? { farmAssignments: it.farmAssignments } : {}),
             force,
           }),
         });
@@ -1712,7 +1715,7 @@ export default function WeekPivot() {
                                         fontWeight:pend?800:undefined,
                                         background:fixed?'#f5f5f5':pend?'#ffe0b2':pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
                                         title={pend?`변경 대기: ${pend.oldQty} → ${pend.newQty} — [▶ 변경 시작]을 눌러야 적용됩니다`:undefined}
-                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({year:orderYearFromWeek(weekFrom),pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p)});}}>
+                                        onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({year:orderYearFromWeek(weekFrom),pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p),farmAssignments:pend?.farmAssignments,sdetailKey:pend?.sdetailKey});}}>
                                       {pend?`${v>0?fmt(v):0}→${fmt(pend.newQty)}`:(v>0?fmt(v):'·')}
                                       {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
                                     </td>
@@ -1845,19 +1848,35 @@ export default function WeekPivot() {
                   style={{width:60,textAlign:'center',fontSize:16,fontWeight:700,border:'2px solid #1976d2',borderRadius:6,padding:'4px'}} />
               </div>
               <div style={{fontSize:11,color:'#e65100',marginBottom:10}}>
-                여러 셀을 수정한 뒤 상단 <b>[▶ 변경 시작]</b>을 눌러야 실제 주문·분배가 적용됩니다.
+                새 업체·품목은 <b>농장배정</b>까지 입력해야 네노바.exe와 같은 구조로 저장됩니다.
               </div>
               <div style={{display:'flex',gap:8,justifyContent:'center'}}>
                 <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
+                {pvEdit.newVal > 0 && (
+                  <button onClick={()=>setFarmModalTarget(pvEdit)}
+                    style={{padding:'8px 16px',border:'1px solid #37474f',color:'#37474f',background:'#fff',borderRadius:5,cursor:'pointer',fontWeight:700}}>
+                    {Array.isArray(pvEdit.farmAssignments) ? '농장배정 수정' : '농장배정 입력'}
+                  </button>
+                )}
                 {pendingEdits[`${pvEdit.year}-${pvEdit.pk}-${pvEdit.ck}-${pvEdit.wk}`]&&(
-                  <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.val,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year)}
+                  <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.val,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year,pvEdit.farmAssignments)}
                     style={{padding:'8px 16px',border:'1px solid #e65100',color:'#e65100',background:'#fff',borderRadius:5,cursor:'pointer',fontWeight:700}}>대기 해제</button>
                 )}
-                <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year)}
+                <button onClick={()=>queuePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.prodName,pvEdit.year,pvEdit.farmAssignments)}
                   style={{padding:'8px 24px',background:'#e65100',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>변경 대기에 추가</button>
               </div>
             </div>
           </div>
+        )}
+        {farmModalTarget && (
+          <PivotFarmAssignmentModal
+            target={farmModalTarget}
+            onClose={() => setFarmModalTarget(null)}
+            onSaved={({ assignments, sdetailKey }) => {
+              setPvEdit((prev) => prev ? { ...prev, farmAssignments: assignments, sdetailKey } : prev);
+              setFarmModalTarget(null);
+            }}
+          />
         )}
       </div>
     );

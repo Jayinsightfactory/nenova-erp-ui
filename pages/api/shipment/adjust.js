@@ -22,6 +22,7 @@ import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipment
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { isPivotDistributionMode, resolvePivotAdjustmentPolicy } from '../../../lib/pivotAdjustmentPolicy.js';
+import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../lib/shipmentFarmAssignments.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -344,8 +345,60 @@ async function getAdjustments(req, res) {
 // ─────────────────────────────────────────────────────────────────────────
 // POST — ADD/CANCEL 한 건
 // ─────────────────────────────────────────────────────────────────────────
+async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQuantity, assignments }) {
+  if (!sdetailKey) throw new Error('ShipmentFarm 저장 대상 SdetailKey가 없습니다.');
+  const rows = assignments || [];
+  if (Number(outQuantity || 0) > 0) assertFarmAssignmentTotal(rows, outQuantity);
+
+  const candidateResult = await tQ(
+    `SELECT DISTINCT f.FarmKey,
+            ISNULL(f.FarmCode,SUBSTRING(vw.FarmName,1,1)) AS FarmCode
+       FROM ViewWarehouse vw
+       JOIN Farm f ON vw.FarmName=f.FarmName
+      WHERE vw.OrderYear=@yr AND vw.OrderWeek=@wk AND vw.ProdKey=@pk
+        AND ISNULL(f.isDeleted,0)=0`,
+    {
+      yr: { type: sql.NVarChar, value: String(year) },
+      wk: { type: sql.NVarChar, value: String(week) },
+      pk: { type: sql.Int, value: Number(prodKey) },
+    },
+  );
+  const candidates = new Map(candidateResult.recordset.map((row) => [Number(row.FarmKey), row]));
+  for (const row of rows) {
+    if (!candidates.has(Number(row.farmKey))) {
+      throw new Error(`FarmKey ${row.farmKey}는 해당 입고 데이터에서 확인되지 않습니다.`);
+    }
+  }
+
+  await tQ(
+    `DELETE FROM ShipmentFarm WHERE SdetailKey=@dk`,
+    { dk: { type: sql.Int, value: Number(sdetailKey) } },
+  );
+  for (const row of rows) {
+    await tQ(
+      `INSERT INTO ShipmentFarm (FarmKey, ShipmentQuantity, SdetailKey)
+       VALUES (@fk,@qty,@dk)`,
+      {
+        fk: { type: sql.Int, value: Number(row.farmKey) },
+        qty: { type: sql.Float, value: Number(row.shipmentQuantity) },
+        dk: { type: sql.Int, value: Number(sdetailKey) },
+      },
+    );
+  }
+  const descr = rows
+    .map((row) => `${candidates.get(Number(row.farmKey))?.FarmCode || row.farmKey}:${row.shipmentQuantity}`)
+    .join('/');
+  await tQ(
+    `UPDATE ShipmentDetail SET Descr=@descr WHERE SdetailKey=@dk`,
+    {
+      descr: { type: sql.NVarChar, value: descr },
+      dk: { type: sql.Int, value: Number(sdetailKey) },
+    },
+  );
+}
+
 async function postAdjust(req, res) {
-  const { custKey, prodKey, week, year, type, qty, unit, memo, mode } = req.body;
+  const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments } = req.body;
 
   if (!custKey || !prodKey || !week || !type) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, type 필요' });
@@ -361,6 +414,10 @@ async function postAdjust(req, res) {
   const { week: orderWeek, year: inferredYear } = normWeek(week);
   const orderYear = String(year || inferredYear);
   const pivotDistribution = isPivotDistributionMode(mode);
+  const farmAssignmentsProvided = farmAssignments !== undefined;
+  const normalizedFarmAssignments = farmAssignmentsProvided
+    ? normalizeFarmAssignments(farmAssignments)
+    : null;
   // OrderYearWeek 컬럼은 전산 포맷 = 연도 + 대차수(세부차수 '-NN' 제외). 예: 23-01 → '202623'
   // (뷰의 OrderYearWeek2 = 연도+세부차수전체 는 별개. 견적 GetData/GetDetail 은 raw OrderYearWeek 로 필터)
   const ywk = orderYear + orderWeek.split('-')[0];
@@ -680,9 +737,25 @@ async function postAdjust(req, res) {
       const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
       let targetSdk;
+      const existingFarmCount = sdRow
+        ? await tQ(
+          `SELECT COUNT(*) AS cnt FROM ShipmentFarm WHERE SdetailKey=@dk`,
+          { dk: { type: sql.Int, value: sdRow.SdetailKey } },
+        ).then((r) => Number(r.recordset[0]?.cnt || 0))
+        : 0;
+
+      // EXE의 btnSave는 새/농장 미배정 출고를 ShipmentFarm 없이 완성하지 않는다.
+      // 차수피벗도 같은 계약을 적용하되, 기존 Farm 행이 있으면 EXE처럼 보존한다.
+      if (pivotDistribution && isActiveShipmentOutQty(u.outQ) && existingFarmCount === 0 && !farmAssignmentsProvided) {
+        throw new Error('농장배정이 없는 출고입니다. 네노바.exe와 같은 농장배정을 먼저 입력하세요.');
+      }
       if (sdRow) {
         targetSdk = sdRow.SdetailKey;
         if (!isActiveShipmentOutQty(u.outQ)) {
+          await tQ(
+            `DELETE FROM ShipmentFarm WHERE SdetailKey=@dk`,
+            { dk: { type: sql.Int, value: targetSdk } },
+          );
           await purgeZeroOutShipmentDetail(tQ, targetSdk, sql);
           const entry = changeEntry(userName, qtyBefore, qtyAfter);
           await insertShipmentHistory(tQ, targetSdk, String(outQBefore), '0', entry, uid);
@@ -768,6 +841,19 @@ async function postAdjust(req, res) {
       // ShipmentDate 동기화 — 전산(usp_DistributeOne) 구조: 1 Detail + N ShipmentDate 유지
       if (targetSdk && isActiveShipmentOutQty(u.outQ)) {
         await refreshShipmentDatesAfterDetailChange(tQ, targetSdk, sql, { shipDtm: defaultShipDate });
+      }
+
+      // 0으로 취소한 경우 위에서 ShipmentFarm을 삭제하고 Detail도 정리한다.
+      // 삭제된 SdetailKey를 다시 농장배정 저장 대상으로 넘기지 않는다.
+      if (farmAssignmentsProvided && targetSdk && isActiveShipmentOutQty(u.outQ)) {
+        await applyFarmAssignments(tQ, {
+          year: orderYear,
+          week: orderWeek,
+          prodKey: pk,
+          sdetailKey: targetSdk,
+          outQuantity: u.outQ,
+          assignments: normalizedFarmAssignments,
+        });
       }
 
       // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고
@@ -864,6 +950,8 @@ async function postAdjust(req, res) {
         remainAfter,
         totalIn,
         totalOut,
+        sdetailKey: targetSdk,
+        farmAssignmentsProvided,
       };
     });
 

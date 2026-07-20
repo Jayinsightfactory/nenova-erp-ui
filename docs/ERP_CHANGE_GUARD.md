@@ -4,7 +4,7 @@
 
 ## 목적
 
-문서에만 있던 dnSpy/DB 규칙을 코드 계약, 자동검사, 배포 차단 조건으로 연결한다. 대상은 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `WarehouseMaster`, `StockMaster`, `ShipmentDate`, `ProductStock`, `StockHistory`를 읽거나 쓰는 모든 기능이다.
+문서에만 있던 dnSpy/DB 규칙을 코드 계약, 자동검사, 배포 차단 조건으로 연결한다. 대상은 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `WarehouseMaster`, `StockMaster`, `ShipmentDate`, `ProductStock`, `StockHistory`를 읽거나 쓰는 모든 기능이다.
 
 ## 2026-07-20 차수피벗 회귀 원인
 
@@ -44,14 +44,16 @@ OrderYear + OrderWeek + CustKey + ProdKey
 
 ## 기능 추가 절차
 
-1. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`를 기준으로 사용자 동작을 행으로, 변경 테이블을 열로 둔 부작용 표를 먼저 작성한다.
-2. `docs/contracts/<feature>.json`을 추가·갱신하고 `OrderYear + OrderWeek + CustKey + ProdKey` 업무 키를 선언한다.
-3. 쓰기 전 조회 업무 키에 `OrderYear`가 포함됐는지 확인한다. 화면의 선택 연도도 모든 API payload까지 전달한다.
-4. 정책 분기는 DB 코드 안에 흩뿌리지 말고 순수 함수로 분리한다.
-5. 최소 네 가지 경계 fixture를 만든다: 현재연도 주문 있음/없음 × ADD/CANCEL.
-6. 전년도 동일 차수 Master가 존재하는 교차연도 fixture를 반드시 추가한다.
-7. `npm run test:erp-contract`, 변경 SQL 스코프 검사, `npm run build`를 통과시킨다.
-8. 배포 후 `ViewOrder`, `ViewShipment`, EXE parity API를 같은 네 키로 대조한다.
+1. `docs/NENOVA_DNSPY_CLI_WORKFLOW.md`에 따라 실제 `nenova.exe`를 dnSpy CLI로 decompile하고 대상 Form/Class/메서드/SQL 저장 순서를 `docs/exe-golden/*.md`에 기록한다.
+2. 같은 `OrderYear + OrderWeek + CustKey + ProdKey`에 대해 읽기 전용 DB probe를 실행해 EXE 데이터와 웹 대상 행을 대조한다.
+3. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`를 기준으로 사용자 동작을 행으로, 변경 테이블을 열로 둔 부작용 표를 작성한다.
+4. `docs/contracts/<feature>.json`을 추가·갱신하고 `OrderYear + OrderWeek + CustKey + ProdKey` 업무 키를 선언한다.
+5. 쓰기 전 조회 업무 키에 `OrderYear`가 포함됐는지 확인한다. 화면의 선택 연도도 모든 API payload까지 전달한다.
+6. 정책 분기는 DB 코드 안에 흩뿌리지 말고 순수 함수로 분리한다.
+7. 최소 네 가지 경계 fixture를 만든다: 현재연도 주문 있음/없음 × ADD/CANCEL.
+8. 전년도 동일 차수 Master가 존재하는 교차연도 fixture를 반드시 추가한다.
+9. `npm run test:nenova-dnspy-evidence`, `npm run test:erp-contract`, 변경 SQL 스코프 검사, `npm run build`를 통과시킨다.
+10. 배포 후 `ViewOrder`, `ViewShipment`, `ShipmentFarm`, EXE parity API를 같은 네 키로 대조한다.
 
 ## 자동 방어 계층
 
@@ -62,6 +64,8 @@ OrderYear + OrderWeek + CustKey + ProdKey
 - `$guard-nenova-erp-changes`: 사용자 환경의 Nenova 전용 Codex 스킬.
 - `.claude/agents/erp-contract-guardian.md`: 기존 Claude 에이전트 팀용 검증자.
 - `scripts/check-erp-write-contracts.mjs`: 변경된 API의 연도 없는 위험 SQL을 탐지.
+- `scripts/check-nenova-dnspy-evidence.mjs`: dnSpy CLI 명령·Form 메서드·테이블 근거 기록이 없으면 차단.
+- `docs/NENOVA_DNSPY_CLI_WORKFLOW.md` / `docs/exe-golden/*.md`: 실제 EXE decompile 및 읽기 전용 probe 기록.
 - `.github/workflows/erp-contract.yml`: PR과 master push에서 계약검사 실행.
 - `.github/workflows/deploy.yml`: 계약검사가 실패하면 서버 배포 전에 중단.
 

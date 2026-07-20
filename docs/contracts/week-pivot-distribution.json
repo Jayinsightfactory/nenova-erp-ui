@@ -6,7 +6,10 @@
     "pages/api/shipment/adjust.js",
     "pages/api/shipment/stock-status.js",
     "pages/api/shipment/start-stock-text.js",
-    "lib/pivotAdjustmentPolicy.js"
+    "lib/pivotAdjustmentPolicy.js",
+    "pages/api/shipment/farm-distribution.js",
+    "lib/shipmentFarmAssignments.js",
+    "components/PivotFarmAssignmentModal.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -32,10 +35,28 @@
   },
   "requiredTestFiles": [
     "__tests__/shipmentPivotAdjustContract.test.js",
+    "__tests__/shipmentFarmAssignments.test.js",
+    "__tests__/shipmentFarmContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList",
+      "grdViewShipment_FocusedRowChanged",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "ShipmentDetail",
+      "ShipmentFarm",
+      "ShipmentDate"
+    ]
+  },
   "requiredCommands": [
     "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
   ]

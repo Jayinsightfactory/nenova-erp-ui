@@ -9,6 +9,7 @@
 - [ ] `docs/contracts/<feature>.json`을 추가하거나 기존 계약을 갱신했다.
 - [ ] 업무 식별자가 `OrderYear + OrderWeek + CustKey + ProdKey`에 필요한지 확인했다. `OrderWeek` 단독은 허용하지 않는다.
 - [ ] `docs/DB_STRUCTURE.md`, `docs/ERP_COMPAT_INVARIANTS_2026-06-04.md`, `docs/WEB_VS_ERP_CONFLICTS.md`와 관련 dnSpy/View/SP 근거를 읽었다.
+- [ ] `docs/NENOVA_DNSPY_CLI_WORKFLOW.md`에 따라 로컬 dnSpy CLI로 실제 EXE의 Form/Class/메서드/SQL 저장 순서를 확인했고, `docs/exe-golden/*.md`에 근거와 읽기 전용 DB probe를 기록했다.
 - [ ] 이전 연도에 같은 차수명이 존재하는 교차연도 fixture를 정의했다.
 
 ## 2. 구현 중에 지켜야 할 것
@@ -37,6 +38,7 @@
 
 ```powershell
 npm run test:erp-contract
+npm run test:nenova-dnspy-evidence
 npm run test:erp-manifest -- --changed-from HEAD^
 npm run guard:erp-writes -- --changed-from HEAD^
 npm run build
