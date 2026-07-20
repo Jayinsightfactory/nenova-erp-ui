@@ -8,6 +8,8 @@
     "pages/api/shipment/start-stock-text.js",
     "lib/pivotAdjustmentPolicy.js",
     "pages/api/shipment/farm-distribution.js",
+    "pages/api/shipment/estimate-visibility.js",
+    "pages/api/shipment/item-trace.js",
     "lib/shipmentFarmAssignments.js",
     "components/PivotFarmAssignmentModal.js"
   ],
