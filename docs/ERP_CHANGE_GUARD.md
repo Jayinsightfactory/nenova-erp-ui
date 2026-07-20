@@ -44,17 +44,21 @@ OrderYear + OrderWeek + CustKey + ProdKey
 
 ## 기능 추가 절차
 
-1. 사용자 동작을 행으로, 변경 테이블을 열로 둔 부작용 표를 먼저 작성한다.
-2. 쓰기 전 조회 업무 키에 `OrderYear`가 포함됐는지 확인한다.
-3. 정책 분기는 DB 코드 안에 흩뿌리지 말고 순수 함수로 분리한다.
-4. 최소 네 가지 경계 fixture를 만든다: 현재연도 주문 있음/없음 × ADD/CANCEL.
-5. 전년도 동일 차수 Master가 존재하는 교차연도 fixture를 반드시 추가한다.
-6. `npm run test:erp-contract`와 변경 SQL 스코프 검사를 통과시킨다.
-7. 배포 후 `ViewOrder`, `ViewShipment`, EXE parity API를 같은 네 키로 대조한다.
+1. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`를 기준으로 사용자 동작을 행으로, 변경 테이블을 열로 둔 부작용 표를 먼저 작성한다.
+2. `docs/contracts/<feature>.json`을 추가·갱신하고 `OrderYear + OrderWeek + CustKey + ProdKey` 업무 키를 선언한다.
+3. 쓰기 전 조회 업무 키에 `OrderYear`가 포함됐는지 확인한다. 화면의 선택 연도도 모든 API payload까지 전달한다.
+4. 정책 분기는 DB 코드 안에 흩뿌리지 말고 순수 함수로 분리한다.
+5. 최소 네 가지 경계 fixture를 만든다: 현재연도 주문 있음/없음 × ADD/CANCEL.
+6. 전년도 동일 차수 Master가 존재하는 교차연도 fixture를 반드시 추가한다.
+7. `npm run test:erp-contract`, 변경 SQL 스코프 검사, `npm run build`를 통과시킨다.
+8. 배포 후 `ViewOrder`, `ViewShipment`, EXE parity API를 같은 네 키로 대조한다.
 
 ## 자동 방어 계층
 
 - `AGENTS.md`: Codex가 저장소 진입 시 읽는 강제 작업 규칙.
+- `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`: 기능별 부작용·연도전달·배포 전후 체크리스트.
+- `docs/contracts/*.json`: 기능 계약과 필수 교차연도 fixture의 기계검사 대상.
+- `.claude/skills/nenova-erp-change-guard/SKILL.md`: Claude/에이전트 작업용 동일 절차.
 - `$guard-nenova-erp-changes`: 사용자 환경의 Nenova 전용 Codex 스킬.
 - `.claude/agents/erp-contract-guardian.md`: 기존 Claude 에이전트 팀용 검증자.
 - `scripts/check-erp-write-contracts.mjs`: 변경된 API의 연도 없는 위험 SQL을 탐지.
@@ -68,5 +72,6 @@ OrderYear + OrderWeek + CustKey + ProdKey
 - 배포는 Next 빌드, API 스모크, hydration만 검사했다. 이 검사는 SQL이 2025 행을 수정하는 의미 오류를 발견할 수 없다.
 - 테스트가 수량 환산과 화면 동작 중심이었고, 주문/분배 부작용 행렬과 교차연도 fixture가 없었다.
 - `/api/shipment/adjust`라는 포괄적인 이름과 결합 동작이 호출자에게 숨겨져 있었다.
+- `week-pivot`이 선택한 연도를 읽기·쓰기 payload에 일관되게 전달하지 않았고, 시작재고 텍스트 저장도 연도 없이 `StockMaster`를 재사용했다.
 
 앞으로는 문서를 추가하는 것만으로 완료로 보지 않는다. 문서 규칙마다 실행 가능한 테스트 또는 CI 검사 하나 이상을 연결한다.

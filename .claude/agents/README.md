@@ -63,6 +63,8 @@
 
 ## 사용법
 
+ERP 기능 변경 전에는 `.claude/skills/nenova-erp-change-guard/SKILL.md`와 `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`를 함께 적용하고, 대상 계약 JSON을 반드시 등록한다.
+
 ### 자동 호출 (description 기반)
 
 각 에이전트의 `description` 이 트리거 조건. Claude Code 가 작업 내용 보고 자동으로 적절한 에이전트 호출.
@@ -121,7 +123,7 @@
 | 에이전트 | 우선 참조 |
 |---|---|
 | db-schema-guard | `docs/DB_STRUCTURE.md` (트러블 9건) |
-| erp-contract-guardian | `AGENTS.md` + `docs/ERP_CHANGE_GUARD.md` |
+| erp-contract-guardian | `AGENTS.md` + `docs/ERP_FEATURE_CHANGE_CHECKLIST.md` + `docs/ERP_CHANGE_GUARD.md` + `docs/contracts/*.json` |
 | freight-pipeline-engineer | `docs/FREIGHT_PIPELINE.md` |
 | paste-mapping-curator | `feedback_mapping_fallback_guard.md` |
 | chat-sql-agent-tuner | `lib/chat/router.js` 흐름 + `costTracker.js` |
@@ -131,7 +133,7 @@
 
 ## 절대 룰 (전 에이전트 공통)
 
-1. **작업 디렉토리**: `C:\Users\cando\Downloads\nenova-erp-ui10\nenova-erp-ui\` (Downloads 밑!)
+1. **작업 디렉토리**: `git rev-parse --show-toplevel` 결과인 저장소 루트. 사용자별 절대 경로를 문서에 저장하지 않는다.
 2. **푸시는 사용자 명시 요청 시만**: master 직접 푸시는 sandbox 가 차단
 3. **fixture 우선**: `lib/freightCalc.js` 변경 시 238/238 검증 강제
 4. **백업 우선**: DB 마이그레이션 / 매핑 정정 / 롤백 전 백업

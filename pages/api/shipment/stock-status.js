@@ -6,7 +6,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderUnit, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { useExeParityFlag, normalizeOrderYearWeek2 } from '../../../lib/exeParity/common.js';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql.js';
@@ -150,6 +150,9 @@ export default withAuth(async function handler(req, res) {
   if (!weekFrom) return res.status(400).json({ success: false, error: 'weekFrom 필요' });
   if (!weekTo) weekTo = weekFrom;
 
+  const rawWeekFrom = String(weekFrom);
+  const orderYear = resolveActiveOrderYear(rawWeekFrom, req.query.orderYear || req.query.year);
+
   // YYYY-WW-SS → WW-SS (DB 저장 형식으로 정규화)
   const normWeek = w => w.match(/^\d{4}-(\d{2}-\d{2})$/) ? w.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : w;
   weekFrom = normWeek(weekFrom);
@@ -158,6 +161,7 @@ export default withAuth(async function handler(req, res) {
   const params = {
     weekFrom: { type: sql.NVarChar, value: weekFrom },
     weekTo:   { type: sql.NVarChar, value: weekTo },
+    orderYear: { type: sql.NVarChar, value: orderYear },
   };
 
   // GET은 읽기 전용 — DB 수정하지 않음
@@ -174,7 +178,8 @@ export default withAuth(async function handler(req, res) {
             SELECT TOP 1 ps.Stock
             FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           -- 기간 내 입고수량 + 전산 재고관리 탭 수동 조정값
@@ -303,7 +308,8 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
@@ -313,37 +319,41 @@ export default withAuth(async function handler(req, res) {
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             JOIN Product p2 ON od2.ProdKey=p2.ProdKey
-            WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
+            WHERE od2.ProdKey=p.ProdKey AND om2.OrderYear=@orderYear
+              AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
           ), 0) AS totalOrderQty,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
           ), 0) AS totalWhInQty,
           -- 전산 재고관리 탭에서 +/- 한 재고조정값 (StockHistory 의 AfterValue-BeforeValue 합)
           --   '확정'/'확정취소'/'입고'/'출고' 는 자동 생성되어 다른 컬럼과 중복되므로 제외
           ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek=om.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalAdjustQty,
           -- 입고 표시용: 입고원장 + 전산 재고조정 합산
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
           ), 0) + ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek=om.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
-            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
+            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
           ), 0) AS totalOutQty
          FROM OrderMaster om
          JOIN Customer c      ON om.CustKey = c.CustKey
@@ -362,7 +372,7 @@ export default withAuth(async function handler(req, res) {
                FROM ShipmentMaster sm3
                JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
                WHERE sm3.CustKey=om.CustKey
-                 AND sm3.OrderWeek=om.OrderWeek
+                 AND sm3.OrderYear=@orderYear AND sm3.OrderWeek=om.OrderWeek
                  AND sm3.isDeleted=0
                  AND sd3.ProdKey=p.ProdKey
                  AND NULLIF(sd3.Descr,'') IS NOT NULL
@@ -370,14 +380,15 @@ export default withAuth(async function handler(req, res) {
              ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Descr
            FROM ShipmentMaster sm2
            JOIN ShipmentDetail sd2 ON sd2.ShipmentKey=sm2.ShipmentKey
-           WHERE sm2.CustKey=om.CustKey
+           WHERE sm2.CustKey=om.CustKey AND sm2.OrderYear=@orderYear
              AND sm2.OrderWeek=om.OrderWeek
              AND sm2.isDeleted=0
              AND sd2.ProdKey=p.ProdKey
          ) ship
          LEFT JOIN UserInfo shipu ON shipu.UserID=ship.CreateID
          LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=p.ProdKey
-         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
+           WHERE om.OrderYear=@orderYear
+             AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName, p.ProdName`,
         params
       );
@@ -388,6 +399,7 @@ export default withAuth(async function handler(req, res) {
           ISNULL(c.Descr, '') AS CustDescr,
           p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
           ISNULL(NULLIF(ship.Cost,0), ISNULL(NULLIF(cpc.Cost,0), ISNULL(p.Cost,0))) AS UnitCost,
+          ship.OrderYear,
           ship.OrderWeek,
           0 AS custOrderQty,
           ISNULL(ship.OutQuantity, 0) AS outQty,
@@ -400,41 +412,46 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
-            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
+            WHERE ps.ProdKey = p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           0 AS totalOrderQty,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
           ), 0) AS totalWhInQty,
           ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=ship.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek=ship.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalAdjustQty,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=ship.OrderWeek AND wm2.isDeleted=0
           ), 0) + ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=ship.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek=ship.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
-            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=ship.OrderWeek AND sm2.isDeleted=0
+            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek=ship.OrderWeek AND sm2.isDeleted=0
           ), 0) AS totalOutQty
          FROM (
            SELECT
              sm.CustKey,
              sd.ProdKey,
-             sm.OrderWeek,
+              sm.OrderYear,
+              sm.OrderWeek,
              SUM(ISNULL(sd.OutQuantity,0)) AS OutQuantity,
              MAX(sd.ShipmentDtm) AS ShipmentDtm,
              MAX(NULLIF(sd.Cost,0)) AS Cost,
@@ -446,7 +463,7 @@ export default withAuth(async function handler(req, res) {
                FROM ShipmentMaster sm3
                JOIN ShipmentDetail sd3 ON sd3.ShipmentKey=sm3.ShipmentKey
                WHERE sm3.CustKey=sm.CustKey
-                 AND sm3.OrderWeek=sm.OrderWeek
+                  AND sm3.OrderYear=@orderYear AND sm3.OrderWeek=sm.OrderWeek
                  AND sm3.isDeleted=0
                  AND sd3.ProdKey=sd.ProdKey
                  AND NULLIF(sd3.Descr,'') IS NOT NULL
@@ -454,11 +471,12 @@ export default withAuth(async function handler(req, res) {
              ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Descr
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-           WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+            WHERE sm.OrderYear=@orderYear
+              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
              AND sm.isDeleted=0
              AND ISNULL(sd.OutQuantity,0)>0
              ${prodKey ? 'AND sd.ProdKey = @pk' : ''}
-           GROUP BY sm.CustKey, sd.ProdKey, sm.OrderWeek
+            GROUP BY sm.CustKey, sd.ProdKey, sm.OrderYear, sm.OrderWeek
          ) ship
          JOIN Customer c ON ship.CustKey=c.CustKey
          JOIN Product p ON ship.ProdKey=p.ProdKey
@@ -470,7 +488,7 @@ export default withAuth(async function handler(req, res) {
              FROM OrderMaster omx
              JOIN OrderDetail odx ON odx.OrderMasterKey=omx.OrderMasterKey AND odx.isDeleted=0
              WHERE omx.CustKey=ship.CustKey
-               AND omx.OrderWeek=ship.OrderWeek
+                AND omx.OrderYear=@orderYear AND omx.OrderWeek=ship.OrderWeek
                AND omx.isDeleted=0
                AND odx.ProdKey=ship.ProdKey
            )
@@ -501,7 +519,8 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey=sm2.StockKey
-            WHERE ps.ProdKey=p.ProdKey AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
+            WHERE ps.ProdKey=p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek < @weekFrom AND sm2.OrderWeek LIKE '__-__'
             ORDER BY sm2.OrderWeek DESC
           ), 0) AS prevStock,
           ISNULL((
@@ -511,45 +530,53 @@ export default withAuth(async function handler(req, res) {
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey=om2.OrderMasterKey
             JOIN Product p2 ON od2.ProdKey=p2.ProdKey
-            WHERE od2.ProdKey=p.ProdKey AND om2.OrderWeek=om.OrderWeek
+            WHERE od2.ProdKey=p.ProdKey AND om2.OrderYear=@orderYear
+              AND om2.OrderWeek=om.OrderWeek
               AND om2.isDeleted=0 AND od2.isDeleted=0
           ), 0) AS totalOrderQty,
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
           ), 0) AS totalWhInQty,
           -- 전산 재고관리 탭에서 +/- 한 재고조정값 (StockHistory 의 AfterValue-BeforeValue 합)
           --   '확정'/'확정취소'/'입고'/'출고' 는 자동 생성되어 다른 컬럼과 중복되므로 제외
           ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear
+              AND sh.OrderWeek=om.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalAdjustQty,
           -- 입고 표시용: 입고원장 + 전산 재고조정 합산
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm2 ON wd.WarehouseKey=wm2.WarehouseKey
-            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
+            WHERE wd.ProdKey=p.ProdKey AND wm2.OrderYear=@orderYear
+              AND wm2.OrderWeek=om.OrderWeek AND wm2.isDeleted=0
           ), 0) + ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
-            WHERE sh.ProdKey=p.ProdKey AND sh.OrderWeek=om.OrderWeek
+            WHERE sh.ProdKey=p.ProdKey AND sh.OrderYear=@orderYear
+              AND sh.OrderWeek=om.OrderWeek
               AND sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고')
           ), 0) AS totalInQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
             JOIN ShipmentMaster sm2 ON sd2.ShipmentKey=sm2.ShipmentKey
-            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
+            WHERE sd2.ProdKey=p.ProdKey AND sm2.OrderYear=@orderYear
+              AND sm2.OrderWeek=om.OrderWeek AND sm2.isDeleted=0
           ), 0) AS totalOutQty
          FROM OrderMaster om
          JOIN Customer c      ON om.CustKey=c.CustKey
          JOIN OrderDetail od  ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
          JOIN Product p       ON od.ProdKey=p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderYear=@orderYear
+           AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
-         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
+         WHERE om.OrderYear=@orderYear
+           AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo AND om.isDeleted=0
          ORDER BY Manager, c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName`,
         params
       );
@@ -558,8 +585,9 @@ export default withAuth(async function handler(req, res) {
 
     // ── FormQuantityPivot (exe 차수 피벗)
     if (view === 'quantityPivot') {
-      const wf = normalizeOrderYearWeek2(weekFrom.replace(/-/g, ''));
-      const wt = normalizeOrderYearWeek2(weekTo.replace(/-/g, ''));
+      // 위에서 YYYY-WW-SS를 WW-SS로 정규화했으므로 EXE의 StockList 범위에는 연도를 다시 붙인다.
+      const wf = normalizeOrderYearWeek2(`${orderYear}${weekFrom.replace(/-/g, '')}`);
+      const wt = normalizeOrderYearWeek2(`${orderYear}${weekTo.replace(/-/g, '')}`);
       const result = await query(sqlQuantityPivotGetData(), {
         weekFrom: { type: sql.NVarChar, value: wf },
         weekTo: { type: sql.NVarChar, value: wt },
@@ -603,6 +631,7 @@ export default withAuth(async function handler(req, res) {
            FROM ProductStock ps2
            JOIN StockMaster sm2 ON ps2.StockKey = sm2.StockKey
            WHERE ps2.ProdKey = p.ProdKey
+             AND sm2.OrderYear=@orderYear
              AND sm2.OrderWeek < @weekTo
              AND sm2.OrderWeek LIKE '__-__'
            ORDER BY sm2.OrderWeek DESC
@@ -610,7 +639,8 @@ export default withAuth(async function handler(req, res) {
          CROSS APPLY (
            SELECT TOP 1 sm3.OrderWeek
            FROM StockMaster sm3
-           WHERE sm3.OrderWeek <= @weekTo AND sm3.isFix IN (1,2)
+           WHERE sm3.OrderYear=@orderYear
+             AND sm3.OrderWeek <= @weekTo AND sm3.isFix IN (1,2)
            ORDER BY sm3.OrderWeek DESC
          ) sm
          WHERE p.isDeleted = 0`,
@@ -630,6 +660,7 @@ export default withAuth(async function handler(req, res) {
          FROM ProductStock ps
          JOIN StockMaster sm ON ps.StockKey=sm.StockKey
          WHERE sm.isFix=2
+           AND sm.OrderYear=@orderYear
            AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo`,
         params
       );
@@ -666,7 +697,7 @@ export default withAuth(async function handler(req, res) {
                 CONVERT(NVARCHAR(16), CreateDtm, 120) AS CreateDtm,
                 ISNULL(CreateID, '') AS CreateID
            FROM StockMaster
-          WHERE OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
+          WHERE OrderYear=@orderYear AND OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
           ORDER BY OrderWeek, StockKey`,
         params
       );
@@ -675,7 +706,7 @@ export default withAuth(async function handler(req, res) {
       const isFixDist = await query(
         `SELECT ISNULL(isFix, -999) AS isFix, COUNT(*) AS cnt
            FROM StockMaster
-          WHERE OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
+          WHERE OrderYear=@orderYear AND OrderWeek >= @weekFrom AND OrderWeek <= @weekTo
           GROUP BY ISNULL(isFix, -999)
           ORDER BY ISNULL(isFix, -999)`,
         params
@@ -695,6 +726,7 @@ export default withAuth(async function handler(req, res) {
              FROM ProductStock ps
              JOIN StockMaster sm ON ps.StockKey = sm.StockKey
             WHERE ps.ProdKey = @pk
+              AND sm.OrderYear=@orderYear
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
             ORDER BY sm.OrderWeek, ps.StockKey`,
           { ...params, pk: { type: sql.Int, value: pk } }
@@ -1082,7 +1114,7 @@ export default withAuth(async function handler(req, res) {
 
 // ── PATCH: 출고수량 수정 + 비고 로그 저장
 async function updateOutQty(req, res) {
-  const { custKey, prodKey, week, outQty, shipDate, descrLog, mode } = req.body;
+  const { custKey, prodKey, week, year, outQty, shipDate, descrLog, mode } = req.body;
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -1091,6 +1123,8 @@ async function updateOutQty(req, res) {
     const ck  = parseInt(custKey);
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
+    const orderYear = resolveActiveOrderYear(week, year);
+    const orderWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/)?.[1] || week;
 
     // ── 업체별 BaseOutDay 조회 → 기존 전산 동일 로직으로 출고일 계산
     // 기준: 해당 주의 수요일 + BaseOutDay별 오프셋 (차수 -01/-02 무관)
@@ -1104,7 +1138,7 @@ async function updateOutQty(req, res) {
     function calcShipDate(weekStr, baseDay) {
       try {
         const weekNum = parseInt(weekStr.split('-')[0], 10);
-        const yr = new Date().getFullYear();
+        const yr = parseInt(orderYear, 10) || new Date().getFullYear();
         // getCurrentWeek()과 동일한 단순 7일 분할: week N = day (N-1)*7+1 ~ N*7
         const dayStart = (weekNum - 1) * 7 + 1;
         const dateStart = new Date(yr, 0, dayStart, 12, 0, 0, 0); // day 1 = Jan 1
@@ -1122,7 +1156,7 @@ async function updateOutQty(req, res) {
       } catch { return null; }
     }
 
-    const computedDate = calcShipDate(week, baseOutDay);
+    const computedDate = calcShipDate(orderWeek, baseOutDay);
     const finalDate = computedDate || shipDate || null;
     const shipDtmExpr = finalDate ? `CAST(@shipDate AS DATETIME)` : `GETDATE()`;
     const shipDtmParam = finalDate ? { shipDate: { type: sql.NVarChar, value: finalDate } } : {};
@@ -1134,8 +1168,8 @@ async function updateOutQty(req, res) {
         `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity, ISNULL(sd.Cost,0) AS Cost
          FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week }, pk: { type: sql.Int, value: pk } }
+         WHERE sm.CustKey=@ck AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+        { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek }, pk: { type: sql.Int, value: pk } }
       );
       // CustKey 없는 ShipmentMaster도 검색 (전산이 CustKey 없이 만든 경우)
       let existSD2 = { recordset: [] };
@@ -1144,8 +1178,8 @@ async function updateOutQty(req, res) {
           `SELECT sd.SdetailKey, sd.ShipmentKey, sd.OutQuantity, ISNULL(sd.Cost,0) AS Cost
            FROM ShipmentDetail sd
            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-           WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk AND sd.CustKey=@ck`,
-          { wk: { type: sql.NVarChar, value: week }, pk: { type: sql.Int, value: pk }, ck: { type: sql.Int, value: ck } }
+           WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk AND sd.CustKey=@ck`,
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek }, pk: { type: sql.Int, value: pk }, ck: { type: sql.Int, value: ck } }
         );
       }
       const foundSD = existSD.recordset[0] || existSD2.recordset[0] || null;
@@ -1158,23 +1192,23 @@ async function updateOutQty(req, res) {
         // 해당 업체+차수의 모든 ShipmentMaster 검색 (isFix=1 우선)
         const sm = await tQ(
           `SELECT ShipmentKey, isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-           WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+           WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
            ORDER BY isFix DESC`,
-          { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week } }
+          { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek } }
         );
         if (sm.recordset.length > 0) {
           sk = sm.recordset[0].ShipmentKey; // isFix=1(전산 확정) 우선
         } else {
           // ShipmentMaster가 정말 없을 때만 생성
           // OrderYear/OrderYearWeek 채움 (전산 ViewShipment.OrderYearWeek2 매칭용)
-          const yr = String(new Date().getFullYear());
-          const ywk = yr + (week || '').split('-')[0];
+          const yr = String(orderYear);
+          const ywk = yr + String(orderWeek || '').split('-')[0];
           const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
           const newSk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (candidateSk) => {
             const shipmentMasterParams = {
               newSk: { type: sql.Int, value: candidateSk },
               yr:  { type: sql.NVarChar, value: yr },
-              wk:  { type: sql.NVarChar, value: week },
+              wk:  { type: sql.NVarChar, value: orderWeek },
               ywk: { type: sql.NVarChar, value: ywk },
               ck:  { type: sql.Int, value: ck },
               uid: { type: sql.NVarChar, value: uid },
@@ -1293,11 +1327,12 @@ async function updateOutQty(req, res) {
         .slice(0, 80);
       await query(
         `UPDATE ShipmentDetail SET Descr = ISNULL(Descr,'') + @log
-         WHERE ShipmentKey=(SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0)
+         WHERE ShipmentKey=(SELECT ShipmentKey FROM ShipmentMaster WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0)
          AND ProdKey=@pk`,
         { log:  { type: sql.NVarChar, value: '\n' + logLine },
           ck:   { type: sql.Int,      value: ck },
-          wk:   { type: sql.NVarChar, value: week },
+          yr:   { type: sql.NVarChar, value: orderYear },
+          wk:   { type: sql.NVarChar, value: orderWeek },
           pk:   { type: sql.Int,      value: pk } }
       );
     }
@@ -1309,11 +1344,12 @@ async function updateOutQty(req, res) {
 
 // ── DELETE: 수정내역 특정 줄 삭제
 async function deleteDescrLine(req, res) {
-  const { custKey, prodKey, week: rawWeek, lineIdx } = req.body;
+  const { custKey, prodKey, week: rawWeek, year, lineIdx } = req.body;
   if (custKey === undefined || !prodKey || !rawWeek || lineIdx === undefined) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, lineIdx 필요' });
   }
   const week = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
+  const orderYear = resolveActiveOrderYear(rawWeek, year);
   try {
     const ck = parseInt(custKey);
     const pk = parseInt(prodKey);
@@ -1321,8 +1357,8 @@ async function deleteDescrLine(req, res) {
     const r = await query(
       `SELECT sd.SdetailKey, sd.Descr FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-       WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
-      { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week },
+       WHERE sm.CustKey=@ck AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+      { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week },
         pk: { type: sql.Int, value: pk } }
     );
     if (!r.recordset.length) return res.status(404).json({ success: false, error: '데이터 없음' });
@@ -1343,11 +1379,12 @@ async function deleteDescrLine(req, res) {
 
 // ── PATCH action=editDescrLine: 수정내역 특정 줄 텍스트 수정
 async function editDescrLine(req, res) {
-  const { custKey, prodKey, week: rawWeek, lineIdx, newText } = req.body;
+  const { custKey, prodKey, week: rawWeek, year, lineIdx, newText } = req.body;
   if (custKey === undefined || !prodKey || !rawWeek || lineIdx === undefined || newText === undefined) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, lineIdx, newText 필요' });
   }
   const week = rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/) ? rawWeek.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : rawWeek;
+  const orderYear = resolveActiveOrderYear(rawWeek, year);
   try {
     const ck = parseInt(custKey);
     const pk = parseInt(prodKey);
@@ -1355,8 +1392,8 @@ async function editDescrLine(req, res) {
     const r = await query(
       `SELECT sd.SdetailKey, sd.Descr FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-       WHERE sm.CustKey=@ck AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
-      { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: week },
+       WHERE sm.CustKey=@ck AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND sd.ProdKey=@pk`,
+      { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week },
         pk: { type: sql.Int, value: pk } }
     );
     if (!r.recordset.length) return res.status(404).json({ success: false, error: '데이터 없음' });
@@ -1388,7 +1425,7 @@ async function appLog(category, step, detail, isError = false) {
 }
 
 async function addOrder(req, res) {
-  const { action, custKey, prodKey, week, qty, unit } = req.body;
+  const { action, custKey, prodKey, week, year, qty, unit } = req.body;
   if (action !== 'addOrder') return res.status(400).json({ success: false, error: 'action=addOrder 필요' });
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
@@ -1401,7 +1438,7 @@ async function addOrder(req, res) {
     const uid      = req.user?.userId || 'system';
     // YYYY-WW-SS → WW-SS 정규화
     const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-    const normYear = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYear = resolveActiveOrderYear(week, year);
 
     const prodUnitInfo = await query(
       `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Box,0) AS SteamOf1Box
@@ -1419,9 +1456,9 @@ async function addOrder(req, res) {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
          ORDER BY OrderMasterKey ASC`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek } }
+        { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: normYear }, wk: { type: sql.NVarChar, value: normWeek } }
       );
 
       let mk;
@@ -1570,20 +1607,21 @@ async function saveStartStock(req, res) {
     const stockVal = parseFloat(stock) || 0;
     const remarkVal = remark || '';
     const orderYear = resolveActiveOrderYear(week, req.body?.year);
-    const ywk = orderYear + String(week).replace('-', '');
+    const orderWeek = normalizeOrderWeek(String(week));
+    const ywk = orderYear + orderWeek.replace('-', '');
 
     await withTransaction(async (tQ) => {
       // StockMaster: isFix=2 를 시작재고 전용 마커로 사용 (연도까지 일치해야 같은 앵커로 취급)
       let smResult = await tQ(
         `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND OrderYear=@yr AND isFix=2`,
-        { wk: { type: sql.NVarChar, value: week }, yr: { type: sql.NVarChar, value: orderYear } }
+        { wk: { type: sql.NVarChar, value: orderWeek }, yr: { type: sql.NVarChar, value: orderYear } }
       );
 
       let sk;
       if (smResult.recordset.length === 0) {
         const ins = await tQ(
           `INSERT INTO StockMaster (OrderWeek, OrderYear, OrderYearWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, @yr, @ywk, 2)`,
-          { wk: { type: sql.NVarChar, value: week }, yr: { type: sql.NVarChar, value: orderYear }, ywk: { type: sql.NVarChar, value: ywk } }
+          { wk: { type: sql.NVarChar, value: orderWeek }, yr: { type: sql.NVarChar, value: orderYear }, ywk: { type: sql.NVarChar, value: ywk } }
         );
         sk = ins.recordset[0].StockKey;
       } else {
@@ -1617,7 +1655,7 @@ async function saveStartStock(req, res) {
 
 // ── POST action='addOrderDelta': 기존 주문수량에 delta 합산 (기존값 + 추가값)
 async function addOrderDelta(req, res) {
-  const { custKey, prodKey, week, qty, unit } = req.body;
+  const { custKey, prodKey, week, year, qty, unit } = req.body;
   if (!custKey || !prodKey || !week) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week 필요' });
   }
@@ -1628,7 +1666,7 @@ async function addOrderDelta(req, res) {
     const orderUnit = normalizeOrderUnit(unit, '박스');
     const uid      = req.user?.userId || 'system';
     const normWeek2 = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-    const normYear2 = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const normYear2 = resolveActiveOrderYear(week, year);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const prodUnitInfo = await query(
       `SELECT OutUnit, ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Box,0) AS SteamOf1Box
@@ -1642,9 +1680,9 @@ async function addOrderDelta(req, res) {
       // OrderMaster 찾기 또는 생성
       const om = await tQ(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+         WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
          ORDER BY OrderMasterKey ASC`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: normWeek2 } }
+        { ck: { type: sql.Int, value: ck }, yr: { type: sql.NVarChar, value: normYear2 }, wk: { type: sql.NVarChar, value: normWeek2 } }
       );
 
       let mk;

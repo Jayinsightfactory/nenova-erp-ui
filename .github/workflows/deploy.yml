@@ -25,6 +25,7 @@ jobs:
         run: |
           npm ci
           npm run test:erp-contract
+          npm run test:erp-manifest -- --changed-from "$BASE_SHA"
           npm run guard:erp-writes -- --changed-from "$BASE_SHA"
 
       - name: SSH Deploy to Cafe24
