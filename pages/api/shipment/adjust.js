@@ -1,10 +1,14 @@
 // pages/api/shipment/adjust.js
 // 출고분배 ADD/CANCEL 단일 액션 + ShipmentAdjustment 이력 자동 기록
 //
-// POST  body: { custKey, prodKey, week, year, type: 'ADD'|'CANCEL', qty, unit, memo }
-//   ADD    : OrderDetail += qty, ShipmentDetail += qty, Adjustment(ADD) INSERT
-//   CANCEL : OrderDetail -= qty, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
-//            주문수량이 0으로 돌아가면 OrderDetail 삭제 처리
+// POST  body: { custKey, prodKey, week, year, type: 'ADD'|'CANCEL', qty, unit, memo, mode? }
+//   기본 모드
+//     ADD    : OrderDetail += qty, ShipmentDetail += qty, Adjustment(ADD) INSERT
+//     CANCEL : OrderDetail -= qty, ShipmentDetail -= qty, Adjustment(CANCEL) INSERT
+//              주문수량이 0으로 돌아가면 OrderDetail 삭제 처리
+//   mode='SHIPMENT_ONLY' (차수피벗 분배수량 편집)
+//     주문수량은 바꾸지 않고 ShipmentDetail 만 증감한다.
+//     주문이 없던 업체는 nenova.exe ViewOrder 기반 분배 그리드 노출을 위해 수량 0 연결행만 만든다.
 //
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
@@ -16,6 +20,13 @@ import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
+
+const SHIPMENT_ONLY_MODE = 'SHIPMENT_ONLY';
+const SHIPMENT_ONLY_ORDER_MARKER = '[WEB_SHIPMENT_ONLY_LINK]';
+
+function isShipmentOnlyMode(mode) {
+  return String(mode || '').trim().toUpperCase() === SHIPMENT_ONLY_MODE;
+}
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -174,11 +185,12 @@ async function getProductFixScope(q, prodKey) {
   return prod.recordset[0] || null;
 }
 
-async function getProductScopeFixedRows(q, orderWeek, prodKey) {
+async function getProductScopeFixedRows(q, orderYear, orderWeek, prodKey) {
   const prod = await getProductFixScope(q, prodKey);
   if (!prod) return { prod: null, rows: [] };
 
   const params = {
+    yr: { type: sql.NVarChar, value: String(orderYear) },
     wk: { type: sql.NVarChar, value: orderWeek },
     pk: { type: sql.Int, value: Number(prodKey) },
     cf: { type: sql.NVarChar, value: prod.CountryFlower || '' },
@@ -198,7 +210,8 @@ async function getProductScopeFixedRows(q, orderWeek, prodKey) {
        JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
        JOIN Product p ON p.ProdKey=sd.ProdKey
        LEFT JOIN Customer c ON c.CustKey=sm.CustKey
-      WHERE sm.OrderWeek=@wk
+      WHERE sm.OrderYear=@yr
+        AND sm.OrderWeek=@wk
         AND ISNULL(sm.isDeleted,0)=0
         AND ISNULL(sd.isFix,0)=1
         AND ${scopeClause}
@@ -208,32 +221,35 @@ async function getProductScopeFixedRows(q, orderWeek, prodKey) {
   return { prod, rows: fixed.recordset || [] };
 }
 
-async function assertProductScopeNotFixed(q, orderWeek, prodKey) {
-  const { prod, rows } = await getProductScopeFixedRows(q, orderWeek, prodKey);
+async function assertProductScopeNotFixed(q, orderYear, orderWeek, prodKey) {
+  const { prod, rows } = await getProductScopeFixedRows(q, orderYear, orderWeek, prodKey);
   if (rows.length > 0) {
     const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${prodKey}`;
     throw new Error(`${orderWeek}차 ${scopeName} 품목군은 이미 확정되어 출고분배/분배조정을 할 수 없습니다. 해당 품목군 확정취소 후 다시 진행하세요.`);
   }
 }
 
-async function assertWeekNotFixed(q, orderWeek) {
+async function assertWeekNotFixed(q, orderYear, orderWeek) {
   const fixed = await q(
     `SELECT TOP 1 FixSource
        FROM (
          SELECT N'ShipmentMaster' AS FixSource
            FROM ShipmentMaster
-          WHERE OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
+           WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
          UNION ALL
          SELECT N'ShipmentDetail' AS FixSource
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-          WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
+           WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
          UNION ALL
          SELECT N'StockMaster' AS FixSource
            FROM StockMaster
-          WHERE OrderWeek=@wk AND ISNULL(isFix,0)=1
+           WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isFix,0)=1
        ) x`,
-    { wk: { type: sql.NVarChar, value: orderWeek } }
+    {
+      yr: { type: sql.NVarChar, value: String(orderYear) },
+      wk: { type: sql.NVarChar, value: orderWeek },
+    }
   );
   if (fixed.recordset.length > 0) {
     throw new Error('확정된 차수는 출고분배/분배조정을 할 수 없습니다 (먼저 차수 확정을 해제하세요)');
@@ -255,7 +271,8 @@ export default withAuth(withActionLog(async function handler(req, res) {
 async function getFixCheck(req, res) {
   const { week, prodKey, prodKeys } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
-  const { week: orderWeek } = normWeek(week);
+  const { week: orderWeek, year: inferredYear } = normWeek(week);
+  const orderYear = String(req.query.year || inferredYear);
   const keys = String(prodKeys || prodKey || '')
     .split(',')
     .map(v => parseInt(v, 10))
@@ -266,7 +283,7 @@ async function getFixCheck(req, res) {
     const blockedScopes = [];
     const seenScopes = new Set();
     for (const pk of keys) {
-      const { prod, rows } = await getProductScopeFixedRows(query, orderWeek, pk);
+      const { prod, rows } = await getProductScopeFixedRows(query, orderYear, orderWeek, pk);
       const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${pk}`;
       if (seenScopes.has(scopeName)) continue;
       seenScopes.add(scopeName);
@@ -333,7 +350,7 @@ async function getAdjustments(req, res) {
 // POST — ADD/CANCEL 한 건
 // ─────────────────────────────────────────────────────────────────────────
 async function postAdjust(req, res) {
-  const { custKey, prodKey, week, year, type, qty, unit, memo } = req.body;
+  const { custKey, prodKey, week, year, type, qty, unit, memo, mode } = req.body;
 
   if (!custKey || !prodKey || !week || !type) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, type 필요' });
@@ -346,10 +363,12 @@ async function postAdjust(req, res) {
     return res.status(400).json({ success: false, error: 'qty는 양수여야 함' });
   }
 
-  const { week: orderWeek, year: orderYear } = normWeek(week);
+  const { week: orderWeek, year: inferredYear } = normWeek(week);
+  const orderYear = String(year || inferredYear);
+  const shipmentOnly = isShipmentOnlyMode(mode);
   // OrderYearWeek 컬럼은 전산 포맷 = 연도 + 대차수(세부차수 '-NN' 제외). 예: 23-01 → '202623'
   // (뷰의 OrderYearWeek2 = 연도+세부차수전체 는 별개. 견적 GetData/GetDetail 은 raw OrderYearWeek 로 필터)
-  const ywk = (year || orderYear) + orderWeek.split('-')[0];
+  const ywk = orderYear + orderWeek.split('-')[0];
   const ck = parseInt(custKey);
   const pk = parseInt(prodKey);
   const uid = req.user?.userId || 'system';
@@ -360,7 +379,7 @@ async function postAdjust(req, res) {
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
     const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
     const result = await withTransaction(async (tQ) => {
-      await assertProductScopeNotFixed(tQ, orderWeek, pk);
+      await assertProductScopeNotFixed(tQ, orderYear, orderWeek, pk);
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
@@ -424,16 +443,21 @@ async function postAdjust(req, res) {
       };
 
       // 2) OrderMaster 확보 (UPDLOCK)
+      // 같은 '29-02'가 매년 반복되므로 연도 조건이 없으면 2026 작업이 2025 주문에 붙는다.
       const om = await tQ(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+          WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
           ORDER BY OrderMasterKey ASC`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: orderWeek } }
+        {
+          ck: { type: sql.Int, value: ck },
+          yr: { type: sql.NVarChar, value: orderYear },
+          wk: { type: sql.NVarChar, value: orderWeek },
+        }
       );
       let mk;
       if (om.recordset.length === 0) {
-        if (type === 'CANCEL') throw new Error('취소 대상 OrderMaster 없음');
-        mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
+        if (type === 'CANCEL' && !shipmentOnly) throw new Error('취소 대상 OrderMaster 없음');
+        if (type === 'ADD') mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           const orderMasterParams = {
             mk:  { type: sql.Int,      value: newMk },
             yr:  { type: sql.NVarChar, value: orderYear },
@@ -459,37 +483,93 @@ async function postAdjust(req, res) {
             );
           }
         });
-        await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
+        if (mk) await syncKeyNumbering(tQ, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       } else {
         mk = om.recordset[0].OrderMasterKey;
       }
 
       // 3) OrderDetail 현재값 — userUnit 기준 (사용자 보는 단위)
-      const odCur = await tQ(
+      const odCur = mk ? await tQ(
         `SELECT OrderDetailKey,
                 ISNULL(BoxQuantity,0)   AS curBox,
                 ISNULL(BunchQuantity,0) AS curBunch,
                 ISNULL(SteamQuantity,0) AS curSteam,
-                ISNULL(OutQuantity,0)   AS curOut
+                ISNULL(OutQuantity,0)   AS curOut,
+                ISNULL(Descr,'')        AS curDescr
            FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
         { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
-      );
+      ) : { recordset: [] };
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
         : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
-      let orderQtyAfter  = type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore - delta;
+      let orderQtyAfter = shipmentOnly
+        ? orderQtyBefore
+        : type === 'ADD' ? orderQtyBefore + delta : orderQtyBefore - delta;
       let orderDeleted = false;
       let orderDeleteReason = '';
-      if (type === 'CANCEL' && orderQtyAfter < -0.0001) {
+      let targetOdk = odRow?.OrderDetailKey;
+      if (!shipmentOnly && type === 'CANCEL' && orderQtyAfter < -0.0001) {
         throw new Error(`취소량(${delta}${userUnit})이 현재 주문(${orderQtyBefore})보다 큼`);
       }
 
-      // ADD/CANCEL 모두 OrderDetail을 델타 반영한다. 취소는 주문수량도 같이 감소한다.
-      if (type === 'ADD' || type === 'CANCEL') {
+      // 차수피벗은 분배수량만 바꾼다. 다만 nenova.exe 분배 그리드는 ViewOrder를 기준으로
+      // ViewShipment를 LEFT JOIN하므로, 주문이 없던 업체에는 수량 0 연결행이 필요하다.
+      if (shipmentOnly) {
+        if (type === 'ADD' && !odRow) {
+          if (!mk) throw new Error('분배전용 연결 OrderMaster 생성 실패');
+          const deletedLink = await tQ(
+            `SELECT TOP 1 OrderDetailKey
+               FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
+              WHERE OrderMasterKey=@mk AND ProdKey=@pk AND ISNULL(isDeleted,0)=1
+              ORDER BY OrderDetailKey DESC`,
+            { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: pk } }
+          );
+          if (deletedLink.recordset[0]) {
+            targetOdk = deletedLink.recordset[0].OrderDetailKey;
+            const descrSet = hasOrderDetailDescrColumn ? `Descr=@descr,` : '';
+            await tQ(
+              `UPDATE OrderDetail SET
+                 BoxQuantity=0, BunchQuantity=0, SteamQuantity=0,
+                 OutQuantity=0, EstQuantity=0, NoneOutQuantity=0,
+                 ${descrSet}
+                 isDeleted=0, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+               WHERE OrderDetailKey=@dk`,
+              {
+                dk: { type: sql.Int, value: targetOdk },
+                descr: { type: sql.NVarChar, value: SHIPMENT_ONLY_ORDER_MARKER },
+                uid: { type: sql.NVarChar, value: uid },
+              }
+            );
+          } else {
+            targetOdk = await tryInsertWithRetry(tQ, 'OrderDetail', 'OrderDetailKey', async (newOdk) => {
+              const insertCols = hasOrderDetailDescrColumn
+                ? `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
+                    OutQuantity,EstQuantity,NoneOutQuantity,Descr,isDeleted,CreateID,CreateDtm)`
+                : `(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,
+                    OutQuantity,EstQuantity,NoneOutQuantity,isDeleted,CreateID,CreateDtm)`;
+              const insertValues = hasOrderDetailDescrColumn
+                ? `(@nk,@mk,@pk,0,0,0,0,0,0,@descr,0,@uid,GETDATE())`
+                : `(@nk,@mk,@pk,0,0,0,0,0,0,0,@uid,GETDATE())`;
+              await tQ(
+                `INSERT INTO OrderDetail ${insertCols} VALUES ${insertValues}`,
+                {
+                  nk: { type: sql.Int, value: newOdk },
+                  mk: { type: sql.Int, value: mk },
+                  pk: { type: sql.Int, value: pk },
+                  descr: { type: sql.NVarChar, value: SHIPMENT_ONLY_ORDER_MARKER },
+                  uid: { type: sql.NVarChar, value: 'admin' },
+                }
+              );
+            });
+            await syncKeyNumbering(tQ, 'OrderDetailKey', 'OrderDetail', 'OrderDetailKey');
+          }
+          await insertOrderHistory(tQ, targetOdk, '0', '0', '차수피벗 분배전용 연결행', uid);
+        }
+      // 기본 호출(붙여넣기 주문등록+분배)은 기존처럼 주문과 분배를 함께 증감한다.
+      } else if (type === 'ADD' || type === 'CANCEL') {
         const normalizedOrderAfter = Math.max(0, orderQtyAfter);
         const u = toAllUnits(normalizedOrderAfter);
-        let targetOdk = odRow?.OrderDetailKey;
 
         if (odRow && normalizedOrderAfter <= 0) {
           await tQ(
@@ -577,9 +657,13 @@ async function postAdjust(req, res) {
       // 4) ShipmentMaster 확보 + isFix 보호
       const sm = await tQ(
         `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
+          WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
           ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
-        { ck: { type: sql.Int, value: ck }, wk: { type: sql.NVarChar, value: orderWeek } }
+        {
+          ck: { type: sql.Int, value: ck },
+          yr: { type: sql.NVarChar, value: orderYear },
+          wk: { type: sql.NVarChar, value: orderWeek },
+        }
       );
       let sk;
       if (sm.recordset.length === 0) {
@@ -745,15 +829,19 @@ async function postAdjust(req, res) {
         `SELECT
            ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
                    JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
-                   WHERE wd.ProdKey=@pk AND wm.OrderWeek=@wk AND wm.isDeleted=0),0)
+                   WHERE wd.ProdKey=@pk AND wm.OrderYear=@yr AND wm.OrderWeek=@wk AND wm.isDeleted=0),0)
            + ISNULL((SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
                    FROM StockHistory sh
-                   WHERE sh.ProdKey=@pk AND sh.OrderWeek=@wk
+                   WHERE sh.ProdKey=@pk AND sh.OrderYear=@yr AND sh.OrderWeek=@wk
                      AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS totalIn,
            ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
                    JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-                   WHERE sd.ProdKey=@pk AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut`,
-        { pk: { type: sql.Int, value: pk }, wk: { type: sql.NVarChar, value: orderWeek } }
+                   WHERE sd.ProdKey=@pk AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut`,
+        {
+          pk: { type: sql.Int, value: pk },
+          yr: { type: sql.NVarChar, value: orderYear },
+          wk: { type: sql.NVarChar, value: orderWeek },
+        }
       );
       const totalIn  = remainQ.recordset[0].totalIn  || 0;
       const totalOut = remainQ.recordset[0].totalOut || 0;
@@ -762,7 +850,37 @@ async function postAdjust(req, res) {
       const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
       const remainAfter  = totalIn - totalOut;
 
-      if (type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
+      if (
+        shipmentOnly &&
+        type === 'CANCEL' &&
+        Math.abs(Number(outQAfter || 0)) < 0.0001 &&
+        odRow?.OrderDetailKey &&
+        String(odRow.curDescr || '') === SHIPMENT_ONLY_ORDER_MARKER
+      ) {
+        await tQ(
+          `UPDATE OrderDetail SET
+             isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+           WHERE OrderDetailKey=@dk AND ISNULL(OutQuantity,0)=0`,
+          {
+            dk: { type: sql.Int, value: odRow.OrderDetailKey },
+            uid: { type: sql.NVarChar, value: uid },
+          }
+        );
+        await insertOrderHistory(tQ, odRow.OrderDetailKey, '0', '0', '차수피벗 분배전용 연결행 정리', uid);
+        orderDeleted = true;
+        orderDeleteReason = 'shipment_only_link_cleanup';
+        await tQ(
+          `UPDATE OrderMaster
+              SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+            WHERE OrderMasterKey=@mk
+              AND ISNULL(isDeleted,0)=0
+              AND NOT EXISTS (
+                SELECT 1 FROM OrderDetail
+                 WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+              )`,
+          { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
+        );
+      } else if (!shipmentOnly && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
         const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
           orderMasterKey: mk,
           orderDetailKey: odRow.OrderDetailKey,
@@ -814,6 +932,7 @@ async function postAdjust(req, res) {
       );
 
       return {
+        mode: shipmentOnly ? SHIPMENT_ONLY_MODE : 'ORDER_AND_SHIPMENT',
         qtyBefore,
         qtyAfter,
         orderQtyBefore,
@@ -832,6 +951,7 @@ async function postAdjust(req, res) {
     return res.status(200).json({
       success: true,
       type,
+      mode: result.mode,
       delta,
       ...result,
       message: `${type === 'ADD' ? '추가' : '취소'} 완료 — ${result.qtyBefore} → ${result.qtyAfter}${result.orderDeleted ? ' / 자동 주문삭제' : ''}`,

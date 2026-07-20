@@ -745,7 +745,8 @@ export default function WeekPivot() {
   }, [weekFrom, weekTo, startStockText, loadData]);
 
   // ── 셀 편집 = 즉시 적용이 아니라 "변경 대기" 큐에 쌓고, [▶ 변경 시작]으로 일괄 적용 (2026-07-10 사장님 지정)
-  // 적용은 셀별 /api/shipment/adjust 순차 호출(개별 커밋 — 주문+분배+조정이력 한 트랜잭션, 기존 검증 로직 그대로).
+  // 적용은 셀별 /api/shipment/adjust 순차 호출.
+  // 차수피벗은 분배수량 편집 화면이므로 SHIPMENT_ONLY 모드로 주문등록수량은 보존한다.
   const queuePvCell = useCallback((pk, ck, wk, newQty, oldQty, custName, prodName) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
@@ -776,7 +777,16 @@ export default function WeekPivot() {
       const call = async (force) => {
         const r = await fetch('/api/shipment/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ custKey: it.ck, prodKey: it.pk, week: it.wk, type, qty: delta, memo: `${it.custName} 셀편집(일괄)`, force }),
+          body: JSON.stringify({
+            custKey: it.ck,
+            prodKey: it.pk,
+            week: it.wk,
+            type,
+            qty: delta,
+            memo: `${it.custName} 셀편집(일괄·분배전용)`,
+            mode: 'SHIPMENT_ONLY',
+            force,
+          }),
         });
         return await r.json();
       };
@@ -1921,7 +1931,7 @@ export default function WeekPivot() {
             background:pendingCount>0?'#d84315':'rgba(255,255,255,0.12)',
             border:pendingCount>0?'1px solid #bf360c':'1px solid rgba(255,255,255,0.3)',
             opacity:applying?0.6:1}}
-          title="대기 중인 셀 변경을 순서대로 적용 — 주문등록 안 된 품목은 주문+분배까지 처리. 입고 미등록/초과는 자동 강제 진행(로그 기록)">
+          title="대기 중인 셀 변경을 분배수량에만 적용 — 주문등록수량은 변경하지 않음. 입고 미등록/초과는 자동 강제 진행(로그 기록)">
           {applying?'적용중...':`▶ 변경 시작${pendingCount>0?` (${pendingCount})`:''}`}
         </button>
         {pendingCount>0&&!applying&&(
@@ -2039,7 +2049,7 @@ export default function WeekPivot() {
             <div style={{padding:16}}>
               <div style={{fontSize:12,color:'#e65100',fontWeight:700,marginBottom:12}}>
                 여기서 추가하면 피벗에 빈 행/열로 <u>노출만</u> 됩니다 (DB 기록 없음).
-                셀에 수량을 입력하고 [▶ 변경 시작]을 눌러야 주문등록+분배가 실제 적용됩니다.
+                셀에 수량을 입력하고 [▶ 변경 시작]을 누르면 분배수량만 실제 적용됩니다 (주문등록수량은 유지).
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
                 {/* 업체 */}
