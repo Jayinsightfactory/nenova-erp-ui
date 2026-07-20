@@ -4,11 +4,12 @@
 //  GET ?week=23-01&q=문라이트
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   const week = normalizeOrderWeek(req.query.week || '');
+  const year = resolveActiveOrderYear(week, req.query.year || '');
   const q = String(req.query.q || '').trim();
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!q) return res.status(400).json({ success: false, error: '검색어(업체/품목) 필요' });
@@ -43,7 +44,7 @@ async function handler(req, res) {
          OUTER APPLY (
             SELECT TOP 1 sm.ShipmentKey, sm.CustKey, sm.isDeleted, sm.isFix
               FROM ShipmentMaster sm
-             WHERE sm.CustKey=om.CustKey AND sm.OrderWeek=om.OrderWeek AND ISNULL(sm.isDeleted,0)=0
+             WHERE sm.CustKey=om.CustKey AND sm.OrderYear=@yr AND sm.OrderWeek=om.OrderWeek AND ISNULL(sm.isDeleted,0)=0
              ORDER BY ISNULL(sm.isFix,0) DESC, sm.ShipmentKey ASC
          ) sm
          OUTER APPLY (
@@ -61,13 +62,14 @@ async function handler(req, res) {
             SELECT SUM(sf.ShipmentQuantity) AS ShipFarmQty, COUNT(*) AS ShipFarmCnt
               FROM ShipmentFarm sf WHERE sf.SdetailKey=sd.SdetailKey
          ) sfSum
-        WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
+        WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
           AND ( c.CustName LIKE @q
                 OR p.ProdName LIKE @q
                 OR ISNULL(p.DisplayName,'') LIKE @q )
         ORDER BY c.CustName, p.ProdName`,
       {
         wk: { type: sql.NVarChar, value: week },
+        yr: { type: sql.NVarChar, value: year },
         q:  { type: sql.NVarChar, value: `%${q}%` },
       }
     );
@@ -128,10 +130,14 @@ async function handler(req, res) {
          JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
          LEFT JOIN Customer c ON c.CustKey=sm.CustKey
-        WHERE sm.OrderWeek=@wk
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk
           AND ( c.CustName LIKE @q OR p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q )
         ORDER BY c.CustName, p.ProdName, sm.ShipmentKey`,
-      { wk: { type: sql.NVarChar, value: week }, q: { type: sql.NVarChar, value: `%${q}%` } }
+      {
+        wk: { type: sql.NVarChar, value: week },
+        yr: { type: sql.NVarChar, value: year },
+        q: { type: sql.NVarChar, value: `%${q}%` },
+      }
     );
 
     const rawRows = (raw.recordset || []).map(x => {
@@ -167,13 +173,17 @@ async function handler(req, res) {
                  WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)<>0 AND ISNULL(p.isDeleted,0)=0) AS VisCnt
          FROM ShipmentMaster sm
          JOIN Customer c ON c.CustKey=sm.CustKey
-        WHERE sm.OrderWeek=@wk
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk
           AND ( c.CustName LIKE @q
                 OR EXISTS ( SELECT 1 FROM ShipmentDetail sd JOIN Product p ON p.ProdKey=sd.ProdKey
                              WHERE sd.ShipmentKey=sm.ShipmentKey
                                AND (p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q) ) )
         ORDER BY c.CustName, sm.ShipmentKey`,
-      { wk: { type: sql.NVarChar, value: week }, q: { type: sql.NVarChar, value: `%${q}%` } }
+      {
+        wk: { type: sql.NVarChar, value: week },
+        yr: { type: sql.NVarChar, value: year },
+        q: { type: sql.NVarChar, value: `%${q}%` },
+      }
     );
 
     const ghostMasters = (gm.recordset || []).map(x => {
@@ -197,7 +207,7 @@ async function handler(req, res) {
     });
 
     return res.status(200).json({
-      success: true, week, q,
+      success: true, year, week, q,
       count: rows.length, rows,
       rawCount: rawRows.length, raw: rawRows,
       ghostCount: rawRows.filter(r => r.ghost).length,
