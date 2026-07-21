@@ -373,13 +373,14 @@ async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, 
   });
 }
 
-async function loadShipmentProdKeys(orderWeek, countryFlower, targetMode = 'CATEGORY') {
+async function loadShipmentProdKeys(orderYear, orderWeek, countryFlower, targetMode = 'CATEGORY') {
   const result = await query(
     `SELECT DISTINCT sd.ProdKey
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
       WHERE sm.OrderWeek = @wk
+        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @yr) = @yr
         AND sm.isDeleted = 0
         AND ISNULL(sd.OutQuantity, 0) > 0
         AND (
@@ -389,6 +390,7 @@ async function loadShipmentProdKeys(orderWeek, countryFlower, targetMode = 'CATE
         )
       ORDER BY sd.ProdKey`,
     {
+      yr: { type: sql.NVarChar, value: orderYear },
       wk: { type: sql.NVarChar, value: orderWeek },
       cf: { type: sql.NVarChar, value: countryFlower || null },
       mode: { type: sql.NVarChar, value: targetMode },
@@ -526,7 +528,7 @@ function matchesCountryFlowerFilter(row, allowedCountryFlowers) {
   return allowedCountryFlowers.has(row.countryFlower) || allowedCountryFlowers.has(row.label);
 }
 
-async function loadShipmentCategoryTargets(orderWeek, detailFixValue, allowedCountryFlowers) {
+async function loadShipmentCategoryTargets(orderYear, orderWeek, detailFixValue, allowedCountryFlowers) {
   const cf = countryFlowerNameSql('p');
   const label = countryFlowerLabelSql('p');
   const result = await query(
@@ -538,9 +540,11 @@ async function loadShipmentCategoryTargets(orderWeek, detailFixValue, allowedCou
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
       WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
+        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @yr) = @yr
         AND ISNULL(sd.isFix, 0) = @detailFix
         AND sd.OutQuantity > 0`,
     {
+      yr: { type: sql.NVarChar, value: orderYear },
       wk: { type: sql.NVarChar, value: orderWeek },
       detailFix: { type: sql.Int, value: detailFixValue },
     }
@@ -662,7 +666,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     });
   }
 
-  const allUnfixedTargets = await loadShipmentCategoryTargets(orderWeek, 0, null);
+  const allUnfixedTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, null);
   const partialFixGuard = evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
   if (partialFixGuard.blocked) {
     await logFix('partial_category_fix_block', `${orderYear}/${orderWeek} remaining=${partialFixGuard.remainingCategories?.join(',')}`, true);
@@ -683,7 +687,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   );
 
   // 2. 미확정(DetailFix=0) 출고가 있는 CountryFlower 목록
-  const categoryTargets = await loadShipmentCategoryTargets(orderWeek, 0, allowedCountryFlowers);
+  const categoryTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, allowedCountryFlowers);
 
   if (categoryTargets.length === 0) {
     if (allowedCountryFlowers) {
@@ -727,7 +731,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const cf = target.countryFlower;
     const label = target.label || cf || 'ALL';
     try {
-      const categoryProdKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+      const categoryProdKeys = await loadShipmentProdKeys(orderYear, orderWeek, cf, target.mode);
       const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
       await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
       const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
@@ -879,7 +883,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     }
 
     // 확정(DetailFix=1) 상태인 CountryFlower 목록
-    const categoryTargets = await loadShipmentCategoryTargets(orderWeek, 1, allowedCountryFlowers);
+    const categoryTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 1, allowedCountryFlowers);
 
     if (categoryTargets.length === 0) {
       return res.status(200).json({
@@ -904,7 +908,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const cf = target.countryFlower;
       const label = target.label || cf || 'ALL';
       try {
-        const categoryProdKeys = await loadShipmentProdKeys(orderWeek, cf, target.mode);
+        const categoryProdKeys = await loadShipmentProdKeys(orderYear, orderWeek, cf, target.mode);
         const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
         await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
@@ -956,7 +960,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           forceFullWeekRecalc: Boolean(allowedCountryFlowers),
         });
 
-    const pendingUnfixed = await loadShipmentCategoryTargets(orderWeek, 0, null);
+    const pendingUnfixed = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, null);
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);
     const requiresAllCategoryFix = pendingUnfixed.length > 1;
 
