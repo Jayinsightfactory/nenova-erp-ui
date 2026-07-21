@@ -6,11 +6,37 @@ async function main() {
     isRaumImageDraftComplete,
     buildRaumOrderItems,
     buildRaumPnlItems,
+    buildRaumMatchName,
+    formatRaumUnit,
     getClipboardImage,
+    normalizeRaumUnit,
     parseImageNumber,
   } = await import('../lib/raumPnlImage.js');
+  const { scoreMatch } = await import('../lib/displayName.js');
 
   assert.equal(parseImageNumber('₩12,500원'), 12500);
+  assert.equal(normalizeRaumUnit('박스'), '박스');
+  assert.equal(normalizeRaumUnit('단'), '단');
+  assert.equal(normalizeRaumUnit('대'), '송이');
+  assert.equal(normalizeRaumUnit('스팀'), '송이');
+  assert.equal(formatRaumUnit('송이'), '스팀(대)');
+
+  const imageSamples = [
+    ['수국 화이트', { ProdName: 'Hydrangea White', FlowerName: '수국' }],
+    ['수국 핑지', { ProdName: 'Hydrangea Peach (Florentina)', FlowerName: '수국' }],
+    ['장미 화이트스프레이(스노우플레이크)', { ProdName: 'SPRAY ROSE / Snow Flake', FlowerName: '장미' }],
+    ['장미 코랄핑크', { ProdName: 'ROSE / Coral Reef 50cm', FlowerName: '장미' }],
+    ['카네이션 프라도민트(엥그린)', { ProdName: 'CARNATION Prado Mint', FlowerName: '카네이션' }],
+    ['카네이션 도젤', { ProdName: 'CARNATION Doncel', FlowerName: '카네이션' }],
+    ['알스트로엘 연핑크(두바이)', { ProdName: 'ALSTROMERIA Dubai', FlowerName: '알스트로' }],
+    ['알스트로엘 화이트(쿠읍슨러)', { ProdName: 'ALSTROMERIA Whistler', FlowerName: '알스트로' }],
+    ['알스트로엘 핑지', { ProdName: 'ALSTROMERIA Fifi', FlowerName: '알스트로' }],
+  ];
+  for (const [inputName, product] of imageSamples) {
+    assert.ok(scoreMatch(buildRaumMatchName(inputName), product) >= 72, `${inputName} 샘플이 품목 후보와 매칭되어야 한다.`);
+  }
+  assert.ok(scoreMatch(buildRaumMatchName('카네이션 화이트'), { ProdName: 'CARNATION Moon Light', FlowerName: '카네이션' }) < 72,
+    '오래된 잘못된 자동매핑은 이미지 매칭에서 재검토되어야 한다.');
   const clipboardFile = { name: 'capture.png', type: 'image/png' };
   assert.equal(getClipboardImage([
     { kind: 'string', type: 'text/plain' },

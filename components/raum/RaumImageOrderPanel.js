@@ -3,8 +3,10 @@ import {
   buildRaumOrderItems,
   buildRaumPnlItems,
   getClipboardImage,
+  formatRaumUnit,
   groupRaumImageRows,
   isRaumImageDraftComplete,
+  normalizeRaumUnit,
   parseImageNumber,
 } from '../../lib/raumPnlImage';
 
@@ -229,17 +231,17 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
         <div style={{ flex: 1, overflowX: 'auto' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12.5 }}>매칭률 <b style={{ color: complete ? '#166534' : '#b45309' }}>{groups.filter(g => g.prodKey != null && !g.needsReview).length}/{groups.length || 0}</b></span>
-            <span style={{ fontSize: 11.5, color: '#64748b' }}>같은 품목·같은 단가만 합산 / 다른 단가는 별도 행</span>
+            <span style={{ fontSize: 11.5, color: '#64748b' }}>같은 품목·같은 단가만 합산 / 다른 단가는 별도 행 · 단위: 박스/단/스팀(대)</span>
           </div>
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 820 }}>
-            <thead><tr>{['품목(이미지)', '매칭 품목', '수량', '단위', '1개당 단가(원/VAT별도)', '적요', '처리'].map(h => <th key={h} style={{ ...cell, background: '#dbeafe', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+            <thead><tr>{['품목(이미지)', '매칭 품목', '수량', '단위\n(박스/단/스팀)', '1개당 단가(원/VAT별도)', '적요', '처리'].map(h => <th key={h} style={{ ...cell, background: '#dbeafe', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
             <tbody>{groups.map(group => {
               const good = group.prodKey != null && !group.needsReview;
               return <tr key={group.groupKey} style={{ background: good ? '#fff' : '#fff7ed' }}>
                 <td style={cell}>{group.inputName}<div style={{ color: '#94a3b8', fontSize: 10.5 }}>{group.lines.length > 1 ? `${group.lines.length}개 원행 합산` : group.lines[0]?.sourceImageName || ''}</div></td>
                 <td style={cell}>{group.prodName || <span style={{ color: '#b91c1c' }}>미매칭</span>}<div><button style={{ ...button, padding: '2px 6px', marginTop: 3 }} onClick={() => setPicker(group)}>{group.prodKey ? '매칭 수정' : '품목 검색'}</button>{group.prodKey && group.needsReview ? <button style={{ ...button, padding: '2px 6px', color: '#166534', marginLeft: 4 }} onClick={() => confirmGroup(group)}>추천 확정</button> : null}</div></td>
                 <td style={{ ...cell, textAlign: 'right' }}><input style={{ ...input, width: 70 }} type="number" min="0" step="0.01" value={group.qty} onChange={e => updateGroupQty(group, e.target.value)} /></td>
-                <td style={cell}><input style={{ ...input, width: 58 }} value={group.unit} onChange={e => updateGroup(group, { unit: e.target.value })} /></td>
+                <td style={cell}><input style={{ ...input, width: 76 }} value={formatRaumUnit(group.unit)} onChange={e => updateGroup(group, { unit: normalizeRaumUnit(e.target.value) || e.target.value })} title="박스 / 단 / 스팀(대)" /></td>
                 <td style={{ ...cell, textAlign: 'right' }}><input style={{ ...input, width: 125 }} type="number" min="0" step="1" value={group.price ?? ''} placeholder="미입력" onChange={e => updateGroup(group, { price: e.target.value })} /></td>
                 <td style={cell}><input style={{ ...input, width: 140, textAlign: 'left' }} value={group.remark} onChange={e => updateGroup(group, { remark: e.target.value })} placeholder="적요" /></td>
                 <td style={{ ...cell, whiteSpace: 'nowrap' }}><button style={button} onClick={() => toggleSeparate(group)}>{group.lines.length > 1 ? '행 별도' : (group.lines[0]?.separate ? '합산' : '분리 유지')}</button><button style={{ ...button, color: '#b91c1c', marginLeft: 4 }} onClick={() => deleteGroup(group)}>삭제</button></td>

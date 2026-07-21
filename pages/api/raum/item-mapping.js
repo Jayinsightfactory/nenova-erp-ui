@@ -5,6 +5,8 @@
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { saveRaumItemMap } from '../../../lib/raumPnl';
+import { scoreMatch } from '../../../lib/displayName';
+import { buildRaumMatchName } from '../../../lib/raumPnlImage';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -12,29 +14,38 @@ export default withAuth(async function handler(req, res) {
       const q = String(req.query.q || '').trim();
       if (q.length < 1) return res.status(400).json({ success: false, error: '검색어 필요' });
       const term = q.replace(/[%_\[\]]/g, ' ').trim();
-      const like = `%${term}%`;
-      const starts = `${term}%`;
+      const matchName = buildRaumMatchName(term);
+      const tokens = [...new Set(`${term} ${matchName}`
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .split(/\s+/)
+        .filter(token => token.length >= 2))].slice(0, 12);
+      const searchClauses = tokens.map((_, i) => `(
+        p.ProdName LIKE @q${i} OR ISNULL(p.DisplayName,'') LIKE @q${i}
+        OR ISNULL(p.FlowerName,'') LIKE @q${i} OR ISNULL(p.CounName,'') LIKE @q${i}
+      )`);
+      const params = {};
+      tokens.forEach((token, i) => { params[`q${i}`] = { type: sql.NVarChar, value: `%${token}%` }; });
       const r = await query(
-        `SELECT TOP 50 p.ProdKey, p.ProdName, ISNULL(p.DisplayName,'') AS DisplayName,
+        `SELECT TOP 300 p.ProdKey, p.ProdName, ISNULL(p.DisplayName,'') AS DisplayName,
                 ISNULL(p.FlowerName,'') AS FlowerName, ISNULL(p.CounName,'') AS CounName,
-                ISNULL(p.OutUnit,'') AS OutUnit, ISNULL(p.Cost,0) AS Cost,
-                CASE WHEN p.ProdName = @term OR ISNULL(p.DisplayName,'') = @term THEN 0
-                     WHEN p.ProdName LIKE @starts OR ISNULL(p.DisplayName,'') LIKE @starts THEN 1
-                     WHEN p.ProdName LIKE @like OR ISNULL(p.DisplayName,'') LIKE @like THEN 2
-                     ELSE 3 END AS MatchRank
+                ISNULL(p.OutUnit,'') AS OutUnit, ISNULL(p.Cost,0) AS Cost
            FROM Product p
           WHERE p.isDeleted = 0
-            AND (p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q
-              OR ISNULL(p.FlowerName,'') LIKE @q OR ISNULL(p.CounName,'') LIKE @q)
-          ORDER BY MatchRank, p.ProdName`,
-        {
-          term: { type: sql.NVarChar, value: term },
-          starts: { type: sql.NVarChar, value: starts },
-          like: { type: sql.NVarChar, value: like },
-          q: { type: sql.NVarChar, value: like },
-        }
+            AND (${searchClauses.length ? searchClauses.join(' OR ') : '1=0'})`,
+        params
       );
-      return res.status(200).json({ success: true, products: r.recordset || [] });
+      const products = (r.recordset || [])
+        .map(product => ({
+          ...product,
+          MatchScore: Math.max(
+            scoreMatch(term, product, ''),
+            scoreMatch(matchName, product, ''),
+          ),
+        }))
+        .sort((a, b) => b.MatchScore - a.MatchScore || String(a.ProdName).localeCompare(String(b.ProdName)))
+        .slice(0, 50);
+      return res.status(200).json({ success: true, products });
     }
 
     if (req.method === 'POST') {
