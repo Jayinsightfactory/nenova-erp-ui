@@ -151,6 +151,10 @@
 
 **WarehouseDetail** — 입고 라인
 - PK: `WdetailKey`, FK: `WarehouseKey`, `ProdKey`
+- 전체 컬럼 (INFORMATION_SCHEMA 검증, 2026-07-09): `WdetailKey`, `ProdKey`, `OrderCode`, `BoxQuantity`, `BunchQuantity`, `SteamQuantity`, `OutQuantity`, `EstQuantity`, `UPrice`, `TPrice`, `WarehouseKey`, `SteamOf1Box`, `SteamOf1Bunch`
+- ⚠️ **`isDeleted` 컬럼 없음** — 삭제 필터는 `WarehouseMaster.isDeleted=0` 으로만 (`WEB_VS_ERP_CONFLICTS.md` §7.6 참조). `wd.isDeleted` 쿼리 시 SQL 오류
+- `OutQuantity` — `Product.OutUnit` 기준 단일값 (박스 품목이면 박스수). OrderDetail/ShipmentDetail 의 OutQuantity 와 동일 패턴 — 송이수 아님
+- `EstQuantity` — 이카운트 구매현황 "수량" (전표 금액기준 수량, 2026-07-09 26차 실측 확인)
 - `TPrice` — 라인 합계 USD (InvoiceTotal 집계 대상)
 
 ---

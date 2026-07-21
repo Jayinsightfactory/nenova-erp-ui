@@ -1,0 +1,93 @@
+{
+  "id": "estimate-quantity-edit",
+  "title": "견적서관리 수량 수정·음수재고 확정 보정 계약",
+  "scope": [
+    "pages/estimate.js",
+    "pages/api/estimate/update-quantity.js",
+    "pages/api/estimate/update-date-quantity.js",
+    "pages/api/shipment/fix.js",
+    "lib/stockShortage.js",
+    "__tests__/stockShortage.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "QUANTITY_EDIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase",
+      "fixCycle": "unfix-save-refix"
+    },
+    {
+      "name": "NEGATIVE_STOCK_EXACT_ADJUSTMENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "fixCycle": "StockHistory-adjust-usp_StockCalculation-usp_ShipmentFix"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 OrderWeek가 2025·2026에 있어도 견적 수량·확정·재고조정은 선택된 ShipmentMaster.OrderYear 행만 대상으로 한다. 음수재고 보정은 화면에 표시된 품목별 정확한 부족수량만 기록한다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs",
+    "methods": ["GetDetail", "btnSave_Click", "ClassShipmentDate.Update"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "StockHistory", "ProductStock"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "writes": [
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentHistory",
+    "Estimate",
+    "StockHistory"
+  ],
+  "preserves": [
+    "OrderDetail",
+    "ShipmentMaster.CustKey",
+    "ShipmentMaster.OrderYearWeek"
+  ],
+  "sideEffects": {
+    "fixedShipment": "unfix -> update -> fix",
+    "reconfirmFailure": "dry-run edited rows; manual integrity issues stop before update, negative stock prompts for exact shortage adjustment then recalculates and retries fix",
+    "negativeStockRecovery": "explicit confirm only -> StockHistory 재고조정(+exact shortage) -> usp_StockCalculation -> usp_ShipmentFix",
+    "stockMutation": "Product.Stock is changed only through the existing stored procedure path; no direct Product.Stock update",
+    "dateRows": "ShipmentDate sum must equal ShipmentDetail.OutQuantity"
+  },
+  "requiredPreflight": [
+    "dateMismatch",
+    "zeroOut",
+    "ghost",
+    "dupDetail",
+    "dupMaster",
+    "emptyDeletedMaster",
+    "yearMismatch",
+    "custKeyBad",
+    "managerBad"
+  ],
+  "fixtures": [
+    {
+      "name": "29-01-custkey-duplicate-guard",
+      "year": "2026",
+      "week": "29-01",
+      "sameWeekPriorYear": "2025-29-01",
+      "expected": "edited-row preflight blocks before any ShipmentDetail/ShipmentDate write"
+    }
+  ],
+  "requiredTests": [
+    "__tests__/estimateQuantityPreflight.test.js",
+    "__tests__/estimateFixCycle.test.js",
+    "__tests__/estimateInvariants.test.js",
+    "__tests__/stockShortage.test.js"
+  ],
+  "requiredTestFiles": [
+    "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/stockShortage.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ERP Tenant Configuration",
+  "description": "화이트라벨 ERP 배포 단위. Nenova 외 업체 적용 시 tenantId·branding·company·integrations 만 교체.",
+  "type": "object",
+  "required": ["tenantId", "displayName", "branding", "company", "industry"],
+  "properties": {
+    "tenantId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "displayName": { "type": "string" },
+    "locale": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string" },
+        "supported": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "required": ["appTitle", "logoPath"],
+      "properties": {
+        "appTitle": { "type": "string" },
+        "logoPath": { "type": "string" },
+        "logoEstimatePath": { "type": "string" },
+        "primaryColor": { "type": "string" }
+      }
+    },
+    "company": {
+      "type": "object",
+      "required": ["legalName", "bizNo"],
+      "properties": {
+        "legalName": { "type": "string" },
+        "bizNo": { "type": "string" },
+        "address": { "type": "string" },
+        "bizType": { "type": "string" },
+        "bankAccount": { "type": "string" },
+        "telFax": { "type": "string" }
+      }
+    },
+    "domains": {
+      "type": "object",
+      "properties": {
+        "web": { "type": "string", "format": "uri" },
+        "apiPublicBase": { "type": "string", "format": "uri" }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "cookieName": { "type": "string" },
+        "jwtIssuer": { "type": "string" }
+      }
+    },
+    "industry": {
+      "type": "object",
+      "required": ["vertical"],
+      "properties": {
+        "vertical": { "type": "string", "enum": ["flower-import", "general-wholesale", "custom"] },
+        "timeBucketLabel": { "type": "string" },
+        "timeBucketFormat": { "type": "string" },
+        "units": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "legacyAdapter": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "clientName": { "type": "string" },
+        "storedProcedures": { "type": "object" }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": { "enabled": { "type": "boolean" } }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "dataOverrides": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "./tenant.schema.json",
+  "tenantId": "nenova",
+  "displayName": "네노바",
+  "locale": {
+    "default": "ko",
+    "supported": ["ko", "es", "bi"]
+  },
+  "branding": {
+    "appTitle": "nenova ERP",
+    "logoPath": "/nenova-logo.png",
+    "logoEstimatePath": "/nenova-logo-estimate.png",
+    "faviconPath": "/favicon.ico",
+    "primaryColor": "#1565c0"
+  },
+  "company": {
+    "legalName": "(주)네노바 / 김원배",
+    "bizNo": "134-86-94367",
+    "address": "서울 서초구 언남길 15-7, 102호",
+    "bizType": "도매 / 무역",
+    "bankAccount": "하나 630-008129-149",
+    "telFax": "02-575-8003 / 02-576-8003"
+  },
+  "domains": {
+    "web": "https://nenovaweb.com",
+    "apiPublicBase": "https://nenovaweb.com/api/public"
+  },
+  "auth": {
+    "cookieName": "nenovaToken",
+    "userStorageKey": "nenovaUser",
+    "langStorageKey": "nenovaLang",
+    "jwtIssuer": "nenovaweb"
+  },
+  "industry": {
+    "vertical": "flower-import",
+    "timeBucketLabel": "차수",
+    "timeBucketFormat": "YY-SS",
+    "units": ["박스", "단", "송이"],
+    "weekdayLabels": ["월", "화", "수", "목", "금", "토", "일"]
+  },
+  "legacyAdapter": {
+    "enabled": true,
+    "clientName": "nenova.exe",
+    "vendor": "Wooribnc",
+    "storedProcedures": {
+      "distributeTotal": "usp_DistributeTotal",
+      "distributeOne": "usp_DistributeOne",
+      "distributeClear": "usp_DistributeClear",
+      "shipmentFix": "usp_ShipmentFix",
+      "stockCalculation": "usp_StockCalculation"
+    }
+  },
+  "integrations": {
+    "ecount": { "enabled": true },
+    "googleSheets": { "enabled": true, "kakaoSheetId": "${KAKAO_SHEET_ID}" },
+    "anthropic": { "enabled": true, "pasteParse": true, "chat": true },
+    "n8n": { "enabled": true, "baseUrl": "https://n8n.nenovaweb.com" }
+  },
+  "features": {
+    "ordersPaste": true,
+    "ordersKakaoAudit": true,
+    "shipmentExeReconcile": true,
+    "catalogPptx": true,
+    "mobileChat": true,
+    "salesRevenueManagement": true
+  },
+  "dataOverrides": {
+    "categoryOverrides": "data/category-overrides.json",
+    "orderMappings": "data/order-mappings-fallback-suspects.json",
+    "farmKoreanNames": "lib/farmKoreanNames.js",
+    "displayNameRules": "lib/displayName.js"
+  },
+  "menu": {
+    "source": "components/Layout.js",
+    "note": "향후 tenant.menu.json 으로 이전"
+  }
+}

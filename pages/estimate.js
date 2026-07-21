@@ -1568,12 +1568,31 @@ export default function Estimate() {
           force,
           ...(countryFlowers.length ? { countryFlowers } : {}),
           ...(opts.autoStockAdd ? { autoStockAdd: true } : {}),
+          ...(opts.confirmAutoStockAdd ? { confirmAutoStockAdd: true } : {}),
         });
         d = await reconcileFixResultAfterAmbiguousResponse(wk, d);
+        const stockAdjustments = Array.isArray(d.stockAdjustments) ? d.stockAdjustments : [];
+        const stockAdjustmentMessage = stockAdjustments.length > 0
+          ? ` · 재고 부족분 보정 ${stockAdjustments.map(item => `${item.prodName || item.prodKey} +${item.added}`).join(', ')}`
+          : '';
         if (!d.success) {
-          results.push({ week: wk, ok: false, error: formatFixApiErrorMessage(d, wk), message: d.message });
+          results.push({
+            week: wk,
+            ok: false,
+            error: formatFixApiErrorMessage(d, wk),
+            message: d.message,
+            negative: d.negative || [],
+            stockAdjustments,
+          });
         } else {
-          results.push({ week: wk, ok: true, message: d.message, count: d.updatedCount, stockErrors: (d.stockErrors?.length || 0) + (d.reconcile?.stockErrors?.length || 0) });
+          results.push({
+            week: wk,
+            ok: true,
+            message: `${d.message || ''}${stockAdjustmentMessage}`,
+            count: d.updatedCount,
+            stockErrors: (d.stockErrors?.length || 0) + (d.reconcile?.stockErrors?.length || 0),
+            stockAdjustments,
+          });
         }
       } catch (e) {
         const msg = e?.name === 'AbortError'
@@ -1600,7 +1619,7 @@ export default function Estimate() {
     setFixModal({
       stage: 'done', results, title: opts.resultTitle,
       weekList: weeks, countryFlowers, resultTitle: opts.resultTitle,
-      autoStockAddUsed: !!opts.autoStockAdd,
+      autoStockAddUsed: results.some(result => (result.stockAdjustments || []).length > 0),
     });
     setFixWorking(false);
     setFixProgress(null);
@@ -4231,7 +4250,7 @@ export default function Estimate() {
                 <div style={{ background: '#fff3e0', border: '1px solid #fb8c00', borderRadius: 6, padding: 10, marginBottom: 12, fontSize: 12, color: '#e65100' }}>
                   ⚠ 확정 전 검증에서 <b>{fixModal.totalIssues}건</b> 이슈 발견.
                   {fixModalHasNegative
-                    ? ' 음수재고 경고가 포함되어 있습니다. 전산 SP 기준으로 가능한 품목군만 확정 시도합니다.'
+                    ? ' 음수재고 품목의 부족수량을 확인하세요. 아래 “부족분 보정 후 확정”을 누르면 표시된 부족수량만 재고조정한 뒤 재확정합니다.'
                     : ' 강제 확정하면 견적서 오류가 발생할 수 있습니다.'}
                 </div>
                 {Object.entries(fixModal.allIssues).map(([wk, iss]) => (
@@ -4278,7 +4297,7 @@ export default function Estimate() {
                           {iss.negative.slice(0, 30).map((n, i) => (
                             <li key={i}>
                               <b style={{ color: '#6a1b9a' }}>{n.FlowerName || ''}</b> {n.ProdName}
-                              {' '}— <b style={{ color: '#c62828' }}>부족 {Math.abs(Number(n.remain) || 0)}</b>
+                              {' '}— <b style={{ color: '#c62828' }}>부족 {fmt(n.shortage ?? Math.abs(Number(n.remain) || 0))}</b>
                               <span style={{ color: '#999' }}> (전재고 {n.prevStock} + 입고 {n.inQty} - 출고 {n.outQty} = {n.remain})</span>
                             </li>
                           ))}
@@ -4326,7 +4345,6 @@ export default function Estimate() {
                   <button className="btn" onClick={() => setFixModal(null)} disabled={fixWorking}>취소</button>
                   {(() => {
                     const negRows = Object.values(fixModal.allIssues || {}).flatMap(iss => iss.negative || []);
-                    if (true) return null; // [비활성화 2026-07-07] 재고조정이 앞차수 부풀림 유발 — 재설계 전까지 숨김
                     if (!negRows.length) return null;
                     return (
                       <button
@@ -4334,14 +4352,14 @@ export default function Estimate() {
                         style={{ background: '#2e7d32', color: '#fff', borderColor: '#1b5e20', fontWeight: 700 }}
                         onClick={() => {
                           const lines = negRows.slice(0, 30).map(n =>
-                            `· ${n.FlowerName || ''} ${n.ProdName} : 부족 ${Math.abs(Number(n.remain) || 0)}`);
+                            `· ${n.FlowerName || ''} ${n.ProdName} : 부족 ${fmt(n.shortage ?? Math.abs(Number(n.remain) || 0))}`);
                           const more = negRows.length > 30 ? `\n… 외 ${negRows.length - 30}건` : '';
-                          if (!confirm(`음수 잔량 ${negRows.length}건에 부족분만큼 재고를 자동 추가한 뒤 확정합니다.\n\n${lines.join('\n')}${more}\n\n진행하시겠습니까?`)) return;
-                          doFixAll(fixModal.weekList, false, [], { autoStockAdd: true });
+                          if (!confirm(`음수 잔량 ${negRows.length}건의 품목별 부족수량만큼 재고를 조정한 뒤 확정합니다.\n\n${lines.join('\n')}${more}\n\n진행하시겠습니까?`)) return;
+                          doFixAll(fixModal.weekList, false, [], { autoStockAdd: true, confirmAutoStockAdd: true });
                         }}
                         disabled={fixWorking}
                       >
-                        📦 재고 추가 후 확정 (음수 {negRows.length}건)
+                        📦 부족분 보정 후 확정 (음수 {negRows.length}건)
                       </button>
                     );
                   })()}
@@ -4360,20 +4378,21 @@ export default function Estimate() {
                   r => !r.ok && /마이너스|잔량|음수/.test(String(r.error || '')));
                 return (
                   <>
-                    {false && negFail && !fixModal.autoStockAddUsed && (/* [비활성화 2026-07-07] 재고추가후확정 부풀림 문제 */
+                    {negFail && !fixModal.autoStockAddUsed && (
                       <button
                         className="btn"
                         style={{ background: '#2e7d32', color: '#fff', borderColor: '#1b5e20', fontWeight: 700 }}
                         disabled={fixWorking}
                         onClick={() => {
-                          if (!confirm('음수 잔량으로 확정 실패한 차수에 부족분만큼 재고를 자동 추가한 뒤 다시 확정합니다.\n\n(전산과 동일한 재고조정 → 재고재계산 → 확정)\n\n진행하시겠습니까?')) return;
+                          if (!confirm('음수 잔량으로 확정 실패한 차수에 품목별 정확한 부족분만큼 재고를 조정한 뒤 다시 확정합니다.\n\n(재고조정 → 재고재계산 → 확정)\n\n진행하시겠습니까?')) return;
                           doFixAll(fixModal.weekList, false, fixModal.countryFlowers || [], {
                             autoStockAdd: true,
+                            confirmAutoStockAdd: true,
                             resultTitle: fixModal.resultTitle || '재고 추가 후 재확정 결과',
                           });
                         }}
                       >
-                        📦 재고 추가 후 재확정
+                        📦 부족분 보정 후 재확정
                       </button>
                     )}
                     <button className="btn btn-primary" onClick={() => setFixModal(null)}>닫기</button>

@@ -177,3 +177,7 @@ dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
 
 이 계약은 `docs/contracts/estimate-cost-update.json`과
 `__tests__/estimateFixCycle.test.js`가 자동검사한다.
+
+## 음수재고 확정 보정
+
+확정 SP가 음수재고로 실패하면 화면에 품목별 부족수량을 표시한다. 사용자가 `재고 부족분 보정 후 확정`을 명시적으로 선택한 경우에만 해당 수량을 `StockHistory`의 `재고조정`으로 기록하고 `usp_StockCalculation`을 실행한 뒤 다시 확정한다. 부족수량은 올림하지 않고 0.001 단위로 정규화한다. 재고 이력 등록과 재계산은 한 트랜잭션으로 처리하며 재계산 실패 시 롤백한다. 일반 확정 요청에는 이 보정이 자동 적용되지 않는다.

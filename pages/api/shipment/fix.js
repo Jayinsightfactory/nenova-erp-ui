@@ -3,10 +3,11 @@
 // 확정: isFix=1 + ProductStock 업데이트 + StockHistory 기록
 // 확정취소: isFix=0
 
-import { query, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { reconcileWeekAfterScopedOperation } from '../../../lib/shipmentFixReconcile';
 import { evaluatePartialCategoryFixBlock, labelsFromCategoryTargets } from '../../../lib/shipmentFixGuards';
+import { calculateStockShortage, roundStockQuantity } from '../../../lib/stockShortage.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -18,11 +19,14 @@ function isDeadlockError(err) {
 }
 
 async function queryWithDeadlockRetry(q, params = {}, options = {}) {
-  const retries = Number(options.retries ?? 3);
   const baseDelay = Number(options.baseDelay ?? 250);
+  const queryFn = options.queryFn || query;
+  // Transaction-bound requests are retried by withTransaction as a whole;
+  // retrying a statement inside a doomed transaction is unsafe.
+  const retries = options.queryFn ? 0 : Number(options.retries ?? 3);
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await query(q, params);
+      return await queryFn(q, params);
     } catch (err) {
       if (!isDeadlockError(err) || attempt >= retries) throw err;
       await sleep(baseDelay * Math.pow(2, attempt));
@@ -482,7 +486,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
           pk:  { type: sql.Int, value: prodKey },
           uid: { type: sql.NVarChar, value: uid },
         },
-        { retries: 4, baseDelay: 300 }
+        { retries: 4, baseDelay: 300, queryFn: logContext.queryFn }
       );
       const row = r.recordset?.[0] || {};
       if (Number(row.result || 0) === 0) {
@@ -619,41 +623,6 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const skipStockCalc = req.body?.skipStockCalc === true;
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
-  // ── 재고 추가 후 확정 — [비활성화됨 2026-07-07]
-  //    재고조정(+)이 영구 주입이라 usp_StockCalculation cascade(한번에 1~2주만 전파)로
-  //    앞차수 재고를 부풀리는 문제 확인. 재설계 전까지 env 게이트로 차단(기본 OFF).
-  //    재활성화하려면 서버 .env.local 에 ENABLE_AUTO_STOCK_ADD=1.
-  if (req.body?.autoStockAdd === true && process.env.ENABLE_AUTO_STOCK_ADD === '1') {
-    const negForAdd = (await loadNegativeGuardRows(orderYear, orderWeek)).filter(r => Number(r.remain) < 0);
-    if (negForAdd.length) {
-      for (const r of negForAdd) {
-        const shortage = Math.abs(Number(r.remain) || 0);
-        const addQty = Math.ceil(shortage);
-        if (addQty <= 0) continue;
-        const before = Number(r.productStock ?? r.prevStock ?? 0);
-        await query(
-          `INSERT INTO StockHistory
-             (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ProdKey)
-           VALUES (GETDATE(), @yr, @wk, @uid, N'재고조정', N'재고수량', @before, @after, @descr, @pk)`,
-          {
-            yr: { type: sql.NVarChar, value: orderYear },
-            wk: { type: sql.NVarChar, value: orderWeek },
-            uid: { type: sql.NVarChar, value: uid },
-            before: { type: sql.Float, value: before },
-            after: { type: sql.Float, value: before + addQty },
-            descr: { type: sql.NVarChar, value: `[확정용 재고추가] ${r.ProdName} 부족 ${shortage} 보충` },
-            pk: { type: sql.Int, value: Number(r.ProdKey) },
-          }
-        );
-      }
-      await runStockCalculationForProducts(
-        orderYear, orderWeek, uid, negForAdd.map(r => Number(r.ProdKey)),
-        { prefix: 'auto_stock_add', label: '재고추가후확정' }
-      );
-      await logFix('auto_stock_add', `${orderYear}/${orderWeek} added stock for ${negForAdd.length} products`);
-    }
-  }
-
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
   if (lowerUnfixedWeeks.length > 0) {
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
@@ -677,6 +646,91 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       remainingCategories: partialFixGuard.remainingCategories,
       error: partialFixGuard.error,
     });
+  }
+
+  // 사용자가 음수재고 경고 화면에서 명시적으로 확인한 경우에만 실행한다.
+  // 환경변수만으로 켜지지 않으며, 일반 확정 요청에는 절대 적용하지 않는다.
+  const autoStockAddRequested = req.body?.autoStockAdd === true && req.body?.confirmAutoStockAdd === true;
+  let stockAdjustments = [];
+  if (autoStockAddRequested) {
+    const negForAdd = (await loadNegativeGuardRows(orderYear, orderWeek))
+      .filter(r => Number(r.remain) < 0)
+      .map(r => ({ ...r, addQty: calculateStockShortage(r) }))
+      .filter(r => r.addQty > 0);
+    if (negForAdd.length) {
+      const committedAdjustments = [];
+      try {
+        await withTransaction(async (tQuery) => {
+          const pendingAdjustments = [];
+          for (const r of negForAdd) {
+            // StockHistory의 Before/After는 전산 재고관리와 동일하게 Product.Stock 기준으로 기록한다.
+            const beforeResult = await tQuery(
+              'SELECT ISNULL(Stock, 0) AS Stock FROM Product WHERE ProdKey=@pk',
+              { pk: { type: sql.Int, value: Number(r.ProdKey) } },
+            );
+            const before = roundStockQuantity(beforeResult.recordset?.[0]?.Stock ?? 0);
+            const after = roundStockQuantity(before + r.addQty);
+            await tQuery(
+              `INSERT INTO StockHistory
+                 (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ProdKey)
+               VALUES (GETDATE(), @yr, @wk, @uid, N'재고조정', N'재고수량', @before, @after, @descr, @pk)`,
+              {
+                yr: { type: sql.NVarChar, value: orderYear },
+                wk: { type: sql.NVarChar, value: orderWeek },
+                uid: { type: sql.NVarChar, value: uid },
+                before: { type: sql.Float, value: before },
+                after: { type: sql.Float, value: after },
+                descr: { type: sql.NVarChar, value: `[확정용 재고조정 +${r.addQty}] ${r.ProdName} 부족분 보충` },
+                pk: { type: sql.Int, value: Number(r.ProdKey) },
+              },
+            );
+            pendingAdjustments.push({
+              prodKey: Number(r.ProdKey),
+              prodName: r.ProdName,
+              shortage: Number(r.shortage || r.addQty),
+              added: r.addQty,
+              before,
+              after,
+            });
+          }
+
+          const stock = await runStockCalculationForProducts(
+            orderYear,
+            orderWeek,
+            uid,
+            negForAdd.map(r => Number(r.ProdKey)),
+            { prefix: 'auto_stock_add', label: '재고부족분보정후확정', queryFn: tQuery },
+          );
+          if (stock.errors.length > 0) {
+            const error = new Error('재고 부족분 보정 후 재계산에 실패했습니다. 재고조정은 롤백되었습니다.');
+            error.code = 'AUTO_STOCK_CALC_FAILED';
+            error.stockErrors = stock.errors;
+            throw error;
+          }
+          committedAdjustments.push(...pendingAdjustments);
+        });
+        stockAdjustments = committedAdjustments;
+        await logFix(
+          'auto_stock_add',
+          `${orderYear}/${orderWeek} added exact shortage for ${stockAdjustments.length} products ` +
+            `(${stockAdjustments.map(r => `${r.ProdKey}:${r.added}`).join(',')})`,
+        );
+      } catch (error) {
+        const stockErrors = error.stockErrors || [{ prodKey: null, code: error.code || -1, message: error.message }];
+        await logFix(
+          'auto_stock_add_error',
+          `${orderYear}/${orderWeek} 재고부족분 보정 롤백: ${stockErrors.map(e => e.message).join(' / ')}`,
+          true,
+        );
+        return res.status(409).json({
+          success: false,
+          code: error.code || 'AUTO_STOCK_ADJUST_FAILED',
+          error: error.message || '재고 부족분 보정에 실패했습니다. 재고조정은 롤백되었습니다.',
+          stockAdjustments: [],
+          stockErrors,
+        });
+      }
+    }
   }
 
   // 1. 이미 전체 확정된 경우 안내
@@ -839,6 +893,8 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     errors,
     stockResults,
     stockErrors,
+    stockAdjustments,
+    autoStockAddUsed: stockAdjustments.length > 0,
     reconcile,
     parity: reconcile.parity,
   });

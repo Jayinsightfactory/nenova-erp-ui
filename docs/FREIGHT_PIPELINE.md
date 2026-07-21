@@ -69,7 +69,7 @@
 | E11 | 고정비용 | 운송료 두 번째 행 또는 사용자 입력 | ✅ |
 | C11 | 항공료 USD | `actualFreightUSD = SUM(운송료/FREIGHTWISE TPrice)` | ✅ |
 | 품목명 | Color/Grade | `Product.ProdName` | ✅ |
-| 수량 (E열) | Steam 수량 | `WarehouseDetail.OutQuantity` (또는 SteamQuantity, fallback BunchQty×SteamOf1Bunch) | ✅ |
+| 수량 (E열) | Steam 수량 | `WarehouseDetail.SteamQuantity` (0이면 fallback BunchQty×SteamOf1Bunch — `pages/api/freight/excel.js`). ⚠️ `OutQuantity` 아님 — OutQuantity 는 `Product.OutUnit` 기준 단일값(박스 품목=박스수)이라 송이단위 품목(에콰도르)에서만 우연히 일치 | ✅ |
 | FOB (F열) | 입고 단가 | `WarehouseDetail.UPrice` | ✅ |
 | 카테고리 (J7~J13) | 운임 분배용 | **`data/category-overrides.json` (웹 전용)** | ✅ |
 | AB (단당무게) | 카테고리별 단당무게 | `Product.BoxWeight` (외국 = 단당, 콜롬비아 = 박스당) | ✅ |
