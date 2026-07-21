@@ -157,3 +157,23 @@ dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
 `__tests__/estimateDateQuantityContract.test.js`가 검사한다. 견적서 수량 기능을 다시
 수정할 때는 `npm run test:erp-contract`에 연결된 회귀 테스트와 dnSpy 증거 문서를 함께
 갱신해야 한다.
+
+## 2026-07-21 견적서 단가 수정 확정 사이클 회귀
+
+29-02 견적서에서 단가 3건을 저장한 뒤 확정 차수 오류가 다시 표시된 원인은 단가+수량
+통합 저장 경로가 화면의 `OrderWeek/CountryFlower` 값만으로 사이클을 만들고, 그 범위가
+실제 `ShipmentDetail.isFix=1` 행과 다를 때 재시도하지 않았기 때문이다. 일부 단가가 먼저
+저장된 것이 아니라 `update-cost`의 단일 트랜잭션이 확정행에서 차단된 상태였다.
+
+현재 계약은 다음을 고정한다.
+
+- 통합 저장도 `확정취소 → 저장 → 재확정` 사이클을 반드시 사용한다.
+- 화면 행에 차수·카테고리가 누락되어도 선택 견적의 세부차수와 서버가 반환한
+  `fixedWeeks`를 합쳐 자동 재시도한다.
+- 자동 사이클은 화면 카테고리 라벨을 저장 범위로 신뢰하지 않고 전체 고정 범위를
+  해제·재확정한다. 단가 수정은 `OrderDetail`, `OutQuantity`, `ShipmentFarm`을 변경하지 않는다.
+- 확정 후보와 재고 재계산 품목 조회는 `ShipmentMaster.OrderYear + OrderWeek`로 격리해
+  전년도 같은 차수와 섞이지 않게 한다.
+
+이 계약은 `docs/contracts/estimate-cost-update.json`과
+`__tests__/estimateFixCycle.test.js`가 자동검사한다.

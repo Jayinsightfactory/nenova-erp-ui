@@ -1873,7 +1873,9 @@ export default function Estimate() {
         }]);
         d = await runEditWithFixCycle({
           weeks: effWeeks,
-          countryFlowers: effCats,
+          // 화면 카테고리 라벨과 DB 확정 범위가 다를 수 있으므로 전체 고정 범위를
+          // 해제·재확정한다. 단가 수정은 수량을 변경하지 않아 downstream 원장은 보존된다.
+          countryFlowers: [],
           stockProdKeys: [],
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
           apply: postCostUpdate,
@@ -2025,7 +2027,18 @@ export default function Estimate() {
       // 차감(Estimate.Quantity)만 단독 수정하는 경우에는 ShipmentDetail 사이클이 필요 없다.
       const physicalQtyItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
       const cycleItems = [...costItems, ...physicalQtyItems];
-      const cycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
+      const derivedCycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
+      // 단가/출고일 수량을 함께 저장하는 경로에서 화면 행에 OrderWeek가 누락되어도
+      // 확정 사이클을 생략하지 않는다. 선택 견적의 세부차수를 안전한 fallback으로 사용한다.
+      const fallbackCycleWeeks = sortWeeksAsc(
+        String(selectedShip?.SubWeeks || `${selectedShip?.ParentWeek || weekNum}-01`)
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean),
+      );
+      const cycleWeeks = derivedCycleWeeks.length > 0
+        ? derivedCycleWeeks
+        : (cycleItems.length > 0 ? fallbackCycleWeeks : []);
       const cycleCountryFlowers = getCountryFlowersForEditedItems(cycleItems);
       const cycleStockProdKeys = getProdKeysForEditedItems(cycleItems);
       if (cycleWeeks.length > 0) {
@@ -2101,21 +2114,51 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          if (!d.success) throw new Error(d.error || '단가 수정 실패');
+          if (!d.success) {
+            const error = new Error(d.error || '단가 수정 실패');
+            error.code = d.code;
+            error.fixedWeeks = d.fixedWeeks || [];
+            error.fixedCategories = d.fixedCategories || [];
+            throw error;
+          }
           costResultData = d;
         }
         return { qtyResults, costResultData };
       };
 
-      const { qtyResults, costResultData } = cycleWeeks.length > 0
-        ? await runEditWithFixCycle({
-            weeks: cycleWeeks,
-            countryFlowers: cycleCountryFlowers,
-            stockProdKeys: cycleStockProdKeys,
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply: runCombinedUpdate,
-          })
-        : await runCombinedUpdate();
+      const runCombinedFixCycle = async (weeks) => runEditWithFixCycle({
+        weeks,
+        // 확정된 상세가 화면 품목과 다른 카테고리로 섞여 있을 수 있다.
+        // EXE의 차수 확정 단위와 동일하게 전체 고정 범위를 해제·재확정한다.
+        countryFlowers: [],
+        stockProdKeys: cycleStockProdKeys,
+        progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+        apply: runCombinedUpdate,
+      });
+
+      let combinedResult;
+      try {
+        combinedResult = cycleWeeks.length > 0
+          ? await runCombinedFixCycle(cycleWeeks)
+          : await runCombinedUpdate();
+      } catch (firstError) {
+        // 첫 사이클의 화면 범위가 운영 DB의 확정 범위와 달랐던 경우에도
+        // 서버가 반환한 실제 확정 차수를 합쳐 전체 범위로 1회 재시도한다.
+        if (firstError?.code !== 'FIXED_WEEK') throw firstError;
+        const retryWeeks = sortWeeksAsc([
+          ...cycleWeeks,
+          ...fallbackCycleWeeks,
+          ...(firstError.fixedWeeks || []),
+        ]);
+        if (retryWeeks.length === 0) throw firstError;
+        setCostApplyLog(prev => [...prev, {
+          step: 'cycle',
+          label: `확정 범위 재확인 후 자동 재시도: ${sortWeeksDesc(retryWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(retryWeeks).join(' 확정 → ')} 확정`,
+        }]);
+        combinedResult = await runCombinedFixCycle(retryWeeks);
+      }
+
+      const { qtyResults, costResultData } = combinedResult;
 
       const okQty = qtyResults.filter(r => r.ok).length;
       const failedQty = qtyResults.length - okQty;
