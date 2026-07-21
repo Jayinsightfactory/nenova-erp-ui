@@ -340,7 +340,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                             const values = phase.keys.map((field) => countryValue(row, field));
                             const total = values.reduce((sum, value) => sum + n0(value), 0);
                             return (
-                              <td key={`${phase.groupLabel}-${phase.label}`} style={{ ...st.tdNum, minWidth: 150 }}>
+                              <td key={`${phase.groupLabel}-${phase.label}`} style={{ ...st.tdNum, minWidth: 235 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3 }}>
                                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 3 }}>
                                     {phase.keys.map((field, i) => (
@@ -495,13 +495,13 @@ const st = {
   message: { background: '#dcfce7', color: '#166534', padding: '8px 12px', borderRadius: 6, marginBottom: 8, fontSize: 12.5 },
   panel: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 12, overflow: 'hidden' },
   panelHead: { display: 'flex', alignItems: 'center', padding: '9px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', fontSize: 13 },
-  table: { borderCollapse: 'collapse', width: '100%', fontSize: 12 },
+  table: { borderCollapse: 'collapse', width: '100%', minWidth: 1500, fontSize: 12 },
   th: { padding: '6px 8px', background: '#f8fafc', borderBottom: '2px solid #e2e8f0', fontSize: 11, color: '#475569', whiteSpace: 'nowrap' },
   tdLabel: { padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid #f1f5f9' },
   tdNum: { padding: '3px 6px', textAlign: 'right', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' },
   cellInput: { width: 68, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 5px', fontSize: 11.5 },
-  splitInput: { width: 40, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 3px', fontSize: 11 },
-  splitTotal: { color: '#0f766e', fontSize: 10, textAlign: 'right', borderTop: '1px dashed #99f6e4', paddingTop: 2 },
+  splitInput: { width: 68, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 5px', fontSize: 11.5 },
+  splitTotal: { color: '#0f766e', fontSize: 10.5, textAlign: 'right', borderTop: '1px dashed #99f6e4', paddingTop: 2 },
   rateField: { display: 'flex', flexDirection: 'column', gap: 2 },
   input: { width: 100, padding: '5px 7px', border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, textAlign: 'right' },
 };
