@@ -5,7 +5,7 @@ import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, saveRateConfig,
-  loadCustomsWeekly, saveCustomsWeekly,
+  loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
   mergeCountryGw, mergeColombiaGw, mergeColombiaTruck,
@@ -90,6 +90,12 @@ export default withAuth(async function handler(req, res) {
         if (!req.body?.category) return res.status(400).json({ success: false, error: 'category 필요' });
         await saveCustomsWeekly(major, orderYear, req.body.category, req.body?.row || {}, actor);
         return res.status(200).json({ success: true });
+      }
+      if (req.body?.action === 'saveCountries') {
+        const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+        if (!rows.length) return res.status(400).json({ success: false, error: '저장할 국가 입력값이 없습니다' });
+        await saveCustomsWeeklyBatch(major, orderYear, rows, actor);
+        return res.status(200).json({ success: true, saved: rows.length });
       }
       if (req.body?.action === 'saveColombia') {
         if (!req.body?.orderWeek) return res.status(400).json({ success: false, error: 'orderWeek 필요' });

@@ -11,6 +11,7 @@
     "lib/profitReport.js",
     "lib/profitReportAudit.js",
     "lib/customsForwarding.js",
+    "lib/customsFields.js",
     "lib/colombiaTruck.js",
     "lib/profitReportCalc.js",
     "components/CustomsClearancePanel.js"
@@ -29,6 +30,11 @@
     },
     {
       "name": "WAREHOUSE_WEIGHT_AUTO_MERGE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     }

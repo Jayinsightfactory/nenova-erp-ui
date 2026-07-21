@@ -4,6 +4,7 @@
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { deriveColombiaTruckAllocation } from '../lib/colombiaTruck';
+import { COUNTRY_INPUT_FIELDS } from '../lib/customsFields';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = (v) => Math.round(n0(v)).toLocaleString();
@@ -19,12 +20,20 @@ const COLOMBIA_RATE_FIELDS = [
   ['BoxCBM_콜롬비아알스트로', '알스트로 박스당CBM'], ['BoxCBM_콜롬비아루스커스', '루스커스 박스당CBM'],
 ];
 const COUNTRY_FIELD_GROUPS = [
-  { label: '백상창고료 GW(kg)', keys: ['GW1', 'GW2'] },
-  { label: '관세', keys: ['Customs1', 'Customs2'] },
-  { label: '선율', keys: ['SunYul1', 'SunYul2'] },
-  { label: '월드운송료', keys: ['WorldFreight1', 'WorldFreight2'] },
-  { label: '한국방역', keys: ['Quarantine1', 'Quarantine2'] },
+  { label: '백상창고료 GW(kg)', phases: [{ label: '1차', keys: ['GW1'] }, { label: '2차', keys: ['GW2'] }] },
+  { label: '관세', phases: [
+    { label: '1차', keys: ['Customs1_1', 'Customs1_2', 'Customs1_3'], total: 'Customs1' },
+    { label: '2차', keys: ['Customs2_1', 'Customs2_2', 'Customs2_3'], total: 'Customs2' },
+  ] },
+  { label: '선율', phases: [
+    { label: '1차', keys: ['SunYul1_1', 'SunYul1_2', 'SunYul1_3'], total: 'SunYul1' },
+    { label: '2차', keys: ['SunYul2_1', 'SunYul2_2', 'SunYul2_3'], total: 'SunYul2' },
+  ] },
+  { label: '월드운송료', phases: [{ label: '1차', keys: ['WorldFreight1'] }, { label: '2차', keys: ['WorldFreight2'] }] },
+  { label: '한국방역', phases: [{ label: '1차', keys: ['Quarantine1'] }, { label: '2차', keys: ['Quarantine2'] }] },
 ];
+const COUNTRY_PHASES = COUNTRY_FIELD_GROUPS.flatMap((g) => g.phases.map((phase) => ({ ...phase, groupLabel: g.label })));
+const COUNTRY_FIELD_KEYS = COUNTRY_INPUT_FIELDS;
 const COLOMBIA_FIELDS = [
   ['GW', 'GW(kg)'], ['CW', 'CW(kg)'], ['HandlingFee', '선율 통관수수료'], ['ItemCount', '품목수'],
   ['Truck1t', '트럭 1t 대수'], ['Truck2_5t', '트럭 2.5t 대수'], ['Truck5t', '트럭 5t 대수'],
@@ -33,7 +42,10 @@ const COLOMBIA_FIELDS = [
 const COLOMBIA_TRUCK_FIELDS = new Set(['Truck1t', 'Truck2_5t', 'Truck5t']);
 
 // 필드명 → 화면표시 라벨 (이력 팝업용)
-const FIELD_LABEL = Object.fromEntries([...COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys.map((k, i) => [k, `${g.label}${i === 0 ? '(1차)' : '(2차)'}`])), ...COLOMBIA_FIELDS]);
+const FIELD_LABEL = Object.fromEntries([
+  ...COUNTRY_FIELD_GROUPS.flatMap((g) => g.phases.flatMap((p) => p.keys.map((k, i) => [k, `${g.label}(${p.label})${p.keys.length > 1 ? `-${i + 1}` : ''}`]))),
+  ...COLOMBIA_FIELDS,
+]);
 
 // 입고관리 GW 기준값 힌트 — 있으면 클릭 적용, 없으면 '확인 필요' 표시만(입고 자체가 없을 수 있음: 사용자 방침)
 function GwHint({ auto, current, onApply }) {
@@ -129,6 +141,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     return '';
   };
   const setCountryEdit = (cat, field, val) => setCountryEdits((prev) => ({ ...prev, [cat]: { ...(prev[cat] || {}), [field]: val } }));
+  const countryOut = (row) => Object.fromEntries(COUNTRY_FIELD_KEYS.map((field) => [field, countryValue(row, field)]));
 
   const colValue = (c, field) => {
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
@@ -141,16 +154,37 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   const saveCountry = async (row) => {
     setSaving(row.category); setError('');
     try {
-      const fields = COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys);
-      const out = {};
-      fields.forEach((f) => { out[f] = countryValue(row, f); });
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveCountry', category: row.category, row: out }),
+        body: JSON.stringify({ week, action: 'saveCountry', category: row.category, row: countryOut(row) }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
       setMessage(`${row.category} 저장 완료 — 매출이익보고서에 자동 반영됩니다`);
+      await load();
+      onSaved?.();
+    } catch (e) { setError(e.message); } finally { setSaving(''); }
+  };
+
+  const saveAllCountries = async () => {
+    const editedCategories = Object.keys(countryEdits);
+    if (!editedCategories.length) {
+      setMessage('변경된 국가 입력값이 없습니다');
+      return;
+    }
+    setSaving('countries'); setError('');
+    try {
+      const rows = editedCategories
+        .map((category) => data?.countries.find((row) => row.category === category))
+        .filter(Boolean)
+        .map((row) => ({ category: row.category, row: countryOut(row) }));
+      const r = await fetch('/api/sales/customs-clearance', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week, action: 'saveCountries', rows }),
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error);
+      setMessage(`${d.saved || rows.length}개 국가 입력값 일괄 저장 완료 — 매출이익보고서에 자동 반영됩니다`);
       await load();
       onSaved?.();
     } catch (e) { setError(e.message); } finally { setSaving(''); }
@@ -204,8 +238,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   // 이 차수에 입고가 있거나 저장값이 있는 국가만 기본 노출 — 입력칸 다이어트 (나머지는 펼치기)
   const isRelevantCountry = useCallback((row) => {
     if ((data?.activeCategories || []).includes(row.category)) return true;
-    const fields = COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys);
-    const hasVal = (obj) => obj && fields.some((f) => n0(obj[f]) !== 0);
+    const hasVal = (obj) => obj && COUNTRY_FIELD_KEYS.some((f) => n0(obj[f]) !== 0);
     return hasVal(row.saved) || hasVal(row.carry);
   }, [data]);
   const visibleCountries = useMemo(() => {
@@ -220,6 +253,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     <div>
       <div style={st.hint}>
         국가별(백상창고료GW×단가 그대로 + 관세 그대로 + 선율·월드운송료·한국방역 ÷1.1) 합산 = H(그외통관비).
+        관세·선율은 각 1차/2차를 1·2·3번으로 나누어 입력하며, 화면의 합계가 기존 관세1차/2차·선율1차/2차 금액으로 자동 반영됩니다.
         콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 반차수(1차/2차)별 통관비 TOTAL을 박스당무게×박스수량 비율로 배분(항상 무게비율).
         저장값 없으면 <b style={{ color: '#e65100' }}>전차수 값</b>이 기본으로 채워집니다 — 확인 후 저장하세요. 🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
       </div>
@@ -259,6 +293,14 @@ export default function CustomsClearancePanel({ week, onSaved }) {
               <strong>국가별 그외통관비</strong>
               <button
                 type="button"
+                style={st.primaryBtn}
+                onClick={saveAllCountries}
+                disabled={saving === 'countries' || Object.keys(countryEdits).length === 0}
+                title="입력값이 변경된 국가들을 하나의 트랜잭션으로 저장합니다">
+                {saving === 'countries' ? '일괄 저장중…' : `💾 입력값 일괄 저장${Object.keys(countryEdits).length ? ` (${Object.keys(countryEdits).length})` : ''}`}
+              </button>
+              <button
+                type="button"
                 style={{ marginLeft: 8, fontSize: 11, border: editWeights ? '1px solid #b45309' : '1px dashed #94a3b8', background: editWeights ? '#fff7ed' : '#fff', color: editWeights ? '#b45309' : '#475569', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
                 onClick={() => setEditWeights((v) => !v)}
                 title="무게(GW/CW)는 입고관리 Gross weight 자동값이 기준 — 교정이 필요할 때만 입력칸을 엽니다">
@@ -280,7 +322,9 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                 <thead>
                   <tr>
                     <th style={st.th}>국가</th>
-                    {COUNTRY_FIELD_GROUPS.map((g) => <th key={g.label} colSpan={2} style={st.th}>{g.label}(1차/2차)</th>)}
+                    {COUNTRY_PHASES.map((phase) => <th key={`${phase.groupLabel}-${phase.label}`} style={st.th}>
+                      {phase.groupLabel} {phase.label}{phase.keys.length > 1 ? ' (1/2/3)' : ''}
+                    </th>)}
                     <th style={st.th}>합계</th><th style={st.th}></th>
                   </tr>
                 </thead>
@@ -290,7 +334,29 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                     return (
                       <tr key={row.category} style={{ background: carried ? '#fff7ed' : '#fff' }}>
                         <td style={st.tdLabel}>{row.category}</td>
-                        {COUNTRY_FIELD_GROUPS.flatMap((g) => g.keys).map((f) => {
+                        {COUNTRY_PHASES.map((phase) => {
+                          const isSplit = phase.keys.length > 1;
+                          if (isSplit) {
+                            const values = phase.keys.map((field) => countryValue(row, field));
+                            const total = values.reduce((sum, value) => sum + n0(value), 0);
+                            return (
+                              <td key={`${phase.groupLabel}-${phase.label}`} style={{ ...st.tdNum, minWidth: 150 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 3 }}>
+                                    {phase.keys.map((field, i) => (
+                                      <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 2 }} title={`${phase.groupLabel} ${phase.label} ${i + 1}차 분할금액`}>
+                                        <span style={{ fontSize: 9, color: '#64748b' }}>{i + 1}</span>
+                                        <input style={st.splitInput} value={countryValue(row, field)}
+                                          onChange={(e) => setCountryEdit(row.category, field, e.target.value.replace(/[^0-9.\-]/g, ''))} />
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <span style={st.splitTotal}>{phase.groupLabel} {phase.label} 합계: <b>{fmt(total)}</b></span>
+                                </div>
+                              </td>
+                            );
+                          }
+                          const f = phase.keys[0];
                           const isGw = f === 'GW1' || f === 'GW2';
                           const auto = isGw ? data.autoGw?.countries?.[row.category]?.[f] : null;
                           const cur = countryValue(row, f);
@@ -434,6 +500,8 @@ const st = {
   tdLabel: { padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid #f1f5f9' },
   tdNum: { padding: '3px 6px', textAlign: 'right', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' },
   cellInput: { width: 68, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 5px', fontSize: 11.5 },
+  splitInput: { width: 40, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 3px', fontSize: 11 },
+  splitTotal: { color: '#0f766e', fontSize: 10, textAlign: 'right', borderTop: '1px dashed #99f6e4', paddingTop: 2 },
   rateField: { display: 'flex', flexDirection: 'column', gap: 2 },
   input: { width: 100, padding: '5px 7px', border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, textAlign: 'right' },
 };
