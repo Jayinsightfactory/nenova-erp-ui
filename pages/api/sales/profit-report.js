@@ -19,7 +19,7 @@ function parseMajor(raw) {
 // GET/엑셀 공용 — 보고서 행 데이터 구성
 async function loadReportData(major, orderYear) {
   const currentMajor = Number(major);
-  // 27차 기초재고는 같은 매출연도의 26차 마지막 확정 세부차수다.
+  // 27차 기초재고는 같은 매출연도의 26차 마지막 ProductStock 세부차수다.
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
@@ -94,8 +94,8 @@ async function loadReportData(major, orderYear) {
           R: prevMan.R ?? autoR,
         });
         const source = {
-          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : stockBegin.week ? 'auto_exe_stock_view' : 'missing_finalized_snapshot',
-          F: man.F != null ? 'manual' : stockEnd.week ? 'auto_exe_stock_view' : 'missing_finalized_snapshot',
+          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : stockBegin.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
+          F: man.F != null ? 'manual' : stockEnd.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
           R: man.R != null ? 'manual_invoice' : snapshotR != null ? 'freight_cost_snapshot' : autoR != null ? 'currency_master_fallback' : 'missing',
           S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
@@ -143,7 +143,9 @@ async function loadReportData(major, orderYear) {
       end: stockEnd.week,
       beginOrderYear: prevOrderYear,
       endOrderYear: String(orderYear),
-      selection: 'latest_finalized_subweek',
+      selection: 'latest_stock_subweek',
+      beginStockMasterIsFix: stockBegin.stockMasterIsFix,
+      endStockMasterIsFix: stockEnd.stockMasterIsFix,
     },
     audit: buildProfitReportAudit(rows),
   };
