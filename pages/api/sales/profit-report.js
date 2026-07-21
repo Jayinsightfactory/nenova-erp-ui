@@ -194,6 +194,11 @@ export default withAuth(async function handler(req, res) {
         await saveStockPrices(req.body?.prices || {}, actor);
         return res.status(200).json({ success: true });
       }
+      if (req.body?.action === 'saveNote') {
+        const note = String(req.body?.note ?? '').slice(0, 2000);
+        await saveManual(major, orderYear, {}, note, actor);
+        return res.status(200).json({ success: true });
+      }
       await saveManual(major, orderYear, req.body?.values || {}, req.body?.note, actor);
       return res.status(200).json({ success: true });
     }

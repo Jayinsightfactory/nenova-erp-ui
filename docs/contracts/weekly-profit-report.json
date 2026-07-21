@@ -37,6 +37,11 @@
       "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_NOTE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {

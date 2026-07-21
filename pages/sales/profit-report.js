@@ -142,6 +142,7 @@ export default function ProfitReportPage() {
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});   // { category: { colKey: 'value' } }
   const [note, setNote] = useState('');
+  const [noteDirty, setNoteDirty] = useState(false);
   // 보고서 진입 시에는 자동값만 읽기전용으로 보여준다. 입력 패널은 필요한 경우에만 연다.
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
@@ -207,6 +208,7 @@ export default function ProfitReportPage() {
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       setNote(d.note || '');
+      setNoteDirty(false);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -275,8 +277,22 @@ export default function ProfitReportPage() {
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
-      setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
       await load();
+      setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
+    } catch (e) { setError(e.message); } finally { setSaving(false); }
+  };
+
+  const saveNote = async () => {
+    setSaving(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, action: 'saveNote', note }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '비고 저장 실패');
+      await load();
+      setMessage('비고사항 저장 완료');
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 
@@ -286,7 +302,7 @@ export default function ProfitReportPage() {
   }, [data, edits]);
 
   const downloadExcel = async () => {
-    if (Object.keys(edits).length > 0) await save();  // 수정 중이던 값을 먼저 저장해 파일에 반영
+    if (dirty) await save();  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
     const colsParam = visibleCols.filter(k => k !== 'category').join(',');
     window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
   };
@@ -318,7 +334,7 @@ export default function ProfitReportPage() {
   };
 
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
-  const dirty = Object.keys(edits).length > 0;
+  const dirty = Object.keys(edits).length > 0 || noteDirty;
   const { rows, totals } = rowsCalc;
   const needsAttention = attentionRows(rows);
 
@@ -614,9 +630,18 @@ export default function ProfitReportPage() {
           <textarea
             style={st.noteArea}
             value={note}
-            onChange={e => setNote(e.target.value)}
+            maxLength={2000}
+            onChange={e => { setNote(e.target.value); setNoteDirty(true); }}
             placeholder="예: 콜롬비아 수국: 냉해 21박스 (약 1,644,545원) …"
           />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 5 }}>
+            <span style={{ fontSize: 11, color: noteDirty ? '#b45309' : '#64748b' }}>
+              {note.length.toLocaleString()}/2,000자{noteDirty ? ' · 저장되지 않음' : ' · 저장됨'}
+            </span>
+            <button style={{ ...st.primaryBtn, background: noteDirty ? '#16a34a' : '#94a3b8' }} onClick={saveNote} disabled={saving || !data}>
+              {saving ? '저장 중…' : '비고 저장'}
+            </button>
+          </div>
         </div>
       )}
 
