@@ -7,7 +7,7 @@ const root = process.cwd();
 const contractDir = path.join(root, 'docs', 'contracts');
 const allowedOrderEffects = new Set(['create-positive', 'preserve']);
 const allowedShipmentEffects = new Set(['increase', 'decrease', 'preserve']);
-const ERP_FEATURE_FILE_RE = /^(?:pages\/api\/|pages\/(?:shipment|orders|stock|warehouse|estimate|sales)\/|lib\/(?:pivot|order|shipment|exe|db))/;
+const ERP_FEATURE_FILE_RE = /^(?:pages\/api\/|pages\/(?:shipment|orders|stock|warehouse|estimate|sales|raum)\/|components\/raum\/|lib\/(?:pivot|order|shipment|exe|db|raum))/;
 
 function fail(message) {
   throw new Error(`ERP contract manifest: ${message}`);

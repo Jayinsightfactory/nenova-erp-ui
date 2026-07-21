@@ -1,0 +1,44 @@
+{
+  "id": "raum-pnl-settlement",
+  "title": "라움 손익계산서 이미지 주문등록·결산 미리보기 계약",
+  "scope": [
+    "pages/raum/pnl.js",
+    "components/raum/RaumImageOrderPanel.js",
+    "lib/raumPnlImage.js",
+    "pages/api/raum/pnl.js",
+    "pages/api/raum/pnl-image-import.js",
+    "pages/api/raum/item-mapping.js",
+    "pages/api/orders/index.js",
+    "lib/raumPnl.js",
+    "lib/raumPnlExcel.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "RAUM_PNL_DRAFT_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "RAUM_IMAGE_MATCH_DRAFT", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "RAUM_IMAGE_ORDER_REGISTER", "orderDetail": "create-positive", "shipmentDetail": "preserve" },
+    { "name": "RAUM_PNL_DELETE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 라움 차수와 품목이 2025·2026에 있어도 주문등록과 결산 저장은 선택한 OrderYear를 유지한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/raumPnlImage.test.js",
+    "__tests__/raumPnlExcel.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormRaumPnl.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs; dnSpy CLI command recorded with stdout-handle limitation",
+    "methods": ["CheckExistingOrder", "GetDataProduct", "btnSave_Click"],
+    "tables": ["OrderMaster", "OrderDetail", "OrderHistory", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WebRaumPnl", "WebRaumPnlItem"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

@@ -60,6 +60,7 @@ async function syncKeyNumbering(tQ, category, table, keyCol) {
   const allowed = {
     OrderMasterKey: ['OrderMaster', 'OrderMasterKey'],
     OrderDetailKey: ['OrderDetail', 'OrderDetailKey'],
+    ShipmentMasterKey: ['ShipmentMaster', 'ShipmentKey'],
   };
   const [safeTable, safeKeyCol] = allowed[category] || [];
   if (safeTable !== table || safeKeyCol !== keyCol) throw new Error('invalid key numbering sync target');
@@ -136,7 +137,7 @@ export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'POST') return await createOrder(req, res);
   if (req.method === 'PUT')  return await updateOrder(req, res);
   return res.status(405).end();
-}, { actionType: 'ORDER_WRITE', affectedTable: 'OrderMaster/OrderDetail', riskLevel: 'MEDIUM' }));
+}, { actionType: 'ORDER_WRITE', affectedTable: 'OrderMaster/OrderDetail[/ShipmentMaster for Raum image registration]', riskLevel: 'MEDIUM' }));
 
 // ── 조회: 실제 DB ──────────────────────────────
 async function getOrders(req, res) {
@@ -290,6 +291,7 @@ async function getOrders(req, res) {
 // 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
 async function createOrder(req, res) {
   const { custName, custKey, week, year, manager, orderCode, items, source } = req.body;
+  const ensureShipmentMaster = String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true;
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
   const historyDescr = String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
@@ -345,9 +347,14 @@ async function createOrder(req, res) {
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} yr=${orderYear} wk=${orderWeek}`);
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
+    const hasShipmentYearWeekColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'OrderYearWeek') : false;
+    const hasShipmentEstimateNameColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'EstimateName') : false;
+    const hasShipmentWebCreatedColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'WebCreated') : false;
+    const hasShipmentCreateIdColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'CreateID') : false;
+    const hasShipmentCreateDtmColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'CreateDtm') : false;
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
-    const { orderMasterKey, results, prodKeys } = await withTransaction(async (tQuery) => {
+    const { orderMasterKey, results, prodKeys, shipmentMasterKey } = await withTransaction(async (tQuery) => {
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       const existing = await tQuery(
         `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
@@ -417,6 +424,44 @@ async function createOrder(req, res) {
           }
         });
         await syncKeyNumbering(tQuery, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
+      }
+
+      // nenova.exe FormOrderAdd 저장과 동일하게, 주문이 처음 만들어지는 경우에만
+      // 빈 ShipmentMaster를 준비한다. ShipmentDetail/ShipmentDate/ShipmentFarm은 만들지 않는다.
+      let ensuredShipmentMasterKey = null;
+      if (ensureShipmentMaster) {
+        const existingShipment = await tQuery(
+          `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+            WHERE CustKey=@ck AND OrderYear=@year AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0
+            ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
+          {
+            ck: { type: sql.Int, value: resolvedCustKey },
+            year: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: orderWeek },
+          }
+        );
+        if (existingShipment.recordset[0]) {
+          ensuredShipmentMasterKey = existingShipment.recordset[0].ShipmentKey;
+        } else {
+          ensuredShipmentMasterKey = await tryInsertWithRetry(tQuery, 'ShipmentMaster', 'ShipmentKey', async (newShipmentKey) => {
+            const cols = ['ShipmentKey', 'CustKey', 'OrderYear', 'OrderWeek'];
+            const vals = ['@sk', '@ck', '@year', '@wk'];
+            const params = {
+              sk: { type: sql.Int, value: newShipmentKey },
+              ck: { type: sql.Int, value: resolvedCustKey },
+              year: { type: sql.NVarChar, value: orderYear },
+              wk: { type: sql.NVarChar, value: orderWeek },
+            };
+            if (hasShipmentYearWeekColumn) { cols.push('OrderYearWeek'); vals.push('@ywk'); params.ywk = { type: sql.NVarChar, value: orderYear + orderWeek.substring(0, 2) }; }
+            cols.push('isFix', 'isDeleted'); vals.push('0', '0');
+            if (hasShipmentEstimateNameColumn) { cols.push('EstimateName'); vals.push('@estimate'); params.estimate = { type: sql.NVarChar, value: `${orderWeek.substring(0, 2)}차 종합견적서` }; }
+            if (hasShipmentWebCreatedColumn) { cols.push('WebCreated'); vals.push('1'); }
+            if (hasShipmentCreateIdColumn) { cols.push('CreateID'); vals.push('@createId'); params.createId = { type: sql.NVarChar, value: uid }; }
+            if (hasShipmentCreateDtmColumn) { cols.push('CreateDtm'); vals.push('GETDATE()'); }
+            await tQuery(`INSERT INTO ShipmentMaster (${cols.join(', ')}) VALUES (${vals.join(', ')})`, params);
+          });
+          await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
+        }
       }
 
       const detailResults = [];
@@ -598,7 +643,7 @@ async function createOrder(req, res) {
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
-      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys] };
+      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey };
     });
 
     const stockWarning = await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
@@ -607,6 +652,7 @@ async function createOrder(req, res) {
       success: true,
       source: 'real_db',
       orderMasterKey,
+      shipmentMasterKey: shipmentMasterKey || null,
       message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED').length}개 품목`,
       warning: stockWarning?.message || null,
       results,

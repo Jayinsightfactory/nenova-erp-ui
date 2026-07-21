@@ -11,17 +11,28 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const q = String(req.query.q || '').trim();
       if (q.length < 1) return res.status(400).json({ success: false, error: '검색어 필요' });
-      const like = `%${q.replace(/[%_\[\]]/g, ' ').trim()}%`;
+      const term = q.replace(/[%_\[\]]/g, ' ').trim();
+      const like = `%${term}%`;
+      const starts = `${term}%`;
       const r = await query(
-        `SELECT TOP 30 p.ProdKey, p.ProdName, ISNULL(p.DisplayName,'') AS DisplayName,
+        `SELECT TOP 50 p.ProdKey, p.ProdName, ISNULL(p.DisplayName,'') AS DisplayName,
                 ISNULL(p.FlowerName,'') AS FlowerName, ISNULL(p.CounName,'') AS CounName,
-                ISNULL(p.Cost,0) AS Cost
+                ISNULL(p.OutUnit,'') AS OutUnit, ISNULL(p.Cost,0) AS Cost,
+                CASE WHEN p.ProdName = @term OR ISNULL(p.DisplayName,'') = @term THEN 0
+                     WHEN p.ProdName LIKE @starts OR ISNULL(p.DisplayName,'') LIKE @starts THEN 1
+                     WHEN p.ProdName LIKE @like OR ISNULL(p.DisplayName,'') LIKE @like THEN 2
+                     ELSE 3 END AS MatchRank
            FROM Product p
           WHERE p.isDeleted = 0
             AND (p.ProdName LIKE @q OR ISNULL(p.DisplayName,'') LIKE @q
               OR ISNULL(p.FlowerName,'') LIKE @q OR ISNULL(p.CounName,'') LIKE @q)
-          ORDER BY p.ProdName`,
-        { q: { type: sql.NVarChar, value: like } }
+          ORDER BY MatchRank, p.ProdName`,
+        {
+          term: { type: sql.NVarChar, value: term },
+          starts: { type: sql.NVarChar, value: starts },
+          like: { type: sql.NVarChar, value: like },
+          q: { type: sql.NVarChar, value: like },
+        }
       );
       return res.status(200).json({ success: true, products: r.recordset || [] });
     }

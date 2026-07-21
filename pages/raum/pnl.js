@@ -4,17 +4,19 @@
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
+import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
 const dateStr = v => (v ? String(v).slice(0, 10) : '');
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
-// 행 계산 — 매입액/이익/분배 (매입단가 미입력 행은 null, 사입 행은 손익 제외)
+// 행 계산 — 매입액/이익/분배 (사입도 매입단가를 입력하면 일반 품목과 함께 손익에 포함)
 function computeItemRow(it, nenovaPct) {
-  if (it.consigned) {
-    return { costAmount: null, profit: null, rate: null, nenova: null, miu: null, consigned: true };
-  }
   const cost = it.costPrice != null && it.costPrice !== '' ? Number(it.costPrice) : null;
   const costAmount = cost != null ? cost * Number(it.qty || 0) : null;
   const sale = Number(it.supply || 0);
@@ -29,24 +31,17 @@ function computeItemRow(it, nenovaPct) {
   };
 }
 
-// 합계 — 매출(sale)은 사입 포함(견적서와 일치), 손익(cost/profit/분배)은 사입 제외.
-// 이익율 분모 = 손익대상 매출(pnlSale = 전체 - 사입)
+// 합계 — 사입 매출·매입·이익도 합산양식에 포함.
 function computeTotals(items, nenovaPct) {
-  let sale = 0; let consignedSale = 0; let consignedCnt = 0; let cost = 0; let missing = 0;
+  let sale = 0; let consignedSale = 0; let consignedCnt = 0; let pnlSale = 0; let cost = 0; let profit = 0; let missing = 0;
   for (const it of items) {
     const supply = Number(it.supply || 0);
     sale += supply;
-    if (it.consigned) {
-      consignedSale += supply;
-      consignedCnt += 1;
-      continue;
-    }
+    if (it.consigned) { consignedSale += supply; consignedCnt += 1; }
     const r = computeItemRow(it, nenovaPct);
     if (r.costAmount == null) missing += 1;
-    else cost += r.costAmount;
+    else { pnlSale += supply; cost += r.costAmount; profit += r.profit; }
   }
-  const pnlSale = sale - consignedSale;
-  const profit = pnlSale - cost;
   return {
     sale, consignedSale, consignedCnt, pnlSale, cost, missing, profit,
     rate: pnlSale > 0 ? profit / pnlSale : null,
@@ -67,8 +62,9 @@ function quoteQtyByProdKey(items) {
   return m;
 }
 function erpCompare(it, qtyByProd, weeks) {
+  if (it.isImageRow) return { label: '이미지 주문행', tone: 'muted', title: '이미지 주문등록 초안에서 생성된 행 — 주문등록 후 전산 대조 새로고침' };
   if (it.isCustom) return { label: '—', tone: 'muted', title: '수동 추가 행 — 전산 분배 대상 아님' };
-  if (it.consigned) return { label: '사입', tone: 'muted', title: '사입(원산지 없음) — 전산 분배 대상 아님' };
+  if (it.consigned) return { label: '사입', tone: 'muted', title: '사입 표시 행 — 전산 분배 대조 대상은 아니지만 매입단가 입력 시 손익에는 포함' };
   if (it.prodKey == null) return { label: '전산 미매칭 ⚪', tone: 'muted', title: '전산 품목과 매칭되지 않아 비교 불가' };
   const erpQty = it.erpQty != null ? Number(it.erpQty) : null;
   const erpPrice = it.erpSalePrice != null ? Number(it.erpSalePrice) : null;
@@ -609,8 +605,7 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   const nen = Number(meta.nenovaPct);
   const rows = items.map((it, i) => {
     const r = computeItemRow(it, nen);
-    const costCell = it.consigned ? '<span style="color:#888">사입</span>'
-      : (it.costPrice != null ? fmt1(it.costPrice) : '<span class="missing">미입력</span>');
+    const costCell = it.costPrice != null ? fmt1(it.costPrice) : '<span class="missing">미입력</span>';
     return `<tr${it.consigned ? ' style="background:#f3f4f6;color:#555"' : ''}>
       <td class="ctr">${i + 1}</td>
       <td>${it.name}${it.consigned ? ' <small>(사입)</small>' : ''}</td>
@@ -621,7 +616,7 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
       <td class="num">${fmt(r.costAmount)}</td>
       <td class="num">${fmt1(it.price)}</td>
       <td class="num">${fmt(it.supply)}</td>
-      <td class="num">${it.consigned ? '—' : fmt(r.profit)}</td>
+      <td class="num">${fmt(r.profit)}</td>
       <td class="num">${pct(r.rate)}</td>
       <td class="num">${fmt(r.nenova)}</td>
       <td class="num">${fmt(r.miu)}</td>
@@ -629,7 +624,7 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   }).join('');
   const missingNote = totals.missing > 0 ? `<div class="note missing">⚠ 매입단가 미입력 품목 ${totals.missing}건 — 총매입/이익은 입력된 품목만 합산된 값입니다.</div>` : '';
   const consignedNote = totals.consignedSale > 0
-    ? `<div class="note">사입(원산지 없음) ${totals.consignedCnt}건 매출 ${fmt(totals.consignedSale)}원 — 매출액 합계에는 포함, 손익(매입·이익·분배) 계산에서는 제외. 이익율 분모는 손익대상 매출 ${fmt(totals.pnlSale)}원.</div>`
+    ? `<div class="note">사입 ${totals.consignedCnt}건 매출 ${fmt(totals.consignedSale)}원 — 매입단가를 입력한 사입행은 매입·이익·8:2 분배에 함께 합산됩니다.</div>`
     : '';
   return `<!doctype html><html><head><meta charset="utf-8"><title>${meta.title}</title><style>${PRINT_CSS}</style></head><body>
     <h1>${meta.title} 손익계산서</h1>
@@ -638,7 +633,7 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
       <thead><tr>
         <th>순번</th><th>품목명</th><th>단위</th>
         ${branches.map(b => `<th>${b}</th>`).join('')}
-        <th>수량계</th><th>매입단가</th><th>매입액</th><th>매출단가</th><th>매출액</th>
+        <th>수량계</th><th>1개당 매입단가<br />(원/VAT별도)</th><th>매입액</th><th>매출단가</th><th>매출액</th>
         <th>이익</th><th>이익율</th><th>네노바이익<br/>(${nen}%)</th><th>미우이익<br/>(${100 - nen}%)</th>
       </tr></thead>
       <tbody>${rows}
@@ -663,11 +658,11 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   </body></html>`;
 }
 
-// 차수별 손익 — 매출은 사입 포함, 이익은 사입 제외 (분모 = 손익대상 매출)
+// 차수별 손익 — 사입 포함
 function masterProfit(m) {
   const sale = Number(m.SaleTotal || 0);
-  const pnlSale = sale - Number(m.ConsignedSale || 0);
-  const profit = pnlSale - Number(m.CostTotal || 0);
+  const pnlSale = m.PnlSaleTotal != null ? Number(m.PnlSaleTotal || 0) : sale;
+  const profit = m.ProfitTotal != null ? Number(m.ProfitTotal || 0) : pnlSale - Number(m.CostTotal || 0);
   return { sale, pnlSale, profit, rate: pnlSale > 0 ? profit / pnlSale : null };
 }
 
@@ -689,7 +684,7 @@ function buildSummaryPrintHtml(list) {
   const totalSale = list.reduce((a, m) => a + Number(m.SaleTotal || 0), 0);
   const totalPnlSale = list.reduce((a, m) => a + masterProfit(m).pnlSale, 0);
   const totalCost = list.reduce((a, m) => a + Number(m.CostTotal || 0), 0);
-  const totalProfit = totalPnlSale - totalCost;
+  const totalProfit = list.reduce((a, m) => a + masterProfit(m).profit, 0);
   const totalNen = list.reduce((a, m) => a + masterProfit(m).profit * Number(m.NenovaPct) / 100, 0);
   const year = list[0]?.OrderYear || new Date().getFullYear();
   return `<!doctype html><html><head><meta charset="utf-8"><title>라움 결산</title><style>${PRINT_CSS}</style></head><body>
@@ -782,7 +777,7 @@ function VerifyPanel({ verification, items }) {
 const HL = {
   merged: '#dcfce7',   // 강남+건대 합산됨
   priceDiff: '#ffedd5', // 같은 품목명·다른 단가 → 분리
-  consigned: '#f1f5f9', // 사입(원산지 없음) — 매출 포함·손익 제외
+  consigned: '#f1f5f9', // 사입 표시 — 일반행과 구분하되 매입단가 입력 시 손익 포함
 };
 function multiPriceNames(items) {
   const byName = {};
@@ -793,7 +788,7 @@ function multiPriceNames(items) {
   return new Set(Object.entries(byName).filter(([, s]) => s.size > 1).map(([k]) => k));
 }
 function rowHighlight(it, branches, multiNames) {
-  if (it.consigned) return { bg: HL.consigned, why: '사입(원산지 없음) — 매출 합계에는 포함, 손익 계산에서는 제외' };
+  if (it.consigned) return { bg: HL.consigned, why: '사입 표시행 — 매입단가 입력 시 손익 합산' };
   if (multiNames.has(String(it.name || '').trim())) return { bg: HL.priceDiff, why: '같은 품목명이 다른 단가로 존재 — 합산하지 않고 분리 유지 (이월분이면 정상)' };
   const present = branches.filter(b => Number(it.byBranch?.[b] || 0) !== 0);
   if (present.length > 1) return { bg: HL.merged, why: `${present.join('+')} 합산된 행` };
@@ -898,7 +893,7 @@ function BranchComparePanel({ items, sheets, branches }) {
           <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
             <span style={{ background: HL.merged, padding: '0 6px', borderRadius: 3 }}>초록</span> = 강남·건대 양쪽 수량이 합산된 행 ·{' '}
             <span style={{ background: HL.priceDiff, padding: '0 6px', borderRadius: 3 }}>주황</span> = 같은 품목명이지만 단가가 달라 분리 유지된 행(이월분이면 정상) ·{' '}
-            <span style={{ background: HL.consigned, padding: '0 6px', borderRadius: 3, border: '1px solid #cbd5e1' }}>회색</span> = 사입(원산지 없음, 손익 제외) ·{' '}
+            <span style={{ background: HL.consigned, padding: '0 6px', borderRadius: 3, border: '1px solid #cbd5e1' }}>회색</span> = 사입 표시행(매입단가 입력 시 손익 포함) ·{' '}
             <b>·</b> = 해당 지점에 없음 · 지점 합계의 ✓ = 견적서 원본 하단 합계와 일치
           </div>
         </div>
@@ -1165,6 +1160,7 @@ export default function RaumPnlPage() {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
   // detail: { meta:{pnlKey?, orderYear, major, title, quoteDate, nenovaPct, note, sourceFile}, items, warnings, sheets, unsaved }
   const [detail, setDetail] = useState(null);
   const fileRef = useRef(null);
@@ -1214,6 +1210,7 @@ export default function RaumPnlPage() {
         },
         sheets: j.sheets,
         items: j.items.map(it => ({ ...it, costPrice: it.costPrice ?? null })),
+        images: [],
         verification: j.verification || null,
         warnings,
         unsaved: true,
@@ -1247,6 +1244,7 @@ export default function RaumPnlPage() {
         },
         sheets: null,
         items: j.items,
+        images: j.images || [],
         verification: j.verification || null,
         warnings: [],
         unsaved: false,
@@ -1275,6 +1273,7 @@ export default function RaumPnlPage() {
           nenovaPct: meta.nenovaPct,
           note: meta.note,
           sourceFile: meta.sourceFile,
+          images: detail.images || [],
           items,
           verification: detail.verification || null,
         }),
@@ -1289,6 +1288,29 @@ export default function RaumPnlPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openImagePreview = ({ items, images, orderYear, major, sourceFile }) => {
+    setDetail({
+      meta: {
+        pnlKey: null,
+        orderYear,
+        major,
+        title: `라움 ${Number(major) || '?'}차 이미지 결산`,
+        quoteDate: localToday(),
+        nenovaPct: 80,
+        note: '',
+        sourceFile,
+      },
+      sheets: null,
+      items,
+      images: images || [],
+      verification: null,
+      warnings: ['이미지 OCR 초안입니다. 단가·적요·매입단가를 확인한 뒤 저장하세요.'],
+      unsaved: true,
+    });
+    setImageOpen(false);
+    setMessage('이미지 기반 결산표 미리보기입니다. 행별 수정·삭제 후 저장할 수 있습니다.');
   };
 
   const remove = async (pnlKey, title) => {
@@ -1313,7 +1335,7 @@ export default function RaumPnlPage() {
       const items = d.items.slice();
       const next = { ...items[idx], ...patch };
       // 수동 행(손실 등)은 수량/매출단가 수정 시 매출액 자동 재계산
-      if (next.isCustom && ('qty' in patch || 'price' in patch)) {
+      if ((next.isCustom || next.isImageRow) && ('qty' in patch || 'price' in patch)) {
         next.supply = (Number(next.qty) || 0) * (Number(next.price) || 0);
       }
       items[idx] = next;
@@ -1391,8 +1413,8 @@ export default function RaumPnlPage() {
         unsaved: true,
       }));
       setMessage(on
-        ? `사입 제외 지정: ${name} — 매출에는 포함되고 손익 계산에서 빠집니다 (다음 업로드부터 자동)`
-        : `사입 지정 해제: ${name}`);
+        ? `사입 표시 지정: ${name} — 매입단가를 입력하면 손익에 포함됩니다 (다음 업로드부터 자동)`
+        : `사입 표시 해제: ${name}`);
     } catch (e) {
       setError(e.message);
     }
@@ -1603,6 +1625,7 @@ export default function RaumPnlPage() {
 
       {error ? <div style={st.err}>{error}</div> : null}
       {message ? <div style={st.ok}>{message}</div> : null}
+      <RaumImageOrderPanel open={imageOpen} onClose={() => setImageOpen(false)} onPreview={openImagePreview} />
       <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
       <MatchEditorModal
         edit={matchEdit}
@@ -1622,6 +1645,7 @@ export default function RaumPnlPage() {
         <button style={st.btnPrimary} disabled={uploading} onClick={() => fileRef.current?.click()}>
           {uploading ? '분석 중…' : '📤 견적서 업로드'}
         </button>
+        <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button>
         {detail ? (
           <>
             <button style={st.btn} onClick={() => { setDetail(null); setMessage(''); setError(''); }}>← 결산 목록</button>
@@ -1677,7 +1701,7 @@ export default function RaumPnlPage() {
                         {m.ItemCount}{Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(m.CostTotal)}</td>
-                      <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (손익 제외)` : ''}>
+                      <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (매입단가 입력 시 손익 합산)` : ''}>
                         {fmt(m.SaleTotal)}{Number(m.ConsignedSale) > 0 ? ' ▪' : ''}
                       </td>
                       <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(profit)}</td>
@@ -1764,7 +1788,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>단위</th>
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
-                  <th style={st.th}>매입단가 ✏️</th>
+                  <th style={st.th} title="1개당 매입단가 · 원화 · 부가세 별도">1개당 매입단가<br />(원/VAT별도) ✏️</th>
                   <th style={st.th}>매입액</th>
                   <th style={st.th}>매출단가</th>
                   <th style={st.th}>매출액</th>
@@ -1774,6 +1798,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
                   <th style={st.th}>참고단가(도착원가)</th>
                   <th style={st.th}>적요</th>
+                  <th style={st.th}>행</th>
                   <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%. 라움 견적이 전산보다 적으면 잔량의 아이엠 분배 여부·시점이 └ 줄로 표시됩니다. ⚖ 적용 후엔 초록 ✔ 적용 로그가 여기 붙습니다.">전산 분배 대조</th>
                 </tr>
               </thead>
@@ -1804,22 +1829,19 @@ export default function RaumPnlPage() {
                         {it.isCustom ? ' ✍' : ''}
                       </td>
                       <td style={{ ...st.td, textAlign: 'center' }}>
-                        {it.isCustom ? (
+                        {it.isCustom || it.isImageRow ? (
                           <input style={{ ...st.input, width: 40, textAlign: 'center' }} value={it.unit}
                             onChange={e => setItem(i, { unit: e.target.value })} />
                         ) : it.unit}
                       </td>
                       {branches.map(b => <td key={b} style={{ ...st.td, ...st.num }}>{fmt(it.byBranch?.[b])}</td>)}
                       <td style={{ ...st.td, ...st.num, fontWeight: 600 }}>
-                        {it.isCustom ? (
+                        {it.isCustom || it.isImageRow ? (
                           <input style={{ ...st.input, width: 56 }} value={it.qty}
                             onChange={e => setItem(i, { qty: e.target.value.replace(/[^0-9.\-]/g, '') })} />
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
-                        {it.consigned ? (
-                          <span style={{ color: '#64748b', fontSize: 12 }} title="사입(원산지 없음) — 매출에는 포함, 손익 계산에서는 제외되므로 매입단가가 필요 없습니다">사입 제외</span>
-                        ) : (
                         <>
                         <input
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
@@ -1828,6 +1850,7 @@ export default function RaumPnlPage() {
                           title={
                             it.costSource === 'learned' ? '직접 입력해 학습된 매입단가가 자동 입력됨 — 수정하면 저장 시 다시 학습'
                             : it.costSource === 'arrival' ? `가장 최근 도착원가를 100원 단위 반올림해 자동 입력 (${it.refSource || ''}) — 직접 고치면 그 값을 학습`
+                            : it.consigned ? '사입 품목의 1개당 매입단가(원화·VAT 별도)를 입력하면 합산양식의 매입·이익에 포함됩니다'
                             : '직접 입력하면 저장 시 이 품목의 매입단가를 기억해 다음 업로드에 자동 입력'
                           }
                           onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
@@ -1836,12 +1859,12 @@ export default function RaumPnlPage() {
                           : it.costSource === 'arrival' ? <span title={it.refSource || '도착원가 자동'} style={{ marginLeft: 3 }}>🚢</span>
                           : it.costSource === 'manual' ? <span title="직접 입력 — 저장 시 학습됨" style={{ marginLeft: 3 }}>✍</span> : null}
                         </>
-                        )}
+                        {it.consigned ? <span title="사입도 매입단가 입력 시 손익 합산" style={{ marginLeft: 3, color: '#64748b' }}>사입</span> : null}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
-                        {it.isCustom ? (
-                          <input style={{ ...st.input, width: 70 }} value={it.price}
+                        {it.isCustom || it.isImageRow ? (
+                          <input style={{ ...st.input, width: 70 }} value={it.price ?? ''}
                             onChange={e => setItem(i, { price: e.target.value.replace(/[^0-9.\-]/g, '') })} />
                         ) : <>{fmt1(it.price)}{erpMismatch ? ' ⚠' : ''}</>}
                       </td>
@@ -1852,9 +1875,16 @@ export default function RaumPnlPage() {
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.miu)}</td>
                       <td style={{ ...st.td, ...st.num, color: '#64748b' }} title={it.refSource || ''}>{it.refPrice != null ? fmt1(it.refPrice) : ''}</td>
                       <td style={{ ...st.td, fontSize: 11.5, color: '#64748b' }}>
-                        {it.isCustom ? (
-                          <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 수동 행 삭제">✕ 삭제</button>
-                        ) : it.remark}
+                        <input
+                          style={{ ...st.input, width: 145, textAlign: 'left' }}
+                          value={it.remark || ''}
+                          onChange={e => setItem(i, { remark: e.target.value })}
+                          placeholder="적요"
+                          title="참고단가(도착원가) 옆 적요 — 입력/수정 후 저장"
+                        />
+                      </td>
+                      <td style={st.td}>
+                        <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 행 삭제">✕ 삭제</button>
                       </td>
                       {(() => {
                         const cmp = erpCompare(it, erpQtyMap, weekLabels);
@@ -1866,7 +1896,7 @@ export default function RaumPnlPage() {
                               <button style={{ ...smallBtn, color: '#b91c1c' }} title="수동 사입 지정을 해제합니다 (다음 업로드부터 다시 손익에 포함)" onClick={() => markConsigned(it.name, false)}>해제</button>
                             ) : null}
                             {!it.isCustom && !it.consigned && cmp.label === '이번차수 분배없음' ? (
-                              <button style={{ ...smallBtn, color: '#475569' }} title="이 품목을 사입으로 지정 — 매출에는 포함, 손익 계산·전산 일괄수정에서 제외됩니다 (기억됨)" onClick={() => markConsigned(it.name, true)}>사입 제외</button>
+                              <button style={{ ...smallBtn, color: '#475569' }} title="이 품목을 사입으로 표시 — 매출·매입단가·손익에 사용할 수 있고 전산 분배 대조만 제외합니다 (기억됨)" onClick={() => markConsigned(it.name, true)}>사입 표시</button>
                             ) : null}
                             {cmp.w2Move ? (
                               <div style={{ color: '#b45309', fontSize: 11, fontWeight: 600, background: 'transparent' }} title={cmp.w2Move.title}>└ {cmp.w2Move.label}</div>
@@ -1899,7 +1929,7 @@ export default function RaumPnlPage() {
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{pct(totals.rate)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.nenova)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.miu)}</td>
-                  <td style={st.td} colSpan={3}></td>
+                  <td style={st.td} colSpan={4}></td>
                 </tr>
               </tbody>
             </table>
@@ -1907,7 +1937,7 @@ export default function RaumPnlPage() {
 
           {totals.consignedSale > 0 ? (
             <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, marginTop: 10 }}>
-              ▪ 사입(원산지 없음) {totals.consignedCnt}건 매출 {fmt(totals.consignedSale)}원 — <b>매출액 합계에는 포함</b>(견적서와 일치), <b>손익 계산(매입·이익·8:2 분배)에서는 제외</b>. 이익율 분모 = 손익대상 매출 {fmt(totals.pnlSale)}원.
+              ▪ 사입 {totals.consignedCnt}건 매출 {fmt(totals.consignedSale)}원 — <b>사입행도 매입단가 입력 시 매입·이익·8:2 분배에 합산</b>됩니다. 매입단가가 비어 있으면 해당 행은 매입·이익 합계에서 미입력으로 표시됩니다.
             </div>
           ) : null}
           {totals.missing > 0 ? (
