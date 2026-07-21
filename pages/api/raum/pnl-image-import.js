@@ -25,11 +25,14 @@ function getClient() {
 
 const IMAGE_PROMPT = `이 이미지는 꽃 거래명세표/발주·사입 목록이다. 표의 데이터 행을 빠짐없이 추출해 JSON만 반환하라.
 형식:
-{"items":[{"inputName":"수국 화이트","qty":57,"unit":"박스","unitPrice":12000,"remark":""}]}
+{"items":[{"inputName":"수국 화이트","qty":57,"unit":"스팀(대)","unitPrice":12000,"remark":""}]}
 규칙:
 - 헤더·합계·빈 행은 제외하고 데이터 행은 같은 품목이 반복되어도 각각 반환한다.
 - 품목명은 이미지에 적힌 품명을 최대한 보존한다. 카테고리와 색상이 따로 있으면 합쳐 inputName으로 만든다.
 - qty는 해당 행의 수량이다. 괄호 안 보조수량이 있으면 주문/거래 수량을 우선한다.
+- unit은 반드시 아래 3개 중 하나로 표준화한다: "박스", "단", "스팀(대)". 이미지에 박스/box가 있으면 박스, 단/bunch가 있으면 단, 대/스팀/stem/steam/송이가 있으면 스팀(대)다. 단위가 없는 경우에만 빈 문자열이다.
+- 아래 현장 표기는 품종명 일부로 보존한다: 몬디알=mondial, 화이트스프레이/스노우플레이크=Snow Flake, 코랄리프=Coral Reef, 프라도민트=Prado Mint, 도젤=Doncel, 지오지아=Giogia, 두바이=Dubai, 휘슬러=Whistler, 피피=Fifi.
+- OCR에서 "핑지"로 읽힌 수국 색상은 원문은 유지하되 peach 후보가 되도록 입력한다. 노랑(헤르메스), 오렌지(헤르메스 오렌지)는 괄호 안 품종을 함께 보존한다.
 - unitPrice는 1개당 단가/매입단가가 이미지에 명시된 경우만 숫자로 추출한다. 금액 합계만 있고 단가가 없으면 null이다.
 - unitPrice는 원화이며 부가세 별도 기준이다. 통화가 불명확하면 null이다.
 - 적요/비고가 있으면 remark에 넣는다.
@@ -153,6 +156,7 @@ async function handler(req, res) {
     const matched = matchImportRows(parsedRows.map(row => ({
       rowNo: row.sourceRowNo,
       inputName: row.inputName,
+      matchName: row.matchName,
       qty: row.qty,
       unit: row.unit,
     })), ctx);

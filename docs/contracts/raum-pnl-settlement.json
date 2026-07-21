@@ -5,6 +5,7 @@
     "pages/raum/pnl.js",
     "components/raum/RaumImageOrderPanel.js",
     "lib/raumPnlImage.js",
+    "lib/orderImportMatch.js",
     "pages/api/raum/pnl.js",
     "pages/api/raum/pnl-image-import.js",
     "pages/api/raum/item-mapping.js",
