@@ -1051,7 +1051,7 @@ export default function Estimate() {
   // ── 단가 수정 상태 (P3) ─────────────────────────
   // costEdits[sdetailKey] = 수정된 단가 (string)
   const [costEdits, setCostEdits] = useState({});
-  // qtyEdits[sdetailKey] = 수정된 수량 (string)
+  // qtyEdits[sdateKey|estimateKey] = 수정된 견적 수량 (string)
   const [qtyEdits, setQtyEdits] = useState({});
   const [qtyApplying, setQtyApplying] = useState(false);
   const [qtyResult, setQtyResult] = useState(null);
@@ -1274,7 +1274,15 @@ export default function Estimate() {
     if (item?.EstimateKey != null) return `est:${item.EstimateKey}`;
     return '';
   };
+  // nenova.exe FormEstimateView의 정상출고 수량 키는 ShipmentDate.SdateKey다.
+  // SdetailKey는 단가 수정용/물리 출고 상세용이므로 견적 날짜수량 저장에 재사용하지 않는다.
+  const getQtyEditKey = (item) => {
+    if (item?.EstimateKey != null && item?.SdetailKey == null) return `est:${item.EstimateKey}`;
+    if (item?.SdateKey != null) return `sdate:${item.SdateKey}`;
+    return '';
+  };
   const isEstimateEditKey = (key) => String(key || '').startsWith('est:');
+  const isDateQuantityEditKey = (key) => String(key || '').startsWith('sdate:');
   const parseEditKeyNumber = (key) => parseInt(String(key || '').split('@')[0].split(':')[1] || key, 10);
 
   const runLimited = async (items, limit, worker) => {
@@ -1289,6 +1297,67 @@ export default function Estimate() {
     });
     await Promise.all(workers);
     return results;
+  };
+
+  // nenova.exe FormEstimateView는 정상출고의 견적 수량을 ShipmentDate.EstQuantity에
+  // 저장한다. 여러 출고일을 한 번에 저장하여 품목별 총량 검증도 EXE와 동일한 시점에 수행한다.
+  const saveDateQuantityBatch = async (rows) => {
+    if (!rows.length) return [];
+    setCostApplyLog(prev => [...prev, {
+      step: 'save',
+      label: `EXE 출고일별 분배 ${rows.length}건 저장 — ShipmentDetail + ShipmentDate`,
+    }]);
+    try {
+      const response = await fetch('/api/estimate/update-date-quantity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          items: rows.map(p => ({
+            sdateKey: p.keyNumber,
+            quantity: p.newQty,
+            unit: p.item.Unit,
+            expectedOldQuantity: p.oldQty,
+          })),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        const error = data.error || `출고일별 견적수량 저장 실패 (${response.status})`;
+        return rows.map(p => ({
+          key: p.keyNumber,
+          ok: false,
+          code: data.code,
+          oldQty: p.oldQty,
+          newQty: p.newQty,
+          orderWeek: p.item.OrderWeek,
+          error,
+          fixedWeeks: data.fixedWeeks || [],
+          fixedCategories: data.fixedCategories || [],
+          pendingRef: p,
+        }));
+      }
+      const savedByKey = new Map((data.items || []).map(item => [Number(item.sdateKey), item]));
+      return rows.map(p => ({
+        key: p.keyNumber,
+        ok: true,
+        oldQty: p.oldQty,
+        newQty: p.newQty,
+        orderWeek: p.item.OrderWeek,
+        saved: savedByKey.get(p.keyNumber),
+        pendingRef: p,
+      }));
+    } catch (error) {
+      return rows.map(p => ({
+        key: p.keyNumber,
+        ok: false,
+        oldQty: p.oldQty,
+        newQty: p.newQty,
+        orderWeek: p.item.OrderWeek,
+        error: error.message,
+        pendingRef: p,
+      }));
+    }
   };
 
   const getProdKeysForEditedItems = (editedItems) => [...new Set((editedItems || [])
@@ -1538,7 +1607,7 @@ export default function Estimate() {
     load(true); // 화면 갱신
   };
 
-  // 수량 수정 적용 — 단가수정과 다르게 ADD/CANCEL 으로 분기 (audit log)
+  // 수량 수정 적용 — 정상출고는 ShipmentDate.EstQuantity, 차감은 Estimate.Quantity에 저장
   const applyQtyEdits = async () => {
     if (editedQtyCount === 0) return;
     setQtyApplying(true);
@@ -1551,24 +1620,24 @@ export default function Estimate() {
       const pending = [];
       for (const [editKey, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
-        const item = filteredItems.find(it => getItemEditKey(it) === editKey);
+        const item = filteredItems.find(it => getQtyEditKey(it) === editKey);
         if (!item) continue;
+        const isDateQuantity = isDateQuantityEditKey(editKey);
         const isEstimate = isEstimateEditKey(editKey);
+        if (!isDateQuantity && !isEstimate) continue;
         const keyNumber = parseEditKeyNumber(editKey);
         const oldQty = parseFloat(item.Quantity) || 0;
         const newQty = parseFloat(newVal);
-        if (Number.isNaN(newQty) || (!isEstimate && newQty < 0)) continue;
+        if (Number.isNaN(newQty) || newQty < 0) continue;
         const effectiveNewQty = isEstimate && oldQty < 0 ? -Math.abs(newQty) : newQty;
         if (Math.abs(effectiveNewQty - oldQty) < 0.001) continue;
-        pending.push({ keyNumber, isEstimate, item, oldQty, newQty });
+        pending.push({ keyNumber, isDateQuantity, isEstimate, item, oldQty, newQty });
       }
 
       if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
 
-      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 한 행만 사이클 후 재시도"
-      //   (단가수정과 동일 패턴). 미확정 행은 즉시 저장되고, 진짜 확정된 행만 자동 확정해제→재확정을
-      //   탄다. 이미 저장된 행은 재시도하지 않아 STALE_DATA 오탐도 없다.
-      const postOneQty = async (p) => {
+      // 차감 행은 EXE의 Estimate.Quantity 저장 경로를 그대로 사용한다.
+      const postOneDeductionQty = async (p) => {
         setCostApplyLog(prev => [...prev, {
           step: 'save',
           label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
@@ -1595,15 +1664,19 @@ export default function Estimate() {
         };
       };
 
-      // 1차: 전 행 직접 저장 (실패해도 수집만 — 행 단위 독립)
-      const firstPass = await runLimited(pending, 4, postOneQty);
-      let results = firstPass;
+      const savePendingQuantities = async (rows) => {
+        const dateResults = await saveDateQuantityBatch(rows.filter(p => p.isDateQuantity));
+        const deductionResults = await runLimited(rows.filter(p => p.isEstimate), 4, postOneDeductionQty);
+        return [...dateResults, ...deductionResults];
+      };
 
-      // FIXED_WEEK 로 거절된 행만 자동 사이클 후 재시도
-      const fixedFails = firstPass.filter(r => !r.ok && r.code === 'FIXED_WEEK');
+      let results = await savePendingQuantities(pending);
+
+      // 실제 출고분배를 함께 바꾸므로 확정된 정상출고도 EXE처럼
+      // 확정해제 → ShipmentDetail/ShipmentDate 저장 → 재확정 사이클을 탄다.
+      const fixedFails = results.filter(r => !r.ok && r.code === 'FIXED_WEEK');
       if (fixedFails.length > 0) {
         const fixedPending = fixedFails.map(r => r.pendingRef);
-        // 서버가 알려준 확정 차수/카테고리(DB 기준)를 합집합 — 화면 아이템의 필드 누락과 무관하게 스코프 정확
         const cycleWeeks = sortWeeksAsc([
           ...getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip),
           ...fixedFails.flatMap(r => r.fixedWeeks),
@@ -1622,10 +1695,10 @@ export default function Estimate() {
           countryFlowers: cycleCountryFlowers,
           stockProdKeys: cycleStockProdKeys,
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-          apply: async () => await runLimited(fixedPending, 4, postOneQty),
+          apply: async () => await savePendingQuantities(fixedPending),
         });
-        // pendingRef 객체 identity 로 매핑 (keyNumber 는 est/sd 간 충돌 가능)
-        results = firstPass.map(r => retryResults.find(x => x.pendingRef === r.pendingRef) || r);
+        const retryByRef = new Map(retryResults.map(x => [x.pendingRef, x]));
+        results = results.map(r => retryByRef.get(r.pendingRef) || r);
       }
 
       const okCount = results.filter(r => r.ok).length;
@@ -1633,7 +1706,7 @@ export default function Estimate() {
       setQtyResult({ results, okCount, failCount });
       if (failCount === 0) setQtyEdits({});
       setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 수정 수량 반영 후 견적서 재조회 중' }]);
-      setCostResult({ success: true, type: 'quantity', changedCount: okCount });
+      setCostResult({ success: failCount === 0, type: 'quantity', changedCount: okCount, error: failCount ? '일부 수량 저장 실패' : undefined });
       // 다시 조회하여 화면 갱신
       load(true);
     } catch (e) {
@@ -1888,16 +1961,18 @@ export default function Estimate() {
       const qtyPending = [];
       for (const [editKey, newVal] of Object.entries(qtyEdits)) {
         if (newVal === '' || newVal == null) continue;
-        const item = filteredItems.find(it => getItemEditKey(it) === editKey);
+        const item = filteredItems.find(it => getQtyEditKey(it) === editKey);
         if (!item) continue;
+        const isDateQuantity = isDateQuantityEditKey(editKey);
         const isEstimate = isEstimateEditKey(editKey);
+        if (!isDateQuantity && !isEstimate) continue;
         const keyNumber = parseEditKeyNumber(editKey);
         const oldQty = parseFloat(item.Quantity) || 0;
         const newQty = parseFloat(newVal);
-        if (Number.isNaN(newQty) || (!isEstimate && newQty < 0)) continue;
+        if (Number.isNaN(newQty) || newQty < 0) continue;
         const effectiveNewQty = isEstimate && oldQty < 0 ? -Math.abs(newQty) : newQty;
         if (Math.abs(effectiveNewQty - oldQty) < 0.001) continue;
-        qtyPending.push({ keyNumber, isEstimate, item, oldQty, newQty });
+        qtyPending.push({ keyNumber, isDateQuantity, isEstimate, item, oldQty, newQty });
       }
 
       const editedSdKeys = Object.keys(costEdits)
@@ -1946,13 +2021,13 @@ export default function Estimate() {
 
       if (qtyPending.length === 0 && costItems.length === 0) throw new Error('수정 대상이 없습니다.');
 
-      const cycleWeeks = getFixCycleWeeksForEditedItems([
-        ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
-      ], selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems([
-        ...qtyPending.filter(p => !p.isEstimate).map(p => p.item),
-      ]);
-      const cycleStockProdKeys = getProdKeysForEditedItems(qtyPending.filter(p => !p.isEstimate).map(p => p.item));
+      // 실제 날짜분배를 바꾸는 정상출고 수량과 단가 수정은 확정 사이클 대상이다.
+      // 차감(Estimate.Quantity)만 단독 수정하는 경우에는 ShipmentDetail 사이클이 필요 없다.
+      const physicalQtyItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
+      const cycleItems = [...costItems, ...physicalQtyItems];
+      const cycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
+      const cycleCountryFlowers = getCountryFlowersForEditedItems(cycleItems);
+      const cycleStockProdKeys = getProdKeysForEditedItems(cycleItems);
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
@@ -1961,7 +2036,15 @@ export default function Estimate() {
       }
 
       const runCombinedUpdate = async () => {
-        const qtyResults = await runLimited(qtyPending, 4, async (p) => {
+        const dateResults = await saveDateQuantityBatch(qtyPending.filter(p => p.isDateQuantity));
+        if (dateResults.some(r => !r.ok)) {
+          return {
+            qtyResults: dateResults,
+            costResultData: { changedCount: 0, diffAmount: 0, changes: [] },
+          };
+        }
+
+        const deductionResults = await runLimited(qtyPending.filter(p => p.isEstimate), 4, async (p) => {
           setCostApplyLog(prev => [...prev, {
             step: 'save',
             label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
@@ -1980,10 +2063,24 @@ export default function Estimate() {
             }),
           });
           const d = await r.json();
-          const result = { key: p.keyNumber, ok: d.success, oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error };
-          if (!d.success) throw new Error(d.error || `${p.item.OrderWeek} 수량 수정 실패`);
-          return result;
+          return {
+            key: p.keyNumber,
+            ok: d.success,
+            code: d.code,
+            oldQty: p.oldQty,
+            newQty: p.newQty,
+            orderWeek: p.item.OrderWeek,
+            error: d.error,
+            pendingRef: p,
+          };
         });
+        const qtyResults = [...dateResults, ...deductionResults];
+        if (qtyResults.some(r => !r.ok)) {
+          return {
+            qtyResults,
+            costResultData: { changedCount: 0, diffAmount: 0, changes: [] },
+          };
+        }
 
         let costResultData = { changedCount: 0, diffAmount: 0, changes: [] };
         if (costItems.length > 0) {
@@ -2021,16 +2118,25 @@ export default function Estimate() {
         : await runCombinedUpdate();
 
       const okQty = qtyResults.filter(r => r.ok).length;
-      setQtyResult({ results: qtyResults, okCount: okQty, failCount: qtyResults.length - okQty });
-      setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 단가/수량 반영 후 견적서 재조회 중' }]);
+      const failedQty = qtyResults.length - okQty;
+      setQtyResult({ results: qtyResults, okCount: okQty, failCount: failedQty });
+      setCostApplyLog(prev => [...prev, {
+        step: failedQty ? 'error' : 'done',
+        label: failedQty
+          ? `수량 저장 실패 ${failedQty}건 — 단가 저장은 실행하지 않음`
+          : '완료 — 단가/수량 반영 후 견적서 재조회 중',
+      }]);
       setCostResult({
-        success: true,
+        success: failedQty === 0,
         type: 'combined',
         changedCount: okQty + Number(costResultData.changedCount || 0),
         totalDiff: Number(costResultData.diffAmount || 0),
+        error: failedQty ? '일부 수량 저장 실패' : undefined,
       });
-      setQtyEdits({});
-      setCostEdits({});
+      if (failedQty === 0) {
+        setQtyEdits({});
+        setCostEdits({});
+      }
       await load(true);
       if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
     } catch (err) {
@@ -3213,8 +3319,9 @@ export default function Estimate() {
                       : filteredItems.map((item, i) => {
                           const isDed = isEstimateDeductionRow(item);
                           const sdk = item.SdetailKey;
-                          const editKey = getItemEditKey(item);
-                          const editVal = editKey ? (costEdits[editKey] ?? '') : '';
+                          const qtyEditKey = getQtyEditKey(item);
+                          const costEditKey = getItemEditKey(item);
+                          const editVal = costEditKey ? (costEdits[costEditKey] ?? '') : '';
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
                           <tr key={i} style={{background: isEdited ? '#E6F7FF' : (isDed ? '#FFF8DC' : '')}}>
@@ -3228,18 +3335,18 @@ export default function Estimate() {
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#F0FFFE'}}>
-                              {!editKey ? (
+                              {!qtyEditKey ? (
                                 <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
                               ) : (
                                 <input
                                   type="number"
-                                  value={editKey ? (qtyEdits[editKey] ?? '') : ''}
+                                  value={qtyEditKey ? (qtyEdits[qtyEditKey] ?? '') : ''}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setQtyEdits(prev => {
                                       const next = { ...prev };
-                                      if (v === '') delete next[editKey];
-                                      else next[editKey] = v;
+                                      if (v === '') delete next[qtyEditKey];
+                                      else next[qtyEditKey] = v;
                                       return next;
                                     });
                                   }}
@@ -3249,19 +3356,19 @@ export default function Estimate() {
                                     padding: '2px 5px',
                                     textAlign: 'right',
                                     fontSize: 12,
-                                    border: (editKey && qtyEdits[editKey] !== undefined && qtyEdits[editKey] !== '') ? '2px solid #00897b' : '1px solid #CBD5E0',
+                                    border: (qtyEditKey && qtyEdits[qtyEditKey] !== undefined && qtyEdits[qtyEditKey] !== '') ? '2px solid #00897b' : '1px solid #CBD5E0',
                                     borderRadius: 3,
                                     fontFamily: 'var(--mono)',
-                                    background: (editKey && qtyEdits[editKey] !== undefined && qtyEdits[editKey] !== '') ? '#E0F2F1' : '#fff',
+                                    background: (qtyEditKey && qtyEdits[qtyEditKey] !== undefined && qtyEdits[qtyEditKey] !== '') ? '#E0F2F1' : '#fff',
                                   }}
-                                  disabled={qtyApplying || !editKey}
-                                  title="수량 변경: ADD(증가) / CANCEL(감소)"
+                                  disabled={qtyApplying || !qtyEditKey}
+                                  title={isDed ? '차감 수량 수정: Estimate.Quantity' : '출고일별 견적수량 수정: ShipmentDate.EstQuantity'}
                                 />
                               )}
                             </td>
                             <td className="num">{fmt(item.Cost)}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#FFFDF5'}}>
-                              {!editKey ? (
+                              {!costEditKey ? (
                                 <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
                               ) : (
                                 <input
@@ -3271,8 +3378,8 @@ export default function Estimate() {
                                     const v = e.target.value;
                                     setCostEdits(prev => {
                                       const next = { ...prev };
-                                      if (v === '') delete next[editKey];
-                                      else next[editKey] = v;
+                                      if (v === '') delete next[costEditKey];
+                                      else next[costEditKey] = v;
                                       return next;
                                     });
                                   }}
@@ -3287,7 +3394,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: isEdited ? '#EBF8FF' : '#fff',
                                   }}
-                                  disabled={costApplying || !editKey}
+                                  disabled={costApplying || !costEditKey}
                                 />
                               )}
                             </td>

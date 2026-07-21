@@ -5,7 +5,6 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import {
-  applyByDateRowQuantities,
   filterActiveEstimateShipmentRows,
   formatEstimateDescrForRow,
   mergeEstimateDescrRaw,
@@ -511,7 +510,8 @@ async function loadItems(sk, byDate = false) {
     ? `INNER JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey`
     : ``;
   const outDateExpr = byDate ? `sdd.ShipmentDtm` : `sd.ShipmentDtm`;
-  const dateShipQtyCol = byDate ? `sdd.ShipmentQuantity AS DateShipQty,` : ``;
+  const dateShipQtyCol = byDate ? `sdd.ShipmentQuantity AS DateShipQty,
+       sdd.EstQuantity AS DateEstQty,` : ``;
   const dateDescrCol = byDate ? `ISNULL(sdd.Descr, N'')` : `N''`;
   const productUnitCols = byDate
     ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
@@ -520,7 +520,8 @@ async function loadItems(sk, byDate = false) {
   const estimateUnitCols = byDate
     ? `p.OutUnit, p.EstUnit, ISNULL(p.BunchOf1Box,0) AS BunchOf1Box,
        ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(p.SteamOf1Box,0) AS SteamOf1Box,
-       CAST(NULL AS FLOAT) AS DateShipQty,`
+       CAST(NULL AS FLOAT) AS DateShipQty,
+       CAST(NULL AS FLOAT) AS DateEstQty,`
     : ``;
   const result = await query(
     `SELECT * FROM (
@@ -540,34 +541,35 @@ async function loadItems(sk, byDate = false) {
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
          ${productUnitCols}
          ${dateShipQtyCol}
-         -- 표시 단위/수량: nenova.exe 견적 — EstUnit + EstQuantity (byDate 시 JS에서 ShipmentQuantity 기준 재산출)
+         ${byDate ? 'sdd.SdateKey AS SdateKey,' : 'CAST(NULL AS INT) AS SdateKey,'}
+       -- 표시 단위/수량: nenova.exe 견적 — 출고일별 ShipmentDate.EstQuantity
          ISNULL(NULLIF(p.EstUnit, N''),
            CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
                 WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN N'송이'
                 ELSE N'박스' END)                   AS Unit,
-         CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
+         ${byDate ? `ISNULL(sdd.EstQuantity, 0)` : `CASE WHEN ISNULL(sd.EstQuantity,0) <> 0 THEN sd.EstQuantity
               WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
               WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-              ELSE sd.BoxQuantity END              AS Quantity,
+              ELSE sd.BoxQuantity END`}              AS Quantity,
          CASE WHEN ISNULL(sd.BunchQuantity, 0) > 0 AND ISNULL(boxRule.BunchesPerBox, 0) > 0 THEN sd.BunchQuantity / CAST(boxRule.BunchesPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.SteamQuantity, 0) > 0 AND ISNULL(boxRule.SteamsPerBox, 0) > 0 THEN sd.SteamQuantity / CAST(boxRule.SteamsPerBox AS DECIMAL(18,4))
               WHEN ISNULL(sd.BoxQuantity, 0) > 0 THEN sd.BoxQuantity
               ELSE 0 END                           AS BoxQty,
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
-         ISNULL(NULLIF(sd.Amount, 0),
+         ${byDate ? `ISNULL(sdd.Amount, 0)` : `ISNULL(NULLIF(sd.Amount, 0),
            ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                     ELSE sd.BoxQuantity END
              / 1.1, 0)
-         ) AS Amount,
-          ISNULL(NULLIF(sd.Vat, 0),
+         )`} AS Amount,
+          ${byDate ? `ISNULL(sdd.Vat, 0)` : `ISNULL(NULLIF(sd.Vat, 0),
             ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
               * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
                      WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
                      ELSE sd.BoxQuantity END
               / 11, 0)
-          ) AS Vat,
+          )`} AS Vat,
           ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
           ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,
           ISNULL(sd.BoxQuantity, 0)                  AS RawBoxQuantity,
@@ -640,6 +642,7 @@ async function loadItems(sk, byDate = false) {
          ISNULL(p.CounName, '')                    AS CounName,
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
          ${estimateUnitCols}
+         CAST(NULL AS INT)                         AS SdateKey,
          e.Unit,
          e.Quantity,
          CASE WHEN e.Unit = N'박스' THEN e.Quantity
@@ -736,8 +739,7 @@ async function loadItems(sk, byDate = false) {
        outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
-  if (!byDate) return sanitizeItemDescrs(filterActiveEstimateShipmentRows(result.recordset));
-  return sanitizeItemDescrs(applyByDateRowQuantities(result.recordset));
+  return sanitizeItemDescrs(filterActiveEstimateShipmentRows(result.recordset));
 }
 
 function sanitizeItemDescrs(rows) {
