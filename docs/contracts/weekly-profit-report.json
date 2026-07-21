@@ -35,7 +35,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다. 국가별 원천 입력(H/R) 시작 차수는 호주 28차, 베트남 29차이며 시작 차수 전 미입력은 정상 미적용으로 감사하지 않는다."
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",

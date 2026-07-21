@@ -133,6 +133,27 @@ async function main() {
   }]);
   check('자동 환율도 없을 때만 환율 누락을 검출', missingRate.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
 
+  const beforeCountryInput = buildProfitReportAudit([{
+    category: '호주', currency: 'AUD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
+    source: { H: 'missing', R: 'missing' },
+  }, {
+    category: '베트남', currency: 'USD', auto: { Q: 0, S: 0, R: 1550, H: 0 }, manual: {}, stock: {},
+    source: { H: 'missing', R: 'currency_master_fallback' },
+  }], { major: 27 });
+  check('호주 28차 전·베트남 29차 전 원천 미입력은 정상 미적용 처리', beforeCountryInput.issues.length === 0, JSON.stringify(beforeCountryInput.issues));
+
+  const afterAustraliaInput = buildProfitReportAudit([{
+    category: '호주', currency: 'AUD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
+    source: { H: 'missing', R: 'missing' },
+  }], { major: 28 });
+  check('호주 28차부터는 H/R 원천 누락을 다시 검출', afterAustraliaInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterAustraliaInput.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
+
+  const afterVietnamInput = buildProfitReportAudit([{
+    category: '베트남', currency: 'USD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
+    source: { H: 'missing', R: 'missing' },
+  }], { major: 29 });
+  check('베트남 29차부터는 H/R 원천 누락을 검출', afterVietnamInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterVietnamInput.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
+
   const negativeStock = buildProfitReportAudit([{
     category: '콜롬비아 장미', currency: 'USD',
     auto: {}, manual: {}, stock: { endQty: -40 }, source: { E: 'auto_exe_stock_view', F: 'auto_unverified_snapshot' },

@@ -147,7 +147,7 @@ async function loadReportData(major, orderYear) {
       beginStockMasterIsFix: stockBegin.stockMasterIsFix,
       endStockMasterIsFix: stockEnd.stockMasterIsFix,
     },
-    audit: buildProfitReportAudit(rows),
+    audit: buildProfitReportAudit(rows, { major: currentMajor }),
   };
 }
 
