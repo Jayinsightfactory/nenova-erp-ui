@@ -4,7 +4,7 @@ import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
-  purchaseQtyByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
+  purchaseQtyByCategory, invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory,
 } from '../../../lib/profitReport';
 import { computeAutoEndingStock } from '../../../lib/profitReportCalc';
@@ -18,23 +18,28 @@ function parseMajor(raw) {
 
 // GET/엑셀 공용 — 보고서 행 데이터 구성
 async function loadReportData(major, orderYear) {
-  const prevMajor = String(Number(major) - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms] = await Promise.all([
+  const currentMajor = Number(major);
+  // 27차 기초재고는 같은 매출연도의 26차 마지막 확정 세부차수다.
+  // 연도 경계인 01차에서만 전년도 52차를 사용한다.
+  const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
+  const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
+        invoiceRatesByCategory(major, orderYear),        // R 우선 원천: BILL 시점 FreightCost.ExchangeRate 스냅샷
         loadManual(major, orderYear),
-        loadManual(prevMajor, orderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값
+        loadManual(prevMajor, prevOrderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값
         stockSnapshotByCategory(major, orderYear),      // F 재료: 이번 차수말 재고수량·최근원가·단가표평가
-        stockSnapshotByCategory(prevMajor, orderYear),  // E 재료: 전차수말 스냅샷
+        stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
         purchaseQtyByCategory(major, orderYear),        // F 분모: 이번 차수 매입 총수량
-        purchaseByCategory(prevMajor, orderYear),       // E 자동계산용: 전차수 구매외화
-        forwardingByCategory(prevMajor, orderYear),     // E 자동계산용: 전차수 포워딩USD(레거시 fallback)
-        purchaseQtyByCategory(prevMajor, orderYear),    // E 자동계산용: 전차수 매입 총수량
+        purchaseByCategory(prevMajor, prevOrderYear),       // E 자동계산용: 전차수 구매외화
+        forwardingByCategory(prevMajor, prevOrderYear),     // E 자동계산용: 전차수 포워딩USD(레거시 fallback)
+        purchaseQtyByCategory(prevMajor, prevOrderYear),    // E 자동계산용: 전차수 매입 총수량
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
-        computeCustomsAndForwarding(prevMajor, orderYear),  // E 자동계산용: 전차수 H/S
+        computeCustomsAndForwarding(prevMajor, prevOrderYear),  // E 자동계산용: 전차수 H/S
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -48,7 +53,8 @@ async function loadReportData(major, orderYear) {
         const prevMan = prev.manual[key] || {};
         const prevF = prevMan.F;
         const curCode = currencyCodeForCategory(key);
-        const autoR = curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null;
+        const snapshotR = invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null;
+        const autoR = snapshotR != null ? snapshotR : curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         const prevAutoH = prevCustoms.H[key] ?? 0;
@@ -88,10 +94,10 @@ async function loadReportData(major, orderYear) {
           R: prevMan.R ?? autoR,
         });
         const source = {
-          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : 'auto',
-          F: man.F != null ? 'manual' : 'auto_exe_stock_view',
+          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : stockBegin.week ? 'auto_exe_stock_view' : 'missing_finalized_snapshot',
+          F: man.F != null ? 'manual' : stockEnd.week ? 'auto_exe_stock_view' : 'missing_finalized_snapshot',
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
-          R: man.R != null ? 'manual_invoice' : autoR != null ? 'currency_master_fallback' : 'missing',
+          R: man.R != null ? 'manual_invoice' : snapshotR != null ? 'freight_cost_snapshot' : autoR != null ? 'currency_master_fallback' : 'missing',
           S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
         };
         return {
@@ -132,7 +138,13 @@ async function loadReportData(major, orderYear) {
     rows,
     note: cur.note,
     rates,
-    stockWeeks: { begin: stockBegin.week, end: stockEnd.week },
+    stockWeeks: {
+      begin: stockBegin.week,
+      end: stockEnd.week,
+      beginOrderYear: prevOrderYear,
+      endOrderYear: String(orderYear),
+      selection: 'latest_finalized_subweek',
+    },
     audit: buildProfitReportAudit(rows),
   };
 }
@@ -146,8 +158,10 @@ export default withAuth(async function handler(req, res) {
 
       // 재고 평가단가표 (기초/기말 스냅샷에 재고 있는 품목만)
       if (req.query.stockPrices === '1') {
-        const prevMajor = String(Number(major) - 1).padStart(2, '0');
-        const list = await stockPriceRows(major, prevMajor, orderYear);
+        const currentMajor = Number(major);
+        const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
+        const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
+        const list = await stockPriceRows(major, prevMajor, orderYear, prevOrderYear);
         return res.status(200).json({ success: true, ...list });
       }
 

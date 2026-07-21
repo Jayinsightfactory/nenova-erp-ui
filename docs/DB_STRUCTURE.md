@@ -133,11 +133,16 @@
 
 ### 1.4 재고 (Stock)
 
-**ProductStock** — 품목 현재고
-- `ProdKey`, `CurrentStock`
-- 부족 조건: `WHERE ISNULL(ps.CurrentStock,0) <= 0`
+**ProductStock** — `StockMaster` 스냅샷별 품목 재고
+- `StockKey`, `ProdKey`, `Stock` — 전산 재고현황의 해당 스냅샷 잔량
+- `ProductStock.Stock`은 `StockMaster.isFix=1`인 마지막 확정 차수를 보고서 기초/기말 재고 원천으로 사용한다.
+- 현재고/부족 조회에서 별도 `CurrentStock` 컬럼으로 가정하지 않는다. 실제 환경의 컬럼명을 확인한 뒤 `Stock` 또는 `Product.Stock`을 사용한다.
 
 **StockMaster / StockHistory** — 재고 이동 이력
+- `StockMasterKey/StockKey`, `OrderYear`, `OrderWeek`, `OrderYearWeek`, `isFix`
+- `isFix=1`: nenova.exe 재고 마감이 완료된 확정 스냅샷
+- `isFix=2`: 웹 시작재고 입력용 마커(마이그레이션 후 tinyint 환경)
+- 보고서의 세부차수 선택은 `OrderYear + 대차수 prefix + isFix=1` 후 세부차수 숫자 내림차순, 같은 차수는 `StockKey DESC`다.
 
 **WarehouseMaster** — 입고(AWB/BILL) 헤더
 - PK: `WarehouseKey`

@@ -85,35 +85,56 @@ async function main() {
 
   console.log('\n=== 재고·환율·감사 회귀 ===');
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
+  const reportApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
   const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'sales', 'profit-report.js'), 'utf8');
   const stockApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stock', 'index.js'), 'utf8');
   const stockSection = reportSource.slice(reportSource.indexOf('export async function stockSnapshotByCategory'), reportSource.indexOf('/** 카테고리별 구매 통화'));
   check('재고수량은 EXE 재고현황 마지막 Stock 열을 직접 사용', stockSection.includes('SUM(ps.Stock * (${STOCK_TO_EST_UNIT_EXPR})) AS q'));
-  check('기말 스냅샷은 대차수 -02를 우선 선택', stockSection.includes("const endWeek = `${String(major).padStart(2, '0')}-02`") && stockSection.includes('OrderWeek IN (@endWeek,@fallbackWeek)'));
+  check('기말 스냅샷은 마지막 확정 세부차수를 선택',
+    reportSource.includes('export async function latestFinalizedStockWeek')
+      && reportSource.includes('ISNULL(sm.isFix,0)=1')
+      && reportSource.includes('OrderWeek LIKE @pfx')
+      && reportSource.includes('TRY_CONVERT(INT, SUBSTRING(sm.OrderWeek, CHARINDEX(\'-\', sm.OrderWeek)+1, 10)) DESC'));
+  check('단가표도 동일한 마지막 확정 스냅샷을 사용', reportSource.includes('latestFinalizedStockWeek(major, orderYear)') && reportSource.includes('latestFinalizedStockWeek(prevMajor, prevOrderYear)'));
+  check('중복 StockMaster는 선택된 StockKey 하나만 집계', stockSection.includes('smk.StockKey=@stockKey') && reportSource.includes('smk.StockKey = @beginStockKey'));
+  check('01차 기초재고는 전년도 전차수 스냅샷을 사용', reportApiSource.includes("currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)") && reportApiSource.includes("currentMajor <= 1 ? '52'"));
+  check('27차 기초재고는 같은 연도의 26차 스냅샷을 사용', reportApiSource.includes('currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)') && reportApiSource.includes("currentMajor - 1).padStart(2, '0')"));
   check('시작재고·입출고를 보고서에서 임의 재계산하지 않음', !stockSection.includes('FlowDelta') && !stockSection.includes('EffectiveStock'));
   check('박스→단/송이와 단→송이 환산을 구분', reportSource.includes("p.OutUnit,N'') = N'박스'") && reportSource.includes("p.EstUnit,N'') = N'단'") && reportSource.includes("p.OutUnit,N'') = N'단'") && reportSource.includes("p.EstUnit,N'') = N'송이'"));
   check('음수 재고도 감사 대상으로 조회', stockSection.includes('ISNULL(ps.Stock,0) <> 0'));
   check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
+  check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
   check('Q와 매입수량에서 포워딩 행 이중계상 차단', (reportSource.match(/ProdName,N''\) LIKE N'%운송료%'/g) || []).length >= 2);
   check('매출·불량·그외매출은 전산 확정 ShipmentMaster만 집계',
     (reportSource.match(/ISNULL\(sm\.isFix,0\)=1/g) || []).length >= 2);
   check('전산 호환 재고조회는 요청한 세부차수를 정확히 선택', stockApiSource.includes('WHERE OrderWeek=@week AND OrderYear=@year'));
   check('F 자동 계산값을 입력 셀 실값으로 표시', pageSource.includes("autoValue={cd.key === 'F' ? c.F : undefined}"));
+  check('표시·입력값은 소수점 없이 천 단위 콤마 적용', pageSource.includes('function NumericInput') && pageSource.includes('Math.round(n).toLocaleString()') && pageSource.includes('Math.round(Number(raw))'));
+  check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
+  check('수기 보정은 기본 접힘', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes('showOverrides && cd.editable'));
 
   const audited = buildProfitReportAudit([{
     category: '태국', currency: 'USD',
-    auto: { N: 100, Q: 10, S: 2 }, manual: {},
+    auto: { N: 100, Q: 10, S: 2, R: 1550 }, manual: {},
     stock: { endQty: 3 },
-    source: { H: 'missing', F: 'auto_unverified_snapshot', R: 'currency_master_fallback' },
+    source: { E: 'auto_exe_stock_view', H: 'missing', F: 'auto_unverified_snapshot', R: 'currency_master_fallback' },
   }, {
     category: '기타(미분류)', auto: { N: 50 }, manual: {}, stock: {}, source: {},
   }]);
-  check('누락 H·현재환율·미실사재고·미분류를 모두 검출', audited.issues.length === 4, JSON.stringify(audited.issues));
+  check('자동 환율이 있으면 환율 입력 경고를 만들지 않음', !audited.issues.some((x) => x.code === 'INVOICE_RATE_REQUIRED' || x.code === 'INVOICE_RATE_MISSING'));
+  check('누락 H·미실사재고·미분류만 검출', audited.issues.length === 3, JSON.stringify(audited.issues));
   check('확정 불가 상태 표시', audited.status === 'needs_input');
+
+  const missingRate = buildProfitReportAudit([{
+    category: '태국', currency: 'USD',
+    auto: { N: 100, Q: 10, S: 2, R: null }, manual: {},
+    stock: {}, source: { H: 'gw_auto', R: 'missing' },
+  }]);
+  check('자동 환율도 없을 때만 환율 누락을 검출', missingRate.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
 
   const negativeStock = buildProfitReportAudit([{
     category: '콜롬비아 장미', currency: 'USD',
-    auto: {}, manual: {}, stock: { endQty: -40 }, source: { F: 'auto_unverified_snapshot' },
+    auto: {}, manual: {}, stock: { endQty: -40 }, source: { E: 'auto_exe_stock_view', F: 'auto_unverified_snapshot' },
   }]);
   check('음수 기말재고를 오류로 검출', negativeStock.issues.some((x) => x.code === 'NEGATIVE_STOCK'));
 

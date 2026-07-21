@@ -1,5 +1,5 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
-// 자동(SQL): N순수매출·L불량·O그외매출·Q구매외화·S포워딩USD(추정) / 수기: E기초·F기말·H통관비·R환율·S수정·비고
+// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F재고·H통관비·R환율·S포워딩USD / 수기 보정: E·F·H·R·S·비고
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -15,7 +15,11 @@ function getDefaultMajor() {
 }
 const fmt = v => (v == null || Number.isNaN(v) ? '' : Math.round(v).toLocaleString());
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
-const fx = v => (v ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '');
+const fmtInput = v => {
+  if (v == null || v === '') return '';
+  const n = Number(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : '';
+};
 
 // 컬럼 정의 — 표시/숨김 토글 + 엑셀 다운로드 필터에 공용으로 쓰는 단일 소스
 const COLUMN_DEFS = [
@@ -61,9 +65,9 @@ function readonlyValue(key, obj, ctx) {
     case 'N': return fmt(obj.N);
     case 'O': return fmt(obj.O);
     case 'P': return fmt(obj.P);
-    case 'Q': return fx(obj.Q);
+    case 'Q': return fmt(obj.Q);
     case 'R': return obj.R ? fmt(obj.R) : '';
-    case 'S': return fx(obj.S);
+    case 'S': return fmt(obj.S);
     case 'T': return fmt(obj.T);
     case 'U': return pct(ctx.U);
     default: return '';
@@ -82,30 +86,49 @@ const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(
 
 // 모듈 스코프에 고정 — 컴포넌트 내부에 정의하면 렌더될 때마다 새 함수 identity 가 생겨
 // React 가 매번 다른 컴포넌트로 취급해 <input> 을 언마운트시킴(입력 중 포커스 튕김 버그의 원인).
+function NumericInput({ value, onChange, style, placeholder, title }) {
+  const [focused, setFocused] = useState(false);
+  const raw = value == null ? '' : String(value).replace(/,/g, '');
+  return (
+    <input
+      style={style}
+      value={focused ? raw : fmtInput(raw)}
+      placeholder={placeholder}
+      title={title}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        if (raw !== '' && Number.isFinite(Number(raw))) onChange(String(Math.round(Number(raw))));
+      }}
+      onChange={ev => onChange(ev.target.value.replace(/[^0-9.\-]/g, ''))}
+    />
+  );
+}
+
 function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const e = edits[row.category]?.[col];
   const base = row.manual[col];
   const auto = autoValue !== undefined ? autoValue
     : col === 'S' ? row.auto.S : col === 'E' ? row.auto.E : col === 'F' ? row.auto.F : col === 'R' ? row.auto.R : col === 'H' ? row.auto.H : null;
-  const displayedAuto = auto == null ? '' : (col === 'R' || col === 'S' ? String(auto) : String(Math.round(auto)));
-  const val = e !== undefined ? e : (base != null ? base : displayedAuto);
+  const displayedAuto = fmtInput(auto);
+  const val = e !== undefined ? e : (base != null ? base : auto);
   const placeholder = e === '' ? displayedAuto : '';
   const warn = needsCheck(row, col);
   const titles = {
-    R: `비우면 기본환율(${row.currency || '-'} · CurrencyMaster) 적용 — 청구서 환율과 다르면 입력`,
+    R: `비우면 BILL 환율 스냅샷(${row.currency || '-'} · FreightCost) 또는 CurrencyMaster 적용 — 청구서 환율과 다르면 입력`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
     E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-    F: `${row.stock?.week || '해당 차수 -02'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
+    F: `${row.stock?.week || '마지막 확정 세부차수'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
   };
   const title = warn ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}` : (titles[col] || '');
   return (
-    <input
+    <NumericInput
       style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
       value={val}
       placeholder={placeholder}
       title={title}
-      onChange={ev => setEdit(row.category, col, ev.target.value.replace(/[^0-9.\-]/g, ''))}
+      onChange={value => setEdit(row.category, col, value)}
     />
   );
 }
@@ -119,8 +142,10 @@ export default function ProfitReportPage() {
   const [data, setData] = useState(null);
   const [edits, setEdits] = useState({});   // { category: { colKey: 'value' } }
   const [note, setNote] = useState('');
-  const [showCustoms, setShowCustoms] = useState(true);   // 2026-07-13: 클릭 없이 바로 보이도록 기본 열림
-  const [showForwarding, setShowForwarding] = useState(true);
+  // 보고서 진입 시에는 자동값만 읽기전용으로 보여준다. 입력 패널은 필요한 경우에만 연다.
+  const [showCustoms, setShowCustoms] = useState(false);
+  const [showForwarding, setShowForwarding] = useState(false);
+  const [showOverrides, setShowOverrides] = useState(false);
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
   const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
@@ -365,6 +390,10 @@ export default function ProfitReportPage() {
                 title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
                 🏷 재고단가표
               </button>
+              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data}
+                title="자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다">
+                🛠 수기 보정{showOverrides ? ' ▲' : ' ▼'}
+              </button>
               <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
                 title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
                 📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
@@ -435,18 +464,19 @@ export default function ProfitReportPage() {
       </div>
       <div style={st.hint}>
         자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
-        (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — 회색 자동값이 계산에 쓰이며, 셀에 직접 입력하면 그 값이 우선. H·R·S를 고치면 자동 F도 즉시 재계산.
-        환율(R)은 참고용 현재환율 자동 적용(USD 기본 · 네덜란드=EUR · 호주=AUD · 중국=CNY · 일본=JPY)되며, 확정 보고서에는 해당 차수 청구서 환율 입력이 필요합니다.
+        (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
+        청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
+        환율(R)은 BILL 시점 FreightCost 환율 스냅샷을 우선 적용하고, 없으면 CurrencyMaster 기준환율(USD 기본 · 네덜란드=EUR · 호주=AUD · 중국=CNY · 일본=JPY)을 사용합니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
         포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
-        {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${Number(r.ExchangeRate).toLocaleString()}`).join(' · ')}` : ''}
+        {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}
       </div>
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
       {data?.audit?.issues?.length > 0 && (
         <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-          <strong>검증 필요: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
+          <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
             {data.audit.issues.slice(0, 10).map((issue, i) => (
               <li key={`${issue.code}-${issue.category}-${i}`}>
@@ -507,7 +537,7 @@ export default function ProfitReportPage() {
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {showOverrides && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
@@ -625,10 +655,10 @@ export default function ProfitReportPage() {
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <input
+                          <NumericInput
                             style={{ ...st.cellInput, width: 90, background: edit !== undefined ? '#fef9c3' : (r.SetPrice != null ? '#ecfdf5' : '#fff') }}
                             value={shown}
-                            onChange={e => setPriceEdits(prev => ({ ...prev, [r.ProdKey]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                            onChange={value => setPriceEdits(prev => ({ ...prev, [r.ProdKey]: value }))}
                           />
                         </td>
                       </tr>
