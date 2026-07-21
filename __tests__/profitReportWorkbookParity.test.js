@@ -87,6 +87,7 @@ async function main() {
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const reportApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
   const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'sales', 'profit-report.js'), 'utf8');
+  const customsPanelSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'CustomsClearancePanel.js'), 'utf8');
   const stockApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stock', 'index.js'), 'utf8');
   const stockSection = reportSource.slice(reportSource.indexOf('export async function stockSnapshotByCategory'), reportSource.indexOf('/** 카테고리별 구매 통화'));
   check('재고수량은 EXE 재고현황 마지막 Stock 열을 직접 사용', stockSection.includes('SUM(ps.Stock * (${STOCK_TO_EST_UNIT_EXPR})) AS q'));
@@ -116,6 +117,7 @@ async function main() {
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
   check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && pageSource.includes('if (dirty) await save()'));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));
+  check('관세·선율 분할 입력칸은 금액 전체가 보이도록 가로 폭 확보', customsPanelSource.includes('minWidth: 235') && customsPanelSource.includes('minWidth: 1500') && customsPanelSource.includes('splitInput: { width: 68'));
 
   const audited = buildProfitReportAudit([{
     category: '태국', currency: 'USD',
