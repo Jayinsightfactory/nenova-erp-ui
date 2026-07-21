@@ -135,3 +135,25 @@ PeriodDay + DetailFix=1`을 통과하고, 확정 출고만 대상으로 한다. 
 이 계약은 `__tests__/shipmentDownstreamImpactContract.test.js`가 소스 수준에서
 검사하고, `shipmentFarmContract.test.js`가 GET/POST/트랜잭션의 후보 범위 공유를
 검사한다. 운영 데이터 보정은 이 검증과 코드 배포가 끝난 뒤 별도 단계로 수행한다.
+
+## 2026-07-21 견적서 출고일별 수량 회귀 방지
+
+견적서관리의 정상출고 수량은 화면상 `ShipmentDate.EstQuantity`로 표시되지만,
+사용자가 출고일 수량을 증감하는 저장은 `FormShipmentDistribution` 날짜 탭과 동일하게
+해당 행의 `ShipmentDate.ShipmentQuantity`와 `ShipmentDetail` 총량을 함께 갱신해야 한다.
+dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
+`EstQuantity/Amount/Vat/Descr`만 UPDATE하지만, 웹의 출고일 증감 기능은 명시적으로
+`ShipmentDetail`·`ShipmentDate` 분배 저장을 결합한다.
+
+- 화면 키: 정상출고 `SdateKey`, 차감 `EstimateKey`; `SdetailKey`는 정상출고 견적수량 저장에 사용 금지
+- API: `/api/estimate/update-date-quantity`에서 여러 출고일을 한 번에 저장하고
+  `ShipmentDetail.OutQuantity` 총량과 `ShipmentDate.ShipmentQuantity` 합계를 검증
+- 금액: EXE와 동일하게 `Amount = Round(Cost * Round(EstQuantity,0) / 1.1,0)`,
+  `Vat = Cost * Round(EstQuantity,0) - Amount`
+- 고정 출고는 API가 `FIXED_WEEK`로 거부하고, 화면이 EXE 작업 순서대로
+  확정해제 → 분배 저장 → 재확정 사이클을 실행한다.
+
+이 계약은 `docs/contracts/estimate-date-quantity.json`과
+`__tests__/estimateDateQuantityContract.test.js`가 검사한다. 견적서 수량 기능을 다시
+수정할 때는 `npm run test:erp-contract`에 연결된 회귀 테스트와 dnSpy 증거 문서를 함께
+갱신해야 한다.

@@ -1,0 +1,60 @@
+{
+  "id": "estimate-date-quantity",
+  "title": "견적서관리 출고일별 ShipmentDate 견적수량 수정 계약",
+  "scope": [
+    "pages/estimate.js",
+    "pages/api/estimate/index.js",
+    "pages/api/estimate/update-date-quantity.js",
+    "lib/estimateDateQuantity.js",
+    "__tests__/estimateDateQuantityContract.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "DATE_DISTRIBUTION_INCREASE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase",
+      "shipmentDate": "update-shipment-quantity-and-estimate-quantity",
+      "fixCycle": "unfix-save-refix"
+    },
+    {
+      "name": "DATE_DISTRIBUTION_DECREASE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "decrease",
+      "shipmentDate": "update-shipment-quantity-and-estimate-quantity",
+      "fixCycle": "unfix-save-refix"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 OrderWeek가 다른 연도에 존재해도 SdateKey가 속한 ShipmentMaster의 OrderYear/OrderWeek·CustKey·ProdKey만 수정한다. 선택 출고일의 ShipmentQuantity를 변경하고 ShipmentDetail 총량·환산수량·금액과 ShipmentDate.EstQuantity/Amount/Vat를 함께 갱신한다. OrderDetail과 농장배정 원장은 직접 변경하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/exeEstimateViewSql.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs",
+    "methods": [
+      "GetDetail",
+      "btnSave_Click",
+      "ClassShipmentDate.Update"
+    ],
+    "tables": [
+      "ViewShipment",
+      "ViewOrder",
+      "ShipmentDate",
+      "ShipmentDetail",
+      "ShipmentMaster"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
