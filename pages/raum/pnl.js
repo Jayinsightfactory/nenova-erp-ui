@@ -1313,6 +1313,60 @@ export default function RaumPnlPage() {
     setMessage('이미지 기반 결산표 미리보기입니다. 행별 수정·삭제 후 저장할 수 있습니다.');
   };
 
+  // 이미지 매칭 패널의 [매칭 저장] — 기존 WebRaumPnl 저장 경로만 사용한다.
+  // 주문/출고/분배 테이블에는 쓰지 않으며, 주문등록은 패널의 별도 버튼에서만 실행한다.
+  const saveImageDraft = async ({ items, images, orderYear, major, sourceFile }) => {
+    const mj = String(major || '').replace(/[^0-9]/g, '');
+    if (!mj || !orderYear) throw new Error('결산 차수와 연도가 필요합니다.');
+    setSaving(true);
+    setError('');
+    try {
+      const r = await fetch('/api/raum/pnl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save',
+          orderYear,
+          major: mj,
+          title: `라움 ${Number(mj) || '?'}차 이미지 결산`,
+          quoteDate: localToday(),
+          nenovaPct: 80,
+          note: '',
+          sourceFile,
+          images: images || [],
+          items,
+          verification: null,
+        }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '이미지 결산 초안 저장 실패');
+      setDetail({
+        meta: {
+          pnlKey: j.pnlKey,
+          orderYear,
+          major: mj,
+          title: `라움 ${Number(mj) || '?'}차 이미지 결산`,
+          quoteDate: localToday(),
+          nenovaPct: 80,
+          note: '',
+          sourceFile: sourceFile || '',
+        },
+        sheets: null,
+        items,
+        images: images || [],
+        verification: null,
+        warnings: ['이미지 OCR 초안으로 저장했습니다. 단가·적요·매입단가를 확인한 뒤 수정 저장하세요.'],
+        unsaved: false,
+      });
+      setImageOpen(false);
+      setMessage(`${Number(mj)}차 이미지 결산 초안 저장 완료 — 주문등록은 별도로 실행하세요.`);
+      await loadList();
+      return j;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const remove = async (pnlKey, title) => {
     if (!window.confirm(`${title} 손익계산서를 삭제할까요? (히스토리에서 제거)`)) return;
     try {
@@ -1625,7 +1679,13 @@ export default function RaumPnlPage() {
 
       {error ? <div style={st.err}>{error}</div> : null}
       {message ? <div style={st.ok}>{message}</div> : null}
-      <RaumImageOrderPanel open={imageOpen} onClose={() => setImageOpen(false)} onPreview={openImagePreview} />
+      <RaumImageOrderPanel
+        open={imageOpen}
+        onClose={() => setImageOpen(false)}
+        onPreview={openImagePreview}
+        onSaveDraft={saveImageDraft}
+        savingDraft={saving}
+      />
       <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
       <MatchEditorModal
         edit={matchEdit}

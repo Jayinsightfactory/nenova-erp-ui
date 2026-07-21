@@ -68,7 +68,7 @@ function ProductPicker({ group, onPick, onClose }) {
   );
 }
 
-export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
+export default function RaumImageOrderPanel({ open, onClose, onPreview, onSaveDraft, savingDraft = false }) {
   const fileRef = useRef(null);
   const [images, setImages] = useState([]);
   const [lines, setLines] = useState([]);
@@ -169,6 +169,17 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
 
   const confirmGroup = group => setLines(prev => prev.map(line => group.lineIds.includes(line.lineId) && line.prodKey != null ? { ...line, needsReview: false } : line));
 
+  const resetDraft = () => {
+    if ((images.length || lines.length) && !window.confirm('현재 업로드 이미지와 매칭 수정 내용을 모두 초기화할까요? 저장된 결산표와 전산 주문은 변경되지 않습니다.')) return;
+    setImages([]);
+    setLines([]);
+    setWeek('');
+    setPicker(null);
+    setRegistered(null);
+    setError('');
+    setMessage('이미지 매칭 작업을 초기화했습니다.');
+  };
+
   const register = async () => {
     if (!complete) { setError('주문등록 전 모든 행의 품목 매칭을 확정해야 합니다.'); return; }
     if (!week.trim()) { setError('주문등록 차수를 입력하세요. 예: 2026-29-01 또는 29-01'); return; }
@@ -201,6 +212,27 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
     });
   };
 
+  const saveDraft = async () => {
+    if (!complete) { setError('저장 전 모든 행의 품목 매칭을 확정해야 합니다.'); return; }
+    const m = week.trim().match(/^(\d{4}-)?(\d{2})-(\d{2})$/);
+    const major = m ? m[2] : '';
+    const orderYear = m?.[1] ? m[1].slice(0, 4) : year;
+    if (!major) { setError('결산 저장 차수를 알 수 없습니다. 주문등록 차수를 입력하세요.'); return; }
+    if (typeof onSaveDraft !== 'function') {
+      preview();
+      return;
+    }
+    setSavingDraft(true); setError('');
+    try {
+      await onSaveDraft({
+        items: buildRaumPnlItems(lines), images, orderYear, major,
+        sourceFile: images.map(image => image.fileName).join(', '),
+      });
+      setMessage(`${Number(major)}차 이미지 결산 초안을 저장했습니다. 주문등록은 별도 버튼에서 실행됩니다.`);
+    } catch (e) { setError(e.message); }
+    finally { setSavingDraft(false); }
+  };
+
   return (
     <div style={{ border: '1px solid #93c5fd', borderRadius: 9, background: '#f8fbff', padding: 12, marginBottom: 14 }}>
       {picker ? <ProductPicker group={picker} onPick={p => chooseProduct(picker, p)} onClose={() => setPicker(null)} /> : null}
@@ -208,6 +240,7 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
         <b style={{ color: '#1d4ed8' }}>📷 라움 이미지 주문등록·결산 초안</b>
         <span style={{ fontSize: 12, color: '#64748b' }}>이미지는 왼쪽, 품목·수량·단가·적요는 오른쪽</span>
         <span style={{ flex: 1 }} />
+        <button style={{ ...button, color: '#b45309', borderColor: '#fbbf24' }} onClick={resetDraft}>🧹 초기화</button>
         <button style={button} onClick={onClose}>닫기</button>
       </div>
       {error ? <div style={{ color: '#b91c1c', background: '#fee2e2', padding: '6px 8px', borderRadius: 5, marginBottom: 8, fontSize: 12 }}>{error}</div> : null}
@@ -255,6 +288,7 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview }) {
         <b style={{ fontSize: 12.5 }}>주문등록 차수</b>
         <input style={{ ...input, width: 56, textAlign: 'center' }} value={year} onChange={e => setYear(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="연도" />
         <input style={{ ...input, width: 150, textAlign: 'center' }} value={week} onChange={e => setWeek(e.target.value)} placeholder="예: 2026-29-01 또는 29-01" />
+        <button style={{ ...button, background: complete && !savingDraft ? '#0f766e' : '#e2e8f0', color: complete && !savingDraft ? '#fff' : '#94a3b8', borderColor: complete && !savingDraft ? '#0f766e' : '#cbd5e1' }} disabled={!complete || savingDraft} onClick={saveDraft}>{savingDraft ? '저장 중…' : '💾 매칭 저장'}</button>
         <button style={{ ...button, background: complete ? '#16a34a' : '#e2e8f0', color: complete ? '#fff' : '#94a3b8', borderColor: complete ? '#16a34a' : '#cbd5e1' }} disabled={!complete || registering} onClick={register}>{registering ? '등록 중…' : '✅ 100% 매칭 후 주문등록'}</button>
         <button style={{ ...button, background: complete ? '#2563eb' : '#e2e8f0', color: complete ? '#fff' : '#94a3b8', borderColor: complete ? '#2563eb' : '#cbd5e1' }} disabled={!complete} onClick={preview}>📋 결산표 미리보기</button>
         {registered ? <span style={{ fontSize: 11.5, color: '#166534' }}>주문 Master {registered.orderMasterKey} / 출고 Master {registered.shipmentMasterKey || '기존'}</span> : null}
