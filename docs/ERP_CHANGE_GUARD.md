@@ -181,3 +181,32 @@ dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
 ## 음수재고 확정 보정
 
 확정 SP가 음수재고로 실패하면 화면에 품목별 부족수량을 표시한다. 사용자가 `재고 부족분 보정 후 확정`을 명시적으로 선택한 경우에만 해당 수량을 `StockHistory`의 `재고조정`으로 기록하고 `usp_StockCalculation`을 실행한 뒤 다시 확정한다. 부족수량은 올림하지 않고 0.001 단위로 정규화한다. 재고 이력 등록과 재계산은 한 트랜잭션으로 처리하며 재계산 실패 시 롤백한다. 일반 확정 요청에는 이 보정이 자동 적용되지 않는다.
+
+## 2026-07-21 전산 오류 진단 연도·발생작업 추적 계약
+
+`/api/shipment/exe-errors`의 오류 건수는 `OrderWeek`만으로 계산하면 2025년과
+2026년의 같은 차수가 섞여 중복 마스터·중복 상세·업체키 불일치 건수가 부풀려진다.
+따라서 모든 선택연도 진단은 아래 업무키를 사용한다.
+
+```text
+ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
+주문 존재 검사: OrderMaster.OrderYear + OrderMaster.OrderWeek + CustKey + ProdKey
+```
+
+다른 연도의 동일 차수 마스터는 선택연도 오류 합계에 넣지 않고
+`crossYearMaster`(교차연도 후보)로 별도 표시한다. 이 후보는 정상적인 과거 데이터와
+잘못 붙은 데이터가 DB 현재값만으로는 구분되지 않으므로 `ShipmentHistory`와
+`SystemActionLog`의 시간·사용자·작업 설명을 확인한 뒤에만 보정한다.
+
+각 진단 항목에는 실제 원인으로 추적해야 할 작업 유형을 함께 표시한다.
+
+- 빈행 추가·반복 적용: `dupDetail`, `dupMaster`, `zeroOut`
+- 출고분배·물량표 업로드(분배만 반영): `ghost`, `dateMismatch`, `custKeyBad`
+- 구버전 연도 없는 저장/업로드: `yearMismatch`, `crossYearMaster`
+- 견적서 출고일별 수량 수정: `dateMismatch`
+- 주문등록·붙여넣기 주문등록: `managerBad`, `ghost`
+
+일반 출고분배 API와 SP 출고분배 API의 조회·확정검사·사후검증도 반드시 같은
+`OrderYear + OrderWeek`를 사용한다. 이 규칙을 추가하거나 변경할 때는
+`__tests__/shipmentExeErrorsContract.test.js`와 `npm run test:erp-contract`를 통과해야
+하며, `npm run guard:erp-writes`에서 연도 없는 `OrderWeek` 재사용 쿼리가 남지 않아야 한다.

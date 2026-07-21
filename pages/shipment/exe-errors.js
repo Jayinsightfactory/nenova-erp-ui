@@ -10,8 +10,15 @@ function getDefaultWeek() {
   return match ? `${match[2]}-${match[3]}` : current;
 }
 
+function getDefaultYear() {
+  const current = getCurrentWeek();
+  const match = String(current || '').match(/^(\d{4})-/);
+  return match ? match[1] : String(new Date().getFullYear());
+}
+
 export default function ExeErrorsPage() {
   const weekInput = useWeekInput(getDefaultWeek());
+  const [year, setYear] = useState(getDefaultYear());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -22,7 +29,7 @@ export default function ExeErrorsPage() {
     setError('');
     setData(null);
     try {
-      const res = await fetch(`/api/shipment/exe-errors?week=${encodeURIComponent(weekInput.value)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/shipment/exe-errors?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '스캔 실패');
       setData(d);
@@ -48,13 +55,17 @@ export default function ExeErrorsPage() {
         <div style={st.bar}>
           <label style={st.label}>차수</label>
           <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="예: 28-01" />
+          <label style={st.label}>연도</label>
+          <input style={st.yearInput} value={year} onChange={e => setYear(e.target.value)} inputMode="numeric" placeholder="예: 2026" />
           <button style={st.primaryBtn} onClick={scan} disabled={loading}>{loading ? '스캔 중…' : '스캔'}</button>
           {data && (
             <span style={{ fontSize: 13, fontWeight: 800, color: data.totalIssues > 0 ? '#dc2626' : '#059669' }}>
-              {data.week}차 ({data.orderYear}년) — 발견 {data.totalIssues}건
+              {data.week}차 ({data.orderYear}년) — 선택연도 오류 {data.totalIssues}건 · 교차연도 후보 {data.crossYearIssues || 0}건
             </span>
           )}
         </div>
+
+        {data && <div style={st.basis}>진단 기준: {data.diagnosticBasis}</div>}
 
         {error && <div style={st.error}>{error}</div>}
 
@@ -69,6 +80,7 @@ export default function ExeErrorsPage() {
                 >
                   <span style={{ fontSize: 16 }}>{c.count > 0 ? '🔴' : '🟢'}</span>
                   <span style={{ fontWeight: 800 }}>{c.title}</span>
+                  {c.scope === 'cross-year-candidate' && <span style={st.scopeTag}>교차연도 후보</span>}
                   <span style={{ color: c.count > 0 ? '#dc2626' : '#059669', fontWeight: 800 }}>
                     {c.count}건{c.truncated ? ' (100건까지 표시)' : ''}
                   </span>
@@ -78,6 +90,7 @@ export default function ExeErrorsPage() {
                   <div style={st.cardBody}>
                     <div style={st.metaRow}><b>exe 증상</b> {c.exeAlert}</div>
                     <div style={st.metaRow}><b>왜 생기나</b> {c.cause}</div>
+                    {c.operations?.length > 0 && <div style={st.metaRow}><b>발생 가능 작업</b> {c.operations.join(' · ')}</div>}
                     <div style={st.metaRow}><b>해결</b> {c.fix}</div>
                     {c.count > 0 && (
                       <table style={st.table}>
@@ -164,7 +177,10 @@ const st = {
   bar: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
   weekInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: 110 },
+  yearInput: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px', fontSize: 14, width: 82 },
   primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  basis: { background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', borderRadius: 8, padding: '9px 12px', fontSize: 12, marginBottom: 12 },
+  scopeTag: { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 999, padding: '2px 7px', fontSize: 11, fontWeight: 700 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12 },
   card: { border: '1px solid', borderRadius: 10, marginBottom: 10, background: '#fff', overflow: 'hidden' },
   cardHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '11px 14px', fontSize: 14, cursor: 'pointer' },

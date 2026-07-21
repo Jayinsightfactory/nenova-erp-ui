@@ -106,20 +106,21 @@ function resolveShape(procedureName, shapeRows, action) {
   return { yearParam, weekParam, distTypeParam, userParam, prodParam, countryFlowerParam, outputs };
 }
 
-async function loadGroupProducts(q, week, prodGroup) {
+async function loadGroupProducts(q, orderYear, week, prodGroup) {
   const { clause: groupClause, params: groupParams } = buildProdGroupWhere(prodGroup);
   const result = await q(
     `SELECT DISTINCT p.ProdKey, p.ProdName
        FROM OrderMaster om
        JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
        JOIN Product p ON p.ProdKey=od.ProdKey
-      WHERE om.OrderWeek=@wk
+      WHERE om.OrderYear=@yr AND om.OrderWeek=@wk
         AND ISNULL(om.isDeleted,0)=0
         AND ISNULL(od.isDeleted,0)=0
         AND ISNULL(p.isDeleted,0)=0
         ${groupClause}
       ORDER BY p.ProdName`,
     {
+      yr: { type: sql.NVarChar, value: String(orderYear) },
       wk: { type: sql.NVarChar, value: week },
       ...groupParams,
     }
@@ -140,8 +141,11 @@ function prodFilterParams(prodKeys) {
   return params;
 }
 
-async function assertWeekNotFixed(q, week, prodKey = null, prodKeys = []) {
-  const params = { wk: { type: sql.NVarChar, value: week } };
+async function assertWeekNotFixed(q, orderYear, week, prodKey = null, prodKeys = []) {
+  const params = {
+    yr: { type: sql.NVarChar, value: String(orderYear) },
+    wk: { type: sql.NVarChar, value: week },
+  };
   let prodClause = '';
   if (prodKey) {
     params.pk = { type: sql.Int, value: Number(prodKey) };
@@ -156,7 +160,7 @@ async function assertWeekNotFixed(q, week, prodKey = null, prodKeys = []) {
        JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
        LEFT JOIN Customer c ON c.CustKey=sm.CustKey
        LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
-      WHERE sm.OrderWeek=@wk
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk
         AND ISNULL(sm.isDeleted,0)=0
         ${prodClause}
         AND (ISNULL(sm.isFix,0)=1 OR ISNULL(sd.isFix,0)=1)`,
@@ -189,8 +193,11 @@ async function assertKeyNumberingReady(q) {
   return result.recordset || [];
 }
 
-async function loadSummary(q, week, prodKey = null, prodKeys = []) {
-  const params = { wk: { type: sql.NVarChar, value: week } };
+async function loadSummary(q, orderYear, week, prodKey = null, prodKeys = []) {
+  const params = {
+    yr: { type: sql.NVarChar, value: String(orderYear) },
+    wk: { type: sql.NVarChar, value: week },
+  };
   let prodClause = '';
   if (prodKey) {
     params.pk = { type: sql.Int, value: Number(prodKey) };
@@ -214,7 +221,7 @@ async function loadSummary(q, week, prodKey = null, prodKeys = []) {
              FROM ShipmentDate
             WHERE SdetailKey=sd.SdetailKey
          ) sdt
-        WHERE sm.OrderWeek=@wk
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk
           AND ISNULL(sm.isDeleted,0)=0
           ${prodClause}
      ),
@@ -324,12 +331,12 @@ async function handler(req, res) {
     const shapeRows = await loadProcedureShape(procedureName);
 
     const result = await withTransaction(async (tQ) => {
-      const groupProducts = action === 'group' ? await loadGroupProducts(tQ, week, prodGroup) : [];
+      const groupProducts = action === 'group' ? await loadGroupProducts(tQ, orderYear, week, prodGroup) : [];
       if (action === 'group' && groupProducts.length === 0) throw new Error(`${week}차 ${prodGroup} 주문 품목이 없습니다.`);
       const prodKeys = groupProducts.map(row => Number(row.ProdKey));
-      await assertWeekNotFixed(tQ, week, prodKey, prodKeys);
+      await assertWeekNotFixed(tQ, orderYear, week, prodKey, prodKeys);
       const keyNumbering = await assertKeyNumberingReady(tQ);
-      const before = await loadSummary(tQ, week, prodKey, prodKeys);
+      const before = await loadSummary(tQ, orderYear, week, prodKey, prodKeys);
       const executed = [];
       if (action === 'group') {
         for (const product of groupProducts) {
@@ -348,7 +355,7 @@ async function handler(req, res) {
         }
         executed.push({ prodKey, execResult });
       }
-      const after = await loadSummary(tQ, week, prodKey, prodKeys);
+      const after = await loadSummary(tQ, orderYear, week, prodKey, prodKeys);
       if (after.dateIssueCount > 0) throw new Error(`전산 분배 후 출고일/출고수량 불일치 ${after.dateIssueCount}건이 감지되어 롤백했습니다.`);
       if (after.duplicateDetailGroups > 0) throw new Error(`전산 분배 후 중복 출고상세 ${after.duplicateDetailGroups}그룹이 감지되어 롤백했습니다.`);
       return { keyNumbering, before, after, executed };

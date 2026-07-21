@@ -86,24 +86,27 @@ async function columnExists(tableName, columnName) {
   return columnExistsCache[key];
 }
 
-async function assertWeekNotFixed(q, orderWeek) {
+async function assertWeekNotFixed(q, orderYear, orderWeek) {
   const fixed = await q(
     `SELECT TOP 1 FixSource
        FROM (
          SELECT N'ShipmentMaster' AS FixSource
            FROM ShipmentMaster
-          WHERE OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
+          WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
          UNION ALL
          SELECT N'ShipmentDetail' AS FixSource
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-          WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
          UNION ALL
          SELECT N'StockMaster' AS FixSource
            FROM StockMaster
-          WHERE OrderWeek=@wk AND ISNULL(isFix,0)=1
+          WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isFix,0)=1
        ) x`,
-    { wk: { type: sql.NVarChar, value: orderWeek } }
+    {
+      yr: { type: sql.NVarChar, value: String(orderYear) },
+      wk: { type: sql.NVarChar, value: orderWeek },
+    }
   );
   if (fixed.recordset.length > 0) {
     throw new Error('확정된 차수는 출고분배/분배조정을 할 수 없습니다 (먼저 차수 확정을 해제하세요)');
@@ -169,11 +172,12 @@ async function getProductFixScope(q, prodKey) {
   return prod.recordset[0] || null;
 }
 
-async function getProductScopeFixedRows(q, orderWeek, prodKey) {
+async function getProductScopeFixedRows(q, orderYear, orderWeek, prodKey) {
   const prod = await getProductFixScope(q, prodKey);
   if (!prod) return { prod: null, rows: [] };
 
   const params = {
+    yr: { type: sql.NVarChar, value: String(orderYear) },
     wk: { type: sql.NVarChar, value: orderWeek },
     pk: { type: sql.Int, value: Number(prodKey) },
     cf: { type: sql.NVarChar, value: prod.CountryFlower || '' },
@@ -193,7 +197,7 @@ async function getProductScopeFixedRows(q, orderWeek, prodKey) {
        JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
        JOIN Product p ON p.ProdKey=sd.ProdKey
        LEFT JOIN Customer c ON c.CustKey=sm.CustKey
-      WHERE sm.OrderWeek=@wk
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk
         AND ISNULL(sm.isDeleted,0)=0
         AND ISNULL(sd.isFix,0)=1
         AND ${scopeClause}
@@ -203,8 +207,8 @@ async function getProductScopeFixedRows(q, orderWeek, prodKey) {
   return { prod, rows: fixed.recordset || [] };
 }
 
-async function assertProductScopeNotFixed(q, orderWeek, prodKey) {
-  const { prod, rows } = await getProductScopeFixedRows(q, orderWeek, prodKey);
+async function assertProductScopeNotFixed(q, orderYear, orderWeek, prodKey) {
+  const { prod, rows } = await getProductScopeFixedRows(q, orderYear, orderWeek, prodKey);
   if (rows.length > 0) {
     const scopeName = prod?.CountryFlower || prod?.ProdName || `ProdKey ${prodKey}`;
     throw new Error(`${orderWeek}차 ${scopeName} 품목군은 이미 확정되어 출고분배를 할 수 없습니다. 해당 품목군 확정취소 후 다시 진행하세요.`);
@@ -217,11 +221,14 @@ export default withAuth(withActionLog(async function handler(req, res) {
   return res.status(405).end();
 }, { actionType: 'SHIPMENT_WRITE', affectedTable: 'ShipmentMaster/Detail', riskLevel: 'HIGH' }));
 
-async function resolveDistributeWeekMeta(week) {
+async function resolveDistributeWeekMeta(week, orderYear) {
   const r = await query(
     `SELECT TOP 1 OrderYear, OrderWeek, OrderYearWeek FROM ShipmentMaster
-      WHERE OrderWeek=@w AND isDeleted=0 ORDER BY CreateDtm DESC`,
-    { w: { type: sql.NVarChar, value: week } }
+      WHERE OrderYear=@yr AND OrderWeek=@w AND isDeleted=0 ORDER BY CreateDtm DESC`,
+    {
+      yr: { type: sql.NVarChar, value: String(orderYear) },
+      w: { type: sql.NVarChar, value: week },
+    }
   );
   const row = r.recordset[0] || {};
   const oyw = normalizeOrderYearWeek2(row.OrderYearWeek || week.replace(/-/g, ''));
@@ -287,14 +294,15 @@ function mapExeProductShipmentRow(row) {
 }
 
 async function getDistribute(req, res) {
-  let { type, week, prodGroup, custKey, countryFlower, exeParity } = req.query;
+  let { type, week, year, prodGroup, custKey, countryFlower, exeParity } = req.query;
   const useExe = useExeParityFlag(exeParity);
   if (week) week = normalizeOrderWeek(week);
+  const orderYear = resolveActiveOrderYear(week, year);
 
   try {
     // ── 품목그룹 목록 (CounName+FlowerName — nenova.exe / 주문등록 동일)
     if (type === 'groups') {
-      const groups = await loadShipmentProdGroups(query, { week: week || undefined });
+      const groups = await loadShipmentProdGroups(query, { week: week || undefined, year: orderYear });
       return res.status(200).json({ success: true, groups });
     }
 
@@ -303,7 +311,7 @@ async function getDistribute(req, res) {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
       if (useExe && countryFlower) {
-        const meta = await resolveDistributeWeekMeta(week);
+        const meta = await resolveDistributeWeekMeta(week, orderYear);
         const before = await resolveBeforeOrderYearWeek(query, sql, meta.orderYearWeek);
         const result = await query(sqlDistributeGetProductList(), {
           orderYear: { type: sql.NVarChar, value: meta.orderYear },
@@ -320,7 +328,7 @@ async function getDistribute(req, res) {
 
       const cfFromGroup = countryFlowerFromProdGroup(prodGroup);
       if (useExe && cfFromGroup) {
-        const meta = await resolveDistributeWeekMeta(week);
+        const meta = await resolveDistributeWeekMeta(week, orderYear);
         const before = await resolveBeforeOrderYearWeek(query, sql, meta.orderYearWeek);
         const result = await query(sqlDistributeGetProductList(), {
           orderYear: { type: sql.NVarChar, value: meta.orderYear },
@@ -335,7 +343,10 @@ async function getDistribute(req, res) {
         });
       }
 
-      const params = { week: { type: sql.NVarChar, value: week } };
+      const params = {
+        week: { type: sql.NVarChar, value: week },
+        year: { type: sql.NVarChar, value: String(orderYear) },
+      };
       const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
       Object.assign(params, groupParams);
 
@@ -348,12 +359,12 @@ async function getDistribute(req, res) {
           ISNULL((
             SELECT SUM(wd2.OutQuantity) FROM WarehouseDetail wd2
             JOIN WarehouseMaster wm2 ON wd2.WarehouseKey = wm2.WarehouseKey
-            WHERE wd2.ProdKey = p.ProdKey AND wm2.OrderWeek = @week AND wm2.isDeleted = 0
+            WHERE wd2.ProdKey = p.ProdKey AND wm2.OrderYear = @year AND wm2.OrderWeek = @week AND wm2.isDeleted = 0
           ), 0) AS inQty,
           ISNULL((
             SELECT SUM(sd2.OutQuantity) FROM ShipmentDetail sd2
             JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
-            WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek = @week AND sm3.isDeleted = 0
+            WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderYear = @year AND sm3.OrderWeek = @week AND sm3.isDeleted = 0
           ), 0) AS outQty,
           ISNULL((
             SELECT SUM(CASE WHEN p2.OutUnit='단'  THEN ISNULL(od2.BunchQuantity,0)
@@ -362,17 +373,17 @@ async function getDistribute(req, res) {
             FROM OrderDetail od2
             JOIN OrderMaster om2 ON od2.OrderMasterKey = om2.OrderMasterKey
             JOIN Product p2 ON od2.ProdKey = p2.ProdKey
-            WHERE od2.ProdKey = p.ProdKey AND om2.OrderWeek = @week AND om2.isDeleted = 0
+            WHERE od2.ProdKey = p.ProdKey AND om2.OrderYear = @year AND om2.OrderWeek = @week AND om2.isDeleted = 0
               AND od2.isDeleted = 0
           ), 0) AS orderQty
          FROM Product p
-         LEFT JOIN StockMaster sm2 ON sm2.OrderWeek = @week
+         LEFT JOIN StockMaster sm2 ON sm2.OrderYear = @year AND sm2.OrderWeek = @week
          LEFT JOIN ProductStock ps ON p.ProdKey = ps.ProdKey AND ps.StockKey = sm2.StockKey
          WHERE p.isDeleted = 0 ${prodWhere}
            AND EXISTS (
              SELECT 1 FROM OrderDetail od3
              JOIN OrderMaster om3 ON od3.OrderMasterKey = om3.OrderMasterKey
-             WHERE od3.ProdKey = p.ProdKey AND om3.OrderWeek = @week
+             WHERE od3.ProdKey = p.ProdKey AND om3.OrderYear = @year AND om3.OrderWeek = @week
                AND om3.isDeleted = 0 AND od3.isDeleted = 0
            )
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
@@ -388,7 +399,7 @@ async function getDistribute(req, res) {
       if (!week || !prodKey) return res.status(400).json({ success: false, error: 'week, prodKey 필요' });
 
       if (useExe) {
-        const meta = await resolveDistributeWeekMeta(week);
+        const meta = await resolveDistributeWeekMeta(week, orderYear);
         const result = await query(sqlDistributeGetProductShipmentGrid(), {
           orderYear: { type: sql.NVarChar, value: meta.orderYear },
           orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
@@ -430,13 +441,14 @@ async function getDistribute(req, res) {
          JOIN Customer c    ON om.CustKey = c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.ProdKey = @pk AND od.isDeleted = 0
          JOIN Product p     ON od.ProdKey = p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderYear = @year AND sm.OrderWeek = @week AND sm.isDeleted = 0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.ProdKey = @pk
          LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = c.CustKey AND cpc.ProdKey = @pk
-         WHERE om.OrderWeek = @week AND om.isDeleted = 0
+         WHERE om.OrderYear = @year AND om.OrderWeek = @week AND om.isDeleted = 0
          ORDER BY c.CustArea, c.CustName`,
         {
           week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: String(orderYear) },
           pk:   { type: sql.Int,      value: parseInt(prodKey) },
         }
       );
@@ -475,13 +487,14 @@ async function getDistribute(req, res) {
          JOIN Customer c    ON om.CustKey = c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
          JOIN Product p     ON od.ProdKey = p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderYear = @year AND sm.OrderWeek = @week AND sm.isDeleted = 0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.ProdKey = p.ProdKey
          LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = om.CustKey AND cpc.ProdKey = p.ProdKey
-         WHERE om.OrderWeek = @week AND om.CustKey = @ck AND om.isDeleted = 0
+         WHERE om.OrderYear = @year AND om.OrderWeek = @week AND om.CustKey = @ck AND om.isDeleted = 0
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
         {
           week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: String(orderYear) },
           ck:   { type: sql.Int,      value: parseInt(custKey) },
         }
       );
@@ -491,7 +504,7 @@ async function getDistribute(req, res) {
     // ── exe GetCustomerList (업체 탭)
     if (type === 'customers') {
       if (!week || !countryFlower) return res.status(400).json({ success: false, error: 'week, countryFlower 필요' });
-      const meta = await resolveDistributeWeekMeta(week);
+      const meta = await resolveDistributeWeekMeta(week, orderYear);
       const result = await query(sqlDistributeGetCustomerList(), {
         orderYear: { type: sql.NVarChar, value: meta.orderYear },
         orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
@@ -509,7 +522,7 @@ async function getDistribute(req, res) {
       if (!week || !custKey || !countryFlower) {
         return res.status(400).json({ success: false, error: 'week, custKey, countryFlower 필요' });
       }
-      const meta = await resolveDistributeWeekMeta(week);
+      const meta = await resolveDistributeWeekMeta(week, orderYear);
       const result = await query(sqlDistributeGetCustWeekGrid(), {
         orderYear: { type: sql.NVarChar, value: meta.orderYear },
         orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
@@ -526,7 +539,7 @@ async function getDistribute(req, res) {
       if (!week || !cf) {
         return res.status(400).json({ success: false, error: 'week, countryFlower(또는 prodGroup) 필요' });
       }
-      const meta = await resolveDistributeWeekMeta(week);
+      const meta = await resolveDistributeWeekMeta(week, orderYear);
       const result = await query(sqlDistributeGetPivotData(), {
         orderYear: { type: sql.NVarChar, value: meta.orderYear },
         orderWeek: { type: sql.NVarChar, value: meta.orderWeek },
@@ -563,9 +576,12 @@ async function getDistribute(req, res) {
         `SELECT DISTINCT c.CustKey, c.CustName, c.CustArea, c.OrderCode
          FROM OrderMaster om
          JOIN Customer c ON om.CustKey = c.CustKey
-         WHERE om.OrderWeek = @week AND om.isDeleted = 0 AND c.isDeleted = 0
+         WHERE om.OrderYear = @year AND om.OrderWeek = @week AND om.isDeleted = 0 AND c.isDeleted = 0
          ORDER BY c.CustArea, c.CustName`,
-        { week: { type: sql.NVarChar, value: week } }
+        {
+          week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: String(orderYear) },
+        }
       );
       return res.status(200).json({ success: true, customers: result.recordset });
     }
@@ -590,11 +606,14 @@ async function getDistribute(req, res) {
          JOIN Customer c ON sm.CustKey = c.CustKey
          JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
          JOIN Product p ON sd.ProdKey = p.ProdKey
-         WHERE sm.OrderWeek = @week AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+         WHERE sm.OrderYear = @year AND sm.OrderWeek = @week AND sm.isDeleted = 0 AND sd.OutQuantity > 0
          GROUP BY c.CustKey, c.CustName, c.CustArea, c.BaseOutDay,
                   sm.ShipmentKey, CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)
          ORDER BY c.CustArea, c.CustName, CONVERT(NVARCHAR(10), sd.ShipmentDtm, 120)`,
-        { week: { type: sql.NVarChar, value: week } }
+        {
+          week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: String(orderYear) },
+        }
       );
       return res.status(200).json({ success: true, source: 'real_db', dates: result.recordset });
     }
@@ -603,7 +622,10 @@ async function getDistribute(req, res) {
     if (type === 'summary') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
-      const params = { week: { type: sql.NVarChar, value: week } };
+      const params = {
+        week: { type: sql.NVarChar, value: week },
+        year: { type: sql.NVarChar, value: String(orderYear) },
+      };
       const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
       Object.assign(params, groupParams);
 
@@ -612,9 +634,12 @@ async function getDistribute(req, res) {
         `SELECT DISTINCT c.CustKey, c.CustName, c.CustArea
          FROM OrderMaster om
          JOIN Customer c ON om.CustKey = c.CustKey
-         WHERE om.OrderWeek = @week AND om.isDeleted = 0 AND c.isDeleted = 0
+         WHERE om.OrderYear = @year AND om.OrderWeek = @week AND om.isDeleted = 0 AND c.isDeleted = 0
          ORDER BY c.CustArea, c.CustName`,
-        { week: { type: sql.NVarChar, value: week } }
+        {
+          week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: String(orderYear) },
+        }
       );
 
       // 품목별 거래처별 주문/출고 수량
@@ -629,9 +654,9 @@ async function getDistribute(req, res) {
          FROM OrderMaster om
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
          JOIN Product p ON od.ProdKey = p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey = om.CustKey AND sm.OrderYear = @year AND sm.OrderWeek = @week AND sm.isDeleted = 0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.ProdKey = p.ProdKey
-         WHERE om.OrderWeek = @week AND om.isDeleted = 0 AND p.isDeleted = 0 ${prodWhere}
+         WHERE om.OrderYear = @year AND om.OrderWeek = @week AND om.isDeleted = 0 AND p.isDeleted = 0 ${prodWhere}
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
         params
       );
@@ -659,7 +684,7 @@ async function saveDistribute(req, res) {
     const orderYear = resolveActiveOrderYear(rawWeek, year);
     const ywk = orderYear + (week||'').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수 (세부차수 제외)
 
-    await assertProductScopeNotFixed(query, week, prodKey);
+    await assertProductScopeNotFixed(query, orderYear, week, prodKey);
 
     // Product 환산정보
     const prodInfo = await query(
@@ -698,9 +723,13 @@ async function saveDistribute(req, res) {
       // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
       const smResult = await tQuery(
         `SELECT ShipmentKey, WebCreated, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0
+         WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@week AND isDeleted=0
          ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
-        { ck: { type: sql.Int, value: parseInt(custKey) }, week: { type: sql.NVarChar, value: week } }
+        {
+          ck: { type: sql.Int, value: parseInt(custKey) },
+          yr: { type: sql.NVarChar, value: String(orderYear) },
+          week: { type: sql.NVarChar, value: week },
+        }
       );
 
       let sk;
