@@ -90,12 +90,13 @@ async function main() {
   const stockApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stock', 'index.js'), 'utf8');
   const stockSection = reportSource.slice(reportSource.indexOf('export async function stockSnapshotByCategory'), reportSource.indexOf('/** 카테고리별 구매 통화'));
   check('재고수량은 EXE 재고현황 마지막 Stock 열을 직접 사용', stockSection.includes('SUM(ps.Stock * (${STOCK_TO_EST_UNIT_EXPR})) AS q'));
-  check('기말 스냅샷은 마지막 확정 세부차수를 선택',
-    reportSource.includes('export async function latestFinalizedStockWeek')
-      && reportSource.includes('ISNULL(sm.isFix,0)=1')
+  check('기말 스냅샷은 마지막 ProductStock 세부차수를 선택',
+    reportSource.includes('export async function latestStockSnapshotWeek')
+      && reportSource.includes('EXISTS (SELECT 1 FROM ProductStock ps WHERE ps.StockKey=sm.StockKey)')
       && reportSource.includes('OrderWeek LIKE @pfx')
-      && reportSource.includes('TRY_CONVERT(INT, SUBSTRING(sm.OrderWeek, CHARINDEX(\'-\', sm.OrderWeek)+1, 10)) DESC'));
-  check('단가표도 동일한 마지막 확정 스냅샷을 사용', reportSource.includes('latestFinalizedStockWeek(major, orderYear)') && reportSource.includes('latestFinalizedStockWeek(prevMajor, prevOrderYear)'));
+      && reportSource.includes('TRY_CONVERT(INT, SUBSTRING(sm.OrderWeek, CHARINDEX(\'-\', sm.OrderWeek)+1, 10)) DESC')
+      && !reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('ISNULL(sm.isFix,0)=1'));
+  check('단가표도 동일한 마지막 ProductStock 스냅샷을 사용', reportSource.includes('latestStockSnapshotWeek(major, orderYear)') && reportSource.includes('latestStockSnapshotWeek(prevMajor, prevOrderYear)'));
   check('중복 StockMaster는 선택된 StockKey 하나만 집계', stockSection.includes('smk.StockKey=@stockKey') && reportSource.includes('smk.StockKey = @beginStockKey'));
   check('01차 기초재고는 전년도 전차수 스냅샷을 사용', reportApiSource.includes("currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)") && reportApiSource.includes("currentMajor <= 1 ? '52'"));
   check('27차 기초재고는 같은 연도의 26차 스냅샷을 사용', reportApiSource.includes('currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)') && reportApiSource.includes("currentMajor - 1).padStart(2, '0')"));

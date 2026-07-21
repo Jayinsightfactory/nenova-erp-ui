@@ -10,16 +10,17 @@
 
 1. 업로드 파일의 첫 시트 제목은 `주차별 매출이익 보고서-26차`로 남아 있지만, 구매현황·포워딩·콜롬비아 원가 시트는 27차 자료다. 즉 파일 내부에 차수 표기와 정적 보고서 캐시가 혼재한다.
 2. 웹은 현재 DB의 확정 출고·견적·입고·통관·포워딩·통화마스터·재고 스냅샷을 다시 계산한다. 엑셀은 기존에 저장된 캐시값을 보여준다.
-3. 웹의 기존 재고 선택 코드는 `-02` 우선, `-01` fallback으로 고정되어 있어 27-03 이후 마지막 확정 세부차수를 사용할 수 없었다. 또한 `StockMaster.isFix=1`을 선택 조건으로 확인하지 않았다.
+3. 웹의 기존 재고 선택 코드는 `-02` 우선, `-01` fallback으로 고정되어 있어 27-03 이후 마지막 ProductStock 스냅샷을 사용할 수 없었다. 또한 실제 재고 스냅샷과 `StockMaster.isFix` 마감 표시를 혼동하면 27-02처럼 ProductStock은 있는데도 누락으로 판정할 수 있다.
 
 따라서 대조 당시 상태는 숫자와 재고 규칙 모두 100% 일치 상태가 아니었다. 이번 변경에서 재고 선택 규칙은 다음으로 수정했다.
 
 ```text
-기말 F = 선택 대차수의 StockMaster.isFix=1 세부차수 중 suffix 숫자가 가장 큰 행
-기초 E = 같은 매출연도의 전차수(27차라면 26차) 마지막 확정 세부차수의 같은 규칙
+기말 F = 선택 대차수에서 ProductStock 행이 존재하는 세부차수 중 suffix 숫자가 가장 큰 행
+기초 E = 같은 매출연도의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷의 같은 규칙
          ※ 01차에서만 연도 경계로 전년도 52차 사용
-동일 세부차수 중복 = 가장 큰 StockKey
-확정 스냅샷 없음 = 임의 -01/-02 사용 금지 + 검증 오류
+동일 세부차수 중복 = ProductStock 행 수, 그 다음 가장 큰 StockKey
+ProductStock 스냅샷 없음 = 임의 -01/-02 사용 금지 + 검증 오류
+StockMaster.isFix = 선택된 스냅샷의 별도 마감 표시·진단값
 ```
 
 ## 합계 대조
@@ -103,7 +104,11 @@ OrderWeek IN (@endWeek, @fallbackWeek)
 
 이 구조에서는 27-03이 확정되어도 27-02를 계속 읽는다. 또한 `StockMaster.isFix=1`을 WHERE에 넣지 않아 미확정 또는 시작재고 마커가 섞일 가능성이 있었다. 웹 화면에서 확인된 스냅샷 표기도 당시 `기말=27-02`, `기초=26-02말`이었다.
 
-수정 후에는 `latestFinalizedStockWeek()`가 `OrderYear + 대차수 prefix + isFix=1`을 제한하고, 세부차수 suffix 숫자 내림차순과 `StockKey DESC`로 마지막 확정 행을 고른다. 27차 기초재고는 같은 `OrderYear`의 26차 마지막 확정 세부차수에서 가져온다. 확정 스냅샷이 없으면 `STOCK_BEGIN_SNAPSHOT_MISSING` 또는 `STOCK_END_SNAPSHOT_MISSING` 오류를 생성한다. 01차에서만 전년도 52차를 기초재고 후보로 사용한다.
+수정 후에는 `latestStockSnapshotWeek()`가 `OrderYear + 대차수 prefix + ProductStock 존재`를 제한하고, 세부차수 suffix 내림차순과 ProductStock 행 수·`StockKey DESC`로 마지막 스냅샷을 고른다. 27차 기초재고는 같은 `OrderYear`의 26차 마지막 ProductStock 스냅샷에서 가져온다. ProductStock 스냅샷이 없으면 `STOCK_BEGIN_SNAPSHOT_MISSING` 또는 `STOCK_END_SNAPSHOT_MISSING` 오류를 생성한다. 01차에서만 전년도 52차를 기초재고 후보로 사용한다. `StockMaster.isFix`가 0/NULL이어도 ProductStock이 존재하면 이 보고서의 재고원천 선택을 막지 않고 진단값으로만 노출한다.
+
+### 27-02/29 확정 상태 정정
+
+사용자 확인 기준으로 27-02부터 29차까지 재고는 이미 확정 상태다. 운영 조회에서 `StockMaster.isFix` 표시가 `미확정`으로 보이는 경우에는 실제 `ProductStock` 스냅샷과 별도의 마감 표시 불일치로 기록해야 하며, 이를 이유로 F/E 자동값을 누락시키면 안 된다. 27-02 콜롬비아 장미의 재고현황 합계 279단은 ProductStock 기반 조회와 일치하는 기준값이다.
 
 ## 남은 100% 판정 조건
 
