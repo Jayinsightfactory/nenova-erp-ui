@@ -1,0 +1,62 @@
+{
+  "id": "sales-defect-deduction",
+  "title": "영업수입불량차감 양식·견적서관리 등록 계약",
+  "scope": [
+    "pages/sales/defect-deductions.js",
+    "pages/api/sales/defect-deductions.js",
+    "pages/api/sales/defect-deductions-upload.js",
+    "pages/api/sales/defect-deductions-excel.js",
+    "lib/salesDefectDeductionCore.js",
+    "lib/salesDefectDeductions.js",
+    "lib/salesDefectDeductionExcel.js",
+    "__tests__/salesDefectDeductions.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "WEB_DRAFT_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "WebSalesDefectDeduction + History only"
+    },
+    {
+      "name": "REGISTER_ESTIMATE_DEDUCTION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Estimate INSERT/UPDATE only; no shipment fix cycle"
+    },
+    {
+      "name": "DELETE_ESTIMATE_DEDUCTION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Estimate DELETE + web soft-delete/history"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 29차가 여러 연도에 있어도 선택한 OrderYear의 target ShipmentMaster와 전년도 경계(01차면 전년도 52차)만 사용한다. 29차 등록 단가는 같은 연도 28차 분배 단가를 사용한다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateAdd.cs; C:\\Users\\USER\\nenova-decompiled\\Nenova\\ClassEstimate.cs",
+    "methods": ["FormEstimateAdd.btnSave_Click", "ClassEstimate.Insert", "ClassEstimate.Update", "ClassEstimate.Delete", "FormEstimateView.GetData", "FormEstimateView.GetDetail"],
+    "tables": ["Estimate", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "CodeInfo", "WebSalesDefectDeduction", "WebSalesDefectDeductionHistory"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "writes": ["WebSalesDefectDeduction", "WebSalesDefectDeductionHistory", "Estimate"],
+  "preserves": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentMaster.isFix", "Product.Stock", "WebProfitReport"],
+  "sideEffects": {
+    "estimateQuantity": "negative absolute input quantity",
+    "estimateAmount": "round(quantity * previous-week-distribution-cost / 1.1, 0)",
+    "estimateVat": "quantity * cost - amount",
+    "previousCost": "same year previous parent week ShipmentDate.Cost then ShipmentDetail.Cost only",
+    "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
+  },
+  "requiredTests": ["__tests__/salesDefectDeductions.test.js"],
+  "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/erpContractManifest.test.js"]
+}
