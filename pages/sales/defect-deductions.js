@@ -107,8 +107,8 @@ export default function SalesDefectDeductionsPage() {
       updateRow(index, { customerName: item.CustName, custKey: Number(item.CustKey), customerSuggestions: [] });
     } else if (kind === 'product') {
       updateRow(index, {
-        productName: item.DisplayName || item.ProdName,
         prodKey: Number(item.ProdKey),
+        matchedProductName: item.DisplayName || item.ProdName || '',
         unit: item.EstUnit || item.OutUnit || '',
         productSuggestions: [],
       });
