@@ -58,6 +58,7 @@ export const MENU_ITEMS = [
       { href: '/sales/status',       labelKey: '판매현황',           popup: false },
       { href: '/sales/weekly-shipment', labelKey: '차수매출관리',    popup: true  },
       { href: '/sales/registration-history', labelKey: '판매등록 히스토리', popup: true },
+      { href: '/sales/defect-deductions', labelKey: '영업수입불량차감', popup: true },
       { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서', popup: true },
       { href: '/raum/pnl',           labelKey: '라움 손익계산서',     popup: true },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },

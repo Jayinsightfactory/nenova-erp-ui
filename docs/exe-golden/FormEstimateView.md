@@ -88,3 +88,35 @@ UPDATE ShipmentDate
 
 `OrderDetail`과 `ShipmentFarm`은 이 결합 저장에서 직접 변경하지 않는다. 주문수량이나
 농장배정까지 바꾸는 작업은 각각 차수피벗/출고분배의 별도 계약을 따른다.
+
+## 불량/검역 차감 등록 — FormEstimateAdd / ClassEstimate
+
+dnSpy CLI로 확인한 원본:
+
+```powershell
+& 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe' --no-color -t FormEstimateAdd 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+& 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe' --no-color -t ClassEstimate 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`와
+`ClassEstimate.cs`이다.
+
+- `FormEstimateAdd.btnSave_Click`은 `EstimateType`, `EstimateDtm`, `ProdKey`, `Unit`,
+  `Quantity`, `Cost`, `Amount`, `Vat`, `Descr`, `ShipmentKey`를 `ClassEstimate.Insert()`에 넘긴다.
+- 차감 행은 `Estimate.Quantity`·`Amount`·`Vat`가 음수이고 `Cost`는 양수이다.
+  금액 공식은 `Amount = Round(Quantity * Cost / 1.1, 0)`, `Vat = Quantity * Cost - Amount`이다.
+- `ClassEstimate.Insert()`/`Update()`는 `Estimate`만 쓰고 `ShipmentDetail`, `ShipmentDate`,
+  `OrderDetail`, 재고를 변경하지 않는다.
+- `FormEstimateView.GetData`/`GetDetail`은 Estimate 차감행에 `ShipmentMaster.OrderYearWeek`,
+  `EstimateDtm`, `CodeInfo(EstimateType)`를 사용한다. 차감행에는 `isFix` 컬럼이 없고,
+  `ShipmentDetail.isFix` 확정/해제 사이클을 실행하지 않는다.
+- `ClassEstimate.Delete()`는 `DELETE FROM Estimate WHERE EstimateKey = ...`를 실행한다.
+  웹의 영업수입불량차감 원장은 삭제 전/후 상태를 별도 이력 테이블에 남긴 뒤 동일하게
+  연결된 `Estimate`를 삭제한다.
+
+영업수입불량차감 웹 등록 규칙도 이 계약을 그대로 따른다. 예를 들어 29차를 등록할 때
+단가는 28차 같은 연도·거래처·품목의 `ShipmentDate.Cost`를 우선하고, 없으면
+`ShipmentDetail.Cost`를 사용한다. `CustomerProdCost`나 `Product.Cost`로 임의 대체하지
+않으며, 이전 차수 분배 단가가 없으면 등록 전에 오류로 알린다. 대상 29차의
+`ShipmentMaster.ShipmentKey`에 차감 Estimate를 연결하고, `EstimateDtm`은 해당 출고의
+`ShipmentDtm`으로 저장해 nenova.exe 견적서관리에서 같은 업체/차수로 조회되게 한다.
