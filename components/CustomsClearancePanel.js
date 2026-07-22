@@ -4,7 +4,7 @@
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { deriveColombiaTruckAllocation } from '../lib/colombiaTruck';
-import { COUNTRY_INPUT_FIELDS } from '../lib/customsFields';
+import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../lib/customsFields';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = (v) => Math.round(n0(v)).toLocaleString();
@@ -40,6 +40,15 @@ const COLOMBIA_FIELDS = [
   ['CustomsFee', '관세료'], ['DisinfectFee', '소독비용'], ['QuarantineDeductFee', '검역비용(차감stems)'],
 ];
 const COLOMBIA_TRUCK_FIELDS = new Set(['Truck1t', 'Truck2_5t', 'Truck5t']);
+
+function focusNextCustomsInput(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const root = event.currentTarget.closest('[data-customs-clearance-panel]');
+  const inputs = Array.from(root?.querySelectorAll('input:not([disabled])') || []);
+  const currentIndex = inputs.indexOf(event.currentTarget);
+  inputs[currentIndex + 1]?.focus();
+}
 
 // 필드명 → 화면표시 라벨 (이력 팝업용)
 const FIELD_LABEL = Object.fromEntries([
@@ -138,9 +147,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
     const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
     const manualField = isWorldFreight ? `${field}Manual` : '';
-    if (isWorldFreight && Number(row.saved?.[manualField]) === 1 && row.saved?.[field] != null) return row.saved[field];
+    if (isWorldFreight && Number(row.saved?.[manualField]) === 1 && row.saved?.[field] != null) return vatInclusiveToNet(row.saved[field]);
     if (isWorldFreight && Number(row.worldFreightAuto?.[field]) > 0) return row.worldFreightAuto[field];
     if (row.saved?.[field] != null) return row.saved[field];
+    if (isWorldFreight && row.carry?.[field] != null) return vatInclusiveToNet(row.carry[field]);
     if (row.carry?.[field] != null) return row.carry[field];
     return '';
   };
@@ -162,7 +172,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
         out[manualField] = row.saved[manualField];
       }
       if (isWorldFreight && !hasManualEdit && !hasSavedValue && !hasCarryValue && !hasAutoValue) return;
-      out[field] = countryValue(row, field);
+      out[field] = isWorldFreight ? vatNetToInclusive(countryValue(row, field)) : countryValue(row, field);
     });
     return out;
   };
@@ -274,10 +284,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   if (!week) return <div style={{ padding: 16, color: '#94a3b8', fontSize: 12 }}>차수를 먼저 조회하세요.</div>;
 
   return (
-    <div>
+    <div data-customs-clearance-panel>
       <div style={st.hint}>
           국가별(백상창고료GW×단가 그대로 + 관세 그대로 + 선율·월드운송료·한국방역 ÷1.1) 합산 = H(그외통관비).
-          월드 운송료는 입고 GW 기준 1t/2.5t/5t 단가가 자동 표시되며, 입력하면 해당 차수의 수기 override로 저장됩니다.
+          월드 운송료는 입고 GW 기준 1t/2.5t/5t 단가가 자동 표시되며, 화면에는 부가세 제외 금액으로 표시됩니다. 입력하면 해당 차수의 수기 override로 저장됩니다.
         관세·선율은 각 1차/2차를 1·2·3번으로 나누어 입력하며, 화면의 합계가 기존 관세1차/2차·선율1차/2차 금액으로 자동 반영됩니다.
         콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 반차수(1차/2차)별 통관비 TOTAL을 박스당무게×박스수량 비율로 배분(항상 무게비율).
         저장값 없으면 <b style={{ color: '#e65100' }}>전차수 값</b>이 기본으로 채워집니다 — 확인 후 저장하세요. 🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
@@ -301,6 +311,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                 </span>
                 <input style={st.input} type="text"
                   value={rateEdits[key] !== undefined ? rateEdits[key] : (data.rates[key] ?? '')}
+                  onKeyDown={focusNextCustomsInput}
                   onChange={(e) => setRateEdits((p) => ({ ...p, [key]: e.target.value.replace(/[^0-9.]/g, '') }))} />
               </label>
             ))}
@@ -372,6 +383,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                                       <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 2 }} title={`${phase.groupLabel} ${phase.label} ${i + 1}차 분할금액`}>
                                         <span style={{ fontSize: 9, color: '#64748b' }}>{i + 1}</span>
                                         <input style={st.splitInput} value={countryValue(row, field)}
+                                          onKeyDown={focusNextCustomsInput}
                                           onChange={(e) => setCountryEdit(row.category, field, e.target.value.replace(/[^0-9.\-]/g, ''))} />
                                       </label>
                                     ))}
@@ -408,6 +420,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                             <td key={f} style={st.tdNum}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                                 <input style={st.cellInput} value={cur}
+                                  onKeyDown={focusNextCustomsInput}
                                   title={isWorldFreight && Number(worldAuto) > 0 && row.worldFreightSource?.[f] !== 'manual_override'
                                     ? '입고 GW 기반 자동계산값 — 수정하면 수기 override로 저장됩니다' : undefined}
                                   onChange={(e) => setCountryEdit(row.category, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />

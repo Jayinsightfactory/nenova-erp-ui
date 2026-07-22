@@ -20,6 +20,8 @@ async function main() {
     normalizeCountryInput,
     deriveWorldFreight,
     effectiveCountryWorldFreight,
+    vatInclusiveToNet,
+    vatNetToInclusive,
   } = await import('../lib/customsForwarding.js');
   const { deriveColombiaTruckAllocation } = await import('../lib/colombiaTruck.js');
   const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
@@ -48,8 +50,10 @@ async function main() {
   check('800kg → 월드운송료 1t', deriveWorldFreight(800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck1t);
   check('1800kg → 월드운송료 2.5t', deriveWorldFreight(1800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck2_5t);
   check('7613kg → 월드운송료 5t', deriveWorldFreight(7613, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck5t);
+  check('월드운송료 부가세 포함→제외 변환', vatInclusiveToNet(99000) === 90000 && vatNetToInclusive(90000) === 99000);
   const worldAuto = effectiveCountryWorldFreight({}, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
-  check('저장값이 없으면 1·2차 자동 월드운송료가 계산', worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldAuto.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
+  check('저장값이 없으면 내부 원천은 포함가로 계산', worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldAuto.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
+  check('화면 자동 월드운송료는 부가세 제외가로 표시', worldAuto.auto.WorldFreight1 === 90000 && worldAuto.auto.WorldFreight2 === Math.round(RATE_DEFAULTS.Truck2_5t / 1.1));
   const worldLegacy = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
   check('기존 리터럴은 GW 자동값으로 전환', worldLegacy.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldLegacy.source.WorldFreight1 === 'warehouse_gw_auto');
   const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456, WorldFreight1Manual: 1 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);

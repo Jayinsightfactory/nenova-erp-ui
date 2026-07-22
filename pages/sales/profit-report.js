@@ -627,6 +627,11 @@ export default function ProfitReportPage() {
       {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 4 }}>비고사항</div>
+          {data.autoNote && (
+            <div style={{ marginBottom: 6, padding: 9, whiteSpace: 'pre-wrap', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, color: '#92400e', fontSize: 12 }}>
+              {data.autoNote}
+            </div>
+          )}
           <textarea
             style={st.noteArea}
             value={note}
