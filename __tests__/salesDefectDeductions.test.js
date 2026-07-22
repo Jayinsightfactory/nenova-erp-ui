@@ -90,6 +90,8 @@ assert.equal(String(wb.worksheets[0].getCell('D2').value).includes('( 29 )'), tr
 assert.equal(wb.worksheets[0].getCell('B6').value, '테스트거래처');
 assert.equal(wb.worksheets[0].getCell('G6').value, '5단');
 assert.equal(wb.worksheets[0].getCell('H6').value, '✓');
+assert.equal(wb.worksheets[0].getCell('B6').alignment.indent, 1);
+assert.equal(wb.worksheets[0].getRow(6).height >= 25, true);
 
 const formattedExport = formatSalesDefectExportRows([
   { customerName: '그린화원', productName: '카네이션', countryName: '콜롬비아', colorName: '문라이트', quantity: 1 },
