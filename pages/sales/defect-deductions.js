@@ -154,6 +154,21 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  const rematch = async () => {
+    if (!rows.length) return;
+    setSaving(true); setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', {
+        action: 'rematch', year, week, rows,
+      });
+      setRows(data.rows || []);
+      const matched = (data.rows || []).filter((row) => row.custKey && row.prodKey).length;
+      const needsReview = (data.rows || []).filter((row) => row.needsReview).length;
+      setMessage(`공통 매칭 엔진으로 재분석했습니다. 매칭 ${matched}건 · 확인 필요 ${needsReview}건 · 결과를 반영하려면 저장하세요.`);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
   const register = async () => {
     const ids = [...selected].map((i) => rows[i]?.deductionKey).filter(Boolean);
     if (!ids.length) { setError('먼저 저장된 행을 선택하세요.'); return; }
@@ -245,6 +260,7 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
           <button className="btn" onClick={addRow}>빈 행 추가</button>
+          <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           <button className="btn" onClick={printForm} disabled={!rows.length}>인쇄</button>

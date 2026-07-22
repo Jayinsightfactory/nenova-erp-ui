@@ -10,6 +10,8 @@ import {
   ensureSalesDefectTables,
   listDeductions,
   loadLookupData,
+  loadMatchContext,
+  matchSalesDefectRows,
   preflightRegistration,
   registerDeductions,
   saveDraftRows,
@@ -52,6 +54,11 @@ async function handler(req, res) {
           sourceFileName: req.body?.sourceFileName || '',
         });
         return res.status(200).json({ success: true, saved: rows.length, rows });
+      }
+      if (action === 'rematch') {
+        const context = await loadMatchContext();
+        const rows = matchSalesDefectRows(req.body?.rows || [], context);
+        return res.status(200).json({ success: true, rows, persisted: false });
       }
       if (action === 'preflight') {
         const rows = await preflightRegistration({ year, week, rows: req.body?.rows || [] });

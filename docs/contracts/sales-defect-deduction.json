@@ -25,6 +25,12 @@
       "sideEffect": "WebSalesDefectDeduction + History only"
     },
     {
+      "name": "MATCH_PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "공통 붙여넣기 매칭 결과만 반환; DB 원장·Estimate는 변경하지 않음"
+    },
+    {
       "name": "REGISTER_ESTIMATE_DEDUCTION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
