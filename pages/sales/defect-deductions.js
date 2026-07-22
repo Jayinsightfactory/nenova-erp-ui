@@ -289,6 +289,7 @@ export default function SalesDefectDeductionsPage() {
 
       <div className="screenOnly">
       <div className="card defect-grid-card">
+        <div className="defect-grid-scroll">
         <table className="data-table defect-grid" style={{ minWidth: 1558, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 36 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
@@ -313,12 +314,6 @@ export default function SalesDefectDeductionsPage() {
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
-                  {activeSearch?.index === index && activeSearch.kind === 'customer' && <div className="defect-lookup-menu">
-                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
-                      {`${item.CustName} (${item.CustKey})`}
-                    </button>)}
-                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
-                  </div>}
                 </td>
                 <td>
                   <div className="lookup-inline">
@@ -326,12 +321,6 @@ export default function SalesDefectDeductionsPage() {
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>검색</button>
                   </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품목 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품목 선택 필요'}</div>
-                  {activeSearch?.index === index && activeSearch.kind === 'product' && <div className="defect-lookup-menu">
-                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
-                      {`${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}`}
-                    </button>)}
-                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
-                  </div>}
                 </td>
                 <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} /></td>
                 <td><div style={{ display: 'flex', gap: 3 }}><input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} /><input className="input unit" value={valueOf(row, 'sourceUnit') || valueOf(row, 'unit')} placeholder="단위" onChange={(e) => changeText(index, 'sourceUnit', e.target.value)} /></div></td>
@@ -341,10 +330,6 @@ export default function SalesDefectDeductionsPage() {
                     <input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} />
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
                   </div>
-                  {activeSearch?.index === index && activeSearch.kind === 'farm' && <div className="defect-lookup-menu">
-                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>{item.FarmName}</button>)}
-                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
-                  </div>}
                 </td>
                 <td><input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} /></td>
                 <td style={{ whiteSpace: 'nowrap', color: pf?.error ? '#b91c1c' : '#334155' }}>
@@ -357,6 +342,23 @@ export default function SalesDefectDeductionsPage() {
             {!rows.length && <tr><td colSpan="12" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
           </tbody>
         </table>
+        </div>
+        {activeSearch && <div className="defect-lookup-panel">
+          <div className="defect-lookup-title">
+            {activeSearch.kind === 'customer' ? '거래처 검색 결과' : activeSearch.kind === 'product' ? '품목 검색 결과' : '농장 검색 결과'}
+            <span>행 {activeSearch.index + 1} 선택</span>
+          </div>
+          <div className="defect-lookup-options">
+            {lookup.map((item, i) => <button key={i} className="defect-lookup-option" onClick={() => chooseLookup(item)}>
+              {activeSearch.kind === 'customer'
+                ? `${item.CustName} (${item.CustKey})`
+                : activeSearch.kind === 'product'
+                  ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}`
+                  : item.FarmName}
+            </button>)}
+            {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
+          </div>
+        </div>}
       </div>
       </div>
 
@@ -381,7 +383,8 @@ export default function SalesDefectDeductionsPage() {
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
-        .defect-grid-card { padding: 0; overflow: auto; position: relative; max-height: calc(100vh - 250px); min-height: 0; }
+        .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
+        .defect-grid-scroll { max-height: calc(100vh - 250px); overflow: auto; }
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
         .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
@@ -396,7 +399,13 @@ export default function SalesDefectDeductionsPage() {
         .match-ok, .match-warn { font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .match-ok { color: #166534; }
         .match-warn { color: #b45309; }
-        .defect-lookup-menu { position: absolute; top: calc(100% - 1px); left: 0; z-index: 20; width: 360px; max-height: 260px; overflow: auto; background: #fff; border: 1px solid #64748b; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+        .defect-lookup-panel { border-top: 1px solid #64748b; background: #fff; padding: 8px 10px; }
+        .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
+        .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }
+        .defect-lookup-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px; max-height: min(360px, 42vh); overflow: auto; }
+        .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; }
+        .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
+        .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
         .printOnly { display: none; }
         .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
         .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
