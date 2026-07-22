@@ -6,12 +6,47 @@ import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
+import { suggestDisplayName } from '../../lib/displayName';
 import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const usageLabel = (item) => {
   const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
-  return count > 0 ? ` · 사용 ${fmt(count)}회` : '';
+  const mappingCount = Number(item?.MappingCount ?? item?.mappingCount ?? 0);
+  const labels = [];
+  if (count > 0) labels.push(`사용 ${fmt(count)}회`);
+  if (mappingCount > 0) labels.push(`붙여넣기 매칭 ${fmt(mappingCount)}건`);
+  return labels.length ? ` · ${labels.join(' · ')}` : '';
+};
+const productSearchLabel = (item) => {
+  const dbName = item?.ProdName || item?.prodName || '';
+  const displayName = item?.DisplayName || item?.displayName || '';
+  const suggested = item?.SuggestedDisplayName || item?.suggestedDisplayName || suggestDisplayName(dbName);
+  const countryFlower = [item?.CounName || item?.counName, item?.FlowerName || item?.flowerName].filter(Boolean).join(' ');
+  const names = [dbName, displayName, suggested].filter((name, index, all) => name && all.indexOf(name) === index);
+  return [countryFlower, ...names].filter(Boolean).join(' · ');
+};
+const historyJson = (value) => {
+  try { return value ? JSON.parse(value) : null; } catch { return null; }
+};
+const isMatchingHistory = (item) => {
+  if (/매칭|MATCH/i.test(String(item?.ChangeSummary || ''))) return true;
+  const before = historyJson(item?.BeforeJson);
+  const after = historyJson(item?.AfterJson);
+  if (!after) return false;
+  if (!before) return Boolean(after.custKey || after.prodKey);
+  return Number(before.custKey || 0) !== Number(after.custKey || 0)
+    || Number(before.prodKey || 0) !== Number(after.prodKey || 0);
+};
+const matchingHistoryText = (item) => {
+  const summary = String(item?.ChangeSummary || '');
+  if (/매칭|MATCH/i.test(summary)) return summary;
+  const after = historyJson(item?.AfterJson);
+  if (!after?.prodKey && !after?.custKey) return summary;
+  const product = [after.countryName, after.matchedFlowerName || after.productName, after.matchedProductDbName || after.matchedProductName]
+    .filter(Boolean).join(' ');
+  const customer = after.customerName ? `거래처 ${after.customerName} (#${after.custKey || '-'})` : '';
+  return `${summary}${customer || product ? ` · ${customer}${customer && product ? ' · ' : ''}${product ? `품목 ${product} (#${after.prodKey || '-'})` : ''}` : ''}`;
 };
 const UNIT_OPTIONS = [
   { value: '단', label: '단' },
@@ -24,6 +59,7 @@ const emptyRow = () => ({
   productName: '', prodKey: null,
   colorName: '', quantity: '', sourceUnit: '단', unit: '단',
   matchedProductName: '', matchedProductDbName: '',
+  countryName: '', matchedFlowerName: '',
   creditApplied: false, farmName: '', farmKey: null, note: '',
   status: 'DRAFT', estimateKey: null, estimateCost: null,
   customerSuggestions: [], productSuggestions: [],
@@ -55,7 +91,7 @@ export default function SalesDefectDeductionsPage() {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -172,7 +208,15 @@ export default function SalesDefectDeductionsPage() {
     const reset = field === 'customerName'
       ? { custKey: null, customerSuggestions: [] }
       : field === 'productName' || field === 'colorName'
-        ? { prodKey: null, productSuggestions: [], estimateCost: null, matchedProductName: '', matchedProductDbName: '' }
+        ? {
+          prodKey: null,
+          productSuggestions: [],
+          estimateCost: null,
+          matchedProductName: '',
+          matchedProductDbName: '',
+          countryName: '',
+          matchedFlowerName: '',
+        }
         : field === 'farmName' ? { farmKey: null } : {};
     updateRow(index, { [field]: value, ...reset, status: 'DRAFT' });
     setPreflight((current) => {
@@ -264,7 +308,11 @@ export default function SalesDefectDeductionsPage() {
 
   const handleLookupChange = (index, kind, field, value) => {
     changeText(index, field, value);
-    if (String(value || '').trim()) openLookup(index, kind, value);
+    const current = rows[index] || {};
+    const term = kind === 'product'
+      ? `${field === 'productName' ? value : current.productName || ''} ${field === 'colorName' ? value : current.colorName || ''}`.trim()
+      : value;
+    if (String(term || '').trim()) openLookup(index, kind, term);
     else if (activeSearch?.index === index && activeSearch?.kind === kind) {
       setLookup([]);
       setActiveSearch(null);
@@ -286,6 +334,8 @@ export default function SalesDefectDeductionsPage() {
         prodKey: Number(item.ProdKey),
         matchedProductName: item.DisplayName || item.ProdName || '',
         matchedProductDbName: item.ProdName || '',
+        countryName: item.CounName || '',
+        matchedFlowerName: item.FlowerName || '',
         unit: item.EstUnit || item.OutUnit || '',
         productSuggestions: [],
       });
@@ -312,6 +362,8 @@ export default function SalesDefectDeductionsPage() {
       prodKey: Number(item.prodKey),
       matchedProductName: displayName,
       matchedProductDbName: item.prodName || '',
+      countryName: item.counName || '',
+      matchedFlowerName: item.flowerName || '',
       unit: item.outUnit || row.unit || row.sourceUnit || '',
       productSuggestions: [],
     });
@@ -336,6 +388,8 @@ export default function SalesDefectDeductionsPage() {
         prodKey: source.prodKey || null,
         matchedProductName: source.matchedProductName || '',
         matchedProductDbName: source.matchedProductDbName || '',
+        countryName: source.countryName || '',
+        matchedFlowerName: source.matchedFlowerName || '',
         sourceUnit: source.sourceUnit || source.unit || '',
         unit: source.unit || source.sourceUnit || '',
       } : {}),
@@ -501,6 +555,7 @@ export default function SalesDefectDeductionsPage() {
   const statusText = (row) => row.status === 'REGISTERED'
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
     : row.status === 'DELETED' ? '삭제됨' : row.deductionKey ? '웹 저장' : '미저장';
+  const matchingHistory = history.filter(isMatchingHistory);
 
   const printRows = Array.from({ length: Math.max(rows.length, 39) }, (_, index) => rows[index] || null);
   const printQuantity = (row) => {
@@ -580,10 +635,15 @@ export default function SalesDefectDeductionsPage() {
       {showHistory && (
         <div className="screenOnly">
         <div className="card" style={{ padding: 10, marginBottom: 10, maxHeight: 260, overflow: 'auto' }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>수정 이력 — 거래처명/품명/수량 변경내용 포함</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>매칭·수정 이력 — 거래처/품목 매칭, 수량, 품명 변경내용</div>
           <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>작업</th><th>변경내용</th></tr></thead><tbody>
             {history.map((h) => <tr key={h.HistoryKey}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{h.ActionType}</td><td>{h.ChangeSummary}</td></tr>)}
             {!history.length && <tr><td colSpan="4">이력이 없습니다.</td></tr>}
+          </tbody></table>
+          <div style={{ fontWeight: 700, margin: '12px 0 6px', color: '#1e3a8a' }}>품목·거래처 매칭 이력</div>
+          <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>매칭 변경내용</th></tr></thead><tbody>
+            {matchingHistory.map((h) => <tr key={`match-${h.HistoryKey}`}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{matchingHistoryText(h)}</td></tr>)}
+            {!matchingHistory.length && <tr><td colSpan="3">품목·거래처 매칭 이력이 없습니다.</td></tr>}
           </tbody></table>
         </div>
         </div>
@@ -632,9 +692,11 @@ export default function SalesDefectDeductionsPage() {
                 <td>
                   <div className="lookup-inline">
                     <input data-defect-field={`productName-${index}`} className="input cell" value={valueOf(row, 'productName')} onChange={(e) => handleLookupChange(index, 'product', 'productName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${e.currentTarget.value} ${row.colorName || ''}`.trim(), 'colorName')} />
-                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>품종</button>
                   </div>
-                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
+                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey
+                    ? `✓ 전산 매칭 ${[row.countryName, row.matchedFlowerName || row.productName].filter(Boolean).join(' ')} · ${row.matchedProductDbName || row.matchedProductName || row.productName} (#${row.prodKey})`
+                    : '미매칭: 품종·품명 매칭 필요'}</div>
                   {!row.prodKey && (row.productSuggestions || []).length > 0 && (
                     <div className="defect-inline-suggestions">
                       {(row.productSuggestions || []).slice(0, 3).map((item) => <button
@@ -644,7 +706,7 @@ export default function SalesDefectDeductionsPage() {
                         className="defect-inline-suggestion"
                         title={`DB 후보 ${item.score}점${usageLabel(item)}`}
                         onClick={() => chooseProductSuggestion(index, item)}>
-                        {item.counName ? `${item.counName} ` : ''}{item.displayName || item.prodName}
+                        {productSearchLabel(item)}{usageLabel(item)}
                       </button>)}
                     </div>
                   )}
@@ -652,7 +714,7 @@ export default function SalesDefectDeductionsPage() {
                 <td>
                   <div className="lookup-inline">
                     <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} />
-                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.colorName)}>품명</button>
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>품명</button>
                   </div>
                 </td>
                 <td>
@@ -680,12 +742,12 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: row.status === 'REGISTERED' ? '#166534' : '#64748b' }}>{statusText(row)}</span></td>
               </tr>;
             })}
-            {!rows.length && <tr><td colSpan="12" className="empty-row-cell">
+            <tr><td colSpan="12" className="empty-row-cell">
               <div className="empty-row-content">
-                <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>
+                {!rows.length && <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>}
                 <button type="button" className="btn btn-primary" onClick={addRow}>＋ 빈 행 추가</button>
               </div>
-            </td></tr>}
+            </td></tr>
           </tbody>
         </table>
         </div>
@@ -703,7 +765,7 @@ export default function SalesDefectDeductionsPage() {
               {activeSearch.kind === 'customer'
                 ? `${item.CustName} (${item.CustKey})${usageLabel(item)}`
                 : activeSearch.kind === 'product'
-                  ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}${usageLabel(item)}`
+                  ? `${productSearchLabel(item)}${usageLabel(item)}`
                   : item.FarmName}
             </button>)}
             {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
@@ -765,7 +827,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-search { display: flex; gap: 6px; margin-bottom: 7px; }
         .defect-lookup-search .input { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
         .defect-lookup-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px; max-height: min(360px, 42vh); overflow: auto; }
-        .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; }
+        .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
         .defect-lookup-option.is-active { background: #dbeafe; border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }

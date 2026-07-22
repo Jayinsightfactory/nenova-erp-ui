@@ -18,7 +18,7 @@ import {
   buildSalesDefectWorkbook,
   formatSalesDefectExportRows,
 } from '../lib/salesDefectDeductionExcel.js';
-import { matchImportRows, buildProductSuggestions } from '../lib/orderImportMatch.js';
+import { matchImportRows, buildProductMappingStats, buildProductSuggestions } from '../lib/orderImportMatch.js';
 import { resolveImportCustomer } from '../lib/orderImportCustomerMatch.js';
 import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
 
@@ -91,6 +91,7 @@ assert.equal(String(wb.worksheets[0].getCell('D2').value).includes('( 29 )'), tr
 assert.equal(wb.worksheets[0].getCell('B6').value, '테스트거래처');
 assert.equal(wb.worksheets[0].getCell('G6').value, '5단');
 assert.equal(wb.worksheets[0].getCell('H6').value, '✓');
+assert.equal(wb.worksheets[0].getColumn('F').width, 37.5, '엑셀 품명 열은 원본 대비 2.5배 폭이어야 한다.');
 assert.equal(wb.worksheets[0].getCell('B6').alignment.horizontal, 'center');
 assert.ok(!wb.worksheets[0].getCell('B6').alignment.indent || wb.worksheets[0].getCell('B6').alignment.indent === 0);
 assert.equal(wb.worksheets[0].getRow(6).height >= 25, true);
@@ -99,12 +100,14 @@ const formattedExport = formatSalesDefectExportRows([
   { customerName: '그린화원', productName: '카네이션', countryName: '콜롬비아', colorName: '문라이트', quantity: 1 },
   { customerName: '그린화원', productName: '카네이션', countryName: '콜롬비아', colorName: '노비아', quantity: 2 },
   { customerName: '그린화원', productName: '장미', countryName: '콜롬비아', colorName: '화이트', quantity: 3 },
+  { customerName: '그린화원', productName: '장미', countryName: '중국', colorName: '프라우드', quantity: 1 },
   { customerName: '다른화원', productName: '카네이션', countryName: '네덜란드', colorName: '화이트', quantity: 4 },
 ]);
 assert.deepEqual(formattedExport.map((row) => row.blank ? 'blank' : [row.customerName, row.productName]), [
   ['그린화원', '콜롬비아 카네이션'],
   ['', ''],
   ['', '콜롬비아 장미'],
+  ['', '중국 장미'],
   'blank',
   ['다른화원', '네덜란드 카네이션'],
 ]);
@@ -128,6 +131,23 @@ const popularMoonLight = buildProductSuggestions('MOON LIGHT', popularityProduct
   minScore: 0,
 });
 assert.equal(popularMoonLight[0].prodKey, 501, '동점 품목은 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
+const countryRankedProducts = [
+  { ProdKey: 701, ProdName: 'CARNATION Moon Light', DisplayName: null, FlowerName: '카네이션', CounName: '콜롬비아' },
+  { ProdKey: 702, ProdName: 'Carnation CHINA / 문라이트 (Moonlight)', DisplayName: null, FlowerName: '카네이션', CounName: '중국' },
+];
+const countryRanked = buildProductSuggestions('문라이트', countryRankedProducts, {
+  usageByProdKey: new Map([[701, { usageCount: 2298 }], [702, { usageCount: 2 }]]),
+  mappingByProdKey: buildProductMappingStats({ '콜롬비아 카네이션 문라이트': { prodKey: 701 } }),
+  limit: 2,
+  minScore: 20,
+});
+assert.equal(countryRanked[0].prodKey, 701, '한글 별칭 검색은 실제 빈출 콜롬비아 카네이션을 먼저 보여야 한다.');
+const explicitChina = buildProductSuggestions('중국 문라이트', countryRankedProducts, {
+  usageByProdKey: new Map([[701, { usageCount: 2298 }], [702, { usageCount: 2 }]]),
+  limit: 2,
+  minScore: 20,
+});
+assert.equal(explicitChina[0].prodKey, 702, '중국을 명시하면 콜롬비아 사용량이 중국 후보를 앞지르면 안 된다.');
 const popularCustomer = resolveImportCustomer('그린', [
   { CustKey: 601, CustName: '그린화원' },
   { CustKey: 602, CustName: '그린상사' },
@@ -190,5 +210,6 @@ const defectSelected = matchSalesDefectRows([{
 assert.equal(defectSelected[0].prodKey, 417, '사용자가 선택한 DB 품목 ProdKey는 보존해야 한다.');
 assert.equal(defectSelected[0].unit, pasteMatch.unit, '사용자가 선택한 DB 품목 단위를 적용해야 한다.');
 assert.equal(defectSelected[0].matchedProductDbName, 'CARNATION Kaori', '선택 후에만 DB의 정확한 ProdName을 표시해야 한다.');
+assert.equal(defectSelected[0].countryName, '콜롬비아', '선택된 Product.CounName을 국가 표시값으로 보존해야 한다.');
 
 console.log('sales defect deduction tests passed');
