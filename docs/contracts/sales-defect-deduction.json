@@ -9,6 +9,11 @@
     "lib/salesDefectDeductionCore.js",
     "lib/salesDefectDeductions.js",
     "lib/salesDefectDeductionExcel.js",
+    "lib/orderImportMatch.js",
+    "lib/orderImportUnits.js",
+    "lib/orderImportCustomerMatch.js",
+    "lib/customerMappings.js",
+    "pages/api/orders/parse-paste.js",
     "__tests__/salesDefectDeductions.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -51,6 +56,7 @@
   "writes": ["WebSalesDefectDeduction", "WebSalesDefectDeductionHistory", "Estimate"],
   "preserves": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentMaster.isFix", "Product.Stock", "WebProfitReport"],
   "sideEffects": {
+    "matchingEngine": "붙여넣기 주문등록과 동일한 orderImportMatch + 저장 거래처/품목 매핑 + 단위 학습 데이터",
     "estimateQuantity": "negative absolute input quantity",
     "estimateAmount": "round(quantity * previous-week-distribution-cost / 1.1, 0)",
     "estimateVat": "quantity * cost - amount",

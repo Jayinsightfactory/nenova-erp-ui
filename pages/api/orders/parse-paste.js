@@ -13,15 +13,11 @@ function getClient() {
   return _client;
 }
 
-import { defaultUnit, normalizeOrderUnit } from '../../../lib/orderUtils';
-import { loadMappings, normalizeToken, findMappingFuzzy, detectFallbackProdKey } from '../../../lib/parseMappings';
-import { loadCustomerMappings, findCustomerMapping } from '../../../lib/customerMappings';
-import { scoreMatch } from '../../../lib/displayName';
-import {
-  filterRoseCandidatesByCountry,
-  isChinaRoseProduct,
-  wantsChinaRoseInput,
-} from '../../../lib/parsePasteRoseCountry';
+import { loadMappings } from '../../../lib/parseMappings';
+import { loadCustomerMappings } from '../../../lib/customerMappings';
+import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
+import { matchImportRows } from '../../../lib/orderImportMatch';
+import { loadImportUnits } from '../../../lib/orderImportUnits';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -511,107 +507,6 @@ function normalizeAction(action, inputName = '') {
   return '추가';
 }
 
-function extractCm(text) {
-  const m = String(text || '').match(/(\d{2})\s*(?:cm|센치)/i);
-  return m ? Number(m[1]) : null;
-}
-
-function productCm(prod) {
-  return extractCm(`${prod?.ProdName || ''} ${prod?.DisplayName || ''}`);
-}
-
-function isRoseProduct(prod) {
-  const text = `${prod?.FlowerName || ''} ${prod?.ProdName || ''} ${prod?.DisplayName || ''}`;
-  return /(장미|rose)/i.test(text);
-}
-
-function isMixBoxName(prod) {
-  const text = `${prod?.ProdName || ''} ${prod?.DisplayName || ''}`.toLowerCase();
-  return /믹스\s*박스|mix\s*box|mixbox/.test(text);
-}
-
-function inputWantsMixBox(inputName) {
-  return /믹스\s*박스|믹스|mix\s*box|mixbox|mixed/i.test(String(inputName || ''));
-}
-
-function isMixBoxMismatch(inputName, prod) {
-  return isMixBoxName(prod) && !inputWantsMixBox(inputName);
-}
-
-function isFreightOrChargeProduct(prod) {
-  const text = `${prod?.ProdName || ''} ${prod?.DisplayName || ''}`.toLowerCase();
-  return /운송료|운송비|항공료|항공비|freight|shipping|charge/.test(text);
-}
-
-function inputWantsFreight(inputName) {
-  return /운송료|운송비|항공료|항공비|freight|shipping|charge/i.test(String(inputName || ''));
-}
-
-function isFreightMismatch(inputName, prod) {
-  return isFreightOrChargeProduct(prod) && !inputWantsFreight(inputName);
-}
-
-function resolveRoseCandidate(item, chosenProd, allProducts) {
-  const input = item?.inputName || item?.prodName || item?.displayName || '';
-  const isRoseInput = /(장미|rose)/i.test(input) || isRoseProduct(chosenProd);
-  if (!isRoseInput) return { prod: chosenProd, ambiguousCountry: false, reason: null };
-
-  const explicitCm = extractCm(input);
-  let candidates = allProducts
-    .filter(isRoseProduct)
-    .filter(prod => !isFreightMismatch(input, prod))
-    .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
-    .filter(x => x.score >= 70)
-    .sort((a, b) => b.score - a.score);
-
-  if (explicitCm) {
-    const lengthMatches = candidates.filter(x => productCm(x.prod) === explicitCm);
-    if (lengthMatches.length) candidates = lengthMatches;
-  } else {
-    // 장미 길이 미기재 시 운영 기본값은 50cm. 40cm 자동 매칭을 방지한다.
-    const cm50 = candidates.filter(x => productCm(x.prod) === 50);
-    if (cm50.length) candidates = cm50;
-  }
-
-  if (candidates.length === 0) {
-    return { prod: chosenProd, ambiguousCountry: false, reason: null };
-  }
-
-  const { candidates: countryFiltered } = filterRoseCandidatesByCountry(input, candidates);
-  if (countryFiltered.length) candidates = countryFiltered;
-
-  // 중국 명시인데 중국 품목이 없으면 수동 확인
-  if (wantsChinaRoseInput(input) && chosenProd && !isChinaRoseProduct(chosenProd)) {
-    const chinaPick = candidates.find((x) => isChinaRoseProduct(x.prod));
-    if (!chinaPick && !isChinaRoseProduct(candidates[0]?.prod)) {
-      return {
-        prod: null,
-        ambiguousCountry: true,
-        reason: '중국 장미로 입력됐으나 매칭 품목이 없습니다',
-      };
-    }
-  }
-
-  return { prod: candidates[0].prod, ambiguousCountry: false, reason: null };
-}
-
-function findBestProductCandidate(inputName, allProducts) {
-  const input = String(inputName || '').trim();
-  if (!input) return null;
-  const scored = allProducts
-    .filter(prod => !isMixBoxMismatch(input, prod))
-    .filter(prod => !isFreightMismatch(input, prod))
-    .map(prod => ({ prod, score: scoreMatch(input, prod, '') }))
-    .filter(x => x.score >= 72)
-    .sort((a, b) => b.score - a.score);
-  if (scored.length === 0) return null;
-  const topScore = scored[0].score;
-  const nearTop = scored.filter(x => x.score >= topScore - 3);
-  const nearKeys = new Set(nearTop.map(x => Number(x.prod.ProdKey)));
-  if (nearKeys.size > 1) return null;
-  return scored[0].prod;
-}
-
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text } = req.body;
@@ -647,7 +542,6 @@ export default withAuth(async function handler(req, res) {
     const products  = prodRes.recordset;
     const allProducts = allProdRes.recordset;
     const productByKey = new Map(allProducts.map(p => [Number(p.ProdKey), p]));
-    const customerByKey = new Map(customers.map(c => [Number(c.CustKey), c]));
     const savedCustomerMappings = loadCustomerMappings(true);
 
     // 품목별 이력 단위 맵 빌드
@@ -815,104 +709,51 @@ Caroline | 2
 
     // 거래처·품목 보강
     const orders = mergedParsedOrders.map(order => {
-      let custMatch = null;
-      const normCust = s => String(s || '').replace(/\s+/g, '').toLowerCase();
-      const savedCustMap = findCustomerMapping(order.custName, savedCustomerMappings);
-      if (savedCustMap?.value?.custKey) {
-        custMatch = customerByKey.get(Number(savedCustMap.value.custKey)) || null;
-      }
-      if (!custMatch && order.custKey) {
-        custMatch = customers.find(c => c.CustKey === order.custKey) || null;
-      }
-      if (!custMatch && order.custName) {
-        const orderCust = normCust(order.custName);
-        const candidates = customers.filter(c => {
-          const custName = normCust(c.CustName);
-          return custName === orderCust || custName.includes(orderCust) || orderCust.includes(custName);
-        });
-        candidates.sort((a, b) =>
-          Math.abs(normCust(a.CustName).length - orderCust.length) -
-          Math.abs(normCust(b.CustName).length - orderCust.length)
-        );
-        custMatch = candidates[0] || null;
-      }
+      const customerResolution = resolveImportCustomer(order.custName, customers, {
+        inputCustKey: order.custKey,
+        savedMappings: savedCustomerMappings,
+      });
+      const custMatch = customerResolution.customer;
+      const savedCustMap = customerResolution.fromMapping
+        ? { key: customerResolution.mappingKey }
+        : null;
 
-      // 매번 파일에서 새로 로드 (학습 후 재배포 없이 즉시 반영)
-      const savedMappings = loadMappings(true);
-      const items = (order.items || []).map(item => {
-        // 1순위: 서버 저장 매핑 (사용자 학습 데이터) — 정확 매치 + fuzzy 부분 매치
-        const fuzzyMatch = findMappingFuzzy(item.inputName, savedMappings);
-        const savedMap = fuzzyMatch ? fuzzyMatch.value : null;
-        const savedMappedProd = savedMap ? productByKey.get(Number(savedMap.prodKey)) : null;
-        const savedFallbackInfo = savedMappedProd
-          ? detectFallbackProdKey(savedMappedProd.ProdKey, fuzzyMatch?.key)
-          : { isFallback: false, count: 0 };
-        const legacyFallbackMapping = !!fuzzyMatch && savedMap?.auto === true && savedFallbackInfo.isFallback;
-        const mappedProd = (
-          legacyFallbackMapping ||
-          isMixBoxMismatch(item.inputName, savedMappedProd) ||
-          isFreightMismatch(item.inputName, savedMappedProd)
-        ) ? null : savedMappedProd;
-
-        // 2순위: Claude 파싱 결과
-        const claudeProd = item.prodKey ? productByKey.get(Number(item.prodKey)) : null;
-        const scoredProd = (!mappedProd && !claudeProd) ? findBestProductCandidate(item.inputName, allProducts) : null;
-
-        const resolved = resolveRoseCandidate(item, mappedProd || claudeProd || scoredProd, allProducts);
-        const prod = resolved.prod;
-        const unit = item.unitExplicit
-          ? normalizeOrderUnit(item.unit, '박스')
-          : defaultUnit(prod, item.unit, prodUnitMap);
-        // confidence 점수 계산
-        // - 학습매핑 exact: 1.0
-        // - 학습매핑 fuzzy: fuzzyMatch.score (0~1)
-        // - LLM 매칭: 0.6
-        // - 매칭 실패: 0.0
-        let confidence = 0;
-        let confidenceLabel = 'none';
-        if (resolved.ambiguousCountry) {
-          confidence = 0;
-          confidenceLabel = 'none';
-        } else if (mappedProd) {
-          confidence = fuzzyMatch?.score ?? 1;
-          confidenceLabel = fuzzyMatch?.matchType === 'exact' ? 'high' : 'medium';
-        } else if (claudeProd) {
-          confidence = 0.6;
-          confidenceLabel = 'medium';
-        } else if (scoredProd) {
-          confidence = 0.55;
-          confidenceLabel = 'medium';
-        }
-        // fallback 의심 검사: 매칭된 prodKey 가 너무 많은 입력에 매핑되어 있나?
-        const fallbackInfo = prod ? detectFallbackProdKey(prod.ProdKey) : { isFallback: false, count: 0 };
-        const mappingLooksSpecific = !!fuzzyMatch && !legacyFallbackMapping && (
-          fuzzyMatch.matchType === 'exact' ||
-          fuzzyMatch.matchType === 'compact' ||
-          Number(fuzzyMatch.score || 0) >= 0.5
-        );
-        if (fallbackInfo.isFallback && !mappingLooksSpecific) {
-          confidence = Math.min(confidence, 0.4);
-          confidenceLabel = 'low';
-        }
+      // 매번 파일에서 새로 로드 (학습 후 재배포 없이 즉시 반영).
+      // 품목 매칭은 불량차감/이미지·엑셀 업로드와 같은 공통 엔진을 사용한다.
+      const sharedMatches = matchImportRows((order.items || []).map((item, index) => ({
+        rowNo: index + 1,
+        inputName: item.inputName,
+        qty: item.qty || 1,
+        unit: item.unitExplicit ? item.unit : '',
+        preferredProdKey: item.prodKey || null,
+      })), {
+        allProducts,
+        productByKey,
+        prodUnitMap,
+        savedMappings: loadMappings(true),
+        unitCatalog: loadImportUnits(true),
+      });
+      const items = (order.items || []).map((item, index) => {
+        const matched = sharedMatches[index] || {};
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
-          unit,
+          unit: matched.unit || item.unit || '박스',
           action:      normalizeAction(item.action, item.inputName),
-          prodKey:     prod?.ProdKey  || null,
-          prodName:    prod?.ProdName || item.prodName || null,
-          displayName: prod?.DisplayName || item.displayName || null,
-          flowerName:  prod?.FlowerName  || null,
-          counName:    prod?.CounName    || null,
-          fromMapping: !!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey),
-          mappingMatchType: (!!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey)) ? (fuzzyMatch?.matchType || null) : null,
-          mappingMatchKey:  (!!mappedProd && Number(mappedProd.ProdKey) === Number(prod?.ProdKey)) ? (fuzzyMatch?.key || null) : null,
-          ambiguousCountry: resolved.ambiguousCountry,
-          ambiguityReason:  resolved.reason,
-          confidence,                       // 0.0 ~ 1.0
-          confidenceLabel,                  // 'high' | 'medium' | 'low' | 'none'
-          fallbackSuspect: fallbackInfo.isFallback && !mappingLooksSpecific,  // 같은 prodKey 가 N+개 입력에 매핑되어 있으면 true
-          fallbackCount:   fallbackInfo.count,
+          prodKey:     matched.prodKey || item.prodKey || null,
+          prodName:    matched.prodName || item.prodName || null,
+          displayName: matched.displayName || item.displayName || null,
+          flowerName:  matched.flowerName || null,
+          counName:    matched.counName || null,
+          fromMapping: Boolean(matched.fromMapping),
+          mappingMatchType: matched.mappingMatchType || null,
+          mappingMatchKey: matched.mappingMatchKey || null,
+          ambiguousCountry: Boolean(matched.ambiguousCountry),
+          ambiguityReason:  matched.ambiguityReason || null,
+          confidence: matched.confidence || 0,
+          confidenceLabel: matched.confidenceLabel || 'none',
+          fallbackSuspect: Boolean(matched.fallbackSuspect),
+          fallbackCount:   matched.fallbackCount || 0,
         };
       });
 
