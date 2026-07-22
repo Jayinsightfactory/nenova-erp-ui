@@ -8,6 +8,7 @@ import {
   previousParentScope,
   normalizeDeductionRow,
   mergeSavedDeductionRows,
+  partitionSelectedDeductionRows,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import {
@@ -42,6 +43,13 @@ const savedNewRows = mergeSavedDeductionRows(
   ],
 );
 assert.deepEqual(savedNewRows.map((row) => row.deductionKey), [101, 102]);
+assert.deepEqual(
+  partitionSelectedDeductionRows(
+    [{ deductionKey: 101 }, { deductionKey: null }, { deductionKey: 102 }],
+    new Set([0, 1]),
+  ),
+  { indexes: [0, 1], storedKeys: [101], unsavedIndexes: [1] },
+);
 assert.deepEqual(
   deductionManagerIdentity({ CreatedBy: 'jkim', CreatedByName: '김담당' }),
   { id: 'jkim', name: '김담당' },
