@@ -9,6 +9,10 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
+const usageLabel = (item) => {
+  const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
+  return count > 0 ? ` · 사용 ${fmt(count)}회` : '';
+};
 const UNIT_OPTIONS = [
   { value: '단', label: '단' },
   { value: '박스', label: '박스' },
@@ -601,7 +605,7 @@ export default function SalesDefectDeductionsPage() {
                         type="button"
                         tabIndex={-1}
                         className="defect-inline-suggestion"
-                        title={`DB 후보 ${item.score}점`}
+                        title={`DB 후보 ${item.score}점${usageLabel(item)}`}
                         onClick={() => chooseProductSuggestion(index, item)}>
                         {item.counName ? `${item.counName} ` : ''}{item.displayName || item.prodName}
                       </button>)}
@@ -655,9 +659,9 @@ export default function SalesDefectDeductionsPage() {
           <div className="defect-lookup-options">
             {lookup.map((item, i) => <button key={i} tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
               {activeSearch.kind === 'customer'
-                ? `${item.CustName} (${item.CustKey})`
+                ? `${item.CustName} (${item.CustKey})${usageLabel(item)}`
                 : activeSearch.kind === 'product'
-                  ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}`
+                  ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}${usageLabel(item)}`
                   : item.FarmName}
             </button>)}
             {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
