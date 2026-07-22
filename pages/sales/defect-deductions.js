@@ -6,7 +6,7 @@ import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
-import { mergeSavedDeductionRows } from '../../lib/salesDefectDeductionCore';
+import { mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const UNIT_OPTIONS = [
@@ -397,13 +397,25 @@ export default function SalesDefectDeductionsPage() {
   }, [load]);
 
   const remove = async () => {
-    const ids = [...selected].map((i) => rows[i]?.deductionKey).filter(Boolean);
-    if (!ids.length) { setError('삭제할 저장 행을 선택하세요.'); return; }
-    if (!window.confirm('선택한 원장과 연결된 견적서 차감행을 삭제하고 이력으로 남길까요?')) return;
+    const selectedRows = partitionSelectedDeductionRows(rows, selected);
+    const ids = selectedRows.storedKeys;
+    if (!ids.length) {
+      if (!selectedRows.unsavedIndexes.length) { setError('삭제할 행을 선택하세요.'); return; }
+      if (!window.confirm('선택한 미저장 입력행을 화면에서 삭제할까요?')) return;
+      setRows((current) => current.filter((_, index) => !selected.has(index)));
+      setSelected(new Set());
+      setMessage(`${selectedRows.unsavedIndexes.length}건의 미저장 입력행을 삭제했습니다.`);
+      setError('');
+      return;
+    }
+    const unsavedMessage = selectedRows.unsavedIndexes.length
+      ? `\n미저장 입력행 ${selectedRows.unsavedIndexes.length}건도 함께 화면에서 제거됩니다.`
+      : '';
+    if (!window.confirm(`선택한 저장 원장 ${ids.length}건과 연결된 견적서 차감행을 삭제하고 이력으로 남길까요?${unsavedMessage}`)) return;
     setSaving(true); setError('');
     try {
       await apiDelete('/api/sales/defect-deductions', { year, week, ids });
-      setMessage('삭제 처리 완료. 변경 이력은 보존되었습니다.');
+      setMessage(`저장 원장 ${ids.length}건 삭제 처리 완료. 변경 이력은 보존되었습니다.`);
       await load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
