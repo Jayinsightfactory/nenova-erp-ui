@@ -524,20 +524,28 @@ export default function SalesDefectDeductionsPage() {
         <div className="defect-grid-scroll">
         <table className="data-table defect-grid" style={{ minWidth: 1558, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 36 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
+            <col style={{ width: 58 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
             <col style={{ width: 235 }} /><col style={{ width: 235 }} /><col style={{ width: 115 }} />
             <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 170 }} />
             <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 146 }} />
           </colgroup>
           <thead><tr>
-            <th className="defect-header"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
+            <th className="defect-header defect-select-cell">
+              <label className="defect-select-hit" title="전체 선택">
+                <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} />
+              </label>
+            </th>
             <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
               const pf = row.deductionKey ? preflight[row.deductionKey] : null;
               return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
-                <td><input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} /></td>
+                <td className="defect-select-cell">
+                  <label className="defect-select-hit" title={`${index + 1}번 행 선택`}>
+                    <input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} />
+                  </label>
+                </td>
                 <td>{index + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
@@ -642,6 +650,9 @@ export default function SalesDefectDeductionsPage() {
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
         .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
+        .defect-select-cell { width: 58px; min-width: 58px; padding: 3px !important; text-align: center; vertical-align: middle !important; }
+        .defect-select-hit { display: inline-flex; width: 46px; height: 42px; align-items: center; justify-content: center; cursor: pointer; }
+        .defect-select-hit input[type="checkbox"] { width: 22px; height: 22px; margin: 0; cursor: pointer; accent-color: #2563eb; }
         .cell { min-width: 100px; width: 100%; min-height: 30px; box-sizing: border-box; font-size: 13px; }
         .lookup-inline { display: flex; align-items: center; gap: 4px; width: 100%; }
         .lookup-inline .cell { flex: 1 1 auto; min-width: 0; }
