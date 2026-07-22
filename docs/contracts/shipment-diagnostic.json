@@ -1,0 +1,62 @@
+{
+  "id": "shipment-diagnostic",
+  "title": "nenova.exe 출고 진단·분배 연도 스코프 계약",
+  "scope": [
+    "pages/api/shipment/exe-errors.js",
+    "pages/shipment/exe-errors.js",
+    "pages/api/shipment/distribute.js",
+    "pages/api/shipment/distribute-sp.js",
+    "lib/shipmentProdGroups.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "DIAGNOSTIC_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DISTRIBUTION_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DISTRIBUTION_WRITE_SCOPE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026에 같은 OrderWeek가 있어도 진단·분배 조회·확정검사·사후검증은 선택한 OrderYear만 읽고 쓴다. 다른 연도 후보는 별도로 표시한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentExeErrorsContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList",
+      "grdViewShipment_FocusedRowChanged",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ShipmentHistory",
+      "SystemActionLog"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
