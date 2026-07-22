@@ -272,6 +272,9 @@ export default function SalesDefectDeductionsPage() {
     setActiveSearch(null);
     setLookupQuery('');
     setLookupActiveIndex(-1);
+    if (kind === 'customer' || kind === 'product') {
+      setMessage('검색 매칭을 선택했습니다. 저장 버튼을 눌러 전산 매칭값과 매칭 이력을 확정하세요.');
+    }
     if (kind === 'customer') focusField(index, 'productName');
     else if (kind === 'product') focusField(index, 'colorName');
   };
@@ -288,6 +291,7 @@ export default function SalesDefectDeductionsPage() {
       unit: item.outUnit || row.unit || row.sourceUnit || '',
       productSuggestions: [],
     });
+    setMessage('DB 품목 매칭을 선택했습니다. 저장 버튼을 눌러 전산 매칭값과 매칭 이력을 확정하세요.');
   };
 
   const addRow = () => setRows((current) => [...current, emptyRow()]);
