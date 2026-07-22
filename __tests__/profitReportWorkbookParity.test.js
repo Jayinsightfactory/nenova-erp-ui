@@ -21,6 +21,7 @@ async function main() {
   } = await import('../lib/customsForwarding.js');
   const { computeAutoEndingStock, computeProfitRow, computeProfitTotals } = await import('../lib/profitReportCalc.js');
   const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
+  const { formatUnclassifiedNote, composeProfitReportNote } = await import('../lib/profitReportNotes.js');
 
   console.log('=== 22~26차 공통 콜롬비아 배부계수 ===');
   check('장미 박스당 무게 = 7', RATE_DEFAULTS.BoxWeight_콜롬비아장미 === 7);
@@ -118,6 +119,16 @@ async function main() {
   check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && pageSource.includes('if (dirty) await save()'));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));
   check('관세·선율 분할 입력칸은 금액 전체가 보이도록 가로 폭 확보', customsPanelSource.includes('minWidth: 235') && customsPanelSource.includes('minWidth: 1500') && customsPanelSource.includes('splitInput: { width: 68'));
+  check('통관비 숫자 입력은 엔터로 다음 입력칸 이동', customsPanelSource.includes('focusNextCustomsInput') && customsPanelSource.includes("onKeyDown={focusNextCustomsInput}"));
+  check('월드운송료는 부가세 제외값을 화면에 표시', customsPanelSource.includes('vatInclusiveToNet') && customsPanelSource.includes('vatNetToInclusive'));
+  check('기타 미분류 품목은 자동 비고·엑셀에 포함', reportSource.includes('unclassifiedDetailsByCategory') && reportApiSource.includes('composeProfitReportNote') && pageSource.includes('data.autoNote'));
+
+  const autoUnclassifiedNote = formatUnclassifiedNote([
+    { source: '입고', country: '미상', flower: '미상', product: '테스트 품목', quantity: 12, amount: 3456 },
+    { source: '입고', country: '미상', flower: '미상', product: '테스트 품목', quantity: 3, amount: 444 },
+  ]);
+  check('미분류 비고에 원천·국가·품종·품명·합계가 표시', autoUnclassifiedNote.includes('입고: 미상 / 미상 / 테스트 품목') && autoUnclassifiedNote.includes('수량 15') && autoUnclassifiedNote.includes('금액 3,900'));
+  check('사용자 비고와 자동 미분류 비고가 함께 보존', composeProfitReportNote('사용자 메모', autoUnclassifiedNote).includes('사용자 메모') && composeProfitReportNote('사용자 메모', autoUnclassifiedNote).includes('[자동 미분류 내역]'));
 
   const audited = buildProfitReportAudit([{
     category: '태국', currency: 'USD',

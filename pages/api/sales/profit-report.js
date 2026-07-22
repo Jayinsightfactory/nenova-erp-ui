@@ -5,7 +5,7 @@ import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
   purchaseQtyByCategory, invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
-  stockPriceRows, saveStockPrices, currencyCodeForCategory,
+  stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
 } from '../../../lib/profitReport';
 import { computeAutoEndingStock } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
@@ -23,7 +23,7 @@ async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -40,6 +40,7 @@ async function loadReportData(major, orderYear) {
         purchaseQtyByCategory(prevMajor, prevOrderYear),    // E 자동계산용: 전차수 매입 총수량
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         computeCustomsAndForwarding(prevMajor, prevOrderYear),  // E 자동계산용: 전차수 H/S
+        unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -137,6 +138,8 @@ async function loadReportData(major, orderYear) {
   return {
     rows,
     note: cur.note,
+    autoNote: formatUnclassifiedNote(unclassifiedDetails),
+    unclassifiedDetails,
     rates,
     stockWeeks: {
       begin: stockBegin.week,
@@ -174,7 +177,7 @@ export default withAuth(async function handler(req, res) {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
         const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
         const buf = buildProfitReportXlsx({
-          major, rows: data.rows, note: data.note, audit: data.audit, visibleCols,
+          major, rows: data.rows, note: composeProfitReportNote(data.note, data.autoNote), audit: data.audit, visibleCols,
         });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

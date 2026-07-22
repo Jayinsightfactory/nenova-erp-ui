@@ -9,6 +9,7 @@
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "lib/profitReport.js",
+    "lib/profitReportNotes.js",
     "lib/profitReportAudit.js",
     "lib/customsForwarding.js",
     "lib/customsFields.js",
