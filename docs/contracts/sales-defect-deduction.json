@@ -76,7 +76,7 @@
   "writes": ["WebSalesDefectDeduction", "WebSalesDefectDeductionHistory", "WebSalesDefectManager", "Estimate"],
   "preserves": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentMaster.isFix", "Product.Stock", "WebProfitReport"],
   "sideEffects": {
-    "matchingEngine": "붙여넣기 주문등록과 동일한 orderImportMatch + 저장 거래처/품목 매핑 + 단위 학습 데이터",
+    "matchingEngine": "업로드 원문은 보존하고 과거 엑셀/붙여넣기 학습 매핑을 사용하지 않으며, Product DB 검색 후보를 사용자가 선택한 경우에만 ProdKey·DB 품명·단위를 적용",
     "managerView": "기본 담당자(김원영/박성수/정재훈/조현욱) + 저장 담당자 목록을 제공하고, 로그인 계정을 기본 선택한다. 담당자 선택은 CreatedBy/CreatedByName/UpdatedBy/UpdatedByName 기준의 차수별 조회·엑셀 다운로드 필터이며 원장과 Estimate는 변경하지 않음",
     "productLookup": "품종은 Product.FlowerName, 품명은 Product.DisplayName/ProdName으로 토큰 분리 검색하고 저장 시 ProdKey를 보존한다",
     "unitChoice": "화면 선택 단위는 단/박스/스팀(대)이며 원본 엑셀에는 선택된 단위를 그대로 기록한다",

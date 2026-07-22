@@ -62,7 +62,6 @@ export default function SalesDefectDeductionsPage() {
   const fileRef = useRef(null);
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
-  const autoMatchTimer = useRef(null);
 
   useEffect(() => {
     apiGet('/api/auth/me').then((data) => {
@@ -146,26 +145,6 @@ export default function SalesDefectDeductionsPage() {
     });
   };
 
-  const autoMatchRow = (index) => {
-    clearTimeout(autoMatchTimer.current);
-    autoMatchTimer.current = setTimeout(async () => {
-      const row = rows[index];
-      if (!row || (!row.customerName && !row.productName && !row.colorName)) return;
-      try {
-        const data = await apiPost('/api/sales/defect-deductions', {
-          action: 'rematch', year, week, rows: [row],
-        });
-        const matched = data.rows?.[0];
-        if (!matched) return;
-        setRows((current) => current.map((item, i) => i === index
-          ? { ...item, ...matched, deductionKey: item.deductionKey || matched.deductionKey, status: item.deductionKey ? 'DRAFT' : item.status }
-          : item));
-      } catch {
-        // 수동 검색/미매칭 재매칭으로 다시 시도할 수 있고 저장 시 서버에서 재검증한다.
-      }
-    }, 180);
-  };
-
   const fetchLookup = (index, kind, term) => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(async () => {
@@ -179,7 +158,6 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const openLookup = (index, kind, term) => {
-    clearTimeout(autoMatchTimer.current);
     const value = String(term || '').trim();
     setActiveSearch({ index, kind });
     setLookupQuery(value);
@@ -257,7 +235,6 @@ export default function SalesDefectDeductionsPage() {
 
   const chooseLookup = (item) => {
     if (!activeSearch) return;
-    clearTimeout(autoMatchTimer.current);
     const { index, kind } = activeSearch;
     const row = rows[index] || {};
     if (kind === 'customer') {
@@ -525,7 +502,7 @@ export default function SalesDefectDeductionsPage() {
         <table className="data-table defect-grid" style={{ minWidth: 1558, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 58 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
-            <col style={{ width: 235 }} /><col style={{ width: 235 }} /><col style={{ width: 115 }} />
+            <col style={{ width: 185 }} /><col style={{ width: 175 }} /><col style={{ width: 225 }} />
             <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 170 }} />
             <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 146 }} />
           </colgroup>
@@ -550,7 +527,7 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
                  <div className="lookup-inline">
-                    <input data-defect-field={`customer-${index}`} className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => handleLookupChange(index, 'customer', 'customerName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'customer', e.currentTarget.value, 'productName')} onBlur={() => autoMatchRow(index)} />
+                    <input data-defect-field={`customer-${index}`} className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => handleLookupChange(index, 'customer', 'customerName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'customer', e.currentTarget.value, 'productName')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
@@ -561,14 +538,14 @@ export default function SalesDefectDeductionsPage() {
                 </td>
                 <td>
                   <div className="lookup-inline">
-                    <input data-defect-field={`productName-${index}`} className="input cell" value={valueOf(row, 'productName')} onChange={(e) => handleLookupChange(index, 'product', 'productName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${e.currentTarget.value} ${row.colorName || ''}`.trim(), 'colorName')} onBlur={() => autoMatchRow(index)} />
+                    <input data-defect-field={`productName-${index}`} className="input cell" value={valueOf(row, 'productName')} onChange={(e) => handleLookupChange(index, 'product', 'productName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${e.currentTarget.value} ${row.colorName || ''}`.trim(), 'colorName')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
                   </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
                 </td>
                 <td>
                   <div className="lookup-inline">
-                    <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} onBlur={() => autoMatchRow(index)} />
+                    <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.colorName)}>품명</button>
                   </div>
                 </td>
