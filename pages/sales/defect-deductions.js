@@ -327,7 +327,7 @@ export default function SalesDefectDeductionsPage() {
                     {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
                       {activeSearch.kind === 'customer' ? `${item.CustName} (${item.CustKey})` : activeSearch.kind === 'product' ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}` : `${item.FarmName}`}
                     </button>)}
-                    {!lookup.length && <div style={{ padding: 8, color: '#64748b' }}>검색 결과 없음 — 직접 입력은 가능하지만 견적서 등록 전 매칭이 필요합니다.</div>}
+                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
                   </div>}
                 </td>
               </tr>;
