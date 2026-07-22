@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
+import { scoreMatch } from '../lib/displayName.js';
 import {
   normalizeParentWeek,
   previousParentScope,
@@ -42,5 +43,14 @@ assert.equal(String(wb.worksheets[0].getCell('D2').value).includes('( 29 )'), tr
 assert.equal(wb.worksheets[0].getCell('B6').value, '테스트거래처');
 assert.equal(wb.worksheets[0].getCell('G6').value, '5단');
 assert.equal(wb.worksheets[0].getCell('H6').value, '✓');
+
+const kaoriScore = scoreMatch('카네이션 카오리', {
+  ProdKey: 417,
+  ProdName: 'CARNATION Kaori',
+  DisplayName: '카오리',
+  FlowerName: '카네이션',
+  CounName: '콜롬비아',
+});
+assert.ok(kaoriScore >= 60, `CARNATION Kaori matching score should be registerable: ${kaoriScore}`);
 
 console.log('sales defect deduction tests passed');

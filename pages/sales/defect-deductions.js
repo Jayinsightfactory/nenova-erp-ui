@@ -130,7 +130,8 @@ export default function SalesDefectDeductionsPage() {
       const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data.error || '업로드 실패');
       setRows((current) => [...current, ...(data.rows || [])]);
-      setMessage(`엑셀 ${data.rows?.length || 0}건을 불러왔습니다. 자동매칭 확인 후 저장하세요.`);
+      const summary = data.summary || {};
+      setMessage(`엑셀 ${data.rows?.length || 0}건을 불러왔습니다. 거래처 매칭 ${summary.customerMatched || 0}건 · 품목 매칭 ${summary.productMatched || 0}건 · 확인 필요 ${summary.needsReview || 0}건`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); if (fileRef.current) fileRef.current.value = ''; }
   };
@@ -279,8 +280,14 @@ export default function SalesDefectDeductionsPage() {
               return <tr key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td><input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} /></td>
                 <td>{index + 1}</td>
-                <td><input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} /></td>
-                <td><input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} /></td>
+                <td>
+                  <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} />
+                  <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
+                </td>
+                <td>
+                  <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} />
+                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품목 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품목 선택 필요'}</div>
+                </td>
                 <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} /></td>
                 <td><div style={{ display: 'flex', gap: 3 }}><input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} /><input className="input unit" value={valueOf(row, 'sourceUnit') || valueOf(row, 'unit')} placeholder="단위" onChange={(e) => changeText(index, 'sourceUnit', e.target.value)} /></div></td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
@@ -335,6 +342,9 @@ export default function SalesDefectDeductionsPage() {
         .unit { width: 62px; min-width: 62px; }
         .btn-xs { padding: 2px 5px; font-size: 11px; }
         td { position: relative; vertical-align: middle; }
+        .match-ok, .match-warn { font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .match-ok { color: #166534; }
+        .match-warn { color: #b45309; }
         .printOnly { display: none; }
         .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
         .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
