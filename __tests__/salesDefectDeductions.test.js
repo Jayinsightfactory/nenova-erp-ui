@@ -64,8 +64,8 @@ const kaoriScore = scoreMatch('카네이션 카오리', {
 });
 assert.ok(kaoriScore >= 60, `CARNATION Kaori matching score should be registerable: ${kaoriScore}`);
 
-// 불량차감 업로드는 붙여넣기/수입주문 업로드와 같은 매칭 엔진을 사용해야 한다.
-// 같은 입력·같은 Product context에서 ProdKey와 단위가 달라지면 회귀다.
+// 불량차감은 과거 엑셀/붙여넣기 학습 매핑으로 품목을 자동 확정하지 않는다.
+// 입력값은 원문으로 남고, Product DB에서 사용자가 선택한 ProdKey만 적용한다.
 const matchingProducts = [{
   ProdKey: 417,
   ProdName: 'CARNATION Kaori',
@@ -85,7 +85,7 @@ const matchingContext = {
 const pasteMatch = matchImportRows([{
   rowNo: 1, inputName: '카네이션 카오리', qty: 5, unit: '단',
 }], matchingContext)[0];
-const defectMatch = matchSalesDefectRows([{
+const defectUnselected = matchSalesDefectRows([{
   sourceRowNo: 1,
   customerName: '광주천사',
   productName: '카네이션',
@@ -98,9 +98,27 @@ const defectMatch = matchSalesDefectRows([{
   products: matchingProducts,
   farms: [],
 });
-assert.equal(defectMatch[0].prodKey, pasteMatch.prodKey, '불량차감 품목 ProdKey는 붙여넣기 매칭과 같아야 한다.');
-assert.equal(defectMatch[0].unit, pasteMatch.unit, '불량차감 단위는 붙여넣기 매칭과 같아야 한다.');
-assert.equal(defectMatch[0].custKey, 9001, '거래처도 붙여넣기와 동일한 이름 매칭 규칙을 사용해야 한다.');
-assert.equal(defectMatch[0].matchedProductDbName, 'CARNATION Kaori', '웹 보조표시는 DB의 정확한 ProdName을 사용해야 한다.');
+assert.equal(defectUnselected[0].prodKey, null, '품목은 DB 후보를 사용자가 선택하기 전 자동 매칭하지 않는다.');
+assert.equal(defectUnselected[0].matchedProductDbName, '', '미선택 품목은 DB 품명을 표시하지 않는다.');
+assert.equal(defectUnselected[0].needsReview, true, '품목 미선택 행은 검토 필요 상태여야 한다.');
+assert.equal(defectUnselected[0].custKey, 9001, '거래처는 현재 Customer DB 이름으로만 확인한다.');
+
+const defectSelected = matchSalesDefectRows([{
+  sourceRowNo: 1,
+  customerName: '광주천사',
+  productName: '카네이션',
+  colorName: '카오리',
+  prodKey: 417,
+  quantity: 5,
+  sourceUnit: '단',
+}], {
+  ...matchingContext,
+  customers: [{ CustKey: 9001, CustName: '광주천사', CustArea: '' }],
+  products: matchingProducts,
+  farms: [],
+});
+assert.equal(defectSelected[0].prodKey, 417, '사용자가 선택한 DB 품목 ProdKey는 보존해야 한다.');
+assert.equal(defectSelected[0].unit, pasteMatch.unit, '사용자가 선택한 DB 품목 단위를 적용해야 한다.');
+assert.equal(defectSelected[0].matchedProductDbName, 'CARNATION Kaori', '선택 후에만 DB의 정확한 ProdName을 표시해야 한다.');
 
 console.log('sales defect deduction tests passed');
