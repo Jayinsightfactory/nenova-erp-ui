@@ -18,7 +18,8 @@ import {
   buildSalesDefectWorkbook,
   formatSalesDefectExportRows,
 } from '../lib/salesDefectDeductionExcel.js';
-import { matchImportRows } from '../lib/orderImportMatch.js';
+import { matchImportRows, buildProductSuggestions } from '../lib/orderImportMatch.js';
+import { resolveImportCustomer } from '../lib/orderImportCustomerMatch.js';
 import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
 
 assert.equal(normalizeParentWeek('29-02'), 29);
@@ -115,6 +116,22 @@ const kaoriScore = scoreMatch('카네이션 카오리', {
   CounName: '콜롬비아',
 });
 assert.ok(kaoriScore >= 60, `CARNATION Kaori matching score should be registerable: ${kaoriScore}`);
+
+const popularityProducts = [
+  { ProdKey: 501, ProdName: 'CARNATION Moon Light', DisplayName: 'Moon Light', FlowerName: '카네이션', CounName: '콜롬비아' },
+  { ProdKey: 502, ProdName: 'ROSE Moon Light', DisplayName: 'Moon Light', FlowerName: '장미', CounName: '에콰도르' },
+];
+const popularMoonLight = buildProductSuggestions('MOON LIGHT', popularityProducts, {
+  usageByProdKey: new Map([[501, { usageCount: 100 }], [502, { usageCount: 1 }]]),
+  limit: 2,
+  minScore: 0,
+});
+assert.equal(popularMoonLight[0].prodKey, 501, '동점 품목은 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
+const popularCustomer = resolveImportCustomer('그린', [
+  { CustKey: 601, CustName: '그린화원' },
+  { CustKey: 602, CustName: '그린상사' },
+], { usageByCustKey: new Map([[601, { usageCount: 100 }], [602, { usageCount: 1 }]]) });
+assert.equal(popularCustomer.custKey, 601, '동점 거래처는 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
 
 // 불량차감은 과거 엑셀/붙여넣기 학습 매핑으로 품목을 자동 확정하지 않는다.
 // 입력값은 원문으로 남고, Product DB에서 사용자가 선택한 ProdKey만 적용한다.
