@@ -16,7 +16,7 @@ const emptyRow = () => ({
   deductionKey: null,
   customerName: '', custKey: null,
   productName: '', prodKey: null,
-  colorName: '', quantity: '', sourceUnit: '', unit: '',
+  colorName: '', quantity: '', sourceUnit: '단', unit: '단',
   matchedProductName: '', matchedProductDbName: '',
   creditApplied: false, farmName: '', farmKey: null, note: '',
   status: 'DRAFT', estimateKey: null, estimateCost: null,
@@ -57,6 +57,7 @@ export default function SalesDefectDeductionsPage() {
   const [activeSearch, setActiveSearch] = useState(null); // { index, kind }
   const [lookup, setLookup] = useState([]);
   const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupActiveIndex, setLookupActiveIndex] = useState(-1);
   const [preflight, setPreflight] = useState({});
   const fileRef = useRef(null);
   const searchTimer = useRef(null);
@@ -170,27 +171,88 @@ export default function SalesDefectDeductionsPage() {
     searchTimer.current = setTimeout(async () => {
       try {
         const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q: term });
-        setLookup(kind === 'customer' ? (data.customers || []) : kind === 'product' ? (data.products || []) : (data.farms || []));
+        const items = kind === 'customer' ? (data.customers || []) : kind === 'product' ? (data.products || []) : (data.farms || []);
+        setLookup(items);
+        setLookupActiveIndex(items.length ? 0 : -1);
       } catch (e) { setError(e.message); }
     }, 120);
   };
 
-  const runLookup = (index, kind, explicitTerm = '') => {
+  const openLookup = (index, kind, term) => {
     clearTimeout(autoMatchTimer.current);
+    const value = String(term || '').trim();
+    setActiveSearch({ index, kind });
+    setLookupQuery(value);
+    setLookupActiveIndex(-1);
+    fetchLookup(index, kind, value);
+  };
+
+  const runLookup = (index, kind, explicitTerm = '') => {
     const row = rows[index] || {};
     const term = kind === 'customer'
       ? row.customerName
       : kind === 'product'
         ? (explicitTerm || `${row.productName || ''} ${row.colorName || ''}`).trim()
         : row.farmName;
-    setActiveSearch({ index, kind });
-    setLookupQuery(term);
-    fetchLookup(index, kind, term);
+    openLookup(index, kind, term);
   };
 
   const searchLookup = () => {
     if (!activeSearch) return;
     fetchLookup(activeSearch.index, activeSearch.kind, lookupQuery.trim());
+  };
+
+  const focusField = (index, field) => {
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-defect-field="${field}-${index}"]`);
+      target?.focus();
+      target?.select?.();
+    }, 0);
+  };
+
+  const chooseActiveLookup = () => {
+    if (!lookup.length) return false;
+    const index = lookupActiveIndex >= 0 && lookupActiveIndex < lookup.length ? lookupActiveIndex : 0;
+    chooseLookup(lookup[index]);
+    return true;
+  };
+
+  const moveLookupSelection = (direction) => {
+    if (!lookup.length) return;
+    setLookupActiveIndex((current) => {
+      const start = current < 0 ? (direction > 0 ? -1 : 0) : current;
+      return (start + direction + lookup.length) % lookup.length;
+    });
+  };
+
+  const handleLookupKeyDown = (event, index, kind, term, nextField) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) {
+        openLookup(index, kind, term);
+      } else {
+        moveLookupSelection(event.key === 'ArrowDown' ? 1 : -1);
+      }
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) {
+        openLookup(index, kind, term);
+      } else if (chooseActiveLookup()) {
+        if (nextField) focusField(index, nextField);
+      }
+    }
+  };
+
+  const handleLookupChange = (index, kind, field, value) => {
+    changeText(index, field, value);
+    if (String(value || '').trim()) openLookup(index, kind, value);
+    else if (activeSearch?.index === index && activeSearch?.kind === kind) {
+      setLookup([]);
+      setActiveSearch(null);
+      setLookupActiveIndex(-1);
+    }
   };
 
   const chooseLookup = (item) => {
@@ -216,6 +278,9 @@ export default function SalesDefectDeductionsPage() {
     setLookup([]);
     setActiveSearch(null);
     setLookupQuery('');
+    setLookupActiveIndex(-1);
+    if (kind === 'customer') focusField(index, 'productName');
+    else if (kind === 'product') focusField(index, 'colorName');
   };
 
   const addRow = () => setRows((current) => [...current, emptyRow()]);
@@ -477,39 +542,39 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
                  <div className="lookup-inline">
-                    <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} onBlur={() => autoMatchRow(index)} />
-                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
+                    <input data-defect-field={`customer-${index}`} className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => handleLookupChange(index, 'customer', 'customerName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'customer', e.currentTarget.value, 'productName')} onBlur={() => autoMatchRow(index)} />
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
                   <div style={{ display: 'flex', gap: 3, marginTop: 3, flexWrap: 'wrap' }}>
-                    <button className="btn btn-xs" onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
-                    <button className="btn btn-xs" onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
+                    <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
+                    <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
                   </div>
                 </td>
                 <td>
                   <div className="lookup-inline">
-                    <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} onBlur={() => autoMatchRow(index)} />
-                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
+                    <input data-defect-field={`productName-${index}`} className="input cell" value={valueOf(row, 'productName')} onChange={(e) => handleLookupChange(index, 'product', 'productName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${e.currentTarget.value} ${row.colorName || ''}`.trim(), 'colorName')} onBlur={() => autoMatchRow(index)} />
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
                   </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
                 </td>
                 <td>
                   <div className="lookup-inline">
-                    <input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} onBlur={() => autoMatchRow(index)} />
-                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.colorName)}>품명</button>
+                    <input data-defect-field={`colorName-${index}`} className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => handleLookupChange(index, 'product', 'colorName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${row.productName || ''} ${e.currentTarget.value}`.trim(), 'quantity')} onBlur={() => autoMatchRow(index)} />
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.colorName)}>품명</button>
                   </div>
                 </td>
                 <td>
                   <input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} />
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-                    {UNIT_OPTIONS.map((unit) => <button key={unit.value} type="button" className={`btn btn-xs ${String(row.sourceUnit || row.unit || '') === unit.value ? 'btn-primary' : ''}`} onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}>{unit.label}</button>)}
+                    {UNIT_OPTIONS.map((unit) => <button tabIndex={-1} key={unit.value} type="button" className={`btn btn-xs ${String(row.sourceUnit || row.unit || '단') === unit.value ? 'btn-primary' : ''}`} onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}>{unit.label}</button>)}
                   </div>
                 </td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
                 <td>
                   <div className="lookup-inline">
                     <input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} />
-                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
+                    <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
                   </div>
                 </td>
                 <td>
@@ -534,11 +599,11 @@ export default function SalesDefectDeductionsPage() {
             <span>행 {activeSearch.index + 1} 선택</span>
           </div>
           <div className="defect-lookup-search">
-            <input className="input" value={lookupQuery} onChange={(e) => setLookupQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') searchLookup(); }} placeholder="검색어를 직접 입력하세요" />
+            <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(activeSearch.index, activeSearch.kind, e.target.value); }} onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); moveLookupSelection(1); } else if (e.key === 'ArrowUp') { e.preventDefault(); moveLookupSelection(-1); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
             <button className="btn btn-primary" onClick={searchLookup}>검색</button>
           </div>
           <div className="defect-lookup-options">
-            {lookup.map((item, i) => <button key={i} className="defect-lookup-option" onClick={() => chooseLookup(item)}>
+            {lookup.map((item, i) => <button key={i} tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
               {activeSearch.kind === 'customer'
                 ? `${item.CustName} (${item.CustKey})`
                 : activeSearch.kind === 'product'
@@ -596,6 +661,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-search .input { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
         .defect-lookup-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px; max-height: min(360px, 42vh); overflow: auto; }
         .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; }
+        .defect-lookup-option.is-active { background: #dbeafe; border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
         .printOnly { display: none; }
