@@ -3,6 +3,7 @@
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "scope": [
     "pages/sales/defect-deductions.js",
+    "pages/sales/defect-deduction-register-review.js",
     "pages/api/sales/defect-deductions.js",
     "pages/api/sales/defect-deductions-upload.js",
     "pages/api/sales/defect-deductions-excel.js",
@@ -31,10 +32,16 @@
       "sideEffect": "공통 붙여넣기 매칭 결과만 반환; DB 원장·Estimate는 변경하지 않음"
     },
     {
+      "name": "REGISTRATION_PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "기존 Estimate와 타임라인 기준 적용 후 값을 조회만 함; DB 변경 없음"
+    },
+    {
       "name": "REGISTER_ESTIMATE_DEDUCTION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Estimate INSERT/UPDATE only; no shipment fix cycle"
+      "sideEffect": "검토창에서 확인·수정한 원장 이력 후 Estimate INSERT/UPDATE; no shipment fix cycle"
     },
     {
       "name": "DELETE_ESTIMATE_DEDUCTION",

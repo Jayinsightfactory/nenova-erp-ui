@@ -13,6 +13,7 @@ import {
   loadMatchContext,
   matchSalesDefectRows,
   preflightRegistration,
+  registrationPreview,
   registerDeductions,
   saveDraftRows,
 } from '../../../lib/salesDefectDeductions.js';
@@ -26,6 +27,16 @@ async function handler(req, res) {
       if (req.query.view === 'lookups') {
         const data = await loadLookupData({ q: req.query.q || '', kind: req.query.kind || 'farm' });
         return res.status(200).json({ success: true, ...data });
+      }
+      if (req.query.view === 'registration-preview') {
+        const ids = String(req.query.ids || '').split(',').map((item) => Number(item)).filter((item) => item > 0);
+        const rows = await registrationPreview({
+          year: req.query.year,
+          week: req.query.week,
+          ids,
+          deductionType: req.query.type || '불량차감',
+        });
+        return res.status(200).json({ success: true, rows, invalidCount: rows.filter((item) => item.error).length });
       }
       const year = normalizeYear(req.query.year || defaultYear());
       const week = normalizeParentWeek(req.query.week || 1);
@@ -66,7 +77,8 @@ async function handler(req, res) {
       }
       if (action === 'register') {
         const registered = await registerDeductions({
-          year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감', user: req.user,
+          year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
+          user: req.user, overrides: req.body?.overrides || {},
         });
         return res.status(200).json({ success: true, registered: registered.length, rows: registered });
       }

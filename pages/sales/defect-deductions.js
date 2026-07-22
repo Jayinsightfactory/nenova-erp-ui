@@ -46,9 +46,12 @@ export default function SalesDefectDeductionsPage() {
   const [error, setError] = useState('');
   const [activeSearch, setActiveSearch] = useState(null); // { index, kind }
   const [lookup, setLookup] = useState([]);
+  const [lookupQuery, setLookupQuery] = useState('');
   const [preflight, setPreflight] = useState({});
   const fileRef = useRef(null);
   const searchTimer = useRef(null);
+  const preflightTimer = useRef(null);
+  const autoMatchTimer = useRef(null);
 
   const load = useCallback(async () => {
     if (!year || !week) return;
@@ -70,6 +73,32 @@ export default function SalesDefectDeductionsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    clearTimeout(preflightTimer.current);
+    const eligible = rows.map((row, index) => ({ row, index }))
+      .filter(({ row }) => Number(row.custKey) > 0 && Number(row.prodKey) > 0 && Number(row.quantity) > 0);
+    if (!eligible.length || !year || !week) {
+      setPreflight({});
+      return undefined;
+    }
+    preflightTimer.current = setTimeout(async () => {
+      try {
+        const result = await apiPost('/api/sales/defect-deductions', {
+          action: 'preflight', year, week, rows: eligible.map(({ row }) => row),
+        });
+        const next = {};
+        (result.rows || []).forEach((item, i) => {
+          const target = eligible[i];
+          if (target) next[target.row.deductionKey || `row:${target.index}`] = item;
+        });
+        setPreflight(next);
+      } catch {
+        // 저장/등록 시 재검증하므로 자동 미리보기 실패가 입력을 막지는 않는다.
+      }
+    }, 250);
+    return () => clearTimeout(preflightTimer.current);
+  }, [rows, year, week]);
+
   const updateRow = (index, patch) => {
     setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
   };
@@ -81,16 +110,35 @@ export default function SalesDefectDeductionsPage() {
         ? { prodKey: null, productSuggestions: [], estimateCost: null }
         : field === 'farmName' ? { farmKey: null } : {};
     updateRow(index, { [field]: value, ...reset, status: 'DRAFT' });
+    setPreflight((current) => {
+      const next = { ...current };
+      const key = rows[index]?.deductionKey || `row:${index}`;
+      delete next[key];
+      return next;
+    });
   };
 
-  const runLookup = (index, kind) => {
-    const row = rows[index] || {};
-    const term = kind === 'customer'
-      ? row.customerName
-      : kind === 'product'
-        ? `${row.productName || ''} ${row.colorName || ''}`.trim()
-        : row.farmName;
-    setActiveSearch({ index, kind });
+  const autoMatchRow = (index) => {
+    clearTimeout(autoMatchTimer.current);
+    autoMatchTimer.current = setTimeout(async () => {
+      const row = rows[index];
+      if (!row || (!row.customerName && !row.productName && !row.colorName)) return;
+      try {
+        const data = await apiPost('/api/sales/defect-deductions', {
+          action: 'rematch', year, week, rows: [row],
+        });
+        const matched = data.rows?.[0];
+        if (!matched) return;
+        setRows((current) => current.map((item, i) => i === index
+          ? { ...item, ...matched, deductionKey: item.deductionKey || matched.deductionKey, status: item.deductionKey ? 'DRAFT' : item.status }
+          : item));
+      } catch {
+        // 수동 검색/미매칭 재매칭으로 다시 시도할 수 있고 저장 시 서버에서 재검증한다.
+      }
+    }, 180);
+  };
+
+  const fetchLookup = (index, kind, term) => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(async () => {
       try {
@@ -100,8 +148,27 @@ export default function SalesDefectDeductionsPage() {
     }, 120);
   };
 
+  const runLookup = (index, kind) => {
+    clearTimeout(autoMatchTimer.current);
+    const row = rows[index] || {};
+    const term = kind === 'customer'
+      ? row.customerName
+      : kind === 'product'
+        ? `${row.productName || ''} ${row.colorName || ''}`.trim()
+        : row.farmName;
+    setActiveSearch({ index, kind });
+    setLookupQuery(term);
+    fetchLookup(index, kind, term);
+  };
+
+  const searchLookup = () => {
+    if (!activeSearch) return;
+    fetchLookup(activeSearch.index, activeSearch.kind, lookupQuery.trim());
+  };
+
   const chooseLookup = (item) => {
     if (!activeSearch) return;
+    clearTimeout(autoMatchTimer.current);
     const { index, kind } = activeSearch;
     if (kind === 'customer') {
       updateRow(index, { customerName: item.CustName, custKey: Number(item.CustKey), customerSuggestions: [] });
@@ -117,6 +184,7 @@ export default function SalesDefectDeductionsPage() {
     }
     setLookup([]);
     setActiveSearch(null);
+    setLookupQuery('');
   };
 
   const addRow = () => setRows((current) => [...current, emptyRow()]);
@@ -183,14 +251,23 @@ export default function SalesDefectDeductionsPage() {
       if (invalid.length) {
         throw new Error(invalid.map((r) => `행 ${r.index + 1}: ${r.error}`).join('\n'));
       }
-      const data = await apiPost('/api/sales/defect-deductions', {
-        action: 'register', year, week, ids, deductionType,
-      });
-      setMessage(`${data.registered || 0}건을 견적서관리 ${deductionType}로 등록했습니다. (이전 차수 분배단가 적용)`);
-      await load();
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(ids.join(','))}&type=${encodeURIComponent(deductionType)}`;
+      const reviewWindow = window.open(reviewUrl, 'nenovaDefectDeductionRegisterReview', 'width=1500,height=900,resizable=yes,scrollbars=yes');
+      if (!reviewWindow) throw new Error('검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
+      setMessage('견적서 등록 검토창을 열었습니다. 기존값과 적용값을 확인한 뒤 등록하세요.');
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
+
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
+      setMessage(`${event.data.registered || 0}건 견적서 등록 적용 완료. 원장을 다시 불러와 검증했습니다.`);
+      load();
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [load]);
 
   const remove = async () => {
     const ids = [...selected].map((i) => rows[i]?.deductionKey).filter(Boolean);
@@ -299,7 +376,7 @@ export default function SalesDefectDeductionsPage() {
           </colgroup>
           <thead><tr>
             <th className="defect-header"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
-            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품명</th><th className="defect-header">색상</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th>
+            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
@@ -310,19 +387,19 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
                   <div className="lookup-inline">
-                    <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} />
+                    <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} onBlur={() => autoMatchRow(index)} />
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
                 </td>
                 <td>
                   <div className="lookup-inline">
-                    <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} />
+                    <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} onBlur={() => autoMatchRow(index)} />
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>검색</button>
                   </div>
-                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품목 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품목 선택 필요'}</div>
+                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
                 </td>
-                <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} /></td>
+                <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} onBlur={() => autoMatchRow(index)} /></td>
                 <td><div style={{ display: 'flex', gap: 3 }}><input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} /><input className="input unit" value={valueOf(row, 'sourceUnit') || valueOf(row, 'unit')} placeholder="단위" onChange={(e) => changeText(index, 'sourceUnit', e.target.value)} /></div></td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
                 <td>
@@ -333,7 +410,7 @@ export default function SalesDefectDeductionsPage() {
                 </td>
                 <td><input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} /></td>
                 <td style={{ whiteSpace: 'nowrap', color: pf?.error ? '#b91c1c' : '#334155' }}>
-                  {row.estimateCost ? `${fmt(row.estimateCost)}원` : pf?.cost ? `${fmt(pf.cost)}원` : '등록 전 확인'}
+                  {row.estimateCost ? `${fmt(row.estimateCost)}원` : pf?.cost ? `${fmt(pf.cost)}원${pf.costOrderWeek ? ` (${pf.costOrderWeek})` : ''}` : pf?.error ? '확인 필요' : '자동 조회 대기'}
                   {pf?.error && <div style={{ fontSize: 10 }}>{pf.error}</div>}
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: row.status === 'REGISTERED' ? '#166534' : '#64748b' }}>{statusText(row)}</span></td>
@@ -345,8 +422,12 @@ export default function SalesDefectDeductionsPage() {
         </div>
         {activeSearch && <div className="defect-lookup-panel">
           <div className="defect-lookup-title">
-            {activeSearch.kind === 'customer' ? '거래처 검색 결과' : activeSearch.kind === 'product' ? '품목 검색 결과' : '농장 검색 결과'}
+            {activeSearch.kind === 'customer' ? '거래처 검색 결과' : activeSearch.kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}
             <span>행 {activeSearch.index + 1} 선택</span>
+          </div>
+          <div className="defect-lookup-search">
+            <input className="input" value={lookupQuery} onChange={(e) => setLookupQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') searchLookup(); }} placeholder="검색어를 직접 입력하세요" />
+            <button className="btn btn-primary" onClick={searchLookup}>검색</button>
           </div>
           <div className="defect-lookup-options">
             {lookup.map((item, i) => <button key={i} className="defect-lookup-option" onClick={() => chooseLookup(item)}>
@@ -369,7 +450,7 @@ export default function SalesDefectDeductionsPage() {
         </div>
         <table className="print-table">
           <colgroup><col className="customer-col" /><col className="product-col" /><col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
-          <thead><tr><th>거래처</th><th>품명</th><th>색상</th><th>차감수량</th><th>크레딧(수입부)</th><th>농장</th><th>비고</th></tr></thead>
+          <thead><tr><th>거래처</th><th>품종</th><th>품명</th><th>차감수량</th><th>크레딧(수입부)</th><th>농장</th><th>비고</th></tr></thead>
           <tbody>{printRows.map((row, index) => <tr key={`print-${index}`}>
             <td>{row?.customerName || ''}</td>
             <td>{row?.productName || ''}</td>
@@ -402,6 +483,8 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-panel { border-top: 1px solid #64748b; background: #fff; padding: 8px 10px; }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
         .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }
+        .defect-lookup-search { display: flex; gap: 6px; margin-bottom: 7px; }
+        .defect-lookup-search .input { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
         .defect-lookup-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px; max-height: min(360px, 42vh); overflow: auto; }
         .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
