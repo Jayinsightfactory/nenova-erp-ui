@@ -12,6 +12,8 @@ import {
   parseSalesDefectWorkbook,
   buildSalesDefectWorkbook,
 } from '../lib/salesDefectDeductionExcel.js';
+import { matchImportRows } from '../lib/orderImportMatch.js';
+import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
 
 assert.equal(normalizeParentWeek('29-02'), 29);
 assert.equal(normalizeParentWeek('29'), 29);
@@ -52,5 +54,43 @@ const kaoriScore = scoreMatch('카네이션 카오리', {
   CounName: '콜롬비아',
 });
 assert.ok(kaoriScore >= 60, `CARNATION Kaori matching score should be registerable: ${kaoriScore}`);
+
+// 불량차감 업로드는 붙여넣기/수입주문 업로드와 같은 매칭 엔진을 사용해야 한다.
+// 같은 입력·같은 Product context에서 ProdKey와 단위가 달라지면 회귀다.
+const matchingProducts = [{
+  ProdKey: 417,
+  ProdName: 'CARNATION Kaori',
+  DisplayName: '카오리',
+  FlowerName: '카네이션',
+  CounName: '콜롬비아',
+  OutUnit: '단',
+  EstUnit: '단',
+}];
+const matchingContext = {
+  allProducts: matchingProducts,
+  productByKey: new Map([[417, matchingProducts[0]]]),
+  prodUnitMap: {},
+  savedMappings: {},
+  unitCatalog: {},
+};
+const pasteMatch = matchImportRows([{
+  rowNo: 1, inputName: '카네이션 카오리', qty: 5, unit: '단',
+}], matchingContext)[0];
+const defectMatch = matchSalesDefectRows([{
+  sourceRowNo: 1,
+  customerName: '광주천사',
+  productName: '카네이션',
+  colorName: '카오리',
+  quantity: 5,
+  sourceUnit: '단',
+}], {
+  ...matchingContext,
+  customers: [{ CustKey: 9001, CustName: '광주천사', CustArea: '' }],
+  products: matchingProducts,
+  farms: [],
+});
+assert.equal(defectMatch[0].prodKey, pasteMatch.prodKey, '불량차감 품목 ProdKey는 붙여넣기 매칭과 같아야 한다.');
+assert.equal(defectMatch[0].unit, pasteMatch.unit, '불량차감 단위는 붙여넣기 매칭과 같아야 한다.');
+assert.equal(defectMatch[0].custKey, 9001, '거래처도 붙여넣기와 동일한 이름 매칭 규칙을 사용해야 한다.');
 
 console.log('sales defect deduction tests passed');
