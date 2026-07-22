@@ -85,7 +85,8 @@
     "estimateQuantity": "negative absolute input quantity",
     "estimateAmount": "round(quantity * previous-week-distribution-cost / 1.1, 0)",
     "estimateVat": "quantity * cost - amount",
-    "previousCost": "same year previous parent week ShipmentDate.Cost then ShipmentDetail.Cost only",
+    "previousCost": "prefer the same-year previous parent-week ShipmentDate.Cost/ShipmentDetail.Cost; when that parent week has no positive cost, use the most recent positive historical cost from earlier parent weeks (including the prior year at the year boundary), and expose the source OrderWeek",
+    "lookupKeyboard": "검색 후보는 화면 배치가 가로 목록이므로 ArrowLeft/ArrowRight로 순환 이동하고 Enter로 선택한다. ArrowUp/ArrowDown도 기존 호환을 위해 같은 방향 순환을 유지한다.",
     "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
   },
   "requiredTests": ["__tests__/salesDefectDeductions.test.js"],

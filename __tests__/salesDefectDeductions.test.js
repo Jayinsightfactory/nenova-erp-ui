@@ -9,6 +9,7 @@ import {
   normalizeDeductionRow,
   mergeSavedDeductionRows,
   partitionSelectedDeductionRows,
+  lookupSelectionDelta,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import {
@@ -50,6 +51,13 @@ assert.deepEqual(
   ),
   { indexes: [0, 1], storedKeys: [101], unsavedIndexes: [1] },
 );
+assert.equal(lookupSelectionDelta('ArrowRight'), 1);
+assert.equal(lookupSelectionDelta('ArrowLeft'), -1);
+assert.equal(lookupSelectionDelta('ArrowDown'), 1);
+assert.equal(lookupSelectionDelta('Enter'), 0);
+const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
+assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
+assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.deepEqual(
   deductionManagerIdentity({ CreatedBy: 'jkim', CreatedByName: '김담당' }),
   { id: 'jkim', name: '김담당' },
