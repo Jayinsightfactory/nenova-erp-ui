@@ -288,16 +288,23 @@ export default function SalesDefectDeductionsPage() {
       )}
 
       <div className="screenOnly">
-      <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        <table className="data-table" style={{ minWidth: 1320, fontSize: 12 }}>
+      <div className="card defect-grid-card">
+        <table className="data-table defect-grid" style={{ minWidth: 1980, fontSize: 13, tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 42 }} /><col style={{ width: 48 }} /><col style={{ width: 100 }} />
+            <col style={{ width: 240 }} /><col style={{ width: 240 }} /><col style={{ width: 150 }} />
+            <col style={{ width: 155 }} /><col style={{ width: 70 }} /><col style={{ width: 180 }} />
+            <col style={{ width: 220 }} /><col style={{ width: 150 }} /><col style={{ width: 170 }} />
+            <col style={{ width: 220 }} />
+          </colgroup>
           <thead><tr>
-            <th style={{ width: 34 }}><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
-            <th>No</th><th>담당자</th><th>거래처</th><th>품명</th><th>색상</th><th>차감수량</th><th>크레딧</th><th>농장</th><th>비고</th><th>이전차수 분배단가</th><th>견적서관리 등록</th><th>검색/선택</th>
+            <th className="defect-header"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
+            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품명</th><th className="defect-header">색상</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th><th className="defect-header">검색/선택</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
               const pf = row.deductionKey ? preflight[row.deductionKey] : null;
-              return <tr key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
+              return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td><input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} /></td>
                 <td>{index + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
@@ -323,7 +330,7 @@ export default function SalesDefectDeductionsPage() {
                   <button className="btn btn-xs" onClick={() => runLookup(index, 'customer')}>거래처</button>{' '}
                   <button className="btn btn-xs" onClick={() => runLookup(index, 'product')}>품목</button>{' '}
                   <button className="btn btn-xs" onClick={() => runLookup(index, 'farm')}>농장</button>
-                  {activeSearch?.index === index && <div style={{ position: 'absolute', zIndex: 10, background: '#fff', border: '1px solid #94a3b8', maxHeight: 180, overflow: 'auto', minWidth: 300 }}>
+                  {activeSearch?.index === index && <div className="defect-lookup-menu">
                     {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
                       {activeSearch.kind === 'customer' ? `${item.CustName} (${item.CustKey})` : activeSearch.kind === 'product' ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}` : `${item.FarmName}`}
                     </button>)}
@@ -358,14 +365,20 @@ export default function SalesDefectDeductionsPage() {
         </table>
       </div>
       <style jsx>{`
-        .cell { min-width: 100px; width: 100%; box-sizing: border-box; }
+        .sales-defect-page { width: 100%; min-width: 0; }
+        .defect-grid-card { padding: 0; overflow: auto; position: relative; max-height: calc(100vh - 250px); min-height: 180px; }
+        .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
+        .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
+        .cell { min-width: 100px; width: 100%; min-height: 30px; box-sizing: border-box; font-size: 13px; }
         .qty { width: 65px; min-width: 65px; }
         .unit { width: 62px; min-width: 62px; }
-        .btn-xs { padding: 2px 5px; font-size: 11px; }
+        .btn-xs { padding: 4px 7px; font-size: 12px; }
         td { position: relative; vertical-align: middle; }
-        .match-ok, .match-warn { font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .match-ok, .match-warn { font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .match-ok { color: #166534; }
         .match-warn { color: #b45309; }
+        .defect-lookup-menu { position: absolute; top: calc(100% - 1px); left: 0; z-index: 20; width: 360px; max-height: 260px; overflow: auto; background: #fff; border: 1px solid #64748b; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
         .printOnly { display: none; }
         .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
         .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
