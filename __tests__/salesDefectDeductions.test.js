@@ -91,7 +91,8 @@ assert.equal(String(wb.worksheets[0].getCell('D2').value).includes('( 29 )'), tr
 assert.equal(wb.worksheets[0].getCell('B6').value, '테스트거래처');
 assert.equal(wb.worksheets[0].getCell('G6').value, '5단');
 assert.equal(wb.worksheets[0].getCell('H6').value, '✓');
-assert.equal(wb.worksheets[0].getCell('B6').alignment.indent, 1);
+assert.equal(wb.worksheets[0].getCell('B6').alignment.horizontal, 'center');
+assert.ok(!wb.worksheets[0].getCell('B6').alignment.indent || wb.worksheets[0].getCell('B6').alignment.indent === 0);
 assert.equal(wb.worksheets[0].getRow(6).height >= 25, true);
 
 const formattedExport = formatSalesDefectExportRows([
