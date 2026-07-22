@@ -50,8 +50,10 @@ async function main() {
   check('7613kg → 월드운송료 5t', deriveWorldFreight(7613, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck5t);
   const worldAuto = effectiveCountryWorldFreight({}, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
   check('저장값이 없으면 1·2차 자동 월드운송료가 계산', worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldAuto.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
-  const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
-  check('명시적 월드운송료는 자동값보다 우선', worldOverride.row.WorldFreight1 === 123456 && worldOverride.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
+  const worldLegacy = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
+  check('기존 리터럴은 GW 자동값으로 전환', worldLegacy.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldLegacy.source.WorldFreight1 === 'warehouse_gw_auto');
+  const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456, WorldFreight1Manual: 1 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
+  check('명시적 월드운송료 override는 자동값보다 우선', worldOverride.row.WorldFreight1 === 123456 && worldOverride.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
 
   console.log('\n=== 자동 GW는 검증 오류로 재표시하지 않음 ===');
   const audited = buildProfitReportAudit([{

@@ -136,9 +136,11 @@ export default function CustomsClearancePanel({ week, onSaved }) {
 
   const countryValue = (row, field) => {
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
+    const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
+    const manualField = isWorldFreight ? `${field}Manual` : '';
+    if (isWorldFreight && Number(row.saved?.[manualField]) === 1 && row.saved?.[field] != null) return row.saved[field];
+    if (isWorldFreight && Number(row.worldFreightAuto?.[field]) > 0) return row.worldFreightAuto[field];
     if (row.saved?.[field] != null) return row.saved[field];
-    if ((field === 'WorldFreight1' || field === 'WorldFreight2')
-      && Number(row.worldFreightAuto?.[field]) > 0) return row.worldFreightAuto[field];
     if (row.carry?.[field] != null) return row.carry[field];
     return '';
   };
@@ -147,11 +149,19 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     const out = {};
     COUNTRY_FIELD_KEYS.forEach((field) => {
       const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
+      const manualField = isWorldFreight ? `${field}Manual` : '';
       const hasManualEdit = countryEdits[row.category]?.[field] !== undefined;
       const hasSavedValue = row.saved?.[field] != null;
       const hasCarryValue = row.carry?.[field] != null;
-      // GW만으로 표시된 월드 운송료는 저장하지 않는다. 다음 입고 GW/단가 변경 시 다시 계산되어야 한다.
-      if (isWorldFreight && !hasManualEdit && !hasSavedValue && !hasCarryValue) return;
+      const hasAutoValue = isWorldFreight && Number(row.worldFreightAuto?.[field]) > 0;
+      // 레거시 리터럴/입고 GW 자동값은 저장하지 않는다. 사용자가 직접 수정한 경우에만 override 플래그를 함께 저장한다.
+      if (isWorldFreight && !hasManualEdit && hasAutoValue && Number(row.saved?.[manualField]) !== 1) return;
+      if (isWorldFreight && hasManualEdit) {
+        out[manualField] = 1;
+      } else if (isWorldFreight && row.saved?.[manualField] != null) {
+        out[manualField] = row.saved[manualField];
+      }
+      if (isWorldFreight && !hasManualEdit && !hasSavedValue && !hasCarryValue && !hasAutoValue) return;
       out[field] = countryValue(row, field);
     });
     return out;
