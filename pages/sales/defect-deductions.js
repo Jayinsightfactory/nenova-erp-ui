@@ -5,6 +5,8 @@ import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
+import { getStatementProductName } from '../../lib/estimatePrintFormats';
+import { mergeSavedDeductionRows } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const UNIT_OPTIONS = [
@@ -242,9 +244,10 @@ export default function SalesDefectDeductionsPage() {
     if (kind === 'customer') {
       updateRow(index, { customerName: item.CustName, custKey: Number(item.CustKey), customerSuggestions: [] });
     } else if (kind === 'product') {
+      const selectedDisplayName = item.DisplayName || item.ProdName || row.colorName || '';
       updateRow(index, {
         productName: item.FlowerName || row.productName || '',
-        colorName: item.DisplayName || item.ProdName || row.colorName || '',
+        colorName: getStatementProductName({ ProdName: selectedDisplayName }) || selectedDisplayName,
         prodKey: Number(item.ProdKey),
         matchedProductName: item.DisplayName || item.ProdName || '',
         matchedProductDbName: item.ProdName || '',
@@ -328,20 +331,16 @@ export default function SalesDefectDeductionsPage() {
   const save = async () => {
     setSaving(true); setError(''); setMessage('');
     try {
+      const submittedRows = rows;
       const selectedManager = visibleManagerOptions.find((item) => String(item.managerId) === String(manager));
       const data = await apiPost('/api/sales/defect-deductions', {
-        action: 'save', year, week, rows,
+        action: 'save', year, week, rows: submittedRows,
         managerId: manager,
         managerName: selectedManager?.managerName || '',
         sourceFileName: rows.find((r) => r.sourceFileName)?.sourceFileName || '',
       });
       const savedRows = data.rows || [];
-      const savedByKey = new Map(savedRows.filter((row) => row.deductionKey).map((row) => [Number(row.deductionKey), row]));
-      setRows((current) => {
-        const merged = current.map((row) => savedByKey.get(Number(row.deductionKey)) || row);
-        const present = new Set(merged.map((row) => Number(row.deductionKey)).filter(Boolean));
-        return [...merged, ...savedRows.filter((row) => row.deductionKey && !present.has(Number(row.deductionKey)))];
-      });
+      setRows((current) => mergeSavedDeductionRows(current, savedRows, submittedRows));
       setSelected(new Set());
       setMessage(`${data.saved || 0}건 저장 완료. 이제 견적서관리 등록을 진행할 수 있습니다.`);
       // 이력/담당자 목록은 갱신하되, 저장 직후 현재 화면의 행을 조회 결과로 덮어쓰지 않는다.
