@@ -95,7 +95,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         </div>
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
-        <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 사용합니다. 차감수량은 등록 시 음수로 적용됩니다. 수정 이력은 원장에 남습니다.</div>
+        <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다.</div>
         <div className="review-list">
           {rows.map((row, index) => {
             const after = adjustedAfter(row);

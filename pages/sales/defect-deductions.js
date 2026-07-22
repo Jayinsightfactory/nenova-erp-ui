@@ -6,7 +6,7 @@ import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
-import { mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
+import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const UNIT_OPTIONS = [
@@ -208,12 +208,13 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const handleLookupKeyDown = (event, index, kind, term, nextField) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    const lookupDelta = lookupSelectionDelta(event.key);
+    if (lookupDelta) {
       event.preventDefault();
       if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) {
         openLookup(index, kind, term);
       } else {
-        moveLookupSelection(event.key === 'ArrowDown' ? 1 : -1);
+        moveLookupSelection(lookupDelta);
       }
       return;
     }
@@ -535,7 +536,7 @@ export default function SalesDefectDeductionsPage() {
                 <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} />
               </label>
             </th>
-            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th>
+            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전/최근 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
@@ -607,7 +608,7 @@ export default function SalesDefectDeductionsPage() {
             <span>행 {activeSearch.index + 1} 선택</span>
           </div>
           <div className="defect-lookup-search">
-            <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(activeSearch.index, activeSearch.kind, e.target.value); }} onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); moveLookupSelection(1); } else if (e.key === 'ArrowUp') { e.preventDefault(); moveLookupSelection(-1); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
+            <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(activeSearch.index, activeSearch.kind, e.target.value); }} onKeyDown={(e) => { const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
             <button className="btn btn-primary" onClick={searchLookup}>검색</button>
           </div>
           <div className="defect-lookup-options">
