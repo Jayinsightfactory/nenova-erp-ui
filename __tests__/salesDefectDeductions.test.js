@@ -101,5 +101,6 @@ const defectMatch = matchSalesDefectRows([{
 assert.equal(defectMatch[0].prodKey, pasteMatch.prodKey, '불량차감 품목 ProdKey는 붙여넣기 매칭과 같아야 한다.');
 assert.equal(defectMatch[0].unit, pasteMatch.unit, '불량차감 단위는 붙여넣기 매칭과 같아야 한다.');
 assert.equal(defectMatch[0].custKey, 9001, '거래처도 붙여넣기와 동일한 이름 매칭 규칙을 사용해야 한다.');
+assert.equal(defectMatch[0].matchedProductDbName, 'CARNATION Kaori', '웹 보조표시는 DB의 정확한 ProdName을 사용해야 한다.');
 
 console.log('sales defect deduction tests passed');

@@ -16,6 +16,7 @@ import {
   registrationPreview,
   registerDeductions,
   saveDraftRows,
+  saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
 import { normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
 
@@ -55,6 +56,14 @@ async function handler(req, res) {
 
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
+      if (action === 'manager-save') {
+        const managerOptions = await saveManagerOption({
+          managerId: req.body?.managerId || '',
+          managerName: req.body?.managerName || '',
+          user: req.user,
+        });
+        return res.status(200).json({ success: true, managerOptions });
+      }
       const year = normalizeYear(req.body?.year);
       const week = normalizeParentWeek(req.body?.week);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
