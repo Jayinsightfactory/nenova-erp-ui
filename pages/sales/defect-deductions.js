@@ -96,10 +96,20 @@ export default function SalesDefectDeductionsPage() {
   useEffect(() => { load(); }, [load]);
 
   const visibleManagerOptions = useMemo(() => {
-    const map = new Map((managerOptions || []).map((item) => [String(item.managerId), item]));
+    const normalizeName = (value) => String(value || '').toLowerCase().replace(/\s+/g, '').trim();
+    const map = new Map();
+    const names = new Set();
+    (managerOptions || []).forEach((item) => {
+      const nameKey = normalizeName(item.managerName || item.managerId);
+      if (!nameKey || names.has(nameKey)) return;
+      names.add(nameKey);
+      map.set(String(item.managerId), item);
+    });
     const userId = String(currentUser?.userId || '').trim();
-    if (userId && !map.has(userId)) {
-      map.set(userId, { managerId: userId, managerName: currentUser?.userName || userId });
+    const userName = String(currentUser?.userName || userId).trim();
+    const userNameKey = normalizeName(userName);
+    if (userId && !map.has(userId) && !names.has(userNameKey)) {
+      map.set(userId, { managerId: userId, managerName: userName });
     }
     return [...map.values()];
   }, [managerOptions, currentUser]);
@@ -264,6 +274,20 @@ export default function SalesDefectDeductionsPage() {
     setLookupActiveIndex(-1);
     if (kind === 'customer') focusField(index, 'productName');
     else if (kind === 'product') focusField(index, 'colorName');
+  };
+
+  const chooseProductSuggestion = (index, item) => {
+    const row = rows[index] || {};
+    const displayName = item.displayName || item.prodName || row.colorName || '';
+    updateRow(index, {
+      productName: item.flowerName || row.productName || '',
+      colorName: getStatementProductName({ ProdName: displayName }) || displayName,
+      prodKey: Number(item.prodKey),
+      matchedProductName: displayName,
+      matchedProductDbName: item.prodName || '',
+      unit: item.outUnit || row.unit || row.sourceUnit || '',
+      productSuggestions: [],
+    });
   };
 
   const addRow = () => setRows((current) => [...current, emptyRow()]);
@@ -566,6 +590,19 @@ export default function SalesDefectDeductionsPage() {
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
                   </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
+                  {!row.prodKey && (row.productSuggestions || []).length > 0 && (
+                    <div className="defect-inline-suggestions">
+                      {(row.productSuggestions || []).slice(0, 3).map((item) => <button
+                        key={item.prodKey}
+                        type="button"
+                        tabIndex={-1}
+                        className="defect-inline-suggestion"
+                        title={`DB 후보 ${item.score}점`}
+                        onClick={() => chooseProductSuggestion(index, item)}>
+                        {item.counName ? `${item.counName} ` : ''}{item.displayName || item.prodName}
+                      </button>)}
+                    </div>
+                  )}
                 </td>
                 <td>
                   <div className="lookup-inline">
@@ -665,6 +702,8 @@ export default function SalesDefectDeductionsPage() {
         .match-ok, .match-warn { font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .match-ok { color: #166534; }
         .match-warn { color: #b45309; }
+        .defect-inline-suggestions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+        .defect-inline-suggestion { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 3px; padding: 2px 5px; font-size: 10px; cursor: pointer; text-align: left; }
         .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .defect-lookup-panel { border-top: 1px solid #64748b; background: #fff; padding: 8px 10px; }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }

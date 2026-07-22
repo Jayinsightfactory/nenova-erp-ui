@@ -8,7 +8,7 @@ import {
   loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
-  mergeCountryGw, mergeColombiaGw, mergeColombiaTruck,
+  effectiveCountryWorldFreight, mergeColombiaGw, mergeColombiaTruck,
   deriveColombiaTruckAllocation,
   computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
 } from '../../../lib/customsForwarding';
@@ -47,12 +47,15 @@ export default withAuth(async function handler(req, res) {
       const countries = COUNTRY_CATEGORIES.map((cat) => {
         const row = countryRows[cat] || null;
         const prevRow = prevCountryRows[cat] || null;
+        const world = effectiveCountryWorldFreight(row, autoGw.countries?.[cat], rates);
         return {
           category: cat,
           saved: row,
           carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 기본값으로 제안(사장님 지정)
-          // 합계는 입고 GW 기준 병합값으로 — 수기 무게가 없어도 백상창고료가 잡힘 (수기 우선)
-          total: computeCountryCustomsTotal(mergeCountryGw(row, autoGw.countries?.[cat]), rates, cat),
+          worldFreightAuto: world.auto,
+          worldFreightSource: world.source,
+          // 합계는 입고 GW와 GW기반 월드 운송료를 병합 — 명시적 수기 금액은 우선
+          total: computeCountryCustomsTotal(world.row, rates, cat),
         };
       });
 

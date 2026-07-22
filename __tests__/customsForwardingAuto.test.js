@@ -18,6 +18,8 @@ async function main() {
     mergeColombiaGw,
     mergeColombiaTruck,
     normalizeCountryInput,
+    deriveWorldFreight,
+    effectiveCountryWorldFreight,
   } = await import('../lib/customsForwarding.js');
   const { deriveColombiaTruckAllocation } = await import('../lib/colombiaTruck.js');
   const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
@@ -41,6 +43,15 @@ async function main() {
   check('입고 GW가 저장값이 없을 때 자동 병합', merged.GW === 7613 && merged.CW === 7613);
   check('자동 트럭 source 표시', merged.truckSource === 'warehouse_gw_auto');
   check('7613kg 트럭료가 5t 단가로 계산', near(computeColombiaCustomsTotal(merged, RATE_DEFAULTS), 3849980));
+
+  console.log('\n=== 국가별 월드 운송료 GW 자동계산 ===');
+  check('800kg → 월드운송료 1t', deriveWorldFreight(800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck1t);
+  check('1800kg → 월드운송료 2.5t', deriveWorldFreight(1800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck2_5t);
+  check('7613kg → 월드운송료 5t', deriveWorldFreight(7613, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck5t);
+  const worldAuto = effectiveCountryWorldFreight({}, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
+  check('저장값이 없으면 1·2차 자동 월드운송료가 계산', worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldAuto.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
+  const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
+  check('명시적 월드운송료는 자동값보다 우선', worldOverride.row.WorldFreight1 === 123456 && worldOverride.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
 
   console.log('\n=== 자동 GW는 검증 오류로 재표시하지 않음 ===');
   const audited = buildProfitReportAudit([{

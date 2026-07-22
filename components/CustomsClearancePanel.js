@@ -137,11 +137,25 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   const countryValue = (row, field) => {
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
     if (row.saved?.[field] != null) return row.saved[field];
+    if ((field === 'WorldFreight1' || field === 'WorldFreight2')
+      && Number(row.worldFreightAuto?.[field]) > 0) return row.worldFreightAuto[field];
     if (row.carry?.[field] != null) return row.carry[field];
     return '';
   };
   const setCountryEdit = (cat, field, val) => setCountryEdits((prev) => ({ ...prev, [cat]: { ...(prev[cat] || {}), [field]: val } }));
-  const countryOut = (row) => Object.fromEntries(COUNTRY_FIELD_KEYS.map((field) => [field, countryValue(row, field)]));
+  const countryOut = (row) => {
+    const out = {};
+    COUNTRY_FIELD_KEYS.forEach((field) => {
+      const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
+      const hasManualEdit = countryEdits[row.category]?.[field] !== undefined;
+      const hasSavedValue = row.saved?.[field] != null;
+      const hasCarryValue = row.carry?.[field] != null;
+      // GW만으로 표시된 월드 운송료는 저장하지 않는다. 다음 입고 GW/단가 변경 시 다시 계산되어야 한다.
+      if (isWorldFreight && !hasManualEdit && !hasSavedValue && !hasCarryValue) return;
+      out[field] = countryValue(row, field);
+    });
+    return out;
+  };
 
   const colValue = (c, field) => {
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
@@ -252,7 +266,8 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   return (
     <div>
       <div style={st.hint}>
-        국가별(백상창고료GW×단가 그대로 + 관세 그대로 + 선율·월드운송료·한국방역 ÷1.1) 합산 = H(그외통관비).
+          국가별(백상창고료GW×단가 그대로 + 관세 그대로 + 선율·월드운송료·한국방역 ÷1.1) 합산 = H(그외통관비).
+          월드 운송료는 입고 GW 기준 1t/2.5t/5t 단가가 자동 표시되며, 입력하면 해당 차수의 수기 override로 저장됩니다.
         관세·선율은 각 1차/2차를 1·2·3번으로 나누어 입력하며, 화면의 합계가 기존 관세1차/2차·선율1차/2차 금액으로 자동 반영됩니다.
         콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 반차수(1차/2차)별 통관비 TOTAL을 박스당무게×박스수량 비율로 배분(항상 무게비율).
         저장값 없으면 <b style={{ color: '#e65100' }}>전차수 값</b>이 기본으로 채워집니다 — 확인 후 저장하세요. 🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
@@ -358,8 +373,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                           }
                           const f = phase.keys[0];
                           const isGw = f === 'GW1' || f === 'GW2';
+                          const isWorldFreight = f === 'WorldFreight1' || f === 'WorldFreight2';
                           const auto = isGw ? data.autoGw?.countries?.[row.category]?.[f] : null;
                           const cur = countryValue(row, f);
+                          const worldAuto = isWorldFreight ? row.worldFreightAuto?.[f] : null;
                           // 무게(GW)는 입고 자동이 기준 — 기본 화면에선 값 표시만, 값이 아예 없으면 입력칸(⚠)
                           if (isGw && !editWeights) {
                             const manualVal = n0(cur);
@@ -381,7 +398,12 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                             <td key={f} style={st.tdNum}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                                 <input style={st.cellInput} value={cur}
+                                  title={isWorldFreight && Number(worldAuto) > 0 && row.worldFreightSource?.[f] !== 'manual_override'
+                                    ? '입고 GW 기반 자동계산값 — 수정하면 수기 override로 저장됩니다' : undefined}
                                   onChange={(e) => setCountryEdit(row.category, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
+                                {isWorldFreight && Number(worldAuto) > 0 && row.worldFreightSource?.[f] !== 'manual_override' && (
+                                  <span style={{ fontSize: 9, color: '#059669' }}>GW 자동</span>
+                                )}
                                 {isGw && (
                                   <GwHint auto={auto} current={cur}
                                     onApply={() => setCountryEdit(row.category, f, String(Math.round(Number(auto) * 10) / 10))} />

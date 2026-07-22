@@ -16,6 +16,7 @@ import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
   buildSalesDefectWorkbook,
+  formatSalesDefectExportRows,
 } from '../lib/salesDefectDeductionExcel.js';
 import { matchImportRows } from '../lib/orderImportMatch.js';
 import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
@@ -79,7 +80,7 @@ assert.equal(source.rows[0].quantity, 5);
 const buffer = await buildSalesDefectWorkbook([
   {
     customerName: '테스트거래처', productName: '카네이션', colorName: '카오리',
-    quantity: 5, sourceUnit: '단', creditApplied: true, farmName: '테스트농장', note: '메모',
+    countryName: '콜롬비아', quantity: 5, sourceUnit: '단', creditApplied: true, farmName: '테스트농장', note: '메모',
   },
 ], { year: 2026, week: 29, managerName: '테스트담당자' });
 const wb = new ExcelJS.Workbook();
@@ -89,6 +90,20 @@ assert.equal(String(wb.worksheets[0].getCell('D2').value).includes('( 29 )'), tr
 assert.equal(wb.worksheets[0].getCell('B6').value, '테스트거래처');
 assert.equal(wb.worksheets[0].getCell('G6').value, '5단');
 assert.equal(wb.worksheets[0].getCell('H6').value, '✓');
+
+const formattedExport = formatSalesDefectExportRows([
+  { customerName: '그린화원', productName: '카네이션', countryName: '콜롬비아', colorName: '문라이트', quantity: 1 },
+  { customerName: '그린화원', productName: '카네이션', countryName: '콜롬비아', colorName: '노비아', quantity: 2 },
+  { customerName: '그린화원', productName: '장미', countryName: '콜롬비아', colorName: '화이트', quantity: 3 },
+  { customerName: '다른화원', productName: '카네이션', countryName: '네덜란드', colorName: '화이트', quantity: 4 },
+]);
+assert.deepEqual(formattedExport.map((row) => row.blank ? 'blank' : [row.customerName, row.productName]), [
+  ['그린화원', '콜롬비아 카네이션'],
+  ['', ''],
+  ['', '콜롬비아 장미'],
+  'blank',
+  ['다른화원', '네덜란드 카네이션'],
+]);
 
 const kaoriScore = scoreMatch('카네이션 카오리', {
   ProdKey: 417,
