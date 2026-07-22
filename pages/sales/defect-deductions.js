@@ -71,17 +71,19 @@ export default function SalesDefectDeductionsPage() {
     }).catch(() => { /* 페이지 조회가 인증된 상태면 목록 API가 최종 확인한다. */ });
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (managerOverride = manager, { preserveRows = false } = {}) => {
     if (!year || !week) return;
+    const managerFilter = managerOverride == null ? manager : managerOverride;
     setLoading(true);
     setError('');
     try {
-      const data = await apiGet('/api/sales/defect-deductions', { year, week, manager, history: '1' });
-      setRows(data.rows || []);
+      const data = await apiGet('/api/sales/defect-deductions', { year, week, manager: managerFilter, history: '1' });
+      if (!preserveRows) setRows(data.rows || []);
       setHistory(data.history || []);
       setManagerOptions(data.managerOptions || []);
       setSelected(new Set());
       setPreflight({});
+      return data;
     } catch (e) {
       setError(e.message);
     } finally {
@@ -326,14 +328,24 @@ export default function SalesDefectDeductionsPage() {
   const save = async () => {
     setSaving(true); setError(''); setMessage('');
     try {
+      const selectedManager = visibleManagerOptions.find((item) => String(item.managerId) === String(manager));
       const data = await apiPost('/api/sales/defect-deductions', {
         action: 'save', year, week, rows,
+        managerId: manager,
+        managerName: selectedManager?.managerName || '',
         sourceFileName: rows.find((r) => r.sourceFileName)?.sourceFileName || '',
       });
-      setRows(data.rows || []);
+      const savedRows = data.rows || [];
+      const savedByKey = new Map(savedRows.filter((row) => row.deductionKey).map((row) => [Number(row.deductionKey), row]));
+      setRows((current) => {
+        const merged = current.map((row) => savedByKey.get(Number(row.deductionKey)) || row);
+        const present = new Set(merged.map((row) => Number(row.deductionKey)).filter(Boolean));
+        return [...merged, ...savedRows.filter((row) => row.deductionKey && !present.has(Number(row.deductionKey)))];
+      });
       setSelected(new Set());
       setMessage(`${data.saved || 0}건 저장 완료. 이제 견적서관리 등록을 진행할 수 있습니다.`);
-      await load();
+      // 이력/담당자 목록은 갱신하되, 저장 직후 현재 화면의 행을 조회 결과로 덮어쓰지 않는다.
+      await load(manager, { preserveRows: true });
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };
