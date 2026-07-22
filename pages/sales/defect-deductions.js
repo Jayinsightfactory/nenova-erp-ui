@@ -289,17 +289,16 @@ export default function SalesDefectDeductionsPage() {
 
       <div className="screenOnly">
       <div className="card defect-grid-card">
-        <table className="data-table defect-grid" style={{ minWidth: 1627, fontSize: 13, tableLayout: 'fixed' }}>
+        <table className="data-table defect-grid" style={{ minWidth: 1558, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 42 }} /><col style={{ width: 48 }} /><col style={{ width: 90 }} />
-            <col style={{ width: 190 }} /><col style={{ width: 190 }} /><col style={{ width: 120 }} />
-            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 140 }} />
-            <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 140 }} />
-            <col style={{ width: 170 }} />
+            <col style={{ width: 36 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
+            <col style={{ width: 235 }} /><col style={{ width: 235 }} /><col style={{ width: 115 }} />
+            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 170 }} />
+            <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 146 }} />
           </colgroup>
           <thead><tr>
             <th className="defect-header"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
-            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품명</th><th className="defect-header">색상</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th><th className="defect-header">검색/선택</th>
+            <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품명</th><th className="defect-header">색상</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전차수 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
@@ -309,37 +308,53 @@ export default function SalesDefectDeductionsPage() {
                 <td>{index + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
-                  <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} />
+                  <div className="lookup-inline">
+                    <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} />
+                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
+                  </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
+                  {activeSearch?.index === index && activeSearch.kind === 'customer' && <div className="defect-lookup-menu">
+                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
+                      {`${item.CustName} (${item.CustKey})`}
+                    </button>)}
+                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
+                  </div>}
                 </td>
                 <td>
-                  <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} />
+                  <div className="lookup-inline">
+                    <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} />
+                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>검색</button>
+                  </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품목 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품목 선택 필요'}</div>
+                  {activeSearch?.index === index && activeSearch.kind === 'product' && <div className="defect-lookup-menu">
+                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
+                      {`${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}`}
+                    </button>)}
+                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
+                  </div>}
                 </td>
                 <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} /></td>
                 <td><div style={{ display: 'flex', gap: 3 }}><input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} /><input className="input unit" value={valueOf(row, 'sourceUnit') || valueOf(row, 'unit')} placeholder="단위" onChange={(e) => changeText(index, 'sourceUnit', e.target.value)} /></div></td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
-                <td><input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} /></td>
+                <td>
+                  <div className="lookup-inline">
+                    <input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} />
+                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
+                  </div>
+                  {activeSearch?.index === index && activeSearch.kind === 'farm' && <div className="defect-lookup-menu">
+                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>{item.FarmName}</button>)}
+                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
+                  </div>}
+                </td>
                 <td><input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} /></td>
                 <td style={{ whiteSpace: 'nowrap', color: pf?.error ? '#b91c1c' : '#334155' }}>
                   {row.estimateCost ? `${fmt(row.estimateCost)}원` : pf?.cost ? `${fmt(pf.cost)}원` : '등록 전 확인'}
                   {pf?.error && <div style={{ fontSize: 10 }}>{pf.error}</div>}
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: row.status === 'REGISTERED' ? '#166534' : '#64748b' }}>{statusText(row)}</span></td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <button className="btn btn-xs" onClick={() => runLookup(index, 'customer')}>거래처</button>{' '}
-                  <button className="btn btn-xs" onClick={() => runLookup(index, 'product')}>품목</button>{' '}
-                  <button className="btn btn-xs" onClick={() => runLookup(index, 'farm')}>농장</button>
-                  {activeSearch?.index === index && <div className="defect-lookup-menu">
-                    {lookup.map((item, i) => <button key={i} style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: '#fff', padding: '5px 8px', cursor: 'pointer' }} onClick={() => chooseLookup(item)}>
-                      {activeSearch.kind === 'customer' ? `${item.CustName} (${item.CustKey})` : activeSearch.kind === 'product' ? `${item.DisplayName || item.ProdName} · ${item.CounName || ''} ${item.FlowerName || ''}` : `${item.FarmName}`}
-                    </button>)}
-                    {!lookup.length && <div style={{ padding: 8, color: '#b45309' }}>관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 거래처·품목 마스터 등록 여부를 확인하세요.</div>}
-                  </div>}
-                </td>
               </tr>;
             })}
-            {!rows.length && <tr><td colSpan="13" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
+            {!rows.length && <tr><td colSpan="12" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -371,6 +386,9 @@ export default function SalesDefectDeductionsPage() {
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
         .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
         .cell { min-width: 100px; width: 100%; min-height: 30px; box-sizing: border-box; font-size: 13px; }
+        .lookup-inline { display: flex; align-items: center; gap: 4px; width: 100%; }
+        .lookup-inline .cell { flex: 1 1 auto; min-width: 0; }
+        .lookup-btn { flex: 0 0 auto; white-space: nowrap; }
         .qty { width: 65px; min-width: 65px; }
         .unit { width: 62px; min-width: 62px; }
         .btn-xs { padding: 4px 7px; font-size: 12px; }
