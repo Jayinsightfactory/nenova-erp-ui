@@ -11,7 +11,7 @@ export default withAuth(async function handler(req, res) {
   const week = normalizeParentWeek(req.query.week);
   if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
   try {
-    const data = await listDeductions({ year, week });
+    const data = await listDeductions({ year, week, manager: req.query.manager || '' });
     const buffer = await buildSalesDefectWorkbook(data.rows, {
       year,
       week,

@@ -57,6 +57,7 @@
   "preserves": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentMaster.isFix", "Product.Stock", "WebProfitReport"],
   "sideEffects": {
     "matchingEngine": "붙여넣기 주문등록과 동일한 orderImportMatch + 저장 거래처/품목 매핑 + 단위 학습 데이터",
+    "managerView": "CreatedBy/CreatedByName 기준 전체 또는 담당자별 조회·엑셀 다운로드 필터; 원장과 Estimate는 변경하지 않음",
     "estimateQuantity": "negative absolute input quantity",
     "estimateAmount": "round(quantity * previous-week-distribution-cost / 1.1, 0)",
     "estimateVat": "quantity * cost - amount",

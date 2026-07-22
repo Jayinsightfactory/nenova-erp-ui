@@ -28,7 +28,13 @@ async function handler(req, res) {
       const year = normalizeYear(req.query.year || defaultYear());
       const week = normalizeParentWeek(req.query.week || 1);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
-      const data = await listDeductions({ year, week, includeDeleted: req.query.includeDeleted === '1', history: req.query.history === '1' });
+      const data = await listDeductions({
+        year,
+        week,
+        manager: req.query.manager || '',
+        includeDeleted: req.query.includeDeleted === '1',
+        history: req.query.history === '1',
+      });
       return res.status(200).json({ success: true, year, week, ...data });
     }
 

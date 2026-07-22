@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import ExcelJS from 'exceljs';
 import { scoreMatch } from '../lib/displayName.js';
 import {
+  deductionManagerIdentity,
   normalizeParentWeek,
   previousParentScope,
   normalizeDeductionRow,
@@ -22,6 +23,14 @@ assert.deepEqual(previousParentScope(2026, 1), { year: 2025, week: 52 });
 assert.deepEqual(parseQuantityCell('1,250단'), { quantity: 1250, unit: '단', raw: '1,250단' });
 assert.deepEqual(parseQuantityCell('5대'), { quantity: 5, unit: '스팀(대)', raw: '5대' });
 assert.equal(normalizeDeductionRow({ quantity: '-5', customerName: 'A' }).quantity, 5);
+assert.deepEqual(
+  deductionManagerIdentity({ CreatedBy: 'jkim', CreatedByName: '김담당' }),
+  { id: 'jkim', name: '김담당' },
+);
+assert.deepEqual(
+  deductionManagerIdentity({ CreatedBy: '', CreatedByName: '', UpdatedBy: 'lee', UpdatedByName: '이담당' }),
+  { id: 'lee', name: '이담당' },
+);
 
 const templatePath = 'data/sales-defect-deduction-template.xlsx';
 assert.ok(fs.existsSync(templatePath), '원본 불량 차감 양식이 있어야 한다.');

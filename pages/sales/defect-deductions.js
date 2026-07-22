@@ -33,6 +33,8 @@ export default function SalesDefectDeductionsPage() {
   const scope = useMemo(initialScope, []);
   const [year, setYear] = useState(scope.year);
   const [week, setWeek] = useState(scope.week);
+  const [manager, setManager] = useState('');
+  const [managerOptions, setManagerOptions] = useState([]);
   const [deductionType, setDeductionType] = useState('불량차감');
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -53,9 +55,10 @@ export default function SalesDefectDeductionsPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await apiGet('/api/sales/defect-deductions', { year, week, history: '1' });
+      const data = await apiGet('/api/sales/defect-deductions', { year, week, manager, history: '1' });
       setRows(data.rows || []);
       setHistory(data.history || []);
+      setManagerOptions(data.managerOptions || []);
       setSelected(new Set());
       setPreflight({});
     } catch (e) {
@@ -63,7 +66,7 @@ export default function SalesDefectDeductionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [year, week]);
+  }, [year, week, manager]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -189,7 +192,7 @@ export default function SalesDefectDeductionsPage() {
 
   const download = async () => {
     try {
-      const res = await fetch(`/api/sales/defect-deductions-excel?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}`, { credentials: 'include' });
+      const res = await fetch(`/api/sales/defect-deductions-excel?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&manager=${encodeURIComponent(manager)}`, { credentials: 'include' });
       if (!res.ok) {
         const data = await parseJsonResponse(res);
         throw new Error(data.error || '다운로드 실패');
@@ -236,6 +239,7 @@ export default function SalesDefectDeductionsPage() {
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
           <label>연도 <input className="input" style={{ width: 80 }} value={year} onChange={(e) => setYear(e.target.value)} /></label>
           <label>차수 <input className="input" style={{ width: 60 }} value={week} onChange={(e) => setWeek(e.target.value)} /> 차</label>
+          <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체 담당자</option>{managerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
           <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
           <button className="btn btn-primary" onClick={load} disabled={loading}>조회</button>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
@@ -272,7 +276,7 @@ export default function SalesDefectDeductionsPage() {
         <table className="data-table" style={{ minWidth: 1320, fontSize: 12 }}>
           <thead><tr>
             <th style={{ width: 34 }}><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
-            <th>No</th><th>거래처</th><th>품명</th><th>색상</th><th>차감수량</th><th>크레딧</th><th>농장</th><th>비고</th><th>이전차수 분배단가</th><th>견적서관리 등록</th><th>검색/선택</th>
+            <th>No</th><th>담당자</th><th>거래처</th><th>품명</th><th>색상</th><th>차감수량</th><th>크레딧</th><th>농장</th><th>비고</th><th>이전차수 분배단가</th><th>견적서관리 등록</th><th>검색/선택</th>
           </tr></thead>
           <tbody>
             {rows.map((row, index) => {
@@ -280,6 +284,7 @@ export default function SalesDefectDeductionsPage() {
               return <tr key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td><input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} /></td>
                 <td>{index + 1}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
                   <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} />
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
@@ -311,7 +316,7 @@ export default function SalesDefectDeductionsPage() {
                 </td>
               </tr>;
             })}
-            {!rows.length && <tr><td colSpan="12" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
+            {!rows.length && <tr><td colSpan="13" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
           </tbody>
         </table>
       </div>
