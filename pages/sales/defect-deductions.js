@@ -118,6 +118,26 @@ export default function SalesDefectDeductionsPage() {
     return [...map.values()];
   }, [managerOptions, currentUser]);
 
+  const managerQuickOptions = useMemo(() => {
+    const defaults = [
+      { managerId: '', managerName: '전체' },
+      { managerId: '김원영', managerName: '김원영' },
+      { managerId: '박성수', managerName: '박성수' },
+      { managerId: '정재훈', managerName: '정재훈' },
+      { managerId: '조현욱', managerName: '조현욱' },
+    ];
+    const result = [...defaults];
+    const names = new Set(defaults.map((item) => String(item.managerName).replace(/\s+/g, '').toLowerCase()));
+    (visibleManagerOptions || []).forEach((item) => {
+      const name = String(item.managerName || item.managerId || '').trim();
+      const key = name.replace(/\s+/g, '').toLowerCase();
+      if (!key || names.has(key)) return;
+      names.add(key);
+      result.push({ managerId: String(item.managerId || name), managerName: name });
+    });
+    return result;
+  }, [visibleManagerOptions]);
+
   useEffect(() => {
     clearTimeout(preflightTimer.current);
     const eligible = rows.map((row, index) => ({ row, index }))
@@ -499,6 +519,23 @@ export default function SalesDefectDeductionsPage() {
         <span style={{ color: '#64748b', fontSize: 12 }}>원본 양식 업로드 → 확인/수정 → 저장 → 견적서관리 일괄 등록</span>
       </div>
 
+      <div className="card manager-home-card">
+        <div className="manager-home-title">담당자 바로가기</div>
+        <div className="manager-home-buttons">
+          {managerQuickOptions.map((item) => (
+            <button
+              key={`quick-${item.managerId || 'all'}`}
+              type="button"
+              className={`btn manager-home-button ${String(manager) === String(item.managerId) ? 'btn-primary' : ''}`}
+              onClick={() => setManager(item.managerId)}
+              disabled={loading}
+            >
+              {item.managerName}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="card" style={{ padding: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
           <label>연도 <input className="input" style={{ width: 80 }} value={year} onChange={(e) => setYear(e.target.value)} /></label>
@@ -643,7 +680,12 @@ export default function SalesDefectDeductionsPage() {
                 <td style={{ whiteSpace: 'nowrap' }}><span style={{ color: row.status === 'REGISTERED' ? '#166534' : '#64748b' }}>{statusText(row)}</span></td>
               </tr>;
             })}
-            {!rows.length && <tr><td colSpan="12" style={{ textAlign: 'center', padding: 30, color: '#64748b' }}>엑셀을 업로드하거나 빈 행을 추가하세요.</td></tr>}
+            {!rows.length && <tr><td colSpan="12" className="empty-row-cell">
+              <div className="empty-row-content">
+                <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>
+                <button type="button" className="btn btn-primary" onClick={addRow}>＋ 빈 행 추가</button>
+              </div>
+            </td></tr>}
           </tbody>
         </table>
         </div>
@@ -691,6 +733,10 @@ export default function SalesDefectDeductionsPage() {
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
+        .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
+        .manager-home-title { font-weight: 800; white-space: nowrap; color: #1e3a8a; }
+        .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .manager-home-button { min-width: 82px; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .defect-grid-scroll { max-height: calc(100vh - 250px); overflow: auto; }
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -723,6 +769,8 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-option.is-active { background: #dbeafe; border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        .empty-row-cell { padding: 24px !important; text-align: center; color: #64748b; }
+        .empty-row-content { display: inline-flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
         .printOnly { display: none; }
         .print-form { color: #111; background: #fff; font-family: Arial, sans-serif; }
         .print-top { display: grid; grid-template-columns: 1fr 210px; align-items: stretch; border: 1px solid #111; margin-bottom: 0; }
