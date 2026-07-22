@@ -71,6 +71,7 @@ async function handler(req, res) {
       if (action === 'save') {
         const rows = await saveDraftRows({
           year, week, rows: req.body?.rows || [], user: req.user,
+          managerId: req.body?.managerId || '', managerName: req.body?.managerName || '',
           sourceFileName: req.body?.sourceFileName || '',
         });
         return res.status(200).json({ success: true, saved: rows.length, rows });
