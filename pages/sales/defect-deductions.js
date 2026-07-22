@@ -289,13 +289,13 @@ export default function SalesDefectDeductionsPage() {
 
       <div className="screenOnly">
       <div className="card defect-grid-card">
-        <table className="data-table defect-grid" style={{ minWidth: 1980, fontSize: 13, tableLayout: 'fixed' }}>
+        <table className="data-table defect-grid" style={{ minWidth: 1627, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 42 }} /><col style={{ width: 48 }} /><col style={{ width: 100 }} />
-            <col style={{ width: 240 }} /><col style={{ width: 240 }} /><col style={{ width: 150 }} />
-            <col style={{ width: 155 }} /><col style={{ width: 70 }} /><col style={{ width: 180 }} />
-            <col style={{ width: 220 }} /><col style={{ width: 150 }} /><col style={{ width: 170 }} />
-            <col style={{ width: 220 }} />
+            <col style={{ width: 42 }} /><col style={{ width: 48 }} /><col style={{ width: 90 }} />
+            <col style={{ width: 190 }} /><col style={{ width: 190 }} /><col style={{ width: 120 }} />
+            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 140 }} />
+            <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 140 }} />
+            <col style={{ width: 170 }} />
           </colgroup>
           <thead><tr>
             <th className="defect-header"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} /></th>
@@ -366,7 +366,7 @@ export default function SalesDefectDeductionsPage() {
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
-        .defect-grid-card { padding: 0; overflow: auto; position: relative; max-height: calc(100vh - 250px); min-height: 180px; }
+        .defect-grid-card { padding: 0; overflow: auto; position: relative; max-height: calc(100vh - 250px); min-height: 0; }
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
         .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
