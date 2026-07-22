@@ -7,11 +7,17 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
+const UNIT_OPTIONS = [
+  { value: '단', label: '단' },
+  { value: '박스', label: '박스' },
+  { value: '스팀(대)', label: '스팀' },
+];
 const emptyRow = () => ({
   deductionKey: null,
   customerName: '', custKey: null,
   productName: '', prodKey: null,
   colorName: '', quantity: '', sourceUnit: '', unit: '',
+  matchedProductName: '', matchedProductDbName: '',
   creditApplied: false, farmName: '', farmKey: null, note: '',
   status: 'DRAFT', estimateKey: null, estimateCost: null,
   customerSuggestions: [], productSuggestions: [],
@@ -35,6 +41,10 @@ export default function SalesDefectDeductionsPage() {
   const [week, setWeek] = useState(scope.week);
   const [manager, setManager] = useState('');
   const [managerOptions, setManagerOptions] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showManagerEditor, setShowManagerEditor] = useState(false);
+  const [managerEditId, setManagerEditId] = useState('');
+  const [managerEditName, setManagerEditName] = useState('');
   const [deductionType, setDeductionType] = useState('불량차감');
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -52,6 +62,14 @@ export default function SalesDefectDeductionsPage() {
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const autoMatchTimer = useRef(null);
+
+  useEffect(() => {
+    apiGet('/api/auth/me').then((data) => {
+      const user = data.user || null;
+      setCurrentUser(user);
+      setManager(user?.userId || user?.userName || '');
+    }).catch(() => { /* 페이지 조회가 인증된 상태면 목록 API가 최종 확인한다. */ });
+  }, []);
 
   const load = useCallback(async () => {
     if (!year || !week) return;
@@ -72,6 +90,15 @@ export default function SalesDefectDeductionsPage() {
   }, [year, week, manager]);
 
   useEffect(() => { load(); }, [load]);
+
+  const visibleManagerOptions = useMemo(() => {
+    const map = new Map((managerOptions || []).map((item) => [String(item.managerId), item]));
+    const userId = String(currentUser?.userId || '').trim();
+    if (userId && !map.has(userId)) {
+      map.set(userId, { managerId: userId, managerName: currentUser?.userName || userId });
+    }
+    return [...map.values()];
+  }, [managerOptions, currentUser]);
 
   useEffect(() => {
     clearTimeout(preflightTimer.current);
@@ -107,7 +134,7 @@ export default function SalesDefectDeductionsPage() {
     const reset = field === 'customerName'
       ? { custKey: null, customerSuggestions: [] }
       : field === 'productName' || field === 'colorName'
-        ? { prodKey: null, productSuggestions: [], estimateCost: null }
+        ? { prodKey: null, productSuggestions: [], estimateCost: null, matchedProductName: '', matchedProductDbName: '' }
         : field === 'farmName' ? { farmKey: null } : {};
     updateRow(index, { [field]: value, ...reset, status: 'DRAFT' });
     setPreflight((current) => {
@@ -148,13 +175,13 @@ export default function SalesDefectDeductionsPage() {
     }, 120);
   };
 
-  const runLookup = (index, kind) => {
+  const runLookup = (index, kind, explicitTerm = '') => {
     clearTimeout(autoMatchTimer.current);
     const row = rows[index] || {};
     const term = kind === 'customer'
       ? row.customerName
       : kind === 'product'
-        ? `${row.productName || ''} ${row.colorName || ''}`.trim()
+        ? (explicitTerm || `${row.productName || ''} ${row.colorName || ''}`).trim()
         : row.farmName;
     setActiveSearch({ index, kind });
     setLookupQuery(term);
@@ -170,12 +197,16 @@ export default function SalesDefectDeductionsPage() {
     if (!activeSearch) return;
     clearTimeout(autoMatchTimer.current);
     const { index, kind } = activeSearch;
+    const row = rows[index] || {};
     if (kind === 'customer') {
       updateRow(index, { customerName: item.CustName, custKey: Number(item.CustKey), customerSuggestions: [] });
     } else if (kind === 'product') {
       updateRow(index, {
+        productName: item.FlowerName || row.productName || '',
+        colorName: item.DisplayName || item.ProdName || row.colorName || '',
         prodKey: Number(item.ProdKey),
         matchedProductName: item.DisplayName || item.ProdName || '',
+        matchedProductDbName: item.ProdName || '',
         unit: item.EstUnit || item.OutUnit || '',
         productSuggestions: [],
       });
@@ -188,6 +219,49 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const addRow = () => setRows((current) => [...current, emptyRow()]);
+
+  const addRelatedRow = (index, keepProduct) => {
+    const source = rows[index];
+    if (!source) return;
+    const next = {
+      ...emptyRow(),
+      customerName: source.customerName || '',
+      custKey: source.custKey || null,
+      matchedCustomerName: source.matchedCustomerName || source.customerName || '',
+      farmName: source.farmName || '',
+      farmKey: source.farmKey || null,
+      ...(keepProduct ? {
+        productName: source.productName || '',
+        colorName: source.colorName || '',
+        prodKey: source.prodKey || null,
+        matchedProductName: source.matchedProductName || '',
+        matchedProductDbName: source.matchedProductDbName || '',
+        sourceUnit: source.sourceUnit || source.unit || '',
+        unit: source.unit || source.sourceUnit || '',
+      } : {}),
+    };
+    setRows((current) => {
+      const copy = [...current];
+      copy.splice(index + 1, 0, next);
+      return copy;
+    });
+  };
+
+  const saveManager = async () => {
+    const name = managerEditName.trim();
+    if (!name) { setError('담당자 이름을 입력하세요.'); return; }
+    setSaving(true); setError('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', {
+        action: 'manager-save', managerId: managerEditId, managerName: name,
+      });
+      setManagerOptions(data.managerOptions || []);
+      setManagerEditId('');
+      setManagerEditName('');
+      setMessage('담당자 목록을 저장했습니다.');
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
 
   const upload = async (file) => {
     if (!file) return;
@@ -331,7 +405,8 @@ export default function SalesDefectDeductionsPage() {
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
           <label>연도 <input className="input" style={{ width: 80 }} value={year} onChange={(e) => setYear(e.target.value)} /></label>
           <label>차수 <input className="input" style={{ width: 60 }} value={week} onChange={(e) => setWeek(e.target.value)} /> 차</label>
-          <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체 담당자</option>{managerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
+          <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체</option>{visibleManagerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
+          <button className="btn" onClick={() => setShowManagerEditor((value) => !value)}>담당자 추가/수정</button>
           <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
           <button className="btn btn-primary" onClick={load} disabled={loading}>조회</button>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
@@ -349,6 +424,21 @@ export default function SalesDefectDeductionsPage() {
           {message && <span style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
           {error && <span style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}
         </div>
+        {showManagerEditor && <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
+          <span style={{ fontWeight: 700 }}>담당자 관리</span>
+          <select className="input" value={managerEditId} onChange={(e) => {
+            const id = e.target.value;
+            const option = visibleManagerOptions.find((item) => String(item.managerId) === id);
+            setManagerEditId(id);
+            setManagerEditName(option?.managerName || '');
+          }}>
+            <option value="">새 담당자</option>
+            {visibleManagerOptions.map((item) => <option key={`edit-${item.managerId}`} value={item.managerId}>{item.managerName}</option>)}
+          </select>
+          <input className="input" value={managerEditName} placeholder="담당자 이름" onChange={(e) => setManagerEditName(e.target.value)} />
+          <button className="btn btn-primary" onClick={saveManager} disabled={saving}>저장</button>
+          <button className="btn" onClick={() => { setManagerEditId(''); setManagerEditName(''); }}>새로 입력</button>
+        </div>}
       </div>
       </div>
 
@@ -386,21 +476,35 @@ export default function SalesDefectDeductionsPage() {
                 <td>{index + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
-                  <div className="lookup-inline">
+                 <div className="lookup-inline">
                     <input className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => changeText(index, 'customerName', e.target.value)} onBlur={() => autoMatchRow(index)} />
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3, flexWrap: 'wrap' }}>
+                    <button className="btn btn-xs" onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
+                    <button className="btn btn-xs" onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
+                  </div>
                 </td>
                 <td>
                   <div className="lookup-inline">
                     <input className="input cell" value={valueOf(row, 'productName')} onChange={(e) => changeText(index, 'productName', e.target.value)} onBlur={() => autoMatchRow(index)} />
-                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>검색</button>
+                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.productName)}>품종</button>
                   </div>
                   <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey ? `✓ 품종·품명 매칭 ${row.matchedProductName || row.productName} (#${row.prodKey})` : '미매칭: 품종·품명 매칭 필요'}</div>
                 </td>
-                <td><input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} onBlur={() => autoMatchRow(index)} /></td>
-                <td><div style={{ display: 'flex', gap: 3 }}><input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} /><input className="input unit" value={valueOf(row, 'sourceUnit') || valueOf(row, 'unit')} placeholder="단위" onChange={(e) => changeText(index, 'sourceUnit', e.target.value)} /></div></td>
+                <td>
+                  <div className="lookup-inline">
+                    <input className="input cell" value={valueOf(row, 'colorName')} onChange={(e) => changeText(index, 'colorName', e.target.value)} onBlur={() => autoMatchRow(index)} />
+                    <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product', row.colorName)}>품명</button>
+                  </div>
+                </td>
+                <td>
+                  <input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} />
+                  <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
+                    {UNIT_OPTIONS.map((unit) => <button key={unit.value} type="button" className={`btn btn-xs ${String(row.sourceUnit || row.unit || '') === unit.value ? 'btn-primary' : ''}`} onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}>{unit.label}</button>)}
+                  </div>
+                </td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
                 <td>
                   <div className="lookup-inline">
@@ -408,7 +512,11 @@ export default function SalesDefectDeductionsPage() {
                     <button className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
                   </div>
                 </td>
-                <td><input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} /></td>
+                <td>
+                  <input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} />
+                  {row.matchedProductDbName && <div className="web-meta">전산 품명: {row.matchedProductDbName}</div>}
+                  {pf?.cost > 0 && <div className="web-meta">분배단가: {fmt(pf.cost)}원 ({pf.costOrderWeek || '이전차수'})</div>}
+                </td>
                 <td style={{ whiteSpace: 'nowrap', color: pf?.error ? '#b91c1c' : '#334155' }}>
                   {row.estimateCost ? `${fmt(row.estimateCost)}원` : pf?.cost ? `${fmt(pf.cost)}원${pf.costOrderWeek ? ` (${pf.costOrderWeek})` : ''}` : pf?.error ? '확인 필요' : '자동 조회 대기'}
                   {pf?.error && <div style={{ fontSize: 10 }}>{pf.error}</div>}
@@ -446,7 +554,7 @@ export default function SalesDefectDeductionsPage() {
       <div className="printOnly print-form" aria-hidden="true">
         <div className="print-top">
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
-          <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{scope.userName || ''}</td><td></td><td></td></tr></tbody></table>
+            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{currentUser?.userName || ''}</td><td></td><td></td></tr></tbody></table>
         </div>
         <table className="print-table">
           <colgroup><col className="customer-col" /><col className="product-col" /><col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
@@ -480,6 +588,7 @@ export default function SalesDefectDeductionsPage() {
         .match-ok, .match-warn { font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .match-ok { color: #166534; }
         .match-warn { color: #b45309; }
+        .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .defect-lookup-panel { border-top: 1px solid #64748b; background: #fff; padding: 8px 10px; }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
         .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }

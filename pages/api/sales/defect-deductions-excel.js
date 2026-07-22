@@ -12,10 +12,12 @@ export default withAuth(async function handler(req, res) {
   if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
   try {
     const data = await listDeductions({ year, week, manager: req.query.manager || '' });
+    const selectedManager = String(req.query.manager || '').trim();
+    const selectedOption = data.managerOptions?.find((item) => String(item.managerId) === selectedManager);
     const buffer = await buildSalesDefectWorkbook(data.rows, {
       year,
       week,
-      managerName: req.user?.userName || '',
+      managerName: selectedOption?.managerName || (selectedManager || req.user?.userName || ''),
     });
     const fileName = encodeURIComponent(`영업수입불량차감_${year}_${String(week).padStart(2, '0')}차.xlsx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

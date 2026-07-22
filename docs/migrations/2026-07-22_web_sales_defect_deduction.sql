@@ -58,3 +58,33 @@ BEGIN
     ON dbo.WebSalesDefectDeductionHistory(DeductionKey, ChangedAt DESC);
 END;
 
+IF OBJECT_ID(N'dbo.WebSalesDefectManager', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.WebSalesDefectManager (
+    ManagerKey INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    ManagerId NVARCHAR(100) NOT NULL,
+    ManagerName NVARCHAR(100) NOT NULL,
+    SortOrder INT NOT NULL DEFAULT 0,
+    IsDeleted BIT NOT NULL DEFAULT 0,
+    CreatedBy NVARCHAR(100) NOT NULL DEFAULT N'',
+    UpdatedBy NVARCHAR(100) NOT NULL DEFAULT N'',
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+  );
+  CREATE UNIQUE INDEX UX_WebSalesDefectManager_ActiveId
+    ON dbo.WebSalesDefectManager(ManagerId) WHERE IsDeleted=0;
+END;
+
+INSERT INTO dbo.WebSalesDefectManager (ManagerId, ManagerName, SortOrder)
+SELECT N'김원영', N'김원영', 10
+WHERE NOT EXISTS (SELECT 1 FROM dbo.WebSalesDefectManager WHERE ManagerId=N'김원영' AND IsDeleted=0);
+INSERT INTO dbo.WebSalesDefectManager (ManagerId, ManagerName, SortOrder)
+SELECT N'박성수', N'박성수', 20
+WHERE NOT EXISTS (SELECT 1 FROM dbo.WebSalesDefectManager WHERE ManagerId=N'박성수' AND IsDeleted=0);
+INSERT INTO dbo.WebSalesDefectManager (ManagerId, ManagerName, SortOrder)
+SELECT N'정재훈', N'정재훈', 30
+WHERE NOT EXISTS (SELECT 1 FROM dbo.WebSalesDefectManager WHERE ManagerId=N'정재훈' AND IsDeleted=0);
+INSERT INTO dbo.WebSalesDefectManager (ManagerId, ManagerName, SortOrder)
+SELECT N'조현욱', N'조현욱', 40
+WHERE NOT EXISTS (SELECT 1 FROM dbo.WebSalesDefectManager WHERE ManagerId=N'조현욱' AND IsDeleted=0);
+
