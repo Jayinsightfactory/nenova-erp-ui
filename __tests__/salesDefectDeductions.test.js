@@ -7,7 +7,9 @@ import {
   normalizeParentWeek,
   previousParentScope,
   normalizeDeductionRow,
+  mergeSavedDeductionRows,
 } from '../lib/salesDefectDeductionCore.js';
+import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
@@ -23,6 +25,23 @@ assert.deepEqual(previousParentScope(2026, 1), { year: 2025, week: 52 });
 assert.deepEqual(parseQuantityCell('1,250단'), { quantity: 1250, unit: '단', raw: '1,250단' });
 assert.deepEqual(parseQuantityCell('5대'), { quantity: 5, unit: '스팀(대)', raw: '5대' });
 assert.equal(normalizeDeductionRow({ quantity: '-5', customerName: 'A' }).quantity, 5);
+assert.equal(getStatementProductName({ ProdName: 'CARNATION Moon Light' }), 'Moon Light');
+assert.equal(getStatementProductName({ ProdName: 'CARNATION Novia' }), 'Novia');
+const savedNewRows = mergeSavedDeductionRows(
+  [
+    { deductionKey: null, customerName: '상희꽃상사', productName: '카네이션', colorName: 'Moon Light', quantity: 1 },
+    { deductionKey: null, customerName: '상희꽃상사', productName: '카네이션', colorName: 'Novia', quantity: 2 },
+  ],
+  [
+    { deductionKey: 101, customerName: '상희꽃상사', colorName: 'Moon Light', quantity: 1 },
+    { deductionKey: 102, customerName: '상희꽃상사', colorName: 'Novia', quantity: 2 },
+  ],
+  [
+    { deductionKey: null, customerName: '상희꽃상사', productName: '카네이션', colorName: 'Moon Light', quantity: 1 },
+    { deductionKey: null, customerName: '상희꽃상사', productName: '카네이션', colorName: 'Novia', quantity: 2 },
+  ],
+);
+assert.deepEqual(savedNewRows.map((row) => row.deductionKey), [101, 102]);
 assert.deepEqual(
   deductionManagerIdentity({ CreatedBy: 'jkim', CreatedByName: '김담당' }),
   { id: 'jkim', name: '김담당' },
