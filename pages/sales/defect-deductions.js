@@ -7,7 +7,7 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
-import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
+import { lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const usageLabel = (item) => {
@@ -110,7 +110,7 @@ export default function SalesDefectDeductionsPage() {
     apiGet('/api/auth/me').then((data) => {
       const user = data.user || null;
       setCurrentUser(user);
-      setManager(user?.userId || user?.userName || '');
+      setManager(managerFilterForUser(user?.userName || user?.userId || '', user));
     }).catch(() => { /* 페이지 조회가 인증된 상태면 목록 API가 최종 확인한다. */ });
   }, []);
 
@@ -591,14 +591,15 @@ export default function SalesDefectDeductionsPage() {
         rows: rows.filter((_, i) => selected.has(i)),
       });
       setPreflight(Object.fromEntries((check.rows || []).map((r) => [r.deductionKey, r])));
-      const invalid = (check.rows || []).filter((r) => r.error);
-      if (invalid.length) {
-        throw new Error(invalid.map((r) => `행 ${r.index + 1}: ${r.error}`).join('\n'));
+      const { valid, invalid } = partitionRegistrationPreflight(check.rows || []);
+      if (!valid.length) {
+        throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}\n해당 차수 출고·품목 매칭을 확인한 뒤 다시 시도하세요.`);
       }
-      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(ids.join(','))}&type=${encodeURIComponent(deductionType)}`;
+      const validIds = valid.map((r) => Number(r.deductionKey)).filter(Boolean);
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}`;
       const reviewWindow = window.open(reviewUrl, 'nenovaDefectDeductionRegisterReview', 'width=1500,height=900,resizable=yes,scrollbars=yes');
       if (!reviewWindow) throw new Error('검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
-      setMessage('견적서 등록 검토창을 열었습니다. 기존값과 적용값을 확인한 뒤 등록하세요.');
+      setMessage(`견적서 등록 검토창을 열었습니다. ${valid.length}건을 처리할 수 있습니다.${invalid.length ? ` 출고가 없거나 확인이 필요한 ${invalid.length}건은 제외했습니다.` : ''}`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   };

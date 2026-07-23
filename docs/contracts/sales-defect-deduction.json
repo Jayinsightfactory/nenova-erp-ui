@@ -78,6 +78,7 @@
   "sideEffects": {
     "matchingEngine": "업로드 원문은 보존하고 과거 엑셀/붙여넣기 학습 매핑을 사용하지 않으며, Product DB 검색 후보를 사용자가 선택한 경우에만 ProdKey·DB 품명·단위를 적용",
     "managerView": "기본 담당자(김원영/박성수/정재훈/조현욱) + 저장 담당자 목록을 제공하고, 로그인 계정을 기본 선택한다. 담당자 선택은 즉시 조회되는 차수별 조회·엑셀 다운로드 필터이며, 신규 저장행은 선택 담당자에 귀속하고 기존행 수정은 기존 소유자를 보존한다. 원장과 Estimate는 변경하지 않음",
+    "managerFilterAlias": "로그인 ID와 차감 원장에 저장된 담당자 표시명이 다른 경우 로그인 표시명으로 동일 담당자 원장을 조회하고 엑셀에 포함한다.",
     "productLookup": "품종은 Product.FlowerName, 품명은 Product.DisplayName/ProdName으로 토큰 분리 검색하고 저장 시 ProdKey를 보존한다. 화면 품명은 품종 접두어를 제외한 suffix만 표시한다(예: CARNATION Moon Light → Moon Light).",
     "saveResultRows": "저장 API가 발급한 DeductionKey로 기존행을 갱신하고, 저장 전 키가 없던 입력행은 응답행으로 위치 대체한다. 저장 응답행을 단순 append하여 임시행과 중복 표시하지 않는다.",
     "selectionDelete": "체크한 저장행은 DeductionKey로 soft-delete/연결 Estimate 삭제/이력 기록을 수행하고, 체크한 미저장행은 API 호출 없이 화면에서 제거한다. 저장행과 미저장행을 함께 선택해도 각각 처리한다.",
@@ -89,6 +90,7 @@
     "lookupKeyboard": "검색 후보는 화면 배치가 가로 목록이므로 ArrowLeft/ArrowRight로 순환 이동하고 Enter로 선택한다. ArrowUp/ArrowDown도 기존 호환을 위해 같은 방향 순환을 유지한다. 차감수량에서 Tab은 빈 행 추가 버튼으로 이동하고 Enter는 새 입력행을 만든다. 행 추가 버튼은 ArrowLeft/ArrowRight/ArrowUp/ArrowDown으로 동일업체·동일업체+품종 추가를 선택하고 Enter로 실행하며, 새 행의 검색 입력에 포커스를 연결한다.",
     "lookupDismissal": "검색 입력·검색 결과 패널에서 Tab으로 빠져나가거나 다른 행의 입력·버튼으로 포커스가 이동하면 기존 검색 패널과 후보 목록을 닫는다.",
     "lookupPresentation": "품목 후보는 표 셀 내부의 가로 스크롤에 갇히지 않는 viewport 고정 팝업으로 표시한다. 내부 추천·사용빈도 순위는 유지하되 화면에는 국가·품종·DB 품명을 일정한 열로 정렬한 세로 목록만 표시하고 사용 횟수·매칭 건수는 표시하지 않는다. 가로 스크롤 없이 품명을 줄바꿈한다.",
+    "registrationPartial": "견적서 등록 사전검증에서 출고·단가가 유효한 선택행은 검토창으로 진행하고, 출고가 없는 행은 구체적인 사유와 함께 제외한다. 선택 전체를 한 행의 오류로 원자적 차단하지 않는다.",
     "matchDisplay": "전산 매칭 메시지는 거래처·국가·품종·DB 품명·ProdKey 전체를 줄바꿈으로 표시하고 말줄임표로 숨기지 않는다.",
     "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
   },
