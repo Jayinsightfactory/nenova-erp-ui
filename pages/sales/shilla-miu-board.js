@@ -115,7 +115,6 @@ export default function ShillaMiuBoardPage() {
             <thead>
               <tr>
                 <th className="sticky c-country" rowSpan="2">국가</th>
-                <th className="sticky c-flower" rowSpan="2">품종</th>
                 <th className="sticky c-product" rowSpan="2">품목명</th>
                 <th className="sticky c-unit" rowSpan="2">단위</th>
                 {weeks.map((week) => <th key={week} className="week-group" colSpan="10">{Number(week)}차</th>)}
@@ -130,12 +129,11 @@ export default function ShillaMiuBoardPage() {
               </tr>
             </thead>
             <tbody>
-              {!rows.length && <tr><td colSpan={4 + weeks.length * 10} className="empty">조회된 품목이 없습니다.</td></tr>}
+              {!rows.length && <tr><td colSpan={3 + weeks.length * 10} className="empty">조회된 품목이 없습니다.</td></tr>}
               {rows.map((row) => {
                 let previousBalance = null;
                 return <tr key={row.prodKey}>
                   <td className="sticky c-country">{row.country || '-'}</td>
-                  <td className="sticky c-flower">{row.flower || '-'}</td>
                   <td className="sticky c-product" title={row.prodName}>{row.prodName || '-'}</td>
                   <td className="sticky c-unit">{row.unit || '-'}</td>
                   {weeks.flatMap((week) => {
@@ -144,6 +142,10 @@ export default function ShillaMiuBoardPage() {
                     previousBalance = balance.erpBalance;
                     const raumWeb = qty(w.web.RAUM.qty);
                     const miuWeb = qty(w.web.MIU.qty);
+                    const raumInputQty = qty(webQty(row, week, 'RAUM'));
+                    const miuInputQty = qty(webQty(row, week, 'MIU'));
+                    const raumMatched = webMatched(row, week, 'RAUM');
+                    const miuMatched = webMatched(row, week, 'MIU');
                     const webTargets = ['RAUM', 'MIU'].filter((destination) => qty(w.web[destination].qty) > 0);
                     const webComplete = webTargets.length > 0 && webTargets.every((destination) => !!w.web[destination].matched);
                     const raumSource = sourceRecord(row, week, 'RAUM');
@@ -153,17 +155,17 @@ export default function ShillaMiuBoardPage() {
                       <td key={`${week}-incoming`} className="num">{fmt(w.incomingQty)}</td>,
                       <td key={`${week}-shilla`} className="num erp-cell">{fmt(w.erp.shilla)}</td>,
                       <td key={`${week}-raum-erp`} className="num erp-cell">{fmt(w.erp.raum)}</td>,
-                      <td key={`${week}-raum-web`} className={`web-cell ${webMatched(row, week, 'RAUM') ? 'matched' : ''}`}>
+                      <td key={`${week}-raum-web`} className={`web-cell ${raumInputQty > 0 ? 'has-input' : ''} ${raumInputQty > 0 && raumMatched ? 'matched' : ''}`}>
                         <span className="aggregate">합 {fmt(raumWeb)}</span>
                         <input type="number" min="0" value={webQty(row, week, 'RAUM') || ''} placeholder={`${Number(supplyWeek)}차`} onChange={(e) => updateDraft(row, week, 'RAUM', { qty: e.target.value })} />
-                        <label className="match-check" title={`${Number(supplyWeek)}차 공급분 라움 매칭완료`}><input type="checkbox" checked={webMatched(row, week, 'RAUM')} onChange={(e) => updateDraft(row, week, 'RAUM', { matched: e.target.checked })} />✓</label>
+                        <label className="match-check" title={`${Number(supplyWeek)}차 공급분 라움 매칭완료`}><input type="checkbox" checked={raumMatched} onChange={(e) => updateDraft(row, week, 'RAUM', { matched: e.target.checked })} />✓</label>
                         {raumSource && <small>{Number(raumSource.supplyWeek)}차 공급</small>}
                       </td>,
                       <td key={`${week}-miu-erp`} className="num erp-cell">{fmt(w.erp.miu)}</td>,
-                      <td key={`${week}-miu-web`} className={`web-cell ${webMatched(row, week, 'MIU') ? 'matched' : ''}`}>
+                      <td key={`${week}-miu-web`} className={`web-cell ${miuInputQty > 0 ? 'has-input' : ''} ${miuInputQty > 0 && miuMatched ? 'matched' : ''}`}>
                         <span className="aggregate">합 {fmt(miuWeb)}</span>
                         <input type="number" min="0" value={webQty(row, week, 'MIU') || ''} placeholder={`${Number(supplyWeek)}차`} onChange={(e) => updateDraft(row, week, 'MIU', { qty: e.target.value })} />
-                        <label className="match-check" title={`${Number(supplyWeek)}차 공급분 미우 매칭완료`}><input type="checkbox" checked={webMatched(row, week, 'MIU')} onChange={(e) => updateDraft(row, week, 'MIU', { matched: e.target.checked })} />✓</label>
+                        <label className="match-check" title={`${Number(supplyWeek)}차 공급분 미우 매칭완료`}><input type="checkbox" checked={miuMatched} onChange={(e) => updateDraft(row, week, 'MIU', { matched: e.target.checked })} />✓</label>
                         {miuSource && <small>{Number(miuSource.supplyWeek)}차 공급</small>}
                       </td>,
                       <td key={`${week}-balance`} className={`num ${balance.erpBalance < 0 ? 'negative' : ''}`}>{fmt(balance.erpBalance)}</td>,
@@ -194,9 +196,9 @@ export default function ShillaMiuBoardPage() {
         th, td { border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; padding:4px 5px; height:34px; box-sizing:border-box; white-space:nowrap; }
         th { background:#e2e8f0; text-align:center; position:sticky; top:0; z-index:3; } th.week-group { background:#1d4ed8; color:#fff; font-size:13px; border-color:#93c5fd; }
         thead tr:nth-child(2) th { top:29px; background:#f1f5f9; color:#334155; } thead tr:nth-child(2) th small { font-weight:400; color:#64748b; }
-        .sticky { position:sticky; z-index:2; background:#fff; } th.sticky { z-index:5; background:#e2e8f0; } .c-country { left:0; width:82px; min-width:82px; } .c-flower { left:82px; width:82px; min-width:82px; } .c-product { left:164px; width:250px; min-width:250px; overflow:hidden; text-overflow:ellipsis; } .c-unit { left:414px; width:52px; min-width:52px; }
+        .sticky { position:sticky; z-index:2; background:#fff; } th.sticky { z-index:5; background:#e2e8f0; } .c-country { left:0; width:82px; min-width:82px; } .c-product { left:82px; width:250px; min-width:250px; overflow:hidden; text-overflow:ellipsis; } .c-unit { left:332px; width:52px; min-width:52px; }
         tbody tr:nth-child(even) td { background:#f8fafc; } tbody tr:nth-child(even) .sticky { background:#f8fafc; }
-        .num { text-align:right; min-width:64px; } .erp-cell { background:#eff6ff !important; color:#1e3a8a; } .web-cell { min-width:126px; background:#fff7ed !important; text-align:center; padding:3px; } .web-cell.matched { background:#dcfce7 !important; box-shadow:inset 0 0 0 2px #22c55e; }
+        .num { text-align:right; min-width:64px; } .erp-cell { background:#eff6ff !important; color:#1e3a8a; } .web-cell { min-width:126px; text-align:center; padding:3px; } .web-cell.has-input { background:#fff7ed !important; } .web-cell.has-input.matched { background:#dcfce7 !important; box-shadow:inset 0 0 0 2px #22c55e; }
         .web-cell .aggregate { display:block; font-size:10px; color:#9a3412; } .web-cell input[type=number] { width:62px; height:22px; font-size:11px; text-align:right; border:1px solid #fdba74; } .web-cell small { display:block; color:#64748b; font-size:9px; }
         .match-check { display:inline-flex; align-items:center; gap:2px; margin-left:2px; height:22px; padding:0 3px; cursor:pointer; font-weight:700; color:#166534; } .match-check input { width:14px; height:14px; accent-color:#16a34a; }
         .complete-cell { text-align:center; color:#16a34a; font-weight:900; min-width:45px; } .negative { color:#b91c1c; font-weight:700; } .empty { padding:30px; text-align:center; color:#64748b; }
