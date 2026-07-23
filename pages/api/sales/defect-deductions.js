@@ -7,6 +7,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
   deleteDeductions,
+  confirmIncomingDeductions,
   ensureSalesDefectTables,
   listDeductions,
   loadLookupData,
@@ -45,7 +46,7 @@ async function handler(req, res) {
       const data = await listDeductions({
         year,
         week,
-        manager: managerFilterForUser(req.query.manager || '', req.user),
+        manager: req.query.view === 'incoming' ? '' : managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
       });
@@ -75,6 +76,12 @@ async function handler(req, res) {
           sourceFileName: req.body?.sourceFileName || '',
         });
         return res.status(200).json({ success: true, saved: rows.length, rows });
+      }
+      if (action === 'incoming-confirm') {
+        const rows = await confirmIncomingDeductions({
+          year, week, rows: req.body?.rows || [], user: req.user,
+        });
+        return res.status(200).json({ success: true, confirmed: rows.length, rows });
       }
       if (action === 'rematch') {
         const context = await loadMatchContext();
