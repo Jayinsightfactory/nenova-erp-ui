@@ -45,6 +45,8 @@ const source = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
 const apiSource = fs.readFileSync('pages/api/sales/shilla-miu-board.js', 'utf8');
 assert.ok(source.includes('colSpan="10"'), '차수별 가로 그룹은 10개 수량/상태 열을 가져야 한다.');
 assert.ok(source.includes('matched'), '분배 매칭 하이라이트 상태를 화면에 표시해야 한다.');
+assert.ok(source.includes("raumInputQty > 0 ? 'has-input'"), '분배수량이 있는 웹 셀만 기본 강조색을 표시해야 한다.');
+assert.ok(!source.includes('c-flower'), '품종 열은 숨기고 품목명만 표시해야 한다.');
 assert.ok(source.includes('분배 공급차수'), '공급차수와 사용차수를 분리 입력할 수 있어야 한다.');
 assert.ok(apiSource.includes('SupplyWeek') && apiSource.includes('UseWeek'), '공급차수와 사용차수를 별도 저장해야 한다.');
 assert.ok(apiSource.includes('ShipmentDetail') && apiSource.includes('WarehouseDetail'), '전산 출고/입고 데이터를 연결해야 한다.');
