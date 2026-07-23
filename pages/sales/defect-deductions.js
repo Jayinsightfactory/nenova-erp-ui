@@ -106,6 +106,7 @@ export default function SalesDefectDeductionsPage() {
   const fileRef = useRef(null);
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
+  const lookupPanelRef = useRef(null);
 
   useEffect(() => {
     apiGet('/api/auth/me').then((data) => {
@@ -238,7 +239,7 @@ export default function SalesDefectDeductionsPage() {
     setLookupAnchor(null);
   };
 
-  const readLookupAnchor = (targetSearch) => {
+  const readLookupAnchor = (targetSearch, measuredHeight = null) => {
     if (typeof window === 'undefined' || typeof document === 'undefined' || !targetSearch) return null;
     const target = document.querySelector(`[data-defect-field="${targetSearch.anchorField}"]`);
     if (!target) return null;
@@ -251,17 +252,20 @@ export default function SalesDefectDeductionsPage() {
     const resultCount = Math.max(lookup.length, 3);
     const estimatedItemHeight = targetSearch.kind === 'product' ? 58 : 42;
     const estimatedHeight = Math.min(460, 92 + Math.min(resultCount, 6) * estimatedItemHeight);
+    const panelHeight = Math.max(estimatedHeight, Number(measuredHeight) || 0);
     const availableAbove = rect.top - 12;
     const availableBelow = window.innerHeight - rect.bottom - 12;
-    const showAbove = availableBelow < estimatedHeight && availableAbove >= Math.min(estimatedHeight, 280);
+    // 실제 팝업 높이를 측정한 뒤 위쪽을 우선한다. 아래 공간이 남아 있어도
+    // 현재 행 아래의 버튼·입력창을 가리지 않도록 위에 붙이는 것이 기본이다.
+    const showAbove = availableAbove >= panelHeight || availableBelow < panelHeight;
     const top = showAbove
-      ? Math.max(12, rect.top - 8)
-      : Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 12));
+      ? Math.max(12, rect.top - panelHeight - 8)
+      : Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - panelHeight - 12));
     return {
       left,
       width,
       top,
-      transform: showAbove ? 'translateY(-100%)' : 'none',
+      transform: 'none',
     };
   };
 
@@ -389,11 +393,15 @@ export default function SalesDefectDeductionsPage() {
 
   useEffect(() => {
     if (!activeSearch) return undefined;
-    const updatePosition = () => setLookupAnchor(readLookupAnchor(activeSearch));
+    const updatePosition = () => setLookupAnchor(readLookupAnchor(activeSearch, lookupPanelRef.current?.getBoundingClientRect().height));
     updatePosition();
+    const animationFrame = typeof window !== 'undefined' && window.requestAnimationFrame
+      ? window.requestAnimationFrame(updatePosition)
+      : null;
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
     return () => {
+      if (animationFrame != null) window.cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
@@ -688,7 +696,7 @@ export default function SalesDefectDeductionsPage() {
 
   const renderLookupPanel = (index, kind) => {
     if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) return null;
-    const panel = <div className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
+    const panel = <div ref={lookupPanelRef} className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
       <div className="defect-lookup-title">
         <span>{kind === 'customer' ? '거래처 검색 결과' : kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}</span>
         <span>{kind === 'product' ? '↑↓ 이동 · Enter 선택 · Esc 닫기' : `${lookup.length}개 · ↑↓ 이동 · Enter 선택 · Esc 닫기`}</span>
