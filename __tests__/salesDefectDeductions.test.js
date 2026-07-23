@@ -123,6 +123,8 @@ assert.ok(deductionSource.includes('Note=@note'), '수입부 비고를 확정 �
 assert.ok(deductionSource.includes('resolveIncomingReview'), '수입부 보완 필요 해제 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
+assert.ok(deductionSource.includes('ImportReviewRequired=CASE WHEN ImportReviewRequired=1 THEN 1 ELSE @reviewRequired END'), '일반 영업 저장은 해결 완료 전 보완 필요 상태를 해제하면 안 된다.');
+assert.ok(deductionSource.includes('input.importReviewRequired == null ? Boolean(dbRow.ImportReviewRequired)'), '수입부 요청에 보완 필드가 없으면 기존 상태를 보존해야 한다.');
 assert.ok(deductionSource.includes('ImportConfirmed=CASE WHEN @importReset=1 THEN 0'), '영업부가 수입부 확정 후 농장/크레딧/비고를 바꾸면 재확인이 필요해야 한다.');
 assert.deepEqual(
   deductionManagerIdentity({ CreatedBy: 'jkim', CreatedByName: '김담당' }),
