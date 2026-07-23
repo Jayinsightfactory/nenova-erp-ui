@@ -1,0 +1,53 @@
+{
+  "id": "shilla-miu-board",
+  "title": "신라·미우 통합 게시판 — 전산 차수 집계·공급/사용차수 매칭",
+  "scope": [
+    "pages/sales/shilla-miu-board.js",
+    "pages/api/sales/shilla-miu-board.js",
+    "lib/shillaMiuBoard.js",
+    "components/Layout.js",
+    "__tests__/shillaMiuBoard.test.js",
+    "docs/migrations/2026-07-23_web_shilla_miu_board.sql"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "ERP_BOARD_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "OrderMaster/ShipmentMaster/WarehouseMaster read-only aggregate"
+    },
+    {
+      "name": "WEB_ALLOCATION_MATCH_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "WebShillaMiuBoardAllocation upsert only; ERP orders/shipments/stock are not changed"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 29차가 여러 연도에 있어도 선택 OrderYear의 주문·입고·확정분배만 조회하고 웹 매칭도 OrderYear로 분리한다. 공급차수와 사용차수는 각각 저장한다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "grdViewShipment_FocusedRowChanged", "btnSave_Click"],
+    "tables": ["OrderMaster", "OrderDetail", "WarehouseMaster", "WarehouseDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "WebShillaMiuBoardAllocation"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "writes": ["WebShillaMiuBoardAllocation"],
+  "preserves": ["OrderMaster", "OrderDetail", "WarehouseMaster", "WarehouseDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ProductStock", "Estimate", "WebProfitReport"],
+  "sideEffects": {
+    "erpRead": "전산 주문·입고·ShipmentDetail isFix=1 확정분배를 선택한 연도·차수별로 조회하고, 신라/라움/미우/기타 업체로 합산한다.",
+    "supplyUseIdentity": "공급차수(SupplyWeek)와 사용차수(UseWeek)를 별도 보관한다.",
+    "highlight": "라움·미우 분배 입력행의 Matched 체크는 수량과 별도로 저장하며, 매칭완료 하이라이트로 표시한다.",
+    "noErpMutation": "웹 분배 저장은 전산 주문·출고·재고를 직접 수정하지 않는다. 실제 전산 반영은 기존 출고분배 기능에서 수행한다."
+  },
+  "requiredTests": ["__tests__/shillaMiuBoard.test.js"],
+  "requiredTestFiles": ["__tests__/shillaMiuBoard.test.js", "__tests__/erpContractManifest.test.js"]
+}
