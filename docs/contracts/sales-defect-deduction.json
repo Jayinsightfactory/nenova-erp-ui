@@ -55,6 +55,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "WebSalesDefectManager only; existing deduction rows and Estimate are not changed"
+    },
+    {
+      "name": "INCOMING_CONFIRM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "수입부가 선택한 FarmKey/FarmName/CreditApplied와 ImportConfirmed 감사 필드만 WebSalesDefectDeduction에 저장하고 History를 기록한다. Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
     }
   ],
   "crossYearFixture": {
@@ -93,6 +99,7 @@
     "registrationPartial": "견적서 등록 사전검증에서 출고·단가가 유효한 선택행은 검토창으로 진행하고, 출고가 없는 행은 구체적인 사유와 함께 제외한다. 선택 전체를 한 행의 오류로 원자적 차단하지 않는다.",
     "matchDisplay": "전산 매칭 메시지는 거래처·국가·품종·DB 품명·ProdKey 전체를 줄바꿈으로 표시하고 말줄임표로 숨기지 않는다.",
     "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
+    ,"incomingConfirmation": "수입부 확인은 선택한 OrderYear/OrderWeek의 담당자 전체 원장을 조회하며 농장 마스터 선택과 크레딧 체크만 확정한다. 확정 후에도 기존 동일 인쇄 양식을 사용한다."
   },
   "requiredTests": ["__tests__/salesDefectDeductions.test.js"],
   "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/erpContractManifest.test.js"]

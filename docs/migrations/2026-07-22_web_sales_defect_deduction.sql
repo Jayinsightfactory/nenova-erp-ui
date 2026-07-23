@@ -17,6 +17,10 @@ BEGIN
     CreditApplied BIT NOT NULL DEFAULT 0,
     FarmKey INT NULL,
     FarmName NVARCHAR(200) NOT NULL DEFAULT N'',
+    ImportConfirmed BIT NOT NULL DEFAULT 0,
+    ImportConfirmedBy NVARCHAR(100) NOT NULL DEFAULT N'',
+    ImportConfirmedByName NVARCHAR(100) NOT NULL DEFAULT N'',
+    ImportConfirmedAt DATETIME NULL,
     Note NVARCHAR(1000) NOT NULL DEFAULT N'',
     DeductionType NVARCHAR(50) NOT NULL DEFAULT N'불량차감',
     EstimateKey INT NULL,
@@ -40,6 +44,15 @@ BEGIN
   CREATE INDEX IX_WebSalesDefectDeduction_Estimate
     ON dbo.WebSalesDefectDeduction(EstimateKey) WHERE EstimateKey IS NOT NULL;
 END;
+
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmed') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmed BIT NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportConfirmed DEFAULT 0;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedBy') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedBy NVARCHAR(100) NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportConfirmedBy DEFAULT N'';
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedByName') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedByName NVARCHAR(100) NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportConfirmedByName DEFAULT N'';
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedAt') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedAt DATETIME NULL;
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN

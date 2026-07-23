@@ -184,13 +184,14 @@
 **WebSalesDefectDeduction** — 영업수입 불량/검역 차감 웹 원장
 - PK: `DeductionKey`; 업무 키: `OrderYear`, `OrderWeek`, `CustKey`, `ProdKey`
 - 입력 스냅샷: 거래처/품목/색상/차감수량/단위/크레딧/농장/비고/차감구분
+- 수입부 확인: `ImportConfirmed`, `ImportConfirmedBy`, `ImportConfirmedByName`, `ImportConfirmedAt`
 - 견적 등록 후 연결: `EstimateKey`, `EstimateCost`, `EstimateDtm`, `Status`
 - 웹 원장 저장만으로 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`, 재고, 손익 원장을 변경하지 않는다.
 - 견적서관리 등록을 명시적으로 실행할 때만 dnSpy `ClassEstimate.Insert/Update`와 동일한 `Estimate` 행을 생성·갱신한다.
 
 **WebSalesDefectDeductionHistory** — 불량/검역 차감 변경 이력
 - PK: `HistoryKey`, 업무 FK: `DeductionKey`
-- `CREATE`, `UPDATE`, `REGISTER_ESTIMATE`, `DELETE`와 거래처명/품명/색상/수량/크레딧/농장/비고 변경 전후 JSON을 보존한다.
+- `CREATE`, `UPDATE`, `MATCH`, `INCOMING_CONFIRM`, `REGISTER_ESTIMATE`, `DELETE`와 거래처명/품명/색상/수량/크레딧/농장/비고 변경 전후 JSON을 보존한다.
 - 담당자별 입력자·수정자를 기록하지만 조회 범위는 전체 담당자 공통이다.
 
 **ReceivableLedger** — 미수금 원장

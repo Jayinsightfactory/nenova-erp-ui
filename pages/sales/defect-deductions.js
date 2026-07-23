@@ -89,7 +89,11 @@ export default function SalesDefectDeductionsPage() {
   const [managerEditId, setManagerEditId] = useState('');
   const [managerEditName, setManagerEditName] = useState('');
   const [deductionType, setDeductionType] = useState('불량차감');
+  const [activeTab, setActiveTab] = useState('sales');
   const [rows, setRows] = useState([]);
+  const [incomingRows, setIncomingRows] = useState([]);
+  const [incomingLoading, setIncomingLoading] = useState(false);
+  const [incomingSaving, setIncomingSaving] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -97,7 +101,7 @@ export default function SalesDefectDeductionsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [activeSearch, setActiveSearch] = useState(null); // { index, kind }
+  const [activeSearch, setActiveSearch] = useState(null); // { index, kind, scope }
   const [lookup, setLookup] = useState([]);
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupActiveIndex, setLookupActiveIndex] = useState(-1);
@@ -139,6 +143,28 @@ export default function SalesDefectDeductionsPage() {
   }, [year, week, manager]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadIncoming = useCallback(async () => {
+    if (!year || !week) return;
+    setIncomingLoading(true);
+    setError('');
+    try {
+      const data = await apiGet('/api/sales/defect-deductions', {
+        year, week, view: 'incoming', history: '1', manager: '',
+      });
+      setIncomingRows(data.rows || []);
+      setHistory(data.history || []);
+      return data;
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setIncomingLoading(false);
+    }
+  }, [year, week]);
+
+  useEffect(() => {
+    if (activeTab === 'incoming') loadIncoming();
+  }, [activeTab, loadIncoming]);
 
   const visibleManagerOptions = useMemo(() => {
     const normalizeName = (value) => String(value || '').toLowerCase().replace(/\s+/g, '').trim();
@@ -207,6 +233,10 @@ export default function SalesDefectDeductionsPage() {
 
   const updateRow = (index, patch) => {
     setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
+  };
+
+  const updateIncomingRow = (index, patch) => {
+    setIncomingRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
   };
 
   const changeText = (index, field, value) => {
@@ -283,10 +313,11 @@ export default function SalesDefectDeductionsPage() {
     }, 120);
   };
 
-  const openLookup = (index, kind, term) => {
+  const openLookup = (index, kind, term, scope = 'sales') => {
     const value = String(term || '').trim();
-    const anchorField = kind === 'customer' ? `customer-${index}` : kind === 'farm' ? `farm-${index}` : `productName-${index}`;
-    const nextSearch = { index, kind, anchorField };
+    const prefix = scope === 'incoming' ? 'incoming-farm' : kind === 'customer' ? 'customer' : kind === 'farm' ? 'farm' : 'productName';
+    const anchorField = `${prefix}-${index}`;
+    const nextSearch = { index, kind, scope, anchorField };
     setActiveSearch(nextSearch);
     setLookupAnchor(readLookupAnchor(nextSearch));
     setLookupQuery(value);
@@ -294,14 +325,14 @@ export default function SalesDefectDeductionsPage() {
     fetchLookup(index, kind, value);
   };
 
-  const runLookup = (index, kind, explicitTerm = '') => {
-    const row = rows[index] || {};
+  const runLookup = (index, kind, explicitTerm = '', scope = 'sales') => {
+    const row = scope === 'incoming' ? (incomingRows[index] || {}) : (rows[index] || {});
     const term = kind === 'customer'
       ? row.customerName
       : kind === 'product'
         ? (explicitTerm || `${row.productName || ''} ${row.colorName || ''}`).trim()
         : row.farmName;
-    openLookup(index, kind, term);
+    openLookup(index, kind, term, scope);
   };
 
   const moveParentWeek = (direction) => {
@@ -356,7 +387,7 @@ export default function SalesDefectDeductionsPage() {
     });
   };
 
-  const handleLookupKeyDown = (event, index, kind, term, nextField) => {
+  const handleLookupKeyDown = (event, index, kind, term, nextField, scope = 'sales') => {
     if (event.key === 'Escape') {
       event.preventDefault();
       closeLookup();
@@ -369,8 +400,8 @@ export default function SalesDefectDeductionsPage() {
     const lookupDelta = lookupSelectionDelta(event.key);
     if (lookupDelta) {
       event.preventDefault();
-      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) {
-        openLookup(index, kind, term);
+      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind || activeSearch.scope !== scope) {
+        openLookup(index, kind, term, scope);
       } else {
         moveLookupSelection(lookupDelta);
       }
@@ -378,8 +409,8 @@ export default function SalesDefectDeductionsPage() {
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) {
-        openLookup(index, kind, term);
+      if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind || activeSearch.scope !== scope) {
+        openLookup(index, kind, term, scope);
       } else if (chooseActiveLookup()) {
         if (nextField) focusField(index, nextField);
       }
@@ -431,7 +462,15 @@ export default function SalesDefectDeductionsPage() {
 
   const chooseLookup = (item) => {
     if (!activeSearch) return;
-    const { index, kind } = activeSearch;
+    const { index, kind, scope = 'sales' } = activeSearch;
+    if (scope === 'incoming') {
+      if (kind === 'farm') updateIncomingRow(index, {
+        farmName: item.FarmName || '',
+        farmKey: Number(item.FarmKey) || null,
+      });
+      closeLookup();
+      return;
+    }
     const row = rows[index] || {};
     if (kind === 'customer') {
       updateRow(index, { customerName: item.CustName, custKey: Number(item.CustKey), customerSuggestions: [] });
@@ -724,6 +763,22 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  const confirmIncoming = async () => {
+    if (!incomingRows.length) { setError('확정할 차수 전체 불량 행이 없습니다.'); return; }
+    setIncomingSaving(true); setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', {
+        action: 'incoming-confirm', year, week, rows: incomingRows,
+      });
+      setIncomingRows(data.rows || []);
+      setMessage(`${data.confirmed || 0}건 수입부 확인 확정 완료. 농장·크레딧 상태와 이력을 저장했습니다.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setIncomingSaving(false);
+    }
+  };
+
   useEffect(() => {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
@@ -761,7 +816,9 @@ export default function SalesDefectDeductionsPage() {
 
   const download = async () => {
     try {
-      const res = await fetch(`/api/sales/defect-deductions-excel?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&manager=${encodeURIComponent(manager)}`, { credentials: 'include' });
+      const view = activeTab === 'incoming' ? '&view=incoming' : '';
+      const selectedManager = activeTab === 'incoming' ? '' : manager;
+      const res = await fetch(`/api/sales/defect-deductions-excel?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&manager=${encodeURIComponent(selectedManager)}${view}`, { credentials: 'include' });
       if (!res.ok) {
         const data = await parseJsonResponse(res);
         throw new Error(data.error || '다운로드 실패');
@@ -788,7 +845,8 @@ export default function SalesDefectDeductionsPage() {
     : row.status === 'DELETED' ? '삭제됨' : row.deductionKey ? '웹 저장' : '미저장';
   const matchingHistory = history.filter(isMatchingHistory);
 
-  const printRows = Array.from({ length: Math.max(rows.length, 39) }, (_, index) => rows[index] || null);
+  const printSourceRows = activeTab === 'incoming' ? incomingRows : rows;
+  const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
   const printQuantity = (row) => {
     if (!row || row.quantity == null || row.quantity === '') return '';
     const quantity = Number(row.quantity);
@@ -796,8 +854,8 @@ export default function SalesDefectDeductionsPage() {
     return `${value}${row.sourceUnit || row.unit || ''}`;
   };
 
-  const renderLookupPanel = (index, kind) => {
-    if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) return null;
+  const renderLookupPanel = (index, kind, scope = 'sales') => {
+    if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind || (activeSearch.scope || 'sales') !== scope) return null;
     const panel = <div ref={lookupPanelRef} className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
       <div className="defect-lookup-title">
         <span>{kind === 'customer' ? '거래처 검색 결과' : kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}</span>
@@ -831,7 +889,13 @@ export default function SalesDefectDeductionsPage() {
         <span style={{ color: '#64748b', fontSize: 12 }}>원본 양식 업로드 → 확인/수정 → 저장 → 견적서관리 일괄 등록</span>
       </div>
 
-      <div className="card manager-home-card">
+      <div className="card defect-tabs" role="tablist" aria-label="영업수입불량차감 업무 구분">
+        <button type="button" role="tab" aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
+        {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
+      </div>
+
+      {activeTab === 'sales' && <div className="card manager-home-card">
         <div className="manager-home-title">담당자 바로가기</div>
         <div className="manager-home-buttons">
           {managerQuickOptions.map((item) => (
@@ -846,7 +910,7 @@ export default function SalesDefectDeductionsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div className="card" style={{ padding: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -857,20 +921,25 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(1)} disabled={loading || !shiftParentWeek(year, week, 1)}>다음 ▶</button>
             </span>
           </label>
-          <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체</option>{visibleManagerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
-          <button className="btn" onClick={() => setShowManagerEditor((value) => !value)}>담당자 추가/수정</button>
-          <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
-          <button className="btn btn-primary" onClick={load} disabled={loading}>조회</button>
+          {activeTab === 'sales' && <>
+            <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체</option>{visibleManagerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
+            <button className="btn" onClick={() => setShowManagerEditor((value) => !value)}>담당자 추가/수정</button>
+            <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
+          </>}
+          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : load} disabled={loading || incomingLoading}>조회</button>
+          {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
            <button className="btn" onClick={() => openAddModeMenu(rows.length - 1)}>빈 행 추가</button>
           <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
-          <button className="btn" onClick={printForm} disabled={!rows.length}>인쇄</button>
+          </>}
+          {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>수입부 확인 확정</button>}
+          <button className="btn" onClick={printForm} disabled={!printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
-          <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>
+          {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
           {message && <span style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
@@ -911,7 +980,41 @@ export default function SalesDefectDeductionsPage() {
         </div>
       )}
 
-      <div className="screenOnly">
+      {activeTab === 'incoming' && <div className="screenOnly">
+      <div className="card incoming-review-card">
+        <div className="incoming-review-head">
+          <div><strong>수입부 확인 — {year}년 {week}차 전체 불량</strong><span>{incomingLoading ? ' 불러오는 중…' : ` ${incomingRows.length}건`}</span></div>
+          <span className="incoming-review-note">농장 검색·선택 및 크레딧 가능 여부를 입력한 뒤 「수입부 확인 확정」을 누르세요.</span>
+        </div>
+        <div className="defect-grid-scroll incoming-grid-scroll">
+          <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
+            <colgroup><col style={{ width: 55 }} /><col style={{ width: 125 }} /><col style={{ width: 170 }} /><col style={{ width: 130 }} /><col style={{ width: 300 }} /><col style={{ width: 120 }} /><col style={{ width: 260 }} /><col style={{ width: 100 }} /><col style={{ width: 130 }} /></colgroup>
+            <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧</th><th>확인상태</th></tr></thead>
+            <tbody>{incomingRows.map((row, index) => <tr className="defect-row" key={row.deductionKey || `incoming-${index}`}>
+              <td>{index + 1}</td>
+              <td>{row.managerName || '-'}</td>
+              <td>{row.customerName || '-'}</td>
+              <td>{row.productName || '-'}</td>
+              <td><span className="incoming-product-name">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
+              <td>{printQuantity(row)}</td>
+              <td>
+                <div className="lookup-inline">
+                  <input data-defect-field={`incoming-farm-${index}`} className="input cell incoming-farm-input" value={valueOf(row, 'farmName')} onChange={(e) => { updateIncomingRow(index, { farmName: e.target.value, farmKey: null, importConfirmed: false }); if (e.target.value.trim()) openLookup(index, 'farm', e.target.value, 'incoming'); else closeLookup(); }} onKeyDown={(e) => handleLookupKeyDown(e, index, 'farm', e.currentTarget.value, null, 'incoming')} />
+                  <button type="button" className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm', '', 'incoming')}>검색</button>
+                </div>
+                {renderLookupPanel(index, 'farm', 'incoming')}
+              </td>
+              <td style={{ textAlign: 'center' }}><label className="incoming-credit-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(index, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
+              <td><span className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedAt ? ` (${String(row.importConfirmedAt).slice(0, 10)})` : ''}` : '확인 필요'}</span></td>
+            </tr>)}
+            {!incomingRows.length && <tr><td colSpan="9" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div>}
+
+      {activeTab === 'sales' && <div className="screenOnly">
       <div className="card defect-grid-card">
         <div className="defect-grid-scroll">
         <table className="data-table defect-grid" onFocusCapture={handleGridFocusCapture} style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
@@ -1046,12 +1149,12 @@ export default function SalesDefectDeductionsPage() {
         </table>
         </div>
       </div>
-      </div>
+      </div>}
 
       <div className="printOnly print-form" aria-hidden="true">
         <div className="print-top">
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
-            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{currentUser?.userName || ''}</td><td></td><td></td></tr></tbody></table>
+            <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{activeTab === 'incoming' ? '수입부' : (currentUser?.userName || '')}</td><td></td><td></td></tr></tbody></table>
         </div>
         <table className="print-table">
           <colgroup><col className="customer-col" /><col className="product-col" /><col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
@@ -1069,6 +1172,22 @@ export default function SalesDefectDeductionsPage() {
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
+        .defect-tabs { display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin: 8px 0; }
+        .incoming-tab-help { color: #475569; font-size: 12px; }
+        .incoming-review-card { padding: 0; overflow: visible; }
+        .incoming-review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .incoming-review-head strong { color: #1e3a8a; }
+        .incoming-review-head span { color: #475569; font-size: 12px; }
+        .incoming-review-note { color: #64748b !important; }
+        .incoming-grid-scroll { max-height: calc(100vh - 330px); }
+        .incoming-grid { min-width: 1380px; table-layout: fixed; }
+        .incoming-grid td { vertical-align: middle; }
+        .incoming-product-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+        .incoming-farm-input { min-width: 0; }
+        .incoming-credit-choice { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
+        .incoming-credit-choice input { width: 18px; height: 18px; }
+        .incoming-confirmed { color: #166534; font-weight: 700; }
+        .incoming-pending { color: #b45309; font-weight: 700; }
         .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
         .manager-home-title { font-weight: 800; white-space: nowrap; color: #1e3a8a; }
         .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
