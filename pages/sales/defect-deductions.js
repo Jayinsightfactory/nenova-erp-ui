@@ -102,6 +102,8 @@ export default function SalesDefectDeductionsPage() {
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupActiveIndex, setLookupActiveIndex] = useState(-1);
   const [lookupAnchor, setLookupAnchor] = useState(null);
+  const [unitFocus, setUnitFocus] = useState(null); // { index, position }
+  const [addModeMenu, setAddModeMenu] = useState(null); // { index, sourceIndex }
   const [preflight, setPreflight] = useState({});
   const fileRef = useRef(null);
   const searchTimer = useRef(null);
@@ -327,6 +329,18 @@ export default function SalesDefectDeductionsPage() {
     window.setTimeout(() => document.querySelector(`[data-defect-action="${action}"]`)?.focus(), 0);
   };
 
+  const unitPosition = (row) => {
+    const value = String(row?.sourceUnit || row?.unit || '단');
+    const position = UNIT_OPTIONS.findIndex((item) => item.value === value);
+    return position >= 0 ? position : 0;
+  };
+
+  const focusUnitGroup = (index) => {
+    const row = rows[index] || {};
+    setUnitFocus({ index, position: unitPosition(row) });
+    window.setTimeout(() => document.querySelector(`[data-defect-action="unit-group-${index}"]`)?.focus(), 0);
+  };
+
   const chooseActiveLookup = () => {
     if (!lookup.length) return false;
     const index = lookupActiveIndex >= 0 && lookupActiveIndex < lookup.length ? lookupActiveIndex : 0;
@@ -407,6 +421,14 @@ export default function SalesDefectDeductionsPage() {
     };
   }, [activeSearch, lookup.length]);
 
+  useEffect(() => {
+    if (!activeSearch || lookupActiveIndex < 0) return undefined;
+    const timer = window.setTimeout(() => {
+      document.querySelector(`[data-defect-lookup-option="${lookupActiveIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeSearch, lookupActiveIndex]);
+
   const chooseLookup = (item) => {
     if (!activeSearch) return;
     const { index, kind } = activeSearch;
@@ -454,29 +476,109 @@ export default function SalesDefectDeductionsPage() {
     setMessage('DB 품목 매칭을 선택했습니다. 저장 버튼을 눌러 전산 매칭값과 매칭 이력을 확정하세요.');
   };
 
-  const addRow = (focusNextField = '') => {
+  const openAddModeMenu = (sourceIndex = rows.length - 1) => {
     const nextIndex = rows.length;
     setRows((current) => [...current, emptyRow()]);
-    if (focusNextField) focusField(nextIndex, focusNextField);
+    setAddModeMenu({ index: nextIndex, sourceIndex: sourceIndex >= 0 ? sourceIndex : null });
+    window.setTimeout(() => focusAction(`add-mode-${nextIndex}-same-customer`), 0);
+  };
+
+  const chooseAddMode = (mode) => {
+    if (!addModeMenu) return;
+    const { index, sourceIndex } = addModeMenu;
+    const source = rows[sourceIndex == null ? index - 1 : sourceIndex] || {};
+    const next = { ...emptyRow() };
+    if (mode === 'same-customer' || mode === 'same-customer-product') {
+      next.customerName = source.customerName || '';
+      next.custKey = source.custKey || null;
+      next.matchedCustomerName = source.matchedCustomerName || source.customerName || '';
+      next.farmName = source.farmName || '';
+      next.farmKey = source.farmKey || null;
+    }
+    if (mode === 'same-customer-product') {
+      next.productName = source.productName || '';
+      next.colorName = source.colorName || '';
+      next.prodKey = source.prodKey || null;
+      next.matchedProductName = source.matchedProductName || '';
+      next.matchedProductDbName = source.matchedProductDbName || '';
+      next.countryName = source.countryName || '';
+      next.matchedFlowerName = source.matchedFlowerName || '';
+      next.sourceUnit = source.sourceUnit || source.unit || '단';
+      next.unit = source.unit || source.sourceUnit || '단';
+    }
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? next : row));
+    setAddModeMenu(null);
+    if (mode === 'same-customer-product') {
+      focusField(index, 'colorName');
+      const term = `${next.productName || ''} ${next.colorName || ''}`.trim();
+      if (term) openLookup(index, 'product', term);
+    } else if (mode === 'same-customer') {
+      focusField(index, 'productName');
+    } else {
+      focusField(index, 'customerName');
+    }
   };
 
   const handleQuantityKeyDown = (event) => {
+    const index = Number(String(event.currentTarget?.dataset?.defectField || '').split('-').pop());
     if (event.key === 'Tab' && !event.shiftKey) {
       event.preventDefault();
-      focusAction('empty-row-add');
+      if (Number.isInteger(index) && index >= 0) focusUnitGroup(index);
       return;
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const index = Number(String(event.currentTarget?.dataset?.defectField || '').split('-').pop());
-      if (Number.isInteger(index) && index >= 0) focusAction(`related-${index}-customer`);
+      if (Number.isInteger(index) && index >= 0) focusUnitGroup(index);
     }
   };
 
   const handleEmptyRowAddKeyDown = (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    addRow('customerName');
+    openAddModeMenu(rows.length - 1);
+  };
+
+  const handleAddModeKeyDown = (event, index, mode) => {
+    const modes = ['same-customer', 'same-customer-product', 'new-customer'];
+    const current = modes.indexOf(mode);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setAddModeMenu(null);
+      focusAction('empty-row-add');
+      return;
+    }
+    const delta = lookupSelectionDelta(event.key);
+    if (delta) {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = (current + delta + modes.length) % modes.length;
+      focusAction(`add-mode-${index}-${modes[next]}`);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+      chooseAddMode(mode);
+    }
+  };
+
+  const handleUnitGroupKeyDown = (event, index) => {
+    const current = unitFocus?.index === index ? unitFocus.position : unitPosition(rows[index]);
+    const delta = lookupSelectionDelta(event.key);
+    if (delta) {
+      event.preventDefault();
+      event.stopPropagation();
+      setUnitFocus({ index, position: (current + delta + UNIT_OPTIONS.length) % UNIT_OPTIONS.length });
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+      const unit = UNIT_OPTIONS[current]?.value || '단';
+      updateRow(index, { sourceUnit: unit, unit });
+      setUnitFocus(null);
+      focusAction('empty-row-add');
+    }
   };
 
   const handleRelatedAddKeyDown = (event, index, keepProduct) => {
@@ -706,7 +808,7 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" className="btn btn-primary" onClick={searchLookup}>검색</button>
       </div>
       <div className="defect-lookup-options">
-        {lookup.map((item, i) => <button key={i} type="button" tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} aria-current={lookupActiveIndex === i ? 'true' : undefined} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
+        {lookup.map((item, i) => <button key={i} type="button" tabIndex={-1} data-defect-lookup-option={i} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} aria-current={lookupActiveIndex === i ? 'true' : undefined} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
           <span className="defect-lookup-cursor" aria-hidden="true">{lookupActiveIndex === i ? '▶ ' : ''}</span>
           {kind === 'product' ? <>
             <span className="defect-lookup-country">{item.CounName || item.counName || '-'}</span>
@@ -761,7 +863,7 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn btn-primary" onClick={load} disabled={loading}>조회</button>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
-          <button className="btn" onClick={addRow}>빈 행 추가</button>
+           <button className="btn" onClick={() => openAddModeMenu(rows.length - 1)}>빈 행 추가</button>
           <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
@@ -842,6 +944,12 @@ export default function SalesDefectDeductionsPage() {
                 <td>{index + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
                 <td>
+                 {addModeMenu?.index === index && <div className="defect-add-mode-menu" role="group" aria-label="행 추가 방식 선택">
+                    <div className="defect-add-mode-title">입력 방식 선택</div>
+                    <button type="button" data-defect-action={`add-mode-${index}-same-customer`} className="btn btn-xs related-row-action" onKeyDown={(event) => handleAddModeKeyDown(event, index, 'same-customer')} onClick={() => chooseAddMode('same-customer')}>동일업체 추가</button>
+                    <button type="button" data-defect-action={`add-mode-${index}-same-customer-product`} className="btn btn-xs related-row-action" onKeyDown={(event) => handleAddModeKeyDown(event, index, 'same-customer-product')} onClick={() => chooseAddMode('same-customer-product')}>동일업체 품종추가</button>
+                    <button type="button" data-defect-action={`add-mode-${index}-new-customer`} className="btn btn-xs related-row-action" onKeyDown={(event) => handleAddModeKeyDown(event, index, 'new-customer')} onClick={() => chooseAddMode('new-customer')}>신규업체 추가</button>
+                  </div>}
                  <div className="lookup-inline">
                     <input data-defect-field={`customer-${index}`} className="input cell" value={valueOf(row, 'customerName')} onChange={(e) => handleLookupChange(index, 'customer', 'customerName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'customer', e.currentTarget.value, 'productName')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'customer')}>검색</button>
@@ -883,7 +991,29 @@ export default function SalesDefectDeductionsPage() {
                 <td>
                   <input data-defect-field={`quantity-${index}`} className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} onKeyDown={handleQuantityKeyDown} />
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-                    {UNIT_OPTIONS.map((unit) => <button tabIndex={-1} key={unit.value} type="button" className={`btn btn-xs ${String(row.sourceUnit || row.unit || '단') === unit.value ? 'btn-primary' : ''}`} onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}>{unit.label}</button>)}
+                    <div
+                      data-defect-action={`unit-group-${index}`}
+                      className="defect-unit-group"
+                      role="radiogroup"
+                      aria-label="차감 단위 선택"
+                      tabIndex={0}
+                      onFocus={() => setUnitFocus({ index, position: unitPosition(row) })}
+                      onKeyDown={(event) => handleUnitGroupKeyDown(event, index)}
+                    >
+                      {UNIT_OPTIONS.map((unit, unitIndex) => {
+                        const selectedUnit = String(row.sourceUnit || row.unit || '단') === unit.value;
+                        const highlighted = unitFocus?.index === index && unitFocus.position === unitIndex;
+                        return <button
+                          tabIndex={-1}
+                          key={unit.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selectedUnit}
+                          className={`btn btn-xs ${selectedUnit ? 'btn-primary' : ''} ${highlighted ? 'defect-unit-highlight' : ''}`}
+                          onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}
+                        >{unit.label}</button>;
+                      })}
+                    </div>
                   </div>
                 </td>
                 <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateRow(index, { creditApplied: e.target.checked })} /></td>
@@ -909,7 +1039,7 @@ export default function SalesDefectDeductionsPage() {
             <tr><td colSpan="12" className="empty-row-cell">
               <div className="empty-row-content">
                 {!rows.length && <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>}
-                <button type="button" data-defect-action="empty-row-add" className="btn btn-primary" onKeyDown={handleEmptyRowAddKeyDown} onClick={() => addRow('customerName')}>＋ 빈 행 추가</button>
+                <button type="button" data-defect-action="empty-row-add" className="btn btn-primary" onKeyDown={handleEmptyRowAddKeyDown} onClick={() => openAddModeMenu(rows.length - 1)}>＋ 빈 행 추가</button>
               </div>
             </td></tr>
           </tbody>
@@ -983,6 +1113,30 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-simple-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .related-row-action:focus, .related-row-action:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; background: #fef3c7; color: #111827; position: relative; z-index: 2; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        /* 검색 결과는 document.body 포털로 렌더링되므로 styled-jsx 범위 밖에서도 반드시 적용한다. */
+        :global(.defect-inline-lookup) { position: fixed !important; z-index: 2147483000 !important; isolation: isolate; box-sizing: border-box; border: 1px solid #64748b; border-radius: 6px; background: #fff; padding: 10px 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, .28); }
+        :global(.defect-lookup-title) { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
+        :global(.defect-lookup-title span) { color: #64748b; font-size: 11px; font-weight: 400; }
+        :global(.defect-lookup-search) { display: flex; gap: 6px; margin-bottom: 7px; }
+        :global(.defect-lookup-search .input) { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
+        :global(.defect-lookup-options) { display: flex; flex-direction: column; gap: 5px; max-height: min(410px, calc(100vh - 150px)); overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
+        :global(.defect-lookup-option) { display: flex; align-items: flex-start; gap: 8px; min-height: 42px; width: 100%; box-sizing: border-box; padding: 7px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; line-height: 18px; overflow: hidden; }
+        :global(.defect-lookup-option.is-active) { background: #1d4ed8; border-color: #1e3a8a; color: #fff; font-weight: 700; outline: 3px solid #bfdbfe; box-shadow: inset 5px 0 0 #0f172a, 0 0 0 1px #1e3a8a; }
+        :global(.defect-lookup-option:hover) { background: #dbeafe; border-color: #60a5fa; }
+        :global(.defect-lookup-option.is-active:hover) { background: #1d4ed8; border-color: #1e3a8a; color: #fff; }
+        :global(.defect-lookup-cursor) { flex: 0 0 15px; width: 15px; color: #fef08a; }
+        :global(.defect-lookup-country), :global(.defect-lookup-flower) { flex: 0 0 112px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #334155; font-size: 12px; }
+        :global(.defect-lookup-flower) { flex-basis: 132px; }
+        :global(.defect-lookup-product-name) { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+        :global(.defect-lookup-option.is-active .defect-lookup-country), :global(.defect-lookup-option.is-active .defect-lookup-flower) { color: #dbeafe; }
+        :global(.defect-lookup-simple-label) { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        :global(.defect-lookup-empty) { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        .defect-add-mode-menu { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0 6px; }
+        .defect-add-mode-title { flex-basis: 100%; color: #1e3a8a; font-size: 11px; font-weight: 700; }
+        .defect-add-mode-menu .related-row-action { background: #eff6ff; border-color: #93c5fd; }
+        .defect-unit-group { display: inline-flex; gap: 2px; padding: 2px; border-radius: 4px; outline: none; }
+        .defect-unit-group:focus, .defect-unit-group:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+        .defect-unit-highlight { background: #f59e0b !important; color: #111827 !important; border-color: #b45309 !important; outline: 2px solid #fbbf24; }
         @media (max-width: 700px) {
           .defect-lookup-option { gap: 5px; }
           .defect-lookup-country { flex-basis: 82px; }
