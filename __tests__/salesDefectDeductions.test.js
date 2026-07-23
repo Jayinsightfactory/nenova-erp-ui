@@ -151,6 +151,12 @@ const countryRanked = buildProductSuggestions('문라이트', countryRankedProdu
   minScore: 20,
 });
 assert.equal(countryRanked[0].prodKey, 701, '한글 별칭 검색은 실제 빈출 콜롬비아 카네이션을 먼저 보여야 한다.');
+const candlelightCandidate = buildProductSuggestions('문라이트', [
+  { ProdKey: 801, ProdName: 'CARNATION Moon Light', DisplayName: null, FlowerName: '카네이션', CounName: '콜롬비아' },
+  { ProdKey: 802, ProdName: 'ROSE / Candlelight 50cm', DisplayName: null, FlowerName: '장미', CounName: '콜롬비아' },
+], { limit: 5, minScore: 20 });
+assert.equal(candlelightCandidate[0].prodKey, 801, '문라이트 검색은 Candlelight를 Moon Light 후보보다 앞세우거나 자동 선택하면 안 된다.');
+assert.equal(candlelightCandidate.some((item) => item.prodKey === 802), false, '구분 별칭이 없는 Candlelight는 문라이트 후보에서 제외해야 한다.');
 const explicitChina = buildProductSuggestions('중국 문라이트', countryRankedProducts, {
   usageByProdKey: new Map([[701, { usageCount: 2298 }], [702, { usageCount: 2 }]]),
   limit: 2,
