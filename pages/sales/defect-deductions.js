@@ -66,6 +66,26 @@ const emptyRow = () => ({
   customerSuggestions: [], productSuggestions: [],
 });
 
+const salesRowHasInput = (row = {}) => Boolean(
+  String(row.customerName || '').trim()
+  || String(row.productName || '').trim()
+  || String(row.colorName || '').trim()
+  || String(row.quantity ?? '').trim()
+  || String(row.note || '').trim()
+  || row.custKey
+  || row.prodKey
+);
+
+// 화면에서만 사용하는 저장 상태 비교값이다. 공유 ERP 원장에는 쓰지 않는다.
+const salesRowSignature = (row = {}) => JSON.stringify([
+  Number(row.deductionKey || 0),
+  String(row.customerName || ''), Number(row.custKey || 0),
+  String(row.productName || ''), Number(row.prodKey || 0), String(row.colorName || ''),
+  String(row.quantity ?? ''), String(row.sourceUnit || row.unit || ''), Boolean(row.creditApplied),
+  Number(row.farmKey || 0), String(row.farmName || ''), String(row.note || ''),
+  Boolean(row.importReviewRequired),
+]);
+
 function initialScope() {
   const parts = String(getCurrentWeek() || '').split('-');
   return {
@@ -99,6 +119,7 @@ export default function SalesDefectDeductionsPage() {
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [salesViewMode, setSalesViewMode] = useState('edit');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -115,6 +136,31 @@ export default function SalesDefectDeductionsPage() {
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
+  const savedRowSignaturesRef = useRef(new Map());
+
+  const replaceSavedRowSignatures = useCallback((sourceRows = []) => {
+    const next = new Map();
+    (sourceRows || []).forEach((row) => {
+      const key = Number(row?.deductionKey || 0);
+      if (key > 0) next.set(key, salesRowSignature(row));
+    });
+    savedRowSignaturesRef.current = next;
+  }, []);
+
+  const mergeSavedRowSignatures = useCallback((sourceRows = []) => {
+    const next = new Map(savedRowSignaturesRef.current);
+    (sourceRows || []).forEach((row) => {
+      const key = Number(row?.deductionKey || 0);
+      if (key > 0) next.set(key, salesRowSignature(row));
+    });
+    savedRowSignaturesRef.current = next;
+  }, []);
+
+  const salesRowSaveState = (row) => {
+    const key = Number(row?.deductionKey || 0);
+    if (!(key > 0)) return salesRowHasInput(row) ? '미저장' : '초기화됨';
+    return savedRowSignaturesRef.current.get(key) === salesRowSignature(row) ? '저장 완료' : '저장 안 됨';
+  };
 
   useEffect(() => {
     apiGet('/api/auth/me').then((data) => {
@@ -131,7 +177,10 @@ export default function SalesDefectDeductionsPage() {
     setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', { year, week, manager: managerFilter, history: '1' });
-      if (!preserveRows) setRows(data.rows || []);
+      if (!preserveRows) {
+        setRows(data.rows || []);
+        replaceSavedRowSignatures(data.rows || []);
+      }
       setHistory(data.history || []);
       setManagerOptions(data.managerOptions || []);
       setSelected(new Set());
@@ -142,9 +191,11 @@ export default function SalesDefectDeductionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [year, week, manager]);
+  }, [year, week, manager, replaceSavedRowSignatures]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (activeTab === 'sales') load();
+  }, [activeTab, load]);
 
   const loadIncoming = useCallback(async () => {
     if (!year || !week) return;
@@ -518,6 +569,7 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const openAddModeMenu = (sourceIndex = rows.length - 1) => {
+    setSalesViewMode('edit');
     const nextIndex = rows.length;
     setRows((current) => [...current, emptyRow()]);
     setAddModeMenu({ index: nextIndex, sourceIndex: sourceIndex >= 0 ? sourceIndex : null });
@@ -700,6 +752,7 @@ export default function SalesDefectDeductionsPage() {
       const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data.error || '업로드 실패');
       setRows((current) => [...current, ...(data.rows || [])]);
+      setSalesViewMode('edit');
       const summary = data.summary || {};
       setMessage(`엑셀 ${data.rows?.length || 0}건을 불러왔습니다. 거래처 매칭 ${summary.customerMatched || 0}건 · 품목 매칭 ${summary.productMatched || 0}건 · 확인 필요 ${summary.needsReview || 0}건`);
     } catch (e) { setError(e.message); }
@@ -719,7 +772,9 @@ export default function SalesDefectDeductionsPage() {
       });
       const savedRows = data.rows || [];
       setRows((current) => mergeSavedDeductionRows(current, savedRows, submittedRows));
+      mergeSavedRowSignatures(savedRows);
       setSelected(new Set());
+      setSalesViewMode('summary');
       setMessage(`${data.saved || 0}건 저장 완료. 이제 견적서관리 등록을 진행할 수 있습니다.`);
       // 이력/담당자 목록은 갱신하되, 저장 직후 현재 화면의 행을 조회 결과로 덮어쓰지 않는다.
       await load(manager, { preserveRows: true });
@@ -735,6 +790,7 @@ export default function SalesDefectDeductionsPage() {
         action: 'rematch', year, week, rows,
       });
       setRows(data.rows || []);
+      setSalesViewMode('edit');
       const matched = (data.rows || []).filter((row) => row.custKey && row.prodKey).length;
       const needsReview = (data.rows || []).filter((row) => row.needsReview).length;
       setMessage(`공통 매칭 엔진으로 재분석했습니다. 매칭 ${matched}건 · 확인 필요 ${needsReview}건 · 결과를 반영하려면 저장하세요.`);
@@ -815,7 +871,10 @@ export default function SalesDefectDeductionsPage() {
       const data = await apiPost('/api/sales/defect-deductions', {
         action: 'incoming-review-resolve', year, week, deductionKey: key,
       });
-      if (data.row) setRows((current) => current.map((item) => Number(item.deductionKey) === key ? data.row : item));
+      if (data.row) {
+        setRows((current) => current.map((item) => Number(item.deductionKey) === key ? data.row : item));
+        mergeSavedRowSignatures([data.row]);
+      }
       setMessage(`${row.customerName || '해당 행'}의 수입부 보완 필요를 해결 완료 처리했습니다.`);
     } catch (e) {
       setError(e.message);
@@ -891,9 +950,15 @@ export default function SalesDefectDeductionsPage() {
 
   const statusText = (row) => row.status === 'REGISTERED'
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
-    : row.status === 'DELETED' ? '삭제됨' : row.deductionKey ? '웹 저장' : '미저장';
+    : row.status === 'DELETED' ? '삭제됨' : salesRowSaveState(row);
   const matchingHistory = history.filter(isMatchingHistory);
   const reviewRequiredCount = rows.filter((row) => row.importReviewRequired).length;
+  const salesSummaryRows = rows.filter((row) => salesRowHasInput(row));
+  const salesStatusCounts = rows.reduce((counts, row) => {
+    const state = salesRowSaveState(row);
+    counts[state] = (counts[state] || 0) + 1;
+    return counts;
+  }, {});
 
   const printSourceRows = activeTab === 'incoming' ? incomingRows : rows;
   const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
@@ -975,6 +1040,10 @@ export default function SalesDefectDeductionsPage() {
             <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체</option>{visibleManagerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
             <button className="btn" onClick={() => setShowManagerEditor((value) => !value)}>담당자 추가/수정</button>
             <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
+            <span className="sales-view-toggle" role="group" aria-label="영업 입력 보기 방식">
+              <button type="button" className={`btn btn-xs ${salesViewMode === 'edit' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('edit')}>입력 편집</button>
+              <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
+            </span>
           </>}
           <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : load} disabled={loading || incomingLoading}>조회</button>
           {activeTab === 'sales' && <>
@@ -994,6 +1063,9 @@ export default function SalesDefectDeductionsPage() {
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
           {message && <span style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
           {error && <span style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}
+          {activeTab === 'sales' && <span className="sales-save-summary">
+            저장 완료 {salesStatusCounts['저장 완료'] || 0}건 · 미저장 {salesStatusCounts['미저장'] || 0}건 · 저장 안 됨 {salesStatusCounts['저장 안 됨'] || 0}건
+          </span>}
         </div>
         {showManagerEditor && <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
           <span style={{ fontWeight: 700 }}>담당자 관리</span>
@@ -1069,7 +1141,7 @@ export default function SalesDefectDeductionsPage() {
       </div>
       </div>}
 
-      {activeTab === 'sales' && <div className="screenOnly">
+      {activeTab === 'sales' && salesViewMode === 'edit' && <div className="screenOnly">
       <div className="card defect-grid-card">
         {reviewRequiredCount > 0 && <div className="sales-review-alert" role="alert">
           <strong>수입부 보완 필요 {reviewRequiredCount}건</strong>
@@ -1218,6 +1290,48 @@ export default function SalesDefectDeductionsPage() {
       </div>
       </div>}
 
+      {activeTab === 'sales' && salesViewMode === 'summary' && <div className="screenOnly">
+        <div className="card sales-summary-card">
+          <div className="sales-summary-head">
+            <div>
+              <strong>영업 입력 완료 목록 — {year}년 {week}차</strong>
+              <span>{salesSummaryRows.length}건 · 저장 완료 {salesStatusCounts['저장 완료'] || 0}건</span>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => setSalesViewMode('edit')}>입력 편집으로 돌아가기</button>
+          </div>
+          {(salesStatusCounts['미저장'] || salesStatusCounts['저장 안 됨']) && <div className="sales-summary-warning">
+            미저장 또는 변경 후 저장되지 않은 행이 있습니다. 편집 화면에서 저장 버튼을 눌러 확정하세요.
+          </div>}
+          {reviewRequiredCount > 0 && <div className="sales-summary-review">수입부 보완 필요 {reviewRequiredCount}건 — 빨간 행을 확인하세요.</div>}
+          <div className="sales-summary-scroll">
+            <table className="data-table sales-summary-table">
+              <thead><tr><th>No</th><th>담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>크레딧</th><th>농장</th><th>비고</th><th>저장 상태</th><th>견적서</th><th>편집</th></tr></thead>
+              <tbody>
+                {salesSummaryRows.map((row, index) => {
+                  const saveState = salesRowSaveState(row);
+                  const stateClass = saveState === '저장 완료' ? 'sales-summary-state-ok' : saveState === '초기화됨' ? 'sales-summary-state-reset' : 'sales-summary-state-warn';
+                  return <tr key={row.deductionKey || `summary-${index}`} className={row.importReviewRequired ? 'sales-summary-review-row' : ''}>
+                    <td>{index + 1}</td>
+                    <td>{row.managerName || '-'}</td>
+                    <td>{row.customerName || '-'}</td>
+                    <td>{row.productName || '-'}</td>
+                    <td>{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || '-'}</td>
+                    <td>{printQuantity(row)}</td>
+                    <td>{row.creditApplied ? '✓' : ''}</td>
+                    <td>{row.farmName || ''}</td>
+                    <td>{row.note || ''}</td>
+                    <td className={stateClass}>{row.status === 'REGISTERED' ? statusText(row) : saveState}</td>
+                    <td>{row.status === 'REGISTERED' ? '등록완료' : row.estimateCost ? `${fmt(row.estimateCost)}원` : '-'}</td>
+                    <td><button type="button" className="btn btn-xs" onClick={() => setSalesViewMode('edit')}>편집</button></td>
+                  </tr>;
+                })}
+                {!salesSummaryRows.length && <tr><td colSpan="12" className="empty-row-cell">입력된 항목이 없습니다.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>}
+
       <div className="printOnly print-form" aria-hidden="true">
         <div className="print-top">
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
@@ -1257,6 +1371,35 @@ export default function SalesDefectDeductionsPage() {
         .incoming-note-input { min-width: 0; width: 100%; }
         .incoming-confirmed { color: #166534; font-weight: 700; }
         .incoming-pending { color: #b45309; font-weight: 700; }
+        .sales-view-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); background: #f8fafc; border-radius: 4px; }
+        .sales-save-summary { margin-left: 10px; color: #475569; }
+        .sales-summary-card { padding: 0; overflow: visible; }
+        .sales-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .sales-summary-head strong { color: #1e3a8a; }
+        .sales-summary-head span { color: #64748b; font-size: 12px; margin-left: 8px; }
+        .sales-summary-warning, .sales-summary-review { padding: 8px 12px; font-size: 12px; }
+        .sales-summary-warning { color: #92400e; background: #fffbeb; border-bottom: 1px solid #fde68a; }
+        .sales-summary-review { color: #991b1b; background: #fef2f2; border-bottom: 1px solid #fecaca; }
+        .sales-summary-scroll { max-height: calc(100vh - 330px); overflow: auto; }
+        .sales-summary-table { width: 100%; min-width: 980px; table-layout: fixed; font-size: 12px; }
+        .sales-summary-table th, .sales-summary-table td { padding: 7px 6px; vertical-align: middle; overflow-wrap: anywhere; word-break: break-word; }
+        .sales-summary-table th { position: sticky; top: 0; z-index: 2; background: var(--header-bg); }
+        .sales-summary-table th:nth-child(1) { width: 4%; }
+        .sales-summary-table th:nth-child(2) { width: 8%; }
+        .sales-summary-table th:nth-child(3) { width: 12%; }
+        .sales-summary-table th:nth-child(4) { width: 9%; }
+        .sales-summary-table th:nth-child(5) { width: 19%; }
+        .sales-summary-table th:nth-child(6) { width: 8%; }
+        .sales-summary-table th:nth-child(7) { width: 6%; }
+        .sales-summary-table th:nth-child(8) { width: 10%; }
+        .sales-summary-table th:nth-child(9) { width: 12%; }
+        .sales-summary-table th:nth-child(10) { width: 8%; }
+        .sales-summary-table th:nth-child(11) { width: 7%; }
+        .sales-summary-table th:nth-child(12) { width: 7%; }
+        .sales-summary-review-row { background: #fef2f2; }
+        .sales-summary-state-ok { color: #166534; font-weight: 700; }
+        .sales-summary-state-warn { color: #b45309; font-weight: 700; }
+        .sales-summary-state-reset { color: #64748b; }
         .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
         .manager-home-title { font-weight: 800; white-space: nowrap; color: #1e3a8a; }
         .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
