@@ -98,6 +98,10 @@ assert.ok(pageSource.includes('reviewRequiredCount'), '영업담당자 화면에
 assert.ok(pageSource.includes('resolveReview'), '영업담당자 화면에 보완 해결 완료 동작이 있어야 한다.');
 assert.ok(pageSource.includes('해결 완료'), '보완 필요 행에 해결 완료 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('sales-row-review-alert'), '보완 필요 행은 담당자 화면에 빨간 알림으로 표시해야 한다.');
+assert.ok(pageSource.includes("const [salesViewMode, setSalesViewMode] = useState('edit')"), '영업 입력은 편집/완료 목록 보기 전환을 제공해야 한다.');
+assert.ok(pageSource.includes('sales-summary-card'), '영업 입력 완료 목록은 수입부 확인처럼 간단한 다중 행 목록으로 보여야 한다.');
+assert.ok(pageSource.includes('salesRowSaveState'), '초기화됨·미저장·저장 완료 상태를 행별로 구분해야 한다.');
+assert.ok(pageSource.includes('if (activeTab === \'sales\') load();'), '수입부 확정 후 영업 입력으로 돌아오면 최신 저장 상태를 다시 조회해야 한다.');
 assert.ok(pageSource.includes('onFocusCapture={handleGridFocusCapture}'), '다른 입력칸으로 포커스가 이동하면 이전 검색 패널을 닫아야 한다.');
 assert.ok(pageSource.includes("if (event.key === 'Tab') {\n      closeLookup();"), '검색 입력에서 Tab으로 빠져나갈 때 검색 패널을 닫아야 한다.');
 assert.ok(pageSource.includes('position: fixed'), '검색 결과는 표의 가로 스크롤에 갇히지 않는 고정 팝업이어야 한다.');
