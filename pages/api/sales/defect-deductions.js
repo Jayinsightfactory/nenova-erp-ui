@@ -18,7 +18,7 @@ import {
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
-import { normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
+import { managerFilterForUser, normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
 
 function defaultYear() { return new Date().getFullYear(); }
 
@@ -45,7 +45,7 @@ async function handler(req, res) {
       const data = await listDeductions({
         year,
         week,
-        manager: req.query.manager || '',
+        manager: managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
       });

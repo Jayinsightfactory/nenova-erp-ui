@@ -7,6 +7,8 @@ import {
   normalizeParentWeek,
   previousParentScope,
   normalizeDeductionRow,
+  managerFilterForUser,
+  partitionRegistrationPreflight,
   mergeSavedDeductionRows,
   partitionSelectedDeductionRows,
   lookupSelectionDelta,
@@ -62,6 +64,16 @@ assert.equal(lookupSelectionDelta('ArrowRight'), 1);
 assert.equal(lookupSelectionDelta('ArrowLeft'), -1);
 assert.equal(lookupSelectionDelta('ArrowDown'), 1);
 assert.equal(lookupSelectionDelta('Enter'), 0);
+assert.equal(managerFilterForUser('nenovaSD3', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
+assert.equal(managerFilterForUser('조현욱', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
+assert.equal(managerFilterForUser('', { userId: 'nenovaSD3', userName: '조현욱' }), '');
+assert.deepEqual(
+  partitionRegistrationPreflight([
+    { deductionKey: 1, error: '' },
+    { deductionKey: 2, error: '출고 없음' },
+  ]),
+  { valid: [{ deductionKey: 1, error: '' }], invalid: [{ deductionKey: 2, error: '출고 없음' }] },
+);
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
@@ -79,6 +91,7 @@ assert.equal(pageSource.includes('defect-lookup-usage'), false, '품목 검색 �
 assert.ok(pageSource.includes('overflow-x: hidden'), '품목 검색 결과는 가로 드래그 없이 세로 스크롤만 사용해야 한다.');
 assert.ok(pageSource.includes('defect-product-match'), '전산 매칭 전체 품명 표시 영역이 있어야 한다.');
 assert.ok(pageSource.includes('white-space: normal; overflow: visible; text-overflow: clip;'), '전산 매칭 품명은 말줄임 없이 전체가 보여야 한다.');
+assert.ok(pageSource.includes('partitionRegistrationPreflight'), '견적서 등록은 유효행과 오류행을 분리해 처리해야 한다.');
 assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.deepEqual(

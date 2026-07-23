@@ -3,7 +3,7 @@
 import { withAuth } from '../../../lib/auth';
 import { buildSalesDefectWorkbook } from '../../../lib/salesDefectDeductionExcel.js';
 import { listDeductions } from '../../../lib/salesDefectDeductions.js';
-import { normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
+import { managerFilterForUser, normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -11,8 +11,8 @@ export default withAuth(async function handler(req, res) {
   const week = normalizeParentWeek(req.query.week);
   if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
   try {
-    const data = await listDeductions({ year, week, manager: req.query.manager || '' });
-    const selectedManager = String(req.query.manager || '').trim();
+    const selectedManager = managerFilterForUser(req.query.manager || '', req.user);
+    const data = await listDeductions({ year, week, manager: selectedManager });
     const selectedOption = data.managerOptions?.find((item) => String(item.managerId) === selectedManager);
     const buffer = await buildSalesDefectWorkbook(data.rows, {
       year,
