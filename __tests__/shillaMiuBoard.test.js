@@ -26,6 +26,21 @@ assert.equal(rows[0].weeks['28'].web.MIU.sources[0].supplyWeek, '29');
 assert.equal(rows[0].weeks['28'].web.RAUM.matched, true);
 assert.equal(getWeekBalance(rows[0], '28').erpBalance, 50);
 
+const filteredRows = buildBoardRows({
+  weeks: ['28'],
+  orders: [
+    { week: '28', prodKey: 8, qty: 100, prodName: '기타 주문만 있는 품목' },
+  ],
+  incoming: [
+    { week: '28', prodKey: 9, qty: 100, prodName: '기타 입고만 있는 품목' },
+  ],
+  shipments: [
+    { week: '28', prodKey: 10, shillaQty: 0, raumQty: 0, miuQty: 0, otherQty: 100, prodName: '기타 거래처만 있는 품목' },
+    { week: '28', prodKey: 11, shillaQty: 0, raumQty: 20, miuQty: 0, otherQty: 0, prodName: '라움 대상 품목' },
+  ],
+});
+assert.deepEqual(filteredRows.map((row) => row.prodKey), [11], '신라·라움·미우 관련 품목만 노출해야 한다.');
+
 const source = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
 const apiSource = fs.readFileSync('pages/api/sales/shilla-miu-board.js', 'utf8');
 assert.ok(source.includes('colSpan="10"'), '차수별 가로 그룹은 10개 수량/상태 열을 가져야 한다.');
