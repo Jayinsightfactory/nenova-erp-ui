@@ -60,7 +60,7 @@
       "name": "INCOMING_CONFIRM",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "수입부가 선택한 FarmKey/FarmName/CreditApplied와 ImportConfirmed 감사 필드만 WebSalesDefectDeduction에 저장하고 History를 기록한다. Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
+      "sideEffect": "수입부가 선택한 FarmKey/FarmName/CreditApplied/ImportReviewRequired/Note와 ImportConfirmed 감사 필드만 WebSalesDefectDeduction에 저장하고 History를 기록한다. Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
     }
   ],
   "crossYearFixture": {

@@ -21,6 +21,7 @@ BEGIN
     ImportConfirmedBy NVARCHAR(100) NOT NULL DEFAULT N'',
     ImportConfirmedByName NVARCHAR(100) NOT NULL DEFAULT N'',
     ImportConfirmedAt DATETIME NULL,
+    ImportReviewRequired BIT NOT NULL DEFAULT 0,
     Note NVARCHAR(1000) NOT NULL DEFAULT N'',
     DeductionType NVARCHAR(50) NOT NULL DEFAULT N'불량차감',
     EstimateKey INT NULL,
@@ -53,6 +54,8 @@ IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedByName') IS NULL
   ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedByName NVARCHAR(100) NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportConfirmedByName DEFAULT N'';
 IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedAt') IS NULL
   ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedAt DATETIME NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportReviewRequired') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportReviewRequired BIT NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportReviewRequired DEFAULT 0;
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN

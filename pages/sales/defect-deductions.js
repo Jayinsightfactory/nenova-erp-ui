@@ -94,6 +94,7 @@ export default function SalesDefectDeductionsPage() {
   const [incomingRows, setIncomingRows] = useState([]);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
+  const [incomingConfirming, setIncomingConfirming] = useState(new Set());
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -779,6 +780,30 @@ export default function SalesDefectDeductionsPage() {
     }
   };
 
+  const confirmIncomingRow = async (index) => {
+    const row = incomingRows[index];
+    if (!row?.deductionKey) { setError('저장된 불량 행만 수입부 확정할 수 있습니다.'); return; }
+    const key = Number(row.deductionKey);
+    setIncomingConfirming((current) => new Set([...current, key]));
+    setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', {
+        action: 'incoming-confirm', year, week, rows: [row],
+      });
+      const saved = data.rows?.[0];
+      if (saved) setIncomingRows((current) => current.map((item) => Number(item.deductionKey) === key ? saved : item));
+      setMessage(`${saved?.customerName || '해당 행'} ${saved?.colorName || '불량'}을 수입부 확정했습니다.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setIncomingConfirming((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
   useEffect(() => {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
@@ -935,7 +960,7 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           </>}
-          {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>수입부 확인 확정</button>}
+          {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           <button className="btn" onClick={printForm} disabled={!printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
@@ -988,8 +1013,8 @@ export default function SalesDefectDeductionsPage() {
         </div>
         <div className="defect-grid-scroll incoming-grid-scroll">
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
-            <colgroup><col style={{ width: 55 }} /><col style={{ width: 125 }} /><col style={{ width: 170 }} /><col style={{ width: 130 }} /><col style={{ width: 300 }} /><col style={{ width: 120 }} /><col style={{ width: 260 }} /><col style={{ width: 100 }} /><col style={{ width: 130 }} /></colgroup>
-            <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧</th><th>확인상태</th></tr></thead>
+            <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
+            <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
             <tbody>{incomingRows.map((row, index) => <tr className="defect-row" key={row.deductionKey || `incoming-${index}`}>
               <td>{index + 1}</td>
               <td>{row.managerName || '-'}</td>
@@ -1004,10 +1029,15 @@ export default function SalesDefectDeductionsPage() {
                 </div>
                 {renderLookupPanel(index, 'farm', 'incoming')}
               </td>
-              <td style={{ textAlign: 'center' }}><label className="incoming-credit-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(index, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
-              <td><span className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedAt ? ` (${String(row.importConfirmedAt).slice(0, 10)})` : ''}` : '확인 필요'}</span></td>
+              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(index, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
+              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(index, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
+              <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(index, { note: e.target.value, importConfirmed: false })} /></td>
+              <td>
+                <button type="button" className={`btn btn-xs ${row.importConfirmed ? '' : 'btn-primary'}`} onClick={() => confirmIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : row.importConfirmed ? '확정완료' : '확정'}</button>
+                <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
+              </td>
             </tr>)}
-            {!incomingRows.length && <tr><td colSpan="9" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
+            {!incomingRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1180,12 +1210,14 @@ export default function SalesDefectDeductionsPage() {
         .incoming-review-head span { color: #475569; font-size: 12px; }
         .incoming-review-note { color: #64748b !important; }
         .incoming-grid-scroll { max-height: calc(100vh - 330px); }
-        .incoming-grid { min-width: 1380px; table-layout: fixed; }
+        .incoming-grid { width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }
+        .incoming-grid th, .incoming-grid td { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-grid td { vertical-align: middle; }
         .incoming-product-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
         .incoming-farm-input { min-width: 0; }
-        .incoming-credit-choice { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
-        .incoming-credit-choice input { width: 18px; height: 18px; }
+        .incoming-check-choice { display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; cursor: pointer; }
+        .incoming-check-choice input { width: 16px; height: 16px; }
+        .incoming-note-input { min-width: 0; width: 100%; }
         .incoming-confirmed { color: #166534; font-weight: 700; }
         .incoming-pending { color: #b45309; font-weight: 700; }
         .manager-home-card { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 8px 0; }
