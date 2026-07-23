@@ -7,7 +7,7 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
-import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows } from '../../lib/salesDefectDeductionCore';
+import { lookupSelectionDelta, mergeSavedDeductionRows, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const usageLabel = (item) => {
@@ -91,7 +91,7 @@ export default function SalesDefectDeductionsPage() {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -255,6 +255,14 @@ export default function SalesDefectDeductionsPage() {
         ? (explicitTerm || `${row.productName || ''} ${row.colorName || ''}`).trim()
         : row.farmName;
     openLookup(index, kind, term);
+  };
+
+  const moveParentWeek = (direction) => {
+    const next = shiftParentWeek(year, week, direction);
+    if (!next) return;
+    setYear(String(next.year));
+    setWeek(String(next.week));
+    setMessage(`${next.year}년 ${next.week}차를 조회합니다.`);
   };
 
   const searchLookup = () => {
@@ -565,6 +573,30 @@ export default function SalesDefectDeductionsPage() {
     return `${value}${row.sourceUnit || row.unit || ''}`;
   };
 
+  const renderLookupPanel = (index, kind) => {
+    if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) return null;
+    return <div className="defect-inline-lookup" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="defect-lookup-title">
+        <span>{kind === 'customer' ? '거래처 검색 결과' : kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}</span>
+        <span>행 {index + 1} 선택</span>
+      </div>
+      <div className="defect-lookup-search">
+        <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => { const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
+        <button type="button" className="btn btn-primary" onClick={searchLookup}>검색</button>
+      </div>
+      <div className="defect-lookup-options">
+        {lookup.map((item, i) => <button key={i} type="button" tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
+          {kind === 'customer'
+            ? `${item.CustName} (${item.CustKey})${usageLabel(item)}`
+            : kind === 'product'
+              ? `${productSearchLabel(item)}${usageLabel(item)}`
+              : item.FarmName}
+        </button>)}
+        {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
+      </div>
+    </div>;
+  };
+
   return (
     <Layout pageTitle="영업수입불량차감">
       <div className="sales-defect-page">
@@ -594,7 +626,12 @@ export default function SalesDefectDeductionsPage() {
       <div className="card" style={{ padding: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
           <label>연도 <input className="input" style={{ width: 80 }} value={year} onChange={(e) => setYear(e.target.value)} /></label>
-          <label>차수 <input className="input" style={{ width: 60 }} value={week} onChange={(e) => setWeek(e.target.value)} /> 차</label>
+          <label className="week-nav-field">차수 <input className="input" style={{ width: 60 }} value={week} onChange={(e) => setWeek(e.target.value)} /> 차
+            <span className="week-nav-buttons">
+              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(-1)} disabled={loading || !shiftParentWeek(year, week, -1)}>◀ 이전</button>
+              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(1)} disabled={loading || !shiftParentWeek(year, week, 1)}>다음 ▶</button>
+            </span>
+          </label>
           <label>담당자 <select className="input" style={{ minWidth: 150 }} value={manager} onChange={(e) => setManager(e.target.value)}><option value="">전체</option>{visibleManagerOptions.map((item) => <option key={item.managerId} value={item.managerId}>{item.managerName}</option>)}</select></label>
           <button className="btn" onClick={() => setShowManagerEditor((value) => !value)}>담당자 추가/수정</button>
           <label>견적서 등록 구분 <select className="input" value={deductionType} onChange={(e) => setDeductionType(e.target.value)}><option>불량차감</option><option>검역차감</option></select></label>
@@ -688,6 +725,7 @@ export default function SalesDefectDeductionsPage() {
                     <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
                     <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
                   </div>
+                  {renderLookupPanel(index, 'customer')}
                 </td>
                 <td>
                   <div className="lookup-inline">
@@ -710,6 +748,7 @@ export default function SalesDefectDeductionsPage() {
                       </button>)}
                     </div>
                   )}
+                  {renderLookupPanel(index, 'product')}
                 </td>
                 <td>
                   <div className="lookup-inline">
@@ -729,6 +768,7 @@ export default function SalesDefectDeductionsPage() {
                     <input className="input cell" value={valueOf(row, 'farmName')} onChange={(e) => changeText(index, 'farmName', e.target.value)} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm')}>검색</button>
                   </div>
+                  {renderLookupPanel(index, 'farm')}
                 </td>
                 <td>
                   <input className="input cell" value={valueOf(row, 'note')} onChange={(e) => changeText(index, 'note', e.target.value)} />
@@ -751,26 +791,6 @@ export default function SalesDefectDeductionsPage() {
           </tbody>
         </table>
         </div>
-        {activeSearch && <div className="defect-lookup-panel">
-          <div className="defect-lookup-title">
-            {activeSearch.kind === 'customer' ? '거래처 검색 결과' : activeSearch.kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}
-            <span>행 {activeSearch.index + 1} 선택</span>
-          </div>
-          <div className="defect-lookup-search">
-            <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(activeSearch.index, activeSearch.kind, e.target.value); }} onKeyDown={(e) => { const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
-            <button className="btn btn-primary" onClick={searchLookup}>검색</button>
-          </div>
-          <div className="defect-lookup-options">
-            {lookup.map((item, i) => <button key={i} tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
-              {activeSearch.kind === 'customer'
-                ? `${item.CustName} (${item.CustKey})${usageLabel(item)}`
-                : activeSearch.kind === 'product'
-                  ? `${productSearchLabel(item)}${usageLabel(item)}`
-                  : item.FarmName}
-            </button>)}
-            {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
-          </div>
-        </div>}
       </div>
       </div>
 
@@ -821,7 +841,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-inline-suggestions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
         .defect-inline-suggestion { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 3px; padding: 2px 5px; font-size: 10px; cursor: pointer; text-align: left; }
         .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .defect-lookup-panel { border-top: 1px solid #64748b; background: #fff; padding: 8px 10px; }
+        .defect-inline-lookup { position: absolute; left: 0; bottom: calc(100% + 5px); z-index: 50; width: min(620px, 56vw); min-width: 390px; border: 1px solid #64748b; border-radius: 4px; background: #fff; padding: 8px 10px; box-shadow: 0 8px 22px rgba(15, 23, 42, .22); }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
         .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }
         .defect-lookup-search { display: flex; gap: 6px; margin-bottom: 7px; }
@@ -831,6 +851,8 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-option.is-active { background: #dbeafe; border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        .week-nav-field { display: inline-flex; align-items: center; gap: 4px; }
+        .week-nav-buttons { display: inline-flex; gap: 3px; margin-left: 2px; }
         .empty-row-cell { padding: 24px !important; text-align: center; color: #64748b; }
         .empty-row-content { display: inline-flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
         .printOnly { display: none; }

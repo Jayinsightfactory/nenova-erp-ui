@@ -10,6 +10,7 @@ import {
   mergeSavedDeductionRows,
   partitionSelectedDeductionRows,
   lookupSelectionDelta,
+  shiftParentWeek,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import {
@@ -26,6 +27,10 @@ assert.equal(normalizeParentWeek('29-02'), 29);
 assert.equal(normalizeParentWeek('29'), 29);
 assert.deepEqual(previousParentScope(2026, 29), { year: 2026, week: 28 });
 assert.deepEqual(previousParentScope(2026, 1), { year: 2025, week: 52 });
+assert.deepEqual(shiftParentWeek(2026, 29, -1), { year: 2026, week: 28 });
+assert.deepEqual(shiftParentWeek(2026, 29, 1), { year: 2026, week: 30 });
+assert.deepEqual(shiftParentWeek(2026, 1, -1), { year: 2025, week: 52 });
+assert.deepEqual(shiftParentWeek(2026, 52, 1), { year: 2027, week: 1 });
 assert.deepEqual(parseQuantityCell('1,250단'), { quantity: 1250, unit: '단', raw: '1,250단' });
 assert.deepEqual(parseQuantityCell('5대'), { quantity: 5, unit: '스팀(대)', raw: '5대' });
 assert.equal(normalizeDeductionRow({ quantity: '-5', customerName: 'A' }).quantity, 5);
@@ -58,6 +63,10 @@ assert.equal(lookupSelectionDelta('ArrowLeft'), -1);
 assert.equal(lookupSelectionDelta('ArrowDown'), 1);
 assert.equal(lookupSelectionDelta('Enter'), 0);
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
+const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
+assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
+assert.ok(pageSource.includes('defect-inline-lookup'), '검색 결과는 입력 행 위의 인라인 패널로 표시되어야 한다.');
+assert.ok(pageSource.includes('shiftParentWeek'), '차수 앞뒤 이동은 공통 경계 규칙을 사용해야 한다.');
 assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.deepEqual(
