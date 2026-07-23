@@ -50,12 +50,21 @@ async function loadBoard({ year, weeks }) {
   const order = await query(
     `SELECT LEFT(om.OrderWeek,2) AS week, p.ProdKey AS prodKey, p.CounName AS country,
             p.FlowerName AS flower, p.ProdName AS prodName, p.OutUnit AS unit,
+            CASE WHEN c.CustName LIKE N'%신라%' THEN N'SHILLA'
+                 WHEN c.CustName LIKE N'%라움%' OR c.CustName LIKE N'%트라움%' THEN N'RAUM'
+                 WHEN c.CustName LIKE N'%미우%' OR c.CustName LIKE N'%아이엠%' THEN N'MIU'
+                 ELSE N'OTHER' END AS destination,
             SUM(ISNULL(od.OutQuantity,0)) AS qty
        FROM OrderMaster om
        JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+       JOIN Customer c ON c.CustKey=om.CustKey AND ISNULL(c.isDeleted,0)=0
        JOIN Product p ON p.ProdKey=od.ProdKey AND ${baseProduct.replace('%s', 'om')}
       WHERE om.OrderYear=@yr AND ISNULL(om.isDeleted,0)=0
-      GROUP BY LEFT(om.OrderWeek,2), p.ProdKey, p.CounName, p.FlowerName, p.ProdName, p.OutUnit`,
+      GROUP BY LEFT(om.OrderWeek,2), p.ProdKey, p.CounName, p.FlowerName, p.ProdName, p.OutUnit,
+               CASE WHEN c.CustName LIKE N'%신라%' THEN N'SHILLA'
+                    WHEN c.CustName LIKE N'%라움%' OR c.CustName LIKE N'%트라움%' THEN N'RAUM'
+                    WHEN c.CustName LIKE N'%미우%' OR c.CustName LIKE N'%아이엠%' THEN N'MIU'
+                    ELSE N'OTHER' END`,
     params
   );
   const incoming = await query(
