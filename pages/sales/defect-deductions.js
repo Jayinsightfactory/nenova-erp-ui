@@ -585,7 +585,8 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" className="btn btn-primary" onClick={searchLookup}>검색</button>
       </div>
       <div className="defect-lookup-options">
-        {lookup.map((item, i) => <button key={i} type="button" tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
+        {lookup.map((item, i) => <button key={i} type="button" tabIndex={-1} className={`defect-lookup-option ${lookupActiveIndex === i ? 'is-active' : ''}`} aria-selected={lookupActiveIndex === i} aria-current={lookupActiveIndex === i ? 'true' : undefined} onMouseEnter={() => setLookupActiveIndex(i)} onClick={() => chooseLookup(item)}>
+          <span className="defect-lookup-cursor" aria-hidden="true">{lookupActiveIndex === i ? '▶ ' : ''}</span>
           {kind === 'customer'
             ? `${item.CustName} (${item.CustKey})${usageLabel(item)}`
             : kind === 'product'
@@ -848,8 +849,10 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-search .input { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
         .defect-lookup-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px; max-height: min(360px, 42vh); overflow: auto; }
         .defect-lookup-option { min-height: 34px; padding: 6px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
-        .defect-lookup-option.is-active { background: #dbeafe; border-color: #2563eb; box-shadow: inset 3px 0 0 #2563eb; }
+        .defect-lookup-option.is-active { background: #1d4ed8; border-color: #1e3a8a; color: #fff; font-weight: 700; outline: 3px solid #bfdbfe; box-shadow: inset 5px 0 0 #0f172a, 0 0 0 1px #1e3a8a; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
+        .defect-lookup-option.is-active:hover { background: #1d4ed8; border-color: #1e3a8a; color: #fff; }
+        .defect-lookup-cursor { display: inline-block; width: 15px; color: #fef08a; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
         .week-nav-field { display: inline-flex; align-items: center; gap: 4px; }
         .week-nav-buttons { display: inline-flex; gap: 3px; margin-left: 2px; }
