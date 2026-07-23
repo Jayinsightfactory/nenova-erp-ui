@@ -88,7 +88,7 @@
     "previousCost": "prefer the same-year previous parent-week ShipmentDate.Cost/ShipmentDetail.Cost; when that parent week has no positive cost, use the most recent positive historical cost from earlier parent weeks (including the prior year at the year boundary), and expose the source OrderWeek",
     "lookupKeyboard": "검색 후보는 화면 배치가 가로 목록이므로 ArrowLeft/ArrowRight로 순환 이동하고 Enter로 선택한다. ArrowUp/ArrowDown도 기존 호환을 위해 같은 방향 순환을 유지한다. 차감수량에서 Tab은 빈 행 추가 버튼으로 이동하고 Enter는 새 입력행을 만든다. 행 추가 버튼은 ArrowLeft/ArrowRight/ArrowUp/ArrowDown으로 동일업체·동일업체+품종 추가를 선택하고 Enter로 실행하며, 새 행의 검색 입력에 포커스를 연결한다.",
     "lookupDismissal": "검색 입력·검색 결과 패널에서 Tab으로 빠져나가거나 다른 행의 입력·버튼으로 포커스가 이동하면 기존 검색 패널과 후보 목록을 닫는다.",
-    "lookupPresentation": "품목 후보는 표 셀 내부의 가로 스크롤에 갇히지 않는 viewport 고정 팝업으로 표시한다. 후보는 국가·품종·DB 품명·사용빈도 열의 세로 목록으로 배치하고 가로 스크롤 없이 품명을 줄바꿈한다.",
+    "lookupPresentation": "품목 후보는 표 셀 내부의 가로 스크롤에 갇히지 않는 viewport 고정 팝업으로 표시한다. 내부 추천·사용빈도 순위는 유지하되 화면에는 국가·품종·DB 품명을 일정한 열로 정렬한 세로 목록만 표시하고 사용 횟수·매칭 건수는 표시하지 않는다. 가로 스크롤 없이 품명을 줄바꿈한다.",
     "matchDisplay": "전산 매칭 메시지는 거래처·국가·품종·DB 품명·ProdKey 전체를 줄바꿈으로 표시하고 말줄임표로 숨기지 않는다.",
     "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
   },
