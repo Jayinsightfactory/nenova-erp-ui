@@ -890,7 +890,11 @@ export default function SalesDefectDeductionsPage() {
   useEffect(() => {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
-      setMessage(`${event.data.registered || 0}건 견적서 등록 적용 완료. 원장을 다시 불러와 검증했습니다.`);
+      if (event.data.verified === false) {
+        setError(`견적서 등록 후 재조회 불일치가 ${event.data.mismatches?.length || 0}건 있습니다. 검토창의 오류 내용을 확인하세요.`);
+      } else {
+        setMessage(`${event.data.registered || 0}건 견적서 등록 적용 및 재조회 검증 완료. 작업로그와 등록 확정 상태를 갱신했습니다.`);
+      }
       load();
     };
     window.addEventListener('message', onMessage);
@@ -951,6 +955,21 @@ export default function SalesDefectDeductionsPage() {
   const statusText = (row) => row.status === 'REGISTERED'
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
     : row.status === 'DELETED' ? '삭제됨' : salesRowSaveState(row);
+  const registrationHistoryByKey = useMemo(() => {
+    const map = new Map();
+    (history || []).filter((item) => String(item.ActionType || '') === 'REGISTER_ESTIMATE').forEach((item) => {
+      const key = Number(item.DeductionKey || 0);
+      if (key > 0 && !map.has(key)) map.set(key, item);
+    });
+    return map;
+  }, [history]);
+  const estimateStatusText = (row) => {
+    if (row.status !== 'REGISTERED') return '-';
+    const item = registrationHistoryByKey.get(Number(row.deductionKey || 0));
+    const actor = item?.ChangedByName || item?.ChangedBy;
+    const at = item?.ChangedAt ? String(item.ChangedAt).slice(0, 16).replace('T', ' ') : '';
+    return `등록 확정${row.estimateKey ? ` (#${row.estimateKey})` : ''}${actor ? ` · ${actor}` : ''}${at ? ` · ${at}` : ''}`;
+  };
   const matchingHistory = history.filter(isMatchingHistory);
   const reviewRequiredCount = rows.filter((row) => row.importReviewRequired).length;
   const salesSummaryRows = rows.filter((row) => salesRowHasInput(row));
@@ -1106,7 +1125,7 @@ export default function SalesDefectDeductionsPage() {
       <div className="card incoming-review-card">
         <div className="incoming-review-head">
           <div><strong>수입부 확인 — {year}년 {week}차 전체 불량</strong><span>{incomingLoading ? ' 불러오는 중…' : ` ${incomingRows.length}건`}</span></div>
-          <span className="incoming-review-note">농장 검색·선택 및 크레딧 가능 여부를 입력한 뒤 「수입부 확인 확정」을 누르세요.</span>
+          <span className="incoming-review-note">농장을 선택하면 전체 확정되고, 보완 필요 또는 비고를 남긴 행은 농장 미정이어도 우선 저장할 수 있습니다.</span>
         </div>
         <div className="defect-grid-scroll incoming-grid-scroll">
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
@@ -1320,8 +1339,8 @@ export default function SalesDefectDeductionsPage() {
                     <td>{row.creditApplied ? '✓' : ''}</td>
                     <td>{row.farmName || ''}</td>
                     <td>{row.note || ''}</td>
-                    <td className={stateClass}>{row.status === 'REGISTERED' ? statusText(row) : saveState}</td>
-                    <td>{row.status === 'REGISTERED' ? '등록완료' : row.estimateCost ? `${fmt(row.estimateCost)}원` : '-'}</td>
+                    <td className={stateClass}>{row.status === 'REGISTERED' ? estimateStatusText(row) : saveState}</td>
+                    <td>{row.status === 'REGISTERED' ? estimateStatusText(row) : row.estimateCost ? `${fmt(row.estimateCost)}원` : '-'}</td>
                     <td><button type="button" className="btn btn-xs" onClick={() => setSalesViewMode('edit')}>편집</button></td>
                   </tr>;
                 })}
