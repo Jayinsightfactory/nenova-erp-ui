@@ -227,6 +227,14 @@ export default function SalesDefectDeductionsPage() {
     });
   };
 
+  const closeLookup = () => {
+    clearTimeout(searchTimer.current);
+    setLookup([]);
+    setActiveSearch(null);
+    setLookupQuery('');
+    setLookupActiveIndex(-1);
+  };
+
   const fetchLookup = (index, kind, term) => {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(async () => {
@@ -298,6 +306,10 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const handleLookupKeyDown = (event, index, kind, term, nextField) => {
+    if (event.key === 'Tab') {
+      closeLookup();
+      return;
+    }
     const lookupDelta = lookupSelectionDelta(event.key);
     if (lookupDelta) {
       event.preventDefault();
@@ -326,10 +338,15 @@ export default function SalesDefectDeductionsPage() {
       : value;
     if (String(term || '').trim()) openLookup(index, kind, term);
     else if (activeSearch?.index === index && activeSearch?.kind === kind) {
-      setLookup([]);
-      setActiveSearch(null);
-      setLookupActiveIndex(-1);
+      closeLookup();
     }
+  };
+
+  const handleGridFocusCapture = (event) => {
+    if (!activeSearch) return;
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function' || target.closest('.defect-inline-lookup')) return;
+    if (target.closest('[data-defect-field], [data-defect-action], button, input, select, textarea')) closeLookup();
   };
 
   const chooseLookup = (item) => {
@@ -354,10 +371,7 @@ export default function SalesDefectDeductionsPage() {
     } else {
       updateRow(index, { farmName: item.FarmName, farmKey: Number(item.FarmKey) || null });
     }
-    setLookup([]);
-    setActiveSearch(null);
-    setLookupQuery('');
-    setLookupActiveIndex(-1);
+    closeLookup();
     if (kind === 'customer' || kind === 'product') {
       setMessage('검색 매칭을 선택했습니다. 저장 버튼을 눌러 전산 매칭값과 매칭 이력을 확정하세요.');
     }
@@ -628,7 +642,7 @@ export default function SalesDefectDeductionsPage() {
         <span>행 {index + 1} 선택</span>
       </div>
       <div className="defect-lookup-search">
-        <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => { const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
+        <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => { if (e.key === 'Tab') { closeLookup(); return; } const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
         <button type="button" className="btn btn-primary" onClick={searchLookup}>검색</button>
       </div>
       <div className="defect-lookup-options">
@@ -737,7 +751,7 @@ export default function SalesDefectDeductionsPage() {
       <div className="screenOnly">
       <div className="card defect-grid-card">
         <div className="defect-grid-scroll">
-        <table className="data-table defect-grid" style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
+        <table className="data-table defect-grid" onFocusCapture={handleGridFocusCapture} style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 58 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
             <col style={{ width: 190 }} /><col style={{ width: 245 }} /><col style={{ width: 285 }} />
