@@ -1,6 +1,7 @@
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { parseJsonResponse } from '../../lib/parseJsonResponse';
@@ -247,11 +248,19 @@ export default function SalesDefectDeductionsPage() {
     const desiredWidth = targetSearch.kind === 'product' ? 820 : 620;
     const width = Math.min(maxWidth, Math.max(rect.width, desiredWidth));
     const left = Math.min(Math.max(12, rect.left), Math.max(12, viewportWidth - width - 12));
-    const showAbove = rect.top > 430 && window.innerHeight - rect.bottom < 390;
+    const resultCount = Math.max(lookup.length, 3);
+    const estimatedItemHeight = targetSearch.kind === 'product' ? 58 : 42;
+    const estimatedHeight = Math.min(460, 92 + Math.min(resultCount, 6) * estimatedItemHeight);
+    const availableAbove = rect.top - 12;
+    const availableBelow = window.innerHeight - rect.bottom - 12;
+    const showAbove = availableBelow < estimatedHeight && availableAbove >= Math.min(estimatedHeight, 280);
+    const top = showAbove
+      ? Math.max(12, rect.top - 8)
+      : Math.min(rect.bottom + 8, Math.max(12, window.innerHeight - 12));
     return {
       left,
       width,
-      top: showAbove ? rect.top - 8 : rect.bottom + 8,
+      top,
       transform: showAbove ? 'translateY(-100%)' : 'none',
     };
   };
@@ -451,7 +460,8 @@ export default function SalesDefectDeductionsPage() {
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      addRow('customerName');
+      const index = Number(String(event.currentTarget?.dataset?.defectField || '').split('-').pop());
+      if (Number.isInteger(index) && index >= 0) focusAction(`related-${index}-customer`);
     }
   };
 
@@ -678,7 +688,7 @@ export default function SalesDefectDeductionsPage() {
 
   const renderLookupPanel = (index, kind) => {
     if (!activeSearch || activeSearch.index !== index || activeSearch.kind !== kind) return null;
-    return <div className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
+    const panel = <div className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
       <div className="defect-lookup-title">
         <span>{kind === 'customer' ? '거래처 검색 결과' : kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}</span>
         <span>{kind === 'product' ? '↑↓ 이동 · Enter 선택 · Esc 닫기' : `${lookup.length}개 · ↑↓ 이동 · Enter 선택 · Esc 닫기`}</span>
@@ -699,6 +709,7 @@ export default function SalesDefectDeductionsPage() {
         {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
       </div>
     </div>;
+    return typeof document === 'undefined' ? panel : createPortal(panel, document.body, 'sales-defect-lookup-panel');
   };
 
   return (
@@ -946,7 +957,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-inline-suggestions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
         .defect-inline-suggestion { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 3px; padding: 2px 5px; font-size: 10px; cursor: pointer; text-align: left; }
         .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
-        .defect-inline-lookup { position: fixed; left: 12px; top: 12px; z-index: 1000; width: min(820px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); box-sizing: border-box; border: 1px solid #64748b; border-radius: 6px; background: #fff; padding: 10px 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, .28); }
+        .defect-inline-lookup { position: fixed !important; left: 12px; top: 12px; z-index: 2147483000; isolation: isolate; width: min(820px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); box-sizing: border-box; border: 1px solid #64748b; border-radius: 6px; background: #fff; padding: 10px 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, .28); }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
         .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }
         .defect-lookup-search { display: flex; gap: 6px; margin-bottom: 7px; }
@@ -962,6 +973,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-product-name { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
         .defect-lookup-option.is-active .defect-lookup-country, .defect-lookup-option.is-active .defect-lookup-flower { color: #dbeafe; }
         .defect-lookup-simple-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        .related-row-action:focus, .related-row-action:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; background: #fef3c7; color: #111827; position: relative; z-index: 2; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
         @media (max-width: 700px) {
           .defect-lookup-option { gap: 5px; }
