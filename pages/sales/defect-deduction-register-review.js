@@ -39,25 +39,46 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const week = String(router.query.week || '');
   const deductionType = String(router.query.type || '불량차감');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ throwOnError = false } = {}) => {
     if (!router.isReady || !ids.length || !year || !week) return;
     setLoading(true); setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', {
         view: 'registration-preview', year, week, ids: ids.join(','), type: deductionType,
       });
-      setRows((data.rows || []).map((row) => ({
+      const nextRows = (data.rows || []).map((row) => ({
         ...row,
         editQuantity: row.quantity,
         editNote: row.note || '',
-      })));
-    } catch (e) { setError(e.message); }
+      }));
+      setRows(nextRows);
+      return nextRows;
+    } catch (e) {
+      setError(e.message);
+      if (throwOnError) throw e;
+    }
     finally { setLoading(false); }
   }, [router.isReady, ids, year, week, deductionType]);
 
   useEffect(() => { load(); }, [load]);
 
   const updateRow = (index, patch) => setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
+
+  const sameNumber = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.0001;
+  const verifyAppliedRow = (row) => {
+    const expected = adjustedAfter(row);
+    const actual = row.before;
+    if (!expected || !actual) return false;
+    return Number(actual.EstimateKey || 0) === Number(row.estimateKey || expected.EstimateKey || 0)
+      && Number(actual.ProdKey || 0) === Number(expected.ProdKey || 0)
+      && String(actual.Unit || '') === String(expected.Unit || '')
+      && sameNumber(actual.Quantity, expected.Quantity)
+      && sameNumber(actual.Cost, expected.Cost)
+      && sameNumber(actual.Amount, expected.Amount)
+      && sameNumber(actual.Vat, expected.Vat)
+      && String(actual.Descr || '') === String(expected.Descr || '')
+      && Number(actual.ShipmentKey || 0) === Number(expected.ShipmentKey || 0);
+  };
 
   const apply = async () => {
     const invalid = rows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
@@ -76,9 +97,23 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         action: 'register', year, week, ids, deductionType, overrides,
       });
       setMessage(`${data.registered || 0}건 적용 완료. 기존 견적서를 다시 불러와 검증 중입니다.`);
-      await load();
-      setVerified(true);
-      try { window.opener?.postMessage({ type: 'sales-defect-register-complete', registered: data.registered || 0 }, window.location.origin); } catch { /* ignore */ }
+      const refreshedRows = await load({ throwOnError: true }) || [];
+      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row)).map((row) => row.deductionKey);
+      if (mismatches.length) {
+        setVerified(false);
+        setError(`견적서 등록 후 재조회 값이 일치하지 않는 행이 ${mismatches.length}건 있습니다. 원장키: ${mismatches.join(', ')}`);
+      } else {
+        setVerified(true);
+        setMessage(`${data.registered || 0}건 견적서 등록 및 재조회 검증 완료. 견적키·수량·단가·금액·출고키가 일치합니다.`);
+      }
+      try {
+        window.opener?.postMessage({
+          type: 'sales-defect-register-complete',
+          registered: data.registered || 0,
+          verified: mismatches.length === 0,
+          mismatches,
+        }, window.location.origin);
+      } catch { /* ignore */ }
     } catch (e) { setError(e.message); }
     finally { setApplying(false); }
   };
