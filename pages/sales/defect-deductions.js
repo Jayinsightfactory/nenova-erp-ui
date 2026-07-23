@@ -278,6 +278,10 @@ export default function SalesDefectDeductionsPage() {
     }, 0);
   };
 
+  const focusAction = (action) => {
+    window.setTimeout(() => document.querySelector(`[data-defect-action="${action}"]`)?.focus(), 0);
+  };
+
   const chooseActiveLookup = () => {
     if (!lookup.length) return false;
     const index = lookupActiveIndex >= 0 && lookupActiveIndex < lookup.length ? lookupActiveIndex : 0;
@@ -378,11 +382,49 @@ export default function SalesDefectDeductionsPage() {
     setMessage('DB 품목 매칭을 선택했습니다. 저장 버튼을 눌러 전산 매칭값과 매칭 이력을 확정하세요.');
   };
 
-  const addRow = () => setRows((current) => [...current, emptyRow()]);
+  const addRow = (focusNextField = '') => {
+    const nextIndex = rows.length;
+    setRows((current) => [...current, emptyRow()]);
+    if (focusNextField) focusField(nextIndex, focusNextField);
+  };
+
+  const handleQuantityKeyDown = (event) => {
+    if (event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault();
+      focusAction('empty-row-add');
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addRow('customerName');
+    }
+  };
+
+  const handleEmptyRowAddKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    addRow('customerName');
+  };
+
+  const handleRelatedAddKeyDown = (event, index, keepProduct) => {
+    const delta = lookupSelectionDelta(event.key);
+    if (delta) {
+      event.preventDefault();
+      event.stopPropagation();
+      focusAction(`related-${index}-${keepProduct ? 'customer' : 'product'}`);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      event.stopPropagation();
+      addRelatedRow(index, keepProduct);
+    }
+  };
 
   const addRelatedRow = (index, keepProduct) => {
     const source = rows[index];
     if (!source) return;
+    const nextIndex = index + 1;
     const next = {
       ...emptyRow(),
       customerName: source.customerName || '',
@@ -407,6 +449,11 @@ export default function SalesDefectDeductionsPage() {
       copy.splice(index + 1, 0, next);
       return copy;
     });
+    setSelected((current) => new Set([...current].map((selectedIndex) => selectedIndex >= nextIndex ? selectedIndex + 1 : selectedIndex)));
+    const nextField = keepProduct ? 'colorName' : 'productName';
+    focusField(nextIndex, nextField);
+    const nextLookupTerm = `${next.productName || ''} ${next.colorName || ''}`.trim();
+    if (nextLookupTerm) openLookup(nextIndex, 'product', nextLookupTerm);
   };
 
   const saveManager = async () => {
@@ -690,12 +737,12 @@ export default function SalesDefectDeductionsPage() {
       <div className="screenOnly">
       <div className="card defect-grid-card">
         <div className="defect-grid-scroll">
-        <table className="data-table defect-grid" style={{ minWidth: 1558, fontSize: 13, tableLayout: 'fixed' }}>
+        <table className="data-table defect-grid" style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 58 }} /><col style={{ width: 42 }} /><col style={{ width: 82 }} />
-            <col style={{ width: 185 }} /><col style={{ width: 175 }} /><col style={{ width: 225 }} />
-            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 170 }} />
-            <col style={{ width: 160 }} /><col style={{ width: 130 }} /><col style={{ width: 146 }} />
+            <col style={{ width: 190 }} /><col style={{ width: 245 }} /><col style={{ width: 285 }} />
+            <col style={{ width: 145 }} /><col style={{ width: 62 }} /><col style={{ width: 180 }} />
+            <col style={{ width: 180 }} /><col style={{ width: 150 }} /><col style={{ width: 160 }} />
           </colgroup>
           <thead><tr>
             <th className="defect-header defect-select-cell">
@@ -708,6 +755,9 @@ export default function SalesDefectDeductionsPage() {
           <tbody>
             {rows.map((row, index) => {
               const pf = row.deductionKey ? preflight[row.deductionKey] : null;
+              const productMatchText = row.prodKey
+                ? `✓ 전산 매칭 ${[row.countryName, row.matchedFlowerName || row.productName].filter(Boolean).join(' ')} · ${row.matchedProductDbName || row.matchedProductName || row.productName} (#${row.prodKey})`
+                : '미매칭: 품종·품명 매칭 필요';
               return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td className="defect-select-cell">
                   <label className="defect-select-hit" title={`${index + 1}번 행 선택`}>
@@ -723,8 +773,8 @@ export default function SalesDefectDeductionsPage() {
                   </div>
                   <div className={row.custKey ? 'match-ok' : 'match-warn'}>{row.custKey ? `✓ 전산 거래처 ${row.matchedCustomerName || row.customerName}` : '미매칭: 전산 거래처 선택 필요'}</div>
                   <div style={{ display: 'flex', gap: 3, marginTop: 3, flexWrap: 'wrap' }}>
-                    <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
-                    <button tabIndex={-1} className="btn btn-xs" onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
+                    <button type="button" data-defect-action={`related-${index}-customer`} className="btn btn-xs related-row-action" aria-label="동일업체 추가" onKeyDown={(event) => handleRelatedAddKeyDown(event, index, false)} onClick={() => addRelatedRow(index, false)}>동일업체 추가</button>
+                    <button type="button" data-defect-action={`related-${index}-product`} className="btn btn-xs related-row-action" aria-label="동일업체·품종 추가" onKeyDown={(event) => handleRelatedAddKeyDown(event, index, true)} onClick={() => addRelatedRow(index, true)}>동일업체·품종 추가</button>
                   </div>
                   {renderLookupPanel(index, 'customer')}
                 </td>
@@ -733,9 +783,7 @@ export default function SalesDefectDeductionsPage() {
                     <input data-defect-field={`productName-${index}`} className="input cell" value={valueOf(row, 'productName')} onChange={(e) => handleLookupChange(index, 'product', 'productName', e.target.value)} onKeyDown={(e) => handleLookupKeyDown(e, index, 'product', `${e.currentTarget.value} ${row.colorName || ''}`.trim(), 'colorName')} />
                     <button tabIndex={-1} className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'product')}>품종</button>
                   </div>
-                  <div className={row.prodKey ? 'match-ok' : 'match-warn'}>{row.prodKey
-                    ? `✓ 전산 매칭 ${[row.countryName, row.matchedFlowerName || row.productName].filter(Boolean).join(' ')} · ${row.matchedProductDbName || row.matchedProductName || row.productName} (#${row.prodKey})`
-                    : '미매칭: 품종·품명 매칭 필요'}</div>
+                  <div className={`${row.prodKey ? 'match-ok' : 'match-warn'} defect-product-match`} title={productMatchText}>{productMatchText}</div>
                   {!row.prodKey && (row.productSuggestions || []).length > 0 && (
                     <div className="defect-inline-suggestions">
                       {(row.productSuggestions || []).slice(0, 3).map((item) => <button
@@ -758,7 +806,7 @@ export default function SalesDefectDeductionsPage() {
                   </div>
                 </td>
                 <td>
-                  <input className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} />
+                  <input data-defect-field={`quantity-${index}`} className="input cell qty" type="number" min="0" value={valueOf(row, 'quantity')} onChange={(e) => changeText(index, 'quantity', e.target.value)} onKeyDown={handleQuantityKeyDown} />
                   <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
                     {UNIT_OPTIONS.map((unit) => <button tabIndex={-1} key={unit.value} type="button" className={`btn btn-xs ${String(row.sourceUnit || row.unit || '단') === unit.value ? 'btn-primary' : ''}`} onClick={() => updateRow(index, { sourceUnit: unit.value, unit: unit.value })}>{unit.label}</button>)}
                   </div>
@@ -786,7 +834,7 @@ export default function SalesDefectDeductionsPage() {
             <tr><td colSpan="12" className="empty-row-cell">
               <div className="empty-row-content">
                 {!rows.length && <span>엑셀을 업로드하거나 아래 버튼으로 입력행을 추가하세요.</span>}
-                <button type="button" className="btn btn-primary" onClick={addRow}>＋ 빈 행 추가</button>
+                <button type="button" data-defect-action="empty-row-add" className="btn btn-primary" onKeyDown={handleEmptyRowAddKeyDown} onClick={() => addRow('customerName')}>＋ 빈 행 추가</button>
               </div>
             </td></tr>
           </tbody>
@@ -836,12 +884,12 @@ export default function SalesDefectDeductionsPage() {
         .unit { width: 62px; min-width: 62px; }
         .btn-xs { padding: 4px 7px; font-size: 12px; }
         td { position: relative; vertical-align: middle; }
-        .match-ok, .match-warn { font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .match-ok, .match-warn { display: block; font-size: 11px; line-height: 17px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
         .match-ok { color: #166534; }
         .match-warn { color: #b45309; }
         .defect-inline-suggestions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
         .defect-inline-suggestion { border: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; border-radius: 3px; padding: 2px 5px; font-size: 10px; cursor: pointer; text-align: left; }
-        .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .web-meta { color: #475569; font-size: 10px; line-height: 15px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
         .defect-inline-lookup { position: absolute; left: 0; bottom: calc(100% + 5px); z-index: 50; width: min(620px, 56vw); min-width: 390px; border: 1px solid #64748b; border-radius: 4px; background: #fff; padding: 8px 10px; box-shadow: 0 8px 22px rgba(15, 23, 42, .22); }
         .defect-lookup-title { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; color: #1e3a8a; margin-bottom: 6px; }
         .defect-lookup-title span { color: #64748b; font-size: 11px; font-weight: 400; }

@@ -67,6 +67,11 @@ const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
 assert.ok(pageSource.includes('defect-inline-lookup'), '검색 결과는 입력 행 위의 인라인 패널로 표시되어야 한다.');
 assert.ok(pageSource.includes('shiftParentWeek'), '차수 앞뒤 이동은 공통 경계 규칙을 사용해야 한다.');
+assert.ok(pageSource.includes('handleQuantityKeyDown'), '차감수량 키보드 입력은 빈 행 추가 흐름을 사용해야 한다.');
+assert.ok(pageSource.includes('data-defect-action="empty-row-add"'), '차감수량 다음 Tab 대상인 빈 행 추가 버튼이 있어야 한다.');
+assert.ok(pageSource.includes('handleRelatedAddKeyDown'), '동일업체 추가 선택은 방향키·Enter 키보드를 지원해야 한다.');
+assert.ok(pageSource.includes('defect-product-match'), '전산 매칭 전체 품명 표시 영역이 있어야 한다.');
+assert.ok(pageSource.includes('white-space: normal; overflow: visible; text-overflow: clip;'), '전산 매칭 품명은 말줄임 없이 전체가 보여야 한다.');
 assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.deepEqual(
