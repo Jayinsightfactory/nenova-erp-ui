@@ -8,6 +8,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import {
   deleteDeductions,
   confirmIncomingDeductions,
+  resolveIncomingReview,
   ensureSalesDefectTables,
   listDeductions,
   loadLookupData,
@@ -82,6 +83,12 @@ async function handler(req, res) {
           year, week, rows: req.body?.rows || [], user: req.user,
         });
         return res.status(200).json({ success: true, confirmed: rows.length, rows });
+      }
+      if (action === 'incoming-review-resolve') {
+        const row = await resolveIncomingReview({
+          year, week, deductionKey: req.body?.deductionKey, user: req.user,
+        });
+        return res.status(200).json({ success: true, row });
       }
       if (action === 'rematch') {
         const context = await loadMatchContext();

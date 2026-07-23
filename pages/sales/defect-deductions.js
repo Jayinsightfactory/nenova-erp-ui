@@ -95,6 +95,7 @@ export default function SalesDefectDeductionsPage() {
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
+  const [reviewResolving, setReviewResolving] = useState(new Set());
   const [selected, setSelected] = useState(new Set());
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -804,6 +805,29 @@ export default function SalesDefectDeductionsPage() {
     }
   };
 
+  const resolveReview = async (index) => {
+    const row = rows[index];
+    if (!row?.deductionKey || !row.importReviewRequired) return;
+    const key = Number(row.deductionKey);
+    setReviewResolving((current) => new Set([...current, key]));
+    setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', {
+        action: 'incoming-review-resolve', year, week, deductionKey: key,
+      });
+      if (data.row) setRows((current) => current.map((item) => Number(item.deductionKey) === key ? data.row : item));
+      setMessage(`${row.customerName || '해당 행'}의 수입부 보완 필요를 해결 완료 처리했습니다.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setReviewResolving((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
   useEffect(() => {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
@@ -869,6 +893,7 @@ export default function SalesDefectDeductionsPage() {
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
     : row.status === 'DELETED' ? '삭제됨' : row.deductionKey ? '웹 저장' : '미저장';
   const matchingHistory = history.filter(isMatchingHistory);
+  const reviewRequiredCount = rows.filter((row) => row.importReviewRequired).length;
 
   const printSourceRows = activeTab === 'incoming' ? incomingRows : rows;
   const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
@@ -1046,6 +1071,10 @@ export default function SalesDefectDeductionsPage() {
 
       {activeTab === 'sales' && <div className="screenOnly">
       <div className="card defect-grid-card">
+        {reviewRequiredCount > 0 && <div className="sales-review-alert" role="alert">
+          <strong>수입부 보완 필요 {reviewRequiredCount}건</strong>
+          <span>빨간 표시된 행을 확인한 뒤 「해결 완료」를 누르면 알림이 사라집니다.</span>
+        </div>}
         <div className="defect-grid-scroll">
         <table className="data-table defect-grid" onFocusCapture={handleGridFocusCapture} style={{ minWidth: 1770, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
@@ -1068,14 +1097,22 @@ export default function SalesDefectDeductionsPage() {
               const productMatchText = row.prodKey
                 ? `✓ 전산 매칭 ${[row.countryName, row.matchedFlowerName || row.productName].filter(Boolean).join(' ')} · ${row.matchedProductDbName || row.matchedProductName || row.productName} (#${row.prodKey})`
                 : '미매칭: 품종·품명 매칭 필요';
-              return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
+              return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.importReviewRequired ? '#fef2f2' : row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td className="defect-select-cell">
                   <label className="defect-select-hit" title={`${index + 1}번 행 선택`}>
                     <input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} />
                   </label>
                 </td>
                 <td>{index + 1}</td>
-                <td style={{ whiteSpace: 'nowrap' }}>{row.managerName || '-'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <div>{row.managerName || '-'}</div>
+                  {row.importReviewRequired && <div className="sales-row-review-alert" role="alert">
+                    <strong>보완 필요</strong>
+                    <button type="button" className="btn btn-xs review-resolve-button" onClick={() => resolveReview(index)} disabled={reviewResolving.has(Number(row.deductionKey))}>
+                      {reviewResolving.has(Number(row.deductionKey)) ? '처리중…' : '해결 완료'}
+                    </button>
+                  </div>}
+                </td>
                 <td>
                  {addModeMenu?.index === index && <div className="defect-add-mode-menu" role="group" aria-label="행 추가 방식 선택">
                     <div className="defect-add-mode-title">입력 방식 선택</div>
@@ -1225,6 +1262,10 @@ export default function SalesDefectDeductionsPage() {
         .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
         .manager-home-button { min-width: 82px; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
+        .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
+        .sales-review-alert span { color: #b91c1c; }
+        .sales-row-review-alert { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 5px; padding: 4px; border: 1px solid #fca5a5; border-radius: 3px; background: #fef2f2; color: #b91c1c; white-space: normal; }
+        .review-resolve-button { border-color: #fca5a5; background: #fff; color: #991b1b; }
         .defect-grid-scroll { max-height: calc(100vh - 250px); overflow: auto; }
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
