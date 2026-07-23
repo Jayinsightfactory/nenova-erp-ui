@@ -61,6 +61,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "수입부가 선택한 FarmKey/FarmName/CreditApplied/ImportReviewRequired/Note와 ImportConfirmed 감사 필드만 WebSalesDefectDeduction에 저장하고 History를 기록한다. Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
+    },
+    {
+      "name": "INCOMING_REVIEW_RESOLVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "영업담당자가 수입부 보완 필요 상태만 해제하고 WebSalesDefectDeduction + History에 감사 이력을 남긴다. ImportConfirmed, Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
     }
   ],
   "crossYearFixture": {
