@@ -680,7 +680,7 @@ export default function SalesDefectDeductionsPage() {
     return <div className="defect-inline-lookup" style={lookupAnchor || undefined} onMouseDown={(event) => event.stopPropagation()}>
       <div className="defect-lookup-title">
         <span>{kind === 'customer' ? '거래처 검색 결과' : kind === 'product' ? '품종·품명 검색 결과' : '농장 검색 결과'}</span>
-        <span>{lookup.length}개 · ↑↓ 이동 · Enter 선택 · Esc 닫기</span>
+        <span>{kind === 'product' ? '↑↓ 이동 · Enter 선택 · Esc 닫기' : `${lookup.length}개 · ↑↓ 이동 · Enter 선택 · Esc 닫기`}</span>
       </div>
       <div className="defect-lookup-search">
         <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); closeLookup(); return; } if (e.key === 'Tab') { closeLookup(); return; } const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
@@ -693,7 +693,6 @@ export default function SalesDefectDeductionsPage() {
             <span className="defect-lookup-country">{item.CounName || item.counName || '-'}</span>
             <span className="defect-lookup-flower">{item.FlowerName || item.flowerName || '-'}</span>
             <span className="defect-lookup-product-name">{[item.ProdName || item.prodName, item.DisplayName || item.displayName].filter((name, index, names) => name && names.indexOf(name) === index).join(' · ') || productSearchLabel(item)}</span>
-            <span className="defect-lookup-usage">{usageLabel(item).replace(/^ · /, '') || '사용정보 없음'}</span>
           </> : <span className="defect-lookup-simple-label">{kind === 'customer' ? `${item.CustName} (${item.CustKey})${usageLabel(item)}` : item.FarmName}</span>}
         </button>)}
         {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
@@ -952,18 +951,22 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-search { display: flex; gap: 6px; margin-bottom: 7px; }
         .defect-lookup-search .input { flex: 1; min-width: 0; min-height: 30px; font-size: 13px; }
         .defect-lookup-options { display: flex; flex-direction: column; gap: 5px; max-height: min(410px, calc(100vh - 150px)); overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
-        .defect-lookup-option { display: grid; grid-template-columns: 15px minmax(80px, 110px) minmax(90px, 130px) minmax(0, 1fr) minmax(110px, 170px); align-items: start; min-height: 42px; width: 100%; box-sizing: border-box; padding: 7px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; line-height: 18px; overflow: hidden; }
+        .defect-lookup-option { display: flex; align-items: flex-start; gap: 8px; min-height: 42px; width: 100%; box-sizing: border-box; padding: 7px 9px; text-align: left; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; cursor: pointer; font-size: 13px; line-height: 18px; overflow: hidden; }
         .defect-lookup-option.is-active { background: #1d4ed8; border-color: #1e3a8a; color: #fff; font-weight: 700; outline: 3px solid #bfdbfe; box-shadow: inset 5px 0 0 #0f172a, 0 0 0 1px #1e3a8a; }
         .defect-lookup-option:hover { background: #dbeafe; border-color: #60a5fa; }
         .defect-lookup-option.is-active:hover { background: #1d4ed8; border-color: #1e3a8a; color: #fff; }
-        .defect-lookup-cursor { display: inline-block; width: 15px; color: #fef08a; }
-        .defect-lookup-country, .defect-lookup-flower, .defect-lookup-usage { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .defect-lookup-country, .defect-lookup-flower { color: #334155; font-size: 12px; }
-        .defect-lookup-product-name { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-        .defect-lookup-usage { color: #475569; font-size: 11px; white-space: normal; }
-        .defect-lookup-option.is-active .defect-lookup-country, .defect-lookup-option.is-active .defect-lookup-flower, .defect-lookup-option.is-active .defect-lookup-usage { color: #dbeafe; }
-        .defect-lookup-simple-label { grid-column: 2 / -1; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        .defect-lookup-cursor { flex: 0 0 15px; width: 15px; color: #fef08a; }
+        .defect-lookup-country, .defect-lookup-flower { flex: 0 0 112px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #334155; font-size: 12px; }
+        .defect-lookup-flower { flex-basis: 132px; }
+        .defect-lookup-product-name { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+        .defect-lookup-option.is-active .defect-lookup-country, .defect-lookup-option.is-active .defect-lookup-flower { color: #dbeafe; }
+        .defect-lookup-simple-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .defect-lookup-empty { padding: 10px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+        @media (max-width: 700px) {
+          .defect-lookup-option { gap: 5px; }
+          .defect-lookup-country { flex-basis: 82px; }
+          .defect-lookup-flower { flex-basis: 98px; }
+        }
         .week-nav-field { display: inline-flex; align-items: center; gap: 4px; }
         .week-nav-buttons { display: inline-flex; gap: 3px; margin-left: 2px; }
         .empty-row-cell { padding: 24px !important; text-align: center; color: #64748b; }
