@@ -210,3 +210,26 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 `OrderYear + OrderWeek`를 사용한다. 이 규칙을 추가하거나 변경할 때는
 `__tests__/shipmentExeErrorsContract.test.js`와 `npm run test:erp-contract`를 통과해야
 하며, `npm run guard:erp-writes`에서 연도 없는 `OrderWeek` 재사용 쿼리가 남지 않아야 한다.
+
+## 2026-07-30 엑셀 물량표 적용 감사·수량 원천 계약
+
+엑셀 물량표의 업체별 출고/분배 셀 합계만 주문·분배 저장의 수량 원천이다.
+헤더의 `주문`, `입고`, `재고`, `잔량` 요약값은 검증·감사 참고값으로만 읽으며,
+재고값을 분배수량으로 대체하거나 계산에 섞지 않는다.
+
+- `주문+분배` 모드: 양수 `uploadQty`만 주문 동기화와 분배 적용 대상이다.
+- `분배만` 모드: OrderDetail은 보존하고 ShipmentDetail만 적용한다.
+- `uploadQty <= 0`: 기존 분배가 있으면 삭제할 수 있지만, 기존 분배가 없으면
+  ShipmentMaster/ShipmentDetail 신규 생성 금지. 주문도 삭제하지 않는다.
+- 적용 후에는 같은 `OrderYear + OrderWeek + CustKey + ProdKey`로 DB를 재조회해
+  의도 수량과 실제 분배·출고일 합계를 비교한다.
+- 모든 업로드는 `ShipmentImportAudit`/`ShipmentImportAuditRow`에 원본수량,
+  요약 재고값, 환산수량, 주문 전후, 분배 전후, 저장행동, 사후검증 상태를 남긴다.
+  감사 기록 장애는 업무 저장을 막지 않지만, `SystemActionLog`에는 감사키와 실제
+  적용건수(`appliedCount`)를 함께 기록한다.
+
+이 계약은 `lib/shipmentImportQty.js`의 `resolveImportWriteIntent`와
+`__tests__/shipmentImportApply.test.js`, `__tests__/shipmentImportAudit.test.js`가
+회귀를 검사한다. 운영에서 “주문만 했는데 분배가 생김”, “엑셀 재고값이 분배에
+영향을 줌”, “0수량이 신규 분배를 만듦”을 확인할 때는 감사키로 해당 행을 먼저
+조회하고, 이후 `ShipmentHistory`와 `SystemActionLog`의 시간·사용자·작업을 대조한다.
