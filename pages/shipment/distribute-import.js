@@ -1059,6 +1059,15 @@ function ApplyResultContent({ result }) {
           </div>
         ))}
       </div>
+      {!result.running && result.auditBatchKey && (
+        <div style={{ border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', borderRadius: 8, padding: '8px 10px', marginBottom: 10, fontSize: 12 }}>
+          <b>업로드 감사 원장 #{result.auditBatchKey}</b>
+          <span style={{ marginLeft: 8 }}>
+            원본 {fmt(result.auditSummary?.inputRowCount || 0)}행 · 대상 {fmt(result.auditSummary?.targetRowCount || 0)}행 ·
+            검증 {fmt(result.auditSummary?.verificationChecked || 0)}건 · 불일치 {fmt(result.auditSummary?.verificationMismatchCount || 0)}건
+          </span>
+        </div>
+      )}
       {!result.running && <VerificationBanner verification={result.verification} />}
       {(result.logs || []).length > 0 && (
         <div style={st.applyLogBox}>

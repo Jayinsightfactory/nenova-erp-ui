@@ -8,6 +8,7 @@ const assert = (label, cond) => {
 async function main() {
   const {
     resolveImportOrderSyncPlan,
+    resolveImportWriteIntent,
     importProductOverrideKey,
     classifyImportUnmatchedReason,
   } = await import('../lib/shipmentImportQty.js');
@@ -34,6 +35,21 @@ async function main() {
   {
     const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 5 });
     assert('신규 → sync', p.action === 'sync');
+  }
+
+  console.log('\n=== resolveImportWriteIntent ===');
+  {
+    const p = resolveImportWriteIntent({ uploadQty: 0, hasExistingShipment: false });
+    assert('재고 요약값이 아닌 uploadQty만 수량 원천', p.source === 'uploadQty' && p.stockQtyIgnored === true);
+    assert('0수량·기존분배 없음 → 신규 분배 금지', !p.shouldCreateShipment && !p.shouldDeleteShipment);
+  }
+  {
+    const p = resolveImportWriteIntent({ uploadQty: 5, hasExistingShipment: false });
+    assert('양수·기존분배 없음 → 분배 신규', p.shouldCreateShipment && !p.shouldUpdateShipment);
+  }
+  {
+    const p = resolveImportWriteIntent({ uploadQty: 5, hasExistingShipment: true, shipmentOnly: true });
+    assert('분배만 모드 → 주문 쓰기 금지', p.shouldUpdateShipment && !p.shouldCreateOrUpdateOrder);
   }
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
