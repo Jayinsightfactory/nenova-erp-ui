@@ -30,6 +30,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const [verified, setVerified] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [logs, setLogs] = useState([]);
 
   const ids = useMemo(() => {
     const raw = router.query.ids;
@@ -38,10 +39,13 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const year = String(router.query.year || '');
   const week = String(router.query.week || '');
   const deductionType = String(router.query.type || '불량차감');
+  const supportMode = String(router.query.support || '') === '1';
+  const appendLog = (label) => setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label }]);
 
   const load = useCallback(async ({ throwOnError = false } = {}) => {
     if (!router.isReady || !ids.length || !year || !week) return;
     setLoading(true); setError('');
+    appendLog(`대상 ${ids.length}건 기존 견적서·출고키·이전차수 단가 조회`);
     try {
       const data = await apiGet('/api/sales/defect-deductions', {
         view: 'registration-preview', year, week, ids: ids.join(','), type: deductionType,
@@ -52,6 +56,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         editNote: row.note || '',
       }));
       setRows(nextRows);
+      appendLog(`기존 견적서 조회 완료 · 신규 ${nextRows.filter((row) => !row.before).length}건 · 수정 ${nextRows.filter((row) => row.before).length}건`);
       return nextRows;
     } catch (e) {
       setError(e.message);
@@ -87,6 +92,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       return;
     }
     setApplying(true); setError(''); setMessage(''); setVerified(false);
+    setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '전산등록 시작 · 선택 행 사전검증 통과' }]);
     try {
       const overrides = Object.fromEntries(rows.map((row) => [String(row.deductionKey), {
         quantity: Number(row.editQuantity),
@@ -96,13 +102,17 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       const data = await apiPost('/api/sales/defect-deductions', {
         action: 'register', year, week, ids, deductionType, overrides,
       });
+      (data.logs || []).forEach((label) => appendLog(label));
+      appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
       setMessage(`${data.registered || 0}건 적용 완료. 기존 견적서를 다시 불러와 검증 중입니다.`);
       const refreshedRows = await load({ throwOnError: true }) || [];
       const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row)).map((row) => row.deductionKey);
       if (mismatches.length) {
+        appendLog(`재조회 검증 실패 · 불일치 ${mismatches.length}건`);
         setVerified(false);
         setError(`견적서 등록 후 재조회 값이 일치하지 않는 행이 ${mismatches.length}건 있습니다. 원장키: ${mismatches.join(', ')}`);
       } else {
+        appendLog('재조회 검증 완료 · 견적키·수량·단가·금액·부가세·출고키 일치');
         setVerified(true);
         setMessage(`${data.registered || 0}건 견적서 등록 및 재조회 검증 완료. 견적키·수량·단가·금액·출고키가 일치합니다.`);
       }
@@ -118,19 +128,25 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     finally { setApplying(false); }
   };
 
+  const openEstimateManagement = () => {
+    const opened = window.open(`/estimate?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}`, 'nenovaEstimateManagementAfterDefectRegister', 'width=1600,height=950,resizable=yes,scrollbars=yes');
+    if (!opened) setError('견적서관리 새창이 차단되었습니다. 브라우저의 팝업 허용 후 버튼을 다시 눌러주세요.');
+  };
+
   return (
-    <Layout title="견적서 등록 검토">
+    <Layout title={supportMode ? '영업지원 전산등록 결과' : '견적서 등록 검토'}>
       <div className="review-page">
         <div className="review-head">
           <div>
-            <h2>견적서 등록 검토</h2>
+            <h2>{supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>수정 적용 및 등록</button><button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button><button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? '전산등록 실행 및 검증' : '수정 적용 및 등록'}</button><button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
         <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다.</div>
+        <div className="process-log" aria-live="polite"><strong>처리 로그</strong>{logs.length ? logs.map((log, index) => <div key={`${log.at}-${index}`}><span>{log.at}</span> {log.label}</div>) : <div className="empty">아직 처리 로그가 없습니다.</div>}</div>
         <div className="review-list">
           {rows.map((row, index) => {
             const after = adjustedAfter(row);
@@ -157,6 +173,8 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           h2 { margin: 0; font-size: 19px; } .sub { margin-top: 4px; color: #64748b; font-size: 12px; }
           .head-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
           .notice { margin-top: 8px; padding: 8px 10px; border: 1px solid; font-size: 12px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
+          .process-log { margin-top: 8px; padding: 8px 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 12px; max-height: 180px; overflow: auto; }
+          .process-log strong { display: block; margin-bottom: 5px; color: #1e3a8a; } .process-log div { padding: 2px 0; } .process-log span { display: inline-block; min-width: 74px; color: #64748b; font-variant-numeric: tabular-nums; }
           .review-list { margin-top: 8px; display: grid; gap: 8px; }
           .review-card { border: 1px solid #94a3b8; background: #fff; } .review-card.has-error { border-color: #ef4444; }
           .row-title { display: flex; gap: 14px; align-items: center; padding: 7px 10px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 13px; } .row-title span:last-child { margin-left: auto; color: #64748b; font-size: 11px; }

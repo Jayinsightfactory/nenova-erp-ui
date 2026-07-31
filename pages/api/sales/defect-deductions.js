@@ -7,6 +7,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
   deleteDeductions,
+  cancelIncomingDeductions,
   confirmIncomingDeductions,
   resolveIncomingReview,
   ensureSalesDefectTables,
@@ -47,7 +48,9 @@ async function handler(req, res) {
       const data = await listDeductions({
         year,
         week,
-        manager: req.query.view === 'incoming' ? '' : managerFilterForUser(req.query.manager || '', req.user),
+        manager: ['incoming', 'support'].includes(String(req.query.view || ''))
+          ? ''
+          : managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
       });
@@ -84,6 +87,12 @@ async function handler(req, res) {
         });
         return res.status(200).json({ success: true, confirmed: rows.length, rows });
       }
+      if (action === 'incoming-confirm-cancel') {
+        const rows = await cancelIncomingDeductions({
+          year, week, rows: req.body?.rows || [], user: req.user,
+        });
+        return res.status(200).json({ success: true, cancelled: rows.length, rows });
+      }
       if (action === 'incoming-review-resolve') {
         const row = await resolveIncomingReview({
           year, week, deductionKey: req.body?.deductionKey, user: req.user,
@@ -104,7 +113,12 @@ async function handler(req, res) {
           year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
           user: req.user, overrides: req.body?.overrides || {},
         });
-        return res.status(200).json({ success: true, registered: registered.length, rows: registered });
+        return res.status(200).json({
+          success: true,
+          registered: registered.length,
+          rows: registered,
+          logs: registered.map((row) => `${row.estimateAction || 'UPDATE'} Estimate #${row.estimateKey} · 원장키 #${row.deductionKey} · 수량 ${row.quantity} · 단가 ${row.cost} · 금액 ${row.amount} · 부가세 ${row.vat} · 출고키 #${row.targetShipmentKey}`),
+        });
       }
       return res.status(400).json({ success: false, error: `지원하지 않는 작업입니다: ${action}` });
     }

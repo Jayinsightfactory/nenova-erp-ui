@@ -13,6 +13,7 @@ import {
   partitionSelectedDeductionRows,
   lookupSelectionDelta,
   shiftParentWeek,
+  isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import {
@@ -65,6 +66,8 @@ assert.equal(lookupSelectionDelta('ArrowRight'), 1);
 assert.equal(lookupSelectionDelta('ArrowLeft'), -1);
 assert.equal(lookupSelectionDelta('ArrowDown'), 1);
 assert.equal(lookupSelectionDelta('Enter'), 0);
+assert.equal(isNoopDeductionHistory({ ChangeSummary: 'UPDATE: 변경 없음' }), true);
+assert.equal(isNoopDeductionHistory({ ChangeSummary: 'MATCH: 품목 매칭 변경' }), false);
 assert.equal(managerFilterForUser('nenovaSD3', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
 assert.equal(managerFilterForUser('조현욱', { userId: 'nenovaSD3', userName: '조현욱' }), '조현욱');
 assert.equal(managerFilterForUser('', { userId: 'nenovaSD3', userName: '조현욱' }), '');
@@ -91,6 +94,13 @@ assert.ok(pageSource.includes('const closeLookup'), '다음 입력칸으로 이�
 assert.ok(pageSource.includes('수입부 확인'), '수입부 전체 확인 탭이 있어야 한다.');
 assert.ok(pageSource.includes("view: 'incoming'"), '수입부 탭은 담당자 필터 없이 차수 전체를 조회해야 한다.');
 assert.ok(pageSource.includes("action: 'incoming-confirm'"), '수입부 확정은 전용 저장 액션을 사용해야 한다.');
+assert.ok(pageSource.includes("action: 'incoming-confirm-cancel'"), '수입부 확정 취소는 전용 저장 액션을 사용해야 한다.');
+assert.ok(pageSource.includes('확정 취소'), '수입부 확정 완료 행에는 확정 취소 버튼이 있어야 한다.');
+assert.ok(pageSource.includes('영업지원 전산등록'), '영업지원 전산등록 탭이 있어야 한다.');
+assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업지원은 선택 행을 견적서관리에 등록할 수 있어야 한다.');
+assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
+assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
+assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
 assert.ok(pageSource.includes('confirmIncomingRow'), '수입부 행별 확정 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('보완 필요'), '수입부 보완 필요 체크가 있어야 한다.');
 assert.ok(pageSource.includes('incoming-note-input'), '수입부 행별 비고 입력이 있어야 한다.');
@@ -127,6 +137,10 @@ assert.ok(deductionSource.includes('Note=@note'), '수입부 비고를 확정 �
 assert.ok(deductionSource.includes('hasReviewDetails'), '보완 필요/비고는 농장 미정이어도 우선 저장할 수 있어야 한다.');
 assert.ok(deductionSource.includes('기존 농장값을 유지하고 확정 이력을 남긴다.'), '보완 우선 확정 시 기존 농장값을 보존해야 한다.');
 assert.ok(deductionSource.includes('resolveIncomingReview'), '수입부 보완 필요 해제 전용 저장 경로가 있어야 한다.');
+assert.ok(deductionSource.includes('cancelIncomingDeductions'), '수입부 확정 취소 전용 저장 경로가 있어야 한다.');
+assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입부 확정 취소 이력을 기록해야 한다.');
+assert.ok(deductionSource.includes('ImportConfirmedBy=NULL'), '수입부 확정 취소 시 확정자/확정시각을 해제해야 한다.');
+assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=CASE WHEN ImportReviewRequired=1 THEN 1 ELSE @reviewRequired END'), '일반 영업 저장은 해결 완료 전 보완 필요 상태를 해제하면 안 된다.');
@@ -134,6 +148,8 @@ assert.ok(deductionSource.includes('Boolean(dbRow.ImportReviewRequired) || input
 assert.ok(deductionSource.includes('const inputNote = input.note == null ? text(dbRow.Note, 1000) : text(input.note, 1000);'), '수입부 확정은 빈 비고로 기존 비고를 덮으면 안 된다.');
 assert.ok(deductionSource.includes('ImportConfirmed=CASE WHEN @importReset=1 THEN 0'), '영업부가 수입부 확정 후 농장/크레딧/비고를 바꾸면 재확인이 필요해야 한다.');
 assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('verifyAppliedRow'), '견적서 등록은 적용 후 Estimate 재조회 검증을 수행해야 한다.');
+assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('처리 로그'), '영업지원 전산등록 검토창은 처리 로그를 표시해야 한다.');
+assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(pageSource.includes('registrationHistoryByKey'), '견적서 등록 확정자·시각을 작업 이력에서 다시 표시해야 한다.');
 assert.ok(pageSource.includes('estimateStatusText'), '견적서 등록 상태와 견적키를 영업 목록에 표시해야 한다.');
 assert.deepEqual(
