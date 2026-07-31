@@ -139,7 +139,10 @@ assert.ok(deductionSource.includes('기존 농장값을 유지하고 확정 이�
 assert.ok(deductionSource.includes('resolveIncomingReview'), '수입부 보완 필요 해제 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('cancelIncomingDeductions'), '수입부 확정 취소 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입부 확정 취소 이력을 기록해야 한다.');
-assert.ok(deductionSource.includes('ImportConfirmedBy=NULL'), '수입부 확정 취소 시 확정자/확정시각을 해제해야 한다.');
+assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
+assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
+assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');
+assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('originalBeforeByKey'), '신규 Estimate INSERT 후 발급된 견적키를 재조회 검증해야 한다.');
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
