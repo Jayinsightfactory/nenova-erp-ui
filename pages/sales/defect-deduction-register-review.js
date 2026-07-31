@@ -70,11 +70,18 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const updateRow = (index, patch) => setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
 
   const sameNumber = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.0001;
-  const verifyAppliedRow = (row) => {
+  const verifyAppliedRow = (row, originalBefore = null) => {
     const expected = adjustedAfter(row);
     const actual = row.before;
     if (!expected || !actual) return false;
-    return Number(actual.EstimateKey || 0) === Number(row.estimateKey || expected.EstimateKey || 0)
+    // 기존 Estimate는 같은 키를 유지하고, 신규 INSERT는 재조회 후 발급된
+    // 양의 EstimateKey가 존재하는지만 확인한다. 신규행의 preview 키(null)를
+    // 실제 발급 키와 비교하면 정상 등록도 검증 실패가 된다.
+    const originalEstimateKey = Number(originalBefore?.EstimateKey || 0);
+    const estimateKeyMatches = originalEstimateKey > 0
+      ? Number(actual.EstimateKey || 0) === originalEstimateKey
+      : Number(actual.EstimateKey || 0) > 0;
+    return estimateKeyMatches
       && Number(actual.ProdKey || 0) === Number(expected.ProdKey || 0)
       && String(actual.Unit || '') === String(expected.Unit || '')
       && sameNumber(actual.Quantity, expected.Quantity)
@@ -92,6 +99,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       return;
     }
     setApplying(true); setError(''); setMessage(''); setVerified(false);
+    const originalBeforeByKey = new Map(rows.map((row) => [Number(row.deductionKey), row.before || null]));
     setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '전산등록 시작 · 선택 행 사전검증 통과' }]);
     try {
       const overrides = Object.fromEntries(rows.map((row) => [String(row.deductionKey), {
@@ -106,7 +114,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
       setMessage(`${data.registered || 0}건 적용 완료. 기존 견적서를 다시 불러와 검증 중입니다.`);
       const refreshedRows = await load({ throwOnError: true }) || [];
-      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row)).map((row) => row.deductionKey);
+      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row, originalBeforeByKey.get(Number(row.deductionKey)))).map((row) => row.deductionKey);
       if (mismatches.length) {
         appendLog(`재조회 검증 실패 · 불일치 ${mismatches.length}건`);
         setVerified(false);
@@ -151,13 +159,14 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           {rows.map((row, index) => {
             const after = adjustedAfter(row);
             return <div className={`review-card ${row.error ? 'has-error' : ''}`} key={row.deductionKey || index}>
-              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.productName || '-'} / {row.colorName || '-'}</span><span>원장키 #{row.deductionKey}</span></div>
+              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span><span>원장키 #{row.deductionKey}</span></div>
               {row.error && <div className="row-error">{row.error}</div>}
               <div className="compare-grid">
                 <section className="compare-pane before"><h3>기존 견적서 내용</h3>{row.before ? <>
                   <div><b>견적서 키</b> #{row.before.EstimateKey}</div><div><b>일자</b> {dateText(row.before.EstimateDtm)}</div><div><b>수량</b> {fmt(row.before.Quantity)} {row.before.Unit || ''}</div><div><b>단가</b> {fmt(row.before.Cost)}원</div><div><b>금액</b> {fmt(row.before.Amount)}원 / 부가세 {fmt(row.before.Vat)}원</div><div><b>적요</b> {row.before.Descr || '-'}</div>
                 </> : <div className="empty">기존 견적서 미등록 — 신규 등록 예정</div>}</section>
                 <section className="compare-pane after"><h3>적용 후 내용</h3>{after ? <>
+                  <div className="estimate-view-preview"><b>견적서관리 표시</b> [{row.estimateTypeLabel || deductionType}] {after.ProdName || row.productDbName || row.productName || '-'} · {after.Quantity} {after.Unit || row.sourceUnit || ''} · {fmt(after.Amount)}원</div>
                   <div className="edit-line"><b>차감수량</b><input type="number" min="1" value={row.editQuantity} onChange={(e) => updateRow(index, { editQuantity: e.target.value })} /> {after.Unit || row.sourceUnit || ''}</div>
                   <div><b>일자</b> {dateText(after.EstimateDtm)} · 출고키 #{after.ShipmentKey}</div><div><b>이전차수 단가</b> {fmt(after.Cost)}원 <small>({after.CostOrderWeek || '타임라인 자동매칭'})</small></div><div><b>금액</b> {fmt(after.Amount)}원 / 부가세 {fmt(after.Vat)}원</div>
                   <div className="edit-line"><b>적요</b><input value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /></div>
@@ -181,6 +190,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           .row-error { padding: 7px 10px; color: #991b1b; background: #fef2f2; font-size: 12px; }
           .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; } .compare-pane { padding: 9px 12px; min-height: 150px; font-size: 12px; line-height: 1.8; } .compare-pane + .compare-pane { border-left: 1px solid #cbd5e1; } .compare-pane.before { background: #f8fafc; } .compare-pane.after { background: #fff; } h3 { margin: 0 0 5px; font-size: 13px; color: #1e3a8a; }
           .compare-pane b { display: inline-block; min-width: 94px; color: #475569; } .compare-pane small { color: #64748b; }
+          .estimate-view-preview { margin-bottom: 7px; padding: 6px 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; line-height: 1.5; }
           .edit-line { display: flex; align-items: center; gap: 7px; } .edit-line input { flex: 1; min-width: 100px; min-height: 27px; border: 1px solid #94a3b8; padding: 3px 6px; font: inherit; }
           .empty { color: #64748b; padding-top: 20px; } .empty-block { padding: 40px; text-align: center; color: #64748b; border: 1px solid #cbd5e1; }
           @media (max-width: 900px) { .review-head, .row-title { align-items: flex-start; flex-direction: column; } .row-title span:last-child { margin-left: 0; } .compare-grid { grid-template-columns: 1fr; } .compare-pane + .compare-pane { border-left: 0; border-top: 1px solid #cbd5e1; } }
