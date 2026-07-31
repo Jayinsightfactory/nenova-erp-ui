@@ -8,7 +8,7 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
-import { lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
+import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const usageLabel = (item) => {
@@ -31,6 +31,7 @@ const historyJson = (value) => {
   try { return value ? JSON.parse(value) : null; } catch { return null; }
 };
 const isMatchingHistory = (item) => {
+  if (isNoopDeductionHistory(item)) return false;
   if (/매칭|MATCH/i.test(String(item?.ChangeSummary || ''))) return true;
   const before = historyJson(item?.BeforeJson);
   const after = historyJson(item?.AfterJson);
@@ -112,6 +113,9 @@ export default function SalesDefectDeductionsPage() {
   const [activeTab, setActiveTab] = useState('sales');
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
+  const [supportRows, setSupportRows] = useState([]);
+  const [supportSelected, setSupportSelected] = useState(new Set());
+  const [supportLoading, setSupportLoading] = useState(false);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
@@ -218,6 +222,29 @@ export default function SalesDefectDeductionsPage() {
   useEffect(() => {
     if (activeTab === 'incoming') loadIncoming();
   }, [activeTab, loadIncoming]);
+
+  const loadSupport = useCallback(async () => {
+    if (!year || !week) return;
+    setSupportLoading(true);
+    setError('');
+    try {
+      const data = await apiGet('/api/sales/defect-deductions', {
+        year, week, view: 'support', history: '1', manager: '',
+      });
+      setSupportRows(data.rows || []);
+      setSupportSelected(new Set());
+      setHistory(data.history || []);
+      return data;
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSupportLoading(false);
+    }
+  }, [year, week]);
+
+  useEffect(() => {
+    if (activeTab === 'support') loadSupport();
+  }, [activeTab, loadSupport]);
 
   const visibleManagerOptions = useMemo(() => {
     const normalizeName = (value) => String(value || '').toLowerCase().replace(/\s+/g, '').trim();
@@ -821,6 +848,38 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  const toggleSupport = (deductionKey) => setSupportSelected((current) => {
+    const next = new Set(current);
+    const key = Number(deductionKey);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  const toggleAllSupport = () => setSupportSelected((current) => {
+    const keys = supportRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+    return current.size === keys.length ? new Set() : new Set(keys);
+  });
+
+  const registerSupport = async () => {
+    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)));
+    const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+    if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
+    setSupportLoading(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
+    try {
+      const check = await apiPost('/api/sales/defect-deductions', { action: 'preflight', year, week, rows: selectedRows });
+      const { valid, invalid } = partitionRegistrationPreflight(check.rows || []);
+      if (!valid.length) {
+        throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
+      }
+      const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1`;
+      const reviewWindow = window.open(reviewUrl, 'nenovaSalesSupportDefectRegister', 'width=1500,height=900,resizable=yes,scrollbars=yes');
+      if (!reviewWindow) throw new Error('전산등록 검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
+      setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
+    } catch (e) { setError(e.message); }
+    finally { setSupportLoading(false); }
+  };
+
   const confirmIncoming = async () => {
     if (!incomingRows.length) { setError('확정할 차수 전체 불량 행이 없습니다.'); return; }
     setIncomingSaving(true); setError(''); setMessage('');
@@ -861,6 +920,26 @@ export default function SalesDefectDeductionsPage() {
     }
   };
 
+  const cancelIncomingRow = async (index) => {
+    const row = incomingRows[index];
+    if (!row?.deductionKey || !row.importConfirmed) return;
+    const key = Number(row.deductionKey);
+    if (!window.confirm(`${row.customerName || '해당 행'}의 수입부 확정을 취소할까요? 농장·크레딧·비고는 그대로 유지됩니다.`)) return;
+    setIncomingConfirming((current) => new Set([...current, key]));
+    setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', { action: 'incoming-confirm-cancel', year, week, rows: [{ deductionKey: key }] });
+      const saved = data.rows?.[0];
+      if (saved) setIncomingRows((current) => current.map((item) => Number(item.deductionKey) === key ? saved : item));
+      setMessage(`${row.customerName || '해당 행'} 수입부 확정을 취소했습니다. 농장·크레딧·비고는 보존됩니다.`);
+    } catch (e) { setError(e.message); }
+    finally {
+      setIncomingConfirming((current) => {
+        const next = new Set(current); next.delete(key); return next;
+      });
+    }
+  };
+
   const resolveReview = async (index) => {
     const row = rows[index];
     if (!row?.deductionKey || !row.importReviewRequired) return;
@@ -895,11 +974,11 @@ export default function SalesDefectDeductionsPage() {
       } else {
         setMessage(`${event.data.registered || 0}건 견적서 등록 적용 및 재조회 검증 완료. 작업로그와 등록 확정 상태를 갱신했습니다.`);
       }
-      load();
+      if (activeTab === 'support') loadSupport(); else load();
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [load]);
+  }, [activeTab, load, loadSupport]);
 
   const remove = async () => {
     const selectedRows = partitionSelectedDeductionRows(rows, selected);
@@ -970,7 +1049,8 @@ export default function SalesDefectDeductionsPage() {
     const at = item?.ChangedAt ? String(item.ChangedAt).slice(0, 16).replace('T', ' ') : '';
     return `등록 확정${row.estimateKey ? ` (#${row.estimateKey})` : ''}${actor ? ` · ${actor}` : ''}${at ? ` · ${at}` : ''}`;
   };
-  const matchingHistory = history.filter(isMatchingHistory);
+  const meaningfulHistory = history.filter((item) => !isNoopDeductionHistory(item));
+  const matchingHistory = meaningfulHistory.filter(isMatchingHistory);
   const reviewRequiredCount = rows.filter((row) => row.importReviewRequired).length;
   const salesSummaryRows = rows.filter((row) => salesRowHasInput(row));
   const salesStatusCounts = rows.reduce((counts, row) => {
@@ -1026,7 +1106,9 @@ export default function SalesDefectDeductionsPage() {
       <div className="card defect-tabs" role="tablist" aria-label="영업수입불량차감 업무 구분">
         <button type="button" role="tab" aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
         <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
+        {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
       </div>
 
       {activeTab === 'sales' && <div className="card manager-home-card">
@@ -1064,7 +1146,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
           </>}
-          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : load} disabled={loading || incomingLoading}>조회</button>
+          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : load} disabled={loading || incomingLoading || supportLoading}>조회</button>
           {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
@@ -1074,7 +1156,11 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
-          <button className="btn" onClick={printForm} disabled={!printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
+          {activeTab === 'support' && <>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportRows.length}>{supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length ? '전체 선택 해제' : '전체 선택'}</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+          </>}
+          <button className="btn" onClick={printForm} disabled={activeTab === 'support' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
@@ -1109,8 +1195,8 @@ export default function SalesDefectDeductionsPage() {
         <div className="card" style={{ padding: 10, marginBottom: 10, maxHeight: 260, overflow: 'auto' }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>매칭·수정 이력 — 거래처/품목 매칭, 수량, 품명 변경내용</div>
           <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>작업</th><th>변경내용</th></tr></thead><tbody>
-            {history.map((h) => <tr key={h.HistoryKey}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{h.ActionType}</td><td>{h.ChangeSummary}</td></tr>)}
-            {!history.length && <tr><td colSpan="4">이력이 없습니다.</td></tr>}
+            {meaningfulHistory.map((h) => <tr key={h.HistoryKey}><td>{String(h.ChangedAt || '').slice(0, 19)}</td><td>{h.ChangedByName || h.ChangedBy}</td><td>{h.ActionType}</td><td>{h.ChangeSummary}</td></tr>)}
+            {!meaningfulHistory.length && <tr><td colSpan="4">이력이 없습니다.</td></tr>}
           </tbody></table>
           <div style={{ fontWeight: 700, margin: '12px 0 6px', color: '#1e3a8a' }}>품목·거래처 매칭 이력</div>
           <table className="data-table" style={{ fontSize: 12 }}><thead><tr><th>일시</th><th>작업자</th><th>매칭 변경내용</th></tr></thead><tbody>
@@ -1149,11 +1235,42 @@ export default function SalesDefectDeductionsPage() {
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(index, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
               <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(index, { note: e.target.value, importConfirmed: false })} /></td>
               <td>
-                <button type="button" className={`btn btn-xs ${row.importConfirmed ? '' : 'btn-primary'}`} onClick={() => confirmIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : row.importConfirmed ? '확정완료' : '확정'}</button>
+                {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
                 <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
               </td>
             </tr>)}
             {!incomingRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div>}
+
+      {activeTab === 'support' && <div className="screenOnly">
+      <div className="card support-register-card">
+        <div className="support-register-head">
+          <div><strong>영업지원 전산등록 — {year}년 {week}차 전체 불량</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
+          <span className="incoming-review-note">전체 또는 일부 행을 선택하면 기존 견적서와 비교한 뒤 nenova.exe와 같은 Estimate 등록값으로 적용하고, 완료 후 재조회 검증합니다.</span>
+        </div>
+        <div className="defect-grid-scroll support-grid-scroll">
+          <table className="data-table defect-grid support-grid">
+            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
+            <tbody>{supportRows.map((row, index) => {
+              const key = Number(row.deductionKey);
+              return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''}`} key={key || `support-${index}`}>
+                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" checked={supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!key} /></label></td>
+                <td>{index + 1}</td>
+                <td>{row.managerName || '-'}</td>
+                <td>{row.customerName || '-'}</td>
+                <td>{row.productName || '-'}</td>
+                <td><span className="defect-product-match">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
+                <td>{printQuantity(row)}</td>
+                <td>{row.farmName || '-'}</td>
+                <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
+                <td>{row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : '미등록'}</td>
+              </tr>;
+            })}
+            {!supportRows.length && <tr><td colSpan="10" className="empty-row-cell">선택한 차수에 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1423,6 +1540,12 @@ export default function SalesDefectDeductionsPage() {
         .manager-home-title { font-weight: 800; white-space: nowrap; color: #1e3a8a; }
         .manager-home-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
         .manager-home-button { min-width: 82px; }
+        .support-register-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
+        .support-register-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); background: #eff6ff; color: #1e3a8a; }
+        .support-register-head span { color: #475569; font-size: 12px; }
+        .support-grid-scroll { max-height: calc(100vh - 260px); }
+        .support-grid .defect-row td { vertical-align: middle; }
+        .support-selected-row { background: #ecfdf5; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }

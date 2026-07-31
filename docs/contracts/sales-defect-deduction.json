@@ -63,6 +63,12 @@
       "sideEffect": "수입부가 선택한 FarmKey/FarmName/CreditApplied/ImportReviewRequired/Note와 ImportConfirmed 감사 필드만 WebSalesDefectDeduction에 저장하고 History를 기록한다. Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다."
     },
     {
+      "name": "INCOMING_CONFIRM_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "수입부 확정 취소는 ImportConfirmed와 확정자/확정시각만 해제하고 FarmKey/FarmName/CreditApplied/ImportReviewRequired/Note와 Estimate, OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 보존한다. History에 취소 작업을 기록한다."
+    },
+    {
       "name": "INCOMING_REVIEW_RESOLVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -104,8 +110,10 @@
     "lookupPresentation": "품목 후보는 표 셀 내부의 가로 스크롤·z-index에 가려지지 않도록 document.body의 viewport 고정 팝업으로 표시한다. 내부 추천·사용빈도 순위는 유지하되 화면에는 국가·품종·DB 품명을 일정한 열로 정렬한 세로 목록만 표시하고 사용 횟수·매칭 건수는 표시하지 않는다. 팝업 실제 높이를 측정해 입력창 위쪽을 우선 배치하고, 위쪽 공간이 부족할 때만 아래쪽에 배치하며, 가로 스크롤 없이 품명을 줄바꿈한다.",
     "registrationPartial": "견적서 등록 사전검증에서 출고·단가가 유효한 선택행은 검토창으로 진행하고, 출고가 없는 행은 구체적인 사유와 함께 제외한다. 선택 전체를 한 행의 오류로 원자적 차단하지 않는다.",
     "matchDisplay": "전산 매칭 메시지는 거래처·국가·품종·DB 품명·ProdKey 전체를 줄바꿈으로 표시하고 말줄임표로 숨기지 않는다.",
-    "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment"
-    ,"incomingConfirmation": "수입부 확인은 선택한 OrderYear/OrderWeek의 담당자 전체 원장을 조회하며 농장 마스터 선택과 크레딧 체크만 확정한다. 확정 후에도 기존 동일 인쇄 양식을 사용한다."
+    "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment",
+    "incomingConfirmation": "수입부 확인은 선택한 OrderYear/OrderWeek의 담당자 전체 원장을 조회하며 농장 마스터 선택과 크레딧 체크만 확정한다. 확정 후에도 기존 동일 인쇄 양식을 사용한다.",
+    "incomingConfirmationCancel": "확정 취소는 확정 감사 필드만 해제하고 농장·크레딧·보완·비고 값을 보존한다.",
+    "salesSupportRegistration": "영업지원은 담당자 필터 없는 차수 전체 원장에서 전체/부분 선택하고, 기존 견적서 전후값·처리로그·재조회 검증을 거쳐 동일한 Estimate INSERT/UPDATE 경로로 등록한다. OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock은 변경하지 않는다."
   },
   "requiredTests": ["__tests__/salesDefectDeductions.test.js"],
   "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/erpContractManifest.test.js"]
