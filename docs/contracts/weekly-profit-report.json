@@ -9,6 +9,7 @@
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "lib/profitReport.js",
+    "lib/profitReportClassification.js",
     "lib/profitReportNotes.js",
     "lib/profitReportAudit.js",
     "lib/customsForwarding.js",
@@ -51,9 +52,21 @@
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
+  "automaticCategoryRules": {
+    "현지상차운임": "콜롬비아 수국",
+    "카네이션 운송료": "콜롬비아 카네이션",
+    "장미 운송료": "콜롬비아 장미",
+    "루스커스 운송료": "콜롬비아 루스커스",
+    "네덜란드 운송료": "네덜란드",
+    "태국 운송료": "태국",
+    "중국 운송료": "중국",
+    "nonValueItems": ["Chargeable weight", "Gross weight"],
+    "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외"
+  },
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/FormProfitReport.md",
