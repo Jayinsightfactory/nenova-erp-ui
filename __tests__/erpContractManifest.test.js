@@ -8,6 +8,7 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'weekly-profit-report'), '주차별 매출이익보고서 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'freight-cost'), '운송기준원가 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'raum-pnl-settlement'), '라움 손익계산서 계약이 등록되어야 합니다.');
+  assert.ok(manifests.some(({ manifest }) => manifest.id === 'import-pivot'), '수입부 Pivot 계약이 등록되어야 합니다.');
   console.log('ERP contract manifest tests passed');
 }
 
