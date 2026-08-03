@@ -107,6 +107,9 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
   금액 공식은 `Amount = Round(Quantity * Cost / 1.1, 0)`, `Vat = Quantity * Cost - Amount`이다.
 - `ClassEstimate.Insert()`/`Update()`는 `Estimate`만 쓰고 `ShipmentDetail`, `ShipmentDate`,
   `OrderDetail`, 재고를 변경하지 않는다.
+- `Estimate`에는 운영 트리거가 활성화될 수 있으므로 웹 신규 등록은 `OUTPUT INSERTED.EstimateKey`
+  를 클라이언트로 직접 반환하지 않는다. `OUTPUT ... INTO @EstimateInserted`로 키를 캡처한 뒤
+  같은 배치의 `SELECT`로 회수해야 `The target table 'Estimate' ... enabled triggers` 오류를 피할 수 있다.
 - `FormEstimateView.GetData`/`GetDetail`은 Estimate 차감행에 `ShipmentMaster.OrderYearWeek`,
   `EstimateDtm`, `CodeInfo(EstimateType)`를 사용한다. 차감행에는 `isFix` 컬럼이 없고,
   `ShipmentDetail.isFix` 확정/해제 사이클을 실행하지 않는다.

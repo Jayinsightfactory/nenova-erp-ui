@@ -141,6 +141,9 @@ assert.ok(deductionSource.includes('cancelIncomingDeductions'), '수입부 확�
 assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입부 확정 취소 이력을 기록해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
+assert.ok(deductionSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거가 활성화된 SQL Server에서도 신규 견적키를 회수해야 한다.');
+assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
+assert.ok(deductionSource.includes('const estimateDescr = text(dbRow.Note, 1000);'), '견적 적요 기본값은 자동 문구가 아닌 입력된 메모만 사용해야 한다.');
 assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');
 assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('originalBeforeByKey'), '신규 Estimate INSERT 후 발급된 견적키를 재조회 검증해야 한다.');
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');

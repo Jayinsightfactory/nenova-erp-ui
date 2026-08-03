@@ -42,7 +42,9 @@
       "name": "REGISTER_ESTIMATE_DEDUCTION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "검토창에서 확인·수정한 원장 이력 후 Estimate INSERT/UPDATE; no shipment fix cycle"
+      "sideEffect": "검토창에서 확인·수정한 원장 이력 후 Estimate INSERT/UPDATE; no shipment fix cycle",
+      "estimateInsert": "Estimate 트리거와 공존하도록 OUTPUT INSERTED.EstimateKey INTO @EstimateInserted 후 SELECT로 키를 회수한다.",
+      "memo": "입력된 Note만 Estimate.Descr로 전달하며 미입력·공백은 빈 문자열로 저장한다."
     },
     {
       "name": "DELETE_ESTIMATE_DEDUCTION",
