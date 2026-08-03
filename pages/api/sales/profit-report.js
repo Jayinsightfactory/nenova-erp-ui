@@ -55,7 +55,26 @@ async function loadReportData(major, orderYear) {
         const prevF = prevMan.F;
         const curCode = currencyCodeForCategory(key);
         const snapshotR = invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null;
-        const autoR = snapshotR != null ? snapshotR : curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null;
+        // 29차 이후에는 당주 FreightCost 스냅샷이 없더라도 전차수에 확정 저장된
+        // 과세환율(R)을 우선 상속한다. CurrencyMaster는 통관 신고 주차와 다른
+        // 현재 마스터값일 수 있으므로 마지막 fallback으로만 사용한다.
+        const previousTaxableR = currentMajor >= 29 && prevMan.R != null && Number(prevMan.R) > 0
+          ? Number(prevMan.R)
+          : null;
+        const autoR = snapshotR != null
+          ? snapshotR
+          : previousTaxableR != null
+            ? previousTaxableR
+            : curCode && rateByCode[curCode] != null
+              ? rateByCode[curCode]
+              : null;
+        const autoRSource = snapshotR != null
+          ? 'freight_cost_snapshot'
+          : previousTaxableR != null
+            ? 'previous_report_taxable_rate'
+            : autoR != null
+              ? 'currency_master_fallback'
+              : 'missing';
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         const prevAutoH = prevCustoms.H[key] ?? 0;
@@ -98,7 +117,7 @@ async function loadReportData(major, orderYear) {
           E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : stockBegin.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
           F: man.F != null ? 'manual' : stockEnd.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
-          R: man.R != null ? 'manual_invoice' : snapshotR != null ? 'freight_cost_snapshot' : autoR != null ? 'currency_master_fallback' : 'missing',
+          R: man.R != null ? 'manual_invoice' : autoRSource,
           S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
         };
         return {
@@ -121,7 +140,7 @@ async function loadReportData(major, orderYear) {
             H: autoH,                                    // 그외통관비 자동값(그외통관비/포워딩 입력 화면 연동)
             E: autoE != null ? Math.round(autoE) : null, // 전차수 기말재고 자동계산(엑셀 방식)
             F: autoF != null ? Math.round(autoF) : null, // 이번 차수 기말재고 자동계산(엑셀 방식)
-            R: autoR,                                    // CurrencyMaster 기본 환율
+            R: autoR,                                    // BILL 스냅샷 → 전차수 과세환율 → CurrencyMaster
           },
           manual: {
             E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 저장 기말 > (auto)

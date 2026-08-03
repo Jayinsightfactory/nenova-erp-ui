@@ -1,5 +1,7 @@
 // 입고 GW/CW 기반 콜롬비아 트럭 자동계산·매출이익 검증 회귀 테스트
 // 실행: node __tests__/customsForwardingAuto.test.js
+const fs = require('fs');
+const path = require('path');
 const near = (actual, expected, tolerance = 0.01) => Math.abs(Number(actual) - Number(expected)) <= tolerance;
 let failed = 0;
 const check = (label, condition, detail = '') => {
@@ -25,6 +27,10 @@ async function main() {
   } = await import('../lib/customsForwarding.js');
   const { deriveColombiaTruckAllocation } = await import('../lib/colombiaTruck.js');
   const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
+  const forwardingSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'customsForwarding.js'), 'utf8');
+
+  console.log('\n=== 운송료 전표 국가 약칭 매핑 ===');
+  check('에콰 전표 약칭을 에콰도르로 자동 분류', forwardingSource.includes("f.InvoiceNo LIKE N'%에콰%'") && forwardingSource.includes("THEN N'에콰도르'"));
 
   console.log('=== 22~27차 엑셀 GW → 트럭 등급 규칙 ===');
   for (const gw of [237, 553, 655, 966]) {
