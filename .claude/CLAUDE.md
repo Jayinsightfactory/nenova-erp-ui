@@ -6,6 +6,7 @@
 > ✏️ **확정차수 단가/수량 수정, 매출이익 보고서 편집, 통관비 입력이면:** [`docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md`](../docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md) 먼저 (C-1: isFix 확인 후 fix-cycle 경유, C-5: bit 컬럼 다값 마커 함정 등, 30초).
 > 🔗 도메인 규칙 상세: 프로젝트 루트 [`CLAUDE.md`](../CLAUDE.md) · DB 구조 [`docs/DB_STRUCTURE.md`](../docs/DB_STRUCTURE.md)
 > 🤖 **에이전트 팀 활성화** (2026-04-29~): 다도메인/복잡 작업은 `nenova-orchestrator` 가 specialist 에 위임. 자세한 내용 [`.claude/agents/README.md`](agents/README.md) · 도입 배경 [`docs/AGENT_TEAM_ADOPTION.md`](../docs/AGENT_TEAM_ADOPTION.md)
+> 🧭 **호환성 범위:** Nenovaweb↔`nenova.exe` 공유 ERP가 대상이며, Android/Expo 경고는 별도 MOYI 저장소에서 처리한다. [`docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`](../docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md)
 
 ---
 

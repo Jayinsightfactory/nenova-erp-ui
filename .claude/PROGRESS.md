@@ -4,6 +4,31 @@
 
 ---
 
+## [2026-08-03] 세션 — Nenovaweb↔nenova.exe 호환성 범위 가드 보강
+
+### 작업 내용
+- Android/Expo/Google Play 경고와 Nenovaweb↔nenova.exe ERP 호환성의 범위를 분리하는 저장소 지침 추가.
+- 수입부 Pivot 결제일 `5/15/25/30` 정의가 코드·마이그레이션·계약·DB 구조 문서에서 일치하도록 정정.
+- 호환성 범위 테스트를 `test:erp-contract`에 연결.
+
+### 변경된 파일
+- `docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`: 웹/ERP/모바일 작업 분류, 부작용 표, dnSpy·검증·배포 순서.
+- `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/skills/nenova-erp-change-guard/SKILL.md`, `.claude/agents/erp-contract-guardian.md`: 범위 경계 고정.
+- `docs/DB_STRUCTURE.md`: 농장 결제일 30일 문서 반영.
+- `__tests__/nenovaWebCompatibilityScope.test.js`, `package.json`: 자동 검사 추가.
+
+### 검증
+- `npm run test:erp-contract` ✅
+- `npm run test:nenova-dnspy-evidence` ✅
+- `npm run test:erp-manifest -- --changed-from HEAD^` ✅
+- `npm run guard:erp-writes -- --changed-from HEAD^` ✅
+- `npm run build` ✅
+
+### 미결 이슈 / 블로킹
+- 기능 원장 변경 없음. 운영 DB 보정·Android 앱 빌드는 이 작업 범위에 포함하지 않음.
+
+---
+
 ## [2026-07-17] 세션(feat/raum-pnl worktree) — 라움 손익 v15: ⚖ 첫 실전 적용 사후분석 + 결과표시 버그 수정
 
 ### 사장님 첫 ⚖ 실전 적용 (28차) — 결과

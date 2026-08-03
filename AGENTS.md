@@ -2,6 +2,14 @@
 
 이 저장소의 주문·출고·입고·재고·견적 기능은 `nenova.exe`와 같은 MSSQL 데이터를 사용한다. 관련 기능을 만들거나 수정할 때 아래 절차는 선택사항이 아니다.
 
+## 호환성 범위 고정
+
+이 저장소의 호환성 대상은 **Nenovaweb 브라우저와 `nenova.exe`의 공유 ERP 원장**이다.
+Google Play/Expo/Android 15·16 경고, AAB, 네이티브 `.so` 정렬은 MOYI 같은 별도
+모바일 앱 저장소의 작업이며 이 저장소의 Nenovaweb 기능 변경에 적용하지 않는다.
+`/m` 경로도 네이티브 앱이 아닌 Nenovaweb 모바일 웹 화면이다. 상세 분류와
+웹 전용/ERP 원장 부작용 표는 [`docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`](docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md)를 따른다.
+
 ## 작업 전 필수 확인
 
 1. `docs/ERP_CHANGE_GUARD.md`

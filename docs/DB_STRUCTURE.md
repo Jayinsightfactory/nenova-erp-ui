@@ -212,7 +212,7 @@
 
 **WebImportFarmPaymentDay** — 수입부 Pivot 농장별 결제일 설정 (2026-08-03 신규)
 - 웹 전용 PK: `FarmName`
-- `PaymentDay` — `5` | `15` | `25` 중 하나
+- `PaymentDay` — `5` | `15` | `25` | `30` 중 하나
 - `CreateID`, `CreateDtm`, `UpdateID`, `UpdateDtm`
 - 농장명별 공통 설정이며 WarehouseMaster/WarehouseDetail 및 주문·출고·재고 원장을 변경하지 않는다.
 

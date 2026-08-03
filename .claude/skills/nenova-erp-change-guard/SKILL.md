@@ -7,6 +7,13 @@ description: Nenova ERP의 주문·분배·입고·재고·견적 기능 변경�
 
 이 저장소에서 ERP 핵심 테이블을 읽거나 쓰는 기능은 구현 전에 이 절차를 따른다.
 
+## 범위 경계
+
+이 스킬의 호환성 대상은 Nenovaweb 브라우저와 `nenova.exe`의 공유 MSSQL 원장이다.
+Expo/Android/Google Play/AAB/네이티브 `.so` 경고는 이 저장소의 작업으로 해석하지
+않고 별도 모바일 앱 저장소로 분리한다. `/m`는 모바일 웹 화면이므로 같은 ERP
+계약을 적용한다. 상세 표는 `docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`를 참조한다.
+
 ## 필수 입력
 
 1. `AGENTS.md`
