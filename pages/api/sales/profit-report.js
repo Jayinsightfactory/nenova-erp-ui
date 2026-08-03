@@ -11,13 +11,13 @@ import { computeAutoEndingStock } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 
-function parseMajor(raw) {
+export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
   return m ? m[1].padStart(2, '0') : null;
 }
 
 // GET/엑셀 공용 — 보고서 행 데이터 구성
-async function loadReportData(major, orderYear) {
+export async function loadReportData(major, orderYear) {
   const currentMajor = Number(major);
   // 27차 기초재고는 같은 매출연도의 26차 마지막 ProductStock 세부차수다.
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.

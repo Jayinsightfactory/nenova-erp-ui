@@ -118,7 +118,7 @@ async function main() {
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
   check('수기 보정은 기본 접힘·누락 환율만 자동 입력 노출', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes("showOverrides || (cd.key === 'R' && needsRateInput(row))"));
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
-  check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && pageSource.includes('if (dirty) await save()'));
+  check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && (pageSource.includes('if (dirty) await save()') || pageSource.includes('if (dirty && !(await save())) return')));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));
   check('관세·선율 분할 입력칸은 금액 전체가 보이도록 가로 폭 확보', customsPanelSource.includes('minWidth: 235') && customsPanelSource.includes('minWidth: 1500') && customsPanelSource.includes('splitInput: { width: 68'));
   check('통관비 숫자 입력은 엔터로 다음 입력칸 이동', customsPanelSource.includes('focusNextCustomsInput') && customsPanelSource.includes("onKeyDown={focusNextCustomsInput}"));

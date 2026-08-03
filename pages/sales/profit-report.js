@@ -151,6 +151,7 @@ export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [moyiSending, setMoyiSending] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [data, setData] = useState(null);
@@ -293,7 +294,8 @@ export default function ProfitReportPage() {
       if (!d.success) throw new Error(d.error || '저장 실패');
       await load();
       setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
-    } catch (e) { setError(e.message); } finally { setSaving(false); }
+      return true;
+    } catch (e) { setError(e.message); return false; } finally { setSaving(false); }
   };
 
   const saveNote = async () => {
@@ -316,9 +318,31 @@ export default function ProfitReportPage() {
   }, [data, edits]);
 
   const downloadExcel = async () => {
-    if (dirty) await save();  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
+    if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
     const colsParam = visibleCols.filter(k => k !== 'category').join(',');
     window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
+  };
+
+  const sendToMoyi = async () => {
+    if (!data || moyiSending) return;
+    if (dirty && !(await save())) return;
+    if (!window.confirm(`${data.orderYear}년 ${data.major}차 주차별 매출이익 보고서를 MOYI Drive로 전송할까요?`)) return;
+    setMoyiSending(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/moyi/report-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, year: data.orderYear }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.success) throw new Error(d.error || 'MOYI 전송에 실패했습니다.');
+      setMessage(`MOYI Drive 전송 완료 — ${d.fileName} · ${Number(d.sizeBytes || 0).toLocaleString()} bytes`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMoyiSending(false);
+    }
   };
 
   // ── 재고 평가단가표 모달
@@ -415,6 +439,10 @@ export default function ProfitReportPage() {
               <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
                 title="원본 양식과 동일한 첫 시트 + 현재 화면에 표시된 컬럼만 담은 두번째 시트, 총 2개 시트로 다운로드">
                 📥 엑셀 다운로드
+              </button>
+              <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
+                title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
+                {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
               <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
                 title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">

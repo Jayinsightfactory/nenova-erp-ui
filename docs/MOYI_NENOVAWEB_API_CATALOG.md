@@ -68,6 +68,48 @@ MOYI 워커가 보내는 **확정 파일**을 nenovaweb DB(`WebMoyiFile`)에 저
 
 ---
 
+## 작업 C — 주차별 매출이익 보고서 수신 (nenovaweb → MOYI Drive, 쓰기)
+
+### `POST https://api.nowlink.kr/integrations/nenovaweb/inbound`
+
+주차별 매출이익 보고서 화면의 **📤 MOYI 전송** 버튼이 현재 조회한 차수의 원본 XLSX를
+MOYI 회사 Drive에 저장한다. Nenovaweb은 전송 전에 화면과 동일한 보고서 생성 경로를
+사용하며, 주문·출고·재고·견적 원장은 수정하지 않는다.
+
+**요청 본문(JSON)**
+
+| 필드 | 필수 | 설명 |
+|---|---|---|
+| `file_id` | ✅ | Nenovaweb `PushId` UUID. 재시도 멱등키 |
+| `filename` | ✅ | `주차별 매출이익 보고서-연도-차수차.xlsx` |
+| `mime` | | XLSX MIME 타입 |
+| `tags` | | `nenovaweb`, `weekly-profit-report`, 연도·차수 태그 |
+| `content_base64` | ✅ | XLSX 파일 Base64. 디코딩 후 MOYI 수신 한도 50MB 이하 |
+
+**응답·재시도**
+
+- `200 {ok:true, file_id, idempotent:false}`: MOYI Drive 신규 저장 완료
+- `200 {ok:true, file_id, idempotent:true}`: 같은 `file_id`가 이미 저장된 재시도. 중복 파일을 만들지 않음
+- `401/403`: 토큰 또는 MOYI 양방향 수신 설정 확인 후 재시도
+- `5xx`: Nenovaweb 전송 이력에서 `failed`로 확인하고 **재시도**. 같은 파일 ID를 재사용
+
+MOYI 관리자 설정에서 `nenovaweb_bidirectional=1`을 켜고 `nenovaweb_push_token`에
+Nenovaweb 배포 환경의 `MOYI_PUSH_TOKEN` 또는 기존 `MOYI_API_TOKEN`과 같은 값을 넣어야 한다.
+Nenovaweb 화면 전송 이력은 `WebMoyiReportPush`에 `pending/sent/failed`, 시도 횟수,
+파일 크기, SHA-256, MOYI 원격 파일 ID와 오류를 기록한다.
+
+**Nenovaweb 화면 사용**
+
+1. 주차별 매출이익 보고서에서 연도·차수를 조회한다.
+2. 수기값이 있으면 먼저 `저장`한다.
+3. `📤 MOYI 전송`을 누른다.
+4. MOYI 앱의 회사 Drive에서 전송된 XLSX를 확인한다.
+
+전송 API의 GET 이력 조회는 `GET /api/moyi/report-push?week=30&year=2026`이며,
+브라우저 로그인 인증이 필요하다.
+
+---
+
 ## 완료 기준 — curl 검증
 
 토큰을 셸 변수로:

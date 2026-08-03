@@ -6,6 +6,7 @@
     "pages/sales/customs-clearance.js",
     "pages/sales/forwarding-clearance.js",
     "pages/api/sales/profit-report.js",
+    "pages/api/moyi/report-push.js",
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "lib/profitReport.js",
@@ -44,6 +45,11 @@
       "name": "REPORT_NOTE_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MOYI_REPORT_PUSH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -54,7 +60,8 @@
     "__tests__/profitReportWorkbookParity.test.js",
     "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/moyiReportPush.test.js"
   ],
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",
