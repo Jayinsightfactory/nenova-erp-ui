@@ -11,6 +11,7 @@ export default function PivotImportFarmSettings() {
   const [drafts, setDrafts] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -34,7 +35,7 @@ export default function PivotImportFarmSettings() {
   const save = async (farmName) => {
     const paymentDay = normalizePaymentDay(drafts[farmName]);
     if (!paymentDay) {
-      setErr('결제일은 5일, 15일, 25일 중 하나를 선택하세요.');
+      setErr('결제일은 5일, 15일, 25일, 30일 중 하나를 선택하세요.');
       return;
     }
     setSaving(prev => ({ ...prev, [farmName]: true }));
@@ -55,6 +56,31 @@ export default function PivotImportFarmSettings() {
     }
   };
 
+  const saveAll = async () => {
+    const rows = farms
+      .map(farm => ({ farmName: farm.name, paymentDay: normalizePaymentDay(drafts[farm.name]) }))
+      .filter(row => row.paymentDay);
+    if (rows.length === 0) {
+      setErr('일괄 저장할 농장의 결제일을 먼저 선택하세요.');
+      return;
+    }
+    setBulkSaving(true);
+    setErr('');
+    try {
+      const result = await apiPost('/api/stats/pivot-import', { type: 'farmPaymentDayBatch', rows });
+      const saved = new Map(rows.map(row => [row.farmName, row.paymentDay]));
+      setFarms(prev => prev.map(farm => saved.has(farm.name)
+        ? { ...farm, paymentDay: saved.get(farm.name) }
+        : farm));
+      setMsg(`${result.savedCount || rows.length}개 농장 결제일 일괄 저장 완료`);
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -65,6 +91,9 @@ export default function PivotImportFarmSettings() {
         <div className="page-actions">
           <a className="btn btn-secondary" href="/stats/pivot-import">← 수입부 Pivot</a>
           <button className="btn btn-secondary" onClick={load} disabled={loading}>🔄 새로고침</button>
+          <button className="btn btn-primary" onClick={saveAll} disabled={loading || bulkSaving}>
+            {bulkSaving ? '일괄 저장 중…' : '💾 일괄저장'}
+          </button>
         </div>
       </div>
 
@@ -76,7 +105,7 @@ export default function PivotImportFarmSettings() {
           <div>
             <div style={{ fontWeight: 700 }}>농장 선택(결제일)</div>
             <div style={{ marginTop: 4, color: 'var(--text2)', fontSize: 12 }}>
-              저장한 결제일은 차수와 관계없이 해당 농장에 공통 적용됩니다. 설정하지 않은 농장은 수입부 Pivot에서 미설정으로 분류됩니다.
+              저장한 결제일은 차수와 관계없이 해당 농장에 공통 적용됩니다. 5·15·25·30일 중 선택하며, 설정하지 않은 농장은 수입부 Pivot에서 미설정으로 분류됩니다.
             </div>
           </div>
           <span style={{ color: 'var(--text3)', fontSize: 12 }}>{farms.length}개 농장</span>

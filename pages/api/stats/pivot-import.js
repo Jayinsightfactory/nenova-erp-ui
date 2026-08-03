@@ -46,16 +46,35 @@ function ensureFarmPaymentTable() {
   if (_farmPaymentEnsured) return _farmPaymentEnsured;
   _farmPaymentEnsured = query(
     `IF OBJECT_ID(N'dbo.WebImportFarmPaymentDay', N'U') IS NULL
-     CREATE TABLE dbo.WebImportFarmPaymentDay (
-       FarmName NVARCHAR(120) NOT NULL,
-       PaymentDay TINYINT NOT NULL,
-       CreateID NVARCHAR(50) NOT NULL,
-       CreateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_CreateDtm DEFAULT GETDATE(),
-       UpdateID NVARCHAR(50) NOT NULL,
-       UpdateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_UpdateDtm DEFAULT GETDATE(),
-       CONSTRAINT PK_WebImportFarmPaymentDay PRIMARY KEY (FarmName),
-       CONSTRAINT CK_WebImportFarmPaymentDay_Day CHECK (PaymentDay IN (5, 15, 25))
-     )`
+     BEGIN
+       CREATE TABLE dbo.WebImportFarmPaymentDay (
+         FarmName NVARCHAR(120) NOT NULL,
+         PaymentDay TINYINT NOT NULL,
+         CreateID NVARCHAR(50) NOT NULL,
+         CreateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_CreateDtm DEFAULT GETDATE(),
+         UpdateID NVARCHAR(50) NOT NULL,
+         UpdateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_UpdateDtm DEFAULT GETDATE(),
+         CONSTRAINT PK_WebImportFarmPaymentDay PRIMARY KEY (FarmName),
+         CONSTRAINT CK_WebImportFarmPaymentDay_Day CHECK (PaymentDay IN (5, 15, 25, 30))
+       )
+     END
+     ELSE
+     BEGIN
+       IF EXISTS (
+         SELECT 1 FROM sys.check_constraints
+          WHERE parent_object_id = OBJECT_ID(N'dbo.WebImportFarmPaymentDay')
+            AND name = N'CK_WebImportFarmPaymentDay_Day'
+            AND definition NOT LIKE N'%30%'
+       )
+         ALTER TABLE dbo.WebImportFarmPaymentDay DROP CONSTRAINT CK_WebImportFarmPaymentDay_Day;
+     END
+     IF NOT EXISTS (
+       SELECT 1 FROM sys.check_constraints
+        WHERE parent_object_id = OBJECT_ID(N'dbo.WebImportFarmPaymentDay')
+          AND name = N'CK_WebImportFarmPaymentDay_Day'
+     )
+       ALTER TABLE dbo.WebImportFarmPaymentDay
+         ADD CONSTRAINT CK_WebImportFarmPaymentDay_Day CHECK (PaymentDay IN (5, 15, 25, 30));`
   ).catch(e => { _farmPaymentEnsured = null; throw e; });
   return _farmPaymentEnsured;
 }
@@ -65,7 +84,7 @@ async function loadFarmPaymentDays() {
   const result = await query(
     `SELECT FarmName, PaymentDay
        FROM WebImportFarmPaymentDay
-      WHERE PaymentDay IN (5, 15, 25)`
+      WHERE PaymentDay IN (5, 15, 25, 30)`
   );
   const map = {};
   result.recordset.forEach(row => { map[String(row.FarmName || '').trim()] = Number(row.PaymentDay); });
@@ -432,13 +451,51 @@ async function loadFwdInvoices(r) {
 
 export default withAuth(async function handler(req, res) {
   try {
-    // 농장별 결제일 저장 — 5/15/25 중 하나만 허용
+    // 농장별 결제일 일괄 저장 — 선택된 행만 한 번에 upsert
+    if (req.method === 'POST' && req.body?.type === 'farmPaymentDayBatch') {
+      await ensureFarmPaymentTable();
+      const rawRows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+      const rowsByFarm = new Map();
+      for (const row of rawRows.slice(0, 500)) {
+        const farmName = String(row?.farmName || '').trim().slice(0, 120);
+        const paymentDay = normalizePaymentDay(row?.paymentDay);
+        if (!farmName || !paymentDay) {
+          return res.status(400).json({ success: false, error: '모든 일괄 저장 행에 농장명과 결제일(5/15/25/30)이 필요합니다.' });
+        }
+        rowsByFarm.set(farmName, paymentDay);
+      }
+      if (rowsByFarm.size === 0) {
+        return res.status(400).json({ success: false, error: '일괄 저장할 농장 결제일이 없습니다.' });
+      }
+      const uid = String(req.user?.userId || 'admin').slice(0, 50);
+      const params = { uid: { type: sql.NVarChar, value: uid } };
+      const values = [];
+      [...rowsByFarm.entries()].forEach(([farmName, paymentDay], i) => {
+        values.push(`(@farm${i}, @day${i}, @uid)`);
+        params[`farm${i}`] = { type: sql.NVarChar, value: farmName };
+        params[`day${i}`] = { type: sql.TinyInt, value: paymentDay };
+      });
+      await query(
+        `MERGE dbo.WebImportFarmPaymentDay AS target
+         USING (VALUES ${values.join(',')}) AS source(FarmName, PaymentDay, UserID)
+            ON target.FarmName = source.FarmName
+         WHEN MATCHED THEN
+           UPDATE SET PaymentDay=source.PaymentDay, UpdateID=source.UserID, UpdateDtm=GETDATE()
+         WHEN NOT MATCHED THEN
+           INSERT (FarmName, PaymentDay, CreateID, UpdateID)
+           VALUES (source.FarmName, source.PaymentDay, source.UserID, source.UserID);`,
+        params
+      );
+      return res.status(200).json({ success: true, savedCount: rowsByFarm.size });
+    }
+
+    // 농장별 결제일 저장 — 5/15/25/30 중 하나만 허용
     if (req.method === 'POST' && req.body?.type === 'farmPaymentDay') {
       await ensureFarmPaymentTable();
       const farmName = String(req.body?.farmName || '').trim();
       const paymentDay = normalizePaymentDay(req.body?.paymentDay);
       if (!farmName || !paymentDay) {
-        return res.status(400).json({ success: false, error: '농장명과 결제일(5/15/25)이 필요합니다.' });
+        return res.status(400).json({ success: false, error: '농장명과 결제일(5/15/25/30)이 필요합니다.' });
       }
       const uid = String(req.user?.userId || 'admin').slice(0, 50);
       await query(

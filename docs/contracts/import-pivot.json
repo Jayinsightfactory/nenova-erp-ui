@@ -28,7 +28,7 @@
       "name": "IMPORT_PIVOT_PAYMENT_DAY_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "FarmName별 5/15/25 결제일만 WebImportFarmPaymentDay에 upsert하고 ERP 원장은 보존한다."
+      "sideEffect": "FarmName별 5/15/25/30 결제일만 WebImportFarmPaymentDay에 개별 또는 일괄 upsert하고 ERP 원장은 보존한다."
     },
     {
       "name": "IMPORT_PIVOT_SETTLEMENT_EXPORT",
