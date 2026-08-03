@@ -18,6 +18,12 @@ function ClientDate() {
 
 export const MENU_ITEMS = [
   {
+    group: '연동',
+    items: [
+      { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
+    ]
+  },
+  {
     group: '주문관리',
     items: [
       { href: '/orders/new',   labelKey: '주문등록',          popup: false },
