@@ -31,11 +31,16 @@ async function main() {
   assert.equal(summary.unassigned, 7);
 
   const page = fs.readFileSync(path.join(__dirname, '..', 'pages', 'stats', 'pivot-import.js'), 'utf8');
+  const settingsPage = fs.readFileSync(path.join(__dirname, '..', 'pages', 'stats', 'pivot-import-farm-settings.js'), 'utf8');
   const api = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stats', 'pivot-import.js'), 'utf8');
   assert.match(page, /load\(\{ latest: true \}\)/, '메뉴 진입 시 최신 입고 차수를 자동 조회해야 합니다.');
-  assert.match(page, /type: 'farmPaymentDay'/, '농장별 결제일 저장 payload가 있어야 합니다.');
+  assert.match(page, /pivot-import-farm-settings/, '결제일 설정은 별도 페이지로 연결되어야 합니다.');
   assert.match(page, /JSON\.stringify\(activeFarmNames\(\)\)/, '선택 농장만 정산서/엑셀에 전달해야 합니다.');
+  assert.match(settingsPage, /type: 'farmPaymentDay'/, '별도 설정 페이지가 농장별 결제일을 저장해야 합니다.');
+  assert.match(settingsPage, /<details>/, '농장 결제일 설정 영역은 기본 접힘이어야 합니다.');
+  assert.doesNotMatch(settingsPage, /<details\s+open/, '농장 결제일 설정 영역이 기본 펼침이면 안 됩니다.');
   assert.match(api, /WebImportFarmPaymentDay/, '농장별 결제일 웹 테이블을 사용해야 합니다.');
+  assert.match(api, /farmSettings === '1'/, '별도 설정 페이지용 전체 농장 조회 분기가 있어야 합니다.');
   assert.match(api, /buildSettlementExcel\(r, payDate, selectedFarmNames\)/, '정산서 엑셀 생성에 농장 필터를 전달해야 합니다.');
 
   console.log('Import pivot payment tests passed');

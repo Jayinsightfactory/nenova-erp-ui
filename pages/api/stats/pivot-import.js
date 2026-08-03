@@ -521,6 +521,25 @@ export default withAuth(async function handler(req, res) {
 
     if (req.method !== 'GET') return res.status(405).end();
 
+    // 별도 농장 결제일 설정 페이지용 전체 농장 목록 — 차수 범위와 무관한 웹 설정 조회
+    if (req.query.farmSettings === '1') {
+      const [farmResult, farmPaymentDays] = await Promise.all([
+        query(
+          `SELECT DISTINCT LTRIM(RTRIM(ISNULL(FarmName, N''))) AS FarmName
+             FROM WarehouseMaster
+            WHERE ISNULL(isDeleted, 0) = 0
+              AND NULLIF(LTRIM(RTRIM(ISNULL(FarmName, N''))), N'') IS NOT NULL
+            ORDER BY LTRIM(RTRIM(ISNULL(FarmName, N'')))`
+        ),
+        loadFarmPaymentDays(),
+      ]);
+      const farms = farmResult.recordset.map(row => {
+        const name = String(row.FarmName || '').trim();
+        return { name, paymentDay: farmPaymentDays[name] || null };
+      });
+      return res.status(200).json({ success: true, farms, farmPaymentDays });
+    }
+
     // 페이지 진입 자동 조회: 차수가 없으면 현재 연도에서 가장 최근 입고 차수를 사용한다.
     let rangeQuery = req.query;
     if (!String(rangeQuery.weekStart || '').trim()) {

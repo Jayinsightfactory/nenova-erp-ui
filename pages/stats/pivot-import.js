@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import {
-  PAYMENT_DAYS, normalizePaymentDay, paymentDayLabel,
+  PAYMENT_DAYS,
   farmMatchesPaymentDay, summarizePaymentDay,
 } from '../../lib/importPivotPayment';
 
@@ -23,10 +23,7 @@ export default function PivotImport() {
   const [meta, setMeta] = useState(null);
   const [selFarms, setSelFarms] = useState(new Set()); // 빈 Set = 전체
   const [farmPaymentDays, setFarmPaymentDays] = useState({});
-  const [paymentDrafts, setPaymentDrafts] = useState({});
   const [paymentDayFilter, setPaymentDayFilter] = useState('');
-  const [paymentSaving, setPaymentSaving] = useState({});
-  const [paymentMsg, setPaymentMsg] = useState('');
   const [search, setSearch] = useState('');
   const [payDate, setPayDate] = useState(`${new Date().getMonth() + 1}/${new Date().getDate()}`);
   const [adjModal, setAdjModal] = useState(null); // { week, awb, invoiceNo, farmName, scope:'invoice'|'awb' }
@@ -73,7 +70,6 @@ export default function PivotImport() {
         }
         const saved = d.farmPaymentDays || {};
         setFarmPaymentDays(saved);
-        setPaymentDrafts(saved);
         setSelFarms(new Set());
         setPaymentDayFilter('');
       })
@@ -165,20 +161,6 @@ export default function PivotImport() {
     const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n;
   });
 
-  const saveFarmPaymentDay = async (farmName) => {
-    const paymentDay = normalizePaymentDay(paymentDrafts[farmName]);
-    if (!paymentDay) { alert('결제일을 5일, 15일, 25일 중 하나로 선택하세요.'); return; }
-    setPaymentSaving(prev => ({ ...prev, [farmName]: true }));
-    try {
-      await apiPost('/api/stats/pivot-import', { type: 'farmPaymentDay', farmName, paymentDay });
-      setFarmPaymentDays(prev => ({ ...prev, [farmName]: paymentDay }));
-      setPaymentDrafts(prev => ({ ...prev, [farmName]: paymentDay }));
-      setPaymentMsg(`${farmName} 결제일 ${paymentDay}일 저장 완료`);
-      setTimeout(() => setPaymentMsg(''), 2500);
-    } catch (e) { alert(e.message); }
-    finally { setPaymentSaving(prev => ({ ...prev, [farmName]: false })); }
-  };
-
   const openAdjModal = (row, scope) => {
     setAdjForm({ label: 'Claim', refNo: '', amount: '' });
     setAdjModal({
@@ -259,7 +241,6 @@ export default function PivotImport() {
         </div>
       </div>
 
-      {paymentMsg && <div style={{ padding: '7px 12px', marginBottom: 8, background: '#e8f5e9', color: '#1b5e20', border: '1px solid #a5d6a7', borderRadius: 7, fontSize: 12 }}>{paymentMsg}</div>}
       {err && <div style={{ padding: '8px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 10, fontSize: 13 }}>⚠️ {err}</div>}
 
       {meta && (
@@ -304,31 +285,12 @@ export default function PivotImport() {
             <button onClick={() => { setPaymentDayFilter('unassigned'); setSelFarms(new Set()); }} style={chip(paymentDayFilter === 'unassigned')}>
               미설정 {fmt2(paymentSummary.unassigned)}
             </button>
+            <a className="btn btn-secondary btn-sm" href="/stats/pivot-import-farm-settings">
+              ⚙ 농장 결제일 설정
+            </a>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 5 }}>
-            농장명별 결제일 설정 — 같은 농장은 차수가 달라도 공통 적용됩니다.
-          </div>
-          <div style={{ display: 'grid', gap: 4 }}>
-            {farmList.map(f => (
-              <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5 }}>
-                <button onClick={() => toggleFarm(f.name)} style={{ ...chip(selFarms.has(f.name)), minWidth: 140, textAlign: 'left' }} title="이 농장만 화면/엑셀에 포함">
-                  {f.name}
-                </button>
-                <span style={{ ...cellNum, minWidth: 90, fontSize: 11 }}>{fmt2(f.total)}</span>
-                {PAYMENT_DAYS.map(day => (
-                  <label key={day} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, cursor: 'pointer' }}>
-                    <input type="radio" name={`payment-day-${f.name}`} value={day}
-                      checked={Number(paymentDrafts[f.name]) === day}
-                      onChange={() => setPaymentDrafts(prev => ({ ...prev, [f.name]: day }))} />
-                    {day}일
-                  </label>
-                ))}
-                <span style={{ color: 'var(--text3)', fontSize: 11, minWidth: 50 }}>현재 {paymentDayLabel(farmPaymentDays[f.name])}</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => saveFarmPaymentDay(f.name)} disabled={paymentSaving[f.name]}>
-                  {paymentSaving[f.name] ? '저장 중…' : '저장'}
-                </button>
-              </div>
-            ))}
+            결제일 설정은 별도 페이지에서 농장명별로 저장합니다. 이 화면에서는 결제일별 합계와 정산서 대상 농장만 선택합니다.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)' }}>거래처/농장</span>
