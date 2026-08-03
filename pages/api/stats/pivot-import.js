@@ -246,7 +246,9 @@ async function buildSettlementExcel(r, payDate, selectedFarmNames = null) {
   // (농장, 차수, 인보이스, 패밀리) 그룹 — 포워더는 별도 시트(운송료)
   const groups = new Map();
   let maxInputDate = '';
-  for (const d of detail.recordset) {
+  // 정산서/엑셀 농장 필터는 그룹 생성 단계부터 적용해야 한다.
+  // 여기서 원본 detail.recordset을 순회하면 화면 필터와 무관하게 전체 농장이 엑셀에 다시 포함된다.
+  for (const d of detailRows) {
     const isFwd = isForwarder(d.farmName);
     const farmCoun = counOfFarm(d.farmName) || d.counName;
     let family;

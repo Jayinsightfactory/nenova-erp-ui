@@ -41,6 +41,7 @@ async function main() {
   assert.doesNotMatch(settingsPage, /<details\s+open/, '농장 결제일 설정 영역이 기본 펼침이면 안 됩니다.');
   assert.match(api, /WebImportFarmPaymentDay/, '농장별 결제일 웹 테이블을 사용해야 합니다.');
   assert.match(api, /farmSettings === '1'/, '별도 설정 페이지용 전체 농장 조회 분기가 있어야 합니다.');
+  assert.match(api, /const detailRows = selectedFarmNames[\s\S]*?for \(const d of detailRows\)/, '정산서 그룹 생성도 선택 농장 필터를 적용해야 합니다.');
   assert.match(api, /buildSettlementExcel\(r, payDate, selectedFarmNames\)/, '정산서 엑셀 생성에 농장 필터를 전달해야 합니다.');
 
   console.log('Import pivot payment tests passed');
