@@ -1076,7 +1076,16 @@ export default function SalesDefectDeductionsPage() {
         <span>{kind === 'product' ? '↑↓ 이동 · Enter 선택 · Esc 닫기' : `${lookup.length}개 · ↑↓ 이동 · Enter 선택 · Esc 닫기`}</span>
       </div>
       <div className="defect-lookup-search">
-        <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); closeLookup(); return; } if (e.key === 'Tab') { closeLookup(); return; } const delta = lookupSelectionDelta(e.key); if (delta) { e.preventDefault(); moveLookupSelection(delta); } else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); } }} placeholder="검색어를 직접 입력하세요" />
+        <input className="input" value={lookupQuery} onChange={(e) => { setLookupQuery(e.target.value); fetchLookup(index, kind, e.target.value); }} onKeyDown={(e) => {
+          if (e.key === 'Escape') { e.preventDefault(); closeLookup(); return; }
+          if (e.key === 'Tab') {
+            closeLookup();
+            return;
+          }
+          const delta = lookupSelectionDelta(e.key);
+          if (delta) { e.preventDefault(); moveLookupSelection(delta); }
+          else if (e.key === 'Enter') { e.preventDefault(); chooseActiveLookup(); }
+        }} placeholder="검색어를 직접 입력하세요" />
         <button type="button" className="btn btn-primary" onClick={searchLookup}>검색</button>
       </div>
       <div className="defect-lookup-options">

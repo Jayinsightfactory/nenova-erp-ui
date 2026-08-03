@@ -113,7 +113,7 @@ assert.ok(pageSource.includes('sales-summary-card'), '영업 입력 완료 목�
 assert.ok(pageSource.includes('salesRowSaveState'), '초기화됨·미저장·저장 완료 상태를 행별로 구분해야 한다.');
 assert.ok(pageSource.includes('if (activeTab === \'sales\') load();'), '수입부 확정 후 영업 입력으로 돌아오면 최신 저장 상태를 다시 조회해야 한다.');
 assert.ok(pageSource.includes('onFocusCapture={handleGridFocusCapture}'), '다른 입력칸으로 포커스가 이동하면 이전 검색 패널을 닫아야 한다.');
-assert.ok(pageSource.includes("if (event.key === 'Tab') {\n      closeLookup();"), '검색 입력에서 Tab으로 빠져나갈 때 검색 패널을 닫아야 한다.');
+assert.match(pageSource, /if \(\w+\.key === 'Tab'\) \{\s+closeLookup\(\);/, '검색 입력에서 Tab으로 빠져나갈 때 검색 패널을 닫아야 한다.');
 assert.ok(pageSource.includes('position: fixed'), '검색 결과는 표의 가로 스크롤에 갇히지 않는 고정 팝업이어야 한다.');
 assert.ok(pageSource.includes(':global(.defect-inline-lookup)'), 'body 포털로 이동한 검색 팝업에도 위치·스크롤 스타일이 적용되어야 한다.');
 assert.ok(pageSource.includes('createPortal(panel, document.body'), '검색 팝업은 표의 stacking context에 가려지지 않도록 body 포털로 표시해야 한다.');

@@ -84,6 +84,13 @@ function needsCheck(row, col) {
 }
 const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(r, 'F'));
 
+// 자동 환율 원천이 없고 매입/포워딩 금액이 있는 행은 사용자가 바로 R을 입력할 수 있어야 한다.
+// 검증 배너만 표시하고 입력 경로를 숨기면 보고서 저장이 막히므로, 해당 행의 R 셀을 자동 편집칸으로 노출한다.
+function needsRateInput(row) {
+  if (!row || row.manual?.R != null || row.source?.R !== 'missing') return false;
+  return Math.abs(Number(row.auto?.Q || 0)) > 0.001 || Math.abs(Number(row.auto?.S || 0)) > 0.001;
+}
+
 // 모듈 스코프에 고정 — 컴포넌트 내부에 정의하면 렌더될 때마다 새 함수 identity 가 생겨
 // React 가 매번 다른 컴포넌트로 취급해 <input> 을 언마운트시킴(입력 중 포커스 튕김 버그의 원인).
 function NumericInput({ value, onChange, style, placeholder, title }) {
@@ -113,15 +120,22 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const displayedAuto = fmtInput(auto);
   const val = e !== undefined ? e : (base != null ? base : auto);
   const placeholder = e === '' ? displayedAuto : '';
-  const warn = needsCheck(row, col);
+  const missingRate = col === 'R' && needsRateInput(row);
+  const warn = needsCheck(row, col) || missingRate;
   const titles = {
-    R: `비우면 BILL 환율 스냅샷(${row.currency || '-'} · FreightCost) 또는 CurrencyMaster 적용 — 청구서 환율과 다르면 입력`,
+    R: missingRate
+      ? `⚠ ${row.currency || '-'} 환율 원천이 없습니다. 이 칸에 해당 차수 인보이스 과세환율을 입력하고 저장하세요.`
+      : `BILL 환율 스냅샷(${row.currency || '-'} · FreightCost) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 청구서 환율과 다르면 입력`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
     E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
     F: `${row.stock?.week || '마지막 재고 스냅샷 세부차수'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
   };
-  const title = warn ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}` : (titles[col] || '');
+  const title = missingRate
+    ? titles[col]
+    : needsCheck(row, col)
+      ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}`
+      : (titles[col] || '');
   return (
     <NumericInput
       style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
@@ -162,7 +176,7 @@ export default function ProfitReportPage() {
   }, [visibleCols]);
   const isVisible = key => visibleCols.includes(key);
   const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
-  const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && isVisible(cd.key));
+  const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && (isVisible(cd.key) || (cd.key === 'R' && data?.rows?.some(needsRateInput))));
 
   // ── 컬럼 프리셋 — 이름 붙여 여러 개 저장, 목록에서 골라 바로 전환
   const [colPresets, setColPresets] = useState({}); // { 프리셋이름: [colKey, ...] }
@@ -482,7 +496,7 @@ export default function ProfitReportPage() {
         자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
         (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
         청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
-        환율(R)은 BILL 시점 FreightCost 환율 스냅샷을 우선 적용하고, 없으면 CurrencyMaster 기준환율(USD 기본 · 네덜란드=EUR · 호주=AUD · 중국=CNY · 일본=JPY)을 사용합니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+        환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
         포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
         {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
         {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}
@@ -508,6 +522,12 @@ export default function ProfitReportPage() {
         <div style={st.attentionBanner}>
           ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
           {needsAttention.map(r => r.category).join(', ')}
+        </div>
+      )}
+
+      {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
+        <div style={st.attentionBanner}>
+          ⚠ <b>환율 입력 필요</b> — 환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다. 인보이스 과세환율을 입력한 뒤 저장하세요.
         </div>
       )}
 
@@ -553,7 +573,7 @@ export default function ProfitReportPage() {
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {showOverrides && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {(showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>

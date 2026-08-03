@@ -108,6 +108,7 @@ async function main() {
   check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
   check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
   check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('previousTaxableR') && reportApiSource.includes('previous_report_taxable_rate') && reportApiSource.includes('currentMajor >= 29'));
+  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('환율 입력 필요'));
   check('Q와 매입수량에서 포워딩 행 이중계상 차단', (reportSource.match(/ProdName,N''\) LIKE N'%운송료%'/g) || []).length >= 2);
   check('매출·불량·그외매출은 전산 확정 ShipmentMaster만 집계',
     (reportSource.match(/ISNULL\(sm\.isFix,0\)=1/g) || []).length >= 2);
@@ -115,7 +116,7 @@ async function main() {
   check('F 자동 계산값을 입력 셀 실값으로 표시', pageSource.includes("autoValue={cd.key === 'F' ? c.F : undefined}"));
   check('표시·입력값은 소수점 없이 천 단위 콤마 적용', pageSource.includes('function NumericInput') && pageSource.includes('Math.round(n).toLocaleString()') && pageSource.includes('Math.round(Number(raw))'));
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
-  check('수기 보정은 기본 접힘', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes('showOverrides && cd.editable'));
+  check('수기 보정은 기본 접힘·누락 환율만 자동 입력 노출', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes("showOverrides || (cd.key === 'R' && needsRateInput(row))"));
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
   check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && pageSource.includes('if (dirty) await save()'));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));
