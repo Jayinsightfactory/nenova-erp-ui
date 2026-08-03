@@ -3,7 +3,9 @@
   "title": "수입부 Pivot 자동조회·농장별 결제일·선택 농장 정산서 계약",
   "scope": [
     "pages/stats/pivot-import.js",
+    "pages/stats/pivot-import-farm-settings.js",
     "pages/api/stats/pivot-import.js",
+    "components/Layout.js",
     "lib/importPivotPayment.js",
     "__tests__/importPivotPayment.test.js",
     "package.json",
