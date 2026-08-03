@@ -1,0 +1,62 @@
+{
+  "id": "import-pivot",
+  "title": "수입부 Pivot 자동조회·농장별 결제일·선택 농장 정산서 계약",
+  "scope": [
+    "pages/stats/pivot-import.js",
+    "pages/api/stats/pivot-import.js",
+    "lib/importPivotPayment.js",
+    "__tests__/importPivotPayment.test.js",
+    "package.json",
+    "docs/migrations/2026-08-03_web_import_farm_payment_day.sql",
+    "docs/exe-golden/FormImportPivot.md"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "IMPORT_PIVOT_AUTO_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "IMPORT_PIVOT_FARM_FILTER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "IMPORT_PIVOT_PAYMENT_DAY_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "FarmName별 5/15/25 결제일만 WebImportFarmPaymentDay에 upsert하고 ERP 원장은 보존한다."
+    },
+    {
+      "name": "IMPORT_PIVOT_SETTLEMENT_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025·2026에 같은 OrderWeek가 있어도 선택된 OrderYear의 WarehouseMaster/Detail만 조회하고 FarmName 결제일 설정은 연도와 무관한 농장 공통 설정으로만 읽는다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormImportPivot.md",
+    "source": "nenova.exe FormWarehouseView.GetData/GetDetail/btnSearch_Click의 WarehouseMaster/WarehouseDetail 조회 구조",
+    "methods": [
+      "FormWarehouseView.GetData",
+      "FormWarehouseView.btnSearch_Click",
+      "FormWarehouseView.grdViewMaster_FocusedRowChanged",
+      "FormWarehouseView.GetDetail"
+    ],
+    "tables": ["WarehouseMaster", "WarehouseDetail", "Product", "WebImportFarmPaymentDay"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ],
+  "writes": ["WebImportFarmPaymentDay"],
+  "preserves": ["WarehouseMaster", "WarehouseDetail", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ProductStock", "Estimate", "WebProfitReport"],
+  "requiredTestFiles": ["__tests__/importPivotPayment.test.js", "__tests__/erpContractManifest.test.js"]
+}

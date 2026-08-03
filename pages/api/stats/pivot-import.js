@@ -14,6 +14,7 @@ import path from 'path';
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderWeek, resolveActiveOrderYear, buildOrderYearWeek } from '../../../lib/orderUtils';
+import { normalizePaymentDay } from '../../../lib/importPivotPayment';
 
 // 웹 전용 수기항목 테이블 (ensure 패턴 — WeekProdCost/WebRaumPnl 과 동일)
 let _adjEnsured = null;
@@ -37,6 +38,52 @@ function ensureAdjTable() {
      )`
   ).catch(e => { _adjEnsured = null; throw e; });
   return _adjEnsured;
+}
+
+// 농장명별 결제일 설정 — 웹 전용. ERP 입고/주문/출고/재고 원장은 변경하지 않는다.
+let _farmPaymentEnsured = null;
+function ensureFarmPaymentTable() {
+  if (_farmPaymentEnsured) return _farmPaymentEnsured;
+  _farmPaymentEnsured = query(
+    `IF OBJECT_ID(N'dbo.WebImportFarmPaymentDay', N'U') IS NULL
+     CREATE TABLE dbo.WebImportFarmPaymentDay (
+       FarmName NVARCHAR(120) NOT NULL,
+       PaymentDay TINYINT NOT NULL,
+       CreateID NVARCHAR(50) NOT NULL,
+       CreateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_CreateDtm DEFAULT GETDATE(),
+       UpdateID NVARCHAR(50) NOT NULL,
+       UpdateDtm DATETIME NOT NULL CONSTRAINT DF_WebImportFarmPaymentDay_UpdateDtm DEFAULT GETDATE(),
+       CONSTRAINT PK_WebImportFarmPaymentDay PRIMARY KEY (FarmName),
+       CONSTRAINT CK_WebImportFarmPaymentDay_Day CHECK (PaymentDay IN (5, 15, 25))
+     )`
+  ).catch(e => { _farmPaymentEnsured = null; throw e; });
+  return _farmPaymentEnsured;
+}
+
+async function loadFarmPaymentDays() {
+  await ensureFarmPaymentTable();
+  const result = await query(
+    `SELECT FarmName, PaymentDay
+       FROM WebImportFarmPaymentDay
+      WHERE PaymentDay IN (5, 15, 25)`
+  );
+  const map = {};
+  result.recordset.forEach(row => { map[String(row.FarmName || '').trim()] = Number(row.PaymentDay); });
+  return map;
+}
+
+function parseFarmFilter(raw) {
+  if (!raw) return null;
+  const values = Array.isArray(raw) ? raw : (() => {
+    try {
+      const parsed = JSON.parse(String(raw));
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return String(raw).split(',');
+    }
+  })();
+  const names = values.map(v => String(v || '').trim()).filter(Boolean);
+  return names.length > 0 ? new Set(names) : null;
 }
 
 // 품목명(규격) — ProdName 선두 영문 패밀리 우선, 없으면 FlowerName 영문 사전
@@ -147,7 +194,7 @@ const CURRENCY_SECTIONS = [
   { label: '호주<AUD>', test: c => /호주/.test(c) },
 ];
 
-async function buildSettlementExcel(r, payDate) {
+async function buildSettlementExcel(r, payDate, selectedFarmNames = null) {
   // 라인 레벨 조회 — JS 에서 (농장, 차수, 인보이스, 품목패밀리) 로 그룹
   const detail = await query(
     `SELECT
@@ -170,7 +217,11 @@ async function buildSettlementExcel(r, payDate) {
 
   // AWB → 카테고리 태그 (같은 AWB 의 포워더 마스터 InvoiceNo 가 '콜카장'/'콜수국' 태그)
   const tagByAwb = {};
-  detail.recordset.forEach(d => {
+  const detailRows = selectedFarmNames
+    ? detail.recordset.filter(d => selectedFarmNames.has(String(d.farmName || '(농장미상)').trim()))
+    : detail.recordset;
+
+  detailRows.forEach(d => {
     if (d.awb && /[가-힣]/.test(d.invoiceNo)) tagByAwb[normAwb(d.awb)] = d.invoiceNo;
   });
 
@@ -222,7 +273,7 @@ async function buildSettlementExcel(r, payDate) {
   const adjustments = await loadAdjustments(r);
   const fwdInvoices = await loadFwdInvoices(r);
   const farmOfAwb = {};
-  detail.recordset.forEach(d => { if (d.awb && !farmOfAwb[normAwb(d.awb)]) farmOfAwb[normAwb(d.awb)] = d.farmName; });
+  detailRows.forEach(d => { if (d.awb && !farmOfAwb[normAwb(d.awb)]) farmOfAwb[normAwb(d.awb)] = d.farmName; });
 
   // 시트별(상품대/포워딩) 농장 그룹 구성 — 수기항목은 해당 농장 마지막에 배치
   const buildFarmMap = (isFwdSheet) => {
@@ -243,6 +294,7 @@ async function buildSettlementExcel(r, payDate) {
       }));
     adjustments.forEach(a => {
       const farm = a.farmName || farmOfAwb[normAwb(a.awb)] || '(농장미상)';
+      if (selectedFarmNames && !selectedFarmNames.has(String(farm).trim())) return;
       if (isForwarder(farm) !== isFwdSheet) return;
       const isBankFee = /수수료/.test(a.label);
       push(farm, {
@@ -378,6 +430,33 @@ async function loadFwdInvoices(r) {
 
 export default withAuth(async function handler(req, res) {
   try {
+    // 농장별 결제일 저장 — 5/15/25 중 하나만 허용
+    if (req.method === 'POST' && req.body?.type === 'farmPaymentDay') {
+      await ensureFarmPaymentTable();
+      const farmName = String(req.body?.farmName || '').trim();
+      const paymentDay = normalizePaymentDay(req.body?.paymentDay);
+      if (!farmName || !paymentDay) {
+        return res.status(400).json({ success: false, error: '농장명과 결제일(5/15/25)이 필요합니다.' });
+      }
+      const uid = String(req.user?.userId || 'admin').slice(0, 50);
+      await query(
+        `IF EXISTS (SELECT 1 FROM WebImportFarmPaymentDay WHERE FarmName=@farm)
+           UPDATE WebImportFarmPaymentDay
+              SET PaymentDay=@day, UpdateID=@uid, UpdateDtm=GETDATE()
+            WHERE FarmName=@farm
+         ELSE
+           INSERT INTO WebImportFarmPaymentDay
+             (FarmName, PaymentDay, CreateID, UpdateID)
+           VALUES (@farm, @day, @uid, @uid)`,
+        {
+          farm: { type: sql.NVarChar, value: farmName.slice(0, 120) },
+          day: { type: sql.TinyInt, value: paymentDay },
+          uid: { type: sql.NVarChar, value: uid },
+        }
+      );
+      return res.status(200).json({ success: true, farmName, paymentDay });
+    }
+
     // 포워더 인보이스 upsert — { type:'fwdInvoice', week, awb, invoiceNo } (invoiceNo 빈값 = 삭제)
     if (req.method === 'POST' && req.body?.type === 'fwdInvoice') {
       await ensureFwdTable();
@@ -442,13 +521,31 @@ export default withAuth(async function handler(req, res) {
 
     if (req.method !== 'GET') return res.status(405).end();
 
-    const r = parseRange(req.query);
+    // 페이지 진입 자동 조회: 차수가 없으면 현재 연도에서 가장 최근 입고 차수를 사용한다.
+    let rangeQuery = req.query;
+    if (!String(rangeQuery.weekStart || '').trim()) {
+      const latest = await query(
+        `SELECT TOP 1
+            ISNULL(CAST(OrderYear AS NVARCHAR(4)), CONVERT(NVARCHAR(4), YEAR(GETDATE()))) AS OrderYear,
+            OrderWeek
+           FROM WarehouseMaster
+          WHERE ISNULL(isDeleted, 0) = 0
+            AND NULLIF(LTRIM(RTRIM(OrderWeek)), N'') IS NOT NULL
+          ORDER BY TRY_CONVERT(INT, ISNULL(CAST(OrderYear AS NVARCHAR(4)), CONVERT(NVARCHAR(4), YEAR(GETDATE())))) DESC,
+                   TRY_CONVERT(INT, REPLACE(OrderWeek, N'-', N'')) DESC`
+      );
+      const latestRow = latest.recordset[0];
+      if (!latestRow) return res.status(200).json({ success: true, rows: [], adjustments: [], fwdInvoices: {}, farmPaymentDays: {}, notices: [] });
+      rangeQuery = { ...req.query, weekStart: `${latestRow.OrderYear}-${latestRow.OrderWeek}`, weekEnd: `${latestRow.OrderYear}-${latestRow.OrderWeek}` };
+    }
+    const r = parseRange(rangeQuery);
+    const selectedFarmNames = parseFarmFilter(req.query.farms);
 
     // 정산서 데이터 — excel=1 은 xlsx 다운로드, settlement=1 은 웹 "정산서 보기"용 JSON (동일 생성 경로)
     if (req.query.excel === '1' || req.query.settlement === '1') {
       const payDate = String(req.query.payDate || '').trim()
         || `${new Date().getMonth() + 1}/${new Date().getDate()}`;
-      const data = await buildSettlementExcel(r, payDate);
+      const data = await buildSettlementExcel(r, payDate, selectedFarmNames);
       if (req.query.settlement === '1') {
         return res.status(200).json({ success: true, ...data });
       }
@@ -486,7 +583,10 @@ export default withAuth(async function handler(req, res) {
       rangeParams(r)
     );
 
-    const adjustments = await loadAdjustments(r);
+    const [adjustments, farmPaymentDays] = await Promise.all([
+      loadAdjustments(r),
+      loadFarmPaymentDays(),
+    ]);
     const fwdInvoices = await loadFwdInvoices(r);
 
     // 특이사항 자동탐지 — 조회 시 화면 배너로 바로 노출
@@ -521,6 +621,7 @@ export default withAuth(async function handler(req, res) {
       weekEnd: r.we,
       rows: result.recordset,
       adjustments,
+      farmPaymentDays,
       fwdInvoices,
       notices,
     });

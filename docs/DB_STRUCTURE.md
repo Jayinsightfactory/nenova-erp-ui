@@ -210,6 +210,12 @@
 - `FarmName`, `OrderWeek`, `CreditUSD`, `Memo`, `isDeleted`
 - UX: `(FarmName, OrderWeek)` WHERE `isDeleted=0`
 
+**WebImportFarmPaymentDay** — 수입부 Pivot 농장별 결제일 설정 (2026-08-03 신규)
+- 웹 전용 PK: `FarmName`
+- `PaymentDay` — `5` | `15` | `25` 중 하나
+- `CreateID`, `CreateDtm`, `UpdateID`, `UpdateDtm`
+- 농장명별 공통 설정이며 WarehouseMaster/WarehouseDetail 및 주문·출고·재고 원장을 변경하지 않는다.
+
 **UserInfo** — 사용자
 **UserFavorite** — 즐겨찾기
 **SystemActionLog** — 시스템 동작 로그
@@ -268,6 +274,7 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 - `docs/migrations/2026-04-17_farm_credit.sql` — FarmCredit 테이블 생성
 - `docs/migrations/2026-04-17_shipment_detail_trigger.sql` — OutQuantity 자동 로그 트리거
 - `docs/migrations/2026-07-22_web_sales_defect_deduction.sql` — 영업수입 불량/검역 차감 웹 원장·이력 테이블 생성
+- `docs/migrations/2026-08-03_web_import_farm_payment_day.sql` — 수입부 Pivot 농장별 결제일 설정 테이블 생성
 
 ---
 
