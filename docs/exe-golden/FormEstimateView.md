@@ -135,3 +135,25 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 영업지원 목록에서 이월 대기로 표시한다. 이후 해당 차수에 판매행이 생긴 뒤 다시 등록할
 수 있다. 이 구조로 27차 재고를 28차에 사용하거나 29차 입고를 28차에 앞당겨 사용하는
 경우에도 원차수와 실제 견적 적용 차수를 잃지 않는다.
+
+## 견적서관리 직접 입력 — 불량차감등록 / 판매요청
+
+견적서관리에서 거래처를 조회·선택한 뒤 두 입력 모드를 사용한다.
+
+| 버튼 | 수량 부호 | 대상 확인 | 원장 영향 |
+|---|---:|---|---|
+| 불량차감등록 | 음수 (`-` 체크 필수) | 해당 차수의 EXE 확정 판매행이 있어야 함 | `Estimate`만 INSERT |
+| 판매요청 | 양수 (`-` 체크 해제) | 선택 거래처의 현재 `ShipmentKey` 사용 | `Estimate`만 INSERT |
+
+품목을 Product DB에서 검색·선택하면 웹이 `/api/estimate?view=defectContext`를 호출해
+이전 부모차수의 `ShipmentDate.Cost`/`ShipmentDetail.Cost` 중 최근 유효 분배단가를
+자동 표시한다. 단위는 사용자가 `단/박스/스팀(대)` 중 선택하지만 `Estimate.Unit`에는
+`Product.EstUnit`를 우선 기록해 EXE 원본 단위 계약을 보존한다. 금액은
+`Amount = Round(Quantity * Cost / 1.1, 0)`, `Vat = Quantity * Cost - Amount`의 부호를
+수량과 함께 적용한다.
+
+불량차감은 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay + DetailFix=1` 판매행이
+없으면 등록하지 않고 구체적인 이월 안내를 반환한다. 판매요청은 선택된 거래처의 출고키에
+양수 Estimate를 기록한다. 두 모드 모두 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`,
+재고, 손익 원장은 변경하지 않으며, Estimate 트리거와 충돌하지 않도록
+`OUTPUT INSERTED.EstimateKey INTO @EstimateInserted`를 사용한다.

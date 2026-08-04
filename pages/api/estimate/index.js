@@ -18,6 +18,7 @@ import {
   sqlEstimateGetExcelDetail,
   sqlEstimateGetPrintDetail,
 } from '../../../lib/exeEstimateViewSql.js';
+import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
 
 // ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
 // 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
@@ -148,12 +149,44 @@ async function loadExeExcelDetailItems({ orderYearWeek, custKey, weekDayIn }) {
 }
 
 async function getEstimates(req, res) {
-  const { week, custKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
+  const { week, year, custKey, prodKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
   // exe-parity 견적 SQL 을 nenova.exe v1.0.15 방식(ViewShipment/ViewOrder·ProdKey·DetailFix)으로
   // 정합 + GetDetail ShipmentKey 버그 수정 완료(2026-07-09, 4쿼리 실DB 총액일치) → 기본 ON.
   // 되돌림: ?exeParity=0 (문제 시 기존 웹 자체 로직으로 복귀).
   const useExeParity = !(exeParity === '0' || exeParity === 'false');
   const showUnfixed = includeUnfixed === '1' || includeUnfixed === 'true';
+
+  // 견적서관리의 불량차감/판매요청 입력창에서 사용하는 공통 컨텍스트.
+  // 품목을 선택할 때마다 EXE와 같은 판매행 여부와 이전 차수 분배단가를
+  // 서버에서 다시 확인해, 화면에 보이는 단가를 임의 계산값으로 사용하지 않는다.
+  if (view === 'defectContext') {
+    const targetYear = parseInt(year, 10);
+    const targetWeek = String(week || '').split('-')[0];
+    const targetCustKey = parseInt(custKey, 10);
+    const targetProdKey = parseInt(prodKey, 10);
+    if (!Number.isInteger(targetYear) || !targetWeek || !Number.isInteger(targetCustKey) || !Number.isInteger(targetProdKey)) {
+      return res.status(400).json({ success: false, error: 'year, week, custKey, prodKey가 필요합니다.' });
+    }
+    try {
+      const context = await resolveEstimateContext({
+        year: targetYear,
+        week: targetWeek,
+        custKey: targetCustKey,
+        prodKey: targetProdKey,
+      });
+      return res.status(200).json({
+        success: true,
+        source: 'real_db_exe_estimate_context',
+        year: targetYear,
+        week: Number(targetWeek),
+        custKey: targetCustKey,
+        prodKey: targetProdKey,
+        context,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 
   if (view === 'excelDetail') {
     if (!week || !custKey) {
@@ -783,39 +816,142 @@ async function resolveEstimateTypeCode(typeText) {
 }
 
 async function createEstimate(req, res) {
-  // 불량/검역 등록 → Estimate 테이블에 직접 저장 (원본 테이블)
-  // ※ 차감 항목은 기존 전산과 동일하게 수량/금액 음수로 저장
-  const { shipmentKey, prodKey, estimateType, unit, quantity, cost, estimateDate, descr } = req.body;
+  // 견적서관리의 불량차감/판매요청 → EXE ClassEstimate.Insert와 같은 원장 저장.
+  // 차감은 음수, 판매요청은 양수이며, 대상 판매행·단가는 서버에서 재검증한다.
+  const {
+    shipmentKey,
+    targetShipmentKey,
+    orderYear,
+    orderWeek,
+    custKey,
+    prodKey,
+    estimateType,
+    entryMode,
+    negative,
+    unit,
+    quantity,
+    cost,
+    estimateDate,
+    descr,
+  } = req.body;
   try {
-    const { typeText, unitText } = normalizeEstimateTypeInput(estimateType, unit);
+    const selectedShipmentKey = parseInt(shipmentKey, 10);
+    const requestedProdKey = parseInt(prodKey, 10);
+    const inputQuantity = Math.abs(parseFloat(quantity) || 0);
+    if (!Number.isInteger(selectedShipmentKey) || selectedShipmentKey <= 0) {
+      return res.status(400).json({ success: false, error: '견적을 등록할 출고번호가 필요합니다.' });
+    }
+    if (!Number.isInteger(requestedProdKey) || requestedProdKey <= 0) {
+      return res.status(400).json({ success: false, error: '품목을 선택하세요.' });
+    }
+    if (!(inputQuantity > 0)) {
+      return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
+    }
+
+    const master = await query(
+      `SELECT TOP 1 sm.OrderYear, sm.OrderWeek, sm.CustKey,
+              (SELECT TOP 1 sd.ShipmentDtm
+                 FROM ShipmentDetail sd
+                WHERE sd.ShipmentKey=sm.ShipmentKey
+                ORDER BY sd.SdetailKey) AS DefaultShipmentDtm
+         FROM ShipmentMaster sm
+        WHERE sm.ShipmentKey=@sk AND ISNULL(sm.isDeleted,0)=0`,
+      { sk: { type: sql.Int, value: selectedShipmentKey } },
+    );
+    const masterRow = master.recordset[0];
+    if (!masterRow) {
+      return res.status(404).json({ success: false, error: `ShipmentKey=${selectedShipmentKey} 출고를 찾을 수 없습니다.` });
+    }
+
+    const targetYear = parseInt(orderYear, 10) || Number(masterRow.OrderYear);
+    const targetParentWeek = String(orderWeek || masterRow.OrderWeek || '').split('-')[0];
+    const targetCustKey = parseInt(custKey, 10) || Number(masterRow.CustKey);
+    const context = await resolveEstimateContext({
+      year: targetYear,
+      week: targetParentWeek,
+      custKey: targetCustKey,
+      prodKey: requestedProdKey,
+    });
+
+    const requestedMode = String(entryMode || '').trim().toLowerCase();
+    const isSalesRequest = requestedMode === 'sales' || String(estimateType || '').includes('판매요청');
+    const typeText = isSalesRequest ? '판매요청' : '불량차감';
+    const isNegative = negative == null ? !isSalesRequest : Boolean(negative);
+    if (isSalesRequest && isNegative) {
+      return res.status(400).json({ success: false, error: '판매요청은 - 차감 체크를 해제해야 합니다.' });
+    }
+    if (!isSalesRequest && !isNegative) {
+      return res.status(400).json({ success: false, error: '불량차감등록은 - 차감 체크가 필요합니다.' });
+    }
+
+    // 불량차감은 nenova.exe처럼 해당 차수의 확정 판매행이 없으면 등록하지 않는다.
+    // 판매요청은 선택한 거래처의 현재 출고키에 양수 Estimate를 추가할 수 있다.
+    if (!isSalesRequest && !context.shipmentKey) {
+      return res.status(409).json({
+        success: false,
+        code: 'NO_EXE_SALE_ROW',
+        error: `${targetParentWeek}차에 선택 품목의 EXE 판매 출고행이 없어 불량차감을 등록할 수 없습니다. 판매행이 있는 차수로 이월 등록하세요.`,
+      });
+    }
+
+    const { unitText } = normalizeEstimateTypeInput(`${typeText}/${unit || ''}`, unit);
     const typeCode = await resolveEstimateTypeCode(typeText);
     const prod = await query(
-      `SELECT TOP 1 EstUnit FROM Product WHERE ProdKey = @pk AND isDeleted = 0`,
-      { pk: { type: sql.Int, value: prodKey } }
+      `SELECT TOP 1 EstUnit, OutUnit FROM Product WHERE ProdKey = @pk AND isDeleted = 0`,
+      { pk: { type: sql.Int, value: requestedProdKey } }
     );
-    const estUnit = prod.recordset[0]?.EstUnit || unitText;
-    const dtValue = estimateDate ? new Date(estimateDate) : new Date();
-    const qty    = -Math.abs(parseFloat(quantity) || 0);   // 항상 음수
-    const amount = Math.round(qty * (cost || 0) / 1.1);    // 공급가액 (음수)
-    const vat    = Math.round(qty * (cost || 0) / 11);     // 부가세 (음수)
-    await query(
-      `INSERT INTO Estimate
+    if (!prod.recordset[0]) {
+      return res.status(404).json({ success: false, error: `ProdKey=${requestedProdKey} 품목을 찾을 수 없습니다.` });
+    }
+    const effectiveCost = Number(cost) > 0 ? Number(cost) : Number(context.cost || 0);
+    if (!(effectiveCost > 0)) {
+      return res.status(409).json({
+        success: false,
+        code: 'NO_DISTRIBUTION_COST',
+        error: '이전 차수 분배단가를 찾지 못했습니다. 단가를 확인한 뒤 다시 시도하세요.',
+      });
+    }
+    const estUnit = prod.recordset[0]?.EstUnit || prod.recordset[0]?.OutUnit || unitText || unit || '';
+    const dtValue = estimateDate ? new Date(estimateDate) : (context.estimateDate || masterRow.DefaultShipmentDtm || new Date());
+    const qty = (isNegative ? -1 : 1) * inputQuantity;
+    const amount = Math.round(qty * effectiveCost / 1.1);
+    const vat = Math.round(qty * effectiveCost / 11);
+    const appliedShipmentKey = isSalesRequest
+      ? (parseInt(targetShipmentKey, 10) || selectedShipmentKey)
+      : Number(context.shipmentKey);
+    const inserted = await query(
+      `DECLARE @EstimateInserted TABLE (EstimateKey INT);
+       INSERT INTO Estimate
          (EstimateType, ProdKey, Unit, Quantity, Cost, Amount, Vat, Descr, ShipmentKey, EstimateDtm)
-       VALUES (@type, @pk, @unit, @qty, @cost, @amount, @vat, @descr, @sk, @dt)`,
+       OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)
+       VALUES (@type, @pk, @unit, @qty, @cost, @amount, @vat, @descr, @sk, @dt);
+       SELECT TOP 1 EstimateKey FROM @EstimateInserted;`,
       {
         type:   { type: sql.NVarChar, value: typeCode },
-        pk:     { type: sql.Int,      value: prodKey },
+        pk:     { type: sql.Int,      value: requestedProdKey },
         unit:   { type: sql.NVarChar, value: estUnit },
         qty:    { type: sql.Float,    value: qty },
-        cost:   { type: sql.Float,    value: cost },
+        cost:   { type: sql.Float,    value: effectiveCost },
         amount: { type: sql.Float,    value: amount },
         vat:    { type: sql.Float,    value: vat },
         descr:  { type: sql.NVarChar, value: descr || '' },
-        sk:     { type: sql.Int,      value: shipmentKey },
+        sk:     { type: sql.Int,      value: appliedShipmentKey },
         dt:     { type: sql.DateTime, value: dtValue },
       }
     );
-    return res.status(201).json({ success: true, message: '견적 등록 완료' });
+    return res.status(201).json({
+      success: true,
+      message: `${isSalesRequest ? '판매요청' : '불량차감'} 견적 등록 완료`,
+      estimateKey: inserted.recordset?.[0]?.EstimateKey || null,
+      entryMode: isSalesRequest ? 'sales' : 'defect',
+      quantity: qty,
+      cost: effectiveCost,
+      amount,
+      vat,
+      unit: estUnit,
+      shipmentKey: appliedShipmentKey,
+      costOrderWeek: context.costOrderWeek || '',
+    });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
