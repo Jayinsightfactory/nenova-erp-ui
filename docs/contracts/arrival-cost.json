@@ -1,0 +1,53 @@
+{
+  "id": "arrival-cost",
+  "title": "차수별 도착원가 웹 전용 원장 계약",
+  "scope": [
+    "pages/arrival-cost.js",
+    "pages/api/arrival-cost/index.js",
+    "pages/api/arrival-cost/upload.js",
+    "pages/api/arrival-cost/history.js",
+    "lib/arrivalCost.js",
+    "lib/arrivalCostExcel.js",
+    "components/Layout.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "ARRIVAL_COST_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "ARRIVAL_COST_UPLOAD_REVISION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/arrivalCostExcel.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormArrivalCost.md",
+    "source": "nenova.exe FormWarehouseView의 WarehouseMaster/WarehouseDetail 조회 범위를 확인하고, 도착원가 자체는 WebArrivalCost 전용 원장으로 격리한다.",
+    "methods": [
+      "FormWarehouseView GetData",
+      "FormWarehouseView GetDetail",
+      "WebArrivalCost revision upload is web-only"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "Farm",
+      "WebArrivalCostImport",
+      "WebArrivalCostLine",
+      "WebArrivalCostHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
+

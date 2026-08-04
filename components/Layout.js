@@ -41,6 +41,7 @@ export const MENU_ITEMS = [
       { href: '/incoming/kakao-summary', labelKey: '수입방 카톡 수량집계', popup: false },
       { href: '/incoming-price',      labelKey: '입고단가/송금', popup: false },
       { href: '/freight',             labelKey: '운송기준원가', popup: true },
+      { href: '/arrival-cost',        labelKey: '도착원가',     popup: true },
       { href: '/shipment/distribute',    labelKey: '출고분배',      popup: true },
       { href: '/shipment/distribute-import', labelKey: '출고분배 엑셀업로드', popup: false },
       { href: '/shipment/fix-status',    labelKey: '차수 확정 현황', popup: false },
