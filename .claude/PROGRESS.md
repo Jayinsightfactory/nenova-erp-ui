@@ -23,10 +23,11 @@
 - `npm run test:erp-manifest -- --changed-from HEAD^` ✅
 - `npm run guard:erp-writes -- --changed-from HEAD^` ✅ (3 changed API files)
 - `npm run build` ✅
-- 기능 커밋: `b7fd623`
+- 기능 커밋: `b7fd623`, 업로드 폼 오류 수정 커밋: `7cb9ed0`
 
 ### 다음 예정 / 미결 이슈
-- PR 병합 후 Cafe24 배포 및 `/arrival-cost` 실브라우저 업로드·매칭·기준저장 스모크 확인.
+- PR #80/#81 병합 및 Cafe24 배포 완료. `/arrival-cost` 운영 화면 렌더링·hydration·콘솔 오류 없음 확인.
+- 현재 브라우저 세션이 로그인 상태가 아니어서 실제 엑셀 업로드 저장 스모크는 로그인 후 수행 필요.
 - 운영 DB에는 첫 API 호출 시 웹 전용 테이블만 생성되며, 기존 ERP 원장 데이터 보정은 수행하지 않음.
 
 ---
