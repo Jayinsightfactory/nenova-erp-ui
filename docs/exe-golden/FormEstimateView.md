@@ -120,6 +120,18 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 영업수입불량차감 웹 등록 규칙도 이 계약을 그대로 따른다. 예를 들어 29차를 등록할 때
 단가는 28차 같은 연도·거래처·품목의 `ShipmentDate.Cost`를 우선하고, 없으면
 `ShipmentDetail.Cost`를 사용한다. `CustomerProdCost`나 `Product.Cost`로 임의 대체하지
-않으며, 이전 차수 분배 단가가 없으면 등록 전에 오류로 알린다. 대상 29차의
-`ShipmentMaster.ShipmentKey`에 차감 Estimate를 연결하고, `EstimateDtm`은 해당 출고의
-`ShipmentDtm`으로 저장해 nenova.exe 견적서관리에서 같은 업체/차수로 조회되게 한다.
+않으며, 이전 차수 분배 단가가 없으면 등록 전에 오류로 알린다.
+
+등록 대상 출고는 `ShipmentMaster`만으로 판단하지 않는다. nenova.exe와 동일하게
+`ViewShipment`와 `ViewOrder`를 `OrderYearWeek2 + CustKey + ProdKey`로 INNER JOIN하고,
+`ShipmentDate`와 `PeriodDay`를 연결한 뒤 `DetailFix=1`, `ViewShipment.EstQuantity>0`,
+`ShipmentDate.EstQuantity>0`을 모두 만족하는 판매행만 대상이 된다. 따라서 웹에서 보이는
+원장 행이 EXE 견적서관리에서 보이지 않는 ghost shipment에 잘못 연결되지 않는다.
+
+차감 원장의 `OrderYear/OrderWeek`는 불량이 발생한 원차수로 보존한다. 원차수보다 뒤의
+적용 대상 차수에 위 판매행이 있으면 `Estimate`는 그 적용 대상의 `ShipmentKey`와
+`EstimateDtm`으로 저장하고, `AppliedOrderYear/AppliedOrderWeek/AppliedShipmentKey` 및
+단가 원천 차수를 원장에 기록한다. 대상 판매행이 없으면 `Estimate`를 만들지 않고
+영업지원 목록에서 이월 대기로 표시한다. 이후 해당 차수에 판매행이 생긴 뒤 다시 등록할
+수 있다. 이 구조로 27차 재고를 28차에 사용하거나 29차 입고를 28차에 앞당겨 사용하는
+경우에도 원차수와 실제 견적 적용 차수를 잃지 않는다.

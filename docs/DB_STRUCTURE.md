@@ -196,6 +196,12 @@
 - 입력 스냅샷: 거래처/품목/색상/차감수량/단위/크레딧/농장/비고/차감구분
 - 수입부 확인: `ImportConfirmed`, `ImportConfirmedBy`, `ImportConfirmedByName`, `ImportConfirmedAt`, `ImportReviewRequired`
 - 견적 등록 후 연결: `EstimateKey`, `EstimateCost`, `EstimateDtm`, `Status`
+- 원차수와 실제 견적 적용 차수 분리: `OrderYear/OrderWeek`는 불량 입력 원차수이며,
+  `AppliedOrderYear/AppliedOrderWeek/AppliedShipmentKey`는 EXE 판매행이 확인된 견적 적용 대상이다.
+  `AppliedCostSourceYear/AppliedCostSourceWeek`에는 실제 사용한 이전 차수 단가 원천을 기록한다.
+- 영업지원 전산등록은 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay`와
+  `DetailFix=1`, 양수 `EstQuantity`를 통과한 판매행만 대상으로 하며, 대상이 없으면
+  Estimate를 만들지 않고 이월 대기 후보로 남긴다.
 - 웹 원장 저장만으로 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`, 재고, 손익 원장을 변경하지 않는다.
 - 견적서관리 등록을 명시적으로 실행할 때만 dnSpy `ClassEstimate.Insert/Update`와 동일한 `Estimate` 행을 생성·갱신한다.
 

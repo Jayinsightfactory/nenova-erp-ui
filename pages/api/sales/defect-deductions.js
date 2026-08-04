@@ -53,6 +53,7 @@ async function handler(req, res) {
           : managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
+        includeCarryover: String(req.query.view || '') === 'support',
       });
       return res.status(200).json({ success: true, year, week, ...data });
     }
@@ -109,15 +110,21 @@ async function handler(req, res) {
         return res.status(200).json({ success: true, rows, invalidCount: rows.filter((x) => x.error).length });
       }
       if (action === 'register') {
-        const registered = await registerDeductions({
+        const result = await registerDeductions({
           year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
           user: req.user, overrides: req.body?.overrides || {},
         });
+        const registered = result.registered || [];
+        const skipped = result.skipped || [];
         return res.status(200).json({
           success: true,
           registered: registered.length,
           rows: registered,
-          logs: registered.map((row) => `${row.estimateAction || 'UPDATE'} Estimate #${row.estimateKey} · 원장키 #${row.deductionKey} · 수량 ${row.quantity} · 단가 ${row.cost} · 금액 ${row.amount} · 부가세 ${row.vat} · 출고키 #${row.targetShipmentKey}`),
+          skipped,
+          logs: [
+            ...registered.map((row) => `${row.estimateAction || 'UPDATE'} Estimate #${row.estimateKey} · 원장키 #${row.deductionKey} · 원차수 ${row.sourceOrderWeek || '-'} → 적용 ${row.appliedOrderWeek || week}차 · 수량 ${row.quantity} · 단가 ${row.cost} · 금액 ${row.amount} · 부가세 ${row.vat} · 출고키 #${row.targetShipmentKey}`),
+            ...skipped.map((row) => `이월 대기 · 원장키 #${row.deductionKey} · ${row.error}`),
+          ],
         });
       }
       return res.status(400).json({ success: false, error: `지원하지 않는 작업입니다: ${action}` });

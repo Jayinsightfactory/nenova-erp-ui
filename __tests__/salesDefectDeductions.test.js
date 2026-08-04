@@ -5,6 +5,8 @@ import { scoreMatch } from '../lib/displayName.js';
 import {
   deductionManagerIdentity,
   normalizeParentWeek,
+  normalizeDefectUnit,
+  isEarlierOrSameScope,
   previousParentScope,
   normalizeDeductionRow,
   managerFilterForUser,
@@ -38,6 +40,13 @@ assert.deepEqual(shiftParentWeek(2026, 52, 1), { year: 2027, week: 1 });
 assert.deepEqual(parseQuantityCell('1,250단'), { quantity: 1250, unit: '단', raw: '1,250단' });
 assert.deepEqual(parseQuantityCell('5대'), { quantity: 5, unit: '스팀(대)', raw: '5대' });
 assert.equal(normalizeDeductionRow({ quantity: '-5', customerName: 'A' }).quantity, 5);
+assert.equal(normalizeDefectUnit('단'), '단');
+assert.equal(normalizeDefectUnit('box'), '박스');
+assert.equal(normalizeDefectUnit('대'), '스팀(대)');
+assert.equal(normalizeDefectUnit('unknown'), '');
+assert.equal(isEarlierOrSameScope(2026, 29, 2026, 30), true);
+assert.equal(isEarlierOrSameScope(2026, 31, 2026, 30), false);
+assert.equal(isEarlierOrSameScope(2025, 52, 2026, 1), true);
 assert.equal(getStatementProductName({ ProdName: 'CARNATION Moon Light' }), 'Moon Light');
 assert.equal(getStatementProductName({ ProdName: 'CARNATION Novia' }), 'Novia');
 const savedNewRows = mergeSavedDeductionRows(
@@ -142,6 +151,12 @@ assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거가 활성화된 SQL Server에서도 신규 견적키를 회수해야 한다.');
+assert.ok(deductionSource.includes('FROM ViewShipment vs'), '견적 차감 대상은 EXE와 동일한 ViewShipment 기준이어야 한다.');
+assert.ok(deductionSource.includes('JOIN ViewOrder vo'), '견적 차감 대상은 EXE와 동일한 ViewOrder 매칭을 사용해야 한다.');
+assert.ok(deductionSource.includes('ISNULL(vs.DetailFix,0)=1'), '확정 DetailFix=1 조건이 필요하다.');
+assert.ok(deductionSource.includes('ISNULL(sdd.EstQuantity,0)>0'), '출고일 확정수량이 양수인 판매행만 대상이어야 한다.');
+assert.ok(deductionSource.includes('AppliedOrderYear'), '원차수와 적용차수를 분리 저장해야 한다.');
+assert.ok(deductionSource.includes('이월 대기'), '현재 판매행이 없으면 이월 대기로 남겨야 한다.');
 assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
 assert.ok(deductionSource.includes('const estimateDescr = text(dbRow.Note, 1000);'), '견적 적요 기본값은 자동 문구가 아닌 입력된 메모만 사용해야 한다.');
 assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');

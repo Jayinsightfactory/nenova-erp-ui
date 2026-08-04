@@ -4,6 +4,28 @@
 
 ---
 
+## [2026-08-04] 세션 — 영업수입불량차감 EXE 판매행·차수이월 등록 보강
+
+### 작업 내용
+- dnSpy CLI로 `FormEstimateAdd`/`ClassEstimate`의 실제 `Estimate` 입력 계약을 재확인하고,
+  견적서관리와 동일한 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay + DetailFix=1 + EstQuantity>0` 조건으로 등록 대상 출고를 제한.
+- 불량 원장의 `OrderYear/OrderWeek`(원차수)와 `AppliedOrderYear/AppliedOrderWeek/AppliedShipmentKey`(실제 견적 적용 차수)를 분리 저장.
+- 이전 원차수 불량은 현재 적용 차수에 EXE 판매행이 있을 때 이월 등록하고, 판매행·단가가 없으면 전체 작업을 막지 않고 행별 `이월 대기` 사유로 반환.
+- 단가 원천 연도·차수와 적용 출고키를 함께 기록하고, `Product.EstUnit`은 Estimate 원본 단위로 보존하되 웹 표시 단위는 단/박스/스팀(대)로 정규화.
+- 영업지원 전산등록 목록에 원차수/적용차수와 이월 대기 상태를 표시하고, 운영 DDL·마이그레이션·계약·DB 구조·EXE 근거 문서를 동기화.
+
+### 검증
+- `node __tests__/salesDefectDeductions.test.js` ✅
+- `npm run test:erp-contract` ✅
+- `npm run test:nenova-dnspy-evidence` ✅
+- `npm run test:erp-manifest -- --changed-from HEAD^` ✅
+- `npm run guard:erp-writes -- --changed-from HEAD^` ✅
+- `npm run build` ✅
+
+### 미결 이슈
+- 운영 DB에는 다음 배포 후 영업수입불량차감 API 최초 호출 시 새 Applied* 컬럼이 idempotent하게 생성된다.
+- 실제 운영 등록은 로그인 후 대상 원장을 선택해 `EXE 판매행 있음/없음`, Estimate 적용 차수, 재조회 검증 로그를 확인해야 한다.
+
 ## [2026-08-04] 세션 — 도착원가 상단 레이아웃 밀도 개선
 
 ### 작업 내용
