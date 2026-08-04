@@ -7,6 +7,11 @@ BEGIN
     DeductionKey INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     OrderYear INT NOT NULL,
     OrderWeek NVARCHAR(10) NOT NULL,
+    AppliedOrderYear INT NULL,
+    AppliedOrderWeek NVARCHAR(10) NULL,
+    AppliedShipmentKey INT NULL,
+    AppliedCostSourceYear INT NULL,
+    AppliedCostSourceWeek NVARCHAR(10) NULL,
     CustKey INT NULL,
     CustName NVARCHAR(200) NOT NULL DEFAULT N'',
     ProdKey INT NULL,
@@ -56,6 +61,16 @@ IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportConfirmedAt') IS NULL
   ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportConfirmedAt DATETIME NULL;
 IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'ImportReviewRequired') IS NULL
   ALTER TABLE dbo.WebSalesDefectDeduction ADD ImportReviewRequired BIT NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_ImportReviewRequired DEFAULT 0;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedOrderYear') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedOrderYear INT NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedOrderWeek') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedOrderWeek NVARCHAR(10) NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedShipmentKey') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedShipmentKey INT NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedCostSourceYear') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedCostSourceYear INT NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedCostSourceWeek') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedCostSourceWeek NVARCHAR(10) NULL;
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN

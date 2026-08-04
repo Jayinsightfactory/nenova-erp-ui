@@ -1259,13 +1259,14 @@ export default function SalesDefectDeductionsPage() {
       <div className="card support-register-card">
         <div className="support-register-head">
           <div><strong>영업지원 전산등록 — {year}년 {week}차 전체 불량</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
-          <span className="incoming-review-note">전체 또는 일부 행을 선택하면 기존 견적서와 비교한 뒤 nenova.exe와 같은 Estimate 등록값으로 적용하고, 완료 후 재조회 검증합니다.</span>
+          <span className="incoming-review-note">원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다. 기존 견적서와 비교한 뒤 Estimate 등록값으로 적용하고, 완료 후 재조회 검증합니다.</span>
         </div>
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
             <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
+              const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" checked={supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!key} /></label></td>
                 <td>{index + 1}</td>
@@ -1276,7 +1277,7 @@ export default function SalesDefectDeductionsPage() {
                 <td>{printQuantity(row)}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
-                <td>{row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : '미등록'}</td>
+                <td><span className={row.isCarryover ? 'support-carryover' : ''}>{row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '이월 대기' : '미등록'}</span><small className="support-scope-label">{row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small></td>
               </tr>;
             })}
             {!supportRows.length && <tr><td colSpan="10" className="empty-row-cell">선택한 차수에 저장된 불량 차감이 없습니다.</td></tr>}
@@ -1555,6 +1556,8 @@ export default function SalesDefectDeductionsPage() {
         .support-grid-scroll { max-height: calc(100vh - 260px); }
         .support-grid .defect-row td { vertical-align: middle; }
         .support-selected-row { background: #ecfdf5; }
+        .support-carryover { color: #b45309; font-weight: 700; }
+        .support-scope-label { display: block; margin-top: 3px; color: #64748b; font-size: 10px; white-space: nowrap; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
