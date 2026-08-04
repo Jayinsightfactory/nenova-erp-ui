@@ -90,6 +90,7 @@ assert.deepEqual(
 );
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
+const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
@@ -112,6 +113,9 @@ assert.ok(pageSource.includes("action: 'incoming-confirm-cancel'"), '수입부 �
 assert.ok(pageSource.includes('확정 취소'), '수입부 확정 완료 행에는 확정 취소 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('영업지원 전산등록'), '영업지원 전산등록 탭이 있어야 한다.');
 assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업지원은 선택 행을 견적서관리에 등록할 수 있어야 한다.');
+assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
+assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
+assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
 assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
 assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
@@ -144,6 +148,7 @@ assert.ok(pageSource.includes('white-space: normal; overflow: visible; text-over
 assert.ok(pageSource.includes('partitionRegistrationPreflight'), '견적서 등록은 유효행과 오류행을 분리해 처리해야 한다.');
 assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
+assert.ok(deductionSource.includes('enrichSupportDistributionCosts'), '영업지원 전체 조회도 견적 등록과 같은 분배단가 컨텍스트를 사용해야 한다.');
 assert.ok(deductionSource.includes('confirmIncomingDeductions'), '수입부 확인 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('ImportConfirmedAt=GETDATE()'), '수입부 확정 시 감사 시각을 저장해야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=@reviewRequired'), '수입부 보완 필요 체크를 저장해야 한다.');
@@ -165,7 +170,9 @@ assert.ok(deductionSource.includes('이월 대기'), '현재 판매행이 없으
 assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
 assert.ok(deductionSource.includes('const estimateDescr = text(dbRow.Note, 1000);'), '견적 적요 기본값은 자동 문구가 아닌 입력된 메모만 사용해야 한다.');
 assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');
-assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('originalBeforeByKey'), '신규 Estimate INSERT 후 발급된 견적키를 재조회 검증해야 한다.');
+assert.ok(supportReviewSource.includes('originalBeforeByKey'), '신규 Estimate INSERT 후 발급된 견적키를 재조회 검증해야 한다.');
+assert.ok(supportReviewSource.includes('<b>분배단가</b>'), '영업지원 전산등록 검토창은 분배단가를 표시해야 한다.');
+assert.ok(supportReviewSource.includes('.compare-pane { padding: 5px 8px;'), '영업지원 전산등록 검토창은 텍스트 간격을 줄여야 한다.');
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
@@ -173,9 +180,9 @@ assert.ok(deductionSource.includes('ImportReviewRequired=CASE WHEN ImportReviewR
 assert.ok(deductionSource.includes('Boolean(dbRow.ImportReviewRequired) || input.importReviewRequired === true'), '수입부 확정은 해결 완료 전까지 보완 필요 상태를 해제하면 안 된다.');
 assert.ok(deductionSource.includes('const inputNote = input.note == null ? text(dbRow.Note, 1000) : text(input.note, 1000);'), '수입부 확정은 빈 비고로 기존 비고를 덮으면 안 된다.');
 assert.ok(deductionSource.includes('ImportConfirmed=CASE WHEN @importReset=1 THEN 0'), '영업부가 수입부 확정 후 농장/크레딧/비고를 바꾸면 재확인이 필요해야 한다.');
-assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('verifyAppliedRow'), '견적서 등록은 적용 후 Estimate 재조회 검증을 수행해야 한다.');
-assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('처리 로그'), '영업지원 전산등록 검토창은 처리 로그를 표시해야 한다.');
-assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
+assert.ok(supportReviewSource.includes('verifyAppliedRow'), '견적서 등록은 적용 후 Estimate 재조회 검증을 수행해야 한다.');
+assert.ok(supportReviewSource.includes('처리 로그'), '영업지원 전산등록 검토창은 처리 로그를 표시해야 한다.');
+assert.ok(supportReviewSource.includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량차감등록'), '견적서관리에는 불량차감등록 전용 버튼이 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 판매요청'), '견적서관리에는 판매요청 전용 버튼이 있어야 한다.');
 assert.ok(estimatePageSource.includes('openItemEditor'), '견적 품목명을 선택하면 정보 편집창을 열어야 한다.');

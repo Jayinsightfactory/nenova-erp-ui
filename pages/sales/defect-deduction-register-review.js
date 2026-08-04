@@ -168,7 +168,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
                 <section className="compare-pane after"><h3>적용 후 내용</h3>{after ? <>
                   <div className="estimate-view-preview"><b>견적서관리 표시</b> [{row.estimateTypeLabel || deductionType}] {after.ProdName || row.productDbName || row.productName || '-'} · {after.Quantity} {after.Unit || row.sourceUnit || ''} · {fmt(after.Amount)}원</div>
                   <div className="edit-line"><b>차감수량</b><input type="number" min="1" value={row.editQuantity} onChange={(e) => updateRow(index, { editQuantity: e.target.value })} /> {after.Unit || row.sourceUnit || ''}</div>
-                  <div><b>일자</b> {dateText(after.EstimateDtm)} · 출고키 #{after.ShipmentKey}</div><div><b>이전차수 단가</b> {fmt(after.Cost)}원 <small>({after.CostOrderWeek || '타임라인 자동매칭'})</small></div><div><b>금액</b> {fmt(after.Amount)}원 / 부가세 {fmt(after.Vat)}원</div>
+                  <div><b>일자</b> {dateText(after.EstimateDtm)} · 출고키 #{after.ShipmentKey}</div><div><b>분배단가</b> {fmt(after.Cost)}원 <small>({after.CostOrderWeek || '타임라인 자동매칭'})</small></div><div><b>금액</b> {fmt(after.Amount)}원 / 부가세 {fmt(after.Vat)}원</div>
                   <div className="edit-line"><b>적요</b><input value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /></div>
                 </> : <div className="empty">적용값을 계산할 수 없습니다.</div>}</section>
               </div>
@@ -177,21 +177,21 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           {!loading && !rows.length && <div className="empty-block">검토할 견적서 등록 행이 없습니다.</div>}
         </div>
         <style jsx>{`
-          .review-page { min-width: 0; padding: 4px; color: #0f172a; }
-          .review-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 12px; border: 1px solid #94a3b8; background: #f8fafc; }
-          h2 { margin: 0; font-size: 19px; } .sub { margin-top: 4px; color: #64748b; font-size: 12px; }
-          .head-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-          .notice { margin-top: 8px; padding: 8px 10px; border: 1px solid; font-size: 12px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
-          .process-log { margin-top: 8px; padding: 8px 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 12px; max-height: 180px; overflow: auto; }
-          .process-log strong { display: block; margin-bottom: 5px; color: #1e3a8a; } .process-log div { padding: 2px 0; } .process-log span { display: inline-block; min-width: 74px; color: #64748b; font-variant-numeric: tabular-nums; }
-          .review-list { margin-top: 8px; display: grid; gap: 8px; }
+          .review-page { min-width: 0; padding: 2px; color: #0f172a; }
+          .review-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #94a3b8; background: #f8fafc; }
+          h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }
+          .head-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+          .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
+          .process-log { margin-top: 4px; padding: 5px 7px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11px; max-height: 130px; overflow: auto; }
+          .process-log strong { display: block; margin-bottom: 3px; color: #1e3a8a; } .process-log div { padding: 1px 0; } .process-log span { display: inline-block; min-width: 68px; color: #64748b; font-variant-numeric: tabular-nums; }
+          .review-list { margin-top: 4px; display: grid; gap: 4px; }
           .review-card { border: 1px solid #94a3b8; background: #fff; } .review-card.has-error { border-color: #ef4444; }
-          .row-title { display: flex; gap: 14px; align-items: center; padding: 7px 10px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 13px; } .row-title span:last-child { margin-left: auto; color: #64748b; font-size: 11px; }
-          .row-error { padding: 7px 10px; color: #991b1b; background: #fef2f2; font-size: 12px; }
-          .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; } .compare-pane { padding: 9px 12px; min-height: 150px; font-size: 12px; line-height: 1.8; } .compare-pane + .compare-pane { border-left: 1px solid #cbd5e1; } .compare-pane.before { background: #f8fafc; } .compare-pane.after { background: #fff; } h3 { margin: 0 0 5px; font-size: 13px; color: #1e3a8a; }
-          .compare-pane b { display: inline-block; min-width: 94px; color: #475569; } .compare-pane small { color: #64748b; }
-          .estimate-view-preview { margin-bottom: 7px; padding: 6px 8px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; line-height: 1.5; }
-          .edit-line { display: flex; align-items: center; gap: 7px; } .edit-line input { flex: 1; min-width: 100px; min-height: 27px; border: 1px solid #94a3b8; padding: 3px 6px; font: inherit; }
+          .row-title { display: flex; gap: 8px; align-items: center; padding: 4px 7px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 12px; } .row-title span:last-child { margin-left: auto; color: #64748b; font-size: 10px; }
+          .row-error { padding: 4px 7px; color: #991b1b; background: #fef2f2; font-size: 11px; }
+          .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; } .compare-pane { padding: 5px 8px; min-height: 110px; font-size: 11px; line-height: 1.45; } .compare-pane + .compare-pane { border-left: 1px solid #cbd5e1; } .compare-pane.before { background: #f8fafc; } .compare-pane.after { background: #fff; } h3 { margin: 0 0 3px; font-size: 12px; color: #1e3a8a; }
+          .compare-pane b { display: inline-block; min-width: 78px; color: #475569; } .compare-pane small { color: #64748b; }
+          .estimate-view-preview { margin-bottom: 4px; padding: 4px 6px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; line-height: 1.3; }
+          .edit-line { display: flex; align-items: center; gap: 4px; } .edit-line input { flex: 1; min-width: 100px; min-height: 25px; border: 1px solid #94a3b8; padding: 2px 5px; font: inherit; }
           .empty { color: #64748b; padding-top: 20px; } .empty-block { padding: 40px; text-align: center; color: #64748b; border: 1px solid #cbd5e1; }
           @media (max-width: 900px) { .review-head, .row-title { align-items: flex-start; flex-direction: column; } .row-title span:last-child { margin-left: 0; } .compare-grid { grid-template-columns: 1fr; } .compare-pane + .compare-pane { border-left: 0; border-top: 1px solid #cbd5e1; } }
         `}</style>
