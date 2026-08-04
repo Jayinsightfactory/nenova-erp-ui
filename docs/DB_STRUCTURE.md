@@ -175,6 +175,16 @@
 - 계산 결과: `FreightPerStemUSD`, `CNF_USD`, `CNF_KRW`, `TariffKRW`, `CustomsPerStem`, `ArrivalPerStem`, `ArrivalPerBunch`, `SalePriceExVAT`, `ProfitPerBunch`, `ProfitRate`, `TotalSaleKRW`, `TotalProfitKRW`
 - 계산 공식 및 238건 fixture: `__tests__/freightCalc.test.js` (수정 시 반드시 pass 확인)
 
+**WebArrivalCostImport / WebArrivalCostLine / WebArrivalCostHistory** — 차수별 도착원가 웹 전용 원장
+- `WebArrivalCostImport`: 업로드 파일·연도·revision·업로드 사용자·범위
+- `WebArrivalCostLine`: 차수·국가·원본 품종/품목/농장명, 전산 `ProdKey`/`FarmKey` 매칭,
+  엑셀 표시 원가, 선택 원가, 환율·GW·CW·항공료, 업로드 당시 무게·부피·금액 배분비율,
+  배분기준(`SOURCE|WEIGHT|VOLUME|VALUE|EQUAL`)
+- `WebArrivalCostHistory`: 업로드로 교체된 현재본, 품목/농장 매칭, 배분기준 변경의 전후 이력
+- 같은 `OrderYear + OrderWeek + CountryName`을 재업로드하면 이전 웹 행만 `IsCurrent=0`으로
+  만들고 새 revision을 기본 표시한다. 기존 `Warehouse*`, `Product.Cost`, `Shipment*`,
+  `Estimate`, `ProductStock`, `WebProfitReport`에는 자동 반영하지 않는다.
+
 ---
 
 ### 1.6 견적서 / 정산 / 기타
