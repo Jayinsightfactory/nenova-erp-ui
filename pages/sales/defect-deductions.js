@@ -1263,7 +1263,7 @@ export default function SalesDefectDeductionsPage() {
         </div>
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
+            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>분배단가</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
@@ -1275,12 +1275,13 @@ export default function SalesDefectDeductionsPage() {
                 <td>{row.productName || '-'}</td>
                 <td><span className="defect-product-match">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
                 <td>{printQuantity(row)}</td>
+                <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
                 <td><span className={row.isCarryover ? 'support-carryover' : ''}>{row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '이월 대기' : '미등록'}</span><small className="support-scope-label">{row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small></td>
               </tr>;
             })}
-            {!supportRows.length && <tr><td colSpan="10" className="empty-row-cell">선택한 차수에 저장된 불량 차감이 없습니다.</td></tr>}
+            {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수에 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1554,10 +1555,15 @@ export default function SalesDefectDeductionsPage() {
         .support-register-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); background: #eff6ff; color: #1e3a8a; }
         .support-register-head span { color: #475569; font-size: 12px; }
         .support-grid-scroll { max-height: calc(100vh - 260px); }
+        .support-grid th, .support-grid td { padding: 4px 6px; line-height: 1.25; }
         .support-grid .defect-row td { vertical-align: middle; }
+        .support-cost-cell { white-space: nowrap; color: #0f766e; }
+        .support-cost-cell strong { font-variant-numeric: tabular-nums; }
+        .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 10px; }
+        .support-cost-missing { color: #b45309; font-size: 11px; }
         .support-selected-row { background: #ecfdf5; }
         .support-carryover { color: #b45309; font-weight: 700; }
-        .support-scope-label { display: block; margin-top: 3px; color: #64748b; font-size: 10px; white-space: nowrap; }
+        .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
