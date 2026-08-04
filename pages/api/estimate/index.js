@@ -917,7 +917,7 @@ async function createEstimate(req, res) {
     const amount = Math.round(qty * effectiveCost / 1.1);
     const vat = Math.round(qty * effectiveCost / 11);
     const appliedShipmentKey = isSalesRequest
-      ? (parseInt(targetShipmentKey, 10) || selectedShipmentKey)
+      ? (Number(context.shipmentKey) || parseInt(targetShipmentKey, 10) || selectedShipmentKey)
       : Number(context.shipmentKey);
     const inserted = await query(
       `DECLARE @EstimateInserted TABLE (EstimateKey INT);
