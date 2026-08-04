@@ -4,6 +4,25 @@
 
 ---
 
+## [2026-08-04] 세션 — 견적서관리 불량차감·판매요청 직접입력
+
+### 작업 내용
+- 거래처 조회 후 `불량차감등록`과 `판매요청` 버튼을 분리하고, Product DB 품목 검색·단위 선택·수량 입력 흐름을 하나의 모달로 구성.
+- 품목 선택 즉시 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay + DetailFix=1` 판매행과 이전 차수 분배단가를 서버에서 재조회해 자동 표시.
+- 불량차감은 `-` 체크 필수·음수 Estimate, 판매요청은 `-` 해제·양수 Estimate로 저장하며 `Product.EstUnit` 원본 단위 계약을 보존.
+- 불량차감은 EXE 판매행이 없으면 등록하지 않고 이월 안내를 반환하고, 두 모드 모두 `Estimate` 트리거 호환 `OUTPUT ... INTO` 방식으로 저장.
+
+### 검증
+- `node __tests__/salesDefectDeductions.test.js` ✅
+- `npm run test:erp-contract` ✅
+- `npm run test:nenova-dnspy-evidence` ✅
+- `npm run test:erp-manifest -- --changed-from HEAD^` ✅
+- `npm run guard:erp-writes -- --changed-from HEAD^` ✅
+- `npm run build` ✅
+
+### 미결 이슈
+- 실제 운영 DB 등록은 배포 후 로그인하여 테스트용 유효 판매행으로 1건씩 실행하고, 견적키·수량·단가·금액·출고키를 재조회 대조해야 한다.
+
 ## [2026-08-04] 세션 — 영업수입불량차감 EXE 판매행·차수이월 등록 보강
 
 ### 작업 내용
