@@ -26,6 +26,7 @@ import {
   customerExportName,
 } from '../lib/salesDefectDeductionExcel.js';
 import { matchImportRows, buildProductMappingStats, buildProductSuggestions } from '../lib/orderImportMatch.js';
+import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import { resolveImportCustomer } from '../lib/orderImportCustomerMatch.js';
 import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
 
@@ -90,6 +91,7 @@ assert.deepEqual(
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
+const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
 assert.ok(pageSource.includes('defect-inline-lookup'), '검색 결과는 입력 행 위의 인라인 패널로 표시되어야 한다.');
@@ -175,6 +177,9 @@ assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'ut
 assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량차감등록'), '견적서관리에는 불량차감등록 전용 버튼이 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 판매요청'), '견적서관리에는 판매요청 전용 버튼이 있어야 한다.');
+assert.ok(estimatePageSource.includes('rankProductSearchOptions'), '견적서관리 품목 선택은 사용량 기반 공용 후보 정렬을 사용해야 한다.');
+assert.ok(productSearchApiSource.includes('UsageCount'), '품목 검색 API는 실제 주문 품목 사용량을 함께 반환해야 한다.');
+assert.ok(productSearchApiSource.includes('rankProductSearchOptions'), '공용 품목 검색 API도 사용량 기반 후보 정렬을 사용해야 한다.');
 assert.ok(estimatePageSource.includes("view: 'defectContext'"), '품목 선택 시 EXE 판매행·분배단가 컨텍스트를 서버에서 다시 조회해야 한다.');
 assert.ok(estimatePageSource.includes("['단','박스','스팀(대)']"), '견적 직접입력 단위는 단/박스/스팀(대) 세 가지여야 한다.');
 assert.ok(estimatePageSource.includes('defectForm.negative'), '불량차감/판매요청은 - 체크 상태를 명시해야 한다.');
@@ -257,6 +262,17 @@ const popularMoonLight = buildProductSuggestions('MOON LIGHT', popularityProduct
   minScore: 0,
 });
 assert.equal(popularMoonLight[0].prodKey, 501, '동점 품목은 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
+const rankedEstimateProducts = rankProductSearchOptions('MOON LIGHT', [
+  { value: '501', label: 'CARNATION Moon Light', sub: '콜롬비아 · 카네이션 · 단', ProdName: 'CARNATION Moon Light', FlowerName: '카네이션', CounName: '콜롬비아', UsageCount: 100 },
+  { value: '502', label: 'ROSE Moon Light', sub: '에콰도르 · 장미 · 단', ProdName: 'ROSE Moon Light', FlowerName: '장미', CounName: '에콰도르', UsageCount: 1 },
+]);
+assert.equal(rankedEstimateProducts[0].value, '501', '견적서 품목 검색도 실제 주문 사용량이 높은 동일 후보를 먼저 보여야 한다.');
+const rankedKoreanProducts = rankProductSearchOptions('문라이트', [
+  { value: '701', label: 'CARNATION Moon Light', ProdName: 'CARNATION Moon Light', FlowerName: '카네이션', CounName: '콜롬비아', UsageCount: 2298 },
+  { value: '702', label: 'ROSE / Candlelight 50cm', ProdName: 'ROSE / Candlelight 50cm', FlowerName: '장미', CounName: '콜롬비아', UsageCount: 9999 },
+]);
+assert.equal(rankedKoreanProducts[0].value, '701', '한글 별칭 검색은 영문 DB 품목을 사용량 기반으로 찾아야 하며 Candlelight를 섞으면 안 된다.');
+assert.equal(rankedKoreanProducts.some((item) => item.value === '702'), false, '문라이트 검색 결과에는 Candlelight 후보가 포함되면 안 된다.');
 const countryRankedProducts = [
   { ProdKey: 701, ProdName: 'CARNATION Moon Light', DisplayName: null, FlowerName: '카네이션', CounName: '콜롬비아' },
   { ProdKey: 702, ProdName: 'Carnation CHINA / 문라이트 (Moonlight)', DisplayName: null, FlowerName: '카네이션', CounName: '중국' },
