@@ -80,7 +80,8 @@ export default function ArrivalCostPage() {
 
   const upload = async (event) => {
     event.preventDefault();
-    const file = event.currentTarget.file.files[0];
+    const formElement = event.currentTarget;
+    const file = formElement.elements.namedItem('file')?.files?.[0];
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
     setUploading(true); setError(''); setMessage('');
     try {
@@ -91,7 +92,7 @@ export default function ArrivalCostPage() {
       const res = await fetch('/api/arrival-cost/upload', { method: 'POST', body: form, credentials: 'same-origin' });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || '업로드 실패');
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건`);
       await load();
     } catch (e) {

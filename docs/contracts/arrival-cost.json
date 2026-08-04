@@ -22,6 +22,7 @@
   },
   "requiredTestFiles": [
     "__tests__/arrivalCostExcel.test.js",
+    "__tests__/arrivalCostPage.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
@@ -50,4 +51,3 @@
     "npm run build"
   ]
 }
-
