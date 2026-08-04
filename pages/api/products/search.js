@@ -5,6 +5,9 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { rankProductSearchOptions } from '../../../lib/productSearchRanking.js';
+import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
+import { loadMappings } from '../../../lib/parseMappings.js';
 
 // ── 서버 메모리 캐시
 if (!global._prodCache) {
@@ -16,6 +19,14 @@ if (!global._groupCache) {
 
 function isCacheValid(c) {
   return c.data && c.updatedAt && (Date.now() - c.updatedAt < c.ttl);
+}
+
+function addMappingUsage(products) {
+  const stats = buildProductMappingStats(loadMappings());
+  return (products || []).map((product) => ({
+    ...product,
+    MappingCount: Number(stats.get(Number(product.ProdKey))?.count || 0),
+  }));
 }
 
 export default withAuth(async function handler(req, res) {
@@ -89,23 +100,31 @@ export default withAuth(async function handler(req, res) {
             ISNULL(p.BunchOf1Box,0)   AS BunchOf1Box,
             ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
             ISNULL(p.SteamOf1Box,0)   AS SteamOf1Box,
-            ISNULL(p.Stock,0)         AS Stock
+            ISNULL(p.Stock,0)         AS Stock,
+            ISNULL(pu.UsageCount,0)  AS UsageCount,
+            ISNULL(pu.RecentUsageCount,0) AS RecentUsageCount,
+            ISNULL(pu.UsageCount,0)  AS orderCount
            FROM Product p
+           LEFT JOIN (
+             SELECT od.ProdKey,
+                    COUNT_BIG(*) AS UsageCount,
+                    SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+               FROM OrderDetail od
+               LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+              WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+              GROUP BY od.ProdKey
+           ) pu ON pu.ProdKey=p.ProdKey
            WHERE p.isDeleted = 0
            ORDER BY p.CounName, p.FlowerName, p.ProdName`
         );
-        global._prodCache.data = result.recordset;
+        global._prodCache.data = addMappingUsage(result.recordset);
         global._prodCache.updatedAt = Date.now();
       }
-      const keyword = q.toLowerCase();
-      const products = global._prodCache.data.filter(p =>
-        p.ProdName?.toLowerCase().includes(keyword) ||
-        p.DisplayName?.toLowerCase().includes(keyword) ||
-        p.ProdCode?.toLowerCase().includes(keyword) ||
-        p.FlowerName?.toLowerCase().includes(keyword) ||
-        p.CounName?.toLowerCase().includes(keyword)
-      );
-      return res.status(200).json({ success: true, count: products.length, products });
+      // 단순 문자열 포함 검색을 먼저 하면 `문라이트`처럼 한글 별칭만 있고
+      // DB에는 영문 ProdName만 있는 품목이 후보에서 사라진다. 전체 Product를
+      // 기존 자연어 점수 엔진에 전달해 한/영 별칭과 실제 사용량을 함께 반영한다.
+      const rankedProducts = rankProductSearchOptions(q.trim(), global._prodCache.data, { limit: 500 });
+      return res.status(200).json({ success: true, count: rankedProducts.length, products: rankedProducts });
     }
 
     // ── 모드 4: 전체 조회 (q 없고 그룹 미지정 — 견적서 모달 등 드롭다운용)
@@ -119,12 +138,24 @@ export default withAuth(async function handler(req, res) {
           ISNULL(p.BunchOf1Box,0)   AS BunchOf1Box,
           ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
           ISNULL(p.SteamOf1Box,0)   AS SteamOf1Box,
-          ISNULL(p.Stock,0)         AS Stock
+          ISNULL(p.Stock,0)         AS Stock,
+          ISNULL(pu.UsageCount,0)  AS UsageCount,
+          ISNULL(pu.RecentUsageCount,0) AS RecentUsageCount,
+          ISNULL(pu.UsageCount,0)  AS orderCount
          FROM Product p
+         LEFT JOIN (
+           SELECT od.ProdKey,
+                  COUNT_BIG(*) AS UsageCount,
+                  SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+             FROM OrderDetail od
+             LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+            WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+            GROUP BY od.ProdKey
+         ) pu ON pu.ProdKey=p.ProdKey
          WHERE p.isDeleted = 0
          ORDER BY p.CounName, p.FlowerName, p.ProdName`
       );
-      global._prodCache.data = result.recordset;
+        global._prodCache.data = addMappingUsage(result.recordset);
       global._prodCache.updatedAt = Date.now();
     }
     return res.status(200).json({

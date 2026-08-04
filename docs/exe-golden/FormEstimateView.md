@@ -4,6 +4,19 @@ Source: `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateView.cs`
 
 Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewSql.js`
 
+## 품목 선택 검색 순서
+
+견적서관리의 불량차감등록·판매요청 품목 선택은 `Product` 원문을 보존한 읽기 전용
+검색이다. 후보는 기존 주문등록 매칭 엔진과 같은 자연어 일치도를 먼저 적용하고,
+동일·유사 후보 사이에서는 `OrderDetail`의 실제 사용량(최근 2년 사용량 가중)과
+저장된 매칭 빈도를 사용해 자주 쓰는 품목을 먼저 보여준다. 이 검색은
+`OrderDetail`, `ShipmentDetail`, `Estimate`, 재고 원장을 변경하지 않는다.
+
+예를 들어 `MOON LIGHT`/`문라이트` 검색은 `CARNATION Moon Light`와 같은 직접
+일치 후보를 `Candlelight`보다 우선하며, 같은 품목명이 여러 국가·화종에 있으면
+실제 사용량이 높은 후보가 먼저 표시된다. 사용자가 후보를 선택하기 전에는
+`ProdKey`를 저장하거나 견적서 행을 생성하지 않는다.
+
 ## 메서드 ↔ 웹
 
 | exe | SQL 요일 필터 | nenovaweb |

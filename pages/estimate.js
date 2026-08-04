@@ -9,6 +9,7 @@ import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
+import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
   filterPrintTargetItems,
@@ -625,9 +626,7 @@ function SearchableSelect({ options, value, onChange, placeholder = '검색...' 
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = q
-    ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()))
-    : options;
+  const filtered = rankProductSearchOptions(q, options, { limit: q ? 200 : options.length || 200 });
 
   const selectedLabel = options.find(o => o.value === value)?.label || '';
 
@@ -2848,6 +2847,15 @@ export default function Estimate() {
     value: String(p.ProdKey),
     label: p.ProdName,
     sub: `${p.CounName} · ${p.FlowerName} · ${p.OutUnit}`,
+    ProdKey: p.ProdKey,
+    ProdCode: p.ProdCode,
+    ProdName: p.ProdName,
+    DisplayName: p.DisplayName,
+    FlowerName: p.FlowerName,
+    CounName: p.CounName,
+    UsageCount: p.UsageCount ?? p.orderCount ?? 0,
+    RecentUsageCount: p.RecentUsageCount ?? 0,
+    MappingCount: p.MappingCount ?? 0,
   }));
 
   // 견적 유형 옵션

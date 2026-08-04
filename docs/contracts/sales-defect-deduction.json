@@ -8,10 +8,12 @@
     "pages/api/sales/defect-deductions.js",
     "pages/api/sales/defect-deductions-upload.js",
     "pages/api/sales/defect-deductions-excel.js",
+    "pages/api/products/search.js",
     "pages/api/estimate/index.js",
     "lib/salesDefectDeductionCore.js",
     "lib/salesDefectDeductions.js",
     "lib/salesDefectDeductionExcel.js",
+    "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",
     "lib/orderImportUnits.js",
     "lib/orderImportCustomerMatch.js",
@@ -69,6 +71,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "WebSalesDefectManager only; existing deduction rows and Estimate are not changed"
+    },
+    {
+      "name": "PRODUCT_LOOKUP_USAGE_RANK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Product와 OrderDetail 사용량을 읽어 품목 검색 후보 순서만 정렬하며 Product, OrderDetail, Shipment, Estimate 및 재고 원장은 변경하지 않는다."
     },
     {
       "name": "INCOMING_CONFIRM",
