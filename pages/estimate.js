@@ -1050,6 +1050,14 @@ export default function Estimate() {
   const [defectContextLoading, setDefectContextLoading] = useState(false);
   const [defectContextError, setDefectContextError] = useState('');
 
+  // 품목명을 클릭하면 기존 견적 행의 상세 정보창을 연다.
+  // Estimate(불량/검역/판매요청)는 전산 ClassEstimate.Update 범위로 직접 저장하고,
+  // 정상출고는 기존 ShipmentDate/ShipmentDetail 수정 사이클을 그대로 사용한다.
+  const [itemEditor, setItemEditor] = useState(null);
+  const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
+  const [itemEditorSaving, setItemEditorSaving] = useState(false);
+  const [itemEditorError, setItemEditorError] = useState('');
+
   // ── 단가 수정 상태 (P3) ─────────────────────────
   // costEdits[sdetailKey] = 수정된 단가 (string)
   const [costEdits, setCostEdits] = useState({});
@@ -2350,6 +2358,153 @@ export default function Estimate() {
     } catch(e) { alert(e.message); } finally { setSaving(false); }
   };
 
+  const openItemEditor = (item) => {
+    if (!item) return;
+    setSelectedItemForEdit(item);
+    const isEstimate = isEstimateDeductionRow(item) && item.EstimateKey != null;
+    setItemEditor({
+      item,
+      isEstimate,
+      estimateKey: isEstimate ? Number(item.EstimateKey) : null,
+      prodKey: String(item.ProdKey || ''),
+      unit: item.Unit || '단',
+      quantity: String(Math.abs(Number(item.Quantity || 0))),
+      cost: String(Number(item.Cost || 0)),
+      estimateDate: String(item.outDate || '').slice(0, 10),
+      descr: item.DescrRaw != null ? String(item.DescrRaw) : String(item.Descr || ''),
+    });
+    setItemEditorError('');
+  };
+
+  const saveItemEditor = async () => {
+    const editor = itemEditor;
+    const item = editor?.item;
+    if (!editor || !item) return;
+    const quantity = Number(editor.quantity);
+    const cost = Number(editor.cost);
+    if (!(quantity > 0)) { setItemEditorError('수량은 0보다 커야 합니다.'); return; }
+    if (!Number.isFinite(cost) || cost < 0) { setItemEditorError('단가는 0 이상이어야 합니다.'); return; }
+    if (!editor.prodKey) { setItemEditorError('품목을 선택하세요.'); return; }
+
+    setItemEditorSaving(true);
+    setItemEditorError('');
+    try {
+      if (editor.isEstimate) {
+        const response = await fetch('/api/estimate/update-entry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            estimateKey: editor.estimateKey,
+            shipmentKey: item.ShipmentKey,
+            prodKey: Number(editor.prodKey),
+            unit: editor.unit,
+            quantity,
+            cost,
+            estimateDate: editor.estimateDate || undefined,
+            descr: editor.descr || '',
+            expectedQuantity: Number(item.Quantity || 0),
+            expectedCost: Number(item.Cost || 0),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || '견적 품목 수정에 실패했습니다.');
+        setItemEditor(null);
+        setSuccessMsg(`✅ 견적 품목 수정 완료 · 견적키 #${editor.estimateKey}`);
+        setTimeout(() => setSuccessMsg(''), 3000);
+        await reloadSelectedShipmentItems();
+        return;
+      }
+
+      // 정상출고는 기존 EXE 호환 저장 API를 사용한다. 품목·단위는 ShipmentDetail 원장과
+      // 연결되어 있으므로 이 창에서는 변경하지 않고, 날짜별 수량/단가만 수정한다.
+      const quantityChanged = Math.abs(quantity - Number(item.Quantity || 0)) > 0.001;
+      const costChanged = Math.abs(cost - Number(item.Cost || 0)) > 0.001;
+      if (!quantityChanged && !costChanged) {
+        setItemEditor(null);
+        return;
+      }
+      if (quantityChanged && !item.SdateKey) {
+        throw new Error('출고일별 견적키(SdateKey)가 없어 수량을 수정할 수 없습니다. 출고분배 화면에서 확인하세요.');
+      }
+      if (costChanged && !item.SdetailKey) {
+        throw new Error('출고 상세키(SdetailKey)가 없어 단가를 수정할 수 없습니다.');
+      }
+
+      setCostApplying(true);
+      setEditApplyTitle('품목 정보 수정');
+      setCostApplyLog([{ step: 'start', label: `${item.OrderWeek || weekNum} ${item.ProdName} 정보 수정 시작` }]);
+      setCostResult(null);
+      const apply = async () => {
+        if (quantityChanged) {
+          setCostApplyLog(prev => [...prev, { step: 'save', label: `출고일 수량 저장 — ${item.Quantity}${item.Unit} → ${quantity}${item.Unit}` }]);
+          const response = await fetch('/api/estimate/update-date-quantity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              sdateKey: item.SdateKey,
+              quantity,
+              unit: item.Unit,
+              expectedOldQuantity: Number(item.Quantity || 0),
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            const error = new Error(data.error || '출고일 수량 수정에 실패했습니다.');
+            error.code = data.code;
+            throw error;
+          }
+        }
+        if (costChanged) {
+          setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 단가 저장 — ${item.Cost} → ${cost}` }]);
+          const response = await fetch('/api/estimate/update-cost', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              items: [{
+                shipmentKey: item.ShipmentKey,
+                sdetailKey: item.SdetailKey,
+                cost,
+                expectedOldCost: Number(item.Cost || 0),
+              }],
+              mode: 'once',
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            const error = new Error(data.error || '출고 단가 수정에 실패했습니다.');
+            error.code = data.code;
+            throw error;
+          }
+        }
+        return { success: true };
+      };
+      const cycleWeeks = getFixCycleWeeksForEditedItems([item], selectedShip);
+      await (cycleWeeks.length > 0
+        ? runEditWithFixCycle({
+            weeks: cycleWeeks,
+            stockProdKeys: quantityChanged ? [Number(item.ProdKey)] : [],
+            lightStock: !quantityChanged,
+            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
+            apply,
+          })
+        : apply());
+      setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 견적서 재조회 중' }]);
+      setItemEditor(null);
+      setSuccessMsg(`✅ ${item.ProdName} 정보 수정 완료`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+      await reloadSelectedShipmentItems();
+    } catch (error) {
+      setItemEditorError(error.message || '수정에 실패했습니다.');
+      setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${error.message}` }]);
+    } finally {
+      setItemEditorSaving(false);
+      setCostApplying(false);
+    }
+  };
+
   // ── 엑셀 다운 → 인쇄 옵션(인쇄와 동일 양식) 다이얼로그
   const handleExcel = () => {
     if (selectedGroups.size > 0) {
@@ -3444,7 +3599,12 @@ export default function Estimate() {
                 title="선택한 거래처에 판매요청 Estimate를 등록합니다.">
                 ＋ 판매요청
               </button>
-              <button className="btn btn-sm" disabled title="견적 품목은 표 안의 수량/단가 수정 적용 버튼으로 변경하세요.">✏️ 수정 / Editar</button>
+              <button className="btn btn-sm"
+                disabled={!selectedItemForEdit || itemEditorSaving}
+                onClick={() => openItemEditor(selectedItemForEdit)}
+                title="표에서 품목명을 선택한 뒤 상세 정보창에서 수정합니다.">
+                ✏️ 품목 정보 수정
+              </button>
               <button className="btn btn-sm" disabled title="견적 품목 삭제 API는 아직 연결되어 있지 않습니다." style={{color:'var(--red)'}}>🗑️ 삭제 / Eliminar</button>
             </div>
           </div>
@@ -3485,7 +3645,17 @@ export default function Estimate() {
                               {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
                                 [{mapEstimateType(item.EstimateType)}]
                               </span>}
-                              {item.ProdName}
+                              <button
+                                type="button"
+                                onClick={() => openItemEditor(item)}
+                                style={{
+                                  border: '0', background: 'transparent', padding: 0,
+                                  cursor: 'pointer', textAlign: 'left',
+                                  color: isDed ? '#A0522D' : 'var(--blue)',
+                                  textDecoration: 'underline', fontWeight: 600,
+                                }}
+                                title="품목 정보를 열어 수정"
+                              >{item.ProdName}</button>
                             </td>
                             <td style={{fontSize:12}}>{item.Unit}</td>
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
@@ -4496,6 +4666,115 @@ export default function Estimate() {
               {fixModal.stage === 'error' && (
                 <button className="btn" onClick={() => setFixModal(null)}>닫기</button>
               )}
+            </div>
+          </div>
+        </EstimateModalPortal>
+      )}
+
+      {/* ── 견적 품목 정보/수정 창 ── */}
+      {itemEditor && (
+        <EstimateModalPortal onBackdropClick={() => !itemEditorSaving && setItemEditor(null)}>
+          <div className="modal" style={{maxWidth:680}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">품목 정보 {itemEditor.isEstimate ? '수정' : '확인/수정'}</span>
+              <button className="btn btn-sm" onClick={() => !itemEditorSaving && setItemEditor(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{fontWeight:700, fontSize:12, marginBottom:10, borderBottom:'1px solid var(--border)', paddingBottom:6}}>
+                ■ {selectedShip?.CustName || '-'} / {yearStr}년 {weekNum}차
+                <span style={{marginLeft:8, color:itemEditor.isEstimate ? '#a0522d' : '#1565c0'}}>
+                  {itemEditor.isEstimate
+                    ? `· ${itemEditor.item.Quantity < 0 ? '불량/검역 차감' : '판매요청'} · Estimate #${itemEditor.estimateKey}`
+                    : '· 정상출고 (EXE 출고 원장)'}
+                </span>
+              </div>
+              {!itemEditor.isEstimate && (
+                <div style={{padding:'7px 9px', marginBottom:10, background:'#eff6ff', color:'#1e40af', fontSize:11, lineHeight:1.5}}>
+                  정상출고의 품목·단위는 ShipmentDetail과 연결되어 있어 이 창에서 바꾸지 않습니다.
+                  수량은 ShipmentDate, 단가는 ShipmentDetail의 기존 EXE 호환 수정 경로로 저장됩니다.
+                </div>
+              )}
+              <div className="form-row form-row-1">
+                <div className="form-group">
+                  <label className="form-label">품목명</label>
+                  {itemEditor.isEstimate ? (
+                    <SearchableSelect
+                      options={prodOptions}
+                      value={itemEditor.prodKey}
+                      onChange={async value => {
+                        setItemEditor(prev => ({...prev, prodKey: String(value)}));
+                        try {
+                          const context = await apiGet('/api/estimate', {
+                            view: 'defectContext', year: yearStr, week: weekNum,
+                            custKey: selectedShip?.CustKey, prodKey: Number(value),
+                          });
+                          if (Number(context.context?.cost) > 0) {
+                            setItemEditor(prev => ({...prev, cost: String(Math.round(Number(context.context.cost)))}));
+                          }
+                        } catch (_) { /* 단가는 기존값을 유지하고 저장 시 서버가 검증 */ }
+                      }}
+                      placeholder="품목명 검색..."
+                    />
+                  ) : (
+                    <div className="form-control" style={{background:'#f8fafc'}}>{itemEditor.item.ProdName || '-'}</div>
+                  )}
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">수 량</label>
+                  <input type="number" min={0} className="form-control"
+                    value={itemEditor.quantity}
+                    onChange={e => setItemEditor(prev => ({...prev, quantity:e.target.value}))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">단 위</label>
+                  {itemEditor.isEstimate ? (
+                    <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+                      {['단','박스','스팀(대)'].map(u => (
+                        <button key={u} type="button" className="btn btn-sm"
+                          onClick={() => setItemEditor(prev => ({...prev, unit:u}))}
+                          style={{background:itemEditor.unit === u ? '#1565c0' : '#fff', color:itemEditor.unit === u ? '#fff' : '#334155', borderColor:itemEditor.unit === u ? '#0d47a1' : '#94a3b8', fontWeight:700}}
+                        >{u}</button>
+                      ))}
+                    </div>
+                  ) : <div className="form-control" style={{background:'#f8fafc'}}>{itemEditor.unit || '-'}</div>}
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">단 가</label>
+                  <input type="number" min={0} className="form-control"
+                    value={itemEditor.cost}
+                    onChange={e => setItemEditor(prev => ({...prev, cost:e.target.value}))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">견적일자</label>
+                  <input type="date" className="form-control" disabled={!itemEditor.isEstimate}
+                    value={itemEditor.estimateDate || ''}
+                    onChange={e => setItemEditor(prev => ({...prev, estimateDate:e.target.value}))}
+                  />
+                </div>
+              </div>
+              {itemEditor.isEstimate && (
+                <div className="form-row form-row-1">
+                  <div className="form-group">
+                    <label className="form-label">비 고</label>
+                    <input className="form-control" value={itemEditor.descr || ''}
+                      onChange={e => setItemEditor(prev => ({...prev, descr:e.target.value}))}
+                    />
+                  </div>
+                </div>
+              )}
+              {itemEditorError && <div className="banner-err" style={{marginTop:8}}>⚠️ {itemEditorError}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={saveItemEditor} disabled={itemEditorSaving}>
+                {itemEditorSaving ? '저장 중...' : '💾 수정 저장'}
+              </button>
+              <button className="btn" onClick={() => !itemEditorSaving && setItemEditor(null)}>닫기</button>
             </div>
           </div>
         </EstimateModalPortal>
