@@ -4,6 +4,33 @@
 
 ---
 
+## [2026-08-04] 세션 — 도착원가 웹 전용 원장
+
+### 작업 내용
+- 원가자료 XLS/XLSX 다중 시트 업로드·차수/국가/품종/품목/농장 검색·수정 원장을 추가.
+- 원본 원가는 기본값으로 보존하고 무게/부피/금액/균등 배분기준을 품목별로 저장·재계산하도록 구현.
+- 동일 연도·차수·국가 재업로드는 새 revision을 현재본으로 표시하고 이전본·매칭·기준 변경 이력을 보존.
+- `nenova.exe`는 WarehouseMaster/WarehouseDetail 조회 구조로 확인했으며, 새 `WebArrivalCost*` 테이블은 Product/Warehouse/Shipment/Estimate/WebProfitReport에 자동 반영하지 않음.
+
+### 변경된 파일
+- `pages/arrival-cost.js`, `pages/api/arrival-cost/*`, `lib/arrivalCost.js`, `lib/arrivalCostExcel.js`
+- `docs/contracts/arrival-cost.json`, `docs/exe-golden/FormArrivalCost.md`, `docs/DB_STRUCTURE.md`
+- `components/Layout.js`, `package.json`, 관련 파서/계약 테스트
+
+### 검증
+- `npm run test:erp-contract` ✅
+- `npm run test:nenova-dnspy-evidence` ✅
+- `npm run test:erp-manifest -- --changed-from HEAD^` ✅
+- `npm run guard:erp-writes -- --changed-from HEAD^` ✅ (3 changed API files)
+- `npm run build` ✅
+- 기능 커밋: `b7fd623`
+
+### 다음 예정 / 미결 이슈
+- PR 병합 후 Cafe24 배포 및 `/arrival-cost` 실브라우저 업로드·매칭·기준저장 스모크 확인.
+- 운영 DB에는 첫 API 호출 시 웹 전용 테이블만 생성되며, 기존 ERP 원장 데이터 보정은 수행하지 않음.
+
+---
+
 ## [2026-08-03] 세션 — Nenovaweb↔nenova.exe 호환성 범위 가드 보강
 
 ### 작업 내용
