@@ -4,6 +4,24 @@
 
 ---
 
+## [2026-08-04] 세션 — 도착원가 상단 레이아웃 밀도 개선
+
+### 작업 내용
+- `pages/_app.js`가 전역으로 제공하는 레이아웃을 `pages/arrival-cost.js`가 다시 감싸던 중복 구조를 제거.
+- 중복 제목바로 발생하던 상단 공간을 없애고 제목·검색 카드·목록 간 여백을 축소.
+- 도착원가 목록의 세로 표시 영역을 넓혀 첫 화면에서 더 많은 원장 행을 확인할 수 있도록 조정.
+- 중복 레이아웃이 다시 추가되지 않도록 페이지 회귀 테스트를 보강.
+
+### 검증
+- `npm run test:erp-contract` ✅
+- `npm run test:nenova-dnspy-evidence` ✅
+- `npm run test:erp-manifest -- --changed-from HEAD^` ✅
+- `npm run guard:erp-writes -- --changed-from HEAD^` ✅ (변경 API 0개)
+- `npm run build` ✅
+
+### 미결 이슈
+- UI 여백/중복 헤더만 수정했으며 도착원가 데이터·ERP 원장·API 동작은 변경하지 않음.
+
 ## [2026-08-04] 세션 — 도착원가 웹 전용 원장
 
 ### 작업 내용

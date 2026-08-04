@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
-import Layout from '../components/Layout';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -130,7 +129,7 @@ export default function ArrivalCostPage() {
   const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
 
   return (
-    <Layout title="도착원가">
+    <>
       <Head><title>도착원가 · NENOVA</title></Head>
       <div className="arrival-page">
         <div className="arrival-title-row">
@@ -218,21 +217,21 @@ export default function ArrivalCostPage() {
       {history && <div className="modal-backdrop" onClick={() => setHistory(null)}><div className="history-modal" onClick={e => e.stopPropagation()}><div className="modal-title">변경 이력 — {history.row.productNameRaw}<button onClick={() => setHistory(null)}>닫기</button></div>{history.rows.length === 0 ? <div className="empty">이력이 없습니다.</div> : history.rows.map(item => <div className="history-item" key={item.HistoryKey}><strong>{item.ActionType}</strong> · {item.ChangedByName || item.ChangedBy} · {item.ChangedAt ? new Date(item.ChangedAt).toLocaleString('ko-KR') : ''}</div>)}</div></div>}
 
       <style jsx>{`
-        .arrival-page { min-height:100vh; padding:14px; background:#f4f6f9; color:#172033; }
-        .arrival-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:12px; }
-        h2 { margin:0 0 5px; font-size:21px; } p { margin:0; color:#657080; font-size:12px; }
+        .arrival-page { min-height:100%; padding:6px; background:#f4f6f9; color:#172033; }
+        .arrival-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px; }
+        h2 { margin:0 0 3px; font-size:19px; } p { margin:0; color:#657080; font-size:11px; }
         .read-only-badge { padding:5px 10px; color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; border-radius:4px; font-size:12px; font-weight:700; white-space:nowrap; }
-        .arrival-card { background:#fff; border:1px solid #d7dee8; border-radius:6px; margin-bottom:10px; padding:12px; box-shadow:0 1px 2px #13213b0a; }
-        .section-title { font-weight:700; font-size:14px; margin-bottom:9px; color:#163d76; } .muted,.hint { color:#7a8797; font-size:11px; font-weight:400; }
+        .arrival-card { background:#fff; border:1px solid #d7dee8; border-radius:6px; margin-bottom:6px; padding:8px; box-shadow:0 1px 2px #13213b0a; }
+        .section-title { font-weight:700; font-size:13px; margin-bottom:6px; color:#163d76; } .muted,.hint { color:#7a8797; font-size:11px; font-weight:400; }
         .upload-row,.filter-grid { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } label { display:flex; align-items:center; gap:5px; font-size:12px; } input,select { border:1px solid #b9c4d1; border-radius:3px; background:#fff; min-height:28px; padding:3px 6px; font:inherit; font-size:12px; } input:focus,select:focus { outline:2px solid #b9d9ff; border-color:#4b91dd; }
         .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(4) input { width:230px; }
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
-        .hint { margin-top:8px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:10px; font-size:12px; color:#506074; }
+        .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
-        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:12px 12px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 360px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; }
+        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; }
         .modal-backdrop { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#0006; } .history-modal { width:min(720px,92vw); max-height:80vh; overflow:auto; background:#fff; border-radius:6px; padding:14px; box-shadow:0 10px 40px #0005; } .modal-title { display:flex; justify-content:space-between; font-weight:700; margin-bottom:10px; color:#163d76; } .history-item { padding:8px 2px; border-bottom:1px solid #e4e8ee; font-size:12px; }
         @media (max-width:800px) { .arrival-page { padding:8px; } .arrival-title-row { display:block; } .read-only-badge { display:inline-block; margin-top:8px; } .table-wrap { max-height:none; } }
       `}</style>
-    </Layout>
+    </>
   );
 }
