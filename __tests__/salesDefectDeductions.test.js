@@ -93,6 +93,7 @@ const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
+const estimateEditApiSource = fs.readFileSync('pages/api/estimate/update-entry.js', 'utf8');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
 assert.ok(pageSource.includes('defect-inline-lookup'), '검색 결과는 입력 행 위의 인라인 패널로 표시되어야 한다.');
 assert.ok(pageSource.includes('shiftParentWeek'), '차수 앞뒤 이동은 공통 경계 규칙을 사용해야 한다.');
@@ -177,6 +178,9 @@ assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'ut
 assert.ok(fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8').includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량차감등록'), '견적서관리에는 불량차감등록 전용 버튼이 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 판매요청'), '견적서관리에는 판매요청 전용 버튼이 있어야 한다.');
+assert.ok(estimatePageSource.includes('openItemEditor'), '견적 품목명을 선택하면 정보 편집창을 열어야 한다.');
+assert.ok(estimatePageSource.includes('/api/estimate/update-entry'), '견적 품목 정보창은 기존 Estimate 수정 API를 사용해야 한다.');
+assert.ok(estimatePageSource.includes('품목 정보 수정'), '기존 비활성 수정 버튼 대신 품목 정보 수정 동작을 제공해야 한다.');
 assert.ok(estimatePageSource.includes('rankProductSearchOptions'), '견적서관리 품목 선택은 사용량 기반 공용 후보 정렬을 사용해야 한다.');
 assert.ok(productSearchApiSource.includes('UsageCount'), '품목 검색 API는 실제 주문 품목 사용량을 함께 반환해야 한다.');
 assert.ok(productSearchApiSource.includes('rankProductSearchOptions'), '공용 품목 검색 API도 사용량 기반 후보 정렬을 사용해야 한다.');
@@ -188,6 +192,10 @@ assert.ok(estimateApiSource.includes('resolveEstimateContext'), '분배단가 �
 assert.ok(estimateApiSource.includes('NO_EXE_SALE_ROW'), 'EXE 판매행 없는 불량차감은 구체적인 등록 불가 사유를 반환해야 한다.');
 assert.ok(estimateApiSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), '견적 직접 입력도 Estimate 트리거 호환 INSERT를 사용해야 한다.');
 assert.ok(estimateApiSource.includes('isSalesRequest'), '불량차감과 판매요청의 양/음수 저장 모드를 분리해야 한다.');
+assert.ok(estimateEditApiSource.includes('UPDATE Estimate'), '기존 견적 행 수정은 Estimate UPDATE를 사용해야 한다.');
+assert.ok(estimateEditApiSource.includes('expectedQuantity'), '기존 견적 행 수정은 조회시점 수량을 검증해야 한다.');
+assert.ok(estimateEditApiSource.includes('SELECT TOP 1 EstimateKey'), '견적 수정 후 저장 결과를 재조회해야 한다.');
+assert.equal(/UPDATE Estimate[\s\S]{0,500}OUTPUT/.test(estimateEditApiSource), false, 'Estimate 수정에 트리거 비호환 OUTPUT을 사용하면 안 된다.');
 assert.ok(pageSource.includes('registrationHistoryByKey'), '견적서 등록 확정자·시각을 작업 이력에서 다시 표시해야 한다.');
 assert.ok(pageSource.includes('estimateStatusText'), '견적서 등록 상태와 견적키를 영업 목록에 표시해야 한다.');
 assert.deepEqual(

@@ -170,3 +170,19 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 양수 Estimate를 기록한다. 두 모드 모두 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`,
 재고, 손익 원장은 변경하지 않으며, Estimate 트리거와 충돌하지 않도록
 `OUTPUT INSERTED.EstimateKey INTO @EstimateInserted`를 사용한다.
+
+## 기존 견적 행 정보창 편집 — 웹 보강
+
+견적서관리에서 품목명을 선택하면 해당 행의 정보창을 연다. 행에
+`EstimateKey`가 있으면 `ClassEstimate.Update`와 같은 범위로
+`Estimate.ProdKey/Unit/Quantity/Cost/Amount/Vat/Descr/EstimateDtm`만 저장한다.
+기존 `ShipmentKey`와 불량차감 음수·판매요청 양수 부호는 보존하고, 저장 전
+수량·단가 스냅샷을 확인해 다른 사용자의 변경을 덮어쓰지 않는다. `Estimate`에
+운영 트리거가 있을 수 있으므로 직접 `OUTPUT`을 쓰지 않고 UPDATE 뒤 SELECT로
+재조회한다.
+
+정상출고(`SdetailKey`/`SdateKey`)를 선택한 경우 품목명과 단위는
+`ShipmentDetail` 원장과 연결되어 있어 정보창에서 변경하지 않는다. 수량은
+기존 `ShipmentDate` 수정 경로, 단가는 기존 `ShipmentDetail` 단가 수정 경로와
+확정취소·저장·재확정 사이클을 사용한다. 이 보강은 `OrderDetail`, 재고,
+`Estimate` 차감행을 변경하지 않는다.
