@@ -992,10 +992,19 @@ export default function Estimate() {
   const [showCustDrop, setShowCustDrop] = useState(false);
   const custDropRef = useRef();
 
+  // WeekDay 필터 — 업체 검색 시에도 EXE 기본값인 전체 출고요일을 유지한다.
+  const [activeWD, setActiveWD] = useState(new Set(WEEKDAYS));
+
   // 거래처 드롭다운 키보드 탐색
   const custNav = useDropdownNav(
     custList,
-    (c) => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); },
+    (c) => {
+      setSelectedCust(c);
+      setCustSearch(c.CustName);
+      setShowCustDrop(false);
+      // 업체를 새로 검색하면 EXE 기본값과 같이 모든 출고요일을 다시 활성화한다.
+      setActiveWD(new Set(WEEKDAYS));
+    },
     () => setShowCustDrop(false)
   );
 
@@ -1050,9 +1059,6 @@ export default function Estimate() {
     if (typeof window === 'undefined') return;
     loadEstimateLogoDataUrl().catch(() => {});
   }, [loadEstimateLogoDataUrl]);
-
-  // WeekDay 필터 — 기본값: 전체 요일 선택
-  const [activeWD, setActiveWD] = useState(new Set(['월','화','수','목','금','토','일']));
 
   // 불량/검역 모달
   const [showDefect, setShowDefect] = useState(false);
@@ -3363,7 +3369,14 @@ export default function Estimate() {
             <div style={{ position:'absolute', top:'100%', left:0, zIndex:200, background:'#fff', border:'2px solid var(--border2)', width:300, maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 6px rgba(0,0,0,0.2)' }}>
               {custList.map((c, i) => (
                 <div key={c.CustKey}
-                  onClick={() => { setSelectedCust(c); setCustSearch(c.CustName); setShowCustDrop(false); custNav.reset(); }}
+                  onClick={() => {
+                    setSelectedCust(c);
+                    setCustSearch(c.CustName);
+                    setShowCustDrop(false);
+                    custNav.reset();
+                    // 업체별 검색 시작 시 출고요일 필터는 항상 전체로 시작한다.
+                    setActiveWD(new Set(WEEKDAYS));
+                  }}
                   style={{ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12,
                     background: custNav.idx === i ? '#C5D9F1' : '#fff' }}
                   onMouseEnter={e => { if (custNav.idx !== i) e.currentTarget.style.background = '#E8F0FF'; }}

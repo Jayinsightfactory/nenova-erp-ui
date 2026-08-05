@@ -90,5 +90,6 @@ assert.match(pageSource, /printDetail:\s*'1'/);
 assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
+assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
 
 console.log('estimate print contract tests passed');
