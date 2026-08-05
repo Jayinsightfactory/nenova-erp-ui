@@ -723,8 +723,8 @@ export default function ProfitReportPage() {
       {viewMode === 'months' && monthlyData && (
         <>
           <div style={st.monthlyInfo}>
-            <b>{monthlyData.year}년 월별 관리손익</b> — 기존 주차별 계산 결과 중 <b>PeriodDay 목~수 기간이 한 달 안에 완전히 들어오는 차수만</b> 월별 합계에 포함합니다.
-            월경계를 넘는 차수는 금액을 합산하지 않고 아래 별도 목록에 표시합니다. 기초·기말재고는 월 단위로 재계산하거나 합산하지 않습니다.
+            <b>{monthlyData.year}년 월별 관리손익</b> — 기존 주차별 계산 결과를 <b>PeriodDay 종료일이 속한 달</b>에 차수 단위로 귀속합니다.
+            월경계를 넘는 차수도 종료일 기준 다음 달에 한 번만 포함하며, 기초·기말재고는 월 단위로 재계산하거나 합산하지 않습니다.
           </div>
           <div style={st.tableWrap}>
             <table style={{ ...st.table, minWidth: 980 }}>
@@ -732,7 +732,7 @@ export default function ProfitReportPage() {
                 <tr>
                   <th style={{ ...st.th, ...st.stickyCol, background: '#1e293b', zIndex: 3 }}>월</th>
                   <th style={st.th}>포함 차수</th>
-                  <th style={st.th}>월경계 차수(참고·합계 제외)</th>
+                  <th style={st.th}>월경계 차수(종료일 기준 귀속)</th>
                   <th style={st.th}>매출액</th>
                   <th style={st.th}>매출원가</th>
                   <th style={st.th}>매출이익</th>
@@ -745,11 +745,11 @@ export default function ProfitReportPage() {
                   const expanded = expandedMonths.has(month.month);
                   const hasData = month.includedWeeks?.length > 0;
                   const status = month.status === 'included_with_boundary'
-                    ? '포함 차수 + 경계 차수 있음'
+                    ? '포함 차수 + 월경계 귀속'
                     : month.status === 'included'
                       ? '포함 완료'
                       : month.status === 'boundary_only'
-                        ? '월경계 차수만 있음'
+                        ? '월경계 귀속 차수만 있음'
                         : '포함 차수 없음';
                   const canExpand = Boolean(month.includedWeeks?.length || month.boundaryWeeks?.length);
                   return (
@@ -776,22 +776,13 @@ export default function ProfitReportPage() {
                               <div style={st.monthDetailTitle}>{month.month}월 연결 차수 상세</div>
                               {(month.includedWeeks || []).map(w => (
                                 <div key={`i-${w.major}`} style={st.monthWeekRow}>
-                                  <span style={st.monthBadgeIncluded}>포함</span>
+                                  <span style={w.period?.kind === 'boundary' ? st.monthBadgeBoundary : st.monthBadgeIncluded}>{w.period?.kind === 'boundary' ? '경계 귀속' : '포함'}</span>
                                   <b>{Number(w.major)}차</b>
                                   <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
+                                  {w.period?.kind === 'boundary' && <span>{w.assignmentMonth} 귀속</span>}
                                   <span>매출 {fmt(w.totals?.C)}</span>
                                   <span>원가 {fmt(w.totals?.I)}</span>
                                   <span style={{ color: w.totals?.J < 0 ? '#dc2626' : '#166534' }}>이익 {fmt(w.totals?.J)}</span>
-                                </div>
-                              ))}
-                              {(month.boundaryWeeks || []).map(w => (
-                                <div key={`b-${w.major}`} style={st.monthWeekRow}>
-                                  <span style={st.monthBadgeBoundary}>제외</span>
-                                  <b>{Number(w.major)}차</b>
-                                  <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
-                                  <span>월경계 — 월별 합계에 미포함</span>
-                                  <span>매출 {fmt(w.totals?.C)}</span>
-                                  <span>이익 {fmt(w.totals?.J)}</span>
                                 </div>
                               ))}
                             </div>
@@ -805,14 +796,15 @@ export default function ProfitReportPage() {
             </table>
           </div>
           <div style={st.monthlyBoundaryPanel}>
-            <div style={st.monthlyBoundaryTitle}>월경계 차수 — 월별 합계에서 제외된 주차</div>
+            <div style={st.monthlyBoundaryTitle}>월경계 차수 — 종료일 기준 다음 달에 귀속된 주차</div>
             {(monthlyData.boundaryWeeks || []).length === 0 ? (
               <div style={st.monthlyEmpty}>월경계 차수가 없습니다.</div>
             ) : (monthlyData.boundaryWeeks || []).map(w => (
               <div key={w.major} style={st.monthBoundaryGlobalRow}>
-                <span style={st.monthBadgeBoundary}>제외</span>
+                <span style={st.monthBadgeBoundary}>귀속</span>
                 <b>{Number(w.major)}차</b>
                 <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
+                <span>{w.assignmentMonth} 귀속</span>
                 <span>매출 {fmt(w.totals?.C)}</span>
                 <span>원가 {fmt(w.totals?.I)}</span>
                 <span>이익 {fmt(w.totals?.J)}</span>

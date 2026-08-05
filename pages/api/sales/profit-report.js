@@ -177,8 +177,8 @@ export async function loadReportData(major, orderYear) {
 
 /**
  * 1~12월 연속 월별 보기용 읽기 전용 집계.
- * 각 주차를 기존 loadReportData로 계산한 뒤, PeriodDay가 한 달에 완전히 들어오는
- * 차수만 합산한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
+ * 각 주차를 기존 loadReportData로 계산한 뒤, PeriodDay 종료일이 속한 달에
+ * 차수 전체를 귀속한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
  */
 export async function loadAnnualMonthlyReportData(orderYear) {
   const periods = await periodDayRangesByMajor(orderYear);

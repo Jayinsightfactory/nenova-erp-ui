@@ -56,7 +56,7 @@
       "name": "REPORT_MONTHLY_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "read-only; PeriodDay determines week span and existing weekly profit rows are aggregated without monthly inventory recalculation"
+      "sideEffect": "read-only; PeriodDay determines week span, a boundary week is assigned once to its EndDate month, and existing weekly profit rows are aggregated without monthly inventory recalculation"
     }
   ],
   "crossYearFixture": {
