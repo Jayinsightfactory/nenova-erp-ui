@@ -257,6 +257,14 @@ function numToKorean(n) {
   return parts.join('') + '원 정';
 }
 
+// FormPrintEstimate는 DateTime을 yyyy/MM/dd로 ReportEstimate.Title에 전달한다.
+function formatExePrintDate(value) {
+  const text = String(value || '').trim();
+  const m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return `${m[1]}/${String(m[2]).padStart(2, '0')}/${String(m[3]).padStart(2, '0')}`;
+  return text;
+}
+
 // ── 견적서 품목별 출력 그룹. 국가+꽃명+품명을 함께 보아 국가 장미/수국/알스트로가 섞이지 않게 한다.
 function getFlowerGroup(row) {
   const country = String(row?.CounName || '').toUpperCase();
@@ -359,7 +367,7 @@ function buildEstimateHtml({
   let itemRows;
   let tableHead;
   let tableFoot;
-  let footerLabelColspan;
+  let itemColGroup = '';
 
   if (statementFormat) {
     itemRows = printRows.map((r, i) => {
@@ -397,10 +405,9 @@ function buildEstimateHtml({
       <th class="item-th" style="width:52px">세액</th>
       <th class="item-th" style="width:88px">비고</th>
     </tr>`;
-    footerLabelColspan = 7;
     tableFoot = `
     <tr class="foot-row">
-      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">합계</td>
+      <td colspan="7" style="text-align:right;padding-right:12px">합계</td>
       <td style="text-align:right">${fmtN(totalSupply)}</td>
       <td style="text-align:right">${fmtN(totalVat)}</td>
       <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
@@ -409,31 +416,35 @@ function buildEstimateHtml({
     itemRows = printRows.map((r, i) => {
       const deduct = isDeduct(r);
       const rowBg  = deduct ? 'background:#FFF8DC;' : '';
-      const amtClr = '';
-      const boxCell = showBoxQty
-        ? `<td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap;color:#555">${fmtN(r.BoxQty || 0)}박스</td>`
-        : '';
+      const productName = r._exePrint
+        ? (r.ProdName || '')
+        : `${estimateTypeLabel(r.EstimateType)}${r.ProdName || ''}`;
+      const unitQuantity = r.UnitQuantity || `${fmtN(r.Quantity)}${r.Unit || ''}`;
+      const descr = r._exePrint ? (r.Descr ?? '') : descLabel(r);
       return `
     <tr>
-      <td style="${rowBg}text-align:center;border:1px solid #bbb;padding:2px 3px;width:28px">${i + 1}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 6px;">${estimateTypeLabel(r.EstimateType)}${r.ProdName || ''}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 5px;white-space:nowrap">${fmtN(r.Quantity)}${r.Unit || ''}</td>
-      ${boxCell}
-      <td style="${rowBg}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Cost)}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Amount)}</td>
-      <td style="${rowBg}${amtClr}text-align:right;border:1px solid #bbb;padding:2px 6px">${fmtN(r.Vat)}</td>
-      <td style="${rowBg}border:1px solid #bbb;padding:2px 5px;font-size:7.5pt;color:#555">${String(descLabel(r) ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+      ${td(i + 1, `${rowBg}text-align:center;padding:2px 3px;`)}
+      ${td(productName, `${rowBg}padding:2px 10px;`)}
+      ${td(unitQuantity, `${rowBg}text-align:right;white-space:nowrap;padding:2px 10px 2px 5px;`)}
+      ${td(fmtN(r.Cost), `${rowBg}text-align:right;white-space:nowrap;padding:2px 10px 2px 5px;`)}
+      ${td(fmtN(r.Amount), `${rowBg}text-align:right;white-space:nowrap;padding:2px 10px 2px 5px;`)}
+      ${td(fmtN(r.Vat), `${rowBg}text-align:right;white-space:nowrap;padding:2px 10px 2px 5px;`)}
+      ${td(descr, `${rowBg}padding:2px 10px;font-size:8pt;`)}
     </tr>`;
     }).join('');
 
-    const boxHeader = showBoxQty ? '<th class="item-th" style="width:46px">박스</th>' : '';
-    footerLabelColspan = showBoxQty ? 5 : 4;
+    // ReportEstimate.cs item table: 7열·weight 합계 3.0 (1800 tenths mm).
+    itemColGroup = `
+      <colgroup>
+        <col style="width:5.882%"><col style="width:32.353%"><col style="width:9.444%">
+        <col style="width:8.791%"><col style="width:12.941%"><col style="width:11.765%">
+        <col style="width:18.824%">
+      </colgroup>`;
     tableHead = `
     <tr>
       <th class="item-th" style="width:24px">순번</th>
       <th class="item-th">품목명[규격]</th>
       <th class="item-th" style="width:54px">수량</th>
-      ${boxHeader}
       <th class="item-th" style="width:54px">단가</th>
       <th class="item-th" style="width:74px">공급가액</th>
       <th class="item-th" style="width:60px">부가세</th>
@@ -441,14 +452,17 @@ function buildEstimateHtml({
     </tr>`;
     tableFoot = `
     <tr class="foot-row">
-      <td colspan="${footerLabelColspan}" style="text-align:right;padding-right:12px">공급가액 합계</td>
+      <td colspan="2" style="text-align:right">공급가액</td>
       <td style="text-align:right">${fmtN(totalSupply)}</td>
+      <td style="text-align:right">VAT</td>
       <td style="text-align:right">${fmtN(totalVat)}</td>
+      <td style="text-align:right">합계</td>
       <td style="text-align:right;font-size:10pt;background:#dce8f5">${fmtN(totalAmt)}</td>
     </tr>`;
   }
 
-  const serialDisplay = serialNo || printDate;
+  const serialDisplay = serialNo || formatExePrintDate(printDate);
+  const heading = statementFormat ? docTitle : '견 적 서';
 
   const greetLine2 = statementFormat
     ? '2. 하기와 같이 거래 명세를 전달드립니다.'
@@ -462,7 +476,7 @@ function buildEstimateHtml({
 body { font-family:Gulim,'굴림','Malgun Gothic','맑은 고딕',sans-serif; font-size:9pt; padding:10mm 15mm; }
 /* exe ReportEstimate: xrLabel1 굴림 16pt Bold+Underline */
 h1 { text-align:center; font-family:Gulim,'굴림',serif; font-size:16pt; font-weight:bold;
-     letter-spacing:0.42em; text-decoration:underline; margin-bottom:6px; line-height:1.2; }
+     letter-spacing:0; text-decoration:underline; margin-bottom:6px; line-height:1.2; }
 table { width:100%; border-collapse:collapse; }
 .hdr-outer { border:1px solid #555; table-layout:fixed; }
 /* exe: 좌 47.9% / 우 51.3% (0.1mm 기준 861.7 / 923.4) */
@@ -487,11 +501,11 @@ table { width:100%; border-collapse:collapse; }
 .item-th   { background:#e8e8e8; border:1px solid #888; padding:3px 5px; font-size:8.5pt; text-align:center; }
 .item-td   { border:1px solid #ccc; padding:2px 5px; font-size:8.5pt; vertical-align:middle; }
 .foot-row td { background:#f5f5f5; border:1px solid #888; padding:3px 8px; font-size:8.5pt; font-weight:bold; }
-@media print { body{padding:10mm 15mm;} @page{size:A4;margin:10mm 15mm;}
+@media print { @page{size:A4;margin:0;} body{padding:10mm 15mm;}
   .logo-area{height:18mm;padding:1.5mm 2mm;} .logo-area img{height:16mm;max-height:16mm;} }
 </style>
 </head><body>
-<h1>${docTitle}</h1>
+<h1>${heading}</h1>
 
 <table class="hdr-outer">
   <tr>
@@ -522,11 +536,11 @@ table { width:100%; border-collapse:collapse; }
       <table class="info-table">
         <colgroup><col style="width:27.3mm"><col></colgroup>
         <tr><td class="info-key">사업자등록번호</td><td class="info-val">134-86-94367</td></tr>
-        <tr><td class="info-key">회사명/대표</td><td class="info-val">(주)네노바 / 김원배</td></tr>
-        <tr><td class="info-key">주소</td><td class="info-val">서울 서초구 언남길 15-7, 102호</td></tr>
+        <tr><td class="info-key">회사명/대표</td><td class="info-val">(주) 네노바 / 김원배</td></tr>
+        <tr><td class="info-key">주소</td><td class="info-val">서울특별시 서초구 언남길 15-7 102호 (양재동, 하얀빌딩)</td></tr>
         <tr><td class="info-key">업태/종목</td><td class="info-val">도매 / 무역</td></tr>
-        <tr><td class="info-key">계좌번호</td><td class="info-val">하나 630-008129-149</td></tr>
-        <tr><td class="info-key">TEL/FAX</td><td class="info-val">02-575-8003 / 02-576-8003</td></tr>
+        <tr><td class="info-key">계좌번호</td><td class="info-val">하나은행 630-008129-149 (주)네노바</td></tr>
+        <tr><td class="info-key">TEL/FAX</td><td class="info-val">025758003 / 02-576-8003</td></tr>
       </table>
     </td>
   </tr>
@@ -535,11 +549,12 @@ table { width:100%; border-collapse:collapse; }
 <!-- 금액 행 -->
 <div class="amt-row">
   <span class="amt-ko">금 액 : ${numToKorean(totalAmt)}</span>
-  <span class="amt-num">(W ${fmtN(totalAmt)}원) / VAT 포함</span>
+  <span class="amt-num">(￦ ${fmtN(totalAmt)}원)</span>
 </div>
 
 <!-- 품목 테이블 -->
-<table>
+<table class="item-table">
+  ${itemColGroup}
   <thead>
     ${tableHead}
   </thead>
@@ -580,11 +595,11 @@ function buildEstimatePrintBundle(htmlPages, printFormat = ESTIMATE_PRINT_FORMAT
 <style>
 ${style}
 body { padding:0 !important; }
-.print-page { padding:10mm 12mm; page-break-after:always; break-after:page; }
+.print-page { padding:10mm 15mm; page-break-after:always; break-after:page; }
 .print-page:last-child { page-break-after:auto; break-after:auto; }
 @media print {
   body { padding:0 !important; }
-  .print-page { padding:5mm 8mm; page-break-after:always; break-after:page; }
+  .print-page { padding:10mm 15mm; page-break-after:always; break-after:page; }
   .print-page:last-child { page-break-after:auto; break-after:auto; }
 }
 </style>
@@ -2236,6 +2251,11 @@ export default function Estimate() {
 
   const printPreviewItems = useMemo(() => {
     if (!showPrintDialog) return [];
+    if (printDialogItems.length > 0 && printDialogItems.every((row) => row?._exePrint === true)) {
+      return printDialogItems
+        .filter(isPrintableEstimateRow)
+        .filter((row) => printOpts.outType !== 'select' || !isEstimateDeductionRow(row));
+    }
     return filterPrintTargetItems(printDialogItems, activeWD, printOpts.outType);
   }, [showPrintDialog, printDialogItems, activeWD, printOpts.outType]);
 
@@ -2625,9 +2645,81 @@ export default function Estimate() {
       document.body.appendChild(iframe);
     });
 
+    // FormEstimateView.GetPrintDetail와 동일한 읽기 경로.
+    // 견적서(일반) 인쇄는 ShipmentKey별 상세를 웹에서 재합산하지 않고,
+    // 거래처·대차수·선택요일을 서버 SQL에 전달해 EXE 출력용 집계행을 받는다.
+    const fetchPrintRowsForShip = async (ship) => {
+      if (opts.printFormat !== ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        const results = await Promise.all(keys.map(k =>
+          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(d => d.success ? (d.items || []) : [])
+        ));
+        return filterItemsByWeekday(results.flat());
+      }
+      const params = new URLSearchParams({
+        custKey: String(ship.CustKey || ''),
+        week: String(ship.ParentWeek || week),
+        byDate: '1',
+        itemsOnly: '1',
+        printDetail: '1',
+        weekDays: [...activeWD].join(','),
+      });
+      const response = await fetch(`/api/estimate?${params.toString()}`, { credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'EXE 출력자료 조회 실패');
+      return data.items || [];
+    };
+
+    const filterPrintRows = (sourceRows) => {
+      const source = sourceRows || [];
+      if (source.length > 0 && source.every(r => r?._exePrint === true)) {
+        return source
+          .filter(isPrintableEstimateRow)
+          .filter(r => opts.outType !== 'select' || !isEstimateDeductionRow(r));
+      }
+      return filterPrintTargetItems(source, activeWD, opts.outType);
+    };
+
+    const groupPrintRows = (sourceRows) => {
+      const source = sourceRows || [];
+      if (source.length > 0 && source.every(r => r?._exePrint === true)) {
+        const grouped = new Map();
+        source.forEach((row) => {
+          const groupNo = Number.isFinite(Number(row.GroupNo)) ? Number(row.GroupNo) : 99;
+          const groupName = String(row.GroupName || '').trim() || '기타';
+          const key = `${groupNo}|${groupName}`;
+          if (!grouped.has(key)) grouped.set(key, { groupNo, label: groupName, rows: [] });
+          grouped.get(key).rows.push(row);
+        });
+        return [...grouped.values()].sort((a, b) => a.groupNo - b.groupNo || a.label.localeCompare(b.label, 'ko'));
+      }
+      const groups = {};
+      source.forEach(r => {
+        const g = getFlowerGroup(r);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(r);
+      });
+      const groupOrder = [
+        '콜롬비아 장미', '중국', '에콰도르 장미', '장미',
+        '콜롬비아 수국', '수국',
+        '콜롬비아 알스트로', '알스트로메리아',
+        '카네이션', '네덜란드',
+        '콜롬비아 기타', '기타',
+      ];
+      return [
+        ...groupOrder.filter(g => groups[g]?.length > 0).map(label => ({ label, rows: groups[label] })),
+        ...Object.keys(groups)
+          .filter(g => !groupOrder.includes(g))
+          .sort((a, b) => a.localeCompare(b, 'ko'))
+          .map(label => ({ label, rows: groups[label] })),
+      ];
+    };
+
     // ── 한 거래처분 인쇄 페이지 생성 — rows 와 custName 받아 splitMode 에 따라 페이지 배열 반환
     const buildCustomerPrintPages = (oneCustName, oneRows) => {
-      const printRows = filterPrintTargetItems(oneRows, activeWD, opts.outType);
+      const printRows = filterPrintRows(oneRows);
       if (!printRows.length) return [];
       const bigoSuffix = getPrintFormatBigoSuffix(opts.printFormat);
       const htmlOpts = {
@@ -2651,34 +2743,12 @@ export default function Estimate() {
         })];
       }
 
-      const groups = {};
-      printRows.forEach(r => {
-        const g = getFlowerGroup(r);
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(r);
-      });
-      const groupOrder = [
-        '콜롬비아 장미', '중국', '에콰도르 장미', '장미',
-        '콜롬비아 수국', '수국',
-        '콜롬비아 알스트로', '알스트로메리아',
-        '카네이션', '네덜란드',
-        '콜롬비아 기타', '기타',
-      ];
-      const orderedGroups = [
-        ...groupOrder.filter(g => groups[g]?.length > 0),
-        ...Object.keys(groups).filter(g => !groupOrder.includes(g)).sort((a, b) => a.localeCompare(b, 'ko')),
-      ];
-      const activeGroups = orderedGroups;
-      if (activeGroups.length === 0) return [];
-
-      const pages = [
-        ...activeGroups.map(g => ({
-          bigoLabel: `${week}차 ${g}`,
-          rows: groups[g],
-        })),
-      ];
-      return pages.map(({ bigoLabel, rows, aggregate }) => buildEstimateHtml({
-        bigoLabel, rows, aggregate,
+      const pages = groupPrintRows(printRows).map(({ label, rows }) => ({
+        bigoLabel: `${week}차 ${label}`,
+        rows,
+      }));
+      return pages.map(({ bigoLabel, rows }) => buildEstimateHtml({
+        bigoLabel, rows, aggregate: true,
         ...htmlOpts,
       }));
     };
@@ -2694,18 +2764,9 @@ export default function Estimate() {
       // 담당자 순으로 정렬해 인쇄물이 담당자별로 모이게 한다(구분 표지는 종이 낭비라 미삽입).
       const printShips = [...selectedShips].sort(compareShipmentsByManager);
       for (const ship of printShips) {
-        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         let custPages = [];
         try {
-          const fetchPromises = keys.map(k =>
-            fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-              .then(r => r.json())
-              .then(d => d.success ? (d.items || []) : [])
-          );
-          const allItems = await Promise.all(fetchPromises);
-          // 견적서 관리의 요일(출고일) 필터를 일괄 인쇄에도 동일 적용 —
-          // nenova.exe 처럼 선택한 요일에 지정된 출고분만 견적에 포함.
-          const rows = filterItemsByWeekday(allItems.flat());
+          const rows = await fetchPrintRowsForShip(ship);
           custPages = buildCustomerPrintPages(ship.CustName, rows);
         } catch (e) {
           console.error(`[print] ${ship.CustName} 실패:`, e);
@@ -2722,19 +2783,10 @@ export default function Estimate() {
     } else {
       // 단일 선택 — 출고일별(byDate) 항목으로 요일필터 적용 후 인쇄
       const custName = selectedShip?.CustName || '';
-      const keys = (selectedShip?.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
       let refreshedItems = [];
-      if (keys.length > 0) {
-        const results = await Promise.all(keys.map(k =>
-          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(d => d.success ? (d.items || []) : [])
-        ));
-        refreshedItems = results.flat();
-      } else {
-        refreshedItems = await reloadSelectedShipmentItems();
-      }
-      const printPages = buildCustomerPrintPages(custName, filterItemsByWeekday(refreshedItems));
+      if (selectedShip) refreshedItems = await fetchPrintRowsForShip(selectedShip);
+      else refreshedItems = await reloadSelectedShipmentItems();
+      const printPages = buildCustomerPrintPages(custName, refreshedItems);
       if (printPages.length === 0) {
         alert('출력할 데이터가 없습니다.');
         return;
@@ -2763,8 +2815,64 @@ export default function Estimate() {
       showDeductionOutDay: opts.showDeductionOutDay === true,
     };
 
+    const fetchPrintRowsForShip = async (ship) => {
+      if (opts.printFormat !== ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        const results = await Promise.all(keys.map(k =>
+          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(d => d.success ? (d.items || []) : [])
+        ));
+        return filterItemsByWeekday(results.flat());
+      }
+      const params = new URLSearchParams({
+        custKey: String(ship.CustKey || ''),
+        week: String(ship.ParentWeek || week),
+        byDate: '1',
+        itemsOnly: '1',
+        printDetail: '1',
+        weekDays: [...activeWD].join(','),
+      });
+      const response = await fetch(`/api/estimate?${params.toString()}`, { credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'EXE 출력자료 조회 실패');
+      return data.items || [];
+    };
+
+    const filterPrintRows = (sourceRows) => {
+      const source = sourceRows || [];
+      if (source.length > 0 && source.every(r => r?._exePrint === true)) {
+        return source
+          .filter(isPrintableEstimateRow)
+          .filter(r => opts.outType !== 'select' || !isEstimateDeductionRow(r));
+      }
+      return filterPrintTargetItems(source, activeWD, opts.outType);
+    };
+
+    const groupPrintRows = (sourceRows) => {
+      const source = sourceRows || [];
+      if (source.length > 0 && source.every(r => r?._exePrint === true)) {
+        const grouped = new Map();
+        source.forEach((row) => {
+          const groupNo = Number.isFinite(Number(row.GroupNo)) ? Number(row.GroupNo) : 99;
+          const label = String(row.GroupName || '').trim() || '기타';
+          const key = `${groupNo}|${label}`;
+          if (!grouped.has(key)) grouped.set(key, { groupNo, label, rows: [] });
+          grouped.get(key).rows.push(row);
+        });
+        return [...grouped.values()].sort((a, b) => a.groupNo - b.groupNo || a.label.localeCompare(b.label, 'ko'));
+      }
+      const groups = {};
+      source.forEach(r => {
+        const label = getFlowerGroup(r);
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(r);
+      });
+      return Object.keys(groups).sort((a, b) => a.localeCompare(b, 'ko')).map(label => ({ label, rows: groups[label] }));
+    };
+
     const appendSheet = (sheets, custName, oneRows, bigoLabel) => {
-      const printRows = filterPrintTargetItems(oneRows, activeWD, opts.outType);
+      const printRows = filterPrintRows(oneRows);
       if (!printRows.length) return;
       const baseName = sanitizeExcelSheetName(custName);
       let name = baseName;
@@ -2793,25 +2901,13 @@ export default function Estimate() {
         .filter(Boolean)
         .sort(compareShipmentsByManager);
       for (const ship of printShips) {
-        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         try {
-          const results = await Promise.all(keys.map(k =>
-            fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-              .then(r => r.json())
-              .then(d => d.success ? (d.items || []) : [])
-          ));
-          const rows = filterItemsByWeekday(results.flat());
+          const rows = await fetchPrintRowsForShip(ship);
           if (opts.splitMode === 'combined') {
             appendSheet(sheets, ship.CustName, rows, `${week}차 ${bigoSuffix}`);
           } else {
-            const groups = {};
-            filterPrintTargetItems(rows, activeWD, opts.outType).forEach(r => {
-              const g = getFlowerGroup(r);
-              if (!groups[g]) groups[g] = [];
-              groups[g].push(r);
-            });
-            Object.entries(groups).forEach(([g, gRows]) => {
-              appendSheet(sheets, `${ship.CustName}_${g}`, gRows, `${week}차 ${g}`);
+            groupPrintRows(filterPrintRows(rows)).forEach(({ label, rows: groupRows }) => {
+              appendSheet(sheets, `${ship.CustName}_${label}`, groupRows, `${week}차 ${label}`);
             });
           }
         } catch (e) {
@@ -2820,30 +2916,15 @@ export default function Estimate() {
       }
     } else {
       const custName = selectedShip?.CustName || '';
-      const keys = (selectedShip?.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
       let refreshedItems = [];
-      if (keys.length > 0) {
-        const results = await Promise.all(keys.map(k =>
-          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(d => d.success ? (d.items || []) : [])
-        ));
-        refreshedItems = results.flat();
-      } else {
-        refreshedItems = await reloadSelectedShipmentItems();
-      }
-      const rows = filterItemsByWeekday(refreshedItems);
+      if (selectedShip) refreshedItems = await fetchPrintRowsForShip(selectedShip);
+      else refreshedItems = await reloadSelectedShipmentItems();
+      const rows = refreshedItems;
       if (opts.splitMode === 'combined') {
         appendSheet(sheets, custName, rows, `${week}차 ${bigoSuffix}`);
       } else {
-        const groups = {};
-        filterPrintTargetItems(rows, activeWD, opts.outType).forEach(r => {
-          const g = getFlowerGroup(r);
-          if (!groups[g]) groups[g] = [];
-          groups[g].push(r);
-        });
-        Object.entries(groups).forEach(([g, gRows]) => {
-          appendSheet(sheets, `${custName}_${g}`, gRows, `${week}차 ${g}`);
+        groupPrintRows(filterPrintRows(rows)).forEach(({ label, rows: groupRows }) => {
+          appendSheet(sheets, `${custName}_${label}`, groupRows, `${week}차 ${label}`);
         });
       }
     }
@@ -2955,7 +3036,7 @@ export default function Estimate() {
       ? Array.from(selectedGroups).map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g)).filter(Boolean)
       : (selectedShip ? [selectedShip] : []);
     const keys = ships.flatMap(s => (s.ShipmentKeys || '').split(',').map(Number).filter(Boolean));
-    if (keys.length === 0) {
+    if (keys.length === 0 && ships.length === 0) {
       setPrintDayInfo({ loading: false, days: [] });
       setPrintDialogItems([]);
       return;
@@ -2964,15 +3045,30 @@ export default function Estimate() {
     setPrintDialogItems([]);
     (async () => {
       try {
-        const results = await Promise.all(keys.map(k =>
+        const legacyResults = await Promise.all(keys.map(k =>
           fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
             .then(r => r.json()).then(d => d.success ? (d.items || []) : [])
         ));
+        let flatItems = legacyResults.flat();
+        if (printOpts.printFormat === ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+          const printResults = await Promise.all(ships.map((ship) => {
+            const params = new URLSearchParams({
+              custKey: String(ship.CustKey || ''),
+              week: String(ship.ParentWeek || weekNum || ''),
+              byDate: '1',
+              itemsOnly: '1',
+              printDetail: '1',
+              weekDays: [...activeWD].join(','),
+            });
+            return fetch(`/api/estimate?${params.toString()}`, { credentials: 'same-origin' })
+              .then(r => r.json()).then(d => d.success ? (d.items || []) : []);
+          }));
+          flatItems = printResults.flat();
+        }
         if (cancelled) return;
-        const flatItems = results.flat();
         setPrintDialogItems(flatItems);
         const map = new Map();
-        flatItems
+        legacyResults.flat()
           .filter(i => i.EstimateType === '정상출고' && i.outDate)
           .forEach(it => {
             const wd = weekdayKrFromYmd(it.outDate);
@@ -2995,7 +3091,7 @@ export default function Estimate() {
       }
     })();
     return () => { cancelled = true; };
-  }, [showPrintDialog, selectedGroups, selectedShip, shipments]);
+  }, [showPrintDialog, selectedGroups, selectedShip, shipments, printOpts.printFormat, activeWD, weekNum]);
 
   // 품목 옵션 (검색 가능 드롭다운용)
   const prodOptions = products.map(p => ({
@@ -4017,13 +4113,15 @@ export default function Estimate() {
               <div className="form-group">
                 <label className="form-label">표시 항목</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                    <input type="checkbox"
-                      checked={printOpts.showBoxQty !== false}
-                      onChange={e => setPrintOpts(o => ({ ...o, showBoxQty: e.target.checked }))}
-                    />
-                    박스수량 표시
-                  </label>
+                  {isStatementPrintFormat(printOpts.printFormat) && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox"
+                        checked={printOpts.showBoxQty !== false}
+                        onChange={e => setPrintOpts(o => ({ ...o, showBoxQty: e.target.checked }))}
+                      />
+                      박스수량 표시
+                    </label>
+                  )}
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                     <input type="checkbox"
                       checked={printOpts.showDistribDesc === true}

@@ -1,0 +1,56 @@
+{
+  "id": "estimate-print",
+  "title": "견적서관리 nenova.exe ReportEstimate 출력 동일성 계약",
+  "scope": [
+    "pages/estimate.js",
+    "pages/api/estimate/index.js",
+    "lib/exeEstimateViewSql.js",
+    "lib/estimatePrintPrepare.js",
+    "lib/estimatePrintExcel.js",
+    "__tests__/estimatePrintContract.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "ESTIMATE_PRINT_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "source": "FormEstimateView.GetPrintDetail / ReportEstimate",
+      "sideEffect": "read-only; no Order, Shipment, ShipmentDate, Estimate, Stock write"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 대차수라도 OrderYear가 다른 원장을 섞지 않고, 선택한 OrderYearWeek·CustKey의 EXE 인쇄 SQL 결과만 출력한다. 정상출고는 ViewShipment·ViewOrder·ShipmentDate·PeriodDay·DetailFix=1·EstQuantity>0, 차감은 같은 차수 Estimate를 사용한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/estimatePrintContract.test.js",
+    "__tests__/exeEstimateViewSql.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs; C:\\Users\\USER\\nenova-decompiled\\Nenova\\ReportEstimate.cs",
+    "methods": [
+      "GetPrintDetail",
+      "FormPrintEstimate.btnPrint_Click",
+      "FormPrintEstimate.Print",
+      "ReportEstimate.ReportEstimate"
+    ],
+    "tables": [
+      "ViewShipment",
+      "ViewOrder",
+      "ShipmentDate",
+      "PeriodDay",
+      "Estimate",
+      "ProductSort"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
