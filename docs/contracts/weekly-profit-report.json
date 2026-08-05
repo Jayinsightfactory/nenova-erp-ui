@@ -17,6 +17,7 @@
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
     "lib/profitReportCalc.js",
+    "lib/profitReportMonthly.js",
     "components/CustomsClearancePanel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -50,6 +51,12 @@
       "name": "MOYI_REPORT_PUSH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_MONTHLY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only; PeriodDay determines week span and existing weekly profit rows are aggregated without monthly inventory recalculation"
     }
   ],
   "crossYearFixture": {
@@ -61,7 +68,8 @@
     "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/moyiReportPush.test.js"
+    "__tests__/moyiReportPush.test.js",
+    "__tests__/profitReportMonthly.test.js"
   ],
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",
@@ -81,7 +89,8 @@
     "methods": [
       "ViewShipment fixed-detail selection",
       "ViewWarehouse warehouse-weight selection",
-      "ViewOrder year/week identity"
+      "ViewOrder year/week identity",
+      "PeriodDay week date span for monthly boundary classification"
     ],
     "tables": [
       "ShipmentMaster",
@@ -93,7 +102,8 @@
       "ProductStock",
       "FreightCost",
       "WebProfitReport",
-      "CurrencyMaster"
+      "CurrencyMaster",
+      "PeriodDay"
     ]
   },
   "requiredCommands": [

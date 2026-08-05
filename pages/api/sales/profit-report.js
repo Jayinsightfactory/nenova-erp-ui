@@ -6,10 +6,12 @@ import {
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
   purchaseQtyByCategory, invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
+  periodDayRangesByMajor,
 } from '../../../lib/profitReport';
-import { computeAutoEndingStock } from '../../../lib/profitReportCalc';
+import { computeAutoEndingStock, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
+import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -173,9 +175,45 @@ export async function loadReportData(major, orderYear) {
   };
 }
 
+/**
+ * 1~12월 연속 월별 보기용 읽기 전용 집계.
+ * 각 주차를 기존 loadReportData로 계산한 뒤, PeriodDay가 한 달에 완전히 들어오는
+ * 차수만 합산한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
+ */
+export async function loadAnnualMonthlyReportData(orderYear) {
+  const periods = await periodDayRangesByMajor(orderYear);
+  const activePeriods = periods.filter(period => period.hasData);
+  const weeks = [];
+  const concurrency = 3;
+  for (let i = 0; i < activePeriods.length; i += concurrency) {
+    const batch = activePeriods.slice(i, i + concurrency);
+    const results = await Promise.all(batch.map(async period => {
+      try {
+        const data = await loadReportData(period.major, orderYear);
+        const rows = (data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) }));
+        return {
+          major: period.major,
+          period,
+          totals: computeProfitTotals(rows),
+        };
+      } catch (error) {
+        return { major: period.major, period, error: error.message || '주차 보고서 조회 실패' };
+      }
+    }));
+    weeks.push(...results);
+  }
+  const summary = buildMonthlyProfitSummary(weeks, orderYear);
+  return { ...summary, periods, weeks };
+}
+
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (String(req.query.period || '').toLowerCase() === 'annual' || req.query.monthly === '1') {
+        const orderYear = resolveActiveOrderYear('', req.query.year);
+        const data = await loadAnnualMonthlyReportData(orderYear);
+        return res.status(200).json({ success: true, ...data });
+      }
       const major = parseMajor(req.query.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);

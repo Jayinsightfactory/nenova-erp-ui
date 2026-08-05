@@ -13,7 +13,12 @@ function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? m[2] : '';
 }
+function getDefaultYear() {
+  const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
+  return m ? m[1] : String(new Date().getFullYear());
+}
 const fmt = v => (v == null || Number.isNaN(v) ? '' : Math.round(v).toLocaleString());
+const fmtMonthly = (v, hasData = true) => (!hasData || v == null || Number.isNaN(Number(v)) ? '—' : Math.round(Number(v)).toLocaleString());
 const pct = v => (v == null || !Number.isFinite(v) ? '' : `${(v * 100).toFixed(1)}%`);
 const fmtInput = v => {
   if (v == null || v === '') return '';
@@ -213,6 +218,10 @@ export default function ProfitReportPage() {
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [weeksData, setWeeksData] = useState([]); // [{ major, rows, totals, error }]
   const [expandedWeeks, setExpandedWeeks] = useState(new Set());
+  const [monthlyYear, setMonthlyYear] = useState(getDefaultYear());
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyData, setMonthlyData] = useState(null);
+  const [expandedMonths, setExpandedMonths] = useState(new Set());
 
   const load = async (weekOverride) => {
     const wk = weekOverride ?? weekInput.value;
@@ -263,13 +272,35 @@ export default function ProfitReportPage() {
       setRangeTo(String(cur).padStart(2, '0'));
     }
   };
+  const loadMonthly = async (yearOverride) => {
+    const year = String(yearOverride ?? monthlyYear).replace(/\D/g, '').slice(0, 4);
+    if (!/^\d{4}$/.test(year)) { setError('연도를 확인하세요 (예: 2026)'); return; }
+    setMonthlyYear(year);
+    setMonthlyData(null); setMonthlyLoading(true); setError(''); setMessage('');
+    try {
+      const res = await fetch(`/api/sales/profit-report?period=annual&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '월별 보고서 조회 실패');
+      setMonthlyData(d);
+    } catch (e) { setError(e.message); } finally { setMonthlyLoading(false); }
+  };
+  const switchToMonthsView = () => {
+    setViewMode('months');
+    if (!monthlyData || String(monthlyData.year) !== String(monthlyYear)) loadMonthly(monthlyYear);
+  };
   useEffect(() => {
     if (viewMode === 'weeks' && rangeFrom && rangeTo && weeksData.length === 0 && !weeksLoading) loadWeeksRange();
+    if (viewMode === 'months' && !monthlyData && !monthlyLoading) loadMonthly(monthlyYear);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
   const toggleExpand = mj => setExpandedWeeks(prev => {
     const n = new Set(prev);
     n.has(mj) ? n.delete(mj) : n.add(mj);
+    return n;
+  });
+  const toggleMonthExpand = month => setExpandedMonths(prev => {
+    const n = new Set(prev);
+    n.has(month) ? n.delete(month) : n.add(month);
     return n;
   });
 
@@ -416,11 +447,12 @@ export default function ProfitReportPage() {
   return (
     <div style={st.page}>
       <div style={st.bar}>
-        <h1 style={st.h1}>📈 주차별 매출이익 보고서{data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
+        <h1 style={st.h1}>📈 {viewMode === 'months' ? '월별 매출이익 보고서' : '주차별 매출이익 보고서'}{viewMode === 'months' && monthlyData ? ` — ${monthlyData.year}` : data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <div style={st.viewToggleWrap}>
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
             <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>
+            <button style={viewMode === 'months' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToMonthsView}>월별</button>
           </div>
           {viewMode === 'category' ? (
             <>
@@ -461,13 +493,25 @@ export default function ProfitReportPage() {
                 🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
               </button>
             </>
-          ) : (
+          ) : viewMode === 'weeks' ? (
             <>
               <label style={st.label}>차수범위</label>
               <input style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
               <span style={{ color: '#94a3b8' }}>~</span>
               <input style={{ ...st.weekInput, width: 50 }} value={rangeTo} onChange={e => setRangeTo(e.target.value.replace(/\D/g, ''))} placeholder="30" />
               <button style={st.primaryBtn} onClick={loadWeeksRange} disabled={weeksLoading}>{weeksLoading ? '조회 중…' : '조회'}</button>
+            </>
+          ) : (
+            <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 78 }}
+                value={monthlyYear}
+                onChange={e => setMonthlyYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={e => { if (e.key === 'Enter') loadMonthly(); }}
+                placeholder="2026"
+              />
+              <button style={st.primaryBtn} onClick={() => loadMonthly()} disabled={monthlyLoading}>{monthlyLoading ? '조회 중…' : '조회'}</button>
             </>
           )}
           <div style={{ position: 'relative' }}>
@@ -521,18 +565,22 @@ export default function ProfitReportPage() {
         </div>
       </div>
       <div style={st.hint}>
-        자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
-        (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
-        청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
-        환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
-        포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
-        {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
-        {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}
+        {viewMode === 'months' ? (
+          <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
+        ) : (
+          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
+          (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
+          청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
+          환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
+          {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
+          {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
+        )}
       </div>
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
-      {data?.audit?.issues?.length > 0 && (
+      {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
         <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
           <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
@@ -672,6 +720,115 @@ export default function ProfitReportPage() {
         </div>
       )}
 
+      {viewMode === 'months' && monthlyData && (
+        <>
+          <div style={st.monthlyInfo}>
+            <b>{monthlyData.year}년 월별 관리손익</b> — 기존 주차별 계산 결과 중 <b>PeriodDay 목~수 기간이 한 달 안에 완전히 들어오는 차수만</b> 월별 합계에 포함합니다.
+            월경계를 넘는 차수는 금액을 합산하지 않고 아래 별도 목록에 표시합니다. 기초·기말재고는 월 단위로 재계산하거나 합산하지 않습니다.
+          </div>
+          <div style={st.tableWrap}>
+            <table style={{ ...st.table, minWidth: 980 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...st.th, ...st.stickyCol, background: '#1e293b', zIndex: 3 }}>월</th>
+                  <th style={st.th}>포함 차수</th>
+                  <th style={st.th}>월경계 차수(참고·합계 제외)</th>
+                  <th style={st.th}>매출액</th>
+                  <th style={st.th}>매출원가</th>
+                  <th style={st.th}>매출이익</th>
+                  <th style={st.th}>이익률</th>
+                  <th style={st.th}>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(monthlyData.months || []).map(month => {
+                  const expanded = expandedMonths.has(month.month);
+                  const hasData = month.includedWeeks?.length > 0;
+                  const status = month.status === 'included_with_boundary'
+                    ? '포함 차수 + 경계 차수 있음'
+                    : month.status === 'included'
+                      ? '포함 완료'
+                      : month.status === 'boundary_only'
+                        ? '월경계 차수만 있음'
+                        : '포함 차수 없음';
+                  const canExpand = Boolean(month.includedWeeks?.length || month.boundaryWeeks?.length);
+                  return (
+                    <Fragment key={month.month}>
+                      <tr
+                        style={{ cursor: canExpand ? 'pointer' : undefined, background: expanded ? '#eff6ff' : undefined }}
+                        onClick={() => canExpand && toggleMonthExpand(month.month)}
+                      >
+                        <td style={{ ...st.td, ...st.stickyCol, fontWeight: 800, background: expanded ? '#eff6ff' : '#f8fafc' }}>
+                          {canExpand ? (expanded ? '▼' : '▶') : '·'} {month.month}월
+                        </td>
+                        <td style={st.td}>{month.includedWeeks?.map(w => `${Number(w.major)}차`).join(', ') || '—'}</td>
+                        <td style={{ ...st.td, color: month.boundaryWeeks?.length ? '#b45309' : '#64748b' }}>{month.boundaryWeeks?.map(w => `${Number(w.major)}차`).join(', ') || '—'}</td>
+                        <td style={st.tdNum}>{fmtMonthly(month.totals?.C, hasData)}</td>
+                        <td style={st.tdNum}>{fmtMonthly(month.totals?.I, hasData)}</td>
+                        <td style={{ ...st.tdNum, color: hasData && month.totals.J < 0 ? '#dc2626' : hasData ? '#166534' : '#64748b', fontWeight: 800 }}>{fmtMonthly(month.totals?.J, hasData)}</td>
+                        <td style={st.tdNum}>{hasData ? pct(month.totals?.K) : '—'}</td>
+                        <td style={{ ...st.td, color: month.status === 'boundary_only' ? '#b45309' : month.status === 'no_data' ? '#64748b' : '#166534' }}>{status}</td>
+                      </tr>
+                      {expanded && (
+                        <tr>
+                          <td colSpan={8} style={{ padding: 0, border: '1px solid #e2e8f0' }}>
+                            <div style={st.monthDetail}>
+                              <div style={st.monthDetailTitle}>{month.month}월 연결 차수 상세</div>
+                              {(month.includedWeeks || []).map(w => (
+                                <div key={`i-${w.major}`} style={st.monthWeekRow}>
+                                  <span style={st.monthBadgeIncluded}>포함</span>
+                                  <b>{Number(w.major)}차</b>
+                                  <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
+                                  <span>매출 {fmt(w.totals?.C)}</span>
+                                  <span>원가 {fmt(w.totals?.I)}</span>
+                                  <span style={{ color: w.totals?.J < 0 ? '#dc2626' : '#166534' }}>이익 {fmt(w.totals?.J)}</span>
+                                </div>
+                              ))}
+                              {(month.boundaryWeeks || []).map(w => (
+                                <div key={`b-${w.major}`} style={st.monthWeekRow}>
+                                  <span style={st.monthBadgeBoundary}>제외</span>
+                                  <b>{Number(w.major)}차</b>
+                                  <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
+                                  <span>월경계 — 월별 합계에 미포함</span>
+                                  <span>매출 {fmt(w.totals?.C)}</span>
+                                  <span>이익 {fmt(w.totals?.J)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={st.monthlyBoundaryPanel}>
+            <div style={st.monthlyBoundaryTitle}>월경계 차수 — 월별 합계에서 제외된 주차</div>
+            {(monthlyData.boundaryWeeks || []).length === 0 ? (
+              <div style={st.monthlyEmpty}>월경계 차수가 없습니다.</div>
+            ) : (monthlyData.boundaryWeeks || []).map(w => (
+              <div key={w.major} style={st.monthBoundaryGlobalRow}>
+                <span style={st.monthBadgeBoundary}>제외</span>
+                <b>{Number(w.major)}차</b>
+                <span>{w.period?.startDate} ~ {w.period?.endDate}</span>
+                <span>매출 {fmt(w.totals?.C)}</span>
+                <span>원가 {fmt(w.totals?.I)}</span>
+                <span>이익 {fmt(w.totals?.J)}</span>
+              </div>
+            ))}
+            {(monthlyData.missingWeeks || []).length > 0 && (
+              <div style={st.monthlyMissing}>
+                <b>기간 확인 필요(0으로 합산하지 않음):</b>{' '}
+                {monthlyData.missingWeeks.map(w => `${Number(w.major)}차${w.error ? `(${w.error})` : ''}`).join(', ')}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      {viewMode === 'months' && monthlyLoading && <div style={st.message}>연간 주차 원장과 PeriodDay를 읽어 월별로 분류하는 중입니다…</div>}
+
       {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 4 }}>비고사항</div>
@@ -792,6 +949,17 @@ const st = {
   auditError: { background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
+  monthlyInfo: { background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e3a8a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.6 },
+  monthDetail: { padding: 9, background: '#f8fafc' },
+  monthDetailTitle: { fontWeight: 800, color: '#334155', fontSize: 12, marginBottom: 5 },
+  monthWeekRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 7px', marginBottom: 3, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 11.5, color: '#475569' },
+  monthBadgeIncluded: { color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 4, padding: '2px 5px', fontWeight: 800 },
+  monthBadgeBoundary: { color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '2px 5px', fontWeight: 800 },
+  monthlyBoundaryPanel: { marginTop: 10, border: '1px solid #f59e0b', borderRadius: 8, background: '#fffbeb', padding: 10 },
+  monthlyBoundaryTitle: { color: '#92400e', fontWeight: 800, fontSize: 13, marginBottom: 6 },
+  monthBoundaryGlobalRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 7px', marginBottom: 3, background: '#fff', border: '1px solid #fde68a', borderRadius: 5, fontSize: 11.5, color: '#475569' },
+  monthlyEmpty: { color: '#78716c', fontSize: 12 },
+  monthlyMissing: { marginTop: 8, paddingTop: 8, borderTop: '1px solid #fcd34d', color: '#b91c1c', fontSize: 11.5 },
   tableWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 220px)', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff' },
   table: { borderCollapse: 'collapse', fontSize: 12, minWidth: 1800 },
   th: { position: 'sticky', top: 0, background: '#1e293b', color: '#fff', padding: '7px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 2 },
