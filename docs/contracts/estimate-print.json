@@ -15,6 +15,7 @@
       "name": "ESTIMATE_PRINT_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
+      "estimateRows": "include all Estimate rows in the selected OrderYearWeek + CustKey; missing PeriodDay/CodeInfo metadata must not silently drop a registered row",
       "source": "FormEstimateView.GetPrintDetail / ReportEstimate",
       "sideEffect": "read-only; no Order, Shipment, ShipmentDate, Estimate, Stock write"
     }

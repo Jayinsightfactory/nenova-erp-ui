@@ -26,6 +26,17 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 | `GetPrintDetail(custKey)` | `pd.WeekDay IN (...)` | `sqlEstimateGetPrintDetail` + `printDetail=1` |
 | `GetExcelDetail(custKey)` | `pd.WeekDay IN (...)` | `view=excelDetail` + `sqlEstimateGetExcelDetail` |
 
+### 웹 견적서 인쇄의 Estimate 등록행 누락 방지
+
+정상 출고(`ShipmentDate`)에는 EXE와 같이 `PeriodDay` 요일 필터를 적용한다. 반면
+불량·검역·단가차감·판매요청 등 이미 `Estimate`에 등록된 행은 거래처·차수의
+`ShipmentMaster` 범위 안에서 모두 인쇄한다. 레거시 등록행 중에는 `EstimateDtm`의
+시간부가 `PeriodDay.BaseYmd`와 다르거나 과거 `EstimateType` 코드가 남아 있는 경우가
+있어, 이를 필수 `JOIN`으로 처리하면 웹에 등록된 행이 인쇄 전에 조용히 사라진다.
+웹은 `CodeInfo`를 보조 `LEFT JOIN`으로 사용하고 유형 코드 자체를 fallback으로
+표시하며, 이 보강은 읽기 전용 출력 경로에서만 동작하고 Estimate 원장을 수정하지
+않는다.
+
 ## GetData 핵심 조건
 
 - `sm.OrderYearWeek = @orderYearWeek`
