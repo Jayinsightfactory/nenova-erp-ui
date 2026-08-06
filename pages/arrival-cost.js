@@ -20,18 +20,83 @@ function basisLabel(value) {
 }
 
 function productOptionLabel(product) {
-  return `${product.CounName || ''} · ${product.FlowerName || ''} · ${product.DisplayName || product.ProdName} (#${product.ProdKey})`;
+  const country = product.CounName || product.countryName || product.dbCountryName || '';
+  const flower = product.FlowerName || product.flowerName || product.dbFlowerName || '';
+  const name = product.DisplayName || product.displayName || product.ProdName || product.prodName || '';
+  const key = product.ProdKey ?? product.prodKey ?? '';
+  return `${country} · ${flower} · ${name}${key ? ` (#${key})` : ''}`.trim();
 }
 
 function farmOptionLabel(farm) {
-  return `${farm.FarmName} (#${farm.FarmKey})`;
+  const name = farm.FarmName || farm.farmName || farm.autoFarmName || '';
+  const key = farm.FarmKey ?? farm.farmKey ?? '';
+  return `${name}${key ? ` (#${key})` : ''}`.trim();
+}
+
+function LookupInput({ kind, value, onInput, onSelect, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open || !String(value || '').trim()) {
+      setOptions([]);
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const encoded = encodeURIComponent(String(value).trim());
+        const url = kind === 'product'
+          ? `/api/products/search?q=${encoded}`
+          : `/api/arrival-cost?lookup=farms&q=${encoded}&limit=30`;
+        const res = await fetch(url, { credentials: 'same-origin' });
+        const json = await res.json();
+        if (res.ok && json.success) setOptions(kind === 'product' ? (json.products || []).slice(0, 30) : (json.farms || []));
+        else setOptions([]);
+      } catch (_) {
+        setOptions([]);
+      } finally {
+        setBusy(false);
+      }
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [kind, open, value]);
+
+  return <div className="lookup-input">
+    <input
+      value={value || ''}
+      onChange={e => { onInput(e.target.value); setOpen(true); }}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setTimeout(() => setOpen(false), 160)}
+      placeholder={placeholder}
+      aria-label={placeholder}
+    />
+    {open && (busy || options.length > 0) && <div className="lookup-menu">
+      {busy && <div className="lookup-status">검색 중…</div>}
+      {!busy && options.map(item => <button
+        type="button"
+        className="lookup-option"
+        key={item.ProdKey ?? item.FarmKey}
+        onMouseDown={e => { e.preventDefault(); onSelect(item); setOpen(false); }}
+        title={kind === 'product' ? productOptionLabel(item) : farmOptionLabel(item)}
+      >
+        {kind === 'product' ? productOptionLabel(item) : farmOptionLabel(item)}
+        {kind === 'product' && Number(item.UsageCount || item.orderCount || 0) > 0 && <small>사용 {Number(item.UsageCount || item.orderCount).toLocaleString('ko-KR')}회</small>}
+      </button>)}
+    </div>}
+  </div>;
 }
 
 export default function ArrivalCostPage() {
   const [filters, setFilters] = useState({
     orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '',
   });
-  const [data, setData] = useState({ rows: [], imports: [], products: [], farms: [] });
+  const [appliedFilters, setAppliedFilters] = useState({
+    orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '',
+  });
+  const [data, setData] = useState({ rows: [], imports: [], total: 0, page: 1, pageSize: 200, hasMore: false });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
@@ -39,22 +104,25 @@ export default function ArrivalCostPage() {
   const [drafts, setDrafts] = useState({});
   const [history, setHistory] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage = 1, queryFilters = appliedFilters) => {
     setLoading(true);
     setError('');
     try {
-      const qs = new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== ''));
+      const qs = new URLSearchParams(Object.entries(queryFilters).filter(([, value]) => value !== ''));
+      qs.set('page', String(targetPage));
+      qs.set('pageSize', '200');
       const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin' });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || '도착원가 조회 실패');
       setData(json);
+      setPage(Number(json.page || targetPage));
       const next = {};
       for (const row of json.rows || []) {
         next[row.arrivalLineKey] = {
-        prodKey: row.prodKey || '', farmKey: row.farmKey || '', allocationBasis: row.allocationBasis || 'SOURCE', notes: row.notes || '',
-        prodInput: row.prodKey ? productOptionLabel(json.products.find(p => Number(p.ProdKey) === Number(row.prodKey)) || { ProdKey: row.prodKey, ProdName: row.prodName || '' }) : '',
-        farmInput: row.farmKey ? farmOptionLabel(json.farms.find(f => Number(f.FarmKey) === Number(row.farmKey)) || { FarmKey: row.farmKey, FarmName: row.farmName || '' }) : '',
-      };
+          prodKey: row.prodKey || '', farmKey: row.farmKey || row.autoFarmKey || '', allocationBasis: row.allocationBasis || 'SOURCE', notes: row.notes || '',
+          prodInput: row.prodKey ? productOptionLabel(row) : '',
+          farmInput: row.farmKey || row.autoFarmKey ? farmOptionLabel(row) : (row.farmNameRaw || ''),
+        };
       }
       setDrafts(next);
     } catch (e) {
@@ -62,19 +130,27 @@ export default function ArrivalCostPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [appliedFilters]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(1, appliedFilters); }, [load, appliedFilters]);
 
   const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
   const updateDraft = (id, key, value) => setDrafts(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
   const updateProductInput = (row, value) => {
-    const match = data.products.find(p => productOptionLabel(p) === value || String(p.ProdKey) === value);
-    setDrafts(prev => ({ ...prev, [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], prodInput: value, prodKey: match?.ProdKey || '' } }));
+    setDrafts(prev => ({ ...prev, [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], prodInput: value, prodKey: '' } }));
   };
+  const selectProduct = (row, product) => setDrafts(prev => ({
+    ...prev,
+    [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], prodInput: productOptionLabel(product), prodKey: product.ProdKey },
+  }));
   const updateFarmInput = (row, value) => {
-    const match = data.farms.find(f => farmOptionLabel(f) === value || String(f.FarmKey) === value);
-    setDrafts(prev => ({ ...prev, [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], farmInput: value, farmKey: match?.FarmKey || '' } }));
+    setDrafts(prev => ({ ...prev, [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], farmInput: value, farmKey: '' } }));
+  };
+  const selectFarm = (row, farm) => {
+    setDrafts(prev => ({
+      ...prev,
+      [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], farmInput: farmOptionLabel(farm), farmKey: farm.FarmKey },
+    }));
   };
 
   const upload = async (event) => {
@@ -93,7 +169,7 @@ export default function ArrivalCostPage() {
       if (!res.ok || !json.success) throw new Error(json.error || '업로드 실패');
       formElement.reset();
       setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건`);
-      await load();
+      await load(page, appliedFilters);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -112,7 +188,7 @@ export default function ArrivalCostPage() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || '저장 실패');
       setMessage(`${row.orderWeek || '차수'} / ${row.productNameRaw} 저장 완료`);
-      await load();
+      await load(page, appliedFilters);
     } catch (e) { setError(e.message); }
   };
 
@@ -127,6 +203,14 @@ export default function ArrivalCostPage() {
 
   const weeks = useMemo(() => [...new Set(data.rows.map(row => row.orderWeek).filter(Boolean))], [data.rows]);
   const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
+  const applySearch = () => {
+    setPage(1);
+    setAppliedFilters({ ...filters });
+  };
+  const movePage = (nextPage) => {
+    if (nextPage < 1 || (nextPage > page && !data.hasMore)) return;
+    load(nextPage, appliedFilters);
+  };
 
   return (
     <>
@@ -159,12 +243,13 @@ export default function ArrivalCostPage() {
             <label>품종 <input value={filters.flower} onChange={e => updateFilter('flower', e.target.value)} placeholder="장미·수국" /></label>
             <label>품목/색상 <input value={filters.product} onChange={e => updateFilter('product', e.target.value)} /></label>
             <label>농장 <input value={filters.farm} onChange={e => updateFilter('farm', e.target.value)} /></label>
-            <button className="primary" onClick={load} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+            <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
           <div className="summary-row">
-            <span>현재본 {data.rows.length.toLocaleString()}행</span>
+            <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>
             <span>매칭확인 필요 {unmatched.toLocaleString()}행</span>
             <span>차수 {weeks.join(', ') || '-'}</span>
+            <span>페이지 {page} / {Math.max(1, Math.ceil(Number(data.total || 0) / Number(data.pageSize || 200)))}</span>
           </div>
         </section>
 
@@ -187,9 +272,9 @@ export default function ArrivalCostPage() {
                     <td>{row.countryName || row.dbCountryName || '-'}</td>
                     <td>{row.flowerNameRaw || row.dbFlowerName || '-'}</td>
                     <td className="raw-name" title={row.productNameRaw}>{row.productNameRaw}</td>
-                    <td><input list="arrival-product-options" value={draft.prodInput || ''} onChange={e => updateProductInput(row, e.target.value)} placeholder="품목 검색·선택" /></td>
+                    <td><LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" /></td>
                     <td>{row.farmNameRaw || '-'}</td>
-                    <td><input list="arrival-farm-options" value={draft.farmInput || ''} onChange={e => updateFarmInput(row, e.target.value)} placeholder="농장 검색·선택" /></td>
+                    <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
                     <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
                     <td className="num">{fmt(row.sourceArrivalCostKRW)}원</td>
                     <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
@@ -203,6 +288,11 @@ export default function ArrivalCostPage() {
               </table>
             </div>
           )}
+          {data.rows.length > 0 && <div className="pager">
+            <button onClick={() => movePage(page - 1)} disabled={loading || page <= 1}>이전</button>
+            <span>{page} / {Math.max(1, Math.ceil(Number(data.total || 0) / Number(data.pageSize || 200)))}</span>
+            <button onClick={() => movePage(page + 1)} disabled={loading || !data.hasMore}>다음</button>
+          </div>}
         </section>
 
         <section className="arrival-card">
@@ -210,9 +300,6 @@ export default function ArrivalCostPage() {
           <div className="import-list">{data.imports.length === 0 ? <span className="muted">아직 업로드 이력이 없습니다.</span> : data.imports.map(item => <div key={item.ImportKey}><strong>revision {item.RevisionNo}</strong> · {item.UploadFileName} · {item.UploadedAt ? new Date(item.UploadedAt).toLocaleString('ko-KR') : '-'} · {item.UploadedByName || '-'}</div>)}</div>
         </section>
       </div>
-
-      <datalist id="arrival-product-options">{data.products.map(p => <option key={p.ProdKey} value={productOptionLabel(p)} />)}</datalist>
-      <datalist id="arrival-farm-options">{data.farms.map(f => <option key={f.FarmKey} value={farmOptionLabel(f)} />)}</datalist>
 
       {history && <div className="modal-backdrop" onClick={() => setHistory(null)}><div className="history-modal" onClick={e => e.stopPropagation()}><div className="modal-title">변경 이력 — {history.row.productNameRaw}<button onClick={() => setHistory(null)}>닫기</button></div>{history.rows.length === 0 ? <div className="empty">이력이 없습니다.</div> : history.rows.map(item => <div className="history-item" key={item.HistoryKey}><strong>{item.ActionType}</strong> · {item.ChangedByName || item.ChangedBy} · {item.ChangedAt ? new Date(item.ChangedAt).toLocaleString('ko-KR') : ''}</div>)}</div></div>}
 
@@ -228,7 +315,7 @@ export default function ArrivalCostPage() {
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
         .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
-        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; }
+        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:310px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
         .modal-backdrop { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#0006; } .history-modal { width:min(720px,92vw); max-height:80vh; overflow:auto; background:#fff; border-radius:6px; padding:14px; box-shadow:0 10px 40px #0005; } .modal-title { display:flex; justify-content:space-between; font-weight:700; margin-bottom:10px; color:#163d76; } .history-item { padding:8px 2px; border-bottom:1px solid #e4e8ee; font-size:12px; }
         @media (max-width:800px) { .arrival-page { padding:8px; } .arrival-title-row { display:block; } .read-only-badge { display:inline-block; margin-top:8px; } .table-wrap { max-height:none; } }
       `}</style>

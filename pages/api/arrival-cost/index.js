@@ -5,6 +5,7 @@
 import { withAuth } from '../../../lib/auth.js';
 import {
   listArrivalCost,
+  searchArrivalCostFarms,
   updateArrivalCostLine,
   ARRIVAL_BASIS,
 } from '../../../lib/arrivalCost.js';
@@ -12,6 +13,10 @@ import {
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (req.query.lookup === 'farms') {
+        const farms = await searchArrivalCostFarms({ q: req.query.q, limit: req.query.limit });
+        return res.status(200).json({ success: true, farms });
+      }
       const data = await listArrivalCost({
         orderYear: req.query.orderYear,
         orderWeek: req.query.orderWeek,
@@ -20,6 +25,8 @@ export default withAuth(async function handler(req, res) {
         product: req.query.product,
         farm: req.query.farm,
         includeHistory: req.query.includeHistory === '1',
+        page: req.query.page,
+        pageSize: req.query.pageSize,
       });
       return res.status(200).json({ success: true, basisOptions: ARRIVAL_BASIS, ...data });
     }

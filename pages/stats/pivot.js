@@ -20,6 +20,7 @@ import {
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
 import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters } from '../../lib/pivotFilterOptions';
+import { buildPivotProductSearchAliases, pivotProductOptionMatches } from '../../lib/pivotProductSearch.js';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
@@ -259,7 +260,7 @@ const SortIcon = ({ dir }) => dir === 'asc' ? ' ▲' : dir === 'desc' ? ' ▼' :
 // 컬럼 헤더 버튼 (클릭 시 정렬 + 필터 드롭다운)
 // - createPortal로 body에 렌더링 → overflow:auto 컨테이너에 잘리지 않음
 // - useRef + getBoundingClientRect로 위치 계산
-function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOptions }) {
+function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOptions, filterOptionAliases = {} }) {
   const [showFilter, setShowFilter] = useState(false);
   const [dropPos,    setDropPos]    = useState({ top: 0, left: 0 });
   const [q,          setQ]          = useState(''); // 필터 옵션 검색어
@@ -360,7 +361,7 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
           </div>
 
           {filterOptions
-            .filter(opt => !q || String(opt).toLowerCase().includes(q.toLowerCase()))
+            .filter(opt => !q || pivotProductOptionMatches(opt, q, filterOptionAliases))
             .map(opt => (
             <label key={opt} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px',
               fontSize:11, cursor:'pointer',
@@ -931,6 +932,10 @@ export default function Pivot() {
   const { countryOptions, flowerOptions, prodNameOptions } = useMemo(
     () => buildPivotDimensionOptions(data?.rows, filters),
     [data, filters],
+  );
+  const prodNameSearchAliases = useMemo(
+    () => buildPivotProductSearchAliases(data?.rows || []),
+    [data],
   );
 
   // ── Filter Editor: 필드 → row 키 매핑
@@ -1796,6 +1801,7 @@ export default function Pivot() {
                   filter={filters.flower}  filterOptions={flowerOptions}/>
                 <ColHeader label="품목명(색상)" sortKey="prodName" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
                   filter={filters.prodName} filterOptions={prodNameOptions}
+                  filterOptionAliases={prodNameSearchAliases}
                   style={{borderRight:'2px solid var(--border2)'}}/>
                 {showArea     && <ColHeader label="지역" sortKey="area" sorts={sorts} onSort={handleSort} onFilter={handleFilter}
                   filter={filters.area} filterOptions={areaOptions}/>}
