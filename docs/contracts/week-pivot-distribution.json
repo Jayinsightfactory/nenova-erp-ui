@@ -12,7 +12,8 @@
     "pages/api/shipment/item-trace.js",
     "lib/shipmentFarmAssignments.js",
     "lib/shipmentFarmCandidates.js",
-    "components/PivotFarmAssignmentModal.js"
+    "components/PivotFarmAssignmentModal.js",
+    "pages/orders/paste.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -30,6 +31,16 @@
       "name": "CANCEL",
       "orderDetail": "preserve",
       "shipmentDetail": "decrease"
+    },
+    {
+      "name": "AUTO_CANCEL_DISTRIBUTION_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "decrease"
+    },
+    {
+      "name": "AUTO_CANCEL_ORDER_ONLY",
+      "orderDetail": "decrease",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {

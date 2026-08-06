@@ -2023,12 +2023,12 @@ export default function PasteOrderPage() {
     }
   };
 
-  // 일괄 등록+분배 — 입력 텍스트의 action(추가/취소) 그대로 ADD/CANCEL 호출
+  // 일괄 등록+분배 — 추가는 ADD, 취소는 AUTO_CANCEL로 실제 DB 원장을 확인해 호출
   // 사용 시점: 텍스트 파싱 후 [🚀 일괄 등록+분배] 버튼 클릭
   // 동작:
   //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
-  //   - "1 박스 취소" 입력 → adjust CANCEL qty=1 → OrderDetail-1 + ShipmentDetail-1
-  //     (붙여넣기가 0에서 만든 주문은 분배가 0으로 돌아가면 자동 삭제)
+  //   - "1 박스 취소" 입력 → 활성 분배가 있으면 ShipmentDetail만 -1,
+  //     없으면 OrderDetail만 -1 (ShipmentMaster/ShipmentDetail 신규 생성 금지)
   // 주의: adjust API 의 ADD 가 이미 OrderDetail+ShipmentDetail 동시 처리하므로
   //       handleRegister 별도 호출 불필요.
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -2091,7 +2091,7 @@ export default function PasteOrderPage() {
       ? `\n\n⚠️ 아래 ${excluded.length}개는 전산에 등록되지 않습니다(매칭 필요):\n${excluded.join('\n')}`
       : '';
 
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 주문등록+분배 동시 − / 0이 되면 주문상세 삭제)`)) return;
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
@@ -2103,6 +2103,7 @@ export default function PasteOrderPage() {
           body: JSON.stringify({
             custKey: order.custMatch.CustKey, prodKey: t.prodKey, week,
             type, qty: t.qty, unit: t.unit,
+            ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
             memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
             force: true,
           }),
@@ -2261,6 +2262,7 @@ export default function PasteOrderPage() {
         body: JSON.stringify({
           custKey: adjustModal.custKey, prodKey: adjustModal.prodKey, week: adjustModal.week,
           type: adjustModal.type, qty: delta, unit: adjustModal.unit,
+          ...(adjustModal.type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
           memo: '붙여넣기 등록 후 분배조정', force,
         }),
       });
@@ -2344,7 +2346,8 @@ export default function PasteOrderPage() {
           descr: extractMoqText(prod),
         };
       });
-    const items = registerItems.map(it => ({
+    const cancelItems = registerItems.filter(it => it.qty < 0);
+    const items = registerItems.filter(it => it.qty > 0).map(it => ({
       prodKey: it.prodKey,
       prodName: it.prodName,
       qty: it.qty,
@@ -2352,7 +2355,7 @@ export default function PasteOrderPage() {
       descr: it.descr,
     }));
 
-    if (items.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 품목이 없습니다.'); return; }
+    if (items.length === 0 && cancelItems.length === 0) { await flog('0건차단', `미매칭으로 API 미호출`); alert('등록할 품목이 없습니다.'); return; }
 
     const { week: orderWeek, year: orderYear } = resolveOrderWeekQuery(week);
 
@@ -2371,42 +2374,74 @@ export default function PasteOrderPage() {
     } catch { /* 스냅샷 실패해도 등록은 진행 */ }
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste' }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        const okCount = d.results?.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length ?? items.length;
-        updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료 (${order.custMatch.CustName} / ${formatWeekDisplay(week)}) — OrderKey: ${d.orderMasterKey}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
+      // 취소는 현재 DB에 활성 분배가 있으면 분배만, 없으면 주문만 취소한다.
+      // 취소를 먼저 처리해 실패 시 양수 주문등록이 뒤늦게 저장되지 않도록 한다.
+      const cancelResults = [];
+      for (const item of cancelItems) {
+        const res = await fetch('/api/shipment/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            custKey: order.custMatch.CustKey,
+            prodKey: item.prodKey,
+            week: orderWeek,
+            year: orderYear,
+            type: 'CANCEL',
+            qty: Math.abs(Number(item.qty || 0)),
+            unit: item.unit,
+            mode: 'AUTO_CANCEL',
+            memo: `붙여넣기 주문 취소: ${item.prodName} ${Math.abs(Number(item.qty || 0))}${item.unit}`,
+          }),
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error || `${item.prodName} 취소 실패`);
+        cancelResults.push({ ...item, status: 'CANCELLED', mode: result.mode, policyReason: result.policyReason });
+      }
+
+      let d = { success: true, results: [], orderMasterKey: null, warning: null };
+      if (items.length > 0) {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste' }),
+        });
+        d = await res.json();
+        if (!d.success) throw new Error(d.error || '주문등록 실패');
+      }
+
+      const orderResults = d.results || [];
+      const okCount = orderResults.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length + cancelResults.length;
+      const cancelText = cancelResults.length ? ` / 취소 자동분기 ${cancelResults.length}건` : '';
+      updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료${cancelText} (${order.custMatch.CustName} / ${formatWeekDisplay(week)})${d.orderMasterKey ? ` — OrderKey: ${d.orderMasterKey}` : ''}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
+
+      // 취소는 분배만 바뀔 수 있으므로 저장 직후 화면 임시값을 만들지 않고 DB를 재조회한다.
+      if (!cancelItems.length) {
         const fallbackPreview = buildRegisterRegisteredFallback(order, registerItems, prevSnapshot, prevItems, registeredOrders[oid]);
         setRegisteredOrders(prev => ({
           ...prev,
           [oid]: buildRegisterRegisteredFallback(order, registerItems, prevSnapshot, prevItems, prev[oid]),
         }));
         await fetchShipmentQtys(order.custMatch.CustKey, week, fallbackPreview.items.map(i => i.prodKey));
-        if (order.pendingCustomerLearning) {
-          learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
-          updateOrder(oid, { pendingCustomerLearning: null });
-        }
-        try {
-          const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
-          if (od.success && od.orders?.length > 0) {
-            const matched = pickOrderForWeek(od.orders, order.custMatch.CustName, week);
-            if (matched) {
-              setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot } }));
-              await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
-            }
-          }
-        } catch { /* 조회 실패해도 저장은 완료 */ }
-        loadOrderHistorySummary(week, orders);
-      } else {
-        updateOrder(oid, { saving: false, resultMsg: `❌ ${d.error || '저장 실패'}` });
       }
+      if (order.pendingCustomerLearning) {
+        learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+        updateOrder(oid, { pendingCustomerLearning: null });
+      }
+      try {
+        const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
+        if (od.success && od.orders?.length > 0) {
+          const matched = pickOrderForWeek(od.orders, order.custMatch.CustName, week);
+          if (matched) {
+            setRegisteredOrders(prev => ({ ...prev, [oid]: { ...matched, prevSnapshot } }));
+            await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+          }
+        }
+      } catch { /* 조회 실패해도 저장은 완료 */ }
+      loadOrderHistorySummary(week, orders);
     } catch (e) {
-      updateOrder(oid, { saving: false, resultMsg: `❌ 네트워크 오류: ${e.message}` });
+      updateOrder(oid, { saving: false, resultMsg: `❌ 취소/주문등록 실패: ${e.message}` });
     }
   };
 
@@ -3726,7 +3761,7 @@ export default function PasteOrderPage() {
               {adjustModal.custName} / {adjustModal.prodName}
               <br />
               <span style={{ fontSize: 11, color: '#999' }}>
-                {adjustModal.type === 'ADD' ? '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 +' : '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 −'}
+                {adjustModal.type === 'ADD' ? '주문등록(OrderDetail)+분배(ShipmentDetail) 동시 +' : '분배가 있으면 분배(ShipmentDetail)만 −, 없으면 주문등록(OrderDetail)만 −'}
               </span>
             </div>
 

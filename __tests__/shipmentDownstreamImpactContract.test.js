@@ -21,7 +21,8 @@ assert.doesNotMatch(farmApi, /\b(?:Estimate|WebProfitReport|ReceivableLedger|Tax
 // 차수피벗 ADD/CANCEL은 주문·출고 수량과 금액을 함께 다룰 수 있는 유일한
 // 경로이므로 명시적 mode/policy와 ShipmentFarm 후보 검증을 유지한다.
 assert.match(adjust, /isPivotDistributionMode\(mode\)/);
-assert.match(adjust, /resolvePivotAdjustmentPolicy\(\{ mode, type, hasActiveOrder \}\)/);
+assert.match(adjust, /resolvePivotAdjustmentPolicy\(\{ mode, type, hasActiveOrder, hasActiveShipment \}\)/);
+assert.match(adjust, /isAutoCancelMode\(mode\)/);
 assert.match(adjust, /FARM_CANDIDATE_SCOPE_SQL/);
 
 // 견적은 EXE와 동일하게 ViewShipment + ViewOrder + ShipmentDate + PeriodDay

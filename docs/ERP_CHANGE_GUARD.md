@@ -233,3 +233,16 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 회귀를 검사한다. 운영에서 “주문만 했는데 분배가 생김”, “엑셀 재고값이 분배에
 영향을 줌”, “0수량이 신규 분배를 만듦”을 확인할 때는 감사키로 해당 행을 먼저
 조회하고, 이후 `ShipmentHistory`와 `SystemActionLog`의 시간·사용자·작업을 대조한다.
+
+## 2026-08-05 붙여넣기 취소·분배조정 자동 분기
+
+취소 명령은 현재 화면의 주문수량이 아니라 같은 연도·차수·업체·품목의 실제
+`ShipmentDetail.OutQuantity`를 같은 트랜잭션에서 확인해 다음처럼 처리한다.
+
+- 활성 분배가 있으면 `AUTO_CANCEL`로 `ShipmentDetail`·`ShipmentDate`·농장분배만 취소하고 `OrderDetail`은 보존한다.
+- 활성 분배가 없으면 `OrderDetail`만 취소하고 `ShipmentMaster`·`ShipmentDetail`을 새로 만들거나 삭제하지 않는다.
+- 취소량이 현재 분배 또는 주문수량을 초과하면 전체 트랜잭션을 롤백하고, 초과량을 자동으로 음수로 남기지 않는다.
+- `DB 저장 내역`의 분배조정과 붙여넣기 취소는 동일한 `AUTO_CANCEL` 서버 정책을 사용한다. 차수피벗의 기존 `PIVOT_DISTRIBUTION` 정책은 그대로 유지한다.
+
+이 계약은 `lib/pivotAdjustmentPolicy.js`, `pages/api/shipment/adjust.js`,
+`pages/orders/paste.js`와 `__tests__/shipmentPivotAdjustContract.test.js`가 검사한다.

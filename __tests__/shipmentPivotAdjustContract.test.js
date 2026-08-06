@@ -8,6 +8,7 @@ async function main() {
   const stockStatus = fs.readFileSync(path.join(root, 'pages/api/shipment/stock-status.js'), 'utf8');
   const startStockText = fs.readFileSync(path.join(root, 'pages/api/shipment/start-stock-text.js'), 'utf8');
   const pivot = fs.readFileSync(path.join(root, 'pages/shipment/week-pivot.js'), 'utf8');
+  const paste = fs.readFileSync(path.join(root, 'pages/orders/paste.js'), 'utf8');
   const { resolvePivotAdjustmentPolicy } = await import('../lib/pivotAdjustmentPolicy.js');
 
   const cases = [
@@ -33,14 +34,29 @@ async function main() {
       label: 'CANCEL + 주문 없음 = 분배만',
       input: { mode: 'PIVOT_DISTRIBUTION', type: 'CANCEL', hasActiveOrder: false },
       mutateOrder: false,
+      mutateShipment: true,
       reason: 'pivot_cancel_distribution_only',
+    },
+    {
+      label: 'AUTO_CANCEL + 활성 분배 있음 = 분배만 취소',
+      input: { mode: 'AUTO_CANCEL', type: 'CANCEL', hasActiveOrder: true, hasActiveShipment: true },
+      mutateOrder: false,
+      mutateShipment: true,
+      reason: 'auto_cancel_distribution_only',
+    },
+    {
+      label: 'AUTO_CANCEL + 활성 분배 없음 = 주문만 취소',
+      input: { mode: 'AUTO_CANCEL', type: 'CANCEL', hasActiveOrder: true, hasActiveShipment: false },
+      mutateOrder: true,
+      mutateShipment: false,
+      reason: 'auto_cancel_order_only',
     },
   ];
 
   for (const tc of cases) {
     const result = resolvePivotAdjustmentPolicy(tc.input);
     assert.equal(result.mutateOrder, tc.mutateOrder, tc.label);
-    assert.equal(result.mutateShipment, true, `${tc.label}: 분배 변경은 항상 수행`);
+    assert.equal(result.mutateShipment, tc.mutateShipment ?? true, `${tc.label}: 분배 변경 정책`);
     assert.equal(result.reason, tc.reason, `${tc.label}: 감사 사유`);
   }
 
@@ -68,6 +84,9 @@ async function main() {
     /hasActiveOrder\s*=\s*Boolean\(odRow\s*&&\s*orderQtyBefore\s*>\s*0\.0001\)/,
     '현재연도·업체·품목의 실제 양수 주문 존재 여부로 정책을 선택해야 한다.'
   );
+  assert.match(adjust, /hasActiveShipment\s*=\s*Boolean\(autoShipmentDetail[\s\S]*curOut[\s\S]*0\.0001\)/, 'AUTO_CANCEL은 실제 활성 분배 존재 여부로 주문/분배를 분기해야 한다.');
+  assert.match(adjust, /if \(autoCancel && !adjustmentPolicy\.mutateShipment\)/, '분배가 없는 AUTO_CANCEL은 Shipment 원장을 건드리지 않고 주문만 취소해야 한다.');
+  assert.match(paste, /mode: 'AUTO_CANCEL'/, '붙여넣기 취소는 AUTO_CANCEL 서버 분기를 사용해야 한다.');
   assert.match(
     adjust,
     /OrderMaster[\s\S]*?CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk/,
