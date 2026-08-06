@@ -1,0 +1,44 @@
+{
+  "id": "pivot-stats",
+  "title": "피벗 통계 품목 필터 검색 계약",
+  "scope": [
+    "pages/stats/pivot.js",
+    "lib/pivotProductSearch.js",
+    "lib/pivotFilterOptions.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "PIVOT_STATS_PRODUCT_FILTER_SEARCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 품목명·차수명이 여러 연도에 있어도 별칭 검색은 현재 조회된 피벗 rows의 canonical 품목 옵션만 필터링하고 다른 연도 원장을 조회·수정하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/pivotProductSearch.test.js",
+    "__tests__/pivotFilterOptions.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormQuantityPivot.md",
+    "source": "FormQuantityPivot의 Product 차원 표시와 기존 exe parity registry 기록을 기준으로 read-only 품목 필터 별칭만 보강한다.",
+    "methods": [
+      "FormQuantityPivot read-only product dimension",
+      "FormQuantityPivot canonical product label filter"
+    ],
+    "tables": ["Product", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run test:pivot",
+    "npm run build"
+  ],
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ProductStock", "Estimate"]
+}
