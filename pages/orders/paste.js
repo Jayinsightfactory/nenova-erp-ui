@@ -9,6 +9,7 @@ import StockNotePicker from '../../components/orders/StockNotePicker';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
+import { getProductUsageRank, rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import CollapsibleTop from '../../components/CollapsibleTop';
@@ -1649,7 +1650,7 @@ export default function PasteOrderPage() {
   };
 
   const handleProdSearch = (oid, idx, q) => {
-    const results = q ? filterProducts(allProducts, q).slice(0, 10) : [];
+    const results = q ? rankProductSearchOptions(q, allProducts, { limit: 10 }) : [];
     updateItem(oid, idx, { prodSearch: q, prodSearchResults: results });
   };
 
@@ -1819,6 +1820,8 @@ export default function PasteOrderPage() {
       })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
+        const usageDiff = getProductUsageRank(b.prod).rank - getProductUsageRank(a.prod).rank;
+        if (usageDiff) return usageDiff;
         const an = getDisplayName(a.prod) || a.prod.ProdName || '';
         const bn = getDisplayName(b.prod) || b.prod.ProdName || '';
         return an.localeCompare(bn, 'ko');
@@ -3394,7 +3397,7 @@ export default function PasteOrderPage() {
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
                                   {moqText && <span style={{ fontSize: 10, background: '#fff3e0', color: '#ef6c00', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{moqText}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
-                                  <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: it.prodEditOpen ? [] : filterProducts(allProducts, it.inputName || '').slice(0, 10) })}
+                                  <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: it.prodEditOpen ? [] : rankProductSearchOptions(it.inputName || '', allProducts, { limit: 10 }) })}
                                     style={{ fontSize: 10, padding: '1px 6px', background: it.prodEditOpen ? '#1565c0' : 'none', color: it.prodEditOpen ? '#fff' : '#777', border: '1px solid #bbb', borderRadius: 3, cursor: 'pointer', marginLeft: 'auto' }}>
                                     {it.prodEditOpen ? '닫기' : '✎ 품목변경'}
                                   </button>

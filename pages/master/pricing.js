@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPut } from '../../lib/useApi';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const LS = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
@@ -287,9 +288,10 @@ export default function Pricing() {
   const sortedProducts = useMemo(() => {
     if (!searched || products.length === 0) return products;
     let list = hideNoCost ? products.filter(p => hasCostMap[p.ProdKey]) : [...products];
+    list = rankProductSearchOptions(prodSearch, list, { limit: list.length });
     if (sortByHasCost) list.sort((a, b) => (hasCostMap[a.ProdKey] ? 0 : 1) - (hasCostMap[b.ProdKey] ? 0 : 1));
     return list;
-  }, [products, hasCostMap, hideNoCost, sortByHasCost, searched]);
+  }, [products, hasCostMap, hideNoCost, sortByHasCost, searched, prodSearch]);
 
   const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 

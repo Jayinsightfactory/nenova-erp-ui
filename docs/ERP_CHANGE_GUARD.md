@@ -246,3 +246,23 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 
 이 계약은 `lib/pivotAdjustmentPolicy.js`, `pages/api/shipment/adjust.js`,
 `pages/orders/paste.js`와 `__tests__/shipmentPivotAdjustContract.test.js`가 검사한다.
+
+## 2026-08-06 공통 품목검색 랭킹
+
+품목 검색은 화면별로 `ProdName` 문자열을 따로 정렬하지 않고
+`lib/productSearchRanking.js`의 공통 점수 계산기를 사용한다. 검색어가 있으면
+정확·직접 별칭·한글/영문 자연어 일치도를 먼저 적용하고, 같은 후보군 안에서
+`OrderDetail` 전체 사용량, 최근 2년 사용량, 저장된 주문 매칭 빈도를 보조 점수로
+사용한다. 업체·국가·품종을 명시한 업무 화면은 이 공통 순서에 업무 필터/보정만
+추가하며, 검색 결과를 자동으로 `ProdKey`에 저장하지 않는다.
+
+| 동작 | Product | OrderDetail | Shipment/Estimate/Stock |
+|---|---|---|---|
+| 품목 검색·그룹 목록·견적 드롭다운·주문등록 후보 표시 | 읽기 | 읽기 | 보존 |
+| 사용자가 검색 후보를 선택 | 선택한 `ProdKey`만 다음 입력/등록 단계로 전달 | 보존 | 선택 전에는 보존 |
+
+`/api/products/search`의 검색어·그룹·전체조회와 주문등록/영업수입불량차감의
+후보 생성은 같은 랭킹 규칙을 사용한다. `문라이트`처럼 직접 별칭 후보가 있으면
+`Candlelight`처럼 일부 문자열만 겹치는 퍼지 후보를 뒤섞지 않으며, 직접 후보가
+없을 때만 오타 후보를 허용한다. 이 계약은 `PRODUCT_LOOKUP_USAGE_RANK`와
+`__tests__/salesDefectDeductions.test.js`가 회귀를 검사한다.

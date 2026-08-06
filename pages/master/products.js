@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
 import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/displayName';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 
 export default function Products() {
@@ -30,9 +31,9 @@ export default function Products() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = products
+  const filtered = rankProductSearchOptions(search, products
     .filter(p => !showOnlyNoAlias || !p.DisplayName)
-    .filter(p => !search || filterProducts([p], search).length > 0);
+    .filter(p => !search || filterProducts([p], search).length > 0), { limit: products.length });
 
   const handleSave = async () => {
     setSaving(true);

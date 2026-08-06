@@ -10,6 +10,7 @@ import { apiGetExe } from '../../lib/exeParity/client.js';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 import { useColumnResize } from '../../lib/useColumnResize';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const CUSTOMER_FAV_PAGE = 'orders-customer';
@@ -251,9 +252,7 @@ export default function OrderNew() {
   };
 
   // ── 필터된 품목 (중간 패널 - 검색어만 적용, 그룹은 이미 서버에서 필터됨)
-  const filteredProds = prodList.filter(p =>
-    !prodSearch || p.ProdName.toLowerCase().includes(prodSearch.toLowerCase())
-  );
+  const filteredProds = rankProductSearchOptions(prodSearch, prodList, { limit: 200 });
 
   const custMgrList = useMemo(() => (
     [...new Set(allCusts.map(c => c.Manager || '미지정'))].sort((a, b) => a.localeCompare(b, 'ko'))

@@ -29,6 +29,11 @@ function addMappingUsage(products) {
   }));
 }
 
+function rankAllProductRows(products = []) {
+  const enriched = addMappingUsage(products);
+  return rankProductSearchOptions('', enriched, { limit: enriched.length || 200 });
+}
+
 export default withAuth(async function handler(req, res) {
   const { q, flower, country, groupsOnly, refresh } = req.query;
 
@@ -70,21 +75,28 @@ export default withAuth(async function handler(req, res) {
           ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
           ISNULL(p.SteamOf1Box,0)   AS SteamOf1Box,
           ISNULL(p.Stock,0)         AS Stock,
-          ISNULL(oc.orderCount, 0)  AS orderCount
+          ISNULL(pu.UsageCount,0) AS UsageCount,
+          ISNULL(pu.RecentUsageCount,0) AS RecentUsageCount,
+          ISNULL(pu.UsageCount,0) AS orderCount
          FROM Product p
          LEFT JOIN (
-           SELECT ProdKey, COUNT(*) AS orderCount
-           FROM OrderDetail WHERE isDeleted = 0
-           GROUP BY ProdKey
-         ) oc ON p.ProdKey = oc.ProdKey
+           SELECT od.ProdKey,
+                  COUNT_BIG(*) AS UsageCount,
+                  SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+             FROM OrderDetail od
+             LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+            WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+            GROUP BY od.ProdKey
+         ) pu ON p.ProdKey = pu.ProdKey
          WHERE p.isDeleted = 0 AND p.CounName = @country AND p.FlowerName = @flower
-         ORDER BY ISNULL(oc.orderCount,0) DESC, p.ProdName`,
+         ORDER BY ISNULL(pu.UsageCount,0) DESC, ISNULL(pu.RecentUsageCount,0) DESC, p.ProdName`,
         {
           country: { type: sql.NVarChar, value: country },
           flower:  { type: sql.NVarChar, value: flower },
         }
       );
-      return res.status(200).json({ success: true, count: result.recordset.length, products: result.recordset });
+      const products = rankAllProductRows(result.recordset);
+      return res.status(200).json({ success: true, count: products.length, products });
     }
 
     // ── 모드 3: 검색어로 전체 검색 (q 있을 때)
@@ -158,10 +170,11 @@ export default withAuth(async function handler(req, res) {
         global._prodCache.data = addMappingUsage(result.recordset);
       global._prodCache.updatedAt = Date.now();
     }
+    const products = rankAllProductRows(global._prodCache.data);
     return res.status(200).json({
       success: true,
-      count: global._prodCache.data.length,
-      products: global._prodCache.data,
+      count: products.length,
+      products,
     });
 
   } catch (err) {

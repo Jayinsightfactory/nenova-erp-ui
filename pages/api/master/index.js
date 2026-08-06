@@ -1,6 +1,8 @@
 // pages/api/master/index.js — 기준정보 CRUD (실제 DB)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
+import { loadMappings } from '../../../lib/parseMappings.js';
 
 export default withAuth(async function handler(req, res) {
   const { entity } = req.query;
@@ -25,13 +27,32 @@ async function getList(req, res, entity) {
     }
     if (entity === 'products') {
       result = await query(
-        `SELECT ProdKey, ProdCode, ProdName, DisplayName, ProdGroup, FlowerName, CounName,
-          Cost, OutUnit, EstUnit, BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
-          BoxWeight, BoxCBM, TariffRate,
-          Stock, isDeleted, Descr
-         FROM Product WHERE isDeleted=0 ORDER BY CounName, FlowerName, ProdName`
+        `SELECT p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName, p.ProdGroup, p.FlowerName, p.CounName,
+          p.Cost, p.OutUnit, p.EstUnit, p.BunchOf1Box, p.SteamOf1Bunch, p.SteamOf1Box,
+          p.BoxWeight, p.BoxCBM, p.TariffRate,
+          p.Stock, p.isDeleted, p.Descr,
+          ISNULL(u.UsageCount,0) AS UsageCount,
+          ISNULL(u.RecentUsageCount,0) AS RecentUsageCount,
+          ISNULL(u.UsageCount,0) AS orderCount
+         FROM Product p
+         LEFT JOIN (
+           SELECT od.ProdKey,
+                  COUNT_BIG(*) AS UsageCount,
+                  SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+             FROM OrderDetail od
+             LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+            WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+            GROUP BY od.ProdKey
+         ) u ON u.ProdKey=p.ProdKey
+        WHERE p.isDeleted=0
+        ORDER BY p.CounName, p.FlowerName, p.ProdName`
       );
-      return res.status(200).json({ success: true, source: 'real_db', data: result.recordset });
+      const mappingStats = buildProductMappingStats(loadMappings());
+      const data = result.recordset.map((product) => ({
+        ...product,
+        MappingCount: Number(mappingStats.get(Number(product.ProdKey))?.count || 0),
+      }));
+      return res.status(200).json({ success: true, source: 'real_db', data });
     }
     if (entity === 'pricing') {
       const { custKey, prodGroup } = req.query;

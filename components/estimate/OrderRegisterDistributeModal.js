@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
-import { filterProducts } from '../../lib/displayName';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { ensureWeekCanDistribute } from '../../lib/ensureWeekCanDistribute';
 
 function buildFullWeek(yearStr, shortWeek) {
@@ -250,7 +250,7 @@ export default function OrderRegisterDistributeModal({
             <div style={{ display: 'grid', gap: 8 }}>
               {lines.map((line) => {
                 const prodResults = line.prodSearch.trim()
-                  ? filterProducts(products, line.prodSearch).slice(0, 8)
+                  ? rankProductSearchOptions(line.prodSearch, products, { limit: 8 })
                   : [];
                 return (
                   <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '72px 1fr 72px 64px 32px', gap: 8, alignItems: 'start' }}>

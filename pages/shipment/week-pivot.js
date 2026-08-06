@@ -7,6 +7,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { suggestDisplayName } from '../../lib/displayName';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { buildWeekPivotDimensionOptions } from '../../lib/pivotFilterOptions';
 import { isWeekPivotCellFixed, weekPivotFixState } from '../../lib/weekPivotFix';
@@ -107,9 +108,8 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     let list = prods;
     if (selCoun)   list = list.filter(p=>p.CounName===selCoun);
     if (selFlower) list = list.filter(p=>p.FlowerName===selFlower);
-    if (prodSearch) { const q=prodSearch.toLowerCase(); list=list.filter(p=>p.ProdName?.toLowerCase().includes(q)||p.DisplayName?.toLowerCase().includes(q)||p.FlowerName?.toLowerCase().includes(q)||p.CounName?.toLowerCase().includes(q)); }
-    list = [...list].sort((a,b)=>(prodCounts[b.ProdKey]||0)-(prodCounts[a.ProdKey]||0));
-    return list.slice(0, 200);
+    const enriched = list.map(p => ({ ...p, UsageCount: p.UsageCount ?? prodCounts[p.ProdKey] ?? 0 }));
+    return rankProductSearchOptions(prodSearch, enriched, { limit: 200 });
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
 
   // ── 분배 동시 적용 체크박스
@@ -2108,7 +2108,7 @@ export default function WeekPivot() {
                     style={{width:'100%',padding:'6px 9px',border:'1px solid #ccc',borderRadius:5,fontSize:12,marginBottom:6}} />
                   <div style={{border:'1px solid #e0e0e0',borderRadius:6,maxHeight:240,overflow:'auto'}}>
                     {vmProds==null?<div style={{padding:10,fontSize:11,color:'#999'}}>목록 로딩중...</div>:
-                      (vmProds.filter(p=>{const q=vProdSearch.toLowerCase();return !q||p.ProdName?.toLowerCase().includes(q)||p.DisplayName?.toLowerCase().includes(q)||p.CounName?.toLowerCase().includes(q)||p.FlowerName?.toLowerCase().includes(q);}).slice(0,80).map(p=>{
+                      (rankProductSearchOptions(vProdSearch, vmProds, { limit: 80 }).map(p=>{
                         const added=vProds.some(x=>x.ProdKey===p.ProdKey);
                         return (
                           <div key={p.ProdKey} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 8px',borderBottom:'1px solid #f0f0f0',fontSize:12}}>

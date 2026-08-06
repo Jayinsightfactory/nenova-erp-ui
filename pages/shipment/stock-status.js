@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, createContext
 // Layout은 _app.js에서 이미 감싸므로 별도 import 불필요
 import { WeekInput, useWeekInput } from '../../lib/useWeekInput';
 import { isWeekPivotCellFixed } from '../../lib/weekPivotFix';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────────────────────
@@ -161,14 +162,8 @@ function AddOrderModal({ weekFrom, weekTo, onClose, onSuccess }) {
     let list = prods;
     if (selCoun) list = list.filter(p => p.CounName === selCoun);
     if (selFlower) list = list.filter(p => p.FlowerName === selFlower);
-    if (prodSearch) {
-      const q = prodSearch.toLowerCase();
-      list = list.filter(p =>
-        p.ProdName?.toLowerCase().includes(q) || p.DisplayName?.toLowerCase().includes(q) || p.FlowerName?.toLowerCase().includes(q) || p.CounName?.toLowerCase().includes(q));
-    }
-    // 인기순 정렬
-    list = [...list].sort((a,b) => (prodCounts[b.ProdKey]||0) - (prodCounts[a.ProdKey]||0));
-    return list.slice(0, 200);
+    const enriched = list.map(p => ({ ...p, UsageCount: p.UsageCount ?? prodCounts[p.ProdKey] ?? 0 }));
+    return rankProductSearchOptions(prodSearch, enriched, { limit: 200 });
   }, [prods, prodSearch, selCoun, selFlower, prodCounts]);
 
   // 카트: { cust:{CustKey,CustName}, prod, qty, unit, existQty, existOut }

@@ -6,6 +6,7 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { saveRaumItemMap } from '../../../lib/raumPnl';
 import { scoreMatch } from '../../../lib/displayName';
+import { rankProductSearchOptions } from '../../../lib/productSearchRanking.js';
 import { buildRaumMatchName } from '../../../lib/raumPnlImage';
 
 export default withAuth(async function handler(req, res) {
@@ -29,8 +30,19 @@ export default withAuth(async function handler(req, res) {
       const r = await query(
         `SELECT TOP 300 p.ProdKey, p.ProdName, ISNULL(p.DisplayName,'') AS DisplayName,
                 ISNULL(p.FlowerName,'') AS FlowerName, ISNULL(p.CounName,'') AS CounName,
-                ISNULL(p.OutUnit,'') AS OutUnit, ISNULL(p.Cost,0) AS Cost
+                ISNULL(p.OutUnit,'') AS OutUnit, ISNULL(p.Cost,0) AS Cost,
+                ISNULL(u.UsageCount,0) AS UsageCount,
+                ISNULL(u.RecentUsageCount,0) AS RecentUsageCount
            FROM Product p
+          LEFT JOIN (
+            SELECT od.ProdKey,
+                   COUNT_BIG(*) AS UsageCount,
+                   SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+              FROM OrderDetail od
+              LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+             WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+             GROUP BY od.ProdKey
+          ) u ON u.ProdKey=p.ProdKey
           WHERE p.isDeleted = 0
             AND (${searchClauses.length ? searchClauses.join(' OR ') : '1=0'})`,
         params
@@ -42,10 +54,11 @@ export default withAuth(async function handler(req, res) {
             scoreMatch(term, product, ''),
             scoreMatch(matchName, product, ''),
           ),
-        }))
-        .sort((a, b) => b.MatchScore - a.MatchScore || String(a.ProdName).localeCompare(String(b.ProdName)))
-        .slice(0, 50);
-      return res.status(200).json({ success: true, products });
+        }));
+      const ranked = rankProductSearchOptions(matchName || term, products, { limit: 50 });
+      const scoreByKey = new Map(products.map(p => [Number(p.ProdKey), p.MatchScore]));
+      const ordered = ranked.map(p => ({ ...p, MatchScore: scoreByKey.get(Number(p.ProdKey)) || 0 }));
+      return res.status(200).json({ success: true, products: ordered });
     }
 
     if (req.method === 'POST') {

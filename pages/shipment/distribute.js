@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
@@ -727,7 +728,7 @@ export default function Distribute() {
     } catch(e) { setErr(e.message); } finally { setSaving(false); }
   };
 
-  const filteredProds = products.filter(p => !prodFilter || (p.DisplayName || p.ProdName).toLowerCase().includes(prodFilter.toLowerCase()) || p.ProdName.toLowerCase().includes(prodFilter.toLowerCase()));
+  const filteredProds = rankProductSearchOptions(prodFilter, products, { limit: 500 });
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
   const remain = (inQty||0) - totalOutInput;
 

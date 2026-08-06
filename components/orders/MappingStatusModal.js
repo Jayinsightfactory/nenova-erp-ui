@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
 import { filterProducts, getDisplayName } from '../../lib/displayName';
+import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 
 const FALLBACK_THRESHOLD = 5;
 
@@ -147,13 +148,9 @@ export default function MappingStatusModal({ open, onClose }) {
     if (!editKeys.length || !products) return [];
     const q = editQuery.trim().toLowerCase();
     if (!q) return [];
-    const toks = q.split(/\s+/).filter(Boolean);
-    const hay = p => `${p.ProdName || ''} ${p.DisplayName || ''} ${p.FlowerName || ''} ${p.CounName || ''}`.toLowerCase();
-    const andHits = products.filter(p => { const h = hay(p); return toks.every(t => h.includes(t)); });
-    const fuzzy = filterProducts(products, editQuery).slice(0, 20);
-    const seen = new Set(); const out = [];
-    for (const p of [...andHits, ...fuzzy]) { const k = Number(p.ProdKey); if (!seen.has(k)) { seen.add(k); out.push(p); } }
-    return out.slice(0, 20);
+    const ranked = rankProductSearchOptions(editQuery, products, { limit: 20 });
+    if (ranked.length) return ranked;
+    return filterProducts(products, editQuery).slice(0, 20);
   }, [editKeys, products, editQuery]);
 
   // ── 거래처명 오염 감지 (품목 매핑 키에 거래처 이름이 섞인 경우)

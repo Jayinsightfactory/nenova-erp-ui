@@ -63,10 +63,21 @@ async function getMatrix(req, res) {
       query(`SELECT DISTINCT CounName FROM Product WHERE isDeleted=0 AND CounName IS NOT NULL AND CounName<>'' ORDER BY CounName`),
       query(`SELECT DISTINCT FlowerName FROM Product WHERE isDeleted=0 AND FlowerName IS NOT NULL AND FlowerName<>'' ORDER BY FlowerName`),
       query(
-        `SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.Cost AS DefaultCost
+        `SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.Cost AS DefaultCost,
+                ISNULL(u.UsageCount,0) AS UsageCount,
+                ISNULL(u.RecentUsageCount,0) AS RecentUsageCount
          FROM Product p
+         LEFT JOIN (
+           SELECT od.ProdKey,
+                  COUNT_BIG(*) AS UsageCount,
+                  SUM(CASE WHEN om.OrderDtm >= DATEADD(year,-2,GETDATE()) THEN 1 ELSE 0 END) AS RecentUsageCount
+             FROM OrderDetail od
+             LEFT JOIN OrderMaster om ON om.OrderMasterKey=od.OrderMasterKey
+            WHERE ISNULL(od.isDeleted,0)=0 AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey IS NOT NULL
+            GROUP BY od.ProdKey
+         ) u ON u.ProdKey=p.ProdKey
          ${prodWhere}
-         ORDER BY p.CounName, p.FlowerName, p.ProdName`,
+         ORDER BY ISNULL(u.UsageCount,0) DESC, ISNULL(u.RecentUsageCount,0) DESC, p.CounName, p.FlowerName, p.ProdName`,
         prodParams
       ),
     ]);

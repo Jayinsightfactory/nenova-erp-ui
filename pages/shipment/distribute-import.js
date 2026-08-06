@@ -1410,7 +1410,11 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
             if (flower && ctx.includes(flower)) s += 1;
             return s;
           };
-          list.sort((a, b) => score(b) - score(a));
+          list.sort((a, b) => score(b) - score(a)
+            || Number(b.MatchScore || 0) - Number(a.MatchScore || 0)
+            || Number(b.UsageCount || b.orderCount || 0) - Number(a.UsageCount || a.orderCount || 0)
+            || Number(b.RecentUsageCount || 0) - Number(a.RecentUsageCount || 0)
+            || Number(b.MappingCount || 0) - Number(a.MappingCount || 0));
         }
         setRemote(list.slice(0, 200));
       } catch {

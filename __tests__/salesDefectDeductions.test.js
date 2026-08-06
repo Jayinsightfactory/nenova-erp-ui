@@ -93,6 +93,15 @@ const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
+const orderImportSource = fs.readFileSync('lib/orderImportMatch.js', 'utf8');
+const distributeImportSource = fs.readFileSync('pages/shipment/distribute-import.js', 'utf8');
+const masterProductsApiSource = fs.readFileSync('pages/api/master/index.js', 'utf8');
+const orderNewSource = fs.readFileSync('pages/orders/new.js', 'utf8');
+const orderPasteSource = fs.readFileSync('pages/orders/paste.js', 'utf8');
+const weekPivotSource = fs.readFileSync('pages/shipment/week-pivot.js', 'utf8');
+const stockStatusSource = fs.readFileSync('pages/shipment/stock-status.js', 'utf8');
+const distributeSource = fs.readFileSync('pages/shipment/distribute.js', 'utf8');
+const mappingStatusSource = fs.readFileSync('components/orders/MappingStatusModal.js', 'utf8');
 const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
 const estimateEditApiSource = fs.readFileSync('pages/api/estimate/update-entry.js', 'utf8');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
@@ -191,6 +200,16 @@ assert.ok(estimatePageSource.includes('품목 정보 수정'), '기존 비활성
 assert.ok(estimatePageSource.includes('rankProductSearchOptions'), '견적서관리 품목 선택은 사용량 기반 공용 후보 정렬을 사용해야 한다.');
 assert.ok(productSearchApiSource.includes('UsageCount'), '품목 검색 API는 실제 주문 품목 사용량을 함께 반환해야 한다.');
 assert.ok(productSearchApiSource.includes('rankProductSearchOptions'), '공용 품목 검색 API도 사용량 기반 후보 정렬을 사용해야 한다.');
+assert.ok(productSearchApiSource.includes('rankAllProductRows'), '품목 검색 API의 그룹/전체 조회도 공용 랭킹을 사용해야 한다.');
+assert.ok(orderImportSource.includes('scoreProductSearchOptions'), '주문등록 매칭 후보도 공용 품목 랭킹 엔진을 사용해야 한다.');
+assert.ok(distributeImportSource.includes('Number(b.UsageCount || b.orderCount || 0)'), '엑셀 분배 품목 검색은 업무 맥락 이후 사용량 우선순위를 보존해야 한다.');
+assert.ok(masterProductsApiSource.includes('RecentUsageCount') && masterProductsApiSource.includes('MappingCount'), '공통 기준 품목 API는 실제 사용량·저장 매칭 빈도를 함께 반환해야 한다.');
+assert.ok(orderNewSource.includes('rankProductSearchOptions'), '주문등록 화면의 로컬 품목 필터도 공용 랭킹을 사용해야 한다.');
+assert.ok(orderPasteSource.includes('rankProductSearchOptions'), '붙여넣기 주문등록의 수동 품목검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(weekPivotSource.includes('rankProductSearchOptions'), '차수피벗 품목 선택도 공용 랭킹을 사용해야 한다.');
+assert.ok(stockStatusSource.includes('rankProductSearchOptions'), '재고·주문등록 모달 품목 선택도 공용 랭킹을 사용해야 한다.');
+assert.ok(distributeSource.includes('rankProductSearchOptions'), '출고분배 품목 검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(mappingStatusSource.includes('rankProductSearchOptions'), '저장 매칭 재지정 검색도 공용 랭킹을 사용해야 한다.');
 assert.ok(estimatePageSource.includes("view: 'defectContext'"), '품목 선택 시 EXE 판매행·분배단가 컨텍스트를 서버에서 다시 조회해야 한다.');
 assert.ok(estimatePageSource.includes("['단','박스','스팀(대)']"), '견적 직접입력 단위는 단/박스/스팀(대) 세 가지여야 한다.');
 assert.ok(estimatePageSource.includes('defectForm.negative'), '불량차감/판매요청은 - 체크 상태를 명시해야 한다.');
@@ -277,6 +296,11 @@ const popularMoonLight = buildProductSuggestions('MOON LIGHT', popularityProduct
   minScore: 0,
 });
 assert.equal(popularMoonLight[0].prodKey, 501, '동점 품목은 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
+const blankRankedProducts = rankProductSearchOptions('', [
+  { value: '503', label: 'Rare', ProdName: 'Rare', UsageCount: 1 },
+  { value: '504', label: 'Frequent', ProdName: 'Frequent', UsageCount: 500, RecentUsageCount: 20, MappingCount: 3 },
+]);
+assert.equal(blankRankedProducts[0].value, '504', '검색어가 없어도 전체 품목 목록은 실제 사용량 우선이어야 한다.');
 const rankedEstimateProducts = rankProductSearchOptions('MOON LIGHT', [
   { value: '501', label: 'CARNATION Moon Light', sub: '콜롬비아 · 카네이션 · 단', ProdName: 'CARNATION Moon Light', FlowerName: '카네이션', CounName: '콜롬비아', UsageCount: 100 },
   { value: '502', label: 'ROSE Moon Light', sub: '에콰도르 · 장미 · 단', ProdName: 'ROSE Moon Light', FlowerName: '장미', CounName: '에콰도르', UsageCount: 1 },
