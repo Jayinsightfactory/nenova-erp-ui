@@ -39,7 +39,7 @@ async function handler(req, res) {
        SUM(CASE WHEN ISNULL(sm.isFix,0)<>ISNULL(sd.isFix,0) AND ISNULL(sd.OutQuantity,0)>0 THEN 1 ELSE 0 END) AS masterDetailMismatchRows
      FROM ShipmentMaster sm
      LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-     WHERE sm.isDeleted=0 AND sm.OrderWeek=@wk`,
+     WHERE sm.isDeleted=0 AND sm.OrderYear=@yr AND sm.OrderWeek=@wk`,
     params
   );
 
@@ -56,7 +56,7 @@ async function handler(req, res) {
      JOIN Customer c ON c.CustKey = sm.CustKey
      JOIN Product p ON p.ProdKey = sd.ProdKey
      LEFT JOIN ViewShipment vs ON vs.SdetailKey = sd.SdetailKey
-     WHERE sm.isDeleted=0 AND sm.OrderWeek=@wk
+     WHERE sm.isDeleted=0 AND sm.OrderYear=@yr AND sm.OrderWeek=@wk
        AND ISNULL(sd.OutQuantity,0)>0
        AND (
          ISNULL(sm.isFix,0)<>ISNULL(sd.isFix,0)
@@ -70,7 +70,7 @@ async function handler(req, res) {
   const stockMaster = await query(
     `SELECT StockKey, OrderYear, OrderWeek, ISNULL(isFix,0) AS isFix
        FROM StockMaster
-      WHERE OrderWeek=@wk`,
+      WHERE OrderYear=@yr AND OrderWeek=@wk`,
     params
   );
 
@@ -81,7 +81,7 @@ async function handler(req, res) {
         AND EXISTS (
           SELECT 1 FROM ShipmentDetail sd
           JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
-          WHERE sd.ProdKey=p.ProdKey AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0
+          WHERE sd.ProdKey=p.ProdKey AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0
         )
       ORDER BY p.Stock ASC`,
     params
@@ -93,7 +93,7 @@ async function handler(req, res) {
        FROM ProductStock ps
        JOIN StockMaster sm ON sm.StockKey=ps.StockKey
        JOIN Product p ON p.ProdKey=ps.ProdKey
-      WHERE sm.OrderWeek=@wk AND p.isDeleted=0 AND ISNULL(ps.Stock,0) < 0
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND p.isDeleted=0 AND ISNULL(ps.Stock,0) < 0
       ORDER BY ps.Stock ASC`,
     params
   );

@@ -255,6 +255,7 @@ export default function DistributeImport() {
     try {
       const form = new FormData();
       form.append('week', weekInput.value);
+      form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
       form.append('file', file);
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));

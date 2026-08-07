@@ -8,7 +8,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 async function resolveAdminUserId(q) {
   // 1) UserName='관리자' 인 계정의 UserID
@@ -22,8 +22,14 @@ async function resolveAdminUserId(q) {
 }
 
 async function handler(req, res) {
-  const week = normalizeOrderWeek(req.query?.week || req.body?.week || '');
-  if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+  const rawWeek = req.query?.week || req.body?.week || '';
+  let orderYear;
+  let week;
+  try {
+    ({ orderYear, orderWeek: week } = requireOrderYear(rawWeek, req.query?.orderYear || req.query?.year || req.body?.orderYear || req.body?.year || ''));
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
   const uid = req.user?.userId || 'system';
 
   try {
@@ -33,23 +39,23 @@ async function handler(req, res) {
       const validManagers = await query(
         `SELECT TOP 10 om.Manager, ui.UserName, COUNT(*) AS Cnt
            FROM OrderMaster om JOIN UserInfo ui ON om.Manager=ui.UserID
-          WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
+          WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
           GROUP BY om.Manager, ui.UserName ORDER BY COUNT(*) DESC`,
-        { wk: { type: sql.NVarChar, value: week } }
+        { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
       );
       const broken = await query(
         `SELECT om.OrderMasterKey, om.Manager, c.CustName, COUNT(od.OrderDetailKey) AS Lines
            FROM OrderMaster om
            JOIN Customer c ON c.CustKey=om.CustKey
            LEFT JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
-          WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
+          WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
             AND NOT EXISTS (SELECT 1 FROM UserInfo ui WHERE ui.UserID=om.Manager)
           GROUP BY om.OrderMasterKey, om.Manager, c.CustName
           ORDER BY c.CustName`,
-        { wk: { type: sql.NVarChar, value: week } }
+        { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
       );
       return res.status(200).json({
-        success: true, week,
+        success: true, orderYear, week,
         adminUserId: adminId,
         usersSample: usersSample.recordset,
         validManagers: validManagers.recordset,
@@ -69,9 +75,10 @@ async function handler(req, res) {
           `UPDATE om
               SET om.Manager=@adminId, om.LastUpdateID=@uid, om.LastUpdateDtm=GETDATE()
              FROM OrderMaster om
-            WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
+            WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0
               AND NOT EXISTS (SELECT 1 FROM UserInfo ui WHERE ui.UserID=om.Manager)`,
-          { wk: { type: sql.NVarChar, value: week },
+          { yr: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: week },
             adminId: { type: sql.NVarChar, value: String(adminId) },
             uid: { type: sql.NVarChar, value: uid } }
         );
@@ -79,7 +86,7 @@ async function handler(req, res) {
       });
 
       return res.status(200).json({
-        success: true, week,
+        success: true, orderYear, week,
         ...result,
         message: `Manager 정정 완료 — ${result.updated}건을 유효 UserID(${result.adminId})로 변경. 이제 전산 분배 grid 에 거래처가 표시됩니다.`,
       });

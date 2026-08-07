@@ -8,6 +8,7 @@ import { runEditWithFixCycle } from '../lib/fixCycleClient';
 const fmt  = n => Number(n || 0).toLocaleString();
 const fmtF = n => Number(n || 0) === 0 ? '—' : Number(n).toFixed(2);
 const ADJUST_TYPES = ['불량차감','검역차감','검수차감','기타차감','재고조정'];
+const selectedYearForWeek = week => String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
 
 async function postAdjustBatch(payload) {
   const res = await fetch('/api/stock/adjust-batch', {
@@ -49,7 +50,7 @@ export default function Stock() {
 
   const load = () => {
     setLoading(true);
-    apiGetExe('/api/stock', { week: weekInput.value, prodName: search })
+    apiGetExe('/api/stock', { week: weekInput.value, orderYear: selectedYearForWeek(weekInput.value), prodName: search })
       .then(d => { setStock(d.stock || []); setSelectedIdx(null); setHistory([]); setErr(''); })
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
@@ -58,7 +59,7 @@ export default function Stock() {
   const loadPivot = () => {
     if (!weekInput.value) return;
     setPivotLoading(true);
-    apiGet('/api/stock', { type: 'weekPivot', week: weekInput.value })
+    apiGet('/api/stock', { type: 'weekPivot', week: weekInput.value, orderYear: selectedYearForWeek(weekInput.value) })
       .then(d => setPivotData({ weeks: d.weeks || [], stocks: d.stocks || {} }))
       .catch(e => { setErr(e.message); setPivotData(null); })
       .finally(() => setPivotLoading(false));
@@ -105,7 +106,7 @@ export default function Stock() {
     if (!s) return;
     setSelectedIdx(stock.findIndex(x => x.ProdKey === s.ProdKey));
     setHistLoading(true);
-    apiGetExe('/api/stock', { type: 'history', week: weekInput.value, prodKey: s.ProdKey })
+    apiGetExe('/api/stock', { type: 'history', week: weekInput.value, orderYear: selectedYearForWeek(weekInput.value), prodKey: s.ProdKey })
       .then(d => setHistory(d.history || []))
       .catch(() => setHistory([]))
       .finally(() => setHistLoading(false));
@@ -137,6 +138,7 @@ export default function Stock() {
 
   const applyAllEdits = async () => {
     const week = weekInput.value;
+    const orderYear = String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
     if (!week) { alert('차수를 입력하세요.'); return; }
     const list = stock.filter(isRowDirty).map(s => ({
       prodKey: s.ProdKey,
@@ -156,13 +158,13 @@ export default function Stock() {
 
     setApplying(true); setApplyMsg('적용 중'); setApplyResults(null);
     try {
-      let outcome = await postAdjustBatch({ week, edits: editsPayload });
+      let outcome = await postAdjustBatch({ week, orderYear, edits: editsPayload });
       if (!outcome.data.success && outcome.data.code === 'WEEK_FIXED') {
         const cycleResult = await runEditWithFixCycle({
           weeks: [week],
           progress: setApplyMsg,
           apply: async () => {
-            const r = await postAdjustBatch({ week, force: true, edits: editsPayload });
+            const r = await postAdjustBatch({ week, orderYear, force: true, edits: editsPayload });
             return r.data;
           },
         });
@@ -206,6 +208,7 @@ export default function Stock() {
     try {
       await apiPost('/api/stock', {
         week: form.week,
+        orderYear: selectedYearForWeek(form.week),
         prodKey: form.prodKey,
         qty: form.qty,
         adjustType: form.adjustType,

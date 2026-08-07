@@ -1401,6 +1401,7 @@ export default function Estimate() {
   const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = [], extraBody = {}) => {
     const { data: d } = await postShipmentFix({
       week,
+      orderYear: yearStr,
       action,
       force: true,
       countryFlowers,
@@ -1533,7 +1534,7 @@ export default function Estimate() {
           message: `${wk} 사전검증 중입니다.`,
         }));
         try {
-          const r = await fetch(`/api/shipment/fix?week=${encodeURIComponent(wk)}`);
+          const r = await fetch(`/api/shipment/fix?week=${encodeURIComponent(wk)}&orderYear=${encodeURIComponent(yearStr)}`);
           const d = await r.json();
           if (d.success && d.issueCount > 0) {
             allIssues[wk] = {
@@ -3303,7 +3304,7 @@ export default function Estimate() {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ week: wk, forceFullWeekRecalc: true }),
+          body: JSON.stringify({ week: wk, orderYear: yearStr, forceFullWeekRecalc: true }),
         });
         const data = await parseJsonResponse(res).catch(() => ({}));
         if (!data.success) errors.push(`${wk}: ${data.message || data.error || '실패'}`);

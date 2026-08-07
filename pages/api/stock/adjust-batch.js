@@ -7,7 +7,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 async function isWeekFixed(orderYear, orderWeek) {
   const r = await query(
@@ -25,20 +25,6 @@ async function isWeekFixed(orderYear, orderWeek) {
     }
   );
   return r.recordset.length > 0;
-}
-
-async function resolveOrderYear(week, explicitYear = '') {
-  const r = await query(
-    `SELECT TOP 1 OrderYear FROM StockMaster
-      WHERE OrderWeek=@week AND OrderYear IS NOT NULL
-        AND (@year = N'' OR CAST(OrderYear AS NVARCHAR(4))=@year)
-      ORDER BY OrderYear DESC`,
-    {
-      week: { type: sql.NVarChar, value: week || '' },
-      year: { type: sql.NVarChar, value: String(explicitYear || '') },
-    }
-  );
-  return String(r.recordset[0]?.OrderYear || explicitYear || new Date().getFullYear());
 }
 
 function stockCalculationSql() {
@@ -70,13 +56,14 @@ export default withAuth(async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'edits 필요' });
   }
 
-  const week = normalizeOrderWeek(rawWeek);
+  let orderYear;
+  let week;
+  try {
+    ({ orderYear, orderWeek: week } = requireOrderYear(rawWeek, requestedYear || year || ''));
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
   const uid = req.user?.userId || 'admin';
-  const orderYear = resolveActiveOrderYear(
-    rawWeek,
-    requestedYear || year || '',
-    await resolveOrderYear(week, requestedYear || year || ''),
-  );
 
   try {
     if (!force && await isWeekFixed(orderYear, week)) {

@@ -21,7 +21,7 @@
 // }
 
 import { query, withTransaction, sql } from '../../../lib/db';
-import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 
 const DEV_ONLY_PUBLIC_API_KEY = 'nenova-api-2026';
@@ -133,12 +133,19 @@ export default async function handler(req, res) {
 // ── GET: 주문 조회 ─────────────────────────────────────────────────────
 // 쿼리 파라미터: week, startDate, endDate, custName, limit(기본100)
 async function getOrders(req, res) {
-  const { week, startDate, endDate, custName, limit = 100 } = req.query;
+  const { week, year, orderYear, startDate, endDate, custName, limit = 100 } = req.query;
 
   let where = 'WHERE om.isDeleted = 0';
   const params = {};
 
-  if (week)      { where += ' AND om.OrderWeek = @week';                          params.week      = { type: sql.NVarChar, value: week }; }
+  if (week) {
+    try {
+      const selected = requireOrderYear(week, orderYear || year || '');
+      where += ' AND om.OrderYear = @orderYear AND om.OrderWeek = @week';
+      params.orderYear = { type: sql.NVarChar, value: selected.orderYear };
+      params.week = { type: sql.NVarChar, value: selected.orderWeek };
+    } catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
+  }
   if (startDate) { where += ' AND CAST(om.OrderDtm AS DATE) >= @startDate';       params.startDate = { type: sql.NVarChar, value: startDate }; }
   if (endDate)   { where += ' AND CAST(om.OrderDtm AS DATE) <= @endDate';         params.endDate   = { type: sql.NVarChar, value: endDate }; }
   if (custName)  { where += ' AND c.CustName LIKE @custName';                     params.custName  = { type: sql.NVarChar, value: `%${custName}%` }; }
@@ -219,6 +226,9 @@ async function createOrder(req, res) {
     return res.status(400).json({ success: false, error: 'week(차수)가 필요합니다.' });
   }
 
+  let selected;
+  try { selected = requireOrderYear(week, year || ''); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
   try {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
     // 거래처 조회
@@ -237,8 +247,8 @@ async function createOrder(req, res) {
       // ── OrderMaster: 기존 있으면 재사용, 없으면 생성 (UPDLOCK+HOLDLOCK으로 중복 방지)
       const existing = await tQ(
         `SELECT OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0`,
-        { ck: { type: sql.Int, value: resolvedCustKey }, wk: { type: sql.NVarChar, value: week } }
+         WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0`,
+        { ck: { type: sql.Int, value: resolvedCustKey }, yr: { type: sql.NVarChar, value: selected.orderYear }, wk: { type: sql.NVarChar, value: selected.orderWeek } }
       );
 
       let mk;
@@ -248,11 +258,11 @@ async function createOrder(req, res) {
       } else {
         // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 비어있으면 'admin' fallback
         // OrderYearWeek 채워 인덱스 일치
-        const yr = year || String(new Date().getFullYear());
-        const ywk = yr + (week || '').split('-')[0];
+        const yr = selected.orderYear;
+        const ywk = yr + selected.orderWeek.split('-')[0];
         const orderMasterParams = {
           year:      { type: sql.NVarChar, value: yr },
-          week:      { type: sql.NVarChar, value: week },
+          week:      { type: sql.NVarChar, value: selected.orderWeek },
           ywk:       { type: sql.NVarChar, value: ywk },
           manager:   { type: sql.NVarChar, value: manager || 'admin' },
           ck:        { type: sql.Int,      value: resolvedCustKey },
@@ -354,7 +364,7 @@ async function createOrder(req, res) {
           changedProdKeys.add(Number(prodKey));
         }
       }
-      await runStockCalculation(tQ, year || String(new Date().getFullYear()), week, 'API', [...changedProdKeys]);
+      await runStockCalculation(tQ, selected.orderYear, selected.orderWeek, 'API', [...changedProdKeys]);
       return { orderMasterKey: mk, created, results };
     });
 

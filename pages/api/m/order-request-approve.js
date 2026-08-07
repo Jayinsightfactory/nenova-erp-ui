@@ -4,7 +4,7 @@
 import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
-import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 
 const columnExistsCache = {};
 async function columnExists(tableName, columnName) {
@@ -25,7 +25,7 @@ async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
-  const { requestKey, action, rejectReason } = req.body || {};
+  const { requestKey, action, rejectReason, orderYear, year } = req.body || {};
   if (!requestKey || !['approve', 'reject'].includes(action)) {
     return res.status(400).json({ success: false, error: 'requestKey, action 필수' });
   }
@@ -65,17 +65,21 @@ async function handler(req, res) {
 
     // 승인 → 기존 OrderMaster/OrderDetail 로 이동
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
+    let selected;
+    try { selected = requireOrderYear(reqRow.OrderWeek, orderYear || year || ''); }
+    catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
     const orderKey = await withTransaction(async (tQ) => {
-      const year = new Date().getFullYear().toString();
-      const ywk = year + (reqRow.OrderWeek || '').split('-')[0];
+      const selectedYear = selected.orderYear;
+      const ywk = selectedYear + selected.orderWeek.split('-')[0];
 
       // 동일 CustKey+OrderWeek OrderMaster 찾기 (실제 컬럼: OrderMasterKey)
       const existing = await tQ(
         `SELECT OrderMasterKey FROM OrderMaster
-          WHERE CustKey=@ck AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0`,
+          WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0`,
         {
           ck: { type: sql.Int,      value: reqRow.CustKey },
-          wk: { type: sql.NVarChar, value: reqRow.OrderWeek },
+          yr: { type: sql.NVarChar, value: selectedYear },
+          wk: { type: sql.NVarChar, value: selected.orderWeek },
         }
       );
       let ok;
@@ -86,8 +90,8 @@ async function handler(req, res) {
           // 전산 ViewOrder INNER JOIN UserInfo 충돌 방지: Manager 필수
           const orderMasterParams = {
             ok:  { type: sql.Int,      value: newOk },
-            yr:  { type: sql.NVarChar, value: year },
-            wk:  { type: sql.NVarChar, value: reqRow.OrderWeek },
+            yr:  { type: sql.NVarChar, value: selectedYear },
+            wk:  { type: sql.NVarChar, value: selected.orderWeek },
             ywk: { type: sql.NVarChar, value: ywk },
             mgr: { type: sql.NVarChar, value: req.user.userId || 'admin' },
             ck:  { type: sql.Int,      value: reqRow.CustKey },
@@ -172,7 +176,7 @@ async function handler(req, res) {
         changedProdKeys.add(Number(d.ProdKey));
       }
 
-      await runStockCalculation(tQ, String(new Date().getFullYear()), reqRow.OrderWeek, req.user?.userId || 'admin', [...changedProdKeys]);
+      await runStockCalculation(tQ, selectedYear, selected.orderWeek, req.user?.userId || 'admin', [...changedProdKeys]);
 
       // 신청 상태 업데이트 (ApprovedOrderKey → 컬럼명이 다를 수 있음, 일단 그대로)
       await tQ(

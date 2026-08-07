@@ -7,6 +7,7 @@ export default function OrderRequestsPage() {
   const [filter, setFilter]     = useState('pending');
   const [loading, setLoading]   = useState(false);
   const [msg, setMsg]           = useState('');
+  const [orderYear, setOrderYear] = useState(String(new Date().getFullYear()));
 
   const load = async () => {
     setLoading(true);
@@ -32,7 +33,7 @@ export default function OrderRequestsPage() {
     const r = await fetch('/api/m/order-request-approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestKey: rk, action: 'approve' }),
+      body: JSON.stringify({ requestKey: rk, action: 'approve', orderYear }),
     });
     const d = await r.json();
     if (d.success) { setMsg(`✅ 승인 완료 (OrderKey: ${d.orderKey})`); load(); }
@@ -44,7 +45,7 @@ export default function OrderRequestsPage() {
     const r = await fetch('/api/m/order-request-approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestKey: rk, action: 'reject', rejectReason: reason }),
+      body: JSON.stringify({ requestKey: rk, action: 'reject', rejectReason: reason, orderYear }),
     });
     const d = await r.json();
     if (d.success) { setMsg('🚫 거절 처리됨'); load(); }
@@ -55,6 +56,7 @@ export default function OrderRequestsPage() {
     <div style={{ padding: 16 }}>
       <h2 style={{ margin: '0 0 12px' }}>📋 주문 등록 신청 관리</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <label>승인 연도 <input value={orderYear} onChange={e => setOrderYear(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{ width: 72 }} /></label>
         {['pending', 'approved', 'rejected'].map(s => (
           <button
             key={s}

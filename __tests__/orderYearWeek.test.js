@@ -1,7 +1,7 @@
 /**
  * 주문 연도·차수 분리 — 2026 차수 선택 시 2025 OrderMaster에 붙지 않도록
  */
-import { normalizeOrderYear, validateOrderWeek, resolveOrderWeekQuery, orderRowMatchesWeek, resolveActiveOrderYear } from '../lib/orderUtils.js';
+import { normalizeOrderYear, validateOrderWeek, resolveOrderWeekQuery, orderRowMatchesWeek, resolveActiveOrderYear, requireOrderYear } from '../lib/orderUtils.js';
 
 let pass = 0;
 let fail = 0;
@@ -28,6 +28,11 @@ assert('active: 명시 > 내장', resolveActiveOrderYear('2025-28-01', '2026') =
 assert('active: fallback 지정', resolveActiveOrderYear('28-01', '', '2024') === '2024');
 assert('active: 잘못된 명시연도 무시', resolveActiveOrderYear('28-01', 'abcd') === CUR);
 assert('active: 빈 입력 → 현재연도', resolveActiveOrderYear('') === CUR);
+
+assert('strict: 명시연도+구형차수', JSON.stringify(requireOrderYear('28-01', '2026')) === JSON.stringify({ orderYear: '2026', orderWeek: '28-01' }));
+assert('strict: 차수 내장연도', JSON.stringify(requireOrderYear('2025-28-01')) === JSON.stringify({ orderYear: '2025', orderWeek: '28-01' }));
+assert('strict: 명시연도 누락 차단', (() => { try { requireOrderYear('28-01'); return false; } catch (e) { return e.code === 'ORDER_YEAR_REQUIRED'; } })());
+assert('strict: 내장·명시 연도 불일치 차단', (() => { try { requireOrderYear('2025-28-01', '2026'); return false; } catch (e) { return e.code === 'ORDER_YEAR_MISMATCH'; } })());
 
 console.log(`\n=== orderYearWeek: ${pass} pass, ${fail} fail ===`);
 process.exit(fail > 0 ? 1 : 0);

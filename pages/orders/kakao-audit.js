@@ -3,6 +3,7 @@ import Layout from '../../components/Layout';
 
 export default function KakaoAuditPage() {
   const [text, setText] = useState('');
+  const [orderYear, setOrderYear] = useState(String(new Date().getFullYear()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -18,7 +19,7 @@ export default function KakaoAuditPage() {
       const res = await fetch('/api/orders/kakao-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, orderYear }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '검증 실패');
@@ -45,6 +46,10 @@ export default function KakaoAuditPage() {
           </button>
         </div>
 
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          조회 연도
+          <input value={orderYear} onChange={e => setOrderYear(e.target.value.replace(/\D/g, '').slice(0, 4))} style={{ width: 76, padding: 6 }} />
+        </label>
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}

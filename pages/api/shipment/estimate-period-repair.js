@@ -30,7 +30,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { syncShipmentDateEstBySdetailKey, syncShipmentDateEstForWeeks } from '../../../lib/syncShipmentDateEst.js';
 
@@ -69,6 +69,7 @@ async function handler(req, res) {
   if (req.method === 'GET' && (req.query?.shipdates != null)) {
     try {
       const wk = normalizeOrderWeek(String(req.query.shipdates || '').trim());
+      const selected = requireOrderYear(String(req.query.shipdates || '').trim(), req.query?.orderYear || req.query?.year || '');
       const custKw = String(req.query.cust || '').trim();
       const rows = await query(
         `SELECT sm.OrderWeek, c.CustName, ISNULL(c.Manager,'') AS Manager, p.ProdName,
@@ -88,10 +89,10 @@ async function handler(req, res) {
            JOIN Product p ON p.ProdKey = sd.ProdKey
            JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
            CROSS APPLY (SELECT COUNT(*) AS DateCount FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey) cnt
-          WHERE sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
             AND (@cust='' OR c.CustName LIKE @cust)
           ORDER BY c.CustName, p.ProdName, sdd.ShipmentDtm`,
-        { wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } }
+        { yr: { type: sql.NVarChar, value: selected.orderYear }, wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } }
       );
       const split = (rows.recordset || []).filter(r => r.DateCount > 1);
       return res.status(200).json({
@@ -126,16 +127,24 @@ async function handler(req, res) {
   const scanAll = req.method === 'GET'
     && (String(req.query?.all || '') === '1' || String(req.query?.week || req.query?.weeks || '').toLowerCase() === 'all');
   const weeks = scanAll ? [] : parseWeeks(req.query?.weeks || req.query?.week || req.body?.weeks || req.body?.week);
+  let orderYear;
+  try {
+    const rawSelectedWeek = req.query?.week || req.body?.week || (weeks[0] || '');
+    orderYear = requireOrderYear(rawSelectedWeek, req.query?.orderYear || req.query?.year || req.body?.orderYear || req.body?.year || '').orderYear;
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
   if (!scanAll && weeks.length === 0) return res.status(400).json({ success: false, error: 'week 필요 (전수 점검은 GET ?all=1)' });
   const q = String(req.query?.q || req.body?.q || '').trim();
 
   // 파라미터: 대상 차수(@w*), 기준 차수(@r*), 검색어(@q)
   const wkParams = {};
+  wkParams.yr = { type: sql.NVarChar, value: orderYear };
   weeks.forEach((w, i) => { wkParams[`w${i}`] = { type: sql.NVarChar, value: w }; });
   refWeeks.forEach((w, i) => { wkParams[`r${i}`] = { type: sql.NVarChar, value: w }; });
   const wkIn = scanAll ? null : weeks.map((_, i) => `@w${i}`).join(',');
   const refIn = refWeeks.map((_, i) => `@r${i}`).join(',');
-  const weekFilter = scanAll ? '1=1' : `sm.OrderWeek IN (${wkIn})`;
+  const weekFilter = scanAll ? 'sm.OrderYear=@yr' : `sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn})`;
   const qFilter = q
     ? ` AND ( p.ProdName LIKE @q OR ISNULL(p.CounName,'') LIKE @q OR ISNULL(p.FlowerName,'') LIKE @q OR c.CustName LIKE @q )`
     : '';
@@ -150,7 +159,7 @@ async function handler(req, res) {
              COUNT(*) AS RefRows
         FROM ShipmentMaster sm
         JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE sm.OrderWeek IN (${refIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+       WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${refIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
        GROUP BY sd.ProdKey
     )`;
   // 기대 EstQuantity: 기준비율이 있으면 OutQuantity×Ratio, 없으면 현재값(=비교제외)
@@ -256,7 +265,7 @@ async function handler(req, res) {
              FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              JOIN Customer c ON c.CustKey = sm.CustKey
-            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0
               AND (@cust='' OR c.CustName LIKE @cust)
             GROUP BY sd.ShipmentKey, sd.CustKey, sd.ProdKey
            HAVING COUNT(*) > 1`,
@@ -381,7 +390,7 @@ async function handler(req, res) {
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              CROSS APPLY (SELECT TOP 1 pd.BaseYmd FROM PeriodDay pd
                            WHERE CONVERT(date, pd.BaseYmd) = CONVERT(date, sdt.ShipmentDtm) ORDER BY pd.BaseYmd) pm
-            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
               AND sdt.ShipmentDtm <> pm.BaseYmd`,
           wkParams
         );
@@ -392,7 +401,7 @@ async function handler(req, res) {
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              CROSS APPLY (SELECT TOP 1 pd.BaseYmd FROM PeriodDay pd
                            WHERE CONVERT(date, pd.BaseYmd) = CONVERT(date, sd.ShipmentDtm) ORDER BY pd.BaseYmd) pm
-            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
               AND sd.ShipmentDtm <> pm.BaseYmd`,
           wkParams
         );
@@ -414,7 +423,7 @@ async function handler(req, res) {
              JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
              LEFT JOIN refRatio rr ON rr.ProdKey = sd.ProdKey
              CROSS APPLY (SELECT ${EXP} AS ExpEst) x
-            WHERE sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek IN (${wkIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)<>0
               AND rr.Ratio IS NOT NULL AND ABS(ISNULL(sd.EstQuantity,0) - x.ExpEst) > 0.001`,
           wkParams
         );

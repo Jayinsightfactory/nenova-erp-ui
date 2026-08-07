@@ -41,14 +41,14 @@ export default function DistributeRepair() {
   const [mgrBusy, setMgrBusy] = useState(false);
   const runManagerCheck = async () => {
     setMgrBusy(true); setErr(''); setMsg(''); setMgrDiag(null);
-    try { setMgrDiag(await apiGet('/api/shipment/order-manager-fix', { week })); }
+    try { setMgrDiag(await apiGet('/api/shipment/order-manager-fix', { year, week })); }
     catch (e) { setErr(e.message || String(e)); }
     finally { setMgrBusy(false); }
   };
   const runManagerFix = async () => {
     if (!confirm(`${week} 차수 — Manager 정정\nOrderMaster.Manager 가 UserInfo 에 없는 주문 ${mgrDiag?.brokenCount || 0}건을 유효 관리자 UserID(${mgrDiag?.adminUserId})로 변경합니다.\n(전산 분배 grid 에 거래처가 다시 뜨도록) 진행할까요?`)) return;
     setMgrBusy(true); setErr(''); setMsg('');
-    try { const d = await apiPost('/api/shipment/order-manager-fix', { week, action: 'fix' }); setMsg(d.message || '완료'); await runManagerCheck(); }
+    try { const d = await apiPost('/api/shipment/order-manager-fix', { year, week, action: 'fix' }); setMsg(d.message || '완료'); await runManagerCheck(); }
     catch (e) { setErr(e.message || String(e)); }
     finally { setMgrBusy(false); }
   };
@@ -70,14 +70,14 @@ export default function DistributeRepair() {
   const [oywBusy, setOywBusy] = useState(false);
   const runOywCheck = async () => {
     setOywBusy(true); setErr(''); setMsg(''); setOywDiag(null);
-    try { setOywDiag(await apiGet('/api/shipment/fix-orderyearweek', { week })); }
+    try { setOywDiag(await apiGet('/api/shipment/fix-orderyearweek', { year, week })); }
     catch (e) { setErr(e.message || String(e)); }
     finally { setOywBusy(false); }
   };
   const runOywFix = async () => {
     if (!confirm(`${week} 차수 — OrderYearWeek 전산 포맷 보정\n출고마스터 ${oywDiag?.shipmentMismatch || 0} / 주문마스터 ${oywDiag?.orderMismatch || 0}건을 전산 포맷(연도+대차수)으로 변경합니다.\n(견적서관리에 뜨도록) 진행할까요?`)) return;
     setOywBusy(true); setErr(''); setMsg('');
-    try { const d = await apiPost('/api/shipment/fix-orderyearweek', { week, action: 'fix' }); setMsg(d.message || '완료'); await runOywCheck(); }
+    try { const d = await apiPost('/api/shipment/fix-orderyearweek', { year, week, action: 'fix' }); setMsg(d.message || '완료'); await runOywCheck(); }
     catch (e) { setErr(e.message || String(e)); }
     finally { setOywBusy(false); }
   };
@@ -88,7 +88,7 @@ export default function DistributeRepair() {
   const runPeriodCheck = async (allWeeks) => {
     setPerBusy(true); setErr(''); setMsg(''); setPerRepair(null);
     try {
-      const params = allWeeks ? { all: 1 } : (estQ.trim() ? { week, q: estQ.trim() } : { week });
+      const params = allWeeks ? { all: 1, year } : (estQ.trim() ? { year, week, q: estQ.trim() } : { year, week });
       setPerRepair(await apiGet('/api/shipment/estimate-period-repair', params));
     } catch (e) { setErr(e.message || String(e)); }
     finally { setPerBusy(false); }
@@ -103,7 +103,7 @@ export default function DistributeRepair() {
     if (!confirm(txt)) return;
     setPerBusy(true); setErr(''); setMsg('');
     try {
-      const d = await apiPost('/api/shipment/estimate-period-repair', { week: wk, action: 'fix', fixDate: true, fixEst: !!fixEst });
+      const d = await apiPost('/api/shipment/estimate-period-repair', { year, week: wk, action: 'fix', fixDate: true, fixEst: !!fixEst });
       setMsg(d.message || '완료'); await runPeriodCheck(c.scope === 'all');
     } catch (e) { setErr(e.message || String(e)); }
     finally { setPerBusy(false); }

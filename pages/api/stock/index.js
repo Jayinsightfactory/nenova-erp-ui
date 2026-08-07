@@ -3,7 +3,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import { sqlStockViewGetData, sqlStockViewHistory } from '../../../lib/exeStockViewSql.js';
 import { mapStockViewRow } from '../../../lib/exeParity/mapResponses.js';
@@ -15,8 +15,13 @@ export default withAuth(async function handler(req, res) {
 });
 
 async function getStock(req, res) {
-  const { week: rawWeek, prodName, type, prodKey, countryFlower, exeParity } = req.query;
+  const { week: rawWeek, orderYear: requestedYear, year, prodName, type, prodKey, countryFlower, exeParity } = req.query;
   const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
+  let selected = null;
+  if (rawWeek) {
+    try { selected = requireOrderYear(rawWeek, requestedYear || year || ''); }
+    catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
+  }
   const useExe = useExeParityFlag(exeParity);
 
   // ── 재고 입/출고 내역 (FormStockView focus)
@@ -34,22 +39,23 @@ async function getStock(req, res) {
                 wd.OutQuantity AS 변경수량, wm.FarmName AS 비고
          FROM WarehouseDetail wd
          JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-         WHERE wd.ProdKey = @pk AND wm.OrderWeek = @week AND wm.isDeleted = 0
+         WHERE wd.ProdKey = @pk AND wm.OrderYear=@year AND wm.OrderWeek = @week AND wm.isDeleted = 0
          UNION ALL
          SELECT '출고' AS 구분, CONVERT(VARCHAR,sd.CreateDtm,23) AS 일자,
                 -sd.OutQuantity AS 변경수량, c.CustName AS 비고
          FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          JOIN Customer c ON sm.CustKey = c.CustKey
-         WHERE sd.ProdKey = @pk AND sm.OrderWeek = @week AND sm.isDeleted = 0
+         WHERE sd.ProdKey = @pk AND sm.OrderYear=@year AND sm.OrderWeek = @week AND sm.isDeleted = 0
          UNION ALL
          SELECT sh.ChangeType AS 구분, CONVERT(VARCHAR,sh.ChangeDtm,23) AS 일자,
                 (ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS 변경수량, sh.Descr AS 비고
          FROM StockHistory sh
-         WHERE sh.ProdKey = @pk AND sh.OrderWeek = @week
+         WHERE sh.ProdKey = @pk AND sh.OrderYear=@year AND sh.OrderWeek = @week
          ORDER BY 일자 ASC`,
         {
           week: { type: sql.NVarChar, value: week },
+          year: { type: sql.NVarChar, value: selected?.orderYear },
           pk:   { type: sql.Int,      value: parseInt(prodKey) },
         }
       );
@@ -64,7 +70,7 @@ async function getStock(req, res) {
   if (type === 'weekPivot') {
     try {
       const back = Math.min(Math.max(parseInt(req.query.back || '6', 10) || 6, 2), 12);
-      const orderYear = resolveActiveOrderYear(rawWeek, '');
+      const orderYear = selected.orderYear;
       const oyw = orderYear + String(week || '').replace('-', '');
       const weeksResult = await query(
         `WITH wk AS (
@@ -73,13 +79,14 @@ async function getStock(req, res) {
                     ORDER BY (SELECT COUNT(*) FROM ProductStock ps WHERE ps.StockKey = sm.StockKey) DESC,
                              sm.StockKey DESC) AS rn
              FROM StockMaster sm
-            WHERE sm.OrderYearWeek <= @oyw AND sm.OrderWeek LIKE '__-__'
+            WHERE sm.OrderYear=@orderYear AND sm.OrderYearWeek <= @oyw AND sm.OrderWeek LIKE '__-__'
          )
          SELECT TOP (@back) OrderWeek, OrderYearWeek, StockKey
            FROM wk WHERE rn = 1
           ORDER BY OrderYearWeek DESC`,
         {
           oyw:  { type: sql.NVarChar, value: oyw },
+          orderYear: { type: sql.NVarChar, value: orderYear },
           back: { type: sql.Int, value: back },
         }
       );
@@ -119,7 +126,7 @@ async function getStock(req, res) {
   }
   try {
     if (useExe && week) {
-      const requestedYear = resolveActiveOrderYear(rawWeek, '', await resolveOrderYear(week));
+      const requestedYear = selected.orderYear;
       const oyw = normalizeOrderYearWeek2(
         (await query(
           `SELECT TOP 1 OrderYearWeek
@@ -153,7 +160,7 @@ async function getStock(req, res) {
       });
     }
 
-    const listParams = { ...params, week: { type: sql.NVarChar, value: week || '' } };
+    const listParams = { ...params, week: { type: sql.NVarChar, value: week || '' }, orderYear: { type: sql.NVarChar, value: selected?.orderYear || '' } };
     const result = await query(
       `SELECT
         p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
@@ -163,17 +170,17 @@ async function getStock(req, res) {
           (SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
            JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
            WHERE wd.ProdKey = p.ProdKey
-             AND wm.OrderWeek = @week AND wm.isDeleted = 0), 0) AS inQty,
+             AND wm.OrderYear=@orderYear AND wm.OrderWeek = @week AND wm.isDeleted = 0), 0) AS inQty,
         ISNULL(
           (SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
            JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
            WHERE sd.ProdKey = p.ProdKey
-             AND sm.OrderWeek = @week AND sm.isDeleted = 0), 0) AS outQty,
+             AND sm.OrderYear=@orderYear AND sm.OrderWeek = @week AND sm.isDeleted = 0), 0) AS outQty,
         ISNULL(
           (SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) FROM StockHistory sh
-           WHERE sh.ProdKey = p.ProdKey AND sh.OrderWeek = @week), 0) AS adjustQty
+           WHERE sh.ProdKey = p.ProdKey AND sh.OrderYear=@orderYear AND sh.OrderWeek = @week), 0) AS adjustQty
        FROM Product p
-       LEFT JOIN StockMaster sm2 ON sm2.OrderWeek = @week
+       LEFT JOIN StockMaster sm2 ON sm2.OrderYear=@orderYear AND sm2.OrderWeek = @week
        LEFT JOIN ProductStock ps ON p.ProdKey = ps.ProdKey AND ps.StockKey = sm2.StockKey
        ${where}
        ORDER BY p.CounName, p.FlowerName, p.ProdName`,
@@ -191,9 +198,10 @@ async function getStock(req, res) {
 }
 
 async function adjustStock(req, res) {
-  const { week: rawWeek, prodKey, prodName, qty, adjustType, descr } = req.body;
+  const { week: rawWeek, orderYear: requestedYear, year, prodKey, prodName, qty, adjustType, descr } = req.body;
   try {
-    const week = normalizeOrderWeek(rawWeek);
+    const selected = requireOrderYear(rawWeek, requestedYear || year || '');
+    const week = selected.orderWeek;
     let pk = prodKey;
     if (!pk && prodName) {
       const r = await query(
@@ -207,7 +215,7 @@ async function adjustStock(req, res) {
     if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
 
     // 재고조정은 현재 운영 차수 기준 — NN-NN→2025 레거시 규칙 금지 (StockHistory 연도 오염 방지)
-    const orderYear = resolveActiveOrderYear(rawWeek, '', await resolveOrderYear(week));
+    const orderYear = selected.orderYear;
     const uid = req.user?.userId || 'admin';
     const beforeResult = await query(
       `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
@@ -263,17 +271,6 @@ async function adjustStock(req, res) {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
-}
-
-async function resolveOrderYear(week) {
-  const r = await query(
-    `SELECT TOP 1 OrderYear
-       FROM StockMaster
-      WHERE OrderWeek=@week AND OrderYear IS NOT NULL
-      ORDER BY OrderYear DESC`,
-    { week: { type: sql.NVarChar, value: week || '' } }
-  );
-  return String(r.recordset[0]?.OrderYear || new Date().getFullYear());
 }
 
 function stockCalculationSql() {
