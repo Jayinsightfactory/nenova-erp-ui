@@ -977,6 +977,11 @@ export default function PasteOrderPage() {
   const WEEK_PAGE_SIZE = 6;
   const [showOldWeeks, setShowOldWeeks] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  // [2026-08-07 카톡프리필] 발주방 최근 원문을 불러와 붙여넣기 입력에 프리필 (X-ray Top3-①, 1안)
+  const [kakaoFeedOpen, setKakaoFeedOpen] = useState(false);
+  const [kakaoFeedBlocks, setKakaoFeedBlocks] = useState([]);
+  const [kakaoFeedLoading, setKakaoFeedLoading] = useState(false);
+  const [kakaoFeedSel, setKakaoFeedSel] = useState({}); // msgId → true
   const [showMapModal, setShowMapModal] = useState(false);
   const [showHighlight, setShowHighlight] = useState(true);
   const [showExcludeHighlight, setShowExcludeHighlight] = useState(true);
@@ -2917,7 +2922,65 @@ export default function PasteOrderPage() {
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                 주문/변경사항 · 저장 포함
               </span>
+              {/* [카톡프리필] 발주방 최근 원문 → 입력창 프리필 (파싱·검토·등록은 기존 흐름 그대로) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setKakaoFeedOpen(true); setKakaoFeedLoading(true); setKakaoFeedSel({});
+                  try {
+                    const r = await fetch('/api/kakao/order-feed?n=25', { credentials: 'same-origin' });
+                    const d = await r.json();
+                    setKakaoFeedBlocks(d.ok ? d.blocks : []);
+                    if (!d.ok) alert('카톡 피드 로드 실패: ' + (d.error || ''));
+                  } catch (e) { alert('카톡 피드 로드 실패: ' + e.message); setKakaoFeedBlocks([]); }
+                  setKakaoFeedLoading(false);
+                }}
+                style={{ float: 'right', padding: '3px 10px', background: '#fff', color: '#1a237e', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+              >💬 카톡 발주 가져오기</button>
             </label>
+            {kakaoFeedOpen && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                   onClick={() => setKakaoFeedOpen(false)}>
+                <div style={{ background: '#fff', borderRadius: 10, width: 'min(680px, 94vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 16 }}
+                     onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <b style={{ fontSize: 14 }}>💬 카톡 발주방 최근 메시지 <span style={{ fontWeight: 400, color: '#667085', fontSize: 12 }}>선택 → 입력창에 붙여넣기</span></b>
+                    <button type="button" onClick={() => setKakaoFeedOpen(false)} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: '#667085' }}>✕</button>
+                  </div>
+                  <div style={{ overflowY: 'auto', flex: 1, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                    {kakaoFeedLoading ? <div style={{ padding: 24, textAlign: 'center', color: '#667085' }}>불러오는 중…</div>
+                    : !kakaoFeedBlocks.length ? <div style={{ padding: 24, textAlign: 'center', color: '#667085' }}>발주방 메시지가 없습니다</div>
+                    : kakaoFeedBlocks.map(b => (
+                      <label key={b.msgId || b.time + b.sender} style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', background: kakaoFeedSel[b.msgId] ? '#eef2ff' : '#fff' }}>
+                        <input type="checkbox" checked={!!kakaoFeedSel[b.msgId]} onChange={e => setKakaoFeedSel(s => ({ ...s, [b.msgId]: e.target.checked }))} style={{ marginTop: 3 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11.5, color: '#4b5563', marginBottom: 3 }}>
+                            <b>{b.sender}</b> · {b.time} · <span style={{ color: '#9ca3af' }}>{b.room}</span> · {b.lineCount}줄
+                          </div>
+                          <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: '#111827', maxHeight: 96, overflow: 'hidden' }}>{b.text}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button type="button"
+                      onClick={() => {
+                        const chosen = kakaoFeedBlocks.filter(b => kakaoFeedSel[b.msgId]).map(b => b.text);
+                        if (!chosen.length) return alert('선택된 메시지가 없습니다');
+                        const joined = chosen.join('\n\n');
+                        setPasteText(prev => (prev.trim() ? prev + '\n\n' + joined : joined));
+                        setOrders([]); setParseError(''); setQueueIdx(0);
+                        setKakaoFeedOpen(false);
+                      }}
+                      style={{ flex: 1, padding: '10px 12px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
+                      선택 {Object.values(kakaoFeedSel).filter(Boolean).length}건 입력창에 붙여넣기
+                    </button>
+                    <button type="button" onClick={() => setKakaoFeedOpen(false)} style={{ padding: '10px 14px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>닫기</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>⚠️ 같은 메시지를 두 번 등록하면 수량이 중복 누적됩니다(델타 저장). 이미 등록한 건 다시 선택하지 마세요.</div>
+                </div>
+              </div>
+            )}
             <textarea
               className="paste-main-ta"
               style={{ width: '100%', padding: '8px 10px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
