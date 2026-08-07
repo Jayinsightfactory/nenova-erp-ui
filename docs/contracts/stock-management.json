@@ -1,0 +1,48 @@
+{
+  "id": "stock-management",
+  "title": "재고관리 확정·예상재고 및 이력 조회 계약",
+  "scope": [
+    "pages/api/stock/index.js",
+    "pages/api/stock/adjust-batch.js",
+    "pages/stock.js",
+    "lib/stockManagement.js",
+    "lib/exeStockViewSql.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "READ_STOCK_POSITION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "READ_STOCK_HISTORY", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "READ_SUBSTITUTE_CANDIDATES", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "READ_MOYI_WEEK", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "MANUAL_ADJUSTMENT", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026에 같은 OrderWeek가 있어도 ProductStock 선택, 미확정 분배, 이력, 대체 후보와 MOYI 조회는 명시된 OrderYear만 사용한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/stockManagementContract.test.js",
+    "__tests__/exeParitySql.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormStockView.md",
+    "source": "프로젝트 내부 FormStockView SQL 포트와 usp_StockCalculation 분석; 운영 DB probe는 미검증",
+    "methods": ["FormStockView.GetData", "FormStockView history focus", "FormStockAdd.btnSave_Click", "usp_StockCalculation"],
+    "tables": ["Product", "StockMaster", "ProductStock", "WarehouseMaster", "WarehouseDetail", "ShipmentMaster", "ShipmentDetail", "StockHistory"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "node __tests__/stockManagementContract.test.js",
+    "npm run build"
+  ],
+  "formulas": {
+    "confirmedStock": "selected ProductStock.Stock",
+    "expectedStock": "confirmedStock - pending ShipmentDetail.OutQuantity where DetailFix<>1",
+    "manualDelta": "StockHistory.AfterValue - StockHistory.BeforeValue"
+  },
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "WarehouseMaster", "WarehouseDetail", "Estimate", "WebProfitReport"]
+}

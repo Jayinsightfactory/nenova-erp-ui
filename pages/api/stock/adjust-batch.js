@@ -84,6 +84,10 @@ export default withAuth(async function handler(req, res) {
         errors.push({ prodKey: e.prodKey, message: '잘못된 값' });
         continue;
       }
+      if (after < 0) {
+        errors.push({ prodKey: e.prodKey, message: '조정 후 재고는 음수가 될 수 없습니다.' });
+        continue;
+      }
       try {
         const applied = await withTransaction(async (tQuery) => {
           const beforeResult = await tQuery(

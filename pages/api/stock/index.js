@@ -5,8 +5,15 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
-import { sqlStockViewGetData, sqlStockViewHistory } from '../../../lib/exeStockViewSql.js';
+import { sqlStockViewGetData } from '../../../lib/exeStockViewSql.js';
 import { mapStockViewRow } from '../../../lib/exeParity/mapResponses.js';
+import {
+  calculateStockPosition,
+  normalizeStockHistoryRow,
+  rankSubstituteCandidates,
+  STOCK_HISTORY_SQL,
+  STOCK_POSITION_SQL,
+} from '../../../lib/stockManagement.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getStock(req, res);
@@ -24,42 +31,83 @@ async function getStock(req, res) {
   }
   const useExe = useExeParityFlag(exeParity);
 
+  // 확정 스냅샷과 아직 스냅샷에 반영되지 않은 미확정 분배를 분리한 웹/MOYI 공용 조회.
+  if (type === 'management' || type === 'substitutes' || type === 'moyiWeek') {
+    if (!selected) return res.status(400).json({ success: false, error: 'week와 orderYear 필요' });
+    try {
+      const stockMaster = await query(
+        `SELECT TOP 1 sm.StockKey
+           FROM StockMaster sm
+          WHERE sm.OrderYear=@year AND sm.OrderWeek=@week
+            AND EXISTS (SELECT 1 FROM ProductStock ps WHERE ps.StockKey=sm.StockKey)
+          ORDER BY (SELECT COUNT(*) FROM ProductStock ps WHERE ps.StockKey=sm.StockKey) DESC,
+                   sm.StockKey DESC`,
+        {
+          year: { type: sql.NVarChar, value: selected.orderYear },
+          week: { type: sql.NVarChar, value: week },
+        }
+      );
+      const stockKey = Number(stockMaster.recordset[0]?.StockKey || 0);
+      if (!stockKey) return res.status(200).json({ success: true, orderYear: selected.orderYear, orderWeek: week, stock: [] });
+      const result = await query(STOCK_POSITION_SQL, {
+        stockKey: { type: sql.Int, value: stockKey },
+        year: { type: sql.NVarChar, value: selected.orderYear },
+        week: { type: sql.NVarChar, value: week },
+      });
+      const rows = result.recordset.map((row) => ({
+        ...row,
+        ...calculateStockPosition({ confirmedStock: row.ConfirmedStock, pendingAllocation: row.PendingAllocation }),
+      }));
+      if (type === 'substitutes') {
+        const targetKey = Number(prodKey);
+        const target = rows.find((row) => Number(row.ProdKey) === targetKey);
+        if (!target) return res.status(404).json({ success: false, error: '대상 품목 없음' });
+        return res.status(200).json({
+          success: true,
+          orderYear: selected.orderYear,
+          orderWeek: week,
+          targetProdKey: targetKey,
+          candidates: rankSubstituteCandidates(rows, {
+            prodKey: targetKey,
+            countryFlower: target.CountryFlower,
+            outUnit: target.OutUnit,
+          }),
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        profile: type === 'moyiWeek' ? 'MOYI_STOCK_WEEK_V1' : 'STOCK_MANAGEMENT_V1',
+        orderYear: selected.orderYear,
+        orderWeek: week,
+        stockKey,
+        stock: rows,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   // ── 재고 입/출고 내역 (FormStockView focus)
   if (type === 'history') {
     if (!prodKey) return res.status(400).json({ success: false, error: 'prodKey 필요' });
+    if (!selected) return res.status(400).json({ success: false, error: 'week와 orderYear 필요' });
     try {
-      if (useExe) {
-        const result = await query(sqlStockViewHistory(), {
-          prodKey: { type: sql.Int, value: parseInt(prodKey, 10) },
-        });
-        return res.status(200).json({ success: true, source: 'real_db_exe_parity', history: result.recordset });
-      }
       const result = await query(
-        `SELECT '입고' AS 구분, wm.InputDate AS 일자,
-                wd.OutQuantity AS 변경수량, wm.FarmName AS 비고
-         FROM WarehouseDetail wd
-         JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-         WHERE wd.ProdKey = @pk AND wm.OrderYear=@year AND wm.OrderWeek = @week AND wm.isDeleted = 0
-         UNION ALL
-         SELECT '출고' AS 구분, CONVERT(VARCHAR,sd.CreateDtm,23) AS 일자,
-                -sd.OutQuantity AS 변경수량, c.CustName AS 비고
-         FROM ShipmentDetail sd
-         JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         JOIN Customer c ON sm.CustKey = c.CustKey
-         WHERE sd.ProdKey = @pk AND sm.OrderYear=@year AND sm.OrderWeek = @week AND sm.isDeleted = 0
-         UNION ALL
-         SELECT sh.ChangeType AS 구분, CONVERT(VARCHAR,sh.ChangeDtm,23) AS 일자,
-                (ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS 변경수량, sh.Descr AS 비고
-         FROM StockHistory sh
-         WHERE sh.ProdKey = @pk AND sh.OrderYear=@year AND sh.OrderWeek = @week
-         ORDER BY 일자 ASC`,
+        `SELECT * FROM (${STOCK_HISTORY_SQL}) h ORDER BY EventDtm ASC`,
         {
           week: { type: sql.NVarChar, value: week },
-          year: { type: sql.NVarChar, value: selected?.orderYear },
+          year: { type: sql.NVarChar, value: selected.orderYear },
           pk:   { type: sql.Int,      value: parseInt(prodKey) },
         }
       );
-      return res.status(200).json({ success: true, history: result.recordset });
+      const history = result.recordset.map(normalizeStockHistoryRow).map((row) => ({
+        ...row,
+        구분: row.type,
+        일자: row.date,
+        변경수량: row.delta,
+        비고: row.descr,
+      }));
+      return res.status(200).json({ success: true, source: 'stock_management_ledger', history });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
@@ -198,7 +246,7 @@ async function getStock(req, res) {
 }
 
 async function adjustStock(req, res) {
-  const { week: rawWeek, orderYear: requestedYear, year, prodKey, prodName, qty, adjustType, descr } = req.body;
+  const { week: rawWeek, orderYear: requestedYear, year, prodKey, prodName, qty, delta, adjustType, descr } = req.body;
   try {
     const selected = requireOrderYear(rawWeek, requestedYear || year || '');
     const week = selected.orderWeek;
@@ -212,7 +260,10 @@ async function adjustStock(req, res) {
       pk = r.recordset[0].ProdKey;
     }
     const stockQty = parseFloat(qty);
-    if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
+    const signedDelta = delta !== undefined ? parseFloat(delta) : -stockQty;
+    if (!Number.isFinite(signedDelta) || Math.abs(signedDelta) < 0.0001) {
+      return res.status(400).json({ success: false, error: '0이 아닌 signed delta가 필요합니다.' });
+    }
 
     // 재고조정은 현재 운영 차수 기준 — NN-NN→2025 레거시 규칙 금지 (StockHistory 연도 오염 방지)
     const orderYear = selected.orderYear;
@@ -222,7 +273,8 @@ async function adjustStock(req, res) {
       { pk: { type: sql.Int, value: pk } }
     );
     const before = Number(beforeResult.recordset[0]?.Stock || 0);
-    const after = before - stockQty;
+    const after = Math.round((before + signedDelta) * 1000) / 1000;
+    if (after < 0) return res.status(409).json({ success: false, code: 'NEGATIVE_AFTER_VALUE', error: '조정 후 재고는 음수가 될 수 없습니다.' });
 
     await withTransaction(async (tQuery) => {
       await tQuery(
@@ -266,7 +318,7 @@ async function adjustStock(req, res) {
     return res.status(200).json({
       success: true,
       source: 'real_db',
-      message: `재고 조정 등록 완료 — ${adjustType}: -${qty}`,
+      message: `재고 조정 등록 완료 — ${adjustType}: ${signedDelta > 0 ? '+' : ''}${signedDelta}`,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
