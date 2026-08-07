@@ -16,8 +16,13 @@ async function main() {
   assert('출고일 모호성 중단',api.includes('SHIPMENT_DATE_AMBIGUOUS'));
   assert('PIVOT_DISTRIBUTION',modal.includes("mode: 'PIVOT_DISTRIBUTION'"));
   assert('force 금지',modal.includes('force: false'));
+  assert('강제 확정해제 금지',!modal.includes('action,force:true'));
+  assert('부분 저장 방지 단건 등록',modal.includes('validTargets.length !== 1'));
   assert('확정 사이클',modal.includes("await runFix('unfix')")&&modal.includes("await runFix('fix')"));
   assert('출고일 서버 대조',adjust.includes('출고일 불일치'));
+  assert('참고단가 Sdetail/품목 서버 검증',adjust.includes('sd.SdetailKey=@sourceKey AND sd.ProdKey=@pk'));
+  assert('참고단가 요청값 서버 대조',adjust.includes('저장 단가와 요청 단가가 일치하지 않습니다'));
+  assert('검증된 단가 출처 로그',adjust.includes('[검증단가출처=${verifiedCostSourceId}]'));
   console.log(`estimate additional product: ${pass} passed, ${fail} failed`);
   process.exit(fail?1:0);
 }

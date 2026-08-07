@@ -116,8 +116,6 @@ export default function OrderRegisterDistributeModal({
     } catch (e) { updateLine(lineId, { context:null, contextError:e.message }); }
   };
 
-  const addLine = () => setLines(prev => [...prev, emptyLine()]);
-
   const removeLine = (id) => {
     setLines(prev => (prev.length <= 1 ? [emptyLine()] : prev.filter(l => l.id !== id)));
   };
@@ -140,7 +138,7 @@ export default function OrderRegisterDistributeModal({
   const submit = async () => {
     if (!cust?.CustKey) { alert('업체를 선택하세요.'); return; }
     if (!weekValue) { alert('등록 차수를 선택하세요.'); return; }
-    if (!validTargets.length) { alert('품목과 수량을 입력하세요.'); return; }
+    if (validTargets.length !== 1) { alert('부분 저장을 막기 위해 품목을 한 건씩 등록하세요.'); return; }
 
     try { validTargets.forEach(t => validateAdditionalProductSelection({cost:t.cost,costSourceId:t.costSourceId,farmKey:t.farmKey,shipmentDate:t.context?.shipmentDate})); }
     catch(e) { alert(e.message); return; }
@@ -154,7 +152,7 @@ export default function OrderRegisterDistributeModal({
     const details = [];
     const mustCycle = validTargets.some(t => t.context?.fixed);
     const runFix = async (action) => {
-      const res = await fetch('/api/shipment/fix', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({week:`${String(weekNum).padStart(2,'0')}-02`,orderYear:yearStr,action,force:true,stockProdKeys:validTargets.map(t=>t.prodKey)}) });
+      const res = await fetch('/api/shipment/fix', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({week:`${String(weekNum).padStart(2,'0')}-02`,orderYear:yearStr,action,force:false,stockProdKeys:validTargets.map(t=>t.prodKey)}) });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `${action} 실패`);
       return data;
@@ -272,7 +270,7 @@ export default function OrderRegisterDistributeModal({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>품목 · 수량</span>
-              <button type="button" onClick={addLine} disabled={running} style={{ marginLeft: 'auto', height: 28, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer' }}>+ 행 추가</button>
+              <span style={{ marginLeft:'auto', fontSize:11, color:'#64748b' }}>부분 저장 방지: 한 번에 한 품목</span>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {lines.map((line) => {

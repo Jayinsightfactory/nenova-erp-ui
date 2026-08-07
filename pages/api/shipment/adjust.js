@@ -433,6 +433,7 @@ async function postAdjust(req, res) {
   const pk = parseInt(prodKey);
   const uid = req.user?.userId || 'system';
   const userName = req.user?.userName || uid;
+  let verifiedCostSourceId = '';
   if (pivotDistribution && requestedUnitCost !== undefined) {
     if (!(Number(requestedUnitCost) > 0) || !String(costSourceId || '').trim()) {
       return res.status(400).json({ success:false, error:'단가와 단가 출처가 필요합니다.' });
@@ -448,6 +449,35 @@ async function postAdjust(req, res) {
     const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
     const result = await withTransaction(async (tQ) => {
       await assertProductScopeNotFixed(tQ, orderYear, orderWeek, pk);
+
+      if (pivotDistribution && requestedUnitCost !== undefined) {
+        const sourceId = String(costSourceId || '').trim();
+        if (sourceId === 'DIRECT') {
+          verifiedCostSourceId = 'DIRECT';
+        } else {
+          const sourceMatch = sourceId.match(/^SDETAIL:(\d+)$/);
+          if (!sourceMatch) throw new Error('지원하지 않는 단가 출처입니다.');
+          const source = await tQ(
+            `SELECT TOP 1 sd.SdetailKey, sd.ProdKey, ISNULL(sd.Cost,0) AS Cost
+               FROM ShipmentDetail sd
+               JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+              WHERE sd.SdetailKey=@sourceKey AND sd.ProdKey=@pk
+                AND ISNULL(sd.isDeleted,0)=0 AND ISNULL(sm.isDeleted,0)=0`,
+            {
+              sourceKey: { type: sql.Int, value: Number(sourceMatch[1]) },
+              pk: { type: sql.Int, value: pk },
+            },
+          );
+          const sourceRow = source.recordset[0];
+          if (!sourceRow || !(Number(sourceRow.Cost) > 0)) {
+            throw new Error('선택한 단가 출처가 해당 품목의 활성 출고행이 아닙니다.');
+          }
+          if (Math.abs(Number(sourceRow.Cost) - Number(requestedUnitCost)) > 0.0001) {
+            throw new Error('선택한 단가 출처의 저장 단가와 요청 단가가 일치하지 않습니다.');
+          }
+          verifiedCostSourceId = `SDETAIL:${Number(sourceRow.SdetailKey)}`;
+        }
+      }
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
@@ -1007,7 +1037,9 @@ async function postAdjust(req, res) {
           oqa: { type: sql.Decimal(14,3), value: orderQtyAfter },
           rb:  { type: sql.Decimal(14,3), value: remainBefore },
           ra:  { type: sql.Decimal(14,3), value: remainAfter },
-          m:   { type: sql.NVarChar,  value: memo || '' },
+          m:   { type: sql.NVarChar,  value: verifiedCostSourceId
+            ? `${memo || ''} [검증단가출처=${verifiedCostSourceId}]`.trim()
+            : (memo || '') },
           uid: { type: sql.NVarChar,  value: uid },
         }
       );

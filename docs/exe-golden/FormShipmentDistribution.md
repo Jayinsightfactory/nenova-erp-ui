@@ -31,3 +31,9 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 확정행은 화면에서 확정해제→분배 저장→재확정하고 각 HTTP 쓰기는 SystemActionLog,
 수량 변경은 ShipmentHistory에 기록한다. 참고단가는 표시만 하며 사용자가 출처 또는
 직접입력을 명시하기 전에는 자동 확정하지 않는다.
+
+웹 보완 계약상 한 번의 확인에서는 한 품목만 저장한다. 이는 기존 단건 `adjust`
+트랜잭션 여러 개가 섞여 부분 성공하는 것을 막기 위한 경계다. `SDETAIL:<key>` 참고단가는
+서버가 활성 `ShipmentDetail`의 동일 `ProdKey`와 저장 `Cost`를 다시 대조하며, 다른 연도·업체
+행은 참고용으로 허용하되 품목이나 단가가 다르면 저장하지 않는다. 후속 확정 차수가 있으면
+확정해제의 `force` 우회를 사용하지 않고 중단한다.
