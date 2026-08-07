@@ -18,4 +18,12 @@ assert.match(page, /연결 대기/, '화면에 연결 대기 이유를 알려야
 assert.match(page, /다운로드 기록/, '다운로드 성공·차단 화면이 있어야 합니다.');
 assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 업무 승인과 분리해야 합니다.');
 
-console.log('MOYI Drive admin access and UI contract tests passed');
+(async () => {
+  const { isMoyiDriveAdmin } = await import('../lib/moyiDriveAdmin.js');
+  assert.equal(isMoyiDriveAdmin('nenovaSS3'), true, '지정 관리자는 접근할 수 있어야 합니다.');
+  assert.equal(isMoyiDriveAdmin('nenovass3'), false, '대소문자가 다른 계정을 허용하면 안 됩니다.');
+  assert.equal(isMoyiDriveAdmin('관리자'), false, '표시 이름으로 접근할 수 없어야 합니다.');
+  assert.equal(isMoyiDriveAdmin('nenovaSS3 '), false, '비슷한 계정이나 공백 변형을 허용하면 안 됩니다.');
+  assert.equal(isMoyiDriveAdmin(undefined), false, '로그인 식별값이 없으면 차단해야 합니다.');
+  console.log('MOYI Drive admin access and UI contract tests passed');
+})().catch((error) => { console.error(error); process.exitCode = 1; });
