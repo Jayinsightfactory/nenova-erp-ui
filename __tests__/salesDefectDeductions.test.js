@@ -193,7 +193,11 @@ assert.ok(supportReviewSource.includes('verifyAppliedRow'), '견적서 등록은
 assert.ok(supportReviewSource.includes('처리 로그'), '영업지원 전산등록 검토창은 처리 로그를 표시해야 한다.');
 assert.ok(supportReviewSource.includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량차감등록'), '견적서관리에는 불량차감등록 전용 버튼이 있어야 한다.');
+assert.ok(estimatePageSource.includes('＋ 불량/검역등록'), '견적서관리의 기존 불량/검역등록 버튼을 유지해야 한다.');
+assert.ok(estimatePageSource.includes("openEstimateEntry('legacy')"), '기존 불량/검역등록은 독립된 legacy 상태로 열려야 한다.');
+assert.ok(estimatePageSource.includes('options={estimateTypeOptions}'), '기존 불량/검역등록은 EstimateType 선택을 유지해야 한다.');
 assert.ok(estimatePageSource.includes('＋ 판매요청'), '견적서관리에는 판매요청 전용 버튼이 있어야 한다.');
+assert.ok(estimatePageSource.includes('＋ 추가 품목등록'), '견적서관리에는 추가 품목등록 버튼도 함께 있어야 한다.');
 assert.ok(estimatePageSource.includes('openItemEditor'), '견적 품목명을 선택하면 정보 편집창을 열어야 한다.');
 assert.ok(estimatePageSource.includes('/api/estimate/update-entry'), '견적 품목 정보창은 기존 Estimate 수정 API를 사용해야 한다.');
 assert.ok(estimatePageSource.includes('품목 정보 수정'), '기존 비활성 수정 버튼 대신 품목 정보 수정 동작을 제공해야 한다.');
@@ -218,6 +222,9 @@ assert.ok(estimateApiSource.includes('resolveEstimateContext'), '분배단가 �
 assert.ok(estimateApiSource.includes('NO_EXE_SALE_ROW'), 'EXE 판매행 없는 불량차감은 구체적인 등록 불가 사유를 반환해야 한다.');
 assert.ok(estimateApiSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), '견적 직접 입력도 Estimate 트리거 호환 INSERT를 사용해야 한다.');
 assert.ok(estimateApiSource.includes('isSalesRequest'), '불량차감과 판매요청의 양/음수 저장 모드를 분리해야 한다.');
+assert.ok(estimateApiSource.includes('isLegacyEntry'), '기존 불량/검역등록 API 상태를 신규 등록과 분리해야 한다.');
+assert.ok(estimateApiSource.includes('normalizeEstimateTypeInput(estimateType, unit).typeText'), '기존 불량/검역등록은 선택 EstimateType을 저장해야 한다.');
+assert.ok(estimateApiSource.includes('ESTIMATE_SCOPE_MISMATCH'), '직접 등록은 선택 출고와 요청 연도·차수·거래처 불일치를 차단해야 한다.');
 assert.ok(estimateEditApiSource.includes('UPDATE Estimate'), '기존 견적 행 수정은 Estimate UPDATE를 사용해야 한다.');
 assert.ok(estimateEditApiSource.includes('expectedQuantity'), '기존 견적 행 수정은 조회시점 수량을 검증해야 한다.');
 assert.ok(estimateEditApiSource.includes('SELECT TOP 1 EstimateKey'), '견적 수정 후 저장 결과를 재조회해야 한다.');

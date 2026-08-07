@@ -2285,9 +2285,10 @@ export default function Estimate() {
 
   const resetDefectForm = (entryMode = 'defect') => {
     const isSalesRequest = entryMode === 'sales';
+    const isLegacy = entryMode === 'legacy';
     setDefectForm({
       entryMode,
-      estimateType: isSalesRequest ? '판매요청' : '불량차감',
+      estimateType: isLegacy ? '' : isSalesRequest ? '판매요청' : '불량차감',
       estimateDate: new Date().toISOString().slice(0,10),
       prodKey: '',
       unit: '단',
@@ -2355,7 +2356,7 @@ export default function Estimate() {
     if (!(parseFloat(defectForm.cost) > 0)) { alert('이전 차수 분배단가를 확인하세요.'); return; }
     const expectedNegative = defectForm.entryMode !== 'sales';
     if (Boolean(defectForm.negative) !== expectedNegative) {
-      alert(expectedNegative ? '불량차감등록은 - 차감을 체크해야 합니다.' : '판매요청은 - 차감을 해제해야 합니다.');
+      alert(expectedNegative ? `${defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'}등록은 - 차감을 체크해야 합니다.` : '판매요청은 - 차감을 해제해야 합니다.');
       return;
     }
     const shipmentKeyForEstimate = selectedShip?.firstShipmentKey
@@ -2381,7 +2382,7 @@ export default function Estimate() {
       });
       setShowDefect(false);
       resetDefectForm('defect');
-      setSuccessMsg(`✅ ${defectForm.entryMode === 'sales' ? '판매요청' : '불량차감'} 등록 완료 · 견적키 #${data.estimateKey || '-'}`);
+      setSuccessMsg(`✅ ${defectForm.entryMode === 'sales' ? '판매요청' : defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'} 등록 완료 · 견적키 #${data.estimateKey || '-'}`);
       setTimeout(() => setSuccessMsg(''), 3000);
       selectShipment(selectedId, selectedCustKey);
     } catch(e) { alert(e.message); } finally { setSaving(false); }
@@ -3700,6 +3701,12 @@ export default function Estimate() {
                 </span>
               )}
               <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
+                onClick={() => openEstimateEntry('legacy')}
+                disabled={!selectedShip}
+                title="기존 EstimateType을 선택해 nenova.exe 호환 음수 Estimate를 등록합니다.">
+                ＋ 불량/검역등록
+              </button>
+              <button className="btn btn-sm" style={{background:'#166534', color:'#fff', borderColor:'#14532d'}}
                 onClick={() => openEstimateEntry('defect')}
                 disabled={!selectedShip}
                 title="선택한 거래처의 EXE 판매행에 불량차감 Estimate를 등록합니다.">
@@ -4901,7 +4908,7 @@ export default function Estimate() {
         <div className="modal-overlay" onClick={() => setShowDefect(false)}>
           <div className="modal" style={{maxWidth:560}} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">{defectForm.entryMode === 'sales' ? '판매요청 등록' : '불량차감등록'}</span>
+              <span className="modal-title">{defectForm.entryMode === 'sales' ? '판매요청 등록' : defectForm.entryMode === 'legacy' ? '불량/검역등록' : '불량차감등록'}</span>
               <button className="btn btn-sm" onClick={() => setShowDefect(false)}>✕</button>
             </div>
             <div className="modal-body">
@@ -4913,9 +4920,14 @@ export default function Estimate() {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">구 분</label>
-                  <div className="form-control" style={{background:'#f1f5f9', fontWeight:700, color:defectForm.entryMode === 'sales' ? '#1565c0' : '#006600'}}>
-                    {defectForm.entryMode === 'sales' ? '판매요청 (양수)' : '불량차감 (음수)'}
-                  </div>
+                  {defectForm.entryMode === 'legacy' ? (
+                    <SearchableSelect options={estimateTypeOptions} value={defectForm.estimateType}
+                      onChange={v => setDefectForm(f => ({...f, estimateType:v}))} placeholder="구분 검색..." />
+                  ) : (
+                    <div className="form-control" style={{background:'#f1f5f9',fontWeight:700,color:defectForm.entryMode === 'sales' ? '#1565c0' : '#006600'}}>
+                      {defectForm.entryMode === 'sales' ? '판매요청 (양수)' : '불량차감 (음수)'}
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">견적일자</label>
@@ -4972,7 +4984,7 @@ export default function Estimate() {
                     <input type="checkbox" checked={Boolean(defectForm.negative)}
                       onChange={e => setDefectForm(f => ({...f, negative:e.target.checked}))}
                     />
-                    - 차감 {defectForm.entryMode === 'sales' ? '(판매요청에서는 해제)' : '(불량차감 필수)'}
+                    - 차감 {defectForm.entryMode === 'sales' ? '(판매요청에서는 해제)' : `(${defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'} 필수)`}
                   </label>
                 </div>
               </div>
@@ -5021,7 +5033,7 @@ export default function Estimate() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={handleDefectSave} disabled={saving}>
-                💾 {saving ? '저장 중... / Guardando' : (defectForm.entryMode === 'sales' ? '판매요청 등록' : '불량차감 등록')}
+                💾 {saving ? '저장 중... / Guardando' : (defectForm.entryMode === 'sales' ? '판매요청 등록' : defectForm.entryMode === 'legacy' ? '불량/검역 저장' : '불량차감 등록')}
               </button>
               <button className="btn" onClick={() => setShowDefect(false)}>{t('닫기')}</button>
             </div>
