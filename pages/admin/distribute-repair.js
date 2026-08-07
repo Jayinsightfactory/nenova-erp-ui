@@ -1,7 +1,7 @@
 // pages/admin/distribute-repair.js — 출고분배 정합성 진단/보정 (전산 nenova.exe 호환)
 //  로그인 세션으로 /api/shipment/distribute-diagnose 를 호출한다(별도 토큰 X).
 //  - 진단(읽기): 차수별 중복마스터 / CustKey불일치 / 출고일불일치 / 출고일+오프셋(6일밀림) 건수
-//  - 보정(쓰기): 출고일 보정(repairShipmentDateBaseOutDay) / CustKey 보정(repairMissingCustKey)
+//  - 보정(쓰기): 출고일 보정 / CustKey 보정 / 미확정 0수량 빈 분배 정리
 //  ※ "분배가 전산에 안 보임"의 주원인은 출고일이 전산 기준과 어긋난 행 → 출고일 보정으로 해결.
 import { useState } from 'react';
 import Head from 'next/head';
@@ -144,6 +144,7 @@ export default function DistributeRepair() {
   const s = diag?.summary || {};
   const baseRows = diag?.shipmentDateBaseMismatch || [];
   const custRows = diag?.missingCustKey || [];
+  const zeroRows = diag?.zeroOut || [];
   const dateRows = diag?.shipmentDateMismatch || [];
 
   return (
@@ -182,6 +183,7 @@ export default function DistributeRepair() {
               <Stat label="출고일 어긋남(6일밀림)" value={s.shipmentDateBaseMismatch} bad={s.shipmentDateBaseMismatch > 0} hint="← 분배 안 보임 주원인" />
               <Stat label="출고일/수량 불일치" value={s.shipmentDateMismatch} bad={s.shipmentDateMismatch > 0} />
               <Stat label="CustKey 불일치" value={s.missingCustKey} bad={s.missingCustKey > 0} />
+              <Stat label="0수량 빈 분배" value={s.zeroOut} bad={s.zeroOut > 0} />
               <Stat label="중복 마스터" value={s.duplicateMasters} bad={s.duplicateMasters > 0} />
               <Stat label="Est 불일치" value={s.estMismatch} bad={s.estMismatch > 0} />
               <Stat label="키넘버링" value={s.keyNumberingNeedsSync} bad={s.keyNumberingNeedsSync > 0} />
@@ -196,6 +198,10 @@ export default function DistributeRepair() {
                 disabled={!!repairing || !(s.missingCustKey > 0)} style={btnRepairAlt}>
                 {repairing === 'repairMissingCustKey' ? '보정 중…' : `🛠 CustKey 보정 (${s.missingCustKey || 0}건)`}
               </button>
+              <button onClick={() => runRepair('repairZeroOut', '미확정 0수량 빈 분배 정리')}
+                disabled={!!repairing || !(s.zeroOut > 0)} style={btnRepairAlt}>
+                {repairing === 'repairZeroOut' ? '정리 중…' : `🧹 빈 분배 정리 (${s.zeroOut || 0}건)`}
+              </button>
             </div>
 
             {baseRows.length > 0 && (
@@ -208,6 +214,15 @@ export default function DistributeRepair() {
               <Section title={`CustKey 불일치 (${custRows.length})`}>
                 <Table head={['마스터CustKey', '상세CustKey', '품목', '수량']}
                   rows={custRows.map(r => [r.MasterCustKey, r.DetailCustKey, r.ProdName, r.OutQuantity])} />
+              </Section>
+            )}
+            {zeroRows.length > 0 && (
+              <Section title={`0수량 빈 분배 (${zeroRows.length})`}>
+                <Table head={['업체', '품목', 'SdetailKey', '확정', '출고일 수량 존재']}
+                  rows={zeroRows.map(r => [r.CustName, r.ProdName, r.SdetailKey, Number(r.IsFixed) ? '예' : '아니오', Number(r.HasPositiveDateQty) ? '예' : '아니오'])} hot={4} />
+                <div style={{ fontSize: 12, color: '#8a6d3b', marginTop: 4 }}>
+                  ※ 확정행 또는 실제 출고일 수량이 있는 행은 자동 정리하지 않고 보존합니다.
+                </div>
               </Section>
             )}
             {dateRows.length > 0 && (

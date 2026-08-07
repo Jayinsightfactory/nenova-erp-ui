@@ -66,8 +66,91 @@ async function handler(req, res) {
   try {
     if (req.method === 'POST') {
       const action = String(req.body?.action || '').trim();
-      if (!['repairMissingCustKey', 'repairShipmentDateBaseOutDay'].includes(action)) {
+      if (!['repairMissingCustKey', 'repairShipmentDateBaseOutDay', 'repairZeroOut'].includes(action)) {
         return res.status(400).json({ success: false, error: '지원하지 않는 action 입니다.' });
+      }
+
+      if (action === 'repairZeroOut') {
+        const repaired = await withTransaction(async (tQ) => {
+          const before = await tQ(
+            `SELECT COUNT(*) AS cnt
+               FROM ShipmentMaster sm
+               JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk
+                AND ISNULL(sm.isDeleted,0)=0
+                AND ISNULL(sm.isFix,0)<>1 AND ISNULL(sd.isFix,0)<>1
+                AND ISNULL(sd.OutQuantity,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM ShipmentDate sdt
+                   WHERE sdt.SdetailKey=sd.SdetailKey
+                     AND ISNULL(sdt.ShipmentQuantity,0)<>0
+                )`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } },
+          );
+          const sample = await tQ(
+            `SELECT TOP 100 sm.ShipmentKey, sd.SdetailKey, sm.CustKey, c.CustName,
+                    sd.ProdKey, p.ProdName, sd.OutQuantity
+               FROM ShipmentMaster sm
+               JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+               LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+               LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk
+                AND ISNULL(sm.isDeleted,0)=0
+                AND ISNULL(sm.isFix,0)<>1 AND ISNULL(sd.isFix,0)<>1
+                AND ISNULL(sd.OutQuantity,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM ShipmentDate sdt
+                   WHERE sdt.SdetailKey=sd.SdetailKey
+                     AND ISNULL(sdt.ShipmentQuantity,0)<>0
+                )
+              ORDER BY sm.CustKey, sd.ProdKey, sd.SdetailKey`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } },
+          );
+          const deleted = await tQ(
+            `DELETE sd
+               FROM ShipmentDetail sd WITH (UPDLOCK, ROWLOCK)
+               JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk
+                AND ISNULL(sm.isDeleted,0)=0
+                AND ISNULL(sm.isFix,0)<>1 AND ISNULL(sd.isFix,0)<>1
+                AND ISNULL(sd.OutQuantity,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM ShipmentDate sdt
+                   WHERE sdt.SdetailKey=sd.SdetailKey
+                     AND ISNULL(sdt.ShipmentQuantity,0)<>0
+                )`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } },
+          );
+          const after = await tQ(
+            `SELECT COUNT(*) AS cnt
+               FROM ShipmentMaster sm
+               JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk
+                AND ISNULL(sm.isDeleted,0)=0
+                AND ISNULL(sm.isFix,0)<>1 AND ISNULL(sd.isFix,0)<>1
+                AND ISNULL(sd.OutQuantity,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM ShipmentDate sdt
+                   WHERE sdt.SdetailKey=sd.SdetailKey
+                     AND ISNULL(sdt.ShipmentQuantity,0)<>0
+                )`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } },
+          );
+          return {
+            before: Number(before.recordset[0]?.cnt || 0),
+            deleted: Number(deleted.rowsAffected?.[0] || 0),
+            after: Number(after.recordset[0]?.cnt || 0),
+            sample: sample.recordset,
+          };
+        }, { retries: 5, baseDelay: 200 });
+        return res.status(200).json({
+          success: true,
+          week,
+          orderYear,
+          action,
+          message: `미확정 0수량 빈 분배 ${repaired.deleted}건을 정리했습니다. 확정행·실제 출고일 수량이 있는 행은 보존했습니다.`,
+          ...repaired,
+        });
       }
 
       if (action === 'repairShipmentDateBaseOutDay') {
@@ -75,8 +158,9 @@ async function handler(req, res) {
           const fixed = await tQ(
             `SELECT TOP 1 1 AS fixed
                FROM ShipmentMaster
-              WHERE OrderWeek=@wk AND ISNULL(isDeleted,0)=0 AND ISNULL(isFix,0)=1`,
-            { wk: { type: sql.NVarChar, value: week } }
+              WHERE CAST(OrderYear AS NVARCHAR(4))=@yr AND OrderWeek=@wk
+                AND ISNULL(isDeleted,0)=0 AND ISNULL(isFix,0)=1`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
           );
           if (fixed.recordset.length) throw new Error('확정된 차수는 출고일을 보정할 수 없습니다. 확정취소 후 다시 진행하세요.');
 
@@ -89,11 +173,11 @@ async function handler(req, res) {
                JOIN Customer c ON c.CustKey=sm.CustKey
                JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
                JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-              WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
                 AND ISNULL(sd.OutQuantity,0) <> 0
                 AND CONVERT(date, sd.ShipmentDtm)=dm.WrongDate
                 AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)`,
-            { wk: { type: sql.NVarChar, value: week }, ...dateParams }
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ...dateParams }
           );
 
           const sample = await tQ(
@@ -109,12 +193,12 @@ async function handler(req, res) {
                JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
                JOIN Product p ON p.ProdKey=sd.ProdKey
                JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-              WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
                 AND ISNULL(sd.OutQuantity,0) <> 0
                 AND CONVERT(date, sd.ShipmentDtm)=dm.WrongDate
                 AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)
               ORDER BY c.CustArea, c.CustName, p.ProdName`,
-            { wk: { type: sql.NVarChar, value: week }, ...dateParams }
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ...dateParams }
           );
 
           const log = `\n엑셀업로드 출고일보정`;
@@ -129,11 +213,11 @@ async function handler(req, res) {
                JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
                JOIN Customer c ON c.CustKey=sm.CustKey
                JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-              WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
                 AND ISNULL(sd.OutQuantity,0) <> 0
                 AND CONVERT(date, sd.ShipmentDtm)=dm.WrongDate
                 AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)`,
-            { wk: { type: sql.NVarChar, value: week }, log: { type: sql.NVarChar, value: log }, ...dateParams }
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, log: { type: sql.NVarChar, value: log }, ...dateParams }
           );
 
           const dateUpdate = await tQ(
@@ -147,11 +231,11 @@ async function handler(req, res) {
                JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
                JOIN Customer c ON c.CustKey=sm.CustKey
                JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-              WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
                 AND ISNULL(sd.OutQuantity,0) <> 0
                 AND CONVERT(date, sdt.ShipmentDtm)=dm.WrongDate
                 AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)`,
-            { wk: { type: sql.NVarChar, value: week }, ...dateParams }
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ...dateParams }
           );
 
           const after = await tQ(
@@ -163,11 +247,11 @@ async function handler(req, res) {
                JOIN Customer c ON c.CustKey=sm.CustKey
                JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
                JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-              WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+              WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
                 AND ISNULL(sd.OutQuantity,0) <> 0
                 AND CONVERT(date, sd.ShipmentDtm)=dm.WrongDate
                 AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)`,
-            { wk: { type: sql.NVarChar, value: week }, ...dateParams }
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ...dateParams }
           );
 
           return {
@@ -194,10 +278,10 @@ async function handler(req, res) {
           `SELECT COUNT(*) AS cnt
              FROM ShipmentMaster sm
              JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+            WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
               AND ISNULL(sd.OutQuantity,0) <> 0
               AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
-          { wk: { type: sql.NVarChar, value: week } }
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
 
         const sample = await tQ(
@@ -206,11 +290,11 @@ async function handler(req, res) {
              FROM ShipmentMaster sm
              JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
              LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
-            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+            WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
               AND ISNULL(sd.OutQuantity,0) <> 0
               AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)
             ORDER BY sm.CustKey, sd.ProdKey`,
-          { wk: { type: sql.NVarChar, value: week } }
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
 
         const updateResult = await tQ(
@@ -218,20 +302,20 @@ async function handler(req, res) {
               SET sd.CustKey = sm.CustKey
              FROM ShipmentDetail sd WITH (UPDLOCK, ROWLOCK)
              JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+            WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
               AND ISNULL(sd.OutQuantity,0) <> 0
               AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
-          { wk: { type: sql.NVarChar, value: week } }
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
 
         const after = await tQ(
           `SELECT COUNT(*) AS cnt
              FROM ShipmentMaster sm
              JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+            WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
               AND ISNULL(sd.OutQuantity,0) <> 0
               AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)`,
-          { wk: { type: sql.NVarChar, value: week } }
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
 
         return {
@@ -256,11 +340,11 @@ async function handler(req, res) {
               MIN(ShipmentKey) AS minShipmentKey,
               MAX(ShipmentKey) AS maxShipmentKey
          FROM ShipmentMaster
-        WHERE OrderWeek=@wk AND ISNULL(isDeleted,0)=0
-        GROUP BY CustKey, OrderWeek
+        WHERE CAST(OrderYear AS NVARCHAR(4))=@yr AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0
+        GROUP BY OrderYear, CustKey, OrderWeek
        HAVING COUNT(*) > 1
         ORDER BY CustKey`,
-      { wk: { type: sql.NVarChar, value: week } }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
     );
 
     const missingCustKey = await query(
@@ -269,11 +353,31 @@ async function handler(req, res) {
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
-        WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+        WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
           AND ISNULL(sd.OutQuantity,0) <> 0
           AND (sd.CustKey IS NULL OR sd.CustKey=0 OR sd.CustKey<>sm.CustKey)
         ORDER BY sm.CustKey, sd.ProdKey`,
-      { wk: { type: sql.NVarChar, value: week } }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
+    );
+
+    const zeroOut = await query(
+      `SELECT TOP 200 sm.ShipmentKey, sd.SdetailKey, sm.CustKey, c.CustName,
+              sd.ProdKey, p.ProdName, sd.OutQuantity,
+              CASE WHEN ISNULL(sm.isFix,0)=1 OR ISNULL(sd.isFix,0)=1 THEN 1 ELSE 0 END AS IsFixed,
+              CASE WHEN EXISTS (
+                SELECT 1 FROM ShipmentDate sdt
+                 WHERE sdt.SdetailKey=sd.SdetailKey
+                   AND ISNULL(sdt.ShipmentQuantity,0)<>0
+              ) THEN 1 ELSE 0 END AS HasPositiveDateQty
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+         LEFT JOIN Customer c ON c.CustKey=sm.CustKey
+         LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
+        WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk
+          AND ISNULL(sm.isDeleted,0)=0
+          AND ISNULL(sd.OutQuantity,0)=0
+        ORDER BY IsFixed DESC, HasPositiveDateQty DESC, sm.CustKey, sd.ProdKey, sd.SdetailKey`,
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
     );
 
     const shipmentDateMismatch = await query(
@@ -290,7 +394,7 @@ async function handler(req, res) {
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          LEFT JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
          LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
-        WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+        WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
           AND ISNULL(sd.OutQuantity,0) <> 0
         GROUP BY sm.ShipmentKey, sd.SdetailKey, sm.CustKey, sd.ProdKey, p.ProdName,
                  sd.OutQuantity, sd.ShipmentDtm
@@ -301,7 +405,7 @@ async function handler(req, res) {
                          OR CONVERT(date, sdt.ShipmentDtm) <> CONVERT(date, sd.ShipmentDtm)
                        THEN 1 ELSE 0 END) > 0
         ORDER BY sm.CustKey, sd.ProdKey`,
-      { wk: { type: sql.NVarChar, value: week } }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
     );
 
     const shipmentDateBaseMismatch = await query(
@@ -317,12 +421,12 @@ async function handler(req, res) {
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN Product p ON p.ProdKey=sd.ProdKey
          JOIN date_map dm ON dm.BaseOutDay=ISNULL(c.BaseOutDay,0)
-        WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+        WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
           AND ISNULL(sd.OutQuantity,0) <> 0
           AND CONVERT(date, sd.ShipmentDtm)=dm.WrongDate
           AND (ISNULL(sd.Descr,N'') LIKE N'%엑셀업로드%' OR ISNULL(sm.WebCreated,0)=1)
         ORDER BY c.CustArea, c.CustName, p.ProdName`,
-      { wk: { type: sql.NVarChar, value: week }, ...dateParams }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, ...dateParams }
     );
 
     const estMismatch = await query(
@@ -331,10 +435,10 @@ async function handler(req, res) {
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
-        WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+        WHERE CAST(sm.OrderYear AS NVARCHAR(4))=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
           AND ISNULL(sd.OutQuantity,0) <> ISNULL(sd.EstQuantity,0)
         ORDER BY sm.CustKey, sd.ProdKey`,
-      { wk: { type: sql.NVarChar, value: week } }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
     );
 
     const keyNumbering = await query(
@@ -413,8 +517,9 @@ async function handler(req, res) {
       success: true,
       week,
       summary: {
-        duplicateMasters: duplicateMasters.recordset.length,
-        missingCustKey: missingCustKey.recordset.length,
+         duplicateMasters: duplicateMasters.recordset.length,
+         missingCustKey: missingCustKey.recordset.length,
+         zeroOut: zeroOut.recordset.length,
         shipmentDateMismatch: shipmentDateMismatch.recordset.length,
         shipmentDateBaseMismatch: shipmentDateBaseMismatch.recordset.length,
         estMismatch: estMismatch.recordset.length,
@@ -423,6 +528,7 @@ async function handler(req, res) {
       },
       duplicateMasters: duplicateMasters.recordset,
       missingCustKey: missingCustKey.recordset,
+      zeroOut: zeroOut.recordset,
       shipmentDateMismatch: shipmentDateMismatch.recordset,
       shipmentDateBaseMismatch: shipmentDateBaseMismatch.recordset,
       estMismatch: estMismatch.recordset,

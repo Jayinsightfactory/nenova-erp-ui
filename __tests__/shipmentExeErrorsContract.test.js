@@ -8,6 +8,8 @@ async function main() {
   const page = fs.readFileSync(path.join(root, 'pages/shipment/exe-errors.js'), 'utf8');
   const distribute = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute.js'), 'utf8');
   const distributeSp = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-sp.js'), 'utf8');
+  const diagnose = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-diagnose.js'), 'utf8');
+  const stockStatus = fs.readFileSync(path.join(root, 'pages/api/shipment/stock-status.js'), 'utf8');
 
   const sqlBlocks = api.match(/sql:\s*`[\s\S]*?`/g) || [];
   assert.equal(sqlBlocks.length, 10, '전산 오류 진단 검사 수가 임의로 줄거나 늘지 않았는지 확인');
@@ -34,6 +36,18 @@ async function main() {
   assert.match(distributeSp, /WHERE om\.OrderYear=@yr AND om\.OrderWeek=@wk/, 'SP 품목그룹 조회도 연도와 차수를 함께 필터링해야 한다.');
   assert.match(distributeSp, /WHERE sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, 'SP 확정검사·사후검증도 연도와 차수를 함께 필터링해야 한다.');
   assert.match(distributeSp, /loadSummary\(tQ, orderYear, week/, 'SP 사후검증은 실행한 연도를 사용해야 한다.');
+
+  assert.match(diagnose, /CAST\(sm\.OrderYear AS NVARCHAR\(4\)\)=@yr AND sm\.OrderWeek=@wk/, '진단·보정 API의 ShipmentMaster 변경은 선택 연도로 격리해야 한다.');
+  assert.match(diagnose, /CAST\(OrderYear AS NVARCHAR\(4\)\)=@yr AND OrderWeek=@wk/, '확정 여부 검사도 차수 단독으로 조회하면 안 된다.');
+  assert.match(diagnose, /yr:\s*\{ type: sql\.NVarChar, value: orderYear \}/, '진단·보정 트랜잭션에 선택 연도를 전달해야 한다.');
+  assert.match(diagnose, /repairZeroOut/, '0수량 빈 분배는 선택 연도 범위의 안전한 보정 경로를 가져야 한다.');
+  assert.match(diagnose, /ISNULL\(sm\.isFix,0\)<>1 AND ISNULL\(sd\.isFix,0\)<>1/, '0수량 정리는 확정된 ShipmentMaster/Detail을 보존해야 한다.');
+
+  assert.match(stockStatus, /view === 'cleanupZero'/, '재고 진단의 0수량 정리 경로가 존재해야 한다.');
+  assert.match(stockStatus, /sm\.OrderYear=@orderYear[\s\S]{0,160}ISNULL\(sd\.OutQuantity,0\)=0/, '0수량 정리는 선택 연도·차수 범위로 제한해야 한다.');
+  assert.match(stockStatus, /DELETE sd[\s\S]{0,260}sm\.OrderYear=@orderYear[\s\S]{0,260}ISNULL\(sd\.OutQuantity,0\)=0/, 'ShipmentDetail 임의 삭제를 막고 빈 레코드만 제한적으로 정리해야 한다.');
+  assert.match(stockStatus, /if \(view === 'cleanupZero'\)[\s\S]{0,240}req\.query\.confirm[\s\S]{0,240}repairZeroOut/, '기존 GET 정리 경로는 명시적 확인 없이는 실행되지 않아야 한다.');
+  assert.match(stockStatus, /sm2\.OrderYear=@orderYear[\s\S]{0,120}sm2\.OrderWeek < @weekFrom/, '잔량 기초재고도 선택 연도에 격리해야 한다.');
 
   console.log('shipment exe error diagnostic contract tests passed');
 }
