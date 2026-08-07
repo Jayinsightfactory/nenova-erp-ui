@@ -6,6 +6,7 @@ const BASE = process.env.SMOKE_BASE_URL || 'https://nenovaweb.com';
 const USER = process.env.SMOKE_USER || 'nenovaSS3';
 const PASS = process.env.SMOKE_PASS || '0000';
 const PUBLIC_API_KEY = process.env.SMOKE_PUBLIC_API_KEY || process.env.PUBLIC_API_KEY || 'nenova-api-2026';
+const ORDER_YEAR = process.env.SMOKE_ORDER_YEAR || '2026';
 
 async function request(path, { method = 'GET', token, body } = {}) {
   const headers = { Accept: 'application/json' };
@@ -47,7 +48,7 @@ async function main() {
 
   console.log('\n--- 23-01 주광 Hydrangea 진단 (수정 후 구조) ---');
   const vis = await request(
-    '/api/shipment/estimate-visibility?week=23-01&q=Hydrangea%20White&cust=주광',
+    `/api/shipment/estimate-visibility?year=${ORDER_YEAR}&week=23-01&q=Hydrangea%20White&cust=주광`,
     { token }
   );
   assert('estimate-visibility 200', vis.status === 200, `status=${vis.status}`);
@@ -72,7 +73,7 @@ async function main() {
 
   console.log('\n--- estimate-period-repair 진단 (쓰기 없음) ---');
   const repair = await request(
-    '/api/shipment/estimate-period-repair?shipdates=23-01&cust=주광',
+    `/api/shipment/estimate-period-repair?year=${ORDER_YEAR}&shipdates=23-01&cust=주광`,
     { token }
   );
   assert('estimate-period-repair GET 200', repair.status === 200, `status=${repair.status}`);
@@ -84,7 +85,7 @@ async function main() {
 
   console.log('\n--- public shipments GET (API 키) ---');
   const pubRes = await fetch(
-    `${BASE}/api/public/shipments?week=23-01&custName=${encodeURIComponent('주광')}&limit=5`,
+    `${BASE}/api/public/shipments?year=${ORDER_YEAR}&week=23-01&custName=${encodeURIComponent('주광')}&limit=5`,
     { headers: { 'X-Api-Key': PUBLIC_API_KEY } }
   );
   const pubJson = await pubRes.json().catch(() => ({}));
@@ -93,7 +94,7 @@ async function main() {
 
   console.log('\n--- 24차 견적 회귀 (Orange Flame + 그린화원) ---');
   const { runEstimateRegressionChecks } = await import('../lib/smokeEstimateRegression.js');
-  const authedRequest = (path) => request(path, { token });
+  const authedRequest = (path) => request(`${path}${path.includes('?') ? '&' : '?'}year=${ORDER_YEAR}`, { token });
   const estimateChecks = await runEstimateRegressionChecks(authedRequest);
   for (const chk of estimateChecks) {
     if (chk.skip) {
