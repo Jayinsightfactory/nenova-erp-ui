@@ -64,6 +64,8 @@ explicit deny
 9. 필요 시 step-up MFA 또는 승인 확인
 10. 감사 이벤트 기록 후 짧은 signed URL 또는 proxy stream 발급
 
+미리보기와 다운로드는 별도 action이다. `preview`만 있는 사용자는 파생 preview artifact만 볼 수 있고 원본 storage key나 download URL을 받을 수 없다. URL 발급 성공뿐 아니라 거부, 만료, 실제 다운로드 완료/중단도 audit event로 기록한다.
+
 signed URL은 보유자에게 유효기간 동안 권한을 주므로 짧은 TTL, 단일 object/action, HTTPS, 로그 마스킹이 필요하다([Google signed URLs](https://docs.cloud.google.com/storage/docs/access-control/signed-urls), [Azure SAS](https://learn.microsoft.com/azure/storage/blobs/storage-blob-user-delegation-sas-create-dotnet)).
 
 ## 4. 업로드 방어
@@ -154,3 +156,21 @@ ISO 27001 인증 여부를 문서만으로 주장하지 않는다. 실제 scope,
 - 대량 다운로드 rate limit과 경보
 - audit log tamper 탐지
 - backup restore 후 DB metadata와 object hash 일치
+
+## 11. 계정 연결 해제와 tenant 격리
+
+- MOYI 계정과 NenovaWeb 계정의 연결 해제는 identity link만 비활성화하며 파일·감사 원장을 삭제하지 않는다.
+- 연결 해제 즉시 connector token, active mapping session, cached permission을 철회한다.
+- 파일 소유권은 개인 외부 계정이 아니라 tenant 또는 tenant membership에 귀속한다.
+- 퇴사·비활성 계정의 개인 workspace 파일은 보존 담당자에게 관리 책임을 이전하되 감사 actor ID는 유지한다.
+- 다른 tenant의 동일 사용자 이메일, 동일 파일 hash, 동일 ERP 키는 같은 자원으로 합치지 않는다.
+- cross-tenant 파일 ID 요청은 정책에 따라 404 또는 일반화된 403을 반환하며 자원 존재를 누출하지 않는다.
+- identity link 재연결은 새 승인과 proof를 요구하고 과거 권한을 자동 복구하지 않는다.
+
+### 연결 해제 시 테스트
+
+- MOYI 앱 refresh token과 Nenova connector credential 철회
+- 기존 signed URL의 짧은 TTL 내 만료 및 신규 발급 차단
+- 앱 로컬 cache 삭제 event 수신
+- 기존 audit/version/diff 불변 보존
+- 다른 tenant membership에 권한 전이 없음

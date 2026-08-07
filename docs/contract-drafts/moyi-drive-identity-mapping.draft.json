@@ -1,0 +1,15 @@
+{
+  "id": "moyi-drive-identity-mapping-draft",
+  "status": "draft",
+  "businessIdentity": ["TenantId", "ConnectorInstallationId", "Provider", "ExternalTenantId", "ExternalUserId"],
+  "states": ["pending", "active", "suspended", "revoked"],
+  "invariants": [
+    "이메일이나 이름만으로 계정을 자동 연결하지 않는다",
+    "Nenova UserInfo.UserID는 MOYI 전역 UserId가 아니다",
+    "tenant membership과 identity link가 모두 active여야 한다",
+    "연결 해제는 token과 cache 권한을 철회하지만 파일·감사로그를 삭제하지 않는다",
+    "다른 tenant의 동일 external user id를 합치지 않는다"
+  ],
+  "unknownUntilMoyiEvidence": ["login-method", "tenant-id", "organization-id", "refresh-token", "device-session", "account-deactivation"],
+  "requiredTests": ["proof-required", "cross-tenant mapping", "unlink revoke", "relink no privilege restore", "inactive membership"]
+}
