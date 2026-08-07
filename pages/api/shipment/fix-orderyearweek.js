@@ -9,7 +9,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 // 전산 포맷 식 (OrderWeek 에 '-' 없으면 전체 사용)
 const CORRECT = (t) => `${t}.OrderYear + LEFT(${t}.OrderWeek, CHARINDEX('-', ${t}.OrderWeek + '-') - 1)`;
@@ -23,8 +23,14 @@ async function colExists(table, column) {
 }
 
 async function handler(req, res) {
-  const week = normalizeOrderWeek(req.query?.week || req.body?.week || '');
-  if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+  const rawWeek = req.query?.week || req.body?.week || '';
+  let orderYear;
+  let week;
+  try {
+    ({ orderYear, orderWeek: week } = requireOrderYear(rawWeek, req.query?.orderYear || req.query?.year || req.body?.orderYear || req.body?.year || ''));
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
   const uid = req.user?.userId || 'system';
   // OrderMaster 에는 OrderYearWeek 컬럼이 없을 수 있음(환경별). ShipmentMaster 만 견적에 쓰임.
   const omHasCol = await colExists('OrderMaster', 'OrderYearWeek');
@@ -35,21 +41,21 @@ async function handler(req, res) {
         `SELECT TOP 100 sm.ShipmentKey, sm.OrderYear, sm.OrderWeek, sm.OrderYearWeek AS Cur,
                 ${CORRECT('sm')} AS Correct, c.CustName
            FROM ShipmentMaster sm LEFT JOIN Customer c ON c.CustKey=sm.CustKey
-          WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND sm.OrderYearWeek <> ${CORRECT('sm')}
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND sm.OrderYearWeek <> ${CORRECT('sm')}
           ORDER BY c.CustName`,
-        { wk: { type: sql.NVarChar, value: week } }
+        { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
       );
       let orderMismatch = 0;
       if (omHasCol) {
         const om = await query(
           `SELECT COUNT(*) AS cnt FROM OrderMaster om
-            WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
-          { wk: { type: sql.NVarChar, value: week } }
+            WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
         orderMismatch = Number(om.recordset[0]?.cnt || 0);
       }
       return res.status(200).json({
-        success: true, week, omHasCol,
+        success: true, orderYear, week, omHasCol,
         shipmentMismatch: sm.recordset.length,
         orderMismatch,
         sample: sm.recordset.slice(0, 30),
@@ -62,16 +68,16 @@ async function handler(req, res) {
         const smU = await tQ(
           `UPDATE sm SET sm.OrderYearWeek = ${CORRECT('sm')}, sm.CreateDtm = sm.CreateDtm
              FROM ShipmentMaster sm
-            WHERE sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND sm.OrderYearWeek <> ${CORRECT('sm')}`,
-          { wk: { type: sql.NVarChar, value: week } }
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND sm.OrderYearWeek <> ${CORRECT('sm')}`,
+          { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week } }
         );
         let orderUpdated = 0;
         if (omHasCol) {
           const omU = await tQ(
             `UPDATE om SET om.OrderYearWeek = ${CORRECT('om')}, om.LastUpdateID=@uid, om.LastUpdateDtm=GETDATE()
                FROM OrderMaster om
-              WHERE om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
-            { wk: { type: sql.NVarChar, value: week }, uid: { type: sql.NVarChar, value: uid } }
+              WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(om.OrderYearWeek,'') <> ${CORRECT('om')}`,
+            { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: week }, uid: { type: sql.NVarChar, value: uid } }
           );
           orderUpdated = omU.rowsAffected?.[0] || 0;
         }
@@ -81,7 +87,7 @@ async function handler(req, res) {
         };
       });
       return res.status(200).json({
-        success: true, week, ...result,
+        success: true, orderYear, week, ...result,
         message: `OrderYearWeek 전산 포맷 보정 완료 — 출고마스터 ${result.shipmentUpdated} / 주문마스터 ${result.orderUpdated}건. 이제 견적서관리에 표시됩니다.`,
       });
     }

@@ -30,6 +30,7 @@
 // }
 
 import { query, withTransaction, sql } from '../../../lib/db';
+import { requireOrderYear } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { toOrderUnits } from '../../../lib/shipmentImportQty';
@@ -90,12 +91,19 @@ export default async function handler(req, res) {
 // ── GET: 출고 조회 ─────────────────────────────────────────────────────
 // 쿼리 파라미터: week, custName, area, limit(기본100)
 async function getShipments(req, res) {
-  const { week, custName, area, limit = 100 } = req.query;
+  const { week, year, orderYear, custName, area, limit = 100 } = req.query;
 
   let where = 'WHERE sm.isDeleted = 0';
   const params = {};
 
-  if (week)     { where += ' AND sm.OrderWeek = @week';           params.week     = { type: sql.NVarChar, value: week }; }
+  if (week) {
+    try {
+      const selected = requireOrderYear(week, orderYear || year || '');
+      where += ' AND sm.OrderYear = @orderYear AND sm.OrderWeek = @week';
+      params.orderYear = { type: sql.NVarChar, value: selected.orderYear };
+      params.week = { type: sql.NVarChar, value: selected.orderWeek };
+    } catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
+  }
   if (custName) { where += ' AND c.CustName LIKE @custName';      params.custName = { type: sql.NVarChar, value: `%${custName}%` }; }
   if (area)     { where += ' AND c.CustArea = @area';             params.area     = { type: sql.NVarChar, value: area }; }
 
@@ -172,6 +180,9 @@ async function createShipment(req, res) {
     return res.status(400).json({ success: false, error: 'items 배열이 필요합니다.' });
   }
 
+  let selected;
+  try { selected = requireOrderYear(week, year || ''); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
   try {
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
     // 거래처 조회
@@ -186,16 +197,17 @@ async function createShipment(req, res) {
     }
     if (!resolvedCustKey) return res.status(400).json({ success: false, error: 'custKey 또는 custName이 필요합니다.' });
 
-    const resolvedWeek = week || '';
-    const resolvedYear = year || String(new Date().getFullYear());
+    const resolvedWeek = selected.orderWeek;
+    const resolvedYear = selected.orderYear;
 
     const { shipmentKey, results } = await withTransaction(async (tQ) => {
       const smResult = await tQ(
         `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE CustKey=@ck AND OrderWeek=@week AND isDeleted=0
+          WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@week AND isDeleted=0
           ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
         {
           ck:   { type: sql.Int,      value: parseInt(resolvedCustKey) },
+          yr:   { type: sql.NVarChar, value: resolvedYear },
           week: { type: sql.NVarChar, value: resolvedWeek },
         }
       );

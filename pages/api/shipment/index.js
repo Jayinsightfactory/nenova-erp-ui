@@ -1,7 +1,7 @@
 // pages/api/shipment/index.js — GET → exe FormShipmentView.GetData
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlShipmentViewGetData } from '../../../lib/exeShipmentViewSql.js';
 
@@ -14,27 +14,32 @@ export default withAuth(async function handler(req, res) {
 async function resolveShipmentListWeek(week, explicitYear = '') {
   const norm = normalizeOrderWeek(week || '');
   if (!norm) {
+    if (!/^\d{4}$/.test(String(explicitYear || ''))) {
+      const error = new Error('출고 목록을 조회할 연도를 선택하세요.');
+      error.code = 'ORDER_YEAR_REQUIRED';
+      throw error;
+    }
     const r = await query(
       `SELECT TOP 1 OrderYear, OrderWeek FROM ShipmentMaster
         WHERE isDeleted=0 AND (@yr=N'' OR CAST(OrderYear AS NVARCHAR(4))=@yr)
         ORDER BY CreateDtm DESC`,
       { yr: { type: sql.NVarChar, value: String(explicitYear || '') } }
     );
-    return { orderYear: String(r.recordset[0]?.OrderYear || new Date().getFullYear()), orderWeek: r.recordset[0]?.OrderWeek || '' };
+    return { orderYear: String(r.recordset[0]?.OrderYear || explicitYear), orderWeek: r.recordset[0]?.OrderWeek || '' };
   }
+  const selected = requireOrderYear(week, explicitYear);
   const r = await query(
     `SELECT TOP 1 OrderYear, OrderWeek FROM ShipmentMaster
-      WHERE isDeleted=0 AND OrderWeek=@ow
-        AND (@yr=N'' OR CAST(OrderYear AS NVARCHAR(4))=@yr)
+      WHERE isDeleted=0 AND CAST(OrderYear AS NVARCHAR(4))=@yr AND OrderWeek=@ow
       ORDER BY CreateDtm DESC`,
     {
       ow: { type: sql.NVarChar, value: norm },
-      yr: { type: sql.NVarChar, value: String(explicitYear || '') },
+      yr: { type: sql.NVarChar, value: selected.orderYear },
     }
   );
   const row = r.recordset[0];
   return {
-    orderYear: String(row?.OrderYear || new Date().getFullYear()),
+    orderYear: String(row?.OrderYear || selected.orderYear),
     orderWeek: row?.OrderWeek || norm,
   };
 }
@@ -70,8 +75,7 @@ async function getShipments(req, res) {
     let where = 'WHERE 1=1';
     const params = {};
     if (week) {
-      const normalizedWeek = normalizeOrderWeek(week);
-      const resolvedYear = resolveActiveOrderYear(week, requestedYear || year || '');
+      const { orderYear: resolvedYear, orderWeek: normalizedWeek } = requireOrderYear(week, requestedYear || year || '');
       where += ' AND vs.OrderWeek = @week AND vs.OrderYear = @orderYear';
       params.week = { type: sql.NVarChar, value: normalizedWeek };
       params.orderYear = { type: sql.NVarChar, value: resolvedYear };
@@ -94,7 +98,8 @@ async function getShipments(req, res) {
     );
     return res.status(200).json({ success: true, source: 'real_db', shipments: result.recordset });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const status = ['ORDER_YEAR_REQUIRED', 'ORDER_YEAR_MISMATCH', 'INVALID_ORDER_YEAR', 'INVALID_ORDER_WEEK'].includes(err.code) ? 400 : 500;
+    return res.status(status).json({ success: false, code: err.code, error: err.message });
   }
 }
 

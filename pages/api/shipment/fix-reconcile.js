@@ -7,21 +7,18 @@
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { reconcileWeekAfterScopedOperation } from '../../../lib/shipmentFixReconcile';
-
-function parseWeek(input) {
-  const raw = String(input || '').trim();
-  const full = raw.match(/^(\d{4})-(\d{2}-\d{2})$/);
-  if (full) return { year: full[1], week: full[2] };
-  const short = raw.match(/^(\d{2}-\d{2})$/);
-  if (short) return { year: String(new Date().getFullYear()), week: short[1] };
-  return null;
-}
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST only' });
 
-  const parsed = parseWeek(req.body?.week);
-  if (!parsed) return res.status(400).json({ success: false, error: 'week 필요 (예: 25-01)' });
+  let parsed;
+  try {
+    const selected = requireOrderYear(req.body?.week || '', req.body?.orderYear || req.body?.year || '');
+    parsed = { year: selected.orderYear, week: selected.orderWeek };
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
 
   const uid = req.user?.userId || 'admin';
   const forceFullWeekRecalc = req.body?.forceFullWeekRecalc !== false;

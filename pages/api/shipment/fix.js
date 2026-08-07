@@ -8,6 +8,7 @@ import { withAuth } from '../../../lib/auth';
 import { reconcileWeekAfterScopedOperation } from '../../../lib/shipmentFixReconcile';
 import { evaluatePartialCategoryFixBlock, labelsFromCategoryTargets } from '../../../lib/shipmentFixGuards';
 import { calculateStockShortage, roundStockQuantity } from '../../../lib/stockShortage.js';
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -65,11 +66,24 @@ async function runLimited(items, limit, worker) {
 }
 
 export default withAuth(async function handler(req, res) {
-  if (req.method === 'GET') return await validate(req, res);
+  if (req.method === 'GET') {
+    try {
+      req.erpWeek = requireOrderYear(req.query?.week || '', req.query?.orderYear || req.query?.year || '');
+    } catch (error) {
+      return res.status(400).json({ success: false, code: error.code, error: error.message });
+    }
+    return await validate(req, res);
+  }
   if (req.method !== 'POST') return res.status(405).end();
   const { week, prodKey, action, countryFlowers } = req.body;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!['fix', 'unfix'].includes(action)) return res.status(400).json({ success: false, error: 'action은 fix 또는 unfix' });
+
+  try {
+    req.erpWeek = requireOrderYear(week, req.body?.orderYear || req.body?.year || '');
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
 
   try {
     if (action === 'unfix') return await unfix(req, res, week, prodKey, countryFlowers);
@@ -87,8 +101,7 @@ async function validate(req, res) {
   const { week } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
   try {
-    const orderYear = deriveOrderYear(week);
-    const orderWeek = deriveOrderWeek(week);
+    const { orderYear, orderWeek } = req.erpWeek;
     const orderYearWeek = orderYear + String(orderWeek || '').replace('-', '');
     const wk = { type: sql.NVarChar, value: orderWeek };
     const yr = { type: sql.NVarChar, value: orderYear };
@@ -278,17 +291,6 @@ async function validate(req, res) {
   }
 }
 
-// ── OrderYear 추출 헬퍼: '2026-17-02' / '17-02' 둘 다 지원
-function deriveOrderYear(week) {
-  const m = (week || '').match(/^(\d{4})-/);
-  if (m) return m[1];
-  return String(new Date().getFullYear());
-}
-function deriveOrderWeek(week) {
-  const m = (week || '').match(/^\d{4}-(\d{2}-\d{2})$/);
-  return m ? m[1] : week;
-}
-
 async function loadNegativeGuardRows(orderYear, orderWeek) {
   // usp_ShipmentFix 의 음수검사와 동일 공식:
   //   ProductStock.Stock(현 OrderYearWeek 스냅샷) - SUM(미확정 출고) < 0
@@ -385,8 +387,8 @@ async function loadShipmentProdKeys(orderYear, orderWeek, countryFlower, targetM
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
-      WHERE sm.OrderWeek = @wk
-        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @yr) = @yr
+      WHERE sm.OrderYear = @yr
+        AND sm.OrderWeek = @wk
         AND sm.isDeleted = 0
         AND ISNULL(sd.OutQuantity, 0) > 0
         AND (
@@ -545,8 +547,7 @@ async function loadShipmentCategoryTargets(orderYear, orderWeek, detailFixValue,
        FROM ShipmentDetail sd
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p          ON sd.ProdKey = p.ProdKey AND p.isDeleted = 0
-      WHERE sm.OrderWeek=@wk AND sm.isDeleted = 0
-        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @yr) = @yr
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted = 0
         AND ISNULL(sd.isFix, 0) = @detailFix
         AND sd.OutQuantity > 0`,
     {
@@ -579,14 +580,13 @@ async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter)
   const params = {
     currentKey: { type: sql.NVarChar, value: currentKey },
     orderYear: { type: sql.NVarChar, value: orderYear },
-    defaultYear: { type: sql.NVarChar, value: orderYear },
   };
   countryFlowers.forEach((cf, i) => {
     params[`cf${i}`] = { type: sql.NVarChar, value: cf };
   });
   const result = await query(
     `SELECT TOP 20
-       ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
+       CAST(sm.OrderYear AS NVARCHAR(4)) AS OrderYear,
        sm.OrderWeek,
        COUNT(sd.SdetailKey) AS detailCount
      FROM ShipmentMaster sm
@@ -595,11 +595,11 @@ async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter)
      WHERE sm.isDeleted = 0
        AND ISNULL(sd.OutQuantity, 0) > 0
        AND ISNULL(sd.isFix, 0) = 0
-       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) = @orderYear
-       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') < @currentKey
+       AND CAST(sm.OrderYear AS NVARCHAR(4)) = @orderYear
+       AND CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '') < @currentKey
        ${cfWhere}
-     GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek
-     ORDER BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek`,
+     GROUP BY CAST(sm.OrderYear AS NVARCHAR(4)), sm.OrderWeek
+     ORDER BY CAST(sm.OrderYear AS NVARCHAR(4)), sm.OrderWeek`,
     params
   );
   return result.recordset || [];
@@ -615,8 +615,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     });
   }
 
-  const orderYear = deriveOrderYear(week);
-  const orderWeek = deriveOrderWeek(week);
+  const { orderYear, orderWeek } = req.erpWeek;
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
@@ -914,8 +913,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     });
   }
 
-  const orderYear = deriveOrderYear(week);
-  const orderWeek = deriveOrderWeek(week);
+  const { orderYear, orderWeek } = req.erpWeek;
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
@@ -927,9 +925,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
     const laterFix = await query(
       `SELECT TOP 5 OrderWeek FROM StockMaster
-        WHERE OrderWeek > @wk AND isFix=1
+        WHERE OrderYear=@yr AND OrderWeek > @wk AND isFix=1
         ORDER BY OrderWeek`,
-      { wk: { type: sql.NVarChar, value: orderWeek } }
+      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek } }
     );
     const laterFixed = laterFix.recordset.map(r => r.OrderWeek);
     if (laterFixed.length > 0 && !req.body.force) {

@@ -316,7 +316,8 @@ export default function Distribute() {
     // 사전검증
     setFixLoading(true); setErr('');
     try {
-      const vRes = await fetch(`/api/shipment/fix?week=${encodeURIComponent(week)}`);
+      const orderYear = String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
+      const vRes = await fetch(`/api/shipment/fix?week=${encodeURIComponent(week)}&orderYear=${encodeURIComponent(orderYear)}`);
       const vData = await vRes.json();
       if (vData.issueCount > 0) {
         setValidateResult(vData);
@@ -335,7 +336,7 @@ export default function Distribute() {
       const res = await fetch('/api/shipment/fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, action: 'fix' }),
+        body: JSON.stringify({ week, orderYear: String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()), action: 'fix' }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -355,7 +356,7 @@ export default function Distribute() {
       const res = await fetch('/api/shipment/fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, action: 'unfix' }),
+        body: JSON.stringify({ week, orderYear: String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()), action: 'unfix' }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);

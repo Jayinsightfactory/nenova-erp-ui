@@ -158,7 +158,7 @@ function matchProduct(products, inputProduct) {
   return { match: candidates[0] || null, candidates };
 }
 
-async function getDbState(reqs) {
+async function getDbState(reqs, orderYear) {
   const pairs = reqs
     .filter(r => r.week && r.custMatch?.CustKey && r.prodMatch?.ProdKey)
     .map(r => `${r.week}|${r.custMatch.CustKey}|${r.prodMatch.ProdKey}`);
@@ -170,7 +170,7 @@ async function getDbState(reqs) {
     return { key, i, week, custKey: Number(custKey), prodKey: Number(prodKey) };
   });
   const rowsSql = values.map(v => `SELECT @w${v.i} AS week, @c${v.i} AS custKey, @p${v.i} AS prodKey`).join(' UNION ALL ');
-  const params = {};
+  const params = { orderYear: { type: sql.NVarChar, value: String(orderYear) } };
   for (const v of values) {
     params[`w${v.i}`] = { type: sql.NVarChar, value: v.week };
     params[`c${v.i}`] = { type: sql.Int, value: v.custKey };
@@ -192,27 +192,27 @@ async function getDbState(reqs) {
        SELECT SUM(ISNULL(od.OutQuantity,0)) AS orderQty
        FROM OrderMaster om
        JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
-       WHERE ISNULL(om.isDeleted,0)=0 AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
+       WHERE ISNULL(om.isDeleted,0)=0 AND om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
      ) o
      OUTER APPLY (
        SELECT SUM(ISNULL(sd.OutQuantity,0)) AS shipQty
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE ISNULL(sm.isDeleted,0)=0 AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
+       WHERE ISNULL(sm.isDeleted,0)=0 AND sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
      ) s
      OUTER APPLY (
        SELECT COUNT(*) AS orderHistoryCnt, CONVERT(NVARCHAR(19), MAX(oh.ChangeDtm), 120) AS lastOrderChangeDtm
        FROM OrderHistory oh
        JOIN OrderDetail od ON oh.OrderDetailKey = od.OrderDetailKey
        JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
-       WHERE om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
+       WHERE om.OrderYear=@orderYear AND om.OrderWeek=t.week AND om.CustKey=t.custKey AND od.ProdKey=t.prodKey
      ) oh
      OUTER APPLY (
        SELECT COUNT(*) AS shipHistoryCnt, CONVERT(NVARCHAR(19), MAX(sh.ChangeDtm), 120) AS lastShipChangeDtm
        FROM ShipmentHistory sh
        JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
+       WHERE sm.OrderYear=@orderYear AND sm.OrderWeek=t.week AND sm.CustKey=t.custKey AND sd.ProdKey=t.prodKey
      ) sh`,
     params
   );
@@ -222,8 +222,10 @@ async function getDbState(reqs) {
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { text } = req.body || {};
+  const { text, orderYear, year } = req.body || {};
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
+  const selectedYear = String(orderYear || year || '').trim();
+  if (!/^\d{4}$/.test(selectedYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '연도를 선택한 뒤 다시 시도하세요.' });
 
   const [custRes, prodRes] = await Promise.all([
     query(`SELECT CustKey, CustCode, CustName, CustArea, Manager, OrderCode FROM Customer WHERE ISNULL(isDeleted,0)=0 ORDER BY CustName`),
@@ -258,7 +260,7 @@ export default withAuth(async function handler(req, res) {
     };
   });
 
-  const dbState = await getDbState(parsed);
+  const dbState = await getDbState(parsed, selectedYear);
   const rows = parsed.map(r => {
     const key = r.week && r.custMatch?.CustKey && r.prodMatch?.ProdKey
       ? `${r.week}|${r.custMatch.CustKey}|${r.prodMatch.ProdKey}`

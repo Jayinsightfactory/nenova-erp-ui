@@ -11,7 +11,7 @@
 
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import {
   filterItemsByWeekday,
   checkSplitSumInvariant,
@@ -27,6 +27,9 @@ export default withAuth(async function handler(req, res) {
   const weeks = parseWeeks(req.query?.weeks || req.query?.week || '');
   const custKw = String(req.query?.cust || '').trim();
   const skFilter = req.query?.shipmentKey ? parseInt(req.query.shipmentKey, 10) : null;
+  let orderYear;
+  try { orderYear = requireOrderYear(weeks[0] || req.query?.week || '', req.query?.orderYear || req.query?.year || '').orderYear; }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
 
   if (!weeks.length) {
     return res.status(400).json({
@@ -46,7 +49,7 @@ export default withAuth(async function handler(req, res) {
 
     for (const week of weeks) {
       const wk = normalizeOrderWeek(week);
-      const wkParams = { wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } };
+      const wkParams = { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: wk }, cust: { type: sql.NVarChar, value: custKw ? `%${custKw}%` : '' } };
 
       // ── 1) ShipmentDate 자정 불일치
       const dateRows = await query(
@@ -57,7 +60,7 @@ export default withAuth(async function handler(req, res) {
            JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
            JOIN Customer c ON c.CustKey = sm.CustKey
            JOIN Product p ON p.ProdKey = sd.ProdKey
-          WHERE sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
             AND (@cust='' OR c.CustName LIKE @cust)
             AND CONVERT(TIME, sdd.ShipmentDtm) <> '00:00:00'
           ORDER BY c.CustName, p.ProdName`,
@@ -90,7 +93,7 @@ export default withAuth(async function handler(req, res) {
              SELECT COUNT(*) AS DateCount, SUM(z.ShipmentQuantity) AS SumShip
                FROM ShipmentDate z WHERE z.SdetailKey = sd.SdetailKey
            ) dagg
-          WHERE sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
             AND (@cust='' OR c.CustName LIKE @cust)
             AND dagg.DateCount > 1
           ORDER BY c.CustName, p.ProdName, sdd.ShipmentDtm`,
@@ -169,7 +172,7 @@ export default withAuth(async function handler(req, res) {
         `SELECT sm.ShipmentKey, c.CustName
            FROM ShipmentMaster sm
            JOIN Customer c ON c.CustKey = sm.CustKey
-          WHERE sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
+          WHERE sm.OrderYear=@yr AND sm.OrderWeek = @wk AND ISNULL(sm.isDeleted,0)=0
             AND (@cust='' OR c.CustName LIKE @cust)
           ORDER BY c.CustName`,
         wkParams
