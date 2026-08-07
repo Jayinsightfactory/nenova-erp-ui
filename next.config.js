@@ -39,6 +39,16 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_VERSION: buildVersion,
   },
+  async redirects() {
+    // [2026-08-07] MOYI(업무 학습 도구) 설치를 회사 도메인으로 안내 — nenovaweb.com/install → MOYI 설치.
+    // 실체는 mindmap-viewer(Railway)가 서빙(설치 bat·안내 페이지). 여기는 기억하기 쉬운 관문만 제공.
+    const MOYI = 'https://mindmap-viewer-production-adb2.up.railway.app';
+    return [
+      { source: '/install', destination: `${MOYI}/install`, permanent: false }, // bat 다운로드
+      { source: '/guide', destination: `${MOYI}/guide`, permanent: false },     // 설치 안내 페이지
+      { source: '/moyi', destination: `${MOYI}/guide`, permanent: false },      // 기억용 별칭
+    ];
+  },
   async rewrites() {
     return [
       // 런타임 업로드 사진 — /uploads/photos/YYYY/MM/DD/uuid.jpg (인증 없음)
