@@ -14,5 +14,12 @@ assert.doesNotMatch(lib, /SELECT ProdKey, ProdCode, ProdName, DisplayName, Flowe
 assert.doesNotMatch(page, /<datalist id="arrival-product-options">/, '전체 품목 datalist를 렌더링하면 안 됩니다.');
 assert.match(page, /\/api\/products\/search\?q=/, '도착원가 품목검색은 공용 사용량 기반 검색 API를 사용해야 합니다.');
 assert.match(page, /pageSize.*200/, '도착원가 화면은 한 번에 제한된 행만 렌더링해야 합니다.');
+assert.match(api, /lookup === 'varieties'/, '품종 버튼은 distinct 요약 API에서 가져와야 합니다.');
+assert.match(lib, /wm\.OrderYear\)=@year AND wm\.OrderWeek=@week/, '입고 기대 품목은 연도와 차수를 함께 제한해야 합니다.');
+assert.match(lib, /COST_NOT_UPLOADED/, '입고 기대 품목의 원가 누락 상태를 반환해야 합니다.');
+assert.match(lib, /UsageCount,0\) \+ ISNULL\(matchStats\.MatchCount,0\)\*2/, '검색 전에는 사용량과 매칭량 우선순위를 적용해야 합니다.');
+assert.match(page, /requestRef\.current\.controller\?\.abort\(\)/, '오래된 목록 요청은 취소해야 합니다.');
+assert.match(page, /role="tablist"/, '품종은 키보드 접근 가능한 탭으로 표시해야 합니다.');
+assert.match(page, /원가 미업로드/, '누락 원가는 숨기거나 0원 처리하지 않고 배지로 표시해야 합니다.');
 
 console.log('arrival cost performance contract tests passed');
