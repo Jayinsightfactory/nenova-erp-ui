@@ -166,6 +166,9 @@ ISO 27001 인증 여부를 문서만으로 주장하지 않는다. 실제 scope,
 - 다른 tenant의 동일 사용자 이메일, 동일 파일 hash, 동일 ERP 키는 같은 자원으로 합치지 않는다.
 - cross-tenant 파일 ID 요청은 정책에 따라 404 또는 일반화된 403을 반환하며 자원 존재를 누출하지 않는다.
 - identity link 재연결은 새 승인과 proof를 요구하고 과거 권한을 자동 복구하지 않는다.
+- Nenova `UserInfo.UserID`는 tenant 범위 external identity key일 뿐 MOYI `UserId`나 ACL subject가 아니다.
+- Nenova는 ERP 사용자·담당자·업무 scope, MOYI는 앱 역할·Drive ACL의 원천이다. 최종 허용 범위는 두 정책의 교집합이며 API가 판정한다.
+- Nenova JWT·비밀번호는 MOYI로 전달하지 않는다. 서버 간 교환은 짧은 만료, 서명, issuer/audience/scope/tenant 검증과 replay 방지를 요구한다.
 
 ### 연결 해제 시 테스트
 

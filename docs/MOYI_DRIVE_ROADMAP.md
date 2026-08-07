@@ -192,6 +192,9 @@ Railway는 Bucket을 private S3-compatible object storage로 설명한다([Railw
 1. MOYI 앱 저장소 또는 공식 인증/API 계약에서 사용자·회사·조직·session 식별자를 확인한다.
 2. NenovaWeb `UserInfo.UserID`, JWT claim, 비활성 처리, logout 동작을 source test로 고정한다.
 3. 두 계정이 공유된다는 증거가 없으면 별도 identity link 모델을 기본으로 한다.
+4. 기존 `/api/moyi/exchange|members|recipients|connection|report-push`의 payload·cookie/Bearer·로컬 auth guard를 source test로 고정한다.
+5. `UserInfo.UserID` 기반 matching은 shadow 후보 생성부터 시작하며 첫 연결, 충돌, 비활성 계정은 수동 승인 전 권한을 부여하지 않는다.
+6. MOYI Core의 tenant/auth/report inbound 계약과 revoke 동작이 확인되기 전 운영 계정 연결과 reverse provisioning을 시작하지 않는다.
 4. 두 tenant fixture로 file/folder/search/hash dedupe가 교차되지 않음을 계약 테스트로 증명한다.
 5. `OrderYear + OrderWeek`가 없는 Nenova external link를 validation error로 거부한다.
 6. metadata-only 변경이 content version을 만들지 않는지 확인한다.

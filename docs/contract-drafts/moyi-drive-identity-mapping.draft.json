@@ -1,7 +1,8 @@
 {
   "id": "moyi-drive-identity-mapping-draft",
   "status": "draft",
-  "businessIdentity": ["TenantId", "ConnectorInstallationId", "Provider", "ExternalTenantId", "ExternalUserId"],
+  "businessIdentity": ["TenantId", "CompanyId", "ConnectorInstallationId", "Provider", "NenovaUserId"],
+  "fields": ["IdentityLinkId", "TenantId", "CompanyId", "ConnectorInstallationId", "NenovaUserId", "MoyiUserId", "Status", "Source", "LinkedBy", "LinkedAt", "UnlinkedAt", "ApprovedBy", "ApprovedAt", "LastVerifiedAt"],
   "states": ["pending", "active", "suspended", "revoked"],
   "invariants": [
     "이메일이나 이름만으로 계정을 자동 연결하지 않는다",
@@ -10,6 +11,20 @@
     "연결 해제는 token과 cache 권한을 철회하지만 파일·감사로그를 삭제하지 않는다",
     "다른 tenant의 동일 external user id를 합치지 않는다"
   ],
+  "sourceOfTruth": {
+    "nenova": ["erp-user", "assignee", "department", "business-scope", "active-state"],
+    "moyi": ["app-role", "tenant-membership", "drive-acl", "session", "device-entitlement"]
+  },
+  "tokenExchange": {
+    "forbidden": ["nenova-jwt-forwarding", "password-sharing"],
+    "requiredClaims": ["iss", "aud", "exp", "jti", "tenant_id", "connector_installation_id", "scope", "identity_link_id"],
+    "properties": ["short-lived", "signed", "single-use-jti", "audience-bound"]
+  },
+  "approvalPolicy": {
+    "candidateOnly": ["same-user-id", "same-name", "same-department"],
+    "manualRequired": ["first-link", "duplicate-name", "department-conflict", "inactive-or-terminated", "existing-active-link"]
+  },
+  "unlinkEffects": ["revoke-moyi-session", "revoke-refresh-token", "invalidate-permission-cache", "block-new-signed-url", "retain-file-and-audit"],
   "unknownUntilMoyiEvidence": ["login-method", "tenant-id", "organization-id", "refresh-token", "device-session", "account-deactivation"],
   "requiredTests": ["proof-required", "cross-tenant mapping", "unlink revoke", "relink no privilege restore", "inactive membership"]
 }
