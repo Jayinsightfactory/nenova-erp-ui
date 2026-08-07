@@ -45,7 +45,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek·CustKey·ProdKey가 있을 때 2026 요청은 2026 행만 읽고 쓴다."
+    "description": "2025와 2026에 같은 OrderWeek·CustKey·ProdKey가 있을 때 2026 요청은 2026 행만 읽고 쓴다. view=pivot의 OrderMaster WHERE와 ShipmentMaster JOIN도 OrderYear + OrderWeek를 함께 사용한다."
   },
   "requiredTestFiles": [
     "__tests__/shipmentPivotAdjustContract.test.js",

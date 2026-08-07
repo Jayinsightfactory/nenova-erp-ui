@@ -17,7 +17,8 @@
     {
       "name": "IMPORT_PIVOT_AUTO_READ",
       "orderDetail": "preserve",
-      "shipmentDetail": "preserve"
+      "shipmentDetail": "preserve",
+      "sideEffect": "GET은 SELECT만 실행하며 웹 전용 보조 테이블이 없으면 빈 부가결과를 반환한다. CREATE/ALTER TABLE은 쓰기 요청의 ensure 경로에서만 허용한다."
     },
     {
       "name": "IMPORT_PIVOT_FARM_FILTER",
