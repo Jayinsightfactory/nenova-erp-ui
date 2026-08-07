@@ -395,6 +395,14 @@ export default function SalesDefectDeductionsPage() {
         setLookup(items);
         setLookupMatchMeta(kind === 'product' ? (data.productMatch || null) : null);
         setLookupActiveIndex(items.length ? 0 : -1);
+        if (kind === 'product') apiPost('/api/product-matching/events', {
+          eventType: 'CANDIDATES_SHOWN', sourceChannel: 'sales-defect-deduction', query: term,
+          orderYear: Number(year), orderWeek: String(week), custKey: Number(rows[index]?.custKey) || null,
+          country: data.productMatch?.normalized?.country || '', flower: data.productMatch?.normalized?.flower || '',
+          unit: data.productMatch?.normalized?.unit || '', candidateProdKeys: items.map((item) => item.ProdKey),
+          candidateScores: items.map((item) => Number(item.MatchConfidence || item.MatchScore / 100 || 0)),
+          modelVersion: data.productMatch?.modelVersion,
+        }).catch(() => {});
       } catch (e) { setError(e.message); }
     }, 120);
   };
@@ -572,7 +580,20 @@ export default function SalesDefectDeductionsPage() {
         matchedFlowerName: item.FlowerName || '',
         unit: item.EstUnit || item.OutUnit || '',
         productSuggestions: [],
+        matchQuery: lookupQuery,
+        matchCandidateProdKeys: lookup.map((candidate) => Number(candidate.ProdKey)).filter(Boolean),
+        matchCandidateScores: lookup.map((candidate) => Number(candidate.MatchConfidence || candidate.MatchScore / 100 || 0)),
       });
+      apiPost('/api/product-matching/events', {
+        eventType: row.prodKey && Number(row.prodKey) !== Number(item.ProdKey) ? 'SELECTION_REPLACED' : 'CANDIDATE_SELECTED',
+        sourceChannel: 'sales-defect-deduction', query: lookupQuery,
+        orderYear: Number(year), orderWeek: String(week), custKey: Number(row.custKey) || null,
+        country: item.CounName || '', flower: item.FlowerName || '', color: item.DisplayName || item.ProdName || '',
+        unit: item.EstUnit || item.OutUnit || '', candidateProdKeys: lookup.map((candidate) => candidate.ProdKey),
+        candidateScores: lookup.map((candidate) => Number(candidate.MatchConfidence || candidate.MatchScore / 100 || 0)),
+        selectedProdKey: Number(item.ProdKey), replacedProdKey: Number(row.prodKey) || null,
+        modelVersion: item.MatchModelVersion, confirmedByUser: false, autoSelected: false,
+      }).catch(() => {});
     } else {
       updateRow(index, { farmName: item.FarmName, farmKey: Number(item.FarmKey) || null });
     }
@@ -804,6 +825,13 @@ export default function SalesDefectDeductionsPage() {
         sourceFileName: rows.find((r) => r.sourceFileName)?.sourceFileName || '',
       });
       const savedRows = data.rows || [];
+      await Promise.allSettled(submittedRows.filter((row) => row.prodKey).map((row) => apiPost('/api/product-matching/events', {
+        eventType: 'SELECTION_CONFIRMED', sourceChannel: 'sales-defect-deduction',
+        query: row.matchQuery || `${row.productName || ''} ${row.colorName || ''}`.trim(), orderYear: Number(year), orderWeek: String(week),
+        custKey: Number(row.custKey) || null, country: row.countryName || '', flower: row.matchedFlowerName || row.productName || '',
+        color: row.colorName || '', unit: row.unit || row.sourceUnit || '', selectedProdKey: Number(row.prodKey),
+        candidateProdKeys: row.matchCandidateProdKeys || [Number(row.prodKey)], candidateScores: row.matchCandidateScores || [1], confirmedByUser: true, autoSelected: false,
+      })));
       setRows((current) => mergeSavedDeductionRows(current, savedRows, submittedRows));
       mergeSavedRowSignatures(savedRows);
       setSelected(new Set());
