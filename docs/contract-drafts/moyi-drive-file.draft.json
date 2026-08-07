@@ -1,0 +1,22 @@
+{
+  "id": "moyi-drive-file-draft",
+  "status": "draft",
+  "title": "MOYI Drive 파일·버전 계약 초안",
+  "businessIdentity": ["TenantId", "FileId", "VersionId"],
+  "invariants": [
+    "모든 파일과 버전은 tenant에 속한다",
+    "파일 원본은 private object storage에 저장한다",
+    "새 콘텐츠는 기존 object key를 덮어쓰지 않고 새 version을 만든다",
+    "available 이전에는 일반 다운로드와 공유를 금지한다",
+    "동일 idempotency key의 다른 payload는 409로 거부한다"
+  ],
+  "states": ["draft", "uploading", "uploaded", "scanning", "classifying", "review_required", "available", "failed", "quarantined", "trashed", "deleted"],
+  "erpSideEffects": {
+    "OrderDetail": "preserve",
+    "ShipmentDetail": "preserve",
+    "ProductStock": "preserve",
+    "Estimate": "preserve",
+    "WebProfitReport": "preserve"
+  },
+  "requiredTests": ["tenant isolation", "idempotency", "version append-only", "hash verification", "malware quarantine", "trash restore"]
+}
