@@ -79,8 +79,17 @@ function ensureFarmPaymentTable() {
   return _farmPaymentEnsured;
 }
 
-async function loadFarmPaymentDays() {
-  await ensureFarmPaymentTable();
+async function webTableExists(tableName) {
+  const result = await query(
+    `SELECT CASE WHEN OBJECT_ID(@tableName, N'U') IS NULL THEN 0 ELSE 1 END AS ExistsFlag`,
+    { tableName: { type: sql.NVarChar, value: `dbo.${tableName}` } }
+  );
+  return Number(result.recordset?.[0]?.ExistsFlag || 0) === 1;
+}
+
+async function loadFarmPaymentDays({ ensure = false } = {}) {
+  if (ensure) await ensureFarmPaymentTable();
+  else if (!(await webTableExists('WebImportFarmPaymentDay'))) return {};
   const result = await query(
     `SELECT FarmName, PaymentDay
        FROM WebImportFarmPaymentDay
@@ -146,8 +155,9 @@ const rangeParams = (r) => ({
   ywe: { type: sql.NVarChar, value: r.ywe },
 });
 
-async function loadAdjustments(r) {
-  await ensureAdjTable();
+async function loadAdjustments(r, { ensure = false } = {}) {
+  if (ensure) await ensureAdjTable();
+  else if (!(await webTableExists('WebImportPivotAdj'))) return [];
   const result = await query(
     `SELECT AutoKey, OrderYear, OrderWeek, Awb, InvoiceNo, FarmName, Label, RefNo, Amount,
             CreateID, CONVERT(varchar(10), CreateDtm, 111) AS CreateDate
@@ -437,8 +447,9 @@ function ensureFwdTable() {
   return _fwdEnsured;
 }
 
-async function loadFwdInvoices(r) {
-  await ensureFwdTable();
+async function loadFwdInvoices(r, { ensure = false } = {}) {
+  if (ensure) await ensureFwdTable();
+  else if (!(await webTableExists('WebForwarderInvoice'))) return {};
   const result = await query(
     `SELECT OrderWeek, Awb, InvoiceNo FROM WebForwarderInvoice
       WHERE isDeleted = 0 AND OrderYear + REPLACE(OrderWeek, '-', '') BETWEEN @yws AND @ywe`,
