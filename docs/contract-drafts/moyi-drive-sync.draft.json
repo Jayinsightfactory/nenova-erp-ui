@@ -1,0 +1,21 @@
+{
+  "id": "moyi-drive-sync-draft",
+  "status": "draft",
+  "title": "MOYI 앱·웹·Connector 동기화 계약 초안",
+  "businessIdentity": ["TenantId", "ResourceId", "Sequence", "Version"],
+  "invariants": [
+    "MOYI Core가 파일·버전·권한 상태의 단일 원천이다",
+    "앱과 웹은 동일 API 권한 판정을 사용한다",
+    "오프라인 명령은 expectedVersion과 idempotency key를 포함한다",
+    "권한 철회와 삭제는 다음 동기화에서 로컬 캐시를 폐기한다",
+    "Nenova 차수 문서 링크에는 OrderYear와 OrderWeek가 함께 존재한다",
+    "Connector 동기화는 ERP 원장을 수정하지 않는다"
+  ],
+  "conflictResponse": 409,
+  "retry": {"mode": "exponential-backoff", "deadLetter": true},
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026의 동일 OrderWeek 문서 링크가 선택 연도와 분리된다"
+  },
+  "requiredTests": ["resumable upload", "idempotent replay", "version conflict", "permission convergence", "connector outage", "cross-year isolation"]
+}

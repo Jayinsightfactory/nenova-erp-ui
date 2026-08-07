@@ -1,0 +1,16 @@
+{
+  "id": "moyi-drive-permission-draft",
+  "status": "draft",
+  "title": "MOYI Drive 권한 계약 초안",
+  "businessIdentity": ["TenantId", "ResourceId", "SubjectId", "Action"],
+  "precedence": ["explicit-deny", "file-acl", "folder-acl", "workspace-policy", "organization-role", "tenant-default-deny"],
+  "actions": ["view", "preview", "upload", "edit-metadata", "move", "download", "delete", "restore", "share-internal", "share-external", "change-permission", "approve"],
+  "invariants": [
+    "API가 최종 권한을 검증한다",
+    "다른 tenant의 resource 존재 여부를 노출하지 않는다",
+    "관리 권한은 restricted 파일 열람 권한을 자동 포함하지 않는다",
+    "기간제 권한과 공유 링크는 만료시각을 가진다",
+    "권한 변경과 접근은 audit log에 기록한다"
+  ],
+  "requiredTests": ["cross-tenant IDOR", "deny precedence", "inheritance stop", "role change revocation", "preview without download", "expired share denial"]
+}
