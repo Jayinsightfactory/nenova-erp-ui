@@ -99,6 +99,19 @@ UPDATE ShipmentDate
 
 ## 웹 견적서의 출고일 증감 결합 정책
 
+## 추가 품목등록 — FormShipmentDistribution 결합 근거
+
+견적서관리의 추가 품목은 `Estimate` 보조행이 아니라 실제 주문·출고 품목이므로
+`FormShipmentDistribution.btnSave_Click` 구조를 사용한다. 선택 연도의 현재 대차수에
+실재하는 `-02` ShipmentMaster가 있을 때만 진행하고, `ClassShipmentDetail.Insert/Update`
+후 `ClassShipmentDate.Delete/Insert` 순서로 날짜 원장을 맞춘다. 단가는 VAT 포함
+`ShipmentDetail.Cost`이며 공급가액과 부가세는 EXE 공식으로 분리한다. 기존 주문 존재 시
+`PIVOT_DISTRIBUTION` 정책으로 OrderDetail을 보존해 주문과 분배가 이중 증가하지 않는다.
+
+부작용: OrderMaster/OrderDetail은 현재연도 주문이 없을 때만 생성, ShipmentDetail은 증가,
+ShipmentDate는 재생성, Estimate/WebProfitReport는 직접 쓰지 않는다. 확정 행은 저장 API가
+차단하고 화면의 기존 확정해제→저장→재확정 사이클을 거쳐야 한다.
+
 사용자 업무 요구가 “견적서관리에서 출고일 수량을 180→190으로 입력하면 실제 출고도
 200→210으로 늘리고 확정까지 복구”하는 경우에는 위 `FormEstimateView` 단순 저장과
 구분한다. 웹 `/api/estimate/update-date-quantity`는 `FormShipmentDistribution` 날짜 탭의

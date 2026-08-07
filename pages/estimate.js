@@ -49,6 +49,7 @@ import {
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
+import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1063,6 +1064,7 @@ export default function Estimate() {
   // 불량/검역 모달
   const [showDefect, setShowDefect] = useState(false);
   const [products, setProducts] = useState([]);  // 품목 전체 목록 (드롭다운용)
+  const [addProductOpen, setAddProductOpen] = useState(false);
   const [estimateTypes, setEstimateTypes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -3703,6 +3705,7 @@ export default function Estimate() {
                 title="선택한 거래처의 EXE 판매행에 불량차감 Estimate를 등록합니다.">
                 ＋ 불량차감등록
               </button>
+              <button className="btn btn-sm" style={{background:'#7c3aed', color:'#fff', borderColor:'#6d28d9'}} onClick={() => setAddProductOpen(true)} disabled={!selectedShip} title="검증된 02차에 품목·수량·VAT 포함 분배단가를 등록합니다.">＋ 추가 품목등록</button>
               <button className="btn btn-sm" style={{background:'#1565c0', color:'#fff', borderColor:'#0d47a1'}}
                 onClick={() => openEstimateEntry('sales')}
                 disabled={!selectedShip}
@@ -3719,6 +3722,7 @@ export default function Estimate() {
             </div>
           </div>
 
+          <OrderRegisterDistributeModal open={addProductOpen} onClose={() => setAddProductOpen(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} runWithFixCycle={({week, prodKeys, apply}) => runEditWithFixCycle({ weeks:[week], stockProdKeys:prodKeys, progress:label => setCostApplyLog(prev => [...prev,{step:'cycle',label}]), apply })} onSuccess={() => { setAddProductOpen(false); if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys); }} />
           {/* 견적서 테이블 */}
           <div style={{overflowY:'auto', flex:1}}>
             {itemLoading

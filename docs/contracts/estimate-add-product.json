@@ -1,0 +1,11 @@
+{
+  "id": "estimate-add-product",
+  "title": "견적서관리 추가 품목등록 계약",
+  "scope": ["pages/estimate.js", "components/estimate/OrderRegisterDistributeModal.js", "pages/api/estimate/add-product-context.js", "pages/api/shipment/adjust.js", "__tests__/estimateAddProductContract.test.js", "docs/exe-golden/FormEstimateView.md"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"ADD_PRODUCT_NO_ACTIVE_ORDER","orderDetail":"create-positive","shipmentDetail":"increase","shipmentDate":"rebuild","estimate":"preserve","fixCycle":"unfix-save-refix"},{"name":"ADD_PRODUCT_ACTIVE_ORDER","orderDetail":"preserve","shipmentDetail":"increase","shipmentDate":"rebuild","estimate":"preserve","fixCycle":"unfix-save-refix"}],
+  "crossYearFixture": {"required":true,"description":"전년도 같은 02차는 후보·중복·Master 재사용 대상에서 제외하고 선택 연도의 OrderYear+OrderWeek+CustKey+ProdKey만 사용한다."},
+  "requiredTestFiles": ["__tests__/estimateAddProductContract.test.js", "__tests__/shipmentPivotAdjustContract.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormEstimateView.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["btnSave_Click","GetShipmentMaster","ClassShipmentDetail.Insert","ClassShipmentDate.Insert"],"tables":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentAdjustment"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

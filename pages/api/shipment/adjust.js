@@ -404,7 +404,7 @@ async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQu
 }
 
 async function postAdjust(req, res) {
-  const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments } = req.body;
+  const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments, unitCost, priceSource } = req.body;
 
   if (!custKey || !prodKey || !week || !type) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, type 필요' });
@@ -432,6 +432,10 @@ async function postAdjust(req, res) {
   const pk = parseInt(prodKey);
   const uid = req.user?.userId || 'system';
   const userName = req.user?.userName || uid;
+  const requestedUnitCost = Number(unitCost);
+  if (mode === 'PIVOT_DISTRIBUTION' && unitCost !== undefined && !(requestedUnitCost > 0)) {
+    return res.status(400).json({ success: false, error: 'VAT 포함 분배단가는 0보다 커야 합니다.' });
+  }
 
   try {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
@@ -469,7 +473,7 @@ async function postAdjust(req, res) {
         weekToShipDateByBaseOutDay(orderWeek, orderYear, baseOutDay) ||
         weekToShipDate(orderWeek, orderYear) ||
         new Date();
-      const defaultUnitCost = Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0;
+      const defaultUnitCost = requestedUnitCost > 0 ? requestedUnitCost : (Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0);
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
       const prodOutUnit = normalizeOrderUnit(prod.OutUnit, '박스');
@@ -992,7 +996,7 @@ async function postAdjust(req, res) {
           oqa: { type: sql.Decimal(14,3), value: orderQtyAfter },
           rb:  { type: sql.Decimal(14,3), value: remainBefore },
           ra:  { type: sql.Decimal(14,3), value: remainAfter },
-          m:   { type: sql.NVarChar,  value: memo || '' },
+          m:   { type: sql.NVarChar,  value: `${memo || ''}${priceSource ? ` | 단가출처=${JSON.stringify(priceSource)} | 선택자=${userName}` : ''}`.slice(0, 1000) },
           uid: { type: sql.NVarChar,  value: uid },
         }
       );
