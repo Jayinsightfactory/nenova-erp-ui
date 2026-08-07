@@ -91,6 +91,7 @@ async function validate(req, res) {
     const orderWeek = deriveOrderWeek(week);
     const orderYearWeek = orderYear + String(orderWeek || '').replace('-', '');
     const wk = { type: sql.NVarChar, value: orderWeek };
+    const yr = { type: sql.NVarChar, value: orderYear };
 
     // 1. 주문 없는 출고 (OrderDetail 없는데 ShipmentDetail 있음)
     const ghostResult = await query(
@@ -100,15 +101,15 @@ async function validate(req, res) {
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON sd.ProdKey = p.ProdKey
        JOIN Customer c ON sm.CustKey = c.CustKey
-       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+      WHERE sm.OrderYear = @yr AND sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
          AND NOT EXISTS (
            SELECT 1 FROM OrderDetail od
            JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
-           WHERE om.CustKey = sm.CustKey AND om.OrderWeek = @wk
+           WHERE om.OrderYear = @yr AND om.CustKey = sm.CustKey AND om.OrderWeek = @wk
              AND od.ProdKey = sd.ProdKey AND om.isDeleted = 0 AND od.isDeleted = 0
          )
        ORDER BY c.CustName, p.ProdName`,
-      { wk }
+      { wk, yr }
     );
 
     // 2. 중복 출고 (같은 거래처+품목+차수에 ShipmentDetail 2건 이상)
@@ -120,7 +121,7 @@ async function validate(req, res) {
            SELECT ',' + CAST(sm2.ShipmentKey AS NVARCHAR(20))
              FROM ShipmentDetail sd2
              JOIN ShipmentMaster sm2 ON sd2.ShipmentKey = sm2.ShipmentKey
-            WHERE sm2.OrderWeek = @wk
+            WHERE sm2.OrderYear = @yr AND sm2.OrderWeek = @wk
               AND sm2.isDeleted = 0
               AND sm2.CustKey = sm.CustKey
               AND sd2.ProdKey = sd.ProdKey
@@ -131,11 +132,11 @@ async function validate(req, res) {
        JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON sd.ProdKey = p.ProdKey
        JOIN Customer c ON sm.CustKey = c.CustKey
-       WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+       WHERE sm.OrderYear = @yr AND sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
        GROUP BY sm.CustKey, sd.ProdKey, p.ProdName, c.CustName
        HAVING COUNT(sd.SdetailKey) > 1
        ORDER BY c.CustName, p.ProdName`,
-      { wk }
+      { wk, yr }
     );
 
     // 3. 마이너스 잔량
@@ -144,20 +145,20 @@ async function validate(req, res) {
          SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-         WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
+         WHERE sm.OrderYear = @yr AND sm.OrderWeek = @wk AND sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
          GROUP BY sd.ProdKey
        ),
        in_qty AS (
          SELECT wd.ProdKey, SUM(ISNULL(wd.OutQuantity, 0)) AS inQty
          FROM WarehouseMaster wm
          JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
-         WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
+         WHERE wm.OrderYear = @yr AND wm.OrderWeek = @wk AND wm.isDeleted = 0
          GROUP BY wd.ProdKey
        ),
        adjust_qty AS (
          SELECT sh.ProdKey, SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
          FROM StockHistory sh
-         WHERE sh.OrderWeek = @wk
+         WHERE sh.OrderYear = @yr AND sh.OrderWeek = @wk
            AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
          GROUP BY sh.ProdKey
        )
@@ -180,6 +181,7 @@ async function validate(req, res) {
          FROM ProductStock ps
          JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
          WHERE ps.ProdKey = p.ProdKey
+           AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) = @yr
            AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
          ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
        ) prev
@@ -187,7 +189,7 @@ async function validate(req, res) {
        ORDER BY p.FlowerName, p.ProdName`,
       {
         wk,
-        yr:  { type: sql.NVarChar, value: orderYear },
+        yr,
         ywk: { type: sql.NVarChar, value: orderYearWeek },
       }
     );
@@ -210,7 +212,7 @@ async function validate(req, res) {
          SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
          FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         WHERE sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
+         WHERE sm.OrderYear = @yr AND sm.OrderWeek = @wk AND sm.isDeleted = 0 AND sd.OutQuantity > 0
          GROUP BY sd.ProdKey
        ),
        in_qty AS (
@@ -219,11 +221,11 @@ async function validate(req, res) {
            SELECT wd.ProdKey, ISNULL(wd.OutQuantity, 0) AS qty
            FROM WarehouseDetail wd
            JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-           WHERE wm.OrderWeek = @wk AND wm.isDeleted = 0
+           WHERE wm.OrderYear = @yr AND wm.OrderWeek = @wk AND wm.isDeleted = 0
            UNION ALL
            SELECT sh.ProdKey, ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0) AS qty
            FROM StockHistory sh
-           WHERE sh.OrderWeek = @wk
+           WHERE sh.OrderYear = @yr AND sh.OrderWeek = @wk
              AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
          ) x
          GROUP BY ProdKey
@@ -236,7 +238,7 @@ async function validate(req, res) {
        LEFT JOIN in_qty iq ON iq.ProdKey = oq.ProdKey
        WHERE ISNULL(iq.inQty, 0) <= 0
        ORDER BY p.FlowerName, p.ProdName`,
-      { wk }
+      { wk, yr }
     );
 
     // 5. 음수 이월 (검증 사각지대) — 그 차수 스냅샷이 음수인데 그 주 출고가 없어
@@ -247,17 +249,17 @@ async function validate(req, res) {
          FROM ProductStock ps
          JOIN StockMaster smk ON smk.StockKey = ps.StockKey
          JOIN Product p ON p.ProdKey = ps.ProdKey AND p.isDeleted = 0
-        WHERE smk.OrderWeek = @wk
+        WHERE smk.OrderYear = @yr AND smk.OrderWeek = @wk
           AND ISNULL(CAST(smk.OrderYear AS NVARCHAR(4)), @yr) = @yr
           AND ps.Stock < -0.01
           AND NOT EXISTS (
             SELECT 1 FROM ShipmentDetail sd
             JOIN ShipmentMaster sm3 ON sm3.ShipmentKey = sd.ShipmentKey
-            WHERE sd.ProdKey = p.ProdKey AND sm3.OrderWeek = @wk
+            WHERE sd.ProdKey = p.ProdKey AND sm3.OrderYear = @yr AND sm3.OrderWeek = @wk
               AND sm3.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
           )
         ORDER BY ps.Stock ASC`,
-      { wk, yr: { type: sql.NVarChar, value: orderYear } }
+      { wk, yr }
     );
 
     const issues = ghostResult.recordset.length + dupResult.recordset.length + negRows.length + noInResult.recordset.length;
@@ -736,8 +738,11 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   // 1. 이미 전체 확정된 경우 안내
   const already = await query(
     `SELECT COUNT(*) AS cnt FROM ShipmentMaster
-      WHERE OrderWeek=@wk AND isFix=1 AND isDeleted=0`,
-    { wk: { type: sql.NVarChar, value: orderWeek } }
+      WHERE OrderYear=@yr AND OrderWeek=@wk AND isFix=1 AND isDeleted=0`,
+    {
+      yr: { type: sql.NVarChar, value: orderYear },
+      wk: { type: sql.NVarChar, value: orderWeek },
+    }
   );
 
   // 2. 미확정(DetailFix=0) 출고가 있는 CountryFlower 목록

@@ -155,7 +155,7 @@ function productParams(prodKeys) {
   return params;
 }
 
-async function assertProductsNotFixed(week, prodKeys) {
+async function assertProductsNotFixed(orderYear, week, prodKeys) {
   if (!prodKeys.length) return [];
   const result = await query(
     `WITH target(ProdKey) AS (SELECT * FROM (VALUES ${productValuesSql(prodKeys)}) v(ProdKey))
@@ -165,11 +165,16 @@ async function assertProductsNotFixed(week, prodKeys) {
        JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
        LEFT JOIN Product p ON p.ProdKey=sd.ProdKey
        LEFT JOIN Customer c ON c.CustKey=sm.CustKey
-      WHERE sm.OrderWeek=@week
+      WHERE sm.OrderYear=@orderYear
+        AND sm.OrderWeek=@week
         AND ISNULL(sm.isDeleted,0)=0
         AND (ISNULL(sm.isFix,0)=1 OR ISNULL(sd.isFix,0)=1)
       ORDER BY p.ProdName, c.CustName`,
-    { week: { type: sql.NVarChar, value: week }, ...productParams(prodKeys) }
+    {
+      orderYear: { type: sql.NVarChar, value: orderYear },
+      week: { type: sql.NVarChar, value: week },
+      ...productParams(prodKeys),
+    }
   );
   if ((result.recordset || []).length > 0) {
     const sample = result.recordset.slice(0, 5).map(row => `${row.CustName || row.CustKey} / ${row.ProdName || row.ProdKey}`).join(', ');
@@ -178,7 +183,7 @@ async function assertProductsNotFixed(week, prodKeys) {
   return result.recordset || [];
 }
 
-async function loadProductShipmentSummary(week, prodKeys) {
+async function loadProductShipmentSummary(orderYear, week, prodKeys) {
   if (!prodKeys.length) return [];
   const result = await query(
     `WITH target(ProdKey) AS (SELECT * FROM (VALUES ${productValuesSql(prodKeys)}) v(ProdKey)),
@@ -197,7 +202,8 @@ async function loadProductShipmentSummary(week, prodKeys) {
                   FROM ShipmentDate
                  WHERE SdetailKey=sd.SdetailKey
               ) sdt
-             WHERE sm.OrderWeek=@week
+             WHERE sm.OrderYear=@orderYear
+               AND sm.OrderWeek=@week
                AND ISNULL(sm.isDeleted,0)=0
           )
      SELECT t.ProdKey,
@@ -217,7 +223,11 @@ async function loadProductShipmentSummary(week, prodKeys) {
        LEFT JOIN detail d ON d.ProdKey=t.ProdKey
       GROUP BY t.ProdKey, p.ProdName
       ORDER BY p.ProdName`,
-    { week: { type: sql.NVarChar, value: week }, ...productParams(prodKeys) }
+    {
+      orderYear: { type: sql.NVarChar, value: orderYear },
+      week: { type: sql.NVarChar, value: week },
+      ...productParams(prodKeys),
+    }
   );
   return result.recordset || [];
 }
@@ -316,8 +326,8 @@ async function handler(req, res) {
     const shapeRows = await loadDistributeOneShape();
     resolveDistributeOneShape(shapeRows);
     const keyNumbering = await assertKeyNumberingReady();
-    await assertProductsNotFixed(normalizedWeek, prodKeys);
-    const beforeSummary = await loadProductShipmentSummary(normalizedWeek, prodKeys);
+    await assertProductsNotFixed(orderYear, normalizedWeek, prodKeys);
+    const beforeSummary = await loadProductShipmentSummary(orderYear, normalizedWeek, prodKeys);
     const beforeByProd = new Map(beforeSummary.map(row => [Number(row.ProdKey), row]));
 
     const appliedRows = [];
@@ -344,7 +354,7 @@ async function handler(req, res) {
       });
     }
 
-    const afterSummary = await loadProductShipmentSummary(normalizedWeek, prodKeys);
+    const afterSummary = await loadProductShipmentSummary(orderYear, normalizedWeek, prodKeys);
     const afterByProd = new Map(afterSummary.map(row => [Number(row.ProdKey), row]));
     const finalRows = appliedRows.map(row => {
       const after = afterByProd.get(Number(row.prodKey)) || {};

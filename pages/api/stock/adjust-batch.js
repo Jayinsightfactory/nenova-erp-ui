@@ -1,5 +1,5 @@
 // pages/api/stock/adjust-batch.js
-// POST { week, edits: [{ prodKey, afterStock, descr? }], force? }
+// POST { week, orderYear?, edits: [{ prodKey, afterStock, descr? }], force? }
 //   여러 품목의 재고를 목표값(afterStock)으로 한 번에 조정 — 각 건 StockHistory INSERT + usp_StockCalculation.
 //   확정된 차수(ShipmentMaster/ShipmentDetail/StockMaster isFix=1)는 기본 차단 —
 //   프론트는 lib/fixCycleClient.js 의 runEditWithFixCycle 로 확정해제→적용(force=true)→재확정 사이클을 태울 것.
@@ -9,27 +9,36 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 
-async function isWeekFixed(orderWeek) {
+async function isWeekFixed(orderYear, orderWeek) {
   const r = await query(
     `SELECT TOP 1 1 AS x FROM (
-       SELECT 1 AS x FROM ShipmentMaster WHERE OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
+       SELECT 1 AS x FROM ShipmentMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
        UNION ALL
        SELECT 1 AS x FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-        WHERE sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
        UNION ALL
-       SELECT 1 AS x FROM StockMaster WHERE OrderWeek=@wk AND ISNULL(isFix,0)=1
+       SELECT 1 AS x FROM StockMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isFix,0)=1
      ) t`,
-    { wk: { type: sql.NVarChar, value: orderWeek } }
+    {
+      yr: { type: sql.NVarChar, value: orderYear },
+      wk: { type: sql.NVarChar, value: orderWeek },
+    }
   );
   return r.recordset.length > 0;
 }
 
-async function resolveOrderYear(week) {
+async function resolveOrderYear(week, explicitYear = '') {
   const r = await query(
-    `SELECT TOP 1 OrderYear FROM StockMaster WHERE OrderWeek=@week AND OrderYear IS NOT NULL ORDER BY OrderYear DESC`,
-    { week: { type: sql.NVarChar, value: week || '' } }
+    `SELECT TOP 1 OrderYear FROM StockMaster
+      WHERE OrderWeek=@week AND OrderYear IS NOT NULL
+        AND (@year = N'' OR CAST(OrderYear AS NVARCHAR(4))=@year)
+      ORDER BY OrderYear DESC`,
+    {
+      week: { type: sql.NVarChar, value: week || '' },
+      year: { type: sql.NVarChar, value: String(explicitYear || '') },
+    }
   );
-  return String(r.recordset[0]?.OrderYear || new Date().getFullYear());
+  return String(r.recordset[0]?.OrderYear || explicitYear || new Date().getFullYear());
 }
 
 function stockCalculationSql() {
@@ -55,7 +64,7 @@ function stockCalculationSql() {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST만 지원' });
 
-  const { week: rawWeek, edits, force } = req.body || {};
+  const { week: rawWeek, orderYear: requestedYear, year, edits, force } = req.body || {};
   if (!rawWeek) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!Array.isArray(edits) || edits.length === 0) {
     return res.status(400).json({ success: false, error: 'edits 필요' });
@@ -63,9 +72,14 @@ export default withAuth(async function handler(req, res) {
 
   const week = normalizeOrderWeek(rawWeek);
   const uid = req.user?.userId || 'admin';
+  const orderYear = resolveActiveOrderYear(
+    rawWeek,
+    requestedYear || year || '',
+    await resolveOrderYear(week, requestedYear || year || ''),
+  );
 
   try {
-    if (!force && await isWeekFixed(week)) {
+    if (!force && await isWeekFixed(orderYear, week)) {
       return res.status(409).json({
         success: false,
         code: 'WEEK_FIXED',
@@ -73,7 +87,6 @@ export default withAuth(async function handler(req, res) {
       });
     }
 
-    const orderYear = resolveActiveOrderYear(rawWeek, '', await resolveOrderYear(week));
     const results = [];
     const errors = [];
 

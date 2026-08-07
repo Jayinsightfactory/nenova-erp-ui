@@ -10,6 +10,10 @@ async function main() {
   const distributeSp = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-sp.js'), 'utf8');
   const diagnose = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-diagnose.js'), 'utf8');
   const stockStatus = fs.readFileSync(path.join(root, 'pages/api/shipment/stock-status.js'), 'utf8');
+  const stockAdjust = fs.readFileSync(path.join(root, 'pages/api/stock/adjust-batch.js'), 'utf8');
+  const shipmentFix = fs.readFileSync(path.join(root, 'pages/api/shipment/fix.js'), 'utf8');
+  const shipmentImportPrealign = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-import-prealign.js'), 'utf8');
+  const shipmentIndex = fs.readFileSync(path.join(root, 'pages/api/shipment/index.js'), 'utf8');
 
   const sqlBlocks = api.match(/sql:\s*`[\s\S]*?`/g) || [];
   assert.equal(sqlBlocks.length, 10, '전산 오류 진단 검사 수가 임의로 줄거나 늘지 않았는지 확인');
@@ -48,6 +52,16 @@ async function main() {
   assert.match(stockStatus, /DELETE sd[\s\S]{0,260}sm\.OrderYear=@orderYear[\s\S]{0,260}ISNULL\(sd\.OutQuantity,0\)=0/, 'ShipmentDetail 임의 삭제를 막고 빈 레코드만 제한적으로 정리해야 한다.');
   assert.match(stockStatus, /if \(view === 'cleanupZero'\)[\s\S]{0,240}req\.query\.confirm[\s\S]{0,240}repairZeroOut/, '기존 GET 정리 경로는 명시적 확인 없이는 실행되지 않아야 한다.');
   assert.match(stockStatus, /sm2\.OrderYear=@orderYear[\s\S]{0,120}sm2\.OrderWeek < @weekFrom/, '잔량 기초재고도 선택 연도에 격리해야 한다.');
+
+  assert.match(stockAdjust, /async function isWeekFixed\(orderYear, orderWeek\)/, '재고 일괄수정의 확정 검사에 연도와 차수를 함께 전달해야 한다.');
+  assert.match(stockAdjust, /OrderYear=@yr AND OrderWeek=@wk/, '재고 일괄수정의 확정 검사는 다른 연도의 동일 차수를 섞으면 안 된다.');
+  assert.match(stockAdjust, /isWeekFixed\(orderYear, week\)/, '재고 일괄수정은 해석된 연도로 확정 상태를 검사해야 한다.');
+
+  assert.match(shipmentFix, /OrderYear=@yr AND OrderWeek=@wk AND isFix=1/, '확정 여부 재검사는 연도와 차수를 함께 사용해야 한다.');
+  assert.match(shipmentFix, /sm\.OrderYear = @yr AND sm\.OrderWeek = @wk/, '확정 사전검증의 출고 조회는 연도와 차수를 함께 사용해야 한다.');
+  assert.match(shipmentImportPrealign, /assertProductsNotFixed\(orderYear, normalizedWeek, prodKeys\)/, '엑셀 분배 사전검증은 선택 연도를 전달해야 한다.');
+  assert.match(shipmentImportPrealign, /sm\.OrderYear=@orderYear[\s\S]{0,80}sm\.OrderWeek=@week/, '엑셀 분배 사전검증·사후검증은 연도와 차수로 격리해야 한다.');
+  assert.match(shipmentIndex, /vs\.OrderWeek = @week AND vs\.OrderYear = @orderYear/, '출고 목록 조회도 다른 연도의 동일 차수를 섞으면 안 된다.');
 
   console.log('shipment exe error diagnostic contract tests passed');
 }
