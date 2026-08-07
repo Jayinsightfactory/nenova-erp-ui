@@ -1,7 +1,7 @@
 // pages/api/shipment/index.js — GET → exe FormShipmentView.GetData
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlShipmentViewGetData } from '../../../lib/exeShipmentViewSql.js';
 
@@ -11,19 +11,26 @@ export default withAuth(async function handler(req, res) {
   return res.status(405).end();
 });
 
-async function resolveShipmentListWeek(week) {
+async function resolveShipmentListWeek(week, explicitYear = '') {
   const norm = normalizeOrderWeek(week || '');
   if (!norm) {
     const r = await query(
-      `SELECT TOP 1 OrderYear, OrderWeek FROM ShipmentMaster WHERE isDeleted=0 ORDER BY CreateDtm DESC`,
-      {}
+      `SELECT TOP 1 OrderYear, OrderWeek FROM ShipmentMaster
+        WHERE isDeleted=0 AND (@yr=N'' OR CAST(OrderYear AS NVARCHAR(4))=@yr)
+        ORDER BY CreateDtm DESC`,
+      { yr: { type: sql.NVarChar, value: String(explicitYear || '') } }
     );
     return { orderYear: String(r.recordset[0]?.OrderYear || new Date().getFullYear()), orderWeek: r.recordset[0]?.OrderWeek || '' };
   }
   const r = await query(
     `SELECT TOP 1 OrderYear, OrderWeek FROM ShipmentMaster
-      WHERE isDeleted=0 AND OrderWeek=@ow ORDER BY CreateDtm DESC`,
-    { ow: { type: sql.NVarChar, value: norm } }
+      WHERE isDeleted=0 AND OrderWeek=@ow
+        AND (@yr=N'' OR CAST(OrderYear AS NVARCHAR(4))=@yr)
+      ORDER BY CreateDtm DESC`,
+    {
+      ow: { type: sql.NVarChar, value: norm },
+      yr: { type: sql.NVarChar, value: String(explicitYear || '') },
+    }
   );
   const row = r.recordset[0];
   return {
@@ -33,12 +40,12 @@ async function resolveShipmentListWeek(week) {
 }
 
 async function getShipments(req, res) {
-  const { week, custName, area, manager, custKey, exeParity } = req.query;
+  const { week, orderYear: requestedYear, year, custName, area, manager, custKey, exeParity } = req.query;
   const useExe = useExeParityFlag(exeParity);
 
   try {
     if (useExe) {
-      const { orderYear, orderWeek } = await resolveShipmentListWeek(week);
+      const { orderYear, orderWeek } = await resolveShipmentListWeek(week, requestedYear || year || '');
       const params = {
         orderYear: { type: sql.NVarChar, value: orderYear },
         orderWeek: { type: sql.NVarChar, value: orderWeek },
@@ -62,7 +69,13 @@ async function getShipments(req, res) {
 
     let where = 'WHERE 1=1';
     const params = {};
-    if (week) { where += ' AND vs.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: normalizeOrderWeek(week) }; }
+    if (week) {
+      const normalizedWeek = normalizeOrderWeek(week);
+      const resolvedYear = resolveActiveOrderYear(week, requestedYear || year || '');
+      where += ' AND vs.OrderWeek = @week AND vs.OrderYear = @orderYear';
+      params.week = { type: sql.NVarChar, value: normalizedWeek };
+      params.orderYear = { type: sql.NVarChar, value: resolvedYear };
+    }
     if (custName) { where += ' AND vs.CustName LIKE @custName'; params.custName = { type: sql.NVarChar, value: `%${custName}%` }; }
     if (area) { where += ' AND vs.CustArea = @area'; params.area = { type: sql.NVarChar, value: area }; }
     if (manager) { where += ' AND vs.Manager = @manager'; params.manager = { type: sql.NVarChar, value: manager }; }
