@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { calculateMatchingMetrics, normalizeProductQuery, scoreNaturalLanguageProducts } from '../lib/naturalLanguageProductMatching.js';
+import { calculateMatchingMetrics, evaluateAliasPromotion, normalizeProductQuery, scoreNaturalLanguageProducts } from '../lib/naturalLanguageProductMatching.js';
 
 const products = [
   { ProdKey: 1, ProdName: 'CARNATION Moon Light', DisplayName: '카네이션 문라이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단', UsageCount: 2200 },
@@ -15,7 +15,10 @@ assert.equal(moon.alternateCountry[0].prodKey, 3);
 assert.equal(moon.alternateCountry[0].autoSelect, false);
 const china = scoreNaturalLanguageProducts('중국 카네이션 문라이트 박스', products);
 assert.equal(china.candidates[0].prodKey, 3);
-const metrics = calculateMatchingMetrics(Array.from({ length: 20 }, (_, i) => ({ confirmed: true, selectedProdKey: 1, candidateProdKeys: i < 18 ? [1, 2] : [2, 1], country: '콜롬비아', flower: '카네이션' })));
+const metrics = calculateMatchingMetrics(Array.from({ length: 20 }, (_, i) => ({ confirmed: true, selectedProdKey: 1, candidateProdKeys: i < 18 ? [1, 2] : [2, 1], candidateScores: [0.9], country: '콜롬비아', flower: '카네이션', createdAt: new Date() })));
 assert.equal(metrics.overall.top1, 0.9);
 assert.equal(metrics.targetMet, true);
+assert.ok(metrics.calibration.brierScore >= 0);
+assert.equal(evaluateAliasPromotion(Array.from({ length: 5 }, (_, i) => ({ confirmedByUser: true, autoSelected: false, prodKey: 1, actorId: i % 2 ? 'a' : 'b' }))).eligible, true);
+assert.equal(evaluateAliasPromotion(Array.from({ length: 5 }, () => ({ confirmedByUser: true, autoSelected: true, prodKey: 1, actorId: 'a' }))).eligible, false, '자동선택은 alias 승격 정답이 아니다.');
 console.log('natural language product matching tests passed');
