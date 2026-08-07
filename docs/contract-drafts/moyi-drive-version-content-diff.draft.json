@@ -1,0 +1,21 @@
+{
+  "id": "moyi-drive-version-content-diff-draft",
+  "status": "draft",
+  "businessIdentity": ["TenantId", "FileId", "FromVersionId", "ToVersionId"],
+  "states": ["CONTENT_CHANGED", "CONTENT_UNCHANGED", "METADATA_ONLY", "BINARY_CHANGED_DIFF_UNSUPPORTED", "DIFF_FAILED", "PENDING_ANALYSIS"],
+  "invariants": [
+    "원본 버전은 불변이며 복원은 새 버전을 생성한다",
+    "시스템 감지 변경과 사용자 입력 변경 사유를 분리한다",
+    "파일명·제목·폴더·권한 변경은 metadata audit로 기록한다",
+    "민감 before/after 값은 정책에 따라 마스킹한다",
+    "diff snapshot과 감사로그는 일반 삭제 대상이 아니다"
+  ],
+  "formatDiff": {
+    "excel": ["sheet", "cell-range", "formula", "masked-before-after"],
+    "word": ["paragraph", "table", "attachment", "header-footer"],
+    "pdf": ["page-add-delete-order", "text-change", "image-change"],
+    "image": ["sha256", "perceptual-hash", "size", "resolution"],
+    "unsupported": ["sha256", "size", "semantic-diff-unavailable"]
+  },
+  "requiredTests": ["metadata-only", "content-unchanged", "format fixtures", "sensitive masking", "restore-as-new-version", "immutable diff snapshot"]
+}

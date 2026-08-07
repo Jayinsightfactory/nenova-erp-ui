@@ -1,0 +1,19 @@
+{
+  "id": "moyi-drive-audit-event-draft",
+  "status": "draft",
+  "businessIdentity": ["TenantId", "AuditEventId", "Sequence"],
+  "events": [
+    "FILE_VERSION_CREATED", "CONTENT_DIFF_COMPLETED", "METADATA_CHANGED", "TITLE_CHANGED", "FILE_MOVED",
+    "PERMISSION_CHANGED", "PREVIEW_REQUESTED", "PREVIEW_DENIED", "DOWNLOAD_URL_ISSUED", "DOWNLOAD_COMPLETED",
+    "DOWNLOAD_DENIED", "IDENTITY_LINKED", "IDENTITY_UNLINKED", "VERSION_CONFIRMED", "VERSION_RESTORED"
+  ],
+  "requiredFields": ["tenantId", "actor", "sessionId", "action", "resource", "result", "occurredAt", "correlationId", "previousHash", "eventHash"],
+  "invariants": [
+    "audit event는 append-only다",
+    "보안 감사와 업무 변경 사유를 구분한다",
+    "preview와 download 성공·거부를 모두 기록한다",
+    "token·signed URL·민감 원문을 로그에 저장하지 않는다",
+    "version/diff 삭제 시도 자체를 감사한다"
+  ],
+  "requiredTests": ["append-only", "hash-chain", "denied access", "masked payload", "unlink audit", "version lineage"]
+}

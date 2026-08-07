@@ -26,6 +26,8 @@ Railway는 Bucket을 private S3-compatible object storage로 설명한다([Railw
 - StorageAdapter와 Connector 계약
 - 저장소 2개 이상의 기술 spike
 - threat model, 개인정보 흐름, 비용 산정
+- MOYI 앱과 NenovaWeb의 로그인·사용자·tenant·session 구조 read-only 조사
+- Excel/Word/PDF/image diff engine의 안전성·정확도 spike
 
 ### 선행조건
 
@@ -38,6 +40,7 @@ Railway는 Bucket을 private S3-compatible object storage로 설명한다([Railw
 - 문서와 spike만 수행, 운영 데이터 없음
 - provider 교체 가능성, hash 검증, signed URL TTL 검증
 - 실패 시 구현하지 않고 요구사항·provider 결정으로 되돌림
+- 실제 계정·파일·운영 DB를 쓰지 않고 source/document/API contract만 검증
 
 ### 비용/위험
 
@@ -179,3 +182,23 @@ Railway는 Bucket을 private S3-compatible object storage로 설명한다([Railw
 5. MOYI 앱 resumable upload prototype
 6. Nenova external link mapper와 교차연도 fixture
 7. NenovaWeb 관련 파일 패널 read-only prototype
+8. format별 content diff worker와 masking policy spike
+9. identity broker/account-link proof-of-concept
+
+## 구현 전 read-only 검증 게이트
+
+다음 증거가 모두 확보되기 전 Drive 구현과 권한 적용을 시작하지 않는다.
+
+1. MOYI 앱 저장소 또는 공식 인증/API 계약에서 사용자·회사·조직·session 식별자를 확인한다.
+2. NenovaWeb `UserInfo.UserID`, JWT claim, 비활성 처리, logout 동작을 source test로 고정한다.
+3. 두 계정이 공유된다는 증거가 없으면 별도 identity link 모델을 기본으로 한다.
+4. 기존 `/api/moyi/exchange|members|recipients|connection|report-push`의 payload·cookie/Bearer·로컬 auth guard를 source test로 고정한다.
+5. `UserInfo.UserID` 기반 matching은 shadow 후보 생성부터 시작하며 첫 연결, 충돌, 비활성 계정은 수동 승인 전 권한을 부여하지 않는다.
+6. MOYI Core의 tenant/auth/report inbound 계약과 revoke 동작이 확인되기 전 운영 계정 연결과 reverse provisioning을 시작하지 않는다.
+4. 두 tenant fixture로 file/folder/search/hash dedupe가 교차되지 않음을 계약 테스트로 증명한다.
+5. `OrderYear + OrderWeek`가 없는 Nenova external link를 validation error로 거부한다.
+6. metadata-only 변경이 content version을 만들지 않는지 확인한다.
+7. 지원 형식별 diff fixture와 민감값 masking snapshot을 검토한다.
+8. preview/download deny와 audit event가 동일 policy evaluator를 통과하는지 확인한다.
+9. 계정 연결 해제 후 token·cache·권한 수렴을 시뮬레이션한다.
+10. 모든 흐름에서 OrderDetail, ShipmentDetail, ProductStock, Estimate, WebProfitReport가 보존됨을 확인한다.

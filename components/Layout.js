@@ -21,6 +21,7 @@ export const MENU_ITEMS = [
     group: '연동',
     items: [
       { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
+      { href: '/integrations/moyi-drive', labelKey: 'MOYI Drive 관리', popup: false, userIds: ['nenovaSS3'] },
     ]
   },
   {
@@ -273,7 +274,7 @@ export default function Layout({ children, title }) {
               <div key={group.group} className="nav-group">
                 {/* 그룹 제목도 번역 */}
                 <div className="nav-group-title">{t(group.group)}</div>
-                {group.items.map(item => (
+                {group.items.filter(item => !item.userIds || item.userIds.includes(user?.userId)).map(item => (
                   item.fullscreen ? (
                     <a key={item.href}
                       className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}

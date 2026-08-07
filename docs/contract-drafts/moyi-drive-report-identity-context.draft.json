@@ -1,0 +1,19 @@
+{
+  "id": "moyi-drive-report-identity-context-draft",
+  "status": "draft-unverified-against-moyi-core",
+  "requestContext": ["tenantId", "connectorInstallationId", "identityLinkId", "scope", "orderYear", "orderWeek", "fileId"],
+  "serverDerived": ["nenovaUserId", "moyiUserId", "tenantId", "businessScope"],
+  "invariants": [
+    "orderYear와 orderWeek는 함께 필요하다",
+    "UserInfo.UserID는 tenant 범위 external key다",
+    "Nenova JWT와 비밀번호를 전달하지 않는다",
+    "active identity link, tenant membership, ERP business scope, MOYI policy가 모두 허용해야 한다",
+    "fileId는 재시도 멱등키이며 사용자 identity를 대체하지 않는다"
+  ],
+  "outcomes": ["matched", "unmatched", "conflict", "denied", "unlinked", "inactive"],
+  "auditFields": ["eventId", "tenantId", "connectorInstallationId", "identityLinkId", "actorId", "outcome", "reasonCode", "orderYear", "orderWeek", "fileId", "occurredAt"],
+  "dataMinimization": {
+    "allowed": ["display-name", "department", "active-state", "business-scope", "report-reference"],
+    "forbidden": ["password", "nenova-jwt", "full-userinfo-row", "cross-tenant-candidate"]
+  }
+}

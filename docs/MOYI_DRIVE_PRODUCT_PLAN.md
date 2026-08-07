@@ -18,6 +18,8 @@
 - 파일 원본과 ERP 업무 데이터는 복제하지 않고 안정적인 외부 참조로 연결한다.
 - Nenova 문서 연결키에는 `OrderYear + OrderWeek`를 반드시 포함한다.
 - Daemon/자동분류는 후보만 만들고 직원 확인 없이 업무 확정이나 ERP 쓰기를 수행하지 않는다.
+- 파일 버전은 불변 원본뿐 아니라 시스템 감지 내용 diff, 사용자 입력 변경 사유, 이전 버전, 복원·확정 상태를 보존한다.
+- NenovaWeb과 MOYI 앱은 별도 애플리케이션이며 계정 공유가 증명되기 전에는 identity link 방식으로 연결한다.
 
 ### 미확정 사항
 
@@ -26,6 +28,7 @@
 - 기본 보존기간, RPO/RTO, 외부 공유 허용 범위
 - OCR 공급자, 악성코드 검사 제품, 민감정보 자동분류 수준
 - MOYI 계정과 기존 NenovaWeb 계정의 초기 연결 방식
+- MOYI 앱의 실제 login, tenant/company, organization, session/device, account deactivation 계약
 
 ## 2. 제품 구조와 데이터 경계
 
@@ -127,6 +130,15 @@ draft → uploading → uploaded → scanning → classifying → review_require
 - 재시도는 같은 idempotency key를 사용한다.
 - 앱 오프라인 임시함은 로컬 암호화하고 사용자·tenant·device에 바인딩한다.
 - 권한 철회, 계정 잠금, 기기 분실 시 다음 동기화에서 캐시를 폐기한다.
+
+## 5.1 버전과 내용 diff
+
+- 제목·파일명·폴더·권한만 바뀌면 `METADATA_ONLY`이며 콘텐츠 버전을 새로 만들지 않는다.
+- 바이너리와 정규화 내용이 같으면 `CONTENT_UNCHANGED`로 기록한다.
+- Excel 셀, Word 문단·표, PDF 페이지·텍스트·이미지, 이미지 hash·해상도의 실제 변경은 `CONTENT_CHANGED`와 형식별 요약을 저장한다.
+- 지원하지 않는 형식은 hash 비교만 하고 `BINARY_CHANGED_DIFF_UNSUPPORTED`로 표시한다.
+- 시스템 감지 결과와 사용자가 입력한 변경 사유는 별도 엔터티와 audit event로 보존한다.
+- 상세 모델과 예시는 [MOYI Drive 데이터 모델](MOYI_DRIVE_DATA_MODEL.md), 계정 구조조사는 [애플리케이션·Identity 구조조사](MOYI_DRIVE_IDENTITY_APP_INVESTIGATION.md)를 따른다.
 
 ## 6. 운영과 감사
 
