@@ -187,12 +187,14 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
             WHERE wd.ProdKey = p.ProdKey
+              AND wm.OrderYear=@orderYear
               AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo
               AND wm.isDeleted = 0
           ), 0) + ISNULL((
             SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
             FROM StockHistory sh
             WHERE sh.ProdKey = p.ProdKey
+              AND sh.OrderYear=@orderYear
               AND sh.OrderWeek >= @weekFrom AND sh.OrderWeek <= @weekTo
               AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
           ), 0) AS inQty,
@@ -201,6 +203,7 @@ export default withAuth(async function handler(req, res) {
             SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
             WHERE sd.ProdKey = p.ProdKey
+              AND sm.OrderYear=@orderYear
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND sm.isDeleted = 0
           ), 0) AS outQty,
@@ -213,6 +216,7 @@ export default withAuth(async function handler(req, res) {
             JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
             JOIN Product p2 ON od.ProdKey = p2.ProdKey
             WHERE od.ProdKey = p.ProdKey
+              AND om.OrderYear=@orderYear
               AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
               AND om.isDeleted = 0 AND od.isDeleted = 0
           ), 0) AS orderQty
@@ -222,7 +226,8 @@ export default withAuth(async function handler(req, res) {
              SELECT 1 FROM OrderDetail od2
              JOIN OrderMaster om2 ON od2.OrderMasterKey = om2.OrderMasterKey
              WHERE od2.ProdKey = p.ProdKey
-               AND om2.OrderWeek >= @weekFrom AND om2.OrderWeek <= @weekTo
+                AND om2.OrderYear=@orderYear
+                AND om2.OrderWeek >= @weekFrom AND om2.OrderWeek <= @weekTo
                AND om2.isDeleted = 0 AND od2.isDeleted = 0
            )
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
@@ -238,17 +243,20 @@ export default withAuth(async function handler(req, res) {
          FROM (
            SELECT wd.ProdKey, wm.OrderWeek, wd.OutQuantity AS qty, 'in' AS kind
            FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
-           WHERE wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted=0
+            WHERE wm.OrderYear=@orderYear
+              AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted=0
            UNION ALL
            SELECT sh.ProdKey, sh.OrderWeek,
                   ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0), 'in'
            FROM StockHistory sh
-           WHERE sh.OrderWeek >= @weekFrom AND sh.OrderWeek <= @weekTo
+            WHERE sh.OrderYear=@orderYear
+              AND sh.OrderWeek >= @weekFrom AND sh.OrderWeek <= @weekTo
              AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
            UNION ALL
            SELECT sd.ProdKey, sm.OrderWeek, sd.OutQuantity, 'out'
            FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-           WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted=0
+            WHERE sm.OrderYear=@orderYear
+              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted=0
            UNION ALL
            -- OutUnit 기준 단일 컬럼 선택
            SELECT od.ProdKey, om.OrderWeek,
@@ -259,7 +267,8 @@ export default withAuth(async function handler(req, res) {
            FROM OrderDetail od
            JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
            JOIN Product p2 ON od.ProdKey=p2.ProdKey
-           WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+            WHERE om.OrderYear=@orderYear
+              AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
              AND om.isDeleted=0 AND od.isDeleted=0
          ) AS src
          GROUP BY src.ProdKey, src.OrderWeek
@@ -611,9 +620,11 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c     ON om.CustKey=c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
          JOIN Product p      ON od.ProdKey=p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderYear=@orderYear
+           AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
-         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+         WHERE om.OrderYear=@orderYear
+           AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
            AND om.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0
          ORDER BY c.CustArea, c.CustName, p.CounName, p.FlowerName`,
         params
@@ -678,7 +689,8 @@ export default withAuth(async function handler(req, res) {
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
          LEFT JOIN Customer c ON sd.CustKey = c.CustKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+         WHERE sm.OrderYear=@orderYear
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
            AND (ISNULL(sd.EstQuantity, 0) != ISNULL(sd.OutQuantity, 0)
                 OR sd.OutQuantity = 0)`,
         params
@@ -740,6 +752,7 @@ export default withAuth(async function handler(req, res) {
              FROM ProductStock ps
              JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = @pk
+              AND sm2.OrderYear=@orderYear
               AND sm2.OrderWeek < @weekTo
               AND sm2.isFix = 1
             ORDER BY sm2.OrderWeek DESC`,
@@ -753,6 +766,7 @@ export default withAuth(async function handler(req, res) {
              FROM ProductStock ps
              JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = @pk
+              AND sm2.OrderYear=@orderYear
               AND sm2.OrderWeek < @weekTo
               AND CAST(sm2.isFix AS INT) = 1
             ORDER BY sm2.OrderWeek DESC`,
@@ -766,6 +780,7 @@ export default withAuth(async function handler(req, res) {
              FROM ProductStock ps
              JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = @pk
+              AND sm2.OrderYear=@orderYear
               AND sm2.OrderWeek < @weekTo
               AND sm2.isFix <> 0
             ORDER BY sm2.OrderWeek DESC`,
@@ -783,6 +798,7 @@ export default withAuth(async function handler(req, res) {
              FROM ShipmentDetail sd
              JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
             WHERE sd.ProdKey = @pk
+              AND sm.OrderYear=@orderYear
               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND ISNULL(sm.isDeleted,0) = 0
             GROUP BY sm.OrderWeek, ISNULL(sm.isFix,-999)
@@ -800,6 +816,7 @@ export default withAuth(async function handler(req, res) {
              FROM WarehouseDetail wd
              JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
             WHERE wd.ProdKey = @pk
+              AND wm.OrderYear=@orderYear
               AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo
               AND ISNULL(wm.isDeleted,0) = 0
             GROUP BY wm.OrderWeek
@@ -847,7 +864,8 @@ export default withAuth(async function handler(req, res) {
          FROM ShipmentAdjustment a
          LEFT JOIN Product p ON a.ProdKey=p.ProdKey
          LEFT JOIN Customer c ON a.CustKey=c.CustKey
-         WHERE a.OrderWeek >= @weekFrom AND a.OrderWeek <= @weekTo
+         WHERE a.OrderYear=@orderYear
+           AND a.OrderWeek >= @weekFrom AND a.OrderWeek <= @weekTo
            AND CONVERT(date, a.CreateDtm) >= CONVERT(date, @df)
            AND CONVERT(date, a.CreateDtm) <= CONVERT(date, @dt)
          UNION ALL
@@ -865,7 +883,8 @@ export default withAuth(async function handler(req, res) {
          JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
          LEFT JOIN Product p ON sd.ProdKey=p.ProdKey
          LEFT JOIN Customer c ON sm.CustKey=c.CustKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+         WHERE sm.OrderYear=@orderYear
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
            AND CONVERT(date, sh.ChangeDtm) >= CONVERT(date, @df)
            AND CONVERT(date, sh.ChangeDtm) <= CONVERT(date, @dt)
          UNION ALL
@@ -883,7 +902,8 @@ export default withAuth(async function handler(req, res) {
          JOIN OrderMaster om ON od.OrderMasterKey=om.OrderMasterKey
          LEFT JOIN Product p ON od.ProdKey=p.ProdKey
          LEFT JOIN Customer c ON om.CustKey=c.CustKey
-         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+         WHERE om.OrderYear=@orderYear
+           AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
            AND CONVERT(date, oh.ChangeDtm) >= CONVERT(date, @df)
            AND CONVERT(date, oh.ChangeDtm) <= CONVERT(date, @dt)
          ORDER BY CreateDtm DESC`,
@@ -925,7 +945,8 @@ export default withAuth(async function handler(req, res) {
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          JOIN Customer c ON sm.CustKey = c.CustKey
          LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+         WHERE sm.OrderYear=@orderYear
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
            AND ISNULL(sm.isDeleted,0) = 0
            AND c.CustName LIKE @cn
          ORDER BY sm.OrderWeek, p.ProdName`,
@@ -939,7 +960,8 @@ export default withAuth(async function handler(req, res) {
          FROM OrderMaster om
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
          JOIN Customer c ON om.CustKey = c.CustKey
-         WHERE om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
+         WHERE om.OrderYear=@orderYear
+           AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo
            AND ISNULL(om.isDeleted,0) = 0
            AND c.CustName LIKE @cn`,
         dParams
@@ -995,6 +1017,7 @@ export default withAuth(async function handler(req, res) {
             SELECT TOP 1 ps.Stock FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = p.ProdKey
+              AND sm2.OrderYear=@orderYear
               AND sm2.OrderWeek < @weekFrom
               AND (sm2.isFix IS NULL OR sm2.isFix = 1)
             ORDER BY sm2.OrderWeek DESC
@@ -1004,6 +1027,7 @@ export default withAuth(async function handler(req, res) {
             SELECT TOP 1 sm2.OrderWeek FROM ProductStock ps
             JOIN StockMaster sm2 ON ps.StockKey = sm2.StockKey
             WHERE ps.ProdKey = p.ProdKey
+              AND sm2.OrderYear=@orderYear
               AND sm2.OrderWeek < @weekFrom
               AND (sm2.isFix IS NULL OR sm2.isFix = 1)
             ORDER BY sm2.OrderWeek DESC
@@ -1011,12 +1035,14 @@ export default withAuth(async function handler(req, res) {
           ISNULL((
             SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
             JOIN WarehouseMaster wm ON wd.WarehouseKey = wm.WarehouseKey
-            WHERE wd.ProdKey = p.ProdKey AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted = 0
+             WHERE wd.ProdKey = p.ProdKey AND wm.OrderYear=@orderYear
+               AND wm.OrderWeek >= @weekFrom AND wm.OrderWeek <= @weekTo AND wm.isDeleted = 0
           ), 0) AS inQty,
           ISNULL((
             SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-            WHERE sd.ProdKey = p.ProdKey AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+             WHERE sd.ProdKey = p.ProdKey AND sm.OrderYear=@orderYear
+               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
           ), 0) AS outQty,
           -- 업체별 출고 수량 집계 (어느 거래처가 몇 개 가져갔는지)
           (
@@ -1025,7 +1051,8 @@ export default withAuth(async function handler(req, res) {
             JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
             JOIN Customer c ON sm.CustKey = c.CustKey
             WHERE sd.ProdKey = p.ProdKey
-              AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+               AND sm.OrderYear=@orderYear
+               AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
               AND sm.isDeleted = 0 AND sd.OutQuantity > 0
             GROUP BY c.CustName
             ORDER BY SUM(sd.OutQuantity) DESC
@@ -1037,7 +1064,8 @@ export default withAuth(async function handler(req, res) {
            AND EXISTS (
              SELECT 1 FROM ShipmentDetail sd2
              JOIN ShipmentMaster sm3 ON sd2.ShipmentKey = sm3.ShipmentKey
-             WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderWeek >= @weekFrom AND sm3.OrderWeek <= @weekTo AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0
+              WHERE sd2.ProdKey = p.ProdKey AND sm3.OrderYear=@orderYear
+                AND sm3.OrderWeek >= @weekFrom AND sm3.OrderWeek <= @weekTo AND sm3.isDeleted = 0 AND sd2.OutQuantity > 0
            )
          ORDER BY p.CounName, p.FlowerName, p.ProdName`,
         filterParams
@@ -1063,8 +1091,15 @@ export default withAuth(async function handler(req, res) {
       const sdk = parseInt(req.query.sdk);
       if (!sdk) return res.status(400).json({ success: false, error: 'sdk 필요' });
       const result = await query(
-        `DELETE FROM ShipmentDetail WHERE SdetailKey=@sdk`,
-        { sdk: { type: sql.Int, value: sdk } }
+        `DELETE sd
+           FROM ShipmentDetail sd
+           JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+          WHERE sd.SdetailKey=@sdk
+            AND sm.OrderYear=@orderYear
+            AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+            AND sm.isDeleted=0
+            AND ISNULL(sd.OutQuantity,0)=0`,
+        { ...params, sdk: { type: sql.Int, value: sdk } }
       );
       return res.status(200).json({ success: true, message: `sdk=${sdk} 삭제`, rowsAffected: result.rowsAffected });
     }
@@ -1079,7 +1114,8 @@ export default withAuth(async function handler(req, res) {
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
          LEFT JOIN Customer c ON sm.CustKey = c.CustKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+         WHERE sm.OrderYear=@orderYear
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
            AND sd.ProdKey = @pk AND sd.OutQuantity > 0`,
         { ...params, pk: { type: sql.Int, value: parseInt(req.query.prodKey) } }
       );
@@ -1088,10 +1124,18 @@ export default withAuth(async function handler(req, res) {
 
     // ── OutQuantity=0 빈 ShipmentDetail 정리 (전산 확정 차단 원인)
     if (view === 'cleanupZero') {
+      if (String(req.query.confirm || '') !== '1') {
+        return res.status(409).json({
+          success: false,
+          requiresConfirmation: true,
+          error: 'cleanupZero는 읽기 요청으로 실행되지 않습니다. 출고분배 진단의 repairZeroOut 보정 절차를 사용하세요.',
+        });
+      }
       const result = await query(
         `DELETE sd FROM ShipmentDetail sd
          JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-         WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
+         WHERE sm.OrderYear=@orderYear
+           AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo AND sm.isDeleted = 0
            AND ISNULL(sd.OutQuantity, 0) = 0`,
         params
       );

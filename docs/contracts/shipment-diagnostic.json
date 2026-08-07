@@ -3,6 +3,9 @@
   "title": "nenova.exe 출고 진단·분배 연도 스코프 계약",
   "scope": [
     "pages/api/shipment/exe-errors.js",
+    "pages/api/shipment/distribute-diagnose.js",
+    "pages/api/shipment/stock-status.js",
+    "pages/admin/distribute-repair.js",
     "pages/shipment/exe-errors.js",
     "pages/api/shipment/distribute.js",
     "pages/api/shipment/distribute-sp.js",

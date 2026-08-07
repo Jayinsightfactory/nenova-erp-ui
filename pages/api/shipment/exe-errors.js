@@ -39,7 +39,7 @@ export const CHECKS = [
     operations: ['차수피벗 취소/0 저장(구버전)', '출고분배 0 저장(구버전)', '물량표 업로드 삭제 적용'],
     exeAlert: '"이미 출고분배됨" — 전산에서 품목 삭제/재분배가 차단됨',
     cause: '전산이 분배 시 OutQuantity=0 인 빈 ShipmentDetail 을 자동 생성해 남긴 것.',
-    fix: '진단 API view=cleanupZero 로 정리하거나 관리자에게 요청.',
+    fix: '관리자 출고분배 진단에서 미확정 0수량 빈 분배 정리를 실행합니다. 확정행·실제 출고일 수량이 있는 행은 자동 삭제하지 않습니다.',
     sql: `
       SELECT sm.OrderWeek, c.CustName, p.ProdName, sd.SdetailKey AS keyNo,
              sd.OutQuantity AS v1, NULL AS v2, NULL AS v3
