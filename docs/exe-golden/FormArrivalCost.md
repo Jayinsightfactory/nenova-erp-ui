@@ -30,3 +30,12 @@
 `OrderYear`를 별도 전달한다. 도착원가 API는 `OrderMaster`, `ShipmentMaster`,
 `ShipmentDetail`, `Estimate`, 재고 프로시저를 호출하지 않는다.
 
+## 2026-08-07 품종·누락 원가 조회 보강
+
+- 품종 요약과 누락 판정의 ERP 기대 범위는 `WarehouseMaster.OrderYear + OrderWeek`를
+  동시에 제한하고 활성 `WarehouseMaster`의 `WarehouseDetail.ProdKey`만 읽는다.
+- 같은 연도·차수 현재 `WebArrivalCostLine`에 해당 `ProdKey`가 없으면
+  `COST_NOT_UPLOADED`로 표시한다. 0원이나 이전 차수 원가를 사용하지 않는다.
+- 품종 선택·검색·페이지 조회는 SELECT 전용이다. 저장 버튼은 기존처럼
+  `WebArrivalCostLine` 매칭/배분기준과 `WebArrivalCostHistory`만 변경한다.
+

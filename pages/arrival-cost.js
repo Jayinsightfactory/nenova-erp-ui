@@ -1,6 +1,6 @@
 // 도착원가 — 차수별 원가자료 업로드·매칭·배분기준 관리
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 
 const BASIS = [
@@ -103,17 +103,43 @@ export default function ArrivalCostPage() {
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState({});
   const [history, setHistory] = useState(null);
+  const [varieties, setVarieties] = useState([]);
+  const [scopeReady, setScopeReady] = useState(false);
+  const requestRef = useRef({ id: 0, controller: null });
+
+  useEffect(() => {
+    if (!filters.orderYear || !filters.orderWeek) { setVarieties([]); setScopeReady(false); return undefined; }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const qs = new URLSearchParams({ lookup: 'varieties', orderYear: filters.orderYear, orderWeek: filters.orderWeek });
+        const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin', signal: controller.signal });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || '품종 조회 실패');
+        setVarieties(json.varieties || []);
+        setScopeReady(true);
+        if (filters.flower && !(json.varieties || []).includes(filters.flower)) updateFilter('flower', '');
+      } catch (e) { if (e.name !== 'AbortError') setError(e.message); }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [filters.orderYear, filters.orderWeek]);
 
   const load = useCallback(async (targetPage = 1, queryFilters = appliedFilters) => {
+    if (!queryFilters.orderYear || !queryFilters.orderWeek || (!queryFilters.flower && !queryFilters.allVarieties)) return;
+    requestRef.current.controller?.abort();
+    const controller = new AbortController();
+    const requestId = requestRef.current.id + 1;
+    requestRef.current = { id: requestId, controller };
     setLoading(true);
     setError('');
     try {
       const qs = new URLSearchParams(Object.entries(queryFilters).filter(([, value]) => value !== ''));
       qs.set('page', String(targetPage));
       qs.set('pageSize', '200');
-      const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin', signal: controller.signal });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || '도착원가 조회 실패');
+      if (requestRef.current.id !== requestId) return;
       setData(json);
       setPage(Number(json.page || targetPage));
       const next = {};
@@ -126,13 +152,13 @@ export default function ArrivalCostPage() {
       }
       setDrafts(next);
     } catch (e) {
-      setError(e.message);
+      if (e.name !== 'AbortError') setError(e.message);
     } finally {
       setLoading(false);
     }
   }, [appliedFilters]);
 
-  useEffect(() => { load(1, appliedFilters); }, [load, appliedFilters]);
+  useEffect(() => { load(1, appliedFilters); return () => requestRef.current.controller?.abort(); }, [load, appliedFilters]);
 
   const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
   const updateDraft = (id, key, value) => setDrafts(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }));
@@ -204,8 +230,19 @@ export default function ArrivalCostPage() {
   const weeks = useMemo(() => [...new Set(data.rows.map(row => row.orderWeek).filter(Boolean))], [data.rows]);
   const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
   const applySearch = () => {
+    if (!filters.orderYear || !filters.orderWeek) { setError('연도와 차수를 모두 선택하세요.'); return; }
+    if (!filters.flower) { setError('품종을 선택하거나 전체보기를 누르세요.'); return; }
     setPage(1);
-    setAppliedFilters({ ...filters });
+    setAppliedFilters({ ...filters, allVarieties: '' });
+  };
+  const selectVariety = (flower) => {
+    const next = { ...filters, flower };
+    setFilters(next); setPage(1); setAppliedFilters({ ...next, allVarieties: '' });
+  };
+  const showAll = () => {
+    if (!filters.orderYear || !filters.orderWeek) { setError('연도와 차수를 모두 선택하세요.'); return; }
+    const next = { ...filters, flower: '' };
+    setFilters(next); setPage(1); setAppliedFilters({ ...next, allVarieties: '1' });
   };
   const movePage = (nextPage) => {
     if (nextPage < 1 || (nextPage > page && !data.hasMore)) return;
@@ -240,10 +277,14 @@ export default function ArrivalCostPage() {
           <div className="filter-grid">
             <label>차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="예: 29-1" onKeyDown={e => e.key === 'Enter' && load()} /></label>
             <label>국가 <input value={filters.country} onChange={e => updateFilter('country', e.target.value)} /></label>
-            <label>품종 <input value={filters.flower} onChange={e => updateFilter('flower', e.target.value)} placeholder="장미·수국" /></label>
             <label>품목/색상 <input value={filters.product} onChange={e => updateFilter('product', e.target.value)} /></label>
             <label>농장 <input value={filters.farm} onChange={e => updateFilter('farm', e.target.value)} /></label>
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+          </div>
+          <div className="variety-tabs" role="tablist" aria-label="품종 선택">
+            <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1'} className={appliedFilters.allVarieties === '1' ? 'active' : ''} onClick={showAll}>전체보기</button>
+            {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
+            {!scopeReady && <span className="muted">연도·차수를 입력하면 실제 품종이 표시됩니다.</span>}
           </div>
           <div className="summary-row">
             <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>
@@ -258,7 +299,7 @@ export default function ArrivalCostPage() {
 
         <section className="arrival-card table-card">
           <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
-          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">업로드된 도착원가 자료가 없습니다.</div> : (
+          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : (
             <div className="table-wrap">
               <table>
                 <thead><tr>
@@ -267,7 +308,7 @@ export default function ArrivalCostPage() {
                 </tr></thead>
                 <tbody>{data.rows.map(row => {
                   const draft = drafts[row.arrivalLineKey] || {};
-                  return <tr key={row.arrivalLineKey} className={row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
+                  return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
                     <td>{row.orderWeek || '-'}</td>
                     <td>{row.countryName || row.dbCountryName || '-'}</td>
                     <td>{row.flowerNameRaw || row.dbFlowerName || '-'}</td>
@@ -276,13 +317,13 @@ export default function ArrivalCostPage() {
                     <td>{row.farmNameRaw || '-'}</td>
                     <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
                     <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
-                    <td className="num">{fmt(row.sourceArrivalCostKRW)}원</td>
+                    <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW)}원`}</td>
                     <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
                       {BASIS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select></td>
-                    <td className="num selected-cost">{fmt(row.selectedArrivalCostKRW)}원</td>
+                    <td className="num selected-cost">{row.uploadStatus === 'COST_NOT_UPLOADED' ? '-' : `${fmt(row.selectedArrivalCostKRW)}원`}</td>
                     <td><input value={draft.notes || ''} onChange={e => updateDraft(row.arrivalLineKey, 'notes', e.target.value)} placeholder="메모" /></td>
-                    <td className="actions"><button onClick={() => save(row)}>저장</button><button onClick={() => showHistory(row)}>이력</button></td>
+                    <td className="actions">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <><button onClick={() => save(row)}>저장</button><button onClick={() => showHistory(row)}>이력</button></>}</td>
                   </tr>;
                 })}</tbody>
               </table>
@@ -314,8 +355,9 @@ export default function ArrivalCostPage() {
         .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(4) input { width:230px; }
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
         .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; }
+        .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
-        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:310px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
+        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } tr.cost-missing { background:#fff0f0; } .missing-badge { color:#a12d2d; background:#ffe0e0; border:1px solid #efb4b4; border-radius:999px; padding:2px 6px; font-weight:700; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:310px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
         .modal-backdrop { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#0006; } .history-modal { width:min(720px,92vw); max-height:80vh; overflow:auto; background:#fff; border-radius:6px; padding:14px; box-shadow:0 10px 40px #0005; } .modal-title { display:flex; justify-content:space-between; font-weight:700; margin-bottom:10px; color:#163d76; } .history-item { padding:8px 2px; border-bottom:1px solid #e4e8ee; font-size:12px; }
         @media (max-width:800px) { .arrival-page { padding:8px; } .arrival-title-row { display:block; } .read-only-badge { display:inline-block; margin-top:8px; } .table-wrap { max-height:none; } }
       `}</style>
