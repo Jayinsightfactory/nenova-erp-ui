@@ -4,6 +4,7 @@ import { formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { ensureWeekCanDistribute } from '../../lib/ensureWeekCanDistribute';
+import { buildEstimateAdditionalWeek, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
 
 function buildFullWeek(yearStr, shortWeek) {
   const w = String(shortWeek || '').trim();
@@ -22,6 +23,11 @@ function emptyLine() {
     action: 'ADD',
     prodSearch: '',
     prodOpen: false,
+    context: null,
+    contextError: '',
+    costSourceId: '',
+    cost: '',
+    farmKey: '',
   };
 }
 
@@ -46,19 +52,9 @@ export default function OrderRegisterDistributeModal({
   const wrapRef = useRef(null);
 
   const weekOptions = useMemo(() => {
-    const subs = String(selectedShip?.SubWeeks || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    if (subs.length > 0) {
-      return subs.map(w => ({
-        value: buildFullWeek(yearStr, w),
-        label: formatWeekDisplay(buildFullWeek(yearStr, w)),
-      }));
-    }
-    const fallback = buildFullWeek(yearStr, `${String(weekNum || '').padStart(2, '0')}-01`);
-    return [{ value: fallback, label: formatWeekDisplay(fallback) }];
-  }, [selectedShip, yearStr, weekNum]);
+    try { const value=buildEstimateAdditionalWeek(yearStr, weekNum); return [{value,label:formatWeekDisplay(value)}]; }
+    catch { return []; }
+  }, [yearStr, weekNum]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,14 +99,21 @@ export default function OrderRegisterDistributeModal({
     setResult(null);
   };
 
-  const pickProduct = (lineId, prod) => {
+  const pickProduct = async (lineId, prod) => {
     updateLine(lineId, {
       prodKey: prod.ProdKey,
       prodName: prod.ProdName || '',
       unit: normalizeOrderUnit(prod.OutUnit),
       prodSearch: prod.ProdName || '',
       prodOpen: false,
+      context: null, contextError: '단가·농장 조회 중…', costSourceId:'', cost:'', farmKey:'',
     });
+    try {
+      const d = await apiGet('/api/estimate/additional-product-context', {
+        year: yearStr, week: `${String(weekNum).padStart(2,'0')}-02`, custKey: cust?.CustKey, prodKey: prod.ProdKey,
+      });
+      updateLine(lineId, { context:d, contextError:'', farmKey:'' });
+    } catch (e) { updateLine(lineId, { context:null, contextError:e.message }); }
   };
 
   const addLine = () => setLines(prev => [...prev, emptyLine()]);
@@ -129,6 +132,7 @@ export default function OrderRegisterDistributeModal({
         qty,
         unit: normalizeOrderUnit(l.unit),
         type: l.action === 'CANCEL' ? 'CANCEL' : 'ADD',
+        context:l.context, contextError:l.contextError, cost:Number(l.cost), costSourceId:l.costSourceId, farmKey:Number(l.farmKey),
       };
     })
     .filter(Boolean);
@@ -138,16 +142,28 @@ export default function OrderRegisterDistributeModal({
     if (!weekValue) { alert('등록 차수를 선택하세요.'); return; }
     if (!validTargets.length) { alert('품목과 수량을 입력하세요.'); return; }
 
-    const preview = validTargets.map(t => `${t.prodName}: ${t.type === 'CANCEL' ? '−' : '+'}${t.qty}${t.unit}`).join('\n');
-    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(weekValue)}\n${validTargets.length}개 품목 주문등록+분배:\n\n${preview}\n\n진행할까요?\n(추가 = OrderDetail+ShipmentDetail 동시 +, 취소 = 동시 −)`)) return;
+    try { validTargets.forEach(t => validateAdditionalProductSelection({cost:t.cost,costSourceId:t.costSourceId,farmKey:t.farmKey,shipmentDate:t.context?.shipmentDate})); }
+    catch(e) { alert(e.message); return; }
+    const preview = validTargets.map(t => `${t.prodName}: +${t.qty}${t.unit} / ${t.cost.toLocaleString()}원 / ${t.context?.farms?.find(f=>f.farmKey===t.farmKey)?.farmName||''}`).join('\n');
+    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(weekValue)}\n${validTargets.length}개 품목을 02차에 등록합니다.\n\n${preview}\n\n기존 주문이 있으면 주문수량은 유지하고 분배만 증가합니다. 진행할까요?`)) return;
 
     if (!(await ensureWeekCanDistribute(weekValue, validTargets.map(t => t.prodKey)))) return;
 
     setRunning(true);
     setResult(null);
     const details = [];
-    for (const t of validTargets) {
-      try {
+    const mustCycle = validTargets.some(t => t.context?.fixed);
+    const runFix = async (action) => {
+      const res = await fetch('/api/shipment/fix', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({week:`${String(weekNum).padStart(2,'0')}-02`,orderYear:yearStr,action,force:true,stockProdKeys:validTargets.map(t=>t.prodKey)}) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `${action} 실패`);
+      return data;
+    };
+    let unfixed = false;
+    try {
+      if (mustCycle) { await runFix('unfix'); unfixed = true; }
+      for (const t of validTargets) {
+        try {
         const d = await apiPost('/api/shipment/adjust', {
           custKey: cust.CustKey,
           prodKey: t.prodKey,
@@ -155,12 +171,23 @@ export default function OrderRegisterDistributeModal({
           type: t.type,
           qty: t.qty,
           unit: t.unit,
-          memo: `견적서 주문등록+분배: ${t.prodName} ${t.type === 'CANCEL' ? '−' : '+'}${t.qty}${t.unit}`,
-          force: true,
+          year: yearStr,
+          mode: 'PIVOT_DISTRIBUTION',
+          unitCost: t.cost,
+          costSourceId: t.costSourceId,
+          shipmentDate: t.context.shipmentDate,
+          farmAssignments: [{ farmKey:t.farmKey, shipmentQuantity:t.qty }],
+          memo: `견적서 추가 품목: ${t.prodName} +${t.qty}${t.unit} 단가출처=${t.costSourceId}`,
+          force: false,
         });
         details.push({ ...t, ok: !!d.success, error: d.error });
-      } catch (e) {
-        details.push({ ...t, ok: false, error: e.message });
+        } catch (e) { details.push({ ...t, ok: false, error: e.message }); }
+      }
+    } catch (e) { validTargets.forEach(t=>details.push({...t,ok:false,error:e.message})); }
+    finally {
+      if (unfixed) {
+        try { await runFix('fix'); }
+        catch(e) { details.push({prodName:'재확정',ok:false,error:`저장 후 재확정 실패: ${e.message}`}); }
       }
     }
     const okCount = details.filter(d => d.ok).length;
@@ -182,9 +209,9 @@ export default function OrderRegisterDistributeModal({
       <div ref={wrapRef} style={{ background: '#fff', borderRadius: 12, width: 'min(720px, 100%)', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 16px 48px rgba(15,23,42,0.2)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 17, fontWeight: 900, color: '#0f172a' }}>주문등록 + 분배</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#0f172a' }}>추가 품목등록</div>
             <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
-              입력 수량만큼 해당 차수 주문(OrderDetail)과 출고분배(ShipmentDetail)에 <strong>누적</strong>됩니다.
+              현재 연도·차수의 검증된 <strong>02차</strong>에 주문 정책과 농장분배 계약을 적용합니다.
             </div>
           </div>
           <button type="button" onClick={() => !running && onClose()} style={{ border: 0, background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
@@ -253,16 +280,7 @@ export default function OrderRegisterDistributeModal({
                   ? rankProductSearchOptions(line.prodSearch, products, { limit: 8 })
                   : [];
                 return (
-                  <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '72px 1fr 72px 64px 32px', gap: 8, alignItems: 'start' }}>
-                    <select
-                      value={line.action}
-                      onChange={(e) => updateLine(line.id, { action: e.target.value })}
-                      disabled={running}
-                      style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, fontWeight: 700, color: line.action === 'CANCEL' ? '#c62828' : '#2e7d32' }}
-                    >
-                      <option value="ADD">추가</option>
-                      <option value="CANCEL">취소</option>
-                    </select>
+                  <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '1fr 72px 64px 32px', gap: 8, alignItems: 'start', paddingBottom:12, borderBottom:'1px solid #e2e8f0' }}>
                     <div style={{ position: 'relative' }}>
                       <input
                         value={line.prodSearch}
@@ -300,11 +318,22 @@ export default function OrderRegisterDistributeModal({
                     />
                     <input
                       value={line.unit}
-                      onChange={(e) => updateLine(line.id, { unit: e.target.value })}
+                      readOnly
                       disabled={running}
                       style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
                     />
                     <button type="button" onClick={() => removeLine(line.id)} disabled={running} style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', cursor: 'pointer' }}>−</button>
+                    <div style={{gridColumn:'1 / -1',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                      {line.contextError && <div style={{gridColumn:'1 / -1',fontSize:11,color:'#c62828'}}>{line.contextError}</div>}
+                      <select value={line.costSourceId} onChange={e=>{const id=e.target.value;const src=line.context?.priceSources?.find(x=>x.id===id);updateLine(line.id,{costSourceId:id,cost:src?.cost||''});}} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
+                        <option value="">참고단가 출처 선택 (자동 확정 안 함)</option>
+                        {(line.context?.priceSources||[]).map(s=><option key={s.id} value={s.id}>{s.customerName} · {s.year} {s.week} · {s.shipmentDate} · VAT 포함 · {Number(s.cost).toLocaleString()}원</option>)}
+                        <option value="DIRECT">직접 입력</option>
+                      </select>
+                      <input type="number" value={line.cost} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:line.costSourceId||'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
+                      <select value={line.farmKey} onChange={e=>updateLine(line.id,{farmKey:e.target.value})} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}><option value="">농장 선택</option>{(line.context?.farms||[]).map(f=><option key={f.farmKey} value={f.farmKey}>{f.farmName} ({f.farmCode})</option>)}</select>
+                      <div style={{fontSize:11,color:'#475569',alignSelf:'center'}}>출고일 {line.context?.shipmentDate||'-'} · 재고 부족 시 저장 중단</div>
+                    </div>
                   </div>
                 );
               })}
@@ -329,7 +358,7 @@ export default function OrderRegisterDistributeModal({
             disabled={running || !cust?.CustKey || !validTargets.length}
             style={{ height: 38, padding: '0 20px', border: 'none', borderRadius: 7, background: running || !validTargets.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: running ? 'wait' : 'pointer' }}
           >
-            {running ? '처리 중…' : '주문등록 + 분배 실행'}
+            {running ? '처리 중…' : '추가 품목등록 실행'}
           </button>
         </div>
       </div>
