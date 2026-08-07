@@ -132,6 +132,7 @@ export default function SalesDefectDeductionsPage() {
   const [lookup, setLookup] = useState([]);
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupActiveIndex, setLookupActiveIndex] = useState(-1);
+  const [lookupMatchMeta, setLookupMatchMeta] = useState(null);
   const [lookupAnchor, setLookupAnchor] = useState(null);
   const [unitFocus, setUnitFocus] = useState(null); // { index, position }
   const [addModeMenu, setAddModeMenu] = useState(null); // { index, sourceIndex }
@@ -140,6 +141,7 @@ export default function SalesDefectDeductionsPage() {
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
+  const lookupRequestSeq = useRef(0);
   const savedRowSignaturesRef = useRef(new Map());
 
   const replaceSavedRowSignatures = useCallback((sourceRows = []) => {
@@ -348,6 +350,7 @@ export default function SalesDefectDeductionsPage() {
     setActiveSearch(null);
     setLookupQuery('');
     setLookupActiveIndex(-1);
+    setLookupMatchMeta(null);
     setLookupAnchor(null);
   };
 
@@ -383,11 +386,14 @@ export default function SalesDefectDeductionsPage() {
 
   const fetchLookup = (index, kind, term) => {
     clearTimeout(searchTimer.current);
+    const requestSeq = ++lookupRequestSeq.current;
     searchTimer.current = setTimeout(async () => {
       try {
         const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q: term });
+        if (requestSeq !== lookupRequestSeq.current) return;
         const items = kind === 'customer' ? (data.customers || []) : kind === 'product' ? (data.products || []) : (data.farms || []);
         setLookup(items);
+        setLookupMatchMeta(kind === 'product' ? (data.productMatch || null) : null);
         setLookupActiveIndex(items.length ? 0 : -1);
       } catch (e) { setError(e.message); }
     }, 120);
@@ -1094,10 +1100,10 @@ export default function SalesDefectDeductionsPage() {
           {kind === 'product' ? <>
             <span className="defect-lookup-country">{item.CounName || item.counName || '-'}</span>
             <span className="defect-lookup-flower">{item.FlowerName || item.flowerName || '-'}</span>
-            <span className="defect-lookup-product-name">{[item.ProdName || item.prodName, item.DisplayName || item.displayName].filter((name, index, names) => name && names.indexOf(name) === index).join(' · ') || productSearchLabel(item)}</span>
+            <span className="defect-lookup-product-name">{[item.ProdName || item.prodName, item.DisplayName || item.displayName].filter((name, index, names) => name && names.indexOf(name) === index).join(' · ') || productSearchLabel(item)}<small>{` · ${item.EstUnit || item.OutUnit || '-'} · DB #${item.ProdKey || item.prodKey} · ${item.AlternateCountry ? '다른 국가 후보' : (item.MatchReasons || []).join('/') || '유사 후보'}`}</small></span>
           </> : <span className="defect-lookup-simple-label">{kind === 'customer' ? `${item.CustName} (${item.CustKey})${usageLabel(item)}` : item.FarmName}</span>}
         </button>)}
-        {!lookup.length && <div className="defect-lookup-empty">관련 전산 후보가 없습니다. 검색어를 줄여 다시 검색하거나, 전산 마스터 등록 여부를 확인하세요.</div>}
+        {!lookup.length && <div className="defect-lookup-empty">{{ COUNTRY_CONFLICT: '입력 국가와 일치하는 전산 후보가 없습니다. 다른 국가 후보를 확인하세요.', FLOWER_MISMATCH: '입력 품종과 일치하는 전산 후보가 없습니다.', NO_MASTER_CANDIDATE: '사용 가능한 전산 품목 마스터가 없습니다.', NO_SIMILAR_CANDIDATE: '유사 품목을 찾지 못했습니다. 국가·품종·색상을 나누어 검색하세요.' }[lookupMatchMeta?.emptyReason] || '관련 전산 후보가 없습니다. 거래처 범위와 전산 마스터 등록 여부를 확인하세요.'}</div>}
       </div>
     </div>;
     return typeof document === 'undefined' ? panel : createPortal(panel, document.body, 'sales-defect-lookup-panel');
@@ -1604,6 +1610,7 @@ export default function SalesDefectDeductionsPage() {
         .defect-lookup-country, .defect-lookup-flower { flex: 0 0 112px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #334155; font-size: 12px; }
         .defect-lookup-flower { flex-basis: 132px; }
         .defect-lookup-product-name { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+        .defect-lookup-product-name small { display: block; color: #64748b; font-size: 10px; font-weight: 400; }
         .defect-lookup-option.is-active .defect-lookup-country, .defect-lookup-option.is-active .defect-lookup-flower { color: #dbeafe; }
         .defect-lookup-simple-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
         .related-row-action:focus, .related-row-action:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; background: #fef3c7; color: #111827; position: relative; z-index: 2; }
