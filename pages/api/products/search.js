@@ -8,6 +8,7 @@ import { withAuth } from '../../../lib/auth';
 import { rankProductSearchOptions } from '../../../lib/productSearchRanking.js';
 import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
+import { scoreNaturalLanguageProducts } from '../../../lib/naturalLanguageProductMatching.js';
 
 // ── 서버 메모리 캐시
 if (!global._prodCache) {
@@ -135,8 +136,16 @@ export default withAuth(async function handler(req, res) {
       // 단순 문자열 포함 검색을 먼저 하면 `문라이트`처럼 한글 별칭만 있고
       // DB에는 영문 ProdName만 있는 품목이 후보에서 사라진다. 전체 Product를
       // 기존 자연어 점수 엔진에 전달해 한/영 별칭과 실제 사용량을 함께 반영한다.
-      const rankedProducts = rankProductSearchOptions(q.trim(), global._prodCache.data, { limit: 500 });
-      return res.status(200).json({ success: true, count: rankedProducts.length, products: rankedProducts });
+      const result = scoreNaturalLanguageProducts(q.trim(), global._prodCache.data, { limit: 500 });
+      const rankedProducts = [...result.candidates, ...result.alternateCountry].map((item) => ({
+        ...item.source,
+        MatchScore: Math.round(item.score * 100), MatchConfidence: item.confidence,
+        MatchConfidenceBand: item.band, MatchAutoSelectAllowed: item.autoSelect,
+        MatchReasons: item.reasons, MatchConflicts: item.conflicts,
+        MatchModelVersion: item.modelVersion,
+        AlternateCountry: item.conflicts.country,
+      }));
+      return res.status(200).json({ success: true, count: rankedProducts.length, products: rankedProducts, productMatch: { emptyReason: result.emptyReason, normalized: result.query, modelVersion: result.modelVersion } });
     }
 
     // ── 모드 4: 전체 조회 (q 없고 그룹 미지정 — 견적서 모달 등 드롭다운용)

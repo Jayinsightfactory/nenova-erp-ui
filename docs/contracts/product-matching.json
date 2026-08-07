@@ -1,0 +1,35 @@
+{
+  "id": "product-matching",
+  "title": "공용 자연어 품목 매칭·학습 이벤트 계약",
+  "scope": [
+    "lib/naturalLanguageProductMatching.js",
+    "lib/productSearchRanking.js",
+    "lib/orderImportMatch.js",
+    "lib/salesDefectDeductions.js",
+    "pages/api/products/search.js",
+    "pages/api/sales/defect-deductions.js",
+    "pages/sales/defect-deductions.js",
+    "docs/migrations/2026-08-07_product_matching_learning_loop.sql",
+    "docs/exe-golden/ProductMatching.md",
+    "__tests__/naturalLanguageProductMatching.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "후보와 근거만 반환" },
+    { "name": "CANDIDATE_SELECTED", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "사용자 확인 이벤트만 기록" },
+    { "name": "ALIAS_PROMOTION", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "WebProductMatchAlias만 검토 후 승격; Product 이름 변경 금지" }
+  ],
+  "confidence": { "high": 0.9, "medium": 0.68, "countryOrFlowerConflictAutoSelect": false, "selfTrainingFromAutoSelection": false },
+  "crossYearFixture": { "required": true, "description": "2025 29-02 검색 이벤트는 2026 29-02 거래처 최근성 집계에 포함하지 않는다." },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductMatching.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs",
+    "methods": ["FormEstimateView_Load", "LogicManager.Common.GetProduct", "FormEstimateView.GetDetail"],
+    "tables": ["Product", "Estimate", "WebProductMatchEvent", "WebProductMatchAlias"]
+  },
+  "downstreamPreserve": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "ProductStock", "Estimate", "WebProfitReport", "Product.ProdName", "Product.DisplayName"],
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"],
+  "requiredTests": ["__tests__/naturalLanguageProductMatching.test.js"],
+  "requiredTestFiles": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/erpContractManifest.test.js"]
+}
