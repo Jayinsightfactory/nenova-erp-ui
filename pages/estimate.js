@@ -49,6 +49,7 @@ import {
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
+import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1067,6 +1068,7 @@ export default function Estimate() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showAdditionalProduct, setShowAdditionalProduct] = useState(false);
   const [defectContext, setDefectContext] = useState(null);
   const [defectContextLoading, setDefectContextLoading] = useState(false);
   const [defectContextError, setDefectContextError] = useState('');
@@ -3709,6 +3711,7 @@ export default function Estimate() {
                 title="선택한 거래처에 판매요청 Estimate를 등록합니다.">
                 ＋ 판매요청
               </button>
+              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip} onClick={()=>setShowAdditionalProduct(true)} title="현재 연도·차수의 검증된 02차에 추가 품목을 등록합니다.">＋ 추가 품목등록</button>
               <button className="btn btn-sm"
                 disabled={!selectedItemForEdit || itemEditorSaving}
                 onClick={() => openItemEditor(selectedItemForEdit)}
@@ -3719,6 +3722,7 @@ export default function Estimate() {
             </div>
           </div>
 
+          <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} onSuccess={async()=>{setShowAdditionalProduct(false);await load(true);if(selectedShip)selectShipment(selectedId,selectedShip.CustKey,selectedShip.ShipmentKeys);}} />
           {/* 견적서 테이블 */}
           <div style={{overflowY:'auto', flex:1}}>
             {itemLoading

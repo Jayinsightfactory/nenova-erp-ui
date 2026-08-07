@@ -404,7 +404,8 @@ async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQu
 }
 
 async function postAdjust(req, res) {
-  const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments } = req.body;
+  const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments,
+    unitCost: requestedUnitCost, costSourceId, shipmentDate: requestedShipmentDate } = req.body;
 
   if (!custKey || !prodKey || !week || !type) {
     return res.status(400).json({ success: false, error: 'custKey, prodKey, week, type 필요' });
@@ -432,6 +433,14 @@ async function postAdjust(req, res) {
   const pk = parseInt(prodKey);
   const uid = req.user?.userId || 'system';
   const userName = req.user?.userName || uid;
+  if (pivotDistribution && requestedUnitCost !== undefined) {
+    if (!(Number(requestedUnitCost) > 0) || !String(costSourceId || '').trim()) {
+      return res.status(400).json({ success:false, error:'단가와 단가 출처가 필요합니다.' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(requestedShipmentDate || ''))) {
+      return res.status(400).json({ success:false, error:'검증된 출고일이 필요합니다.' });
+    }
+  }
 
   try {
     const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
@@ -469,7 +478,13 @@ async function postAdjust(req, res) {
         weekToShipDateByBaseOutDay(orderWeek, orderYear, baseOutDay) ||
         weekToShipDate(orderWeek, orderYear) ||
         new Date();
-      const defaultUnitCost = Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0;
+      const calculatedShipDate = defaultShipDate instanceof Date
+        ? defaultShipDate.toISOString().slice(0,10) : String(defaultShipDate).slice(0,10);
+      if (requestedShipmentDate && calculatedShipDate !== String(requestedShipmentDate)) {
+        throw new Error(`출고일 불일치: 서버 계산 ${calculatedShipDate}, 화면 검증 ${requestedShipmentDate}. 추정 저장하지 않습니다.`);
+      }
+      const defaultUnitCost = Number(requestedUnitCost || 0)
+        || Number(cpc.recordset[0]?.Cost || 0) || Number(prod.ProductCost || 0) || 0;
       // userUnit: 사용자가 보는 단위 (박스/단/송이) — 표시값과 입력값의 단위
       // prodOutUnit: 마스터 단위 (저장 기준)
       const prodOutUnit = normalizeOrderUnit(prod.OutUnit, '박스');
@@ -794,7 +809,7 @@ async function postAdjust(req, res) {
       const u = adj.units;
       const outQBefore = qtyBefore;
       const outQAfter  = u.outQ;
-      const unitCost = Number(sdRow?.curCost || 0) || defaultUnitCost;
+      const unitCost = Number(requestedUnitCost || 0) || Number(sdRow?.curCost || 0) || defaultUnitCost;
       const amountBase = adj.estQty;
       const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
