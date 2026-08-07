@@ -162,10 +162,12 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 
 ## 견적서관리 직접 입력 — 불량차감등록 / 판매요청
 
-견적서관리에서 거래처를 조회·선택한 뒤 두 입력 모드를 사용한다.
+견적서관리에서 거래처를 조회·선택한 뒤 기존 불량/검역 EstimateType 선택 흐름과
+신규 불량차감·판매요청 흐름을 서로 독립적으로 사용한다.
 
 | 버튼 | 수량 부호 | 대상 확인 | 원장 영향 |
 |---|---:|---|---|
+| 불량/검역등록(기존) | 음수 (`-` 체크 필수) | 사용자가 선택한 EstimateType + 해당 차수 EXE 확정 판매행 | `Estimate`만 INSERT |
 | 불량차감등록 | 음수 (`-` 체크 필수) | 해당 차수의 EXE 확정 판매행이 있어야 함 | `Estimate`만 INSERT |
 | 판매요청 | 양수 (`-` 체크 해제) | 선택 거래처의 현재 `ShipmentKey` 사용 | `Estimate`만 INSERT |
 

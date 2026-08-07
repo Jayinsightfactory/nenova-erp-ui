@@ -4,6 +4,7 @@
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { withActionLog } from '../../../lib/withActionLog';
 import {
   filterActiveEstimateShipmentRows,
   formatEstimateDescrForRow,
@@ -53,13 +54,13 @@ async function ensureWeekProdCostTable() {
   return _wpcEnsured;
 }
 
-export default withAuth(async function handler(req, res) {
+export default withAuth(withActionLog(async function handler(req, res) {
   // 최초 1회: WeekProdCost 테이블 존재 보장
   await ensureWeekProdCostTable();
   if (req.method === 'GET')  return await getEstimates(req, res);
   if (req.method === 'POST') return await createEstimate(req, res);
   return res.status(405).end();
-});
+}, { actionType: 'ESTIMATE_MANAGEMENT_ENTRY', affectedTable: 'Estimate', riskLevel: 'HIGH' }));
 
 async function resolveOrderYearWeek(parentWeek) {
   const pw = String(parentWeek || '').split('-')[0];
@@ -866,6 +867,16 @@ async function createEstimate(req, res) {
     const targetYear = parseInt(orderYear, 10) || Number(masterRow.OrderYear);
     const targetParentWeek = String(orderWeek || masterRow.OrderWeek || '').split('-')[0];
     const targetCustKey = parseInt(custKey, 10) || Number(masterRow.CustKey);
+    const masterParentWeek = String(masterRow.OrderWeek || '').split('-')[0];
+    if (String(masterRow.OrderYear) !== String(targetYear)
+      || masterParentWeek !== String(targetParentWeek)
+      || Number(masterRow.CustKey) !== Number(targetCustKey)) {
+      return res.status(409).json({
+        success: false,
+        code: 'ESTIMATE_SCOPE_MISMATCH',
+        error: `선택 출고의 연도·차수·거래처가 요청 범위와 다릅니다. 출고=${masterRow.OrderYear}/${masterParentWeek}/${masterRow.CustKey}, 요청=${targetYear}/${targetParentWeek}/${targetCustKey}`,
+      });
+    }
     const context = await resolveEstimateContext({
       year: targetYear,
       week: targetParentWeek,
@@ -874,23 +885,28 @@ async function createEstimate(req, res) {
     });
 
     const requestedMode = String(entryMode || '').trim().toLowerCase();
-    const isSalesRequest = requestedMode === 'sales' || String(estimateType || '').includes('판매요청');
-    const typeText = isSalesRequest ? '판매요청' : '불량차감';
+    const isLegacyEntry = requestedMode === 'legacy';
+    const isSalesRequest = !isLegacyEntry && (requestedMode === 'sales' || String(estimateType || '').includes('판매요청'));
+    const legacyType = isLegacyEntry ? normalizeEstimateTypeInput(estimateType, unit).typeText : '';
+    const typeText = isLegacyEntry ? legacyType : isSalesRequest ? '판매요청' : '불량차감';
+    if (isLegacyEntry && !typeText) {
+      return res.status(400).json({ success:false, error:'불량/검역 등록 구분(EstimateType)을 선택하세요.' });
+    }
     const isNegative = negative == null ? !isSalesRequest : Boolean(negative);
     if (isSalesRequest && isNegative) {
       return res.status(400).json({ success: false, error: '판매요청은 - 차감 체크를 해제해야 합니다.' });
     }
     if (!isSalesRequest && !isNegative) {
-      return res.status(400).json({ success: false, error: '불량차감등록은 - 차감 체크가 필요합니다.' });
+      return res.status(400).json({ success: false, error: `${isLegacyEntry ? '불량/검역' : '불량차감'}등록은 - 차감 체크가 필요합니다.` });
     }
 
-    // 불량차감은 nenova.exe처럼 해당 차수의 확정 판매행이 없으면 등록하지 않는다.
+    // 불량/검역차감은 nenova.exe처럼 해당 차수의 확정 판매행이 없으면 등록하지 않는다.
     // 판매요청은 선택한 거래처의 현재 출고키에 양수 Estimate를 추가할 수 있다.
     if (!isSalesRequest && !context.shipmentKey) {
       return res.status(409).json({
         success: false,
         code: 'NO_EXE_SALE_ROW',
-        error: `${targetParentWeek}차에 선택 품목의 EXE 판매 출고행이 없어 불량차감을 등록할 수 없습니다. 판매행이 있는 차수로 이월 등록하세요.`,
+        error: `${targetParentWeek}차에 선택 품목의 EXE 판매 출고행이 없어 ${typeText}을 등록할 수 없습니다. 판매행이 있는 차수로 이월 등록하세요.`,
       });
     }
 
@@ -941,9 +957,9 @@ async function createEstimate(req, res) {
     );
     return res.status(201).json({
       success: true,
-      message: `${isSalesRequest ? '판매요청' : '불량차감'} 견적 등록 완료`,
+      message: `${typeText} 견적 등록 완료`,
       estimateKey: inserted.recordset?.[0]?.EstimateKey || null,
-      entryMode: isSalesRequest ? 'sales' : 'defect',
+      entryMode: isLegacyEntry ? 'legacy' : isSalesRequest ? 'sales' : 'defect',
       quantity: qty,
       cost: effectiveCost,
       amount,

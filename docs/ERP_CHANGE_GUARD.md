@@ -178,6 +178,21 @@ dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
 이 계약은 `docs/contracts/estimate-cost-update.json`과
 `__tests__/estimateFixCycle.test.js`가 자동검사한다.
 
+## 2026-08-07 견적서관리 검역차감 진입점 회귀
+
+`e0f3b81`에서 기존 불량/검역 범용 모달을 불량차감/판매요청 모드로 바꾸면서
+화면의 검역 진입점이 제거되고, `/api/estimate`도 판매요청이 아닌 모든 직접 입력을
+불량차감으로 강제했다. 추가 품목등록은 이 삭제를 일으키지 않았지만, 같은 작업영역에
+버튼이 추가된 뒤 회귀가 사용자에게 드러났다.
+
+복원 계약은 기존 불량/검역등록의 EstimateType 선택을 원형대로 복원하고, 별도 신규
+불량차감·판매요청·추가 품목등록 상태와 분리한다. 불량/검역은
+모두 `FormEstimateAdd`/`ClassEstimate`와 같은 음수 `Estimate` INSERT만 수행하고
+`OrderDetail`, `ShipmentDetail`, `ShipmentDate`, `ShipmentFarm`, 재고와
+`WebProfitReport`를 보존한다. 두 차감 모두 확정 판매행과 이전 분배단가를 검증하지만
+`Estimate`에는 `isFix`가 없으므로 출고 확정해제/재확정은 실행하지 않는다. 요청의
+연도·부모차수·거래처가 선택 `ShipmentKey`와 다르면 교차연도 저장을 중단한다.
+
 ## 음수재고 확정 보정
 
 확정 SP가 음수재고로 실패하면 화면에 품목별 부족수량을 표시한다. 사용자가 `재고 부족분 보정 후 확정`을 명시적으로 선택한 경우에만 해당 수량을 `StockHistory`의 `재고조정`으로 기록하고 `usp_StockCalculation`을 실행한 뒤 다시 확정한다. 부족수량은 올림하지 않고 0.001 단위로 정규화한다. 재고 이력 등록과 재계산은 한 트랜잭션으로 처리하며 재계산 실패 시 롤백한다. 일반 확정 요청에는 이 보정이 자동 적용되지 않는다.
