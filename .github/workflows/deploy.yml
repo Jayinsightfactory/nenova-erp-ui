@@ -4,18 +4,20 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node (ERP 계약검사용)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
