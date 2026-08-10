@@ -153,6 +153,16 @@ export default function Layout({ children, title }) {
   const [user, setUser] = useState(null);
   useEffect(() => {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
+    let active = true;
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!active || !data?.success || !data?.user) return;
+        setUser(data.user);
+        try { localStorage.setItem('nenovaUser', JSON.stringify(data.user)); } catch {}
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   // 자식창 감지 — hydration 안전. SSR/첫 렌더는 false → 마운트 후 클라이언트에서만 판정.
