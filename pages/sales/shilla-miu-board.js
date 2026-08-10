@@ -267,10 +267,10 @@ export default function Board() {
                   <colgroup>
                     <col className="product" />
                     <col className="unit" />
-                    <col />
-                    <col />
-                    <col />
-                    <col />
+                    <col className="num" />
+                    <col className="num" />
+                    <col className="num" />
+                    <col className="num" />
                     <col className="diff" />
                     <col className="check" />
                     <col className="detailBtn" />
@@ -505,11 +505,15 @@ export default function Board() {
           width: 13px;
           height: 13px;
         }
-        .toolbar button,
-        .groupbar button,
-        td button {
+        .toolbar button {
           padding: 0 6px;
           height: 24px;
+        }
+        .groupbar button,
+        td button {
+          padding: 0 4px;
+          height: 18px;
+          line-height: 1;
         }
         .active,
         .save {
@@ -533,11 +537,11 @@ export default function Board() {
           color: #b91c1c;
         }
         .scroll {
-          max-height: calc(100vh - 113px);
+          max-height: calc(100vh - 111px);
           overflow: auto;
         }
         section {
-          margin-top: 3px;
+          margin-top: 2px;
         }
         .groupbar {
           position: sticky;
@@ -546,7 +550,9 @@ export default function Board() {
           display: flex;
           align-items: center;
           gap: 10px;
-          height: 25px;
+          height: 22px;
+          /* 표 총 폭(420+46+64*4+60+48+44)과 맞춰 가로 스크롤 시에도 머리띠가 표를 덮는다. */
+          min-width: 874px;
           padding: 0 4px;
           background: #334155;
           color: #fff;
@@ -569,35 +575,37 @@ export default function Board() {
           font-style: normal;
           color: #bfdbfe;
         }
+        /* 표는 내용 폭 기준으로만 넓어진다. width:100% + col.product width:auto 조합은
+           품목명 열이 남은 폭을 전부 흡수해 거대한 빈 공간을 만들므로 금지한다. */
         table {
-          width: 100%;
+          width: auto;
           table-layout: fixed;
           border-collapse: collapse;
           font-size: 11px;
         }
         col.product {
-          width: auto;
+          width: 420px;
         }
         col.unit {
-          width: 42px;
+          width: 46px;
         }
-        col:not(.product):not(.unit) {
-          width: 82px;
+        col.num {
+          width: 64px;
         }
         col.diff {
-          width: 70px;
+          width: 60px;
         }
         col.check {
-          width: 42px;
+          width: 48px;
         }
         col.detailBtn {
-          width: 38px;
+          width: 44px;
         }
         th,
         td {
           border: 1px solid #cbd5e1;
-          padding: 2px 4px;
-          height: 23px;
+          padding: 1px 4px;
+          height: 22px;
           text-align: right;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -605,19 +613,27 @@ export default function Board() {
         }
         th {
           position: sticky;
-          top: 25px;
+          top: 22px;
           z-index: 3;
           background: #e2e8f0;
           text-align: center;
         }
         .productCell {
           text-align: left;
-          min-width: 180px;
+          max-width: 420px;
+        }
+        td input[type="checkbox"] {
+          width: 12px;
+          height: 12px;
+          margin: 0;
+          vertical-align: middle;
         }
         .qty {
           box-sizing: border-box;
           width: 100%;
-          height: 19px;
+          height: 17px;
+          padding: 0 2px;
+          font-size: 11px;
           border: 1px solid #a78bfa;
           text-align: right;
         }
@@ -651,7 +667,8 @@ export default function Board() {
         .subweeks {
           text-align: left;
           background: #f8fafc;
-          height: 22px;
+          height: 20px;
+          white-space: normal;
         }
         .subweeks span {
           margin-right: 14px;
@@ -685,12 +702,22 @@ export default function Board() {
         @media (max-width: 1400px) {
           .groupbar {
             gap: 6px;
+            min-width: 786px;
           }
           .groupbar span:first-of-type {
             max-width: 230px;
           }
-          col:not(.product):not(.unit) {
-            width: 70px;
+          col.product {
+            width: 360px;
+          }
+          col.num {
+            width: 58px;
+          }
+          col.diff {
+            width: 56px;
+          }
+          .productCell {
+            max-width: 360px;
           }
           .toolbar .search {
             width: 115px;

@@ -99,6 +99,80 @@ assert.ok(
   page.includes("open[key]") && page.includes("subweeks"),
   "세부차수는 기본 접힘 후 펼칠 수 있어야 한다.",
 );
+
+// 조밀 표 계약: 품목명 열이 남은 폭을 전부 흡수하는 회귀를 막는다.
+const cssValue = (selector, prop) => {
+  const block = page.match(
+    new RegExp(`${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\s*\\{([^}]*)\\}`),
+  );
+  assert.ok(block, `${selector} 규칙이 있어야 한다.`);
+  const found = block[1].match(new RegExp(`${prop}:\\s*(-?\\d+(?:\\.\\d+)?)px`));
+  assert.ok(found, `${selector} 의 ${prop} 는 px 고정값이어야 한다.`);
+  return Number(found[1]);
+};
+assert.ok(
+  !/table\s*\{[^}]*width:\s*100%/.test(page),
+  "표가 100% 폭을 채우려고 텍스트 열을 무제한 늘리면 안 된다.",
+);
+assert.ok(
+  !/col\.product\s*\{[^}]*width:\s*auto/.test(page),
+  "품목명 열은 auto 가 아닌 고정 폭이어야 한다.",
+);
+const productWidth = cssValue("col.product", "width");
+assert.ok(
+  productWidth >= 360 && productWidth <= 480,
+  `품목명 열 폭은 360~480px 여야 한다. (현재 ${productWidth}px)`,
+);
+const unitWidth = cssValue("col.unit", "width");
+assert.ok(
+  unitWidth >= 40 && unitWidth <= 52,
+  `단위 열 폭은 40~52px 여야 한다. (현재 ${unitWidth}px)`,
+);
+const numWidth = cssValue("col.num", "width");
+assert.ok(
+  numWidth >= 56 && numWidth <= 72,
+  `수치 열 폭은 56~72px 여야 한다. (현재 ${numWidth}px)`,
+);
+const checkWidth = cssValue("col.check", "width");
+const detailWidth = cssValue("col.detailBtn", "width");
+for (const [label, width] of [
+  ["완료", checkWidth],
+  ["세부", detailWidth],
+]) {
+  assert.ok(
+    width >= 44 && width <= 54,
+    `${label} 열 폭은 44~54px 여야 한다. (현재 ${width}px)`,
+  );
+}
+const cellBlock = page.match(/\bth,\s*\n\s*td\s*\{([^}]*)\}/);
+assert.ok(cellBlock, "th, td 공통 규칙이 있어야 한다.");
+const rowHeight = Number(cellBlock[1].match(/height:\s*(\d+)px/)?.[1]);
+assert.ok(
+  rowHeight >= 22 && rowHeight <= 25,
+  `행 높이는 22~25px 여야 한다. (현재 ${rowHeight}px)`,
+);
+const cellPadding = Number(
+  cellBlock[1].match(/padding:\s*\d+px\s+(\d+)px/)?.[1],
+);
+assert.ok(
+  cellPadding >= 3 && cellPadding <= 5,
+  `셀 좌우 여백은 3~5px 여야 한다. (현재 ${cellPadding}px)`,
+);
+const boardWidth =
+  productWidth + unitWidth + numWidth * 4 + cssValue("col.diff", "width") + checkWidth + detailWidth;
+assert.ok(
+  boardWidth <= 1366,
+  `주요 9개 열 합계는 1366px 안에 들어와야 한다. (현재 ${boardWidth}px)`,
+);
+assert.equal(
+  cssValue(".groupbar", "min-width"),
+  boardWidth,
+  "그룹 머리띠 최소 폭은 표 총 폭과 같아야 가로 스크롤에서도 어긋나지 않는다.",
+);
+assert.ok(
+  (page.match(/<col className="num" \/>/g) || []).length === 4,
+  "수치 4개 열은 num 클래스로 명시해 :not() 특이도 함정을 피한다.",
+);
 assert.ok(
   !page.includes("components/Layout") && !page.includes("<Layout"),
   "_app이 소유한 공통 Layout을 페이지에서 중복 렌더링하지 않아야 한다.",
