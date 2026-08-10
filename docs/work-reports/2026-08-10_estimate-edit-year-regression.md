@@ -16,7 +16,8 @@
 - 공용 사이클의 빈 연도 기본값을 제거하고, 저장 전에 선택연도를 검증한다.
 - 자동 확정취소/재확정은 `force=false`로 실행해 뒤 차수 확정 경고를 우회하지 않는다.
 - 단가 API는 `ShipmentMaster.OrderYear/CustKey/OrderWeek`를 잠금 조회하고 요청 범위를
-  대조한 뒤에만 `ShipmentKey + SdetailKey/EstimateKey` 행을 수정한다.
+  대조한 뒤에만 `ShipmentKey + SdetailKey/EstimateKey` 행을 수정한다. `once`를 포함한
+  모든 저장 모드가 화면의 `custKey`를 필수로 보내므로 거래처 대조를 생략하지 않는다.
 - `WeekProdCost` 신규 키를 `OrderYear + OrderWeek + CustKey + ProdKey`로 분리한다.
   기존 연도 미상 행은 추정 보정하지 않는다.
 - 언어 훅은 SSR/첫 브라우저 렌더를 `bi`로 맞추고, 저장 언어는 mount 뒤 반영한다.

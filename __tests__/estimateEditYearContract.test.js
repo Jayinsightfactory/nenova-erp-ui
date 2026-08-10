@@ -26,11 +26,14 @@ async function main() {
   assert.match(page, /const body = \{[\s\S]{0,250}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '단가 일괄 저장 payload에 선택 연도가 필요하다.');
   assert.match(page, /items: costItems\.map[\s\S]{0,220}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도가 필요하다.');
   assert.match(page, /shipmentKey: item\.ShipmentKey[\s\S]{0,350}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
+  assert.match(page, /mode: 'once',[\s\S]{0,120}?orderYear: yearStr,[\s\S]{0,120}?custKey: selectedShip\.CustKey/, '품목정보 단가 저장 payload에 선택 거래처가 필요하다.');
   assert.match(raum, /postJson\('\/api\/estimate\/update-cost'[\s\S]{0,300}?orderYear/, '라움의 공용 단가 저장 호출도 연도를 전달해야 한다.');
+  assert.match(raum, /postJson\('\/api\/estimate\/update-cost'[\s\S]{0,350}?custKey/, '라움의 공용 단가 저장 호출도 거래처를 전달해야 한다.');
 
   assert.match(costApi, /SELECT ShipmentKey, OrderYear, CustKey, OrderWeek/, '단가 API는 ShipmentMaster 실제 연도/차수/거래처를 잠금 조회해야 한다.');
   assert.match(costApi, /String\(row\.OrderYear \|\| ''\) !== requestedYear/, '단가 API는 화면 연도와 실제 출고 연도를 대조해야 한다.');
-  assert.match(costApi, /Number\(row\.CustKey\) !== Number\(custKey\)/, '단가 API는 요청 거래처와 실제 출고 거래처를 대조해야 한다.');
+  assert.match(costApi, /if \(!custKey \|\| !Number\.isInteger\(Number\(custKey\)\)/, '단가 API는 모든 모드에서 선택 거래처를 필수로 받아야 한다.');
+  assert.match(costApi, /if \(Number\(row\.CustKey\) !== Number\(custKey\)\)/, '단가 API는 요청 거래처와 실제 출고 거래처를 대조해야 한다.');
   assert.match(costApi, /ESTIMATE_SCOPE_MISMATCH/, '연도/거래처 불일치는 409 범위 오류로 중단해야 한다.');
   assert.match(costApi, /t\.OrderYear=s\.OrderYear AND t\.OrderWeek=s\.OrderWeek/, 'WeekProdCost 저장은 연도+차수로 분리해야 한다.');
   assert.match(weekCostSchema, /OrderYear, OrderWeek, CustKey, ProdKey/, 'WeekProdCost 고유키는 교차연도 충돌을 막아야 한다.');

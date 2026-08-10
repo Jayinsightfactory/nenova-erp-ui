@@ -25,7 +25,7 @@
 //     mode: 'once' | 'fixed' | 'weekFav',
 //     orderYear: '2026', // 화면 선택 연도. 모든 ShipmentMaster 실제 연도와 일치해야 함
 //     week?: '15-02',     // mode=weekFav 일 때 필요 (특정 세부차수용)
-//     custKey?: 42,       // mode=fixed/weekFav 일 때 필요
+//     custKey: 42,        // 모든 모드 필수. ShipmentMaster 실제 거래처와 일치해야 함
 //   }
 //
 // 하위호환: shipmentKey 가 최상위로 전달되면 items 전체에 그 값을 브로드캐스트
@@ -87,8 +87,8 @@ export default withAuth(async function handler(req, res) {
   if (mode === 'weekFav' && !week) {
     return res.status(400).json({ success: false, error: 'weekFav 모드: week 필요' });
   }
-  if ((mode === 'fixed' || mode === 'weekFav') && !custKey) {
-    return res.status(400).json({ success: false, error: 'fixed/weekFav: custKey 필요' });
+  if (!custKey || !Number.isInteger(Number(custKey)) || Number(custKey) <= 0) {
+    return res.status(400).json({ success: false, code: 'CUST_KEY_REQUIRED', error: '단가 저장 요청에 화면의 선택 거래처가 포함되지 않았습니다.' });
   }
 
   // items 정규화: 각 item 은 shipmentKey 가 있어야 함 (없으면 최상위 topSk 브로드캐스트)
@@ -152,7 +152,7 @@ export default withAuth(async function handler(req, res) {
           err.shipmentKey = sk;
           throw err;
         }
-        if (custKey && Number(row.CustKey) !== Number(custKey)) {
+        if (Number(row.CustKey) !== Number(custKey)) {
           const err = new Error(`선택 거래처와 ShipmentKey=${sk}의 실제 거래처가 다릅니다. 저장을 중단했습니다.`);
           err.code = 'ESTIMATE_SCOPE_MISMATCH';
           err.shipmentKey = sk;
