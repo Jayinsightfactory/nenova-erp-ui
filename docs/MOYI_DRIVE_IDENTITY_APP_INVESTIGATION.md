@@ -15,6 +15,22 @@ MOYI backend Draft PR 19(`e9f86d6`)와 그 위 PR 21(`bf8ee45`)에서 `/drive/v2
 
 Nenova 웹은 위 PR이 운영에 반영되고 `MOYI_DRIVE_LEDGER_READY=true`, `MOYI_DRIVE_ROOT_FOLDER_ID`가 설정된 경우에만 기존 HttpOnly `moyiNenovaToken`을 서버에서 사용해 지정 폴더의 item 목록을 읽는다. 브라우저가 workspace/tenant를 지정할 수 없고 token은 응답하지 않는다. PR 미배포, token 없음, 폴더 미설정은 빈 실제 목록과 구체적인 `연결 대기` 사유로 표시하며 sample 자료를 만들지 않는다. ACL 저장은 조회·감사·연결 범위 계약이 완성될 때까지 503으로 차단한다.
 
+### 반복 검증 명령
+
+| 항목 | mock 자동검사 | backend read-only |
+|---|---|---|
+| 계약 revision | `talkhub-drive-v2@bf8ee45` 고정 | 환경 설정과 OpenAPI 경로 확인 |
+| 관리자·다른 회사 차단 | 검사 | 운영 계정 사용 안 함 |
+| folder item DTO | fixture 변환 검사 | OpenAPI 목록 경로 확인 |
+| staging/ACL 만료/deny | PR 21 회귀 계약 fixture | DB·권한 쓰기 없이 동작 검증 불가 |
+| raw-url | 300초, raw-url/raw 경로, token·sig 비노출 검사 | OpenAPI 경로만 확인 |
+| 연결 실패 | 미배포 503·한글 사유 검사 | OpenAPI HTTP 상태 확인 |
+
+- 기본 CI/mock: `npm run verify:moyi-drive-integration`
+- 실제 주소 read-only: `npm run verify:moyi-drive-integration -- --mode=readonly`
+- read-only 모드는 `GET /openapi.json`만 호출하며 파일·권한·DB를 변경하지 않는다. 연결 token 설정 여부는 boolean만 출력하고 값을 출력하지 않는다.
+- 실제 staging 은닉, ACL 만료/deny, raw-url 만료·회수는 MOYI backend PR 21 테스트가 근거다. Nenova 검사는 이를 다시 쓰기 테스트하지 않고 revision과 노출 계약의 퇴행을 막는다.
+
 ## 1. 조사 범위와 제한
 
 조사 대상은 현재 `nenova-erp-ui` worktree의 source, 문서, 계약이다. MOYI 앱·MOYI Core 저장소, 운영 DB, 실제 사용자 계정, token 원문에는 접근하지 않았다. 따라서 MOYI 앱 내부 인증·tenant·session 구현은 확인할 수 없다.

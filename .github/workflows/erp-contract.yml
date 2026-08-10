@@ -25,6 +25,8 @@ jobs:
         run: npm run test:nenova-dnspy-evidence
       - name: ERP behavior contracts
         run: npm run test:erp-contract
+      - name: MOYI Drive integration contract
+        run: npm run verify:moyi-drive-integration
       - name: Changed ERP write scope
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}

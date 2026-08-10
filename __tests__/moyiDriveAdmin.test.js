@@ -51,6 +51,7 @@ assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 �
   assert.match(pending.pending.naverworks, /connector/, '실제 connector 미구현 사유를 표시해야 합니다.');
   const previousReady = process.env.MOYI_DRIVE_LEDGER_READY;
   const previousFolder = process.env.MOYI_DRIVE_ROOT_FOLDER_ID;
+  const previousRevision = process.env.MOYI_DRIVE_CONTRACT_REVISION;
   const previousFetch = global.fetch;
   try {
     delete process.env.MOYI_DRIVE_LEDGER_READY;
@@ -58,7 +59,11 @@ assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 �
     assert.equal(notDeployed.status, 503, 'backend 운영 반영 전에는 503 연결 대기여야 합니다.');
     process.env.MOYI_DRIVE_LEDGER_READY = 'true';
     process.env.MOYI_DRIVE_ROOT_FOLDER_ID = 'folder-fixed-by-server';
+    process.env.MOYI_DRIVE_CONTRACT_REVISION = 'talkhub-drive-v2@bf8ee45';
+    let fetchCall = 0;
     global.fetch = async (url, options) => {
+      fetchCall += 1;
+      if (fetchCall === 1) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
       assert.match(String(url), /folder-fixed-by-server\/items$/, '클라이언트 입력이 아닌 서버 폴더 설정을 사용해야 합니다.');
       assert.equal(options.headers.Authorization, 'Bearer connection-token');
       return { ok: true, status: 200, json: async () => [{ id: 'real-1', file_id: 'file-1', name: '실제.pdf', source_kind: 'moyi_upload', sync_state: 'verified', source_deleted: false }] };
@@ -70,6 +75,7 @@ assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 �
   } finally {
     if (previousReady === undefined) delete process.env.MOYI_DRIVE_LEDGER_READY; else process.env.MOYI_DRIVE_LEDGER_READY = previousReady;
     if (previousFolder === undefined) delete process.env.MOYI_DRIVE_ROOT_FOLDER_ID; else process.env.MOYI_DRIVE_ROOT_FOLDER_ID = previousFolder;
+    if (previousRevision === undefined) delete process.env.MOYI_DRIVE_CONTRACT_REVISION; else process.env.MOYI_DRIVE_CONTRACT_REVISION = previousRevision;
     global.fetch = previousFetch;
   }
   console.log('MOYI Drive admin access and UI contract tests passed');
