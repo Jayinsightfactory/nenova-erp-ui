@@ -147,7 +147,7 @@ export default function OrderRegisterDistributeModal({
     const preview = validTargets.map(t => `${t.prodName}: +${t.qty}${t.unit} / ${t.cost.toLocaleString()}원 / ${t.context?.farms?.find(f=>f.farmKey===t.farmKey)?.farmName||''}`).join('\n');
     if (!confirm(`${cust.CustName} / ${formatWeekDisplay(weekValue)}\n${validTargets.length}개 품목을 02차에 등록합니다.\n\n${preview}\n\n기존 주문이 있으면 주문수량은 유지하고 분배만 증가합니다. 진행할까요?`)) return;
 
-    if (!(await ensureWeekCanDistribute(weekValue, validTargets.map(t => t.prodKey)))) return;
+    if (!(await ensureWeekCanDistribute(weekValue, validTargets.map(t => t.prodKey), yearStr))) return;
 
     setRunning(true);
     setResult(null);

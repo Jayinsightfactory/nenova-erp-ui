@@ -113,6 +113,21 @@ UPDATE ShipmentDate
 `OrderDetail`과 `ShipmentFarm`은 이 결합 저장에서 직접 변경하지 않는다. 주문수량이나
 농장배정까지 바꾸는 작업은 각각 차수피벗/출고분배의 별도 계약을 따른다.
 
+## 확정현황 조회의 선택연도 범위
+
+`FormEstimateView.GetData/GetDetail`은 표시 대상 출고를 연도와 차수가 결합된
+`OrderYearWeek/OrderYearWeek2`로 조회한다. 웹의 확정현황 사전조회도 화면이 선택한
+`OrderYear`를 별도 요청 필드로 전달하고 `ShipmentMaster.OrderYear + OrderWeek`가 모두
+일치하는 행만 사용한다. `29-02` 같은 짧은 차수를 서버 현재 연도로 보정하거나 전년도
+동일 차수와 합치지 않는다. 이 사전조회는 읽기 전용이며 `Estimate`, 주문, 출고수량,
+출고일, 농장배정, 재고를 변경하지 않는다. 사용자가 확정취소를 실행한 경우에만 EXE와
+같은 확정취소 SP와 해당 선택연도 품목의 재고계산을 수행한다.
+
+2026-08-10 운영 read-only probe에서 동일 `29-02`가 2025년에는 `NO_SHIPMENT`
+(master 1, detail 0), 2026년에는 `FIXED_PENDING_STOCK`(master 34, detail 211)로 서로
+다른 상태임을 확인했다. 연도를 포함한 요청에서는 두 결과가 분리되었고, 원장 쓰기나
+확정/확정취소 호출은 실행하지 않았다.
+
 ## 불량/검역 차감 등록 — FormEstimateAdd / ClassEstimate
 
 dnSpy CLI로 확인한 원본:

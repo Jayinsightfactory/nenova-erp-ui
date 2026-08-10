@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 /**
  * 낮은 차수부터 전체(전 카테고리) 재확정
- * Usage: node scripts/bulk-refix-weeks.mjs --from 20-01 --to 25-01 [--apply]
+ * Usage: node scripts/bulk-refix-weeks.mjs --year 2026 --from 20-01 --to 25-01 [--apply]
  */
 const BASE = process.env.NENOWA_BASE || 'https://nenovaweb.com';
 const APPLY = process.argv.includes('--apply');
-const fromWeek = process.argv[process.argv.indexOf('--from') + 1] || '20-01';
-const toWeek = process.argv[process.argv.indexOf('--to') + 1] || '25-01';
+const argValue = (name, fallback = '') => {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? (process.argv[index + 1] || fallback) : fallback;
+};
+const orderYear = argValue('--year');
+const fromWeek = argValue('--from', '20-01');
+const toWeek = argValue('--to', '25-01');
 const TIMEOUT_MS = 45 * 60 * 1000;
+if (!/^\d{4}$/.test(orderYear)) throw new Error('--year YYYY가 필요합니다. 현재 연도를 자동 추정하지 않습니다.');
 
 const WEEK_ORDER = [
   '20-01', '20-02', '21-01', '21-02', '22-01', '22-02',
@@ -41,6 +47,7 @@ async function login() {
 }
 
 async function fixAction(token, week, action) {
+  const fullWeek = `${orderYear}-${week}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -50,7 +57,7 @@ async function fixAction(token, week, action) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ week, action, force: true }),
+      body: JSON.stringify({ week: fullWeek, orderYear, action, force: true }),
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
@@ -62,9 +69,10 @@ async function fixAction(token, week, action) {
 
 async function auditWeek(token, week) {
   const h = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+  const fullWeek = `${orderYear}-${week}`;
   const [parity, status] = await Promise.all([
-    fetch(`${BASE}/api/dev/fix-parity-audit?week=${encodeURIComponent(week)}`, { headers: h }).then((r) => r.json()),
-    fetch(`${BASE}/api/shipment/fix-status?fromWeek=${week}&toWeek=${week}`, { headers: h }).then((r) => r.json()),
+    fetch(`${BASE}/api/dev/fix-parity-audit?orderYear=${encodeURIComponent(orderYear)}&week=${encodeURIComponent(fullWeek)}`, { headers: h }).then((r) => r.json()),
+    fetch(`${BASE}/api/shipment/fix-status?orderYear=${encodeURIComponent(orderYear)}&fromWeek=${encodeURIComponent(fullWeek)}&toWeek=${encodeURIComponent(fullWeek)}`, { headers: h }).then((r) => r.json()),
   ]);
   const row = (status.weeks || [])[0] || {};
   return {

@@ -495,7 +495,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     const weekSet = new Set([plan.moveTarget, ...plan.editedWeeks]);
     const minW = [...weekSet].sort()[0];
     try {
-      const fs = await fetch(`/api/shipment/fix-status?fromWeek=${minW}&toWeek=${plan.moveWeek}`).then(r => r.json());
+      const fs = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(detail.meta.orderYear)}&fromWeek=${encodeURIComponent(minW)}&toWeek=${encodeURIComponent(plan.moveWeek)}`).then(r => r.json());
       for (const w of fs.weeks || []) {
         if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minW) weekSet.add(w.OrderWeek);
       }
@@ -507,7 +507,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     log(`차수 이동 포함 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클로 실행`);
     try {
       await runEditWithFixCycle({
-        weeks, countryFlowers, stockProdKeys,
+        weeks, orderYear: detail.meta.orderYear, countryFlowers, stockProdKeys,
         progress: (m) => log(m),
         apply: async () => {
           await doMoves();
@@ -537,7 +537,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     (rejectedCostInfo?.fixedWeeks || []).forEach(w => editedWeeks.add(w));
     const minWeek = [...editedWeeks].sort()[0];
     try {
-      const fsRes = await fetch(`/api/shipment/fix-status?fromWeek=${minWeek}&toWeek=${[...editedWeeks].sort().pop()}`);
+      const fsRes = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(detail.meta.orderYear)}&fromWeek=${encodeURIComponent(minWeek)}&toWeek=${encodeURIComponent([...editedWeeks].sort().pop())}`);
       const fs = await fsRes.json();
       for (const w of fs.weeks || []) {
         if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minWeek) editedWeeks.add(w.OrderWeek);
@@ -553,7 +553,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     log(`확정 차수 감지 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클 시작 (카테고리 ${countryFlowers.length}개 범위)`);
     try {
       await runEditWithFixCycle({
-        weeks, countryFlowers, stockProdKeys,
+        weeks, orderYear: detail.meta.orderYear, countryFlowers, stockProdKeys,
         progress: (m) => log(m),
         apply: async () => {
           await doQtyList(rejectedQty, true);
