@@ -30,6 +30,7 @@ Nenova 웹은 위 PR이 운영에 반영되고 `MOYI_DRIVE_LEDGER_READY=true`, `
 - 실제 주소 read-only: `npm run verify:moyi-drive-integration -- --mode=readonly`
 - read-only 모드는 `GET /openapi.json`만 호출하며 파일·권한·DB를 변경하지 않는다. 연결 token 설정 여부는 boolean만 출력하고 값을 출력하지 않는다.
 - 실제 staging 은닉, ACL 만료/deny, raw-url 만료·회수는 MOYI backend PR 21 테스트가 근거다. Nenova 검사는 이를 다시 쓰기 테스트하지 않고 revision과 노출 계약의 퇴행을 막는다.
+- 기본 명령은 격리된 MOYI HTTP fixture와 로컬 Next 서버도 실행한다. 실제 Next API에서 관리자 성공, 일반·유사 ID·비활성 fixture 403, 교차 workspace 403, 권한 저장 503, MOYI/네이버웍스 DTO, PC·모바일 화면 HTTP 200, 300초 상대 raw-url, backend 401/403/404/5xx 상태와 로그 비밀값 미노출을 검사한다. 운영 `UserInfo`, DB, 파일, 권한은 사용하지 않는다.
 
 ## 1. 조사 범위와 제한
 
