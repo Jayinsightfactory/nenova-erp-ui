@@ -4,6 +4,31 @@
 
 ---
 
+## [2026-08-10] 세션 — 잔량분배 통합게시판 표 여백 최소화
+
+### 작업 내용
+- `3061633` 품목명 열이 화면 남은 폭을 전부 흡수해 글자 오른쪽에 약 900px 빈 공간이 생기던 문제를 수정.
+  원인은 `table { width: 100% }` + `col.product { width: auto }` 조합. 표를 내용 폭 기준(`width: auto`)으로 바꾸고
+  모든 `<col>`에 고정 폭을 지정 — 품목명 420px(≤1400px 화면 360px), 단위 46px, 수치 64px, 차이 60px, 완료 48px, 세부 44px (합계 874px).
+- `col:not(.product):not(.unit)` 부정 선택자 특이도가 `col.diff`/`col.check`/`col.detailBtn` 보다 높아 개별 폭이 조용히 무시되던
+  기존 함정을 `col.num` 명시 클래스로 해소.
+- 행 높이 23→22px, 셀 좌우 4px, 이동입력 17px, 체크 12px, 그룹/세부 버튼 18px, 그룹 머리띠 25→22px, 그룹 간 여백 3→2px.
+- 품목명은 기존대로 한 줄 말줄임표 + `title` 툴팁 유지. 색 의미, 전체/업체별 탭, 세부차수, 잔량 저장, 완료 체크, 업체관리 그대로.
+
+### 변경된 파일
+- `pages/sales/shilla-miu-board.js`: colgroup 클래스 명시 + 조밀 CSS (JSX 로직·API 호출 무변경)
+- `__tests__/shillaMiuBoard.test.js`: 열 폭/행 높이/셀 여백 범위 계약 추가
+- `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`: 데이터 표 텍스트 열 무제한 확장 금지 규칙 추가
+
+### 검증
+- `npm run test:board` ✅ / `npm run test:ui-layout` ✅
+- `npm run verify:erp-change` ✅ (test:erp-contract + erp-manifest + guard:erp-writes + build 전부 통과, exit 0)
+- API SQL·수량 계산·CustKey 매칭·차수 결정·웹 저장키 무변경, ERP 원장 쓰기 0건
+
+### 미결 이슈
+- 운영 화면 실측은 로그인이 필요해 이번 세션에서 수행하지 못함. 배포 후 1366×768 / 1920×1080 에서
+  9개 열 한 화면 노출과 콘솔 error/warn 0 을 육안 확인 필요.
+
 ## [2026-08-04] 세션 — 견적서관리 불량차감·판매요청 직접입력
 
 ### 작업 내용
