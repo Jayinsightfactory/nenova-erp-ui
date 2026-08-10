@@ -1,60 +1,26 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { allocationKey, buildBoardRows, buildMajorWeeks, getOperationalWeekSummary, getWeekBalance, normalizeMajorWeek } from '../lib/shillaMiuBoard.js';
+import { allocationKey, buildGroupRows, buildMajorWeeks, normalizeMajorWeek } from '../lib/shillaMiuBoard.js';
 
-assert.equal(normalizeMajorWeek('29'), '29');
-assert.equal(normalizeMajorWeek('2026-29-02'), '29');
-assert.deepEqual(buildMajorWeeks('27', '29'), ['27', '28', '29']);
-assert.equal(allocationKey({ supplyWeek: '29', useWeek: '28', prodKey: 7, destination: 'miu' }), '29|28|7|MIU');
+assert.equal(normalizeMajorWeek('2026-32-02'), '32');
+assert.deepEqual(buildMajorWeeks('31','32'), ['31','32']);
+assert.equal(allocationKey({groupKey:3,useWeek:'32',prodKey:7}), '3|32|7');
 
-const rows = buildBoardRows({
-  weeks: ['27', '28', '29'],
-  openingStocks: [{ prodKey: 7, country: '콜롬비아', flower: '카네이션', prodName: 'CARNATION Moon Light', unit: '단', qty: 50 }],
-  incoming: [{ week: '28', prodKey: 7, qty: 300 }],
-  orders: [{ week: '28', prodKey: 7, qty: 300 }],
-  shipments: [{ week: '28', prodKey: 7, shillaQty: 250, raumQty: 20, miuQty: 30, otherQty: 0 }],
-  allocations: [
-    { boardKey: 1, supplyWeek: '28', useWeek: '28', prodKey: 7, destination: 'RAUM', qty: 20, matched: true },
-    { boardKey: 2, supplyWeek: '29', useWeek: '28', prodKey: 7, destination: 'MIU', qty: 30, matched: true },
-  ],
-});
-assert.equal(rows.length, 1);
-assert.equal(rows[0].weeks['28'].incomingQty, 300);
-assert.equal(rows[0].weeks['28'].erp.shilla, 250);
-assert.equal(rows[0].weeks['28'].web.MIU.qty, 30);
-assert.equal(rows[0].weeks['28'].web.MIU.sources[0].supplyWeek, '29');
-assert.equal(rows[0].weeks['28'].web.RAUM.matched, true);
-assert.equal(getWeekBalance(rows[0], '28').erpBalance, 50);
-assert.equal(getOperationalWeekSummary(rows[0], '28').shillaRemainder, 0);
-assert.equal(getOperationalWeekSummary(rows[0], '28').raumRemainder, 0);
+const rows=buildGroupRows({weeks:['32'],baseShipments:[{week:'32',orderWeek:'32-01',prodKey:1,prodName:'A',qty:100},{week:'32',orderWeek:'32-02',prodKey:1,prodName:'A',qty:50}],receiverShipments:[{week:'32',orderWeek:'32-01',prodKey:1,qty:40},{week:'32',prodKey:2,prodName:'receiver only',qty:99}],allocations:[{useWeek:'32',prodKey:1,qty:110,matched:true},{useWeek:'32',prodKey:3,qty:20}]});
+assert.deepEqual(rows.map(r=>r.prodKey),[1],'수령업체만 출고된 품목과 웹값만 있는 품목은 기준업체 행에 포함하지 않는다.');
+assert.equal(rows[0].weeks['32'].baseActual,150);
+assert.equal(rows[0].weeks['32'].receiverActual,40);
+assert.equal(rows[0].weeks['32'].calculatedRemainder,110);
+assert.equal(rows[0].weeks['32'].difference,0);
+assert.equal(rows[0].weeks['32'].subweeks.length,2);
 
-const filteredRows = buildBoardRows({
-  weeks: ['28'],
-  orders: [
-    { week: '28', prodKey: 8, qty: 100, prodName: '기타 주문만 있는 품목' },
-  ],
-  incoming: [
-    { week: '28', prodKey: 9, qty: 100, prodName: '기타 입고만 있는 품목' },
-  ],
-  shipments: [
-    { week: '28', prodKey: 10, shillaQty: 0, raumQty: 0, miuQty: 0, otherQty: 100, prodName: '기타 거래처만 있는 품목' },
-    { week: '28', prodKey: 11, shillaQty: 0, raumQty: 20, miuQty: 0, otherQty: 0, prodName: '라움 대상 품목' },
-  ],
-});
-assert.deepEqual(filteredRows.map((row) => row.prodKey), [11], '신라·라움·미우 관련 품목만 노출해야 한다.');
-
-const source = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
-const apiSource = fs.readFileSync('pages/api/sales/shilla-miu-board.js', 'utf8');
-const layoutSource = fs.readFileSync('components/Layout.js', 'utf8');
-assert.ok(source.includes('colSpan="9"'), '차수별 가로 그룹은 9개 업무 열을 가져야 한다.');
-assert.ok(source.includes('matched'), '분배 매칭 하이라이트 상태를 화면에 표시해야 한다.');
-assert.ok(source.includes("miuInputQty > 0 ? 'has-input'"), '이번차수 미우 분배수량이 있는 셀만 기본 강조색을 표시해야 한다.');
-assert.ok(!source.includes('c-flower'), '품종 열은 숨기고 품목명만 표시해야 한다.');
-assert.ok(source.includes('전재고') && source.includes('신라잔량') && source.includes('라움잔량'), '업무에 필요한 전재고·신라/라움 잔량을 표시해야 한다.');
-assert.ok(source.includes('분배 공급차수'), '공급차수와 사용차수를 분리 입력할 수 있어야 한다.');
-assert.ok(layoutSource.includes("/sales/shilla-miu-board', labelKey: '신라-미우 통합 게시판', popup: false"), '게시판은 중복 팝업 없이 일반 화면으로 열어야 한다.');
-assert.ok(apiSource.includes('SupplyWeek') && apiSource.includes('UseWeek'), '공급차수와 사용차수를 별도 저장해야 한다.');
-assert.ok(apiSource.includes('ShipmentDetail') && apiSource.includes('WarehouseDetail'), '전산 출고/입고 데이터를 연결해야 한다.');
-assert.ok(apiSource.includes('WebShillaMiuBoardAllocation'), '웹 분배 매칭 원장에 저장해야 한다.');
-
+const api=fs.readFileSync('pages/api/sales/shilla-miu-board.js','utf8');
+const page=fs.readFileSync('pages/sales/shilla-miu-board.js','utf8');
+assert.ok(api.includes('sm.OrderYear=@yr')&&api.includes('LEFT(sm.OrderWeek,2) IN'));
+assert.ok(api.includes('sm.CustKey=@cust')&&!api.includes("CustName LIKE N'%신라%'"));
+assert.ok(api.includes('ISNULL(sm.isDeleted,0)=0')&&api.includes('ISNULL(sd.OutQuantity,0)>0'));
+assert.ok(api.includes('WebShillaMiuBoardGroup')&&api.includes('isAdmin'));
+assert.ok(api.includes('GroupKey IS NULL'),'기존 저장값 호환 읽기를 유지한다.');
+assert.ok(!api.match(/(?:INSERT|UPDATE|DELETE)\s+(?:Order|Shipment|Stock|Estimate|WebProfitReport)/i),'조회/저장 API에 ERP 쓰기가 없어야 한다.');
+assert.ok(page.includes('업체 추가/관리')&&page.includes('미완료만')&&page.includes('펼치기'));
 console.log('shilla miu board tests passed');

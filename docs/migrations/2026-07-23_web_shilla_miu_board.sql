@@ -21,3 +21,21 @@ BEGIN
   CREATE INDEX IX_WebShillaMiuBoardAllocation_Scope
     ON dbo.WebShillaMiuBoardAllocation(OrderYear, UseWeek, ProdKey, Destination, isDeleted);
 END;
+
+/* 2026-08-10: 기준업체를 CustKey로 관리하는 웹 전용 그룹 설정. */
+IF OBJECT_ID(N'dbo.WebShillaMiuBoardGroup', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.WebShillaMiuBoardGroup (
+    GroupKey INT IDENTITY(1,1) PRIMARY KEY,
+    GroupName NVARCHAR(100) NOT NULL,
+    BaseCustKey INT NOT NULL, BaseCustName NVARCHAR(200) NOT NULL,
+    ReceiverCustKey INT NOT NULL, ReceiverCustName NVARCHAR(200) NOT NULL,
+    IsActive BIT NOT NULL DEFAULT 1, DisplayOrder INT NOT NULL DEFAULT 0,
+    CreatedBy NVARCHAR(50) NULL, CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    UpdatedBy NVARCHAR(50) NULL, UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+  );
+  CREATE UNIQUE INDEX UX_WebShillaMiuBoardGroup_BaseActive
+    ON dbo.WebShillaMiuBoardGroup(BaseCustKey) WHERE IsActive=1;
+END;
+IF COL_LENGTH('dbo.WebShillaMiuBoardAllocation', 'GroupKey') IS NULL
+  ALTER TABLE dbo.WebShillaMiuBoardAllocation ADD GroupKey INT NULL;
