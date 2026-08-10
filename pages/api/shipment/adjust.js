@@ -27,6 +27,7 @@ import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDe
 import { isAutoCancelMode, isPivotDistributionMode, resolvePivotAdjustmentPolicy } from '../../../lib/pivotAdjustmentPolicy.js';
 import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../lib/shipmentFarmAssignments.js';
 import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
+import { calculateShipmentAvailability, hasInsufficientShipmentStock, normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -949,33 +950,50 @@ async function postAdjust(req, res) {
         });
       }
 
-      // 6) 입고 초과 ADD 경고 (음수 잔량 방지) — totalIn < 새로운 totalOut 이면 경고
-      // 단, totalIn=0 (입고 미등록 차수)인 경우는 허용 (선분배 패턴)
-      // 잔량 계산: 입고합 + 수동재고조정 − Σ(ShipmentDetail.OutQuantity by ProdKey,Week)
+      // 6) ADD 가용재고 검증 — 전산 usp_StockCalculation/GetProductList와 같은 공식
+      // 이월 ProductStock + 현차수 입고 + 수동재고조정 - 현차수 전체 출고
       const remainQ = await tQ(
         `SELECT
+           ISNULL(prev.prevStock, 0) AS prevStock,
            ISNULL((SELECT SUM(wd.OutQuantity) FROM WarehouseDetail wd
                    JOIN WarehouseMaster wm ON wd.WarehouseKey=wm.WarehouseKey
-                   WHERE wd.ProdKey=@pk AND wm.OrderYear=@yr AND wm.OrderWeek=@wk AND wm.isDeleted=0),0)
-           + ISNULL((SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
+                   WHERE wd.ProdKey=@pk AND wm.OrderYear=@yr AND wm.OrderWeek=@wk AND wm.isDeleted=0),0) AS currentIn,
+           ISNULL((SELECT SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0))
                    FROM StockHistory sh
                    WHERE sh.ProdKey=@pk AND sh.OrderYear=@yr AND sh.OrderWeek=@wk
-                     AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS totalIn,
+                     AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS adjustQty,
            ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
                    JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-                   WHERE sd.ProdKey=@pk AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut`,
+                   WHERE sd.ProdKey=@pk AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut
+         FROM (VALUES (1)) seed(n)
+         OUTER APPLY (
+           SELECT TOP 1 ps.Stock AS prevStock
+             FROM ProductStock ps
+             JOIN StockMaster sm2 ON sm2.StockKey=ps.StockKey
+            WHERE ps.ProdKey=@pk
+              AND sm2.OrderYear IS NOT NULL
+              AND sm2.OrderWeek LIKE '[0-9][0-9]-[0-9][0-9]'
+              AND RIGHT('0000' + CAST(sm2.OrderYear AS NVARCHAR(4)), 4)
+                    + REPLACE(sm2.OrderWeek, '-', '') < @currentOrderYearWeek
+            ORDER BY RIGHT('0000' + CAST(sm2.OrderYear AS NVARCHAR(4)), 4)
+                       + REPLACE(sm2.OrderWeek, '-', '') DESC,
+                     ps.StockKey DESC
+         ) prev`,
         {
           pk: { type: sql.Int, value: pk },
           yr: { type: sql.NVarChar, value: orderYear },
           wk: { type: sql.NVarChar, value: orderWeek },
+          currentOrderYearWeek: { type: sql.NVarChar, value: `${orderYear}${orderWeek.replace('-', '')}` },
         }
       );
-      const totalIn  = remainQ.recordset[0].totalIn  || 0;
-      const totalOut = remainQ.recordset[0].totalOut || 0;
-      // OutQuantity 단위로 전후 환산 (totalOut 도 OutQuantity 기준이므로)
-      // remainBefore: 이 행 변경 직전 시점
-      const remainBefore = totalIn - (totalOut - outQAfter + outQBefore);
-      const remainAfter  = totalIn - totalOut;
+      const availability = calculateShipmentAvailability({
+        ...remainQ.recordset[0],
+        changedOutBefore: outQBefore,
+        changedOutAfter: outQAfter,
+      });
+      const { prevStock, currentIn, adjustQty, available, totalOut, remainBefore, remainAfter } = availability;
+      // 기존 소비자의 totalIn 필드는 현차수 입고+수동조정 의미로 유지한다.
+      const totalIn = normalizeShipmentQty(currentIn + adjustQty);
 
       if (!pivotDistribution && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
         const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
@@ -995,11 +1013,11 @@ async function postAdjust(req, res) {
       // (a) 입고+수동재고조정 0 인데 출고 ADD: 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
       // (b) 입고+수동재고조정 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
       if (type === 'ADD' && !req.body.force) {
-        if (totalIn <= 0) {
+        if (available <= 0) {
           throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
         }
-        if (totalIn > 0 && remainAfter < 0) {
-          throw new Error(`입고+재고조정(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
+        if (hasInsufficientShipmentStock(remainAfter)) {
+          throw new Error(`가용수량(${available}: 이월 ${prevStock} + 입고 ${currentIn} + 재고조정 ${adjustQty}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
         }
       }
 
@@ -1041,6 +1059,10 @@ async function postAdjust(req, res) {
         outQtyAfter: outQAfter,
         remainBefore,
         remainAfter,
+        prevStock,
+        currentIn,
+        adjustQty,
+        available,
         totalIn,
         totalOut,
         sdetailKey: targetSdk,

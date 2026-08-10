@@ -7,6 +7,7 @@
     "pages/api/shipment/stock-status.js",
     "pages/api/shipment/start-stock-text.js",
     "lib/pivotAdjustmentPolicy.js",
+    "lib/shipmentAvailability.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
     "pages/api/shipment/item-trace.js",
@@ -61,6 +62,7 @@
     "__tests__/shipmentFarmAssignments.test.js",
     "__tests__/shipmentFarmContract.test.js",
     "__tests__/shipmentDownstreamImpactContract.test.js",
+    "__tests__/shipmentAvailability.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
