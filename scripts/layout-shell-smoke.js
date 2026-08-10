@@ -11,10 +11,15 @@ if (!executablePath) throw new Error('크롬 실행파일을 찾지 못했습니
 
 async function inspect(page, url, popup) {
   const messages = [];
+  let expectedDriveUnavailable = false;
   const onConsole = (message) => {
     if (message.type() === 'error' || message.type() === 'warning') messages.push(`${message.type()}: ${message.text()}`);
   };
+  const onResponse = (response) => {
+    if (response.url().includes('/api/moyi/drive-admin') && response.status() === 503) expectedDriveUnavailable = true;
+  };
   page.on('console', onConsole);
+  page.on('response', onResponse);
   await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
   await page.waitForSelector('[data-ui-shell]', { timeout: 30000 });
   const result = await page.evaluate(() => ({
@@ -29,12 +34,16 @@ async function inspect(page, url, popup) {
     contentWidth: document.querySelector('.page-area')?.getBoundingClientRect().width || 0,
   }));
   page.off('console', onConsole);
+  page.off('response', onResponse);
   if (result.shells !== 1 || result.titles !== 1) throw new Error(`${url}: shell/title count ${JSON.stringify(result)}`);
   if (!popup && (result.standardShells !== 1 || result.sidebars !== 1 || result.topbars !== 1 || result.popupbars !== 0)) throw new Error(`${url}: 일반 shell 규칙 위반 ${JSON.stringify(result)}`);
   if (popup && (result.popupShells !== 1 || result.sidebars !== 0 || result.topbars !== 0 || result.popupbars !== 1)) throw new Error(`${url}: popup shell 규칙 위반 ${JSON.stringify(result)}`);
   if (!result.heading.includes('MOYI Drive 관리')) throw new Error(`${url}: 화면 제목 누락`);
   if (!popup && result.contentWidth < 500) throw new Error(`${url}: 콘텐츠 폭이 비정상적으로 좁습니다 (${result.contentWidth}px)`);
-  if (messages.length) throw new Error(`${url}: console error/warn\n${messages.join('\n')}`);
+  const unexpectedMessages = expectedDriveUnavailable
+    ? messages.filter((message) => !message.includes('Failed to load resource: the server responded with a status of 503'))
+    : messages;
+  if (unexpectedMessages.length) throw new Error(`${url}: console error/warn\n${unexpectedMessages.join('\n')}`);
   console.log(`layout smoke OK: ${url} ${JSON.stringify(result)}`);
 }
 
