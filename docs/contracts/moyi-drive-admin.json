@@ -5,11 +5,13 @@
     "pages/integrations/moyi-drive.js",
     "pages/api/moyi/drive-admin.js",
     "lib/moyiDriveAdmin.js",
+    "lib/moyiDriveGateway.js",
+    "scripts/verify-moyi-drive-integration.mjs",
     "components/Layout.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    { "name": "DRIVE_PREVIEW_READ", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "DRIVE_LEDGER_READ_VIA_CONNECTION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "DRIVE_PERMISSION_CHANGE_BLOCKED_PENDING_CORE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "DRIVE_IDENTITY_CHANGE_BLOCKED_PENDING_CORE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
   ],
@@ -27,7 +29,8 @@
     "source": "MOYI Drive와 권한 화면은 nenova.exe 기능이 아닌 웹 전용 연결 대기 화면이며 ERP 테이블 side effect는 모두 preserve다.",
     "methods": [
       "NenovaWeb JWT UserInfo.UserID claim check",
-      "MOYI Core permission write blocked until contract confirmation"
+      "MOYI Core permission write blocked until contract confirmation",
+      "MOYI connection cookie forwarded server-side only to configured Drive root"
     ],
     "tables": [
       "UserInfo (login source only; no write)",
