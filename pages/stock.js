@@ -165,7 +165,7 @@ export default function Stock() {
           orderYear,
           progress: setApplyMsg,
           apply: async () => {
-            const r = await postAdjustBatch({ week, orderYear, force: true, edits: editsPayload });
+            const r = await postAdjustBatch({ week, orderYear, edits: editsPayload });
             return r.data;
           },
         });

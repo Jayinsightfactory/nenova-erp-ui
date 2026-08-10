@@ -3,7 +3,6 @@
 //   - 단가 우선순위: WeekProdCost → ShipmentDetail.Cost → CustomerProdCost → Product.Cost
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
-import { WEEK_PROD_COST_SCHEMA_SQL } from '../../../lib/weekProdCostSchema.js';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
@@ -22,48 +21,23 @@ import {
 } from '../../../lib/exeEstimateViewSql.js';
 import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
 
-// ── WeekProdCost 테이블 idempotent 생성 (최초 호출 시 1회)
-// 전산이 모르는 웹 전용 테이블. 없으면 생성, 권한 없으면 무시.
-let _wpcEnsured = null;
-async function ensureWeekProdCostTable() {
-  if (_wpcEnsured) return _wpcEnsured;
-  _wpcEnsured = (async () => {
-    try {
-      await query(WEEK_PROD_COST_SCHEMA_SQL, {});
-    } catch (e) {
-      // 권한 부족 등은 무시 — OUTER APPLY 결과가 null 이 되므로 견적서 계산은 계속 동작
-      console.warn('[estimate] WeekProdCost 테이블 생성 스킵:', e.message);
-    }
-  })();
-  return _wpcEnsured;
-}
-
 export default withAuth(withActionLog(async function handler(req, res) {
-  // 최초 1회: WeekProdCost 테이블 존재 보장
-  await ensureWeekProdCostTable();
   if (req.method === 'GET')  return await getEstimates(req, res);
   if (req.method === 'POST') return await createEstimate(req, res);
   return res.status(405).end();
 }, { actionType: 'ESTIMATE_MANAGEMENT_ENTRY', affectedTable: 'Estimate', riskLevel: 'HIGH' }));
 
-async function resolveOrderYearWeek(parentWeek) {
+function resolveOrderYearWeek(parentWeek, explicitYear) {
   const pw = String(parentWeek || '').split('-')[0];
-  const r = await query(
-    `SELECT TOP 1 sm.OrderYear, sm.OrderYearWeek
-       FROM ShipmentMaster sm
-      WHERE sm.isDeleted = 0
-        AND LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek + N'-') - 1) = @pw
-      ORDER BY sm.CreateDtm DESC`,
-    { pw: { type: sql.NVarChar, value: pw } }
-  );
-  const row = r.recordset[0];
-  if (row?.OrderYearWeek) {
-    return { orderYear: row.OrderYear, orderYearWeek: String(row.OrderYearWeek) };
+  const orderYear = String(explicitYear || '').trim();
+  if (!/^\d{4}$/.test(orderYear)) {
+    const error = new Error('견적서 조회 요청에 화면의 선택 연도(4자리)가 포함되지 않았습니다.');
+    error.code = 'ORDER_YEAR_REQUIRED';
+    throw error;
   }
-  const year = row?.OrderYear || new Date().getFullYear();
   return {
-    orderYear: year,
-    orderYearWeek: buildEstimateOrderYearWeek(year, pw),
+    orderYear,
+    orderYearWeek: buildEstimateOrderYearWeek(orderYear, pw),
   };
 }
 
@@ -135,6 +109,13 @@ async function loadExeExcelDetailItems({ orderYearWeek, custKey, weekDayIn }) {
 
 async function getEstimates(req, res) {
   const { week, year, custKey, prodKey, shipmentKey, includeUnfixed, view, weekDays, exeParity } = req.query;
+  if (week && view !== 'defectContext' && !/^\d{4}$/.test(String(year || '').trim())) {
+    return res.status(400).json({
+      success: false,
+      code: 'ORDER_YEAR_REQUIRED',
+      error: '견적서 조회 요청에 화면의 선택 연도(4자리)가 포함되지 않았습니다.',
+    });
+  }
   // exe-parity 견적 SQL 을 nenova.exe v1.0.15 방식(ViewShipment/ViewOrder·ProdKey·DetailFix)으로
   // 정합 + GetDetail ShipmentKey 버그 수정 완료(2026-07-09, 4쿼리 실DB 총액일치) → 기본 ON.
   // 되돌림: ?exeParity=0 (문제 시 기존 웹 자체 로직으로 복귀).
@@ -178,7 +159,7 @@ async function getEstimates(req, res) {
       return res.status(400).json({ success: false, error: 'week, custKey 필요' });
     }
     try {
-      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const { orderYearWeek } = resolveOrderYearWeek(week, year);
       const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
       const rows = await loadExeExcelDetailItems({
         orderYearWeek,
@@ -222,6 +203,9 @@ async function getEstimates(req, res) {
       return res.status(400).json({ success: false, error: 'week, custKey 필요' });
     }
     const parentWeek = week.split('-')[0];
+    let orderYear;
+    try { ({ orderYear } = resolveOrderYearWeek(week, year)); }
+    catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
     try {
       const r = await query(
         `SELECT
@@ -240,7 +224,7 @@ async function getEstimates(req, res) {
            ) AS orderQty
            FROM OrderMaster om
            JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
-           WHERE om.CustKey = @ck AND LEFT(om.OrderWeek, LEN(@pw)) = @pw
+           WHERE om.CustKey = @ck AND om.OrderYear=@yr AND LEFT(om.OrderWeek, LEN(@pw)) = @pw
              AND om.isDeleted = 0 AND od.ProdKey = p.ProdKey
          ) od_agg
          OUTER APPLY (
@@ -253,7 +237,7 @@ async function getEstimates(req, res) {
            COUNT(DISTINCT sm.ShipmentKey) AS shipKeyCount
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
-           WHERE sm.CustKey = @ck AND LEFT(sm.OrderWeek, LEN(@pw)) = @pw
+           WHERE sm.CustKey = @ck AND sm.OrderYear=@yr AND LEFT(sm.OrderWeek, LEN(@pw)) = @pw
              AND sm.isDeleted = 0 AND sd.ProdKey = p.ProdKey
          ) sd_agg
          WHERE p.isDeleted = 0
@@ -263,6 +247,7 @@ async function getEstimates(req, res) {
         {
           ck: { type: sql.Int, value: parseInt(custKey) },
           pw: { type: sql.NVarChar, value: parentWeek },
+          yr: { type: sql.NVarChar, value: orderYear },
         }
       );
       // 분류
@@ -291,7 +276,7 @@ async function getEstimates(req, res) {
     try {
       const byDate = req.query.byDate === '1' || req.query.byDate === 'true';
       if (byDate && useExeParity && custKey && week) {
-        const { orderYearWeek } = await resolveOrderYearWeek(week);
+        const { orderYearWeek } = resolveOrderYearWeek(week, year);
         const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
         if (isPrint) {
           const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
@@ -330,7 +315,7 @@ async function getEstimates(req, res) {
   // ── 거래처+차수 상세 (exe GetDetail 1회 조회)
   if (custKey && week && (req.query.byDate === '1' || req.query.byDate === 'true') && req.query.itemsOnly === '1') {
     try {
-      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const { orderYearWeek } = resolveOrderYearWeek(week, year);
       const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
       if (isPrint) {
         const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
@@ -366,7 +351,8 @@ async function getEstimates(req, res) {
   const parentWeek = week ? week.split('-')[0] : '';
 
   try {
-    const { orderYearWeek } = week ? await resolveOrderYearWeek(week) : { orderYearWeek: null };
+    const resolvedScope = week ? resolveOrderYearWeek(week, year) : { orderYear: null, orderYearWeek: null };
+    const { orderYear, orderYearWeek } = resolvedScope;
     const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
     const ck = custKey ? parseInt(custKey, 10) : null;
 
@@ -425,6 +411,8 @@ async function getEstimates(req, res) {
       if (week) {
         where += ' AND LEFT(sm.OrderWeek, LEN(@parentWeek)) = @parentWeek';
         params.parentWeek = { type: sql.NVarChar, value: parentWeek };
+        where += ' AND sm.OrderYear = @orderYear';
+        params.orderYear = { type: sql.NVarChar, value: orderYear };
       }
       if (custKey) {
         where += ' AND sm.CustKey = @custKey';
@@ -440,6 +428,7 @@ async function getEstimates(req, res) {
           SELECT ',' + CAST(sm2.ShipmentKey AS NVARCHAR(20))
           FROM ShipmentMaster sm2
           WHERE sm2.CustKey = sm.CustKey
+            AND sm2.OrderYear = sm.OrderYear
             AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
                 = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
             AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
@@ -449,6 +438,7 @@ async function getEstimates(req, res) {
           SELECT ',' + sm2.OrderWeek
           FROM ShipmentMaster sm2
           WHERE sm2.CustKey = sm.CustKey
+            AND sm2.OrderYear = sm.OrderYear
             AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
                 = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
             AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}
@@ -459,6 +449,7 @@ async function getEstimates(req, res) {
           SELECT ',' + sm2.OrderWeek + ':' + CAST(ISNULL(sm2.isFix,0) AS NVARCHAR(1))
           FROM ShipmentMaster sm2
           WHERE sm2.CustKey = sm.CustKey
+            AND sm2.OrderYear = sm.OrderYear
             AND LEFT(sm2.OrderWeek, CHARINDEX('-', sm2.OrderWeek) - 1)
                 = LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1)
             AND sm2.isDeleted = 0 ${showUnfixed ? '' : 'AND sm2.isFix = 1'}

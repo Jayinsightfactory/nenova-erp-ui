@@ -1182,7 +1182,8 @@ async function updateOutQty(req, res) {
     function calcShipDate(weekStr, baseDay) {
       try {
         const weekNum = parseInt(weekStr.split('-')[0], 10);
-        const yr = parseInt(orderYear, 10) || new Date().getFullYear();
+        const yr = parseInt(orderYear, 10);
+        if (!Number.isInteger(yr)) return null;
         // getCurrentWeek()과 동일한 단순 7일 분할: week N = day (N-1)*7+1 ~ N*7
         const dayStart = (weekNum - 1) * 7 + 1;
         const dateStart = new Date(yr, 0, dayStart, 12, 0, 0, 0); // day 1 = Jan 1

@@ -64,6 +64,7 @@ export default function EcountDashboard() {
   // 판매 전송
   const [saleLoading, setSaleLoading]     = useState(false);
   const [saleMsg, setSaleMsg]             = useState('');
+  const [saleOrderYear, setSaleOrderYear] = useState('');
 
   const loadStatus = useCallback(async () => {
     setApiLoading(true);
@@ -95,6 +96,7 @@ export default function EcountDashboard() {
   useEffect(() => {
     loadStatus();
     loadLogs();
+    setSaleOrderYear(String(new Date().getFullYear()));
   }, []);
 
   const handleSessionRefresh = useCallback(async () => {
@@ -135,6 +137,7 @@ export default function EcountDashboard() {
 
   // 미전송 판매 전체 이카운트 전송
   const handleSalePush = useCallback(async () => {
+    if (!/^\d{4}$/.test(saleOrderYear)) { setSaleMsg('❌ 판매 전송 연도를 선택하세요.'); return; }
     if (!confirm(`미전송 판매 ${fmt(pendingSales)}건을 이카운트에 전송하시겠습니까?\n(이미 전송된 건은 제외됩니다)`)) return;
     setSaleLoading(true);
     setSaleMsg('⏳ 판매 전송 시작...');
@@ -147,7 +150,7 @@ export default function EcountDashboard() {
 
     try {
       while (true) {
-        const data = await apiPost('/api/ecount/sales-push', { all: true, offset, limit: LIMIT });
+        const data = await apiPost('/api/ecount/sales-push', { all: true, orderYear: saleOrderYear, offset, limit: LIMIT });
         totalPushed += data.pushed  || 0;
         totalFailed += data.failed  || 0;
         if (grandTotal === null) grandTotal = data.total || 0;
@@ -172,7 +175,7 @@ export default function EcountDashboard() {
       setSaleLoading(false);
       setTimeout(() => setSaleMsg(''), 15000);
     }
-  }, [pendingSales, loadLogs]);
+  }, [pendingSales, loadLogs, saleOrderYear]);
 
   const handleCustSync = useCallback(async () => {
     if (!confirm('모든 활성 거래처를 이카운트에 동기화하시겠습니까?')) return;
@@ -335,6 +338,15 @@ export default function EcountDashboard() {
         >
           {saleLoading ? '전송중...' : `📤 판매 전송 (${fmt(pendingSales)}건)`}
         </button>
+        <input
+          type="number"
+          min="2000"
+          max="2100"
+          value={saleOrderYear}
+          onChange={(e) => setSaleOrderYear(e.target.value)}
+          aria-label="판매 전송 연도"
+          style={{ width: 82, height: 34, border: '1px solid var(--border2)', borderRadius: 6, padding: '0 8px' }}
+        />
         <button
           className="btn"
           style={{ background: '#065f46', color: '#fff', borderColor: '#064e3b' }}

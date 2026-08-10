@@ -81,12 +81,6 @@ async function syncKeyNumbering(tQ, category, table, keyCol) {
 }
 
 // 차수 정규화: 'YYYY-WW-SS' → 'WW-SS' / year 추출
-function normWeek(week) {
-  const m = String(week || '').match(/^(\d{4})-(\d{2}-\d{2})$/);
-  if (m) return { year: m[1], week: m[2] };
-  return { year: String(new Date().getFullYear()), week: String(week || '') };
-}
-
 function isNetherlandsProduct(prod = {}) {
   return /네덜란드|netherlands|holland|dutch/i.test(String(prod.CounName || ''));
 }
@@ -126,7 +120,8 @@ function toUtcMidnight(date) {
 
 function weekToShipDate(weekStr, yearStr) {
   try {
-    const year = parseInt(yearStr) || new Date().getFullYear();
+    const year = parseInt(yearStr, 10);
+    if (!Number.isInteger(year)) return null;
     const [wStr, dStr] = String(weekStr || '').split('-');
     const weekNum = parseInt(wStr, 10);
     const delivNum = parseInt(dStr, 10) || 1;
@@ -144,7 +139,8 @@ function weekToShipDate(weekStr, yearStr) {
 function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
   try {
     const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
-    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    const year = parseInt(yearStr, 10);
+    if (!Number.isInteger(year)) return null;
     if (!weekNum) return null;
 
     const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1, 12, 0, 0, 0);
@@ -325,12 +321,18 @@ async function getFixCheck(req, res) {
 async function getAdjustments(req, res) {
   const { week, year, prodKey, custKey } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
-  const { week: orderWeek, year: orderYear } = normWeek(week);
+  let orderYear;
+  let orderWeek;
+  try {
+    ({ orderYear, orderWeek } = requireOrderYear(week, req.query.orderYear || year || ''));
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
 
   let where = `a.OrderWeek=@wk AND a.OrderYear=@yr`;
   const params = {
     wk: { type: sql.NVarChar, value: orderWeek },
-    yr: { type: sql.NVarChar, value: year || orderYear },
+    yr: { type: sql.NVarChar, value: orderYear },
   };
   if (prodKey) { where += ' AND a.ProdKey=@pk'; params.pk = { type: sql.Int, value: parseInt(prodKey) }; }
   if (custKey) { where += ' AND a.CustKey=@ck'; params.ck = { type: sql.Int, value: parseInt(custKey) }; }
@@ -427,8 +429,13 @@ async function postAdjust(req, res) {
     return res.status(400).json({ success: false, error: 'qty는 양수여야 함' });
   }
 
-  const { week: orderWeek, year: inferredYear } = normWeek(week);
-  const orderYear = String(year || inferredYear);
+  let orderYear;
+  let orderWeek;
+  try {
+    ({ orderYear, orderWeek } = requireOrderYear(week, year || req.body.orderYear || ''));
+  } catch (error) {
+    return res.status(400).json({ success: false, code: error.code, error: error.message });
+  }
   const pivotDistribution = isPivotDistributionMode(mode);
   const autoCancel = isAutoCancelMode(mode);
   const farmAssignmentsProvided = farmAssignments !== undefined;

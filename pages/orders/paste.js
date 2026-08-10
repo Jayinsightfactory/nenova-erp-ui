@@ -193,7 +193,7 @@ function parseStockNumber(value) {
 
 function selectedYearFromWeek(selectedWeek) {
   const m = String(selectedWeek || '').match(/^(\d{4})-/);
-  return m ? m[1] : String(new Date().getFullYear());
+  return m ? m[1] : '';
 }
 
 function fullWeekFromShort(shortWeek, selectedWeek) {
@@ -2112,10 +2112,11 @@ export default function PasteOrderPage() {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
           body: JSON.stringify({
             custKey: order.custMatch.CustKey, prodKey: t.prodKey, week,
+            year: selectedYearFromWeek(week),
             type, qty: t.qty, unit: t.unit,
             ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
             memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
-            force: true,
+            force: false,
           }),
         });
         const j = await r.json();
@@ -2271,6 +2272,7 @@ export default function PasteOrderPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({
           custKey: adjustModal.custKey, prodKey: adjustModal.prodKey, week: adjustModal.week,
+          year: selectedYearFromWeek(adjustModal.week),
           type: adjustModal.type, qty: delta, unit: adjustModal.unit,
           ...(adjustModal.type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
           memo: '붙여넣기 등록 후 분배조정', force,

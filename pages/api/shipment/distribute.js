@@ -6,7 +6,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderWeek, resolveActiveOrderYear, requireOrderYear } from '../../../lib/orderUtils';
 import { changeEntry } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
@@ -122,7 +122,8 @@ function toUtcMidnight(date) {
 
 function weekToShipDate(weekStr, yearStr) {
   try {
-    const year = parseInt(yearStr) || new Date().getFullYear();
+    const year = parseInt(yearStr, 10);
+    if (!Number.isInteger(year)) return null;
     const [wStr, dStr] = String(weekStr || '').split('-');
     const weekNum = parseInt(wStr, 10);
     const delivNum = parseInt(dStr, 10) || 1;
@@ -140,7 +141,8 @@ function weekToShipDate(weekStr, yearStr) {
 function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
   try {
     const weekNum = parseInt(String(weekStr || '').split('-')[0], 10);
-    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    const year = parseInt(yearStr, 10);
+    if (!Number.isInteger(year)) return null;
     if (!weekNum) return null;
 
     const dateStart = new Date(year, 0, (weekNum - 1) * 7 + 1, 12, 0, 0, 0);
@@ -233,7 +235,7 @@ async function resolveDistributeWeekMeta(week, orderYear) {
   const row = r.recordset[0] || {};
   const oyw = normalizeOrderYearWeek2(row.OrderYearWeek || week.replace(/-/g, ''));
   return {
-    orderYear: String(row.OrderYear || new Date().getFullYear()),
+    orderYear: String(row.OrderYear || orderYear),
     orderWeek: row.OrderWeek || week,
     orderYearWeek: oyw,
     orderYearWeekPrefix: oyw.substring(0, 6),
@@ -297,7 +299,13 @@ async function getDistribute(req, res) {
   let { type, week, year, prodGroup, custKey, countryFlower, exeParity } = req.query;
   const useExe = useExeParityFlag(exeParity);
   if (week) week = normalizeOrderWeek(week);
-  const orderYear = resolveActiveOrderYear(week, year);
+  let orderYear = String(year || '').trim();
+  if (week) {
+    try { ({ orderYear } = requireOrderYear(week, year || '')); }
+    catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
+  } else {
+    orderYear = resolveActiveOrderYear('', year);
+  }
 
   try {
     // ── 품목그룹 목록 (CounName+FlowerName — nenova.exe / 주문등록 동일)
@@ -680,8 +688,7 @@ async function saveDistribute(req, res) {
   try {
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
-    const week = normalizeOrderWeek(rawWeek);
-    const orderYear = resolveActiveOrderYear(rawWeek, year);
+    const { orderYear, orderWeek: week } = requireOrderYear(rawWeek, year || '');
     const ywk = orderYear + (week||'').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수 (세부차수 제외)
 
     await assertProductScopeNotFixed(query, orderYear, week, prodKey);

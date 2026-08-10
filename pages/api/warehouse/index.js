@@ -79,6 +79,9 @@ async function getWarehouse(req, res) {
 async function uploadWarehouse(req, res) {
   const { orderYear, orderWeek, farmName, invoiceNo, awb, inputDate, fileName, items, gw, cw, rate, docFee } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ success: false, error: '업로드할 데이터가 없습니다.' });
+  if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
+    return res.status(400).json({ success: false, code: 'ORDER_YEAR_WEEK_REQUIRED', error: '입고 저장에는 화면의 선택 연도와 세부차수가 필요합니다.' });
+  }
 
   // 품목 매칭 미리 처리 (트랜잭션 밖에서 — 조회만)
   const resolvedItems = [];
@@ -149,7 +152,7 @@ async function uploadWarehouse(req, res) {
           );
           await insertStockHistory(
             tQuery,
-            orderYear || new Date().getFullYear().toString(),
+            orderYear,
             orderWeek || '',
             req.user?.userId || 'admin',
             '입고',
@@ -165,7 +168,7 @@ async function uploadWarehouse(req, res) {
       }
 
       if (successCount === 0) throw new Error(`품목 매칭 실패: ${errs.map(e=>e.prodName).join(', ')}`);
-      await runStockCalculation(tQuery, orderYear || new Date().getFullYear().toString(), orderWeek || '', req.user?.userId || 'admin', [...changedProdKeys]);
+      await runStockCalculation(tQuery, orderYear, orderWeek, req.user?.userId || 'admin', [...changedProdKeys]);
       return { warehouseKey: wk, ok: successCount, errors: errs };
     });
 
@@ -196,11 +199,14 @@ async function deleteWarehouse(req, res) {
         { wk: { type: sql.Int, value: parseInt(warehouseKey) } });
 
       const first = info.recordset[0];
+      if (info.recordset.some((row) => !/^\d{4}$/.test(String(row.OrderYear || '')) || !row.OrderWeek)) {
+        throw new Error('삭제 대상 입고 원장의 연도/차수가 없어 재고 재계산 범위를 확정할 수 없습니다.');
+      }
       const changedProdKeys = new Set();
       for (const row of info.recordset) {
         await insertStockHistory(
           tQuery,
-          row.OrderYear || new Date().getFullYear().toString(),
+          row.OrderYear,
           row.OrderWeek || '',
           req.user?.userId || 'admin',
           '입고삭제',
@@ -211,7 +217,7 @@ async function deleteWarehouse(req, res) {
         changedProdKeys.add(Number(row.ProdKey));
       }
       if (first) {
-        await runStockCalculation(tQuery, first.OrderYear || new Date().getFullYear().toString(), first.OrderWeek || '', req.user?.userId || 'admin', [...changedProdKeys]);
+        await runStockCalculation(tQuery, first.OrderYear, first.OrderWeek, req.user?.userId || 'admin', [...changedProdKeys]);
       }
     });
     return res.status(200).json({ success: true, message: '원장 삭제 완료' });

@@ -3,6 +3,7 @@ import { withAuth } from '../../../lib/auth';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { estimateFromOutQuantity, shipmentUnitsFromUserInput } from '../../../lib/distributeUnits.js';
+import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -26,6 +27,9 @@ export default withAuth(async function handler(req, res) {
   if ((!sdetailKey && !estimateKey) || Number.isNaN(quantity)) {
     return res.status(400).json({ success: false, error: 'sdetailKey 또는 estimateKey 와 수량이 필요합니다.' });
   }
+  let writeScope;
+  try { writeScope = requireErpWriteScope(req.body, '견적 수량 저장'); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
 
   const uid = req.user?.userId || 'admin';
 
@@ -38,7 +42,7 @@ export default withAuth(async function handler(req, res) {
                   ISNULL(e.Cost,0) AS Cost,
                   ISNULL(e.Amount,0) AS Amount,
                   ISNULL(e.Vat,0) AS Vat,
-                  sm.OrderWeek
+                  sm.OrderYear, sm.OrderWeek, sm.CustKey
              FROM Estimate e WITH (UPDLOCK, HOLDLOCK)
              JOIN ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) ON sm.ShipmentKey = e.ShipmentKey
             WHERE e.EstimateKey=@ek
@@ -51,6 +55,7 @@ export default withAuth(async function handler(req, res) {
         );
         if (cur.recordset.length === 0) throw new Error(`EstimateKey=${estimateKey} 를 찾을 수 없습니다.`);
         const row = cur.recordset[0];
+        assertErpWriteScope(row, writeScope, `EstimateKey=${estimateKey}`);
         const oldQuantity = Number(row.Quantity || 0);
         if (expectedOldQuantity != null && Math.abs(oldQuantity - expectedOldQuantity) > 0.001) {
           const err = new Error(`수량이 조회 이후 변경되었습니다. 조회시점=${expectedOldQuantity}, 현재=${oldQuantity}`);
@@ -99,7 +104,7 @@ export default withAuth(async function handler(req, res) {
                 ISNULL(sd.Vat,0) AS Vat,
                 ISNULL(sd.isFix,0) AS detailIsFix,
                 ISNULL(sm.isFix,0) AS isFix,
-                sm.OrderWeek,
+                sm.OrderYear, sm.OrderWeek, sm.CustKey,
                 ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CountryFlower, N''))), N''),
                   ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.CounName, N''))), N''),
                     ISNULL(NULLIF(LTRIM(RTRIM(ISNULL(p.FlowerName, N''))), N''), N'(분류없음)'))) AS CategoryLabel,
@@ -118,6 +123,7 @@ export default withAuth(async function handler(req, res) {
 
       if (cur.recordset.length === 0) throw new Error(`SdetailKey=${sdetailKey} 행을 찾을 수 없습니다.`);
       const row = cur.recordset[0];
+      assertErpWriteScope(row, writeScope, `SdetailKey=${sdetailKey}`);
       const detailFixed = Number(row.detailIsFix || 0) === 1;
       if (detailFixed) {
         // 2026-07-14: 코드 부여 — 클라이언트(applyQtyEdits)가 이 코드를 보고
@@ -253,7 +259,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: '수량 수정 완료', ...result });
   } catch (err) {
-    return res.status(err.code === 'STALE_DATA' ? 409 : 500).json({
+    return res.status(['STALE_DATA', 'FIXED_WEEK', 'ERP_SCOPE_MISMATCH'].includes(err.code) ? 409 : 500).json({
       success: false,
       code: err.code,
       error: err.message,

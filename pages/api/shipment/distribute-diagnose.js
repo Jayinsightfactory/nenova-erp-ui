@@ -15,7 +15,8 @@ function addDays(date, days) {
 
 function calcBaseOutDate(week, year, baseDay) {
   const weekNum = parseInt(String(week || '').split('-')[0], 10);
-  const yr = parseInt(year, 10) || new Date().getFullYear();
+  const yr = parseInt(year, 10);
+  if (!Number.isInteger(yr)) return null;
   if (!weekNum) return null;
   const start = new Date(yr, 0, (weekNum - 1) * 7 + 1, 12, 0, 0, 0);
   const daysBackToWednesday = (start.getDay() - 3 + 7) % 7;
@@ -58,7 +59,8 @@ async function handler(req, res) {
   const rawWeek = req.query.week || req.body?.week || '';
   const week = normalizeOrderWeek(rawWeek || '');
   if (!week) return res.status(400).json({ success: false, error: 'week is required' });
-  const orderYear = String(req.query.year || req.body?.year || (String(rawWeek).match(/^(\d{4})-/)?.[1]) || new Date().getFullYear());
+  const orderYear = String(req.query.year || req.body?.year || (String(rawWeek).match(/^(\d{4})-/)?.[1]) || '');
+  if (!/^\d{4}$/.test(orderYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '분배 진단에는 화면의 선택 연도가 필요합니다.' });
   const dateMap = buildBaseDateMap(week, orderYear);
   const dateMapSql = baseDateValuesSql(dateMap);
   const dateParams = baseDateParams(dateMap);

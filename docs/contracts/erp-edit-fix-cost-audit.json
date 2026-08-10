@@ -1,0 +1,79 @@
+{
+  "id": "erp-edit-fix-cost-audit",
+  "title": "공용 저장·확정·단가 전수 연도/force 계약",
+  "scope": [
+    "pages/estimate.js",
+    "pages/raum/pnl.js",
+    "pages/orders/paste.js",
+    "pages/shipment/week-pivot.js",
+    "pages/shipment/distribute.js",
+    "pages/stock.js",
+    "pages/ecount/dashboard.js",
+    "pages/sales/status.js",
+    "pages/m/estimate/index.js",
+    "lib/chat/bizContext.js",
+    "components/estimate/OrderRegisterDistributeModal.js",
+    "pages/api/estimate/index.js",
+    "pages/api/estimate/update-cost.js",
+    "pages/api/estimate/update-quantity.js",
+    "pages/api/estimate/update-date-quantity.js",
+    "pages/api/estimate/update-entry.js",
+    "pages/api/shipment/adjust.js",
+    "pages/api/shipment/distribute.js",
+    "pages/api/shipment/distribute-diagnose.js",
+    "pages/api/shipment/stock-status.js",
+    "pages/api/stock/adjust-batch.js",
+    "pages/api/orders/index.js",
+    "pages/api/warehouse/index.js",
+    "pages/api/incoming-price/remit.js",
+    "pages/api/ecount/sales-push.js",
+    "pages/api/dev/estimate-cost-date-sync.js",
+    "pages/api/dev/estimate-print-descr-cleanup.js",
+    "lib/erpWriteScope.js",
+    "lib/fixCycleClient.js",
+    "lib/weekProdCostSchema.js",
+    "docs/migrations/2026-08-10_week_prod_cost_order_year.sql",
+    "docs/work-reports/2026-08-10_erp-edit-fix-cost-full-audit.md",
+    "__tests__/erpEditFixScopeAudit.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "EDIT_UNFIX_SAVE_REFIX",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "fixCycle": "automatic force=false",
+      "selectedYearRequired": true
+    },
+    {
+      "name": "STOCK_OR_INCOMING_OVERRIDE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "forcePolicy": "never automatic; only explicit user confirmation after server warning"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026의 동일 32-02를 서로 다른 확정/저장 대상으로 유지하고 화면 선택 연도가 없는 짧은 차수 요청은 중단한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/estimateEditYearContract.test.js",
+    "__tests__/estimateFixStatusYearContract.test.js",
+    "__tests__/shipmentPivotAdjustContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "project-recorded dnSpy CLI evidence",
+    "methods": ["FormEstimateView.btnSave_Click", "ClassShipmentDate.Update", "FormShipmentDistribution.btnSave_Click", "usp_ShipmentFixCancel"],
+    "tables": ["OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate", "StockHistory", "WeekProdCost"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

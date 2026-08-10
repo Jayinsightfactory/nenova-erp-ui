@@ -64,11 +64,14 @@ export default withAuth(async function handler(req, res) {
       if (!String(farmName || '').trim() || Number.isNaN(amt)) {
         return res.status(400).json({ success: false, error: 'farmName, amountUSD 필요' });
       }
+      if (!/^\d{4}$/.test(String(year || '').trim())) {
+        return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '송금 저장에는 화면의 선택 연도가 필요합니다.' });
+      }
       await query(
         `INSERT INTO WebFarmRemit (OrderYear, Weeks, FarmName, AmountUSD, RemitDate, Memo, CreateID)
          VALUES (@yr, @weeks, @farm, @amt, @dt, @memo, @uid)`,
         {
-          yr: { type: sql.NVarChar, value: String(year || new Date().getFullYear()).slice(0, 4) },
+          yr: { type: sql.NVarChar, value: String(year).slice(0, 4) },
           weeks: { type: sql.NVarChar, value: String(weeks || '').trim().slice(0, 200) },
           farm: { type: sql.NVarChar, value: String(farmName).trim().slice(0, 120) },
           amt: { type: sql.Float, value: amt },

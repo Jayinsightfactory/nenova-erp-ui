@@ -9,6 +9,7 @@ export default function MobileEstimateList() {
   const router = useRouter();
   const [me, setMe] = useState(null);
   const [weeks, setWeeks] = useState([]);
+  const [orderYear, setOrderYear] = useState('');
   const [selWeek, setSelWeek] = useState('');
   const [estimates, setEstimates] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,7 @@ export default function MobileEstimateList() {
       .then(d => {
         if (d?.recentMajorWeeks) {
           setWeeks(d.recentMajorWeeks);
+          setOrderYear(String(d.recentOrderYear || ''));
           setSelWeek(d.recentMajorWeeks[0] || '');
         }
       })
@@ -37,9 +39,9 @@ export default function MobileEstimateList() {
 
   // 견적서 목록 로드
   useEffect(() => {
-    if (!selWeek || !me) return;
+    if (!selWeek || !orderYear || !me) return;
     setLoading(true);
-    fetch(`/api/estimate?week=${selWeek}`)
+    fetch(`/api/estimate?week=${encodeURIComponent(selWeek)}&year=${encodeURIComponent(orderYear)}`)
       .then(r => r.json())
       .then(d => {
         if (d?.success) setEstimates(d.shipments || []);
@@ -47,7 +49,7 @@ export default function MobileEstimateList() {
       })
       .catch(() => setEstimates([]))
       .finally(() => setLoading(false));
-  }, [selWeek, me]);
+  }, [selWeek, orderYear, me]);
 
   const fmtN = n => Number(n || 0).toLocaleString();
 
@@ -60,7 +62,7 @@ export default function MobileEstimateList() {
       <div className="me-wrap">
         {/* 차수 버튼 */}
         <div className="me-section">
-          <div className="me-label">차수 선택</div>
+          <div className="me-label">차수 선택 {orderYear ? `(${orderYear}년)` : ''}</div>
           <div className="me-chips">
             {weeks.slice(0, 8).map(w => (
               <button

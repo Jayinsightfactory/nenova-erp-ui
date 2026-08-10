@@ -34,7 +34,7 @@ import { withTransaction, sql, query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
 import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
-import { WEEK_PROD_COST_SCHEMA_SQL } from '../../../lib/weekProdCostSchema.js';
+import { WEEK_PROD_COST_YEAR_PROBE_SQL } from '../../../lib/weekProdCostSchema.js';
 
 // FIXED_WEEK 차단 진단용 — 사이클 미작동 신고 추적 (AppLog 없어도 무시)
 async function logCostGuard(step, detail) {
@@ -50,18 +50,13 @@ async function logCostGuard(step, detail) {
   } catch { /* 로깅 실패는 무시 */ }
 }
 
-// ── WeekProdCost 테이블 idempotent 생성 (최초 1회)
-let _wpcEnsured = null;
-async function ensureWeekProdCostTable() {
-  if (_wpcEnsured) return _wpcEnsured;
-  _wpcEnsured = (async () => {
-    try {
-      await query(WEEK_PROD_COST_SCHEMA_SQL, {});
-    } catch (e) {
-      console.warn('[update-cost] WeekProdCost 테이블 생성 스킵:', e.message);
-    }
-  })();
-  return _wpcEnsured;
+async function assertWeekProdCostSchema() {
+  const result = await query(WEEK_PROD_COST_YEAR_PROBE_SQL, {});
+  if (Number(result.recordset?.[0]?.ok || 0) !== 1) {
+    const error = new Error('차수별 단가 테이블의 연도 분리 마이그레이션이 적용되지 않았습니다. 관리자에게 문의하세요.');
+    error.code = 'WEEK_PROD_COST_SCHEMA_REQUIRED';
+    throw error;
+  }
 }
 
 export default withAuth(async function handler(req, res) {
@@ -126,7 +121,8 @@ export default withAuth(async function handler(req, res) {
   const uniqueSks = [...new Set(items.map(i => i.shipmentKey))];
 
   if (mode === 'weekFav') {
-    await ensureWeekProdCostTable();
+    try { await assertWeekProdCostSchema(); }
+    catch (error) { return res.status(503).json({ success: false, code: error.code, error: error.message }); }
   }
 
   const uid = req.user?.userId || 'system';

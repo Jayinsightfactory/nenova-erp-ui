@@ -1,8 +1,8 @@
 // pages/api/stock/adjust-batch.js
-// POST { week, orderYear?, edits: [{ prodKey, afterStock, descr? }], force? }
+// POST { week, orderYear, edits: [{ prodKey, afterStock, descr? }] }
 //   여러 품목의 재고를 목표값(afterStock)으로 한 번에 조정 — 각 건 StockHistory INSERT + usp_StockCalculation.
 //   확정된 차수(ShipmentMaster/ShipmentDetail/StockMaster isFix=1)는 기본 차단 —
-//   프론트는 lib/fixCycleClient.js 의 runEditWithFixCycle 로 확정해제→적용(force=true)→재확정 사이클을 태울 것.
+//   프론트는 lib/fixCycleClient.js 의 runEditWithFixCycle 로 확정해제→적용→재확정 사이클을 태운다.
 //   (docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md C-1/C-3)
 
 import { query, withTransaction, sql } from '../../../lib/db';
@@ -50,7 +50,7 @@ function stockCalculationSql() {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST만 지원' });
 
-  const { week: rawWeek, orderYear: requestedYear, year, edits, force } = req.body || {};
+  const { week: rawWeek, orderYear: requestedYear, year, edits } = req.body || {};
   if (!rawWeek) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!Array.isArray(edits) || edits.length === 0) {
     return res.status(400).json({ success: false, error: 'edits 필요' });
@@ -66,7 +66,7 @@ export default withAuth(async function handler(req, res) {
   const uid = req.user?.userId || 'admin';
 
   try {
-    if (!force && await isWeekFixed(orderYear, week)) {
+    if (await isWeekFixed(orderYear, week)) {
       return res.status(409).json({
         success: false,
         code: 'WEEK_FIXED',
