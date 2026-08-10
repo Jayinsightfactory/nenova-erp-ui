@@ -184,3 +184,5 @@ jobs:
           npm install puppeteer-core --no-save --no-audit --no-fund
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
             node scripts/hydration-smoke.js https://nenovaweb.com/login
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
+            node scripts/week-pivot-hydration-smoke.js 'https://nenovaweb.com/shipment/week-pivot?popup=1'

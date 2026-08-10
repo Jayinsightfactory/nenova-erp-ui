@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useWeekInput, WeekInput } from '../../lib/useWeekInput';
+import { getCurrentWeek, useWeekInput, WeekInput } from '../../lib/useWeekInput';
 import { suggestDisplayName } from '../../lib/displayName';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { useColumnResize } from '../../lib/useColumnResize';
@@ -1884,7 +1884,7 @@ export default function WeekPivot() {
       <Head><title>📊 차수피벗 - nenova ERP</title></Head>
       <style>{`
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #f5f7fa; font-family: 'Malgun Gothic', sans-serif; }
+        body { margin: 0; padding: 0; background: #f5f7fa; font-family: Malgun Gothic, sans-serif; }
         input, button, select { font-family: inherit; }
       `}</style>
 
