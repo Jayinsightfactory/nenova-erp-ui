@@ -70,14 +70,18 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const updateRow = (index, patch) => setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
 
   const sameNumber = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.0001;
-  const verifyAppliedRow = (row, originalBefore = null) => {
+  const verifyAppliedRow = (row, originalRow = null) => {
+    if (originalRow?.isCarryoverLedger) {
+      const expectedRemaining = Math.max(0, Number(originalRow.remainingQuantity || 0) - Number(originalRow.editQuantity || 0));
+      return sameNumber(row.remainingQuantity, expectedRemaining) && Number(row.before?.EstimateKey || 0) > 0;
+    }
     const expected = adjustedAfter(row);
     const actual = row.before;
     if (!expected || !actual) return false;
     // 기존 Estimate는 같은 키를 유지하고, 신규 INSERT는 재조회 후 발급된
     // 양의 EstimateKey가 존재하는지만 확인한다. 신규행의 preview 키(null)를
     // 실제 발급 키와 비교하면 정상 등록도 검증 실패가 된다.
-    const originalEstimateKey = Number(originalBefore?.EstimateKey || 0);
+    const originalEstimateKey = Number(originalRow?.before?.EstimateKey || 0);
     const estimateKeyMatches = originalEstimateKey > 0
       ? Number(actual.EstimateKey || 0) === originalEstimateKey
       : Number(actual.EstimateKey || 0) > 0;
@@ -99,7 +103,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       return;
     }
     setApplying(true); setError(''); setMessage(''); setVerified(false);
-    const originalBeforeByKey = new Map(rows.map((row) => [Number(row.deductionKey), row.before || null]));
+    const originalRowByKey = new Map(rows.map((row) => [Number(row.deductionKey), row]));
     setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '전산등록 시작 · 선택 행 사전검증 통과' }]);
     try {
       const overrides = Object.fromEntries(rows.map((row) => [String(row.deductionKey), {
@@ -114,7 +118,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
       setMessage(`${data.registered || 0}건 적용 완료. 기존 견적서를 다시 불러와 검증 중입니다.`);
       const refreshedRows = await load({ throwOnError: true }) || [];
-      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row, originalBeforeByKey.get(Number(row.deductionKey)))).map((row) => row.deductionKey);
+      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row, originalRowByKey.get(Number(row.deductionKey)))).map((row) => row.deductionKey);
       if (mismatches.length) {
         appendLog(`재조회 검증 실패 · 불일치 ${mismatches.length}건`);
         setVerified(false);

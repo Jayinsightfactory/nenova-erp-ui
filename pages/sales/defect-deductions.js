@@ -244,9 +244,20 @@ export default function SalesDefectDeductionsPage() {
     }
   }, [year, week]);
 
+  const loadCarryover = useCallback(async () => {
+    setSupportLoading(true); setError('');
+    try {
+      const data = await apiGet('/api/sales/defect-deductions', { year, week, view: 'carryover', history: '1', manager: '' });
+      setSupportRows(data.rows || []); setSupportSelected(new Set()); setHistory(data.history || []);
+      return data;
+    } catch (e) { setError(e.message); }
+    finally { setSupportLoading(false); }
+  }, [year, week]);
+
   useEffect(() => {
     if (activeTab === 'support') loadSupport();
-  }, [activeTab, loadSupport]);
+    if (activeTab === 'carryover') loadCarryover();
+  }, [activeTab, loadSupport, loadCarryover]);
 
   const visibleManagerOptions = useMemo(() => {
     const normalizeName = (value) => String(value || '').toLowerCase().replace(/\s+/g, '').trim();
@@ -914,6 +925,18 @@ export default function SalesDefectDeductionsPage() {
     finally { setSupportLoading(false); }
   };
 
+  const registerCarryoverLedger = async () => {
+    const ids = [...selected].map((index) => Number(rows[index]?.deductionKey)).filter((key) => key > 0);
+    if (!ids.length) { setError('먼저 저장된 행을 선택하세요.'); return; }
+    setSaving(true); setError(''); setMessage('');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', { action: 'carryover-register', year, week, ids });
+      setMessage(`${data.saved || 0}건을 이월업체 목록에 등록했습니다. 잔여수량이 0이 될 때까지 계속 표시됩니다.`);
+      setSelected(new Set()); await load(manager);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
   const confirmIncoming = async () => {
     if (!incomingRows.length) { setError('확정할 차수 전체 불량 행이 없습니다.'); return; }
     setIncomingSaving(true); setError(''); setMessage('');
@@ -1008,11 +1031,11 @@ export default function SalesDefectDeductionsPage() {
       } else {
         setMessage(`${event.data.registered || 0}건 견적서 등록 적용 및 재조회 검증 완료. 작업로그와 등록 확정 상태를 갱신했습니다.`);
       }
-      if (activeTab === 'support') loadSupport(); else load();
+      if (activeTab === 'support') loadSupport(); else if (activeTab === 'carryover') loadCarryover(); else load();
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [activeTab, load, loadSupport]);
+  }, [activeTab, load, loadSupport, loadCarryover]);
 
   const remove = async () => {
     const selectedRows = partitionSelectedDeductionRows(rows, selected);
@@ -1150,8 +1173,10 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" role="tab" aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
         <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
         <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>이월업체 등록</button>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
         {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
+        {activeTab === 'carryover' && <span className="incoming-tab-help">부분 처리 후에도 잔여수량이 0이 될 때까지 계속 표시됩니다.</span>}
       </div>
 
       {activeTab === 'sales' && <div className="card manager-home-card">
@@ -1189,7 +1214,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
           </>}
-          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : load} disabled={loading || incomingLoading || supportLoading}>조회</button>
+          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load} disabled={loading || incomingLoading || supportLoading}>조회</button>
           {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
@@ -1197,11 +1222,16 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
+          <button className="btn" onClick={registerCarryoverLedger} disabled={saving || !selected.size}>선택 이월업체 등록</button>
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportRows.length}>{supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length ? '전체 선택 해제' : '전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+          </>}
+          {activeTab === 'carryover' && <>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportRows.length}>{supportSelected.size === supportRows.length ? '전체 선택 해제' : '전체 선택'}</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>선택 수량 견적서에 처리</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading}>엑셀 다운로드</button>
@@ -1289,15 +1319,15 @@ export default function SalesDefectDeductionsPage() {
       </div>
       </div>}
 
-      {activeTab === 'support' && <div className="screenOnly">
+      {(activeTab === 'support' || activeTab === 'carryover') && <div className="screenOnly">
       <div className="card support-register-card">
         <div className="support-register-head">
-          <div><strong>영업지원 전산등록 — {year}년 {week}차 전체 불량</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
-          <span className="incoming-review-note">원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다. 기존 견적서와 비교한 뒤 Estimate 등록값으로 적용하고, 완료 후 재조회 검증합니다.</span>
+          <div><strong>{activeTab === 'carryover' ? '이월업체 잔여 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
+          <span className="incoming-review-note">{activeTab === 'carryover' ? '원수량과 잔여수량을 보존하며 검토창에서 이번 차수에 처리할 수량을 조정할 수 있습니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
         </div>
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>분배단가</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
+            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
@@ -1308,7 +1338,7 @@ export default function SalesDefectDeductionsPage() {
                 <td>{row.customerName || '-'}</td>
                 <td>{row.productName || '-'}</td>
                 <td><span className="defect-product-match">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
-                <td>{printQuantity(row)}</td>
+                <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity(row)}</td>
                 <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
