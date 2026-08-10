@@ -27,7 +27,7 @@
     "test:nenova-web-scope": "node __tests__/nenovaWebCompatibilityScope.test.js",
     "test:moyi-report-push": "node __tests__/moyiReportPush.test.js",
     "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js",
-    "verify:moyi-drive-integration": "node scripts/verify-moyi-drive-integration.mjs",
+    "verify:moyi-drive-integration": "node scripts/verify-moyi-drive-integration.mjs && node scripts/verify-moyi-drive-http-e2e.mjs",
     "test:freight-search": "node __tests__/freightGroupSearch.test.js",
     "test:nenova-dnspy-evidence": "node scripts/check-nenova-dnspy-evidence.mjs",
     "test:raum-pnl": "node __tests__/raumPnlImage.test.js && node __tests__/raumPnlExcel.test.js",
