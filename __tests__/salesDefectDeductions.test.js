@@ -111,6 +111,8 @@ const listDeductionsSource = deductionSource.slice(
 assert.doesNotMatch(listDeductionsSource, /ensureSalesDefectTables\(/, '영업수입불량차감 GET 목록 조회가 DDL ensure를 실행하면 안 됩니다.');
 assert.match(deductionSource, /markCarryoverDeductions[\s\S]*ensureSalesDefectTables\(/, '이월업체 등록 POST는 쓰기 스키마를 보장해야 합니다.');
 assert.match(deductionSource, /RemainingQuantity[\s\S]*WebSalesCarryoverApplication/, '이월 부분처리는 잔여수량과 적용이력을 모두 보존해야 합니다.');
+assert.ok(pageSource.includes('특정 원차수 이월업체 직접등록'), '이월 탭에서 선택한 연도·차수로 기존 이월업체를 직접 등록할 수 있어야 합니다.');
+assert.ok(pageSource.includes("sourceFileName: '이월업체 직접등록'"), '직접 등록 원천을 원장에 남겨야 합니다.');
 const defectMigrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
 assert.match(defectMigrationSource, /CREATE TABLE dbo\.WebSalesDefectDeduction/, '웹 차감 원장은 migration에서 생성해야 합니다.');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');

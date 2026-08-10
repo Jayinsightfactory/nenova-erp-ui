@@ -116,6 +116,10 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
+  const [carryoverDraft, setCarryoverDraft] = useState({ customerName: '', custKey: null, productName: '', prodKey: null, quantity: '', sourceUnit: '단', note: '' });
+  const [carryoverCustomerOptions, setCarryoverCustomerOptions] = useState([]);
+  const [carryoverProductOptions, setCarryoverProductOptions] = useState([]);
+  const [carryoverSaving, setCarryoverSaving] = useState(false);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
@@ -937,6 +941,42 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  const searchCarryoverMaster = async (kind) => {
+    const q = kind === 'customer' ? carryoverDraft.customerName : carryoverDraft.productName;
+    if (!String(q || '').trim()) { setError(`${kind === 'customer' ? '업체' : '품목'} 검색어를 입력하세요.`); return; }
+    try {
+      const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q });
+      if (kind === 'customer') setCarryoverCustomerOptions(data.customers || data.rows || []);
+      else setCarryoverProductOptions(data.products || data.rows || []);
+    } catch (e) { setError(e.message); }
+  };
+
+  const saveDirectCarryover = async () => {
+    if (!(Number(carryoverDraft.custKey) > 0) || !(Number(carryoverDraft.prodKey) > 0) || !(Number(carryoverDraft.quantity) > 0)) {
+      setError('전산 업체·품목을 검색해 선택하고 이월수량을 입력하세요.'); return;
+    }
+    setCarryoverSaving(true); setError(''); setMessage('');
+    try {
+      const saved = await apiPost('/api/sales/defect-deductions', {
+        action: 'save', year, week, managerId: '', managerName: '', sourceFileName: '이월업체 직접등록',
+        rows: [{
+          customerName: carryoverDraft.customerName, custKey: Number(carryoverDraft.custKey),
+          productName: carryoverDraft.productName, colorName: carryoverDraft.productName, prodKey: Number(carryoverDraft.prodKey),
+          quantity: Number(carryoverDraft.quantity), sourceUnit: carryoverDraft.sourceUnit, unit: carryoverDraft.sourceUnit,
+          note: carryoverDraft.note, deductionType: '불량차감',
+        }],
+      });
+      const ids = (saved.rows || []).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+      if (!ids.length) throw new Error('이월 원장키를 확인할 수 없습니다.');
+      await apiPost('/api/sales/defect-deductions', { action: 'carryover-register', year, week, ids });
+      setCarryoverDraft({ customerName: '', custKey: null, productName: '', prodKey: null, quantity: '', sourceUnit: '단', note: '' });
+      setCarryoverCustomerOptions([]); setCarryoverProductOptions([]);
+      setMessage(`${year}년 ${week}차 이월업체 1건을 등록했습니다.`);
+      await loadCarryover();
+    } catch (e) { setError(e.message); }
+    finally { setCarryoverSaving(false); }
+  };
+
   const confirmIncoming = async () => {
     if (!incomingRows.length) { setError('확정할 차수 전체 불량 행이 없습니다.'); return; }
     setIncomingSaving(true); setError(''); setMessage('');
@@ -1320,6 +1360,23 @@ export default function SalesDefectDeductionsPage() {
       </div>}
 
       {(activeTab === 'support' || activeTab === 'carryover') && <div className="screenOnly">
+      {activeTab === 'carryover' && <div className="card" style={{ padding: 12, marginBottom: 10 }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>특정 원차수 이월업체 직접등록 — {year}년 {week}차</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1fr) minmax(260px,1.3fr) 110px 90px minmax(220px,1fr) auto', gap: 8, alignItems: 'start' }}>
+          <div>
+            <div style={{ display: 'flex', gap: 4 }}><input className="input" value={carryoverDraft.customerName} placeholder="업체명 검색" onChange={(e) => setCarryoverDraft((d) => ({ ...d, customerName: e.target.value, custKey: null }))} /><button className="btn" type="button" onClick={() => searchCarryoverMaster('customer')}>검색</button></div>
+            {!!carryoverCustomerOptions.length && <select className="input" size={Math.min(5, carryoverCustomerOptions.length)} style={{ width: '100%', marginTop: 4 }} onChange={(e) => { const item = carryoverCustomerOptions[Number(e.target.value)]; if (item) { setCarryoverDraft((d) => ({ ...d, customerName: item.CustName || item.customerName, custKey: item.CustKey || item.custKey })); setCarryoverCustomerOptions([]); } }}><option value="">업체 선택</option>{carryoverCustomerOptions.map((item, i) => <option key={`${item.CustKey || item.custKey}-${i}`} value={i}>{item.CustName || item.customerName}</option>)}</select>}
+          </div>
+          <div>
+            <div style={{ display: 'flex', gap: 4 }}><input className="input" value={carryoverDraft.productName} placeholder="품종·품명 검색" onChange={(e) => setCarryoverDraft((d) => ({ ...d, productName: e.target.value, prodKey: null }))} /><button className="btn" type="button" onClick={() => searchCarryoverMaster('product')}>검색</button></div>
+            {!!carryoverProductOptions.length && <select className="input" size={Math.min(5, carryoverProductOptions.length)} style={{ width: '100%', marginTop: 4 }} onChange={(e) => { const item = carryoverProductOptions[Number(e.target.value)]; if (item) { setCarryoverDraft((d) => ({ ...d, productName: item.ProdName || item.prodName, prodKey: item.ProdKey || item.prodKey, sourceUnit: item.EstUnit || item.OutUnit || d.sourceUnit })); setCarryoverProductOptions([]); } }}><option value="">품목 선택</option>{carryoverProductOptions.map((item, i) => <option key={`${item.ProdKey || item.prodKey}-${i}`} value={i}>{[item.CounName, item.FlowerName, item.ProdName || item.prodName].filter(Boolean).join(' · ')}</option>)}</select>}
+          </div>
+          <input className="input" type="number" min="0.0001" step="0.0001" placeholder="이월수량" value={carryoverDraft.quantity} onChange={(e) => setCarryoverDraft((d) => ({ ...d, quantity: e.target.value }))} />
+          <select className="input" value={carryoverDraft.sourceUnit} onChange={(e) => setCarryoverDraft((d) => ({ ...d, sourceUnit: e.target.value }))}><option>단</option><option>박스</option><option>스팀(대)</option></select>
+          <input className="input" placeholder="비고" value={carryoverDraft.note} onChange={(e) => setCarryoverDraft((d) => ({ ...d, note: e.target.value }))} />
+          <button className="btn btn-primary" type="button" disabled={carryoverSaving} onClick={saveDirectCarryover}>{carryoverSaving ? '등록 중…' : '이월업체 등록'}</button>
+        </div>
+      </div>}
       <div className="card support-register-card">
         <div className="support-register-head">
           <div><strong>{activeTab === 'carryover' ? '이월업체 잔여 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
