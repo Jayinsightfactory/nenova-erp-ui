@@ -508,6 +508,13 @@ async function postAdjust(req, res) {
       const userUnit = normalizeOrderUnit(unit, prodOutUnit);
       const B1B = prod.B1B || 0;
       const S1B = prod.S1B || 0;
+      // 명시 단위와 Product.OutUnit이 다르면 환산 마스터가 반드시 있어야 한다.
+      // 주문/분배 어느 분기로 가더라도 조용한 1 fallback 없이 같은 오류로 차단한다.
+      computeShipmentAdjustUnits({
+        curOut: 0, delta, type: 'ADD', unit: userUnit,
+        outUnit: prodOutUnit, bunchOf1Box: B1B, steamOf1Box: S1B,
+        steamOf1Bunch: prod.S1Bn, estUnit: prod.EstUnit,
+      });
       // qty/delta 를 3개 단위(박스/단/송이) 모두로 환산하는 헬퍼
       // qty 가 userUnit 기준일 때, 다른 두 단위로 비례 환산
       const toAllUnits = (qInUserUnit) => {
@@ -527,9 +534,7 @@ async function postAdjust(req, res) {
         }
         // OutQuantity = Product 의 OutUnit 기준 (canonical)
         const convertedOutQ = prodOutUnit === '단' ? bunch : prodOutUnit === '송이' ? steam : box;
-        const outQ = Number(convertedOutQ || 0) !== 0 || !(Number(qInUserUnit) > 0)
-          ? convertedOutQ
-          : Number(qInUserUnit);
+        const outQ = convertedOutQ;
         return { box, bunch, steam, outQ };
       };
 

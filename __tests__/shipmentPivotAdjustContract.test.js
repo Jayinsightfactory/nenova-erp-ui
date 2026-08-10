@@ -113,6 +113,15 @@ async function main() {
     [crossYearPivotFixture[1]],
     '모아보기 피벗의 동일 차수 교차연도 fixture는 선택 연도 행만 남겨야 한다.'
   );
+  const explicitUnitCrossYearFixture = [
+    { OrderYear: '2025', OrderWeek: '32-02', CustKey: 11, ProdKey: 8799, unit: '단' },
+    { OrderYear: '2026', OrderWeek: '32-02', CustKey: 11, ProdKey: 8799, unit: '박스' },
+  ];
+  assert.deepEqual(
+    explicitUnitCrossYearFixture.filter(row => row.OrderYear === '2026' && row.OrderWeek === '32-02'),
+    [explicitUnitCrossYearFixture[1]],
+    '명시 단위 저장도 2025/2026 동일 32-02 중 선택 연도 업무키만 사용해야 한다.',
+  );
   assert.match(
     stockStatus,
     /LEFT JOIN ShipmentMaster sm ON sm\.CustKey=om\.CustKey\s+AND sm\.OrderYear=om\.OrderYear AND sm\.OrderWeek=om\.OrderWeek/,
