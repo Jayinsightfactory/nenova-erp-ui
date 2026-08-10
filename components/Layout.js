@@ -215,13 +215,13 @@ export default function Layout({ children, title }) {
       <>
         <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
         <style>{`body { overflow: hidden; }`}</style>
-        <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)' }}>
+        <div data-ui-shell="popup" style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)' }}>
           <div style={{
             height:28, background:'linear-gradient(to right,#000080,#1084d0)',
             display:'flex', alignItems:'center', padding:'0 10px',
             color:'#fff', fontSize:12, fontWeight:'bold', flexShrink:0, gap:8
-          }}>
-            <span>nenova ERP — {t(pageTitle)}</span>
+          }} data-ui-popupbar>
+            <span data-ui-page-title>nenova ERP — {t(pageTitle)}</span>
             <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
               <span style={{fontSize:9, opacity:.6, fontFamily:"'Menlo','Monaco',monospace"}}>
                 {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}
@@ -260,8 +260,8 @@ export default function Layout({ children, title }) {
   return (
     <>
       <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
-      <div className="layout">
-        <div className="sidebar">
+      <div className="layout" data-ui-shell="standard">
+        <div className="sidebar" data-ui-sidebar>
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
             <div className="sidebar-logo" style={{ cursor:'pointer' }} title={process.env.NEXT_PUBLIC_BUILD_VERSION || ''}>
               🏠 nenova ERP
@@ -312,8 +312,8 @@ export default function Layout({ children, title }) {
         </div>
 
         <div className="main-content">
-          <div className="topbar">
-            <span style={{fontWeight:'bold', fontSize:13}}>{t(pageTitle)}</span>
+          <div className="topbar" data-ui-topbar>
+            <span data-ui-page-title style={{fontWeight:'bold', fontSize:13}}>{t(pageTitle)}</span>
             <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
               <ClientDate />
               {/* 언어 전환 버튼 */}

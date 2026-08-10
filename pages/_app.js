@@ -15,6 +15,8 @@ const NO_LAYOUT = [
   '/orders/paste-template',
   '/orders/mapping-status',
   '/orders/kakao-audit',
+  '/sales/defect-deductions',
+  '/sales/defect-deduction-register-review',
   '/sales/customs-clearance',
   '/sales/forwarding-clearance',
 ];

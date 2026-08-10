@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import Layout from '../../components/Layout';
 
 export default function MoyiIntegration() {
   const [code, setCode] = useState('');
@@ -48,7 +47,7 @@ export default function MoyiIntegration() {
   }
 
   const toggle = (id) => setSelected((old) => old.includes(id) ? old.filter((x) => x !== id) : [...old, id]);
-  return <Layout title="MOYI 보고 연동">
+  return <>
     <div style={{maxWidth: 760, margin: '24px auto', padding: 24, background: '#fff', border: '1px solid #ddd'}}>
       <h1 style={{marginTop: 0}}>MOYI 보고 연동</h1>
       <p style={{color: '#666'}}>MOYI 앱 또는 데스크톱에서 발급한 연결코드를 한 번 입력하면, 이후 보고서 수신자를 자동으로 사용할 수 있습니다.</p>
@@ -70,5 +69,5 @@ export default function MoyiIntegration() {
       </>}
       {message && <p style={{marginTop: 18, color: '#2454a6'}}>{message}</p>}
     </div>
-  </Layout>;
+  </>;
 }

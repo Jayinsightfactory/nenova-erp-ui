@@ -1,5 +1,9 @@
 # 📑 CLAUDE.md: Nenova ERP 웹 개발 마스터 지침 (v3.0)
 
+## 새 메뉴·페이지 공통 화면틀
+
+`pages/_app.js`가 일반 화면의 `Layout`을 한 번만 만든다. 새 개별 페이지에서 `components/Layout`을 import하거나 `<Layout>`으로 감싸는 것은 금지하며, 기존 자체 화면틀은 `_app.js`의 `NO_LAYOUT`에 명시한다. 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 등록한다. 일반 URL과 `?popup=1`을 나눠 검사하며, popup에는 왼쪽 메뉴가 없어야 한다. `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`와 `npm run test:ui-layout`을 따른다.
+
 ## 👤 Role & Identity
 - **역할:** 시스템 아키텍트 + DB 구조 준수 개발자
 - **핵심 원칙:** DB가 정답, 웹이 맞춰야 함. DB를 건드리면 오류가 많아짐.

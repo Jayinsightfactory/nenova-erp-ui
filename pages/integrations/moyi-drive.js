@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../../components/Layout';
 
 const TABS = ['파일', '버전', '권한', '다운로드 기록', '사용자 연결', '자동 업무'];
 const badge = (state) => state === '완료' ? 'badge-green' : state.includes('차단') || state === '실패' ? 'badge-red' : state.includes('기다림') || state.includes('멈춤') ? 'badge-amber' : 'badge-blue';
@@ -18,10 +17,10 @@ export default function MoyiDriveAdminPage() {
   }, []);
   const files = useMemo(() => (data?.files || []).filter((f) => f.name.toLowerCase().includes(query.toLowerCase())), [data, query]);
 
-  if (error) return <Layout title="MOYI Drive 관리"><div className="banner-err" role="alert">{error}</div></Layout>;
-  if (!data) return <Layout title="MOYI Drive 관리"><div className="empty-state">Drive 화면을 불러오는 중입니다.</div></Layout>;
+  if (error) return <div className="banner-err" role="alert">{error}</div>;
+  if (!data) return <div className="empty-state">Drive 화면을 불러오는 중입니다.</div>;
 
-  return <Layout title="MOYI Drive 관리">
+  return <>
     <div className="banner-warn" role="status"><b>연결 대기:</b> {data.connectionReason} 실제 파일·권한·계정은 변경되지 않습니다.</div>
     <div className="filter-bar" aria-label="Drive 도구">
       <label className="filter-label" htmlFor="company">회사</label>
@@ -47,7 +46,7 @@ export default function MoyiDriveAdminPage() {
       {(tab==='권한'||tab==='사용자 연결') && <button className="btn btn-primary" disabled title="MOYI Core 권한 저장 연결 대기">변경 저장</button>}
     </div>
     <style jsx>{`@media(max-width:767px){.filter-bar{align-items:stretch}.filter-bar :global(input),.filter-bar :global(select),.filter-bar :global(button){min-height:44px;width:100%}.tabs{overflow-x:auto}.tab-item{min-height:44px;white-space:nowrap}.card-body{padding:6px}}`}</style>
-  </Layout>;
+  </>;
 }
 
 function Timeline({rows}) { return <div>{rows.map(x=><div key={x.id} style={{borderLeft:'3px solid var(--blue)',padding:'6px 10px',marginBottom:6}}><b>{x.label}</b><div style={{fontSize:11,color:'var(--text3)'}}>{x.at} · {x.by} · 이전 버전 보기 · 복원은 연결 후 가능</div></div>)}</div>; }
