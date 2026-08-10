@@ -19,7 +19,7 @@
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
-import { normalizeOrderUnit } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
@@ -271,8 +271,17 @@ export default withAuth(withActionLog(async function handler(req, res) {
 async function getFixCheck(req, res) {
   const { week, prodKey, prodKeys } = req.query;
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
-  const { week: orderWeek, year: inferredYear } = normWeek(week);
-  const orderYear = String(req.query.year || inferredYear);
+  let orderYear;
+  let orderWeek;
+  try {
+    ({ orderYear, orderWeek } = requireOrderYear(week, req.query.orderYear || req.query.year));
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      code: err?.code || 'FIX_CHECK_SCOPE_INVALID',
+      error: '품목군 확정상태 자동 조회에 필요한 선택 연도 또는 차수가 올바르게 전달되지 않았습니다.',
+    });
+  }
   const keys = String(prodKeys || prodKey || '')
     .split(',')
     .map(v => parseInt(v, 10))

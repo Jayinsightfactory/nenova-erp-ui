@@ -4,6 +4,7 @@
 
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { requireOrderYear } from '../../../lib/orderUtils';
 import {
   deriveExeAlignedStatus,
   deriveShipmentDetailStatus,
@@ -11,20 +12,14 @@ import {
   reconcileWeekAfterScopedOperation,
 } from '../../../lib/shipmentFixReconcile';
 
-function parseWeek(input) {
-  const raw = String(input || '').trim();
-  const full = raw.match(/^(\d{4})-(\d{2}-\d{2})$/);
-  if (full) return { year: full[1], week: full[2], key: full[1] + full[2].replace('-', '') };
-  const short = raw.match(/^(\d{2}-\d{2})$/);
-  const year = String(new Date().getFullYear());
-  if (short) return { year, week: short[1], key: year + short[1].replace('-', '') };
-  return null;
+function parseWeek(input, explicitYear) {
+  const { orderYear, orderWeek } = requireOrderYear(input, explicitYear);
+  return { year: orderYear, week: orderWeek, key: orderYear + orderWeek.replace('-', '') };
 }
 
-function normalizeRange(fromWeek, toWeek) {
-  const from = parseWeek(fromWeek);
-  const to = parseWeek(toWeek || fromWeek);
-  if (!from || !to) throw new Error('차수 형식은 15-01 또는 2026-15-01 이어야 합니다.');
+function normalizeRange(fromWeek, toWeek, explicitYear) {
+  const from = parseWeek(fromWeek, explicitYear);
+  const to = parseWeek(toWeek || fromWeek, explicitYear);
   return from.key <= to.key ? { from, to } : { from: to, to: from };
 }
 
@@ -61,17 +56,19 @@ function shipmentCancelSql(shape) {
           SELECT 0 AS result, N'' AS message;`;
 }
 
-async function loadShipmentProdKeys(orderWeek, countryFlower) {
+async function loadShipmentProdKeys(orderYear, orderWeek, countryFlower) {
   const result = await query(
     `SELECT DISTINCT sd.ProdKey
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
-      WHERE sm.OrderWeek = @wk
+      WHERE sm.OrderYear = @yr
+        AND sm.OrderWeek = @wk
         AND sm.isDeleted = 0
         AND ISNULL(sd.OutQuantity, 0) > 0
         AND (@cf IS NULL OR p.CountryFlower = @cf)`,
     {
+      yr: { type: sql.NVarChar, value: orderYear },
       wk: { type: sql.NVarChar, value: orderWeek },
       cf: { type: sql.NVarChar, value: countryFlower || null },
     }
@@ -405,6 +402,7 @@ async function loadLaterFixed(to) {
      JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
      WHERE sm.isDeleted = 0
        AND ISNULL(sd.isFix, 0) = 1
+       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) = @defaultYear
        AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') > @toKey
      GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek
      ORDER BY WeekKey ASC`,
@@ -418,8 +416,8 @@ async function loadLaterFixed(to) {
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
-      const { fromWeek, toWeek } = req.query;
-      const { from, to } = normalizeRange(fromWeek, toWeek);
+      const { fromWeek, toWeek, orderYear, year } = req.query;
+      const { from, to } = normalizeRange(fromWeek, toWeek, orderYear || year);
       const [statusRes, negativeRes, categoryRes] = await Promise.all([
         loadWeekStatus(from, to),
         loadNegativeRows(from, to),
@@ -469,8 +467,8 @@ export default withAuth(async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { fromWeek, toWeek, force, countryFlowers } = req.body || {};
-      const { from, to } = normalizeRange(fromWeek, toWeek);
+      const { fromWeek, toWeek, orderYear, year, force, countryFlowers } = req.body || {};
+      const { from, to } = normalizeRange(fromWeek, toWeek, orderYear || year);
       const cfFilter = normalizeCountryFlowerFilter(countryFlowers);
       const later = await loadLaterFixed(to);
       if (later.recordset.length > 0 && !force) {
@@ -503,7 +501,7 @@ export default withAuth(async function handler(req, res) {
       const stockByWeek = {};
       for (const t of callTargets) {
         try {
-          const prodKeys = await loadShipmentProdKeys(t.OrderWeek, procedureShape.hasCountryFlower ? t.CountryFlower : null);
+          const prodKeys = await loadShipmentProdKeys(t.OrderYear, t.OrderWeek, procedureShape.hasCountryFlower ? t.CountryFlower : null);
           const r = await query(
             shipmentCancelSql(procedureShape),
             {
@@ -563,6 +561,13 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const requestError = ['ORDER_YEAR_REQUIRED', 'ORDER_YEAR_MISMATCH', 'INVALID_ORDER_YEAR', 'INVALID_ORDER_WEEK'].includes(err?.code);
+    return res.status(requestError ? 400 : 500).json({
+      success: false,
+      code: err?.code || 'FIX_STATUS_FAILED',
+      error: requestError
+        ? '확정현황 자동 조회에 필요한 선택 연도 또는 차수가 올바르게 전달되지 않았습니다. 화면을 새로고침한 뒤 다시 조회해 주세요.'
+        : err.message,
+    });
   }
 });

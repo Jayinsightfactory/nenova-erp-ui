@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, WeekInput, getCurrentWeek } from '../../lib/useWeekInput';
+import { resolveFixStatusOrderYear } from '../../lib/fixStatusYearScope';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const fixedLabel = {
@@ -105,7 +106,9 @@ export default function ShipmentFixStatus() {
     setErr('');
     setMsg('');
     try {
+      const orderYear = resolveFixStatusOrderYear('', fromInput.value, toInput.value);
       const data = await apiGet('/api/shipment/fix-status', {
+        orderYear,
         fromWeek: fromInput.value,
         toWeek: toInput.value,
       });
@@ -133,10 +136,11 @@ export default function ShipmentFixStatus() {
     setErr('');
     setMsg('');
     try {
+      const orderYear = resolveFixStatusOrderYear('', fromInput.value, toInput.value);
       const res = await fetch('/api/shipment/fix-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromWeek: fromInput.value, toWeek: toInput.value, force }),
+        body: JSON.stringify({ orderYear, fromWeek: fromInput.value, toWeek: toInput.value, force }),
       });
       const data = await res.json();
       if (res.status === 409 && data.warning === 'LATER_FIXED_EXISTS') {

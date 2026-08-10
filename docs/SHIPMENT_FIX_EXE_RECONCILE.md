@@ -86,7 +86,7 @@ node __tests__/shipmentFixGuards.test.js
 ### 4.1 진단
 
 ```bash
-node scripts/probe-fix-parity-audit.mjs 25-01
+node scripts/probe-fix-parity-audit.mjs 2026-25-01
 # GET /api/dev/fix-parity-audit?week=25-01
 node scripts/probe-negative-stock-week.js 2026 25-01
 ```

@@ -2,6 +2,7 @@
 // 실행: node __tests__/estimateFixCycle.test.js
 
 async function main() {
+  const { spawnSync } = await import('node:child_process');
   const { getFixCycleWeeksForEditedItems } = await import('../lib/estimateFixCycle.js');
   const fs = await import('node:fs');
 
@@ -34,6 +35,9 @@ async function main() {
   assert('확정 후보 조회는 OrderYear를 사용', fixApi.includes('sm.OrderYear=@yr AND sm.OrderWeek=@wk'));
   assert('확정 후보 함수에 OrderYear 전달', fixApi.includes('loadShipmentCategoryTargets(orderYear, orderWeek'));
   assert('재고 재계산 품목 조회에 OrderYear 전달', fixApi.includes('loadShipmentProdKeys(orderYear, orderWeek'));
+
+  const yearContract = spawnSync(process.execPath, ['__tests__/estimateFixStatusYearContract.test.js'], { stdio: 'inherit' });
+  assert('확정현황 선택연도/교차연도 계약', yearContract.status === 0);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   process.exit(fail > 0 ? 1 : 0);

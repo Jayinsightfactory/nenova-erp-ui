@@ -1,0 +1,31 @@
+{
+  "id": "estimate-fix-status-year",
+  "title": "견적서관리 선택연도 확정현황 계약",
+  "scope": [
+    "pages/estimate.js",
+    "pages/api/shipment/fix-status.js",
+    "pages/api/shipment/adjust.js",
+    "pages/api/dev/fix-parity-audit.js",
+    "components/estimate/OrderRegisterDistributeModal.js",
+    "lib/fixStatusYearScope.js",
+    "lib/ensureWeekCanDistribute.js",
+    "lib/fixCycleClient.js",
+    "pages/orders/paste.js",
+    "pages/shipment/fix-status.js",
+    "pages/raum/pnl.js",
+    "pages/stock.js",
+    "scripts/probe-fix-parity-audit.mjs",
+    "scripts/probe-fix-unfix-status.mjs",
+    "scripts/bulk-refix-weeks.mjs",
+    "__tests__/estimateFixStatusYearContract.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"READ_SELECTED_YEAR_FIX_STATUS","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","shipmentDate":"preserve","shipmentFarm":"preserve","stock":"preserve"},
+    {"name":"UNFIX_SELECTED_YEAR_RANGE","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","shipmentDate":"preserve","shipmentFarm":"preserve","fixCycle":"nenova-exe-unfix-stock-recalculate-refix"}
+  ],
+  "crossYearFixture": {"required":true,"description":"2025년과 2026년에 같은 29-02가 있어도 화면 선택 연도를 모든 확정현황 GET/POST와 품목군 fixCheck에 명시하고, OrderYear+OrderWeek가 모두 같은 행만 조회·재고 재계산 대상으로 사용한다."},
+  "requiredTestFiles": ["__tests__/estimateFixStatusYearContract.test.js","__tests__/estimateFixCycle.test.js","__tests__/estimateDefectQuarantineContract.test.js","__tests__/estimateAdditionalProductContract.test.js","__tests__/erpContractManifest.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormEstimateView.md","source":"project-recorded dnSpy CLI evidence","methods":["FormEstimateView.GetData","FormEstimateView.GetDetail","usp_ShipmentFixCancel","usp_StockCalculation"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","StockMaster","SystemActionLog"]},
+  "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

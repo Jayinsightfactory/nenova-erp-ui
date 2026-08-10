@@ -1,11 +1,15 @@
 /**
  * 확정/확정취소 AppLog + fix-status 직접 조회
- * node scripts/probe-fix-unfix-status.mjs [week]  (기본 22-01)
+ * node scripts/probe-fix-unfix-status.mjs 2026-22-01
  */
 const BASE = process.env.SMOKE_BASE_URL || 'https://nenovaweb.com';
 const USER = process.env.SMOKE_USER || 'nenovaSS3';
 const PASS = process.env.SMOKE_PASS || '0000';
-const WEEK = process.argv[2] || '22-01';
+const WEEK_INPUT = process.argv[2] || '';
+const MATCH = WEEK_INPUT.match(/^(\d{4})-(\d{2}-\d{2})$/);
+if (!MATCH) throw new Error('조회 차수는 연도를 포함한 YYYY-WW-SS 형식으로 입력하세요.');
+const ORDER_YEAR = MATCH[1];
+const WEEK = MATCH[2];
 
 async function login() {
   const r = await fetch(`${BASE}/api/auth/login`, {
@@ -31,7 +35,8 @@ async function get(path, token) {
 async function main() {
   const token = await login();
   console.log(`\n=== fix-status ${WEEK} ===`);
-  const fs = await get(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(WEEK)}&toWeek=${encodeURIComponent(WEEK)}`, token);
+  const fullWeek = `${ORDER_YEAR}-${WEEK}`;
+  const fs = await get(`/api/shipment/fix-status?orderYear=${encodeURIComponent(ORDER_YEAR)}&fromWeek=${encodeURIComponent(fullWeek)}&toWeek=${encodeURIComponent(fullWeek)}`, token);
   console.log('HTTP', fs.status);
   const weekRow = (fs.json?.weeks || []).find(w => w.OrderWeek === WEEK || w.WeekKey === WEEK);
   console.log('Week row:', weekRow ? JSON.stringify(weekRow, null, 2) : '(none)');

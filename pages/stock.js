@@ -162,6 +162,7 @@ export default function Stock() {
       if (!outcome.data.success && outcome.data.code === 'WEEK_FIXED') {
         const cycleResult = await runEditWithFixCycle({
           weeks: [week],
+          orderYear,
           progress: setApplyMsg,
           apply: async () => {
             const r = await postAdjustBatch({ week, orderYear, force: true, edits: editsPayload });

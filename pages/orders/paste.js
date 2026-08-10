@@ -1992,11 +1992,13 @@ export default function PasteOrderPage() {
       return false;
     }
     try {
+      const orderYear = selectedYearFromWeek(targetWeek);
       const targetProdKeys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
       if (targetProdKeys.length > 0) {
         const d = await apiGet('/api/shipment/adjust', {
           type: 'fixCheck',
           week: targetWeek,
+          year: orderYear,
           prodKeys: targetProdKeys.join(','),
         });
         if (!d.success) throw new Error(d.error || '품목군 확정 상태 조회 실패');
@@ -2008,10 +2010,10 @@ export default function PasteOrderPage() {
         return true;
       }
 
-      const d = await apiGet('/api/shipment/fix-status', { fromWeek: targetWeek, toWeek: targetWeek });
+      const d = await apiGet('/api/shipment/fix-status', { orderYear, fromWeek: targetWeek, toWeek: targetWeek });
       if (!d.success) throw new Error(d.error || '확정 상태 조회 실패');
       const targetShort = shortWeekLabel(targetWeek);
-      const fixedInfo = (d.weeks || []).find(w => shortWeekLabel(`${w.OrderYear}-${w.OrderWeek}`) === targetShort) || (d.weeks || [])[0];
+      const fixedInfo = (d.weeks || []).find(w => String(w.OrderYear) === orderYear && shortWeekLabel(w.OrderWeek) === targetShort);
       const blocked = fixedInfo && (
         fixedInfo.status === 'FIXED' ||
         fixedInfo.status === 'PARTIAL' ||

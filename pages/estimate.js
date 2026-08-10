@@ -28,6 +28,7 @@ import {
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
+import { buildFixStatusQuery, findFixStatusWeek } from '../lib/fixStatusYearScope';
 import {
   computePrintPreviewTotals,
   ESTIMATE_PRINT_FORMAT,
@@ -198,18 +199,19 @@ async function postShipmentFix(body, { timeoutMs = FIX_UNFIX_FETCH_TIMEOUT_MS } 
   }
 }
 
-async function fetchWeekFixStatus(week) {
+async function fetchWeekFixStatus(week, orderYear) {
+  const query = buildFixStatusQuery({ orderYear, fromWeek: week, toWeek: week });
   const res = await fetch(
-    `/api/shipment/fix-status?fromWeek=${encodeURIComponent(week)}&toWeek=${encodeURIComponent(week)}`,
+    `/api/shipment/fix-status?${query}`,
     { credentials: 'same-origin' },
   );
   const data = await parseJsonResponse(res).catch(() => ({}));
-  return (data.weeks || []).find(w => w.OrderWeek === week) || null;
+  return findFixStatusWeek(data.weeks || [], { orderYear, orderWeek: week });
 }
 
-async function reconcileFixResultAfterAmbiguousResponse(week, data) {
+async function reconcileFixResultAfterAmbiguousResponse(week, data, orderYear) {
   if (data?.success || !data?._ambiguousResponse) return data;
-  const row = await fetchWeekFixStatus(week);
+  const row = await fetchWeekFixStatus(week, orderYear);
   if (row?.exeAligned || row?.status === 'FIXED') {
     return {
       success: true,
@@ -792,7 +794,7 @@ export default function Estimate() {
     setFixLogSince(Date.now() - 3000);
     setFixServerLogs([]);
     try {
-      const { data: d } = await postShipmentFix({ week: subWeek, action: 'unfix', force });
+      const { data: d } = await postShipmentFix({ week: subWeek, orderYear: yearStr, action: 'unfix', force });
       if (!d.success) {
         // 후속차수 확정 경고면 강제 진행 옵션 제공
         if (d.warning === 'LATER_FIXED_EXISTS') {
@@ -879,7 +881,7 @@ export default function Estimate() {
     if (!range) { alert('확정 현황을 확인할 차수를 알 수 없습니다.'); return; }
     setFixStatusLoading(true);
     try {
-      const res = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, {
+      const res = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: yearStr, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, {
         credentials: 'same-origin',
       });
       const data = await res.json();
@@ -893,7 +895,7 @@ export default function Estimate() {
       setFixStatusCategoryPreset('all');
       setFixStatusModal({ ...data, weeks, range });
     } catch (e) {
-      alert(`확정 현황 확인 오류: ${e.message}`);
+      alert(`${yearStr}년 ${range.fromWeek}~${range.toWeek} 확정 현황 자동 조회 오류: ${e.message}`);
     } finally {
       setFixStatusLoading(false);
     }
@@ -912,7 +914,7 @@ export default function Estimate() {
     setRangeUnfixWorking(true);
     setRangeUnfixStatus('확정취소 대상 확인 중');
     try {
-      const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(fromWeek)}&toWeek=${encodeURIComponent(toWeek)}`, {
+      const statusRes = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: yearStr, fromWeek, toWeek })}`, {
         credentials: 'same-origin',
       });
       const status = await statusRes.json();
@@ -944,6 +946,7 @@ export default function Estimate() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
+          orderYear: yearStr,
           fromWeek,
           toWeek,
           force,
@@ -1494,7 +1497,7 @@ export default function Estimate() {
     try {
       const range = getSelectedFixRange();
       if (!range) throw new Error('확정 대상 차수 범위를 확인할 수 없습니다.');
-      const statusRes = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, {
+      const statusRes = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: yearStr, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, {
         credentials: 'same-origin',
       });
       const statusData = await statusRes.json();
@@ -1601,13 +1604,14 @@ export default function Estimate() {
       try {
         let { data: d } = await postShipmentFix({
           week: wk,
+          orderYear: yearStr,
           action: 'fix',
           force,
           ...(countryFlowers.length ? { countryFlowers } : {}),
           ...(opts.autoStockAdd ? { autoStockAdd: true } : {}),
           ...(opts.confirmAutoStockAdd ? { confirmAutoStockAdd: true } : {}),
         });
-        d = await reconcileFixResultAfterAmbiguousResponse(wk, d);
+        d = await reconcileFixResultAfterAmbiguousResponse(wk, d, yearStr);
         const stockAdjustments = Array.isArray(d.stockAdjustments) ? d.stockAdjustments : [];
         const stockAdjustmentMessage = stockAdjustments.length > 0
           ? ` · 재고 부족분 보정 ${stockAdjustments.map(item => `${item.prodName || item.prodKey} +${item.added}`).join(', ')}`
@@ -1635,7 +1639,7 @@ export default function Estimate() {
         const msg = e?.name === 'AbortError'
           ? `요청 시간 초과(${Math.round(FIX_UNFIX_FETCH_TIMEOUT_MS / 60000)}분) — 재고 재계산 진행 중일 수 있습니다`
           : e.message;
-        const recovered = await reconcileFixResultAfterAmbiguousResponse(wk, { success: false, _ambiguousResponse: true, error: msg });
+        const recovered = await reconcileFixResultAfterAmbiguousResponse(wk, { success: false, _ambiguousResponse: true, error: msg }, yearStr);
         if (recovered.success) {
           results.push({ week: wk, ok: true, message: recovered.message, count: recovered.updatedCount, stockErrors: 0 });
         } else {
@@ -3200,6 +3204,7 @@ export default function Estimate() {
         try {
           ({ data } = await postShipmentFix({
             week: row.OrderWeek,
+            orderYear: yearStr,
             action: 'unfix',
             force: true,
             ...(countryFlowers.length ? { countryFlowers } : {}),
@@ -4354,7 +4359,7 @@ export default function Estimate() {
                       setFixStatusLoading(true);
                       try {
                         const range = getRecentFixStatusRange(parseInt(weekNum, 10), n);
-                        const res = await fetch(`/api/shipment/fix-status?fromWeek=${encodeURIComponent(range.fromWeek)}&toWeek=${encodeURIComponent(range.toWeek)}`, { credentials: 'same-origin' });
+                        const res = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: yearStr, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, { credentials: 'same-origin' });
                         const data = await res.json();
                         if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
                         const weeks = (data.weeks || [])

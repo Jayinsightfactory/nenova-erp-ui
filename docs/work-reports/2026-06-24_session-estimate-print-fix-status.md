@@ -92,7 +92,7 @@ POST /api/dev/estimate-print-descr-cleanup
 ### 4.2 진단 API (2026-06-24 운영 DB)
 
 ```bash
-node scripts/probe-fix-parity-audit.mjs 25-01
+node scripts/probe-fix-parity-audit.mjs 2026-25-01
 # 또는 GET /api/dev/fix-parity-audit?week=25-01
 ```
 
@@ -168,8 +168,8 @@ node scripts/probe-fix-parity-audit.mjs 25-01
 
 ```bash
 node __tests__/estimateInvariants.test.js
-node scripts/probe-fix-unfix-status.mjs 25-01
-node scripts/probe-fix-parity-audit.mjs 25-01
+node scripts/probe-fix-unfix-status.mjs 2026-25-01
+node scripts/probe-fix-parity-audit.mjs 2026-25-01
 node scripts/probe-estimate-descr-25-michael.mjs
 npm run test:smoke   # 운영 SMOKE_BASE_URL 설정 시
 ```

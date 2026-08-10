@@ -5,23 +5,24 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { deriveExeAlignedStatus, deriveShipmentDetailStatus } from '../../../lib/shipmentFixReconcile';
-
-function parseWeek(input) {
-  const raw = String(input || '').trim();
-  const full = raw.match(/^(\d{4})-(\d{2}-\d{2})$/);
-  if (full) return { year: full[1], week: full[2] };
-  const short = raw.match(/^(\d{2}-\d{2})$/);
-  if (short) return { year: String(new Date().getFullYear()), week: short[1] };
-  return null;
-}
+import { requireOrderYear } from '../../../lib/orderUtils';
 
 async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
-  const parsed = parseWeek(req.query.week);
-  if (!parsed) return res.status(400).json({ success: false, error: 'week 필요 (예: 25-01)' });
-
-  const { year, week } = parsed;
+  let year;
+  let week;
+  try {
+    const scope = requireOrderYear(req.query.week, req.query.orderYear || req.query.year);
+    year = scope.orderYear;
+    week = scope.orderWeek;
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      code: err?.code || 'FIX_PARITY_SCOPE_INVALID',
+      error: '확정 정합성 조회에 필요한 선택 연도 또는 차수가 올바르게 전달되지 않았습니다.',
+    });
+  }
   const params = {
     yr: { type: sql.NVarChar, value: year },
     wk: { type: sql.NVarChar, value: week },
