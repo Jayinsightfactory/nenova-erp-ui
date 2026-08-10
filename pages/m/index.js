@@ -19,6 +19,13 @@ const MOBILE_ONLY = [
 // 데스크톱 전체 메뉴 — components/Layout.js MENU_ITEMS 와 동기화
 const DESKTOP_MENU = [
   {
+    group: '연동',
+    items: [
+      { href: '/integrations/moyi', label: 'MOYI 보고 연동' },
+      { href: '/integrations/moyi-drive', label: 'MOYI Drive 관리', userIds: ['nenovaSS3'] },
+    ],
+  },
+  {
     group: '주문관리',
     items: [
       { href: '/orders/new',   label: '주문등록' },
@@ -145,7 +152,7 @@ export default function MobileHome() {
 
         {/* 데스크톱 전체 메뉴 — 그룹별 */}
         {DESKTOP_MENU.map(grp => {
-          const filtered = grp.items.filter(it => matches(it.label));
+          const filtered = grp.items.filter(it => (!it.userIds || it.userIds.includes(me.userId)) && matches(it.label));
           if (filtered.length === 0) return null;
           return (
             <section key={grp.group} className="mh-section">
@@ -164,7 +171,7 @@ export default function MobileHome() {
 
         <div className="mh-foot">
           {q ? (
-            DESKTOP_MENU.every(g => g.items.every(i => !matches(i.label))) &&
+            DESKTOP_MENU.every(g => g.items.filter(i => !i.userIds || i.userIds.includes(me.userId)).every(i => !matches(i.label))) &&
             MOBILE_ONLY.every(m => !matches(m.label)) &&
             <div style={{ textAlign:'center', color:'#999', padding:24 }}>검색 결과 없음</div>
           ) : (
