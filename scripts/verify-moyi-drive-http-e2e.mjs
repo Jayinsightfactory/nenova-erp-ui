@@ -93,8 +93,8 @@ try {
   assert.equal(pcPage.status, 200);
   assert.equal(mobilePage.status, 200);
   assert.match(await pcPage.text(), /MOYI Drive 관리/);
-  assert.match(await mobilePage.text(), /MOYI Drive 관리/);
-  record('PC·모바일 화면 경로', true, '모두 HTTP 200·메뉴 문구 확인');
+  assert.match(await mobilePage.text(), /"page":"\/m"/);
+  record('PC·모바일 화면 경로', true, '모두 HTTP 200·정확한 Next 페이지 확인');
 
   upstreamMode = 200;
   const admin = await invoke();
@@ -134,7 +134,7 @@ try {
   assert.equal(captured.join('\n').match(/e2e-connection-secret|sig=/), null);
   record('token·서명 기록 비노출', true);
 } catch (error) {
-  record('HTTP E2E', false, error.message);
+  record('HTTP E2E', false, String(error.message || error).slice(0, 300));
   throw error;
 } finally {
   console.info = originalInfo;
