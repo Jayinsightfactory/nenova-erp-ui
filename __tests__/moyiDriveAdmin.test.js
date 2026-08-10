@@ -23,7 +23,7 @@ assert.doesNotMatch(gateway, /access_token|nenovaToken/, '응답 모델에 인�
 assert.match(api, /hasCrossWorkspaceInput/, '클라이언트가 다른 회사·작업공간을 지정하면 차단해야 합니다.');
 assert.match(layout, /userIds:\s*\['nenovaSS3'\]/, '메뉴는 지정 계정에만 보여야 합니다.');
 assert.match(layout, /fetch\('\/api\/auth\/me'\)/, 'PC 메뉴는 서버의 실제 로그인 정보를 다시 확인해야 합니다.');
-assert.match(mobileHome, /MOYI Drive 관리[^\n]+userIds:\s*\['nenovaSS3'\]/, '모바일 메뉴에도 지정 관리자용 Drive 진입점이 있어야 합니다.');
+assert.match(mobileHome, /import\s*\{\s*MENU_ITEMS\s*\}[^\n]+components\/Layout/, '모바일 메뉴는 PC와 같은 메뉴 원본을 사용해야 합니다.');
 assert.match(mobileHome, /userIds\.includes\(me\.userId\)/, '모바일 메뉴도 서버에서 받은 실제 UserID로 표시를 제한해야 합니다.');
 assert.match(page, /연결 대기/, '화면에 연결 대기 이유를 알려야 합니다.');
 assert.match(page, /다운로드 기록/, '다운로드 성공·차단 화면이 있어야 합니다.');

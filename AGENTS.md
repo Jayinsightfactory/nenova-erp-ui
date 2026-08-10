@@ -1,5 +1,9 @@
 # Nenova ERP 작업 가드
 
+## 새 메뉴·페이지 화면틀 규칙
+
+일반 페이지의 왼쪽 메뉴와 상단바는 `pages/_app.js`만 소유한다. 새 `pages/**` 파일은 내용만 반환하고 `components/Layout`을 import하거나 `<Layout>`으로 다시 감싸지 않는다. 기존 자체 화면틀을 유지하면 `_app.js`의 `NO_LAYOUT`에 명시해 shell이 정확히 하나가 되게 한다. 새 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 등록한다. 일반 URL은 메뉴/상단바 각 1개, `?popup=1`은 간소화 상단바 1개/왼쪽 메뉴 0개인지 `npm run test:ui-layout`과 실브라우저로 확인한다. 자세한 예시는 `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`를 따른다.
+
 이 저장소의 주문·출고·입고·재고·견적 기능은 `nenova.exe`와 같은 MSSQL 데이터를 사용한다. 관련 기능을 만들거나 수정할 때 아래 절차는 선택사항이 아니다.
 
 ## 호환성 범위 고정
