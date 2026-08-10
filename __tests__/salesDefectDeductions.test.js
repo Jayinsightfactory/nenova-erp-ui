@@ -106,9 +106,11 @@ const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8')
 const estimateEditApiSource = fs.readFileSync('pages/api/estimate/update-entry.js', 'utf8');
 const listDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function listDeductions'),
-  deductionSource.indexOf('export async function saveDraftRows'),
+  deductionSource.indexOf('export async function markCarryoverDeductions'),
 );
 assert.doesNotMatch(listDeductionsSource, /ensureSalesDefectTables\(/, '영업수입불량차감 GET 목록 조회가 DDL ensure를 실행하면 안 됩니다.');
+assert.match(deductionSource, /markCarryoverDeductions[\s\S]*ensureSalesDefectTables\(/, '이월업체 등록 POST는 쓰기 스키마를 보장해야 합니다.');
+assert.match(deductionSource, /RemainingQuantity[\s\S]*WebSalesCarryoverApplication/, '이월 부분처리는 잔여수량과 적용이력을 모두 보존해야 합니다.');
 const defectMigrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
 assert.match(defectMigrationSource, /CREATE TABLE dbo\.WebSalesDefectDeduction/, '웹 차감 원장은 migration에서 생성해야 합니다.');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
@@ -186,7 +188,7 @@ assert.ok(deductionSource.includes('이월 대기'), '현재 판매행이 없으
 assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
 assert.ok(deductionSource.includes('const estimateDescr = text(dbRow.Note, 1000);'), '견적 적요 기본값은 자동 문구가 아닌 입력된 메모만 사용해야 한다.');
 assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');
-assert.ok(supportReviewSource.includes('originalBeforeByKey'), '신규 Estimate INSERT 후 발급된 견적키를 재조회 검증해야 한다.');
+assert.ok(supportReviewSource.includes('originalRowByKey'), '신규 Estimate INSERT 후 발급된 견적키와 이월 잔여수량을 재조회 검증해야 한다.');
 assert.ok(supportReviewSource.includes('<b>분배단가</b>'), '영업지원 전산등록 검토창은 분배단가를 표시해야 한다.');
 assert.ok(supportReviewSource.includes('.compare-pane { padding: 5px 8px;'), '영업지원 전산등록 검토창은 텍스트 간격을 줄여야 한다.');
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');

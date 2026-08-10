@@ -18,6 +18,7 @@ import {
   preflightRegistration,
   registrationPreview,
   registerDeductions,
+  markCarryoverDeductions,
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
@@ -45,6 +46,7 @@ async function handler(req, res) {
       const year = normalizeYear(req.query.year || defaultYear());
       const week = normalizeParentWeek(req.query.week || 1);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
+      const carryoverOnly = String(req.query.view || '') === 'carryover';
       const data = await listDeductions({
         year,
         week,
@@ -53,7 +55,7 @@ async function handler(req, res) {
           : managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
-        includeCarryover: String(req.query.view || '') === 'support',
+        includeCarryover: String(req.query.view || '') === 'support', carryoverOnly,
       });
       return res.status(200).json({ success: true, year, week, ...data });
     }
@@ -126,6 +128,10 @@ async function handler(req, res) {
             ...skipped.map((row) => `이월 대기 · 원장키 #${row.deductionKey} · ${row.error}`),
           ],
         });
+      }
+      if (action === 'carryover-register') {
+        const rows = await markCarryoverDeductions({ ids: req.body?.ids || [], user: req.user });
+        return res.status(200).json({ success: true, saved: rows.length, rows });
       }
       return res.status(400).json({ success: false, error: `지원하지 않는 작업입니다: ${action}` });
     }

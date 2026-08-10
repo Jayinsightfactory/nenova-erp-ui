@@ -73,6 +73,32 @@ IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedCostSourceYear') IS NULL
 IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'AppliedCostSourceWeek') IS NULL
   ALTER TABLE dbo.WebSalesDefectDeduction ADD AppliedCostSourceWeek NVARCHAR(10) NULL;
 
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'IsCarryoverLedger') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD IsCarryoverLedger BIT NOT NULL CONSTRAINT DF_WebSalesDefectDeduction_IsCarryoverLedger DEFAULT 0;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'OriginalQuantity') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD OriginalQuantity DECIMAL(18,4) NULL;
+IF COL_LENGTH(N'dbo.WebSalesDefectDeduction', N'RemainingQuantity') IS NULL
+  ALTER TABLE dbo.WebSalesDefectDeduction ADD RemainingQuantity DECIMAL(18,4) NULL;
+
+IF OBJECT_ID(N'dbo.WebSalesCarryoverApplication', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.WebSalesCarryoverApplication (
+    ApplicationKey BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    DeductionKey INT NOT NULL,
+    EstimateKey INT NOT NULL,
+    AppliedOrderYear INT NOT NULL,
+    AppliedOrderWeek NVARCHAR(10) NOT NULL,
+    AppliedShipmentKey INT NOT NULL,
+    AppliedQuantity DECIMAL(18,4) NOT NULL,
+    AppliedCost DECIMAL(18,4) NOT NULL,
+    AppliedBy NVARCHAR(100) NOT NULL DEFAULT N'',
+    AppliedByName NVARCHAR(100) NOT NULL DEFAULT N'',
+    AppliedAt DATETIME NOT NULL DEFAULT GETDATE()
+  );
+  CREATE INDEX IX_WebSalesCarryoverApplication_Deduction
+    ON dbo.WebSalesCarryoverApplication(DeductionKey, AppliedAt DESC);
+END;
+
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN
   CREATE TABLE dbo.WebSalesDefectDeductionHistory (
