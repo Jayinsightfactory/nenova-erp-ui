@@ -28,7 +28,7 @@ import {
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
-import { buildFixStatusQuery, findFixStatusWeek } from '../lib/fixStatusYearScope';
+import { buildFixStatusQuery, findFixStatusWeek, resolveFixStatusOrderYear } from '../lib/fixStatusYearScope';
 import {
   computePrintPreviewTotals,
   ESTIMATE_PRINT_FORMAT,
@@ -1403,15 +1403,17 @@ export default function Estimate() {
     .map(it => Number(it.ProdKey))
     .filter(Number.isFinite))];
 
-  const runShipmentFixAction = async (week, action, countryFlowers = [], stockProdKeys = [], extraBody = {}) => {
+  const runShipmentFixAction = async (orderYear, week, action, countryFlowers = [], stockProdKeys = [], extraBody = {}) => {
+    const selectedYear = resolveFixStatusOrderYear(orderYear, week);
     const { data: d } = await postShipmentFix({
       week,
-      orderYear: yearStr,
+      orderYear: selectedYear,
       action,
-      force: true,
+      ...extraBody,
+      // 자동 편집은 뒤 차수 확정 경고를 강제로 우회하지 않는다.
+      force: false,
       countryFlowers,
       stockProdKeys,
-      ...extraBody,
     });
     if (!d.success) {
       throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
@@ -1422,8 +1424,9 @@ export default function Estimate() {
   // lightStock: 단가수정처럼 재고 수치가 안 변하는 편집용 — 사이클 중간 재고 재계산을 전부
   // 생략(skipStockCalc)하고, 마지막 재확정 1회만 전체 재계산으로 스냅샷을 정리한다.
   // 수량수정은 재고가 실제로 변하므로 lightStock 을 켜지 말 것.
-  const runEditWithFixCycle = async ({ weeks, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false }) => {
+  const runEditWithFixCycle = async ({ weeks, orderYear, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
+    const selectedYear = resolveFixStatusOrderYear(orderYear, ...targetWeeks);
     const unfixedWeeks = [];
     let applyResult = null;
     let applyError = null;
@@ -1431,7 +1434,7 @@ export default function Estimate() {
     try {
       for (const wk of sortWeeksDesc(targetWeeks)) {
         progress?.(`${wk} 확정해제 중`);
-        await runShipmentFixAction(wk, 'unfix', countryFlowers, stockProdKeys, skipBody);
+        await runShipmentFixAction(selectedYear, wk, 'unfix', countryFlowers, stockProdKeys, skipBody);
         unfixedWeeks.push(wk);
       }
     } catch (err) {
@@ -1439,7 +1442,7 @@ export default function Estimate() {
       for (const wk of sortWeeksAsc(unfixedWeeks)) {
         progress?.(`${wk} 원상복구 재확정 중`);
         // 원상복구는 안전 우선 — 재계산 생략하지 않음
-        await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys);
+        await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys);
       }
       throw err;
     }
@@ -1458,7 +1461,7 @@ export default function Estimate() {
       const isLast = i === refixWeeks.length - 1;
       progress?.(`${wk} 재확정 중${lightStock && isLast ? ' (재고 정리 재계산 포함)' : ''}`);
       // 경량 모드: 마지막 재확정만 전체 재계산으로 스냅샷 정리
-      await runShipmentFixAction(wk, 'fix', countryFlowers, stockProdKeys, isLast ? {} : skipBody);
+      await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys, isLast ? {} : skipBody);
     }
 
     if (applyError) throw applyError;
@@ -1752,6 +1755,7 @@ export default function Estimate() {
         }]);
         const retryResults = await runEditWithFixCycle({
           weeks: cycleWeeks,
+          orderYear: yearStr,
           countryFlowers: cycleCountryFlowers,
           stockProdKeys: cycleStockProdKeys,
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
@@ -1863,6 +1867,7 @@ export default function Estimate() {
       const body = {
         items: allItems.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
         mode: costMode,
+        orderYear: yearStr,
         week,
         custKey: selectedShip.CustKey,
       };
@@ -1933,6 +1938,7 @@ export default function Estimate() {
         }]);
         d = await runEditWithFixCycle({
           weeks: effWeeks,
+          orderYear: yearStr,
           // 화면 카테고리 라벨과 DB 확정 범위가 다를 수 있으므로 전체 고정 범위를
           // 해제·재확정한다. 단가 수정은 수량을 변경하지 않아 downstream 원장은 보존된다.
           countryFlowers: [],
@@ -2169,6 +2175,7 @@ export default function Estimate() {
             body: JSON.stringify({
               items: costItems.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
               mode: costMode,
+              orderYear: yearStr,
               week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
               custKey: selectedShip.CustKey,
             }),
@@ -2188,6 +2195,7 @@ export default function Estimate() {
 
       const runCombinedFixCycle = async (weeks) => runEditWithFixCycle({
         weeks,
+        orderYear: yearStr,
         // 확정된 상세가 화면 품목과 다른 카테고리로 섞여 있을 수 있다.
         // EXE의 차수 확정 단위와 동일하게 전체 고정 범위를 해제·재확정한다.
         countryFlowers: [],
@@ -2504,6 +2512,7 @@ export default function Estimate() {
                 expectedOldCost: Number(item.Cost || 0),
               }],
               mode: 'once',
+              orderYear: yearStr,
             }),
           });
           const data = await response.json();
@@ -2519,6 +2528,7 @@ export default function Estimate() {
       await (cycleWeeks.length > 0
         ? runEditWithFixCycle({
             weeks: cycleWeeks,
+            orderYear: yearStr,
             stockProdKeys: quantityChanged ? [Number(item.ProdKey)] : [],
             lightStock: !quantityChanged,
             progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
@@ -2983,6 +2993,7 @@ export default function Estimate() {
       try {
         const d = await apiGet('/api/estimate/order-statement-rows', {
           custKey: ship.CustKey,
+          orderYear: yearStr,
           parentWeek: ship.ParentWeek || pw,
         });
         if (!d.success) throw new Error(d.error || '조회 실패');

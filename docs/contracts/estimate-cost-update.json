@@ -4,8 +4,17 @@
   "scope": [
     "pages/estimate.js",
     "pages/api/estimate/update-cost.js",
+    "pages/api/estimate/index.js",
+    "pages/api/estimate/order-statement-rows.js",
     "pages/api/shipment/fix.js",
     "lib/estimateFixCycle.js",
+    "lib/fixCycleClient.js",
+    "lib/fixStatusYearScope.js",
+    "lib/weekProdCostSchema.js",
+    "lib/i18n.js",
+    "pages/orders/import.js",
+    "pages/raum/pnl.js",
+    "__tests__/estimateEditYearContract.test.js",
     "__tests__/estimateFixCycle.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -14,7 +23,11 @@
       "name": "COST_EDIT_UNFIX_SAVE_REFIX",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "fixCycle": "unfix-save-refix"
+      "fixCycle": "unfix-save-refix",
+      "selectedYearRequired": true,
+      "forceLaterFixedOverride": false,
+      "costWriteScope": "ShipmentKey + SdetailKey/EstimateKey, with ShipmentMaster.OrderYear/CustKey verification",
+      "weekProdCostKey": "OrderYear + OrderWeek + CustKey + ProdKey"
     }
   ],
   "crossYearFixture": {
@@ -23,6 +36,7 @@
   },
   "requiredTestFiles": [
     "__tests__/estimateFixCycle.test.js",
+    "__tests__/estimateEditYearContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

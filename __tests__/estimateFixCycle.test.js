@@ -38,6 +38,8 @@ async function main() {
 
   const yearContract = spawnSync(process.execPath, ['__tests__/estimateFixStatusYearContract.test.js'], { stdio: 'inherit' });
   assert('확정현황 선택연도/교차연도 계약', yearContract.status === 0);
+  const editYearContract = spawnSync(process.execPath, ['__tests__/estimateEditYearContract.test.js'], { stdio: 'inherit' });
+  assert('견적 편집 선택연도/교차연도/SSR 계약', editYearContract.status === 0);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
   process.exit(fail > 0 ? 1 : 0);
