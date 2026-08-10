@@ -308,3 +308,22 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 `Candlelight`처럼 일부 문자열만 겹치는 퍼지 후보를 뒤섞지 않으며, 직접 후보가
 없을 때만 오타 후보를 허용한다. 이 계약은 `PRODUCT_LOOKUP_USAGE_RANK`와
 `__tests__/salesDefectDeductions.test.js`가 회귀를 검사한다.
+
+## 2026-08-10 붙여넣기 ADD 이월재고 누락 검증
+
+붙여넣기 주문등록의 품목별 ADD 사전검증이 현차수 입고와 수동 재고조정만 가용수량으로
+계산해, 정상적인 직전 `ProductStock.Stock` 이월분을 누락했다. 전산 재고관리 화면과
+`usp_StockCalculation`, `FormShipmentDistribution.GetProductList()`는 이월재고를 포함하므로
+원장 이상이 아닌 웹 검증 공식 불일치였다.
+
+| 동작 | OrderDetail | ShipmentDetail/Date/Farm | ProductStock/StockHistory | Estimate/매출 |
+|---|---|---|---|---|
+| ADD 사전검증 | 기존 정책 보존 | 기존 정책 보존 | 읽기만 수행, 쓰기 금지 | 보존 |
+| CANCEL/AUTO_CANCEL | 기존 정책 보존 | 기존 정책 보존 | 변경 없음 | 보존 |
+| 실패 품목만 재시도 | 성공 품목 재가산 금지 | 실패 품목만 기존 ADD 재호출 | 자동 보정 금지 | 기존 정책 보존 |
+
+가용수량은 `prevStock + currentIn + adjustQty`, 잔량은 `available - totalOut`으로
+고정하고 모든 중간값을 0.001 단위로 정규화한다. `prevStock`은 같은 품목의 현재
+`OrderYear+OrderWeek` 결합키보다 작은 최신 `ProductStock.Stock`이며 `Product.Stock`을
+대체 원천으로 사용하지 않는다. 회귀는 `__tests__/shipmentAvailability.test.js`와
+`__tests__/shipmentPivotAdjustContract.test.js`가 담당한다.

@@ -2043,19 +2043,24 @@ export default function PasteOrderPage() {
   //       handleRegister 별도 호출 불필요.
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
-  const handleBulkDistribute = async (oid) => {
+  const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
     const order = orders.find(o => o.id === oid);
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
     if (bulkRunning) return; // 중복 실행 방지 (진행 중 재클릭)
 
     // 이미 등록+분배된 주문을 다시 실행하면 가산(중복 폭증)되므로 재확인
-    if (bulkResult && bulkResult.orderId === oid && bulkResult.okCount > 0) {
+    if (!failedOnly && bulkResult && bulkResult.orderId === oid && bulkResult.okCount > 0) {
       if (!confirm('이 주문은 이미 일괄 등록+분배가 완료되었습니다.\n다시 실행하면 수량이 추가로 가산(중복)됩니다.\n\n그래도 다시 진행하시겠습니까?')) return;
     }
 
     // 오차수 등록 방지 — 붙여넣은 텍스트 차수 vs 선택 등록차수
     if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
 
+    const failedKeys = new Set(
+      failedOnly && bulkResult?.orderId === oid
+        ? bulkResult.details.filter(x => !x.ok).map(x => `${Number(x.prodKey)}:${x.type}`)
+        : [],
+    );
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
       const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
       return {
@@ -2067,7 +2072,9 @@ export default function PasteOrderPage() {
       unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
       action: it.action || '추가',  // 기본 추가
     };
-    }).filter(x => x.qty > 0);
+    }).filter(x => x.qty > 0 && (
+      !failedOnly || failedKeys.has(`${Number(x.prodKey)}:${x.action === '취소' ? 'CANCEL' : 'ADD'}`)
+    ));
 
     // ⚠️ 일괄분배에서 빠지는 항목(=전산에 안 들어가는 항목)을 명확히 경고.
     //   - 품목 미매칭(prodKey 없음): 매칭을 먼저 잡아야 등록됨
@@ -2101,7 +2108,8 @@ export default function PasteOrderPage() {
       ? `\n\n⚠️ 아래 ${excluded.length}개는 전산에 등록되지 않습니다(매칭 필요):\n${excluded.join('\n')}`
       : '';
 
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 일괄 등록+분배:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
+    const retryLabel = failedOnly ? '이전 실패 품목만 재시도' : '일괄 등록+분배';
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 ${retryLabel}:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
@@ -3648,6 +3656,16 @@ export default function PasteOrderPage() {
                         <strong>일괄 분배 결과:</strong>
                         {' '}✅ 성공 {bulkResult.okCount}건
                         {bulkResult.failCount > 0 && <> / ❌ 실패 {bulkResult.failCount}건</>}
+                        {bulkResult.failCount > 0 && (
+                          <button
+                            onClick={() => handleBulkDistribute(order.id, { failedOnly: true })}
+                            disabled={bulkRunning}
+                            title="성공한 품목은 제외하고 이 결과의 실패 품목만 다시 처리합니다."
+                            style={{ marginLeft: 8, fontSize: 11, padding: '0 8px', background: '#e65100', color: '#fff', border: '1px solid #e65100', borderRadius: 4, cursor: bulkRunning ? 'wait' : 'pointer' }}
+                          >
+                            실패 품목만 재시도
+                          </button>
+                        )}
                         {bulkResult.okCount > 0 && (
                           <button onClick={openWeekPivot} style={{ marginLeft: 8, fontSize: 11, padding: '0 8px', background: '#1565c0', color: '#fff', border: '1px solid #1565c0', borderRadius: 4, cursor: 'pointer' }}>
                             차수피벗/엑셀
