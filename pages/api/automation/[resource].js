@@ -28,6 +28,7 @@ const PROXY_ALLOW = new Set([
   '/api/shipment/stock-status',
   '/api/stats/sales',
   '/api/stats/dashboard',
+  '/api/ecount/receivables', // [2026-08-10] 거래처별 미수 aging(WebEcountSnapshot 스냅샷 읽기전용) — MOYI 거래처 건강도 결합용
 ]);
 
 function getToken(req) {
