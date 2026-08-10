@@ -620,8 +620,8 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c     ON om.CustKey=c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey=od.OrderMasterKey AND od.isDeleted=0
          JOIN Product p      ON od.ProdKey=p.ProdKey
-         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey AND sm.OrderYear=@orderYear
-           AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
+         LEFT JOIN ShipmentMaster sm ON sm.CustKey=om.CustKey
+           AND sm.OrderYear=om.OrderYear AND sm.OrderWeek=om.OrderWeek AND sm.isDeleted=0
          LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=p.ProdKey
          WHERE om.OrderYear=@orderYear
            AND om.OrderWeek >= @weekFrom AND om.OrderWeek <= @weekTo

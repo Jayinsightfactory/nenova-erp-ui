@@ -58,7 +58,8 @@
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
   ],
-  "writes": ["WebImportFarmPaymentDay"],
+  "writes": ["WebImportFarmPaymentDay", "WebImportPivotAdj", "WebForwarderInvoice"],
+  "readPolicy": "GET은 SELECT만 수행하며 웹 전용 테이블 DDL은 docs/migrations/2026-08-03_web_import_farm_payment_day.sql에서 배포한다.",
   "preserves": ["WarehouseMaster", "WarehouseDetail", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ProductStock", "Estimate", "WebProfitReport"],
   "requiredTestFiles": ["__tests__/importPivotPayment.test.js", "__tests__/erpContractManifest.test.js"]
 }

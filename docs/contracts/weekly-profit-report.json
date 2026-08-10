@@ -18,6 +18,7 @@
     "lib/colombiaTruck.js",
     "lib/profitReportCalc.js",
     "lib/profitReportMonthly.js",
+    "docs/migrations/2026-08-10_web_profit_report_schema.sql",
     "components/CustomsClearancePanel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -69,7 +70,8 @@
     "__tests__/customsForwardingAuto.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/moyiReportPush.test.js",
-    "__tests__/profitReportMonthly.test.js"
+    "__tests__/profitReportMonthly.test.js",
+    "__tests__/getReadOnlySchemaContract.test.js"
   ],
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",

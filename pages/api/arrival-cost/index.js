@@ -54,7 +54,7 @@ export default withAuth(async function handler(req, res) {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).end();
   } catch (error) {
-    return res.status(400).json({ success: false, error: error.message });
+    return res.status(error.statusCode || 400).json({ success: false, error: error.message, code: error.code });
   }
 });
 

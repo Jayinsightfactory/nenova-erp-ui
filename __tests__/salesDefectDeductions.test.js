@@ -104,6 +104,13 @@ const distributeSource = fs.readFileSync('pages/shipment/distribute.js', 'utf8')
 const mappingStatusSource = fs.readFileSync('components/orders/MappingStatusModal.js', 'utf8');
 const estimateApiSource = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
 const estimateEditApiSource = fs.readFileSync('pages/api/estimate/update-entry.js', 'utf8');
+const listDeductionsSource = deductionSource.slice(
+  deductionSource.indexOf('export async function listDeductions'),
+  deductionSource.indexOf('export async function saveDraftRows'),
+);
+assert.doesNotMatch(listDeductionsSource, /ensureSalesDefectTables\(/, '영업수입불량차감 GET 목록 조회가 DDL ensure를 실행하면 안 됩니다.');
+const defectMigrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
+assert.match(defectMigrationSource, /CREATE TABLE dbo\.WebSalesDefectDeduction/, '웹 차감 원장은 migration에서 생성해야 합니다.');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
 assert.ok(pageSource.includes('defect-inline-lookup'), '검색 결과는 입력 행 위의 인라인 패널로 표시되어야 한다.');
 assert.ok(pageSource.includes('shiftParentWeek'), '차수 앞뒤 이동은 공통 경계 규칙을 사용해야 한다.');

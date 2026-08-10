@@ -7,6 +7,7 @@ import {
   purchaseQtyByCategory, invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
   periodDayRangesByMajor,
+  assertProfitReportReadSchema,
 } from '../../../lib/profitReport';
 import { computeAutoEndingStock, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
@@ -209,6 +210,8 @@ export async function loadAnnualMonthlyReportData(orderYear) {
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      // GET은 SELECT 전용이다. 스키마 생성은 POST/배포 마이그레이션에서만 수행한다.
+      await assertProfitReportReadSchema();
       if (String(req.query.period || '').toLowerCase() === 'annual' || req.query.monthly === '1') {
         const orderYear = resolveActiveOrderYear('', req.query.year);
         const data = await loadAnnualMonthlyReportData(orderYear);
@@ -265,6 +268,6 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code });
   }
 });

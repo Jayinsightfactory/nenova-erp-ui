@@ -16,7 +16,8 @@ import { withAuth } from '../../../lib/auth';
 import { normalizeOrderWeek, resolveActiveOrderYear, buildOrderYearWeek } from '../../../lib/orderUtils';
 import { normalizePaymentDay } from '../../../lib/importPivotPayment';
 
-// 웹 전용 수기항목 테이블 (ensure 패턴 — WeekProdCost/WebRaumPnl 과 동일)
+// 웹 전용 테이블의 DDL은 docs/migrations에서 배포한다.
+// ensure 함수는 명시적인 쓰기 경로의 이전 배포 호환용이며 GET에서는 호출하지 않는다.
 let _adjEnsured = null;
 function ensureAdjTable() {
   if (_adjEnsured) return _adjEnsured;
@@ -80,7 +81,6 @@ function ensureFarmPaymentTable() {
 }
 
 async function loadFarmPaymentDays() {
-  await ensureFarmPaymentTable();
   const result = await query(
     `SELECT FarmName, PaymentDay
        FROM WebImportFarmPaymentDay
@@ -147,7 +147,6 @@ const rangeParams = (r) => ({
 });
 
 async function loadAdjustments(r) {
-  await ensureAdjTable();
   const result = await query(
     `SELECT AutoKey, OrderYear, OrderWeek, Awb, InvoiceNo, FarmName, Label, RefNo, Amount,
             CreateID, CONVERT(varchar(10), CreateDtm, 111) AS CreateDate
@@ -438,7 +437,6 @@ function ensureFwdTable() {
 }
 
 async function loadFwdInvoices(r) {
-  await ensureFwdTable();
   const result = await query(
     `SELECT OrderWeek, Awb, InvoiceNo FROM WebForwarderInvoice
       WHERE isDeleted = 0 AND OrderYear + REPLACE(OrderWeek, '-', '') BETWEEN @yws AND @ywe`,

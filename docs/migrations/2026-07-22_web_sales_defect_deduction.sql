@@ -1,5 +1,6 @@
 -- 영업수입불량차감 웹 원장 + 변경 이력
--- API도 동일 DDL을 idempotent ensure 한다. 운영 DB에 먼저 실행해도 안전하다.
+-- API GET은 SELECT만 수행한다. 이 migration을 배포 전에 실행한다.
+-- 쓰기 API의 idempotent ensure는 이전 배포 호환용으로만 유지한다.
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeduction', N'U') IS NULL
 BEGIN
