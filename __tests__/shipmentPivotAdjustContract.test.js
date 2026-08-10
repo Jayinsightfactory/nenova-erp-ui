@@ -101,6 +101,9 @@ async function main() {
   assert.match(adjust, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '출고 합계도 연도로 격리해야 한다.');
   assert.match(stockStatus, /resolveActiveOrderYear/, '조회·저장 API는 레거시 2025 주차 해석 대신 활성 연도 해석기를 사용해야 한다.');
   assert.match(stockStatus, /om\.OrderYear=@orderYear[\s\S]*om\.OrderWeek >= @weekFrom/, '업체별 주차 조회는 연도와 차수를 함께 필터링해야 한다.');
+  const pivotRead = stockStatus.match(/if \(view === 'pivot'\) \{([\s\S]*?)\n    \}/)?.[1] || '';
+  assert.match(pivotRead, /sm\.CustKey=om\.CustKey AND sm\.OrderYear=@orderYear[\s\S]*?sm\.OrderWeek=om\.OrderWeek/, '모아보기 피벗의 출고 조인은 선택 연도와 차수를 함께 사용해야 한다.');
+  assert.match(pivotRead, /WHERE om\.OrderYear=@orderYear[\s\S]*?om\.OrderWeek >= @weekFrom/, '모아보기 피벗의 주문 WHERE는 전년도 동일 차수를 제외해야 한다.');
   assert.match(stockStatus, /\$\{orderYear\}\$\{weekFrom\.replace\(/, 'EXE 차수피벗 범위에도 선택 연도를 다시 붙여야 한다.');
   assert.match(stockStatus, /const normYear = resolveActiveOrderYear\(week, year\)/, '업체 추가는 명시된 연도를 사용해야 한다.');
   assert.match(stockStatus, /const normYear2 = resolveActiveOrderYear\(week, year\)/, '업체 추가 delta도 명시된 연도를 사용해야 한다.');

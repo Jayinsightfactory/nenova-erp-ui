@@ -49,6 +49,17 @@ async function main() {
   assert.match(api, /farmPaymentDayBatch/, 'API가 농장 결제일 일괄 저장을 지원해야 합니다.');
   assert.match(api, /const detailRows = selectedFarmNames[\s\S]*?for \(const d of detailRows\)/, '정산서 그룹 생성도 선택 농장 필터를 적용해야 합니다.');
   assert.match(api, /buildSettlementExcel\(r, payDate, selectedFarmNames\)/, '정산서 엑셀 생성에 농장 필터를 전달해야 합니다.');
+  const getBranch = api.slice(api.indexOf("if (req.method !== 'GET')"));
+  assert.doesNotMatch(
+    getBranch,
+    /await ensure(?:Adj|FarmPayment|Fwd)Table\(/,
+    'GET 조회 경로는 CREATE/ALTER TABLE ensure를 실행하면 안 됩니다.'
+  );
+  assert.match(
+    api,
+    /webTableExists\('WebImportFarmPaymentDay'\)[\s\S]*?return \{\}/,
+    'GET은 결제일 테이블이 아직 없으면 DDL 대신 빈 조회 결과를 반환해야 합니다.'
+  );
 
   console.log('Import pivot payment tests passed');
 }
