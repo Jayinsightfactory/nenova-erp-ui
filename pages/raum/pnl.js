@@ -297,6 +297,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
   const postQty = async (e) => postJson('/api/estimate/update-quantity', {
     sdetailKey: e.sdetailKey, shipmentKey: e.shipmentKey,
     quantity: e.quantity, unit: e.unit, expectedOldQuantity: e.expectedOldQuantity,
+    orderYear, custKey,
   });
   const postCost = async (edits) => postJson('/api/estimate/update-cost', {
     items: edits.map(e => ({ shipmentKey: e.shipmentKey, sdetailKey: e.sdetailKey, cost: e.cost, expectedOldCost: e.expectedOldCost })),
@@ -312,12 +313,8 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
     const added = [];
     for (const a of plan.addEdits) {
       log(`신규 분배: ${a.name} [${a.week}] ${fmt(a.qty)}${a.unit} 추가 …`);
-      const body = { custKey, prodKey: a.prodKey, week: a.week, type: 'ADD', qty: a.qty, unit: a.unit, memo: '라움 손익 일괄수정(견적서 기준)' };
-      let d = await postJson('/api/shipment/adjust', body);
-      if (!d.success && /입고/.test(d.error || '')) {
-        log('  입고 미등록/초과 — force 재시도');
-        d = await postJson('/api/shipment/adjust', { ...body, force: true });
-      }
+      const body = { custKey, prodKey: a.prodKey, week: a.week, year: orderYear, type: 'ADD', qty: a.qty, unit: a.unit, memo: '라움 손익 일괄수정(견적서 기준)' };
+      const d = await postJson('/api/shipment/adjust', body);
       if (d.success) { results.addOk += 1; added.push(a); noteFor(a.prodKey, `신규분배 ${a.week} +${fmt(a.qty)}${a.unit}`); }
       else results.failed.push(`${a.name} 신규분배: ${d.error || '실패'}`);
     }
@@ -354,11 +351,10 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
     for (const m of plan.moves || []) {
       log(`이동: ${m.name} [${m.fromWeek} → ${m.toWeek}] ${fmt(m.qty)}${m.unit} …`);
       const memo = `차수이동 ${m.fromWeek}→${m.toWeek} (라움 손익 일괄수정)`;
-      let d = await postJson('/api/shipment/adjust', { custKey, prodKey: m.prodKey, week: m.fromWeek, type: 'CANCEL', qty: m.qty, unit: m.unit, memo });
+      let d = await postJson('/api/shipment/adjust', { custKey, prodKey: m.prodKey, week: m.fromWeek, year: orderYear, type: 'CANCEL', qty: m.qty, unit: m.unit, memo });
       if (!d.success) { results.failed.push(`${m.name} 이동(원천취소): ${d.error || '실패'}`); continue; }
-      const addBody = { custKey, prodKey: m.prodKey, week: m.toWeek, type: 'ADD', qty: m.qty, unit: m.unit, memo };
+      const addBody = { custKey, prodKey: m.prodKey, week: m.toWeek, year: orderYear, type: 'ADD', qty: m.qty, unit: m.unit, memo };
       d = await postJson('/api/shipment/adjust', addBody);
-      if (!d.success && /입고/.test(d.error || '')) d = await postJson('/api/shipment/adjust', { ...addBody, force: true });
       if (!d.success) {
         results.failed.push(`${m.name} 이동(목적지추가): ${d.error || '실패'} ⚠ 원천(${m.fromWeek})은 이미 취소됨 — 수동 복구 필요`);
         continue;
@@ -396,7 +392,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
       log(`재고 쌍보정: ${s.name} — ${s.plusWeek} +${fmt(s.delta)}박스 / ${s.minusWeek} −${fmt(s.delta)}박스 …`);
       const descr = `수동보정:차수잔량 (차수이동 ${plan.moveWeek}→${plan.moveTarget} 라움)`;
       let d = await postJson('/api/stock/adjust-batch', {
-        week: s.plusWeek, force: true,
+        week: s.plusWeek, orderYear,
         edits: [{ prodKey: s.prodKey, afterStock: round2(s.live + s.delta), descr }],
       });
       if (!d.success && !(d.results || []).some(x => x.ok)) {
@@ -404,7 +400,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
         continue;
       }
       d = await postJson('/api/stock/adjust-batch', {
-        week: s.minusWeek, force: true,
+        week: s.minusWeek, orderYear,
         edits: [{ prodKey: s.prodKey, afterStock: round2(s.live), descr: `${descr} 상쇄` }],
       });
       if (!d.success && !(d.results || []).some(x => x.ok)) {

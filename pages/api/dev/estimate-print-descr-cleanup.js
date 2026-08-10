@@ -18,9 +18,13 @@ function needsCleanup(descr) {
   return sanitizeDescrTextForPrint(raw) !== raw;
 }
 
-async function loadTargets({ week, cust, shipmentKey, limit }) {
+async function loadTargets({ orderYear, week, cust, shipmentKey, limit }) {
   const params = { limit: { type: sql.Int, value: limit } };
   const where = ['ISNULL(sm.isDeleted,0)=0'];
+  if (orderYear) {
+    where.push('sm.OrderYear=@orderYear');
+    params.orderYear = { type: sql.NVarChar, value: orderYear };
+  }
   if (week) {
     where.push('sm.OrderWeek LIKE @week');
     params.week = { type: sql.NVarChar, value: week.includes('%') ? week : `${week}%` };
@@ -142,6 +146,7 @@ async function handler(req, res) {
 
   const q = req.method === 'GET' ? req.query : req.body || {};
   const week = String(q.week || '').trim();
+  const orderYear = String(q.orderYear || q.year || '').trim();
   const cust = String(q.cust || q.customer || '').trim();
   const shipmentKey = q.shipmentKey ? parseInt(q.shipmentKey, 10) : null;
   const limit = toInt(q.limit);
@@ -153,9 +158,12 @@ async function handler(req, res) {
       error: 'week, cust, 또는 shipmentKey 중 하나는 필요합니다.',
     });
   }
+  if (!shipmentKey && !/^\d{4}$/.test(orderYear)) {
+    return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '견적 비고 정리에는 대상 연도가 필요합니다.' });
+  }
 
   try {
-    const targets = await loadTargets({ week, cust, shipmentKey, limit });
+    const targets = await loadTargets({ orderYear, week, cust, shipmentKey, limit });
     let updated = 0;
     if (apply && targets.length > 0) {
       updated = await applyCleanup(targets);
@@ -164,6 +172,7 @@ async function handler(req, res) {
     return res.status(200).json({
       success: true,
       apply,
+      orderYear: orderYear || null,
       week: week || null,
       cust: cust || null,
       shipmentKey: shipmentKey || null,

@@ -235,3 +235,9 @@ confirmAutoStockAdd` 명시 확인 계약 없이는 재고조정 원장을 만�
 연도를 추정해 채우지 않고 `NULL`로 보존하여, 선택연도 단가 조회에 섞이지 않게 한다.
 이 보강은 `OrderDetail`, `ShipmentDetail.OutQuantity`, `ShipmentFarm`, `Estimate` 행을
 추가·삭제하지 않는다.
+
+견적 조회는 화면의 선택 `OrderYear`와 대차수로 `OrderYearWeek`를 구성한다. 같은 대차수의
+최근 `ShipmentMaster`를 찾아 연도를 추정하지 않으며, 미확정 fallback 조회와 주문/출고
+불일치 진단도 `OrderYear`를 함께 제한한다. 조회 요청은 테이블 생성·ALTER를 실행하지 않는다.
+`WeekProdCost` 스키마 변경은 명시적 migration으로 분리하고 저장 시에는 read-only schema
+probe만 수행한다.

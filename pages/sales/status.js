@@ -216,7 +216,12 @@ export default function SalesStatus() {
     setEcountLoading(true);
     setEcountMsg('');
     try {
+      const scopeYears = [...new Set([dateFrom, dateTo]
+        .map((value) => String(value || '').slice(0, 4))
+        .filter((value) => /^\d{4}$/.test(value)))];
+      if (scopeYears.length !== 1) throw new Error('이카운트 판매 전송은 한 연도 범위로 조회한 뒤 실행하세요.');
       const data = await apiPost('/api/ecount/sales-push', {
+        orderYear: scopeYears[0],
         dateFrom: dateFrom || undefined,
         dateTo:   dateTo   || undefined,
         week:     week     || undefined,

@@ -52,7 +52,7 @@ export default withAuth(withActionLog(async function handler(req, res) {
 
   await ensureSyncLog();
 
-  const { shipmentKeys, all, offset: rawOffset, limit: rawLimit, dateFrom, dateTo, week } = req.body || {};
+  const { shipmentKeys, all, offset: rawOffset, limit: rawLimit, dateFrom, dateTo, week, orderYear, year } = req.body || {};
   const offset = parseInt(rawOffset) || 0;
   const limit  = parseInt(rawLimit)  || 10;  // 한 번에 10건 ShipmentKey
 
@@ -69,16 +69,23 @@ export default withAuth(withActionLog(async function handler(req, res) {
     const keyList = shipmentKeys.map(k => parseInt(k)).filter(k => !isNaN(k)).join(',');
     keyFilter = `AND sm.ShipmentKey IN (${keyList})`;
   } else if (all) {
-    keyFilter = `AND sm.ShipmentKey NOT IN (${alreadySentSubQuery})`;
+    const selectedYear = String(orderYear || year || '').trim();
+    if (!/^\d{4}$/.test(selectedYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '전체 판매 전송에는 화면의 선택 연도가 필요합니다.' });
+    params.orderYear = { type: sql.NVarChar, value: selectedYear };
+    keyFilter = `AND sm.OrderYear=@orderYear AND sm.ShipmentKey NOT IN (${alreadySentSubQuery})`;
   } else {
     if (!dateFrom && !dateTo && !week) {
       return res.status(400).json({ success: false, error: 'shipmentKeys, all, 또는 날짜 조건이 필요합니다.' });
     }
+    const selectedYear = String(orderYear || year || '').trim();
+    if (!/^\d{4}$/.test(selectedYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '조건별 판매 전송에는 화면의 선택 연도가 필요합니다.' });
+    params.orderYear = { type: sql.NVarChar, value: selectedYear };
     if (dateFrom) params.dateFrom = { type: sql.Date, value: dateFrom };
     if (dateTo)   params.dateTo   = { type: sql.Date, value: dateTo };
     if (week)     params.week     = { type: sql.NVarChar, value: week };
     keyFilter = `
       AND sm.ShipmentKey NOT IN (${alreadySentSubQuery})
+      AND sm.OrderYear = @orderYear
       AND (@dateFrom IS NULL OR CONVERT(DATE, sd.ShipmentDtm) >= @dateFrom)
       AND (@dateTo   IS NULL OR CONVERT(DATE, sd.ShipmentDtm) <= @dateTo)
       AND (@week     IS NULL OR sm.OrderWeek = @week)

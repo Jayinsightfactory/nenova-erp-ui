@@ -5,6 +5,7 @@ import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { ensureWeekCanDistribute } from '../../lib/ensureWeekCanDistribute';
 import { buildEstimateAdditionalWeek, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
+import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 
 function buildFullWeek(yearStr, shortWeek) {
   const w = String(shortWeek || '').trim();
@@ -153,15 +154,7 @@ export default function OrderRegisterDistributeModal({
     setResult(null);
     const details = [];
     const mustCycle = validTargets.some(t => t.context?.fixed);
-    const runFix = async (action) => {
-      const res = await fetch('/api/shipment/fix', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({week:`${String(weekNum).padStart(2,'0')}-02`,orderYear:yearStr,action,force:true,stockProdKeys:validTargets.map(t=>t.prodKey)}) });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || `${action} 실패`);
-      return data;
-    };
-    let unfixed = false;
-    try {
-      if (mustCycle) { await runFix('unfix'); unfixed = true; }
+    const apply = async () => {
       for (const t of validTargets) {
         try {
         const d = await apiPost('/api/shipment/adjust', {
@@ -183,12 +176,22 @@ export default function OrderRegisterDistributeModal({
         details.push({ ...t, ok: !!d.success, error: d.error });
         } catch (e) { details.push({ ...t, ok: false, error: e.message }); }
       }
-    } catch (e) { validTargets.forEach(t=>details.push({...t,ok:false,error:e.message})); }
-    finally {
-      if (unfixed) {
-        try { await runFix('fix'); }
-        catch(e) { details.push({prodName:'재확정',ok:false,error:`저장 후 재확정 실패: ${e.message}`}); }
+      return { success: details.every(d => d.ok) };
+    };
+    try {
+      if (mustCycle) {
+        await runEditWithFixCycle({
+          weeks: [`${String(weekNum).padStart(2,'0')}-02`],
+          orderYear: yearStr,
+          stockProdKeys: validTargets.map(t => t.prodKey),
+          apply,
+        });
+      } else {
+        await apply();
       }
+    } catch (e) {
+      if (!details.length) validTargets.forEach(t=>details.push({...t,ok:false,error:e.message}));
+      else details.push({prodName:'확정 사이클',ok:false,error:e.message});
     }
     const okCount = details.filter(d => d.ok).length;
     const failCount = details.length - okCount;

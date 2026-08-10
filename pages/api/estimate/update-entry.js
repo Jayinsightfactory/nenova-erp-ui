@@ -4,6 +4,7 @@
 // Order/Shipment/ShipmentDate/재고 원장은 이 경로에서 변경하지 않는다.
 import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 
 function parseDate(value) {
   if (!value) return null;
@@ -49,6 +50,9 @@ export default withAuth(async function handler(req, res) {
   if (expectedCost != null && !Number.isFinite(expectedCost)) {
     return res.status(400).json({ success: false, error: '조회시점 단가가 올바르지 않습니다.' });
   }
+  let writeScope;
+  try { writeScope = requireErpWriteScope(body, '견적 행 저장'); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
 
   const inputDate = body.estimateDate == null || body.estimateDate === ''
     ? null
@@ -60,13 +64,16 @@ export default withAuth(async function handler(req, res) {
   try {
     const result = await withTransaction(async (tQ) => {
       const current = await tQ(
-        `SELECT EstimateKey, ShipmentKey, EstimateType, ProdKey, Unit,
-                ISNULL(Quantity,0) AS Quantity, ISNULL(Cost,0) AS Cost,
-                ISNULL(Amount,0) AS Amount, ISNULL(Vat,0) AS Vat,
-                ISNULL(Descr,N'') AS Descr, EstimateDtm
-           FROM Estimate WITH (UPDLOCK, HOLDLOCK)
-          WHERE EstimateKey=@ek
-            AND (@sk IS NULL OR ShipmentKey=@sk)`,
+        `SELECT e.EstimateKey, e.ShipmentKey, e.EstimateType, e.ProdKey, e.Unit,
+                ISNULL(e.Quantity,0) AS Quantity, ISNULL(e.Cost,0) AS Cost,
+                ISNULL(e.Amount,0) AS Amount, ISNULL(e.Vat,0) AS Vat,
+                ISNULL(e.Descr,N'') AS Descr, e.EstimateDtm,
+                sm.OrderYear, sm.OrderWeek, sm.CustKey
+           FROM Estimate e WITH (UPDLOCK, HOLDLOCK)
+           JOIN ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) ON sm.ShipmentKey=e.ShipmentKey
+          WHERE e.EstimateKey=@ek
+            AND (@sk IS NULL OR e.ShipmentKey=@sk)
+            AND ISNULL(sm.isDeleted,0)=0`,
         {
           ek: { type: sql.Int, value: estimateKey },
           sk: { type: sql.Int, value: shipmentKey },
@@ -74,6 +81,7 @@ export default withAuth(async function handler(req, res) {
       );
       const row = current.recordset?.[0];
       if (!row) throw new Error(`EstimateKey=${estimateKey} 견적 행을 찾을 수 없습니다.`);
+      assertErpWriteScope(row, writeScope, `EstimateKey=${estimateKey}`);
 
       const oldQuantity = Number(row.Quantity || 0);
       const oldCost = Number(row.Cost || 0);
@@ -137,7 +145,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    return res.status(error.code === 'STALE_DATA' ? 409 : 500).json({
+    return res.status(['STALE_DATA', 'ERP_SCOPE_MISMATCH'].includes(error.code) ? 409 : 500).json({
       success: false,
       code: error.code,
       error: error.message,

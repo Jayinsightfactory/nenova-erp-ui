@@ -31,3 +31,8 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 확정행은 화면에서 확정해제→분배 저장→재확정하고 각 HTTP 쓰기는 SystemActionLog,
 수량 변경은 ShipmentHistory에 기록한다. 참고단가는 표시만 하며 사용자가 출처 또는
 직접입력을 명시하기 전에는 자동 확정하지 않는다.
+
+모든 출고분배 GET/POST는 화면 차수에 포함된 연도 또는 별도 `year`를 명시한다. 짧은
+`NN-NN`을 서버 현재연도로 보정하지 않는다. 입고 0/초과·음수잔량 경고의 `force`는 자동
+일괄 작업이나 라움 이동에서 재시도하지 않으며, 경고 내용을 본 사용자가 단건 작업을 다시
+확인한 경우에만 허용한다. 확정해제의 `force`와 재고부족 override는 서로 다른 계약이다.

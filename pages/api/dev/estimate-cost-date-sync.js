@@ -19,12 +19,21 @@ async function handler(req, res) {
   const limit = toInt(req.query.limit || req.body?.limit);
   const apply = req.method === 'POST' || req.query.apply === '1';
   const week = String(req.query.week || req.body?.week || '').trim();
+  const orderYear = String(req.query.orderYear || req.query.year || req.body?.orderYear || req.body?.year || '').trim();
   const prod = String(req.query.prod || req.query.product || req.body?.prod || '').trim();
   const scope = String(req.query.scope || req.body?.scope || 'web-edits').trim();
   const allCostSources = scope === 'all' || scope === 'all-cost-sources';
+  if ((week || apply) && !/^\d{4}$/.test(orderYear)) {
+    return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '견적 단가 동기화에는 대상 연도가 필요합니다.' });
+  }
 
   const params = { limit: { type: sql.Int, value: limit } };
   let weekWhere = '';
+  let yearWhere = '';
+  if (orderYear) {
+    yearWhere = 'AND sm.OrderYear = @orderYear';
+    params.orderYear = { type: sql.NVarChar, value: orderYear };
+  }
   if (week) {
     weekWhere = 'AND sm.OrderWeek = @week';
     params.week = { type: sql.NVarChar, value: week };
@@ -71,6 +80,7 @@ async function handler(req, res) {
     ) calc
     WHERE ISNULL(sm.isDeleted,0)=0
       ${editWhere}
+      ${yearWhere}
       ${weekWhere}
       ${prodWhere}
       AND (

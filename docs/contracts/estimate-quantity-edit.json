@@ -5,8 +5,10 @@
     "pages/estimate.js",
     "pages/api/estimate/update-quantity.js",
     "pages/api/estimate/update-date-quantity.js",
+    "pages/api/estimate/update-entry.js",
     "pages/api/shipment/fix.js",
     "lib/stockShortage.js",
+    "lib/erpWriteScope.js",
     "__tests__/stockShortage.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -87,6 +89,7 @@
   ],
   "requiredTestFiles": [
     "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/stockShortage.test.js",
     "__tests__/erpContractManifest.test.js"
   ]

@@ -4,7 +4,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderUnit, validateOrderWeek, resolveOrderWeekQuery } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, validateOrderWeek, resolveOrderWeekQuery, requireOrderYear } from '../../../lib/orderUtils';
 import { withActionLog } from '../../../lib/withActionLog';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlOrderViewGetData } from '../../../lib/exeOrderViewSql.js';
@@ -328,11 +328,7 @@ async function createOrder(req, res) {
     // → '17-01B', '470-01' 같은 노이즈 행 신규 생성 차단
     let orderYear, orderWeek;
     try {
-      const v = validateOrderWeek(week || '');
-      // 신규 주문 생성은 현재 연도 기준 — resolveOrderWeekQuery 의 NN-NN→2025 레거시 규칙 금지
-      // (레거시 규칙은 조회 전용. 생성에 타면 2025 주문이 생김 — 2026-07-08 연도분열 사고와 동류)
-      orderYear = v.year || year || new Date().getFullYear().toString();
-      orderWeek = v.week;
+      ({ orderYear, orderWeek } = requireOrderYear(week || '', year || ''));
     } catch (e) {
       await appLog('createOrder', '검증실패', e.message, true);
       return res.status(400).json({ success: false, error: e.message });

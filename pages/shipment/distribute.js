@@ -76,6 +76,11 @@ export default function Distribute() {
   const [tab, setTab] = useState(0); // 0:품목기준 1:출고일지정 2:집계
   const weekInput = useWeekInput('');
   const week = weekInput.value;
+  const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1] || '';
+  const apiGetDistribute = useCallback(
+    (params) => apiGet('/api/shipment/distribute', { ...params, year: selectedOrderYear }),
+    [selectedOrderYear],
+  );
   const [prodGroup, setProdGroup] = useState('');
   const [prodGroups, setProdGroups] = useState([]);
   const [prodGroupsLoading, setProdGroupsLoading] = useState(false);
@@ -154,14 +159,14 @@ export default function Distribute() {
   const loadProdGroups = useCallback(async (wk) => {
     setProdGroupsLoading(true);
     try {
-      const d = await apiGet('/api/shipment/distribute', { type: 'groups', ...(wk ? { week: wk } : {}) });
+      const d = await apiGetDistribute({ type: 'groups', ...(wk ? { week: wk } : {}) });
       return d.groups || [];
     } catch (e) {
       return [];
     } finally {
       setProdGroupsLoading(false);
     }
-  }, []);
+  }, [apiGetDistribute]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,7 +236,7 @@ export default function Distribute() {
       let items = [];
       let usesExe = false;
       if (cf) {
-        const d = await apiGet('/api/shipment/distribute', {
+        const d = await apiGetDistribute({
           type: 'custWeekGrid',
           week,
           custKey: ck,
@@ -241,7 +246,7 @@ export default function Distribute() {
         usesExe = items.length > 0;
       }
       if (!usesExe) {
-        const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: ck });
+        const d = await apiGetDistribute({ type: 'custItems', week, custKey: ck });
         items = d.items || [];
       }
       setTab2UsesExeGrid(usesExe);
@@ -316,7 +321,7 @@ export default function Distribute() {
     // 사전검증
     setFixLoading(true); setErr('');
     try {
-      const orderYear = String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
+      const orderYear = selectedOrderYear;
       const vRes = await fetch(`/api/shipment/fix?week=${encodeURIComponent(week)}&orderYear=${encodeURIComponent(orderYear)}`);
       const vData = await vRes.json();
       if (vData.issueCount > 0) {
@@ -336,7 +341,7 @@ export default function Distribute() {
       const res = await fetch('/api/shipment/fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, orderYear: String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()), action: 'fix' }),
+        body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'fix' }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -356,7 +361,7 @@ export default function Distribute() {
       const res = await fetch('/api/shipment/fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, orderYear: String(week || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()), action: 'unfix' }),
+        body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'unfix' }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -398,7 +403,7 @@ export default function Distribute() {
         body: JSON.stringify({
           action,
           week,
-          year: new Date().getFullYear().toString(),
+          year: selectedOrderYear,
           prodKey: action === 'one' ? selectedProd.ProdKey : undefined,
           prodGroup: action === 'group' ? prodGroup : undefined,
           distributionType: distMode === 'prior' ? 2 : 1, // 2=우선 분배, 1=비율 분배 (nenova.exe @DistributionType)
@@ -442,7 +447,7 @@ export default function Distribute() {
       const res = await fetch('/api/shipment/distribute-clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, year: new Date().getFullYear().toString(), prodKey: selectedProd.ProdKey }),
+        body: JSON.stringify({ week, year: selectedOrderYear, prodKey: selectedProd.ProdKey }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) throw new Error(data.error || '개별 초기화 실패');
@@ -479,13 +484,13 @@ export default function Distribute() {
 
     try {
       const [prodRes, custRes] = await Promise.all([
-        apiGet('/api/shipment/distribute', {
+        apiGetDistribute({
           type: 'products',
           week,
           ...(prodGroup && { prodGroup }),
           ...(cf && { countryFlower: cf }),
         }),
-        apiGet('/api/shipment/distribute', cf
+        apiGetDistribute(cf
           ? { type: 'customers', week, countryFlower: cf }
           : { type: 'custList', week }),
       ]);
@@ -503,7 +508,7 @@ export default function Distribute() {
           setSelectedCust(first);
           setCustLoading(true);
           try {
-            const d = await apiGet('/api/shipment/distribute', { type: 'custItems', week, custKey: first.CustKey });
+            const d = await apiGetDistribute({ type: 'custItems', week, custKey: first.CustKey });
             setCustItems(d.items || []);
           } catch { setCustItems([]); } finally { setCustLoading(false); }
         } else {
@@ -518,7 +523,7 @@ export default function Distribute() {
     if (!week || !cf) { setPivotRows([]); return; }
     setPivotLoading(true);
     try {
-      const d = await apiGet('/api/shipment/distribute', { type: 'pivot', week, countryFlower: cf });
+      const d = await apiGetDistribute({ type: 'pivot', week, countryFlower: cf });
       setPivotRows(d.rows || []);
     } catch {
       setPivotRows([]);
@@ -540,7 +545,7 @@ export default function Distribute() {
     setOutQty(prod.outQty || 0);
     setDistLoading(true);
     try {
-      const d = await apiGet('/api/shipment/distribute', { type:'custDist', week, prodKey: prod.ProdKey });
+      const d = await apiGetDistribute({ type:'custDist', week, prodKey: prod.ProdKey });
       setCustDist(d.customers || []);
       // 기존 출고수량으로 초기화
       const inputs = {};
@@ -559,7 +564,7 @@ export default function Distribute() {
     }
     setFarmLoading(true);
     try {
-      const d = await apiGet('/api/shipment/distribute', {
+      const d = await apiGetDistribute({
         type: 'shipmentFarms',
         prodKey: selectedProd.ProdKey,
         sdetailKey: c.SdetailKey,
@@ -578,7 +583,7 @@ export default function Distribute() {
     setSelectedCust(cust);
     setCustLoading(true);
     try {
-      const d = await apiGet('/api/shipment/distribute', { type:'custItems', week, custKey: cust.CustKey });
+      const d = await apiGetDistribute({ type:'custItems', week, custKey: cust.CustKey });
       const items = d.items || [];
       setCustItems(items);
       // 편집 입력값 초기화: 기존 출고수량 + 기존 단가
@@ -604,7 +609,7 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week, year: new Date().getFullYear().toString(),
+            week, year: selectedOrderYear,
             custKey: selectedCust.CustKey,
             prodKey: item.ProdKey,
             outQty: qty,
@@ -707,7 +712,7 @@ export default function Distribute() {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
-            week, year: new Date().getFullYear().toString(),
+            week, year: selectedOrderYear,
             custKey: c.CustKey,
             prodKey: selectedProd.ProdKey,
             outQty: qty,

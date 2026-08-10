@@ -6,6 +6,7 @@ import {
   shipmentUnitsFromUserInput,
 } from '../../../lib/distributeUnits.js';
 import { exeRoundedEstimateQuantity } from '../../../lib/estimateDateQuantity.js';
+import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 
 // 견적서관리의 출고일별 수량 변경은 단순 ShipmentDate.EstQuantity 수정이 아니다.
 // nenova.exe FormShipmentDistribution의 날짜 탭과 동일하게 해당 날짜의
@@ -63,6 +64,9 @@ export default withAuth(async function handler(req, res) {
     return res.status(400).json({ success: false, error: error.message });
   }
   if (!items.length) return res.status(400).json({ success: false, error: '수정할 출고일 행이 없습니다.' });
+  let writeScope;
+  try { writeScope = requireErpWriteScope(req.body, '출고일 수량 저장'); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
 
   try {
     const result = await withTransaction(async (tQ) => {
@@ -123,6 +127,7 @@ export default withAuth(async function handler(req, res) {
 
       for (const item of items) {
         const row = rowByKey.get(item.sdateKey);
+        assertErpWriteScope(row, writeScope, `SdateKey=${item.sdateKey}`);
         if (Number(row.DetailIsFix) === 1) throw fixedWeekError(row);
         if (item.expectedOldQuantity != null
           && Math.abs(exeRoundedEstimateQuantity(row.DateEstQuantity) - exeRoundedEstimateQuantity(item.expectedOldQuantity)) > 0.001) {
@@ -270,7 +275,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: '출고분배 및 출고일별 견적수량 저장 완료', ...result });
   } catch (error) {
-    const status = error.code === 'STALE_DATA' ? 409
+    const status = error.code === 'STALE_DATA' || error.code === 'ERP_SCOPE_MISMATCH' ? 409
       : error.code === 'FIXED_WEEK' ? 409
         : 500;
     return res.status(status).json({

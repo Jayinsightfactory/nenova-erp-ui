@@ -1177,6 +1177,7 @@ export default function Estimate() {
     const includeUnfixedForLoad = opts.includeUnfixedOverride ?? includeUnfixed;
     return apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
+      year: yearStr,
       custKey: selectedCust?.CustKey || '',
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
       ...(activeWD.size < 7 ? { weekDays: [...activeWD].join(',') } : {}),
@@ -1226,6 +1227,7 @@ export default function Estimate() {
     setItemLoading(true);
     const detailParams = {
       week: weekNum,
+      year: yearStr,
       custKey,
       byDate: 1,
       itemsOnly: 1,
@@ -1240,7 +1242,7 @@ export default function Estimate() {
       .finally(() => setItemLoading(false));
     // 주문 vs 출고 불일치 자동 검증
     if (custKey && weekNum) {
-      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, custKey })
+      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, year: yearStr, custKey })
         .then(d => { if (d.success) setMismatch(d); else setMismatch(null); })
         .catch(() => setMismatch(null));
     }
@@ -1252,6 +1254,7 @@ export default function Estimate() {
     try {
       const d = await apiGet('/api/estimate', {
         week: weekNum,
+        year: yearStr,
         custKey: ship.CustKey,
         byDate: 1,
         itemsOnly: 1,
@@ -1352,6 +1355,8 @@ export default function Estimate() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
+          orderYear: yearStr,
+          custKey: selectedShip?.CustKey || rows[0]?.item?.CustKey,
           items: rows.map(p => ({
             sdateKey: p.keyNumber,
             quantity: p.newQty,
@@ -1713,6 +1718,8 @@ export default function Estimate() {
             sdetailKey: p.isEstimate ? undefined : p.keyNumber,
             estimateKey: p.isEstimate ? p.keyNumber : undefined,
             shipmentKey: p.item.ShipmentKey,
+            orderYear: yearStr,
+            custKey: selectedShip?.CustKey || p.item.CustKey,
             quantity: p.newQty,
             unit: p.item.Unit,
             expectedOldQuantity: p.oldQty,
@@ -2136,6 +2143,8 @@ export default function Estimate() {
               sdetailKey: p.isEstimate ? undefined : p.keyNumber,
               estimateKey: p.isEstimate ? p.keyNumber : undefined,
               shipmentKey: p.item.ShipmentKey,
+              orderYear: yearStr,
+              custKey: selectedShip?.CustKey || p.item.CustKey,
               quantity: p.newQty,
               unit: p.item.Unit,
               expectedOldQuantity: p.oldQty,
@@ -2439,6 +2448,8 @@ export default function Estimate() {
           body: JSON.stringify({
             estimateKey: editor.estimateKey,
             shipmentKey: item.ShipmentKey,
+            orderYear: yearStr,
+            custKey: selectedShip.CustKey,
             prodKey: Number(editor.prodKey),
             unit: editor.unit,
             quantity,
@@ -2485,6 +2496,8 @@ export default function Estimate() {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
+              orderYear: yearStr,
+              custKey: selectedShip.CustKey,
               sdateKey: item.SdateKey,
               quantity,
               unit: item.Unit,
@@ -2584,6 +2597,7 @@ export default function Estimate() {
         const d = await apiGet('/api/estimate', {
           view: 'excelDetail',
           week: weekNum,
+          year: yearStr,
           custKey: ship.CustKey,
           weekDays,
         });
@@ -2686,6 +2700,7 @@ export default function Estimate() {
       const params = new URLSearchParams({
         custKey: String(ship.CustKey || ''),
         week: String(ship.ParentWeek || week),
+        year: yearStr,
         byDate: '1',
         itemsOnly: '1',
         printDetail: '1',
@@ -2853,6 +2868,7 @@ export default function Estimate() {
       const params = new URLSearchParams({
         custKey: String(ship.CustKey || ''),
         week: String(ship.ParentWeek || week),
+        year: yearStr,
         byDate: '1',
         itemsOnly: '1',
         printDetail: '1',
@@ -3081,6 +3097,7 @@ export default function Estimate() {
             const params = new URLSearchParams({
               custKey: String(ship.CustKey || ''),
               week: String(ship.ParentWeek || weekNum || ''),
+              year: yearStr,
               byDate: '1',
               itemsOnly: '1',
               printDetail: '1',
@@ -3218,7 +3235,7 @@ export default function Estimate() {
             week: row.OrderWeek,
             orderYear: yearStr,
             action: 'unfix',
-            force: true,
+            force,
             ...(countryFlowers.length ? { countryFlowers } : {}),
           }));
         } catch (e) {
@@ -3228,7 +3245,14 @@ export default function Estimate() {
           }
           throw e;
         }
-        if (!data.success) errors.push(formatFixApiErrorMessage(data, row.OrderWeek));
+        if (!data.success && data.warning === 'LATER_FIXED_EXISTS' && !force) {
+          const later = (data.laterWeeks || []).join(', ');
+          if (confirm(`${row.OrderWeek} 이후 확정 차수(${later})가 있습니다.\n후속 재고에 영향을 줄 수 있습니다. 그래도 이 차수만 확정취소할까요?`)) {
+            await unfixSelectedFixStatusWeeks(true);
+            return;
+          }
+          errors.push(`${row.OrderWeek}: 후속 확정 차수가 있어 중단`);
+        } else if (!data.success) errors.push(formatFixApiErrorMessage(data, row.OrderWeek));
         else {
           if (data.requiresAllCategoryFix) {
             warnings.push(`${row.OrderWeek}: 재확정 시 미확정 카테고리 전체 확정 필요 (${(data.pendingUnfixedCategories || []).join(', ')})`);

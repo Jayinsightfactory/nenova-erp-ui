@@ -776,7 +776,7 @@ export default function WeekPivot() {
     const ts = () => new Date().toLocaleTimeString('ko-KR', { hour12: false });
     const log = (t, msg) => setApplyLog(prev => [...prev, { t, ts: ts(), msg }]);
     log('info', `── 일괄 적용 시작: ${items.length}건 ──`);
-    let ok = 0, forced = 0, fail = 0;
+    let ok = 0, fail = 0;
     for (const it of items) {
       const diff = it.newQty - it.oldQty;
       const type = diff > 0 ? 'ADD' : 'CANCEL';
@@ -802,18 +802,10 @@ export default function WeekPivot() {
         return await r.json();
       };
       try {
-        let d = await call(false);
-        let wasForced = false;
-        // 입고 미등록/초과는 자동 강제 진행 — 전차수 입고·이월 잔량이 있을 수 있음 (경고는 로그로 남김)
-        const forceable = !d.success && d.error && (d.error.includes('force=true') || d.error.includes('입고 미등록') || (d.error.includes('입고') && d.error.includes('초과')));
-        if (forceable) {
-          log('warn', `⚠ 입고 경고 자동 진행(전차수 이월 잔량 가능): ${String(d.error).split('\n')[0]}`);
-          d = await call(true);
-          wasForced = true;
-        }
+        const d = await call(false);
         if (d.success) {
-          ok += 1; if (wasForced) forced += 1;
-          log('ok', `✅ 완료${wasForced ? '(강제)' : ''}: ${label}`);
+          ok += 1;
+          log('ok', `✅ 완료: ${label}`);
           setPendingEdits(prev => { const n = { ...prev }; delete n[`${it.year}-${it.pk}-${it.ck}-${it.wk}`]; return n; });
         } else {
           fail += 1;
@@ -824,7 +816,7 @@ export default function WeekPivot() {
         log('err', `❌ 오류: ${label} — ${e.message}`);
       }
     }
-    log('info', `── 완료: 성공 ${ok}건${forced ? ` (입고경고 강제 ${forced}건 포함)` : ''} · 실패 ${fail}건${fail ? ' — 실패 셀은 주황 대기 상태로 남음, 원인 해결 후 다시 [변경 시작]' : ''} ──`);
+    log('info', `── 완료: 성공 ${ok}건 · 실패 ${fail}건${fail ? ' — 입고·재고 부족 또는 농장배정을 해결한 뒤 다시 [변경 시작]' : ''} ──`);
     setApplying(false);
     loadData(weekFrom, weekTo);
   }, [pendingEdits, applying, weekFrom, weekTo, loadData]);

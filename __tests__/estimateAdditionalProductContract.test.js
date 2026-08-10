@@ -16,7 +16,7 @@ async function main() {
   assert('출고일 모호성 중단',api.includes('SHIPMENT_DATE_AMBIGUOUS'));
   assert('PIVOT_DISTRIBUTION',modal.includes("mode: 'PIVOT_DISTRIBUTION'"));
   assert('force 금지',modal.includes('force: false'));
-  assert('확정 사이클',modal.includes("await runFix('unfix')")&&modal.includes("await runFix('fix')"));
+  assert('확정 사이클',modal.includes('runEditWithFixCycle')&&modal.includes('orderYear: yearStr'));
   assert('출고일 서버 대조',adjust.includes('출고일 불일치'));
   console.log(`estimate additional product: ${pass} passed, ${fail} failed`);
   process.exit(fail?1:0);
