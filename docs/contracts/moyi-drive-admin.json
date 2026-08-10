@@ -7,6 +7,7 @@
     "lib/moyiDriveAdmin.js",
     "lib/moyiDriveGateway.js",
     "scripts/verify-moyi-drive-integration.mjs",
+    "scripts/verify-moyi-drive-http-e2e.mjs",
     "components/Layout.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
