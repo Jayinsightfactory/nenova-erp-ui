@@ -302,6 +302,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
     items: edits.map(e => ({ shipmentKey: e.shipmentKey, sdetailKey: e.sdetailKey, cost: e.cost, expectedOldCost: e.expectedOldCost })),
     mode: 'once',
     orderYear,
+    custKey,
   });
 
   // ── 신규 분배 추가 — 차수피벗과 동일 API(주문+출고+출고일 동시 생성) + 견적서 단가 세팅 ──

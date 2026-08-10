@@ -2513,6 +2513,7 @@ export default function Estimate() {
               }],
               mode: 'once',
               orderYear: yearStr,
+              custKey: selectedShip.CustKey,
             }),
           });
           const data = await response.json();
