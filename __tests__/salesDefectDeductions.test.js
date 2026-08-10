@@ -113,6 +113,9 @@ assert.match(deductionSource, /markCarryoverDeductions[\s\S]*ensureSalesDefectTa
 assert.match(deductionSource, /RemainingQuantity[\s\S]*WebSalesCarryoverApplication/, '이월 부분처리는 잔여수량과 적용이력을 모두 보존해야 합니다.');
 assert.ok(pageSource.includes('특정 원차수 이월업체 직접등록'), '이월 탭에서 선택한 연도·차수로 기존 이월업체를 직접 등록할 수 있어야 합니다.');
 assert.ok(pageSource.includes("sourceFileName: '이월업체 직접등록'"), '직접 등록 원천을 원장에 남겨야 합니다.');
+assert.match(deductionSource, /customerTargetRegistered[\s\S]*carryoverClassification[\s\S]*SURPLUS/, '적용 차수에 업체 판매범위가 없으면 여분으로 분류해야 합니다.');
+assert.ok(pageSource.includes('toggleCarryoverCustomer'), '이월 목록은 업체 단위로 선택·관리할 수 있어야 합니다.');
+assert.ok(pageSource.includes("업체 미등록"), '여분 업체의 사유를 화면에 표시해야 합니다.');
 const defectMigrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
 assert.match(defectMigrationSource, /CREATE TABLE dbo\.WebSalesDefectDeduction/, '웹 차감 원장은 migration에서 생성해야 합니다.');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');
