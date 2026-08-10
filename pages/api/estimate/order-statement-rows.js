@@ -4,6 +4,7 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { buildPrintRowsFromOrderDetails } from '../../../lib/orderStatementRows';
+import { WEEK_PROD_COST_YEAR_PROBE_SQL } from '../../../lib/weekProdCostSchema.js';
 
 function normalizeParentWeek(raw) {
   const s = String(raw || '').trim();
@@ -18,7 +19,7 @@ function normalizeParentWeek(raw) {
 async function hasWeekProdCostTable() {
   try {
     const r = await query(
-      `SELECT CASE WHEN OBJECT_ID(N'dbo.WeekProdCost', N'U') IS NOT NULL THEN 1 ELSE 0 END AS ok`,
+      WEEK_PROD_COST_YEAR_PROBE_SQL,
     );
     return Number(r.recordset[0]?.ok || 0) === 1;
   } catch {
@@ -29,7 +30,11 @@ async function hasWeekProdCostTable() {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
 
-  const { custKey, week, parentWeek, custName } = req.query;
+  const { custKey, week, parentWeek, custName, orderYear, year } = req.query;
+  const requestedYear = String(orderYear || year || '').trim();
+  if (!/^\d{4}$/.test(requestedYear)) {
+    return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '거래명세표 조회에 화면의 선택 연도(4자리)가 필요합니다.' });
+  }
   const pw = normalizeParentWeek(parentWeek || week);
   if (!pw) {
     return res.status(400).json({ success: false, error: 'week 또는 parentWeek 필요 (예: 28)' });
@@ -56,7 +61,8 @@ export default withAuth(async function handler(req, res) {
       ? `OUTER APPLY (
            SELECT TOP 1 wpc.Cost AS WeekCost
            FROM WeekProdCost wpc
-           WHERE wpc.CustKey = vo.CustKey AND wpc.ProdKey = vo.ProdKey
+           WHERE wpc.OrderYear = @yr
+             AND wpc.CustKey = vo.CustKey AND wpc.ProdKey = vo.ProdKey
              AND LEFT(wpc.OrderWeek, LEN(@pw)) = @pw
            ORDER BY wpc.OrderWeek DESC
          ) wpc`
@@ -79,7 +85,8 @@ export default withAuth(async function handler(req, res) {
        LEFT JOIN Product px ON vo.ProdKey = px.ProdKey
        LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = vo.CustKey AND cpc.ProdKey = vo.ProdKey
        ${wpcApply}
-       WHERE vo.CustKey = @ck
+       WHERE vo.OrderYear = @yr
+         AND vo.CustKey = @ck
          AND (
            LEFT(vo.OrderWeek, CASE WHEN CHARINDEX('-', vo.OrderWeek) > 0
              THEN CHARINDEX('-', vo.OrderWeek) - 1 ELSE LEN(vo.OrderWeek) END) = @pw
@@ -94,6 +101,7 @@ export default withAuth(async function handler(req, res) {
        ORDER BY vo.ProdName, vo.OrderDetailKey`,
       {
         ck: { type: sql.Int, value: resolvedCustKey },
+        yr: { type: sql.NVarChar, value: requestedYear },
         pw: { type: sql.NVarChar, value: pw },
       },
     );
@@ -106,6 +114,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      orderYear: requestedYear,
       custKey: resolvedCustKey,
       custName: custRow.recordset[0]?.CustName || '',
       parentWeek: pw,

@@ -3,6 +3,7 @@
 //   - 단가 우선순위: WeekProdCost → ShipmentDetail.Cost → CustomerProdCost → Product.Cost
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
 import { query, sql } from '../../../lib/db';
+import { WEEK_PROD_COST_SCHEMA_SQL } from '../../../lib/weekProdCostSchema.js';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
@@ -28,24 +29,7 @@ async function ensureWeekProdCostTable() {
   if (_wpcEnsured) return _wpcEnsured;
   _wpcEnsured = (async () => {
     try {
-      await query(
-        `IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name='WeekProdCost')
-         BEGIN
-           CREATE TABLE WeekProdCost (
-             AutoKey INT IDENTITY(1,1) PRIMARY KEY,
-             OrderWeek NVARCHAR(10) NOT NULL,
-             CustKey INT NOT NULL,
-             ProdKey INT NOT NULL,
-             Cost FLOAT NOT NULL,
-             CreatedAt DATETIME DEFAULT GETDATE(),
-             UpdatedAt DATETIME DEFAULT GETDATE(),
-             UpdatedBy NVARCHAR(50)
-           );
-           CREATE UNIQUE INDEX IX_WeekProdCost_Lookup
-             ON WeekProdCost(OrderWeek, CustKey, ProdKey);
-         END`,
-        {}
-      );
+      await query(WEEK_PROD_COST_SCHEMA_SQL, {});
     } catch (e) {
       // 권한 부족 등은 무시 — OUTER APPLY 결과가 null 이 되므로 견적서 계산은 계속 동작
       console.warn('[estimate] WeekProdCost 테이블 생성 스킵:', e.message);

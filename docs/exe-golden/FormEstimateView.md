@@ -214,3 +214,24 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 기존 `ShipmentDate` 수정 경로, 단가는 기존 `ShipmentDetail` 단가 수정 경로와
 확정취소·저장·재확정 사이클을 사용한다. 이 보강은 `OrderDetail`, 재고,
 `Estimate` 차감행을 변경하지 않는다.
+
+## 2026-08-10 선택연도 저장 회귀 재검증
+
+`FormEstimateView.GetData/GetDetail`의 표시 범위는 `OrderYearWeek/OrderYearWeek2`이고,
+단가 저장 대상은 `ShipmentKey`로 연결된 `ShipmentMaster`와 `ShipmentDetail/ShipmentDate`다.
+따라서 웹의 확정취소→저장→재확정 사이클은 짧은 `32-02`만 전달하지 않고 화면의
+`OrderYear`를 반드시 함께 전달한다. `/api/estimate/update-cost`도 `ShipmentMaster`를
+`UPDLOCK/HOLDLOCK`으로 읽어 요청 연도·거래처와 실제 `OrderYear/CustKey`가 일치할 때만
+`ShipmentDetail.Cost/EstQuantity/Amount/Vat`와 연결 `ShipmentDate.Cost/Amount/Vat`를
+수정한다. 불일치 시 전체 트랜잭션을 중단한다.
+
+자동 편집 사이클은 `force=false`로 확정취소/재확정을 호출한다. `force`는 음수재고
+검사를 건너뛰지는 않지만, 뒤 차수 확정 경고를 우회할 수 있으므로 자동 저장에서는
+사용하지 않는다. 재확정 중 음수재고가 확인되면 기존 `autoStockAdd +
+confirmAutoStockAdd` 명시 확인 계약 없이는 재고조정 원장을 만들지 않는다.
+
+웹 전용 `WeekProdCost`는 `OrderWeek`가 매년 반복되는 점을 반영해 신규 저장·조회 키를
+`OrderYear + OrderWeek + CustKey + ProdKey`로 사용한다. 기존 연도 컬럼이 없던 행은
+연도를 추정해 채우지 않고 `NULL`로 보존하여, 선택연도 단가 조회에 섞이지 않게 한다.
+이 보강은 `OrderDetail`, `ShipmentDetail.OutQuantity`, `ShipmentFarm`, `Estimate` 행을
+추가·삭제하지 않는다.

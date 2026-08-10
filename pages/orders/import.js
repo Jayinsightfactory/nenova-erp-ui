@@ -469,6 +469,7 @@ export default function OrderImportPage() {
       if (!rows.length) {
         const d = await apiGet('/api/estimate/order-statement-rows', {
           custKey: cust.CustKey,
+          orderYear: week.match(/^(\d{4})-/)?.[1] || '',
           parentWeek: pw,
           week: pw,
         });

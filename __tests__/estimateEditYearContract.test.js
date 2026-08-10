@@ -1,0 +1,61 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+async function main() {
+  const page = fs.readFileSync('pages/estimate.js', 'utf8');
+  const cycleClient = fs.readFileSync('lib/fixCycleClient.js', 'utf8');
+  const costApi = fs.readFileSync('pages/api/estimate/update-cost.js', 'utf8');
+  const statementApi = fs.readFileSync('pages/api/estimate/order-statement-rows.js', 'utf8');
+  const weekCostSchema = fs.readFileSync('lib/weekProdCostSchema.js', 'utf8');
+  const i18n = fs.readFileSync('lib/i18n.js', 'utf8');
+  const raum = fs.readFileSync('pages/raum/pnl.js', 'utf8');
+
+  const estimateCycles = [...page.matchAll(/runEditWithFixCycle\(\{[\s\S]{0,180}?orderYear:\s*yearStr/g)];
+  assert.equal(estimateCycles.length, 4, '수량/단가/통합/품목정보 네 확정 사이클 모두 선택 연도를 전달해야 한다.');
+
+  assert.match(page, /let results = await savePendingQuantities\(pending\)[\s\S]*?fixedFails[\s\S]*?runEditWithFixCycle/, '수량 수정은 미확정 직접 저장과 확정 재시도 경로를 모두 유지해야 한다.');
+  assert.match(page, /d = await postCostUpdate\(\)[\s\S]*?firstErr\.isFixedWeek[\s\S]*?runEditWithFixCycle/, '단가 수정은 미확정 직접 저장과 확정 재시도 경로를 모두 유지해야 한다.');
+  assert.match(page, /cycleWeeks\.length > 0[\s\S]*?runCombinedFixCycle\(cycleWeeks\)[\s\S]*?: await runCombinedUpdate\(\)/, '수량+단가 통합 수정은 확정/미확정 경로를 분리해야 한다.');
+  assert.match(page, /cycleWeeks\.length > 0[\s\S]*?runEditWithFixCycle\(\{[\s\S]*?orderYear: yearStr[\s\S]*?: apply\(\)/, '품목정보 수정은 확정/미확정 경로를 분리해야 한다.');
+
+  assert.doesNotMatch(cycleClient, /runEditWithFixCycle\(\{[^}]*orderYear\s*=\s*''/, '공용 확정 사이클은 연도 누락 기본값을 허용하면 안 된다.');
+  assert.match(cycleClient, /resolveFixStatusOrderYear\(orderYear, \.\.\.targetWeeks\)/, '저장 전에 선택 연도를 검증해야 한다.');
+  assert.doesNotMatch(cycleClient, /force:\s*true/, '자동 편집 확정 사이클은 뒤 차수 경고를 강제 우회하면 안 된다.');
+  assert.doesNotMatch(page.slice(page.indexOf('const runShipmentFixAction'), page.indexOf('// 수정된 단가 개수')), /force:\s*true/, '견적서 자동 편집 사이클은 force=true를 보내면 안 된다.');
+
+  assert.match(page, /const body = \{[\s\S]{0,250}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '단가 일괄 저장 payload에 선택 연도가 필요하다.');
+  assert.match(page, /items: costItems\.map[\s\S]{0,220}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도가 필요하다.');
+  assert.match(page, /shipmentKey: item\.ShipmentKey[\s\S]{0,350}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
+  assert.match(raum, /postJson\('\/api\/estimate\/update-cost'[\s\S]{0,300}?orderYear/, '라움의 공용 단가 저장 호출도 연도를 전달해야 한다.');
+
+  assert.match(costApi, /SELECT ShipmentKey, OrderYear, CustKey, OrderWeek/, '단가 API는 ShipmentMaster 실제 연도/차수/거래처를 잠금 조회해야 한다.');
+  assert.match(costApi, /String\(row\.OrderYear \|\| ''\) !== requestedYear/, '단가 API는 화면 연도와 실제 출고 연도를 대조해야 한다.');
+  assert.match(costApi, /Number\(row\.CustKey\) !== Number\(custKey\)/, '단가 API는 요청 거래처와 실제 출고 거래처를 대조해야 한다.');
+  assert.match(costApi, /ESTIMATE_SCOPE_MISMATCH/, '연도/거래처 불일치는 409 범위 오류로 중단해야 한다.');
+  assert.match(costApi, /t\.OrderYear=s\.OrderYear AND t\.OrderWeek=s\.OrderWeek/, 'WeekProdCost 저장은 연도+차수로 분리해야 한다.');
+  assert.match(weekCostSchema, /OrderYear, OrderWeek, CustKey, ProdKey/, 'WeekProdCost 고유키는 교차연도 충돌을 막아야 한다.');
+  assert.match(statementApi, /WHERE vo\.OrderYear = @yr/, '거래명세표 주문 조회도 선택 연도로 한정해야 한다.');
+  assert.match(statementApi, /wpc\.OrderYear = @yr/, '거래명세표 차수단가 조회도 선택 연도로 한정해야 한다.');
+
+  const { findFixStatusWeek } = await import('../lib/fixStatusYearScope.js');
+  const sameWeekAcrossYears = [
+    { OrderYear: '2025', OrderWeek: '32-02', status: 'FIXED' },
+    { OrderYear: '2026', OrderWeek: '32-02', status: 'UNFIXED' },
+  ];
+  assert.equal(findFixStatusWeek(sameWeekAcrossYears, { orderYear: '2025', orderWeek: '32-02' }).status, 'FIXED');
+  assert.equal(findFixStatusWeek(sameWeekAcrossYears, { orderYear: '2026', orderWeek: '32-02' }).status, 'UNFIXED');
+
+  assert.match(i18n, /useState\('bi'\)/, 'SSR과 첫 브라우저 렌더의 언어 초기값은 같아야 한다.');
+  assert.match(i18n, /useEffect\(\(\) => \{\s*setLangState\(getLang\(\)\)/, '저장 언어는 hydration 이후 반영해야 한다.');
+
+  for (const label of ['＋ 불량/검역등록', '＋ 불량차감등록', '＋ 판매요청', '＋ 추가 품목등록']) {
+    assert.ok(page.includes(label), `${label} 버튼을 보존해야 한다.`);
+  }
+
+  console.log('estimate edit selected-year/cross-year/hydration contract tests passed');
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

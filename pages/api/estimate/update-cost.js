@@ -23,6 +23,7 @@
 //       ...
 //     ],
 //     mode: 'once' | 'fixed' | 'weekFav',
+//     orderYear: '2026', // 화면 선택 연도. 모든 ShipmentMaster 실제 연도와 일치해야 함
 //     week?: '15-02',     // mode=weekFav 일 때 필요 (특정 세부차수용)
 //     custKey?: 42,       // mode=fixed/weekFav 일 때 필요
 //   }
@@ -33,6 +34,7 @@ import { withTransaction, sql, query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
 import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
+import { WEEK_PROD_COST_SCHEMA_SQL } from '../../../lib/weekProdCostSchema.js';
 
 // FIXED_WEEK 차단 진단용 — 사이클 미작동 신고 추적 (AppLog 없어도 무시)
 async function logCostGuard(step, detail) {
@@ -54,24 +56,7 @@ async function ensureWeekProdCostTable() {
   if (_wpcEnsured) return _wpcEnsured;
   _wpcEnsured = (async () => {
     try {
-      await query(
-        `IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name='WeekProdCost')
-         BEGIN
-           CREATE TABLE WeekProdCost (
-             AutoKey INT IDENTITY(1,1) PRIMARY KEY,
-             OrderWeek NVARCHAR(10) NOT NULL,
-             CustKey INT NOT NULL,
-             ProdKey INT NOT NULL,
-             Cost FLOAT NOT NULL,
-             CreatedAt DATETIME DEFAULT GETDATE(),
-             UpdatedAt DATETIME DEFAULT GETDATE(),
-             UpdatedBy NVARCHAR(50)
-           );
-           CREATE UNIQUE INDEX IX_WeekProdCost_Lookup
-             ON WeekProdCost(OrderWeek, CustKey, ProdKey);
-         END`,
-        {}
-      );
+      await query(WEEK_PROD_COST_SCHEMA_SQL, {});
     } catch (e) {
       console.warn('[update-cost] WeekProdCost 테이블 생성 스킵:', e.message);
     }
@@ -82,7 +67,16 @@ async function ensureWeekProdCostTable() {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { shipmentKey: topSk, items: rawItems, mode, week, custKey } = req.body || {};
+  const { shipmentKey: topSk, items: rawItems, mode, orderYear, week, custKey } = req.body || {};
+  const requestedYear = String(orderYear || '').trim();
+
+  if (!/^\d{4}$/.test(requestedYear)) {
+    return res.status(400).json({
+      success: false,
+      code: 'ORDER_YEAR_REQUIRED',
+      error: '단가 저장 요청에 화면의 선택 연도(4자리)가 포함되지 않았습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+    });
+  }
 
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return res.status(400).json({ success: false, error: 'items 배열 필요' });
@@ -143,7 +137,7 @@ export default withAuth(async function handler(req, res) {
       const smMap = {}; // sk → { wasFixed, custKey, orderWeek }
       for (const sk of uniqueSks) {
         const smRow = await tQ(
-          `SELECT ShipmentKey, CustKey, OrderWeek, ISNULL(isFix,0) AS isFix
+          `SELECT ShipmentKey, OrderYear, CustKey, OrderWeek, ISNULL(isFix,0) AS isFix
              FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
             WHERE ShipmentKey=@sk AND ISNULL(isDeleted,0)=0`,
           { sk: { type: sql.Int, value: sk } }
@@ -152,8 +146,21 @@ export default withAuth(async function handler(req, res) {
           throw new Error(`ShipmentKey=${sk} 없음 또는 삭제됨`);
         }
         const row = smRow.recordset[0];
+        if (String(row.OrderYear || '') !== requestedYear) {
+          const err = new Error(`선택 연도(${requestedYear})와 ShipmentKey=${sk}의 실제 연도(${row.OrderYear || '없음'})가 다릅니다. 저장을 중단했습니다.`);
+          err.code = 'ESTIMATE_SCOPE_MISMATCH';
+          err.shipmentKey = sk;
+          throw err;
+        }
+        if (custKey && Number(row.CustKey) !== Number(custKey)) {
+          const err = new Error(`선택 거래처와 ShipmentKey=${sk}의 실제 거래처가 다릅니다. 저장을 중단했습니다.`);
+          err.code = 'ESTIMATE_SCOPE_MISMATCH';
+          err.shipmentKey = sk;
+          throw err;
+        }
         smMap[sk] = {
           wasFixed: row.isFix === 1 || row.isFix === true,
+          orderYear: String(row.OrderYear),
           custKey: row.CustKey,
           orderWeek: row.OrderWeek,
         };
@@ -372,14 +379,15 @@ export default withAuth(async function handler(req, res) {
           seen.add(key);
           await tQ(
             `MERGE INTO WeekProdCost AS t
-             USING (VALUES (@wk, @ck, @pk, @cost)) AS s(OrderWeek, CustKey, ProdKey, Cost)
-                ON t.OrderWeek=s.OrderWeek AND t.CustKey=s.CustKey AND t.ProdKey=s.ProdKey
+             USING (VALUES (@yr, @wk, @ck, @pk, @cost)) AS s(OrderYear, OrderWeek, CustKey, ProdKey, Cost)
+                ON t.OrderYear=s.OrderYear AND t.OrderWeek=s.OrderWeek AND t.CustKey=s.CustKey AND t.ProdKey=s.ProdKey
              WHEN MATCHED THEN
                UPDATE SET Cost=s.Cost, UpdatedAt=GETDATE(), UpdatedBy=@uid
              WHEN NOT MATCHED THEN
-               INSERT (OrderWeek, CustKey, ProdKey, Cost, UpdatedBy)
-               VALUES (s.OrderWeek, s.CustKey, s.ProdKey, s.Cost, @uid);`,
+               INSERT (OrderYear, OrderWeek, CustKey, ProdKey, Cost, UpdatedBy)
+               VALUES (s.OrderYear, s.OrderWeek, s.CustKey, s.ProdKey, s.Cost, @uid);`,
             {
+              yr:   { type: sql.NVarChar, value: requestedYear },
               wk:   { type: sql.NVarChar, value: week },
               ck:   { type: sql.Int,      value: parseInt(custKey) },
               pk:   { type: sql.Int,      value: ch.prodKey },
@@ -413,6 +421,7 @@ export default withAuth(async function handler(req, res) {
     return res.status(200).json({
       success: true,
       mode,
+      orderYear: requestedYear,
       message: `단가 수정 완료 (${result.changedCount}건, ${result.shipmentKeys.length}개 차수, 공급가 ${result.diffAmount >= 0 ? '+' : ''}${result.diffAmount.toLocaleString()}원)`,
       ...result,
     });
@@ -437,6 +446,14 @@ export default withAuth(async function handler(req, res) {
         error: err.message,
         fixedWeeks: err.fixedWeeks || [],
         fixedCategories: err.fixedCategories || [],
+      });
+    }
+    if (err.code === 'ESTIMATE_SCOPE_MISMATCH') {
+      return res.status(409).json({
+        success: false,
+        code: err.code,
+        error: err.message,
+        shipmentKey: err.shipmentKey,
       });
     }
     return res.status(500).json({ success: false, error: err.message });

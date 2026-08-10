@@ -286,7 +286,7 @@ async function postJson(url, body) {
  *  이동(moves)이 있으면: 전체를 확정해제→적용→재확정 사이클 안에서 실행
  *    — ①이동(CANCEL→ADD, 단가보존) ②재고 쌍보정(+D/−D) ③신규분배 ④수량/단가 ⑤이동품목 견적정렬
  *  이동이 없으면: 기존 direct-first (FIXED_WEEK 거절분만 사이클) */
-async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
+async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {}) {
   const results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, failed: [], applied: {} };
   // 품목별 적용 내역 — 완료 후 전산 분배 대조 칸 옆에 초록 '✔ 적용' 으로 표시
   const noteFor = (prodKey, msg) => {
@@ -301,6 +301,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
   const postCost = async (edits) => postJson('/api/estimate/update-cost', {
     items: edits.map(e => ({ shipmentKey: e.shipmentKey, sdetailKey: e.sdetailKey, cost: e.cost, expectedOldCost: e.expectedOldCost })),
     mode: 'once',
+    orderYear,
   });
 
   // ── 신규 분배 추가 — 차수피벗과 동일 API(주문+출고+출고일 동시 생성) + 견적서 단가 세팅 ──
@@ -495,7 +496,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     const weekSet = new Set([plan.moveTarget, ...plan.editedWeeks]);
     const minW = [...weekSet].sort()[0];
     try {
-      const fs = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(detail.meta.orderYear)}&fromWeek=${encodeURIComponent(minW)}&toWeek=${encodeURIComponent(plan.moveWeek)}`).then(r => r.json());
+      const fs = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(orderYear)}&fromWeek=${encodeURIComponent(minW)}&toWeek=${encodeURIComponent(plan.moveWeek)}`).then(r => r.json());
       for (const w of fs.weeks || []) {
         if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minW) weekSet.add(w.OrderWeek);
       }
@@ -507,7 +508,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     log(`차수 이동 포함 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클로 실행`);
     try {
       await runEditWithFixCycle({
-        weeks, orderYear: detail.meta.orderYear, countryFlowers, stockProdKeys,
+        weeks, orderYear, countryFlowers, stockProdKeys,
         progress: (m) => log(m),
         apply: async () => {
           await doMoves();
@@ -537,7 +538,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     (rejectedCostInfo?.fixedWeeks || []).forEach(w => editedWeeks.add(w));
     const minWeek = [...editedWeeks].sort()[0];
     try {
-      const fsRes = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(detail.meta.orderYear)}&fromWeek=${encodeURIComponent(minWeek)}&toWeek=${encodeURIComponent([...editedWeeks].sort().pop())}`);
+      const fsRes = await fetch(`/api/shipment/fix-status?orderYear=${encodeURIComponent(orderYear)}&fromWeek=${encodeURIComponent(minWeek)}&toWeek=${encodeURIComponent([...editedWeeks].sort().pop())}`);
       const fs = await fsRes.json();
       for (const w of fs.weeks || []) {
         if ((w.status === 'FIXED' || w.status === 'PARTIAL') && w.OrderWeek >= minWeek) editedWeeks.add(w.OrderWeek);
@@ -553,7 +554,7 @@ async function applyErpSyncPlan(plan, log, { custKey, fetchRows } = {}) {
     log(`확정 차수 감지 — [${weeks.join(', ')}] 확정해제→적용→재확정 사이클 시작 (카테고리 ${countryFlowers.length}개 범위)`);
     try {
       await runEditWithFixCycle({
-        weeks, orderYear: detail.meta.orderYear, countryFlowers, stockProdKeys,
+        weeks, orderYear, countryFlowers, stockProdKeys,
         progress: (m) => log(m),
         apply: async () => {
           await doQtyList(rejectedQty, true);
@@ -1573,6 +1574,7 @@ export default function RaumPnlPage() {
     try {
       results = await applyErpSyncPlan(sync.plan, log, {
         custKey: sync.custKey,
+        orderYear: detail.meta.orderYear,
         fetchRows: async () => (await refreshErpCompare()).rows,
       });
     } catch (e) {
