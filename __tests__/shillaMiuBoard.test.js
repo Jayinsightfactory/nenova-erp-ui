@@ -20,6 +20,7 @@ assert.ok(api.includes('sm.OrderYear=@yr')&&api.includes('LEFT(sm.OrderWeek,2) I
 assert.ok(api.includes('sm.CustKey=@cust')&&!api.includes("CustName LIKE N'%신라%'"));
 assert.ok(api.includes('ISNULL(sm.isDeleted,0)=0')&&api.includes('ISNULL(sd.OutQuantity,0)>0'));
 assert.ok(api.includes('WebShillaMiuBoardGroup')&&api.includes('isAdmin'));
+assert.ok(api.includes("CustName=N'아이엠（미우）'")&&api.includes("N'초이문(센스앤센서빌러티)'"),'정확히 한 건인 Customer만 초기 그룹으로 사용한다.');
 assert.ok(api.includes('GroupKey IS NULL'),'기존 저장값 호환 읽기를 유지한다.');
 assert.ok(!api.match(/(?:INSERT|UPDATE|DELETE)\s+(?:Order|Shipment|Stock|Estimate|WebProfitReport)/i),'조회/저장 API에 ERP 쓰기가 없어야 한다.');
 assert.ok(page.includes('업체 추가/관리')&&page.includes('미완료만')&&page.includes('펼치기'));

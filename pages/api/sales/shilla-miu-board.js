@@ -24,6 +24,16 @@ function ensureSchema() {
     END;
     IF COL_LENGTH('dbo.WebShillaMiuBoardAllocation','GroupKey') IS NULL ALTER TABLE dbo.WebShillaMiuBoardAllocation ADD GroupKey INT NULL;
     IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'dbo.WebShillaMiuBoardAllocation') AND name=N'IX_WebShillaMiuBoardAllocation_GroupScope') CREATE INDEX IX_WebShillaMiuBoardAllocation_GroupScope ON dbo.WebShillaMiuBoardAllocation(OrderYear,GroupKey,UseWeek,ProdKey,isDeleted);
+    IF NOT EXISTS(SELECT 1 FROM dbo.WebShillaMiuBoardGroup)
+       AND (SELECT COUNT(*) FROM Customer WHERE CustName=N'아이엠（미우）' AND ISNULL(isDeleted,0)=0)=1
+    BEGIN
+      DECLARE @receiver INT=(SELECT CustKey FROM Customer WHERE CustName=N'아이엠（미우）' AND ISNULL(isDeleted,0)=0);
+      INSERT dbo.WebShillaMiuBoardGroup(GroupName,BaseCustKey,BaseCustName,ReceiverCustKey,ReceiverCustName,DisplayOrder,CreatedBy,UpdatedBy)
+      SELECT seed.GroupName,c.CustKey,c.CustName,@receiver,N'아이엠（미우）',seed.DisplayOrder,N'system-bootstrap',N'system-bootstrap'
+        FROM (VALUES(N'신라',N'신라상사',10),(N'라움',N'주식회사 트라움에스앤씨 (라움)',20),(N'초이문',N'초이문(센스앤센서빌러티)',30)) seed(GroupName,CustName,DisplayOrder)
+        JOIN Customer c ON c.CustName=seed.CustName AND ISNULL(c.isDeleted,0)=0
+       WHERE (SELECT COUNT(*) FROM Customer x WHERE x.CustName=seed.CustName AND ISNULL(x.isDeleted,0)=0)=1;
+    END;
   `).catch((e) => {
     schemaPromise = null;
     throw e;
