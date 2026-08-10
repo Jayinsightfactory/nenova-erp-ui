@@ -79,6 +79,29 @@ async function main() {
     assert('steam 200 / bunch 20', near(r.units.steam, 200) && near(r.units.bunch, 20));
   }
 
+  console.log('\n=== 알스트로 OutUnit=단, 명시 1박스 ADD/CANCEL ===');
+  {
+    const alstroBunch = { outUnit: '단', estUnit: '송이', bunchOf1Box: 10, steamOf1Box: 100 };
+    const add = computeShipmentAdjustUnits({ curOut: 0, delta: 1, type: 'ADD', unit: '박스', ...alstroBunch });
+    assert('1박스 ADD → OutQuantity +10단', near(add.deltaOut, 10) && near(add.qtyAfter, 10));
+    const cancel = computeShipmentAdjustUnits({ curOut: 20, delta: 1, type: 'CANCEL', unit: '박스', ...alstroBunch });
+    assert('1박스 CANCEL → OutQuantity -10단', near(cancel.deltaOut, 10) && near(cancel.qtyAfter, 10));
+    const bunch = computeShipmentAdjustUnits({ curOut: 0, delta: 1, type: 'ADD', unit: '단', ...alstroBunch });
+    assert('1단 ADD → OutQuantity +1단', near(bunch.deltaOut, 1) && near(bunch.qtyAfter, 1));
+  }
+
+  console.log('\n=== 환산 마스터 0/NULL은 구체적 오류로 차단 ===');
+  {
+    assert('박스→단 BunchOf1Box=0 차단', (() => {
+      try {
+        computeShipmentAdjustUnits({ curOut: 0, delta: 1, type: 'ADD', unit: '박스', outUnit: '단', bunchOf1Box: 0 });
+        return false;
+      } catch (error) {
+        return error.code === 'PRODUCT_UNIT_CONVERSION_MISSING' && /BunchOf1Box/.test(error.message);
+      }
+    })());
+  }
+
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
 

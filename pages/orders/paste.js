@@ -12,6 +12,7 @@ import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../.
 import { getProductUsageRank, rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
+import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
@@ -1105,7 +1106,7 @@ export default function PasteOrderPage() {
         confidenceLabel: 'high',
         fallbackSuspect: false,
         ambiguousCountry: false,
-        unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
+        unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
       };
     }),
   }));
@@ -1545,7 +1546,7 @@ export default function PasteOrderPage() {
           return {
             ...it,
             idx,
-            unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
+            unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
             skip: false,
           };
         }),
@@ -2069,7 +2070,7 @@ export default function PasteOrderPage() {
       flowerName: it.flowerName,
       counName: it.counName,
       qty: parseFloat(it.qty) || 0,
-      unit: normalizeOrderUnit(defaultUnit(prod, it.unit, prodUnitMap)),
+      unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
       action: it.action || '추가',  // 기본 추가
     };
     }).filter(x => x.qty > 0 && (
@@ -2748,7 +2749,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
     if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
     setOrders(prev => prev.map(o => o.id === oid
-      ? { ...o, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit } : it) }
+      ? { ...o, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit, unitExplicit: true } : it) }
       : o
     ));
     await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {
@@ -3411,7 +3412,7 @@ export default function PasteOrderPage() {
                           <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                             <select value={normalizeOrderUnit(it.unit)} onChange={e => {
                               const newUnit = e.target.value;
-                              updateItem(order.id, idx, { unit: newUnit });
+                              updateItem(order.id, idx, { unit: newUnit, unitExplicit: true });
                               if (it.prodKey) {
                                 fetch('/api/orders/prod-units', {
                                   method: 'PUT',

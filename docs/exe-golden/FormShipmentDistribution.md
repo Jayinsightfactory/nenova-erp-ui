@@ -52,3 +52,17 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 - 수량은 0.001 단위로 정규화해 부동소수점 꼬리와 미세 음수를 0으로 처리한다.
 - 이 확인은 로컬 decompile 원문과 저장된 SP/View 근거의 읽기 전용 대조이며 운영 쓰기는
   수행하지 않았다.
+
+## 붙여넣기 명시 단위 환산 근거 (2026-08-10)
+
+- `FormOrderAdd.GetDataProduct()`는 `OutUnit`, `OrderBox/OrderBunch/OrderSteam`,
+  `BunchOf1Box`, `SteamOf1Bunch`, `SteamOf1Box`를 함께 조회한다.
+- 수량 셀 변경 시 입력한 Box/Bunch/Steam 열을 기준으로 나머지 수량을 환산하고,
+  저장 시 세 수량을 모두 기록한 뒤 `UnitQuantity(true, row)`가 `OutUnit`에 해당하는
+  값을 `OutQuantity`로 선택한다.
+- 따라서 웹도 `1박스`라는 명시 입력을 먼저 BoxQuantity=1로 보존하고 마스터 환산값으로
+  Bunch/Steam을 만든 뒤 `OutUnit='단'`이면 BunchQuantity를 OutQuantity로 저장해야 한다.
+- 마스터 환산값이 0/NULL인 상태에서 1로 추정하면 전산의 세 수량 구조와 달라지므로
+  조용한 fallback 없이 오류로 차단한다.
+- 이 근거 확인은 로컬 dnSpy decompile 원문의 읽기 전용 검토이며 운영 주문·출고 쓰기는
+  수행하지 않았다.

@@ -18,6 +18,7 @@ import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
+import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -399,8 +400,8 @@ function applyFlowerContext(name, flowerContext) {
 // 자연어 파서 단위 정규화 — 한글 "스팀/스템"(stem) → 송이, 없으면 품종 기본단위.
 function normNatUnit(u, flowerContext) {
   const raw = String(u || '').trim();
-  if (/스팀|스템|stems?|steam/i.test(raw)) return '송이';
-  if (raw) return raw;
+  const explicit = parseExplicitOrderUnit(raw);
+  if (explicit) return explicit;
   return flowerContext === '장미' ? '단' : '박스';
 }
 
@@ -453,7 +454,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박스|단|송이|개|스팀|스템|stems?|steam)?\s*(추가|취소)\s*$/i);
+    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*(추가|취소)\s*$/i);
     if (m && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(m[2] || '1')) || 1;
@@ -473,7 +474,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개|스팀|스템|stems?|steam)?\s*$/i);
+    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*$/i);
     if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
@@ -738,7 +739,8 @@ Caroline | 2
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
-          unit: matched.unit || item.unit || '박스',
+          unit: item.unitExplicit ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
+          unitExplicit: Boolean(item.unitExplicit),
           action:      normalizeAction(item.action, item.inputName),
           prodKey:     matched.prodKey || item.prodKey || null,
           prodName:    matched.prodName || item.prodName || null,

@@ -327,3 +327,24 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 `OrderYear+OrderWeek` 결합키보다 작은 최신 `ProductStock.Stock`이며 `Product.Stock`을
 대체 원천으로 사용하지 않는다. 회귀는 `__tests__/shipmentAvailability.test.js`와
 `__tests__/shipmentPivotAdjustContract.test.js`가 담당한다.
+
+## 2026-08-10 붙여넣기 명시 단위 보존 회귀
+
+`알스트로 라벤더 1박스 추가/취소`처럼 사용자가 단위를 직접 썼는데도 품목 매칭 뒤
+`Product.OutUnit='단'`이 화면 단위를 덮어써 `1단`으로 미리보기·API 전송되던 회귀가
+발생했다. 품목 매칭 결과와 단위 선택을 분리하고, 명시 단위가 있으면 매칭·사용량 순위와
+무관하게 해당 단위를 보존한다. 단위 생략일 때만 `Product.OutUnit` 또는 저장된 직전
+품목 단위를 사용한다.
+
+| 동작 | OrderDetail | ShipmentDetail/Date/Farm | ProductStock/StockHistory | Estimate/매출 |
+|---|---|---|---|---|
+| 명시 박스 ADD | 기존 ADD 정책, 박스 환산량 사용 | 기존 ADD 정책, OutUnit 환산량 증가 | 보존 | 보존 |
+| 명시 박스 AUTO_CANCEL + 활성 분배 | 주문 보존 | 박스 환산량 감소 | 보존 | 보존 |
+| 명시 박스 AUTO_CANCEL + 분배 없음 | 박스 환산량 감소 | 생성·변경 금지 | 보존 | 보존 |
+| 단위 생략 | 기존 기본단위 정책 | 기존 정책 | 보존 | 보존 |
+
+`OutUnit='단', BunchOf1Box=10`인 품목의 `1박스`는 BoxQuantity 1,
+BunchQuantity/OutQuantity 10으로 환산한다. 필요한 `BunchOf1Box` 또는 `SteamOf1Box`가
+0/NULL이면 임의 1 fallback을 금지하고 품목 마스터 확인 오류로 차단한다. 2025/2026
+동일 `32-02`는 선택 연도 업무키만 사용한다. 회귀는 `pasteOrderUnit.test.js`,
+`adjustUnit.test.js`, `shipmentPivotAdjustContract.test.js`가 검사한다.
