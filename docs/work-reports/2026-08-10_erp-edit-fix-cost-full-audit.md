@@ -67,4 +67,5 @@
 ## 자동검사와 운영 확인
 
 - 자동 회귀: `__tests__/erpEditFixScopeAudit.test.js`가 실제 호출처, force 정책, 저장 스코프, 2025/2026 동일 `32-02`, 네 등록 버튼을 검사한다.
+- 차수피벗은 서버 첫 렌더에서 현재 날짜와 `localStorage` 값을 읽지 않고, mount 후 선택 차수·사용자 저장 폭을 적용한다. `__tests__/weekPivotHydrationContract.test.js`가 이 SSR 계약을 고정한다.
 - 전체 ERP 계약·manifest·write guard·dnSpy evidence·build 결과와 운영 read-only probe 결과는 같은 작업의 최종 보고에 기록한다.
