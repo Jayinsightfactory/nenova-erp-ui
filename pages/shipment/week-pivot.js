@@ -406,8 +406,8 @@ function PivotBody({ render }) { return render(); }
 // ─────────────────────────────────────────────────────────────
 export default function WeekPivot() {
   const router = useRouter();
-  const weekFromInput = useWeekInput('');
-  const weekToInput   = useWeekInput('');
+  const weekFromInput = useWeekInput('', { deferDefault: true });
+  const weekToInput   = useWeekInput('', { deferDefault: true });
   const weekFrom = weekFromInput.value;
   const weekTo   = weekToInput.value;
 
@@ -469,9 +469,9 @@ export default function WeekPivot() {
   const [pvDescrWidth, setPvDescrWidth] = useState(320);
   const [pvProdColWidth, setPvProdColWidth] = useState(150);
   const [pvRowMinHeight, setPvRowMinHeight] = useState(22);
-  const [wpColWidths, setWpColWidths] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('wp_col_w') || '{}'); } catch { return {}; }
-  });
+  // 서버 HTML과 첫 client render는 반드시 같은 기본값으로 시작한다.
+  // 저장된 폭은 mount 뒤 아래 effect에서 적용한다.
+  const [wpColWidths, setWpColWidths] = useState({});
   const [pvFiltersOpen, setPvFiltersOpen] = useState(false); // 기본 닫힘 (엑셀 같은 느낌)
   const saveWpColWidth = useCallback((idx, w) => {
     setWpColWidths((prev) => {
@@ -486,6 +486,8 @@ export default function WeekPivot() {
   }, []);
   useEffect(() => {
     try {
+      const savedWidths = JSON.parse(localStorage.getItem('wp_col_w') || '{}');
+      if (savedWidths && typeof savedWidths === 'object' && !Array.isArray(savedWidths)) setWpColWidths(savedWidths);
       const fs = parseInt(localStorage.getItem('wp_fs')); if (fs >= 7 && fs <= 20) setPvFontSize(fs);
       const cw = parseInt(localStorage.getItem('wp_cw')); if (cw >= 24 && cw <= 120) setPvCellWidth(cw);
       const cp = parseInt(localStorage.getItem('wp_cp')); if (cp >= 0 && cp <= 12) setPvCellPad(cp);
@@ -608,10 +610,11 @@ export default function WeekPivot() {
     if (!router.isReady) return;
     const qFrom = router.query.weekFrom || router.query.week;
     const qTo = router.query.weekTo || qFrom;
-    const from = Array.isArray(qFrom) ? qFrom[0] : qFrom;
-    const to = Array.isArray(qTo) ? qTo[0] : qTo;
-    if (from && !weekFromInput.value) weekFromInput.setValue(String(from));
-    if (to && !weekToInput.value) weekToInput.setValue(String(to));
+    const currentWeek = getCurrentWeek();
+    const from = (Array.isArray(qFrom) ? qFrom[0] : qFrom) || currentWeek;
+    const to = (Array.isArray(qTo) ? qTo[0] : qTo) || from;
+    if (!weekFromInput.value) weekFromInput.setValue(String(from));
+    if (!weekToInput.value) weekToInput.setValue(String(to));
   }, [router.isReady, router.query.week, router.query.weekFrom, router.query.weekTo]);
 
   // weekTo 기본값 = weekFrom

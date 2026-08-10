@@ -6,6 +6,7 @@
     "pages/raum/pnl.js",
     "pages/orders/paste.js",
     "pages/shipment/week-pivot.js",
+    "lib/useWeekInput.js",
     "pages/shipment/distribute.js",
     "pages/stock.js",
     "pages/ecount/dashboard.js",
@@ -58,6 +59,7 @@
   },
   "requiredTestFiles": [
     "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/weekPivotHydrationContract.test.js",
     "__tests__/estimateEditYearContract.test.js",
     "__tests__/estimateFixStatusYearContract.test.js",
     "__tests__/shipmentPivotAdjustContract.test.js",
