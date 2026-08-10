@@ -3,7 +3,6 @@ import path from 'node:path';
 
 const root = process.cwd();
 const pagesRoot = path.join(root, 'pages');
-const concurrentException = 'pages/sales/shilla-miu-board.js';
 const appSource = fs.readFileSync(path.join(pagesRoot, '_app.js'), 'utf8');
 const noLayoutBlock = appSource.match(/const NO_LAYOUT = \[([\s\S]*?)\n\];/);
 const noLayoutRoutes = new Set([...(noLayoutBlock?.[1] || '').matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]));
@@ -19,7 +18,6 @@ const pageFiles = walk(pagesRoot)
   .filter((file) => /\.(?:js|jsx|ts|tsx)$/.test(file))
   .filter((file) => !file.includes(`${path.sep}api${path.sep}`));
 const violations = [];
-const deferred = [];
 
 for (const file of pageFiles) {
   const rel = path.relative(root, file).replaceAll('\\', '/');
@@ -30,8 +28,7 @@ for (const file of pageFiles) {
   if (!importsLayout && !rendersLayout) continue;
   const route = `/${rel.replace(/^pages\//, '').replace(/\.(?:js|jsx|ts|tsx)$/, '').replace(/\/index$/, '')}`;
   if (noLayoutRoutes.has(route)) continue;
-  if (rel === concurrentException) deferred.push(rel);
-  else violations.push(`${rel}: 페이지가 공통 Layout을 직접 import/render합니다.`);
+  violations.push(`${rel}: 페이지가 공통 Layout을 직접 import/render합니다.`);
 }
 
 const layoutSource = fs.readFileSync(path.join(root, 'components/Layout.js'), 'utf8');
@@ -55,7 +52,6 @@ if (/const\s+DESKTOP_MENU\s*=\s*\[/.test(mobileSource)) {
 }
 
 console.log(`UI layout audit: ${pageFiles.length} page files checked`);
-if (deferred.length) console.warn(`동시 작업 보호(수정 안 함): ${deferred.join(', ')}`);
 if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);

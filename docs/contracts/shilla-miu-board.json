@@ -1,19 +1,82 @@
 {
   "id": "shilla-miu-board",
   "title": "CustKey 기반 업체별 잔량분배 통합게시판",
-  "scope": ["pages/sales/shilla-miu-board.js", "pages/api/sales/shilla-miu-board.js", "lib/shillaMiuBoard.js", "__tests__/shillaMiuBoard.test.js", "docs/migrations/2026-07-23_web_shilla_miu_board.sql", "docs/exe-golden/FormShipmentDistribution.md"],
+  "scope": [
+    "pages/sales/shilla-miu-board.js",
+    "pages/api/sales/shilla-miu-board.js",
+    "lib/shillaMiuBoard.js",
+    "__tests__/shillaMiuBoard.test.js",
+    "docs/migrations/2026-07-23_web_shilla_miu_board.sql",
+    "docs/exe-golden/FormShipmentDistribution.md"
+  ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    {"name":"BOARD_READ_FILTER_TAB","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"all ERP and web ledgers preserve"},
-    {"name":"GROUP_CONFIG_SAVE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"WebShillaMiuBoardGroup only"},
-    {"name":"WEB_MOVE_MATCH_SAVE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"WebShillaMiuBoardAllocation only"}
+    {
+      "name": "BOARD_READ_FILTER_TAB_ALL_OR_GROUP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "all active groups use identical year-major-week-CustKey read scope; all ledgers preserve"
+    },
+    {
+      "name": "GROUP_CONFIG_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "WebShillaMiuBoardGroup only"
+    },
+    {
+      "name": "WEB_MOVE_MATCH_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "WebShillaMiuBoardAllocation only"
+    }
   ],
-  "crossYearFixture": {"required":true,"description":"2025/2026년 동일 32차는 OrderYear로 격리하고 URL 선택값을 유지한다."},
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList","grdViewShipment_FocusedRowChanged","btnSave_Click"],"tables":["ShipmentMaster","ShipmentDetail","Customer","WebShillaMiuBoardGroup","WebShillaMiuBoardAllocation"]},
-  "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^"],
-  "writes": ["WebShillaMiuBoardGroup","WebShillaMiuBoardAllocation"],
-  "preserves": ["Customer","OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","ProductStock","StockHistory","Estimate","WebProfitReport"],
-  "sideEffects": {"erpRead":"선택 연도+대차수 prefix+정확한 CustKey의 활성 ShipmentMaster/ShipmentDetail 양수 출고만 합산","noErpMutation":"설정과 잔량이동 저장은 웹 전용 원장만 변경"},
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026년 동일 32차는 OrderYear로 격리하고 URL 선택값을 유지한다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList",
+      "grdViewShipment_FocusedRowChanged",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "Customer",
+      "WebShillaMiuBoardGroup",
+      "WebShillaMiuBoardAllocation"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "writes": ["WebShillaMiuBoardGroup", "WebShillaMiuBoardAllocation"],
+  "preserves": [
+    "Customer",
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "sideEffects": {
+    "erpRead": "선택 연도+대차수 prefix+정확한 CustKey의 활성 ShipmentMaster/ShipmentDetail 양수 출고만 합산",
+    "noErpMutation": "설정과 잔량이동 저장은 웹 전용 원장만 변경"
+  },
   "requiredTests": ["__tests__/shillaMiuBoard.test.js"],
-  "requiredTestFiles": ["__tests__/shillaMiuBoard.test.js","__tests__/erpContractManifest.test.js"]
+  "requiredTestFiles": [
+    "__tests__/shillaMiuBoard.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ]
 }

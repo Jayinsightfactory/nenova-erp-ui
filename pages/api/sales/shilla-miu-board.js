@@ -96,12 +96,10 @@ async function loadBoard({ year, weeks, group }) {
 
 async function saveGroup(req, res) {
   if (!isAdmin(req.user))
-    return res
-      .status(403)
-      .json({
-        success: false,
-        error: "관리자만 업체 구성을 저장할 수 있습니다.",
-      });
+    return res.status(403).json({
+      success: false,
+      error: "관리자만 업체 구성을 저장할 수 있습니다.",
+    });
   const b = req.body || {},
     groupKey = Number(b.groupKey || 0),
     base = Number(b.baseCustKey),
@@ -115,12 +113,10 @@ async function saveGroup(req, res) {
     receiver <= 0 ||
     base === receiver
   )
-    return res
-      .status(400)
-      .json({
-        success: false,
-        error: "기준/수령 업체를 서로 다른 CustKey로 선택하세요.",
-      });
+    return res.status(400).json({
+      success: false,
+      error: "기준/수령 업체를 서로 다른 CustKey로 선택하세요.",
+    });
   const c = await query(
     `SELECT CustKey,CustName FROM Customer WHERE CustKey IN (@base,@receiver) AND ISNULL(isDeleted,0)=0`,
     {
@@ -218,13 +214,20 @@ export default withAuth(async function handler(req, res) {
       end = req.query.endWeek || start,
       weeks = buildMajorWeeks(start, end);
     const active = all.filter((g) => g.isActive);
+    const requestedGroupKey = Number(req.query.groupKey || 0);
     const selected =
-      active.find((g) => g.groupKey === Number(req.query.groupKey)) ||
-      active[0] ||
-      null;
+      active.find((g) => g.groupKey === requestedGroupKey) || null;
+    const boards = selected
+      ? []
+      : await Promise.all(
+          active.map(async (group) => ({
+            group,
+            ...(await loadBoard({ year, weeks, group })),
+          })),
+        );
     const data = selected
       ? await loadBoard({ year, weeks, group: selected })
-      : { rows: [] };
+      : { rows: [], boards };
     return res.json({
       success: true,
       year,

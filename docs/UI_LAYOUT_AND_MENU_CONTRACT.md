@@ -37,4 +37,4 @@ DOM 회귀 검사는 `data-ui-shell`, `data-ui-sidebar`, `data-ui-topbar`, `data
 - `node scripts/layout-shell-smoke.js`: 로그인 후 MOYI Drive 일반/popup URL을 실제 브라우저로 열어 DOM 개수, 제목, 콘텐츠 폭, console error/warn을 검사합니다.
 - 이 계약은 웹 화면 구성만 다룹니다. MSSQL 조회·쓰기, 주문·출고·재고·견적·매출 원장은 변경하지 않습니다.
 
-`pages/sales/shilla-miu-board.js`는 별도 동시 작업과의 충돌을 피하려고 현재 정적 감사에서 경고만 냅니다. 해당 작업에서 페이지 자체 `Layout`을 제거한 뒤 예외도 삭제해야 합니다.
+`pages/sales/shilla-miu-board.js`도 별도 동시 작업에서 단일 shell 방식으로 반영되었으며, 다른 페이지와 같은 정적 검사를 받습니다.
