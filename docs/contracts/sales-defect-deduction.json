@@ -144,6 +144,7 @@
     "npm run guard:erp-writes -- --changed-from HEAD^"
   ],
   "writes": ["WebSalesDefectDeduction", "WebSalesDefectDeductionHistory", "WebSalesDefectManager", "Estimate"],
+  "readPolicy": "GET은 SELECT만 수행하며 웹 전용 테이블 DDL은 docs/migrations/2026-07-22_web_sales_defect_deduction.sql에서 배포한다.",
   "preserves": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentMaster.isFix", "Product.Stock", "WebProfitReport"],
   "sideEffects": {
     "matchingEngine": "업로드 원문은 보존하고 과거 엑셀/붙여넣기 학습 매핑을 사용하지 않으며, Product DB 검색 후보를 사용자가 선택한 경우에만 ProdKey·DB 품명·단위를 적용",

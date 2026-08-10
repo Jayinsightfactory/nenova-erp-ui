@@ -49,6 +49,14 @@ async function main() {
   assert.match(api, /farmPaymentDayBatch/, 'API가 농장 결제일 일괄 저장을 지원해야 합니다.');
   assert.match(api, /const detailRows = selectedFarmNames[\s\S]*?for \(const d of detailRows\)/, '정산서 그룹 생성도 선택 농장 필터를 적용해야 합니다.');
   assert.match(api, /buildSettlementExcel\(r, payDate, selectedFarmNames\)/, '정산서 엑셀 생성에 농장 필터를 전달해야 합니다.');
+  assert.doesNotMatch(api, /async function loadFarmPaymentDays\(\) \{\s*await ensureFarmPaymentTable\(\)/, 'GET 결제일 조회가 DDL ensure를 실행하면 안 됩니다.');
+  assert.doesNotMatch(api, /async function loadAdjustments\(r\) \{\s*await ensureAdjTable\(\)/, 'GET 수기항목 조회가 DDL ensure를 실행하면 안 됩니다.');
+  assert.doesNotMatch(api, /async function loadFwdInvoices\(r\) \{\s*await ensureFwdTable\(\)/, 'GET 포워더 조회가 DDL ensure를 실행하면 안 됩니다.');
+
+  const migration = fs.readFileSync(path.join(__dirname, '..', 'docs', 'migrations', '2026-08-03_web_import_farm_payment_day.sql'), 'utf8');
+  assert.match(migration, /CREATE TABLE dbo\.WebImportFarmPaymentDay/, '결제일 테이블은 migration에서 생성해야 합니다.');
+  assert.match(migration, /CREATE TABLE dbo\.WebImportPivotAdj/, '수기항목 테이블은 migration에서 생성해야 합니다.');
+  assert.match(migration, /CREATE TABLE dbo\.WebForwarderInvoice/, '포워더 테이블은 migration에서 생성해야 합니다.');
 
   console.log('Import pivot payment tests passed');
 }

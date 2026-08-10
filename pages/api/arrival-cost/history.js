@@ -9,7 +9,7 @@ export default withAuth(async function handler(req, res) {
     const rows = await listArrivalCostHistory(req.query.arrivalLineKey);
     return res.status(200).json({ success: true, rows });
   } catch (error) {
-    return res.status(400).json({ success: false, error: error.message });
+    return res.status(error.statusCode || 400).json({ success: false, error: error.message, code: error.code });
   }
 });
 

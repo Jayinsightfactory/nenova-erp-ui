@@ -44,10 +44,10 @@ const parityProbe = fs.readFileSync('scripts/probe-fix-parity-audit.mjs', 'utf8'
 const unfixProbe = fs.readFileSync('scripts/probe-fix-unfix-status.mjs', 'utf8');
 
 assert.ok(page.includes('buildFixStatusQuery({ orderYear: yearStr'), '견적서 확정현황 GET은 화면 선택 연도를 사용해야 한다.');
-assert.ok(page.includes('orderYear: yearStr,\n          fromWeek'), '견적서 구간 확정취소 POST도 화면 선택 연도를 사용해야 한다.');
+assert.match(page, /orderYear: yearStr,\r?\n\s+fromWeek/, '견적서 구간 확정취소 POST도 화면 선택 연도를 사용해야 한다.');
 assert.ok(fixStatusApi.includes('requireOrderYear(input, explicitYear)'), '확정현황 API는 현재 연도를 추정하지 않아야 한다.');
 assert.equal(fixStatusApi.includes('new Date().getFullYear()'), false, '확정현황 API에 현재 연도 fallback이 없어야 한다.');
-assert.ok(fixStatusApi.includes('WHERE sm.OrderYear = @yr\n        AND sm.OrderWeek = @wk'), '확정취소 재고 품목 조회는 OrderYear+OrderWeek로 한정해야 한다.');
+assert.match(fixStatusApi, /WHERE sm\.OrderYear = @yr\r?\n\s+AND sm\.OrderWeek = @wk/, '확정취소 재고 품목 조회는 OrderYear+OrderWeek로 한정해야 한다.');
 assert.ok(fixStatusApi.includes('loadShipmentProdKeys(t.OrderYear, t.OrderWeek'), '재고 재계산 대상 조회에 선택 연도를 전달해야 한다.');
 assert.ok(fixStatusApi.includes('ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) = @defaultYear'), '후속 확정 차수 경고도 선택 연도 안에서만 조회해야 한다.');
 assert.ok(adjustApi.includes('requireOrderYear(week, req.query.orderYear || req.query.year)'), '품목군 확정조회도 선택 연도를 엄격히 사용해야 한다.');

@@ -8,6 +8,7 @@
     "pages/api/arrival-cost/history.js",
     "lib/arrivalCost.js",
     "lib/arrivalCostExcel.js",
+    "docs/migrations/2026-08-10_web_arrival_cost_schema.sql",
     "components/Layout.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -24,7 +25,8 @@
     "__tests__/arrivalCostExcel.test.js",
     "__tests__/arrivalCostPage.test.js",
     "__tests__/arrivalCostPerformance.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/getReadOnlySchemaContract.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

@@ -101,6 +101,25 @@ async function main() {
   assert.match(adjust, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '출고 합계도 연도로 격리해야 한다.');
   assert.match(stockStatus, /resolveActiveOrderYear/, '조회·저장 API는 레거시 2025 주차 해석 대신 활성 연도 해석기를 사용해야 한다.');
   assert.match(stockStatus, /om\.OrderYear=@orderYear[\s\S]*om\.OrderWeek >= @weekFrom/, '업체별 주차 조회는 연도와 차수를 함께 필터링해야 한다.');
+  const crossYearPivotFixture = [
+    { OrderYear: '2025', OrderWeek: '29-02', CustKey: 17, ProdKey: 301, outQty: 4 },
+    { OrderYear: '2026', OrderWeek: '29-02', CustKey: 17, ProdKey: 301, outQty: 9 },
+  ];
+  assert.deepEqual(
+    crossYearPivotFixture.filter((row) => row.OrderYear === '2026' && row.OrderWeek === '29-02'),
+    [crossYearPivotFixture[1]],
+    '모아보기 피벗의 동일 차수 교차연도 fixture는 선택 연도 행만 남겨야 한다.'
+  );
+  assert.match(
+    stockStatus,
+    /LEFT JOIN ShipmentMaster sm ON sm\.CustKey=om\.CustKey\s+AND sm\.OrderYear=om\.OrderYear AND sm\.OrderWeek=om\.OrderWeek/,
+    '모아보기 피벗은 주문과 출고를 연도·차수·업체로 결합해야 한다.'
+  );
+  assert.match(
+    stockStatus,
+    /WHERE om\.OrderYear=@orderYear\s+AND om\.OrderWeek >= @weekFrom AND om\.OrderWeek <= @weekTo/,
+    '모아보기 피벗은 선택 연도와 차수 범위만 조회해야 한다.'
+  );
   assert.match(stockStatus, /\$\{orderYear\}\$\{weekFrom\.replace\(/, 'EXE 차수피벗 범위에도 선택 연도를 다시 붙여야 한다.');
   assert.match(stockStatus, /const normYear = resolveActiveOrderYear\(week, year\)/, '업체 추가는 명시된 연도를 사용해야 한다.');
   assert.match(stockStatus, /const normYear2 = resolveActiveOrderYear\(week, year\)/, '업체 추가 delta도 명시된 연도를 사용해야 한다.');
