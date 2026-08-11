@@ -3,33 +3,26 @@ import { withAuth } from '../../../lib/auth';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { sortCustomerProducts } from '../../../lib/myCustomerOrderEntry';
 
-function userParams(user) {
-  return {
-    uid: { type: sql.NVarChar, value: String(user?.userId || '') },
-    uname: { type: sql.NVarChar, value: String(user?.userName || '') },
-  };
-}
-
-async function ownsCustomer(user, custKey) {
-  const r = await query(`SELECT TOP 1 CustKey FROM Customer WHERE CustKey=@ck AND ISNULL(isDeleted,0)=0
-    AND (LTRIM(RTRIM(ISNULL(Manager,'')))=LTRIM(RTRIM(@uid)) OR LTRIM(RTRIM(ISNULL(Manager,'')))=LTRIM(RTRIM(@uname)))`, {
-    ck: { type: sql.Int, value: Number(custKey) }, ...userParams(user),
-  });
-  return Boolean(r.recordset[0]);
-}
-
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   try {
     const custKey = Number(req.query.custKey || 0);
     if (!custKey) {
-      const r = await query(`SELECT CustKey, CustName, ISNULL(CustArea,'') AS CustArea, ISNULL(OrderCode,'') AS OrderCode
-        FROM Customer WHERE ISNULL(isDeleted,0)=0
-          AND (LTRIM(RTRIM(ISNULL(Manager,'')))=LTRIM(RTRIM(@uid)) OR LTRIM(RTRIM(ISNULL(Manager,'')))=LTRIM(RTRIM(@uname)))
-        ORDER BY CustName`, userParams(req.user));
+      const r = await query(`SELECT c.CustKey, c.CustName, ISNULL(c.CustArea,'') AS CustArea, ISNULL(c.OrderCode,'') AS OrderCode,
+          ISNULL(NULLIF(LTRIM(RTRIM(m.ManagerName)),''), N'담당자 미지정') AS ManagerName,
+          CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 1 ELSE 0 END AS IsMine
+        FROM Customer c
+        OUTER APPLY (SELECT TOP 1 ISNULL(NULLIF(ui.UserName,''),c.Manager) AS ManagerName FROM UserInfo ui
+          WHERE ui.UserID=c.Manager OR ui.UserName=c.Manager ORDER BY CASE WHEN ui.UserID=c.Manager THEN 0 ELSE 1 END) m
+        WHERE ISNULL(c.isDeleted,0)=0
+        ORDER BY CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 0 ELSE 1 END,
+          ISNULL(NULLIF(LTRIM(RTRIM(m.ManagerName)),''),N'담당자 미지정'), c.CustName`, {
+        uid: { type: sql.NVarChar, value: String(req.user?.userId || '') }, uname: { type: sql.NVarChar, value: String(req.user?.userName || '') },
+      });
       return res.status(200).json({ success: true, customers: r.recordset });
     }
-    if (!(await ownsCustomer(req.user, custKey))) return res.status(403).json({ success: false, error: '본인 담당 업체만 조회할 수 있습니다.' });
+    const active = await query(`SELECT TOP 1 CustKey FROM Customer WHERE CustKey=@ck AND ISNULL(isDeleted,0)=0`, { ck: { type: sql.Int, value: custKey } });
+    if (!active.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
     const { orderYear, orderWeek } = requireOrderYear(req.query.week || '', req.query.year || '');
     const r = await query(`SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
         COUNT_BIG(*) AS UsageCount, MAX(om.OrderYear) AS LastOrderYear, MAX(om.OrderWeek) AS LastOrderWeek,
