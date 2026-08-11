@@ -1,14 +1,15 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
+import { buildForwardOrderWeeks } from '../../lib/myCustomerOrderEntry';
 
 const currentYear = new Date().getFullYear();
 const label = p => p.DisplayName || p.ProdName;
 
 export default function MyCustomerOrders() {
   const [year, setYear] = useState(String(currentYear));
-  const [weeks, setWeeks] = useState([]);
-  const [week, setWeek] = useState('');
+  const weekChoices = useMemo(() => buildForwardOrderWeeks(new Date()), []);
+  const [week, setWeek] = useState(() => weekChoices[0]?.week || '');
   const [customers, setCustomers] = useState([]);
   const [custKey, setCustKey] = useState('');
   const [products, setProducts] = useState([]);
@@ -20,8 +21,7 @@ export default function MyCustomerOrders() {
   const refs = useRef([]);
 
   useEffect(() => {
-    Promise.all([apiGet('/api/orders/weeks'), apiGet('/api/orders/my-customers')]).then(([w, c]) => {
-      const list = w.weeks || []; setWeeks(list); setWeek(list[0] || '');
+    apiGet('/api/orders/my-customers').then((c) => {
       setCustomers(c.customers || []); if (c.customers?.[0]) setCustKey(String(c.customers[0].CustKey));
     }).catch(e => setMessage(e.message));
   }, []);
@@ -67,9 +67,8 @@ export default function MyCustomerOrders() {
     <main className="my-order-page">
       <div className="title-row"><div><h1>내 업체 주문등록</h1><p>담당 업체의 자주 주문한 품목에 수량만 추가합니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
       <section className="filters">
-        <label>연도<select value={year} onChange={e=>setYear(e.target.value)}>{[currentYear,currentYear-1].map(y=><option key={y}>{y}</option>)}</select></label>
-        <label>차수<select value={week} onChange={e=>setWeek(e.target.value)}>{weeks.map(w=><option key={w}>{w}</option>)}</select></label>
-        <label>내 담당업체<select value={custKey} onChange={e=>setCustKey(e.target.value)}>{customers.map(c=><option key={c.CustKey} value={c.CustKey}>{c.CustName}{c.CustArea ? ` · ${c.CustArea}` : ''}</option>)}</select></label>
+        <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>오늘 기준 2차 앞부터, 각 차수의 1·2 세부차수입니다.</small></div>
+        <div className="pick-group"><b>내 담당업체 <em>{customers.length}곳</em></b><div className="choice-buttons customers">{customers.map(c=><button key={c.CustKey} className={String(custKey)===String(c.CustKey)?'active':''} aria-pressed={String(custKey)===String(c.CustKey)} onClick={()=>setCustKey(String(c.CustKey))}>{c.CustName}{c.CustArea&&<small>{c.CustArea}</small>}</button>)}</div>{!customers.length&&<small>로그인 계정에 배정된 담당업체가 없습니다.</small>}</div>
       </section>
       <form className="search" onSubmit={doSearch}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="다른 품종·품목 검색"/><button disabled={busy}>검색 추가</button></form>
       {searchRows.length>0 && <div className="results">{searchRows.map(p=><button key={p.ProdKey} onClick={()=>addProduct(p)}><b>{p.FlowerName}</b> {label(p)} <span>{p.CounName} · {p.OutUnit}</span></button>)}</div>}
@@ -80,7 +79,7 @@ export default function MyCustomerOrders() {
       <div className="submit"><span>{changed.length}개 품목 추가</span><button onClick={submit} disabled={busy||!changed.length}>{busy?'처리 중...':'주문등록'}</button></div>
     </main>
     <style jsx>{`
-      .my-order-page{max-width:1180px;margin:auto;padding:24px}.title-row,.filters,.search,.product-row,.grid-head,.submit{display:flex;gap:12px;align-items:center}.title-row{justify-content:space-between}h1{margin:0}p,small{color:#667085}button,select,input{min-height:42px;border:1px solid #d0d5dd;border-radius:8px;padding:8px 12px;background:white}.filters{padding:16px;background:#f8fafc;border-radius:12px;flex-wrap:wrap}.filters label{display:flex;gap:7px;align-items:center;font-weight:700}.filters select{min-width:170px}.search{margin-top:14px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.notice{margin:12px 0;padding:12px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:10px}.grid-head{padding:12px;font-weight:700;color:#475467}.product-list h2{font-size:16px;margin:16px 0 4px;padding:8px;background:#eef2f6}.product-row{padding:8px 12px;border-bottom:1px solid #eaecf0}.product-row span:first-child{display:flex;flex-direction:column}.product-row input{text-align:right;font-size:17px;border-color:#84adff}.empty{text-align:center;padding:48px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:14px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:12px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-row span:first-child{grid-column:1/-1}.filters label,.filters select{width:100%}.results{grid-template-columns:1fr}}
+      .my-order-page{max-width:1180px;margin:auto;padding:24px}.title-row,.search,.product-row,.grid-head,.submit{display:flex;gap:12px;align-items:center}.title-row{justify-content:space-between}h1{margin:0}p,small{color:#667085}button,input{min-height:42px;border:1px solid #d0d5dd;border-radius:8px;padding:8px 12px;background:white}.filters{padding:16px;background:#f8fafc;border-radius:12px;display:grid;gap:16px}.pick-group{display:grid;gap:8px}.pick-group b{font-size:14px}.pick-group em{font-style:normal;color:#155eef}.choice-buttons{display:flex;flex-wrap:wrap;gap:8px}.choice-buttons button{min-width:68px;font-weight:700}.choice-buttons button.active{border-color:#155eef;background:#155eef;color:white;box-shadow:0 0 0 2px #dbe7ff}.choice-buttons button small{color:inherit}.customers button{display:flex;flex-direction:column;align-items:flex-start;min-width:120px}.customers button small{font-weight:400}.search{margin-top:14px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.notice{margin:12px 0;padding:12px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:10px}.grid-head{padding:12px;font-weight:700;color:#475467}.product-list h2{font-size:16px;margin:16px 0 4px;padding:8px;background:#eef2f6}.product-row{padding:8px 12px;border-bottom:1px solid #eaecf0}.product-row span:first-child{display:flex;flex-direction:column}.product-row input{text-align:right;font-size:17px;border-color:#84adff}.empty{text-align:center;padding:48px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:14px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:12px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-row span:first-child{grid-column:1/-1}.choice-buttons button{flex:1 0 28%}.customers button{flex-basis:46%}.results{grid-template-columns:1fr}}
     `}</style>
   </>;
 }
