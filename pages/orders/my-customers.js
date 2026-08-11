@@ -13,6 +13,7 @@ export default function MyCustomerOrders() {
   const [customers, setCustomers] = useState([]);
   const [customerQuery, setCustomerQuery] = useState('');
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [custKey, setCustKey] = useState('');
   const [products, setProducts] = useState([]);
   const [qty, setQty] = useState({});
@@ -48,7 +49,12 @@ export default function MyCustomerOrders() {
     const selected = matched.find(c => String(c.CustKey) === String(custKey));
     return selected && !recent.some(c => c.CustKey === selected.CustKey) ? [selected, ...recent] : recent;
   }, [customers, customerQuery, showAllCustomers, custKey]);
-  const selectCustomer = key => { scrollAfterLoadRef.current = true; setCustKey(String(key)); };
+  const selectedCustomer = useMemo(() => customers.find(c => String(c.CustKey) === String(custKey)), [customers, custKey]);
+  const selectCustomer = key => {
+    setFocusMode(true); scrollAfterLoadRef.current = true;
+    if (String(key) === String(custKey)) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+    else setCustKey(String(key));
+  };
   const doSearch = async e => {
     e?.preventDefault(); if (!search.trim()) return setSearchRows([]);
     setBusy(true); try { const d = await apiGet('/api/products/search', { q: search.trim() }); setSearchRows((d.products || []).slice(0, 30)); } catch (x) { setMessage(x.message); } finally { setBusy(false); }
@@ -79,11 +85,13 @@ export default function MyCustomerOrders() {
   return <>
     <Head><title>내 업체 주문등록</title></Head>
     <main className="my-order-page">
-      <div className="title-row"><div><h1>내 업체 주문등록</h1><p>담당 업체의 자주 주문한 품목에 수량만 추가합니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
+      {focusMode ? <div className="focus-bar"><strong>{year}년 {week} · {selectedCustomer?.CustName}</strong><span>{selectedCustomer?.ManagerName}{selectedCustomer?.CustArea?` · ${selectedCustomer.CustArea}`:''}</span><button onClick={()=>{setFocusMode(false);window.scrollTo({top:0,behavior:'smooth'})}}>차수·업체 다시 선택</button><button onClick={load} disabled={busy}>새로고침</button></div> : <>
+      <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 선택하면 품종·품목 입력 화면만 표시됩니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
       <section className="filters">
         <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>오늘 기준 2차 앞부터, 각 차수의 1·2 세부차수입니다.</small></div>
         <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} placeholder="업체명·담당자 검색"/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><div className="choice-buttons customers">{visibleCustomers.map(c=><button key={c.CustKey} className={String(custKey)===String(c.CustKey)?'active':''} aria-pressed={String(custKey)===String(c.CustKey)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
       </section>
+      </>}
       <form className="search" onSubmit={doSearch}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="다른 품종·품목 검색"/><button disabled={busy}>검색 추가</button></form>
       {searchRows.length>0 && <div className="results">{searchRows.map(p=><button key={p.ProdKey} onClick={()=>addProduct(p)}><b>{p.FlowerName}</b> {label(p)} <span>{p.CounName} · {p.OutUnit}</span></button>)}</div>}
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
@@ -96,6 +104,7 @@ export default function MyCustomerOrders() {
       .my-order-page{max-width:1180px;margin:auto;padding:8px 16px}.title-row,.search,.product-row,.grid-head,.submit{display:flex;gap:8px;align-items:center}.title-row{justify-content:space-between}.title-row p{margin:2px 0 6px}h1{margin:0;font-size:24px}p,small{color:#667085}button,input{min-height:38px;border:1px solid #d0d5dd;border-radius:8px;padding:6px 10px;background:white}.filters{padding:8px 10px;background:#f8fafc;border-radius:10px;display:grid;gap:8px}.pick-group{display:grid;gap:4px}.pick-group b{font-size:14px}.pick-group em{font-style:normal;color:#155eef}.choice-buttons{display:flex;flex-wrap:wrap;gap:5px}.choice-buttons button{min-width:68px;font-weight:700}.choice-buttons button.active{border-color:#155eef;background:#155eef;color:white;box-shadow:0 0 0 2px #dbe7ff}.choice-buttons button small{color:inherit}.customers button{display:flex;flex-direction:column;align-items:flex-start;min-width:120px}.customers button small{font-weight:400}.search{margin-top:6px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;padding:6px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.notice{margin:5px 0;padding:7px 10px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:8px}.grid-head{padding:6px 10px;font-weight:700;color:#475467}.product-list h2{font-size:15px;margin:7px 0 2px;padding:5px 8px;background:#eef2f6}.product-row{padding:4px 10px;border-bottom:1px solid #eaecf0}.product-row span:first-child{display:flex;flex-direction:column}.product-row input{text-align:right;font-size:17px;border-color:#84adff}.empty{text-align:center;padding:20px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:7px 10px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:6px 8px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-row span:first-child{grid-column:1/-1}.choice-buttons button{flex:1 0 28%}.customers button{flex-basis:46%}.results{grid-template-columns:1fr}}
       .customers button span{display:flex;gap:6px;align-items:center}.customers button i{font-size:10px;font-style:normal;padding:2px 5px;border-radius:10px;background:#dbeafe;color:#1d4ed8}.customers button.active i{background:white}
       .customer-tools{display:flex;gap:5px}.customer-tools input{flex:1;max-width:360px}.customer-tools button{white-space:nowrap}
+      .focus-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:5px 8px;background:#eef4ff;border:1px solid #b2ccff;border-radius:8px}.focus-bar strong{font-size:16px}.focus-bar span{color:#475467;margin-right:auto}.focus-bar button{min-height:34px}
     `}</style>
   </>;
 }
