@@ -18,6 +18,7 @@ const fs = require('node:fs');
   assert.match(own,/FROM Customer c/); assert.match(own,/ManagerName/); assert.doesNotMatch(own,/본인 담당 업체만 조회/);
   assert.match(api,/activeCustomer/); assert.doesNotMatch(api,/본인 담당 업체의 주문만 등록/);
   assert.match(own,/recent\.LastOrderDtm DESC/); assert.match(page,/visibleCustomers/); assert.match(page,/slice\(0, 30\)/);
+  assert.doesNotMatch(own,/SUM\(CASE WHEN p\.OutUnit/); assert.match(own,/SUM\(ISNULL\(xod\.BoxQuantity,0\)\)/);
   assert.match(page,/scrollIntoView/); assert.match(page,/업체명·담당자 검색/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
