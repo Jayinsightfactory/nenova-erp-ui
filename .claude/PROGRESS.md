@@ -4,6 +4,40 @@
 
 ---
 
+## [2026-08-11] 세션 — 잔량분배 전체/개별 열 통일 (단일 표)
+
+### 작업 내용
+- 증상: `/sales/shilla-miu-board` 전체 탭이 요약표(품목/단위/업체별잔량/잔량합계/미우자체/미우총수량)
+  아래에 업체별 상세표(예상물량/현재분배/업체최종분배/업체잔량/미우이관/완료/세부)를 다시 나열해
+  한 화면에 열이 두 벌이었다.
+- 변경: 전체·업체 탭이 **같은 열 순서·폭의 표 하나**만 사용.
+  `업체 78 · 품목명 360 · 단위 46 · 예상물량 64 · 현재분배 64 · 업체최종분배 66 · 업체잔량 64 ·
+  미우이관 64 · 완료 44 · 세부 44` = 894px(≤1400px 화면 794px).
+- 같은 품목이 여러 업체에 있으면 업체별 행 유지(합산 금지). 미우 자체수량·총수량은 같은 폭의
+  18px 합계 행으로 보존(툴바 `미우합계` 토글). 업체 접기는 상단 요약의 업체 칩으로 이동.
+- 커밋 `a1ed00e` → PR #140 → master `6f333d2`.
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: 순수 함수 `buildUnifiedBlocks()` 추가(정렬·묶음만, 계산식 무변경)
+- `pages/sales/shilla-miu-board.js`: 표 통일, 합계 행, 업체 칩 접기, 연결 안내 줄
+- `__tests__/shillaMiuBoard.test.js`: 열 동일성·업체행 분리·미우 합계 보존·단위 분리·
+  미래 추가 업체·2026-33 신라 1,560/0·32차 주문=분배·2025/2026 격리 회귀 추가
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md` 8절, `docs/contracts/shilla-miu-board.json`
+
+### 검증
+- `npm run test:board` / `npm run verify:erp-change`(erp-contract 전부 pass, manifest·guard·build) 통과
+- `guard:erp-writes --changed-from HEAD^` = 변경 API 0건 → ERP 원장 쓰기 없음
+- GitHub Actions `verify` pass → `Deploy to Cafe24` 성공(실브라우저 hydration smoke 포함)
+- 운영 번들 읽기 전용 확인: `<table>`/`<thead>` 각 1개, 헤더 순서 계약대로, `colSpan=9` 잔존 없음
+
+### 다음 작업 예정
+- 사용자 실사용 후 합계 행 노출 기본값(`미우합계` 체크 기본 ON) 조정 여부 확인
+
+### 미결 이슈 / 블로킹
+- 없음. 운영 화면 로그인 확인은 사용자 계정 필요(자동 로그인 미수행).
+
+---
+
 ## [2026-08-11] 세션 — 잔량분배 신라 그룹 CustKey 오연결 복구·진단
 
 ### 작업 내용
