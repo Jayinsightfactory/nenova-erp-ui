@@ -11,6 +11,9 @@ import { suggestDisplayName } from '../../lib/displayName';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
+const isCarryoverRetrySelectable = (row = {}) => Boolean(
+  Number(row.deductionKey) > 0 && row.importConfirmed && row.customerTargetRegistered
+);
 const usageLabel = (item) => {
   const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
   const mappingCount = Number(item?.MappingCount ?? item?.mappingCount ?? 0);
@@ -116,10 +119,6 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
-  const [carryoverDraft, setCarryoverDraft] = useState({ customerName: '', custKey: null, productName: '', prodKey: null, quantity: '', sourceUnit: '단', note: '' });
-  const [carryoverCustomerOptions, setCarryoverCustomerOptions] = useState([]);
-  const [carryoverProductOptions, setCarryoverProductOptions] = useState([]);
-  const [carryoverSaving, setCarryoverSaving] = useState(false);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
@@ -905,12 +904,13 @@ export default function SalesDefectDeductionsPage() {
   });
 
   const toggleAllSupport = () => setSupportSelected((current) => {
-    const keys = supportRows.filter((row) => activeTab !== 'carryover' || row.customerTargetRegistered).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
-    return current.size === keys.length ? new Set() : new Set(keys);
+    const keys = supportRows.filter((row) => activeTab !== 'carryover' || isCarryoverRetrySelectable(row)).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+    const allSelected = keys.length > 0 && keys.every((key) => current.has(key));
+    return allSelected ? new Set() : new Set(keys);
   });
 
   const toggleCarryoverCustomer = (custKey) => setSupportSelected((current) => {
-    const keys = supportRows.filter((row) => Number(row.custKey) === Number(custKey) && row.customerTargetRegistered).map((row) => Number(row.deductionKey)).filter(Boolean);
+    const keys = supportRows.filter((row) => Number(row.custKey) === Number(custKey) && isCarryoverRetrySelectable(row)).map((row) => Number(row.deductionKey)).filter(Boolean);
     const next = new Set(current);
     const allSelected = keys.length > 0 && keys.every((key) => next.has(key));
     keys.forEach((key) => allSelected ? next.delete(key) : next.add(key));
@@ -918,7 +918,7 @@ export default function SalesDefectDeductionsPage() {
   });
 
   const registerSupport = async () => {
-    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)));
+    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row)));
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
     setSupportLoading(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
@@ -935,54 +935,6 @@ export default function SalesDefectDeductionsPage() {
       setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
     } catch (e) { setError(e.message); }
     finally { setSupportLoading(false); }
-  };
-
-  const registerCarryoverLedger = async () => {
-    const ids = [...selected].map((index) => Number(rows[index]?.deductionKey)).filter((key) => key > 0);
-    if (!ids.length) { setError('먼저 저장된 행을 선택하세요.'); return; }
-    setSaving(true); setError(''); setMessage('');
-    try {
-      const data = await apiPost('/api/sales/defect-deductions', { action: 'carryover-register', year, week, ids });
-      setMessage(`${data.saved || 0}건을 이월업체 목록에 등록했습니다. 잔여수량이 0이 될 때까지 계속 표시됩니다.`);
-      setSelected(new Set()); await load(manager);
-    } catch (e) { setError(e.message); }
-    finally { setSaving(false); }
-  };
-
-  const searchCarryoverMaster = async (kind) => {
-    const q = kind === 'customer' ? carryoverDraft.customerName : carryoverDraft.productName;
-    if (!String(q || '').trim()) { setError(`${kind === 'customer' ? '업체' : '품목'} 검색어를 입력하세요.`); return; }
-    try {
-      const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind, q });
-      if (kind === 'customer') setCarryoverCustomerOptions(data.customers || data.rows || []);
-      else setCarryoverProductOptions(data.products || data.rows || []);
-    } catch (e) { setError(e.message); }
-  };
-
-  const saveDirectCarryover = async () => {
-    if (!(Number(carryoverDraft.custKey) > 0) || !(Number(carryoverDraft.prodKey) > 0) || !(Number(carryoverDraft.quantity) > 0)) {
-      setError('전산 업체·품목을 검색해 선택하고 이월수량을 입력하세요.'); return;
-    }
-    setCarryoverSaving(true); setError(''); setMessage('');
-    try {
-      const saved = await apiPost('/api/sales/defect-deductions', {
-        action: 'save', year, week, managerId: '', managerName: '', sourceFileName: '이월업체 직접등록',
-        rows: [{
-          customerName: carryoverDraft.customerName, custKey: Number(carryoverDraft.custKey),
-          productName: carryoverDraft.productName, colorName: carryoverDraft.productName, prodKey: Number(carryoverDraft.prodKey),
-          quantity: Number(carryoverDraft.quantity), sourceUnit: carryoverDraft.sourceUnit, unit: carryoverDraft.sourceUnit,
-          note: carryoverDraft.note, deductionType: '불량차감',
-        }],
-      });
-      const ids = (saved.rows || []).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
-      if (!ids.length) throw new Error('이월 원장키를 확인할 수 없습니다.');
-      await apiPost('/api/sales/defect-deductions', { action: 'carryover-register', year, week, ids });
-      setCarryoverDraft({ customerName: '', custKey: null, productName: '', prodKey: null, quantity: '', sourceUnit: '단', note: '' });
-      setCarryoverCustomerOptions([]); setCarryoverProductOptions([]);
-      setMessage(`${year}년 ${week}차 이월업체 1건을 등록했습니다.`);
-      await loadCarryover();
-    } catch (e) { setError(e.message); }
-    finally { setCarryoverSaving(false); }
   };
 
   const confirmIncoming = async () => {
@@ -1165,10 +1117,15 @@ export default function SalesDefectDeductionsPage() {
   }, {});
   const carryoverCustomerGroups = [...supportRows.reduce((map, row) => {
     const key = Number(row.custKey || 0);
-    if (!map.has(key)) map.set(key, { custKey: key, customerName: row.customerName || '-', rows: [], remaining: 0, registered: Boolean(row.customerTargetRegistered) });
-    const group = map.get(key); group.rows.push(row); group.remaining += Number(row.remainingQuantity || 0); group.registered = group.registered || Boolean(row.customerTargetRegistered);
+    if (!map.has(key)) map.set(key, { custKey: key, customerName: row.customerName || '-', rows: [], remaining: 0 });
+    const group = map.get(key); group.rows.push(row); group.remaining += Number(row.remainingQuantity || 0);
     return map;
   }, new Map()).values()];
+  const supportSelectableKeys = supportRows
+    .filter((row) => activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
+    .map((row) => Number(row.deductionKey))
+    .filter((key) => key > 0);
+  const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
 
   const printSourceRows = activeTab === 'incoming' ? incomingRows : rows;
   const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
@@ -1227,10 +1184,10 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" role="tab" aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
         <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
         <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>이월업체 등록</button>
+        <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>미처리·다음 차수 재시도</button>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
         {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
-        {activeTab === 'carryover' && <span className="incoming-tab-help">부분 처리 후에도 잔여수량이 0이 될 때까지 계속 표시됩니다.</span>}
+        {activeTab === 'carryover' && <span className="incoming-tab-help">수입부 컨펌 완료 건만 선택할 수 있고, 해당 차수 판매행이 없는 건은 미처리로 남아 다음 차수에 재시도합니다.</span>}
       </div>
 
       {activeTab === 'sales' && <div className="card manager-home-card">
@@ -1276,7 +1233,6 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={rematch} disabled={saving || !rows.length}>미매칭 재매칭</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
-          <button className="btn" onClick={registerCarryoverLedger} disabled={saving || !selected.size}>선택 이월업체 등록</button>
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
@@ -1284,17 +1240,17 @@ export default function SalesDefectDeductionsPage() {
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
           </>}
           {activeTab === 'carryover' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportRows.length}>{supportSelected.size === supportRows.length ? '전체 선택 해제' : '전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>선택 수량 견적서에 처리</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>선택 항목 처리 검토</button>
           </>}
-          <button className="btn" onClick={printForm} disabled={activeTab === 'support' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
-          <button className="btn" onClick={download} disabled={loading}>엑셀 다운로드</button>
+          <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
+          <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
-          {message && <span style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
-          {error && <span style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}
+          {message && <span role="status" aria-live="polite" style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
+          {error && <span role="alert" style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}
           {activeTab === 'sales' && <span className="sales-save-summary">
             저장 완료 {salesStatusCounts['저장 완료'] || 0}건 · 미저장 {salesStatusCounts['미저장'] || 0}건 · 저장 안 됨 {salesStatusCounts['저장 안 됨'] || 0}건
           </span>}
@@ -1374,47 +1330,31 @@ export default function SalesDefectDeductionsPage() {
       </div>}
 
       {(activeTab === 'support' || activeTab === 'carryover') && <div className="screenOnly">
-      {activeTab === 'carryover' && <div className="card" style={{ padding: 12, marginBottom: 10 }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>특정 원차수 이월업체 직접등록 — {year}년 {week}차</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1fr) minmax(260px,1.3fr) 110px 90px minmax(220px,1fr) auto', gap: 8, alignItems: 'start' }}>
-          <div>
-            <div style={{ display: 'flex', gap: 4 }}><input className="input" value={carryoverDraft.customerName} placeholder="업체명 검색" onChange={(e) => setCarryoverDraft((d) => ({ ...d, customerName: e.target.value, custKey: null }))} /><button className="btn" type="button" onClick={() => searchCarryoverMaster('customer')}>검색</button></div>
-            {!!carryoverCustomerOptions.length && <select className="input" size={Math.min(5, carryoverCustomerOptions.length)} style={{ width: '100%', marginTop: 4 }} onChange={(e) => { const item = carryoverCustomerOptions[Number(e.target.value)]; if (item) { setCarryoverDraft((d) => ({ ...d, customerName: item.CustName || item.customerName, custKey: item.CustKey || item.custKey })); setCarryoverCustomerOptions([]); } }}><option value="">업체 선택</option>{carryoverCustomerOptions.map((item, i) => <option key={`${item.CustKey || item.custKey}-${i}`} value={i}>{item.CustName || item.customerName}</option>)}</select>}
-          </div>
-          <div>
-            <div style={{ display: 'flex', gap: 4 }}><input className="input" value={carryoverDraft.productName} placeholder="품종·품명 검색" onChange={(e) => setCarryoverDraft((d) => ({ ...d, productName: e.target.value, prodKey: null }))} /><button className="btn" type="button" onClick={() => searchCarryoverMaster('product')}>검색</button></div>
-            {!!carryoverProductOptions.length && <select className="input" size={Math.min(5, carryoverProductOptions.length)} style={{ width: '100%', marginTop: 4 }} onChange={(e) => { const item = carryoverProductOptions[Number(e.target.value)]; if (item) { setCarryoverDraft((d) => ({ ...d, productName: item.ProdName || item.prodName, prodKey: item.ProdKey || item.prodKey, sourceUnit: item.EstUnit || item.OutUnit || d.sourceUnit })); setCarryoverProductOptions([]); } }}><option value="">품목 선택</option>{carryoverProductOptions.map((item, i) => <option key={`${item.ProdKey || item.prodKey}-${i}`} value={i}>{[item.CounName, item.FlowerName, item.ProdName || item.prodName].filter(Boolean).join(' · ')}</option>)}</select>}
-          </div>
-          <input className="input" type="number" min="0.0001" step="0.0001" placeholder="이월수량" value={carryoverDraft.quantity} onChange={(e) => setCarryoverDraft((d) => ({ ...d, quantity: e.target.value }))} />
-          <select className="input" value={carryoverDraft.sourceUnit} onChange={(e) => setCarryoverDraft((d) => ({ ...d, sourceUnit: e.target.value }))}><option>단</option><option>박스</option><option>스팀(대)</option></select>
-          <input className="input" placeholder="비고" value={carryoverDraft.note} onChange={(e) => setCarryoverDraft((d) => ({ ...d, note: e.target.value }))} />
-          <button className="btn btn-primary" type="button" disabled={carryoverSaving} onClick={saveDirectCarryover}>{carryoverSaving ? '등록 중…' : '이월업체 등록'}</button>
-        </div>
-      </div>}
       <div className="card support-register-card">
         <div className="support-register-head">
-          <div><strong>{activeTab === 'carryover' ? '이월업체 잔여 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
-          <span className="incoming-review-note">{activeTab === 'carryover' ? '원수량과 잔여수량을 보존하며 검토창에서 이번 차수에 처리할 수량을 조정할 수 있습니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
+          <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
+          <span className="incoming-review-note">{activeTab === 'carryover' ? '컨펌 완료·현재 차수 판매행 있음 건만 등록 가능합니다. 나머지는 잔여수량이 0이 될 때까지 미처리로 계속 표시됩니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
         </div>
         {activeTab === 'carryover' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 8, padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}>
           {carryoverCustomerGroups.map((group) => {
-            const selectable = group.registered;
+            const selectableRows = group.rows.filter(isCarryoverRetrySelectable);
+            const selectable = selectableRows.length > 0;
             const selectedCount = group.rows.filter((row) => supportSelected.has(Number(row.deductionKey))).length;
-            return <button key={`carryover-customer-${group.custKey}`} type="button" className={`btn ${selectable && selectedCount === group.rows.length ? 'btn-primary' : ''}`} disabled={!selectable} onClick={() => toggleCarryoverCustomer(group.custKey)} style={{ textAlign: 'left', minHeight: 58 }}>
+            return <button key={`carryover-customer-${group.custKey}`} type="button" className={`btn ${selectable && selectedCount === selectableRows.length ? 'btn-primary' : ''}`} disabled={!selectable} aria-pressed={selectable && selectedCount === selectableRows.length} onClick={() => toggleCarryoverCustomer(group.custKey)} style={{ textAlign: 'left', minHeight: 58 }}>
               <strong>{group.customerName}</strong><br />
-              <span>{group.rows.length}품목 · 잔여 {fmt(group.remaining)}</span>
-              <span style={{ float: 'right', color: selectable ? '#166534' : '#b45309', fontWeight: 800 }}>{selectable ? '업체 등록' : '여분'}</span>
+              <span>{group.rows.length}품목 · 잔여 {fmt(group.remaining)} · 선택 {selectedCount}/{selectableRows.length}</span>
+              <span style={{ float: 'right', color: selectable ? '#166534' : '#b45309', fontWeight: 800 }}>{selectable ? '등록 가능' : '미처리'}</span>
             </button>;
           })}
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" checked={supportRows.length > 0 && supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>견적서 등록</th></tr></thead>
+            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''}`} key={key || `support-${index}`}>
-                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" checked={supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!key || (activeTab === 'carryover' && !row.customerTargetRegistered)} /></label></td>
+                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!key || (activeTab === 'carryover' && !isCarryoverRetrySelectable(row))} /></label></td>
                 <td>{index + 1}</td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>
@@ -1424,10 +1364,10 @@ export default function SalesDefectDeductionsPage() {
                 <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
-                <td><span className={row.isCarryover ? 'support-carryover' : ''}>{activeTab === 'carryover' && !row.customerTargetRegistered ? '여분' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '이월 대기' : '미등'}</span><small className="support-scope-label">{activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 업체 미등록` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small></td>
+                <td><span className={row.isCarryover ? 'support-carryover' : ''}>{activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '등록 가능' : '미등'}</span><small className="support-scope-label">{activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small></td>
               </tr>;
             })}
-            {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수에 저장된 불량 차감이 없습니다.</td></tr>}
+            {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1646,7 +1586,7 @@ export default function SalesDefectDeductionsPage() {
       </div>
       <style jsx>{`
         .sales-defect-page { width: 100%; min-width: 0; }
-        .defect-tabs { display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin: 8px 0; }
+        .defect-tabs { display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin: 8px 0; flex-wrap: wrap; }
         .incoming-tab-help { color: #475569; font-size: 12px; }
         .incoming-review-card { padding: 0; overflow: visible; }
         .incoming-review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -1780,6 +1720,10 @@ export default function SalesDefectDeductionsPage() {
         .defect-unit-group:focus, .defect-unit-group:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
         .defect-unit-highlight { background: #f59e0b !important; color: #111827 !important; border-color: #b45309 !important; outline: 2px solid #fbbf24; }
         @media (max-width: 700px) {
+          .defect-tabs .btn { flex: 1 1 calc(50% - 6px); min-height: 40px; white-space: normal; }
+          .incoming-tab-help { flex-basis: 100%; line-height: 1.45; }
+          .support-register-head { align-items: flex-start; }
+          .support-grid-scroll { max-height: calc(100vh - 310px); }
           .defect-lookup-option { gap: 5px; }
           .defect-lookup-country { flex-basis: 82px; }
           .defect-lookup-flower { flex-basis: 98px; }
