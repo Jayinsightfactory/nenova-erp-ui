@@ -8,6 +8,7 @@ import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
+import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 
 function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -577,6 +578,8 @@ export default function ProfitReportPage() {
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}
       </div>
+
+      <ProfitReportSourceGuide />
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}

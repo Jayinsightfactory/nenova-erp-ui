@@ -18,6 +18,8 @@
     "lib/colombiaTruck.js",
     "lib/profitReportCalc.js",
     "lib/profitReportMonthly.js",
+    "lib/profitReportSourceGuide.js",
+    "components/ProfitReportSourceGuide.js",
     "docs/migrations/2026-08-10_web_profit_report_schema.sql",
     "components/CustomsClearancePanel.js"
   ],
@@ -54,6 +56,12 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "REPORT_SOURCE_GUIDE_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only; 항목별 데이터 기준 설명 패널은 정적 상수만 렌더링하며 DB 조회·저장·다운로드를 수행하지 않는다. 기본 접힘 상태이고 접힘 여부를 저장하지 않는다"
+    },
+    {
       "name": "REPORT_MONTHLY_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -71,6 +79,7 @@
     "__tests__/erpContractManifest.test.js",
     "__tests__/moyiReportPush.test.js",
     "__tests__/profitReportMonthly.test.js",
+    "__tests__/profitReportSourceGuide.test.js",
     "__tests__/getReadOnlySchemaContract.test.js"
   ],
   "automaticCategoryRules": {
