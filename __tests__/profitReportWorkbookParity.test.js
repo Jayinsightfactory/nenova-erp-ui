@@ -109,7 +109,19 @@ async function main() {
   check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
   check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('previousTaxableR') && reportApiSource.includes('previous_report_taxable_rate') && reportApiSource.includes('currentMajor >= 29'));
   check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('환율 입력 필요'));
-  check('Q와 매입수량에서 포워딩 행 이중계상 차단', (reportSource.match(/ProdName,N''\) LIKE N'%운송료%'/g) || []).length >= 2);
+  // 2026-08-11: 각 함수의 인라인 LIKE '%운송료%' 조건이 공용 stockablePurchaseItemSql()로
+  // 통합됐다(27차 F 폭증 결함 수정 — 상세는 __tests__/profitReportStockCostExclusionContract.test.js).
+  // 원래 의도(Q와 매입수량 모두 포워딩/운송료 행을 제외해 이중계상하지 않음)는 두 함수 각각이
+  // 공용 조건을 실제로 사용하는지로 검증한다.
+  const purchaseByCategorySection = reportSource.slice(
+    reportSource.indexOf('export async function purchaseByCategory'),
+    reportSource.indexOf('export async function forwardingByCategory'));
+  const purchaseQtyByCategorySection = reportSource.slice(
+    reportSource.indexOf('export async function purchaseQtyByCategory'),
+    reportSource.indexOf('export async function invoiceRatesByCategory'));
+  check('Q와 매입수량에서 포워딩/운송료 행 이중계상 차단',
+    purchaseByCategorySection.includes("stockablePurchaseItemSql('p')")
+      && purchaseQtyByCategorySection.includes("stockablePurchaseItemSql('p')"));
   check('매출·불량·그외매출은 전산 확정 ShipmentMaster만 집계',
     (reportSource.match(/ISNULL\(sm\.isFix,0\)=1/g) || []).length >= 2);
   check('전산 호환 재고조회는 요청한 세부차수를 정확히 선택', stockApiSource.includes('WHERE OrderWeek=@week AND OrderYear=@year'));

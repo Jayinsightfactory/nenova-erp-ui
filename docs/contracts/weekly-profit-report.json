@@ -123,6 +123,7 @@
     "__tests__/profitReportConfirmSnapshotImmutability.test.js",
     "__tests__/profitReportConfirmAuditTrail.test.js",
     "__tests__/profitReportCountryClassificationParity.test.js",
+    "__tests__/profitReportStockCostExclusionContract.test.js",
     "__tests__/profitReportRecentCostCutoff.test.js",
     "__tests__/profitReportAustraliaUnitFallback.test.js",
     "__tests__/profitReportGetReadOnlyDdl.test.js"
