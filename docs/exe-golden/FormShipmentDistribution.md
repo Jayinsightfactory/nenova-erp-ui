@@ -89,6 +89,26 @@ $cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.
   쓰기는 수행하지 않았다. 게시판의 '업체 최종분배'는 EXE 의 `isFix`/확정 상태와 무관한
   웹 전용 업무 수량이며 ERP 원장에 기록하지 않는다.
 
+## 잔량분배 게시판 업체 식별 근거 — CustKey (2026-08-11)
+
+```powershell
+$cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe'
+& $cli --no-color -t FormShipmentDistribution 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+- `FormShipmentDistribution.GetCustomerList()` 는 업체를 `ViewOrder ... GROUP BY OrderYear,
+  OrderWeek, CustKey` 로 묶고, `grdViewShipment_FocusedRowChanged()` 의 주문↔분배 LEFT JOIN 도
+  `vo.CustKey = vs.CustKey` 를 키로 쓴다. EXE 어디에서도 거래처를 `CustName` 문자열로 매칭하지
+  않는다. 따라서 웹 게시판도 `WebShillaMiuBoardGroup.BaseCustKey/ReceiverCustKey` 만으로
+  ERP 를 읽고, 이름 `LIKE` 매칭으로 되돌리지 않는다.
+- `Customer` 마스터에는 이름이 비슷하지만 원장 실적이 전혀 없는 껍데기 코드가 존재한다
+  (읽기 전용 확인: `신라상사`/`신라상사2` 는 `OrderMaster`·`ShipmentMaster` 생애 0건,
+  실제 신라 거래처는 `신라호텔` `OrderCode='CLS'`, `Descr='신라/중-화/네-화/CLS'`).
+  그룹 자동 seed 는 이름이 유일한 것만으로 부족하고 `OrderMaster` 실적 존재까지 확인한다.
+- 이 확인은 로컬 decompile 원문과 운영 DB 의 읽기 전용 `SELECT` 대조이며, 주문·출고·재고·
+  견적 원장에 대한 쓰기는 수행하지 않았다. 복구 대상은 웹 전용
+  `WebShillaMiuBoardGroup` 한 테이블뿐이다.
+
 ## 붙여넣기 명시 단위 환산 근거 (2026-08-10)
 
 - `FormOrderAdd.GetDataProduct()`는 `OutUnit`, `OrderBox/OrderBunch/OrderSteam`,

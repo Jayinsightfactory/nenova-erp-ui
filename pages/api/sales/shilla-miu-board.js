@@ -43,15 +43,19 @@ function ensureSchema() {
       CREATE TABLE dbo.WebShillaMiuBoardAllocationHistory(HistoryKey BIGINT IDENTITY(1,1) PRIMARY KEY,BoardKey BIGINT NULL,OrderYear NVARCHAR(4) NOT NULL,UseWeek NVARCHAR(4) NOT NULL,GroupKey INT NULL,ProdKey INT NOT NULL,ChangeType NVARCHAR(20) NOT NULL,BeforeFinalQty DECIMAL(18,3) NULL,AfterFinalQty DECIMAL(18,3) NULL,BeforeMatched BIT NULL,AfterMatched BIT NULL,LegacyMoveQty DECIMAL(18,3) NULL,ExpectedQty DECIMAL(18,3) NULL,CurrentQty DECIMAL(18,3) NULL,Memo NVARCHAR(500) NULL,ActedBy NVARCHAR(50) NULL,ActedAt DATETIME NOT NULL DEFAULT GETDATE());
       CREATE INDEX IX_WebShillaMiuBoardAllocationHistory_Scope ON dbo.WebShillaMiuBoardAllocationHistory(OrderYear,UseWeek,GroupKey,ProdKey,ActedAt);
     END;
+    /* 초기 그룹 seed. 이름이 비슷한 껍데기 거래처(예: 실적 0 인 '신라상사')를 잡지 않도록
+       유일한 활성 Customer + 실제 전산 주문 실적이 있는 CustKey 만 사용한다.
+       신라의 실제 원장 거래처는 OrderCode 'CLS' / Descr '신라/...' 인 '신라호텔' 이다. */
     IF NOT EXISTS(SELECT 1 FROM dbo.WebShillaMiuBoardGroup)
        AND (SELECT COUNT(*) FROM Customer WHERE CustName=N'아이엠（미우）' AND ISNULL(isDeleted,0)=0)=1
     BEGIN
       DECLARE @receiver INT=(SELECT CustKey FROM Customer WHERE CustName=N'아이엠（미우）' AND ISNULL(isDeleted,0)=0);
       INSERT dbo.WebShillaMiuBoardGroup(GroupName,BaseCustKey,BaseCustName,ReceiverCustKey,ReceiverCustName,DisplayOrder,CreatedBy,UpdatedBy)
       SELECT seed.GroupName,c.CustKey,c.CustName,@receiver,N'아이엠（미우）',seed.DisplayOrder,N'system-bootstrap',N'system-bootstrap'
-        FROM (VALUES(N'신라',N'신라상사',10),(N'라움',N'주식회사 트라움에스앤씨 (라움)',20),(N'초이문',N'초이문(센스앤센서빌러티)',30)) seed(GroupName,CustName,DisplayOrder)
+        FROM (VALUES(N'신라',N'신라호텔',10),(N'라움',N'주식회사 트라움에스앤씨 (라움)',20),(N'초이문',N'초이문(센스앤센서빌러티)',30)) seed(GroupName,CustName,DisplayOrder)
         JOIN Customer c ON c.CustName=seed.CustName AND ISNULL(c.isDeleted,0)=0
-       WHERE (SELECT COUNT(*) FROM Customer x WHERE x.CustName=seed.CustName AND ISNULL(x.isDeleted,0)=0)=1;
+       WHERE (SELECT COUNT(*) FROM Customer x WHERE x.CustName=seed.CustName AND ISNULL(x.isDeleted,0)=0)=1
+         AND EXISTS(SELECT 1 FROM OrderMaster om WHERE om.CustKey=c.CustKey AND ISNULL(om.isDeleted,0)=0);
     END;
   `)
     .then((r) => {
@@ -92,12 +96,69 @@ async function groups(state) {
   return r.recordset || [];
 }
 
-async function latestScope() {
-  const r = await query(
-    `SELECT TOP 1 CAST(sm.OrderYear AS NVARCHAR(4)) year,LEFT(sm.OrderWeek,2) week FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey WHERE ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)>0 AND sm.OrderYear IS NOT NULL AND TRY_CONVERT(INT,LEFT(sm.OrderWeek,2)) BETWEEN 1 AND 52 ORDER BY TRY_CONVERT(INT,sm.OrderYear) DESC,TRY_CONVERT(INT,LEFT(sm.OrderWeek,2)) DESC`,
-  );
+/** 정수 CustKey 목록을 @c0,@c1… 파라미터로 바꾼다(문자열 결합 금지). */
+function custKeyParams(custKeys) {
+  const keys = [...new Set((custKeys || []).map(Number).filter(Boolean))];
+  const params = {};
+  keys.forEach((k, i) => {
+    params[`c${i}`] = { type: sql.Int, value: k };
+  });
+  return { params, clause: keys.map((_, i) => `@c${i}`).join(","), keys };
+}
+
+const LATEST_SQL = (custClause) =>
+  `SELECT TOP 1 CAST(sm.OrderYear AS NVARCHAR(4)) year,LEFT(sm.OrderWeek,2) week FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey WHERE ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)>0 AND sm.OrderYear IS NOT NULL AND TRY_CONVERT(INT,LEFT(sm.OrderWeek,2)) BETWEEN 1 AND 52${custClause ? ` AND sm.CustKey IN (${custClause})` : ""} ORDER BY TRY_CONVERT(INT,sm.OrderYear) DESC,TRY_CONVERT(INT,LEFT(sm.OrderWeek,2)) DESC`;
+
+/**
+ * 기본 조회 차수.
+ * 게시판에 등록된 업체(원천+수령)의 최신 분배 차수를 먼저 쓴다. 이 게시판과 무관한 거래처가
+ * 앞서 분배됐다는 이유로 참여 업체가 비어 있는 차수를 기본값으로 보여주지 않기 위해서다.
+ * 등록 업체의 분배가 아직 하나도 없으면(신규 설치 등) 전체 최신 분배 차수로 되돌아간다.
+ */
+async function latestScope(custKeys = []) {
+  const { params, clause } = custKeyParams(custKeys);
+  if (clause) {
+    const scoped = await query(LATEST_SQL(clause), params);
+    if (scoped.recordset?.[0]) return scoped.recordset[0];
+  }
+  const r = await query(LATEST_SQL(""));
   return (
     r.recordset?.[0] || { year: String(new Date().getFullYear()), week: "01" }
+  );
+}
+
+/**
+ * 선택 연도에 각 기준업체 CustKey 가 전산에 실적을 갖고 있는지.
+ * 차수 물량이 없는 것(정상)과 CustKey 연결 자체가 잘못된 것(사고)을 화면에서 구분하기 위한
+ * 읽기 전용 신호이며, 계산식에는 사용하지 않는다.
+ */
+async function baseActivity({ year, custKeys }) {
+  const { params, clause, keys } = custKeyParams(custKeys);
+  if (!keys.length) return {};
+  const r = await query(
+    `SELECT k.custKey,ISNULL(o.qty,0) orderQty,ISNULL(s.qty,0) shipQty,o.lastWeek lastOrderWeek,s.lastWeek lastShipWeek
+       FROM (VALUES ${keys.map((_, i) => `(@c${i})`).join(",")}) k(custKey)
+      OUTER APPLY (SELECT SUM(ISNULL(od.OutQuantity,0)) qty,MAX(LEFT(om.OrderWeek,2)) lastWeek
+                     FROM OrderMaster om
+                     JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+                    WHERE om.OrderYear=@yr AND ISNULL(om.isDeleted,0)=0 AND om.CustKey=k.custKey) o
+      OUTER APPLY (SELECT SUM(ISNULL(sd.OutQuantity,0)) qty,MAX(LEFT(sm.OrderWeek,2)) lastWeek
+                     FROM ShipmentMaster sm
+                     JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+                    WHERE sm.OrderYear=@yr AND ISNULL(sm.isDeleted,0)=0 AND sm.CustKey=k.custKey
+                      AND ISNULL(sd.OutQuantity,0)>0) s`,
+    { ...params, yr: { type: sql.NVarChar, value: year } },
+  );
+  return Object.fromEntries(
+    (r.recordset || []).map((x) => [
+      Number(x.custKey),
+      {
+        orderQty: roundQty(x.orderQty),
+        shipQty: roundQty(x.shipQty),
+        lastOrderWeek: x.lastOrderWeek || "",
+        lastShipWeek: x.lastShipWeek || "",
+      },
+    ]),
   );
 }
 
@@ -260,16 +321,34 @@ async function saveGroup(req, res) {
     ord: { type: sql.Int, value: order },
     actor: { type: sql.NVarChar, value: actor },
   };
-  if (groupKey)
-    await query(
-      `UPDATE dbo.WebShillaMiuBoardGroup SET GroupName=@name,BaseCustKey=@base,BaseCustName=@bn,ReceiverCustKey=@receiver,ReceiverCustName=@rn,IsActive=@active,DisplayOrder=@ord,UpdatedBy=@actor,UpdatedAt=GETDATE() WHERE GroupKey=@key`,
-      p,
-    );
-  else
-    await query(
-      `INSERT dbo.WebShillaMiuBoardGroup(GroupName,BaseCustKey,BaseCustName,ReceiverCustKey,ReceiverCustName,IsActive,DisplayOrder,CreatedBy,UpdatedBy) VALUES(@name,@base,@bn,@receiver,@rn,@active,@ord,@actor,@actor)`,
-      p,
-    );
+  try {
+    if (groupKey) {
+      const exists = await query(
+        `SELECT GroupKey FROM dbo.WebShillaMiuBoardGroup WHERE GroupKey=@key`,
+        { key: p.key },
+      );
+      if (!exists.recordset?.length)
+        return res
+          .status(400)
+          .json({ success: false, error: "존재하지 않는 업체그룹입니다." });
+      await query(
+        `UPDATE dbo.WebShillaMiuBoardGroup SET GroupName=@name,BaseCustKey=@base,BaseCustName=@bn,ReceiverCustKey=@receiver,ReceiverCustName=@rn,IsActive=@active,DisplayOrder=@ord,UpdatedBy=@actor,UpdatedAt=GETDATE() WHERE GroupKey=@key`,
+        p,
+      );
+    } else
+      await query(
+        `INSERT dbo.WebShillaMiuBoardGroup(GroupName,BaseCustKey,BaseCustName,ReceiverCustKey,ReceiverCustName,IsActive,DisplayOrder,CreatedBy,UpdatedBy) VALUES(@name,@base,@bn,@receiver,@rn,@active,@ord,@actor,@actor)`,
+        p,
+      );
+  } catch (e) {
+    // 활성 그룹의 기준 CustKey 는 유일해야 한다(UX_WebShillaMiuBoardGroup_BaseActive).
+    if (/duplicate key|UX_WebShillaMiuBoardGroup_BaseActive/i.test(e.message))
+      return res.status(400).json({
+        success: false,
+        error: `이미 다른 활성 그룹이 CustKey ${base}(${bn})를 기준업체로 쓰고 있습니다. 기존 그룹을 수정하거나 비활성으로 바꾸세요.`,
+      });
+    throw e;
+  }
   return res.json({ success: true, groups: await groups(await ledgerState()) });
 }
 
@@ -404,8 +483,19 @@ async function handler(req, res) {
 
     if (req.query.mode === "customers") {
       const q = `%${text(req.query.q).slice(0, 50)}%`;
+      // 이름이 비슷한 껍데기 거래처를 고르는 사고를 막기 위해 최근 전산 실적을 함께 보여준다.
       const r = await query(
-        `SELECT TOP 50 CustKey custKey,CustName custName FROM Customer WHERE ISNULL(isDeleted,0)=0 AND CustName LIKE @q ORDER BY CustName`,
+        `SELECT TOP 50 c.CustKey custKey,c.CustName custName,c.OrderCode orderCode,c.Descr descr,
+                o.OrderYear lastOrderYear,LEFT(o.OrderWeek,2) lastOrderWeek,
+                s.OrderYear lastShipYear,LEFT(s.OrderWeek,2) lastShipWeek
+           FROM Customer c
+          OUTER APPLY (SELECT TOP 1 om.OrderYear,om.OrderWeek FROM OrderMaster om
+                        WHERE om.CustKey=c.CustKey AND ISNULL(om.isDeleted,0)=0
+                        ORDER BY TRY_CONVERT(INT,om.OrderYear) DESC,om.OrderWeek DESC) o
+          OUTER APPLY (SELECT TOP 1 sm.OrderYear,sm.OrderWeek FROM ShipmentMaster sm
+                        WHERE sm.CustKey=c.CustKey AND ISNULL(sm.isDeleted,0)=0
+                        ORDER BY TRY_CONVERT(INT,sm.OrderYear) DESC,sm.OrderWeek DESC) s
+          WHERE ISNULL(c.isDeleted,0)=0 AND c.CustName LIKE @q ORDER BY c.CustName`,
         { q: { type: sql.NVarChar, value: q } },
       );
       return res.json({ success: true, customers: r.recordset });
@@ -413,7 +503,10 @@ async function handler(req, res) {
 
     const state = await ledgerState();
     const all = await groups(state);
-    const latest = await latestScope();
+    const activeKeys = all
+      .filter((g) => g.isActive)
+      .flatMap((g) => [Number(g.baseCustKey), Number(g.receiverCustKey)]);
+    const latest = await latestScope(activeKeys);
     const year = text(req.query.year, latest.year);
     const start = req.query.startWeek || latest.week,
       end = req.query.endWeek || start,
@@ -425,12 +518,15 @@ async function handler(req, res) {
 
     const receiverCache = {};
     // 전체 탭과 업체 탭은 같은 조회 로직을 사용한다.
-    const boards = await Promise.all(
-      (selected ? [selected] : active).map(async (group) => ({
-        group,
-        ...(await loadBoard({ year, weeks, group, state, receiverCache })),
-      })),
-    );
+    const [boards, activity] = await Promise.all([
+      Promise.all(
+        (selected ? [selected] : active).map(async (group) => ({
+          group,
+          ...(await loadBoard({ year, weeks, group, state, receiverCache })),
+        })),
+      ),
+      baseActivity({ year, custKeys: activeKeys }),
+    ]);
     const overview = selected
       ? []
       : buildOverviewSections({
@@ -451,16 +547,36 @@ async function handler(req, res) {
           ).flat(),
         });
 
+    // 각 그룹의 기준업체가 이 연도에 실적을 갖는지(연결 진단용 읽기 신호). 계산에는 쓰지 않는다.
+    const withActivity = all.map((g) => ({
+      ...g,
+      baseActivity: activity[Number(g.baseCustKey)] || {
+        orderQty: 0,
+        shipQty: 0,
+        lastOrderWeek: "",
+        lastShipWeek: "",
+      },
+    }));
+    const activityOf = (g) =>
+      withActivity.find((x) => x.groupKey === g.groupKey)?.baseActivity || null;
+
     return res.json({
       success: true,
       year,
       weeks,
       latest,
-      groups: all,
-      selectedGroup: selected,
+      groups: withActivity,
+      selectedGroup: selected
+        ? { ...selected, baseActivity: activityOf(selected) }
+        : null,
       isAdmin: isAdmin(req.user),
       rows: selected ? boards[0]?.rows || [] : [],
-      boards: selected ? [] : boards,
+      boards: selected
+        ? []
+        : boards.map((b) => ({
+            ...b,
+            group: { ...b.group, baseActivity: activityOf(b.group) },
+          })),
       overview,
     });
   } catch (e) {

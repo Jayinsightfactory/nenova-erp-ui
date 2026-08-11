@@ -4,6 +4,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiPost } from "../../lib/useApi";
 import {
   createWheelGesture,
+  describeCustomerActivity,
+  groupLinkState,
   resolveBoardView,
   roundQty,
   stepMajorWeek,
@@ -42,13 +44,15 @@ export default function Board() {
     [manage, setManage] = useState(false),
     [customers, setCustomers] = useState([]),
     [customerQ, setCustomerQ] = useState("");
-  const [form, setForm] = useState({
+  const emptyForm = {
+    groupKey: 0,
     groupName: "",
     baseCustKey: "",
     receiverCustKey: "",
     displayOrder: 0,
     isActive: true,
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
   const weekBoxRef = useRef(null);
   const stateRef = useRef({ year, week, groupKey });
   stateRef.current = { year, week, groupKey };
@@ -223,16 +227,39 @@ export default function Board() {
       setError(e.message);
     }
   };
+  // 기존 그룹 수정: 현재 연결된 두 Customer 를 선택지에 넣어 두어야 select 가 비지 않는다.
+  const editGroup = (g) => {
+    setForm({
+      groupKey: g.groupKey,
+      groupName: g.groupName || "",
+      baseCustKey: String(g.baseCustKey || ""),
+      receiverCustKey: String(g.receiverCustKey || ""),
+      displayOrder: g.displayOrder || 0,
+      isActive: !!g.isActive,
+    });
+    setCustomers((list) => {
+      const merged = [...list];
+      for (const [custKey, custName] of [
+        [g.baseCustKey, g.baseCustName],
+        [g.receiverCustKey, g.receiverCustName],
+      ])
+        if (!merged.some((c) => Number(c.custKey) === Number(custKey)))
+          merged.unshift({ custKey: Number(custKey), custName });
+      return merged;
+    });
+  };
   const saveGroup = async () => {
     try {
       await apiPost("/api/sales/shilla-miu-board", {
         action: "save-group",
         ...form,
+        groupKey: Number(form.groupKey || 0),
         baseCustKey: Number(form.baseCustKey),
         receiverCustKey: Number(form.receiverCustKey),
         displayOrder: Number(form.displayOrder),
       });
       setManage(false);
+      setForm(emptyForm);
       await load({ groupKey: 0 });
     } catch (e) {
       setError(e.message);
@@ -436,6 +463,13 @@ export default function Board() {
         {displayedBoards.map(({ group, rows: groupRows }) => {
           if (!group) return null;
           const shown = visibleRows(groupRows);
+          // 이 차수에 물량이 없는 것과 기준 CustKey 연결 자체가 잘못된 것을 구분해 안내한다.
+          const link = groupLinkState({
+            group,
+            activity: group.baseActivity ?? null,
+            rowCount: shown.length,
+            year,
+          });
           const totals = shown.reduce(
             (a, r) => {
               const w = r.weeks[week];
@@ -464,8 +498,9 @@ export default function Board() {
                 </button>
                 <b title={group.baseCustName}>{group.groupName}</b>
                 <span
-                  title={`${group.baseCustName} → ${group.receiverCustName}`}
+                  title={`${group.baseCustName}(CustKey ${group.baseCustKey}) → ${group.receiverCustName}(CustKey ${group.receiverCustKey})`}
                 >
+                  {link.warn && <b className="warn">⚠ 연결확인</b>}
                   {group.baseCustName} → {group.receiverCustName}
                 </span>
                 <em>품목 {shown.length}</em>
@@ -508,8 +543,11 @@ export default function Board() {
                   <tbody>
                     {!shown.length && (
                       <tr>
-                        <td colSpan="9" className="empty">
-                          기준 업체 주문·분배 품목 없음
+                        <td
+                          colSpan="9"
+                          className={link.warn ? "empty unlinked" : "empty"}
+                        >
+                          {link.message}
                         </td>
                       </tr>
                     )}
@@ -628,13 +666,39 @@ export default function Board() {
         <div className="modal">
           <div>
             <h2>업체 구성</h2>
+            {/* 기존 그룹을 골라 기준 CustKey 를 고칠 수 있어야 한다.
+                (2026-08-11: 신라 그룹이 실적 0 인 CustKey 에 묶여도 화면에서 되돌릴 방법이 없었다.) */}
+            <ul className="grouplist">
+              {groups.map((g) => (
+                <li key={g.groupKey} className={form.groupKey === g.groupKey ? "on" : ""}>
+                  <button onClick={() => editGroup(g)}>수정</button>
+                  <span>
+                    {g.groupName} · {g.baseCustName}({g.baseCustKey}) →{" "}
+                    {g.receiverCustName}({g.receiverCustKey})
+                    {g.isActive ? "" : " · 비활성"}
+                  </span>
+                  <em className={g.baseActivity && !(g.baseActivity.orderQty || g.baseActivity.shipQty) ? "warn" : ""}>
+                    {g.baseActivity
+                      ? g.baseActivity.orderQty || g.baseActivity.shipQty
+                        ? `${year} 주문 ${fmt(g.baseActivity.orderQty)} / 분배 ${fmt(g.baseActivity.shipQty)}`
+                        : `${year} 실적 없음 — 연결 확인`
+                      : ""}
+                  </em>
+                </li>
+              ))}
+            </ul>
             <div>
               <input
                 placeholder="Customer 검색"
                 value={customerQ}
                 onChange={(e) => setCustomerQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && findCustomers()}
               />
               <button onClick={findCustomers}>검색</button>
+              <button onClick={() => setForm(emptyForm)}>새 그룹</button>
+              <span className="editing">
+                {form.groupKey ? `그룹 #${form.groupKey} 수정 중` : "새 그룹 등록"}
+              </span>
             </div>
             <label>
               그룹명{" "}
@@ -656,7 +720,7 @@ export default function Board() {
                 <option value="">선택</option>
                 {customers.map((c) => (
                   <option key={c.custKey} value={c.custKey}>
-                    {c.custName} ({c.custKey})
+                    {c.custName} ({c.custKey}) — {describeCustomerActivity(c)}
                   </option>
                 ))}
               </select>
@@ -672,7 +736,7 @@ export default function Board() {
                 <option value="">선택</option>
                 {customers.map((c) => (
                   <option key={c.custKey} value={c.custKey}>
-                    {c.custName} ({c.custKey})
+                    {c.custName} ({c.custKey}) — {describeCustomerActivity(c)}
                   </option>
                 ))}
               </select>
@@ -923,6 +987,53 @@ export default function Board() {
         .empty {
           text-align: center;
           color: #64748b;
+        }
+        .unlinked {
+          background: #fef3c7;
+          color: #92400e;
+          font-weight: 700;
+        }
+        .groupbar .warn {
+          margin-right: 6px;
+          padding: 0 3px;
+          background: #fbbf24;
+          color: #7c2d12;
+        }
+        .grouplist {
+          max-height: 132px;
+          margin: 0 0 8px;
+          padding: 0;
+          overflow: auto;
+          list-style: none;
+          border: 1px solid #cbd5e1;
+        }
+        .grouplist li {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 2px 4px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .grouplist li.on {
+          background: #eff6ff;
+        }
+        .grouplist span {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .grouplist em {
+          font-style: normal;
+          color: #64748b;
+        }
+        .grouplist em.warn {
+          color: #b91c1c;
+          font-weight: 700;
+        }
+        .editing {
+          margin-left: 6px;
+          color: #1d4ed8;
         }
         .subweeks {
           text-align: left;
