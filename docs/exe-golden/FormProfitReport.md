@@ -76,6 +76,21 @@
 
 월별 화면은 주차 손익을 수정하지 않으며, 나중에 월별 수기 보정이 필요해질 경우에도 `WebProfitReport`의 주차 키와 섞지 않고 별도 월별 원장을 추가해야 한다.
 
+## 재고 평가·재고단가표 비재고 비용행 제외(2026-08-11)
+
+운영 27차 화면에서 F(기말상품재고) 합계가 Excel 원본 13,229,405.2035원 대비 1,941,896,746원으로
+폭증한 결함을 확인했다. 원인은 `CASE_CATEGORY`(SQL)가 운송료/SERVICE FEE/현지상차운임 placeholder
+Product를 S 포워딩·H 통관 자동분류 원천으로 쓰기 위해 국가/화종으로 "분류"하는 기존 업무 규칙은
+정상이지만, 그 분류를 `stockSnapshotByCategory`/`categoryUnitMismatch`/`stockPriceRows`의 재고
+집계에도 그대로 적용해 비용행 `ProductStock` 잔량을 상품재고인 것처럼 합산한 데 있다. 새 EXE
+Form/메서드 조사가 아니라 이미 문서화된 `ViewWarehouse`/`ViewShipment` 공용 읽기 계약(위 "공용 ERP
+읽기 계약" 절)과 `Q 상품구매에서 운송료/SERVICE FEE 제외` 업무 규칙(위 "매입 Q" 절)을 재고
+평가·재고단가표·매입 집계 5곳(`stockSnapshotByCategory`, `categoryUnitMismatch`,
+`stockPriceRows`, `purchaseByCategory`, `purchaseQtyByCategory`, `invoiceRatesByCategory`)에
+일관되게 적용하도록 정리한 버그 수정이며, `forwardingByCategory`(S)·H 통관 자동분류는 이 비용행을
+그대로 배분 대상으로 써야 하므로 그대로 유지했다. 상세는
+`__tests__/profitReportStockCostExclusionContract.test.js` 참고.
+
 ## 사전 확인 기록
 
 공용 조인·확정 기준은 `docs/exe-golden/FormShipmentDistribution.md`, `docs/exe-golden/FormEstimateView.md`, `docs/DB_STRUCTURE.md`, `docs/WEB_VS_ERP_CONFLICTS.md`에 기록된 dnSpy/DB 근거를 재사용한다. 이 기록과 `docs/contracts/weekly-profit-report.json`은 변경 시 회귀 테스트와 배포 manifest 검사의 기준이다.
