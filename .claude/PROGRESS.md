@@ -4,6 +4,40 @@
 
 ---
 
+## [2026-08-11] 세션 — 매출이익 보고서 항목별 데이터 기준 보기
+
+### 작업 내용
+- `81e24f5` (PR #139) 주차별 매출이익 보고서 상단에 조회 전용 `항목별 데이터 기준 보기` 접기/펼치기 추가.
+  화면 항목명 | 데이터가 오는 곳 | 계산 방식 | 자동/직접입력 | 주의·검증 5열 조밀표. 기본 접힘, 상태 미저장.
+- 설명 문구는 `lib/profitReportSourceGuide.js` 단일 상수로 관리. 표 20열 + 부가 5행 + 입력화면 5종 + 경계 4종.
+- 자동 / 계산 / 입력화면에서 옴 / 직접입력을 배지로 분리해 **사용자 입력을 자동값처럼 설명하지 않도록** 고정.
+- 계산·저장·엑셀 다운로드 로직은 변경하지 않음.
+
+### 변경된 파일
+- `lib/profitReportSourceGuide.js` (신규): 설명 데이터 사전 단일 정의
+- `components/ProfitReportSourceGuide.js` (신규): button + aria-expanded/aria-controls, hidden, 가로 스크롤
+- `pages/sales/profit-report.js`: import + 안내문 아래 렌더 (2줄)
+- `__tests__/profitReportSourceGuide.test.js` (신규): 라벨 3중 일치 + 문구↔계산코드 대조 + 접근성/조회전용 계약
+- `docs/contracts/weekly-profit-report.json`: scope 2건, `REPORT_SOURCE_GUIDE_VIEW`(preserve/preserve), requiredTestFiles
+- `docs/exe-golden/FormProfitReport.md`: 부작용 표 행 + 설명 패널 절 + 확정 필터 표기 정정
+- `package.json`: test:erp-contract 에 신규 테스트 등록
+- `docs/work-reports/2026-08-11_profit-report-source-guide.md` (신규)
+
+### 검증
+- `node __tests__/profitReportSourceGuide.test.js` 전체 통과
+- `npm run verify:erp-change` EXIT=0 (test:board · test:erp-contract · manifest · write guard · webpack build)
+- 운영 실브라우저 읽기 전용 확인: 기본 접힘 / 키보드 Enter 토글 / 새로고침 후 접힘 / localStorage 미사용 /
+  360px 시뮬레이션에서 표만 가로 스크롤(페이지 본문 overflow 없음) / `__reactFiber` 부착 / 스모크 3종 OK
+
+### 미결 이슈 / 블로킹
+- **매출 확정 필터 불일치(코드 미수정)**: 보고서는 `sm.isFix=1`, `lib/pivotStats.js`는 `sd.isFix=1`.
+  부분확정 차수에서 미확정 라인이 매출에 섞일 수 있다. 필터를 바꾸면 확정 차수의 매출액·매출이익이
+  즉시 달라지므로 설명 UI 범위에서 변경하지 않고 문서에 기록. **사용자 판단 필요.**
+- 배포 중 일시 500은 병렬 PR(#140) 동시 배포로 pm2 재기동 구간에 스모크가 실행된 것이 원인.
+  코드 문제 아님(이후 배포 정상, fiber 부착 확인).
+
+---
+
 ## [2026-08-11] 세션 — 잔량분배 전체/개별 열 통일 (단일 표)
 
 ### 작업 내용
