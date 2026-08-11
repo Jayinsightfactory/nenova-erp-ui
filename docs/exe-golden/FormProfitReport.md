@@ -6,7 +6,9 @@
 
 ## 공용 ERP 읽기 계약
 
-- 매출 N·불량 L·그외매출 O는 `ShipmentMaster`와 `ShipmentDetail`을 사용하며 확정 출고(`ShipmentDetail.isFix=1`)만 집계한다.
+- 매출 N·불량 L·그외매출 O는 `ShipmentMaster`와 `ShipmentDetail`을 사용하며 확정 출고(`ShipmentMaster.isFix=1`, `isDeleted=0`)만 집계한다. N은 추가로 `ShipmentDetail.OutQuantity <> 0`을 요구한다.
+  - 2026-08-11 정정: 이 문서에 `ShipmentDetail.isFix=1`로 적혀 있었으나 `lib/profitReport.js`의 실제 필터는 `ISNULL(sm.isFix,0)=1`이다. 루트 `CLAUDE.md`와 `docs/DB_STRUCTURE.md`(매출 집계 체크리스트)도 `sm.isFix=1`을 기준으로 하므로 문서 표기를 코드에 맞춰 정정했다.
+  - 미해결 항목(코드 변경 없음): `docs/SHIPMENT_FIX_PARTIAL_AUDIT_2026-05-26.md`가 다루는 부분확정(마스터 `isFix=1` + 일부 `sd.isFix=0`) 상태에서는 이 보고서가 미확정 라인까지 매출로 집계할 수 있다. `lib/pivotStats.js`는 같은 매출 집계를 `sd.isFix=1`로 한다. 필터를 바꾸면 확정 차수의 매출액·매출이익 숫자가 즉시 달라지므로 설명 UI 작업 범위에서는 변경하지 않고 미결로 남긴다.
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
 - E/F/H/R/S는 재고 스냅샷·입고 GW/CW·BILL 시점 환율 스냅샷(`FreightCost.ExchangeRate`)·포워딩 원천에서 자동 계산해 기본 표시한다. 29차 이후 당주 BILL 환율 스냅샷이 없으면 전차수에 확정 저장된 과세환율 R을 우선 상속하고, 그것도 없을 때만 `CurrencyMaster` 현재 환율을 fallback한다. 청구서·실사·특수비용처럼 예외가 있을 때만 웹 전용 `WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`에 수기 보정값을 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
@@ -60,6 +62,16 @@
 | 연도별 월별 보고서 조회 | 보존 | 보존 | 읽기만 함 | 보존 | 보존 | 읽기만 함 |
 | 월별 행 펼치기·월경계 차수 확인 | 보존 | 보존 | 읽기만 함 | 보존 | 보존 | 읽기만 함 |
 | 기존 주차 보고서의 수기 저장 | 보존 | 보존 | 보존 | 보존 | 보존 | 기존 주차 키로만 저장 |
+| `항목별 데이터 기준 보기` 펼치기·접기 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(조회도 하지 않음) |
+
+## 항목별 데이터 기준 보기(2026-08-11)
+
+보고서 상단에 항목별 원천·계산식 설명을 접기/펼치기로 제공한다. 조회·설명 전용이며 ERP 원장과 웹 전용 수기 테이블 어느 쪽도 읽거나 쓰지 않는다.
+
+- 설명 문구는 `lib/profitReportSourceGuide.js` 한 곳의 상수로만 관리하고, 화면(`components/ProfitReportSourceGuide.js`)과 회귀테스트(`__tests__/profitReportSourceGuide.test.js`)가 그 상수만 참조한다.
+- 회귀테스트는 (1) 페이지 `COLUMN_DEFS`·엑셀 `COL_LABEL`·설명 사전의 키/라벨 3중 일치, (2) 설명 문구와 실제 계산 코드의 대조(`C=N+L+O`, `P=Q×R`, `I=E+G+H−F`, noEnding 3개국 예외, D 분모는 공제 포함·U 분모는 공제 제외, 통관비 ÷1.1과 베트남 선율 예외, 27차→26차·01차→전년 52차 경계, 29차 이후 과세환율 상속, `sm.isFix=1` 확정 필터), (3) 기본 접힘·`aria-expanded`/`aria-controls`·가로 스크롤 같은 UI 계약을 함께 고정한다.
+- 자동값과 사용자 입력을 배지로 구분해 표시한다. 사용자가 넣은 값(`WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`)을 자동 원천처럼 설명하지 않으며, R 원천이 없을 때 해당 행에 입력칸이 나타나는 기존 동작도 설명 대상에 포함한다.
+- 접힘 상태는 저장하지 않으므로 새로고침하면 항상 접힌 상태로 시작한다.
 
 월별 화면은 주차 손익을 수정하지 않으며, 나중에 월별 수기 보정이 필요해질 경우에도 `WebProfitReport`의 주차 키와 섞지 않고 별도 월별 원장을 추가해야 한다.
 
