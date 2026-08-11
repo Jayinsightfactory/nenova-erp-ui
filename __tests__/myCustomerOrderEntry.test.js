@@ -21,5 +21,7 @@ const fs = require('node:fs');
   assert.doesNotMatch(own,/SUM\(CASE WHEN p\.OutUnit/); assert.match(own,/SUM\(ISNULL\(xod\.BoxQuantity,0\)\)/);
   assert.match(page,/scrollIntoView/); assert.match(page,/업체명·담당자 검색/);
   assert.match(page,/focusMode/); assert.match(page,/차수·업체 다시 선택/); assert.match(page,/selectedCustomer/);
+  assert.match(page,/productGroups/); assert.match(page,/collapsedFlowers/); assert.match(page,/aria-expanded/); assert.match(page,/aria-controls/);
+  assert.match(page,/수량 입력/); assert.match(page,/열기/); assert.match(page,/닫기/); assert.match(page,/visibleProducts/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
