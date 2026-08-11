@@ -21,6 +21,12 @@
       "sideEffect": "all active groups use identical year-major-week-CustKey read scope for orders and shipments; all ledgers preserve; no DDL on GET"
     },
     {
+      "name": "BOARD_UNIFIED_TABLE_RENDER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "UI only: 전체 탭과 업체 탭이 같은 열 순서(업체·품목명·단위·예상물량·현재분배·업체최종분배·업체잔량·미우이관·완료·세부)와 같은 폭의 표 하나만 그린다. 전체에서 같은 품목의 업체 수량을 합치지 않고 업체별 행을 유지하며, 미우 자체수량·총수량은 같은 폭의 작은 합계 행으로 보존한다. buildUnifiedBlocks()는 순수 정렬·묶음 함수이고 수량 계산식과 API·SQL은 변경하지 않는다"
+    },
+    {
       "name": "GROUP_CONFIG_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -55,6 +61,7 @@
       "미우 총수량 = 미우 자체수량 + 모든 원천업체 이관량 합계"
     ],
     "rounding": "모든 중간값과 합계는 0.001 단위로 정규화한다.",
+    "columns": "전체 탭과 업체 탭은 같은 표 하나를 공유한다. 열은 업체·품목명·단위·예상물량·현재분배·업체최종분배·업체잔량·미우이관·완료·세부 순서로 고정이며, 전체 탭에서 같은 품목이 여러 업체에 있으면 업체별 행을 각각 유지한다(합산 금지). 미우 자체수량과 미우 총수량은 같은 폭의 작은 합계 행으로 보존한다.",
     "customerIdentity": "원천·수령 업체는 이름 문자열이 아니라 WebShillaMiuBoardGroup 의 CustKey 로만 식별한다. 이름이 비슷한 껍데기 거래처(예: 실적 0 인 '신라상사' CustKey 444)와 실제 원장 거래처('신라호텔' CustKey 446, OrderCode CLS)를 혼동하면 해당 그룹 전체가 조용히 빈 화면이 된다.",
     "defaultWeek": "기본 조회 차수는 등록된 활성 그룹(원천+수령 CustKey)의 최신 분배 차수이며, 등록 업체 분배가 하나도 없을 때만 전체 최신 분배 차수로 되돌아간다."
   },
