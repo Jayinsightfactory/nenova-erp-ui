@@ -7,6 +7,7 @@ import XLSX from 'xlsx-js-style';
 import { sqlEstimateGetPrintDetail } from '../lib/exeEstimateViewSql.js';
 import { buildEstimatePrintWorksheet } from '../lib/estimatePrintExcel.js';
 import { prepareEstimatePrintRows } from '../lib/estimatePrintPrepare.js';
+import { sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder.js';
 
 const exeRows = [
   {
@@ -95,5 +96,24 @@ assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
+assert.equal((pageSource.match(/sortEstimateShipmentsForPrint\(/g) || []).length >= 2, true,
+  '견적서 인쇄와 동일양식 Excel 모두 같은 담당자 정렬 함수를 사용한다.');
+
+const managerOrdered = sortEstimateShipmentsForPrint([
+  { CustKey: 31, CustName: '영남꽃소재', Manager: '정재훈' },
+  { CustKey: 13, CustName: '(주)미카엘플라워', Manager: '박성수' },
+  { CustKey: 533, CustName: '주광농원', Manager: '김원영' },
+  { CustKey: 318, CustName: '꽃샘원예', Manager: '조현욱' },
+  { CustKey: 999, CustName: '미지정업체', Manager: '' },
+  { CustKey: 280, CustName: '경향농원', Manager: '박성수' },
+]);
+assert.deepEqual(managerOrdered.map((row) => `${row.Manager || '미지정'}:${row.CustName}`), [
+  '김원영:주광농원',
+  '박성수:(주)미카엘플라워',
+  '박성수:경향농원',
+  '정재훈:영남꽃소재',
+  '조현욱:꽃샘원예',
+  '미지정:미지정업체',
+]);
 
 console.log('estimate print contract tests passed');

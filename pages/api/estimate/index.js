@@ -476,7 +476,8 @@ async function getEstimates(req, res) {
        ) ea
        ${where}
        GROUP BY LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek) - 1), sm.CustKey, c.CustName, c.Manager, c.CustArea
-       ORDER BY ParentWeek DESC, c.CustName`, params
+       ORDER BY CASE WHEN NULLIF(LTRIM(RTRIM(c.Manager)), N'') IS NULL THEN 1 ELSE 0 END,
+                c.Manager, c.CustName, sm.CustKey`, params
       );
     }
 
