@@ -28,6 +28,7 @@ export const MENU_ITEMS = [
     group: '주문관리',
     items: [
       { href: '/orders/new',   labelKey: '주문등록',          popup: false },
+      { href: '/orders/my-customers', labelKey: '내 업체 주문등록', popup: false },
       { href: '/orders/paste', labelKey: '붙여넣기 주문등록',  popup: true  },
       { href: '/orders/import', labelKey: '업로드 주문등록',    popup: false },
       { href: '/orders/kakao-audit', labelKey: '카톡 변경 검증', popup: false },

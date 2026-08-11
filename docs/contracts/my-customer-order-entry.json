@@ -1,0 +1,11 @@
+{
+  "id": "my-customer-order-entry",
+  "title": "내 업체 주문등록 계약",
+  "scope": ["components/Layout.js", "pages/orders/my-customers.js", "pages/api/orders/my-customers.js", "pages/api/orders/index.js", "lib/myCustomerOrderEntry.js", "__tests__/myCustomerOrderEntry.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"ADD_OWN_CUSTOMER_ORDER_QUANTITY","orderMaster":"create-or-reuse-current-year-week-customer","orderDetail":"create-positive","orderDetailSemantics":"increase-existing-by-positive-delta","orderHistory":"create","shipmentMaster":"preserve","shipmentDetail":"preserve","shipmentDate":"preserve","estimate":"preserve","webProfitReport":"preserve"}],
+  "crossYearFixture": {"required":true,"description":"2025와 2026 동일 차수·업체·품목이 있어도 선택한 2026 주문수량만 조회·잠금·가산한다.","fixture":{"selectedOrderYear":"2026","orderWeek":"32-01","priorYear":"2025","expectedIncludedYears":["2026"],"expectedExcludedYears":["2025"]}},
+  "requiredTestFiles": ["__tests__/myCustomerOrderEntry.test.js", "__tests__/erpContractManifest.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormOrderAdd.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs","methods":["btnSave_Click","UnitQuantity"],"tables":["OrderMaster","OrderDetail","OrderHistory"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}
