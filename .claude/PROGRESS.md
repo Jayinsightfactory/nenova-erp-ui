@@ -4,6 +4,49 @@
 
 ---
 
+## [2026-08-11] 세션 — 잔량분배 신라 그룹 CustKey 오연결 복구·진단
+
+### 작업 내용
+- 운영 증상: `/sales/shilla-miu-board?year=2026&week=33` 전체 탭 36개 품목의 `신라잔량`이 모두 `-`,
+  신라 그룹은 `기준 업체 주문·분배 품목 없음`. 라움·초이문·미우는 정상.
+- 원인(읽기 전용 probe 확정): `WebShillaMiuBoardGroup` 신라 그룹의 `BaseCustKey=444`(신라상사).
+  444/445 는 `OrderMaster`/`ShipmentMaster` 가 **생애 0건**인 껍데기 거래처이고, 신라의 실제 원장
+  거래처는 `신라호텔`(CustKey 446, `OrderCode='CLS'`, `Descr='신라/중-화/네-화/CLS'`).
+  2026-08-10 자동 seed 가 **이름 문자열** `N'신라상사'` 로 거래처를 고른 것이 사고 원인.
+  게시판은 CustKey 로만 ERP 를 읽으므로 모든 차수·연도에서 조용한 빈 화면이 됐다.
+  → **버그(연결 오류)이며 '해당 차수 데이터 없음'이 아니다.** 33차 신라 실제 주문 1,560 존재.
+- 수정: ① seed 를 실적 있는 CustKey 로 제한(+신라호텔로 교정) ② 조회 응답에 기준업체 연도 실적을
+  실어 `이 차수만 없음` / `⚠ 연결확인` 구분 ③ 업체관리에서 기존 그룹을 GroupKey 로 수정 가능
+  ④ Customer 검색 결과에 최근 주문·분배 차수 표시 ⑤ 활성 기준업체 중복 안내 후 거부
+  ⑥ 기본 차수를 등록 업체 기준 최신 분배 차수로(없으면 전체 최신 fallback, 2026 기준 33 동일).
+- 운영 복구: 웹 전용 `WebShillaMiuBoardGroup` 신라 행만 `444 → 446` 갱신(idempotent 조건부).
+  ERP 원장 쓰기 0건. 복구 후 33차 신라잔량 540/560/460(합계 1,560), 라움·초이문·미우 합계 불변.
+- 커밋 `2cc5b42`, PR #137 머지 → Cafe24 배포(hydration smoke 통과) → 그룹 연결 복구 → 재확인.
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: `groupLinkState`/`describeCustomerActivity` 순수 함수
+- `pages/api/sales/shilla-miu-board.js`: seed 실적 가드, `baseActivity`, 그룹 한정 `latestScope`,
+  업체검색 실적 표시, 그룹 UPDATE 검증과 중복 안내
+- `pages/sales/shilla-miu-board.js`: 업체관리 기존 그룹 편집, `⚠ 연결확인`, 빈 표 안내 분기
+- `__tests__/shillaMiuBoard.test.js`: 실제 CustKey 픽스처(444/446), 주문만·분배만·둘 다, 32/33차,
+  2025/2026 격리, 삭제행, 단위 분리, 미래 추가업체, 라움·초이문·미우 합계 불변, 연결 상태 메시지
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md` §7, `docs/contracts/shilla-miu-board.json`,
+  `docs/exe-golden/FormShipmentDistribution.md`,
+  `docs/migrations/2026-08-11_web_board_group_custkey_repair.sql`(신규)
+- `scripts/probe-shilla-board-scope*.mjs`, `scripts/probe-shilla-board-newsql.mjs`,
+  `scripts/probe-shilla-board-after-repair.mjs`, `scripts/run-web-board-custkey-repair.mjs`
+
+### 다음 작업 예정
+- 33차 신라 분배가 전산에 입력되면 현재분배·잔량이 자동 반영되는지 확인(코드 변경 불필요).
+- 최종분배 첫 저장 시 `ensureSchema` 가 `FinalQty`/History 를 만든다(현재 운영에는 아직 없음).
+
+### 미결 이슈 / 블로킹
+- `아이엠 (I am)`(457)은 미우(456)와 별개 거래처(OrderCode CL12)이며 33차 52 를 갖는다.
+  미우 총수량에 합쳐야 하는지는 업무 결정 사항 — 현재는 계약대로 456 만 수령업체로 본다.
+- `신라호텔 발주용 코드`(652, isDeleted=1)는 2026 1~3차 이후 사용 없음. 그룹 대상 아님.
+
+---
+
 ## [2026-08-11] 세션 — 잔량분배 게시판 '업체 최종분배' 흐름 재정의
 
 ### 작업 내용
