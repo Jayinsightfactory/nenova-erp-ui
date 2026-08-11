@@ -31,11 +31,16 @@
 ### 검증
 - `npm run test:board` ✅ / `npm run verify:erp-change` ✅ (erp-contract + manifest + write guard + build, exit 0)
 - ERP 원장 쓰기 0건 — Order/Shipment/Stock/Estimate/WebProfitReport 는 읽기만
+- PR #134 verify ✅ → master 병합 → Cafe24 배포 run 31449276565 ✅ (계약검사 + SSH 배포 + hydration 스모크 fiber:true)
+- 운영 확인: `/api/ping` 200, `/sales/shilla-miu-board` 200, 새 문구·차수 스피너 마크업 서빙 확인, 콘솔 error/warn 0
 
 ### 미결 이슈
 - 운영 DB의 기존 `Qty` 값은 새 최종분배로 자동 변환하지 않음(공식이 달라 의미가 어긋남). 화면에서 `이전 이동입력` 참고값으로만 표시.
 - `docs/migrations/2026-08-11_web_board_final_allocation.sql` 은 저장 API의 ensureSchema 가 자동 적용하지만,
   SSMS 로 미리 실행해 두면 첫 저장 지연을 없앨 수 있음.
+- 로그인 상태 실화면 확인 미완: 자동화 브라우저 세션이 로그인되어 있지 않아 `/login` 으로 리다이렉트됨.
+  저장된 비밀번호로 대신 로그인하지 않았으므로, 사용자가 로그인한 뒤 최신 차수 기본값·전체/업체 탭 수치·
+  차수 휠/▲▼·876px 폭을 육안 확인 필요(저장 버튼은 누르지 않아도 됨).
 
 ## [2026-08-10] 세션 — 잔량분배 통합게시판 표 여백 최소화
 
