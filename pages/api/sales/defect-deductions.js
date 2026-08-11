@@ -18,7 +18,6 @@ import {
   preflightRegistration,
   registrationPreview,
   registerDeductions,
-  markCarryoverDeductions,
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
@@ -128,10 +127,6 @@ async function handler(req, res) {
             ...skipped.map((row) => `이월 대기 · 원장키 #${row.deductionKey} · ${row.error}`),
           ],
         });
-      }
-      if (action === 'carryover-register') {
-        const rows = await markCarryoverDeductions({ ids: req.body?.ids || [], user: req.user });
-        return res.status(200).json({ success: true, saved: rows.length, rows });
       }
       return res.status(400).json({ success: false, error: `지원하지 않는 작업입니다: ${action}` });
     }
