@@ -479,8 +479,10 @@ export default function ProfitReportPage() {
       <tbody>
         {wRows.map(row => {
           const c = row.calc;
-          const D = calcRevenueRatio(c, wTotals);
-          const U = calcPurchaseRatio(c, wTotals);
+          // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 비율 공식이 나중에 바뀌어도
+          // 과거 확정본은 불변이어야 한다. 2026-08-11 결함수정).
+          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals);
+          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
               {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
@@ -805,8 +807,9 @@ export default function ProfitReportPage() {
             <tbody>
               {rows.map(row => {
                 const c = row.calc;
-                const D = calcRevenueRatio(c, totals);
-                const U = calcPurchaseRatio(c, totals);
+                // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 2026-08-11 결함수정).
+                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals);
+                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}

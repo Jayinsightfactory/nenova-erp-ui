@@ -105,6 +105,9 @@ export async function loadReportData(major, orderYear) {
           // 27차 호주처럼 카테고리 안에 매입단위(박스)와 재고단위(단/송이)가 섞이면 category 평균단가
           // 공식이 무효라 품목별 recentCost fallback으로 건너뛴다(2026-08-11 결함수정 6).
           unitMismatch: Boolean(stockEnd.unitMismatch?.[key]),
+          // 재고는 있는데 최근 매입단가를 찾지 못해 recentCost 합계에 0으로 조용히 반영된 수량.
+          // 값을 추정해 채우지 않고 audit이 needs_input으로 명시하게 한다(2026-08-11 결함수정 7).
+          recentCostMissingQty: stockEnd.recentCostMissingQty?.[key] != null ? Number(stockEnd.recentCostMissingQty[key]) : 0,
         };
         // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — 화면 실값·엑셀생성 기본값
         const autoF = computeAutoEndingStock(stock, {

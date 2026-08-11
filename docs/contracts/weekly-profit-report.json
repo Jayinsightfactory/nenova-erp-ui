@@ -124,7 +124,8 @@
     "__tests__/profitReportConfirmAuditTrail.test.js",
     "__tests__/profitReportCountryClassificationParity.test.js",
     "__tests__/profitReportRecentCostCutoff.test.js",
-    "__tests__/profitReportAustraliaUnitFallback.test.js"
+    "__tests__/profitReportAustraliaUnitFallback.test.js",
+    "__tests__/profitReportGetReadOnlyDdl.test.js"
   ],
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",

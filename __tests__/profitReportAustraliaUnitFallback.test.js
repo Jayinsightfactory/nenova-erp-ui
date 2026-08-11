@@ -20,6 +20,7 @@ const check = (label, condition, detail = '') => {
 
 async function main() {
   const { computeAutoEndingStock } = await import('../lib/profitReportCalc.js');
+  const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
   const fixture = JSON.parse(
     fs.readFileSync(path.join(__dirname, 'fixtures', 'profit-report-22-27.json'), 'utf8')
   );
@@ -35,9 +36,15 @@ async function main() {
     `F=${F} R=${R} Q=${Q} H=${H}`);
 
   console.log('\n=== unitMismatch=true — 1순위(category 평균단가) 대신 2순위(recentCost) 사용 ===');
-  // recentCost는 "품목별 최근 외화단가 × 품목별 기말수량"을 이미 SQL에서 합산해 온 값이다.
-  // F = recentCost × R 이 성립하도록 역산해, 그 recentCost를 그대로 넣었을 때 실측 F가
-  // 정확히 재현되는지 확인한다(품목별 fallback 공식 자체의 정확성 검증).
+  // 2026-08-11 결함수정 9(테스트 한계 명시): 이 fixture(profit-report-22-27.json)는 원본 엑셀
+  // "주차별 매출이익 보고서" 메인 시트의 카테고리 합계 셀(F/R/Q/H)만 담고 있고, 재고현황/구매현황
+  // 시트의 품목(ProdKey)별 최근단가·기말수량 원본 행은 포함하지 않는다. 아래 recentCost = F/R은
+  // "computeAutoEndingStock의 2순위 공식이 산술적으로 F를 재현하는지"만 검증하는 역산이며,
+  // lib/profitReport.js stockSnapshotByCategory()의 SQL(OUTER APPLY로 ProdKey별 최근 입고단가를
+  // 구해 ps.Stock과 곱한 뒤 SUM)이 실제 운영 DB에서 7,843,425.3635를 만들어내는지는 이 테스트가
+  // 증명하지 못한다 — 운영 DB 접속 정보(.env.local)가 없어 이번 검토에서 품목별 원본 대조는
+  // 하지 못했다(미검증). 품목별 fixture로 강화하려면 27차 호주 ProdKey별 재고현황 마지막 Stock과
+  // 구매현황 최근 입고단가 원본을 사용자로부터 받거나, 운영 DB 읽기전용 접속으로 직접 대조해야 한다.
   const recentCost = F / R;
   const mismatchResult = computeAutoEndingStock(
     {
@@ -87,6 +94,48 @@ async function main() {
   console.log('\n=== lib/profitReportCalc.js — computeAutoEndingStock이 unitMismatch를 실제로 분기 조건에 사용 ===');
   const calcSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportCalc.js'), 'utf8');
   check('1순위 조건이 !stock.unitMismatch를 포함', /if \(!stock\.unitMismatch && purchQty > 0 && landedWon > 0\)/.test(calcSource));
+
+  console.log('\n=== 결함수정 7: recentCost fallback에서 최근단가 못 찾은 품목을 0으로 조용히 누락하지 않음 ===');
+  const missingCostRow = (overrides = {}) => ({
+    category: '호주', currency: 'AUD', variant: 'normal',
+    auto: { N: 100, L: 0, O: 0, Q: 10, S: 0, H: 0, E: 0, F: 0, R: 1000 },
+    manual: {},
+    stock: { endQty: 500, purchQty: 0, unitMismatch: true, recentCostMissingQty: 120, negativeQty: 0 },
+    source: { E: 'auto_exe_stock_view', F: 'auto_exe_stock_view', H: 'missing', R: 'missing', S: 'missing' },
+    ...overrides,
+  });
+  const missingCostAudit = buildProfitReportAudit([missingCostRow()], { major: 27 });
+  check('최근단가 못 찾은 품목이 있으면 error(RECENT_COST_MISSING_ITEMS)로 표시',
+    missingCostAudit.issues.some((i) => i.code === 'RECENT_COST_MISSING_ITEMS' && i.severity === 'error'));
+  check('해당 카테고리는 needs_input 상태가 됨', missingCostAudit.status === 'needs_input');
+
+  const noGapAudit = buildProfitReportAudit(
+    [missingCostRow({ stock: { endQty: 500, purchQty: 0, unitMismatch: true, recentCostMissingQty: 0, negativeQty: 0 } })],
+    { major: 27 },
+  );
+  check('갭이 없으면(recentCostMissingQty=0) RECENT_COST_MISSING_ITEMS 없음',
+    !noGapAudit.issues.some((i) => i.code === 'RECENT_COST_MISSING_ITEMS'));
+
+  const manualOverrideAudit = buildProfitReportAudit(
+    [missingCostRow({ manual: { F: 9999999 } })],
+    { major: 27 },
+  );
+  check('F를 수기 저장했으면(manual.F) 자동계산 갭 경고를 내지 않음',
+    !manualOverrideAudit.issues.some((i) => i.code === 'RECENT_COST_MISSING_ITEMS'));
+
+  const tier1Audit = buildProfitReportAudit(
+    [missingCostRow({ stock: { endQty: 500, purchQty: 1000, unitMismatch: false, recentCostMissingQty: 120, negativeQty: 0 } })],
+    { major: 27 },
+  );
+  check('unitMismatch가 아니고 이번 차수 매입도 있으면(1순위 공식 사용) 갭 경고 없음',
+    !tier1Audit.issues.some((i) => i.code === 'RECENT_COST_MISSING_ITEMS'));
+
+  console.log('\n=== lib/profitReport.js — recentCostMissingQty 배선 확인 ===');
+  const reportSourceForGap = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
+  check('stockSnapshotByCategory SQL이 lc.UnitCost IS NULL 품목 수량을 별도 집계', /lc\.UnitCost IS NULL/.test(reportSourceForGap));
+  check('반환값에 recentCostMissingQty 맵이 포함됨', /recentCostMissingQty:\s*Object\.fromEntries/.test(reportSourceForGap));
+  const apiSourceForGap = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
+  check('API가 stock.recentCostMissingQty를 stockEnd에서 전달', /recentCostMissingQty: stockEnd\.recentCostMissingQty/.test(apiSourceForGap));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

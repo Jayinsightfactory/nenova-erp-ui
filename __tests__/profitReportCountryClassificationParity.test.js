@@ -80,6 +80,27 @@ async function main() {
   }
   check('baseCountry(국내/한국) = null(해외 아님)', baseCountry('국내') === null && baseCountry('한국') === null);
   check('baseCountry(빈값) = null', baseCountry('') === null && baseCountry(null) === null);
+
+  console.log('\n=== 결함수정 3: 짧은 영문 토큰(nl/us/aus/nz) 부분일치 오분류 방지 ===');
+  const falsePositiveCases = [
+    ['Ruscus', '루스커스가 US(us) 부분일치로 미국이 되면 안 됨'],
+    ['Ruscus Farm', '농장명에 Ruscus가 있어도 미국이 되면 안 됨'],
+    ['Saussurea', '품목명에 aus가 부분일치해 호주가 되면 안 됨'],
+    ['Colombia Ruscus', '콜롬비아 루스커스가 US 부분일치로 미국이 되면 안 됨'],
+    ['Anthurium', '품목명에 nl 부분일치로 네덜란드가 되면 안 됨'],
+    ['Bronze', '품목명에 nz 부분일치로 뉴질랜드가 되면 안 됨'],
+  ];
+  for (const [input, label] of falsePositiveCases) {
+    check(`baseCountry('${input}') != 오분류(${label})`,
+      !['미국', '호주', '네덜란드', '뉴질랜드'].includes(baseCountry(input)),
+      `실제=${baseCountry(input)}`);
+  }
+  // 짧은 토큰도 단어 경계 일치(완전 단어)면 여전히 정상 매칭되어야 한다.
+  check("baseCountry('US') = '미국' (단어 경계 일치는 유지)", baseCountry('US') === '미국');
+  check("baseCountry('AUS') = '호주' (단어 경계 일치는 유지)", baseCountry('AUS') === '호주');
+  check("baseCountry('NZ Farm') = '뉴질랜드' (단어 경계 일치는 유지)", baseCountry('NZ Farm') === '뉴질랜드');
+  check("baseCountry('NL-Farm') = '네덜란드' (단어 경계 일치는 유지)", baseCountry('NL-Farm') === '네덜란드');
+  check("baseCountry('콜롬비아 Ruscus') = '콜롬비아' (긴 한글 토큰은 부분일치 유지)", baseCountry('콜롬비아 Ruscus') === '콜롬비아');
   check('COUNTRY_TOKEN_MAP에 모든 PROFIT_REPORT_CATEGORY_KEYS 단일국가가 매핑 대상으로 존재',
     ['네덜란드', '호주', '태국', '중국', '에콰도르', '미국', '이스라엘', '뉴질랜드', '일본', '베트남']
       .every((k) => COUNTRY_TOKEN_MAP.some((e) => e.key === k)));

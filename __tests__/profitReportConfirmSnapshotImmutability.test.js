@@ -111,6 +111,20 @@ async function main() {
   check('월별 보기도 확정 주차는 확정 totals를 그대로 재사용(중복 계산 없음)',
     /data\.confirmed \? data\.confirmedTotals : computeProfitTotals/.test(apiSource));
 
+  console.log('\n=== 결함수정 5: 확정 스냅샷의 D(매출비율)/U(구매비율)도 저장값 그대로 사용(재계산 금지) ===');
+  // 2026-08-11 이전에는 row.calc 전체는 확정 스냅샷을 쓰면서도 D/U만 calcRevenueRatio/calcPurchaseRatio로
+  // 매번 다시 계산했다 — 오늘은 같은 입력이라 값이 같지만, 비율 공식이 나중에 바뀌면 과거 확정본의
+  // D/U가 저장값과 달라지는 잠재 결함이었다. 화면(메인표+세부표)과 엑셀(원본시트+선택컬럼시트) 4곳 모두
+  // row.confirmed일 때는 계산 함수를 호출하지 않고 저장된 c.D/c.U를 그대로 써야 한다.
+  const pageConfirmedDGuards = pageSource.match(/row\.confirmed \? c\.D : calcRevenueRatio/g) || [];
+  const pageConfirmedUGuards = pageSource.match(/row\.confirmed \? c\.U : calcPurchaseRatio/g) || [];
+  check('화면(메인표+세부표) 2곳 모두 confirmed면 저장된 D를 그대로 씀', pageConfirmedDGuards.length === 2, `실제=${pageConfirmedDGuards.length}`);
+  check('화면(메인표+세부표) 2곳 모두 confirmed면 저장된 U를 그대로 씀', pageConfirmedUGuards.length === 2, `실제=${pageConfirmedUGuards.length}`);
+  const excelConfirmedDGuards = excelSource.match(/row\.confirmed \? c\.D : calcRevenueRatio/g) || [];
+  const excelConfirmedUGuards = excelSource.match(/row\.confirmed \? c\.U : calcPurchaseRatio/g) || [];
+  check('엑셀(원본시트+선택컬럼시트) 2곳 모두 confirmed면 저장된 D를 그대로 씀', excelConfirmedDGuards.length === 2, `실제=${excelConfirmedDGuards.length}`);
+  check('엑셀(원본시트+선택컬럼시트) 2곳 모두 confirmed면 저장된 U를 그대로 씀', excelConfirmedUGuards.length === 2, `실제=${excelConfirmedUGuards.length}`);
+
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);
 }
