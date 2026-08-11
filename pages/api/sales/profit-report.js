@@ -13,6 +13,7 @@ import { computeAutoEndingStock, computeProfitRow, computeProfitTotals } from '.
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
+import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -26,15 +27,15 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
-        invoiceRatesByCategory(major, orderYear),        // R 우선 원천: BILL 시점 FreightCost.ExchangeRate 스냅샷
+        invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
-        loadManual(prevMajor, prevOrderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값
+        loadManual(prevMajor, prevOrderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값(2순위)
         stockSnapshotByCategory(major, orderYear),      // F 재료: 이번 차수말 재고수량·최근원가·단가표평가
         stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
         purchaseQtyByCategory(major, orderYear),        // F 분모: 이번 차수 매입 총수량
@@ -44,6 +45,7 @@ export async function loadReportData(major, orderYear) {
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         computeCustomsAndForwarding(prevMajor, prevOrderYear),  // E 자동계산용: 전차수 H/S
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
+        getActiveConfirm(prevOrderYear, prevMajor),         // E 이월 1순위: 전차수 활성 확정 스냅샷 F(REPORT_CONFIRM_SNAPSHOT)
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -55,7 +57,11 @@ export async function loadReportData(major, orderYear) {
         const def = CATEGORIES.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
         const prevMan = prev.manual[key] || {};
-        const prevF = prevMan.F;
+        // 기초재고(E) 이월 우선순위(crossYearFixture 계약): 1순위 전차수 활성 확정 스냅샷 F,
+        // 2순위 전차수 WebProfitReport 수기 입력 F, 3순위(둘 다 없을 때만) 전차수 자동계산(autoE).
+        const prevConfirmF = prevConfirm?.rowsByCategory?.[key]?.calc?.F;
+        const prevConfirmFValue = prevConfirmF != null ? Number(prevConfirmF) : null;
+        const prevF = prevConfirmFValue != null ? prevConfirmFValue : prevMan.F;
         const curCode = currencyCodeForCategory(key);
         const snapshotR = invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null;
         // 29차 이후에는 당주 FreightCost 스냅샷이 없더라도 전차수에 확정 저장된
@@ -96,6 +102,12 @@ export async function loadReportData(major, orderYear) {
           recentCost: stockEnd.recentCost[key] != null ? Number(stockEnd.recentCost[key]) : 0,
           tableF: stockEnd.values[key] != null ? stockEnd.values[key] : null,
           negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
+          // 27차 호주처럼 카테고리 안에 매입단위(박스)와 재고단위(단/송이)가 섞이면 category 평균단가
+          // 공식이 무효라 품목별 recentCost fallback으로 건너뛴다(2026-08-11 결함수정 6).
+          unitMismatch: Boolean(stockEnd.unitMismatch?.[key]),
+          // 재고는 있는데 최근 매입단가를 찾지 못해 recentCost 합계에 0으로 조용히 반영된 수량.
+          // 값을 추정해 채우지 않고 audit이 needs_input으로 명시하게 한다(2026-08-11 결함수정 7).
+          recentCostMissingQty: stockEnd.recentCostMissingQty?.[key] != null ? Number(stockEnd.recentCostMissingQty[key]) : 0,
         };
         // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — 화면 실값·엑셀생성 기본값
         const autoF = computeAutoEndingStock(stock, {
@@ -110,6 +122,7 @@ export async function loadReportData(major, orderYear) {
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           recentCost: stockBegin.recentCost[key] != null ? Number(stockBegin.recentCost[key]) : 0,
           tableF: stockBegin.values[key] != null ? stockBegin.values[key] : null,
+          unitMismatch: Boolean(stockBegin.unitMismatch?.[key]),
         }, {
           Q: Number(prevQ[key] || 0),
           S: prevMan.S ?? prevAutoS,
@@ -117,7 +130,13 @@ export async function loadReportData(major, orderYear) {
           R: prevMan.R ?? autoR,
         });
         const source = {
-          E: man.E != null ? 'manual' : prevF != null ? 'inherited_manual' : stockBegin.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
+          E: man.E != null
+            ? 'manual'
+            : prevConfirmFValue != null
+              ? 'prior_confirmed_snapshot'
+              : prevF != null
+                ? 'inherited_manual'
+                : stockBegin.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
           F: man.F != null ? 'manual' : stockEnd.week ? 'auto_exe_stock_view' : 'missing_stock_snapshot',
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
           R: man.R != null ? 'manual_invoice' : autoRSource,
@@ -146,7 +165,7 @@ export async function loadReportData(major, orderYear) {
             R: autoR,                                    // BILL 스냅샷 → 전차수 과세환율 → CurrencyMaster
           },
           manual: {
-            E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 저장 기말 > (auto)
+            E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 활성 확정 스냅샷 F > 전차수 저장 기말 > (auto)
             F: man.F ?? null,
             H: man.H ?? null,
             R: man.R ?? null,
@@ -168,6 +187,10 @@ export async function loadReportData(major, orderYear) {
       end: stockEnd.week,
       beginOrderYear: prevOrderYear,
       endOrderYear: String(orderYear),
+      // begin/end 스냅샷 좌표 {OrderYear, OrderWeek, StockKey} — REPORT_CONFIRM_SNAPSHOT(task 5)이
+      // 확정 시 그대로 박제할 수 있도록 StockKey까지 명시적으로 노출한다(2026-08-11 결함수정 4).
+      beginStockKey: stockBegin.stockKey,
+      endStockKey: stockEnd.stockKey,
       selection: 'latest_stock_subweek',
       beginStockMasterIsFix: stockBegin.stockMasterIsFix,
       endStockMasterIsFix: stockEnd.stockMasterIsFix,
@@ -176,10 +199,80 @@ export async function loadReportData(major, orderYear) {
   };
 }
 
+/** 확정된 활성 스냅샷을 GET 응답 형태로 재구성 — 화면/엑셀이 loadReportData()와 동일한 rows/stockWeeks/audit
+ * 모양을 기대하므로 shape을 맞춘다. row.calc는 확정 시점 값 그대로(재계산 금지) — 화면은 이 calc를 그대로 써야 한다. */
+async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
+  const { confirm, rowsByCategory, totalsCalc } = activeConfirmResult;
+  const [manual, rates] = await Promise.all([loadManual(major, orderYear), currencyRates()]);
+  const rows = Object.keys(rowsByCategory).map((key) => {
+    const def = CATEGORIES.find(c => c.key === key) || {};
+    const calc = rowsByCategory[key].calc || {};
+    const sourceTag = rowsByCategory[key].sourceTag || {};
+    return {
+      currency: currencyCodeForCategory(key),
+      category: key,
+      variant: def.variant || 'normal',
+      stock: {},
+      stockAnchored: { begin: null, end: null },
+      auto: { N: calc.N, L: calc.L, O: calc.O, Q: calc.Q, S: calc.S, H: calc.H, E: calc.E, F: calc.F, R: calc.R },
+      manual: { E: null, F: null, H: null, R: null, S: null },
+      inheritedE: false,
+      source: {
+        E: 'confirmed_snapshot', F: 'confirmed_snapshot',
+        H: sourceTag.H || 'confirmed_snapshot', R: sourceTag.R || 'confirmed_snapshot', S: sourceTag.S || 'confirmed_snapshot',
+      },
+      calc, // 확정 스냅샷 — 화면/엑셀 모두 이 값을 그대로 쓰고 재계산하지 않는다.
+      confirmed: true,
+    };
+  });
+  const auditIssues = confirm.auditIssues || [];
+  const errorCount = auditIssues.filter(i => i.severity === 'error').length;
+  const warningCount = auditIssues.filter(i => i.severity === 'warning').length;
+  return {
+    rows,
+    note: manual.note,
+    autoNote: '',
+    unclassifiedDetails: [],
+    rates,
+    confirmed: {
+      confirmKey: confirm.confirmKey,
+      revisionNo: confirm.revisionNo,
+      confirmedBy: confirm.confirmedBy,
+      confirmedByName: confirm.confirmedByName,
+      confirmedAt: confirm.confirmedAt,
+      isForced: confirm.isForced,
+      forceReason: confirm.forceReason,
+    },
+    confirmedTotals: totalsCalc,
+    stockWeeks: {
+      begin: confirm.beginOrderWeek,
+      end: confirm.endOrderWeek,
+      beginOrderYear: confirm.beginOrderYear,
+      endOrderYear: confirm.endOrderYear,
+      beginStockKey: confirm.beginStockKey,
+      endStockKey: confirm.endStockKey,
+      selection: 'confirmed_snapshot',
+      beginStockMasterIsFix: null,
+      endStockMasterIsFix: null,
+    },
+    audit: { status: confirm.auditStatus || 'ready', errorCount, warningCount, issues: auditIssues },
+  };
+}
+
+/** GET/엑셀/월별 보기 공용 진입점 — 활성 확정 스냅샷이 있으면 그 저장값만 반환하고,
+ * 없으면 loadReportData()의 라이브 미리보기를 반환한다. */
+export async function loadWeeklyReportPayload(major, orderYear) {
+  const activeConfirm = await getActiveConfirm(orderYear, major);
+  if (activeConfirm.initialized && activeConfirm.confirm) {
+    return buildConfirmedPayload(major, orderYear, activeConfirm);
+  }
+  return loadReportData(major, orderYear);
+}
+
 /**
  * 1~12월 연속 월별 보기용 읽기 전용 집계.
- * 각 주차를 기존 loadReportData로 계산한 뒤, PeriodDay 종료일이 속한 달에
- * 차수 전체를 귀속한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
+ * 각 주차를 loadWeeklyReportPayload로 계산한 뒤(확정 주차는 확정값을 그대로 재사용 — 중복 계산하지 않음),
+ * PeriodDay 종료일이 속한 달에 차수 전체를 귀속한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
  */
 export async function loadAnnualMonthlyReportData(orderYear) {
   const periods = await periodDayRangesByMajor(orderYear);
@@ -190,12 +283,12 @@ export async function loadAnnualMonthlyReportData(orderYear) {
     const batch = activePeriods.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async period => {
       try {
-        const data = await loadReportData(period.major, orderYear);
-        const rows = (data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) }));
+        const data = await loadWeeklyReportPayload(period.major, orderYear);
+        const totals = data.confirmed ? data.confirmedTotals : computeProfitTotals((data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) })));
         return {
           major: period.major,
           period,
-          totals: computeProfitTotals(rows),
+          totals,
         };
       } catch (error) {
         return { major: period.major, period, error: error.message || '주차 보고서 조회 실패' };
@@ -230,14 +323,17 @@ export default withAuth(async function handler(req, res) {
         return res.status(200).json({ success: true, ...list });
       }
 
-      const data = await loadReportData(major, orderYear);
+      // 활성 확정 스냅샷이 있으면 그 저장값만 반환하고, 없으면 라이브 미리보기를 반환한다(화면과 동일 소스).
+      const data = await loadWeeklyReportPayload(major, orderYear);
 
-      // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로
+      // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로. 화면과 동일하게
+      // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.
       if (req.query.excel === '1') {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
         const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
         const buf = buildProfitReportXlsx({
           major, rows: data.rows, note: composeProfitReportNote(data.note, data.autoNote), audit: data.audit, visibleCols,
+          confirmedTotals: data.confirmed ? data.confirmedTotals : null,
         });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

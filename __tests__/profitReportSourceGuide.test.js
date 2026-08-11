@@ -135,9 +135,23 @@ async function main() {
   check('매출비율 0 분모 처리 명시', /0이면 빈칸/.test(byKey.D.note));
   check('이익률·불량율·상품구매비율 0 분모 처리 명시',
     /0이면 빈칸/.test(byKey.K.note) && /0이면 빈칸/.test(byKey.M.note) && /0이면 빈칸/.test(byKey.U.note));
-  check('D/U 분모 처리 코드가 그대로 유지됨(0이면 null)',
-    /totals\.C !== 0 \? c\.C \/ totals\.C : null/.test(pageSource)
-    && /totals\.P !== 0 \? c\.P \/ totals\.P : null/.test(pageSource));
+  // 2026-08-11 결함수정 5: D/U 계산은 pages/sales/profit-report.js · lib/profitReportExcel.js 양쪽에서
+  // 중복 인라인 계산이던 것을 lib/profitReportCalc.js의 calcRevenueRatio/calcPurchaseRatio 로 공용화했다.
+  // 화면/엑셀 소스가 그 공용 함수를 import해서 쓰는지, 그리고 함수 자체가 "0이면 null" 규칙을
+  // 실제로 지키는지 둘 다 확인한다(인라인 리터럴 문자열이 아니라 동작으로 검증).
+  const { calcRevenueRatio, calcPurchaseRatio } = await import('../lib/profitReportCalc.js');
+  check('화면이 공용 calcRevenueRatio/calcPurchaseRatio를 import', /calcRevenueRatio/.test(pageSource) && /calcPurchaseRatio/.test(pageSource));
+  check('엑셀 생성이 공용 calcRevenueRatio/calcPurchaseRatio를 import', /calcRevenueRatio/.test(excelSource) && /calcPurchaseRatio/.test(excelSource));
+  check('화면/엑셀에 D/U 인라인 재계산이 남아있지 않음',
+    !/totals\.C !== 0 \? c\.C \/ totals\.C : null/.test(pageSource)
+    && !/totals\.P !== 0 \? c\.P \/ totals\.P : null/.test(pageSource)
+    && !/totals\.C !== 0 \? c\.C \/ totals\.C : null/.test(excelSource)
+    && !/totals\.P !== 0 \? c\.P \/ totals\.P : null/.test(excelSource));
+  check('D/U 분모 처리 함수가 0이면 null을 반환(코드)',
+    calcRevenueRatio({ C: 10 }, { C: 0 }) === null
+    && calcPurchaseRatio({ P: 10 }, { P: 0 }) === null
+    && calcRevenueRatio({ C: 30 }, { C: 150 }) === 0.2
+    && calcPurchaseRatio({ P: 25 }, { P: 100 }) === 0.25);
 
   // 그외통관비 부가세 규칙
   check('VAT_FACTOR = 1.1', VAT_FACTOR === 1.1);

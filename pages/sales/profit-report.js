@@ -5,7 +5,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
+import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
@@ -131,7 +131,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const titles = {
     R: missingRate
       ? `⚠ ${row.currency || '-'} 환율 원천이 없습니다. 이 칸에 해당 차수 인보이스 과세환율을 입력하고 저장하세요.`
-      : `BILL 환율 스냅샷(${row.currency || '-'} · FreightCost) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 청구서 환율과 다르면 입력`,
+      : `입고별 과세환율 스냅샷(${row.currency || '-'} · FreightCost, 통관 신고 시점 관세청 과세환율) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 상업환율과 다르면 인보이스 과세환율로 직접 입력`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
     E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
@@ -168,6 +168,24 @@ export default function ProfitReportPage() {
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
+
+  // ── 보고서 기준 확정/취소/이력
+  const [confirmHistory, setConfirmHistory] = useState([]);
+  const [confirmSchemaInitialized, setConfirmSchemaInitialized] = useState(true);
+  const [showConfirmPanel, setShowConfirmPanel] = useState(false);
+  const [showConfirmHistory, setShowConfirmHistory] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [forceReason, setForceReason] = useState('');
+  const loadConfirmStatus = async (weekOverride) => {
+    const wk = weekOverride ?? weekInput.value;
+    try {
+      const res = await fetch(`/api/sales/profit-report-confirm?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.success) return;
+      setConfirmSchemaInitialized(Boolean(d.initialized));
+      setConfirmHistory(d.history || []);
+    } catch { /* 확정 이력 조회 실패는 화면 진입을 막지 않는다 */ }
+  };
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
   const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
@@ -234,6 +252,7 @@ export default function ProfitReportPage() {
       setData(d);
       setNote(d.note || '');
       setNoteDirty(false);
+      loadConfirmStatus(wk);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -256,9 +275,12 @@ export default function ProfitReportPage() {
           const res = await fetch(`/api/sales/profit-report?week=${mj}`, { credentials: 'same-origin' });
           const d = await res.json();
           if (!d.success) return { major: mj, error: d.error || '조회 실패' };
-          const rows = (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
-          const totals = computeProfitTotals(rows);
-          return { major: mj, rows, totals };
+          // 확정된 차수는 저장된 calc를 그대로 쓴다(재계산 금지 — 계산식이 나중에 바뀌어도 과거 확정본은 불변).
+          const rows = d.confirmed
+            ? (d.rows || []).map(r => ({ ...r, calc: r.calc || {} }))
+            : (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
+          const totals = d.confirmed ? (d.confirmedTotals || {}) : computeProfitTotals(rows);
+          return { major: mj, rows, totals, confirmed: Boolean(d.confirmed) };
         } catch (e) { return { major: mj, error: e.message }; }
       }));
       setWeeksData(results);
@@ -344,10 +366,47 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 
+  // 확정된 주차는 저장된 calc를 그대로 쓴다(재계산 금지 — 이후 계산식이 바뀌어도 과거 확정본은 불변).
+  // edits는 확정 화면에서는 애초에 입력칸이 잠겨 있어 채워지지 않지만, 방어적으로도 무시한다.
   const rowsCalc = useMemo(() => {
+    if (data?.confirmed) {
+      const rows = (data?.rows || []).map(r => ({ ...r, calc: r.calc || {} }));
+      return { rows, totals: data.confirmedTotals || {} };
+    }
     const rows = (data?.rows || []).map(r => ({ ...r, calc: computeProfitRow(r, edits) }));
     return { rows, totals: computeProfitTotals(rows) };
   }, [data, edits]);
+
+  const confirmReport = async (force) => {
+    setConfirmBusy(true); setError(''); setMessage('');
+    try {
+      if (force && !forceReason.trim()) throw new Error('강제 확정 사유를 입력해야 합니다.');
+      const res = await fetch('/api/sales/profit-report-confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, action: force ? 'force' : 'confirm', reason: force ? forceReason : undefined }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '확정 실패');
+      setShowConfirmPanel(false); setForceReason('');
+      await load();
+      setMessage(`보고서 기준 확정 완료 — Revision ${d.revisionNo}${force ? ' (강제 확정)' : ''}. 이 차수는 이제 저장된 확정값만 표시됩니다.`);
+    } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
+  };
+
+  const cancelConfirmReport = async () => {
+    if (!window.confirm(`${data?.orderYear}년 ${data?.major}차 확정을 취소할까요? 취소 후 다시 확정하면 새 revision으로 저장되며, 이전 확정 기록은 이력에 남습니다.`)) return;
+    setConfirmBusy(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report-confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, action: 'cancel' }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '확정 취소 실패');
+      await load();
+      setMessage('확정 취소 완료 — 다시 라이브 자동값으로 계산합니다. 필요하면 값을 확인한 뒤 다시 확정하세요.');
+    } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
+  };
 
   const downloadExcel = async () => {
     if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
@@ -420,8 +479,10 @@ export default function ProfitReportPage() {
       <tbody>
         {wRows.map(row => {
           const c = row.calc;
-          const D = wTotals.C !== 0 ? c.C / wTotals.C : null;
-          const U = wTotals.P !== 0 ? c.P / wTotals.P : null;
+          // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 비율 공식이 나중에 바뀌어도
+          // 과거 확정본은 불변이어야 한다. 2026-08-11 결함수정).
+          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals);
+          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
               {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
@@ -466,7 +527,8 @@ export default function ProfitReportPage() {
                 </div>
               </div>
               <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
+              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : undefined}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
               <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
@@ -477,20 +539,35 @@ export default function ProfitReportPage() {
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
-              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
-                title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
+              {data?.confirmed ? (
+                <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={cancelConfirmReport} disabled={confirmBusy}
+                  title="확정을 취소하면 다시 라이브 자동값으로 계산합니다. 취소해도 이전 확정 기록은 이력에 남습니다">
+                  {confirmBusy ? '처리 중…' : '↩ 확정 취소 후 다시 계산'}
+                </button>
+              ) : (
+                <button style={{ ...st.primaryBtn, background: '#0369a1' }} onClick={() => setShowConfirmPanel(v => !v)} disabled={!data || confirmBusy}
+                  title="현재 계산값을 이 차수의 확정본으로 저장합니다 — 이후 원천이 바뀌어도 이 값은 그대로 유지됩니다">
+                  📌 보고서 기준 확정
+                </button>
+              )}
+              <button style={showConfirmHistory ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowConfirmHistory(v => !v)} disabled={!data}
+                title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
+                🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
+              </button>
+              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)'}>
                 🏷 재고단가표
               </button>
-              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data}
-                title="자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다">
+              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다'}>
                 🛠 수기 보정{showOverrides ? ' ▲' : ' ▼'}
               </button>
-              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
-                title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
                 📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
               </button>
-              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
-                title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
                 🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
               </button>
             </>
@@ -572,7 +649,7 @@ export default function ProfitReportPage() {
           <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
           (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
           청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
-          환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          환율(R)은 입고별 과세환율 스냅샷(FreightCost, 통관 신고 시점 관세청 과세환율 — 호주 AUD 포함 전 통화 동일 기준) → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
@@ -583,6 +660,91 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
+
+      {viewMode === 'category' && data?.confirmed && (
+        <div style={st.confirmBanner}>
+          ✅ <b>확정됨</b> — Revision {data.confirmed.revisionNo} · 확정자 {data.confirmed.confirmedByName || data.confirmed.confirmedBy || '-'} ·{' '}
+          {data.confirmed.confirmedAt ? new Date(data.confirmed.confirmedAt).toLocaleString('ko-KR') : '-'}
+          {data.confirmed.isForced && <span style={{ marginLeft: 6, color: '#b91c1c', fontWeight: 800 }}>· 강제 확정 (사유: {data.confirmed.forceReason || '-'})</span>}
+          <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 400 }}>
+            이 차수는 확정 시점에 저장된 값만 표시합니다(원천이 나중에 바뀌어도 재계산하지 않음). 값을 다시 계산하려면 위 <b>확정 취소 후 다시 계산</b>을 누르세요.
+          </div>
+        </div>
+      )}
+      {viewMode === 'category' && data && !data.confirmed && !confirmSchemaInitialized && (
+        <div style={st.attentionBanner}>
+          ℹ 보고서 기준 확정 기능은 아직 <b>초기 설정 필요</b> 상태입니다 — 이 차수의 조회/저장/엑셀 다운로드는 평소대로 동작합니다. 처음 확정을 누르면 Web 전용 확정 테이블이 자동으로 준비됩니다.
+        </div>
+      )}
+
+      {viewMode === 'category' && data && showConfirmPanel && !data.confirmed && (
+        <div style={st.embedPanel}>
+          <div style={st.embedPanelHead}>
+            <strong>📌 보고서 기준 확정 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowConfirmPanel(false)}>접기 ▲</button>
+          </div>
+          <div style={{ ...st.embedPanelBody, fontSize: 12.5, lineHeight: 1.7 }}>
+            현재 화면에 표시된 계산값을 그대로 이 차수의 확정본(Revision {(confirmHistory[0]?.revisionNo || 0) + 1})으로 저장합니다.
+            확정 후에는 원천 데이터가 바뀌어도 이 값이 자동으로 바뀌지 않습니다 — 값을 다시 반영하려면 확정을 취소한 뒤 다시 확정해야 합니다.
+            {data.audit?.errorCount > 0 ? (
+              <div style={{ marginTop: 8, padding: 9, background: '#fff7ed', border: '1px solid #f97316', borderRadius: 8, color: '#9a3412' }}>
+                <b>검증 오류 {data.audit.errorCount}건이 남아 있어 일반 확정은 저장할 수 없습니다.</b> 위 검증 안내의 각 항목을 먼저 해결하세요(원천 데이터 보정, 재고 스냅샷 확인 등).
+                불가피하게 오류가 있는 상태로 확정해야 한다면 아래 강제 확정을 관리자 권한으로 사유와 함께 사용하세요.
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <textarea style={{ ...st.noteArea, minHeight: 44, flex: 1, minWidth: 220 }} placeholder="강제 확정 사유(필수) — 예: 재고조정 이력 반영 지연, 담당자 확인 완료 등" value={forceReason} onChange={e => setForceReason(e.target.value)} />
+                  <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={() => confirmReport(true)} disabled={confirmBusy || !forceReason.trim()}>
+                    {confirmBusy ? '처리 중…' : '🔒 강제 확정(관리자 전용)'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                {data.audit?.warningCount > 0 && <div style={{ marginBottom: 6, color: '#92400e' }}>⚠ 확인 안내 {data.audit.warningCount}건이 있지만 오류는 아니므로 그대로 확정할 수 있습니다.</div>}
+                <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={() => confirmReport(false)} disabled={confirmBusy}>
+                  {confirmBusy ? '확정 중…' : '✅ 이 값으로 확정'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'category' && data && showConfirmHistory && (
+        <div style={st.embedPanel}>
+          <div style={st.embedPanelHead}>
+            <strong>🕘 확정 이력 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowConfirmHistory(false)}>접기 ▲</button>
+          </div>
+          <div style={st.embedPanelBody}>
+            {confirmHistory.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: '#64748b' }}>확정 이력이 없습니다.</div>
+            ) : (
+              <table style={st.table}>
+                <thead>
+                  <tr>
+                    <th style={st.th}>Revision</th><th style={st.th}>상태</th><th style={st.th}>확정자</th><th style={st.th}>확정시각</th>
+                    <th style={st.th}>취소자</th><th style={st.th}>취소시각</th><th style={st.th}>강제확정 사유</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {confirmHistory.map(rev => (
+                    <tr key={rev.confirmKey}>
+                      <td style={st.td}>{rev.revisionNo}</td>
+                      <td style={{ ...st.td, color: rev.isActive ? '#166534' : '#94a3b8', fontWeight: 700 }}>{rev.isActive ? '활성' : '취소됨'}</td>
+                      <td style={st.td}>{rev.confirmedByName || rev.confirmedBy || '-'}</td>
+                      <td style={st.td}>{rev.confirmedAt ? new Date(rev.confirmedAt).toLocaleString('ko-KR') : '-'}</td>
+                      <td style={st.td}>{rev.cancelledByName || rev.cancelledBy || '-'}</td>
+                      <td style={st.td}>{rev.cancelledAt ? new Date(rev.cancelledAt).toLocaleString('ko-KR') : '-'}</td>
+                      <td style={st.td}>{rev.isForced ? (rev.forceReason || '(사유 없음)') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
       {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
         <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
           <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
@@ -645,14 +807,15 @@ export default function ProfitReportPage() {
             <tbody>
               {rows.map(row => {
                 const c = row.calc;
-                const D = totals.C !== 0 ? c.C / totals.C : null;
-                const U = totals.P !== 0 ? c.P / totals.P : null;
+                // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 2026-08-11 결함수정).
+                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals);
+                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {(showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {!data.confirmed && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
@@ -944,6 +1107,7 @@ const st = {
   auditError: { background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
+  confirmBanner: { background: '#ecfdf5', border: '1px solid #16a34a', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, fontWeight: 700, marginBottom: 8, lineHeight: 1.6 },
   monthlyInfo: { background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e3a8a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.6 },
   monthDetail: { padding: 9, background: '#f8fafc' },
   monthDetailTitle: { fontWeight: 800, color: '#334155', fontSize: 12, marginBottom: 5 },
