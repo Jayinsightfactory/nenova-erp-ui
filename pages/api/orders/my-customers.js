@@ -10,13 +10,17 @@ export default withAuth(async function handler(req, res) {
     if (!custKey) {
       const r = await query(`SELECT c.CustKey, c.CustName, ISNULL(c.CustArea,'') AS CustArea, ISNULL(c.OrderCode,'') AS OrderCode,
           ISNULL(NULLIF(LTRIM(RTRIM(m.ManagerName)),''), N'담당자 미지정') AS ManagerName,
-          CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 1 ELSE 0 END AS IsMine
+          CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 1 ELSE 0 END AS IsMine,
+          recent.LastOrderDtm, recent.LastOrderYear, recent.LastOrderWeek
         FROM Customer c
         OUTER APPLY (SELECT TOP 1 ISNULL(NULLIF(ui.UserName,''),c.Manager) AS ManagerName FROM UserInfo ui
           WHERE ui.UserID=c.Manager OR ui.UserName=c.Manager ORDER BY CASE WHEN ui.UserID=c.Manager THEN 0 ELSE 1 END) m
+        OUTER APPLY (SELECT TOP 1 om.OrderDtm AS LastOrderDtm, om.OrderYear AS LastOrderYear, om.OrderWeek AS LastOrderWeek
+          FROM OrderMaster om WHERE om.CustKey=c.CustKey AND ISNULL(om.isDeleted,0)=0
+          ORDER BY om.OrderDtm DESC, om.OrderMasterKey DESC) recent
         WHERE ISNULL(c.isDeleted,0)=0
-        ORDER BY CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 0 ELSE 1 END,
-          ISNULL(NULLIF(LTRIM(RTRIM(m.ManagerName)),''),N'담당자 미지정'), c.CustName`, {
+        ORDER BY CASE WHEN recent.LastOrderDtm IS NULL THEN 1 ELSE 0 END, recent.LastOrderDtm DESC,
+          CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 0 ELSE 1 END, c.CustName`, {
         uid: { type: sql.NVarChar, value: String(req.user?.userId || '') }, uname: { type: sql.NVarChar, value: String(req.user?.userName || '') },
       });
       return res.status(200).json({ success: true, customers: r.recordset });
