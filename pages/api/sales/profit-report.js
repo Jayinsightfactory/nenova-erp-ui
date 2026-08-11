@@ -9,7 +9,7 @@ import {
   periodDayRangesByMajor,
   assertProfitReportReadSchema,
 } from '../../../lib/profitReport';
-import { computeAutoEndingStock, computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../../lib/profitReportCalc';
+import { computeAutoEndingStock, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
