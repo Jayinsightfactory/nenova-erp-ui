@@ -7,9 +7,12 @@ import {
   buildGroupRows,
   buildMajorWeeks,
   buildOverviewSections,
+  createWheelGesture,
   normalizeMajorWeek,
+  resolveBoardView,
   roundQty,
   stepMajorWeek,
+  WHEEL_GESTURE_MS,
 } from "../lib/shillaMiuBoard.js";
 
 assert.equal(normalizeMajorWeek("2026-32-02"), "32");
@@ -26,6 +29,171 @@ assert.equal(stepMajorWeek("01", -1), "01", "1 미만으로 내려가지 않는�
 assert.equal(stepMajorWeek("", -1), "01");
 assert.equal(stepMajorWeek("52", 1), "52");
 assert.equal(stepMajorWeek("9", 1), "10", "표시는 항상 2자리로 채운다.");
+
+// ── 휠 burst: 한 번 굴릴 때 쏟아지는 wheel 이벤트는 gesture 하나 = 1차만 이동
+{
+  const gesture = createWheelGesture();
+  // 실제 운영 재현: scrollY=365 한 번이 wheel 이벤트 여러 개로 쪼개져 들어온다.
+  const burst = [0, 8, 17, 33, 60, 99, 140].map((t) =>
+    gesture.read(t, 120),
+  );
+  assert.deepEqual(
+    burst.map((r) => r.step),
+    [-1, 0, 0, 0, 0, 0, 0],
+    "burst 는 첫 이벤트만 1차 이동하고 나머지는 삼킨다.",
+  );
+  assert.ok(
+    burst.every((r) => r.handled),
+    "burst 의 모든 이벤트에서 페이지 스크롤을 막아야 한다(preventDefault 대상).",
+  );
+}
+{
+  // 관성(inertia) 스크롤처럼 gap 미만 간격으로 길게 이어져도 gesture 는 하나다.
+  const gesture = createWheelGesture();
+  let steps = 0;
+  for (let t = 0; t <= 2000; t += WHEEL_GESTURE_MS - 20)
+    steps += Math.abs(gesture.read(t, 120).step);
+  assert.equal(steps, 1, "간격이 계속 붙어 있으면 몇 초가 이어져도 1차만 이동한다.");
+}
+{
+  // 빠른 연속 gesture: gesture 간격(gapMs) 이상 쉬면 각각 1차씩 처리한다.
+  const gesture = createWheelGesture();
+  const t0 = 1000;
+  assert.equal(gesture.read(t0, 120).step, -1);
+  assert.equal(gesture.read(t0 + 30, 120).step, 0);
+  assert.equal(
+    gesture.read(t0 + 30 + WHEEL_GESTURE_MS, 120).step,
+    -1,
+    "gesture 간격 뒤의 휠은 새 gesture 로 1차 더 이동한다.",
+  );
+}
+{
+  const gesture = createWheelGesture();
+  assert.equal(gesture.read(0, -120).step, 1, "휠 위는 증가");
+  assert.equal(gesture.read(500, 120).step, -1, "휠 아래는 감소");
+  assert.deepEqual(
+    gesture.read(1000, 0),
+    { handled: false, step: 0 },
+    "세로 이동이 없는 휠은 가로채지 않아 다른 영역 스크롤이 살아 있어야 한다.",
+  );
+}
+
+// ── 표시값·URL 한 벌 생성: 서로 다른 응답에서 섞이지 않는다.
+{
+  const view = resolveBoardView(
+    {
+      year: "2026",
+      weeks: ["32"],
+      latest: { year: "2026", week: "33" },
+      selectedGroup: { groupKey: 3 },
+    },
+    { year: "2026", week: "33" },
+  );
+  assert.equal(view.week, "32");
+  assert.equal(
+    view.query,
+    "?year=2026&week=32&groupKey=3",
+    "URL 은 표시 차수와 같은 응답에서 만들어야 한다.",
+  );
+  const noGroup = resolveBoardView({ year: "2026", weeks: ["31"] });
+  assert.equal(noGroup.query, "?year=2026&week=31");
+  const empty = resolveBoardView({ year: "2026", weeks: [] }, { week: "30" });
+  assert.equal(empty.week, "30", "응답에 차수가 없으면 요청 차수를 유지한다.");
+  assert.equal(empty.query, "?year=2026&week=30");
+}
+
+// ── 화면 시뮬레이션: 휠 burst + 늦게 도착한 이전 응답에서도 표시값·URL·조회요청이 일치한다.
+{
+  // pages/sales/shilla-miu-board.js 의 weekRef + reqRef + resolveBoardView 조합을 그대로 흉내낸다.
+  const makeScreen = () => {
+    const screen = {
+      week: "33",
+      url: "?year=2026&week=33",
+      requests: [],
+      seq: 0,
+      pending: [],
+    };
+    const load = (nextWeek) => {
+      const seq = ++screen.seq;
+      screen.requests.push(nextWeek);
+      screen.pending.push(() => {
+        if (seq !== screen.seq) return; // 늦게 온 이전 응답은 버린다.
+        const view = resolveBoardView(
+          { year: "2026", weeks: [nextWeek], selectedGroup: null },
+          { year: "2026", week: nextWeek },
+        );
+        screen.week = view.week; // 표시값
+        screen.url = view.query; // URL
+      });
+    };
+    screen.stepWeek = (delta) => {
+      const next = stepMajorWeek(screen.week || "01", delta);
+      if (next === screen.week) return;
+      screen.week = next; // ref 갱신은 렌더를 기다리지 않는다.
+      load(next);
+    };
+    screen.flush = (order = "fifo") => {
+      const jobs = order === "lifo" ? [...screen.pending].reverse() : screen.pending;
+      jobs.forEach((run) => run());
+      screen.pending = [];
+    };
+    return screen;
+  };
+
+  // 휠 아래 burst 1회 → 33 → 32 (33→31 회귀 금지)
+  const down = makeScreen();
+  const g1 = createWheelGesture();
+  [0, 9, 21, 45, 88].forEach((t) => {
+    const { step } = g1.read(t, 121);
+    if (step) down.stepWeek(step);
+  });
+  assert.deepEqual(down.requests, ["32"], "휠 한 번은 조회도 한 번만 한다.");
+  down.flush();
+  assert.equal(down.week, "32");
+  assert.equal(down.url, "?year=2026&week=32");
+
+  // 이어서 휠 위 burst 1회 → 32 → 33, 응답이 뒤늦게 뒤섞여 와도 URL 과 표시값이 같다.
+  const g2 = createWheelGesture();
+  [400, 409, 430].forEach((t) => {
+    const { step } = g2.read(t, -121);
+    if (step) down.stepWeek(step);
+  });
+  assert.deepEqual(down.requests, ["32", "33"]);
+  down.flush("lifo"); // 이전 요청 응답이 나중에 도착하는 최악의 순서
+  assert.equal(down.week, "33", "표시 차수는 마지막 요청 결과여야 한다.");
+  assert.equal(
+    down.url,
+    "?year=2026&week=33",
+    "URL 과 입력칸 값이 어긋나면 안 된다.",
+  );
+
+  // stale state: 렌더 전에 연속 호출돼도 직전 값이 아니라 최신 의도값에서 계산한다.
+  const rapid = makeScreen();
+  rapid.stepWeek(-1);
+  rapid.stepWeek(-1);
+  assert.deepEqual(rapid.requests, ["32", "31"], "두 gesture 는 각각 1차씩 이동한다.");
+  rapid.flush("lifo");
+  assert.equal(rapid.week, "31");
+  assert.equal(rapid.url, "?year=2026&week=31");
+
+  // 최소값 1: 더 내려가지 않고 불필요한 재조회도 하지 않는다.
+  const floor = makeScreen();
+  floor.week = "01";
+  floor.stepWeek(-1);
+  assert.equal(floor.week, "01");
+  assert.deepEqual(floor.requests, [], "1차에서 아래로는 조회하지 않는다.");
+
+  // 클릭 ▲▼ 과 키보드 위/아래는 같은 stepWeek 경로를 그대로 쓴다.
+  const keys = makeScreen();
+  keys.stepWeek(-1); // ▼ 또는 ArrowDown
+  keys.flush();
+  assert.equal(keys.week, "32");
+  keys.stepWeek(1); // ▲ 또는 ArrowUp
+  keys.flush();
+  assert.equal(keys.week, "33");
+  assert.equal(keys.url, "?year=2026&week=33");
+  assert.deepEqual(keys.requests, ["32", "33"]);
+}
 
 // ── 소수 꼬리 정규화
 assert.equal(roundQty(0.1 + 0.2), 0.3);
@@ -379,12 +547,37 @@ assert.ok(
   "휠은 차수 입력칸에서만 처리하고 페이지 스크롤로 전파하지 않아야 한다.",
 );
 assert.ok(
-  /stepWeek\(e\.deltaY < 0 \? 1 : -1\)/.test(page),
+  page.includes("createWheelGesture()") &&
+    /gesture\.read\(e\.timeStamp, e\.deltaY\)/.test(page),
+  "휠 burst 는 gesture 게이트로 합쳐 한 번에 1차만 이동해야 한다.",
+);
+assert.ok(
+  lib.includes("dy < 0 ? 1 : -1"),
   "휠 위는 증가, 아래는 감소여야 한다.",
+);
+assert.ok(
+  /if \(!handled\) return;/.test(page),
+  "세로 이동이 없는 휠은 가로채지 않아 다른 영역 스크롤이 살아 있어야 한다.",
 );
 assert.ok(
   page.includes("load({ week: next })"),
   "차수 변경은 즉시 조회해야 한다.",
+);
+assert.ok(
+  page.includes("weekRef.current") &&
+    /const next = stepMajorWeek\(current, delta\)/.test(page),
+  "차수 계산은 렌더 지연(stale closure)이 아니라 ref 의 최신 의도값을 기준으로 해야 한다.",
+);
+assert.ok(
+  page.includes("const seq = ++reqRef.current") &&
+    page.includes("if (seq !== reqRef.current) return"),
+  "늦게 도착한 이전 조회 응답이 표시값·URL 을 덮어쓰면 안 된다.",
+);
+assert.ok(
+  page.includes("resolveBoardView(data, {") &&
+    page.includes('history.replaceState(null, "", view.query)') &&
+    page.includes("applyWeek(view.week)"),
+  "표시 차수와 URL 은 같은 응답 한 벌에서 원자적으로 만들어야 한다.",
 );
 assert.ok(
   lib.includes("Math.min(52, Math.max(1,"),
@@ -398,8 +591,14 @@ assert.ok(
   "2025/2026 동일 차수는 OrderYear로 격리해야 한다.",
 );
 assert.ok(
-  page.includes("year=${data.year}") && page.includes("...(nextYear && { year: nextYear })"),
+  lib.includes("?year=${year}&week=${week}") &&
+    page.includes("...(nextYear && { year: nextYear })"),
   "화면 선택 연도가 URL과 모든 조회 요청에 유지돼야 한다.",
+);
+assert.equal(
+  resolveBoardView({ year: "2025", weeks: ["33"] }).query,
+  "?year=2025&week=33",
+  "2025/2026 같은 차수는 URL에서도 연도로 구분돼야 한다.",
 );
 
 // 조밀 표 계약: 품목명 열이 남은 폭을 전부 흡수하는 회귀를 막는다.

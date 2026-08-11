@@ -2,7 +2,12 @@
 // '업체 최종분배'는 전산(nenova.exe)의 확정(isFix) 상태가 아니라 업무상 최종 납품·사용 수량이다.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiPost } from "../../lib/useApi";
-import { roundQty, stepMajorWeek } from "../../lib/shillaMiuBoard";
+import {
+  createWheelGesture,
+  resolveBoardView,
+  roundQty,
+  stepMajorWeek,
+} from "../../lib/shillaMiuBoard";
 
 const fmt = (v) =>
   Number(v || 0).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
@@ -47,15 +52,25 @@ export default function Board() {
   const weekBoxRef = useRef(null);
   const stateRef = useRef({ year, week, groupKey });
   stateRef.current = { year, week, groupKey };
+  // 차수는 렌더를 기다리지 않는 ref 를 진실로 삼는다. 휠·키보드가 연달아 들어와도
+  // 아직 반영되지 않은 이전 렌더값(stale closure)을 기준으로 계산하지 않게 한다.
+  const weekRef = useRef(initial.week || "");
+  const applyWeek = (value) => {
+    weekRef.current = value;
+    setWeek(value);
+  };
+  // 조회 요청 일련번호. 늦게 도착한 이전 응답이 지금 화면·URL 을 덮어쓰지 못하게 한다.
+  const reqRef = useRef(0);
 
   const load = async (over = {}) => {
+    const seq = ++reqRef.current;
     setLoading(true);
     setError("");
     const base = stateRef.current;
     const nextGroup = Object.prototype.hasOwnProperty.call(over, "groupKey")
       ? Number(over.groupKey)
       : base.groupKey;
-    const nextWeek = over.week ?? base.week;
+    const nextWeek = over.week ?? weekRef.current;
     const nextYear = over.year ?? base.year;
     try {
       const data = await apiGet("/api/sales/shilla-miu-board", {
@@ -63,24 +78,24 @@ export default function Board() {
         ...(nextWeek && { startWeek: nextWeek, endWeek: nextWeek }),
         ...(nextGroup && { groupKey: nextGroup }),
       });
-      setYear(data.year);
-      setWeek(data.weeks?.[0] || data.latest?.week || "");
+      if (seq !== reqRef.current) return; // 최신 요청이 아니면 화면을 건드리지 않는다.
+      // 표시 연도·차수·그룹과 URL 은 같은 응답 한 벌에서만 만든다.
+      const view = resolveBoardView(data, { year: nextYear, week: nextWeek });
+      setYear(view.year);
+      applyWeek(view.week);
       setGroups(data.groups || []);
       setBoards(data.boards || []);
       setOverview(data.overview || []);
       setRows(data.rows || []);
       setAdmin(!!data.isAdmin);
-      setGroupKey(data.selectedGroup?.groupKey || 0);
+      setGroupKey(view.groupKey);
       setDrafts({});
-      history.replaceState(
-        null,
-        "",
-        `?year=${data.year}&week=${data.weeks?.[0] || ""}${data.selectedGroup ? `&groupKey=${data.selectedGroup.groupKey}` : ""}`,
-      );
+      history.replaceState(null, "", view.query);
     } catch (e) {
+      if (seq !== reqRef.current) return;
       setError(e.message);
     } finally {
-      setLoading(false);
+      if (seq === reqRef.current) setLoading(false);
     }
   };
   useEffect(() => {
@@ -88,20 +103,26 @@ export default function Board() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 차수 스피너: ▲▼ 클릭 · 키보드 위/아래 · 입력칸 위에서의 휠. 1 미만으로 내려가지 않고 즉시 조회한다.
+  // 기준값은 항상 weekRef(가장 최근 의도값)이며, 표시값·URL·조회요청이 한 번에 같은 차수로 간다.
   const stepWeek = (delta) => {
-    const next = stepMajorWeek(stateRef.current.week || "01", delta);
-    if (next === stateRef.current.week) return;
-    setWeek(next);
+    const current = weekRef.current || "01";
+    const next = stepMajorWeek(current, delta);
+    if (next === current) return; // 1 미만/52 초과에서는 재조회하지 않는다.
+    applyWeek(next);
     load({ week: next });
   };
   useEffect(() => {
     const el = weekBoxRef.current;
     if (!el) return;
     // 휠은 이 입력칸에서만 처리하고 페이지 스크롤로 전파하지 않는다.
+    // 한 번 굴릴 때 쏟아지는 wheel 이벤트 burst 는 gesture 하나로 합쳐 정확히 1차만 이동한다.
+    const gesture = createWheelGesture();
     const onWheel = (e) => {
+      const { handled, step } = gesture.read(e.timeStamp, e.deltaY);
+      if (!handled) return; // 세로 이동이 없는 휠은 이 입력칸이 가로채지 않는다.
       e.preventDefault();
       e.stopPropagation();
-      stepWeek(e.deltaY < 0 ? 1 : -1);
+      if (step) stepWeek(step);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -252,7 +273,7 @@ export default function Board() {
           <input
             className="weekInput"
             value={week}
-            onChange={(e) => setWeek(e.target.value)}
+            onChange={(e) => applyWeek(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "ArrowUp") {
                 e.preventDefault();
