@@ -8,6 +8,9 @@ import {
   buildMajorWeeks,
   buildOverviewSections,
   createWheelGesture,
+  describeCustomerActivity,
+  GROUP_LINK,
+  groupLinkState,
   normalizeMajorWeek,
   resolveBoardView,
   roundQty,
@@ -693,4 +696,248 @@ assert.ok(
   fs.readFileSync("pages/_app.js", "utf8").includes("<Layout>"),
   "일반 화면과 popup=1 계약은 전역 Layout이 소유해야 한다.",
 );
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-11 운영 회귀: 신라 그룹이 실적 0 인 CustKey 에 묶여 모든 차수가 비었던 사고
+//
+// 운영 확인(읽기 전용 probe):
+//   CustKey 444 '신라상사'  : OrderMaster 0건 / ShipmentMaster 0건 (껍데기 거래처)
+//   CustKey 445 '신라상사2' : OrderMaster 0건 / ShipmentMaster 0건
+//   CustKey 446 '신라호텔'  : OrderCode 'CLS', Descr '신라/…', 2026년 주문 32차수·분배 29차수
+//   2026-33차: 신라호텔 주문 1,560 / 분배 0 · 라움(680) 주문 1,648 / 분배 654 · 초이문(683) 1 / 1
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 운영 원장을 CustKey 기준으로 흉내낸 픽스처. 이름이 아니라 CustKey 로만 읽어야 한다.
+const ERP = [
+  // 신라의 실제 거래처는 446. 444/445 는 이름만 비슷하고 실적이 없다.
+  { year: "2026", week: "32", orderWeek: "32-02", custKey: 446, prodKey: 181, prodName: "Anthurium Graciosa 15cm", unit: "송이", order: 100, ship: 100 },
+  { year: "2026", week: "32", orderWeek: "32-02", custKey: 446, prodKey: 2158, prodName: "리모늄 시네신스 화이트", unit: "단", order: 100, ship: 100 },
+  { year: "2026", week: "33", orderWeek: "33-02", custKey: 446, prodKey: 181, prodName: "Anthurium Graciosa 15cm", unit: "송이", order: 540, ship: 0 },
+  { year: "2026", week: "33", orderWeek: "33-02", custKey: 446, prodKey: 2158, prodName: "리모늄 시네신스 화이트", unit: "단", order: 460, ship: 0 },
+  { year: "2026", week: "33", orderWeek: "33-02", custKey: 446, prodKey: 3170, prodName: "Roselily Aisha", unit: "송이", order: 560, ship: 0 },
+  // 2025년 같은 33차 — 연도가 다르면 절대 섞이면 안 된다.
+  { year: "2025", week: "33", orderWeek: "33-01", custKey: 446, prodKey: 181, prodName: "Anthurium Graciosa 15cm", unit: "송이", order: 999, ship: 1016 },
+  // 라움·초이문·미우 기존 값 (변하면 안 되는 대조군)
+  { year: "2026", week: "33", orderWeek: "33-01", custKey: 680, prodKey: 1255, prodName: "Pink Mondial 50cm", unit: "단", order: 1648, ship: 654 },
+  { year: "2026", week: "33", orderWeek: "33-01", custKey: 683, prodKey: 1255, prodName: "Pink Mondial 50cm", unit: "단", order: 1, ship: 1 },
+  { year: "2026", week: "33", orderWeek: "33-01", custKey: 456, prodKey: 1255, prodName: "Pink Mondial 50cm", unit: "단", order: 40, ship: 30 },
+  // 삭제행은 어느 CustKey 든 집계에서 빠진다.
+  { year: "2026", week: "33", orderWeek: "33-02", custKey: 446, prodKey: 4001, prodName: "삭제된 주문", unit: "단", order: 700, ship: 700, deleted: true },
+  // 같은 ProdKey 라도 단위가 다르면 분리한다.
+  { year: "2026", week: "33", orderWeek: "33-01", custKey: 900, prodKey: 181, prodName: "Anthurium Graciosa 15cm", unit: "박스", order: 12, ship: 4 },
+];
+// pages/api/sales/shilla-miu-board.js 의 ORDER_SQL/SHIPMENT_SQL 범위를 그대로 흉내낸다.
+const readErp = (year, custKey, kind) =>
+  ERP.filter(
+    (r) =>
+      r.year === year &&
+      r.custKey === custKey &&
+      !r.deleted &&
+      (kind === "order" ? r.order > 0 : r.ship > 0),
+  ).map((r) => ({
+    week: r.week,
+    orderWeek: r.orderWeek,
+    prodKey: r.prodKey,
+    prodName: r.prodName,
+    unit: r.unit,
+    qty: kind === "order" ? r.order : r.ship,
+  }));
+const boardFor = (year, week, custKey, receiverKey = 456, allocations = []) =>
+  buildGroupRows({
+    weeks: [week],
+    baseOrders: readErp(year, custKey, "order"),
+    baseShipments: readErp(year, custKey, "ship"),
+    receiverOrders: readErp(year, receiverKey, "order"),
+    receiverShipments: readErp(year, receiverKey, "ship"),
+    allocations,
+  });
+
+// ① 사고 재현: 실적 0 인 444 로는 어떤 차수에서도 행이 나오지 않는다.
+assert.equal(boardFor("2026", "33", 444).length, 0);
+assert.equal(boardFor("2026", "32", 444).length, 0);
+
+// ② 복구: 실제 CustKey 446 이면 33차 주문만 있는 품목도 모두 잡힌다(주문 or 분배 중 하나면 표시).
+const shilla33 = boardFor("2026", "33", 446);
+assert.deepEqual(
+  shilla33.map((r) => r.prodKey).sort((a, b) => a - b),
+  [181, 2158, 3170],
+  "주문만 있고 분배가 없는 33차 신라 품목도 행이 되어야 한다.",
+);
+const shillaTotal = (rows, week, field) =>
+  roundQty(rows.reduce((sum, r) => sum + (r.weeks[week]?.[field] || 0), 0));
+assert.equal(shillaTotal(shilla33, "33", "expectedQty"), 1560, "33차 신라 예상물량");
+assert.equal(shillaTotal(shilla33, "33", "currentQty"), 0, "33차 신라 현재분배");
+assert.equal(
+  shillaTotal(shilla33, "33", "transferQty"),
+  1560,
+  "최종분배 미입력이면 현재분배(0) 기준으로 전량이 미우 이관 대상이 된다.",
+);
+assert.equal(
+  shilla33.every((r) => !r.weeks["33"].finalIsUserSet),
+  true,
+  "임시값은 사용자 입력과 구분돼야 한다.",
+);
+
+// ③ 주문·분배가 모두 있는 32차, 그리고 최종분배 입력 시 잔량
+const shilla32 = boardFor("2026", "32", 446);
+assert.equal(shillaTotal(shilla32, "32", "expectedQty"), 200);
+assert.equal(shillaTotal(shilla32, "32", "currentQty"), 200);
+assert.equal(shillaTotal(shilla32, "32", "transferQty"), 0, "예상=분배면 이관 0");
+const shilla32Final = boardFor("2026", "32", 446, 456, [
+  { useWeek: "32", prodKey: 181, finalQty: 60 },
+]);
+const w181 = shilla32Final.find((r) => r.prodKey === 181).weeks["32"];
+assert.equal(w181.finalIsUserSet, true);
+assert.equal(w181.residualQty, 40, "예상 100 − 최종분배 60");
+assert.equal(w181.transferQty, 40);
+
+// ④ 삭제행과 교차연도: 2025년 33차는 2026년 33차에 절대 섞이지 않는다.
+assert.equal(
+  shilla33.some((r) => r.prodKey === 4001),
+  false,
+  "isDeleted 행은 집계에서 빠져야 한다.",
+);
+const shilla33y2025 = boardFor("2025", "33", 446);
+assert.equal(shillaTotal(shilla33y2025, "33", "expectedQty"), 999);
+assert.equal(shillaTotal(shilla33y2025, "33", "currentQty"), 1016);
+assert.notEqual(
+  shillaTotal(shilla33, "33", "expectedQty"),
+  shillaTotal(shilla33y2025, "33", "expectedQty"),
+);
+
+// ⑤ 전체 탭: 신라 복구 후에도 라움·초이문·미우 기존 합계는 그대로다.
+const overviewGroups = [
+  { groupKey: 1, groupName: "신라", baseCustKey: 446, baseCustName: "신라호텔", receiverCustKey: 456, receiverCustName: "아이엠（미우）" },
+  { groupKey: 2, groupName: "라움", baseCustKey: 680, baseCustName: "주식회사 트라움에스앤씨 (라움)", receiverCustKey: 456, receiverCustName: "아이엠（미우）" },
+  { groupKey: 3, groupName: "초이문", baseCustKey: 683, baseCustName: "초이문(센스앤센서빌러티)", receiverCustKey: 456, receiverCustName: "아이엠（미우）" },
+  // 미래에 업체관리로 추가되는 업체도 같은 동적 로직만 탄다.
+  { groupKey: 4, groupName: "신규", baseCustKey: 900, baseCustName: "신규상사", receiverCustKey: 456, receiverCustName: "아이엠（미우）" },
+];
+const liveOverview = buildOverviewSections({
+  week: "33",
+  boards: overviewGroups.map((group) => ({
+    group,
+    rows: boardFor("2026", "33", group.baseCustKey),
+  })),
+  receiverSelf: [
+    { receiverCustKey: 456, prodKey: 1255, prodName: "Pink Mondial 50cm", unit: "단", qty: 30, expectedQty: 40 },
+  ],
+});
+const mondial = liveOverview[0].rows.find(
+  (r) => r.prodKey === 1255 && r.unit === "단",
+);
+assert.equal(mondial.byGroup[2].transferQty, 994, "라움 잔량 1648-654 (기존 유지)");
+assert.equal(mondial.byGroup[3].transferQty, 0, "초이문 잔량 1-1 (기존 유지)");
+assert.equal(mondial.receiverSelfQty, 30, "미우 자체수량 (기존 유지)");
+assert.equal(mondial.receiverTotal, 1024, "미우 총수량 = 자체 30 + 잔량합 994");
+const anthurium = liveOverview[0].rows.filter((r) => r.prodKey === 181);
+assert.equal(anthurium.length, 2, "같은 ProdKey 도 단위(송이/박스)가 다르면 행을 분리한다.");
+const anthuriumStem = anthurium.find((r) => r.unit === "송이");
+assert.equal(
+  anthuriumStem.byGroup[1].transferQty,
+  540,
+  "신라 잔량이 전체 탭에 숫자로 나와야 한다('-' 회귀 금지).",
+);
+assert.equal(
+  anthuriumStem.byGroup[2],
+  undefined,
+  "물량 없는 업체 칸은 계속 '-'(undefined) 로 남는다.",
+);
+
+// ⑥ 연결 상태 안내: '이 차수만 없음' 과 'CustKey 연결이 잘못됨' 을 구분한다.
+const unlinked = groupLinkState({
+  group: { groupKey: 1, groupName: "신라", baseCustKey: 444, baseCustName: "신라상사" },
+  activity: { orderQty: 0, shipQty: 0 },
+  rowCount: 0,
+  year: "2026",
+});
+assert.equal(unlinked.state, GROUP_LINK.UNLINKED);
+assert.equal(unlinked.warn, true);
+assert.match(unlinked.message, /CustKey 444/);
+assert.match(unlinked.message, /업체관리/);
+const emptyWeek = groupLinkState({
+  group: { groupKey: 1, baseCustKey: 446, baseCustName: "신라호텔" },
+  activity: { orderQty: 44550, shipQty: 23322 },
+  rowCount: 0,
+  year: "2026",
+});
+assert.equal(emptyWeek.state, GROUP_LINK.EMPTY_WEEK);
+assert.equal(emptyWeek.warn, false);
+assert.equal(emptyWeek.message, "기준 업체 주문·분배 품목 없음");
+assert.equal(
+  groupLinkState({ group: {}, activity: { orderQty: 10, shipQty: 0 }, rowCount: 3 }).state,
+  GROUP_LINK.OK,
+);
+assert.equal(
+  groupLinkState({ group: {}, activity: null, rowCount: 0 }).state,
+  GROUP_LINK.EMPTY_WEEK,
+  "실적 정보를 못 받은 응답에서는 잘못된 경고를 띄우지 않는다.",
+);
+assert.equal(
+  describeCustomerActivity({ custKey: 444, custName: "신라상사" }),
+  "전산 실적 없음",
+);
+assert.match(
+  describeCustomerActivity({
+    lastOrderYear: "2026",
+    lastOrderWeek: "34",
+    lastShipYear: "2026",
+    lastShipWeek: "32",
+  }),
+  /주문 2026-34 · 분배 2026-32/,
+);
+
+// ⑦ 코드 계약: 이름 추측 대신 CustKey, 그리고 잘못된 연결을 화면에서 되돌릴 수 있어야 한다.
+assert.ok(
+  api.includes("N'신라호텔'") && !api.includes("N'신라상사'"),
+  "초기 seed 는 실적이 있는 실제 거래처(신라호텔)를 사용해야 한다.",
+);
+assert.ok(
+  /EXISTS\(SELECT 1 FROM OrderMaster om WHERE om\.CustKey=c\.CustKey/.test(api),
+  "seed 는 전산 주문 실적이 있는 CustKey 만 그룹으로 만든다.",
+);
+assert.ok(
+  api.includes("async function baseActivity") &&
+    api.includes("baseActivity: activity[Number(g.baseCustKey)]"),
+  "조회 응답은 기준업체의 연도 실적을 함께 돌려줘야 한다.",
+);
+assert.ok(
+  /FROM \(VALUES \$\{keys\.map\(\(_, i\) => `\(@c\$\{i\}\)`\)/.test(api) &&
+    !/CustKey IN \(\$\{keys\.join/.test(api),
+  "CustKey 목록도 파라미터로만 전달한다.",
+);
+assert.ok(
+  api.includes("async function latestScope(custKeys = [])") &&
+    api.includes("latestScope(activeKeys)"),
+  "기본 차수는 게시판에 등록된 업체의 최신 분배 차수를 우선한다.",
+);
+assert.ok(
+  api.includes("const scoped = await query(LATEST_SQL(clause), params)") &&
+    api.includes('const r = await query(LATEST_SQL(""))'),
+  "등록 업체 분배가 없으면 전체 최신 차수로 되돌아가야 한다.",
+);
+assert.ok(
+  api.includes("이미 다른 활성 그룹이 CustKey"),
+  "활성 기준업체 중복은 이해 가능한 오류로 안내해야 한다.",
+);
+assert.ok(
+  page.includes("const editGroup = (g)") &&
+    page.includes("groupKey: Number(form.groupKey || 0)") &&
+    page.includes("className=\"grouplist\""),
+  "업체관리에서 기존 그룹을 골라 기준 CustKey 를 고칠 수 있어야 한다.",
+);
+assert.ok(
+  page.includes("groupLinkState({") && page.includes("link.message"),
+  "빈 표에는 '이 차수 물량 없음'과 '연결 확인 필요'를 구분해 표시해야 한다.",
+);
+assert.ok(
+  page.includes("describeCustomerActivity(c)"),
+  "업체 검색 결과에 전산 실적을 함께 보여 껍데기 거래처 선택을 막아야 한다.",
+);
+assert.ok(
+  !api.match(
+    /(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:dbo\.)?(?:Customer|Order|Shipment)/i,
+  ),
+  "연결 진단·복구는 ERP 원장과 Customer 마스터를 쓰지 않는다.",
+);
+
 console.log("shilla miu board tests passed");

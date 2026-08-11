@@ -8,6 +8,7 @@
     "__tests__/shillaMiuBoard.test.js",
     "docs/migrations/2026-07-23_web_shilla_miu_board.sql",
     "docs/migrations/2026-08-11_web_board_final_allocation.sql",
+    "docs/migrations/2026-08-11_web_board_group_custkey_repair.sql",
     "docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md",
     "docs/exe-golden/FormShipmentDistribution.md"
   ],
@@ -23,7 +24,13 @@
       "name": "GROUP_CONFIG_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "WebShillaMiuBoardGroup only"
+      "sideEffect": "WebShillaMiuBoardGroup only; existing groups are editable by GroupKey so a wrong BaseCustKey link can be repaired from the web without SQL"
+    },
+    {
+      "name": "GROUP_LINK_DIAGNOSE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only base-customer activity signal (year order/shipment totals) used only to tell '이 차수 물량 없음' from 'CustKey 연결 오류'; never part of any quantity formula"
     },
     {
       "name": "FINAL_ALLOCATION_SAVE",
@@ -47,7 +54,9 @@
       "미우 이관량 = max(0, 업체 잔량)",
       "미우 총수량 = 미우 자체수량 + 모든 원천업체 이관량 합계"
     ],
-    "rounding": "모든 중간값과 합계는 0.001 단위로 정규화한다."
+    "rounding": "모든 중간값과 합계는 0.001 단위로 정규화한다.",
+    "customerIdentity": "원천·수령 업체는 이름 문자열이 아니라 WebShillaMiuBoardGroup 의 CustKey 로만 식별한다. 이름이 비슷한 껍데기 거래처(예: 실적 0 인 '신라상사' CustKey 444)와 실제 원장 거래처('신라호텔' CustKey 446, OrderCode CLS)를 혼동하면 해당 그룹 전체가 조용히 빈 화면이 된다.",
+    "defaultWeek": "기본 조회 차수는 등록된 활성 그룹(원천+수령 CustKey)의 최신 분배 차수이며, 등록 업체 분배가 하나도 없을 때만 전체 최신 분배 차수로 되돌아간다."
   },
   "crossYearFixture": {
     "required": true,
