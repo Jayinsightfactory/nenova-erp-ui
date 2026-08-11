@@ -46,6 +46,7 @@ async function main() {
   assert('EstQuantity > 0', getData.includes('sdd.EstQuantity > 0'));
   assert('custKey param', getData.includes('@custKey'));
   assert('Estimate UNION', getData.includes('FROM Estimate e'));
+  assert('담당자→업체명→CustKey 정렬', /ORDER BY[\s\S]*sl\.Manager, sl\.CustName, sl\.CustKey/.test(getData));
 
   console.log('\n=== sqlEstimateGetDetail ===');
   const getDetail = sqlEstimateGetDetail({ orderYearWeek: '202626', custKey: 42 });
