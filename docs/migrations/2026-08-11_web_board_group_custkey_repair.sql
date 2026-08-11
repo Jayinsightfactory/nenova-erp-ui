@@ -9,7 +9,7 @@
 
    범위
    - 웹 전용 설정 테이블 dbo.WebShillaMiuBoardGroup 의 BaseCustKey/BaseCustName 만 고친다.
-   - ERP 원장(Customer/Order*/Shipment*/Stock*/Estimate/WebProfitReport)은 읽기만 한다.
+   - ERP 원장(Customer, Order·Shipment·Stock 계열, Estimate, WebProfitReport)은 읽기만 한다.
    - 웹 저장값(WebShillaMiuBoardAllocation)은 GroupKey 로 묶여 있어 그대로 따라간다.
 
    안전장치 (idempotent · 조건부)
