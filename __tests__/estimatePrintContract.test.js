@@ -7,7 +7,7 @@ import XLSX from 'xlsx-js-style';
 import { sqlEstimateGetPrintDetail } from '../lib/exeEstimateViewSql.js';
 import { buildEstimatePrintWorksheet } from '../lib/estimatePrintExcel.js';
 import { prepareEstimatePrintRows } from '../lib/estimatePrintPrepare.js';
-import { sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder.js';
+import { sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder.js';
 
 const exeRows = [
   {
@@ -115,5 +115,16 @@ assert.deepEqual(managerOrdered.map((row) => `${row.Manager || '미지정'}:${ro
   '조현욱:꽃샘원예',
   '미지정:미지정업체',
 ]);
+
+const salesOrdered = sortEstimateShipmentsForList([
+  { CustKey: 31, CustName: '영남꽃소재', Manager: '정재훈', totalAmount: 150000 },
+  { CustKey: 13, CustName: '미카엘플라워', Manager: '박성수', totalAmount: 900000 },
+  { CustKey: 280, CustName: '경향농원', Manager: '박성수', totalAmount: 150000 },
+]);
+assert.deepEqual(salesOrdered.map((row) => row.CustKey), [13, 280, 31],
+  '좌측 업체 목록은 매출 내림차순, 동률은 업체명순이어야 한다.');
+assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(displayShips\)/,
+  '좌측 업체 목록 렌더링 직전에 매출순 정렬을 적용해야 한다.');
+assert.match(pageSource, /총 합계금액 ▼/, '좌측 목록 헤더에서 매출 내림차순임을 표시해야 한다.');
 
 console.log('estimate print contract tests passed');

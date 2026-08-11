@@ -49,7 +49,7 @@ import {
   buildEstimatePrintWorksheet,
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
-import { getEstimateShipmentManager, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
+import { getEstimateShipmentManager, sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 
@@ -3529,7 +3529,7 @@ export default function Estimate() {
                           title="전체 선택/해제"/>
                       </th>
                       <th>차수</th><th>거래처</th><th>담당자</th>
-                      <th style={{textAlign:'right'}}>총 합계금액</th>
+                      <th style={{textAlign:'right'}}>총 합계금액 ▼</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3541,6 +3541,7 @@ export default function Estimate() {
                           .sort((a, b) => String(b).localeCompare(String(a))).slice(0, 2);
                         displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
                       }
+                      displayShips = sortEstimateShipmentsForList(displayShips);
                       if (displayShips.length === 0) {
                         return (
                           <tr>
