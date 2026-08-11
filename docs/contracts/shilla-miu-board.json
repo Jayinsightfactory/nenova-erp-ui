@@ -1,12 +1,14 @@
 {
   "id": "shilla-miu-board",
-  "title": "CustKey 기반 업체별 잔량분배 통합게시판",
+  "title": "CustKey 기반 업체별 잔량분배 통합게시판 (예상물량→현재분배→업체 최종분배→업체 잔량→미우 이관)",
   "scope": [
     "pages/sales/shilla-miu-board.js",
     "pages/api/sales/shilla-miu-board.js",
     "lib/shillaMiuBoard.js",
     "__tests__/shillaMiuBoard.test.js",
     "docs/migrations/2026-07-23_web_shilla_miu_board.sql",
+    "docs/migrations/2026-08-11_web_board_final_allocation.sql",
+    "docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md",
     "docs/exe-golden/FormShipmentDistribution.md"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -15,7 +17,7 @@
       "name": "BOARD_READ_FILTER_TAB_ALL_OR_GROUP",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "all active groups use identical year-major-week-CustKey read scope; all ledgers preserve"
+      "sideEffect": "all active groups use identical year-major-week-CustKey read scope for orders and shipments; all ledgers preserve; no DDL on GET"
     },
     {
       "name": "GROUP_CONFIG_SAVE",
@@ -24,15 +26,32 @@
       "sideEffect": "WebShillaMiuBoardGroup only"
     },
     {
+      "name": "FINAL_ALLOCATION_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "WebShillaMiuBoardAllocation.FinalQty upsert + WebShillaMiuBoardAllocationHistory audit only; legacy Qty preserved"
+    },
+    {
       "name": "WEB_MOVE_MATCH_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "WebShillaMiuBoardAllocation only"
+      "sideEffect": "legacy 이동입력 Qty/Matched rows stay readable and are never auto-converted into FinalQty"
     }
   ],
+  "businessMeaning": {
+    "finalAllocation": "업체 최종분배는 nenova.exe의 isFix/차수 확정 상태가 아니라, 최초 예상물량 중 각 업체가 실제로 최종 납품·사용한 웹 전용 수량이다.",
+    "formula": [
+      "예상물량 = 선택 연도+대차수+원천 CustKey+ProdKey 의 활성 OrderDetail 수량",
+      "현재분배 = 같은 업무키의 활성 양수 ShipmentDetail.OutQuantity",
+      "업체 잔량 = 예상물량 - 업체 최종분배 (미입력이면 현재분배를 임시값으로 사용)",
+      "미우 이관량 = max(0, 업체 잔량)",
+      "미우 총수량 = 미우 자체수량 + 모든 원천업체 이관량 합계"
+    ],
+    "rounding": "모든 중간값과 합계는 0.001 단위로 정규화한다."
+  },
   "crossYearFixture": {
     "required": true,
-    "description": "2025/2026년 동일 32차는 OrderYear로 격리하고 URL 선택값을 유지한다."
+    "description": "2025/2026년 동일 32차는 OrderYear로 격리하고 URL 선택값을 유지한다. 주문·출고·웹 저장값 모두 선택 연도만 사용한다."
   },
   "dnspyEvidence": {
     "required": true,
@@ -44,11 +63,14 @@
       "btnSave_Click"
     ],
     "tables": [
+      "OrderMaster",
+      "OrderDetail",
       "ShipmentMaster",
       "ShipmentDetail",
       "Customer",
       "WebShillaMiuBoardGroup",
-      "WebShillaMiuBoardAllocation"
+      "WebShillaMiuBoardAllocation",
+      "WebShillaMiuBoardAllocationHistory"
     ]
   },
   "requiredCommands": [
@@ -56,7 +78,12 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^"
   ],
-  "writes": ["WebShillaMiuBoardGroup", "WebShillaMiuBoardAllocation"],
+  "writes": [
+    "WebShillaMiuBoardGroup",
+    "WebShillaMiuBoardAllocation",
+    "WebShillaMiuBoardAllocationHistory",
+    "SystemActionLog"
+  ],
   "preserves": [
     "Customer",
     "OrderMaster",
@@ -71,8 +98,9 @@
     "WebProfitReport"
   ],
   "sideEffects": {
-    "erpRead": "선택 연도+대차수 prefix+정확한 CustKey의 활성 ShipmentMaster/ShipmentDetail 양수 출고만 합산",
-    "noErpMutation": "설정과 잔량이동 저장은 웹 전용 원장만 변경"
+    "erpRead": "선택 연도+대차수 prefix+정확한 CustKey의 활성 OrderMaster/OrderDetail 주문수량과 활성 ShipmentMaster/ShipmentDetail 양수 출고만 합산",
+    "noErpMutation": "설정·업체 최종분배 저장은 웹 전용 원장과 감사 이력만 변경",
+    "noDdlOnRead": "GET 경로는 OBJECT_ID 확인만 하고 CREATE/ALTER를 실행하지 않는다"
   },
   "requiredTests": ["__tests__/shillaMiuBoard.test.js"],
   "requiredTestFiles": [
