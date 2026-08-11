@@ -7,6 +7,7 @@ import {
   buildGroupRows,
   buildMajorWeeks,
   buildOverviewSections,
+  buildUnifiedBlocks,
   createWheelGesture,
   describeCustomerActivity,
   GROUP_LINK,
@@ -399,6 +400,150 @@ const twoReceivers = buildOverviewSections({
 });
 assert.equal(twoReceivers.length, 2);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 전체/개별 열 통일 (2026-08-11): 전체 탭도 업체별 탭과 같은 열 구성의 표 하나만 쓴다.
+//   업체 · 품목명 · 단위 · 예상물량 · 현재분배 · 업체최종분배 · 업체잔량 · 미우이관 · 완료 · 세부
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const boards = [
+    boardOf(groupsFixture[0], 50, 30), // 신라 잔량 20
+    boardOf(groupsFixture[1], 30, 20), // 라움 잔량 10
+    boardOf(groupsFixture[2], 15, 10), // 초이문 잔량 5
+    boardOf(groupsFixture[3], 8, 8), // 나중에 추가된 업체 — 잔량 0
+  ];
+  const sections = buildOverviewSections({
+    week: "32",
+    boards,
+    receiverSelf: [
+      {
+        receiverCustKey: 99,
+        prodKey: 7,
+        prodName: "장미 레드",
+        unit: "박스",
+        qty: 15,
+        expectedQty: 12,
+      },
+      {
+        receiverCustKey: 99,
+        prodKey: 77,
+        prodName: "미우 전용",
+        unit: "단",
+        qty: 7,
+        expectedQty: 7,
+      },
+    ],
+  });
+  const all = buildUnifiedBlocks({ week: "32", boards, overview: sections });
+
+  const rose = all.find((b) => b.prodKey === 7);
+  assert.equal(
+    rose.items.length,
+    4,
+    "전체 탭은 같은 품목이라도 업체별 행을 각각 유지한다(합산 금지).",
+  );
+  assert.deepEqual(
+    rose.items.map((it) => it.group.groupName),
+    ["신라", "라움", "초이문", "신규업체"],
+    "업체 열은 조회 순서(표시순서)를 그대로 따르고, 나중에 추가한 업체도 자동으로 들어간다.",
+  );
+  assert.deepEqual(
+    rose.items.map((it) => it.week.expectedQty),
+    [50, 30, 15, 8],
+    "업체별 예상물량이 한 행에 뭉개지지 않아야 한다.",
+  );
+  assert.deepEqual(
+    rose.items.map((it) => it.week.transferQty),
+    [20, 10, 5, 0],
+    "업체별 미우이관도 각 행에 그대로 남는다.",
+  );
+  assert.deepEqual(
+    rose.receiver,
+    {
+      receiverCustKey: 99,
+      receiverCustName: "아이엠（미우）",
+      selfQty: 15,
+      selfExpected: 12,
+    },
+    "미우 자체수량은 같은 열 구조의 합계 행 정보로 보존해야 한다.",
+  );
+  assert.equal(
+    roundQty(rose.items.reduce((s, it) => s + it.week.transferQty, 0)) +
+      rose.receiver.selfQty,
+    50,
+    "미우 총수량 = 미우 자체 15 + 업체 잔량합 35 (전체 요약표를 지워도 값이 남는다).",
+  );
+
+  // 원천업체 행이 없는 미우 전용 품목도 같은 표에 남는다(정보 소실 금지).
+  const selfOnlyBlock = all.find((b) => b.prodKey === 77);
+  assert.equal(selfOnlyBlock.items.length, 0);
+  assert.equal(selfOnlyBlock.receiver.selfQty, 7);
+
+  // 업체 탭: overview 없이 같은 함수를 쓰므로 열 구성이 전체와 동일하고 합계 행만 없다.
+  const oneGroup = buildUnifiedBlocks({
+    week: "32",
+    boards: [boards[0]],
+    overview: [],
+  });
+  assert.equal(oneGroup.length, 1);
+  assert.equal(oneGroup[0].items.length, 1);
+  assert.equal(oneGroup[0].receiver, null, "업체 탭에는 미우 합계 행이 없다.");
+  assert.equal(
+    oneGroup[0].items[0].group.groupName,
+    "신라",
+    "업체 탭에도 업체 열 값이 그대로 있어야 전체와 완전히 같은 표가 된다.",
+  );
+
+  // 같은 ProdKey 라도 단위가 다르면 블록을 나눈다.
+  const mixed = buildUnifiedBlocks({
+    week: "32",
+    boards: [
+      {
+        group: groupsFixture[0],
+        rows: buildGroupRows({
+          weeks: ["32"],
+          baseOrders: [
+            { week: "32", prodKey: 8, prodName: "혼합", unit: "박스", qty: 10 },
+          ],
+        }),
+      },
+      {
+        group: groupsFixture[1],
+        rows: buildGroupRows({
+          weeks: ["32"],
+          baseOrders: [
+            { week: "32", prodKey: 8, prodName: "혼합", unit: "단", qty: 10 },
+          ],
+        }),
+      },
+    ],
+    overview: [],
+  });
+  assert.equal(
+    mixed.filter((b) => b.prodKey === 8).length,
+    2,
+    "단위가 다르면 같은 표에서도 행을 분리한다.",
+  );
+
+  // 수령업체가 다르면 blockKey 가 달라 서로 섞이지 않는다.
+  const twoRecv = buildUnifiedBlocks({
+    week: "32",
+    boards: [
+      boardOf(groupsFixture[0], 10, 5),
+      boardOf(
+        { ...groupsFixture[1], receiverCustKey: 88, receiverCustName: "다른수령" },
+        10,
+        4,
+      ),
+    ],
+    overview: [],
+  });
+  assert.equal(twoRecv.length, 2, "수령업체가 다르면 같은 품목도 행 묶음을 나눈다.");
+
+  // 해당 차수에 데이터가 없으면 표가 비고, 잘못된 차수 입력에도 던지지 않게 화면이 감싼다.
+  assert.equal(buildUnifiedBlocks({ week: "31", boards, overview: [] }).length, 0);
+  assert.throws(() => buildUnifiedBlocks({ week: "", boards }));
+}
+
 const api = fs.readFileSync("pages/api/sales/shilla-miu-board.js", "utf8");
 const page = fs.readFileSync("pages/sales/shilla-miu-board.js", "utf8");
 const lib = fs.readFileSync("lib/shillaMiuBoard.js", "utf8");
@@ -667,26 +812,116 @@ assert.ok(
   cellPadding >= 3 && cellPadding <= 5,
   `셀 좌우 여백은 3~5px 여야 한다. (현재 ${cellPadding}px)`,
 );
-// 업체별 표 9개 열: 품목 + 단위 + 수치4 + 최종분배 + 완료 + 세부
-const boardWidth =
-  productWidth + unitWidth + numWidth * 4 + finalWidth + checkWidth + detailWidth;
+const ownerWidth = cssValue("col.owner", "width");
 assert.ok(
-  boardWidth >= 820 && boardWidth <= 920,
-  `업체별 표 총 폭은 사용자가 확정한 875px 전후여야 한다. (현재 ${boardWidth}px)`,
+  ownerWidth >= 60 && ownerWidth <= 90,
+  `업체 열 폭은 60~90px 여야 한다. (현재 ${ownerWidth}px)`,
+);
+// 전체/업체 공통 표 10개 열: 업체 + 품목 + 단위 + 수치4 + 최종분배 + 완료 + 세부
+const boardWidth =
+  ownerWidth +
+  productWidth +
+  unitWidth +
+  numWidth * 4 +
+  finalWidth +
+  checkWidth +
+  detailWidth;
+assert.ok(
+  boardWidth >= 860 && boardWidth <= 960,
+  `공통 표 총 폭은 사용자가 확정한 조밀 폭(894px 전후)이어야 한다. (현재 ${boardWidth}px)`,
 );
 assert.equal(
   cssValue(".groupbar", "min-width"),
   boardWidth,
   "그룹 머리띠 최소 폭은 표 총 폭과 같아야 가로 스크롤에서도 어긋나지 않는다.",
 );
-const groupColgroup = [...page.matchAll(/<colgroup>([\s\S]*?)<\/colgroup>/g)]
-  .map((m) => m[1])
-  .find((block) => block.includes('className="final"'));
-assert.ok(groupColgroup, "업체별 표에 최종분배 열이 있어야 한다.");
+assert.equal(
+  cssValue(".notice", "min-width"),
+  boardWidth,
+  "연결 안내 줄도 표와 같은 폭이어야 가로 스크롤에서 어긋나지 않는다.",
+);
+
+// ── 전체 탭과 업체 탭의 열 동일성: 표·colgroup·머리행이 문자 그대로 하나뿐이어야 한다.
+const colgroups = [...page.matchAll(/<colgroup>([\s\S]*?)<\/colgroup>/g)].map(
+  (m) => m[1],
+);
+assert.equal(
+  colgroups.length,
+  1,
+  "전체와 업체 탭이 같은 표를 쓰므로 colgroup 은 하나여야 한다.",
+);
+assert.equal(
+  (page.match(/<table>/g) || []).length,
+  1,
+  "전체 탭 아래에 같은 내용의 상세표를 다시 나열하지 않는다.",
+);
+assert.equal(
+  (page.match(/<thead>/g) || []).length,
+  1,
+  "머리행이 하나여야 전체/개별 열 순서가 구조적으로 같아진다.",
+);
+const groupColgroup = colgroups[0];
+assert.ok(
+  groupColgroup.includes('className="final"'),
+  "공통 표에 최종분배 열이 있어야 한다.",
+);
+assert.deepEqual(
+  [...groupColgroup.matchAll(/<col className="(\w+)" \/>/g)].map((m) => m[1]),
+  [
+    "owner",
+    "product",
+    "unit",
+    "num",
+    "num",
+    "final",
+    "num",
+    "num",
+    "check",
+    "detailBtn",
+  ],
+  "열 순서는 업체·품목명·단위·예상물량·현재분배·업체최종분배·업체잔량·미우이관·완료·세부 고정이다.",
+);
 assert.equal(
   (groupColgroup.match(/<col className="num" \/>/g) || []).length,
   4,
   "수치 4개 열은 num 클래스로 명시해 :not() 특이도 함정을 피한다.",
+);
+const headRow = page.match(/<thead>([\s\S]*?)<\/thead>/)[1];
+assert.deepEqual(
+  [...headRow.matchAll(/>\s*([가-힣]+)\s*<\/th>/g)].map((m) => m[1]),
+  [
+    "업체",
+    "품목명",
+    "단위",
+    "예상물량",
+    "현재분배",
+    "업체최종분배",
+    "업체잔량",
+    "미우이관",
+    "완료",
+    "세부",
+  ],
+  "머리행 문구도 사용자가 요구한 순서 그대로여야 한다.",
+);
+assert.ok(
+  !/colSpan="9"/.test(page) && page.includes('colSpan="10"'),
+  "업체 열 추가 후 펼침·빈표 행의 colSpan 은 10 이어야 한다.",
+);
+assert.ok(
+  page.includes("buildUnifiedBlocks({") && !page.includes('className="overview"'),
+  "전체 요약표와 상세표를 따로 그리지 않고 공통 행 묶음 함수 하나만 쓴다.",
+);
+assert.ok(
+  page.includes("미우자체 + 업체잔량합계 = 미우총수량") &&
+    page.includes("hasSumRow(b, live)"),
+  "미우 자체수량·총수량은 같은 폭의 작은 합계 행으로 남아야 한다.",
+);
+const sumRowHeight = Number(
+  page.match(/\.sumRow td \{([^}]*)\}/)?.[1]?.match(/height:\s*(\d+)px/)?.[1],
+);
+assert.ok(
+  sumRowHeight > 0 && sumRowHeight < rowHeight,
+  `미우 합계 행은 일반 행보다 작아야 한다. (현재 ${sumRowHeight}px)`,
 );
 assert.ok(
   !page.includes("components/Layout") && !page.includes("<Layout"),
@@ -842,6 +1077,86 @@ assert.equal(
   undefined,
   "물량 없는 업체 칸은 계속 '-'(undefined) 로 남는다.",
 );
+
+// ⑤-2 통합 표(전체 탭): 열을 통일해도 2026-33 신라 1,560/0 과 라움·초이문·미우 값이 그대로다.
+{
+  const liveBoards = overviewGroups.map((group) => ({
+    group,
+    rows: boardFor("2026", "33", group.baseCustKey),
+  }));
+  const unified = buildUnifiedBlocks({
+    week: "33",
+    boards: liveBoards,
+    overview: liveOverview,
+  });
+  const line = (prodKey, unit, groupName) =>
+    unified
+      .find((b) => b.prodKey === prodKey && b.unit === unit)
+      ?.items.find((it) => it.group.groupName === groupName);
+  assert.equal(line(181, "송이", "신라").week.expectedQty, 540);
+  assert.equal(line(181, "송이", "신라").week.currentQty, 0);
+  assert.equal(
+    line(181, "송이", "신라").week.transferQty,
+    540,
+    "전체 표에서도 신라 잔량이 숫자로 나와야 한다('-' 회귀 금지).",
+  );
+  const shillaUnified = roundQty(
+    unified
+      .flatMap((b) => b.items)
+      .filter((it) => it.group.groupName === "신라")
+      .reduce((s, it) => s + it.week.expectedQty, 0),
+  );
+  assert.equal(shillaUnified, 1560, "2026-33 신라 실제 주문 1,560 은 변하지 않는다.");
+  assert.equal(
+    roundQty(
+      unified
+        .flatMap((b) => b.items)
+        .filter((it) => it.group.groupName === "신라")
+        .reduce((s, it) => s + it.week.currentQty, 0),
+    ),
+    0,
+    "2026-33 신라 현재분배 0 도 변하지 않는다.",
+  );
+  const mondialBlock = unified.find((b) => b.prodKey === 1255 && b.unit === "단");
+  assert.deepEqual(
+    mondialBlock.items.map((it) => [it.group.groupName, it.week.transferQty]),
+    [
+      ["라움", 994],
+      ["초이문", 0],
+    ],
+    "같은 품목의 라움·초이문 수량은 한 행으로 합쳐지지 않고 업체별로 남는다.",
+  );
+  assert.equal(mondialBlock.receiver.selfQty, 30, "미우 자체수량 (기존 유지)");
+  assert.equal(
+    roundQty(
+      mondialBlock.receiver.selfQty +
+        mondialBlock.items.reduce((s, it) => s + it.week.transferQty, 0),
+    ),
+    1024,
+    "미우 총수량 = 자체 30 + 잔량합 994 (기존 유지)",
+  );
+  // 32차: 주문=분배면 이관 0, 그리고 2025년 같은 33차는 절대 섞이지 않는다.
+  const w32 = buildUnifiedBlocks({
+    week: "32",
+    boards: [{ group: overviewGroups[0], rows: boardFor("2026", "32", 446) }],
+    overview: [],
+  });
+  assert.equal(
+    roundQty(w32.flatMap((b) => b.items).reduce((s, it) => s + it.week.transferQty, 0)),
+    0,
+    "32차는 주문=분배라 미우이관이 0 이다.",
+  );
+  const y2025 = buildUnifiedBlocks({
+    week: "33",
+    boards: [{ group: overviewGroups[0], rows: boardFor("2025", "33", 446) }],
+    overview: [],
+  });
+  assert.equal(
+    roundQty(y2025.flatMap((b) => b.items).reduce((s, it) => s + it.week.expectedQty, 0)),
+    999,
+    "2025년 33차는 2026년 33차(1,560)와 다른 값이어야 한다.",
+  );
+}
 
 // ⑥ 연결 상태 안내: '이 차수만 없음' 과 'CustKey 연결이 잘못됨' 을 구분한다.
 const unlinked = groupLinkState({
