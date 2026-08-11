@@ -1,9 +1,13 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+// 잔량분배 게시판 — 예상물량 → 현재분배 → 업체 최종분배 → 업체 잔량 → 미우 이관 흐름
+// '업체 최종분배'는 전산(nenova.exe)의 확정(isFix) 상태가 아니라 업무상 최종 납품·사용 수량이다.
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiPost } from "../../lib/useApi";
+import { roundQty, stepMajorWeek } from "../../lib/shillaMiuBoard";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+  Number(v || 0).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
 const draftKey = (groupKey, prodKey) => `${groupKey}|${prodKey}`;
+const blank = (v) => v === "" || v === null || v === undefined;
 
 export default function Board() {
   const initial = useMemo(
@@ -18,6 +22,7 @@ export default function Board() {
   const [groupKey, setGroupKey] = useState(Number(initial.groupKey || 0));
   const [groups, setGroups] = useState([]),
     [boards, setBoards] = useState([]),
+    [overview, setOverview] = useState([]),
     [rows, setRows] = useState([]);
   const [drafts, setDrafts] = useState({}),
     [open, setOpen] = useState({}),
@@ -39,23 +44,30 @@ export default function Board() {
     displayOrder: 0,
     isActive: true,
   });
+  const weekBoxRef = useRef(null);
+  const stateRef = useRef({ year, week, groupKey });
+  stateRef.current = { year, week, groupKey };
 
   const load = async (over = {}) => {
     setLoading(true);
     setError("");
+    const base = stateRef.current;
+    const nextGroup = Object.prototype.hasOwnProperty.call(over, "groupKey")
+      ? Number(over.groupKey)
+      : base.groupKey;
+    const nextWeek = over.week ?? base.week;
+    const nextYear = over.year ?? base.year;
     try {
-      const nextGroup = Object.prototype.hasOwnProperty.call(over, "groupKey")
-        ? Number(over.groupKey)
-        : groupKey;
       const data = await apiGet("/api/sales/shilla-miu-board", {
-        ...(year && { year }),
-        ...(week && { startWeek: week, endWeek: week }),
+        ...(nextYear && { year: nextYear }),
+        ...(nextWeek && { startWeek: nextWeek, endWeek: nextWeek }),
         ...(nextGroup && { groupKey: nextGroup }),
       });
       setYear(data.year);
-      setWeek(data.weeks?.[0] || data.latest?.week);
+      setWeek(data.weeks?.[0] || data.latest?.week || "");
       setGroups(data.groups || []);
       setBoards(data.boards || []);
+      setOverview(data.overview || []);
       setRows(data.rows || []);
       setAdmin(!!data.isAdmin);
       setGroupKey(data.selectedGroup?.groupKey || 0);
@@ -75,33 +87,80 @@ export default function Board() {
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 차수 스피너: ▲▼ 클릭 · 키보드 위/아래 · 입력칸 위에서의 휠. 1 미만으로 내려가지 않고 즉시 조회한다.
+  const stepWeek = (delta) => {
+    const next = stepMajorWeek(stateRef.current.week || "01", delta);
+    if (next === stateRef.current.week) return;
+    setWeek(next);
+    load({ week: next });
+  };
+  useEffect(() => {
+    const el = weekBoxRef.current;
+    if (!el) return;
+    // 휠은 이 입력칸에서만 처리하고 페이지 스크롤로 전파하지 않는다.
+    const onWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stepWeek(e.deltaY < 0 ? 1 : -1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const activeGroups = groups.filter((g) => g.isActive);
   const selected = activeGroups.find((g) => g.groupKey === groupKey);
   const displayedBoards = groupKey ? [{ group: selected, rows }] : boards;
-  const value = (g, r, w) =>
-    drafts[draftKey(g.groupKey, r.prodKey)]?.qty ?? w.moveQty ?? "";
-  const matched = (g, r, w) =>
-    drafts[draftKey(g.groupKey, r.prodKey)]?.matched ?? w.matched;
+
+  const draftOf = (g, r) => drafts[draftKey(g.groupKey, r.prodKey)];
+  // 미입력이면 빈칸으로 두고 현재분배를 임시값(placeholder)으로 안내한다.
+  const finalInput = (g, r, w) => {
+    const d = draftOf(g, r);
+    if (d && "finalQty" in d) return d.finalQty;
+    return w.finalIsUserSet ? String(w.finalQty) : "";
+  };
+  const matched = (g, r, w) => draftOf(g, r)?.matched ?? w.matched;
+  const flow = (g, r, w) => {
+    const raw = finalInput(g, r, w);
+    const finalQty = blank(raw) ? w.currentQty : roundQty(Number(raw) || 0);
+    const residualQty = roundQty(w.expectedQty - finalQty);
+    return {
+      finalQty,
+      residualQty,
+      transferQty: Math.max(0, residualQty),
+      userSet: !blank(raw),
+    };
+  };
   const change = (g, r, w, patch) =>
-    setDrafts((d) => ({
-      ...d,
-      [draftKey(g.groupKey, r.prodKey)]: {
-        qty: value(g, r, w),
-        matched: matched(g, r, w),
-        memo: w.memo || "",
-        ...d[draftKey(g.groupKey, r.prodKey)],
-        ...patch,
-      },
-    }));
+    setDrafts((d) => {
+      const key = draftKey(g.groupKey, r.prodKey);
+      return {
+        ...d,
+        [key]: {
+          finalQty: finalInput(g, r, w),
+          matched: matched(g, r, w),
+          memo: w.memo || "",
+          ...d[key],
+          ...patch,
+        },
+      };
+    });
+
   const visibleRows = (list) =>
-    list.filter((r) => {
-      const w = r.weeks[week];
+    (list || []).filter((r) => {
+      const w = r.weeks?.[week];
+      if (!w) return false;
       return (
         (!search || r.prodName.toLowerCase().includes(search.toLowerCase())) &&
         (!unfinished || !w.matched) &&
-        (!hideZero || w.baseActual || w.receiverActual || w.moveQty)
+        (!hideZero || w.expectedQty || w.currentQty || w.finalIsUserSet)
       );
     });
+  const visibleOverviewRows = (list) =>
+    (list || []).filter(
+      (r) =>
+        (!search || r.prodName.toLowerCase().includes(search.toLowerCase())) &&
+        (!hideZero || r.residualTotal || r.receiverSelfQty || r.receiverTotal),
+    );
 
   const save = async () => {
     const byGroup = {};
@@ -110,7 +169,9 @@ export default function Board() {
       (byGroup[g] ||= []).push({
         prodKey: Number(prodKey),
         useWeek: week,
-        ...data,
+        finalQty: blank(data.finalQty) ? null : data.finalQty,
+        matched: !!data.matched,
+        memo: data.memo || "",
       });
     });
     if (!Object.keys(byGroup).length)
@@ -122,7 +183,9 @@ export default function Board() {
           groupKey: Number(g),
           allocations,
         });
-      setMessage(`${Object.keys(drafts).length}건을 웹 게시판에 저장했습니다.`);
+      setMessage(
+        `${Object.keys(drafts).length}건의 업체 최종분배를 웹 게시판에 저장했습니다.`,
+      );
       await load();
     } catch (e) {
       setError(e.message);
@@ -169,7 +232,7 @@ export default function Board() {
           <button
             key={g.groupKey}
             className={g.groupKey === groupKey ? "active" : ""}
-            title={g.baseCustName}
+            title={`${g.baseCustName} → ${g.receiverCustName}`}
             onClick={() => load({ groupKey: g.groupKey })}
           >
             {g.groupName}
@@ -177,12 +240,38 @@ export default function Board() {
         ))}
         <i />
         <label>
-          연도 <input value={year} onChange={(e) => setYear(e.target.value)} />
+          연도{" "}
+          <input
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && load()}
+          />
         </label>
-        <label>
-          대차수{" "}
-          <input value={week} onChange={(e) => setWeek(e.target.value)} />
-        </label>
+        <span className="weekbox" ref={weekBoxRef} title="위/아래 키, 휠, ▲▼ 로 1차씩 이동합니다.">
+          대차수
+          <input
+            className="weekInput"
+            value={week}
+            onChange={(e) => setWeek(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                stepWeek(1);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                stepWeek(-1);
+              } else if (e.key === "Enter") load();
+            }}
+          />
+          <span className="spin">
+            <button type="button" aria-label="차수 증가" onClick={() => stepWeek(1)}>
+              ▲
+            </button>
+            <button type="button" aria-label="차수 감소" onClick={() => stepWeek(-1)}>
+              ▼
+            </button>
+          </span>
+        </span>
         <input
           className="search"
           placeholder="품목명 검색"
@@ -213,26 +302,131 @@ export default function Board() {
         {admin && <button onClick={() => setManage(true)}>업체관리</button>}
       </div>
       <div className="hint">
-        전산 실제분배(파랑) · 계산잔량(주황) · 웹 이동값(보라) / ERP 원장은
-        변경하지 않습니다.
+        예상물량 − 업체 최종분배 = 업체 잔량 → 미우 이관 · 미우 총수량 = 미우
+        자체수량 + 업체 잔량 합계 / 최종분배는 업무상 최종 수량이며 전산 확정상태가
+        아닙니다. ERP 원장은 변경하지 않습니다.
       </div>
       {message && <div className="msg ok">{message}</div>}
       {error && <div className="msg err">{error}</div>}
       <div className="scroll">
+        {!groupKey &&
+          overview.map((section) => {
+            const shown = visibleOverviewRows(section.rows);
+            const totals = shown.reduce(
+              (a, r) => {
+                a.residual = roundQty(a.residual + r.residualTotal);
+                a.self = roundQty(a.self + r.receiverSelfQty);
+                a.total = roundQty(a.total + r.receiverTotal);
+                return a;
+              },
+              { residual: 0, self: 0, total: 0 },
+            );
+            return (
+              <section key={section.receiverCustKey}>
+                <div className="groupbar overviewbar">
+                  <b title={section.receiverCustName}>전체</b>
+                  <span title={`잔량 수령: ${section.receiverCustName}`}>
+                    수령 {section.receiverCustName}
+                  </span>
+                  <em>품목 {shown.length}</em>
+                  <span>업체잔량합 {fmt(totals.residual)}</span>
+                  <span>미우자체 {fmt(totals.self)}</span>
+                  <span>미우총수량 {fmt(totals.total)}</span>
+                </div>
+                <table className="overview">
+                  <colgroup>
+                    <col className="product" />
+                    <col className="unit" />
+                    {section.groups.map((g) => (
+                      <col className="num" key={g.groupKey} />
+                    ))}
+                    <col className="sum" />
+                    <col className="num" />
+                    <col className="total" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>품목명</th>
+                      <th>단위</th>
+                      {section.groups.map((g) => (
+                        <th key={g.groupKey} title={`${g.baseCustName} 잔량`}>
+                          {g.groupName}잔량
+                        </th>
+                      ))}
+                      <th>잔량합계</th>
+                      <th title={`${section.receiverCustName} 자체 주문·분배 수량`}>
+                        미우자체
+                      </th>
+                      <th>미우총수량</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!shown.length && (
+                      <tr>
+                        <td colSpan={section.groups.length + 5} className="empty">
+                          해당 차수의 품목이 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                    {shown.map((r) => (
+                      <tr key={r.rowKey}>
+                        <td
+                          className="productCell"
+                          title={`${r.prodName} · ProdKey ${r.prodKey} · 단위 ${r.unit || "-"}`}
+                        >
+                          {r.prodName}
+                        </td>
+                        <td>{r.unit}</td>
+                        {section.groups.map((g) => {
+                          const cell = r.byGroup[g.groupKey];
+                          return (
+                            <td
+                              key={g.groupKey}
+                              className={cell?.transferQty ? "calc" : ""}
+                              title={
+                                cell
+                                  ? `예상 ${fmt(cell.expectedQty)} − 최종분배 ${fmt(cell.finalQty)}${cell.finalIsUserSet ? "" : "(미입력·현재분배 기준)"} = 잔량 ${fmt(cell.residualQty)}`
+                                  : "해당 업체 물량 없음"
+                              }
+                            >
+                              {cell ? fmt(cell.transferQty) : "-"}
+                            </td>
+                          );
+                        })}
+                        <td className={r.residualTotal ? "calc" : ""}>
+                          {fmt(r.residualTotal)}
+                        </td>
+                        <td
+                          className={r.receiverSelfQty ? "erp" : ""}
+                          title={`미우 자체 주문 ${fmt(r.receiverSelfExpected)} · 자체 분배 ${fmt(r.receiverSelfQty)}`}
+                        >
+                          {fmt(r.receiverSelfQty)}
+                        </td>
+                        <td className={r.receiverTotal ? "web" : ""}>
+                          {fmt(r.receiverTotal)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            );
+          })}
         {displayedBoards.map(({ group, rows: groupRows }) => {
           if (!group) return null;
-          const shown = visibleRows(groupRows || []);
+          const shown = visibleRows(groupRows);
           const totals = shown.reduce(
             (a, r) => {
               const w = r.weeks[week];
-              a.base += w.baseActual;
-              a.receiver += w.receiverActual;
-              a.remain += w.calculatedRemainder;
-              a.move += Number(value(group, r, w) || 0);
+              const f = flow(group, r, w);
+              a.expected = roundQty(a.expected + w.expectedQty);
+              a.current = roundQty(a.current + w.currentQty);
+              a.final = roundQty(a.final + f.finalQty);
+              a.transfer = roundQty(a.transfer + f.transferQty);
               a.done += matched(group, r, w) ? 1 : 0;
               return a;
             },
-            { base: 0, receiver: 0, remain: 0, move: 0, done: 0 },
+            { expected: 0, current: 0, final: 0, transfer: 0, done: 0 },
           );
           return (
             <section key={group.groupKey}>
@@ -254,10 +448,10 @@ export default function Board() {
                   {group.baseCustName} → {group.receiverCustName}
                 </span>
                 <em>품목 {shown.length}</em>
-                <span>기준 {fmt(totals.base)}</span>
-                <span>아이엠 {fmt(totals.receiver)}</span>
-                <span>잔량 {fmt(totals.remain)}</span>
-                <span>이동 {fmt(totals.move)}</span>
+                <span>예상 {fmt(totals.expected)}</span>
+                <span>현재 {fmt(totals.current)}</span>
+                <span>최종 {fmt(totals.final)}</span>
+                <span>이관 {fmt(totals.transfer)}</span>
                 <span>
                   완료 {totals.done}/{shown.length}
                 </span>
@@ -269,9 +463,9 @@ export default function Board() {
                     <col className="unit" />
                     <col className="num" />
                     <col className="num" />
+                    <col className="final" />
                     <col className="num" />
                     <col className="num" />
-                    <col className="diff" />
                     <col className="check" />
                     <col className="detailBtn" />
                   </colgroup>
@@ -279,11 +473,13 @@ export default function Board() {
                     <tr>
                       <th>품목명</th>
                       <th>단위</th>
-                      <th>기준분배</th>
-                      <th>계산잔량</th>
-                      <th>아이엠분배</th>
-                      <th>이동입력</th>
-                      <th>차이</th>
+                      <th title="주문등록량">예상물량</th>
+                      <th title="현재 ERP에 입력된 해당 업체 분배량">현재분배</th>
+                      <th title="업무상 최종 납품·사용 수량 (웹 전용 저장값)">
+                        업체최종분배
+                      </th>
+                      <th title="예상물량 − 업체 최종분배">업체잔량</th>
+                      <th title="미우로 이관되는 물량">미우이관</th>
                       <th>완료</th>
                       <th>세부</th>
                     </tr>
@@ -292,61 +488,70 @@ export default function Board() {
                     {!shown.length && (
                       <tr>
                         <td colSpan="9" className="empty">
-                          기준 업체 실제 출고 품목 없음
+                          기준 업체 주문·분배 품목 없음
                         </td>
                       </tr>
                     )}
                     {shown.map((r) => {
                       const w = r.weeks[week],
-                        move = Number(value(group, r, w) || 0),
-                        diff = move - w.calculatedRemainder,
+                        f = flow(group, r, w),
                         key = draftKey(group.groupKey, r.prodKey);
                       return (
                         <Fragment key={r.prodKey}>
                           <tr>
                             <td
                               className="productCell"
-                              title={`${group.groupName} · ${r.prodName} · ProdKey ${r.prodKey}`}
+                              title={`${group.groupName} · ${r.prodName} · ProdKey ${r.prodKey}${w.legacyMoveQty != null ? ` · 이전 이동입력 ${fmt(w.legacyMoveQty)}` : ""}`}
                             >
                               {r.prodName}
                             </td>
                             <td>{r.unit}</td>
-                            <td className={w.baseActual ? "erp" : ""}>
-                              {fmt(w.baseActual)}
+                            <td className={w.expectedQty ? "erp" : ""}>
+                              {fmt(w.expectedQty)}
                             </td>
-                            <td className={w.calculatedRemainder ? "calc" : ""}>
-                              {fmt(w.calculatedRemainder)}
+                            <td className={w.currentQty ? "erp" : ""}>
+                              {fmt(w.currentQty)}
                             </td>
-                            <td className={w.receiverActual ? "erp" : ""}>
-                              {fmt(w.receiverActual)}
-                            </td>
-                            <td className={move ? "web" : ""}>
+                            <td className={f.userSet ? "web" : ""}>
                               <input
                                 className="qty"
                                 type="number"
                                 min="0"
-                                value={value(group, r, w)}
+                                step="any"
+                                placeholder={fmt(w.currentQty)}
+                                title={
+                                  f.userSet
+                                    ? "저장된 업체 최종분배"
+                                    : "미입력 — 현재분배를 임시로 사용합니다."
+                                }
+                                value={finalInput(group, r, w)}
                                 onChange={(e) =>
-                                  change(group, r, w, { qty: e.target.value })
+                                  change(group, r, w, {
+                                    finalQty: e.target.value,
+                                  })
                                 }
                               />
                             </td>
                             <td
                               className={
-                                diff < 0
-                                  ? "short"
-                                  : diff > 0
-                                    ? "over"
-                                    : move
-                                      ? "done"
-                                      : ""
+                                f.residualQty < 0
+                                  ? "over"
+                                  : f.residualQty > 0
+                                    ? "calc"
+                                    : "done"
+                              }
+                              title={
+                                f.residualQty < 0
+                                  ? "최종분배가 예상물량을 초과했습니다."
+                                  : "예상물량 − 업체 최종분배"
                               }
                             >
-                              {diff < 0
-                                ? `-${fmt(-diff)}`
-                                : diff > 0
-                                  ? `+${fmt(diff)}`
-                                  : "="}
+                              {f.residualQty < 0
+                                ? `초과 ${fmt(-f.residualQty)}`
+                                : fmt(f.residualQty)}
+                            </td>
+                            <td className={f.transferQty ? "move" : ""}>
+                              {fmt(f.transferQty)}
                             </td>
                             <td>
                               <input
@@ -374,10 +579,17 @@ export default function Board() {
                               <td colSpan="9" className="subweeks">
                                 {w.subweeks.map((s) => (
                                   <span key={s.orderWeek}>
-                                    {s.orderWeek} 기준 {fmt(s.baseActual)} /
-                                    아이엠 {fmt(s.receiverActual)}
+                                    {s.orderWeek} 예상 {fmt(s.expectedQty)} /
+                                    현재 {fmt(s.currentQty)} / 미우{" "}
+                                    {fmt(s.receiverActual)}
                                   </span>
                                 ))}
+                                <span>미우자체분배 {fmt(w.receiverActual)}</span>
+                                {w.legacyMoveQty != null && (
+                                  <span className="legacy">
+                                    이전 이동입력 {fmt(w.legacyMoveQty)}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           )}
@@ -490,13 +702,29 @@ export default function Board() {
         .toolbar i {
           flex: 1;
         }
-        .toolbar label {
+        .toolbar label,
+        .weekbox {
           display: flex;
           align-items: center;
           gap: 2px;
         }
         .toolbar input {
           width: 46px;
+        }
+        .weekInput {
+          width: 34px;
+          text-align: right;
+        }
+        .spin {
+          display: flex;
+          flex-direction: column;
+        }
+        .spin button {
+          width: 15px;
+          height: 12px;
+          padding: 0;
+          font-size: 7px;
+          line-height: 1;
         }
         .toolbar .search {
           width: 145px;
@@ -525,6 +753,9 @@ export default function Board() {
           line-height: 19px;
           color: #64748b;
           border-bottom: 1px solid #cbd5e1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .msg {
           padding: 3px 6px;
@@ -551,11 +782,14 @@ export default function Board() {
           align-items: center;
           gap: 10px;
           height: 22px;
-          /* 표 총 폭(420+46+64*4+60+48+44)과 맞춰 가로 스크롤 시에도 머리띠가 표를 덮는다. */
-          min-width: 874px;
+          /* 표 총 폭(420+46+64*4+66+44+44)과 맞춰 가로 스크롤 시에도 머리띠가 표를 덮는다. */
+          min-width: 876px;
           padding: 0 4px;
           background: #334155;
           color: #fff;
+        }
+        .overviewbar {
+          background: #1e293b;
         }
         .groupbar b {
           font-size: 12px;
@@ -592,11 +826,17 @@ export default function Board() {
         col.num {
           width: 64px;
         }
-        col.diff {
-          width: 60px;
+        col.final {
+          width: 66px;
+        }
+        col.sum {
+          width: 70px;
+        }
+        col.total {
+          width: 76px;
         }
         col.check {
-          width: 48px;
+          width: 44px;
         }
         col.detailBtn {
           width: 44px;
@@ -646,18 +886,17 @@ export default function Board() {
         .web {
           background: #ede9fe;
         }
-        .done {
+        .move {
           background: #dcfce7;
           color: #166534;
         }
-        .short {
-          background: #fee2e2;
-          color: #b91c1c;
-          font-weight: 700;
+        .done {
+          background: #f1f5f9;
+          color: #475569;
         }
         .over {
-          background: #fef3c7;
-          color: #92400e;
+          background: #fee2e2;
+          color: #b91c1c;
           font-weight: 700;
         }
         .empty {
@@ -672,6 +911,9 @@ export default function Board() {
         }
         .subweeks span {
           margin-right: 14px;
+        }
+        .subweeks .legacy {
+          color: #92400e;
         }
         .modal {
           position: fixed;
@@ -702,6 +944,7 @@ export default function Board() {
         @media (max-width: 1400px) {
           .groupbar {
             gap: 6px;
+            /* 좁은 화면 표 총 폭(360+46+58*4+60+44+44) */
             min-width: 786px;
           }
           .groupbar span:first-of-type {
@@ -713,8 +956,8 @@ export default function Board() {
           col.num {
             width: 58px;
           }
-          col.diff {
-            width: 56px;
+          col.final {
+            width: 60px;
           }
           .productCell {
             max-width: 360px;

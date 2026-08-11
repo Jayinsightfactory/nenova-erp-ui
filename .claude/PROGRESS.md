@@ -4,6 +4,39 @@
 
 ---
 
+## [2026-08-11] 세션 — 잔량분배 게시판 '업체 최종분배' 흐름 재정의
+
+### 작업 내용
+- 화면의 저장값 의미를 `이동입력`(기준분배 − 미우분배)에서 **업체 최종분배**(예상물량 중 각 업체가 실제로
+  최종 납품·사용한 수량)로 재정의. ERP 확정(`isFix`)과 무관한 웹 전용 업무값이며 화면 문구도 `최종분배`로 고정.
+- 품목별 흐름: 예상물량(주문등록량) → 현재분배(ERP) → 업체 최종분배(웹 입력) → 업체 잔량(예상−최종)
+  → 미우 이관(max(0, 잔량)) / 미우 총수량 = 미우 자체수량 + 모든 원천업체 이관량 합계.
+- 예상물량 원천으로 `OrderMaster + OrderDetail` 읽기를 추가(선택 연도 + 대차수 prefix + CustKey + ProdKey).
+  dnSpy `FormShipmentDistribution.GetCustomerList`/`grdViewShipment_FocusedRowChanged` 가 쓰는
+  `ViewOrder.OutQuantity` 와 동일 단위 기준.
+- 전체 탭에 품목별 [업체별 잔량 … | 잔량합계 | 미우자체 | 미우총수량] 요약표 추가. 원천업체는 하드코딩이 아니라
+  `WebShillaMiuBoardGroup` 활성 그룹 전체(업체관리 추가분 자동 포함).
+- 차수 입력칸에 ▲▼ 버튼 · 키보드 위/아래 · 해당 칸 위에서의 휠(passive:false, 페이지 스크롤 차단) 추가, 1 미만 금지, 즉시 조회.
+- 저장 스키마: 기존 `Qty`(이전 이동입력)를 보존하고 nullable `FinalQty`/`ExpectedQtyAtSave`/`CurrentQtyAtSave` 신설,
+  `WebShillaMiuBoardAllocationHistory` 감사 이력 + `withActionLog` 추가. GET 경로의 DDL 제거(OBJECT_ID 확인만).
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: 흐름 계산·전체 탭 집계·차수 스피너 계산·0.001 정규화 순수 함수
+- `pages/api/sales/shilla-miu-board.js`: 주문 조회 추가, FinalQty upsert + 감사 이력, GET DDL 제거
+- `pages/sales/shilla-miu-board.js`: 전체 요약표, 업체별 흐름 열, 차수 스피너, 876px 타이트 레이아웃
+- `__tests__/shillaMiuBoard.test.js`: 교차연도·추가업체·단위분리·음수/초과·0·기존값 호환·스피너·레이아웃 회귀
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md`(신규), `docs/contracts/shilla-miu-board.json`,
+  `docs/exe-golden/FormShipmentDistribution.md`, `docs/migrations/2026-08-11_web_board_final_allocation.sql`(신규)
+
+### 검증
+- `npm run test:board` ✅ / `npm run verify:erp-change` ✅ (erp-contract + manifest + write guard + build, exit 0)
+- ERP 원장 쓰기 0건 — Order/Shipment/Stock/Estimate/WebProfitReport 는 읽기만
+
+### 미결 이슈
+- 운영 DB의 기존 `Qty` 값은 새 최종분배로 자동 변환하지 않음(공식이 달라 의미가 어긋남). 화면에서 `이전 이동입력` 참고값으로만 표시.
+- `docs/migrations/2026-08-11_web_board_final_allocation.sql` 은 저장 API의 ensureSchema 가 자동 적용하지만,
+  SSMS 로 미리 실행해 두면 첫 저장 지연을 없앨 수 있음.
+
 ## [2026-08-10] 세션 — 잔량분배 통합게시판 표 여백 최소화
 
 ### 작업 내용
