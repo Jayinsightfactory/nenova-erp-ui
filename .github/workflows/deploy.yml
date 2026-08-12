@@ -5,6 +5,10 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: nenova-cafe24-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -157,11 +161,20 @@ jobs:
             fi
             npm install --omit=dev
             echo "=== build ==="
-            rm -rf .next
-            if ! npm run build 2>&1; then echo "❌ 빌드 실패 — pm2 재시작 건너뜀"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
-            if [ ! -d ".next/server" ]; then echo "❌ .next/server 누락 — 빌드 산출물 없음"; exit 1; fi
-            echo "=== pm2 restart ==="
-            pm2 restart nenova-erp
+            rm -rf .next-build
+            if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
+            echo "=== atomic build swap + pm2 reload ==="
+            rm -rf .next-previous
+            if [ -d .next ]; then mv .next .next-previous; fi
+            mv .next-build .next
+            if ! pm2 reload nenova-erp --update-env; then
+              rm -rf .next
+              if [ -d .next-previous ]; then mv .next-previous .next; fi
+              pm2 restart nenova-erp
+              echo "❌ reload 실패 — 이전 산출물로 롤백"
+              exit 1
+            fi
             echo "=== pm2 워밍업 대기 (Next 초기화 — 스모크 오탐 방지) ==="
             for i in $(seq 1 15); do
               if curl -sf http://127.0.0.1:3000/api/ping >/dev/null 2>&1; then echo "warmup OK (${i}s)"; break; fi
