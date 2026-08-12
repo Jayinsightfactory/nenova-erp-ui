@@ -2219,34 +2219,35 @@ export default function PasteOrderPage() {
     if (!confirm(`${ro.custName} / ${formatWeekDisplay(targetWeek)}\n등록된 주문수량으로 ${targets.length}개 품목을 출고분배로 다시 저장합니다.\n\n${previewLines.join('\n')}${moreText}\n\n진행하시겠습니까?`)) return;
 
     setBulkRunning(true); setBulkResult(null);
-    const details = [];
-    for (const t of targets) {
-      const shipKey = `${ro.custKey}-${t.prodKey}-${targetWeek}`;
-      const beforeQty = Number(shipmentQtys[shipKey] || 0);
-      try {
-        const r = await fetch('/api/shipment/distribute', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-          body: JSON.stringify({
-            custKey: ro.custKey,
-            prodKey: t.prodKey,
-            week: targetWeek,
-            outQty: t.qty,
-          }),
-        });
-        const j = await r.json();
-        details.push({
+    let details = [];
+    try {
+      const r = await fetch('/api/shipment/distribute', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          week: targetWeek,
+          entries: targets.map((t) => ({ custKey: ro.custKey, prodKey: t.prodKey, outQty: t.qty })),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.success === false) throw new Error(j.error || '일괄 분배 저장 실패');
+      const resultByProd = new Map((j.results || []).map((row) => [Number(row.prodKey), row]));
+      details = targets.map((t) => {
+        const shipKey = `${ro.custKey}-${t.prodKey}-${targetWeek}`;
+        const beforeQty = Number(shipmentQtys[shipKey] || 0);
+        const saved = resultByProd.get(Number(t.prodKey));
+        return {
           ...t,
           type: 'DISTRIBUTE',
-          ok: !!j.success,
-          error: j.error,
+          ok: true,
           qtyBefore: beforeQty,
-          qtyAfter: t.qty,
+          qtyAfter: Number(saved?.outQty ?? t.qty),
           outQtyBefore: beforeQty,
-          outQtyAfter: t.qty,
-        });
-      } catch (e) {
-        details.push({ ...t, type: 'DISTRIBUTE', ok: false, error: e.message });
-      }
+          outQtyAfter: Number(saved?.outQty ?? t.qty),
+        };
+      });
+    } catch (e) {
+      // 서버 일괄 트랜잭션이므로 실패 시 모든 행이 롤백된다.
+      details = targets.map((t) => ({ ...t, type: 'DISTRIBUTE', ok: false, error: e.message }));
     }
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;

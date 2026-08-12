@@ -10,6 +10,7 @@ import { normalizeOrderWeek, resolveActiveOrderYear, requireOrderYear } from '..
 import { changeEntry } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
+import { resolveShipmentDistributionEditPolicy } from '../../../lib/shipmentDistributionEditPolicy.js';
 import { buildProdGroupWhere, loadShipmentProdGroups, parseProdGroupKey, prodGroupLabel } from '../../../lib/shipmentProdGroups.js';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import {
@@ -684,6 +685,7 @@ async function getDistribute(req, res) {
 
 // ── 출고 분배 저장 (ShipmentMaster + ShipmentDetail — 실제 DB)
 async function saveDistribute(req, res) {
+  if (Array.isArray(req.body?.entries)) return saveDistributeBatch(req, res);
   const { week: rawWeek, year, custKey, prodKey, outQty, outDate, cost } = req.body;
   try {
     const uid = req.user?.userId || 'system';
@@ -847,6 +849,235 @@ async function saveDistribute(req, res) {
     });
 
     return res.status(200).json({ success: true, shipmentKey, message: '출고 분배 저장 완료' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+// 화면의 여러 행을 nenova.exe 그리드 저장처럼 한 트랜잭션으로 처리한다.
+// 한 행이라도 검증/저장에 실패하면 앞 행까지 전부 롤백한다.
+async function saveDistributeBatch(req, res) {
+  const { week: rawWeek, year, entries, outDate } = req.body;
+  try {
+    if (entries.length === 0 || entries.length > 1000) {
+      return res.status(400).json({ success: false, error: '저장할 분배행은 1~1000개여야 합니다.' });
+    }
+    const normalizedEntries = entries.map((entry) => ({
+      custKey: Number(entry?.custKey),
+      prodKey: Number(entry?.prodKey),
+      outQty: Number(entry?.outQty) || 0,
+      cost: Number(entry?.cost),
+    }));
+    if (normalizedEntries.some((entry) => !Number.isInteger(entry.custKey) || entry.custKey <= 0 ||
+      !Number.isInteger(entry.prodKey) || entry.prodKey <= 0 || entry.outQty < 0)) {
+      return res.status(400).json({ success: false, error: '업체·품목·분배수량 값이 올바르지 않습니다.' });
+    }
+    const duplicateKeys = new Set();
+    for (const entry of normalizedEntries) {
+      const key = `${entry.custKey}:${entry.prodKey}`;
+      if (duplicateKeys.has(key)) {
+        return res.status(400).json({ success: false, error: '같은 업체·품목이 저장 목록에 중복되었습니다.' });
+      }
+      duplicateKeys.add(key);
+    }
+
+    const uid = req.user?.userId || 'system';
+    const userName = req.user?.userName || uid;
+    const week = normalizeOrderWeek(rawWeek);
+    const orderYear = resolveActiveOrderYear(rawWeek, year);
+    const ywk = orderYear + (week || '').split('-')[0];
+    const explicitShipDate = outDate ? new Date(outDate) : null;
+    const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
+
+    const results = await withTransaction(async (tQuery) => {
+      const saved = [];
+      for (const entry of normalizedEntries) {
+        await assertProductScopeNotFixed(tQuery, orderYear, week, entry.prodKey);
+
+        const prodInfo = await tQuery(
+          `SELECT OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch,
+                  ISNULL(Cost,0) AS ProductCost
+             FROM Product WITH (HOLDLOCK)
+            WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+          { pk: { type: sql.Int, value: entry.prodKey } }
+        );
+        if (prodInfo.recordset.length !== 1) throw new Error(`품목 ${entry.prodKey} 정보를 찾을 수 없습니다.`);
+        const product = prodInfo.recordset[0];
+        const priceInfo = await tQuery(
+          `SELECT TOP 1 ISNULL(cpc.Cost,0) AS CustomerCost, ISNULL(c.BaseOutDay,0) AS BaseOutDay
+             FROM Customer c WITH (HOLDLOCK)
+             LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=@pk
+            WHERE c.CustKey=@ck AND ISNULL(c.isDeleted,0)=0`,
+          {
+            ck: { type: sql.Int, value: entry.custKey },
+            pk: { type: sql.Int, value: entry.prodKey },
+          }
+        );
+        if (priceInfo.recordset.length !== 1) throw new Error(`업체 ${entry.custKey} 정보를 찾을 수 없습니다.`);
+
+        const resolvedShipDate = explicitShipDate && !Number.isNaN(explicitShipDate.getTime())
+          ? explicitShipDate
+          : weekToShipDateByBaseOutDay(week, orderYear, priceInfo.recordset[0]?.BaseOutDay) ||
+            weekToShipDate(week, orderYear);
+        if (!resolvedShipDate || Number.isNaN(resolvedShipDate.getTime())) {
+          throw new Error('출고일을 계산할 수 없습니다. 출고일을 지정한 뒤 다시 저장하세요.');
+        }
+
+        const smResult = await tQuery(
+          `SELECT ShipmentKey, WebCreated, ISNULL(isFix,0) AS isFix
+             FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+            WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@week AND isDeleted=0
+            ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
+          {
+            ck: { type: sql.Int, value: entry.custKey },
+            yr: { type: sql.NVarChar, value: String(orderYear) },
+            week: { type: sql.NVarChar, value: week },
+          }
+        );
+        if (smResult.recordset.length > 1) {
+          throw new Error(`${week}차 업체 ${entry.custKey}에 활성 출고 마스터가 중복되어 저장을 중단했습니다.`);
+        }
+
+        let shipmentKey = smResult.recordset[0]?.ShipmentKey;
+        // 0수량은 기존 출고 제거 요청이다. 대상이 없으면 빈 Master를 새로 만들지 않는다.
+        if (!shipmentKey && entry.outQty <= 0) {
+          saved.push({ ...entry, action: 'noop' });
+          continue;
+        }
+        if (!shipmentKey) {
+          shipmentKey = await tryInsertWithRetry(tQuery, 'ShipmentMaster', 'ShipmentKey', async (newSk) => {
+            const params = {
+              nk: { type: sql.Int, value: newSk }, yr: { type: sql.NVarChar, value: orderYear },
+              wk: { type: sql.NVarChar, value: week }, ywk: { type: sql.NVarChar, value: ywk },
+              ck: { type: sql.Int, value: entry.custKey }, uid: { type: sql.NVarChar, value: uid },
+            };
+            if (hasShipmentYearWeekColumn) {
+              await tQuery(
+                `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+                 VALUES (@nk,@yr,@wk,@ywk,@ck,0,0,1,@uid,GETDATE())`, params
+              );
+            } else {
+              await tQuery(
+                `INSERT INTO ShipmentMaster (ShipmentKey,OrderYear,OrderWeek,CustKey,isFix,isDeleted,WebCreated,CreateID,CreateDtm)
+                 VALUES (@nk,@yr,@wk,@ck,0,0,1,@uid,GETDATE())`, params
+              );
+            }
+          });
+          await syncKeyNumbering(tQuery, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
+        }
+
+        const oldSd = await tQuery(
+          `SELECT SdetailKey, OutQuantity, Cost
+             FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
+            WHERE ShipmentKey=@sk AND ProdKey=@pk
+            ORDER BY SdetailKey`,
+          {
+            sk: { type: sql.Int, value: shipmentKey },
+            pk: { type: sql.Int, value: entry.prodKey },
+          }
+        );
+        if (oldSd.recordset.length > 1) {
+          throw new Error(`${week}차 업체 ${entry.custKey}·품목 ${entry.prodKey} 출고상세가 중복되어 저장을 중단했습니다.`);
+        }
+        const oldRow = oldSd.recordset[0];
+        const oldQty = Number(oldRow?.OutQuantity || 0);
+        const units = distributeUnits(entry.outQty, product);
+        const canonicalOutQty = entry.outQty > 0 ? units.outQty : 0;
+
+        let farmCount = 0;
+        let farmQty = 0;
+        if (oldRow?.SdetailKey) {
+          const farms = await tQuery(
+            `SELECT COUNT(*) AS FarmCount, ISNULL(SUM(ShipmentQuantity),0) AS FarmQuantity
+               FROM ShipmentFarm WITH (UPDLOCK, HOLDLOCK)
+              WHERE SdetailKey=@dk`,
+            { dk: { type: sql.Int, value: oldRow.SdetailKey } }
+          );
+          farmCount = Number(farms.recordset[0]?.FarmCount || 0);
+          farmQty = Number(farms.recordset[0]?.FarmQuantity || 0);
+        }
+        const editPolicy = resolveShipmentDistributionEditPolicy({
+          hasDetail: Boolean(oldRow?.SdetailKey), oldQty, newQty: canonicalOutQty, farmCount,
+        });
+        if (!editPolicy.allowed) {
+          throw new Error(
+            `${week}차 업체 ${entry.custKey}·품목 ${entry.prodKey}은 농장분배 ${farmQty}가 등록되어 있습니다. ` +
+            '농장분배를 먼저 수정하거나 삭제한 뒤 총 분배수량을 변경하세요.'
+          );
+        }
+
+        if (editPolicy.action === 'noop') {
+          saved.push({ ...entry, shipmentKey, action: 'noop' });
+          continue;
+        }
+        if (editPolicy.action === 'delete') {
+          if (oldRow?.SdetailKey) {
+            const logEntry = changeEntry(userName, oldQty, 0);
+            await insertShipmentHistory(tQuery, oldRow.SdetailKey, String(oldQty), '0', logEntry, uid);
+            await tQuery(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
+            await tQuery(`DELETE FROM ShipmentDetail WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
+          }
+          saved.push({ ...entry, shipmentKey, action: 'delete' });
+          continue;
+        }
+
+        const defaultCost = Number(priceInfo.recordset[0]?.CustomerCost || 0) || Number(product.ProductCost || 0);
+        const resolvedCost = Number.isFinite(entry.cost) && entry.cost > 0
+          ? entry.cost
+          : Number(oldRow?.Cost || 0) || defaultCost;
+        const { box: boxQty, bunch: bunchQty, steam: steamQty, estQty } = units;
+        const { amount, vat } = amountVatFromCostEst(resolvedCost, estQty);
+        const logEntry = changeEntry(userName, oldQty, canonicalOutQty);
+        let targetSdk = oldRow?.SdetailKey;
+        if (targetSdk) {
+          await tQuery(
+            `UPDATE ShipmentDetail
+                SET CustKey=@ck, ShipmentDtm=@dt, OutQuantity=@outQty, EstQuantity=@estQty,
+                    BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
+                    Cost=@cost, Amount=@amount, Vat=@vat, Descr=@log
+              WHERE SdetailKey=@dk`,
+            {
+              dk: { type: sql.Int, value: targetSdk }, ck: { type: sql.Int, value: entry.custKey },
+              dt: { type: sql.DateTime, value: resolvedShipDate }, outQty: { type: sql.Float, value: canonicalOutQty },
+              estQty: { type: sql.Float, value: estQty }, bq: { type: sql.Float, value: boxQty },
+              bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+              cost: { type: sql.Float, value: resolvedCost }, amount: { type: sql.Float, value: amount },
+              vat: { type: sql.Float, value: vat }, log: { type: sql.NVarChar, value: logEntry },
+            }
+          );
+        } else {
+          targetSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
+            await tQuery(
+              `INSERT INTO ShipmentDetail
+                 (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+                  BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+               VALUES (@dk,@sk,@ck,@pk,@dt,@outQty,@estQty,@bq,@bnq,@sq,@cost,@amount,@vat,0,@log)`,
+              {
+                dk: { type: sql.Int, value: newKey }, sk: { type: sql.Int, value: shipmentKey },
+                ck: { type: sql.Int, value: entry.custKey }, pk: { type: sql.Int, value: entry.prodKey },
+                dt: { type: sql.DateTime, value: resolvedShipDate }, outQty: { type: sql.Float, value: canonicalOutQty },
+                estQty: { type: sql.Float, value: estQty }, bq: { type: sql.Float, value: boxQty },
+                bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
+                cost: { type: sql.Float, value: resolvedCost }, amount: { type: sql.Float, value: amount },
+                vat: { type: sql.Float, value: vat }, log: { type: sql.NVarChar, value: logEntry },
+              }
+            );
+          });
+          await syncKeyNumbering(tQuery, 'ShipmentDetailKey', 'ShipmentDetail', 'SdetailKey');
+        }
+        await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
+        await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
+        saved.push({ ...entry, shipmentKey, sdetailKey: targetSdk, outQty: canonicalOutQty, action: oldRow ? 'update' : 'insert' });
+      }
+      return saved;
+    });
+
+    return res.status(200).json({
+      success: true,
+      savedCount: results.filter((row) => row.action !== 'noop').length,
+      results,
+      message: '출고 분배 일괄 저장 완료',
+    });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

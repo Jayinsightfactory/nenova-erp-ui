@@ -29,6 +29,8 @@
     "pages/shipment/exe-errors.js",
     "pages/orders/kakao-audit.js",
     "pages/api/shipment/distribute.js",
+    "pages/shipment/distribute.js",
+    "lib/shipmentDistributionEditPolicy.js",
     "pages/api/shipment/distribute-sp.js",
     "lib/shipmentProdGroups.js",
     "lib/shipmentImport.js",
@@ -51,9 +53,26 @@
       "shipmentDetail": "preserve"
     },
     {
-      "name": "DISTRIBUTION_WRITE_SCOPE",
+      "name": "DISTRIBUTION_UPSERT",
       "orderDetail": "preserve",
-      "shipmentDetail": "increase"
+      "shipmentDetail": "increase",
+      "detailEffect": "insert_or_update",
+      "shipmentDate": "follow_shipment_detail_quantity",
+      "shipmentFarm": "preserve_and_block_quantity_change_when_present",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "batchAtomic": true
+    },
+    {
+      "name": "DISTRIBUTION_DELETE_ZERO",
+      "orderDetail": "preserve",
+      "shipmentDetail": "decrease",
+      "detailEffect": "delete_existing_only",
+      "shipmentDate": "delete_with_detail",
+      "shipmentFarm": "block_when_present",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "zeroQuantity": "delete_existing_detail_without_creating_empty_master"
     }
   ],
   "crossYearFixture": {
@@ -64,6 +83,9 @@
     "__tests__/shipmentExeErrorsContract.test.js",
     "__tests__/shipmentImportApply.test.js",
     "__tests__/shipmentImportAudit.test.js",
+    "__tests__/shipmentDistributionEdit.test.js",
+    "__tests__/syncShipmentDateEst.test.js",
+    "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
@@ -82,6 +104,7 @@
       "ShipmentDetail",
       "ShipmentDate",
       "ShipmentHistory",
+      "ShipmentFarm",
       "SystemActionLog"
     ]
   },
