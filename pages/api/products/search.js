@@ -70,7 +70,7 @@ export default withAuth(async function handler(req, res) {
         `SELECT
           p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
           p.FlowerName, p.CounName,
-          ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
+          COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
           p.Cost, p.OutUnit, p.EstUnit,
           ISNULL(p.BunchOf1Box,0)   AS BunchOf1Box,
           ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
@@ -108,7 +108,7 @@ export default withAuth(async function handler(req, res) {
           `SELECT
             p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
             p.FlowerName, p.CounName,
-            ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
+            COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
             p.Cost, p.OutUnit, p.EstUnit,
             ISNULL(p.BunchOf1Box,0)   AS BunchOf1Box,
             ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,
@@ -154,7 +154,7 @@ export default withAuth(async function handler(req, res) {
         `SELECT
           p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName,
           p.FlowerName, p.CounName,
-          ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'') AS CountryFlower,
+          COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
           p.Cost, p.OutUnit, p.EstUnit,
           ISNULL(p.BunchOf1Box,0)   AS BunchOf1Box,
           ISNULL(p.SteamOf1Bunch,0) AS SteamOf1Bunch,

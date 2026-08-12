@@ -5,6 +5,7 @@ import { buildForwardOrderWeeks, productAlphabetInitial } from '../../lib/myCust
 
 const currentYear = new Date().getFullYear();
 const label = p => p.DisplayName || p.ProdName;
+const groupLabel = p => p.CountryFlower || p.FlowerName || '기타';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function MyCustomerOrders() {
@@ -50,7 +51,7 @@ export default function MyCustomerOrders() {
   const productGroups = useMemo(() => {
     const groups = new Map();
     products.forEach(product => {
-      const flowerName = product.FlowerName || '기타';
+      const flowerName = groupLabel(product);
       if (!groups.has(flowerName)) groups.set(flowerName, []);
       groups.get(flowerName).push(product);
     });
@@ -93,7 +94,7 @@ export default function MyCustomerOrders() {
   };
   const addProduct = p => {
     if (!products.some(x => Number(x.ProdKey) === Number(p.ProdKey))) setProducts(v => [...v, { ...p, CurrentQty: 0, UsageCount: 0 }]);
-    setCollapsedFlowers(v => ({ ...v, [p.FlowerName || '기타']: false }));
+    setCollapsedFlowers(v => ({ ...v, [groupLabel(p)]: false }));
     setSearchRows([]); setSearch(''); setTimeout(() => refs.current[p.ProdKey]?.focus(), 0);
   };
   const move = (e, prodKey) => {
@@ -126,14 +127,14 @@ export default function MyCustomerOrders() {
       </section>
       </>}
       <div className="entry-layout"><section className="product-workspace"><form className="search" onSubmit={doSearch}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="다른 품종·품목 검색"/><button disabled={busy}>검색 추가</button></form>
-      {searchRows.length>0 && <div className="results">{searchRows.map(p=><button key={p.ProdKey} onClick={()=>addProduct(p)}><b>{p.FlowerName}</b> {label(p)} <span>{p.CounName} · {p.OutUnit}</span></button>)}</div>}
+      {searchRows.length>0 && <div className="results">{searchRows.map(p=><button key={p.ProdKey} onClick={()=>addProduct(p)}><b>{groupLabel(p)}</b> {label(p)} <span>{p.CounName} · {p.OutUnit}</span></button>)}</div>}
       <div className="product-filter"><div><input value={productQuery} onChange={e=>setProductQuery(e.target.value)} placeholder="현재 품종·품목 검색" aria-label="현재 품종과 품목 검색"/><button type="button" onClick={()=>{setProductQuery('');setProductLetter('')}}>초기화</button></div><div className="alphabet" aria-label="품목명 알파벳 필터"><button type="button" className={!productLetter?'active':''} onClick={()=>setProductLetter('')}>전체</button>{ALPHABET.map(letter=><button type="button" key={letter} className={productLetter===letter?'active':''} aria-pressed={productLetter===letter} onClick={()=>setProductLetter(letter)}>{letter}</button>)}</div><small>품종명 다음 실제 품목명의 첫 글자를 기준으로 표시합니다.</small></div>
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
       <div ref={productAreaRef} className="grid-head"><span>품종 / 품목</span><span>사용</span><span>현재</span><span>이번 추가수량</span><span>등록 후</span></div>
       <div className="product-list">{filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>Number(qty[p.ProdKey]||0)>0); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section className="flower-group" key={group.flowerName}><button type="button" className="flower-toggle" aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 수량 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=><div className="product-row" key={p.ProdKey}><span className="product-name"><b>{label(p)}</b>{p.CounName&&<small> · {p.CounName}</small>}</span><span>{p.UsageCount}회</span><span>{Number(p.CurrentQty||0)} {p.OutUnit}</span><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey]||''} onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))} onKeyDown={e=>move(e,p.ProdKey)} type="number" min="0" step="any" placeholder="0" aria-label={`${label(p)} 추가 수량`}/><strong>{Number(p.CurrentQty||0)+Number(qty[p.ProdKey]||0)} {p.OutUnit}</strong></div>)}</div>}</section>})}</div>
       {products.length>0&&filteredProductGroups.length===0&&<div className="empty">검색 또는 알파벳 조건에 맞는 품목이 없습니다.</div>}
       {!busy && products.length===0 && <div className="empty">이 업체의 기존 주문 품목이 없습니다. 검색으로 품목을 추가하세요.</div>}</section>
-      <aside className="live-order" aria-live="polite"><strong>입력 품목 {changed.length}개</strong>{changed.length>0?<div>{changed.map(p=><button type="button" key={p.ProdKey} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title="입력 수량 지우기"><span><small>{p.FlowerName || '기타'}</small><strong>{label(p)}</strong></span><b>{qty[p.ProdKey]} {p.OutUnit}</b><i aria-hidden="true">×</i></button>)}</div>:<p>수량을 입력하면 이곳에 목록으로 표시됩니다.</p>}</aside></div>
+      <aside className="live-order" aria-live="polite"><strong>입력 품목 {changed.length}개</strong>{changed.length>0?<div>{changed.map(p=><button type="button" key={p.ProdKey} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title="입력 수량 지우기"><span><small>{groupLabel(p)}</small><strong>{label(p)}</strong></span><b>{qty[p.ProdKey]} {p.OutUnit}</b><i aria-hidden="true">×</i></button>)}</div>:<p>수량을 입력하면 이곳에 목록으로 표시됩니다.</p>}</aside></div>
       <div className="submit"><span>{changed.length}개 품목 추가</span><button onClick={submit} disabled={busy||!changed.length}>{busy?'처리 중...':'주문등록'}</button></div>
     </main>
     <style jsx>{`
