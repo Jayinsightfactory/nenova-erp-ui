@@ -39,6 +39,8 @@ const fs = require('node:fs');
   assert.match(page,/고정주문 불러오기/); assert.match(page,/ORDER_FAVORITE_PAGE/); assert.match(page,/apiDelete/);
   assert.match(page,/selectedTemplate/); assert.match(page,/주문내역/); assert.match(page,/이 주문 불러오기/);
   assert.match(page,/pinned-favorites/); assert.match(page,/★ 고정 주문/); assert.match(page,/loadCustomerFavorites/);
+  assert.match(page,/variety-nav/); assert.match(page,/품종 바로가기/); assert.match(page,/jumpToFlower/);
+  assert.match(page,/groupRefs/); assert.match(page,/scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
   assert.doesNotMatch(page,/className="template-main" onClick=\{\(\)=>applyTemplate/);
   assert.match(page,/selectedCustomer\.OrderCode/); assert.match(page,/c\.OrderCode&&<mark>/);
   assert.match(own,/req\.query\.view === 'history'/); assert.match(own,/om\.OrderYear=@year AND om\.OrderWeek < @week/);
