@@ -155,6 +155,9 @@ async function main() {
   const { calcRevenueRatio, calcPurchaseRatio } = await import('../lib/profitReportCalc.js');
   check('화면이 공용 calcRevenueRatio/calcPurchaseRatio를 import', /calcRevenueRatio/.test(pageSource) && /calcPurchaseRatio/.test(pageSource));
   check('엑셀 생성이 공용 calcRevenueRatio/calcPurchaseRatio를 import', /calcRevenueRatio/.test(excelSource) && /calcPurchaseRatio/.test(excelSource));
+  check('화면 합계 U는 고정 100%가 아니라 computeProfitTotals의 U를 사용',
+    !/readonlyValue\(cd\.key,\s*(?:wTotals|totals|w\.totals),\s*\{\s*D:\s*1,\s*U:\s*1\s*\}\)/.test(pageSource)
+    && /U:\s*(?:wTotals|totals|w\.totals)\.U\s*\?\?\s*1/.test(pageSource));
   check('화면/엑셀에 D/U 인라인 재계산이 남아있지 않음',
     !/totals\.C !== 0 \? c\.C \/ totals\.C : null/.test(pageSource)
     && !/totals\.P !== 0 \? c\.P \/ totals\.P : null/.test(pageSource)
