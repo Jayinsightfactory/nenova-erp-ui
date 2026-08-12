@@ -4,6 +4,7 @@
   "scope": ["components/Layout.js", "pages/orders/my-customers.js", "pages/api/orders/my-customers.js", "pages/api/products/search.js", "pages/api/orders/index.js", "pages/api/favorites.js", "lib/myCustomerOrderEntry.js", "__tests__/myCustomerOrderEntry.test.js", "docs/exe-golden/FormOrderAdd.md", "docs/migrations/2026-08-12_user_favorite_schema.sql", ".github/workflows/deploy.yml", "next.config.js"],
   "displayGrouping": {"source":"Product.CountryFlower","fallback":"CounName + FlowerName, then FlowerName","dnspyInvariant":"FormOrderAdd selects CountryFlower first and filters products by CountryFlower + FlowerName"},
   "templatePreview": {"selectBeforeApply":true,"favoritesPinnedAfterCustomerSelection":true,"erpLedgerEffect":"preserve-until-final-order-submit"},
+  "varietyNavigator": {"source":"filteredProductGroups","expandsCollapsedGroup":true,"scrollBehavior":"smooth","erpLedgerEffect":"preserve"},
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {"name":"LOAD_PRIOR_ORDER_DRAFT","selection":"same-customer-same-year-before-target-week","userFavorite":"preserve","orderMaster":"select-only","orderDetail":"preserve","shipmentMaster":"preserve","shipmentDetail":"preserve","shipmentDate":"preserve","estimate":"preserve","webProfitReport":"preserve"},
