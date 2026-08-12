@@ -3,7 +3,7 @@
   "title": "담당자 공용 업체 주문등록 계약",
   "scope": ["components/Layout.js", "pages/orders/my-customers.js", "pages/api/orders/my-customers.js", "pages/api/products/search.js", "pages/api/orders/index.js", "pages/api/favorites.js", "lib/myCustomerOrderEntry.js", "__tests__/myCustomerOrderEntry.test.js", "docs/exe-golden/FormOrderAdd.md", "docs/migrations/2026-08-12_user_favorite_schema.sql", ".github/workflows/deploy.yml", "next.config.js"],
   "displayGrouping": {"source":"Product.CountryFlower","fallback":"CounName + FlowerName, then FlowerName","dnspyInvariant":"FormOrderAdd selects CountryFlower first and filters products by CountryFlower + FlowerName"},
-  "templatePreview": {"selectBeforeApply":true,"favoritesPinnedAfterCustomerSelection":true,"erpLedgerEffect":"preserve-until-final-order-submit"},
+  "templatePreview": {"selectBeforeApply":true,"favoritesPinnedAfterCustomerSelection":true,"desktopPosition":"right-pane","mobilePosition":"below-list","erpLedgerEffect":"preserve-until-final-order-submit"},
   "varietyNavigator": {"source":"filteredProductGroups","expandsCollapsedGroup":true,"scrollBehavior":"smooth","erpLedgerEffect":"preserve"},
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
