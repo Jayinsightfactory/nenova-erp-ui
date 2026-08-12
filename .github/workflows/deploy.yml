@@ -70,6 +70,8 @@ jobs:
               echo "❌ JWT_SECRET 필요 — GitHub Secret 또는 서버 .env.local 에 설정"
               exit 1
             else
+              JWT_SECRET="$(grep '^JWT_SECRET=' .env.local | tail -1 | cut -d= -f2-)"
+              export JWT_SECRET
               echo "✅ JWT_SECRET already present on server"
             fi
             echo "=== .env.local 환경변수 동기화 (PUBLIC_API_KEY) ==="

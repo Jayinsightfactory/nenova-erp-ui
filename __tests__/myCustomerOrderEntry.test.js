@@ -44,7 +44,7 @@ const fs = require('node:fs');
   const getFavoriteBlock=favoritesApi.slice(favoritesApi.indexOf("if (req.method === 'GET')"), favoritesApi.indexOf('await ensureTable();'));
   assert.doesNotMatch(getFavoriteBlock,/CREATE TABLE|ensureTable\(/); assert.match(getFavoriteBlock,/USER_FAVORITE_SCHEMA_MISSING/);
   assert.match(menu,/dashboard-menu/); assert.match(menu,/sidebarFavorites/); assert.match(menu,/favoriteHrefs/);
-  const deploy=fs.readFileSync('.github/workflows/deploy.yml','utf8'); assert.match(deploy,/nenova-cafe24-production/); assert.match(deploy,/NEXT_DIST_DIR=\.next-build/); assert.match(deploy,/atomic build swap/);
+  const deploy=fs.readFileSync('.github/workflows/deploy.yml','utf8'); assert.match(deploy,/nenova-cafe24-production/); assert.match(deploy,/NEXT_DIST_DIR=\.next-build/); assert.match(deploy,/atomic build swap/); assert.match(deploy,/JWT_SECRET="\$\(grep '\^JWT_SECRET='/);
   const searchApi=fs.readFileSync('pages/api/products/search.js','utf8'); assert.match(searchApi,/p\.CountryFlower/); assert.doesNotMatch(searchApi,/ISNULL\(p\.CounName,''\) \+ ISNULL\(p\.FlowerName,''\) AS CountryFlower/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
