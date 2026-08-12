@@ -26,5 +26,6 @@ const fs = require('node:fs');
   assert.match(page,/customerCursor/); assert.match(page,/moveCustomer/); assert.match(page,/ArrowDown/); assert.match(page,/aria-activedescendant/);
   assert.match(page,/window\.alert\(resultMessage\)/); assert.match(page,/live-order/); assert.match(page,/입력 품목/); assert.match(page,/입력 수량 지우기/);
   assert.match(page,/className="product-name"/); assert.match(page,/white-space:nowrap/); assert.doesNotMatch(page,/<small>\{p\.CounName\} · \{p\.ProdName\}<\/small>/);
+  assert.match(page,/entry-layout/); assert.match(page,/grid-template-columns:minmax\(0,1fr\) 280px/); assert.match(page,/flex-direction:column/); assert.match(page,/수량을 입력하면 이곳에 목록으로 표시됩니다/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
