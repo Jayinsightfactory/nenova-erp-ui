@@ -19,6 +19,9 @@
     "lib/customsForwarding.js",
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
+    "lib/colombiaFlowerClassification.js",
+    "lib/profitReportAuditedBaseline.js",
+    "lib/customsForwardingCalc.js",
     "lib/profitReportCalc.js",
     "lib/profitReportMonthly.js",
     "lib/profitReportSourceGuide.js",
@@ -47,7 +50,20 @@
     {
       "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
       "orderDetail": "preserve",
-      "shipmentDetail": "preserve"
+      "shipmentDetail": "preserve",
+      "sideEffect": "REPORT_READ: SELECT only from WarehouseMaster/Detail, Product, FreightCost, WebCustomsRateConfig, WebCustomsWeekly, WebColombiaWeekly, WebForwardingWeekly — no writes. COUNTRY_INPUT_SAVE(this action): writes WebCustomsWeekly + WebCustomsHistory only, one MERGE transaction per changed category. 저장 시 그 시점의 유효 백상 창고료 요율(2026 22~27차는 lib/profitReportAuditedBaseline.js 감사값, 그 외는 WebCustomsRateConfig 현재값)을 WebCustomsWeekly.BakSangRateApplied에 스냅샷해, 이후 전역 요율이 바뀌어도 이미 저장된 행의 계산은 저장 당시 요율을 그대로 유지한다. 다른 실제 입력 필드가 전혀 없는 저장 요청은 요율 스냅샷만으로 빈 행을 만들지 않는다(감사 기준값 폴백을 실수로 덮어쓰지 않기 위함)."
+    },
+    {
+      "name": "COLOMBIA_INPUT_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "콜롬비아 4품목(장미/카네이션/알스트로/루스커스) 반차수 공유값 저장 — WebColombiaWeekly + WebCustomsHistory만 쓴다. BakSangRateApplied 스냅샷 정책은 CUSTOMS_COUNTRY_BATCH_SAVE와 동일하다."
+    },
+    {
+      "name": "RATE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsHistory만 쓴다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportAuditedBaseline.js의 감사 기준 백상 창고료 요율이 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
     },
     {
       "name": "REPORT_NOTE_SAVE",
@@ -126,8 +142,17 @@
     "__tests__/profitReportStockCostExclusionContract.test.js",
     "__tests__/profitReportRecentCostCutoff.test.js",
     "__tests__/profitReportAustraliaUnitFallback.test.js",
-    "__tests__/profitReportGetReadOnlyDdl.test.js"
+    "__tests__/profitReportGetReadOnlyDdl.test.js",
+    "__tests__/profitReportAuditedBaseline.test.js",
+    "__tests__/colombiaFlowerClassification.test.js",
+    "__tests__/customsClearancePanelLiveTotal.test.js"
   ],
+  "auditedBaselinePolicy": {
+    "description": "2026-08-12 결함수정: 22~27차 그외통관비(H) 감사 기준값(lib/profitReportAuditedBaseline.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > audited baseline(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 감사 기준값은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율도 같은 우선순위로 22차=370, 23~27차=460을 적용하며, WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
+    "resolvers": ["lib/customsForwarding.js resolveCountryCustomsTotal()", "lib/customsForwarding.js resolveColombiaCustomsAllocation()"],
+    "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
+    "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료는 그 대차수의 GW1+GW2 합산 중량으로 트럭 1대만 선정해 1차 칸에 전액 반영하고 2차는 0이다(반차수 각각 트럭을 잡던 이전 결함은 26차에 약 +350,000원 이중계상을 유발했다). 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송(트럭) 계산은 반차수 단위로 각각 유지한다 — 변경 없음."
+  },
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",
     "카네이션 운송료": "콜롬비아 카네이션",
@@ -137,7 +162,8 @@
     "태국 운송료": "태국",
     "중국 운송료": "중국",
     "nonValueItems": ["Chargeable weight", "Gross weight"],
-    "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외"
+    "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
+    "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
   },
   "erpLedgerWriteProhibition": {
     "description": "REPORT_CONFIRM_SNAPSHOT/REPORT_CONFIRM_CANCEL/REPORT_CONFIRM_FORCE는 아래 ERP 공유 원장 테이블에 INSERT/UPDATE/DELETE를 절대 수행하지 않는다. 확정 스냅샷·해제·강제확정 감사 기록은 모두 신규 Web 전용 테이블에만 쓴다. REPORT_CONFIRM_HISTORY_VIEW는 추가로 이 테이블들을 조회조차 하지 않는다.",

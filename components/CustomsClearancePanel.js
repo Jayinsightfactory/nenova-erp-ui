@@ -3,8 +3,14 @@
 // H(그외통관비) 자동값의 소스. week 는 부모가 제어(주차별 매출이익보고서에 임베드되거나 단독 페이지로 사용).
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { deriveColombiaTruckAllocation } from '../lib/colombiaTruck';
 import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../lib/customsFields';
+// 그외통관비/콜롬비아 배분 순수 계산식(DB 의존 없음) — 서버(lib/customsForwarding.js 실계산)와
+// 정확히 같은 함수를 이 화면의 수기 편집 중 미리보기 합계에도 재사용한다(2026-08-12 결함수정:
+// 이전에는 입력칸을 고쳐도 "합계"·"저장" 버튼 옆 합계가 마지막 조회 시점 값에 멈춰 있어, 화면에
+// 보이는 값과 저장하면 실제로 반영될 값이 저장 전까지 서로 달랐다).
+import {
+  effectiveRatesForWeek, computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
+} from '../lib/customsForwardingCalc';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = (v) => Math.round(n0(v)).toLocaleString();
@@ -81,6 +87,26 @@ function GwHint({ auto, current, onApply }) {
   );
 }
 
+// 전차수 참고값 힌트 — 저장값·자동값이 없을 때만 보여주는 제안이다. 클릭(=명시적 적용)해야
+// 편집 상태(countryEdits/colombiaEdits)로 들어가며, 그 전까지는 입력칸/합계 어디에도 반영되지
+// 않는다(2026-08-12 결함수정: 이전에는 참고값이 입력칸에 자동으로 채워져 "화면에 보이는 값"과
+// "실제 합계에 쓰인 값"이 달랐다).
+function CarryHint({ value, onApply }) {
+  if (value == null || value === '' || Number(value) === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={onApply}
+      title="전차수 참고값 — 클릭하면 이번 차수 입력값으로 적용됩니다(적용 후 저장해야 반영). 적용 전까지는 합계에 포함되지 않습니다."
+      style={{
+        fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+        border: 'none', background: 'none', padding: 0, color: '#b45309',
+      }}>
+      전차수 {fmt(value)} ↵
+    </button>
+  );
+}
+
 function HistoryButton({ orderYear, scopeType, scopeKey }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState(null);
@@ -143,6 +169,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   }, [week]);
   useEffect(() => { if (week) load(); }, [week, load]);
 
+  // 화면에 보여줄 "현재 유효값"(=합계 계산에 실제로 쓰이는 값)이다. 전차수 참고값(carry)은 여기
+  // 포함하지 않는다 — carry는 아래 CarryHint로만 보여주는 제안이며, 사용자가 명시적으로 "적용"을
+  // 눌러야만(=수기 편집이 되어야만) countryOut()의 저장 대상에 들어간다. 이렇게 해야 입력칸에
+  // 보이는 값과 서버가 실제로 총액에 반영한 값(row.total, totalSource)이 항상 일치한다.
   const countryValue = (row, field) => {
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
     const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
@@ -150,8 +180,6 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     if (isWorldFreight && Number(row.saved?.[manualField]) === 1 && row.saved?.[field] != null) return vatInclusiveToNet(row.saved[field]);
     if (isWorldFreight && Number(row.worldFreightAuto?.[field]) > 0) return row.worldFreightAuto[field];
     if (row.saved?.[field] != null) return row.saved[field];
-    if (isWorldFreight && row.carry?.[field] != null) return vatInclusiveToNet(row.carry[field]);
-    if (row.carry?.[field] != null) return row.carry[field];
     return '';
   };
   const setCountryEdit = (cat, field, val) => setCountryEdits((prev) => ({ ...prev, [cat]: { ...(prev[cat] || {}), [field]: val } }));
@@ -162,7 +190,6 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       const manualField = isWorldFreight ? `${field}Manual` : '';
       const hasManualEdit = countryEdits[row.category]?.[field] !== undefined;
       const hasSavedValue = row.saved?.[field] != null;
-      const hasCarryValue = row.carry?.[field] != null;
       const hasAutoValue = isWorldFreight && Number(row.worldFreightAuto?.[field]) > 0;
       // 레거시 리터럴/입고 GW 자동값은 저장하지 않는다. 사용자가 직접 수정한 경우에만 override 플래그를 함께 저장한다.
       if (isWorldFreight && !hasManualEdit && hasAutoValue && Number(row.saved?.[manualField]) !== 1) return;
@@ -171,21 +198,85 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       } else if (isWorldFreight && row.saved?.[manualField] != null) {
         out[manualField] = row.saved[manualField];
       }
-      if (isWorldFreight && !hasManualEdit && !hasSavedValue && !hasCarryValue && !hasAutoValue) return;
+      // carry(전차수 참고값)만 있고 수기 편집·저장값·자동값이 없으면 저장 대상에서 제외한다 —
+      // 참고값을 사용자 확인 없이 조용히 저장하면 안 된다(2026-08-12 결함수정).
+      if (!hasManualEdit && !hasSavedValue && !hasAutoValue) return;
       out[field] = isWorldFreight ? vatNetToInclusive(countryValue(row, field)) : countryValue(row, field);
     });
     return out;
   };
 
+  // 콜롬비아도 동일 원칙 — carry는 표시하되 유효값/저장 대상에 자동 포함하지 않는다.
   const colValue = (c, field) => {
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
+    if (COLOMBIA_TRUCK_FIELDS.has(field) && c.truckAuto) return c.truckAuto[field] || 0;
     if (c.saved?.[field] != null) return c.saved[field];
-    if (c.carry?.[field] != null) return c.carry[field];
     return '';
   };
   const setColEdit = (wk, field, val) => setColombiaEdits((prev) => ({ ...prev, [wk]: { ...(prev[wk] || {}), [field]: val } }));
+  // 저장 시 전송할 필드 — 실제로 수기 편집됐거나 이미 저장돼 있던 값만 보낸다(트럭 수량은 GW
+  // 자동값을 그대로 스냅샷). carry(전차수 참고값)만 있는 필드는 사용자가 명시적으로 편집(적용)하기
+  // 전까지 저장 대상에서 제외한다 — 빈 "저장" 클릭이 감사 기준값/전차수 참고값을 조용히 이번
+  // 반차수 저장행으로 굳혀버리는 사고를 막기 위함이다.
+  const colombiaOut = (c) => {
+    const out = {};
+    COLOMBIA_FIELDS.forEach(([f]) => {
+      const hasEdit = colombiaEdits[c.orderWeek]?.[f] !== undefined;
+      if (COLOMBIA_TRUCK_FIELDS.has(f)) {
+        if (c.truckAuto) out[f] = c.truckAuto[f] || 0;
+        else if (hasEdit || c.saved?.[f] != null) out[f] = colValue(c, f);
+        return;
+      }
+      if (!hasEdit && c.saved?.[f] == null) return;
+      out[f] = colValue(c, f);
+    });
+    return out;
+  };
+
+  // 저장 시점에 적용될 유효 백상 창고료 요율(감사 기준값 22~27차 우선) — 서버 resolver와 동일 함수를
+  // 그대로 재사용해, 미리보기 총액도 서버가 실제로 계산할 값과 같은 요율을 쓴다.
+  const effectiveRates = data ? effectiveRatesForWeek(data.rates, data.orderYear, data.major) : null;
+
+  // 이 국가행의 "지금 화면에 보이는" 합계 — 수기 편집이 없으면 서버가 마지막 조회 시 계산해 준
+  // row.total(저장값/자동값/감사기준값 중 하나)을 그대로 쓴다. 편집이 있으면 countryValue()가
+  // 반환하는 현재 유효값들로 서버와 같은 공식(computeCountryCustomsTotal)을 즉시 다시 계산해,
+  // 입력칸에 보이는 값과 합계·저장 버튼 옆 합계가 항상 같은 값을 가리키게 한다.
+  const countryTotal = (row) => {
+    const hasEdit = Boolean(countryEdits[row.category] && Object.keys(countryEdits[row.category]).length);
+    if (!hasEdit || !effectiveRates) return n0(row.total);
+    const liveRow = {};
+    COUNTRY_FIELD_KEYS.forEach((field) => {
+      const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
+      const v = countryValue(row, field);
+      liveRow[field] = isWorldFreight ? vatNetToInclusive(v) : v;
+    });
+    if (row.saved?.BakSangRateApplied != null) liveRow.BakSangRateApplied = row.saved.BakSangRateApplied;
+    return computeCountryCustomsTotal(liveRow, effectiveRates, row.category);
+  };
+
+  // 콜롬비아 반차수의 "지금 화면에 보이는" TOTAL/카테고리별 배분 — 국가행과 동일 원칙.
+  const colombiaLiveRow = (c) => {
+    const liveRow = {};
+    COLOMBIA_FIELDS.forEach(([f]) => { liveRow[f] = colValue(c, f); });
+    if (c.saved?.BakSangRateApplied != null) liveRow.BakSangRateApplied = c.saved.BakSangRateApplied;
+    return liveRow;
+  };
+  const colombiaHasEdit = (c) => Boolean(colombiaEdits[c.orderWeek] && Object.keys(colombiaEdits[c.orderWeek]).length);
+  const colombiaTotal = (c) => {
+    if (!colombiaHasEdit(c) || !effectiveRates) return n0(c.total);
+    return computeColombiaCustomsTotal(colombiaLiveRow(c), effectiveRates);
+  };
+  const colombiaAllocationH = (c) => {
+    if (!colombiaHasEdit(c) || !effectiveRates) return c.allocationH || {};
+    const alloc = computeColombiaAllocation({ ...colombiaLiveRow(c), AirRateUSD: 0 }, c.boxQty, effectiveRates);
+    return Object.fromEntries(Object.entries(alloc).map(([cat, v]) => [cat, Math.round(v.H)]));
+  };
 
   const saveCountry = async (row) => {
+    if (!Object.keys(countryEdits[row.category] || {}).length) {
+      setMessage(`${row.category}: 변경된 입력값이 없습니다 — 참고값은 적용(편집) 후 저장하세요`);
+      return;
+    }
     setSaving(row.category); setError('');
     try {
       const r = await fetch('/api/sales/customs-clearance', {
@@ -225,15 +316,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   };
 
   const saveColombia = async (c) => {
+    if (!Object.keys(colombiaEdits[c.orderWeek] || {}).length) {
+      setMessage(`${c.orderWeek}: 변경된 입력값이 없습니다 — 참고값은 적용(편집) 후 저장하세요`);
+      return;
+    }
     setSaving(c.orderWeek); setError('');
     try {
-      const out = {};
-      const autoGw = data?.autoGw?.colombia?.[c.orderWeek]?.GW;
-      const truckAuto = c.truckAuto || (Number(autoGw) > 0 ? deriveColombiaTruckAllocation(autoGw) : null);
-      COLOMBIA_FIELDS.forEach(([f]) => {
-        if (COLOMBIA_TRUCK_FIELDS.has(f) && truckAuto) out[f] = truckAuto[f];
-        else out[f] = colValue(c, f);
-      });
+      const out = colombiaOut(c);
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ week, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
@@ -262,12 +351,16 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     } catch (e) { setError(e.message); } finally { setSaving(''); }
   };
 
+  // 화면 맨 위 "합계" — 국가행·콜롬비아 반차수 각각의 현재 유효 합계(countryTotal/colombiaAllocationH,
+  // 수기 편집이 있으면 즉시 재계산됨)를 그대로 더한다. 저장 전 미리보기와 저장 후 값이 항상 같은
+  // 계산식을 거치므로, 이 합계가 실제로 저장하면 반영될 값과 어긋나지 않는다.
   const totalAll = useMemo(() => {
     if (!data) return 0;
-    const countrySum = data.countries.reduce((s, r) => s + n0(r.total), 0);
-    const colSum = (data.colombia || []).reduce((s, c) => s + Object.values(c.allocationH || {}).reduce((a, b) => a + n0(b), 0), 0);
+    const countrySum = data.countries.reduce((s, r) => s + n0(countryTotal(r)), 0);
+    const colSum = (data.colombia || []).reduce((s, c) => s + Object.values(colombiaAllocationH(c)).reduce((a, b) => a + n0(b), 0), 0);
     return countrySum + colSum;
-  }, [data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, countryEdits, colombiaEdits]);
 
   // 이 차수에 입고가 있거나 저장값이 있는 국가만 기본 노출 — 입력칸 다이어트 (나머지는 펼치기)
   const isRelevantCountry = useCallback((row) => {
@@ -287,10 +380,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     <div data-customs-clearance-panel>
       <div style={st.hint}>
           국가별(백상창고료GW×단가 그대로 + 관세 그대로 + 선율·월드운송료·한국방역 ÷1.1) 합산 = H(그외통관비).
-          월드 운송료는 입고 GW 기준 1t/2.5t/5t 단가가 자동 표시되며, 화면에는 부가세 제외 금액으로 표시됩니다. 입력하면 해당 차수의 수기 override로 저장됩니다.
+          월드 운송료는 <b>그 대차수 국가의 1차+2차 GW 합산 중량으로 트럭 1대를 선정</b>해 1차 칸에 전액 반영합니다(1차/2차를 각각 별도 트럭으로 계산하지 않음).
+          자동값은 부가세 제외 금액으로 표시되며, 직접 입력하면 해당 차수의 수기 override로 저장됩니다.
         관세·선율은 각 1차/2차를 1·2·3번으로 나누어 입력하며, 화면의 합계가 기존 관세1차/2차·선율1차/2차 금액으로 자동 반영됩니다.
-        콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 반차수(1차/2차)별 통관비 TOTAL을 박스당무게×박스수량 비율로 배분(항상 무게비율).
-        저장값 없으면 <b style={{ color: '#e65100' }}>전차수 값</b>이 기본으로 채워집니다 — 확인 후 저장하세요. 🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
+        콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 국가별과 달리 <b>반차수(1차/2차)마다 각각</b> 통관비 TOTAL을 계산한 뒤 박스당무게×박스수량 비율로 배분합니다(항상 무게비율).
+        <b style={{ color: '#0f766e' }}>감사기준값</b>은 2026년 22~27차처럼 저장값이 없는 차수에만 자동 적용되는 검증된 과거 확정값이며 화면 합계에 이미 반영되어 있습니다.
+        <b style={{ color: '#e65100' }}>전차수 참고값(↵)</b>은 저장값·감사기준값이 모두 없을 때만 입력칸 아래 제안으로 보이며, <u>클릭해 적용하고 저장하기 전까지는 합계에 전혀 반영되지 않습니다</u>.
+        🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <button style={st.secondaryBtn} onClick={() => setShowRates((v) => !v)}>{showRates ? '단가표 닫기' : '⚙ 단가표'}</button>
@@ -366,15 +462,20 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                 </thead>
                 <tbody>
                   {visibleCountries.map((row) => {
-                    const carried = !row.saved && row.carry;
+                    const isBaseline = row.totalSource === 'audited_baseline';
+                    const carried = !row.saved && !isBaseline && row.carry;
                     return (
-                      <tr key={row.category} style={{ background: carried ? '#fff7ed' : '#fff' }}>
-                        <td style={st.tdLabel}>{row.category}</td>
+                      <tr key={row.category} style={{ background: isBaseline ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
+                        <td style={st.tdLabel}>
+                          {row.category}
+                          {isBaseline && <span style={st.baselineBadge} title="저장값이 없어 감사 기준값(검증된 과거 확정값)을 자동 적용 중입니다">감사기준값</span>}
+                        </td>
                         {COUNTRY_PHASES.map((phase) => {
                           const isSplit = phase.keys.length > 1;
                           if (isSplit) {
                             const values = phase.keys.map((field) => countryValue(row, field));
                             const total = values.reduce((sum, value) => sum + n0(value), 0);
+                            const carryTotal = row.carry?.[phase.total];
                             return (
                               <td key={`${phase.groupLabel}-${phase.label}`} style={{ ...st.tdNum, minWidth: 235 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3 }}>
@@ -389,6 +490,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                                     ))}
                                   </div>
                                   <span style={st.splitTotal}>{phase.groupLabel} {phase.label} 합계: <b>{fmt(total)}</b></span>
+                                  {total === 0 && !isBaseline && (
+                                    <CarryHint value={carryTotal}
+                                      onApply={() => setCountryEdit(row.category, phase.keys[0], String(n0(carryTotal)))} />
+                                  )}
                                 </div>
                               </td>
                             );
@@ -431,11 +536,16 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                                   <GwHint auto={auto} current={cur}
                                     onApply={() => setCountryEdit(row.category, f, String(Math.round(Number(auto) * 10) / 10))} />
                                 )}
+                                {!isGw && !isWorldFreight && !isBaseline && n0(cur) === 0 && (
+                                  <CarryHint value={row.carry?.[f]} onApply={() => setCountryEdit(row.category, f, String(n0(row.carry?.[f])))} />
+                                )}
                               </div>
                             </td>
                           );
                         })}
-                        <td style={st.tdNum}>{fmt(row.total)}</td>
+                        <td style={st.tdNum} title={Object.keys(countryEdits[row.category] || {}).length ? '수기 편집 중 — 저장 전 미리보기 합계(저장하면 이 값 그대로 반영)' : undefined}>
+                          {fmt(countryTotal(row))}
+                        </td>
                         <td style={st.tdNum}>
                           <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
                             <button style={st.tinyBtn} onClick={() => saveCountry(row)} disabled={saving === row.category}>
@@ -455,11 +565,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
           <div style={st.panel}>
             <div style={st.panelHead}><strong>콜롬비아 4품목 무게배분 (반차수별 — 카네이션·장미·알스트로·루스커스 공유)</strong></div>
             {(data.colombia || []).map((c) => {
-              const carried = !c.saved && c.carry;
+              const isBaseline = c.totalSource === 'audited_baseline';
+              const carried = !c.saved && !isBaseline && c.carry;
               return (
-                <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: carried ? '#fff7ed' : '#fff' }}>
+                <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isBaseline ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
+                    {isBaseline && <span style={st.baselineBadge} title="저장값이 없어 감사 기준값(검증된 과거 확정값)을 자동 적용 중입니다">감사기준값</span>}
                     <span style={{ fontSize: 11, color: '#64748b' }}>
                       박스수량(자동): 장미{c.boxQty['콜롬비아 장미'] || 0} · 카네이션{c.boxQty['콜롬비아 카네이션'] || 0} · 알스트로{c.boxQty['콜롬비아 알스트로'] || 0} · 루스커스{c.boxQty['콜롬비아 루스커스'] || 0}
                     </span>
@@ -512,13 +624,16 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                             <GwHint auto={auto} current={cur}
                               onApply={() => setColEdit(c.orderWeek, f, String(Math.round(Number(auto) * 10) / 10))} />
                           )}
+                          {!isGw && !isBaseline && n0(cur) === 0 && (
+                            <CarryHint value={c.carry?.[f]} onApply={() => setColEdit(c.orderWeek, f, String(n0(c.carry?.[f])))} />
+                          )}
                         </label>
                       );
                     })}
                   </div>
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }}>
-                    배분 미리보기(H): 장미 {fmt(c.allocationH['콜롬비아 장미'])} · 카네이션 {fmt(c.allocationH['콜롬비아 카네이션'])} ·
-                    알스트로 {fmt(c.allocationH['콜롬비아 알스트로'])} · 루스커스 {fmt(c.allocationH['콜롬비아 루스커스'])}
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }} title={colombiaHasEdit(c) ? '수기 편집 중 — 저장 전 미리보기(저장하면 이 값 그대로 반영)' : undefined}>
+                    배분 미리보기(H): 장미 {fmt(colombiaAllocationH(c)['콜롬비아 장미'])} · 카네이션 {fmt(colombiaAllocationH(c)['콜롬비아 카네이션'])} ·
+                    알스트로 {fmt(colombiaAllocationH(c)['콜롬비아 알스트로'])} · 루스커스 {fmt(colombiaAllocationH(c)['콜롬비아 루스커스'])}
                   </div>
                 </div>
               );
@@ -548,6 +663,7 @@ const st = {
   splitInput: { width: 68, textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: 4, padding: '3px 5px', fontSize: 11.5 },
   splitTotal: { color: '#0f766e', fontSize: 10.5, textAlign: 'right', borderTop: '1px dashed #99f6e4', paddingTop: 2 },
   rateField: { display: 'flex', flexDirection: 'column', gap: 2 },
+  baselineBadge: { marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#0f766e', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 4, padding: '1px 5px' },
   input: { width: 100, padding: '5px 7px', border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, textAlign: 'right' },
 };
 
