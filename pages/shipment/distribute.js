@@ -600,25 +600,19 @@ export default function Distribute() {
     if (!selectedCust || !week) { setErr('업체와 차수를 선택하세요.'); return; }
     setSaving(true); setErr('');
     try {
-      for (const item of custItems) {
+      const entries = custItems.map(item => {
         const edit = custEditInputs[item.ProdKey] || {};
         const qty = edit.outQty !== undefined ? parseFloat(edit.outQty) || 0 : (item.출고수량 || 0);
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
-        if (qty <= 0) continue;
-        const res = await fetch('/api/shipment/distribute', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            week, year: selectedOrderYear,
-            custKey: selectedCust.CustKey,
-            prodKey: item.ProdKey,
-            outQty: qty,
-            cost,
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
-      }
+        return { custKey: selectedCust.CustKey, prodKey: item.ProdKey, outQty: qty, cost };
+      });
+      const res = await fetch('/api/shipment/distribute', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ week, year: selectedOrderYear, entries })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
       const savedItems = custItems.filter(item => {
         const edit = custEditInputs[item.ProdKey] || {};
         return (edit.outQty !== undefined ? parseFloat(edit.outQty)||0 : (item.출고수량||0)) > 0;
@@ -705,23 +699,19 @@ export default function Distribute() {
     if (!selectedProd || !week) { setErr('품목과 차수를 선택하세요.'); return; }
     setSaving(true); setErr('');
     try {
-      for (const c of custDist) {
-        const qty = outInputs[c.CustKey] || 0;
-        if (qty <= 0) continue;
-        const res = await fetch('/api/shipment/distribute', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            week, year: selectedOrderYear,
-            custKey: c.CustKey,
-            prodKey: selectedProd.ProdKey,
-            outQty: qty,
-            cost: c.단가 || selectedProd.Cost || 0,
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
-      }
+      const entries = custDist.map(c => ({
+        custKey: c.CustKey,
+        prodKey: selectedProd.ProdKey,
+        outQty: Number(outInputs[c.CustKey]) || 0,
+        cost: c.단가 || selectedProd.Cost || 0,
+      }));
+      const res = await fetch('/api/shipment/distribute', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ week, year: selectedOrderYear, entries })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || '출고분배 저장 실패');
       const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
       setSaveModal({
