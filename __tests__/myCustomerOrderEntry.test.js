@@ -1,9 +1,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
-  const { sortCustomerProducts, quantitiesMatch, buildForwardOrderWeeks } = await import('../lib/myCustomerOrderEntry.js');
+  const { sortCustomerProducts, quantitiesMatch, buildForwardOrderWeeks, productAlphabetInitial } = await import('../lib/myCustomerOrderEntry.js');
   const rows = sortCustomerProducts([{ProdKey:1,FlowerName:'장미',UsageCount:2,ProdName:'B'},{ProdKey:2,FlowerName:'수국',UsageCount:7,ProdName:'A'},{ProdKey:3,FlowerName:'장미',UsageCount:8,ProdName:'A'}]);
   assert.deepEqual(rows.map(x=>x.ProdKey), [3,1,2]);
+  assert.equal(productAlphabetInitial({ProdName:'CARNATION Doncel'}), 'D');
+  assert.equal(productAlphabetInitial({ProdName:'ROSE / Playa Blanca 50cm'}), 'P');
+  assert.equal(productAlphabetInitial({ProdName:'Hydrangea G/ Esmeral'}), 'G');
   assert.equal(quantitiesMatch(2,2.00001), true); assert.equal(quantitiesMatch(2,3), false);
   const choices = buildForwardOrderWeeks(new Date(2026, 7, 11));
   assert.deepEqual(choices.slice(0,4), [
@@ -27,5 +30,7 @@ const fs = require('node:fs');
   assert.match(page,/window\.alert\(resultMessage\)/); assert.match(page,/live-order/); assert.match(page,/입력 품목/); assert.match(page,/입력 수량 지우기/);
   assert.match(page,/className="product-name"/); assert.match(page,/white-space:nowrap/); assert.doesNotMatch(page,/<small>\{p\.CounName\} · \{p\.ProdName\}<\/small>/);
   assert.match(page,/entry-layout/); assert.match(page,/grid-template-columns:minmax\(0,1fr\) 280px/); assert.match(page,/flex-direction:column/); assert.match(page,/수량을 입력하면 이곳에 목록으로 표시됩니다/);
+  assert.match(page,/filteredProductGroups/); assert.match(page,/현재 품종·품목 검색/); assert.match(page,/ALPHABET/); assert.match(page,/productAlphabetInitial/);
+  assert.match(page,/position:sticky;top:46px/); assert.match(page,/검색 또는 알파벳 조건에 맞는 품목이 없습니다/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
