@@ -91,6 +91,104 @@ Form/메서드 조사가 아니라 이미 문서화된 `ViewWarehouse`/`ViewShip
 그대로 배분 대상으로 써야 하므로 그대로 유지했다. 상세는
 `__tests__/profitReportStockCostExclusionContract.test.js` 참고.
 
+## 22~27차 그외통관비 감사 기준값 + 국가 월드운송료 결합GW + 콜롬비아 영문 분류 (2026-08-12)
+
+원본 "매출원가 양식 - NN차_재고수정.xlsx"(22~27차, Downloads 폴더 6개 파일, read-only 추출) 재분석
+결과 발견한 세 결함을 수정했다. 이 기능은 `nenova.exe`에 별도 Form이 없는 웹 전용 보고서이므로
+dnSpy 재조사가 아니라 원본 워크북(엑셀) 대조가 근거이며, `__tests__/fixtures/profit-report-22-27.json`
+(원본에서 read-only 추출, 테스트 증거)이 대조 기준이다.
+
+### 결함 1 — 국가별 월드운송료 반차수 이중계상
+
+`effectiveCountryWorldFreight()`가 1차 GW와 2차 GW를 각각 별도 트럭으로 계산해, 26차 콜롬비아
+수국(GW1 2779 + GW2 1444 = 4223kg)이 "5t(275,000) + 2.5t(187,000) = 462,000원"으로 이중계상됐다
+(원본은 결합 4223kg → 5t 1대 275,000원/부가세 제외 250,000원). 국가별(콜롬비아 수국 포함)
+그외통관비는 그 대차수 국가의 GW1+GW2 **합산** 중량으로 트럭 1대만 선정해 1차 칸에 전액 반영하고
+2차는 0으로 둔다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송(트럭)은 반차수마다
+실제 별도 출고되는 원본 업무 그대로 반차수별 계산을 유지한다(변경 없음, 근거: 22~27차 6개 반차수
+GW/총액이 모두 반차수 단위로 대조됨).
+
+- 구현: `lib/customsForwarding.js effectiveCountryWorldFreight()` — 결합 GW로 `deriveWorldFreight()`
+  1회만 호출. 명시적 수기 override(`WorldFreight{1,2}Manual=1`)는 그대로 보존한다.
+- 회귀: `__tests__/customsForwardingAuto.test.js`(요청사항 2번 원문 예시 — 26차 콜롬비아 수국
+  2779+1444kg→5t, 네덜란드 192+520kg→1t, 중국 646+201kg→1t).
+
+### 결함 2 — 콜롬비아 무게배분 영문 품종 누락
+
+`colombiaBoxQtyByCategory()`의 `CASE_COLOMBIA_ALLOC`(SQL)이 `Product.FlowerName`의 한글 리터럴만
+매칭해, FlowerName이 영문(ROSE/CARNATION/ALSTROEMERIA/RUSCUS)으로 저장된 품목이 그외통관비/
+포워딩 무게배분(박스당무게×박스수량 비율)에서 통째로 빠졌다(카테고리 미배정 → 배분 대상 박스수량
+0, 배분 비율이 나머지 품목에 왜곡 귀속). `lib/colombiaFlowerClassification.js`를 SQL·JS 공용
+단일 진실 소스로 신설해 FlowerName·ProdName 양쪽에서 한글+영문을 매칭하고, 운송료/SERVICE FEE/
+현지상차운임/Gross·Chargeable weight placeholder 행은 항상 제외한다(country-scoped — 호출부가
+이미 `CounName LIKE '%콜롬비아%'`로 범위를 좁힌 뒤 사용).
+
+- 구현: `lib/colombiaFlowerClassification.js`(신규) + `lib/customsForwarding.js` `CASE_COLOMBIA_ALLOC`/
+  `COLOMBIA_ALLOC_EXCLUDE_SQL`.
+- 회귀: `__tests__/colombiaFlowerClassification.test.js`(English ROSE 등 요청사항 6번 명시 케이스,
+  SQL↔JS 토큰 일치, 운송료/SERVICE FEE/GW·CW 제외).
+
+### 결함 3 — 22~27차 저장값 부재 + 전역 요율 오염
+
+22~25차는 이 기능 도입 이전 시점이라 `WebCustomsWeekly`/`WebColombiaWeekly`에 저장값이 거의 없어
+자동계산이 0 또는 크게 어긋났다. 또한 `BakSangRate`(백상 창고료, 22차만 370원/kg, 23~27차는
+460원/kg)가 전역 설정(`WebCustomsRateConfig`) 하나뿐이라 관리자가 나중에 요율을 바꾸면 과거 확정
+차수의 계산까지 조용히 바뀌는 결함이 있었다.
+
+원본 워크북("매출원가 양식 - NN차_재고수정.xlsx", 22~27차 6개 파일) 자체는 전체 시트를 read-only로
+완전히 분석했다 — 국가별 백상창고료·관세·선율·월드운송료·방역 개별 항목과 콜롬비아 4품목의
+HandlingFee/CustomsFee/DisinfectFee/QuarantineDeductFee 구성요소도 원본 시트에서 값을 읽을 수
+있었다. 다만 이 항목들은 운영 DB(`WebCustomsWeekly`/`WebColombiaWeekly`)의 입력 필드 형태로 저장된
+적이 없어(이 기능 도입 이전 시점이라 아예 입력 화면이 없었음), 그 필드에 채울 "저장됐어야 할 값"을
+역산해 발명하지 않기로 했다 — 이는 재추출 불가가 아니라 의도적 설계 선택이다. 대신 아래 감사
+기준값(`lib/profitReportAuditedBaseline.js`)은 원본에 실제로 있는 값, 즉 국가별 그외통관비
+**최종 합계(H)**와 콜롬비아 반차수 **TOTAL(무게배분 전)** + GW/박스수량(모두 원본 시트에서 그대로
+옮겨 적은 검증된 값)만 프로덕션 폴백으로 저장한다. `computeCountryCustomsTotal`/
+`computeColombiaCustomsTotal`의 구성요소 기반 공식 자체는 요청사항 1·3번 원문과 이미 정확히
+일치하므로 그대로 유지했고(재검증만 함, 코드는 바꾸지 않음), 감사 기준값은 그 공식이 필요로 하는
+운영 DB 입력 필드가 아직 저장되지 않은 22~27차 행에만 최종 합계로 폴백한다.
+
+- `lib/profitReportAuditedBaseline.js`(신규, 프로덕션 단일 진실 소스 — 테스트 fixture json을 런타임
+  import하지 않는다)에 22~27차 국가별(콜롬비아 수국 포함) H 총액, 콜롬비아 4품목 반차수 GW/박스수량/
+  TOTAL(무게배분 전), 대차수별 BakSangRate(22차=370, 23~27차=460)를 원본에서 그대로 옮겨 담았다.
+- 우선순위(모든 계산에 공통): **explicit saved row(WebCustomsWeekly/WebColombiaWeekly) >
+  audited baseline(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults**.
+  저장행이 조금이라도 있으면(부분 저장 포함) 감사 기준값은 전혀 적용하지 않는다 — 행 단위 폴백이며
+  운영자 입력을 절대 덮어쓰지 않는다. 연도가 정확히 2026과 일치할 때만 적용되므로 2025년 동일
+  차수는 절대 오염되지 않는다.
+- `lib/customsForwarding.js resolveCountryCustomsTotal()`/`resolveColombiaCustomsAllocation()`이
+  이 우선순위의 단일 진입점이며, `computeCustomsAndForwarding()`(매출이익보고서 실계산)과
+  `pages/api/sales/customs-clearance.js` GET(그외통관비 입력화면 미리보기)이 함수 하나만
+  공유한다 — 두 화면이 항상 같은 총액을 본다.
+- `WebCustomsWeekly.BakSangRateApplied`/`WebColombiaWeekly.BakSangRateApplied`(신규 컬럼, 저장
+  경로에서 idempotent `ALTER TABLE`)에 저장 시점의 유효 요율을 스냅샷해, 이후 전역 요율이 바뀌어도
+  이미 저장된 행의 계산은 그대로 보존한다. 다른 입력 필드가 전혀 없는 저장 요청(빈 클릭)은 요율만
+  저장해 빈 행을 만들지 않는다 — 감사 기준값 폴백이 실수로 사라지는 사고를 막기 위함이다.
+- 회귀: `__tests__/profitReportAuditedBaseline.test.js`(22~27차 국가/콜롬비아 H 정확값, 요청사항
+  5번 그랜드토탈, 교차연도 비오염, 우선순위 3종).
+
+### 결함 4(UI) — 전차수 참고값이 유효값처럼 보이던 문제
+
+`components/CustomsClearancePanel.js`의 입력값 표시 함수(`countryValue`/`colValue`)가 저장값이
+없으면 전차수 값(carry)을 입력칸에 그대로 채웠는데, 서버의 실제 총액 계산(`computeCountryCustomsTotal`/
+`computeColombiaCustomsTotal`)은 그 carry를 반영하지 않았다 — 입력칸에 "보이는 값"과 "합계에
+쓰인 값"이 달랐다. 또한 저장 버튼이 필드 단위로 carry를 저장 대상에 함께 포함해, 빈 "저장" 클릭이
+전차수 참고값을 조용히 이번 차수 저장행으로 굳혀버릴 위험이 있었다(콜롬비아는 특히 모든 필드를
+무조건 전송).
+
+- 수정: `countryValue`/`colValue`는 이제 carry를 절대 반환하지 않는다(수기 편집 > 저장값 > 자동값만).
+  전차수 참고값은 `CarryHint` 컴포넌트로 입력칸 아래 별도 표시하고, 클릭(명시적 적용)해야 편집
+  상태로 올라가 저장 대상이 된다. `countryOut`/`colombiaOut`은 수기 편집·저장값·자동값이 있는
+  필드만 전송한다. 저장 버튼은 변경사항이 전혀 없으면 API를 호출하지 않는다(단, "빈 저장" 자체가
+  들어와도 `saveCustomsWeeklyBatch`/`saveColombiaWeekly`가 다른 실제 필드 없이 요율만으로 빈 행을
+  만들지 않도록 서버 쪽에서도 방어한다).
+- 화면은 자동(감사기준값 포함)·저장값·전차수 참고값 세 가지를 배지/색상으로 구분해 표시한다.
+  감사기준값은 저장행이 없을 때만 자동 적용되며 합계에 이미 반영되어 있고, 전차수 참고값은 적용·
+  저장 전까지 합계에 전혀 반영되지 않는다.
+- 회귀는 코드 리뷰로 확인(순수 UI 상태 로직이라 DB 없는 단위 테스트로 커버하기 어려움) —
+  `__tests__/customsForwardingAuto.test.js`/`profitReportAuditedBaseline.test.js`가 서버 쪽
+  총액·우선순위를 고정하므로, 화면이 그 총액과 다른 값을 보여주면 수동 스모크에서 즉시 드러난다.
+
 ## 사전 확인 기록
 
 공용 조인·확정 기준은 `docs/exe-golden/FormShipmentDistribution.md`, `docs/exe-golden/FormEstimateView.md`, `docs/DB_STRUCTURE.md`, `docs/WEB_VS_ERP_CONFLICTS.md`에 기록된 dnSpy/DB 근거를 재사용한다. 이 기록과 `docs/contracts/weekly-profit-report.json`은 변경 시 회귀 테스트와 배포 manifest 검사의 기준이다.

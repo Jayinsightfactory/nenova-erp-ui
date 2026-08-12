@@ -8,9 +8,7 @@ import {
   loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
-  effectiveCountryWorldFreight, mergeColombiaGw, mergeColombiaTruck,
-  deriveColombiaTruckAllocation,
-  computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
+  resolveCountryCustomsTotal, resolveColombiaCustomsAllocation,
 } from '../../../lib/customsForwarding';
 
 function parseMajor(raw) {
@@ -44,35 +42,41 @@ export default withAuth(async function handler(req, res) {
         Promise.all(prevSubWeeks.map((wk) => loadColombiaWeekly(wk, orderYear))),
       ]);
 
+      // 국가/콜롬비아 모두 resolveCountryCustomsTotal/resolveColombiaCustomsAllocation을 거친다 —
+      // 이 화면의 "합계"·박스수량이 실제 매출이익보고서 H 계산(computeCustomsAndForwarding)과
+      // 항상 같은 값을 보이도록 두 API가 같은 함수 하나만 공유한다. 저장행이 전혀 없고 2026 22~27차
+      // 감사 기준값이 있으면 totalSource='audited_baseline'으로 표시된다(carry와는 별개 — carry는
+      // 저장값이 없을 때의 "전차수 참고값" 제안이며 합계 계산에는 반영되지 않는다).
       const countries = COUNTRY_CATEGORIES.map((cat) => {
         const row = countryRows[cat] || null;
         const prevRow = prevCountryRows[cat] || null;
-        const world = effectiveCountryWorldFreight(row, autoGw.countries?.[cat], rates);
+        const resolved = resolveCountryCustomsTotal({ row, gwDef: autoGw.countries?.[cat], rates, category: cat, orderYear, major });
         return {
           category: cat,
           saved: row,
-          carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 기본값으로 제안(사장님 지정)
-          worldFreightAuto: world.auto,
-          worldFreightSource: world.source,
-          // 합계는 입고 GW와 GW기반 월드 운송료를 병합 — 명시적 수기 금액은 우선
-          total: computeCountryCustomsTotal(world.row, rates, cat),
+          carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 참고 제안(사장님 지정) — 합계에는 미반영
+          worldFreightAuto: resolved.world.auto,
+          worldFreightSource: resolved.world.source,
+          total: resolved.total,
+          totalSource: resolved.source,
         };
       });
 
       const colombiaOut = colombia.map((c, i) => {
         const gwDef = autoGw.colombia?.[c.orderWeek];
-        const effRow = mergeColombiaTruck(mergeColombiaGw(c.row, gwDef), gwDef);
-        const total = computeColombiaCustomsTotal(effRow, rates);
-        const alloc = computeColombiaAllocation(effRow, c.boxQty, rates);
+        const resolved = resolveColombiaCustomsAllocation({
+          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty: c.boxQty, gwDef, airTotal: 0, rates,
+        });
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
-          carry: !c.row && prevColombia[i] ? prevColombia[i] : null,
-          boxQty: c.boxQty,
-          total,
-          truckAuto: Number(effRow.GW) > 0 ? deriveColombiaTruckAllocation(effRow.GW) : null,
-          truckSource: effRow.truckSource || null,
-          allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(alloc[cat].H)])),
+          carry: !c.row && prevColombia[i] ? prevColombia[i] : null, // 합계에는 미반영, 참고 제안일 뿐
+          boxQty: resolved.boxQty,
+          total: resolved.total,
+          totalSource: resolved.source,
+          truckAuto: resolved.truckAuto,
+          truckSource: resolved.source === 'audited_baseline' ? 'audited_baseline' : (resolved.truckAuto?.source || null),
+          allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(resolved.allocation[cat].H)])),
         };
       });
 
