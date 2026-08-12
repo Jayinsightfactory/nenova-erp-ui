@@ -16,6 +16,7 @@ const buildVersion = commitSha
   : `v${pkg.version}`;
 
 const nextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   serverExternalPackages: ['mssql'],
   generateBuildId: async () => `build-${Date.now()}`,
   // 2026-07-10 Turbopack 프로덕션 빌드가 hydration 안 되는 산출물을 만드는 장애(런타임 엔트리 미실행,

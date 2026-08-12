@@ -152,6 +152,7 @@ export default function Layout({ children, title }) {
 
   // 로그인 유저 (hydration 안전)
   const [user, setUser] = useState(null);
+  const [sidebarFavorites, setSidebarFavorites] = useState([]);
   useEffect(() => {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
     let active = true;
@@ -165,6 +166,25 @@ export default function Layout({ children, title }) {
       .catch(() => {});
     return () => { active = false; };
   }, []);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/favorites?page=dashboard-menu')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!active || !data?.success) return;
+        const canonical = new Map(MENU_ITEMS.flatMap(group => group.items).map(item => [item.href, item]));
+        const favorites = (data.favorites || []).map(row => {
+          try {
+            const saved = JSON.parse(row.FilterData || '{}');
+            const item = canonical.get(saved.href);
+            return item && (!item.userIds || item.userIds.includes(user?.userId)) ? item : null;
+          } catch { return null; }
+        }).filter(Boolean);
+        setSidebarFavorites(favorites);
+      })
+      .catch(() => { if (active) setSidebarFavorites([]); });
+    return () => { active = false; };
+  }, [user?.userId]);
 
   // 자식창 감지 — hydration 안전. SSR/첫 렌더는 false → 마운트 후 클라이언트에서만 판정.
   // 세 갈래 모두 잡아야 사이드바 중복이 안 생긴다:
@@ -209,6 +229,16 @@ export default function Layout({ children, title }) {
 
   const pageTitle = title || MENU_ITEMS.flatMap(g => g.items)
     .find(i => i.href === router.pathname)?.labelKey || 'nenova ERP';
+  const favoriteHrefs = new Set(sidebarFavorites.map(item => item.href));
+  const renderNavItem = item => item.fullscreen ? (
+    <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
+      onClick={e => { e.preventDefault(); window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`); }}>{t(item.labelKey)}</a>
+  ) : item.popup ? (
+    <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
+      onClick={e => { e.preventDefault(); openPopup(item.href, t(item.labelKey)); }}>{t(item.labelKey)}</a>
+  ) : (
+    <Link key={item.href} href={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}>{t(item.labelKey)}</Link>
+  );
 
   // ── 팝업 모드 (?popup=1 이거나, 자식창 자동 접힘 / 사용자 강제 접힘)
   if (isPopup || sidebarSuppressed) {
@@ -281,29 +311,15 @@ export default function Layout({ children, title }) {
             </div>
           </Link>
           <nav className="sidebar-nav">
+            {sidebarFavorites.length > 0 && <div className="nav-group nav-favorites">
+              <div className="nav-group-title">★ {t('즐겨찾기')}</div>
+              {sidebarFavorites.map(renderNavItem)}
+            </div>}
             {MENU_ITEMS.map(group => (
               <div key={group.group} className="nav-group">
                 {/* 그룹 제목도 번역 */}
                 <div className="nav-group-title">{t(group.group)}</div>
-                {group.items.filter(item => !item.userIds || item.userIds.includes(user?.userId)).map(item => (
-                  item.fullscreen ? (
-                    <a key={item.href}
-                      className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
-                      href="#"
-                      onClick={e => { e.preventDefault(); window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`); }}
-                    >{t(item.labelKey)}</a>
-                  ) : item.popup ? (
-                    <a key={item.href}
-                      className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
-                      href="#"
-                      onClick={e => { e.preventDefault(); openPopup(item.href, t(item.labelKey)); }}
-                    >{t(item.labelKey)}</a>
-                  ) : (
-                    <Link key={item.href} href={item.href}
-                      className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
-                    >{t(item.labelKey)}</Link>
-                  )
-                ))}
+                {group.items.filter(item => (!item.userIds || item.userIds.includes(user?.userId)) && !favoriteHrefs.has(item.href)).map(renderNavItem)}
               </div>
             ))}
           </nav>

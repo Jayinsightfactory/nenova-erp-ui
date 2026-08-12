@@ -1,12 +1,18 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost } from '../../lib/useApi';
+import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { buildForwardOrderWeeks, productAlphabetInitial } from '../../lib/myCustomerOrderEntry';
 
 const currentYear = new Date().getFullYear();
 const label = p => p.DisplayName || p.ProdName;
 const groupLabel = p => p.CountryFlower || p.FlowerName || '기타';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const ORDER_FAVORITE_PAGE = 'my-customer-order-template';
+
+function parseFavorite(row) {
+  try { return { favoriteKey: row.FavoriteKey, name: row.FavName, ...JSON.parse(row.FilterData || '{}') }; }
+  catch { return null; }
+}
 
 export default function MyCustomerOrders() {
   const [year, setYear] = useState(String(currentYear));
@@ -27,10 +33,15 @@ export default function MyCustomerOrders() {
   const [productLetter, setProductLetter] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [templateBusy, setTemplateBusy] = useState(false);
   const refs = useRef({});
   const productAreaRef = useRef(null);
   const customerRefs = useRef({});
   const scrollAfterLoadRef = useRef(false);
+  const loadSequenceRef = useRef(0);
 
   useEffect(() => {
     apiGet('/api/orders/my-customers').then((c) => {
@@ -40,9 +51,10 @@ export default function MyCustomerOrders() {
 
   const load = async () => {
     if (!custKey || !week) return;
+    const sequence = ++loadSequenceRef.current;
     setBusy(true); setMessage('');
-    try { const d = await apiGet('/api/orders/my-customers', { custKey, year, week }); setProducts(d.products || []); setQty({}); setCollapsedFlowers({}); setProductQuery(''); setProductLetter(''); if (scrollAfterLoadRef.current) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0); }
-    catch (e) { setMessage(e.message); } finally { setBusy(false); }
+    try { const d = await apiGet('/api/orders/my-customers', { custKey, year, week }); if (sequence !== loadSequenceRef.current) return; setProducts(d.products || []); setQty({}); setCollapsedFlowers({}); setProductQuery(''); setProductLetter(''); if (scrollAfterLoadRef.current) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0); }
+    catch (e) { if (sequence === loadSequenceRef.current) setMessage(e.message); } finally { if (sequence === loadSequenceRef.current) setBusy(false); }
     scrollAfterLoadRef.current = false;
   };
   useEffect(() => { load(); }, [custKey, year, week]);
@@ -74,6 +86,44 @@ export default function MyCustomerOrders() {
     return selected && !recent.some(c => c.CustKey === selected.CustKey) ? [selected, ...recent] : recent;
   }, [customers, customerQuery, showAllCustomers, custKey]);
   const selectedCustomer = useMemo(() => customers.find(c => String(c.CustKey) === String(custKey)), [customers, custKey]);
+  const loadTemplates = async () => {
+    if (!custKey) return;
+    setTemplateBusy(true); setMessage(''); setShowTemplates(true);
+    try {
+      const [ordersData, favoriteData] = await Promise.all([
+        apiGet('/api/orders/my-customers', { view: 'history', custKey, year, week }),
+        apiGet('/api/favorites', { page: ORDER_FAVORITE_PAGE }),
+      ]);
+      setHistory(ordersData.orders || []);
+      setFavorites((favoriteData.favorites || []).map(parseFavorite).filter(f => f && String(f.custKey) === String(custKey)));
+    } catch (e) { setMessage(`고정주문 조회 실패: ${e.message}`); }
+    finally { setTemplateBusy(false); }
+  };
+  const applyTemplate = template => {
+    const valid = new Map(products.map(p => [Number(p.ProdKey), p]));
+    const nextQty = {};
+    for (const item of template.items || []) if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) nextQty[item.prodKey] = String(Number(item.qty));
+    setQty(nextQty); setShowTemplates(false);
+    setMessage(`${template.name || `${template.year}년 ${template.week}`} 주문 ${Object.keys(nextQty).length}개 품목을 불러왔습니다. 수량 수정·삭제 후 주문등록하세요.`);
+  };
+  const saveFavorite = async order => {
+    const name = window.prompt('즐겨찾기 이름을 입력하세요.', `${order.year}년 ${order.week} 주문`);
+    if (!name) return;
+    setTemplateBusy(true);
+    try {
+      await apiPost('/api/favorites', { page: ORDER_FAVORITE_PAGE, name, filterData: JSON.stringify({
+        custKey: Number(custKey), custName: selectedCustomer?.CustName, sourceYear: order.year, sourceWeek: order.week,
+        items: order.items.map(item => ({ prodKey: Number(item.prodKey), qty: Number(item.qty), unit: item.unit })),
+      }) });
+      await loadTemplates(); setMessage('주문 즐겨찾기를 저장했습니다.');
+    } catch (e) { setMessage(`즐겨찾기 저장 실패: ${e.message}`); }
+    finally { setTemplateBusy(false); }
+  };
+  const removeFavorite = async favoriteKey => {
+    if (!window.confirm('이 주문 즐겨찾기를 삭제할까요?')) return;
+    try { await apiDelete('/api/favorites', { favoriteKey }); await loadTemplates(); }
+    catch (e) { setMessage(`즐겨찾기 삭제 실패: ${e.message}`); }
+  };
   useEffect(() => { setCustomerCursor(visibleCustomers.length ? 0 : -1); }, [customerQuery, showAllCustomers]);
   const selectCustomer = key => {
     setFocusMode(true); scrollAfterLoadRef.current = true;
@@ -119,13 +169,14 @@ export default function MyCustomerOrders() {
   return <>
     <Head><title>내 업체 주문등록</title></Head>
     <main className="my-order-page">
-      {focusMode ? <div className="focus-bar"><strong>{year}년 {week} · {selectedCustomer?.CustName}</strong><span>{selectedCustomer?.ManagerName}{selectedCustomer?.CustArea?` · ${selectedCustomer.CustArea}`:''}</span><button onClick={()=>{setFocusMode(false);window.scrollTo({top:0,behavior:'smooth'})}}>차수·업체 다시 선택</button><button onClick={load} disabled={busy}>새로고침</button></div> : <>
+      {focusMode ? <div className="focus-bar"><strong>{year}년 {week} · {selectedCustomer?.CustName}{selectedCustomer?.OrderCode?` · ${selectedCustomer.OrderCode}`:''}</strong><span>{selectedCustomer?.ManagerName}{selectedCustomer?.CustArea?` · ${selectedCustomer.CustArea}`:''}</span><button onClick={loadTemplates} disabled={busy||templateBusy}>{templateBusy?'불러오는 중':'고정주문 불러오기'}</button><button onClick={()=>{setFocusMode(false);setShowTemplates(false);window.scrollTo({top:0,behavior:'smooth'})}}>차수·업체 다시 선택</button><button onClick={load} disabled={busy}>새로고침</button></div> : <>
       <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 선택하면 품종·품목 입력 화면만 표시됩니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
       <section className="filters">
         <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>오늘 기준 2차 앞부터, 각 차수의 1·2 세부차수입니다.</small></div>
-        <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} onKeyDown={moveCustomer} placeholder="업체명·담당자 검색" aria-label="업체 검색" aria-activedescendant={customerCursor>=0?`customer-${visibleCustomers[customerCursor]?.CustKey}`:undefined}/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><small>업체명 입력 후 ↑↓로 이동하고 Enter로 선택하세요.</small><div className="choice-buttons customers">{visibleCustomers.map((c,i)=><button ref={el=>customerRefs.current[c.CustKey]=el} id={`customer-${c.CustKey}`} key={c.CustKey} className={`${String(custKey)===String(c.CustKey)?'active':''} ${i===customerCursor?'cursor':''}`} aria-pressed={String(custKey)===String(c.CustKey)} onMouseEnter={()=>setCustomerCursor(i)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
+        <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} onKeyDown={moveCustomer} placeholder="업체명·담당자 검색" aria-label="업체 검색" aria-activedescendant={customerCursor>=0?`customer-${visibleCustomers[customerCursor]?.CustKey}`:undefined}/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><small>업체명 입력 후 ↑↓로 이동하고 Enter로 선택하세요.</small><div className="choice-buttons customers">{visibleCustomers.map((c,i)=><button ref={el=>customerRefs.current[c.CustKey]=el} id={`customer-${c.CustKey}`} key={c.CustKey} className={`${String(custKey)===String(c.CustKey)?'active':''} ${i===customerCursor?'cursor':''}`} aria-pressed={String(custKey)===String(c.CustKey)} onMouseEnter={()=>setCustomerCursor(i)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{c.OrderCode&&<mark>{c.OrderCode}</mark>}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
       </section>
       </>}
+      {showTemplates&&<section className="templates"><div className="templates-head"><div><b>고정주문 불러오기</b><small>{year}년 {week}보다 이전 주문 또는 즐겨찾기를 추가수량 초안으로 복사합니다. 불러오기·삭제만으로 기존 원장은 변경되지 않습니다.</small></div><button onClick={()=>setShowTemplates(false)}>닫기</button></div><div className="template-columns"><div><h3>지난 차수 주문</h3>{history.length?history.map(order=><article key={order.id}><button className="template-main" onClick={()=>applyTemplate({...order,name:`${order.year}년 ${order.week}`})}><b>{order.year}년 {order.week}</b><small>{order.items.length}개 품목 · {String(order.date||'').slice(0,10)}</small></button><button className="star" onClick={()=>saveFavorite(order)} aria-label={`${order.year}년 ${order.week} 즐겨찾기`}>☆ 즐겨찾기</button></article>):<p>같은 연도의 이전 주문 이력이 없습니다.</p>}</div><div><h3>내 주문 즐겨찾기</h3>{favorites.length?favorites.map(fav=><article key={fav.favoriteKey}><button className="template-main" onClick={()=>applyTemplate(fav)}><b>★ {fav.name}</b><small>{fav.items?.length||0}개 품목 · 원본 {fav.sourceYear||''} {fav.sourceWeek||''}</small></button><button className="delete-fav" onClick={()=>removeFavorite(fav.favoriteKey)} aria-label={`${fav.name} 삭제`}>삭제</button></article>):<p>저장된 즐겨찾기가 없습니다.</p>}</div></div></section>}
       <div className="entry-layout"><section className="product-workspace"><form className="search" onSubmit={doSearch}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="다른 품종·품목 검색"/><button disabled={busy}>검색 추가</button></form>
       {searchRows.length>0 && <div className="results">{searchRows.map(p=><button key={p.ProdKey} onClick={()=>addProduct(p)}><b>{groupLabel(p)}</b> {label(p)} <span>{p.CounName} · {p.OutUnit}</span></button>)}</div>}
       <div className="product-filter"><div><input value={productQuery} onChange={e=>setProductQuery(e.target.value)} placeholder="현재 품종·품목 검색" aria-label="현재 품종과 품목 검색"/><button type="button" onClick={()=>{setProductQuery('');setProductLetter('')}}>초기화</button></div><div className="alphabet" aria-label="품목명 알파벳 필터"><button type="button" className={!productLetter?'active':''} onClick={()=>setProductLetter('')}>전체</button>{ALPHABET.map(letter=><button type="button" key={letter} className={productLetter===letter?'active':''} aria-pressed={productLetter===letter} onClick={()=>setProductLetter(letter)}>{letter}</button>)}</div><small>품종명 다음 실제 품목명의 첫 글자를 기준으로 표시합니다.</small></div>
@@ -138,11 +189,12 @@ export default function MyCustomerOrders() {
       <div className="submit"><span>{changed.length}개 품목 추가</span><button onClick={submit} disabled={busy||!changed.length}>{busy?'처리 중...':'주문등록'}</button></div>
     </main>
     <style jsx>{`
-      .my-order-page{max-width:1180px;margin:auto;padding:8px 16px}.title-row,.search,.product-row,.grid-head,.submit{display:flex;gap:8px;align-items:center}.title-row{justify-content:space-between}.title-row p{margin:2px 0 6px}h1{margin:0;font-size:24px}p,small{color:#667085}button,input{min-height:38px;border:1px solid #d0d5dd;border-radius:8px;padding:6px 10px;background:white}.filters{padding:8px 10px;background:#f8fafc;border-radius:10px;display:grid;gap:8px}.pick-group{display:grid;gap:4px}.pick-group b{font-size:14px}.pick-group em{font-style:normal;color:#155eef}.choice-buttons{display:flex;flex-wrap:wrap;gap:5px}.choice-buttons button{min-width:68px;font-weight:700}.choice-buttons button.active{border-color:#155eef;background:#155eef;color:white;box-shadow:0 0 0 2px #dbe7ff}.choice-buttons button small{color:inherit}.customers button{display:flex;flex-direction:column;align-items:flex-start;min-width:120px}.customers button small{font-weight:400}.search{margin-top:6px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;padding:6px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.product-filter{margin-top:6px;padding:7px;background:#f8fafc;border-radius:9px}.product-filter>div:first-child{display:flex;gap:5px}.product-filter input{flex:1}.alphabet{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0}.alphabet button{min-width:31px;min-height:31px;padding:3px 6px;font-weight:700}.alphabet button.active{background:#155eef;color:white;border-color:#155eef}.notice{margin:5px 0;padding:7px 10px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:8px}.grid-head{padding:6px 10px;font-weight:700;color:#475467}.flower-group{margin-top:6px;border:1px solid #dce3ec;border-radius:9px;overflow:visible}.flower-toggle{position:sticky;top:46px;z-index:3;width:100%;display:flex;justify-content:space-between;align-items:center;border:0;border-radius:8px 8px 0 0;background:#eef2f6;padding:6px 10px;text-align:left;box-shadow:0 1px 0 #dce3ec}.flower-toggle span{display:flex;align-items:baseline;gap:8px}.flower-toggle b{font-size:16px;color:#1d2939}.flower-toggle strong{color:#155eef}.flower-toggle i{font-style:normal}.product-row{padding:3px 10px;border-bottom:1px solid #eaecf0}.product-row:last-child{border-bottom:0}.product-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.product-name b,.product-name small{display:inline}.product-row input{text-align:right;font-size:17px;border-color:#84adff}.empty{text-align:center;padding:20px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:7px 10px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:6px 8px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-name{grid-column:1/-1}.flower-toggle{top:45px}.flower-toggle span{align-items:flex-start;flex-direction:column;gap:0}.choice-buttons button{flex:1 0 28%}.customers button{flex-basis:46%}.results{grid-template-columns:1fr}}
+      .my-order-page{max-width:1180px;margin:auto;padding:6px 16px}.title-row,.search,.product-row,.grid-head,.submit{display:flex;gap:8px;align-items:center}.title-row{justify-content:space-between}.title-row p{margin:1px 0 4px}h1{margin:0;font-size:24px}p,small{color:#667085}button,input{min-height:34px;border:1px solid #d0d5dd;border-radius:8px;padding:4px 9px;background:white}.filters{padding:6px 9px;background:#f8fafc;border-radius:10px;display:grid;gap:6px}.pick-group{display:grid;gap:3px}.pick-group b{font-size:14px}.pick-group em{font-style:normal;color:#155eef}.choice-buttons{display:flex;flex-wrap:wrap;gap:4px}.choice-buttons button{min-width:68px;font-weight:700}.choice-buttons button.active{border-color:#155eef;background:#155eef;color:white;box-shadow:0 0 0 2px #dbe7ff}.choice-buttons button small{color:inherit}.customers button{display:flex;flex-direction:column;align-items:flex-start;min-width:120px}.customers button small{font-weight:400}.customers mark{background:#fef0c7;color:#93370d;border-radius:5px;padding:1px 4px;font-size:10px}.search{margin-top:4px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:3px;padding:4px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.product-filter{margin-top:4px;padding:5px;background:#f8fafc;border-radius:9px}.product-filter>div:first-child{display:flex;gap:4px}.product-filter input{flex:1}.alphabet{display:flex;flex-wrap:wrap;gap:2px;margin:3px 0}.alphabet button{min-width:29px;min-height:28px;padding:2px 5px;font-weight:700}.alphabet button.active{background:#155eef;color:white;border-color:#155eef}.notice{margin:4px 0;padding:5px 9px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:8px}.grid-head{padding:4px 10px;font-weight:700;color:#475467}.flower-group{margin-top:4px;border:1px solid #dce3ec;border-radius:9px;overflow:visible}.flower-toggle{position:sticky;top:42px;z-index:3;width:100%;display:flex;justify-content:space-between;align-items:center;border:0;border-radius:8px 8px 0 0;background:#eef2f6;padding:4px 10px;text-align:left;box-shadow:0 1px 0 #dce3ec}.flower-toggle span{display:flex;align-items:baseline;gap:8px}.flower-toggle b{font-size:16px;color:#1d2939}.flower-toggle strong{color:#155eef}.flower-toggle i{font-style:normal}.product-row{padding:1px 10px;border-bottom:1px solid #eaecf0;min-height:34px}.product-row:last-child{border-bottom:0}.product-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.product-name b,.product-name small{display:inline}.product-row input{min-height:30px;height:30px;padding-block:1px;text-align:right;font-size:16px;border-color:#84adff}.empty{text-align:center;padding:16px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:5px 10px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:4px 8px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-name{grid-column:1/-1}.flower-toggle{top:41px}.flower-toggle span{align-items:flex-start;flex-direction:column;gap:0}.choice-buttons button{flex:1 0 28%}.customers button{flex-basis:46%}.results{grid-template-columns:1fr}}
       .customers button span{display:flex;gap:6px;align-items:center}.customers button i{font-size:10px;font-style:normal;padding:2px 5px;border-radius:10px;background:#dbeafe;color:#1d4ed8}.customers button.active i{background:white}
       .customers button.cursor{outline:3px solid #f79009;outline-offset:1px}.entry-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:10px;align-items:start}.product-workspace{min-width:0}.live-order{position:sticky;top:48px;margin-top:6px;padding:9px;background:#fffaeb;border:1px solid #fedf89;border-radius:9px;max-height:calc(100vh - 115px);overflow:auto}.live-order>strong{display:block;margin-bottom:7px}.live-order>p{margin:0;color:#667085;font-size:13px}.live-order>div{display:flex;flex-direction:column;gap:5px}.live-order button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto 18px;align-items:center;gap:7px;min-height:42px;background:white;text-align:left}.live-order button span{display:flex;min-width:0;flex-direction:column;overflow:hidden}.live-order button span small,.live-order button span strong{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.live-order button b{color:#155eef;white-space:nowrap}.live-order button i{font-style:normal;color:#b42318;font-size:18px}
       .customer-tools{display:flex;gap:5px}.customer-tools input{flex:1;max-width:360px}.customer-tools button{white-space:nowrap}
       .focus-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:5px 8px;background:#eef4ff;border:1px solid #b2ccff;border-radius:8px}.focus-bar strong{font-size:16px}.focus-bar span{color:#475467;margin-right:auto}.focus-bar button{min-height:34px}
+      .templates{margin:5px 0;padding:7px;background:#f9fafb;border:1px solid #d0d5dd;border-radius:9px}.templates-head{display:flex;justify-content:space-between;align-items:center}.templates-head div{display:flex;flex-direction:column}.template-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px}.template-columns h3{margin:6px 0 3px;font-size:14px}.template-columns article{display:flex;gap:4px;margin-bottom:3px}.template-main{flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left}.star{color:#b54708;font-weight:700}.delete-fav{color:#b42318}@media(max-width:760px){.template-columns{grid-template-columns:1fr}.focus-bar{flex-wrap:wrap}.focus-bar span{width:100%}}
       @media(max-width:1050px){.entry-layout{grid-template-columns:1fr}.live-order{position:static;max-height:260px;order:2}.live-order>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.live-order>div{grid-template-columns:1fr}}
     `}</style>
   </>;
