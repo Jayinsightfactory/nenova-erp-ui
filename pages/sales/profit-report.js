@@ -560,7 +560,7 @@ export default function ProfitReportPage() {
           {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
           {shownColumns.map(cd => (
             <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (wTotals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
-              {readonlyValue(cd.key, wTotals, { D: 1, U: 1 })}
+              {readonlyValue(cd.key, wTotals, { D: wTotals.D ?? 1, U: wTotals.U ?? 1 })}
             </td>
           ))}
         </tr>
@@ -905,7 +905,7 @@ export default function ProfitReportPage() {
                 {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
                 {shownColumns.map(cd => (
                   <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (totals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
-                    {readonlyValue(cd.key, totals, { D: 1, U: 1 })}
+                    {readonlyValue(cd.key, totals, { D: totals.D ?? 1, U: totals.U ?? 1 })}
                   </td>
                 ))}
               </tr>
@@ -942,7 +942,7 @@ export default function ProfitReportPage() {
                       </td>
                       {shownColumns.map(cd => (
                         <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (w.totals.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                          {readonlyValue(cd.key, w.totals, { D: 1, U: 1 })}
+                          {readonlyValue(cd.key, w.totals, { D: w.totals.D ?? 1, U: w.totals.U ?? 1 })}
                         </td>
                       ))}
                     </tr>
