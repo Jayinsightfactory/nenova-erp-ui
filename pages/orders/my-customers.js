@@ -12,6 +12,7 @@ export default function MyCustomerOrders() {
   const [week, setWeek] = useState(() => weekChoices[0]?.week || '');
   const [customers, setCustomers] = useState([]);
   const [customerQuery, setCustomerQuery] = useState('');
+  const [customerCursor, setCustomerCursor] = useState(-1);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [collapsedFlowers, setCollapsedFlowers] = useState({});
@@ -24,6 +25,7 @@ export default function MyCustomerOrders() {
   const [message, setMessage] = useState('');
   const refs = useRef({});
   const productAreaRef = useRef(null);
+  const customerRefs = useRef({});
   const scrollAfterLoadRef = useRef(false);
 
   useEffect(() => {
@@ -61,10 +63,19 @@ export default function MyCustomerOrders() {
     return selected && !recent.some(c => c.CustKey === selected.CustKey) ? [selected, ...recent] : recent;
   }, [customers, customerQuery, showAllCustomers, custKey]);
   const selectedCustomer = useMemo(() => customers.find(c => String(c.CustKey) === String(custKey)), [customers, custKey]);
+  useEffect(() => { setCustomerCursor(visibleCustomers.length ? 0 : -1); }, [customerQuery, showAllCustomers]);
   const selectCustomer = key => {
     setFocusMode(true); scrollAfterLoadRef.current = true;
     if (String(key) === String(custKey)) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0);
     else setCustKey(String(key));
+  };
+  const moveCustomer = e => {
+    if (!['ArrowDown','ArrowUp','Enter'].includes(e.key) || !visibleCustomers.length) return;
+    e.preventDefault();
+    if (e.key === 'Enter') return selectCustomer(visibleCustomers[Math.max(0, customerCursor)]?.CustKey);
+    const next = e.key === 'ArrowDown' ? Math.min(visibleCustomers.length - 1, customerCursor + 1) : Math.max(0, customerCursor - 1);
+    setCustomerCursor(next);
+    setTimeout(() => customerRefs.current[visibleCustomers[next]?.CustKey]?.scrollIntoView({ block: 'nearest', inline: 'nearest' }), 0);
   };
   const doSearch = async e => {
     e?.preventDefault(); if (!search.trim()) return setSearchRows([]);
@@ -90,7 +101,7 @@ export default function MyCustomerOrders() {
     try {
       const d = await apiPost('/api/orders', { source: 'my-customer', custKey: Number(custKey), custName: customer?.CustName, year, week,
         items: changed.map(p => ({ prodKey: p.ProdKey, prodName: p.ProdName, qty: Number(qty[p.ProdKey]), unit: p.OutUnit, expectedCurrentQty: Number(p.CurrentQty || 0) })) });
-      await load(); setMessage(`${d.message} · 주문원장 재조회 완료`);
+      await load(); const resultMessage = `${d.message} · 주문원장 재조회 완료`; setMessage(resultMessage); window.alert(resultMessage);
     } catch (e) { setMessage(e.message); } finally { setBusy(false); }
   };
 
@@ -101,7 +112,7 @@ export default function MyCustomerOrders() {
       <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 선택하면 품종·품목 입력 화면만 표시됩니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
       <section className="filters">
         <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>오늘 기준 2차 앞부터, 각 차수의 1·2 세부차수입니다.</small></div>
-        <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} placeholder="업체명·담당자 검색"/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><div className="choice-buttons customers">{visibleCustomers.map(c=><button key={c.CustKey} className={String(custKey)===String(c.CustKey)?'active':''} aria-pressed={String(custKey)===String(c.CustKey)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
+        <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} onKeyDown={moveCustomer} placeholder="업체명·담당자 검색" aria-label="업체 검색" aria-activedescendant={customerCursor>=0?`customer-${visibleCustomers[customerCursor]?.CustKey}`:undefined}/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><small>업체명 입력 후 ↑↓로 이동하고 Enter로 선택하세요.</small><div className="choice-buttons customers">{visibleCustomers.map((c,i)=><button ref={el=>customerRefs.current[c.CustKey]=el} id={`customer-${c.CustKey}`} key={c.CustKey} className={`${String(custKey)===String(c.CustKey)?'active':''} ${i===customerCursor?'cursor':''}`} aria-pressed={String(custKey)===String(c.CustKey)} onMouseEnter={()=>setCustomerCursor(i)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
       </section>
       </>}
       <form className="search" onSubmit={doSearch}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="다른 품종·품목 검색"/><button disabled={busy}>검색 추가</button></form>
@@ -110,11 +121,13 @@ export default function MyCustomerOrders() {
       <div ref={productAreaRef} className="grid-head"><span>품종 / 품목</span><span>사용</span><span>현재</span><span>이번 추가수량</span><span>등록 후</span></div>
       <div className="product-list">{productGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>Number(qty[p.ProdKey]||0)>0); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section className="flower-group" key={group.flowerName}><button type="button" className="flower-toggle" aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 수량 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=><div className="product-row" key={p.ProdKey}><span><b>{label(p)}</b><small>{p.CounName} · {p.ProdName}</small></span><span>{p.UsageCount}회</span><span>{Number(p.CurrentQty||0)} {p.OutUnit}</span><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey]||''} onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))} onKeyDown={e=>move(e,p.ProdKey)} type="number" min="0" step="any" placeholder="0" aria-label={`${label(p)} 추가 수량`}/><strong>{Number(p.CurrentQty||0)+Number(qty[p.ProdKey]||0)} {p.OutUnit}</strong></div>)}</div>}</section>})}</div>
       {!busy && products.length===0 && <div className="empty">이 업체의 기존 주문 품목이 없습니다. 검색으로 품목을 추가하세요.</div>}
+      {changed.length>0&&<aside className="live-order" aria-live="polite"><strong>입력 품목 {changed.length}개</strong><div>{changed.map(p=><button type="button" key={p.ProdKey} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title="입력 수량 지우기"><span>{p.FlowerName || '기타'} · {label(p)}</span><b>{qty[p.ProdKey]} {p.OutUnit}</b><i aria-hidden="true">×</i></button>)}</div></aside>}
       <div className="submit"><span>{changed.length}개 품목 추가</span><button onClick={submit} disabled={busy||!changed.length}>{busy?'처리 중...':'주문등록'}</button></div>
     </main>
     <style jsx>{`
       .my-order-page{max-width:1180px;margin:auto;padding:8px 16px}.title-row,.search,.product-row,.grid-head,.submit{display:flex;gap:8px;align-items:center}.title-row{justify-content:space-between}.title-row p{margin:2px 0 6px}h1{margin:0;font-size:24px}p,small{color:#667085}button,input{min-height:38px;border:1px solid #d0d5dd;border-radius:8px;padding:6px 10px;background:white}.filters{padding:8px 10px;background:#f8fafc;border-radius:10px;display:grid;gap:8px}.pick-group{display:grid;gap:4px}.pick-group b{font-size:14px}.pick-group em{font-style:normal;color:#155eef}.choice-buttons{display:flex;flex-wrap:wrap;gap:5px}.choice-buttons button{min-width:68px;font-weight:700}.choice-buttons button.active{border-color:#155eef;background:#155eef;color:white;box-shadow:0 0 0 2px #dbe7ff}.choice-buttons button small{color:inherit}.customers button{display:flex;flex-direction:column;align-items:flex-start;min-width:120px}.customers button small{font-weight:400}.search{margin-top:6px}.search input{flex:1}.results{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;padding:6px;background:#f8fafc}.results button{text-align:left}.results span{color:#667085}.notice{margin:5px 0;padding:7px 10px;background:#eef4ff;color:#1849a9;border-radius:8px}.grid-head,.product-row{display:grid;grid-template-columns:minmax(300px,1fr) 70px 120px 150px 120px;gap:8px}.grid-head{padding:6px 10px;font-weight:700;color:#475467}.flower-group{margin-top:6px;border:1px solid #dce3ec;border-radius:9px;overflow:hidden}.flower-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;border-radius:0;background:#eef2f6;padding:6px 10px;text-align:left}.flower-toggle span{display:flex;align-items:baseline;gap:8px}.flower-toggle b{font-size:16px;color:#1d2939}.flower-toggle strong{color:#155eef}.flower-toggle i{font-style:normal}.product-row{padding:4px 10px;border-bottom:1px solid #eaecf0}.product-row:last-child{border-bottom:0}.product-row span:first-child{display:flex;flex-direction:column}.product-row input{text-align:right;font-size:17px;border-color:#84adff}.empty{text-align:center;padding:20px;color:#667085}.submit{position:sticky;bottom:0;justify-content:flex-end;background:white;border-top:1px solid #ddd;padding:7px 10px}.submit button{background:#155eef;color:white;font-weight:800;min-width:160px}.submit button:disabled{opacity:.5}@media(max-width:760px){.my-order-page{padding:6px 8px}.grid-head{display:none}.product-row{grid-template-columns:1fr 1fr}.product-row span:first-child{grid-column:1/-1}.flower-toggle span{align-items:flex-start;flex-direction:column;gap:0}.choice-buttons button{flex:1 0 28%}.customers button{flex-basis:46%}.results{grid-template-columns:1fr}}
       .customers button span{display:flex;gap:6px;align-items:center}.customers button i{font-size:10px;font-style:normal;padding:2px 5px;border-radius:10px;background:#dbeafe;color:#1d4ed8}.customers button.active i{background:white}
+      .customers button.cursor{outline:3px solid #f79009;outline-offset:1px}.live-order{position:sticky;bottom:58px;z-index:4;margin-top:6px;padding:7px 10px;background:#fffaeb;border:1px solid #fedf89;border-radius:9px}.live-order>strong{display:block;margin-bottom:5px}.live-order>div{display:flex;gap:5px;overflow-x:auto}.live-order button{display:flex;align-items:center;gap:7px;min-height:34px;white-space:nowrap;background:white}.live-order button b{color:#155eef}.live-order button i{font-style:normal;color:#b42318;font-size:18px}
       .customer-tools{display:flex;gap:5px}.customer-tools input{flex:1;max-width:360px}.customer-tools button{white-space:nowrap}
       .focus-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:5px 8px;background:#eef4ff;border:1px solid #b2ccff;border-radius:8px}.focus-bar strong{font-size:16px}.focus-bar span{color:#475467;margin-right:auto}.focus-bar button{min-height:34px}
     `}</style>

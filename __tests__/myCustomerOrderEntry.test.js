@@ -23,5 +23,7 @@ const fs = require('node:fs');
   assert.match(page,/focusMode/); assert.match(page,/차수·업체 다시 선택/); assert.match(page,/selectedCustomer/);
   assert.match(page,/productGroups/); assert.match(page,/collapsedFlowers/); assert.match(page,/aria-expanded/); assert.match(page,/aria-controls/);
   assert.match(page,/수량 입력/); assert.match(page,/열기/); assert.match(page,/닫기/); assert.match(page,/visibleProducts/);
+  assert.match(page,/customerCursor/); assert.match(page,/moveCustomer/); assert.match(page,/ArrowDown/); assert.match(page,/aria-activedescendant/);
+  assert.match(page,/window\.alert\(resultMessage\)/); assert.match(page,/live-order/); assert.match(page,/입력 품목/); assert.match(page,/입력 수량 지우기/);
   console.log('my customer order entry tests passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
