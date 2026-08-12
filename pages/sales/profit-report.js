@@ -128,28 +128,55 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const placeholder = e === '' ? displayedAuto : '';
   const missingRate = col === 'R' && needsRateInput(row);
   const warn = needsCheck(row, col) || missingRate;
+  const suggestionText = (row.rateSuggestions || [])
+    .map(sg => `${sg.label} ${Number(sg.rate).toLocaleString()}`).join(' / ');
+  const F_SOURCE_TEXT = {
+    stock_price_table: '재고평가단가 기준: 마지막 확정 세부차수 ProductStock 수량 × 품목별 재고평가단가 ÷1.1',
+    recent_purchase_cost: '재고평가단가가 없어 폴백: 품목별 최근 매입 외화단가 × 기말수량 × 환율',
+    landed_cost_average: '재고평가단가·최근단가가 없어 폴백: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말수량',
+    missing: '⚠ 재고수량은 있으나 평가단가를 구할 수 없어 계산하지 못했습니다 — 재고단가표에서 단가를 지정하세요',
+    no_stock: '이 차수 기말재고 수량이 없습니다',
+  };
   const titles = {
     R: missingRate
-      ? `⚠ ${row.currency || '-'} 환율 원천이 없습니다. 이 칸에 해당 차수 인보이스 과세환율을 입력하고 저장하세요.`
-      : `입고별 과세환율 스냅샷(${row.currency || '-'} · FreightCost, 통관 신고 시점 관세청 과세환율) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 상업환율과 다르면 인보이스 과세환율로 직접 입력`,
+      ? `⚠ 이 차수의 ${row.currency || '-'} 과세환율(관세청 신고환율) 원천이 없습니다. 통관 신고 환율을 이 칸에 입력하고 저장하세요.${suggestionText ? ` (참고값: ${suggestionText} — 참고값은 적용·저장해야 계산에 들어갑니다)` : ''}`
+      : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
-    H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
-    E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-    F: `${row.stock?.week || '마지막 재고 스냅샷 세부차수'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
+    H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
+    E: row.inheritedE
+      ? '기초재고 — 전차수 기말재고(F)에서 이월됨. 우선순위: 전차수 확정 스냅샷 F > 전차수 저장 F > 전차수 자동계산. 비우면 자동값으로 돌아갑니다'
+      : '기초재고 — 같은 매출연도 전차수의 기말재고를 이월합니다(01차만 전년도 52차). 비우면 자동계산값 사용',
+    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} ProductStock 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.stock_price_table}. 직접 입력하면 수기값 우선이며, 보고서를 확정하면 그 값으로 고정됩니다`,
   };
   const title = missingRate
     ? titles[col]
     : needsCheck(row, col)
       ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}`
       : (titles[col] || '');
+  const suggestions = col === 'R' ? (row.rateSuggestions || []) : [];
   return (
-    <NumericInput
-      style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
-      value={val}
-      placeholder={placeholder}
-      title={title}
-      onChange={value => setEdit(row.category, col, value)}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+      <NumericInput
+        style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
+        value={val}
+        placeholder={placeholder}
+        title={title}
+        onChange={value => setEdit(row.category, col, value)}
+      />
+      {suggestions.map((sg) => (
+        <button
+          key={sg.kind}
+          type="button"
+          onClick={() => setEdit(row.category, 'R', String(sg.rate))}
+          title={`${sg.note || ''} — 클릭하면 이 칸에 채워집니다(저장해야 반영, 이 차수 캐시로도 함께 저장됩니다)`}
+          style={{
+            fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+            border: 'none', background: 'none', padding: 0, color: '#b45309',
+          }}>
+          {sg.label} {Number(sg.rate).toLocaleString()} ↵
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -346,6 +373,36 @@ export default function ProfitReportPage() {
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
+      // R을 직접 입력/적용한 카테고리는 이 차수(OrderYear+MajorWeek+통화+카테고리)의 과세환율
+      // 캐시(WebTaxableExchangeRate)에도 함께 저장한다 — 같은 통화의 다른 카테고리·다음 조회에
+      // "정확히 이 차수" 원천으로 재사용되도록(자동 상속이 아니라 사람이 확정한 값의 저장).
+      const rateSaves = (data?.rows || [])
+        .filter((row) => values[row.category]?.R != null)
+        .map(async (row) => {
+          const rateRes = await fetch('/api/sales/profit-report', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+            body: JSON.stringify({
+              week: weekInput.value, action: 'saveTaxableRate',
+              currency: row.currency || 'USD', category: row.category,
+              rate: values[row.category].R, rateSource: 'manual_input',
+            }),
+          });
+          const rateBody = await rateRes.json().catch(() => ({}));
+          if (!rateRes.ok || !rateBody.success) {
+            throw new Error(`${row.category} 과세환율 별도 저장 실패: ${rateBody.error || `HTTP ${rateRes.status}`}`);
+          }
+          return rateBody;
+        });
+      if (rateSaves.length) {
+        try {
+          await Promise.all(rateSaves);
+        } catch (rateError) {
+          await load();
+          setMessage('보고서 수기값은 저장되었습니다.');
+          setError(`${rateError.message} — 과세환율을 확인해 다시 저장하세요.`);
+          return false;
+        }
+      }
       await load();
       setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
       return true;
@@ -485,7 +542,12 @@ export default function ProfitReportPage() {
           const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-              {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+              {isVisible('category') && (
+                <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
+                  title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                  {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
+                </td>
+              )}
               {shownColumns.map(cd => (
                 <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                   {readonlyValue(cd.key, c, { D, U })}
@@ -768,7 +830,20 @@ export default function ProfitReportPage() {
 
       {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
         <div style={st.attentionBanner}>
-          ⚠ <b>환율 입력 필요</b> — 환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다. 인보이스 과세환율을 입력한 뒤 저장하세요.
+          ⚠ <b>과세환율(R) 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
+          해당 행의 R 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
+          <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
+            자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
+            입력칸에 마우스를 올리면 참고값(전차수·통화마스터)을 볼 수 있고, 적용·저장해야 계산에 반영됩니다.
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'category' && data && rows.some(r => r.category === '기타(미분류)') && (
+        <div style={st.attentionBanner}>
+          ⚠ <b>기타(미분류) 검증 영역</b> — 국가·화종 매핑에 들지 않은 거래가 있습니다.
+          이 행은 <b>본표 합계(C·D·I·J·K)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
+          품목마스터의 국가(CounName)/화종(FlowerName)을 정정하면 정식 카테고리로 반영됩니다. 상세 품목은 아래 비고사항에 자동 기록됩니다.
         </div>
       )}
 
@@ -812,7 +887,12 @@ export default function ProfitReportPage() {
                 const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-                    {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+                    {isVisible('category') && (
+                      <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
+                        title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                        {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
+                      </td>
+                    )}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                         {!data.confirmed && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}

@@ -8,7 +8,7 @@ import {
   loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
-  resolveCountryCustomsTotal, resolveColombiaCustomsAllocation,
+  resolveCountryCustomsTotal, resolveColombiaCustomsAllocation, HISTORICAL_CUSTOMS_SOURCE,
 } from '../../../lib/customsForwarding';
 
 function parseMajor(raw) {
@@ -44,19 +44,27 @@ export default withAuth(async function handler(req, res) {
 
       // 국가/콜롬비아 모두 resolveCountryCustomsTotal/resolveColombiaCustomsAllocation을 거친다 —
       // 이 화면의 "합계"·박스수량이 실제 매출이익보고서 H 계산(computeCustomsAndForwarding)과
-      // 항상 같은 값을 보이도록 두 API가 같은 함수 하나만 공유한다. 저장행이 전혀 없고 2026 22~27차
-      // 감사 기준값이 있으면 totalSource='audited_baseline'으로 표시된다(carry와는 별개 — carry는
-      // 저장값이 없을 때의 "전차수 참고값" 제안이며 합계 계산에는 반영되지 않는다).
+      // 항상 같은 값을 보이도록 두 API가 같은 함수 하나만 공유한다.
+      //
+      // 값의 출처는 3가지로 화면에서 구분된다.
+      //  · saved       — 담당자가 이 차수에 실제로 저장한 값(항상 최우선)
+      //  · historical  — 2026 22~27차 원본 엑셀 historical snapshot의 **구성요소**(저장행이 없을 때만
+      //                  자동 적용, totalSource='excel_historical_snapshot'). 합계에 이미 반영돼 있다.
+      //  · carry       — 전차수 참고값 제안. 합계 계산에 전혀 들어가지 않으며, 사용자가 "적용"을
+      //                  눌러야만 저장 대상이 된다.
       const countries = COUNTRY_CATEGORIES.map((cat) => {
         const row = countryRows[cat] || null;
         const prevRow = prevCountryRows[cat] || null;
         const resolved = resolveCountryCustomsTotal({ row, gwDef: autoGw.countries?.[cat], rates, category: cat, orderYear, major });
+        const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
           category: cat,
           saved: row,
-          carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 참고 제안(사장님 지정) — 합계에는 미반영
+          historical,                                // 원본 엑셀 구성요소(저장값이 없을 때만 채워짐)
+          carry: !row && !historical && prevRow ? prevRow : null, // 합계 미반영, 참고 제안일 뿐
           worldFreightAuto: resolved.world.auto,
           worldFreightSource: resolved.world.source,
+          effectiveBakSangRate: resolved.effectiveRates?.BakSangRate ?? null,
           total: resolved.total,
           totalSource: resolved.source,
         };
@@ -67,15 +75,20 @@ export default withAuth(async function handler(req, res) {
         const resolved = resolveColombiaCustomsAllocation({
           orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty: c.boxQty, gwDef, airTotal: 0, rates,
         });
+        const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
-          carry: !c.row && prevColombia[i] ? prevColombia[i] : null, // 합계에는 미반영, 참고 제안일 뿐
+          historical,
+          carry: !c.row && !historical && prevColombia[i] ? prevColombia[i] : null, // 합계에는 미반영
           boxQty: resolved.boxQty,
+          liveBoxQty: c.boxQty,                      // 현재 입고 DB 기준(원본과 다를 수 있어 비교용)
           total: resolved.total,
           totalSource: resolved.source,
-          truckAuto: resolved.truckAuto,
-          truckSource: resolved.source === 'audited_baseline' ? 'audited_baseline' : (resolved.truckAuto?.source || null),
+          effectiveBakSangRate: resolved.effectiveRates?.BakSangRate ?? null,
+          truckActual: resolved.truckActual,         // 실제 차량 대수(저장값/원본) — 합계에 반영된 값
+          truckAuto: resolved.truckAuto,             // 합산 GW 용량분해 추천값(참고 표시 전용)
+          truckSource: resolved.truckSource,
           allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(resolved.allocation[cat].H)])),
         };
       });

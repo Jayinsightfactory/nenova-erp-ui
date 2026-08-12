@@ -44,7 +44,7 @@ async function main() {
   const guide = await import('../lib/profitReportSourceGuide.js');
   const { COLUMN_GUIDE, GUIDE_SECTIONS, ALL_GUIDE_ROWS, ENTRY_KINDS, GUIDE_SUMMARY } = guide;
   const { VAT_FACTOR, computeCountryCustomsTotal } = await import('../lib/customsForwarding.js');
-  const { computeProfitRow, computeProfitTotals } = await import('../lib/profitReportCalc.js');
+  const { computeProfitRow, computeProfitTotals, TOTALS_EXCLUDED_CATEGORIES } = await import('../lib/profitReportCalc.js');
 
   const pageSource = readSource('pages/sales/profit-report.js');
   const excelSource = readSource('lib/profitReportExcel.js');
@@ -95,7 +95,7 @@ async function main() {
   const byKey = Object.fromEntries(ALL_GUIDE_ROWS.map((r) => [r.key, r]));
   for (const key of ['row-extra', 'row-deduct', 'row-total', 'row-stockweeks', 'row-note',
     'in-weight', 'in-customs-split', 'in-world', 'in-colombia', 'in-stockprice',
-    'bd-begin-end', 'bd-rate-29', 'bd-country-start', 'bd-monthly']) {
+    'bd-begin-end', 'bd-rate-source', 'bd-country-start', 'bd-monthly']) {
     check(`부가 설명 존재 [${key}]`, Boolean(byKey[key]));
   }
 
@@ -130,7 +130,20 @@ async function main() {
   ]);
   check('합계 C는 공제 포함(코드)', totals.C === 150);
   check('합계 P는 공제 제외(코드)', totals.P === 100);
-  check('매출비율 설명이 "공제 포함" 분모를 명시', /공제/.test(byKey.D.formula) && /포함/.test(byKey.D.formula));
+  // 2026-08-12: 원본 엑셀 본표(7~22행)에는 "기타(미분류)" 행 자체가 없다. 화면 합계와 엑셀 합계가
+  // 같아야 하므로 어느 합계에도 넣지 않는다.
+  const totalsWithExtra = computeProfitTotals([
+    { category: '태국', calc: { C: 100, P: 100, E: 10, F: 20, J: 10, G: 0, H: 0, I: 0, L: 0, N: 0, O: 0, Q: 0, S: 0, T: 0 } },
+    { category: '공제', calc: { C: 50, P: 50, E: 0, F: 0, J: 5, G: 0, H: 0, I: 0, L: 0, N: 0, O: 0, Q: 0, S: 0, T: 0 } },
+    { category: '기타(미분류)', calc: { C: 999, P: 999, E: 999, F: 999, J: 999, G: 999, H: 999, I: 999, L: 999, N: 999, O: 999, Q: 999, S: 999, T: 999 } },
+  ]);
+  check('기타(미분류)는 모든 합계에서 제외(코드)',
+    totalsWithExtra.C === 150 && totalsWithExtra.P === 100 && totalsWithExtra.E === 10
+    && totalsWithExtra.F === 20 && totalsWithExtra.J === 15 && totalsWithExtra.I === 0,
+    JSON.stringify(totalsWithExtra));
+  check('미분류 제외 목록이 상수로 고정', TOTALS_EXCLUDED_CATEGORIES.includes('기타(미분류)'));
+  check('매출비율 설명이 "공제 포함 · 미분류 제외" 분모를 명시',
+    /공제/.test(byKey.D.formula) && /포함/.test(byKey.D.formula) && /기타\(미분류\)/.test(byKey.D.formula));
   check('상품구매비율 설명이 "공제 제외" 분모를 명시', /공제/.test(byKey.U.note) && /빠집니다|제외/.test(byKey.U.note));
   check('매출비율 0 분모 처리 명시', /0이면 빈칸/.test(byKey.D.note));
   check('이익률·불량율·상품구매비율 0 분모 처리 명시',
@@ -167,13 +180,35 @@ async function main() {
   check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게배분을 명시',
     /박스당 무게 × 박스수/.test(byKey.H.formula) && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
   check('재고단가표 ÷1.1 평가식 명시', /÷ 1\.1/.test(byKey['in-stockprice'].formula));
+  // 월드운송료 추천 = 용량 분해(3t = 2.5t + 1t), 저장된 실제값 우선
+  const { deriveTruckPlan } = await import('../lib/colombiaTruck.js');
+  const plan3t = deriveTruckPlan(3000);
+  check('3,000kg 추천 = 2.5t 1대 + 1t 1대 (코드)',
+    plan3t.Truck5t === 0 && plan3t.Truck2_5t === 1 && plan3t.Truck1t === 1, JSON.stringify(plan3t));
+  const plan6t = deriveTruckPlan(6000);
+  check('6,000kg 추천 = 5t 1대 + 1t 1대 (코드)',
+    plan6t.Truck5t === 1 && plan6t.Truck2_5t === 0 && plan6t.Truck1t === 1, JSON.stringify(plan6t));
+  check('월드운송료 설명이 용량 분해와 실제값 우선을 명시',
+    /2\.5t 1대\s*\+\s*1t 1대/.test(byKey['in-world'].formula)
+    && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
-  check('기말재고 설명이 엑셀 원본 공식을 그대로 서술',
-    /구매금액 × 환율 \+ 포워딩 × 환율 \+ 그외통관비/.test(byKey.F.formula)
-    && /매입 총수량/.test(byKey.F.formula) && /최근 매입단가/.test(byKey.F.formula));
-  check('기말재고 자동공식 코드가 유지됨',
-    /landedWon \/ purchQty\) \* endQty/.test(calcSource) && /recentCost\) \* n0\(R\)/.test(calcSource));
+  check('기말재고 설명이 "재고수량 × 품목별 재고평가단가"를 1순위로 서술',
+    /재고평가단가/.test(byKey.F.formula) && /최근 매입단가/.test(byKey.F.formula)
+    && /구매금액 × 환율 \+ 포워딩 × 환율 \+ 그외통관비/.test(byKey.F.formula));
+  check('기말재고 설명이 재고잔량 시트 단순복사 금지를 명시', /재고잔량/.test(byKey.F.note));
+  check('기말재고 우선순위 코드가 유지됨(평가단가 1순위)',
+    /if \(stock\.tableF != null && Number\(stock\.tableF\) !== 0\) return Number\(stock\.tableF\);/.test(calcSource)
+    && /landedWon \/ purchQty\) \* endQty/.test(calcSource) && /recentCost\) \* n0\(R\)/.test(calcSource));
+  // 실제 우선순위 동작 검증 — 평가단가가 있으면 landed cost 평균단가를 쓰지 않는다.
+  const { computeAutoEndingStock, endingStockSourceKind } = await import('../lib/profitReportCalc.js');
+  check('평가단가가 있으면 F는 평가액을 그대로 사용',
+    computeAutoEndingStock({ endQty: 100, purchQty: 500, tableF: 1234, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 1234
+    && endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: 1234, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'stock_price_table');
+  check('평가단가가 없으면 최근 매입단가 → landed 평균 순으로 폴백',
+    endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: null, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'recent_purchase_cost'
+    && endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: null, recentCost: 0 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'landed_cost_average'
+    && endingStockSourceKind({ endQty: 100, purchQty: 0, tableF: null, recentCost: 0 }, { Q: 0, S: 0, H: 0, R: 0 }) === 'missing');
 
   // 차수 경계
   check('전차수 산출 코드 = currentMajor - 1, 01차만 전년 52차',
@@ -189,12 +224,29 @@ async function main() {
   check('마지막 세부차수 선택 코드가 유지됨(ProductStock 존재 + suffix DESC)',
     /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/.test(reportSource));
 
-  // 29차 환율 상속
-  check('29차 상속 코드 존재', /currentMajor >= 29 && prevMan\.R != null/.test(apiSource));
-  check('29차 상속 설명이 코드 순서와 동일',
-    /29차 이후/.test(byKey['bd-rate-29'].formula) && /통화마스터/.test(byKey['bd-rate-29'].formula)
-    && /29차부터는 전 차수 보고서에 저장된 과세환율/.test(byKey.R.source));
-  check('28차 이하는 상속 없음 명시', /28차 이하/.test(byKey['bd-rate-29'].note));
+  // 과세환율(R) — "정확히 그 차수" 원천만 자동 적용, CurrencyMaster/전차수는 제안일 뿐
+  const { resolveTaxableRate, RATE_SOURCE } = await import('../lib/taxableExchangeRate.js');
+  check('전차수 R 자동상속 코드가 제거됨',
+    !/currentMajor >= 29 && prevMan\.R != null/.test(apiSource)
+    && !/previous_report_taxable_rate/.test(apiSource));
+  check('CurrencyMaster 현재환율을 R 자동값으로 쓰지 않음',
+    !/currency_master_fallback/.test(apiSource) && /resolveTaxableRate/.test(apiSource));
+  check('R 우선순위 코드: 당주 통관 스냅샷 > 저장/캐시 > 원본 엑셀',
+    resolveTaxableRate({ snapshotRate: 1500, savedByCategory: { rate: 1400 }, historicalRate: 1300 }).source === RATE_SOURCE.FREIGHT_COST_SNAPSHOT
+    && resolveTaxableRate({ savedByCategory: { rate: 1400, source: RATE_SOURCE.SAVED_OFFICIAL_WEEK }, historicalRate: 1300 }).rate === 1400
+    && resolveTaxableRate({ historicalRate: 1300 }).source === RATE_SOURCE.EXCEL_HISTORICAL);
+  check('통화마스터/전차수 값은 자동 적용하지 않고 제안으로만 반환',
+    resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).rate === null
+    && resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).source === RATE_SOURCE.MISSING
+    && resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).suggestions.length === 2);
+  check('설명이 "그 차수 값만 자동 적용"을 명시',
+    /자동으로 물려받지 않습니다/.test(byKey['bd-rate-source'].note)
+    && /통화마스터/.test(byKey['bd-rate-source'].note)
+    && /정확히 그 차수/.test(byKey.R.source));
+  check('R 설명이 같은 통화·다른 주차 차이를 예시로 명시', /1,548\.52/.test(byKey.R.note));
+  check('H 시작차수와 R 원천 검증이 분리됨을 명시',
+    /그외통관비\(H\)/.test(byKey['bd-country-start'].formula) && /과세환율\(R\)/.test(byKey['bd-country-start'].formula)
+    && /1,068\.23/.test(byKey['bd-country-start'].note));
 
   // 확정 출고 필터
   check('순수매출 SQL이 ShipmentMaster.isFix=1 확정 필터를 유지', /ISNULL\(sm\.isFix,0\)=1/.test(reportSource));
@@ -207,6 +259,9 @@ async function main() {
   // 미분류 / 월별
   check('기타(미분류) 설명이 원인과 해결방향을 안내',
     /나라\/꽃 종류를 고쳐야/.test(byKey['row-extra'].note));
+  check('기타(미분류)가 본표 합계에서 빠짐을 설명이 명시',
+    /합계.*들어가지 않습니다/.test(byKey['row-extra'].formula)
+    && /기타\(미분류\)/.test(byKey['row-total'].formula));
   check('월별 귀속 규칙이 PeriodDay 종료일 기준임을 명시',
     /끝나는 날이 속한 달/.test(byKey['bd-monthly'].formula) && /PeriodDay/.test(byKey['bd-monthly'].fields));
 
