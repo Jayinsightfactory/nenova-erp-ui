@@ -35,47 +35,57 @@ async function main() {
   check('fixture에서 호주 F/R/Q/H 값을 읽음', F > 0 && R > 0 && Q > 0 && H >= 0,
     `F=${F} R=${R} Q=${Q} H=${H}`);
 
-  console.log('\n=== unitMismatch=true — 1순위(category 평균단가) 대신 2순위(recentCost) 사용 ===');
-  // 2026-08-11 결함수정 9(테스트 한계 명시): 이 fixture(profit-report-22-27.json)는 원본 엑셀
-  // "주차별 매출이익 보고서" 메인 시트의 카테고리 합계 셀(F/R/Q/H)만 담고 있고, 재고현황/구매현황
-  // 시트의 품목(ProdKey)별 최근단가·기말수량 원본 행은 포함하지 않는다. 아래 recentCost = F/R은
-  // "computeAutoEndingStock의 2순위 공식이 산술적으로 F를 재현하는지"만 검증하는 역산이며,
-  // lib/profitReport.js stockSnapshotByCategory()의 SQL(OUTER APPLY로 ProdKey별 최근 입고단가를
-  // 구해 ps.Stock과 곱한 뒤 SUM)이 실제 운영 DB에서 7,843,425.3635를 만들어내는지는 이 테스트가
-  // 증명하지 못한다 — 운영 DB 접속 정보(.env.local)가 없어 이번 검토에서 품목별 원본 대조는
-  // 하지 못했다(미검증). 품목별 fixture로 강화하려면 27차 호주 ProdKey별 재고현황 마지막 Stock과
-  // 구매현황 최근 입고단가 원본을 사용자로부터 받거나, 운영 DB 읽기전용 접속으로 직접 대조해야 한다.
-  const recentCost = F / R;
-  const mismatchResult = computeAutoEndingStock(
-    {
-      // 1순위 조건(purchQty>0, landedWon>0)을 일부러 참으로 만들어도 unitMismatch=true면
-      // 무시되고 2순위로 가야 한다 — 카테고리 평균단가 공식은 단위가 섞이면 애초에 계산해서는 안 된다.
-      purchQty: 999,
-      endQty: 500,
-      recentCost,
-      tableF: 111111,
-      unitMismatch: true,
-    },
-    { Q, S: 0, H, R }
+  console.log('\n=== 2026-08-12 원천 정정: F 1순위는 재고평가단가(tableF) — unitMismatch와 무관 ===');
+  // 이전(2026-08-11)에는 "매입총액÷매입총수량×기말수량"(landed-cost 평균단가)가 1순위였고,
+  // unitMismatch 플래그가 그 1순위 공식을 건너뛰게 하는 역할이었다. 사용자가 재확정한 업무
+  // 규칙에 따라 F 1순위는 이제 재고평가단가(tableF = 품목별 ProductStock × 적용단가 ÷1.1의
+  // 카테고리 합)다 — 이 값은 품목 단위로 이미 집계된 결과라 카테고리 안에 단위가 섞여 있어도
+  // (unitMismatch) 문제가 없다. unitMismatch는 이제 3순위(landed-cost 평균, 아래 별도 검증)에서만
+  // 의미를 가진다.
+  const tableFOnly = computeAutoEndingStock(
+    { purchQty: 999, endQty: 500, recentCost: 123, tableF: 456789, unitMismatch: true },
+    { Q, S: 0, H, R },
   );
-  check('unitMismatch=true면 1순위(purchQty 비율) 조건이 참이어도 건너뜀',
-    Math.abs(mismatchResult - F) < 0.01,
-    `계산=${mismatchResult} 기대=${F}`);
+  check('tableF가 있으면 unitMismatch=true여도 tableF를 그대로 사용(1순위)',
+    tableFOnly === 456789, `계산=${tableFOnly}`);
+  const tableFNoMismatch = computeAutoEndingStock(
+    { purchQty: 100, endQty: 40, recentCost: 999, tableF: 456789, unitMismatch: false },
+    { Q, S: 0, H, R },
+  );
+  check('unitMismatch=false여도 tableF가 있으면 항상 tableF(2/3순위 공식으로 대체되지 않음)',
+    tableFNoMismatch === 456789);
 
-  console.log('\n=== unitMismatch=false(또는 미지정) — 기존 1순위 공식 회귀 없음 ===');
-  const normalStock = { purchQty: 100, endQty: 40, recentCost: 999, tableF: 555 };
-  const expectedTier1 = ((Q * R + 0 * R + H) / 100) * 40;
+  console.log('\n=== 2순위(recentCost) — tableF가 없을 때만 사용, unitMismatch와 무관 ===');
+  // 2026-08-11 결함수정 9(테스트 한계 명시, 여전히 유효): 이 fixture는 카테고리 합계 셀(F/R/Q/H)만
+  // 담고 있어 품목별 원본 행은 없다. recentCost = F/R은 "2순위 공식이 산술적으로 F를 재현하는지"만
+  // 검증하는 역산이며, 운영 DB에서 실제로 이 값이 나오는지는 이 테스트가 증명하지 못한다.
+  const recentCost = F / R;
+  const recentCostResult = computeAutoEndingStock(
+    { purchQty: 999, endQty: 500, recentCost, tableF: null, unitMismatch: true },
+    { Q, S: 0, H, R },
+  );
+  check('tableF가 없고 recentCost가 있으면 unitMismatch=true여도 recentCost×R 사용',
+    Math.abs(recentCostResult - F) < 0.01, `계산=${recentCostResult} 기대=${F}`);
+  const recentCostResultNoMismatch = computeAutoEndingStock(
+    { purchQty: 999, endQty: 500, recentCost, tableF: null, unitMismatch: false },
+    { Q, S: 0, H, R },
+  );
+  check('unitMismatch=false여도 tableF가 없으면 recentCost×R을 그대로 사용(회귀 없음)',
+    Math.abs(recentCostResultNoMismatch - F) < 0.01);
+
+  console.log('\n=== 3순위(landed-cost 평균) — tableF·recentCost가 모두 없을 때만, unitMismatch가 이 단계를 건너뜀 ===');
+  const normalStock = { purchQty: 100, endQty: 40, recentCost: 0, tableF: null };
+  const expectedTier3 = ((Q * R + 0 * R + H) / 100) * 40;
   const normalResult = computeAutoEndingStock(normalStock, { Q, S: 0, H, R });
-  check('unitMismatch 없는 카테고리는 기존 1순위(매입총액÷매입총수량×기말수량) 공식 그대로',
-    Math.abs(normalResult - expectedTier1) < 0.01,
-    `계산=${normalResult} 기대=${expectedTier1}`);
-  const normalResultExplicitFalse = computeAutoEndingStock({ ...normalStock, unitMismatch: false }, { Q, S: 0, H, R });
-  check('unitMismatch:false를 명시해도 동일(회귀 없음)',
-    Math.abs(normalResultExplicitFalse - expectedTier1) < 0.01);
+  check('tableF·recentCost가 없으면 3순위(매입총액÷매입총수량×기말수량) 공식을 사용',
+    Math.abs(normalResult - expectedTier3) < 0.01,
+    `계산=${normalResult} 기대=${expectedTier3}`);
+  const mismatchTier3 = computeAutoEndingStock({ ...normalStock, unitMismatch: true }, { Q, S: 0, H, R });
+  check('unitMismatch=true면 3순위 공식을 건너뛰고 null(원천 없음) 반환', mismatchTier3 === null);
 
   console.log('\n=== purchQty=0(매입 없는 차수)이면 unitMismatch 여부와 무관하게 2순위로 자연히 넘어감(기존 동작) ===');
   const noPurchase = computeAutoEndingStock(
-    { purchQty: 0, endQty: 40, recentCost, unitMismatch: false },
+    { purchQty: 0, endQty: 40, recentCost, tableF: null, unitMismatch: false },
     { Q: 0, S: 0, H: 0, R }
   );
   check('매입이 없으면 unitMismatch:false여도 recentCost×R 사용', Math.abs(noPurchase - recentCost * R) < 0.01);
@@ -93,7 +103,7 @@ async function main() {
 
   console.log('\n=== lib/profitReportCalc.js — computeAutoEndingStock이 unitMismatch를 실제로 분기 조건에 사용 ===');
   const calcSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportCalc.js'), 'utf8');
-  check('1순위 조건이 !stock.unitMismatch를 포함', /if \(!stock\.unitMismatch && purchQty > 0 && landedWon > 0\)/.test(calcSource));
+  check('3순위(landed-cost 평균) 조건이 !stock.unitMismatch를 포함', /if \(!stock\.unitMismatch && purchQty > 0 && landedWon > 0\)/.test(calcSource));
 
   console.log('\n=== 결함수정 7: recentCost fallback에서 최근단가 못 찾은 품목을 0으로 조용히 누락하지 않음 ===');
   const missingCostRow = (overrides = {}) => ({

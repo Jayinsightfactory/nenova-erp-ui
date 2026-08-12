@@ -1,140 +1,119 @@
-# 주차별 매출이익보고서 — 22~27차 그외통관비 Excel Parity 수정 (2026-08-12)
+# 주차별 매출이익보고서 — 22~27차 Excel 전수 대조 및 계산 원천 정정
 
-## 배경
+## 판정 기준
 
-사용자가 원본 6개 엑셀 파일("매출원가 양식 - NN차_재고수정.xlsx", 22~27차, Downloads 폴더)을
-read-only로 재분석해 웹 매출이익보고서와의 불일치를 지적했다. 웹의 기존 공식이 이미 있다는 이유로
-보존하지 않고, 엑셀 원본 값·공식을 정답으로 재검증했다.
+2026년 22~27차 `매출원가 양식 - NN차_재고수정.xlsx` 6개 파일의 **모든 시트와 셀 수식**을
+읽기 전용으로 분석했다. 엑셀에 적힌 최종 합계만 복사하지 않고, 각 합계가 어떤 셀과 수식으로
+만들어지는지 추출해 웹 계산식과 대조했다.
 
-## 근본 원인 (4건)
+- `C = N + L + O`
+- `D = C / 전체 C`
+- `P = Q × R`
+- `T = S × R`
+- 일반 국가: `G = P + T`, `I = E + G + H - F`, `J = C - I`, `K = J / C`, `M = -L / C`
+- 이스라엘·뉴질랜드·일본: `I = E + G + H`, `J = C - I + F`, `K = J / (C + F)`
 
-1. **국가별 월드운송료 반차수 이중계상** — `effectiveCountryWorldFreight()`가 1차 GW·2차 GW를
-   각각 별도 트럭으로 계산했다. 26차 콜롬비아 수국(GW1 2779 + GW2 1444 = 4223kg)은 원본이 결합
-   4223kg → 5t 트럭 1대(275,000원)로 계산하는데, 웹은 5t(275,000) + 2.5t(187,000) = 462,000원으로
-   약 +187,000원(요청사항 기준 "26차 +350,000원" — 국가별 3건 콜롬비아 수국/네덜란드/중국 합산
-   기준) 과다계상했다.
-2. **콜롬비아 무게배분 영문 품종 누락** — `CASE_COLOMBIA_ALLOC`(SQL)이 `Product.FlowerName`의
-   한글 리터럴(장미/카네이션/알스트로/루스커스)만 매칭해, 영문(ROSE/CARNATION/ALSTROEMERIA/RUSCUS)
-   FlowerName 품목이 그외통관비/포워딩 무게배분 대상에서 누락됐다.
-3. **22~27차 저장값 부재 + 전역 요율 오염** — 이 기능 도입 이전 시점인 22~25차는
-   `WebCustomsWeekly`/`WebColombiaWeekly`에 저장값이 거의 없어 자동계산이 0 또는 크게 어긋났다.
-   원본 워크북은 22~27차 전체 시트를 read-only로 완전히 분석했고 국가별 개별 항목·콜롬비아
-   HandlingFee/CustomsFee 등 구성요소 값도 원본 시트에서 읽을 수 있었다 — 다만 그 항목들이
-   운영 DB(`WebCustomsWeekly`/`WebColombiaWeekly`)의 입력 필드로 저장된 적이 없어(이 기능 도입
-   이전이라 입력 화면 자체가 없었음), 존재한 적 없는 운영 DB 저장값을 역산해 발명하지 않기로
-   했다. 이에 따라 프로덕션 감사 폴백은 원본에 실제로 있는 **검증된 최종 H 총액**·콜롬비아
-   **TOTAL(무게배분 전)+GW+박스수량**만 저장하도록 의도적으로 설계했다(아래 "미변경" 참고).
-   또한 백상 창고료 요율(`BakSangRate`)이 전역 설정 하나뿐이라 나중에 요율이 바뀌면 과거 확정
-   차수까지 조용히 재계산되는 결함이 있었다(22차=370원/kg, 23~27차=460원/kg이 원본 기준).
-4. **UI: 전차수 참고값이 유효값처럼 보임** — `CustomsClearancePanel.js`가 저장값이 없으면 전차수
-   값(carry)을 입력칸에 자동으로 채웠지만, 서버의 실제 합계 계산은 그 carry를 반영하지 않았다.
-   저장 버튼도 필드 단위로 carry를 저장 대상에 포함해, 빈 "저장" 클릭이 참고값을 조용히 저장행으로
-   굳힐 위험이 있었다.
+위 수식은 웹의 고정 공식으로 사용한다. 사용자가 입력하는 값은 관세·선율·실제 운송비·과세환율·
+재고 실사/평가단가처럼 원천 자체가 변동하거나 DB에 없는 예외값뿐이다.
 
-## 수정 내용
+## 재분석에서 확인된 문제
 
-| 결함 | 파일 | 요지 |
-|---|---|---|
-| 1 | `lib/customsForwarding.js` `effectiveCountryWorldFreight()` | GW1+GW2 합산 중량으로 트럭 1대만 선정, 1차 칸 전액/2차 0. 명시적 수기 override는 그대로 보존. 콜롬비아 4품목 반차수별 트럭 계산은 변경 없음(원본 그대로 유지가 정답). |
-| 2 | `lib/colombiaFlowerClassification.js`(신규), `lib/customsForwarding.js` | FlowerName+ProdName 양쪽에서 한글+영문 토큰 매칭하는 SQL·JS 공용 단일 진실 소스 신설. 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행 명시적 제외. |
-| 3 | `lib/profitReportAuditedBaseline.js`(신규), `lib/customsForwarding.js` | 22~27차 국가별 H 총액·콜롬비아 반차수 GW/박스수량/TOTAL·대차수별 BakSangRate를 원본에서 그대로 옮긴 프로덕션 단일 진실 소스. `resolveCountryCustomsTotal()`/`resolveColombiaCustomsAllocation()`을 신설해 "explicit saved row > audited baseline(2026 22~27차만) > current auto > global defaults" 우선순위를 한 곳에서 관리하고, `computeCustomsAndForwarding()`(실계산)과 `customs-clearance` API GET(입력화면 미리보기)이 같은 함수를 공유. `WebCustomsWeekly`/`WebColombiaWeekly.BakSangRateApplied`(신규 컬럼) 스냅샷으로 전역 요율 변경이 과거 저장행을 오염시키지 않게 함. |
-| 4 | `components/CustomsClearancePanel.js` | carry를 `countryValue`/`colValue`(=합계에 실제 반영되는 값)에서 제거하고 `CarryHint`로 분리 표시 — 클릭(명시적 적용) 전까지 합계 미반영. `countryOut`/`colombiaOut`도 carry만 있는 필드는 저장 대상에서 제외. 저장 버튼은 변경사항 없으면 API를 호출하지 않음. 감사기준값/자동/전차수 참고값을 배지·색상으로 구분 표시, 안내 문구를 결합 GW/콜롬비아 반차수 차이로 갱신. |
+1. 과거 웹은 22~27차 `H(그외통관비)` 최종 합계를 하드코딩해 엑셀과 같게 보이게 했지만,
+   백상·관세·선율·월드운송료·방역 구성요소와 운영 DB 원천이 같다는 증거는 아니었다.
+2. 국가별 월드운송료를 1차와 2차 무게로 각각 계산해 차량비가 두 번 들어갈 수 있었다.
+3. 콜롬비아 무게배분이 한글 화종명만 인식해 `ROSE`, `CARNATION`, `ALSTROEMERIA`, `RUSCUS`
+   품목 일부가 배분 대상에서 빠질 수 있었다.
+4. 과세환율 R이 당주 통관환율이 아니라 현재 통화마스터 또는 전차수 값으로 조용히 대체될 수 있었다.
+5. 기말재고 F가 품목별 재고평가액보다 카테고리 평균 도착원가를 우선해 엑셀 기준과 달라질 수 있었다.
+6. `기타(미분류)`가 원본 본표에는 없는데 웹 전체 합계에는 포함될 수 있었다.
+7. 전차수 참고값이 입력칸의 실제값처럼 보여 저장 전·후 합계를 혼동시켰다.
 
-## 검증한 정확값 (요청사항 원문과 1:1 대조)
+## 적용한 계산 원천
 
-- H 그랜드토탈(국가 소계 + 콜롬비아 4품목 합계) 22~27차 전부 정확히 일치:
-  22차 12,618,238.7 / 23차 10,399,196 / 24차 12,041,616 / 25차 9,862,990 / 26차 11,536,110 /
-  27차 10,813,030.
-- 콜롬비아 반차수 GW/박스수량/TOTAL 12건(22-01~27-02) 원문과 정확히 일치.
-- 결합 GW 월드운송료 예시(26차 콜롬비아 수국 2779+1444→5t, 네덜란드 192+520→1t, 중국 646+201→1t)
-  재현.
-- BakSangRate: 2026-22=370, 2026-23~27=460, 2025년 동일 차수·2026-28 이후는 미적용(교차연도/범위
-  오염 없음).
+### 매출·차감·기타매출
 
-모두 `__tests__/profitReportAuditedBaseline.test.js`가 자동 검증한다(fixture와 대조 + 그랜드토탈
-재구성 + 우선순위 3종).
+`N/L/O`는 선택한 `OrderYear + MajorWeek`의 확정 출고와 Estimate를 사용한다. 다른 연도의 같은
+차수를 섞지 않는다. `C/D/J/K/M`은 위 엑셀 수식으로만 계산한다.
 
-## 변경 파일
+### 매입·포워딩·과세환율
 
-**신규**
-- `lib/profitReportAuditedBaseline.js`
-- `lib/colombiaFlowerClassification.js`
-- `__tests__/profitReportAuditedBaseline.test.js`
-- `__tests__/colombiaFlowerClassification.test.js`
-- `docs/PROFIT_REPORT_EXCEL_PARITY_FIX_2026-08-12.md`(이 문서)
+- `Q`: 입고 품목의 구매 외화금액. 운송료·SERVICE FEE·GW/CW 행은 제외한다.
+- `S`: 국가별 포워딩 외화금액.
+- `R`: 정확히 같은 `OrderYear + MajorWeek`의 `FreightCost.ExchangeRate` → 그 차수에 저장한
+  과세환율 → 2026년 22~27차 원본 엑셀 R 순서다.
+- 전차수 R과 현재 통화마스터 환율은 **참고 제안**일 뿐, 사용자가 적용·저장하기 전에는 계산에
+  들어가지 않는다.
+- 호주 AUD도 같은 규칙이다. H 입력 시작차수(호주 28차)와 R 필요 여부는 별개다.
 
-**수정**
-- `lib/customsForwarding.js` — CASE_COLOMBIA_ALLOC 영문 매칭, 결합GW 월드운송료, BakSangRateApplied
-  스냅샷, `resolveCountryCustomsTotal`/`resolveColombiaCustomsAllocation`/`effectiveRatesForWeek`/
-  `computeColombiaAllocationFromTotal` 신설, `computeCustomsAndForwarding()` 리팩터.
-- `pages/api/sales/customs-clearance.js` — GET이 같은 resolver를 공유하도록 리팩터, `totalSource` 필드 추가.
-- `components/CustomsClearancePanel.js` — carry 분리, 안내 문구 갱신, 감사기준값 배지.
-- `__tests__/customsForwardingAuto.test.js` — 결합GW로 바뀐 `effectiveCountryWorldFreight` 기대값 갱신 + 요청사항 2번 원문 예시 추가.
-- `docs/contracts/weekly-profit-report.json` — scope/actions(`COLOMBIA_INPUT_SAVE`/`RATE_SAVE` 추가)/requiredTestFiles/`auditedBaselinePolicy` 갱신.
-- `docs/exe-golden/FormProfitReport.md` — 결함 1~4 근거 섹션 추가.
-- `package.json` — `test:erp-contract`에 신규 테스트 2건 연결.
+관세청 자동 조회 코드는 API 키 이름과 저장 계약까지만 준비되어 있다. 공식 API 응답 구조를 운영에서
+확인하지 않은 상태이므로 키가 있어도 임의 호출하지 않으며, 당주 `FreightCost.ExchangeRate`나 담당자가
+확인해 저장한 값이 없는 차수는 R 입력칸을 표시한다.
 
-## 미변경(의도적으로 손대지 않음)
+### 기초·기말재고
 
-- `computeCountryCustomsTotal()`/`computeColombiaCustomsTotal()`의 H 공식 자체(백상·관세 그대로,
-  선율/월드운송료/방역 ÷1.1, 베트남 선율 예외)는 요청사항 1번 원문과 이미 정확히 일치해 재검증만
-  하고 변경하지 않았다.
-- 콜롬비아 4품목의 반차수별(트럭 포함) 계산 구조는 요청사항 3번 원문 그대로 유지했다(국가별과
-  달리 결합하지 않음).
-- 호주 28차/베트남 29차 검증 시작차수 정책(`lib/profitReportAudit.js`)은 이미 "경고 생성만
-  억제하고 실제 계산값은 건드리지 않는" 올바른 구조였으므로 코드 변경 없이 회귀 테스트로만 고정했다.
+- `F`: 선택 차수의 마지막 실제 `ProductStock` 세부차수 수량 × 품목별 재고평가단가 ÷ 1.1.
+- 평가단가 우선순위: `WebStockPrice` 지정값 → 수국단가표 → `Product.Cost` → 최근 입고단가 →
+  마지막 수단으로 해당 차수 도착원가 평균.
+- `E`: 같은 연도의 전차수 활성 확정 보고서 F → 전차수 저장 F → 전차수 마지막 ProductStock 자동 F.
+- 01차에서만 전년도 52차로 넘어간다. 예: 27차 E는 2026년 26차 마지막 세부차수다.
+- 보고서를 확정하면 당시 E/F와 원천 좌표를 새 버전으로 보존하고, 이후 재고 변경으로 과거 확정본을
+  자동 재계산하지 않는다.
 
-## 남은 리스크
+### 그외통관비 H
 
-- 국가별(콜롬비아 수국 포함) 감사 기준값은 카테고리 최종 H 합계만 저장하고, GW/관세/선율 개별
-  구성요소는 별도로 저장하지 않는다. 원본 워크북은 그 구성요소 값도 포함해 전부 read-only로
-  분석했다 — 재추출이 불가능해서가 아니라, 그 구성요소들이 운영 DB(`WebCustomsWeekly`)의 입력
-  필드로 저장된 적이 없는 상태에서 "저장됐어야 할 값"을 역산해 발명하지 않기 위한 의도적 설계다
-  ("Do not invent values absent from the fixture" 원칙은 값을 몰라서가 아니라 존재한 적 없는
-  운영 DB 저장값을 만들어내지 않는다는 뜻으로 적용했다). 따라서 22~27차 국가 행을 나중에 운영자가
-  직접 저장(부분 입력 포함)하면 그 순간 감사 기준값이 아니라 입력된 구성요소 기반 공식으로
-  전환되며, 구성요소가 불완전하면 감사값과 달라질 수 있다 — 이는 새 결함이 아니라 "explicit saved
-  row가 항상 최우선"이라는 요청사항 7번 정책 그대로다.
-- `CustomsClearancePanel.js`의 carry 분리·미리보기 재계산은 실제 렌더링·클릭 상호작용까지는 이
-  저장소에 React 테스트 러너가 없어 커버하지 못한다(`__tests__/customsClearancePanelLiveTotal.test.js`는
-  소스 문자열 검사 + 계산식 자체의 입력/출력만 검증). 실브라우저 스모크로 추가 확인을 권장한다
-  (배포 스모크 절차에 이미 포함된 hydration 검사 범위 밖).
-- `BakSangRateApplied` 컬럼은 idempotent `ALTER TABLE`로 저장(POST) 경로에서만 생성되므로, 운영
-  DB에는 실제 저장이 처음 일어날 때 컬럼이 추가된다(마이그레이션 SQL 파일을 별도로 만들지 않음 —
-  기존 `WORLD_FREIGHT_MANUAL_FIELDS`/`COUNTRY_SPLIT_GROUPS` 컬럼과 동일한 기존 패턴을 그대로
-  따랐다).
+국가 시트 공식은 다음과 같다.
 
-## 후속 검토 반영 (2026-08-12)
+`H = (GW1 + GW2) × 백상요율 + 관세1 + 관세2 + (선율1 + 선율2 + 월드운송료1 + 월드운송료2 + 방역1 + 방역2) / 1.1`
 
-독립 리뷰에서 남은 결함 2건을 지적받아 수정했다.
+베트남 선율 예외와 콜롬비아 4품목 반차수 공식도 원본 수식 그대로 유지한다. 22~27차 원본의 국가
+66행과 콜롬비아 반차수 12건은 구성요소를 넣어 재계산한 값이 엑셀과 일치한다.
 
-1. **`WorldFreight2` 레거시 이중계상 잔존** — `effectiveCountryWorldFreight()`가 결합 GW 자동값이
-   있어도 `WorldFreight2Manual` 플래그 없는 레거시 `WorldFreight2` 리터럴을 그대로 보존해, 1차
-   (결합 트럭 전액)+2차(레거시 리터럴)가 함께 더해지는 이중계상 경로가 남아 있었다. 수정: override
-   플래그 없는 2차 값은 결합 GW로 자동값을 낼 수 있는 한(`combined.amount > 0`) 항상 0으로 강제하고,
-   레거시 리터럴은 결합 자동값 자체를 낼 수 없을 때(GW가 전혀 없는 구형 데이터)만 보존한다. 명시적
-   수기 override(`WorldFreight2Manual=1`)는 그대로 존중한다. 회귀:
-   `__tests__/customsForwardingAuto.test.js`("잔여 결함(2026-08-12)" 절 — override 없는 2차 레거시
-   리터럴이 결합 자동값과 공존할 때 0으로 정리되는지, GW가 전혀 없을 때만 보존되는지 3개 케이스).
-2. **`CustomsClearancePanel`의 저장 전 합계 stale** — 화면 입력칸을 고쳐도 "합계"·저장 버튼 옆
-   합계가 마지막 조회(GET) 시점 값에 멈춰 있어, 저장 전까지 "보이는 값"과 "저장하면 반영될 값"이
-   달랐다. 수정: `computeCountryCustomsTotal`/`computeColombiaCustomsTotal`/`computeColombiaAllocation`/
-   `computeColombiaAllocationFromTotal`/`effectiveRatesForWeek`/`COLOMBIA_ALLOC_CATEGORIES`를
-   `lib/customsForwarding.js`(DB 의존)에서 신규 `lib/customsForwardingCalc.js`(DB 의존 없음)로
-   옮기고, `lib/customsForwarding.js`는 그 모듈에서 import한 뒤 그대로 재노출(re-export)한다.
-   `components/CustomsClearancePanel.js`가 `lib/customsForwardingCalc`를 직접 import해, 수기 편집이
-   있는 행만 즉시 같은 공식으로 재계산해 표시한다(편집 없는 행은 서버가 마지막으로 계산한
-   `row.total`을 그대로 보여준다 — 특히 2026 22~27차 감사 기준값 행은 공식으로 재구성할 수 없는
-   최종 합계이므로 편집이 없으면 절대 재계산하지 않는다). carry(전차수 참고값)는 이 미리보기에도
-   여전히 자동 반영되지 않는다(명시적 적용 후에만). 회귀:
-   `__tests__/customsClearancePanelLiveTotal.test.js`(순수 계산 모듈의 DB 무의존 검증, 재노출
-   참조 동일성, 화면이 정적 `row.total`/`c.allocationH` 대신 재계산 함수를 쓰는지 소스 검사,
-   편집 전/후 합계가 실제로 달라지는 시나리오).
-3. **문서 표현 정정** — "구성요소를 원본에서 재추출할 수 없었다"는 표현이 워크북을 완전히 분석하지
-   못한 것처럼 읽혔다. 실제로는 22~27차 6개 워크북 전체 시트를 완전히 분석했고, 국가별 개별 항목·
-   콜롬비아 HandlingFee/CustomsFee 등 구성요소도 원본에서 읽을 수 있었다. 감사 폴백이 그 구성요소를
-   별도 저장하지 않고 검증된 최종 H 총액(과 콜롬비아 TOTAL+GW+박스수량)만 저장하는 것은 "재추출
-   불가"가 아니라, 운영 DB(`WebCustomsWeekly`/`WebColombiaWeekly`) 입력 필드로 저장된 적 없는
-   값을 역산해 발명하지 않기 위한 의도적 설계다. 위 "근본 원인 3"·"남은 리스크"·
-   `docs/exe-golden/FormProfitReport.md` "결함 3" 절과 `lib/customsForwardingCalc.js`(콜롬비아
-   TOTAL 배분 주석)의 표현을 이에 맞춰 정정했다.
+- 백상 창고료 현재 기본값은 460원/kg이며 단가표에서 수정할 수 있다.
+- 저장할 때 그 차수 행에 적용 요율을 함께 보존해, 이후 기본요율 인상으로 과거 값이 변하지 않는다.
+- 원본 22차는 국가 시트 460원/kg, 콜롬비아 4품목 반차수 시트 370원/kg으로 서로 달라 범위를 분리했다.
+- 22~27차는 최종 H를 하드코딩하지 않고 원본 구성요소 historical snapshot을 같은 운영 공식에 넣어
+  재계산한다. 해당 차수에 실제 저장행이 있으면 저장행이 우선한다.
+
+### 월드운송료 차량 조합
+
+국가별 1차+2차 GW를 먼저 합산하고 차량 조합을 **한 번만** 계산한다. 자동 금액은 1차 칸에 전액,
+2차 자동값은 0으로 둔다.
+
+- 5t 묶음을 먼저 배정한다.
+- 잔여 1t 이하: 1t 1대.
+- 잔여 2.5t 이하: 2.5t 1대.
+- 잔여 2.5t 초과: 2.5t 1대 + 남은 중량을 담을 1t 차량.
+- 예: 1.371t → 2.5t 1대, 3t → 2.5t 1대 + 1t 1대, 6t → 5t 1대 + 1t 1대.
+
+이는 추천값이다. 원본 엑셀이나 웹에 저장된 실제 차량 대수·청구액이 있으면 실제값을 우선하고
+추천값으로 덮지 않는다.
+
+### 콜롬비아 영문 화종
+
+`ROSE/CARNATION/ALSTROEMERIA/RUSCUS`가 새로 비용에 포함된다는 뜻이 아니다. 원래 콜롬비아
+장미·카네이션·알스트로·루스커스 전체가 배분 대상인데, DB 화종명이 영문인 품목이 한글 전용
+분류식에서 누락되던 결함을 고친 것이다. 한글과 영문을 같은 화종으로 인식하고, 운송료·현지상차·
+SERVICE FEE·Gross weight·Chargeable weight 행은 계속 제외한다.
+
+## 22~27차 자동 검증 범위
+
+- 모든 카테고리의 C~U 수식 재현.
+- H 국가 구성요소 66행 재계산.
+- 콜롬비아 반차수 12건 총액 및 장미·카네이션·알스트로·루스커스 배분 재계산.
+- R 원본 값과 당주 키 검증(AUD 포함).
+- 2025/2026 동일 차수 비혼입.
+- 월드운송료 합산 GW와 저장 실제값 우선.
+- `기타(미분류)`는 비고·검증 목록에는 남기되 공식 합계에서는 제외.
+- 입력·표시는 소수점 없이 반올림하고 천 단위 쉼표를 사용한다.
+
+이 검사는 **수식과 원본 fixture가 정확히 일치하는지**를 증명한다. 운영 DB에서 현재 불러온 N/Q/S/
+재고 수량·단가가 원본 당시 값과 같은지는 별도의 운영 대조다. 각 주요 항목의 5% 이내 기준은 운영
+사이트 적용 후 22~27차를 다시 조회해 판정하며, 5%를 넘는 항목은 수기 보정으로 숨기지 않고 원천
+테이블·행·차수 차이를 오류 목록으로 남긴다.
+
+## 저장 영향
+
+이 변경은 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`, `ShipmentFarm`, `Estimate`, `ProductStock`,
+`StockHistory`를 수정하지 않는다. 쓰기는 웹 전용 보고서/통관비/포워딩/과세환율/확정 스냅샷 테이블에만
+발생한다. 전차수 참고값은 클릭해 적용하기 전에는 저장·계산되지 않는다. 과세환율 별도 저장이 실패하면
+보고서 저장 성공과 환율 저장 실패를 분리해 사용자에게 알리고 조용히 무시하지 않는다.

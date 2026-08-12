@@ -20,7 +20,8 @@
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
     "lib/colombiaFlowerClassification.js",
-    "lib/profitReportAuditedBaseline.js",
+    "lib/profitReportHistoricalCustoms.js",
+    "lib/taxableExchangeRate.js",
     "lib/customsForwardingCalc.js",
     "lib/profitReportCalc.js",
     "lib/profitReportMonthly.js",
@@ -28,6 +29,9 @@
     "components/ProfitReportSourceGuide.js",
     "docs/migrations/2026-08-10_web_profit_report_schema.sql",
     "docs/migrations/2026-08-11_web_profit_report_confirm.sql",
+    "docs/migrations/2026-08-12_web_profit_report_historical_seed.sql",
+    "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
+    "scripts/extract-profit-report-workbooks.mjs",
     "components/CustomsClearancePanel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -51,7 +55,7 @@
       "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "REPORT_READ: SELECT only from WarehouseMaster/Detail, Product, FreightCost, WebCustomsRateConfig, WebCustomsWeekly, WebColombiaWeekly, WebForwardingWeekly — no writes. COUNTRY_INPUT_SAVE(this action): writes WebCustomsWeekly + WebCustomsHistory only, one MERGE transaction per changed category. 저장 시 그 시점의 유효 백상 창고료 요율(2026 22~27차는 lib/profitReportAuditedBaseline.js 감사값, 그 외는 WebCustomsRateConfig 현재값)을 WebCustomsWeekly.BakSangRateApplied에 스냅샷해, 이후 전역 요율이 바뀌어도 이미 저장된 행의 계산은 저장 당시 요율을 그대로 유지한다. 다른 실제 입력 필드가 전혀 없는 저장 요청은 요율 스냅샷만으로 빈 행을 만들지 않는다(감사 기준값 폴백을 실수로 덮어쓰지 않기 위함)."
+      "sideEffect": "REPORT_READ: SELECT only from WarehouseMaster/Detail, Product, FreightCost, WebCustomsRateConfig, WebCustomsWeekly, WebColombiaWeekly, WebForwardingWeekly — no writes. COUNTRY_INPUT_SAVE(this action): writes WebCustomsWeekly + WebCustomsHistory only, one MERGE transaction per changed category. 저장 시 그 시점의 유효 백상 창고료 요율(2026 22~27차는 lib/profitReportHistoricalCustoms.js 원본 엑셀 historical snapshot 요율, 그 외는 WebCustomsRateConfig 현재값)을 WebCustomsWeekly.BakSangRateApplied에 스냅샷해, 이후 전역 요율이 바뀌어도 이미 저장된 행의 계산은 저장 당시 요율을 그대로 유지한다. 다른 실제 입력 필드가 전혀 없는 저장 요청은 요율 스냅샷만으로 빈 행을 만들지 않는다(historical snapshot 폴백을 실수로 덮어쓰지 않기 위함)."
     },
     {
       "name": "COLOMBIA_INPUT_SAVE",
@@ -63,12 +67,18 @@
       "name": "RATE_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsHistory만 쓴다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportAuditedBaseline.js의 감사 기준 백상 창고료 요율이 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
+      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsHistory만 쓴다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportHistoricalCustoms.js의 원본 엑셀 historical snapshot 백상 창고료 요율(국가 시트 22~27차 전부 460, 콜롬비아 4품목 시트만 22차 370)이 scope별로 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
     },
     {
       "name": "REPORT_NOTE_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "TAXABLE_RATE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "과세환율(관세청 신고환율, R) 저장 — WebTaxableExchangeRate + WebTaxableExchangeRateHistory만 쓴다(lib/taxableExchangeRate.js saveTaxableRate). 키는 정확한 OrderYear+MajorWeek+Currency+Category다. 이 액션은 담당자가 입력하거나 화면 참고 제안(전차수·통화마스터)을 명시적으로 적용·저장할 때만 호출되며, 자동 상속·자동 조회로는 절대 호출되지 않는다. CurrencyMaster·ShipmentDetail 등 ERP 원장은 건드리지 않는다."
     },
     {
       "name": "MOYI_REPORT_PUSH",
@@ -125,10 +135,11 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다. 국가별 원천 입력(H/R) 시작 차수는 호주 28차, 베트남 29차이며 시작 차수 전 미입력은 정상 미적용으로 감사하지 않는다. 29차 이후 R은 당주 FreightCost.ExchangeRate, 전차수 확정 WebProfitReport R, CurrencyMaster 순서로 선택한다. 확정 스냅샷(REPORT_CONFIRM_SNAPSHOT)은 저장 시점의 CurrencyMaster/Product/WebStockPrice/입고/세부차수/재고 재계산 상태를 그대로 굳힌 불변값이다. 확정 이후 이 원천들이 바뀌어도(신규 입고 반영, 신규 세부차수 추가, ProductStock 재계산, CurrencyMaster 갱신, Product 단가 변경) 이미 저장된 스냅샷 값은 재계산하거나 자동으로 덮어쓰지 않는다. 스냅샷을 다시 반영하려면 REPORT_CONFIRM_CANCEL로 기존 활성 revision을 비활성화한 뒤 REPORT_CONFIRM_SNAPSHOT으로 새 revision을 만들어야 하며, 과거 revision 값은 감사 이력으로 그대로 남는다. 기초재고 E의 이월 우선순위는 다음과 같다. 1순위 전차수의 활성 확정 스냅샷 F, 2순위 전차수 WebProfitReport 수기 입력 F, 3순위(둘 다 없을 때만) 전차수 스냅샷 자동계산(ProductStock 마지막 스냅샷). 상위 우선순위가 존재하면 하위 자동계산 값으로 대체하지 않는다. 29차 이후 R 상속 규칙(당주 FreightCost.ExchangeRate에서 전차수 확정 WebProfitReport R을 거쳐 CurrencyMaster 순서)에서, 전차수가 REPORT_CONFIRM_SNAPSHOT으로 활성 확정되어 있으면 그 스냅샷에 저장된 R을 전차수 확정 WebProfitReport R과 동일한 우선순위 단계의 상속 후보로 포함한다. 특정 차수의 R을 다른 차수가 상속했다는 사실만으로 상속한 차수 자체가 자동으로 확정 스냅샷이 되지는 않는다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다. 국가별 그외통관비(H) 입력화면 도입 차수는 호주 28차, 베트남 29차이며 시작 차수 전 미입력은 정상 미적용으로 감사하지 않는다(lib/profitReportAudit.js CUSTOMS_ENTRY_START_MAJOR). 과세환율(R)은 이 표와 별개다 — 그 나라에 구매(Q)나 포워딩(S) 금액이 있으면 차수와 무관하게 항상 있어야 하며(TAXABLE_RATE_MISSING), 2026 22~27차 원본에도 호주 구매가 있는 23·24·27차에는 AUD R이 실제로 존재한다(1079.48/1083.36/1068.23). R 자동 적용은 정확한 OrderYear+MajorWeek 원천만 쓴다: ①당주 FreightCost.ExchangeRate → ②그 차수에 저장/캐시된 WebTaxableExchangeRate(카테고리 지정 > 통화 기본) → ③2026 22~27차는 lib/profitReportHistoricalCustoms.js 원본 엑셀 본표 R열. 현재 CurrencyMaster 환율과 전차수 R은 절대 자동 상속하지 않고 화면 제안(rateSuggestions)으로만 제공하며, 사용자가 적용·저장(TAXABLE_RATE_SAVE)해야 계산에 들어간다. 확정 스냅샷(REPORT_CONFIRM_SNAPSHOT)은 저장 시점의 CurrencyMaster/Product/WebStockPrice/입고/세부차수/재고 재계산 상태를 그대로 굳힌 불변값이다. 확정 이후 이 원천들이 바뀌어도(신규 입고 반영, 신규 세부차수 추가, ProductStock 재계산, CurrencyMaster 갱신, Product 단가 변경) 이미 저장된 스냅샷 값은 재계산하거나 자동으로 덮어쓰지 않는다. 스냅샷을 다시 반영하려면 REPORT_CONFIRM_CANCEL로 기존 활성 revision을 비활성화한 뒤 REPORT_CONFIRM_SNAPSHOT으로 새 revision을 만들어야 하며, 과거 revision 값은 감사 이력으로 그대로 남는다. 기초재고 E의 이월 우선순위는 다음과 같다. 1순위 전차수의 활성 확정 스냅샷 F, 2순위 전차수 WebProfitReport 수기 입력 F, 3순위(둘 다 없을 때만) 전차수 스냅샷 자동계산(ProductStock 마지막 스냅샷 × 품목별 재고평가단가). 상위 우선순위가 존재하면 하위 자동계산 값으로 대체하지 않는다. 기말재고 F의 자동계산 우선순위는 ①재고평가단가(WebStockPrice/수국단가표/Product.Cost) × 기말재고수량 ÷1.1 → ②품목별 최근 매입 외화단가 × 기말수량 × 환율 → ③(구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말수량(매입이 있는 카테고리 한정)이며, 원본 엑셀 '재고잔량' 시트의 단순 총합을 그대로 옮기지 않는다(그 시트에는 수동정정·오입력 흔적이 있다)."
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitReportWorkbookFullParity.test.js",
     "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
     "__tests__/erpContractManifest.test.js",
@@ -143,15 +154,15 @@
     "__tests__/profitReportRecentCostCutoff.test.js",
     "__tests__/profitReportAustraliaUnitFallback.test.js",
     "__tests__/profitReportGetReadOnlyDdl.test.js",
-    "__tests__/profitReportAuditedBaseline.test.js",
+    "__tests__/profitReportHistoricalCustoms.test.js",
     "__tests__/colombiaFlowerClassification.test.js",
     "__tests__/customsClearancePanelLiveTotal.test.js"
   ],
-  "auditedBaselinePolicy": {
-    "description": "2026-08-12 결함수정: 22~27차 그외통관비(H) 감사 기준값(lib/profitReportAuditedBaseline.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > audited baseline(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 감사 기준값은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율도 같은 우선순위로 22차=370, 23~27차=460을 적용하며, WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
+  "historicalCustomsPolicy": {
+    "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
     "resolvers": ["lib/customsForwarding.js resolveCountryCustomsTotal()", "lib/customsForwarding.js resolveColombiaCustomsAllocation()"],
     "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
-    "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료는 그 대차수의 GW1+GW2 합산 중량으로 트럭 1대만 선정해 1차 칸에 전액 반영하고 2차는 0이다(반차수 각각 트럭을 잡던 이전 결함은 26차에 약 +350,000원 이중계상을 유발했다). 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송(트럭) 계산은 반차수 단위로 각각 유지한다 — 변경 없음."
+    "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료 추천은 그 대차수의 GW1+GW2 합산 중량을 lib/colombiaTruck.js deriveTruckPlan()에 한 번만 넣는다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과면 2.5t 1대와 필요한 1t 차량을 더한다(1.371t=2.5t, 3t=2.5t+1t). 계산된 조합 금액 전부를 1차 칸에 반영하고 2차 자동값은 0이다. 저장된 실제값(WorldFreight{1,2}Manual=1, historical snapshot 포함)이 있으면 추천값이 그 실제값을 절대 덮지 않는다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송도 저장된 실제 대수가 우선이고, 없을 때만 같은 추천식을 쓴다."
   },
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",
@@ -201,7 +212,8 @@
       "FreightCost",
       "WebProfitReport",
       "CurrencyMaster",
-      "PeriodDay"
+      "PeriodDay",
+      "WebTaxableExchangeRate"
     ]
   },
   "requiredCommands": [

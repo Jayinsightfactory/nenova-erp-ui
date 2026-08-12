@@ -11,12 +11,13 @@
   - 미해결 항목(코드 변경 없음): `docs/SHIPMENT_FIX_PARTIAL_AUDIT_2026-05-26.md`가 다루는 부분확정(마스터 `isFix=1` + 일부 `sd.isFix=0`) 상태에서는 이 보고서가 미확정 라인까지 매출로 집계할 수 있다. `lib/pivotStats.js`는 같은 매출 집계를 `sd.isFix=1`로 한다. 필터를 바꾸면 확정 차수의 매출액·매출이익 숫자가 즉시 달라지므로 설명 UI 작업 범위에서는 변경하지 않고 미결로 남긴다.
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
-- E/F/H/R/S는 재고 스냅샷·입고 GW/CW·입고별 과세환율 스냅샷(`FreightCost.ExchangeRate` — AUD를 포함한 전 통화가 통관 신고 시점 관세청 과세환율이며, 구매현황에 남는 상업(환전) 환율과는 다른 값이다)·포워딩 원천에서 자동 계산해 기본 표시한다. 29차 이후 당주 과세환율 스냅샷이 없으면 전차수에 확정 저장된 과세환율 R을 우선 상속하고, 그것도 없을 때만 `CurrencyMaster` 현재 환율을 fallback한다. 청구서·실사·특수비용처럼 예외가 있을 때만 웹 전용 `WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`에 수기 보정값을 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
+- E/F/H/R/S는 재고 스냅샷·입고 GW/CW·입고별 과세환율 스냅샷(`FreightCost.ExchangeRate` — AUD를 포함한 전 통화가 통관 신고 시점 관세청 과세환율이며, 구매현황에 남는 상업(환전) 환율과는 다른 값이다)·포워딩 원천에서 자동 계산해 기본 표시한다. 청구서·실사·특수비용처럼 예외가 있을 때만 웹 전용 `WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`, `WebTaxableExchangeRate`에 수기 보정값을 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
-- 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 통화마스터 환율이 존재하면 청구서 환율을 매번 입력하지 않아도 자동 계산을 정상값으로 인정하며, 통화 원천 자체가 없을 때만 검증 대상으로 표시한다.
-- 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율을 입력하고 일반 저장하면 `WebProfitReport.R`로 저장되며, 재조회 후 검증 오류가 사라져야 한다.
-- 기말재고 F는 해당 대차수에서 `ProductStock` 행이 실제로 존재하는 세부차수 중 suffix 숫자가 가장 큰 마지막 스냅샷의 `ProductStock.Stock`을 사용한다. 27차라면 27-01/27-02뿐 아니라 27-03 이후도 검색하며, 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey`를 기준으로 하나를 선택한다. 기초재고 E는 같은 규칙으로 같은 `OrderYear`의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용한다. 단, 01차처럼 대차수가 연도 경계를 넘는 경우에만 전년도 52차를 사용한다. `StockMaster.isFix`는 별도 재고 마감 표시·진단값이며, 27-02처럼 실제 ProductStock 스냅샷과 표시값이 어긋날 때도 스냅샷 자체를 누락으로 판정하지 않는다. ProductStock 스냅샷 자체가 없을 때만 검증 오류로 남긴다.
-- 국가별 입력 시작 차수도 원본 업무 기준을 따른다. 호주는 28차부터 H(그외통관비)/R(AUD 환율) 원천을 검증하고, 베트남은 29차부터 H/R 원천을 검증한다. 시작 차수 전의 미입력은 해당 국가가 아직 보고서 입력 대상이 아니므로 감사 오류·경고를 만들지 않는다.
+- 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
+- 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로 인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
+- 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율을 입력하고 저장하면 `WebProfitReport.R`(행별 override)과 `WebTaxableExchangeRate`(그 차수·통화·카테고리 캐시) 양쪽에 저장되며, 재조회 후 검증 오류가 사라져야 한다. 이 R 검증은 국가별 H 입력화면 도입 차수(호주 28차/베트남 29차)와 무관하다 — 구매·포워딩 금액이 있으면 차수와 상관없이 항상 필요하다(2026 22~27차에도 호주 구매가 있는 23·24·27차에는 실제로 AUD R이 존재한다: 1079.48/1083.36/1068.23).
+- 기말재고 F는 해당 대차수에서 `ProductStock` 행이 실제로 존재하는 세부차수 중 suffix 숫자가 가장 큰 마지막 스냅샷의 `ProductStock.Stock`을 기말재고수량으로 쓰고, 여기에 품목별 재고평가단가(`WebStockPrice` 지정 > 수국단가표 > `Product.Cost`) ÷1.1을 곱한다(2026-08-12 정정 — 이전에는 "매입금액+포워딩+통관비 ÷ 매입총수량" landed-cost 평균단가를 1순위로 썼으나, 이는 매입이 있는 카테고리에서만 성립하고 재고평가단가와 무관한 값이라 원천이 달랐다. 그 계산은 이제 평가단가를 구할 수 없을 때만 쓰는 폴백이다). 원본 엑셀 `재고잔량` 시트의 단순 총합을 그대로 옮겨 적지 않는다 — 그 시트에는 수동정정·오입력 흔적이 남아 있다(예: 27차 카네이션 기말 단가가 11,000이 아니라 110,000으로 저장됨). 27차라면 27-01/27-02뿐 아니라 27-03 이후도 검색하며, 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey`를 기준으로 하나를 선택한다. 기초재고 E는 같은 규칙으로 같은 `OrderYear`의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용한다. 단, 01차처럼 대차수가 연도 경계를 넘는 경우에만 전년도 52차를 사용한다. `StockMaster.isFix`는 별도 재고 마감 표시·진단값이며, 27-02처럼 실제 ProductStock 스냅샷과 표시값이 어긋날 때도 스냅샷 자체를 누락으로 판정하지 않는다. ProductStock 스냅샷 자체가 없을 때만 검증 오류로 남긴다. 보고서를 확정(`REPORT_CONFIRM_SNAPSHOT`)하면 그 시점 E/F 값이 그대로 굳어져, 이후 DB의 ProductStock/WebStockPrice가 바뀌어도 확정본은 재계산되지 않는다.
+- 국가별 그외통관비(H) 입력화면 도입 차수는 원본 업무 기준을 따른다. 호주는 28차부터, 베트남은 29차부터 H 원천을 검증한다. 시작 차수 전의 H 미입력은 해당 국가가 아직 입력 대상이 아니므로 감사 오류·경고를 만들지 않는다. **R(과세환율)은 이 표와 별개다** — 위 항목 참고.
 - `OrderWeek`만으로 2025/2026 행을 재사용하지 않는다. 모든 자동 조회와 저장은 `OrderYear`를 별도 파라미터로 유지한다.
 
 ## 국가별 그외통관비 입력 규칙
@@ -31,15 +32,11 @@
 
 `WarehouseDetail`의 `Gross weight`/`Chargeable weight` 행을 우선 읽고, 같은 AWB의 품목 `Product.CounName`과 농장/인보이스 태그로 국가를 판별한다. 특수 중량행이 없을 때만 `WarehouseMaster.GrossWeight`/`ChargeableWeight`를 fallback으로 사용한다.
 
-콜롬비아 국내 운송료 등급은 22~27차 매출원가 원본의 운영값을 재현한다.
+콜롬비아 국내 운송료(월드운송료) 차량은 **추천값**과 **실제값**을 구분한다(2026-08-12 정정 — 이전에는 등급표 1건 선택이 자동값이자 유일값이었다).
 
-| Gross Weight | 트럭 자동값 |
-|---:|---|
-| 0 초과 ~ 1,000kg | 1t 1대 |
-| 1,000kg 초과 ~ 2,500kg | 2.5t 1대 |
-| 2,500kg 초과 | 5t 1대 |
-
-이는 물리적 적재한계를 새로 계산하는 규칙이 아니라 원본 양식의 운송료 등급 선택 규칙이다. 중량이 없으면 자동 트럭값을 만들지 않고 검증 대상으로 남긴다.
+- **추천값**(`lib/colombiaTruck.js deriveTruckPlan()`): 1차+2차 Gross Weight를 합산한다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과면 2.5t 1대와 필요한 1t 차량을 더한다. 예: 1,371kg → 2.5t 1대, 3,000kg → 2.5t 1대+1t 1대, 6,000kg → 5t 1대+1t 1대다. 중량이 없으면 추천값을 만들지 않는다.
+- **실제값**: 그 차수에 실제로 사용한 차량 대수·비용(`WebColombiaWeekly.Truck1t/Truck2_5t/Truck5t`, 국가별은 `WebCustomsWeekly.WorldFreight{1,2}` + `WorldFreight{1,2}Manual` 플래그)이다. 저장된 실제값이 있으면 추천값이 그 값을 절대 덮지 않는다. 2026 22~27차 원본 워크북의 실제 청구액도 historical snapshot으로 보존하며, 예를 들어 26-01(GW 6,706kg)은 추천이 5t 1대+2.5t 1대지만 원본 실제 청구는 5t 1대뿐이다.
+- 사용자는 실제 차량 대수·비용을 언제든 수정하고 차수별로 저장할 수 있다(입력 화면의 "실제" 칸). 추천값은 참고로만 표시된다.
 
 ## downstream 보존
 
@@ -103,7 +100,7 @@ dnSpy 재조사가 아니라 원본 워크북(엑셀) 대조가 근거이며, `_
 `effectiveCountryWorldFreight()`가 1차 GW와 2차 GW를 각각 별도 트럭으로 계산해, 26차 콜롬비아
 수국(GW1 2779 + GW2 1444 = 4223kg)이 "5t(275,000) + 2.5t(187,000) = 462,000원"으로 이중계상됐다
 (원본은 결합 4223kg → 5t 1대 275,000원/부가세 제외 250,000원). 국가별(콜롬비아 수국 포함)
-그외통관비는 그 대차수 국가의 GW1+GW2 **합산** 중량으로 트럭 1대만 선정해 1차 칸에 전액 반영하고
+그외통관비는 그 대차수 국가의 GW1+GW2 **합산** 중량으로 필요한 차량 조합을 한 번만 계산해 1차 칸에 전액 반영하고
 2차는 0으로 둔다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송(트럭)은 반차수마다
 실제 별도 출고되는 원본 업무 그대로 반차수별 계산을 유지한다(변경 없음, 근거: 22~27차 6개 반차수
 GW/총액이 모두 반차수 단위로 대조됨).
@@ -138,34 +135,38 @@ GW/총액이 모두 반차수 단위로 대조됨).
 원본 워크북("매출원가 양식 - NN차_재고수정.xlsx", 22~27차 6개 파일) 자체는 전체 시트를 read-only로
 완전히 분석했다 — 국가별 백상창고료·관세·선율·월드운송료·방역 개별 항목과 콜롬비아 4품목의
 HandlingFee/CustomsFee/DisinfectFee/QuarantineDeductFee 구성요소도 원본 시트에서 값을 읽을 수
-있었다. 다만 이 항목들은 운영 DB(`WebCustomsWeekly`/`WebColombiaWeekly`)의 입력 필드 형태로 저장된
-적이 없어(이 기능 도입 이전 시점이라 아예 입력 화면이 없었음), 그 필드에 채울 "저장됐어야 할 값"을
-역산해 발명하지 않기로 했다 — 이는 재추출 불가가 아니라 의도적 설계 선택이다. 대신 아래 감사
-기준값(`lib/profitReportAuditedBaseline.js`)은 원본에 실제로 있는 값, 즉 국가별 그외통관비
-**최종 합계(H)**와 콜롬비아 반차수 **TOTAL(무게배분 전)** + GW/박스수량(모두 원본 시트에서 그대로
-옮겨 적은 검증된 값)만 프로덕션 폴백으로 저장한다. `computeCountryCustomsTotal`/
-`computeColombiaCustomsTotal`의 구성요소 기반 공식 자체는 요청사항 1·3번 원문과 이미 정확히
-일치하므로 그대로 유지했고(재검증만 함, 코드는 바꾸지 않음), 감사 기준값은 그 공식이 필요로 하는
-운영 DB 입력 필드가 아직 저장되지 않은 22~27차 행에만 최종 합계로 폴백한다.
+있었다. 이 항목들은 운영 DB(`WebCustomsWeekly`/`WebColombiaWeekly`)의 입력 필드 형태로 저장된 적이
+없었으므로(이 기능 도입 이전 시점이라 아예 입력 화면이 없었음), **구성요소 그대로**를 프로덕션
+historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데이터와 같은 공식으로 재계산한다.
 
-- `lib/profitReportAuditedBaseline.js`(신규, 프로덕션 단일 진실 소스 — 테스트 fixture json을 런타임
-  import하지 않는다)에 22~27차 국가별(콜롬비아 수국 포함) H 총액, 콜롬비아 4품목 반차수 GW/박스수량/
-  TOTAL(무게배분 전), 대차수별 BakSangRate(22차=370, 23~27차=460)를 원본에서 그대로 옮겨 담았다.
+- `lib/profitReportHistoricalCustoms.js`(신규, 프로덕션 단일 진실 소스 — 테스트 fixture json을 런타임
+  import하지 않는다. `scripts/extract-profit-report-workbooks.mjs`가 원본 xlsx에서 생성)에 22~27차
+  국가별(콜롬비아 수국 포함) 백상 GW·관세1/2·선율1/2·월드운송료1/2·한국방역1/2 구성요소, 콜롬비아
+  4품목 반차수 GW/CW/통관수수료/품목수/**실제 트럭 대수**/관세료/소독/검역 구성요소 + 원본 배분
+  박스수량, 카테고리별 과세환율(R)을 원본에서 그대로 옮겨 담았다. (2026-08-12 후속 정정: 이전
+  `lib/profitReportAuditedBaseline.js`는 "검증된 최종 H 합계"만 갖고 있어 구성요소 부재를 화면에서
+  숨겼다 — 이제는 화면이 백상/관세/선율/월드운송료/방역을 그대로 보여준다.)
 - 우선순위(모든 계산에 공통): **explicit saved row(WebCustomsWeekly/WebColombiaWeekly) >
-  audited baseline(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults**.
-  저장행이 조금이라도 있으면(부분 저장 포함) 감사 기준값은 전혀 적용하지 않는다 — 행 단위 폴백이며
-  운영자 입력을 절대 덮어쓰지 않는다. 연도가 정확히 2026과 일치할 때만 적용되므로 2025년 동일
-  차수는 절대 오염되지 않는다.
+  excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults**.
+  저장행이 조금이라도 있으면(부분 저장 포함) historical snapshot은 전혀 적용하지 않는다 — 행 단위
+  폴백이며 운영자 입력을 절대 덮어쓰지 않는다. 연도가 정확히 2026과 일치할 때만 적용되므로 2025년
+  동일 차수는 절대 오염되지 않는다.
+- 백상 창고료 요율은 **scope별로 분리**된다(2026-08-12 결함수정 — 이전에는 22차 전체에 콜롬비아
+  시트의 370원/kg을 잘못 적용했다). 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg이고, 콜롬비아
+  4품목 반차수 시트만 22차 370원/kg·23~27차 460원/kg이다(`lib/customsForwardingCalc.js
+  effectiveRatesForWeek(rates, orderYear, major, scope)`의 `scope` 인자로 구분).
 - `lib/customsForwarding.js resolveCountryCustomsTotal()`/`resolveColombiaCustomsAllocation()`이
   이 우선순위의 단일 진입점이며, `computeCustomsAndForwarding()`(매출이익보고서 실계산)과
   `pages/api/sales/customs-clearance.js` GET(그외통관비 입력화면 미리보기)이 함수 하나만
   공유한다 — 두 화면이 항상 같은 총액을 본다.
-- `WebCustomsWeekly.BakSangRateApplied`/`WebColombiaWeekly.BakSangRateApplied`(신규 컬럼, 저장
-  경로에서 idempotent `ALTER TABLE`)에 저장 시점의 유효 요율을 스냅샷해, 이후 전역 요율이 바뀌어도
-  이미 저장된 행의 계산은 그대로 보존한다. 다른 입력 필드가 전혀 없는 저장 요청(빈 클릭)은 요율만
-  저장해 빈 행을 만들지 않는다 — 감사 기준값 폴백이 실수로 사라지는 사고를 막기 위함이다.
-- 회귀: `__tests__/profitReportAuditedBaseline.test.js`(22~27차 국가/콜롬비아 H 정확값, 요청사항
-  5번 그랜드토탈, 교차연도 비오염, 우선순위 3종).
+- `WebCustomsWeekly.BakSangRateApplied`/`WebColombiaWeekly.BakSangRateApplied`(idempotent
+  `ALTER TABLE`로 추가)에 저장 시점의 유효 요율을 스냅샷해, 이후 전역 요율이 바뀌어도 이미 저장된
+  행의 계산은 그대로 보존한다. 다른 입력 필드가 전혀 없는 저장 요청(빈 클릭)은 요율만 저장해 빈
+  행을 만들지 않는다 — historical snapshot 폴백이 실수로 사라지는 사고를 막기 위함이다.
+- 회귀: `__tests__/profitReportHistoricalCustoms.test.js`(22~27차 국가/콜롬비아 구성요소 →
+  `computeCountryCustomsTotal`/`computeColombiaCustomsTotal` 재계산이 fixture 원본 H/TOTAL과
+  정확히 일치, scope별 요율, 교차연도 비오염, 우선순위 3종, 과세환율 historical 값),
+  `__tests__/profitReportWorkbookFullParity.test.js`(22~27차 전체 카테고리·전체 열 C~U 공식 재현).
 
 ### 결함 4(UI) — 전차수 참고값이 유효값처럼 보이던 문제
 
@@ -182,12 +183,45 @@ HandlingFee/CustomsFee/DisinfectFee/QuarantineDeductFee 구성요소도 원본 �
   필드만 전송한다. 저장 버튼은 변경사항이 전혀 없으면 API를 호출하지 않는다(단, "빈 저장" 자체가
   들어와도 `saveCustomsWeeklyBatch`/`saveColombiaWeekly`가 다른 실제 필드 없이 요율만으로 빈 행을
   만들지 않도록 서버 쪽에서도 방어한다).
-- 화면은 자동(감사기준값 포함)·저장값·전차수 참고값 세 가지를 배지/색상으로 구분해 표시한다.
-  감사기준값은 저장행이 없을 때만 자동 적용되며 합계에 이미 반영되어 있고, 전차수 참고값은 적용·
+- 화면은 자동(원본 엑셀값 포함)·저장값·전차수 참고값 세 가지를 배지/색상으로 구분해 표시한다.
+  원본 엑셀값은 저장행이 없을 때만 자동 적용되며 합계에 이미 반영되어 있고, 전차수 참고값은 적용·
   저장 전까지 합계에 전혀 반영되지 않는다.
 - 회귀는 코드 리뷰로 확인(순수 UI 상태 로직이라 DB 없는 단위 테스트로 커버하기 어려움) —
-  `__tests__/customsForwardingAuto.test.js`/`profitReportAuditedBaseline.test.js`가 서버 쪽
+  `__tests__/customsForwardingAuto.test.js`/`profitReportHistoricalCustoms.test.js`가 서버 쪽
   총액·우선순위를 고정하므로, 화면이 그 총액과 다른 값을 보여주면 수동 스모크에서 즉시 드러난다.
+
+## 2026-08-12 후속 정합화 — 원천 재설계 5건
+
+1차 결함수정(위 결함 1~4) 이후 사용자가 재확정한 업무 규칙에 맞춰 5가지를 추가로 고쳤다. 근거는
+동일하게 원본 6개 워크북 read-only 재분석이다.
+
+1. **국가별 백상 요율 scope 분리**: 22차 전체에 콜롬비아 시트 요율(370)을 적용하던 결함을 고쳐,
+   국가 시트는 22~27차 전부 460, 콜롬비아 4품목 시트만 22차 370을 쓰도록 분리했다(`effectiveRatesForWeek`
+   `scope` 인자, 위 "22~27차 저장값 부재" 절 참고).
+2. **차량 자동추천 = 합산 중량의 차량 조합, 실제값이 항상 우선**: `lib/colombiaTruck.js deriveTruckPlan()`이
+   5t 묶음 뒤 잔여를 1t/2.5t/2.5t+1t 조합으로 계산하고(1.371t=2.5t, 3t=2.5t+1t), 저장된 실제 차량·비용(국가별
+   `WorldFreight{1,2}Manual`, 콜롬비아 `Truck1t/2.5t/5t`, 2026 22~27차 historical snapshot 포함)이
+   있으면 그 값을 절대 덮지 않는다. 실제값과 추천값은 UI에서 구분 표시되고 실제값은 언제든 수정·저장할
+   수 있다.
+3. **기타(미분류)는 본표 합계에서 제외**: `lib/profitReportCalc.js computeProfitTotals()`가
+   `TOTALS_EXCLUDED_CATEGORIES`(`['기타(미분류)']`)를 계산 전에 걸러낸다 — 원본 엑셀 본표(7~22행)에는
+   그 행 자체가 없으므로 화면 합계·엑셀 다운로드 합계가 항상 원본과 같아야 한다. 검증 목록·비고에는
+   여전히 표시되고, 자동으로 정식 카테고리에 합산되지도 않는다.
+4. **기말재고(F) 자동계산 우선순위 정정**: 1순위를 "매입금액+포워딩+통관비 ÷ 매입총수량"(landed-cost
+   평균단가)에서 "재고평가단가(`WebStockPrice`/수국단가표/`Product.Cost`) × 기말재고수량 ÷1.1"로
+   바꿨다. landed-cost 평균은 그 차수에 매입이 있을 때만 성립하는 값이라 재고평가와 원천이 달랐다.
+   원본 `재고잔량` 시트의 단순 총합은 여전히 쓰지 않는다(수동정정·오입력 흔적 존재).
+5. **과세환율(R) exact-week만 자동 적용, 웹 전용 캐시 테이블 신설**: `lib/taxableExchangeRate.js` +
+   `docs/migrations/2026-08-12_web_taxable_exchange_rate.sql`(`WebTaxableExchangeRate`,
+   `OrderYear+MajorWeek+Currency+Category` 키)을 추가하고, "29차 이후 전차수 R 자동 상속"과
+   "CurrencyMaster 현재 환율 자동 fallback"을 제거했다. R 자동 적용은 이제 ①당주 FreightCost 스냅샷 →
+   ②그 차수 저장/캐시값 → ③2026 22~27차 원본 엑셀 값 셋뿐이며, 전차수·CurrencyMaster는 참고 제안으로만
+   보이고 사용자가 적용·저장해야 계산에 들어간다. 호주(28차 이전)·베트남(29차 이전)의 H 미입력은
+   여전히 정상이지만, R은 구매·포워딩이 있으면 차수와 무관하게 항상 검증한다(`TAXABLE_RATE_MISSING`).
+
+- 회귀: `__tests__/profitReportHistoricalCustoms.test.js`(scope 분리·차량 실제값 보존),
+  `__tests__/profitReportWorkbookFullParity.test.js`(F/합계 재현 22~27차 전체),
+  `__tests__/profitReportSourceGuide.test.js`(설명 문구가 위 5가지 규칙과 일치하는지 대조).
 
 ## 사전 확인 기록
 

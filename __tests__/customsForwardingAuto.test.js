@@ -32,48 +32,65 @@ async function main() {
   console.log('\n=== 운송료 전표 국가 약칭 매핑 ===');
   check('에콰 전표 약칭을 에콰도르로 자동 분류', forwardingSource.includes("f.InvoiceNo LIKE N'%에콰%'") && forwardingSource.includes("THEN N'에콰도르'"));
 
-  console.log('=== 22~27차 엑셀 GW → 트럭 등급 규칙 ===');
+  console.log('=== 22~27차 GW → 트럭 추천(용량분해, 2026-08-12: 등급표 1건 선택에서 변경) ===');
+  // 5t 묶음을 먼저 빼고, 남은 중량은 1t/2.5t/2.5t+1t 조합으로 덮는다(3t=2.5t+1t).
+  // 이 값은 "추천"이며, 저장된 실제 대수가 있으면
+  // mergeColombiaTruck()이 그 실제값을 우선한다(아래 별도 검증).
   for (const gw of [237, 553, 655, 966]) {
     const a = deriveColombiaTruckAllocation(gw);
-    check(`${gw}kg → 1t 1대`, a.Truck1t === 1 && a.Truck2_5t === 0 && a.Truck5t === 0);
+    check(`${gw}kg 추천 → 1t 1대`, a.Truck1t === 1 && a.Truck2_5t === 0 && a.Truck5t === 0);
   }
-  check('1371kg → 2.5t 1대', (() => {
+  check('1371kg 추천 → 2.5t 1대', (() => {
     const a = deriveColombiaTruckAllocation(1371);
     return a.Truck1t === 0 && a.Truck2_5t === 1 && a.Truck5t === 0;
   })());
-  for (const gw of [6404, 6706, 7020, 7530, 7613]) {
-    const a = deriveColombiaTruckAllocation(gw);
-    check(`${gw}kg → 5t 1대`, a.Truck1t === 0 && a.Truck2_5t === 0 && a.Truck5t === 1);
-  }
+  check('6404kg 추천 → 5t 1대 + 2.5t 1대', (() => {
+    const a = deriveColombiaTruckAllocation(6404);
+    return a.Truck5t === 1 && a.Truck2_5t === 1 && a.Truck1t === 0;
+  })());
+  check('7530kg 추천 → 5t 1대 + 2.5t 1대 + 1t 1대', (() => {
+    const a = deriveColombiaTruckAllocation(7530);
+    return a.Truck5t === 1 && a.Truck2_5t === 1 && a.Truck1t === 1;
+  })());
+  check('3,000kg 추천 = 2.5t 1대 + 1t 1대(요청사항 원문 예시, 5t로 바꾸지 않음)', (() => {
+    const a = deriveColombiaTruckAllocation(3000);
+    return a.Truck2_5t === 1 && a.Truck1t === 1 && a.Truck5t === 0;
+  })());
 
-  console.log('\n=== 자동 트럭값의 통관비 반영 ===');
+  console.log('\n=== 저장된 실제 트럭 대수는 추천값으로 덮이지 않음(2026-08-12) ===');
+  const actualTruck = mergeColombiaTruck({ GW: 7613, Truck5t: 1 }, { GW: 7613, CW: 7613 });
+  check('실제 대수가 있으면 truckSource=saved_actual, 추천값으로 재계산하지 않음',
+    actualTruck.truckSource === 'saved_actual' && actualTruck.Truck5t === 1 && actualTruck.Truck2_5t === undefined);
+
+  console.log('\n=== 자동 트럭값(추천)의 통관비 반영 ===');
   const merged = mergeColombiaTruck(mergeColombiaGw({ HandlingFee: 33000, ItemCount: 4 }, { GW: 7613, CW: 7613 }), { GW: 7613, CW: 7613 });
   check('입고 GW가 저장값이 없을 때 자동 병합', merged.GW === 7613 && merged.CW === 7613);
   check('자동 트럭 source 표시', merged.truckSource === 'warehouse_gw_auto');
-  check('7613kg 트럭료가 5t 단가로 계산', near(computeColombiaCustomsTotal(merged, RATE_DEFAULTS), 3849980));
+  check('7613kg 추천 트럭료(5t+2.5t+1t 합산) 반영', near(computeColombiaCustomsTotal(merged, RATE_DEFAULTS), 4135980));
 
-  console.log('\n=== 국가별 월드 운송료 GW 자동계산 (단일 GW 등급표) ===');
+  console.log('\n=== 국가별 월드 운송료 GW 자동계산(용량분해) ===');
   check('800kg → 월드운송료 1t', deriveWorldFreight(800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck1t);
-  check('1800kg → 월드운송료 2.5t', deriveWorldFreight(1800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck2_5t);
-  check('7613kg → 월드운송료 5t', deriveWorldFreight(7613, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck5t);
+  check('1,800kg → 월드운송료 2.5t 1대', deriveWorldFreight(1800, RATE_DEFAULTS).amount === RATE_DEFAULTS.Truck2_5t);
+  check('7,613kg → 5t+2.5t+1t 합산', deriveWorldFreight(7613, RATE_DEFAULTS).amount
+    === RATE_DEFAULTS.Truck5t + RATE_DEFAULTS.Truck2_5t + RATE_DEFAULTS.Truck1t);
   check('월드운송료 부가세 포함→제외 변환', vatInclusiveToNet(99000) === 90000 && vatNetToInclusive(90000) === 99000);
 
-  console.log('\n=== 국가별 월드 운송료는 1차+2차 결합 GW로 트럭 1대만 선정 (2026-08-12 결함수정) ===');
+  console.log('\n=== 국가별 월드 운송료는 1차+2차 결합 GW로 트럭을 선정 (2026-08-12 결함수정) ===');
   // 결함: 이전에는 1차 GW와 2차 GW를 각각 별도 트럭으로 계산해 26차에 이중계상이 발생했다.
-  // 이제는 그 대차수 국가의 GW1+GW2를 합산한 뒤 트럭 1대만 선정해 1차 칸에 전액 반영하고 2차는 0이다.
+  // 이제는 그 대차수 국가의 GW1+GW2를 합산한 뒤 용량분해 추천값을 1차 칸에 전액 반영하고 2차는 0이다.
   const worldAuto = effectiveCountryWorldFreight({}, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
-  check('800+1800=2600kg → 결합 5t 트럭 1대(2.5t+1t 이중계상 아님)',
-    worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck5t && worldAuto.row.WorldFreight2 === 0,
+  check('800+1800=2,600kg → 결합 2.5t 1대+1t 1대(286,000, 이중계상 아님)',
+    worldAuto.row.WorldFreight1 === 286000 && worldAuto.row.WorldFreight2 === 0,
     `WorldFreight1=${worldAuto.row.WorldFreight1} WorldFreight2=${worldAuto.row.WorldFreight2}`);
   check('화면 자동 월드운송료는 부가세 제외가로 1차 칸에만 표시',
-    worldAuto.auto.WorldFreight1 === vatInclusiveToNet(RATE_DEFAULTS.Truck5t) && worldAuto.auto.WorldFreight2 === 0);
+    worldAuto.auto.WorldFreight1 === vatInclusiveToNet(286000) && worldAuto.auto.WorldFreight2 === 0);
   check('2차 칸 source는 결합계산으로 0이 됐음을 설명', worldAuto.source.WorldFreight2 === 'combined_gw_zeroed');
 
   console.log('\n=== 요청사항 2번 원문 예시 — 26차 콜롬비아 수국/네덜란드/중국 결합 GW 트럭 ===');
   const colombiaHydrangea26 = effectiveCountryWorldFreight({}, { GW1: 2779, GW2: 1444 }, RATE_DEFAULTS);
-  check('콜롬비아 수국 26차: 2779+1444=4223kg → 5t 트럭 1대(275,000 gross / 250,000 net)',
-    colombiaHydrangea26.row.WorldFreight1 === 275000 && colombiaHydrangea26.row.WorldFreight2 === 0
-    && colombiaHydrangea26.auto.WorldFreight1 === 250000,
+  check('콜롬비아 수국 26차: 2779+1444=4,223kg → 결합 2.5t 1대+1t 2대(385,000 gross / 350,000 net)',
+    colombiaHydrangea26.row.WorldFreight1 === 385000 && colombiaHydrangea26.row.WorldFreight2 === 0
+    && colombiaHydrangea26.auto.WorldFreight1 === 350000,
     JSON.stringify(colombiaHydrangea26.row));
   const nl26 = effectiveCountryWorldFreight({}, { GW1: 192, GW2: 520 }, RATE_DEFAULTS);
   check('네덜란드 26차: 192+520=712kg → 1t 트럭 1대(99,000 gross / 90,000 net)',
@@ -93,7 +110,7 @@ async function main() {
   console.log('\n=== 명시적 수기 override는 결합계산보다 우선 보존 ===');
   const worldLegacy = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
   check('override 플래그 없는 기존 리터럴은 결합 GW 자동값으로 전환(2차는 0)',
-    worldLegacy.row.WorldFreight1 === RATE_DEFAULTS.Truck5t && worldLegacy.row.WorldFreight2 === 0
+    worldLegacy.row.WorldFreight1 === 286000 && worldLegacy.row.WorldFreight2 === 0
     && worldLegacy.source.WorldFreight1 === 'warehouse_gw_auto');
   const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456, WorldFreight1Manual: 1 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
   check('1차만 명시적 override면 그 값을 그대로 보존하고 2차는 0(결합 트럭에 이미 반영된 자리)',
@@ -114,14 +131,14 @@ async function main() {
     { WorldFreight1: 111, WorldFreight2: 222 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS,
   );
   check('1차·2차 모두 override 플래그 없는 레거시 리터럴이면 결합 자동값이 1차에만 반영되고 2차는 0(이중계상 없음)',
-    worldLegacyBoth.row.WorldFreight1 === RATE_DEFAULTS.Truck5t && worldLegacyBoth.row.WorldFreight2 === 0
+    worldLegacyBoth.row.WorldFreight1 === 286000 && worldLegacyBoth.row.WorldFreight2 === 0
     && worldLegacyBoth.source.WorldFreight2 === 'combined_gw_zeroed',
     JSON.stringify(worldLegacyBoth.row));
   const worldLegacy2Only = effectiveCountryWorldFreight(
     { WorldFreight2: 222 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS,
   );
   check('2차만 override 플래그 없는 레거시 리터럴이면(1차는 원래 비어있음) 결합 자동값이 1차에 반영되고 2차는 0',
-    worldLegacy2Only.row.WorldFreight1 === RATE_DEFAULTS.Truck5t && worldLegacy2Only.row.WorldFreight2 === 0
+    worldLegacy2Only.row.WorldFreight1 === 286000 && worldLegacy2Only.row.WorldFreight2 === 0
     && worldLegacy2Only.source.WorldFreight2 === 'combined_gw_zeroed',
     JSON.stringify(worldLegacy2Only.row));
   const worldLegacy2NoGw = effectiveCountryWorldFreight({ WorldFreight2: 222 }, { GW1: 0, GW2: 0 }, RATE_DEFAULTS);

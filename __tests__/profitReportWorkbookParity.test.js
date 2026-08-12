@@ -107,8 +107,16 @@ async function main() {
   check('음수 재고도 감사 대상으로 조회', stockSection.includes('ISNULL(ps.Stock,0) <> 0'));
   check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
   check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
-  check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('previousTaxableR') && reportApiSource.includes('previous_report_taxable_rate') && reportApiSource.includes('currentMajor >= 29'));
-  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('환율 입력 필요'));
+  check('과거 환율은 당주 정확 원천만 자동 적용하고 전차수·CurrencyMaster는 제안으로만 표시',
+    reportApiSource.includes('resolveTaxableRate')
+      && reportApiSource.includes('rateSuggestions')
+      && !reportApiSource.includes('previous_report_taxable_rate')
+      && !reportApiSource.includes('currency_master_fallback'));
+  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('과세환율(R) 입력 필요'));
+  check('보고서 저장 뒤 과세환율 캐시 저장 실패를 조용히 무시하지 않음',
+    pageSource.includes('과세환율 별도 저장 실패')
+      && pageSource.includes('보고서 수기값은 저장되었습니다.')
+      && !pageSource.includes("}).catch(() => null));"));
   // 2026-08-11: 각 함수의 인라인 LIKE '%운송료%' 조건이 공용 stockablePurchaseItemSql()로
   // 통합됐다(27차 F 폭증 결함 수정 — 상세는 __tests__/profitReportStockCostExclusionContract.test.js).
   // 원래 의도(Q와 매입수량 모두 포워딩/운송료 행을 제외해 이중계상하지 않음)는 두 함수 각각이
@@ -161,7 +169,7 @@ async function main() {
     auto: { N: 100, Q: 10, S: 2, R: null }, manual: {},
     stock: {}, source: { H: 'gw_auto', R: 'missing' },
   }]);
-  check('자동 환율도 없을 때만 환율 누락을 검출', missingRate.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
+  check('자동 환율도 없을 때만 환율 누락을 검출', missingRate.issues.some((x) => x.code === 'TAXABLE_RATE_MISSING'));
 
   const beforeCountryInput = buildProfitReportAudit([{
     category: '호주', currency: 'AUD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
@@ -170,19 +178,23 @@ async function main() {
     category: '베트남', currency: 'USD', auto: { Q: 0, S: 0, R: 1550, H: 0 }, manual: {}, stock: {},
     source: { H: 'missing', R: 'currency_master_fallback' },
   }], { major: 27 });
-  check('호주 28차 전·베트남 29차 전 원천 미입력은 정상 미적용 처리', beforeCountryInput.issues.length === 0, JSON.stringify(beforeCountryInput.issues));
+  check('호주 28차 전에는 H 입력은 미적용이지만 구매가 있으면 AUD R은 필수',
+    beforeCountryInput.issues.length === 1
+      && beforeCountryInput.issues[0].category === '호주'
+      && beforeCountryInput.issues[0].code === 'TAXABLE_RATE_MISSING',
+    JSON.stringify(beforeCountryInput.issues));
 
   const afterAustraliaInput = buildProfitReportAudit([{
     category: '호주', currency: 'AUD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
     source: { H: 'missing', R: 'missing' },
   }], { major: 28 });
-  check('호주 28차부터는 H/R 원천 누락을 다시 검출', afterAustraliaInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterAustraliaInput.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
+  check('호주 28차부터는 H/R 원천 누락을 다시 검출', afterAustraliaInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterAustraliaInput.issues.some((x) => x.code === 'TAXABLE_RATE_MISSING'));
 
   const afterVietnamInput = buildProfitReportAudit([{
     category: '베트남', currency: 'USD', auto: { Q: 100, S: 0, R: null, H: 0 }, manual: {}, stock: {},
     source: { H: 'missing', R: 'missing' },
   }], { major: 29 });
-  check('베트남 29차부터는 H/R 원천 누락을 검출', afterVietnamInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterVietnamInput.issues.some((x) => x.code === 'INVOICE_RATE_MISSING'));
+  check('베트남 29차부터는 H/R 원천 누락을 검출', afterVietnamInput.issues.some((x) => x.code === 'CUSTOMS_INCOMPLETE') && afterVietnamInput.issues.some((x) => x.code === 'TAXABLE_RATE_MISSING'));
 
   const negativeStock = buildProfitReportAudit([{
     category: '콜롬비아 장미', currency: 'USD',
