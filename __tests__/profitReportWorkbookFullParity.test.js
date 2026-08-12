@@ -86,6 +86,8 @@ async function main() {
     }
     if (typeof wt.K?.value === 'number') { check(`${major}차 합계 K=J/(C+F)`, near(totals.K, wt.K.value, 0.0005)); cellsChecked += 1; }
     if (typeof wt.M?.value === 'number') { check(`${major}차 합계 M=-L/C`, near(totals.M, wt.M.value, 0.0005)); cellsChecked += 1; }
+    if (typeof wt.D?.value === 'number') { check(`${major}차 합계 D=SUM(D7:D22)`, near(totals.D, wt.D.value, 0.0005)); cellsChecked += 1; }
+    if (typeof wt.U?.value === 'number') { check(`${major}차 합계 U=SUM(U7:U20)`, near(totals.U, wt.U.value, 0.0005)); cellsChecked += 1; }
 
     // D/U 비율 — 화면·엑셀 공용 함수로 행 단위 재계산.
     for (const { category, cells, calc } of rowsWithCalc) {
