@@ -17,8 +17,8 @@ assert.match(api, /status\(503\)/, 'MOYI 저장 계약 확인 전 변경을 차�
 assert.match(api, /writePermissionAudit/, '허용되지 않거나 대기 중인 변경 시도를 기록해야 합니다.');
 assert.doesNotMatch(api, /sample-1|설계 미리보기|직원 예시/, '가짜 파일·권한 자료를 반환하면 안 됩니다.');
 assert.match(api, /loadMoyiDrive/, '실제 MOYI Drive 읽기 gateway를 사용해야 합니다.');
-assert.match(gateway, /MOYI_DRIVE_LEDGER_READY/, '운영 반영이 확인되기 전에는 연결을 차단해야 합니다.');
-assert.match(gateway, /MOYI_DRIVE_ROOT_FOLDER_ID/, '폴더 범위는 서버 설정으로 고정해야 합니다.');
+assert.match(gateway, /drive\/capabilities/, '운영 계약 revision을 backend에서 확인해야 합니다.');
+assert.match(gateway, /integrations\/nenovaweb\/drive-root/, '폴더 범위는 승인된 연결에서 서버가 정해야 합니다.');
 assert.match(gateway, /drive\/v2\/folders\//, '확인된 backend Drive 원장 경로만 호출해야 합니다.');
 assert.doesNotMatch(gateway, /access_token|nenovaToken/, '응답 모델에 인증 토큰을 포함하면 안 됩니다.');
 assert.match(gateway, /writeAcl:\s*false/, 'ACL 쓰기 능력을 완화하면 안 됩니다.');
@@ -56,21 +56,14 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
   assert.equal(pending.connectionReady, false);
   assert.deepEqual(pending.files, [], '연결 대기 중 sample 파일을 반환하면 안 됩니다.');
   assert.match(pending.pending.naverworks, /connector/, '실제 connector 미구현 사유를 표시해야 합니다.');
-  const previousReady = process.env.MOYI_DRIVE_LEDGER_READY;
-  const previousFolder = process.env.MOYI_DRIVE_ROOT_FOLDER_ID;
-  const previousRevision = process.env.MOYI_DRIVE_CONTRACT_REVISION;
   const previousFetch = global.fetch;
   try {
-    delete process.env.MOYI_DRIVE_LEDGER_READY;
-    const notDeployed = await loadMoyiDrive({ headers: {} });
-    assert.equal(notDeployed.status, 503, 'backend 운영 반영 전에는 503 연결 대기여야 합니다.');
-    process.env.MOYI_DRIVE_LEDGER_READY = 'true';
-    process.env.MOYI_DRIVE_ROOT_FOLDER_ID = 'folder-fixed-by-server';
-    process.env.MOYI_DRIVE_CONTRACT_REVISION = 'talkhub-drive-v2@bf8ee45';
     let fetchCall = 0;
     global.fetch = async (url, options) => {
       fetchCall += 1;
-      if (fetchCall === 1) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
+      if (String(url).endsWith('/drive/capabilities')) return { ok: true, status: 200, json: async () => ({ contract_revision: '2026-08-12.1', flags: { drive_legacy_inline_url: false } }) };
+      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
+      if (String(url).endsWith('/integrations/nenovaweb/drive-root')) return { ok: true, status: 200, json: async () => ({ ready: true, root_folder_id: 'folder-fixed-by-server' }) };
       assert.match(String(url), /folder-fixed-by-server\/items$/, '클라이언트 입력이 아닌 서버 폴더 설정을 사용해야 합니다.');
       assert.equal(options.headers.Authorization, 'Bearer connection-token');
       return { ok: true, status: 200, json: async () => [{ id: 'real-1', file_id: 'file-1', name: '실제.pdf', source_kind: 'moyi_upload', sync_state: 'verified', source_deleted: false }] };
@@ -81,9 +74,6 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     assert.equal(JSON.stringify(connected.body).includes('connection-token'), false, '연결 token을 응답에 노출하면 안 됩니다.');
     assert.equal(classifyDriveResponse({ status: connected.status, body: connected.body }).kind, 'connected', '실제 연결 응답은 pending이 아니라 connected로 분류되어야 합니다.');
   } finally {
-    if (previousReady === undefined) delete process.env.MOYI_DRIVE_LEDGER_READY; else process.env.MOYI_DRIVE_LEDGER_READY = previousReady;
-    if (previousFolder === undefined) delete process.env.MOYI_DRIVE_ROOT_FOLDER_ID; else process.env.MOYI_DRIVE_ROOT_FOLDER_ID = previousFolder;
-    if (previousRevision === undefined) delete process.env.MOYI_DRIVE_CONTRACT_REVISION; else process.env.MOYI_DRIVE_CONTRACT_REVISION = previousRevision;
     global.fetch = previousFetch;
   }
   console.log('MOYI Drive admin access and UI contract tests passed');

@@ -23,6 +23,7 @@ export default function MoyiDriveAdminPage() {
   const [classification, setClassification] = useState(null); // null = 최초 로딩 중
   const [query, setQuery] = useState('');
   const [selectedFileId, setSelectedFileId] = useState(null);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,11 +50,25 @@ export default function MoyiDriveAdminPage() {
 
   const data = classification.body;
   const connected = classification.kind === 'connected';
+  const canBootstrap = classification?.body?.code === 'MOYI_DRIVE_BOOTSTRAP_REQUIRED';
   const activeTab = TAB_DEFS.find((t) => t.key === tabKey) || TAB_DEFS[0];
 
   return (
     <div className="moyi-drive-page">
       <StatusPanel panel={topStatusPanel(classification)} />
+      {canBootstrap && (
+        <div className="moyi-bootstrap-action">
+          <Button variant="primary" disabled={preparing} reason={preparing ? '회사 전용 폴더를 준비하고 있습니다.' : undefined} onClick={async () => {
+            setPreparing(true);
+            try {
+              const res = await fetch('/api/moyi/drive-admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bootstrap' }) });
+              const body = await res.json().catch(() => null);
+              if (!res.ok) setClassification(classifyDriveResponse({ status: res.status, body }));
+              else window.location.reload();
+            } finally { setPreparing(false); }
+          }}>{preparing ? '연결 준비 중…' : '회사 Drive 연결 준비'}</Button>
+        </div>
+      )}
 
       <Toolbar
         company={data.company}
@@ -134,6 +149,7 @@ export default function MoyiDriveAdminPage() {
 
       <style jsx>{`
         .moyi-tab-card { margin-top: 4px; }
+        .moyi-bootstrap-action { display: flex; justify-content: flex-end; margin: 4px 0; }
         .moyi-file-table-wrap { max-height: calc(100vh - 260px); }
         .moyi-scroll-hint { display: none; }
         .moyi-erp-approval-box {

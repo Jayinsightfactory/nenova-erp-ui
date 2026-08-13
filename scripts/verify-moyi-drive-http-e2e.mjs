@@ -22,7 +22,12 @@ const items = [
 
 const server = http.createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  if (req.url === '/drive/capabilities') return res.end(JSON.stringify({ contract_revision: '2026-08-12.1', flags: { drive_legacy_inline_url: false } }));
   if (req.url === '/openapi.json') return res.end(JSON.stringify(openapi));
+  if (req.url === '/integrations/nenovaweb/drive-root') {
+    assert.equal(req.headers.authorization, 'Bearer e2e-connection-secret');
+    return res.end(JSON.stringify({ ready: true, root_folder_id: 'e2e-root' }));
+  }
   if (req.url === '/drive/v2/folders/e2e-root/items') {
     assert.equal(req.headers.authorization, 'Bearer e2e-connection-secret');
     if (upstreamMode !== 200) {
@@ -50,9 +55,6 @@ const nextProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 
     ...process.env,
     JWT_SECRET: jwtSecret,
     MOYI_API_BASE: `http://127.0.0.1:${address.port}`,
-    MOYI_DRIVE_LEDGER_READY: 'true',
-    MOYI_DRIVE_ROOT_FOLDER_ID: 'e2e-root',
-    MOYI_DRIVE_CONTRACT_REVISION: 'talkhub-drive-v2@bf8ee45',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
