@@ -66,9 +66,9 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     global.fetch = async (url, options) => {
       fetchCall += 1;
       if (String(url).endsWith('/drive/capabilities')) return { ok: true, status: 200, json: async () => ({ contract_revision: '2026-08-12.1', flags: { drive_legacy_inline_url: false } }) };
-      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
+      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/integrations/nenovaweb/drive-items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
       if (String(url).endsWith('/integrations/nenovaweb/drive-root')) return { ok: true, status: 200, json: async () => ({ ready: true, root_folder_id: 'folder-fixed-by-server' }) };
-      assert.match(String(url), /folder-fixed-by-server\/items$/, '클라이언트 입력이 아닌 서버 폴더 설정을 사용해야 합니다.');
+      assert.match(String(url), /integrations\/nenovaweb\/drive-items$/, '연결 토큰 전용 목록 경로를 사용해야 합니다.');
       assert.equal(options.headers.Authorization, 'Bearer connection-token');
       return { ok: true, status: 200, json: async () => [{ id: 'real-1', file_id: 'file-1', name: '실제.pdf', source_kind: 'moyi_upload', sync_state: 'verified', source_deleted: false }] };
     };
