@@ -1,6 +1,6 @@
 import { query, withTransaction, sql } from '../lib/db.js';
 
-const year='2026', week='30-02', uid='codex-approved-20260813', cf='콜롬비아카네이션';
+const year='2026', week='30-02', uid='nenovaSS3', cf='콜롬비아카네이션';
 const targets=[
   {pk:389,name:'CARNATION Doncel',expected:-3,target:0},
   {pk:518,name:'CARNATION Giogia',expected:-3.21,target:2},
@@ -18,7 +18,7 @@ await withTransaction(async q=>{
     if(!Number.isFinite(selected)||Math.abs(selected-t.expected)>0.001) throw new Error(`ABORT ${t.name}: selected=${selected} expected=${t.expected}`);
     const live=await q(`SELECT Stock FROM Product WITH (UPDLOCK,HOLDLOCK) WHERE ProdKey=@pk`,{pk:{type:sql.Int,value:t.pk}});
     const before=Number(live.recordset[0].Stock), after=before+(t.target-selected);
-    await q(`INSERT INTO StockHistory(ChangeDtm,OrderYear,OrderWeek,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,ProdKey) VALUES(GETDATE(),@yr,@wk,@uid,N'재고조정',N'재고수량',@before,@after,@descr,@pk)`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},uid:{type:sql.NVarChar,value:uid},before:{type:sql.Float,value:before},after:{type:sql.Float,value:after},descr:{type:sql.NVarChar,value:`30-02 승인 보정 (${t.name}: ${selected}→${t.target})`},pk:{type:sql.Int,value:t.pk}});
+    await q(`INSERT INTO StockHistory(ChangeDtm,OrderYear,OrderWeek,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,ProdKey) VALUES(GETDATE(),@yr,@wk,@uid,N'재고조정',N'재고수량',@before,@after,@descr,@pk)`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},uid:{type:sql.NVarChar,value:uid},before:{type:sql.Float,value:before},after:{type:sql.Float,value:after},descr:{type:sql.NVarChar,value:'30-02 승인 보정'},pk:{type:sql.Int,value:t.pk}});
     await q(`UPDATE Product SET Stock=ROUND(@after,2) WHERE ProdKey=@pk`,{after:{type:sql.Float,value:after},pk:{type:sql.Int,value:t.pk}});
     await q(`EXEC dbo.usp_StockCalculation @OrderYear=@yr,@OrderWeek=@wk,@ProdKey=@pk,@iUserID=@uid`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},pk:{type:sql.Int,value:t.pk},uid:{type:sql.NVarChar,value:uid}});
   }
