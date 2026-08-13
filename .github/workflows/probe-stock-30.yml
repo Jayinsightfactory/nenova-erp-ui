@@ -13,4 +13,5 @@ jobs:
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
+            git fetch origin master && git reset --hard origin/master
             node --env-file=.env.local scripts/probe-stock-30-carnation.mjs
