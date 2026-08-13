@@ -28,6 +28,10 @@ assert.match(mobileHome, /userIds\.includes\(me\.userId\)/, '모바일 메뉴도
 assert.match(page, /연결 대기/, '화면에 연결 대기 이유를 알려야 합니다.');
 assert.match(page, /다운로드 기록/, '다운로드 성공·차단 화면이 있어야 합니다.');
 assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 업무 승인과 분리해야 합니다.');
+assert.match(page, /MOYI 앱에서 올림/, 'MOYI 앱 업로드만 모아보는 빠른 보기가 있어야 합니다.');
+assert.match(page, /네이버웍스에서 가져옴/, '네이버웍스에서 들어온 자료를 구분해서 볼 수 있어야 합니다.');
+assert.match(page, /정리 필요/, '분류·백업 확인이 필요한 파일을 별도 보기로 제공해야 합니다.');
+assert.match(page, /폴더는 팀·업무 중심으로 적게 만들고/, '폴더와 분류 정보의 역할을 직원에게 안내해야 합니다.');
 
 (async () => {
   const { isMoyiDriveAdmin } = await import('../lib/moyiDriveAdmin.js');
