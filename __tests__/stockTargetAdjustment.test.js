@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 async function main() {
-  const { resolveLaterSnapshotPreservation, resolveStockTargetAdjustment } = await import('../lib/stockTargetAdjustment.js');
+  const { resolveStockTargetAdjustment } = await import('../lib/stockTargetAdjustment.js');
   const api = fs.readFileSync('pages/api/stock/adjust-batch.js', 'utf8');
   const policy = fs.readFileSync('lib/stockTargetAdjustment.js', 'utf8');
 
@@ -10,11 +10,6 @@ async function main() {
     resolveStockTargetAdjustment({ liveStock: -20, selectedStock: 9, targetStock: 0 }),
     { selectedBefore: 9, targetStock: 0, delta: -9, liveBefore: -20, liveAfter: -29 },
   );
-  assert.deepEqual(
-    resolveLaterSnapshotPreservation({ liveStock: 20, delta: -9, nextWeek: { orderYear: '2026', orderWeek: '31-01' } }),
-    { orderYear: '2026', orderWeek: '31-01', delta: 9, liveBefore: 11, liveAfter: 20 },
-  );
-  assert.equal(resolveLaterSnapshotPreservation({ liveStock: 20, delta: -9, nextWeek: null }), null);
   assert.deepEqual(
     resolveStockTargetAdjustment({ liveStock: 15, selectedStock: -3, targetStock: 2 }),
     { selectedBefore: -3, targetStock: 2, delta: 5, liveBefore: 15, liveAfter: 20 },
@@ -31,8 +26,9 @@ async function main() {
   assert.doesNotMatch(api, /const before = Number\(beforeResult/);
   assert.doesNotMatch(api, /errors\.length \? 207/);
   assert.match(api, /const results = await withTransaction/);
-  assert.match(api, /N'과거차수 수정 후속스냅샷 보존'/);
   assert.match(api, /OrderYear > @year OR \(OrderYear=@year AND OrderWeek>@week\)/);
+  assert.match(api, /HISTORICAL_STOCK_EDIT_BLOCKED/);
+  assert.doesNotMatch(api, /후속스냅샷 보존/);
   assert.match(api, /THROW 51000, @m, 1/);
   assert.match(api, /loadFixedEditedProdKeys/);
   assert.match(api, /sd\.ProdKey=e\.ProdKey AND ISNULL\(sd\.isFix,0\)=1/);
