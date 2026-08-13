@@ -143,7 +143,7 @@ function HistoryButton({ orderYear, scopeType, scopeKey }) {
   );
 }
 
-export default function CustomsClearancePanel({ week, onSaved }) {
+export default function CustomsClearancePanel({ week, year, onSaved }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -160,14 +160,14 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     if (!week) return;
     setLoading(true); setError(''); setMessage('');
     try {
-      const r = await fetch(`/api/sales/customs-clearance?week=${encodeURIComponent(week)}`, { credentials: 'same-origin' });
+      const r = await fetch(`/api/sales/customs-clearance?week=${encodeURIComponent(week)}&year=${encodeURIComponent(year || '')}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       setCountryEdits({}); setColombiaEdits({}); setRateEdits({});
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [week]);
-  useEffect(() => { if (week) load(); }, [week, load]);
+  }, [week, year]);
+  useEffect(() => { if (week && year) load(); }, [week, year, load]);
 
   // 화면에 보여줄 "현재 유효값"(=합계 계산에 실제로 쓰이는 값)이다. 전차수 참고값(carry)은 여기
   // 포함하지 않는다 — carry는 아래 CarryHint로만 보여주는 제안이며, 사용자가 명시적으로 "적용"을
@@ -304,7 +304,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     try {
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveCountry', category: row.category, row: countryOut(row) }),
+        body: JSON.stringify({ week, year, action: 'saveCountry', category: row.category, row: countryOut(row) }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -328,7 +328,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
         .map((row) => ({ category: row.category, row: countryOut(row) }));
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveCountries', rows }),
+        body: JSON.stringify({ week, year, action: 'saveCountries', rows }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -348,7 +348,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       const out = colombiaOut(c);
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
+        body: JSON.stringify({ week, year, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -364,7 +364,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       const merged = { ...data.rates, ...rateEdits };
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveRates', rates: merged }),
+        body: JSON.stringify({ week, year, action: 'saveRates', rates: merged }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);

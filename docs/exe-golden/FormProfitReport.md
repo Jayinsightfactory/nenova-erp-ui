@@ -14,6 +14,11 @@
 - E/F/H/R/S는 재고 스냅샷·입고 GW/CW·입고별 과세환율 스냅샷(`FreightCost.ExchangeRate` — AUD를 포함한 전 통화가 통관 신고 시점 관세청 과세환율이며, 구매현황에 남는 상업(환전) 환율과는 다른 값이다)·포워딩 원천에서 자동 계산해 기본 표시한다. 청구서·실사·특수비용처럼 예외가 있을 때만 웹 전용 `WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`, `WebTaxableExchangeRate`에 수기 보정값을 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
 - 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
+- 2026-08-12 추가(28차 이후 관세청 공식 과세환율 KCS API): R 자동 우선순위 맨 앞에 행별 수기
+  오버라이드(`WebProfitReport.R`, `man.R` — 호출부 `pages/api/sales/profit-report.js`가
+  `resolveTaxableRate()` 결과보다 항상 먼저 적용)가 있고, 위 ①~③ 어느 것도 없을 때만 2026년
+  28차 이후에 한해 관세청(KCS) 공식 과세환율 API를 4순위로 시도한다. 상세 설계·근거·회귀 목록은
+  아래 "2026-08-12 KCS(관세청 과세환율 API) date 기반 자동 조회" 절 참고.
 - 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로 인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
 - 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율을 입력하고 저장하면 `WebProfitReport.R`(행별 override)과 `WebTaxableExchangeRate`(그 차수·통화·카테고리 캐시) 양쪽에 저장되며, 재조회 후 검증 오류가 사라져야 한다. 이 R 검증은 국가별 H 입력화면 도입 차수(호주 28차/베트남 29차)와 무관하다 — 구매·포워딩 금액이 있으면 차수와 상관없이 항상 필요하다(2026 22~27차에도 호주 구매가 있는 23·24·27차에는 실제로 AUD R이 존재한다: 1079.48/1083.36/1068.23).
 - 기말재고 F는 해당 대차수에서 `ProductStock` 행이 실제로 존재하는 세부차수 중 suffix 숫자가 가장 큰 마지막 스냅샷의 `ProductStock.Stock`을 기말재고수량으로 쓰고, 여기에 품목별 재고평가단가(`WebStockPrice` 지정 > 수국단가표 > `Product.Cost`) ÷1.1을 곱한다(2026-08-12 정정 — 이전에는 "매입금액+포워딩+통관비 ÷ 매입총수량" landed-cost 평균단가를 1순위로 썼으나, 이는 매입이 있는 카테고리에서만 성립하고 재고평가단가와 무관한 값이라 원천이 달랐다. 그 계산은 이제 평가단가를 구할 수 없을 때만 쓰는 폴백이다). 원본 엑셀 `재고잔량` 시트의 단순 총합을 그대로 옮겨 적지 않는다 — 그 시트에는 수동정정·오입력 흔적이 남아 있다(예: 27차 카네이션 기말 단가가 11,000이 아니라 110,000으로 저장됨). 27차라면 27-01/27-02뿐 아니라 27-03 이후도 검색하며, 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey`를 기준으로 하나를 선택한다. 기초재고 E는 같은 규칙으로 같은 `OrderYear`의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용한다. 단, 01차처럼 대차수가 연도 경계를 넘는 경우에만 전년도 52차를 사용한다. `StockMaster.isFix`는 별도 재고 마감 표시·진단값이며, 27-02처럼 실제 ProductStock 스냅샷과 표시값이 어긋날 때도 스냅샷 자체를 누락으로 판정하지 않는다. ProductStock 스냅샷 자체가 없을 때만 검증 오류로 남긴다. 보고서를 확정(`REPORT_CONFIRM_SNAPSHOT`)하면 그 시점 E/F 값이 그대로 굳어져, 이후 DB의 ProductStock/WebStockPrice가 바뀌어도 확정본은 재계산되지 않는다.
@@ -222,6 +227,115 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 - 회귀: `__tests__/profitReportHistoricalCustoms.test.js`(scope 분리·차량 실제값 보존),
   `__tests__/profitReportWorkbookFullParity.test.js`(F/합계 재현 22~27차 전체),
   `__tests__/profitReportSourceGuide.test.js`(설명 문구가 위 5가지 규칙과 일치하는지 대조).
+
+## 2026-08-13 KCS(관세청 과세환율 API) InputDate 기반 자동 조회 — 2026 28차 이후 4순위
+
+위 "22~27차 저장값 부재" 절의 excel historical snapshot(③)은 2026 22~27차 6개 원본 워크북 범위에만
+있다. 28차 이후는 원본 워크북이 없으므로 R 자동 적용이 ①FreightCost 스냅샷 → ②저장/캐시값까지만
+있으면 그 다음은 바로 `missing`이었다. 이번 작업으로 관세청(KCS) 과세환율 공식 API를 4순위로
+추가했다 — ①~③ 어느 것도 없을 때만 쓰이므로 2026 22~27차 계산은 전혀 바뀌지 않는다(회귀 없음).
+
+- **단일 게이트**: `lib/taxableExchangeRate.js isKcsRateEligibleWeek(orderYear, major)` —
+  `2026-28` 이상인 연도+차수 결합키에서만 참이다. 따라서 2026년 22~27차는 기존 원본값을
+  보존하고, 2027년 이후도 정상 조회 대상이다. 범위 밖이면 DB 조회와 KCS 네트워크 호출을 하지 않는다.
+- **신고일자·가중치 산출**: `lib/kcsRateDateWeights.js loadWarehouseDateWeights(orderYear, major)`가
+  사용자가 입고에 명시한 `WarehouseMaster.InputDate`만 사용해 카테고리(국가/화종)×날짜별
+  `wd.TPrice` 합계 목록을 반환한다. `InputDate`가 없으면 `ArrivalDtm`이나 `UploadDtm`으로 대신하지
+  않고 해당 카테고리를 `입력 필요`로 남긴다. 날짜를
+  먼저 평균해 대표일자 하나로 줄이지 않는다. "관세청 신고환율은 각 실제 신고일자의 실제 환율을
+  TPrice로 가중평균한다"는 요구사항을 정확히 지키려면 날짜를 먼저 평균(pseudo-date)하는 방식은
+  실제 신고일자가 아닌 날의 환율을 끌어오는 오차가 생기기 때문이다(2026-08-12 설계 정리 — 초기
+  구현은 날짜를 먼저 가중평균하는 `declarationDateByCategory()`였으나 이 방식으로 교체하며
+  제거했다). `CASE_CATEGORY`/`stockablePurchaseItemSql`/`currencyCodeForCategory`는
+  `lib/profitReport.js`에서 그대로 `export`해 재사용하며(중복 구현 금지), `OrderWeek LIKE
+  'major-%' AND ISNULL(OrderYear,'')=@yr` 조합으로 교차연도 오염을 막는다. 두 모듈 모두 SELECT만
+  하며 쓰기 계열 SQL이 없다(GET 읽기 전용 규칙).
+- **입고 스냅샷 완전성**: 당주 `FreightCost.ExchangeRate`는 해당 카테고리 상품매입의 TPrice가
+  100% 환율 스냅샷으로 덮일 때만 자동 원천으로 인정한다. 일부 입고만 환율이 있으면 그 일부의
+  평균값을 전체 환율처럼 쓰지 않고 저장된 공식값/KCS/직접입력 단계로 넘긴다.
+- **KCS 공식 조회 + 환율 자체를 TPrice 가중평균**: 카테고리별로 서로 다른 (통화,날짜) 조합마다
+  `lib/kcsTaxableRate.js getKcsTaxableRate({currency, declarationDate})`를 정확히 1회만 호출(중복
+  제거)해 `https://unipass.customs.go.kr/clip/com/bsopcomn/baseinfo/retrieveCOM0101049Q.do`에
+  `aplyBgnDt`(YYYYMMDD)·`currCd`·`summary`·`pageIndex`·`pageUnit` 파라미터로 GET하고, 응답 후보 중
+  요청 통화와 요청일이 적용기간에 정확히 포함되는 유일한 `weekFxrtIm` 양수만 채택한다. 통화·기간이
+  다르거나 후보가 모호하면 절대 추측/0-fallback하지 않고 실패 처리한다. 그 다음
+  `lib/kcsRateDateWeights.js weightedRateFromDatePoints(datePoints, rateByDate)`(순수 함수)가 카테고리
+  안의 날짜별 `(rate, weight)`를 `wd.TPrice`로 가중평균해 카테고리당 최종 환율 1개를 만든다.
+  날짜 누락 또는 공식 환율 조회 실패가 하나라도 있으면 일부 날짜만으로 계산하지 않고 카테고리
+  전체를 `입력 필요`로 둔다.
+  `KCS_TAXABLE_RATE_ENABLED`가 명시적으로 `'false'`가 아니면(미설정 포함) 기본 활성이며, API 키
+  (`KCS_EXCHANGE_RATE_API_KEY`)가 없어도 조회를 시도한다(공개 조회 가능성).
+- **타임아웃/검증/캐시**: `AbortSignal.timeout(KCS_TAXABLE_RATE_TIMEOUT_MS)`(기본 8000ms)로 응답
+  지연을 차단하고, HTTP 401/403은 `auth_failed`, 그 외 비정상 응답은 `http_error`로 구분해 원인을
+  숨기지 않는다. 성공 응답은 프로세스 메모리 TTL 캐시(`KCS_TAXABLE_RATE_TTL_MS`, 기본 21600000ms=6h)에
+  저장해 같은 통화+신고일자 재조회 시 네트워크를 다시 타지 않는다(`lib/importApplyProgress.js`의
+  global 싱글톤 Map + TTL prune 패턴과 동일).
+- **`resolveTaxableRate()` 통합**: 순수 함수(DB 의존 없음)에 `kcsRate`/`kcsDetail` 입력을 추가하고,
+  기존 우선순위(①스냅샷 → ②저장 카테고리 지정 행 → ③historical → ④저장 통화 기본 행) 맨 뒤에
+  KCS를 5번째로 삽입했다 — ①~④ 중 어느 것도 없을 때만 KCS 값을 쓴다. 행별 수기 오버라이드
+  (`WebProfitReport.R`, `man.R`)는 이 함수보다 먼저 `pages/api/sales/profit-report.js`에서 적용되어
+  있어 여전히 최우선이다("manual R first"는 호출부 책임, 이 함수는 그 다음 자동 원천만 고른다).
+  KCS로 채택된 값은 `RATE_SOURCE.KCS_API`이며 기존 `EXACT_WEEK_RATE_SOURCES`에 이미 포함돼 있어
+  "정확히 그 주차 원천"으로 즉시 자동 적용된다 — 별도 `TAXABLE_RATE_SAVE` 없이도 계산에 들어간다
+  (기존 저장 POST 경로는 담당자가 명시적으로 확정·고정하고 싶을 때 쓰는 용도로 그대로 유지).
+- **쓰기 범위**: 이 4순위 전체(신고일자 조회·KCS API 호출·`resolveTaxableRate`)는 SELECT/외부
+  GET만 하고 DB에 INSERT/UPDATE/DELETE/DDL을 전혀 하지 않는다. 기존 `TAXABLE_RATE_SAVE`(POST,
+  `saveTaxableRate`)는 이번 작업으로 변경하지 않았다.
+- 회귀: `__tests__/taxableExchangeRateKcs.test.js` — `resolveTaxableRate`의 kcsRate 우선순위(①~④가
+  항상 kcsRate보다 우선, 특히 22~27차 historical이 이김), `isKcsRateEligibleWeek` 단일 게이트,
+  `kcsRatesByCategory`가 범위 밖에서 DB·네트워크를 건드리지 않음. `__tests__/kcsRateDateWeights.test.js`
+  — `lib/kcsRateDateWeights.js`의 `mapCategoryDateRowsToWeights`(미분류/weight<=0 제외, 날짜없음은
+  카테고리 실패 사유로 보존)·`weightedRateFromDatePoints`(환율 자체의 TPrice 가중평균, "날짜
+  평균 후 1회 조회"와 다른 결과가 나옴을 증명하는 케이스 포함) 순수 함수.
+  `__tests__/kcsRatesByCategoryWeighting.test.js` — `kcsRatesByCategory()` 전체 흐름을 fetch/날짜
+  가중치 mock으로 end-to-end 검증(2개 날짜 가중평균, 1개 날짜 실패 시 카테고리 전체 제외,
+  같은 통화+날짜 fetch 중복 제거). `__tests__/profitReportAnalysisGetReadOnlyDdl.test.js`
+  — KCS/분석 관련 신규 lib·API 파일 전부에 쓰기·DDL 키워드 없음 + `profit-analysis.js` GET 전용 정적 검증.
+  `lib/kcsTaxableRate.js`의 `weekFxrtIm` 파싱·타임아웃·HTTP 오류 구분·TTL 캐시는
+  `__tests__/taxableExchangeRateKcs.test.js`가 fetch mock으로 검증(실네트워크 없음).
+
+## 2026-08-12 이익률 분석 패널(analysis) + 검증·입력 패널 표 하단 재배치
+
+주차별 매출이익 보고서 표 아래에 두 영역을 추가·재배치했다. 둘 다 웹 전용 부가 기능이며 ERP 원장을
+전혀 쓰지 않고, 표 자체의 조회/저장/엑셀 다운로드 로직과 계산식은 이번 작업으로 바뀌지 않았다.
+
+- **패널 재배치**: 검증 배너(자동값 확인/오류), 실사 시작재고 확인 배너, 과세환율(R) 입력 필요
+  배너, 기타(미분류) 검증 배너, `📦 그외통관비 입력`(`CustomsClearancePanel`)·`🚢 포워딩 입력`
+  (`ForwardingClearancePanel`) 패널을 본표(카테고리별 표+합계 행) **아래**로 옮기고, "검증·입력"
+  이름의 접기/펼치기 그룹 하나로 묶었다(`components/ProfitReportSourceGuide.js`와 같은
+  `aria-expanded`/`aria-controls`/`hidden` 패턴). 검증 오류·미분류행·R 입력 필요 중 하나라도 있으면
+  기본 펼침, 없으면 기본 접힘이며 접힌 헤더에도 건수를 표시한다. 각 배너·패널 자체의 표시 조건과
+  내용, `📦`/`🚢`/`🛠` 툴바 버튼과 그 토글 상태(`showCustoms`/`showForwarding`/`showOverrides`)는
+  그대로다 — 화면상 위치만 이동했다. `수기 보정`(`showOverrides`)은 별도 패널이 아니라 본표 셀 자체를
+  편집 가능하게 바꾸는 기존 동작이라 이동 대상이 아니다(표 자체이므로).
+- **이익률 분석 패널(신규, `analysis`)**: "검증·입력" 그룹보다 아래, 기본 접힘. 펼치면 본표 조회
+  (`load()`)와 **별도의** GET 요청(`GET /api/sales/profit-analysis?year=&week=`)을 보내
+  (`pages/api/sales/profit-analysis.js`, read-only, `withAuth`), 이 차수 이익률(K)과 **같은
+  `OrderYear` 안의** 직전 최대 4개 차수 평균을 비교해 %p 차이를 보여준다(연도 경계를 넘지 않음 —
+  major가 작아 직전 차수가 4개 미만이면 있는 만큼만 쓰고 그 사실을 명시). 각 차수 값은 그 차수의
+  활성 확정 스냅샷(`REPORT_CONFIRM_SNAPSHOT`)이 있으면 그 값을 "확정"으로, 없으면
+  `loadReportData`+`computeProfitTotals`로 즉시 계산한 값을 "실시간 계산"으로 표시한다
+  (`lib/profitReportRateAnalysis.js loadWeekK`/`loadRateTrend`). 검증 오류·과세환율 원천 누락·재고
+  스냅샷 누락이 관련 차수 중 하나라도 있으면 패널 전체에 "잠정" 배지와 사유를 표시한다
+  (`isProvisional`). 이 패널은 별도 요청이므로 느리거나 실패해도 본표 렌더링을 막지 않는다.
+- **변동 요인(C/E/F/P/H/T/L)**: 이번 차수 값과 직전 평균의 증감·증감률을 절대 증감 크기 내림차순으로
+  보여준다(`lib/profitReportDriverExplanation.js explainDrivers`, 순수 함수, DB 의존 없음).
+- **거래처·품목 후보 탐지**: `ShipmentMaster`/`ShipmentDetail`/`Customer`(고정, 확정 출고만,
+  `lib/profitReport.js#salesByCategory`와 동일 필터 — `lib/pivotStats.js`의 `sd.isFix=1`이 아니라
+  `sm.isFix=1`)에서 거래처×품목별 수량/부가세포함 분배단가(단가 기준수량은 `EstQuantity`)를 읽어
+  (`lib/profitReportCustomerMixSql.js loadCustomerProductSales`) 두 후보를 순수 함수로 탐지한다
+  (`lib/profitReportPriceMixCandidates.js`): **단가 하락 후보** = 같은 거래처+품목의 단가가 직전
+  차수 대비 3% 이상 하락. **저가 구성비 후보** = 같은 품목의 단가가 이번 차수 동종 가중평균과
+  중앙값 **둘 다**보다 5% 이상 낮고, 그 거래처의 그 품목 판매 비중이 2%p 이상 상승. 두 탐지 모두
+  거래처명을 코드에 하드코딩하지 않고(응답 데이터의 `custName`만 그대로 표시), 원인을 단정하지
+  않으며 비고는 항상 고정 문구 `특가·재고소진 여부 확인` 그대로다.
+- **쓰기 범위**: `pages/api/sales/profit-analysis.js`와 이 절의 모든 `lib/*` 파일은 SELECT/파라미터화
+  쿼리만 하며 INSERT/UPDATE/DELETE/MERGE/DDL이 전혀 없다(`__tests__/profitReportAnalysisGetReadOnlyDdl.test.js`).
+- 회귀: `__tests__/profitReportRateAnalysis.test.js`(추세 요약·연도 경계 미월경·잠정 판정),
+  `__tests__/profitReportPriceMixCandidates.test.js`(3%/5%/2%p 경계값·고정 비고 문구·거래처명
+  비하드코딩), `__tests__/profitReportDriverExplanation.test.js`(증감·증감률·정렬),
+  `__tests__/profitReportPanelOrderContract.test.js`(본표 → 검증·입력 → 이익률 분석 순서, 통관/포워딩
+  패널이 본표보다 아래에 있음을 정적 소스 검사로 고정, 구 배치 회귀 가드 포함).
 
 ## 사전 확인 기록
 

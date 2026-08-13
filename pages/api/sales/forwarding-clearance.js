@@ -2,7 +2,7 @@
 // 2026-07-10: S는 이제 입고관리(WarehouseDetail '운송료'/'SERVICE FEE' 라인)에서 자동감지가 1순위 —
 // 여기 저장하는 값은 자동감지가 놓쳤을 때(새 농장명 등)만 쓰는 override.
 import { withAuth } from '../../../lib/auth';
-import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   FORWARDING_DIRECT_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
@@ -73,7 +73,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'POST') {
       const major = parseMajor(req.body?.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
+      const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
 
       if (req.body?.action === 'saveDirect') {
@@ -91,6 +91,6 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code });
   }
 });

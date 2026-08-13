@@ -19,6 +19,10 @@ function initialWeek() {
 
 export default function CustomsClearancePage() {
   const weekInput = useWeekInput(initialWeek());
+  const [year, setYear] = useState(() => {
+    const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
+    return m ? m[1] : String(new Date().getFullYear());
+  });
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -28,11 +32,12 @@ export default function CustomsClearancePage() {
         <div style={st.bar}>
           <h1 style={st.h1}>📦 그외통관비 입력</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+            <input style={{ ...st.weekInput, width: 70 }} value={year} onChange={e => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} aria-label="연도" />
             <input style={st.weekInput} {...weekInput.props} placeholder="27" />
             <button style={st.primaryBtn} onClick={() => setRefreshKey((k) => k + 1)}>조회</button>
           </div>
         </div>
-        <CustomsClearancePanel key={refreshKey} week={weekInput.value} />
+        <CustomsClearancePanel key={refreshKey} week={weekInput.value} year={year} />
       </div>
     </>
   );
