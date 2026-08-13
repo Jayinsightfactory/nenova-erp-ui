@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "allowFinalCalculatedValueOverride": false,
+    "automatableFieldsAreReadOnly": true,
+    "requiredEvidence": ["sourceRef", "effectiveAt", "confirmedBy", "confirmedAt"]
+  },
+  "fields": [
+    { "id": "customs.invoice.warehouse", "target": "customs.warehouseAmount", "valueType": "money", "sourceKind": "invoice", "description": "백상 창고료 확정 청구액" },
+    { "id": "customs.invoice.duty", "target": "customs.dutyAmount", "valueType": "money", "sourceKind": "invoice", "description": "관세 확정 청구액" },
+    { "id": "customs.invoice.sunyul", "target": "customs.sunyulAmount", "valueType": "money", "sourceKind": "invoice", "description": "선율 확정 청구액" },
+    { "id": "customs.invoice.quarantine", "target": "customs.quarantineAmount", "valueType": "money", "sourceKind": "invoice", "description": "한국 방역 확정 청구액" },
+    { "id": "colombia.invoice.disinfection", "target": "colombia.disinfectionAmount", "valueType": "money", "sourceKind": "invoice", "description": "콜롬비아 소독 확정 청구액" },
+    { "id": "colombia.invoice.quarantine-deduction", "target": "colombia.quarantineDeductionAmount", "valueType": "money", "sourceKind": "invoice", "description": "콜롬비아 방역 공제 확정액" },
+    { "id": "inventory.unit-price-evidence", "target": "inventory.unitPrice", "valueType": "money-per-unit", "sourceKind": "confirmed-price-evidence", "description": "ProductStock 스냅샷 시점 품목 단가 근거; E/F 최종값 입력이 아님" }
+  ],
+  "nonFinancialFields": [
+    { "id": "report.note", "target": "B25", "valueType": "text", "description": "보고서 비고" }
+  ],
+  "forbiddenDirectFields": ["C", "D", "E", "F", "G", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "T", "U"]
+}

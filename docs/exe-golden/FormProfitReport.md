@@ -6,12 +6,10 @@
 
 ## 공용 ERP 읽기 계약
 
-- 매출 N·불량 L·그외매출 O는 `ShipmentMaster`와 `ShipmentDetail`을 사용하며 확정 출고(`ShipmentMaster.isFix=1`, `isDeleted=0`)만 집계한다. N은 추가로 `ShipmentDetail.OutQuantity <> 0`을 요구한다.
-  - 2026-08-11 정정: 이 문서에 `ShipmentDetail.isFix=1`로 적혀 있었으나 `lib/profitReport.js`의 실제 필터는 `ISNULL(sm.isFix,0)=1`이다. 루트 `CLAUDE.md`와 `docs/DB_STRUCTURE.md`(매출 집계 체크리스트)도 `sm.isFix=1`을 기준으로 하므로 문서 표기를 코드에 맞춰 정정했다.
-  - 미해결 항목(코드 변경 없음): `docs/SHIPMENT_FIX_PARTIAL_AUDIT_2026-05-26.md`가 다루는 부분확정(마스터 `isFix=1` + 일부 `sd.isFix=0`) 상태에서는 이 보고서가 미확정 라인까지 매출로 집계할 수 있다. `lib/pivotStats.js`는 같은 매출 집계를 `sd.isFix=1`로 한다. 필터를 바꾸면 확정 차수의 매출액·매출이익 숫자가 즉시 달라지므로 설명 UI 작업 범위에서는 변경하지 않고 미결로 남긴다.
+- 매출 N은 선택 `ShipmentMaster.OrderYear`와 `OrderWeek` 범위에서 `ShipmentMaster.isFix=1`, `ShipmentDetail.isFix=1`, `ShipmentMaster.isDeleted=0`, `ShipmentDetail.OutQuantity <> 0`인 확정 출고만 집계한다. 불량 L·그외매출 O는 같은 연도·차수의 `Estimate` 확정 master 범위를 사용한다.
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
-- E/F/H/R/S는 재고 스냅샷·입고 GW/CW·입고별 과세환율 스냅샷(`FreightCost.ExchangeRate` — AUD를 포함한 전 통화가 통관 신고 시점 관세청 과세환율이며, 구매현황에 남는 상업(환전) 환율과는 다른 값이다)·포워딩 원천에서 자동 계산해 기본 표시한다. 청구서·실사·특수비용처럼 예외가 있을 때만 웹 전용 `WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`, `WebTaxableExchangeRate`에 수기 보정값을 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
+- E/F는 확정 ProductStock와 동일 `OrderYear + OrderWeek + ProdKey`의 `VERIFIED` 시점 단가 근거로만 자동 평가한다. 가격 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`이며 `Product.Cost`, 최근 입고단가, 수국 하드코딩, E/F 최종값 직접입력으로 대체하지 않는다. H/R/S는 입고 GW/CW·BILL 시점 환율·포워딩 원천에서 자동 계산하고, 외부 인보이스 확정값만 sourceRef·기준일·확정자·확정시각과 함께 웹 전용 원장에 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
 - 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
 - 2026-08-12 추가(28차 이후 관세청 공식 과세환율 KCS API): R 자동 우선순위 맨 앞에 행별 수기
@@ -20,15 +18,19 @@
   28차 이후에 한해 관세청(KCS) 공식 과세환율 API를 4순위로 시도한다. 상세 설계·근거·회귀 목록은
   아래 "2026-08-12 KCS(관세청 과세환율 API) date 기반 자동 조회" 절 참고.
 - 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로 인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
-- 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율을 입력하고 저장하면 `WebProfitReport.R`(행별 override)과 `WebTaxableExchangeRate`(그 차수·통화·카테고리 캐시) 양쪽에 저장되며, 재조회 후 검증 오류가 사라져야 한다. 이 R 검증은 국가별 H 입력화면 도입 차수(호주 28차/베트남 29차)와 무관하다 — 구매·포워딩 금액이 있으면 차수와 상관없이 항상 필요하다(2026 22~27차에도 호주 구매가 있는 23·24·27차에는 실제로 AUD R이 존재한다: 1079.48/1083.36/1068.23).
-- 기말재고 F는 해당 대차수에서 `ProductStock` 행이 실제로 존재하는 세부차수 중 suffix 숫자가 가장 큰 마지막 스냅샷의 `ProductStock.Stock`을 기말재고수량으로 쓰고, 여기에 품목별 재고평가단가(`WebStockPrice` 지정 > 수국단가표 > `Product.Cost`) ÷1.1을 곱한다(2026-08-12 정정 — 이전에는 "매입금액+포워딩+통관비 ÷ 매입총수량" landed-cost 평균단가를 1순위로 썼으나, 이는 매입이 있는 카테고리에서만 성립하고 재고평가단가와 무관한 값이라 원천이 달랐다. 그 계산은 이제 평가단가를 구할 수 없을 때만 쓰는 폴백이다). 원본 엑셀 `재고잔량` 시트의 단순 총합을 그대로 옮겨 적지 않는다 — 그 시트에는 수동정정·오입력 흔적이 남아 있다(예: 27차 카네이션 기말 단가가 11,000이 아니라 110,000으로 저장됨). 27차라면 27-01/27-02뿐 아니라 27-03 이후도 검색하며, 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey`를 기준으로 하나를 선택한다. 기초재고 E는 같은 규칙으로 같은 `OrderYear`의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용한다. 단, 01차처럼 대차수가 연도 경계를 넘는 경우에만 전년도 52차를 사용한다. `StockMaster.isFix`는 별도 재고 마감 표시·진단값이며, 27-02처럼 실제 ProductStock 스냅샷과 표시값이 어긋날 때도 스냅샷 자체를 누락으로 판정하지 않는다. ProductStock 스냅샷 자체가 없을 때만 검증 오류로 남긴다. 보고서를 확정(`REPORT_CONFIRM_SNAPSHOT`)하면 그 시점 E/F 값이 그대로 굳어져, 이후 DB의 ProductStock/WebStockPrice가 바뀌어도 확정본은 재계산되지 않는다.
+- 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율과 sourceRef·기준일을 입력하면 서버가 확정자·확정시각을 기록하고 `WebProfitReport.R` 및 정확한 차수의 `WebTaxableExchangeRate`에 저장한다.
+- 22~28차 기말재고 F는 선택 `OrderYear`의 해당 대차수에서 `StockMaster.isFix=1`이고 `ProductStock` 행이 존재하는 세부차수 중 suffix 숫자가 가장 큰 확정 스냅샷의 `ProductStock.Stock`을 사용한다. 기초재고 E는 같은 `OrderYear`의 직전 대차수에 같은 규칙을 적용한다. 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey DESC`로 하나를 선택한다. 전년도 동일 차수, 미확정/NULL/시작재고 마커, 입고-출고 단순추정으로 fallback하지 않으며 확정 스냅샷이 없으면 검증 오류로 남긴다. 재고조정은 `usp_StockCalculation`이 확정 ProductStock 스냅샷에 반영한 값으로만 포함하고 보고서에서 `StockHistory` delta를 다시 더하지 않는다.
 - 국가별 그외통관비(H) 입력화면 도입 차수는 원본 업무 기준을 따른다. 호주는 28차부터, 베트남은 29차부터 H 원천을 검증한다. 시작 차수 전의 H 미입력은 해당 국가가 아직 입력 대상이 아니므로 감사 오류·경고를 만들지 않는다. **R(과세환율)은 이 표와 별개다** — 위 항목 참고.
 - `OrderWeek`만으로 2025/2026 행을 재사용하지 않는다. 모든 자동 조회와 저장은 `OrderYear`를 별도 파라미터로 유지한다.
+- 백상·트럭·검역 단가를 수정할 때는 적용 `OrderYear + MajorWeek` 이력을 함께 남기고, 과거 보고서는 대상 차수 이하의 최근 단가를 사용한다. 현재 전역 단가로 과거 H를 재작성하지 않는다.
+- `CHINA`/`중국` 품명 단서는 화종과 국내/왁스 placeholder보다 우선한다. `샘플/단`·`샘플/송이` 국내 매출은 28차부터 `국내` 행으로 분류한다.
+- 보고서·통관·포워딩 GET은 schema contract를 읽기 검증할 뿐 DDL을 실행하지 않는다. Web 전용 테이블/컬럼은 별도 migration으로만 적용한다.
 
 ## 국가별 그외통관비 입력 규칙
 
 - 관세와 선율은 1차·2차 비용이 여러 번 나뉘어 청구될 수 있으므로 화면에서 각 차수별 `1/2/3` 분할금액을 입력한다. 서버는 각각 `Customs1_1~3 → Customs1`, `Customs2_1~3 → Customs2`, `SunYul1_1~3 → SunYul1`, `SunYul2_1~3 → SunYul2`로 합산해 저장·계산한다.
 - 기존 `WebCustomsWeekly.Customs1/2`, `SunYul1/2`만 존재하는 운영 데이터는 첫 번째 분할칸으로 호환 표시하며, 새 입력값이 전달될 때만 서버 합계가 재생성된다.
+- `WebCustomsWeekly`에 직접 저장된 GW·월드운송료는 0을 포함해 자동 입고 중량/차량값보다 우선한다. `WorldFreight*Manual=0`을 명시한 경우에만 자동 차량 금액을 사용한다.
 - 국가별 입력값은 변경된 행만 한 번의 `CUSTOMS_COUNTRY_BATCH_SAVE` 트랜잭션으로 저장한다. 저장 대상은 `WebCustomsWeekly`와 `WebCustomsHistory`뿐이며, 주문·출고·견적·재고 원장은 변경하지 않는다.
 - 빈 입력칸은 해당 분할금액을 `NULL`로 저장하고 합계 계산에서는 0으로 취급한다. 따라서 빈 칸을 포함한 여러 국가 입력을 한 번에 저장해도 일부 행만 저장되는 부분 성공을 허용하지 않는다.
 - 보고서 비고사항은 품목 행과 분리된 `Category='_note'`, `ColKey='note'`로 `WebProfitReport.TextValue`에 `OrderYear + MajorWeek` 기준 저장한다. 비고만 입력한 경우에도 별도 `비고 저장` 버튼으로 저장할 수 있고, 전체 저장·엑셀 다운로드 전에도 저장 대상에 포함한다.
@@ -45,7 +47,7 @@
 
 ## downstream 보존
 
-이 기능은 보고서 조회·웹 전용 수기 저장·입고 중량 읽기만 수행한다. `OrderDetail`, `ShipmentDetail.OutQuantity/Amount/Vat/isFix`, `ShipmentDate`, `Estimate`, `ProductStock`, `StockHistory`를 변경하지 않는다. 매출 집계에는 반드시 확정 출고 필터가 있어야 한다.
+이 기능은 보고서 조회·웹 전용 증거 저장·입고 중량 읽기만 수행한다. `OrderDetail`, `ShipmentDetail.OutQuantity/Amount/Vat/isFix`, `ShipmentDate`, `Estimate`, `ProductStock`, `StockHistory`를 변경하지 않는다. 매출 집계에는 반드시 master와 detail의 확정 필터가 있어야 한다.
 
 ## 연간 월별 보기 규칙(2026-08-05)
 
@@ -72,7 +74,7 @@
 보고서 상단에 항목별 원천·계산식 설명을 접기/펼치기로 제공한다. 조회·설명 전용이며 ERP 원장과 웹 전용 수기 테이블 어느 쪽도 읽거나 쓰지 않는다.
 
 - 설명 문구는 `lib/profitReportSourceGuide.js` 한 곳의 상수로만 관리하고, 화면(`components/ProfitReportSourceGuide.js`)과 회귀테스트(`__tests__/profitReportSourceGuide.test.js`)가 그 상수만 참조한다.
-- 회귀테스트는 (1) 페이지 `COLUMN_DEFS`·엑셀 `COL_LABEL`·설명 사전의 키/라벨 3중 일치, (2) 설명 문구와 실제 계산 코드의 대조(`C=N+L+O`, `P=Q×R`, `I=E+G+H−F`, noEnding 3개국 예외, D 분모는 공제 포함·U 분모는 공제 제외, 통관비 ÷1.1과 베트남 선율 예외, 27차→26차·01차→전년 52차 경계, 29차 이후 과세환율 상속, `sm.isFix=1` 확정 필터), (3) 기본 접힘·`aria-expanded`/`aria-controls`·가로 스크롤 같은 UI 계약을 함께 고정한다.
+- 회귀테스트는 (1) 페이지 `COLUMN_DEFS`·엑셀 `COL_LABEL`·설명 사전의 키/라벨 3중 일치, (2) 설명 문구와 실제 계산 코드의 대조(`C=N+L+O`, `P=Q×R`, `I=E+G+H−F`, noEnding 3개국 예외, D 분모는 공제 포함·U 분모는 공제 제외, 통관비 ÷1.1과 베트남 선율 예외, 27차→26차·01차→전년 52차 경계, exact-week 환율, `sm.isFix=1`·`sd.isFix=1` 확정 필터), (3) 기본 접힘·`aria-expanded`/`aria-controls`·가로 스크롤 같은 UI 계약을 함께 고정한다.
 - 자동값과 사용자 입력을 배지로 구분해 표시한다. 사용자가 넣은 값(`WebProfitReport`, `WebCustomsWeekly`, `WebColombiaWeekly`, `WebForwardingWeekly`)을 자동 원천처럼 설명하지 않으며, R 원천이 없을 때 해당 행에 입력칸이 나타나는 기존 동작도 설명 대상에 포함한다.
 - 접힘 상태는 저장하지 않으므로 새로고침하면 항상 접힌 상태로 시작한다.
 
@@ -212,10 +214,10 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
    `TOTALS_EXCLUDED_CATEGORIES`(`['기타(미분류)']`)를 계산 전에 걸러낸다 — 원본 엑셀 본표(7~22행)에는
    그 행 자체가 없으므로 화면 합계·엑셀 다운로드 합계가 항상 원본과 같아야 한다. 검증 목록·비고에는
    여전히 표시되고, 자동으로 정식 카테고리에 합산되지도 않는다.
-4. **기말재고(F) 자동계산 우선순위 정정**: 1순위를 "매입금액+포워딩+통관비 ÷ 매입총수량"(landed-cost
-   평균단가)에서 "재고평가단가(`WebStockPrice`/수국단가표/`Product.Cost`) × 기말재고수량 ÷1.1"로
-   바꿨다. landed-cost 평균은 그 차수에 매입이 있을 때만 성립하는 값이라 재고평가와 원천이 달랐다.
-   원본 `재고잔량` 시트의 단순 총합은 여전히 쓰지 않는다(수동정정·오입력 흔적 존재).
+4. **기말재고(F) 증거 계약 정정**: 확정 ProductStock 수량에 정확한 `OrderYear+OrderWeek+ProdKey`의
+   `VERIFIED WebStockPriceEvidence` 단가만 적용한다. `Product.Cost`, 수국 하드코딩, 최근 입고단가,
+   landed-cost 평균과 원본 `재고잔량` 단순 총합은 fallback으로 쓰지 않는다. 증거가 없으면 F를
+   직접입력하지 않고 `INPUT_REQUIRED`/`UNVERIFIED`로 남긴다.
 5. **과세환율(R) exact-week만 자동 적용, 웹 전용 캐시 테이블 신설**: `lib/taxableExchangeRate.js` +
    `docs/migrations/2026-08-12_web_taxable_exchange_rate.sql`(`WebTaxableExchangeRate`,
    `OrderYear+MajorWeek+Currency+Category` 키)을 추가하고, "29차 이후 전차수 R 자동 상속"과

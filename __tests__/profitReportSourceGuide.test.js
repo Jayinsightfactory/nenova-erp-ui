@@ -182,7 +182,7 @@ async function main() {
     && /백상창고료·관세는 원래 공급가라 나누지 않고/.test(byKey.H.note) && /베트남 선율만 예외/.test(byKey.H.note));
   check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게배분을 명시',
     /박스당 무게 × 박스수/.test(byKey.H.formula) && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
-  check('재고단가표 ÷1.1 평가식 명시', /÷ 1\.1/.test(byKey['in-stockprice'].formula));
+  check('재고단가 근거 평가식 명시', /확정 ProductStock 환산수량 × VERIFIED 시점 단가/.test(byKey['in-stockprice'].formula));
   // 월드운송료 추천 = 용량 분해(3t = 2.5t + 1t), 저장된 실제값 우선
   const { deriveTruckPlan } = await import('../lib/colombiaTruck.js');
   const plan3t = deriveTruckPlan(3000);
@@ -196,22 +196,20 @@ async function main() {
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
-  check('기말재고 설명이 "재고수량 × 품목별 재고평가단가"를 1순위로 서술',
-    /재고평가단가/.test(byKey.F.formula) && /최근 매입단가/.test(byKey.F.formula)
-    && /구매금액 × 환율 \+ 포워딩 × 환율 \+ 그외통관비/.test(byKey.F.formula));
-  check('기말재고 설명이 재고잔량 시트 단순복사 금지를 명시', /재고잔량/.test(byKey.F.note));
-  check('기말재고 우선순위 코드가 유지됨(평가단가 1순위)',
-    /if \(stock\.tableF != null && Number\(stock\.tableF\) !== 0\) return Number\(stock\.tableF\);/.test(calcSource)
-    && /landedWon \/ purchQty\) \* endQty/.test(calcSource) && /recentCost\) \* n0\(R\)/.test(calcSource));
-  // 실제 우선순위 동작 검증 — 평가단가가 있으면 landed cost 평균단가를 쓰지 않는다.
+  check('기말재고 설명이 확정 재고와 동일시점 VERIFIED 단가만 명시',
+    /확정 ProductStock/.test(byKey.F.formula) && /WebStockPriceEvidence/.test(byKey.F.formula)
+    && /최근원가·Product\.Cost/.test(byKey.F.note));
+  check('기말재고 코드가 최근원가·도착원가 폴백을 금지',
+    /stock\.snapshotConfirmed !== true \|\| stock\.priceEvidenceStatus !== 'VERIFIED'/.test(calcSource)
+    && !/landedWon \/ purchQty/.test(calcSource) && !/recentCost\) \* n0\(R\)/.test(calcSource));
   const { computeAutoEndingStock, endingStockSourceKind } = await import('../lib/profitReportCalc.js');
-  check('평가단가가 있으면 F는 평가액을 그대로 사용',
-    computeAutoEndingStock({ endQty: 100, purchQty: 500, tableF: 1234, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 1234
-    && endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: 1234, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'stock_price_table');
-  check('평가단가가 없으면 최근 매입단가 → landed 평균 순으로 폴백',
-    endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: null, recentCost: 9 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'recent_purchase_cost'
-    && endingStockSourceKind({ endQty: 100, purchQty: 500, tableF: null, recentCost: 0 }, { Q: 1000, S: 0, H: 0, R: 1500 }) === 'landed_cost_average'
-    && endingStockSourceKind({ endQty: 100, purchQty: 0, tableF: null, recentCost: 0 }, { Q: 0, S: 0, H: 0, R: 0 }) === 'missing');
+  check('VERIFIED 시점 단가가 있으면 F는 증거 평가액을 그대로 사용',
+    computeAutoEndingStock({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 1234
+    && endingStockSourceKind({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 'verified_product_stock_price');
+  check('단가 근거가 없으면 INPUT_REQUIRED이고 폴백하지 않음',
+    computeAutoEndingStock({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED', recentCost: 9 }) == null
+    && endingStockSourceKind({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED' }) === 'missing_price_evidence'
+    && endingStockSourceKind({ endQty: 100, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 'missing_stock_snapshot');
 
   // 차수 경계
   check('전차수 산출 코드 = currentMajor - 1, 01차만 전년 52차',
@@ -222,8 +220,8 @@ async function main() {
     && /01차일 때만 전년도 52차/.test(byKey['bd-begin-end'].formula));
   check('기말재고도 해당 차수 마지막 세부차수임을 명시',
     /기말재고는 27차의 마지막 세부차수 재고/.test(byKey['bd-begin-end'].formula));
-  check('isFix는 선택 조건이 아니라 진단값임을 명시(코드 주석/문서와 일치)',
-    /조건이 아니라 참고 표시/.test(byKey['bd-begin-end'].note) && /참고 표시/.test(byKey.F.note));
+  check('isFix=1이 확정 스냅샷 선택 조건임을 명시',
+    /isFix=1/.test(byKey['bd-begin-end'].note) && /isFix=1/.test(byKey.F.source));
   check('마지막 세부차수 선택 코드가 유지됨(ProductStock 존재 + suffix DESC)',
     /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/.test(reportSource));
 
@@ -272,8 +270,9 @@ async function main() {
   check('직접입력 성격 배지가 5종 정의됨', Object.keys(ENTRY_KINDS).length === 5);
   check('H는 입력화면 원천으로 표기', byKey.H.kind === 'manualSource');
   check('공제 줄은 직접입력으로 표기', byKey['row-deduct'].kind === 'manual');
-  check('E/F/R/S는 자동+직접입력으로 표기',
-    ['E', 'F', 'R', 'S'].every((k) => byKey[k].kind === 'autoManual'));
+  check('E/F는 자동, R/S만 자동+증거입력으로 표기',
+    ['E', 'F'].every((k) => byKey[k].kind === 'auto')
+    && ['R', 'S'].every((k) => byKey[k].kind === 'autoManual'));
   check('N/L/O/Q는 자동으로 표기', ['N', 'L', 'O', 'Q'].every((k) => byKey[k].kind === 'auto'));
   check('C/D/G/I/J/K/M/P/T/U는 계산으로 표기',
     ['C', 'D', 'G', 'I', 'J', 'K', 'M', 'P', 'T', 'U'].every((k) => byKey[k].kind === 'calc'));
@@ -302,8 +301,9 @@ async function main() {
   console.log('\n=== 조회 전용 보장 ===');
   check('설명 모듈·컴포넌트에 fetch/POST 없음',
     !/fetch\(/.test(guideSource + componentSource) && !/method: 'POST'/.test(guideSource + componentSource));
-  check('설명 추가로 저장 대상 컬럼(E/F/H/R/S)이 변하지 않음',
-    /for \(const col of \['E', 'F', 'H', 'R', 'S'\]\)/.test(pageSource));
+  check('저장 대상은 증거가 있는 H/R/S뿐이며 E/F 최종값은 제외',
+    /for \(const col of \['H', 'R', 'S'\]\)/.test(pageSource)
+    && !/for \(const col of \[[^\]]*'E'[^\]]*'F'/.test(pageSource));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

@@ -25,7 +25,7 @@ export default withAuth(async function handler(req, res) {
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, countryRows, prevCountryRows, subWeeks, prevSubWeeks, autoGw] = await Promise.all([
-        getRateConfig(),
+        getRateConfig(orderYear, major),
         loadCustomsWeekly(major, orderYear),
         loadCustomsWeekly(prevMajor, orderYear),
         weeksForMajor(major, orderYear),
@@ -103,7 +103,7 @@ export default withAuth(async function handler(req, res) {
       const actor = req.user?.userName || req.user?.userId || 'user';
 
       if (req.body?.action === 'saveRates') {
-        await saveRateConfig(req.body?.rates || {}, actor);
+        await saveRateConfig(req.body?.rates || {}, actor, orderYear, major);
         return res.status(200).json({ success: true });
       }
       if (req.body?.action === 'saveCountry') {

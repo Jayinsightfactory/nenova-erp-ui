@@ -38,15 +38,15 @@ async function main() {
   check('GET이 assertProfitReportReadSchema()로 스키마 존재만 확인', /assertProfitReportReadSchema\(\)/.test(getBlock));
   check('GET 블록에 ensureProfitReportTable/ensureStockPriceTable 호출 없음', !/ensure(ProfitReportTable|StockPriceTable)\(/.test(stripComments(getBlock)));
 
-  console.log('\n=== lib/profitReport.js stockSnapshotByCategory — GET 경로에서 호출되므로 ensureStockPriceTable(DDL) 금지 ===');
+  console.log('\n=== lib/profitReport.js — runtime schema helper도 읽기 전용 계약 확인만 수행 ===');
   const stockSnapshotSrc = sliceFn(reportLibSource, 'export async function stockSnapshotByCategory', '\nexport async function');
   check('stockSnapshotByCategory 함수 블록 파싱', stockSnapshotSrc.length > 100);
-  check('stockSnapshotByCategory가 ensureStockPriceTable(DDL)을 호출하지 않음', !/ensureStockPriceTable\(/.test(stripComments(stockSnapshotSrc)));
-  check('stockSnapshotByCategory가 대신 assertProfitReportReadSchema로 존재만 확인', /assertProfitReportReadSchema\(\)/.test(stockSnapshotSrc));
-  check('ensureStockPriceTable(DDL)은 저장 경로(saveStockPrices)에서만 호출됨',
-    /export async function saveStockPrices[\s\S]{0,80}await ensureStockPriceTable\(\);/.test(reportLibSource));
+  check('stockSnapshotByCategory가 read-only schema contract를 확인', /ensureStockPriceTable\(\)/.test(stripComments(stockSnapshotSrc)));
+  check('profitReport runtime 소스에 DDL 없음', !/CREATE\s+TABLE|ALTER\s+TABLE|CREATE\s+INDEX/i.test(stripComments(reportLibSource)));
+  check('ensureStockPriceTable은 assertWebSchemaContract만 사용',
+    /export async function ensureStockPriceTable[\s\S]{0,300}assertWebSchemaContract/.test(reportLibSource));
 
-  console.log('\n=== lib/customsForwarding.js — 조회 함수는 assertCustomsReadSchema만, ensureCustomsTables(DDL)은 저장 함수에만 ===');
+  console.log('\n=== lib/customsForwarding.js — 조회/저장 모두 migration 계약 확인, runtime DDL 없음 ===');
   const READ_FNS = ['loadHistory', 'getRateConfig', 'loadCustomsWeekly', 'loadColombiaWeekly', 'loadForwardingWeekly', 'computeCustomsAndForwarding'];
   for (const fn of READ_FNS) {
     const block = sliceFn(customsLibSource, `export async function ${fn}`, '\nexport');
@@ -58,8 +58,9 @@ async function main() {
   const WRITE_FNS = ['saveRateConfig', 'saveCustomsWeeklyBatch', 'saveColombiaWeekly', 'saveForwardingWeekly'];
   for (const fn of WRITE_FNS) {
     const block = sliceFn(customsLibSource, `export async function ${fn}`, '\nexport');
-    check(`${fn}(저장/POST 경로)은 ensureCustomsTables(DDL)를 그대로 호출`, /ensureCustomsTables\(\)/.test(block), `fn=${fn}`);
+    check(`${fn}(저장/POST 경로)은 migration 계약을 확인`, /ensureCustomsTables\(\)/.test(block), `fn=${fn}`);
   }
+  check('customs runtime 소스에 DDL 없음', !/CREATE\s+TABLE|ALTER\s+TABLE|CREATE\s+INDEX/i.test(stripComments(customsLibSource)));
 
   console.log('\n=== computeCustomsAndForwarding 호출자 — profit-report.js GET 경로에서만 사용됨(다른 파일 회귀 없음) ===');
   check('computeCustomsAndForwarding은 pages/api/sales/profit-report.js에서만 import됨',

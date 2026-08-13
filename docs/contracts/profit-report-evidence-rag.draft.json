@@ -1,0 +1,718 @@
+{
+  "id": "profit-report-evidence-rag-draft",
+  "title": "주차별 매출이익보고서 evidence-RAG 전 셀·원 단위 parity 계약 초안",
+  "status": "SUPERSEDED_BY_EXECUTABLE_CONTRACT",
+  "contractVersion": "0.1.0-draft",
+  "documentRef": "docs/contracts/profit-report-evidence-rag.json",
+  "scope": [
+    "docs/plans/2026-08-13_profit-report-evidence-rag-prd.md",
+    "docs/contracts/profit-report-evidence-rag.draft.json",
+    "docs/contracts/weekly-profit-report.json",
+    "docs/exe-golden/FormProfitReport.md",
+    "lib/profitReport.js",
+    "lib/profitReportCalc.js",
+    "lib/profitReportExcel.js",
+    "lib/profitReportConfirm.js",
+    "pages/api/sales/profit-report.js",
+    "scripts/inspect-profit-report-workbook.mjs",
+    "scripts/profit-report-acceptance-harness.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "reportIdentity": [
+    "OrderYear",
+    "MajorWeek"
+  ],
+  "actions": [
+    {
+      "name": "EVIDENCE_BASELINE_INGEST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read source workbook bytes only; do not save or recalculate the source workbook"
+    },
+    {
+      "name": "EVIDENCE_REGISTRY_COMPILE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "compile repository mapping artifacts only; no ERP or web ledger mutation"
+    },
+    {
+      "name": "EVIDENCE_EVALUATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read ERP and web ledgers in one read-only source cut; write evidence run and cell audit tables only"
+    },
+    {
+      "name": "EVIDENCE_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "render a workbook from a STRICT_PASS run; no business ledger write"
+    },
+    {
+      "name": "EVIDENCE_CONFIRM_SNAPSHOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "link one STRICT_PASS evidence run to one immutable WebProfitReportConfirm revision"
+    },
+    {
+      "name": "EVIDENCE_EXCEPTION_REQUEST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "write exception audit only; never change gate metrics or business ledgers"
+    },
+    {
+      "name": "EVIDENCE_EXCEPTION_APPROVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "write approval audit only; a parity-bypassing run remains REVIEW_ONLY and cannot be confirmed"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026의 동일 OrderWeek, CustKey, ProdKey를 함께 두고 선택한 OrderYear만 resolver 후보가 된다. report confirm revision은 OrderYear + MajorWeek로 선택하며 다른 연도로 fallback하지 않는다.",
+    "decoyYear": "2025",
+    "targetYear": "2026",
+    "weeks": [
+      "22-01",
+      "28-01"
+    ],
+    "expected": {
+      "crossYearSelectedRows": 0,
+      "implicitFallbacks": 0
+    }
+  },
+  "requiredTestFiles": [
+    "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitReportAcceptanceHarness.test.js",
+    "__tests__/profitReportConfirmSnapshotImmutability.test.js",
+    "__tests__/profitReportStockLinkContract.test.js",
+    "__tests__/profitReportClassification.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormProfitReport.md",
+    "source": "nenova.exe shared ViewShipment/ViewWarehouse/ViewOrder and StockMaster/ProductStock semantics; the web-only report has no independent EXE form",
+    "methods": [
+      "ViewShipment fixed-detail selection",
+      "ViewOrder OrderYear + OrderWeek + CustKey + ProdKey identity",
+      "ViewWarehouse selected-year purchase selection",
+      "StockMaster/ProductStock fixed subweek selection",
+      "usp_StockCalculation adjustment inclusion without report-side double counting"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "Estimate",
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "StockMaster",
+      "ProductStock",
+      "FreightCost",
+      "WebProfitReport",
+      "CurrencyMaster"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "observedBaseline": {
+    "method": "read-only OOXML and cached-value inspection with repository jszip/xlsx dependencies",
+    "inputRoot": ".verify/inputs/profit-report-weeks-22-28",
+    "sourceFilesUnchanged": true,
+    "knownErrors": {
+      "countPerWorkbook": 8,
+      "exactScopes": [
+        "콜롬비아 1차!N21:N24",
+        "콜롬비아 2차!N21:N24"
+      ],
+      "token": "#DIV/0!",
+      "policy": "must be mapped and fingerprinted as known source anomalies; do not replace with zero or blank"
+    },
+    "observedFormulaFunctions": [
+      "AND",
+      "CHAR",
+      "CLEAN",
+      "IF",
+      "IFERROR",
+      "INDEX",
+      "ISNUMBER",
+      "MATCH",
+      "NOT",
+      "OR",
+      "SEARCH",
+      "SUBSTITUTE",
+      "SUBTOTAL",
+      "SUM",
+      "SUMIF",
+      "TRIM"
+    ],
+    "artifacts": [
+      {
+        "orderYear": "2026",
+        "majorWeek": "22",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-22.xlsx",
+        "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0",
+        "sheetCount": 11,
+        "cellEntries": 41798,
+        "formulaCells": 1885,
+        "sharedFormulaNodes": 570,
+        "arrayFormulaNodes": 875,
+        "calcChainCells": 1885,
+        "formulaTextManifestSha256": "bddd69fc9c586fe5baa868c7c8ede1d89dc2f50b44e7124d5545e3c2ef301042",
+        "cellContentManifestSha256": "a20b8c7800ca08f72b95f5611c694faf11571ab1a78a4d03041c5e175e7e5b4d",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제"
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "23",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-23.xlsx",
+        "sha256": "b4ebf36ae4253a8d501bcacc147793a0b037fd933e0a29c3c68d131755dc6f9e",
+        "sheetCount": 11,
+        "cellEntries": 41534,
+        "formulaCells": 1808,
+        "sharedFormulaNodes": 554,
+        "arrayFormulaNodes": 814,
+        "calcChainCells": 1808,
+        "formulaTextManifestSha256": "eb70deb584d6d2942aaa248e53161f02176ccc267fc550ac2e89d9e0e7ed2792",
+        "cellContentManifestSha256": "5ac3c97f8da3c123f6640b2a9c11322ea3195f96b4ab26ee0ea3f30d75efb172",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제"
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "24",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-24.xlsx",
+        "sha256": "6b92bbfa32d1b65aa065c8868e35476b0a471d1d0e1b6c6ec22b8e4036ef8bae",
+        "sheetCount": 12,
+        "cellEntries": 41652,
+        "formulaCells": 1803,
+        "sharedFormulaNodes": 565,
+        "arrayFormulaNodes": 778,
+        "calcChainCells": 1803,
+        "formulaTextManifestSha256": "e610e3025450e9b46d99d4873ff2c7a9611e1f48481e880faedfc64cee1ea2ff",
+        "cellContentManifestSha256": "721a2aacb27443d26d9304219639af668be3c1143f98c4a843435b863aa09d39",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제",
+        "versionSpecificSheets": [
+          "Sheet1!A2:F16"
+        ]
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "25",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-25.xlsx",
+        "sha256": "4d20160a362b7eee3fc0241ce9df880713b1eda2e4c01785a4cb654ce7aebf06",
+        "sheetCount": 11,
+        "cellEntries": 41943,
+        "formulaCells": 1831,
+        "sharedFormulaNodes": 557,
+        "arrayFormulaNodes": 810,
+        "calcChainCells": 1831,
+        "formulaTextManifestSha256": "4197489202533e70bbb7cc9d6acedb5f4562bf1a3a6bab46dd09165461a2b98c",
+        "cellContentManifestSha256": "700ac640fb7d8a7d809182a930a936ba80103ecc3d0a62fde5e5713003d7672e",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제"
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "26",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-26.xlsx",
+        "sha256": "b42bcce6779f2b31cfa6fc8393c3dde6827382495b1d63e3d8d01c1a40fe6f5a",
+        "sheetCount": 11,
+        "cellEntries": 41774,
+        "formulaCells": 1835,
+        "sharedFormulaNodes": 558,
+        "arrayFormulaNodes": 814,
+        "calcChainCells": 1835,
+        "formulaTextManifestSha256": "2d506b69b73e67e7fffc439fa05b4cd2de10886b90df69568d39a9e7551d90a1",
+        "cellContentManifestSha256": "d7a05eea0dbe0aa7bb8a1b52ca51afc6bf7e8eeef3724ab22ee447ac1ab8dfd1",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제"
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "27",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-27.xlsx",
+        "sha256": "2906ec876160f7fa2f0fbaeb1c9b89e49bda6a933cad9b7cabad9fbd7dd36689",
+        "sheetCount": 11,
+        "cellEntries": 42011,
+        "formulaCells": 1830,
+        "sharedFormulaNodes": 486,
+        "arrayFormulaNodes": 886,
+        "calcChainCells": 1830,
+        "formulaTextManifestSha256": "b1029e71d27c55ba1ea379802ac8db4c039308885d9d7984d4457ad819b4109b",
+        "cellContentManifestSha256": "6ea0d56c191f39e801b4dbc15e6ccb36900a8a5613cd6b628838825c6ee062d0",
+        "mainReportFormulaCells": 261,
+        "mainReportFormulaTextSha256": "706a31639b5814a04be62dbf483c4805f62b217fb5a6e516301a4d6358bc15a1",
+        "lastBodyCategory": "공제"
+      },
+      {
+        "orderYear": "2026",
+        "majorWeek": "28",
+        "path": ".verify/inputs/profit-report-weeks-22-28/week-28.xlsx",
+        "sha256": "d777e8745b3b1e2fbf89ac782633e9fd654f38fd7684ecbb620032221ecb156b",
+        "sheetCount": 11,
+        "cellEntries": 42298,
+        "formulaCells": 1873,
+        "sharedFormulaNodes": 502,
+        "arrayFormulaNodes": 902,
+        "calcChainCells": 1873,
+        "formulaTextManifestSha256": "44fff79d41c8767c9c5a307a893b1c3f2733e5713b53eb9d05e1433ec62886fd",
+        "cellContentManifestSha256": "678462ba717d405524e59790c741d80c2db89c44c44b01713b7c24938fb77c23",
+        "mainReportFormulaCells": 270,
+        "mainReportFormulaTextSha256": "fbb98ad2cd39bf50da124d28932a471bb89127201e9ff5eff0c0ed7e9917595d",
+        "lastBodyCategory": "국내"
+      }
+    ],
+    "inventoryLineage": {
+      "exactAggregateCarries": [
+        "22.F->23.E",
+        "23.F->24.E",
+        "24.F->25.E",
+        "25.F->26.E",
+        "27.F->28.E"
+      ],
+      "requiresEvidence": {
+        "edge": "26.F->27.E",
+        "week26F": 8919590.217,
+        "week27E": 12578453.10575,
+        "delta": 3658862.88875,
+        "policy": "do not infer an automatic carry; require a manual manifest or exact resolver provenance"
+      }
+    }
+  },
+  "evidenceRag": {
+    "executionRule": "LLM and similarity search are prohibited from mapping, calculation, fallback selection, confidence, exception approval, and gate decisions",
+    "retrieval": {
+      "mode": "EXACT_KEY_ONLY",
+      "allowedKeys": [
+        "registryVersion",
+        "registryDigest",
+        "sourceSha256",
+        "sheetId",
+        "cellAddress",
+        "mappingId",
+        "semanticFieldId",
+        "resolverId",
+        "resolverVersion",
+        "OrderYear",
+        "OrderWeek",
+        "CustKey",
+        "ProdKey"
+      ],
+      "forbidden": [
+        "embedding nearest-neighbor in execution path",
+        "fuzzy sheet or label match",
+        "LLM-generated mapping",
+        "unversioned default resolver",
+        "silent catch fallback"
+      ]
+    },
+    "cellUniverse": {
+      "denominator": "every persisted OOXML worksheet <c r=...> node including formula, value, error, and style-only blank cells",
+      "excludedFromCellDenominator": [
+        "virtual empty cells implied only by whole-column formula references",
+        "non-cell drawing bytes"
+      ],
+      "structureManifest": [
+        "sheet order and visibility",
+        "used ranges",
+        "merge ranges",
+        "row and column dimensions and hidden state",
+        "defined names",
+        "print areas",
+        "calc properties"
+      ],
+      "roles": [
+        "STATIC",
+        "SOURCE",
+        "MANUAL",
+        "FORMULA",
+        "KNOWN_ERROR",
+        "EXPLICIT_BLANK"
+      ],
+      "roleCardinality": "exactly one role per persisted cell"
+    },
+    "mappingRegistry": {
+      "primaryKey": [
+        "templateFamily",
+        "registryVersion",
+        "sourceSha256",
+        "sheetId",
+        "cellAddress"
+      ],
+      "versioning": "semver plus canonical JSON SHA-256; immutable after activation",
+      "rangePolicy": "ranges are authoring syntax only and must compile to exact cell records",
+      "compileFailures": [
+        "unmapped cell",
+        "duplicate mapping",
+        "overlapping range",
+        "unexpanded wildcard",
+        "unknown source SHA",
+        "unknown resolver or manual ID"
+      ]
+    },
+    "formulaFingerprint": {
+      "algorithm": "sha256(canonical-json AST envelope)",
+      "exactRequired": true,
+      "shapeFingerprintUse": "deduplicate fill families only; never satisfy strict exact matching",
+      "envelope": [
+        "formulaKind",
+        "sharedIndex",
+        "arrayOrSharedRef",
+        "operatorTree",
+        "functionNames",
+        "stringAndNumericConstants",
+        "sheetIdAndCellOrRangeReferences",
+        "absoluteRelativeFlags"
+      ],
+      "canonicalization": [
+        "normalize whitespace and function name case",
+        "normalize Unicode sheet names to NFC",
+        "preserve constants, string literals, references, operand order, and unary operators"
+      ],
+      "unsupportedSyntax": "FAIL_CLOSED",
+      "knownErrorPolicy": "error token, formula exact fingerprint, and exact location must all match"
+    },
+    "sourceResolvers": {
+      "requirements": [
+        "resolverId and semantic version",
+        "input identity and selected-year predicate",
+        "SQL or pure-policy digest",
+        "typed output with unit and currency",
+        "source row keys and canonical row hashes",
+        "one read-only source cut",
+        "selected and rejected candidates",
+        "named fallbackPolicyId when a lower-priority candidate is used"
+      ],
+      "snapshotIsolation": {
+        "requiredForLiveRun": true,
+        "fallbackIsolation": "forbidden",
+        "onUnavailable": "FAIL"
+      },
+      "catalog": [
+        "shipment.sales@1",
+        "estimate.adjustment@1",
+        "warehouse.purchase@1",
+        "stock.fixed-snapshot@1",
+        "customs.structured@1",
+        "forwarding.structured@1",
+        "currency.taxable@1",
+        "manual.profit-report@1",
+        "confirmed.cell@1"
+      ],
+      "historicalReplay": "22-28 canonical replay uses confirmed.cell@1 and must not mix current ERP values",
+      "implicitFallbackDefinition": "any selected lower-priority candidate without a registry-declared fallbackPolicyId and complete rejected-candidate provenance"
+    },
+    "manualInputManifest": {
+      "requiredFields": [
+        "manualId",
+        "registryVersion",
+        "sourceSha256",
+        "sheetId",
+        "cellAddress",
+        "semanticFieldId",
+        "sourceTableAndKey",
+        "valueType",
+        "scale",
+        "unit",
+        "currency",
+        "presentNullBlankZeroPolicy",
+        "effectiveWeekRange",
+        "actorRequired",
+        "timestampRequired",
+        "approvalPolicy"
+      ],
+      "allowedSources": [
+        "WebProfitReport H/R/S/note with sourceRef and effectiveAt",
+        "WebCustomsWeekly and WebCustomsHistory split inputs",
+        "WebColombiaWeekly",
+        "WebForwardingWeekly",
+        "WebStockPriceEvidence exact OrderYear+OrderWeek+ProdKey with VERIFIED status",
+        "approved immutable source-workbook baseline"
+      ],
+      "semantics": {
+        "zero": "explicit zero",
+        "null": "not supplied",
+        "blankString": "override removal only when the manifest says so"
+      },
+      "unclassifiedHardcode": "FAIL"
+    },
+    "confirmedSnapshot": {
+      "existingTable": "WebProfitReportConfirm + WebProfitReportConfirmDetail",
+      "payloadVersion": "immutable revision rows",
+      "backwardCompatibleFields": [
+        "rows[].confirmedSnapshot.values",
+        "expectedTotals",
+        "snapshot"
+      ],
+      "requiredEvidenceFields": [
+        "registryVersion",
+        "registryDigest",
+        "evidenceRunKey",
+        "sourceArtifactSha256",
+        "cellManifestDigest",
+        "formulaDigest",
+        "manualManifestDigest",
+        "provenanceDigest",
+        "gateResult",
+        "generatedWorkbookSha256",
+        "sourceCutAt"
+      ],
+      "immutability": "a confirmed revision is never updated; correction requires cancel plus a new RevisionNo",
+      "currentLedgerMixing": "forbidden"
+    },
+    "provenance": {
+      "perCellRequired": [
+        "source artifact SHA and cell",
+        "mapping ID and registry version",
+        "resolver ID and version",
+        "input business identity",
+        "source row key and row hash",
+        "manual ID or confirmed snapshot ref",
+        "formula exact and shape fingerprints",
+        "precedent mapping IDs",
+        "transformation, rounding, and fallback policy IDs",
+        "expected and actual typed values",
+        "delta and decision",
+        "confidence code",
+        "evidence digest"
+      ],
+      "tamperPolicy": "any digest mismatch fails the run"
+    },
+    "confidence": {
+      "model": "deterministic evidence state, not probability",
+      "codes": {
+        "CONFIRMED_CELL": {
+          "score": 1.0,
+          "strictAllowed": true
+        },
+        "DETERMINISTIC_SOURCE": {
+          "score": 1.0,
+          "strictAllowed": true
+        },
+        "MANUAL_CONFIRMED": {
+          "score": 1.0,
+          "strictAllowed": true
+        },
+        "REVIEW_REQUIRED": {
+          "score": 0.5,
+          "strictAllowed": false
+        },
+        "MISSING": {
+          "score": 0.0,
+          "strictAllowed": false
+        }
+      },
+      "formulaCellRule": "minimum confidence of all precedent evidence nodes"
+    },
+    "exceptionApproval": {
+      "separationOfDuties": "requester and approver must be different",
+      "requiredFields": [
+        "exceptionCode",
+        "runKey",
+        "exactCellOrRange",
+        "reason",
+        "evidenceDigest",
+        "requestedByAndAt",
+        "approvedByAndAt",
+        "expiresAt"
+      ],
+      "digestMutation": "invalidates approval",
+      "criticalNonExceptionRules": [
+        "UNMAPPED_CELL",
+        "DUPLICATE_MAPPING",
+        "FORMULA_EXACT_FINGERPRINT_MISMATCH",
+        "IMPLICIT_FALLBACK",
+        "INTEGER_WON_TOLERANCE_EXCEEDED",
+        "RATIO_TOLERANCE_EXCEEDED",
+        "CROSS_YEAR_CONTAMINATION",
+        "SOURCE_OR_REGISTRY_DIGEST_MISMATCH"
+      ],
+      "canonicalEffect": "an exception that bypasses parity produces REVIEW_ONLY and cannot create or link a confirmed snapshot"
+    },
+    "strictAcceptanceGate": {
+      "scope": "each of weeks 22 through 28 must pass independently before aggregate pass",
+      "thresholds": {
+        "mappingCoverage": 1.0,
+        "formulaExactFingerprintCoverage": 1.0,
+        "integerWonAbsoluteTolerance": 1,
+        "ratioAbsoluteToleranceDecimal": 0.0001,
+        "ratioAbsoluteTolerancePercentagePoints": 0.01,
+        "unmappedCells": 0,
+        "duplicateMappings": 0,
+        "implicitFallbacks": 0,
+        "crossYearSelectedRows": 0,
+        "unsupportedFormulaCells": 0,
+        "unapprovedExceptions": 0
+      },
+      "valuePolicies": {
+        "KRW_INTEGER": "Excel half-away-from-zero integer comparison, absolute delta <= 1",
+        "RATIO": "absolute decimal delta <= 0.0001",
+        "DECIMAL": "exact at manifest scale or a named field tolerance",
+        "TEXT": "Unicode NFC exact comparison",
+        "DATE": "exact Excel date-system and declared timezone policy",
+        "BLANK_ZERO_ERROR": "blank, explicit zero, and error token are distinct and exact"
+      },
+      "gateOrder": [
+        "artifact integrity",
+        "registry integrity",
+        "cell coverage",
+        "formula parse and exact fingerprint",
+        "manual manifest completeness",
+        "resolver source cut and fallback provenance",
+        "typed value parity",
+        "workbook structure parity",
+        "provenance, confidence, and exception policy",
+        "per-week and aggregate decision"
+      ],
+      "allowedFinalStates": [
+        "STRICT_PASS",
+        "REVIEW_ONLY",
+        "FAIL"
+      ],
+      "confirmationAllowedState": "STRICT_PASS"
+    }
+  },
+  "downstreamPreservation": {
+    "ViewOrder": "read only and preserve selected-year identity",
+    "ViewShipment": "read only; fixed predicate must be evidence-resolved before live strict pass",
+    "ShipmentDate": "preserve",
+    "ShipmentFarm": "preserve",
+    "ShipmentDetail.AmountVatIsFix": "read only and preserve",
+    "Estimate": "read only and preserve",
+    "StockMasterProductStockStockHistory": "read only and never recalculate or write from report",
+    "WebProfitReport": "existing manual path only; evidence evaluation does not mutate it",
+    "salesAndMonthlyProfit": "consume confirmed projection only; do not recalculate historical confirmed cells"
+  },
+  "compatibility": {
+    "umbrellaContract": "docs/contracts/weekly-profit-report.json remains authoritative until this draft is promoted",
+    "existingApi": {
+      "path": "/api/sales/profit-report",
+      "requestCompatibility": "existing year/week/excel/action fields remain valid",
+      "responseCompatibility": "existing rows, note, audit, stockWeeks, and snapshot fields remain; evidence is opt-in additive metadata"
+    },
+    "snapshotCompatibility": "payload v1 remains readable; payload v2 keeps rows[].confirmedSnapshot.values and expectedTotals",
+    "excelCompatibility": "legacy buildProfitReportXlsx remains available during shadow rollout; evidence export uses a separate full-workbook builder",
+    "cutover": "default export changes only behind a feature flag after all seven weeks are STRICT_PASS",
+    "sourceAlias": "the legacy single week-28 path may be accepted only when its SHA-256 exactly equals the canonical week-28 artifact"
+  },
+  "implementationPlan": {
+    "plannedFiles": [
+      "data/profit-report-evidence/registry/v1/index.json",
+      "data/profit-report-evidence/registry/v1/week-22.json",
+      "data/profit-report-evidence/registry/v1/week-23.json",
+      "data/profit-report-evidence/registry/v1/week-24.json",
+      "data/profit-report-evidence/registry/v1/week-25.json",
+      "data/profit-report-evidence/registry/v1/week-26.json",
+      "data/profit-report-evidence/registry/v1/week-27.json",
+      "data/profit-report-evidence/registry/v1/week-28.json",
+      "data/profit-report-evidence/manual-input-manifest.v1.json",
+      "data/profit-report-evidence/formula-functions.v1.json",
+      "lib/profitReportEvidence/ooxml.js",
+      "lib/profitReportEvidence/registry.js",
+      "lib/profitReportEvidence/formulaAst.js",
+      "lib/profitReportEvidence/formulaEvaluator.js",
+      "lib/profitReportEvidence/resolvers.js",
+      "lib/profitReportEvidence/provenance.js",
+      "lib/profitReportEvidence/gate.js",
+      "lib/profitReportEvidence/workbook.js",
+      "lib/profitReportEvidence/store.js",
+      "pages/api/sales/profit-report-evidence.js",
+      "scripts/compile-profit-report-evidence-registry.mjs",
+      "scripts/verify-profit-report-evidence.mjs",
+      "docs/migrations/2026-xx-xx_web_profit_report_evidence.sql"
+    ],
+    "plannedExistingFileChanges": [
+      "lib/profitReportConfirm.js: immutable revision reader/writer and strict evidence link",
+      "pages/api/sales/profit-report.js: opt-in evidence metadata/export and strict confirm guard",
+      "lib/profitReportExcel.js: keep legacy path; no full-workbook parity claim",
+      "docs/contracts/weekly-profit-report.json: promoted evidence scope and tests",
+      "package.json: test:profit-report-evidence and verify:profit-report-evidence:strict"
+    ],
+    "plannedTables": [
+      {
+        "name": "WebProfitReportMappingRelease",
+        "purpose": "approved immutable registry release metadata and digest"
+      },
+      {
+        "name": "WebProfitReportEvidenceArtifact",
+        "purpose": "immutable source artifact SHA, size, media type, and controlled storage reference"
+      },
+      {
+        "name": "WebProfitReportEvidenceRun",
+        "purpose": "year/week run header, source cut, digests, metrics, and gate state"
+      },
+      {
+        "name": "WebProfitReportEvidenceCell",
+        "purpose": "per-cell mapping, resolver/manual IDs, formula fingerprint, provenance, values, delta, confidence, and status"
+      },
+      {
+        "name": "WebProfitReportEvidenceException",
+        "purpose": "separation-of-duties exception request and approval audit"
+      },
+      {
+        "name": "WebProfitReportEvidenceSnapshotLink",
+        "purpose": "one-to-one link between a STRICT_PASS run and the existing WebProfitReportConfirm revision"
+      }
+    ],
+    "runtimeDdl": "forbidden",
+    "erpWrites": "forbidden",
+    "plannedApi": [
+      "GET /api/sales/profit-report-evidence?year=&week=",
+      "GET /api/sales/profit-report-evidence?runKey=&sheet=&cell=",
+      "POST /api/sales/profit-report-evidence action=evaluate",
+      "POST /api/sales/profit-report-evidence action=confirm",
+      "POST /api/sales/profit-report-evidence action=requestException",
+      "POST /api/sales/profit-report-evidence action=approveException",
+      "GET /api/sales/profit-report?excel=1&evidenceRunKey="
+    ],
+    "plannedTests": [
+      "__tests__/profitReportEvidenceFormulaAst.test.js",
+      "__tests__/profitReportEvidenceRegistry.test.js",
+      "__tests__/profitReportEvidenceManual.test.js",
+      "__tests__/profitReportEvidenceResolver.test.js",
+      "__tests__/profitReportEvidenceProvenance.test.js",
+      "__tests__/profitReportEvidenceException.test.js",
+      "__tests__/profitReportEvidenceWeeks22To28.test.js",
+      "__tests__/profitReportEvidenceWorkbookParity.test.js",
+      "__tests__/profitReportEvidenceSnapshotCompatibility.test.js",
+      "__tests__/profitReportEvidenceCrossYear.test.js",
+      "__tests__/profitReportEvidenceGate.test.js"
+    ],
+    "plannedScripts": {
+      "test": "npm run test:profit-report-evidence",
+      "strictVerify": "npm run verify:profit-report-evidence:strict"
+    }
+  },
+  "openEvidenceConflicts": [
+    {
+      "code": "WEEK_26_TO_27_INVENTORY_LINEAGE_GAP",
+      "evidenceA": "week-26 total F = 8,919,590.217",
+      "evidenceB": "week-27 total E = 12,578,453.10575",
+      "delta": 3658862.88875,
+      "strictEffect": "requires exact confirmed ProductStock quantity plus VERIFIED unit-price provenance; final E/F manual input and automatic carry inference are forbidden"
+    },
+    {
+      "code": "LEGACY_EXPORT_NOT_FULL_WORKBOOK",
+      "evidenceA": "data/profit-report-template.xlsx contains one report sheet with body starting at row 8",
+      "evidenceB": "source weeks contain 11 or 12 sheets with report body starting at row 7",
+      "strictEffect": "legacy export remains noncanonical until the separate evidence builder passes all seven weeks"
+    }
+  ]
+}

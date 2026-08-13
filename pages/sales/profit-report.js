@@ -1,5 +1,5 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
-// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F재고·H통관비·R환율·S포워딩USD / 수기 보정: E·F·H·R·S·비고
+// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F 확정재고·H통관비·R환율·S포워딩USD / 외부증거 입력: H·R·S·비고
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -32,8 +32,8 @@ const COLUMN_DEFS = [
   { key: 'category', label: '품명' },
   { key: 'C', label: '매출액' },
   { key: 'D', label: '매출비율' },
-  { key: 'E', label: '기초상품재고액', editable: true },
-  { key: 'F', label: '기말상품재고액', editable: true },
+  { key: 'E', label: '기초상품재고액' },
+  { key: 'F', label: '기말상품재고액' },
   { key: 'G', label: '매입액(상품+포워딩)' },
   { key: 'H', label: '그외통관비', editable: true, editWidth: 74 },
   { key: 'I', label: '매출원가', bold: true },
@@ -135,10 +135,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const suggestionText = (row.rateSuggestions || [])
     .map(sg => `${sg.label} ${Number(sg.rate).toLocaleString()}`).join(' / ');
   const F_SOURCE_TEXT = {
-    stock_price_table: '재고평가단가 기준: 마지막 확정 세부차수 ProductStock 수량 × 품목별 재고평가단가 ÷1.1',
-    recent_purchase_cost: '재고평가단가가 없어 폴백: 품목별 최근 매입 외화단가 × 기말수량 × 환율',
-    landed_cost_average: '재고평가단가·최근단가가 없어 폴백: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말수량',
-    missing: '⚠ 재고수량은 있으나 평가단가를 구할 수 없어 계산하지 못했습니다 — 재고단가표에서 단가를 지정하세요',
+    verified_product_stock_price: '확정 ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
+    missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
+    missing_stock_snapshot: '⚠ 확정 ProductStock 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
   };
   const titles = {
@@ -147,10 +146,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
-    E: row.inheritedE
-      ? '기초재고 — 전차수 기말재고(F)에서 이월됨. 우선순위: 전차수 확정 스냅샷 F > 전차수 저장 F > 전차수 자동계산. 비우면 자동값으로 돌아갑니다'
-      : '기초재고 — 같은 매출연도 전차수의 기말재고를 이월합니다(01차만 전년도 52차). 비우면 자동계산값 사용',
-    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} ProductStock 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.stock_price_table}. 직접 입력하면 수기값 우선이며, 보고서를 확정하면 그 값으로 고정됩니다`,
+    E: '기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 확정 ProductStock와 동일 시점 VERIFIED 품목 단가로만 계산합니다. 최종값 직접입력은 허용하지 않습니다.',
+    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}. 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate
     ? titles[col]
@@ -398,18 +395,25 @@ export default function ProfitReportPage() {
     setSaving(true); setError(''); setMessage('');
     try {
       const values = {};
+      const evidence = {};
       for (const row of data?.rows || []) {
         const e = edits[row.category] || {};
         const out = {};
-        for (const col of ['E', 'F', 'H', 'R', 'S']) {
-          if (e[col] !== undefined) out[col] = e[col] === '' ? null : Number(e[col]);
-          else if (row.manual[col] != null) out[col] = row.manual[col];
+        for (const col of ['H', 'R', 'S']) {
+          if (e[col] === undefined) continue;
+          out[col] = e[col] === '' ? null : Number(e[col]);
+          const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+          if (!rawEvidence) throw new Error(`${row.category}.${col} 외부 근거 입력이 취소되었습니다.`);
+          const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+          if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`${row.category}.${col} 근거 형식이 올바르지 않습니다.`);
+          if (!evidence[row.category]) evidence[row.category] = {};
+          evidence[row.category][col] = { sourceRef, effectiveAt };
         }
         if (Object.keys(out).length) values[row.category] = out;
       }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, year: reportYear, values, note }),
+        body: JSON.stringify({ week: weekInput.value, year: data?.orderYear || reportYear, values, evidence, note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
@@ -425,6 +429,8 @@ export default function ProfitReportPage() {
               week: weekInput.value, year: reportYear, action: 'saveTaxableRate',
               currency: row.currency || 'USD', category: row.category,
               rate: values[row.category].R, rateSource: 'manual_input',
+              sourceDate: evidence[row.category]?.R?.effectiveAt || null,
+              sourceNote: evidence[row.category]?.R?.sourceRef || null,
             }),
           });
           const rateBody = await rateRes.json().catch(() => ({}));
@@ -444,7 +450,7 @@ export default function ProfitReportPage() {
         }
       }
       await load();
-      setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
+      setMessage('저장 완료 — 외부 근거가 연결된 통관비/환율/포워딩 값과 비고가 보관되었습니다.');
       return true;
     } catch (e) { setError(e.message); return false; } finally { setSaving(false); }
   };
@@ -547,14 +553,27 @@ export default function ProfitReportPage() {
   };
   const savePrices = async () => {
     try {
+      if (!priceModal?.endWeek) throw new Error('확정 기말 ProductStock 세부차수가 없습니다.');
+      const prices = {};
+      for (const [prodKey, price] of Object.entries(priceEdits)) {
+        if (price == null || price === '') { prices[prodKey] = null; continue; }
+        const rawEvidence = window.prompt(`ProdKey ${prodKey} 단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+        if (!rawEvidence) throw new Error(`ProdKey ${prodKey} 단가 근거 입력이 취소되었습니다.`);
+        const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+        if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`ProdKey ${prodKey} 근거 형식이 올바르지 않습니다.`);
+        prices[prodKey] = { price: Number(price), sourceRef, effectiveAt };
+      }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, year: reportYear, prices: priceEdits }),
+        body: JSON.stringify({
+          action: 'stockPrices', week: weekInput.value, year: data?.orderYear || reportYear,
+          orderWeek: priceModal.endWeek, prices,
+        }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
       setPriceModal(null);
-      setMessage('재고단가표 저장 — 기초/기말 자동 평가액이 갱신되었습니다.');
+      setMessage('재고단가 근거 저장 — 동일 확정 스냅샷의 기초/기말 평가액이 갱신되었습니다.');
       await load();
     } catch (e) { setError(e.message); }
   };
@@ -689,12 +708,12 @@ export default function ProfitReportPage() {
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
               <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)'}>
-                🏷 재고단가표
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '확정 ProductStock와 동일 시점의 품목 단가 증거를 관리합니다'}>
+                🏷 재고단가 근거
               </button>
               <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다'}>
-                🛠 수기 보정{showOverrides ? ' ▲' : ' ▼'}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : 'H/R/S 외부 확정값만 근거 문서와 기준일을 함께 입력합니다'}>
+                🛠 외부증거 입력{showOverrides ? ' ▲' : ' ▼'}
               </button>
               <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
@@ -788,9 +807,8 @@ export default function ProfitReportPage() {
         {viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
-          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 선택 차수 마지막 확정 세부차수 재고수량 × 품목별 재고평가단가</b>
-          (평가단가가 없을 때만 최근 매입단가, 그것도 없고 단위가 일치할 때만 매입·포워딩·통관비 평균단가 사용 · 기초(E)=전차수 마지막 확정 기말재고 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
-          청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
+          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 확정 ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가</b>입니다.
+          단가 근거가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost·최종값 직접입력으로 대체하지 않습니다. H/R/S 외부 확정값은 <b>🛠 외부증거 입력</b>에서 sourceRef와 기준일을 함께 기록합니다.
           환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
@@ -1352,17 +1370,17 @@ export default function ProfitReportPage() {
         <div style={st.modalOverlay}>
           <div style={st.modalCard}>
             <div style={st.panelHead}>
-              <strong>🏷 재고 평가단가표 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)에 재고 있는 품목</strong>
+              <strong>🏷 재고 단가 근거 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)에 재고 있는 품목</strong>
               <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>닫기</button>
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
-              단가를 입력하면 <b>지정단가</b>로 저장되어 이후 매주 자동 적용됩니다. 비우면 지정 해제(수국표/품목Cost로 복귀).
-              평가액 = ProductStock 재고수량(출고단위) × 적용단가 ÷ 1.1
+              단가는 <b>현재 기말 확정 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
+              평가액 = 확정 ProductStock 재고수량(환산단위) × VERIFIED 시점 단가
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>
                 <thead>
-                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>품목Cost</th><th>적용단가(출처)</th><th style={{ textAlign: 'right' }}>지정단가 입력</th></tr>
+                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>참고 Cost</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th></tr>
                 </thead>
                 <tbody>
                   {(priceModal.rows || []).map(r => {
@@ -1378,7 +1396,7 @@ export default function ProfitReportPage() {
                         <td style={{ textAlign: 'right', color: r.Cost ? undefined : '#dc2626' }}>{fmt(r.Cost)}</td>
                         <td>
                           {fmt(r.AppliedPrice)}
-                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: r.AppliedSource === '지정' ? '#166534' : r.AppliedSource === '수국표' ? '#1d4ed8' : '#64748b' }}>
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: r.AppliedSource === 'VERIFIED_EVIDENCE' ? '#166534' : '#b91c1c' }}>
                             {r.AppliedSource}
                           </span>
                         </td>
@@ -1398,7 +1416,7 @@ export default function ProfitReportPage() {
             <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>취소</button>
               <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
-                단가 저장 ({Object.keys(priceEdits).length}건)
+                단가 근거 저장 ({Object.keys(priceEdits).length}건)
               </button>
             </div>
           </div>
