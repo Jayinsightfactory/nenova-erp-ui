@@ -152,8 +152,8 @@ export default function Stock() {
       list.map(x => `${x.prodName}: ${fmtF(x.before)} → ${fmtF(x.afterStock)}`).join('\n')
     )) return;
 
-    const editsPayload = list.map(({ prodKey, afterStock, prodName }) => ({
-      prodKey, afterStock, descr: `재고관리 일괄수정 (${prodName})`,
+    const editsPayload = list.map(({ prodKey, before, afterStock, prodName }) => ({
+      prodKey, expectedSelectedStock: before, afterStock, descr: `재고관리 일괄수정 (${prodName})`,
     }));
 
     setApplying(true); setApplyMsg('적용 중'); setApplyResults(null);

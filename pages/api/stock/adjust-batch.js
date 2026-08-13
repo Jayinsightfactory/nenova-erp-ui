@@ -85,14 +85,15 @@ export default withAuth(async function handler(req, res) {
     for (const e of edits) {
       const pk = Number(e.prodKey);
       const after = Number(e.afterStock);
-      if (!Number.isFinite(pk) || !Number.isFinite(after)) {
+      const expectedSelectedStock = Number(e.expectedSelectedStock);
+      if (!Number.isFinite(pk) || !Number.isFinite(after) || !Number.isFinite(expectedSelectedStock)) {
         return res.status(400).json({ success: false, error: '잘못된 재고 수정값이 포함되어 있습니다.' });
       }
       if (seenProdKeys.has(pk)) {
         return res.status(400).json({ success: false, error: `중복 품목이 포함되어 있습니다. (${pk})` });
       }
       seenProdKeys.add(pk);
-      normalizedEdits.push({ ...e, pk, after });
+      normalizedEdits.push({ ...e, pk, after, expectedSelectedStock });
     }
 
     const results = await withTransaction(async (tQuery) => {
@@ -106,45 +107,11 @@ export default withAuth(async function handler(req, res) {
           );
           if (!liveResult.recordset[0]) throw new Error(`품목을 찾을 수 없습니다. (${e.pk})`);
 
-          // usp_StockCalculation과 같은 원천으로 선택 차수의 현재 재고를 계산한다.
-          // Product.Stock은 최신 라이브 재고이므로 과거 차수 목표값과 직접 비교하면 안 된다.
-          const selectedResult = await tQuery(
-            `SELECT
-               ISNULL((
-                 SELECT TOP 1 ps.Stock
-                   FROM StockMaster sm
-                   JOIN ProductStock ps ON ps.StockKey=sm.StockKey AND ps.ProdKey=@pk
-                  WHERE sm.OrderYear=@year AND sm.OrderWeek < @week
-                  ORDER BY sm.OrderWeek DESC, sm.StockKey DESC
-               ),0)
-               + ISNULL((
-                 SELECT SUM(wd.OutQuantity)
-                   FROM WarehouseDetail wd
-                   JOIN WarehouseMaster wm ON wm.WarehouseKey=wd.WarehouseKey
-                  WHERE wd.ProdKey=@pk AND wm.OrderYear=@year AND wm.OrderWeek=@week
-                    AND ISNULL(wm.isDeleted,0)=0
-               ),0)
-               - ISNULL((
-                 SELECT SUM(sd.OutQuantity)
-                   FROM ShipmentDetail sd
-                   JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
-                  WHERE sd.ProdKey=@pk AND sm.OrderYear=@year AND sm.OrderWeek=@week
-                    AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.isFix,0)=1
-               ),0)
-               + ISNULL((
-                 SELECT SUM(ISNULL(sh.AfterValue,0)-ISNULL(sh.BeforeValue,0))
-                   FROM StockHistory sh
-                  WHERE sh.ProdKey=@pk AND sh.OrderYear=@year AND sh.OrderWeek=@week
-               ),0) AS SelectedStock`,
-            {
-              year: { type: sql.NVarChar, value: orderYear },
-              week: { type: sql.NVarChar, value: week },
-              pk: { type: sql.Int, value: e.pk },
-            }
-          );
+          // 화면이 확정해제 전에 계산한 선택 차수 재고를 기준으로 delta를 고정한다.
+          // 자동 확정해제 후 서버에서 다시 계산하면 확정출고가 빠져 delta가 왜곡된다.
           const plan = resolveStockTargetAdjustment({
             liveStock: liveResult.recordset[0].Stock,
-            selectedStock: selectedResult.recordset[0]?.SelectedStock || 0,
+            selectedStock: e.expectedSelectedStock,
             targetStock: e.after,
           });
           if (Math.abs(plan.delta) < 0.0001) {
