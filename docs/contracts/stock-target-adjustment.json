@@ -17,6 +17,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "재고 조정은 업체 비종속이므로 CustKey는 계약 공통 스키마 호환용이며 실제 범위는 OrderYear+OrderWeek+ProdKey다.",
+  "displayParity": "Nenova FormStockView displays ProductStock.Stock (ns.Stock). The web EXE-parity response must display and edit against mapped currentStock, never a browser recomputation from BeforeStock+WareQuantity-ShipQuantity+StockQuantity, because an unfixed week can legitimately differ.",
   "actions": [
     {
       "name": "SET_SELECTED_WEEK_TARGET",
