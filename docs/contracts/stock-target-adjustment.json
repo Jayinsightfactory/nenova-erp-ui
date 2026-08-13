@@ -6,6 +6,7 @@
     "pages/api/stock/index.js",
     "scripts/repair-stock-30-carnation.mjs",
     "scripts/repair-stock-30-remaining.mjs",
+    "scripts/recover-stock-30-fix-state.mjs",
     ".github/workflows/repair-stock-30-carnation.yml",
     "pages/api/stock/adjust-batch.js",
     "lib/stockTargetAdjustment.js"
