@@ -16,3 +16,4 @@ jobs:
             cd /var/www/nenova-erp
             git fetch origin master && git reset --hard origin/master
             node --env-file=.env.local scripts/audit-stock-after-30-02.mjs
+            node --env-file=.env.local scripts/audit-stock-change-origin.mjs
