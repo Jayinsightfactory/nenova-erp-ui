@@ -67,10 +67,10 @@ const output = await withTransaction(async (tQuery) => {
        SELECT p.ProdKey,
               p.ProdName,
               ISNULL(currentStock.Stock, 0) savedStock,
-              ISNULL(previousStock.Stock, 0)
+              ROUND(ISNULL(previousStock.Stock, 0)
                 + ISNULL(warehouse.qty, 0)
                 - ISNULL(shipment.qty, 0)
-                + ISNULL(adjustment.qty, 0) formulaStock
+                + ISNULL(adjustment.qty, 0), 2) formulaStock
          FROM Product p
          JOIN stock currentStock
            ON currentStock.OrderYearWeek = N'20263101'
