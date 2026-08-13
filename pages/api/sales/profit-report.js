@@ -12,7 +12,7 @@ import {
 import { computeAutoEndingStock, endingStockSourceKind, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
-import { loadTaxableRates, resolveTaxableRate, saveTaxableRate, RATE_SOURCE } from '../../../lib/taxableExchangeRate';
+import { loadTaxableRates, resolveTaxableRate, saveTaxableRate, RATE_SOURCE, kcsRatesByCategory } from '../../../lib/taxableExchangeRate';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
@@ -29,7 +29,7 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -49,6 +49,7 @@ export async function loadReportData(major, orderYear) {
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         getActiveConfirm(prevOrderYear, prevMajor),         // E 이월 1순위: 전차수 활성 확정 스냅샷 F(REPORT_CONFIRM_SNAPSHOT)
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
+        kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후만): 관세청 공식 과세환율(KCS) 신고일자·TPrice 가중평균
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -66,10 +67,14 @@ export async function loadReportData(major, orderYear) {
         const prevConfirmFValue = prevConfirmF != null ? Number(prevConfirmF) : null;
         const prevF = prevConfirmFValue != null ? prevConfirmFValue : prevMan.F;
         const curCode = currencyCodeForCategory(key);
-        // R 과세환율(2026-08-12 원천 정정) — 자동 적용은 "정확히 이 OrderYear+MajorWeek" 원천만:
+        // R 과세환율(2026-08-12 원천 정정, 2026-08-12 KCS 4순위 추가) — 자동 적용은 "정확히 이
+        // OrderYear+MajorWeek" 원천만, 행별 수기 오버라이드(man.R, 아래 autoF/beginInputs/source.R)가
+        // 항상 이 자동값보다 우선한다:
         //   1) 당주 입고 통관 스냅샷 FreightCost.ExchangeRate
         //   2) 이 주차에 저장/캐시된 과세환율(WebTaxableExchangeRate — 카테고리 지정 > 통화 기본)
-        //   3) 2026 22~27차 원본 엑셀 본표 R열(historical snapshot)
+        //   3) 2026 22~27차 원본 엑셀 본표 R열(historical snapshot) — 그 범위 밖은 항상 null
+        //   4) (2026 28차 이후만) 관세청 공식 과세환율 API(KCS) — 입고 신고일자별(InputDate→ArrivalDtm→
+        //      UploadDtm) 환율을 wd.TPrice로 가중평균(lib/kcsRateDateWeights.js)
         // 현재 CurrencyMaster 환율과 전차수 R은 **자동 적용하지 않고** 제안(rateSuggestions)으로만
         // 내려보낸다. 과거 차수에 오늘 환율을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다.
         const resolvedRate = resolveTaxableRate({
@@ -81,6 +86,8 @@ export async function loadReportData(major, orderYear) {
           currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
           previousWeekRate: prevMan.R != null ? Number(prevMan.R) : null,
           previousWeekLabel: `${Number(prevMajor)}차`,
+          kcsRate: kcsRates.byCategory?.[key]?.rate ?? null,
+          kcsDetail: kcsRates.byCategory?.[key]?.detail ?? null,
         });
         const autoR = resolvedRate.rate;
         const autoRSource = resolvedRate.source;

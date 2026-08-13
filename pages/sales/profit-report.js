@@ -53,6 +53,10 @@ const COLUMN_DEFS = [
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
 const LS_KEY = 'nenova_profitReport_visibleCols_v1';
 const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
+const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
+const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
+// 이익률 분석의 변동요인(drivers) 컬럼 라벨 — COLUMN_DEFS 라벨과 동일한 용어를 그대로 재사용.
+const DRIVER_LABELS = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품 금액(구매)', H: '그외통관비', T: '포워딩 원화환산', L: '불량금액' };
 
 // 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
 function readonlyValue(key, obj, ctx) {
@@ -196,6 +200,15 @@ export default function ProfitReportPage() {
   const [showForwarding, setShowForwarding] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
 
+  // ── 검증·입력(표 아래 접기 영역) — 문제가 있으면 새 차수 조회 때마다 기본으로 펼친다.
+  const [showValidation, setShowValidation] = useState(false);
+
+  // ── 이익률 분석(표 아래 접기 영역) — 본표(load)와 완전히 분리된 별도 fetch, 펼쳤을 때만 호출.
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+
   // ── 보고서 기준 확정/취소/이력
   const [confirmHistory, setConfirmHistory] = useState([]);
   const [confirmSchemaInitialized, setConfirmSchemaInitialized] = useState(true);
@@ -283,6 +296,29 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  // 이익률 분석 — /api/sales/profit-analysis 를 본표 load()와 완전히 분리해서 부른다.
+  // 패널을 펼친 상태에서만 호출하고, 느리거나 실패해도 본표 조회/렌더는 절대 막지 않는다.
+  useEffect(() => {
+    if (!showAnalysis || viewMode !== 'category' || !data?.major || !data?.orderYear) return;
+    let cancelled = false;
+    setAnalysisLoading(true); setAnalysisError(''); setAnalysisData(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/sales/profit-analysis?year=${encodeURIComponent(data.orderYear)}&week=${encodeURIComponent(data.major)}`, { credentials: 'same-origin' });
+        const d = await res.json();
+        if (cancelled) return;
+        if (!d.ok) { setAnalysisError(d.message || '이익률 분석 조회 실패'); return; }
+        setAnalysisData(d);
+      } catch (e) {
+        if (!cancelled) setAnalysisError(e.message || '이익률 분석 조회 실패');
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAnalysis, viewMode, data?.major, data?.orderYear]);
   const stepWeek = delta => {
     const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
     const next = String(Math.max(1, cur + delta)).padStart(2, '0');
@@ -523,6 +559,29 @@ export default function ProfitReportPage() {
   const dirty = Object.keys(edits).length > 0 || noteDirty;
   const { rows, totals } = rowsCalc;
   const needsAttention = attentionRows(rows);
+
+  // ── 검증·입력 접기 영역 요약 — 배너 4종(감사 오류/실사 확인/과세환율 입력/기타미분류)의
+  // 개수를 모아 접힌 헤더에도 문제 여부를 보여준다. 조건식 자체는 각 배너 렌더 위치에서
+  // 그대로 재사용하며 여기서는 개수 집계·기본 펼침 판단에만 쓴다.
+  const validationUnclassified = rows.some(r => r.category === '기타(미분류)');
+  const validationRateRows = data?.rows ? data.rows.filter(needsRateInput) : [];
+  const hasValidationIssues = Boolean(
+    (data?.audit?.issues?.length > 0) ||
+    needsAttention.length > 0 ||
+    validationRateRows.length > 0 ||
+    validationUnclassified
+  );
+  const validationCount =
+    (data?.audit?.issues?.length || 0) +
+    needsAttention.length +
+    validationRateRows.length +
+    (validationUnclassified ? 1 : 0);
+  // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
+  // 접고 펼치는 것은 다음 조회 전까지 유지).
+  useEffect(() => {
+    setShowValidation(hasValidationIssues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   // 읽기전용 세부표 — 차수별 뷰에서 펼쳤을 때 쓰는 카테고리별 내역(편집 불가)
   const ReadonlyDetailTable = ({ rows: wRows, totals: wTotals }) => (
@@ -807,69 +866,6 @@ export default function ProfitReportPage() {
         </div>
       )}
 
-      {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
-        <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-          <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
-          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
-            {data.audit.issues.slice(0, 10).map((issue, i) => (
-              <li key={`${issue.code}-${issue.category}-${i}`}>
-                <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
-              </li>
-            ))}
-          </ul>
-          {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
-        </div>
-      )}
-
-      {viewMode === 'category' && data && needsAttention.length > 0 && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
-          {needsAttention.map(r => r.category).join(', ')}
-        </div>
-      )}
-
-      {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>과세환율(R) 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
-          해당 행의 R 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
-          <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
-            자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
-            입력칸에 마우스를 올리면 참고값(전차수·통화마스터)을 볼 수 있고, 적용·저장해야 계산에 반영됩니다.
-          </div>
-        </div>
-      )}
-
-      {viewMode === 'category' && data && rows.some(r => r.category === '기타(미분류)') && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>기타(미분류) 검증 영역</b> — 국가·화종 매핑에 들지 않은 거래가 있습니다.
-          이 행은 <b>본표 합계(C·D·I·J·K)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
-          품목마스터의 국가(CounName)/화종(FlowerName)을 정정하면 정식 카테고리로 반영됩니다. 상세 품목은 아래 비고사항에 자동 기록됩니다.
-        </div>
-      )}
-
-      {viewMode === 'category' && data && showCustoms && (
-        <div style={st.embedPanel}>
-          <div style={st.embedPanelHead}>
-            <strong>📦 그외통관비 입력 — {data.major}차</strong>
-            <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
-          </div>
-          <div style={st.embedPanelBody}>
-            <CustomsClearancePanel week={weekInput.value} onSaved={load} />
-          </div>
-        </div>
-      )}
-      {viewMode === 'category' && data && showForwarding && (
-        <div style={st.embedPanel}>
-          <div style={st.embedPanelHead}>
-            <strong>🚢 포워딩 입력 — {data.major}차</strong>
-            <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
-          </div>
-          <div style={st.embedPanelBody}>
-            <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
-          </div>
-        </div>
-      )}
-
       {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
           <table style={st.table}>
@@ -911,6 +907,237 @@ export default function ProfitReportPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewMode !== 'months' && data && (
+        <div style={st.collapseWrap}>
+          <button
+            type="button"
+            onClick={() => setShowValidation(v => !v)}
+            aria-expanded={showValidation}
+            aria-controls={VALIDATION_PANEL_ID}
+            style={st.collapseToggle}
+            title="검증 안내와 그외통관비/포워딩 입력 패널을 모아서 보여줍니다"
+          >
+            <span aria-hidden="true" style={st.caret}>{showValidation ? '▾' : '▸'}</span>
+            검증·입력
+            <span style={validationCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
+              {validationCount > 0 ? `⚠ 검증·입력 ${validationCount}건` : '검증·입력 (문제 없음)'}
+            </span>
+            <span style={st.toggleHint}>{showValidation ? '접기' : '펼치기'}</span>
+          </button>
+          <div id={VALIDATION_PANEL_ID} hidden={!showValidation} style={showValidation ? st.collapsePanel : undefined}>
+            {showValidation && (
+              <>
+                {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
+                  <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
+                    <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
+                    <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+                      {data.audit.issues.slice(0, 10).map((issue, i) => (
+                        <li key={`${issue.code}-${issue.category}-${i}`}>
+                          <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                    {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && needsAttention.length > 0 && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
+                    {needsAttention.map(r => r.category).join(', ')}
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>과세환율(R) 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
+                    해당 행의 R 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
+                    <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
+                      자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
+                      입력칸에 마우스를 올리면 참고값(전차수·통화마스터)을 볼 수 있고, 적용·저장해야 계산에 반영됩니다.
+                    </div>
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && rows.some(r => r.category === '기타(미분류)') && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>기타(미분류) 검증 영역</b> — 국가·화종 매핑에 들지 않은 거래가 있습니다.
+                    이 행은 <b>본표 합계(C·D·I·J·K)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
+                    품목마스터의 국가(CounName)/화종(FlowerName)을 정정하면 정식 카테고리로 반영됩니다. 상세 품목은 아래 비고사항에 자동 기록됩니다.
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && showCustoms && (
+                  <div style={st.embedPanel}>
+                    <div style={st.embedPanelHead}>
+                      <strong>📦 그외통관비 입력 — {data.major}차</strong>
+                      <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
+                    </div>
+                    <div style={st.embedPanelBody}>
+                      <CustomsClearancePanel week={weekInput.value} onSaved={load} />
+                    </div>
+                  </div>
+                )}
+                {viewMode === 'category' && data && showForwarding && (
+                  <div style={st.embedPanel}>
+                    <div style={st.embedPanelHead}>
+                      <strong>🚢 포워딩 입력 — {data.major}차</strong>
+                      <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
+                    </div>
+                    <div style={st.embedPanelBody}>
+                      <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'category' && data && (
+        <div style={st.collapseWrap}>
+          <button
+            type="button"
+            onClick={() => setShowAnalysis(v => !v)}
+            aria-expanded={showAnalysis}
+            aria-controls={ANALYSIS_PANEL_ID}
+            style={st.collapseToggle}
+            title="이 차수의 이익률(K)을 직전 차수 평균과 비교하고 변동 요인을 보여줍니다 — 본표 조회와 별도로 불러옵니다"
+          >
+            <span aria-hidden="true" style={st.caret}>{showAnalysis ? '▾' : '▸'}</span>
+            📈 이익률 분석
+            <span style={st.toggleHint}>{showAnalysis ? '접기' : '펼치기'}</span>
+          </button>
+          <div id={ANALYSIS_PANEL_ID} hidden={!showAnalysis} style={showAnalysis ? st.collapsePanel : undefined}>
+            {showAnalysis && (
+              <>
+                {analysisLoading && <div style={st.message}>이익률 분석을 불러오는 중…</div>}
+                {analysisError && <div style={st.error}>{analysisError}</div>}
+                {!analysisLoading && !analysisError && analysisData && (
+                  <>
+                    {analysisData.provisional && (
+                      <div style={st.attentionBanner}>
+                        ⚠ <b>잠정 분석</b> — 아래 값은 최종이 아닐 수 있습니다.
+                        {analysisData.provisionalReasons?.length > 0 && (
+                          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+                            {analysisData.provisionalReasons.map((reason, i) => <li key={i}>{reason}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    {(() => {
+                      const t = analysisData.trend?.trend || {};
+                      const improved = t.ppDiff != null && t.ppDiff >= 0;
+                      return (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 10 }}>
+                          이번 {analysisData.major}차 이익률 {t.currentK != null ? pct(t.currentK) : '—'} vs 직전 {t.priorCount ?? 0}개 차수 평균 {t.avgPriorK != null ? pct(t.avgPriorK) : '—'}
+                          {t.priorCount != null && t.priorCount < 4 ? ` (직전 ${t.priorCount}개 차수 평균 — 4개 미만)` : ''}
+                          {t.ppDiff != null && (
+                            <span style={{ marginLeft: 8, fontWeight: 800, color: improved ? '#166534' : '#dc2626' }}>
+                              {improved ? '+' : ''}{t.ppDiff.toFixed(2)}pp
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>차수별 이익률</div>
+                    <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                      <thead>
+                        <tr><th style={st.th}>차수</th><th style={st.th}>이익률</th><th style={st.th}>원천</th></tr>
+                      </thead>
+                      <tbody>
+                        {[analysisData.trend?.currentWeek, ...(analysisData.trend?.priorWeeks || [])].filter(Boolean).map((w, i) => (
+                          <tr key={`${w.major}-${i}`}>
+                            <td style={st.td}>{Number(w.major)}차{i === 0 ? ' (이번 차수)' : ''}</td>
+                            <td style={st.tdNum}>{w.K != null ? pct(w.K) : '—'}</td>
+                            <td style={st.td}>
+                              <span style={w.source === 'snapshot' ? st.collapseBadgeOk : w.source === 'live' ? st.sourceBadgeLive : st.sourceBadgeMissing}>
+                                {w.source === 'snapshot' ? '확정' : w.source === 'live' ? '실시간 계산' : '데이터 없음'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>변동 요인 (C/E/F/P/H/T/L)</div>
+                    <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={st.th}>항목</th><th style={st.th}>이번 차수</th><th style={st.th}>직전 평균</th>
+                          <th style={st.th}>증감</th><th style={st.th}>증감률</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(analysisData.drivers || []).map(d => (
+                          <tr key={d.column}>
+                            <td style={st.td}>{DRIVER_LABELS[d.column] || d.column}</td>
+                            <td style={st.tdNum}>{d.currentValue != null ? fmt(d.currentValue) : '—'}</td>
+                            <td style={st.tdNum}>{d.priorAvgValue != null ? fmt(d.priorAvgValue) : '—'}</td>
+                            <td style={{ ...st.tdNum, color: d.delta > 0 ? '#166534' : d.delta < 0 ? '#dc2626' : undefined }}>{d.delta != null ? fmt(d.delta) : '—'}</td>
+                            <td style={st.tdNum}>{d.pctDelta != null ? pct(d.pctDelta) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>단가 하락 후보</div>
+                    {(analysisData.priceDecreaseCandidates || []).length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>해당 없음</div>
+                    ) : (
+                      <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                        <thead>
+                          <tr><th style={st.th}>거래처</th><th style={st.th}>품목</th><th style={st.th}>이번 단가</th><th style={st.th}>직전 단가</th><th style={st.th}>변화율</th><th style={st.th}>비고</th></tr>
+                        </thead>
+                        <tbody>
+                          {analysisData.priceDecreaseCandidates.map((c, i) => (
+                            <tr key={`${c.custKey}-${c.prodKey}-${i}`}>
+                              <td style={st.td}>{c.custName}</td>
+                              <td style={st.td}>{c.productName || `품목 #${c.prodKey}`}</td>
+                              <td style={st.tdNum}>{c.currentPrice != null ? fmt(c.currentPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.priorPrice != null ? fmt(c.priorPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.pctChange != null ? pct(c.pctChange) : '—'}</td>
+                              <td style={st.td}>{c.note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>저가 구성비 후보</div>
+                    {(analysisData.lowPriceMixCandidates || []).length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#64748b' }}>해당 없음</div>
+                    ) : (
+                      <table style={{ ...st.table, minWidth: 0 }}>
+                        <thead>
+                          <tr><th style={st.th}>거래처</th><th style={st.th}>품목</th><th style={st.th}>이번 단가</th><th style={st.th}>동종 가중평균</th><th style={st.th}>동종 중앙값</th><th style={st.th}>비중 변화(pp)</th><th style={st.th}>비고</th></tr>
+                        </thead>
+                        <tbody>
+                          {analysisData.lowPriceMixCandidates.map((c, i) => (
+                            <tr key={`${c.custKey}-${c.prodKey}-${i}`}>
+                              <td style={st.td}>{c.custName}</td>
+                              <td style={st.td}>{c.productName || `품목 #${c.prodKey}`}</td>
+                              <td style={st.tdNum}>{c.currentPrice != null ? fmt(c.currentPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.peerWeightedAvg != null ? fmt(c.peerWeightedAvg) : '—'}</td>
+                              <td style={st.tdNum}>{c.peerMedian != null ? fmt(c.peerMedian) : '—'}</td>
+                              <td style={st.tdNum}>{c.shareDeltaPp != null ? c.shareDeltaPp.toFixed(2) : '—'}</td>
+                              <td style={st.td}>{c.note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -1181,6 +1408,20 @@ const st = {
   embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
   embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
   tinyCloseBtn: { background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer' },
+  // 표 아래 접기 영역(검증·입력 / 이익률 분석) — components/ProfitReportSourceGuide.js 와 동일한 토글 패턴.
+  collapseWrap: { marginTop: 12 },
+  collapseToggle: {
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8,
+    padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', lineHeight: 1.4,
+  },
+  caret: { fontSize: 10, color: '#64748b' },
+  toggleHint: { fontSize: 10.5, fontWeight: 600, color: '#94a3b8' },
+  collapsePanel: { marginTop: 8, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', padding: 12 },
+  collapseBadgeWarn: { fontSize: 11, fontWeight: 800, color: '#9a3412', background: '#fff7ed', border: '1px solid #fb923c', borderRadius: 5, padding: '1px 7px' },
+  collapseBadgeOk: { fontSize: 11, fontWeight: 800, color: '#166534', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: 5, padding: '1px 7px' },
+  sourceBadgeLive: { fontSize: 11, fontWeight: 800, color: '#1e40af', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 5, padding: '1px 7px' },
+  sourceBadgeMissing: { fontSize: 11, fontWeight: 800, color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '1px 7px' },
   hint: { fontSize: 11.5, color: '#64748b', marginBottom: 10, lineHeight: 1.6 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
