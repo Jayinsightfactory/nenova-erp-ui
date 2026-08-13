@@ -18,13 +18,21 @@ import {
   mapFileRowView,
 } from '../../lib/moyiDriveViewModel';
 
+const FILE_VIEWS = [
+  { id: 'all', label: '전체 파일' },
+  { id: 'moyi', label: 'MOYI 앱에서 올림' },
+  { id: 'naverworks', label: '네이버웍스에서 가져옴' },
+  { id: 'needs-review', label: '정리 필요' },
+  { id: 'ready', label: '확인 완료' },
+];
+
 export default function MoyiDriveAdminPage() {
   const [tabKey, setTabKey] = useState(TAB_DEFS[0].key);
   const [classification, setClassification] = useState(null); // null = 최초 로딩 중
   const [query, setQuery] = useState('');
+  const [fileView, setFileView] = useState('all');
   const [selectedFileId, setSelectedFileId] = useState(null);
   const [preparing, setPreparing] = useState(false);
-
   useEffect(() => {
     let active = true;
     fetch('/api/moyi/drive-admin')
@@ -35,9 +43,14 @@ export default function MoyiDriveAdminPage() {
       .catch(() => { if (active) setClassification(classifyDriveResponse({ networkError: true })); });
     return () => { active = false; };
   }, []);
-
   const files = classification?.body?.files || [];
-  const filteredFiles = useMemo(() => filterFiles(files, query), [files, query]);
+  const filteredFiles = useMemo(() => filterFiles(files, query).filter((file) => {
+    if (fileView === 'moyi') return file.source === 'MOYI 앱';
+    if (fileView === 'naverworks') return file.source === '네이버웍스 Drive';
+    if (fileView === 'needs-review') return !file.contentReady || file.sourceDeleted;
+    if (fileView === 'ready') return file.contentReady && !file.sourceDeleted;
+    return true;
+  }), [files, query, fileView]);
 
   if (!classification) {
     return <StatusPanel panel={loadingStatusPanel()} />;
@@ -80,6 +93,12 @@ export default function MoyiDriveAdminPage() {
       />
 
       <Tabs tabs={TAB_DEFS} activeKey={tabKey} onSelect={setTabKey} />
+
+      {tabKey === 'files' && <nav className="moyi-drive-views" aria-label="파일 빠른 보기">
+        <b>빠른 보기</b>
+        {FILE_VIEWS.map((view) => <button key={view.id} className={fileView===view.id?'active':''} aria-current={fileView===view.id?'page':undefined} onClick={()=>setFileView(view.id)}>{view.label}</button>)}
+        <span className="moyi-drive-organize-help">폴더는 팀·업무 중심으로 적게 만들고, 연도·차수·거래처·문서 종류는 분류 정보로 찾습니다.</span>
+      </nav>}
 
       <div className="card moyi-tab-card" role="tabpanel" id={`moyi-panel-${tabKey}`} aria-labelledby={`moyi-tab-${tabKey}`}>
         <div className="card-header">
@@ -149,6 +168,11 @@ export default function MoyiDriveAdminPage() {
 
       <style jsx>{`
         .moyi-tab-card { margin-top: 4px; }
+        .moyi-drive-views { display: flex; align-items: center; gap: 3px; margin-top: 4px; padding: 5px; border: 1px solid var(--border); background: var(--surface2); overflow-x: auto; }
+        .moyi-drive-views > b { white-space: nowrap; padding: 0 5px; }
+        .moyi-drive-views button { border: 0; background: transparent; padding: 7px 8px; white-space: nowrap; cursor: pointer; }
+        .moyi-drive-views button:hover, .moyi-drive-views button.active { background: #c5d9f1; box-shadow: inset 0 -3px #0066cc; font-weight: bold; }
+        .moyi-drive-organize-help { margin-left: auto; color: var(--text3); white-space: nowrap; padding: 0 5px; }
         .moyi-bootstrap-action { display: flex; justify-content: flex-end; margin: 4px 0; }
         .moyi-file-table-wrap { max-height: calc(100vh - 260px); }
         .moyi-scroll-hint { display: none; }
@@ -160,6 +184,9 @@ export default function MoyiDriveAdminPage() {
         .moyi-page-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
 
         @media (max-width: 768px) {
+          .moyi-drive-views { min-height: 44px; }
+          .moyi-drive-views button { min-height: 44px; }
+          .moyi-drive-organize-help, .moyi-drive-views > b { display: none; }
           .card-body { padding: 6px; }
           .moyi-erp-approval-actions :global(button) { min-height: 44px; flex: 1 1 auto; }
           .moyi-page-actions :global(button) { min-height: 44px; width: 100%; }

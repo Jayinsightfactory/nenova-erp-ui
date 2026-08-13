@@ -28,6 +28,10 @@ assert.match(layout, /fetch\('\/api\/auth\/me'\)/, 'PC 메뉴는 서버의 실�
 assert.match(mobileHome, /import\s*\{\s*MENU_ITEMS\s*\}[^\n]+components\/Layout/, '모바일 메뉴는 PC와 같은 메뉴 원본을 사용해야 합니다.');
 assert.match(mobileHome, /userIds\.includes\(me\.userId\)/, '모바일 메뉴도 서버에서 받은 실제 UserID로 표시를 제한해야 합니다.');
 assert.match(page, /전산 변경 별도 승인/, 'ERP 변경을 일반 자동 업무 승인과 분리해야 합니다.');
+assert.match(page, /MOYI 앱에서 올림/, 'MOYI 앱 업로드만 모아보는 빠른 보기가 있어야 합니다.');
+assert.match(page, /네이버웍스에서 가져옴/, '네이버웍스에서 들어온 자료를 구분해서 볼 수 있어야 합니다.');
+assert.match(page, /정리 필요/, '분류·백업 확인이 필요한 파일을 별도 보기로 제공해야 합니다.');
+assert.match(page, /폴더는 팀·업무 중심으로 적게 만들고/, '폴더와 분류 정보의 역할을 직원에게 안내해야 합니다.');
 // 화면 재구성(components/moyiDrive/*, lib/moyiDriveViewModel.js) 이후에는
 // 탭 라벨·연결 대기 문구가 page.js가 아니라 view-model에 있다.
 // 구성요소 조립/반응형/접근성 세부 계약은 __tests__/moyiDriveLayoutContract.test.js,
