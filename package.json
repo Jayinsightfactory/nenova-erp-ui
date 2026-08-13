@@ -24,7 +24,7 @@
     "test:shipment-import": "node __tests__/shipmentImportApply.test.js && node __tests__/shipmentImportAudit.test.js",
     "test:adjust-unit": "node __tests__/adjustUnit.test.js && node __tests__/pasteOrderUnit.test.js",
     "test:pivot-adjust": "node __tests__/shipmentPivotAdjustContract.test.js && node __tests__/shipmentAvailability.test.js",
-    "test:erp-manifest": "node __tests__/erpContractManifest.test.js && node __tests__/pasteNaturalCustomerInline.test.js && node scripts/check-erp-contract-manifest.mjs",
+    "test:erp-manifest": "node __tests__/erpContractManifest.test.js && node __tests__/pasteNaturalCustomerInline.test.js && node __tests__/stockTargetAdjustment.test.js && node scripts/check-erp-contract-manifest.mjs",
     "test:nenova-web-scope": "node __tests__/nenovaWebCompatibilityScope.test.js",
     "test:moyi-report-push": "node __tests__/moyiReportPush.test.js",
     "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js",

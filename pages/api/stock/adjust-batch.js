@@ -8,6 +8,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear } from '../../../lib/orderUtils';
+import { resolveStockTargetAdjustment } from '../../../lib/stockTargetAdjustment';
 
 async function isWeekFixed(orderYear, orderWeek) {
   const r = await query(
@@ -38,6 +39,11 @@ function stockCalculationSql() {
             EXEC dbo.usp_StockCalculation
                  @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid,
                  @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
+            IF ISNULL(@r,0) <> 0
+            BEGIN
+              SET @m = COALESCE(NULLIF(@m,N''),N'재고 재계산 실패');
+              THROW 51000, @m, 1;
+            END
             SELECT @r AS result, @m AS message;
           END
           ELSE
@@ -74,24 +80,77 @@ export default withAuth(async function handler(req, res) {
       });
     }
 
-    const results = [];
-    const errors = [];
-
+    const normalizedEdits = [];
+    const seenProdKeys = new Set();
     for (const e of edits) {
       const pk = Number(e.prodKey);
       const after = Number(e.afterStock);
       if (!Number.isFinite(pk) || !Number.isFinite(after)) {
-        errors.push({ prodKey: e.prodKey, message: '잘못된 값' });
-        continue;
+        return res.status(400).json({ success: false, error: '잘못된 재고 수정값이 포함되어 있습니다.' });
       }
-      try {
-        const applied = await withTransaction(async (tQuery) => {
-          const beforeResult = await tQuery(
-            `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
-            { pk: { type: sql.Int, value: pk } }
+      if (seenProdKeys.has(pk)) {
+        return res.status(400).json({ success: false, error: `중복 품목이 포함되어 있습니다. (${pk})` });
+      }
+      seenProdKeys.add(pk);
+      normalizedEdits.push({ ...e, pk, after });
+    }
+
+    const results = await withTransaction(async (tQuery) => {
+      const appliedResults = [];
+      for (const e of normalizedEdits) {
+          const liveResult = await tQuery(
+            `SELECT ISNULL(Stock,0) AS Stock
+               FROM Product WITH (UPDLOCK, HOLDLOCK)
+              WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+            { pk: { type: sql.Int, value: e.pk } }
           );
-          const before = Number(beforeResult.recordset[0]?.Stock || 0);
-          if (Math.abs(after - before) < 0.0001) return false;
+          if (!liveResult.recordset[0]) throw new Error(`품목을 찾을 수 없습니다. (${e.pk})`);
+
+          // usp_StockCalculation과 같은 원천으로 선택 차수의 현재 재고를 계산한다.
+          // Product.Stock은 최신 라이브 재고이므로 과거 차수 목표값과 직접 비교하면 안 된다.
+          const selectedResult = await tQuery(
+            `SELECT
+               ISNULL((
+                 SELECT TOP 1 ps.Stock
+                   FROM StockMaster sm
+                   JOIN ProductStock ps ON ps.StockKey=sm.StockKey AND ps.ProdKey=@pk
+                  WHERE sm.OrderYear=@year AND sm.OrderWeek < @week
+                  ORDER BY sm.OrderWeek DESC, sm.StockKey DESC
+               ),0)
+               + ISNULL((
+                 SELECT SUM(wd.OutQuantity)
+                   FROM WarehouseDetail wd
+                   JOIN WarehouseMaster wm ON wm.WarehouseKey=wd.WarehouseKey
+                  WHERE wd.ProdKey=@pk AND wm.OrderYear=@year AND wm.OrderWeek=@week
+                    AND ISNULL(wm.isDeleted,0)=0
+               ),0)
+               - ISNULL((
+                 SELECT SUM(sd.OutQuantity)
+                   FROM ShipmentDetail sd
+                   JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+                  WHERE sd.ProdKey=@pk AND sm.OrderYear=@year AND sm.OrderWeek=@week
+                    AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.isFix,0)=1
+               ),0)
+               + ISNULL((
+                 SELECT SUM(ISNULL(sh.AfterValue,0)-ISNULL(sh.BeforeValue,0))
+                   FROM StockHistory sh
+                  WHERE sh.ProdKey=@pk AND sh.OrderYear=@year AND sh.OrderWeek=@week
+               ),0) AS SelectedStock`,
+            {
+              year: { type: sql.NVarChar, value: orderYear },
+              week: { type: sql.NVarChar, value: week },
+              pk: { type: sql.Int, value: e.pk },
+            }
+          );
+          const plan = resolveStockTargetAdjustment({
+            liveStock: liveResult.recordset[0].Stock,
+            selectedStock: selectedResult.recordset[0]?.SelectedStock || 0,
+            targetStock: e.after,
+          });
+          if (Math.abs(plan.delta) < 0.0001) {
+            appliedResults.push({ prodKey: e.pk, ok: true, changed: false, ...plan });
+            continue;
+          }
 
           await tQuery(
             `INSERT INTO StockHistory
@@ -101,9 +160,9 @@ export default withAuth(async function handler(req, res) {
               year:   { type: sql.NVarChar, value: orderYear },
               week:   { type: sql.NVarChar, value: week },
               uid:    { type: sql.NVarChar, value: uid },
-              pk:     { type: sql.Int,      value: pk },
-              before: { type: sql.Float,    value: before },
-              after:  { type: sql.Float,    value: after },
+              pk:     { type: sql.Int,      value: e.pk },
+              before: { type: sql.Float,    value: plan.liveBefore },
+              after:  { type: sql.Float,    value: plan.liveAfter },
               descr:  { type: sql.NVarChar, value: e.descr || '재고관리 일괄수정' },
             }
           );
@@ -113,27 +172,23 @@ export default withAuth(async function handler(req, res) {
           // 웹에서 바꾼 값을 못 보고 옛 Product.Stock 기준으로 계속 동작한다.
           await tQuery(
             `UPDATE Product SET Stock = ROUND(@after, 2) WHERE ProdKey = @pk`,
-            { after: { type: sql.Float, value: after }, pk: { type: sql.Int, value: pk } }
+            { after: { type: sql.Float, value: plan.liveAfter }, pk: { type: sql.Int, value: e.pk } }
           );
           await tQuery(stockCalculationSql(), {
             year: { type: sql.NVarChar, value: orderYear },
             week: { type: sql.NVarChar, value: week },
             uid:  { type: sql.NVarChar, value: uid },
-            pk:   { type: sql.Int, value: pk },
+            pk:   { type: sql.Int, value: e.pk },
           });
-          return true;
-        });
-        results.push({ prodKey: pk, ok: true, changed: applied });
-      } catch (err) {
-        errors.push({ prodKey: pk, message: err.message });
+          appliedResults.push({ prodKey: e.pk, ok: true, changed: true, ...plan });
       }
-    }
+      return appliedResults;
+    });
 
-    return res.status(errors.length ? 207 : 200).json({
-      success: errors.length === 0,
-      message: `재고 일괄수정 — 성공 ${results.length}건${errors.length ? ` / 실패 ${errors.length}건` : ''}`,
+    return res.status(200).json({
+      success: true,
+      message: `재고 일괄수정 — 성공 ${results.length}건`,
       results,
-      errors,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
