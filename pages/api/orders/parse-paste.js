@@ -16,6 +16,7 @@ function getClient() {
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
+import { parseNaturalInlineOrderLine } from '../../../lib/pasteNaturalInlineOrder';
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
@@ -454,6 +455,28 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
+    // 업체와 품목을 한 줄에 적는 자연어 형식도 지원한다.
+    // 구분자 주위 공백을 요구해 "남대문-중앙" 같은 실제 업체명의 하이픈은 보존한다.
+    const inline = parseNaturalInlineOrderLine(line);
+    if (inline) {
+      const custName = inline.customerName;
+      const qty = Math.abs(parseCompactQty(inline.quantityText)) || 1;
+      const productName = applyFlowerContext(inline.productName, flowerContext);
+      const unit = normNatUnit(inline.unitText, flowerContext);
+      if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
+      orderMap.get(custName).items.push({
+        inputName: productName,
+        qty,
+        unit,
+        unitExplicit: Boolean(inline.unitText),
+        action: normalizeAction(inline.action, productName),
+        prodKey: null,
+        prodName: null,
+      });
+      currentCust = custName;
+      return;
+    }
+
     const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*(추가|취소)\s*$/i);
     if (m && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
@@ -494,7 +517,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    if (isNaturalCustomerLine(line)) {
+    if (isNaturalCustomerLine(line) && !/(?:월|화|수|목|금|토|일)요일\s*출고/.test(line)) {
       currentCust = line;
     }
   });
