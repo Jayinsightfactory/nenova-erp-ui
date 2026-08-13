@@ -73,6 +73,15 @@
       "estimate": "preserve",
       "stock": "preserve",
       "zeroQuantity": "delete_existing_detail_without_creating_empty_master"
+    },
+    {
+      "name": "PUBLIC_SHIPMENT_UPSERT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase",
+      "detailEffect": "insert_or_update_only_when_master_and_detail_are_unfixed",
+      "fixedShipment": "block_with_SHIPMENT_FIXED_before_quantity_or_date_mutation",
+      "productStock": "preserve",
+      "productLiveStock": "preserve"
     }
   ],
   "crossYearFixture": {

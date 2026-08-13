@@ -202,7 +202,12 @@ async function createShipment(req, res) {
 
     const { shipmentKey, results } = await withTransaction(async (tQ) => {
       const smResult = await tQ(
-        `SELECT TOP 1 ShipmentKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+        `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix,
+                CASE WHEN EXISTS (
+                  SELECT 1 FROM ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK)
+                   WHERE sd.ShipmentKey=ShipmentMaster.ShipmentKey AND ISNULL(sd.isFix,0)=1
+                ) THEN 1 ELSE 0 END AS hasFixedDetail
+           FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
           WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@week AND isDeleted=0
           ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
         {
@@ -240,6 +245,11 @@ async function createShipment(req, res) {
         });
         await syncKeyNumbering(tQ, 'ShipmentMasterKey', 'ShipmentMaster', 'ShipmentKey');
       } else {
+        if (Number(smResult.recordset[0].isFix || 0) === 1 || Number(smResult.recordset[0].hasFixedDetail || 0) === 1) {
+          const error = new Error(`[${resolvedYear}-${resolvedWeek}] 확정된 출고는 공용 API에서 변경할 수 없습니다. 먼저 정상 확정취소 절차를 실행하세요.`);
+          error.code = 'SHIPMENT_FIXED';
+          throw error;
+        }
         sk = smResult.recordset[0].ShipmentKey;
       }
 
@@ -428,6 +438,6 @@ async function createShipment(req, res) {
       results,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.code === 'SHIPMENT_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: err.message });
   }
 }

@@ -37,6 +37,11 @@ const result = await withTransaction(async (tQuery) => {
        before:{type:sql.Float,value:before},after:{type:sql.Float,value:after},
        descr:{type:sql.NVarChar,value:`${marker} ${row.ProdName} 부족 ${row.shortage}`},pk:{type:sql.Int,value:Number(row.ProdKey)}}
     );
+    // nenova.exe FormStockAdd와 동일하게 Product.Stock을 갱신한 뒤 차수 스냅샷을 재계산한다.
+    await tQuery(
+      `UPDATE Product SET Stock=ROUND(@after,2) WHERE ProdKey=@pk`,
+      {after:{type:sql.Float,value:after},pk:{type:sql.Int,value:Number(row.ProdKey)}}
+    );
     const calc = await tQuery(
       `DECLARE @r INT,@m NVARCHAR(MAX); EXEC dbo.usp_StockCalculation @OrderYear=@yr,@OrderWeek=@wk,@ProdKey=@pk,@iUserID=@uid,@oResult=@r OUTPUT,@oMessage=@m OUTPUT; SELECT ISNULL(@r,0) result,@m message;`,
       {yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},uid:{type:sql.NVarChar,value:userId},pk:{type:sql.Int,value:Number(row.ProdKey)}}
