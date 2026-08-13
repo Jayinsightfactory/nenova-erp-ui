@@ -26,3 +26,10 @@ usp_StockCalculation(선택 연도, 선택 차수, 품목)
 과거 차수 목표값을 `Product.Stock`과 직접 비교하거나 `Product.Stock=목표값`으로 덮으면
 후속 차수 cascade가 같은 차이를 다시 반영해 현재 재고가 뒤틀린다. 일괄 요청은 모든
 품목을 한 트랜잭션으로 처리하고 SP 오류 시 전체 롤백한다.
+
+## StockMaster.isFix 판정 정정
+
+`FormStockView.GetData`는 `StockMaster`를 `ProductStock`의 차수 스냅샷 결합용으로만
+사용하며 `StockMaster.isFix`를 SELECT·필터·표시하지 않는다. 화면에는 별도의 재고
+마감 버튼도 없다. 따라서 `StockMaster.isFix=0`을 “재고 마감 미완료”로 표시하거나
+출고 확정 정합 실패로 판정해서는 안 되며, 값을 1로 직접 바꾸는 작업도 EXE 절차가 아니다.
