@@ -292,30 +292,44 @@ async function validate(req, res) {
 }
 
 async function loadNegativeGuardRows(orderYear, orderWeek) {
-  // usp_ShipmentFix 의 음수검사와 동일 공식:
-  //   ProductStock.Stock(현 OrderYearWeek 스냅샷) - SUM(미확정 출고) < 0
-  // (전산 SP 는 ViewShipment.OrderYearWeek 와 StockMaster.OrderYearWeek 을 직접 매칭한다)
+  // EXE 재고 화면과 동일 공식: 전차수 재고 + 입고 + 조정 - 출고.
+  // 현재차수 ProductStock은 확정/재계산 시점에 따라 이미 출고가 반영됐을 수 있으므로
+  // 다시 출고를 빼는 기준으로 사용하지 않는다. 전차수 음수 이월도 반드시 차단한다.
   const result = await query(
-    `SELECT vs.ProdKey,
-            MAX(vs.ProdName)   AS ProdName,
-            MAX(vs.FlowerName) AS FlowerName,
-            MAX(vs.CounName)   AS CounName,
-            ISNULL(ns.Stock, 0) AS productStock,
-            ISNULL(ns.Stock, 0) AS prevStock,
-            0 AS inQty,
-            SUM(vs.OutQuantity) AS outQty,
-            ISNULL(ns.Stock, 0) - SUM(vs.OutQuantity) AS remain,
-            SUM(vs.OutQuantity) - ISNULL(ns.Stock, 0) AS shortage
-       FROM ViewShipment vs
-       LEFT JOIN (
-         SELECT ps.ProdKey, ps.Stock, sm.OrderYearWeek
-           FROM StockMaster sm
-           JOIN ProductStock ps ON sm.StockKey = ps.StockKey
-       ) ns ON ns.ProdKey = vs.ProdKey AND ns.OrderYearWeek = vs.OrderYearWeek
-      WHERE vs.OrderYear = @yr AND vs.OrderWeek = @wk AND ISNULL(vs.DetailFix, 0) = 0
-      GROUP BY vs.ProdKey, ns.Stock
-      HAVING ROUND(ISNULL(ns.Stock, 0) - SUM(vs.OutQuantity), 0) < 0
-      ORDER BY MAX(vs.FlowerName), MAX(vs.ProdName)`,
+    `DECLARE @ywk NVARCHAR(20) = @yr + REPLACE(@wk, '-', '');
+     WITH incoming AS (
+       SELECT ProdKey, SUM(OutQuantity) qty FROM ViewWarehouse
+        WHERE OrderYear = @yr AND OrderWeek = @wk GROUP BY ProdKey
+     ), outgoing AS (
+       SELECT ProdKey, SUM(OutQuantity) qty FROM ViewShipment
+        WHERE OrderYear = @yr AND OrderWeek = @wk GROUP BY ProdKey
+     ), adjustment AS (
+       SELECT sh.ProdKey, SUM(sh.AfterValue - sh.BeforeValue) qty
+         FROM StockHistory sh
+         JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType
+        WHERE sh.OrderYear=@yr AND sh.OrderWeek=@wk GROUP BY sh.ProdKey
+     )
+     SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+            ISNULL(prev.Stock,0) productStock, ISNULL(prev.Stock,0) prevStock,
+            ISNULL(i.qty,0) + ISNULL(a.qty,0) inQty,
+            ISNULL(o.qty,0) outQty,
+            ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0) remain,
+            -(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0)) shortage
+       FROM Product p
+       OUTER APPLY (
+         SELECT TOP 1 ps.Stock FROM StockMaster sm
+         JOIN ProductStock ps ON ps.StockKey=sm.StockKey AND ps.ProdKey=p.ProdKey
+         WHERE sm.OrderYear=@yr
+           AND CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek,'-','') < @ywk
+         ORDER BY sm.OrderYearWeek DESC, sm.StockKey DESC
+       ) prev
+       LEFT JOIN incoming i ON i.ProdKey=p.ProdKey
+       LEFT JOIN outgoing o ON o.ProdKey=p.ProdKey
+       LEFT JOIN adjustment a ON a.ProdKey=p.ProdKey
+      WHERE p.isDeleted=0
+        AND (i.ProdKey IS NOT NULL OR o.ProdKey IS NOT NULL OR ISNULL(prev.Stock,0)<0)
+        AND ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),2) < 0
+      ORDER BY p.FlowerName,p.ProdName`,
     {
       yr: { type: sql.NVarChar, value: orderYear },
       wk: { type: sql.NVarChar, value: orderWeek },
@@ -764,16 +778,14 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const procedureShape = await loadProcedureShape('usp_ShipmentFix');
-  if (!procedureShape.hasCountryFlower) {
-    const wholeWeekNegativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
-    if (wholeWeekNegativeRows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: `[${week}] 확정 불가: 현재재고 + 입고 + 재고조정 - 출고가 음수인 품목 ${wholeWeekNegativeRows.length}건`,
-        code: 'NEGATIVE_STOCK',
-        negative: wholeWeekNegativeRows,
-      });
-    }
+  const wholeWeekNegativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
+  if (wholeWeekNegativeRows.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: `[${week}] 확정 불가: 전차수재고 + 입고 + 재고조정 - 출고가 음수인 품목 ${wholeWeekNegativeRows.length}건`,
+      code: 'NEGATIVE_STOCK',
+      negative: wholeWeekNegativeRows,
+    });
   }
   const targets = procedureShape.hasCountryFlower
     ? categoryTargets
