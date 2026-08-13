@@ -5,6 +5,7 @@ async function main() {
   const { resolveStockTargetAdjustment } = await import('../lib/stockTargetAdjustment.js');
   const api = fs.readFileSync('pages/api/stock/adjust-batch.js', 'utf8');
   const policy = fs.readFileSync('lib/stockTargetAdjustment.js', 'utf8');
+  const repairConfirmedNegative = fs.readFileSync('scripts/repair-confirmed-negative-stock-from-31-01.mjs', 'utf8');
 
   assert.deepEqual(
     resolveStockTargetAdjustment({ liveStock: -20, selectedStock: 9, targetStock: 0 }),
@@ -33,6 +34,7 @@ async function main() {
   assert.match(api, /loadFixedEditedProdKeys/);
   assert.match(api, /sd\.ProdKey=e\.ProdKey AND ISNULL\(sd\.isFix,0\)=1/);
   assert.doesNotMatch(api, /SELECT TOP 1 1 AS x FROM/);
+  assert.match(repairConfirmedNegative, /UPDATE Product SET Stock=ROUND\(@after,2\) WHERE ProdKey=@pk/);
   console.log('stock target adjustment tests passed');
 }
 

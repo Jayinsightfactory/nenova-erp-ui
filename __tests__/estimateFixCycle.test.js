@@ -38,6 +38,9 @@ async function main() {
   assert('확정 음수검사는 전차수+입고+조정-출고 공식을 사용', fixApi.includes("ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),2) < 0"));
   assert('카테고리형 SP도 전체 음수검사를 우회하지 않음', !fixApi.includes('if (!procedureShape.hasCountryFlower) {\n    const wholeWeekNegativeRows'));
   assert('전차수 음수 이월도 확정을 차단', fixApi.includes('OR ISNULL(prev.Stock,0)<0'));
+  assert('클라이언트 skipStockCalc로 재고 재계산을 우회하지 못함', !fixApi.includes('const skipStockCalc = req.body?.skipStockCalc === true'));
+  assert('부족분 자동보정은 Product.Stock도 EXE 순서대로 갱신', fixApi.includes("UPDATE Product SET Stock=ROUND(@after, 2) WHERE ProdKey=@pk"));
+  assert('대량 재고 재계산도 보정 트랜잭션 queryFn을 사용', fixApi.includes('{ retries: 4, baseDelay: 300, queryFn: logContext.queryFn }'));
 
   const yearContract = spawnSync(process.execPath, ['__tests__/estimateFixStatusYearContract.test.js'], { stdio: 'inherit' });
   assert('확정현황 선택연도/교차연도 계약', yearContract.status === 0);

@@ -468,7 +468,7 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
           wk:  { type: sql.NVarChar, value: orderWeek },
           uid: { type: sql.NVarChar, value: uid },
         },
-        { retries: 4, baseDelay: 300 }
+        { retries: 4, baseDelay: 300, queryFn: logContext.queryFn }
       );
       const row = r.recordset?.[0] || {};
       if (Number(row.result || 0) === 0) {
@@ -633,9 +633,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  // skipStockCalc: 단가수정 경량 사이클용 — 단가는 재고 수치와 무관해 사이클 중간 재계산이
-  // 수학적으로 무변화. 클라이언트가 중간 해제/확정에 true 를 보내고 마지막 재확정만 전체 재계산.
-  const skipStockCalc = req.body?.skipStockCalc === true;
+  // 재고 스냅샷 생략은 클라이언트 요청으로 허용하지 않는다. 브라우저가 확정 사이클
+  // 중간에 닫히거나 후속 호출이 실패하면 Product.Stock과 ProductStock이 영구 불일치한다.
+  const skipStockCalc = false;
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
@@ -680,7 +680,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           for (const r of negForAdd) {
             // StockHistory의 Before/After는 전산 재고관리와 동일하게 Product.Stock 기준으로 기록한다.
             const beforeResult = await tQuery(
-              'SELECT ISNULL(Stock, 0) AS Stock FROM Product WHERE ProdKey=@pk',
+              'SELECT ISNULL(Stock, 0) AS Stock FROM Product WITH (UPDLOCK, HOLDLOCK) WHERE ProdKey=@pk',
               { pk: { type: sql.Int, value: Number(r.ProdKey) } },
             );
             const before = roundStockQuantity(beforeResult.recordset?.[0]?.Stock ?? 0);
@@ -696,6 +696,15 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
                 before: { type: sql.Float, value: before },
                 after: { type: sql.Float, value: after },
                 descr: { type: sql.NVarChar, value: `[확정용 재고조정 +${r.addQty}] ${r.ProdName} 부족분 보충` },
+                pk: { type: sql.Int, value: Number(r.ProdKey) },
+              },
+            );
+            // FormStockAdd.btnSave_Click 순서와 동일하게 실시간 재고를 먼저 갱신한다.
+            // usp_StockCalculation은 ProductStock 스냅샷만 계산하며 Product.Stock은 바꾸지 않는다.
+            await tQuery(
+              'UPDATE Product SET Stock=ROUND(@after, 2) WHERE ProdKey=@pk',
+              {
+                after: { type: sql.Float, value: after },
                 pk: { type: sql.Int, value: Number(r.ProdKey) },
               },
             );
@@ -929,8 +938,8 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  // skipStockCalc: 단가수정 경량 사이클 — 곧바로 재확정될 예정이라 중간 스냅샷 재계산 생략
-  const skipStockCalc = req.body?.skipStockCalc === true;
+  // 확정취소도 항상 스냅샷을 재계산한다. 클라이언트 후속 호출에 정합성을 의존하지 않는다.
+  const skipStockCalc = false;
   await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   try {
