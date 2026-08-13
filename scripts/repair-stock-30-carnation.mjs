@@ -20,7 +20,7 @@ await withTransaction(async q=>{
     const before=Number(live.recordset[0].Stock), after=before+(t.target-selected);
     await q(`INSERT INTO StockHistory(ChangeDtm,OrderYear,OrderWeek,ChangeID,ChangeType,ColumName,BeforeValue,AfterValue,Descr,ProdKey) VALUES(GETDATE(),@yr,@wk,@uid,N'재고조정',N'재고수량',@before,@after,@descr,@pk)`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},uid:{type:sql.NVarChar,value:uid},before:{type:sql.Float,value:before},after:{type:sql.Float,value:after},descr:{type:sql.NVarChar,value:'30-02 승인 보정'},pk:{type:sql.Int,value:t.pk}});
     await q(`UPDATE Product SET Stock=ROUND(@after,2) WHERE ProdKey=@pk`,{after:{type:sql.Float,value:after},pk:{type:sql.Int,value:t.pk}});
-    await q(`EXEC dbo.usp_StockCalculation @OrderYear=@yr,@OrderWeek=@wk,@ProdKey=@pk,@iUserID=@uid`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},pk:{type:sql.Int,value:t.pk},uid:{type:sql.NVarChar,value:uid}});
+    await q(`DECLARE @r INT,@m NVARCHAR(MAX); EXEC dbo.usp_StockCalculation @OrderYear=@yr,@OrderWeek=@wk,@ProdKey=@pk,@iUserID=@uid,@oResult=@r OUTPUT,@oMessage=@m OUTPUT; IF ISNULL(@r,0)<>0 THROW 51000,@m,1;`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},pk:{type:sql.Int,value:t.pk},uid:{type:sql.NVarChar,value:uid}});
   }
 });
 
