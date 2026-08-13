@@ -8,6 +8,7 @@
     "acl": { "expiredIgnored": true, "explicitDenyWins": true }
   },
   "paths": {
+    "/integrations/nenovaweb/drive-items": { "get": {} },
     "/drive/v2/folders/{folder_id}/items": { "get": {} },
     "/drive/v2/folders/{folder_id}/acl": { "put": {} },
     "/drive/v2/folders/{folder_id}/naverworks/manifest": { "post": {} },

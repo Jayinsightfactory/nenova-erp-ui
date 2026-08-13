@@ -23,7 +23,7 @@ function checkStaticContracts() {
   assert.equal(fixture['x-moyi-contract'].stagingVisibility, 'admin-only-not-found');
   assert.equal(fixture['x-moyi-contract'].acl.expiredIgnored, true);
   assert.equal(fixture['x-moyi-contract'].acl.explicitDenyWins, true);
-  assert.deepEqual(capabilities, { listItems: true, writeAcl: true, recordManifest: true, rawUrl: true, guardedRaw: true });
+  assert.deepEqual(capabilities, { listItems: true, listConnectionItems: true, writeAcl: true, recordManifest: true, rawUrl: true, guardedRaw: true });
   assert.equal(isMoyiDriveAdmin('nenovaSS3'), true);
   assert.equal(isMoyiDriveAdmin('employee'), false);
   assert.equal(hasCrossWorkspaceInput({ workspace_id: 'other' }), true);
@@ -50,7 +50,7 @@ async function checkMock() {
       if (String(url).endsWith('/drive/capabilities')) return { ok: true, status: 200, json: async () => ({ contract_revision: MOYI_DRIVE_CONTRACT_REVISION, flags: { drive_legacy_inline_url: false } }) };
       if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => fixture };
       if (String(url).endsWith('/integrations/nenovaweb/drive-root')) return { ok: true, status: 200, json: async () => ({ ready: true, root_folder_id: 'fixture-root' }) };
-      assert.match(String(url), /\/drive\/v2\/folders\/fixture-root\/items$/);
+      assert.match(String(url), /\/integrations\/nenovaweb\/drive-items$/);
       assert.equal(options.headers.Authorization, 'Bearer mock-secret');
       return { ok: true, status: 200, json: async () => [{ id: 'f1', file_id: 'raw1', name: '업무.pdf', source_kind: 'moyi_upload', sync_state: 'verified' }] };
     };
@@ -70,6 +70,7 @@ async function checkReadonly() {
   assert.equal(response.ok, true, `OpenAPI 읽기 실패: HTTP ${response.status}`);
   const capabilities = inspectDriveOpenApi(await response.json());
   assert.equal(capabilities.listItems, true, 'Drive v2 목록 API가 배포되지 않았습니다.');
+  assert.equal(capabilities.listConnectionItems, true, 'Nenova 연결 전용 Drive 목록 API가 배포되지 않았습니다.');
   assert.equal(capabilities.rawUrl && capabilities.guardedRaw, true, '권한형 raw-url/raw 계약이 배포되지 않았습니다.');
   console.log(`연결 token 설정 여부: ${Boolean(process.env.MOYI_DRIVE_CONNECTION_TOKEN) ? '있음' : '없음'} (값은 출력하지 않음)`);
 }

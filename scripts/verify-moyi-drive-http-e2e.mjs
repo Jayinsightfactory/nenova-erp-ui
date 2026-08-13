@@ -10,6 +10,7 @@ let upstreamMode = 200;
 const openapi = {
   paths: {
     '/drive/v2/folders/{folder_id}/items': { get: {} },
+    '/integrations/nenovaweb/drive-items': { get: {} },
     '/files/{file_id}/raw-url': { get: {} },
     '/files/{file_id}/raw': { get: {} },
   },
@@ -28,7 +29,7 @@ const server = http.createServer((req, res) => {
     assert.equal(req.headers.authorization, 'Bearer e2e-connection-secret');
     return res.end(JSON.stringify({ ready: true, root_folder_id: 'e2e-root' }));
   }
-  if (req.url === '/drive/v2/folders/e2e-root/items') {
+  if (req.url === '/integrations/nenovaweb/drive-items') {
     assert.equal(req.headers.authorization, 'Bearer e2e-connection-secret');
     if (upstreamMode !== 200) {
       res.statusCode = upstreamMode;
