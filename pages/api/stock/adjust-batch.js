@@ -10,22 +10,25 @@ import { withAuth } from '../../../lib/auth';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { resolveStockTargetAdjustment } from '../../../lib/stockTargetAdjustment';
 
-async function isWeekFixed(orderYear, orderWeek) {
+async function loadFixedEditedProdKeys(orderYear, orderWeek, prodKeys) {
+  const keys = [...new Set((prodKeys || []).map(Number).filter(Number.isFinite))];
+  if (!keys.length) return [];
+  const values = keys.map((_, i) => `(@pk${i})`).join(',');
+  const params = {
+    yr: { type: sql.NVarChar, value: orderYear },
+    wk: { type: sql.NVarChar, value: orderWeek },
+  };
+  keys.forEach((pk, i) => { params[`pk${i}`] = { type: sql.Int, value: pk }; });
   const r = await query(
-    `SELECT TOP 1 1 AS x FROM (
-       SELECT 1 AS x FROM ShipmentMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0 AND ISNULL(isFix,0)=1
-       UNION ALL
-       SELECT 1 AS x FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
-        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0 AND ISNULL(sd.isFix,0)=1
-       UNION ALL
-       SELECT 1 AS x FROM StockMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isFix,0)=1
-     ) t`,
-    {
-      yr: { type: sql.NVarChar, value: orderYear },
-      wk: { type: sql.NVarChar, value: orderWeek },
-    }
+    `WITH edited(ProdKey) AS (SELECT v.ProdKey FROM (VALUES ${values}) v(ProdKey))
+     SELECT DISTINCT e.ProdKey
+       FROM edited e
+       JOIN ShipmentDetail sd ON sd.ProdKey=e.ProdKey AND ISNULL(sd.isFix,0)=1
+       JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0`,
+    params
   );
-  return r.recordset.length > 0;
+  return r.recordset.map(row => Number(row.ProdKey));
 }
 
 function stockCalculationSql() {
@@ -72,11 +75,13 @@ export default withAuth(async function handler(req, res) {
   const uid = req.user?.userId || 'admin';
 
   try {
-    if (await isWeekFixed(orderYear, week)) {
+    const requestedProdKeys = edits.map(e => Number(e?.prodKey)).filter(Number.isFinite);
+    const fixedEditedProdKeys = await loadFixedEditedProdKeys(orderYear, week, requestedProdKeys);
+    if (fixedEditedProdKeys.length > 0) {
       return res.status(409).json({
         success: false,
         code: 'WEEK_FIXED',
-        error: `[${week}] 확정된 차수입니다. 먼저 확정을 해제한 뒤 재고를 수정하세요.`,
+        error: `[${week}] 수정 대상 품목이 아직 확정 상태입니다. 먼저 해당 카테고리 확정을 해제하세요. (${fixedEditedProdKeys.join(', ')})`,
       });
     }
 
