@@ -8,6 +8,7 @@
     "scripts/repair-stock-30-remaining.mjs",
     "scripts/recover-stock-30-fix-state.mjs",
     "scripts/audit-stock-after-30-02.mjs",
+    "scripts/audit-stock-change-origin.mjs",
     "scripts/restore-stock-chain-after-30-02.mjs",
     ".github/workflows/audit-stock-after-30-02.yml",
     ".github/workflows/restore-stock-chain-after-30-02.yml",
