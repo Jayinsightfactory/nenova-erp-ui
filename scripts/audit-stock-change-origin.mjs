@@ -31,4 +31,23 @@ const recent=await query(`SELECT TOP 100 sh.ChangeDtm,sh.OrderWeek,p.ProdName,sh
  FROM StockHistory sh JOIN Product p ON p.ProdKey=sh.ProdKey
  WHERE sh.OrderYear=@yr AND sh.ChangeDtm>=DATEADD(day,-3,GETDATE())
  ORDER BY sh.ChangeDtm DESC`,{yr});
-console.log(JSON.stringify({repairProducts:result.recordset,recentHistory:recent.recordset},null,2));
+const adjustments3101=await query(`SELECT sh.ProdKey,p.ProdName,sh.ChangeType,sh.Descr,sh.ChangeID,
+  CAST(SUM(sh.AfterValue-sh.BeforeValue) AS DECIMAL(18,4)) delta,COUNT(*) rows,
+  MIN(sh.ChangeDtm) firstDtm,MAX(sh.ChangeDtm) lastDtm,
+  MAX(CASE WHEN ci.Descr IS NOT NULL THEN 1 ELSE 0 END) includedByExe
+ FROM StockHistory sh JOIN Product p ON p.ProdKey=sh.ProdKey
+ LEFT JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType
+ WHERE sh.OrderYear=@yr AND sh.OrderWeek=N'31-01'
+ GROUP BY sh.ProdKey,p.ProdName,sh.ChangeType,sh.Descr,sh.ChangeID
+ ORDER BY ABS(SUM(sh.AfterValue-sh.BeforeValue)) DESC,p.ProdName`,{yr});
+const sums3101=await query(`SELECT sh.ProdKey,p.ProdName,
+  CAST(SUM(CASE WHEN ci.Descr IS NOT NULL THEN sh.AfterValue-sh.BeforeValue ELSE 0 END) AS DECIMAL(18,4)) exeAdjust,
+  CAST(SUM(sh.AfterValue-sh.BeforeValue) AS DECIMAL(18,4)) allAdjust,
+  CAST(SUM(CASE WHEN sh.Descr=N'30-02 후속차수 원복' THEN sh.AfterValue-sh.BeforeValue ELSE 0 END) AS DECIMAL(18,4)) restoreAdjust
+ FROM StockHistory sh JOIN Product p ON p.ProdKey=sh.ProdKey
+ LEFT JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType
+ WHERE sh.OrderYear=@yr AND sh.OrderWeek=N'31-01'
+ GROUP BY sh.ProdKey,p.ProdName
+ HAVING ABS(SUM(sh.AfterValue-sh.BeforeValue))>.0001
+ ORDER BY ABS(SUM(sh.AfterValue-sh.BeforeValue)) DESC`,{yr});
+console.log(JSON.stringify({repairProducts:result.recordset,recentHistory:recent.recordset,adjustmentRows3101:adjustments3101.recordset,adjustmentSums3101:sums3101.recordset},null,2));
