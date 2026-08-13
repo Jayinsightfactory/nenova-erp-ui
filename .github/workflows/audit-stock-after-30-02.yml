@@ -1,0 +1,18 @@
+name: Audit Stock After 30-02
+on: workflow_dispatch
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
+            cd /var/www/nenova-erp
+            git fetch origin master && git reset --hard origin/master
+            node --env-file=.env.local scripts/audit-stock-after-30-02.mjs
