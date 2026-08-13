@@ -1,4 +1,6 @@
 import { query, sql } from '../lib/db.js';
+import { sqlStockViewGetData } from '../lib/exeStockViewSql.js';
+import { resolveBeforeOrderYearWeek } from '../lib/exeParity/common.js';
 
 const year = '2026';
 const afterWeek = '30-02';
@@ -71,9 +73,29 @@ const negatives = await query(
   params,
 );
 
+const displayParity=[];
+for(const orderWeek of ['30-02','31-01','31-02','32-01','32-02','33-01']){
+  const master=await query(`SELECT TOP 1 OrderYearWeek FROM StockMaster WHERE OrderYear=@yr AND OrderWeek=@wk ORDER BY StockKey DESC`,{
+    yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:orderWeek}});
+  const orderYearWeek=String(master.recordset[0]?.OrderYearWeek||'').replaceAll('-','');
+  if(!orderYearWeek) continue;
+  const beforeOrderYearWeek=await resolveBeforeOrderYearWeek(query,sql,orderYearWeek);
+  const rows=await query(sqlStockViewGetData(),{
+    orderYearWeek:{type:sql.NVarChar,value:orderYearWeek},
+    beforeOrderYearWeek:{type:sql.NVarChar,value:beforeOrderYearWeek||orderYearWeek},
+  });
+  const mismatches=rows.recordset.map(row=>({
+    prodKey:Number(row.ProdKey),prodName:row.ProdName,
+    exeStock:Number(row.Stock),
+    webStock:Number(row.BeforeStock||0)+Number(row.WareQuantity||0)-Number(row.ShipQuantity||0)+Number(row.StockQuantity||0),
+  })).filter(row=>Math.abs(row.exeStock-row.webStock)>.001);
+  displayParity.push({orderWeek,rowCount:rows.recordset.length,mismatchCount:mismatches.length,mismatches:mismatches.slice(0,100)});
+}
+
 console.log(JSON.stringify({
   range: { year, afterWeek, lastWeek: weeks.recordset.at(-1)?.OrderWeek || null },
   weeks: weeks.recordset,
   negativeRows: negatives.recordset,
   targetChain: targets.recordset,
+  displayParity,
 }, null, 2));
