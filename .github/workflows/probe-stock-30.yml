@@ -17,3 +17,4 @@ jobs:
             node --env-file=.env.local scripts/probe-stock-30-carnation.mjs
             node --env-file=.env.local scripts/probe-stock-30-full.mjs
             node --env-file=.env.local scripts/probe-stock-30-remaining.mjs
+            node --env-file=.env.local scripts/probe-stock-30-recovery.mjs
