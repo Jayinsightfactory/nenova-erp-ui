@@ -8,6 +8,7 @@
     "scripts/repair-stock-30-remaining.mjs",
     "scripts/recover-stock-30-fix-state.mjs",
     "scripts/audit-stock-after-30-02.mjs",
+    "scripts/audit-stock-all-weeks.mjs",
     "scripts/audit-stock-change-origin.mjs",
     "scripts/restore-stock-chain-after-30-02.mjs",
     "scripts/remove-invalid-31-01-restoration-history.mjs",
@@ -35,6 +36,7 @@
       "product": "latest Product.Stock plus delta",
       "laterSnapshotInvariant": "historical target editing is blocked when any later OrderYear+OrderWeek StockMaster exists; never create a compensating StockHistory row in a later business week",
       "atomicity": "all edited products in one transaction",
+      "liveStockParity": "FormStockAdd order is StockHistory insert, Product.Stock update, then usp_StockCalculation; repair and auto-shortage paths must preserve the same order.",
       "confirmedScope": "부분확정 차수에서는 수정 대상 ProdKey의 ShipmentDetail만 미확정이면 허용하며, 관련 없는 확정 카테고리 때문에 차단하지 않는다."
     }
   ],

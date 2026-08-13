@@ -12,6 +12,7 @@ async function main() {
   const stockStatus = fs.readFileSync(path.join(root, 'pages/api/shipment/stock-status.js'), 'utf8');
   const stockAdjust = fs.readFileSync(path.join(root, 'pages/api/stock/adjust-batch.js'), 'utf8');
   const shipmentFix = fs.readFileSync(path.join(root, 'pages/api/shipment/fix.js'), 'utf8');
+  const publicShipments = fs.readFileSync(path.join(root, 'pages/api/public/shipments.js'), 'utf8');
   const shipmentImportPrealign = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-import-prealign.js'), 'utf8');
   const shipmentIndex = fs.readFileSync(path.join(root, 'pages/api/shipment/index.js'), 'utf8');
   const fixReconcile = fs.readFileSync(path.join(root, 'lib/shipmentFixReconcile.js'), 'utf8');
@@ -63,6 +64,8 @@ async function main() {
 
   assert.match(shipmentFix, /OrderYear=@yr AND OrderWeek=@wk AND isFix=1/, '확정 여부 재검사는 연도와 차수를 함께 사용해야 한다.');
   assert.match(shipmentFix, /sm\.OrderYear = @yr AND sm\.OrderWeek = @wk/, '확정 사전검증의 출고 조회는 연도와 차수를 함께 사용해야 한다.');
+  assert.match(publicShipments, /error\.code = 'SHIPMENT_FIXED'/, '공용 출고 쓰기도 확정 Master\/Detail을 변경하면 안 된다.');
+  assert.match(publicShipments, /ISNULL\(sd\.isFix,0\)=1/, '공용 출고 확정 가드는 Detail 확정 상태도 검사해야 한다.');
   assert.match(shipmentImportPrealign, /assertProductsNotFixed\(orderYear, normalizedWeek, prodKeys\)/, '엑셀 분배 사전검증은 선택 연도를 전달해야 한다.');
   assert.match(shipmentImportPrealign, /sm\.OrderYear=@orderYear[\s\S]{0,80}sm\.OrderWeek=@week/, '엑셀 분배 사전검증·사후검증은 연도와 차수로 격리해야 한다.');
   assert.match(shipmentIndex, /vs\.OrderWeek = @week AND vs\.OrderYear = @orderYear/, '출고 목록 조회도 다른 연도의 동일 차수를 섞으면 안 된다.');
