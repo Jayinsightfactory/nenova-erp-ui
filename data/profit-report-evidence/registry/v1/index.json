@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "contract": "persisted-cell-registry@1",
+  "scope": { "orderYear": 2026, "majorWeeks": [22, 23, 24, 25, 26, 27, 28] },
+  "compiler": "lib/profitReportEvidence/workbookEvidence.mjs",
+  "formulaFingerprint": "lib/profitReportEvidence/formulaFingerprint.mjs",
+  "sourceDirectory": ".verify/inputs/profit-report-weeks-22-28",
+  "immutableInputs": true,
+  "workbooks": [
+    { "week": 22, "file": "week-22.xlsx", "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0", "sheetCount": 11, "persistedCellCount": 41798, "formulaCount": 1885, "lastRowCategory": "공제" },
+    { "week": 23, "file": "week-23.xlsx", "sha256": "b4ebf36ae4253a8d501bcacc147793a0b037fd933e0a29c3c68d131755dc6f9e", "sheetCount": 11, "persistedCellCount": 41534, "formulaCount": 1808, "lastRowCategory": "공제" },
+    { "week": 24, "file": "week-24.xlsx", "sha256": "6b92bbfa32d1b65aa065c8868e35476b0a471d1d0e1b6c6ec22b8e4036ef8bae", "sheetCount": 12, "persistedCellCount": 41652, "formulaCount": 1803, "lastRowCategory": "공제", "extraSheets": ["Sheet1"] },
+    { "week": 25, "file": "week-25.xlsx", "sha256": "4d20160a362b7eee3fc0241ce9df880713b1eda2e4c01785a4cb654ce7aebf06", "sheetCount": 11, "persistedCellCount": 41943, "formulaCount": 1831, "lastRowCategory": "공제" },
+    { "week": 26, "file": "week-26.xlsx", "sha256": "b42bcce6779f2b31cfa6fc8393c3dde6827382495b1d63e3d8d01c1a40fe6f5a", "sheetCount": 11, "persistedCellCount": 41774, "formulaCount": 1835, "lastRowCategory": "공제" },
+    { "week": 27, "file": "week-27.xlsx", "sha256": "2906ec876160f7fa2f0fbaeb1c9b89e49bda6a933cad9b7cabad9fbd7dd36689", "sheetCount": 11, "persistedCellCount": 42011, "formulaCount": 1830, "lastRowCategory": "공제" },
+    { "week": 28, "file": "week-28.xlsx", "sha256": "d777e8745b3b1e2fbf89ac782633e9fd654f38fd7684ecbb620032221ecb156b", "sheetCount": 11, "persistedCellCount": 42298, "formulaCount": 1873, "lastRowCategory": "국내" }
+  ]
+}

@@ -28,6 +28,15 @@
     "lib/kcsRateDateWeights.js",
     "lib/customsForwardingCalc.js",
     "lib/profitReportCalc.js",
+    "lib/profitReportCountryResolver.js",
+    "lib/profitReportStockPolicy.js",
+    "lib/profitReportEvidence/canonical.mjs",
+    "lib/profitReportEvidence/formulaFingerprint.mjs",
+    "lib/profitReportEvidence/provenance.mjs",
+    "lib/profitReportEvidence/regeneration.mjs",
+    "lib/profitReportEvidence/sourceResolvers.mjs",
+    "lib/profitReportEvidence/workbookEvidence.mjs",
+    "lib/webSchemaContract.js",
     "lib/profitReportMonthly.js",
     "lib/profitReportSourceGuide.js",
     "lib/profitReportCustomerMixSql.js",
@@ -39,6 +48,11 @@
     "docs/migrations/2026-08-11_web_profit_report_confirm.sql",
     "docs/migrations/2026-08-12_web_profit_report_historical_seed.sql",
     "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
+    "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
+    "docs/migrations/2026-08-13_web_customs_rate_history.sql",
+    "data/profit-report-evidence/registry/v1/index.json",
+    "data/profit-report-evidence/manual-input-manifest.v1.json",
+    "scripts/profit-report-acceptance-harness.mjs",
     "scripts/extract-profit-report-workbooks.mjs",
     "components/CustomsClearancePanel.js"
   ],
@@ -52,7 +66,16 @@
     {
       "name": "REPORT_MANUAL_SAVE",
       "orderDetail": "preserve",
-      "shipmentDetail": "preserve"
+      "shipmentDetail": "preserve",
+      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없으며, E/F는 확정 ProductStock 수량과 정확한 차수의 VERIFIED WebStockPriceEvidence만으로 자동 계산한다."
+    },
+    {
+      "name": "PRICE_EVIDENCE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "productStock": "preserve",
+      "stockHistory": "preserve",
+      "sideEffect": "정확한 OrderYear+OrderWeek+ProdKey에 VERIFIED 재고단가 증거(SourceRef+EffectiveAt)를 WebStockPriceEvidence에만 저장한다. ProductStock·StockHistory·Product.Cost와 그 밖의 ERP 원장은 쓰지 않는다."
     },
     {
       "name": "WAREHOUSE_WEIGHT_AUTO_MERGE",
@@ -75,7 +98,7 @@
       "name": "RATE_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsHistory만 쓴다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportHistoricalCustoms.js의 원본 엑셀 historical snapshot 백상 창고료 요율(국가 시트 22~27차 전부 460, 콜롬비아 4품목 시트만 22차 370)이 scope별로 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
+      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsRateHistory + WebCustomsHistory만 쓴다. 기간이 지정된 저장은 정확한 OrderYear+MajorWeek 이력도 함께 남기며 조회는 대상 차수 이하의 최신 유효 이력을 고른다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportHistoricalCustoms.js의 원본 엑셀 historical snapshot 백상 창고료 요율(국가 시트 22~27차 전부 460, 콜롬비아 4품목 시트만 22차 370)이 scope별로 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
     },
     {
       "name": "REPORT_NOTE_SAVE",
@@ -109,7 +132,7 @@
       "name": "REPORT_ANALYSIS_VIEW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "read-only; GET /api/sales/profit-analysis is a separate request from the main report GET so a slow/failed analysis never blocks the report table. Snapshot-first per week (active REPORT_CONFIRM_SNAPSHOT revision if present, else live loadReportData+computeProfitTotals) strictly scoped to the same OrderYear (no cross-year averaging, no wraparound near year boundary weeks). Customer/price-mix candidate detection reads only ShipmentMaster/ShipmentDetail/Customer with the same confirmed-shipment filter as lib/profitReport.js#salesByCategory (sm.isFix=1, not lib/pivotStats.js's sd.isFix=1), bounded to a fixed top-N product scope by current-week amount (lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js MAX_PRODUCTS), never customer-name literals in detection logic, never causal language, always the fixed candidate note '특가·재고소진 여부 확인', and marks the whole response provisional when any involved week has an audit issue, missing R rate, or stock-snapshot gap. Writes nothing — no INSERT/UPDATE/DELETE/MERGE/DDL anywhere in this action's code path (lib/profitReportRateAnalysis.js, lib/profitReportPriceMixCandidates.js, lib/profitReportDriverExplanation.js, lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js)."
+      "sideEffect": "read-only; GET /api/sales/profit-analysis is a separate request from the main report GET so a slow/failed analysis never blocks the report table. Snapshot-first per week (active REPORT_CONFIRM_SNAPSHOT revision if present, else live loadReportData+computeProfitTotals) strictly scoped to the same OrderYear (no cross-year averaging, no wraparound near year boundary weeks). Customer/price-mix candidate detection reads only ShipmentMaster/ShipmentDetail/Customer with the same confirmed-shipment filter as lib/profitReport.js#salesByCategory (sm.isFix=1 and sd.isFix=1), bounded to a fixed top-N product scope by current-week amount (lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js MAX_PRODUCTS), never customer-name literals in detection logic, never causal language, always the fixed candidate note '특가·재고소진 여부 확인', and marks the whole response provisional when any involved week has an audit issue, missing R rate, or stock-snapshot gap. Writes nothing — no INSERT/UPDATE/DELETE/MERGE/DDL anywhere in this action's code path (lib/profitReportRateAnalysis.js, lib/profitReportPriceMixCandidates.js, lib/profitReportDriverExplanation.js, lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js)."
     },
     {
       "name": "REPORT_CONFIRM_SNAPSHOT",
@@ -149,7 +172,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 화면에서 명시한 OrderYear만 읽고 쓰며, 연도가 없으면 요청을 거부한다. 일반 차수의 기초재고는 같은 OrderYear 전차수의 마지막 ProductStock 스냅샷을 사용하고 01차에서만 전년도 52차로 넘어간다. 과세환율 R은 정확한 OrderYear+MajorWeek 원천만 사용한다: ①당주 FreightCost.ExchangeRate(카테고리 상품매입 TPrice 100%가 스냅샷으로 덮인 경우만) ②WebTaxableExchangeRate 카테고리 지정값 ③2026 22~27차 원본 엑셀 R ④저장 통화 기본값 ⑤2026-28 이상 관세청 공식 과세환율. KCS 기준일은 WarehouseMaster.InputDate만 사용하며 다른 날짜로 대체하지 않는다. 날짜가 없거나 통화·적용기간이 정확히 일치하는 공식 환율을 하나라도 못 찾으면 일부 날짜만으로 계산하지 않고 해당 카테고리를 입력 필요로 둔다. 현재 CurrencyMaster 환율과 전차수 R은 자동 상속하지 않고 참고 제안으로만 제공한다. 활성 확정 스냅샷은 저장 시점 원천과 계산값을 불변 revision으로 보존하며 취소 뒤 새 revision으로만 갱신한다. 기초재고 E 이월은 전차수 활성 확정 F > 전차수 수기 F > 전차수 자동재고평가 순이다. 기말재고 F는 재고평가단가×기말수량÷1.1을 우선하고, 없을 때 최근 매입 외화단가×수량×해당 차수 과세환율, 마지막으로 카테고리 평균도착원가를 사용한다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 화면에서 명시한 OrderYear만 읽고 쓰며, 연도가 없으면 요청을 거부한다. 모든 주문·출고·재고 선택은 OrderYear+OrderWeek를 함께 사용하고 DetailFix=1인 확정 상세만 포함한다. 일반 차수의 기초재고 E는 같은 OrderYear 전차수 마지막 ProductStock 확정 스냅샷과 그 차수·상품에 정확히 일치하는 VERIFIED WebStockPriceEvidence로만 계산하며 01차에서만 전년도 52차로 넘어간다. 기말재고 F도 현재 차수 ProductStock 확정 스냅샷과 정확한 VERIFIED 단가 증거로만 계산한다. WebProfitReport의 과거 E/F 수기값, Product.Cost, 최근매입단가, 평균도착원가 및 다른 연도·차수 단가는 대체값으로 쓰지 않는다. 과세환율 R은 정확한 OrderYear+MajorWeek 원천만 사용한다: ①당주 FreightCost.ExchangeRate(카테고리 상품매입 TPrice 100%가 스냅샷으로 덮인 경우만) ②WebTaxableExchangeRate 카테고리 지정값 ③2026 22~27차 원본 엑셀 R ④저장 통화 기본값 ⑤2026-28 이상 관세청 공식 과세환율. KCS 기준일은 WarehouseMaster.InputDate만 사용하며 다른 날짜로 대체하지 않는다. 날짜가 없거나 통화·적용기간이 정확히 일치하는 공식 환율을 하나라도 못 찾으면 일부 날짜만으로 계산하지 않고 해당 카테고리를 입력 필요로 둔다. 현재 CurrencyMaster 환율과 전차수 R은 자동 상속하지 않고 참고 제안으로만 제공한다. 활성 확정 스냅샷은 저장 시점 원천과 계산값을 불변 revision으로 보존하며 취소 뒤 새 revision으로만 갱신한다."
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",
@@ -179,6 +202,11 @@
     "__tests__/profitReportDriverExplanation.test.js",
     "__tests__/profitReportAnalysisGetReadOnlyDdl.test.js",
     "__tests__/profitReportPanelOrderContract.test.js"
+    ,"__tests__/profitReportEvidence.test.js"
+    ,"__tests__/profitReportAcceptanceHarness.test.js"
+    ,"__tests__/profitReportStockLinkContract.test.js"
+    ,"__tests__/profitReportCountryResolver.test.js"
+    ,"__tests__/profitReportWeek28Customs.test.js"
   ],
   "historicalCustomsPolicy": {
     "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
@@ -194,6 +222,8 @@
     "네덜란드 운송료": "네덜란드",
     "태국 운송료": "태국",
     "중국 운송료": "중국",
+    "CHINA 또는 중국 원산지 상품": "중국",
+    "2026-28차 이후 공제/샘플 상품": "국내",
     "nonValueItems": ["Chargeable weight", "Gross weight"],
     "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
     "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
@@ -233,6 +263,7 @@
       "ProductStock",
       "FreightCost",
       "WebProfitReport",
+      "WebStockPriceEvidence",
       "CurrencyMaster",
       "PeriodDay",
       "WebTaxableExchangeRate",
@@ -242,7 +273,10 @@
   "requiredCommands": [
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
-    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run test:profit-report-22-28",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "runtimeDdl": "forbidden; report/customs/forwarding GET 경로는 assertWebSchemaContract로 사전 migration 존재 여부만 읽기 검증하며 CREATE/ALTER/INDEX를 실행하지 않는다"
 }
