@@ -12,10 +12,12 @@
     "scripts/restore-stock-chain-after-30-02.mjs",
     "scripts/remove-invalid-31-01-restoration-history.mjs",
     "scripts/recalculate-stock-chain-from-31-01.mjs",
+    "scripts/repair-confirmed-negative-stock-from-31-01.mjs",
     ".github/workflows/audit-stock-after-30-02.yml",
     ".github/workflows/restore-stock-chain-after-30-02.yml",
     ".github/workflows/remove-invalid-31-01-restoration-history.yml",
     ".github/workflows/recalculate-stock-chain-from-31-01.yml",
+    ".github/workflows/repair-confirmed-negative-stock-from-31-01.yml",
     ".github/workflows/repair-stock-30-carnation.yml",
     "pages/api/stock/adjust-batch.js",
     "lib/stockTargetAdjustment.js"
