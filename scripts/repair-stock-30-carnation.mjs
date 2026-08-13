@@ -2,11 +2,11 @@ import { query, withTransaction, sql } from '../lib/db.js';
 
 const year='2026', week='30-02', uid='codex-approved-20260813', cf='콜롬비아카네이션';
 const targets=[
-  {pk:389,name:'CARNATION Doncel',expected:-13,target:0},
-  {pk:518,name:'CARNATION Giogia',expected:-3.543333333333333,target:2},
-  {pk:447,name:'CARNATION Moon Light',expected:-40.54333333333333,target:0},
-  {pk:470,name:'CARNATION Prado Mint',expected:-8.266666666666671,target:1},
-  {pk:504,name:'CARNATION Zurigo',expected:-4.933333333333333,target:0},
+  {pk:389,name:'CARNATION Doncel',expected:-3,target:0},
+  {pk:518,name:'CARNATION Giogia',expected:-3.21,target:2},
+  {pk:447,name:'CARNATION Moon Light',expected:-26.01,target:0},
+  {pk:470,name:'CARNATION Prado Mint',expected:-6.4,target:1},
+  {pk:504,name:'CARNATION Zurigo',expected:-4,target:0},
 ];
 const fixed=await query(`SELECT COUNT(*) cnt FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.isFix,0)=1 AND sd.ProdKey IN (${targets.map((_,i)=>`@p${i}`).join(',')})`,{yr:{type:sql.NVarChar,value:year},wk:{type:sql.NVarChar,value:week},...Object.fromEntries(targets.map((t,i)=>[`p${i}`,{type:sql.Int,value:t.pk}]))});
 if(Number(fixed.recordset[0].cnt)!==0) throw new Error('ABORT: target shipment details became fixed');
