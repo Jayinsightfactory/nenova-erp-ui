@@ -8,6 +8,7 @@
     "scripts/repair-stock-30-remaining.mjs",
     "scripts/recover-stock-30-fix-state.mjs",
     "scripts/audit-stock-after-30-02.mjs",
+    "scripts/audit-stock-all-weeks.mjs",
     "scripts/audit-stock-change-origin.mjs",
     "scripts/restore-stock-chain-after-30-02.mjs",
     "scripts/remove-invalid-31-01-restoration-history.mjs",

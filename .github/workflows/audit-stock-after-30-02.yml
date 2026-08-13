@@ -14,6 +14,6 @@ jobs:
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
-            git fetch origin master && git reset --hard origin/master
-            node --env-file=.env.local scripts/audit-stock-after-30-02.mjs
-            node --env-file=.env.local scripts/audit-stock-change-origin.mjs
+            git fetch origin codex/stock-target-repair
+            git show origin/codex/stock-target-repair:scripts/audit-stock-all-weeks.mjs > /tmp/audit-stock-all-weeks.mjs
+            node --env-file=.env.local /tmp/audit-stock-all-weeks.mjs --year=2026
