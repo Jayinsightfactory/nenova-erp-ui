@@ -3,6 +3,7 @@
   "title": "재고관리 선택 차수 목표재고 일괄수정 계약",
   "scope": [
     "pages/stock.js",
+    "pages/api/stock/index.js",
     "pages/api/stock/adjust-batch.js",
     "lib/stockTargetAdjustment.js"
   ],
