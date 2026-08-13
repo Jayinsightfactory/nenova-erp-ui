@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": { "title": "MOYI API fixture", "version": "0.1.0" },
   "x-moyi-contract": {
-    "revision": "talkhub-drive-v2@bf8ee45",
+    "revision": "2026-08-12.1",
     "rawUrlTtlSeconds": 300,
     "stagingVisibility": "admin-only-not-found",
     "acl": { "expiredIgnored": true, "explicitDenyWins": true }

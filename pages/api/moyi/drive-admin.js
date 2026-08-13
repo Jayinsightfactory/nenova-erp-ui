@@ -1,6 +1,6 @@
 import { withAuth } from '../../../lib/auth';
 import { requireMoyiDriveAdmin, writePermissionAudit } from '../../../lib/moyiDriveAdmin';
-import { hasCrossWorkspaceInput, loadMoyiDrive, pendingDriveModel } from '../../../lib/moyiDriveGateway';
+import { bootstrapMoyiDrive, hasCrossWorkspaceInput, loadMoyiDrive, pendingDriveModel } from '../../../lib/moyiDriveGateway';
 
 async function handler(req, res) {
   if (!requireMoyiDriveAdmin(req, res)) {
@@ -16,6 +16,12 @@ async function handler(req, res) {
     if (hasCrossWorkspaceInput(body)) {
       writePermissionAudit({ actorId: req.user?.userId, action: req.method, outcome: 'denied', reason: 'cross-workspace-input' });
       return res.status(403).json({ success: false, code: 'DRIVE_SCOPE_FIXED_BY_CONNECTION', error: '회사와 작업공간은 연결 정보로 정해집니다. 다른 회사 범위를 지정할 수 없습니다.' });
+    }
+    if (req.method === 'POST' && body.action === 'bootstrap') {
+      const result = await bootstrapMoyiDrive(req);
+      writePermissionAudit({ actorId: req.user?.userId, action: 'drive-bootstrap',
+        outcome: result.status === 200 ? 'allowed' : 'denied', reason: result.body?.code });
+      return res.status(result.status).json(result.body);
     }
     writePermissionAudit({
       actorId: req.user?.userId,
