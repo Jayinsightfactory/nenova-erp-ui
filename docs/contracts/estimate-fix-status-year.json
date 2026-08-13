@@ -10,6 +10,7 @@
     "lib/fixStatusYearScope.js",
     "lib/ensureWeekCanDistribute.js",
     "lib/fixCycleClient.js",
+    "lib/shipmentFixReconcile.js",
     "pages/orders/paste.js",
     "pages/shipment/fix-status.js",
     "pages/raum/pnl.js",
@@ -22,7 +23,8 @@
     "scripts/probe-fix-unfix-status.mjs",
     "scripts/bulk-refix-weeks.mjs",
     "__tests__/estimateFixStatusYearContract.test.js",
-    "__tests__/erpEditFixScopeAudit.test.js"
+    "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/shipmentFixReconcile.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -31,6 +33,7 @@
   ],
   "crossYearFixture": {"required":true,"description":"2025년과 2026년에 같은 29-02가 있어도 화면 선택 연도를 모든 확정현황 GET/POST와 품목군 fixCheck에 명시하고, OrderYear+OrderWeek가 모두 같은 행만 조회·재고 재계산 대상으로 사용한다."},
   "requiredTestFiles": ["__tests__/estimateFixStatusYearContract.test.js","__tests__/estimateFixCycle.test.js","__tests__/estimateDefectQuarantineContract.test.js","__tests__/estimateAdditionalProductContract.test.js","__tests__/erpEditFixScopeAudit.test.js","__tests__/erpContractManifest.test.js"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormEstimateView.md","source":"project-recorded dnSpy CLI evidence","methods":["FormEstimateView.GetData","FormEstimateView.GetDetail","usp_ShipmentFixCancel","usp_StockCalculation"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","StockMaster","SystemActionLog"]},
+  "stockMasterMarker": "StockMaster.isFix is diagnostic metadata only. Nenova FormStockView does not read it or expose a stock-close action; never label 0 as incomplete stock closing or force it to 1.",
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormEstimateView.md","source":"project-recorded dnSpy CLI evidence plus C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormStockView.cs","methods":["FormEstimateView.GetData","FormEstimateView.GetDetail","FormStockView.GetData","usp_ShipmentFixCancel","usp_StockCalculation"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","StockMaster","ProductStock","SystemActionLog"]},
   "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
 }

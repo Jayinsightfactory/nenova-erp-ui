@@ -39,8 +39,8 @@ async function main() {
       negativeLiveCount: 0,
       masterDetailMismatchCount: 0,
     });
-    assert('shipment fixed stock open', pending.status === 'FIXED_PENDING_STOCK' && pending.exeAligned === false);
-    assert('has warning', pending.warnings.length > 0);
+    assert('StockMaster marker does not block EXE shipment parity', pending.status === 'FIXED' && pending.exeAligned === true);
+    assert('no false stock closing warning', pending.warnings.length === 0);
   }
   {
     const neg = deriveExeAlignedStatus({
