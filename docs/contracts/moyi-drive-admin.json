@@ -6,9 +6,18 @@
     "pages/api/moyi/drive-admin.js",
     "lib/moyiDriveAdmin.js",
     "lib/moyiDriveGateway.js",
+    "lib/moyiDriveViewModel.js",
     "scripts/verify-moyi-drive-integration.mjs",
     "scripts/verify-moyi-drive-http-e2e.mjs",
-    "components/Layout.js"
+    "components/Layout.js",
+    "components/moyiDrive/Button.js",
+    "components/moyiDrive/FileRow.js",
+    "components/moyiDrive/Input.js",
+    "components/moyiDrive/PermissionRow.js",
+    "components/moyiDrive/StatusBadge.js",
+    "components/moyiDrive/StatusPanel.js",
+    "components/moyiDrive/Tabs.js",
+    "components/moyiDrive/Toolbar.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -22,6 +31,8 @@
   },
   "requiredTestFiles": [
     "__tests__/moyiDriveAdmin.test.js",
+    "__tests__/moyiDriveViewModel.test.js",
+    "__tests__/moyiDriveLayoutContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

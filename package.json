@@ -27,7 +27,7 @@
     "test:erp-manifest": "node __tests__/erpContractManifest.test.js && node __tests__/pasteNaturalCustomerInline.test.js && node __tests__/stockTargetAdjustment.test.js && node scripts/check-erp-contract-manifest.mjs",
     "test:nenova-web-scope": "node __tests__/nenovaWebCompatibilityScope.test.js",
     "test:moyi-report-push": "node __tests__/moyiReportPush.test.js",
-    "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js",
+    "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js && node __tests__/moyiDriveViewModel.test.js && node __tests__/moyiDriveLayoutContract.test.js",
     "test:ui-layout": "node scripts/check-ui-layout-contract.mjs",
     "verify:moyi-drive-integration": "node scripts/verify-moyi-drive-integration.mjs && node scripts/verify-moyi-drive-http-e2e.mjs",
     "test:freight-search": "node __tests__/freightGroupSearch.test.js",
