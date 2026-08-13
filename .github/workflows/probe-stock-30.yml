@@ -16,3 +16,4 @@ jobs:
             git fetch origin master && git reset --hard origin/master
             node --env-file=.env.local scripts/probe-stock-30-carnation.mjs
             node --env-file=.env.local scripts/probe-stock-30-full.mjs
+            node --env-file=.env.local scripts/probe-stock-30-remaining.mjs
