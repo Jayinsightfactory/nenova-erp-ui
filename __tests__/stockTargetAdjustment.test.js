@@ -23,6 +23,7 @@ async function main() {
   assert.match(api, /targetStock: e\.after/);
   assert.match(api, /selectedStock: e\.expectedSelectedStock/);
   assert.match(fs.readFileSync('pages/stock.js', 'utf8'), /expectedSelectedStock: before/);
+  assert.match(fs.readFileSync('pages/stock.js', 'utf8'), /s\._exeParity[\s\S]*Number\(s\.currentStock \|\| 0\)/);
   assert.match(fs.readFileSync('pages/stock.js', 'utf8'), /countryFlowers: \[\.\.\.new Set\(list\.map\(x => x\.countryFlower\)/);
   assert.match(fs.readFileSync('pages/stock.js', 'utf8'), /stockProdKeys: list\.map\(x => x\.prodKey\)/);
   assert.match(fs.readFileSync('pages\/api\/stock\/index.js', 'utf8'), /p\.CountryFlower/);

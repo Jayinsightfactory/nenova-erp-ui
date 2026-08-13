@@ -114,8 +114,12 @@ export default function Stock() {
 
   const selected = selectedIdx !== null ? stock[selectedIdx] : null;
 
-  // exe stock calculation: previous/current ProductStock + in - out + StockHistory delta
-  const calcStock = (s) => (s.prevStock || 0) + (s.inQty || 0) - (s.outQty || 0) + (s.adjustQty || 0);
+  // FormStockView는 ProductStock.Stock(ns.Stock)을 그대로 표시한다. API의 EXE parity
+  // 응답에서는 브라우저 재계산값이 아니라 currentStock을 표시·수정 기준으로 사용한다.
+  // 특히 미확정 차수는 ViewShipment 집계와 저장 스냅샷이 달라질 수 있다.
+  const calcStock = (s) => s._exeParity
+    ? Number(s.currentStock || 0)
+    : (s.prevStock || 0) + (s.inQty || 0) - (s.outQty || 0) + (s.adjustQty || 0);
   const calcPrevStock = (s) => s.prevStock || 0;
 
   const isRowDirty = (s) => {
