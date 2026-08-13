@@ -23,6 +23,9 @@ async function main() {
   assert.doesNotMatch(api, /errors\.length \? 207/);
   assert.match(api, /const results = await withTransaction/);
   assert.match(api, /THROW 51000, @m, 1/);
+  assert.match(api, /loadFixedEditedProdKeys/);
+  assert.match(api, /sd\.ProdKey=e\.ProdKey AND ISNULL\(sd\.isFix,0\)=1/);
+  assert.doesNotMatch(api, /SELECT TOP 1 1 AS x FROM/);
   console.log('stock target adjustment tests passed');
 }
 

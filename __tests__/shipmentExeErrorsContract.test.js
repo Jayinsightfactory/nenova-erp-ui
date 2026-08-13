@@ -57,9 +57,9 @@ async function main() {
   assert.match(stockStatus, /if \(view === 'cleanupZero'\)[\s\S]{0,240}req\.query\.confirm[\s\S]{0,240}repairZeroOut/, '기존 GET 정리 경로는 명시적 확인 없이는 실행되지 않아야 한다.');
   assert.match(stockStatus, /sm2\.OrderYear=@orderYear[\s\S]{0,120}sm2\.OrderWeek < @weekFrom/, '잔량 기초재고도 선택 연도에 격리해야 한다.');
 
-  assert.match(stockAdjust, /async function isWeekFixed\(orderYear, orderWeek\)/, '재고 일괄수정의 확정 검사에 연도와 차수를 함께 전달해야 한다.');
-  assert.match(stockAdjust, /OrderYear=@yr AND OrderWeek=@wk/, '재고 일괄수정의 확정 검사는 다른 연도의 동일 차수를 섞으면 안 된다.');
-  assert.match(stockAdjust, /isWeekFixed\(orderYear, week\)/, '재고 일괄수정은 해석된 연도로 확정 상태를 검사해야 한다.');
+  assert.match(stockAdjust, /async function loadFixedEditedProdKeys\(orderYear, orderWeek, prodKeys\)/, '재고 일괄수정의 확정 검사에 연도·차수·수정 품목을 함께 전달해야 한다.');
+  assert.match(stockAdjust, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '재고 일괄수정의 확정 검사는 다른 연도의 동일 차수를 섞으면 안 된다.');
+  assert.match(stockAdjust, /loadFixedEditedProdKeys\(orderYear, week, requestedProdKeys\)/, '재고 일괄수정은 해석된 연도와 수정 품목 범위로 확정 상태를 검사해야 한다.');
 
   assert.match(shipmentFix, /OrderYear=@yr AND OrderWeek=@wk AND isFix=1/, '확정 여부 재검사는 연도와 차수를 함께 사용해야 한다.');
   assert.match(shipmentFix, /sm\.OrderYear = @yr AND sm\.OrderWeek = @wk/, '확정 사전검증의 출고 조회는 연도와 차수를 함께 사용해야 한다.');
