@@ -10,8 +10,10 @@
     "scripts/audit-stock-after-30-02.mjs",
     "scripts/audit-stock-change-origin.mjs",
     "scripts/restore-stock-chain-after-30-02.mjs",
+    "scripts/remove-invalid-31-01-restoration-history.mjs",
     ".github/workflows/audit-stock-after-30-02.yml",
     ".github/workflows/restore-stock-chain-after-30-02.yml",
+    ".github/workflows/remove-invalid-31-01-restoration-history.yml",
     ".github/workflows/repair-stock-30-carnation.yml",
     "pages/api/stock/adjust-batch.js",
     "lib/stockTargetAdjustment.js"
@@ -25,9 +27,9 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "stockHistory": "insert delta from selected-week calculated stock to target",
-      "productStock": "selected week is recalculated with delta; when a later StockMaster exists, inverse delta at the immediate next snapshot preserves every later snapshot",
-      "product": "latest Product.Stock plus delta only for the latest snapshot; historical edits restore the prior live value at the immediate next snapshot boundary",
-      "laterSnapshotInvariant": "editing a historical target must not change any ProductStock snapshot after the immediate next existing OrderYear+OrderWeek boundary",
+      "productStock": "latest existing stock week only; any later StockMaster causes HISTORICAL_STOCK_EDIT_BLOCKED",
+      "product": "latest Product.Stock plus delta",
+      "laterSnapshotInvariant": "historical target editing is blocked when any later OrderYear+OrderWeek StockMaster exists; never create a compensating StockHistory row in a later business week",
       "atomicity": "all edited products in one transaction",
       "confirmedScope": "부분확정 차수에서는 수정 대상 ProdKey의 ShipmentDetail만 미확정이면 허용하며, 관련 없는 확정 카테고리 때문에 차단하지 않는다."
     }

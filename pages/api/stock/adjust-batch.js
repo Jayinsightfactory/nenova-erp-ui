@@ -8,7 +8,7 @@
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear } from '../../../lib/orderUtils';
-import { resolveLaterSnapshotPreservation, resolveStockTargetAdjustment } from '../../../lib/stockTargetAdjustment';
+import { resolveStockTargetAdjustment } from '../../../lib/stockTargetAdjustment';
 
 async function loadFixedEditedProdKeys(orderYear, orderWeek, prodKeys) {
   const keys = [...new Set((prodKeys || []).map(Number).filter(Number.isFinite))];
@@ -113,6 +113,11 @@ export default withAuth(async function handler(req, res) {
       const nextWeek = nextResult.recordset[0]
         ? { orderYear: nextResult.recordset[0].OrderYear, orderWeek: nextResult.recordset[0].OrderWeek }
         : null;
+      if (nextWeek) {
+        const error = new Error(`후속 재고 차수 ${nextWeek.orderYear}-${nextWeek.orderWeek}가 있어 과거 재고를 수정할 수 없습니다. 최신 차수에서 조정하세요.`);
+        error.code = 'HISTORICAL_STOCK_EDIT_BLOCKED';
+        throw error;
+      }
       for (const e of normalizedEdits) {
           const liveResult = await tQuery(
             `SELECT ISNULL(Stock,0) AS Stock
@@ -162,41 +167,7 @@ export default withAuth(async function handler(req, res) {
             uid:  { type: sql.NVarChar, value: uid },
             pk:   { type: sql.Int, value: e.pk },
           });
-          // 과거 스냅샷만 수정할 때 Product.Stock delta가 이후 모든 차수로 번지는 것을
-          // 다음 실제 StockMaster 경계에서 반대 delta로 상쇄한다. 선택 차수는 바뀌고
-          // 다음 차수 이후 스냅샷과 현재 Product.Stock은 수정 전 값을 보존한다.
-          const preservation = resolveLaterSnapshotPreservation({
-            liveStock: plan.liveBefore,
-            delta: plan.delta,
-            nextWeek,
-          });
-          if (preservation) {
-            await tQuery(
-              `INSERT INTO StockHistory
-                 (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName, BeforeValue, AfterValue, Descr, ProdKey)
-               VALUES (GETDATE(), @year, @week, @uid, N'재고조정', N'재고수량', @before, @after,
-                       N'과거차수 수정 후속스냅샷 보존', @pk)`,
-              {
-                year: { type: sql.NVarChar, value: preservation.orderYear },
-                week: { type: sql.NVarChar, value: preservation.orderWeek },
-                uid: { type: sql.NVarChar, value: uid },
-                pk: { type: sql.Int, value: e.pk },
-                before: { type: sql.Float, value: preservation.liveBefore },
-                after: { type: sql.Float, value: preservation.liveAfter },
-              },
-            );
-            await tQuery(
-              `UPDATE Product SET Stock=ROUND(@after,2) WHERE ProdKey=@pk`,
-              { after: { type: sql.Float, value: preservation.liveAfter }, pk: { type: sql.Int, value: e.pk } },
-            );
-            await tQuery(stockCalculationSql(), {
-              year: { type: sql.NVarChar, value: preservation.orderYear },
-              week: { type: sql.NVarChar, value: preservation.orderWeek },
-              uid: { type: sql.NVarChar, value: uid },
-              pk: { type: sql.Int, value: e.pk },
-            });
-          }
-          appliedResults.push({ prodKey: e.pk, ok: true, changed: true, preservation, ...plan });
+          appliedResults.push({ prodKey: e.pk, ok: true, changed: true, ...plan });
       }
       return appliedResults;
     });
