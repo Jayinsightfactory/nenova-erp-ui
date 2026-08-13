@@ -1,7 +1,7 @@
 // 그외통관비 입력 API — 국가별(백상창고료/관세/선율/월드운송료/한국방역) + 콜롬비아 4품목 무게배분 공유입력.
 // H(그외통관비) 자동값의 소스. 단가표(백상/트럭/검역대행/콜롬비아 박스무게)는 관리자 수정 가능.
 import { withAuth } from '../../../lib/auth';
-import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, saveRateConfig,
@@ -99,7 +99,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'POST') {
       const major = parseMajor(req.body?.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
+      const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
 
       if (req.body?.action === 'saveRates') {
@@ -127,6 +127,6 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code });
   }
 });

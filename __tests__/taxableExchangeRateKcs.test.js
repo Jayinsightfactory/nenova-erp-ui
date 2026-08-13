@@ -56,11 +56,11 @@ async function main() {
   check('2026-27 대상 아님 — historical snapshot 보존', isKcsRateEligibleWeek('2026', '27') === false);
   check('2026-22 대상 아님 — historical snapshot 보존', isKcsRateEligibleWeek('2026', '22') === false);
   check('2025-30 대상 아님(연도 불일치)', isKcsRateEligibleWeek('2025', '30') === false);
-  check('2027-30 대상 아님(요구사항이 2026년만 명시)', isKcsRateEligibleWeek('2027', '30') === false);
+  check('2027-30 대상(도입 경계 2026-28 이후)', isKcsRateEligibleWeek('2027', '30') === true);
 
   console.log('\n=== kcsRatesByCategory — 22~27차/28차 미만은 DB·네트워크 호출 자체를 하지 않음 ===');
   {
-    const outOfRangeWeeks = [['2026', '22'], ['2026', '27'], ['2025', '30'], ['2027', '30']];
+    const outOfRangeWeeks = [['2026', '22'], ['2026', '27'], ['2025', '30']];
     let allSkipped = true;
     for (const [yr, mj] of outOfRangeWeeks) {
       // 이 범위에서는 declarationDateByCategory()가 호출되지 않아야 한다 — DB 접속 정보가 없는
@@ -78,10 +78,10 @@ async function main() {
       { Category: '태국', ResolvedDate: '2026-07-20', Weight: 100 },
       { Category: '태국', ResolvedDate: '2026-07-20', Weight: 50 }, // 같은 날짜 두 행은 합치지 않고 그대로 넘긴다(가중평균 단계에서 합산됨)
       { Category: '기타(미분류)', ResolvedDate: '2026-07-20', Weight: 100 }, // 미분류는 제외
-      { Category: '태국', ResolvedDate: null, Weight: 100 }, // 날짜 없으면 제외
+      { Category: '태국', ResolvedDate: null, Weight: 100 }, // 날짜 없으면 자동 적용 차단용 진단행으로 유지
       { Category: '태국', ResolvedDate: '2026-07-21', Weight: 0 }, // weight<=0 제외
     ]);
-    check('미분류/날짜없음/weight<=0 행 제외, 유효 행만 통과', mapped.length === 2, JSON.stringify(mapped));
+    check('미분류/weight<=0은 제외하고 날짜없음은 진단행으로 유지', mapped.length === 3 && mapped.some(m => m.date === null && m.missingDeclarationDate), JSON.stringify(mapped));
     check('통화는 currencyCodeForCategory로 채워짐(태국=USD)', mapped.every(m => m.currency === 'USD'), JSON.stringify(mapped));
 
     const w1 = weightedRateFromDatePoints(
@@ -91,9 +91,9 @@ async function main() {
     check('환율 자체를 TPrice 가중평균(1000×1+2000×3)/4=1750', Math.abs(w1 - 1750) < 1e-9);
     const w2 = weightedRateFromDatePoints(
       [{ date: '2026-07-20', weight: 100 }, { date: '2026-07-27', weight: 50 }],
-      new Map([['2026-07-20', 1500]]), // 07-27 환율 조회 실패(맵에 없음) — 그 날짜만 제외하고 계산
+      new Map([['2026-07-20', 1500]]), // 순수 함수는 누락 날짜를 제외하지만 상위 오케스트레이터가 전체 카테고리를 차단
     );
-    check('일부 날짜 환율 조회 실패는 그 날짜만 제외(전체 무효화 아님)', w2 === 1500);
+    check('순수 가중평균 함수는 제공된 환율만 계산(부분 실패 차단은 상위 함수 책임)', w2 === 1500);
     check('빈 배열/전부 무효 → null',
       weightedRateFromDatePoints([], {}) === null
         && weightedRateFromDatePoints([{ date: '2026-07-20', weight: 0 }], { '2026-07-20': 1000 }) === null);
@@ -154,6 +154,33 @@ async function main() {
     kcs.clearKcsTaxableRateCache();
     const notFound = await kcs.getKcsTaxableRate({ currency: 'EUR', declarationDate: '2026-08-03' });
     check('weekFxrtIm 없으면 rate_not_found(추측/0-fallback 금지)', notFound.available === false && notFound.reason === 'rate_not_found');
+
+    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({
+      list: [{ currCd: 'USD', weekFxrtIm: '1360', aplyBgnDt: '20260803', aplyEndDt: '20260809' }],
+    }) });
+    kcs.clearKcsTaxableRateCache();
+    const currencyMismatch = await kcs.getKcsTaxableRate({ currency: 'EUR', declarationDate: '2026-08-03' });
+    check('응답 통화 불일치는 자동 채택하지 않음', currencyMismatch.available === false && currencyMismatch.reason === 'rate_not_found');
+
+    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({
+      list: [
+        { currCd: 'EUR', weekFxrtIm: '1550', aplyBgnDt: '20260727', aplyEndDt: '20260802' },
+        { currCd: 'EUR', weekFxrtIm: '1560', aplyBgnDt: '20260810', aplyEndDt: '20260816' },
+      ],
+    }) });
+    kcs.clearKcsTaxableRateCache();
+    const dateMismatch = await kcs.getKcsTaxableRate({ currency: 'EUR', declarationDate: '2026-08-05' });
+    check('요청일이 적용기간 밖이면 자동 채택하지 않음', dateMismatch.available === false && dateMismatch.reason === 'rate_not_found');
+
+    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({
+      list: [
+        { currCd: 'EUR', weekFxrtIm: '1550', aplyBgnDt: '20260803', aplyEndDt: '20260809' },
+        { currCd: 'EUR', weekFxrtIm: '1560', aplyBgnDt: '20260803', aplyEndDt: '20260809' },
+      ],
+    }) });
+    kcs.clearKcsTaxableRateCache();
+    const ambiguous = await kcs.getKcsTaxableRate({ currency: 'EUR', declarationDate: '2026-08-05' });
+    check('같은 통화·기간에 서로 다른 환율이 둘이면 자동 선택하지 않음', ambiguous.available === false && ambiguous.reason === 'rate_ambiguous');
 
     global.fetch = async () => ({ ok: false, status: 500, text: async () => '' });
     kcs.clearKcsTaxableRateCache();

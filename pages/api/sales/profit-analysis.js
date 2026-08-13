@@ -52,7 +52,7 @@ async function loadPriceMixCandidates(orderYear, major) {
   const { prevOrderYear, prevMajor } = prevMajorYear(orderYear, majorNum);
   try {
     const allCurrentRows = await loadCustomerProductSales(orderYear, major);
-    if (!allCurrentRows.length) return { priceDecreaseCandidates: [], lowPriceMixCandidates: [] };
+    if (!allCurrentRows.length) return { priceDecreaseCandidates: [], lowPriceMixCandidates: [], priceMixStatus: 'empty', priceMixFailureReason: null };
 
     const amountByProd = new Map();
     for (const r of allCurrentRows) {
@@ -72,11 +72,18 @@ async function loadPriceMixCandidates(orderYear, major) {
     return {
       priceDecreaseCandidates: detectPriceDecreaseCandidates(currentRows, priorRows),
       lowPriceMixCandidates: detectLowPriceCustomerMixCandidates(currentRows, priorRows),
+      priceMixStatus: 'ready',
+      priceMixFailureReason: null,
     };
-  } catch {
-    // 후보 탐지 실패는 전체 응답을 막지 않는다 — 빈 목록 + provisional 판정에는 별도로 반영하지 않음
-    // (trend/drivers 쪽 결측 신호로 이미 provisional이 충분히 드러난다).
-    return { priceDecreaseCandidates: [], lowPriceMixCandidates: [] };
+  } catch (error) {
+    // 후보 탐지 실패를 빈 결과(해당 없음)로 위장하지 않는다. 본표는 계속 표시하되 분석은
+    // 잠정 상태로 명시해 사용자가 실제로 후보가 없다고 오해하지 않게 한다.
+    return {
+      priceDecreaseCandidates: [],
+      lowPriceMixCandidates: [],
+      priceMixStatus: 'failed',
+      priceMixFailureReason: error?.message || '거래처·품목 단가 분석 조회 실패',
+    };
   }
 }
 
@@ -115,7 +122,7 @@ export default withAuth(async function handler(req, res) {
       auditIssues: rateTrend._detail.currentAuditIssues,
       missingRateWeeks,
       stockGapWeeks,
-    }) || missingDataWeeks.length > 0;
+    }) || missingDataWeeks.length > 0 || priceMix.priceMixStatus === 'failed';
 
     const provisionalReasons = [];
     if (missingRateWeeks.length) provisionalReasons.push(`과세환율(R) 미확정 주차: ${missingRateWeeks.join(', ')}차`);
@@ -123,6 +130,7 @@ export default withAuth(async function handler(req, res) {
     if (missingDataWeeks.length) provisionalReasons.push(`손익 데이터를 계산하지 못한 주차: ${missingDataWeeks.join(', ')}차`);
     const currentErrorCount = (rateTrend._detail.currentAuditIssues || []).filter((i) => i?.severity === 'error').length;
     if (currentErrorCount > 0) provisionalReasons.push(`이번 차수 검증 오류 ${currentErrorCount}건 미해결`);
+    if (priceMix.priceMixStatus === 'failed') provisionalReasons.push(`단가·판매비중 분석 실패: ${priceMix.priceMixFailureReason}`);
 
     return res.status(200).json({
       ok: true,
@@ -136,6 +144,8 @@ export default withAuth(async function handler(req, res) {
       drivers,
       priceDecreaseCandidates: priceMix.priceDecreaseCandidates,
       lowPriceMixCandidates: priceMix.lowPriceMixCandidates,
+      priceMixStatus: priceMix.priceMixStatus,
+      priceMixFailureReason: priceMix.priceMixFailureReason,
       provisional,
       provisionalReasons,
     });

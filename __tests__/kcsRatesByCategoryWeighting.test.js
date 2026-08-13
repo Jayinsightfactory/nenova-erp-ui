@@ -120,6 +120,19 @@ async function main() {
         !Object.prototype.hasOwnProperty.call(byCategory, '중국'), JSON.stringify(byCategory));
     }
 
+    console.log('\n=== 상품 매입 일부에 신고 기준일이 없음 — 카테고리 전체 자동환율 차단 ===');
+    {
+      kcs.clearKcsTaxableRateCache();
+      globalThis.__mockLoadWarehouseDateWeights = async () => [
+        { category: '태국', currency: 'USD', date: '2026-08-03', weight: 900 },
+        { category: '태국', currency: 'USD', date: null, weight: 100, missingDeclarationDate: true },
+      ];
+      setFetchByDate({ '2026-08-03': 1300 });
+      const { byCategory, failuresByCategory } = await kcsRatesByCategory('28', '2026');
+      check('날짜가 있는 90%만으로 임의 평균하지 않음', !Object.prototype.hasOwnProperty.call(byCategory, '태국'));
+      check('신고일 누락 원인이 진단정보에 남음', failuresByCategory?.['태국']?.some((x) => x.reason === 'missing_declaration_date'), JSON.stringify(failuresByCategory));
+    }
+
     console.log('\n=== 같은 (통화,날짜) 조합은 카테고리가 여러 개여도 fetch를 정확히 1회만 호출(중복 제거) ===');
     {
       kcs.clearKcsTaxableRateCache();

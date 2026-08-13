@@ -56,7 +56,8 @@ async function main() {
       { Category: '태국', ResolvedDate: undefined, Weight: 100 },
       { Category: '태국', ResolvedDate: '', Weight: 100 },
     ]);
-    check('날짜 없음(null/undefined/빈문자열) 행은 모두 제외', mapped.length === 0, JSON.stringify(mapped));
+    check('날짜 없음 행은 카테고리 전체 자동환율 차단용 진단행으로 유지',
+      mapped.length === 3 && mapped.every((m) => m.date === null && m.missingDeclarationDate === true), JSON.stringify(mapped));
   }
   {
     // Date 객체는 UTC 게터로 변환되어야 로컬 타임존에 따라 하루 밀리지 않는다.
@@ -97,7 +98,7 @@ async function main() {
     // 2개 날짜, 1300원/1500원, 90%/10% 가중 → 가중평균 ~1320(단순 중간값 1400과는 다름).
     // 이 테스트는 "날짜를 먼저 평균해서 그 하루치 환율만 조회"하는 방식이 아니라, 각 날짜의 실제
     // 환율을 그대로 두고 환율값 자체를 TPrice로 가중평균한다는 2026-08-12 설계 결정을 고정한다
-    // (lib/kcsRateDateWeights.js 파일 헤더 주석 및 lib/profitReportDeclarationDate.js 헤더 참조).
+    // (lib/kcsRateDateWeights.js 파일 헤더의 InputDate 단일 기준 참조).
     const weighted = weightedRateFromDatePoints(
       [{ date: '2026-07-20', weight: 90 }, { date: '2026-07-27', weight: 10 }],
       { '2026-07-20': 1300, '2026-07-27': 1500 },

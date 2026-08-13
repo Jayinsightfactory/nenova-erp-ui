@@ -56,7 +56,7 @@ const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
 const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
 const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
 // 이익률 분석의 변동요인(drivers) 컬럼 라벨 — COLUMN_DEFS 라벨과 동일한 용어를 그대로 재사용.
-const DRIVER_LABELS = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품 금액(구매)', H: '그외통관비', T: '포워딩 원화환산', L: '불량금액' };
+const DRIVER_LABELS = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품 금액(구매)', H: '그외통관비', T: '포워딩 원화환산' };
 
 // 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
 function readonlyValue(key, obj, ctx) {
@@ -186,6 +186,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
 
 export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
+  const [reportYear, setReportYear] = useState(getDefaultYear());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moyiSending, setMoyiSending] = useState(false);
@@ -216,10 +217,11 @@ export default function ProfitReportPage() {
   const [showConfirmHistory, setShowConfirmHistory] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [forceReason, setForceReason] = useState('');
-  const loadConfirmStatus = async (weekOverride) => {
+  const loadConfirmStatus = async (weekOverride, yearOverride) => {
     const wk = weekOverride ?? weekInput.value;
+    const yr = yearOverride ?? reportYear;
     try {
-      const res = await fetch(`/api/sales/profit-report-confirm?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report-confirm?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) return;
       setConfirmSchemaInitialized(Boolean(d.initialized));
@@ -282,17 +284,19 @@ export default function ProfitReportPage() {
   const [monthlyData, setMonthlyData] = useState(null);
   const [expandedMonths, setExpandedMonths] = useState(new Set());
 
-  const load = async (weekOverride) => {
+  const load = async (weekOverride, yearOverride) => {
     const wk = weekOverride ?? weekInput.value;
+    const yr = yearOverride ?? reportYear;
     setLoading(true); setError(''); setMessage(''); setEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
+      setReportYear(String(d.orderYear || yr));
       setNote(d.note || '');
       setNoteDirty(false);
-      loadConfirmStatus(wk);
+      loadConfirmStatus(wk, yr);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -323,7 +327,7 @@ export default function ProfitReportPage() {
     const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
     const next = String(Math.max(1, cur + delta)).padStart(2, '0');
     weekInput.setValue(next);
-    load(next);
+    load(next, reportYear);
   };
 
   const loadWeeksRange = async () => {
@@ -335,7 +339,7 @@ export default function ProfitReportPage() {
       for (let m = to; m >= from; m--) majors.push(String(m).padStart(2, '0')); // 최신 차수가 위로
       const results = await Promise.all(majors.map(async (mj) => {
         try {
-          const res = await fetch(`/api/sales/profit-report?week=${mj}`, { credentials: 'same-origin' });
+          const res = await fetch(`/api/sales/profit-report?week=${mj}&year=${encodeURIComponent(reportYear)}`, { credentials: 'same-origin' });
           const d = await res.json();
           if (!d.success) return { major: mj, error: d.error || '조회 실패' };
           // 확정된 차수는 저장된 calc를 그대로 쓴다(재계산 금지 — 계산식이 나중에 바뀌어도 과거 확정본은 불변).
@@ -405,7 +409,7 @@ export default function ProfitReportPage() {
       }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, values, note }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, values, note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
@@ -418,7 +422,7 @@ export default function ProfitReportPage() {
           const rateRes = await fetch('/api/sales/profit-report', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
             body: JSON.stringify({
-              week: weekInput.value, action: 'saveTaxableRate',
+              week: weekInput.value, year: reportYear, action: 'saveTaxableRate',
               currency: row.currency || 'USD', category: row.category,
               rate: values[row.category].R, rateSource: 'manual_input',
             }),
@@ -450,7 +454,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, action: 'saveNote', note }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'saveNote', note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '비고 저장 실패');
@@ -476,7 +480,7 @@ export default function ProfitReportPage() {
       if (force && !forceReason.trim()) throw new Error('강제 확정 사유를 입력해야 합니다.');
       const res = await fetch('/api/sales/profit-report-confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, action: force ? 'force' : 'confirm', reason: force ? forceReason : undefined }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: force ? 'force' : 'confirm', reason: force ? forceReason : undefined }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '확정 실패');
@@ -492,7 +496,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch('/api/sales/profit-report-confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, action: 'cancel' }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'cancel' }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '확정 취소 실패');
@@ -504,7 +508,7 @@ export default function ProfitReportPage() {
   const downloadExcel = async () => {
     if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
     const colsParam = visibleCols.filter(k => k !== 'category').join(',');
-    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
+    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
   };
 
   const sendToMoyi = async () => {
@@ -535,7 +539,7 @@ export default function ProfitReportPage() {
   const openPriceModal = async () => {
     setPriceEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&stockPrices=1`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '단가표 조회 실패');
       setPriceModal(d);
@@ -545,7 +549,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, prices: priceEdits }),
+        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, year: reportYear, prices: priceEdits }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
@@ -639,6 +643,15 @@ export default function ProfitReportPage() {
           </div>
           {viewMode === 'category' ? (
             <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
+                value={reportYear}
+                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={e => { if (e.key === 'Enter') load(undefined, reportYear); }}
+                placeholder="2026"
+                aria-label="보고서 연도"
+              />
               <label style={st.label}>차수</label>
               <div style={st.weekStepperWrap}>
                 <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
@@ -694,6 +707,14 @@ export default function ProfitReportPage() {
             </>
           ) : viewMode === 'weeks' ? (
             <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
+                value={reportYear}
+                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="2026"
+                aria-label="차수별 보고서 연도"
+              />
               <label style={st.label}>차수범위</label>
               <input style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
               <span style={{ color: '#94a3b8' }}>~</span>
@@ -977,7 +998,7 @@ export default function ProfitReportPage() {
                       <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
                     </div>
                     <div style={st.embedPanelBody}>
-                      <CustomsClearancePanel week={weekInput.value} onSaved={load} />
+                      <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
                     </div>
                   </div>
                 )}
@@ -988,7 +1009,7 @@ export default function ProfitReportPage() {
                       <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
                     </div>
                     <div style={st.embedPanelBody}>
-                      <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
+                      <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
                     </div>
                   </div>
                 )}
@@ -1066,12 +1087,12 @@ export default function ProfitReportPage() {
                       </tbody>
                     </table>
 
-                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>변동 요인 (C/E/F/P/H/T/L)</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>변동 요인 (매출이익에 미친 영향)</div>
                     <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
                       <thead>
                         <tr>
                           <th style={st.th}>항목</th><th style={st.th}>이번 차수</th><th style={st.th}>직전 평균</th>
-                          <th style={st.th}>증감</th><th style={st.th}>증감률</th>
+                          <th style={st.th}>금액 증감</th><th style={st.th}>증감률</th><th style={st.th}>이익 영향</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1080,15 +1101,20 @@ export default function ProfitReportPage() {
                             <td style={st.td}>{DRIVER_LABELS[d.column] || d.column}</td>
                             <td style={st.tdNum}>{d.currentValue != null ? fmt(d.currentValue) : '—'}</td>
                             <td style={st.tdNum}>{d.priorAvgValue != null ? fmt(d.priorAvgValue) : '—'}</td>
-                            <td style={{ ...st.tdNum, color: d.delta > 0 ? '#166534' : d.delta < 0 ? '#dc2626' : undefined }}>{d.delta != null ? fmt(d.delta) : '—'}</td>
+                            <td style={st.tdNum}>{d.delta != null ? fmt(d.delta) : '—'}</td>
                             <td style={st.tdNum}>{d.pctDelta != null ? pct(d.pctDelta) : '—'}</td>
+                            <td style={{ ...st.tdNum, fontWeight: 800, color: d.profitImpact > 0 ? '#166534' : d.profitImpact < 0 ? '#dc2626' : undefined }}>
+                              {d.profitImpact != null ? (d.profitImpact > 0 ? '+' : '') + fmt(d.profitImpact) : '—'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
 
                     <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>단가 하락 후보</div>
-                    {(analysisData.priceDecreaseCandidates || []).length === 0 ? (
+                    {analysisData.priceMixStatus === 'failed' ? (
+                      <div style={{ ...st.attentionBanner, marginBottom: 12 }}>⚠ 분석 실패·확인 필요 — {analysisData.priceMixFailureReason || '단가 후보를 불러오지 못했습니다.'}</div>
+                    ) : (analysisData.priceDecreaseCandidates || []).length === 0 ? (
                       <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>해당 없음</div>
                     ) : (
                       <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
@@ -1111,7 +1137,9 @@ export default function ProfitReportPage() {
                     )}
 
                     <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>저가 구성비 후보</div>
-                    {(analysisData.lowPriceMixCandidates || []).length === 0 ? (
+                    {analysisData.priceMixStatus === 'failed' ? (
+                      <div style={st.attentionBanner}>⚠ 분석 실패·확인 필요 — 정상 조회 후 판단할 수 있습니다.</div>
+                    ) : (analysisData.lowPriceMixCandidates || []).length === 0 ? (
                       <div style={{ fontSize: 12, color: '#64748b' }}>해당 없음</div>
                     ) : (
                       <table style={{ ...st.table, minWidth: 0 }}>

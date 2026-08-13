@@ -3,7 +3,7 @@
 // POST: confirm/force/cancel — Web 전용 확정 테이블(WebProfitReportConfirm(Detail))만 쓴다.
 //   ERP 공유 원장(Order/Shipment/Estimate/ProductStock/StockHistory)은 절대 INSERT/UPDATE/DELETE하지 않는다.
 import { withAuth } from '../../../lib/auth';
-import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { parseMajor, loadReportData } from './profit-report';
 import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../../lib/profitReportCalc';
 import {
@@ -28,10 +28,9 @@ export default withAuth(async function handler(req, res) {
   try {
     const major = parseMajor(req.method === 'GET' ? req.query.week : req.body?.week);
     if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
-    const orderYear = resolveActiveOrderYear(
-      `${major}-01`,
-      req.method === 'GET' ? req.query.year : req.body?.year,
-    );
+    const orderYear = req.method === 'GET'
+      ? resolveActiveOrderYear(`${major}-01`, req.query.year)
+      : requireOrderYear(`${major}-01`, req.body?.year).orderYear;
 
     if (req.method === 'GET') {
       const status = await confirmSchemaStatus();

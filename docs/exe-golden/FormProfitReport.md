@@ -228,7 +228,7 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   `__tests__/profitReportWorkbookFullParity.test.js`(F/합계 재현 22~27차 전체),
   `__tests__/profitReportSourceGuide.test.js`(설명 문구가 위 5가지 규칙과 일치하는지 대조).
 
-## 2026-08-12 KCS(관세청 과세환율 API) date 기반 자동 조회 — 2026 28차 이후 4순위
+## 2026-08-13 KCS(관세청 과세환율 API) InputDate 기반 자동 조회 — 2026 28차 이후 4순위
 
 위 "22~27차 저장값 부재" 절의 excel historical snapshot(③)은 2026 22~27차 6개 원본 워크북 범위에만
 있다. 28차 이후는 원본 워크북이 없으므로 R 자동 적용이 ①FreightCost 스냅샷 → ②저장/캐시값까지만
@@ -236,15 +236,12 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 추가했다 — ①~③ 어느 것도 없을 때만 쓰이므로 2026 22~27차 계산은 전혀 바뀌지 않는다(회귀 없음).
 
 - **단일 게이트**: `lib/taxableExchangeRate.js isKcsRateEligibleWeek(orderYear, major)` —
-  `String(orderYear)==='2026' && Number(major)>=28`일 때만 참. `kcsRatesByCategory(major, orderYear)`가
-  이 게이트를 가장 먼저 확인해, 범위 밖이면 DB 조회(`loadWarehouseDateWeights`)도 KCS 네트워크
-  호출도 전혀 하지 않고 `{byCategory:{}}`를 즉시 반환한다(`__tests__/taxableExchangeRateKcs.test.js`
-  "22~27차/28차 미만은 DB·네트워크 호출 자체를 하지 않음" 케이스로 고정).
-- **신고일자·가중치 산출**: `lib/profitReportDeclarationDate.js`가 `WarehouseMaster.InputDate →
-  ArrivalDtm(런타임에 `probeArrivalDtmColumn()`으로 컬럼 존재·NULL 비율을 실측해 사실상 항상
-  NULL이면 자동 제외) → UploadDtm` 날짜 우선순위 식 하나(`declarationDateDiagnostics()`)만 SELECT
-  전용으로 산출해 공유하고, `lib/kcsRateDateWeights.js loadWarehouseDateWeights(orderYear, major)`가
-  그 식을 가져다 카테고리(국가/화종)×날짜별 `wd.TPrice` 합계 목록을 그대로 반환한다 — 날짜를
+  `2026-28` 이상인 연도+차수 결합키에서만 참이다. 따라서 2026년 22~27차는 기존 원본값을
+  보존하고, 2027년 이후도 정상 조회 대상이다. 범위 밖이면 DB 조회와 KCS 네트워크 호출을 하지 않는다.
+- **신고일자·가중치 산출**: `lib/kcsRateDateWeights.js loadWarehouseDateWeights(orderYear, major)`가
+  사용자가 입고에 명시한 `WarehouseMaster.InputDate`만 사용해 카테고리(국가/화종)×날짜별
+  `wd.TPrice` 합계 목록을 반환한다. `InputDate`가 없으면 `ArrivalDtm`이나 `UploadDtm`으로 대신하지
+  않고 해당 카테고리를 `입력 필요`로 남긴다. 날짜를
   먼저 평균해 대표일자 하나로 줄이지 않는다. "관세청 신고환율은 각 실제 신고일자의 실제 환율을
   TPrice로 가중평균한다"는 요구사항을 정확히 지키려면 날짜를 먼저 평균(pseudo-date)하는 방식은
   실제 신고일자가 아닌 날의 환율을 끌어오는 오차가 생기기 때문이다(2026-08-12 설계 정리 — 초기
@@ -253,15 +250,19 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   `lib/profitReport.js`에서 그대로 `export`해 재사용하며(중복 구현 금지), `OrderWeek LIKE
   'major-%' AND ISNULL(OrderYear,'')=@yr` 조합으로 교차연도 오염을 막는다. 두 모듈 모두 SELECT만
   하며 쓰기 계열 SQL이 없다(GET 읽기 전용 규칙).
+- **입고 스냅샷 완전성**: 당주 `FreightCost.ExchangeRate`는 해당 카테고리 상품매입의 TPrice가
+  100% 환율 스냅샷으로 덮일 때만 자동 원천으로 인정한다. 일부 입고만 환율이 있으면 그 일부의
+  평균값을 전체 환율처럼 쓰지 않고 저장된 공식값/KCS/직접입력 단계로 넘긴다.
 - **KCS 공식 조회 + 환율 자체를 TPrice 가중평균**: 카테고리별로 서로 다른 (통화,날짜) 조합마다
   `lib/kcsTaxableRate.js getKcsTaxableRate({currency, declarationDate})`를 정확히 1회만 호출(중복
   제거)해 `https://unipass.customs.go.kr/clip/com/bsopcomn/baseinfo/retrieveCOM0101049Q.do`에
-  `aplyBgnDt`(YYYYMMDD)·`currCd`·`summary`·`pageIndex`·`pageUnit` 파라미터로 GET하고, 응답 어디서든
-  `weekFxrtIm` 키를 재귀 탐색해(공식 응답 스키마 문서가 없어 방어적으로 탐색) 유효한 양수만
-  채택한다 — 찾지 못하면 절대 추측/0-fallback하지 않고 `available:false`로 실패 처리한다. 그 다음
+  `aplyBgnDt`(YYYYMMDD)·`currCd`·`summary`·`pageIndex`·`pageUnit` 파라미터로 GET하고, 응답 후보 중
+  요청 통화와 요청일이 적용기간에 정확히 포함되는 유일한 `weekFxrtIm` 양수만 채택한다. 통화·기간이
+  다르거나 후보가 모호하면 절대 추측/0-fallback하지 않고 실패 처리한다. 그 다음
   `lib/kcsRateDateWeights.js weightedRateFromDatePoints(datePoints, rateByDate)`(순수 함수)가 카테고리
-  안의 날짜별 `(rate, weight)`를 `wd.TPrice`로 가중평균해 카테고리당 최종 환율 1개를 만든다 — 일부
-  날짜의 조회가 실패해도 그 날짜만 가중평균에서 빠지고 나머지로 계산한다(전체 무효화 아님).
+  안의 날짜별 `(rate, weight)`를 `wd.TPrice`로 가중평균해 카테고리당 최종 환율 1개를 만든다.
+  날짜 누락 또는 공식 환율 조회 실패가 하나라도 있으면 일부 날짜만으로 계산하지 않고 카테고리
+  전체를 `입력 필요`로 둔다.
   `KCS_TAXABLE_RATE_ENABLED`가 명시적으로 `'false'`가 아니면(미설정 포함) 기본 활성이며, API 키
   (`KCS_EXCHANGE_RATE_API_KEY`)가 없어도 조회를 시도한다(공개 조회 가능성).
 - **타임아웃/검증/캐시**: `AbortSignal.timeout(KCS_TAXABLE_RATE_TIMEOUT_MS)`(기본 8000ms)로 응답
@@ -283,12 +284,12 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 - 회귀: `__tests__/taxableExchangeRateKcs.test.js` — `resolveTaxableRate`의 kcsRate 우선순위(①~④가
   항상 kcsRate보다 우선, 특히 22~27차 historical이 이김), `isKcsRateEligibleWeek` 단일 게이트,
   `kcsRatesByCategory`가 범위 밖에서 DB·네트워크를 건드리지 않음. `__tests__/kcsRateDateWeights.test.js`
-  — `lib/kcsRateDateWeights.js`의 `mapCategoryDateRowsToWeights`(미분류/날짜없음/weight<=0 제외)·
-  `weightedRateFromDatePoints`(환율 자체의 TPrice 가중평균, 일부 날짜 실패해도 나머지로 계산, "날짜
+  — `lib/kcsRateDateWeights.js`의 `mapCategoryDateRowsToWeights`(미분류/weight<=0 제외, 날짜없음은
+  카테고리 실패 사유로 보존)·`weightedRateFromDatePoints`(환율 자체의 TPrice 가중평균, "날짜
   평균 후 1회 조회"와 다른 결과가 나옴을 증명하는 케이스 포함) 순수 함수.
   `__tests__/kcsRatesByCategoryWeighting.test.js` — `kcsRatesByCategory()` 전체 흐름을 fetch/날짜
-  가중치 mock으로 end-to-end 검증(2개 날짜 가중평균, 1개 날짜 실패 시 나머지로 계산, 카테고리 전체
-  실패 시 결과에서 제외, 같은 통화+날짜 fetch 중복 제거). `__tests__/profitReportAnalysisGetReadOnlyDdl.test.js`
+  가중치 mock으로 end-to-end 검증(2개 날짜 가중평균, 1개 날짜 실패 시 카테고리 전체 제외,
+  같은 통화+날짜 fetch 중복 제거). `__tests__/profitReportAnalysisGetReadOnlyDdl.test.js`
   — KCS/분석 관련 신규 lib·API 파일 전부에 쓰기·DDL 키워드 없음 + `profit-analysis.js` GET 전용 정적 검증.
   `lib/kcsTaxableRate.js`의 `weekFxrtIm` 파싱·타임아웃·HTTP 오류 구분·TTL 캐시는
   `__tests__/taxableExchangeRateKcs.test.js`가 fetch mock으로 검증(실네트워크 없음).

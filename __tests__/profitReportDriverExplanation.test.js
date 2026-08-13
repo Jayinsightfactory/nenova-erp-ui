@@ -1,4 +1,4 @@
-// lib/profitReportDriverExplanation.js 회귀 검증 — K(이익률) 변동을 열별(C/E/F/P/H/T/L) 델타로 설명.
+// lib/profitReportDriverExplanation.js 회귀 검증 — K(이익률) 변동을 매출이익 영향액으로 설명.
 // 전부 순수 함수(DB 없음) — DB 목킹 불필요.
 //
 // 실행: node __tests__/profitReportDriverExplanation.test.js
@@ -14,8 +14,8 @@ const check = (label, cond, detail = '') => {
 async function main() {
   const { DRIVER_COLUMNS, averageTotals, explainDrivers } = await import('../lib/profitReportDriverExplanation.js');
 
-  console.log('=== DRIVER_COLUMNS — 고정 순서 C/E/F/P/H/T/L ===');
-  check('DRIVER_COLUMNS = [C,E,F,P,H,T,L]', JSON.stringify(DRIVER_COLUMNS) === JSON.stringify(['C', 'E', 'F', 'P', 'H', 'T', 'L']));
+  console.log('=== DRIVER_COLUMNS — 고정 순서 C/E/F/P/H/T (L은 C에 포함되어 중복 제외) ===');
+  check('DRIVER_COLUMNS = [C,E,F,P,H,T]', JSON.stringify(DRIVER_COLUMNS) === JSON.stringify(['C', 'E', 'F', 'P', 'H', 'T']));
 
   console.log('\n=== averageTotals — 여러 주차 totals의 필드별 단순평균, null 주차/필드는 그 필드 평균에서만 제외 ===');
   {
@@ -56,7 +56,7 @@ async function main() {
     // columns 인자 생략 시 DRIVER_COLUMNS 전체를 기본으로 사용.
     const single = { C: 1, E: 2, F: 3, P: 4, H: 5, T: 6, L: 7 };
     const avg = averageTotals([single]);
-    check('columns 생략 시 DRIVER_COLUMNS 7개 전부 계산됨', DRIVER_COLUMNS.every((c) => avg[c] === single[c]));
+    check('columns 생략 시 DRIVER_COLUMNS 6개 전부 계산됨', DRIVER_COLUMNS.every((c) => avg[c] === single[c]));
   }
 
   console.log('\n=== explainDrivers — delta/pctDelta 산식, |delta| 내림차순 정렬 ===');
@@ -64,7 +64,7 @@ async function main() {
     const current = { C: 1000, E: 100, F: 90, P: 500, H: 20, T: 10, L: 5 };
     const priorAvg = { C: 900, E: 100, F: 100, P: 520, H: 20, T: 30, L: 5 };
     const list = explainDrivers(current, priorAvg);
-    check('7개 컬럼 전부 반환', list.length === 7);
+    check('6개 컬럼 전부 반환(L 중복 제외)', list.length === 6 && !list.some((d) => d.column === 'L'));
     const byCol = Object.fromEntries(list.map((d) => [d.column, d]));
     check('C delta = 100', byCol.C.delta === 100);
     check('C pctDelta = 100/900', Math.abs(byCol.C.pctDelta - 100 / 900) < 1e-9, `actual=${byCol.C.pctDelta}`);
@@ -72,6 +72,8 @@ async function main() {
     check('E pctDelta = 0/100 = 0', byCol.E.pctDelta === 0);
     check('F delta = -10', byCol.F.delta === -10);
     check('T delta = -20(가장 큰 절대값)', byCol.T.delta === -20);
+    check('비용 P 감소는 이익 증가 영향', byCol.P.delta === -20 && byCol.P.profitImpact === 20 && byCol.P.impactDirection === 'improved');
+    check('기말재고 F 감소는 이익 감소 영향', byCol.F.delta === -10 && byCol.F.profitImpact === -10 && byCol.F.impactDirection === 'worsened');
     // |delta| 내림차순: T(20) > C(100)? — 실제로 C=100이 가장 크다. 정렬 검증은 실제 절대값 기준으로.
     const deltasInOrder = list.map((d) => Math.abs(d.delta ?? 0));
     const sortedDesc = [...deltasInOrder].sort((a, b) => b - a);

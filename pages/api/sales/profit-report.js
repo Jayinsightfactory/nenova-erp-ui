@@ -1,6 +1,6 @@
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
-import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   CATEGORIES, EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
@@ -29,13 +29,14 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates, kcsRates] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, prevInvoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates, prevSavedRates, kcsRates, prevKcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
+        invoiceRatesByCategory(prevMajor, prevOrderYear), // E 자동계산은 전차수 자체의 과세환율만 사용
         loadManual(major, orderYear),
         loadManual(prevMajor, prevOrderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값(2순위)
         stockSnapshotByCategory(major, orderYear),      // F 재료: 이번 차수말 재고수량·최근원가·단가표평가
@@ -49,7 +50,9 @@ export async function loadReportData(major, orderYear) {
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         getActiveConfirm(prevOrderYear, prevMajor),         // E 이월 1순위: 전차수 활성 확정 스냅샷 F(REPORT_CONFIRM_SNAPSHOT)
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
-        kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후만): 관세청 공식 과세환율(KCS) 신고일자·TPrice 가중평균
+        loadTaxableRates(prevOrderYear, prevMajor),         // E 자동계산용: 전차수 저장/캐시 과세환율
+        kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
+        kcsRatesByCategory(prevMajor, prevOrderYear),        // E 자동계산용: 전차수 공식 과세환율
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
@@ -73,8 +76,8 @@ export async function loadReportData(major, orderYear) {
         //   1) 당주 입고 통관 스냅샷 FreightCost.ExchangeRate
         //   2) 이 주차에 저장/캐시된 과세환율(WebTaxableExchangeRate — 카테고리 지정 > 통화 기본)
         //   3) 2026 22~27차 원본 엑셀 본표 R열(historical snapshot) — 그 범위 밖은 항상 null
-        //   4) (2026 28차 이후만) 관세청 공식 과세환율 API(KCS) — 입고 신고일자별(InputDate→ArrivalDtm→
-        //      UploadDtm) 환율을 wd.TPrice로 가중평균(lib/kcsRateDateWeights.js)
+        //   4) (2026 28차 이후 및 그 다음 연도) 관세청 공식 과세환율 API(KCS) — 사용자가 입고에
+        //      명시한 InputDate별 환율을 wd.TPrice로 가중평균(lib/kcsRateDateWeights.js)
         // 현재 CurrencyMaster 환율과 전차수 R은 **자동 적용하지 않고** 제안(rateSuggestions)으로만
         // 내려보낸다. 과거 차수에 오늘 환율을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다.
         const resolvedRate = resolveTaxableRate({
@@ -91,6 +94,19 @@ export async function loadReportData(major, orderYear) {
         });
         const autoR = resolvedRate.rate;
         const autoRSource = resolvedRate.source;
+        const prevResolvedRate = resolveTaxableRate({
+          snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
+          savedByCategory: prevSavedRates.byCategory?.[key] || null,
+          savedByCurrency: curCode ? prevSavedRates.byCurrency?.[curCode] || null : null,
+          historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
+          currency: curCode,
+          currencyMasterRate: null,
+          previousWeekRate: null,
+          previousWeekLabel: null,
+          kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
+          kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
+        });
+        const prevAutoR = prevResolvedRate.rate;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         const prevAutoH = prevCustoms.H[key] ?? 0;
@@ -140,7 +156,7 @@ export async function loadReportData(major, orderYear) {
           Q: Number(prevQ[key] || 0),
           S: prevMan.S ?? prevAutoS,
           H: prevMan.H ?? prevAutoH,
-          R: prevMan.R ?? autoR,
+          R: prevMan.R ?? prevAutoR,
         };
         const autoE = computeAutoEndingStock(beginStock, beginInputs);
         const stockESourceKind = endingStockSourceKind(beginStock, beginInputs);
@@ -374,7 +390,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'POST') {
       const major = parseMajor(req.body?.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
+      const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
       if (req.body?.action === 'stockPrices') {
         await saveStockPrices(req.body?.prices || {}, actor);
