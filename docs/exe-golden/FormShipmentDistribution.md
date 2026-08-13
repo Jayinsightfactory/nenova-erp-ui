@@ -53,6 +53,62 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 - 이 확인은 로컬 decompile 원문과 저장된 SP/View 근거의 읽기 전용 대조이며 운영 쓰기는
   수행하지 않았다.
 
+## 잔량분배 게시판 예상물량(주문등록량) 원천 근거 (2026-08-11)
+
+```powershell
+$cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe'
+& $cli --no-color -t FormShipmentDistribution 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+& $cli --no-color -t ClassOrderDetail 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+- `FormShipmentDistribution.GetCustomerList()`는 업체별 주문수량을
+  `SELECT CustKey, SUM(OutQuantity) oOutQuantity ... FROM ViewOrder
+   WHERE OrderYear=@year AND OrderWeek=@week AND CountryFlower=@cf
+   GROUP BY OrderYear, OrderWeek, CustKey` 로 만든다. 즉 주문등록량의 단위 원천은
+  `ViewOrder.OutQuantity` 단일값이며 Box/Bunch/Steam 합산이 아니다.
+- `grdViewShipment_FocusedRowChanged()`의 품목 grid 는
+  `vo.OutQuantity oOutQuantity`(주문)와 `ISNULL(vs.OutQuantity,0) sOutQuantity`(분배)를
+  `vo.OrderYear = vs.OrderYear AND vo.OrderWeek = vs.OrderWeek AND vo.ProdKey = vs.ProdKey
+   AND vo.CustKey = vs.CustKey` 네 키로 LEFT JOIN 한다.
+- `ClassOrderDetail`의 INSERT/UPDATE 는 `BoxQuantity/BunchQuantity/SteamQuantity` 와 함께
+  `OutQuantity`, `NoneOutQuantity` 를 실제 컬럼으로 기록한다. 따라서
+  `OrderDetail.OutQuantity` 가 존재하며 `ShipmentDetail.OutQuantity` 와 같은 `OutUnit` 기준
+  단일값이다.
+- `ViewOrder` 정의(`docs/WEB_VS_ERP_CONFLICTS.md`)는 `om.isDeleted=0`, `od.isDeleted=0`,
+  `Customer.isDeleted=0`, `Product.isDeleted=0` 을 포함한다. 웹 잔량분배 게시판의
+  예상물량 조회는 `om.isDeleted=0`, `od.isDeleted=0`, `Product.isDeleted=0` 과
+  `OrderYear + 대차수 prefix + CustKey + ProdKey` 를 동일하게 사용하고, `OutQuantity` 가
+  NULL 인 레거시 행에서만 `OutUnit` CASE 로 대체한다. 거래처 활성 여부는 조회 때마다
+  다시 조인하지 않고 업체그룹 저장 시 `Customer.isDeleted=0` 으로 검증한다. 현재분배
+  조회도 같은 원칙으로 `sm.isDeleted=0` 과 양수 `sd.OutQuantity` 만 사용한다.
+- 다만 `ViewOrder` 의 `UserInfo`/`Country` INNER JOIN(주문 담당자·국가 마스터 누락 시 EXE
+  화면에서 주문이 사라지는 알려진 함정)은 이 게시판의 업무 범위가 아니라 별도 진단
+  기능(`/api/shipment/item-trace` 의 ViewOrder 적격성)의 대상이므로 재현하지 않는다.
+  게시판은 실제 등록된 주문을 숨기지 않고 그대로 예상물량으로 보여준다.
+- 이 확인은 로컬 decompile 원문과 저장된 View 정의의 읽기 전용 대조이며 운영 주문·출고
+  쓰기는 수행하지 않았다. 게시판의 '업체 최종분배'는 EXE 의 `isFix`/확정 상태와 무관한
+  웹 전용 업무 수량이며 ERP 원장에 기록하지 않는다.
+
+## 잔량분배 게시판 업체 식별 근거 — CustKey (2026-08-11)
+
+```powershell
+$cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe'
+& $cli --no-color -t FormShipmentDistribution 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+- `FormShipmentDistribution.GetCustomerList()` 는 업체를 `ViewOrder ... GROUP BY OrderYear,
+  OrderWeek, CustKey` 로 묶고, `grdViewShipment_FocusedRowChanged()` 의 주문↔분배 LEFT JOIN 도
+  `vo.CustKey = vs.CustKey` 를 키로 쓴다. EXE 어디에서도 거래처를 `CustName` 문자열로 매칭하지
+  않는다. 따라서 웹 게시판도 `WebShillaMiuBoardGroup.BaseCustKey/ReceiverCustKey` 만으로
+  ERP 를 읽고, 이름 `LIKE` 매칭으로 되돌리지 않는다.
+- `Customer` 마스터에는 이름이 비슷하지만 원장 실적이 전혀 없는 껍데기 코드가 존재한다
+  (읽기 전용 확인: `신라상사`/`신라상사2` 는 `OrderMaster`·`ShipmentMaster` 생애 0건,
+  실제 신라 거래처는 `신라호텔` `OrderCode='CLS'`, `Descr='신라/중-화/네-화/CLS'`).
+  그룹 자동 seed 는 이름이 유일한 것만으로 부족하고 `OrderMaster` 실적 존재까지 확인한다.
+- 이 확인은 로컬 decompile 원문과 운영 DB 의 읽기 전용 `SELECT` 대조이며, 주문·출고·재고·
+  견적 원장에 대한 쓰기는 수행하지 않았다. 복구 대상은 웹 전용
+  `WebShillaMiuBoardGroup` 한 테이블뿐이다.
+
 ## 붙여넣기 명시 단위 환산 근거 (2026-08-10)
 
 - `FormOrderAdd.GetDataProduct()`는 `OutUnit`, `OrderBox/OrderBunch/OrderSteam`,

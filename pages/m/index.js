@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import MobileShell from '../../components/m/MobileShell';
+import { MENU_ITEMS } from '../../components/Layout';
 
 // 모바일 전용 (간편) 화면 — 모바일 최적화 페이지
 const MOBILE_ONLY = [
@@ -16,91 +17,21 @@ const MOBILE_ONLY = [
   { icon: '💬', label: '챗봇 (Text-to-SQL)', href: '/m/chat' },
 ];
 
-// 데스크톱 전체 메뉴 — components/Layout.js MENU_ITEMS 와 동기화
-const DESKTOP_MENU = [
-  {
-    group: '연동',
-    items: [
-      { href: '/integrations/moyi', label: 'MOYI 보고 연동' },
-      { href: '/integrations/moyi-drive', label: 'MOYI Drive 관리', userIds: ['nenovaSS3'] },
-    ],
-  },
-  {
-    group: '주문관리',
-    items: [
-      { href: '/orders/new',   label: '주문등록' },
-      { href: '/orders/paste', label: '붙여넣기 주문등록' },
-      { href: '/orders/import', label: '업로드 주문등록' },
-      { href: '/orders/kakao-audit', label: '카톡 변경 검증' },
-      { href: '/orders',       label: '주문관리' },
-      { href: '/warehouse',    label: '발주관리' },
-    ],
-  },
-  {
-    group: '입/출고관리',
-    items: [
-      { href: '/incoming',              label: '입고관리' },
-      { href: '/incoming/kakao-summary', label: '수입방 카톡 수량집계' },
-      { href: '/incoming-price',        label: '입고단가/송금' },
-      { href: '/freight',               label: '운송기준원가' },
-      { href: '/shipment/distribute',   label: '출고분배' },
-      { href: '/shipment/fix-status',   label: '차수 확정 현황' },
-      { href: '/shipment/week-pivot',   label: '차수피벗 (전체화면)' },
-      { href: '/shipment/stock-status', label: '출고/재고상황' },
-      { href: '/shipment/view',         label: '출고조회' },
-      { href: '/shipment/history',      label: '출고내역조회' },
-      { href: '/estimate',              label: '견적서 관리' },
-    ],
-  },
-  {
-    group: '구매관리',
-    items: [
-      { href: '/purchase/status', label: '구매현황 (외화/수입)' },
-    ],
-  },
-  {
-    group: '채권관리',
-    items: [
-      { href: '/sales/status',       label: '판매현황' },
-      { href: '/sales/ar',           label: '거래처별 채권' },
-      { href: '/sales/tax-invoice',  label: '세금계산서 진행단계' },
-      { href: '/ecount/dashboard',   label: '이카운트 연동' },
-    ],
-  },
-  {
-    group: '재무관리',
-    items: [
-      { href: '/finance/bank',     label: '입/출금 계좌 조회' },
-      { href: '/finance/exchange', label: '외화/환율 관리' },
-    ],
-  },
-  {
-    group: '통계화면',
-    items: [
-      { href: '/stock',          label: '재고 관리' },
-      { href: '/stats/monthly',  label: '월별 판매 현황' },
-      { href: '/stats/pivot',    label: 'Pivot 통계' },
-      { href: '/stats/area',     label: '지역별 판매 비교' },
-      { href: '/stats/analysis', label: '매출/물량 분석' },
-      { href: '/stats/manager',  label: '영업 사원 실적' },
-    ],
-  },
-  {
-    group: '코드관리',
-    items: [
-      { href: '/master/customers',         label: '거래처관리' },
-      { href: '/master/products',          label: '품목관리' },
-      { href: '/master/pricing',           label: '업체별 품목 단가관리' },
-      { href: '/master/codes',             label: '코드관리' },
-      { href: '/admin/users',              label: '사용자관리' },
-      { href: '/master/activity',          label: '작업내역' },
-      { href: '/admin/category-overrides', label: '🏷 세부카테고리' },
-      { href: '/dev/action-log',           label: '🔍 액션 로그' },
-      { href: '/dev/project-plan',          label: '작업/기획 현황' },
-      { href: '/m/admin/status',           label: '📊 진단/헬스체크' },
-    ],
-  },
-];
+// 데스크톱/모바일 메뉴의 공통 원본. 새 메뉴는 components/Layout.js 한 곳에만 등록한다.
+// 기존 모바일 공개 범위는 유지하되 href/label/권한 정의는 복제하지 않는다.
+const MOBILE_DESKTOP_HREFS = new Set([
+  '/integrations/moyi', '/integrations/moyi-drive',
+  '/orders/new', '/orders/paste', '/orders/import', '/orders/kakao-audit', '/orders', '/warehouse',
+  '/incoming', '/incoming/kakao-summary', '/incoming-price', '/freight', '/shipment/distribute',
+  '/shipment/fix-status', '/shipment/week-pivot', '/shipment/stock-status', '/shipment/view', '/shipment/history', '/estimate',
+  '/purchase/status', '/sales/status', '/sales/ar', '/sales/tax-invoice', '/ecount/dashboard',
+  '/finance/bank', '/finance/exchange', '/stock', '/stats/monthly', '/stats/pivot', '/stats/area', '/stats/analysis', '/stats/manager',
+  '/master/customers', '/master/products', '/master/pricing', '/master/codes', '/admin/users', '/master/activity',
+  '/admin/category-overrides', '/dev/action-log', '/dev/project-plan',
+]);
+const DESKTOP_MENU = MENU_ITEMS
+  .map((group) => ({ ...group, items: group.items.filter((item) => MOBILE_DESKTOP_HREFS.has(item.href)) }))
+  .filter((group) => group.items.length > 0);
 
 export default function MobileHome() {
   const router = useRouter();
@@ -152,7 +83,7 @@ export default function MobileHome() {
 
         {/* 데스크톱 전체 메뉴 — 그룹별 */}
         {DESKTOP_MENU.map(grp => {
-          const filtered = grp.items.filter(it => (!it.userIds || it.userIds.includes(me.userId)) && matches(it.label));
+          const filtered = grp.items.filter(it => (!it.userIds || it.userIds.includes(me.userId)) && matches(it.labelKey));
           if (filtered.length === 0) return null;
           return (
             <section key={grp.group} className="mh-section">
@@ -160,7 +91,7 @@ export default function MobileHome() {
               <div className="mh-list">
                 {filtered.map(it => (
                   <button key={it.href} className="mh-row" onClick={() => router.push(it.href)}>
-                    <span className="mh-label">{it.label}</span>
+                    <span className="mh-label">{it.labelKey}</span>
                     <span className="mh-arrow">›</span>
                   </button>
                 ))}
@@ -171,7 +102,7 @@ export default function MobileHome() {
 
         <div className="mh-foot">
           {q ? (
-            DESKTOP_MENU.every(g => g.items.filter(i => !i.userIds || i.userIds.includes(me.userId)).every(i => !matches(i.label))) &&
+            DESKTOP_MENU.every(g => g.items.filter(i => !i.userIds || i.userIds.includes(me.userId)).every(i => !matches(i.labelKey))) &&
             MOBILE_ONLY.every(m => !matches(m.label)) &&
             <div style={{ textAlign:'center', color:'#999', padding:24 }}>검색 결과 없음</div>
           ) : (

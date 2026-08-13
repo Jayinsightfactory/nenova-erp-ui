@@ -163,7 +163,7 @@ async function getStock(req, res) {
     const listParams = { ...params, week: { type: sql.NVarChar, value: week || '' }, orderYear: { type: sql.NVarChar, value: selected?.orderYear || '' } };
     const result = await query(
       `SELECT
-        p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.OutUnit,
+        p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower, p.OutUnit,
         ISNULL(sm2.StockKey, 0) AS StockKey,
         ISNULL(ps.Stock, 0) AS prevStock,
         ISNULL(

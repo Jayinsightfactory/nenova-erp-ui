@@ -1,7 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../../components/Layout';
+import Button from '../../components/moyiDrive/Button';
+import StatusPanel from '../../components/moyiDrive/StatusPanel';
+import Tabs from '../../components/moyiDrive/Tabs';
+import Toolbar from '../../components/moyiDrive/Toolbar';
+import FileRow from '../../components/moyiDrive/FileRow';
+import {
+  TAB_DEFS,
+  DISABLED_REASON,
+  classifyDriveResponse,
+  connectionStatusPanel,
+  hardErrorStatusPanel,
+  loadingStatusPanel,
+  tabStatusPanel,
+  topStatusPanel,
+  fileTabStatus,
+  filterFiles,
+  mapFileRowView,
+} from '../../lib/moyiDriveViewModel';
 
-const TABS = ['파일', '버전', '권한', '다운로드 기록', '사용자 연결', '자동 업무'];
 const FILE_VIEWS = [
   { id: 'all', label: '전체 파일' },
   { id: 'moyi', label: 'MOYI 앱에서 올림' },
@@ -11,65 +27,178 @@ const FILE_VIEWS = [
 ];
 
 export default function MoyiDriveAdminPage() {
-  const [tab, setTab] = useState('파일');
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const [tabKey, setTabKey] = useState(TAB_DEFS[0].key);
+  const [classification, setClassification] = useState(null); // null = 최초 로딩 중
   const [query, setQuery] = useState('');
   const [fileView, setFileView] = useState('all');
+  const [selectedFileId, setSelectedFileId] = useState(null);
+  const [preparing, setPreparing] = useState(false);
   useEffect(() => {
-    fetch('/api/moyi/drive-admin').then(async (res) => {
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok && !body.connectionReason) throw new Error(body.error || 'Drive 화면을 불러오지 못했습니다.');
-      setData(body);
-    }).catch((e) => setError(e.message));
+    let active = true;
+    fetch('/api/moyi/drive-admin')
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (active) setClassification(classifyDriveResponse({ status: res.status, body }));
+      })
+      .catch(() => { if (active) setClassification(classifyDriveResponse({ networkError: true })); });
+    return () => { active = false; };
   }, []);
-  const files = useMemo(() => (data?.files || []).filter((file) => {
-    if (!file.name.toLowerCase().includes(query.toLowerCase())) return false;
+  const files = classification?.body?.files || [];
+  const filteredFiles = useMemo(() => filterFiles(files, query).filter((file) => {
     if (fileView === 'moyi') return file.source === 'MOYI 앱';
     if (fileView === 'naverworks') return file.source === '네이버웍스 Drive';
     if (fileView === 'needs-review') return !file.contentReady || file.sourceDeleted;
     if (fileView === 'ready') return file.contentReady && !file.sourceDeleted;
     return true;
-  }), [data, query, fileView]);
+  }), [files, query, fileView]);
 
-  if (error) return <Layout title="MOYI Drive 관리"><div className="banner-err" role="alert">{error}</div></Layout>;
-  if (!data) return <Layout title="MOYI Drive 관리"><div className="empty-state">Drive 화면을 불러오는 중입니다.</div></Layout>;
+  if (!classification) {
+    return <StatusPanel panel={loadingStatusPanel()} />;
+  }
 
-  return <Layout title="MOYI Drive 관리">
-    <div className={data.connectionReady?'banner-ok':'banner-warn'} role="status"><b>{data.connectionReady?'실제 원장 연결:':'연결 대기:'}</b> {data.connectionReason} {!data.connectionReady && '실제 파일·권한·계정은 변경되지 않습니다.'}</div>
-    <div className="filter-bar" aria-label="Drive 도구">
-      <label className="filter-label" htmlFor="company">회사</label>
-      <select id="company" className="filter-select" value={data.company.id || ''} disabled><option value={data.company.id || ''}>{data.company.name}</option></select>
-      <input className="filter-input" style={{minWidth:240}} value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="파일 이름 검색" aria-label="파일 이름 검색" />
-      <button className="btn btn-primary" disabled title="MOYI 파일 업로드 연결 대기">파일 올리기</button>
-      <button className="btn" disabled title="MOYI 분류 저장 연결 대기">분류 확인</button>
-    </div>
-    <div className="tabs" role="tablist" aria-label="Drive 관리 항목">{TABS.map((name)=><button key={name} role="tab" aria-selected={tab===name} className={`tab-item ${tab===name?'active':''}`} onClick={()=>setTab(name)}>{name}</button>)}</div>
-    <div className="drive-workspace">
-      {tab==='파일' && <nav className="drive-views" aria-label="파일 빠른 보기">
+  const hardError = hardErrorStatusPanel(classification);
+  if (hardError) {
+    return <StatusPanel panel={hardError} />;
+  }
+
+  const data = classification.body;
+  const connected = classification.kind === 'connected';
+  const canBootstrap = classification?.body?.code === 'MOYI_DRIVE_BOOTSTRAP_REQUIRED';
+  const activeTab = TAB_DEFS.find((t) => t.key === tabKey) || TAB_DEFS[0];
+
+  return (
+    <div className="moyi-drive-page">
+      <StatusPanel panel={topStatusPanel(classification)} />
+      {canBootstrap && (
+        <div className="moyi-bootstrap-action">
+          <Button variant="primary" disabled={preparing} reason={preparing ? '회사 전용 폴더를 준비하고 있습니다.' : undefined} onClick={async () => {
+            setPreparing(true);
+            try {
+              const res = await fetch('/api/moyi/drive-admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bootstrap' }) });
+              const body = await res.json().catch(() => null);
+              if (!res.ok) setClassification(classifyDriveResponse({ status: res.status, body }));
+              else window.location.reload();
+            } finally { setPreparing(false); }
+          }}>{preparing ? '연결 준비 중…' : '회사 Drive 연결 준비'}</Button>
+        </div>
+      )}
+
+      <Toolbar
+        company={data.company}
+        rootFolder={data.rootFolder}
+        query={query}
+        onQueryChange={setQuery}
+        disabledReasons={DISABLED_REASON}
+        connected={connected}
+      />
+
+      <Tabs tabs={TAB_DEFS} activeKey={tabKey} onSelect={setTabKey} />
+
+      {tabKey === 'files' && <nav className="moyi-drive-views" aria-label="파일 빠른 보기">
         <b>빠른 보기</b>
         {FILE_VIEWS.map((view) => <button key={view.id} className={fileView===view.id?'active':''} aria-current={fileView===view.id?'page':undefined} onClick={()=>setFileView(view.id)}>{view.label}</button>)}
-        <div className="drive-help"><b>정리 원칙</b><span>폴더는 팀·업무 중심으로 적게 만들고, 연도·차수·거래처·문서 종류는 분류 정보로 찾습니다.</span></div>
+        <span className="moyi-drive-organize-help">폴더는 팀·업무 중심으로 적게 만들고, 연도·차수·거래처·문서 종류는 분류 정보로 찾습니다.</span>
       </nav>}
-      <div className="card drive-content" style={{marginTop:4}}>
-      <div className="card-header"><span className="card-title">{tab}</span><span className={`badge ${data.connectionReady?'badge-green':'badge-amber'}`} style={{marginLeft:'auto'}}>{data.connectionReady?'실제 원장 조회':'연결 대기'}</span></div>
-      <div className="card-body">
-        {tab==='파일' && (files.length ? <div className="table-wrap"><table className="tbl"><thead><tr><th>이름</th><th>들어온 곳</th><th>상태</th><th>내용</th></tr></thead><tbody>{files.map(f=><tr key={f.id}><td>{f.name}</td><td>{f.source}</td><td><span className={`badge ${f.sourceDeleted?'badge-red':f.contentReady?'badge-green':'badge-amber'}`}>{f.state}</span></td><td>{f.contentReady?'원본 등록됨':'백업 내용 대기'}</td></tr>)}</tbody></table></div> : <Empty text={data.connectionReady?'이 폴더에 표시할 실제 파일이 없습니다.':data.connectionReason}/>) }
-        {tab==='버전' && <Empty text={data.pending.versions}/>}
-        {tab==='권한' && <Empty text={data.pending.permissions}/>}
-        {tab==='다운로드 기록' && <Empty text={data.pending.downloads}/>}
-        {tab==='사용자 연결' && <Empty text={data.pending.identities}/>}
-        {tab==='자동 업무' && <SyncPending pending={data.pending}/>}
-      </div>
-      </div>
-    </div>
-    <div style={{display:'flex',gap:6,justifyContent:'flex-end',flexWrap:'wrap'}}>
-      {tab==='자동 업무' && <><button className="btn" disabled>미리보기</button><button className="btn btn-danger" disabled>전산 변경 별도 승인</button></>}
-      {(tab==='권한'||tab==='사용자 연결') && <button className="btn btn-primary" disabled title="MOYI Core 권한 저장 연결 대기">변경 저장</button>}
-    </div>
-    <style jsx>{`.drive-workspace{display:flex;gap:8px;align-items:flex-start}.drive-views{width:180px;flex:0 0 180px;border:1px solid #c7c7c7;background:#f7f7f7;padding:8px;display:flex;flex-direction:column;gap:3px}.drive-views>b{padding:4px 6px}.drive-views button{border:0;background:transparent;text-align:left;padding:7px 8px;cursor:pointer;color:#222}.drive-views button:hover,.drive-views button.active{background:#c5d9f1;border-left:3px solid #0066cc;padding-left:5px;font-weight:bold}.drive-help{margin-top:8px;padding:8px;background:#fff;border-top:1px solid #ddd;display:flex;flex-direction:column;gap:4px;line-height:1.45}.drive-help span{color:#555}.drive-content{flex:1;min-width:0}@media(max-width:767px){.filter-bar{align-items:stretch}.filter-bar :global(input),.filter-bar :global(select),.filter-bar :global(button){min-height:44px;width:100%}.tabs{overflow-x:auto}.tab-item{min-height:44px;white-space:nowrap}.card-body{padding:6px}.drive-workspace{display:block}.drive-views{width:auto;display:flex;flex-direction:row;overflow-x:auto;gap:4px;margin-top:4px}.drive-views>b,.drive-help{display:none}.drive-views button{min-height:44px;white-space:nowrap;border:1px solid #ddd}.drive-views button:hover,.drive-views button.active{border-left:1px solid #ddd;border-bottom:3px solid #0066cc;padding-left:8px}}`}</style>
-  </Layout>;
-}
 
-function Empty({text}) { return <div className="empty-state" role="status">{text}</div>; }
-function SyncPending({pending}) { return <div><div className="banner-warn"><b>네이버웍스 연결 대기:</b> {pending.naverworks}</div><Empty text={pending.automations}/></div>; }
+      <div className="card moyi-tab-card" role="tabpanel" id={`moyi-panel-${tabKey}`} aria-labelledby={`moyi-tab-${tabKey}`}>
+        <div className="card-header">
+          <span className="card-title">{activeTab.label}</span>
+        </div>
+        <div className="card-body">
+          {tabKey === 'files' && (() => {
+            const panel = fileTabStatus(classification, query);
+            if (panel) return <StatusPanel panel={panel} />;
+            return (
+              <div className="table-wrap moyi-file-table-wrap">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>폴더</th>
+                      <th>파일명</th>
+                      <th>출처</th>
+                      <th>크기</th>
+                      <th>변경시각</th>
+                      <th>상태</th>
+                      <th>권한</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFiles.map((file) => {
+                      const row = mapFileRowView(file);
+                      return (
+                        <FileRow
+                          key={row.id}
+                          row={row}
+                          selected={selectedFileId === row.id}
+                          onSelect={() => setSelectedFileId(row.id)}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="moyi-scroll-hint">옆으로 밀어 더 보기</div>
+              </div>
+            );
+          })()}
+
+          {tabKey === 'automations' && (
+            <>
+              <StatusPanel panel={connected ? tabStatusPanel('automations', data) : connectionStatusPanel(data)} />
+              <div className="moyi-erp-approval-box">
+                <div className="moyi-erp-approval-title">전산 자료 변경 · 추가 승인 필요</div>
+                <div className="moyi-erp-approval-actions">
+                  <Button disabled reason={DISABLED_REASON.automationPreview}>미리보기</Button>
+                  <Button variant="danger" disabled reason={DISABLED_REASON.erpApproval}>전산 변경 별도 승인</Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {tabKey !== 'files' && tabKey !== 'automations' && (
+            <StatusPanel panel={connected ? tabStatusPanel(tabKey, data) : connectionStatusPanel(data)} />
+          )}
+        </div>
+      </div>
+
+      {(tabKey === 'permissions' || tabKey === 'identities') && (
+        <div className="moyi-page-actions">
+          <Button variant="primary" disabled reason={DISABLED_REASON.saveChanges}>변경 저장</Button>
+        </div>
+      )}
+
+      <style jsx>{`
+        .moyi-tab-card { margin-top: 4px; }
+        .moyi-drive-views { display: flex; align-items: center; gap: 3px; margin-top: 4px; padding: 5px; border: 1px solid var(--border); background: var(--surface2); overflow-x: auto; }
+        .moyi-drive-views > b { white-space: nowrap; padding: 0 5px; }
+        .moyi-drive-views button { border: 0; background: transparent; padding: 7px 8px; white-space: nowrap; cursor: pointer; }
+        .moyi-drive-views button:hover, .moyi-drive-views button.active { background: #c5d9f1; box-shadow: inset 0 -3px #0066cc; font-weight: bold; }
+        .moyi-drive-organize-help { margin-left: auto; color: var(--text3); white-space: nowrap; padding: 0 5px; }
+        .moyi-bootstrap-action { display: flex; justify-content: flex-end; margin: 4px 0; }
+        .moyi-file-table-wrap { max-height: calc(100vh - 260px); }
+        .moyi-scroll-hint { display: none; }
+        .moyi-erp-approval-box {
+          border: 2px solid var(--red); border-radius: 2px; padding: 8px; margin-top: 6px;
+        }
+        .moyi-erp-approval-title { color: var(--red); font-weight: bold; font-size: 12px; margin-bottom: 6px; }
+        .moyi-erp-approval-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .moyi-page-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
+
+        @media (max-width: 768px) {
+          .moyi-drive-views { min-height: 44px; }
+          .moyi-drive-views button { min-height: 44px; }
+          .moyi-drive-organize-help, .moyi-drive-views > b { display: none; }
+          .card-body { padding: 6px; }
+          .moyi-erp-approval-actions :global(button) { min-height: 44px; flex: 1 1 auto; }
+          .moyi-page-actions :global(button) { min-height: 44px; width: 100%; }
+          .moyi-file-table-wrap .moyi-scroll-hint {
+            display: block; font-size: 10px; color: var(--text3); padding: 4px 2px 0;
+          }
+          .moyi-file-table-wrap :global(th:nth-child(2)),
+          .moyi-file-table-wrap :global(td:nth-child(2)) {
+            position: sticky; left: 0; background: var(--surface); z-index: 1;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

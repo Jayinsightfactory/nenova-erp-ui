@@ -6,19 +6,40 @@
     "pages/sales/customs-clearance.js",
     "pages/sales/forwarding-clearance.js",
     "pages/api/sales/profit-report.js",
+    "pages/api/sales/profit-report-confirm.js",
     "pages/api/moyi/report-push.js",
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
+    "pages/api/sales/profit-analysis.js",
     "lib/profitReport.js",
+    "lib/profitReportConfirm.js",
     "lib/profitReportClassification.js",
+    "lib/countryClassification.js",
     "lib/profitReportNotes.js",
     "lib/profitReportAudit.js",
     "lib/customsForwarding.js",
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
+    "lib/colombiaFlowerClassification.js",
+    "lib/profitReportHistoricalCustoms.js",
+    "lib/taxableExchangeRate.js",
+    "lib/kcsTaxableRate.js",
+    "lib/profitReportDeclarationDate.js",
+    "lib/kcsRateDateWeights.js",
+    "lib/customsForwardingCalc.js",
     "lib/profitReportCalc.js",
     "lib/profitReportMonthly.js",
+    "lib/profitReportSourceGuide.js",
+    "lib/profitReportCustomerMixSql.js",
+    "lib/profitReportRateAnalysis.js",
+    "lib/profitReportPriceMixCandidates.js",
+    "lib/profitReportDriverExplanation.js",
+    "components/ProfitReportSourceGuide.js",
     "docs/migrations/2026-08-10_web_profit_report_schema.sql",
+    "docs/migrations/2026-08-11_web_profit_report_confirm.sql",
+    "docs/migrations/2026-08-12_web_profit_report_historical_seed.sql",
+    "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
+    "scripts/extract-profit-report-workbooks.mjs",
     "components/CustomsClearancePanel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -41,7 +62,20 @@
     {
       "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
       "orderDetail": "preserve",
-      "shipmentDetail": "preserve"
+      "shipmentDetail": "preserve",
+      "sideEffect": "REPORT_READ: SELECT only from WarehouseMaster/Detail, Product, FreightCost, WebCustomsRateConfig, WebCustomsWeekly, WebColombiaWeekly, WebForwardingWeekly — no writes. COUNTRY_INPUT_SAVE(this action): writes WebCustomsWeekly + WebCustomsHistory only, one MERGE transaction per changed category. 저장 시 그 시점의 유효 백상 창고료 요율(2026 22~27차는 lib/profitReportHistoricalCustoms.js 원본 엑셀 historical snapshot 요율, 그 외는 WebCustomsRateConfig 현재값)을 WebCustomsWeekly.BakSangRateApplied에 스냅샷해, 이후 전역 요율이 바뀌어도 이미 저장된 행의 계산은 저장 당시 요율을 그대로 유지한다. 다른 실제 입력 필드가 전혀 없는 저장 요청은 요율 스냅샷만으로 빈 행을 만들지 않는다(historical snapshot 폴백을 실수로 덮어쓰지 않기 위함)."
+    },
+    {
+      "name": "COLOMBIA_INPUT_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "콜롬비아 4품목(장미/카네이션/알스트로/루스커스) 반차수 공유값 저장 — WebColombiaWeekly + WebCustomsHistory만 쓴다. BakSangRateApplied 스냅샷 정책은 CUSTOMS_COUNTRY_BATCH_SAVE와 동일하다."
+    },
+    {
+      "name": "RATE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "단가표(백상/트럭/검역대행/콜롬비아 박스당무게·CBM) 저장 — WebCustomsRateConfig + WebCustomsHistory만 쓴다. 2026 22~27차의 계산에는 이 전역 요율 대신 lib/profitReportHistoricalCustoms.js의 원본 엑셀 historical snapshot 백상 창고료 요율(국가 시트 22~27차 전부 460, 콜롬비아 4품목 시트만 22차 370)이 scope별로 우선 적용되며(교차연도 오염 없음), 이미 BakSangRateApplied가 스냅샷된 행도 이 전역 저장으로 재계산되지 않는다."
     },
     {
       "name": "REPORT_NOTE_SAVE",
@@ -49,30 +83,109 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "TAXABLE_RATE_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "과세환율(관세청 신고환율, R) 저장 — WebTaxableExchangeRate + WebTaxableExchangeRateHistory만 쓴다(lib/taxableExchangeRate.js saveTaxableRate). 키는 정확한 OrderYear+MajorWeek+Currency+Category다. 이 액션은 담당자가 입력하거나 화면 참고 제안(전차수·통화마스터)을 명시적으로 적용·저장할 때만 호출되며, 자동 상속·자동 조회로는 절대 호출되지 않는다. CurrencyMaster·ShipmentDetail 등 ERP 원장은 건드리지 않는다."
+    },
+    {
       "name": "MOYI_REPORT_PUSH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_SOURCE_GUIDE_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only; 항목별 데이터 기준 설명 패널은 정적 상수만 렌더링하며 DB 조회·저장·다운로드를 수행하지 않는다. 기본 접힘 상태이고 접힘 여부를 저장하지 않는다"
     },
     {
       "name": "REPORT_MONTHLY_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "read-only; PeriodDay determines week span, a boundary week is assigned once to its EndDate month, and existing weekly profit rows are aggregated without monthly inventory recalculation"
+    },
+    {
+      "name": "REPORT_ANALYSIS_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only; GET /api/sales/profit-analysis is a separate request from the main report GET so a slow/failed analysis never blocks the report table. Snapshot-first per week (active REPORT_CONFIRM_SNAPSHOT revision if present, else live loadReportData+computeProfitTotals) strictly scoped to the same OrderYear (no cross-year averaging, no wraparound near year boundary weeks). Customer/price-mix candidate detection reads only ShipmentMaster/ShipmentDetail/Customer with the same confirmed-shipment filter as lib/profitReport.js#salesByCategory (sm.isFix=1, not lib/pivotStats.js's sd.isFix=1), bounded to a fixed top-N product scope by current-week amount (lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js MAX_PRODUCTS), never customer-name literals in detection logic, never causal language, always the fixed candidate note '특가·재고소진 여부 확인', and marks the whole response provisional when any involved week has an audit issue, missing R rate, or stock-snapshot gap. Writes nothing — no INSERT/UPDATE/DELETE/MERGE/DDL anywhere in this action's code path (lib/profitReportRateAnalysis.js, lib/profitReportPriceMixCandidates.js, lib/profitReportDriverExplanation.js, lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js)."
+    },
+    {
+      "name": "REPORT_CONFIRM_SNAPSHOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "productStock": "preserve",
+      "stockHistory": "preserve",
+      "webProfitReport": "preserve; 기존 WebProfitReport 수기값을 스냅샷이 대신 UPDATE하지 않는다",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "OrderYear+MajorWeek 단위로 활성 확정 스냅샷을 신규 Web 전용 테이블에 1건 INSERT한다. 같은 OrderYear+MajorWeek의 기존 활성 revision은 REPORT_CONFIRM_CANCEL로 먼저 비활성화되어 있어야 새 활성본을 만들 수 있다. 저장 대상은 카테고리별 원천값(N,L,O,Q,R,S,H,E,F), 계산값(C~U), 기초/기말 범위(begin/end OrderYear+OrderWeek+StockKey), 환율/통관/포워딩 source 태그, audit 이슈 목록, 확정자, 확정시각, source hash다. orderDetail/shipmentDetail을 포함한 ERP 원장은 이 액션으로 절대 INSERT/UPDATE/DELETE하지 않으며, 오직 신규 Web 전용 확정 스냅샷 테이블에만 쓴다.",
+      "auditBlocking": "audit 이슈(검증 배너 대상)가 남아 있으면 일반 확정은 거부한다. 강제 확정은 REPORT_CONFIRM_FORCE로만 허용한다."
+    },
+    {
+      "name": "REPORT_CONFIRM_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "활성 확정 스냅샷 행을 DELETE하지 않고 비활성화 플래그와 해제시각만 UPDATE한다. 감사 이력을 위해 행 자체는 보존한다. 이후 다시 확정하면 같은 OrderYear+MajorWeek에 새 revision(RevisionNo 증가)을 INSERT하며 기존 revision 값을 덮어쓰지 않는다."
+    },
+    {
+      "name": "REPORT_CONFIRM_HISTORY_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "read-only; OrderYear+MajorWeek의 확정 revision 이력(활성/비활성 전체)을 조회만 한다. ERP 원장과 확정 스냅샷 테이블 어느 쪽도 쓰지 않는다."
+    },
+    {
+      "name": "REPORT_CONFIRM_FORCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "audit 경고가 남아 있어도 관리자 권한과 사유(reason) 입력이 모두 있어야 확정 스냅샷을 저장한다. reason이 비어 있으면 저장을 거부한다. 저장 시 강제 확정 사용자, 사유, 무시된 audit 이슈 목록을 감사 로그(스냅샷 레코드 또는 별도 감사 테이블)에 함께 남긴다. 저장 대상과 ERP 원장 금지 범위는 REPORT_CONFIRM_SNAPSHOT과 동일하다."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다. 국가별 원천 입력(H/R) 시작 차수는 호주 28차, 베트남 29차이며 시작 차수 전 미입력은 정상 미적용으로 감사하지 않는다. 29차 이후 R은 당주 FreightCost.ExchangeRate, 전차수 확정 WebProfitReport R, CurrencyMaster 순서로 선택한다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 화면에서 명시한 OrderYear만 읽고 쓰며, 연도가 없으면 요청을 거부한다. 일반 차수의 기초재고는 같은 OrderYear 전차수의 마지막 ProductStock 스냅샷을 사용하고 01차에서만 전년도 52차로 넘어간다. 과세환율 R은 정확한 OrderYear+MajorWeek 원천만 사용한다: ①당주 FreightCost.ExchangeRate(카테고리 상품매입 TPrice 100%가 스냅샷으로 덮인 경우만) ②WebTaxableExchangeRate 카테고리 지정값 ③2026 22~27차 원본 엑셀 R ④저장 통화 기본값 ⑤2026-28 이상 관세청 공식 과세환율. KCS 기준일은 WarehouseMaster.InputDate만 사용하며 다른 날짜로 대체하지 않는다. 날짜가 없거나 통화·적용기간이 정확히 일치하는 공식 환율을 하나라도 못 찾으면 일부 날짜만으로 계산하지 않고 해당 카테고리를 입력 필요로 둔다. 현재 CurrencyMaster 환율과 전차수 R은 자동 상속하지 않고 참고 제안으로만 제공한다. 활성 확정 스냅샷은 저장 시점 원천과 계산값을 불변 revision으로 보존하며 취소 뒤 새 revision으로만 갱신한다. 기초재고 E 이월은 전차수 활성 확정 F > 전차수 수기 F > 전차수 자동재고평가 순이다. 기말재고 F는 재고평가단가×기말수량÷1.1을 우선하고, 없을 때 최근 매입 외화단가×수량×해당 차수 과세환율, 마지막으로 카테고리 평균도착원가를 사용한다."
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitReportWorkbookFullParity.test.js",
     "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/moyiReportPush.test.js",
     "__tests__/profitReportMonthly.test.js",
-    "__tests__/getReadOnlySchemaContract.test.js"
+    "__tests__/profitReportSourceGuide.test.js",
+    "__tests__/getReadOnlySchemaContract.test.js",
+    "__tests__/profitReportConfirmSnapshotImmutability.test.js",
+    "__tests__/profitReportConfirmAuditTrail.test.js",
+    "__tests__/profitReportCountryClassificationParity.test.js",
+    "__tests__/profitReportStockCostExclusionContract.test.js",
+    "__tests__/profitReportRecentCostCutoff.test.js",
+    "__tests__/profitReportAustraliaUnitFallback.test.js",
+    "__tests__/profitReportGetReadOnlyDdl.test.js",
+    "__tests__/profitReportHistoricalCustoms.test.js",
+    "__tests__/colombiaFlowerClassification.test.js",
+    "__tests__/customsClearancePanelLiveTotal.test.js",
+    "__tests__/taxableExchangeRateKcs.test.js",
+    "__tests__/kcsRateDateWeights.test.js",
+    "__tests__/kcsRatesByCategoryWeighting.test.js",
+    "__tests__/profitReportRateAnalysis.test.js",
+    "__tests__/profitReportPriceMixCandidates.test.js",
+    "__tests__/profitReportDriverExplanation.test.js",
+    "__tests__/profitReportAnalysisGetReadOnlyDdl.test.js",
+    "__tests__/profitReportPanelOrderContract.test.js"
   ],
+  "historicalCustomsPolicy": {
+    "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
+    "resolvers": ["lib/customsForwarding.js resolveCountryCustomsTotal()", "lib/customsForwarding.js resolveColombiaCustomsAllocation()"],
+    "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
+    "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료 추천은 그 대차수의 GW1+GW2 합산 중량을 lib/colombiaTruck.js deriveTruckPlan()에 한 번만 넣는다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과면 2.5t 1대와 필요한 1t 차량을 더한다(1.371t=2.5t, 3t=2.5t+1t). 계산된 조합 금액 전부를 1차 칸에 반영하고 2차 자동값은 0이다. 저장된 실제값(WorldFreight{1,2}Manual=1, historical snapshot 포함)이 있으면 추천값이 그 실제값을 절대 덮지 않는다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송도 저장된 실제 대수가 우선이고, 없을 때만 같은 추천식을 쓴다."
+  },
   "automaticCategoryRules": {
     "현지상차운임": "콜롬비아 수국",
     "카네이션 운송료": "콜롬비아 카네이션",
@@ -82,7 +195,23 @@
     "태국 운송료": "태국",
     "중국 운송료": "중국",
     "nonValueItems": ["Chargeable weight", "Gross weight"],
-    "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외"
+    "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
+    "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
+  },
+  "erpLedgerWriteProhibition": {
+    "description": "REPORT_CONFIRM_SNAPSHOT/REPORT_CONFIRM_CANCEL/REPORT_CONFIRM_FORCE는 아래 ERP 공유 원장 테이블에 INSERT/UPDATE/DELETE를 절대 수행하지 않는다. 확정 스냅샷·해제·강제확정 감사 기록은 모두 신규 Web 전용 테이블에만 쓴다. REPORT_CONFIRM_HISTORY_VIEW는 추가로 이 테이블들을 조회조차 하지 않는다.",
+    "forbiddenTables": [
+      "OrderMaster",
+      "OrderDetail",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ShipmentFarm",
+      "Estimate",
+      "ProductStock",
+      "StockHistory"
+    ],
+    "guardCoverage": "npm run guard:erp-writes(scripts/check-erp-write-contracts.mjs)는 변경된 pages/api 파일의 SQL 템플릿 리터럴에서 OrderMaster/ShipmentMaster/WarehouseMaster/StockMaster 4개 Master 테이블에 대한 OrderWeek-without-OrderYear 쓰기와 락 패턴만 정적 검사한다. OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/ProductStock/StockHistory는 이 정규식 대상에 아예 포함되지 않으므로, 이 테이블들에 절대 쓰지 않는다는 금지 자체는 guard:erp-writes가 기계적으로 검사하지 못한다. docs/contracts/*.json의 이 필드도 scripts/check-erp-write-contracts.mjs와 scripts/check-erp-contract-manifest.mjs 어느 쪽도 파싱하지 않는 서술적 계약이다. 구현 시 __tests__/erpWriteScopeGuard.test.js와 같은 패턴으로 lib/profitReportConfirm.js와 pages/api/sales/profit-report-confirm.js 소스 문자열에서 forbiddenTables 각각에 대한 INSERT/UPDATE/DELETE 패턴을 정적 검사하는 전용 테스트를 새로 추가해야 이 금지 목록이 실제로 자동 검증된다."
   },
   "dnspyEvidence": {
     "required": true,
@@ -105,7 +234,9 @@
       "FreightCost",
       "WebProfitReport",
       "CurrencyMaster",
-      "PeriodDay"
+      "PeriodDay",
+      "WebTaxableExchangeRate",
+      "Customer"
     ]
   },
   "requiredCommands": [

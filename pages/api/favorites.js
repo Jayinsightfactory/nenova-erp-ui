@@ -28,11 +28,14 @@ async function ensureTable() {
 
 export default withAuth(async function handler(req, res) {
   try {
-    await ensureTable();
     const uid = req.user?.userId || 'system';
 
     // GET: 즐겨찾기 목록
     if (req.method === 'GET') {
+      const schema = await query(`SELECT CASE WHEN OBJECT_ID(N'dbo.UserFavorite', N'U') IS NULL THEN 0 ELSE 1 END AS Ready`, {});
+      if (!Number(schema.recordset[0]?.Ready)) {
+        return res.status(503).json({ success: false, code: 'USER_FAVORITE_SCHEMA_MISSING', error: '즐겨찾기 테이블이 설치되지 않았습니다.' });
+      }
       const { page } = req.query;
       if (!page) return res.status(400).json({ success: false, error: 'page 필요' });
       const result = await query(
@@ -43,6 +46,8 @@ export default withAuth(async function handler(req, res) {
       );
       return res.status(200).json({ success: true, favorites: result.recordset });
     }
+
+    await ensureTable();
 
     // POST: 즐겨찾기 저장
     if (req.method === 'POST') {

@@ -13,6 +13,7 @@ import {
   sqlOrderAddGetDataFlower,
   sqlOrderAddGetDataProduct,
 } from '../../../lib/exeOrderAddSql.js';
+import { quantitiesMatch } from '../../../lib/myCustomerOrderEntry.js';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -324,6 +325,14 @@ async function createOrder(req, res) {
       resolvedOrderCode = r.recordset[0].OrderCode || '';
     }
 
+    if (String(source || '').toLowerCase() === 'my-customer') {
+      const activeCustomer = await query(`SELECT TOP 1 CustKey FROM Customer WHERE CustKey=@ck AND ISNULL(isDeleted,0)=0`, {
+        ck: { type: sql.Int, value: Number(resolvedCustKey) },
+      });
+      if (!activeCustomer.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
+      if (items.some(item => item.expectedCurrentQty === undefined)) return res.status(400).json({ success: false, error: '중복 등록 방지를 위한 현재 수량이 필요합니다.' });
+    }
+
     // OrderWeek 형식 검증 + 정규화 (NN-NN 또는 YYYY-NN-NN 만 허용)
     // → '17-01B', '470-01' 같은 노이즈 행 신규 생성 차단
     let orderYear, orderWeek;
@@ -337,7 +346,10 @@ async function createOrder(req, res) {
     // Manager 에는 UserInfo.UserID 가 들어가야 ViewOrder 의 INNER JOIN UserInfo(om.Manager=ui.UserID)
     // 를 통과한다. 문자열 '관리자'(=UserName) 를 넣으면 그 주문이 ViewOrder 에서 탈락 → 전산 분배
     // grid 에 거래처가 안 뜸. '관리자' 계정의 실제 UserID(보통 'admin') 로 해석해 넣는다.
-    const mgrRow = await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
+    const mgrRow = String(source || '').toLowerCase() === 'my-customer'
+      ? await query(`SELECT TOP 1 ui.UserID FROM Customer c LEFT JOIN UserInfo ui ON ui.UserID=c.Manager OR ui.UserName=c.Manager
+          WHERE c.CustKey=@ck AND ISNULL(c.isDeleted,0)=0 ORDER BY CASE WHEN ui.UserID=c.Manager THEN 0 ELSE 1 END`, { ck: { type: sql.Int, value: Number(resolvedCustKey) } })
+      : await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
     const mgr = mgrRow.recordset[0]?.UserID || 'admin';
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} yr=${orderYear} wk=${orderWeek}`);
@@ -491,11 +503,17 @@ async function createOrder(req, res) {
 
         // 기존 OrderDetail 확인 (같은 Master+품목)
         const existOd = await tQuery(
-          `SELECT OrderDetailKey, OutQuantity FROM OrderDetail
+          `SELECT OrderDetailKey, OutQuantity FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
            WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
           { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
         );
         const oldOutQty = Number(existOd.recordset[0]?.OutQuantity || 0);
+
+        if (String(source || '').toLowerCase() === 'my-customer' && !quantitiesMatch(item.expectedCurrentQty, oldOutQty)) {
+          const stale = new Error(`${item.prodName || prodKey}: 다른 작업에서 수량이 변경되었습니다. 새로고침 후 다시 등록하세요.`);
+          stale.statusCode = 409;
+          throw stale;
+        }
 
         if (existOd.recordset.length > 0) {
           const nextOutQty = isDelta ? oldOutQty + outQty : outQty;
@@ -655,7 +673,7 @@ async function createOrder(req, res) {
     });
   } catch (err) {
     await appLog('createOrder', '오류', err.message, true);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }
 

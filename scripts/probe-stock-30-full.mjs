@@ -1,0 +1,5 @@
+import { query, sql } from '../lib/db.js';
+const yr={type:sql.NVarChar,value:'2026'},wk={type:sql.NVarChar,value:'30-02'};
+const negatives=await query(`SELECT p.ProdKey,p.CounName,p.FlowerName,p.ProdName,p.CountryFlower,ps.Stock selectedStock,p.Stock liveStock FROM ProductStock ps JOIN StockMaster sm ON sm.StockKey=ps.StockKey JOIN Product p ON p.ProdKey=ps.ProdKey WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ps.Stock<0 ORDER BY ps.Stock,p.ProdName`,{yr,wk});
+const statuses=await query(`SELECT ISNULL(NULLIF(LTRIM(RTRIM(p.CountryFlower)),N''),N'(분류없음)') CountryFlower,SUM(CASE WHEN ISNULL(sd.isFix,0)=1 THEN 1 ELSE 0 END) fixedLines,SUM(CASE WHEN ISNULL(sd.isFix,0)=0 THEN 1 ELSE 0 END) unfixedLines FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey JOIN Product p ON p.ProdKey=sd.ProdKey WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)>0 GROUP BY ISNULL(NULLIF(LTRIM(RTRIM(p.CountryFlower)),N''),N'(분류없음)') ORDER BY CountryFlower`,{yr,wk});
+console.log(JSON.stringify({negativeCount:negatives.recordset.length,negatives:negatives.recordset,statuses:statuses.recordset},null,2));

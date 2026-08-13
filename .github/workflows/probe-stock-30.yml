@@ -1,0 +1,20 @@
+name: Probe Stock 30 Carnation
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
+            cd /var/www/nenova-erp
+            git fetch origin master && git reset --hard origin/master
+            node --env-file=.env.local scripts/probe-stock-30-carnation.mjs
+            node --env-file=.env.local scripts/probe-stock-30-full.mjs
+            node --env-file=.env.local scripts/probe-stock-30-remaining.mjs
+            node --env-file=.env.local scripts/probe-stock-30-recovery.mjs

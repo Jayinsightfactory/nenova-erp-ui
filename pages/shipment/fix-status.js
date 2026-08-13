@@ -235,7 +235,7 @@ export default function ShipmentFixStatus() {
                 <th style={{ textAlign: 'right' }}>미확정라인</th>
                 <th style={{ textAlign: 'right' }}>카테고리</th>
                 <th style={{ textAlign: 'right' }}>음수재고</th>
-                <th>StockMaster</th>
+                <th title="nenova.exe 재고확정 기준이 아닌 참고 필드">StockMaster(참고)</th>
               </tr>
             </thead>
             <tbody>
@@ -258,7 +258,7 @@ export default function ShipmentFixStatus() {
                     <td className="num" style={{ color: w.unfixedDetailCount > 0 ? 'var(--red)' : 'var(--text3)' }}>{fmt(w.unfixedDetailCount)}</td>
                     <td className="num">{fmt(w.fixedCategoryCount)} / {fmt(w.categoryCount)}</td>
                     <td className="num" style={{ color: w.negativeCount > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: w.negativeCount > 0 ? 800 : 400 }}>{fmt(w.negativeCount)}</td>
-                    <td>{w.stockFixed ? '확정' : w.stockMasterCount ? '미확정' : '-'}</td>
+                    <td>{w.stockMasterCount ? (w.stockFixed ? '마커 1' : '마커 0') : '-'}</td>
                   </tr>
                 );
               })}

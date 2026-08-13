@@ -82,6 +82,9 @@ async function uploadWarehouse(req, res) {
   if (!/^\d{4}$/.test(String(orderYear || '')) || !/^\d{2}-\d{2}$/.test(String(orderWeek || ''))) {
     return res.status(400).json({ success: false, code: 'ORDER_YEAR_WEEK_REQUIRED', error: '입고 저장에는 화면의 선택 연도와 세부차수가 필요합니다.' });
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(inputDate || '')) || Number.isNaN(new Date(`${inputDate}T00:00:00`).getTime())) {
+    return res.status(400).json({ success: false, code: 'WAREHOUSE_INPUT_DATE_REQUIRED', error: '관세청 과세환율 기준이 되는 실제 입고·신고일자를 입력하세요.' });
+  }
 
   // 품목 매칭 미리 처리 (트랜잭션 밖에서 — 조회만)
   const resolvedItems = [];
@@ -116,7 +119,7 @@ async function uploadWarehouse(req, res) {
           farm: { type: sql.NVarChar, value: farmName || '' },
           inv:  { type: sql.NVarChar, value: invoiceNo || '' },
           awb:  { type: sql.NVarChar, value: awb || '' },
-          dt:   { type: sql.DateTime, value: inputDate ? new Date(inputDate) : new Date() },
+          dt:   { type: sql.DateTime, value: new Date(`${inputDate}T00:00:00`) },
           gw:   { type: sql.Float,    value: gw === '' || gw == null ? null : parseFloat(gw) },
           cw:   { type: sql.Float,    value: cw === '' || cw == null ? null : parseFloat(cw) },
           rate: { type: sql.Float,    value: rate === '' || rate == null ? null : parseFloat(rate) },

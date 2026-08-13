@@ -4,6 +4,180 @@
 
 ---
 
+## [2026-08-11] 세션 — 매출이익 보고서 항목별 데이터 기준 보기
+
+### 작업 내용
+- `81e24f5` (PR #139) 주차별 매출이익 보고서 상단에 조회 전용 `항목별 데이터 기준 보기` 접기/펼치기 추가.
+  화면 항목명 | 데이터가 오는 곳 | 계산 방식 | 자동/직접입력 | 주의·검증 5열 조밀표. 기본 접힘, 상태 미저장.
+- 설명 문구는 `lib/profitReportSourceGuide.js` 단일 상수로 관리. 표 20열 + 부가 5행 + 입력화면 5종 + 경계 4종.
+- 자동 / 계산 / 입력화면에서 옴 / 직접입력을 배지로 분리해 **사용자 입력을 자동값처럼 설명하지 않도록** 고정.
+- 계산·저장·엑셀 다운로드 로직은 변경하지 않음.
+
+### 변경된 파일
+- `lib/profitReportSourceGuide.js` (신규): 설명 데이터 사전 단일 정의
+- `components/ProfitReportSourceGuide.js` (신규): button + aria-expanded/aria-controls, hidden, 가로 스크롤
+- `pages/sales/profit-report.js`: import + 안내문 아래 렌더 (2줄)
+- `__tests__/profitReportSourceGuide.test.js` (신규): 라벨 3중 일치 + 문구↔계산코드 대조 + 접근성/조회전용 계약
+- `docs/contracts/weekly-profit-report.json`: scope 2건, `REPORT_SOURCE_GUIDE_VIEW`(preserve/preserve), requiredTestFiles
+- `docs/exe-golden/FormProfitReport.md`: 부작용 표 행 + 설명 패널 절 + 확정 필터 표기 정정
+- `package.json`: test:erp-contract 에 신규 테스트 등록
+- `docs/work-reports/2026-08-11_profit-report-source-guide.md` (신규)
+
+### 검증
+- `node __tests__/profitReportSourceGuide.test.js` 전체 통과
+- `npm run verify:erp-change` EXIT=0 (test:board · test:erp-contract · manifest · write guard · webpack build)
+- 운영 실브라우저 읽기 전용 확인: 기본 접힘 / 키보드 Enter 토글 / 새로고침 후 접힘 / localStorage 미사용 /
+  360px 시뮬레이션에서 표만 가로 스크롤(페이지 본문 overflow 없음) / `__reactFiber` 부착 / 스모크 3종 OK
+
+### 미결 이슈 / 블로킹
+- **매출 확정 필터 불일치(코드 미수정)**: 보고서는 `sm.isFix=1`, `lib/pivotStats.js`는 `sd.isFix=1`.
+  부분확정 차수에서 미확정 라인이 매출에 섞일 수 있다. 필터를 바꾸면 확정 차수의 매출액·매출이익이
+  즉시 달라지므로 설명 UI 범위에서 변경하지 않고 문서에 기록. **사용자 판단 필요.**
+- 배포 중 일시 500은 병렬 PR(#140) 동시 배포로 pm2 재기동 구간에 스모크가 실행된 것이 원인.
+  코드 문제 아님(이후 배포 정상, fiber 부착 확인).
+
+---
+
+## [2026-08-11] 세션 — 잔량분배 전체/개별 열 통일 (단일 표)
+
+### 작업 내용
+- 증상: `/sales/shilla-miu-board` 전체 탭이 요약표(품목/단위/업체별잔량/잔량합계/미우자체/미우총수량)
+  아래에 업체별 상세표(예상물량/현재분배/업체최종분배/업체잔량/미우이관/완료/세부)를 다시 나열해
+  한 화면에 열이 두 벌이었다.
+- 변경: 전체·업체 탭이 **같은 열 순서·폭의 표 하나**만 사용.
+  `업체 78 · 품목명 360 · 단위 46 · 예상물량 64 · 현재분배 64 · 업체최종분배 66 · 업체잔량 64 ·
+  미우이관 64 · 완료 44 · 세부 44` = 894px(≤1400px 화면 794px).
+- 같은 품목이 여러 업체에 있으면 업체별 행 유지(합산 금지). 미우 자체수량·총수량은 같은 폭의
+  18px 합계 행으로 보존(툴바 `미우합계` 토글). 업체 접기는 상단 요약의 업체 칩으로 이동.
+- 커밋 `a1ed00e` → PR #140 → master `6f333d2`.
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: 순수 함수 `buildUnifiedBlocks()` 추가(정렬·묶음만, 계산식 무변경)
+- `pages/sales/shilla-miu-board.js`: 표 통일, 합계 행, 업체 칩 접기, 연결 안내 줄
+- `__tests__/shillaMiuBoard.test.js`: 열 동일성·업체행 분리·미우 합계 보존·단위 분리·
+  미래 추가 업체·2026-33 신라 1,560/0·32차 주문=분배·2025/2026 격리 회귀 추가
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md` 8절, `docs/contracts/shilla-miu-board.json`
+
+### 검증
+- `npm run test:board` / `npm run verify:erp-change`(erp-contract 전부 pass, manifest·guard·build) 통과
+- `guard:erp-writes --changed-from HEAD^` = 변경 API 0건 → ERP 원장 쓰기 없음
+- GitHub Actions `verify` pass → `Deploy to Cafe24` 성공(실브라우저 hydration smoke 포함)
+- 운영 번들 읽기 전용 확인: `<table>`/`<thead>` 각 1개, 헤더 순서 계약대로, `colSpan=9` 잔존 없음
+
+### 다음 작업 예정
+- 사용자 실사용 후 합계 행 노출 기본값(`미우합계` 체크 기본 ON) 조정 여부 확인
+
+### 미결 이슈 / 블로킹
+- 없음. 운영 화면 로그인 확인은 사용자 계정 필요(자동 로그인 미수행).
+
+---
+
+## [2026-08-11] 세션 — 잔량분배 신라 그룹 CustKey 오연결 복구·진단
+
+### 작업 내용
+- 운영 증상: `/sales/shilla-miu-board?year=2026&week=33` 전체 탭 36개 품목의 `신라잔량`이 모두 `-`,
+  신라 그룹은 `기준 업체 주문·분배 품목 없음`. 라움·초이문·미우는 정상.
+- 원인(읽기 전용 probe 확정): `WebShillaMiuBoardGroup` 신라 그룹의 `BaseCustKey=444`(신라상사).
+  444/445 는 `OrderMaster`/`ShipmentMaster` 가 **생애 0건**인 껍데기 거래처이고, 신라의 실제 원장
+  거래처는 `신라호텔`(CustKey 446, `OrderCode='CLS'`, `Descr='신라/중-화/네-화/CLS'`).
+  2026-08-10 자동 seed 가 **이름 문자열** `N'신라상사'` 로 거래처를 고른 것이 사고 원인.
+  게시판은 CustKey 로만 ERP 를 읽으므로 모든 차수·연도에서 조용한 빈 화면이 됐다.
+  → **버그(연결 오류)이며 '해당 차수 데이터 없음'이 아니다.** 33차 신라 실제 주문 1,560 존재.
+- 수정: ① seed 를 실적 있는 CustKey 로 제한(+신라호텔로 교정) ② 조회 응답에 기준업체 연도 실적을
+  실어 `이 차수만 없음` / `⚠ 연결확인` 구분 ③ 업체관리에서 기존 그룹을 GroupKey 로 수정 가능
+  ④ Customer 검색 결과에 최근 주문·분배 차수 표시 ⑤ 활성 기준업체 중복 안내 후 거부
+  ⑥ 기본 차수를 등록 업체 기준 최신 분배 차수로(없으면 전체 최신 fallback, 2026 기준 33 동일).
+- 운영 복구: 웹 전용 `WebShillaMiuBoardGroup` 신라 행만 `444 → 446` 갱신(idempotent 조건부).
+  ERP 원장 쓰기 0건. 복구 후 33차 신라잔량 540/560/460(합계 1,560), 라움·초이문·미우 합계 불변.
+- 커밋 `2cc5b42`, PR #137 머지 → Cafe24 배포(hydration smoke 통과) → 그룹 연결 복구 → 재확인.
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: `groupLinkState`/`describeCustomerActivity` 순수 함수
+- `pages/api/sales/shilla-miu-board.js`: seed 실적 가드, `baseActivity`, 그룹 한정 `latestScope`,
+  업체검색 실적 표시, 그룹 UPDATE 검증과 중복 안내
+- `pages/sales/shilla-miu-board.js`: 업체관리 기존 그룹 편집, `⚠ 연결확인`, 빈 표 안내 분기
+- `__tests__/shillaMiuBoard.test.js`: 실제 CustKey 픽스처(444/446), 주문만·분배만·둘 다, 32/33차,
+  2025/2026 격리, 삭제행, 단위 분리, 미래 추가업체, 라움·초이문·미우 합계 불변, 연결 상태 메시지
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md` §7, `docs/contracts/shilla-miu-board.json`,
+  `docs/exe-golden/FormShipmentDistribution.md`,
+  `docs/migrations/2026-08-11_web_board_group_custkey_repair.sql`(신규)
+- `scripts/probe-shilla-board-scope*.mjs`, `scripts/probe-shilla-board-newsql.mjs`,
+  `scripts/probe-shilla-board-after-repair.mjs`, `scripts/run-web-board-custkey-repair.mjs`
+
+### 다음 작업 예정
+- 33차 신라 분배가 전산에 입력되면 현재분배·잔량이 자동 반영되는지 확인(코드 변경 불필요).
+- 최종분배 첫 저장 시 `ensureSchema` 가 `FinalQty`/History 를 만든다(현재 운영에는 아직 없음).
+
+### 미결 이슈 / 블로킹
+- `아이엠 (I am)`(457)은 미우(456)와 별개 거래처(OrderCode CL12)이며 33차 52 를 갖는다.
+  미우 총수량에 합쳐야 하는지는 업무 결정 사항 — 현재는 계약대로 456 만 수령업체로 본다.
+- `신라호텔 발주용 코드`(652, isDeleted=1)는 2026 1~3차 이후 사용 없음. 그룹 대상 아님.
+
+---
+
+## [2026-08-11] 세션 — 잔량분배 게시판 '업체 최종분배' 흐름 재정의
+
+### 작업 내용
+- 화면의 저장값 의미를 `이동입력`(기준분배 − 미우분배)에서 **업체 최종분배**(예상물량 중 각 업체가 실제로
+  최종 납품·사용한 수량)로 재정의. ERP 확정(`isFix`)과 무관한 웹 전용 업무값이며 화면 문구도 `최종분배`로 고정.
+- 품목별 흐름: 예상물량(주문등록량) → 현재분배(ERP) → 업체 최종분배(웹 입력) → 업체 잔량(예상−최종)
+  → 미우 이관(max(0, 잔량)) / 미우 총수량 = 미우 자체수량 + 모든 원천업체 이관량 합계.
+- 예상물량 원천으로 `OrderMaster + OrderDetail` 읽기를 추가(선택 연도 + 대차수 prefix + CustKey + ProdKey).
+  dnSpy `FormShipmentDistribution.GetCustomerList`/`grdViewShipment_FocusedRowChanged` 가 쓰는
+  `ViewOrder.OutQuantity` 와 동일 단위 기준.
+- 전체 탭에 품목별 [업체별 잔량 … | 잔량합계 | 미우자체 | 미우총수량] 요약표 추가. 원천업체는 하드코딩이 아니라
+  `WebShillaMiuBoardGroup` 활성 그룹 전체(업체관리 추가분 자동 포함).
+- 차수 입력칸에 ▲▼ 버튼 · 키보드 위/아래 · 해당 칸 위에서의 휠(passive:false, 페이지 스크롤 차단) 추가, 1 미만 금지, 즉시 조회.
+- 저장 스키마: 기존 `Qty`(이전 이동입력)를 보존하고 nullable `FinalQty`/`ExpectedQtyAtSave`/`CurrentQtyAtSave` 신설,
+  `WebShillaMiuBoardAllocationHistory` 감사 이력 + `withActionLog` 추가. GET 경로의 DDL 제거(OBJECT_ID 확인만).
+
+### 변경된 파일
+- `lib/shillaMiuBoard.js`: 흐름 계산·전체 탭 집계·차수 스피너 계산·0.001 정규화 순수 함수
+- `pages/api/sales/shilla-miu-board.js`: 주문 조회 추가, FinalQty upsert + 감사 이력, GET DDL 제거
+- `pages/sales/shilla-miu-board.js`: 전체 요약표, 업체별 흐름 열, 차수 스피너, 876px 타이트 레이아웃
+- `__tests__/shillaMiuBoard.test.js`: 교차연도·추가업체·단위분리·음수/초과·0·기존값 호환·스피너·레이아웃 회귀
+- `docs/RESIDUAL_FLOW_BOARD_SIDE_EFFECTS.md`(신규), `docs/contracts/shilla-miu-board.json`,
+  `docs/exe-golden/FormShipmentDistribution.md`, `docs/migrations/2026-08-11_web_board_final_allocation.sql`(신규)
+
+### 검증
+- `npm run test:board` ✅ / `npm run verify:erp-change` ✅ (erp-contract + manifest + write guard + build, exit 0)
+- ERP 원장 쓰기 0건 — Order/Shipment/Stock/Estimate/WebProfitReport 는 읽기만
+- PR #134 verify ✅ → master 병합 → Cafe24 배포 run 31449276565 ✅ (계약검사 + SSH 배포 + hydration 스모크 fiber:true)
+- 운영 확인: `/api/ping` 200, `/sales/shilla-miu-board` 200, 새 문구·차수 스피너 마크업 서빙 확인, 콘솔 error/warn 0
+
+### 미결 이슈
+- 운영 DB의 기존 `Qty` 값은 새 최종분배로 자동 변환하지 않음(공식이 달라 의미가 어긋남). 화면에서 `이전 이동입력` 참고값으로만 표시.
+- `docs/migrations/2026-08-11_web_board_final_allocation.sql` 은 저장 API의 ensureSchema 가 자동 적용하지만,
+  SSMS 로 미리 실행해 두면 첫 저장 지연을 없앨 수 있음.
+- 로그인 상태 실화면 확인 미완: 자동화 브라우저 세션이 로그인되어 있지 않아 `/login` 으로 리다이렉트됨.
+  저장된 비밀번호로 대신 로그인하지 않았으므로, 사용자가 로그인한 뒤 최신 차수 기본값·전체/업체 탭 수치·
+  차수 휠/▲▼·876px 폭을 육안 확인 필요(저장 버튼은 누르지 않아도 됨).
+
+## [2026-08-10] 세션 — 잔량분배 통합게시판 표 여백 최소화
+
+### 작업 내용
+- `3061633` 품목명 열이 화면 남은 폭을 전부 흡수해 글자 오른쪽에 약 900px 빈 공간이 생기던 문제를 수정.
+  원인은 `table { width: 100% }` + `col.product { width: auto }` 조합. 표를 내용 폭 기준(`width: auto`)으로 바꾸고
+  모든 `<col>`에 고정 폭을 지정 — 품목명 420px(≤1400px 화면 360px), 단위 46px, 수치 64px, 차이 60px, 완료 48px, 세부 44px (합계 874px).
+- `col:not(.product):not(.unit)` 부정 선택자 특이도가 `col.diff`/`col.check`/`col.detailBtn` 보다 높아 개별 폭이 조용히 무시되던
+  기존 함정을 `col.num` 명시 클래스로 해소.
+- 행 높이 23→22px, 셀 좌우 4px, 이동입력 17px, 체크 12px, 그룹/세부 버튼 18px, 그룹 머리띠 25→22px, 그룹 간 여백 3→2px.
+- 품목명은 기존대로 한 줄 말줄임표 + `title` 툴팁 유지. 색 의미, 전체/업체별 탭, 세부차수, 잔량 저장, 완료 체크, 업체관리 그대로.
+
+### 변경된 파일
+- `pages/sales/shilla-miu-board.js`: colgroup 클래스 명시 + 조밀 CSS (JSX 로직·API 호출 무변경)
+- `__tests__/shillaMiuBoard.test.js`: 열 폭/행 높이/셀 여백 범위 계약 추가
+- `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`: 데이터 표 텍스트 열 무제한 확장 금지 규칙 추가
+
+### 검증
+- `npm run test:board` ✅ / `npm run test:ui-layout` ✅
+- `npm run verify:erp-change` ✅ (test:erp-contract + erp-manifest + guard:erp-writes + build 전부 통과, exit 0)
+- API SQL·수량 계산·CustKey 매칭·차수 결정·웹 저장키 무변경, ERP 원장 쓰기 0건
+
+### 미결 이슈
+- 운영 화면 실측은 로그인이 필요해 이번 세션에서 수행하지 못함. 배포 후 1366×768 / 1920×1080 에서
+  9개 열 한 화면 노출과 콘솔 error/warn 0 을 육안 확인 필요.
+
 ## [2026-08-04] 세션 — 견적서관리 불량차감·판매요청 직접입력
 
 ### 작업 내용

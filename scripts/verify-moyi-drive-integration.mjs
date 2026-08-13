@@ -17,7 +17,7 @@ const fixture = JSON.parse(fs.readFileSync(new URL('../__tests__/fixtures/moyi-d
 
 function checkStaticContracts() {
   const capabilities = inspectDriveOpenApi(fixture);
-  assert.equal(MOYI_DRIVE_CONTRACT_REVISION, 'talkhub-drive-v2@bf8ee45');
+  assert.equal(MOYI_DRIVE_CONTRACT_REVISION, '2026-08-12.1');
   assert.equal(fixture['x-moyi-contract'].revision, MOYI_DRIVE_CONTRACT_REVISION);
   assert.equal(fixture['x-moyi-contract'].rawUrlTtlSeconds, 300, 'raw-url TTL은 5분이어야 합니다.');
   assert.equal(fixture['x-moyi-contract'].stagingVisibility, 'admin-only-not-found');
@@ -42,22 +42,14 @@ function checkStaticContracts() {
 }
 
 async function checkMock() {
-  const saved = {
-    ready: process.env.MOYI_DRIVE_LEDGER_READY,
-    folder: process.env.MOYI_DRIVE_ROOT_FOLDER_ID,
-    revision: process.env.MOYI_DRIVE_CONTRACT_REVISION,
-    fetch: global.fetch,
-  };
+  const saved = { fetch: global.fetch };
   try {
-    delete process.env.MOYI_DRIVE_LEDGER_READY;
-    assert.equal((await loadMoyiDrive({ headers: {} })).status, 503);
-    process.env.MOYI_DRIVE_LEDGER_READY = 'true';
-    process.env.MOYI_DRIVE_ROOT_FOLDER_ID = 'fixture-root';
-    process.env.MOYI_DRIVE_CONTRACT_REVISION = MOYI_DRIVE_CONTRACT_REVISION;
     let call = 0;
     global.fetch = async (url, options) => {
       call += 1;
-      if (call === 1) return { ok: true, status: 200, json: async () => fixture };
+      if (String(url).endsWith('/drive/capabilities')) return { ok: true, status: 200, json: async () => ({ contract_revision: MOYI_DRIVE_CONTRACT_REVISION, flags: { drive_legacy_inline_url: false } }) };
+      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => fixture };
+      if (String(url).endsWith('/integrations/nenovaweb/drive-root')) return { ok: true, status: 200, json: async () => ({ ready: true, root_folder_id: 'fixture-root' }) };
       assert.match(String(url), /\/drive\/v2\/folders\/fixture-root\/items$/);
       assert.equal(options.headers.Authorization, 'Bearer mock-secret');
       return { ok: true, status: 200, json: async () => [{ id: 'f1', file_id: 'raw1', name: '업무.pdf', source_kind: 'moyi_upload', sync_state: 'verified' }] };
@@ -68,10 +60,6 @@ async function checkMock() {
     assert.equal(JSON.stringify(result.body).includes('mock-secret'), false);
     assert.equal(JSON.stringify(result.body).includes('sig='), false);
   } finally {
-    const restore = (key, value) => value === undefined ? delete process.env[key] : process.env[key] = value;
-    restore('MOYI_DRIVE_LEDGER_READY', saved.ready);
-    restore('MOYI_DRIVE_ROOT_FOLDER_ID', saved.folder);
-    restore('MOYI_DRIVE_CONTRACT_REVISION', saved.revision);
     global.fetch = saved.fetch;
   }
 }

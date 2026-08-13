@@ -46,7 +46,7 @@ function HistoryButton({ orderYear, scopeType, scopeKey, fieldLabel = {} }) {
   );
 }
 
-export default function ForwardingClearancePanel({ week, onSaved }) {
+export default function ForwardingClearancePanel({ week, year, onSaved }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -59,14 +59,14 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
     if (!week) return;
     setLoading(true); setError(''); setMessage('');
     try {
-      const r = await fetch(`/api/sales/forwarding-clearance?week=${encodeURIComponent(week)}`, { credentials: 'same-origin' });
+      const r = await fetch(`/api/sales/forwarding-clearance?week=${encodeURIComponent(week)}&year=${encodeURIComponent(year || '')}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       setDirectEdits({}); setAirEdits({});
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [week]);
-  useEffect(() => { if (week) load(); }, [week, load]);
+  }, [week, year]);
+  useEffect(() => { if (week && year) load(); }, [week, year, load]);
 
   // 입력칸 = 수기 override 값만(자동감지값은 placeholder로 보여주고 입력칸엔 안 채움) — 자동감지가 1순위이므로
   // "저장값 없으면 자동감지 그대로 쓰인다"는 걸 화면에서 분명히 하기 위함(2026-07-10).
@@ -78,7 +78,7 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
     try {
       const r = await fetch('/api/sales/forwarding-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveDirect', category: row.category, amountUSD: directValue(row) }),
+        body: JSON.stringify({ week, year, action: 'saveDirect', category: row.category, amountUSD: directValue(row) }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -93,7 +93,7 @@ export default function ForwardingClearancePanel({ week, onSaved }) {
     try {
       const r = await fetch('/api/sales/forwarding-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveColombiaAir', orderWeek: c.orderWeek, airRateUSD: airValue(c) }),
+        body: JSON.stringify({ week, year, action: 'saveColombiaAir', orderWeek: c.orderWeek, airRateUSD: airValue(c) }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);

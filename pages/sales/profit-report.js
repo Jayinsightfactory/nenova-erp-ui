@@ -5,9 +5,10 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
+import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
+import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 
 function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -52,6 +53,10 @@ const COLUMN_DEFS = [
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
 const LS_KEY = 'nenova_profitReport_visibleCols_v1';
 const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
+const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
+const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
+// 이익률 분석의 변동요인(drivers) 컬럼 라벨 — COLUMN_DEFS 라벨과 동일한 용어를 그대로 재사용.
+const DRIVER_LABELS = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품 금액(구매)', H: '그외통관비', T: '포워딩 원화환산' };
 
 // 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
 function readonlyValue(key, obj, ctx) {
@@ -127,33 +132,61 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const placeholder = e === '' ? displayedAuto : '';
   const missingRate = col === 'R' && needsRateInput(row);
   const warn = needsCheck(row, col) || missingRate;
+  const suggestionText = (row.rateSuggestions || [])
+    .map(sg => `${sg.label} ${Number(sg.rate).toLocaleString()}`).join(' / ');
+  const F_SOURCE_TEXT = {
+    stock_price_table: '재고평가단가 기준: 마지막 확정 세부차수 ProductStock 수량 × 품목별 재고평가단가 ÷1.1',
+    recent_purchase_cost: '재고평가단가가 없어 폴백: 품목별 최근 매입 외화단가 × 기말수량 × 환율',
+    landed_cost_average: '재고평가단가·최근단가가 없어 폴백: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말수량',
+    missing: '⚠ 재고수량은 있으나 평가단가를 구할 수 없어 계산하지 못했습니다 — 재고단가표에서 단가를 지정하세요',
+    no_stock: '이 차수 기말재고 수량이 없습니다',
+  };
   const titles = {
     R: missingRate
-      ? `⚠ ${row.currency || '-'} 환율 원천이 없습니다. 이 칸에 해당 차수 인보이스 과세환율을 입력하고 저장하세요.`
-      : `BILL 환율 스냅샷(${row.currency || '-'} · FreightCost) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 청구서 환율과 다르면 입력`,
+      ? `⚠ 이 차수의 ${row.currency || '-'} 과세환율(관세청 신고환율) 원천이 없습니다. 통관 신고 환율을 이 칸에 입력하고 저장하세요.${suggestionText ? ` (참고값: ${suggestionText} — 참고값은 적용·저장해야 계산에 들어갑니다)` : ''}`
+      : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
-    H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
-    E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-    F: `${row.stock?.week || '마지막 재고 스냅샷 세부차수'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
+    H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
+    E: row.inheritedE
+      ? '기초재고 — 전차수 기말재고(F)에서 이월됨. 우선순위: 전차수 확정 스냅샷 F > 전차수 저장 F > 전차수 자동계산. 비우면 자동값으로 돌아갑니다'
+      : '기초재고 — 같은 매출연도 전차수의 기말재고를 이월합니다(01차만 전년도 52차). 비우면 자동계산값 사용',
+    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} ProductStock 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.stock_price_table}. 직접 입력하면 수기값 우선이며, 보고서를 확정하면 그 값으로 고정됩니다`,
   };
   const title = missingRate
     ? titles[col]
     : needsCheck(row, col)
       ? `⚠ 확인 필요 — 실사 시작재고 없이 재고 스냅샷에만 의존 중(부정확할 수 있음). ${titles[col] || ''}`
       : (titles[col] || '');
+  const suggestions = col === 'R' ? (row.rateSuggestions || []) : [];
   return (
-    <NumericInput
-      style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
-      value={val}
-      placeholder={placeholder}
-      title={title}
-      onChange={value => setEdit(row.category, col, value)}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+      <NumericInput
+        style={{ ...st.cellInput, width, background: e !== undefined ? '#fef9c3' : (base != null ? '#ecfdf5' : (warn ? '#fef2f2' : '#fff')), border: warn ? '1px solid #f87171' : undefined }}
+        value={val}
+        placeholder={placeholder}
+        title={title}
+        onChange={value => setEdit(row.category, col, value)}
+      />
+      {suggestions.map((sg) => (
+        <button
+          key={sg.kind}
+          type="button"
+          onClick={() => setEdit(row.category, 'R', String(sg.rate))}
+          title={`${sg.note || ''} — 클릭하면 이 칸에 채워집니다(저장해야 반영, 이 차수 캐시로도 함께 저장됩니다)`}
+          style={{
+            fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+            border: 'none', background: 'none', padding: 0, color: '#b45309',
+          }}>
+          {sg.label} {Number(sg.rate).toLocaleString()} ↵
+        </button>
+      ))}
+    </div>
   );
 }
 
 export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
+  const [reportYear, setReportYear] = useState(getDefaultYear());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moyiSending, setMoyiSending] = useState(false);
@@ -167,6 +200,34 @@ export default function ProfitReportPage() {
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
+
+  // ── 검증·입력(표 아래 접기 영역) — 문제가 있으면 새 차수 조회 때마다 기본으로 펼친다.
+  const [showValidation, setShowValidation] = useState(false);
+
+  // ── 이익률 분석(표 아래 접기 영역) — 본표(load)와 완전히 분리된 별도 fetch, 펼쳤을 때만 호출.
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+
+  // ── 보고서 기준 확정/취소/이력
+  const [confirmHistory, setConfirmHistory] = useState([]);
+  const [confirmSchemaInitialized, setConfirmSchemaInitialized] = useState(true);
+  const [showConfirmPanel, setShowConfirmPanel] = useState(false);
+  const [showConfirmHistory, setShowConfirmHistory] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [forceReason, setForceReason] = useState('');
+  const loadConfirmStatus = async (weekOverride, yearOverride) => {
+    const wk = weekOverride ?? weekInput.value;
+    const yr = yearOverride ?? reportYear;
+    try {
+      const res = await fetch(`/api/sales/profit-report-confirm?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.success) return;
+      setConfirmSchemaInitialized(Boolean(d.initialized));
+      setConfirmHistory(d.history || []);
+    } catch { /* 확정 이력 조회 실패는 화면 진입을 막지 않는다 */ }
+  };
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
   const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
@@ -223,24 +284,50 @@ export default function ProfitReportPage() {
   const [monthlyData, setMonthlyData] = useState(null);
   const [expandedMonths, setExpandedMonths] = useState(new Set());
 
-  const load = async (weekOverride) => {
+  const load = async (weekOverride, yearOverride) => {
     const wk = weekOverride ?? weekInput.value;
+    const yr = yearOverride ?? reportYear;
     setLoading(true); setError(''); setMessage(''); setEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
+      setReportYear(String(d.orderYear || yr));
       setNote(d.note || '');
       setNoteDirty(false);
+      loadConfirmStatus(wk, yr);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  // 이익률 분석 — /api/sales/profit-analysis 를 본표 load()와 완전히 분리해서 부른다.
+  // 패널을 펼친 상태에서만 호출하고, 느리거나 실패해도 본표 조회/렌더는 절대 막지 않는다.
+  useEffect(() => {
+    if (!showAnalysis || viewMode !== 'category' || !data?.major || !data?.orderYear) return;
+    let cancelled = false;
+    setAnalysisLoading(true); setAnalysisError(''); setAnalysisData(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/sales/profit-analysis?year=${encodeURIComponent(data.orderYear)}&week=${encodeURIComponent(data.major)}`, { credentials: 'same-origin' });
+        const d = await res.json();
+        if (cancelled) return;
+        if (!d.ok) { setAnalysisError(d.message || '이익률 분석 조회 실패'); return; }
+        setAnalysisData(d);
+      } catch (e) {
+        if (!cancelled) setAnalysisError(e.message || '이익률 분석 조회 실패');
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAnalysis, viewMode, data?.major, data?.orderYear]);
   const stepWeek = delta => {
     const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
     const next = String(Math.max(1, cur + delta)).padStart(2, '0');
     weekInput.setValue(next);
-    load(next);
+    load(next, reportYear);
   };
 
   const loadWeeksRange = async () => {
@@ -252,12 +339,15 @@ export default function ProfitReportPage() {
       for (let m = to; m >= from; m--) majors.push(String(m).padStart(2, '0')); // 최신 차수가 위로
       const results = await Promise.all(majors.map(async (mj) => {
         try {
-          const res = await fetch(`/api/sales/profit-report?week=${mj}`, { credentials: 'same-origin' });
+          const res = await fetch(`/api/sales/profit-report?week=${mj}&year=${encodeURIComponent(reportYear)}`, { credentials: 'same-origin' });
           const d = await res.json();
           if (!d.success) return { major: mj, error: d.error || '조회 실패' };
-          const rows = (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
-          const totals = computeProfitTotals(rows);
-          return { major: mj, rows, totals };
+          // 확정된 차수는 저장된 calc를 그대로 쓴다(재계산 금지 — 계산식이 나중에 바뀌어도 과거 확정본은 불변).
+          const rows = d.confirmed
+            ? (d.rows || []).map(r => ({ ...r, calc: r.calc || {} }))
+            : (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
+          const totals = d.confirmed ? (d.confirmedTotals || {}) : computeProfitTotals(rows);
+          return { major: mj, rows, totals, confirmed: Boolean(d.confirmed) };
         } catch (e) { return { major: mj, error: e.message }; }
       }));
       setWeeksData(results);
@@ -319,10 +409,40 @@ export default function ProfitReportPage() {
       }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, values, note }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, values, note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
+      // R을 직접 입력/적용한 카테고리는 이 차수(OrderYear+MajorWeek+통화+카테고리)의 과세환율
+      // 캐시(WebTaxableExchangeRate)에도 함께 저장한다 — 같은 통화의 다른 카테고리·다음 조회에
+      // "정확히 이 차수" 원천으로 재사용되도록(자동 상속이 아니라 사람이 확정한 값의 저장).
+      const rateSaves = (data?.rows || [])
+        .filter((row) => values[row.category]?.R != null)
+        .map(async (row) => {
+          const rateRes = await fetch('/api/sales/profit-report', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+            body: JSON.stringify({
+              week: weekInput.value, year: reportYear, action: 'saveTaxableRate',
+              currency: row.currency || 'USD', category: row.category,
+              rate: values[row.category].R, rateSource: 'manual_input',
+            }),
+          });
+          const rateBody = await rateRes.json().catch(() => ({}));
+          if (!rateRes.ok || !rateBody.success) {
+            throw new Error(`${row.category} 과세환율 별도 저장 실패: ${rateBody.error || `HTTP ${rateRes.status}`}`);
+          }
+          return rateBody;
+        });
+      if (rateSaves.length) {
+        try {
+          await Promise.all(rateSaves);
+        } catch (rateError) {
+          await load();
+          setMessage('보고서 수기값은 저장되었습니다.');
+          setError(`${rateError.message} — 과세환율을 확인해 다시 저장하세요.`);
+          return false;
+        }
+      }
       await load();
       setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
       return true;
@@ -334,7 +454,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, action: 'saveNote', note }),
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'saveNote', note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '비고 저장 실패');
@@ -343,15 +463,52 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 
+  // 확정된 주차는 저장된 calc를 그대로 쓴다(재계산 금지 — 이후 계산식이 바뀌어도 과거 확정본은 불변).
+  // edits는 확정 화면에서는 애초에 입력칸이 잠겨 있어 채워지지 않지만, 방어적으로도 무시한다.
   const rowsCalc = useMemo(() => {
+    if (data?.confirmed) {
+      const rows = (data?.rows || []).map(r => ({ ...r, calc: r.calc || {} }));
+      return { rows, totals: data.confirmedTotals || {} };
+    }
     const rows = (data?.rows || []).map(r => ({ ...r, calc: computeProfitRow(r, edits) }));
     return { rows, totals: computeProfitTotals(rows) };
   }, [data, edits]);
 
+  const confirmReport = async (force) => {
+    setConfirmBusy(true); setError(''); setMessage('');
+    try {
+      if (force && !forceReason.trim()) throw new Error('강제 확정 사유를 입력해야 합니다.');
+      const res = await fetch('/api/sales/profit-report-confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: force ? 'force' : 'confirm', reason: force ? forceReason : undefined }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '확정 실패');
+      setShowConfirmPanel(false); setForceReason('');
+      await load();
+      setMessage(`보고서 기준 확정 완료 — Revision ${d.revisionNo}${force ? ' (강제 확정)' : ''}. 이 차수는 이제 저장된 확정값만 표시됩니다.`);
+    } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
+  };
+
+  const cancelConfirmReport = async () => {
+    if (!window.confirm(`${data?.orderYear}년 ${data?.major}차 확정을 취소할까요? 취소 후 다시 확정하면 새 revision으로 저장되며, 이전 확정 기록은 이력에 남습니다.`)) return;
+    setConfirmBusy(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report-confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'cancel' }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '확정 취소 실패');
+      await load();
+      setMessage('확정 취소 완료 — 다시 라이브 자동값으로 계산합니다. 필요하면 값을 확인한 뒤 다시 확정하세요.');
+    } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
+  };
+
   const downloadExcel = async () => {
     if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
     const colsParam = visibleCols.filter(k => k !== 'category').join(',');
-    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
+    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
   };
 
   const sendToMoyi = async () => {
@@ -382,7 +539,7 @@ export default function ProfitReportPage() {
   const openPriceModal = async () => {
     setPriceEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&stockPrices=1`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '단가표 조회 실패');
       setPriceModal(d);
@@ -392,7 +549,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, prices: priceEdits }),
+        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, year: reportYear, prices: priceEdits }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
@@ -407,6 +564,29 @@ export default function ProfitReportPage() {
   const { rows, totals } = rowsCalc;
   const needsAttention = attentionRows(rows);
 
+  // ── 검증·입력 접기 영역 요약 — 배너 4종(감사 오류/실사 확인/과세환율 입력/기타미분류)의
+  // 개수를 모아 접힌 헤더에도 문제 여부를 보여준다. 조건식 자체는 각 배너 렌더 위치에서
+  // 그대로 재사용하며 여기서는 개수 집계·기본 펼침 판단에만 쓴다.
+  const validationUnclassified = rows.some(r => r.category === '기타(미분류)');
+  const validationRateRows = data?.rows ? data.rows.filter(needsRateInput) : [];
+  const hasValidationIssues = Boolean(
+    (data?.audit?.issues?.length > 0) ||
+    needsAttention.length > 0 ||
+    validationRateRows.length > 0 ||
+    validationUnclassified
+  );
+  const validationCount =
+    (data?.audit?.issues?.length || 0) +
+    needsAttention.length +
+    validationRateRows.length +
+    (validationUnclassified ? 1 : 0);
+  // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
+  // 접고 펼치는 것은 다음 조회 전까지 유지).
+  useEffect(() => {
+    setShowValidation(hasValidationIssues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   // 읽기전용 세부표 — 차수별 뷰에서 펼쳤을 때 쓰는 카테고리별 내역(편집 불가)
   const ReadonlyDetailTable = ({ rows: wRows, totals: wTotals }) => (
     <table style={st.table}>
@@ -419,11 +599,18 @@ export default function ProfitReportPage() {
       <tbody>
         {wRows.map(row => {
           const c = row.calc;
-          const D = wTotals.C !== 0 ? c.C / wTotals.C : null;
-          const U = wTotals.P !== 0 ? c.P / wTotals.P : null;
+          // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 비율 공식이 나중에 바뀌어도
+          // 과거 확정본은 불변이어야 한다. 2026-08-11 결함수정).
+          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals);
+          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-              {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+              {isVisible('category') && (
+                <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
+                  title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                  {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
+                </td>
+              )}
               {shownColumns.map(cd => (
                 <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                   {readonlyValue(cd.key, c, { D, U })}
@@ -436,7 +623,7 @@ export default function ProfitReportPage() {
           {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
           {shownColumns.map(cd => (
             <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (wTotals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
-              {readonlyValue(cd.key, wTotals, { D: 1, U: 1 })}
+              {readonlyValue(cd.key, wTotals, { D: wTotals.D ?? 1, U: wTotals.U ?? 1 })}
             </td>
           ))}
         </tr>
@@ -456,6 +643,15 @@ export default function ProfitReportPage() {
           </div>
           {viewMode === 'category' ? (
             <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
+                value={reportYear}
+                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={e => { if (e.key === 'Enter') load(undefined, reportYear); }}
+                placeholder="2026"
+                aria-label="보고서 연도"
+              />
               <label style={st.label}>차수</label>
               <div style={st.weekStepperWrap}>
                 <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
@@ -465,7 +661,8 @@ export default function ProfitReportPage() {
                 </div>
               </div>
               <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
+              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : undefined}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
               <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
@@ -476,25 +673,48 @@ export default function ProfitReportPage() {
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
-              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
-                title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
+              {data?.confirmed ? (
+                <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={cancelConfirmReport} disabled={confirmBusy}
+                  title="확정을 취소하면 다시 라이브 자동값으로 계산합니다. 취소해도 이전 확정 기록은 이력에 남습니다">
+                  {confirmBusy ? '처리 중…' : '↩ 확정 취소 후 다시 계산'}
+                </button>
+              ) : (
+                <button style={{ ...st.primaryBtn, background: '#0369a1' }} onClick={() => setShowConfirmPanel(v => !v)} disabled={!data || confirmBusy}
+                  title="현재 계산값을 이 차수의 확정본으로 저장합니다 — 이후 원천이 바뀌어도 이 값은 그대로 유지됩니다">
+                  📌 보고서 기준 확정
+                </button>
+              )}
+              <button style={showConfirmHistory ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowConfirmHistory(v => !v)} disabled={!data}
+                title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
+                🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
+              </button>
+              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)'}>
                 🏷 재고단가표
               </button>
-              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data}
-                title="자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다">
+              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다'}>
                 🛠 수기 보정{showOverrides ? ' ▲' : ' ▼'}
               </button>
-              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
-                title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
                 📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
               </button>
-              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
-                title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
+              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
                 🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
               </button>
             </>
           ) : viewMode === 'weeks' ? (
             <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
+                value={reportYear}
+                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="2026"
+                aria-label="차수별 보고서 연도"
+              />
               <label style={st.label}>차수범위</label>
               <input style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
               <span style={{ color: '#94a3b8' }}>~</span>
@@ -568,64 +788,101 @@ export default function ProfitReportPage() {
         {viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
-          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
-          (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
+          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 선택 차수 마지막 확정 세부차수 재고수량 × 품목별 재고평가단가</b>
+          (평가단가가 없을 때만 최근 매입단가, 그것도 없고 단위가 일치할 때만 매입·포워딩·통관비 평균단가 사용 · 기초(E)=전차수 마지막 확정 기말재고 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
           청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
-          환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}
       </div>
 
+      <ProfitReportSourceGuide />
+
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
-      {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
-        <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-          <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
-          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
-            {data.audit.issues.slice(0, 10).map((issue, i) => (
-              <li key={`${issue.code}-${issue.category}-${i}`}>
-                <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
-              </li>
-            ))}
-          </ul>
-          {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
+
+      {viewMode === 'category' && data?.confirmed && (
+        <div style={st.confirmBanner}>
+          ✅ <b>확정됨</b> — Revision {data.confirmed.revisionNo} · 확정자 {data.confirmed.confirmedByName || data.confirmed.confirmedBy || '-'} ·{' '}
+          {data.confirmed.confirmedAt ? new Date(data.confirmed.confirmedAt).toLocaleString('ko-KR') : '-'}
+          {data.confirmed.isForced && <span style={{ marginLeft: 6, color: '#b91c1c', fontWeight: 800 }}>· 강제 확정 (사유: {data.confirmed.forceReason || '-'})</span>}
+          <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 400 }}>
+            이 차수는 확정 시점에 저장된 값만 표시합니다(원천이 나중에 바뀌어도 재계산하지 않음). 값을 다시 계산하려면 위 <b>확정 취소 후 다시 계산</b>을 누르세요.
+          </div>
         </div>
       )}
-
-      {viewMode === 'category' && data && needsAttention.length > 0 && (
+      {viewMode === 'category' && data && !data.confirmed && !confirmSchemaInitialized && (
         <div style={st.attentionBanner}>
-          ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
-          {needsAttention.map(r => r.category).join(', ')}
+          ℹ 보고서 기준 확정 기능은 아직 <b>초기 설정 필요</b> 상태입니다 — 이 차수의 조회/저장/엑셀 다운로드는 평소대로 동작합니다. 처음 확정을 누르면 Web 전용 확정 테이블이 자동으로 준비됩니다.
         </div>
       )}
 
-      {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>환율 입력 필요</b> — 환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다. 인보이스 과세환율을 입력한 뒤 저장하세요.
-        </div>
-      )}
-
-      {viewMode === 'category' && data && showCustoms && (
+      {viewMode === 'category' && data && showConfirmPanel && !data.confirmed && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
-            <strong>📦 그외통관비 입력 — {data.major}차</strong>
-            <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
+            <strong>📌 보고서 기준 확정 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowConfirmPanel(false)}>접기 ▲</button>
           </div>
-          <div style={st.embedPanelBody}>
-            <CustomsClearancePanel week={weekInput.value} onSaved={load} />
+          <div style={{ ...st.embedPanelBody, fontSize: 12.5, lineHeight: 1.7 }}>
+            현재 화면에 표시된 계산값을 그대로 이 차수의 확정본(Revision {(confirmHistory[0]?.revisionNo || 0) + 1})으로 저장합니다.
+            확정 후에는 원천 데이터가 바뀌어도 이 값이 자동으로 바뀌지 않습니다 — 값을 다시 반영하려면 확정을 취소한 뒤 다시 확정해야 합니다.
+            {data.audit?.errorCount > 0 ? (
+              <div style={{ marginTop: 8, padding: 9, background: '#fff7ed', border: '1px solid #f97316', borderRadius: 8, color: '#9a3412' }}>
+                <b>검증 오류 {data.audit.errorCount}건이 남아 있어 일반 확정은 저장할 수 없습니다.</b> 위 검증 안내의 각 항목을 먼저 해결하세요(원천 데이터 보정, 재고 스냅샷 확인 등).
+                불가피하게 오류가 있는 상태로 확정해야 한다면 아래 강제 확정을 관리자 권한으로 사유와 함께 사용하세요.
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <textarea style={{ ...st.noteArea, minHeight: 44, flex: 1, minWidth: 220 }} placeholder="강제 확정 사유(필수) — 예: 재고조정 이력 반영 지연, 담당자 확인 완료 등" value={forceReason} onChange={e => setForceReason(e.target.value)} />
+                  <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={() => confirmReport(true)} disabled={confirmBusy || !forceReason.trim()}>
+                    {confirmBusy ? '처리 중…' : '🔒 강제 확정(관리자 전용)'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                {data.audit?.warningCount > 0 && <div style={{ marginBottom: 6, color: '#92400e' }}>⚠ 확인 안내 {data.audit.warningCount}건이 있지만 오류는 아니므로 그대로 확정할 수 있습니다.</div>}
+                <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={() => confirmReport(false)} disabled={confirmBusy}>
+                  {confirmBusy ? '확정 중…' : '✅ 이 값으로 확정'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
-      {viewMode === 'category' && data && showForwarding && (
+
+      {viewMode === 'category' && data && showConfirmHistory && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
-            <strong>🚢 포워딩 입력 — {data.major}차</strong>
-            <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
+            <strong>🕘 확정 이력 — {data.major}차</strong>
+            <button style={st.tinyCloseBtn} onClick={() => setShowConfirmHistory(false)}>접기 ▲</button>
           </div>
           <div style={st.embedPanelBody}>
-            <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
+            {confirmHistory.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: '#64748b' }}>확정 이력이 없습니다.</div>
+            ) : (
+              <table style={st.table}>
+                <thead>
+                  <tr>
+                    <th style={st.th}>Revision</th><th style={st.th}>상태</th><th style={st.th}>확정자</th><th style={st.th}>확정시각</th>
+                    <th style={st.th}>취소자</th><th style={st.th}>취소시각</th><th style={st.th}>강제확정 사유</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {confirmHistory.map(rev => (
+                    <tr key={rev.confirmKey}>
+                      <td style={st.td}>{rev.revisionNo}</td>
+                      <td style={{ ...st.td, color: rev.isActive ? '#166534' : '#94a3b8', fontWeight: 700 }}>{rev.isActive ? '활성' : '취소됨'}</td>
+                      <td style={st.td}>{rev.confirmedByName || rev.confirmedBy || '-'}</td>
+                      <td style={st.td}>{rev.confirmedAt ? new Date(rev.confirmedAt).toLocaleString('ko-KR') : '-'}</td>
+                      <td style={st.td}>{rev.cancelledByName || rev.cancelledBy || '-'}</td>
+                      <td style={st.td}>{rev.cancelledAt ? new Date(rev.cancelledAt).toLocaleString('ko-KR') : '-'}</td>
+                      <td style={st.td}>{rev.isForced ? (rev.forceReason || '(사유 없음)') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
@@ -642,14 +899,20 @@ export default function ProfitReportPage() {
             <tbody>
               {rows.map(row => {
                 const c = row.calc;
-                const D = totals.C !== 0 ? c.C / totals.C : null;
-                const U = totals.P !== 0 ? c.P / totals.P : null;
+                // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 2026-08-11 결함수정).
+                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals);
+                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-                    {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+                    {isVisible('category') && (
+                      <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
+                        title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                        {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
+                      </td>
+                    )}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {(showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {!data.confirmed && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
@@ -659,12 +922,250 @@ export default function ProfitReportPage() {
                 {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, background: '#e2e8f0' }}>합계</td>}
                 {shownColumns.map(cd => (
                   <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (totals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
-                    {readonlyValue(cd.key, totals, { D: 1, U: 1 })}
+                    {readonlyValue(cd.key, totals, { D: totals.D ?? 1, U: totals.U ?? 1 })}
                   </td>
                 ))}
               </tr>
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewMode !== 'months' && data && (
+        <div style={st.collapseWrap}>
+          <button
+            type="button"
+            onClick={() => setShowValidation(v => !v)}
+            aria-expanded={showValidation}
+            aria-controls={VALIDATION_PANEL_ID}
+            style={st.collapseToggle}
+            title="검증 안내와 그외통관비/포워딩 입력 패널을 모아서 보여줍니다"
+          >
+            <span aria-hidden="true" style={st.caret}>{showValidation ? '▾' : '▸'}</span>
+            검증·입력
+            <span style={validationCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
+              {validationCount > 0 ? `⚠ 검증·입력 ${validationCount}건` : '검증·입력 (문제 없음)'}
+            </span>
+            <span style={st.toggleHint}>{showValidation ? '접기' : '펼치기'}</span>
+          </button>
+          <div id={VALIDATION_PANEL_ID} hidden={!showValidation} style={showValidation ? st.collapsePanel : undefined}>
+            {showValidation && (
+              <>
+                {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
+                  <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
+                    <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
+                    <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+                      {data.audit.issues.slice(0, 10).map((issue, i) => (
+                        <li key={`${issue.code}-${issue.category}-${i}`}>
+                          <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                    {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && needsAttention.length > 0 && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
+                    {needsAttention.map(r => r.category).join(', ')}
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>과세환율(R) 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
+                    해당 행의 R 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
+                    <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
+                      자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
+                      입력칸에 마우스를 올리면 참고값(전차수·통화마스터)을 볼 수 있고, 적용·저장해야 계산에 반영됩니다.
+                    </div>
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && rows.some(r => r.category === '기타(미분류)') && (
+                  <div style={st.attentionBanner}>
+                    ⚠ <b>기타(미분류) 검증 영역</b> — 국가·화종 매핑에 들지 않은 거래가 있습니다.
+                    이 행은 <b>본표 합계(C·D·I·J·K)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
+                    품목마스터의 국가(CounName)/화종(FlowerName)을 정정하면 정식 카테고리로 반영됩니다. 상세 품목은 아래 비고사항에 자동 기록됩니다.
+                  </div>
+                )}
+
+                {viewMode === 'category' && data && showCustoms && (
+                  <div style={st.embedPanel}>
+                    <div style={st.embedPanelHead}>
+                      <strong>📦 그외통관비 입력 — {data.major}차</strong>
+                      <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
+                    </div>
+                    <div style={st.embedPanelBody}>
+                      <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+                    </div>
+                  </div>
+                )}
+                {viewMode === 'category' && data && showForwarding && (
+                  <div style={st.embedPanel}>
+                    <div style={st.embedPanelHead}>
+                      <strong>🚢 포워딩 입력 — {data.major}차</strong>
+                      <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
+                    </div>
+                    <div style={st.embedPanelBody}>
+                      <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewMode === 'category' && data && (
+        <div style={st.collapseWrap}>
+          <button
+            type="button"
+            onClick={() => setShowAnalysis(v => !v)}
+            aria-expanded={showAnalysis}
+            aria-controls={ANALYSIS_PANEL_ID}
+            style={st.collapseToggle}
+            title="이 차수의 이익률(K)을 직전 차수 평균과 비교하고 변동 요인을 보여줍니다 — 본표 조회와 별도로 불러옵니다"
+          >
+            <span aria-hidden="true" style={st.caret}>{showAnalysis ? '▾' : '▸'}</span>
+            📈 이익률 분석
+            <span style={st.toggleHint}>{showAnalysis ? '접기' : '펼치기'}</span>
+          </button>
+          <div id={ANALYSIS_PANEL_ID} hidden={!showAnalysis} style={showAnalysis ? st.collapsePanel : undefined}>
+            {showAnalysis && (
+              <>
+                {analysisLoading && <div style={st.message}>이익률 분석을 불러오는 중…</div>}
+                {analysisError && <div style={st.error}>{analysisError}</div>}
+                {!analysisLoading && !analysisError && analysisData && (
+                  <>
+                    {analysisData.provisional && (
+                      <div style={st.attentionBanner}>
+                        ⚠ <b>잠정 분석</b> — 아래 값은 최종이 아닐 수 있습니다.
+                        {analysisData.provisionalReasons?.length > 0 && (
+                          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+                            {analysisData.provisionalReasons.map((reason, i) => <li key={i}>{reason}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    {(() => {
+                      const t = analysisData.trend?.trend || {};
+                      const improved = t.ppDiff != null && t.ppDiff >= 0;
+                      return (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 10 }}>
+                          이번 {analysisData.major}차 이익률 {t.currentK != null ? pct(t.currentK) : '—'} vs 직전 {t.priorCount ?? 0}개 차수 평균 {t.avgPriorK != null ? pct(t.avgPriorK) : '—'}
+                          {t.priorCount != null && t.priorCount < 4 ? ` (직전 ${t.priorCount}개 차수 평균 — 4개 미만)` : ''}
+                          {t.ppDiff != null && (
+                            <span style={{ marginLeft: 8, fontWeight: 800, color: improved ? '#166534' : '#dc2626' }}>
+                              {improved ? '+' : ''}{t.ppDiff.toFixed(2)}pp
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>차수별 이익률</div>
+                    <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                      <thead>
+                        <tr><th style={st.th}>차수</th><th style={st.th}>이익률</th><th style={st.th}>원천</th></tr>
+                      </thead>
+                      <tbody>
+                        {[analysisData.trend?.currentWeek, ...(analysisData.trend?.priorWeeks || [])].filter(Boolean).map((w, i) => (
+                          <tr key={`${w.major}-${i}`}>
+                            <td style={st.td}>{Number(w.major)}차{i === 0 ? ' (이번 차수)' : ''}</td>
+                            <td style={st.tdNum}>{w.K != null ? pct(w.K) : '—'}</td>
+                            <td style={st.td}>
+                              <span style={w.source === 'snapshot' ? st.collapseBadgeOk : w.source === 'live' ? st.sourceBadgeLive : st.sourceBadgeMissing}>
+                                {w.source === 'snapshot' ? '확정' : w.source === 'live' ? '실시간 계산' : '데이터 없음'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>변동 요인 (매출이익에 미친 영향)</div>
+                    <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={st.th}>항목</th><th style={st.th}>이번 차수</th><th style={st.th}>직전 평균</th>
+                          <th style={st.th}>금액 증감</th><th style={st.th}>증감률</th><th style={st.th}>이익 영향</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(analysisData.drivers || []).map(d => (
+                          <tr key={d.column}>
+                            <td style={st.td}>{DRIVER_LABELS[d.column] || d.column}</td>
+                            <td style={st.tdNum}>{d.currentValue != null ? fmt(d.currentValue) : '—'}</td>
+                            <td style={st.tdNum}>{d.priorAvgValue != null ? fmt(d.priorAvgValue) : '—'}</td>
+                            <td style={st.tdNum}>{d.delta != null ? fmt(d.delta) : '—'}</td>
+                            <td style={st.tdNum}>{d.pctDelta != null ? pct(d.pctDelta) : '—'}</td>
+                            <td style={{ ...st.tdNum, fontWeight: 800, color: d.profitImpact > 0 ? '#166534' : d.profitImpact < 0 ? '#dc2626' : undefined }}>
+                              {d.profitImpact != null ? (d.profitImpact > 0 ? '+' : '') + fmt(d.profitImpact) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>단가 하락 후보</div>
+                    {analysisData.priceMixStatus === 'failed' ? (
+                      <div style={{ ...st.attentionBanner, marginBottom: 12 }}>⚠ 분석 실패·확인 필요 — {analysisData.priceMixFailureReason || '단가 후보를 불러오지 못했습니다.'}</div>
+                    ) : (analysisData.priceDecreaseCandidates || []).length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>해당 없음</div>
+                    ) : (
+                      <table style={{ ...st.table, minWidth: 0, marginBottom: 12 }}>
+                        <thead>
+                          <tr><th style={st.th}>거래처</th><th style={st.th}>품목</th><th style={st.th}>이번 단가</th><th style={st.th}>직전 단가</th><th style={st.th}>변화율</th><th style={st.th}>비고</th></tr>
+                        </thead>
+                        <tbody>
+                          {analysisData.priceDecreaseCandidates.map((c, i) => (
+                            <tr key={`${c.custKey}-${c.prodKey}-${i}`}>
+                              <td style={st.td}>{c.custName}</td>
+                              <td style={st.td}>{c.productName || `품목 #${c.prodKey}`}</td>
+                              <td style={st.tdNum}>{c.currentPrice != null ? fmt(c.currentPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.priorPrice != null ? fmt(c.priorPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.pctChange != null ? pct(c.pctChange) : '—'}</td>
+                              <td style={st.td}>{c.note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 4 }}>저가 구성비 후보</div>
+                    {analysisData.priceMixStatus === 'failed' ? (
+                      <div style={st.attentionBanner}>⚠ 분석 실패·확인 필요 — 정상 조회 후 판단할 수 있습니다.</div>
+                    ) : (analysisData.lowPriceMixCandidates || []).length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#64748b' }}>해당 없음</div>
+                    ) : (
+                      <table style={{ ...st.table, minWidth: 0 }}>
+                        <thead>
+                          <tr><th style={st.th}>거래처</th><th style={st.th}>품목</th><th style={st.th}>이번 단가</th><th style={st.th}>동종 가중평균</th><th style={st.th}>동종 중앙값</th><th style={st.th}>비중 변화(pp)</th><th style={st.th}>비고</th></tr>
+                        </thead>
+                        <tbody>
+                          {analysisData.lowPriceMixCandidates.map((c, i) => (
+                            <tr key={`${c.custKey}-${c.prodKey}-${i}`}>
+                              <td style={st.td}>{c.custName}</td>
+                              <td style={st.td}>{c.productName || `품목 #${c.prodKey}`}</td>
+                              <td style={st.tdNum}>{c.currentPrice != null ? fmt(c.currentPrice) : '—'}</td>
+                              <td style={st.tdNum}>{c.peerWeightedAvg != null ? fmt(c.peerWeightedAvg) : '—'}</td>
+                              <td style={st.tdNum}>{c.peerMedian != null ? fmt(c.peerMedian) : '—'}</td>
+                              <td style={st.tdNum}>{c.shareDeltaPp != null ? c.shareDeltaPp.toFixed(2) : '—'}</td>
+                              <td style={st.td}>{c.note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -696,7 +1197,7 @@ export default function ProfitReportPage() {
                       </td>
                       {shownColumns.map(cd => (
                         <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (w.totals.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                          {readonlyValue(cd.key, w.totals, { D: 1, U: 1 })}
+                          {readonlyValue(cd.key, w.totals, { D: w.totals.D ?? 1, U: w.totals.U ?? 1 })}
                         </td>
                       ))}
                     </tr>
@@ -935,12 +1436,27 @@ const st = {
   embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
   embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
   tinyCloseBtn: { background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer' },
+  // 표 아래 접기 영역(검증·입력 / 이익률 분석) — components/ProfitReportSourceGuide.js 와 동일한 토글 패턴.
+  collapseWrap: { marginTop: 12 },
+  collapseToggle: {
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8,
+    padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', lineHeight: 1.4,
+  },
+  caret: { fontSize: 10, color: '#64748b' },
+  toggleHint: { fontSize: 10.5, fontWeight: 600, color: '#94a3b8' },
+  collapsePanel: { marginTop: 8, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', padding: 12 },
+  collapseBadgeWarn: { fontSize: 11, fontWeight: 800, color: '#9a3412', background: '#fff7ed', border: '1px solid #fb923c', borderRadius: 5, padding: '1px 7px' },
+  collapseBadgeOk: { fontSize: 11, fontWeight: 800, color: '#166534', background: '#ecfdf5', border: '1px solid #86efac', borderRadius: 5, padding: '1px 7px' },
+  sourceBadgeLive: { fontSize: 11, fontWeight: 800, color: '#1e40af', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 5, padding: '1px 7px' },
+  sourceBadgeMissing: { fontSize: 11, fontWeight: 800, color: '#64748b', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '1px 7px' },
   hint: { fontSize: 11.5, color: '#64748b', marginBottom: 10, lineHeight: 1.6 },
   error: { background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   message: { background: '#ecfdf5', border: '1px solid #34d399', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, marginBottom: 8 },
   auditError: { background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
+  confirmBanner: { background: '#ecfdf5', border: '1px solid #16a34a', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, fontWeight: 700, marginBottom: 8, lineHeight: 1.6 },
   monthlyInfo: { background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e3a8a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.6 },
   monthDetail: { padding: 9, background: '#f8fafc' },
   monthDetailTitle: { fontWeight: 800, color: '#334155', fontSize: 12, marginBottom: 5 },

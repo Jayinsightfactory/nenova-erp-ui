@@ -15,8 +15,9 @@
     "lib/shipmentFarmAssignments.js",
     "lib/shipmentFarmCandidates.js",
     "components/PivotFarmAssignmentModal.js",
-    "pages/orders/paste.js"
-    ,"__tests__/erpEditFixScopeAudit.test.js"
+    "pages/orders/paste.js",
+    "pages/api/orders/parse-paste.js",
+    "__tests__/erpEditFixScopeAudit.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -65,6 +66,7 @@
     "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/shipmentAvailability.test.js",
     "__tests__/pasteOrderUnit.test.js",
+    "__tests__/pasteNaturalCustomerInline.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

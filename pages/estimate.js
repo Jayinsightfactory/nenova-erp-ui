@@ -49,6 +49,7 @@ import {
   buildEstimatePrintWorksheet,
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
+import { getEstimateShipmentManager, sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 
@@ -612,16 +613,7 @@ ${sections}
 }
 
 function getShipmentManager(ship) {
-  const manager = String(ship?.Manager || '').trim();
-  return manager || '담당자 미지정';
-}
-
-function compareShipmentsByManager(a, b) {
-  const managerDiff = getShipmentManager(a).localeCompare(getShipmentManager(b), 'ko');
-  if (managerDiff !== 0) return managerDiff;
-  const weekDiff = String(b?.ParentWeek || '').localeCompare(String(a?.ParentWeek || ''), 'ko', { numeric: true });
-  if (weekDiff !== 0) return weekDiff;
-  return String(a?.CustName || '').localeCompare(String(b?.CustName || ''), 'ko');
+  return getEstimateShipmentManager(ship);
 }
 const ESTIMATE_TYPES = [
   '불량차감/박스','불량차감/단','불량차감/송이',
@@ -2802,7 +2794,7 @@ export default function Estimate() {
         .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
         .filter(Boolean);
       // 담당자 순으로 정렬해 인쇄물이 담당자별로 모이게 한다(구분 표지는 종이 낭비라 미삽입).
-      const printShips = [...selectedShips].sort(compareShipmentsByManager);
+      const printShips = sortEstimateShipmentsForPrint(selectedShips);
       for (const ship of printShips) {
         let custPages = [];
         try {
@@ -2937,10 +2929,9 @@ export default function Estimate() {
 
     if (selectedGroups.size > 0) {
       const groupArr = Array.from(selectedGroups);
-      const printShips = groupArr
+      const printShips = sortEstimateShipmentsForPrint(groupArr
         .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
-        .filter(Boolean)
-        .sort(compareShipmentsByManager);
+        .filter(Boolean));
       for (const ship of printShips) {
         try {
           const rows = await fetchPrintRowsForShip(ship);
@@ -3538,7 +3529,7 @@ export default function Estimate() {
                           title="전체 선택/해제"/>
                       </th>
                       <th>차수</th><th>거래처</th><th>담당자</th>
-                      <th style={{textAlign:'right'}}>총 합계금액</th>
+                      <th style={{textAlign:'right'}}>총 합계금액 ▼</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3550,6 +3541,7 @@ export default function Estimate() {
                           .sort((a, b) => String(b).localeCompare(String(a))).slice(0, 2);
                         displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
                       }
+                      displayShips = sortEstimateShipmentsForList(displayShips);
                       if (displayShips.length === 0) {
                         return (
                           <tr>

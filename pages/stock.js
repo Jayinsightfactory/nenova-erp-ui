@@ -143,6 +143,7 @@ export default function Stock() {
     const list = stock.filter(isRowDirty).map(s => ({
       prodKey: s.ProdKey,
       prodName: s.ProdName,
+      countryFlower: s.CountryFlower || s.CounName || s.FlowerName || '',
       before: calcStock(s),
       afterStock: Number(edits[s.ProdKey]),
     }));
@@ -152,8 +153,8 @@ export default function Stock() {
       list.map(x => `${x.prodName}: ${fmtF(x.before)} → ${fmtF(x.afterStock)}`).join('\n')
     )) return;
 
-    const editsPayload = list.map(({ prodKey, afterStock, prodName }) => ({
-      prodKey, afterStock, descr: `재고관리 일괄수정 (${prodName})`,
+    const editsPayload = list.map(({ prodKey, before, afterStock, prodName }) => ({
+      prodKey, expectedSelectedStock: before, afterStock, descr: `재고관리 일괄수정 (${prodName})`,
     }));
 
     setApplying(true); setApplyMsg('적용 중'); setApplyResults(null);
@@ -163,6 +164,8 @@ export default function Stock() {
         const cycleResult = await runEditWithFixCycle({
           weeks: [week],
           orderYear,
+          countryFlowers: [...new Set(list.map(x => x.countryFlower).filter(Boolean))],
+          stockProdKeys: list.map(x => x.prodKey),
           progress: setApplyMsg,
           apply: async () => {
             const r = await postAdjustBatch({ week, orderYear, edits: editsPayload });

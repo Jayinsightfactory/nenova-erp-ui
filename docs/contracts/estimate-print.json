@@ -5,6 +5,7 @@
     "pages/estimate.js",
     "pages/api/estimate/index.js",
     "lib/exeEstimateViewSql.js",
+    "lib/estimatePrintOrder.js",
     "lib/estimatePrintPrepare.js",
     "lib/estimatePrintExcel.js",
     "__tests__/estimatePrintContract.test.js"
@@ -24,6 +25,8 @@
     "required": true,
     "description": "같은 대차수라도 OrderYear가 다른 원장을 섞지 않고, 선택한 OrderYearWeek·CustKey의 EXE 인쇄 SQL 결과만 출력한다. 정상출고는 ViewShipment·ViewOrder·ShipmentDate·PeriodDay·DetailFix=1·EstQuantity>0, 차감은 같은 차수 Estimate를 사용한다."
   },
+  "printOrder": "일괄 견적서와 동일양식 Excel은 API 원본과 최종 출력 묶음 모두 담당자 → 업체명 → CustKey 순서를 사용한다. 담당자 미지정 업체는 지정 업체 뒤에 배치한다.",
+  "leftListOrder": "견적서관리 좌측 업체 목록은 선택 범위의 totalAmount 내림차순(매출 높은 순)으로 표시하고, 동률이면 업체명 → CustKey 순서를 사용한다. 이 화면 순서는 일괄 인쇄의 담당자순 계약을 변경하지 않는다.",
   "requiredTestFiles": [
     "__tests__/estimatePrintContract.test.js",
     "__tests__/exeEstimateViewSql.test.js",

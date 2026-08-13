@@ -89,8 +89,10 @@ assert.deepEqual(
   { valid: [{ deductionKey: 1, error: '' }], invalid: [{ deductionKey: 2, error: '출고 없음' }] },
 );
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
+const defectApiSource = fs.readFileSync('pages/api/sales/defect-deductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
+const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const orderImportSource = fs.readFileSync('lib/orderImportMatch.js', 'utf8');
@@ -109,13 +111,29 @@ const listDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function markCarryoverDeductions'),
 );
 assert.doesNotMatch(listDeductionsSource, /ensureSalesDefectTables\(/, '영업수입불량차감 GET 목록 조회가 DDL ensure를 실행하면 안 됩니다.');
-assert.match(deductionSource, /markCarryoverDeductions[\s\S]*ensureSalesDefectTables\(/, '이월업체 등록 POST는 쓰기 스키마를 보장해야 합니다.');
+assert.match(deductionSource, /confirmIncomingDeductions[\s\S]*IsCarryoverLedger=1[\s\S]*RemainingQuantity=COALESCE\(RemainingQuantity,Quantity\)/, '수입부 컨펌 시 별도 조작 없이 자동 미처리·부분처리 원장으로 전환해야 합니다.');
+assert.doesNotMatch(defectApiSource, /action === 'carryover-register'/, '별도 수동 이월업체 등록 API를 노출하면 안 됩니다.');
 assert.match(deductionSource, /RemainingQuantity[\s\S]*WebSalesCarryoverApplication/, '이월 부분처리는 잔여수량과 적용이력을 모두 보존해야 합니다.');
-assert.ok(pageSource.includes('특정 원차수 이월업체 직접등록'), '이월 탭에서 선택한 연도·차수로 기존 이월업체를 직접 등록할 수 있어야 합니다.');
-assert.ok(pageSource.includes("sourceFileName: '이월업체 직접등록'"), '직접 등록 원천을 원장에 남겨야 합니다.');
-assert.match(deductionSource, /customerTargetRegistered[\s\S]*carryoverClassification[\s\S]*SURPLUS/, '적용 차수에 업체 판매범위가 없으면 여분으로 분류해야 합니다.');
-assert.ok(pageSource.includes('toggleCarryoverCustomer'), '이월 목록은 업체 단위로 선택·관리할 수 있어야 합니다.');
-assert.ok(pageSource.includes("업체 미등록"), '여분 업체의 사유를 화면에 표시해야 합니다.');
+assert.equal(pageSource.includes('특정 원차수 이월업체 직접등록'), false, '별도 수동 이월업체 직접등록 폼을 업무 흐름에 두면 안 됩니다.');
+assert.equal(pageSource.includes("sourceFileName: '이월업체 직접등록'"), false, '이월은 별도 원장 생성이 아니라 기존 영업입력 원장을 다음 차수에 재시도해야 합니다.');
+assert.match(deductionContract.sideEffects.operationalWorkflow, /영업입력 저장.*수입부.*확정.*견적 일괄등록/, '계약은 영업입력→수입부 수정·확정→견적 일괄등록 순서를 고정해야 합니다.');
+assert.match(deductionContract.sideEffects.carryover, /판매행이 없는 행은 자동 미처리[\s\S]*다음 차수.*재시도/, '판매행 없는 행은 별도 수동 등록 없이 다음 차수에 재시도해야 합니다.');
+assert.match(deductionContract.sideEffects.carryover, /부분 처리[\s\S]*잔량이 0이 될 때까지/, '부분 처리 잔량은 완료될 때까지 같은 원장에 남아야 합니다.');
+assert.ok(pageSource.includes("action: 'incoming-confirm'"), '견적 일괄등록 전 수입부 수정·확정 단계가 있어야 합니다.');
+assert.ok(pageSource.includes('registerSupport'), '수입부 확인 뒤 선택 행 견적 일괄등록 단계가 있어야 합니다.');
+assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.importConfirmed && row.customerTargetRegistered'), '미처리 재시도는 수입부 컨펌 완료·대상 차수 판매 범위가 있는 행만 선택해야 합니다.');
+assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('supportAllSelected'), '전체 선택 표시와 동작은 실제 등록 가능 행을 동일한 기준으로 사용해야 합니다.');
+assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
+assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
+assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 적요를 수정할 수 있어야 합니다.');
+const registerDeductionsSource = deductionSource.slice(
+  deductionSource.indexOf('export async function registerDeductions'),
+  deductionSource.indexOf('export async function deleteDeductions'),
+);
+assert.match(registerDeductionsSource, /skipped\.push\(\{ deductionKey: key, error: error\.message \}\)/, '판매행 없는 행은 전체 작업을 실패시키지 않고 행별 자동 미처리해야 합니다.');
+assert.match(registerDeductionsSource, /if \(!ctx\.shipmentKey\) throw new Error\([\s\S]*이월 대기/, '대상 차수 판매행이 없으면 Estimate 생성 전에 미처리해야 합니다.');
+assert.match(registerDeductionsSource, /RemainingQuantity=CASE WHEN IsCarryoverLedger=1[\s\S]*RemainingQuantity,Quantity\)-@applyQty/, '부분 처리 시 실제 처리수량만 잔량에서 차감해야 합니다.');
+assert.doesNotMatch(registerDeductionsSource, /(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:OrderDetail|ShipmentDetail|ShipmentDate|ShipmentMaster|StockHistory|ProductStock)\b/i, '견적 일괄등록은 Order/Shipment/Stock 원장을 변경하면 안 됩니다.');
 const defectMigrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
 assert.match(defectMigrationSource, /CREATE TABLE dbo\.WebSalesDefectDeduction/, '웹 차감 원장은 migration에서 생성해야 합니다.');
 assert.ok(pageSource.includes('useState(false)'), '수정 이력은 기본적으로 닫혀 있어야 한다.');

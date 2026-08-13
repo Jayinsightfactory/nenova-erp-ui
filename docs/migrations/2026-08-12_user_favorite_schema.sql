@@ -1,0 +1,12 @@
+IF OBJECT_ID(N'dbo.UserFavorite', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.UserFavorite (
+    FavoriteKey INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    UserID NVARCHAR(50) NOT NULL,
+    PageName NVARCHAR(100) NOT NULL,
+    FavName NVARCHAR(100) NOT NULL,
+    FilterData NVARCHAR(MAX) NOT NULL,
+    SortOrder INT NOT NULL CONSTRAINT DF_UserFavorite_SortOrder DEFAULT 0,
+    CreateDtm DATETIME NOT NULL CONSTRAINT DF_UserFavorite_CreateDtm DEFAULT GETDATE()
+  );
+END;
