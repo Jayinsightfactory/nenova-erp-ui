@@ -1,0 +1,5 @@
+import {query,sql} from '../lib/db.js';
+const names=['Hydrangea P.PK (BA) (연핑크)','Hydrangea Peach (Florentina) 피치','Hydrangea tinted lime green (염색연그린) AT','ROSE / Deep Silver 50cm','ROSE / Hearts 50cm','SPRAY ROSE / Snow Flake'];
+const p=Object.fromEntries(names.map((n,i)=>[`n${i}`,{type:sql.NVarChar,value:n}]));
+const r=await query(`SELECT p.ProdKey,p.ProdName,p.CountryFlower,p.Stock liveStock,ps.Stock selectedStock,SUM(CASE WHEN ISNULL(sd.isFix,0)=1 THEN 1 ELSE 0 END) fixedLines FROM Product p JOIN ProductStock ps ON ps.ProdKey=p.ProdKey JOIN StockMaster stk ON stk.StockKey=ps.StockKey AND stk.OrderYear=N'2026' AND stk.OrderWeek=N'30-02' LEFT JOIN ShipmentDetail sd ON sd.ProdKey=p.ProdKey LEFT JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey AND sm.OrderYear=N'2026' AND sm.OrderWeek=N'30-02' AND ISNULL(sm.isDeleted,0)=0 WHERE p.ProdName IN (${names.map((_,i)=>`@n${i}`).join(',')}) GROUP BY p.ProdKey,p.ProdName,p.CountryFlower,p.Stock,ps.Stock ORDER BY p.ProdName`,p);
+console.log(JSON.stringify(r.recordset,null,2));
