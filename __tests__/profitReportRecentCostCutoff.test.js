@@ -27,7 +27,8 @@ async function main() {
     /LEFT JOIN WebStockPriceEvidence/.test(stockBlock)
     && /spe\.OrderYear=smk\.OrderYear AND spe\.OrderWeek=smk\.OrderWeek/.test(stockBlock)
     && /spe\.EvidenceStatus=N'VERIFIED'/.test(stockBlock));
-  check('확정 재고 수량만 사용', /ISNULL\(smk\.isFix,0\)=1/.test(stockBlock));
+  check('EXE ProductStock 수량을 사용하고 StockMaster.isFix로 필터하지 않음',
+    /FROM ProductStock ps/.test(stockBlock) && !/smk\.isFix/.test(stockBlock));
 
   const apiSource = fs.readFileSync(path.join(root, 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
   check('01차 전년 52차 재고 호출 유지',

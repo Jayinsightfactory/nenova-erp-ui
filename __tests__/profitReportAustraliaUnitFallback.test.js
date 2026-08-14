@@ -1,4 +1,4 @@
-// 호주를 포함한 모든 카테고리의 E/F는 확정 ProductStock와 정확한 차수의 VERIFIED 단가 증거만 사용한다.
+// 호주를 포함한 모든 카테고리의 E/F는 EXE ProductStock와 정확한 차수의 VERIFIED 단가 증거만 사용한다.
 // 과거의 Product.Cost/recentCost/landed-cost/Australia 단위 fallback이 되살아나지 않는지 검증한다.
 const fs = require('fs');
 const path = require('path');
@@ -42,10 +42,10 @@ async function main() {
   check('단가 증거 누락 원천 태그', endingStockSourceKind(missingEvidence) === 'missing_price_evidence');
 
   const missingSnapshot = { ...verified, snapshotConfirmed: false };
-  check('확정 ProductStock가 아니면 VERIFIED 단가가 있어도 null', computeAutoEndingStock(missingSnapshot) == null);
+  check('ProductStock 스냅샷이 없으면 VERIFIED 단가가 있어도 null', computeAutoEndingStock(missingSnapshot) == null);
   check('스냅샷 누락 원천 태그', endingStockSourceKind(missingSnapshot) === 'missing_stock_snapshot');
 
-  check('확정 스냅샷의 재고수량 0은 단가 증거 없이도 0',
+  check('ProductStock 스냅샷의 재고수량 0은 단가 증거 없이도 0',
     computeAutoEndingStock({ endQty: 0, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED' }) === 0);
 
   console.log('\n=== E/F 최종값 직접입력 차단 ===');
@@ -67,8 +67,8 @@ async function main() {
     reportSource.indexOf('export async function stockSnapshotByCategory'),
     reportSource.indexOf('/** 카테고리별 구매 통화'),
   );
-  check('확정 StockMaster와 ProductStock를 사용',
-    /ISNULL\(smk\.isFix,0\)=1/.test(stockBlock) && /FROM ProductStock ps/.test(stockBlock));
+  check('EXE와 같이 ProductStock를 사용하고 StockMaster.isFix로 필터하지 않음',
+    !/smk\.isFix/.test(stockBlock) && /FROM ProductStock ps/.test(stockBlock));
   check('직접 단가 증거는 동일 OrderYear+OrderWeek+ProdKey에 VERIFIED로 조인',
     /spe\.ProdKey=p\.ProdKey/.test(stockBlock)
     && /spe\.OrderYear=smk\.OrderYear AND spe\.OrderWeek=smk\.OrderWeek/.test(stockBlock)

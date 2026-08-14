@@ -182,7 +182,7 @@ async function main() {
     && /백상창고료·관세는 원래 공급가라 나누지 않고/.test(byKey.H.note) && /베트남 선율만 예외/.test(byKey.H.note));
   check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게배분을 명시',
     /박스당 무게 × 박스수/.test(byKey.H.formula) && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
-  check('재고단가 근거 평가식 명시', /확정 ProductStock 환산수량 × VERIFIED 시점 단가/.test(byKey['in-stockprice'].formula));
+  check('재고단가 근거 평가식 명시', /EXE ProductStock 환산수량 × VERIFIED 시점 단가/.test(byKey['in-stockprice'].formula));
   // 월드운송료 추천 = 용량 분해(3t = 2.5t + 1t), 저장된 실제값 우선
   const { deriveTruckPlan } = await import('../lib/colombiaTruck.js');
   const plan3t = deriveTruckPlan(3000);
@@ -196,8 +196,8 @@ async function main() {
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
-  check('기말재고 설명이 확정 재고와 검증된 품목 단가만 명시',
-    /확정 ProductStock/.test(byKey.F.formula) && /사용자 확정 도착원가/.test(byKey.F.formula)
+  check('기말재고 설명이 EXE 재고와 검증된 품목 단가만 명시',
+    /EXE ProductStock/.test(byKey.F.formula) && /사용자 확정 도착원가/.test(byKey.F.formula)
     && /최근원가·Product\.Cost/.test(byKey.F.note));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)
@@ -224,8 +224,9 @@ async function main() {
     && /01차일 때만 전년도 52차/.test(byKey['bd-begin-end'].formula));
   check('기말재고도 해당 차수 마지막 세부차수임을 명시',
     /기말재고는 27차의 마지막 세부차수 재고/.test(byKey['bd-begin-end'].formula));
-  check('isFix=1이 확정 스냅샷 선택 조건임을 명시',
-    /isFix=1/.test(byKey['bd-begin-end'].note) && /isFix=1/.test(byKey.F.source));
+  check('StockMaster.isFix를 재고 마감 조건으로 쓰지 않음을 명시',
+    /isFix를 재고 마감 조건으로 쓰지/.test(byKey['bd-begin-end'].note)
+    && !/isFix=1/.test(byKey.F.source));
   check('마지막 세부차수 선택 코드가 유지됨(ProductStock 존재 + suffix DESC)',
     /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/.test(reportSource));
 

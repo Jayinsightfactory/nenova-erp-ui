@@ -67,7 +67,7 @@
       "name": "REPORT_MANUAL_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없으며, E/F는 확정 ProductStock 수량과 정확한 차수의 VERIFIED WebStockPriceEvidence만으로 자동 계산한다."
+      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없으며, E/F는 EXE가 계산한 마지막 ProductStock 수량과 정확한 차수의 VERIFIED WebStockPriceEvidence만으로 자동 계산한다. StockMaster.isFix는 FormStockView의 재고 마감 조건이 아니므로 필터로 쓰지 않는다."
     },
     {
       "name": "PRICE_EVIDENCE_SAVE",
