@@ -6,6 +6,15 @@
   "formulaFingerprint": "lib/profitReportEvidence/formulaFingerprint.mjs",
   "sourceDirectory": ".verify/inputs/profit-report-weeks-22-28",
   "immutableInputs": true,
+  "formulaSpecification": {
+    "file": "formula-template.xlsx",
+    "sha256": "222484dc07e392ad88d52b7a0f9406c4e19b21af7de97500d176ed726b8234bb",
+    "mainSheet": "주차별 매출이익 보고서",
+    "descriptionRow": 7,
+    "productCatalogSheet": "품목리스트",
+    "productKeyColumn": "A",
+    "contract": "formula-spec-workbook@1"
+  },
   "workbooks": [
     { "week": 22, "file": "week-22.xlsx", "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0", "sheetCount": 11, "persistedCellCount": 41798, "formulaCount": 1885, "lastRowCategory": "공제" },
     { "week": 23, "file": "week-23.xlsx", "sha256": "b4ebf36ae4253a8d501bcacc147793a0b037fd933e0a29c3c68d131755dc6f9e", "sheetCount": 11, "persistedCellCount": 41534, "formulaCount": 1808, "lastRowCategory": "공제" },

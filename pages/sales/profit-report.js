@@ -134,8 +134,12 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const warn = needsCheck(row, col) || missingRate;
   const suggestionText = (row.rateSuggestions || [])
     .map(sg => `${sg.label} ${Number(sg.rate).toLocaleString()}`).join(' / ');
+  const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
+    ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
     verified_product_stock_price: '확정 ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
+    verified_arrival_cost: '확정 ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
+    verified_mixed_price_evidence: '확정 ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ 확정 ProductStock 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
@@ -146,8 +150,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
-    E: '기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 확정 ProductStock와 동일 시점 VERIFIED 품목 단가로만 계산합니다. 최종값 직접입력은 허용하지 않습니다.',
-    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}. 최종값 직접입력은 허용하지 않습니다.`,
+    E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 확정 ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
+    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate
     ? titles[col]

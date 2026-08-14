@@ -196,16 +196,20 @@ async function main() {
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
-  check('기말재고 설명이 확정 재고와 동일시점 VERIFIED 단가만 명시',
-    /확정 ProductStock/.test(byKey.F.formula) && /WebStockPriceEvidence/.test(byKey.F.formula)
+  check('기말재고 설명이 확정 재고와 검증된 품목 단가만 명시',
+    /확정 ProductStock/.test(byKey.F.formula) && /사용자 확정 도착원가/.test(byKey.F.formula)
     && /최근원가·Product\.Cost/.test(byKey.F.note));
-  check('기말재고 코드가 최근원가·도착원가 폴백을 금지',
-    /stock\.snapshotConfirmed !== true \|\| stock\.priceEvidenceStatus !== 'VERIFIED'/.test(calcSource)
+  check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
+    /hasVerifiedStockPriceEvidence/.test(calcSource)
+    && /VERIFIED_ARRIVAL_COST/.test(calcSource)
     && !/landedWon \/ purchQty/.test(calcSource) && !/recentCost\) \* n0\(R\)/.test(calcSource));
   const { computeAutoEndingStock, endingStockSourceKind } = await import('../lib/profitReportCalc.js');
   check('VERIFIED 시점 단가가 있으면 F는 증거 평가액을 그대로 사용',
     computeAutoEndingStock({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 1234
     && endingStockSourceKind({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 'verified_product_stock_price');
+  check('사용자가 확정한 동일 차수·품목·단위 도착원가도 F 증거로 사용',
+    computeAutoEndingStock({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_ARRIVAL_COST', evidenceValue: 1200 }) === 1200
+    && endingStockSourceKind({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_ARRIVAL_COST', evidenceValue: 1200 }) === 'verified_arrival_cost');
   check('단가 근거가 없으면 INPUT_REQUIRED이고 폴백하지 않음',
     computeAutoEndingStock({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED', recentCost: 9 }) == null
     && endingStockSourceKind({ endQty: 100, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED' }) === 'missing_price_evidence'

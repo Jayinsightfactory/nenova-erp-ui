@@ -95,6 +95,7 @@ export async function loadReportData(major, orderYear) {
           evidenceValue: stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null,
           snapshotConfirmed: stockEnd.stockMasterIsFix === 1,
           priceEvidenceStatus: stockEnd.priceEvidenceStatus?.[key] || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: stockEnd.priceEvidenceSources?.[key] || [],
           missingPriceCount: Number(stockEnd.missingPriceCounts?.[key] || 0),
           negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
         };
@@ -107,6 +108,7 @@ export async function loadReportData(major, orderYear) {
           evidenceValue: stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null,
           snapshotConfirmed: stockBegin.stockMasterIsFix === 1,
           priceEvidenceStatus: stockBegin.priceEvidenceStatus?.[key] || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: stockBegin.priceEvidenceSources?.[key] || [],
           missingPriceCount: Number(stockBegin.missingPriceCounts?.[key] || 0),
         };
         const autoE = computeAutoEndingStock(beginStock);
@@ -123,6 +125,7 @@ export async function loadReportData(major, orderYear) {
           category: key,
           variant: def.variant || 'normal',
           stock,
+          beginStock,
           // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
           // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)
           stockAnchored: {

@@ -91,7 +91,7 @@ async function main() {
   const customsPanelSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'CustomsClearancePanel.js'), 'utf8');
   const stockApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stock', 'index.js'), 'utf8');
   const stockSection = reportSource.slice(reportSource.indexOf('export async function stockSnapshotByCategory'), reportSource.indexOf('/** 카테고리별 구매 통화'));
-  check('재고수량은 EXE 재고현황 마지막 Stock 열을 직접 사용', stockSection.includes('SUM(ps.Stock * (${STOCK_TO_EST_UNIT_EXPR})) AS q'));
+  check('재고수량은 EXE 재고현황 마지막 Stock 열을 직접 사용', stockSection.includes('ps.Stock * (${STOCK_TO_EST_UNIT_EXPR}) AS q'));
   check('기말 스냅샷은 마지막 ProductStock 세부차수를 선택',
     reportSource.includes('export async function latestStockSnapshotWeek')
       && reportSource.includes('EXISTS (SELECT 1 FROM ProductStock ps WHERE ps.StockKey=sm.StockKey)')
@@ -211,7 +211,7 @@ async function main() {
     { endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 2129244.3664138042 },
   );
   check('F는 확정 재고현황 279단과 동일시점 VERIFIED 단가 근거만 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
-  check('단가 근거가 없으면 최근원가·도착원가로 폴백하지 않음', computeAutoEndingStock({ endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED', recentCost: 999999 }) == null);
+  check('검증된 단가 근거가 없으면 최근원가·임의 도착원가로 폴백하지 않음', computeAutoEndingStock({ endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED', recentCost: 999999 }) == null);
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

@@ -15,7 +15,8 @@
   "actions": [
     { "name": "ARRIVAL_COST_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "ARRIVAL_COST_UPLOAD_REVISION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
-    { "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+    { "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "PROFIT_REPORT_PRICE_EVIDENCE_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "조회 전용. 같은 연도·차수·ProdKey·EstUnit, 현재 MATCHED 행과 사용자 MATCH/BASIS_CHANGE 이력 및 완전한 source provenance만 사용하며 WebStockPriceEvidence로 자동 복사하지 않는다." }
   ],
   "crossYearFixture": {
     "required": true,

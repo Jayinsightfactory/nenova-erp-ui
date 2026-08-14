@@ -32,11 +32,25 @@ async function main() {
   const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const selector = source.slice(source.indexOf('export async function latestStockSnapshotWeek'), source.indexOf('/** 재고단가표 편집용'));
   const snapshot = source.slice(source.indexOf('export async function stockSnapshotByCategory'), source.indexOf('/** 카테고리별 구매 통화'));
+  const arrivalEvidence = source.slice(source.indexOf('export async function arrivalPriceEvidenceByProduct'), source.indexOf('// 입고 라인의 금액단위 수량'));
   assert.match(selector, /sm\.OrderYear=@yr/);
   assert.match(selector, /sm\.OrderWeek LIKE @pfx/);
   assert.match(selector, /ISNULL\(sm\.isFix,0\)=1/);
   assert.match(selector, /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/);
   assert.doesNotMatch(snapshot, /StockHistory/, '재고조정 delta를 보고서에서 이중합산하면 안 된다.');
+  assert.match(arrivalEvidence, /l\.OrderYear=@yr AND \$\{NORMALIZED_ORDER_WEEK_SQL\('l\.OrderWeek'\)\}=\$\{NORMALIZED_ORDER_WEEK_SQL\('@week'\)\}/);
+  assert.match(arrivalEvidence, /l\.ProdKey/);
+  assert.match(arrivalEvidence, /l\.IsCurrent=1 AND l\.MatchStatus=N'MATCHED'/);
+  assert.match(arrivalEvidence, /h\.ActionType IN \(N'MATCH',N'BASIS_CHANGE'\)/);
+  assert.match(arrivalEvidence, /SourceFileName/);
+  assert.match(arrivalEvidence, /SheetName/);
+  assert.match(arrivalEvidence, /SourceRow/);
+  assert.match(arrivalEvidence, /l\.Unit.*p\.EstUnit/s);
+  assert.doesNotMatch(arrivalEvidence, /Product\.Cost|p\.Cost|recent/i);
+  assert.doesNotMatch(arrivalEvidence, /CREATE\s+TABLE|ALTER\s+TABLE/i);
+  assert.match(snapshot, /arrivalPriceEvidenceByProduct\(orderYear, week\)/);
+  const resolverSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportEvidence', 'sourceResolvers.mjs'), 'utf8');
+  assert.match(resolverSource, /normalizeEvidenceOrderWeek/);
   assert.equal(REPORT_STOCK_SELECTION, 'latest_fixed_stock_subweek');
   assert.match(REPORT_STOCK_ADJUSTMENT_POLICY.included, /확정 스냅샷/);
 

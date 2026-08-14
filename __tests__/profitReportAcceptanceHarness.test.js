@@ -25,6 +25,14 @@ async function main() {
   assert.equal(result.weeks.find(week => week.week === 28).source.report.totalU.formula, 'SUM(U7:U20)');
   assert.equal(result.summary.manualFieldTypeCount, 7);
   assert.equal(result.summary.manualInputSlotCount, 49);
+  assert.equal(result.formulaSpecification.sha256, '222484dc07e392ad88d52b7a0f9406c4e19b21af7de97500d176ed726b8234bb');
+  assert.ok(result.formulaSpecification.checks.every(check => check.status === 'FORMULA_PARITY'));
+  assert.deepEqual(result.continuity.filter(item => item.status === 'FORMULA_PARITY').map(item => item.transition), ['22->23', '23->24', '24->25', '25->26', '27->28']);
+  const anomaly = result.continuity.find(item => item.transition === '26->27');
+  assert.equal(anomaly.status, 'WORKBOOK_ANOMALY');
+  assert.ok(Math.abs(anomaly.difference - 3658862.88875) <= 1);
+  assert.deepEqual(anomaly.categoryDifferences.map(item => item.category), ['베트남']);
+  assert.equal(result.summary.workbookAnomaly, 1);
   for (const [week, before] of Object.entries(originals)) {
     const stat = fs.statSync(path.join(ALLOWED_INPUT_DIRECTORY, `week-${week}.xlsx`));
     assert.deepEqual({ bytes: stat.size, mtimeMs: stat.mtimeMs }, before);

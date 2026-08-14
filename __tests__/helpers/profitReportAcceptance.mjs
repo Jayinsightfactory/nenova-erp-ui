@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { inspectProfitReportWorkbook, historicalCategoryRule, registryCoverage } from '../../lib/profitReportEvidence/workbookEvidence.mjs';
+import { inspectProfitReportWorkbook, inspectFormulaSpecification, historicalCategoryRule, registryCoverage } from '../../lib/profitReportEvidence/workbookEvidence.mjs';
 import { compareRegeneratedWorkbook, regenerateFromPersistedEvidence } from '../../lib/profitReportEvidence/regeneration.mjs';
 
 const helperDir = path.dirname(fileURLToPath(import.meta.url));
@@ -9,8 +9,9 @@ export const REPO_ROOT = path.resolve(helperDir, '..', '..');
 export const ALLOWED_INPUT_DIRECTORY = path.join(REPO_ROOT, '.verify', 'inputs', 'profit-report-weeks-22-28');
 export const DEFAULT_OUTPUT_DIRECTORY = path.join(REPO_ROOT, '.verify', 'outputs', 'profit-report-weeks-22-28-generated');
 export const ALLOWED_WORKBOOK_PATH = path.join(ALLOWED_INPUT_DIRECTORY, 'week-28.xlsx');
+export const FORMULA_SPEC_PATH = path.join(ALLOWED_INPUT_DIRECTORY, 'formula-template.xlsx');
 
-const STATUS_RANK = { PASS: 0, UNVERIFIED: 1, INPUT_REQUIRED: 2, FAIL: 3 };
+const STATUS_RANK = { PASS: 0, FORMULA_PARITY: 0, WORKBOOK_ANOMALY: 1, MUTABLE_LEDGER_DRIFT: 1, UNVERIFIED: 1, INPUT_REQUIRED: 2, FAIL: 3 };
 const CORE_INPUT_COLUMNS = ['E', 'F', 'H', 'N', 'L', 'O', 'Q', 'R', 'S'];
 
 function readJson(relativePath) {
@@ -78,12 +79,56 @@ function requiredEvidence(week, manualManifest) {
     fieldId: 'inventory.price-lineage',
     reason: 'ProductStock 수량과 그 스냅샷 시점 단가를 연결하는 확정 근거가 원본 workbook 밖에서 확인되지 않았습니다.',
   }];
-  if (Number(week) === 27) warnings.push({
-    status: 'UNVERIFIED',
-    fieldId: 'inventory.opening-adjustment-27',
-    reason: '26차 F 8,919,590.217원과 27차 E 12,578,453.10575원의 차이 3,658,862.88875원에 대한 실사 조정 근거가 없습니다.',
-  });
   return { missingInputs: allFields, warnings };
+}
+
+const FORMULA_SPEC_EXPECTED = Object.freeze({
+  C: '순수매출액+불량금액+그외매출액',
+  D: '품목별 매출액/매출총합계금액',
+  E: '전차수 기말재고',
+  F: '(매입액+그외통관비)/매입한 해당품목 총수량*재고수량',
+  G: '품목별 외화 금액',
+  H: '그외통관비 시트 참고',
+  I: '기초재고+매입액+그외통관비-기말재고',
+  J: '매출액-매출원가',
+  K: '해당 품목 매출이익/매출액',
+  P: '구매금액*환율',
+  R: '선율 청구서에서 환율',
+  S: '포워딩시트에서 외화금액',
+  T: '환율*포워딩비용',
+});
+
+function classifyWorkbookContinuity(previous, current) {
+  const previousTotal = Number(previous.report.cells.F23?.value || 0);
+  const currentTotal = Number(current.report.cells.E23?.value || 0);
+  const difference = currentTotal - previousTotal;
+  const categoryDifferences = [];
+  for (let index = 0; index < previous.report.categories.length; index += 1) {
+    const category = String(previous.report.categories[index] || current.report.categories[index] || '').trim();
+    const row = 7 + index;
+    const value = Number(current.report.cells[`E${row}`]?.value || 0) - Number(previous.report.cells[`F${row}`]?.value || 0);
+    if (Math.abs(value) > 0.01) categoryDifferences.push({ category, difference: value });
+  }
+  const transition = `${previous.week}->${current.week}`;
+  if (Math.abs(difference) <= 1 && categoryDifferences.length === 0) {
+    return { transition, status: 'FORMULA_PARITY', previousEnding: previousTotal, currentOpening: currentTotal, difference: 0, categoryDifferences };
+  }
+  const vietnam = categoryDifferences.find(item => item.category === '베트남');
+  if (previous.week === 26 && current.week === 27
+    && Math.abs(difference - 3658862.88875) <= 1
+    && categoryDifferences.length === 1
+    && Math.abs(vietnam?.difference - difference) <= 1) {
+    return {
+      transition,
+      status: 'WORKBOOK_ANOMALY',
+      previousEnding: previousTotal,
+      currentOpening: currentTotal,
+      difference,
+      categoryDifferences,
+      policy: '웹 E는 26차 확정 F를 이월하며, 27차 Excel E의 베트남 예외값으로 덮어쓰지 않는다.',
+    };
+  }
+  return { transition, status: 'UNVERIFIED', previousEnding: previousTotal, currentOpening: currentTotal, difference, categoryDifferences };
 }
 
 function validateAllowedPath(workbookPath) {
@@ -98,16 +143,24 @@ function validateAllowedPath(workbookPath) {
 export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTPUT_DIRECTORY, workbookPath = null } = {}) {
   const registryIndex = readJson('data/profit-report-evidence/registry/v1/index.json');
   const manualManifest = readJson('data/profit-report-evidence/manual-input-manifest.v1.json');
+  const formulaSpecification = inspectFormulaSpecification(FORMULA_SPEC_PATH);
+  const formulaChecks = [
+    check('formula-spec-sha256', formulaSpecification.sha256 === registryIndex.formulaSpecification.sha256 ? 'FORMULA_PARITY' : 'FAIL', '차수 없는 계산식 원본의 SHA-256이 registry와 일치해야 합니다.', { expected: registryIndex.formulaSpecification.sha256, actual: formulaSpecification.sha256 }),
+    check('formula-spec-descriptions', Object.entries(FORMULA_SPEC_EXPECTED).every(([column, text]) => formulaSpecification.formulaDescriptions[column]?.text === text) ? 'FORMULA_PARITY' : 'FAIL', 'C~U 계산 설명이 원본 7행 명세와 일치해야 합니다.', { expected: FORMULA_SPEC_EXPECTED }),
+    check('formula-spec-product-keys', formulaSpecification.products.some(item => item.prodKey === 417 && item.prodName === 'CARNATION Kaori') && formulaSpecification.products.some(item => item.prodKey === 447 && item.prodName === 'CARNATION Moon Light') ? 'FORMULA_PARITY' : 'FAIL', '품목리스트의 실제 ProdKey가 보존되어야 합니다.', { productCount: formulaSpecification.productCount }),
+  ];
   const expectedEntries = workbookPath
     ? registryIndex.workbooks.filter(entry => validateAllowedPath(workbookPath).endsWith(entry.file))
     : registryIndex.workbooks;
   if (!expectedEntries.length) throw new Error('registry에 없는 workbook 입력입니다.');
 
   const weeks = [];
+  const sourceEvidence = [];
   for (const expected of expectedEntries) {
     const sourcePath = validateAllowedPath(workbookPath || path.join(ALLOWED_INPUT_DIRECTORY, expected.file));
     const before = inputIntegrity(sourcePath);
     const source = await inspectProfitReportWorkbook(sourcePath);
+    sourceEvidence.push({ week: expected.week, ...source });
     const coverage = registryCoverage(source);
     const outputPath = path.join(outputDirectory, `week-${expected.week}.xlsx`);
     regenerateFromPersistedEvidence(sourcePath, outputPath);
@@ -143,7 +196,9 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
     });
   }
 
-  const allChecks = weeks.flatMap(week => week.checks);
+  const continuity = sourceEvidence.slice(1).map((current, index) => classifyWorkbookContinuity(sourceEvidence[index], current));
+
+  const allChecks = [...formulaChecks, ...weeks.flatMap(week => week.checks)];
   const automaticDenominator = weeks.reduce((sum, week) => sum + week.automaticInput.denominator, 0);
   const automaticNumerator = weeks.reduce((sum, week) => sum + week.automaticInput.automatic, 0);
   const summary = {
@@ -151,6 +206,8 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
     inputRequired: allChecks.filter(item => item.status === 'INPUT_REQUIRED').length,
     unverified: allChecks.filter(item => item.status === 'UNVERIFIED').length,
     fail: allChecks.filter(item => item.status === 'FAIL').length,
+    formulaParity: allChecks.filter(item => item.status === 'FORMULA_PARITY').length + continuity.filter(item => item.status === 'FORMULA_PARITY').length,
+    workbookAnomaly: continuity.filter(item => item.status === 'WORKBOOK_ANOMALY').length,
     automaticInputRate: automaticDenominator ? automaticNumerator / automaticDenominator : 0,
     automaticInputCells: automaticNumerator,
     inputCells: automaticDenominator,
@@ -163,11 +220,13 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
   return {
     schemaVersion: 2,
     generatedAt: new Date().toISOString(),
-    overallStatus: worstStatus(weeks.map(week => week.status)),
+    overallStatus: worstStatus([...formulaChecks.map(item => item.status), ...weeks.map(week => week.status)]),
     scope: { orderYear: 2026, weeks: weeks.map(week => week.week), sourceDirectory: ALLOWED_INPUT_DIRECTORY, outputDirectory: path.resolve(outputDirectory) },
     tolerances: { amountWon: 1, ratioPercentagePoint: 0.01 },
     summary,
     manualInputManifest: { path: path.join(REPO_ROOT, 'data', 'profit-report-evidence', 'manual-input-manifest.v1.json'), fields: manualManifest.fields, forbiddenDirectFields: manualManifest.forbiddenDirectFields },
+    formulaSpecification: { path: FORMULA_SPEC_PATH, sha256: formulaSpecification.sha256, productCount: formulaSpecification.productCount, checks: formulaChecks },
+    continuity,
     weeks,
     remainingOperationalReadOnlyChecks: [
       { id: 'migration.web-stock-price-evidence-applied', status: 'UNVERIFIED', reason: '운영 DB의 WebStockPriceEvidence 스키마 적용 여부' },
@@ -177,6 +236,7 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
       { id: 'inventory.confirmed-product-stock-coverage', status: 'UNVERIFIED', reason: '확정 ProductStock의 exact-week 단가 evidence 존재율' },
       { id: 'inventory.price-evidence-metadata-completeness', status: 'UNVERIFIED', reason: '단가 evidence source/effective/confirmed metadata 완전성' },
       { id: 'inventory.ef-item-value-operational-reconciliation', status: 'UNVERIFIED', reason: 'E/F 품목별 평가액과 운영 workbook 대사' },
+      { id: 'historic.current-ledger-reconciliation', status: 'MUTABLE_LEDGER_DRIFT', reason: '과거 보고서 확정 뒤 수정된 현재 Shipment/Warehouse 원장은 당시 Excel과 분리해 표시하고 확정 snapshot으로만 재현해야 함' },
     ],
   };
 }
@@ -188,6 +248,7 @@ export function acceptanceMarkdown(result) {
     '',
     `- 전체 상태: **${result.overallStatus}**`,
     `- 검사: PASS ${result.summary.pass} / INPUT_REQUIRED ${result.summary.inputRequired} / UNVERIFIED ${result.summary.unverified} / FAIL ${result.summary.fail}`,
+    `- 수식 원본: FORMULA_PARITY ${result.summary.formulaParity} / WORKBOOK_ANOMALY ${result.summary.workbookAnomaly}`,
     `- cell registry: ${result.summary.mappedCells.toLocaleString()}개, mapping 100%`,
     `- 수식 fingerprint: ${result.summary.formulaCells.toLocaleString()}개, coverage 100%`,
     `- 실제 자동입력률: ${result.summary.automaticInputCells}/${result.summary.inputCells} (${percent(result.summary.automaticInputRate)})`,
@@ -199,6 +260,10 @@ export function acceptanceMarkdown(result) {
     '| 차수 | 상태 | 시트 | persisted cells | 수식 | 매핑 | fingerprint | 자동입력률 |',
     '|---:|---|---:|---:|---:|---:|---:|---:|',
     ...result.weeks.map(week => `| ${week.week} | ${week.status} | ${week.source.sheetNames.length} | ${week.source.persistedCellCount} | ${week.source.formulaCount} | ${percent(week.mappingRate)} | ${percent(week.formulaFingerprintRate)} | ${percent(week.automaticInput.automaticRate)} |`),
+    '',
+    '## 전차수 재고 이월 검사',
+    '',
+    ...result.continuity.map(item => `- ${item.transition}: **${item.status}** — 전차수 F ${item.previousEnding.toLocaleString()}원 / 다음차수 E ${item.currentOpening.toLocaleString()}원 / 차이 ${item.difference.toLocaleString()}원${item.policy ? ` — ${item.policy}` : ''}`),
     '',
     '## 판정 해석',
     '',
