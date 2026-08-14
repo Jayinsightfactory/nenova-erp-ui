@@ -93,11 +93,23 @@ BEGIN
     AppliedCost DECIMAL(18,4) NOT NULL,
     AppliedBy NVARCHAR(100) NOT NULL DEFAULT N'',
     AppliedByName NVARCHAR(100) NOT NULL DEFAULT N'',
+    RequestKey NVARCHAR(100) NULL,
     AppliedAt DATETIME NOT NULL DEFAULT GETDATE()
   );
   CREATE INDEX IX_WebSalesCarryoverApplication_Deduction
     ON dbo.WebSalesCarryoverApplication(DeductionKey, AppliedAt DESC);
 END;
+
+IF COL_LENGTH(N'dbo.WebSalesCarryoverApplication', N'RequestKey') IS NULL
+  ALTER TABLE dbo.WebSalesCarryoverApplication ADD RequestKey NVARCHAR(100) NULL;
+IF NOT EXISTS (
+  SELECT 1 FROM sys.indexes
+   WHERE object_id=OBJECT_ID(N'dbo.WebSalesCarryoverApplication')
+     AND name=N'UX_WebSalesCarryoverApplication_Request'
+)
+  CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request
+    ON dbo.WebSalesCarryoverApplication(DeductionKey, RequestKey)
+    WHERE RequestKey IS NOT NULL;
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN

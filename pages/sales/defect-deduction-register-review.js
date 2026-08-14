@@ -1,9 +1,10 @@
 // 영업수입불량차감 — 견적서 등록 전후 검토/수정/재조회 검증 창
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { apiGet, apiPost } from '../../lib/useApi';
+import { ensureRegistrationRequestKey } from '../../lib/salesDefectDeductionState';
 
 const fmt = (value) => Number(value || 0).toLocaleString();
 const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ') : '-';
@@ -24,6 +25,9 @@ function adjustedAfter(row) {
 
 export default function SalesDefectDeductionRegisterReviewPage() {
   const router = useRouter();
+  // 응답 유실 뒤 사용자가 다시 누르더라도 같은 등록 요청으로 식별한다.
+  // 성공한 뒤에만 비워 다음 실제 부분처리는 새 요청키를 사용한다.
+  const registerRequestKeyRef = useRef('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -103,6 +107,11 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       return;
     }
     setApplying(true); setError(''); setMessage(''); setVerified(false);
+    registerRequestKeyRef.current = ensureRegistrationRequestKey(
+      registerRequestKeyRef.current,
+      () => globalThis.crypto?.randomUUID?.()
+        || `defect-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+    );
     const originalRowByKey = new Map(rows.map((row) => [Number(row.deductionKey), row]));
     setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '전산등록 시작 · 선택 행 사전검증 통과' }]);
     try {
@@ -113,6 +122,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       }]));
       const data = await apiPost('/api/sales/defect-deductions', {
         action: 'register', year, week, ids, deductionType, overrides,
+        requestKey: registerRequestKeyRef.current,
       });
       (data.logs || []).forEach((label) => appendLog(label));
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
@@ -136,6 +146,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           mismatches,
         }, window.location.origin);
       } catch { /* ignore */ }
+      registerRequestKeyRef.current = '';
     } catch (e) { setError(e.message); }
     finally { setApplying(false); }
   };

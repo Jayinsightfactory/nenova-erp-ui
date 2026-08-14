@@ -24,7 +24,7 @@
     "test:shipment-import": "node __tests__/shipmentImportApply.test.js && node __tests__/shipmentImportAudit.test.js",
     "test:adjust-unit": "node __tests__/adjustUnit.test.js && node __tests__/pasteOrderUnit.test.js",
     "test:pivot-adjust": "node __tests__/shipmentPivotAdjustContract.test.js && node __tests__/shipmentAvailability.test.js",
-    "test:erp-manifest": "node __tests__/erpContractManifest.test.js && node __tests__/pasteNaturalCustomerInline.test.js && node __tests__/stockTargetAdjustment.test.js && node scripts/check-erp-contract-manifest.mjs",
+    "test:erp-manifest": "node __tests__/erpContractManifest.test.js && node __tests__/pasteNaturalCustomerInline.test.js && node __tests__/stockTargetAdjustment.test.js && node __tests__/salesDefectDeductionState.test.js && node scripts/check-erp-contract-manifest.mjs",
     "test:nenova-web-scope": "node __tests__/nenovaWebCompatibilityScope.test.js",
     "test:moyi-report-push": "node __tests__/moyiReportPush.test.js",
     "test:profit-report-22-28": "node __tests__/profitReportClassification.test.js && node __tests__/profitReportCountryResolver.test.js && node __tests__/profitReportStockLinkContract.test.js && node __tests__/customsForwardingAuto.test.js && node __tests__/profitReportWeek28Customs.test.js && node __tests__/profitReportWorkbookParity.test.js && node __tests__/profitReportInventoryFormulaContract.test.js && node __tests__/profitMarginDecomposition.test.js && node __tests__/profitReportEvidence.test.js && node __tests__/profitReportAcceptanceHarness.test.js && node __tests__/profitReportMigrationContract.test.js",
