@@ -18,7 +18,7 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 - `GetCustomerList`: `ViewOrder` joined with `ViewShipment` and `ShipmentDate`; no `ShipmentFarm` gate for the top customer list.
 - `grdViewShipment_FocusedRowChanged`: `ViewWarehouse` grouped by `FarmName/OrderCode/ProdKey`, `Farm.FarmKey` lookup, and `ShipmentFarm` aggregation by `SdetailKey` for the farm grid.
 - The farm candidate `ViewWarehouse` query is product-wide (`WHERE ProdKey=@pk`); it is not constrained by the selected shipment `OrderYear/OrderWeek`. The web GET, POST, and adjust transaction must share this exact scope.
-- `btnSave_Click`: writes `ShipmentDetail`, then changed farm rows with valid `FarmKey` through `ClassShipmentFarm.Insert()`, then updates/rebuilds `ShipmentDate` when quantity-unit columns change.
+- `btnSave_Click`: writes `ShipmentDetail` first. It inserts `ShipmentFarm` only when `dtFarm` has modified rows whose `FarmKey` is neither empty nor `0`, through `ClassShipmentFarm.Insert()`. Therefore an empty/unchanged farm grid is not a save blocker: a new shipment and an existing shipment with zero `ShipmentFarm` rows can both have their quantity saved without a farm assignment. When farm rows are explicitly edited, only valid `FarmKey` rows are inserted. It then updates/rebuilds `ShipmentDate` when quantity-unit columns change.
 - `ClassShipmentFarm.Insert()`: `INSERT INTO ShipmentFarm (FarmKey, ShipmentQuantity, SdetailKey)`.
 - `read-only`: no production write was performed while deriving this structure.
 
@@ -27,7 +27,9 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 웹의 추가 품목등록은 별도 Estimate 행을 만들지 않고 `FormShipmentDistribution.btnSave_Click`
 경로를 따른다. 현재연도 `OrderWeek=NN-02`와 거래처·품목·검증된 `ShipmentDtm`을 업무키로
 사용하며, 기존 활성 주문이 있으면 OrderDetail 수량은 보존하고 ShipmentDetail만 증가한다.
-신규 출고에는 위 product-wide `ViewWarehouse` 후보에서 사용자가 선택한 FarmKey가 필수다.
+농장 입력은 사용자가 농장표를 명시적으로 수정할 때만 저장된다. 신규 출고 또는 기존에 `ShipmentFarm` 행이 없는 출고의 수량 변경 자체에는 FarmKey가 필수가 아니다. 웹의 명시적 농장배정 저장은 후보·합계 검증을 유지하되, 농장 입력을 생략한 수량 변경을 거부하지 않는다.
+
+이 EXE 저장 사실은 차수피벗·붙여넣기 주문등록 분배의 수량 변경 계약에 적용한다. 별도 웹 업무인 `estimate-additional-product`는 명시적으로 FarmKey를 필수로 둔 독립 계약이며, 이 변경으로 그 정책을 완화하지 않는다.
 확정행은 화면에서 확정해제→분배 저장→재확정하고 각 HTTP 쓰기는 SystemActionLog,
 수량 변경은 ShipmentHistory에 기록한다. 참고단가는 표시만 하며 사용자가 출처 또는
 직접입력을 명시하기 전에는 자동 확정하지 않는다.
