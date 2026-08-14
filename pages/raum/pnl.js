@@ -1159,6 +1159,9 @@ export default function RaumPnlPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
+  // 여러 차수 XLSX는 편집본을 브라우저에 신뢰하지 않는다. 저장 시 원본 파일을 다시
+  // multipart로 보내 서버가 재파싱·stale 검사를 한 뒤 한 transaction으로 반영한다.
+  const [bulkPreview, setBulkPreview] = useState(null);
   // detail: { meta:{pnlKey?, orderYear, major, title, quoteDate, nenovaPct, note, sourceFile}, items, warnings, sheets, unsaved }
   const [detail, setDetail] = useState(null);
   const fileRef = useRef(null);
@@ -1188,29 +1191,36 @@ export default function RaumPnlPage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('mode', 'preview');
       const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '업로드 실패');
-      const warnings = [...(j.warnings || [])];
-      if (j.existing) {
-        warnings.push(`${Number(j.major)}차는 이미 저장돼 있습니다 (${dateStr(j.existing.UpdatedAt || j.existing.CreatedAt)}). 저장하면 품목이 이번 업로드 내용으로 교체됩니다 (수기 매입단가 포함 초기화).`);
+      const batches = j.batches || [];
+      if (batches.length > 1) {
+        setDetail(null);
+        setBulkPreview({ file, previewToken: j.previewToken, fileName: j.fileName, batches, warnings: j.warnings || [] });
+        return;
       }
+      const one = batches[0];
+      if (!one) throw new Error('파싱된 차수가 없습니다.');
+      setBulkPreview(null);
+      const warnings = [...(j.warnings || [])];
       setDetail({
         meta: {
-          pnlKey: j.existing?.PnlKey || null,
-          orderYear: j.orderYear,
-          major: j.major || '',
-          title: `라움 ${Number(j.major) || '?'}차`,
-          quoteDate: j.quoteDate,
-          nenovaPct: j.nenovaPct,
+          pnlKey: null,
+          orderYear: one.orderYear,
+          major: one.major || '',
+          title: `라움 ${Number(one.major) || '?'}차`,
+          quoteDate: one.quoteDate,
+          nenovaPct: 80,
           note: '',
           sourceFile: j.fileName,
         },
-        sheets: j.sheets,
-        items: j.items.map(it => ({ ...it, costPrice: it.costPrice ?? null })),
+        sheets: one.sheets,
+        items: one.items.map(it => ({ ...it, costPrice: it.costPrice ?? null })),
         images: [],
-        verification: j.verification || null,
-        warnings,
+        verification: one.verification || null,
+        warnings: [...warnings, ...(one.warnings || [])],
         unsaved: true,
       });
     } catch (e) {
@@ -1218,6 +1228,31 @@ export default function RaumPnlPage() {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const saveBulkPreview = async () => {
+    if (!bulkPreview?.file || !bulkPreview.previewToken) {
+      setError('미리보기 정보가 없습니다. 파일을 다시 업로드하세요.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', bulkPreview.file);
+      fd.append('mode', 'save');
+      fd.append('previewToken', bulkPreview.previewToken);
+      const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '일괄 저장 실패');
+      setBulkPreview(null);
+      setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 수기 원가·수동 행·품목 매칭은 보존했습니다.`);
+      loadList();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1722,6 +1757,14 @@ export default function RaumPnlPage() {
             {detail.unsaved ? <span style={{ ...st.badge, background: '#fef3c7', color: '#92400e' }}>저장 전</span>
               : <span style={{ ...st.badge, background: '#dcfce7', color: '#166534' }}>저장됨</span>}
           </>
+        ) : bulkPreview ? (
+          <>
+            <button style={st.btn} onClick={() => setBulkPreview(null)}>← 결산 목록</button>
+            <button style={st.btnPrimary} disabled={saving || bulkPreview.batches.some(batch => (batch.verification || []).some(check => !check.ok))} onClick={saveBulkPreview}>
+              {saving ? '전체 저장 중…' : `💾 ${bulkPreview.batches.length}개 차수 전체 저장`}
+            </button>
+            <span style={{ ...st.badge, background: '#fef3c7', color: '#92400e' }}>다차수 저장 전</span>
+          </>
         ) : (
           <>
             <button style={st.btn} disabled={!list.length} onClick={() => printInIframe(buildSummaryPrintHtml(list))}>🖨 결산표 인쇄</button>
@@ -1730,7 +1773,43 @@ export default function RaumPnlPage() {
         )}
       </div>
 
-      {!detail ? (
+      {bulkPreview ? (
+        <div>
+          <div style={st.ok}>
+            {bulkPreview.batches.length}개 차수 미리보기입니다. 원본 파일을 저장 시 다시 파싱하고, 합계 검증·변경 충돌 확인을 통과해야 전체가 한 transaction으로 저장됩니다.
+          </div>
+          {bulkPreview.warnings?.length ? <div style={st.warn}>{bulkPreview.warnings.map(w => `⚠ ${w}`).join('\n')}</div> : null}
+          <table style={{ ...st.table, maxWidth: 1100 }}>
+            <thead>
+              <tr>
+                {['차수', '견적일', '원본 시트', '합산 품목', '수량', '매출(VAT별도)', '검증', '상태'].map(h => <th key={h} style={st.th}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {bulkPreview.batches.map(batch => {
+                const qty = batch.items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+                const sale = batch.items.reduce((sum, it) => sum + Number(it.supply || 0), 0);
+                const failed = (batch.verification || []).filter(c => !c.ok);
+                return (
+                  <Fragment key={`${batch.orderYear}-${batch.major}`}>
+                    <tr>
+                      <td style={{ ...st.td, fontWeight: 700 }}>{batch.orderYear} {Number(batch.major)}차</td>
+                      <td style={st.td}>{batch.quoteDate || '-'}</td>
+                      <td style={st.td}>{(batch.sheets || []).map(s => s.sheetName).join(' · ')}</td>
+                      <td style={{ ...st.td, ...st.num }}>{batch.items.length}</td>
+                      <td style={{ ...st.td, ...st.num }}>{fmt(qty)}</td>
+                      <td style={{ ...st.td, ...st.num }}>{fmt(sale)}</td>
+                      <td style={{ ...st.td, color: failed.length ? '#b91c1c' : '#166534' }}>{failed.length ? `실패 ${failed.length}건` : '✓ 통과'}</td>
+                      <td style={st.td}>수기 원가·수동 행·매칭 보존</td>
+                    </tr>
+                    {batch.warnings?.length ? <tr><td colSpan={8} style={{ ...st.td, color: '#92400e', whiteSpace: 'pre-wrap' }}>{batch.warnings.map(w => `⚠ ${w}`).join('\n')}</td></tr> : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : !detail ? (
         // ── 결산(히스토리) 목록 ──
         <div>
           {loadingList ? <div style={{ fontSize: 13, color: '#64748b' }}>불러오는 중…</div> : null}
