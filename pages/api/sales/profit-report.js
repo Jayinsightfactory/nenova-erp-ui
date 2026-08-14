@@ -39,7 +39,7 @@ export async function loadReportData(major, orderYear) {
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
         loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용
-        stockSnapshotByCategory(major, orderYear),      // F: 확정 ProductStock + 동일 시점 VERIFIED 단가
+        stockSnapshotByCategory(major, orderYear),      // F: EXE 계산 ProductStock + 동일 시점 VERIFIED 단가
         stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
@@ -88,12 +88,12 @@ export async function loadReportData(major, orderYear) {
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        // F 재료 — 확정 ProductStock와 같은 OrderYear+OrderWeek의 VERIFIED 단가만 허용한다.
+        // F 재료 — EXE 계산 ProductStock와 같은 OrderYear+OrderWeek의 VERIFIED 단가만 허용한다.
         const stock = {
           week: stockEnd.week,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
           evidenceValue: stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null,
-          snapshotConfirmed: stockEnd.stockMasterIsFix === 1,
+          snapshotConfirmed: stockEnd.snapshotAvailable === true,
           priceEvidenceStatus: stockEnd.priceEvidenceStatus?.[key] || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: stockEnd.priceEvidenceSources?.[key] || [],
           missingPriceCount: Number(stockEnd.missingPriceCounts?.[key] || 0),
@@ -101,12 +101,12 @@ export async function loadReportData(major, orderYear) {
         };
         const autoF = computeAutoEndingStock(stock);
         const stockFSourceKind = endingStockSourceKind(stock);
-        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 확정 스냅샷을 같은 규칙으로 평가한다.
+        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 마지막 ProductStock를 같은 규칙으로 평가한다.
         const beginStock = {
           week: stockBegin.week,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           evidenceValue: stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null,
-          snapshotConfirmed: stockBegin.stockMasterIsFix === 1,
+          snapshotConfirmed: stockBegin.snapshotAvailable === true,
           priceEvidenceStatus: stockBegin.priceEvidenceStatus?.[key] || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: stockBegin.priceEvidenceSources?.[key] || [],
           missingPriceCount: Number(stockBegin.missingPriceCounts?.[key] || 0),
@@ -177,9 +177,9 @@ export async function loadReportData(major, orderYear) {
       // 확정 시 그대로 박제할 수 있도록 StockKey까지 명시적으로 노출한다(2026-08-11 결함수정 4).
       beginStockKey: stockBegin.stockKey,
       endStockKey: stockEnd.stockKey,
-      selection: 'latest_fixed_stock_subweek',
-      beginStockMasterIsFix: stockBegin.stockMasterIsFix,
-      endStockMasterIsFix: stockEnd.stockMasterIsFix,
+      selection: 'latest_product_stock_subweek',
+      beginSnapshotAvailable: stockBegin.snapshotAvailable,
+      endSnapshotAvailable: stockEnd.snapshotAvailable,
     },
     manualInputManifest,
     audit: buildProfitReportAudit(rows, { major: currentMajor }),

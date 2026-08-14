@@ -137,11 +137,11 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
     ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
-    verified_product_stock_price: '확정 ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
-    verified_arrival_cost: '확정 ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
-    verified_mixed_price_evidence: '확정 ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
+    verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
+    verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
+    verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
-    missing_stock_snapshot: '⚠ 확정 ProductStock 스냅샷이 없습니다',
+    missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
   };
   const titles = {
@@ -150,8 +150,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
-    E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 확정 ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
-    F: `기말재고 — ${row.stock?.week || '마지막 확정 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
+    E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
+    F: `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate
     ? titles[col]
@@ -712,7 +712,7 @@ export default function ProfitReportPage() {
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
               <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '확정 ProductStock와 동일 시점의 품목 단가 증거를 관리합니다'}>
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : 'EXE ProductStock와 동일 시점의 품목 단가 증거를 관리합니다'}>
                 🏷 재고단가 근거
               </button>
               <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || data?.confirmed}
@@ -811,7 +811,7 @@ export default function ProfitReportPage() {
         {viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
-          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 확정 ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가</b>입니다.
+          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가</b>입니다.
           단가 근거가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost·최종값 직접입력으로 대체하지 않습니다. H/R/S 외부 확정값은 <b>🛠 외부증거 입력</b>에서 sourceRef와 기준일을 함께 기록합니다.
           환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
@@ -1379,7 +1379,7 @@ export default function ProfitReportPage() {
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
               단가는 <b>현재 기말 확정 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
-              평가액 = 확정 ProductStock 재고수량(환산단위) × VERIFIED 시점 단가
+              평가액 = EXE ProductStock 재고수량(환산단위) × VERIFIED 시점 단가
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>

@@ -97,7 +97,7 @@ async function main() {
       && reportSource.includes('EXISTS (SELECT 1 FROM ProductStock ps WHERE ps.StockKey=sm.StockKey)')
       && reportSource.includes('OrderWeek LIKE @pfx')
       && reportSource.includes('TRY_CONVERT(INT, SUBSTRING(sm.OrderWeek, CHARINDEX(\'-\', sm.OrderWeek)+1, 10)) DESC')
-      && reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('ISNULL(sm.isFix,0)=1'));
+      && !reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('sm.isFix'));
   check('단가표도 동일한 마지막 ProductStock 스냅샷을 사용', reportSource.includes('latestStockSnapshotWeek(major, orderYear)') && reportSource.includes('latestStockSnapshotWeek(prevMajor, prevOrderYear)'));
   check('중복 StockMaster는 선택된 StockKey 하나만 집계', stockSection.includes('smk.StockKey=@stockKey') && reportSource.includes('smk.StockKey = @beginStockKey'));
   check('01차 기초재고는 전년도 전차수 스냅샷을 사용', reportApiSource.includes("currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)") && reportApiSource.includes("currentMajor <= 1 ? '52'"));
@@ -210,7 +210,7 @@ async function main() {
   const rose27AutoF = computeAutoEndingStock(
     { endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED', evidenceValue: 2129244.3664138042 },
   );
-  check('F는 확정 재고현황 279단과 동일시점 VERIFIED 단가 근거만 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
+  check('F는 EXE 재고현황 279단과 동일시점 VERIFIED 단가 근거만 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
   check('검증된 단가 근거가 없으면 최근원가·임의 도착원가로 폴백하지 않음', computeAutoEndingStock({ endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED', recentCost: 999999 }) == null);
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);

@@ -63,10 +63,10 @@
     "forbidden": ["same OrderWeek from another OrderYear", "unfixed ShipmentDetail", "report-side ERP write"]
   },
   "inventoryResolver": {
-    "quantity": "same OrderYear + major, StockMaster.isFix=1, ProductStock exists, numeric subweek DESC, ProductStock row count DESC, StockKey DESC",
+    "quantity": "same OrderYear + major, ProductStock exists, numeric subweek DESC, ProductStock row count DESC, StockKey DESC; StockMaster.isFix is diagnostic metadata and is never a FormStockView close filter",
     "price": "1순위 WebStockPriceEvidence exact OrderYear+OrderWeek+ProdKey VERIFIED metadata; 2순위 같은 scope·ProdKey·EstUnit의 WebArrivalCostLine 중 IsCurrent+MATCHED이고 MATCH/BASIS_CHANGE 사용자 이력과 file/sheet/row/import/revision provenance가 완전한 도착원가의 품목별 수량가중평균",
     "missing": ["INPUT_REQUIRED", "UNVERIFIED"],
-    "forbiddenFallbacks": ["WebProfitReport E/F final override", "Product.Cost", "recent WarehouseDetail cost", "category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "previous-year stock", "unfixed stock"]
+    "forbiddenFallbacks": ["WebProfitReport E/F final override", "Product.Cost", "recent WarehouseDetail cost", "category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "previous-year stock", "StockMaster.isFix filtering"]
   },
   "runtimeDdl": "FORBIDDEN",
   "migration": "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",

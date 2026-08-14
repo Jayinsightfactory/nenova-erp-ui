@@ -39,7 +39,7 @@ console.log('\n=== 환율 완전성·전차수 독립 ===');
 check('전차수 환율은 자동 원천으로 조회하지 않고 수기 확정값만 제안으로 전달',
   !api.includes('prevInvoiceRates') && !api.includes('prevSavedRates') && !api.includes('prevKcsRates')
   && /previousWeekRate: prevMan\.R/.test(api) && /rateSuggestions: resolvedRate\.suggestions/.test(api));
-check('기초재고 E는 전차수 확정 ProductStock+VERIFIED 단가로만 계산',
+check('기초재고 E는 전차수 마지막 ProductStock+VERIFIED 단가로만 계산',
   /const autoE = computeAutoEndingStock\(beginStock\)/.test(api)
   && /evidenceValue: stockBegin\.values/.test(api)
   && !api.includes('prevAutoR'));
