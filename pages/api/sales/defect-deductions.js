@@ -21,7 +21,15 @@ import {
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
-import { managerFilterForUser, normalizeParentWeek, normalizeYear } from '../../../lib/salesDefectDeductionCore.js';
+import {
+  canUseDefectIncoming,
+  canUseDefectSales,
+  canUseDefectSupport,
+  isDefectAdmin,
+  managerFilterForUser,
+  normalizeParentWeek,
+  normalizeYear,
+} from '../../../lib/salesDefectDeductionCore.js';
 
 function defaultYear() { return new Date().getFullYear(); }
 
@@ -33,12 +41,16 @@ async function handler(req, res) {
         return res.status(200).json({ success: true, ...data });
       }
       if (req.query.view === 'registration-preview') {
+        if (!canUseDefectSupport(req.user)) {
+          return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+        }
         const ids = String(req.query.ids || '').split(',').map((item) => Number(item)).filter((item) => item > 0);
         const rows = await registrationPreview({
           year: req.query.year,
           week: req.query.week,
           ids,
           deductionType: req.query.type || '불량차감',
+          user: req.user,
         });
         return res.status(200).json({ success: true, rows, invalidCount: rows.filter((item) => item.error).length });
       }
@@ -46,6 +58,12 @@ async function handler(req, res) {
       const week = normalizeParentWeek(req.query.week || 1);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
       const carryoverOnly = String(req.query.view || '') === 'carryover';
+      if (String(req.query.view || '') === 'incoming' && !canUseDefectIncoming(req.user)) {
+        return res.status(403).json({ success: false, error: '수입부 확인 권한이 필요합니다.' });
+      }
+      if (['support', 'carryover'].includes(String(req.query.view || '')) && !canUseDefectSupport(req.user)) {
+        return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+      }
       const data = await listDeductions({
         year,
         week,
@@ -64,6 +82,9 @@ async function handler(req, res) {
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
       if (action === 'manager-save') {
+        if (!isDefectAdmin(req.user)) {
+          return res.status(403).json({ success: false, error: '담당자 설정은 관리자만 변경할 수 있습니다.' });
+        }
         const managerOptions = await saveManagerOption({
           managerId: req.body?.managerId || '',
           managerName: req.body?.managerName || '',
@@ -76,6 +97,9 @@ async function handler(req, res) {
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
 
       if (action === 'save') {
+        if (!canUseDefectSales(req.user)) {
+          return res.status(403).json({ success: false, error: '영업 불량차감 입력 권한이 필요합니다.' });
+        }
         const rows = await saveDraftRows({
           year, week, rows: req.body?.rows || [], user: req.user,
           managerId: req.body?.managerId || '', managerName: req.body?.managerName || '',
@@ -84,18 +108,27 @@ async function handler(req, res) {
         return res.status(200).json({ success: true, saved: rows.length, rows });
       }
       if (action === 'incoming-confirm') {
+        if (!canUseDefectIncoming(req.user)) {
+          return res.status(403).json({ success: false, error: '수입부 확인 권한이 필요합니다.' });
+        }
         const rows = await confirmIncomingDeductions({
           year, week, rows: req.body?.rows || [], user: req.user,
         });
         return res.status(200).json({ success: true, confirmed: rows.length, rows });
       }
       if (action === 'incoming-confirm-cancel') {
+        if (!canUseDefectIncoming(req.user)) {
+          return res.status(403).json({ success: false, error: '수입부 확인 권한이 필요합니다.' });
+        }
         const rows = await cancelIncomingDeductions({
           year, week, rows: req.body?.rows || [], user: req.user,
         });
         return res.status(200).json({ success: true, cancelled: rows.length, rows });
       }
       if (action === 'incoming-review-resolve') {
+        if (!canUseDefectSales(req.user)) {
+          return res.status(403).json({ success: false, error: '영업 불량차감 입력 권한이 필요합니다.' });
+        }
         const row = await resolveIncomingReview({
           year, week, deductionKey: req.body?.deductionKey, user: req.user,
         });
@@ -107,13 +140,19 @@ async function handler(req, res) {
         return res.status(200).json({ success: true, rows, persisted: false });
       }
       if (action === 'preflight') {
-        const rows = await preflightRegistration({ year, week, rows: req.body?.rows || [] });
+        if (!canUseDefectSupport(req.user)) {
+          return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+        }
+        const rows = await preflightRegistration({ year, week, rows: req.body?.rows || [], user: req.user });
         return res.status(200).json({ success: true, rows, invalidCount: rows.filter((x) => x.error).length });
       }
       if (action === 'register') {
+        if (!canUseDefectSupport(req.user)) {
+          return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+        }
         const result = await registerDeductions({
           year, week, ids: req.body?.ids || [], deductionType: req.body?.deductionType || '불량차감',
-          user: req.user, overrides: req.body?.overrides || {},
+          user: req.user, overrides: req.body?.overrides || {}, requestKey: req.body?.requestKey || req.headers['idempotency-key'] || '',
         });
         const registered = result.registered || [];
         const skipped = result.skipped || [];
@@ -145,7 +184,7 @@ async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'GET/POST/DELETE만 지원합니다.' });
   } catch (error) {
     console.error('[sales-defect-deductions]', error);
-    return res.status(400).json({ success: false, error: error.message || '영업수입불량차감 처리에 실패했습니다.' });
+    return res.status(Number(error?.statusCode) || 400).json({ success: false, error: error.message || '영업수입불량차감 처리에 실패했습니다.' });
   }
 }
 

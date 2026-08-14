@@ -15,6 +15,7 @@
     "pages/api/estimate/index.js",
     "pages/api/estimate/update-entry.js",
     "lib/salesDefectDeductionCore.js",
+    "lib/salesDefectDeductionState.js",
     "lib/salesDefectDeductions.js",
     "lib/salesDefectDeductionExcel.js",
     "lib/productSearchRanking.js",
@@ -37,7 +38,8 @@
     "components/estimate/OrderRegisterDistributeModal.js",
     "components/orders/MappingStatusModal.js",
     "__tests__/estimateDefectQuarantineContract.test.js",
-    "__tests__/salesDefectDeductions.test.js"
+    "__tests__/salesDefectDeductions.test.js",
+    "__tests__/salesDefectDeductionState.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -66,6 +68,12 @@
       "sideEffect": "검토창에서 확인·수정한 원장 이력 후 EXE 판매행이 있는 적용 대상 차수에만 Estimate INSERT/UPDATE; 원차수가 이전이면 AppliedOrderYear/Week로 이월 관계를 기록하고, 판매행이 없으면 해당 행만 이월 대기로 건너뛴다. no shipment fix cycle",
       "estimateInsert": "Estimate 트리거와 공존하도록 OUTPUT INSERTED.EstimateKey INTO @EstimateInserted 후 SELECT로 키를 회수한다.",
       "memo": "입력된 Note만 Estimate.Descr로 전달하며 미입력·공백은 빈 문자열로 저장한다."
+    },
+    {
+      "name": "REGISTER_ESTIMATE_IDEMPOTENCY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "수입부 확정·보완완료·양수 잔여수량·업체품목별 EXE 판매행을 서버에서 다시 검증한다. 이월 부분처리는 요청키를 WebSalesCarryoverApplication에 기록하고 같은 DeductionKey+RequestKey 재전송은 Estimate/잔량/Application을 다시 쓰지 않는다."
     },
     {
       "name": "RETRY_UNAPPLIED_DEDUCTION",
@@ -158,6 +166,7 @@
     "matchingEngine": "업로드 원문은 보존하고 과거 엑셀/붙여넣기 학습 매핑을 사용하지 않으며, Product DB 검색 후보를 사용자가 선택한 경우에만 ProdKey·DB 품명·단위를 적용",
     "managerView": "기본 담당자(김원영/박성수/정재훈/조현욱) + 저장 담당자 목록을 제공하고, 로그인 계정을 기본 선택한다. 담당자 선택은 즉시 조회되는 차수별 조회·엑셀 다운로드 필터이며, 신규 저장행은 선택 담당자에 귀속하고 기존행 수정은 기존 소유자를 보존한다. 원장과 Estimate는 변경하지 않음",
     "managerFilterAlias": "로그인 ID와 차감 원장에 저장된 담당자 표시명이 다른 경우 로그인 표시명으로 동일 담당자 원장을 조회하고 엑셀에 포함한다. 담당자 소유권은 CreatedBy/CreatedByName을 우선하며 작성자 정보가 모두 비어 있는 레거시 행만 UpdatedBy/UpdatedByName으로 보완한다. 로그인 확인 전 전체 조회를 실행하지 않고 최신 담당자 요청만 화면에 반영한다.",
+    "mutationOwnership": "일반 영업 사용자의 수정·삭제는 CreatedBy/CreatedByName 소유자만 허용한다. 작성자 두 필드가 모두 빈 레거시 행만 UpdatedBy/UpdatedByName을 사용하며 관리자 권한은 명시적으로 우회할 수 있다.",
     "productLookup": "품종은 Product.FlowerName, 품명은 Product.DisplayName/ProdName으로 토큰 분리 검색하고 저장 시 ProdKey를 보존한다. 화면 품명은 품종 접두어를 제외한 suffix만 표시한다(예: CARNATION Moon Light → Moon Light).",
     "saveResultRows": "저장 API가 발급한 DeductionKey로 기존행을 갱신하고, 저장 전 키가 없던 입력행은 응답행으로 위치 대체한다. 저장 응답행을 단순 append하여 임시행과 중복 표시하지 않는다.",
     "selectionDelete": "체크한 저장행은 DeductionKey로 soft-delete/연결 Estimate 삭제/이력 기록을 수행하고, 체크한 미저장행은 API 호출 없이 화면에서 제거한다. 저장행과 미저장행을 함께 선택해도 각각 처리한다.",
@@ -172,6 +181,8 @@
     "operationalWorkflow": "별도 수동 이월업체 등록 화면을 업무 시작점으로 사용하지 않는다. 영업입력 저장 → 수입부 농장·크레딧·보완 수정 및 확정 → 영업지원 견적 일괄등록 사전검증·검토 순서가 단일 업무 흐름이다.",
     "registrationPartial": "견적서 일괄등록 전에 사용자는 검토창에서 행별 처리수량·적요·표시단위를 수정할 수 있다. EXE와 동일한 ViewShipment+ViewOrder+ShipmentDate+PeriodDay+DetailFix=1+EstQuantity>0 판매행과 단가가 유효한 행만 처리하며, 한 행의 오류가 다른 유효행 처리를 막지 않는다.",
     "carryover": "WebSalesDefectDeduction.OrderYear/OrderWeek는 최초 영업입력 원차수다. 대상 차수에 판매행이 없는 행은 자동 미처리하고 원수량·RemainingQuantity를 바꾸지 않은 채 다음 차수 일괄등록에서 재시도한다. 판매행이 생긴 차수에서만 AppliedOrderYear/AppliedOrderWeek/AppliedShipmentKey와 단가 원천 차수, WebSalesCarryoverApplication을 기록한다. 부분 처리 후에는 처리수량만 차감하고 잔량이 0이 될 때까지 같은 원장이 계속 재시도 대상에 남는다.",
+    "carryoverIdempotency": "이월 처리 요청은 클라이언트 요청키를 포함하고 WebSalesCarryoverApplication의 DeductionKey+RequestKey filtered unique 제약으로 중복을 차단한다. 이미 처리된 요청 또는 RemainingQuantity=0 완료행은 Estimate/Application/History/원장 쓰기 0건으로 응답한다.",
+    "carryoverDelete": "이월 원장 삭제는 현재 EstimateKey뿐 아니라 WebSalesCarryoverApplication에 기록된 모든 연결 EstimateKey를 같은 트랜잭션에서 처리하고 application 감사행은 보존한다.",
     "carryoverCustomerPolicy": "업체는 목록 묶음과 선택 편의를 위한 상위 단위다. 실제 처리 가능 여부는 대상 차수의 업체·품목별 EXE 확정 판매행으로 판정한다. 업체 또는 품목 판매행이 없으면 그 행만 자동 미처리하며 별도 수동 이월업체 원장을 새로 만들지 않는다.",
     "matchDisplay": "전산 매칭 메시지는 거래처·국가·품종·DB 품명·ProdKey 전체를 줄바꿈으로 표시하고 말줄임표로 숨기지 않는다.",
     "confirmation": "Estimate deduction has no isFix; do not unfix/refix shipment",
@@ -181,6 +192,6 @@
     "estimateManagementEntry": "견적서관리에서 기존 불량/검역등록(EstimateType 선택)과 신규 불량차감등록·판매요청·추가 품목등록 진입점을 서로 분리해 유지한다. 기존 불량/검역과 신규 불량차감은 - 체크 필수로 음수 Estimate만 저장하고 판매요청은 양수 Estimate를 저장한다. 품목은 Product DB에서 검색·선택하고 단위는 단/박스/스팀(대) 중 선택하되 Estimate.Unit에는 Product.EstUnit를 우선한다. 품목 선택 즉시 EXE 판매행과 이전 차수 분배단가를 재조회하며, 추가 품목등록의 분배 상태/API가 차감 모달 상태를 덮어쓰지 않는다.",
     "estimateEntryEdit": "Estimate 행 편집은 OrderDetail/ShipmentDetail/ShipmentDate/재고를 건드리지 않고 기존 EstimateKey 한 행만 갱신하며, 저장 전 수량·단가 스냅샷을 검증하고 저장 후 다시 조회한다."
   },
-  "requiredTests": ["__tests__/salesDefectDeductions.test.js", "__tests__/estimateDefectQuarantineContract.test.js"],
-  "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/erpContractManifest.test.js"]
+  "requiredTests": ["__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js"],
+  "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/erpContractManifest.test.js"]
 }
