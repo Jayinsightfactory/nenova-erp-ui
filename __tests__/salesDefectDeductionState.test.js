@@ -130,6 +130,8 @@ assert.ok(
 assert.match(deleteSource, /FROM WebSalesCarryoverApplication[\s\S]*collectDeductionEstimateKeys/, '삭제 시 모든 부분처리 application의 EstimateKey를 수집해야 한다.');
 assert.match(migrationSource, /COL_LENGTH\(N'dbo\.WebSalesCarryoverApplication', N'RequestKey'\)[\s\S]*ADD RequestKey NVARCHAR\(100\) NULL/, '기존 운영 application 원장에 nullable 요청키를 안전하게 추가해야 한다.');
 assert.match(migrationSource, /CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request[\s\S]*\(DeductionKey, RequestKey\)[\s\S]*WHERE RequestKey IS NOT NULL/, 'DB가 이월 동일 요청의 중복 application을 최종 차단해야 한다.');
+assert.match(deductionServiceSource, /EXEC\(N'CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request/, '기존 운영 DB에 RequestKey를 추가하는 배치는 ALTER 이후 동적 SQL로 인덱스를 컴파일해야 한다.');
+assert.match(migrationSource, /EXEC\(N'CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request/, '명시 migration도 신규 RequestKey 컬럼을 같은 배치에서 안전하게 인덱싱해야 한다.');
 
 let callbacks = 0;
 const deadlockRetryTransaction = async (callback) => {
