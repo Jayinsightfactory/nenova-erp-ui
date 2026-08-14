@@ -107,9 +107,9 @@ IF NOT EXISTS (
    WHERE object_id=OBJECT_ID(N'dbo.WebSalesCarryoverApplication')
      AND name=N'UX_WebSalesCarryoverApplication_Request'
 )
-  CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request
+  EXEC(N'CREATE UNIQUE INDEX UX_WebSalesCarryoverApplication_Request
     ON dbo.WebSalesCarryoverApplication(DeductionKey, RequestKey)
-    WHERE RequestKey IS NOT NULL;
+    WHERE RequestKey IS NOT NULL');
 
 IF OBJECT_ID(N'dbo.WebSalesDefectDeductionHistory', N'U') IS NULL
 BEGIN
