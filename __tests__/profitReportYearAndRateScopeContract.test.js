@@ -36,13 +36,16 @@ check('거래처×품목 분석 SQL은 OrderYear+OrderYearWeek 모두 사용', c
 check('거래처×품목 분석도 master/detail 확정을 모두 사용', customerSql.includes('ISNULL(sm.isFix,0) = 1') && customerSql.includes('ISNULL(sd.isFix,0) = 1'));
 
 console.log('\n=== 환율 완전성·전차수 독립 ===');
-check('전차수 환율은 자동 원천으로 조회하지 않고 수기 확정값만 제안으로 전달',
-  !api.includes('prevInvoiceRates') && !api.includes('prevSavedRates') && !api.includes('prevKcsRates')
-  && /previousWeekRate: prevMan\.R/.test(api) && /rateSuggestions: resolvedRate\.suggestions/.test(api));
-check('기초재고 E는 전차수 마지막 ProductStock+VERIFIED 단가로만 계산',
+check('현재 R에는 전차수 환율을 자동 적용하지 않고 제안으로만 전달',
+  /previousWeekRate: prevMan\.R/.test(api) && /rateSuggestions: resolvedRate\.suggestions/.test(api));
+check('기초재고 E 재계산은 직전 차수의 정확한 환율 원천만 별도로 조회',
+  /invoiceRatesByCategory\(prevMajor, prevOrderYear\)/.test(api)
+  && /loadTaxableRates\(prevOrderYear, prevMajor\)/.test(api)
+  && /kcsRatesByCategory\(prevMajor, prevOrderYear\)/.test(api));
+check('기초재고 E는 전차수 마지막 ProductStock와 전차수 F 공식·증거로 계산',
   /const autoE = computeAutoEndingStock\(beginStock\)/.test(api)
-  && /evidenceValue: stockBegin\.values/.test(api)
-  && !api.includes('prevAutoR'));
+  && /evidenceValue: resolvedBegin\?\.value/.test(api)
+  && /computeCategoryAverageInventoryValue\(\{[\s\S]*stockQty: Number\(stockBegin\.qtys/.test(api));
 check('FreightCost 스냅샷은 전체/적용 구매금액을 함께 비교', reportLib.includes('TotalWeight') && reportLib.includes('CoveredWeight') && reportLib.includes('Math.abs(total - covered) <= tolerance'));
 check('FreightCost 중복행은 최신 FreightKey 1건만 사용', reportLib.includes('SELECT TOP 1 fcx.ExchangeRate') && reportLib.includes('ORDER BY fcx.FreightKey DESC'));
 check('KCS 날짜는 InputDate만 사용하고 UploadDtm으로 대체하지 않음', dateWeights.includes("const dateExpr = 'wm.InputDate'") && !dateWeights.includes('declarationDateDiagnostics()'));
