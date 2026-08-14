@@ -110,6 +110,11 @@ const listDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function listDeductions'),
   deductionSource.indexOf('export async function markCarryoverDeductions'),
 );
+assert.match(listDeductionsSource, /d\.CreatedBy=@manager OR d\.CreatedByName=@manager/, '담당자 목록은 최초 작성 소유자를 우선해 필터해야 합니다.');
+assert.match(listDeductionsSource, /NULLIF\(LTRIM\(RTRIM\(d\.CreatedBy\)\),N''\) IS NULL[\s\S]*d\.UpdatedBy=@manager/, '작성자 정보가 모두 없는 레거시 행만 최종 수정자를 담당자로 보완해야 합니다.');
+assert.doesNotMatch(listDeductionsSource, /d\.CreatedByName=@manager\s+OR d\.UpdatedBy=@manager/, '다른 담당자 원장을 수정했다는 이유만으로 본인 목록에 포함하면 안 됩니다.');
+assert.ok(pageSource.includes('authResolved') && pageSource.includes("activeTab === 'sales' && authResolved"), '로그인 담당자가 확정되기 전에 전체 영업 목록을 조회하면 안 됩니다.');
+assert.ok(pageSource.includes('salesLoadRequestSeq') && pageSource.includes('requestSeq !== salesLoadRequestSeq.current'), '늦게 도착한 전체 조회가 최신 본인 담당자 결과를 덮어쓰면 안 됩니다.');
 assert.doesNotMatch(listDeductionsSource, /ensureSalesDefectTables\(/, '영업수입불량차감 GET 목록 조회가 DDL ensure를 실행하면 안 됩니다.');
 assert.match(deductionSource, /confirmIncomingDeductions[\s\S]*IsCarryoverLedger=1[\s\S]*RemainingQuantity=COALESCE\(RemainingQuantity,Quantity\)/, '수입부 컨펌 시 별도 조작 없이 자동 미처리·부분처리 원장으로 전환해야 합니다.');
 assert.doesNotMatch(defectApiSource, /action === 'carryover-register'/, '별도 수동 이월업체 등록 API를 노출하면 안 됩니다.');
@@ -170,7 +175,7 @@ assert.ok(pageSource.includes('sales-row-review-alert'), '보완 필요 행은 �
 assert.ok(pageSource.includes("const [salesViewMode, setSalesViewMode] = useState('edit')"), '영업 입력은 편집/완료 목록 보기 전환을 제공해야 한다.');
 assert.ok(pageSource.includes('sales-summary-card'), '영업 입력 완료 목록은 수입부 확인처럼 간단한 다중 행 목록으로 보여야 한다.');
 assert.ok(pageSource.includes('salesRowSaveState'), '초기화됨·미저장·저장 완료 상태를 행별로 구분해야 한다.');
-assert.ok(pageSource.includes('if (activeTab === \'sales\') load();'), '수입부 확정 후 영업 입력으로 돌아오면 최신 저장 상태를 다시 조회해야 한다.');
+assert.ok(pageSource.includes("if (activeTab === 'sales' && authResolved) load();"), '로그인 담당자 확정 후 수입부에서 영업 입력으로 돌아오면 최신 저장 상태를 다시 조회해야 한다.');
 assert.ok(pageSource.includes('onFocusCapture={handleGridFocusCapture}'), '다른 입력칸으로 포커스가 이동하면 이전 검색 패널을 닫아야 한다.');
 assert.match(pageSource, /if \(\w+\.key === 'Tab'\) \{\s+closeLookup\(\);/, '검색 입력에서 Tab으로 빠져나갈 때 검색 패널을 닫아야 한다.');
 assert.ok(pageSource.includes('position: fixed'), '검색 결과는 표의 가로 스크롤에 갇히지 않는 고정 팝업이어야 한다.');
