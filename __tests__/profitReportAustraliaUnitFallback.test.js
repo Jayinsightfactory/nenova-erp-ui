@@ -1,5 +1,6 @@
-// 호주를 포함한 모든 카테고리의 E/F는 EXE ProductStock와 정확한 차수의 VERIFIED 단가 증거만 사용한다.
-// 과거의 Product.Cost/recentCost/landed-cost/Australia 단위 fallback이 되살아나지 않는지 검증한다.
+// 원본 workbook의 평균원가 공식 대상이 아닌 호주 등은 EXE ProductStock와
+// 정확한 차수의 VERIFIED 품목 단가(또는 정확한 역사 workbook F 증거)만 사용한다.
+// Product.Cost/recentCost/검증되지 않은 landed-cost fallback이 되살아나지 않는지 검증한다.
 const fs = require('fs');
 const path = require('path');
 
@@ -15,7 +16,7 @@ const check = (label, condition, detail = '') => {
 async function main() {
   const { computeAutoEndingStock, computeProfitRow, endingStockSourceKind } = await import('../lib/profitReportCalc.js');
 
-  console.log('=== VERIFIED 재고단가 증거만 E/F 자동값으로 채택 ===');
+  console.log('=== 비공식 카테고리는 검증된 재고평가 증거만 E/F 자동값으로 채택 ===');
   const verified = {
     endQty: 500,
     snapshotConfirmed: true,
@@ -36,6 +37,10 @@ async function main() {
   const verifiedMixed = { ...verified, priceEvidenceStatus: 'VERIFIED_MIXED', evidenceValue: 440000 };
   check('직접 단가와 확정 도착원가 혼합 증거를 사용', computeAutoEndingStock(verifiedMixed) === 440000);
   check('혼합 증거 원천 태그', endingStockSourceKind(verifiedMixed) === 'verified_mixed_price_evidence');
+
+  const verifiedHistorical = { ...verified, priceEvidenceStatus: 'VERIFIED_HISTORICAL_WORKBOOK', evidenceValue: 430000 };
+  check('정확한 2026년 22~28차 원본 F 셀 증거를 사용', computeAutoEndingStock(verifiedHistorical) === 430000);
+  check('원본 workbook 증거 원천 태그', endingStockSourceKind(verifiedHistorical) === 'verified_historical_workbook');
 
   const missingEvidence = { ...verified, priceEvidenceStatus: 'INPUT_REQUIRED', evidenceValue: null };
   check('단가 증거가 없으면 모든 레거시 fallback 값이 있어도 null', computeAutoEndingStock(missingEvidence) == null);
@@ -78,14 +83,14 @@ async function main() {
     && /VERIFIED_ARRIVAL_COST/.test(stockBlock));
   check('재고평가 SQL에 recentCost/Product.Cost/landed fallback 없음',
     !/OUTER APPLY|Product\.Cost|recentCostCutoffSql|WarehouseDetail/.test(stockBlock));
-  check('API가 E/F 모두 evidenceValue와 priceEvidenceStatus를 전달',
-    /evidenceValue: stockEnd\.values/.test(apiSource)
-    && /priceEvidenceStatus: stockEnd\.priceEvidenceStatus/.test(apiSource)
-    && /evidenceValue: stockBegin\.values/.test(apiSource)
-    && /priceEvidenceStatus: stockBegin\.priceEvidenceStatus/.test(apiSource));
-  check('API가 E/F 도착원가 셀 출처를 화면에 전달',
-    /priceEvidenceSources: stockEnd\.priceEvidenceSources/.test(apiSource)
-    && /priceEvidenceSources: stockBegin\.priceEvidenceSources/.test(apiSource));
+  check('API가 E/F의 최종 선택 증거와 상태를 전달',
+    /evidenceValue: resolvedEnd\?\.value/.test(apiSource)
+    && /priceEvidenceStatus: resolvedEnd\?\.status/.test(apiSource)
+    && /evidenceValue: resolvedBegin\?\.value/.test(apiSource)
+    && /priceEvidenceStatus: resolvedBegin\?\.status/.test(apiSource));
+  check('API가 E/F의 선택된 원천을 화면에 전달',
+    /priceEvidenceSources: resolvedEnd\?\.sources/.test(apiSource)
+    && /priceEvidenceSources: resolvedBegin\?\.sources/.test(apiSource));
   check('감사가 E/F 단가 증거 누락을 별도 오류로 차단',
     auditSource.includes('STOCK_BEGIN_PRICE_EVIDENCE_MISSING')
     && auditSource.includes('STOCK_END_PRICE_EVIDENCE_MISSING'));

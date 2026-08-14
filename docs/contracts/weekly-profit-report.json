@@ -67,7 +67,7 @@
       "name": "REPORT_MANUAL_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없으며, E/F는 EXE가 계산한 마지막 ProductStock 수량과 정확한 차수의 VERIFIED WebStockPriceEvidence만으로 자동 계산한다. StockMaster.isFix는 FormStockView의 재고 마감 조건이 아니므로 필터로 쓰지 않는다."
+      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없다. 원본 workbook 수식 카테고리는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가하고, 그 밖은 정확한 차수의 VERIFIED 품목단가를 사용한다. 2026년 22~28차는 정확한 원본 F 셀(SHA+sheet+cell)을 마지막 역사 증거로 사용할 수 있다. StockMaster.isFix는 FormStockView의 재고 마감 조건이 아니므로 필터로 쓰지 않는다."
     },
     {
       "name": "PRICE_EVIDENCE_SAVE",
@@ -172,7 +172,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 화면에서 명시한 OrderYear만 읽고 쓰며, 연도가 없으면 요청을 거부한다. 모든 주문·출고·재고 선택은 OrderYear+OrderWeek를 함께 사용하고 DetailFix=1인 확정 상세만 포함한다. 일반 차수의 기초재고 E는 같은 OrderYear 전차수 마지막 ProductStock 확정 스냅샷을 이월하며 01차에서만 전년도 52차로 넘어간다. E/F 품목단가는 1순위로 정확한 차수·상품의 VERIFIED WebStockPriceEvidence를 사용한다. 없을 때만 같은 OrderYear+OrderWeek+ProdKey+Product.EstUnit의 현재 MATCHED WebArrivalCostLine 중 사용자의 MATCH/BASIS_CHANGE 이력과 file/sheet/row/import/revision 출처가 모두 있는 품목별 수량가중 단가를 조회 전용으로 사용한다. WebProfitReport의 과거 E/F 수기값, Product.Cost, 최근매입단가, 카테고리·전체·다른품목 평균, 업로드만 된 자동매칭, 단위 불일치 및 다른 연도·차수 단가는 대체값으로 쓰지 않는다. 26차 F와 27차 E의 베트남 3,658,862.88875원 불연속은 원본 workbook 이상으로 기록하고 웹 E를 덮어쓰지 않는다. 과세환율 R은 정확한 OrderYear+MajorWeek 원천만 사용한다: ①당주 FreightCost.ExchangeRate(카테고리 상품매입 TPrice 100%가 스냅샷으로 덮인 경우만) ②WebTaxableExchangeRate 카테고리 지정값 ③2026 22~27차 원본 엑셀 R ④저장 통화 기본값 ⑤2026-28 이상 관세청 공식 과세환율. KCS 기준일은 WarehouseMaster.InputDate만 사용하며 다른 날짜로 대체하지 않는다. 날짜가 없거나 통화·적용기간이 정확히 일치하는 공식 환율을 하나라도 못 찾으면 일부 날짜만으로 계산하지 않고 해당 카테고리를 입력 필요로 둔다. 현재 CurrencyMaster 환율과 전차수 R은 자동 상속하지 않고 참고 제안으로만 제공한다. 활성 확정 스냅샷은 저장 시점 원천과 계산값을 불변 revision으로 보존하며 취소 뒤 새 revision으로만 갱신한다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 화면에서 명시한 OrderYear만 읽고 쓰며, 연도가 없으면 요청을 거부한다. 모든 주문·출고·재고 선택은 OrderYear+OrderWeek를 함께 사용하고 DetailFix=1인 확정 상세만 포함한다. 일반 차수의 기초재고 E는 현재 workbook E 리터럴을 쓰지 않고 같은 OrderYear 전차수 F를 동일 공식으로 재계산하며 01차에서만 전년도 52차로 넘어간다. 원본 workbook 수식 카테고리(콜롬비아 수국·카네이션·장미·루스커스·알스트로, 베트남)의 E/F는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가한다. 그 밖은 정확한 차수·상품의 VERIFIED WebStockPriceEvidence, 같은 scope·ProdKey·EstUnit의 사용자 확정 WebArrivalCostLine 품목별 수량가중 단가 순으로 사용한다. 2026년 22~28차만 파일 SHA와 sheet/cell이 고정된 원본 workbook F 셀을 마지막 역사 증거로 사용할 수 있으며 다른 연도·미래 차수로 전파하지 않는다. WebProfitReport의 E/F 수기값, Product.Cost, 최근매입단가, 공식 대상 이외 카테고리·전체·다른품목 평균, 업로드만 된 자동매칭, 단위 불일치 및 다른 연도·차수 단가는 대체값으로 쓰지 않는다. 26차 F와 27차 E의 베트남 3,658,862.88875원 불연속은 원본 workbook 이상으로 기록하고 웹 E를 덮어쓰지 않는다. 과세환율 R은 정확한 OrderYear+MajorWeek 원천만 사용한다: ①당주 FreightCost.ExchangeRate(카테고리 상품매입 TPrice 100%가 스냅샷으로 덮인 경우만) ②WebTaxableExchangeRate 카테고리 지정값 ③2026 22~27차 원본 엑셀 R ④저장 통화 기본값 ⑤2026-28 이상 관세청 공식 과세환율. KCS 기준일은 WarehouseMaster.InputDate만 사용하며 다른 날짜로 대체하지 않는다. 날짜가 없거나 통화·적용기간이 정확히 일치하는 공식 환율을 하나라도 못 찾으면 일부 날짜만으로 계산하지 않고 해당 카테고리를 입력 필요로 둔다. 현재 CurrencyMaster 환율과 전차수 R은 자동 상속하지 않고 참고 제안으로만 제공한다. 활성 확정 스냅샷은 저장 시점 원천과 계산값을 불변 revision으로 보존하며 취소 뒤 새 revision으로만 갱신한다."
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",

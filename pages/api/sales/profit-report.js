@@ -3,13 +3,19 @@ import { withAuth } from '../../../lib/auth';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   EXTRA_CATEGORY,
-  salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
+  salesByCategory, estimateByCategory, purchaseByCategory, purchaseQtyByCategory, forwardingByCategory,
   invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
   periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
   assertProfitReportReadSchema,
 } from '../../../lib/profitReport';
-import { computeAutoEndingStock, endingStockSourceKind, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
+import {
+  computeAutoEndingStock,
+  endingStockSourceKind,
+  computeProfitRow,
+  computeProfitTotals,
+  computeCategoryAverageInventoryValue,
+} from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
 import { loadTaxableRates, resolveTaxableRate, saveTaxableRate, RATE_SOURCE, kcsRatesByCategory } from '../../../lib/taxableExchangeRate';
@@ -17,6 +23,7 @@ import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
+import { getHistoricalClosingInventoryEvidence } from '../../../lib/profitReportHistoricalInventory';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -30,10 +37,11 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
+  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
+        purchaseQtyByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
@@ -47,12 +55,59 @@ export async function loadReportData(major, orderYear) {
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
       ]);
 
+      // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
+      // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
+      // 웹 값에 섞이지 않는다. 01차만 전년도 52차를 사용한다.
+      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRates, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
+        purchaseByCategory(prevMajor, prevOrderYear),
+        purchaseQtyByCategory(prevMajor, prevOrderYear),
+        forwardingByCategory(prevMajor, prevOrderYear),
+        invoiceRatesByCategory(prevMajor, prevOrderYear),
+        computeCustomsAndForwarding(prevMajor, prevOrderYear),
+        loadTaxableRates(prevOrderYear, prevMajor),
+        kcsRatesByCategory(prevMajor, prevOrderYear),
+      ]);
+
       const categories = profitReportCategoriesForWeek(currentMajor);
       const keys = [...categories.map(c => c.key)];
       const extraHasData = [N, est.L, est.O, Q, S].some(m => Math.abs(Number(m?.[EXTRA_CATEGORY] || 0)) > 0.001);
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
       const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
+      const previousValuation = Object.fromEntries(categories.map((definition) => {
+        const key = definition.key;
+        const previousManual = prev.manual[key] || {};
+        const currency = currencyCodeForCategory(key);
+        const resolved = resolveTaxableRate({
+          snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
+          savedByCategory: prevSavedRates.byCategory?.[key] || null,
+          savedByCurrency: currency ? prevSavedRates.byCurrency?.[currency] || null : null,
+          historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
+          currency,
+          currencyMasterRate: currency && rateByCode[currency] != null ? rateByCode[currency] : null,
+          previousWeekRate: null,
+          previousWeekLabel: null,
+          kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
+          kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
+        });
+        const structuredSource = prevCustoms.sources?.S?.[key];
+        const hasStructured = structuredSource != null && structuredSource !== 'missing';
+        const automaticS = hasStructured ? Number(prevCustoms.S[key] || 0) : Number(prevLegacyS[key] || 0);
+        const average = computeCategoryAverageInventoryValue({
+          category: key,
+          purchaseForeign: Number(prevQ[key] || 0),
+          forwardingForeign: previousManual.S != null ? Number(previousManual.S) : automaticS,
+          taxableRate: previousManual.R != null ? Number(previousManual.R) : resolved.rate,
+          customsCost: previousManual.H != null ? Number(previousManual.H) : Number(prevCustoms.H[key] || 0),
+          purchaseQty: Number(prevPurchaseQty[key] || 0),
+          stockQty: Number(stockBegin.qtys[key] || 0),
+        });
+        return [key, {
+          average,
+          historical: getHistoricalClosingInventoryEvidence(prevOrderYear, prevMajor, key),
+        }];
+      }));
+
       const rows = keys.map(key => {
         const def = categories.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
@@ -88,28 +143,75 @@ export async function loadReportData(major, orderYear) {
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        // F 재료 — EXE 계산 ProductStock와 같은 OrderYear+OrderWeek의 VERIFIED 단가만 허용한다.
+        // F 1순위는 원본 workbook에 수식이 확인된 카테고리 평균원가 공식이다.
+        //   (상품+포워딩 매입액 + 그외통관비) / 당주 매입수량 * 마지막 ProductStock 환산수량
+        // 이 공식 대상이 아니거나 필요한 원천이 없을 때만 품목별 VERIFIED 단가를 사용하고,
+        // 2026년 22~28차는 마지막 보조수단으로 사용자가 제공한 원본 workbook F 셀을 쓴다.
+        const categoryAverageEnd = computeCategoryAverageInventoryValue({
+          category: key,
+          purchaseForeign: Number(Q[key] || 0),
+          forwardingForeign: man.S != null ? Number(man.S) : autoS,
+          taxableRate: man.R != null ? Number(man.R) : autoR,
+          customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
+          purchaseQty: Number(purchaseQty[key] || 0),
+          stockQty: Number(stockEnd.qtys[key] || 0),
+        });
+        const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
+        const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
+        const resolvedEnd = categoryAverageEnd
+          ? {
+              value: categoryAverageEnd.value,
+              status: 'VERIFIED_CATEGORY_AVERAGE',
+              sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
+            }
+          : directEndValue != null
+            ? {
+                value: directEndValue,
+                status: stockEnd.priceEvidenceStatus?.[key] || 'VERIFIED',
+                sources: stockEnd.priceEvidenceSources?.[key] || [],
+              }
+            : historicalEnd
+              ? { value: Number(historicalEnd.value), status: historicalEnd.status, sources: [historicalEnd.sourceRef] }
+              : null;
         const stock = {
           week: stockEnd.week,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
-          evidenceValue: stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null,
+          evidenceValue: resolvedEnd?.value ?? null,
           snapshotConfirmed: stockEnd.snapshotAvailable === true,
-          priceEvidenceStatus: stockEnd.priceEvidenceStatus?.[key] || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
-          priceEvidenceSources: stockEnd.priceEvidenceSources?.[key] || [],
-          missingPriceCount: Number(stockEnd.missingPriceCounts?.[key] || 0),
+          priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: resolvedEnd?.sources || [],
+          missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
           negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
         };
         const autoF = computeAutoEndingStock(stock);
         const stockFSourceKind = endingStockSourceKind(stock);
-        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 마지막 ProductStock를 같은 규칙으로 평가한다.
+        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 F 원천과 공식을 재사용한다.
+        // 현재 workbook의 E 리터럴은 이월하지 않으므로 26→27 베트남 불연속이 자동 유입되지 않는다.
+        const previous = previousValuation[key] || {};
+        const directBeginValue = stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null;
+        const resolvedBegin = previous.average
+          ? {
+              value: previous.average.value,
+              status: 'VERIFIED_CATEGORY_AVERAGE',
+              sources: [`erp:${prevOrderYear}:${stockBegin.week || `${prevMajor}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
+            }
+          : directBeginValue != null
+            ? {
+                value: directBeginValue,
+                status: stockBegin.priceEvidenceStatus?.[key] || 'VERIFIED',
+                sources: stockBegin.priceEvidenceSources?.[key] || [],
+              }
+            : previous.historical
+              ? { value: Number(previous.historical.value), status: previous.historical.status, sources: [previous.historical.sourceRef] }
+              : null;
         const beginStock = {
           week: stockBegin.week,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
-          evidenceValue: stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null,
+          evidenceValue: resolvedBegin?.value ?? null,
           snapshotConfirmed: stockBegin.snapshotAvailable === true,
-          priceEvidenceStatus: stockBegin.priceEvidenceStatus?.[key] || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
-          priceEvidenceSources: stockBegin.priceEvidenceSources?.[key] || [],
-          missingPriceCount: Number(stockBegin.missingPriceCounts?.[key] || 0),
+          priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: resolvedBegin?.sources || [],
+          missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
         };
         const autoE = computeAutoEndingStock(beginStock);
         const stockESourceKind = endingStockSourceKind(beginStock);

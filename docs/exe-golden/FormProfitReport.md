@@ -9,7 +9,7 @@
 - 매출 N은 선택 `ShipmentMaster.OrderYear`와 `OrderWeek` 범위에서 `ShipmentMaster.isFix=1`, `ShipmentDetail.isFix=1`, `ShipmentMaster.isDeleted=0`, `ShipmentDetail.OutQuantity <> 0`인 확정 출고만 집계한다. 불량 L·그외매출 O는 같은 연도·차수의 `Estimate` 확정 master 범위를 사용한다.
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
-- E/F는 EXE가 계산한 마지막 ProductStock와 동일 `OrderYear + OrderWeek + ProdKey`의 `VERIFIED` 시점 단가 근거로만 자동 평가한다. 가격 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`이며 `Product.Cost`, 최근 입고단가, 수국 하드코딩, E/F 최종값 직접입력으로 대체하지 않는다. H/R/S는 입고 GW/CW·BILL 시점 환율·포워딩 원천에서 자동 계산하고, 외부 인보이스 확정값만 sourceRef·기준일·확정자·확정시각과 함께 웹 전용 원장에 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
+- E/F 수량은 EXE가 계산한 마지막 ProductStock를 사용한다. 원본 workbook 수식이 확인된 콜롬비아 수국·카네이션·장미·루스커스·알스트로와 베트남은 `(Q×R + S×R + H) ÷ 당주 매입수량 × ProductStock 재고수량`으로 평가한다. 나머지는 동일 `OrderYear + OrderWeek + ProdKey`의 `VERIFIED` 시점 단가 근거를 사용하고, 2026년 22~28차에 한해 파일 SHA와 정확한 F 셀이 고정된 원본 workbook 값을 마지막 역사 증거로 사용할 수 있다. 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`이며 `Product.Cost`, 최근 입고단가, 수국 하드코딩, E/F 최종값 직접입력으로 대체하지 않는다. H/R/S는 입고 GW/CW·BILL 시점 환율·포워딩 원천에서 자동 계산하고, 외부 인보이스 확정값만 sourceRef·기준일·확정자·확정시각과 함께 웹 전용 원장에 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
 - 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
 - 2026-08-12 추가(28차 이후 관세청 공식 과세환율 KCS API): R 자동 우선순위 맨 앞에 행별 수기
@@ -20,6 +20,7 @@
 - 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로 인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
 - 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율과 sourceRef·기준일을 입력하면 서버가 확정자·확정시각을 기록하고 `WebProfitReport.R` 및 정확한 차수의 `WebTaxableExchangeRate`에 저장한다.
 - 22~28차 기말재고 F는 선택 `OrderYear`의 해당 대차수에서 `ProductStock` 행이 존재하는 숫자 세부차수 중 suffix가 가장 큰 스냅샷의 `ProductStock.Stock`을 사용한다. 기초재고 E는 같은 `OrderYear`의 직전 대차수에 같은 규칙을 적용한다. 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey DESC`로 하나를 선택한다. `FormStockView.GetData`는 `StockMaster.isFix`를 조회·필터·표시하지 않으므로 보고서도 이를 재고 마감 조건으로 사용하지 않는다(`docs/exe-golden/FormStockAdd.md`의 판정 정정과 동일). 전년도 동일 차수, NULL/시작재고 마커, 입고-출고 단순추정으로 fallback하지 않으며 ProductStock 스냅샷이 없으면 검증 오류로 남긴다. 재고조정은 `usp_StockCalculation`이 ProductStock 스냅샷에 반영한 값으로만 포함하고 보고서에서 `StockHistory` delta를 다시 더하지 않는다.
+- 기초재고 E는 현재 workbook의 E 셀을 복사하지 않고 직전 대차수 F를 위와 같은 공식·원천으로 다시 계산한다. 따라서 원본 26차 F와 27차 E 사이의 베트남 3,658,862.88875원 불연속은 `WORKBOOK_ANOMALY`로 기록하지만 웹 계산에는 자동 이월하지 않는다.
 - 국가별 그외통관비(H) 입력화면 도입 차수는 원본 업무 기준을 따른다. 호주는 28차부터, 베트남은 29차부터 H 원천을 검증한다. 시작 차수 전의 H 미입력은 해당 국가가 아직 입력 대상이 아니므로 감사 오류·경고를 만들지 않는다. **R(과세환율)은 이 표와 별개다** — 위 항목 참고.
 - `OrderWeek`만으로 2025/2026 행을 재사용하지 않는다. 모든 자동 조회와 저장은 `OrderYear`를 별도 파라미터로 유지한다.
 - 백상·트럭·검역 단가를 수정할 때는 적용 `OrderYear + MajorWeek` 이력을 함께 남기고, 과거 보고서는 대상 차수 이하의 최근 단가를 사용한다. 현재 전역 단가로 과거 H를 재작성하지 않는다.
@@ -214,10 +215,12 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
    `TOTALS_EXCLUDED_CATEGORIES`(`['기타(미분류)']`)를 계산 전에 걸러낸다 — 원본 엑셀 본표(7~22행)에는
    그 행 자체가 없으므로 화면 합계·엑셀 다운로드 합계가 항상 원본과 같아야 한다. 검증 목록·비고에는
    여전히 표시되고, 자동으로 정식 카테고리에 합산되지도 않는다.
-4. **기말재고(F) 증거 계약 정정**: EXE가 계산한 마지막 ProductStock 수량에 정확한 `OrderYear+OrderWeek+ProdKey`의
-   `VERIFIED WebStockPriceEvidence` 단가만 적용한다. `Product.Cost`, 수국 하드코딩, 최근 입고단가,
-   landed-cost 평균과 원본 `재고잔량` 단순 총합은 fallback으로 쓰지 않는다. 증거가 없으면 F를
-   직접입력하지 않고 `INPUT_REQUIRED`/`UNVERIFIED`로 남긴다.
+4. **기말재고(F) 증거 계약 정정**: 28차 원본 workbook에서 공식이 확인된 콜롬비아 5품종과 베트남은
+   `(Q×R+S×R+H)÷매입수량×마지막 ProductStock 재고수량`을 적용한다. 그 밖의 카테고리는 정확한
+   `OrderYear+OrderWeek+ProdKey`의 `VERIFIED WebStockPriceEvidence` 또는 사용자 확정 도착원가를 쓴다.
+   2026년 22~28차는 원본 workbook SHA·시트·F셀을 고정한 값만 마지막 역사 증거로 허용하며 다른 연도나
+   미래 차수로 전파하지 않는다. `Product.Cost`, 최근 입고단가, 공식 대상 이외 카테고리 평균과 E/F
+   최종값 직접입력은 금지하고, 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`로 남긴다.
 5. **과세환율(R) exact-week만 자동 적용, 웹 전용 캐시 테이블 신설**: `lib/taxableExchangeRate.js` +
    `docs/migrations/2026-08-12_web_taxable_exchange_rate.sql`(`WebTaxableExchangeRate`,
    `OrderYear+MajorWeek+Currency+Category` 키)을 추가하고, "29차 이후 전차수 R 자동 상속"과
