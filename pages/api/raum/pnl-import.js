@@ -1,161 +1,136 @@
-// pages/api/raum/pnl-import.js
-// 라움 견적서(거래명세표) 엑셀 업로드 → 강남/건대 파싱·합산 + 전산 참고단가 조회 (저장은 /api/raum/pnl)
+// 라움 다차수 견적서 업로드. preview/save 모두 같은 XLSX multipart를 서버에서 다시 파싱한다.
+import crypto from 'crypto';
 import fs from 'fs';
 import formidable from 'formidable';
 import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
-import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
-import { parseRaumQuoteWorkbook, lookupErpRefPrices, loadLearnedCosts, loadRaumConsignedSet, DEFAULT_NENOVA_PCT } from '../../../lib/raumPnl';
+import {
+  parseRaumQuoteWorkbookGroups, lookupErpRefPrices, loadLearnedCosts, loadRaumConsignedSet,
+  prepareRaumPnlImportPreview, saveRaumPnlImportBatch, DEFAULT_NENOVA_PCT,
+} from '../../../lib/raumPnl';
 
-export const config = {
-  api: { bodyParser: false },
-};
+export const config = { api: { bodyParser: false } };
+
+const learnKey = (s) => String(s || '').replace(/[\s ]+/g, ' ').trim().toLowerCase();
+const localDate = (value) => value
+  ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  : null;
+
+function asField(value) { return Array.isArray(value) ? value[0] : value; }
+
+function previewToken(raw, snapshots, batches) {
+  const state = Object.keys(snapshots).sort().map(k => [k, snapshots[k]?.version || 'new']);
+  const groups = batches.map(b => [String(b.orderYear), String(b.major), b.itemFingerprint || '', b.preservation || {}]);
+  return crypto.createHash('sha256').update(raw).update(JSON.stringify({ state, groups })).digest('hex');
+}
+
+async function enrichBatch(parsed, orderYear) {
+  const warnings = [...(parsed.warnings || [])];
+  let refs = {};
+  try {
+    refs = await lookupErpRefPrices(parsed.items.map(it => ({ name: it.name, price: it.price })), parsed.major, orderYear);
+  } catch (e) {
+    warnings.push(`전산 참고단가 조회 실패: ${e.message}`);
+  }
+  let learned = {};
+  try {
+    learned = await loadLearnedCosts(parsed.items.map(it => it.name));
+  } catch (e) {
+    warnings.push(`학습 매입단가 조회 실패: ${e.message}`);
+  }
+  if (refs.__arrivalError) {
+    warnings.push(refs.__arrivalError);
+    delete refs.__arrivalError;
+  }
+  let consignedSet = new Set();
+  try {
+    consignedSet = await loadRaumConsignedSet(parsed.items.map(it => it.name));
+  } catch (e) {
+    warnings.push(`수동 사입 지정 조회 실패: ${e.message}`);
+  }
+  const items = parsed.items.map(it => {
+    const consigned = !!it.consigned || consignedSet.has(learnKey(it.name));
+    const ref = refs[it.name] || null;
+    const learnedCost = learned[learnKey(it.name)];
+    let costPrice = null;
+    let costSource = null;
+    if (!consigned && learnedCost != null) { costPrice = learnedCost; costSource = 'learned'; }
+    else if (!consigned && ref?.isArrival && ref.refPrice != null) { costPrice = ref.refPrice; costSource = 'arrival'; }
+    return {
+      ...it, consigned, consignedManual: !it.consigned && consigned,
+      costPrice, costSource, costLearned: costSource === 'learned',
+      refPrice: consigned ? null : (ref?.refPrice ?? null),
+      refSource: consigned ? '사입(원산지 없음) — 손익 제외' : (ref?.refSource ?? null),
+      isArrival: !consigned && !!ref?.isArrival,
+      erpSalePrice: ref?.erpSalePrice ?? null, erpQty: ref?.erpQty ?? null,
+      erpFromPrev: ref?.erpFromPrev ?? false, erpW2Qty: ref?.erpW2Qty ?? 0,
+      imChecked: !!ref, imQty: ref?.imQty ?? null, imFirstDtm: ref?.imFirstDtm ?? null,
+      imLastDtm: ref?.imLastDtm ?? null, imModCnt: ref?.imModCnt ?? 0,
+      prodKey: ref?.prodKey ?? null, prodName: ref?.prodName ?? null,
+      prodKeySource: ref?.matchType === '확정매핑' ? 'explicit-map' : 'auto',
+    };
+  });
+  return {
+    ...parsed, orderYear, quoteDate: localDate(parsed.quoteDate), items, warnings,
+    sheets: parsed.sheets.map(s => ({
+      sheetName: s.sheetName, branch: s.branch, itemCount: s.items.length,
+      parsedSupply: s.parsedSupply, summarySupply: s.summarySupply, summaryTotal: s.summaryTotal,
+    })),
+  };
+}
 
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
-
   const form = formidable({ maxFileSize: 30 * 1024 * 1024, keepExtensions: true, multiples: false });
-  let files;
+  let fields; let files;
   try {
-    [, files] = await new Promise((resolve, reject) => {
+    [fields, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, flds, fls) => (err ? reject(err) : resolve([flds, fls])));
     });
   } catch (e) {
     return res.status(400).json({ success: false, error: `업로드 파싱 실패: ${e.message}` });
   }
-
   const file = Array.isArray(files.file) ? files.file[0] : files.file;
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
-
   try {
-    const buf = fs.readFileSync(file.filepath);
-    const workbook = XLSX.read(buf, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
-    const parsed = parseRaumQuoteWorkbook(XLSX, workbook);
-    if (!parsed.items.length) {
-      return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
-    }
+    const raw = fs.readFileSync(file.filepath);
+    const workbook = XLSX.read(raw, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
+    const parsed = parseRaumQuoteWorkbookGroups(XLSX, workbook);
+    if (!parsed.batches.length) return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
 
-    const major = parsed.major;
-    if (!major) parsed.warnings.push('시트명에서 차수를 찾지 못했습니다 (예: "27차강남양식"). 저장 전 차수를 직접 입력하세요.');
-    const quoteYear = parsed.quoteDate ? String(parsed.quoteDate.getFullYear()) : null;
-    const orderYear = quoteYear || resolveActiveOrderYear(`${major || '01'}-01`);
+    const batches = await Promise.all(parsed.batches.map(async (batch) => {
+      const orderYear = batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
+      return enrichBatch(batch, orderYear);
+    }));
+    const prepared = await prepareRaumPnlImportPreview(batches);
+    const canonicalBatches = prepared.batches;
+    const snapshots = prepared.snapshots;
+    const token = previewToken(raw, snapshots, canonicalBatches);
+    const mode = String(asField(fields.mode) || 'preview').toLowerCase();
 
-    // 전산 참고단가 (매칭 실패는 null — 매입단가는 어차피 수기 입력)
-    let refs = {};
-    if (major) {
-      try {
-        refs = await lookupErpRefPrices(parsed.items.map(it => ({ name: it.name, price: it.price })), major, orderYear);
-      } catch (e) {
-        parsed.warnings.push(`전산 참고단가 조회 실패: ${e.message}`);
+    if (mode === 'save') {
+      const received = String(asField(fields.previewToken) || '');
+      if (!received || received !== token) {
+        return res.status(409).json({ success: false, error: '미리보기 이후 결산이 변경되었거나 다른 파일입니다. 다시 미리보기 후 저장하세요.' });
       }
+      const failed = canonicalBatches.flatMap(b => b.verification || []).filter(c => !c.ok);
+      if (failed.length) return res.status(400).json({ success: false, error: '합계 검증에 실패해 전체 저장을 차단했습니다.', batches: canonicalBatches, warnings: parsed.warnings });
+      const actor = req.user?.userName || req.user?.userId || 'user';
+      const saved = await saveRaumPnlImportBatch({
+        batches: canonicalBatches, sourceFile: file.originalFilename || 'upload.xlsx', actor, expectedSnapshots: snapshots,
+      });
+      return res.status(200).json({ success: true, saved, batchCount: saved.length });
     }
-
-    // 지난 차수에 입력·저장한 매입단가 자동 채움 (수정 가능 — 저장하면 다시 학습)
-    let learned = {};
-    try {
-      learned = await loadLearnedCosts(parsed.items.map(it => it.name));
-    } catch (e) {
-      parsed.warnings.push(`학습 매입단가 조회 실패: ${e.message}`);
-    }
-    const learnKey = (s) => String(s || '').replace(/[\s ]+/g, ' ').trim().toLowerCase();
-
-    if (refs.__arrivalError) {
-      parsed.warnings.push(refs.__arrivalError);
-      delete refs.__arrivalError;
-    }
-
-    // 수동 사입 지정 품목 — 원산지가 있어도 사입(매출 포함·손익 제외)으로 분류 (사장님 지정, DB)
-    let consignedSet = new Set();
-    try {
-      consignedSet = await loadRaumConsignedSet(parsed.items.map(it => it.name));
-    } catch (e) {
-      parsed.warnings.push(`수동 사입 지정 조회 실패: ${e.message}`);
-    }
-    for (const it of parsed.items) {
-      if (!it.consigned && consignedSet.has(learnKey(it.name))) {
-        it.consigned = true;
-        it.consignedManual = true;
-      }
-    }
-
-    const items = parsed.items.map(it => {
-      const ref = refs[it.name] || null;
-      const learnedCost = learned[learnKey(it.name)];
-      // 매입단가 자동입력 우선순위: ① 직접 입력해 학습된 값 ② 도착원가(가장 최근, 100원 반올림)
-      // 전산원가÷1.1 은 참고 표시만(자동입력 안 함)
-      let costPrice = null;
-      let costSource = null;
-      if (it.consigned) {
-        // 사입(원산지 없음) — 손익 계산 제외 대상이라 매입단가 자체가 불필요
-      } else if (learnedCost != null) {
-        costPrice = learnedCost;
-        costSource = 'learned';
-      } else if (ref?.isArrival && ref.refPrice != null) {
-        costPrice = ref.refPrice;
-        costSource = 'arrival';
-      }
-      return {
-        ...it,
-        costPrice,
-        costSource,
-        costLearned: costSource === 'learned',
-        refPrice: it.consigned ? null : (ref?.refPrice ?? null),
-        refSource: it.consigned ? '사입(원산지 없음) — 손익 제외' : (ref?.refSource ?? null),
-        isArrival: it.consigned ? false : (ref?.isArrival ?? false),
-        erpSalePrice: ref?.erpSalePrice ?? null,
-        erpQty: ref?.erpQty ?? null,
-        erpFromPrev: ref?.erpFromPrev ?? false,
-        erpW2Qty: ref?.erpW2Qty ?? 0,
-        imChecked: !!ref,
-        imQty: ref?.imQty ?? null,
-        imFirstDtm: ref?.imFirstDtm ?? null,
-        imLastDtm: ref?.imLastDtm ?? null,
-        imModCnt: ref?.imModCnt ?? 0,
-        prodKey: ref?.prodKey ?? null,
-        prodName: ref?.prodName ?? null,
-      };
-    });
-
-    // 같은 차수 기존 저장본 존재 여부 (덮어쓰기 경고용)
-    let existing = null;
-    if (major) {
-      try {
-        const r = await query(
-          `SELECT TOP 1 PnlKey, Title, UpdatedAt, CreatedAt FROM WebRaumPnl
-            WHERE OrderYear=@yr AND MajorWeek=@mj AND isDeleted=0 ORDER BY PnlKey DESC`,
-          {
-            yr: { type: sql.NVarChar, value: String(orderYear) },
-            mj: { type: sql.NVarChar, value: String(major).padStart(2, '0') },
-          }
-        );
-        existing = r.recordset[0] || null;
-      } catch { /* 테이블 미생성 등 — 첫 업로드면 없음 */ }
-    }
-
+    if (mode !== 'preview') return res.status(400).json({ success: false, error: 'mode는 preview 또는 save여야 합니다.' });
     return res.status(200).json({
-      success: true,
-      fileName: file.originalFilename || 'upload.xlsx',
-      major,
-      orderYear,
-      // toISOString 금지(루트 CLAUDE.md — 시간대 변환으로 하루 밀림). 로컬 게터로 포맷.
-      quoteDate: parsed.quoteDate
-        ? `${parsed.quoteDate.getFullYear()}-${String(parsed.quoteDate.getMonth() + 1).padStart(2, '0')}-${String(parsed.quoteDate.getDate()).padStart(2, '0')}`
-        : null,
-      nenovaPct: DEFAULT_NENOVA_PCT,
-      sheets: parsed.sheets.map(s => ({
-        sheetName: s.sheetName, branch: s.branch, itemCount: s.items.length,
-        parsedSupply: s.parsedSupply, summarySupply: s.summarySupply, summaryTotal: s.summaryTotal,
-      })),
-      items,
-      verification: parsed.verification || null,
-      warnings: parsed.warnings,
-      existing,
+      success: true, mode: 'preview', fileName: file.originalFilename || 'upload.xlsx',
+      previewToken: token, batches: canonicalBatches, warnings: parsed.warnings,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   } finally {
-    try { fs.unlinkSync(file.filepath); } catch { /* 임시파일 정리 실패 무시 */ }
+    try { fs.unlinkSync(file.filepath); } catch { /* temp cleanup only */ }
   }
 }
 

@@ -53,6 +53,9 @@ export default withAuth(async function handler(req, res) {
         if (!Array.isArray(items) || items.length === 0) {
           return res.status(400).json({ success: false, error: '품목이 없습니다.' });
         }
+        if (Array.isArray(verification) && verification.some(check => !check?.ok)) {
+          return res.status(400).json({ success: false, error: '합계 검증에 실패한 결산은 저장할 수 없습니다.' });
+        }
         const pct = Number(nenovaPct);
         if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
           return res.status(400).json({ success: false, error: '네노바 비율은 0~100 사이여야 합니다.' });

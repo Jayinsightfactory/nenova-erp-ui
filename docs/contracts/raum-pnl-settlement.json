@@ -8,14 +8,18 @@
     "lib/orderImportMatch.js",
     "pages/api/raum/pnl.js",
     "pages/api/raum/pnl-image-import.js",
+    "pages/api/raum/pnl-import.js",
     "pages/api/raum/item-mapping.js",
     "pages/api/orders/index.js",
     "lib/raumPnl.js",
+    "lib/raumPnlCost.js",
     "lib/raumPnlExcel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "settlementIdentity": ["OrderYear", "MajorWeek"],
   "actions": [
-    { "name": "RAUM_PNL_DRAFT_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
+    { "name": "RAUM_PNL_DRAFT_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "RAUM_IMAGE_MATCH_DRAFT", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "RAUM_IMAGE_ORDER_REGISTER", "orderDetail": "create-positive", "shipmentDetail": "preserve" },
     { "name": "RAUM_PNL_DELETE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
@@ -27,6 +31,9 @@
   "requiredTestFiles": [
     "__tests__/raumPnlImage.test.js",
     "__tests__/raumPnlExcel.test.js",
+    "__tests__/raumPnlMultiImport.test.js",
+    "__tests__/raumPnlPreservation.test.js",
+    "__tests__/raumPnlSettlementContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
