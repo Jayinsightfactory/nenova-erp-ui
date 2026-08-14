@@ -20,6 +20,15 @@
     "__tests__/erpEditFixScopeAudit.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "policyBoundaries": [
+    "This contract covers week-pivot, adjust, paste-order distribution, and explicit farm-distribution only.",
+    "The separate estimate-additional-product contract intentionally continues to require a FarmKey; this optional-farm rule does not relax that workflow."
+  ],
+  "farmAssignmentPolicy": {
+    "omitted": "preserve ShipmentFarm including zero rows; farm assignment is optional for both a new ShipmentDetail and an existing ShipmentDetail with no ShipmentFarm rows",
+    "explicit": "replace with submitted valid candidates; assignment total must equal the post-change ShipmentDetail.OutQuantity",
+    "reason": "FormShipmentDistribution.btnSave_Click saves ShipmentDetail first and inserts ShipmentFarm only for modified farm-grid rows whose FarmKey is valid. It does not reject an empty or FarmKey=0 farm grid."
+  },
   "actions": [
     {
       "name": "ADD_WITHOUT_ACTIVE_ORDER",

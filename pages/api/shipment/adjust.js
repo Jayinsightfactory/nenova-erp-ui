@@ -836,18 +836,6 @@ async function postAdjust(req, res) {
       const { amount, vat } = calcShipmentAmount(amountBase, unitCost);
 
       let targetSdk;
-      const existingFarmCount = sdRow
-        ? await tQ(
-          `SELECT COUNT(*) AS cnt FROM ShipmentFarm WHERE SdetailKey=@dk`,
-          { dk: { type: sql.Int, value: sdRow.SdetailKey } },
-        ).then((r) => Number(r.recordset[0]?.cnt || 0))
-        : 0;
-
-      // EXE의 btnSave는 새/농장 미배정 출고를 ShipmentFarm 없이 완성하지 않는다.
-      // 차수피벗도 같은 계약을 적용하되, 기존 Farm 행이 있으면 EXE처럼 보존한다.
-      if (pivotDistribution && isActiveShipmentOutQty(u.outQ) && existingFarmCount === 0 && !farmAssignmentsProvided) {
-        throw new Error('농장배정이 없는 출고입니다. 네노바.exe와 같은 농장배정을 먼저 입력하세요.');
-      }
       if (sdRow) {
         targetSdk = sdRow.SdetailKey;
         if (!isActiveShipmentOutQty(u.outQ)) {
@@ -944,6 +932,10 @@ async function postAdjust(req, res) {
 
       // 0으로 취소한 경우 위에서 ShipmentFarm을 삭제하고 Detail도 정리한다.
       // 삭제된 SdetailKey를 다시 농장배정 저장 대상으로 넘기지 않는다.
+      // FormShipmentDistribution.btnSave_Click은 출고수량을 저장한 뒤
+      // 농장 그리드에 수정행이 있을 때만 ShipmentFarm을 저장한다.
+      // 농장배정을 생략한 수량 변경은 기존 0건/기존 배정 모두 보존하고,
+      // 화면에서 명시적으로 보낸 경우에만 합계·후보를 검증해 교체한다.
       if (farmAssignmentsProvided && targetSdk && isActiveShipmentOutQty(u.outQ)) {
         await applyFarmAssignments(tQ, {
           year: orderYear,
