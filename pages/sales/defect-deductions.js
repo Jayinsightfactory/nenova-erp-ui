@@ -109,6 +109,7 @@ export default function SalesDefectDeductionsPage() {
   const [manager, setManager] = useState('');
   const [managerOptions, setManagerOptions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [showManagerEditor, setShowManagerEditor] = useState(false);
   const [managerEditId, setManagerEditId] = useState('');
   const [managerEditName, setManagerEditName] = useState('');
@@ -145,6 +146,7 @@ export default function SalesDefectDeductionsPage() {
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
   const lookupRequestSeq = useRef(0);
+  const salesLoadRequestSeq = useRef(0);
   const savedRowSignaturesRef = useRef(new Map());
 
   const replaceSavedRowSignatures = useCallback((sourceRows = []) => {
@@ -176,16 +178,19 @@ export default function SalesDefectDeductionsPage() {
       const user = data.user || null;
       setCurrentUser(user);
       setManager(managerFilterForUser(user?.userName || user?.userId || '', user));
-    }).catch(() => { /* 페이지 조회가 인증된 상태면 목록 API가 최종 확인한다. */ });
+    }).catch(() => { /* 목록 API가 최종 인증 오류를 표시한다. */ })
+      .finally(() => setAuthResolved(true));
   }, []);
 
   const load = useCallback(async (managerOverride = manager, { preserveRows = false } = {}) => {
     if (!year || !week) return;
+    const requestSeq = ++salesLoadRequestSeq.current;
     const managerFilter = managerOverride == null ? manager : managerOverride;
     setLoading(true);
     setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', { year, week, manager: managerFilter, history: '1' });
+      if (requestSeq !== salesLoadRequestSeq.current) return data;
       if (!preserveRows) {
         setRows(data.rows || []);
         replaceSavedRowSignatures(data.rows || []);
@@ -196,15 +201,15 @@ export default function SalesDefectDeductionsPage() {
       setPreflight({});
       return data;
     } catch (e) {
-      setError(e.message);
+      if (requestSeq === salesLoadRequestSeq.current) setError(e.message);
     } finally {
-      setLoading(false);
+      if (requestSeq === salesLoadRequestSeq.current) setLoading(false);
     }
   }, [year, week, manager, replaceSavedRowSignatures]);
 
   useEffect(() => {
-    if (activeTab === 'sales') load();
-  }, [activeTab, load]);
+    if (activeTab === 'sales' && authResolved) load();
+  }, [activeTab, authResolved, load]);
 
   const loadIncoming = useCallback(async () => {
     if (!year || !week) return;
