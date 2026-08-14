@@ -26,7 +26,7 @@ export default withAuth(async function handler(req, res) {
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, fwd, prevFwd, subWeeks, prevSubWeeks, autoFwd, autoGw] = await Promise.all([
-        getRateConfig(),
+        getRateConfig(orderYear, major),
         loadForwardingWeekly(major, orderYear),
         loadForwardingWeekly(prevMajor, orderYear),
         weeksForMajor(major, orderYear),

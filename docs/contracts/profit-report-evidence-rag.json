@@ -1,0 +1,119 @@
+{
+  "id": "profit-report-evidence-rag",
+  "title": "주차별 매출이익보고서 evidence-RAG 실행 계약",
+  "status": "EXECUTABLE_LOCAL_CANDIDATE",
+  "contractVersion": "1.0.0",
+  "baselineSpecification": "docs/contracts/profit-report-evidence-rag.draft.json",
+  "registry": "data/profit-report-evidence/registry/v1/index.json",
+  "formulaSpecification": ".verify/inputs/profit-report-weeks-22-28/formula-template.xlsx",
+  "privateSourceAttestation": "data/profit-report-evidence/registry/v1/source-attestation.json",
+  "manualInputManifest": "data/profit-report-evidence/manual-input-manifest.v1.json",
+  "sourceResolver": "lib/profitReportEvidence/sourceResolvers.mjs",
+  "formulaFingerprint": "lib/profitReportEvidence/formulaFingerprint.mjs",
+  "provenance": "lib/profitReportEvidence/provenance.mjs",
+  "workbookCompiler": "lib/profitReportEvidence/workbookEvidence.mjs",
+  "regenerationHarness": "lib/profitReportEvidence/regeneration.mjs",
+  "scope": [
+    "lib/profitReport.js",
+    "lib/profitReportCalc.js",
+    "lib/profitReportExcel.js",
+    "lib/profitReportCountryResolver.js",
+    "lib/profitReportAudit.js",
+    "lib/customsForwarding.js",
+    "lib/webSchemaContract.js",
+    "lib/profitReportEvidence/canonical.mjs",
+    "lib/profitReportEvidence/formulaFingerprint.mjs",
+    "lib/profitReportEvidence/provenance.mjs",
+    "lib/profitReportEvidence/sourceResolvers.mjs",
+    "lib/profitReportEvidence/workbookEvidence.mjs",
+    "lib/profitReportEvidence/regeneration.mjs",
+    "pages/api/sales/profit-report.js",
+    "pages/sales/profit-report.js",
+    "data/profit-report-evidence/registry/v1/index.json",
+    "data/profit-report-evidence/registry/v1/source-attestation.json",
+    "data/profit-report-evidence/manual-input-manifest.v1.json",
+    "data/profit-report-evidence/formula-functions.v1.json",
+    "__tests__/helpers/profitReportAcceptance.mjs",
+    "__tests__/profitReportEvidence.test.js",
+    "__tests__/profitReportAcceptanceHarness.test.js",
+    "scripts/profit-report-acceptance-harness.mjs",
+    "scripts/apply-profit-report-evidence-migrations.mjs",
+    ".github/workflows/deploy.yml",
+    "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
+    "docs/migrations/2026-08-13_web_customs_rate_history.sql"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "evidenceScope": { "orderYear": 2026, "majorWeeks": [22, 23, 24, 25, 26, 27, 28] },
+  "crossYearFixture": { "required": true, "targetYear": 2026, "decoyYear": 2025, "implicitFallbacks": 0 },
+  "workbook": {
+    "mainSheet": "주차별 매출이익 보고서",
+    "mainColumns": "B:U",
+    "headerRow": 6,
+    "bodyRows": "7:22",
+    "totalRow": 23,
+    "totalRatioCell": "U23",
+    "noteCell": "B25",
+    "helperSheetCount": 10,
+    "historicalRows": { "22-27": "공제", "28": "국내" },
+    "week24AdditionalSheet": "Sheet1"
+  },
+  "shipmentResolver": {
+    "masterPredicates": ["ShipmentMaster.OrderYear=@yr", "ShipmentMaster.OrderWeek LIKE @pfx", "ShipmentMaster.OrderYearWeek=@yw", "ShipmentMaster.isFix=1", "ShipmentMaster.isDeleted=0"],
+    "detailPredicates": ["ShipmentDetail.isFix=1", "ShipmentDetail.OutQuantity<>0"],
+    "forbidden": ["same OrderWeek from another OrderYear", "unfixed ShipmentDetail", "report-side ERP write"]
+  },
+  "inventoryResolver": {
+    "quantity": "same OrderYear + major, StockMaster.isFix=1, ProductStock exists, numeric subweek DESC, ProductStock row count DESC, StockKey DESC",
+    "price": "1순위 WebStockPriceEvidence exact OrderYear+OrderWeek+ProdKey VERIFIED metadata; 2순위 같은 scope·ProdKey·EstUnit의 WebArrivalCostLine 중 IsCurrent+MATCHED이고 MATCH/BASIS_CHANGE 사용자 이력과 file/sheet/row/import/revision provenance가 완전한 도착원가의 품목별 수량가중평균",
+    "missing": ["INPUT_REQUIRED", "UNVERIFIED"],
+    "forbiddenFallbacks": ["WebProfitReport E/F final override", "Product.Cost", "recent WarehouseDetail cost", "category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "previous-year stock", "unfixed stock"]
+  },
+  "runtimeDdl": "FORBIDDEN",
+  "migration": "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
+  "gate": {
+    "states": ["PASS", "FORMULA_PARITY", "WORKBOOK_ANOMALY", "MUTABLE_LEDGER_DRIFT", "INPUT_REQUIRED", "UNVERIFIED", "FAIL"],
+    "mappingCoverage": 1,
+    "formulaExactFingerprintCoverage": 1,
+    "amountToleranceWon": 1,
+    "ratioTolerancePercentagePoint": 0.01,
+    "knownErrorsPerWorkbook": 8
+  },
+  "actions": [
+    { "name": "EVIDENCE_BASELINE_REPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "repository-local generated workbook/report only" },
+    { "name": "REPORT_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "ERP and web tables read-only" },
+    { "name": "EXTERNAL_EVIDENCE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "web-only evidence rows; requires sourceRef and effectiveAt" }
+  ],
+  "requiredTestFiles": [
+    "__tests__/profitReportEvidence.test.js",
+    "__tests__/profitReportAcceptanceHarness.test.js",
+    "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitReportStockLinkContract.test.js",
+    "__tests__/profitReportMigrationContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormProfitReport.md",
+    "source": "nenova.exe shared ViewShipment/ViewOrder and StockMaster/ProductStock semantics; web report has no separate EXE form",
+    "methods": ["ViewShipment fixed-detail selection", "ViewOrder selected-year identity", "StockMaster/ProductStock confirmed subweek selection"],
+    "tables": ["ShipmentMaster", "ShipmentDetail", "Estimate", "WarehouseMaster", "WarehouseDetail", "StockMaster", "ProductStock", "WebProfitReport", "WebStockPriceEvidence"]
+  },
+  "requiredCommands": [
+    "npm run test:profit-report-22-28",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "requiredTests": [
+    "node __tests__/profitReportEvidence.test.js",
+    "node __tests__/profitReportAcceptanceHarness.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build",
+    "git diff --check"
+  ]
+}

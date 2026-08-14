@@ -1,7 +1,5 @@
-// 국가/카테고리 분류 규칙의 SQL(profitReport.js CASE_CATEGORY) ↔ 공용 모듈(lib/countryClassification.js)
+// 국가/카테고리 분류 규칙의 SQL 생성기 ↔ 공용 모듈(lib/countryClassification.js)
 // ↔ 웹 전용 파서(lib/profitReportClassification.js) 3중 일치 회귀 검증.
-// 2026-08-11 결함수정 2: CASE_CATEGORY(SQL)는 업무 규칙이 검증된 동작이라 재작성하지 않는다.
-// 이 테스트는 그 SQL이 만들어내는 "카테고리 키 이름" 집합이 공용 모듈/JS 파서와 항상 같은지만 정적으로 대조한다.
 // 실행: node __tests__/profitReportCountryClassificationParity.test.js
 const fs = require('fs');
 const path = require('path');
@@ -30,28 +28,30 @@ async function main() {
     baseCountry,
     countryToCurrency,
   } = await import('../lib/countryClassification.js');
-  const { CATEGORIES, EXTRA_CATEGORY, classifyCategory } = await import('../lib/profitReportClassification.js');
+  const { EXTRA_CATEGORY, classifyCategory, profitReportCategoriesForWeek } = await import('../lib/profitReportClassification.js');
+  const { buildProfitReportCategorySql } = await import('../lib/profitReportCountryResolver.js');
   const freightCalc = await import('../lib/freightCalc.js');
 
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const forwardingSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'customsForwarding.js'), 'utf8');
 
   console.log('=== CASE_CATEGORY(SQL) 카테고리 키 ↔ 공용 모듈 PROFIT_REPORT_CATEGORY_KEYS 일치 ===');
-  const caseBlock = reportSource.match(/const CASE_CATEGORY = `([\s\S]*?)`;/);
-  check('CASE_CATEGORY 블록 파싱', Boolean(caseBlock));
+  const caseBlock = buildProfitReportCategorySql('p');
+  check('profitReport.js가 공용 CASE_CATEGORY 생성기를 사용',
+    /export const CASE_CATEGORY = buildProfitReportCategorySql\('p'\)/.test(reportSource));
   const literalRe = /THEN\s+N'([^']+)'/g;
   const sqlKeys = new Set();
   let m;
-  while ((m = literalRe.exec(caseBlock[1])) !== null) sqlKeys.add(m[1]);
-  const elseMatch = caseBlock[1].match(/ELSE\s+N'([^']+)'/);
+  while ((m = literalRe.exec(caseBlock)) !== null) sqlKeys.add(m[1]);
+  const elseMatch = caseBlock.match(/ELSE\s+N'([^']+)'/);
   if (elseMatch) sqlKeys.add(elseMatch[1]);
   check('SQL 리터럴 카테고리 키 집합 = 공용 모듈 PROFIT_REPORT_CATEGORY_KEYS',
     sameSet([...sqlKeys], PROFIT_REPORT_CATEGORY_KEYS),
     `SQL=${[...sqlKeys].sort().join(',')} / 공용=${[...PROFIT_REPORT_CATEGORY_KEYS].sort().join(',')}`);
 
   console.log('\n=== CASE_CATEGORY(SQL) ↔ profitReportClassification.js(JS) 카테고리 키 집합 일치 ===');
-  const jsKeys = [...CATEGORIES.filter((c) => !c.manualOnly).map((c) => c.key), EXTRA_CATEGORY];
-  check('SQL 키 집합 = JS CATEGORIES(공제 제외) + 기타(미분류)',
+  const jsKeys = [...profitReportCategoriesForWeek(28).filter((c) => !c.manualOnly).map((c) => c.key), EXTRA_CATEGORY];
+  check('SQL 키 집합 = 28차 JS CATEGORIES + 기타(미분류)',
     sameSet([...sqlKeys], jsKeys),
     `SQL=${[...sqlKeys].sort().join(',')} / JS=${jsKeys.sort().join(',')}`);
 

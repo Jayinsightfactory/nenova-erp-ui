@@ -2,7 +2,7 @@
 const assert = require('assert');
 
 (async () => {
-  const { classifyCategory, isNonValueWeightItem } = await import('../lib/profitReportClassification.js');
+  const { classifyCategory, isNonValueWeightItem, profitReportCategoriesForWeek } = await import('../lib/profitReportClassification.js');
 
   const freightCases = [
     ['현지상차운임', '콜롬비아 수국'],
@@ -22,6 +22,10 @@ const assert = require('assert');
   assert.strictEqual(isNonValueWeightItem('Gross weigth'), true);
   assert.strictEqual(classifyCategory('국내', '기타', 'Gross weight'), null);
   assert.strictEqual(classifyCategory('콜롬비아', '카네이션', 'CARNATION Moon Light'), '콜롬비아 카네이션');
+  assert.strictEqual(classifyCategory('국내', '왁스', 'CARNATION/CHINA'), '중국');
+  assert.strictEqual(classifyCategory('국내', '왁스', '샘플/단'), '국내');
+  assert.strictEqual(profitReportCategoriesForWeek(27).at(-1).key, '공제');
+  assert.strictEqual(profitReportCategoriesForWeek(28).at(-1).key, '국내');
 
   console.log('profitReportClassification.test.js: PASS');
 })().catch((error) => {

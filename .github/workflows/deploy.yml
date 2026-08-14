@@ -162,6 +162,8 @@ jobs:
               echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
             fi
             npm install --omit=dev
+            echo "=== 주차별 매출이익 근거 스키마 적용 ==="
+            node scripts/apply-profit-report-evidence-migrations.mjs --apply
             echo "=== build ==="
             rm -rf .next-build
             if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi

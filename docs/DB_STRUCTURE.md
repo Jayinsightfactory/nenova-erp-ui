@@ -135,14 +135,14 @@
 
 **ProductStock** — `StockMaster` 스냅샷별 품목 재고
 - `StockKey`, `ProdKey`, `Stock` — 전산 재고현황의 해당 스냅샷 잔량
-- `ProductStock.Stock`은 `usp_StockCalculation`이 만든 해당 차수의 마지막 스냅샷이며, 보고서 기초/기말 재고 원천이다. `StockMaster.isFix`는 별도 마감 표시·진단값으로 취급하며, 구형·부분확정 데이터에서 0/NULL일 수 있으므로 ProductStock 선택의 단독 조건으로 사용하지 않는다.
+- `ProductStock.Stock`은 `usp_StockCalculation`이 만든 차수별 스냅샷이다. 일반 재고 조회에서 `StockMaster.isFix`는 ProductStock 존재 여부와 별도인 마감 표시·진단값이지만, **주차별 매출이익보고서 22~28차 E/F 계약은 예외적으로 `isFix=1`과 ProductStock 존재를 모두 필수 조건으로 사용한다.**
 - 현재고/부족 조회에서 별도 `CurrentStock` 컬럼으로 가정하지 않는다. 실제 환경의 컬럼명을 확인한 뒤 `Stock` 또는 `Product.Stock`을 사용한다.
 
 **StockMaster / StockHistory** — 재고 이동 이력
 - `StockMasterKey/StockKey`, `OrderYear`, `OrderWeek`, `OrderYearWeek`, `isFix`
-- `isFix=1`: 재고 마감 표시. 실제 재고 스냅샷 존재 여부 및 `ProductStock.Stock`과 별도 축이며, 보고서 원천 선택의 단독 조건이 아니다.
+- `isFix=1`: 재고 마감 표시. 일반 재고 화면에서는 실제 스냅샷 존재 여부와 별도 축이다. 주차별 매출이익보고서 22~28차에서는 확정 E/F 원천의 필수 조건이며 ProductStock 존재 조건과 함께 적용한다.
 - `isFix=2`: 웹 시작재고 입력용 마커(마이그레이션 후 tinyint 환경)
-- 보고서의 세부차수 선택은 `OrderYear + 대차수 prefix + ProductStock 존재` 후 세부차수 숫자 내림차순, 같은 차수는 ProductStock 행 수와 `StockKey DESC`로 결정한다. 선택된 `isFix` 값은 진단으로 반환한다.
+- 주차별 매출이익보고서 22~28차 세부차수 선택은 `OrderYear + 대차수 prefix + isFix=1 + ProductStock 존재` 후 세부차수 숫자 내림차순, 같은 차수는 ProductStock 행 수와 `StockKey DESC`로 결정한다. 전년도 동일 차수·미확정·입출고 추정 fallback은 금지한다.
 
 **WarehouseMaster** — 입고(AWB/BILL) 헤더
 - PK: `WarehouseKey`
@@ -184,6 +184,18 @@
 - 같은 `OrderYear + OrderWeek + CountryName`을 재업로드하면 이전 웹 행만 `IsCurrent=0`으로
   만들고 새 revision을 기본 표시한다. 기존 `Warehouse*`, `Product.Cost`, `Shipment*`,
   `Estimate`, `ProductStock`, `WebProfitReport`에는 자동 반영하지 않는다.
+
+**WebStockPriceEvidence** — 주차별 매출이익보고서 재고단가 증거
+- 업무키: `OrderYear + OrderWeek + ProdKey`; `Price`, `SourceRef`, `EffectiveAt`, `EvidenceStatus`, 확정자·확정시각을 보존한다.
+- E/F는 확정 `ProductStock`과 업무키가 정확히 일치하고 `EvidenceStatus='VERIFIED'`인 단가만 사용한다.
+- `Product.Cost`, 최근 입고단가, 도착원가 평균 및 다른 차수 단가를 fallback으로 사용하지 않는다. 값이 없으면 최종 E/F를 직접입력하지 않고 입력 필요로 남긴다.
+
+**WebCustomsRateHistory** — 백상·트럭·검역 단가 적용시점 이력
+- 업무키: `ConfigKey + EffectiveOrderYear + EffectiveMajorWeek`.
+- 대상 차수 이하의 가장 최근 이력을 사용해 과거 보고서를 현재 전역 단가로 재작성하지 않는다.
+- 런타임 GET에서 테이블을 만들지 않는다. `docs/migrations/2026-08-13_web_customs_rate_history.sql`을 별도 적용한다.
+
+주차별 매출이익보고서의 Web 전용 테이블·컬럼은 런타임 API가 생성하거나 변경하지 않는다. 조회 전 `lib/webSchemaContract.js`가 migration 적용 여부를 읽기 전용으로 검증한다.
 
 ---
 

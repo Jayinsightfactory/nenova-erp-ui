@@ -1,0 +1,31 @@
+{
+  "sourceWorkbook": {
+    "path": ".verify/inputs/profit-report-week-28.xlsx",
+    "sha256": "d777e8745b3b1e2fbf89ac782633e9fd654f38fd7684ecbb620032221ecb156b",
+    "sheetCount": 11,
+    "formulaCount": 1873,
+    "cachedFormulaErrors": 8,
+    "externalFormulaReferences": 0
+  },
+  "rates": { "BakSangRate": 460, "Truck1t": 99000, "Truck2_5t": 187000, "Truck5t": 275000, "QuarantinePerItemRate": 10000 },
+  "countries": [
+    {
+      "category": "콜롬비아 수국", "sourceCell": "그외통관비!I35", "sourceFormula": "F5+L5+F20+L20+F35",
+      "row": { "GW1": 2857, "GW2": 1743, "Customs1_1": 0, "Customs1_2": 0, "Customs1_3": 0, "Customs2_1": 0, "Customs2_2": 0, "Customs2_3": 0, "SunYul1_1": 29700, "SunYul1_2": 39600, "SunYul1_3": 0, "SunYul2_1": 29700, "SunYul2_2": 39600, "SunYul2_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1, "Quarantine1": 0, "Quarantine2": 0 },
+      "expectedH": 2242000,
+      "expectedVehicleCombination": { "phase1": { "Truck5t": 1, "gross": 275000, "net": 250000 }, "phase2": { "Truck2_5t": 1, "gross": 187000, "net": 170000 } }
+    },
+    { "category": "네덜란드", "sourceCell": "그외통관비!I36", "row": { "GW1": 0, "GW2": 491, "Customs2_1": 258260, "Customs2_2": 0, "Customs2_3": 0, "SunYul2_1": 29700, "SunYul2_2": 108900, "SunYul2_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1 }, "expectedH": 610120 },
+    { "category": "태국", "sourceCell": "그외통관비!I37", "row": { "GW1": 137, "GW2": 0, "Customs1_1": 159500, "Customs1_2": 0, "Customs1_3": 0, "SunYul1_1": 29700, "SunYul1_2": 39600, "SunYul1_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1 }, "expectedH": 285520 },
+    { "category": "중국", "sourceCell": "그외통관비!I40", "row": { "GW1": 178, "GW2": 259, "Customs1_1": 433400, "Customs1_2": 0, "Customs1_3": 0, "Customs2_1": 687220, "Customs2_2": 0, "Customs2_3": 0, "SunYul1_1": 29700, "SunYul1_2": 39600, "SunYul1_3": 0, "SunYul2_1": 29700, "SunYul2_2": 59400, "SunYul2_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1 }, "expectedH": 1465640 },
+    { "category": "에콰도르", "sourceCell": "그외통관비!I41", "row": { "GW1": 104, "GW2": 0, "Customs1_1": 507900, "Customs1_2": 0, "Customs1_3": 0, "SunYul1_1": 29700, "SunYul1_2": 39600, "SunYul1_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1 }, "expectedH": 618740 },
+    { "category": "베트남", "sourceCell": "그외통관비!I45", "row": { "GW1": 324, "GW2": 0, "Customs1_1": 969990, "Customs1_2": 0, "Customs1_3": 0, "SunYul1_1": 29700, "SunYul1_2": 39600, "SunYul1_3": 0, "WorldFreight1": 0, "WorldFreight2": 0, "WorldFreight1Manual": 1, "WorldFreight2Manual": 1 }, "expectedH": 1188330 }
+  ],
+  "colombiaPhases": [
+    { "orderWeek": "28-01", "sourceCells": ["콜롬비아 1차!C10", "콜롬비아 1차!C13", "콜롬비아 1차!C17"], "row": { "GW": 7613, "HandlingFee": 33000, "ItemCount": 4, "Truck1t": 0, "Truck2_5t": 0, "Truck5t": 1 }, "expectedH": 3849980 },
+    { "orderWeek": "28-02", "sourceCells": ["콜롬비아 2차!C10", "콜롬비아 2차!C13", "콜롬비아 2차!C17"], "row": { "GW": 2043, "HandlingFee": 33000, "ItemCount": 4, "Truck1t": 0, "Truck2_5t": 1, "Truck5t": 0 }, "expectedH": 1199780 }
+  ],
+  "excelH": 11460110,
+  "reportedComparison": { "reportedDelta": 657113, "impliedComparedH": 10802997, "status": "미검증", "reason": "비교 대상 웹/운영 DB의 국가별 H 원천이 로컬 입력에 없으므로 합계 외 국가별 차이는 추정하지 않는다." },
+  "crossYearFixture": { "selected": { "orderYear": "2026", "orderWeek": "28-01", "GW": 7613 }, "priorYearSameWeek": { "orderYear": "2025", "orderWeek": "28-01", "GW": 999999 }, "expectedSelectedGW": 7613 }
+}

@@ -2,11 +2,11 @@
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
-  CATEGORIES, EXTRA_CATEGORY,
+  EXTRA_CATEGORY,
   salesByCategory, estimateByCategory, purchaseByCategory, forwardingByCategory,
-  purchaseQtyByCategory, invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
+  invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
-  periodDayRangesByMajor,
+  periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
   assertProfitReportReadSchema,
 } from '../../../lib/profitReport';
 import { computeAutoEndingStock, endingStockSourceKind, computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
@@ -16,6 +16,7 @@ import { loadTaxableRates, resolveTaxableRate, saveTaxableRate, RATE_SOURCE, kcs
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
+import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -29,46 +30,33 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, prevInvoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates, prevSavedRates, kcsRates, prevKcsRates] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
-        invoiceRatesByCategory(prevMajor, prevOrderYear), // E 자동계산은 전차수 자체의 과세환율만 사용
         loadManual(major, orderYear),
-        loadManual(prevMajor, prevOrderYear), // 전차수 기말재고(F) 저장값 → 이번 기초(E) 기본값(2순위)
-        stockSnapshotByCategory(major, orderYear),      // F 재료: 이번 차수말 재고수량·최근원가·단가표평가
+        loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용
+        stockSnapshotByCategory(major, orderYear),      // F: 확정 ProductStock + 동일 시점 VERIFIED 단가
         stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
-        purchaseQtyByCategory(major, orderYear),        // F 분모: 이번 차수 매입 총수량
-        purchaseByCategory(prevMajor, prevOrderYear),       // E 자동계산용: 전차수 구매외화
-        forwardingByCategory(prevMajor, prevOrderYear),     // E 자동계산용: 전차수 포워딩USD(레거시 fallback)
-        purchaseQtyByCategory(prevMajor, prevOrderYear),    // E 자동계산용: 전차수 매입 총수량
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
-        computeCustomsAndForwarding(prevMajor, prevOrderYear),  // E 자동계산용: 전차수 H/S
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
-        getActiveConfirm(prevOrderYear, prevMajor),         // E 이월 1순위: 전차수 활성 확정 스냅샷 F(REPORT_CONFIRM_SNAPSHOT)
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
-        loadTaxableRates(prevOrderYear, prevMajor),         // E 자동계산용: 전차수 저장/캐시 과세환율
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
-        kcsRatesByCategory(prevMajor, prevOrderYear),        // E 자동계산용: 전차수 공식 과세환율
       ]);
 
-      const keys = [...CATEGORIES.map(c => c.key)];
+      const categories = profitReportCategoriesForWeek(currentMajor);
+      const keys = [...categories.map(c => c.key)];
       const extraHasData = [N, est.L, est.O, Q, S].some(m => Math.abs(Number(m?.[EXTRA_CATEGORY] || 0)) > 0.001);
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
       const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
       const rows = keys.map(key => {
-        const def = CATEGORIES.find(c => c.key === key) || {};
+        const def = categories.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
         const prevMan = prev.manual[key] || {};
-        // 기초재고(E) 이월 우선순위(crossYearFixture 계약): 1순위 전차수 활성 확정 스냅샷 F,
-        // 2순위 전차수 WebProfitReport 수기 입력 F, 3순위(둘 다 없을 때만) 전차수 자동계산(autoE).
-        const prevConfirmF = prevConfirm?.rowsByCategory?.[key]?.calc?.F;
-        const prevConfirmFValue = prevConfirmF != null ? Number(prevConfirmF) : null;
-        const prevF = prevConfirmFValue != null ? prevConfirmFValue : prevMan.F;
         const curCode = currencyCodeForCategory(key);
         // R 과세환율(2026-08-12 원천 정정, 2026-08-12 KCS 4순위 추가) — 자동 적용은 "정확히 이
         // OrderYear+MajorWeek" 원천만, 행별 수기 오버라이드(man.R, 아래 autoF/beginInputs/source.R)가
@@ -94,87 +82,40 @@ export async function loadReportData(major, orderYear) {
         });
         const autoR = resolvedRate.rate;
         const autoRSource = resolvedRate.source;
-        const prevResolvedRate = resolveTaxableRate({
-          snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
-          savedByCategory: prevSavedRates.byCategory?.[key] || null,
-          savedByCurrency: curCode ? prevSavedRates.byCurrency?.[curCode] || null : null,
-          historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
-          currency: curCode,
-          currencyMasterRate: null,
-          previousWeekRate: null,
-          previousWeekLabel: null,
-          kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
-          kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
-        });
-        const prevAutoR = prevResolvedRate.rate;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
-        const prevAutoH = prevCustoms.H[key] ?? 0;
         // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
         const structuredSSource = customs.sources?.S?.[key];
-        const prevStructuredSSource = prevCustoms.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
-        const hasPrevStructuredS = prevStructuredSSource != null && prevStructuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        const prevAutoS = hasPrevStructuredS ? Number(prevCustoms.S[key] || 0) : Number(prevS[key] || 0);
-        // F 재료 — 1순위는 재고평가단가 기반 평가액(tableF = 마지막 확정 세부차수 ProductStock 수량 ×
-        // 품목별 재고평가단가 ÷1.1). H/R/S 수정 시 하위 폴백만 즉시 재계산된다.
+        // F 재료 — 확정 ProductStock와 같은 OrderYear+OrderWeek의 VERIFIED 단가만 허용한다.
         const stock = {
           week: stockEnd.week,
-          purchQty: purchQty[key] != null ? Number(purchQty[key]) : 0,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
-          recentCost: stockEnd.recentCost[key] != null ? Number(stockEnd.recentCost[key]) : 0,
-          tableF: stockEnd.values[key] != null ? stockEnd.values[key] : null,
+          evidenceValue: stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null,
+          snapshotConfirmed: stockEnd.stockMasterIsFix === 1,
+          priceEvidenceStatus: stockEnd.priceEvidenceStatus?.[key] || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: stockEnd.priceEvidenceSources?.[key] || [],
+          missingPriceCount: Number(stockEnd.missingPriceCounts?.[key] || 0),
           negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
-          // 27차 호주처럼 카테고리 안에 매입단위(박스)와 재고단위(단/송이)가 섞이면 category 평균단가
-          // 공식이 무효라 품목별 recentCost fallback으로 건너뛴다(2026-08-11 결함수정 6).
-          unitMismatch: Boolean(stockEnd.unitMismatch?.[key]),
-          // 재고는 있는데 최근 매입단가를 찾지 못해 recentCost 합계에 0으로 조용히 반영된 수량.
-          // 값을 추정해 채우지 않고 audit이 needs_input으로 명시하게 한다(2026-08-11 결함수정 7).
-          recentCostMissingQty: stockEnd.recentCostMissingQty?.[key] != null ? Number(stockEnd.recentCostMissingQty[key]) : 0,
         };
-        // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — 화면 실값·엑셀생성 기본값
-        const autoF = computeAutoEndingStock(stock, {
-          Q: Number(Q[key] || 0),
-          S: man.S ?? autoS,
-          H: man.H ?? autoH,
-          R: man.R ?? autoR,
-        });
-        const stockFSourceKind = endingStockSourceKind(stock, {
-          Q: Number(Q[key] || 0), S: man.S ?? autoS, H: man.H ?? autoH, R: man.R ?? autoR,
-        });
-        // 자동 E = 전차수 기말재고를 같은 규칙으로 계산(전차수 저장 수기값 반영). E는 항상
-        // "같은 매출연도의 전차수" 스냅샷이며, 01차에서만 전년도 52차로 넘어간다(호출부 prevOrderYear/prevMajor).
+        const autoF = computeAutoEndingStock(stock);
+        const stockFSourceKind = endingStockSourceKind(stock);
+        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 확정 스냅샷을 같은 규칙으로 평가한다.
         const beginStock = {
-          purchQty: prevPurchQty[key] != null ? Number(prevPurchQty[key]) : 0,
+          week: stockBegin.week,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
-          recentCost: stockBegin.recentCost[key] != null ? Number(stockBegin.recentCost[key]) : 0,
-          tableF: stockBegin.values[key] != null ? stockBegin.values[key] : null,
-          unitMismatch: Boolean(stockBegin.unitMismatch?.[key]),
+          evidenceValue: stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null,
+          snapshotConfirmed: stockBegin.stockMasterIsFix === 1,
+          priceEvidenceStatus: stockBegin.priceEvidenceStatus?.[key] || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: stockBegin.priceEvidenceSources?.[key] || [],
+          missingPriceCount: Number(stockBegin.missingPriceCounts?.[key] || 0),
         };
-        const beginInputs = {
-          Q: Number(prevQ[key] || 0),
-          S: prevMan.S ?? prevAutoS,
-          H: prevMan.H ?? prevAutoH,
-          R: prevMan.R ?? prevAutoR,
-        };
-        const autoE = computeAutoEndingStock(beginStock, beginInputs);
-        const stockESourceKind = endingStockSourceKind(beginStock, beginInputs);
+        const autoE = computeAutoEndingStock(beginStock);
+        const stockESourceKind = endingStockSourceKind(beginStock);
         const source = {
-          // E 이월 우선순위: 이번차수 수기 > 전차수 활성 확정 스냅샷 F > 전차수 수기 F > 전차수 자동계산.
-          // 확정 스냅샷이 있으면 이후 DB가 바뀌어도 그 값이 그대로 이월된다(확정본 불변).
-          E: man.E != null
-            ? 'manual'
-            : prevConfirmFValue != null
-              ? 'prior_confirmed_snapshot'
-              : prevF != null
-                ? 'inherited_manual'
-                : stockBegin.week ? `auto_${stockESourceKind}` : 'missing_stock_snapshot',
-          F: man.F != null
-            ? 'manual'
-            : stockEnd.week
-              ? (stockFSourceKind === 'missing' ? 'missing_stock_valuation' : `auto_${stockFSourceKind}`)
-              : 'missing_stock_snapshot',
+          E: stockESourceKind,
+          F: stockFSourceKind,
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
           R: man.R != null ? 'manual_invoice' : autoRSource,
           S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
@@ -184,6 +125,7 @@ export async function loadReportData(major, orderYear) {
           category: key,
           variant: def.variant || 'normal',
           stock,
+          beginStock,
           // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
           // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)
           stockAnchored: {
@@ -207,13 +149,14 @@ export async function loadReportData(major, orderYear) {
           // H 구성요소(백상 GW/관세/선율/월드운송료/방역) — 화면이 "왜 이 금액인지"를 그대로 보여준다.
           customsComponents: customs.components?.H?.[key] || null,
           manual: {
-            E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 활성 확정 스냅샷 F > 전차수 저장 기말 > (auto)
-            F: man.F ?? null,
+            E: null,
+            F: null,
             H: man.H ?? null,
             R: man.R ?? null,
             S: man.S ?? null,              // 포워딩 수기 오버라이드(있으면 auto.S 대신)
           },
-          inheritedE: man.E == null && prevF != null,
+          manualEvidence: cur.evidence?.[key] || {},
+          inheritedE: false,
           stockSourceKind: { begin: stockESourceKind, end: stockFSourceKind },
           source,
         };
@@ -234,10 +177,11 @@ export async function loadReportData(major, orderYear) {
       // 확정 시 그대로 박제할 수 있도록 StockKey까지 명시적으로 노출한다(2026-08-11 결함수정 4).
       beginStockKey: stockBegin.stockKey,
       endStockKey: stockEnd.stockKey,
-      selection: 'latest_stock_subweek',
+      selection: 'latest_fixed_stock_subweek',
       beginStockMasterIsFix: stockBegin.stockMasterIsFix,
       endStockMasterIsFix: stockEnd.stockMasterIsFix,
     },
+    manualInputManifest,
     audit: buildProfitReportAudit(rows, { major: currentMajor }),
   };
 }
@@ -247,8 +191,9 @@ export async function loadReportData(major, orderYear) {
 async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
   const { confirm, rowsByCategory, totalsCalc } = activeConfirmResult;
   const [manual, rates] = await Promise.all([loadManual(major, orderYear), currencyRates()]);
+  const categories = profitReportCategoriesForWeek(Number(major));
   const rows = Object.keys(rowsByCategory).map((key) => {
-    const def = CATEGORIES.find(c => c.key === key) || {};
+    const def = categories.find(c => c.key === key) || {};
     const calc = rowsByCategory[key].calc || {};
     const sourceTag = rowsByCategory[key].sourceTag || {};
     return {
@@ -287,6 +232,7 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
       forceReason: confirm.forceReason,
     },
     confirmedTotals: totalsCalc,
+    manualInputManifest,
     stockWeeks: {
       begin: confirm.beginOrderWeek,
       end: confirm.endOrderWeek,
@@ -392,8 +338,17 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+      const activeConfirm = await getActiveConfirm(orderYear, major);
+      if (activeConfirm.initialized && activeConfirm.confirm) {
+        return res.status(409).json({ success: false, error: '확정된 보고서는 취소 후 새 revision에서만 입력값을 변경할 수 있습니다.', code: 'REPORT_ALREADY_CONFIRMED' });
+      }
       if (req.body?.action === 'stockPrices') {
-        await saveStockPrices(req.body?.prices || {}, actor);
+        const endSnapshot = await latestStockSnapshotWeek(major, orderYear);
+        const requestedWeek = String(req.body?.orderWeek || '');
+        if (!endSnapshot.week || requestedWeek !== endSnapshot.week) {
+          return res.status(409).json({ success: false, error: '현재 확정 기말 재고 스냅샷과 단가 근거의 OrderWeek가 일치하지 않습니다.', code: 'PRICE_EVIDENCE_SNAPSHOT_MISMATCH' });
+        }
+        await saveStockPrices(req.body?.prices || {}, actor, { orderYear, orderWeek: requestedWeek });
         return res.status(200).json({ success: true });
       }
       // 과세환율(R) 저장 — 정확한 OrderYear+MajorWeek(+Currency/Category) 키로 웹 전용 테이블에만 쓴다.
@@ -419,7 +374,7 @@ export default withAuth(async function handler(req, res) {
         await saveManual(major, orderYear, {}, note, actor);
         return res.status(200).json({ success: true });
       }
-      await saveManual(major, orderYear, req.body?.values || {}, req.body?.note, actor);
+      await saveManual(major, orderYear, req.body?.values || {}, req.body?.note, actor, req.body?.evidence || {});
       return res.status(200).json({ success: true });
     }
 

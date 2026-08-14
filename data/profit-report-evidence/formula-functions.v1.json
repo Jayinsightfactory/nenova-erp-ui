@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "parser": "lib/profitReportEvidence/formulaFingerprint.mjs",
+  "unsupportedSyntaxPolicy": "FAIL",
+  "observedFunctions": [
+    "AND", "CHAR", "CLEAN", "IF", "IFERROR", "INDEX", "ISNUMBER", "MATCH",
+    "NOT", "OR", "SEARCH", "SUBSTITUTE", "SUBTOTAL", "SUM", "SUMIF", "TRIM"
+  ],
+  "observedOperators": ["+", "-", "*", "/", "^", "&", "=", "<>", "<", ">", "<=", ">=", "%", ":"],
+  "fingerprints": ["exact", "shape"],
+  "exactRequiredForPass": true
+}

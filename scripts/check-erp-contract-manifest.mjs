@@ -66,7 +66,9 @@ export function validateManifest(manifest, fileName) {
   if (!commands.includes('npm run test:nenova-dnspy-evidence')) {
     fail(`${fileName}.requiredCommands에 npm run test:nenova-dnspy-evidence가 필요합니다.`);
   }
-  if (!commands.includes('npm run guard:erp-writes -- --changed-from HEAD^')) {
+  const hasChangedScopeGuard = commands.some((command) =>
+    /^npm run guard:erp-writes -- --changed-from (?:HEAD\^|origin\/master)$/.test(command));
+  if (!hasChangedScopeGuard) {
     fail(`${fileName}.requiredCommands에 변경 SQL 스코프 검사가 필요합니다.`);
   }
   return true;
