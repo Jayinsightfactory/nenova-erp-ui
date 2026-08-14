@@ -4,12 +4,30 @@ const path = require('node:path');
 
 async function main() {
   const { ALLOWED_INPUT_DIRECTORY, runProfitReportAcceptance } = await import('./helpers/profitReportAcceptance.mjs');
+  const sourceAttestation = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'profit-report-evidence', 'registry', 'v1', 'source-attestation.json'), 'utf8'));
+  const registry = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'profit-report-evidence', 'registry', 'v1', 'index.json'), 'utf8'));
+  const inputPaths = Array.from({ length: 7 }, (_, index) => path.join(ALLOWED_INPUT_DIRECTORY, `week-${index + 22}.xlsx`));
+  if (!inputPaths.every(file => fs.existsSync(file))) {
+    assert.deepEqual(sourceAttestation.acceptance.generatedFrom.map(item => ({ week: item.week, sha256: item.sha256 })), registry.workbooks.map(item => ({ week: item.week, sha256: item.sha256 })));
+    assert.equal(sourceAttestation.acceptance.summary.fail, 0);
+    assert.equal(sourceAttestation.acceptance.summary.mappedCells, 293010);
+    assert.equal(sourceAttestation.acceptance.summary.formulaCells, 12865);
+    assert.equal(sourceAttestation.acceptance.summary.workbookAnomaly, 1);
+    assert.equal(sourceAttestation.acceptance.continuity.find(item => item.transition === '26->27')?.category, '베트남');
+    assert.equal(sourceAttestation.formulaSpecification.sha256, registry.formulaSpecification.sha256);
+    console.log('profit report private workbook attestation tests passed (source workbooks not present)');
+    return;
+  }
   const originals = Object.fromEntries(Array.from({ length: 7 }, (_, index) => index + 22).map(week => {
     const file = path.join(ALLOWED_INPUT_DIRECTORY, `week-${week}.xlsx`);
     const stat = fs.statSync(file);
     return [week, { bytes: stat.size, mtimeMs: stat.mtimeMs }];
   }));
   const result = await runProfitReportAcceptance();
+
+  assert.deepEqual(result.weeks.map(week => ({ week: week.week, sha256: week.source.sha256 })), sourceAttestation.acceptance.generatedFrom.map(item => ({ week: item.week, sha256: item.sha256 })));
+  assert.equal(result.summary.mappedCells, sourceAttestation.acceptance.summary.mappedCells);
+  assert.equal(result.summary.formulaCells, sourceAttestation.acceptance.summary.formulaCells);
 
   assert.equal(result.summary.fail, 0, JSON.stringify(result.weeks.flatMap(week => week.checks).filter(check => check.status === 'FAIL'), null, 2));
   assert.equal(result.overallStatus, 'INPUT_REQUIRED');

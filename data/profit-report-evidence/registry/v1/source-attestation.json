@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "contract": "profit-report-private-source-attestation@1",
+  "sourcePolicy": "원본 Excel은 비공개 로컬 검증 자료이며 저장소에는 해시·공식 설명·검증 요약만 보관한다.",
+  "formulaSpecification": {
+    "schemaVersion": 1,
+    "file": "formula-template.xlsx",
+    "sha256": "222484dc07e392ad88d52b7a0f9406c4e19b21af7de97500d176ed726b8234bb",
+    "formulaRow": 7,
+    "formulaDescriptions": {
+      "C": { "column": "C", "address": "C7", "text": "순수매출액+불량금액+그외매출액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!C7", "provenanceDigest": "e584936a348372505320428b4b51080dd01f95fd24c1870cb57a036a3b757528" },
+      "D": { "column": "D", "address": "D7", "text": "품목별 매출액/매출총합계금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!D7", "provenanceDigest": "d66c66e7e27c2a719c0d66bed1264d5190ce2b745dca62ebe9e3e5b868b4ce92" },
+      "E": { "column": "E", "address": "E7", "text": "전차수 기말재고", "mappingId": "formula-spec@1:주차별 매출이익 보고서!E7", "provenanceDigest": "e57ab5d9e8795e9dd503dbaea577c9f476dae2e0d0a06d6f9a1e11fcfeae6ae3" },
+      "F": { "column": "F", "address": "F7", "text": "(매입액+그외통관비)/매입한 해당품목 총수량*재고수량", "mappingId": "formula-spec@1:주차별 매출이익 보고서!F7", "provenanceDigest": "db050579bab78e67377aab1ecc750f2969e94f56e2ac82eaaffed83b88c2c81a" },
+      "G": { "column": "G", "address": "G7", "text": "품목별 외화 금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!G7", "provenanceDigest": "b88b5ba831c3d41d51291b4e278c94598b11f5a9f3d1d281b0a20f5f3036e15a" },
+      "H": { "column": "H", "address": "H7", "text": "그외통관비 시트 참고", "mappingId": "formula-spec@1:주차별 매출이익 보고서!H7", "provenanceDigest": "114dd2b0d05461743760c8d12455cb3df96a691e889d693df2687eaca77dbd08" },
+      "I": { "column": "I", "address": "I7", "text": "기초재고+매입액+그외통관비-기말재고", "mappingId": "formula-spec@1:주차별 매출이익 보고서!I7", "provenanceDigest": "d4bb068d3ac20f03eb4560b3c9fede71eaaa9bcfd2d8bac327076d87c2cd806b" },
+      "J": { "column": "J", "address": "J7", "text": "매출액-매출원가", "mappingId": "formula-spec@1:주차별 매출이익 보고서!J7", "provenanceDigest": "80255bb45da553d93da319f4a685959d4fa25b8f656826e270a4633fab4ceab7" },
+      "K": { "column": "K", "address": "K7", "text": "해당 품목 매출이익/매출액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!K7", "provenanceDigest": "0fb2b47544da10b4e40c8e35a9f00e4736587ed54c7676a2a2d26b801c740f06" },
+      "L": { "column": "L", "address": "L7", "text": "불량차감 시트에서 가져온 나라별 총금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!L7", "provenanceDigest": "e8694ac4903b8b6bb77afe35325f38cc2fc7658048f26aa5cd2d72c085c8ed4b" },
+      "M": { "column": "M", "address": "M7", "text": "불량금액/매출액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!M7", "provenanceDigest": "12a078ed0fbe736295518cadde54f5f420c81dbd31358181e55d659de346bf84" },
+      "N": { "column": "N", "address": "N7", "text": "판매현황에서 가져온 나라별 총금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!N7", "provenanceDigest": "359aebdff794c6e4139d6b775c63d3005dd6bcfb1c02d653a4281476c4466d97" },
+      "O": { "column": "O", "address": "O7", "text": "그외매출액에서 가져온 나라별 총금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!O7", "provenanceDigest": "b652fbc43ab76e59e68575a842220b1bbe22e2a2544540a0b33358cf9243ebd3" },
+      "P": { "column": "P", "address": "P7", "text": "구매금액*환율", "mappingId": "formula-spec@1:주차별 매출이익 보고서!P7", "provenanceDigest": "683e0ff462b940e4e7478028bc043a43fb986efe2ebc8654f34d0a8e546ed6ac" },
+      "Q": { "column": "Q", "address": "Q7", "text": "구매현황에서 나라별로 총 외화금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!Q7", "provenanceDigest": "854e50d2af89ec123a2f221c6d660bf8d40b0dd9165667d54496acb8d7670cf1" },
+      "R": { "column": "R", "address": "R7", "text": "선율 청구서에서 환율", "mappingId": "formula-spec@1:주차별 매출이익 보고서!R7", "provenanceDigest": "5d15edcec47aa420e30e9b4a185f17f167d31ec0d9dff20ee35ca817bc23f362" },
+      "S": { "column": "S", "address": "S7", "text": "포워딩시트에서 외화금액", "mappingId": "formula-spec@1:주차별 매출이익 보고서!S7", "provenanceDigest": "11b1259b43c6a9f0da53e3260c288185db73fbc30d54e333fb581a5bdc44176e" },
+      "T": { "column": "T", "address": "T7", "text": "환율*포워딩비용", "mappingId": "formula-spec@1:주차별 매출이익 보고서!T7", "provenanceDigest": "1aac75377114b34dd2b5d8e05a9c9c504dc93cbf72729d1c58fb799991459172" },
+      "U": { "column": "U", "address": "U7", "text": "상품금액(폼목)/상품금액전체", "mappingId": "formula-spec@1:주차별 매출이익 보고서!U7", "provenanceDigest": "0466d2cac1710d247c488f7ac66cc821ca9d144b004d77cd5fd0dd3ecf4cdab6" }
+    },
+    "productCount": 3062,
+    "productCatalogDigest": "b4e5bde51459fbb9a5b21bae0daa678b546f1c3e92318a6804321cde0b047d53",
+    "products": [
+      { "prodKey": 417, "prodCode": "CAR01-CO0080", "prodName": "CARNATION Kaori", "flowerName": "카네이션", "countryName": "콜롬비아", "outUnit": "박스", "estimateUnit": "단", "sourceRef": "formula-template.xlsx#품목리스트!A400:I400", "mappingId": "formula-spec-product@1:417", "provenanceDigest": "cb725f7a3529c1e11e52e37e30290bfc3c153ffcd3550ab2c4f02748defa4f98" },
+      { "prodKey": 447, "prodCode": "CAR01-CO0110", "prodName": "CARNATION Moon Light", "flowerName": "카네이션", "countryName": "콜롬비아", "outUnit": "박스", "estimateUnit": "단", "sourceRef": "formula-template.xlsx#품목리스트!A430:I430", "mappingId": "formula-spec-product@1:447", "provenanceDigest": "dba2dcfa899018912707acadfd48071e3e085ed69e311da11e40e0db9dda14b4" }
+    ]
+  },
+  "acceptance": {
+    "generatedFrom": [
+      { "week": 22, "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0", "persistedCellCount": 41798, "formulaCount": 1885 },
+      { "week": 23, "sha256": "b4ebf36ae4253a8d501bcacc147793a0b037fd933e0a29c3c68d131755dc6f9e", "persistedCellCount": 41534, "formulaCount": 1808 },
+      { "week": 24, "sha256": "6b92bbfa32d1b65aa065c8868e35476b0a471d1d0e1b6c6ec22b8e4036ef8bae", "persistedCellCount": 41652, "formulaCount": 1803 },
+      { "week": 25, "sha256": "4d20160a362b7eee3fc0241ce9df880713b1eda2e4c01785a4cb654ce7aebf06", "persistedCellCount": 41943, "formulaCount": 1831 },
+      { "week": 26, "sha256": "b42bcce6779f2b31cfa6fc8393c3dde6827382495b1d63e3d8d01c1a40fe6f5a", "persistedCellCount": 41774, "formulaCount": 1835 },
+      { "week": 27, "sha256": "2906ec876160f7fa2f0fbaeb1c9b89e49bda6a933cad9b7cabad9fbd7dd36689", "persistedCellCount": 42011, "formulaCount": 1830 },
+      { "week": 28, "sha256": "d777e8745b3b1e2fbf89ac782633e9fd654f38fd7684ecbb620032221ecb156b", "persistedCellCount": 42298, "formulaCount": 1873 }
+    ],
+    "summary": { "pass": 91, "inputRequired": 7, "unverified": 7, "fail": 0, "formulaParity": 8, "workbookAnomaly": 1, "automaticInputRate": 0.7361111111111112, "automaticInputCells": 742, "inputCells": 1008, "manualFieldTypeCount": 7, "manualInputSlotCount": 49, "mappedCells": 293010, "formulaCells": 12865 },
+    "overallStatus": "INPUT_REQUIRED",
+    "continuity": [
+      { "transition": "22->23", "status": "FORMULA_PARITY", "difference": 0 },
+      { "transition": "23->24", "status": "FORMULA_PARITY", "difference": 0 },
+      { "transition": "24->25", "status": "FORMULA_PARITY", "difference": 0 },
+      { "transition": "25->26", "status": "FORMULA_PARITY", "difference": 0 },
+      { "transition": "26->27", "status": "WORKBOOK_ANOMALY", "difference": 3658862.888749998, "category": "베트남" },
+      { "transition": "27->28", "status": "FORMULA_PARITY", "difference": 0 }
+    ]
+  }
+}

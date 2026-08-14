@@ -8,7 +8,11 @@ async function main() {
   const { createProvenance } = await import('../lib/profitReportEvidence/provenance.mjs');
   const { historicalCategoryRule, inspectFormulaSpecification, FORMULA_SPEC_SHA256 } = await import('../lib/profitReportEvidence/workbookEvidence.mjs');
 
-  const formulaSpec = inspectFormulaSpecification(path.join(__dirname, '..', '.verify', 'inputs', 'profit-report-weeks-22-28', 'formula-template.xlsx'));
+  const formulaWorkbookPath = path.join(__dirname, '..', '.verify', 'inputs', 'profit-report-weeks-22-28', 'formula-template.xlsx');
+  const sourceAttestation = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'profit-report-evidence', 'registry', 'v1', 'source-attestation.json'), 'utf8'));
+  const formulaSpec = fs.existsSync(formulaWorkbookPath)
+    ? inspectFormulaSpecification(formulaWorkbookPath)
+    : sourceAttestation.formulaSpecification;
   assert.equal(formulaSpec.sha256, FORMULA_SPEC_SHA256);
   assert.equal(formulaSpec.formulaDescriptions.C.text, '순수매출액+불량금액+그외매출액');
   assert.equal(formulaSpec.formulaDescriptions.E.text, '전차수 기말재고');
@@ -20,6 +24,10 @@ async function main() {
   assert.equal(formulaSpec.products.find(item => item.prodName === 'CARNATION Kaori')?.prodKey, 417);
   assert.equal(formulaSpec.products.find(item => item.prodName === 'CARNATION Moon Light')?.prodKey, 447);
   assert.ok(formulaSpec.products.every(item => item.sourceRef && item.provenanceDigest));
+  if (fs.existsSync(formulaWorkbookPath)) {
+    assert.equal(formulaSpec.productCount, sourceAttestation.formulaSpecification.productCount);
+    assert.equal(formulaSpec.productCatalogDigest, sourceAttestation.formulaSpecification.productCatalogDigest);
+  }
 
   const formula = "(G10+H10)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B10,구매현황!D:D)*재고잔량!M72";
   const first = formulaFingerprint(formula, 'F10');
