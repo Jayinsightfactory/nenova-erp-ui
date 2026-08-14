@@ -12,6 +12,7 @@
     "pages/api/raum/item-mapping.js",
     "pages/api/orders/index.js",
     "lib/raumPnl.js",
+    "lib/raumPnlCost.js",
     "lib/raumPnlExcel.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
