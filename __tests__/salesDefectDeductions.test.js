@@ -23,6 +23,7 @@ import {
   parseSalesDefectWorkbook,
   buildSalesDefectWorkbook,
   formatSalesDefectExportRows,
+  paginateSalesDefectExportRows,
   customerExportName,
 } from '../lib/salesDefectDeductionExcel.js';
 import { matchImportRows, buildProductMappingStats, buildProductSuggestions } from '../lib/orderImportMatch.js';
@@ -203,6 +204,8 @@ assert.ok(deductionSource.includes('hasReviewDetails'), '보완 필요/비고는
 assert.ok(deductionSource.includes('기존 농장값을 유지하고 확정 이력을 남긴다.'), '보완 우선 확정 시 기존 농장값을 보존해야 한다.');
 assert.ok(deductionSource.includes('resolveIncomingReview'), '수입부 보완 필요 해제 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('cancelIncomingDeductions'), '수입부 확정 취소 전용 저장 경로가 있어야 한다.');
+assert.ok(defectApiSource.includes("importConfirmedOnly: String(req.query.view || '') === 'support'"), '영업지원 목록은 수입부 확정 완료 건만 조회해야 한다.');
+assert.ok(pageSource.includes('setSupportRows((current) => current.filter'), '수입부 확정 취소 즉시 영업지원 등록 대상에서도 제거해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입부 확정 취소 이력을 기록해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
@@ -303,6 +306,33 @@ assert.equal(wb.worksheets[0].getColumn('F').width, 37.5, '엑셀 품명 열은 
 assert.equal(wb.worksheets[0].getCell('B6').alignment.horizontal, 'center');
 assert.ok(!wb.worksheets[0].getCell('B6').alignment.indent || wb.worksheets[0].getCell('B6').alignment.indent === 0);
 assert.equal(wb.worksheets[0].getRow(6).height >= 25, true);
+
+const identityBuffer = await buildSalesDefectWorkbook([{
+  customerName: '남대문청화', originalCustomerName: '남대문 청화꽃집', managerName: '임재용',
+  productName: '수국', countryName: '콜롬비아', colorName: 'Blue', quantity: 1, sourceUnit: '박스',
+}], { year: 2026, week: 33 });
+const identityWb = new ExcelJS.Workbook();
+await identityWb.xlsx.load(identityBuffer);
+assert.equal(identityWb.worksheets[0].getCell('B6').value, '남대문청화 (임재용)');
+assert.equal(identityWb.worksheets[0].getCell('B7').value, '기존명: 남대문 청화꽃집');
+
+const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
+  customerName: `거래처${index + 1}`, managerName: '임재용', productName: '카네이션',
+  countryName: '콜롬비아', colorName: `품목${index + 1}`, quantity: 1, sourceUnit: '단',
+}));
+const pagedRows = paginateSalesDefectExportRows(formatSalesDefectExportRows(manyCustomers));
+assert.equal(pagedRows.length, 2, 'A4 39행을 넘으면 업체 단위로 다음 페이지를 만들어야 한다.');
+const pagedBuffer = await buildSalesDefectWorkbook(manyCustomers, { year: 2026, week: 33 });
+const pagedWb = new ExcelJS.Workbook();
+await pagedWb.xlsx.load(pagedBuffer);
+assert.deepEqual(pagedWb.worksheets.map((sheet) => sheet.name), ['33차', '33차-2']);
+for (const sheet of pagedWb.worksheets) {
+  assert.equal(sheet.pageSetup.paperSize, 9);
+  assert.equal(sheet.pageSetup.fitToWidth, 1);
+  assert.equal(sheet.pageSetup.fitToHeight, 1);
+  assert.equal(sheet.pageSetup.printArea, 'B1:K44');
+  assert.equal(sheet.getImages().length > 0, true, '각 페이지에 원본 로고가 반복되어야 한다.');
+}
 
 const formattedExport = formatSalesDefectExportRows([
   { customerName: '그린화원(전산)', customerAlias: '그린화원/화요일', productName: '카네이션', countryName: '콜롬비아', colorName: '문라이트', quantity: 1 },
