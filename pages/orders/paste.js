@@ -5,7 +5,6 @@ import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
-import PasteFixStatusPanel from '../../components/orders/PasteFixStatusPanel';
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
@@ -16,6 +15,7 @@ import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQu
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
+import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
@@ -2841,7 +2841,15 @@ export default function PasteOrderPage() {
           >
             📊 차수피벗 이동
           </button>
-          <PasteFixStatusPanel week={week} onChanged={() => week && reloadRegisteredOrdersForWeek(week)} />
+          <button type="button" onClick={() => {
+            const url = buildEstimateFixStatusUrl(week);
+            if (!url) { alert('등록 차수를 먼저 선택하세요.'); return; }
+            window.open(url, 'estimate-fix-status', 'width=1500,height=940,scrollbars=yes,resizable=yes');
+          }} disabled={!week}
+            title="견적서관리의 확정현황 화면을 같은 디자인과 기능으로 엽니다."
+            style={{ padding: '6px 16px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: week ? 'pointer' : 'not-allowed', opacity: week ? 1 : .55 }}>
+            🔎 확정 현황 확인
+          </button>
           <button
             onClick={openMappingStatus}
             style={{ padding: '6px 16px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
