@@ -43,7 +43,7 @@ async function main() {
     { orderYear: 2026, orderWeek: '28-02', isFix: 1, productRowCount: 95, stockKey: 62 },
     { orderYear: 2026, orderWeek: '28-03', isFix: 0, productRowCount: 100, stockKey: 63 },
   ], { orderYear: 2026, majorWeek: 28 });
-  assert.equal(selected.stockKey, 62);
+  assert.equal(selected.stockKey, 63, 'FormStockView와 동일하게 ProductStock가 있는 최신 세부차수를 선택하고 StockMaster.isFix로 거르지 않는다');
   const shipmentRows = resolveConfirmedShipmentRows([
     { id: 'wrong-year', orderYear: 2025, orderWeek: '28-01', masterFix: 1, detailFix: 1, outQuantity: 1 },
     { id: 'unfixed-detail', orderYear: 2026, orderWeek: '28-01', masterFix: 1, detailFix: 0, outQuantity: 1 },
@@ -52,14 +52,14 @@ async function main() {
   assert.deepEqual(shipmentRows.map(row => row.id), ['confirmed']);
 
   const missingPrice = resolveInventoryValue({
-    category: '네덜란드', stockSnapshot: { stockKey: 62, isFix: 1 },
+    category: '네덜란드', stockSnapshot: { stockKey: 62, isFix: 0 },
     quantities: [{ prodKey: 1, quantity: 2 }], priceEvidence: [],
   });
   assert.equal(missingPrice.status, 'INPUT_REQUIRED');
   assert.equal(missingPrice.value, null);
   assert.deepEqual(missingPrice.missingProdKeys, [1]);
   const valued = resolveInventoryValue({
-    category: '네덜란드', stockSnapshot: { stockKey: 62, isFix: 1 },
+    category: '네덜란드', stockSnapshot: { stockKey: 62, isFix: 0 },
     quantities: [{ prodKey: 1, quantity: 2 }],
     priceEvidence: [{ prodKey: 1, unitPrice: 1500, verified: true, effectiveAt: '2026-07-10', sourceRef: 'invoice:1' }],
   });

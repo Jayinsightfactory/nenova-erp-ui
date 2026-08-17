@@ -35,8 +35,10 @@ async function main() {
   assert.ok(result.weeks.every(week => week.inputUnchanged));
   assert.ok(result.weeks.every(week => week.mappingRate === 1));
   assert.ok(result.weeks.every(week => week.formulaFingerprintRate === 1));
-  assert.ok(result.weeks.every(week => week.checks.find(check => check.id === 'amount-parity-krw')?.status === 'PASS'));
-  assert.ok(result.weeks.every(week => week.checks.find(check => check.id === 'ratio-parity')?.status === 'PASS'));
+  assert.ok(result.weeks.every(week => week.checks.find(check => check.id === 'independent-formula-recalculation')?.status === 'PASS'));
+  assert.ok(result.weeks.every(week => week.checks.find(check => check.id === 'copy-replay-disabled')?.status === 'PASS'));
+  assert.ok(result.weeks.every(week => week.sourceLineage.status === 'UNVERIFIED'));
+  assert.equal(result.summary.newProductPolicy.status, 'INPUT_REQUIRED');
   assert.equal(result.weeks.find(week => week.week === 24).source.sheetNames.length, 12);
   assert.equal(result.weeks.find(week => week.week === 28).source.report.categories[15], '국내');
   assert.equal(result.weeks.find(week => week.week === 22).source.report.categories[15], '공제');

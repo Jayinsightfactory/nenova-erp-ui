@@ -93,7 +93,9 @@ export async function loadReportData(major, orderYear) {
         const structuredSource = prevCustoms.sources?.S?.[key];
         const hasStructured = structuredSource != null && structuredSource !== 'missing';
         const automaticS = hasStructured ? Number(prevCustoms.S[key] || 0) : Number(prevLegacyS[key] || 0);
-        const average = computeCategoryAverageInventoryValue({
+        const previousConversionMissing = Number(stockBegin.conversionMissingCounts?.[key] || 0) > 0;
+        const previousUnitMismatch = stockBegin.unitMismatch?.[key] === true;
+        const average = (!previousConversionMissing && !previousUnitMismatch) ? computeCategoryAverageInventoryValue({
           category: key,
           purchaseForeign: Number(prevQ[key] || 0),
           forwardingForeign: previousManual.S != null ? Number(previousManual.S) : automaticS,
@@ -101,7 +103,7 @@ export async function loadReportData(major, orderYear) {
           customsCost: previousManual.H != null ? Number(previousManual.H) : Number(prevCustoms.H[key] || 0),
           purchaseQty: Number(prevPurchaseQty[key] || 0),
           stockQty: Number(stockBegin.qtys[key] || 0),
-        });
+        }) : null;
         return [key, {
           average,
           historical: getHistoricalClosingInventoryEvidence(prevOrderYear, prevMajor, key),
@@ -147,7 +149,9 @@ export async function loadReportData(major, orderYear) {
         //   (상품+포워딩 매입액 + 그외통관비) / 당주 매입수량 * 마지막 ProductStock 환산수량
         // 이 공식 대상이 아니거나 필요한 원천이 없을 때만 품목별 VERIFIED 단가를 사용하고,
         // 2026년 22~28차는 마지막 보조수단으로 사용자가 제공한 원본 workbook F 셀을 쓴다.
-        const categoryAverageEnd = computeCategoryAverageInventoryValue({
+        const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
+        const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
+        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue({
           category: key,
           purchaseForeign: Number(Q[key] || 0),
           forwardingForeign: man.S != null ? Number(man.S) : autoS,
@@ -155,7 +159,7 @@ export async function loadReportData(major, orderYear) {
           customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
           purchaseQty: Number(purchaseQty[key] || 0),
           stockQty: Number(stockEnd.qtys[key] || 0),
-        });
+        }) : null;
         const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
         const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
         const resolvedEnd = categoryAverageEnd
@@ -181,6 +185,9 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedEnd?.sources || [],
           missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
+          conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
+          conversionIssues: stockEnd.conversionIssues?.[key] || [],
+          unitMismatch: endUnitMismatch,
           negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
         };
         const autoF = computeAutoEndingStock(stock);
@@ -212,6 +219,9 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedBegin?.sources || [],
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
+          conversionMissingCount: Number(stockBegin.conversionMissingCounts?.[key] || 0),
+          conversionIssues: stockBegin.conversionIssues?.[key] || [],
+          unitMismatch: previousUnitMismatch,
         };
         const autoE = computeAutoEndingStock(beginStock);
         const stockESourceKind = endingStockSourceKind(beginStock);

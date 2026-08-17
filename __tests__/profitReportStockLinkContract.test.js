@@ -9,6 +9,7 @@ async function main() {
     resolveProfitReportInventoryPeriods,
     selectLatestProductStockSnapshot,
   } = await import('../lib/profitReportStockPolicy.js');
+  const { resolveStockToEstUnitConversion } = await import('../lib/profitReport.js');
 
   for (let major = 22; major <= 28; major += 1) {
     const periods = resolveProfitReportInventoryPeriods('2026', major);
@@ -29,6 +30,21 @@ async function main() {
   assert.equal(selectLatestProductStockSnapshot(rows, { orderYear: '2026', major: 28 }), null,
     'ProductStock 스냅샷이 없으면 전년도 행으로 fallback하면 안 된다.');
 
+  assert.deepEqual(
+    resolveStockToEstUnitConversion({ outUnit: '박스', estUnit: '단', bunchOf1Box: 16 }),
+    { status: 'VERIFIED', multiplier: 16, rule: 'box-to-bunch' },
+  );
+  assert.equal(
+    resolveStockToEstUnitConversion({ outUnit: '박스', estUnit: '단', bunchOf1Box: 0 }).status,
+    'INPUT_REQUIRED',
+    '환산계수 누락을 1배로 추정하면 안 된다.',
+  );
+  assert.equal(
+    resolveStockToEstUnitConversion({ outUnit: '송이', estUnit: '박스' }).status,
+    'INPUT_REQUIRED',
+    '지원하지 않는 역환산은 명시 근거가 필요하다.',
+  );
+
   const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const selector = source.slice(source.indexOf('export async function latestStockSnapshotWeek'), source.indexOf('/** 재고단가표 편집용'));
   const snapshot = source.slice(source.indexOf('export async function stockSnapshotByCategory'), source.indexOf('/** 카테고리별 구매 통화'));
@@ -39,6 +55,14 @@ async function main() {
   assert.match(selector, /TRY_CONVERT\(INT, SUBSTRING\(sm\.OrderWeek/);
   assert.match(selector, /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/);
   assert.doesNotMatch(snapshot, /StockHistory/, '재고조정 delta를 보고서에서 이중합산하면 안 된다.');
+  assert.match(snapshot, /categoryUnitMismatch\(major, orderYear, snapshot\.stockKey\)/,
+    '카테고리 단위혼재 검사를 실제 재고 스냅샷 결과에 연결해야 한다.');
+  assert.match(snapshot, /unitMismatch,/, '단위혼재 결과를 빈 객체로 버리면 안 된다.');
+  assert.match(snapshot, /ConversionStatus !== 'VERIFIED'/,
+    '환산 불가 품목은 INPUT_REQUIRED 근거로 남겨야 한다.');
+  assert.match(snapshot, /conversionMissingCounts/, '환산계수 누락 건수를 결과에 노출해야 한다.');
+  const conversionSql = source.slice(source.indexOf('const STOCK_TO_EST_UNIT_EXPR'), source.indexOf('/** 이번 차수 매입 총수량'));
+  assert.doesNotMatch(conversionSql, /ELSE 1/, '지원하지 않는 단위 환산을 1배로 처리하면 안 된다.');
   assert.match(arrivalEvidence, /l\.OrderYear=@yr AND \$\{NORMALIZED_ORDER_WEEK_SQL\('l\.OrderWeek'\)\}=\$\{NORMALIZED_ORDER_WEEK_SQL\('@week'\)\}/);
   assert.match(arrivalEvidence, /l\.ProdKey/);
   assert.match(arrivalEvidence, /l\.IsCurrent=1 AND l\.MatchStatus=N'MATCHED'/);

@@ -20,10 +20,12 @@ async function main() {
 
   console.log('=== 28차 재고잔량 품목단가 catalog ===');
   const before = inventoryWorkbookPriceEvidenceByProduct('2026', '27-02');
-  const current = inventoryWorkbookPriceEvidenceByProduct('2026', '32-02');
-  const otherYear = inventoryWorkbookPriceEvidenceByProduct('2025', '32-02');
+  const current = inventoryWorkbookPriceEvidenceByProduct('2026', '28-02');
+  const future = inventoryWorkbookPriceEvidenceByProduct('2026', '29-01');
+  const otherYear = inventoryWorkbookPriceEvidenceByProduct('2025', '28-02');
   check('미래 시점 자료가 27차 이전으로 역전파되지 않음', Object.keys(before).length === 0);
   check('2025 동일 차수로 교차연도 오염되지 않음', Object.keys(otherYear).length === 0);
+  check('28차 재고잔량 단가는 29차 이후에 자동 전파되지 않음', Object.keys(future).length === 0);
 
   check('호주 Banker Bush는 28차 P43×O37 취득원가',
     Math.abs(current['251'].price - 14.5 * 1068.23) < 1e-9,
@@ -36,6 +38,8 @@ async function main() {
   check('엑셀 셀·SHA 근거가 sourceRef에 남음',
     current['609'].sourceRefs[0].includes('재고잔량!N139')
     && current['609'].sourceRefs[0].includes('D777E874'));
+  check('근거 적용 범위가 정확히 2026년 28차로 표시됨',
+    current['609'].effectiveScope === '2026-28 only');
 
   check('단위 정규화 박스/단/송이',
     normalizeInventoryUnit('BOX') === '박스'
