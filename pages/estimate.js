@@ -4754,7 +4754,7 @@ export default function Estimate() {
                     <div style={{ fontWeight: 700, fontSize: 12, color: r.ok ? '#2e7d32' : '#c62828' }}>
                       {r.ok ? '✅' : '❌'} {r.week}차
                     </div>
-                    <div style={{ fontSize: 11, marginTop: 4, color: '#555' }}>
+                    <div style={{ fontSize: 11, marginTop: 4, color: '#555', whiteSpace: 'pre-wrap' }}>
                       {r.ok ? r.message : `오류: ${r.error}`}
                     </div>
                   </div>
