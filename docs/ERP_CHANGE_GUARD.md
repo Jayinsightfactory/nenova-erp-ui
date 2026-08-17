@@ -348,3 +348,28 @@ BunchQuantity/OutQuantity 10으로 환산한다. 필요한 `BunchOf1Box` 또는 
 0/NULL이면 임의 1 fallback을 금지하고 품목 마스터 확인 오류로 차단한다. 2025/2026
 동일 `32-02`는 선택 연도 업무키만 사용한다. 회귀는 `pasteOrderUnit.test.js`,
 `adjustUnit.test.js`, `shipmentPivotAdjustContract.test.js`가 검사한다.
+
+## 2026-08-17 주차별 매출이익 포워딩 원천 자동대조
+
+29차 이후에는 항공료 전표가 `WarehouseMaster`/`WarehouseDetail`에 들어온다는 운영 기준을
+사용한다. 예전 자동감지는 품명이 `%운송료%` 또는 정확히 `SERVICE FEE`인 행만 읽고,
+국가를 추정하지 못한 행을 경고 없이 버렸다. 이 때문에 실제 전표가 있어도 특정 차수·국가의
+포워딩값이 0으로 보일 수 있었다.
+
+| 동작 | Order/Shipment/Estimate | ProductStock/StockHistory | Warehouse 원장 | WebProfitReport |
+|---|---|---|---|---|
+| 포워딩 원천 자동대조 | 보존 | 보존 | `OrderYear+MajorWeek` SELECT only | 보존 |
+| 미분류·0원·구매범위 누락 검출 | 보존 | 보존 | 읽기만 수행, 자동 보정 금지 | 보존 |
+| 보고서 검증 차단 | 보존 | 보존 | 보존 | 자동 저장·전차수 대체 금지 |
+
+금액행 판정은 한글 운송료·운송비·항공료·항공비와 영문 FREIGHT/AIR FREIGHT/SHIPPING,
+`SERVICE FEE`, `현지상차운임`을 포함한다. `Gross weight`와 `Chargeable weight`는 금액이
+아닌 무게행이므로 제외한다. 국가·화종 분류는 품목명 명시 규칙, 같은 BILL, 같은 AWB,
+농장·인보이스 단서 순이며 어느 단계에서도 근거가 없으면 USD로 추정하지 않고 미분류로 남긴다.
+일반 국가·화종 명시 운송료는 대차수 합계로, 콜롬비아 4품목 공유 운송료는 세부차수별
+무게배분 원천으로 대조한다. 원천행 수와 통화별 금액은 분류 결과와 항상 대조한다.
+29차 이후 미분류·0원·구매범위별 누락·
+합계 불일치는 검증 오류로 표시하고 수기 S 또는 0으로 숨기지 않는다.
+
+회귀는 `__tests__/customsForwardingAuto.test.js`가 2025/2026 연도 범위, 28차 역사 호환,
+29차 이후 엄격 검증, 명시 규칙, BILL/AWB 연결, 빈 상세행 제외, 통화별 합계 일치를 검사한다.

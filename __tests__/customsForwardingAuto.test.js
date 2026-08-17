@@ -24,13 +24,104 @@ async function main() {
     effectiveCountryWorldFreight,
     vatInclusiveToNet,
     vatNetToInclusive,
+    buildForwardingLedger,
+    isForwardingValueItem,
+    explicitForwardingCategory,
   } = await import('../lib/customsForwarding.js');
   const { deriveColombiaTruckAllocation } = await import('../lib/colombiaTruck.js');
   const { buildProfitReportAudit } = await import('../lib/profitReportAudit.js');
   const forwardingSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'customsForwarding.js'), 'utf8');
 
-  console.log('\n=== 운송료 전표 국가 약칭 매핑 ===');
-  check('에콰 전표 약칭을 에콰도르로 자동 분류', forwardingSource.includes("f.InvoiceNo LIKE N'%에콰%'") && forwardingSource.includes("THEN N'에콰도르'"));
+  console.log('\n=== 운송료 전표 자동분류·원천합계 대조 ===');
+  check('공용 항공료 판정이 한글·영문 항공료를 포함',
+    isForwardingValueItem('장미 운송료') && isForwardingValueItem('AIR FREIGHT') && isForwardingValueItem('SERVICE FEE'));
+  check('Gross/Chargeable weight는 금액 전표에서 제외',
+    !isForwardingValueItem('Gross weight') && !isForwardingValueItem('Chargeable weight'));
+  check('명시 품목명은 콜롬비아 화종과 국가를 직접 결정',
+    explicitForwardingCategory('현지상차운임') === '콜롬비아 수국'
+      && explicitForwardingCategory('카네이션 운송료') === '콜롬비아 카네이션'
+      && explicitForwardingCategory('장미 운송료') === '콜롬비아 장미'
+      && explicitForwardingCategory('루스커스 운송료') === '콜롬비아 루스커스'
+      && explicitForwardingCategory('네덜란드 운송료') === '네덜란드');
+
+  const row = (overrides = {}) => ({
+    OrderYear: '2026', OrderWeek: '31-01', WarehouseKey: 1, WarehouseDetailKey: 1,
+    OrderNo: 'AWB-1', InvoiceNo: 'INV-1', FarmName: 'TEST', ProdKey: 1,
+    ProdName: 'ROSE / Test 50cm', FlowerName: '장미', CounName: '콜롬비아',
+    TPrice: 100, OutQuantity: 1, BoxQuantity: 0, BunchQuantity: 1, SteamQuantity: 10,
+    ...overrides,
+  });
+  const reconciled = buildForwardingLedger([
+    row(),
+    row({ WarehouseDetailKey: 2, ProdKey: 2, ProdName: 'AIR FREIGHT', FlowerName: '국내', CounName: '국내', TPrice: 50 }),
+    row({ WarehouseKey: 2, WarehouseDetailKey: 3, OrderNo: 'AWB-NL', InvoiceNo: 'INV-NL', FarmName: 'HOLEX', ProdKey: 3, ProdName: 'Tulip White', FlowerName: '튤립', CounName: '네덜란드', TPrice: 200 }),
+    row({ WarehouseKey: 2, WarehouseDetailKey: 4, OrderNo: 'AWB-NL', InvoiceNo: 'INV-NL', FarmName: 'HOLEX', ProdKey: 4, ProdName: 'SERVICE FEE', FlowerName: '국내', CounName: '국내', TPrice: 20 }),
+    row({ WarehouseKey: 3, WarehouseDetailKey: 5, OrderNo: 'AWB-COL', InvoiceNo: 'COL', FarmName: 'FREIGHTWISE', ProdKey: 5, ProdName: '카네이션 운송료', FlowerName: '국내', CounName: '국내', TPrice: 30 }),
+    row({ WarehouseKey: 4, WarehouseDetailKey: 6, OrderNo: 'AWB-W', InvoiceNo: 'W', FarmName: 'FREIGHTWISE', ProdKey: 6, ProdName: 'Gross weight', FlowerName: '국내', CounName: '국내', TPrice: 999 }),
+  ], { major: 31, orderYear: '2026' });
+  check('같은 BILL/AWB와 명시 품목 규칙으로 포워딩을 전부 분류',
+    reconciled.status === 'ready' && reconciled.classifiedRowCount === 3 && reconciled.unmatchedRows.length === 0,
+    JSON.stringify(reconciled));
+  check('분류 결과는 국가별 직접합계/콜롬비아 공유합계로 중복 없이 연결',
+    reconciled.direct['콜롬비아 장미'] === 50 && reconciled.direct['네덜란드'] === 20
+      && reconciled.direct['콜롬비아 카네이션'] === 30
+      && near(reconciled.classificationDelta, 0));
+  check('무게 placeholder 금액은 항공료 원천합계에서 제외', reconciled.sourceTotal === 100);
+
+  const unknown = buildForwardingLedger([
+    row({ WarehouseKey: 10, WarehouseDetailKey: 10, OrderNo: 'UNKNOWN', InvoiceNo: '', FarmName: '', ProdName: 'AIR FREIGHT', FlowerName: '', CounName: '', TPrice: 10 }),
+  ], { major: 31, orderYear: '2026' });
+  check('국가 근거 없는 항공료는 USD 추정하지 않고 UNKNOWN 미분류로 차단',
+    unknown.status === 'incomplete' && unknown.unmatchedRows.length === 1 && unknown.totalsByCurrency.UNKNOWN?.unmatched === 10,
+    JSON.stringify(unknown));
+
+  const missing31 = buildForwardingLedger([
+    row({ WarehouseKey: 20, WarehouseDetailKey: 20, OrderWeek: '31-02', TPrice: 200 }),
+  ], { major: 31, orderYear: '2026' });
+  check('29차 이후 구매 범위에 항공료가 없으면 누락 범위를 구체적으로 차단',
+    missing31.status === 'incomplete'
+      && missing31.missingExpectedScopes.some((item) => item.orderWeek === '31-02' && item.category === '콜롬비아 장미'),
+    JSON.stringify(missing31));
+  const blankDetail = buildForwardingLedger([
+    row({ WarehouseKey: 21, WarehouseDetailKey: 21, OrderWeek: '31-02', TPrice: 0, OutQuantity: 0, BunchQuantity: 0, SteamQuantity: 0 }),
+  ], { major: 31, orderYear: '2026' });
+  check('금액·수량 0 빈 상세행은 항공료 필요 범위로 오판하지 않음',
+    blankDetail.status === 'ready' && blankDetail.missingExpectedScopes.length === 0);
+  const missing28 = buildForwardingLedger([
+    row({ WarehouseKey: 22, WarehouseDetailKey: 22, OrderWeek: '28-02', TPrice: 200 }),
+  ], { major: 28, orderYear: '2026' });
+  check('29차 이전 동일 누락은 역사자료 검토 대상으로만 표시', missing28.status === 'review' && !missing28.strict);
+
+  const forwardingAudit = buildProfitReportAudit([{
+    category: '콜롬비아 장미', currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
+    source: { H: 'gw_auto', S: 'missing', R: 'saved_official_week' },
+  }], { major: 31, forwardingLedger: missing31 });
+  check('29차 이후 포워딩 누락은 보고서 검증을 실제로 중단',
+    forwardingAudit.issues.some((item) => item.code === 'FORWARDING_INCOMPLETE')
+      && forwardingAudit.issues.some((item) => item.code === 'FORWARDING_SCOPE_MISSING'));
+  const historicalAudit = buildProfitReportAudit([{
+    category: '콜롬비아 장미', currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
+    source: { H: 'gw_auto', S: 'missing', R: 'saved_official_week' },
+  }], { major: 28, forwardingLedger: missing28 });
+  check('28차 이전 포워딩 누락은 신규 엄격 차단을 적용하지 않음',
+    !historicalAudit.issues.some((item) => String(item.code).startsWith('FORWARDING_')));
+  const previousAudit = buildProfitReportAudit([{
+    category: '콜롬비아 장미', currency: 'USD', auto: { Q: 100, S: 10, R: 1450 }, manual: {}, stock: {},
+    source: { H: 'gw_auto', S: 'auto', R: 'saved_official_week' },
+  }], {
+    major: 32,
+    forwardingLedger: reconciled,
+    previousMajor: 31,
+    previousOrderYear: '2026',
+    previousForwardingLedger: missing31,
+  });
+  check('직전차수 포워딩 누락도 현재 기초재고가 조용히 확정되지 않도록 차단',
+    previousAudit.issues.some((item) => item.code === 'PREVIOUS_FORWARDING_INCOMPLETE' && item.columns.includes('E')));
+  check('입고 원장 조회는 연도+대차수로 제한하고 수량·금액·BILL/AWB 근거를 함께 읽음',
+    forwardingSource.includes("wm.OrderWeek LIKE @pfx")
+      && forwardingSource.includes("wm.OrderYear AS NVARCHAR(4)")
+      && forwardingSource.includes('wd.OutQuantity')
+      && forwardingSource.includes('wm.OrderNo'));
 
   console.log('=== 22~27차 GW → 트럭 추천(용량분해, 2026-08-12: 등급표 1건 선택에서 변경) ===');
   // 5t 묶음을 먼저 빼고, 남은 중량은 1t/2.5t/2.5t+1t 조합으로 덮는다(3t=2.5t+1t).

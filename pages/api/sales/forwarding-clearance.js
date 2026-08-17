@@ -67,7 +67,10 @@ export default withAuth(async function handler(req, res) {
         };
       });
 
-      return res.status(200).json({ success: true, major, orderYear, direct, colombia: colombiaOut });
+      return res.status(200).json({
+        success: true, major, orderYear, direct, colombia: colombiaOut,
+        reconciliation: autoFwd.ledger || null,
+      });
     }
 
     if (req.method === 'POST') {

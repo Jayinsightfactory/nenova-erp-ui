@@ -345,3 +345,16 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 ## 사전 확인 기록
 
 공용 조인·확정 기준은 `docs/exe-golden/FormShipmentDistribution.md`, `docs/exe-golden/FormEstimateView.md`, `docs/DB_STRUCTURE.md`, `docs/WEB_VS_ERP_CONFLICTS.md`에 기록된 dnSpy/DB 근거를 재사용한다. 이 기록과 `docs/contracts/weekly-profit-report.json`은 변경 시 회귀 테스트와 배포 manifest 검사의 기준이다.
+
+## 2026-08-17 포워딩 원천 완전성 보강
+
+- EXE 공유 입고 원천과 동일하게 `WarehouseMaster.OrderYear + OrderWeek`를 먼저 고정하고
+  `WarehouseDetail`과 `Product`를 결합한다. 다른 연도의 동일 차수는 포함하지 않는다.
+- 29차 이후 포워딩은 입고 전표가 원천이다. 품목명에 화종·국가가 명시되면 그 값을 우선하고,
+  일반 `AIR FREIGHT`/`SERVICE FEE` 행은 같은 `WarehouseKey`(BILL), 같은 AWB의 실제 상품 국가·화종으로
+  연결한다. 근거가 없는 행은 임의 USD로 귀속하지 않는다.
+- `Gross weight`/`Chargeable weight`는 포워딩 금액이 아니며 S 합계에서 제외한다.
+- 원천 전표 한 행도 조용히 버리지 않는다. 원천합계·분류합계·미분류합계를 통화별로 대조하고,
+  구매가 있는 세부차수·국가·화종에 항공료가 연결되지 않으면 29차 이후 보고서 검증을 중단한다.
+- 이 보강은 SELECT 전용이다. Order/Shipment/Estimate/ProductStock/StockHistory/WebProfitReport의
+  수량·단가·확정·재고·과거 확정값을 수정하지 않는다.
