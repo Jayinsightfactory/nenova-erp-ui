@@ -9,8 +9,9 @@
 
 1. 매출 원천은 `OrderYear+OrderWeek`로 격리하고 `ShipmentMaster.isFix=1`과
    `ShipmentDetail.isFix=1`을 모두 요구한다.
-2. E/F 수량은 동일 연도의 마지막 확정 `StockMaster.isFix=1`과 그 `ProductStock`만
-   사용한다. 미확정·flow 재계산·교차연도 fallback은 없다.
+2. E/F 수량은 동일 연도·대차수에서 `ProductStock` 행이 있는 마지막 숫자 세부차수
+   스냅샷을 사용한다. `FormStockView.GetData`는 `StockMaster.isFix`를 조회 필터로 사용하지
+   않으므로 웹도 해당 값을 재고수량 선택 조건으로 쓰지 않는다. flow 재계산·교차연도 fallback은 없다.
 3. E/F 가격은 정확한 `OrderYear+OrderWeek+ProdKey`의 `WebStockPriceEvidence`,
    `EvidenceStatus='VERIFIED'`, source/effective/confirmed metadata가 모두 있는 값만
    사용한다. `Product.Cost`, 최근 입고단가, landed-cost, 전차수 F, 최종 E/F 수기값은
@@ -33,7 +34,7 @@
 | 출고 | `OrderYear+OrderWeek+ShipmentKey+ProdKey` | master/detail 모두 `isFix=1`, 삭제 제외 | 없음 |
 | 견적 | `OrderYear+OrderWeek+ShipmentKey+CustKey+ProdKey` | 연결 출고 master 확정, L/O 분리 | 없음 |
 | 입고 | `OrderYear+OrderWeek+WarehouseKey+ProdKey` | 삭제되지 않은 당주 원천 | 없음 |
-| 재고 | `OrderYear+OrderWeek+StockKey+ProdKey` | `StockMaster.isFix=1`, ProductStock 존재, 최신 숫자 subweek/tie-break | 없음 |
+| 재고 | `OrderYear+OrderWeek+StockKey+ProdKey` | ProductStock 존재, 최신 숫자 subweek/tie-break; `StockMaster.isFix` 필터 없음 | 없음 |
 | 재고 단가 증거 | `OrderYear+OrderWeek+ProdKey` | VERIFIED + source/effective/confirmed metadata | 명시적 evidence 저장만 |
 | 통관 | `OrderYear+MajorWeek+Category` 또는 반차수 `OrderYear+OrderWeek` | invoice evidence와 적용 단가 이력 | 웹 evidence 테이블만 |
 | 포워딩 | `OrderYear+MajorWeek+Category` | 당주 운송 행 자동 + 증거 override | 웹 evidence 테이블만 |

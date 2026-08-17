@@ -39,10 +39,13 @@ async function main() {
     !isForwardingValueItem('Gross weight') && !isForwardingValueItem('Chargeable weight'));
   check('명시 품목명은 콜롬비아 화종과 국가를 직접 결정',
     explicitForwardingCategory('현지상차운임') === '콜롬비아 수국'
+      && explicitForwardingCategory('수국 운송료') === '콜롬비아 수국'
       && explicitForwardingCategory('카네이션 운송료') === '콜롬비아 카네이션'
       && explicitForwardingCategory('장미 운송료') === '콜롬비아 장미'
       && explicitForwardingCategory('루스커스 운송료') === '콜롬비아 루스커스'
-      && explicitForwardingCategory('네덜란드 운송료') === '네덜란드');
+      && explicitForwardingCategory('네덜란드 운송료') === '네덜란드'
+      && explicitForwardingCategory('호주 운송료') === '호주'
+      && explicitForwardingCategory('레몬잎 운송료') === '미국');
 
   const row = (overrides = {}) => ({
     OrderYear: '2026', OrderWeek: '31-01', WarehouseKey: 1, WarehouseDetailKey: 1,

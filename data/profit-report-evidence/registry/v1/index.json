@@ -15,6 +15,16 @@
     "productKeyColumn": "A",
     "contract": "formula-spec-workbook@1"
   },
+  "annotatedFormulaSpecification": {
+    "file": "매출원가 양식 (1).xlsx",
+    "sha256": "20696dd6725302549a6f913949d33b1c2b58d8b6bc3dc17d29c4d57e0e0d8ca4",
+    "mainSheet": "주차별 매출이익 보고서",
+    "descriptionRow": 7,
+    "sheetCount": 11,
+    "formulaCount": 1836,
+    "sourceAnnotationCount": 17,
+    "contract": "data/profit-report-evidence/formula-source-contract.v2.json"
+  },
   "workbooks": [
     { "week": 22, "file": "week-22.xlsx", "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0", "sheetCount": 11, "persistedCellCount": 41798, "formulaCount": 1885, "lastRowCategory": "공제" },
     { "week": 23, "file": "week-23.xlsx", "sha256": "b4ebf36ae4253a8d501bcacc147793a0b037fd933e0a29c3c68d131755dc6f9e", "sheetCount": 11, "persistedCellCount": 41534, "formulaCount": 1808, "lastRowCategory": "공제" },

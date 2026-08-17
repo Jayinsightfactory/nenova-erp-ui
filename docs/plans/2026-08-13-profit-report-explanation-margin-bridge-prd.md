@@ -49,8 +49,8 @@
 |---|---|---|---|---|
 | C 매출액 | 확정 `ShipmentDetail.Amount`의 N + 확정 차수 `Estimate.Amount`의 L/O | `C=N+L+O` | `ShipmentMaster.isFix=1` 및 `ShipmentDetail.isFix=1` | 불가 |
 | D 매출비율 | C | `행 C / 전체 C` | C와 동일 | 불가 |
-| E 기초재고 | 같은 연도 전차수의 마지막 `StockMaster.isFix=1` + ProductStock 스냅샷 | 정확한 `OrderYear+OrderWeek+ProdKey`의 `VERIFIED` 단가 증거로 평가 | 전년도·미확정·입출고 추정·최근단가 fallback 금지 | 최종 E 직접입력 불가; 단가 증거만 등록 가능 |
-| F 기말재고 | 이번 차수의 마지막 `StockMaster.isFix=1` + ProductStock 스냅샷 | 정확한 `OrderYear+OrderWeek+ProdKey`의 `VERIFIED` 단가 증거로 평가 | 확정 ProductStock 외 수량 및 `Product.Cost`/최근단가 fallback 금지 | 최종 F 직접입력 불가; 단가 증거만 등록 가능 |
+| E 기초재고 | 같은 연도 전차수에서 ProductStock 행이 있는 마지막 숫자 세부차수 스냅샷 | 원본 평균원가 카테고리 또는 정확한 `OrderYear+OrderWeek+ProdKey`의 `VERIFIED` 단가 증거로 평가 | 다른 연도·입출고 추정·최근단가 fallback 금지. `StockMaster.isFix`는 FormStockView 조회 필터가 아님 | 최종 E 직접입력 불가; 단가 증거만 등록 가능 |
+| F 기말재고 | 이번 차수에서 ProductStock 행이 있는 마지막 숫자 세부차수 스냅샷 | 원본 평균원가 카테고리 또는 정확한 `OrderYear+OrderWeek+ProdKey`의 `VERIFIED` 단가 증거로 평가 | ProductStock 외 수량 및 `Product.Cost`/최근단가 fallback 금지. `StockMaster.isFix`로 제외하지 않음 | 최종 F 직접입력 불가; 단가 증거만 등록 가능 |
 | G 매입액 | 입고 Q, 환율 R, 포워딩 S | `G=P+T`, `P=Q×R`, `T=S×R` | 출고확정 비대상, 입고/BILL 원천 | 직접 G 불가; R/S만 보정 가능 |
 | H 그외통관비 | 구조화 통관 원천·중량 배분 | 자동 H | 출고확정 비대상 | 가능 |
 | I 매출원가 | E/G/H/F | 일반 `I=E+G+H-F`; `noEnding`은 `I=E+G+H` | 혼합 원천 | 불가 |
