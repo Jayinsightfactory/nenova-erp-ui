@@ -1,0 +1,102 @@
+{
+  "id": "warehouse-upload",
+  "title": "입고관리 파킹리스트 업로드 nenova.exe 호환 계약",
+  "scope": [
+    "pages/incoming.js",
+    "pages/api/warehouse/index.js",
+    "lib/warehousePackingImport.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "warehouseIdentity": ["OrderYear", "OrderWeek", "WarehouseKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "PARSE_PACKING_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve"
+    },
+    {
+      "name": "VALIDATE_EXACT_PRODUCT_MATCHES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve"
+    },
+    {
+      "name": "UPLOAD_PACKING_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "create-via-exe-sequence",
+      "warehouseDetail": "create-via-usp_CreateWarehouse",
+      "stock": "recalculate-via-usp_StockCalculation"
+    }
+  ],
+  "parserContract": {
+    "sheet": "first",
+    "fixedHeaderRow": 5,
+    "firstDetailRow": 6,
+    "requiredHeaders": {
+      "A": "COD",
+      "B": "VARIETYNAME",
+      "E": "SIZE",
+      "F": "BOX",
+      "I": "TOTAL\\nBUNCH",
+      "J": "TOTALSTEAM",
+      "L": "T.PRICE"
+    },
+    "productName": "trim(VARIETY NAME) + optional single space + SIZE",
+    "orderCode": "COD",
+    "productMatch": "case-insensitive exact Product.ProdName match; substring/TOP 1 prohibited",
+    "atomicFailure": "one missing, duplicate, malformed, fixed-category, SP, or stock calculation failure rejects or rolls back the entire file"
+  },
+  "sideEffects": {
+    "TempWarehouseDetail": "stage all parsed rows",
+    "WarehouseMaster": "insert one header only after full validation",
+    "WarehouseDetail": "created by usp_CreateWarehouse from staged rows",
+    "ProductStock": "recalculated by usp_StockCalculation(OrderYear, OrderWeek, 0)",
+    "OrderMaster": "preserve",
+    "OrderDetail": "preserve",
+    "ShipmentMaster": "preserve",
+    "ShipmentDetail": "preserve",
+    "ShipmentDate": "preserve",
+    "ShipmentFarm": "preserve",
+    "Estimate": "preserve",
+    "WebProfitReport": "preserve"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025년과 2026년에 33-01이 모두 있어도 업로드의 OrderYear는 파일 입력일/명시 연도 2026으로 고정되고 2025 WarehouseMaster·재고 스냅샷을 재사용하거나 수정하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/warehousePackingImport.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "nenova.exe ExcelLoadingPackingList 및 DBMSSQL 실제 decompile",
+    "methods": [
+      "ExcelLoadingPackingList.isPacking",
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.CheckData",
+      "ExcelLoadingPackingList.InsertMaster",
+      "DBMSSQL.uspCreateWarehouse",
+      "DBMSSQL.uspStockCalculation"
+    ],
+    "tables": [
+      "TempWarehouseDetail",
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "StockMaster",
+      "ProductStock"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
