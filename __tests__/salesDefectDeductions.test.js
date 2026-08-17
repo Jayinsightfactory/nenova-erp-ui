@@ -161,6 +161,9 @@ assert.ok(pageSource.includes("action: 'incoming-confirm-cancel'"), '수입부 �
 assert.ok(pageSource.includes('확정 취소'), '수입부 확정 완료 행에는 확정 취소 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('영업지원 전산등록'), '영업지원 전산등록 탭이 있어야 한다.');
 assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업지원은 선택 행을 견적서관리에 등록할 수 있어야 한다.');
+assert.ok(pageSource.includes("buildEstimateFixStatusUrl(selectedWeek)"), '영업지원은 붙여넣기 주문등록과 같은 견적서관리 확정현황 링크를 사용해야 한다.');
+assert.ok(pageSource.includes("window.open(url, 'estimate-fix-status'"), '영업지원 확정현황은 동일한 견적서관리 새창으로 열려야 한다.');
+assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구모음에 확정 현황 확인 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
