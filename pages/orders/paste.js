@@ -15,6 +15,7 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
+import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
@@ -2162,7 +2163,10 @@ export default function PasteOrderPage() {
     if (okCount > 0) {
       setRegisteredOrders(prev => ({
         ...prev,
-        [oid]: buildBulkRegisteredFallback(order, details, prev[oid]),
+        [oid]: {
+          ...buildBulkRegisteredFallback(order, details, prev[oid]),
+          changeAudit: buildPasteBatchChangeAudit(details, prev[oid]?.changeAudit),
+        },
       }));
 
       const shipUpdates = {};
@@ -2193,7 +2197,11 @@ export default function PasteOrderPage() {
         const matched = od.orders.find(o => o.custName === order.custMatch.CustName) || od.orders[0];
         setRegisteredOrders(prev => ({
           ...prev,
-          [oid]: { ...matched, prevSnapshot: prev[oid]?.prevSnapshot || {} },
+          [oid]: {
+            ...matched,
+            prevSnapshot: prev[oid]?.prevSnapshot || {},
+            changeAudit: prev[oid]?.changeAudit || {},
+          },
         }));
         await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
       }
@@ -3586,9 +3594,14 @@ export default function PasteOrderPage() {
                 const weekMismatch = week && ro.week && !orderRowMatchesWeek(ro, week);
                 const hasSnapshot = Object.prototype.hasOwnProperty.call(ro, 'prevSnapshot');
                 const prevSnap = hasSnapshot ? (ro.prevSnapshot || {}) : {};
-                const items = ro.items || [];
+                const changeAudit = ro.changeAudit || {};
+                const items = mergePasteRegisteredItems(ro.items || [], changeAudit);
                 let newCount = 0, changedCount = 0, sameCount = 0;
                 items.forEach(it => {
+                  if (pasteAuditChanged(changeAudit[it.prodKey])) {
+                    changedCount++;
+                    return;
+                  }
                   if (!hasSnapshot) {
                     sameCount++;
                     return;
@@ -3714,8 +3727,10 @@ export default function PasteOrderPage() {
                         <tbody>
                           {items.map((it, i) => {
                             const prev = hasSnapshot ? prevSnap[it.prodKey] : null;
+                            const audit = changeAudit[it.prodKey];
+                            const isCancelled = audit?.actions?.includes('CANCEL');
                             const isNew = hasSnapshot && prev == null;
-                            const isChanged = hasSnapshot && !isNew && Number(prev) !== Number(it.qty);
+                            const isChanged = pasteAuditChanged(audit) || (hasSnapshot && !isNew && Number(prev) !== Number(it.qty));
                             const delta = isChanged ? Number(it.qty) - Number(prev) : 0;
                             const rowBg = isNew
                               ? '#e3f2fd'
@@ -3734,13 +3749,20 @@ export default function PasteOrderPage() {
                               <tr key={i} style={{ borderBottom: '1px solid #dcedc8', background: rowBg, borderLeft: leftBorder }}>
                                 <td style={{ padding: '4px 8px' }}>
                                   {isNew && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#1976d2', color: '#fff', fontWeight: 700 }}>신규</span>}
+                                  {isCancelled && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#c62828', color: '#fff', fontWeight: 700 }}>취소</span>}
                                   {isChanged && <span style={{ marginRight: 4, fontSize: 10, padding: '1px 5px', borderRadius: 8, background: '#fb8c00', color: '#fff', fontWeight: 700 }}>변경</span>}
                                   {it.displayName || it.prodName}
                                 </td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', color: '#388e3c', fontSize: 11 }}>{it.counName || '—'}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', color: '#7b1fa2', fontSize: 11 }}>{it.flowerName || '—'}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                                  {isNew ? (
+                                  {audit?.orderQtyBefore != null && audit?.orderQtyAfter != null && audit.orderQtyBefore !== audit.orderQtyAfter ? (
+                                    <span>
+                                      <span style={{ color: '#999', textDecoration: 'line-through', marginRight: 4 }}>{audit.orderQtyBefore}</span>
+                                      <span style={{ color: '#e65100' }}>→</span>
+                                      <span style={{ color: audit.orderQtyAfter === 0 ? '#c62828' : '#e65100', marginLeft: 4, fontWeight: 700 }}>{audit.orderQtyAfter}</span>
+                                    </span>
+                                  ) : isNew ? (
                                     <span style={{ color: '#0d47a1' }}>+{it.qty}</span>
                                   ) : isChanged ? (
                                     <span>
@@ -3756,7 +3778,12 @@ export default function PasteOrderPage() {
                                   )}
                                 </td>
                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#1565c0', fontVariantNumeric: 'tabular-nums' }}>
-                                  {shipQty}
+                                  {audit?.outQtyBefore != null && audit?.outQtyAfter != null && audit.outQtyBefore !== audit.outQtyAfter ? (
+                                    <span>
+                                      <span style={{ color: '#999', textDecoration: 'line-through', marginRight: 4 }}>{audit.outQtyBefore}</span>
+                                      <span>→ {audit.outQtyAfter}</span>
+                                    </span>
+                                  ) : shipQty}
                                 </td>
                                 <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: remain === 0 ? '#388e3c' : (remain > 0 ? '#f57f17' : '#c62828') }}>
                                   {remain}

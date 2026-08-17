@@ -11,6 +11,7 @@
     "lib/pasteOrderUnit.js",
     "lib/fixStatusWeek.js",
     "lib/pasteMixedBatch.js",
+    "lib/pasteBatchHistory.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
     "pages/api/shipment/item-trace.js",
@@ -21,7 +22,8 @@
     "pages/orders/paste.js",
     "pages/api/orders/parse-paste.js",
     "__tests__/erpEditFixScopeAudit.test.js",
-    "__tests__/pasteMixedBatch.test.js"
+    "__tests__/pasteMixedBatch.test.js",
+    "__tests__/pasteBatchHistory.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "policyBoundaries": [
@@ -103,6 +105,7 @@
     "__tests__/shipmentAvailability.test.js",
     "__tests__/pasteOrderUnit.test.js",
     "__tests__/pasteMixedBatch.test.js",
+    "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
     "__tests__/pasteFixStatus.test.js",
     "__tests__/erpContractManifest.test.js"
