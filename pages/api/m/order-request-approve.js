@@ -5,6 +5,7 @@ import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
+import { isAdminUser } from '../../../lib/userAccess';
 
 const columnExistsCache = {};
 async function columnExists(tableName, columnName) {
@@ -31,7 +32,7 @@ async function handler(req, res) {
   }
 
   // 관리자만 승인 가능
-  const isAdmin = /admin|관리자|대표/i.test(req.user?.authority || '') || req.user?.deptName === '대표';
+  const isAdmin = isAdminUser(req.user);
   if (!isAdmin) {
     return res.status(403).json({ success: false, error: '승인 권한이 없습니다.' });
   }
