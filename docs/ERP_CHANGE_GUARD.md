@@ -282,7 +282,7 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 `ShipmentDetail.OutQuantity`를 같은 트랜잭션에서 확인해 다음처럼 처리한다.
 
 - 활성 분배가 있으면 `AUTO_CANCEL`로 `ShipmentDetail`·`ShipmentDate`·농장분배만 취소하고 `OrderDetail`은 보존한다.
-- 활성 분배가 없으면 `OrderDetail`만 취소하고 `ShipmentMaster`·`ShipmentDetail`을 새로 만들거나 삭제하지 않는다.
+- 활성 분배가 없으면 주문을 대신 취소하지 않고 오류로 중단한다. 전체 일괄이면 앞선 변경도 모두 롤백한다.
 - 취소량이 현재 분배 또는 주문수량을 초과하면 전체 트랜잭션을 롤백하고, 초과량을 자동으로 음수로 남기지 않는다.
 - `DB 저장 내역`의 분배조정과 붙여넣기 취소는 동일한 `AUTO_CANCEL` 서버 정책을 사용한다. 차수피벗의 기존 `PIVOT_DISTRIBUTION` 정책은 그대로 유지한다.
 
@@ -340,7 +340,7 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 |---|---|---|---|---|
 | 명시 박스 ADD | 기존 ADD 정책, 박스 환산량 사용 | 기존 ADD 정책, OutUnit 환산량 증가 | 보존 | 보존 |
 | 명시 박스 AUTO_CANCEL + 활성 분배 | 주문 보존 | 박스 환산량 감소 | 보존 | 보존 |
-| 명시 박스 AUTO_CANCEL + 분배 없음 | 박스 환산량 감소 | 생성·변경 금지 | 보존 | 보존 |
+| 명시 박스 AUTO_CANCEL + 분배 없음 | 보존 | 오류·전체 롤백 | 보존 | 보존 |
 | 단위 생략 | 기존 기본단위 정책 | 기존 정책 | 보존 | 보존 |
 
 `OutUnit='단', BunchOf1Box=10`인 품목의 `1박스`는 BoxQuantity 1,
@@ -358,7 +358,7 @@ BunchQuantity/OutQuantity 10으로 환산한다. 필요한 `BunchOf1Box` 또는 
 | 동작 | OrderDetail | ShipmentDetail/Date/Farm | ShipmentAdjustment/History | Estimate·매출·재고원장 |
 |---|---|---|---|---|
 | CANCEL + 활성 분배 | 보존 | 기존 `AUTO_CANCEL`로 감소, 0이면 정리 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
-| CANCEL + 활성 분배 없음 | 기존 `AUTO_CANCEL`로 감소 | 보존, 신규 생성 금지 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
+| CANCEL + 활성 분배 없음 | 보존 | 오류·전체 롤백 | 롤백 | 직접 변경 금지 |
 | ADD + 현재연도 활성 주문 없음 | 양수 생성 | 기존 ADD 정책으로 증가·날짜 동기화 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
 | ADD + 현재연도 활성 주문 있음 | 기존 정책대로 증가 | 기존 ADD 정책으로 증가·날짜 동기화 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
 | 어느 한 건 실패 | 위 모든 앞선 변경 롤백 | 위 모든 앞선 변경 롤백 | 이력까지 롤백 | 계속 보존 |
