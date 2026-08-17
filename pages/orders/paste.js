@@ -2780,6 +2780,13 @@ export default function PasteOrderPage() {
     });
   };
 
+  const globalActionEntries = orders.flatMap(order =>
+    (order.items || []).map((item, itemIdx) => ({ order, item, itemIdx }))
+      .filter(({ item }) => !item.skip)
+  );
+  const globalCancelEntries = globalActionEntries.filter(({ item }) => item.action === '취소');
+  const globalAddEntries = globalActionEntries.filter(({ item }) => item.action !== '취소');
+
   return (
     <Layout title="붙여넣기 주문등록">
       <div style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
@@ -3285,6 +3292,7 @@ export default function PasteOrderPage() {
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
             .paste-action-split { grid-template-columns: 1fr !important; }
+            .paste-global-action-board { grid-template-columns: 1fr !important; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
             .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
           }
@@ -3308,6 +3316,50 @@ export default function PasteOrderPage() {
         </div>
 
         {/* 주문즐겨찾기 작업은 상단 큰 버튼으로 여는 새 창에서 처리합니다. */}
+
+        {orders.length > 0 && (
+          <div className="paste-global-action-board" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, marginBottom: 14, alignItems: 'start' }}>
+            {[
+              { key: 'cancel', title: `왼쪽 · 취소 먼저 (${globalCancelEntries.length}건)`, entries: globalCancelEntries, color: '#c62828', bg: '#fff5f5' },
+              { key: 'add', title: `오른쪽 · 추가·분배 (${globalAddEntries.length}건)`, entries: globalAddEntries, color: '#2e7d32', bg: '#f3fbf4' },
+            ].map(group => (
+              <section key={group.key} style={{ minWidth: 0, border: `2px solid ${group.color}66`, borderRadius: 9, overflow: 'hidden', background: '#fff' }}>
+                <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: '9px 12px', background: group.bg, color: group.color, fontSize: 14, fontWeight: 900, borderBottom: `1px solid ${group.color}44` }}>
+                  {group.title}
+                </div>
+                <div style={{ maxHeight: '55vh', overflow: 'auto' }}>
+                  {group.entries.length === 0 ? (
+                    <div style={{ padding: 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
+                  ) : group.entries.map(({ order, item: it, itemIdx }) => (
+                    <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px, .65fr) minmax(135px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: 5, padding: '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
+                      <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900, color: '#1a237e' }}>
+                        {order.custMatch?.CustName || order.custName || '업체 미확인'}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
+                        <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
+                          {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
+                        </div>
+                      </div>
+                      <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
+                        onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
+                        style={{ width: 54, padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, textAlign: 'right', fontSize: 12 }} />
+                      <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
+                        onChange={e => updateItem(order.id, itemIdx, { unit: e.target.value, unitExplicit: true })}
+                        style={{ width: 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
+                        <option>박스</option><option>단</option><option>송이</option>
+                      </select>
+                      <button type="button" onClick={() => updateOrder(order.id, { showDetailedItems: true })}
+                        style={{ padding: '3px 5px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
+                        {it.prodKey ? '상세수정' : '매칭하기'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
 
         {/* 거래처별 주문 카드 */}
         {orders.map(order => {
@@ -3386,7 +3438,7 @@ export default function PasteOrderPage() {
               )}
 
               {/* 취소/추가를 한 화면에서 비교하는 기본 작업 구조 */}
-              <div className="paste-action-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10, padding: 10, background: '#f5f7fb' }}>
+              <div className="paste-action-split" aria-hidden="true" style={{ display: 'none', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10, padding: 10, background: '#f5f7fb' }}>
                 {[
                   { key: 'cancel', title: `1. 취소 먼저 (${cancelEntries.length}건)`, entries: cancelEntries, color: '#c62828', bg: '#fff5f5' },
                   { key: 'add', title: `2. 추가·분배 (${addEntries.length}건)`, entries: addEntries, color: '#2e7d32', bg: '#f3fbf4' },
