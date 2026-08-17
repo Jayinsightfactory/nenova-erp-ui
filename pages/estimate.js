@@ -822,8 +822,8 @@ export default function Estimate() {
     return Math.max(...candidates.map(v => parseInt(v, 10)).filter(Number.isFinite));
   };
 
-  const getSelectedFixRange = () => {
-    const selectedParent = parseInt(weekNum, 10);
+  const getSelectedFixRange = (parentWeekOverride = weekNum) => {
+    const selectedParent = parseInt(parentWeekOverride, 10);
     if (!Number.isFinite(selectedParent)) return null;
     return getRecentFixStatusRange(selectedParent, fixStatusBatchCount);
   };
@@ -867,13 +867,13 @@ export default function Estimate() {
     });
   };
 
-  const checkFixStatus = async () => {
-    if (!weekNum) { alert('차수를 입력하세요.'); return; }
-    const range = getSelectedFixRange();
+  const checkFixStatus = async ({ orderYearOverride = yearStr, parentWeekOverride = weekNum } = {}) => {
+    if (!parentWeekOverride) { alert('차수를 입력하세요.'); return; }
+    const range = getSelectedFixRange(parentWeekOverride);
     if (!range) { alert('확정 현황을 확인할 차수를 알 수 없습니다.'); return; }
     setFixStatusLoading(true);
     try {
-      const res = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: yearStr, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, {
+      const res = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: orderYearOverride, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, {
         credentials: 'same-origin',
       });
       const data = await res.json();
@@ -887,11 +887,23 @@ export default function Estimate() {
       setFixStatusCategoryPreset('all');
       setFixStatusModal({ ...data, weeks, range });
     } catch (e) {
-      alert(`${yearStr}년 ${range.fromWeek}~${range.toWeek} 확정 현황 자동 조회 오류: ${e.message}`);
+      alert(`${orderYearOverride}년 ${range.fromWeek}~${range.toWeek} 확정 현황 자동 조회 오류: ${e.message}`);
     } finally {
       setFixStatusLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openFixStatus') !== '1') return;
+    const requestedYear = String(params.get('year') || '').replace(/\D/g, '').slice(0, 4);
+    const requestedWeek = String(params.get('week') || '').replace(/\D/g, '').slice(0, 2);
+    if (!requestedYear || !requestedWeek) return;
+    setYearStr(requestedYear);
+    setWeekNum(String(Number(requestedWeek)));
+    checkFixStatus({ orderYearOverride: requestedYear, parentWeekOverride: requestedWeek });
+  }, []);
 
   const unfixRangeToSelectedWeek = async (force = false) => {
     if (!weekNum) { alert('차수를 입력하세요.'); return; }
