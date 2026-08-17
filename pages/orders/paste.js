@@ -3276,6 +3276,7 @@ export default function PasteOrderPage() {
           }
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
+            .paste-action-split { grid-template-columns: 1fr !important; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
             .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
           }
@@ -3308,6 +3309,9 @@ export default function PasteOrderPage() {
           const matchedItems = activeItems.filter(it => it.prodKey);
           const matchedAdd  = addItems.filter(it => it.prodKey);
           const unmatched   = activeItems.filter(it => !it.prodKey);
+          const actionEntries = order.items.map((item, idx) => ({ item, idx }));
+          const cancelEntries = actionEntries.filter(({ item }) => !item.skip && item.action === '취소');
+          const addEntries = actionEntries.filter(({ item }) => !item.skip && item.action !== '취소');
           const bulkFlowers = [...new Set(matchedItems.map(it => it.flowerName || '기타'))].sort();
           const bulkEdit = bulkUnitEdits[order.id] || {};
 
@@ -3373,7 +3377,55 @@ export default function PasteOrderPage() {
                 </div>
               )}
 
-              {/* 품목 테이블 */}
+              {/* 취소/추가를 한 화면에서 비교하는 기본 작업 구조 */}
+              <div className="paste-action-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10, padding: 10, background: '#f5f7fb' }}>
+                {[
+                  { key: 'cancel', title: `1. 취소 먼저 (${cancelEntries.length}건)`, entries: cancelEntries, color: '#c62828', bg: '#fff5f5' },
+                  { key: 'add', title: `2. 추가·분배 (${addEntries.length}건)`, entries: addEntries, color: '#2e7d32', bg: '#f3fbf4' },
+                ].map(group => (
+                  <section key={group.key} style={{ minWidth: 0, border: `1px solid ${group.color}55`, borderRadius: 7, overflow: 'hidden', background: '#fff' }}>
+                    <div style={{ padding: '7px 10px', background: group.bg, color: group.color, fontSize: 13, fontWeight: 800, borderBottom: `1px solid ${group.color}33` }}>
+                      {group.title}
+                    </div>
+                    <div style={{ maxHeight: 260, overflow: 'auto' }}>
+                      {group.entries.length === 0 ? (
+                        <div style={{ padding: 14, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
+                      ) : group.entries.map(({ item: it, idx }) => (
+                        <div key={`${group.key}-${idx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 58px 66px minmax(105px, .8fr)', alignItems: 'center', gap: 5, padding: '5px 7px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
+                            <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
+                              {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
+                            </div>
+                          </div>
+                          <input type="number" min="0" step="0.5" value={it.qty}
+                            aria-label={`${it.inputName} 수량`}
+                            onChange={e => updateItem(order.id, idx, { qty: parseFloat(e.target.value) || 0 })}
+                            style={{ width: 54, padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, textAlign: 'right', fontSize: 12 }} />
+                          <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
+                            onChange={e => updateItem(order.id, idx, { unit: e.target.value, unitExplicit: true })}
+                            style={{ width: 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
+                            <option>박스</option><option>단</option><option>송이</option>
+                          </select>
+                          <button type="button" onClick={() => updateOrder(order.id, { showDetailedItems: true })}
+                            style={{ padding: '3px 6px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
+                            {it.prodKey ? '매칭·상세수정' : '매칭하기'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+              <div style={{ padding: '0 10px 8px', background: '#f5f7fb', display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => updateOrder(order.id, { showDetailedItems: !order.showDetailedItems })}
+                  style={{ padding: '4px 10px', border: '1px solid #9fa8da', borderRadius: 5, background: '#fff', color: '#3949ab', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                  {order.showDetailedItems ? '상세 매칭표 닫기' : `상세 매칭표 열기${unmatched.length ? ` · 미매칭 ${unmatched.length}` : ''}`}
+                </button>
+              </div>
+
+              {/* 상세 품목 매칭표 — 필요할 때만 열어 세로 공간을 절약 */}
+              {(order.showDetailedItems || unmatched.length > 0) && (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
@@ -3542,6 +3594,7 @@ export default function PasteOrderPage() {
                   </tbody>
                 </table>
               </div>
+              )}
 
               {/* 카드 하단 액션 */}
               <div style={{ padding: '10px 16px', background: '#f5f5f5', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
