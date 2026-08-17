@@ -6,6 +6,7 @@ assert.match(page, /className="paste-action-split"/);
 assert.match(page, /className="paste-global-action-board"/);
 assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}건\)/);
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
+assert.match(page, /적용 예상 · 주문 \$\{previewQty\(preview\.orderBefore\)\}→\$\{previewQty\(preview\.orderAfter\)\} \/ 분배 \$\{previewQty\(preview\.shipmentBefore\)\}→\$\{previewQty\(preview\.shipmentAfter\)\}/);
 assert.match(page, /orders\.flatMap\(order =>/);
 assert.match(page, /const handleAllMixedDistribute = async/);
 assert.match(page, /const targets = orderPasteMixedBatchTargets\(eligible\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/);

@@ -4,6 +4,7 @@ const path = require('node:path');
 
 async function main() {
   const {
+    buildPasteMixedActionPreview,
     orderPasteMixedBatchTargets,
     pasteBatchActionType,
   } = await import('../lib/pasteMixedBatch.js');
@@ -27,6 +28,18 @@ async function main() {
     '실제 실행 배열은 CANCEL 단계와 ADD 단계가 섞이면 안 된다.',
   );
   assert.deepEqual(orderPasteMixedBatchTargets([]), [], '빈 일괄 요청은 그대로 비어 있어야 한다.');
+
+  const product = { OutUnit: '박스', EstUnit: '박스', BunchOf1Box: 10, SteamOf1Box: 100 };
+  assert.deepEqual(
+    buildPasteMixedActionPreview({ type: 'CANCEL', qty: 2, unit: '박스', orderQty: 7, shipmentQty: 3, product }),
+    { orderBefore: 7, orderAfter: 7, shipmentBefore: 3, shipmentAfter: 1, policy: 'CANCEL_SHIPMENT_ONLY' },
+    '활성 분배 취소 예상은 주문 보존·분배 감소여야 한다.',
+  );
+  assert.deepEqual(
+    buildPasteMixedActionPreview({ type: 'ADD', qty: 2, unit: '박스', orderQty: 0, shipmentQty: 0, product }),
+    { orderBefore: 0, orderAfter: 2, shipmentBefore: 0, shipmentAfter: 2, policy: 'ADD_ORDER_AND_SHIPMENT' },
+    '추가 예상은 주문과 분배가 함께 증가해야 한다.',
+  );
 
   const crossYearFixture = [
     { orderYear: '2025', orderWeek: '33-02', prodKey: 201, action: '취소' },
