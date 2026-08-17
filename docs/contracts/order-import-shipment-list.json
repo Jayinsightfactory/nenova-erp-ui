@@ -2,9 +2,9 @@
   "id": "order-import-shipment-list",
   "title": "업로드 주문등록 및 출고리스트 엑셀 생성 계약",
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "scope": ["pages/orders/import.js", "pages/api/orders/import-parse.js", "pages/api/orders/shipment-list-source.js", "lib/orderImportParse.js", "lib/orderShipmentList.js", "__tests__/orderShipmentList.test.js"],
+  "scope": ["pages/orders/import.js", "pages/api/orders/import-parse.js", "pages/api/orders/shipment-list-source.js", "lib/orderImportParse.js", "lib/orderImportMatch.js", "lib/orderShipmentList.js", "__tests__/orderShipmentList.test.js"],
   "actions": [
-    {"name":"PARSE_UPLOAD_METADATA", "orderDetail":"preserve", "shipmentDetail":"preserve"},
+    {"name":"PARSE_UPLOAD_METADATA_AND_AGGREGATE_PRODUCT_ROWS", "orderDetail":"preserve", "shipmentDetail":"preserve"},
     {"name":"LOAD_ORDER_LIST_SOURCE", "orderDetail":"preserve", "shipmentDetail":"preserve"},
     {"name":"LOAD_SHIPMENT_LIST_SOURCE", "orderDetail":"preserve", "shipmentDetail":"preserve"},
     {"name":"ASSIGN_DEFAULT_SHIP_DATE_AND_EXPORT", "orderDetail":"preserve", "shipmentDetail":"preserve"}
