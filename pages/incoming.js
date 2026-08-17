@@ -1,85 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
-import Head from 'next/head';
-
-// xlsx는 CDN에서 로드 (window.XLSX)
-function getXLSX() {
-  return typeof window !== 'undefined' ? window.XLSX : null;
-}
+import * as XLSX from 'xlsx';
+import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
-// ── CSV 파싱 유틸
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
-  return lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.replace(/"/g,'').trim());
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
-    return obj;
-  });
-}
-
-// ── Packing 양식 엑셀(.xlsx) 파싱
-// 구조: Row1=메타(Grower,Weekend,Invoice), Row2=메타(AWB,Date), Row4=헤더, Row5+=데이터
-function parsePackingXlsx(buffer) {
-  const XLSX = getXLSX();
-  if (!XLSX) throw new Error('XLSX 라이브러리가 로드되지 않았습니다.');
-  const wb = XLSX.read(buffer, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  if (raw.length < 5) return { meta: {}, rows: [] };
-
-  // 메타데이터 파싱 (Row 1, Row 2)
-  const meta = {};
-  const r1 = raw[1] || [];
-  const r2 = raw[2] || [];
-  for (let i = 0; i < r1.length; i++) {
-    const v = String(r1[i] || '').trim();
-    if (v === 'Grower:' || v === 'Grower')   meta.farmName  = String(r1[i+2] || r1[i+1] || '').trim();
-    if (v === 'Weekend:' || v === 'Weekend') meta.orderWeek = String(r1[i+2] || r1[i+1] || '').trim();
-    if (v === 'Invoice:' || v === 'Invoice') meta.invoiceNo = String(r1[i+2] || r1[i+1] || '').trim();
-  }
-  for (let i = 0; i < r2.length; i++) {
-    const v = String(r2[i] || '').trim();
-    if (v === 'AWB:' || v === 'AWB')   meta.awb       = String(r2[i+2] || r2[i+1] || '').trim();
-    if (v === 'Date:' || v === 'Date') meta.inputDate = String(r2[i+2] || r2[i+1] || '').trim();
-  }
-
-  // 헤더 찾기 (COD 또는 VARIETY 포함하는 행)
-  let headerIdx = -1;
-  for (let i = 0; i < Math.min(10, raw.length); i++) {
-    const row = raw[i].map(c => String(c || '').trim().toUpperCase());
-    if (row.includes('COD') || row.some(c => c.includes('VARIETY'))) { headerIdx = i; break; }
-  }
-  if (headerIdx < 0) return { meta, rows: [] };
-
-  const headers = raw[headerIdx].map(c => String(c || '').replace(/\n/g,' ').trim().toUpperCase());
-
-  // 데이터 행 파싱 (헤더 다음 행부터, 빈 행/합계 행 제외)
-  const rows = [];
-  for (let i = headerIdx + 1; i < raw.length; i++) {
-    const r = raw[i];
-    const obj = {};
-    headers.forEach((h, j) => { obj[h] = r[j] ?? ''; });
-    const name = obj['VARIETY NAME'] || obj['VARIETY'] || '';
-    if (!name || typeof name !== 'string' || !name.trim()) continue;
-    rows.push({
-      '품목명':    name.trim(),
-      '박스수량':  Number(obj['BOX'] || obj['BOXES'] || 0),
-      '단수량':    Number(obj['TOTAL\nBUNCH'] || obj['TOTAL BUNCH'] || obj['BCH/ST'] || 0),
-      '송이수량':  Number(obj['TOTAL STEAM'] || obj['TOTAL STEMS'] || 0),
-      '단가':      Number(obj['U.PRICE'] || obj['UPRICE'] || 0),
-      '총액':      Number(obj['T.PRICE'] || obj['TPRICE'] || 0),
-      '박스당송이': Number(obj['STEAM BOX'] || obj['STEAM/BOX'] || 0),
-      '단당송이':  Number(obj['BCH/ST'] || obj['BUNCH/ST'] || 0),
-    });
-  }
-  return { meta, rows };
-}
 
 export default function Warehouse() {
   const { t } = useLang();
@@ -93,17 +19,21 @@ export default function Warehouse() {
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState(null);
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
   const fileRef = useRef();
+  const loadSeq = useRef(0);
+  const detailSeq = useRef(0);
 
   const load = () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     apiGetExe('/api/warehouse', { startDate, endDate })
-      .then(d => { setMasters(d.masters||[]); setErr(''); })
-      .catch(e => setErr(e.message))
-      .finally(() => setLoading(false));
+      .then(d => { if (seq === loadSeq.current) { setMasters(d.masters||[]); setErr(''); } })
+      .catch(e => { if (seq === loadSeq.current) setErr(e.message); })
+      .finally(() => { if (seq === loadSeq.current) setLoading(false); });
   };
 
   useEffect(() => {
@@ -118,12 +48,13 @@ export default function Warehouse() {
   useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
 
   const selectMaster = (wk) => {
+    const seq = ++detailSeq.current;
     setSelectedKey(wk);
     setDetailLoading(true);
     apiGetExe(`/api/warehouse/${wk}`)
-      .then(d => setDetails(d.items||[]))
-      .catch(() => setDetails([]))
-      .finally(() => setDetailLoading(false));
+      .then(d => { if (seq === detailSeq.current) setDetails(d.items||[]); })
+      .catch(e => { if (seq === detailSeq.current) { setDetails([]); setErr(e.message); } })
+      .finally(() => { if (seq === detailSeq.current) setDetailLoading(false); });
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
@@ -148,7 +79,7 @@ export default function Warehouse() {
            (d.주문코드||'').toLowerCase().includes(q);
   });
 
-  // 파일 업로드 핸들러 (CSV + XLSX Packing 양식 지원)
+  // nenova.exe ExcelLoadingPackingList와 같은 Packing 엑셀만 허용한다.
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -159,7 +90,7 @@ export default function Warehouse() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
-          const { meta, rows } = parsePackingXlsx(new Uint8Array(ev.target.result));
+          const { meta, rows } = parseWarehousePackingWorkbook(new Uint8Array(ev.target.result), XLSX);
           if (rows.length === 0) { alert('엑셀 파일에서 데이터를 찾을 수 없습니다.'); return; }
           setUploadData(rows);
           setUploadMeta(m => ({
@@ -175,41 +106,17 @@ export default function Warehouse() {
         } catch (err) { alert('엑셀 파일 파싱 오류: ' + err.message); }
       };
       reader.readAsArrayBuffer(file);
-    } else {
-      // CSV 파일
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const rows = parseCSV(ev.target.result);
-        if (rows.length === 0) { alert('파일을 읽을 수 없습니다. CSV 형식인지 확인하세요.'); return; }
-        setUploadData(rows);
-        setUploadMeta(m => ({ ...m, fileName: file.name }));
-        setShowUploadModal(true);
-      };
-      reader.readAsText(file, 'UTF-8');
-    }
+    } else alert('nenova.exe Packing 엑셀(.xlsx/.xls) 파일만 업로드할 수 있습니다.');
     e.target.value = '';
   };
 
   const handleUpload = async () => {
-    if (!uploadData || !uploadMeta.orderWeek || !uploadMeta.farmName) {
-      alert('차수, 농장명은 필수입니다.'); return;
+    if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !/^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
+      alert('주문년도, 차수(예: 33-02), 농장명, 입력일자는 필수입니다.'); return;
     }
     setUploading(true);
     try {
-      // CSV 컬럼 매핑 (실제 엑셀 형식에 맞게 조정)
-      const items = uploadData.map(row => ({
-        prodName:    row['품목명'] || row['ProdName'] || row['품목'] || '',
-        boxQty:      row['박스수량'] || row['Box'] || row['박스'] || 0,
-        bunchQty:    row['단수량'] || row['Bunch'] || row['단'] || 0,
-        steamQty:    row['송이수량'] || row['Steam'] || row['송이'] || 0,
-        outQty:      row['출고수량'] || row['Out'] || 0,
-        estQty:      row['견적수량'] || row['Est'] || 0,
-        unitPrice:   row['단가'] || row['UPrice'] || 0,
-        totalPrice:  row['총액'] || row['TPrice'] || 0,
-        orderCode:   row['주문코드'] || row['OrderCode'] || row['CN'] || '',
-        steamOf1Box: row['박스당송이'] || 0,
-        steamOf1Bunch: row['단당송이'] || 0,
-      })).filter(item => item.prodName);
+      const items = uploadData;
 
       const res = await fetch('/api/warehouse', {
         method: 'POST',
@@ -224,7 +131,7 @@ export default function Warehouse() {
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error([data.error, ...(data.errors || []).map(x => `${x.prodName || `${x.row}행`}: ${x.error}`)].join('\n'));
       setSuccessMsg(`✅ ${data.message}`);
       setShowUploadModal(false); setUploadData(null);
       setTimeout(() => setSuccessMsg(''), 5000);
@@ -235,6 +142,7 @@ export default function Warehouse() {
   const handleDelete = async () => {
     if (!selectedKey) { alert('삭제할 원장을 선택하세요.'); return; }
     if (!confirm(`[${selected?.FarmName}] 원장을 삭제하시겠습니까?`)) return;
+    setDeleting(true);
     try {
       const res = await fetch('/api/warehouse', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ warehouseKey: selectedKey }) });
       const data = await res.json();
@@ -243,33 +151,31 @@ export default function Warehouse() {
       setSelectedKey(null); setDetails([]);
       setTimeout(() => setSuccessMsg(''), 3000);
       load();
-    } catch(e) { alert(e.message); }
+    } catch(e) { alert(e.message); } finally { setDeleting(false); }
   };
 
   const handleExcel = () => {
-    const rows = [['주문년도','차수','농장명','인보이스','AWB','입력일자','박스합계','단합계','송이합계']];
-    masters.forEach(m => rows.push([m.OrderYear,m.OrderWeek,m.FarmName,m.InvoiceNo,m.AWB,m.InputDate,m.totalBox,m.totalBunch,m.totalSteam]));
-    const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`입고원장.csv`; a.click();
+    if (!selected || !details.length) { alert('상세를 내보낼 입고 원장을 선택하세요.'); return; }
+    const rows = details.map(d => ({ 주문코드:d.주문코드, 품목명:d.DisplayName || d.ProdName, 단위:d.단위,
+      박스수량:d.BoxQuantity, 단수량:d.BunchQuantity, 송이수량:d.SteamQuantity, 단가:d.단가, 총액:d.총액 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '입고상세');
+    XLSX.writeFile(wb, `입고상세_${selected.OrderYear}_${selected.OrderWeek}_${selected.FarmName || ''}.xlsx`);
   };
 
   return (
     <div>
-      <Head>
-        <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-      </Head>
       <div className="filter-bar">
         <span className="filter-label">업로드일자</span>
         <input type="date" className="filter-input" value={startDate} onChange={e=>setStartDate(e.target.value)} />
         <span style={{color:'var(--text3)'}}>~</span>
         <input type="date" className="filter-input" value={endDate} onChange={e=>setEndDate(e.target.value)} />
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={load}>{t('새로고침')}</button>
-          <button className="btn btn-success" onClick={()=>fileRef.current.click()}>📤 업로드 / Subir</button>
-          <input type="file" ref={fileRef} style={{display:'none'}} accept=".csv,.xlsx,.xls" onChange={handleFileChange} />
-          <button className="btn btn-danger" onClick={handleDelete}>🗑️ 원장삭제 / Eliminar Reg.</button>
-          <button className="btn btn-secondary" onClick={handleExcel}>📊 엑셀 / Excel</button>
+          <button className="btn btn-primary" onClick={load} disabled={loading}>{loading?'조회 중...':t('새로고침')}</button>
+          <button className="btn btn-success" disabled={uploading || deleting} onClick={()=>fileRef.current.click()}>📤 업로드 / Subir</button>
+          <input type="file" ref={fileRef} style={{display:'none'}} accept=".xlsx,.xls" onChange={handleFileChange} />
+          <button className="btn btn-danger" disabled={!selectedKey || deleting || uploading} onClick={handleDelete}>{deleting?'삭제 중...':'🗑️ 원장삭제 / Eliminar Reg.'}</button>
+          <button className="btn btn-secondary" disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>📊 선택 상세 엑셀</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
@@ -279,7 +185,7 @@ export default function Warehouse() {
 
       {/* 업로드 형식 안내 */}
       <div style={{padding:'8px 14px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:8,marginBottom:14,fontSize:12}}>
-        📋 업로드 형식: <strong>Packing 엑셀(.xlsx)</strong> 또는 <strong>CSV</strong> (품목명, 박스수량, 단수량, 송이수량, 단가, 주문코드)
+        📋 nenova.exe와 동일한 <strong>Packing 엑셀(.xlsx/.xls)</strong>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.
       </div>
 
       <div className="split-panel">
@@ -299,7 +205,7 @@ export default function Warehouse() {
               <table className="tbl" style={{minWidth:600}}>
                 <thead>
                   <tr>
-                    <th style={{width:32}}><input type="checkbox"/></th>
+                    <th style={{width:32}}>선택</th>
                     <th>주문년도</th><th>차수</th><th>농장명</th><th>인보이스</th><th>AWB</th><th>입력일자</th>
                     <th style={{textAlign:'right'}}>박스</th><th style={{textAlign:'right'}}>단</th><th style={{textAlign:'right'}}>송이</th>
                     <th style={{textAlign:'right'}}>GW</th><th style={{textAlign:'right'}}>CW</th><th style={{textAlign:'right'}}>Rate</th>
@@ -345,11 +251,6 @@ export default function Warehouse() {
           <div className="card-header">
             <span className="card-title">입고 상세 목록</span>
             {selected && <span style={{fontSize:12,color:'var(--blue)',fontWeight:600}}>{selected.FarmName} · {selected.InvoiceNo}</span>}
-            <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-              <button className="btn btn-success btn-sm" disabled title="상세 품목은 입고 업로드로 등록합니다.">＋ 신규 / Nuevo</button>
-              <button className="btn btn-secondary btn-sm" disabled title="상세 품목 직접 수정 API는 아직 연결되어 있지 않습니다.">✏️ 수정 / Editar</button>
-              <button className="btn btn-danger btn-sm" disabled title="상세 품목 삭제 API는 아직 연결되어 있지 않습니다.">🗑️ 삭제 / Eliminar</button>
-            </div>
           </div>
           {selectedKey && (
             <div style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',background:'#fff'}}>
@@ -460,7 +361,7 @@ export default function Warehouse() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={()=>{setShowUploadModal(false);setUploadData(null);}}>취소 / Cancelar</button>
+              <button className="btn btn-secondary" disabled={uploading} onClick={()=>{setShowUploadModal(false);setUploadData(null);}}>취소 / Cancelar</button>
               <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>{uploading?'업로드 중...':'📤 업로드 / Subir'}</button>
             </div>
           </div>
