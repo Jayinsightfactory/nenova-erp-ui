@@ -165,6 +165,12 @@ assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
+assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
+assert.ok(pageSource.includes("String(row.status || '').toUpperCase() !== 'REGISTERED'"), '이미 연결 등록된 행은 중복 선택할 수 없어야 한다.');
+assert.ok(pageSource.includes('!row.exactExistingEstimate'), '동일한 기존 Estimate가 있는 행은 중복 선택할 수 없어야 한다.');
+assert.ok(pageSource.includes('existingEstimateRecords'), '업체의 기존 음수 Estimate 내역을 목록에서 확인할 수 있어야 한다.');
+assert.ok(pageSource.includes('기존 차감 견적 확인'), '정확히 일치하는 기존 차감은 처리 상태로 명시해야 한다.');
+assert.ok(pageSource.includes('이 업체 기존 차감'), '동일 업체의 다른 기존 차감도 펼쳐 확인할 수 있어야 한다.');
 assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
 assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
 assert.ok(pageSource.includes('confirmIncomingRow'), '수입부 행별 확정 버튼이 있어야 한다.');
@@ -197,6 +203,11 @@ assert.ok(pageSource.includes('partitionRegistrationPreflight'), '견적서 등�
 assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.ok(deductionSource.includes('enrichSupportDistributionCosts'), '영업지원 전체 조회도 견적 등록과 같은 분배단가 컨텍스트를 사용해야 한다.');
+assert.ok(deductionSource.includes('loadExistingEstimateDeductions'), '영업지원 조회는 업체의 기존 음수 Estimate를 자동으로 불러와야 한다.');
+assert.ok(deductionSource.includes('sm.OrderYear=@year'), '기존 차감 조회는 선택 연도를 반드시 제한해야 한다.');
+assert.ok(deductionSource.includes('e.Quantity<0'), '기존 차감 조회는 음수 Estimate만 대상으로 해야 한다.');
+assert.ok(deductionSource.includes('assertNoExactUnlinkedEstimate'), '동일 미연결 견적은 사전검증과 등록 직전에 중복 차단해야 한다.');
+assert.ok(deductionSource.includes("WITH (UPDLOCK,HOLDLOCK)"), '등록 직전 기존 견적 재검사는 트랜잭션 잠금을 사용해야 한다.');
 assert.ok(deductionSource.includes('confirmIncomingDeductions'), '수입부 확인 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('ImportConfirmedAt=GETDATE()'), '수입부 확정 시 감사 시각을 저장해야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=@reviewRequired'), '수입부 보완 필요 체크를 저장해야 한다.');
