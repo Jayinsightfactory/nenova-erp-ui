@@ -32,6 +32,7 @@ async function main() {
   const paste = read('pages/orders/paste.js');
   const pivot = read('pages/shipment/week-pivot.js');
   const adjustApi = read('pages/api/shipment/adjust.js');
+  const adjustBatchPolicy = read('lib/shipmentAdjustmentBatch.js');
   const costApi = read('pages/api/estimate/update-cost.js');
   const distributePage = read('pages/shipment/distribute.js');
   const distributeApi = read('pages/api/shipment/distribute.js');
@@ -65,7 +66,10 @@ async function main() {
   assert.match(paste, /return handleAdjust\(true\)/, '붙여넣기 단건 조정은 서버 경고 뒤 사용자 확인 시에만 재고부족 override를 허용한다.');
 
   assert.doesNotMatch(adjustApi, /function normWeek/);
-  assert.match(adjustApi, /requireOrderYear\(week, year \|\| req\.body\.orderYear \|\| ''\)/);
+  assert.match(adjustApi, /requireOrderYear\(week, year \|\| body\.orderYear \|\| ''\)/);
+  assert.match(adjustApi, /export async function executeShipmentAdjustmentInTransaction\(tQ,/);
+  assert.match(adjustBatchPolicy, /entryScope\.orderYear !== batchScope\.orderYear/);
+  assert.match(adjustBatchPolicy, /entryScope\.orderWeek !== batchScope\.orderWeek/);
   assert.match(raum, /week: a\.week, year: orderYear/);
   assert.match(raum, /week: s\.plusWeek, orderYear/);
   assert.match(distributePage, /selectedOrderYear/);

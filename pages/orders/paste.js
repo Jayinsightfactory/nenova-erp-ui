@@ -2209,20 +2209,17 @@ export default function PasteOrderPage() {
     loadOrderHistorySummary(week, orders);
   };
 
-  // 화면 전체의 모든 업체를 한 번에 처리한다. 취소 전체가 끝난 뒤에만 추가 단계로 넘어간다.
-  const handleAllMixedDistribute = async ({ failedOnly = false } = {}) => {
+  // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
+  // payload는 CANCEL 전체 → ADD 전체 순서이며, 한 건이라도 실패하면 서버가 모두 롤백한다.
+  const handleAllMixedDistribute = async () => {
     if (!week || bulkRunning) return;
     if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
-    const failedKeys = new Set(
-      failedOnly && bulkResult?.orderId === 'ALL'
-        ? bulkResult.details.filter(x => !x.ok).map(x => `${x.orderId}:${pasteBatchRetryKey(x)}`)
-        : [],
-    );
     const eligible = orders.flatMap(order => {
       if (!order.custMatch) return [];
-      return (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
+      return (order.items || []).filter(it => !it.skip && it.prodKey).map((it, itemIndex) => {
         const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
         return {
+          entryId: `${order.id}:${itemIndex}`,
           orderId: order.id,
           order,
           custName: order.custMatch.CustName,
@@ -2238,66 +2235,111 @@ export default function PasteOrderPage() {
           action: it.action || '추가',
         };
       });
-    }).filter(x => x.qty > 0 && (!failedOnly || failedKeys.has(`${x.orderId}:${pasteBatchRetryKey(x)}`)));
+    }).filter(x => x.qty > 0);
     const targets = orderPasteMixedBatchTargets(eligible);
     if (!targets.length) { alert('전체 처리할 매칭 품목이 없습니다.'); return; }
     if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
     const cancelCount = targets.filter(t => pasteBatchActionType(t) === 'CANCEL').length;
     const addCount = targets.length - cancelCount;
-    if (!confirm(`${formatWeekDisplay(week)} 전체 업체 ${targets.length}건을 처리합니다.\n\n1단계 취소 ${cancelCount}건 전체 처리\n2단계 추가·분배 ${addCount}건 전체 처리\n\n진행하시겠습니까?`)) return;
+    if (!confirm(`${formatWeekDisplay(week)} 전체 업체 ${targets.length}건을 한 번에 처리합니다.\n\n1단계 취소 ${cancelCount}건 전체 처리\n2단계 추가·분배 ${addCount}건 전체 처리\n\n한 건이라도 실패하면 전체가 저장되지 않고 모두 롤백됩니다.\n진행하시겠습니까?`)) return;
 
     setBulkRunning(true);
-    if (!failedOnly) setBulkResult(null);
-    const details = [];
-    for (const t of targets) {
-      const type = pasteBatchActionType(t);
-      try {
-        const response = await fetch('/api/shipment/adjust', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-          body: JSON.stringify({
-            custKey: t.custKey, prodKey: t.prodKey, week,
-            year: selectedYearFromWeek(week), type, qty: t.qty, unit: t.unit,
-            ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
-            memo: `붙여넣기 전체 일괄${type === 'CANCEL' ? '취소' : '추가'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
-            force: false,
+    setBulkResult(null);
+    try {
+      const response = await fetch('/api/shipment/adjust-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          week,
+          year: selectedYearFromWeek(week),
+          entries: targets.map(t => {
+            const type = pasteBatchActionType(t);
+            return {
+              entryId: t.entryId,
+              orderId: t.orderId,
+              custName: t.custName,
+              custKey: t.custKey,
+              prodKey: t.prodKey,
+              prodName: t.prodName,
+              displayName: t.displayName,
+              flowerName: t.flowerName,
+              counName: t.counName,
+              inputName: t.inputName,
+              type,
+              qty: t.qty,
+              unit: t.unit,
+              ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
+              memo: `붙여넣기 전체 일괄${type === 'CANCEL' ? '취소' : '추가'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
+              force: false,
+            };
           }),
-        });
-        const result = await response.json();
-        details.push({ ...t, type, ok: !!result.success, error: result.error,
-          orderQtyBefore: result.orderQtyBefore, orderQtyAfter: result.orderQtyAfter,
-          outQtyBefore: result.outQtyBefore, outQtyAfter: result.outQtyAfter,
-          qtyBefore: result.qtyBefore, qtyAfter: result.qtyAfter });
-      } catch (error) {
-        details.push({ ...t, type, ok: false, error: error.message });
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success !== true) {
+        const rollbackError = new Error(result.error || '전체 일괄 처리에 실패했습니다.');
+        rollbackError.failedIndex = Number.isInteger(result.failedIndex)
+          ? result.failedIndex
+          : Number.isInteger(result.failedEntry?.inputIndex)
+            ? result.failedEntry.inputIndex
+            : result.failedEntry?.executionIndex;
+        rollbackError.rolledBack = result.rolledBack !== false;
+        throw rollbackError;
       }
-    }
-    const okCount = details.filter(x => x.ok).length;
-    const failCount = details.length - okCount;
-    setBulkResult({ orderId: 'ALL', okCount, failCount, details });
-    setRegisteredOrders(prev => {
-      const next = { ...prev };
+
+      const serverResults = Array.isArray(result.results) ? result.results : [];
+      const serverResultsByEntryId = new Map(serverResults.filter(row => row?.entryId).map(row => [row.entryId, row]));
+      const serverResultsByInputIndex = new Map(serverResults.filter(row => Number.isInteger(row?.inputIndex)).map(row => [row.inputIndex, row]));
+      const details = targets.map((target, index) => ({
+        ...target,
+        ...(serverResultsByEntryId.get(target.entryId) || serverResultsByInputIndex.get(index) || serverResults[index] || {}),
+        type: pasteBatchActionType(target),
+        ok: true,
+      }));
+      setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
+      // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
+      setRegisteredOrders(prev => {
+        const next = { ...prev };
+        orders.forEach(order => {
+          const orderDetails = details.filter(x => x.orderId === order.id);
+          if (!orderDetails.length) return;
+          next[order.id] = {
+            ...buildBulkRegisteredFallback(order, orderDetails, prev[order.id]),
+            changeAudit: buildPasteBatchChangeAudit(orderDetails, prev[order.id]?.changeAudit),
+          };
+        });
+        return next;
+      });
+      const shipUpdates = {};
+      details.filter(x => Number.isFinite(Number(x.outQtyAfter))).forEach(x => {
+        shipUpdates[`${x.custKey}-${x.prodKey}-${week}`] = Number(x.outQtyAfter);
+      });
+      if (Object.keys(shipUpdates).length) setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
       orders.forEach(order => {
         const orderDetails = details.filter(x => x.orderId === order.id);
-        if (!orderDetails.some(x => x.ok)) return;
-        next[order.id] = {
-          ...buildBulkRegisteredFallback(order, orderDetails, prev[order.id]),
-          changeAudit: buildPasteBatchChangeAudit(orderDetails, prev[order.id]?.changeAudit),
-        };
+        if (!orderDetails.length) return;
+        updateOrder(order.id, { resultMsg: `전체 일괄 처리 완료: 성공 ${orderDetails.length}건 / 실패 0건` });
       });
-      return next;
-    });
-    const shipUpdates = {};
-    details.filter(x => x.ok && Number.isFinite(Number(x.outQtyAfter))).forEach(x => {
-      shipUpdates[`${x.custKey}-${x.prodKey}-${week}`] = Number(x.outQtyAfter);
-    });
-    if (Object.keys(shipUpdates).length) setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
-    orders.forEach(order => {
-      const orderDetails = details.filter(x => x.orderId === order.id);
-      if (!orderDetails.length) return;
-      updateOrder(order.id, { resultMsg: `전체 일괄 처리: 성공 ${orderDetails.filter(x => x.ok).length}건 / 실패 ${orderDetails.filter(x => !x.ok).length}건` });
-    });
-    setBulkRunning(false);
-    loadOrderHistorySummary(week, orders);
+      loadOrderHistorySummary(week, orders);
+    } catch (error) {
+      const details = targets.map(target => ({
+        ...target,
+        type: pasteBatchActionType(target),
+        ok: false,
+        rolledBack: true,
+        error: error.message,
+      }));
+      setBulkResult({
+        orderId: 'ALL',
+        okCount: 0,
+        failCount: targets.length,
+        details,
+        rolledBack: true,
+        failedIndex: error.failedIndex,
+        error: error.message,
+      });
+    } finally {
+      setBulkRunning(false);
+    }
   };
 
   // 등록된 주문을 기준으로 분배만 다시 저장한다.
@@ -3411,13 +3453,11 @@ export default function PasteOrderPage() {
         {orders.length > 0 && (
           <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            {bulkResult?.orderId === 'ALL' && <span style={{ fontSize: 12, fontWeight: 700, color: bulkResult.failCount ? '#e65100' : '#2e7d32' }}>성공 {bulkResult.okCount}건 · 실패 {bulkResult.failCount}건</span>}
-            {bulkResult?.orderId === 'ALL' && bulkResult.failCount > 0 && (
-              <button type="button" onClick={() => handleAllMixedDistribute({ failedOnly: true })} disabled={bulkRunning}
-                style={{ padding: '7px 12px', border: 0, borderRadius: 6, background: '#e65100', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
-                실패 품목만 재시도
-              </button>
-            )}
+            {bulkResult?.orderId === 'ALL' && <span style={{ fontSize: 12, fontWeight: 700, color: bulkResult.rolledBack ? '#c62828' : '#2e7d32' }}>
+              {bulkResult.rolledBack
+                ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
+                : `성공 ${bulkResult.okCount}건 · 실패 0건`}
+            </span>}
             <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning || globalActionEntries.length === 0}
               style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: bulkRunning ? '#90a4ae' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : 'pointer' }}>
               {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
@@ -3466,7 +3506,11 @@ export default function PasteOrderPage() {
           </div>
           {bulkResult?.orderId === 'ALL' && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: '#1b5e20', marginBottom: 6 }}>📋 전체 업체 DB 처리 결과</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: bulkResult.rolledBack ? '#c62828' : '#1b5e20', marginBottom: 6 }}>
+                {bulkResult.rolledBack
+                  ? `❌ 전체 업체 DB 처리 실패 — 성공 0건, ${bulkResult.failCount}건 모두 롤백${Number.isInteger(bulkResult.failedIndex) ? ` (실패 위치 ${bulkResult.failedIndex + 1}번)` : ''}`
+                  : '📋 전체 업체 DB 처리 결과'}
+              </div>
               <div className="paste-global-action-board" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
                 {[
                   { type: 'CANCEL', title: '왼쪽 · 취소 업체 저장내역', color: '#c62828' },
@@ -3478,7 +3522,7 @@ export default function PasteOrderPage() {
                     {rows.map((row, idx) => <div key={`${row.orderId}-${row.prodKey}-${idx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px,.7fr) minmax(130px,1.3fr) 80px 95px', gap: 6, padding: '5px 8px', borderTop: '1px solid #eee', fontSize: 11, alignItems: 'center' }}>
                       <b style={{ color: '#1a237e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.custName}</b>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.displayName || row.prodName}</span>
-                      <span style={{ color: row.ok ? '#2e7d32' : '#c62828', fontWeight: 800 }}>{row.ok ? '처리완료' : '실패'}</span>
+                      <span style={{ color: row.ok ? '#2e7d32' : '#c62828', fontWeight: 800 }}>{row.ok ? '처리완료' : '전체 롤백'}</span>
                       <span>{row.ok ? `주문 ${row.orderQtyBefore ?? '-'}→${row.orderQtyAfter ?? '-'} / 분배 ${row.outQtyBefore ?? '-'}→${row.outQtyAfter ?? '-'}` : row.error}</span>
                     </div>)}
                     {rows.length === 0 && <div style={{ padding: 14, color: '#999', textAlign: 'center', fontSize: 11 }}>처리 내역 없음</div>}
