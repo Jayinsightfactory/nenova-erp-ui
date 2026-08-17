@@ -8,6 +8,7 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
+import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -1273,6 +1274,14 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'support' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button type="button" className="btn" onClick={() => {
+              const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
+              const url = buildEstimateFixStatusUrl(selectedWeek);
+              if (!url) { setError('확정 현황을 확인할 연도·차수를 먼저 선택하세요.'); return; }
+              window.open(url, 'estimate-fix-status', 'width=1500,height=940,scrollbars=yes,resizable=yes');
+            }} disabled={!year || !week} title="견적서관리의 확정현황 화면을 같은 디자인과 기능으로 엽니다.">
+              🔎 확정 현황 확인
+            </button>
           </>}
           {activeTab === 'carryover' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>

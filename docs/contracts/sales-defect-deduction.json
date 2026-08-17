@@ -22,6 +22,7 @@
     "lib/orderImportMatch.js",
     "lib/orderImportUnits.js",
     "lib/orderImportCustomerMatch.js",
+    "lib/estimateFixStatusLink.js",
     "lib/customerMappings.js",
     "docs/migrations/2026-07-22_web_sales_defect_deduction.sql",
     "docs/exe-golden/FormEstimateView.md",
@@ -43,6 +44,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {"name":"OPEN_SUPPORT_FIX_STATUS", "orderDetail":"preserve", "shipmentDetail":"preserve", "stockMaster":"preserve", "estimate":"preserve"},
     {
       "name": "WEB_DRAFT_SAVE",
       "orderDetail": "preserve",
