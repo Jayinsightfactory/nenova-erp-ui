@@ -557,7 +557,10 @@ export default function OrderImportPage() {
         const year = new Date().getFullYear();
         setWeek(`${year}-${meta.majorWeek}-01`);
       }
-      if (meta.customerName) {
+      if (d.matchedCustomer?.CustKey) {
+        setCust({ CustKey:d.matchedCustomer.CustKey, CustName:d.matchedCustomer.CustName });
+        setResultMsg(`✅ 업체 자동매칭: ${d.matchedCustomer.CustName}${d.matchedCustomer.fromMapping ? ' (저장 매핑)' : ''}`);
+      } else if (meta.customerName) {
         try {
           const found = await apiGet('/api/customers/search', { q: meta.customerName });
           const exact = (found.customers || []).find(c => String(c.CustName).replace(/\s/g, '') === String(meta.customerName).replace(/\s/g, ''));
@@ -796,9 +799,41 @@ export default function OrderImportPage() {
             </button>
           </div>
           <div style={st.sub}>
-            기본 거래처 <b>라움</b> · 발주표(카톡 이미지·엑셀) 업로드 후 품목·단위 자동매칭·주문등록.
-            업로드 후 <b>수량·단위·품목 매칭</b>은 모두 수정 가능 (자동매칭 품목도 「품목 변경」).
+            발주표(카톡 이미지·엑셀)를 먼저 업로드하면 제목의 <b>업체·차수</b>와 품목·단위를 자동매칭합니다.
+            업로드 후 <b>업체·차수·수량·단위·품목</b>은 모두 수정할 수 있습니다.
           </div>
+
+          <div
+            style={{ ...st.drop, ...(dragOver ? st.dropActive : {}) }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileRef.current?.click()}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => uploadFile(e.target.files?.[0])}
+            />
+            {loading ? (
+              <div style={{ color: '#1565c0', fontWeight: 600 }}>파싱·매칭 중…</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>1. 파일을 드래그하거나 클릭하여 업로드</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>xlsx · xls · csv · png · jpg · webp</div>
+                {fileName && (
+                  <div style={{ marginTop: 10, fontSize: 12, color: '#334155' }}>
+                    최근: {fileName} ({sourceType === 'image' ? '이미지 OCR' : '엑셀'})
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {items.length > 0 && <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1a237e', marginBottom: 10 }}>2. 자동 매칭 결과 확인</div>
 
           <div style={{ marginBottom: 12 }}>
             <label style={{ ...st.label, display: 'block', marginBottom: 6 }}>
@@ -909,35 +944,7 @@ export default function OrderImportPage() {
             <label style={{ fontSize: 12 }}>2차 <input type="date" style={st.input} value={defaultShipDates[2]} onChange={e=>setDefaultShipDates(v=>({...v,2:e.target.value}))}/></label>
             <span style={{fontSize:11,color:'#64748b'}}>매칭 수량은 선택 세부차수의 기본출고일에 전량 배정됩니다.</span>
           </div>
-
-          <div
-            style={{ ...st.drop, ...(dragOver ? st.dropActive : {}) }}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            onClick={() => fileRef.current?.click()}
-          >
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls,.csv,image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => uploadFile(e.target.files?.[0])}
-            />
-            {loading ? (
-              <div style={{ color: '#1565c0', fontWeight: 600 }}>파싱·매칭 중…</div>
-            ) : (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>파일을 드래그하거나 클릭하여 업로드</div>
-                <div style={{ fontSize: 12, color: '#64748b' }}>xlsx · xls · csv · png · jpg · webp</div>
-                {fileName && (
-                  <div style={{ marginTop: 10, fontSize: 12, color: '#334155' }}>
-                    최근: {fileName} ({sourceType === 'image' ? '이미지 OCR' : '엑셀'})
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          </div>}
 
           {(summary || items.length > 0) && (
             <div style={st.kpi}>
