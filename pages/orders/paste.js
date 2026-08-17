@@ -1566,7 +1566,14 @@ export default function PasteOrderPage() {
             const od = await apiGet('/api/orders', { custName: o.custMatch.CustName, ...orderQueryParams(effectiveWeek) });
             if (od.success && od.orders?.length > 0) {
               const matched = pickOrderForWeek(od.orders, o.custMatch.CustName, effectiveWeek);
-              if (matched) setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
+              if (matched) {
+                setRegisteredOrders(prev => ({ ...prev, [o.id]: matched }));
+                await fetchShipmentQtys(
+                  matched.custKey,
+                  effectiveWeek,
+                  (matched.items || []).map(item => item.prodKey),
+                );
+              }
             }
           } catch { /* 조회 실패 무시 */ }
         });
@@ -1887,10 +1894,16 @@ export default function PasteOrderPage() {
   const fetchShipmentQtys = async (custKey, week, prodKeys) => {
     if (!custKey || !week || !prodKeys?.length) return;
     try {
-      const r = await fetch(`/api/shipment/distribute?type=custItems&week=${encodeURIComponent(week)}&custKey=${custKey}`);
+      const orderYear = selectedYearFromWeek(week);
+      const r = await fetch(`/api/shipment/distribute?type=custItems&week=${encodeURIComponent(week)}&year=${encodeURIComponent(orderYear)}&custKey=${custKey}`);
       const d = await r.json();
       if (d.success && d.items) {
         const updates = {};
+        // 요청한 주문 품목을 먼저 0으로 초기화한 뒤 실제 ShipmentDetail 값을 덮는다.
+        // 응답에 없는 품목도 이전 업체/차수의 화면 캐시가 남지 않게 한다.
+        [...new Set(prodKeys.map(Number).filter(Boolean))].forEach(prodKey => {
+          updates[`${custKey}-${prodKey}-${week}`] = 0;
+        });
         d.items.forEach(it => {
           updates[`${custKey}-${it.ProdKey}-${week}`] = it.출고수량 || 0;
         });
@@ -2314,6 +2327,16 @@ export default function PasteOrderPage() {
         shipUpdates[`${x.custKey}-${x.prodKey}-${week}`] = Number(x.outQtyAfter);
       });
       if (Object.keys(shipUpdates).length) setShipmentQtys(prev => ({ ...prev, ...shipUpdates }));
+      // 일괄 대상이 아니었던 기존 품목(예: 노비아)도 실제 DB 분배값으로 다시 읽는다.
+      await Promise.all(orders.filter(order => order.custMatch).map(order => {
+        const existingItems = registeredOrders[order.id]?.items || [];
+        const touchedItems = details.filter(detail => detail.orderId === order.id);
+        const prodKeys = [...new Set([
+          ...existingItems.map(item => Number(item.prodKey)),
+          ...touchedItems.map(item => Number(item.prodKey)),
+        ].filter(Boolean))];
+        return fetchShipmentQtys(order.custMatch.CustKey, week, prodKeys);
+      }));
       orders.forEach(order => {
         const orderDetails = details.filter(x => x.orderId === order.id);
         if (!orderDetails.length) return;
