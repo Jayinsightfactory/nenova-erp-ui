@@ -95,6 +95,13 @@ async function main() {
   check('API가 E/F의 선택된 원천을 화면에 전달',
     /priceEvidenceSources: resolvedEnd\?\.sources/.test(apiSource)
     && /priceEvidenceSources: resolvedBegin\?\.sources/.test(apiSource));
+  check('단위 혼재·환산 누락 시 카테고리 평균원가를 적용하지 않음',
+    /!endConversionMissing && !endUnitMismatch/.test(apiSource)
+    && /!previousConversionMissing && !previousUnitMismatch/.test(apiSource));
+  check('단위 환산 누락 품목번호와 단위를 감사 영역에 전달',
+    /conversionIssues: stockEnd\.conversionIssues/.test(apiSource)
+    && auditSource.includes('STOCK_END_UNIT_CONVERSION_MISSING')
+    && auditSource.includes('STOCK_BEGIN_UNIT_CONVERSION_MISSING'));
   check('감사가 E/F 단가 증거 누락을 별도 오류로 차단',
     auditSource.includes('STOCK_BEGIN_PRICE_EVIDENCE_MISSING')
     && auditSource.includes('STOCK_END_PRICE_EVIDENCE_MISSING'));

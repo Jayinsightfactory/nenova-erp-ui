@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectProfitReportWorkbook, inspectFormulaSpecification, historicalCategoryRule, registryCoverage } from '../../lib/profitReportEvidence/workbookEvidence.mjs';
-import { compareRegeneratedWorkbook, regenerateFromPersistedEvidence } from '../../lib/profitReportEvidence/regeneration.mjs';
+import { compareIndependentFormulaRecalculation } from '../../lib/profitReportEvidence/regeneration.mjs';
 
 const helperDir = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(helperDir, '..', '..');
@@ -24,6 +24,30 @@ function worstStatus(statuses) {
 
 function check(id, status, summary, evidence = null) {
   return { id, status, summary, evidence };
+}
+
+export function classifyNewProductEvidence(product = {}) {
+  const hasConversion = Boolean(
+    product.conversion
+    || product.conversionEvidence
+    || (product.outUnit && product.estimateUnit && product.outUnit === product.estimateUnit)
+    || (Number(product.bunchOf1Box) > 0 && Number(product.steamOf1Box) > 0),
+  );
+  const required = [
+    ['ProdKey', Number(product.prodKey ?? product.ProdKey) > 0],
+    ['국가', Boolean(String(product.country ?? product.countryName ?? '').trim())],
+    ['품종', Boolean(String(product.flower ?? product.flowerName ?? '').trim())],
+    ['단위', Boolean(String(product.unit ?? product.estimateUnit ?? product.estUnit ?? '').trim())],
+    ['환산', hasConversion],
+    ['통화', Boolean(String(product.currency ?? '').trim())],
+    ['단가 근거', Boolean(product.priceEvidence || product.priceEvidenceStatus === 'VERIFIED' || product.sourceCell)],
+  ];
+  const missing = required.filter(([, present]) => !present).map(([name]) => name);
+  return {
+    status: missing.length ? 'INPUT_REQUIRED' : 'AUTO_COMPLETE',
+    missing,
+    policy: 'ProdKey+국가+품종+단위+환산+통화+단가근거가 모두 확인된 신규 품목만 AUTO_COMPLETE',
+  };
 }
 
 function inputIntegrity(filePath) {
@@ -143,6 +167,7 @@ function validateAllowedPath(workbookPath) {
 export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTPUT_DIRECTORY, workbookPath = null } = {}) {
   const registryIndex = readJson('data/profit-report-evidence/registry/v1/index.json');
   const manualManifest = readJson('data/profit-report-evidence/manual-input-manifest.v1.json');
+  const inventoryCatalog = readJson('data/profit-report-inventory-catalog/v1/index.json');
   const formulaSpecification = inspectFormulaSpecification(FORMULA_SPEC_PATH);
   const formulaChecks = [
     check('formula-spec-sha256', formulaSpecification.sha256 === registryIndex.formulaSpecification.sha256 ? 'FORMULA_PARITY' : 'FAIL', '차수 없는 계산식 원본의 SHA-256이 registry와 일치해야 합니다.', { expected: registryIndex.formulaSpecification.sha256, actual: formulaSpecification.sha256 }),
@@ -162,9 +187,7 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
     const source = await inspectProfitReportWorkbook(sourcePath);
     sourceEvidence.push({ week: expected.week, ...source });
     const coverage = registryCoverage(source);
-    const outputPath = path.join(outputDirectory, `week-${expected.week}.xlsx`);
-    regenerateFromPersistedEvidence(sourcePath, outputPath);
-    const comparison = await compareRegeneratedWorkbook(source, outputPath);
+    const formulaRecalculation = compareIndependentFormulaRecalculation(source);
     const after = inputIntegrity(sourcePath);
     const categoryRule = historicalCategoryRule(expected.week);
     const requirements = requiredEvidence(expected.week, manualManifest);
@@ -176,7 +199,8 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
       check('sheet-contract', source.sheetNames.length === expected.sheetCount && source.sheetNames.filter(name => name !== '주차별 매출이익 보고서' && name !== 'Sheet1').length === 10, '원본 본표와 10개 보조시트(24차 임시 Sheet1 별도)를 보존해야 합니다.', { sheetNames: source.sheetNames }),
       check('historical-row-rule', source.report.categories[15] === categoryRule.lastRowCategory, `22~27차 공제/28차 국내 역사 행 규칙을 지켜야 합니다.`, { expected: categoryRule, actual: source.report.categories[15] }),
       check('known-error-scope', source.sheets.reduce((sum, sheet) => sum + sheet.knownErrorCount, 0) === 8, '알려진 오류는 콜롬비아 1·2차 N21:N24의 8개여야 합니다.', { knownErrorCount: source.sheets.reduce((sum, sheet) => sum + sheet.knownErrorCount, 0) }),
-      ...comparison.checks,
+      ...formulaRecalculation.checks,
+      check('db-source-lineage', 'UNVERIFIED', '엑셀 산식 검증과 DB 원천 연결 검증은 분리합니다. 운영 DB를 대조하지 않았으므로 원장 자동연결 완료로 판정하지 않습니다.', { orderYear: 2026, week: expected.week }),
       check('external-confirmation-evidence', 'INPUT_REQUIRED', `외부 확정값 ${manualManifest.fields.length}개 field type의 provenance sidecar가 필요합니다. 자동가능 최종값의 직접입력은 허용하지 않습니다.`, requirements.missingInputs),
       ...requirements.warnings.map((warning, index) => check(`evidence-warning-${index + 1}`, warning.status, warning.reason, warning)),
     ];
@@ -185,7 +209,9 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
       week: expected.week,
       status: worstStatus(booleanizedChecks.map(item => item.status)),
       source: conciseWorkbook(source),
-      output: { path: path.resolve(outputPath), sha256: comparison.actual.sha256, bytes: comparison.actual.bytes },
+      output: null,
+      formulaRecalculation: formulaRecalculation.formula,
+      sourceLineage: { status: 'UNVERIFIED', reason: '운영 DB·EXE 원장 read-only 대조 미수행' },
       inputUnchanged: before.bytes === after.bytes && before.mtimeMs === after.mtimeMs,
       mappingRate: coverage.rate,
       formulaFingerprintRate: source.formulaCount ? source.formulaFingerprintCount / source.formulaCount : 0,
@@ -216,6 +242,12 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
     manualFieldIds: manualManifest.fields.map(field => field.id),
     mappedCells: weeks.reduce((sum, week) => sum + week.source.persistedCellCount, 0),
     formulaCells: weeks.reduce((sum, week) => sum + week.source.formulaCount, 0),
+    newProductPolicy: {
+      status: 'INPUT_REQUIRED',
+      reason: '현재 catalog의 신규 품목 행에 국가·품종·환산 근거·통화가 모두 구조화되어 있지 않아 자동완성으로 승격하지 않음',
+      criteria: classifyNewProductEvidence({}).policy,
+      catalogEntries: Array.isArray(inventoryCatalog.entries) ? inventoryCatalog.entries.length : 0,
+    },
   };
   return {
     schemaVersion: 2,
@@ -224,6 +256,7 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
     scope: { orderYear: 2026, weeks: weeks.map(week => week.week), sourceDirectory: ALLOWED_INPUT_DIRECTORY, outputDirectory: path.resolve(outputDirectory) },
     tolerances: { amountWon: 1, ratioPercentagePoint: 0.01 },
     summary,
+    sourceLinkage: { status: 'UNVERIFIED', reason: '운영 DB·EXE 원장 read-only 대조 미수행' },
     manualInputManifest: { path: path.join(REPO_ROOT, 'data', 'profit-report-evidence', 'manual-input-manifest.v1.json'), fields: manualManifest.fields, forbiddenDirectFields: manualManifest.forbiddenDirectFields },
     formulaSpecification: { path: FORMULA_SPEC_PATH, sha256: formulaSpecification.sha256, productCount: formulaSpecification.productCount, checks: formulaChecks },
     continuity,
@@ -233,7 +266,7 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
       { id: 'migration.web-customs-rate-history-applied', status: 'UNVERIFIED', reason: '운영 DB의 WebCustomsRateHistory 스키마 적용 여부' },
       { id: 'shipment.detail-fix-row-impact', status: 'UNVERIFIED', reason: 'ShipmentDetail.isFix=1 적용 전후 운영 매출 행수·금액 영향' },
       { id: 'shipment.cross-year-orderweek-isolation', status: 'UNVERIFIED', reason: '동일 OrderWeek의 교차연도 운영 출고 격리 결과' },
-      { id: 'inventory.confirmed-product-stock-coverage', status: 'UNVERIFIED', reason: '확정 ProductStock의 exact-week 단가 evidence 존재율' },
+      { id: 'inventory.product-stock-snapshot-coverage', status: 'UNVERIFIED', reason: 'FormStockView와 같은 마지막 ProductStock 스냅샷의 exact-week 단가·단위 환산 evidence 존재율' },
       { id: 'inventory.price-evidence-metadata-completeness', status: 'UNVERIFIED', reason: '단가 evidence source/effective/confirmed metadata 완전성' },
       { id: 'inventory.ef-item-value-operational-reconciliation', status: 'UNVERIFIED', reason: 'E/F 품목별 평가액과 운영 workbook 대사' },
       { id: 'historic.current-ledger-reconciliation', status: 'MUTABLE_LEDGER_DRIFT', reason: '과거 보고서 확정 뒤 수정된 현재 Shipment/Warehouse 원장은 당시 Excel과 분리해 표시하고 확정 snapshot으로만 재현해야 함' },
@@ -244,7 +277,7 @@ export async function runProfitReportAcceptance({ outputDirectory = DEFAULT_OUTP
 export function acceptanceMarkdown(result) {
   const percent = value => `${(Number(value || 0) * 100).toFixed(2)}%`;
   return [
-    '# 22~28차 주차별 매출이익 보고서 evidence-RAG 자동 재생성',
+    '# 22~28차 주차별 매출이익 보고서 독립 산식·원천 연결 검증',
     '',
     `- 전체 상태: **${result.overallStatus}**`,
     `- 검사: PASS ${result.summary.pass} / INPUT_REQUIRED ${result.summary.inputRequired} / UNVERIFIED ${result.summary.unverified} / FAIL ${result.summary.fail}`,
@@ -267,8 +300,8 @@ export function acceptanceMarkdown(result) {
     '',
     '## 판정 해석',
     '',
-    '- 7개 원본을 변경하지 않고 evidence baseline replay로 각각 재생성했으며, 10개 보조시트·본표 B:U·23행 합계·B25 비고를 cell 단위로 비교했습니다.',
-    '- 재생성 parity는 PASS지만 외부 확정값 sidecar와 재고 스냅샷 시점 단가 근거가 없어 운영 자동생성 최종 상태는 INPUT_REQUIRED입니다.',
+    '- 원본 workbook 복사 재생성은 폐기했습니다. 본표 수식 열을 독립 계산기로 다시 계산하고 원본 수식 캐시값과 비교합니다.',
+    '- 수식 산식 검증과 DB 원천 연결 검증은 별도 상태입니다. 운영 DB 대조가 없으면 source lineage는 UNVERIFIED이며 AUTO_COMPLETE로 승격하지 않습니다.',
     '- 남은 운영 DB 검증은 아래 read-only query 7개입니다. 이 실행에서는 승인된 운영 환경이 없어 DB·ERP 등록·배포를 수행하지 않았습니다.',
     '',
     '## 운영 read-only 미검증 7건',

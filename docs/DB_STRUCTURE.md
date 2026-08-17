@@ -135,14 +135,14 @@
 
 **ProductStock** — `StockMaster` 스냅샷별 품목 재고
 - `StockKey`, `ProdKey`, `Stock` — 전산 재고현황의 해당 스냅샷 잔량
-- `ProductStock.Stock`은 `usp_StockCalculation`이 만든 차수별 스냅샷이다. 일반 재고 조회에서 `StockMaster.isFix`는 ProductStock 존재 여부와 별도인 마감 표시·진단값이지만, **주차별 매출이익보고서 22~28차 E/F 계약은 예외적으로 `isFix=1`과 ProductStock 존재를 모두 필수 조건으로 사용한다.**
+- `ProductStock.Stock`은 `usp_StockCalculation`이 만든 차수별 스냅샷이다. `FormStockView.GetData`는 `StockMaster.isFix`를 조회·필터·표시하지 않는다. 주차별 매출이익보고서 E/F도 `ProductStock` 행이 존재하는 최신 숫자 세부차수 스냅샷을 사용하며 `StockMaster.isFix`를 재고 수량 선택 조건으로 추가하지 않는다.
 - 현재고/부족 조회에서 별도 `CurrentStock` 컬럼으로 가정하지 않는다. 실제 환경의 컬럼명을 확인한 뒤 `Stock` 또는 `Product.Stock`을 사용한다.
 
 **StockMaster / StockHistory** — 재고 이동 이력
 - `StockMasterKey/StockKey`, `OrderYear`, `OrderWeek`, `OrderYearWeek`, `isFix`
-- `isFix=1`: 재고 마감 표시. 일반 재고 화면에서는 실제 스냅샷 존재 여부와 별도 축이다. 주차별 매출이익보고서 22~28차에서는 확정 E/F 원천의 필수 조건이며 ProductStock 존재 조건과 함께 적용한다.
+- `isFix=1`: 재고 마감 표시. 일반 재고 화면과 주차별 매출이익보고서 E/F 수량 선택에서는 실제 `ProductStock` 스냅샷 존재 여부와 별도 축이며 필터로 사용하지 않는다.
 - `isFix=2`: 웹 시작재고 입력용 마커(마이그레이션 후 tinyint 환경)
-- 주차별 매출이익보고서 22~28차 세부차수 선택은 `OrderYear + 대차수 prefix + isFix=1 + ProductStock 존재` 후 세부차수 숫자 내림차순, 같은 차수는 ProductStock 행 수와 `StockKey DESC`로 결정한다. 전년도 동일 차수·미확정·입출고 추정 fallback은 금지한다.
+- 주차별 매출이익보고서 세부차수 선택은 `OrderYear + 대차수 prefix + ProductStock 존재` 후 세부차수 숫자 내림차순, 같은 차수는 ProductStock 행 수와 `StockKey DESC`로 결정한다. `StockMaster.isFix` 필터, 전년도 동일 차수, 입출고 단순 추정 fallback은 금지한다.
 
 **WarehouseMaster** — 입고(AWB/BILL) 헤더
 - PK: `WarehouseKey`

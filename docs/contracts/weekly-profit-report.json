@@ -51,6 +51,7 @@
     "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
     "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
     "docs/migrations/2026-08-13_web_customs_rate_history.sql",
+    "docs/exe-golden/FormStockView.md",
     "data/profit-report-evidence/registry/v1/index.json",
     "data/profit-report-evidence/manual-input-manifest.v1.json",
     "data/profit-report-inventory-catalog/v1/index.json",
@@ -69,7 +70,7 @@
       "name": "REPORT_MANUAL_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없다. 원본 workbook 수식 카테고리는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가하고, 그 밖은 정확한 차수의 VERIFIED 품목단가를 사용한다. 2026년 22~28차는 정확한 원본 F 셀(SHA+sheet+cell)을 마지막 역사 증거로 사용할 수 있다. StockMaster.isFix는 FormStockView의 재고 마감 조건이 아니므로 필터로 쓰지 않는다."
+      "sideEffect": "H/R/S 외부 확정값만 SourceRef+EffectiveAt 증거와 함께 WebProfitReport에 저장한다. E/F와 최종 계산값(C~G, I~Q, T/U)은 직접입력할 수 없다. 원본 workbook 수식 카테고리는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가하되, 카테고리 안의 EstUnit이 혼재하거나 ProductStock.OutUnit→Product.EstUnit 환산계수가 없으면 평균원가를 적용하지 않고 INPUT_REQUIRED로 중단한다. 그 밖은 정확한 차수의 VERIFIED 품목단가를 사용한다. 2026년 22~28차는 정확한 원본 F 셀(SHA+sheet+cell)을 마지막 역사 증거로 사용할 수 있다. StockMaster.isFix는 FormStockView의 재고 마감 조건이 아니므로 필터로 쓰지 않는다. 미등록 국가·카테고리의 통화를 USD로 추정하지 않는다."
     },
     {
       "name": "PRICE_EVIDENCE_SAVE",
@@ -86,7 +87,7 @@
       "productStock": "preserve",
       "stockHistory": "preserve",
       "erpLedgerWrite": "forbidden",
-      "sideEffect": "read-only; 2026년 28차 원본 재고잔량 시트에서 정확한 ProdKey·EstUnit·원본 SHA·셀 주소가 승인된 품목만 읽는다. 우선순위는 WebStockPriceEvidence > 사용자 확정 WebArrivalCostLine > workbook catalog다. 원화 표시단가는 VAT 포함값을 /1.1하고, 호주는 원본 외화단가×원본 과세환율로 평가한다. fuzzy 품명 매칭, 카네이션 N30 110,000원 이상값, 다른 연도 또는 28차 이전 역전파, GET 중 DB 복사는 금지한다."
+      "sideEffect": "read-only; 2026년 28차 원본 재고잔량 시트에서 정확한 ProdKey·EstUnit·원본 SHA·셀 주소가 승인된 품목만 읽는다. 우선순위는 WebStockPriceEvidence > 사용자 확정 WebArrivalCostLine > workbook catalog다. 원화 표시단가는 VAT 포함값을 /1.1하고, 호주는 원본 외화단가×원본 과세환율로 평가한다. fuzzy 품명 매칭, 카네이션 N30 110,000원 이상값, 다른 연도·28차 이전·29차 이후로의 전파, GET 중 DB 복사는 금지한다."
     },
     {
       "name": "WAREHOUSE_WEIGHT_AUTO_MERGE",
@@ -232,6 +233,7 @@
     ,"__tests__/profitReportCountryResolver.test.js"
     ,"__tests__/profitReportWeek28Customs.test.js"
     ,"__tests__/profitReportInventoryWorkbookCatalog.test.js"
+    ,"__tests__/profitReportIndependentRecalculation.test.js"
   ],
   "historicalCustomsPolicy": {
     "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
@@ -273,7 +275,7 @@
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/FormProfitReport.md",
-    "source": "nenova.exe shared ViewShipment/ViewWarehouse/ViewOrder contract; web-only report has no separate EXE form",
+    "source": "nenova.exe shared ViewShipment/ViewWarehouse/ViewOrder contract; FormStockView 재고 스냅샷 근거는 docs/exe-golden/FormStockView.md; web-only report has no separate EXE form",
     "methods": [
       "ViewShipment fixed-detail selection",
       "ViewWarehouse warehouse-weight selection",
