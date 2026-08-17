@@ -619,6 +619,37 @@ async function loadLowerUnfixedWeeks(orderYear, orderWeek, countryFlowersFilter)
   return result.recordset || [];
 }
 
+async function loadLowerUnfixedDetails(orderYear, orderWeek) {
+  const currentKey = String(orderYear) + String(orderWeek || '').replace('-', '');
+  const label = countryFlowerLabelSql('p');
+  const result = await query(
+    `WITH targetWeeks AS (
+       SELECT TOP 20 CAST(sm.OrderYear AS NVARCHAR(4)) AS OrderYear, sm.OrderWeek
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+        WHERE sm.isDeleted=0 AND ISNULL(sd.OutQuantity,0)>0 AND ISNULL(sd.isFix,0)=0
+          AND CAST(sm.OrderYear AS NVARCHAR(4))=@orderYear
+          AND CAST(sm.OrderYear AS NVARCHAR(4))+REPLACE(sm.OrderWeek,'-','') < @currentKey
+        GROUP BY CAST(sm.OrderYear AS NVARCHAR(4)), sm.OrderWeek
+        ORDER BY CAST(sm.OrderYear AS NVARCHAR(4)), sm.OrderWeek
+     )
+     SELECT tw.OrderYear,tw.OrderWeek,${label} AS category,
+            p.ProdKey,p.ProdName,p.FlowerName,p.CounName,
+            COUNT(sd.SdetailKey) AS detailCount,SUM(ISNULL(sd.OutQuantity,0)) AS outQty
+       FROM targetWeeks tw
+       JOIN ShipmentMaster sm ON CAST(sm.OrderYear AS NVARCHAR(4))=tw.OrderYear AND sm.OrderWeek=tw.OrderWeek AND sm.isDeleted=0
+       JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)>0 AND ISNULL(sd.isFix,0)=0
+       JOIN Product p ON p.ProdKey=sd.ProdKey AND p.isDeleted=0
+      GROUP BY tw.OrderYear,tw.OrderWeek,${label},p.ProdKey,p.ProdName,p.FlowerName,p.CounName
+      ORDER BY tw.OrderYear,tw.OrderWeek,${label},p.ProdName`,
+    {
+      currentKey: { type: sql.NVarChar, value: currentKey },
+      orderYear: { type: sql.NVarChar, value: orderYear },
+    }
+  );
+  return result.recordset || [];
+}
+
 // ── 확정 — 전산 SP usp_ShipmentFix 를 CountryFlower 단위 호출
 //    (전산프로그램과 100% 동일 동작: Product.Stock 차감 + 잔량 마이너스 검증 + 출고일 검증)
 async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
@@ -640,12 +671,14 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
 
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
   if (lowerUnfixedWeeks.length > 0) {
+    const lowerDetails = await loadLowerUnfixedDetails(orderYear, orderWeek);
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
     await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels} (all-categories)`, true);
     return res.status(409).json({
       success: false,
       code: 'LOWER_UNFIXED_EXISTS',
       lowerWeeks: lowerUnfixedWeeks,
+      lowerDetails,
       error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (전 카테고리 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
     });
   }

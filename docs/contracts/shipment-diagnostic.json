@@ -27,6 +27,7 @@
     "pages/api/shipment/fix-orderyearweek.js",
     "pages/api/shipment/order-manager-fix.js",
     "lib/shipmentFixReconcile.js",
+    "lib/shipmentFixGuards.js",
     "lib/orderUtils.js",
     "lib/fixCycleClient.js",
     "pages/stock.js",

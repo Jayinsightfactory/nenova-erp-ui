@@ -4,6 +4,7 @@
 async function main() {
   const { spawnSync } = await import('node:child_process');
   const { getFixCycleWeeksForEditedItems } = await import('../lib/estimateFixCycle.js');
+  const { formatFixApiErrorMessage } = await import('../lib/shipmentFixGuards.js');
   const fs = await import('node:fs');
 
   let pass = 0;
@@ -41,6 +42,17 @@ async function main() {
   assert('클라이언트 skipStockCalc로 재고 재계산을 우회하지 못함', !fixApi.includes('const skipStockCalc = req.body?.skipStockCalc === true'));
   assert('부족분 자동보정은 Product.Stock도 EXE 순서대로 갱신', fixApi.includes("UPDATE Product SET Stock=ROUND(@after, 2) WHERE ProdKey=@pk"));
   assert('대량 재고 재계산도 보정 트랜잭션 queryFn을 사용', fixApi.includes('{ retries: 4, baseDelay: 300, queryFn: logContext.queryFn }'));
+  const negativeMessage = formatFixApiErrorMessage({
+    code: 'NEGATIVE_STOCK', error: '음수 품목 1건',
+    negative: [{ CounName:'콜롬비아', FlowerName:'카네이션', ProdName:'CARNATION Doncel', shortage:2, prevStock:0, inQty:10, outQty:12, remain:-2 }],
+  }, '33-01');
+  assert('음수 확정오류에 카테고리·품목·부족수량 전체 표시', negativeMessage.includes('[콜롬비아 · 카네이션] CARNATION Doncel — 부족 2'));
+  const lowerMessage = formatFixApiErrorMessage({
+    code: 'LOWER_UNFIXED_EXISTS', lowerWeeks:[{OrderYear:'2026',OrderWeek:'33-01'}],
+    lowerDetails:[{OrderYear:'2026',OrderWeek:'33-01',category:'콜롬비아카네이션',ProdName:'CARNATION Doncel',outQty:5,detailCount:2}],
+  }, '33-02');
+  assert('이전차수 미확정오류에 카테고리·품목·출고수량·행수 표시', lowerMessage.includes('[콜롬비아카네이션] CARNATION Doncel — 출고 5 · 미확정 2행'));
+  assert('확정 결과 UI가 줄바꿈 세부정보를 보존', page.includes("whiteSpace: 'pre-wrap'"));
 
   const yearContract = spawnSync(process.execPath, ['__tests__/estimateFixStatusYearContract.test.js'], { stdio: 'inherit' });
   assert('확정현황 선택연도/교차연도 계약', yearContract.status === 0);
