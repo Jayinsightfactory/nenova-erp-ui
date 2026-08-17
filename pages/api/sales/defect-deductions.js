@@ -72,7 +72,9 @@ async function handler(req, res) {
           : managerFilterForUser(req.query.manager || '', req.user),
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
-        includeCarryover: String(req.query.view || '') === 'support', carryoverOnly,
+        includeCarryover: String(req.query.view || '') === 'support',
+        importConfirmedOnly: String(req.query.view || '') === 'support',
+        carryoverOnly,
       });
       return res.status(200).json({ success: true, year, week, ...data });
     }

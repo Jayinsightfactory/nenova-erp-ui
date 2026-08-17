@@ -992,7 +992,13 @@ export default function SalesDefectDeductionsPage() {
     try {
       const data = await apiPost('/api/sales/defect-deductions', { action: 'incoming-confirm-cancel', year, week, rows: [{ deductionKey: key }] });
       const saved = data.rows?.[0];
-      if (saved) setIncomingRows((current) => current.map((item) => Number(item.deductionKey) === key ? saved : item));
+      if (saved) {
+        setIncomingRows((current) => current.map((item) => Number(item.deductionKey) === key ? saved : item));
+        setSupportRows((current) => current.filter((item) => Number(item.deductionKey) !== key));
+        setSupportSelected((current) => {
+          const next = new Set(current); next.delete(key); return next;
+        });
+      }
       setMessage(`${row.customerName || '해당 행'} 수입부 확정을 취소했습니다. 농장·크레딧·비고는 보존됩니다.`);
     } catch (e) { setError(e.message); }
     finally {
