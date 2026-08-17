@@ -13,7 +13,7 @@ import { getProductUsageRank, rankProductSearchOptions } from '../../lib/product
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
-import { orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
+import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
@@ -1571,7 +1571,10 @@ export default function PasteOrderPage() {
                 await fetchShipmentQtys(
                   matched.custKey,
                   effectiveWeek,
-                  (matched.items || []).map(item => item.prodKey),
+                  [...new Set([
+                    ...(matched.items || []).map(item => item.prodKey),
+                    ...(o.items || []).map(item => item.prodKey),
+                  ].map(Number).filter(Boolean))],
                 );
               }
             }
@@ -2942,6 +2945,22 @@ export default function PasteOrderPage() {
   );
   const globalCancelEntries = globalActionEntries.filter(({ item }) => item.action === '취소');
   const globalAddEntries = globalActionEntries.filter(({ item }) => item.action !== '취소');
+  const actionPreview = (order, item) => {
+    if (!order.custMatch?.CustKey || !item.prodKey || !registeredOrders[order.id]) return null;
+    const shipmentKey = `${order.custMatch.CustKey}-${item.prodKey}-${week}`;
+    if (!Object.prototype.hasOwnProperty.call(shipmentQtys, shipmentKey)) return null;
+    const savedItem = (registeredOrders[order.id]?.items || []).find(row => Number(row.prodKey) === Number(item.prodKey));
+    const product = allProducts.find(row => Number(row.ProdKey) === Number(item.prodKey)) || {};
+    try {
+      return buildPasteMixedActionPreview({
+        type: item.action === '취소' ? 'CANCEL' : 'ADD', qty: item.qty, unit: item.unit,
+        orderQty: Number(savedItem?.qty || 0), shipmentQty: Number(shipmentQtys[shipmentKey] || 0), product,
+      });
+    } catch (error) {
+      return { error: error.message };
+    }
+  };
+  const previewQty = value => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(3)) : '-';
 
   return (
     <Layout title="붙여넣기 주문등록">
@@ -3498,8 +3517,9 @@ export default function PasteOrderPage() {
                 <div style={{ maxHeight: '55vh', overflow: 'auto' }}>
                   {group.entries.length === 0 ? (
                     <div style={{ padding: 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
-                  ) : group.entries.map(({ order, item: it, itemIdx }) => (
-                    <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px, .65fr) minmax(135px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: 5, padding: '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
+                  ) : group.entries.map(({ order, item: it, itemIdx }) => {
+                    const preview = actionPreview(order, it);
+                    return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: 5, padding: '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
                       <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900, color: '#1a237e' }}>
                         {order.custMatch?.CustName || order.custName || '업체 미확인'}
                       </div>
@@ -3508,6 +3528,13 @@ export default function PasteOrderPage() {
                         <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
                           {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
                         </div>
+                        {it.prodKey && <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: preview?.error ? '#c62828' : '#455a64', whiteSpace: 'nowrap' }}>
+                          {preview?.error
+                            ? `적용 예상 오류 · ${preview.error}`
+                            : preview
+                              ? `적용 예상 · 주문 ${previewQty(preview.orderBefore)}→${previewQty(preview.orderAfter)} / 분배 ${previewQty(preview.shipmentBefore)}→${previewQty(preview.shipmentAfter)}`
+                              : '적용 예상 수량 조회 중'}
+                        </div>}
                       </div>
                       <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
                         onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
@@ -3521,8 +3548,8 @@ export default function PasteOrderPage() {
                         style={{ padding: '3px 5px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
                         {it.prodKey ? '상세수정' : '매칭하기'}
                       </button>
-                    </div>
-                  ))}
+                    </div>;
+                  })}
                 </div>
               </section>
             ))}
