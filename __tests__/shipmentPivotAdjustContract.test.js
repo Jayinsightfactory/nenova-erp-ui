@@ -45,11 +45,11 @@ async function main() {
       reason: 'auto_cancel_distribution_only',
     },
     {
-      label: 'AUTO_CANCEL + 활성 분배 없음 = 주문만 취소',
+      label: 'AUTO_CANCEL + 활성 분배 없음 = 주문 보존, 분배 저장 단계에서 실패',
       input: { mode: 'AUTO_CANCEL', type: 'CANCEL', hasActiveOrder: true, hasActiveShipment: false },
-      mutateOrder: true,
-      mutateShipment: false,
-      reason: 'auto_cancel_order_only',
+      mutateOrder: false,
+      mutateShipment: true,
+      reason: 'auto_cancel_distribution_only',
     },
   ];
 
@@ -84,8 +84,8 @@ async function main() {
     /hasActiveOrder\s*=\s*Boolean\(odRow\s*&&\s*orderQtyBefore\s*>\s*0\.0001\)/,
     '현재연도·업체·품목의 실제 양수 주문 존재 여부로 정책을 선택해야 한다.'
   );
-  assert.match(adjust, /hasActiveShipment\s*=\s*Boolean\(autoShipmentDetail[\s\S]*curOut[\s\S]*0\.0001\)/, 'AUTO_CANCEL은 실제 활성 분배 존재 여부로 주문/분배를 분기해야 한다.');
-  assert.match(adjust, /if \(autoCancel && !adjustmentPolicy\.mutateShipment\)/, '분배가 없는 AUTO_CANCEL은 Shipment 원장을 건드리지 않고 주문만 취소해야 한다.');
+  assert.doesNotMatch(adjust, /auto_cancel_order_only|autoCancel && !adjustmentPolicy\.mutateShipment/, 'AUTO_CANCEL은 분배 유무와 관계없이 주문을 수정하면 안 된다.');
+  assert.match(adjust, /!pivotDistribution && !autoCancel && type === 'CANCEL'/, 'AUTO_CANCEL 후처리도 주문 원장을 자동 삭제하면 안 된다.');
   assert.match(paste, /mode: 'AUTO_CANCEL'/, '붙여넣기 취소는 AUTO_CANCEL 서버 분기를 사용해야 한다.');
   assert.match(paste, /failedOnly[\s\S]*실패 품목만 재시도/, '부분 성공 뒤에는 성공 품목을 중복 가산하지 않고 실패 품목만 재시도할 수 있어야 한다.');
   assert.match(

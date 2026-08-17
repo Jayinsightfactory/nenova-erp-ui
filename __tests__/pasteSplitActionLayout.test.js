@@ -26,9 +26,16 @@ const atomicHandler = page.slice(
 assert.match(atomicHandler, /const targets = orderPasteMixedBatchTargets\(eligible\);/);
 assert.doesNotMatch(atomicHandler, /for \(const t of targets\)/);
 assert.match(atomicHandler, /setRegisteredOrders[\s\S]*setShipmentQtys[\s\S]*loadOrderHistorySummary[\s\S]*\} catch \(error\)/);
-const atomicCatch = atomicHandler.slice(atomicHandler.indexOf('} catch (error)'));
+const atomicCatch = atomicHandler.slice(
+  atomicHandler.indexOf('} catch (error)'),
+  atomicHandler.indexOf('const handleUndoAllMixedDistribute'),
+);
 assert.doesNotMatch(atomicCatch, /setRegisteredOrders|setShipmentQtys|loadOrderHistorySummary/);
 assert.match(page, /추가·취소 전체 일괄 등록·분배/);
+assert.match(page, /const handleUndoAllMixedDistribute = async/);
+assert.match(page, /fetch\('\/api\/shipment\/adjust-batch-undo'/);
+assert.match(page, /↩ 마지막 전체 일괄 되돌리기/);
+assert.match(page, /orderQtyAfter: row\.orderQtyAfter, outQtyAfter: row\.outQtyAfter/);
 assert.match(page, /왼쪽 · 취소 업체 저장내역/);
 assert.match(page, /오른쪽 · 추가 업체 저장내역/);
 assert.match(page, /hidden[\s\S]*onClick=\{\(\) => handleBulkDistribute\(order\.id\)\}/);

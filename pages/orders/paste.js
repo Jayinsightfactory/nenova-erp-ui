@@ -2368,6 +2368,48 @@ export default function PasteOrderPage() {
     }
   };
 
+  const handleUndoAllMixedDistribute = async () => {
+    const rows = bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone
+      ? (bulkResult.details || []).filter(row => row.ok)
+      : [];
+    if (!rows.length || bulkRunning) return;
+    if (!confirm(`방금 완료한 전체 일괄 ${rows.length}건을 변경 전 수량으로 되돌립니다.\n\n처리 후 다른 수정이 있으면 안전을 위해 전체 되돌리기를 중단합니다.\n진행하시겠습니까?`)) return;
+    setBulkRunning(true);
+    try {
+      const response = await fetch('/api/shipment/adjust-batch-undo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          week, year: selectedYearFromWeek(week),
+          entries: rows.map(row => ({
+            originalType: row.type, custKey: row.custKey, prodKey: row.prodKey,
+            prodName: row.displayName || row.prodName, qty: row.qty, unit: row.unit,
+            orderQtyAfter: row.orderQtyAfter, outQtyAfter: row.outQtyAfter,
+          })),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success !== true) throw new Error(result.error || '전체 일괄 되돌리기에 실패했습니다.');
+      setBulkResult(prev => ({ ...prev, undone: true, undoResults: result.results || [] }));
+      await Promise.all(orders.filter(order => order.custMatch).map(async order => {
+        const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
+        const matched = od.success ? pickOrderForWeek(od.orders || [], order.custMatch.CustName, week) : null;
+        if (!matched) return;
+        setRegisteredOrders(prev => ({ ...prev, [order.id]: matched }));
+        await fetchShipmentQtys(matched.custKey, week, [
+          ...(matched.items || []).map(item => item.prodKey),
+          ...rows.filter(row => row.orderId === order.id).map(row => row.prodKey),
+        ]);
+      }));
+      orders.forEach(order => updateOrder(order.id, { resultMsg: '마지막 전체 일괄 되돌리기 완료' }));
+      loadOrderHistorySummary(week, orders);
+      alert(`전체 일괄 ${rows.length}건을 변경 전 수량으로 되돌렸습니다.`);
+    } catch (error) {
+      alert(`되돌리기 실패 — 모든 변경은 롤백되었습니다.\n${error.message}`);
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
   // 등록된 주문을 기준으로 분배만 다시 저장한다.
   // 등록 후 하단 "일괄 분배"에서 주문등록이 재가산되지 않도록 /api/shipment/distribute 만 호출.
   const handleDistributeOnly = async (oid) => {
@@ -3556,10 +3598,16 @@ export default function PasteOrderPage() {
           </div>
           {bulkResult?.orderId === 'ALL' && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: bulkResult.rolledBack ? '#c62828' : '#1b5e20', marginBottom: 6 }}>
-                {bulkResult.rolledBack
-                  ? `❌ 전체 업체 DB 처리 실패 — 성공 0건, ${bulkResult.failCount}건 모두 롤백${Number.isInteger(bulkResult.failedIndex) ? ` (실패 위치 ${bulkResult.failedIndex + 1}번)` : ''}`
-                  : '📋 전체 업체 DB 처리 결과'}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: bulkResult.rolledBack ? '#c62828' : bulkResult.undone ? '#6a1b9a' : '#1b5e20' }}>
+                  {bulkResult.rolledBack
+                    ? `❌ 전체 업체 DB 처리 실패 — 성공 0건, ${bulkResult.failCount}건 모두 롤백${Number.isInteger(bulkResult.failedIndex) ? ` (실패 위치 ${bulkResult.failedIndex + 1}번)` : ''}`
+                    : bulkResult.undone ? '↩ 마지막 전체 일괄 되돌리기 완료' : '📋 전체 업체 DB 처리 결과'}
+                </div>
+                {!bulkResult.rolledBack && !bulkResult.undone && <button type="button" onClick={handleUndoAllMixedDistribute} disabled={bulkRunning}
+                  style={{ padding: '6px 12px', border: '1px solid #6a1b9a', borderRadius: 6, background: '#fff', color: '#6a1b9a', fontWeight: 900, cursor: bulkRunning ? 'wait' : 'pointer' }}>
+                  ↩ 마지막 전체 일괄 되돌리기
+                </button>}
               </div>
               <div className="paste-global-action-board" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12 }}>
                 {[

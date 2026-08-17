@@ -12,7 +12,7 @@
 //     CANCEL                      : 주문은 건드리지 않고 분배만 변경
 //   mode='AUTO_CANCEL' (붙여넣기/저장내역 취소)
 //     활성 분배 있음 : 분배만 취소, 주문 보존
-//     활성 분배 없음 : 주문만 취소, 분배 원장 생성·변경 금지
+//     활성 분배 없음 : 오류·전체 롤백, 주문 보존
 //
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
@@ -437,7 +437,7 @@ export async function loadShipmentAdjustmentCapabilities() {
 export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, user = {}, capabilities = {} } = {}) {
   const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments,
     unitCost: requestedUnitCost, costSourceId, shipmentDate: requestedShipmentDate,
-    force = false } = body;
+    force = false, expectedOrderQty, expectedShipmentQty } = body;
 
   if (!custKey || !prodKey || !week || !type) {
     throw adjustmentInputError('custKey, prodKey, week, type 필요');
@@ -460,6 +460,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
   }
   const pivotDistribution = isPivotDistributionMode(mode);
   const autoCancel = isAutoCancelMode(mode);
+  const undoShipmentOnly = String(mode || '').trim().toUpperCase() === 'PASTE_UNDO_SHIPMENT_ONLY';
   const farmAssignmentsProvided = farmAssignments !== undefined;
   const normalizedFarmAssignments = farmAssignmentsProvided
     ? normalizeFarmAssignments(farmAssignments)
@@ -559,7 +560,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         return { box, bunch, steam, outQ };
       };
 
-      // AUTO_CANCEL은 주문/분배 중 실제 활성 원장을 기준으로 서버에서 분기한다.
+      // AUTO_CANCEL은 주문을 보존하고 실제 활성 분배만 취소한다.
       // 화면에 남아 있는 조회값을 신뢰하면 이미 다른 사용자가 처리한 뒤 잘못된 원장을
       // 다시 차감할 수 있으므로, 같은 트랜잭션에서 ShipmentDetail을 잠그고 확인한다.
       let autoShipmentDetail = null;
@@ -606,7 +607,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       let mk;
       if (om.recordset.length === 0) {
         if (type === 'CANCEL' && !pivotDistribution && !autoCancel) throw new Error('취소 대상 OrderMaster 없음');
-        if (type === 'ADD') mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
+        if (type === 'ADD' && !undoShipmentOnly) mk = await tryInsertWithRetry(tQ, 'OrderMaster', 'OrderMasterKey', async (newMk) => {
           const orderMasterParams = {
             mk:  { type: sql.Int,      value: newMk },
             yr:  { type: sql.NVarChar, value: orderYear },
@@ -652,6 +653,9 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       const odRow = odCur.recordset[0];
       const orderQtyBefore = !odRow ? 0
         : qtyForUnit(odRow, userUnit, { box: 'curBox', bunch: 'curBunch', steam: 'curSteam', out: 'curOut' });
+      if (expectedOrderQty !== undefined && Math.abs(orderQtyBefore - Number(expectedOrderQty)) > 0.0001) {
+        throw adjustmentInputError(`되돌리기 중단: 주문수량이 처리 직후 값 ${expectedOrderQty}에서 ${orderQtyBefore}(으)로 변경되었습니다.`, 'PASTE_UNDO_STATE_CHANGED');
+      }
       const hasActiveOrder = Boolean(odRow && orderQtyBefore > 0.0001);
       const adjustmentPolicy = resolvePivotAdjustmentPolicy({ mode, type, hasActiveOrder, hasActiveShipment });
       let orderQtyAfter = adjustmentPolicy.mutateOrder
@@ -756,29 +760,6 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         }
       }
 
-      // 분배가 없던 AUTO_CANCEL은 주문 원장만 처리하고 즉시 종료한다.
-      // ShipmentMaster/ShipmentDetail을 만들거나 빈 분배를 삭제하지 않는다.
-      if (autoCancel && !adjustmentPolicy.mutateShipment) {
-        return {
-          mode: adjustmentPolicy.mode,
-          policyReason: adjustmentPolicy.reason,
-          qtyBefore: 0,
-          qtyAfter: 0,
-          orderQtyBefore,
-          orderQtyAfter,
-          orderDeleted,
-          orderDeleteReason,
-          outQtyBefore: 0,
-          outQtyAfter: 0,
-          remainBefore: null,
-          remainAfter: null,
-          totalIn: null,
-          totalOut: null,
-          sdetailKey: null,
-          farmAssignmentsProvided: false,
-        };
-      }
-
       // 4) ShipmentMaster 확보 + isFix 보호
       const sm = await tQ(
         `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
@@ -838,6 +819,9 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       );
       const sdRow = sdCur.recordset[0];
       const qtyBefore = !sdRow ? 0 : Number(sdRow.curOut || 0);
+      if (expectedShipmentQty !== undefined && Math.abs(qtyBefore - Number(expectedShipmentQty)) > 0.0001) {
+        throw adjustmentInputError(`되돌리기 중단: 분배수량이 처리 직후 값 ${expectedShipmentQty}에서 ${qtyBefore}(으)로 변경되었습니다.`, 'PASTE_UNDO_STATE_CHANGED');
+      }
       // delta 는 userUnit(박스/단/송이) 기준 — curOut(OutQuantity=OutUnit 기준)에 더하기 전에
       // OutUnit 으로 환산한다. (장미 B1B=10: '10단 ADD' → OutQuantity +1박스, not +10).
       // OrderDetail 측과 단위 기준을 통일해 출고/주문 비대칭(잔량 마이너스)을 막는다.
@@ -1013,7 +997,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       // 기존 소비자의 totalIn 필드는 현차수 입고+수동조정 의미로 유지한다.
       const totalIn = normalizeShipmentQty(currentIn + adjustQty);
 
-      if (!pivotDistribution && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
+      if (!pivotDistribution && !autoCancel && type === 'CANCEL' && !orderDeleted && Math.abs(Number(outQAfter || 0)) < 0.0001 && odRow?.OrderDetailKey) {
         const cleanup = await maybeDeleteAutoPasteOrder(tQ, {
           orderMasterKey: mk,
           orderDetailKey: odRow.OrderDetailKey,

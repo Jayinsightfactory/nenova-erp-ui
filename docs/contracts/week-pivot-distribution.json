@@ -5,6 +5,7 @@
     "pages/shipment/week-pivot.js",
     "pages/api/shipment/adjust.js",
     "pages/api/shipment/adjust-batch.js",
+    "pages/api/shipment/adjust-batch-undo.js",
     "pages/api/shipment/stock-status.js",
     "pages/api/shipment/start-stock-text.js",
     "lib/pivotAdjustmentPolicy.js",
@@ -12,6 +13,7 @@
     "lib/pasteOrderUnit.js",
     "lib/estimateFixStatusLink.js",
     "lib/pasteMixedBatch.js",
+    "lib/pasteBatchUndo.js",
     "lib/shipmentAdjustmentBatch.js",
     "lib/pasteBatchHistory.js",
     "pages/api/shipment/farm-distribution.js",
@@ -60,8 +62,8 @@
       "shipmentDetail": "decrease"
     },
     {
-      "name": "AUTO_CANCEL_ORDER_ONLY",
-      "orderDetail": "decrease",
+      "name": "AUTO_CANCEL_WITHOUT_DISTRIBUTION",
+      "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     }
   ],
@@ -77,8 +79,8 @@
     "sideEffects": [
       {
         "phase": "CANCEL",
-        "orderDetail": "preserve when active shipment exists; decrease only when no active shipment exists",
-        "shipmentDetail": "decrease when active shipment exists; otherwise preserve and never create",
+        "orderDetail": "always preserve",
+        "shipmentDetail": "decrease when active shipment exists; otherwise fail the whole atomic batch",
         "shipmentDateAndFarm": "reuse AUTO_CANCEL cleanup",
         "estimateAndSales": "preserve"
       },
@@ -89,7 +91,8 @@
         "shipmentDateAndFarm": "reuse existing adjust synchronization; farm assignment remains optional when omitted",
         "estimateAndSales": "preserve"
       }
-    ]
+    ],
+    "undoPolicy": "the last successful in-memory batch can be undone once; original ADD restores order+shipment and original CANCEL restores shipment only; changed current quantities abort and roll back the whole undo"
   },
   "crossYearFixture": {
     "required": true,
@@ -111,6 +114,7 @@
     "__tests__/pasteOrderUnit.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/shipmentAdjustBatch.test.js",
+    "__tests__/pasteBatchUndo.test.js",
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
