@@ -9,9 +9,7 @@ import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRa
 import {
   confirmSchemaStatus, confirmSnapshot, cancelConfirm, getActiveConfirm, listConfirmHistory,
 } from '../../../lib/profitReportConfirm';
-
-// 관리자 판정 — pages/api/m/order-request-approve.js와 동일 패턴(이 저장소의 기존 관리자 판정 규칙 재사용)
-const isAdminUser = (user) => /admin|관리자|대표/i.test(user?.authority || '') || user?.deptName === '대표';
+import { isAdminUser } from '../../../lib/userAccess';
 
 async function buildLiveConfirmPayload(major, orderYear) {
   const data = await loadReportData(major, orderYear);

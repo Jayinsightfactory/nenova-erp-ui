@@ -1,6 +1,7 @@
 // pages/api/auth/login.js
 import { query, sql } from '../../../lib/db';
 import { createToken } from '../../../lib/auth';
+import { effectiveAuthority } from '../../../lib/userAccess';
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 10;
@@ -79,7 +80,7 @@ export default async function handler(req, res) {
       user: {
         userId: user.UserID,
         userName: user.UserName,
-        authority: user.Authority,
+        authority: effectiveAuthority(user),
         deptName: user.DeptName,
       },
     });

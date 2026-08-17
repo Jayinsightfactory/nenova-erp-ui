@@ -14,6 +14,10 @@
     "pages/api/dev/fix-parity-audit.js",
     "pages/api/estimate/validate.js",
     "pages/api/m/order-request-approve.js",
+    "pages/api/m/order-request.js",
+    "pages/api/auth/login.js",
+    "lib/auth.js",
+    "lib/userAccess.js",
     "pages/api/orders/kakao-audit.js",
     "pages/api/public/orders.js",
     "pages/api/public/shipments.js",
@@ -95,6 +99,7 @@
     "__tests__/shipmentDistributionEdit.test.js",
     "__tests__/syncShipmentDateEst.test.js",
     "__tests__/shipmentDownstreamImpactContract.test.js",
+    "__tests__/nenovaSs3AdminAccess.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

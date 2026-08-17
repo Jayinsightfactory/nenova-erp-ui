@@ -3,6 +3,7 @@
 // GET   : 내 신청 목록 또는 전체 pending (관리자)
 import { withAuth } from '../../../lib/auth';
 import { query, withTransaction, sql } from '../../../lib/db';
+import { isAdminUser } from '../../../lib/userAccess';
 
 async function handler(req, res) {
   if (req.method === 'POST') return await createRequest(req, res);
@@ -54,7 +55,7 @@ async function createRequest(req, res) {
 
 async function listRequests(req, res) {
   const status = req.query.status || 'pending';
-  const isAdmin = /admin|관리자|대표/i.test(req.user?.authority || '') || req.user?.deptName === '대표';
+  const isAdmin = isAdminUser(req.user);
   const where = isAdmin ? '' : 'AND r.RequesterUserId = @uid';
   const params = {
     st: { type: sql.NVarChar, value: status },
