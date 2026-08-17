@@ -10,6 +10,8 @@ import { mergeRegisterItems } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
+import * as XLSX from 'xlsx';
+import { initializeShipDateAllocations, moveShipmentQuantity, allocationTotal, buildShipmentListRows } from '../../lib/orderShipmentList';
 import { sanitizeExcelSheetName } from '../../lib/estimatePrintPrepare';
 import {
   buildEstimatePrintWorkbook,
@@ -350,6 +352,11 @@ export default function OrderImportPage() {
   const [registering, setRegistering] = useState(false);
   const [statementLoading, setStatementLoading] = useState(false);
   const [resultMsg, setResultMsg] = useState('');
+  const [defaultShipDates, setDefaultShipDates] = useState({ 1: '', 2: '' });
+  const [shipmentRows, setShipmentRows] = useState([]);
+  const [shipmentSource, setShipmentSource] = useState('upload');
+  const [targetShipDate, setTargetShipDate] = useState('');
+  const [moveQty, setMoveQty] = useState({});
   const [dragOver, setDragOver] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [editProdIdx, setEditProdIdx] = useState(null);
@@ -545,6 +552,19 @@ export default function OrderImportPage() {
       setLogs(d.logs || []);
       setFileName(d.fileName || file.name);
       setSourceType(d.sourceType || '');
+      const meta = d.metadata || {};
+      if (meta.majorWeek) {
+        const year = new Date().getFullYear();
+        setWeek(`${year}-${meta.majorWeek}-01`);
+      }
+      if (meta.customerName) {
+        try {
+          const found = await apiGet('/api/customers/search', { q: meta.customerName });
+          const exact = (found.customers || []).find(c => String(c.CustName).replace(/\s/g, '') === String(meta.customerName).replace(/\s/g, ''));
+          if (exact) setCust({ CustKey: exact.CustKey, CustName: exact.CustName });
+          else setResultMsg(`⚠ 업체 자동매칭 실패: ${meta.customerName} — 업체를 직접 선택하세요.`);
+        } catch { /* 사용자가 직접 선택 */ }
+      }
       setEditProdIdx(null);
     } catch (e) {
       alert(e.message);
@@ -552,6 +572,66 @@ export default function OrderImportPage() {
       setLoading(false);
     }
   }, []);
+
+  const prepareShipmentList = async () => {
+    let sourceItems = items;
+    if (shipmentSource !== 'upload') {
+      if (!cust?.CustKey || !week) { alert('업체와 차수를 선택하세요.'); return; }
+      try {
+        const d = await apiGet('/api/orders/shipment-list-source', {
+          source: shipmentSource, custKey:cust.CustKey,
+          year:String(week).match(/^(\d{4})-/)?.[1] || new Date().getFullYear(), week,
+        });
+        sourceItems = (d.rows || []).map((r,i)=>({ rowNo:i+1,prodKey:r.ProdKey,prodName:r.ProdName,displayName:r.DisplayName,
+          flowerName:r.FlowerName,counName:r.CounName,unit:normalizeOrderUnit(r.OutUnit),qty:Number(r.qty),unitPrice:Number(r.unitPrice||0) }));
+      } catch (e) { alert(e.message); return; }
+    }
+    const rows = initializeShipDateAllocations(sourceItems, week, defaultShipDates);
+    if (!rows.length) { alert('먼저 품목을 업로드하고 매칭하세요.'); return; }
+    const no = Number(String(week).slice(-2));
+    if (!defaultShipDates[no]) { alert(`${no}차 기본출고일을 먼저 설정하세요.`); return; }
+    setShipmentRows(rows);
+  };
+
+  const moveRowDate = (idx, fromDate) => {
+    try {
+      setShipmentRows(prev => prev.map((row, i) => i === idx
+        ? moveShipmentQuantity(row, fromDate, targetShipDate, moveQty[idx] || 1)
+        : row));
+    } catch (e) { alert(e.message); }
+  };
+
+  const downloadShipmentList = () => {
+    const flat = buildShipmentListRows(shipmentRows);
+    if (!flat.length || !cust?.CustName) { alert('생성할 출고내역이 없습니다.'); return; }
+    const grouped = new Map();
+    flat.sort((a,b) => a.shipDate.localeCompare(b.shipDate)).forEach(row => {
+      const date = row.shipDate; const flower = row.flowerName || '기타';
+      if (!grouped.has(date)) grouped.set(date, new Map());
+      if (!grouped.get(date).has(flower)) grouped.get(date).set(flower, []);
+      grouped.get(date).get(flower).push(row);
+    });
+    const aoa = [[`${cust.CustName} ${String(week).match(/-(\d{2})-/)?.[1] || ''}차 예상 출고리스트`], [], ['품 명','칼 라','주문수량','출고수량','단가','비 고']];
+    const merges = [{s:{r:0,c:0},e:{r:0,c:5}}];
+    for (const [date, flowers] of grouped) {
+      const dateStart = aoa.length;
+      for (const [flower, group] of flowers) {
+        const flowerStart = aoa.length;
+        group.forEach((row, idx) => aoa.push([idx ? '' : flower, row.color || row.displayName || row.prodName, row.totalQty, row.shipQty, row.unitPrice || '', '']));
+        if (group.length > 1) merges.push({s:{r:flowerStart,c:0},e:{r:aoa.length-1,c:0}});
+        aoa.push(['', '합계', group.reduce((s,r)=>s+r.totalQty,0), group.reduce((s,r)=>s+r.shipQty,0), '', '']);
+      }
+      const dateEnd = aoa.length - 1;
+      const day = ['일','월','화','수','목','금','토'][new Date(`${date}T00:00:00`).getDay()];
+      aoa[dateStart][5] = `${date} ${day}요일 출고`;
+      if (dateEnd > dateStart) merges.push({s:{r:dateStart,c:5},e:{r:dateEnd,c:5}});
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [{wch:20},{wch:38},{wch:12},{wch:12},{wch:12},{wch:20}];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, `${cust.CustName}_${week}_출고리스트.xlsx`);
+  };
 
   const onDrop = (e) => {
     e.preventDefault();
@@ -823,6 +903,13 @@ export default function OrderImportPage() {
             </div>
           </div>
 
+          <div style={{ ...st.row, padding: 10, background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: 7 }}>
+            <strong style={{ fontSize: 12 }}>세부차수 기본출고일</strong>
+            <label style={{ fontSize: 12 }}>1차 <input type="date" style={st.input} value={defaultShipDates[1]} onChange={e=>setDefaultShipDates(v=>({...v,1:e.target.value}))}/></label>
+            <label style={{ fontSize: 12 }}>2차 <input type="date" style={st.input} value={defaultShipDates[2]} onChange={e=>setDefaultShipDates(v=>({...v,2:e.target.value}))}/></label>
+            <span style={{fontSize:11,color:'#64748b'}}>매칭 수량은 선택 세부차수의 기본출고일에 전량 배정됩니다.</span>
+          </div>
+
           <div
             style={{ ...st.drop, ...(dragOver ? st.dropActive : {}) }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -981,6 +1068,31 @@ export default function OrderImportPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {(
+          <div style={st.card}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+              <strong>출고리스트 엑셀 만들기</strong>
+              <select style={st.input} value={shipmentSource} onChange={e=>setShipmentSource(e.target.value)}>
+                <option value="upload">업로드 매칭 기준</option><option value="order">선택 차수 주문등록 기준</option><option value="shipment">선택 차수 분배 기준</option>
+              </select>
+              <button type="button" style={{...st.btn,...st.btnPrimary}} onClick={prepareShipmentList}>수량 불러오기</button>
+              <input type="date" style={st.input} value={targetShipDate} onChange={e=>setTargetShipDate(e.target.value)} title="이동할 출고일"/>
+              <button type="button" style={{...st.btn,background:'#00897b',color:'#fff'}} disabled={!shipmentRows.length} onClick={downloadShipmentList}>엑셀 다운로드</button>
+            </div>
+            <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>모든 수량은 기본출고일에 먼저 배정됩니다. 다른 날짜로 보낼 수량만 선택해 이동하세요.</div>
+            {shipmentRows.map((row,idx)=><div key={`${row.prodKey}-${idx}`} style={{display:'grid',gridTemplateColumns:'minmax(240px,1fr) 1fr',gap:8,padding:'6px 0',borderBottom:'1px solid #eef2f7',fontSize:12}}>
+              <div><b>{row.displayName || row.prodName}</b> · 총 {row.totalQty}{row.unit} <span style={{color:allocationTotal(row)===row.totalQty?'#166534':'#b91c1c'}}>배정 {allocationTotal(row)}</span></div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                {Object.entries(row.allocations || {}).map(([date,qty])=><span key={date} style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                  {date} <b>{qty}</b>
+                  <input type="number" min="0.001" max={qty} step="0.001" style={{...st.input,width:72}} value={moveQty[idx] ?? 1} onChange={e=>setMoveQty(v=>({...v,[idx]:e.target.value}))}/>
+                  <button type="button" style={{...st.btn,...st.btnSecondary,padding:'4px 7px'}} disabled={!targetShipDate || targetShipDate===date} onClick={()=>moveRowDate(idx,date)}>선택일로 보내기</button>
+                </span>)}
+              </div>
+            </div>)}
           </div>
         )}
       </div>
