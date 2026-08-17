@@ -1,6 +1,6 @@
 {
   "id": "weekly-profit-report",
-  "title": "주차별 매출이익보고서 입고중량·통관비 자동계산 계약",
+  "title": "주차별 매출이익보고서 입고중량·통관비·포워딩 원천 자동대조 계약",
   "scope": [
     "pages/sales/profit-report.js",
     "pages/sales/customs-clearance.js",
@@ -81,6 +81,19 @@
       "name": "WAREHOUSE_WEIGHT_AUTO_MERGE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FORWARDING_LEDGER_RECONCILIATION_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "productStock": "preserve",
+      "stockHistory": "preserve",
+      "webProfitReport": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "read-only; 정확한 OrderYear+MajorWeek의 WarehouseMaster/WarehouseDetail/Product를 조회한다. 모든 금액 포워딩 행을 Product 명시 규칙→같은 BILL(WarehouseKey) 상품 국가·화종→같은 AWB 상품 국가·화종→농장·인보이스 단서 순으로 분류하고, 원천행 수·통화별 금액·분류합계·미분류·0원·구매범위별 누락을 대조한다. Gross weight/Chargeable weight는 무게행이므로 금액 합계에서 제외한다. 29차 이후에는 미분류·0원·구매범위 누락·원천합계 불일치가 하나라도 있으면 보고서 검증을 중단하며 수기 0 또는 전차수 값으로 숨기지 않는다. 이 조회는 ERP/Web 원장을 전혀 쓰지 않는다."
     },
     {
       "name": "CUSTOMS_COUNTRY_BATCH_SAVE",
@@ -226,6 +239,8 @@
     "2026-28차 이후 공제/샘플 상품": "국내",
     "nonValueItems": ["Chargeable weight", "Gross weight"],
     "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
+    "forwardingValueItems": ["운송료", "운송비", "항공료", "항공비", "FREIGHT", "AIR FREIGHT", "SHIPPING", "SERVICE FEE", "현지상차운임"],
+    "forwardingReconciliation": "29차 이후 입고 전표가 운영 원천이다. 포워딩 금액행을 누락하지 않고 같은 OrderYear+대차수 안에서 모두 분류한 뒤 원천합계=분류합계+미분류합계를 통화별로 대조한다. 구매 수량 또는 금액이 있는 국가·화종인데 대응 포워딩 행이 없으면 FORWARDING_SCOPE_MISSING으로 확정 계산을 차단한다. 일반 국가 및 화종 명시 운송료는 대차수 합계로 대조하고, 콜롬비아 4품목 공유 운송료는 세부차수별 무게배분 원천이므로 해당 세부차수별로 대조한다. 금액·수량이 모두 0인 빈 WarehouseDetail은 구매 기대범위가 아니다. 수기 S가 있어도 원천 전표 누락·미분류는 숨기지 않는다.",
     "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
   },
   "erpLedgerWriteProhibition": {
@@ -259,6 +274,7 @@
       "Estimate",
       "WarehouseMaster",
       "WarehouseDetail",
+      "Product",
       "StockMaster",
       "ProductStock",
       "FreightCost",

@@ -284,7 +284,14 @@ export async function loadReportData(major, orderYear) {
       endSnapshotAvailable: stockEnd.snapshotAvailable,
     },
     manualInputManifest,
-    audit: buildProfitReportAudit(rows, { major: currentMajor }),
+    forwardingReconciliation: customs.sources?.forwardingLedger || null,
+    audit: buildProfitReportAudit(rows, {
+      major: currentMajor,
+      forwardingLedger: customs.sources?.forwardingLedger || null,
+      previousMajor: Number(prevMajor),
+      previousOrderYear: prevOrderYear,
+      previousForwardingLedger: prevCustoms.sources?.forwardingLedger || null,
+    }),
   };
 }
 
