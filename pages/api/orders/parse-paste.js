@@ -16,7 +16,7 @@ function getClient() {
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
-import { parseNaturalInlineOrderLine } from '../../../lib/pasteNaturalInlineOrder';
+import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTrailingOrderMemo } from '../../../lib/pasteNaturalInlineOrder';
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
@@ -457,7 +457,10 @@ function parseNaturalSectionOrders(text) {
 
     // 업체와 품목을 한 줄에 적는 자연어 형식도 지원한다.
     // 구분자 주위 공백을 요구해 "남대문-중앙" 같은 실제 업체명의 하이픈은 보존한다.
-    const inline = parseNaturalInlineOrderLine(line);
+    // 동작 뒤 괄호는 농장/위치 메모이므로 품목·수량 분석 전에 제거한다.
+    // 원문 고객 헤더 판정에는 사용하지 않아 실제 괄호 포함 업체명을 훼손하지 않는다.
+    const orderLine = stripTrailingOrderMemo(line);
+    const inline = parseNaturalInlineOrderLine(orderLine);
     if (inline) {
       const custName = inline.customerName;
       const qty = Math.abs(parseCompactQty(inline.quantityText)) || 1;
@@ -477,19 +480,19 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const m = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)?\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*(추가|취소)\s*$/i);
-    if (m && (currentCust || sectionAction)) {
+    const actionLine = parseNaturalSectionActionLine(orderLine);
+    if (actionLine && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
-      const qty = Math.abs(parseCompactQty(m[2] || '1')) || 1;
-      const productName = applyFlowerContext(m[1].trim(), flowerContext);
-      const unit = normNatUnit(m[3], flowerContext);
+      const qty = Math.abs(parseCompactQty(actionLine.quantityText)) || 1;
+      const productName = applyFlowerContext(actionLine.productName, flowerContext);
+      const unit = normNatUnit(actionLine.unitText, flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
         qty,
         unit,
-        unitExplicit: !!m[3],
-        action: m[4] || sectionAction,
+        unitExplicit: !!actionLine.unitText,
+        action: actionLine.action || sectionAction,
         prodKey: null,
         prodName: null,
         displayName: null,
@@ -497,7 +500,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const qtyOnly = line.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*$/i);
+    const qtyOnly = orderLine.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*$/i);
     if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
