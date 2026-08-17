@@ -9,15 +9,19 @@
     "lib/pivotAdjustmentPolicy.js",
     "lib/shipmentAvailability.js",
     "lib/pasteOrderUnit.js",
+    "lib/fixStatusWeek.js",
+    "lib/pasteMixedBatch.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
     "pages/api/shipment/item-trace.js",
     "lib/shipmentFarmAssignments.js",
     "lib/shipmentFarmCandidates.js",
     "components/PivotFarmAssignmentModal.js",
+    "components/orders/PasteFixStatusPanel.js",
     "pages/orders/paste.js",
     "pages/api/orders/parse-paste.js",
-    "__tests__/erpEditFixScopeAudit.test.js"
+    "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/pasteMixedBatch.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "policyBoundaries": [
@@ -57,6 +61,29 @@
       "shipmentDetail": "preserve"
     }
   ],
+  "pasteMixedBatchPolicy": {
+    "executionOrder": "stable CANCEL phase first, then stable ADD phase",
+    "selectionModel": "actions come from the pasted analysis; users do not build a separate multi-selection",
+    "cancelApiPolicy": "reuse /api/shipment/adjust with type=CANCEL and mode=AUTO_CANCEL",
+    "addApiPolicy": "reuse /api/shipment/adjust with type=ADD and the existing combined order+shipment policy",
+    "failurePolicy": "preserve existing per-row results; continue through both phases and retry only failed ProdKey+type keys so successful rows are not applied twice",
+    "sideEffects": [
+      {
+        "phase": "CANCEL",
+        "orderDetail": "preserve when active shipment exists; decrease only when no active shipment exists",
+        "shipmentDetail": "decrease when active shipment exists; otherwise preserve and never create",
+        "shipmentDateAndFarm": "reuse AUTO_CANCEL cleanup",
+        "estimateAndSales": "preserve"
+      },
+      {
+        "phase": "ADD",
+        "orderDetail": "reuse existing positive increase policy",
+        "shipmentDetail": "reuse existing positive increase policy",
+        "shipmentDateAndFarm": "reuse existing adjust synchronization; farm assignment remains optional when omitted",
+        "estimateAndSales": "preserve"
+      }
+    ]
+  },
   "crossYearFixture": {
     "required": true,
     "description": "2025와 2026에 같은 OrderWeek·CustKey·ProdKey가 있을 때 2026 요청은 2026 행만 읽고 쓴다. stock-status view=pivot도 OrderMaster를 선택 연도로 제한하고 ShipmentMaster를 OrderYear+OrderWeek+CustKey로 결합한다.",
@@ -75,7 +102,9 @@
     "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/shipmentAvailability.test.js",
     "__tests__/pasteOrderUnit.test.js",
+    "__tests__/pasteMixedBatch.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
+    "__tests__/pasteFixStatus.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

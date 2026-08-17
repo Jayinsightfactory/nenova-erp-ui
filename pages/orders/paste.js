@@ -5,6 +5,7 @@ import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
+import PasteFixStatusPanel from '../../components/orders/PasteFixStatusPanel';
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
@@ -13,6 +14,7 @@ import { getProductUsageRank, rankProductSearchOptions } from '../../lib/product
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
+import { orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 
@@ -2034,8 +2036,8 @@ export default function PasteOrderPage() {
     }
   };
 
-  // 일괄 등록+분배 — 추가는 ADD, 취소는 AUTO_CANCEL로 실제 DB 원장을 확인해 호출
-  // 사용 시점: 텍스트 파싱 후 [🚀 일괄 등록+분배] 버튼 클릭
+  // 추가·취소 일괄 등록·분배 — 취소 전체를 먼저 처리한 뒤 추가 전체를 처리한다.
+  // 기존 단건 API 정책(AUTO_CANCEL/ADD)은 그대로 재사용하고 실행 순서만 묶는다.
   // 동작:
   //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
   //   - "1 박스 취소" 입력 → 활성 분배가 있으면 ShipmentDetail만 -1,
@@ -2062,7 +2064,7 @@ export default function PasteOrderPage() {
         ? bulkResult.details.filter(x => !x.ok).map(x => `${Number(x.prodKey)}:${x.type}`)
         : [],
     );
-    const targets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
+    const eligibleTargets = (order.items || []).filter(it => !it.skip && it.prodKey).map(it => {
       const prod = allProducts.find(p => Number(p.ProdKey) === Number(it.prodKey));
       return {
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
@@ -2074,8 +2076,11 @@ export default function PasteOrderPage() {
       action: it.action || '추가',  // 기본 추가
     };
     }).filter(x => x.qty > 0 && (
-      !failedOnly || failedKeys.has(`${Number(x.prodKey)}:${x.action === '취소' ? 'CANCEL' : 'ADD'}`)
+      !failedOnly || failedKeys.has(pasteBatchRetryKey(x))
     ));
+    // 입력에 ADD/CANCEL이 섞여 있어도 취소로 확보된 수량을 추가 분배가 사용할 수 있게
+    // CANCEL 전체 → ADD 전체 순으로 안정적으로 파티션한다. 각 단계 내부 입력순서는 보존한다.
+    const targets = orderPasteMixedBatchTargets(eligibleTargets);
 
     // ⚠️ 일괄분배에서 빠지는 항목(=전산에 안 들어가는 항목)을 명확히 경고.
     //   - 품목 미매칭(prodKey 없음): 매칭을 먼저 잡아야 등록됨
@@ -2099,23 +2104,24 @@ export default function PasteOrderPage() {
     }
     if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
 
-    // 미리보기: ADD/CANCEL 자동 분기
-    const previewLines = targets.map(x => {
-      const isCancel = x.action === '취소';
-      return `${x.prodName}: ${isCancel ? '−' : '+'}${x.qty}${x.unit} (${isCancel ? '취소' : '추가'})`;
-    });
+    const cancelTargets = targets.filter(x => pasteBatchActionType(x) === 'CANCEL');
+    const addTargets = targets.filter(x => pasteBatchActionType(x) === 'ADD');
+    const previewLines = [
+      ...(cancelTargets.length > 0 ? ['[1. 취소 먼저]', ...cancelTargets.map(x => `${x.prodName}: −${x.qty}${x.unit} (취소)`)] : []),
+      ...(addTargets.length > 0 ? ['[2. 추가·분배]', ...addTargets.map(x => `${x.prodName}: +${x.qty}${x.unit} (추가)`)] : []),
+    ];
 
     const excludedBlock = excluded.length
       ? `\n\n⚠️ 아래 ${excluded.length}개는 전산에 등록되지 않습니다(매칭 필요):\n${excluded.join('\n')}`
       : '';
 
-    const retryLabel = failedOnly ? '이전 실패 품목만 재시도' : '일괄 등록+분배';
-    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 ${retryLabel}:\n\n${previewLines.join('\n')}${excludedBlock}\n\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
+    const retryLabel = failedOnly ? '이전 실패 품목만 재시도' : '추가·취소 일괄 등록·분배';
+    if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 ${retryLabel}:\n\n${previewLines.join('\n')}${excludedBlock}\n\n취소 ${cancelTargets.length}건을 먼저 처리한 뒤 추가·분배 ${addTargets.length}건을 처리합니다.\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
     const details = [];
     for (const t of targets) {
-      const type = (t.action === '취소') ? 'CANCEL' : 'ADD';
+      const type = pasteBatchActionType(t);
       try {
         const r = await fetch('/api/shipment/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
@@ -2176,8 +2182,8 @@ export default function PasteOrderPage() {
     }
     updateOrder(oid, {
       resultMsg: okCount > 0
-        ? `일괄 등록+분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
-        : `일괄 등록+분배 실패: ${failCount}건`,
+        ? `추가·취소 일괄 등록·분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
+        : `추가·취소 일괄 등록·분배 실패: ${failCount}건`,
     });
     setBulkRunning(false);
     // 화면 갱신 — 등록 후 DB 주문내역 + 분배수량 함께 새로 로드
@@ -2827,6 +2833,7 @@ export default function PasteOrderPage() {
           >
             📊 차수피벗 이동
           </button>
+          <PasteFixStatusPanel week={week} onChanged={() => week && reloadRegisteredOrdersForWeek(week)} />
           <button
             onClick={openMappingStatus}
             style={{ padding: '6px 16px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
@@ -3560,7 +3567,7 @@ export default function PasteOrderPage() {
                 <button
                   onClick={() => handleBulkDistribute(order.id)}
                   disabled={bulkRunning || matchedItems.length === 0 || !order.custMatch || !week}
-                  title="추가 = 주문등록+분배 동시 +, 취소 = 주문등록+분배 동시 −"
+                  title="붙여넣기 취소 전체를 먼저 처리한 뒤 추가 주문등록+분배를 처리합니다."
                   style={{
                     marginLeft: matchedItems.length === 0 ? 'auto' : '0',
                     padding: '8px 18px',
@@ -3569,7 +3576,7 @@ export default function PasteOrderPage() {
                     cursor: bulkRunning ? 'wait' : 'pointer',
                   }}
                 >
-                  {bulkRunning ? '⏳ 처리중...' : `🚀 일괄 등록+분배 (${matchedItems.length}건)`}
+                  {bulkRunning ? '⏳ 취소→추가 처리중...' : `🚀 추가·취소 일괄 등록·분배 (${matchedItems.length}건)`}
                 </button>
               </div>
 
@@ -3655,7 +3662,7 @@ export default function PasteOrderPage() {
                     {/* 일괄 분배 결과 표시 */}
                     {bulkResult?.orderId === order.id && (
                       <div style={{ padding: '6px 16px', borderTop: '1px solid #c8e6c9', background: bulkResult.failCount === 0 ? '#e8f5e9' : '#fff3e0', fontSize: 12 }}>
-                        <strong>일괄 분배 결과:</strong>
+                        <strong>{bulkResult.details.some(x => x.type === 'ADD' || x.type === 'CANCEL') ? '추가·취소 일괄 처리 결과:' : '일괄 분배 결과:'}</strong>
                         {' '}✅ 성공 {bulkResult.okCount}건
                         {bulkResult.failCount > 0 && <> / ❌ 실패 {bulkResult.failCount}건</>}
                         {bulkResult.failCount > 0 && (
@@ -3701,7 +3708,7 @@ export default function PasteOrderPage() {
                             <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#1565c0' }}>분배수량</th>
                             <th style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#7b1fa2' }}>잔량</th>
                             <th style={{ padding: '5px 8px', fontWeight: 600 }}>단위</th>
-                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>분배조정</th>
+                            <th style={{ padding: '5px 8px', fontWeight: 600 }}>분배조정 (취소 / 추가)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3756,13 +3763,13 @@ export default function PasteOrderPage() {
                                 </td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{normalizeOrderUnit(it.unit)}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
-                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', marginRight: 4 }}>
-                                    + 추가
-                                  </button>
                                   <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
-                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', marginRight: 4 }}>
                                     − 취소
+                                  </button>
+                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
+                                    style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                                    + 추가
                                   </button>
                                 </td>
                               </tr>
