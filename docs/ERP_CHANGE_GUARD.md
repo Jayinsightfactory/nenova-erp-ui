@@ -349,6 +349,28 @@ BunchQuantity/OutQuantity 10으로 환산한다. 필요한 `BunchOf1Box` 또는 
 동일 `32-02`는 선택 연도 업무키만 사용한다. 회귀는 `pasteOrderUnit.test.js`,
 `adjustUnit.test.js`, `shipmentPivotAdjustContract.test.js`가 검사한다.
 
+## 2026-08-17 붙여넣기 전체 추가·취소 원자적 일괄
+
+화면 전체 업체의 추가·취소를 단건 HTTP 요청으로 계속 처리하면 후반 품목 실패 전에
+성공한 취소/추가가 이미 commit되어, 사용자가 원인을 보완한 뒤 전체를 다시 실행할 때
+앞선 성공분이 중복 적용될 수 있다. 전체 일괄은 다음 부작용 표와 트랜잭션 경계를 따른다.
+
+| 동작 | OrderDetail | ShipmentDetail/Date/Farm | ShipmentAdjustment/History | Estimate·매출·재고원장 |
+|---|---|---|---|---|
+| CANCEL + 활성 분배 | 보존 | 기존 `AUTO_CANCEL`로 감소, 0이면 정리 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
+| CANCEL + 활성 분배 없음 | 기존 `AUTO_CANCEL`로 감소 | 보존, 신규 생성 금지 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
+| ADD + 현재연도 활성 주문 없음 | 양수 생성 | 기존 ADD 정책으로 증가·날짜 동기화 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
+| ADD + 현재연도 활성 주문 있음 | 기존 정책대로 증가 | 기존 ADD 정책으로 증가·날짜 동기화 | 같은 트랜잭션에 기록 | 직접 변경 금지 |
+| 어느 한 건 실패 | 위 모든 앞선 변경 롤백 | 위 모든 앞선 변경 롤백 | 이력까지 롤백 | 계속 보존 |
+
+서버는 명시된 `OrderYear + OrderWeek + CustKey + ProdKey`를 각 행의 업무키로 사용하고,
+선택 연도·차수가 다른 행을 한 batch에 섞지 않는다. 실행 순서는 입력 내 CANCEL 전체를
+안정적으로 먼저 처리한 뒤 ADD 전체이며, `force=false`를 서버에서 강제한다.
+`pages/api/shipment/adjust.js`의 트랜잭션 범위 코어를 단건/일괄 API가 함께 사용하고,
+`pages/api/shipment/adjust-batch.js`만 전체 `withTransaction`을 소유한다.
+회귀는 `__tests__/shipmentAdjustBatch.test.js`의 실행형 fake transaction fixture가
+앞선 CANCEL 성공 후 ADD 실패 시 committed 결과가 0건인지 검사한다.
+
 ## 2026-08-17 주차별 매출이익 포워딩 원천 자동대조
 
 29차 이후에는 항공료 전표가 `WarehouseMaster`/`WarehouseDetail`에 들어온다는 운영 기준을

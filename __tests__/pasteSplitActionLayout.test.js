@@ -8,7 +8,22 @@ assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}�
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
 assert.match(page, /orders\.flatMap\(order =>/);
 assert.match(page, /const handleAllMixedDistribute = async/);
-assert.match(page, /const targets = orderPasteMixedBatchTargets\(eligible\);[\s\S]*for \(const t of targets\)/);
+assert.match(page, /const targets = orderPasteMixedBatchTargets\(eligible\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/);
+assert.match(page, /entries: targets\.map\(t =>/);
+assert.match(page, /if \(!response\.ok \|\| result\.success !== true\)[\s\S]*throw rollbackError/);
+assert.match(page, /okCount: 0,[\s\S]*failCount: targets\.length,[\s\S]*rolledBack: true/);
+assert.match(page, /성공 0건 · 전체 \$\{bulkResult\.failCount\}건 모두 롤백 — 수정 후 전체 재실행/);
+assert.doesNotMatch(page, /handleAllMixedDistribute\(\{ failedOnly: true \}\)/);
+assert.doesNotMatch(page, /전체 업체[\s\S]{0,120}실패 품목만 재시도/);
+const atomicHandler = page.slice(
+  page.indexOf('const handleAllMixedDistribute = async'),
+  page.indexOf('// 등록된 주문을 기준으로 분배만 다시 저장한다.'),
+);
+assert.match(atomicHandler, /const targets = orderPasteMixedBatchTargets\(eligible\);/);
+assert.doesNotMatch(atomicHandler, /for \(const t of targets\)/);
+assert.match(atomicHandler, /setRegisteredOrders[\s\S]*setShipmentQtys[\s\S]*loadOrderHistorySummary[\s\S]*\} catch \(error\)/);
+const atomicCatch = atomicHandler.slice(atomicHandler.indexOf('} catch (error)'));
+assert.doesNotMatch(atomicCatch, /setRegisteredOrders|setShipmentQtys|loadOrderHistorySummary/);
 assert.match(page, /추가·취소 전체 일괄 등록·분배/);
 assert.match(page, /왼쪽 · 취소 업체 저장내역/);
 assert.match(page, /오른쪽 · 추가 업체 저장내역/);

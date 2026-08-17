@@ -4,6 +4,7 @@
   "scope": [
     "pages/shipment/week-pivot.js",
     "pages/api/shipment/adjust.js",
+    "pages/api/shipment/adjust-batch.js",
     "pages/api/shipment/stock-status.js",
     "pages/api/shipment/start-stock-text.js",
     "lib/pivotAdjustmentPolicy.js",
@@ -11,6 +12,7 @@
     "lib/pasteOrderUnit.js",
     "lib/estimateFixStatusLink.js",
     "lib/pasteMixedBatch.js",
+    "lib/shipmentAdjustmentBatch.js",
     "lib/pasteBatchHistory.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
@@ -64,11 +66,14 @@
     }
   ],
   "pasteMixedBatchPolicy": {
-    "executionOrder": "stable CANCEL phase first, then stable ADD phase",
+    "executionOrder": "the UI sends one stable CANCEL phase followed by one stable ADD phase in a single atomic request",
     "selectionModel": "actions come from the pasted analysis; users do not build a separate multi-selection",
-    "cancelApiPolicy": "reuse /api/shipment/adjust with type=CANCEL and mode=AUTO_CANCEL",
-    "addApiPolicy": "reuse /api/shipment/adjust with type=ADD and the existing combined order+shipment policy",
-    "failurePolicy": "preserve existing per-row results; continue through both phases and retry only failed ProdKey+type keys so successful rows are not applied twice",
+    "atomicApi": "POST /api/shipment/adjust-batch with explicit year, week, and ordered entries",
+    "cancelApiPolicy": "the atomic API reuses the existing type=CANCEL and mode=AUTO_CANCEL policy",
+    "addApiPolicy": "the atomic API reuses the existing type=ADD combined order+shipment policy",
+    "failurePolicy": "all-or-nothing; any entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
+    "forcePolicy": "force is always false for the global paste batch and cannot be enabled by an entry payload",
+    "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch",
     "sideEffects": [
       {
         "phase": "CANCEL",
@@ -105,6 +110,7 @@
     "__tests__/shipmentAvailability.test.js",
     "__tests__/pasteOrderUnit.test.js",
     "__tests__/pasteMixedBatch.test.js",
+    "__tests__/shipmentAdjustBatch.test.js",
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",

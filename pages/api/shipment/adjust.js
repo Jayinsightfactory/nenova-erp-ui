@@ -415,27 +415,48 @@ async function applyFarmAssignments(tQ, { year, week, prodKey, sdetailKey, outQu
   );
 }
 
-async function postAdjust(req, res) {
+function adjustmentInputError(message, code = 'SHIPMENT_ADJUST_INPUT_INVALID') {
+  const error = new Error(message);
+  error.statusCode = 400;
+  error.code = code;
+  return error;
+}
+
+export async function loadShipmentAdjustmentCapabilities() {
+  const [hasOrderYearWeekColumn, hasShipmentYearWeekColumn, hasOrderDetailDescrColumn] = await Promise.all([
+    columnExists('OrderMaster', 'OrderYearWeek'),
+    columnExists('ShipmentMaster', 'OrderYearWeek'),
+    columnExists('OrderDetail', 'Descr'),
+  ]);
+  return { hasOrderYearWeekColumn, hasShipmentYearWeekColumn, hasOrderDetailDescrColumn };
+}
+
+// 단건 API와 붙여넣기 전체 일괄 API가 같은 SQL 쓰기 정책을 사용하도록
+// 이미 열린 트랜잭션의 tQ만 받는 코어로 고정한다. 이 함수 안에서는 commit/rollback을
+// 수행하지 않으며 호출자가 전체 업무 단위를 하나의 withTransaction으로 감싼다.
+export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, user = {}, capabilities = {} } = {}) {
   const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments,
-    unitCost: requestedUnitCost, costSourceId, shipmentDate: requestedShipmentDate } = req.body;
+    unitCost: requestedUnitCost, costSourceId, shipmentDate: requestedShipmentDate,
+    force = false } = body;
 
   if (!custKey || !prodKey || !week || !type) {
-    return res.status(400).json({ success: false, error: 'custKey, prodKey, week, type 필요' });
+    throw adjustmentInputError('custKey, prodKey, week, type 필요');
   }
   if (type !== 'ADD' && type !== 'CANCEL') {
-    return res.status(400).json({ success: false, error: 'type은 ADD 또는 CANCEL' });
+    throw adjustmentInputError('type은 ADD 또는 CANCEL');
   }
   const delta = parseFloat(qty);
   if (!(delta > 0)) {
-    return res.status(400).json({ success: false, error: 'qty는 양수여야 함' });
+    throw adjustmentInputError('qty는 양수여야 함');
   }
 
   let orderYear;
   let orderWeek;
   try {
-    ({ orderYear, orderWeek } = requireOrderYear(week, year || req.body.orderYear || ''));
+    ({ orderYear, orderWeek } = requireOrderYear(week, year || body.orderYear || ''));
   } catch (error) {
-    return res.status(400).json({ success: false, code: error.code, error: error.message });
+    error.statusCode = 400;
+    throw error;
   }
   const pivotDistribution = isPivotDistributionMode(mode);
   const autoCancel = isAutoCancelMode(mode);
@@ -448,22 +469,22 @@ async function postAdjust(req, res) {
   const ywk = orderYear + orderWeek.split('-')[0];
   const ck = parseInt(custKey);
   const pk = parseInt(prodKey);
-  const uid = req.user?.userId || 'system';
-  const userName = req.user?.userName || uid;
+  const uid = user?.userId || 'system';
+  const userName = user?.userName || uid;
   if (pivotDistribution && requestedUnitCost !== undefined) {
     if (!(Number(requestedUnitCost) > 0) || !String(costSourceId || '').trim()) {
-      return res.status(400).json({ success:false, error:'단가와 단가 출처가 필요합니다.' });
+      throw adjustmentInputError('단가와 단가 출처가 필요합니다.');
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(requestedShipmentDate || ''))) {
-      return res.status(400).json({ success:false, error:'검증된 출고일이 필요합니다.' });
+      throw adjustmentInputError('검증된 출고일이 필요합니다.');
     }
   }
 
-  try {
-    const hasOrderYearWeekColumn = await columnExists('OrderMaster', 'OrderYearWeek');
-    const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
-    const hasOrderDetailDescrColumn = await columnExists('OrderDetail', 'Descr');
-    const result = await withTransaction(async (tQ) => {
+    const { hasOrderYearWeekColumn, hasShipmentYearWeekColumn, hasOrderDetailDescrColumn } = capabilities;
+    if ([hasOrderYearWeekColumn, hasShipmentYearWeekColumn, hasOrderDetailDescrColumn]
+      .some((value) => typeof value !== 'boolean')) {
+      throw new Error('출고조정 스키마 기능 확인값이 필요합니다.');
+    }
       await assertProductScopeNotFixed(tQ, orderYear, orderWeek, pk);
 
       // 1) 품목 정보 (환산용)
@@ -1009,7 +1030,7 @@ async function postAdjust(req, res) {
       // 입고검증 — 견적서/확정 단계 오류 예방
       // (a) 입고+수동재고조정 0 인데 출고 ADD: 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
       // (b) 입고+수동재고조정 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
-      if (type === 'ADD' && !req.body.force) {
+      if (type === 'ADD' && !force) {
         if (available <= 0) {
           throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
         }
@@ -1044,6 +1065,12 @@ async function postAdjust(req, res) {
       );
 
       return {
+        type,
+        delta,
+        orderYear,
+        orderWeek,
+        custKey: ck,
+        prodKey: pk,
         mode: adjustmentPolicy.mode,
         policyReason: adjustmentPolicy.reason,
         qtyBefore,
@@ -1065,18 +1092,29 @@ async function postAdjust(req, res) {
         sdetailKey: targetSdk,
         farmAssignmentsProvided,
       };
-    });
+}
 
+async function postAdjust(req, res) {
+  try {
+    const capabilities = await loadShipmentAdjustmentCapabilities();
+    const result = await withTransaction((tQ) => executeShipmentAdjustmentInTransaction(tQ, {
+      body: req.body,
+      user: req.user,
+      capabilities,
+    }));
     return res.status(200).json({
       success: true,
-      type,
+      type: result.type,
       mode: result.mode,
-      delta,
       ...result,
-      message: `${type === 'ADD' ? '추가' : '취소'} 완료 — ${result.qtyBefore} → ${result.qtyAfter}${result.orderDeleted ? ' / 자동 주문삭제' : ''}`,
+      message: `${result.type === 'ADD' ? '추가' : '취소'} 완료 — ${result.qtyBefore} → ${result.qtyAfter}${result.orderDeleted ? ' / 자동 주문삭제' : ''}`,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(Number(err?.statusCode) || 500).json({
+      success: false,
+      code: err?.code,
+      error: err.message,
+    });
   }
 }
 
