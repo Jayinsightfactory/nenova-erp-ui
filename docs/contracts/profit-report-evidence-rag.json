@@ -17,6 +17,7 @@
     "lib/profitReport.js",
     "lib/profitReportCalc.js",
     "lib/profitReportHistoricalInventory.js",
+    "lib/profitReportInventoryWorkbookCatalog.js",
     "lib/profitReportExcel.js",
     "lib/profitReportCountryResolver.js",
     "lib/profitReportAudit.js",
@@ -34,6 +35,7 @@
     "data/profit-report-evidence/registry/v1/source-attestation.json",
     "data/profit-report-evidence/manual-input-manifest.v1.json",
     "data/profit-report-evidence/formula-functions.v1.json",
+    "data/profit-report-inventory-catalog/v1/index.json",
     "__tests__/helpers/profitReportAcceptance.mjs",
     "__tests__/profitReportEvidence.test.js",
     "__tests__/profitReportAcceptanceHarness.test.js",
@@ -66,7 +68,7 @@
   },
   "inventoryResolver": {
     "quantity": "same OrderYear + major, ProductStock exists, numeric subweek DESC, ProductStock row count DESC, StockKey DESC; StockMaster.isFix is diagnostic metadata and is never a FormStockView close filter",
-    "price": "원본 workbook 수식 카테고리(콜롬비아 수국·카네이션·장미·루스커스·알스트로, 베트남)는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가한다. 그 밖은 1순위 exact OrderYear+OrderWeek+ProdKey VERIFIED WebStockPriceEvidence, 2순위 같은 scope·ProdKey·EstUnit의 사용자 확정 WebArrivalCostLine 품목별 수량가중평균, 마지막으로 정확한 2026년 22~28차 원본 workbook F 셀(SHA+sheet+cell 고정)만 사용한다.",
+    "price": "원본 workbook 수식 카테고리(콜롬비아 수국·카네이션·장미·루스커스·알스트로, 베트남)는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가한다. 그 밖은 1순위 exact OrderYear+OrderWeek+ProdKey VERIFIED WebStockPriceEvidence, 2순위 같은 scope·ProdKey·EstUnit의 사용자 확정 WebArrivalCostLine 품목별 수량가중평균, 3순위 2026-28차 이후 exact ProdKey+EstUnit의 버전관리 원본 재고잔량 catalog(원화 VAT 포함단가÷1.1 또는 호주 외화단가×원본 AUD 과세환율), 마지막으로 정확한 2026년 22~28차 원본 workbook F 셀(SHA+sheet+cell 고정)만 사용한다. catalog는 fuzzy 매칭·다른 연도·28차 이전에 적용하지 않는다.",
     "beginning": "E는 현재 workbook E 리터럴을 읽지 않고 같은 OrderYear 직전 대차수 F를 동일 공식과 원천으로 재계산한다. 01차만 전년도 52차로 넘어간다. 26차 F와 27차 E의 베트남 불연속은 WORKBOOK_ANOMALY로 보존하되 자동 이월하지 않는다.",
     "missing": ["INPUT_REQUIRED", "UNVERIFIED"],
     "forbiddenFallbacks": ["WebProfitReport E/F final override", "current workbook E literal carry", "Product.Cost", "recent WarehouseDetail cost", "formula-target 이외 category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "out-of-scope historical workbook", "previous-year stock except week 01 to prior-year 52", "StockMaster.isFix filtering"]
@@ -84,6 +86,7 @@
   "actions": [
     { "name": "EVIDENCE_BASELINE_REPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "repository-local generated workbook/report only" },
     { "name": "REPORT_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "ERP and web tables read-only" },
+    { "name": "WORKBOOK_INVENTORY_CATALOG_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "repository-local exact ProdKey evidence read-only; no DB copy, no ERP/Web write" },
     { "name": "EXTERNAL_EVIDENCE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "web-only evidence rows; requires sourceRef and effectiveAt" }
   ],
   "requiredTestFiles": [
@@ -91,6 +94,7 @@
     "__tests__/profitReportAcceptanceHarness.test.js",
     "__tests__/profitReportWorkbookParity.test.js",
     "__tests__/profitReportInventoryFormulaContract.test.js",
+    "__tests__/profitReportInventoryWorkbookCatalog.test.js",
     "__tests__/profitReportStockLinkContract.test.js",
     "__tests__/profitReportMigrationContract.test.js",
     "__tests__/erpContractManifest.test.js"

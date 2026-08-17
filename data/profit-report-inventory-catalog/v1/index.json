@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "policy": "Exact ProdKey only. Manual VERIFIED evidence and user-confirmed arrival cost always win. No fuzzy name matching.",
+  "source": {
+    "orderYear": "2026",
+    "majorWeek": "28",
+    "workbookFileName": "매출원가 양식 - 28차_재고수정.xlsx",
+    "workbookSha256": "D777E8745B3B1E2FBF89AC782633E9FD654F38FD7684ECBB620032221ECB156B",
+    "sheet": "재고잔량"
+  },
+  "validation": {
+    "auditedMajorWeeks": ["22", "23", "24", "25", "26", "27", "28"],
+    "auditedWorkbookCount": 7,
+    "auditedSheetCount": 78,
+    "auditedNonEmptyCellCount": 293010,
+    "auditedFormulaCellCount": 12865,
+    "inventoryPriceRowCount": 1366,
+    "normalizedInventoryItemKeyCount": 108,
+    "stableInventoryItemKeyCount": 105,
+    "exactProdKeyEntryCount": 47,
+    "workbooks": [
+      { "majorWeek": "22", "sha256": "72A8660E93D6593740246DDFF5BE74DA0B10D0B4A07559F3FA06C4CE434252A0", "sheetCount": 11 },
+      { "majorWeek": "23", "sha256": "B4EBF36AE4253A8D501BCACC147793A0B037FD933E0A29C3C68D131755DC6F9E", "sheetCount": 11 },
+      { "majorWeek": "24", "sha256": "6B92BBFA32D1B65AA065C8868E35476B0A471D1D0E1B6C6EC22B8E4036EF8BAE", "sheetCount": 12 },
+      { "majorWeek": "25", "sha256": "4D20160A362B7EEE3FC0241CE9DF880713B1EDA2E4C01785A4CB654CE7AEBF06", "sheetCount": 11 },
+      { "majorWeek": "26", "sha256": "B42BCCE6779F2B31CFA6FC8393C3DDE6827382495B1D63E3D8D01C1A40FE6F5A", "sheetCount": 11 },
+      { "majorWeek": "27", "sha256": "2906EC876160F7FA2F0FBAEB1C9B89E49BDA6A933CAD9B7CABAD9FBD7DD36689", "sheetCount": 11 },
+      { "majorWeek": "28", "sha256": "D777E8745B3B1E2FBF89AC782633E9FD654F38FD7684ECBB620032221ECB156B", "sheetCount": 11 }
+    ],
+    "knownWorkbookErrors": {
+      "count": 56,
+      "scope": "콜롬비아 1차/2차 N21:N24 helper cells only",
+      "reason": "M/L helper ratio with L=0; main profit report formulas do not reference these cells"
+    }
+  },
+  "entries": [
+    { "prodKey": 251, "sourceLabel": "반커부쉬", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 14.5, "sourceTaxableRate": 1068.23, "sourceCell": "P43", "sourceRateCell": "O37" },
+    { "prodKey": 553, "sourceLabel": "구아나클라우", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 3.65, "sourceTaxableRate": 1068.23, "sourceCell": "P46", "sourceRateCell": "O37" },
+    { "prodKey": 717, "sourceLabel": "에뮤페더", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 4.05, "sourceTaxableRate": 1068.23, "sourceCell": "P44", "sourceRateCell": "O37" },
+    { "prodKey": 719, "sourceLabel": "코알라펀", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 4.8, "sourceTaxableRate": 1068.23, "sourceCell": "P48", "sourceRateCell": "O37" },
+    { "prodKey": 720, "sourceLabel": "레인보우", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 5.65, "sourceTaxableRate": 1068.23, "sourceCell": "P51", "sourceRateCell": "O37" },
+    { "prodKey": 721, "sourceLabel": "씨스타펀", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 6.65, "sourceTaxableRate": 1068.23, "sourceCell": "P39", "sourceRateCell": "O37" },
+    { "prodKey": 723, "sourceLabel": "엄브렐러펀", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 6.95, "sourceTaxableRate": 1068.23, "sourceCell": "P40", "sourceRateCell": "O37" },
+    { "prodKey": 823, "sourceLabel": "에뮤그라스", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 4.8, "sourceTaxableRate": 1068.23, "sourceCell": "P45", "sourceRateCell": "O37" },
+    { "prodKey": 824, "sourceLabel": "스틸그라스", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 3.5, "sourceTaxableRate": 1068.23, "sourceCell": "P41", "sourceRateCell": "O37" },
+    { "prodKey": 1742, "sourceLabel": "스테노카르푸스", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 11.25, "sourceTaxableRate": 1068.23, "sourceCell": "P42", "sourceRateCell": "O37" },
+    { "prodKey": 1765, "sourceLabel": "Thryptomene Calycina Natural pink", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 9.5, "sourceTaxableRate": 1068.23, "sourceCell": "P53", "sourceRateCell": "O37" },
+    { "prodKey": 1766, "sourceLabel": "Thryptomene Calycina Natural White", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 9.5, "sourceTaxableRate": 1068.23, "sourceCell": "P52", "sourceRateCell": "O37" },
+    { "prodKey": 254, "sourceLabel": "woolly bush", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 8.5, "sourceTaxableRate": 1068.23, "sourceCell": "P50", "sourceRateCell": "O37" },
+    { "prodKey": 2999, "sourceLabel": "copper glow", "unit": "단", "basis": "FOREIGN_TAXABLE", "currency": "AUD", "foreignUnitPrice": 8.5, "sourceTaxableRate": 1068.23, "sourceCell": "P49", "sourceRateCell": "O37" },
+
+    { "prodKey": 1718, "sourceLabel": "레몬잎", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 5500, "sourceCell": "N60" },
+    { "prodKey": 670, "sourceLabel": "더글라스", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 6000, "sourceCell": "N61" },
+
+    { "prodKey": 2612, "sourceLabel": "Hirsutum White (10F)", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 5600, "sourceCell": "N98" },
+    { "prodKey": 2611, "sourceLabel": "Hirsutum White (8F)", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 5200, "sourceCell": "N99" },
+    { "prodKey": 2613, "sourceLabel": "그레빌레아 70cm", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 2100, "sourceCell": "N100" },
+
+    { "prodKey": 2783, "sourceLabel": "Light Pink LL", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14800, "sourceCell": "N110" },
+    { "prodKey": 2817, "sourceLabel": "Crimson M", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12800, "sourceCell": "N111" },
+    { "prodKey": 2707, "sourceLabel": "Lavender L", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 13800, "sourceCell": "N112" },
+
+    { "prodKey": 2387, "sourceLabel": "중국 오션송 레드박스", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12000, "sourceCell": "N123" },
+    { "prodKey": 2220, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2460, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2461, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2464, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2748, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2919, "sourceLabel": "중국 안개꽃", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 14000, "sourceCell": "N124" },
+    { "prodKey": 2158, "sourceLabel": "중국 시네신스 화이트", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 10000, "sourceCell": "N125" },
+    { "prodKey": 2754, "sourceLabel": "중국 시네신스 화이트", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 10000, "sourceCell": "N125" },
+    { "prodKey": 2739, "sourceLabel": "중국 루어 샨", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12000, "sourceCell": "N127" },
+    { "prodKey": 3133, "sourceLabel": "중국 루어 샨", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12000, "sourceCell": "N127" },
+    { "prodKey": 3029, "sourceLabel": "솔리다고", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 7000, "sourceCell": "N128" },
+    { "prodKey": 3030, "sourceLabel": "솔리다고", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 7000, "sourceCell": "N128" },
+
+    { "prodKey": 619, "sourceLabel": "태국 jinda sweet L", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 10500, "sourceCell": "N137" },
+    { "prodKey": 667, "sourceLabel": "태국 Big white L", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 9500, "sourceCell": "N138" },
+    { "prodKey": 609, "sourceLabel": "태국 jinda sweet XL", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 11000, "sourceCell": "N139" },
+    { "prodKey": 627, "sourceLabel": "태국 ARAN.Juling Red XL", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 19000, "sourceCell": "N141" },
+    { "prodKey": 630, "sourceLabel": "태국 Den. White born loose blooms", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 6300, "sourceCell": "N142" },
+
+    { "prodKey": 2555, "sourceLabel": "Anthurium Princess Alexia Bordeaux 11cm", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 6348.98, "sourceCell": "N146" },
+    { "prodKey": 1959, "sourceLabel": "오렌지주스", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12000, "sourceCell": "N147" },
+    { "prodKey": 3154, "sourceLabel": "오렌지주스", "unit": "단", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 12000, "sourceCell": "N147" },
+
+    { "prodKey": 1556, "sourceLabel": "Ecuador Channel AS154", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 2400, "sourceCell": "N159" },
+    { "prodKey": 2240, "sourceLabel": "Ecuador Electric MO AS295", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 2400, "sourceCell": "N160" },
+    { "prodKey": 1527, "sourceLabel": "Ecuador Tinted Light Eucalyptus AS231", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 2600, "sourceCell": "N161" },
+    { "prodKey": 1494, "sourceLabel": "Ecuador Tinted Dark Whisper AS033", "unit": "송이", "basis": "KRW_VAT_INCLUDED", "grossUnitPrice": 2400, "sourceCell": "N162" }
+  ],
+  "quarantined": [
+    {
+      "sourceLabel": "카네이션",
+      "sourceCell": "N30",
+      "value": 110000,
+      "reason": "Opening F30 is 11000 in every audited workbook while closing N30 is 110000. Never auto-promote this 10x anomaly."
+    }
+  ]
+}

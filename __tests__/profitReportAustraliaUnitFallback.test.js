@@ -42,6 +42,10 @@ async function main() {
   check('정확한 2026년 22~28차 원본 F 셀 증거를 사용', computeAutoEndingStock(verifiedHistorical) === 430000);
   check('원본 workbook 증거 원천 태그', endingStockSourceKind(verifiedHistorical) === 'verified_historical_workbook');
 
+  const verifiedCatalog = { ...verified, priceEvidenceStatus: 'VERIFIED_WORKBOOK_CATALOG', evidenceValue: 425000 };
+  check('정확한 ProdKey의 재고잔량 품목단가 catalog를 사용', computeAutoEndingStock(verifiedCatalog) === 425000);
+  check('재고잔량 catalog 원천 태그', endingStockSourceKind(verifiedCatalog) === 'verified_workbook_inventory_catalog');
+
   const missingEvidence = { ...verified, priceEvidenceStatus: 'INPUT_REQUIRED', evidenceValue: null };
   check('단가 증거가 없으면 모든 레거시 fallback 값이 있어도 null', computeAutoEndingStock(missingEvidence) == null);
   check('단가 증거 누락 원천 태그', endingStockSourceKind(missingEvidence) === 'missing_price_evidence');
