@@ -35,6 +35,16 @@
       { "prodKey": 447, "prodCode": "CAR01-CO0110", "prodName": "CARNATION Moon Light", "flowerName": "카네이션", "countryName": "콜롬비아", "outUnit": "박스", "estimateUnit": "단", "sourceRef": "formula-template.xlsx#품목리스트!A430:I430", "mappingId": "formula-spec-product@1:447", "provenanceDigest": "dba2dcfa899018912707acadfd48071e3e085ed69e311da11e40e0db9dda14b4" }
     ]
   },
+  "annotatedFormulaSpecification": {
+    "schemaVersion": 2,
+    "file": "매출원가 양식 (1).xlsx",
+    "sha256": "20696dd6725302549a6f913949d33b1c2b58d8b6bc3dc17d29c4d57e0e0d8ca4",
+    "relationshipToV1": "C7:U7 수식 설명·품목리스트·계산 셀은 v1과 동일하고 원천 위치 주석 17개만 추가된 명세다.",
+    "sheetCount": 11,
+    "formulaCount": 1836,
+    "sourceAnnotationCount": 17,
+    "sourceContract": "data/profit-report-evidence/formula-source-contract.v2.json"
+  },
   "acceptance": {
     "generatedFrom": [
       { "week": 22, "sha256": "72a8660e93d6593740246ddff5be74da0b10d0b4a07559f3fa06c4ce434252a0", "persistedCellCount": 41798, "formulaCount": 1885 },

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "contract": "weekly-profit-report-formula-source-contract@2",
+  "purpose": "원본 매출원가 양식의 전체 시트·수식·원천 주석을 Nenova ERP 읽기 원천과 연결하고, 최종 계산값 직접입력을 금지한다.",
+  "sourceWorkbook": {
+    "file": "매출원가 양식 (1).xlsx",
+    "sha256": "20696dd6725302549a6f913949d33b1c2b58d8b6bc3dc17d29c4d57e0e0d8ca4",
+    "specificationVersion": 2,
+    "sheetCount": 11,
+    "formulaCount": 1836,
+    "mainSheet": "주차별 매출이익 보고서",
+    "formulaDescriptionRange": "C7:U7",
+    "sourceAnnotationCount": 17,
+    "sourcePolicy": "원본 파일은 비공개 로컬 검증 자료로 유지하고 저장소에는 해시·셀 주소·수식·원천 계약만 보관한다."
+  },
+  "sheets": [
+    { "name": "주차별 매출이익 보고서", "role": "final-report", "usedRange": "B1:CA34", "formulaCount": 261 },
+    { "name": "재고잔량", "role": "begin-ending-stock-quantity-and-price-evidence", "usedRange": "B1:R200", "formulaCount": 459 },
+    { "name": "그외통관비", "role": "country-customs-cost-components", "usedRange": "B2:O45", "formulaCount": 130 },
+    { "name": "구매현황", "role": "foreign-purchase-amount-and-quantity", "usedRange": "A1:N78", "formulaCount": 75 },
+    { "name": "포워딩", "role": "foreign-forwarding-amount", "usedRange": "A1:N16", "formulaCount": 8 },
+    { "name": "판매현황", "role": "confirmed-sales-supply-amount", "usedRange": "A3:R1209", "formulaCount": 667 },
+    { "name": "불량차감", "role": "defect-deduction-supply-amount", "usedRange": "A1:J61", "formulaCount": 59 },
+    { "name": "그 외 매출액", "role": "other-estimate-supply-amount", "usedRange": "A1:J91", "formulaCount": 89 },
+    { "name": "콜롬비아 1차", "role": "colombia-phase-1-weight-cbm-cost-allocation", "usedRange": "B1:AH70", "formulaCount": 40 },
+    { "name": "콜롬비아 2차", "role": "colombia-phase-2-weight-cbm-cost-allocation", "usedRange": "B1:S73", "formulaCount": 48 },
+    { "name": "품목리스트", "role": "exact-product-key-and-unit-catalog", "usedRange": "A1:I3063", "formulaCount": 0 }
+  ],
+  "sourceAnnotations": [
+    { "sheet": "그외통관비", "cell": "B2", "text": "AWB 서류에서 무게", "resolver": "WarehouseDetail Gross/Chargeable weight, then WarehouseMaster weight fallback" },
+    { "sheet": "그외통관비", "cell": "H2", "text": "선율 청구서에서 관세 부분", "resolver": "WebCustomsWeekly Customs1/2 split invoice evidence" },
+    { "sheet": "그외통관비", "cell": "B17", "text": "선율 청구서에서 검역수수료+통관수수료 공급가액", "resolver": "WebCustomsWeekly SunYul1/2 split invoice evidence" },
+    { "sheet": "그외통관비", "cell": "H17", "text": "1+2차 무게 합쳤을 때 운송비", "resolver": "combined GW -> deriveTruckPlan/deriveWorldFreight" },
+    { "sheet": "포워딩", "cell": "F13", "text": "네덜란드, 중국:", "resolver": "country forwarding classification" },
+    { "sheet": "포워딩", "cell": "G13", "text": "입고관리에 있는 운송료", "resolver": "WarehouseDetail forwarding ledger" },
+    { "sheet": "포워딩", "cell": "F14", "text": "콜수국:", "resolver": "콜롬비아 수국 forwarding classification" },
+    { "sheet": "포워딩", "cell": "G14", "text": "freightwise", "resolver": "WarehouseDetail FreightWise forwarding line" },
+    { "sheet": "포워딩", "cell": "F15", "text": "에콰:", "resolver": "에콰도르 forwarding classification" },
+    { "sheet": "포워딩", "cell": "G15", "text": "freightwise ecuador", "resolver": "WarehouseDetail FreightWise Ecuador forwarding line" },
+    { "sheet": "포워딩", "cell": "F16", "text": "태국:", "resolver": "태국 forwarding classification" },
+    { "sheet": "포워딩", "cell": "G16", "text": "excel", "resolver": "WarehouseDetail Excel forwarding line" },
+    { "sheet": "콜롬비아 1차", "cell": "E6", "text": "← freightwise 운송료", "resolver": "WebColombiaWeekly.AirRateUSD/forwarding ledger" },
+    { "sheet": "콜롬비아 1차", "cell": "E9", "text": "↓ awb 무게", "resolver": "WarehouseDetail/WarehouseMaster GW/CW" },
+    { "sheet": "콜롬비아 1차", "cell": "E13", "text": "↑고정", "resolver": "versioned WebCustomsRateConfig box weight/CBM/truck rates" },
+    { "sheet": "콜롬비아 1차", "cell": "J29", "text": "awb 무게, 부피→", "resolver": "GW/CW decides weight or CBM forwarding allocation" },
+    { "sheet": "콜롬비아 1차", "cell": "I37", "text": "스케줄 공유방에 있는 품목별 박스수량→", "resolver": "WarehouseDetail.BoxQuantity exact product/category aggregation" }
+  ],
+  "finalColumns": [
+    { "column": "C", "label": "매출액", "formula": "N+L+O", "workbookSources": ["판매현황", "불량차감", "그 외 매출액"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "D", "label": "매출비율", "formula": "C/매출총합계", "workbookSources": ["주차별 매출이익 보고서.C"], "resolver": "calcRevenueRatio", "automatic": true },
+    { "column": "E", "label": "기초상품재고액", "formula": "직전 대차수 F를 같은 원천·공식으로 재계산", "workbookSources": ["직전 차수 재고잔량 기말"], "resolver": "latestStockSnapshotWeek + stockSnapshotByCategory + inventory valuation", "automatic": true },
+    { "column": "F", "label": "기말상품재고액", "formula": "카테고리평균: (G+H)/매입수량*재고수량; 그 외: 품목별 확정단가*재고수량", "workbookSources": ["재고잔량"], "resolver": "computeCategoryAverageInventoryValue or verified item-price evidence", "automatic": true },
+    { "column": "G", "label": "매입액(상품+포워딩)", "formula": "P+T", "workbookSources": ["구매현황", "포워딩"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "H", "label": "그외통관비", "formula": "백상창고료+관세+선율공급가+월드운송공급가+한국방역공급가; 콜롬비아 4품목은 무게비율 배분", "workbookSources": ["그외통관비", "콜롬비아 1차", "콜롬비아 2차"], "resolver": "computeCustomsAndForwarding", "automatic": "mixed-external-components" },
+    { "column": "I", "label": "매출원가", "formula": "E+G+H-F", "workbookSources": ["주차별 매출이익 보고서.E:G,H,F"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "J", "label": "매출이익", "formula": "C-I", "workbookSources": ["주차별 매출이익 보고서.C,I"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "K", "label": "이익률", "formula": "J/C", "workbookSources": ["주차별 매출이익 보고서.C,J"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "L", "label": "불량금액", "formula": "불량차감 공급가액 합계", "workbookSources": ["불량차감"], "resolver": "estimateByCategory EstimateType=불량차감", "automatic": true },
+    { "column": "M", "label": "불량율", "formula": "-L/C", "workbookSources": ["주차별 매출이익 보고서.L,C"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "N", "label": "순수매출액", "formula": "판매현황 공급가액 합계", "workbookSources": ["판매현황"], "resolver": "salesByCategory confirmed ShipmentDetail.Amount", "automatic": true },
+    { "column": "O", "label": "그 외 매출액", "formula": "불량차감 외 Estimate 공급가액 합계", "workbookSources": ["그 외 매출액"], "resolver": "estimateByCategory non-defect Estimate.Amount", "automatic": true },
+    { "column": "P", "label": "상품 금액(구매)", "formula": "Q*R", "workbookSources": ["구매현황", "선율 청구서 과세환율"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "Q", "label": "구매금액", "formula": "국가·화종별 외화 TPrice 합계", "workbookSources": ["구매현황"], "resolver": "purchaseByCategory WarehouseDetail.TPrice", "automatic": true },
+    { "column": "R", "label": "환율", "formula": "통관 신고 시점 과세환율", "workbookSources": ["선율 청구서"], "resolver": "exact FreightCost snapshot -> saved taxable rate -> historical evidence -> KCS rate", "automatic": "exact-source-or-input-required" },
+    { "column": "S", "label": "포워딩비용(USD)", "formula": "포워딩 원천 외화액 합계; 콜롬비아 4품목은 GW=CW이면 무게, 다르면 CBM 배분", "workbookSources": ["포워딩", "콜롬비아 1차", "콜롬비아 2차"], "resolver": "computeCustomsAndForwarding/forwarding ledger", "automatic": true },
+    { "column": "T", "label": "포워딩 원화환산", "formula": "S*R", "workbookSources": ["주차별 매출이익 보고서.S,R"], "resolver": "computeProfitRow", "automatic": true },
+    { "column": "U", "label": "상품구매비율", "formula": "P/상품구매액 합계", "workbookSources": ["주차별 매출이익 보고서.P"], "resolver": "calcPurchaseRatio", "automatic": true }
+  ],
+  "inventoryValuation": {
+    "quantitySource": "같은 OrderYear의 해당 대차수에서 ProductStock 행이 있는 숫자 세부차수 중 마지막 스냅샷; 동률은 ProductStock 행 수와 StockKey DESC",
+    "beginningSource": "같은 연도 직전 대차수의 기말 스냅샷; 01차만 전년도 52차",
+    "categoryAverage": ["콜롬비아 수국", "콜롬비아 카네이션", "콜롬비아 장미", "콜롬비아 루스커스", "콜롬비아 알스트로", "베트남"],
+    "categoryAverageFormula": "((Q+S)*R+H)/purchaseQty*stockQty",
+    "itemPricePriority": ["WebStockPriceEvidence exact snapshot", "user-confirmed WebArrivalCostLine exact product/unit", "versioned workbook inventory catalog for exact product/unit"],
+    "newProductPolicy": "카테고리 평균 대상은 자동 포함한다. 그 외 품목은 같은 품목·단위의 확정 도착원가가 있으면 자동 평가하고, 없으면 해당 품목 단가 근거만 요청한다.",
+    "forbiddenFallbacks": ["Product.Cost", "recent warehouse cost", "fuzzy product match", "unrelated category average", "direct E/F override", "different year/week price"]
+  },
+  "weightVolumeAllocation": {
+    "countryWarehouseFee": "(GW1+GW2)*effective BakSangRate",
+    "countryWorldFreight": "GW1+GW2를 합친 뒤 차량 조합을 한 번 계산",
+    "colombiaCustoms": "항상 boxQty*boxWeight 비율",
+    "colombiaForwarding": "GW=CW이면 boxQty*boxWeight 비율, 다르면 boxQty*boxCBM 비율",
+    "nonValueRows": ["Gross weight", "Chargeable weight"],
+    "nonValuePolicy": "금액·매입·재고 집계에서 제외하고 중량 원천으로만 사용"
+  },
+  "directExternalInputs": [
+    { "id": "customs.duty", "description": "관세 청구 금액", "target": "WebCustomsWeekly.Customs1/2 split fields or WebColombiaWeekly.CustomsFee" },
+    { "id": "customs.sunyul", "description": "선율 검역수수료+통관수수료 공급가액", "target": "WebCustomsWeekly.SunYul1/2 split fields or WebColombiaWeekly.HandlingFee" },
+    { "id": "customs.quarantine", "description": "한국 방역·콜롬비아 소독·검역 공제 실제 청구액", "target": "WebCustomsWeekly.Quarantine1/2 or WebColombiaWeekly.DisinfectFee/QuarantineDeductFee" },
+    { "id": "customs.actual-truck-override", "description": "자동 추천 차량과 실제 배차가 다를 때만 실제 대수·비용", "target": "WebCustomsWeekly.WorldFreight* or WebColombiaWeekly.Truck*" },
+    { "id": "taxable-rate-exception", "description": "정확한 당주 FreightCost/저장/KCS 원천이 없을 때만 청구서 과세환율", "target": "WebTaxableExchangeRate/WebProfitReport.R" },
+    { "id": "inventory.item-price-evidence", "description": "카테고리 평균 대상이 아닌 신규 품목의 확정 도착원가", "target": "WebStockPriceEvidence/WebArrivalCostLine", "finalColumnOverride": false }
+  ],
+  "forbiddenDirectFinalColumns": ["C", "D", "E", "F", "G", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "T", "U"],
+  "erpSideEffects": {
+    "reportRead": "ERP/Web tables SELECT only",
+    "externalEvidenceSave": "WebProfitReport/WebCustomsWeekly/WebColombiaWeekly/WebForwardingWeekly/WebTaxableExchangeRate/WebStockPriceEvidence only",
+    "preserve": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate", "WarehouseMaster", "WarehouseDetail", "StockMaster", "ProductStock", "StockHistory"]
+  }
+}

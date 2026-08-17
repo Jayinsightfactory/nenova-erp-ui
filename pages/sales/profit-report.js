@@ -548,8 +548,10 @@ export default function ProfitReportPage() {
   // ── 재고 평가단가표 모달
   const [priceModal, setPriceModal] = useState(null);   // { beginWeek, endWeek, rows }
   const [priceEdits, setPriceEdits] = useState({});
+  const [priceSuggestionEvidence, setPriceSuggestionEvidence] = useState({});
   const openPriceModal = async () => {
     setPriceEdits({});
+    setPriceSuggestionEvidence({});
     try {
       const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -563,6 +565,15 @@ export default function ProfitReportPage() {
       const prices = {};
       for (const [prodKey, price] of Object.entries(priceEdits)) {
         if (price == null || price === '') { prices[prodKey] = null; continue; }
+        const suggestedEvidence = priceSuggestionEvidence[prodKey];
+        if (suggestedEvidence) {
+          prices[prodKey] = {
+            price: Number(price),
+            sourceRef: suggestedEvidence.sourceRef,
+            effectiveAt: suggestedEvidence.effectiveAt,
+          };
+          continue;
+        }
         const rawEvidence = window.prompt(`ProdKey ${prodKey} 단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
         if (!rawEvidence) throw new Error(`ProdKey ${prodKey} 단가 근거 입력이 취소되었습니다.`);
         const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
@@ -579,6 +590,7 @@ export default function ProfitReportPage() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
       setPriceModal(null);
+      setPriceSuggestionEvidence({});
       setMessage('재고단가 근거 저장 — 동일 확정 스냅샷의 기초/기말 평가액이 갱신되었습니다.');
       await load();
     } catch (e) { setError(e.message); }
@@ -1382,11 +1394,33 @@ export default function ProfitReportPage() {
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
               직접 입력 단가는 <b>현재 기말 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
               콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균원가 공식이 우선 적용되며, 이 표는 자동 공식이 불가능한 품목의 보완 근거입니다.
+              <br /><b>출고단가 추천</b>은 재고원가가 아닙니다. 비평균·비호주 품목에서만 부가세를 제외해 제안하며, 내용을 확인하고 저장한 차수에만 확정 근거가 됩니다.
             </div>
+            {(priceModal.rows || []).some(r => r.SetPrice == null && r.SuggestedPrice != null) && (
+              <div style={{ padding: '0 12px 6px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  style={st.secondaryBtn}
+                  onClick={() => {
+                    const edits = {};
+                    const evidence = {};
+                    for (const row of priceModal.rows || []) {
+                      if (row.SetPrice != null || row.SuggestedPrice == null) continue;
+                      edits[row.ProdKey] = row.SuggestedPrice;
+                      evidence[row.ProdKey] = {
+                        sourceRef: row.SuggestedSourceRef,
+                        effectiveAt: row.SuggestedEffectiveAt,
+                      };
+                    }
+                    setPriceEdits(prev => ({ ...prev, ...edits }));
+                    setPriceSuggestionEvidence(prev => ({ ...prev, ...evidence }));
+                  }}
+                >출고단가 추천값 일괄 선택</button>
+              </div>
+            )}
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>
                 <thead>
-                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>참고 Cost</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th></tr>
+                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>참고 출고단가</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th><th>추천</th></tr>
                 </thead>
                 <tbody>
                   {(priceModal.rows || []).map(r => {
@@ -1410,8 +1444,33 @@ export default function ProfitReportPage() {
                           <NumericInput
                             style={{ ...st.cellInput, width: 90, background: edit !== undefined ? '#fef9c3' : (r.SetPrice != null ? '#ecfdf5' : '#fff') }}
                             value={shown}
-                            onChange={value => setPriceEdits(prev => ({ ...prev, [r.ProdKey]: value }))}
+                            onChange={value => {
+                              setPriceEdits(prev => ({ ...prev, [r.ProdKey]: value }));
+                              setPriceSuggestionEvidence(prev => {
+                                const next = { ...prev };
+                                delete next[r.ProdKey];
+                                return next;
+                              });
+                            }}
                           />
+                        </td>
+                        <td>
+                          {r.SetPrice == null && r.SuggestedPrice != null ? (
+                            <button
+                              style={{ ...st.secondaryBtn, padding: '4px 7px', fontSize: 10 }}
+                              title="현재 품목관리 출고단가의 부가세 제외값입니다. 확인 후 이 차수 재고단가 근거로 저장됩니다."
+                              onClick={() => {
+                                setPriceEdits(prev => ({ ...prev, [r.ProdKey]: r.SuggestedPrice }));
+                                setPriceSuggestionEvidence(prev => ({
+                                  ...prev,
+                                  [r.ProdKey]: {
+                                    sourceRef: r.SuggestedSourceRef,
+                                    effectiveAt: r.SuggestedEffectiveAt,
+                                  },
+                                }));
+                              }}
+                            >{fmt(r.SuggestedPrice)} 선택</button>
+                          ) : '—'}
                         </td>
                       </tr>
                     );

@@ -8,6 +8,7 @@
   "formulaSpecification": ".verify/inputs/profit-report-weeks-22-28/formula-template.xlsx",
   "privateSourceAttestation": "data/profit-report-evidence/registry/v1/source-attestation.json",
   "manualInputManifest": "data/profit-report-evidence/manual-input-manifest.v1.json",
+  "formulaSourceContract": "data/profit-report-evidence/formula-source-contract.v2.json",
   "sourceResolver": "lib/profitReportEvidence/sourceResolvers.mjs",
   "formulaFingerprint": "lib/profitReportEvidence/formulaFingerprint.mjs",
   "provenance": "lib/profitReportEvidence/provenance.mjs",
@@ -34,6 +35,7 @@
     "data/profit-report-evidence/registry/v1/index.json",
     "data/profit-report-evidence/registry/v1/source-attestation.json",
     "data/profit-report-evidence/manual-input-manifest.v1.json",
+    "data/profit-report-evidence/formula-source-contract.v2.json",
     "data/profit-report-evidence/formula-functions.v1.json",
     "data/profit-report-inventory-catalog/v1/index.json",
     "__tests__/helpers/profitReportAcceptance.mjs",
@@ -68,10 +70,10 @@
   },
   "inventoryResolver": {
     "quantity": "same OrderYear + major, ProductStock exists, numeric subweek DESC, ProductStock row count DESC, StockKey DESC; StockMaster.isFix is diagnostic metadata and is never a FormStockView close filter",
-    "price": "원본 workbook 수식 카테고리(콜롬비아 수국·카네이션·장미·루스커스·알스트로, 베트남)는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가한다. 그 밖은 1순위 exact OrderYear+OrderWeek+ProdKey VERIFIED WebStockPriceEvidence, 2순위 같은 scope·ProdKey·EstUnit의 사용자 확정 WebArrivalCostLine 품목별 수량가중평균, 3순위 2026-28차 이후 exact ProdKey+EstUnit의 버전관리 원본 재고잔량 catalog(원화 VAT 포함단가÷1.1 또는 호주 외화단가×원본 AUD 과세환율), 마지막으로 정확한 2026년 22~28차 원본 workbook F 셀(SHA+sheet+cell 고정)만 사용한다. catalog는 fuzzy 매칭·다른 연도·28차 이전에 적용하지 않는다.",
+    "price": "원본 workbook 수식 카테고리(콜롬비아 수국·카네이션·장미·루스커스·알스트로, 베트남)는 (Q×R+S×R+H)÷당주 매입수량×마지막 ProductStock 재고수량으로 평가한다. 그 밖은 1순위 exact OrderYear+OrderWeek+ProdKey VERIFIED WebStockPriceEvidence, 2순위 같은 scope·ProdKey·EstUnit의 사용자 확정 WebArrivalCostLine 품목별 수량가중평균, 3순위 2026-28차 이후 exact ProdKey+EstUnit의 버전관리 원본 재고잔량 catalog(원화 VAT 포함단가÷1.1 또는 호주 외화단가×원본 AUD 과세환율), 마지막으로 정확한 2026년 22~28차 원본 workbook F 셀(SHA+sheet+cell 고정)만 사용한다. catalog는 fuzzy 매칭·다른 연도·28차 이전에 적용하지 않는다. Product.Cost는 EXE의 현재 출고단가이므로 자동 확정에는 사용하지 않고, 평균원가 대상과 호주를 제외한 품목에서만 VAT 제외 추천값으로 표시한다. 사용자가 선택·저장한 해당 차수 evidence만 계산 원천으로 승격한다.",
     "beginning": "E는 현재 workbook E 리터럴을 읽지 않고 같은 OrderYear 직전 대차수 F를 동일 공식과 원천으로 재계산한다. 01차만 전년도 52차로 넘어간다. 26차 F와 27차 E의 베트남 불연속은 WORKBOOK_ANOMALY로 보존하되 자동 이월하지 않는다.",
     "missing": ["INPUT_REQUIRED", "UNVERIFIED"],
-    "forbiddenFallbacks": ["WebProfitReport E/F final override", "current workbook E literal carry", "Product.Cost", "recent WarehouseDetail cost", "formula-target 이외 category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "out-of-scope historical workbook", "previous-year stock except week 01 to prior-year 52", "StockMaster.isFix filtering"]
+    "forbiddenFallbacks": ["WebProfitReport E/F final override", "current workbook E literal carry", "Product.Cost automatic final value", "recent WarehouseDetail cost", "formula-target 이외 category/global/unrelated average", "upload-only arrival auto-match", "unit-mismatched arrival cost", "hydrangea hardcode", "out-of-scope historical workbook", "previous-year stock except week 01 to prior-year 52", "StockMaster.isFix filtering"]
   },
   "runtimeDdl": "FORBIDDEN",
   "migration": "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
@@ -95,6 +97,7 @@
     "__tests__/profitReportWorkbookParity.test.js",
     "__tests__/profitReportInventoryFormulaContract.test.js",
     "__tests__/profitReportInventoryWorkbookCatalog.test.js",
+    "__tests__/profitReportFormulaSourceContract.test.js",
     "__tests__/profitReportStockLinkContract.test.js",
     "__tests__/profitReportMigrationContract.test.js",
     "__tests__/erpContractManifest.test.js"

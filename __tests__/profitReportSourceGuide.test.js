@@ -182,6 +182,16 @@ async function main() {
     && /백상창고료·관세는 원래 공급가라 나누지 않고/.test(byKey.H.note) && /베트남 선율만 예외/.test(byKey.H.note));
   check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게배분을 명시',
     /박스당 무게 × 박스수/.test(byKey.H.formula) && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
+  check('통관비 원천 설명이 AWB·선율청구서·1·2차 합산을 명시',
+    /AWB\/입고관리/.test(byKey.H.source) && /선율 청구서 관세 부분/.test(byKey.H.source)
+    && /검역수수료\+통관수수료 공급가액/.test(byKey.H.source) && /1·2차 합산 무게/.test(byKey.H.source));
+  check('포워딩 원천 설명이 국가별 원본 출처를 명시',
+    /네덜란드·중국은 입고관리 운송료/.test(byKey.S.source)
+    && /콜롬비아 수국은 FreightWise/.test(byKey.S.source)
+    && /FreightWise Ecuador/.test(byKey.S.source) && /태국은 Excel/.test(byKey.S.source));
+  check('콜롬비아 배분 설명이 박스수·GW\/CW·CBM 원천을 명시',
+    /WarehouseDetail\.BoxQuantity/.test(byKey['in-colombia'].source)
+    && /GW=CW/.test(byKey['in-colombia'].note) && /CBM/.test(byKey['in-colombia'].note));
   check('재고평가 공식과 보조 단가 근거를 함께 명시',
     /\(G\+H\)÷매입수량×재고수량/.test(byKey['in-stockprice'].formula)
     && /EXE ProductStock 환산수량×VERIFIED 시점 단가/.test(byKey['in-stockprice'].formula));
@@ -201,7 +211,9 @@ async function main() {
   check('기말재고 설명이 원본 평균원가 공식과 검증된 보조 단가를 명시',
     /\(매입액\+그외통관비\) ÷ 매입수량 × 마지막 재고수량/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
-    && /최근원가·Product\.Cost/.test(byKey.F.note));
+    && /Product\.Cost는 현재 출고단가/.test(byKey.F.note)
+    && /자동값으로 대체하지 않고/.test(byKey.F.note)
+    && /추천값으로 표시/.test(byKey.F.note));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)
     && /VERIFIED_ARRIVAL_COST/.test(calcSource)
@@ -276,11 +288,11 @@ async function main() {
 
   console.log('\n=== 자동값 vs 사용자 입력 구분 보존 ===');
   check('직접입력 성격 배지가 5종 정의됨', Object.keys(ENTRY_KINDS).length === 5);
-  check('H는 입력화면 원천으로 표기', byKey.H.kind === 'manualSource');
+  check('H는 자동원천+외부 청구입력 혼합으로 표기', byKey.H.kind === 'autoManual');
   check('공제 줄은 직접입력으로 표기', byKey['row-deduct'].kind === 'manual');
-  check('E/F는 자동, R/S만 자동+증거입력으로 표기',
+  check('E/F는 자동, R/S/H·콜롬비아배분·재고단가근거는 자동+증거입력으로 표기',
     ['E', 'F'].every((k) => byKey[k].kind === 'auto')
-    && ['R', 'S'].every((k) => byKey[k].kind === 'autoManual'));
+    && ['R', 'S', 'H', 'in-colombia', 'in-stockprice'].every((k) => byKey[k].kind === 'autoManual'));
   check('N/L/O/Q는 자동으로 표기', ['N', 'L', 'O', 'Q'].every((k) => byKey[k].kind === 'auto'));
   check('C/D/G/I/J/K/M/P/T/U는 계산으로 표기',
     ['C', 'D', 'G', 'I', 'J', 'K', 'M', 'P', 'T', 'U'].every((k) => byKey[k].kind === 'calc'));
