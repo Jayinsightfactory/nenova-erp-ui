@@ -358,3 +358,22 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   구매가 있는 세부차수·국가·화종에 항공료가 연결되지 않으면 29차 이후 보고서 검증을 중단한다.
 - 이 보강은 SELECT 전용이다. Order/Shipment/Estimate/ProductStock/StockHistory/WebProfitReport의
   수량·단가·확정·재고·과거 확정값을 수정하지 않는다.
+
+## 2026-08-17 재고잔량 품목단가 원천 승격
+
+- 2026년 22~28차 원본 workbook 7개의 전체 78개 시트를 다시 검사했다. `재고잔량`은 단순 참고
+  시트가 아니라 기초 B:G·기말 J:O의 품목별 수량·표시단가·총계를 보존하는 평가 원천이다.
+- 콜롬비아 수국·카네이션·장미·루스커스·알스트로와 베트남은 기존 카테고리 평균원가 공식이
+  우선한다. 이 여섯 카테고리를 품목단가 catalog로 덮어쓰지 않는다.
+- 그 밖의 정확히 승인된 ProdKey는 `data/profit-report-inventory-catalog/v1/index.json`에서 원본
+  workbook SHA·시트·셀·단위와 함께 읽는다. 원화 표시단가는 VAT 포함값이므로 공급가 단가로
+  `/1.1`한다. 호주는 P열 외화단가에 원본 O37의 AUD 과세환율을 곱한 원본 취득원가를 사용한다.
+- 적용 우선순위는 정확한 같은 스냅샷의 `WebStockPriceEvidence` → 같은 품목·단위의 사용자 확정
+  `WebArrivalCostLine` → 정확한 ProdKey·EstUnit의 workbook catalog다. 품명 fuzzy 매칭과 다른
+  품목·카테고리 평균은 금지한다.
+- catalog 기준일은 2026-28차이며 그 이전 및 다른 연도에 역전파하지 않는다. 이후 업로드에서
+  더 최신의 확정 도착원가 또는 직접 단가가 생기면 그 근거가 항상 우선한다.
+- 모든 workbook에서 기초 F30=11,000원과 달리 기말 N30=110,000원인 카네이션 10배 이상값은
+  `quarantined`로 기록하고 자동 catalog에 포함하지 않는다.
+- 이 경로는 저장소의 버전관리 데이터만 읽으며 GET 중 DB 복사·DDL·ERP/Web 쓰기를 하지 않는다.
+  신규 품목 또는 단위가 달라 정확한 근거가 없으면 기존대로 `INPUT_REQUIRED`를 유지한다.
