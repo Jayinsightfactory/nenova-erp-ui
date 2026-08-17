@@ -107,6 +107,8 @@ export async function loadReportData(major, orderYear) {
         return [key, {
           average,
           historical: getHistoricalClosingInventoryEvidence(prevOrderYear, prevMajor, key),
+          conversionMissing: previousConversionMissing,
+          unitMismatch: previousUnitMismatch,
         }];
       }));
 
@@ -221,7 +223,7 @@ export async function loadReportData(major, orderYear) {
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
           conversionMissingCount: Number(stockBegin.conversionMissingCounts?.[key] || 0),
           conversionIssues: stockBegin.conversionIssues?.[key] || [],
-          unitMismatch: previousUnitMismatch,
+          unitMismatch: previous.unitMismatch === true,
         };
         const autoE = computeAutoEndingStock(beginStock);
         const stockESourceKind = endingStockSourceKind(beginStock);
