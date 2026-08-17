@@ -148,6 +148,8 @@ async function handler(req, res) {
 
   const logs = [];
   let parsedRows = [];
+  let parsedMetadata = null;
+  let parsedSheetName = null;
   let sourceType = 'excel';
 
   try {
@@ -168,6 +170,8 @@ async function handler(req, res) {
         sourceName: file.originalFilename || 'upload.xlsx',
       });
       parsedRows = parsed.rows;
+      parsedMetadata = parsed.metadata || null;
+      parsedSheetName = parsed.sheetName || null;
       logs.push(...parsed.logs);
     } else {
       return res.status(400).json({ success: false, error: '지원 형식: xlsx, xls, csv, png, jpg, webp' });
@@ -223,7 +227,8 @@ async function handler(req, res) {
       success: true,
       fileName: file.originalFilename || 'upload',
       sourceType,
-      sheetName: sourceType === 'excel' ? (parsedRows.sheetName || null) : null,
+      sheetName: sourceType === 'excel' ? parsedSheetName : null,
+      metadata: parsedMetadata,
       items,
       summary,
       logs,

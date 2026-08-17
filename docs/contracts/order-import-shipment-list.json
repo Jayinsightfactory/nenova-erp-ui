@@ -1,0 +1,16 @@
+{
+  "id": "order-import-shipment-list",
+  "title": "업로드 주문등록 및 출고리스트 엑셀 생성 계약",
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "scope": ["pages/orders/import.js", "pages/api/orders/import-parse.js", "pages/api/orders/shipment-list-source.js", "lib/orderImportParse.js", "lib/orderShipmentList.js", "__tests__/orderShipmentList.test.js"],
+  "actions": [
+    {"name":"PARSE_UPLOAD_METADATA", "orderDetail":"preserve", "shipmentDetail":"preserve"},
+    {"name":"LOAD_ORDER_LIST_SOURCE", "orderDetail":"preserve", "shipmentDetail":"preserve"},
+    {"name":"LOAD_SHIPMENT_LIST_SOURCE", "orderDetail":"preserve", "shipmentDetail":"preserve"},
+    {"name":"ASSIGN_DEFAULT_SHIP_DATE_AND_EXPORT", "orderDetail":"preserve", "shipmentDetail":"preserve"}
+  ],
+  "crossYearFixture": {"required":true,"description":"2025/2026 동일 35-01이 있어도 선택한 OrderYear+OrderWeek+CustKey만 조회한다."},
+  "requiredTestFiles": ["__tests__/orderShipmentList.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormOrderAdd.md","source":"nenova.exe FormOrderAdd 주문 업무키 및 저장 흐름","methods":["FormOrderAdd.btnSave_Click","FormOrderAdd.MergeDataBefore"],"tables":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}
