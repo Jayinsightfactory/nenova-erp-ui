@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import { scoreMatch } from '../lib/displayName.js';
 import {
   deductionManagerIdentity,
@@ -325,14 +326,18 @@ assert.equal(pagedRows.length, 2, 'A4 39행을 넘으면 업체 단위로 다음
 const pagedBuffer = await buildSalesDefectWorkbook(manyCustomers, { year: 2026, week: 33 });
 const pagedWb = new ExcelJS.Workbook();
 await pagedWb.xlsx.load(pagedBuffer);
-assert.deepEqual(pagedWb.worksheets.map((sheet) => sheet.name), ['33차', '33차-2']);
-for (const sheet of pagedWb.worksheets) {
-  assert.equal(sheet.pageSetup.paperSize, 9);
-  assert.equal(sheet.pageSetup.fitToWidth, 1);
-  assert.equal(sheet.pageSetup.fitToHeight, 1);
-  assert.equal(sheet.pageSetup.printArea, 'B1:K44');
-  assert.equal(sheet.getImages().length > 0, true, '각 페이지에 원본 로고가 반복되어야 한다.');
-}
+assert.deepEqual(pagedWb.worksheets.map((sheet) => sheet.name), ['33차'], '전체 내용은 하나의 시트에 있어야 한다.');
+const pagedSheet = pagedWb.worksheets[0];
+assert.equal(pagedSheet.pageSetup.paperSize, 9);
+assert.equal(pagedSheet.pageSetup.fitToWidth, 1);
+assert.equal(pagedSheet.pageSetup.fitToHeight, 0);
+assert.equal(pagedSheet.pageSetup.printArea, 'B1:K88');
+const pagedZip = await JSZip.loadAsync(pagedBuffer);
+const pagedSheetXml = await pagedZip.file('xl/worksheets/sheet1.xml').async('string');
+assert.match(pagedSheetXml, /<rowBreaks[^>]*count="1"[^>]*>.*<brk[^>]*id="44"[^>]*man="1"/s, '인쇄할 때만 44행 뒤에서 다음 A4 페이지로 나뉘어야 한다.');
+assert.equal(pagedSheet.getImages().length, 2, '한 시트 안의 각 인쇄 페이지에 원본 로고가 반복되어야 한다.');
+assert.equal(pagedSheet.getCell('D46').value?.toString().includes('( 33 )'), true, '두 번째 인쇄 페이지에도 제목이 반복되어야 한다.');
+assert.equal(pagedSheet.getCell('D49').value, '품종', '두 번째 인쇄 페이지에도 표 헤더가 반복되어야 한다.');
 
 const formattedExport = formatSalesDefectExportRows([
   { customerName: '그린화원(전산)', customerAlias: '그린화원/화요일', productName: '카네이션', countryName: '콜롬비아', colorName: '문라이트', quantity: 1 },
