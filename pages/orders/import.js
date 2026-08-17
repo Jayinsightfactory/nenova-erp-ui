@@ -970,6 +970,29 @@ export default function OrderImportPage() {
           )}
         </div>
 
+        <div style={{ ...st.card, border: '2px solid #00897b' }}>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+            <strong>📥 출고리스트 엑셀 만들기</strong>
+            <select style={st.input} value={shipmentSource} onChange={e=>setShipmentSource(e.target.value)}>
+              <option value="upload">업로드 매칭 기준</option><option value="order">선택 차수 주문등록 기준</option><option value="shipment">선택 차수 분배 기준</option>
+            </select>
+            <button type="button" style={{...st.btn,...st.btnPrimary}} onClick={prepareShipmentList}>수량 불러오기</button>
+            <input type="date" style={st.input} value={targetShipDate} onChange={e=>setTargetShipDate(e.target.value)} title="이동할 출고일"/>
+            <button type="button" style={{...st.btn,background:'#00897b',color:'#fff'}} disabled={!shipmentRows.length} onClick={downloadShipmentList}>엑셀 다운로드</button>
+          </div>
+          <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>모든 수량은 기본출고일에 먼저 배정됩니다. 다른 날짜로 보낼 수량만 선택해 이동하세요.</div>
+          {shipmentRows.map((row,idx)=><div key={`${row.prodKey}-${idx}`} style={{display:'grid',gridTemplateColumns:'minmax(240px,1fr) 1fr',gap:8,padding:'6px 0',borderBottom:'1px solid #eef2f7',fontSize:12}}>
+            <div><b>{row.displayName || row.prodName}</b> · 총 {row.totalQty}{row.unit} <span style={{color:allocationTotal(row)===row.totalQty?'#166534':'#b91c1c'}}>배정 {allocationTotal(row)}</span></div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+              {Object.entries(row.allocations || {}).map(([date,qty])=><span key={date} style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                {date} <b>{qty}</b>
+                <input type="number" min="0.001" max={qty} step="0.001" style={{...st.input,width:72}} value={moveQty[idx] ?? 1} onChange={e=>setMoveQty(v=>({...v,[idx]:e.target.value}))}/>
+                <button type="button" style={{...st.btn,...st.btnSecondary,padding:'4px 7px'}} disabled={!targetShipDate || targetShipDate===date} onClick={()=>moveRowDate(idx,date)}>선택일로 보내기</button>
+              </span>)}
+            </div>
+          </div>)}
+        </div>
+
         {items.length > 0 && (
           <div style={st.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
@@ -990,7 +1013,7 @@ export default function OrderImportPage() {
                 <thead>
                   <tr>
                     <th style={st.th}>#</th>
-                    <th style={st.th}>입력 품목</th>
+                    <th style={st.th}>입력 품목 / 품종·세부정보</th>
                     <th style={st.th}>수량</th>
                     <th style={st.th}>단위</th>
                     <th style={st.th}>매칭 품목</th>
@@ -1010,6 +1033,15 @@ export default function OrderImportPage() {
                           onChange={(e) => updateItem(idx, { inputName: e.target.value.trim() })}
                           title="발주표 품목명 (수정 가능)"
                         />
+                        {Array.isArray(row.detailLabels) && row.detailLabels.length > 0 && (
+                          <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {row.detailLabels.map(label => (
+                              <span key={label} style={{ fontSize: 10, color: '#475569', background: '#eef2f7', padding: '2px 6px', borderRadius: 8 }}>
+                                품종·세부: {label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td style={st.td}>
                         <input
@@ -1078,30 +1110,6 @@ export default function OrderImportPage() {
           </div>
         )}
 
-        {(
-          <div style={st.card}>
-            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
-              <strong>출고리스트 엑셀 만들기</strong>
-              <select style={st.input} value={shipmentSource} onChange={e=>setShipmentSource(e.target.value)}>
-                <option value="upload">업로드 매칭 기준</option><option value="order">선택 차수 주문등록 기준</option><option value="shipment">선택 차수 분배 기준</option>
-              </select>
-              <button type="button" style={{...st.btn,...st.btnPrimary}} onClick={prepareShipmentList}>수량 불러오기</button>
-              <input type="date" style={st.input} value={targetShipDate} onChange={e=>setTargetShipDate(e.target.value)} title="이동할 출고일"/>
-              <button type="button" style={{...st.btn,background:'#00897b',color:'#fff'}} disabled={!shipmentRows.length} onClick={downloadShipmentList}>엑셀 다운로드</button>
-            </div>
-            <div style={{fontSize:11,color:'#64748b',marginBottom:8}}>모든 수량은 기본출고일에 먼저 배정됩니다. 다른 날짜로 보낼 수량만 선택해 이동하세요.</div>
-            {shipmentRows.map((row,idx)=><div key={`${row.prodKey}-${idx}`} style={{display:'grid',gridTemplateColumns:'minmax(240px,1fr) 1fr',gap:8,padding:'6px 0',borderBottom:'1px solid #eef2f7',fontSize:12}}>
-              <div><b>{row.displayName || row.prodName}</b> · 총 {row.totalQty}{row.unit} <span style={{color:allocationTotal(row)===row.totalQty?'#166534':'#b91c1c'}}>배정 {allocationTotal(row)}</span></div>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                {Object.entries(row.allocations || {}).map(([date,qty])=><span key={date} style={{display:'inline-flex',alignItems:'center',gap:4}}>
-                  {date} <b>{qty}</b>
-                  <input type="number" min="0.001" max={qty} step="0.001" style={{...st.input,width:72}} value={moveQty[idx] ?? 1} onChange={e=>setMoveQty(v=>({...v,[idx]:e.target.value}))}/>
-                  <button type="button" style={{...st.btn,...st.btnSecondary,padding:'4px 7px'}} disabled={!targetShipDate || targetShipDate===date} onClick={()=>moveRowDate(idx,date)}>선택일로 보내기</button>
-                </span>)}
-              </div>
-            </div>)}
-          </div>
-        )}
       </div>
     </>
   );
