@@ -1,10 +1,10 @@
-// GET /api/automation/ai/<scope>?week=28-01  — MOYI AI 조회용 요약(읽기 전용, ≤4KB).
+// GET /api/automation/ai/<scope>?year=2026&week=28-01  — MOYI AI 조회용 요약(읽기 전용, ≤4KB).
 //   scope: order | shipment | stock | estimate
 // 인증: Authorization: Bearer <MOYI_API_TOKEN>
 // 원칙: SELECT 전용 · TOP(LIMIT) 필수 · 원가/이익 등 민감정보 제외(매출·수량만) · 응답 요약(≤4KB).
 // 도메인 안전: ViewOrder/ViewShipment 사용(ShipmentDetail 직접·sd.isDeleted 회피). OrderWeek 는 대차수/세부차수 모두 지원.
 import { query, sql } from '../../../../lib/db';
-import { checkAutomationAuth } from '../../../../lib/automationAuth';
+import { checkMoyiAutomationAuth } from '../../../../lib/automationAuth';
 
 const TOP = 12; // LIMIT
 const round = v => Math.round(Number(v || 0));
@@ -17,54 +17,60 @@ function weekClause(alias, raw) {
   return null;
 }
 
-async function scopeOrder(week) {
+function orderYear(raw) {
+  const year = String(raw || '').trim();
+  if (!/^20\d{2}$/.test(year)) throw new Error('year 형식 오류(예: 2026)');
+  return year;
+}
+
+async function scopeOrder(year, week) {
   const wc = weekClause('vo', week); if (!wc) throw new Error('week 형식 오류(예: 28 또는 28-01)');
   const tot = await query(
     `SELECT COUNT(DISTINCT vo.CustKey) AS custs, COUNT(*) AS lines,
             SUM(ISNULL(vo.OutQuantity,0)) AS qty
-       FROM ViewOrder vo WHERE ${wc.sql}`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+       FROM ViewOrder vo WHERE vo.OrderYear=@year AND ${wc.sql}`,
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const byCF = await query(
     `SELECT TOP (${TOP}) vo.CountryFlower AS cf, COUNT(*) AS lines, SUM(ISNULL(vo.OutQuantity,0)) AS qty
-       FROM ViewOrder vo WHERE ${wc.sql} GROUP BY vo.CountryFlower ORDER BY SUM(ISNULL(vo.OutQuantity,0)) DESC`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+       FROM ViewOrder vo WHERE vo.OrderYear=@year AND ${wc.sql} GROUP BY vo.CountryFlower ORDER BY SUM(ISNULL(vo.OutQuantity,0)) DESC`,
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const t = tot.recordset[0] || {};
-  return { scope: 'order', week, customers: t.custs || 0, orderLines: t.lines || 0, totalOutQty: round(t.qty),
+  return { scope: 'order', year, week, customers: t.custs || 0, orderLines: t.lines || 0, totalOutQty: round(t.qty),
     topCountryFlower: byCF.recordset.map(r => ({ name: r.cf, lines: r.lines, qty: round(r.qty) })) };
 }
 
-async function scopeShipment(week) {
+async function scopeShipment(year, week) {
   const wc = weekClause('vs', week); if (!wc) throw new Error('week 형식 오류(예: 28 또는 28-01)');
   const tot = await query(
     `SELECT COUNT(DISTINCT vs.CustKey) AS custs, COUNT(*) AS lines,
             SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) AS sales,
             SUM(CASE WHEN ISNULL(vs.DetailFix,0)=1 THEN 1 ELSE 0 END) AS fixedLines
-       FROM ViewShipment vs WHERE ${wc.sql}`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+       FROM ViewShipment vs WHERE vs.OrderYear=@year AND ${wc.sql}`,
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const byCust = await query(
     `SELECT TOP (${TOP}) vs.CustName AS cust, SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) AS sales
-       FROM ViewShipment vs WHERE ${wc.sql} GROUP BY vs.CustName ORDER BY SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) DESC`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+       FROM ViewShipment vs WHERE vs.OrderYear=@year AND ${wc.sql} GROUP BY vs.CustName ORDER BY SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) DESC`,
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const t = tot.recordset[0] || {};
-  return { scope: 'shipment', week, customers: t.custs || 0, shipmentLines: t.lines || 0,
+  return { scope: 'shipment', year, week, customers: t.custs || 0, shipmentLines: t.lines || 0,
     salesTotalVatIncl: round(t.sales), fixedLines: t.fixedLines || 0,
     topCustomers: byCust.recordset.map(r => ({ name: r.cust, sales: round(r.sales) })) };
 }
 
-async function scopeEstimate(week) {
+async function scopeEstimate(year, week) {
   const wc = weekClause('vs', week); if (!wc) throw new Error('week 형식 오류(예: 28 또는 28-01)');
   // 확정(DetailFix=1) 출고 기준 거래처별 매출(견적 확정분)
   const tot = await query(
     `SELECT COUNT(DISTINCT vs.CustKey) AS custs, SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) AS sales
-       FROM ViewShipment vs WHERE ${wc.sql} AND ISNULL(vs.DetailFix,0)=1`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+       FROM ViewShipment vs WHERE vs.OrderYear=@year AND ${wc.sql} AND ISNULL(vs.DetailFix,0)=1`,
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const byCust = await query(
     `SELECT TOP (${TOP}) vs.CustName AS cust, SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) AS sales
-       FROM ViewShipment vs WHERE ${wc.sql} AND ISNULL(vs.DetailFix,0)=1
+       FROM ViewShipment vs WHERE vs.OrderYear=@year AND ${wc.sql} AND ISNULL(vs.DetailFix,0)=1
        GROUP BY vs.CustName ORDER BY SUM(ISNULL(vs.Amount,0)+ISNULL(vs.Vat,0)) DESC`,
-    { week: { type: sql.NVarChar, value: wc.week } });
+    { year: { type: sql.NVarChar, value: year }, week: { type: sql.NVarChar, value: wc.week } });
   const t = tot.recordset[0] || {};
-  return { scope: 'estimate', week, confirmedCustomers: t.custs || 0, confirmedSalesVatIncl: round(t.sales),
+  return { scope: 'estimate', year, week, confirmedCustomers: t.custs || 0, confirmedSalesVatIncl: round(t.sales),
     topCustomers: byCust.recordset.map(r => ({ name: r.cust, sales: round(r.sales) })) };
 }
 
@@ -80,22 +86,25 @@ async function scopeStock() {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
-  const auth = checkAutomationAuth(req);
+  const auth = checkMoyiAutomationAuth(req);
   if (!auth.ok) return res.status(auth.status).json({ success: false, error: auth.error });
 
   const scope = String(req.query.scope || '').toLowerCase();
   const week = req.query.week;
   try {
     let out;
-    if (scope === 'order') out = await scopeOrder(week);
-    else if (scope === 'shipment') out = await scopeShipment(week);
-    else if (scope === 'estimate') out = await scopeEstimate(week);
+    const year = scope === 'stock' ? null : orderYear(req.query.year);
+    if (scope === 'order') out = await scopeOrder(year, week);
+    else if (scope === 'shipment') out = await scopeShipment(year, week);
+    else if (scope === 'estimate') out = await scopeEstimate(year, week);
     else if (scope === 'stock') out = await scopeStock();
     else return res.status(404).json({ success: false, error: `알 수 없는 scope: ${scope} (order|shipment|stock|estimate)` });
 
     const payload = { success: true, app: 'nenovaweb', generatedAt: new Date().toISOString(), ...out };
     const json = JSON.stringify(payload);
-    if (json.length > 4096) return res.status(200).send(json.slice(0, 4096)); // 안전상한(요약 원칙)
+    if (json.length > 4096) {
+      return res.status(413).json({ success: false, error: '조회 결과가 안전 응답 크기를 초과했습니다. 조건을 좁혀주세요.' });
+    }
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(200).send(json);
   } catch (e) {

@@ -1,0 +1,51 @@
+{
+  "id": "moyi-ai-read",
+  "title": "MOYI 대화형 Nenova ERP 읽기 전용 조회 계약",
+  "scope": [
+    "pages/api/automation/ai/[scope].js",
+    "lib/automationAuth.js",
+    "__tests__/moyiAiReadContract.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "AI_ORDER_READ", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "AI_SHIPMENT_READ", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "AI_ESTIMATE_READ", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "AI_CURRENT_STOCK_READ", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "sideEffectMatrix": {
+    "OrderMaster/OrderDetail": "read-only for order; otherwise preserve",
+    "ShipmentMaster/ShipmentDetail": "read-only for shipment/estimate; otherwise preserve",
+    "ShipmentDate/ShipmentFarm/Estimate/ProductStock/StockHistory/WebProfitReport": "preserve",
+    "Product": "current stock quantity read-only"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025년과 2026년에 같은 28-01이 있어도 요청의 명시적 OrderYear+OrderWeek와 같은 ViewOrder/ViewShipment 행만 집계하며 year가 없으면 조회를 거부한다.",
+    "fixture": {
+      "selectedOrderYear": "2026",
+      "orderWeek": "28-01",
+      "priorYear": "2025",
+      "expectedIncludedYears": ["2026"],
+      "expectedExcludedYears": ["2025"]
+    }
+  },
+  "requiredTestFiles": [
+    "__tests__/moyiAiReadContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "ViewOrder와 ViewShipment의 기존 EXE 호환 조회 표현을 읽기 전용으로 사용하며 저장 동작은 없다.",
+    "methods": ["ViewOrder SELECT", "ViewShipment SELECT", "Product current stock SELECT"],
+    "tables": ["ViewOrder (read)", "ViewShipment (read)", "Product (read)"]
+  },
+  "requiredCommands": [
+    "node __tests__/moyiAiReadContract.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
