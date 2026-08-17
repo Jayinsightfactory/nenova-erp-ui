@@ -14,6 +14,25 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
   Number(row.deductionKey) > 0 && row.importConfirmed && row.customerTargetRegistered
 );
+const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boolean(
+  Number(row.deductionKey) > 0
+  && String(row.status || '').toUpperCase() !== 'REGISTERED'
+  && !row.exactExistingEstimate
+  && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
+);
+const existingEstimateLabel = (record = {}) => {
+  const estimateKey = Number(record.estimateKey ?? record.EstimateKey ?? 0);
+  const type = record.estimateTypeLabel || record.estimateType || record.EstimateType || '불량차감';
+  const product = record.productName || record.prodName || record.ProdName || '품목 미확인';
+  const quantity = Number(record.quantity ?? record.Quantity ?? 0);
+  const unit = record.unit || record.Unit || '';
+  const week = record.orderWeek || record.OrderWeek || '';
+  const cost = Number(record.cost ?? record.Cost ?? 0);
+  const amount = Number(record.amount ?? record.Amount ?? 0);
+  const date = String(record.estimateDtm || record.EstimateDtm || '').slice(0, 10);
+  const descr = record.descr || record.Descr || '';
+  return `${estimateKey > 0 ? `#${estimateKey} · ` : ''}${type} · ${product} · ${fmt(Math.abs(quantity))}${unit}${cost ? ` · 단가 ${fmt(cost)}원` : ''}${amount ? ` · 금액 ${fmt(amount)}원` : ''}${week ? ` · ${week}차` : ''}${date ? ` · ${date}` : ''}${descr ? ` · ${descr}` : ''}`;
+};
 const usageLabel = (item) => {
   const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
   const mappingCount = Number(item?.MappingCount ?? item?.mappingCount ?? 0);
@@ -904,18 +923,23 @@ export default function SalesDefectDeductionsPage() {
   const toggleSupport = (deductionKey) => setSupportSelected((current) => {
     const next = new Set(current);
     const key = Number(deductionKey);
+    const row = supportRows.find((item) => Number(item.deductionKey) === key);
+    if (!isSupportRegistrationSelectable(row, activeTab)) {
+      next.delete(key);
+      return next;
+    }
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
   });
 
   const toggleAllSupport = () => setSupportSelected((current) => {
-    const keys = supportRows.filter((row) => activeTab !== 'carryover' || isCarryoverRetrySelectable(row)).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+    const keys = supportRows.filter((row) => isSupportRegistrationSelectable(row, activeTab)).map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     const allSelected = keys.length > 0 && keys.every((key) => current.has(key));
     return allSelected ? new Set() : new Set(keys);
   });
 
   const toggleCarryoverCustomer = (custKey) => setSupportSelected((current) => {
-    const keys = supportRows.filter((row) => Number(row.custKey) === Number(custKey) && isCarryoverRetrySelectable(row)).map((row) => Number(row.deductionKey)).filter(Boolean);
+    const keys = supportRows.filter((row) => Number(row.custKey) === Number(custKey) && isSupportRegistrationSelectable(row, activeTab)).map((row) => Number(row.deductionKey)).filter(Boolean);
     const next = new Set(current);
     const allSelected = keys.length > 0 && keys.every((key) => next.has(key));
     keys.forEach((key) => allSelected ? next.delete(key) : next.add(key));
@@ -923,7 +947,7 @@ export default function SalesDefectDeductionsPage() {
   });
 
   const registerSupport = async () => {
-    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row)));
+    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportRegistrationSelectable(row, activeTab));
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
     setSupportLoading(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
@@ -1133,7 +1157,7 @@ export default function SalesDefectDeductionsPage() {
     return map;
   }, new Map()).values()];
   const supportSelectableKeys = supportRows
-    .filter((row) => activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
+    .filter((row) => isSupportRegistrationSelectable(row, activeTab))
     .map((row) => Number(row.deductionKey))
     .filter((key) => key > 0);
   const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
@@ -1247,7 +1271,7 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportRows.length}>{supportSelected.size === supportRows.filter((row) => Number(row.deductionKey) > 0).length ? '전체 선택 해제' : '전체 선택'}</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
           </>}
           {activeTab === 'carryover' && <>
@@ -1363,9 +1387,12 @@ export default function SalesDefectDeductionsPage() {
             <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
+              const selectable = isSupportRegistrationSelectable(row, activeTab);
+              const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
+              const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
-              return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''}`} key={key || `support-${index}`}>
-                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!key || (activeTab === 'carryover' && !isCarryoverRetrySelectable(row))} /></label></td>
+              return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
+                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={selectable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!selectable} /></label></td>
                 <td>{index + 1}</td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>
@@ -1375,7 +1402,7 @@ export default function SalesDefectDeductionsPage() {
                 <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
-                <td><span className={row.isCarryover ? 'support-carryover' : ''}>{activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '등록 가능' : '미등'}</span><small className="support-scope-label">{activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small></td>
+                <td><span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{row.exactExistingEstimate ? '기존 차감 견적 확인' : activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '등록 가능' : '미등록'}</span><small className="support-scope-label">{row.exactExistingEstimate ? '동일한 기존 견적이 있어 중복 등록 대상에서 제외됨' : activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small>{existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}</td>
               </tr>;
             })}
             {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
@@ -1659,6 +1686,11 @@ export default function SalesDefectDeductionsPage() {
         .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 10px; }
         .support-cost-missing { color: #b45309; font-size: 11px; }
         .support-selected-row { background: #ecfdf5; }
+        .support-existing-row { background: #fff7ed; }
+        .support-existing-status { color: #b45309; font-weight: 800; }
+        .support-existing-estimates { margin-top: 4px; color: #475569; font-size: 10px; }
+        .support-existing-estimates summary { cursor: pointer; color: #1d4ed8; font-weight: 700; white-space: nowrap; }
+        .support-existing-estimates div { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #cbd5e1; white-space: normal; }
         .support-carryover { color: #b45309; font-weight: 700; }
         .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
