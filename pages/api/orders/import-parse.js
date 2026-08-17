@@ -17,6 +17,8 @@ import { matchImportRows, summarizeMatches } from '../../../lib/orderImportMatch
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadImportUnits, learnUnitsFromRows } from '../../../lib/orderImportUnits';
 import { persistImportMatchMappings } from '../../../lib/persistImportMappings';
+import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch.js';
+import { loadCustomerMappings } from '../../../lib/customerMappings.js';
 
 export const config = {
   api: { bodyParser: false },
@@ -218,6 +220,19 @@ async function handler(req, res) {
     }
 
     const summary = summarizeMatches(items);
+    let matchedCustomer = null;
+    if (parsedMetadata?.customerName) {
+      const customerResult = await query(`SELECT CustKey,CustName,CustCode,OrderCode,CustArea FROM Customer WHERE ISNULL(isDeleted,0)=0`);
+      const resolved = resolveImportCustomer(parsedMetadata.customerName, customerResult.recordset || [], {
+        savedMappings: loadCustomerMappings(true),
+      });
+      if (resolved.custKey) matchedCustomer = {
+        CustKey: resolved.custKey,
+        CustName: resolved.customerName,
+        confidence: resolved.confidence,
+        fromMapping: resolved.fromMapping,
+      };
+    }
     const mappingSaved = persistImportMatchMappings(items);
     if (mappingSaved.length > 0) {
       logs.push(`품목 매핑 저장 ${mappingSaved.length}건 (다음 업로드 재사용)`);
@@ -229,6 +244,7 @@ async function handler(req, res) {
       sourceType,
       sheetName: sourceType === 'excel' ? parsedSheetName : null,
       metadata: parsedMetadata,
+      matchedCustomer,
       items,
       summary,
       logs,
