@@ -1394,7 +1394,7 @@ export default function ProfitReportPage() {
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
               직접 입력 단가는 <b>현재 기말 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
               콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균원가 공식이 우선 적용되며, 이 표는 자동 공식이 불가능한 품목의 보완 근거입니다.
-              <br /><b>출고단가 추천</b>은 재고원가가 아닙니다. 비평균·비호주 품목에서만 부가세를 제외해 제안하며, 내용을 확인하고 저장한 차수에만 확정 근거가 됩니다.
+              <br /><b>당차수 실제 분배단가 후보</b>는 엑셀 재고잔량과 동일하게 VAT 포함 단가 하나를 선택해 ÷1.1합니다. 같은 단가를 사용한 업체 수가 가장 많은 후보를 먼저 보여주며, 평균값을 새로 만들지 않습니다. 확인하고 저장한 차수에만 확정 근거가 됩니다.
             </div>
             {(priceModal.rows || []).some(r => r.SetPrice == null && r.SuggestedPrice != null) && (
               <div style={{ padding: '0 12px 6px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -1414,13 +1414,13 @@ export default function ProfitReportPage() {
                     setPriceEdits(prev => ({ ...prev, ...edits }));
                     setPriceSuggestionEvidence(prev => ({ ...prev, ...evidence }));
                   }}
-                >출고단가 추천값 일괄 선택</button>
+                >다수업체 기준 단가 일괄 선택</button>
               </div>
             )}
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>
                 <thead>
-                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th style={{ textAlign: 'right' }}>참고 출고단가</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th><th>추천</th></tr>
+                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th><th>당차수 실제 분배단가 후보</th></tr>
                 </thead>
                 <tbody>
                   {(priceModal.rows || []).map(r => {
@@ -1433,7 +1433,6 @@ export default function ProfitReportPage() {
                         <td style={{ textAlign: 'right' }}>{fmt(r.StockBegin)}</td>
                         <td style={{ textAlign: 'right' }}>{fmt(r.StockEnd)}</td>
                         <td style={{ textAlign: 'right' }}>{fmt(r.UnitPerBox)}</td>
-                        <td style={{ textAlign: 'right', color: r.Cost ? undefined : '#dc2626' }}>{fmt(r.Cost)}</td>
                         <td>
                           {fmt(r.AppliedPrice)}
                           <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: r.AppliedSource === 'VERIFIED_EVIDENCE' ? '#166534' : '#b91c1c' }}>
@@ -1455,21 +1454,31 @@ export default function ProfitReportPage() {
                           />
                         </td>
                         <td>
-                          {r.SetPrice == null && r.SuggestedPrice != null ? (
-                            <button
-                              style={{ ...st.secondaryBtn, padding: '4px 7px', fontSize: 10 }}
-                              title="현재 품목관리 출고단가의 부가세 제외값입니다. 확인 후 이 차수 재고단가 근거로 저장됩니다."
-                              onClick={() => {
-                                setPriceEdits(prev => ({ ...prev, [r.ProdKey]: r.SuggestedPrice }));
+                          {r.SetPrice == null && Array.isArray(r.SuggestionCandidates) && r.SuggestionCandidates.length ? (
+                            <select
+                              defaultValue=""
+                              style={{ ...st.cellInput, width: 230, fontSize: 10 }}
+                              title="엑셀처럼 VAT 포함 실제 단가 하나를 선택합니다. 괄호 안은 해당 단가를 사용한 업체 수와 기준수량입니다."
+                              onChange={(event) => {
+                                const candidate = r.SuggestionCandidates[Number(event.target.value)];
+                                if (!candidate) return;
+                                setPriceEdits(prev => ({ ...prev, [r.ProdKey]: candidate.price }));
                                 setPriceSuggestionEvidence(prev => ({
                                   ...prev,
                                   [r.ProdKey]: {
-                                    sourceRef: r.SuggestedSourceRef,
-                                    effectiveAt: r.SuggestedEffectiveAt,
+                                    sourceRef: candidate.sourceRef,
+                                    effectiveAt: candidate.effectiveAt,
                                   },
                                 }));
                               }}
-                            >{fmt(r.SuggestedPrice)} 선택</button>
+                            >
+                              <option value="">선택 — 추천 {fmt(r.SuggestedGrossPrice)}원(VAT 포함)</option>
+                              {r.SuggestionCandidates.map((candidate, index) => (
+                                <option key={`${r.ProdKey}-${candidate.grossCost}`} value={index}>
+                                  {index === 0 ? '추천 · ' : ''}{fmt(candidate.grossCost)}원(VAT 포함) → {fmt(candidate.price)}원 · {candidate.customerCount}업체 · 기준수량 {fmt(candidate.totalEstQuantity)}
+                                </option>
+                              ))}
+                            </select>
                           ) : '—'}
                         </td>
                       </tr>
