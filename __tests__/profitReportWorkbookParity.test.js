@@ -138,7 +138,11 @@ async function main() {
     !/key: 'E'[^\n]*editable: true/.test(pageSource) && !/key: 'F'[^\n]*editable: true/.test(pageSource));
   check('표시·입력값은 소수점 없이 천 단위 콤마 적용', pageSource.includes('function NumericInput') && pageSource.includes('Math.round(n).toLocaleString()') && pageSource.includes('Math.round(Number(raw))'));
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
-  check('수기 보정은 기본 접힘·누락 환율만 자동 입력 노출', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes("showOverrides || (cd.key === 'R' && needsRateInput(row))"));
+  check('본표에는 원천이 없는 과세환율만 입력칸 노출',
+    !pageSource.includes('showOverrides')
+      && pageSource.includes("cd.key === 'R' && needsRateInput(row)")
+      && !/key: 'H'[^\n]*editable: true/.test(pageSource)
+      && !/key: 'S'[^\n]*editable: true/.test(pageSource));
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
   check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && (pageSource.includes('if (dirty) await save()') || pageSource.includes('if (dirty && !(await save())) return')));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));

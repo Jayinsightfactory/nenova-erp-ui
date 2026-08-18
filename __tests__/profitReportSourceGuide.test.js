@@ -211,10 +211,8 @@ async function main() {
   check('기말재고 설명이 원본 평균원가 공식과 검증된 보조 단가를 명시',
     /\(매입액\+그외통관비\) ÷ 매입수량 × 마지막 재고수량/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
-    && /같은 연도·차수의 확정 분배/.test(byKey.F.note)
-    && /가장 많은 업체가 사용한 단가/.test(byKey.F.note)
-    && /평균값을 만들지 않으며/.test(byKey.F.note)
-    && /사용자가 확인·저장하기 전에는 계산에 적용하지/.test(byKey.F.note));
+    && /검증된 매입·취득원가/.test(byKey.F.note)
+    && /판매·분배단가와 Product\.Cost는 재고원가가 아니므로/.test(byKey.F.note));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)
     && /VERIFIED_ARRIVAL_COST/.test(calcSource)
@@ -298,7 +296,7 @@ async function main() {
   check('C/D/G/I/J/K/M/P/T/U는 계산으로 표기',
     ['C', 'D', 'G', 'I', 'J', 'K', 'M', 'P', 'T', 'U'].every((k) => byKey[k].kind === 'calc'));
   check('환율 원천이 없을 때 입력칸이 뜨는 기존 동작 유지', /function needsRateInput\(row\)/.test(pageSource)
-    && /needsRateInput\(row\)\)\) && cd\.editable/.test(pageSource));
+    && /cd\.key === 'R' && needsRateInput\(row\) && cd\.editable/.test(pageSource));
   check('수기 저장값이 자동값보다 우선하는 로직 유지', /const mv = row\.manual\[col\];/.test(pageSource + calcSource));
   check('환율 설명이 입력값을 자동값으로 포장하지 않음', /넣은 값은 자동값이 아니라 저장된 입력값/.test(byKey.R.note));
 
@@ -322,8 +320,9 @@ async function main() {
   console.log('\n=== 조회 전용 보장 ===');
   check('설명 모듈·컴포넌트에 fetch/POST 없음',
     !/fetch\(/.test(guideSource + componentSource) && !/method: 'POST'/.test(guideSource + componentSource));
-  check('저장 대상은 증거가 있는 H/R/S뿐이며 E/F 최종값은 제외',
-    /for \(const col of \['H', 'R', 'S'\]\)/.test(pageSource)
+  check('본표 저장 대상은 원천이 없는 R뿐이며 H/S/E/F 최종값은 제외',
+    /for \(const col of \['R'\]\)/.test(pageSource)
+    && !/for \(const col of \[[^\]]*'H'[^\]]*'S'/.test(pageSource)
     && !/for \(const col of \[[^\]]*'E'[^\]]*'F'/.test(pageSource));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);

@@ -1,5 +1,6 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
-// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F 확정재고·H통관비·R환율·S포워딩USD / 외부증거 입력: H·R·S·비고
+// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F 확정재고·H통관비·R환율·S포워딩USD
+// 직접 입력은 정확한 차수 과세환율(R) 원천이 없을 때만 본표에 연다. H/S는 각 원천 화면에서 관리한다.
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -35,7 +36,7 @@ const COLUMN_DEFS = [
   { key: 'E', label: '기초상품재고액' },
   { key: 'F', label: '기말상품재고액' },
   { key: 'G', label: '매입액(상품+포워딩)' },
-  { key: 'H', label: '그외통관비', editable: true, editWidth: 74 },
+  { key: 'H', label: '그외통관비' },
   { key: 'I', label: '매출원가', bold: true },
   { key: 'J', label: '매출이익', bold: true },
   { key: 'K', label: '이익률' },
@@ -46,7 +47,7 @@ const COLUMN_DEFS = [
   { key: 'P', label: '상품 금액(구매)' },
   { key: 'Q', label: '구매금액(외화)', color: '#1d4ed8' },
   { key: 'R', label: '환율', editable: true, editWidth: 70 },
-  { key: 'S', label: '포워딩(USD)', editable: true, editWidth: 86 },
+  { key: 'S', label: '포워딩(USD)' },
   { key: 'T', label: '포워딩 원화환산' },
   { key: 'U', label: '상품구매비율' },
 ];
@@ -141,7 +142,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
-    verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증단가 또는 확정 분배단가 수량가중평균',
+    verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
@@ -203,7 +204,6 @@ export default function ProfitReportPage() {
   // 보고서 진입 시에는 자동값만 읽기전용으로 보여준다. 입력 패널은 필요한 경우에만 연다.
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
-  const [showOverrides, setShowOverrides] = useState(false);
 
   // ── 검증·입력(표 아래 접기 영역) — 문제가 있으면 새 차수 조회 때마다 기본으로 펼친다.
   const [showValidation, setShowValidation] = useState(false);
@@ -406,7 +406,7 @@ export default function ProfitReportPage() {
       for (const row of data?.rows || []) {
         const e = edits[row.category] || {};
         const out = {};
-        for (const col of ['H', 'R', 'S']) {
+        for (const col of ['R']) {
           if (e[col] === undefined) continue;
           out[col] = e[col] === '' ? null : Number(e[col]);
           const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
@@ -547,12 +547,32 @@ export default function ProfitReportPage() {
   };
 
   // ── 재고 평가단가표 모달
-  const [priceModal, setPriceModal] = useState(null);   // { beginWeek, endWeek, rows }
+  const [priceModal, setPriceModal] = useState(null);   // { beginOrderYear, beginWeek, endOrderYear, endWeek, rows }
   const [priceEdits, setPriceEdits] = useState({});
-  const [priceSuggestionEvidence, setPriceSuggestionEvidence] = useState({});
+  const priceInputRows = useMemo(() => (priceModal?.rows || []).flatMap(row => [
+    row.BeginRequiresInput ? {
+      ...row,
+      Scope: 'begin',
+      ScopeLabel: '기초',
+      ScopeOrderYear: priceModal.beginOrderYear,
+      ScopeOrderWeek: priceModal.beginWeek,
+      ScopeStock: row.StockBegin,
+      ScopeStockEst: row.StockBeginEst,
+      EditKey: `begin:${row.ProdKey}`,
+    } : null,
+    row.EndRequiresInput ? {
+      ...row,
+      Scope: 'end',
+      ScopeLabel: '기말',
+      ScopeOrderYear: priceModal.endOrderYear,
+      ScopeOrderWeek: priceModal.endWeek,
+      ScopeStock: row.StockEnd,
+      ScopeStockEst: row.StockEndEst,
+      EditKey: `end:${row.ProdKey}`,
+    } : null,
+  ].filter(Boolean)), [priceModal]);
   const openPriceModal = async () => {
     setPriceEdits({});
-    setPriceSuggestionEvidence({});
     try {
       const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -562,37 +582,32 @@ export default function ProfitReportPage() {
   };
   const savePrices = async () => {
     try {
-      if (!priceModal?.endWeek) throw new Error('확정 기말 ProductStock 세부차수가 없습니다.');
-      const prices = {};
-      for (const [prodKey, price] of Object.entries(priceEdits)) {
-        if (price == null || price === '') { prices[prodKey] = null; continue; }
-        const suggestedEvidence = priceSuggestionEvidence[prodKey];
-        if (suggestedEvidence) {
-          prices[prodKey] = {
-            price: Number(price),
-            sourceRef: suggestedEvidence.sourceRef,
-            effectiveAt: suggestedEvidence.effectiveAt,
-          };
-          continue;
-        }
-        const rawEvidence = window.prompt(`ProdKey ${prodKey} 단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
-        if (!rawEvidence) throw new Error(`ProdKey ${prodKey} 단가 근거 입력이 취소되었습니다.`);
+      const batches = new Map();
+      for (const row of priceInputRows) {
+        const price = priceEdits[row.EditKey];
+        if (price == null || price === '') continue;
+        const rawEvidence = window.prompt(`${row.ScopeLabel} ${row.ProdName} 매입단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+        if (!rawEvidence) throw new Error(`${row.ScopeLabel} ${row.ProdName} 단가 근거 입력이 취소되었습니다.`);
         const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
-        if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`ProdKey ${prodKey} 근거 형식이 올바르지 않습니다.`);
-        prices[prodKey] = { price: Number(price), sourceRef, effectiveAt };
+        if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`${row.ScopeLabel} ${row.ProdName} 근거 형식이 올바르지 않습니다.`);
+        const batchKey = `${row.ScopeOrderYear}:${row.ScopeOrderWeek}`;
+        if (!batches.has(batchKey)) batches.set(batchKey, { orderYear: row.ScopeOrderYear, orderWeek: row.ScopeOrderWeek, prices: {} });
+        batches.get(batchKey).prices[row.ProdKey] = { price: Number(price), sourceRef, effectiveAt };
       }
-      const res = await fetch('/api/sales/profit-report', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({
-          action: 'stockPrices', week: weekInput.value, year: data?.orderYear || reportYear,
-          orderWeek: priceModal.endWeek, prices,
-        }),
-      });
-      const d = await res.json();
-      if (!d.success) throw new Error(d.error || '저장 실패');
+      if (!batches.size) throw new Error('입력한 매입단가가 없습니다.');
+      for (const batch of batches.values()) {
+        const res = await fetch('/api/sales/profit-report', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          body: JSON.stringify({
+            action: 'stockPrices', week: String(batch.orderWeek || '').slice(0, 2), year: batch.orderYear,
+            orderWeek: batch.orderWeek, prices: batch.prices,
+          }),
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error || `${batch.orderYear}년 ${batch.orderWeek} 단가 저장 실패`);
+      }
       setPriceModal(null);
-      setPriceSuggestionEvidence({});
-      setMessage('재고단가 근거 저장 — 동일 확정 스냅샷의 기초/기말 평가액이 갱신되었습니다.');
+      setMessage('재고 매입단가 근거 저장 — 기초·기말 평가액을 다시 계산했습니다.');
       await load();
     } catch (e) { setError(e.message); }
   };
@@ -618,6 +633,18 @@ export default function ProfitReportPage() {
     needsAttention.length +
     validationRateRows.length +
     (validationUnclassified ? 1 : 0);
+  const auditIssues = data?.audit?.issues || [];
+  const stockPriceInputNeeded = auditIssues.some(issue => [
+    'STOCK_BEGIN_PRICE_EVIDENCE_MISSING',
+    'STOCK_END_PRICE_EVIDENCE_MISSING',
+    'STOCK_BEGIN_UNIT_MIXED',
+    'STOCK_END_UNIT_MIXED',
+  ].includes(issue.code));
+  const customsInputNeeded = auditIssues.some(issue => issue.code === 'CUSTOMS_INCOMPLETE');
+  const forwardingSourceReviewNeeded = auditIssues.some(issue => String(issue.code || '').startsWith('FORWARDING_'));
+  const requiredInputCount = validationRateRows.length
+    + (stockPriceInputNeeded ? 1 : 0)
+    + (customsInputNeeded ? 1 : 0);
   // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
   // 접고 펼치는 것은 다음 조회 전까지 유지).
   useEffect(() => {
@@ -726,22 +753,19 @@ export default function ProfitReportPage() {
                 title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
-              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : 'EXE ProductStock와 동일 시점의 품목 단가 증거를 관리합니다'}>
-                🏷 재고단가 근거
-              </button>
-              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : 'H/R/S 외부 확정값만 근거 문서와 기준일을 함께 입력합니다'}>
-                🛠 외부증거 입력{showOverrides ? ' ▲' : ' ▼'}
-              </button>
-              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
+              {stockPriceInputNeeded && <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동으로 찾지 못한 재고 매입단가만 입력합니다'}>
+                🏷 필요한 재고 매입단가
+              </button>}
+              {customsInputNeeded && <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
-                📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
-              </button>
-              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
-                🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
-              </button>
+                📦 필요한 그외통관비{showCustoms ? ' ▲' : ' ▼'}
+              </button>}
+              {forwardingSourceReviewNeeded && <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '금액을 임의 입력하지 않고 누락된 항공료 전표 연결을 확인합니다'}>
+                🚢 포워딩 원천 확인{showForwarding ? ' ▲' : ' ▼'}
+              </button>}
+              {requiredInputCount > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: '#b45309' }}>입력 필요 {requiredInputCount}건</span>}
             </>
           ) : viewMode === 'weeks' ? (
             <>
@@ -827,7 +851,7 @@ export default function ProfitReportPage() {
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
           <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 EXE ProductStock 수량에 원본 엑셀의 카테고리 평균원가 공식 또는 검증된 품목 단가를 적용</b>합니다.
-          평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위 비샘플 품목의 검증단가 또는 당차수 확정 분배단가 평균을 사용합니다. 이 평균은 일반 품목이나 DB 단가로 저장하지 않습니다. 그 밖의 품종은 검증 단가가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H/R/S 외부 확정값은 <b>🛠 외부증거 입력</b>에서 sourceRef와 기준일을 함께 기록합니다.
+          평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위 비샘플 품목의 <b>검증된 매입원가</b> 평균을 사용합니다. 판매·분배단가는 재고원가에 사용하지 않습니다. 그 밖의 품종은 검증 매입원가가 없을 때만 입력 대상으로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H는 그외통관비 구성요소, S는 항공료 전표에서 계산하고, R은 해당 차수 원천이 없을 때만 입력칸을 엽니다.
           환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
@@ -949,7 +973,9 @@ export default function ProfitReportPage() {
                     )}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {!data.confirmed && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {!data.confirmed && cd.key === 'R' && needsRateInput(row) && cd.editable
+                          ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
+                          : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
@@ -1389,110 +1415,59 @@ export default function ProfitReportPage() {
         <div style={st.modalOverlay}>
           <div style={st.modalCard}>
             <div style={st.panelHead}>
-              <strong>🏷 재고 단가 근거 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)에 재고 있는 품목</strong>
+              <strong>🏷 입력이 필요한 재고 매입단가 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)</strong>
               <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>닫기</button>
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
-              직접 입력 단가는 <b>현재 기말 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
-              콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균원가 공식이 우선 적용되며, 이 표는 자동 공식이 불가능한 품목의 보완 근거입니다.
-              <br /><b>당차수 실제 분배단가 후보</b>는 호주를 포함해 정확한 품목단가가 없는 품목에 표시됩니다. 엑셀 재고잔량과 동일하게 VAT 포함 단가 하나를 선택해 ÷1.1하며, 같은 단가를 사용한 업체 수가 가장 많은 후보를 먼저 보여줍니다. 분배단가 후보끼리 평균값을 새로 만들지 않습니다. 확인하고 저장한 차수에만 확정 근거가 됩니다.
-              <br />품목명에 <b>샘플/SAMPLE</b>이 명시된 소량 품목은 정확한 근거를 우선하고, 없을 때만 같은 ProductStock 시점의 동일 단위 비샘플 검증단가 또는 당차수 확정 분배단가를 수량가중평균해 자동 표시합니다. 이 평균은 일반 품목 단가로 저장하지 않습니다.
+              엑셀 수식·도착원가·확인된 매입원가로 자동 계산할 수 없는 품목만 표시합니다. 판매·분배단가는 재고 매입원가로 사용하지 않습니다.
+              입력 단가는 표시된 <b>기초 또는 기말 스냅샷에만</b> 연결되며, 저장할 때 근거 문서와 기준일이 필요합니다.
+              콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균매입원가 공식으로 자동 계산됩니다. 명시적 샘플 품목은 같은 재고시점·동일 단위의 검증된 매입원가만 평균합니다.
             </div>
-            {(priceModal.rows || []).some(r => r.SetPrice == null && r.SuggestedPrice != null) && (
-              <div style={{ padding: '0 12px 6px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  style={st.secondaryBtn}
-                  onClick={() => {
-                    const edits = {};
-                    const evidence = {};
-                    for (const row of priceModal.rows || []) {
-                      if (row.SetPrice != null || row.SuggestedPrice == null) continue;
-                      edits[row.ProdKey] = row.SuggestedPrice;
-                      evidence[row.ProdKey] = {
-                        sourceRef: row.SuggestedSourceRef,
-                        effectiveAt: row.SuggestedEffectiveAt,
-                      };
-                    }
-                    setPriceEdits(prev => ({ ...prev, ...edits }));
-                    setPriceSuggestionEvidence(prev => ({ ...prev, ...evidence }));
-                  }}
-                >다수업체 기준 단가 일괄 선택</button>
-              </div>
-            )}
             <div style={{ flex: 1, overflow: 'auto' }}>
               <table style={st.table}>
                 <thead>
-                  <tr><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>기초수량</th><th style={{ textAlign: 'right' }}>기말수량</th><th style={{ textAlign: 'right' }}>박스당</th><th>확정 단가 상태</th><th style={{ textAlign: 'right' }}>시점 단가 입력</th><th>당차수 실제 분배단가 후보</th></tr>
+                  <tr><th>구분</th><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>재고수량</th><th style={{ textAlign: 'right' }}>환산수량</th><th>입력 사유</th><th style={{ textAlign: 'right' }}>매입단가 입력</th></tr>
                 </thead>
                 <tbody>
-                  {(priceModal.rows || []).map(r => {
-                    const edit = priceEdits[r.ProdKey];
-                    const shown = edit !== undefined ? edit : (r.SetPrice ?? '');
+                  {priceInputRows.map(r => {
+                    const edit = priceEdits[r.EditKey];
+                    const shown = edit !== undefined ? edit : '';
                     return (
-                      <tr key={r.ProdKey}>
+                      <tr key={r.EditKey}>
+                        <td>{r.ScopeLabel}<br /><small>{r.ScopeOrderYear}-{r.ScopeOrderWeek}</small></td>
                         <td>{r.Category}</td>
                         <td>{r.ProdName}</td>
-                        <td style={{ textAlign: 'right' }}>{fmt(r.StockBegin)}</td>
-                        <td style={{ textAlign: 'right' }}>{fmt(r.StockEnd)}</td>
-                        <td style={{ textAlign: 'right' }}>{fmt(r.UnitPerBox)}</td>
-                        <td>
-                          {fmt(r.AppliedPrice)}
-                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: String(r.AppliedSource || '').startsWith('VERIFIED') ? '#166534' : '#b91c1c' }}>
-                            {r.AppliedSource}
-                          </span>
-                        </td>
+                        <td style={{ textAlign: 'right' }}>{fmt(r.ScopeStock)}</td>
+                        <td style={{ textAlign: 'right' }}>{fmt(r.ScopeStockEst)} {r.EstUnit || ''}</td>
+                        <td style={{ color: '#b45309' }}>{r.ScopeLabel} 재고의 검증된 매입원가 근거가 없습니다.</td>
                         <td style={{ textAlign: 'right' }}>
                           <NumericInput
-                            style={{ ...st.cellInput, width: 90, background: edit !== undefined ? '#fef9c3' : (r.SetPrice != null ? '#ecfdf5' : '#fff') }}
+                            style={{ ...st.cellInput, width: 110, background: edit !== undefined ? '#fef9c3' : '#fff' }}
                             value={shown}
-                            onChange={value => {
-                              setPriceEdits(prev => ({ ...prev, [r.ProdKey]: value }));
-                              setPriceSuggestionEvidence(prev => {
-                                const next = { ...prev };
-                                delete next[r.ProdKey];
-                                return next;
-                              });
-                            }}
+                            onChange={value => setPriceEdits(prev => ({ ...prev, [r.EditKey]: value }))}
                           />
-                        </td>
-                        <td>
-                          {r.SetPrice == null && Array.isArray(r.SuggestionCandidates) && r.SuggestionCandidates.length ? (
-                            <select
-                              defaultValue=""
-                              style={{ ...st.cellInput, width: 230, fontSize: 10 }}
-                              title="엑셀처럼 VAT 포함 실제 단가 하나를 선택합니다. 괄호 안은 해당 단가를 사용한 업체 수와 기준수량입니다."
-                              onChange={(event) => {
-                                const candidate = r.SuggestionCandidates[Number(event.target.value)];
-                                if (!candidate) return;
-                                setPriceEdits(prev => ({ ...prev, [r.ProdKey]: candidate.price }));
-                                setPriceSuggestionEvidence(prev => ({
-                                  ...prev,
-                                  [r.ProdKey]: {
-                                    sourceRef: candidate.sourceRef,
-                                    effectiveAt: candidate.effectiveAt,
-                                  },
-                                }));
-                              }}
-                            >
-                              <option value="">선택 — 추천 {fmt(r.SuggestedGrossPrice)}원(VAT 포함)</option>
-                              {r.SuggestionCandidates.map((candidate, index) => (
-                                <option key={`${r.ProdKey}-${candidate.grossCost}`} value={index}>
-                                  {index === 0 ? '추천 · ' : ''}{fmt(candidate.grossCost)}원(VAT 포함) → {fmt(candidate.price)}원 · {candidate.customerCount}업체 · 기준수량 {fmt(candidate.totalEstQuantity)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : '—'}
                         </td>
                       </tr>
                     );
                   })}
+                  {!priceInputRows.length && (
+                    <tr><td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#166534', fontWeight: 800 }}>입력할 재고 매입단가가 없습니다. 모두 자동완성되었습니다.</td></tr>
+                  )}
                 </tbody>
               </table>
+              <details style={{ margin: '8px 12px', fontSize: 11, color: '#64748b' }}>
+                <summary>자동완성·검증 완료 품목 {(priceModal.rows || []).filter(r => !r.RequiresInput).length}건 보기</summary>
+                <div style={{ padding: '6px 0' }}>
+                  {(priceModal.rows || []).filter(r => !r.RequiresInput).map(r => (
+                    <div key={`auto-${r.ProdKey}`}>{r.Category} · {r.ProdName} — {r.InputReason || r.AppliedSource || '자동완성'}</div>
+                  ))}
+                </div>
+              </details>
             </div>
             <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>취소</button>
               <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
-                단가 근거 저장 ({Object.keys(priceEdits).length}건)
+                매입단가 근거 저장 ({Object.keys(priceEdits).length}건)
               </button>
             </div>
           </div>
