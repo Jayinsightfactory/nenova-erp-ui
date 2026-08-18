@@ -17,6 +17,7 @@
     "lib/salesDefectDeductionCore.js",
     "lib/salesDefectDeductionState.js",
     "lib/salesDefectDeductions.js",
+    "lib/salesDefectSupportStatus.js",
     "lib/salesDefectDeductionExcel.js",
     "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",

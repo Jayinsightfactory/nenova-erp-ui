@@ -10,6 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
+import { isSupportProcessingComplete, supportProcessingLabel } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -17,8 +18,7 @@ const isCarryoverRetrySelectable = (row = {}) => Boolean(
 );
 const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boolean(
   Number(row.deductionKey) > 0
-  && String(row.status || '').toUpperCase() !== 'REGISTERED'
-  && !row.exactExistingEstimate
+  && !isSupportProcessingComplete(row)
   && !row.importReviewRequired
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
 );
@@ -1422,7 +1422,7 @@ export default function SalesDefectDeductionsPage() {
                     </button>
                   </div>}
                 </td>
-                <td><span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{row.exactExistingEstimate ? '기존 차감 견적 확인' : activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '등록 가능' : '미등록'}</span><small className="support-scope-label">{row.exactExistingEstimate ? '동일한 기존 견적이 있어 중복 등록 대상에서 제외됨' : activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small>{existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}</td>
+                <td><span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{row.exactExistingEstimate ? supportProcessingLabel(row) : activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? supportProcessingLabel(row) : row.isCarryover ? '등록 가능' : '미등록'}</span><small className="support-scope-label">{row.exactExistingEstimate ? '동일 차수·업체·품목·수량·단위의 기존 불량차감 확인 · 중복 등록 제외' : activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small>{existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}</td>
               </tr>;
             })}
             {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
