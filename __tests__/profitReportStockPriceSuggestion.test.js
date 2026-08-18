@@ -34,10 +34,56 @@ async function main() {
   });
   assert.equal(quantityTieBreak.grossCost, 13200, '업체 수가 같을 때만 기준수량 합계로 순위를 정해야 한다.');
 
-  assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '호주', rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }] }), null);
+  const australia = calc.distributionMajorityStockPriceSuggestion({
+    category: '호주',
+    rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }],
+  });
+  assert.ok(australia, '정확한 품목 원가가 없는 호주 품목도 당차수 확정 분배단가 후보를 보여줘야 한다.');
+  assert.equal(australia.grossCost, 11000);
+  assert.equal(australia.price, 10000);
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '콜롬비아 장미', rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }] }), null);
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '베트남', rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }] }), null);
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '중국', rows: [] }), null);
+
+  const sampleAverage = calc.sampleInventoryAveragePriceSuggestions([
+    { rowKey: 1, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 2, price: 1000, prodName: 'Dendrobium A' },
+    { rowKey: 2, scopeKey: '2026:32-02:500', category: '태국', unit: 'BOX', qty: 6, price: 2000, prodName: 'Dendrobium B' },
+    { rowKey: 3, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 1, price: null, prodName: 'Dendrobium Sample' },
+    { rowKey: 4, scopeKey: '2025:32-02:400', category: '태국', unit: '박스', qty: 100, price: 999999, prodName: '다른 연도 품목' },
+  ]);
+  assert.ok(Math.abs(sampleAverage['3'].price - 1750) < 0.000001, '같은 스냅샷·카테고리·단위 비샘플 단가를 수량가중평균해야 한다.');
+  assert.equal(sampleAverage['3'].basis, 'CURRENT_SNAPSHOT_SAMPLE_AVERAGE_SAME_CATEGORY_UNIT');
+  assert.equal(sampleAverage['3'].peerCount, 2);
+
+  const sameUnitFallback = calc.sampleInventoryAveragePriceSuggestions([
+    { rowKey: 10, scopeKey: '2026:32-02:500', category: '중국', unit: '단', qty: 3, price: 3000, prodName: 'CHINA A' },
+    { rowKey: 11, scopeKey: '2026:32-02:500', category: '에콰도르', unit: 'BUNCH', qty: 1, price: null, displayName: '에콰도르 샘플' },
+    { rowKey: 12, scopeKey: '2026:32-02:500', category: '에콰도르', unit: '박스', qty: 10, price: 1, prodName: '단위 다른 품목' },
+  ]);
+  assert.equal(sameUnitFallback['11'].price, 3000);
+  assert.equal(sameUnitFallback['11'].basis, 'CURRENT_SNAPSHOT_SAMPLE_AVERAGE_SAME_UNIT');
+
+  const exactSampleWins = calc.sampleInventoryAveragePriceSuggestions([
+    { rowKey: 20, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 1, price: 5000, prodName: 'Thailand SAMPLE' },
+    { rowKey: 21, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 1, price: 1000, prodName: 'Thailand regular' },
+  ]);
+  assert.equal(exactSampleWins['20'], undefined, '샘플이라도 정확한 단가 근거가 있으면 평균으로 덮어쓰면 안 된다.');
+  assert.deepEqual(calc.sampleInventoryAveragePriceSuggestions([
+    { rowKey: 30, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 1, price: null, prodName: '샘플' },
+    { rowKey: 31, scopeKey: '2026:32-02:501', category: '태국', unit: '박스', qty: 1, price: 1000, prodName: '다른 스냅샷' },
+  ]), {}, '다른 스냅샷의 단가를 샘플 평균에 섞으면 안 된다.');
+  assert.equal(calc.computeAutoEndingStock({
+    endQty: 1,
+    snapshotConfirmed: true,
+    priceEvidenceStatus: 'VERIFIED_SAMPLE_AVERAGE',
+    evidenceValue: 3000,
+  }), 3000);
+  assert.equal(calc.endingStockSourceKind({
+    endQty: 1,
+    snapshotConfirmed: true,
+    priceEvidenceStatus: 'VERIFIED_SAMPLE_AVERAGE',
+    evidenceValue: 3000,
+  }), 'verified_sample_average');
 
   const directIssues = audit.buildProfitReportAudit([{
     category: '중국', variant: null,
@@ -72,6 +118,12 @@ async function main() {
     '분배단가 후보가 E/F 자동 계산으로 유입되면 안 된다.');
   assert.match(reportSource, /loadConfirmedCustomerProductPrices\(orderYear, major/);
   assert.match(reportSource, /SuggestedBasis: distributionSuggestion\?\.basis/);
+  assert.match(reportSource, /sampleInventoryAveragePriceSuggestions/);
+  assert.match(reportSource, /VERIFIED_SAMPLE_AVERAGE/);
+  assert.match(reportSource, /AS StockBeginEst/);
+  assert.match(reportSource, /AS StockEndEst/);
+  assert.match(reportSource, /ConversionStatus === 'VERIFIED' \? item\.row\.StockBeginEst : 0/,
+    '샘플 평균의 수량 가중치는 박스·단·송이를 금액단위로 환산한 검증 수량만 사용해야 한다.');
   assert.match(reportSource, /confirmed-distribution:\$\{orderYear\}:\$\{major\}:prod/);
   assert.match(pageSource, /다수업체 기준 단가 일괄 선택/);
   assert.match(pageSource, /priceSuggestionEvidence/);
