@@ -42,18 +42,26 @@ async function main() {
   assert.equal(australia.grossCost, 11000);
   assert.equal(australia.price, 10000);
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '콜롬비아 장미', rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }] }), null);
+  const samplePeerFromAverageCategory = calc.distributionMajorityStockPriceSuggestion({
+    category: '콜롬비아 장미',
+    allowCategoryAverage: true,
+    rows: [{ custKey: 1, estQty: 10, grossCost: 11000 }],
+  });
+  assert.equal(samplePeerFromAverageCategory.price, 10000,
+    '카테고리 평균 대상의 확정 분배단가는 일반 품목 추천이 아니라 샘플 평균 peer로만 허용할 수 있어야 한다.');
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '베트남', rows: [{ custKey: 1, estQty: 1, grossCost: 11000 }] }), null);
   assert.equal(calc.distributionMajorityStockPriceSuggestion({ category: '중국', rows: [] }), null);
 
   const sampleAverage = calc.sampleInventoryAveragePriceSuggestions([
-    { rowKey: 1, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 2, price: 1000, prodName: 'Dendrobium A' },
-    { rowKey: 2, scopeKey: '2026:32-02:500', category: '태국', unit: 'BOX', qty: 6, price: 2000, prodName: 'Dendrobium B' },
+    { rowKey: 1, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 2, price: 1000, priceSource: 'VERIFIED_EXACT', prodName: 'Dendrobium A' },
+    { rowKey: 2, scopeKey: '2026:32-02:500', category: '태국', unit: 'BOX', qty: 6, price: 2000, priceSource: 'CONFIRMED_DISTRIBUTION', prodName: 'Dendrobium B' },
     { rowKey: 3, scopeKey: '2026:32-02:500', category: '태국', unit: '박스', qty: 1, price: null, prodName: 'Dendrobium Sample' },
     { rowKey: 4, scopeKey: '2025:32-02:400', category: '태국', unit: '박스', qty: 100, price: 999999, prodName: '다른 연도 품목' },
   ]);
   assert.ok(Math.abs(sampleAverage['3'].price - 1750) < 0.000001, '같은 스냅샷·카테고리·단위 비샘플 단가를 수량가중평균해야 한다.');
   assert.equal(sampleAverage['3'].basis, 'CURRENT_SNAPSHOT_SAMPLE_AVERAGE_SAME_CATEGORY_UNIT');
   assert.equal(sampleAverage['3'].peerCount, 2);
+  assert.deepEqual(sampleAverage['3'].peerSources.sort(), ['CONFIRMED_DISTRIBUTION', 'VERIFIED_EXACT']);
 
   const sameUnitFallback = calc.sampleInventoryAveragePriceSuggestions([
     { rowKey: 10, scopeKey: '2026:32-02:500', category: '중국', unit: '단', qty: 3, price: 3000, prodName: 'CHINA A' },
@@ -120,6 +128,9 @@ async function main() {
   assert.match(reportSource, /SuggestedBasis: distributionSuggestion\?\.basis/);
   assert.match(reportSource, /sampleInventoryAveragePriceSuggestions/);
   assert.match(reportSource, /VERIFIED_SAMPLE_AVERAGE/);
+  assert.match(reportSource, /confirmedDistributionSamplePeerPrice/);
+  assert.match(reportSource, /allowCategoryAverage: true/);
+  assert.match(reportSource, /priceSource: item\.exactPrice != null \? 'VERIFIED_EXACT'/);
   assert.match(reportSource, /AS StockBeginEst/);
   assert.match(reportSource, /AS StockEndEst/);
   assert.match(reportSource, /ConversionStatus === 'VERIFIED' \? item\.row\.StockBeginEst : 0/,
