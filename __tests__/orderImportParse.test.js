@@ -59,10 +59,12 @@ async function main() {
   ];
   const raum = parseOrderImportSheetRows(RAUM_ROWS, { sourceName: 'raum' });
   assert(raum.rows.length === 3, `raum expected 3 rows (empty 발주수량 skip), got ${raum.rows.length}`);
-  assert(raum.rows[0].inputName === '수국 화이트', `raum name: ${raum.rows[0]?.inputName}`);
+  assert(raum.rows[0].inputName === '화이트', `raum display name: ${raum.rows[0]?.inputName}`);
+  assert(raum.rows[0].matchName === '수국 화이트', `raum match context: ${raum.rows[0]?.matchName}`);
   assert(raum.rows[0].qty === 67, `raum qty from 발주수량: ${raum.rows[0]?.qty}`);
   assert(raum.rows[0].unit === '박스', `raum unit: ${raum.rows[0]?.unit}`);
-  assert(raum.rows[2].inputName === '장미 몬디알 화이트', `raum rose: ${raum.rows[2]?.inputName}`);
+  assert(raum.rows[2].inputName === '몬디알 화이트', `raum rose display: ${raum.rows[2]?.inputName}`);
+  assert(raum.rows[2].matchName === '장미 몬디알 화이트', `raum rose match context: ${raum.rows[2]?.matchName}`);
   assert(raum.rows[2].qty === 16, `raum rose qty: ${raum.rows[2]?.qty}`);
 
   assert(parseRaumOrderQty('67박스(2010대)').qty === 67, 'parse box qty');
