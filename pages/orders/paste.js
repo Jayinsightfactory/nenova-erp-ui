@@ -1921,7 +1921,7 @@ export default function PasteOrderPage() {
     if (!custKey || !week || !prodKeys?.length) return;
     try {
       const orderYear = selectedYearFromWeek(week);
-      const r = await fetch(`/api/shipment/distribute?type=custItems&week=${encodeURIComponent(week)}&year=${encodeURIComponent(orderYear)}&custKey=${custKey}`);
+      const r = await fetch(`/api/shipment/adjust?type=current&week=${encodeURIComponent(week)}&year=${encodeURIComponent(orderYear)}&custKey=${custKey}&prodKeys=${encodeURIComponent([...new Set(prodKeys.map(Number).filter(Boolean))].join(','))}`);
       const d = await r.json();
       if (d.success && d.items) {
         const updates = {};
@@ -1931,7 +1931,7 @@ export default function PasteOrderPage() {
           updates[`${custKey}-${prodKey}-${week}`] = 0;
         });
         d.items.forEach(it => {
-          updates[`${custKey}-${it.ProdKey}-${week}`] = it.출고수량 || 0;
+          updates[`${custKey}-${it.ProdKey}-${week}`] = it.OutQuantity || 0;
         });
         setShipmentQtys(prev => ({ ...prev, ...updates }));
       }
