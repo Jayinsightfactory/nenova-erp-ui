@@ -6,6 +6,7 @@ import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { scoreMatch, getDisplayName } from '../../lib/displayName';
+import { clearImportProductMatchForName } from '../../lib/orderImportMatch';
 import { mergeRegisterItems } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
@@ -46,7 +47,7 @@ function saveLocalImportMapping(inputName, prod, unit) {
 }
 
 async function persistItemMapping(item, prod, { force = true } = {}) {
-  if (!item?.inputName || !prod?.ProdKey) return;
+  if (!item?.inputName || !prod?.ProdKey) return false;
   saveLocalImportMapping(item.inputName, prod, item.unit);
   try {
     await apiPost('/api/orders/mappings', {
@@ -66,8 +67,10 @@ async function persistItemMapping(item, prod, { force = true } = {}) {
         source: 'manual',
       });
     }
+    return true;
   } catch (e) {
     console.warn('[import] mapping save failed:', e?.message || e);
+    return false;
   }
 }
 
@@ -224,11 +227,12 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  const matchQuery = row.matchName || row.inputName;
   const defaultSuggestions = useMemo(() => {
     if ((row.suggestedProducts || []).length > 0) return row.suggestedProducts;
     if (!row.inputName) return [];
     return allProducts
-      .map(p => ({ prod: p, score: scoreMatch(row.inputName, p, '') }))
+      .map(p => ({ prod: p, score: scoreMatch(matchQuery, p, '') }))
       .filter(x => x.score >= 35)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6)
@@ -241,23 +245,26 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
         outUnit: x.prod.OutUnit,
         score: x.score,
       }));
-  }, [row.suggestedProducts, row.inputName, allProducts]);
+  }, [row.suggestedProducts, matchQuery, allProducts]);
 
   const searchHits = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.trim().toLowerCase();
     return allProducts
-      .map(p => ({ prod: p, score: scoreMatch(row.inputName, p, search) }))
+      .map(p => ({ prod: p, score: scoreMatch(matchQuery, p, search) }))
       .filter(x => x.score >= 30 || getDisplayName(x.prod).toLowerCase().includes(q))
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
-  }, [search, allProducts, row.inputName]);
+  }, [search, allProducts, matchQuery]);
 
-  const pick = (prod) => {
-    if (onPersistMapping) onPersistMapping(row, prod);
+  const pick = async (prod) => {
+    const saved = onPersistMapping ? await onPersistMapping(row, prod) : true;
     onPick(prod);
     setOpen(false);
     setSearch('');
+    if (!saved) {
+      alert('현재 화면의 품목은 변경했지만 저장매핑 반영에 실패했습니다. 다시 업로드하기 전에 품목을 다시 선택해 주세요.');
+    }
   };
 
   return (
@@ -270,7 +277,7 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
               type="button"
               style={st.suggestBtn}
               title={`${s.score}%`}
-              onClick={() => pick({
+              onClick={() => void pick({
                 ProdKey: s.prodKey,
                 ProdName: s.prodName,
                 DisplayName: s.displayName,
@@ -295,7 +302,7 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
         {open && search.trim() && searchHits.length > 0 && (
           <div style={st.dropdown}>
             {searchHits.map(({ prod, score }) => (
-              <button key={prod.ProdKey} type="button" style={st.pickRow} onMouseDown={() => pick(prod)}>
+              <button key={prod.ProdKey} type="button" style={st.pickRow} onMouseDown={() => void pick(prod)}>
                 {score}% · {getDisplayName(prod)} · {prod.CounName || ''}
               </button>
             ))}
@@ -648,7 +655,7 @@ export default function OrderImportPage() {
   };
 
   const handlePersistMapping = useCallback((row, prod) => {
-    persistItemMapping(row, prod, { force: true });
+    return persistItemMapping(row, prod, { force: true });
   }, []);
 
   const pickProduct = (idx, prod) => {
@@ -815,7 +822,11 @@ export default function OrderImportPage() {
               type="file"
               accept=".xlsx,.xls,.csv,image/*"
               style={{ display: 'none' }}
-              onChange={(e) => uploadFile(e.target.files?.[0])}
+              onChange={(e) => {
+                const selected = e.target.files?.[0];
+                e.target.value = '';
+                uploadFile(selected);
+              }}
             />
             {loading ? (
               <div style={{ color: '#1565c0', fontWeight: 600 }}>파싱·매칭 중…</div>
@@ -1030,7 +1041,10 @@ export default function OrderImportPage() {
                           type="text"
                           style={{ ...st.input, width: '100%', minWidth: 120, boxSizing: 'border-box', fontWeight: 600 }}
                           value={row.inputName}
-                          onChange={(e) => updateItem(idx, { inputName: e.target.value.trim() })}
+                          onChange={(e) => {
+                            updateItem(idx, clearImportProductMatchForName(row, e.target.value));
+                            setEditProdIdx(idx);
+                          }}
                           title="발주표 품목명 (수정 가능)"
                         />
                         {Array.isArray(row.detailLabels) && row.detailLabels.length > 0 && (
