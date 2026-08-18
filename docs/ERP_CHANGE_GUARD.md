@@ -89,8 +89,7 @@ OrderYear + OrderWeek + CustKey + ProdKey
 
 등록 대상은 `lib/defectEstimateTargetScope.js`의 공통 판정을 사용한다. 같은 연도·부모차수·
 업체의 활성 `ShipmentMaster + ShipmentDetail + ShipmentDate + PeriodDay` 조인에서
-`ShipmentMaster.isFix=1`과 `ShipmentDetail.isFix=1`을 요구한다. `ViewShipment.DetailFix`는
-실제 원장 확정값과 다를 수 있어 판정에 사용하지 않으며, 출고일 표시값인
+활성 `ShipmentKey` 존재를 요구하고 Master/Detail 확정 여부는 제한하지 않으며, 출고일 표시값인
 `ShipmentDate.EstQuantity`가 0/NULL이라는 이유로 대상 ShipmentKey를 제외하지 않는다.
 영업지원 목록과 사전검증·등록 직전 재검증은 이 공통 판정을 사용한다. Estimate는
 사용자가 선택한 불량 `ProdKey`를 그대로 저장하고 단가·단위도 그 품목에서만 선택한다.

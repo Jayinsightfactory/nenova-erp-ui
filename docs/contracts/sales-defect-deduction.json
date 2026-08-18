@@ -161,7 +161,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 33차가 여러 연도에 있어도 선택한 OrderYear의 활성·확정 ShipmentMaster/ShipmentDetail만 적용 ShipmentKey 후보로 사용한다. 2026 상희꽃상사(CustKey=401) 33-01 ShipmentKey=5808은 Master/Detail 확정이고 ViewShipment.DetailFix=false여도 통과하며, 2025년 33차 후보는 섞지 않는다. 선택한 불량 ProdKey는 Estimate에 그대로 저장하고, 단가는 선택 품목의 같은 연도 이전 부모차수(33차면 32차) 분배 단가를 사용한다."
+    "description": "같은 33차가 여러 연도에 있어도 선택한 OrderYear의 활성 ShipmentMaster/ShipmentDetail만 적용 ShipmentKey 후보로 사용한다. 2026 상희꽃상사(CustKey=401) 33-01 ShipmentKey=5808은 확정 해제 상태에서도 통과하며, 2025년 33차 후보는 섞지 않는다. 선택한 불량 ProdKey는 Estimate에 그대로 저장하고, 단가는 선택 품목의 같은 연도 이전 부모차수(33차면 32차) 분배 단가를 사용한다."
   },
   "dnspyEvidence": {
     "required": true,
@@ -195,7 +195,7 @@
     "lookupDismissal": "검색 입력·검색 결과 패널에서 Tab으로 빠져나가거나 다른 행의 입력·버튼으로 포커스가 이동하면 기존 검색 패널과 후보 목록을 닫는다.",
     "lookupPresentation": "품목 후보는 표 셀 내부의 가로 스크롤·z-index에 가려지지 않도록 document.body의 viewport 고정 팝업으로 표시한다. 내부 추천·사용빈도 순위는 유지하되 화면에는 국가·품종·DB 품명을 일정한 열로 정렬한 세로 목록만 표시하고 사용 횟수·매칭 건수는 표시하지 않는다. 팝업 실제 높이를 측정해 입력창 위쪽을 우선 배치하고, 위쪽 공간이 부족할 때만 아래쪽에 배치하며, 가로 스크롤 없이 품명을 줄바꿈한다.",
     "operationalWorkflow": "별도 수동 이월업체 등록 화면을 업무 시작점으로 사용하지 않는다. 영업입력 저장 → 수입부 농장·크레딧·보완 수정 및 확정 → 영업지원 견적 일괄등록 사전검증·검토 순서가 단일 업무 흐름이다.",
-    "registrationPartial": "견적서 일괄등록 전에 사용자는 행별 처리수량·적요·표시단위를 수정할 수 있다. 적용 출고 eligibility는 같은 연도·부모차수·업체의 활성 ShipmentMaster+ShipmentDetail+ShipmentDate+PeriodDay 행에서 Master.isFix=1 및 Detail.isFix=1로만 판정한다. ViewShipment.DetailFix는 원장 확정 상태와 다를 수 있어 eligibility에 사용하지 않는다. ShipmentDate.EstQuantity는 표시값이며 0/NULL이어도 대상 ShipmentKey 판정을 막지 않는다. 선택한 불량 ProdKey는 판매행 품목과 달라도 Estimate.ProdKey로 저장하며, 단가·단위는 선택 품목에서만 조회한다. 목록과 사전검증·등록 직전 재검증은 lib/defectEstimateTargetScope.js의 동일 판정을 사용하고, 한 행의 오류가 다른 유효행 처리를 막지 않는다.",
+    "registrationPartial": "견적서 일괄등록 전에 사용자는 행별 처리수량·적요·표시단위를 수정할 수 있다. 적용 출고 eligibility는 같은 연도·부모차수·업체의 활성 ShipmentMaster+ShipmentDetail+ShipmentDate+PeriodDay 행과 ShipmentKey 존재로 판정하며 확정 여부는 제한하지 않는다. ShipmentDate.EstQuantity는 표시값이며 0/NULL이어도 대상 ShipmentKey 판정을 막지 않는다. 선택한 불량 ProdKey는 판매행 품목과 달라도 Estimate.ProdKey로 저장하며, 단가·단위는 선택 품목에서만 조회한다. 목록과 사전검증·등록 직전 재검증은 lib/defectEstimateTargetScope.js의 동일 판정을 사용하고, 한 행의 오류가 다른 유효행 처리를 막지 않는다.",
     "carryover": "WebSalesDefectDeduction.OrderYear/OrderWeek는 최초 영업입력 원차수다. 대상 차수에 판매행이 없는 행은 자동 미처리하고 원수량·RemainingQuantity를 바꾸지 않은 채 다음 차수 일괄등록에서 재시도한다. 판매행이 생긴 차수에서만 AppliedOrderYear/AppliedOrderWeek/AppliedShipmentKey와 단가 원천 차수, WebSalesCarryoverApplication을 기록한다. 부분 처리 후에는 처리수량만 차감하고 잔량이 0이 될 때까지 같은 원장이 계속 재시도 대상에 남는다.",
     "carryoverIdempotency": "이월 처리 요청은 클라이언트 요청키를 포함하고 WebSalesCarryoverApplication의 DeductionKey+RequestKey filtered unique 제약으로 중복을 차단한다. 이미 처리된 요청 또는 RemainingQuantity=0 완료행은 Estimate/Application/History/원장 쓰기 0건으로 응답한다.",
     "carryoverDelete": "이월 원장 삭제는 현재 EstimateKey뿐 아니라 WebSalesCarryoverApplication에 기록된 모든 연결 EstimateKey를 같은 트랜잭션에서 처리하고 application 감사행은 보존한다.",

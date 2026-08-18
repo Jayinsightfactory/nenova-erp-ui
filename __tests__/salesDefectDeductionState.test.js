@@ -50,9 +50,9 @@ assert.equal(isExeEstimateTargetCandidate(cheonghwaVisibleTarget), true, '견적
 assert.equal(selectExeEstimateTargetCandidate([
   { ...cheonghwaVisibleTarget, ShipmentKey: 3300, MasterFix: 0 },
   cheonghwaVisibleTarget,
-])?.ShipmentKey, 3301, '미확정 near-miss를 건너뛰고 실제 확정 출고를 선택해야 한다.');
-assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, MasterFix: 0 }), false, 'Master 미확정 출고는 제외해야 한다.');
-assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentDetailFix: 0 }), false, 'Detail 미확정 출고는 제외해야 한다.');
+])?.ShipmentKey, 3300, '정렬된 해당 차수 업체 출고키를 확정 여부와 무관하게 결정적으로 선택해야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, MasterFix: 0, ShipmentDetailFix: 0 }), true, '해당 차수의 업체 출고가 존재하면 확정 해제 상태에서도 견적 차감을 연결할 수 있어야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ShipmentKey: 0 }), false, '실제 ShipmentKey가 없는 행은 제외해야 한다.');
 
 const confirmedRow = { importConfirmed: true, importReviewRequired: false, status: 'CARRYOVER', estimateKey: null };
 const sanghee33ConfirmedShipment = {
@@ -62,7 +62,7 @@ const sanghee33ConfirmedShipment = {
 assert.equal(selectExeEstimateTargetCandidate([
   sanghee33ConfirmedShipment,
 ])?.ShipmentKey, 5808, '교차연도 fixture에서 SQL의 OrderYear predicate를 통과한 2026 업체 출고키만 안정적으로 선택한다.');
-assert.equal(isExeEstimateTargetCandidate(sanghee33ConfirmedShipment), true, '상희꽃상사 2026/33-01 fixture는 ViewShipment.DetailFix=false여도 raw Master/Detail 확정이면 대상이다.');
+assert.equal(isExeEstimateTargetCandidate({ ...sanghee33ConfirmedShipment, MasterFix: 0, ShipmentDetailFix: 0 }), true, '상희꽃상사 2026/33-01은 확정 해제 상태에서도 업체 출고키가 있으면 대상이다.');
 assert.equal(evaluateDefectRegistrationEligibility({
   row: { ...confirmedRow, prodKey: 456 },
   context: { shipmentKey: sanghee33ConfirmedShipment.ShipmentKey, shipmentProductKey: sanghee33ConfirmedShipment.ShipmentProdKey, cost: 5900 },
