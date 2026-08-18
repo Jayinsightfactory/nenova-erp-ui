@@ -88,14 +88,16 @@ OrderYear + OrderWeek + CustKey + ProdKey
 문서와 문자열 테스트가 그 잘못된 조건을 함께 고정한 것이 원인이다.
 
 등록 대상은 `lib/defectEstimateTargetScope.js`의 공통 판정을 사용한다. 같은 연도·부모차수·
-업체·품목의 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay` 조인에서
-`DetailFix=1`과 `ViewShipment.EstQuantity>0`을 요구하되, 출고일 표시값인
+업체의 활성 `ShipmentMaster + ShipmentDetail + ShipmentDate + PeriodDay` 조인에서
+`ShipmentMaster.isFix=1`과 `ShipmentDetail.isFix=1`을 요구한다. `ViewShipment.DetailFix`는
+실제 원장 확정값과 다를 수 있어 판정에 사용하지 않으며, 출고일 표시값인
 `ShipmentDate.EstQuantity`가 0/NULL이라는 이유로 대상 ShipmentKey를 제외하지 않는다.
-영업지원 목록과 사전검증·등록 직전 재검증은 이 공통 판정을 사용한다.
+영업지원 목록과 사전검증·등록 직전 재검증은 이 공통 판정을 사용한다. Estimate는
+사용자가 선택한 불량 `ProdKey`를 그대로 저장하고 단가·단위도 그 품목에서만 선택한다.
 
-회귀 fixture는 확정+ViewShipment 환산수량 양수+ShipmentDate 환산수량 0인 정상행과,
-미확정 또는 ViewShipment 환산수량 0인 near-miss를 실행형으로 검증한다. 문자열 테스트가
-dnSpy 원문보다 우선할 수 없다.
+회귀 fixture는 상희꽃상사 2026 `33-01`의 Master/Detail 확정·`ViewShipment.DetailFix=0`인
+정상행과 Master 또는 Detail 미확정 near-miss, 2025 같은 33차 교차연도 near-miss를 실행형으로
+검증한다. 문자열 테스트가 dnSpy 원문보다 우선할 수 없다.
 
 ## 2026-07-20 농장 후보 GET/POST 범위 불일치 회귀
 
