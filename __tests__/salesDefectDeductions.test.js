@@ -134,6 +134,7 @@ assert.ok(pageSource.includes('registerSupport'), '수입부 확인 뒤 선택 �
 assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.registrationEligible === true'), '미처리 재시도는 같은 업체의 차수 확정 출고와 품목별 단가가 있는 행만 선택해야 한다.');
 assert.ok(deductionSource.includes('registrationEligibilityCode') && deductionSource.includes('targetShipmentKey'), '목록은 사전검증과 같은 업체 단위 등록 판정 결과를 응답해야 한다.');
 assert.ok(pageSource.includes('원차수 출고 확인') && pageSource.includes("setActiveTab('sales')"), '업체 출고가 없는 행은 원차수 출고 확인으로 이동할 수 있어야 한다.');
+assert.equal(pageSource.includes('원차수 품목 수정'), false, '품목 매칭값만 바뀐 행을 원차수 수정으로 되돌리도록 유도하면 안 된다.');
 assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('supportAllSelected'), '전체 선택 표시와 동작은 실제 등록 가능 행을 동일한 기준으로 사용해야 합니다.');
 assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
@@ -232,9 +233,10 @@ assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거가 활성화된 SQL Server에서도 신규 견적키를 회수해야 한다.');
-assert.ok(estimateTargetScopeSource.includes('FROM ViewShipment vs'), '견적 차감 대상은 EXE와 동일한 ViewShipment 기준이어야 한다.');
-assert.ok(estimateTargetScopeSource.includes('JOIN ViewOrder vo'), '견적 차감 대상은 EXE와 동일한 ViewOrder 매칭을 사용해야 한다.');
-assert.ok(estimateTargetScopeSource.includes('ShipmentEstimateQuantity'), '공통 판정은 ViewShipment 환산수량과 DetailFix를 검사해야 한다.');
+assert.ok(estimateTargetScopeSource.includes('FROM ShipmentMaster sm'), '견적 차감 대상은 실제 ShipmentMaster 확정 원장을 기준으로 해야 한다.');
+assert.ok(estimateTargetScopeSource.includes('JOIN ShipmentDetail sd'), '견적 차감 대상은 활성 출고 상세가 있는 업체 출고만 사용해야 한다.');
+assert.ok(estimateTargetScopeSource.includes('MasterFix') && estimateTargetScopeSource.includes('ShipmentDetailFix'), '공통 판정은 원장의 Master/Detail 확정 상태를 검사해야 한다.');
+assert.equal(estimateTargetScopeSource.includes('FROM ViewShipment'), false, 'ViewShipment.DetailFix 불일치로 확정 출고를 제외하면 안 된다.');
 assert.ok(deductionSource.includes('buildDefectEstimateTargetCandidatesSql'), '목록·사전검증·등록은 공통 EXE 견적 대상 scope를 사용해야 한다.');
 assert.ok(deductionSource.includes('selectExeEstimateTargetCandidate'), '공통 EXE 견적 대상 판정으로 실제 ShipmentKey를 선택해야 한다.');
 assert.ok(!deductionSource.includes('AND ISNULL(sdd.EstQuantity,0)>0'), 'GetDetail에 없는 ShipmentDate.EstQuantity 양수 필터를 추가하면 안 된다.');

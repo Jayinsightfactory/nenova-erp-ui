@@ -166,13 +166,31 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 `ShipmentDetail.Cost`를 사용한다. `CustomerProdCost`나 `Product.Cost`로 임의 대체하지
 않으며, 이전 차수 분배 단가가 없으면 등록 전에 오류로 알린다.
 
-등록 대상 출고는 `ShipmentMaster`만으로 판단하지 않는다. nenova.exe와 동일하게
-`ViewShipment`와 `ViewOrder`를 `OrderYearWeek2 + CustKey + ProdKey`로 INNER JOIN하고,
-`ShipmentDate`와 `PeriodDay`를 연결한 뒤 `DetailFix=1`, `ViewShipment.EstQuantity>0`을
-만족하는 판매행만 대상이 된다. `FormEstimateView.GetDetail`은 출고일별
+`FormEstimateAdd`가 받는 적용 출고는 `ShipmentMaster`만으로 판단하지 않는다. 웹은 같은
+연도·적용 부모차수·거래처의 활성 `ShipmentMaster + ShipmentDetail + ShipmentDate +
+PeriodDay` 행을 직접 확인하고 `ShipmentMaster.isFix=1` 및 `ShipmentDetail.isFix=1`인
+확정 출고에서 결정적으로 `ShipmentKey`를 선택한다. `ViewShipment.DetailFix`는 실제 원장
+확정 상태와 다를 수 있으므로 eligibility에 사용하지 않는다. `FormEstimateAdd`는
+`ShipmentKey`와 사용자가 고른 `ProdKey`를 독립적으로 저장하므로, 선택한 불량 품목이
+그 판매행의 품목과 달라도 `Estimate.ProdKey`·단가·단위는 선택 품목을 보존하고
+`ShipmentKey`만 해당 업체의 확정 판매행에서 결정한다. `FormEstimateView.GetDetail`은 출고일별
 `ShipmentDate.EstQuantity`가 0인 행도 반환하므로 이를 대상 `ShipmentKey` 존재 조건으로
 추가하지 않는다. 따라서 웹에서 보이는
 원장 행이 EXE 견적서관리에서 보이지 않는 ghost shipment에 잘못 연결되지 않는다.
+
+### 2026-08-18 상희꽃상사 read-only probe
+
+운영 원장은 변경하지 않고 확인했다.
+
+- 적용 범위: `OrderYear=2026`, `OrderWeek='33-01'`, `CustKey=401` (상희꽃상사)
+- 안전한 적용 출고: `ShipmentKey=5808`, `ShipmentMaster.isFix=1`, 활성 상태
+- 해당 출고의 `ShipmentDetail` 9/9행이 `isFix=1`; `CARNATION Novia` (`ProdKey=456`)와
+  `CARNATION Moon Light` (`ProdKey=447`)가 모두 존재한다.
+- 두 품목에서 `ViewShipment.DetailFix=0`이지만, 이는 raw Master/Detail 확정 상태와
+  불일치한 조회값이다. 따라서 불량차감 Estimate 적용 출고의 eligibility는 이 View 값이
+  아니라 위 원장 확정 상태를 사용한다.
+
+이 probe는 `SELECT`만 실행했으며 `OrderDetail`, `Shipment*`, `Stock*`, `Estimate`를 변경하지 않았다.
 
 차감 원장의 `OrderYear/OrderWeek`는 불량이 발생한 원차수로 보존한다. 원차수보다 뒤의
 적용 대상 차수에 위 판매행이 있으면 `Estimate`는 그 적용 대상의 `ShipmentKey`와

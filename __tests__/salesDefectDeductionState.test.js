@@ -9,7 +9,17 @@ import {
   isDeductionOwnedByUser,
   planDeductionRegistration,
   runIsolatedRegistrationTransaction,
+  shouldResetIncomingConfirmation,
 } from '../lib/salesDefectDeductionState.js';
+
+assert.equal(shouldResetIncomingConfirmation(
+  { custKey: 10, prodKey: 20, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
+  { custKey: 11, prodKey: 21, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
+), false, '업체·품목 매칭만 변경하면 수입부 확정 감사정보를 유지해야 한다.');
+assert.equal(shouldResetIncomingConfirmation(
+  { prodKey: 20, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
+  { prodKey: 21, quantity: 5, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
+), true, '매칭과 수량이 함께 변경되면 수입부 재확인이 필요하다.');
 import {
   buildDefectEstimateTargetCandidatesSql,
   evaluateDefectRegistrationEligibility,
@@ -18,40 +28,75 @@ import {
 } from '../lib/defectEstimateTargetScope.js';
 
 const estimateTargetSql = buildDefectEstimateTargetCandidatesSql();
-assert.match(estimateTargetSql, /vs\.OrderYear=@yr/);
-assert.match(estimateTargetSql, /vs\.ProdKey=@pk/);
-assert.match(estimateTargetSql, /vs\.OrderWeek LIKE @prefix/);
-assert.match(estimateTargetSql, /JOIN ViewOrder vo/);
+assert.match(estimateTargetSql, /sm\.OrderYear=@yr/);
+assert.match(estimateTargetSql, /sm\.OrderWeek LIKE @prefix/);
+assert.match(estimateTargetSql, /FROM ShipmentMaster sm/);
+assert.match(estimateTargetSql, /JOIN ShipmentDetail sd/);
 assert.match(estimateTargetSql, /JOIN ShipmentDate sdd/);
 assert.match(estimateTargetSql, /JOIN PeriodDay pd/);
+assert.match(estimateTargetSql, /sd\.ProdKey AS ShipmentProdKey/);
+assert.match(estimateTargetSql, /ISNULL\(sm\.isFix,0\) AS MasterFix/);
+assert.match(estimateTargetSql, /ISNULL\(sd\.isFix,0\) AS ShipmentDetailFix/);
+assert.doesNotMatch(estimateTargetSql, /ViewShipment|ViewOrder|@pk/, '적용 출고 eligibility는 불량 원장 품목 및 ViewShipment.DetailFix와 독립된 업체 확정출고 기준이어야 한다.');
 assert.doesNotMatch(estimateTargetSql, /sdd\.EstQuantity[^,\n]*>/, 'GetDetail에 없는 출고일 EstQuantity 양수 필터를 추가하면 안 된다.');
 const customerTargetSql = buildDefectEstimateTargetCandidatesSql({ customerOnly: true });
 assert.doesNotMatch(customerTargetSql, /vs\.ProdKey=@pk/, '차감 품목이 대상 차수에 없어도 같은 업체의 확정 출고가 있으면 등록할 수 있어야 한다.');
 
 const cheonghwaVisibleTarget = {
-  ShipmentKey: 3301, DetailFix: 1, ShipmentEstimateQuantity: 20,
+  ShipmentKey: 3301, MasterFix: 1, ShipmentDetailFix: 1,
   ShipmentDateEstimateQuantity: 0,
 };
 assert.equal(isExeEstimateTargetCandidate(cheonghwaVisibleTarget), true, '견적 상세에 보이는 출고일 EstQuantity 0행도 등록 대상이어야 한다.');
 assert.equal(selectExeEstimateTargetCandidate([
-  { ...cheonghwaVisibleTarget, ShipmentKey: 3300, DetailFix: 0 },
+  { ...cheonghwaVisibleTarget, ShipmentKey: 3300, MasterFix: 0 },
   cheonghwaVisibleTarget,
-])?.ShipmentKey, 3301, '미확정 near-miss를 건너뛰고 EXE 상세 노출 행을 선택해야 한다.');
-assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, DetailFix: 0 }), false, '미확정 출고는 제외해야 한다.');
-assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentEstimateQuantity: 0 }), false, '출고 환산수량 0행은 제외해야 한다.');
+])?.ShipmentKey, 3301, '미확정 near-miss를 건너뛰고 실제 확정 출고를 선택해야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, MasterFix: 0 }), false, 'Master 미확정 출고는 제외해야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentDetailFix: 0 }), false, 'Detail 미확정 출고는 제외해야 한다.');
 
 const confirmedRow = { importConfirmed: true, importReviewRequired: false, status: 'CARRYOVER', estimateKey: null };
-assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 5900 } }).eligible, true, '같은 업체의 확정 출고와 품목별 단가가 있으면 등록 가능해야 한다.');
-const customerNoShipment = evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: null, cost: 5900 } });
-assert.equal(customerNoShipment.eligible, false, '선택 차수에 업체 출고가 없으면 등록할 수 없어야 한다.');
-assert.equal(customerNoShipment.code, 'CUSTOMER_SALE_MISSING');
-assert.match(customerNoShipment.error, /업체.*확정 출고/);
+const sanghee33ConfirmedShipment = {
+  ShipmentKey: 5808, TargetOrderYear: 2026, OrderWeek: '33-01', ShipmentProdKey: 447,
+  MasterFix: 1, ShipmentDetailFix: 1, DetailFix: 0, ShipmentDateEstimateQuantity: 0,
+};
+assert.equal(selectExeEstimateTargetCandidate([
+  sanghee33ConfirmedShipment,
+])?.ShipmentKey, 5808, '교차연도 fixture에서 SQL의 OrderYear predicate를 통과한 2026 업체 출고키만 안정적으로 선택한다.');
+assert.equal(isExeEstimateTargetCandidate(sanghee33ConfirmedShipment), true, '상희꽃상사 2026/33-01 fixture는 ViewShipment.DetailFix=false여도 raw Master/Detail 확정이면 대상이다.');
+assert.equal(evaluateDefectRegistrationEligibility({
+  row: { ...confirmedRow, prodKey: 456 },
+  context: { shipmentKey: sanghee33ConfirmedShipment.ShipmentKey, shipmentProductKey: sanghee33ConfirmedShipment.ShipmentProdKey, cost: 5900 },
+}).eligible, true, '상희꽃상사 2026/33 fixture처럼 Novia#456 원장도 Moon Light#447 확정 출고를 적용키로 사용해 등록 가능해야 한다.');
+const customerShipmentMissing = evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: null, cost: 5900 } });
+assert.equal(customerShipmentMissing.eligible, false, '같은 연도·적용 부모차수에 업체 확정 출고가 없으면 등록할 수 없다.');
+assert.equal(customerShipmentMissing.code, 'CUSTOMER_SALE_MISSING');
+assert.match(customerShipmentMissing.error, /업체/);
 assert.equal(evaluateDefectRegistrationEligibility({ row: { ...confirmedRow, importConfirmed: false }, context: { shipmentKey: 5809, cost: 5900 } }).eligible, false);
 assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 0 } }).code, 'COST_MISSING');
 
 const reviewPageSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionServiceSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const migrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
+
+// 품목 매칭은 표시/등록 대상의 키만 바꾸는 작업이다. 이미 수입부에서
+// 확정한 Farm/Credit/Note/ImportConfirmed 감사 상태를 매칭 변경만으로
+// 되돌리면 영업지원 목록에서 해당 행이 사라지는 회귀가 발생한다.
+const draftSaveSource = fs.readFileSync('lib/salesDefectDeductionState.js', 'utf8');
+assert.doesNotMatch(
+  draftSaveSource,
+  /before\.custKey[\s\S]*before\.prodKey|before\.prodKey[\s\S]*before\.custKey/,
+  '품목/거래처 매칭 키 변경만으로 ImportConfirmed 해제 조건을 만들면 안 된다.',
+);
+assert.match(draftSaveSource, /before\.quantity[\s\S]*before\.sourceUnit[\s\S]*before\.creditApplied[\s\S]*before\.farmName[\s\S]*before\.note/, '실제 영업값 변경 조건은 매칭 변경과 분리해 보존해야 한다.');
+
+// 등록 후 재조회는 최초 미리보기의 before가 아니라 등록 전 원본 행을
+// 기준으로 비교해야 한다. 신규 EstimateKey는 발급된 양수 키를 허용하고,
+// 이월행은 남은 수량과 연결 견적키를 검증한다.
+assert.match(reviewPageSource, /const originalRowByKey = new Map\(rows\.map/);
+assert.match(reviewPageSource, /verifyAppliedRow\(row, originalRowByKey\.get/);
+assert.match(reviewPageSource, /originalRow\?\.isCarryoverLedger/);
+assert.match(reviewPageSource, /Number\(actual\.EstimateKey \|\| 0\) > 0/);
+assert.match(reviewPageSource, /expectedRemaining/);
 
 const confirmedCarryover = {
   DeductionKey: 101, OrderYear: 2026, OrderWeek: '32', CustKey: 10, ProdKey: 20,
@@ -63,16 +108,16 @@ const confirmedCarryover = {
 assert.throws(() => assertIncomingConfirmed({ ...confirmedCarryover, ImportConfirmed: 0 }), /수입부 확정/);
 assert.throws(() => planDeductionRegistration({
   row: { ...confirmedCarryover, ImportConfirmed: 0 }, targetYear: 2026, targetWeek: '33',
-  requestKey: 'req-unconfirmed', productSalesRowExists: true, shipmentKey: 300, cost: 1100,
+  requestKey: 'req-unconfirmed', customerShipmentExists: true, shipmentKey: 300, cost: 1100,
 }), /수입부 확정/);
 assert.throws(() => planDeductionRegistration({
   row: { ...confirmedCarryover, ImportReviewRequired: 1 }, targetYear: 2026, targetWeek: '33',
-  requestKey: 'req-review', productSalesRowExists: true, shipmentKey: 300, cost: 1100,
+  requestKey: 'req-review', customerShipmentExists: true, shipmentKey: 300, cost: 1100,
 }), /보완 필요/);
 
 const firstPlan = planDeductionRegistration({
   row: confirmedCarryover, targetYear: 2026, targetWeek: '33', applyQuantity: 4,
-  requestKey: 'req-partial-33', productSalesRowExists: true, shipmentKey: 3300, cost: 1100,
+  requestKey: 'req-partial-33', customerShipmentExists: true, shipmentKey: 3300, cost: 1100,
 });
 assert.deepEqual(
   { action: firstPlan.action, remaining: firstPlan.remainingQuantity, status: firstPlan.status },
@@ -85,7 +130,7 @@ assert.equal(firstApplied.row.RemainingQuantity, 6);
 const secondPlan = planDeductionRegistration({
   row: firstApplied.row, targetYear: 2026, targetWeek: '34', applyQuantity: 6,
   requestKey: 'req-complete-34', existingRequestKeys: ['req-partial-33'],
-  productSalesRowExists: true, shipmentKey: 3400, cost: 1200,
+  customerShipmentExists: true, shipmentKey: 3400, cost: 1200,
 });
 const secondApplied = applyDeductionRegistrationPlan(firstApplied.row, secondPlan);
 assert.equal(secondApplied.row.RemainingQuantity, 0);
@@ -95,14 +140,14 @@ assert.equal(secondApplied.application.AppliedOrderWeek, '34');
 const duplicatePlan = planDeductionRegistration({
   row: firstApplied.row, targetYear: 2026, targetWeek: '33', applyQuantity: 4,
   requestKey: 'req-partial-33', existingRequestKeys: ['req-partial-33'],
-  productSalesRowExists: true, shipmentKey: 3300, cost: 1100,
+  customerShipmentExists: true, shipmentKey: 3300, cost: 1100,
 });
 assert.deepEqual(duplicatePlan, { action: 'IDEMPOTENT', writeCount: 0, requestKey: 'req-partial-33' });
 assert.equal(applyDeductionRegistrationPlan(firstApplied.row, duplicatePlan).writeCount, 0);
 
 const completedPlan = planDeductionRegistration({
   row: secondApplied.row, targetYear: 2026, targetWeek: '35', requestKey: 'req-after-complete',
-  productSalesRowExists: true, shipmentKey: 3500, cost: 1250,
+  customerShipmentExists: true, shipmentKey: 3500, cost: 1250,
 });
 assert.equal(completedPlan.action, 'COMPLETE_NOOP');
 assert.equal(completedPlan.writeCount, 0);
