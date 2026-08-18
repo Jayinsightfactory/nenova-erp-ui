@@ -235,7 +235,7 @@ assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확�
 assert.ok(deductionSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거가 활성화된 SQL Server에서도 신규 견적키를 회수해야 한다.');
 assert.ok(estimateTargetScopeSource.includes('FROM ShipmentMaster sm'), '견적 차감 대상은 실제 ShipmentMaster 확정 원장을 기준으로 해야 한다.');
 assert.ok(estimateTargetScopeSource.includes('JOIN ShipmentDetail sd'), '견적 차감 대상은 활성 출고 상세가 있는 업체 출고만 사용해야 한다.');
-assert.ok(estimateTargetScopeSource.includes('MasterFix') && estimateTargetScopeSource.includes('ShipmentDetailFix'), '공통 판정은 원장의 Master/Detail 확정 상태를 검사해야 한다.');
+assert.match(estimateTargetScopeSource, /Number\(row\?\.ShipmentKey \|\| 0\) > 0/, '공통 판정은 해당 차수의 업체 ShipmentKey 존재를 기준으로 삼아야 한다.');
 assert.equal(estimateTargetScopeSource.includes('FROM ViewShipment'), false, 'ViewShipment.DetailFix 불일치로 확정 출고를 제외하면 안 된다.');
 assert.ok(deductionSource.includes('buildDefectEstimateTargetCandidatesSql'), '목록·사전검증·등록은 공통 EXE 견적 대상 scope를 사용해야 한다.');
 assert.ok(deductionSource.includes('selectExeEstimateTargetCandidate'), '공통 EXE 견적 대상 판정으로 실제 ShipmentKey를 선택해야 한다.');

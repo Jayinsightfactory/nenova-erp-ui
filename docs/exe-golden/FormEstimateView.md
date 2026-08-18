@@ -168,9 +168,8 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 
 `FormEstimateAdd`가 받는 적용 출고는 `ShipmentMaster`만으로 판단하지 않는다. 웹은 같은
 연도·적용 부모차수·거래처의 활성 `ShipmentMaster + ShipmentDetail + ShipmentDate +
-PeriodDay` 행을 직접 확인하고 `ShipmentMaster.isFix=1` 및 `ShipmentDetail.isFix=1`인
-확정 출고에서 결정적으로 `ShipmentKey`를 선택한다. `ViewShipment.DetailFix`는 실제 원장
-확정 상태와 다를 수 있으므로 eligibility에 사용하지 않는다. `FormEstimateAdd`는
+PeriodDay` 행을 직접 확인하고 해당 업체의 활성 `ShipmentKey`를 선택한다. 사용자 업무
+기준에 따라 Master/Detail 확정 여부는 eligibility에 사용하지 않는다. `FormEstimateAdd`는
 `ShipmentKey`와 사용자가 고른 `ProdKey`를 독립적으로 저장하므로, 선택한 불량 품목이
 그 판매행의 품목과 달라도 `Estimate.ProdKey`·단가·단위는 선택 품목을 보존하고
 `ShipmentKey`만 해당 업체의 확정 판매행에서 결정한다. `FormEstimateView.GetDetail`은 출고일별
