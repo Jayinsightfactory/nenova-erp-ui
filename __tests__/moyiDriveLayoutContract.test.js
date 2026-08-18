@@ -29,6 +29,10 @@ assert.match(allSource, />분류 확인</, '분류 도구 버튼이 있어야 �
 assert.match(page, /<Tabs /, '탭 영역이 있어야 합니다.');
 assert.match(page, /<Toolbar\b/, '회사/검색/업로드/분류 도구 묶음이 있어야 합니다.');
 assert.match(page, /role="tabpanel"/, '본문에 tabpanel 역할이 있어야 합니다.');
+assert.match(page, /기존 MOYI 파일 연결/, '기존 앱 파일을 현재 회사 Drive에 연결하는 확인 영역이 있어야 합니다.');
+assert.match(page, /기존 파일 확인/, '실행 전 사유별 파일 건수를 미리 확인할 수 있어야 합니다.');
+assert.match(page, /window\.confirm/, '기존 파일 연결은 관리자 확인 대화상자 뒤에만 실행해야 합니다.');
+assert.match(page, /확인 필요·회사 정보 없음·원본 확인 불가 파일은 자동 연결하지 않습니다/, '애매하거나 원본을 찾지 못한 파일을 자동 연결하면 안 됩니다.');
 
 // ── PC 1440 / 태블릿·모바일 768·390·360 반응형 계약 ─────────────
 assert.match(viewModel, /desktop:\s*1440/);
