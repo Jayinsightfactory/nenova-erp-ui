@@ -80,6 +80,23 @@ OrderYear + OrderWeek + CustKey + ProdKey
 
 앞으로는 문서를 추가하는 것만으로 완료로 보지 않는다. 문서 규칙마다 실행 가능한 테스트 또는 CI 검사 하나 이상을 연결한다.
 
+## 2026-08-18 불량차감 등록 대상 과잉 필터 회귀
+
+영업지원 전산등록에서 견적서관리 상세에 노출되는 확정 출고가 있는데도 “출고가 없어
+견적서 등록 대상을 찾을 수 없습니다”가 발생했다. 웹 판정이 dnSpy
+`FormEstimateView.GetDetail`에는 없는 `ShipmentDate.EstQuantity>0` 조건을 추가했고,
+문서와 문자열 테스트가 그 잘못된 조건을 함께 고정한 것이 원인이다.
+
+등록 대상은 `lib/defectEstimateTargetScope.js`의 공통 판정을 사용한다. 같은 연도·부모차수·
+업체·품목의 `ViewShipment + ViewOrder + ShipmentDate + PeriodDay` 조인에서
+`DetailFix=1`과 `ViewShipment.EstQuantity>0`을 요구하되, 출고일 표시값인
+`ShipmentDate.EstQuantity`가 0/NULL이라는 이유로 대상 ShipmentKey를 제외하지 않는다.
+영업지원 목록과 사전검증·등록 직전 재검증은 이 공통 판정을 사용한다.
+
+회귀 fixture는 확정+ViewShipment 환산수량 양수+ShipmentDate 환산수량 0인 정상행과,
+미확정 또는 ViewShipment 환산수량 0인 near-miss를 실행형으로 검증한다. 문자열 테스트가
+dnSpy 원문보다 우선할 수 없다.
+
 ## 2026-07-20 농장 후보 GET/POST 범위 불일치 회귀
 
 29-02 차수피벗에서 `CARNATION rodas`의 농장배정이 화면에는 보이는데 저장 후

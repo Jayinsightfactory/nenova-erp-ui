@@ -92,6 +92,7 @@ assert.deepEqual(
   { valid: [{ deductionKey: 1, error: '' }], invalid: [{ deductionKey: 2, error: '출고 없음' }] },
 );
 const deductionSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
+const estimateTargetScopeSource = fs.readFileSync('lib/defectEstimateTargetScope.js', 'utf8');
 const defectApiSource = fs.readFileSync('pages/api/sales/defect-deductions.js', 'utf8');
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
@@ -228,10 +229,12 @@ assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거가 활성화된 SQL Server에서도 신규 견적키를 회수해야 한다.');
-assert.ok(deductionSource.includes('FROM ViewShipment vs'), '견적 차감 대상은 EXE와 동일한 ViewShipment 기준이어야 한다.');
-assert.ok(deductionSource.includes('JOIN ViewOrder vo'), '견적 차감 대상은 EXE와 동일한 ViewOrder 매칭을 사용해야 한다.');
-assert.ok(deductionSource.includes('ISNULL(vs.DetailFix,0)=1'), '확정 DetailFix=1 조건이 필요하다.');
-assert.ok(deductionSource.includes('ISNULL(sdd.EstQuantity,0)>0'), '출고일 확정수량이 양수인 판매행만 대상이어야 한다.');
+assert.ok(estimateTargetScopeSource.includes('FROM ViewShipment vs'), '견적 차감 대상은 EXE와 동일한 ViewShipment 기준이어야 한다.');
+assert.ok(estimateTargetScopeSource.includes('JOIN ViewOrder vo'), '견적 차감 대상은 EXE와 동일한 ViewOrder 매칭을 사용해야 한다.');
+assert.ok(estimateTargetScopeSource.includes('ShipmentEstimateQuantity'), '공통 판정은 ViewShipment 환산수량과 DetailFix를 검사해야 한다.');
+assert.ok(deductionSource.includes('buildDefectEstimateTargetCandidatesSql'), '목록·사전검증·등록은 공통 EXE 견적 대상 scope를 사용해야 한다.');
+assert.ok(deductionSource.includes('selectExeEstimateTargetCandidate'), '공통 EXE 견적 대상 판정으로 실제 ShipmentKey를 선택해야 한다.');
+assert.ok(!deductionSource.includes('AND ISNULL(sdd.EstQuantity,0)>0'), 'GetDetail에 없는 ShipmentDate.EstQuantity 양수 필터를 추가하면 안 된다.');
 assert.ok(deductionSource.includes('AppliedOrderYear'), '원차수와 적용차수를 분리 저장해야 한다.');
 assert.ok(deductionSource.includes('이월 대기'), '현재 판매행이 없으면 이월 대기로 남겨야 한다.');
 assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
