@@ -141,7 +141,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
-    verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증단가 수량가중평균',
+    verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증단가 또는 확정 분배단가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
@@ -827,7 +827,7 @@ export default function ProfitReportPage() {
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
           <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 EXE ProductStock 수량에 원본 엑셀의 카테고리 평균원가 공식 또는 검증된 품목 단가를 적용</b>합니다.
-          평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위의 비샘플 검증단가 평균을 사용합니다. 그 밖의 품종은 검증 단가가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H/R/S 외부 확정값은 <b>🛠 외부증거 입력</b>에서 sourceRef와 기준일을 함께 기록합니다.
+          평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위 비샘플 품목의 검증단가 또는 당차수 확정 분배단가 평균을 사용합니다. 이 평균은 일반 품목이나 DB 단가로 저장하지 않습니다. 그 밖의 품종은 검증 단가가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H/R/S 외부 확정값은 <b>🛠 외부증거 입력</b>에서 sourceRef와 기준일을 함께 기록합니다.
           환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
@@ -1396,7 +1396,7 @@ export default function ProfitReportPage() {
               직접 입력 단가는 <b>현재 기말 스냅샷({priceModal.endWeek || '-'})에만</b> 연결됩니다. 저장할 때 근거 문서와 기준일이 필요하며 다른 주차로 자동 상속하지 않습니다.
               콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균원가 공식이 우선 적용되며, 이 표는 자동 공식이 불가능한 품목의 보완 근거입니다.
               <br /><b>당차수 실제 분배단가 후보</b>는 호주를 포함해 정확한 품목단가가 없는 품목에 표시됩니다. 엑셀 재고잔량과 동일하게 VAT 포함 단가 하나를 선택해 ÷1.1하며, 같은 단가를 사용한 업체 수가 가장 많은 후보를 먼저 보여줍니다. 분배단가 후보끼리 평균값을 새로 만들지 않습니다. 확인하고 저장한 차수에만 확정 근거가 됩니다.
-              <br />품목명에 <b>샘플/SAMPLE</b>이 명시된 소량 품목은 정확한 근거를 우선하고, 없을 때만 같은 ProductStock 시점의 동일 단위 비샘플 검증단가를 수량가중평균해 자동 표시합니다.
+              <br />품목명에 <b>샘플/SAMPLE</b>이 명시된 소량 품목은 정확한 근거를 우선하고, 없을 때만 같은 ProductStock 시점의 동일 단위 비샘플 검증단가 또는 당차수 확정 분배단가를 수량가중평균해 자동 표시합니다. 이 평균은 일반 품목 단가로 저장하지 않습니다.
             </div>
             {(priceModal.rows || []).some(r => r.SetPrice == null && r.SuggestedPrice != null) && (
               <div style={{ padding: '0 12px 6px', display: 'flex', justifyContent: 'flex-end' }}>
