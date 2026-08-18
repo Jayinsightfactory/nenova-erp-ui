@@ -94,6 +94,24 @@ async function main() {
       check('weightedAvg === false(날짜 1개뿐)', entry?.detail?.weightedAvg === false);
     }
 
+    console.log('\n=== 호주 일정 보완 provenance가 최종 KCS detail에 보존됨 ===');
+    {
+      kcs.clearKcsTaxableRateCache();
+      globalThis.__mockLoadWarehouseDateWeights = async () => [
+        {
+          category: '호주', currency: 'AUD', date: '2026-07-06', weight: 500,
+          dateSource: 'category_schedule', scheduleId: 'AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1',
+        },
+      ];
+      setFetchByDate({ '2026-07-06': 1068.96 });
+      const { byCategory } = await kcsRatesByCategory('28', '2026');
+      const used = byCategory['호주']?.detail?.dates?.[0];
+      check('호주 일정 환율이 자동 계산됨', byCategory['호주']?.rate === 1068.96, JSON.stringify(byCategory));
+      check('일정 보완 출처와 규칙 ID가 응답에 남음',
+        used?.dateSource === 'category_schedule' && used?.scheduleId === 'AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1',
+        JSON.stringify(used));
+    }
+
     console.log('\n=== 2개 날짜 중 1개 조회 실패 — 카테고리 전체를 입력 필요로 처리 ===');
     {
       kcs.clearKcsTaxableRateCache();
