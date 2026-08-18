@@ -146,6 +146,11 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
   금액 공식은 `Amount = Round(Quantity * Cost / 1.1, 0)`, `Vat = Quantity * Cost - Amount`이다.
 - `ClassEstimate.Insert()`/`Update()`는 `Estimate`만 쓰고 `ShipmentDetail`, `ShipmentDate`,
   `OrderDetail`, 재고를 변경하지 않는다.
+- `FormEstimateAdd.btnSave_Click`은 입력한 `ProdKey`와 별도로 선택된 `ShipmentKey`를
+  `ClassEstimate.Insert()`에 전달한다. 따라서 불량차감의 `Estimate.ProdKey`가 해당
+  차수의 정상 출고 품목과 다르더라도, `ShipmentKey`가 같은 업체·차수의 EXE 확정 출고를
+  가리키면 등록할 수 있다. 웹 목록·미리보기·사전검증·등록 직전 재검증도 이 고객 단위
+  ShipmentKey scope를 사용하고, 분배단가는 차감 품목의 과거 이력에서 별도로 조회한다.
 - `Estimate`에는 운영 트리거가 활성화될 수 있으므로 웹 신규 등록은 `OUTPUT INSERTED.EstimateKey`
   를 클라이언트로 직접 반환하지 않는다. `OUTPUT ... INTO @EstimateInserted`로 키를 캡처한 뒤
   같은 배치의 `SELECT`로 회수해야 `The target table 'Estimate' ... enabled triggers` 오류를 피할 수 있다.

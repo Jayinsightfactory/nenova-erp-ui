@@ -34,6 +34,8 @@ async function main() {
   assert.match(api, /ShipmentDate/);
   assert.match(api, /SdateKey/);
   assert.match(api, /UPDATE ShipmentDate/);
+  assert.match(api, /Descr=CASE WHEN @hasDescr=1 THEN @descr ELSE Descr END/);
+  assert.match(api, /expectedOldDescr/);
   assert.match(api, /UPDATE ShipmentDetail/);
   assert.match(api, /ShipmentQuantity/);
   assert.match(api, /FIXED_WEEK/);
@@ -49,6 +51,8 @@ async function main() {
   assert.match(page, /getQtyEditKey/);
   assert.match(page, /sdateKey/);
   assert.match(page, /update-date-quantity/);
+  assert.match(page, /descr: editor\.descr/);
+  assert.match(page, /expectedOldDescr/);
   assert.match(page, /runEditWithFixCycle/);
   console.log('Estimate date quantity contract tests passed');
 }

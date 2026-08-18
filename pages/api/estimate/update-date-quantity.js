@@ -20,6 +20,11 @@ function parseItems(body) {
     const expectedOldQuantity = item?.expectedOldQuantity == null
       ? null
       : parseFloat(item.expectedOldQuantity);
+    const hasDescr = Object.prototype.hasOwnProperty.call(item || {}, 'descr');
+    const descr = hasDescr ? String(item.descr ?? '') : null;
+    const expectedOldDescr = item?.expectedOldDescr == null
+      ? null
+      : String(item.expectedOldDescr);
     if (!Number.isInteger(sdateKey) || sdateKey <= 0) {
       throw new Error('sdateKey가 필요합니다. 출고일 행은 ShipmentDate.SdateKey로 저장해야 합니다.');
     }
@@ -36,6 +41,8 @@ function parseItems(body) {
       quantity,
       unit: typeof item?.unit === 'string' ? item.unit : '',
       expectedOldQuantity,
+      descr,
+      expectedOldDescr,
     };
   });
 }
@@ -140,6 +147,16 @@ export default withAuth(async function handler(req, res) {
           error.actual = row.DateEstQuantity;
           throw error;
         }
+        if (item.expectedOldDescr != null
+          && String(row.DateDescr || '') !== item.expectedOldDescr) {
+          const error = new Error(
+            `출고일 비고가 조회 이후 변경되었습니다. SdateKey=${item.sdateKey}`
+          );
+          error.code = 'STALE_DATA';
+          error.expected = item.expectedOldDescr;
+          error.actual = String(row.DateDescr || '');
+          throw error;
+        }
       }
 
       const groups = new Map();
@@ -191,28 +208,35 @@ export default withAuth(async function handler(req, res) {
         const detailEstQuantity = detailDistribution.estQty;
         const detailMoney = amountVatFromCostEst(row.DetailCost, detailEstQuantity);
 
-        // FormShipmentDistribution 날짜 탭과 같은 핵심 저장: Detail 총량 + 날짜별 ShipmentQuantity.
-        await tQ(
-          `UPDATE ShipmentDetail
-              SET OutQuantity=@outQty,
-                  BoxQuantity=@boxQty,
-                  BunchQuantity=@bunchQty,
-                  SteamQuantity=@steamQty,
-                  EstQuantity=@estQty,
-                  Amount=@amount,
-                  Vat=@vat
-            WHERE SdetailKey=@sdk`,
-          {
-            sdk: { type: sql.Int, value: row.SdetailKey },
-            outQty: { type: sql.Float, value: detailUnits.outQuantity },
-            boxQty: { type: sql.Float, value: detailUnits.box },
-            bunchQty: { type: sql.Float, value: detailUnits.bunch },
-            steamQty: { type: sql.Float, value: detailUnits.steam },
-            estQty: { type: sql.Float, value: detailEstQuantity },
-            amount: { type: sql.Float, value: detailMoney.amount },
-            vat: { type: sql.Float, value: detailMoney.vat },
-          }
+        // 수량이 바뀐 경우에만 EXE의 분배 저장 범위인 ShipmentDetail 총량을 갱신한다.
+        // 비고만 바꾸는 경우 ShipmentDetail/물리 출고 수량은 보존한다.
+        const physicalQuantityChanged = changes.some((change) =>
+          Math.abs(change.newDateOutQuantity - Number(change.row.DateShipmentQuantity || 0)) > 0.0001
+          || Math.abs(change.newDateEstQuantity - Number(change.row.DateEstQuantity || 0)) > 0.001
         );
+        if (physicalQuantityChanged) {
+          await tQ(
+            `UPDATE ShipmentDetail
+                SET OutQuantity=@outQty,
+                    BoxQuantity=@boxQty,
+                    BunchQuantity=@bunchQty,
+                    SteamQuantity=@steamQty,
+                    EstQuantity=@estQty,
+                    Amount=@amount,
+                    Vat=@vat
+              WHERE SdetailKey=@sdk`,
+            {
+              sdk: { type: sql.Int, value: row.SdetailKey },
+              outQty: { type: sql.Float, value: detailUnits.outQuantity },
+              boxQty: { type: sql.Float, value: detailUnits.box },
+              bunchQty: { type: sql.Float, value: detailUnits.bunch },
+              steamQty: { type: sql.Float, value: detailUnits.steam },
+              estQty: { type: sql.Float, value: detailEstQuantity },
+              amount: { type: sql.Float, value: detailMoney.amount },
+              vat: { type: sql.Float, value: detailMoney.vat },
+            }
+          );
+        }
 
         for (const change of changes) {
           const { item, newDateOutQuantity, newDateEstQuantity } = change;
@@ -229,7 +253,8 @@ export default withAuth(async function handler(req, res) {
                       EstQuantity=@estQty,
                       Cost=@cost,
                       Amount=@amount,
-                      Vat=@vat
+                      Vat=@vat,
+                      Descr=CASE WHEN @hasDescr=1 THEN @descr ELSE Descr END
                 WHERE SdateKey=@sdateKey`,
               {
                 sdateKey: { type: sql.Int, value: item.sdateKey },
@@ -238,6 +263,8 @@ export default withAuth(async function handler(req, res) {
                 cost: { type: sql.Float, value: row.DetailCost },
                 amount: { type: sql.Float, value: dateMoney.amount },
                 vat: { type: sql.Float, value: dateMoney.vat },
+                hasDescr: { type: sql.Bit, value: item.descr != null ? 1 : 0 },
+                descr: { type: sql.NVarChar, value: item.descr ?? '' },
               }
             );
           }

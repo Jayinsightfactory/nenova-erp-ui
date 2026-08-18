@@ -14,20 +14,20 @@
       "name": "DATE_DISTRIBUTION_INCREASE",
       "orderDetail": "preserve",
       "shipmentDetail": "increase",
-      "shipmentDate": "update-shipment-quantity-and-estimate-quantity",
+      "shipmentDate": "update-shipment-quantity-estimate-quantity-and-descr",
       "fixCycle": "unfix-save-refix"
     },
     {
       "name": "DATE_DISTRIBUTION_DECREASE",
       "orderDetail": "preserve",
       "shipmentDetail": "decrease",
-      "shipmentDate": "update-shipment-quantity-and-estimate-quantity",
+      "shipmentDate": "update-shipment-quantity-estimate-quantity-and-descr",
       "fixCycle": "unfix-save-refix"
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 OrderWeek가 다른 연도에 존재해도 SdateKey가 속한 ShipmentMaster의 OrderYear/OrderWeek·CustKey·ProdKey만 수정한다. 선택 출고일의 ShipmentQuantity를 변경하고 ShipmentDetail 총량·환산수량·금액과 ShipmentDate.EstQuantity/Amount/Vat를 함께 갱신한다. OrderDetail과 농장배정 원장은 직접 변경하지 않는다."
+    "description": "같은 OrderWeek가 다른 연도에 존재해도 SdateKey가 속한 ShipmentMaster의 OrderYear/OrderWeek·CustKey·ProdKey만 수정한다. 선택 출고일의 ShipmentQuantity를 변경하고 ShipmentDetail 총량·환산수량·금액과 ShipmentDate.EstQuantity/Amount/Vat/Descr를 함께 갱신한다. 비고만 변경하는 경우에도 수량·단가를 보존한 채 ShipmentDate.Descr만 갱신한다. 조회시점 수량·비고 스냅샷을 검증해 다른 사용자의 변경을 덮어쓰지 않는다. OrderDetail과 농장배정 원장은 직접 변경하지 않는다."
   },
   "requiredTestFiles": [
     "__tests__/estimateDateQuantityContract.test.js",

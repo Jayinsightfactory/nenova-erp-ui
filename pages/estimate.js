@@ -2477,7 +2477,9 @@ export default function Estimate() {
       // 연결되어 있으므로 이 창에서는 변경하지 않고, 날짜별 수량/단가만 수정한다.
       const quantityChanged = Math.abs(quantity - Number(item.Quantity || 0)) > 0.001;
       const costChanged = Math.abs(cost - Number(item.Cost || 0)) > 0.001;
-      if (!quantityChanged && !costChanged) {
+      const originalDescr = item.DescrRaw != null ? String(item.DescrRaw) : String(item.Descr || '');
+      const descrChanged = String(editor.descr || '') !== originalDescr;
+      if (!quantityChanged && !costChanged && !descrChanged) {
         setItemEditor(null);
         return;
       }
@@ -2493,8 +2495,10 @@ export default function Estimate() {
       setCostApplyLog([{ step: 'start', label: `${item.OrderWeek || weekNum} ${item.ProdName} 정보 수정 시작` }]);
       setCostResult(null);
       const apply = async () => {
-        if (quantityChanged) {
-          setCostApplyLog(prev => [...prev, { step: 'save', label: `출고일 수량 저장 — ${item.Quantity}${item.Unit} → ${quantity}${item.Unit}` }]);
+        if (quantityChanged || descrChanged) {
+          setCostApplyLog(prev => [...prev, { step: 'save', label: quantityChanged
+            ? `출고일 수량/비고 저장 — ${item.Quantity}${item.Unit} → ${quantity}${item.Unit}`
+            : '출고일 비고 저장' }]);
           const response = await fetch('/api/estimate/update-date-quantity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2506,6 +2510,8 @@ export default function Estimate() {
               quantity,
               unit: item.Unit,
               expectedOldQuantity: Number(item.Quantity || 0),
+              descr: editor.descr || '',
+              expectedOldDescr: originalDescr,
             }),
           });
           const data = await response.json();
@@ -2542,7 +2548,9 @@ export default function Estimate() {
         }
         return { success: true };
       };
-      const cycleWeeks = getFixCycleWeeksForEditedItems([item], selectedShip);
+      const cycleWeeks = (quantityChanged || costChanged)
+        ? getFixCycleWeeksForEditedItems([item], selectedShip)
+        : [];
       await (cycleWeeks.length > 0
         ? runEditWithFixCycle({
             weeks: cycleWeeks,
@@ -4926,16 +4934,15 @@ export default function Estimate() {
                   />
                 </div>
               </div>
-              {itemEditor.isEstimate && (
-                <div className="form-row form-row-1">
-                  <div className="form-group">
-                    <label className="form-label">비 고</label>
-                    <input className="form-control" value={itemEditor.descr || ''}
-                      onChange={e => setItemEditor(prev => ({...prev, descr:e.target.value}))}
-                    />
-                  </div>
+              <div className="form-row form-row-1">
+                <div className="form-group">
+                  <label className="form-label">비 고</label>
+                  <input className="form-control" value={itemEditor.descr || ''}
+                    onChange={e => setItemEditor(prev => ({...prev, descr:e.target.value}))}
+                    placeholder="견적서에 표시할 비고를 입력하세요."
+                  />
                 </div>
-              )}
+              </div>
               {itemEditorError && <div className="banner-err" style={{marginTop:8}}>⚠️ {itemEditorError}</div>}
             </div>
             <div className="modal-footer">
