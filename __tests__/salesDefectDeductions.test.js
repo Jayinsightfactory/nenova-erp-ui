@@ -182,6 +182,9 @@ assert.ok(pageSource.includes('incoming-note-input'), '수입부 행별 비고 �
 assert.ok(pageSource.includes('reviewRequiredCount'), '영업담당자 화면에 수입부 보완 필요 건수를 표시해야 한다.');
 assert.ok(pageSource.includes('resolveReview'), '영업담당자 화면에 보완 해결 완료 동작이 있어야 한다.');
 assert.ok(pageSource.includes('해결 완료'), '보완 필요 행에 해결 완료 버튼이 있어야 한다.');
+assert.ok(pageSource.includes('setSupportRows((current) => current.map'), '영업지원에서 보완 해결 완료 후 해당 목록 행 상태를 즉시 갱신해야 한다.');
+assert.match(pageSource, /!row\.importReviewRequired[\s\S]*activeTab !== 'carryover'/, '보완 필요 행은 해결 완료 전 영업지원 견적 등록 선택 대상이 아니어야 한다.');
+assert.ok(pageSource.includes('support-review-required'), '영업지원 목록은 수입부 확정과 별개로 보완 필요 상태를 표시해야 한다.');
 assert.ok(pageSource.includes('sales-row-review-alert'), '보완 필요 행은 담당자 화면에 빨간 알림으로 표시해야 한다.');
 assert.ok(pageSource.includes("const [salesViewMode, setSalesViewMode] = useState('edit')"), '영업 입력은 편집/완료 목록 보기 전환을 제공해야 한다.');
 assert.ok(pageSource.includes('sales-summary-card'), '영업 입력 완료 목록은 수입부 확인처럼 간단한 다중 행 목록으로 보여야 한다.');
