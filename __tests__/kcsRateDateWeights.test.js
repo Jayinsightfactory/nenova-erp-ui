@@ -16,7 +16,13 @@ const check = (label, cond, detail = '') => {
 };
 
 async function main() {
-  const { mapCategoryDateRowsToWeights, weightedRateFromDatePoints } = await import('../lib/kcsRateDateWeights.js');
+  const {
+    mapCategoryDateRowsToWeights,
+    weightedRateFromDatePoints,
+    isoWeekMonday,
+    scheduledDeclarationDate,
+    DECLARATION_DATE_SOURCE,
+  } = await import('../lib/kcsRateDateWeights.js');
 
   console.log('=== mapCategoryDateRowsToWeights — SQL 원시 행 → {category,currency,date,weight} ===');
   {
@@ -60,6 +66,50 @@ async function main() {
       mapped.length === 3 && mapped.every((m) => m.date === null && m.missingDeclarationDate === true), JSON.stringify(mapped));
   }
   {
+    const expected = [
+      ['23', '2026-06-01', 1079.48],
+      ['24', '2026-06-08', 1083.36],
+      ['27', '2026-06-29', 1068.23],
+      ['28', '2026-07-06', 1068.96],
+    ];
+    check('호주 반복 일정은 22~27차 원본과 28차 다음 기준일을 ISO 대차수 월요일로 계산',
+      expected.every(([major, date]) => scheduledDeclarationDate({ orderYear: '2026', major, category: '호주', currency: 'AUD' })?.date === date),
+      JSON.stringify(expected));
+    check('ISO 주차 월요일 변환은 2026-23=06-01, 2026-27=06-29',
+      isoWeekMonday('2026', '23') === '2026-06-01' && isoWeekMonday('2026', '27') === '2026-06-29');
+  }
+  {
+    const mapped = mapCategoryDateRowsToWeights([
+      { Category: '호주', ResolvedDate: null, Weight: 100 },
+    ], { orderYear: '2026', major: '28' });
+    check('호주 InputDate 누락은 승인된 차수 일정으로 보완',
+      mapped.length === 1
+        && mapped[0].date === '2026-07-06'
+        && mapped[0].dateSource === DECLARATION_DATE_SOURCE.CATEGORY_SCHEDULE
+        && mapped[0].scheduleId === 'AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1'
+        && mapped[0].missingDeclarationDate === false,
+      JSON.stringify(mapped));
+  }
+  {
+    const mapped = mapCategoryDateRowsToWeights([
+      { Category: '호주', ResolvedDate: '2026-07-09', Weight: 100 },
+    ], { orderYear: '2026', major: '28' });
+    check('호주도 실제 InputDate가 있으면 일정값보다 실제 날짜가 우선',
+      mapped[0]?.date === '2026-07-09'
+        && mapped[0]?.dateSource === DECLARATION_DATE_SOURCE.WAREHOUSE_INPUT_DATE
+        && mapped[0]?.scheduleId === null,
+      JSON.stringify(mapped));
+  }
+  {
+    const mapped = mapCategoryDateRowsToWeights([
+      { Category: '중국', ResolvedDate: null, Weight: 100 },
+      { Category: '네덜란드', ResolvedDate: null, Weight: 100 },
+    ], { orderYear: '2026', major: '28' });
+    check('예외가 있거나 규칙 미확정인 국가에는 호주 일정을 확대 적용하지 않음',
+      mapped.length === 2 && mapped.every((m) => m.date === null && m.dateSource === DECLARATION_DATE_SOURCE.MISSING),
+      JSON.stringify(mapped));
+  }
+  {
     // Date 객체는 UTC 게터로 변환되어야 로컬 타임존에 따라 하루 밀리지 않는다.
     const mapped = mapCategoryDateRowsToWeights([
       { Category: '태국', ResolvedDate: new Date('2026-07-20T00:00:00.000Z'), Weight: 100 },
@@ -98,7 +148,7 @@ async function main() {
     // 2개 날짜, 1300원/1500원, 90%/10% 가중 → 가중평균 ~1320(단순 중간값 1400과는 다름).
     // 이 테스트는 "날짜를 먼저 평균해서 그 하루치 환율만 조회"하는 방식이 아니라, 각 날짜의 실제
     // 환율을 그대로 두고 환율값 자체를 TPrice로 가중평균한다는 2026-08-12 설계 결정을 고정한다
-    // (lib/kcsRateDateWeights.js 파일 헤더의 InputDate 단일 기준 참조).
+    // (lib/kcsRateDateWeights.js 파일 헤더의 InputDate 우선·승인 일정 보완 기준 참조).
     const weighted = weightedRateFromDatePoints(
       [{ date: '2026-07-20', weight: 90 }, { date: '2026-07-27', weight: 10 }],
       { '2026-07-20': 1300, '2026-07-27': 1500 },

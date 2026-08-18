@@ -48,7 +48,14 @@ check('기초재고 E는 전차수 마지막 ProductStock와 전차수 F 공식�
   && /computeCategoryAverageInventoryValue\(\{[\s\S]*stockQty: Number\(stockBegin\.qtys/.test(api));
 check('FreightCost 스냅샷은 전체/적용 구매금액을 함께 비교', reportLib.includes('TotalWeight') && reportLib.includes('CoveredWeight') && reportLib.includes('Math.abs(total - covered) <= tolerance'));
 check('FreightCost 중복행은 최신 FreightKey 1건만 사용', reportLib.includes('SELECT TOP 1 fcx.ExchangeRate') && reportLib.includes('ORDER BY fcx.FreightKey DESC'));
-check('KCS 날짜는 InputDate만 사용하고 UploadDtm으로 대체하지 않음', dateWeights.includes("const dateExpr = 'wm.InputDate'") && !dateWeights.includes('declarationDateDiagnostics()'));
+check('KCS 날짜는 InputDate를 우선하고 UploadDtm으로 대체하지 않음', dateWeights.includes("const dateExpr = 'wm.InputDate'") && !dateWeights.includes('declarationDateDiagnostics()'));
+check('InputDate 누락 일정 보완은 호주 AUD 승인 규칙 하나로 제한',
+  dateWeights.includes("호주: Object.freeze({")
+    && dateWeights.includes("currency: 'AUD'")
+    && dateWeights.includes('AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1')
+    && !dateWeights.includes("중국: Object.freeze({"));
+check('실제 InputDate가 있으면 일정 보완보다 우선',
+  dateWeights.includes('const scheduled = inputDate ? null : scheduledDeclarationDate'));
 
 console.log(`\n${failed === 0 ? '✅ 전부 통과' : `❌ ${failed}건 실패`}`);
 process.exit(failed ? 1 : 0);
