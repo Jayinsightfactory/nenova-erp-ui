@@ -163,8 +163,10 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 
 등록 대상 출고는 `ShipmentMaster`만으로 판단하지 않는다. nenova.exe와 동일하게
 `ViewShipment`와 `ViewOrder`를 `OrderYearWeek2 + CustKey + ProdKey`로 INNER JOIN하고,
-`ShipmentDate`와 `PeriodDay`를 연결한 뒤 `DetailFix=1`, `ViewShipment.EstQuantity>0`,
-`ShipmentDate.EstQuantity>0`을 모두 만족하는 판매행만 대상이 된다. 따라서 웹에서 보이는
+`ShipmentDate`와 `PeriodDay`를 연결한 뒤 `DetailFix=1`, `ViewShipment.EstQuantity>0`을
+만족하는 판매행만 대상이 된다. `FormEstimateView.GetDetail`은 출고일별
+`ShipmentDate.EstQuantity`가 0인 행도 반환하므로 이를 대상 `ShipmentKey` 존재 조건으로
+추가하지 않는다. 따라서 웹에서 보이는
 원장 행이 EXE 견적서관리에서 보이지 않는 ghost shipment에 잘못 연결되지 않는다.
 
 차감 원장의 `OrderYear/OrderWeek`는 불량이 발생한 원차수로 보존한다. 원차수보다 뒤의

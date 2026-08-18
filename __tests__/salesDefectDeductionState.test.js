@@ -10,6 +10,32 @@ import {
   planDeductionRegistration,
   runIsolatedRegistrationTransaction,
 } from '../lib/salesDefectDeductionState.js';
+import {
+  buildDefectEstimateTargetCandidatesSql,
+  isExeEstimateTargetCandidate,
+  selectExeEstimateTargetCandidate,
+} from '../lib/defectEstimateTargetScope.js';
+
+const estimateTargetSql = buildDefectEstimateTargetCandidatesSql();
+assert.match(estimateTargetSql, /vs\.OrderYear=@yr/);
+assert.match(estimateTargetSql, /vs\.ProdKey=@pk/);
+assert.match(estimateTargetSql, /vs\.OrderWeek LIKE @prefix/);
+assert.match(estimateTargetSql, /JOIN ViewOrder vo/);
+assert.match(estimateTargetSql, /JOIN ShipmentDate sdd/);
+assert.match(estimateTargetSql, /JOIN PeriodDay pd/);
+assert.doesNotMatch(estimateTargetSql, /sdd\.EstQuantity[^,\n]*>/, 'GetDetail에 없는 출고일 EstQuantity 양수 필터를 추가하면 안 된다.');
+
+const cheonghwaVisibleTarget = {
+  ShipmentKey: 3301, DetailFix: 1, ShipmentEstimateQuantity: 20,
+  ShipmentDateEstimateQuantity: 0,
+};
+assert.equal(isExeEstimateTargetCandidate(cheonghwaVisibleTarget), true, '견적 상세에 보이는 출고일 EstQuantity 0행도 등록 대상이어야 한다.');
+assert.equal(selectExeEstimateTargetCandidate([
+  { ...cheonghwaVisibleTarget, ShipmentKey: 3300, DetailFix: 0 },
+  cheonghwaVisibleTarget,
+])?.ShipmentKey, 3301, '미확정 near-miss를 건너뛰고 EXE 상세 노출 행을 선택해야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, DetailFix: 0 }), false, '미확정 출고는 제외해야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentEstimateQuantity: 0 }), false, '출고 환산수량 0행은 제외해야 한다.');
 
 const reviewPageSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionServiceSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
