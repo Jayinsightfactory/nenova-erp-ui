@@ -98,16 +98,17 @@ export default function MoyiDriveAdminPage() {
   const canBootstrap = classification?.body?.code === 'MOYI_DRIVE_BOOTSTRAP_REQUIRED';
   const activeTab = TAB_DEFS.find((t) => t.key === tabKey) || TAB_DEFS[0];
   const eligibleCount = Number(existingFiles.preview?.counts?.eligible || 0);
+  const previewToken = existingFiles.preview?.previewToken || '';
 
   const applyExistingFiles = async () => {
-    if (eligibleCount < 1) return;
+    if (eligibleCount < 1 || !previewToken) return;
     if (!window.confirm(`현재 연결된 회사에 기존 MOYI 파일 ${eligibleCount}건을 연결합니다. 확인이 필요한 파일과 원본을 찾지 못한 파일은 연결하지 않습니다. 계속할까요?`)) return;
     setExistingFiles((current) => ({ ...current, state: 'applying', error: '', result: null }));
     try {
       const res = await fetch('/api/moyi/drive-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'apply-existing-files', confirm: true }),
+        body: JSON.stringify({ action: 'apply-existing-files', preview_token: previewToken, confirm: true }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.result) {
@@ -184,8 +185,8 @@ export default function MoyiDriveAdminPage() {
               <div className="moyi-existing-files-actions">
                 <Button
                   variant="primary"
-                  disabled={eligibleCount < 1 || existingFiles.state === 'applying'}
-                  reason={eligibleCount < 1 ? '연결 가능한 기존 파일이 없습니다.' : existingFiles.state === 'applying' ? '기존 파일을 연결하고 있습니다.' : undefined}
+                  disabled={eligibleCount < 1 || !previewToken || existingFiles.state === 'applying'}
+                  reason={eligibleCount < 1 ? '연결 가능한 기존 파일이 없습니다.' : !previewToken ? '확인값이 만료됐습니다. 기존 파일 확인을 다시 실행해 주세요.' : existingFiles.state === 'applying' ? '기존 파일을 연결하고 있습니다.' : undefined}
                   onClick={applyExistingFiles}
                 >{existingFiles.state === 'applying' ? '연결 중…' : `연결 가능한 ${eligibleCount}건 연결`}</Button>
                 <span>확인 필요·회사 정보 없음·원본 확인 불가 파일은 자동 연결하지 않습니다.</span>

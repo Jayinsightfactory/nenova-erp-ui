@@ -55,7 +55,11 @@ async function handler(req, res) {
         writePermissionAudit({ actorId: req.user?.userId, action: 'existing-files-apply', outcome: 'denied', reason: 'confirm-required' });
         return res.status(400).json({ success: false, code: 'EXISTING_FILES_CONFIRM_REQUIRED', error: '기존 파일을 연결하려면 화면에서 내용을 확인한 뒤 다시 실행해 주세요.' });
       }
-      const result = await applyExistingMoyiFiles(req);
+      if (!body.preview_token || typeof body.preview_token !== 'string') {
+        writePermissionAudit({ actorId: req.user?.userId, action: 'existing-files-apply', outcome: 'denied', reason: 'preview-token-required' });
+        return res.status(400).json({ success: false, code: 'EXISTING_FILES_PREVIEW_TOKEN_REQUIRED', error: '먼저 기존 파일 확인을 다시 실행해 주세요.' });
+      }
+      const result = await applyExistingMoyiFiles(req, body.preview_token);
       writePermissionAudit({ actorId: req.user?.userId, action: 'existing-files-apply',
         outcome: result.status === 200 ? 'allowed' : 'denied', reason: result.body?.code });
       return res.status(result.status).json(result.body);

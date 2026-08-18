@@ -26,6 +26,7 @@ assert.match(api, /hasCrossWorkspaceInput/, '클라이언트가 다른 회사·�
 assert.match(api, /hasExistingFilesScopeInput/, '기존 파일 연결도 브라우저가 회사·폴더·파일 범위를 지정하면 차단해야 합니다.');
 assert.match(api, /existing-files-preview/, '기존 파일은 먼저 미리보기로 확인해야 합니다.');
 assert.match(api, /apply-existing-files/, '명시 확인 후에만 기존 파일 연결 실행을 허용해야 합니다.');
+assert.match(api, /preview_token/, '미리보기 확인값 없이 기존 파일 연결을 실행하면 안 됩니다.');
 assert.match(layout, /userIds:\s*\['nenovaSS3'\]/, '메뉴는 지정 계정에만 보여야 합니다.');
 assert.match(layout, /fetch\('\/api\/auth\/me'\)/, 'PC 메뉴는 서버의 실제 로그인 정보를 다시 확인해야 합니다.');
 assert.match(mobileHome, /import\s*\{\s*MENU_ITEMS\s*\}[^\n]+components\/Layout/, '모바일 메뉴는 PC와 같은 메뉴 원본을 사용해야 합니다.');
@@ -67,10 +68,12 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
   assert.equal(hasExistingFilesScopeInput({ id: 'other-file' }), true, '모호한 일반 식별값으로도 연결 대상을 바꾸면 안 됩니다.');
   assert.equal(hasExistingFilesScopeInput({ confirm: true }), false, '명시 확인 값만 허용합니다.');
   assert.deepEqual(normalizeExistingFilesPreview({
+    preview_token: 'server-issued-preview-token',
     counts: { eligible: 2, ambiguous: 1, missing_storage: 1 },
     samples: { eligible: [{ file_id: 'file-1', name: '실제 사진.jpg', reason: '연결 가능' }] },
   }), {
     ready: true,
+    previewToken: 'server-issued-preview-token',
     message: '',
     counts: { eligible: 2, ambiguous: 1, no_workspace: 0, already_linked: 0, missing_storage: 1 },
     samples: {
@@ -114,7 +117,7 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
       calls.push({ url: String(url), options });
       if (String(url).endsWith('/preview')) return {
         ok: true, status: 200,
-        json: async () => ({ counts: { eligible: 1 }, samples: { eligible: [{ file_id: 'f-1', name: '기존 사진.jpg' }] } }),
+        json: async () => ({ preview_token: 'server-issued-preview-token', counts: { eligible: 1 }, samples: { eligible: [{ file_id: 'f-1', name: '기존 사진.jpg' }] } }),
       };
       return { ok: true, status: 200, json: async () => ({ applied_count: 1 }) };
     };
@@ -122,12 +125,15 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     const preview = await previewExistingMoyiFiles(req);
     assert.equal(preview.status, 200);
     assert.equal(preview.body.preview.counts.eligible, 1);
-    const applied = await applyExistingMoyiFiles(req);
+    assert.equal(preview.body.preview.previewToken, 'server-issued-preview-token');
+    const applied = await applyExistingMoyiFiles(req, preview.body.preview.previewToken);
     assert.equal(applied.body.result.applied, 1);
     assert.match(calls[0].url, /integrations\/nenovaweb\/drive-existing-files\/preview$/);
     assert.match(calls[1].url, /integrations\/nenovaweb\/drive-existing-files\/apply$/);
-    assert.equal(calls[1].options.body, JSON.stringify({ confirm: true }), '연결 실행에는 서버가 정한 범위와 확인값만 전달해야 합니다.');
+    assert.deepEqual(JSON.parse(calls[1].options.body), { preview_token: 'server-issued-preview-token', confirm: true }, '연결 실행에는 서버가 발급한 확인값과 확인 동작만 전달해야 합니다.');
     assert.equal(JSON.stringify(calls).includes('workspace_id'), false, '업스트림에 브라우저 작업공간 범위를 전달하면 안 됩니다.');
+    assert.equal(calls[1].options.body.includes('connection-token'), false, '업스트림 요청 본문에 연결 토큰을 넣으면 안 됩니다.');
+    assert.equal(JSON.stringify(preview.body).includes('connection-token'), false, 'NenovaWeb 응답 모델에 연결 토큰을 넣으면 안 됩니다.');
   } finally {
     global.fetch = previousFetch;
   }
