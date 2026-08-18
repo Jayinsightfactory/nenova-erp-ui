@@ -1668,6 +1668,29 @@ export default function PasteOrderPage() {
     setOrders(prev => prev.map(o => o.id === oid ? { ...o, ...patch } : o));
   };
 
+  const openDetailedMatchEditor = (oid, idx) => {
+    const targetQueueIdx = unmatchedQueue.findIndex(q => q.orderId === oid && q.itemIdx === idx);
+    if (targetQueueIdx >= 0) setQueueIdx(targetQueueIdx);
+    setOrders(prev => prev.map(o => o.id === oid
+      ? {
+          ...o,
+          showDetailedItems: true,
+          custEditOpen: true,
+          items: o.items.map((it, i) => i === idx
+            ? {
+                ...it,
+                prodEditOpen: true,
+                prodSearch: it.inputName || '',
+                prodSearchResults: rankProductSearchOptions(it.inputName || '', allProducts, { limit: 10 }),
+              }
+            : it),
+        }
+      : o));
+    requestAnimationFrame(() => {
+      document.getElementById(`paste-match-${oid}-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
   const handleProdSearch = (oid, idx, q) => {
     const results = q ? rankProductSearchOptions(q, allProducts, { limit: 10 }) : [];
     updateItem(oid, idx, { prodSearch: q, prodSearchResults: results });
@@ -3586,7 +3609,7 @@ export default function PasteOrderPage() {
                         style={{ width: 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
                         <option>박스</option><option>단</option><option>송이</option>
                       </select>
-                      <button type="button" onClick={() => updateOrder(order.id, { showDetailedItems: true })}
+                      <button type="button" onClick={() => openDetailedMatchEditor(order.id, itemIdx)}
                         style={{ padding: '3px 5px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
                         {it.prodKey ? '상세수정' : '매칭하기'}
                       </button>
@@ -3649,7 +3672,7 @@ export default function PasteOrderPage() {
           return (
             <div key={order.id} style={{ border: '1px solid #c5cae9', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
               {/* 거래처 헤더 */}
-              <div style={{
+              <div id={`paste-customer-${order.id}`} style={{
                 background: order.custMatch ? '#1a237e' : '#e65100',
                 color: '#fff', padding: '10px 16px',
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -3663,9 +3686,9 @@ export default function PasteOrderPage() {
                         입력 {order.custName} → {order.custFromMapping ? '저장매칭' : '자동/수동'} 적용
                       </span>
                     )}
-                    <button onClick={() => updateOrder(order.id, { custMatch: null })}
+                    <button onClick={() => updateOrder(order.id, { custEditOpen: !order.custEditOpen })}
                       style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', borderRadius: 4, cursor: 'pointer' }}>
-                      변경
+                      {order.custEditOpen ? '업체 변경 닫기' : '업체 변경'}
                     </button>
                   </>
                 ) : (
@@ -3678,6 +3701,16 @@ export default function PasteOrderPage() {
                   </>
                 )}
               </div>
+
+              {order.custMatch && order.custEditOpen && (
+                <div style={{ padding: '8px 12px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9' }}>
+                  <div style={{ marginBottom: 5, fontSize: 11, color: '#3949ab', fontWeight: 800 }}>업체를 검색해 다시 선택하세요.</div>
+                  <CustSelector customers={allCustomers} onSelect={c => {
+                    setCustMatch(order.id, c);
+                    updateOrder(order.id, { custEditOpen: false });
+                  }} />
+                </div>
+              )}
 
               {bulkFlowers.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px', background: '#fffde7', borderBottom: '1px solid #eee8c8', fontSize: 12 }}>
@@ -3738,7 +3771,7 @@ export default function PasteOrderPage() {
                             style={{ width: 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
                             <option>박스</option><option>단</option><option>송이</option>
                           </select>
-                          <button type="button" onClick={() => updateOrder(order.id, { showDetailedItems: true })}
+                          <button type="button" onClick={() => openDetailedMatchEditor(order.id, idx)}
                             style={{ padding: '3px 6px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
                             {it.prodKey ? '매칭·상세수정' : '매칭하기'}
                           </button>
@@ -3775,7 +3808,7 @@ export default function PasteOrderPage() {
                       const isCancel = it.action === '취소';
                       const isCurrentQ = currentQ?.orderId === order.id && currentQ?.itemIdx === idx;
                       return (
-                        <tr key={idx} style={{
+                        <tr id={`paste-match-${order.id}-${idx}`} key={idx} style={{
                           background: it.skip ? '#fafafa' :
                             isCurrentQ ? '#fff9c4' :
                             isCancel ? '#fff3e0' :
