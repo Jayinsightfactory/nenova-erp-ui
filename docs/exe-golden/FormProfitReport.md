@@ -10,24 +10,19 @@
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
 - E/F 수량은 EXE가 계산한 마지막 ProductStock를 사용한다. 원본 workbook 수식이 확인된 콜롬비아 수국·카네이션·장미·루스커스·알스트로와 베트남은 `(Q×R + S×R + H) ÷ 당주 매입수량 × ProductStock 재고수량`으로 평가한다. 나머지는 동일 `OrderYear + OrderWeek + ProdKey`의 `VERIFIED` 시점 단가 근거를 사용하고, 2026년 22~28차에 한해 파일 SHA와 정확한 F 셀이 고정된 원본 workbook 값을 마지막 역사 증거로 사용할 수 있다. 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`이며 `Product.Cost`, 최근 입고단가, 수국 하드코딩, E/F 최종값 직접입력으로 대체하지 않는다. H/R/S는 입고 GW/CW·BILL 시점 환율·포워딩 원천에서 자동 계산하고, 외부 인보이스 확정값만 sourceRef·기준일·확정자·확정시각과 함께 웹 전용 원장에 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
-- `FormProductAdd`의 `Product.Cost` 화면 라벨은 `출고단가`이므로 재고원가 추천에도 사용하지
-  않는다. 원본 workbook `재고잔량` 시트는 품목별 VAT 포함 단가 하나를 재고수량에 곱하고 국가
-  합계에서 `/1.1`한다. 따라서 평균원가 대상 외 신규 품목(호주 포함)은 정확한 품목 원가가 없을 때 같은
-  `OrderYear + MajorWeek + ProdKey`의 확정 출고(`ShipmentMaster.isFix=1`,
-  `ShipmentDetail.isFix=1`)를 `ShipmentDetail.Cost`별로 묶어 가장 많은 서로 다른 업체가 사용한
-  실제 VAT 포함 단가 하나를 우선 제안한다. 업체 수가 같을 때만 `SUM(EstQuantity)`가 큰 단가를
-  우선하고, 모든 실제 단가 후보를 선택 가능하게 표시한다. 후보끼리 평균을 만들거나 다른
-  연도·차수·품목과 미확정 분배를 섞지 않는다. 사용자가 확인한 경우에만
-  마지막 재고 세부차수의 `WebStockPriceEvidence`로 저장하며 추천 표시 자체는 ERP 원장을 쓰지 않는다.
+- `FormProductAdd`의 `Product.Cost` 화면 라벨은 `출고단가`이고 `ShipmentDetail.Cost`도 판매·분배
+  단가이므로 둘 다 재고 매입원가로 사용하지 않는다. 원본 workbook `재고잔량` 시트의 단가는 상품의
+  매입·취득원가 근거다. 평균원가 대상 외 신규 품목은 정확한 같은 차수·품목의 검증 매입원가 또는
+  사용자 확정 도착원가가 없을 때만 `INPUT_REQUIRED`로 표시한다. 판매 이력만으로 재고단가를
+  추천·저장하지 않으며, 근거 등록은 해당 `OrderYear+OrderWeek+ProdKey`의 웹 증거 원장만 바꾼다.
 - 호주의 정확한 원가 우선순위는 `WebStockPriceEvidence` → 사용자 확정 `WebArrivalCostLine` →
-  2026-28 workbook의 외화단가×AUD 과세환율이다. 이 근거가 없는 신규 호주 품목에만 위 확정
-  분배단가 후보를 보여주며, 사용자가 선택·저장하기 전에는 E/F 계산에 넣지 않는다.
+  2026-28 workbook의 외화 매입단가×AUD 과세환율이다. 이 근거가 없는 신규 호주 품목만 매입단가와
+  근거를 입력하도록 표시하며, 판매·분배단가를 대체값으로 사용하지 않는다.
 - 품명에 `샘플` 또는 `SAMPLE`이 명시된 소량 품목은 정확한 품목 원가가 있으면 그대로 사용한다.
   정확 근거가 없을 때만 같은 `OrderYear+OrderWeek+StockKey` 안의 동일 `EstUnit` 비샘플 검증단가를
   ProductStock 수량 절대값으로 가중평균한다. 같은 카테고리를 우선하고 없을 때만 같은 스냅샷 전체
-  카테고리의 동일 단위를 사용한다. 비샘플 품목의 정확 근거가 없으면 같은 연도·대차수·품목의 확정
-  분배에서 다수 업체가 사용한 실제 `Cost÷1.1`을 샘플 평균 peer로만 허용한다. 다른 연도·차수·스냅샷·
-  단위, 미확정 분배, 샘플 자신의 분배단가와 `Product.Cost`는 평균에 섞지 않는다. 이 평균은 일반 품목
+  카테고리의 동일 단위를 사용한다. 다른 연도·차수·스냅샷·단위, 판매·분배단가와 `Product.Cost`는
+  평균에 섞지 않는다. 이 평균은 일반 품목
   단가나 DB 근거로 저장하지 않으며 peer가 없으면 `INPUT_REQUIRED`를 유지한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
 - 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
@@ -36,7 +31,10 @@
   `resolveTaxableRate()` 결과보다 항상 먼저 적용)가 있고, 위 ①~③ 어느 것도 없을 때만 2026년
   28차 이후에 한해 관세청(KCS) 공식 과세환율 API를 4순위로 시도한다. 상세 설계·근거·회귀 목록은
   아래 "2026-08-12 KCS(관세청 과세환율 API) date 기반 자동 조회" 절 참고.
-- 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. `수기 보정`, `그외통관비 입력`, `포워딩 입력` 패널은 사용자가 예외값을 수정할 때만 펼친다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로 인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
+- 주차별 보고서 화면의 기본 상태는 자동값 읽기전용이다. 본표에는 정확한 원천이 없는 R만 입력칸을
+  표시한다. H는 그외통관비 구성요소 화면, S는 입고 항공료 전표·포워딩 원천에서 가져오며 본표의
+  최종값을 직접 고치지 않는다. 이 차수에 정확히 저장/캐시된 과세환율이 있으면 자동 계산을 정상값으로
+  인정하며, 그 차수 원천 자체가 없을 때만 검증 대상으로 표시한다.
 - 단, 매입 또는 포워딩 금액이 있는데 R 환율 원천이 없는 행은 검증 배너만 표시하지 않고 해당 행의 R 입력칸을 자동 노출한다. 담당자가 인보이스 과세환율과 sourceRef·기준일을 입력하면 서버가 확정자·확정시각을 기록하고 `WebProfitReport.R` 및 정확한 차수의 `WebTaxableExchangeRate`에 저장한다.
 - 22~28차 기말재고 F는 선택 `OrderYear`의 해당 대차수에서 `ProductStock` 행이 존재하는 숫자 세부차수 중 suffix가 가장 큰 스냅샷의 `ProductStock.Stock`을 사용한다. 기초재고 E는 같은 `OrderYear`의 직전 대차수에 같은 규칙을 적용한다. 동일 세부차수 중복행은 ProductStock 행 수와 `StockKey DESC`로 하나를 선택한다. `FormStockView.GetData`는 `StockMaster.isFix`를 조회·필터·표시하지 않으므로 보고서도 이를 재고 마감 조건으로 사용하지 않는다(`docs/exe-golden/FormStockAdd.md`의 판정 정정과 동일). 전년도 동일 차수, NULL/시작재고 마커, 입고-출고 단순추정으로 fallback하지 않으며 ProductStock 스냅샷이 없으면 검증 오류로 남긴다. 재고조정은 `usp_StockCalculation`이 ProductStock 스냅샷에 반영한 값으로만 포함하고 보고서에서 `StockHistory` delta를 다시 더하지 않는다.
 - 기초재고 E는 현재 workbook의 E 셀을 복사하지 않고 직전 대차수 F를 위와 같은 공식·원천으로 다시 계산한다. 따라서 원본 26차 F와 27차 E 사이의 베트남 3,658,862.88875원 불연속은 `WORKBOOK_ANOMALY`로 기록하지만 웹 계산에는 자동 이월하지 않는다.
@@ -349,9 +347,8 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   이름의 접기/펼치기 그룹 하나로 묶었다(`components/ProfitReportSourceGuide.js`와 같은
   `aria-expanded`/`aria-controls`/`hidden` 패턴). 검증 오류·미분류행·R 입력 필요 중 하나라도 있으면
   기본 펼침, 없으면 기본 접힘이며 접힌 헤더에도 건수를 표시한다. 각 배너·패널 자체의 표시 조건과
-  내용, `📦`/`🚢`/`🛠` 툴바 버튼과 그 토글 상태(`showCustoms`/`showForwarding`/`showOverrides`)는
-  그대로다 — 화면상 위치만 이동했다. `수기 보정`(`showOverrides`)은 별도 패널이 아니라 본표 셀 자체를
-  편집 가능하게 바꾸는 기존 동작이라 이동 대상이 아니다(표 자체이므로).
+  내용과 `📦`/`🚢` 툴바 버튼의 접힘 상태(`showCustoms`/`showForwarding`)는 그대로다. 이후 엑셀 원천
+  경계 정정으로 `수기 보정` 토글은 제거했고, 원천이 없는 R만 본표에 자동 입력칸으로 표시한다.
 - **이익률 분석 패널(신규, `analysis`)**: "검증·입력" 그룹보다 아래, 기본 접힘. 펼치면 본표 조회
   (`load()`)와 **별도의** GET 요청(`GET /api/sales/profit-analysis?year=&week=`)을 보내
   (`pages/api/sales/profit-analysis.js`, read-only, `withAuth`), 이 차수 이익률(K)과 **같은
@@ -417,12 +414,11 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 - 이 경로는 저장소의 버전관리 데이터만 읽으며 GET 중 DB 복사·DDL·ERP/Web 쓰기를 하지 않는다.
   신규 품목 또는 단위가 달라 정확한 근거가 없으면 기존대로 `INPUT_REQUIRED`를 유지한다.
 
-## 2026-08-18 호주 분배단가 후보·샘플 평균 보완
+## 2026-08-18 입력 경계·샘플 평균 정정
 
-호주는 workbook의 외화 취득원가 공식이 있다는 이유로 확정 분배단가 후보 전체가 코드에서 제외되어
-있었다. 이 때문에 신규 호주 품목에 실제 `ShipmentDetail.Cost` 이력이 있어도 화면에는 후보가 나오지
-않았다. 정확한 외화 원가 근거의 우선순위는 유지하고, 그 근거가 없는 품목에만 같은 연도·대차수·
-ProdKey의 확정 분배단가 후보를 보여준다. 후보는 추천일 뿐 자동 저장하지 않는다.
+22~28차 전체 시트 재검증 결과, 재고잔량 단가는 판매·분배단가가 아니라 매입·취득원가다. 따라서 호주를
+포함한 평균원가 공식 밖의 신규 품목도 `ShipmentDetail.Cost`로 자동 대체하지 않는다. 정확한 외화
+매입단가, 사용자 확정 도착원가, 같은 차수·품목의 검증 매입원가가 모두 없을 때만 입력 행을 표시한다.
 
 샘플은 전체 금액 영향이 작은 명시적 예외로서, 정확 근거가 없을 때만 같은 ProductStock 스냅샷의
 동일 단위 비샘플 검증단가를 수량가중평균한다. 이 평균은 보고서 계산 중에만 만들어지고 증거 테이블에
@@ -430,6 +426,6 @@ ProdKey의 확정 분배단가 후보를 보여준다. 후보는 추천일 뿐 �
 
 | 동작 | Order/Shipment/Estimate | ProductStock/StockHistory | WebStockPriceEvidence | WebProfitReport |
 |---|---|---|---|---|
-| 호주 확정 분배단가 후보 조회 | 읽기만 함 | 보존 | 보존 | 보존 |
+| 자동 계산 가능 여부 조회 | 읽기만 함 | 보존 | 보존 | 보존 |
 | 샘플 동일 스냅샷 평균 계산 | 보존 | 수량 읽기만 함 | 검증단가 읽기만 함 | 보존 |
-| 사용자가 후보 선택 후 저장 | 보존 | 보존 | 해당 OrderYear+OrderWeek+ProdKey만 저장 | 보존 |
+| 사용자가 매입단가 근거 저장 | 보존 | 보존 | 해당 OrderYear+OrderWeek+ProdKey만 저장 | 보존 |
