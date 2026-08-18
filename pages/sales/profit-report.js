@@ -140,6 +140,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const F_SOURCE_TEXT = {
     verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
+    verified_carried_acquisition_cost: 'EXE ProductStock 수량 × 같은 연도·품목·단위의 이전 VERIFIED 매입원가(근거 이후 새 매입이 없을 때만 이월)',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
     verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
@@ -628,12 +629,18 @@ export default function ProfitReportPage() {
     validationRateRows.length > 0 ||
     validationUnclassified
   );
-  const validationCount =
-    (data?.audit?.issues?.length || 0) +
-    needsAttention.length +
-    validationRateRows.length +
-    (validationUnclassified ? 1 : 0);
   const auditIssues = data?.audit?.issues || [];
+  const directInputCodes = new Set([
+    'STOCK_BEGIN_PRICE_EVIDENCE_MISSING',
+    'STOCK_END_PRICE_EVIDENCE_MISSING',
+    'CUSTOMS_INCOMPLETE',
+    'TAXABLE_RATE_MISSING',
+  ]);
+  const directInputIssues = auditIssues.filter(issue => issue.severity === 'error' && directInputCodes.has(issue.code));
+  const sourceReviewIssues = auditIssues.filter(issue => issue.severity === 'error' && !directInputCodes.has(issue.code));
+  const noticeIssues = auditIssues.filter(issue => issue.severity !== 'error');
+  // 과세환율·미분류는 이미 audit issue에 포함되므로 별도 배너 수를 다시 더하지 않는다.
+  const validationCount = auditIssues.length + needsAttention.length;
   const stockPriceInputNeeded = auditIssues.some(issue => [
     'STOCK_BEGIN_PRICE_EVIDENCE_MISSING',
     'STOCK_END_PRICE_EVIDENCE_MISSING',
@@ -1016,15 +1023,23 @@ export default function ProfitReportPage() {
               <>
                 {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
                   <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-                    <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
-                    <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
-                      {data.audit.issues.slice(0, 10).map((issue, i) => (
-                        <li key={`${issue.code}-${issue.category}-${i}`}>
-                          <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
-                        </li>
-                      ))}
-                    </ul>
-                    {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
+                    <strong>처리할 항목: 직접 입력 {directInputIssues.length}건 · 원천 확인 {sourceReviewIssues.length}건 · 참고 {noticeIssues.length}건</strong>
+                    {[
+                      ['직접 입력 필요', directInputIssues, '#9a3412'],
+                      ['원천 연결 확인', sourceReviewIssues, '#9a3412'],
+                      ['참고', noticeIssues, '#92400e'],
+                    ].map(([label, items, color]) => items.length > 0 && (
+                      <div key={label} style={{ marginTop: 8 }}>
+                        <b style={{ color }}>{label} ({items.length})</b>
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 20, maxHeight: 190, overflowY: 'auto' }}>
+                          {items.map((issue, i) => (
+                            <li key={`${issue.code}-${issue.category}-${i}`}>
+                              <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 )}
 

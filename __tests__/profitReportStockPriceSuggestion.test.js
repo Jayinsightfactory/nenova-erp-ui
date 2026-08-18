@@ -45,6 +45,35 @@ async function main() {
   ]);
   assert.equal(exactSampleWins['40'], undefined);
 
+  const carried = calc.selectCarriedAcquisitionPriceEvidence({
+    targetYear: '2026',
+    targetWeek: '33-02',
+    products: [
+      { prodKey: 100, unit: '박스' },
+      { prodKey: 200, unit: '단' },
+      { prodKey: 300, unit: '박스' },
+    ],
+    candidates: [
+      { orderYear: '2026', orderWeek: '32-02', prodKey: 100, unit: 'BOX', price: 5000, source: 'VERIFIED_EVIDENCE', sourceRef: 'invoice:A' },
+      { orderYear: '2026', orderWeek: '31-02', prodKey: 100, unit: '박스', price: 4000, source: 'VERIFIED_ARRIVAL_COST', sourceRef: 'arrival:A' },
+      { orderYear: '2026', orderWeek: '32-02', prodKey: 200, unit: '박스', price: 6000, source: 'VERIFIED_EVIDENCE', sourceRef: 'wrong-unit' },
+      { orderYear: '2025', orderWeek: '32-02', prodKey: 300, unit: '박스', price: 7000, source: 'VERIFIED_EVIDENCE', sourceRef: 'wrong-year' },
+      { orderYear: '2026', orderWeek: '32-02', prodKey: 300, unit: '박스', price: 99000, source: 'CONFIRMED_DISTRIBUTION', sourceRef: 'sales-price' },
+    ],
+    purchases: [],
+  });
+  assert.equal(carried['100'].price, 5000, '같은 연도·품목·단위의 가장 최근 VERIFIED 매입원가를 이어 써야 한다.');
+  assert.equal(carried['100'].source, 'VERIFIED_CARRIED_ACQUISITION');
+  assert.equal(carried['200'], undefined, '단위가 다른 단가는 이어 쓰면 안 된다.');
+  assert.equal(carried['300'], undefined, '다른 연도·판매단가는 이어 쓰면 안 된다.');
+
+  const laterPurchaseBlocksCarry = calc.selectCarriedAcquisitionPriceEvidence({
+    targetYear: '2026', targetWeek: '33-02', products: [{ prodKey: 100, unit: '박스' }],
+    candidates: [{ orderYear: '2026', orderWeek: '32-02', prodKey: 100, unit: '박스', price: 5000, source: 'VERIFIED_EVIDENCE' }],
+    purchases: [{ OrderYear: '2026', OrderWeek: '33-01', ProdKey: 100 }],
+  });
+  assert.equal(laterPurchaseBlocksCarry['100'], undefined, '근거 이후 새 매입이 있으면 새 매입원가가 필요하다.');
+
   assert.equal(calc.computeAutoEndingStock({
     endQty: 1, snapshotConfirmed: true,
     priceEvidenceStatus: 'VERIFIED_SAMPLE_AVERAGE', evidenceValue: 3000,
@@ -71,6 +100,8 @@ async function main() {
   assert.ok(!/distributionMajorityStockPriceSuggestion/.test(calcSource));
   assert.match(reportSource, /RequiresInput: requiresInput/);
   assert.match(reportSource, /CATEGORY_AVERAGE_INVENTORY_KEYS\.includes/);
+  assert.match(reportSource, /carriedAcquisitionPriceEvidenceByProduct/);
+  assert.match(reportSource, /VERIFIED_CARRIED_ACQUISITION/);
   assert.match(pageSource, /row\.BeginRequiresInput/);
   assert.match(pageSource, /row\.EndRequiresInput/);
   assert.match(pageSource, /priceInputRows\.map/);

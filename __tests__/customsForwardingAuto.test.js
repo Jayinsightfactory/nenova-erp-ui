@@ -100,8 +100,26 @@ async function main() {
     source: { H: 'gw_auto', S: 'missing', R: 'saved_official_week' },
   }], { major: 31, forwardingLedger: missing31 });
   check('29차 이후 포워딩 누락은 보고서 검증을 실제로 중단',
-    forwardingAudit.issues.some((item) => item.code === 'FORWARDING_INCOMPLETE')
-      && forwardingAudit.issues.some((item) => item.code === 'FORWARDING_SCOPE_MISSING'));
+    forwardingAudit.issues.filter((item) => item.code === 'FORWARDING_INCOMPLETE').length === 1
+      && !forwardingAudit.issues.some((item) => item.code === 'FORWARDING_SCOPE_MISSING'));
+  const sharedRows = ['콜롬비아 장미', '콜롬비아 카네이션', '콜롬비아 알스트로', '콜롬비아 루스커스']
+    .map((category) => ({
+      category, currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
+      source: { H: 'partial', S: 'partial', R: 'saved_official_week' },
+    }));
+  const sharedAudit = buildProfitReportAudit(sharedRows, { major: 33, forwardingLedger: missing31 });
+  check('콜롬비아 공유 통관비 누락은 품목별 4건이 아니라 1건으로 안내',
+    sharedAudit.issues.filter((item) => item.code === 'CUSTOMS_INCOMPLETE').length === 1
+      && sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.category === '콜롬비아 4품목');
+  check('콜롬비아 공유 항공료 누락은 품목·범위 중복 없이 1건으로 안내',
+    sharedAudit.issues.filter((item) => item.code === 'FORWARDING_INCOMPLETE').length === 1
+      && !sharedAudit.issues.some((item) => item.code === 'FORWARDING_SCOPE_MISSING'));
+  const noPurchaseCustoms = buildProfitReportAudit([{
+    category: '호주', currency: 'AUD', auto: { N: 100, Q: 0, S: 0, R: 0 }, manual: {}, stock: {},
+    source: { H: 'missing', S: 'missing', R: 'missing' },
+  }], { major: 33 });
+  check('구매가 없는 국가의 H=0은 사용자가 처리할 검증 항목으로 만들지 않음',
+    !noPurchaseCustoms.issues.some((item) => item.code === 'CUSTOMS_NO_PURCHASE' || item.code === 'CUSTOMS_INCOMPLETE'));
   const historicalAudit = buildProfitReportAudit([{
     category: '콜롬비아 장미', currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
     source: { H: 'gw_auto', S: 'missing', R: 'saved_official_week' },
