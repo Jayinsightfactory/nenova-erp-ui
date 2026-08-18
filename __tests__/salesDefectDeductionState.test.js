@@ -12,6 +12,7 @@ import {
 } from '../lib/salesDefectDeductionState.js';
 import {
   buildDefectEstimateTargetCandidatesSql,
+  evaluateDefectRegistrationEligibility,
   isExeEstimateTargetCandidate,
   selectExeEstimateTargetCandidate,
 } from '../lib/defectEstimateTargetScope.js';
@@ -36,6 +37,15 @@ assert.equal(selectExeEstimateTargetCandidate([
 ])?.ShipmentKey, 3301, '미확정 near-miss를 건너뛰고 EXE 상세 노출 행을 선택해야 한다.');
 assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, DetailFix: 0 }), false, '미확정 출고는 제외해야 한다.');
 assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentEstimateQuantity: 0 }), false, '출고 환산수량 0행은 제외해야 한다.');
+
+const confirmedRow = { importConfirmed: true, importReviewRequired: false, status: 'CARRYOVER', estimateKey: null };
+assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 5900 } }).eligible, true, '정확한 업체·품목 확정 판매행과 단가가 있으면 등록 가능해야 한다.');
+const legacyProductMismatch = evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: null, cost: 5900 } });
+assert.equal(legacyProductMismatch.eligible, false, '업체에 다른 품목 판매행만 있으면 등록 가능으로 표시하면 안 된다.');
+assert.equal(legacyProductMismatch.code, 'EXACT_PRODUCT_SALE_MISSING');
+assert.match(legacyProductMismatch.error, /품목키/);
+assert.equal(evaluateDefectRegistrationEligibility({ row: { ...confirmedRow, importConfirmed: false }, context: { shipmentKey: 5809, cost: 5900 } }).eligible, false);
+assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 0 } }).code, 'COST_MISSING');
 
 const reviewPageSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionServiceSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');

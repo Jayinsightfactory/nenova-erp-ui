@@ -131,7 +131,9 @@ assert.match(deductionContract.sideEffects.carryover, /판매행이 없는 행�
 assert.match(deductionContract.sideEffects.carryover, /부분 처리[\s\S]*잔량이 0이 될 때까지/, '부분 처리 잔량은 완료될 때까지 같은 원장에 남아야 합니다.');
 assert.ok(pageSource.includes("action: 'incoming-confirm'"), '견적 일괄등록 전 수입부 수정·확정 단계가 있어야 합니다.');
 assert.ok(pageSource.includes('registerSupport'), '수입부 확인 뒤 선택 행 견적 일괄등록 단계가 있어야 합니다.');
-assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.importConfirmed && row.customerTargetRegistered'), '미처리 재시도는 수입부 컨펌 완료·대상 차수 판매 범위가 있는 행만 선택해야 합니다.');
+assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.registrationEligible === true'), '미처리 재시도는 정확한 업체·품목 확정 판매행과 단가가 있는 행만 선택해야 한다.');
+assert.ok(deductionSource.includes('registrationEligibilityCode') && deductionSource.includes('targetShipmentKey'), '목록은 사전검증과 같은 품목별 등록 판정 결과를 응답해야 한다.');
+assert.ok(pageSource.includes('원차수 품목 수정') && pageSource.includes("setActiveTab('sales')"), '구품목키 불일치 행은 원차수 영업입력으로 이동해 수정할 수 있어야 한다.');
 assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('supportAllSelected'), '전체 선택 표시와 동작은 실제 등록 가능 행을 동일한 기준으로 사용해야 합니다.');
 assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
