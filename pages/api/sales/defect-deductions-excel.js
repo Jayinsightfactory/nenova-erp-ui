@@ -20,6 +20,7 @@ export default withAuth(async function handler(req, res) {
       year,
       week,
       managerName: selectedOption?.managerName || (selectedManager || req.user?.userName || ''),
+      includeManagerSheets: req.query.view === 'incoming',
     });
     const fileName = encodeURIComponent(`영업수입불량차감_${year}_${String(week).padStart(2, '0')}차.xlsx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

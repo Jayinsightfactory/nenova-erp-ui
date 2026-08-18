@@ -131,9 +131,9 @@ assert.match(deductionContract.sideEffects.carryover, /판매행이 없는 행�
 assert.match(deductionContract.sideEffects.carryover, /부분 처리[\s\S]*잔량이 0이 될 때까지/, '부분 처리 잔량은 완료될 때까지 같은 원장에 남아야 합니다.');
 assert.ok(pageSource.includes("action: 'incoming-confirm'"), '견적 일괄등록 전 수입부 수정·확정 단계가 있어야 합니다.');
 assert.ok(pageSource.includes('registerSupport'), '수입부 확인 뒤 선택 행 견적 일괄등록 단계가 있어야 합니다.');
-assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.registrationEligible === true'), '미처리 재시도는 정확한 업체·품목 확정 판매행과 단가가 있는 행만 선택해야 한다.');
-assert.ok(deductionSource.includes('registrationEligibilityCode') && deductionSource.includes('targetShipmentKey'), '목록은 사전검증과 같은 품목별 등록 판정 결과를 응답해야 한다.');
-assert.ok(pageSource.includes('원차수 품목 수정') && pageSource.includes("setActiveTab('sales')"), '구품목키 불일치 행은 원차수 영업입력으로 이동해 수정할 수 있어야 한다.');
+assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.registrationEligible === true'), '미처리 재시도는 같은 업체의 차수 확정 출고와 품목별 단가가 있는 행만 선택해야 한다.');
+assert.ok(deductionSource.includes('registrationEligibilityCode') && deductionSource.includes('targetShipmentKey'), '목록은 사전검증과 같은 업체 단위 등록 판정 결과를 응답해야 한다.');
+assert.ok(pageSource.includes('원차수 출고 확인') && pageSource.includes("setActiveTab('sales')"), '업체 출고가 없는 행은 원차수 출고 확인으로 이동할 수 있어야 한다.');
 assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('supportAllSelected'), '전체 선택 표시와 동작은 실제 등록 가능 행을 동일한 기준으로 사용해야 합니다.');
 assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
@@ -346,6 +346,20 @@ assert.equal(formatSalesDefectExportRows([{
   customerName: '남대문청화', originalCustomerName: '남대문 청화꽃집', managerName: '임재용',
   productName: '수국', countryName: '콜롬비아', colorName: 'Blue', quantity: 1,
 }]).some((row) => String(row.customerName || '').startsWith('기존명:')), false, '엑셀 거래처 열에는 기존명을 별도 출력하지 않아야 한다.');
+
+const managerWorkbook = await buildSalesDefectWorkbook([
+  { customerName: '업체A', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
+  { customerName: '업체B', managerName: '이담당', productName: '장미', countryName: '중국', colorName: 'B', quantity: 2, sourceUnit: '단' },
+  { customerName: '업체C', managerName: '김담당', productName: '수국', countryName: '콜롬비아', colorName: 'C', quantity: 3, sourceUnit: '박스' },
+], { year: 2026, week: 33, includeManagerSheets: true });
+const managerWb = new ExcelJS.Workbook();
+await managerWb.xlsx.load(managerWorkbook);
+assert.deepEqual(managerWb.worksheets.map((sheet) => sheet.name), ['전체품목', '김담당', '이담당'], '수입부 다운로드는 전체품목 시트와 담당자명 시트를 생성해야 한다.');
+assert.equal(managerWb.getWorksheet('전체품목').getCell('B6').value, '업체A (김담당)');
+assert.equal(managerWb.getWorksheet('김담당').getCell('B6').value, '업체A (김담당)');
+assert.equal(managerWb.getWorksheet('이담당').getCell('B6').value, '업체B (이담당)');
+assert.equal(managerWb.getWorksheet('김담당').getCell('B7').value, null);
+assert.equal(managerWb.getWorksheet('김담당').pageSetup.printArea, 'B1:K44');
 
 const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
   customerName: `거래처${index + 1}`, managerName: '임재용', productName: '카네이션',

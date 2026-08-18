@@ -25,6 +25,8 @@ assert.match(estimateTargetSql, /JOIN ViewOrder vo/);
 assert.match(estimateTargetSql, /JOIN ShipmentDate sdd/);
 assert.match(estimateTargetSql, /JOIN PeriodDay pd/);
 assert.doesNotMatch(estimateTargetSql, /sdd\.EstQuantity[^,\n]*>/, 'GetDetail에 없는 출고일 EstQuantity 양수 필터를 추가하면 안 된다.');
+const customerTargetSql = buildDefectEstimateTargetCandidatesSql({ customerOnly: true });
+assert.doesNotMatch(customerTargetSql, /vs\.ProdKey=@pk/, '차감 품목이 대상 차수에 없어도 같은 업체의 확정 출고가 있으면 등록할 수 있어야 한다.');
 
 const cheonghwaVisibleTarget = {
   ShipmentKey: 3301, DetailFix: 1, ShipmentEstimateQuantity: 20,
@@ -39,11 +41,11 @@ assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, DetailFix
 assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentEstimateQuantity: 0 }), false, '출고 환산수량 0행은 제외해야 한다.');
 
 const confirmedRow = { importConfirmed: true, importReviewRequired: false, status: 'CARRYOVER', estimateKey: null };
-assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 5900 } }).eligible, true, '정확한 업체·품목 확정 판매행과 단가가 있으면 등록 가능해야 한다.');
-const legacyProductMismatch = evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: null, cost: 5900 } });
-assert.equal(legacyProductMismatch.eligible, false, '업체에 다른 품목 판매행만 있으면 등록 가능으로 표시하면 안 된다.');
-assert.equal(legacyProductMismatch.code, 'EXACT_PRODUCT_SALE_MISSING');
-assert.match(legacyProductMismatch.error, /품목키/);
+assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 5900 } }).eligible, true, '같은 업체의 확정 출고와 품목별 단가가 있으면 등록 가능해야 한다.');
+const customerNoShipment = evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: null, cost: 5900 } });
+assert.equal(customerNoShipment.eligible, false, '선택 차수에 업체 출고가 없으면 등록할 수 없어야 한다.');
+assert.equal(customerNoShipment.code, 'CUSTOMER_SALE_MISSING');
+assert.match(customerNoShipment.error, /업체.*확정 출고/);
 assert.equal(evaluateDefectRegistrationEligibility({ row: { ...confirmedRow, importConfirmed: false }, context: { shipmentKey: 5809, cost: 5900 } }).eligible, false);
 assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 0 } }).code, 'COST_MISSING');
 
@@ -107,8 +109,12 @@ assert.equal(completedPlan.writeCount, 0);
 
 assert.throws(() => planDeductionRegistration({
   row: confirmedCarryover, targetYear: 2026, targetWeek: '33', requestKey: 'req-no-product-sale',
-  customerExists: true, productSalesRowExists: false, shipmentKey: 3300, cost: 1100,
-}), /업체·품목의 EXE 확정 판매행/);
+  customerExists: true, productSalesRowExists: false, customerShipmentExists: false, shipmentKey: 3300, cost: 1100,
+}), /대상 차수.*업체의 EXE 확정 출고/);
+assert.doesNotThrow(() => planDeductionRegistration({
+  row: confirmedCarryover, targetYear: 2026, targetWeek: '33', requestKey: 'req-customer-sale',
+  customerExists: true, productSalesRowExists: false, customerShipmentExists: true, shipmentKey: 3300, cost: 1100,
+}), '차감 품목 판매행이 없어도 같은 업체 확정 출고가 있으면 등록해야 한다.');
 
 const editedByB = { ...confirmedCarryover, UpdatedBy: 'sales-b', UpdatedByName: '영업B' };
 assert.equal(isDeductionOwnedByUser(editedByB, { userId: 'sales-a', userName: '영업A', authority: 5 }), true);
