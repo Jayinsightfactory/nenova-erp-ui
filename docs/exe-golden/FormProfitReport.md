@@ -253,9 +253,10 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   `2026-28` 이상인 연도+차수 결합키에서만 참이다. 따라서 2026년 22~27차는 기존 원본값을
   보존하고, 2027년 이후도 정상 조회 대상이다. 범위 밖이면 DB 조회와 KCS 네트워크 호출을 하지 않는다.
 - **신고일자·가중치 산출**: `lib/kcsRateDateWeights.js loadWarehouseDateWeights(orderYear, major)`가
-  사용자가 입고에 명시한 `WarehouseMaster.InputDate`만 사용해 카테고리(국가/화종)×날짜별
+  사용자가 입고에 명시한 `WarehouseMaster.InputDate`를 최우선으로 사용해 카테고리(국가/화종)×날짜별
   `wd.TPrice` 합계 목록을 반환한다. `InputDate`가 없으면 `ArrivalDtm`이나 `UploadDtm`으로 대신하지
-  않고 해당 카테고리를 `입력 필요`로 남긴다. 날짜를
+  않는다. 다만 아래 2026-08-18 절에서 확정한 호주 AUD 일정만 해당 차수의 ISO 주차 월요일로
+  보완하고, 나머지 카테고리는 `입력 필요`로 남긴다. 날짜를
   먼저 평균해 대표일자 하나로 줄이지 않는다. "관세청 신고환율은 각 실제 신고일자의 실제 환율을
   TPrice로 가중평균한다"는 요구사항을 정확히 지키려면 날짜를 먼저 평균(pseudo-date)하는 방식은
   실제 신고일자가 아닌 날의 환율을 끌어오는 오차가 생기기 때문이다(2026-08-12 설계 정리 — 초기
@@ -307,6 +308,25 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   — KCS/분석 관련 신규 lib·API 파일 전부에 쓰기·DDL 키워드 없음 + `profit-analysis.js` GET 전용 정적 검증.
   `lib/kcsTaxableRate.js`의 `weekFxrtIm` 파싱·타임아웃·HTTP 오류 구분·TTL 캐시는
   `__tests__/taxableExchangeRateKcs.test.js`가 fetch mock으로 검증(실네트워크 없음).
+
+### 2026-08-18 호주(AUD) 신고일 반복 일정 보완
+
+- 2026년 22~28차 원본 workbook 전체를 다시 대조한 결과, 호주 매입이 존재한 23·24·27차의 R은
+  각각 1,079.48(관세청 적용 시작 2026-06-01), 1,083.36(2026-06-08), 1,068.23(2026-06-29)이며
+  모두 `대차수 NN = ISO NN주 월요일`이라는 같은 기준일 규칙과 일치한다. 22·25·26·28차는 호주
+  매입이 없어 R이 비어 있으므로 반례가 아니다.
+- `WarehouseMaster.InputDate`가 있으면 실제 날짜가 항상 최우선이다. 호주 상품매입에 InputDate가
+  없을 때만 `CATEGORY_DECLARATION_DATE_SCHEDULES`의 `AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1`을
+  사용해 해당 연도 ISO 대차수 월요일을 신고 기준일로 보완한다. 28차라면 2026-07-06이다.
+- 중국 24차처럼 과거 예외가 확인된 국가 및 규칙이 승인되지 않은 모든 카테고리는 일정 보완 대상이
+  아니다. 날짜가 없으면 기존대로 `INPUT_REQUIRED`이며, 호주 규칙을 USD/EUR/CNY 또는 다른 국가로
+  확대 적용하지 않는다.
+- 자동 결과에는 `dateSource=category_schedule`과 `scheduleId`를 남겨 실제 InputDate 원천과 구분한다.
+  이 보완은 `WarehouseMaster/Detail` SELECT와 관세청 GET만 수행하고, 환율·입고·주문·출고·재고·손익
+  원장에 자동 저장하지 않는다. 사용자가 환율을 고정 저장할 때만 기존 `TAXABLE_RATE_SAVE`가 동작한다.
+- 회귀: `__tests__/kcsRateDateWeights.test.js`가 23·24·27차 원본 기준일, 28차 다음 기준일, 실제
+  InputDate 우선, 타 국가 비적용을 고정하고, `__tests__/kcsRatesByCategoryWeighting.test.js`가 최종
+  KCS detail의 일정 provenance를 검증한다.
 
 ## 2026-08-12 이익률 분석 패널(analysis) + 검증·입력 패널 표 하단 재배치
 
