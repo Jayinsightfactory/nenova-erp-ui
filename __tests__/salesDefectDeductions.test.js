@@ -19,6 +19,7 @@ import {
   isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
+import { deriveSupportProcessingStatus, isSupportProcessingComplete, supportProcessingLabel } from '../lib/salesDefectSupportStatus.js';
 import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
@@ -169,10 +170,9 @@ assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 E
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
 assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
-assert.ok(pageSource.includes("String(row.status || '').toUpperCase() !== 'REGISTERED'"), '이미 연결 등록된 행은 중복 선택할 수 없어야 한다.');
-assert.ok(pageSource.includes('!row.exactExistingEstimate'), '동일한 기존 Estimate가 있는 행은 중복 선택할 수 없어야 한다.');
+assert.ok(pageSource.includes('!isSupportProcessingComplete(row)'), '이미 연결되거나 기존 견적으로 처리완료된 행은 중복 선택할 수 없어야 한다.');
 assert.ok(pageSource.includes('existingEstimateRecords'), '업체의 기존 음수 Estimate 내역을 목록에서 확인할 수 있어야 한다.');
-assert.ok(pageSource.includes('기존 차감 견적 확인'), '정확히 일치하는 기존 차감은 처리 상태로 명시해야 한다.');
+assert.ok(pageSource.includes('supportProcessingLabel(row)'), '정확히 일치하는 기존 차감은 처리완료 상태와 견적키로 표시해야 한다.');
 assert.ok(pageSource.includes('이 업체 기존 차감'), '동일 업체의 다른 기존 차감도 펼쳐 확인할 수 있어야 한다.');
 assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
 assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
@@ -498,5 +498,15 @@ assert.equal(defectSelected[0].prodKey, 417, '사용자가 선택한 DB 품목 P
 assert.equal(defectSelected[0].unit, pasteMatch.unit, '사용자가 선택한 DB 품목 단위를 적용해야 한다.');
 assert.equal(defectSelected[0].matchedProductDbName, 'CARNATION Kaori', '선택 후에만 DB의 정확한 ProdName을 표시해야 한다.');
 assert.equal(defectSelected[0].countryName, '콜롬비아', '선택된 Product.CounName을 국가 표시값으로 보존해야 한다.');
+
+const existingCompleted = deriveSupportProcessingStatus({
+  status: 'DRAFT', estimateKey: null, exactExistingEstimate: true, exactExistingEstimateKey: 4567,
+});
+assert.equal(existingCompleted.processingStatus, 'COMPLETED_EXISTING', '정확히 조회된 기존 불량차감은 처리완료 파생 상태여야 한다.');
+assert.equal(existingCompleted.processingEstimateKey, 4567, '기존 불량차감 견적키를 처리상태에 표시해야 한다.');
+assert.equal(isSupportProcessingComplete(existingCompleted), true, '기존 불량차감 처리완료 행은 중복 등록 대상에서 제외해야 한다.');
+assert.equal(supportProcessingLabel(existingCompleted), '처리완료 (기존 불량차감 #4567)', '영업지원 처리상태에 기존 불량차감 완료를 명시해야 한다.');
+const crossYearOrMismatch = deriveSupportProcessingStatus({ status: 'DRAFT', exactExistingEstimate: false });
+assert.equal(crossYearOrMismatch.processingStatus, 'UNREGISTERED', '다른 연도·수량·단위 불일치 후보는 처리완료로 표시하면 안 된다.');
 
 console.log('sales defect deduction tests passed');
