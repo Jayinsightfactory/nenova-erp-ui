@@ -5,8 +5,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
-import { scoreMatch, getDisplayName } from '../../lib/displayName';
+import { getDisplayName } from '../../lib/displayName';
 import { clearImportProductMatchForName } from '../../lib/orderImportMatch';
+import { scoreProductSearchOptions } from '../../lib/productSearchRanking';
 import { mergeRegisterItems } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
@@ -22,33 +23,9 @@ import {
 
 const DEFAULT_CUST_SEARCH = '라움';
 const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
-const IMPORT_MAPPING_KEY = 'nenova_import_local_mappings';
-
-function loadLocalImportMappings() {
-  try { return JSON.parse(localStorage.getItem(IMPORT_MAPPING_KEY) || '{}'); } catch { return {}; }
-}
-
-function saveLocalImportMapping(inputName, prod, unit) {
-  if (!inputName || !prod?.ProdKey) return;
-  try {
-    const key = String(inputName).trim().toLowerCase();
-    const cache = loadLocalImportMappings();
-    cache[key] = {
-      prodKey: prod.ProdKey,
-      prodName: prod.ProdName,
-      displayName: prod.DisplayName || prod.ProdName,
-      flowerName: prod.FlowerName,
-      counName: prod.CounName,
-      unit: unit || '',
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(IMPORT_MAPPING_KEY, JSON.stringify(cache));
-  } catch { /* ignore */ }
-}
 
 async function persistItemMapping(item, prod, { force = true } = {}) {
   if (!item?.inputName || !prod?.ProdKey) return false;
-  saveLocalImportMapping(item.inputName, prod, item.unit);
   try {
     await apiPost('/api/orders/mappings', {
       inputToken: item.inputName,
@@ -231,31 +208,28 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
   const defaultSuggestions = useMemo(() => {
     if ((row.suggestedProducts || []).length > 0) return row.suggestedProducts;
     if (!row.inputName) return [];
-    return allProducts
-      .map(p => ({ prod: p, score: scoreMatch(matchQuery, p, '') }))
-      .filter(x => x.score >= 35)
-      .sort((a, b) => b.score - a.score)
+    return scoreProductSearchOptions(matchQuery, allProducts)
       .slice(0, 6)
-      .map(x => ({
-        prodKey: x.prod.ProdKey,
-        prodName: x.prod.ProdName,
-        displayName: x.prod.DisplayName || x.prod.ProdName,
-        flowerName: x.prod.FlowerName,
-        counName: x.prod.CounName,
-        outUnit: x.prod.OutUnit,
-        score: x.score,
+      .map(({ product: prod, matchScore }) => ({
+        prodKey: prod.ProdKey,
+        prodName: prod.ProdName,
+        displayName: prod.DisplayName || prod.ProdName,
+        flowerName: prod.FlowerName,
+        counName: prod.CounName,
+        outUnit: prod.OutUnit,
+        score: Math.min(100, Math.round(matchScore)),
       }));
   }, [row.suggestedProducts, matchQuery, allProducts]);
 
   const searchHits = useMemo(() => {
     if (!search.trim()) return [];
-    const q = search.trim().toLowerCase();
-    return allProducts
-      .map(p => ({ prod: p, score: scoreMatch(matchQuery, p, search) }))
-      .filter(x => x.score >= 30 || getDisplayName(x.prod).toLowerCase().includes(q))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
-  }, [search, allProducts, matchQuery]);
+    return scoreProductSearchOptions(search.trim(), allProducts)
+      .slice(0, 12)
+      .map(({ product: prod, matchScore }) => ({
+        prod,
+        score: Math.min(100, Math.round(matchScore)),
+      }));
+  }, [search, allProducts]);
 
   const pick = async (prod) => {
     const saved = onPersistMapping ? await onPersistMapping(row, prod) : true;
