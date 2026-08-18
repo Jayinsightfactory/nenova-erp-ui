@@ -13,6 +13,7 @@ import { getProductUsageRank, rankProductSearchOptions } from '../../lib/product
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
+import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
 import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
@@ -73,13 +74,7 @@ function saveCustomerCache(cache) {
   try { localStorage.setItem(CUSTOMER_MAPPING_KEY, JSON.stringify(cache)); } catch {}
 }
 function customerCacheKey(inputName) {
-  return (inputName || '')
-    .toLowerCase()
-    .replace(/[()[\]{}]/g, ' ')
-    .replace(/(추가|취소|삭제|출고|입고|변경사항|변경|오늘|일요일|월요일|화요일|수요일|목요일|금요일|토요일)/g, ' ')
-    .replace(/[|:：,\-→>]/g, ' ')
-    .replace(/\s+/g, '')
-    .trim();
+  return pasteCustomerMappingKey(inputName);
 }
 function cacheKey(inputName) {
   return normalizePasteToken(inputName);
@@ -1153,6 +1148,20 @@ export default function PasteOrderPage() {
     return merged;
   };
 
+  const loadMergedCustomerMappingCache = async () => {
+    let serverMappings = {};
+    try {
+      const r = await fetch('/api/orders/customer-mappings', { credentials: 'same-origin' });
+      const d = await r.json();
+      if (r.ok && d.success) serverMappings = d.mappings || {};
+    } catch { /* local cache remains available */ }
+    const local = loadCustomerCache();
+    const merged = { ...serverMappings, ...local, ...customerMappingCache };
+    setCustomerMappingCache(merged);
+    saveCustomerCache(merged);
+    return merged;
+  };
+
   const reloadRegisteredOrdersForWeek = async (targetWeek, sourceOrders = orders) => {
     if (!targetWeek || !sourceOrders?.length) {
       setRegisteredOrders({});
@@ -1514,7 +1523,7 @@ export default function PasteOrderPage() {
 
       const cache = await loadMergedMappingCache(orders);
       setMappingCache(cache);
-      setCustomerMappingCache(loadCustomerCache());
+      const customerCache = await loadMergedCustomerMappingCache();
 
       // 감지된 차수 자동 적용 — 등록 차수에 이미 고른 연도(예: 2026)를 유지
       let effectiveWeek = week;
@@ -1555,7 +1564,7 @@ export default function PasteOrderPage() {
         }),
       }));
 
-      const applied = applyCache(raw, cache, allProducts);
+      const applied = applyPasteCustomerMappings(applyCache(raw, cache, allProducts), customerCache, allCustomers);
       setOrders(applied);
 
       // 거래처 매칭된 업체의 저장내역 자동 로드 (감지된 차수 반영)
@@ -1609,10 +1618,10 @@ export default function PasteOrderPage() {
 
   // 거래처 매칭 시 자동으로 기존 주문/분배 미리보기 로드
   // (사용자가 수동 검색해서 거래처 선택한 경우도 포함)
-  const learnCustomerMapping = (inputName, customer) => {
-    if (!inputName || !customer?.CustKey) return;
+  const learnCustomerMapping = async (inputName, customer) => {
+    if (!inputName || !customer?.CustKey) return false;
     const key = customerCacheKey(inputName);
-    if (!key) return;
+    if (!key) return false;
     const value = {
       custKey: customer.CustKey,
       custName: customer.CustName,
@@ -1621,7 +1630,7 @@ export default function PasteOrderPage() {
     const updated = { ...loadCustomerCache(), [key]: value };
     setCustomerMappingCache(updated);
     saveCustomerCache(updated);
-    fetch('/api/orders/customer-mappings', {
+    const response = await fetch('/api/orders/customer-mappings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
@@ -1631,10 +1640,15 @@ export default function PasteOrderPage() {
         custName: customer.CustName,
         custArea: customer.CustArea,
       }),
-    }).catch(() => {});
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || '업체 저장매칭 저장 실패');
+    }
+    return true;
   };
 
-  const setCustMatch = (oid, customer) => {
+  const setCustMatch = async (oid, customer) => {
     const order = orders.find(o => o.id === oid);
     const inputName = order?.custName || order?.custMatch?.CustName || customer?.CustName;
     updateOrder(oid, {
@@ -1645,6 +1659,14 @@ export default function PasteOrderPage() {
         ? { inputName, customer }
         : null,
     });
+    if (customer && inputName) {
+      try {
+        await learnCustomerMapping(inputName, customer);
+        updateOrder(oid, { pendingCustomerLearning: null, custFromMapping: true });
+      } catch (error) {
+        alert(`업체 매칭은 화면에 적용했지만 서버 저장에 실패했습니다. 다시 선택해주세요.\n${error.message}`);
+      }
+    }
     if (!customer || !week) return;
     // 비동기로 기존 주문 + 분배 fetch
     (async () => {
@@ -2220,7 +2242,7 @@ export default function PasteOrderPage() {
 
     details.filter(x => x.ok).forEach(x => learnItemMapping(x));
     if (okCount > 0 && order.pendingCustomerLearning) {
-      learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+      await learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
       updateOrder(oid, { pendingCustomerLearning: null });
     }
     updateOrder(oid, {
@@ -2686,7 +2708,7 @@ export default function PasteOrderPage() {
         await fetchShipmentQtys(order.custMatch.CustKey, week, fallbackPreview.items.map(i => i.prodKey));
       }
       if (order.pendingCustomerLearning) {
-        learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+        await learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
         updateOrder(oid, { pendingCustomerLearning: null });
       }
       try {
