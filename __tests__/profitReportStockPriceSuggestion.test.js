@@ -124,6 +124,8 @@ async function main() {
   assert.match(reportSource, /AS StockEndEst/);
   assert.match(reportSource, /ConversionStatus === 'VERIFIED' \? item\.row\.StockBeginEst : 0/,
     '샘플 평균의 수량 가중치는 박스·단·송이를 금액단위로 환산한 검증 수량만 사용해야 한다.');
+  assert.match(reportSource, /GROUP BY[\s\S]*?p\.SteamOf1Box, p\.BunchOf1Box, p\.SteamOf1Bunch/,
+    '재고단가 조회의 환산식에서 사용하는 품목 마스터 필드는 모두 SQL 묶음 기준에 포함되어야 한다.');
   assert.match(reportSource, /confirmed-distribution:\$\{orderYear\}:\$\{major\}:prod/);
   assert.match(pageSource, /다수업체 기준 단가 일괄 선택/);
   assert.match(pageSource, /priceSuggestionEvidence/);
