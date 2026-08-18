@@ -6,6 +6,9 @@
     "lib/productMatchingLearningStore.js",
     "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",
+    "pages/orders/import.js",
+    "pages/orders/paste.js",
+    "pages/api/orders/mappings.js",
     "lib/salesDefectDeductions.js",
     "pages/api/products/search.js",
     "pages/api/product-matching/events.js",
@@ -20,7 +23,8 @@
     { "name": "SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "후보와 근거만 반환" },
     { "name": "CANDIDATE_SELECTED", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "사용자 확인 이벤트만 기록" },
     { "name": "SELECTION_CONFIRMED", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "연도·차수·거래처·품목이 완전한 사용자 저장 선택만 학습 정답으로 기록" },
-    { "name": "ALIAS_PROMOTION", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "WebProductMatchAlias만 검토 후 승격; Product 이름 변경 금지" }
+    { "name": "ALIAS_PROMOTION", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "WebProductMatchAlias만 검토 후 승격; Product 이름 변경 금지" },
+    { "name": "ORDER_MAPPING_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "업로드·붙여넣기 주문등록 모두 공용 /api/orders/mappings에 사용자 선택을 저장; 브라우저별 매핑 저장 금지" }
   ],
   "confidence": { "high": 0.9, "medium": 0.68, "countryOrFlowerConflictAutoSelect": false, "selfTrainingFromAutoSelection": false },
   "crossYearFixture": { "required": true, "description": "2025 29-02 검색 이벤트는 2026 29-02 거래처 최근성 집계에 포함하지 않는다." },

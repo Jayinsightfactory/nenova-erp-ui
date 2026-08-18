@@ -100,6 +100,7 @@ const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defec
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const orderImportSource = fs.readFileSync('lib/orderImportMatch.js', 'utf8');
+const orderImportPageSource = fs.readFileSync('pages/orders/import.js', 'utf8');
 const distributeImportSource = fs.readFileSync('pages/shipment/distribute-import.js', 'utf8');
 const masterProductsApiSource = fs.readFileSync('pages/api/master/index.js', 'utf8');
 const orderNewSource = fs.readFileSync('pages/orders/new.js', 'utf8');
@@ -271,6 +272,9 @@ assert.ok(distributeImportSource.includes('Number(b.UsageCount || b.orderCount |
 assert.ok(masterProductsApiSource.includes('RecentUsageCount') && masterProductsApiSource.includes('MappingCount'), '공통 기준 품목 API는 실제 사용량·저장 매칭 빈도를 함께 반환해야 한다.');
 assert.ok(orderNewSource.includes('rankProductSearchOptions'), '주문등록 화면의 로컬 품목 필터도 공용 랭킹을 사용해야 한다.');
 assert.ok(orderPasteSource.includes('rankProductSearchOptions'), '붙여넣기 주문등록의 수동 품목검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(orderImportPageSource.includes('scoreProductSearchOptions'), '엑셀 업로드 주문등록의 수동 품목검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(!orderImportPageSource.includes('nenova_import_local_mappings'), '엑셀 업로드 주문등록은 메뉴·브라우저 전용 품목 매핑을 저장하지 않아야 한다.');
+assert.ok(orderImportPageSource.includes("'/api/orders/mappings'"), '엑셀 업로드 주문등록의 사용자 선택은 붙여넣기와 같은 공용 저장매핑 API에 누적해야 한다.');
 assert.ok(weekPivotSource.includes('rankProductSearchOptions'), '차수피벗 품목 선택도 공용 랭킹을 사용해야 한다.');
 assert.ok(stockStatusSource.includes('rankProductSearchOptions'), '재고·주문등록 모달 품목 선택도 공용 랭킹을 사용해야 한다.');
 assert.ok(distributeSource.includes('rankProductSearchOptions'), '출고분배 품목 검색도 공용 랭킹을 사용해야 한다.');
