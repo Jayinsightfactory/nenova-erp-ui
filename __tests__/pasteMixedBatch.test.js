@@ -23,6 +23,18 @@ async function main() {
     '혼합 붙여넣기는 CANCEL 전체를 입력순서대로 처리한 뒤 ADD 전체를 입력순서대로 처리해야 한다.',
   );
   assert.deepEqual(
+    buildPasteMixedActionPreview({ type: 'CANCEL', qty: 2, unit: '단', orderQty: 10, shipmentQty: 0, product: { OutUnit: '단' } }),
+    {
+      orderBefore: 10,
+      orderAfter: 10,
+      shipmentBefore: 0,
+      shipmentAfter: 0,
+      policy: 'CANCEL_BLOCKED_NO_SHIPMENT',
+      error: '취소할 현재 분배가 없어 일괄 처리 시 전체 롤백됩니다.',
+    },
+    '분배 0 취소는 주문 감소로 예상하지 않고 실제 AUTO_CANCEL처럼 전체 롤백 오류를 표시해야 한다.',
+  );
+  assert.deepEqual(
     ordered.map(pasteBatchActionType),
     ['CANCEL', 'CANCEL', 'ADD', 'ADD'],
     '실제 실행 배열은 CANCEL 단계와 ADD 단계가 섞이면 안 된다.',
@@ -56,6 +68,18 @@ async function main() {
   );
 
   const pasteSource = fs.readFileSync(path.join(__dirname, '..', 'pages/orders/paste.js'), 'utf8');
+  const adjustSource = fs.readFileSync(path.join(__dirname, '..', 'pages/api/shipment/adjust.js'), 'utf8');
+  const currentSource = fs.readFileSync(path.join(__dirname, '..', 'lib/shipmentAdjustmentCurrent.js'), 'utf8');
+  assert.match(pasteSource, /\/api\/shipment\/adjust\?type=current/,
+    '화면 예상값은 주문목록용 custItems가 아니라 실제 adjust 마스터 선택 조회를 사용해야 한다.');
+  assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(query,[\s\S]*lock: false/,
+    '예상값 GET은 공용 현재 분배 조회를 사용해야 한다.');
+  assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(tQ,[\s\S]*lock: true/,
+    '실제 저장 트랜잭션도 같은 공용 현재 분배 조회를 잠금 모드로 사용해야 한다.');
+  assert.match(currentSource, /OrderYear=@yr AND OrderWeek=@wk[\s\S]*ORDER BY ISNULL\(isFix,0\) DESC, ShipmentKey ASC/,
+    '공용 조회는 연도+차수+업체를 고정하고 실제 저장과 같은 마스터 우선순위를 사용해야 한다.');
+  assert.match(adjustSource, /FROM ShipmentDetail WITH \(UPDLOCK, HOLDLOCK\)[\s\S]*WHERE ShipmentKey=@sk AND ProdKey=@pk[\s\S]*ORDER BY SdetailKey ASC/,
+    '실제 저장도 중복 레거시 상세행이 있을 때 예상값과 같은 첫 상세행을 선택해야 한다.');
   assert.match(
     pasteSource,
     /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*for \(const t of targets\)/,

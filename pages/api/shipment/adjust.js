@@ -28,6 +28,7 @@ import { isAutoCancelMode, isPivotDistributionMode, resolvePivotAdjustmentPolicy
 import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../lib/shipmentFarmAssignments.js';
 import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
 import { calculateShipmentAvailability, hasInsufficientShipmentStock, normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
+import { loadShipmentAdjustmentCurrent } from '../../../lib/shipmentAdjustmentCurrent.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -256,6 +257,7 @@ async function assertWeekNotFixed(q, orderYear, orderWeek) {
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET') {
     if (req.query?.type === 'fixCheck') return await getFixCheck(req, res);
+    if (req.query?.type === 'current') return await getCurrentAdjustmentState(req, res);
     return await getAdjustments(req, res);
   }
   if (req.method === 'POST') return await postAdjust(req, res);
@@ -316,6 +318,33 @@ async function getFixCheck(req, res) {
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+async function getCurrentAdjustmentState(req, res) {
+  const { week, year, custKey, prodKeys, prodKey } = req.query;
+  if (!week || !custKey) return res.status(400).json({ success: false, error: 'week, custKey 필요' });
+  let scope;
+  try { scope = requireOrderYear(week, req.query.orderYear || year || ''); }
+  catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
+  const keys = String(prodKeys || prodKey || '').split(',').map(Number).filter(v => Number.isInteger(v) && v > 0);
+  if (!keys.length) return res.status(400).json({ success: false, error: 'prodKey 필요' });
+  try {
+    const items = [];
+    for (const pk of [...new Set(keys)]) {
+      const current = await loadShipmentAdjustmentCurrent(query, {
+        ...scope, custKey: Number(custKey), prodKey: pk, lock: false,
+      });
+      items.push({
+        ProdKey: pk,
+        ShipmentKey: current.master?.ShipmentKey || null,
+        SdetailKey: current.detail?.SdetailKey || null,
+        OutQuantity: Number(current.detail?.curOut || 0),
+      });
+    }
+    return res.status(200).json({ success: true, orderYear: scope.orderYear, orderWeek: scope.orderWeek, items });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
 
@@ -565,30 +594,10 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       // 다시 차감할 수 있으므로, 같은 트랜잭션에서 ShipmentDetail을 잠그고 확인한다.
       let autoShipmentDetail = null;
       if (autoCancel) {
-        const autoSm = await tQ(
-          `SELECT TOP 1 ShipmentKey
-             FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-            WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
-            ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
-          {
-            ck: { type: sql.Int, value: ck },
-            yr: { type: sql.NVarChar, value: orderYear },
-            wk: { type: sql.NVarChar, value: orderWeek },
-          }
-        );
-        if (autoSm.recordset[0]) {
-          const autoSd = await tQ(
-            `SELECT TOP 1 SdetailKey, ISNULL(OutQuantity,0) AS curOut
-               FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
-              WHERE ShipmentKey=@sk AND ProdKey=@pk
-              ORDER BY SdetailKey ASC`,
-            {
-              sk: { type: sql.Int, value: autoSm.recordset[0].ShipmentKey },
-              pk: { type: sql.Int, value: pk },
-            }
-          );
-          autoShipmentDetail = autoSd.recordset[0] || null;
-        }
+        const autoCurrent = await loadShipmentAdjustmentCurrent(tQ, {
+          orderYear, orderWeek, custKey: ck, prodKey: pk, lock: true,
+        });
+        autoShipmentDetail = autoCurrent.detail;
       }
       const hasActiveShipment = Boolean(autoShipmentDetail && Number(autoShipmentDetail.curOut || 0) > 0.0001);
 
@@ -761,16 +770,10 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       }
 
       // 4) ShipmentMaster 확보 + isFix 보호
-      const sm = await tQ(
-        `SELECT TOP 1 ShipmentKey, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
-          WHERE CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0
-          ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC`,
-        {
-          ck: { type: sql.Int, value: ck },
-          yr: { type: sql.NVarChar, value: orderYear },
-          wk: { type: sql.NVarChar, value: orderWeek },
-        }
-      );
+      const shipmentCurrent = await loadShipmentAdjustmentCurrent(tQ, {
+        orderYear, orderWeek, custKey: ck, prodKey: pk, lock: true,
+      });
+      const sm = { recordset: shipmentCurrent.master ? [shipmentCurrent.master] : [] };
       let sk;
       if (sm.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 ShipmentMaster 없음');
@@ -814,7 +817,8 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
                 ISNULL(Cost,0)          AS curCost,
                 ISNULL(Descr,'')        AS curDescr
            FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
-          WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+          WHERE ShipmentKey=@sk AND ProdKey=@pk
+          ORDER BY SdetailKey ASC`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
       const sdRow = sdCur.recordset[0];

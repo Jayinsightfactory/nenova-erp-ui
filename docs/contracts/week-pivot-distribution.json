@@ -11,6 +11,7 @@
     "lib/pivotAdjustmentPolicy.js",
     "lib/shipmentAvailability.js",
     "lib/pasteOrderUnit.js",
+    "lib/shipmentAdjustmentCurrent.js",
     "lib/estimateFixStatusLink.js",
     "lib/pasteMixedBatch.js",
     "lib/pasteBatchUndo.js",
@@ -119,6 +120,7 @@
     "__tests__/pasteSplitActionLayout.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
     "__tests__/pasteFixStatus.test.js",
+    "__tests__/pasteMixedBatch.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
