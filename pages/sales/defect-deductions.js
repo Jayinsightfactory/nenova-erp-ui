@@ -19,6 +19,7 @@ const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boo
   Number(row.deductionKey) > 0
   && String(row.status || '').toUpperCase() !== 'REGISTERED'
   && !row.exactExistingEstimate
+  && !row.importReviewRequired
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
 );
 const existingEstimateLabel = (record = {}) => {
@@ -1033,8 +1034,7 @@ export default function SalesDefectDeductionsPage() {
     }
   };
 
-  const resolveReview = async (index) => {
-    const row = rows[index];
+  const resolveReviewRow = async (row) => {
     if (!row?.deductionKey || !row.importReviewRequired) return;
     const key = Number(row.deductionKey);
     setReviewResolving((current) => new Set([...current, key]));
@@ -1045,6 +1045,7 @@ export default function SalesDefectDeductionsPage() {
       });
       if (data.row) {
         setRows((current) => current.map((item) => Number(item.deductionKey) === key ? data.row : item));
+        setSupportRows((current) => current.map((item) => Number(item.deductionKey) === key ? { ...item, ...data.row } : item));
         mergeSavedRowSignatures([data.row]);
       }
       setMessage(`${row.customerName || '해당 행'}의 수입부 보완 필요를 해결 완료 처리했습니다.`);
@@ -1058,6 +1059,8 @@ export default function SalesDefectDeductionsPage() {
       });
     }
   };
+
+  const resolveReview = (index) => resolveReviewRow(rows[index]);
 
   useEffect(() => {
     const onMessage = (event) => {
@@ -1410,7 +1413,15 @@ export default function SalesDefectDeductionsPage() {
                 <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity(row)}</td>
                 <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
-                <td>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : row.importReviewRequired ? '보완 필요' : '확인 필요'}</td>
+                <td>
+                  <div>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : '확인 필요'}</div>
+                  {row.importReviewRequired && <div className="support-review-required" role="alert">
+                    <strong>보완 필요</strong>
+                    <button type="button" className="btn btn-xs review-resolve-button" onClick={() => resolveReviewRow(row)} disabled={reviewResolving.has(key)}>
+                      {reviewResolving.has(key) ? '처리중…' : '해결 완료'}
+                    </button>
+                  </div>}
+                </td>
                 <td><span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{row.exactExistingEstimate ? '기존 차감 견적 확인' : activeTab === 'carryover' && !row.importConfirmed ? '미처리' : activeTab === 'carryover' && !row.customerTargetRegistered ? '미처리' : row.status === 'REGISTERED' ? `등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}` : row.isCarryover ? '등록 가능' : '미등록'}</span><small className="support-scope-label">{row.exactExistingEstimate ? '동일한 기존 견적이 있어 중복 등록 대상에서 제외됨' : activeTab === 'carryover' && !row.importConfirmed ? '수입부 컨펌 미완료 · 다음 차수 재시도' : activeTab === 'carryover' && !row.customerTargetRegistered ? `${year}년 ${week}차 판매행 없음 · 다음 차수 재시도` : row.status === 'REGISTERED' && row.appliedOrderWeek ? `적용 ${row.appliedOrderYear || year}-${row.appliedOrderWeek}` : scopeLabel}</small>{existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}</td>
               </tr>;
             })}
@@ -1706,6 +1717,7 @@ export default function SalesDefectDeductionsPage() {
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
         .sales-row-review-alert { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 5px; padding: 4px; border: 1px solid #fca5a5; border-radius: 3px; background: #fef2f2; color: #b91c1c; white-space: normal; }
+        .support-review-required { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; padding: 4px; border: 1px solid #fca5a5; border-radius: 3px; background: #fef2f2; color: #b91c1c; white-space: normal; }
         .review-resolve-button { border-color: #fca5a5; background: #fff; color: #991b1b; }
         .defect-grid-scroll { max-height: calc(100vh - 250px); overflow: auto; }
         .defect-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
