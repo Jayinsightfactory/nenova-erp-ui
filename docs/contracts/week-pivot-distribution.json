@@ -11,6 +11,9 @@
     "lib/pivotAdjustmentPolicy.js",
     "lib/shipmentAvailability.js",
     "lib/pasteOrderUnit.js",
+    "lib/pasteCustomerMapping.js",
+    "lib/normalizeCustomerToken.js",
+    "lib/customerMappings.js",
     "lib/shipmentAdjustmentCurrent.js",
     "lib/estimateFixStatusLink.js",
     "lib/pasteMixedBatch.js",
@@ -28,6 +31,7 @@
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/pasteBatchHistory.test.js"
+    ,"__tests__/pasteRematchCache.test.js"
     ,"__tests__/pasteSplitActionLayout.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -119,6 +123,7 @@
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
+    "__tests__/pasteRematchCache.test.js",
     "__tests__/pasteFixStatus.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/erpContractManifest.test.js"
