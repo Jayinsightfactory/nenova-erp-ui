@@ -329,7 +329,11 @@ const identityBuffer = await buildSalesDefectWorkbook([{
 const identityWb = new ExcelJS.Workbook();
 await identityWb.xlsx.load(identityBuffer);
 assert.equal(identityWb.worksheets[0].getCell('B6').value, '남대문청화 (임재용)');
-assert.equal(identityWb.worksheets[0].getCell('B7').value, '기존명: 남대문 청화꽃집');
+assert.notEqual(identityWb.worksheets[0].getCell('B7').value, '기존명: 남대문 청화꽃집');
+assert.equal(formatSalesDefectExportRows([{
+  customerName: '남대문청화', originalCustomerName: '남대문 청화꽃집', managerName: '임재용',
+  productName: '수국', countryName: '콜롬비아', colorName: 'Blue', quantity: 1,
+}]).some((row) => String(row.customerName || '').startsWith('기존명:')), false, '엑셀 거래처 열에는 기존명을 별도 출력하지 않아야 한다.');
 
 const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
   customerName: `거래처${index + 1}`, managerName: '임재용', productName: '카네이션',
