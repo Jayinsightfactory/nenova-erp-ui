@@ -77,8 +77,8 @@ async function main() {
     reportSource.indexOf('export async function stockSnapshotByCategory'),
     reportSource.indexOf('/** 카테고리별 구매 통화'),
   );
-  check('직접 VERIFIED 단가가 최우선', /const price = directPrice == null \? fallback\?\.price \?\? null : directPrice/.test(snapshotBlock));
-  check('사용자 확정 도착원가가 catalog보다 우선', /const fallback = arrival \|\| catalogEvidence/.test(snapshotBlock));
+  check('직접 VERIFIED 단가가 최우선', /const exactPrice = directPrice == null \? exactFallback\?\.price \?\? null : directPrice/.test(snapshotBlock));
+  check('사용자 확정 도착원가가 catalog보다 우선', /const exactFallback = arrival \|\| catalogEvidence/.test(snapshotBlock));
   check('catalog는 정확한 ProdKey와 EstUnit 일치일 때만 사용',
     /workbookCatalog\[String\(row\.ProdKey\)\]/.test(snapshotBlock)
     && /catalogCandidate\.unit === normalizeInventoryUnit\(row\.EstUnit\)/.test(snapshotBlock));
