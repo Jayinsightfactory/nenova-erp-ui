@@ -10,9 +10,15 @@
 - 견적/차감은 `Estimate`와 `ShipmentMaster`의 동일 연도·차수 범위를 사용한다.
 - 매입 Q, 국가별 GW/CW, 포워딩은 `WarehouseMaster`·`WarehouseDetail`을 `OrderYear + OrderWeek`로 제한한다.
 - E/F 수량은 EXE가 계산한 마지막 ProductStock를 사용한다. 원본 workbook 수식이 확인된 콜롬비아 수국·카네이션·장미·루스커스·알스트로와 베트남은 `(Q×R + S×R + H) ÷ 당주 매입수량 × ProductStock 재고수량`으로 평가한다. 나머지는 동일 `OrderYear + OrderWeek + ProdKey`의 `VERIFIED` 시점 단가 근거를 사용하고, 2026년 22~28차에 한해 파일 SHA와 정확한 F 셀이 고정된 원본 workbook 값을 마지막 역사 증거로 사용할 수 있다. 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`이며 `Product.Cost`, 최근 입고단가, 수국 하드코딩, E/F 최종값 직접입력으로 대체하지 않는다. H/R/S는 입고 GW/CW·BILL 시점 환율·포워딩 원천에서 자동 계산하고, 외부 인보이스 확정값만 sourceRef·기준일·확정자·확정시각과 함께 웹 전용 원장에 저장한다. 비고도 같은 웹 전용 보고서 저장 경로를 사용한다.
-- `FormProductAdd`의 `Product.Cost` 화면 라벨은 `출고단가`다. 따라서 재고원가로 자동 채택하지
-  않는다. 평균원가 대상과 호주를 제외한 품목에서만 VAT 제외 추천값을 보여주고, 사용자가 확인한
-  경우에만 해당 차수의 WebStockPriceEvidence로 저장한다. 추천 표시 자체는 ERP 원장을 쓰지 않는다.
+- `FormProductAdd`의 `Product.Cost` 화면 라벨은 `출고단가`이므로 재고원가 추천에도 사용하지
+  않는다. 원본 workbook `재고잔량` 시트는 품목별 VAT 포함 단가 하나를 재고수량에 곱하고 국가
+  합계에서 `/1.1`한다. 따라서 평균원가 대상과 호주를 제외한 신규 품목은 같은
+  `OrderYear + MajorWeek + ProdKey`의 확정 출고(`ShipmentMaster.isFix=1`,
+  `ShipmentDetail.isFix=1`)를 `ShipmentDetail.Cost`별로 묶어 가장 많은 서로 다른 업체가 사용한
+  실제 VAT 포함 단가 하나를 우선 제안한다. 업체 수가 같을 때만 `SUM(EstQuantity)`가 큰 단가를
+  우선하고, 모든 실제 단가 후보를 선택 가능하게 표시한다. 후보끼리 평균을 만들거나 다른
+  연도·차수·품목과 미확정 분배를 섞지 않는다. 사용자가 확인한 경우에만
+  마지막 재고 세부차수의 `WebStockPriceEvidence`로 저장하며 추천 표시 자체는 ERP 원장을 쓰지 않는다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
 - 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
 - 2026-08-12 추가(28차 이후 관세청 공식 과세환율 KCS API): R 자동 우선순위 맨 앞에 행별 수기

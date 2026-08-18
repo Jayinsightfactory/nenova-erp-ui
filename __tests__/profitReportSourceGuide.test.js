@@ -211,9 +211,10 @@ async function main() {
   check('기말재고 설명이 원본 평균원가 공식과 검증된 보조 단가를 명시',
     /\(매입액\+그외통관비\) ÷ 매입수량 × 마지막 재고수량/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
-    && /Product\.Cost는 현재 출고단가/.test(byKey.F.note)
-    && /자동값으로 대체하지 않고/.test(byKey.F.note)
-    && /추천값으로 표시/.test(byKey.F.note));
+    && /같은 연도·차수의 확정 분배/.test(byKey.F.note)
+    && /가장 많은 업체가 사용한 단가/.test(byKey.F.note)
+    && /평균값을 만들지 않으며/.test(byKey.F.note)
+    && /사용자가 확인·저장하기 전에는 계산에 적용하지/.test(byKey.F.note));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)
     && /VERIFIED_ARRIVAL_COST/.test(calcSource)
