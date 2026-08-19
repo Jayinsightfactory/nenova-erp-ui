@@ -143,6 +143,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_carried_acquisition_cost: 'EXE ProductStock 수량 × 같은 연도·품목·단위의 이전 VERIFIED 매입원가(근거 이후 새 매입이 없을 때만 이월)',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
+    verified_layered_inventory: '전차수 기말금액(기존 환율)을 기초로 두고 이번 입고만 새 원가로 평가(FIFO)',
+    verified_confirm_snapshot: '전차수 확정 보고서의 기말재고 F를 이번 차수 기초재고로 이월',
     verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
@@ -155,7 +157,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
-    E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
+    E: `기초재고 — 모든 국가·품종에서 전차수 기말재고 F와 같습니다(01차는 전년도 52차).${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
     F: `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate

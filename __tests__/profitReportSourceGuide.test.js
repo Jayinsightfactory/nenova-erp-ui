@@ -213,6 +213,9 @@ async function main() {
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
+  check('기초재고는 모든 국가·품종에서 전차수 기말 F',
+    /모든 국가·품종 줄에서 이번 차수 기초재고 금액은 전차수 기말재고 금액과 같습니다/.test(byKey.E.formula)
+    && /이스라엘·뉴질랜드·일본도 E는 전차수 F/.test(byKey.E.note));
   check('기말재고 설명이 층별 평가와 검증된 보조 단가를 명시',
     /기존재고는 전차수 금액/.test(byKey.F.formula)
     && /입고 시점 구매단가×수량×선율과세환율/.test(byKey.F.formula)

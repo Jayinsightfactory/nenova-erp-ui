@@ -28,7 +28,7 @@ async function main() {
   } = await import('../lib/colombiaFlowerClassification.js');
   const {
     computeLayeredInventoryValue, computeAutoEndingStock, endingStockSourceKind,
-    AUSTRALIA_INVENTORY_CATEGORY,
+    AUSTRALIA_INVENTORY_CATEGORY, reconstructPreviousClosing,
   } = await import('../lib/profitReportCalc.js');
 
   console.log('=== 차량 등급: 2.5t 초과~5t = 5t ===');
@@ -121,6 +121,16 @@ async function main() {
     beginQty: 8, beginValue: au.value, purchaseQty: 0, purchaseValue: 0, endQty: 3,
   });
   check('다음 차수 판매도 입고 당시 환율 유지', near(auSoldLater?.value, 3 * (australiaIncoming / 10)));
+  const nextOpening = reconstructPreviousClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    prevPrevClosing: { value: au.value },
+    prevBeginQty: 8,
+    prevPurchaseQty: 0,
+    prevPurchaseForeign: 0,
+    prevTaxableRate: 1,
+    prevEndQty: 3,
+  });
+  check('호주 다음차수 기초 E는 이번 기말 F', near(nextOpening?.value, auSoldLater?.value));
   const layeredStock = {
     endQty: 8, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_LAYERED_INVENTORY', evidenceValue: au.value,
   };

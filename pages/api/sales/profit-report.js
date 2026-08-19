@@ -14,10 +14,10 @@ import {
   endingStockSourceKind,
   computeProfitRow,
   computeProfitTotals,
-  computeCategoryAverageInventoryValue,
-  computeLayeredInventoryValue,
-  AUSTRALIA_INVENTORY_CATEGORY,
-  CATEGORY_AVERAGE_INVENTORY_KEYS,
+  previousMajorOf,
+  reconstructPreviousClosing,
+  resolveInventoryClosing,
+  resolveNonLayeredInventoryClosing,
 } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
@@ -33,6 +33,42 @@ export function parseMajor(raw) {
   return m ? m[1].padStart(2, '0') : null;
 }
 
+const EMPTY_MANUAL = { manual: {}, evidence: {}, note: '' };
+const EMPTY_STOCK_SNAPSHOT = {
+  week: null, stockKey: null, values: {}, qtys: {}, priceEvidenceStatus: {}, missingPriceCounts: {},
+  conversionMissingCounts: {}, conversionIssues: {},
+  recentCost: {}, recentCostMissingQty: {}, unitMismatch: {}, negativeQtys: {}, anchored: {},
+  priceEvidenceSources: {},
+  selection: 'missing_stock_snapshot', snapshotAvailable: false,
+};
+
+function resolveWeekCategoryCharges({
+  key, orderYear, major, manual = {}, invoiceRates, savedRates, kcsRates, customs, legacyS, rateByCode,
+}) {
+  const currency = currencyCodeForCategory(key);
+  const man = manual[key] || {};
+  const resolved = resolveTaxableRate({
+    snapshotRate: invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null,
+    savedByCategory: savedRates?.byCategory?.[key] || null,
+    savedByCurrency: currency ? savedRates?.byCurrency?.[currency] || null : null,
+    historicalRate: getHistoricalTaxableRate(orderYear, major, key),
+    currency,
+    currencyMasterRate: currency && rateByCode?.[currency] != null ? rateByCode[currency] : null,
+    previousWeekRate: null,
+    previousWeekLabel: null,
+    kcsRate: kcsRates?.byCategory?.[key]?.rate ?? null,
+    kcsDetail: kcsRates?.byCategory?.[key]?.detail ?? null,
+  });
+  const structuredSource = customs?.sources?.S?.[key];
+  const hasStructured = structuredSource != null && structuredSource !== 'missing';
+  const automaticS = hasStructured ? Number(customs?.S?.[key] || 0) : Number(legacyS?.[key] || 0);
+  return {
+    taxableRate: man.R != null ? Number(man.R) : resolved.rate,
+    forwardingForeign: man.S != null ? Number(man.S) : automaticS,
+    customsCost: man.H != null ? Number(man.H) : Number(customs?.H?.[key] || 0),
+  };
+}
+
 // GET/엑셀 공용 — 보고서 행 데이터 구성
 export async function loadReportData(major, orderYear) {
   const currentMajor = Number(major);
@@ -40,7 +76,8 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
+  const prevPrev = previousMajorOf(prevOrderYear, prevMajor);
+  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, prevPrevManual, stockEnd, stockBegin, stockPrevPrev, customs, unclassifiedDetails, savedRates, kcsRates, prevConfirm, prevPrevConfirm] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -49,19 +86,23 @@ export async function loadReportData(major, orderYear) {
         currencyRates(),
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
-        loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용
+        loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용. F 재현에는 전차수 수기 R/H/S를 쓴다.
+        prevPrev ? loadManual(prevPrev.major, prevPrev.orderYear) : Promise.resolve(EMPTY_MANUAL),
         stockSnapshotByCategory(major, orderYear),      // F: EXE 계산 ProductStock + 동일 시점 VERIFIED 단가
         stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
+        prevPrev ? stockSnapshotByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({ ...EMPTY_STOCK_SNAPSHOT }),
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
+        getActiveConfirm(prevOrderYear, prevMajor),
+        prevPrev ? getActiveConfirm(prevPrev.orderYear, prevPrev.major) : Promise.resolve({ initialized: false, confirm: null }),
       ]);
 
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
       // 웹 값에 섞이지 않는다. 01차만 전년도 52차를 사용한다.
-      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRates, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
+      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRates, prevCustoms, prevSavedRates, prevKcsRates, prevPrevQ, prevPrevPurchaseQty, prevPrevLegacyS, prevPrevInvoiceRates, prevPrevCustoms, prevPrevSavedRates, prevPrevKcsRates] = await Promise.all([
         purchaseByCategory(prevMajor, prevOrderYear),
         purchaseQtyByCategory(prevMajor, prevOrderYear),
         forwardingByCategory(prevMajor, prevOrderYear),
@@ -69,6 +110,13 @@ export async function loadReportData(major, orderYear) {
         computeCustomsAndForwarding(prevMajor, prevOrderYear),
         loadTaxableRates(prevOrderYear, prevMajor),
         kcsRatesByCategory(prevMajor, prevOrderYear),
+        prevPrev ? purchaseByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({}),
+        prevPrev ? purchaseQtyByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({}),
+        prevPrev ? forwardingByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({}),
+        prevPrev ? invoiceRatesByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({}),
+        prevPrev ? computeCustomsAndForwarding(prevPrev.major, prevPrev.orderYear) : Promise.resolve({ H: {}, S: {}, sources: { S: {} } }),
+        prevPrev ? loadTaxableRates(prevPrev.orderYear, prevPrev.major) : Promise.resolve({ byCategory: {}, byCurrency: {} }),
+        prevPrev ? kcsRatesByCategory(prevPrev.major, prevPrev.orderYear) : Promise.resolve({ byCategory: {} }),
       ]);
 
       const categories = profitReportCategoriesForWeek(currentMajor);
@@ -77,43 +125,6 @@ export async function loadReportData(major, orderYear) {
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
       const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
-      const previousValuation = Object.fromEntries(categories.map((definition) => {
-        const key = definition.key;
-        const previousManual = prev.manual[key] || {};
-        const currency = currencyCodeForCategory(key);
-        const resolved = resolveTaxableRate({
-          snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
-          savedByCategory: prevSavedRates.byCategory?.[key] || null,
-          savedByCurrency: currency ? prevSavedRates.byCurrency?.[currency] || null : null,
-          historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
-          currency,
-          currencyMasterRate: currency && rateByCode[currency] != null ? rateByCode[currency] : null,
-          previousWeekRate: null,
-          previousWeekLabel: null,
-          kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
-          kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
-        });
-        const structuredSource = prevCustoms.sources?.S?.[key];
-        const hasStructured = structuredSource != null && structuredSource !== 'missing';
-        const automaticS = hasStructured ? Number(prevCustoms.S[key] || 0) : Number(prevLegacyS[key] || 0);
-        const previousConversionMissing = Number(stockBegin.conversionMissingCounts?.[key] || 0) > 0;
-        const previousUnitMismatch = stockBegin.unitMismatch?.[key] === true;
-        const average = (!previousConversionMissing && !previousUnitMismatch) ? computeCategoryAverageInventoryValue({
-          category: key,
-          purchaseForeign: Number(prevQ[key] || 0),
-          forwardingForeign: previousManual.S != null ? Number(previousManual.S) : automaticS,
-          taxableRate: previousManual.R != null ? Number(previousManual.R) : resolved.rate,
-          customsCost: previousManual.H != null ? Number(previousManual.H) : Number(prevCustoms.H[key] || 0),
-          purchaseQty: Number(prevPurchaseQty[key] || 0),
-          stockQty: Number(stockBegin.qtys[key] || 0),
-        }) : null;
-        return [key, {
-          average,
-          historical: getHistoricalClosingInventoryEvidence(prevOrderYear, prevMajor, key),
-          conversionMissing: previousConversionMissing,
-          unitMismatch: previousUnitMismatch,
-        }];
-      }));
 
       const rows = keys.map(key => {
         const def = categories.find(c => c.key === key) || {};
@@ -150,29 +161,98 @@ export async function loadReportData(major, orderYear) {
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        // E를 먼저 확정한 뒤, 기말 F는 기존재고(기존 환율) + 신규입고(이번 환율)로 쌓는다.
-        const previous = previousValuation[key] || {};
-        const directBeginValue = stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null;
-        const resolvedBegin = previous.average
+        // 모든 국가·품종: 이번 차수 E = 전차수 F. 01차는 전년도 52차 F.
+        // 전차수가 확정되어 있으면 그 F를 쓰고, 아니면 전차수 F 공식(층별이면 전전차수 비층별 기말+전차수 입고)으로 재현한다.
+        const previousConversionMissing = Number(stockBegin.conversionMissingCounts?.[key] || 0) > 0;
+        const previousUnitMismatch = stockBegin.unitMismatch?.[key] === true;
+        const prevPrevConversionMissing = Number(stockPrevPrev.conversionMissingCounts?.[key] || 0) > 0;
+        const prevPrevUnitMismatch = stockPrevPrev.unitMismatch?.[key] === true;
+        const previous = { conversionMissing: previousConversionMissing, unitMismatch: previousUnitMismatch };
+        const prevCharges = resolveWeekCategoryCharges({
+          key, orderYear: prevOrderYear, major: prevMajor, manual: prev.manual,
+          invoiceRates: prevInvoiceRates, savedRates: prevSavedRates, kcsRates: prevKcsRates,
+          customs: prevCustoms, legacyS: prevLegacyS, rateByCode,
+        });
+        const prevPrevCharges = prevPrev ? resolveWeekCategoryCharges({
+          key, orderYear: prevPrev.orderYear, major: prevPrev.major, manual: prevPrevManual.manual,
+          invoiceRates: prevPrevInvoiceRates, savedRates: prevPrevSavedRates, kcsRates: prevPrevKcsRates,
+          customs: prevPrevCustoms, legacyS: prevPrevLegacyS, rateByCode,
+        }) : null;
+        const prevHistorical = getHistoricalClosingInventoryEvidence(prevOrderYear, prevMajor, key);
+        const prevPrevHistorical = prevPrev
+          ? getHistoricalClosingInventoryEvidence(prevPrev.orderYear, prevPrev.major, key)
+          : null;
+        const prevPrevConfirmedF = (prevPrevConfirm?.initialized && prevPrevConfirm.confirm)
+          ? (prevPrevConfirm.rowsByCategory?.[key]?.calc?.F ?? prevPrevConfirm.rowsByCategory?.[key]?.source?.F)
+          : null;
+        const prevPrevClosing = (prevPrevConfirmedF != null && Number.isFinite(Number(prevPrevConfirmedF)))
           ? {
-              value: previous.average.value,
-              status: 'VERIFIED_CATEGORY_AVERAGE',
-              sources: [`erp:${prevOrderYear}:${stockBegin.week || `${prevMajor}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
+              value: Number(prevPrevConfirmedF),
+              status: 'VERIFIED_CONFIRM_SNAPSHOT',
+              method: 'confirm_snapshot',
+              sources: [`confirm:${prevPrev.orderYear}:${prevPrev.major}:F`],
             }
-          : directBeginValue != null
-            ? {
-                value: directBeginValue,
-                status: stockBegin.priceEvidenceStatus?.[key] || 'VERIFIED',
-                sources: stockBegin.priceEvidenceSources?.[key] || [],
-              }
-            : previous.historical
-              ? { value: Number(previous.historical.value), status: previous.historical.status, sources: [previous.historical.sourceRef] }
-              : null;
+          : (prevPrev
+            ? resolveNonLayeredInventoryClosing({
+              category: key,
+              purchaseForeign: Number(prevPrevQ[key] || 0),
+              forwardingForeign: prevPrevCharges?.forwardingForeign,
+              taxableRate: prevPrevCharges?.taxableRate,
+              customsCost: prevPrevCharges?.customsCost,
+              purchaseQty: Number(prevPrevPurchaseQty[key] || 0),
+              stockQty: Number(stockPrevPrev.qtys[key] || 0),
+              conversionMissing: prevPrevConversionMissing,
+              unitMismatch: prevPrevUnitMismatch,
+              directValue: stockPrevPrev.values[key] != null ? Number(stockPrevPrev.values[key]) : null,
+              historicalValue: prevPrevHistorical?.value,
+              directStatus: stockPrevPrev.priceEvidenceStatus?.[key],
+              historicalStatus: prevPrevHistorical?.status,
+              directSources: stockPrevPrev.priceEvidenceSources?.[key],
+              historicalSources: prevPrevHistorical ? [prevPrevHistorical.sourceRef] : [],
+            })
+            : null);
+        const confirmedPreviousF = (prevConfirm?.initialized && prevConfirm.confirm)
+          ? (prevConfirm.rowsByCategory?.[key]?.calc?.F ?? prevConfirm.rowsByCategory?.[key]?.source?.F)
+          : null;
+        const previousClosing = reconstructPreviousClosing({
+          category: key,
+          confirmedPreviousF,
+          confirmedPreviousSources: confirmedPreviousF != null
+            ? [`confirm:${prevOrderYear}:${prevMajor}:F`]
+            : null,
+          prevPrevClosing,
+          prevBeginQty: Number(stockPrevPrev.qtys[key] || 0),
+          prevPurchaseQty: Number(prevPurchaseQty[key] || 0),
+          prevPurchaseForeign: Number(prevQ[key] || 0),
+          prevForwardingForeign: prevCharges.forwardingForeign,
+          prevTaxableRate: prevCharges.taxableRate,
+          prevCustomsCost: prevCharges.customsCost,
+          prevEndQty: Number(stockBegin.qtys[key] || 0),
+          prevConversionMissing: previousConversionMissing,
+          prevUnitMismatch: previousUnitMismatch,
+          prevDirectValue: stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null,
+          prevHistoricalValue: prevHistorical?.value,
+          prevDirectStatus: stockBegin.priceEvidenceStatus?.[key],
+          prevHistoricalStatus: prevHistorical?.status,
+          prevDirectSources: stockBegin.priceEvidenceSources?.[key],
+          prevHistoricalSources: prevHistorical ? [prevHistorical.sourceRef] : [],
+        });
+        const resolvedBegin = previousClosing
+          ? {
+              value: previousClosing.value,
+              status: previousClosing.status,
+              sources: (previousClosing.sources || []).map((src) => (
+                src.startsWith('erp:') || src.startsWith('confirm:') || src.startsWith('workbook')
+                  ? src
+                  : `erp:${prevOrderYear}:${stockBegin.week || `${prevMajor}-last`}:${src}`
+              )),
+            }
+          : null;
         const beginStock = {
           week: stockBegin.week,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           evidenceValue: resolvedBegin?.value ?? null,
-          snapshotConfirmed: stockBegin.snapshotAvailable === true,
+          snapshotConfirmed: stockBegin.snapshotAvailable === true || previousClosing?.method === 'confirm_snapshot',
           priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedBegin?.sources || [],
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
@@ -184,55 +264,40 @@ export async function loadReportData(major, orderYear) {
         const stockESourceKind = endingStockSourceKind(beginStock);
         const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
         const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
-        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue({
+        const purchaseQtyValue = Number(purchaseQty[key] || 0);
+        const endQtyValue = stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0;
+        const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
+        const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
+        const currentClosing = resolveInventoryClosing({
           category: key,
+          beginQty: beginStock.endQty,
+          beginValue: autoE,
+          purchaseQty: purchaseQtyValue,
           purchaseForeign: Number(Q[key] || 0),
           forwardingForeign: man.S != null ? Number(man.S) : autoS,
           taxableRate: man.R != null ? Number(man.R) : autoR,
           customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
-          purchaseQty: Number(purchaseQty[key] || 0),
-          stockQty: Number(stockEnd.qtys[key] || 0),
-        }) : null;
-        const purchaseQtyValue = Number(purchaseQty[key] || 0);
-        const endQtyValue = stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0;
-        const incomingPurchaseValue = key === AUSTRALIA_INVENTORY_CATEGORY
-          ? ((man.R != null ? Number(man.R) : autoR) != null && Number.isFinite(Number(Q[key] || 0))
-            ? Number(Q[key] || 0) * Number(man.R != null ? man.R : autoR)
-            : (purchaseQtyValue === 0 ? 0 : null))
-          : (categoryAverageEnd ? categoryAverageEnd.unitCost * purchaseQtyValue : (purchaseQtyValue === 0 ? 0 : null));
-        const usesLayeredInventory = CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key) || key === AUSTRALIA_INVENTORY_CATEGORY;
-        const layeredEnd = (usesLayeredInventory && !endConversionMissing && !endUnitMismatch)
-          ? computeLayeredInventoryValue({
-            beginQty: beginStock.endQty,
-            beginValue: autoE,
-            purchaseQty: purchaseQtyValue,
-            purchaseValue: incomingPurchaseValue,
-            endQty: endQtyValue,
-          })
-          : null;
-        const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
-        const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
-        const resolvedEnd = layeredEnd
+          endQty: endQtyValue,
+          conversionMissing: endConversionMissing,
+          unitMismatch: endUnitMismatch,
+          directValue: directEndValue,
+          historicalValue: historicalEnd?.value,
+          directStatus: stockEnd.priceEvidenceStatus?.[key],
+          historicalStatus: historicalEnd?.status,
+          directSources: stockEnd.priceEvidenceSources?.[key],
+          historicalSources: historicalEnd ? [historicalEnd.sourceRef] : [],
+        });
+        const resolvedEnd = currentClosing
           ? {
-              value: layeredEnd.value,
-              status: layeredEnd.status,
-              sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:layered-inventory:${layeredEnd.method}`],
+              value: currentClosing.value,
+              status: currentClosing.status,
+              sources: (currentClosing.sources || []).map((src) => (
+                src.startsWith('erp:') || src.startsWith('workbook')
+                  ? src
+                  : `erp:${orderYear}:${stockEnd.week || `${major}-last`}:${src}`
+              )),
             }
-          : categoryAverageEnd
-            ? {
-                value: categoryAverageEnd.value,
-                status: 'VERIFIED_CATEGORY_AVERAGE',
-                sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
-              }
-            : directEndValue != null
-              ? {
-                  value: directEndValue,
-                  status: stockEnd.priceEvidenceStatus?.[key] || 'VERIFIED',
-                  sources: stockEnd.priceEvidenceSources?.[key] || [],
-                }
-              : historicalEnd
-                ? { value: Number(historicalEnd.value), status: historicalEnd.status, sources: [historicalEnd.sourceRef] }
-                : null;
+          : null;
         const stock = {
           week: stockEnd.week,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
