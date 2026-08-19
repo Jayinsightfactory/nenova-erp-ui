@@ -13,6 +13,7 @@ async function main() {
     isOperationalEstimateDescr,
     isPrintableEstimateRow,
     isEstimateDeductionRow,
+    isDefectDeductionRow,
     sanitizeEstimateDescrForDisplay,
     sanitizeDescrTextForPrint,
     mergeEstimateDescrRaw,
@@ -88,6 +89,18 @@ async function main() {
   assert('차감 사용자 메모 우선', formatEstimatePrintDescr(
     { EstimateKey: 1, EstimateType: '검역차감/송이', Descr: '현장 확인 필요', outDate: '2026-06-04' }
   ) === '현장 확인 필요');
+  assert('불량차감 적요 인쇄 기본 미표시', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
+  ) === '');
+  assert('불량차감 적요 인쇄 옵션 표시', formatEstimatePrintDescr(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
+    { showDeductionDescr: true },
+  ) === '수입부 메모');
+  assert('불량차감 적요 화면 유지', sanitizeEstimateDescrForDisplay(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
+  ) === '수입부 메모');
+  assert('불량차감 유형 판별', isDefectDeductionRow({ EstimateType: '불량차감/송이' }));
+  assert('단가차감은 불량차감 아님', !isDefectDeductionRow({ EstimateType: '단가차감/단' }));
   assert('차감 혼합 비고 전체', formatEstimatePrintDescr(
     { EstimateKey: 1, EstimateType: '검역차감/송이', DescrRaw: '현장 확인\n차감수량 10>8', outDate: '2026-06-04' }
   ) === '현장 확인, 차감수량 10>8');
@@ -163,6 +176,9 @@ async function main() {
   console.log('\n=== isEstimateDeductionRow (Estimate 전용 행) ===');
   assert('EstimateKey+SdetailKey null', isEstimateDeductionRow({ EstimateKey: 1, EstimateType: 'fee03' }));
   assert('정상출고 ShipmentDetail', !isEstimateDeductionRow({ EstimateKey: null, SdetailKey: 10, EstimateType: '정상출고' }));
+  assert('불량차감 유형', isDefectDeductionRow({ EstimateType: '불량차감/송이' }));
+  assert('fee03 코드', isDefectDeductionRow({ EstimateType: 'fee03' }));
+  assert('검역차감은 불량차감 아님', !isDefectDeductionRow({ EstimateType: '검역차감/송이' }));
 
   console.log('\n=== mergeEstimateDescrRaw (byDate Detail+Date) ===');
   assert('출고일 운영로그만 있어도 분배 메모 병합', sanitizeDescrTextForPrint(

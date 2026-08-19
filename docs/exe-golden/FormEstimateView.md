@@ -37,6 +37,13 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 표시하며, 이 보강은 읽기 전용 출력 경로에서만 동작하고 Estimate 원장을 수정하지
 않는다.
 
+### 웹 인쇄 — 불량차감 적요 기본 미표시
+
+EXE `ReportEstimate`는 `GetPrintDetail`의 `Descr`을 그대로 적요에 바인딩한다.
+웹 인쇄는 정상출고·검역·단가차감 적요는 이 원문을 유지하고, **불량차감 적요만**
+기본 숨긴다. 인쇄 다이얼로그의 `불량차감 적요 표시`를 켠 경우에만 `Estimate.Descr`을
+출력한다. 이 옵션은 화면 표시와 원장 값을 바꾸지 않는다.
+
 ## GetData 핵심 조건
 
 - `sm.OrderYearWeek = @orderYearWeek`
