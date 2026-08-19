@@ -4,6 +4,30 @@
 
 ---
 
+## [2026-08-19 09:35] 세션 — 견적서 추가 품목등록 배치 사이클
+
+### 작업 내용
+- 견적서관리 추가 품목등록: 농장 불필요, 단가 리스트는 금액만 적용, 모달은 목록에 담기만.
+- [수정 저장]이 수량·단가·추가 품목을 한 번의 확정해제→저장→재확정으로 처리.
+- 기존 출고수량 미변경 시 재확정 재고계산 생략.
+- origin/master(`a95100a`) 기준 `fix/estimate-additional-batch-cycle`에 수술식 패치. Drive 워크트리 `adjust.js`는 덮어쓰지 않음.
+
+### 변경된 파일
+- `lib/estimateAdditionalProduct.js`: 농장 필수 제거, `applyReferenceCostOnly`, `shouldSkipFixCycleStockCalc`
+- `components/estimate/OrderRegisterDistributeModal.js`: 농장 UI 제거, `onQueue`
+- `pages/estimate.js`: `pendingAdds`, `skipFinalStockCalc`
+- `pages/api/estimate/additional-product-context.js`: CustomerProdCost, 농장 후보 제거
+- `pages/api/shipment/adjust.js`: `estimateAdditional` 수신만
+- 계약/테스트/exe-golden/ERP_CHANGE_GUARD
+
+### 다음 작업 예정
+- 테스트 → 커밋 → PR → master 병합 → Cafe24 배포
+
+### 미결 이슈 / 블로킹
+- 없음
+
+---
+
 ## [2026-08-11] 세션 — 매출이익 보고서 항목별 데이터 기준 보기
 
 ### 작업 내용

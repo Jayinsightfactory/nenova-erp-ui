@@ -56,8 +56,10 @@ async function main() {
   assert.match(costApi, /WEEK_PROD_COST_YEAR_PROBE_SQL/);
 
   assert.match(fixClient, /action, force: false/);
-  assert.match(modal, /runEditWithFixCycle/);
+  assert.match(estimatePage, /pendingAdds[\s\S]*?runEditWithFixCycle|applyAllEdits/);
+  assert.match(estimatePage, /skipFinalStockCalc/);
   assert.doesNotMatch(modal, /force:\s*true/);
+  assert.doesNotMatch(modal, /runEditWithFixCycle/);
   assert.doesNotMatch(stockPage, /postAdjustBatch\([^)]*force:\s*true/);
   assert.doesNotMatch(stockApi, /if \(!force/);
   assert.doesNotMatch(raum, /force:\s*true/);

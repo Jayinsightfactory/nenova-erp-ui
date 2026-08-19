@@ -52,6 +52,7 @@ import {
 import { getEstimateShipmentManager, sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
+import { shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1076,6 +1077,7 @@ export default function Estimate() {
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showAdditionalProduct, setShowAdditionalProduct] = useState(false);
+  const [pendingAdds, setPendingAdds] = useState([]);
   const [defectContext, setDefectContext] = useState(null);
   const [defectContextLoading, setDefectContextLoading] = useState(false);
   const [defectContextError, setDefectContextError] = useState('');
@@ -1433,13 +1435,13 @@ export default function Estimate() {
   // lightStock: 단가수정처럼 재고 수치가 안 변하는 편집용 — 사이클 중간 재고 재계산을 전부
   // 생략(skipStockCalc)하고, 마지막 재확정 1회만 전체 재계산으로 스냅샷을 정리한다.
   // 수량수정은 재고가 실제로 변하므로 lightStock 을 켜지 말 것.
-  const runEditWithFixCycle = async ({ weeks, orderYear, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false }) => {
+  const runEditWithFixCycle = async ({ weeks, orderYear, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false, skipFinalStockCalc = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const selectedYear = resolveFixStatusOrderYear(orderYear, ...targetWeeks);
     const unfixedWeeks = [];
     let applyResult = null;
     let applyError = null;
-    const skipBody = lightStock ? { skipStockCalc: true } : {};
+    const skipBody = (lightStock || skipFinalStockCalc) ? { skipStockCalc: true } : {};
     try {
       for (const wk of sortWeeksDesc(targetWeeks)) {
         progress?.(`${wk} 확정해제 중`);
@@ -1468,9 +1470,9 @@ export default function Estimate() {
     for (let i = 0; i < refixWeeks.length; i++) {
       const wk = refixWeeks[i];
       const isLast = i === refixWeeks.length - 1;
-      progress?.(`${wk} 재확정 중${lightStock && isLast ? ' (재고 정리 재계산 포함)' : ''}`);
-      // 경량 모드: 마지막 재확정만 전체 재계산으로 스냅샷 정리
-      await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys, isLast ? {} : skipBody);
+      progress?.(`${wk} 재확정 중${skipFinalStockCalc ? ' (기존 확정 재고 유지)' : (lightStock && isLast ? ' (재고 정리 재계산 포함)' : '')}`);
+      // 기존 수량 변경이 없으면 재확정 수량계산을 생략하고 확정 스냅샷을 그대로 쓴다.
+      await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys, (isLast && !skipFinalStockCalc) ? {} : skipBody);
     }
 
     if (applyError) throw applyError;
@@ -2026,15 +2028,15 @@ export default function Estimate() {
   }
 
   async function applyAllEdits() {
-    if (editedCount === 0 && editedQtyCount === 0) return;
+    if (editedCount === 0 && editedQtyCount === 0 && pendingAdds.length === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
 
     setQtyApplying(true);
     setCostApplying(true);
-    setEditApplyTitle('단가/수량 수정 저장');
+    setEditApplyTitle(pendingAdds.length ? '단가/수량/추가품목 저장' : '단가/수량 수정 저장');
     setQtyResult(null);
     setCostResult(null);
-    setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 단가/수량 수정 시작` }]);
+    setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 단가/수량/추가품목 저장 시작` }]);
 
     try {
       const qtyPending = [];
@@ -2098,12 +2100,16 @@ export default function Estimate() {
         }
       });
 
-      if (qtyPending.length === 0 && costItems.length === 0) throw new Error('수정 대상이 없습니다.');
+      if (qtyPending.length === 0 && costItems.length === 0 && pendingAdds.length === 0) throw new Error('수정 대상이 없습니다.');
 
       // 실제 날짜분배를 바꾸는 정상출고 수량과 단가 수정은 확정 사이클 대상이다.
       // 차감(Estimate.Quantity)만 단독 수정하는 경우에는 ShipmentDetail 사이클이 필요 없다.
       const physicalQtyItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
-      const cycleItems = [...costItems, ...physicalQtyItems];
+      const addWeekShort = `${String(weekNum).padStart(2, '0')}-02`;
+      const addCycleItems = pendingAdds.map((t) => ({ OrderWeek: addWeekShort, ProdKey: t.prodKey }));
+      const cycleItems = [...costItems, ...physicalQtyItems, ...addCycleItems];
+      const existingQtyChanged = physicalQtyItems.length > 0;
+      const skipStockCalc = shouldSkipFixCycleStockCalc({ existingQtyChanged });
       const derivedCycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
       // 단가/출고일 수량을 함께 저장하는 경로에서 화면 행에 OrderWeek가 누락되어도
       // 확정 사이클을 생략하지 않는다. 선택 견적의 세부차수를 안전한 fallback으로 사용한다.
@@ -2121,7 +2127,7 @@ export default function Estimate() {
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ''}`,
         }]);
       }
 
@@ -2203,7 +2209,41 @@ export default function Estimate() {
           }
           costResultData = d;
         }
-        return { qtyResults, costResultData };
+        const addResults = [];
+        if (pendingAdds.length > 0) {
+          for (const t of pendingAdds) {
+            setCostApplyLog(prev => [...prev, {
+              step: 'save',
+              label: `${t.weekShort || addWeekShort} ${t.prodName} 추가 품목 저장 — +${t.qty}${t.unit} / ${Number(t.cost).toLocaleString()}원`,
+            }]);
+            try {
+              const d = await apiPost('/api/shipment/adjust', {
+                custKey: t.custKey,
+                prodKey: t.prodKey,
+                week: t.week,
+                type: 'ADD',
+                qty: t.qty,
+                unit: t.unit,
+                year: yearStr,
+                mode: 'PIVOT_DISTRIBUTION',
+                unitCost: t.cost,
+                costSourceId: t.costSourceId,
+                shipmentDate: t.shipmentDate,
+                estimateAdditional: true,
+                memo: `견적서 추가 품목: ${t.prodName} +${t.qty}${t.unit} 단가출처=${t.costSourceId}`,
+                force: false,
+              });
+              addResults.push({ ...t, ok: !!d.success, error: d.error });
+            } catch (e) {
+              addResults.push({ ...t, ok: false, error: e.message });
+            }
+          }
+          if (addResults.some(r => !r.ok)) {
+            const first = addResults.find(r => !r.ok);
+            throw new Error(first?.error || '추가 품목 저장 실패');
+          }
+        }
+        return { qtyResults, costResultData, addResults };
       };
 
       const runCombinedFixCycle = async (weeks) => runEditWithFixCycle({
@@ -2212,9 +2252,11 @@ export default function Estimate() {
         // 확정된 상세가 화면 품목과 다른 카테고리로 섞여 있을 수 있다.
         // EXE의 차수 확정 단위와 동일하게 전체 고정 범위를 해제·재확정한다.
         countryFlowers: [],
-        stockProdKeys: cycleStockProdKeys,
+        stockProdKeys: existingQtyChanged ? cycleStockProdKeys : [],
         progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
         apply: runCombinedUpdate,
+        lightStock: skipStockCalc,
+        skipFinalStockCalc: skipStockCalc,
       });
 
       let combinedResult;
@@ -2239,27 +2281,29 @@ export default function Estimate() {
         combinedResult = await runCombinedFixCycle(retryWeeks);
       }
 
-      const { qtyResults, costResultData } = combinedResult;
+      const { qtyResults, costResultData, addResults = [] } = combinedResult;
 
       const okQty = qtyResults.filter(r => r.ok).length;
       const failedQty = qtyResults.length - okQty;
+      const okAdds = addResults.filter(r => r.ok).length;
       setQtyResult({ results: qtyResults, okCount: okQty, failCount: failedQty });
       setCostApplyLog(prev => [...prev, {
         step: failedQty ? 'error' : 'done',
         label: failedQty
-          ? `수량 저장 실패 ${failedQty}건 — 단가 저장은 실행하지 않음`
-          : '완료 — 단가/수량 반영 후 견적서 재조회 중',
+          ? `수량 저장 실패 ${failedQty}건 — 단가/추가품목 저장은 실행하지 않음`
+          : `완료 — 단가/수량/추가품목 ${okAdds}건 반영 후 견적서 재조회 중`,
       }]);
       setCostResult({
         success: failedQty === 0,
         type: 'combined',
-        changedCount: okQty + Number(costResultData.changedCount || 0),
+        changedCount: okQty + Number(costResultData.changedCount || 0) + okAdds,
         totalDiff: Number(costResultData.diffAmount || 0),
         error: failedQty ? '일부 수량 저장 실패' : undefined,
       });
       if (failedQty === 0) {
         setQtyEdits({});
         setCostEdits({});
+        setPendingAdds([]);
       }
       await load(true);
       if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
@@ -3685,15 +3729,15 @@ export default function Estimate() {
             )}
             <div style={{marginLeft:'auto', display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
               {/* ── 단가 수정 모드 선택 + 적용 버튼 (P3) ── */}
-              {(editedCount > 0 || editedQtyCount > 0) && (
+              {(editedCount > 0 || editedQtyCount > 0 || pendingAdds.length > 0) && (
                 <button
                   className="btn btn-sm"
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
                   disabled={costApplying || qtyApplying}
                   onClick={applyAllEdits}
-                  title="단가와 수량 변경분을 한 번의 확정해제/저장/재확정 흐름으로 처리"
+                  title="수량·단가·추가 품목을 한 번의 확정해제/저장/재확정으로 처리. 기존 수량 변경이 없으면 재고 재계산을 생략합니다."
                 >
-                  수정 저장 ({editedCount + editedQtyCount})
+                  수정 저장 ({editedCount + editedQtyCount + pendingAdds.length})
                 </button>
               )}
               {editedCount > 0 && editedQtyCount === 0 && (
@@ -3771,7 +3815,7 @@ export default function Estimate() {
                 title="선택한 거래처에 판매요청 Estimate를 등록합니다.">
                 ＋ 판매요청
               </button>
-              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip} onClick={()=>setShowAdditionalProduct(true)} title="현재 연도·차수의 검증된 02차에 추가 품목을 등록합니다.">＋ 추가 품목등록</button>
+              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
               <button className="btn btn-sm"
                 disabled={!selectedItemForEdit || itemEditorSaving}
                 onClick={() => openItemEditor(selectedItemForEdit)}
@@ -3782,7 +3826,19 @@ export default function Estimate() {
             </div>
           </div>
 
-          <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} onSuccess={async()=>{setShowAdditionalProduct(false);await load(true);if(selectedShip)selectShipment(selectedId,selectedShip.CustKey,selectedShip.ShipmentKeys);}} />
+          <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
+          {pendingAdds.length > 0 && (
+            <div style={{margin:'8px 12px 0',padding:'8px 10px',borderRadius:8,background:'#f5f3ff',border:'1px solid #ddd6fe',fontSize:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <b style={{color:'#5b21b6'}}>담은 추가 품목 {pendingAdds.length}건</b>
+                <span style={{color:'#64748b'}}>수량/단가 수정과 함께 [수정 저장]으로 한 번에 반영됩니다.</span>
+                <button type="button" className="btn btn-sm" style={{marginLeft:'auto'}} onClick={()=>setPendingAdds([])}>담기 취소</button>
+              </div>
+              {pendingAdds.map((t,i)=>(
+                <div key={`${t.prodKey}-${i}`} style={{marginTop:4,color:'#334155'}}>{t.prodName}: +{t.qty}{t.unit} / {Number(t.cost).toLocaleString()}원</div>
+              ))}
+            </div>
+          )}
           {/* 견적서 테이블 */}
           <div style={{overflowY:'auto', flex:1}}>
             {itemLoading

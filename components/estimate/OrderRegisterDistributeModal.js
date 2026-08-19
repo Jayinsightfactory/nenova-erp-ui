@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost } from '../../lib/useApi';
+import { apiGet } from '../../lib/useApi';
 import { formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
-import { ensureWeekCanDistribute } from '../../lib/ensureWeekCanDistribute';
-import { buildEstimateAdditionalWeek, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
-import { runEditWithFixCycle } from '../../lib/fixCycleClient';
+import { applyReferenceCostOnly, buildEstimateAdditionalWeek, formatReferenceCostLabel, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
 
 function buildFullWeek(yearStr, shortWeek) {
   const w = String(shortWeek || '').trim();
@@ -28,7 +26,6 @@ function emptyLine() {
     contextError: '',
     costSourceId: '',
     cost: '',
-    farmKey: '',
   };
 }
 
@@ -40,7 +37,7 @@ export default function OrderRegisterDistributeModal({
   selectedShip,
   initialCust,
   products = [],
-  onSuccess,
+  onQueue,
 }) {
   const [cust, setCust] = useState(null);
   const [custQuery, setCustQuery] = useState('');
@@ -107,13 +104,13 @@ export default function OrderRegisterDistributeModal({
       unit: normalizeOrderUnit(prod.OutUnit),
       prodSearch: prod.ProdName || '',
       prodOpen: false,
-      context: null, contextError: '단가·농장 조회 중…', costSourceId:'', cost:'', farmKey:'',
+      context: null, contextError: '단가 조회 중…', costSourceId:'', cost:'',
     });
     try {
       const d = await apiGet('/api/estimate/additional-product-context', {
         year: yearStr, week: `${String(weekNum).padStart(2,'0')}-02`, custKey: cust?.CustKey, prodKey: prod.ProdKey,
       });
-      updateLine(lineId, { context:d, contextError:'', farmKey:'' });
+      updateLine(lineId, { context:d, contextError:'' });
     } catch (e) { updateLine(lineId, { context:null, contextError:e.message }); }
   };
 
@@ -133,7 +130,7 @@ export default function OrderRegisterDistributeModal({
         qty,
         unit: normalizeOrderUnit(l.unit),
         type: l.action === 'CANCEL' ? 'CANCEL' : 'ADD',
-        context:l.context, contextError:l.contextError, cost:Number(l.cost), costSourceId:l.costSourceId, farmKey:Number(l.farmKey),
+        context:l.context, contextError:l.contextError, cost:Number(l.cost), costSourceId:l.costSourceId,
       };
     })
     .filter(Boolean);
@@ -143,63 +140,25 @@ export default function OrderRegisterDistributeModal({
     if (!weekValue) { alert('등록 차수를 선택하세요.'); return; }
     if (!validTargets.length) { alert('품목과 수량을 입력하세요.'); return; }
 
-    try { validTargets.forEach(t => validateAdditionalProductSelection({cost:t.cost,costSourceId:t.costSourceId,farmKey:t.farmKey,shipmentDate:t.context?.shipmentDate})); }
+    try { validTargets.forEach(t => validateAdditionalProductSelection({cost:t.cost,costSourceId:t.costSourceId,shipmentDate:t.context?.shipmentDate})); }
     catch(e) { alert(e.message); return; }
-    const preview = validTargets.map(t => `${t.prodName}: +${t.qty}${t.unit} / ${t.cost.toLocaleString()}원 / ${t.context?.farms?.find(f=>f.farmKey===t.farmKey)?.farmName||''}`).join('\n');
-    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(weekValue)}\n${validTargets.length}개 품목을 02차에 등록합니다.\n\n${preview}\n\n기존 주문이 있으면 주문수량은 유지하고 분배만 증가합니다. 진행할까요?`)) return;
+    const preview = validTargets.map(t => `${t.prodName}: +${t.qty}${t.unit} / ${t.cost.toLocaleString()}원`).join('\n');
+    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(weekValue)}\n${validTargets.length}개 품목을 목록에 담습니다.\n\n${preview}\n\n바로 저장하지 않습니다. 수량/단가 수정과 함께 [수정 저장]에서 한 번에 확정해제→저장→재확정합니다.`)) return;
 
-    if (!(await ensureWeekCanDistribute(weekValue, validTargets.map(t => t.prodKey), yearStr))) return;
-
-    setRunning(true);
-    setResult(null);
-    const details = [];
-    const mustCycle = validTargets.some(t => t.context?.fixed);
-    const apply = async () => {
-      for (const t of validTargets) {
-        try {
-        const d = await apiPost('/api/shipment/adjust', {
-          custKey: cust.CustKey,
-          prodKey: t.prodKey,
-          week: weekValue,
-          type: t.type,
-          qty: t.qty,
-          unit: t.unit,
-          year: yearStr,
-          mode: 'PIVOT_DISTRIBUTION',
-          unitCost: t.cost,
-          costSourceId: t.costSourceId,
-          shipmentDate: t.context.shipmentDate,
-          farmAssignments: [{ farmKey:t.farmKey, shipmentQuantity:t.qty }],
-          memo: `견적서 추가 품목: ${t.prodName} +${t.qty}${t.unit} 단가출처=${t.costSourceId}`,
-          force: false,
-        });
-        details.push({ ...t, ok: !!d.success, error: d.error });
-        } catch (e) { details.push({ ...t, ok: false, error: e.message }); }
-      }
-      return { success: details.every(d => d.ok) };
-    };
-    try {
-      if (mustCycle) {
-        await runEditWithFixCycle({
-          weeks: [`${String(weekNum).padStart(2,'0')}-02`],
-          orderYear: yearStr,
-          stockProdKeys: validTargets.map(t => t.prodKey),
-          apply,
-        });
-      } else {
-        await apply();
-      }
-    } catch (e) {
-      if (!details.length) validTargets.forEach(t=>details.push({...t,ok:false,error:e.message}));
-      else details.push({prodName:'확정 사이클',ok:false,error:e.message});
-    }
-    const okCount = details.filter(d => d.ok).length;
-    const failCount = details.length - okCount;
-    setResult({ okCount, failCount, details });
-    setRunning(false);
-    if (okCount > 0) {
-      onSuccess?.({ custKey: cust.CustKey, week: weekValue, okCount });
-    }
+    onQueue?.(validTargets.map(t => ({
+      prodKey: t.prodKey,
+      prodName: t.prodName,
+      qty: t.qty,
+      unit: t.unit,
+      cost: t.cost,
+      costSourceId: t.costSourceId,
+      shipmentDate: t.context.shipmentDate,
+      week: weekValue,
+      weekShort: `${String(weekNum).padStart(2,'0')}-02`,
+      custKey: cust.CustKey,
+      custName: cust.CustName,
+      fixed: !!t.context?.fixed,
+    })));
   };
 
   if (!open) return null;
@@ -214,7 +173,7 @@ export default function OrderRegisterDistributeModal({
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 17, fontWeight: 900, color: '#0f172a' }}>추가 품목등록</div>
             <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
-              현재 연도·차수의 검증된 <strong>02차</strong>에 주문 정책과 농장분배 계약을 적용합니다.
+              품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다. 농장배정은 하지 않습니다.
             </div>
           </div>
           <button type="button" onClick={() => !running && onClose()} style={{ border: 0, background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#64748b' }}>✕</button>
@@ -328,14 +287,18 @@ export default function OrderRegisterDistributeModal({
                     <button type="button" onClick={() => removeLine(line.id)} disabled={running} style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', cursor: 'pointer' }}>−</button>
                     <div style={{gridColumn:'1 / -1',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                       {line.contextError && <div style={{gridColumn:'1 / -1',fontSize:11,color:'#c62828'}}>{line.contextError}</div>}
-                      <select value={line.costSourceId} onChange={e=>{const id=e.target.value;const src=line.context?.priceSources?.find(x=>x.id===id);updateLine(line.id,{costSourceId:id,cost:src?.cost||''});}} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
-                        <option value="">참고단가 출처 선택 (자동 확정 안 함)</option>
-                        {(line.context?.priceSources||[]).map(s=><option key={s.id} value={s.id}>{s.customerName} · {s.year} {s.week} · {s.shipmentDate} · VAT 포함 · {Number(s.cost).toLocaleString()}원</option>)}
+                      <select value={line.costSourceId} onChange={e=>{
+                        const id=e.target.value;
+                        if (id==='DIRECT') { updateLine(line.id,{costSourceId:'DIRECT'}); return; }
+                        const src=line.context?.priceSources?.find(x=>x.id===id);
+                        updateLine(line.id, applyReferenceCostOnly(src || { id }));
+                      }} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
+                        <option value="">업체 단가 선택 (단가만 적용, 업체는 그대로)</option>
+                        {(line.context?.priceSources||[]).map(s=><option key={s.id} value={s.id}>{formatReferenceCostLabel(s)}</option>)}
                         <option value="DIRECT">직접 입력</option>
                       </select>
                       <input type="number" value={line.cost} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:line.costSourceId||'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
-                      <select value={line.farmKey} onChange={e=>updateLine(line.id,{farmKey:e.target.value})} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}><option value="">농장 선택</option>{(line.context?.farms||[]).map(f=><option key={f.farmKey} value={f.farmKey}>{f.farmName} ({f.farmCode})</option>)}</select>
-                      <div style={{fontSize:11,color:'#475569',alignSelf:'center'}}>출고일 {line.context?.shipmentDate||'-'} · 재고 부족 시 저장 중단</div>
+                      <div style={{gridColumn:'1 / -1',fontSize:11,color:'#475569'}}>출고일 {line.context?.shipmentDate||'-'} · 재고 부족 시 저장 중단 · 확정 차수는 해제 후 저장하고 다시 확정</div>
                     </div>
                   </div>
                 );
@@ -361,7 +324,7 @@ export default function OrderRegisterDistributeModal({
             disabled={running || !cust?.CustKey || !validTargets.length}
             style={{ height: 38, padding: '0 20px', border: 'none', borderRadius: 7, background: running || !validTargets.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: running ? 'wait' : 'pointer' }}
           >
-            {running ? '처리 중…' : '추가 품목등록 실행'}
+            {running ? '처리 중…' : '목록에 담기'}
           </button>
         </div>
       </div>
