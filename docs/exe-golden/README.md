@@ -32,6 +32,14 @@ Source decompile: `C:\Users\USER\nenova-decompiled\Nenova\`
 
 Registry: `lib/exeParity/registry.js`
 
+## 주제별 분석 문서 (Form 단위 포팅이 아닌 것)
+
+| 문서 | 내용 |
+|------|------|
+| CostQuantityStockImpact.md | 단가·수량 수정이 재고 재계산·확정 경고에 미치는 영향, 저장 파생값 전체 표 |
+| ProductMatching.md | 품목 매칭 규칙 |
+| FormProfitReport.md | 매출이익 보고서 계산식 |
+
 ## Probe 스크립트
 
 | 스크립트 | 용도 |
