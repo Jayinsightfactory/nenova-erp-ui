@@ -51,6 +51,7 @@
     "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
     "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
     "docs/migrations/2026-08-13_web_customs_rate_history.sql",
+    "docs/migrations/2026-08-19_web_colombia_alloc_pool.sql",
     "docs/exe-golden/FormStockView.md",
     "data/profit-report-evidence/registry/v1/index.json",
     "data/profit-report-evidence/manual-input-manifest.v1.json",
@@ -137,7 +138,7 @@
       "name": "COLOMBIA_INPUT_SAVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "콜롬비아 4품목(장미/카네이션/알스트로/루스커스) 반차수 공유값 저장 — WebColombiaWeekly + WebCustomsHistory만 쓴다. BakSangRateApplied 스냅샷 정책은 CUSTOMS_COUNTRY_BATCH_SAVE와 동일하다."
+      "sideEffect": "콜롬비아 반차수 공유값 저장 — WebColombiaWeekly + WebCustomsHistory만 쓴다. IncludeHydrangea는 FLOAT 0=콜카장알루(기본), 1=콜카장알루수국이며 APOLLO 혼적으로 자동 켜지지 않는다. BakSangRateApplied 스냅샷 정책은 CUSTOMS_COUNTRY_BATCH_SAVE와 동일하다."
     },
     {
       "name": "RATE_SAVE",
@@ -266,7 +267,7 @@
     "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
     "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료 추천은 그 대차수의 GW1+GW2 합산 중량을 lib/colombiaTruck.js deriveTruckPlan()에 한 번만 넣는다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과~5t면 5t 1대다(1.371t=2.5t, 3.342t=5t 275,000원, 6t=5t+1t). 계산된 조합 금액 전부를 1차 칸에 반영하고 2차 자동값은 0이다. 저장된 실제값(WorldFreight{1,2}Manual=1, historical snapshot 포함)이 있으면 추천값이 그 실제값을 절대 덮지 않는다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송도 저장된 실제 대수가 우선이고, 없을 때만 같은 추천식을 쓴다.",
     "colombiaCbmWhenChargeableHigher": "콜롬비아 반차수 배분에서 H(그외통관비)와 S(포워딩)는 같은 비율을 쓴다. CW가 GW보다 크면 CBM 비율, 그 밖(CW=GW, CW<GW, 한쪽 0)은 무게 비율이다. 2026 22~27차 historical snapshot 폴백만 computeColombiaAllocationFromTotal로 무게비율을 유지한다.",
-    "sharedApolloHydrangea": "수국이 같은 APOLLO/FREIGHTWISE AWB에 카장알루와 함께 실리면 그 AWB의 GW/CW·항공료·트럭을 콜롬비아 4품목 풀에 합치고, 해당 AWB의 수국 박스수량으로 H/S를 나눈다. 수국 전용 AWB(콜수국)는 나라 단위로 남긴다. 수국 무게를 국가 GW와 4품목 GW에 이중 가산하지 않는다. COLOMBIA_ALLOC_CATEGORY_KEYS SQL 4개는 유지한다.",
+    "sharedApolloHydrangea": "APOLLO는 포워딩 업체다. 콜롬비아 반차수 배분 풀 기본값은 콜카장알루(장미/카네이션/알스트로/루스커스)이고, 그외통관비 화면에서 콜카장알루수국을 고른 반차수만 수국 박스로 H/S를 나눈다. 혼적 AWB는 힌트만 보여주고 자동으로 수국 풀을 켜지 않는다. 수국 전용 AWB(콜수국)는 나라 단위로 남긴다. COLOMBIA_ALLOC_CATEGORY_KEYS SQL 4개는 유지한다.",
     "layeredInventoryFx": "기초·기말 재고는 연결된다. 기존재고는 전차수 F 금액(당시 환율)을 유지하고, 이번 차수 입고분만 새 환율로 평가한 뒤 판매는 기초부터 나간다(FIFO). 호주는 입고 시점 구매단가×수량×선율과세환율(Q×R)을 입고층에 고정하며, 재고로 판매되는 차수에도 그 환율을 다시 적용하지 않는다."
   },
   "automaticCategoryRules": {
@@ -286,7 +287,7 @@
     "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
     "forwardingValueItems": ["운송료", "운송비", "항공료", "항공비", "FREIGHT", "AIR FREIGHT", "SHIPPING", "SERVICE FEE", "현지상차운임"],
     "forwardingReconciliation": "29차 이후 입고 전표가 운영 원천이다. 포워딩 금액행을 누락하지 않고 같은 OrderYear+대차수 안에서 모두 분류한 뒤 원천합계=분류합계+미분류합계를 통화별로 대조한다. 구매 수량 또는 금액이 있는 국가·화종인데 대응 포워딩 행이 없으면 FORWARDING_SCOPE_MISSING으로 확정 계산을 차단한다. 일반 국가 및 화종 명시 운송료는 대차수 합계로 대조하고, 콜롬비아 4품목 공유 운송료는 세부차수별 무게배분 원천이므로 해당 세부차수별로 대조한다. 금액·수량이 모두 0인 빈 WarehouseDetail은 구매 기대범위가 아니다. 수기 S가 있어도 원천 전표 누락·미분류는 숨기지 않는다.",
-    "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다. 같은 APOLLO에 수국이 실리면 운영 배분 풀에만 수국을 추가하며 SQL CASE 키 4개는 바꾸지 않는다."
+    "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다. 수국은 화면에서 콜카장알루수국을 켠 운영 배분 풀에만 추가하며 SQL CASE 키 4개는 바꾸지 않는다."
   },
   "erpLedgerWriteProhibition": {
     "description": "REPORT_CONFIRM_SNAPSHOT/REPORT_CONFIRM_CANCEL/REPORT_CONFIRM_FORCE는 아래 ERP 공유 원장 테이블에 INSERT/UPDATE/DELETE를 절대 수행하지 않는다. 확정 스냅샷·해제·강제확정 감사 기록은 모두 신규 Web 전용 테이블에만 쓴다. REPORT_CONFIRM_HISTORY_VIEW는 추가로 이 테이블들을 조회조차 하지 않는다.",

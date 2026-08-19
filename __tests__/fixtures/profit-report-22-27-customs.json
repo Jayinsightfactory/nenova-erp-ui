@@ -7,7 +7,7 @@
   "countryHExpanded": "(GW1+GW2)×백상요율 + 관세1+관세2 + (선율1+선율2)/1.1 + (월드1+월드2)/1.1 + (방역1+방역2)/1.1",
   "countryHVietnamException": "베트남 행만 선율 공급가가 리터럴이라 ÷1.1을 하지 않는다",
   "colombiaTotal": "콜롬비아 N차!C17 = GW×백상요율 + 통관수수료 + 품목수×검역대행단가 + 실제 트럭비 + 관세료 + 소독비용 + 검역비용",
-  "colombiaAllocation": "콜롬비아 N차!H2x = C17 × (박스당무게×박스수량 비율) — 원본 엑셀은 GW/CW 무관 항상 무게비율. 운영 웹 계산은 CW>GW이면 H/S 모두 CBM, 같은 APOLLO 수국은 풀에 포함한다.",
+  "colombiaAllocation": "콜롬비아 N차!H2x = C17 × (박스당무게×박스수량 비율) — 원본 엑셀은 GW/CW 무관 항상 무게비율. 운영 웹 계산은 CW>GW이면 H/S 모두 CBM, 콜카장알루수국은 화면 선택 시에만 풀에 포함한다.",
   "mainTotalsRanges": {
    "includesDeduction": [
     "C",

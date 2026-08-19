@@ -1,5 +1,5 @@
 // 2026-08-19 사용자 확정 규칙: 차량 등급 3.3t→5T, CW>GW면 H도 CBM,
-// 같은 APOLLO 수국 풀 포함, 기존재고는 기존 환율·신규입고는 새 환율, 호주는 입고시점 선율.
+// 콜카장알루가 기본·콜카장알루수국은 화면 선택, 기존재고는 기존 환율·신규입고는 새 환율, 호주는 입고시점 선율.
 // 실행: node __tests__/profitReportRuleAlignment.test.js
 const RATE_DEFAULTS = {
   BakSangRate: 460, Truck1t: 99000, Truck2_5t: 187000, Truck5t: 275000, QuarantinePerItemRate: 10000,
@@ -22,7 +22,7 @@ const near = (a, b, tolerance = 0.01) => Math.abs(Number(a) - Number(b)) <= tole
 
 async function main() {
   const { deriveTruckPlan, truckPlanAmount } = await import('../lib/colombiaTruck.js');
-  const { computeColombiaAllocation, colombiaUsesWeightRatio, computeColombiaRatios } = await import('../lib/customsForwardingCalc.js');
+  const { computeColombiaAllocation, colombiaUsesWeightRatio, computeColombiaRatios, colombiaRatioMode } = await import('../lib/customsForwardingCalc.js');
   const {
     isColombiaSharedApolloShipment, colombiaAllocCategories, COLOMBIA_HYDRANGEA_CATEGORY,
   } = await import('../lib/colombiaFlowerClassification.js');
@@ -44,6 +44,8 @@ async function main() {
   check('CW=GW는 무게비율', colombiaUsesWeightRatio(655, 655) === true);
   check('CW<GW는 무게비율', colombiaUsesWeightRatio(670, 655) === true);
   check('CW>GW는 CBM비율', colombiaUsesWeightRatio(655, 670) === false);
+  check('CW>GW 배지 문구', colombiaRatioMode(655, 670).label.includes('CW 670 > GW 655') && colombiaRatioMode(655, 670).useWeight === false);
+  check('CW=GW 배지 문구', colombiaRatioMode(655, 655).label.includes('=') && colombiaRatioMode(655, 655).useWeight === true);
   const weightAlloc = computeColombiaAllocation(
     { GW: 655, CW: 655, CustomsFee: 100000, AirRateUSD: 1000 },
     { '콜롬비아 장미': 10, '콜롬비아 카네이션': 10, '콜롬비아 알스트로': 0, '콜롬비아 루스커스': 0 },
@@ -57,22 +59,34 @@ async function main() {
   check('CW>GW이면 장미 H가 무게비율과 다름', !near(cbmAlloc['콜롬비아 장미'].H, weightAlloc['콜롬비아 장미'].H, 0.5));
   check('CW>GW이면 장미 S도 CBM', !near(cbmAlloc['콜롬비아 장미'].S, weightAlloc['콜롬비아 장미'].S, 0.0001));
 
-  console.log('\n=== 같은 APOLLO 수국은 통관 풀에 포함 ===');
-  check('APOLLO 혼적은 공유', isColombiaSharedApolloShipment({
+  console.log('\n=== 콜카장알루가 기본, 콜카장알루수국은 화면에서 켤 때만 ===');
+  check('APOLLO 혼적은 힌트용 공유 판별', isColombiaSharedApolloShipment({
     farmName: 'APOLLO', invoiceNo: '콜카장', flowerNames: ['수국', '카네이션'],
   }) === true);
-  const pooled = computeColombiaRatios(
+  const defaultRatios = computeColombiaRatios(
     { '콜롬비아 수국': 5, '콜롬비아 장미': 5, '콜롬비아 카네이션': 0, '콜롬비아 알스트로': 0, '콜롬비아 루스커스': 0 },
     RATE_DEFAULTS,
   );
-  check('수국 박스수가 있으면 풀 카테고리에 수국 포함', pooled.categories.includes(COLOMBIA_HYDRANGEA_CATEGORY));
+  check('기본 콜카장알루는 수국 박스가 있어도 4키', defaultRatios.categories.length === 4 && !defaultRatios.categories.includes(COLOMBIA_HYDRANGEA_CATEGORY));
+  const pooled = computeColombiaRatios(
+    { '콜롬비아 수국': 5, '콜롬비아 장미': 5, '콜롬비아 카네이션': 0, '콜롬비아 알스트로': 0, '콜롬비아 루스커스': 0 },
+    RATE_DEFAULTS,
+    { includeHydrangea: true },
+  );
+  check('콜카장알루수국을 켠 풀에 수국 포함', pooled.categories.includes(COLOMBIA_HYDRANGEA_CATEGORY));
   check('수국 무게비율 > 0', pooled.weightRatio[COLOMBIA_HYDRANGEA_CATEGORY] > 0);
-  const pooledAlloc = computeColombiaAllocation(
+  const defaultAlloc = computeColombiaAllocation(
     { GW: 1000, CW: 1000, CustomsFee: 200000, AirRateUSD: 500 },
     { '콜롬비아 수국': 5, '콜롬비아 장미': 5, '콜롬비아 카네이션': 0, '콜롬비아 알스트로': 0, '콜롬비아 루스커스': 0 },
     RATE_DEFAULTS,
   );
-  check('수국 H가 4품목에서 분리되어 배분됨', (pooledAlloc[COLOMBIA_HYDRANGEA_CATEGORY]?.H || 0) > 0);
+  check('저장 플래그 없으면 수국 H는 0', (defaultAlloc[COLOMBIA_HYDRANGEA_CATEGORY]?.H || 0) === 0);
+  const pooledAlloc = computeColombiaAllocation(
+    { GW: 1000, CW: 1000, CustomsFee: 200000, AirRateUSD: 500, IncludeHydrangea: 1 },
+    { '콜롬비아 수국': 5, '콜롬비아 장미': 5, '콜롬비아 카네이션': 0, '콜롬비아 알스트로': 0, '콜롬비아 루스커스': 0 },
+    RATE_DEFAULTS,
+  );
+  check('IncludeHydrangea=1이면 수국 H가 배분됨', (pooledAlloc[COLOMBIA_HYDRANGEA_CATEGORY]?.H || 0) > 0);
   check('수국만 있는 풀은 기본 4키가 아님', colombiaAllocCategories({ includeHydrangea: true }).length === 5);
 
   console.log('\n=== 기존재고는 기존 환율, 신규입고는 새 환율 (FIFO) ===');

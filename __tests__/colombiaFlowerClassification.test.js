@@ -18,7 +18,8 @@ const check = (label, condition, detail = '') => {
 
 async function main() {
   const { classifyColombiaAllocCategory, COLOMBIA_ALLOC_TOKEN_MAP, COLOMBIA_ALLOC_CATEGORY_KEYS,
-    colombiaAllocCategories, isColombiaSharedApolloShipment, isColombiaSharedApolloContext, COLOMBIA_HYDRANGEA_CATEGORY } =
+    colombiaAllocCategories, isColombiaSharedApolloShipment, isColombiaSharedApolloContext, COLOMBIA_HYDRANGEA_CATEGORY,
+    COLOMBIA_ALLOC_POOL_DEFAULT, COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA, isColombiaHydrangeaPool, applyColombiaHydrangeaBoxes } =
     await import('../lib/colombiaFlowerClassification.js');
   const { isNonStockableItem } = await import('../lib/profitReportClassification.js');
   const forwardingSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'customsForwarding.js'), 'utf8');
@@ -38,11 +39,17 @@ async function main() {
   check("매칭 실패 → null", classifyColombiaAllocCategory('HYDRANGEA', '수국') === null);
   check("빈 값 → null", classifyColombiaAllocCategory('', '') === null);
 
-  console.log('\n=== 같은 APOLLO 수국은 배분 풀에만 포함하고 SQL 4키는 유지 ===');
+  console.log('\n=== 배분 풀은 화면 선택. SQL 4키는 유지 ===');
   check('SQL 배분 키는 4개 고정', COLOMBIA_ALLOC_CATEGORY_KEYS.length === 4 && !COLOMBIA_ALLOC_CATEGORY_KEYS.includes(COLOMBIA_HYDRANGEA_CATEGORY));
+  check('기본 라벨은 콜카장알루', COLOMBIA_ALLOC_POOL_DEFAULT === '콜카장알루');
+  check('추가 선택은 콜카장알루수국', COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA === '콜카장알루수국');
+  check('NULL/0은 콜카장알루', isColombiaHydrangeaPool(null) === false && isColombiaHydrangeaPool(0) === false);
+  check('1과 콜카장알루수국만 수국 포함', isColombiaHydrangeaPool(1) === true && isColombiaHydrangeaPool('콜카장알루수국') === true);
   check('수국 미포함 기본 풀은 4품목', colombiaAllocCategories().length === 4);
   check('수국 포함 풀은 수국+4품목', JSON.stringify(colombiaAllocCategories({ includeHydrangea: true }))
     === JSON.stringify([COLOMBIA_HYDRANGEA_CATEGORY, ...COLOMBIA_ALLOC_CATEGORY_KEYS]));
+  check('기본 apply는 수국 박스를 빼다', applyColombiaHydrangeaBoxes({ '콜롬비아 장미': 2, '콜롬비아 수국': 9 }, 9, false)['콜롬비아 수국'] == null);
+  check('콜카장알루수국 apply만 수국 박스를 넣는다', applyColombiaHydrangeaBoxes({ '콜롬비아 장미': 2 }, 9, true)['콜롬비아 수국'] === 9);
   check('APOLLO+수국+장미 → 공유 배송', isColombiaSharedApolloShipment({
     farmName: 'FREIGHTWISE', invoiceNo: 'APOLLO 콜카장', flowerNames: ['수국', '장미'],
   }) === true);

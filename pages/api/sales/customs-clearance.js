@@ -3,11 +3,11 @@
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
-  COUNTRY_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
+  COUNTRY_CATEGORIES,
   getRateConfig, saveRateConfig,
   loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
-  weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
+  weeksForMajor, colombiaBoxQtyByCategory, colombiaHydrangeaBoxQty, loadWarehouseGw, activeCustomsCategories,
   resolveCountryCustomsTotal, resolveColombiaCustomsAllocation, HISTORICAL_CUSTOMS_SOURCE,
 } from '../../../lib/customsForwarding';
 
@@ -36,8 +36,12 @@ export default withAuth(async function handler(req, res) {
 
       const [colombia, prevColombia] = await Promise.all([
         Promise.all(subWeeks.map(async (wk) => {
-          const [row, boxQty] = await Promise.all([loadColombiaWeekly(wk, orderYear), colombiaBoxQtyByCategory(wk, orderYear)]);
-          return { orderWeek: wk, row, boxQty };
+          const [row, boxQty, hydrangeaBoxQty] = await Promise.all([
+            loadColombiaWeekly(wk, orderYear),
+            colombiaBoxQtyByCategory(wk, orderYear),
+            colombiaHydrangeaBoxQty(wk, orderYear),
+          ]);
+          return { orderWeek: wk, row, boxQty, hydrangeaBoxQty };
         })),
         Promise.all(prevSubWeeks.map((wk) => loadColombiaWeekly(wk, orderYear))),
       ]);
@@ -73,7 +77,8 @@ export default withAuth(async function handler(req, res) {
       const colombiaOut = colombia.map((c, i) => {
         const gwDef = autoGw.colombia?.[c.orderWeek];
         const resolved = resolveColombiaCustomsAllocation({
-          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty: c.boxQty, gwDef, airTotal: 0, rates,
+          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty: c.boxQty,
+          hydrangeaBoxes: c.hydrangeaBoxQty, gwDef, airTotal: 0, rates,
         });
         const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
@@ -83,13 +88,17 @@ export default withAuth(async function handler(req, res) {
           carry: !c.row && !historical && prevColombia[i] ? prevColombia[i] : null, // 합계에는 미반영
           boxQty: resolved.boxQty,
           liveBoxQty: c.boxQty,                      // 현재 입고 DB 기준(원본과 다를 수 있어 비교용)
+          hydrangeaBoxQty: Number(c.hydrangeaBoxQty) || 0,
+          allocPool: resolved.allocPool,
+          suggestedHydrangea: Boolean(gwDef?.includeHydrangea),
+          ratioMode: resolved.ratioMode,
           total: resolved.total,
           totalSource: resolved.source,
           effectiveBakSangRate: resolved.effectiveRates?.BakSangRate ?? null,
           truckActual: resolved.truckActual,         // 실제 차량 대수(저장값/원본) — 합계에 반영된 값
           truckAuto: resolved.truckAuto,             // 합산 GW 용량분해 추천값(참고 표시 전용)
           truckSource: resolved.truckSource,
-          allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(resolved.allocation[cat].H)])),
+          allocationH: Object.fromEntries(Object.entries(resolved.allocation || {}).map(([cat, v]) => [cat, Math.round(v.H)])),
         };
       });
 

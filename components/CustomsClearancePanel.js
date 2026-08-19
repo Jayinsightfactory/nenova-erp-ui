@@ -10,7 +10,12 @@ import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../l
 // 보이는 값과 저장하면 실제로 반영될 값이 저장 전까지 서로 달랐다).
 import {
   effectiveRatesForWeek, computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
+  colombiaRatioMode,
 } from '../lib/customsForwardingCalc';
+import {
+  COLOMBIA_ALLOC_POOL_DEFAULT, COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA, COLOMBIA_HYDRANGEA_CATEGORY,
+  isColombiaHydrangeaPool, applyColombiaHydrangeaBoxes,
+} from '../lib/colombiaFlowerClassification';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
 const fmt = (v) => Math.round(n0(v)).toLocaleString();
@@ -62,6 +67,7 @@ function focusNextCustomsInput(event) {
 const FIELD_LABEL = Object.fromEntries([
   ...COUNTRY_FIELD_GROUPS.flatMap((g) => g.phases.flatMap((p) => p.keys.map((k, i) => [k, `${g.label}(${p.label})${p.keys.length > 1 ? `-${i + 1}` : ''}`]))),
   ...COLOMBIA_FIELDS,
+  ['IncludeHydrangea', '배분(콜카장알루수국)'],
 ]);
 
 // 입고관리 GW 기준값 힌트 — 있으면 클릭 적용, 없으면 '확인 필요' 표시만(입고 자체가 없을 수 있음: 사용자 방침)
@@ -231,6 +237,11 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
     return '';
   };
   const setColEdit = (wk, field, val) => setColombiaEdits((prev) => ({ ...prev, [wk]: { ...(prev[wk] || {}), [field]: val } }));
+  const colombiaIncludeHydrangea = (c) => {
+    const edited = colombiaEdits[c.orderWeek]?.IncludeHydrangea;
+    if (edited !== undefined) return Number(edited) === 1;
+    return isColombiaHydrangeaPool(c.saved?.IncludeHydrangea);
+  };
   // 저장 시 전송할 필드 — 실제로 수기 편집됐거나 이미 저장돼 있던 값만 보낸다(트럭 수량은 GW
   // 자동값을 그대로 스냅샷). carry(전차수 참고값)만 있는 필드는 사용자가 명시적으로 편집(적용)하기
   // 전까지 저장 대상에서 제외한다 — 빈 "저장" 클릭이 감사 기준값/전차수 참고값을 조용히 이번
@@ -251,6 +262,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
       out[f] = colValue(c, f);
     });
     if (c.historical?.BakSangRateApplied != null) out.BakSangRateApplied = c.historical.BakSangRateApplied;
+    out.IncludeHydrangea = colombiaIncludeHydrangea(c) ? 1 : 0;
     return out;
   };
 
@@ -279,9 +291,15 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
   };
 
   // 콜롬비아 반차수의 "지금 화면에 보이는" TOTAL/카테고리별 배분 — 국가행과 동일 원칙.
+  const colombiaLiveBoxQty = (c) => applyColombiaHydrangeaBoxes(
+    c.totalSource === 'excel_historical_snapshot' ? (c.boxQty || {}) : (c.liveBoxQty || c.boxQty),
+    c.hydrangeaBoxQty,
+    colombiaIncludeHydrangea(c),
+  );
   const colombiaLiveRow = (c) => {
     const liveRow = {};
     COLOMBIA_FIELDS.forEach(([f]) => { liveRow[f] = colValue(c, f); });
+    liveRow.IncludeHydrangea = colombiaIncludeHydrangea(c) ? 1 : 0;
     const rateSnapshot = c.saved?.BakSangRateApplied ?? c.historical?.BakSangRateApplied;
     if (rateSnapshot != null) liveRow.BakSangRateApplied = rateSnapshot;
     return liveRow;
@@ -293,8 +311,13 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
   };
   const colombiaAllocationH = (c) => {
     if (!colombiaHasEdit(c) || !colombiaRates) return c.allocationH || {};
-    const alloc = computeColombiaAllocation({ ...colombiaLiveRow(c), AirRateUSD: 0 }, c.boxQty, colombiaRates);
+    const alloc = computeColombiaAllocation({ ...colombiaLiveRow(c), AirRateUSD: 0 }, colombiaLiveBoxQty(c), colombiaRates);
     return Object.fromEntries(Object.entries(alloc).map(([cat, v]) => [cat, Math.round(v.H)]));
+  };
+  const colombiaLiveRatioMode = (c) => {
+    const gw = colValue(c, 'GW') || data?.autoGw?.colombia?.[c.orderWeek]?.GW;
+    const cw = colValue(c, 'CW') || data?.autoGw?.colombia?.[c.orderWeek]?.CW;
+    return colombiaRatioMode(gw, cw);
   };
 
   const saveCountry = async (row) => {
@@ -410,7 +433,8 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
         월드 운송료 추천값은 <b>그 대차수 1차+2차 GW를 합산해 차량 등급으로 올립니다</b>(예: 3,342kg → 5t 1대 275,000원).
         <u>과거에 실제로 쓴 차량·비용이 저장돼 있으면 추천값으로 덮지 않습니다.</u> 직접 입력하면 그 차수의 실제값으로 저장됩니다(부가세 제외 금액 표시).
         관세·선율은 청구가 나뉘어 오므로 1차/2차를 각각 1·2·3번으로 나눠 입력하고, 화면 합계가 관세1차/2차·선율1차/2차로 자동 합산됩니다.
-        콜롬비아 4품목(카네이션·장미·알스트로·루스커스)은 <b>반차수(1차/2차)마다 각각</b> TOTAL(=GW×백상단가 + 통관수수료 + 품목수×검역대행단가 + 실제 트럭비 + 관세료 + 소독비용 + 검역비용)을 구한 뒤 무게비율로 배분하고, 과금중량이 총중량보다 크면 CBM비율로 배분합니다. 수국이 같은 APOLLO에 실리면 이 풀에 포함합니다.
+        콜롬비아 카장알루는 <b>반차수(1차/2차)마다 각각</b> TOTAL(=GW×백상단가 + 통관수수료 + 품목수×검역대행단가 + 실제 트럭비 + 관세료 + 소독비용 + 검역비용)을 구한 뒤 <b>CW가 GW보다 크면 CBM비율, 같거나 작으면 무게비율</b>로 나눕니다.
+        APOLLO는 포워딩 업체입니다. 배분 기본값은 <b>콜카장알루</b>(장미·카네이션·알스트로·루스커스)이고, 수국까지 나누려면 반차수에서 <b>콜카장알루수국</b>을 고르고 저장하세요.
         <br />
         <b>값의 출처 3가지</b> —
         <b style={{ color: '#0f766e' }}> 원본 엑셀값</b>: 2026년 22~27차처럼 운영 DB에 입력 이력이 없는 차수에, 원본 "매출원가 양식" 시트의 <u>구성요소 그대로</u>를 자동 적용한 값입니다(합계에 이미 반영). 한 칸이라도 저장하면 그 행 전체가 운영자 저장값으로 바뀝니다.
@@ -595,17 +619,42 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
           </div>
 
           <div style={st.panel}>
-            <div style={st.panelHead}><strong>콜롬비아 4품목 무게배분 (반차수별 — 카네이션·장미·알스트로·루스커스 공유)</strong></div>
+            <div style={st.panelHead}><strong>콜롬비아 배분 (반차수별 — 기본 콜카장알루, 선택 콜카장알루수국)</strong></div>
             {(data.colombia || []).map((c) => {
               const isHistorical = c.totalSource === 'excel_historical_snapshot';
               const carried = !c.saved && !isHistorical && c.carry;
+              const includeHydrangea = colombiaIncludeHydrangea(c);
+              const liveBoxes = colombiaLiveBoxQty(c);
+              const ratioMode = colombiaLiveRatioMode(c);
               return (
                 <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
                     {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 반차수 입력 이력이 없어, 원본 '매출원가 양식' 콜롬비아 시트의 구성요소(GW/통관수수료/품목수/실제 트럭 대수/관세료/소독/검역)와 원본 박스수량을 그대로 자동 적용 중입니다.">원본 엑셀값</span>}
+                    <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, color: '#334155' }}
+                      title="APOLLO는 포워딩 업체입니다. 기본은 장미·카네이션·알스트로·루스커스만 나눕니다. 수국까지 나누려면 콜카장알루수국을 고르고 저장하세요.">
+                      배분
+                      <select
+                        value={includeHydrangea ? COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA : COLOMBIA_ALLOC_POOL_DEFAULT}
+                        onChange={(e) => setColEdit(c.orderWeek, 'IncludeHydrangea', e.target.value === COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA ? 1 : 0)}
+                        style={{ fontSize: 11, padding: '2px 6px', border: '1px solid #94a3b8', borderRadius: 4 }}>
+                        <option value={COLOMBIA_ALLOC_POOL_DEFAULT}>{COLOMBIA_ALLOC_POOL_DEFAULT}</option>
+                        <option value={COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA}>{COLOMBIA_ALLOC_POOL_WITH_HYDRANGEA}</option>
+                      </select>
+                    </label>
+                    <span
+                      style={{ fontSize: 10, fontWeight: 700, color: ratioMode.useWeight ? '#334155' : '#1d4ed8', background: ratioMode.useWeight ? '#f1f5f9' : '#dbeafe', borderRadius: 4, padding: '2px 6px' }}
+                      title="CW가 GW보다 크면 부피(CBM) 비율, 같거나 작거나 한쪽이 없으면 무게 비율입니다.">
+                      {ratioMode.label}
+                    </span>
+                    {c.suggestedHydrangea && !includeHydrangea && (
+                      <span style={{ fontSize: 9, color: '#b45309', fontWeight: 700 }} title="이 반차수 APOLLO 운송에 수국이 카장알루와 같이 실려 있습니다. 수국까지 나누려면 콜카장알루수국을 고르고 저장하세요.">
+                        APOLLO 수국 혼적 힌트
+                      </span>
+                    )}
                     <span style={{ fontSize: 11, color: '#64748b' }} title={isHistorical ? '배분에 쓰인 박스수량은 원본 엑셀값입니다(현재 입고 DB 값과 다를 수 있음).' : '현재 입고관리(WarehouseDetail) 자동 집계값'}>
-                      박스수량({isHistorical ? '원본 엑셀' : '입고 자동'}): 장미{c.boxQty['콜롬비아 장미'] || 0} · 카네이션{c.boxQty['콜롬비아 카네이션'] || 0} · 알스트로{c.boxQty['콜롬비아 알스트로'] || 0} · 루스커스{c.boxQty['콜롬비아 루스커스'] || 0}
+                      박스수량({isHistorical ? '원본 엑셀' : '입고 자동'}): 장미{liveBoxes['콜롬비아 장미'] || 0} · 카네이션{liveBoxes['콜롬비아 카네이션'] || 0} · 알스트로{liveBoxes['콜롬비아 알스트로'] || 0} · 루스커스{liveBoxes['콜롬비아 루스커스'] || 0}
+                      {includeHydrangea ? ` · 수국${liveBoxes[COLOMBIA_HYDRANGEA_CATEGORY] || 0}` : ''}
                     </span>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
                       <button style={st.tinyBtn} onClick={() => saveColombia(c)} disabled={saving === c.orderWeek}>
@@ -682,6 +731,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
                   <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }} title={colombiaHasEdit(c) ? '수기 편집 중 — 저장 전 미리보기(저장하면 이 값 그대로 반영)' : undefined}>
                     배분 미리보기(H): 장미 {fmt(colombiaAllocationH(c)['콜롬비아 장미'])} · 카네이션 {fmt(colombiaAllocationH(c)['콜롬비아 카네이션'])} ·
                     알스트로 {fmt(colombiaAllocationH(c)['콜롬비아 알스트로'])} · 루스커스 {fmt(colombiaAllocationH(c)['콜롬비아 루스커스'])}
+                    {includeHydrangea ? ` · 수국 ${fmt(colombiaAllocationH(c)[COLOMBIA_HYDRANGEA_CATEGORY])}` : ''}
                   </div>
                 </div>
               );
