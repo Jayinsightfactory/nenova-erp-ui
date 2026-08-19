@@ -180,8 +180,8 @@ async function main() {
   check('통관비 설명이 ÷1.1 대상과 베트남 예외를 명시',
     /선율 ÷ 1\.1/.test(byKey.H.formula) && /월드운송료 ÷ 1\.1/.test(byKey.H.formula)
     && /백상창고료·관세는 원래 공급가라 나누지 않고/.test(byKey.H.note) && /베트남 선율만 예외/.test(byKey.H.note));
-  check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게·CBM 배분을 명시',
-    /무게비율/.test(byKey.H.formula) && /CBM/.test(byKey.H.formula) && /APOLLO/.test(byKey.H.formula)
+  check('통관비 설명이 관세·선율 분할합계와 콜롬비아 무게비율 고정을 명시',
+    /항상 무게비율로 나눕니다/.test(byKey.H.formula) && /APOLLO/.test(byKey.H.formula)
     && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
   check('통관비 원천 설명이 AWB·선율청구서·1·2차 합산을 명시',
     /AWB\/입고관리/.test(byKey.H.source) && /선율 청구서 관세 부분/.test(byKey.H.source)
@@ -190,12 +190,15 @@ async function main() {
     /네덜란드·중국은 입고관리 운송료/.test(byKey.S.source)
     && /콜롬비아 수국은 FreightWise/.test(byKey.S.source)
     && /FreightWise Ecuador/.test(byKey.S.source) && /태국은 Excel/.test(byKey.S.source));
-  check('콜롬비아 배분 설명이 박스수·GW\/CW·CBM 원천을 명시',
+  check('콜롬비아 배분 설명이 그외통관비 무게고정·항공료 CBM 조건을 명시',
     /WarehouseDetail\.BoxQuantity/.test(byKey['in-colombia'].source)
-    && /CBM비율/.test(byKey['in-colombia'].formula) && /APOLLO/.test(byKey['in-colombia'].note));
+    && /그외통관비는 항상 무게비율/.test(byKey['in-colombia'].formula)
+    && /항공료만 과금중량이 총중량과 다르면 부피\(CBM\)비율/.test(byKey['in-colombia'].formula)
+    && /APOLLO/.test(byKey['in-colombia'].note)
+    && /수국 박스당무게 5\.6kg·박스당CBM 7/.test(byKey['in-colombia'].note));
   check('재고평가 공식과 보조 단가 근거를 함께 명시',
-    /기존재고\(기존 환율\)/.test(byKey['in-stockprice'].formula)
-    && /선율과세환율/.test(byKey['in-stockprice'].formula)
+    /매입이 있는 차수는 \(매입액\+그외통관비\)÷매입수량/.test(byKey['in-stockprice'].formula)
+    && /매입이 없는 차수는 직전 단가 유지/.test(byKey['in-stockprice'].formula)
     && /EXE ProductStock 환산수량×VERIFIED 시점 단가/.test(byKey['in-stockprice'].formula));
   // 월드운송료 추천 = 등급표(3.3t = 5t), 저장된 실제값 우선
   const { deriveTruckPlan } = await import('../lib/colombiaTruck.js');
@@ -212,13 +215,13 @@ async function main() {
     /3,342kg → 5t 1대/.test(byKey['in-world'].formula)
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
-  // 기말재고 F 자동공식
-  check('기초재고는 모든 국가·품종에서 전차수 기말 F',
+  // 기말상품재고액 자동공식
+  check('기초상품재고액은 모든 국가·품종에서 전차수 기말상품재고액',
     /모든 국가·품종 줄에서 이번 차수 기초재고 금액은 전차수 기말재고 금액과 같습니다/.test(byKey.E.formula)
-    && /이스라엘·뉴질랜드·일본도 E는 전차수 F/.test(byKey.E.note));
-  check('기말재고 설명이 층별 평가와 검증된 보조 단가를 명시',
-    /기존재고는 전차수 금액/.test(byKey.F.formula)
-    && /입고 시점 구매단가×수량×선율과세환율/.test(byKey.F.formula)
+    && /이스라엘·뉴질랜드·일본도 기초재고는 전차수 기말재고와 같으며/.test(byKey.E.note));
+  check('기말상품재고액 설명이 원본 공식과 매입 없는 차수 처리를 명시',
+    /\(매입액 \+ 그외통관비\) ÷ 그 차수 매입수량 × 기말 재고수량/.test(byKey.F.formula)
+    && /이번 차수에 매입이 없으면 직전 차수 재고단가/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
     && /검증된 매입·취득원가/.test(byKey.F.note)
     && /판매·분배단가와 Product\.Cost는 재고원가가 아니므로/.test(byKey.F.note));

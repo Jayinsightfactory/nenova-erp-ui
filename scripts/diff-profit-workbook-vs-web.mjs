@@ -11,7 +11,7 @@
 //   6. 매출이 없는데 F/G/H가 있는 행
 //   7. 국가별 그외통관비 H — 엑셀 vs 웹 computeCountryCustomsTotal
 //   8. 콜롬비아 반차수 TOTAL·배분비율·트럭 — 엑셀 vs 웹
-//   9. 기말재고 F — 엑셀 카테고리 평균 vs 웹 층별(FIFO)
+//   9. 기말상품재고액 — 엑셀 수식 vs 웹(그 차수 매입 평균원가 × 기말수량)
 //  10. 호주 재고 평가(재고잔량 R/Q열) 재현
 //  11. 본표 수기 셀의 파일 내부 근거 추적
 import fs from 'node:fs';
@@ -20,7 +20,7 @@ import crypto from 'node:crypto';
 import XLSX from 'xlsx-js-style';
 import { computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaRatios, colombiaUsesWeightRatio } from '../lib/customsForwardingCalc.js';
 import { deriveTruckPlan, truckPlanAmount } from '../lib/colombiaTruck.js';
-import { computeCategoryAverageInventoryValue, incomingInventoryPurchaseValue } from '../lib/profitReportCalc.js';
+import { computeCategoryAverageInventoryValue, weeklyAverageInventoryUnitCost } from '../lib/profitReportCalc.js';
 import { RATE_DEFAULTS } from '../lib/customsForwarding.js';
 
 const dir = process.argv[2] || '.';
@@ -198,32 +198,34 @@ for (const w of weeks) {
     };
     const includeHydrangea = boxQty['콜롬비아 수국'] > 0;
     const ratios = computeColombiaRatios(boxQty, RATE_DEFAULTS, { includeHydrangea });
-    const webUsesWeight = colombiaUsesWeightRatio(gw, cw);
-    // 엑셀: H 배분은 항상 무게비율, 항공료(S)만 CW≠GW일 때 CBM
+    // 웹·엑셀 모두 그외통관비는 항상 무게비율, 항공료만 과금중량=총중량 여부로 갈린다.
+    const webAirUsesWeight = colombiaUsesWeightRatio(gw, cw);
     const excelHUsesWeight = /M3\d/.test(fml(sh, 'H21') || '');
-    const excelSFormula = fml(sh, 'F21') || '';
+    const excelAirUsesWeight = Math.abs(cw - gw) <= 0.01;
     console.log(`  ${w.major}차 ${half}  GW=${gw} CW=${cw}  TOTAL 엑셀=${money(excelTotal)} 웹=${money(webTotal)} ${near(excelTotal, webTotal) ? '일치' : `★차이 ${money(webTotal - excelTotal)}`}`);
     console.log(`         트럭 엑셀=${money(num(sh, 'C13'))} 웹추천=${money(webTruck)} ${near(num(sh, 'C13'), webTruck) ? '일치' : '★차이'}`);
-    console.log(`         H 배분기준 엑셀=${excelHUsesWeight ? '무게(고정)' : 'CBM'} 웹=${webUsesWeight ? '무게' : 'CBM'} ${excelHUsesWeight === webUsesWeight ? '일치' : '★차이'}   S 배분식=${excelSFormula.slice(0, 42)}`);
+    console.log(`         그외통관비 배분 엑셀=${excelHUsesWeight ? '무게고정' : 'CBM'} 웹=무게고정 ${excelHUsesWeight ? '일치' : '★차이'}`
+      + `   |   항공료 배분 엑셀=${excelAirUsesWeight ? '무게' : 'CBM'} 웹=${webAirUsesWeight ? '무게' : 'CBM'} ${excelAirUsesWeight === webAirUsesWeight ? '일치' : '★차이'}`);
     console.log(`         수국 포함 ${includeHydrangea ? 'O' : 'X'}  박스수 ${JSON.stringify(boxQty)}`);
     if (includeHydrangea) {
-      console.log(`         수국 박스계수 엑셀 무게=${num(sh, 'K41')} CBM=${num(sh, 'P41')} / 웹기본 무게=${RATE_DEFAULTS.BoxWeight_콜롬비아수국} CBM=${RATE_DEFAULTS.BoxCBM_콜롬비아수국}`
-        + `${num(sh, 'K41') === RATE_DEFAULTS.BoxWeight_콜롬비아수국 ? '' : ' ★차이'}`);
+      const sameWeight = num(sh, 'K41') === RATE_DEFAULTS.BoxWeight_콜롬비아수국;
+      const sameCbm = num(sh, 'P41') === RATE_DEFAULTS.BoxCBM_콜롬비아수국;
+      console.log(`         수국 박스계수 엑셀 무게=${num(sh, 'K41')} CBM=${num(sh, 'P41')} / 웹 무게=${RATE_DEFAULTS.BoxWeight_콜롬비아수국} CBM=${RATE_DEFAULTS.BoxCBM_콜롬비아수국}`
+        + ` ${sameWeight && sameCbm ? '일치' : '★차이'}`);
     }
     const excelAlloc = {
       '콜롬비아 장미': num(sh, 'H21'), '콜롬비아 카네이션': num(sh, 'H22'),
       '콜롬비아 알스트로': num(sh, 'H23'), '콜롬비아 루스커스': num(sh, 'H24'), '콜롬비아 수국': num(sh, 'H25'),
     };
-    const webRatio = webUsesWeight ? ratios.weightRatio : ratios.cbmRatio;
     for (const [cat, val] of Object.entries(excelAlloc)) {
       if (!val) continue;
-      const webVal = excelTotal * (webRatio[cat] || 0);
-      if (!near(val, webVal, 1)) console.log(`           ${cat.padEnd(9)} 엑셀=${money(val).padStart(12)} 웹=${money(webVal).padStart(12)} ★차이 ${money(webVal - val)}`);
+      const webVal = excelTotal * (ratios.weightRatio[cat] || 0);
+      if (!near(val, webVal, 1)) console.log(`           ${cat.padEnd(9)} 그외통관비 엑셀=${money(val).padStart(12)} 웹=${money(webVal).padStart(12)} ★차이 ${money(webVal - val)}`);
     }
   }
 }
 
-console.log('\n=== 9. 기말재고 F — 엑셀 카테고리 평균 vs 웹 층별(FIFO) ===');
+console.log('\n=== 9. 기말상품재고액 — 엑셀 수식 vs 웹 (그 차수 매입 평균원가 × 기말수량) ===');
 for (const w of weeks) {
   const inv = w.wb.Sheets['재고잔량'];
   for (const [cat, [a, b]] of Object.entries(STOCK_RANGES)) {
@@ -244,12 +246,12 @@ for (const w of weeks) {
     const avg = computeCategoryAverageInventoryValue({
       category: cat, purchaseForeign: Q, forwardingForeign: S, taxableRate: R, customsCost: H, purchaseQty: qty, stockQty: endQty,
     });
-    const incoming = incomingInventoryPurchaseValue({
-      category: cat, purchaseForeign: Q, forwardingForeign: S, taxableRate: R, customsCost: H, purchaseQty: qty,
+    const unitCost = weeklyAverageInventoryUnitCost({
+      purchaseForeign: Q, forwardingForeign: S, taxableRate: R, customsCost: H, purchaseQty: qty,
     });
     console.log(`  ${w.major}차 ${cat.padEnd(9)} 기말수량=${String(endQty).padStart(6)}(재고잔량!M${a}:M${b}, ${items.length}품목) 매입수량=${String(qty).padStart(6)}`
       + `  엑셀F=${money(r.F?.v).padStart(14)} 웹평균식=${money(avg?.value).padStart(14)} ${avg && near(avg.value, Number(r.F?.v), 1) ? '일치' : '★차이'}`
-      + `  이번입고원화=${money(incoming)}`);
+      + `  그차수단가=${money(unitCost)}`);
   }
 }
 

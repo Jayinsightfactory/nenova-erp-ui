@@ -1,5 +1,7 @@
 # 작업 완료 보고 — 주차별 매출이익 운영 규칙 정렬
 
+> 이후 엑셀 대조로 기말상품재고액은 층별 FIFO가 아니라 그 차수 매입 평균원가(매입 없으면 직전 단가 이월)로 되돌렸다. 그외통관비 배분은 항상 무게비율, 항공료만 CBM. 상세는 `docs/work-reports/2026-08-19_profit-report-excel-alignment-wrap.md`.
+
 > Cursor(지휘탑)가 매 작업 종료 시 작성. 파일명: `docs/work-reports/2026-08-19_profit-report-rule-alignment.md`
 
 ## 메타

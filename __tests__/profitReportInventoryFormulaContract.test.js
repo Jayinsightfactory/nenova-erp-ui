@@ -11,15 +11,15 @@ const near = (a, b, tolerance = 0.01) => Math.abs(Number(a) - Number(b)) <= tole
 async function main() {
   const {
     computeCategoryAverageInventoryValue,
-    computeLayeredInventoryValue,
+    weeklyAverageInventoryUnitCost,
+    carriedInventoryUnitCost,
     computeAutoEndingStock,
     endingStockSourceKind,
     previousMajorOf,
     reconstructPreviousClosing,
     resolveInventoryClosing,
     resolveNonLayeredInventoryClosing,
-    incomingInventoryPurchaseValue,
-    usesLayeredInventoryCategory,
+    usesWeeklyAverageInventoryCategory,
     AUSTRALIA_INVENTORY_CATEGORY,
   } = await import('../lib/profitReportCalc.js');
   const { getHistoricalClosingInventoryEvidence } = await import('../lib/profitReportHistoricalInventory.js');
@@ -60,11 +60,13 @@ async function main() {
   };
   check('카테고리 평균 공식도 검증된 자동 E/F로 채택', computeAutoEndingStock(auto) === 1234);
   check('화면 원천을 카테고리 평균 공식으로 구분', endingStockSourceKind(auto) === 'verified_category_average');
-  const layered = computeLayeredInventoryValue({
-    beginQty: 10, beginValue: 1000, purchaseQty: 10, purchaseValue: 3000, endQty: 5,
-  });
-  check('기초를 먼저 소진하면 기말은 신규 입고 원가', near(layered?.value, 1500) && layered?.method === 'new_receipts');
-  check('층별 재고 상태 태그', layered?.status === 'VERIFIED_LAYERED_INVENTORY');
+  console.log('\n=== 기말상품재고액 = 그 차수 매입 평균원가 × 기말수량 (원본 양식 공식) ===');
+  check('평균원가 단가는 (매입액+포워딩+통관비)÷매입수량',
+    near(weeklyAverageInventoryUnitCost({ purchaseForeign: 100, forwardingForeign: 10, taxableRate: 15, customsCost: 350, purchaseQty: 10 }), (110 * 15 + 350) / 10));
+  check('매입수량이 없으면 평균원가 없음', weeklyAverageInventoryUnitCost({ purchaseForeign: 100, taxableRate: 15, purchaseQty: 0 }) == null);
+  check('외화가 있는데 과세환율이 없으면 평균원가 없음', weeklyAverageInventoryUnitCost({ purchaseForeign: 100, taxableRate: null, purchaseQty: 10 }) == null);
+  check('직전 단가는 전차수 기말금액÷기말수량', near(carriedInventoryUnitCost({ beginValue: 5000, beginQty: 10 }), 500));
+  check('전차수 수량이 없으면 직전 단가 없음', carriedInventoryUnitCost({ beginValue: 5000, beginQty: 0 }) == null);
 
   console.log('\n=== 모든 국가·품종 E(n) = F(n-1) ===');
   check('27차 직전은 같은 해 26차', previousMajorOf('2026', '27')?.orderYear === '2026' && previousMajorOf('2026', '27')?.major === '26');
@@ -138,7 +140,7 @@ async function main() {
   });
   check('전전차수 확정 F에서 쌓은 전차수 기말이 이번 기초', near(fromPrevPrevConfirm?.value, viewingPrevF?.value));
   const netherlandsPrev = resolveNonLayeredInventoryClosing({
-    category: '네덜란드', purchaseForeign: 100, taxableRate: 1500, purchaseQty: 10, stockQty: 4,
+    category: '네덜란드', purchaseForeign: 0, taxableRate: null, purchaseQty: 0, stockQty: 4,
     directValue: 8800, directStatus: 'VERIFIED',
   });
   const netherlandsE = reconstructPreviousClosing({
@@ -147,23 +149,46 @@ async function main() {
     prevDirectValue: 8800,
     prevDirectStatus: 'VERIFIED',
   });
-  check('네덜란드는 카테고리 평균을 쓰지 않고 전차수 품목증거 F를 E로', netherlandsPrev?.method === 'item_evidence' && near(netherlandsE?.value, 8800));
-  check('네덜란드·중국도 층별 환율', usesLayeredInventoryCategory('네덜란드') && usesLayeredInventoryCategory('중국') && usesLayeredInventoryCategory('이스라엘'));
-  check('공제·미분류는 층별 제외', !usesLayeredInventoryCategory('공제') && !usesLayeredInventoryCategory('기타(미분류)'));
-  const nlIncoming = incomingInventoryPurchaseValue({
-    category: '네덜란드', purchaseForeign: 100, forwardingForeign: 10, taxableRate: 15, purchaseQty: 10,
-  });
-  check('네덜란드 신규입고는 Q×R+S×R (카테고리 평균 H 제외)', near(nlIncoming, 110 * 15));
-  const nlLayered = resolveInventoryClosing({
+  check('그 차수 매입이 없으면 전차수 품목증거 기말재고를 기초로', netherlandsPrev?.method === 'item_evidence' && near(netherlandsE?.value, 8800));
+  check('네덜란드·중국·이스라엘도 원본 평균원가 공식 대상',
+    usesWeeklyAverageInventoryCategory('네덜란드') && usesWeeklyAverageInventoryCategory('중국') && usesWeeklyAverageInventoryCategory('이스라엘'));
+  check('공제·기타(미분류)는 재고 평가 대상이 아님',
+    !usesWeeklyAverageInventoryCategory('공제') && !usesWeeklyAverageInventoryCategory('기타(미분류)'));
+  const nlClosing = resolveInventoryClosing({
     category: '네덜란드',
-    beginQty: 5, beginValue: 5000, purchaseQty: 10, purchaseForeign: 100, forwardingForeign: 0,
-    taxableRate: 15, endQty: 8,
+    beginQty: 5, beginValue: 5000, purchaseQty: 10, purchaseForeign: 100, forwardingForeign: 10,
+    taxableRate: 15, customsCost: 350, endQty: 8,
   });
-  check('네덜란드 기말은 기초를 먼저 팔고 남은 신규는 이번 환율', nlLayered?.status === 'VERIFIED_LAYERED_INVENTORY' && near(nlLayered?.value, 8 * 150));
-  const australiaIncoming = incomingInventoryPurchaseValue({
-    category: AUSTRALIA_INVENTORY_CATEGORY, purchaseForeign: 100, taxableRate: 1.06823, purchaseQty: 10,
+  check('네덜란드 기말도 그 차수 평균원가 × 기말수량',
+    nlClosing?.method === 'weekly_average_cost' && near(nlClosing?.value, ((110 * 15 + 350) / 10) * 8));
+
+  console.log('\n=== 그 차수 매입이 없으면 첫 입고 환율이 유지된다 (호주) ===');
+  const auFirst = resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    beginQty: 0, beginValue: 0, purchaseQty: 10, purchaseForeign: 100, forwardingForeign: 0,
+    taxableRate: 1068.23, customsCost: 0, endQty: 8,
   });
-  check('호주 신규입고는 Q×R', near(australiaIncoming, 100 * 1.06823));
+  check('첫 입고 차수는 그 차수 과세환율로 평가', near(auFirst?.value, (100 * 1068.23 / 10) * 8) && auFirst?.method === 'weekly_average_cost');
+  const auNext = resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    beginQty: 8, beginValue: auFirst.value, purchaseQty: 0, purchaseForeign: 0,
+    taxableRate: 1018.82, endQty: 3, endQtyOnly: true,
+  });
+  check('다음 차수 매입이 없으면 첫 입고 단가 유지', near(auNext?.value, (auFirst.value / 8) * 3) && auNext?.method === 'carried_unit_cost');
+  check('그 다음 차수도 계속 유지', near(resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY, beginQty: 3, beginValue: auNext.value, purchaseQty: 0, endQty: 1,
+  })?.value, auNext.value / 3));
+  const auReceipt = resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    beginQty: 3, beginValue: auNext.value, purchaseQty: 5, purchaseForeign: 60,
+    taxableRate: 1018.82, endQty: 4,
+  });
+  check('새로 입고되면 그때 환율로 재평가', near(auReceipt?.value, (60 * 1018.82 / 5) * 4) && auReceipt?.method === 'weekly_average_cost');
+  const carriedStock = {
+    endQty: 3, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_CARRIED_UNIT_COST', evidenceValue: auNext.value,
+  };
+  check('직전 단가 유지도 자동 기말재고로 채택', near(computeAutoEndingStock(carriedStock), auNext.value));
+  check('직전 단가 유지 원천 태그', endingStockSourceKind(carriedStock) === 'verified_carried_unit_cost');
   const confirmStock = {
     endQty: 4, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_CONFIRM_SNAPSHOT', evidenceValue: 123456,
   };
@@ -176,7 +201,9 @@ async function main() {
   check('현재 F는 전차수 기말(autoE)을 기초로 resolveInventoryClosing', /resolveInventoryClosing\(\{[\s\S]*beginValue: autoE[\s\S]*endQty: endQtyValue/.test(api));
   check('기초 E는 전차수 확정 F 또는 전차수 F 재현', /reconstructPreviousClosing/.test(api) && /getActiveConfirm\(prevOrderYear, prevMajor\)/.test(api));
   check('전전차수 확정 F도 전차수 기초로 이어 씀', /getActiveConfirm\(prevPrev\.orderYear, prevPrev\.major\)/.test(api));
-  check('호주 신규입고는 Q×R (선율과세환율)만 사용', /AUSTRALIA_INVENTORY_CATEGORY[\s\S]*Number\(purchaseForeign\) \* Number\(taxableRate\)/.test(calc));
+  check('기말재고는 원본 평균원가 공식과 직전 단가 유지 두 갈래만',
+    /weeklyAverageInventoryUnitCost\(/.test(calc) && /carriedInventoryUnitCost\(/.test(calc)
+    && !/computeLayeredInventoryValue/.test(calc));
   check('E는 현재 E가 아니라 prevMajor의 F 원천을 사용', /getHistoricalClosingInventoryEvidence\(prevOrderYear, prevMajor/.test(api));
   const beginBlock = api.slice(api.indexOf('const resolvedBegin'), api.indexOf('const beginStock'));
   check('기초 E 선택 블록은 현재 차수 workbook F를 사용하지 않음',

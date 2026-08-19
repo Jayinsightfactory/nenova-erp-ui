@@ -433,7 +433,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
         월드 운송료 추천값은 <b>그 대차수 1차+2차 GW를 합산해 차량 등급으로 올립니다</b>(예: 3,342kg → 5t 1대 275,000원).
         <u>과거에 실제로 쓴 차량·비용이 저장돼 있으면 추천값으로 덮지 않습니다.</u> 직접 입력하면 그 차수의 실제값으로 저장됩니다(부가세 제외 금액 표시).
         관세·선율은 청구가 나뉘어 오므로 1차/2차를 각각 1·2·3번으로 나눠 입력하고, 화면 합계가 관세1차/2차·선율1차/2차로 자동 합산됩니다.
-        콜롬비아 카장알루는 <b>반차수(1차/2차)마다 각각</b> TOTAL(=GW×백상단가 + 통관수수료 + 품목수×검역대행단가 + 실제 트럭비 + 관세료 + 소독비용 + 검역비용)을 구한 뒤 <b>CW가 GW보다 크면 CBM비율, 같거나 작으면 무게비율</b>로 나눕니다.
+        콜롬비아 카장알루는 <b>반차수(1차/2차)마다 각각</b> TOTAL(=GW×백상단가 + 통관수수료 + 품목수×검역대행단가 + 실제 트럭비 + 관세료 + 소독비용 + 검역비용)을 구한 뒤 <b>그외통관비는 항상 무게비율</b>로 나눕니다. <b>항공료만 과금중량(CW)이 총중량(GW)과 다르면 CBM비율</b>을 씁니다.
         APOLLO는 포워딩 업체입니다. 배분 기본값은 <b>콜카장알루</b>(장미·카네이션·알스트로·루스커스)이고, 수국까지 나누려면 반차수에서 <b>콜카장알루수국</b>을 고르고 저장하세요.
         <br />
         <b>값의 출처 3가지</b> —
@@ -644,7 +644,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
                     </label>
                     <span
                       style={{ fontSize: 10, fontWeight: 700, color: ratioMode.useWeight ? '#334155' : '#1d4ed8', background: ratioMode.useWeight ? '#f1f5f9' : '#dbeafe', borderRadius: 4, padding: '2px 6px' }}
-                      title="CW가 GW보다 크면 부피(CBM) 비율, 같거나 작거나 한쪽이 없으면 무게 비율입니다.">
+                      title="그외통관비는 항상 무게 비율로 나눕니다. 이 배지는 항공료 배분 기준이며, 과금중량이 총중량과 다르면 부피(CBM) 비율을 씁니다.">
                       {ratioMode.label}
                     </span>
                     {c.suggestedHydrangea && !includeHydrangea && (

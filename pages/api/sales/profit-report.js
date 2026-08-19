@@ -161,8 +161,8 @@ export async function loadReportData(major, orderYear) {
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        // 모든 국가·품종: 이번 차수 E = 전차수 F. 01차는 전년도 52차 F.
-        // 전차수가 확정되어 있으면 그 F를 쓰고, 아니면 전차수 F 공식(층별이면 전전차수 비층별 기말+전차수 입고)으로 재현한다.
+        // 모든 국가·품종: 이번 차수 기초상품재고액 = 전차수 기말상품재고액. 01차는 전년도 52차.
+        // 전차수가 확정되어 있으면 그 확정 기말재고를 쓰고, 아니면 전차수 기말재고를 같은 공식으로 재현한다.
         const previousConversionMissing = Number(stockBegin.conversionMissingCounts?.[key] || 0) > 0;
         const previousUnitMismatch = stockBegin.unitMismatch?.[key] === true;
         const prevPrevConversionMissing = Number(stockPrevPrev.conversionMissingCounts?.[key] || 0) > 0;
