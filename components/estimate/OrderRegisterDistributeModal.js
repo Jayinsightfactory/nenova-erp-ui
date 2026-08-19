@@ -3,6 +3,8 @@ import { apiGet } from '../../lib/useApi';
 import { formatWeekDisplay } from '../../lib/useWeekInput';
 import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { useDebouncedValue } from '../../lib/useDebouncedValue';
+import { PRODUCT_SEARCH_DEBOUNCE_MS } from '../../lib/productSearchLimits';
 import { applyReferenceCostOnly, buildEstimateAdditionalWeek, formatReferenceCostLabel, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
 
 function buildFullWeek(yearStr, shortWeek) {
@@ -91,6 +93,22 @@ export default function OrderRegisterDistributeModal({
     }, 250);
     return () => clearTimeout(t);
   }, [custQuery, open]);
+
+  // 품목 점수 계산은 전체 카탈로그를 훑기 때문에 타이핑 중간 값으로는 계산하지 않고,
+  // 수량·단위만 바뀐 리렌더에서도 다시 계산하지 않도록 결과를 기억한다.
+  const lineIdsKey = lines.map((l) => l.id).join('\u0000');
+  const prodSearchKey = lines.map((l) => l.prodSearch).join('\u0000');
+  const deferredProdSearchKey = useDebouncedValue(prodSearchKey, PRODUCT_SEARCH_DEBOUNCE_MS);
+  const prodResultsByLine = useMemo(() => {
+    const ids = lineIdsKey ? lineIdsKey.split('\u0000') : [];
+    const queries = deferredProdSearchKey.split('\u0000');
+    const byLine = new Map();
+    ids.forEach((id, i) => {
+      const q = String(queries[i] ?? '').trim();
+      byLine.set(id, q ? rankProductSearchOptions(q, products, { limit: 8 }) : []);
+    });
+    return byLine;
+  }, [deferredProdSearchKey, lineIdsKey, products]);
 
   const updateLine = (id, patch) => {
     setLines(prev => prev.map(l => (l.id === id ? { ...l, ...patch } : l)));
@@ -239,7 +257,7 @@ export default function OrderRegisterDistributeModal({
             <div style={{ display: 'grid', gap: 8 }}>
               {lines.map((line) => {
                 const prodResults = line.prodSearch.trim()
-                  ? rankProductSearchOptions(line.prodSearch, products, { limit: 8 })
+                  ? (prodResultsByLine.get(line.id) || [])
                   : [];
                 return (
                   <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '1fr 72px 64px 32px', gap: 8, alignItems: 'start', paddingBottom:12, borderBottom:'1px solid #e2e8f0' }}>

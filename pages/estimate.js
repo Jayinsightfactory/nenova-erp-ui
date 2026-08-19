@@ -10,6 +10,9 @@ import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
 import { convertQwertyInputToHangul, editHangulSearchBuffer } from '../lib/qwertyHangul.js';
+import { shouldRunCustomerSearch } from '../lib/customerSearch.js';
+import { useDebouncedValue } from '../lib/useDebouncedValue.js';
+import { PRODUCT_SEARCH_DEBOUNCE_MS, PRODUCT_SEARCH_RESULT_LIMIT } from '../lib/productSearchLimits.js';
 import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
@@ -644,7 +647,14 @@ function SearchableSelect({ options, value, onChange, placeholder = '검색...' 
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = rankProductSearchOptions(q, options, { limit: q ? 200 : options.length || 200 });
+  // 품목 점수 계산은 전체 카탈로그를 훑기 때문에 타이핑 중간 값으로는 계산하지 않고,
+  // 부모 리렌더마다 다시 계산하지 않도록 결과를 기억한다.
+  const deferredQ = useDebouncedValue(q, PRODUCT_SEARCH_DEBOUNCE_MS);
+  const filtered = useMemo(
+    // 검색어가 없을 때 전체 목록을 그리면 DOM 노드가 수천 개가 되어 드롭다운이 멈춘다.
+    () => rankProductSearchOptions(deferredQ, options, { limit: PRODUCT_SEARCH_RESULT_LIMIT }),
+    [deferredQ, options],
+  );
 
   const selectedLabel = options.find(o => o.value === value)?.label || '';
 
@@ -1009,21 +1019,39 @@ export default function Estimate() {
   const [selectedCust, setSelectedCust] = useState(null);
   const [showCustDrop, setShowCustDrop] = useState(false);
   const custDropRef = useRef();
+  // 늦게 도착한 이전 검색어 응답이 최신 목록을 덮어쓰지 못하게 하는 요청 순번.
+  const custReqSeq = useRef(0);
+  // 선택으로 채워진 검색어. 이 값으로는 재검색하지 않는다.
+  const custPickedName = useRef(null);
 
   // WeekDay 필터 — 업체 검색 시에도 EXE 기본값인 전체 출고요일을 유지한다.
   const [activeWD, setActiveWD] = useState(new Set(WEEKDAYS));
 
+  const pickCustomer = useCallback((c) => {
+    if (!c) return;
+    // 진행 중인 검색 응답을 무효화해야 선택 직후 목록이 다시 덮이지 않는다.
+    custReqSeq.current += 1;
+    custPickedName.current = c.CustName;
+    setSelectedCust(c);
+    setCustSearch(c.CustName);
+    setCustQwertyBuf('');
+    setShowCustDrop(false);
+    // 업체를 새로 검색하면 EXE 기본값과 같이 모든 출고요일을 다시 활성화한다.
+    setActiveWD(new Set(WEEKDAYS));
+  }, []);
+
+  const resetCustomerSearch = useCallback((nextSearch = '') => {
+    custReqSeq.current += 1;
+    custPickedName.current = null;
+    setSelectedCust(null);
+    setCustSearch(nextSearch);
+    setCustQwertyBuf('');
+  }, []);
+
   // 거래처 드롭다운 키보드 탐색
   const custNav = useDropdownNav(
     custList,
-    (c) => {
-      setSelectedCust(c);
-      setCustSearch(c.CustName);
-      setCustQwertyBuf('');
-      setShowCustDrop(false);
-      // 업체를 새로 검색하면 EXE 기본값과 같이 모든 출고요일을 다시 활성화한다.
-      setActiveWD(new Set(WEEKDAYS));
-    },
+    pickCustomer,
     () => setShowCustDrop(false)
   );
 
@@ -1161,10 +1189,19 @@ export default function Estimate() {
 
   // ── 업체 검색 디바운스
   useEffect(() => {
-    if (custSearch.length < 1) { setCustList([]); return; }
+    if (!shouldRunCustomerSearch(custSearch, custPickedName.current)) {
+      if (custSearch.length < 1) setCustList([]);
+      return;
+    }
+    const seq = ++custReqSeq.current;
     const t = setTimeout(() => {
       apiGet('/api/customers/search', { q: custSearch })
-        .then(d => { setCustList(d.customers || []); setShowCustDrop(true); })
+        .then(d => {
+          // 선택 이후이거나 더 새로운 검색이 시작됐으면 이 응답은 버린다.
+          if (seq !== custReqSeq.current) return;
+          setCustList(d.customers || []);
+          setShowCustDrop(true);
+        })
         .catch(() => {});
     }, 300);
     return () => clearTimeout(t);
@@ -3213,7 +3250,9 @@ export default function Estimate() {
   }, [showPrintDialog, selectedGroups, selectedShip, shipments, printOpts.printFormat, activeWD, weekNum]);
 
   // 품목 옵션 (검색 가능 드롭다운용)
-  const prodOptions = products.map(p => ({
+  // 매 렌더마다 새 배열/객체를 만들면 품목 점수 캐시가 전부 무효화되어
+  // 키 입력마다 전체 카탈로그를 처음부터 다시 계산한다.
+  const prodOptions = useMemo(() => products.map(p => ({
     value: String(p.ProdKey),
     label: p.ProdName,
     sub: `${p.CounName} · ${p.FlowerName} · ${p.OutUnit}`,
@@ -3226,7 +3265,7 @@ export default function Estimate() {
     UsageCount: p.UsageCount ?? p.orderCount ?? 0,
     RecentUsageCount: p.RecentUsageCount ?? 0,
     MappingCount: p.MappingCount ?? 0,
-  }));
+  })), [products]);
 
   // 견적 유형 옵션
   const estimateTypeOptions = estimateTypes.length > 0
@@ -3487,6 +3526,7 @@ export default function Estimate() {
             value={custSearch}
             onChange={e => {
               const raw = e.target.value;
+              custPickedName.current = null;
               if (e.nativeEvent.isComposing) {
                 setCustQwertyBuf('');
                 setCustSearch(raw);
@@ -3504,7 +3544,8 @@ export default function Estimate() {
             onCompositionStart={() => setCustQwertyBuf('')}
             onFocus={e => {
               e.currentTarget.style.imeMode = custInputMode === 'ko' ? 'active' : 'disabled';
-              if (custList.length > 0) setShowCustDrop(true);
+              // 이미 고른 업체가 있으면 포커스만으로 목록을 다시 열지 않는다.
+              if (custList.length > 0 && !selectedCust) setShowCustDrop(true);
             }}
             onKeyDown={e => {
               if (custInputMode === 'ko' && !e.nativeEvent.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -3517,6 +3558,7 @@ export default function Estimate() {
                 });
                 if (edit.handled) {
                   e.preventDefault();
+                  custPickedName.current = null;
                   setCustQwertyBuf(edit.buffer);
                   setCustSearch(edit.display);
                   setSelectedCust(null);
@@ -3524,6 +3566,8 @@ export default function Estimate() {
                   return;
                 }
               }
+              // 목록이 닫힌 상태의 Enter는 첫 항목을 다시 고르면서 선택을 바꿔버린다.
+              if (e.key === 'Enter' && !showCustDrop) return;
               custNav.onKeyDown(e);
             }}
             style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined, imeMode: custInputMode === 'ko' ? 'active' : 'disabled' }}
@@ -3533,13 +3577,8 @@ export default function Estimate() {
               {custList.map((c, i) => (
                 <div key={c.CustKey}
                   onClick={() => {
-                    setSelectedCust(c);
-                    setCustSearch(c.CustName);
-                    setCustQwertyBuf('');
-                    setShowCustDrop(false);
+                    pickCustomer(c);
                     custNav.reset();
-                    // 업체별 검색 시작 시 출고요일 필터는 항상 전체로 시작한다.
-                    setActiveWD(new Set(WEEKDAYS));
                   }}
                   style={{ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid #EEE', fontSize:12,
                     background: custNav.idx === i ? '#C5D9F1' : '#fff' }}
@@ -3556,16 +3595,14 @@ export default function Estimate() {
         <button type="button" className="btn btn-sm"
           onClick={() => {
             setCustInputMode(mode => mode === 'ko' ? 'en' : 'ko');
-            setSelectedCust(null);
-            setCustSearch('');
-            setCustQwertyBuf('');
+            resetCustomerSearch('');
             setCustList([]);
           }}
           title={custInputMode === 'ko' ? '현재 한글 입력 · 클릭하면 영문/코드 검색' : '현재 영문/코드 입력 · 클릭하면 한글 입력'}>
           {custInputMode === 'ko' ? '한글입력' : '영문입력'}
         </button>
         {selectedCust && (
-          <button className="btn btn-sm" onClick={() => { setSelectedCust(null); setCustSearch(''); setCustQwertyBuf(''); }}>✕</button>
+          <button className="btn btn-sm" onClick={() => resetCustomerSearch('')}>✕</button>
         )}
 
         {/* 출고요일 필터 */}
