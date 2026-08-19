@@ -107,6 +107,7 @@ assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
 assert.match(pageSource, /className="filter-input ime-ko"/, '거래처 검색 입력은 한글 IME가 기본이다.');
+assert.match(pageSource, /qwertyToHangul/, '영문 키보드는 두벌식 한글로 조립한다.');
 assert.match(pageSource, /placeholder="거래처 검색[^"]*"[\s\S]{0,80}?lang="ko"|lang="ko"[\s\S]{0,120}?placeholder="거래처 검색/,
   '거래처 검색 input에 lang=ko를 지정한다.');
 assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 불량차감 적요는 미표시가 기본값이다.');

@@ -9,6 +9,7 @@ import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
+import { convertQwertyInputToHangul, qwertyToHangul } from '../lib/qwertyHangul.js';
 import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
@@ -1002,6 +1003,7 @@ export default function Estimate() {
 
   // 업체 검색 드롭다운
   const [custSearch, setCustSearch] = useState('');
+  const [custQwertyBuf, setCustQwertyBuf] = useState('');
   const [custList, setCustList] = useState([]);
   const [selectedCust, setSelectedCust] = useState(null);
   const [showCustDrop, setShowCustDrop] = useState(false);
@@ -1016,6 +1018,7 @@ export default function Estimate() {
     (c) => {
       setSelectedCust(c);
       setCustSearch(c.CustName);
+      setCustQwertyBuf('');
       setShowCustDrop(false);
       // 업체를 새로 검색하면 EXE 기본값과 같이 모든 출고요일을 다시 활성화한다.
       setActiveWD(new Set(WEEKDAYS));
@@ -3481,12 +3484,46 @@ export default function Estimate() {
             spellCheck={false}
             placeholder="거래처 검색... (↓↑ 이동, Enter 선택)"
             value={custSearch}
-            onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); custNav.reset(); }}
+            onChange={e => {
+              const raw = e.target.value;
+              if (e.nativeEvent.isComposing) {
+                setCustQwertyBuf('');
+                setCustSearch(raw);
+              } else {
+                setCustQwertyBuf(/^[a-zA-Z]+$/.test(raw) ? raw : '');
+                setCustSearch(convertQwertyInputToHangul(raw));
+              }
+              setSelectedCust(null);
+              custNav.reset();
+            }}
+            onCompositionStart={() => setCustQwertyBuf('')}
             onFocus={e => {
               e.currentTarget.style.imeMode = 'active';
               if (custList.length > 0) setShowCustDrop(true);
             }}
-            onKeyDown={custNav.onKeyDown}
+            onKeyDown={e => {
+              if (!e.nativeEvent.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                  e.preventDefault();
+                  const buf = custQwertyBuf + e.key;
+                  setCustQwertyBuf(buf);
+                  setCustSearch(qwertyToHangul(buf));
+                  setSelectedCust(null);
+                  custNav.reset();
+                  return;
+                }
+                if (e.key === 'Backspace' && custQwertyBuf) {
+                  e.preventDefault();
+                  const buf = custQwertyBuf.slice(0, -1);
+                  setCustQwertyBuf(buf);
+                  setCustSearch(buf ? qwertyToHangul(buf) : '');
+                  setSelectedCust(null);
+                  custNav.reset();
+                  return;
+                }
+              }
+              custNav.onKeyDown(e);
+            }}
             style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined, imeMode: 'active' }}
           />
           {showCustDrop && custList.length > 0 && (
@@ -3496,6 +3533,7 @@ export default function Estimate() {
                   onClick={() => {
                     setSelectedCust(c);
                     setCustSearch(c.CustName);
+                    setCustQwertyBuf('');
                     setShowCustDrop(false);
                     custNav.reset();
                     // 업체별 검색 시작 시 출고요일 필터는 항상 전체로 시작한다.
@@ -3514,7 +3552,7 @@ export default function Estimate() {
           )}
         </div>
         {selectedCust && (
-          <button className="btn btn-sm" onClick={() => { setSelectedCust(null); setCustSearch(''); }}>✕</button>
+          <button className="btn btn-sm" onClick={() => { setSelectedCust(null); setCustSearch(''); setCustQwertyBuf(''); }}>✕</button>
         )}
 
         {/* 출고요일 필터 */}
