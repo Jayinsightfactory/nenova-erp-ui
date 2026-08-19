@@ -27,7 +27,7 @@ import {
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
-import { getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
+import { formatAutoUnfixSaveLog, getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
 import { buildFixStatusQuery, findFixStatusWeek, resolveFixStatusOrderYear } from '../lib/fixStatusYearScope';
 import {
   computePrintPreviewTotals,
@@ -1374,7 +1374,13 @@ export default function Estimate() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
         const error = data.error || `출고일별 견적수량 저장 실패 (${response.status})`;
-        setCostApplyLog(prev => [...prev, { step: 'error', label: error }]);
+        const isFixedWeek = data.code === 'FIXED_WEEK';
+        setCostApplyLog(prev => [...prev, {
+          step: isFixedWeek ? 'cycle' : 'error',
+          label: isFixedWeek
+            ? formatAutoUnfixSaveLog(data.fixedWeeks || rows.map(p => p.item.OrderWeek))
+            : error,
+        }]);
         return rows.map(p => ({
           key: p.keyNumber,
           ok: false,
@@ -1765,7 +1771,7 @@ export default function Estimate() {
         const cycleStockProdKeys = getProdKeysForEditedItems(fixedPending.map(p => p.item));
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: `확정된 상세 ${fixedFails.length}건 감지 → 자동 확정 사이클: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}`,
+          label: formatAutoUnfixSaveLog(cycleWeeks, cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''),
         }]);
         const retryResults = await runEditWithFixCycle({
           weeks: cycleWeeks,
@@ -1948,7 +1954,7 @@ export default function Estimate() {
         if (!firstErr.isFixedWeek || effWeeks.length === 0) throw firstErr;
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: `확정된 상세 감지 → 자동 확정 사이클: ${sortWeeksDesc(effWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(effWeeks).join(' 확정 → ')} 확정${effCats.length ? ` / 카테고리 ${effCats.join(', ')}` : ''}`,
+          label: formatAutoUnfixSaveLog(effWeeks, effCats.length ? ` / 카테고리 ${effCats.join(', ')}` : ''),
         }]);
         d = await runEditWithFixCycle({
           weeks: effWeeks,
@@ -2128,7 +2134,7 @@ export default function Estimate() {
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: `확정 사이클 대상: ${sortWeeksDesc(cycleWeeks).join(' 해제 → ')} 해제 후 ${sortWeeksAsc(cycleWeeks).join(' 확정 → ')} 확정${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ''}`,
+          label: formatAutoUnfixSaveLog(cycleWeeks, `${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ''}`),
         }]);
       }
 
