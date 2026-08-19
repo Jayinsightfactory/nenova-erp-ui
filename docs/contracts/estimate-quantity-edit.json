@@ -9,6 +9,7 @@
     "pages/api/shipment/fix.js",
     "lib/stockShortage.js",
     "lib/erpWriteScope.js",
+    "lib/shipmentDetailWriteGuard.js",
     "__tests__/stockShortage.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -17,6 +18,13 @@
       "name": "QUANTITY_EDIT",
       "orderDetail": "preserve",
       "shipmentDetail": "increase",
+      "fixCycle": "unfix-save-refix"
+    },
+    {
+      "name": "QUANTITY_ZERO_PURGE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "decrease",
+      "shipmentFarm": "delete-only-when-detail-purged",
       "fixCycle": "unfix-save-refix"
     },
     {
@@ -59,7 +67,8 @@
     "reconfirmFailure": "dry-run edited rows; manual integrity issues stop before update, negative stock prompts for exact shortage adjustment then recalculates and retries fix",
     "negativeStockRecovery": "explicit confirm only -> StockHistory 재고조정(+exact shortage) -> usp_StockCalculation -> usp_ShipmentFix",
     "stockMutation": "Product.Stock is changed only through the existing stored procedure path; no direct Product.Stock update",
-    "dateRows": "ShipmentDate sum must equal ShipmentDetail.OutQuantity"
+    "dateRows": "ShipmentDate sum must equal ShipmentDetail.OutQuantity",
+    "zeroQuantity": "setting the last/only date row to 0 purges ShipmentDetail+ShipmentDate+ShipmentFarm, hides the row from estimate (EstQuantity>0), and preserves OrderDetail"
   },
   "requiredPreflight": [
     "dateMismatch",

@@ -1353,7 +1353,7 @@ export default function Estimate() {
     if (!rows.length) return [];
     setCostApplyLog(prev => [...prev, {
       step: 'save',
-      label: `EXE 출고일별 분배 ${rows.length}건 저장 — ShipmentDetail + ShipmentDate`,
+      label: `EXE 출고일별 분배 ${rows.length}건 저장 시도 — ShipmentDetail + ShipmentDate`,
     }]);
     try {
       const response = await fetch('/api/estimate/update-date-quantity', {
@@ -1374,6 +1374,7 @@ export default function Estimate() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
         const error = data.error || `출고일별 견적수량 저장 실패 (${response.status})`;
+        setCostApplyLog(prev => [...prev, { step: 'error', label: error }]);
         return rows.map(p => ({
           key: p.keyNumber,
           ok: false,
@@ -1783,7 +1784,7 @@ export default function Estimate() {
       setQtyResult({ results, okCount, failCount });
       if (failCount === 0) setQtyEdits({});
       setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 수정 수량 반영 후 견적서 재조회 중' }]);
-      setCostResult({ success: failCount === 0, type: 'quantity', changedCount: okCount, error: failCount ? '일부 수량 저장 실패' : undefined });
+      setCostResult({ success: failCount === 0, type: 'quantity', changedCount: okCount, error: failCount ? (results.find(r => !r.ok)?.error || '일부 수량 저장 실패') : undefined });
       // 다시 조회하여 화면 갱신
       load(true);
     } catch (e) {
@@ -2290,7 +2291,7 @@ export default function Estimate() {
       setCostApplyLog(prev => [...prev, {
         step: failedQty ? 'error' : 'done',
         label: failedQty
-          ? `수량 저장 실패 ${failedQty}건 — 단가/추가품목 저장은 실행하지 않음`
+          ? `수량 저장 실패 ${failedQty}건 — ${qtyResults.find(r => !r.ok)?.error || '단가/추가품목 저장은 실행하지 않음'}`
           : `완료 — 단가/수량/추가품목 ${okAdds}건 반영 후 견적서 재조회 중`,
       }]);
       setCostResult({
@@ -2298,7 +2299,7 @@ export default function Estimate() {
         type: 'combined',
         changedCount: okQty + Number(costResultData.changedCount || 0) + okAdds,
         totalDiff: Number(costResultData.diffAmount || 0),
-        error: failedQty ? '일부 수량 저장 실패' : undefined,
+        error: failedQty ? (qtyResults.find(r => !r.ok)?.error || '일부 수량 저장 실패') : undefined,
       });
       if (failedQty === 0) {
         setQtyEdits({});

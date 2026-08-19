@@ -40,6 +40,9 @@ async function main() {
   assert.match(api, /ShipmentQuantity/);
   assert.match(api, /FIXED_WEEK/);
   assert.match(api, /shipmentUnitsFromUserInput/);
+  assert.match(api, /purgeZeroOutShipmentDetail/);
+  assert.match(api, /isActiveShipmentOutQty/);
+  assert.doesNotMatch(api, /전체 출고수량을 0으로 만들 때는/);
   assert.doesNotMatch(api, /UPDATE OrderDetail/);
 
   const estimateApi = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
