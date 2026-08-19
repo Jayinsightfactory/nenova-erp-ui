@@ -57,6 +57,8 @@ async function main() {
   assert.match(page, /descr: editor\.descr/);
   assert.match(page, /expectedOldDescr/);
   assert.match(page, /runEditWithFixCycle/);
+  assert.match(page, /formatAutoUnfixSaveLog/);
+  assert.doesNotMatch(page, /먼저 확정취소 후 출고일별 분배를 수정하세요/);
   console.log('Estimate date quantity contract tests passed');
 }
 

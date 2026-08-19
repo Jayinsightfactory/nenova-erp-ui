@@ -3,7 +3,7 @@
 
 async function main() {
   const { spawnSync } = await import('node:child_process');
-  const { getFixCycleWeeksForEditedItems } = await import('../lib/estimateFixCycle.js');
+  const { formatAutoUnfixSaveLog, getFixCycleWeeksForEditedItems } = await import('../lib/estimateFixCycle.js');
   const { formatFixApiErrorMessage } = await import('../lib/shipmentFixGuards.js');
   const fs = await import('node:fs');
 
@@ -28,8 +28,11 @@ async function main() {
   const only02 = getFixCycleWeeksForEditedItems([{ OrderWeek: '24-02' }], ship);
   assert('24-02만 수정', only02.join(',') === '24-02');
 
+  assert('확정 로그는 직접 취소가 아니라 자동 처리를 안내', formatAutoUnfixSaveLog(['33-02']) === '확정된 차수(33-02)라 자동으로 해제 후 다시 저장합니다.');
   const page = fs.readFileSync('pages/estimate.js', 'utf8');
   const fixApi = fs.readFileSync('pages/api/shipment/fix.js', 'utf8');
+  assert('확정 로그 문구를 화면에 사용', page.includes('formatAutoUnfixSaveLog'));
+  assert('직접 확정취소 안내를 진행 로그에 그대로 찍지 않음', !page.includes('먼저 확정취소 후 출고일별 분배를 수정하세요'));
   assert('통합 저장도 자동 확정 사이클을 사용', page.includes('runCombinedFixCycle'));
   assert('통합 저장은 서버 확정 범위 오류를 재시도', page.includes('firstError.fixedWeeks'));
   assert('자동 사이클은 전체 고정 범위를 해제·재확정', page.includes('countryFlowers: []'));
