@@ -140,8 +140,12 @@ const salesOrdered = sortEstimateShipmentsForList([
 ]);
 assert.deepEqual(salesOrdered.map((row) => row.CustKey), [13, 280, 31],
   '좌측 업체 목록은 매출 내림차순, 동률은 업체명순이어야 한다.');
-assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(displayShips\)/,
-  '좌측 업체 목록 렌더링 직전에 매출순 정렬을 적용해야 한다.');
+// 좌측 목록은 렌더 직전에 매출순 정렬을 적용하고, 담당자별 출력 모달과 같은
+// 후보 집합(visibleShipments = 최근 차수 필터 적용본)을 봐야 한다.
+assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(visibleShipments\)/,
+  '좌측 업체 목록은 visibleShipments를 매출순 정렬해 렌더링해야 한다.');
+assert.match(pageSource, /filterRecentParentWeeks\(shipments, recentOnly\)/,
+  '최근 차수 필터는 공용 헬퍼로 계산해 모달과 공유해야 한다.');
 assert.match(pageSource, /총 합계금액 ▼/, '좌측 목록 헤더에서 매출 내림차순임을 표시해야 한다.');
 
 console.log('estimate print contract tests passed');
