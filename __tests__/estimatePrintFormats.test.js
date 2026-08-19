@@ -6,6 +6,7 @@ async function main() {
     getStatementProductName,
     getEstimateSpecLabel,
     applyStatementPrintAmounts,
+    applySupplyPrintAmounts,
     computePrintPreviewTotals,
     ESTIMATE_PRINT_FORMAT,
   } = await import('../lib/estimatePrintFormats.js');
@@ -39,12 +40,28 @@ async function main() {
   const row1 = applyStatementPrintAmounts({ Cost: 12100, Amount: 11000, Quantity: 1, Vat: 1100 });
   assert('세액 10%=1100', row1.Vat === 1100);
 
+  console.log('\n=== applySupplyPrintAmounts ===');
+  const supplyRow = applySupplyPrintAmounts({ Cost: 11000, Amount: 120000, Vat: 12000, Quantity: 12 });
+  assert('단가=분배단가 11000', supplyRow.Cost === 11000);
+  assert('공급가액=단가×수량 132000', supplyRow.Amount === 132000);
+  assert('부가세=공급가 10% 13200', supplyRow.Vat === 13200);
+
   console.log('\n=== computePrintPreviewTotals ===');
   const stmt = computePrintPreviewTotals(
     [{ Cost: 12100, Amount: 11000, Quantity: 1, Vat: 1100 }],
     ESTIMATE_PRINT_FORMAT.STATEMENT,
   );
   assert('거래명세표 합계', stmt.total === 12100);
+  const supplyTot = computePrintPreviewTotals(
+    [{ Cost: 11000, Amount: 120000, Vat: 12000, Quantity: 12 }],
+    ESTIMATE_PRINT_FORMAT.SUPPLY,
+  );
+  assert('부가세 미분류 합계 145200', supplyTot.total === 145200);
+  const estTot = computePrintPreviewTotals(
+    [{ Cost: 11000, Amount: 120000, Vat: 12000, Quantity: 12 }],
+    ESTIMATE_PRINT_FORMAT.ESTIMATE,
+  );
+  assert('기존 견적서 합계는 저장 Amount+Vat', estTot.total === 132000);
 
   console.log('\n=== prepareEstimatePrintRows (인쇄 비고 합산) ===');
   const mergeRows = [
@@ -64,6 +81,16 @@ async function main() {
     { EstimateKey: 2, EstimateType: '불량차감/송이', ProdKey: 9, ProdName: 'CARNATION', Unit: '송이', Cost: 100, outDate: '2026-06-04', Quantity: -1, Amount: -91, Vat: -9, DescrRaw: '수입부 메모', Descr: '수입부 메모' },
   ], { printFormat: 'estimate' });
   assert('불량차감 비고 인쇄 기본 숨김', defectMerged.descLabel(defectMerged.rows[0]) === '');
+
+  const supplyGrouped = prepareEstimatePrintRows([
+    {
+      EstimateType: '정상출고', ProdKey: 1, ProdName: 'ROSE', Unit: '단',
+      Cost: 11000, outDate: '2026-06-04', Quantity: 3, Amount: 27273, Vat: 2727,
+    },
+  ], { printFormat: ESTIMATE_PRINT_FORMAT.SUPPLY });
+  assert('미분류는 Amount+Vat로 단가를 덮지 않음', supplyGrouped.rows[0].Cost === 11000);
+  assert('미분류 공급가액=11000×3', supplyGrouped.rows[0].Amount === 33000);
+  assert('미분류 부가세=3300', supplyGrouped.rows[0].Vat === 3300);
 
   console.log(`\n=== RESULT: ${pass} pass, ${fail} fail ===`);
   if (fail) process.exitCode = 1;

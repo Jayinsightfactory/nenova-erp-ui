@@ -7,6 +7,7 @@
     "lib/exeEstimateViewSql.js",
     "lib/estimatePrintOrder.js",
     "lib/estimatePrintPrepare.js",
+    "lib/estimatePrintFormats.js",
     "lib/estimatePrintExcel.js",
     "__tests__/estimatePrintContract.test.js"
   ],
@@ -19,6 +20,22 @@
       "estimateRows": "include all Estimate rows in the selected OrderYearWeek + CustKey; missing PeriodDay/CodeInfo metadata must not silently drop a registered row",
       "source": "FormEstimateView.GetPrintDetail / ReportEstimate",
       "sideEffect": "read-only; no Order, Shipment, ShipmentDate, Estimate, Stock write"
+    },
+    {
+      "name": "ESTIMATE_PRINT_BY_MANAGER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "same GetPrintDetail path per selected CustKey",
+      "source": "web-only selection; print uses FormEstimateView.GetPrintDetail / ReportEstimate",
+      "sideEffect": "read-only. Default targets are Customer.Manager matches that already have ShipmentMaster in the selected OrderYear + major week. Other same-week distributed customers can be opted in."
+    },
+    {
+      "name": "ESTIMATE_PRINT_SUPPLY_NET",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "read-only reprint; Cost is shown as supply unit price; Amount=Cost*qty; Vat=Amount*0.1; stored Amount/Vat are not written back",
+      "source": "web print option 부가세 미분류 견적서; layout is ReportEstimate, amounts are not EXE VAT-inclusive split",
+      "sideEffect": "print and Excel only. Does not update Estimate, ShipmentDetail.Cost/Amount/Vat, or orders."
     }
   ],
   "crossYearFixture": {
@@ -30,6 +47,8 @@
   "leftListOrder": "견적서관리 좌측 업체 목록은 선택 범위의 totalAmount 내림차순(매출 높은 순)으로 표시하고, 동률이면 업체명 → CustKey 순서를 사용한다. 이 화면 순서는 일괄 인쇄의 담당자순 계약을 변경하지 않는다.",
   "requiredTestFiles": [
     "__tests__/estimatePrintContract.test.js",
+    "__tests__/estimatePrintFormats.test.js",
+    "__tests__/estimateManagerPrint.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
