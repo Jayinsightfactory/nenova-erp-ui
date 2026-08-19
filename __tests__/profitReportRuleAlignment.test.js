@@ -28,7 +28,8 @@ async function main() {
   } = await import('../lib/colombiaFlowerClassification.js');
   const {
     computeLayeredInventoryValue, computeAutoEndingStock, endingStockSourceKind,
-    AUSTRALIA_INVENTORY_CATEGORY, reconstructPreviousClosing,
+    AUSTRALIA_INVENTORY_CATEGORY, reconstructPreviousClosing, usesLayeredInventoryCategory,
+    incomingInventoryPurchaseValue,
   } = await import('../lib/profitReportCalc.js');
 
   console.log('=== 차량 등급: 2.5t 초과~5t = 5t ===');
@@ -103,6 +104,11 @@ async function main() {
     beginQty: 0, beginValue: 0, purchaseQty: 10, purchaseValue: 15000, endQty: 3,
   });
   check('신규만 남으면 새 원가', fresh?.method === 'new_receipts' && near(fresh.value, 4500));
+  check('네덜란드도 층별 환율', usesLayeredInventoryCategory('네덜란드') === true);
+  const nlIncoming = incomingInventoryPurchaseValue({
+    category: '중국', purchaseForeign: 80, forwardingForeign: 20, taxableRate: 10, purchaseQty: 10,
+  });
+  check('그 밖 국가는 이번 매입 G=Q×R+S×R', near(nlIncoming, 1000));
 
   console.log('\n=== 호주: 입고시점 구매단가×수량×선율, 재고 판매 시 그 환율 유지 ===');
   const australiaIncoming = 100 * 1.06823;

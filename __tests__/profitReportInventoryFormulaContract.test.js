@@ -19,6 +19,7 @@ async function main() {
     resolveInventoryClosing,
     resolveNonLayeredInventoryClosing,
     incomingInventoryPurchaseValue,
+    usesLayeredInventoryCategory,
     AUSTRALIA_INVENTORY_CATEGORY,
   } = await import('../lib/profitReportCalc.js');
   const { getHistoricalClosingInventoryEvidence } = await import('../lib/profitReportHistoricalInventory.js');
@@ -147,6 +148,18 @@ async function main() {
     prevDirectStatus: 'VERIFIED',
   });
   check('네덜란드는 카테고리 평균을 쓰지 않고 전차수 품목증거 F를 E로', netherlandsPrev?.method === 'item_evidence' && near(netherlandsE?.value, 8800));
+  check('네덜란드·중국도 층별 환율', usesLayeredInventoryCategory('네덜란드') && usesLayeredInventoryCategory('중국') && usesLayeredInventoryCategory('이스라엘'));
+  check('공제·미분류는 층별 제외', !usesLayeredInventoryCategory('공제') && !usesLayeredInventoryCategory('기타(미분류)'));
+  const nlIncoming = incomingInventoryPurchaseValue({
+    category: '네덜란드', purchaseForeign: 100, forwardingForeign: 10, taxableRate: 15, purchaseQty: 10,
+  });
+  check('네덜란드 신규입고는 Q×R+S×R (카테고리 평균 H 제외)', near(nlIncoming, 110 * 15));
+  const nlLayered = resolveInventoryClosing({
+    category: '네덜란드',
+    beginQty: 5, beginValue: 5000, purchaseQty: 10, purchaseForeign: 100, forwardingForeign: 0,
+    taxableRate: 15, endQty: 8,
+  });
+  check('네덜란드 기말은 기초를 먼저 팔고 남은 신규는 이번 환율', nlLayered?.status === 'VERIFIED_LAYERED_INVENTORY' && near(nlLayered?.value, 8 * 150));
   const australiaIncoming = incomingInventoryPurchaseValue({
     category: AUSTRALIA_INVENTORY_CATEGORY, purchaseForeign: 100, taxableRate: 1.06823, purchaseQty: 10,
   });
