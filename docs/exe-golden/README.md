@@ -39,6 +39,7 @@ Registry: `lib/exeParity/registry.js`
 | CostQuantityStockImpact.md | 단가·수량 수정이 재고 재계산·확정 경고에 미치는 영향, 저장 파생값 전체 표 |
 | ProductMatching.md | 품목 매칭 규칙 |
 | FormProfitReport.md | 매출이익 보고서 계산식 |
+| WebSalesRegistrationHistory.md | 웹 전용 판매등록확정 스냅샷. EXE Form 없음. 원장 읽기만, 쓰기는 WebSales* |
 
 ## Probe 스크립트
 

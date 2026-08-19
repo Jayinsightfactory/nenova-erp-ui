@@ -5,6 +5,7 @@ import { resolveActiveOrderYear, normalizeOrderWeek } from '../../../lib/orderUt
 import {
   listSnapshots, getSnapshotRows, captureCurrentRows, diffRowSets, buildBaselineCompare,
   takeSnapshot, detectAndRecordChange, startSalesSnapshotScheduler,
+  resolveSalesHistoryBaseline, SALES_CONFIRM_TYPE, salesCaptureYearPredicateSql,
 } from '../../../lib/salesSnapshot';
 
 // 기준 적용 확인 — 어떤 스냅샷을 '기준금액'으로 쓸지 (기본: TUE_FINAL, [적용 확인] 으로 변경 가능)
@@ -40,16 +41,14 @@ async function resolveBaselines(subweeks, orderYear) {
       { yr: { type: sql.NVarChar, value: String(orderYear) }, wk: { type: sql.NVarChar, value: w } }
     );
     const conf = r.recordset[0];
-    const snap = conf ? snaps.find(s => s.SnapshotKey === conf.SnapshotKey) : null;
-    if (snap) {
-      out.set(w, {
-        snapshotKey: snap.SnapshotKey, takenAt: snap.takenAt, type: snap.SnapshotType,
-        confirmedBy: conf.ConfirmedBy, confirmedDtm: conf.ConfirmedDtm, source: 'confirmed',
-      });
-      continue;
-    }
-    const tue = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
-    if (tue) out.set(w, { snapshotKey: tue.SnapshotKey, takenAt: tue.takenAt, type: 'TUE_FINAL', source: 'default' });
+    const resolved = resolveSalesHistoryBaseline({
+      snapshots: snaps,
+      week: w,
+      confirmed: conf
+        ? { snapshotKey: conf.SnapshotKey, confirmedBy: conf.ConfirmedBy, confirmedDtm: conf.ConfirmedDtm }
+        : null,
+    });
+    if (resolved) out.set(w, resolved);
   }
   return out;
 }
@@ -92,7 +91,7 @@ export default withAuth(async function handler(req, res) {
         const fromKeys = String(req.query.diffFrom).split(',').map(Number).filter(Boolean);
         const baseRows = (await Promise.all(fromKeys.map(k => getSnapshotRows(k)))).flat();
         const toRows = req.query.diffTo === 'current' || !req.query.diffTo
-          ? (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat()
+          ? (await Promise.all(subweeks.map(w => captureCurrentRows(w, orderYear)))).flat()
           : await getSnapshotRows(req.query.diffTo);
         const diff = diffRowSets(baseRows, toRows);
         return res.status(200).json({ success: true, diff });
@@ -109,7 +108,7 @@ export default withAuth(async function handler(req, res) {
           if (tue) { tueRows.push(...await getSnapshotRows(tue.SnapshotKey)); if (!tueBaselineAt || tue.takenAt < tueBaselineAt) tueBaselineAt = tue.takenAt; }
           if (wed) wedRows.push(...await getSnapshotRows(wed.SnapshotKey));
         }
-        const currRows = (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat();
+        const currRows = (await Promise.all(subweeks.map(w => captureCurrentRows(w, orderYear)))).flat();
         // 변경자: 화요일 기준 이후 ShipmentHistory (SdetailKey → 변경자ID 집합)
         const changerByRefKey = new Map();
         if (tueBaselineAt) {
@@ -119,8 +118,9 @@ export default withAuth(async function handler(req, res) {
                  FROM ShipmentHistory sh
                  JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
                  JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
-                WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since AND sh.ChangeID IS NOT NULL`,
-              { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(tueBaselineAt) } }
+                WHERE sm.OrderWeek = @week AND ${salesCaptureYearPredicateSql()}
+                  AND sh.ChangeDtm >= @since AND sh.ChangeID IS NOT NULL`,
+            { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(tueBaselineAt) }, yr: { type: sql.NVarChar, value: String(orderYear) } }
             );
             for (const row of r.recordset) {
               const k = Number(row.SdetailKey);
@@ -155,10 +155,15 @@ export default withAuth(async function handler(req, res) {
                LEFT JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
                LEFT JOIN Customer c ON sm.CustKey = c.CustKey
                LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
-              WHERE sm.OrderWeek = @week AND sh.ChangeDtm >= @since
+              WHERE sm.OrderWeek = @week AND ${salesCaptureYearPredicateSql()}
+                AND sh.ChangeDtm >= @since
                 AND ISNULL(sh.BeforeValue, 0) <> ISNULL(sh.AfterValue, 0) -- 0→0(빈 행 생성)·값 무변경 제외, 수량/금액이 실제로 바뀐 것만
               ORDER BY sh.ChangeDtm DESC`,
-            { week: { type: sql.NVarChar, value: w }, since: { type: sql.DateTime, value: new Date(baseline.takenAt) } }
+            {
+              week: { type: sql.NVarChar, value: w },
+              since: { type: sql.DateTime, value: new Date(baseline.takenAt) },
+              yr: { type: sql.NVarChar, value: String(orderYear) },
+            }
           );
           entries.push(...r.recordset);
         }
@@ -170,7 +175,7 @@ export default withAuth(async function handler(req, res) {
       // 기본: 스냅샷 목록(세부차수 합침) + 현재 라이브 합계(합산) + 기준([적용 확인] 반영)
       const snapLists = await Promise.all(subweeks.map(w => listSnapshots(w, orderYear)));
       const snapshots = snapLists.flat().sort((a, b) => a.SnapshotKey - b.SnapshotKey);
-      const currAll = (await Promise.all(subweeks.map(w => captureCurrentRows(w)))).flat();
+      const currAll = (await Promise.all(subweeks.map(w => captureCurrentRows(w, orderYear)))).flat();
       const liveAmount = currAll.reduce((s, r) => s + Number(r.Amount || 0) + Number(r.Vat || 0), 0);
       const baselines = await resolveBaselines(subweeks, orderYear);
       return res.status(200).json({
@@ -232,14 +237,62 @@ export default withAuth(async function handler(req, res) {
         if (!confirmed.length) return res.status(400).json({ success: false, error: '해당 차수의 스냅샷이 아닙니다.' });
         return res.status(200).json({ success: true, confirmed });
       }
-      // 기준 초기화 — 화요일 최종분배로 되돌림
-      if (action === 'resetBaseline') {
+      // [판매등록확정] — 현재 DB를 확정 스냅샷으로 저장하고, 이후 변경 비교 기준으로 삼는다.
+      if (action === 'confirmSales') {
         await ensureBaselineTable();
+        const confirmed = [];
         for (const w of weeks) {
+          const snap = await takeSnapshot({
+            week: w,
+            orderYear,
+            type: SALES_CONFIRM_TYPE,
+            actor,
+            note: '판매등록확정 — 이후 변경 비교 기준',
+          });
+          if (snap.skipped && snap.reason === 'no-rows') continue;
+          const snapshotKey = snap.snapshotKey;
+          if (!snapshotKey) continue;
           await query(
             `UPDATE WebSalesBaselineConfirm SET isDeleted=1
               WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0`,
             { yr: { type: sql.NVarChar, value: String(orderYear) }, wk: { type: sql.NVarChar, value: w } });
+          await query(
+            `INSERT INTO WebSalesBaselineConfirm (OrderYear, OrderWeek, SnapshotKey, ConfirmedBy)
+             VALUES (@yr, @wk, @sk, @by)`,
+            {
+              yr: { type: sql.NVarChar, value: String(orderYear) },
+              wk: { type: sql.NVarChar, value: w },
+              sk: { type: sql.Int, value: snapshotKey },
+              by: { type: sql.NVarChar, value: actor },
+            });
+          confirmed.push({ week: w, snapshotKey, type: SALES_CONFIRM_TYPE });
+        }
+        if (!confirmed.length) {
+          return res.status(400).json({ success: false, error: '이 차수에 판매등록 행이 없어 확정할 수 없습니다.' });
+        }
+        return res.status(200).json({ success: true, confirmed });
+      }
+      // 기준 초기화 — 판매등록확정이 있어도 화요일 최종분배로 비교 기준을 되돌린다
+      if (action === 'resetBaseline') {
+        await ensureBaselineTable();
+        for (const w of weeks) {
+          const snaps = await listSnapshots(w, orderYear);
+          const tue = snaps.find(s => s.SnapshotType === 'TUE_FINAL');
+          await query(
+            `UPDATE WebSalesBaselineConfirm SET isDeleted=1
+              WHERE OrderYear=@yr AND OrderWeek=@wk AND isDeleted=0`,
+            { yr: { type: sql.NVarChar, value: String(orderYear) }, wk: { type: sql.NVarChar, value: w } });
+          if (tue) {
+            await query(
+              `INSERT INTO WebSalesBaselineConfirm (OrderYear, OrderWeek, SnapshotKey, ConfirmedBy)
+               VALUES (@yr, @wk, @sk, @by)`,
+              {
+                yr: { type: sql.NVarChar, value: String(orderYear) },
+                wk: { type: sql.NVarChar, value: w },
+                sk: { type: sql.Int, value: tue.SnapshotKey },
+                by: { type: sql.NVarChar, value: actor },
+              });
+          }
         }
         return res.status(200).json({ success: true });
       }

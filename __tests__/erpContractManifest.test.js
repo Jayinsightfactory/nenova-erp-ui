@@ -13,6 +13,7 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'pivot-stats'), '피벗 통계 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'estimate-print'), '견적서 출력 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'my-customer-order-entry'), '내 업체 주문등록 계약이 등록되어야 합니다.');
+  assert.ok(manifests.some(({ manifest }) => manifest.id === 'sales-registration-history'), '판매등록 히스토리 계약이 등록되어야 합니다.');
   console.log('ERP contract manifest tests passed');
 }
 
