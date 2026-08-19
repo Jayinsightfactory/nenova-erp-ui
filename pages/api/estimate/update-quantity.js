@@ -2,7 +2,7 @@ import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
-import { estimateFromOutQuantity, shipmentUnitsFromUserInput } from '../../../lib/distributeUnits.js';
+import { estimateFromOutQuantity, shipmentUnitsFromUserInput, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 
 function normalizeUnit(unit) {
@@ -66,8 +66,7 @@ export default withAuth(async function handler(req, res) {
         }
 
         const nextQuantity = oldQuantity < 0 ? -Math.abs(quantity) : quantity;
-        const amount = Math.round(nextQuantity * Number(row.Cost || 0) / 1.1);
-        const vat = Math.round(nextQuantity * Number(row.Cost || 0) / 11);
+        const { amount, vat } = amountVatFromCostEst(Number(row.Cost || 0), nextQuantity);
         await tQ(
           `UPDATE Estimate
               SET Quantity=@qty, Amount=@amount, Vat=@vat

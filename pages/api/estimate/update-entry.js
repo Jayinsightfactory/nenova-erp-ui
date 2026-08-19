@@ -5,6 +5,7 @@
 import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
+import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 
 function parseDate(value) {
   if (!value) return null;
@@ -106,8 +107,7 @@ export default withAuth(async function handler(req, res) {
 
       // 불량차감은 음수, 판매요청은 양수라는 기존 부호를 보존한다.
       const signedQuantity = oldQuantity < 0 ? -quantity : quantity;
-      const amount = Math.round(signedQuantity * cost / 1.1);
-      const vat = Math.round(signedQuantity * cost / 11);
+      const { amount, vat } = amountVatFromCostEst(cost, signedQuantity);
       const unit = String(body.unit || row.Unit || product.recordset[0].EstUnit || product.recordset[0].OutUnit || '').trim();
       const descr = Object.prototype.hasOwnProperty.call(body, 'descr')
         ? String(body.descr || '')

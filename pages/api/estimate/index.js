@@ -20,6 +20,7 @@ import {
   sqlEstimateGetPrintDetail,
 } from '../../../lib/exeEstimateViewSql.js';
 import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
+import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getEstimates(req, res);
@@ -906,8 +907,7 @@ async function createEstimate(req, res) {
     const estUnit = prod.recordset[0]?.EstUnit || prod.recordset[0]?.OutUnit || unitText || unit || '';
     const dtValue = estimateDate ? new Date(estimateDate) : (context.estimateDate || masterRow.DefaultShipmentDtm || new Date());
     const qty = (isNegative ? -1 : 1) * inputQuantity;
-    const amount = Math.round(qty * effectiveCost / 1.1);
-    const vat = Math.round(qty * effectiveCost / 11);
+    const { amount, vat } = amountVatFromCostEst(effectiveCost, qty);
     const appliedShipmentKey = isSalesRequest
       ? (Number(context.shipmentKey) || parseInt(targetShipmentKey, 10) || selectedShipmentKey)
       : Number(context.shipmentKey);

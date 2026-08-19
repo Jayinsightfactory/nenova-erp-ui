@@ -259,6 +259,26 @@ EXE에 정식 대응 화면이 없는 웹 확장 기능이므로, 확정 원장�
 잔재로 보인다. **확정 매출 소급 재계산은 3행·약 3원을 위해 원장을 건드리는 것이므로
 비례하지 않는다.** 새 쓰기만 `Vat = 총액 − Amount`로 맞춰 향후 드리프트를 막는 편이 안전하다.
 
+`1 ≤ 총액 ≤ 200,000` 전수 확인 결과 **정수 총액에서는 두 수식이 단 한 건도 갈리지 않는다.**
+드리프트는 소수 `EstQuantity`(분수 박스, 예 `155송이 ÷ 30 = 5.17`)에서만 발생한다.
+probe가 확정 54,895행 중 3행만 잡은 이유가 이것이고, 그 3행이 §4-2 표의 소수 수량 3행과
+같은 모집단이다.
+
+**적용한 조치 (새 쓰기 한정, 원장 재계산 없음)**: `Estimate` 쓰기 4개 경로와 불량차감 모달
+미리보기를 공용 헬퍼 `lib/distributeUnits.js#amountVatFromCostEst`로 통일했다.
+
+| 파일 | 이전 | 이후 |
+|---|---|---|
+| `pages/api/estimate/index.js` (INSERT) | `Math.round(gross/11)` | `amountVatFromCostEst` |
+| `pages/api/estimate/update-cost.js` | 동일 | 동일 |
+| `pages/api/estimate/update-quantity.js` | 동일 | 동일 |
+| `pages/api/estimate/update-entry.js` | 동일 | 동일 |
+| `pages/estimate.js` (모달 미리보기) | 동일 | 동일 |
+
+`Amount` 산출식은 바뀌지 않았고 `Vat`만 차감으로 바뀌었으므로 정수 수량 행의 저장값은
+이전과 완전히 동일하다. `__tests__/estimateAmountVatParity.test.js`가 `Amount + Vat = 총액`
+항등식(음수 수량 포함)과 위 5개 경로의 헬퍼 사용을 고정한다.
+
 ### 4-3. `EstQuantity`와 금액 기준 수량이 다른 행은 정상이다
 
 같은 probe에서 확정행 54,244건 중 **23,143건**이

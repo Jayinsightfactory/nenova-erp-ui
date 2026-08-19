@@ -15,7 +15,7 @@ assert.ok(api.includes('ESTIMATE_SCOPE_MISMATCH'), '연도·차수·거래처 �
 assert.ok(api.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), 'Estimate 트리거 호환 INSERT를 유지해야 한다.');
 assert.ok(api.includes("affectedTable: 'Estimate'"), 'Estimate 쓰기는 SystemActionLog에 기록돼야 한다.');
 assert.ok(api.includes('const qty = (isNegative ? -1 : 1) * inputQuantity'), '불량/검역은 음수 수량 공식을 공유해야 한다.');
-assert.ok(api.includes('const amount = Math.round(qty * effectiveCost / 1.1)'), 'EXE 공급가 공식을 유지해야 한다.');
+assert.ok(api.includes('amountVatFromCostEst(effectiveCost, qty)'), 'EXE 공급가·부가세 공식(amountVatFromCostEst)을 유지해야 한다.');
 assert.ok(api.includes('const estUnit = prod.recordset[0]?.EstUnit'), 'Estimate.Unit은 Product.EstUnit을 우선해야 한다.');
 assert.equal(api.includes("action: 'unfix'"), false, 'Estimate 차감 등록은 출고 확정해제 사이클을 실행하면 안 된다.');
 assert.ok(page.includes("mode: 'PIVOT_DISTRIBUTION'"), '추가 품목등록은 별도 분배 상태/API를 유지해야 한다.');
