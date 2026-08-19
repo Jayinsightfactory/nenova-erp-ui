@@ -55,6 +55,16 @@ import {
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
 import { getEstimateShipmentManager, sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
+import {
+  estimateShipmentGroupId,
+  filterRecentParentWeeks,
+  buildManagerPrintGroups,
+  managerSelectionState,
+  toggleManagerSelection,
+  toggleCustomerSelection,
+  summarizeManagerPrintSelection,
+  pruneSelectionToGroups,
+} from '../lib/estimateManagerPrint';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 import { shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
@@ -1163,6 +1173,12 @@ export default function Estimate() {
   const [printDayInfo, setPrintDayInfo] = useState({ loading: false, days: [] });
   const [printDialogItems, setPrintDialogItems] = useState([]);
 
+  // 담당자별 출력 — 담당자 칩으로 업체를 묶어 고르고, 기존 일괄 인쇄(selectedGroups)로 넘긴다.
+  const [showManagerPrintDialog, setShowManagerPrintDialog] = useState(false);
+  const [managerPrintFormat, setManagerPrintFormat] = useState(ESTIMATE_PRINT_FORMAT.ESTIMATE);
+  const [managerPrintSel, setManagerPrintSel] = useState(() => new Set());
+  const [managerPrintQuery, setManagerPrintQuery] = useState('');
+
   // 불량/검역 폼
   const [defectForm, setDefectForm] = useState({
     entryMode: 'defect',
@@ -1246,7 +1262,7 @@ export default function Estimate() {
         if (d.shipments?.length > 0) {
           // 그룹 기준: ParentWeek + CustKey
           const first = d.shipments[0];
-          setSelectedId(`${first.ParentWeek}_${first.CustKey}`);
+          setSelectedId(estimateShipmentGroupId(first));
           setSelectedCustKey(first.CustKey);
         } else {
           setSelectedId(null); setSelectedCustKey(null);
@@ -1306,7 +1322,7 @@ export default function Estimate() {
   };
 
   const reloadSelectedShipmentItems = useCallback(async () => {
-    const ship = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
+    const ship = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
     if (!ship) return [];
     try {
       const d = await apiGet('/api/estimate', {
@@ -1328,7 +1344,7 @@ export default function Estimate() {
     }
   }, [selectedId, shipments, weekNum]);
 
-  const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
+  const selectedShip = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
 
   // ── 단가 수정 관련 함수 (P3) ─────────────────────────
   // 현재 선택된 그룹의 ShipmentKey 목록
@@ -2385,6 +2401,33 @@ export default function Estimate() {
   const ALL_WD = ['월','화','수','목','금','토','일'];
   const filteredItems = filterItemsByWeekday(items);
 
+  // 좌측 출고 목록에 실제로 보이는 업체 = 담당자별 출력 모달의 후보와 동일해야 한다.
+  const visibleShipments = useMemo(
+    () => filterRecentParentWeeks(shipments, recentOnly),
+    [shipments, recentOnly],
+  );
+
+  // 담당자 → 해당 차수에 분배가 있는 업체. 검색어는 담당자·거래처 양쪽에 걸린다.
+  const managerPrintGroups = useMemo(
+    () => buildManagerPrintGroups(visibleShipments),
+    [visibleShipments],
+  );
+  const managerPrintVisibleGroups = useMemo(() => {
+    const q = managerPrintQuery.trim().toLowerCase();
+    if (!q) return managerPrintGroups;
+    return managerPrintGroups
+      .map(g => (
+        g.manager.toLowerCase().includes(q)
+          ? g
+          : { ...g, customers: g.customers.filter(c => c.custName.toLowerCase().includes(q)) }
+      ))
+      .filter(g => g.customers.length > 0);
+  }, [managerPrintGroups, managerPrintQuery]);
+  const managerPrintSummary = useMemo(
+    () => summarizeManagerPrintSelection(managerPrintGroups, managerPrintSel),
+    [managerPrintGroups, managerPrintSel],
+  );
+
   const printPreviewItems = useMemo(() => {
     if (!showPrintDialog) return [];
     if (printDialogItems.length > 0 && printDialogItems.every((row) => row?._exePrint === true)) {
@@ -2695,7 +2738,7 @@ export default function Estimate() {
     let targets = [];
     if (selectedGroups.size > 0) {
       targets = [...selectedGroups]
-        .map((id) => shipments.find((s) => `${s.ParentWeek}_${s.CustKey}` === id))
+        .map((id) => shipments.find((s) => estimateShipmentGroupId(s) === id))
         .filter(Boolean);
     } else if (selectedShip) {
       targets = [selectedShip];
@@ -2744,6 +2787,33 @@ export default function Estimate() {
     }
     if (!filteredItems.length) { alert('출력할 데이터가 없거나 행이 선택되지 않았습니다. 좌측에서 행 클릭 또는 체크박스 선택 후 다시 시도하세요.'); return; }
     openPrintDialog(ESTIMATE_PRINT_FORMAT.ESTIMATE);
+  };
+
+  // ── 담당자별 견적서 출력
+  //
+  // 담당자 칩으로 업체 묶음을 고르고, 확정된 선택을 기존 일괄 인쇄(selectedGroups)에 넘긴다.
+  // 인쇄 자체는 doActualPrint 를 그대로 재사용하므로 담당자별 전용 인쇄 경로는 없다.
+  const openManagerPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
+    if (!shipments.length) {
+      alert('조회된 출고 목록이 없습니다. 차수를 조회한 뒤 다시 시도하세요.');
+      return;
+    }
+    setManagerPrintFormat(printFormat);
+    setManagerPrintQuery('');
+    // 좌측에서 이미 체크해 둔 업체가 있으면 이어서 편집할 수 있게 가져온다.
+    setManagerPrintSel(pruneSelectionToGroups(managerPrintGroups, selectedGroups));
+    setShowManagerPrintDialog(true);
+  };
+
+  const confirmManagerPrint = () => {
+    const picked = pruneSelectionToGroups(managerPrintGroups, managerPrintSel);
+    if (picked.size === 0) {
+      alert('인쇄할 업체를 선택하세요. 담당자를 누르면 그 담당자의 업체가 모두 선택됩니다.');
+      return;
+    }
+    setSelectedGroups(picked);
+    setShowManagerPrintDialog(false);
+    openPrintDialog(managerPrintFormat);
   };
 
   const handleStatementPrint = () => {
@@ -2914,7 +2984,7 @@ export default function Estimate() {
       const groupArr = Array.from(selectedGroups);
       const printPages = [];
       const selectedShips = groupArr
-        .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
+        .map(groupId => shipments.find(s => estimateShipmentGroupId(s) === groupId))
         .filter(Boolean);
       // 담당자 순으로 정렬해 인쇄물이 담당자별로 모이게 한다(구분 표지는 종이 낭비라 미삽입).
       const printShips = sortEstimateShipmentsForPrint(selectedShips);
@@ -3054,7 +3124,7 @@ export default function Estimate() {
     if (selectedGroups.size > 0) {
       const groupArr = Array.from(selectedGroups);
       const printShips = sortEstimateShipmentsForPrint(groupArr
-        .map(groupId => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === groupId))
+        .map(groupId => shipments.find(s => estimateShipmentGroupId(s) === groupId))
         .filter(Boolean));
       for (const ship of printShips) {
         try {
@@ -3103,7 +3173,7 @@ export default function Estimate() {
   const handleOrderStatementExcel = useCallback(async () => {
     const ships = selectedGroups.size > 0
       ? Array.from(selectedGroups)
-        .map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g))
+        .map(g => shipments.find(s => estimateShipmentGroupId(s) === g))
         .filter(Boolean)
       : (selectedShip ? [selectedShip] : []);
 
@@ -3191,7 +3261,7 @@ export default function Estimate() {
     if (!showPrintDialog) return;
     let cancelled = false;
     const ships = selectedGroups.size > 0
-      ? Array.from(selectedGroups).map(g => shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === g)).filter(Boolean)
+      ? Array.from(selectedGroups).map(g => shipments.find(s => estimateShipmentGroupId(s) === g)).filter(Boolean)
       : (selectedShip ? [selectedShip] : []);
     const keys = ships.flatMap(s => (s.ShipmentKeys || '').split(',').map(Number).filter(Boolean));
     if (keys.length === 0 && ships.length === 0) {
@@ -3651,6 +3721,10 @@ export default function Estimate() {
           <button className="btn btn-primary" onClick={() => load(false)}>🔄 조회 / Buscar</button>
           <button className="btn" disabled title="불량/검역 등록 버튼으로 저장하세요">💾 저장 (불량/검역 등록 사용)</button>
           <button className="btn" onClick={handlePrint}>🖨️ 견적서 출력</button>
+          <button className="btn" onClick={() => openManagerPrintDialog(ESTIMATE_PRINT_FORMAT.ESTIMATE)}
+            title="담당자를 선택해 그 담당자의 업체만 일괄 인쇄 — 나머지 업체도 개별로 추가 가능">
+            👤 담당자별 견적서 출력
+          </button>
           <button className="btn" onClick={handleStatementPrint}>📋 거래명세표 출력</button>
           <button className="btn" onClick={handleOrderStatementExcel} title="주문등록(ViewOrder) 품목·단위·단가 기준 거래명세표 Excel">📥 주문→거래명세표 Excel</button>
           <button className="btn" onClick={handleEcountExcel} title="nenova.exe GetExcelDetail — 이카운트 견적 업로드용">📤 이카운트 Excel</button>
@@ -3699,11 +3773,11 @@ export default function Estimate() {
                       <th style={{ width: 40, minWidth: 40, textAlign: 'center', padding: '6px 4px' }}>
                         <input type="checkbox"
                           style={{ width: 22, height: 22, minWidth: 22, minHeight: 22, cursor: 'pointer', accentColor: 'var(--blue)' }}
-                          ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < shipments.length; }}
-                          checked={shipments.length > 0 && selectedGroups.size === shipments.length}
+                          ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < visibleShipments.length; }}
+                          checked={visibleShipments.length > 0 && selectedGroups.size === visibleShipments.length}
                           onChange={() => {
-                            if (selectedGroups.size === shipments.length) setSelectedGroups(new Set());
-                            else setSelectedGroups(new Set(shipments.map(s => `${s.ParentWeek}_${s.CustKey}`)));
+                            if (selectedGroups.size === visibleShipments.length) setSelectedGroups(new Set());
+                            else setSelectedGroups(new Set(visibleShipments.map(estimateShipmentGroupId)));
                           }}
                           title="전체 선택/해제"/>
                       </th>
@@ -3713,14 +3787,7 @@ export default function Estimate() {
                   </thead>
                   <tbody>
                     {(() => {
-                      // 최근 2개 부모차수만 필터 (recentOnly=true 시)
-                      let displayShips = shipments;
-                      if (recentOnly && shipments.length > 0) {
-                        const uniqueParents = [...new Set(shipments.map(s => s.ParentWeek))]
-                          .sort((a, b) => String(b).localeCompare(String(a))).slice(0, 2);
-                        displayShips = shipments.filter(s => uniqueParents.includes(s.ParentWeek));
-                      }
-                      displayShips = sortEstimateShipmentsForList(displayShips);
+                      const displayShips = sortEstimateShipmentsForList(visibleShipments);
                       if (displayShips.length === 0) {
                         return (
                           <tr>
@@ -3745,7 +3812,7 @@ export default function Estimate() {
                         );
                       }
                       return displayShips.map(s => {
-                        const groupId = `${s.ParentWeek}_${s.CustKey}`;
+                        const groupId = estimateShipmentGroupId(s);
                         // SubWeeksFix: '17-01:1,17-02:0' → [{wk:'17-01', fix:1}, ...]
                         const subFix = (s.SubWeeksFix || '').split(',').filter(Boolean).map(p => {
                           const [wk, fix] = p.split(':');
@@ -4202,6 +4269,122 @@ export default function Estimate() {
             }
           `}</style>
         </div>
+      )}
+
+      {/* ── 담당자별 견적서 출력 ── */}
+      {showManagerPrintDialog && (
+        <EstimateModalPortal onBackdropClick={() => setShowManagerPrintDialog(false)}>
+          <div className="modal" style={{ maxWidth: 640, width: '92vw', display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">
+                👤 담당자별 견적서 출력
+                <span style={{ fontSize: 11, fontWeight: 'normal', color: 'var(--text3)', marginLeft: 8 }}>
+                  {weekNum}차 분배가 있는 업체 {managerPrintGroups.reduce((n, g) => n + g.customers.length, 0)}곳
+                </span>
+              </span>
+              <button className="btn btn-sm" onClick={() => setShowManagerPrintDialog(false)}>✕</button>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+              <div style={{ fontSize: 11, color: 'var(--text2)', background: '#f1f8e9', border: '1px solid #c5e1a5',
+                            borderRadius: 6, padding: '6px 10px', lineHeight: 1.5 }}>
+                담당자를 누르면 그 담당자의 업체가 모두 선택됩니다. 다른 담당자의 업체도 체크하면 함께 인쇄됩니다.
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  value={managerPrintQuery}
+                  onChange={e => setManagerPrintQuery(e.target.value)}
+                  placeholder="담당자 또는 거래처 검색"
+                  style={{ flex: '1 1 180px', minWidth: 140, padding: '5px 8px', fontSize: 12,
+                           border: '1px solid #ccc', borderRadius: 4 }}
+                />
+                <button type="button" className="btn btn-sm"
+                  onClick={() => setManagerPrintSel(new Set(managerPrintVisibleGroups.flatMap(g => g.groupIds)))}>
+                  전체 선택
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setManagerPrintSel(new Set())}>
+                  전체 해제
+                </button>
+              </div>
+
+              <div style={{ overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
+                {managerPrintVisibleGroups.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
+                    {managerPrintGroups.length === 0
+                      ? '이 차수에 분배가 있는 업체가 없습니다.'
+                      : '검색 결과가 없습니다.'}
+                  </div>
+                ) : managerPrintVisibleGroups.map(group => {
+                  const state = managerSelectionState(group, managerPrintSel);
+                  return (
+                    <div key={group.manager} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <button type="button"
+                        onClick={() => setManagerPrintSel(sel => toggleManagerSelection(sel, group))}
+                        title={state === 'all' ? '이 담당자 전체 해제' : '이 담당자 업체 전체 선택'}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left',
+                          padding: '7px 10px', cursor: 'pointer', border: 'none',
+                          borderLeft: `4px solid ${state === 'all' ? '#2e7d32' : state === 'partial' ? '#f9a825' : 'transparent'}`,
+                          background: state === 'none' ? '#fafafa' : state === 'all' ? '#e8f5e9' : '#fffde7',
+                          fontSize: 12, fontWeight: 700,
+                        }}>
+                        <span style={{ width: 14, color: state === 'none' ? '#bbb' : '#2e7d32' }}>
+                          {state === 'all' ? '☑' : state === 'partial' ? '◪' : '☐'}
+                        </span>
+                        <span>{group.manager}</span>
+                        <span style={{ fontWeight: 'normal', color: 'var(--text3)' }}>
+                          업체 {group.customers.length}곳 · {fmt(group.totalAmount)}
+                        </span>
+                      </button>
+
+                      <div>
+                        {group.customers.map(c => {
+                          const on = managerPrintSel.has(c.groupId);
+                          return (
+                            <label key={c.groupId}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 30px',
+                                cursor: 'pointer', fontSize: 12,
+                                background: on ? '#f1f8e9' : 'transparent',
+                              }}>
+                              <input type="checkbox" checked={on}
+                                onChange={() => setManagerPrintSel(sel => toggleCustomerSelection(sel, c.groupId))} />
+                              <span style={{ flex: 1 }}>{c.custName}</span>
+                              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{c.parentWeek}차</span>
+                              <span className="num" style={{ minWidth: 90, textAlign: 'right', color: 'var(--text2)' }}>
+                                {fmt(c.totalAmount)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>
+                {managerPrintSummary.customerCount === 0 ? '선택된 업체가 없습니다.' : (
+                  <>
+                    담당자 {managerPrintSummary.managerCount}명 · 업체{' '}
+                    <b style={{ color: '#2e7d32' }}>{managerPrintSummary.customerCount}곳</b> ·{' '}
+                    {fmt(managerPrintSummary.totalAmount)}
+                  </>
+                )}
+              </span>
+              <button type="button" className="btn btn-sm" onClick={() => setShowManagerPrintDialog(false)}>취소</button>
+              <button type="button" className="btn btn-primary btn-sm"
+                disabled={managerPrintSummary.customerCount === 0}
+                onClick={confirmManagerPrint}>
+                🖨️ 인쇄 ({managerPrintSummary.customerCount}곳)
+              </button>
+            </div>
+          </div>
+        </EstimateModalPortal>
       )}
 
       {/* ── 견적서 출력 다이얼로그 ── */}
