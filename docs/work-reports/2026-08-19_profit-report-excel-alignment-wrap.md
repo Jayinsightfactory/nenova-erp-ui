@@ -9,7 +9,7 @@
 | 일시 | 2026-08-19 |
 | 사용자 요청 | 28~31차 재고수정 엑셀과 웹 차이를 고치고 작업마무리 |
 | 브랜치 | `cursor/profit-report-rule-alignment-0d71` |
-| 커밋 | `fix: match Excel closing-stock formula and Colombia H weight split` |
+| 커밋 | `8f0fed8` — `fix: match Excel closing-stock formula and Colombia H weight split` |
 | 배포 | PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/275 — 이 턴에서 푸시. master 병합·Cafe24 배포는 PR 머지 후 |
 
 ## AI 구성 (어떻게 나눴는지)
@@ -44,7 +44,14 @@
 
 ## 검증 결과
 
-커밋 후 이 턴에서 `profitReport*` 테스트, `test:nenova-dnspy-evidence`, `guard:erp-writes`, `test:erp-manifest`, `npm run build`를 돌린다.
+```
+profit-report 관련 단위테스트: 실패 0
+npm run test:profit-report-22-28: 통과
+npm run test:nenova-dnspy-evidence: Nenova dnSpy evidence guard passed
+npm run guard:erp-writes -- --changed-from origin/master: ERP write scope guard passed (7 changed API files)
+npm run test:erp-manifest -- --changed-from origin/master: ERP contract manifest guard passed
+npm run build (webpack): Compiled successfully
+```
 
 ## 사용자 확인 포인트
 

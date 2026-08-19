@@ -9,7 +9,7 @@
 | 일시 | 2026-08-19 |
 | 사용자 요청 | 매출원가 양식 28·29·30·31차_재고수정.xlsx 가 네노바웹 데이터와 왜 다른지 찾고, 엑셀 공식에 맞게 웹을 고친 뒤 작업마무리 |
 | 브랜치 | `cursor/profit-report-rule-alignment-0d71` |
-| 커밋 | `fix: match Excel closing-stock formula and Colombia H weight split` |
+| 커밋 | `8f0fed8` — `fix: match Excel closing-stock formula and Colombia H weight split` |
 | 배포 | PR #275 — 웹 전용 계산만. ERP 원장 WRITE 없음 |
 
 ## 대상 파일 (읽기 전용, 수정하지 않음)
