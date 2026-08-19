@@ -350,10 +350,16 @@ function buildEstimateHtml({
   showBoxQty = true,
   showDistribDesc = false,
   showDeductionOutDay = false,
+  showDeductionDescr = false,
   printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE,
 }) {
   const docTitle = getPrintFormatDocTitle(printFormat);
-  const prepared = prepareEstimatePrintRows(rows, { printFormat, showDistribDesc, showDeductionOutDay });
+  const prepared = prepareEstimatePrintRows(rows, {
+    printFormat,
+    showDistribDesc,
+    showDeductionOutDay,
+    showDeductionDescr,
+  });
   const { rows: printRows, totals, statementFormat, descLabel } = prepared;
   const fmtN = n => Number(n || 0).toLocaleString();
   const totalSupply = totals.supply;
@@ -425,7 +431,7 @@ function buildEstimateHtml({
         ? (r.ProdName || '')
         : `${estimateTypeLabel(r.EstimateType)}${r.ProdName || ''}`;
       const unitQuantity = r.UnitQuantity || `${fmtN(r.Quantity)}${r.Unit || ''}`;
-      const descr = r._exePrint ? (r.Descr ?? '') : descLabel(r);
+      const descr = descLabel(r);
       return `
     <tr>
       ${td(i + 1, `${rowBg}text-align:center;padding:2px 3px;`)}
@@ -1114,6 +1120,7 @@ export default function Estimate() {
     showBoxQty: true,
     showDistribDesc: false,
     showDeductionOutDay: false,
+    showDeductionDescr: false,
   });
 
   // 인쇄 다이얼로그용 — 선택 거래처의 출고일(byDate) 분포.
@@ -2833,6 +2840,7 @@ export default function Estimate() {
         showBoxQty: opts.showBoxQty !== false,
         showDistribDesc: opts.showDistribDesc === true,
         showDeductionOutDay: opts.showDeductionOutDay === true,
+        showDeductionDescr: opts.showDeductionDescr === true,
         printFormat: opts.printFormat || ESTIMATE_PRINT_FORMAT.ESTIMATE,
       };
 
@@ -2916,6 +2924,7 @@ export default function Estimate() {
       showBoxQty: opts.showBoxQty !== false,
       showDistribDesc: opts.showDistribDesc === true,
       showDeductionOutDay: opts.showDeductionOutDay === true,
+      showDeductionDescr: opts.showDeductionDescr === true,
     };
 
     const fetchPrintRowsForShip = async (ship) => {
@@ -3099,6 +3108,7 @@ export default function Estimate() {
             showBoxQty: false,
             showDistribDesc: false,
             showDeductionOutDay: false,
+            showDeductionDescr: false,
             bigoLabel: `${weekLabel}차 종합거래명세표 (주문등록)`,
           }),
         });
@@ -4012,6 +4022,13 @@ export default function Estimate() {
               />
               차수별 수량
             </label>
+            <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input type="checkbox"
+                checked={printOpts.showDeductionDescr === true}
+                onChange={e => setPrintOpts(o => ({ ...o, showDeductionDescr: e.target.checked }))}
+              />
+              불량차감 적요
+            </label>
           </div>
         </div>
       </div>
@@ -4276,6 +4293,13 @@ export default function Estimate() {
                       onChange={e => setPrintOpts(o => ({ ...o, showDeductionOutDay: e.target.checked }))}
                     />
                     적요에 출고일(N일) 표시 <span style={{ color: 'var(--text3)' }}>(차감·비고 없을 때)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={printOpts.showDeductionDescr === true}
+                      onChange={e => setPrintOpts(o => ({ ...o, showDeductionDescr: e.target.checked }))}
+                    />
+                    불량차감 적요 표시 <span style={{ color: 'var(--text3)' }}>(기본 미표시)</span>
                   </label>
                 </div>
               </div>

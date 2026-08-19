@@ -60,6 +60,11 @@ async function main() {
   ], { printFormat: 'estimate' });
   assert('단가차감 비고 인쇄', deductMerged.descLabel(deductMerged.rows[0]) === '25년도 불량차감 미적용건');
 
+  const defectMerged = prepareEstimatePrintRows([
+    { EstimateKey: 2, EstimateType: '불량차감/송이', ProdKey: 9, ProdName: 'CARNATION', Unit: '송이', Cost: 100, outDate: '2026-06-04', Quantity: -1, Amount: -91, Vat: -9, DescrRaw: '수입부 메모', Descr: '수입부 메모' },
+  ], { printFormat: 'estimate' });
+  assert('불량차감 비고 인쇄 기본 숨김', defectMerged.descLabel(defectMerged.rows[0]) === '');
+
   console.log(`\n=== RESULT: ${pass} pass, ${fail} fail ===`);
   if (fail) process.exitCode = 1;
 }

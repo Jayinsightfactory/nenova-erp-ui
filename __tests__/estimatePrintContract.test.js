@@ -59,7 +59,13 @@ assert.equal(prepared.exePrintParity, true);
 assert.equal(prepared.rows.length, 3, 'EXE가 반환한 같은 품목·다른 단가 및 차감행을 다시 합치지 않는다.');
 assert.deepEqual(prepared.rows.map((row) => row.ProdName), exeRows.map((row) => row.ProdName));
 assert.equal(prepared.rows[0].UnitQuantity, '12단');
-assert.equal(prepared.descLabel(prepared.rows[2]), '수입부 메모', 'ReportEstimate 적요 원문을 보존한다.');
+assert.equal(prepared.descLabel(prepared.rows[2]), '', '불량차감 적요는 인쇄 기본 미표시다.');
+assert.equal(prepared.rows[0].Descr, '출고 메모', '정상출고 적요 원문은 보존한다.');
+assert.equal(
+  prepareEstimatePrintRows(exeRows, { printFormat: 'estimate', showDeductionDescr: true }).descLabel(exeRows[2]),
+  '수입부 메모',
+  '불량차감 적요 표시 옵션을 켠 경우에만 원문을 출력한다.',
+);
 assert.equal(prepared.totals.total, 223000, 'Amount+Vat를 EXE처럼 합산한다.');
 
 const worksheet = buildEstimatePrintWorksheet({
@@ -75,6 +81,7 @@ const header = aoa.find((row) => row.includes('품목명[규격]'));
 assert.deepEqual(header, ['순번', '품목명[규격]', '수량', '단가', '공급가액', '부가세', '적요']);
 assert.equal(aoa.some((row) => row.includes('단위')), false, '일반 견적서에 EXE에 없는 별도 단위 열을 만들지 않는다.');
 assert.equal(aoa.some((row) => row.includes('박스')), false, '일반 견적서에 EXE에 없는 별도 박스 열을 만들지 않는다.');
+assert.equal(aoa.some((row) => String(row).includes('수입부 메모')), false, '엑셀 인쇄도 불량차감 적요를 기본 숨긴다.');
 
 const sql = sqlEstimateGetPrintDetail({ orderYearWeek: '202630', custKey: 42, weekDayIn: '2,3' });
 assert.match(sql, /FROM ViewShipment vs/);
@@ -91,11 +98,17 @@ assert.match(sql, /ProductSortLookup/);
 assert.match(sql, /pd\.WeekDay IN \(2,3\)/);
 
 const pageSource = fs.readFileSync(new URL('../pages/estimate.js', import.meta.url), 'utf8');
+assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 표시 옵션은 미표시가 기본값이다.');
+assert.match(pageSource, /불량차감 적요 표시/);
+assert.match(pageSource, /const descr = descLabel\(r\)/, 'EXE 인쇄도 descLabel로 불량차감 적요를 숨긴다.');
 assert.match(pageSource, /printDetail:\s*'1'/);
 assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
+assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 불량차감 적요는 미표시가 기본값이다.');
+assert.match(pageSource, /불량차감 적요 표시/, '인쇄 다이얼로그에 불량차감 적요 표시 체크가 있다.');
+assert.doesNotMatch(pageSource, /_exePrint \? \(r\.Descr/, 'EXE 인쇄도 descLabel을 경유해 불량차감 적요 옵션을 따른다.');
 assert.equal((pageSource.match(/sortEstimateShipmentsForPrint\(/g) || []).length >= 2, true,
   '견적서 인쇄와 동일양식 Excel 모두 같은 담당자 정렬 함수를 사용한다.');
 
