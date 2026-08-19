@@ -23,6 +23,7 @@ import {
   sanitizeEstimateDescrForDisplay,
 } from '../lib/estimateInvariants';
 import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
+import { amountVatFromCostEst } from '../lib/distributeUnits.js';
 import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
 import {
   FIX_CATEGORY_PRESETS,
@@ -1177,8 +1178,10 @@ export default function Estimate() {
 
   // 공급가액/부가세 자동계산
   const amountSign = defectForm.negative ? -1 : 1;
-  const supply = Math.round(amountSign * (parseFloat(defectForm.quantity)||0) * (parseFloat(defectForm.cost)||0) / 1.1);
-  const vat    = Math.round(amountSign * (parseFloat(defectForm.quantity)||0) * (parseFloat(defectForm.cost)||0) / 11);
+  const { amount: supply, vat } = amountVatFromCostEst(
+    parseFloat(defectForm.cost) || 0,
+    amountSign * (parseFloat(defectForm.quantity) || 0),
+  );
 
   // ── 외부 클릭 시 업체 드롭다운 닫기
   useEffect(() => {

@@ -16,6 +16,9 @@ node_modules/
 
 # 로컬 preview 용 임시 파일
 .preview/
+
+# 에이전트 작업용 임시 산출물 — 운영 DB SP 본문·probe 덤프가 들어오므로 커밋 금지
+.agent_tmp/
 data/.train-queue.json
 *.product-cache.json
 

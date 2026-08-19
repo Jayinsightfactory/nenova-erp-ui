@@ -32,7 +32,7 @@
 
 import { withTransaction, sql, query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
+import { estimateFromOutQuantity, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
 import { WEEK_PROD_COST_YEAR_PROBE_SQL } from '../../../lib/weekProdCostSchema.js';
 
@@ -236,8 +236,8 @@ export default withAuth(async function handler(req, res) {
             throw err;
           }
 
-          const newAmount = Math.round(Number(row.Quantity || 0) * it.cost / 1.1);
-          const newVat = Math.round(Number(row.Quantity || 0) * it.cost / 11);
+          const { amount: newAmount, vat: newVat } =
+            amountVatFromCostEst(it.cost, Number(row.Quantity || 0));
 
           await tQ(
             `UPDATE Estimate
