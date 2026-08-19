@@ -2,7 +2,7 @@
   "id": "shilla-miu-board",
   "title": "CustKey 기반 업체별 잔량분배 통합게시판 (예상물량→현재분배→업체 최종분배→업체 잔량→미우 이관)",
   "scope": [
-    "pages/sales/shilla-miu-board.js",
+    "pages/sales/shilla-miu-allocation.js",
     "pages/api/sales/shilla-miu-board.js",
     "lib/shillaMiuBoard.js",
     "__tests__/shillaMiuBoard.test.js",

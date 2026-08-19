@@ -1,0 +1,116 @@
+{
+  "id": "hotel-miu-intake",
+  "title": "호텔+미우 통합게시판 주문입력 — 이미지/텍스트 합산 후 주문수량만 가산",
+  "scope": [
+    "pages/sales/shilla-miu-board.js",
+    "pages/sales/shilla-miu-allocation.js",
+    "pages/api/sales/hotel-miu-parse.js",
+    "pages/api/sales/hotel-miu-intake.js",
+    "pages/api/orders/index.js",
+    "lib/hotelMiuIntake.js",
+    "components/Layout.js",
+    "__tests__/hotelMiuIntake.test.js",
+    "docs/contracts/hotel-miu-intake.json",
+    "docs/exe-golden/FormOrderAdd.md",
+    "docs/migrations/2026-08-19_web_hotel_miu_intake.sql"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "PARSE_IMAGE_OR_TEXT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read Product + order-mappings.json + WebHotelMiuProductMap overlay. No persistImportMatchMappings. No Order/Shipment write."
+    },
+    {
+      "name": "SAVE_BOARD_PRODUCT_MAP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "INSERT WebHotelMiuProductMap overlay only. Does not write data/order-mappings.json."
+    },
+    {
+      "name": "FAVORITE_CUSTOMER_WEEK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "UserFavorite page=hotel-miu-board stores custKey+year+week. Ledger preserve."
+    },
+    {
+      "name": "REGISTER_ORDER_ADD",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "preserve",
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add for selected OrderYear+OrderWeek+CustKey+ProdKey. ShipmentMaster is not ensured (not raum-pnl). Then INSERT WebHotelMiuIntakeBatch+Line as 1차/2차. Cross-year same OrderWeek is excluded."
+    },
+    {
+      "name": "REVISE_BATCH_INCREASE",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "preserve",
+      "sideEffect": "batchQtyDelta positive qty is sent to createOrder as signed add. WebHotelMiuIntakeLine replaced for that BatchKey scoped by OrderYear+OrderWeek+CustKey. Shipment preserve."
+    },
+    {
+      "name": "REVISE_BATCH_DECREASE",
+      "orderDetail": "decrease",
+      "shipmentDetail": "preserve",
+      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract. Does not write Shipment*/Estimate/WebProfitReport."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026의 동일 차수(예: 33-01)라도 화면 연도+차수+CustKey만 조회·가산한다. 전년도 Master를 재사용하지 않는다.",
+    "fixture": {
+      "selectedOrderYear": "2026",
+      "orderWeek": "33-01",
+      "priorYear": "2025",
+      "expectedIncludedYears": ["2026"],
+      "expectedExcludedYears": ["2025"]
+    }
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs",
+    "methods": [
+      "btnSave_Click",
+      "UnitQuantity",
+      "web hotel-miu-board createOrder"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "OrderHistory",
+      "WebHotelMiuIntakeBatch",
+      "WebHotelMiuIntakeLine",
+      "WebHotelMiuProductMap",
+      "UserFavorite"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "writes": [
+    "OrderMaster",
+    "OrderDetail",
+    "OrderHistory",
+    "WebHotelMiuIntakeBatch",
+    "WebHotelMiuIntakeLine",
+    "WebHotelMiuProductMap",
+    "UserFavorite"
+  ],
+  "preserves": [
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "requiredTests": ["__tests__/hotelMiuIntake.test.js"],
+  "requiredTestFiles": [
+    "__tests__/hotelMiuIntake.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ]
+}

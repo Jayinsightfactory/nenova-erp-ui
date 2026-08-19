@@ -1,6 +1,6 @@
 # 잔량분배 게시판 — 업체 최종분배 흐름 부작용 행렬 (2026-08-11)
 
-대상 화면: `/sales/shilla-miu-board` (메뉴 이름 `잔량분배`)
+대상 화면: `/sales/shilla-miu-allocation` (호텔+미우 홈의 `잔량분배표` 버튼. 메뉴 홈은 주문입력 `/sales/shilla-miu-board`)
 대상 API: `/api/sales/shilla-miu-board`
 계약: `docs/contracts/shilla-miu-board.json`
 근거: `docs/exe-golden/FormShipmentDistribution.md`

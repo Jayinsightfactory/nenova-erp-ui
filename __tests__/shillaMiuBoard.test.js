@@ -108,7 +108,7 @@ assert.equal(stepMajorWeek("9", 1), "10", "표시는 항상 2자리로 채운다
 
 // ── 화면 시뮬레이션: 휠 burst + 늦게 도착한 이전 응답에서도 표시값·URL·조회요청이 일치한다.
 {
-  // pages/sales/shilla-miu-board.js 의 weekRef + reqRef + resolveBoardView 조합을 그대로 흉내낸다.
+  // pages/sales/shilla-miu-allocation.js 의 weekRef + reqRef + resolveBoardView 조합을 그대로 흉내낸다.
   const makeScreen = () => {
     const screen = {
       week: "33",
@@ -545,7 +545,7 @@ assert.equal(twoReceivers.length, 2);
 }
 
 const api = fs.readFileSync("pages/api/sales/shilla-miu-board.js", "utf8");
-const page = fs.readFileSync("pages/sales/shilla-miu-board.js", "utf8");
+const page = fs.readFileSync("pages/sales/shilla-miu-allocation.js", "utf8");
 const lib = fs.readFileSync("lib/shillaMiuBoard.js", "utf8");
 
 // ── ERP 읽기 범위: 연도 + 대차수 prefix + 정확한 CustKey
