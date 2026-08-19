@@ -9,7 +9,7 @@ import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { useLang } from '../lib/i18n';
 import { useDropdownNav } from '../lib/useDropdownNav';
-import { convertQwertyInputToHangul, qwertyToHangul } from '../lib/qwertyHangul.js';
+import { convertQwertyInputToHangul, editHangulSearchBuffer } from '../lib/qwertyHangul.js';
 import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import {
   filterItemsByWeekday as filterEstimateItemsByWeekday,
@@ -1004,6 +1004,7 @@ export default function Estimate() {
   // 업체 검색 드롭다운
   const [custSearch, setCustSearch] = useState('');
   const [custQwertyBuf, setCustQwertyBuf] = useState('');
+  const [custInputMode, setCustInputMode] = useState('ko');
   const [custList, setCustList] = useState([]);
   const [selectedCust, setSelectedCust] = useState(null);
   const [showCustDrop, setShowCustDrop] = useState(false);
@@ -3477,8 +3478,8 @@ export default function Estimate() {
         <span className="filter-label">거래처</span>
         <div style={{ position: 'relative' }} ref={custDropRef}>
           <input
-            className="filter-input ime-ko"
-            lang="ko"
+            className={`filter-input${custInputMode === 'ko' ? ' ime-ko' : ''}`}
+            lang={custInputMode === 'ko' ? 'ko' : 'en'}
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
@@ -3489,34 +3490,35 @@ export default function Estimate() {
               if (e.nativeEvent.isComposing) {
                 setCustQwertyBuf('');
                 setCustSearch(raw);
+              } else if (custInputMode === 'ko' && e.nativeEvent.inputType === 'insertFromPaste') {
+                const converted = convertQwertyInputToHangul(raw);
+                setCustQwertyBuf(/^[a-zA-Z0-9 ._-]+$/.test(raw) ? raw : '');
+                setCustSearch(converted);
               } else {
-                setCustQwertyBuf(/^[a-zA-Z]+$/.test(raw) ? raw : '');
-                setCustSearch(convertQwertyInputToHangul(raw));
+                setCustQwertyBuf('');
+                setCustSearch(raw);
               }
               setSelectedCust(null);
               custNav.reset();
             }}
             onCompositionStart={() => setCustQwertyBuf('')}
             onFocus={e => {
-              e.currentTarget.style.imeMode = 'active';
+              e.currentTarget.style.imeMode = custInputMode === 'ko' ? 'active' : 'disabled';
               if (custList.length > 0) setShowCustDrop(true);
             }}
             onKeyDown={e => {
-              if (!e.nativeEvent.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey) {
-                if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+              if (custInputMode === 'ko' && !e.nativeEvent.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                const edit = editHangulSearchBuffer({
+                  display: custSearch,
+                  buffer: custQwertyBuf,
+                  key: e.key,
+                  selectionStart: e.currentTarget.selectionStart,
+                  selectionEnd: e.currentTarget.selectionEnd,
+                });
+                if (edit.handled) {
                   e.preventDefault();
-                  const buf = custQwertyBuf + e.key;
-                  setCustQwertyBuf(buf);
-                  setCustSearch(qwertyToHangul(buf));
-                  setSelectedCust(null);
-                  custNav.reset();
-                  return;
-                }
-                if (e.key === 'Backspace' && custQwertyBuf) {
-                  e.preventDefault();
-                  const buf = custQwertyBuf.slice(0, -1);
-                  setCustQwertyBuf(buf);
-                  setCustSearch(buf ? qwertyToHangul(buf) : '');
+                  setCustQwertyBuf(edit.buffer);
+                  setCustSearch(edit.display);
                   setSelectedCust(null);
                   custNav.reset();
                   return;
@@ -3524,7 +3526,7 @@ export default function Estimate() {
               }
               custNav.onKeyDown(e);
             }}
-            style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined, imeMode: 'active' }}
+            style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined, imeMode: custInputMode === 'ko' ? 'active' : 'disabled' }}
           />
           {showCustDrop && custList.length > 0 && (
             <div style={{ position:'absolute', top:'100%', left:0, zIndex:200, background:'#fff', border:'2px solid var(--border2)', width:300, maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 6px rgba(0,0,0,0.2)' }}>
@@ -3551,6 +3553,17 @@ export default function Estimate() {
             </div>
           )}
         </div>
+        <button type="button" className="btn btn-sm"
+          onClick={() => {
+            setCustInputMode(mode => mode === 'ko' ? 'en' : 'ko');
+            setSelectedCust(null);
+            setCustSearch('');
+            setCustQwertyBuf('');
+            setCustList([]);
+          }}
+          title={custInputMode === 'ko' ? '현재 한글 입력 · 클릭하면 영문/코드 검색' : '현재 영문/코드 입력 · 클릭하면 한글 입력'}>
+          {custInputMode === 'ko' ? '한글입력' : '영문입력'}
+        </button>
         {selectedCust && (
           <button className="btn btn-sm" onClick={() => { setSelectedCust(null); setCustSearch(''); setCustQwertyBuf(''); }}>✕</button>
         )}
