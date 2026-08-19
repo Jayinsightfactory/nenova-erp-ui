@@ -106,6 +106,9 @@ assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
+assert.match(pageSource, /className="filter-input ime-ko"/, '거래처 검색 입력은 한글 IME가 기본이다.');
+assert.match(pageSource, /placeholder="거래처 검색[^"]*"[\s\S]{0,80}?lang="ko"|lang="ko"[\s\S]{0,120}?placeholder="거래처 검색/,
+  '거래처 검색 input에 lang=ko를 지정한다.');
 assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 불량차감 적요는 미표시가 기본값이다.');
 assert.match(pageSource, /불량차감 적요 표시/, '인쇄 다이얼로그에 불량차감 적요 표시 체크가 있다.');
 assert.doesNotMatch(pageSource, /_exePrint \? \(r\.Descr/, 'EXE 인쇄도 descLabel을 경유해 불량차감 적요 옵션을 따른다.');

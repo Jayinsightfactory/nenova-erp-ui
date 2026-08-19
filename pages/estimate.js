@@ -3474,13 +3474,20 @@ export default function Estimate() {
         <span className="filter-label">거래처</span>
         <div style={{ position: 'relative' }} ref={custDropRef}>
           <input
-            className="filter-input"
+            className="filter-input ime-ko"
+            lang="ko"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="거래처 검색... (↓↑ 이동, Enter 선택)"
             value={custSearch}
             onChange={e => { setCustSearch(e.target.value); setSelectedCust(null); custNav.reset(); }}
-            onFocus={() => custList.length > 0 && setShowCustDrop(true)}
+            onFocus={e => {
+              e.currentTarget.style.imeMode = 'active';
+              if (custList.length > 0) setShowCustDrop(true);
+            }}
             onKeyDown={custNav.onKeyDown}
-            style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined }}
+            style={{ minWidth: 160, borderColor: selectedCust ? 'var(--blue)' : undefined, imeMode: 'active' }}
           />
           {showCustDrop && custList.length > 0 && (
             <div style={{ position:'absolute', top:'100%', left:0, zIndex:200, background:'#fff', border:'2px solid var(--border2)', width:300, maxHeight:200, overflowY:'auto', boxShadow:'2px 2px 6px rgba(0,0,0,0.2)' }}>
