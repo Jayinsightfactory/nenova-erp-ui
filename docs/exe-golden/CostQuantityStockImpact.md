@@ -233,26 +233,69 @@ const skipStockCalc = false;
 EXE에 정식 대응 화면이 없는 웹 확장 기능이므로, 확정 원장을 해제 없이 쓰려면 별도 계약과
 음수재고·견적 노출 검증이 선행되어야 한다.
 
-### 4-2. 부가세 반올림 방식 차이
+### 4-2. 부가세 반올림 방식 차이 — 이론상 존재, 실데이터 영향 3건
 
 | | Amount | Vat |
 |---|---|---|
 | EXE | `Round(Cost × Round(EstQuantity,0) / 1.1, 0)` | `Cost × Round(EstQuantity,0) − Amount` |
 | 웹 | `Math.round(qty × cost / 1.1)` | `Math.round(qty × cost / 11)` |
 
-두 차이점이 있다.
-
 1. **수량 반올림 시점**: EXE는 `Round(EstQuantity, 0)`으로 수량을 먼저 정수화한 뒤 곱한다.
-   웹은 `qty`를 그대로 곱한다. 단 환산으로 소수 수량이 생길 수 있고(`단 ÷ BunchOf1Box` 등),
-   C# `Math.Round`는 기본이 banker's rounding이라 `2.5 → 2`인데 JS `Math.round`는 `3`이다.
-   소수 `EstQuantity`에서 금액이 갈릴 수 있다.
+   웹은 `qty`를 그대로 곱한다. C# `Math.Round`는 banker's rounding(`2.5 → 2`),
+   JS `Math.round`는 half-up(`2.5 → 3`)이라 소수 수량에서 갈릴 수 있다.
 2. **Vat 산출**: EXE는 차감이라 `Amount + Vat = Cost × 수량`이 항상 성립한다. 웹은 별도
-   나눗셈이다. `t = qty × cost`가 정수인 한 `Round(10t/11) + Round(t/11) = t`가 증명되므로
+   나눗셈이다. `t = qty × cost`가 정수인 한 `Round(10t/11) + Round(t/11) = t`가 성립하므로
    (`frac(10t/11) = 0.5`는 `20t = 22k + 11`이 되어 불가능) 정수 구간에서는 합계가 일치한다.
-   소수 구간에서는 보장되지 않는다.
 
-실사고로 확인된 건은 아니며, 소수 `EstQuantity`가 실제로 존재하는지 읽기 전용 probe로
-확인한 뒤에만 손댄다. 확정 매출 금액을 바꾸는 변경이므로 임의 보정은 금지한다.
+읽기 전용 probe(`scripts/probe-cost-vat-rounding-parity.mjs`, `OrderYear >= 2025`) 결과:
+
+| 항목 | 값 |
+|---|---|
+| 소수 `EstQuantity` (ShipmentDetail) | 55,122행 중 **59행** |
+| 소수 `EstQuantity` (ShipmentDate) | 27,159행 중 **3행** |
+| `Amount ≠ ROUND((Amount+Vat)/1.1, 0)` = 순수 반올림 규약 차이 | 54,895행 중 **3행** (건당 1원, 2026 23-01 주광농원) |
+
+→ 체계적 불일치가 아니다. 그 3행은 EXE식도 웹식도 아닌 내림값이라 과거 다른 경로의
+잔재로 보인다. **확정 매출 소급 재계산은 3행·약 3원을 위해 원장을 건드리는 것이므로
+비례하지 않는다.** 새 쓰기만 `Vat = 총액 − Amount`로 맞춰 향후 드리프트를 막는 편이 안전하다.
+
+### 4-3. `EstQuantity`와 금액 기준 수량이 다른 행은 정상이다
+
+같은 probe에서 확정행 54,244건 중 **23,143건**이
+`Amount + Vat ≠ Cost × Round(EstQuantity, 0)`이었다. 이는 오류가 아니다.
+박스로 출고하지만 단/송이 단가를 쓰는 품목(카네이션·수국·미니카네이션 등)에서
+`EstQuantity`는 1(박스)이고 금액은 15·25·30 기준으로 잡힌다.
+
+실측 예: `MiniCarnation 피치` `Cost=6,100`, `EstQuantity=1`, `Amount+Vat=183,000`
+→ `183,000 ÷ 6,100 = 30`. 금액 기준 수량은 30이다.
+
+→ 따라서 `Cost × EstQuantity`로 저장 금액을 검증하거나 보정하는 코드·probe를 만들면
+23,143행을 오탐한다. 루트 `CLAUDE.md`의 "EstQuantity = OutQuantity 일괄 보정 금지"와 같은 함정이다.
+
+### 4-4. 확정 SP는 금액을 되돌리지 않는다
+
+`OBJECT_DEFINITION`으로 확인한 실제 SP 본문(`.agent_tmp/sp-defs/*.sql`, git 미추적):
+
+| SP | 쓰는 대상 | `Cost/Amount/Vat` 대입 |
+|---|---|---|
+| `usp_ShipmentFix` | `ShipmentDetail.isFix`, `ShipmentMaster.isFix`, `Product.Stock`, 이력 | **없음** |
+| `usp_ShipmentFixCancel` | 동일 역방향 | **없음** |
+| `usp_StockCalculation` | 재고 스냅샷 | **없음** |
+
+`usp_ShipmentFix`의 차단 메시지 원문도 확보했다.
+
+- `제품 잔량이 마이너스인 출고 정보가 존재합니다.`
+- `출고수량과 출고일 지정 수량이 다른 항목이 존재합니다.`
+
+이 두 문구가 EXE에서 `XtraMessageBox.Show(text, "확정 실패")`로 표시되는 실체다(§3-1).
+
+웹의 `pages/api/shipment/fix.js`도 `Amount`/`Vat` 문자열을 아예 포함하지 않는다.
+
+→ 그러므로 `pages/api/estimate/update-cost.js:164-171`의 주석이 적은 사유
+("확정된 차수에 단가가 일단 저장됐다가 재확정 시점에 값이 되돌아가는 문제")는
+**현재 코드베이스의 SP·fix API로는 재현되지 않는다.** 당시 다른 코드 상태였을 수 있으므로
+`FIXED_WEEK` 가드를 근거 없이 해제하지 않는다. 해제하려면 되돌림을 재현하거나
+불가능함을 증명하고, 계약·테스트를 함께 갱신해야 한다.
 
 ## 5. 금지 사항
 
@@ -260,4 +303,6 @@ EXE에 정식 대응 화면이 없는 웹 확장 기능이므로, 확정 원장�
 - `FormEstimateView`가 단가를 못 고친다는 이유로 웹 단가수정 기능을 제거하지 않는다.
   웹 확장 기능이며 계약(`docs/contracts/estimate-cost-update.json`)이 존재한다.
 - `rankType != "A"`일 때 확정차수 저장이 열리는 EXE quirk를 웹이 모방하지 않는다.
-- 부가세 수식을 EXE 방식으로 바꾸는 작업은 확정 매출 재계산을 동반하므로 단독 수정 금지.
+- `Cost × EstQuantity`로 확정 금액을 검증·보정하지 않는다(§4-3).
+- 3행짜리 반올림 차이를 이유로 확정 매출을 소급 재계산하지 않는다(§4-2).
+- `update-cost.js`의 `FIXED_WEEK` 가드를 재현 근거 없이 해제하지 않는다(§4-4).
