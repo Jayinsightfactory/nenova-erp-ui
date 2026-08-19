@@ -39,7 +39,6 @@ const page = fs.readFileSync('pages/estimate.js', 'utf8');
 const fixStatusApi = fs.readFileSync('pages/api/shipment/fix-status.js', 'utf8');
 const adjustApi = fs.readFileSync('pages/api/shipment/adjust.js', 'utf8');
 const parityApi = fs.readFileSync('pages/api/dev/fix-parity-audit.js', 'utf8');
-const additional = fs.readFileSync('components/estimate/OrderRegisterDistributeModal.js', 'utf8');
 const parityProbe = fs.readFileSync('scripts/probe-fix-parity-audit.mjs', 'utf8');
 const unfixProbe = fs.readFileSync('scripts/probe-fix-unfix-status.mjs', 'utf8');
 
@@ -59,6 +58,6 @@ assert.ok(page.includes('＋ 불량/검역등록'), '기존 불량/검역등록 
 assert.ok(page.includes('＋ 불량차감등록'), '불량차감등록 버튼을 유지해야 한다.');
 assert.ok(page.includes('＋ 판매요청'), '판매요청 버튼을 유지해야 한다.');
 assert.ok(page.includes('＋ 추가 품목등록'), '추가 품목등록 버튼을 유지해야 한다.');
-assert.ok(additional.includes("mode: 'PIVOT_DISTRIBUTION'"), '추가 품목등록의 주문/분배 부작용 정책을 유지해야 한다.');
+assert.ok(page.includes("mode: 'PIVOT_DISTRIBUTION'"), '추가 품목등록의 주문/분배 부작용 정책을 유지해야 한다.');
 
 console.log('estimate fix-status selected-year contract tests passed');

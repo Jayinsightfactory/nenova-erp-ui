@@ -466,7 +466,8 @@ export async function loadShipmentAdjustmentCapabilities() {
 export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, user = {}, capabilities = {} } = {}) {
   const { custKey, prodKey, week, year, type, qty, unit, memo, mode, farmAssignments,
     unitCost: requestedUnitCost, costSourceId, shipmentDate: requestedShipmentDate,
-    force = false, expectedOrderQty, expectedShipmentQty } = body;
+    force = false, expectedOrderQty, expectedShipmentQty, estimateAdditional } = body;
+  void estimateAdditional;
 
   if (!custKey || !prodKey || !week || !type) {
     throw adjustmentInputError('custKey, prodKey, week, type 필요');

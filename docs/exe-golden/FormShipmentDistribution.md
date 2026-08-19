@@ -29,9 +29,11 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 사용하며, 기존 활성 주문이 있으면 OrderDetail 수량은 보존하고 ShipmentDetail만 증가한다.
 농장 입력은 사용자가 농장표를 명시적으로 수정할 때만 저장된다. 신규 출고 또는 기존에 `ShipmentFarm` 행이 없는 출고의 수량 변경 자체에는 FarmKey가 필수가 아니다. 웹의 명시적 농장배정 저장은 후보·합계 검증을 유지하되, 농장 입력을 생략한 수량 변경을 거부하지 않는다.
 
-이 EXE 저장 사실은 차수피벗·붙여넣기 주문등록 분배의 수량 변경 계약에 적용한다. 별도 웹 업무인 `estimate-additional-product`는 명시적으로 FarmKey를 필수로 둔 독립 계약이며, 이 변경으로 그 정책을 완화하지 않는다.
-확정행은 화면에서 확정해제→분배 저장→재확정하고 각 HTTP 쓰기는 SystemActionLog,
-수량 변경은 ShipmentHistory에 기록한다. 참고단가는 표시만 하며 사용자가 출처 또는
+이 EXE 저장 사실은 차수피벗·붙여넣기 주문등록 분배의 수량 변경 계약에 적용한다.
+견적서관리 추가 품목등록도 농장을 요구하지 않고 `ShipmentFarm`을 보존한다.
+확정행은 화면에서 수량·단가·추가 품목을 한 번에 확정해제→저장→재확정하고 각 HTTP 쓰기는 SystemActionLog,
+수량 변경은 ShipmentHistory에 기록한다. 기존 출고수량이 바뀌지 않으면 재확정 재고계산을 생략한다.
+업체 단가 리스트와 참고단가는 금액만 적용하며 선택 업체를 바꾸지 않는다. 사용자가 출처 또는
 직접입력을 명시하기 전에는 자동 확정하지 않는다.
 
 모든 출고분배 GET/POST는 화면 차수에 포함된 연도 또는 별도 `year`를 명시한다. 짧은
