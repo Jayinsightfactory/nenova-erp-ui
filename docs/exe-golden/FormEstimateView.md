@@ -110,8 +110,10 @@ UPDATE ShipmentDate
 3. `ShipmentDetail`과 `ShipmentDate`의 `EstQuantity/Amount/Vat`를 다시 계산한다.
 4. 확정 행이면 웹 화면이 확정취소 → 저장 → 재확정 사이클을 실행한다.
 
-`OrderDetail`과 `ShipmentFarm`은 이 결합 저장에서 직접 변경하지 않는다. 주문수량이나
-농장배정까지 바꾸는 작업은 각각 차수피벗/출고분배의 별도 계약을 따른다.
+`OrderDetail`은 이 결합 저장에서 직접 변경하지 않는다. 출고일 수량을 0으로 만들어
+해당 `ShipmentDetail` 총량이 0이 되면 EXE `GetDetail`의 `EstQuantity > 0` 조건과 같이
+견적서에서 숨기기 위해 `ShipmentFarm`/`ShipmentDate`/`ShipmentDetail`을 purge한다.
+주문수량이나 농장배정만 따로 바꾸는 작업은 차수피벗/출고분배의 별도 계약을 따른다.
 
 ## 확정현황 조회의 선택연도 범위
 

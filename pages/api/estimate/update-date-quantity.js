@@ -7,6 +7,7 @@ import {
 } from '../../../lib/distributeUnits.js';
 import { exeRoundedEstimateQuantity } from '../../../lib/estimateDateQuantity.js';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
+import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 
 // 견적서관리의 출고일별 수량 변경은 단순 ShipmentDate.EstQuantity 수정이 아니다.
 // nenova.exe FormShipmentDistribution의 날짜 탭과 동일하게 해당 날짜의
@@ -199,8 +200,40 @@ export default withAuth(async function handler(req, res) {
         if (newDetailOutQuantity < -0.0001) {
           throw new Error(`SdetailKey=${row.SdetailKey}의 출고일 수량이 전체 출고수량을 초과합니다.`);
         }
-        if (newDetailOutQuantity <= 0.0001) {
-          throw new Error('전체 출고수량을 0으로 만들 때는 차수피벗/출고분배의 취소 기능을 사용하세요.');
+        if (!isActiveShipmentOutQty(newDetailOutQuantity)) {
+          const uid = req.user?.userId || 'admin';
+          await tQ(
+            `INSERT INTO ShipmentHistory
+               (SdetailKey, ShipmentDtm, ChangeType, BeforeValue, AfterValue, Descr, ChangeID, ChangeDtm)
+             VALUES (@sdk, @dt, N'수정', @before, @after, @descr, @uid, GETDATE())`,
+            {
+              sdk: { type: sql.Int, value: row.SdetailKey },
+              dt: { type: sql.DateTime, value: changes[0]?.row?.ShipmentDtm || null },
+              before: { type: sql.NVarChar, value: String(row.DetailOutQuantity || 0) },
+              after: { type: sql.NVarChar, value: '0' },
+              descr: { type: sql.NVarChar, value: `견적 수량 0 — 출고분배 정리` },
+              uid: { type: sql.NVarChar, value: uid },
+            },
+          );
+          await purgeZeroOutShipmentDetail(tQ, row.SdetailKey, sql);
+          for (const change of changes) {
+            saved.push({
+              sdateKey: change.item.sdateKey,
+              sdetailKey: row.SdetailKey,
+              shipmentKey: row.ShipmentKey,
+              orderWeek: row.OrderWeek,
+              oldDateQuantity: Number(change.row.DateEstQuantity) || 0,
+              newDateQuantity: 0,
+              oldDetailQuantity: Number(row.DetailEstQuantity) || 0,
+              newDetailQuantity: 0,
+              oldDetailOutQuantity: Number(row.DetailOutQuantity) || 0,
+              newDetailOutQuantity: 0,
+              amount: 0,
+              vat: 0,
+              purged: true,
+            });
+          }
+          continue;
         }
 
         const detailUnits = shipmentUnitsFromUserInput(newDetailOutQuantity, row.OutUnit, product);
