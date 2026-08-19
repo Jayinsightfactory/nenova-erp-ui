@@ -1,10 +1,11 @@
 // 판매등록 히스토리 — 차수별 분배(매출) 고정 스냅샷과 변경 이력.
 // 화 17:00(최종 분배 적용) · 수 16:00(점검) · 차주 화 17:00(판매등록 마감) · 차주 수 16:00(마감 점검) — 모두 불변.
-// 기준금액은 기본 화요일 최종분배, 타임라인의 [✓ 적용 확인]으로 다른 스냅샷(예: 수요일)을 기준으로 바꿀 수 있음.
-// 판매등록은 차주 화요일까지 수정 가능(그다음 수요일부터 수정금지) — 마감 스냅샷(TUE_CLOSE)이 차수 확정본.
+// [판매등록확정]은 현재 DB를 REG_CONFIRM 스냅샷으로 저장하고, 그 시점 이후 변경만 비교한다.
+// 기준금액은 적용 확인 → 최신 판매등록확정 → 화요일 최종분배 순. 타임라인 [✓ 적용 확인]으로 다른 스냅샷을 기준으로 바꿀 수 있음.
 import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
+import { SALES_CONFIRM_TYPE, latestSalesConfirmByWeek } from '../../lib/salesSnapshotPolicy';
 
 function getDefaultWeek() {
   // 기본 = 대차수(합산 모드). '27' → 27-01+27-02 합산이 27차.
@@ -18,6 +19,7 @@ const TYPE_META = {
   WED_CHECK: { label: '🔒 수요일 점검', color: '#7c3aed', bg: '#ede9fe' },
   TUE_CLOSE: { label: '🔒 판매등록 마감(차주 화 17시)', color: '#166534', bg: '#dcfce7' },
   CLOSE_CHECK: { label: '🔒 마감 점검(차주 수 16시)', color: '#9a3412', bg: '#ffedd5' },
+  REG_CONFIRM: { label: '✅ 판매등록확정', color: '#0f766e', bg: '#ccfbf1' },
   CHANGE: { label: '⚠ 변경감지', color: '#b91c1c', bg: '#fee2e2' },
   MANUAL: { label: '📌 수동', color: '#334155', bg: '#e2e8f0' },
 };
@@ -69,27 +71,49 @@ export default function SalesRegistrationHistoryPage() {
   const [secDiff, setSecDiff] = useState(true);      // 기준 vs 현재
   const [logTab, setLogTab] = useState('amount');    // amount | addcancel | history
 
+  const [orderYear, setOrderYear] = useState('');
+
+  const weekQuery = (weekArg, yearArg) => {
+    const wk = weekArg ?? weekInput.value;
+    const yr = yearArg || orderYear || data?.orderYear || '';
+    return `week=${encodeURIComponent(wk)}${yr ? `&year=${encodeURIComponent(yr)}` : ''}`;
+  };
+
   const load = async (weekArg) => {
     const wk = weekArg ?? weekInput.value;
     setLoading(true); setError(''); setMessage(''); setDiff(null); setChangeLog(null); setCompare(null); setSelCust(null); setCustChanges(null);
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?${weekQuery(wk)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
+      if (d.orderYear) setOrderYear(d.orderYear);
+      const confirmSnaps = latestSalesConfirmByWeek(d.snapshots || []);
       const tueSnaps = (d.snapshots || []).filter(s => s.SnapshotType === 'TUE_FINAL');
-      if (d.majorMode && tueSnaps.length > 0) {
+      if (d.majorMode && confirmSnaps.length > 0) {
+        await selectCombined(SALES_CONFIRM_TYPE, confirmSnaps, wk);
+      } else if (d.majorMode && tueSnaps.length > 0) {
         await selectCombined('TUE_FINAL', tueSnaps, wk);
       } else {
-        const first = tueSnaps[0] || (d.snapshots || [])[0];
+        const first = confirmSnaps[0] || tueSnaps[0] || (d.snapshots || [])[0];
         if (first) await selectSnapshot(first.SnapshotKey, wk);
         else { setSelKey(null); setSelCombined(null); setRows([]); }
+      }
+      const baseKeys = (d.baseline || []).map(b => b.snapshotKey).filter(Boolean);
+      const hasSalesConfirm = (d.baseline || []).some(b => b.type === SALES_CONFIRM_TYPE || b.source === 'sales-confirm');
+      if (hasSalesConfirm && baseKeys.length) {
+        const diffRes = await fetch(`/api/sales/registration-history?${weekQuery(wk, d.orderYear)}&diffFrom=${baseKeys.join(',')}&diffTo=current`, { credentials: 'same-origin' });
+        const diffData = await diffRes.json();
+        if (diffData.success) {
+          setDiff({ fromKey: baseKeys.join(','), ...diffData.diff });
+          setSecDiff(true);
+        }
       }
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
 
   const fetchRows = async (key, weekArg) => {
-    const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekArg ?? weekInput.value)}&rows=${key}`, { credentials: 'same-origin' });
+    const res = await fetch(`/api/sales/registration-history?${weekQuery(weekArg)}&rows=${key}`, { credentials: 'same-origin' });
     const d = await res.json();
     return d.rows || [];
   };
@@ -137,7 +161,7 @@ export default function SalesRegistrationHistoryPage() {
     setDiff(null); setSecDiff(true);
     if (view) setDiffView(view);
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&diffFrom=${fromKey}&diffTo=current`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?${weekQuery()}&diffFrom=${fromKey}&diffTo=current`, { credentials: 'same-origin' });
       const d = await res.json();
       if (d.success) setDiff({ fromKey, ...d.diff });
     } catch { /* ignore */ }
@@ -168,7 +192,7 @@ export default function SalesRegistrationHistoryPage() {
 
   const loadChangeLog = async () => {
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&changeLog=1`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?${weekQuery()}&changeLog=1`, { credentials: 'same-origin' });
       const d = await res.json();
       if (d.success) setChangeLog(d);
     } catch { /* ignore */ }
@@ -176,7 +200,7 @@ export default function SalesRegistrationHistoryPage() {
 
   const loadCompare = async () => {
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&compare3=1`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?${weekQuery()}&compare3=1`, { credentials: 'same-origin' });
       const d = await res.json();
       if (d.success) setCompare(d);
     } catch { /* ignore */ }
@@ -201,7 +225,7 @@ export default function SalesRegistrationHistoryPage() {
     if (!baselineKeys.size) { setCustChanges({ added: [], cancelled: [], noBaseline: true }); return; }
     setCustChanges({ loading: true });
     try {
-      const res = await fetch(`/api/sales/registration-history?week=${encodeURIComponent(weekInput.value)}&diffFrom=${[...baselineKeys].join(',')}&diffTo=current`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/registration-history?${weekQuery()}&diffFrom=${[...baselineKeys].join(',')}&diffTo=current`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       const by = d.diff?.byCust || [];
@@ -218,7 +242,7 @@ export default function SalesRegistrationHistoryPage() {
     try {
       const res = await fetch('/api/sales/registration-history', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'confirmBaseline', week: weekInput.value, snapshotKeys: keys }),
+        body: JSON.stringify({ action: 'confirmBaseline', week: weekInput.value, year: orderYear || data?.orderYear, snapshotKeys: keys }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '기준 적용 실패');
@@ -232,11 +256,28 @@ export default function SalesRegistrationHistoryPage() {
     try {
       const res = await fetch('/api/sales/registration-history', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'resetBaseline', week: weekInput.value }),
+        body: JSON.stringify({ action: 'resetBaseline', week: weekInput.value, year: orderYear || data?.orderYear }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '실패');
       setMessage('기준을 화요일 최종분배로 되돌렸습니다.');
+      await load();
+    } catch (e) { setError(e.message); }
+  };
+
+  const confirmSales = async () => {
+    const wk = weekInput.value;
+    if (!wk) { alert('차수를 입력한 뒤 조회하세요.'); return; }
+    if (!window.confirm(`${wk}차\n\n지금 현재 DB를 판매등록 확정본으로 저장할까요?\n확정한 시점 이후의 수량·금액 변경만 비교됩니다.`)) return;
+    setMessage(''); setError('');
+    try {
+      const res = await fetch('/api/sales/registration-history', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'confirmSales', week: wk, year: orderYear || data?.orderYear }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '판매등록확정 실패');
+      setMessage(`✓ 판매등록확정 — ${d.confirmed.map(c => `${c.week}(#${c.snapshotKey})`).join(', ')}. 이후 변경은 이 시점과 비교됩니다.`);
       await load();
     } catch (e) { setError(e.message); }
   };
@@ -372,7 +413,7 @@ export default function SalesRegistrationHistoryPage() {
     try {
       const res = await fetch('/api/sales/registration-history', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action, week: weekInput.value }),
+        body: JSON.stringify({ action, week: weekInput.value, year: orderYear || data?.orderYear }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '실패');
@@ -388,6 +429,7 @@ export default function SalesRegistrationHistoryPage() {
   const wedSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'WED_CHECK');
   const closeSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'TUE_CLOSE');
   const closeCheckSnapshots = (data?.snapshots || []).filter(s => s.SnapshotType === 'CLOSE_CHECK');
+  const confirmSnapshots = latestSalesConfirmByWeek(data?.snapshots || []);
 
   // 업체별 합산 (Amount+Vat)
   const byCust = useMemo(() => {
@@ -438,7 +480,7 @@ export default function SalesRegistrationHistoryPage() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
         <span style={{ fontSize: 12, color: '#64748b' }}>
-          화 17시 최종분배·수 16시 점검·차주 화 17시 마감 자동 고정(불변) · 변경검사는 [🔄 최신화] 시점
+          화 17시 최종분배·수 16시 점검 자동 고정 · [판매등록확정] 이후 변경만 비교
         </span>
       </div>
 
@@ -448,6 +490,14 @@ export default function SalesRegistrationHistoryPage() {
         <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27=차수 전체 / 27-01" title="27 처럼 대차수만 넣으면 27-01+27-02 합산(=27차)으로 봅니다" />
         <button style={st.stepBtn} onClick={() => stepWeek(1)} disabled={loading} title="다음 차수">▶</button>
         <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+        <button
+          style={{ ...st.primaryBtn, background: '#0f766e' }}
+          onClick={confirmSales}
+          disabled={loading}
+          title="지금 조회된 현재 DB를 판매등록 확정본으로 저장합니다. 이후 변경은 이 시점과 비교됩니다."
+        >
+          ✅ 판매등록확정
+        </button>
         <button
           style={{ ...st.primaryBtn, background: '#16a34a' }}
           onClick={() => post('checkNow')}
@@ -521,6 +571,7 @@ export default function SalesRegistrationHistoryPage() {
           {data?.majorMode && tueSnapshots.length > 0 && (
             <div style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
+                [SALES_CONFIRM_TYPE, confirmSnapshots, '판매등록확정 합산 (이후 변경 비교 기준)'],
                 ['TUE_FINAL', tueSnapshots, '화요일 최종분배 합산'],
                 ['WED_CHECK', wedSnapshots, '수요일 점검 합산'],
                 ['TUE_CLOSE', closeSnapshots, '판매등록 마감 합산 (차수 확정본)'],
