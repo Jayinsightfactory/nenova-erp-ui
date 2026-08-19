@@ -11,6 +11,7 @@ const near = (a, b, tolerance = 0.01) => Math.abs(Number(a) - Number(b)) <= tole
 async function main() {
   const {
     computeCategoryAverageInventoryValue,
+    computeLayeredInventoryValue,
     computeAutoEndingStock,
     endingStockSourceKind,
   } = await import('../lib/profitReportCalc.js');
@@ -52,10 +53,17 @@ async function main() {
   };
   check('카테고리 평균 공식도 검증된 자동 E/F로 채택', computeAutoEndingStock(auto) === 1234);
   check('화면 원천을 카테고리 평균 공식으로 구분', endingStockSourceKind(auto) === 'verified_category_average');
+  const layered = computeLayeredInventoryValue({
+    beginQty: 10, beginValue: 1000, purchaseQty: 10, purchaseValue: 3000, endQty: 5,
+  });
+  check('기초를 먼저 소진하면 기말은 신규 입고 원가', near(layered?.value, 1500) && layered?.method === 'new_receipts');
+  check('층별 재고 상태 태그', layered?.status === 'VERIFIED_LAYERED_INVENTORY');
 
   console.log('\n=== API 연결 계약 ===');
   const api = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
   check('현재 F는 purchaseQty와 ProductStock으로 계산', /computeCategoryAverageInventoryValue\(\{[\s\S]*purchaseQty:[\s\S]*stockQty: Number\(stockEnd\.qtys/.test(api));
+  check('기존재고와 신규입고를 층으로 나눠 평가', /computeLayeredInventoryValue\(\{[\s\S]*beginValue: autoE[\s\S]*purchaseValue: incomingPurchaseValue/.test(api));
+  check('호주 신규입고는 Q×R (선율과세환율)만 사용', /AUSTRALIA_INVENTORY_CATEGORY[\s\S]*Q\[key\][\s\S]*autoR/.test(api));
   check('E는 현재 E가 아니라 prevMajor의 F 원천을 사용', /getHistoricalClosingInventoryEvidence\(prevOrderYear, prevMajor/.test(api));
   const beginBlock = api.slice(api.indexOf('const resolvedBegin'), api.indexOf('const beginStock'));
   check('기초 E 선택 블록은 현재 차수 workbook F를 사용하지 않음',

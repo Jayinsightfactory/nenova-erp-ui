@@ -17,7 +17,8 @@ const check = (label, condition, detail = '') => {
 };
 
 async function main() {
-  const { classifyColombiaAllocCategory, COLOMBIA_ALLOC_TOKEN_MAP, COLOMBIA_ALLOC_CATEGORY_KEYS } =
+  const { classifyColombiaAllocCategory, COLOMBIA_ALLOC_TOKEN_MAP, COLOMBIA_ALLOC_CATEGORY_KEYS,
+    colombiaAllocCategories, isColombiaSharedApolloShipment, isColombiaSharedApolloContext, COLOMBIA_HYDRANGEA_CATEGORY } =
     await import('../lib/colombiaFlowerClassification.js');
   const { isNonStockableItem } = await import('../lib/profitReportClassification.js');
   const forwardingSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'customsForwarding.js'), 'utf8');
@@ -36,6 +37,23 @@ async function main() {
   check("한글 루스커스도 계속 인식(회귀 없음)", classifyColombiaAllocCategory('루스커스', '') === '콜롬비아 루스커스');
   check("매칭 실패 → null", classifyColombiaAllocCategory('HYDRANGEA', '수국') === null);
   check("빈 값 → null", classifyColombiaAllocCategory('', '') === null);
+
+  console.log('\n=== 같은 APOLLO 수국은 배분 풀에만 포함하고 SQL 4키는 유지 ===');
+  check('SQL 배분 키는 4개 고정', COLOMBIA_ALLOC_CATEGORY_KEYS.length === 4 && !COLOMBIA_ALLOC_CATEGORY_KEYS.includes(COLOMBIA_HYDRANGEA_CATEGORY));
+  check('수국 미포함 기본 풀은 4품목', colombiaAllocCategories().length === 4);
+  check('수국 포함 풀은 수국+4품목', JSON.stringify(colombiaAllocCategories({ includeHydrangea: true }))
+    === JSON.stringify([COLOMBIA_HYDRANGEA_CATEGORY, ...COLOMBIA_ALLOC_CATEGORY_KEYS]));
+  check('APOLLO+수국+장미 → 공유 배송', isColombiaSharedApolloShipment({
+    farmName: 'FREIGHTWISE', invoiceNo: 'APOLLO 콜카장', flowerNames: ['수국', '장미'],
+  }) === true);
+  check('APOLLO+수국만 → 공유 아님', isColombiaSharedApolloShipment({
+    farmName: 'FREIGHTWISE', invoiceNo: '콜수국', flowerNames: ['Hydrangea'],
+  }) === false);
+  check('농장 인보이스에 수국+장미여도 APOLLO가 아니면 공유 아님', isColombiaSharedApolloShipment({
+    farmName: 'Flores De Funza', invoiceNo: 'INV-1', flowerNames: ['수국', '장미'],
+  }) === false);
+  check('카테고리 집합에 수국+카네이션이면 공유 문맥', isColombiaSharedApolloContext(['콜롬비아 수국', '콜롬비아 카네이션']) === true);
+  check('수국만 있으면 공유 문맥 아님', isColombiaSharedApolloContext(['콜롬비아 수국']) === false);
 
   console.log('\n=== 운송료/SERVICE FEE/GW·CW placeholder 행은 항상 제외(무게배분 대상 아님) ===');
   check("장미 운송료 placeholder는 제외", classifyColombiaAllocCategory('', '장미 운송료') === null);

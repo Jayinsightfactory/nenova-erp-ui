@@ -15,6 +15,9 @@ import {
   computeProfitRow,
   computeProfitTotals,
   computeCategoryAverageInventoryValue,
+  computeLayeredInventoryValue,
+  AUSTRALIA_INVENTORY_CATEGORY,
+  CATEGORY_AVERAGE_INVENTORY_KEYS,
 } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
@@ -147,55 +150,7 @@ export async function loadReportData(major, orderYear) {
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
-        // F 1순위는 원본 workbook에 수식이 확인된 카테고리 평균원가 공식이다.
-        //   (상품+포워딩 매입액 + 그외통관비) / 당주 매입수량 * 마지막 ProductStock 환산수량
-        // 이 공식 대상이 아니거나 필요한 원천이 없을 때만 품목별 VERIFIED 단가를 사용하고,
-        // 2026년 22~28차는 마지막 보조수단으로 사용자가 제공한 원본 workbook F 셀을 쓴다.
-        const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
-        const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
-        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue({
-          category: key,
-          purchaseForeign: Number(Q[key] || 0),
-          forwardingForeign: man.S != null ? Number(man.S) : autoS,
-          taxableRate: man.R != null ? Number(man.R) : autoR,
-          customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
-          purchaseQty: Number(purchaseQty[key] || 0),
-          stockQty: Number(stockEnd.qtys[key] || 0),
-        }) : null;
-        const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
-        const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
-        const resolvedEnd = categoryAverageEnd
-          ? {
-              value: categoryAverageEnd.value,
-              status: 'VERIFIED_CATEGORY_AVERAGE',
-              sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
-            }
-          : directEndValue != null
-            ? {
-                value: directEndValue,
-                status: stockEnd.priceEvidenceStatus?.[key] || 'VERIFIED',
-                sources: stockEnd.priceEvidenceSources?.[key] || [],
-              }
-            : historicalEnd
-              ? { value: Number(historicalEnd.value), status: historicalEnd.status, sources: [historicalEnd.sourceRef] }
-              : null;
-        const stock = {
-          week: stockEnd.week,
-          endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
-          evidenceValue: resolvedEnd?.value ?? null,
-          snapshotConfirmed: stockEnd.snapshotAvailable === true,
-          priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
-          priceEvidenceSources: resolvedEnd?.sources || [],
-          missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
-          conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
-          conversionIssues: stockEnd.conversionIssues?.[key] || [],
-          unitMismatch: endUnitMismatch,
-          negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
-        };
-        const autoF = computeAutoEndingStock(stock);
-        const stockFSourceKind = endingStockSourceKind(stock);
-        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 F 원천과 공식을 재사용한다.
-        // 현재 workbook의 E 리터럴은 이월하지 않으므로 26→27 베트남 불연속이 자동 유입되지 않는다.
+        // E를 먼저 확정한 뒤, 기말 F는 기존재고(기존 환율) + 신규입고(이번 환율)로 쌓는다.
         const previous = previousValuation[key] || {};
         const directBeginValue = stockBegin.values[key] != null ? Number(stockBegin.values[key]) : null;
         const resolvedBegin = previous.average
@@ -227,6 +182,72 @@ export async function loadReportData(major, orderYear) {
         };
         const autoE = computeAutoEndingStock(beginStock);
         const stockESourceKind = endingStockSourceKind(beginStock);
+        const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
+        const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
+        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue({
+          category: key,
+          purchaseForeign: Number(Q[key] || 0),
+          forwardingForeign: man.S != null ? Number(man.S) : autoS,
+          taxableRate: man.R != null ? Number(man.R) : autoR,
+          customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
+          purchaseQty: Number(purchaseQty[key] || 0),
+          stockQty: Number(stockEnd.qtys[key] || 0),
+        }) : null;
+        const purchaseQtyValue = Number(purchaseQty[key] || 0);
+        const endQtyValue = stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0;
+        const incomingPurchaseValue = key === AUSTRALIA_INVENTORY_CATEGORY
+          ? ((man.R != null ? Number(man.R) : autoR) != null && Number.isFinite(Number(Q[key] || 0))
+            ? Number(Q[key] || 0) * Number(man.R != null ? man.R : autoR)
+            : (purchaseQtyValue === 0 ? 0 : null))
+          : (categoryAverageEnd ? categoryAverageEnd.unitCost * purchaseQtyValue : (purchaseQtyValue === 0 ? 0 : null));
+        const usesLayeredInventory = CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key) || key === AUSTRALIA_INVENTORY_CATEGORY;
+        const layeredEnd = (usesLayeredInventory && !endConversionMissing && !endUnitMismatch)
+          ? computeLayeredInventoryValue({
+            beginQty: beginStock.endQty,
+            beginValue: autoE,
+            purchaseQty: purchaseQtyValue,
+            purchaseValue: incomingPurchaseValue,
+            endQty: endQtyValue,
+          })
+          : null;
+        const historicalEnd = getHistoricalClosingInventoryEvidence(orderYear, major, key);
+        const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
+        const resolvedEnd = layeredEnd
+          ? {
+              value: layeredEnd.value,
+              status: layeredEnd.status,
+              sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:layered-inventory:${layeredEnd.method}`],
+            }
+          : categoryAverageEnd
+            ? {
+                value: categoryAverageEnd.value,
+                status: 'VERIFIED_CATEGORY_AVERAGE',
+                sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
+              }
+            : directEndValue != null
+              ? {
+                  value: directEndValue,
+                  status: stockEnd.priceEvidenceStatus?.[key] || 'VERIFIED',
+                  sources: stockEnd.priceEvidenceSources?.[key] || [],
+                }
+              : historicalEnd
+                ? { value: Number(historicalEnd.value), status: historicalEnd.status, sources: [historicalEnd.sourceRef] }
+                : null;
+        const stock = {
+          week: stockEnd.week,
+          endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
+          evidenceValue: resolvedEnd?.value ?? null,
+          snapshotConfirmed: stockEnd.snapshotAvailable === true,
+          priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
+          priceEvidenceSources: resolvedEnd?.sources || [],
+          missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
+          conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
+          conversionIssues: stockEnd.conversionIssues?.[key] || [],
+          unitMismatch: endUnitMismatch,
+          negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
+        };
+        const autoF = computeAutoEndingStock(stock);
+        const stockFSourceKind = endingStockSourceKind(stock);
         const source = {
           E: stockESourceKind,
           F: stockFSourceKind,
