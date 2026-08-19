@@ -68,6 +68,31 @@ assert.equal(
 );
 assert.equal(prepared.totals.total, 223000, 'Amount+Vat를 EXE처럼 합산한다.');
 
+const supplyPrepared = prepareEstimatePrintRows(exeRows, { printFormat: 'supply' });
+assert.equal(supplyPrepared.exePrintParity, false, '부가세 미분류는 EXE Amount/Vat 분리를 쓰지 않는다.');
+assert.equal(supplyPrepared.rows[0].Cost, 11000, '분배단가를 공급가 단가로 유지한다.');
+assert.equal(supplyPrepared.rows[0].Amount, 132000, '공급가액=분배단가×수량');
+assert.equal(supplyPrepared.rows[0].Vat, 13200, '부가세=공급가액 10%');
+assert.equal(prepared.rows[0].Amount, 120000, '기존 견적서는 저장된 Amount를 유지한다.');
+assert.equal(supplyPrepared.totals.total, 132000 + 13200 + 96000 + 9600 - 5000 - 500);
+assert.equal(supplyPrepared.descLabel(supplyPrepared.rows[2]), '', '부가세 미분류도 불량차감 적요는 기본 미표시다.');
+
+const supplyWorksheet = buildEstimatePrintWorksheet({
+  custName: '테스트 거래처',
+  week: '30',
+  printDate: '2026-08-05',
+  printFormat: 'supply',
+  rows: exeRows,
+  bigoLabel: '30차 부가세미분류 종합견적서',
+});
+const supplyAoa = XLSX.utils.sheet_to_json(supplyWorksheet, { header: 1 });
+assert.equal(supplyAoa[0][0], '견적서(부가세 미분류)');
+assert.equal(supplyAoa.some((row) => String(row[0] || '').includes('분배단가=공급가액')), true);
+assert.deepEqual(
+  supplyAoa.find((row) => row.includes('품목명[규격]')),
+  ['순번', '품목명[규격]', '수량', '단가', '공급가액', '부가세', '적요'],
+);
+
 const worksheet = buildEstimatePrintWorksheet({
   custName: '테스트 거래처',
   week: '30',
@@ -147,5 +172,9 @@ assert.match(pageSource, /displayShips = sortEstimateShipmentsForList\(visibleSh
 assert.match(pageSource, /filterRecentParentWeeks\(shipments, recentOnly\)/,
   '최근 차수 필터는 공용 헬퍼로 계산해 모달과 공유해야 한다.');
 assert.match(pageSource, /총 합계금액 ▼/, '좌측 목록 헤더에서 매출 내림차순임을 표시해야 한다.');
+assert.match(pageSource, /부가세 미분류 견적서/, '인쇄 설정에 부가세 미분류 견적서가 있어야 한다.');
+assert.match(pageSource, /ESTIMATE_PRINT_FORMAT\.SUPPLY/);
+assert.match(pageSource, /isStatementPrintFormat\(opts\.printFormat\)/,
+  '부가세 미분류는 거래명세표가 아니므로 GetPrintDetail 경로를 쓴다.');
 
 console.log('estimate print contract tests passed');

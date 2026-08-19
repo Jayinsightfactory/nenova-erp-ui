@@ -274,3 +274,12 @@ confirmAutoStockAdd` 명시 확인 계약 없이는 재고조정 원장을 만�
 불일치 진단도 `OrderYear`를 함께 제한한다. 조회 요청은 테이블 생성·ALTER를 실행하지 않는다.
 `WeekProdCost` 스키마 변경은 명시적 migration으로 분리하고 저장 시에는 read-only schema
 probe만 수행한다.
+
+## 웹 부가세 미분류 견적서 인쇄
+
+저장 분배단가(`ShipmentDetail.Cost`)는 부가세 포함 입력이다. EXE `ReportEstimate` 기본 견적서는
+그 단가로 저장된 `Amount`/`Vat` 분리를 그대로 인쇄한다.
+
+웹 인쇄 설정의 「부가세 미분류 견적서」는 같은 품목·수량을 읽되, 분배단가 숫자를 공급가 단가로
+보고 `공급가액 = 단가 × 수량`, `부가세 = 공급가액 × 10%` 로만 다시 계산한다. 인쇄와 Excel이
+같다. 이 계산은 출력에만 쓰이며 `ShipmentDetail`/`Estimate` 원장은 변경하지 않는다.

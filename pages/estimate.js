@@ -43,6 +43,7 @@ import {
   getPrintFormatBigoSuffix,
   getPrintFormatDocTitle,
   isStatementPrintFormat,
+  isSupplyPrintFormat,
 } from '../lib/estimatePrintFormats';
 import {
   estimateTypeLabel,
@@ -490,6 +491,7 @@ function buildEstimateHtml({
 
   const serialDisplay = serialNo || formatExePrintDate(printDate);
   const heading = statementFormat ? docTitle : '견 적 서';
+  const amtSuffix = isSupplyPrintFormat(printFormat) ? ' / 분배단가=공급가액' : '';
 
   const greetLine2 = statementFormat
     ? '2. 하기와 같이 거래 명세를 전달드립니다.'
@@ -576,7 +578,7 @@ table { width:100%; border-collapse:collapse; }
 <!-- 금액 행 -->
 <div class="amt-row">
   <span class="amt-ko">금 액 : ${numToKorean(totalAmt)}</span>
-  <span class="amt-num">(￦ ${fmtN(totalAmt)}원)</span>
+  <span class="amt-num">(￦ ${fmtN(totalAmt)}원${amtSuffix})</span>
 </div>
 
 <!-- 품목 테이블 -->
@@ -2873,7 +2875,7 @@ export default function Estimate() {
     // 견적서(일반) 인쇄는 ShipmentKey별 상세를 웹에서 재합산하지 않고,
     // 거래처·대차수·선택요일을 서버 SQL에 전달해 EXE 출력용 집계행을 받는다.
     const fetchPrintRowsForShip = async (ship) => {
-      if (opts.printFormat !== ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+      if (isStatementPrintFormat(opts.printFormat)) {
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         const results = await Promise.all(keys.map(k =>
           fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
@@ -3043,7 +3045,7 @@ export default function Estimate() {
     };
 
     const fetchPrintRowsForShip = async (ship) => {
-      if (opts.printFormat !== ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+      if (isStatementPrintFormat(opts.printFormat)) {
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
         const results = await Promise.all(keys.map(k =>
           fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
@@ -3279,7 +3281,7 @@ export default function Estimate() {
             .then(r => r.json()).then(d => d.success ? (d.items || []) : [])
         ));
         let flatItems = legacyResults.flat();
-        if (printOpts.printFormat === ESTIMATE_PRINT_FORMAT.ESTIMATE) {
+        if (!isStatementPrintFormat(printOpts.printFormat)) {
           const printResults = await Promise.all(ships.map((ship) => {
             const params = new URLSearchParams({
               custKey: String(ship.CustKey || ''),
@@ -4394,7 +4396,7 @@ export default function Estimate() {
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
-                🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 옵션
+                🖨️ {getPrintFormatDocTitle(printOpts.printFormat)} 출력 옵션
                 {selectedGroups.size > 0 && (
                   <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#2e7d32',
                                  padding:'2px 8px', borderRadius:10, marginLeft:8 }}>
@@ -4469,7 +4471,8 @@ export default function Estimate() {
                 <label className="form-label">인쇄 양식</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
-                    [ESTIMATE_PRINT_FORMAT.ESTIMATE, '견적서 (기존)'],
+                    [ESTIMATE_PRINT_FORMAT.ESTIMATE, '견적서 (기존) — 분배단가=부가세 포함'],
+                    [ESTIMATE_PRINT_FORMAT.SUPPLY, '부가세 미분류 견적서 — 분배단가=공급가액'],
                     [ESTIMATE_PRINT_FORMAT.STATEMENT, '거래명세표 (원산지·단위·수량·금액·세액 10%)'],
                   ].map(([v, l]) => (
                     <label key={v} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, cursor: 'pointer', fontSize: 12 }}>
@@ -4485,6 +4488,10 @@ export default function Estimate() {
                 {isStatementPrintFormat(printOpts.printFormat) ? (
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.45 }}>
                     거래명세표 품목 열: hydrangea·rose / 등 꽃 종류명은 제외하고 품종명만 표시됩니다.
+                  </div>
+                ) : isSupplyPrintFormat(printOpts.printFormat) ? (
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.45 }}>
+                    분배단가를 공급가액으로 그대로 출력합니다. 부가세는 공급가의 10%로 다시 계산하며, 저장된 부가세포함 분리는 쓰지 않습니다. 인쇄와 Excel이 같습니다.
                   </div>
                 ) : (
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.45 }}>
@@ -4593,7 +4600,7 @@ export default function Estimate() {
                 ) : selectedGroups.size > 0 ? (
                   <>
                     <div>선택 거래처: <b>{selectedGroups.size}건</b></div>
-                    <div>양식: <b>{isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'}</b></div>
+                    <div>양식: <b>{getPrintFormatDocTitle(printOpts.printFormat)}</b></div>
                     <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
                     <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
                       {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
@@ -4603,7 +4610,11 @@ export default function Estimate() {
                     <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
                       {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
                       {printPreviewTotals.approximate && (
-                        <span style={{ color: 'var(--text3)' }}> · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산</span>
+                        <span style={{ color: 'var(--text3)' }}>
+                          {isSupplyPrintFormat(printOpts.printFormat)
+                            ? ' · 부가세 미분류는 분배단가×수량, 세액 10%'
+                            : ' · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산'}
+                        </span>
                       )}
                     </div>
                   </>
@@ -4611,7 +4622,7 @@ export default function Estimate() {
                   <>
                     <div>거래처: <b>{selectedShip?.CustName || '-'}</b></div>
                     <div>차수: <b>{weekNum || '-'}</b></div>
-                    <div>양식: <b>{isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'}</b></div>
+                    <div>양식: <b>{getPrintFormatDocTitle(printOpts.printFormat)}</b></div>
                     <div>출고 구분: <b>{printOpts.outType === 'select' ? '선출고 (정상출고만)' : '종합출고 (전체)'}</b></div>
                     <div>인쇄 항목: <b>{printPreviewItems.length}건</b>
                       {printOpts.outType === 'total' && printPreviewDedCount > 0 && (
@@ -4621,7 +4632,11 @@ export default function Estimate() {
                     <div>합계: <b>₩{(printPreviewSupply + printPreviewVat).toLocaleString()}</b>
                       {' '}(공급가 ₩{printPreviewSupply.toLocaleString()} + 세액 ₩{printPreviewVat.toLocaleString()})
                       {printPreviewTotals.approximate && (
-                        <span style={{ color: 'var(--text3)' }}> · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산</span>
+                        <span style={{ color: 'var(--text3)' }}>
+                          {isSupplyPrintFormat(printOpts.printFormat)
+                            ? ' · 부가세 미분류는 분배단가×수량, 세액 10%'
+                            : ' · 거래명세표 합계는 인쇄 시 품목 합산 후 재계산'}
+                        </span>
                       )}
                     </div>
                   </>
@@ -4630,7 +4645,7 @@ export default function Estimate() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-primary" onClick={() => doActualPrint(printOpts)}>
-                🖨️ {isStatementPrintFormat(printOpts.printFormat) ? '거래명세표' : '견적서'} 출력 실행
+                🖨️ {getPrintFormatDocTitle(printOpts.printFormat)} 출력 실행
               </button>
               <button className="btn" onClick={() => doActualExcelExport(printOpts)}>
                 📊 Excel 다운로드 (인쇄와 동일)
