@@ -59,6 +59,7 @@ import {
   estimateShipmentGroupId,
   filterRecentParentWeeks,
   buildManagerPrintGroups,
+  filterManagerPrintGroups,
   managerSelectionState,
   toggleManagerSelection,
   toggleCustomerSelection,
@@ -2407,22 +2408,22 @@ export default function Estimate() {
     [shipments, recentOnly],
   );
 
+  // 전체선택 체크박스는 "보이는 업체 중 몇 개가 선택됐는지"로 판단해야 한다.
+  // selectedGroups.size 로 비교하면 recentOnly 로 숨은 선택 때문에 상태가 어긋난다.
+  const visibleSelectedCount = useMemo(
+    () => visibleShipments.filter(s => selectedGroups.has(estimateShipmentGroupId(s))).length,
+    [visibleShipments, selectedGroups],
+  );
+
   // 담당자 → 해당 차수에 분배가 있는 업체. 검색어는 담당자·거래처 양쪽에 걸린다.
   const managerPrintGroups = useMemo(
     () => buildManagerPrintGroups(visibleShipments),
     [visibleShipments],
   );
-  const managerPrintVisibleGroups = useMemo(() => {
-    const q = managerPrintQuery.trim().toLowerCase();
-    if (!q) return managerPrintGroups;
-    return managerPrintGroups
-      .map(g => (
-        g.manager.toLowerCase().includes(q)
-          ? g
-          : { ...g, customers: g.customers.filter(c => c.custName.toLowerCase().includes(q)) }
-      ))
-      .filter(g => g.customers.length > 0);
-  }, [managerPrintGroups, managerPrintQuery]);
+  const managerPrintVisibleGroups = useMemo(
+    () => filterManagerPrintGroups(managerPrintGroups, managerPrintQuery),
+    [managerPrintGroups, managerPrintQuery],
+  );
   const managerPrintSummary = useMemo(
     () => summarizeManagerPrintSelection(managerPrintGroups, managerPrintSel),
     [managerPrintGroups, managerPrintSel],
@@ -3773,10 +3774,10 @@ export default function Estimate() {
                       <th style={{ width: 40, minWidth: 40, textAlign: 'center', padding: '6px 4px' }}>
                         <input type="checkbox"
                           style={{ width: 22, height: 22, minWidth: 22, minHeight: 22, cursor: 'pointer', accentColor: 'var(--blue)' }}
-                          ref={el => { if (el) el.indeterminate = selectedGroups.size > 0 && selectedGroups.size < visibleShipments.length; }}
-                          checked={visibleShipments.length > 0 && selectedGroups.size === visibleShipments.length}
+                          ref={el => { if (el) el.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleShipments.length; }}
+                          checked={visibleShipments.length > 0 && visibleSelectedCount === visibleShipments.length}
                           onChange={() => {
-                            if (selectedGroups.size === visibleShipments.length) setSelectedGroups(new Set());
+                            if (visibleSelectedCount === visibleShipments.length) setSelectedGroups(new Set());
                             else setSelectedGroups(new Set(visibleShipments.map(estimateShipmentGroupId)));
                           }}
                           title="전체 선택/해제"/>
