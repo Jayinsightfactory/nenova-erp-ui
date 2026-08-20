@@ -598,16 +598,37 @@ export default function HotelMiuIntakePage() {
         <div style={st.panel}>
           <b>3) 이번 입력 — 매칭 후 업체에 저장</b>
           {!draft.length && <div style={st.muted}>아직 추가된 행이 없습니다.</div>}
-          {draft.map((l) => (
-            <div key={l.id} style={st.row}>
-              <span style={{ flex: 1 }}>{l.inputName}</span>
-              <span style={l.sourceType === 'image' ? st.srcImg : st.srcTxt}>{l.sourceType === 'image' ? '이미지' : '텍스트'}</span>
-              <span>{l.unit || '-'}</span>
-              <input style={{ ...st.inp, width: 64 }} value={l.qty} onChange={(e) => setDraft((p) => p.map((x) => (x.id === l.id ? { ...x, qty: Number(e.target.value) || 0 } : x)))} />
-              <button style={l.prodKey ? st.matchOk : st.warn} onClick={() => setPicker(l)}>{l.prodName || '품목 매칭'}</button>
-              <button style={st.tiny} onClick={() => setDraft((p) => p.filter((x) => x.id !== l.id))}>×</button>
-            </div>
-          ))}
+          {!!draft.length && (
+            <table style={st.matchTbl}>
+              <thead>
+                <tr>
+                  <th style={st.matchTh}>입력</th>
+                  <th style={st.matchTh}>매칭</th>
+                  <th style={st.matchThRight}>수량</th>
+                  <th style={st.matchTh}>단위</th>
+                  <th style={st.matchTh} />
+                </tr>
+              </thead>
+              <tbody>
+                {draft.map((l) => (
+                  <tr key={l.id}>
+                    <td style={st.matchTdName}>
+                      {l.inputName}
+                      {l.sourceType === 'image' ? <span style={st.srcImg}> 이미지</span> : null}
+                    </td>
+                    <td style={st.matchTdName}>
+                      <button style={l.prodKey ? st.matchOk : st.warn} onClick={() => setPicker(l)}>{l.displayName || l.prodName || '품목 매칭'}</button>
+                    </td>
+                    <td style={st.matchTdRight}>
+                      <input style={{ ...st.inp, width: 64 }} value={l.qty} onChange={(e) => setDraft((p) => p.map((x) => (x.id === l.id ? { ...x, qty: Number(e.target.value) || 0 } : x)))} />
+                    </td>
+                    <td style={st.matchTd}>{l.unit || '-'}</td>
+                    <td style={st.matchTd}><button style={st.tiny} onClick={() => setDraft((p) => p.filter((x) => x.id !== l.id))}>×</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           {!!draft.length && (
             <div style={{ marginTop: 10 }}>
               <b>이번 합칠 수량 ({merged.length}품목)</b>
@@ -629,7 +650,7 @@ export default function HotelMiuIntakePage() {
           {draftBatches.map((b, i) => (
             <div key={b.batchKey} style={st.sumCard}>
               {i > 0 && <div style={st.sumDash} />}
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <b>{b.batchNo}합산</b>
                 <span>{fmt(batchLineTotal(b.lines))}</span>
                 <button style={st.btn} disabled={!!busy} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
@@ -654,7 +675,7 @@ export default function HotelMiuIntakePage() {
           <b>이미 주문에 더한 입력</b>
           {registeredBatches.map((b) => (
             <div key={b.batchKey} style={st.batch}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <b>{b.batchNo}합산 (주문반영)</b>
                 <span style={st.muted}>{b.createdAt}</span>
                 <button style={st.btn} disabled={!!busy} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
@@ -678,7 +699,8 @@ export default function HotelMiuIntakePage() {
             {!editing.lines.length && <div style={st.muted}>품목이 없습니다. 저장하면 이 합산이 삭제됩니다.</div>}
             {editing.lines.map((l, i) => (
               <div key={i} style={st.row}>
-                <span style={{ flex: 1 }}>{l.prodName || l.inputName}</span>
+                <span>{l.prodName || l.inputName}</span>
+                <span style={st.muted}>{l.unit || ''}</span>
                 <input style={{ ...st.inp, width: 72 }} value={l.qty} onChange={(e) => {
                   const qty = Number(e.target.value) || 0;
                   setEditing((cur) => ({ ...cur, lines: cur.lines.map((x, idx) => (idx === i ? { ...x, qty } : x)) }));
@@ -868,18 +890,23 @@ const st = {
   panel: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', marginBottom: 12 },
   drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 10, margin: '8px 0', color: '#475569', fontSize: 12 },
   ta: { width: '100%', minHeight: 72, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8, fontSize: 12 },
-  row: { display: 'flex', gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9' },
-  merge: { fontSize: 12, color: '#334155', padding: '2px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  row: { display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9', justifyContent: 'flex-start' },
+  merge: { fontSize: 12, color: '#334155', padding: '2px 0', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 8 },
+  matchTbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 6, fontSize: 13 },
+  matchTh: { textAlign: 'left', padding: '4px 10px 4px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
+  matchThRight: { textAlign: 'right', padding: '4px 10px 4px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
+  matchTd: { padding: '4px 10px 4px 0', verticalAlign: 'middle', whiteSpace: 'nowrap' },
+  matchTdName: { padding: '4px 10px 4px 0', verticalAlign: 'middle', maxWidth: 220 },
+  matchTdRight: { padding: '4px 10px 4px 0', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' },
   batch: { borderTop: '1px solid #e2e8f0', padding: '8px 0' },
   muted: { color: '#94a3b8', fontSize: 12 },
   okMsg: { background: '#f0fdf4', color: '#166534', padding: 8, borderRadius: 8, margin: '8px 0' },
   err: { background: '#fef2f2', color: '#b91c1c', padding: 8, borderRadius: 8, margin: '8px 0' },
   warn: { background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
   matchOk: { background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
-  srcTxt: { fontSize: 11, color: '#0f766e', fontWeight: 700 },
   srcImg: { fontSize: 11, color: '#b45309', fontWeight: 700 },
   sumRow: { display: 'flex', gap: 0, flexWrap: 'wrap', alignItems: 'stretch', marginTop: 8 },
-  sumCard: { flex: '1 1 220px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
+  sumCard: { flex: '0 1 320px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
   sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },
   modal: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 40 },
   modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
