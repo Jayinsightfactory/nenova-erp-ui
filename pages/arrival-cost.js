@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
+import { parseJsonResponse } from '../lib/parseJsonResponse';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -51,7 +52,7 @@ function LookupInput({ kind, value, onInput, onSelect, placeholder }) {
           ? `/api/products/search?q=${encoded}`
           : `/api/arrival-cost?lookup=farms&q=${encoded}&limit=30`;
         const res = await fetch(url, { credentials: 'same-origin' });
-        const json = await res.json();
+        const json = await parseJsonResponse(res);
         if (res.ok && json.success) setOptions(kind === 'product' ? (json.products || []).slice(0, 30) : (json.farms || []));
         else setOptions([]);
       } catch (_) {
@@ -115,7 +116,7 @@ export default function ArrivalCostPage() {
       try {
         const qs = new URLSearchParams({ lookup: 'varieties', orderYear: filters.orderYear, orderWeek: filters.orderWeek });
         const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin', signal: controller.signal });
-        const json = await res.json();
+        const json = await parseJsonResponse(res);
         if (!res.ok || !json.success) throw new Error(json.error || '품종 조회 실패');
         setVarieties(json.varieties || []);
         setScopeReady(true);
@@ -139,7 +140,7 @@ export default function ArrivalCostPage() {
       qs.set('page', String(targetPage));
       qs.set('pageSize', '200');
       const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin', signal: controller.signal });
-      const json = await res.json();
+      const json = await parseJsonResponse(res);
       if (!res.ok || !json.success) throw new Error(json.error || '도착원가 조회 실패');
       if (requestRef.current.id !== requestId) return;
       setData(json);
@@ -197,7 +198,7 @@ export default function ArrivalCostPage() {
       form.append('orderYear', filters.orderYear);
       if (filters.orderWeek) form.append('orderWeek', filters.orderWeek);
       const res = await fetch('/api/arrival-cost/upload', { method: 'POST', body: form, credentials: 'same-origin' });
-      const json = await res.json();
+      const json = await parseJsonResponse(res);
       if (!res.ok || !json.success) throw new Error(json.error || '업로드 실패');
       formElement.reset();
       setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건`);
@@ -217,7 +218,7 @@ export default function ArrivalCostPage() {
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ arrivalLineKey: row.arrivalLineKey, prodKey: draft.prodKey || null, farmKey: draft.farmKey || null, allocationBasis: draft.allocationBasis || 'SOURCE', notes: draft.notes || '' }),
       });
-      const json = await res.json();
+      const json = await parseJsonResponse(res);
       if (!res.ok || !json.success) throw new Error(json.error || '저장 실패');
       setMessage(`${row.orderWeek || '차수'} / ${row.productNameRaw} 저장 완료`);
       await load(page, appliedFilters);
@@ -227,7 +228,7 @@ export default function ArrivalCostPage() {
   const showHistory = async (row) => {
     try {
       const res = await fetch(`/api/arrival-cost/history?arrivalLineKey=${row.arrivalLineKey}`, { credentials: 'same-origin' });
-      const json = await res.json();
+      const json = await parseJsonResponse(res);
       if (!res.ok || !json.success) throw new Error(json.error || '이력 조회 실패');
       setHistory({ row, rows: json.rows || [] });
     } catch (e) { setError(e.message); }

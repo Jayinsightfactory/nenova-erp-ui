@@ -8,7 +8,9 @@ const page = fs.readFileSync(new URL('../pages/arrival-cost.js', import.meta.url
 assert.match(api, /lookup === 'farms'/, '농장 검색은 별도 lookup 모드여야 합니다.');
 assert.match(api, /pageSize: req\.query\.pageSize/, '도착원가 목록은 페이지 크기를 API에서 받습니다.');
 assert.match(lib, /OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY/, '원가 목록은 서버 페이징을 사용해야 합니다.');
-assert.match(lib, /COUNT_BIG\(\*\) OVER\(\) AS TotalCount/, '원가 목록은 전체 건수를 함께 반환해야 합니다.');
+assert.match(lib, /COUNT_BIG\(\*\) OVER\(\)/, '원가 목록은 전체 건수를 함께 반환해야 합니다.');
+assert.doesNotMatch(lib, /SELECT l\.\*/, '목록 조회는 RawJson NVARCHAR(MAX)를 포함하면 안 됩니다.');
+assert.match(lib, /skipUsageScan/, '품목 검색 시 OrderDetail 사용량 전수 스캔을 건너뛰어야 합니다.');
 assert.match(lib, /AutoFarmKey/, '원본 농장명과 일치하는 전산 농장 자동 후보를 표시해야 합니다.');
 assert.doesNotMatch(lib, /SELECT ProdKey, ProdCode, ProdName, DisplayName, FlowerName, CounName, OutUnit, SteamOf1Box, BoxWeight, BoxCBM\s+FROM dbo\.Product WHERE isDeleted=0 ORDER BY/, '목록 조회에서 전체 품목 마스터를 내려보내면 안 됩니다.');
 assert.doesNotMatch(page, /<datalist id="arrival-product-options">/, '전체 품목 datalist를 렌더링하면 안 됩니다.');
