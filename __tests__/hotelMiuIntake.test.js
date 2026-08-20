@@ -15,6 +15,7 @@ import {
   resolveHotelMiuDefaultVendors,
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
+  HOTEL_MIU_WEEK_UNTIL,
 } from '../lib/hotelMiuIntake.js';
 import { normalizeImportUnit } from '../lib/orderImportUnits.js';
 
@@ -90,6 +91,17 @@ assert.deepEqual(hotelMiuWeekOptions('2026-34-03').map((w) => w.week), ['34-03',
 assert.deepEqual(hotelMiuWeekOptions('2026-52-04').map((w) => `${w.year}-${w.week}`), [
   '2026-52-04', '2027-01-01', '2027-01-02', '2027-01-03',
 ]);
+assert.equal(HOTEL_MIU_WEEK_UNTIL, '36-02');
+const until3602 = hotelMiuWeekOptions('2026-34-01', HOTEL_MIU_WEEK_UNTIL);
+assert.equal(until3602[0].week, '34-01');
+assert.equal(until3602[until3602.length - 1].week, '36-02');
+assert.ok(until3602.some((w) => w.week === '35-01'));
+assert.ok(until3602.some((w) => w.week === '36-01'));
+assert.deepEqual(until3602.map((w) => w.week), [
+  '34-01', '34-02', '34-03', '34-04',
+  '35-01', '35-02', '35-03', '35-04',
+  '36-01', '36-02',
+]);
 
 const sampleCusts = [
   { CustKey: 680, CustName: '트라움에스앤씨' },
@@ -126,6 +138,7 @@ assert.match(page, /HOTEL_MIU_FAVORITE_PAGE/);
 assert.match(page, /year, week/);
 assert.match(page, /resolveHotelMiuDefaultVendors/);
 assert.match(page, /hotelMiuWeekOptions/);
+assert.match(page, /HOTEL_MIU_WEEK_UNTIL/);
 assert.match(page, /라움/);
 assert.match(page, /신라/);
 assert.match(page, /쵸이문/);
