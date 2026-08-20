@@ -2,7 +2,7 @@
 // Order/Shipment 쓰기는 /api/orders 가 담당한다. 이 API 는 WebHotelMiu* 만 쓴다.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { overlayMappingRecord, nextBatchNo, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
+import { overlayMappingRecord, nextBatchNo, parseRegisterSnapPayload, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
 
 let ensurePromise = null;
 function ensureTables() {
@@ -58,6 +58,17 @@ function ensureTables() {
         CREATE UNIQUE INDEX UX_WebHotelMiuIntakeBatch_YearWeekCustNo
           ON dbo.WebHotelMiuIntakeBatch (OrderYear, OrderWeek, CustKey, BatchNo)
           WHERE isDeleted = 0;
+      IF OBJECT_ID(N'dbo.WebHotelMiuRegisterSnap', N'U') IS NULL
+      CREATE TABLE dbo.WebHotelMiuRegisterSnap (
+        SnapKey INT IDENTITY(1,1) PRIMARY KEY,
+        OrderYear NVARCHAR(4) NOT NULL,
+        OrderWeek NVARCHAR(10) NOT NULL,
+        CustKey INT NOT NULL,
+        Payload NVARCHAR(MAX) NOT NULL,
+        CreatedBy NVARCHAR(50) NULL,
+        CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+        isDeleted BIT NOT NULL DEFAULT 0
+      );
     `, {});
   })().catch((e) => { ensurePromise = null; throw e; });
   return ensurePromise;
@@ -139,6 +150,41 @@ async function listBatches(year, week, custKey) {
   return batches;
 }
 
+async function listRegisterSnaps(year, week, custKey) {
+  const exists = await query(`SELECT 1 AS ok FROM sys.tables WHERE name=N'WebHotelMiuRegisterSnap'`, {});
+  if (!exists.recordset.length) return [];
+  const r = await query(
+    `SELECT SnapKey, CONVERT(varchar(19), CreatedAt, 120) AS CreatedAt, CreatedBy, Payload
+       FROM WebHotelMiuRegisterSnap
+      WHERE OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck AND isDeleted=0
+      ORDER BY SnapKey`,
+    {
+      yr: { type: sql.NVarChar, value: String(year) },
+      wk: { type: sql.NVarChar, value: String(week) },
+      ck: { type: sql.Int, value: Number(custKey) },
+    }
+  );
+  return (r.recordset || []).map((row) => ({
+    snapKey: row.SnapKey,
+    createdAt: row.CreatedAt,
+    createdBy: row.CreatedBy,
+    rows: parseRegisterSnapPayload(row.Payload),
+  }));
+}
+
+function sanitizeHistoryRows(raw) {
+  return (Array.isArray(raw) ? raw : []).slice(0, 500).map((row) => ({
+    prodKey: Number(row.prodKey) || 0,
+    prodName: text(row.prodName).slice(0, 200),
+    beforeQty: Number(row.beforeQty || 0),
+    beforeUnit: text(row.beforeUnit).slice(0, 10),
+    afterQty: row.excluded || row.afterQty == null ? null : Number(row.afterQty),
+    afterUnit: text(row.afterUnit).slice(0, 10),
+    excluded: Boolean(row.excluded || row.afterQty == null),
+    round: row.round === 'up' || row.round === 'down' ? row.round : '',
+  })).filter((row) => row.prodKey);
+}
+
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
@@ -164,9 +210,10 @@ export default withAuth(async function handler(req, res) {
       const custKey = Number(req.query.custKey);
       if (!year || !week || !custKey) return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
       const exists = await query(`SELECT 1 AS ok FROM sys.tables WHERE name=N'WebHotelMiuIntakeBatch'`, {});
-      if (!exists.recordset.length) return res.status(200).json({ success: true, batches: [] });
+      if (!exists.recordset.length) return res.status(200).json({ success: true, batches: [], registerSnaps: [] });
       const batches = await listBatches(year, week, custKey);
-      return res.status(200).json({ success: true, batches });
+      const registerSnaps = await listRegisterSnaps(year, week, custKey);
+      return res.status(200).json({ success: true, batches, registerSnaps });
     }
 
     if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -321,7 +368,25 @@ export default withAuth(async function handler(req, res) {
           }
         );
       }
-      return res.status(200).json({ success: true, batches: await listBatches(year, week, custKey) });
+      const history = sanitizeHistoryRows(req.body?.history);
+      if (history.length) {
+        await query(
+          `INSERT INTO WebHotelMiuRegisterSnap (OrderYear, OrderWeek, CustKey, Payload, CreatedBy)
+           VALUES (@yr,@wk,@ck,@pay,@by)`,
+          {
+            yr: { type: sql.NVarChar, value: year },
+            wk: { type: sql.NVarChar, value: week },
+            ck: { type: sql.Int, value: custKey },
+            pay: { type: sql.NVarChar(sql.MAX), value: JSON.stringify({ rows: history }) },
+            by: { type: sql.NVarChar, value: actor },
+          }
+        );
+      }
+      return res.status(200).json({
+        success: true,
+        batches: await listBatches(year, week, custKey),
+        registerSnaps: await listRegisterSnaps(year, week, custKey),
+      });
     }
 
     return res.status(400).json({ success: false, error: '알 수 없는 action' });
