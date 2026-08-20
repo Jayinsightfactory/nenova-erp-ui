@@ -20,6 +20,7 @@ import {
   applyBoardOverlay,
   registerPreviewTable,
   boxRoundHint,
+  boxFactorForUnit,
   applyPerBoxOverride,
   roundChoiceLabel,
   buildRegisterItems,
@@ -67,6 +68,7 @@ export default function HotelMiuIntakePage() {
   const pasteLock = useRef(0);
   const boardMapRef = useRef({});
   const writeLock = useRef(false);
+  const dirtyBoxKeys = useRef(new Set());
 
   const loadFavorites = async () => {
     const d = await apiGet('/api/favorites', { page: HOTEL_MIU_FAVORITE_PAGE });
@@ -371,9 +373,31 @@ export default function HotelMiuIntakePage() {
       (d.products || []).forEach((p) => { map[Number(p.ProdKey)] = p; });
       setBoxFactors(map);
       setBoxRounds({});
+      dirtyBoxKeys.current = new Set();
       setConfirming(true);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
+  };
+
+  const persistBoxFactor = async (row, raw) => {
+    const n = Number(raw);
+    if (!row?.prodKey || !(n > 0)) return;
+    await apiPost('/api/sales/hotel-miu-intake', {
+      action: 'saveBoxFactor',
+      prod: { prodKey: row.prodKey, prodName: row.prodName, displayName: row.prodName },
+      unit: row.unit,
+      perBox: n,
+    });
+  };
+
+  const persistDirtyBoxFactors = async (factors = boxFactors) => {
+    const rows = (registerPreview?.rows || []).filter((row) => dirtyBoxKeys.current.has(Number(row.prodKey)));
+    for (const row of rows) {
+      const perBox = boxFactorForUnit(row.unit, factors[row.prodKey]);
+      if (!(perBox > 0)) continue;
+      await persistBoxFactor(row, perBox);
+      dirtyBoxKeys.current.delete(Number(row.prodKey));
+    }
   };
 
   const register = async () => {
@@ -383,6 +407,7 @@ export default function HotelMiuIntakePage() {
     writeLock.current = true;
     setBusy('register'); setError(''); setMessage('');
     try {
+      await persistDirtyBoxFactors();
       await apiPost('/api/orders', {
         source: 'hotel-miu-board',
         custKey: cust.custKey,
@@ -519,6 +544,7 @@ export default function HotelMiuIntakePage() {
 
   const setBoxPerBox = (row, raw) => {
     const n = Number(raw);
+    dirtyBoxKeys.current.add(Number(row.prodKey));
     setBoxFactors((prev) => ({
       ...prev,
       [row.prodKey]: applyPerBoxOverride(row.unit, prev[row.prodKey] || {}, n),
@@ -757,7 +783,7 @@ export default function HotelMiuIntakePage() {
         <div style={st.modal}>
           <div style={{ ...st.modalBox, width: 'min(1100px, 96vw)' }}>
             <b>주문등록 수량 확인 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스당 단/송이가 틀리면 고친 뒤 반올림·반내림하세요. 출고분배와 품목 마스터는 건드리지 않습니다.</p>
+            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스당 단/송이가 틀리면 고친 뒤 반올림·반내림하세요. 고친 박스당은 매칭 데이터처럼 저장되어 다음 주문등록에도 쓰입니다. 전산 품목 마스터와 출고분배는 건드리지 않습니다.</p>
             <table style={st.tbl}>
               <thead>
                 <tr>
@@ -795,6 +821,13 @@ export default function HotelMiuIntakePage() {
                           style={st.perBoxInp}
                           value={hint.perBox || ''}
                           onChange={(e) => setBoxPerBox(row, e.target.value)}
+                          onBlur={(e) => {
+                            const n = Number(e.target.value);
+                            if (!(n > 0) || !dirtyBoxKeys.current.has(Number(row.prodKey))) return;
+                            persistBoxFactor(row, n)
+                              .then(() => { dirtyBoxKeys.current.delete(Number(row.prodKey)); })
+                              .catch((err) => setError(err.message));
+                          }}
                           title={`${row.unit || ''} / 1박스`}
                         />
                         <span style={st.muted}>{row.unit || ''}</span>

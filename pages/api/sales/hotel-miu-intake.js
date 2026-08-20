@@ -2,7 +2,7 @@
 // Order/Shipment 쓰기는 /api/orders 가 담당한다. 이 API 는 WebHotelMiu* 만 쓴다.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { overlayMappingRecord, nextBatchNo, parseRegisterSnapPayload, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
+import { overlayMappingRecord, boxFactorOverlayRecord, mergeProductBoxFactors, nextBatchNo, parseRegisterSnapPayload, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
 
 let ensurePromise = null;
 function ensureTables() {
@@ -46,10 +46,13 @@ function ensureTables() {
         FlowerName NVARCHAR(100) NOT NULL DEFAULT N'',
         CounName NVARCHAR(60) NOT NULL DEFAULT N'',
         Unit NVARCHAR(10) NOT NULL DEFAULT N'',
+        PerBox FLOAT NULL,
         UpdatedBy NVARCHAR(50) NULL,
         UpdatedAt DATETIME NOT NULL DEFAULT GETDATE(),
         isDeleted BIT NOT NULL DEFAULT 0
       );
+      IF COL_LENGTH(N'dbo.WebHotelMiuProductMap', N'PerBox') IS NULL
+        ALTER TABLE dbo.WebHotelMiuProductMap ADD PerBox FLOAT NULL;
       IF NOT EXISTS (
         SELECT 1 FROM sys.indexes
          WHERE name = N'UX_WebHotelMiuIntakeBatch_YearWeekCustNo'
@@ -102,9 +105,63 @@ async function upsertOverlay(actor, inputName, prod, unit) {
   return rec.token;
 }
 
+async function upsertBoxFactor(actor, prod, unit, perBox) {
+  const rec = boxFactorOverlayRecord(prod, unit, perBox);
+  if (!rec) return null;
+  await query(
+    `UPDATE WebHotelMiuProductMap SET isDeleted=1, UpdatedAt=GETDATE(), UpdatedBy=@by
+      WHERE InputToken=@tok AND isDeleted=0`,
+    { tok: { type: sql.NVarChar, value: rec.token }, by: { type: sql.NVarChar, value: actor } }
+  );
+  await query(
+    `INSERT INTO WebHotelMiuProductMap
+       (InputToken, ProdKey, ProdName, DisplayName, FlowerName, CounName, Unit, PerBox, UpdatedBy)
+     VALUES (@tok,@pk,@pn,@dn,@fn,@cn,@un,@pb,@by)`,
+    {
+      tok: { type: sql.NVarChar, value: rec.token },
+      pk: { type: sql.Int, value: rec.value.prodKey },
+      pn: { type: sql.NVarChar, value: rec.value.prodName },
+      dn: { type: sql.NVarChar, value: rec.value.displayName },
+      fn: { type: sql.NVarChar, value: rec.value.flowerName },
+      cn: { type: sql.NVarChar, value: rec.value.counName },
+      un: { type: sql.NVarChar, value: rec.value.unit },
+      pb: { type: sql.Float, value: rec.value.perBox },
+      by: { type: sql.NVarChar, value: actor },
+    }
+  );
+  return rec.token;
+}
+
+async function listBoxFactorOverlays(prodKeys = []) {
+  const keys = [...new Set((prodKeys || []).map((k) => Number(k)).filter(Boolean))];
+  if (!keys.length) return [];
+  const params = {};
+  const ph = keys.map((k, i) => {
+    params[`b${i}`] = { type: sql.Int, value: k };
+    return `@b${i}`;
+  }).join(',');
+  const r = await query(
+    `SELECT ProdKey, PerBox, Unit, ProdName
+       FROM WebHotelMiuProductMap
+      WHERE ISNULL(isDeleted,0)=0
+        AND PerBox IS NOT NULL AND PerBox > 0
+        AND InputToken LIKE N'prodbox:%'
+        AND ProdKey IN (${ph})`,
+    params
+  );
+  return (r.recordset || []).map((row) => ({
+    prodKey: Number(row.ProdKey),
+    perBox: Number(row.PerBox),
+    unit: row.Unit || '',
+    prodName: row.ProdName || '',
+  }));
+}
+
 async function persistLineOverlays(actor, lines) {
   for (const ln of lines || []) {
     if (!ln?.prodKey) continue;
+    const rec = overlayMappingRecord(ln.inputName, ln, ln.unit);
+    if (!rec || String(rec.token).startsWith('prodbox:')) continue;
     await upsertOverlay(actor, ln.inputName, ln, ln.unit);
   }
 }
@@ -190,6 +247,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const prodKeys = String(req.query.prodKeys || '').split(',').map((k) => Number(k)).filter(Boolean).slice(0, 200);
       if (prodKeys.length) {
+        await ensureTables();
         const params = {};
         const ph = prodKeys.map((k, i) => {
           params[`p${i}`] = { type: sql.Int, value: k };
@@ -203,7 +261,12 @@ export default withAuth(async function handler(req, res) {
              FROM Product WHERE isDeleted=0 AND ProdKey IN (${ph})`,
           params
         );
-        return res.status(200).json({ success: true, products: r.recordset || [] });
+        let products = r.recordset || [];
+        try {
+          const overlays = await listBoxFactorOverlays(prodKeys);
+          products = mergeProductBoxFactors(products, overlays);
+        } catch (_) { /* overlay 없으면 Product 계수만 쓴다 */ }
+        return res.status(200).json({ success: true, products });
       }
       const year = text(req.query.year);
       const week = text(req.query.week);
@@ -224,6 +287,12 @@ export default withAuth(async function handler(req, res) {
     if (action === 'saveMapping') {
       const token = await upsertOverlay(actor, req.body?.inputName, req.body?.prod || req.body, req.body?.unit);
       if (!token) return res.status(400).json({ success: false, error: 'inputName, prodKey 필요' });
+      return res.status(200).json({ success: true, token });
+    }
+
+    if (action === 'saveBoxFactor') {
+      const token = await upsertBoxFactor(actor, req.body?.prod || req.body, req.body?.unit, req.body?.perBox);
+      if (!token) return res.status(400).json({ success: false, error: 'prodKey, perBox 필요' });
       return res.status(200).json({ success: true, token });
     }
 
