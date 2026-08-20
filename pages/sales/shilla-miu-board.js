@@ -1,12 +1,17 @@
-// 호텔+미우 통합게시판 홈 — 이미지/텍스트 발주를 합쳐 주문만 가산 등록
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// 호텔+미우 통합게시판 홈 — 업체에 합산을 쌓은 뒤 주문만 가산 등록
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getClipboardImage } from '../../lib/raumPnlImage';
 import {
+  HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_FAVORITE_PAGE,
+  batchLineTotal,
   batchQtyDelta,
+  isDraftBatch,
+  mergeAllBatchLines,
   mergeDraftLines,
+  nextBatchNo,
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
@@ -28,6 +33,7 @@ export default function HotelMiuIntakePage() {
   const [cust, setCust] = useState(null);
   const [custQ, setCustQ] = useState('');
   const [custHits, setCustHits] = useState([]);
+  const [needCust, setNeedCust] = useState(false);
   const [text, setText] = useState('');
   const [draft, setDraft] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -36,6 +42,7 @@ export default function HotelMiuIntakePage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const pasteLock = useRef(0);
 
   const loadFavorites = async () => {
     const d = await apiGet('/api/favorites', { page: HOTEL_MIU_FAVORITE_PAGE });
@@ -70,6 +77,8 @@ export default function HotelMiuIntakePage() {
     setCust({ custKey: f.custKey, custName: f.custName });
     if (f.year) setYear(f.year);
     if (f.week) setWeek(f.week);
+    setNeedCust(false);
+    setError('');
   };
 
   const addFavorite = async (hit) => {
@@ -83,8 +92,10 @@ export default function HotelMiuIntakePage() {
     const list = await loadFavorites();
     const f = list.find((x) => x.custKey === key);
     if (f) selectFav(f);
+    else setCust({ custKey: key, custName: name });
     setCustHits([]);
     setCustQ('');
+    setNeedCust(false);
   };
 
   const removeFavorite = async (f) => {
@@ -102,6 +113,14 @@ export default function HotelMiuIntakePage() {
     if (!custQ.trim()) return;
     const d = await apiGet('/api/customers/search', { q: custQ.trim() });
     setCustHits(d.customers || d.rows || []);
+    setNeedCust(true);
+  };
+
+  const requireCust = () => {
+    if (cust?.custKey) return true;
+    setNeedCust(true);
+    setError('먼저 업체를 검색해 고르세요. 그 업체 이름으로 합산이 쌓입니다.');
+    return false;
   };
 
   const appendItems = (items, sourceType) => {
@@ -121,18 +140,21 @@ export default function HotelMiuIntakePage() {
 
   const parseText = async () => {
     if (!text.trim()) return;
+    if (!requireCust()) return;
     setBusy('parse'); setError(''); setMessage('');
     try {
       const d = await apiPost('/api/sales/hotel-miu-parse', { text });
       appendItems(d.items, 'text');
       setText('');
-      setMessage(`텍스트 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭`);
+      setMessage(`텍스트 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭. 아래 저장으로 ${cust.custName}에 합산을 남기세요.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
 
   const parseImage = async (file) => {
     if (!file) return;
+    if (!requireCust()) return;
+    if (busy === 'parse') return;
     setBusy('parse'); setError(''); setMessage('');
     try {
       const fd = new FormData();
@@ -141,7 +163,7 @@ export default function HotelMiuIntakePage() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '이미지 분석 실패');
       appendItems(d.items, 'image');
-      setMessage(`이미지 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭`);
+      setMessage(`이미지 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭. 아래 저장으로 ${cust.custName}에 합산을 남기세요.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
@@ -150,11 +172,19 @@ export default function HotelMiuIntakePage() {
     const file = getClipboardImage(e.clipboardData?.items);
     if (!file) return;
     e.preventDefault();
+    e.stopPropagation();
+    const now = Date.now();
+    if (now - pasteLock.current < 1500) return;
+    pasteLock.current = now;
     parseImage(file);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cust, busy, year, week]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const merged = useMemo(() => mergeDraftLines(draft), [draft]);
   const unmatched = draft.filter((l) => !l.prodKey);
+  const draftBatches = batches.filter(isDraftBatch);
+  const registeredBatches = batches.filter((b) => !isDraftBatch(b));
+  const nextSumNo = nextBatchNo(batches);
+  const orderItems = useMemo(() => mergeAllBatchLines(draftBatches), [draftBatches]);
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -167,7 +197,7 @@ export default function HotelMiuIntakePage() {
       FlowerName: prod.FlowerName || prod.flowerName,
       CounName: prod.CounName || prod.counName,
     };
-    setDraft((prev) => prev.map((l) => (l.id === line.id
+    setDraft((prev) => prev.map((l) => (l.inputName === line.inputName
       ? { ...l, prodKey: p.prodKey, prodName: p.prodName, displayName: p.displayName || p.prodName }
       : l)));
     try {
@@ -178,11 +208,34 @@ export default function HotelMiuIntakePage() {
     setPicker(null);
   };
 
+  const saveToVendor = async () => {
+    if (!requireCust()) return;
+    if (unmatched.length) { setError(`미매칭 ${unmatched.length}건을 먼저 고르세요.`); return; }
+    if (!merged.length) { setError('저장할 품목이 없습니다.'); return; }
+    setBusy('save'); setError(''); setMessage('');
+    try {
+      const rec = await apiPost('/api/sales/hotel-miu-intake', {
+        action: 'recordBatch',
+        year, week, custKey: cust.custKey,
+        status: HOTEL_MIU_BATCH_DRAFT,
+        sourceNote: `${nextSumNo}합산`,
+        lines: draft,
+      });
+      setDraft([]);
+      setBatches(rec.batches || []);
+      setMessage(`${cust.custName} ${nextSumNo}합산에 저장했습니다. 더 넣을 수 있고, 다 넣은 뒤 주문등록하세요.`);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(''); }
+  };
+
   const register = async () => {
-    if (!cust?.custKey) { setError('업체를 선택하세요.'); return; }
-    if (unmatched.length) { setError('미매칭 품목을 먼저 고르세요.'); return; }
-    if (!merged.length) { setError('등록할 품목이 없습니다.'); return; }
-    if (!window.confirm(`${cust.custName} / ${week}\n${merged.length}개 품목을 주문수량에 더할까요? (출고분배는 하지 않습니다)`)) return;
+    if (!requireCust()) return;
+    if (draft.length) { setError('이번 입력을 먼저 이 업체 합산으로 저장하세요.'); return; }
+    if (!draftBatches.length) { setError('저장된 합산이 없습니다. 품목을 넣은 뒤 업체에 저장하세요.'); return; }
+    const unmatchedSaved = draftBatches.flatMap((b) => b.lines || []).filter((l) => !l.prodKey);
+    if (unmatchedSaved.length) { setError('저장된 합산에 미매칭 품목이 있습니다.'); return; }
+    if (!orderItems.length) { setError('주문등록할 품목이 없습니다.'); return; }
+    if (!window.confirm(`${cust.custName} / ${week}\n${draftBatches.length}개 합산(${orderItems.length}품목)을 주문수량에 더할까요? (출고분배는 하지 않습니다)`)) return;
     setBusy('register'); setError(''); setMessage('');
     try {
       await apiPost('/api/orders', {
@@ -191,17 +244,15 @@ export default function HotelMiuIntakePage() {
         custName: cust.custName,
         year,
         week,
-        items: merged,
+        items: orderItems,
       });
-      const rec = await apiPost('/api/sales/hotel-miu-intake', {
-        action: 'recordBatch',
+      await apiPost('/api/sales/hotel-miu-intake', {
+        action: 'markRegistered',
         year, week, custKey: cust.custKey,
-        sourceNote: `주문입력 ${draft.filter((l) => l.sourceType === 'image').length}이미지+${draft.filter((l) => l.sourceType === 'text').length}텍스트`,
-        lines: draft,
+        batchKeys: draftBatches.map((b) => b.batchKey),
       });
-      setDraft([]);
-      setBatches(rec.batches || []);
-      setMessage(`${rec.batchNo}차로 주문수량을 더했습니다.`);
+      await loadBatches();
+      setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
@@ -209,7 +260,8 @@ export default function HotelMiuIntakePage() {
   const saveBatchEdit = async () => {
     if (!editing) return;
     const nextLines = editing.lines;
-    const delta = batchQtyDelta(editing.original, nextLines);
+    const wasDraft = isDraftBatch(editing);
+    const delta = wasDraft ? [] : batchQtyDelta(editing.original, nextLines);
     setBusy('edit'); setError('');
     try {
       if (delta.length) {
@@ -229,7 +281,7 @@ export default function HotelMiuIntakePage() {
       });
       setBatches(rec.batches || []);
       setEditing(null);
-      setMessage(`${editing.batchNo}차 수량을 수정했습니다.`);
+      setMessage(wasDraft ? `${editing.batchNo}합산 수량을 고쳤습니다.` : `${editing.batchNo}차 주문수량을 수정했습니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
@@ -239,45 +291,56 @@ export default function HotelMiuIntakePage() {
       <div style={st.head}>
         <div>
           <h1 style={st.h1}>호텔+미우 통합게시판</h1>
-          <p style={st.sub}>이미지·텍스트 발주를 같은 업체·차수에 합친 뒤 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
+          <p style={st.sub}>업체를 먼저 고르고, 이미지·텍스트를 그 업체 합산으로 쌓은 뒤 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>
       </div>
 
-      <div style={st.bar}>
-        <label>연도 <input style={st.inp} value={year} onChange={(e) => setYear(e.target.value)} /></label>
-        <label>차수 <input style={st.inp} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="33-01" title="주문 등록에 쓰는 세부차수" /></label>
-        <span style={{ color: '#64748b', fontSize: 12 }}>즐겨찾기 업체</span>
-        {favorites.map((f) => (
-          <span key={f.favoriteKey} style={{ display: 'inline-flex', gap: 4 }}>
-            <button style={cust?.custKey === f.custKey ? st.chipOn : st.chip} onClick={() => selectFav(f)}>{f.custName}</button>
-            <button style={st.tiny} onClick={() => removeFavorite(f)} title="즐겨찾기 해제">×</button>
-          </span>
-        ))}
-        <input style={{ ...st.inp, width: 140 }} value={custQ} onChange={(e) => setCustQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && searchCust()} placeholder="업체 검색 후 추가" />
-        <button style={st.btn} onClick={searchCust}>검색</button>
-      </div>
-      {custHits.length > 0 && (
-        <div style={st.hits}>
-          {custHits.slice(0, 8).map((c) => (
-            <button key={c.CustKey || c.custKey} style={st.chip} onClick={() => addFavorite(c)}>
-              + {c.CustName || c.custName}
-            </button>
-          ))}
+      {error && <div style={st.err}>{error}</div>}
+      {message && <div style={st.okMsg}>{message}</div>}
+
+      <div style={needCust || !cust ? st.custBoxOn : st.custBox}>
+        <b>1) 작업 업체</b>
+        <div style={st.bar}>
+          <label>연도 <input style={st.inp} value={year} onChange={(e) => setYear(e.target.value)} /></label>
+          <label>차수 <input style={st.inp} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="33-01" title="주문 등록에 쓰는 세부차수" /></label>
+          <input style={{ ...st.inp, width: 180 }} value={custQ} onChange={(e) => setCustQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && searchCust()} placeholder="업체 이름 검색" />
+          <button style={st.btn} onClick={searchCust}>업체 검색</button>
         </div>
-      )}
-      {cust && <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 이미 등록한 같은 품목은 주문수량에 더해집니다.</div>}
+        {custHits.length > 0 && (
+          <div style={st.hits}>
+            {custHits.slice(0, 8).map((c) => (
+              <button key={c.CustKey || c.custKey} style={st.chip} onClick={() => addFavorite(c)}>
+                + {c.CustName || c.custName}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <span style={{ color: '#64748b', fontSize: 12 }}>지정업체</span>
+          {favorites.map((f) => (
+            <span key={f.favoriteKey} style={{ display: 'inline-flex', gap: 4 }}>
+              <button style={cust?.custKey === f.custKey ? st.chipOn : st.chip} onClick={() => selectFav(f)}>{f.custName}</button>
+              <button style={st.tiny} onClick={() => removeFavorite(f)} title="즐겨찾기 해제">×</button>
+            </span>
+          ))}
+          {!favorites.length && <span style={st.muted}>검색해서 업체를 넣으면 칩으로 남습니다.</span>}
+        </div>
+        {cust
+          ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다.</div>
+          : <div style={st.warnNote}>업체를 고른 뒤에만 이미지/텍스트를 넣을 수 있습니다.</div>}
+      </div>
 
       <div style={st.grid}>
-        <div style={st.panel} onPaste={onPaste}>
-          <b>1) 이미지 붙여넣기 / 텍스트 추가</b>
-          <div style={st.drop}>이 칸을 클릭한 뒤 Ctrl+V 로 표 사진을 붙여 넣으세요.</div>
-          <input type="file" accept="image/*" onChange={(e) => parseImage(e.target.files?.[0])} />
+        <div style={st.panel}>
+          <b>2) 이미지 붙여넣기 / 텍스트 추가</b>
+          <div style={st.drop}>이 칸을 클릭한 뒤 Ctrl+V 로 표 사진을 붙여 넣으세요. 한 번만 들어갑니다.</div>
+          <input type="file" accept="image/*" onChange={(e) => { parseImage(e.target.files?.[0]); e.target.value = ''; }} />
           <textarea style={st.ta} value={text} onChange={(e) => setText(e.target.value)} placeholder={'엑셀에서 복사한 품명 / 단위 / 수량\n수국 화이트\t대\t220'} />
           <button style={st.primary} disabled={busy === 'parse'} onClick={parseText}>{busy === 'parse' ? '분석 중…' : '텍스트로 품목 추가'}</button>
         </div>
         <div style={st.panel}>
-          <b>2) 이번 입력 (합치기 전 원행)</b>
+          <b>3) 이번 입력 — 매칭 후 업체에 저장</b>
           {!draft.length && <div style={st.muted}>아직 추가된 행이 없습니다.</div>}
           {draft.map((l) => (
             <div key={l.id} style={st.row}>
@@ -288,39 +351,65 @@ export default function HotelMiuIntakePage() {
               <button style={st.tiny} onClick={() => setDraft((p) => p.filter((x) => x.id !== l.id))}>×</button>
             </div>
           ))}
-          {!!merged.length && (
+          {!!draft.length && (
             <div style={{ marginTop: 10 }}>
-              <b>합친 수량 ({merged.length}품목)</b>
+              <b>이번 합칠 수량 ({merged.length}품목)</b>
               {merged.map((m) => (
                 <div key={m.prodKey} style={st.merge}>{m.displayName || m.prodName} · {m.unit} · {fmt(m.qty)}</div>
               ))}
-              <button style={st.primary} disabled={!!busy || !cust} onClick={register}>{busy === 'register' ? '등록 중…' : '주문등록 (더하기)'}</button>
+              <button style={st.primary} disabled={!!busy} onClick={saveToVendor}>
+                {busy === 'save' ? '저장 중…' : `${cust?.custName || '업체'}에 ${nextSumNo}합산으로 저장`}
+              </button>
             </div>
           )}
         </div>
       </div>
 
       <div style={st.panel}>
-        <b>등록된 차수별 입력 — 1차 / 2차 수정</b>
-        {!batches.length && <div style={st.muted}>이 업체·차수에 등록된 입력이 없습니다.</div>}
-        {batches.map((b) => (
-          <div key={b.batchKey} style={st.batch}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <b>{b.batchNo}차</b>
-              <span style={st.muted}>{b.createdAt} · {b.sourceNote}</span>
-              <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
+        <b>{cust?.custName || '업체'} 합산 — 1합산 / 2합산</b>
+        {!draftBatches.length && <div style={st.muted}>아직 이 업체에 저장된 합산이 없습니다. 품목을 넣은 뒤 저장하세요.</div>}
+        <div style={st.sumRow}>
+          {draftBatches.map((b, i) => (
+            <div key={b.batchKey} style={st.sumCard}>
+              {i > 0 && <div style={st.sumDash} />}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <b>{b.batchNo}합산</b>
+                <span>{fmt(batchLineTotal(b.lines))}</span>
+                <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
+              </div>
+              {mergeDraftLines(b.lines).map((l) => (
+                <div key={l.prodKey} style={st.merge}>{l.displayName || l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</div>
+              ))}
             </div>
-            {b.lines.map((l, i) => (
-              <div key={i} style={st.merge}>{l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</div>
-            ))}
-          </div>
-        ))}
+          ))}
+        </div>
+        <button style={st.orderBtn} disabled={!!busy} onClick={register}>
+          {busy === 'register' ? '등록 중…' : `주문등록 (더하기) — ${draftBatches.length}개 합산`}
+        </button>
       </div>
+
+      {!!registeredBatches.length && (
+        <div style={st.panel}>
+          <b>이미 주문에 더한 입력</b>
+          {registeredBatches.map((b) => (
+            <div key={b.batchKey} style={st.batch}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <b>{b.batchNo}합산 (주문반영)</b>
+                <span style={st.muted}>{b.createdAt}</span>
+                <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
+              </div>
+              {b.lines.map((l, i) => (
+                <div key={i} style={st.merge}>{l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {editing && (
         <div style={st.modal}>
           <div style={st.modalBox}>
-            <b>{editing.batchNo}차 수량 수정</b>
+            <b>{editing.batchNo}{isDraftBatch(editing) ? '합산' : '합산(주문반영)'} 수량 수정</b>
             {editing.lines.map((l, i) => (
               <div key={i} style={st.row}>
                 <span style={{ flex: 1 }}>{l.prodName || l.inputName}</span>
@@ -331,7 +420,9 @@ export default function HotelMiuIntakePage() {
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button style={st.primary} disabled={!!busy} onClick={saveBatchEdit}>주문수량에 차이만큼 반영</button>
+              <button style={st.primary} disabled={!!busy} onClick={saveBatchEdit}>
+                {isDraftBatch(editing) ? '합산만 고치기' : '주문수량에 차이만큼 반영'}
+              </button>
               <button style={st.btn} onClick={() => setEditing(null)}>닫기</button>
             </div>
           </div>
@@ -346,9 +437,6 @@ export default function HotelMiuIntakePage() {
           </div>
         </div>
       )}
-
-      {message && <div style={st.okMsg}>{message}</div>}
-      {error && <div style={st.err}>{error}</div>}
     </div>
   );
 }
@@ -382,28 +470,35 @@ const st = {
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   h1: { margin: 0, fontSize: 20 },
   sub: { margin: '6px 0 0', color: '#64748b', fontSize: 12 },
-  bar: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '12px 0' },
+  bar: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '8px 0' },
   inp: { border: '1px solid #cbd5e1', borderRadius: 6, padding: '6px 8px', width: 88 },
   btn: { border: '1px solid #94a3b8', background: '#fff', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' },
   primary: { background: '#0f766e', color: '#fff', border: 0, borderRadius: 8, padding: '8px 14px', fontWeight: 700, cursor: 'pointer', marginTop: 8 },
+  orderBtn: { background: '#0f766e', color: '#fff', border: 0, borderRadius: 8, padding: '10px 16px', fontWeight: 800, cursor: 'pointer', marginTop: 12 },
   linkBtn: { background: '#1d4ed8', color: '#fff', textDecoration: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 },
   chip: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' },
   chipOn: { border: '1px solid #0f766e', background: '#ccfbf1', borderRadius: 999, padding: '4px 10px', cursor: 'pointer', fontWeight: 800 },
   tiny: { border: 0, background: 'transparent', cursor: 'pointer', color: '#64748b' },
   hits: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
-  note: { background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 8, padding: '6px 10px', marginBottom: 10 },
+  note: { background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 8, padding: '6px 10px', marginTop: 8 },
+  warnNote: { background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8, padding: '6px 10px', marginTop: 8 },
+  custBox: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', margin: '12px 0' },
+  custBoxOn: { border: '2px solid #0f766e', borderRadius: 10, padding: 12, background: '#f0fdfa', margin: '12px 0' },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
-  panel: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff' },
+  panel: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', marginBottom: 12 },
   drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 16, margin: '8px 0', color: '#475569' },
   ta: { width: '100%', minHeight: 110, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8 },
   row: { display: 'flex', gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9' },
   merge: { fontSize: 12, color: '#334155', padding: '2px 0' },
   batch: { borderTop: '1px solid #e2e8f0', padding: '8px 0' },
   muted: { color: '#94a3b8', fontSize: 12 },
-  okMsg: { background: '#f0fdf4', color: '#166534', padding: 8, borderRadius: 8, marginTop: 8 },
-  err: { background: '#fef2f2', color: '#b91c1c', padding: 8, borderRadius: 8, marginTop: 8 },
+  okMsg: { background: '#f0fdf4', color: '#166534', padding: 8, borderRadius: 8, margin: '8px 0' },
+  err: { background: '#fef2f2', color: '#b91c1c', padding: 8, borderRadius: 8, margin: '8px 0' },
   warn: { background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
   matchOk: { background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
+  sumRow: { display: 'flex', gap: 0, flexWrap: 'wrap', alignItems: 'stretch', marginTop: 8 },
+  sumCard: { flex: '1 1 220px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
+  sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },
   modal: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 40 },
   modalBox: { background: '#fff', padding: 16, width: 'min(560px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
 };

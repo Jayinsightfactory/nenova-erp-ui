@@ -2,7 +2,7 @@
 // Order/Shipment 쓰기는 /api/orders 가 담당한다. 이 API 는 WebHotelMiu* 만 쓴다.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { overlayMappingRecord, nextBatchNo } from '../../../lib/hotelMiuIntake';
+import { overlayMappingRecord, nextBatchNo, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
 
 let ensurePromise = null;
 function ensureTables() {
@@ -16,7 +16,7 @@ function ensureTables() {
         OrderWeek NVARCHAR(10) NOT NULL,
         CustKey INT NOT NULL,
         BatchNo INT NOT NULL,
-        Status NVARCHAR(12) NOT NULL DEFAULT N'REGISTERED',
+        Status NVARCHAR(12) NOT NULL DEFAULT N'DRAFT',
         SourceNote NVARCHAR(200) NOT NULL DEFAULT N'',
         CreatedBy NVARCHAR(50) NULL,
         CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
@@ -162,7 +162,7 @@ export default withAuth(async function handler(req, res) {
         const batchKey = Number(req.body?.batchKey);
         if (!batchKey) return res.status(400).json({ success: false, error: 'batchKey 필요' });
         const owned = await query(
-          `SELECT BatchKey FROM WebHotelMiuIntakeBatch
+          `SELECT BatchKey, Status FROM WebHotelMiuIntakeBatch
             WHERE BatchKey=@bk AND OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck AND isDeleted=0`,
           {
             bk: { type: sql.Int, value: batchKey },
@@ -199,18 +199,22 @@ export default withAuth(async function handler(req, res) {
         return res.status(200).json({ success: true, batchKey, batches: await listBatches(year, week, custKey) });
       }
 
+      const status = String(req.body?.status || HOTEL_MIU_BATCH_DRAFT).toUpperCase() === HOTEL_MIU_BATCH_REGISTERED
+        ? HOTEL_MIU_BATCH_REGISTERED
+        : HOTEL_MIU_BATCH_DRAFT;
       const existing = await listBatches(year, week, custKey);
       const batchNo = nextBatchNo(existing);
       const ins = await query(
         `INSERT INTO WebHotelMiuIntakeBatch (OrderYear, OrderWeek, CustKey, BatchNo, Status, SourceNote, CreatedBy, UpdatedBy)
          OUTPUT INSERTED.BatchKey
-         VALUES (@yr,@wk,@ck,@no,N'REGISTERED',@note,@by,@by)`,
+         VALUES (@yr,@wk,@ck,@no,@st,@note,@by,@by)`,
         {
           yr: { type: sql.NVarChar, value: year },
           wk: { type: sql.NVarChar, value: week },
           ck: { type: sql.Int, value: custKey },
           no: { type: sql.Int, value: batchNo },
-          note: { type: sql.NVarChar, value: text(req.body?.sourceNote, '주문등록') },
+          st: { type: sql.NVarChar, value: status },
+          note: { type: sql.NVarChar, value: text(req.body?.sourceNote, `${batchNo}합산`) },
           by: { type: sql.NVarChar, value: actor },
         }
       );
@@ -236,8 +240,38 @@ export default withAuth(async function handler(req, res) {
         success: true,
         batchKey,
         batchNo,
+        status,
         batches: await listBatches(year, week, custKey),
       });
+    }
+
+    if (action === 'markRegistered') {
+      const year = text(req.body?.year);
+      const week = text(req.body?.week);
+      const custKey = Number(req.body?.custKey);
+      const keys = (Array.isArray(req.body?.batchKeys) ? req.body.batchKeys : [])
+        .map((k) => Number(k)).filter(Boolean);
+      if (!year || !week || !custKey || !keys.length) {
+        return res.status(400).json({ success: false, error: 'year, week, custKey, batchKeys 필요' });
+      }
+      for (const batchKey of keys) {
+        await query(
+          `UPDATE WebHotelMiuIntakeBatch
+              SET Status=@st, UpdatedAt=GETDATE(), UpdatedBy=@by
+            WHERE BatchKey=@bk AND OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck
+              AND isDeleted=0 AND Status=@draft`,
+          {
+            st: { type: sql.NVarChar, value: HOTEL_MIU_BATCH_REGISTERED },
+            draft: { type: sql.NVarChar, value: HOTEL_MIU_BATCH_DRAFT },
+            by: { type: sql.NVarChar, value: actor },
+            bk: { type: sql.Int, value: batchKey },
+            yr: { type: sql.NVarChar, value: year },
+            wk: { type: sql.NVarChar, value: week },
+            ck: { type: sql.Int, value: custKey },
+          }
+        );
+      }
+      return res.status(200).json({ success: true, batches: await listBatches(year, week, custKey) });
     }
 
     return res.status(400).json({ success: false, error: '알 수 없는 action' });

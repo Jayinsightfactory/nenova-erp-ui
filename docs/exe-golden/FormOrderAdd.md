@@ -14,7 +14,7 @@
 
 ## 호텔+미우 통합게시판 주문입력 (웹 전용 입력면)
 
-- 화면 `/sales/shilla-miu-board`는 이미지·텍스트 발주를 한 업체·차수로 합친 뒤 `POST /api/orders` `source=hotel-miu-board`로 **주문수량만 가산**한다.
+- 화면 `/sales/shilla-miu-board`는 이미지·텍스트 발주를 한 업체·차수로 합친 뒤, **합산을 웹 원장에 먼저 쌓고** 마지막에 `POST /api/orders` `source=hotel-miu-board`로 **주문수량만 가산**한다.
 - EXE `FormOrderAdd.btnSave_Click`와 같이 `OrderMaster`/`OrderDetail`/`OrderHistory`만 쓰고, `ensureShipmentMaster`는 `raum-pnl`일 때만 켜지므로 이 소스는 `ShipmentMaster`/`ShipmentDetail`/`ShipmentDate`/`Estimate`를 만들지 않는다.
 - 공통 `order-mappings.json`은 초기 매칭 읽기만 하고, 이 게시판에서 고친 품목은 `WebHotelMiuProductMap` overlay가 덮는다. `persistImportMatchMappings`/`saveMapping`(공통 파일)은 호출하지 않는다.
 - 1차/2차 입력 이력은 웹 전용 `WebHotelMiuIntakeBatch`/`WebHotelMiuIntakeLine`에 남기고, 수정 시 차이 수량(부호 있는 delta)만 다시 `createOrder`에 보낸다.

@@ -35,10 +35,16 @@
       "sideEffect": "UserFavorite page=hotel-miu-board stores custKey+year+week. Ledger preserve."
     },
     {
+      "name": "SAVE_DRAFT_BATCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "INSERT WebHotelMiuIntakeBatch Status=DRAFT + lines for selected OrderYear+OrderWeek+CustKey. No Order/Shipment write. Displayed as 1합산/2합산."
+    },
+    {
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add for selected OrderYear+OrderWeek+CustKey+ProdKey. ShipmentMaster is not ensured (not raum-pnl). Then INSERT WebHotelMiuIntakeBatch+Line as 1차/2차. Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey. Then mark those batches REGISTERED. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",
