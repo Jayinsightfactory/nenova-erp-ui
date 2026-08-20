@@ -37,7 +37,10 @@ export default withAuth(async function handler(req, res) {
         page: req.query.page,
         pageSize: req.query.pageSize,
       });
-      return res.status(200).json({ success: true, basisOptions: ARRIVAL_BASIS, ...data });
+      return res.status(200).json(JSON.parse(JSON.stringify(
+        { success: true, basisOptions: ARRIVAL_BASIS, ...data },
+        (_, value) => (typeof value === 'bigint' ? Number(value) : value),
+      )));
     }
     if (req.method === 'POST') {
       const body = req.body || {};

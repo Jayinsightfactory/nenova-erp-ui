@@ -36,7 +36,8 @@
   좁힌다. `FormOrderAdd`와 같이 `CountryFlower`를 우선하고, 값이 없으면
   `CounName + FlowerName`으로 대체한다. 품목명에서 `화이트붐` 같은 그룹을 만들지 않는다.
 - 검색·품종 탭·페이지 조회는 SELECT 전용이다. `OrderDetail`/`ShipmentDetail`/`Estimate`는
-  보존한다.
+  보존한다. 품목 검색 목록은 `WebArrivalCostLine.RawJson`과 `OrderDetail` 사용량
+  전수 스캔을 빼서 nginx 502 HTML이 나가지 않게 한다.
 - 콜롬비아 수국 `Color Grade` 원가자료는 엑셀 수식
   `도착원가(송이)=CNF원화+관세+그외통관`, `항공료=서류+Rate×CW`, `백상=GW×410`,
   `검역수수료=품목수×10000`을 쓴다. 저장 파일에 수식만 있고 계산값 `<v>`가 비어 있으면
