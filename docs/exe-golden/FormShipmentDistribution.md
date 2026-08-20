@@ -126,3 +126,29 @@ $cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.
   조용한 fallback 없이 오류로 차단한다.
 - 이 근거 확인은 로컬 dnSpy decompile 원문의 읽기 전용 검토이며 운영 주문·출고 쓰기는
   수행하지 않았다.
+
+## 출고확정 잔량 검사 근거 (2026-08-20)
+
+```powershell
+$cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe'
+$exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+& $cli --no-color -t FormShipmentDistribution $exe
+```
+
+- `btnFix_Click`(`FormShipmentDistribution.cs:990`)는 C#에서 음수재고를 계산하지 않는다.
+  `CheckFixSave` 통과 후 `uspShipmentFix(SelectOrderYear, SelectOrderWeek, countryFlower)`를
+  호출하고, 반환 메시지 `text`를 `XtraMessageBox.Show(text, "확정 실패")`로 그대로 보여 준다.
+- 패치 전 `usp_ShipmentFix`는 당주차 `ProductStock.Stock - 미확정 OutQuantity`를
+  `ROUND(...,0) < 0`으로 막았다. `usp_StockCalculation` leftover는 확정출고(`DetailFix=1`)만
+  빼므로, 확정취소 후 재계산이 빠지면 스냅샷이 이미 출고를 뺀 기말로 남아 이중차감이 된다.
+- `btnFixCancel_Click`(`:1070`)는 `uspShipmentFixCancel` 후 **별도 연결**로
+  `uspStockCalculation(year, week, 0)`를 호출한다. 취소 커밋과 재계산이 한 트랜잭션이 아니라서
+  재계산 실패/타임아웃 시에도 확정취소는 남는다.
+- 2026-08-20 운영 읽기 전용 probe: 2026 `33-01` 콜롬비아카네이션 미확정 53 SKU,
+  옛 검사 음수 52건, leftover−미확정 음수 0건(Zurigo `ROUND(-0.33,0)=0`).
+- 재발 방지로 SP 잔량 검사만 leftover 공식으로 바꿨다. dnSpy/WinForms 패치는 하지 않는다.
+  `@oMessage` 문구 `제품 잔량이 마이너스인 출고 정보가 존재합니다.` 는 EXE UI 호환을 위해 유지한다.
+- 직전 스냅샷 키는 `StockMaster.OrderYearWeek < 현재 OrderYearWeek` 최신 1건이다.
+  `OrderWeek` 단독으로 전년도 동일 차수를 이월로 쓰지 않는다.
+- 이 확인은 로컬 decompile 원문과 운영 SP 정의의 읽기 전용 대조이며, 주문·출고 수량 원장
+  쓰기는 수행하지 않았다. SP 정의 ALTER는 별도 마이그레이션으로 적용한다.
