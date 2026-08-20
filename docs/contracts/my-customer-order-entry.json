@@ -5,6 +5,7 @@
   "displayGrouping": {"source":"Product.CountryFlower","fallback":"CounName + FlowerName, then FlowerName","dnspyInvariant":"FormOrderAdd selects CountryFlower first and filters products by CountryFlower + FlowerName"},
   "templatePreview": {"selectBeforeApply":true,"favoritesPinnedAfterCustomerSelection":true,"desktopPosition":"right-pane","mobilePosition":"below-list","erpLedgerEffect":"preserve-until-final-order-submit"},
   "varietyNavigator": {"source":"filteredProductGroups","expandsCollapsedGroup":true,"scrollBehavior":"smooth","erpLedgerEffect":"preserve"},
+  "alphabetFilter": {"sticky":true,"scrollContainer":"product-scroll","focusModeLocksBar":true,"erpLedgerEffect":"preserve"},
   "weekSelector": {"currentOffsetStart":-2,"defaultOffset":2,"forwardCountFromDefault":6,"sequences":[1,2],"yearWrap":true,"erpLedgerEffect":"preserve-until-final-order-submit"},
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
