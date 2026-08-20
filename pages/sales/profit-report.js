@@ -1,6 +1,6 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
 // 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F 확정재고·H통관비·R환율·S포워딩USD
-// 직접 입력은 정확한 차수 과세환율(R) 원천이 없을 때만 본표에 연다. H/S는 각 원천 화면에서 관리한다.
+// 직접 입력은 정확한 차수 과세환율(R) 원천이 없을 때, 그리고 재고수량이 없는 기말상품재고액(F)만 본표에 연다. H/S는 각 원천 화면에서 관리한다.
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -34,7 +34,7 @@ const COLUMN_DEFS = [
   { key: 'C', label: '매출액' },
   { key: 'D', label: '매출비율' },
   { key: 'E', label: '기초상품재고액' },
-  { key: 'F', label: '기말상품재고액' },
+  { key: 'F', label: '기말상품재고액', editable: true, editWidth: 110 },
   { key: 'G', label: '매입액(상품+포워딩)' },
   { key: 'H', label: '그외통관비' },
   { key: 'I', label: '매출원가', bold: true },
@@ -102,6 +102,13 @@ function needsRateInput(row) {
   return Math.abs(Number(row.auto?.Q || 0)) > 0.001 || Math.abs(Number(row.auto?.S || 0)) > 0.001;
 }
 
+// 재고잔량 수량이 없어도 기말상품재고액이 있으면 실제 재고다. 이 칸만 본표에서 연다.
+function needsInventoryAmountInput(row) {
+  if (!row || row.category === '공제' || row.category === '기타(미분류)') return false;
+  if (row.manual?.F != null) return true;
+  return Number(row.stock?.endQty || 0) === 0;
+}
+
 // 모듈 스코프에 고정 — 컴포넌트 내부에 정의하면 렌더될 때마다 새 함수 identity 가 생겨
 // React 가 매번 다른 컴포넌트로 취급해 <input> 을 언마운트시킴(입력 중 포커스 튕김 버그의 원인).
 function NumericInput({ value, onChange, style, placeholder, title }) {
@@ -147,6 +154,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_confirm_snapshot: '전차수 확정 보고서의 기말상품재고액을 이번 차수 기초상품재고액으로 이월',
     verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
+    verified_declared_inventory: '재고수량이 없어도 기말상품재고액이 적혀 있어 실제 재고로 반영',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
@@ -158,7 +166,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
     E: `기초재고 — 모든 국가·품종에서 전차수 기말재고 F와 같습니다(01차는 전년도 52차).${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
-    F: `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
+    F: needsInventoryAmountInput(row)
+      ? `기말상품재고액 — 재고잔량 수량이 없어도 금액이 있으면 실제 재고입니다. 이 칸에 금액을 넣고 저장하세요.${stockEvidenceText(row.stock)}`
+      : `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 수량이 있으면 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate
     ? titles[col]
@@ -250,7 +260,7 @@ export default function ProfitReportPage() {
   }, [visibleCols]);
   const isVisible = key => visibleCols.includes(key);
   const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
-  const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && (isVisible(cd.key) || (cd.key === 'R' && data?.rows?.some(needsRateInput))));
+  const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && (isVisible(cd.key) || (cd.key === 'R' && data?.rows?.some(needsRateInput)) || (cd.key === 'F' && data?.rows?.some(needsInventoryAmountInput))));
 
   // ── 컬럼 프리셋 — 이름 붙여 여러 개 저장, 목록에서 골라 바로 전환
   const [colPresets, setColPresets] = useState({}); // { 프리셋이름: [colKey, ...] }
@@ -409,10 +419,14 @@ export default function ProfitReportPage() {
       for (const row of data?.rows || []) {
         const e = edits[row.category] || {};
         const out = {};
-        for (const col of ['R']) {
+        for (const col of ['R', 'F']) {
           if (e[col] === undefined) continue;
+          if (col === 'F' && !needsInventoryAmountInput(row)) continue;
           out[col] = e[col] === '' ? null : Number(e[col]);
-          const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+          const defaultEvidence = col === 'F'
+            ? `inventory-amount:|${new Date().toISOString().slice(0, 10)}`
+            : 'invoice:|';
+          const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, defaultEvidence);
           if (!rawEvidence) throw new Error(`${row.category}.${col} 외부 근거 입력이 취소되었습니다.`);
           const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
           if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`${row.category}.${col} 근거 형식이 올바르지 않습니다.`);
@@ -861,7 +875,7 @@ export default function ProfitReportPage() {
         ) : (
           <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 EXE ProductStock 수량에 원본 엑셀의 카테고리 평균원가 공식 또는 검증된 품목 단가를 적용</b>합니다.
           평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위 비샘플 품목의 <b>검증된 매입원가</b> 평균을 사용합니다. 판매·분배단가는 재고원가에 사용하지 않습니다. 그 밖의 품종은 검증 매입원가가 없을 때만 입력 대상으로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H는 그외통관비 구성요소, S는 항공료 전표에서 계산하고, R은 해당 차수 원천이 없을 때만 입력칸을 엽니다.
-          환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 재고잔량 수량이 없어도 기말상품재고액이 있으면 실제 재고이므로 그 행에만 F 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
@@ -984,6 +998,8 @@ export default function ProfitReportPage() {
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                         {!data.confirmed && cd.key === 'R' && needsRateInput(row) && cd.editable
                           ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
+                          : !data.confirmed && cd.key === 'F' && needsInventoryAmountInput(row) && cd.editable
+                            ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
                           : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}

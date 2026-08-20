@@ -135,8 +135,10 @@ async function main() {
   check('매출·불량·그외매출은 전산 확정 ShipmentMaster만 집계',
     (reportSource.match(/ISNULL\(sm\.isFix,0\)=1/g) || []).length >= 2);
   check('전산 호환 재고조회는 요청한 세부차수를 정확히 선택', stockApiSource.includes('WHERE OrderWeek=@week AND OrderYear=@year'));
-  check('E/F 최종값은 입력 셀로 노출하지 않음',
-    !/key: 'E'[^\n]*editable: true/.test(pageSource) && !/key: 'F'[^\n]*editable: true/.test(pageSource));
+  check('E 최종값은 입력 셀로 노출하지 않음', !/key: 'E'[^\n]*editable: true/.test(pageSource));
+  check('F는 재고수량 없을 때만 기말상품재고액 입력칸',
+    pageSource.includes('function needsInventoryAmountInput')
+      && pageSource.includes("cd.key === 'F' && needsInventoryAmountInput(row)"));
   check('표시·입력값은 소수점 없이 천 단위 콤마 적용', pageSource.includes('function NumericInput') && pageSource.includes('Math.round(n).toLocaleString()') && pageSource.includes('Math.round(Number(raw))'));
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
   check('본표에는 원천이 없는 과세환율만 입력칸 노출',

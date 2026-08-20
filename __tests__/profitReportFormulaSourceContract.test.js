@@ -25,10 +25,11 @@ async function main() {
   assert.deepEqual(contract.finalColumns.map((item) => item.column), expectedColumns);
   assert.ok(contract.finalColumns.every((item) => item.label && item.formula && item.workbookSources.length && item.resolver));
   assert.deepEqual(contract.forbiddenDirectFinalColumns, [
-    'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'T', 'U',
+    'C', 'D', 'E', 'G', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'T', 'U',
   ]);
   assert.ok(!contract.directExternalInputs.some((item) => /^[C-U]$/.test(String(item.target || ''))));
   assert.equal(contract.directExternalInputs.find((item) => item.id === 'inventory.item-price-evidence')?.finalColumnOverride, false);
+  assert.equal(contract.directExternalInputs.find((item) => item.id === 'inventory.declared-closing-amount')?.finalColumnOverride, 'only-when-end-qty-is-0');
 
   assert.deepEqual(
     contract.sourceAnnotations.map(({ sheet, cell, text }) => ({ sheet, address: cell, text })),
@@ -44,7 +45,8 @@ async function main() {
   assert.match(inventory.categoryAverageFormula, /Q\+S/);
   assert.match(inventory.categoryAverageFormula, /purchaseQty\*stockQty/);
   assert.ok(inventory.forbiddenFallbacks.includes('Product.Cost'));
-  assert.ok(inventory.forbiddenFallbacks.includes('direct E/F override'));
+  assert.ok(inventory.forbiddenFallbacks.includes('direct E override'));
+  assert.ok(inventory.forbiddenFallbacks.includes('direct F override when stock qty > 0'));
 
   assert.equal(contract.weightVolumeAllocation.colombiaCustoms, '항상 boxQty*boxWeight 비율');
   assert.match(contract.weightVolumeAllocation.colombiaForwarding, /GW=CW/);
@@ -68,7 +70,7 @@ async function main() {
   assert.match(report, /export async function stockSnapshotByCategory/);
   assert.match(api, /computeCustomsAndForwarding\(major, orderYear\)/);
   assert.match(api, /reconstructPreviousClosing/);
-  assert.match(api, /resolveInventoryClosing/);
+  assert.match(api, /resolveDeclaredInventoryAmount/);
   assert.match(calc, /computeCategoryAverageInventoryValue/);
   assert.match(calc, /const C = N \+ L \+ O/);
   assert.match(calc, /const P = Q \* n0\(R\)/);

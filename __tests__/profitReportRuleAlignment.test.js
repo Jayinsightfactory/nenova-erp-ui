@@ -31,6 +31,7 @@ async function main() {
   const {
     computeAutoEndingStock, endingStockSourceKind, AUSTRALIA_INVENTORY_CATEGORY,
     reconstructPreviousClosing, resolveInventoryClosing, usesWeeklyAverageInventoryCategory,
+    computeProfitRow,
   } = await import('../lib/profitReportCalc.js');
 
   console.log('=== 차량 등급: 2.5t 초과~5t = 5t ===');
@@ -125,6 +126,25 @@ async function main() {
   });
   check('새로 입고되면 그때 환율로 재평가',
     auNewReceipt?.method === 'weekly_average_cost' && near(auNewReceipt.value, (60 * 1.01882 / 5) * 4));
+  check('매입 차수는 그외통관비(Q54)를 단가에 포함한다', near(resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    purchaseQty: 2030, purchaseForeign: 500, taxableRate: 1056.39, customsCost: 608410, endQty: 1000,
+  })?.value, ((500 * 1056.39 + 608410) / 2030) * 1000));
+  check('매입이 있으면 27차 1,068.23을 고정하지 않는다', near(resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    beginQty: 3, beginValue: auWeek3.value, purchaseQty: 5, purchaseForeign: 60, taxableRate: 1056.39, endQty: 4,
+  })?.value, (60 * 1056.39 / 5) * 4));
+  check('수량 0이어도 선언 기말상품재고액은 실제 재고', near(resolveInventoryClosing({
+    category: '에콰도르', endQty: 0, declaredValue: 3485942,
+  })?.value, 3485942));
+  const vietnamJ = computeProfitRow({
+    category: '베트남',
+    auto: { N: 20000000, L: 0, O: 0, Q: 0, R: 1, S: 0, H: 0, E: 1000000, F: 500000 },
+    manual: {},
+    stock: { endQty: 10, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_CATEGORY_AVERAGE', evidenceValue: 500000 },
+  });
+  check('베트남 매출이익은 C−I이며 ±4,576,000원을 이동하지 않음',
+    vietnamJ.J === vietnamJ.C - vietnamJ.I && vietnamJ.J !== vietnamJ.C - vietnamJ.I - 4576000);
   const nextOpening = reconstructPreviousClosing({
     category: AUSTRALIA_INVENTORY_CATEGORY,
     prevPrevClosing: { value: auFirst.value },

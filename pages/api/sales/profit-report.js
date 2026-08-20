@@ -27,6 +27,7 @@ import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 import { getHistoricalClosingInventoryEvidence } from '../../../lib/profitReportHistoricalInventory';
+import { resolveDeclaredInventoryAmount } from '../../../lib/profitReportWorkbookDeclaredInventory';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -182,6 +183,23 @@ export async function loadReportData(major, orderYear) {
         const prevPrevHistorical = prevPrev
           ? getHistoricalClosingInventoryEvidence(prevPrev.orderYear, prevPrev.major, key)
           : null;
+        const declaredEnd = resolveDeclaredInventoryAmount({
+          orderYear, major, category: key,
+          manualValue: man.F,
+          manualSourceRef: cur.evidence?.[key]?.F?.sourceRef,
+        });
+        const declaredPrev = resolveDeclaredInventoryAmount({
+          orderYear: prevOrderYear, major: prevMajor, category: key,
+          manualValue: prevMan.F,
+          manualSourceRef: prev.evidence?.[key]?.F?.sourceRef,
+        });
+        const declaredPrevPrev = prevPrev
+          ? resolveDeclaredInventoryAmount({
+            orderYear: prevPrev.orderYear, major: prevPrev.major, category: key,
+            manualValue: prevPrevManual.manual?.[key]?.F,
+            manualSourceRef: prevPrevManual.evidence?.[key]?.F?.sourceRef,
+          })
+          : null;
         const prevPrevConfirmedF = (prevPrevConfirm?.initialized && prevPrevConfirm.confirm)
           ? (prevPrevConfirm.rowsByCategory?.[key]?.calc?.F ?? prevPrevConfirm.rowsByCategory?.[key]?.source?.F)
           : null;
@@ -209,6 +227,9 @@ export async function loadReportData(major, orderYear) {
               historicalStatus: prevPrevHistorical?.status,
               directSources: stockPrevPrev.priceEvidenceSources?.[key],
               historicalSources: prevPrevHistorical ? [prevPrevHistorical.sourceRef] : [],
+              declaredValue: declaredPrevPrev?.value,
+              declaredStatus: declaredPrevPrev?.status,
+              declaredSources: declaredPrevPrev?.sources,
             })
             : null);
         const confirmedPreviousF = (prevConfirm?.initialized && prevConfirm.confirm)
@@ -236,6 +257,9 @@ export async function loadReportData(major, orderYear) {
           prevHistoricalStatus: prevHistorical?.status,
           prevDirectSources: stockBegin.priceEvidenceSources?.[key],
           prevHistoricalSources: prevHistorical ? [prevHistorical.sourceRef] : [],
+          prevDeclaredValue: declaredPrev?.value,
+          prevDeclaredStatus: declaredPrev?.status,
+          prevDeclaredSources: declaredPrev?.sources,
         });
         const resolvedBegin = previousClosing
           ? {
@@ -252,7 +276,9 @@ export async function loadReportData(major, orderYear) {
           week: stockBegin.week,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           evidenceValue: resolvedBegin?.value ?? null,
-          snapshotConfirmed: stockBegin.snapshotAvailable === true || previousClosing?.method === 'confirm_snapshot',
+          snapshotConfirmed: stockBegin.snapshotAvailable === true
+            || previousClosing?.method === 'confirm_snapshot'
+            || previousClosing?.method === 'declared_inventory_amount',
           priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedBegin?.sources || [],
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
@@ -286,6 +312,9 @@ export async function loadReportData(major, orderYear) {
           historicalStatus: historicalEnd?.status,
           directSources: stockEnd.priceEvidenceSources?.[key],
           historicalSources: historicalEnd ? [historicalEnd.sourceRef] : [],
+          declaredValue: declaredEnd?.value,
+          declaredStatus: declaredEnd?.status,
+          declaredSources: declaredEnd?.sources,
         });
         const resolvedEnd = currentClosing
           ? {
@@ -302,7 +331,8 @@ export async function loadReportData(major, orderYear) {
           week: stockEnd.week,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
           evidenceValue: resolvedEnd?.value ?? null,
-          snapshotConfirmed: stockEnd.snapshotAvailable === true,
+          snapshotConfirmed: stockEnd.snapshotAvailable === true
+            || currentClosing?.method === 'declared_inventory_amount',
           priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedEnd?.sources || [],
           missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
@@ -339,8 +369,8 @@ export async function loadReportData(major, orderYear) {
             Q: Number(Q[key] || 0),
             S: autoS,
             H: autoH,                                    // 그외통관비 자동값(그외통관비/포워딩 입력 화면 연동)
-            E: autoE != null ? Math.round(autoE) : null, // 전차수 기말재고 자동계산
-            F: autoF != null ? Math.round(autoF) : null, // 이번 차수 기말재고 자동계산
+            E: autoE == null ? null : (previousClosing?.method === 'declared_inventory_amount' ? autoE : Math.round(autoE)),
+            F: autoF == null ? null : (currentClosing?.method === 'declared_inventory_amount' ? autoF : Math.round(autoF)),
             R: autoR,                                    // 당주 통관 스냅샷 → 이 주차 저장/캐시 → 원본 엑셀
           },
           // 자동 적용하지 않는 참고 제안(전차수 R·통화마스터 현재환율) — 사용자가 적용·저장해야 계산에 들어간다.
@@ -350,7 +380,7 @@ export async function loadReportData(major, orderYear) {
           customsComponents: customs.components?.H?.[key] || null,
           manual: {
             E: null,
-            F: null,
+            F: man.F ?? null,
             H: man.H ?? null,
             R: man.R ?? null,
             S: man.S ?? null,              // 포워딩 수기 오버라이드(있으면 auto.S 대신)

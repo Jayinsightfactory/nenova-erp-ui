@@ -8,6 +8,7 @@
     "pages/api/estimate/update-date-quantity.js",
     "pages/api/estimate/update-entry.js",
     "pages/api/estimate/index.js",
+    "pages/api/dev/estimate-edit-audit.js",
     "pages/api/estimate/order-statement-rows.js",
     "pages/api/shipment/fix.js",
     "lib/estimateFixCycle.js",

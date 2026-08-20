@@ -49,7 +49,7 @@
     { "column": "C", "label": "매출액", "formula": "N+L+O", "workbookSources": ["판매현황", "불량차감", "그 외 매출액"], "resolver": "computeProfitRow", "automatic": true },
     { "column": "D", "label": "매출비율", "formula": "C/매출총합계", "workbookSources": ["주차별 매출이익 보고서.C"], "resolver": "calcRevenueRatio", "automatic": true },
     { "column": "E", "label": "기초상품재고액", "formula": "직전 대차수 F를 같은 원천·공식으로 재계산", "workbookSources": ["직전 차수 재고잔량 기말"], "resolver": "latestStockSnapshotWeek + stockSnapshotByCategory + inventory valuation", "automatic": true },
-    { "column": "F", "label": "기말상품재고액", "formula": "카테고리평균: (G+H)/매입수량*재고수량; 그 외: 품목별 확정단가*재고수량", "workbookSources": ["재고잔량"], "resolver": "computeCategoryAverageInventoryValue or verified item-price evidence", "automatic": true },
+    { "column": "F", "label": "기말상품재고액", "formula": "(매입액+그외통관비)/매입수량*재고수량; 매입 없으면 직전 단가*재고수량; 수량 없고 금액만 있으면 선언 F", "workbookSources": ["재고잔량", "주차별 매출이익 보고서.F"], "resolver": "resolveInventoryClosing + declared inventory amount", "automatic": "formula-or-declared-when-qty-missing" },
     { "column": "G", "label": "매입액(상품+포워딩)", "formula": "P+T", "workbookSources": ["구매현황", "포워딩"], "resolver": "computeProfitRow", "automatic": true },
     { "column": "H", "label": "그외통관비", "formula": "백상창고료+관세+선율공급가+월드운송공급가+한국방역공급가; 콜롬비아 4품목은 무게비율 배분", "workbookSources": ["그외통관비", "콜롬비아 1차", "콜롬비아 2차"], "resolver": "computeCustomsAndForwarding", "automatic": "mixed-external-components" },
     { "column": "I", "label": "매출원가", "formula": "E+G+H-F", "workbookSources": ["주차별 매출이익 보고서.E:G,H,F"], "resolver": "computeProfitRow", "automatic": true },
@@ -73,7 +73,7 @@
     "categoryAverageFormula": "((Q+S)*R+H)/purchaseQty*stockQty",
     "itemPricePriority": ["WebStockPriceEvidence exact snapshot", "user-confirmed WebArrivalCostLine exact product/unit", "versioned workbook inventory catalog for exact product/unit"],
     "newProductPolicy": "카테고리 평균 대상은 자동 포함한다. 그 외 품목은 같은 품목·단위의 확정 도착원가가 있으면 자동 평가하고, 없으면 해당 품목 단가 근거만 요청한다.",
-    "forbiddenFallbacks": ["Product.Cost", "recent warehouse cost", "fuzzy product match", "unrelated category average", "direct E/F override", "different year/week price"]
+    "forbiddenFallbacks": ["Product.Cost", "recent warehouse cost", "fuzzy product match", "unrelated category average", "direct E override", "direct F override when stock qty > 0", "different year/week price"]
   },
   "weightVolumeAllocation": {
     "countryWarehouseFee": "(GW1+GW2)*effective BakSangRate",
@@ -89,9 +89,10 @@
     { "id": "customs.quarantine", "description": "한국 방역·콜롬비아 소독·검역 공제 실제 청구액", "target": "WebCustomsWeekly.Quarantine1/2 or WebColombiaWeekly.DisinfectFee/QuarantineDeductFee" },
     { "id": "customs.actual-truck-override", "description": "자동 추천 차량과 실제 배차가 다를 때만 실제 대수·비용", "target": "WebCustomsWeekly.WorldFreight* or WebColombiaWeekly.Truck*" },
     { "id": "taxable-rate-exception", "description": "정확한 당주 FreightCost/저장/KCS 원천이 없을 때만 청구서 과세환율", "target": "WebTaxableExchangeRate/WebProfitReport.R" },
-    { "id": "inventory.item-price-evidence", "description": "카테고리 평균 대상이 아닌 신규 품목의 확정 도착원가", "target": "WebStockPriceEvidence/WebArrivalCostLine", "finalColumnOverride": false }
+    { "id": "inventory.item-price-evidence", "description": "카테고리 평균 대상이 아닌 신규 품목의 확정 도착원가", "target": "WebStockPriceEvidence/WebArrivalCostLine", "finalColumnOverride": false },
+    { "id": "inventory.declared-closing-amount", "description": "재고잔량 수량이 없어도 기말상품재고액이 있으면 실제 재고로 본표 F에 넣는다", "target": "WebProfitReport.F", "finalColumnOverride": "only-when-end-qty-is-0" }
   ],
-  "forbiddenDirectFinalColumns": ["C", "D", "E", "F", "G", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "T", "U"],
+  "forbiddenDirectFinalColumns": ["C", "D", "E", "G", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "T", "U"],
   "erpSideEffects": {
     "reportRead": "ERP/Web tables SELECT only",
     "externalEvidenceSave": "WebProfitReport/WebCustomsWeekly/WebColombiaWeekly/WebForwardingWeekly/WebTaxableExchangeRate/WebStockPriceEvidence only",

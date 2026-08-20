@@ -56,6 +56,14 @@ async function main() {
 
   check('ProductStock 스냅샷의 재고수량 0은 단가 증거 없이도 0',
     computeAutoEndingStock({ endQty: 0, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED' }) === 0);
+  check('수량 0이어도 선언 기말상품재고액은 채택',
+    computeAutoEndingStock({
+      endQty: 0, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED_DECLARED_INVENTORY', evidenceValue: 3485942,
+    }) === 3485942);
+  check('선언 기말상품재고액 원천 태그',
+    endingStockSourceKind({
+      endQty: 0, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED_DECLARED_INVENTORY', evidenceValue: 3485942,
+    }) === 'verified_declared_inventory');
 
   console.log('\n=== E/F 최종값 직접입력 차단 ===');
   const row = {
@@ -66,7 +74,14 @@ async function main() {
   };
   const calc = computeProfitRow(row, { 호주: { E: 700000, F: 600000 } });
   check('수기/편집 E를 무시하고 서버 auto.E 사용', calc.E === 111);
-  check('수기/편집 F를 무시하고 VERIFIED evidenceValue 사용', calc.F === 456789);
+  check('수량이 있으면 수기/편집 F를 무시하고 VERIFIED evidenceValue 사용', calc.F === 456789);
+  const declaredRow = {
+    category: '네덜란드', variant: null,
+    auto: { N: 1000, L: 0, O: 0, Q: 0, R: 1000, S: 0, H: 0, E: 0, F: 2923273 },
+    manual: { F: 2923273.166 },
+    stock: { endQty: 0, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED_DECLARED_INVENTORY', evidenceValue: 2923273.166 },
+  };
+  check('수량이 없으면 선언 기말상품재고액을 사용', computeProfitRow(declaredRow).F === 2923273.166);
 
   console.log('\n=== SQL/API/감사 배선 ===');
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
@@ -87,6 +102,9 @@ async function main() {
     && /VERIFIED_ARRIVAL_COST/.test(stockBlock));
   check('재고평가 SQL에 recentCost/Product.Cost/landed fallback 없음',
     !/OUTER APPLY|Product\.Cost|recentCostCutoffSql|WarehouseDetail/.test(stockBlock));
+  check('저장 API는 H/R/S와 수량 없는 F 선언 금액만 허용',
+    /ColKey IN \(N'H',N'R',N'S',N'F'\)/.test(reportSource)
+    && /\['H', 'R', 'S', 'F'\]/.test(reportSource));
   check('API가 E/F의 최종 선택 증거와 상태를 전달',
     /evidenceValue: resolvedEnd\?\.value/.test(apiSource)
     && /priceEvidenceStatus: resolvedEnd\?\.status/.test(apiSource)

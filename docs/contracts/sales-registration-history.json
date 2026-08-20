@@ -1,0 +1,69 @@
+{
+  "id": "sales-registration-history",
+  "title": "판매등록 히스토리 판매등록확정 이후 변경 비교 계약",
+  "scope": [
+    "pages/sales/registration-history.js",
+    "pages/api/sales/registration-history.js",
+    "lib/salesSnapshot.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "SALES_HISTORY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only. Captures live ShipmentDetail+Estimate for the selected OrderYear+OrderWeek only. Does not write Order, Shipment, Estimate, ShipmentDate, or WebProfitReport."
+    },
+    {
+      "name": "SALES_REGISTRATION_CONFIRM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "INSERT WebSalesSnapshot(type=REG_CONFIRM) + WebSalesSnapshotRow + WebSalesBaselineConfirm for the selected OrderYear+OrderWeek. Re-confirm allowed (latest SnapshotKey wins). Order/Shipment/Estimate/ShipmentDate/WebProfitReport are not written."
+    },
+    {
+      "name": "SALES_HISTORY_DIFF_AFTER_CONFIRM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only diff of confirmed snapshot vs current capture, plus ShipmentHistory after TakenAt. Cross-year same OrderWeek is excluded by OrderYear."
+    },
+    {
+      "name": "SALES_HISTORY_CHANGE_SNAPSHOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "INSERT WebSalesSnapshot(type=CHANGE) + rows when live capture differs from last snapshot. Ledger tables preserved."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 OrderWeek(예: 33-01)라도 OrderYear 2025와 2026을 섞지 않는다. capture/list/changeLog/confirm 모두 OrderYear+OrderWeek로 한정한다. 2025-33 확정본을 2026-33 기준이나 변경로그에 쓰지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WebSalesRegistrationHistory.md",
+    "source": "웹 전용. nenova.exe에는 판매등록 히스토리/REG_CONFIRM Form이 없다. 캡처 SQL은 ShipmentMaster+ShipmentDetail+Estimate 읽기, 변경로그는 ShipmentHistory 읽기. 쓰기는 WebSalesSnapshot/WebSalesSnapshotRow/WebSalesBaselineConfirm만.",
+    "methods": [
+      "web confirmSales",
+      "captureCurrentRows",
+      "resolveSalesHistoryBaseline",
+      "FormSalesView (read-only related sales view; not this screen)"
+    ],
+    "tables": [
+      "ShipmentMaster (read)",
+      "ShipmentDetail (read)",
+      "Estimate (read)",
+      "ShipmentHistory (read)",
+      "WebSalesSnapshot (insert)",
+      "WebSalesSnapshotRow (insert)",
+      "WebSalesBaselineConfirm (insert/soft-delete)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

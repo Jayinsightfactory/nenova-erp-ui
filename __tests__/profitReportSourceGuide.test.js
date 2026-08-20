@@ -224,7 +224,12 @@ async function main() {
     && /이번 차수에 매입이 없으면 직전 차수 재고단가/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
     && /검증된 매입·취득원가/.test(byKey.F.note)
-    && /판매·분배단가와 Product\.Cost는 재고원가가 아니므로/.test(byKey.F.note));
+    && /판매·분배단가와 Product\.Cost는 재고원가가 아니므로/.test(byKey.F.note)
+    && /단당 통관비/.test(byKey.F.formula)
+    && /재고수량이 없어도 기말상품재고액이 적혀 있으면/.test(byKey.F.formula));
+  check('베트남 ±4,576,000원은 보고서 J에 이동하지 않고 메모다',
+    /±4,576,000원/.test(byKey.J.note) && /비고에만 남깁니다/.test(byKey.J.note)
+    && !/4576000/.test(calcSource));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)
     && /VERIFIED_ARRIVAL_COST/.test(calcSource)
@@ -332,10 +337,11 @@ async function main() {
   console.log('\n=== 조회 전용 보장 ===');
   check('설명 모듈·컴포넌트에 fetch/POST 없음',
     !/fetch\(/.test(guideSource + componentSource) && !/method: 'POST'/.test(guideSource + componentSource));
-  check('본표 저장 대상은 원천이 없는 R뿐이며 H/S/E/F 최종값은 제외',
-    /for \(const col of \['R'\]\)/.test(pageSource)
+  check('본표 저장 대상은 원천 없는 R과 수량 없는 F이며 H/S/E 최종값은 제외',
+    /for \(const col of \['R', 'F'\]\)/.test(pageSource)
+    && /needsInventoryAmountInput\(row\)/.test(pageSource)
     && !/for \(const col of \[[^\]]*'H'[^\]]*'S'/.test(pageSource)
-    && !/for \(const col of \[[^\]]*'E'[^\]]*'F'/.test(pageSource));
+    && !/for \(const col of \[[^\]]*'E'/.test(pageSource));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

@@ -184,6 +184,38 @@ async function main() {
     taxableRate: 1018.82, endQty: 4,
   });
   check('새로 입고되면 그때 환율로 재평가', near(auReceipt?.value, (60 * 1018.82 / 5) * 4) && auReceipt?.method === 'weekly_average_cost');
+  check('매입이 있으면 그외통관비(Q54)를 평균원가에 포함한다', near(resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    purchaseQty: 2030, purchaseForeign: 500, taxableRate: 1056.39, customsCost: 608410, endQty: 1000,
+  })?.value, ((500 * 1056.39 + 608410) / 2030) * 1000));
+  check('매입이 있는 차수는 27차 1,068.23을 고정하지 않고 그 차수 과세환율을 쓴다', near(resolveInventoryClosing({
+    category: AUSTRALIA_INVENTORY_CATEGORY,
+    beginQty: 8, beginValue: auFirst.value, purchaseQty: 5, purchaseForeign: 60, taxableRate: 1056.39, endQty: 4,
+  })?.value, (60 * 1056.39 / 5) * 4));
+
+  console.log('\n=== 재고수량 없어도 기말상품재고액이 있으면 실제 재고 ===');
+  const declaredNl = resolveInventoryClosing({
+    category: '네덜란드', endQty: 0, declaredValue: 2923273.166,
+  });
+  check('수량 0이어도 선언 금액을 기말상품재고액으로 채택',
+    declaredNl?.method === 'declared_inventory_amount' && near(declaredNl.value, 2923273.166));
+  check('선언 금액 없이 수량 0이면 0', resolveInventoryClosing({
+    category: '네덜란드', beginQty: 10, beginValue: 10000, purchaseQty: 10, purchaseForeign: 80, taxableRate: 10, endQty: 0,
+  })?.value === 0);
+  const declaredStock = {
+    endQty: 0, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED_DECLARED_INVENTORY', evidenceValue: 3485942,
+  };
+  check('스냅샷이 없어도 선언 기말상품재고액은 자동 F로 채택', computeAutoEndingStock(declaredStock) === 3485942);
+  check('선언 기말상품재고액 원천 태그', endingStockSourceKind(declaredStock) === 'verified_declared_inventory');
+  const { getWorkbookDeclaredInventory } = await import('../lib/profitReportWorkbookDeclaredInventory.js');
+  check('2026년 31차 네덜란드 선언 F', near(getWorkbookDeclaredInventory('2026', '31', '네덜란드')?.value, 2923273.166));
+  check('2026년 31차 태국 선언 F', near(getWorkbookDeclaredInventory('2026', '31', '태국')?.value, 1149859.79));
+  check('2026년 31차 중국 선언 F', near(getWorkbookDeclaredInventory('2026', '31', '중국')?.value, 1813712.94));
+  check('2026년 31차 에콰도르 선언 F', near(getWorkbookDeclaredInventory('2026', '31', '에콰도르')?.value, 3485942));
+  check('22~28 historical과 같이 다른 연도·차수로 전파하지 않음',
+    getWorkbookDeclaredInventory('2025', '31', '네덜란드') == null
+    && getWorkbookDeclaredInventory('2026', '30', '네덜란드') == null
+    && getWorkbookDeclaredInventory('2026', '29', '호주') == null);
   const carriedStock = {
     endQty: 3, snapshotConfirmed: true, priceEvidenceStatus: 'VERIFIED_CARRIED_UNIT_COST', evidenceValue: auNext.value,
   };
@@ -201,9 +233,12 @@ async function main() {
   check('현재 F는 전차수 기말(autoE)을 기초로 resolveInventoryClosing', /resolveInventoryClosing\(\{[\s\S]*beginValue: autoE[\s\S]*endQty: endQtyValue/.test(api));
   check('기초 E는 전차수 확정 F 또는 전차수 F 재현', /reconstructPreviousClosing/.test(api) && /getActiveConfirm\(prevOrderYear, prevMajor\)/.test(api));
   check('전전차수 확정 F도 전차수 기초로 이어 씀', /getActiveConfirm\(prevPrev\.orderYear, prevPrev\.major\)/.test(api));
-  check('기말재고는 원본 평균원가 공식과 직전 단가 유지 두 갈래만',
+  check('기말재고는 원본 평균원가 공식·직전 단가 유지·수량 없을 때 선언금액',
     /weeklyAverageInventoryUnitCost\(/.test(calc) && /carriedInventoryUnitCost\(/.test(calc)
+    && /declared_inventory_amount/.test(calc)
     && !/computeLayeredInventoryValue/.test(calc));
+  check('API가 선언 기말상품재고액을 resolveInventoryClosing에 전달',
+    /declaredValue: declaredEnd\?\.value/.test(api) && /resolveDeclaredInventoryAmount\(/.test(api));
   check('E는 현재 E가 아니라 prevMajor의 F 원천을 사용', /getHistoricalClosingInventoryEvidence\(prevOrderYear, prevMajor/.test(api));
   const beginBlock = api.slice(api.indexOf('const resolvedBegin'), api.indexOf('const beginStock'));
   check('기초 E 선택 블록은 현재 차수 workbook F를 사용하지 않음',
