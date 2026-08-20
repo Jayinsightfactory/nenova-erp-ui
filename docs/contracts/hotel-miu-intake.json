@@ -35,6 +35,12 @@
       "sideEffect": "Default chips 라움/신라/쵸이문/미우 resolved from Customer by name. Extra vendors stored in UserFavorite page=hotel-miu-board. Week chips are current OrderWeek through 36-02 of the selected year. Selected OrderYear+OrderWeek+CustKey go to later writes. Ledger preserve."
     },
     {
+      "name": "READ_BOX_FACTORS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch only. No Order/Shipment write."
+    },
+    {
       "name": "SAVE_DRAFT_BATCH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -44,7 +50,7 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Then mark those batches REGISTERED. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",

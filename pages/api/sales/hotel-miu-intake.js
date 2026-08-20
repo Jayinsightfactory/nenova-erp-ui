@@ -142,6 +142,23 @@ async function listBatches(year, week, custKey) {
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      const prodKeys = String(req.query.prodKeys || '').split(',').map((k) => Number(k)).filter(Boolean).slice(0, 200);
+      if (prodKeys.length) {
+        const params = {};
+        const ph = prodKeys.map((k, i) => {
+          params[`p${i}`] = { type: sql.Int, value: k };
+          return `@p${i}`;
+        }).join(',');
+        const r = await query(
+          `SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, OutUnit,
+                  ISNULL(BunchOf1Box,0) AS BunchOf1Box,
+                  ISNULL(SteamOf1Box,0) AS SteamOf1Box,
+                  ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch
+             FROM Product WHERE isDeleted=0 AND ProdKey IN (${ph})`,
+          params
+        );
+        return res.status(200).json({ success: true, products: r.recordset || [] });
+      }
       const year = text(req.query.year);
       const week = text(req.query.week);
       const custKey = Number(req.query.custKey);

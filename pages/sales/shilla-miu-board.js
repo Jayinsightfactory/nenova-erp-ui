@@ -18,6 +18,8 @@ import {
   overlayMappingRecord,
   applyBoardOverlay,
   registerPreviewTable,
+  boxRoundHint,
+  buildRegisterItems,
   resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
 
@@ -47,6 +49,8 @@ export default function HotelMiuIntakePage() {
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [boxRounds, setBoxRounds] = useState({});
+  const [boxFactors, setBoxFactors] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -242,6 +246,10 @@ export default function HotelMiuIntakePage() {
   const nextSumNo = nextBatchNo(batches);
   const orderItems = useMemo(() => mergeAllBatchLines(draftBatches), [draftBatches]);
   const registerPreview = useMemo(() => registerPreviewTable(draftBatches), [draftBatches]);
+  const registerItems = useMemo(
+    () => buildRegisterItems(registerPreview, boxRounds, boxFactors),
+    [registerPreview, boxRounds, boxFactors],
+  );
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -288,7 +296,7 @@ export default function HotelMiuIntakePage() {
     finally { setBusy(''); }
   };
 
-  const openRegisterConfirm = () => {
+  const openRegisterConfirm = async () => {
     if (!requireCust()) return;
     if (draft.length) { setError('이번 입력을 먼저 이 업체 합산으로 저장하세요.'); return; }
     if (!draftBatches.length) { setError('저장된 합산이 없습니다. 품목을 넣은 뒤 업체에 저장하세요.'); return; }
@@ -296,11 +304,24 @@ export default function HotelMiuIntakePage() {
     if (unmatchedSaved.length) { setError('저장된 합산에 미매칭 품목이 있습니다.'); return; }
     if (!orderItems.length) { setError('주문등록할 품목이 없습니다.'); return; }
     setError('');
-    setConfirming(true);
+    setBusy('confirm');
+    try {
+      const keys = [...new Set(orderItems.map((it) => Number(it.prodKey)).filter(Boolean))];
+      const d = keys.length
+        ? await apiGet('/api/sales/hotel-miu-intake', { prodKeys: keys.join(',') })
+        : { products: [] };
+      const map = {};
+      (d.products || []).forEach((p) => { map[Number(p.ProdKey)] = p; });
+      setBoxFactors(map);
+      setBoxRounds({});
+      setConfirming(true);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(''); }
   };
 
   const register = async () => {
     if (!confirming) return;
+    if (!registerItems.length) { setError('주문등록할 수량이 없습니다. 반내림으로 0박스가 된 품목을 확인하세요.'); return; }
     setBusy('register'); setError(''); setMessage('');
     try {
       await apiPost('/api/orders', {
@@ -309,7 +330,7 @@ export default function HotelMiuIntakePage() {
         custName: cust.custName,
         year,
         week,
-        items: orderItems,
+        items: registerItems,
       });
       await apiPost('/api/sales/hotel-miu-intake', {
         action: 'markRegistered',
@@ -381,6 +402,17 @@ export default function HotelMiuIntakePage() {
       return String(x.inputName || x.prodName) !== String(line.inputName || line.prodName);
     });
     await persistBatchLines(batch, next, batch.lines);
+  };
+
+  const toggleBoxRound = (prodKey, dir) => {
+    setBoxRounds((prev) => {
+      if (prev[prodKey] === dir) {
+        const next = { ...prev };
+        delete next[prodKey];
+        return next;
+      }
+      return { ...prev, [prodKey]: dir };
+    });
   };
 
   return (
@@ -526,7 +558,7 @@ export default function HotelMiuIntakePage() {
           ))}
         </div>
         <button style={st.orderBtn} disabled={!!busy} onClick={openRegisterConfirm}>
-          {busy === 'register' ? '등록 중…' : `주문등록 (더하기) — ${draftBatches.length}개 합산`}
+          {busy === 'confirm' ? '확인표 준비…' : busy === 'register' ? '등록 중…' : `주문등록 (더하기) — ${draftBatches.length}개 합산`}
         </button>
       </div>
 
@@ -580,9 +612,9 @@ export default function HotelMiuIntakePage() {
 
       {confirming && (
         <div style={st.modal}>
-          <div style={{ ...st.modalBox, width: 'min(920px, 94vw)' }}>
+          <div style={{ ...st.modalBox, width: 'min(1100px, 96vw)' }}>
             <b>주문등록 수량 확인 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>아래 합계만 주문수량에 더합니다. 출고분배는 하지 않습니다.</p>
+            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스로 떨어지지 않는 품목만 반올림(다음 박스)·반내림(현재 박스)할 수 있습니다. 출고분배는 하지 않습니다.</p>
             <table style={st.tbl}>
               <thead>
                 <tr>
@@ -592,26 +624,50 @@ export default function HotelMiuIntakePage() {
                     <th key={no} style={st.thRight}>{no}합산</th>
                   ))}
                   <th style={st.thRight}>합계</th>
+                  <th style={st.thRight}>1박스</th>
+                  <th style={st.thRight}>나머지</th>
+                  <th style={st.thRight}>주문</th>
+                  <th style={st.th}>박스맞춤</th>
                 </tr>
               </thead>
               <tbody>
-                {registerPreview.rows.map((row) => (
-                  <tr key={row.prodKey}>
-                    <td style={st.td}>{row.prodName}</td>
-                    <td style={st.td}>{row.unit || '-'}</td>
-                    {registerPreview.batchNos.map((no) => (
-                      <td key={no} style={st.tdRight}>{row.byBatch[no] ? fmt(row.byBatch[no]) : '-'}</td>
-                    ))}
-                    <td style={st.tdRight}><b>{fmt(row.total)}</b></td>
-                  </tr>
-                ))}
+                {registerPreview.rows.map((row) => {
+                  const hint = boxRoundHint(row.total, row.unit, boxFactors[row.prodKey]);
+                  const round = boxRounds[row.prodKey];
+                  const orderLabel = hint.needsRound && round === 'up'
+                    ? `${fmt(hint.ceilBoxes)}박스`
+                    : hint.needsRound && round === 'down'
+                      ? (hint.floorBoxes > 0 ? `${fmt(hint.floorBoxes)}박스` : '0 (제외)')
+                      : `${fmt(row.total)}${row.unit || ''}`;
+                  return (
+                    <tr key={row.prodKey}>
+                      <td style={st.td}>{row.prodName}</td>
+                      <td style={st.td}>{row.unit || '-'}</td>
+                      {registerPreview.batchNos.map((no) => (
+                        <td key={no} style={st.tdRight}>{row.byBatch[no] ? fmt(row.byBatch[no]) : '-'}</td>
+                      ))}
+                      <td style={st.tdRight}><b>{fmt(row.total)}</b></td>
+                      <td style={st.tdRight}>{hint.perBox > 1 ? fmt(hint.perBox) : '-'}</td>
+                      <td style={st.tdRight}>{hint.needsRound ? fmt(hint.remainder) : '-'}</td>
+                      <td style={st.tdRight}><b>{orderLabel}</b></td>
+                      <td style={st.td}>
+                        {hint.needsRound ? (
+                          <span style={{ display: 'inline-flex', gap: 4 }}>
+                            <button type="button" style={round === 'up' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'up')} title={`${hint.ceilBoxes}박스로 올림`}>반올림</button>
+                            <button type="button" style={round === 'down' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'down')} title={hint.floorBoxes > 0 ? `${hint.floorBoxes}박스로 내림` : '0박스(제외)'}>반내림</button>
+                          </span>
+                        ) : <span style={st.muted}>정수 박스</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button style={st.orderBtn} disabled={!!busy} onClick={register}>
-                {busy === 'register' ? '등록 중…' : `주문수량에 더하기 — ${registerPreview.rows.length}품목`}
+              <button style={st.orderBtn} disabled={!!busy || !registerItems.length} onClick={register}>
+                {busy === 'register' ? '등록 중…' : `주문수량에 더하기 — ${registerItems.length}품목`}
               </button>
-              <button style={st.btn} disabled={!!busy} onClick={() => setConfirming(false)}>취소</button>
+              <button style={st.btn} disabled={!!busy} onClick={() => { setConfirming(false); setBoxRounds({}); }}>취소</button>
             </div>
           </div>
         </div>

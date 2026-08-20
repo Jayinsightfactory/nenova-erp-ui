@@ -13,6 +13,8 @@ import {
   isDraftBatch,
   mergeAllBatchLines,
   registerPreviewTable,
+  boxRoundHint,
+  buildRegisterItems,
   batchLineTotal,
   hotelMiuWeekOptions,
   pickHotelMiuCustomer,
@@ -137,6 +139,36 @@ assert.equal(mergeAllBatchLines([
   assert.equal(rose.total, 10);
   assert.equal(preview.rows.find((r) => r.prodKey === 2).total, 12);
 }
+{
+  const hydrangea = { SteamOf1Box: 30, BunchOf1Box: 0 };
+  const leftover = boxRoundHint(40, '송이', hydrangea);
+  assert.equal(leftover.needsRound, true);
+  assert.equal(leftover.perBox, 30);
+  assert.equal(leftover.remainder, 10);
+  assert.equal(leftover.floorBoxes, 1);
+  assert.equal(leftover.ceilBoxes, 2);
+  assert.equal(boxRoundHint(60, '송이', hydrangea).needsRound, false);
+  const preview = { rows: [{ prodKey: 9, prodName: '수국 화이트', unit: '송이', total: 40 }] };
+  const up = buildRegisterItems(preview, { 9: 'up' }, { 9: hydrangea });
+  assert.equal(up[0].qty, 2);
+  assert.equal(up[0].unit, '박스');
+  const down = buildRegisterItems(preview, { 9: 'down' }, { 9: hydrangea });
+  assert.equal(down[0].qty, 1);
+  assert.equal(down[0].unit, '박스');
+  const raw = buildRegisterItems(preview, {}, { 9: hydrangea });
+  assert.equal(raw[0].qty, 40);
+  assert.equal(raw[0].unit, '송이');
+  const tiny = buildRegisterItems(
+    { rows: [{ prodKey: 9, prodName: '수국', unit: '송이', total: 10 }] },
+    { 9: 'down' },
+    { 9: hydrangea },
+  );
+  assert.equal(tiny.length, 0);
+  const bunch = boxRoundHint(15, '단', { BunchOf1Box: 10 });
+  assert.equal(bunch.needsRound, true);
+  assert.equal(bunch.floorBoxes, 1);
+  assert.equal(bunch.ceilBoxes, 2);
+}
 
 assert.deepEqual(HOTEL_MIU_DEFAULT_VENDOR_LABELS, ['라움', '신라', '쵸이문', '미우']);
 const weekOpts = hotelMiuWeekOptions('2026-34-01');
@@ -234,6 +266,10 @@ assert.match(page, /deleteEntireBatch/);
 assert.match(page, /openRegisterConfirm/);
 assert.match(page, /주문등록 수량 확인/);
 assert.match(page, /registerPreviewTable/);
+assert.match(page, /반올림/);
+assert.match(page, /반내림/);
+assert.match(page, /buildRegisterItems/);
+assert.match(page, /toggleBoxRound/);
 assert.doesNotMatch(page, /주문수량에 더할까요/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
@@ -261,6 +297,8 @@ assert.doesNotMatch(intakeApi, /persistImportMatchMappings\(/);
 assert.match(intakeApi, /persistLineOverlays\(actor, lines\)/);
 assert.match(intakeApi, /upsertOverlay\(/);
 assert.match(intakeApi, /SET isDeleted=1/);
+assert.match(intakeApi, /req.query.prodKeys/);
+assert.match(intakeApi, /SteamOf1Box/);
 
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');
 assert.match(orderApi, /ensureShipmentMaster = String\(source \|\| ''\)\.toLowerCase\(\) === 'raum-pnl'/);
@@ -281,6 +319,8 @@ assert.deepEqual(contract.businessIdentity, ['OrderYear', 'OrderWeek', 'CustKey'
 assert.ok(contract.crossYearFixture.required);
 assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').orderDetail, 'create-positive');
 assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').shipmentDetail, 'preserve');
+assert.equal(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').orderDetail, 'preserve');
+assert.match(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').sideEffect, /rounded up\/down to whole boxes/);
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
 
 const boardContract = JSON.parse(fs.readFileSync('docs/contracts/shilla-miu-board.json', 'utf8'));
