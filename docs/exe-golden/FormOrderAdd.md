@@ -18,3 +18,4 @@
 - EXE `FormOrderAdd.btnSave_Click`와 같이 `OrderMaster`/`OrderDetail`/`OrderHistory`만 쓰고, `ensureShipmentMaster`는 `raum-pnl`일 때만 켜지므로 이 소스는 `ShipmentMaster`/`ShipmentDetail`/`ShipmentDate`/`Estimate`를 만들지 않는다.
 - 공통 `order-mappings.json`은 초기 매칭 읽기만 하고, 이 게시판에서 고친 품목은 `WebHotelMiuProductMap` overlay가 덮는다. `persistImportMatchMappings`/`saveMapping`(공통 파일)은 호출하지 않는다.
 - 1차/2차 입력 이력은 웹 전용 `WebHotelMiuIntakeBatch`/`WebHotelMiuIntakeLine`에 남기고, 수정 시 차이 수량(부호 있는 delta)만 다시 `createOrder`에 보낸다.
+- 발주표의 `대`는 박스가 아니라 스팀(송이)이다. `normalizeImportUnit`/`normalizeOrderUnit`이 대→송이로 맞춘다. `67박스(2010대)`처럼 박스 수량이 앞에 있으면 주문단위는 박스다.

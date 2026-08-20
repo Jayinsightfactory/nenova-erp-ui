@@ -20,7 +20,7 @@
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision, no image matchName). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. read Product + order-mappings.json + WebHotelMiuProductMap overlay, then applyBoardOverlay so a once-picked name stays matched. No persistImportMatchMappings. No Order/Shipment write."
+      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision, no image matchName). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. Unit 대 is 송이 (steam), not 박스. read Product + order-mappings.json + WebHotelMiuProductMap overlay, then applyBoardOverlay so a once-picked name stays matched. No persistImportMatchMappings. No Order/Shipment write."
     },
     {
       "name": "SAVE_BOARD_PRODUCT_MAP",
