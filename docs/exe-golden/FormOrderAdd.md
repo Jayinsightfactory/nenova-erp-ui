@@ -19,3 +19,5 @@
 - 공통 `order-mappings.json`은 초기 매칭 읽기만 하고, 이 게시판에서 고친 품목은 `WebHotelMiuProductMap` overlay가 덮는다. `persistImportMatchMappings`/`saveMapping`(공통 파일)은 호출하지 않는다.
 - 1차/2차 입력 이력은 웹 전용 `WebHotelMiuIntakeBatch`/`WebHotelMiuIntakeLine`에 남기고, 수정 시 차이 수량(부호 있는 delta)만 다시 `createOrder`에 보낸다.
 - 발주표의 `대`는 박스가 아니라 스팀(송이)이다. `normalizeImportUnit`/`normalizeOrderUnit`이 대→송이로 맞춘다. `67박스(2010대)`처럼 박스 수량이 앞에 있으면 주문단위는 박스다.
+- `createOrder`는 같은 `OrderYear+OrderWeek+CustKey+ProdKey`의 숨긴(`isDeleted=1`) OrderMaster/OrderDetail를 재사용한다. EXE `FormOrderAdd.GetDataProduct`는 활성 행만 보여 주므로, 수량 0으로 숨긴 행 옆에 새 행을 INSERT하면 전산 화면은 비어 있고 웹 내역만 남는다.
+- 호텔+미우 합산 삭제의 음수 delta는 주문등록(재고계산 ~50초)과 겹치면 방금 더한 수량을 다시 뺀다. 화면 `writeLock`과 `disabled={!!busy}`로 겹친 POST를 막는다. 이미 빠진 수량은 차수 팝업의 **등록내역을 전산에 다시 더하기**로 스냅샷 `afterQty`를 가산한다.

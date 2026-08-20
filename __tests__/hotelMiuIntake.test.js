@@ -23,6 +23,7 @@ import {
   hotelMiuWeekOptions,
   pickHotelMiuCustomer,
   resolveHotelMiuDefaultVendors,
+  reapplyItemsFromSnaps,
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
   HOTEL_MIU_WEEK_UNTIL,
@@ -180,6 +181,18 @@ assert.equal(mergeAllBatchLines([
   assert.equal(hist[0].round, 'up');
   const downHist = buildRegisterHistory(preview, down, { 9: 'down' });
   assert.equal(downHist[0].afterQty, 1);
+  const reapplied = reapplyItemsFromSnaps([
+    { rows: [{ prodKey: 9, prodName: 'Hydrangea White', afterQty: 1440, afterUnit: '송이' }] },
+    { rows: [{ prodKey: 9, prodName: 'Hydrangea White', afterQty: 0, afterUnit: '송이', excluded: true }] },
+  ]);
+  assert.equal(reapplied.length, 1);
+  assert.equal(reapplied[0].qty, 1440);
+  assert.equal(reapplied[0].unit, '송이');
+  const mergedSnap = reapplyItemsFromSnaps([
+    { rows: [{ prodKey: 9, prodName: 'Hydrangea White', afterQty: 1000, afterUnit: '송이' }] },
+    { rows: [{ prodKey: 9, prodName: 'Hydrangea White', afterQty: 440, afterUnit: '송이' }] },
+  ]);
+  assert.equal(mergedSnap[0].qty, 1440);
   const skipped = buildRegisterHistory(
     { rows: [{ prodKey: 9, prodName: '수국', unit: '송이', total: 10 }] },
     tiny,
@@ -306,6 +319,13 @@ assert.match(page, /setHistoryOpen\(true\)/);
 assert.match(page, /buildRegisterHistory/);
 assert.match(page, /summarizeRegisterHistory/);
 assert.match(page, /history: buildRegisterHistory/);
+assert.match(page, /writeLock/);
+assert.match(page, /loadExeQty/);
+assert.match(page, /reapplyHistory/);
+assert.match(page, /전산 현재/);
+assert.match(page, /등록내역을 전산에 다시 더하기/);
+assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => deleteEntireBatch/);
+assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => removeCardLine/);
 assert.doesNotMatch(page, /주문수량에 더할까요/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
@@ -343,6 +363,11 @@ assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');
 assert.match(orderApi, /ensureShipmentMaster = String\(source \|\| ''\)\.toLowerCase\(\) === 'raum-pnl'/);
 assert.match(orderApi, /const isDelta = true/);
+assert.match(orderApi, /ISNULL\(isDeleted,0\)=0 THEN 0 ELSE 1/);
+assert.match(orderApi, /isDeleted = 0/);
+assert.match(orderApi, /WHERE OrderDetailKey=@dk/);
+assert.match(orderApi, /reviveDeleted/);
+assert.match(orderApi, /수량 0으로 숨긴 Master도 재사용한다/);
 
 const alloc = fs.readFileSync('pages/sales/shilla-miu-allocation.js', 'utf8');
 assert.match(alloc, /href="\/sales\/shilla-miu-board"/);
@@ -364,6 +389,9 @@ assert.match(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').sideE
 assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').orderDetail, 'preserve');
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
+assert.equal(contract.actions.find((a) => a.name === 'BLOCK_OVERLAPPING_WRITE').orderDetail, 'preserve');
+assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').orderDetail, 'create-positive');
+assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').shipmentDetail, 'preserve');
 
 const boardContract = JSON.parse(fs.readFileSync('docs/contracts/shilla-miu-board.json', 'utf8'));
 assert.ok(boardContract.scope.includes('pages/sales/shilla-miu-allocation.js'));

@@ -364,14 +364,16 @@ async function createOrder(req, res) {
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys, shipmentMasterKey } = await withTransaction(async (tQuery) => {
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
+      // 수량 0으로 숨긴 Master도 재사용한다. 새로 INSERT하면 EXE에 같은 차수 주문이 두 장이 된다.
       const existing = await tQuery(
-        `SELECT TOP 1 OrderMasterKey FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
-         WHERE CustKey=@ck AND OrderWeek=@wk AND isDeleted=0
-           AND (
-             OrderYear = @year
-             OR (@year IN (N'2025', N'2024') AND (OrderYear IS NULL OR OrderYear = N''))
-           )
-         ORDER BY OrderMasterKey ASC`,
+        `SELECT TOP 1 OrderMasterKey, ISNULL(isDeleted,0) AS isDeleted
+           FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
+          WHERE CustKey=@ck AND OrderWeek=@wk
+            AND (
+              OrderYear = @year
+              OR (@year IN (N'2025', N'2024') AND (OrderYear IS NULL OR OrderYear = N''))
+            )
+          ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderMasterKey ASC`,
         {
           ck: { type: sql.Int, value: resolvedCustKey },
           wk: { type: sql.NVarChar, value: orderWeek },
@@ -382,6 +384,14 @@ async function createOrder(req, res) {
       let mk;
       if (existing.recordset.length > 0) {
         mk = existing.recordset[0].OrderMasterKey;
+        if (Number(existing.recordset[0].isDeleted)) {
+          await tQuery(
+            `UPDATE OrderMaster
+                SET isDeleted=0, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+              WHERE OrderMasterKey=@mk`,
+            { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
+          );
+        }
         await appLog('createOrder', 'OM_FOUND', `mk=${mk}`);
         // Manager/OrderCode 없는 경우(웹 이전 생성분)만 보완
         const ywk = orderYear + (orderWeek || '').split('-')[0]; // 전산 raw OrderYearWeek = 연도+대차수
@@ -501,13 +511,18 @@ async function createOrder(req, res) {
         const outQty = allQty.outQ;
         const detailDescr = String(item.descr || item.memo || extractMoqText(prod) || '').trim();
 
-        // 기존 OrderDetail 확인 (같은 Master+품목)
+        // 기존 OrderDetail 확인 (같은 Master+품목). 수량 0으로 숨긴 행도 재사용한다.
         const existOd = await tQuery(
-          `SELECT OrderDetailKey, OutQuantity FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
-           WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`,
+          `SELECT TOP 1 OrderDetailKey, OutQuantity, ISNULL(isDeleted,0) AS isDeleted
+             FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
+            WHERE OrderMasterKey=@mk AND ProdKey=@pk
+            ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderDetailKey ASC`,
           { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
         );
-        const oldOutQty = Number(existOd.recordset[0]?.OutQuantity || 0);
+        const existRow = existOd.recordset[0];
+        const reviveDeleted = !!(existRow && Number(existRow.isDeleted));
+        const oldOutQty = existRow && !reviveDeleted ? Number(existRow.OutQuantity || 0) : 0;
+        const applyDeltaAdd = isDelta && !reviveDeleted;
 
         if (String(source || '').toLowerCase() === 'my-customer' && !quantitiesMatch(item.expectedCurrentQty, oldOutQty)) {
           const stale = new Error(`${item.prodName || prodKey}: 다른 작업에서 수량이 변경되었습니다. 새로고침 후 다시 등록하세요.`);
@@ -516,11 +531,11 @@ async function createOrder(req, res) {
         }
 
         if (existOd.recordset.length > 0) {
-          const nextOutQty = isDelta ? oldOutQty + outQty : outQty;
+          const nextOutQty = applyDeltaAdd ? oldOutQty + outQty : outQty;
           if (nextOutQty < -0.0001) {
             throw new Error(`${item.prodName || prodKey}: 취소 수량이 현재 주문수량(${oldOutQty})보다 큽니다.`);
           }
-          if (isDelta && nextOutQty <= 0) {
+          if (applyDeltaAdd && nextOutQty <= 0) {
             await appLog('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
             await tQuery(
               `UPDATE OrderDetail SET
@@ -567,8 +582,8 @@ async function createOrder(req, res) {
             });
             continue;
           }
-          // delta=true 면 기존값에 더하기, 기본은 덮어쓰기
-          const updateSql = isDelta
+          // delta=true 면 기존값에 더하기. 숨긴 행은 잔여 환산값을 더하지 않고 이번 수량으로 덮어 살린다.
+          const updateSql = applyDeltaAdd
             ? `UPDATE OrderDetail SET
                  BoxQuantity   = ISNULL(BoxQuantity,0)   + @box,
                  BunchQuantity = ISNULL(BunchQuantity,0) + @bunch,
@@ -576,28 +591,29 @@ async function createOrder(req, res) {
                  OutQuantity   = ISNULL(OutQuantity,0)   + @oq,
                  EstQuantity   = ISNULL(EstQuantity,0)   + @oq,
                  NoneOutQuantity = 0,
+                 isDeleted = 0,
                  ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-               WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`
+               WHERE OrderDetailKey=@dk`
             : `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-                 OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0,
+                 OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0, isDeleted=0,
                  ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-               WHERE OrderMasterKey=@mk AND ProdKey=@pk AND isDeleted=0`;
-          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta}`);
+               WHERE OrderDetailKey=@dk`;
+          await appLog('createOrder', 'OD_UPDATE', `pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty} delta=${isDelta} revive=${reviveDeleted ? 1 : 0}`);
           await tQuery(updateSql,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
               oq:  { type: sql.Float,    value: outQty },
               descr: { type: sql.NVarChar, value: detailDescr },
               uid: { type: sql.NVarChar, value: uid },
-              mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
+              dk: { type: sql.Int, value: existOd.recordset[0].OrderDetailKey } }
           );
           await insertOrderHistory(
             tQuery,
             existOd.recordset[0].OrderDetailKey,
             String(oldOutQty),
-            String(isDelta ? oldOutQty + outQty : outQty),
+            String(nextOutQty),
             historyDescr,
             uid
           );
@@ -607,10 +623,10 @@ async function createOrder(req, res) {
             prodName: item.prodName || prod.ProdName || '',
             qty,
             unit,
-            status: isDelta ? (outQty < 0 ? 'CANCELLED' : 'ADDED') : 'UPDATED',
+            status: applyDeltaAdd ? (outQty < 0 ? 'CANCELLED' : 'ADDED') : (reviveDeleted ? 'ADDED' : 'UPDATED'),
             previousQty: oldOutQty,
             deltaQty: outQty,
-            finalQty: isDelta ? oldOutQty + outQty : outQty,
+            finalQty: nextOutQty,
             orderDetailKey: existOd.recordset[0].OrderDetailKey,
           });
         } else if (qty > 0) {
