@@ -7,7 +7,7 @@ import {
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_FAVORITE_PAGE,
   batchLineTotal,
-  batchQtyDelta,
+  orderDeltaForRegisteredBatch,
   isHotelMiuCancelOverflowError,
   hotelMiuWeekOptions,
   HOTEL_MIU_WEEK_UNTIL,
@@ -398,7 +398,15 @@ export default function HotelMiuIntakePage() {
     if (writeLock.current) { setError('이전 주문 반영이 끝나기 전에 다시 누를 수 없습니다.'); return; }
     writeLock.current = true;
     const wasDraft = isDraftBatch(batch);
-    const delta = wasDraft ? [] : batchQtyDelta(originalLines, nextLines);
+    const others = batches.filter((b) => !isDraftBatch(b) && Number(b.batchKey) !== Number(batch.batchKey));
+    const delta = wasDraft
+      ? []
+      : orderDeltaForRegisteredBatch({
+        previousLines: originalLines,
+        nextLines,
+        snaps: registerSnaps,
+        otherRegisteredBatches: others,
+      });
     setBusy('edit'); setError('');
     try {
       if (delta.length) {
