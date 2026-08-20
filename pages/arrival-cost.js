@@ -125,7 +125,8 @@ export default function ArrivalCostPage() {
   }, [filters.orderYear, filters.orderWeek]);
 
   const load = useCallback(async (targetPage = 1, queryFilters = appliedFilters) => {
-    if (!queryFilters.orderYear || !queryFilters.orderWeek || (!queryFilters.flower && !queryFilters.allVarieties)) return;
+    if (!queryFilters.orderYear) return;
+    if (!String(queryFilters.product || '').trim() && (!queryFilters.orderWeek || (!queryFilters.flower && !queryFilters.allVarieties))) return;
     requestRef.current.controller?.abort();
     const controller = new AbortController();
     const requestId = requestRef.current.id + 1;
@@ -230,8 +231,16 @@ export default function ArrivalCostPage() {
   const weeks = useMemo(() => [...new Set(data.rows.map(row => row.orderWeek).filter(Boolean))], [data.rows]);
   const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
   const applySearch = () => {
-    if (!filters.orderYear || !filters.orderWeek) { setError('연도와 차수를 모두 선택하세요.'); return; }
+    if (!filters.orderYear) { setError('연도를 선택하세요.'); return; }
+    if (String(filters.product || '').trim()) {
+      setError('');
+      setPage(1);
+      setAppliedFilters({ ...filters, flower: '', allVarieties: '1' });
+      return;
+    }
+    if (!filters.orderWeek) { setError('품목명으로 검색하거나 차수를 입력하세요.'); return; }
     if (!filters.flower) { setError('품종을 선택하거나 전체보기를 누르세요.'); return; }
+    setError('');
     setPage(1);
     setAppliedFilters({ ...filters, allVarieties: '' });
   };
@@ -275,16 +284,17 @@ export default function ArrivalCostPage() {
         <section className="arrival-card">
           <div className="section-title">검색</div>
           <div className="filter-grid">
-            <label>차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="예: 29-1" onKeyDown={e => e.key === 'Enter' && load()} /></label>
-            <label>국가 <input value={filters.country} onChange={e => updateFilter('country', e.target.value)} /></label>
-            <label>품목/색상 <input value={filters.product} onChange={e => updateFilter('product', e.target.value)} /></label>
-            <label>농장 <input value={filters.farm} onChange={e => updateFilter('farm', e.target.value)} /></label>
+            <label>연도 <input value={filters.orderYear} onChange={e => updateFilter('orderYear', e.target.value)} /></label>
+            <label>품목 <input value={filters.product} onChange={e => updateFilter('product', e.target.value)} placeholder="매칭 품목명 (예: 문라이트)" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
+            <label>농장 <input value={filters.farm} onChange={e => updateFilter('farm', e.target.value)} onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
+            <label>표시 차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="비우면 전 차수" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
+          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 차수·국가는 결과 표의 표시 값입니다.</div>
           <div className="variety-tabs" role="tablist" aria-label="품종 선택">
             <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1'} className={appliedFilters.allVarieties === '1' ? 'active' : ''} onClick={showAll}>전체보기</button>
             {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
-            {!scopeReady && <span className="muted">연도·차수를 입력하면 실제 품종이 표시됩니다.</span>}
+            {!scopeReady && <span className="muted">차수를 입력하면 품종 탭으로 볼 수 있습니다. 품목 검색은 차수 없이 가능합니다.</span>}
           </div>
           <div className="summary-row">
             <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>
@@ -352,7 +362,7 @@ export default function ArrivalCostPage() {
         .arrival-card { background:#fff; border:1px solid #d7dee8; border-radius:6px; margin-bottom:6px; padding:8px; box-shadow:0 1px 2px #13213b0a; }
         .section-title { font-weight:700; font-size:13px; margin-bottom:6px; color:#163d76; } .muted,.hint { color:#7a8797; font-size:11px; font-weight:400; }
         .upload-row,.filter-grid { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } label { display:flex; align-items:center; gap:5px; font-size:12px; } input,select { border:1px solid #b9c4d1; border-radius:3px; background:#fff; min-height:28px; padding:3px 6px; font:inherit; font-size:12px; } input:focus,select:focus { outline:2px solid #b9d9ff; border-color:#4b91dd; }
-        .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(4) input { width:230px; }
+        .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(2) input { width:230px; }
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
         .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; }
         .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }

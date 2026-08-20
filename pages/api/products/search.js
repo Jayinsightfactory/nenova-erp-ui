@@ -24,10 +24,14 @@ function isCacheValid(c) {
 
 function addMappingUsage(products) {
   const stats = buildProductMappingStats(loadMappings());
-  return (products || []).map((product) => ({
-    ...product,
-    MappingCount: Number(stats.get(Number(product.ProdKey))?.count || 0),
-  }));
+  return (products || []).map((product) => {
+    const item = stats.get(Number(product.ProdKey)) || { count: 0, aliases: [] };
+    return {
+      ...product,
+      MappingCount: Number(item.count || 0),
+      MappingAliases: item.aliases || [],
+    };
+  });
 }
 
 function rankAllProductRows(products = []) {

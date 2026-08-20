@@ -18,7 +18,9 @@ assert.match(api, /lookup === 'varieties'/, '품종 버튼은 distinct 요약 AP
 assert.match(lib, /week: \{ type: sql\.NVarChar, value: scope\.week \}/, '품종 요약 SQL은 DB 헬퍼용 typed 연도·차수 파라미터를 사용해야 합니다.');
 assert.match(lib, /wm\.OrderYear\)=@year AND wm\.OrderWeek=@week/, '입고 기대 품목은 연도와 차수를 함께 제한해야 합니다.');
 assert.match(lib, /COST_NOT_UPLOADED/, '입고 기대 품목의 원가 누락 상태를 반환해야 합니다.');
+assert.match(lib, /buildArrivalCostProductMatch/, '품목 검색은 매칭데이터 ProdKey를 사용해야 합니다.');
 assert.match(lib, /UsageCount,0\) \+ ISNULL\(matchStats\.MatchCount,0\)\*2/, '검색 전에는 사용량과 매칭량 우선순위를 적용해야 합니다.');
+assert.doesNotMatch(lib, /l\.CountryName LIKE @country/, '국가는 검색 조건이 아니라 표시 컬럼이어야 합니다.');
 assert.match(page, /requestRef\.current\.controller\?\.abort\(\)/, '오래된 목록 요청은 취소해야 합니다.');
 assert.match(page, /role="tablist"/, '품종은 키보드 접근 가능한 탭으로 표시해야 합니다.');
 assert.match(page, /원가 미업로드/, '누락 원가는 숨기거나 0원 처리하지 않고 배지로 표시해야 합니다.');
