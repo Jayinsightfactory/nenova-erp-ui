@@ -334,7 +334,8 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 (`order-mappings`)가 가리키는 `ProdKey`로 행을 찾는다. `OrderWeek`와
 `CountryName`은 결과 표 표시 값이다. 국가명 또는 차수명만 입력한 검색어는
 품목 필터로 쓰지 않는다. `화이트`처럼 여러 품종이 매칭되면 검색 결과의 품종
-버튼으로 좁히고, 품종을 눌러도 검색어는 유지한다. 교차연도 충돌을 막기 위해
+버튼으로 좁히고, 품종을 눌러도 검색어는 유지한다. `화이트`는 `White`와 같이
+찾고, `Hydrangea`는 `수국`으로 보여 준다. 교차연도 충돌을 막기 위해
 목록 GET은 `OrderYear`를 유지한다.
 
 | 동작 | Product | OrderDetail | WebArrivalCost | Shipment/Estimate/Stock |
