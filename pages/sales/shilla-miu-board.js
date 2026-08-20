@@ -25,9 +25,9 @@ import {
   roundChoiceLabel,
   buildRegisterItems,
   buildRegisterHistory,
-  historyFromRegisteredBatches,
-  summarizeRegisterHistory,
+  registeredHistoryView,
   registeredLineHistory,
+  formatSplitQtyLabel,
   reapplyItemsFromSnaps,
   resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
@@ -40,13 +40,18 @@ function defaultScope() {
 const fmt = (n) => Number(n || 0).toLocaleString();
 let lineSeq = 1;
 
-function HistoryQtyTable({ rows, exeQty }) {
-  if (!rows?.length) return <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다.</p>;
+function HistoryQtyTable({ view, exeQty, products }) {
+  const rows = view?.rows || [];
+  const batchNos = view?.batchNos?.length ? view.batchNos : [1, 2, 3];
+  if (!rows.length) return <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다.</p>;
   return (
     <table style={st.tbl}>
       <thead>
         <tr>
           <th style={st.th}>품목</th>
+          {batchNos.map((no) => (
+            <th key={no} style={st.thRight}>{no}차</th>
+          ))}
           <th style={st.thRight}>반올림 전</th>
           <th style={st.thRight}>반올림 후</th>
           <th style={st.thRight}>전산 현재</th>
@@ -56,10 +61,16 @@ function HistoryQtyTable({ rows, exeQty }) {
       <tbody>
         {rows.map((row) => {
           const exe = exeQty?.[row.prodKey];
-          const exeLabel = exe ? `${fmt(exe.outQty ?? exe.qty)}${exe.unit || ''}` : '-';
+          const product = products?.[row.prodKey] || products?.[Number(row.prodKey)] || {};
+          const exeLabel = exe
+            ? formatSplitQtyLabel(exe.outQty ?? exe.qty, exe.unit, product, { sourceUnit: row.unit })
+            : '-';
           return (
             <tr key={row.prodKey}>
               <td style={st.td}>{row.prodName}</td>
+              {batchNos.map((no) => (
+                <td key={no} style={st.tdRight}>{row.byRound?.[no] || '-'}</td>
+              ))}
               <td style={st.tdRight}>{row.beforeLabel}</td>
               <td style={st.tdRight}><b>{row.afterLabel}</b></td>
               <td style={st.tdRight}>{exeLabel}</td>
@@ -93,6 +104,7 @@ export default function HotelMiuIntakePage() {
   const [boxRounds, setBoxRounds] = useState({});
   const [boxFactors, setBoxFactors] = useState({});
   const [registerSnaps, setRegisterSnaps] = useState([]);
+  const [historyFactors, setHistoryFactors] = useState({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exeQty, setExeQty] = useState({});
   const [message, setMessage] = useState('');
@@ -121,13 +133,23 @@ export default function HotelMiuIntakePage() {
     return list;
   };
 
+  const loadHistoryFactors = async (batchList) => {
+    const keys = [...new Set((batchList || []).flatMap((b) => (b.lines || []).map((l) => Number(l.prodKey)).filter(Boolean)))];
+    if (!keys.length) { setHistoryFactors({}); return; }
+    const d = await apiGet('/api/sales/hotel-miu-intake', { prodKeys: keys.join(',') });
+    const map = {};
+    (d.products || []).forEach((p) => { map[Number(p.ProdKey)] = p; });
+    setHistoryFactors(map);
+  };
+
   const loadBatches = async (nextCust = cust, nextYear = year, nextWeek = week) => {
-    if (!nextCust?.custKey || !nextYear || !nextWeek) { setBatches([]); setRegisterSnaps([]); return; }
+    if (!nextCust?.custKey || !nextYear || !nextWeek) { setBatches([]); setRegisterSnaps([]); setHistoryFactors({}); return; }
     const d = await apiGet('/api/sales/hotel-miu-intake', {
       year: nextYear, week: nextWeek, custKey: nextCust.custKey,
     });
     setBatches(d.batches || []);
     setRegisterSnaps(d.registerSnaps || []);
+    await loadHistoryFactors(d.batches || []);
   };
 
   const loadExeQty = async (nextCust = cust, nextYear = year, nextWeek = week) => {
@@ -187,6 +209,7 @@ export default function HotelMiuIntakePage() {
       });
       setBatches(d.batches || []);
       setRegisterSnaps(d.registerSnaps || []);
+      await loadHistoryFactors(d.batches || []);
       await loadExeQty(cust, opt.year, opt.week);
       setHistoryOpen(true);
     } catch (e) { setError(e.message); }
@@ -327,11 +350,11 @@ export default function HotelMiuIntakePage() {
     () => buildRegisterItems(registerPreview, boxRounds, boxFactors),
     [registerPreview, boxRounds, boxFactors],
   );
-  const historyRows = useMemo(() => {
-    const snaps = (registerSnaps || []).filter((s) => (s.rows || []).length);
-    const source = snaps.length ? snaps : historyFromRegisteredBatches(registeredBatches);
-    return summarizeRegisterHistory(source);
-  }, [registerSnaps, registeredBatches]);
+  const historyView = useMemo(() => registeredHistoryView({
+    batches: registeredBatches,
+    snaps: registerSnaps,
+    productsByKey: historyFactors,
+  }), [registeredBatches, registerSnaps, historyFactors]);
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -457,6 +480,7 @@ export default function HotelMiuIntakePage() {
       });
       setBatches(rec.batches || []);
       setRegisterSnaps(rec.registerSnaps || []);
+      await loadHistoryFactors(rec.batches || []);
       await loadExeQty();
       setConfirming(false);
       setHistoryOpen(true);
@@ -500,6 +524,7 @@ export default function HotelMiuIntakePage() {
         lines: nextLines,
       });
       setBatches(rec.batches || []);
+      await loadHistoryFactors(rec.batches || []);
       if (delta.length) await loadExeQty();
       setEditing(null);
       setMessage(wasDraft
@@ -757,8 +782,8 @@ export default function HotelMiuIntakePage() {
       {!!registeredBatches.length && (
         <div style={st.panel}>
           <b>주문반영 내역 — {cust?.custName} / {week}</b>
-          <p style={st.muted}>반올림 전은 합산 원문, 반올림 후는 주문에 더한 수량, 전산 현재는 nenova.exe가 보는 주문수량입니다. 출고분배는 하지 않습니다.</p>
-          <HistoryQtyTable rows={historyRows} exeQty={exeQty} />
+          <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 출고분배는 하지 않습니다.</p>
+          <HistoryQtyTable view={historyView} exeQty={exeQty} products={historyFactors} />
           {registeredBatches.map((b) => (
             <div key={b.batchKey} style={st.batch}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -768,7 +793,7 @@ export default function HotelMiuIntakePage() {
                 <button type="button" style={st.danger} disabled={!!busy} onClick={() => deleteEntireBatch(b)}>삭제</button>
               </div>
               {b.lines.map((l, i) => {
-                const h = registeredLineHistory(l, historyRows);
+                const h = registeredLineHistory(l, historyView.rows, historyFactors[l.prodKey] || historyFactors[Number(l.prodKey)]);
                 return (
                 <div key={i} style={st.merge}>
                   <span>{l.prodName || l.inputName} · 전 {h.beforeLabel} → 후 {h.afterLabel}{h.roundLabel ? ` (${h.roundLabel})` : ''}</span>
@@ -898,10 +923,10 @@ export default function HotelMiuIntakePage() {
 
       {historyOpen && (
         <div style={st.modal}>
-          <div style={{ ...st.modalBox, width: 'min(920px, 96vw)' }}>
+          <div style={{ ...st.modalBox, width: 'min(1200px, 96vw)' }}>
             <b>주문등록 내역 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>반올림 전은 합산 원문, 반올림 후는 주문에 더한 수량, 전산 현재는 nenova.exe가 보는 주문수량입니다. 출고분배는 하지 않습니다. 같은 표가 아래 주문반영 내역에도 있습니다.</p>
-            <HistoryQtyTable rows={historyRows} exeQty={exeQty} />
+            <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 출고분배는 하지 않습니다.</p>
+            <HistoryQtyTable view={historyView} exeQty={exeQty} products={historyFactors} />
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               <button style={st.orderBtn} disabled={!!busy || !reapplyItemsFromSnaps(registerSnaps).length} onClick={reapplyHistory}>
                 {busy === 'reapply' ? '반영 중…' : '등록내역을 전산에 다시 더하기'}
