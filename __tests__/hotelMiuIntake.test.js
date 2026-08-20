@@ -14,6 +14,8 @@ import {
   mergeAllBatchLines,
   registerPreviewTable,
   boxRoundHint,
+  applyPerBoxOverride,
+  roundChoiceLabel,
   buildRegisterItems,
   buildRegisterHistory,
   historyFromRegisteredBatches,
@@ -184,6 +186,19 @@ assert.equal(mergeAllBatchLines([
   assert.equal(bunch.needsRound, true);
   assert.equal(bunch.floorBoxes, 1);
   assert.equal(bunch.ceilBoxes, 2);
+  assert.equal(roundChoiceLabel(bunch, 'up'), '2박스');
+  assert.equal(roundChoiceLabel(bunch, 'down'), '1박스');
+  const missingFactor = boxRoundHint(6, '단', { BunchOf1Box: 0 });
+  assert.equal(missingFactor.needsRound, false);
+  const fixed = boxRoundHint(6, '단', applyPerBoxOverride('단', { BunchOf1Box: 0 }, 10));
+  assert.equal(fixed.needsRound, true);
+  assert.equal(fixed.perBox, 10);
+  assert.equal(fixed.ceilBoxes, 1);
+  assert.equal(fixed.floorBoxes, 0);
+  assert.equal(roundChoiceLabel(fixed, 'up'), '1박스');
+  assert.equal(roundChoiceLabel(fixed, 'down'), '0박스');
+  const stemFix = applyPerBoxOverride('송이', { SteamOf1Box: 30 }, 16);
+  assert.equal(stemFix.SteamOf1Box, 16);
   const hist = buildRegisterHistory(preview, up, { 9: 'up' });
   assert.equal(hist[0].beforeQty, 40);
   assert.equal(hist[0].beforeUnit, '송이');
@@ -379,6 +394,11 @@ assert.match(page, /반올림/);
 assert.match(page, /반내림/);
 assert.match(page, /buildRegisterItems/);
 assert.match(page, /toggleBoxRound/);
+assert.match(page, /setBoxPerBox/);
+assert.match(page, /roundChoiceLabel/);
+assert.match(page, /반올림 \{roundChoiceLabel/);
+assert.match(page, /박스당/);
+assert.doesNotMatch(page, /UPDATE Product/);
 assert.match(page, /selectWeek/);
 assert.match(page, /주문등록 내역/);
 assert.match(page, /반올림 전/);
@@ -459,6 +479,7 @@ assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').order
 assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').shipmentDetail, 'preserve');
 assert.equal(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').orderDetail, 'preserve');
 assert.match(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').sideEffect, /rounded up\/down to whole boxes/);
+assert.match(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').sideEffect, /Confirm table may override perBox/);
 assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').orderDetail, 'preserve');
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.match(contract.actions.find((a) => a.name === 'PARSE_IMAGE_OR_TEXT').sideEffect, /compact 입력\/매칭\/수량/);
