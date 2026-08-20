@@ -8,6 +8,7 @@ import {
   HOTEL_MIU_FAVORITE_PAGE,
   batchLineTotal,
   batchQtyDelta,
+  isHotelMiuCancelOverflowError,
   hotelMiuWeekOptions,
   HOTEL_MIU_WEEK_UNTIL,
   clipboardLooksLikeOrderText,
@@ -401,13 +402,17 @@ export default function HotelMiuIntakePage() {
     setBusy('edit'); setError('');
     try {
       if (delta.length) {
-        await apiPost('/api/orders', {
-          source: 'hotel-miu-board',
-          custKey: cust.custKey,
-          custName: cust.custName,
-          year, week,
-          items: delta,
-        });
+        try {
+          await apiPost('/api/orders', {
+            source: 'hotel-miu-board',
+            custKey: cust.custKey,
+            custName: cust.custName,
+            year, week,
+            items: delta,
+          });
+        } catch (e) {
+          if (!isHotelMiuCancelOverflowError(e.message)) throw e;
+        }
       }
       const rec = await apiPost('/api/sales/hotel-miu-intake', {
         action: 'updateBatch',

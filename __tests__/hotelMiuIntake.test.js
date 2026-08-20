@@ -24,6 +24,9 @@ import {
   pickHotelMiuCustomer,
   resolveHotelMiuDefaultVendors,
   reapplyItemsFromSnaps,
+  resolveHotelMiuOverflowCancel,
+  allowHotelMiuMissingCancel,
+  isHotelMiuCancelOverflowError,
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
   HOTEL_MIU_WEEK_UNTIL,
@@ -193,6 +196,16 @@ assert.equal(mergeAllBatchLines([
     { rows: [{ prodKey: 9, prodName: 'Hydrangea White', afterQty: 440, afterUnit: '송이' }] },
   ]);
   assert.equal(mergedSnap[0].qty, 1440);
+  const remnantQty = 0.33333333333333215;
+  const over = resolveHotelMiuOverflowCancel('hotel-miu-board', true, remnantQty, remnantQty + (-16.666666666666668));
+  assert.equal(over.kind, 'zero');
+  assert.equal(over.nextOutQty, 0);
+  assert.equal(resolveHotelMiuOverflowCancel('hotel-miu-board', true, remnantQty, remnantQty + (-0.2)).kind, 'ok');
+  assert.equal(resolveHotelMiuOverflowCancel('hotel-miu-board', true, 0, -16).kind, 'skip');
+  assert.equal(resolveHotelMiuOverflowCancel('paste', true, remnantQty, remnantQty - 16).kind, 'reject');
+  assert.equal(allowHotelMiuMissingCancel('hotel-miu-board'), true);
+  assert.equal(allowHotelMiuMissingCancel('paste'), false);
+  assert.equal(isHotelMiuCancelOverflowError('Hydrangea White (화이트): 취소 수량이 현재 주문수량(0.33333333333333215)보다 큽니다.'), true);
   const skipped = buildRegisterHistory(
     { rows: [{ prodKey: 9, prodName: '수국', unit: '송이', total: 10 }] },
     tiny,
@@ -326,6 +339,7 @@ assert.match(page, /전산 현재/);
 assert.match(page, /등록내역을 전산에 다시 더하기/);
 assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => deleteEntireBatch/);
 assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => removeCardLine/);
+assert.match(page, /isHotelMiuCancelOverflowError/);
 assert.doesNotMatch(page, /주문수량에 더할까요/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
@@ -368,6 +382,9 @@ assert.match(orderApi, /isDeleted = 0/);
 assert.match(orderApi, /WHERE OrderDetailKey=@dk/);
 assert.match(orderApi, /reviveDeleted/);
 assert.match(orderApi, /수량 0으로 숨긴 Master도 재사용한다/);
+assert.match(orderApi, /resolveHotelMiuOverflowCancel/);
+assert.match(orderApi, /allowHotelMiuMissingCancel/);
+assert.match(orderApi, /status: 'SKIPPED'/);
 
 const alloc = fs.readFileSync('pages/sales/shilla-miu-allocation.js', 'utf8');
 assert.match(alloc, /href="\/sales\/shilla-miu-board"/);
