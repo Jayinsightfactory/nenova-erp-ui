@@ -15,9 +15,10 @@ function parseFavorite(row) {
 }
 
 export default function MyCustomerOrders() {
-  const [year, setYear] = useState(String(currentYear));
   const weekChoices = useMemo(() => buildForwardOrderWeeks(new Date()), []);
-  const [week, setWeek] = useState(() => weekChoices[0]?.week || '');
+  const defaultWeek = useMemo(() => weekChoices.find(w => w.default) || weekChoices[0], [weekChoices]);
+  const [year, setYear] = useState(() => defaultWeek?.year || String(currentYear));
+  const [week, setWeek] = useState(() => defaultWeek?.week || '');
   const [customers, setCustomers] = useState([]);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerCursor, setCustomerCursor] = useState(-1);
@@ -188,7 +189,7 @@ export default function MyCustomerOrders() {
       {focusMode ? <><div className="focus-bar"><strong>{year}년 {week} · {selectedCustomer?.CustName}{selectedCustomer?.OrderCode?` · ${selectedCustomer.OrderCode}`:''}</strong><span>{selectedCustomer?.ManagerName}{selectedCustomer?.CustArea?` · ${selectedCustomer.CustArea}`:''}</span><button onClick={loadTemplates} disabled={busy||templateBusy}>{templateBusy?'불러오는 중':'고정주문 불러오기'}</button><button onClick={()=>{setFocusMode(false);setShowTemplates(false);setSelectedTemplate(null);window.scrollTo({top:0,behavior:'smooth'})}}>차수·업체 다시 선택</button><button onClick={load} disabled={busy}>새로고침</button></div>{favorites.length>0&&<div className="pinned-favorites"><b>★ 고정 주문</b>{favorites.map(fav=><button type="button" key={fav.favoriteKey} onClick={()=>{setSelectedTemplate(fav);setShowTemplates(true)}}>{fav.name}<small>{fav.items?.length||0}개</small></button>)}</div>}</> : <>
       <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 선택하면 품종·품목 입력 화면만 표시됩니다.</p></div><button onClick={load} disabled={busy}>최신 다시불러오기</button></div>
       <section className="filters">
-        <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>오늘 기준 2차 앞부터, 각 차수의 1·2 세부차수입니다.</small></div>
+        <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>현재 차수 -2부터 표시합니다. 기본 선택은 +2차이며, 각 차수의 1·2 세부차수입니다.</small></div>
         <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} onKeyDown={moveCustomer} placeholder="업체명·담당자 검색" aria-label="업체 검색" aria-activedescendant={customerCursor>=0?`customer-${visibleCustomers[customerCursor]?.CustKey}`:undefined}/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><small>업체명 입력 후 ↑↓로 이동하고 Enter로 선택하세요.</small><div className="choice-buttons customers">{visibleCustomers.map((c,i)=><button ref={el=>customerRefs.current[c.CustKey]=el} id={`customer-${c.CustKey}`} key={c.CustKey} className={`${String(custKey)===String(c.CustKey)?'active':''} ${i===customerCursor?'cursor':''}`} aria-pressed={String(custKey)===String(c.CustKey)} onMouseEnter={()=>setCustomerCursor(i)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{c.OrderCode&&<mark>{c.OrderCode}</mark>}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
       </section>
       </>}
