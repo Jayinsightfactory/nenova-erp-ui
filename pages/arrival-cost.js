@@ -108,6 +108,7 @@ export default function ArrivalCostPage() {
   const requestRef = useRef({ id: 0, controller: null });
 
   useEffect(() => {
+    if (String(filters.product || '').trim()) return undefined;
     if (!filters.orderYear || !filters.orderWeek) { setVarieties([]); setScopeReady(false); return undefined; }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -122,7 +123,7 @@ export default function ArrivalCostPage() {
       } catch (e) { if (e.name !== 'AbortError') setError(e.message); }
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [filters.orderYear, filters.orderWeek]);
+  }, [filters.orderYear, filters.orderWeek, filters.product]);
 
   const load = useCallback(async (targetPage = 1, queryFilters = appliedFilters) => {
     if (!queryFilters.orderYear) return;
@@ -143,6 +144,10 @@ export default function ArrivalCostPage() {
       if (requestRef.current.id !== requestId) return;
       setData(json);
       setPage(Number(json.page || targetPage));
+      if (String(queryFilters.product || '').trim()) {
+        setVarieties(json.matchedVarieties || []);
+        setScopeReady(true);
+      }
       const next = {};
       for (const row of json.rows || []) {
         next[row.arrivalLineKey] = {
@@ -246,9 +251,18 @@ export default function ArrivalCostPage() {
   };
   const selectVariety = (flower) => {
     const next = { ...filters, flower };
-    setFilters(next); setPage(1); setAppliedFilters({ ...next, allVarieties: '' });
+    setFilters(next);
+    setPage(1);
+    setAppliedFilters({ ...next, allVarieties: '' });
   };
   const showAll = () => {
+    if (String(filters.product || '').trim()) {
+      const next = { ...filters, flower: '' };
+      setFilters(next);
+      setPage(1);
+      setAppliedFilters({ ...next, allVarieties: '1' });
+      return;
+    }
     if (!filters.orderYear || !filters.orderWeek) { setError('연도와 차수를 모두 선택하세요.'); return; }
     const next = { ...filters, flower: '' };
     setFilters(next); setPage(1); setAppliedFilters({ ...next, allVarieties: '1' });
@@ -290,11 +304,12 @@ export default function ArrivalCostPage() {
             <label>표시 차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="비우면 전 차수" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
-          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 차수·국가는 결과 표의 표시 값입니다.</div>
+          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 화이트처럼 여러 품종이 나오면 아래 버튼으로 좁히고, 차수·국가는 결과 표에 표시됩니다.</div>
           <div className="variety-tabs" role="tablist" aria-label="품종 선택">
-            <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1'} className={appliedFilters.allVarieties === '1' ? 'active' : ''} onClick={showAll}>전체보기</button>
+            <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim())} className={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim()) ? 'active' : ''} onClick={showAll}>전체보기</button>
             {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
-            {!scopeReady && <span className="muted">차수를 입력하면 품종 탭으로 볼 수 있습니다. 품목 검색은 차수 없이 가능합니다.</span>}
+            {!scopeReady && !String(filters.product || '').trim() && <span className="muted">차수를 입력하면 품종 탭으로 볼 수 있습니다. 품목 검색은 차수 없이 가능합니다.</span>}
+            {String(appliedFilters.product || '').trim() && varieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
           </div>
           <div className="summary-row">
             <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>

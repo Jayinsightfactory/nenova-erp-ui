@@ -14,7 +14,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    { "name": "ARRIVAL_COST_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. OrderYear는 교차연도 충돌 방지용으로 유지한다." },
+    { "name": "ARRIVAL_COST_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. 같은 검색어가 여러 품종에 걸리면 matchedVarieties 버튼으로 좁히며 검색어는 유지한다. OrderYear는 교차연도 충돌 방지용으로 유지한다." },
     { "name": "ARRIVAL_COST_UPLOAD_REVISION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "PROFIT_REPORT_PRICE_EVIDENCE_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "조회 전용. 같은 연도·차수·ProdKey·EstUnit, 현재 MATCHED 행과 사용자 MATCH/BASIS_CHANGE 이력 및 완전한 source provenance만 사용하며 WebStockPriceEvidence로 자동 복사하지 않는다." }
