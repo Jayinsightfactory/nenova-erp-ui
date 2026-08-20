@@ -45,7 +45,8 @@ check('기초재고 E 재계산은 직전 차수의 정확한 환율 원천만 �
 check('기초재고 E는 전차수 마지막 ProductStock와 전차수 F 공식·증거로 계산',
   /const autoE = computeAutoEndingStock\(beginStock\)/.test(api)
   && /evidenceValue: resolvedBegin\?\.value/.test(api)
-  && /computeCategoryAverageInventoryValue\(\{[\s\S]*stockQty: Number\(stockBegin\.qtys/.test(api));
+  && /reconstructPreviousClosing\(/.test(api)
+  && /getHistoricalClosingInventoryEvidence\(prevOrderYear, prevMajor/.test(api));
 check('FreightCost 스냅샷은 전체/적용 구매금액을 함께 비교', reportLib.includes('TotalWeight') && reportLib.includes('CoveredWeight') && reportLib.includes('Math.abs(total - covered) <= tolerance'));
 check('FreightCost 중복행은 최신 FreightKey 1건만 사용', reportLib.includes('SELECT TOP 1 fcx.ExchangeRate') && reportLib.includes('ORDER BY fcx.FreightKey DESC'));
 check('KCS 날짜는 InputDate를 우선하고 UploadDtm으로 대체하지 않음', dateWeights.includes("const dateExpr = 'wm.InputDate'") && !dateWeights.includes('declarationDateDiagnostics()'));

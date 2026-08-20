@@ -96,10 +96,12 @@ async function main() {
     /priceEvidenceSources: resolvedEnd\?\.sources/.test(apiSource)
     && /priceEvidenceSources: resolvedBegin\?\.sources/.test(apiSource));
   check('단위 혼재·환산 누락 시 카테고리 평균원가를 적용하지 않음',
-    /!endConversionMissing && !endUnitMismatch/.test(apiSource)
-    && /!previousConversionMissing && !previousUnitMismatch/.test(apiSource));
+    /conversionMissing: endConversionMissing/.test(apiSource)
+    && /unitMismatch: endUnitMismatch/.test(apiSource)
+    && /prevConversionMissing: previousConversionMissing/.test(apiSource)
+    && /prevUnitMismatch: previousUnitMismatch/.test(apiSource));
   check('직전 차수 단위 혼재 상태를 행 계산 범위에 안전하게 전달',
-    /unitMismatch: previousUnitMismatch/.test(apiSource)
+    /prevUnitMismatch: previousUnitMismatch/.test(apiSource)
     && /unitMismatch: previous\.unitMismatch === true/.test(apiSource));
   check('단위 환산 누락 품목번호와 단위를 감사 영역에 전달',
     /conversionIssues: stockEnd\.conversionIssues/.test(apiSource)

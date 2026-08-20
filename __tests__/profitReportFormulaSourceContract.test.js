@@ -67,7 +67,9 @@ async function main() {
   assert.match(report, /export async function invoiceRatesByCategory/);
   assert.match(report, /export async function stockSnapshotByCategory/);
   assert.match(api, /computeCustomsAndForwarding\(major, orderYear\)/);
-  assert.match(api, /computeCategoryAverageInventoryValue/);
+  assert.match(api, /reconstructPreviousClosing/);
+  assert.match(api, /resolveInventoryClosing/);
+  assert.match(calc, /computeCategoryAverageInventoryValue/);
   assert.match(calc, /const C = N \+ L \+ O/);
   assert.match(calc, /const P = Q \* n0\(R\)/);
   assert.match(calc, /const T = n0\(S\) \* n0\(R\)/);

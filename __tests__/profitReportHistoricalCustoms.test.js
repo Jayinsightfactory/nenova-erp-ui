@@ -112,9 +112,11 @@ async function main() {
   check('26-01 용량분해 추천은 실제와 다름(5t 1대+2.5t 1대) — 그래서 실제값 보존이 필요함',
     recommend2601.Truck5t === 1 && recommend2601.Truck2_5t === 1 && recommend2601.Truck1t === 0);
 
-  console.log('\n=== deriveTruckPlan 용량 분해 규칙 (3t=2.5t+1t, 비용최저화 아님) ===');
+  console.log('\n=== deriveTruckPlan 차량 등급 (2.5t 초과~5t = 5t 1대) ===');
   const p3000 = deriveTruckPlan(3000);
-  check('3,000kg → 2.5t 1대 + 1t 1대', p3000.Truck2_5t === 1 && p3000.Truck1t === 1 && p3000.Truck5t === 0);
+  check('3,000kg → 5t 1대 (2.5t 초과는 5t)', p3000.Truck5t === 1 && p3000.Truck2_5t === 0 && p3000.Truck1t === 0);
+  const p3342 = deriveTruckPlan(3342);
+  check('3,342kg → 5t 1대 275,000원 등급', p3342.Truck5t === 1 && p3342.Truck2_5t === 0 && p3342.Truck1t === 0);
   const p6000 = deriveTruckPlan(6000);
   check('6,000kg → 5t 1대 + 1t 1대', p6000.Truck5t === 1 && p6000.Truck1t === 1 && p6000.Truck2_5t === 0);
   const p800 = deriveTruckPlan(800);

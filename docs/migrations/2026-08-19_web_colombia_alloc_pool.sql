@@ -1,0 +1,9 @@
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+
+IF COL_LENGTH(N'dbo.WebColombiaWeekly', N'IncludeHydrangea') IS NULL
+BEGIN
+  ALTER TABLE dbo.WebColombiaWeekly ADD IncludeHydrangea FLOAT NULL;
+END;
+
+COMMIT TRANSACTION;

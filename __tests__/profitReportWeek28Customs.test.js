@@ -31,13 +31,13 @@ async function main() {
   const hyd = fixture.countries[0];
   const first = deriveWorldFreight(hyd.row.GW1, fixture.rates);
   const second = deriveWorldFreight(hyd.row.GW2, fixture.rates);
-  check('1차 2,857kg → 2.5t 1대 + 1t 1대', first.Truck2_5t === 1 && first.Truck1t === 1 && first.amount === 286000);
+  check('1차 2,857kg → 5t 1대', first.Truck5t === 1 && first.Truck2_5t === 0 && first.amount === 275000);
   check('2차 1,743kg → 2.5t 1대', second.Truck2_5t === 1 && second.amount === 187000);
-  check('월드운송료 공급가 = (286,000+187,000)/1.1', near(first.amount / 1.1 + second.amount / 1.1, 430000));
+  check('월드운송료 공급가 = (275,000+187,000)/1.1', near(first.amount / 1.1 + second.amount / 1.1, 420000));
   const directZero = effectiveCountryWorldFreight(hyd.row, { GW1: hyd.row.GW1, GW2: hyd.row.GW2 }, fixture.rates);
   check('WebCustoms 직접입력 0도 자동값보다 우선', directZero.row.WorldFreight1 === 0 && directZero.row.WorldFreight2 === 0);
   const explicitAuto = effectiveCountryWorldFreight({ GW1: 2857, GW2: 1743, WorldFreight1: 0, WorldFreight2: 0, WorldFreight1Manual: 0, WorldFreight2Manual: 0 }, null, fixture.rates);
-  check('Manual=0이면 결합 GW 차량 조합을 1차에만 자동 반영', explicitAuto.row.WorldFreight1 === 484000 && explicitAuto.row.WorldFreight2 === 0);
+  check('Manual=0이면 결합 GW 5t 1대를 1차에만 자동 반영', explicitAuto.row.WorldFreight1 === 275000 && explicitAuto.row.WorldFreight2 === 0);
   check('직접입력 GW 0도 자동 GW로 덮어쓰지 않음', mergeCountryGw({ GW1: 0 }, { GW1: 2857 }).GW1 === 0);
 
   console.log('\n=== 연도·차수·단가이력 정적 계약 ===');

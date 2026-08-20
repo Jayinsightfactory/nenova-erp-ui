@@ -72,6 +72,9 @@ async function main() {
     /\{fmt\(countryTotal\(row\)\)\}/.test(panelSource) && !/\{fmt\(row\.total\)\}/.test(panelSource));
   check('콜롬비아 배분 미리보기가 정적 c.allocationH가 아니라 colombiaAllocationH(c)를 렌더',
     /colombiaAllocationH\(c\)\['콜롬비아 장미'\]/.test(panelSource) && !/c\.allocationH\['콜롬비아 장미'\]/.test(panelSource));
+  check('콜롬비아 반차수에 콜카장알루/콜카장알루수국 선택이 있다',
+    /콜카장알루/.test(panelSource) && /콜카장알루수국/.test(panelSource) && /IncludeHydrangea/.test(panelSource));
+  check('CW/GW 배분 방식이 화면에 보인다', /colombiaRatioMode/.test(panelSource) && /colombiaLiveRatioMode/.test(panelSource));
   check('맨 위 합계(totalAll)도 countryTotal/colombiaAllocationH로 재계산(수기 편집 반영)',
     /const totalSum = |const totalAll = useMemo/.test(panelSource)
     && /data\.countries\.reduce\(\(s, r\) => s \+ n0\(countryTotal\(r\)\)/.test(panelSource));

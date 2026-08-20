@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const migrationFiles = Object.freeze([
   'docs/migrations/2026-08-13_profit_report_evidence_rag.sql',
   'docs/migrations/2026-08-13_web_customs_rate_history.sql',
+  'docs/migrations/2026-08-19_web_colombia_alloc_pool.sql',
 ]);
 const apply = process.argv.includes('--apply');
 
@@ -60,12 +61,14 @@ try {
       CASE WHEN COL_LENGTH(N'dbo.WebProfitReport',N'SourceRef') IS NOT NULL
              AND COL_LENGTH(N'dbo.WebProfitReport',N'EffectiveAt') IS NOT NULL
              AND COL_LENGTH(N'dbo.WebProfitReport',N'ConfirmedBy') IS NOT NULL
-             AND COL_LENGTH(N'dbo.WebProfitReport',N'ConfirmedAt') IS NOT NULL THEN 1 ELSE 0 END AS ReportProvenance`);
+             AND COL_LENGTH(N'dbo.WebProfitReport',N'ConfirmedAt') IS NOT NULL THEN 1 ELSE 0 END AS ReportProvenance,
+      CASE WHEN COL_LENGTH(N'dbo.WebColombiaWeekly', N'IncludeHydrangea') IS NOT NULL THEN 1 ELSE 0 END AS ColombiaIncludeHydrangea`);
   const row = probe.recordset[0] || {};
-  if (Number(row.StockPriceEvidence) !== 1 || Number(row.CustomsRateHistory) !== 1 || Number(row.ReportProvenance) !== 1) {
+  if (Number(row.StockPriceEvidence) !== 1 || Number(row.CustomsRateHistory) !== 1
+    || Number(row.ReportProvenance) !== 1 || Number(row.ColombiaIncludeHydrangea) !== 1) {
     throw new Error(`적용 후 스키마 확인 실패: ${JSON.stringify(row)}`);
   }
-  console.log('스키마 확인 완료: 재고단가 근거·환율 이력·보고서 출처 열');
+  console.log('스키마 확인 완료: 재고단가 근거·환율 이력·보고서 출처 열·콜롬비아 배분풀');
 } finally {
   await pool.close();
 }

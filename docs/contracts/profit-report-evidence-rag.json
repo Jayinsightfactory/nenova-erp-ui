@@ -47,7 +47,8 @@
     "scripts/apply-profit-report-evidence-migrations.mjs",
     ".github/workflows/deploy.yml",
     "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
-    "docs/migrations/2026-08-13_web_customs_rate_history.sql"
+    "docs/migrations/2026-08-13_web_customs_rate_history.sql",
+    "docs/migrations/2026-08-19_web_colombia_alloc_pool.sql"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "evidenceScope": { "orderYear": 2026, "majorWeeks": [22, 23, 24, 25, 26, 27, 28] },
