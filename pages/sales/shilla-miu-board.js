@@ -20,6 +20,9 @@ import {
   registerPreviewTable,
   boxRoundHint,
   buildRegisterItems,
+  buildRegisterHistory,
+  historyFromRegisteredBatches,
+  summarizeRegisterHistory,
   resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
 
@@ -51,6 +54,8 @@ export default function HotelMiuIntakePage() {
   const [confirming, setConfirming] = useState(false);
   const [boxRounds, setBoxRounds] = useState({});
   const [boxFactors, setBoxFactors] = useState({});
+  const [registerSnaps, setRegisterSnaps] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -76,11 +81,12 @@ export default function HotelMiuIntakePage() {
   };
 
   const loadBatches = async (nextCust = cust, nextYear = year, nextWeek = week) => {
-    if (!nextCust?.custKey || !nextYear || !nextWeek) { setBatches([]); return; }
+    if (!nextCust?.custKey || !nextYear || !nextWeek) { setBatches([]); setRegisterSnaps([]); return; }
     const d = await apiGet('/api/sales/hotel-miu-intake', {
       year: nextYear, week: nextWeek, custKey: nextCust.custKey,
     });
     setBatches(d.batches || []);
+    setRegisterSnaps(d.registerSnaps || []);
   };
 
   useEffect(() => {
@@ -111,9 +117,24 @@ export default function HotelMiuIntakePage() {
     setCustHits([]);
   };
 
-  const selectWeek = (opt) => {
+  const selectWeek = async (opt) => {
     setYear(opt.year);
     setWeek(opt.week);
+    if (!cust?.custKey) {
+      setError('업체를 먼저 고른 뒤 차수를 누르면 주문등록 내역(반올림 전·후)을 봅니다.');
+      return;
+    }
+    setBusy('history');
+    setError('');
+    try {
+      const d = await apiGet('/api/sales/hotel-miu-intake', {
+        year: opt.year, week: opt.week, custKey: cust.custKey,
+      });
+      setBatches(d.batches || []);
+      setRegisterSnaps(d.registerSnaps || []);
+      setHistoryOpen(true);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(''); }
   };
 
   const addFavorite = async (hit) => {
@@ -250,6 +271,11 @@ export default function HotelMiuIntakePage() {
     () => buildRegisterItems(registerPreview, boxRounds, boxFactors),
     [registerPreview, boxRounds, boxFactors],
   );
+  const historyRows = useMemo(() => {
+    const snaps = (registerSnaps || []).filter((s) => (s.rows || []).length);
+    const source = snaps.length ? snaps : historyFromRegisteredBatches(registeredBatches);
+    return summarizeRegisterHistory(source);
+  }, [registerSnaps, registeredBatches]);
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -336,10 +362,12 @@ export default function HotelMiuIntakePage() {
         action: 'markRegistered',
         year, week, custKey: cust.custKey,
         batchKeys: draftBatches.map((b) => b.batchKey),
+        history: buildRegisterHistory(registerPreview, registerItems, boxRounds),
       });
       await loadBatches();
       setConfirming(false);
-      setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다.`);
+      setHistoryOpen(true);
+      setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다. 차수 버튼을 다시 누르면 반올림 전·후를 볼 수 있습니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
@@ -476,12 +504,13 @@ export default function HotelMiuIntakePage() {
               key={opt.week}
               type="button"
               style={week === opt.week ? st.pickOn : st.pick}
+              title="주문등록 내역(반올림 전·후)"
               onClick={() => selectWeek(opt)}
             >{opt.isDefault ? `${opt.label} 기본` : opt.label}</button>
           ))}
         </div>
         {cust
-          ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다.</div>
+          ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다. 차수 버튼을 누르면 주문등록 수량(반올림 전·후)이 열립니다.</div>
           : <div style={st.warnNote}>라움·신라·쵸이문·미우 중 하나를 고른 뒤에만 이미지/텍스트를 넣을 수 있습니다.</div>}
       </div>
 
@@ -668,6 +697,42 @@ export default function HotelMiuIntakePage() {
                 {busy === 'register' ? '등록 중…' : `주문수량에 더하기 — ${registerItems.length}품목`}
               </button>
               <button style={st.btn} disabled={!!busy} onClick={() => { setConfirming(false); setBoxRounds({}); }}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div style={st.modal}>
+          <div style={{ ...st.modalBox, width: 'min(920px, 96vw)' }}>
+            <b>주문등록 내역 — {cust?.custName} / {week}</b>
+            <p style={st.muted}>반올림·반내림 전 합산 수량과, 실제로 주문에 더한 수량입니다. 출고분배는 하지 않습니다.</p>
+            {historyRows.length ? (
+              <table style={st.tbl}>
+                <thead>
+                  <tr>
+                    <th style={st.th}>품목</th>
+                    <th style={st.thRight}>반올림 전</th>
+                    <th style={st.thRight}>반올림 후</th>
+                    <th style={st.th}>맞춤</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRows.map((row) => (
+                    <tr key={row.prodKey}>
+                      <td style={st.td}>{row.prodName}</td>
+                      <td style={st.tdRight}>{row.beforeLabel}</td>
+                      <td style={st.tdRight}><b>{row.afterLabel}</b></td>
+                      <td style={st.td}>{row.roundLabel}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다. 합산을 주문등록하면 여기에 남습니다.</p>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button style={st.btn} onClick={() => setHistoryOpen(false)}>닫기</button>
             </div>
           </div>
         </div>

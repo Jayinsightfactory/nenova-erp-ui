@@ -12,7 +12,8 @@
     "__tests__/hotelMiuIntake.test.js",
     "docs/contracts/hotel-miu-intake.json",
     "docs/exe-golden/FormOrderAdd.md",
-    "docs/migrations/2026-08-19_web_hotel_miu_intake.sql"
+    "docs/migrations/2026-08-19_web_hotel_miu_intake.sql",
+    "docs/migrations/2026-08-20_web_hotel_miu_register_snap.sql"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -50,7 +51,13 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+    },
+    {
+      "name": "READ_REGISTER_HISTORY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "After a vendor is selected, clicking a week chip GETs WebHotelMiuRegisterSnap + REGISTERED 합산 for that OrderYear+OrderWeek+CustKey and opens a popup of 반올림 전 vs 반올림 후. No Order/Shipment write. Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",
@@ -92,6 +99,7 @@
       "WebHotelMiuIntakeBatch",
       "WebHotelMiuIntakeLine",
       "WebHotelMiuProductMap",
+      "WebHotelMiuRegisterSnap",
       "UserFavorite"
     ]
   },
@@ -108,6 +116,7 @@
     "WebHotelMiuIntakeBatch",
     "WebHotelMiuIntakeLine",
     "WebHotelMiuProductMap",
+    "WebHotelMiuRegisterSnap",
     "UserFavorite"
   ],
   "preserves": [
