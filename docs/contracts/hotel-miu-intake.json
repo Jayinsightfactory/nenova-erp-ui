@@ -32,7 +32,7 @@
       "name": "FAVORITE_CUSTOMER_WEEK",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Default chips 라움/신라/쵸이문/미우 resolved from Customer by name. Extra vendors stored in UserFavorite page=hotel-miu-board. Week chips are current OrderWeek plus next 3 sequences (4 total). Selected OrderYear+OrderWeek+CustKey go to later writes. Ledger preserve."
+      "sideEffect": "Default chips 라움/신라/쵸이문/미우 resolved from Customer by name. Extra vendors stored in UserFavorite page=hotel-miu-board. Week chips are current OrderWeek through 36-02 of the selected year. Selected OrderYear+OrderWeek+CustKey go to later writes. Ledger preserve."
     },
     {
       "name": "SAVE_DRAFT_BATCH",

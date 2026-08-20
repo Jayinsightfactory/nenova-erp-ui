@@ -9,6 +9,7 @@ import {
   batchLineTotal,
   batchQtyDelta,
   hotelMiuWeekOptions,
+  HOTEL_MIU_WEEK_UNTIL,
   isDraftBatch,
   mergeAllBatchLines,
   mergeDraftLines,
@@ -17,7 +18,7 @@ import {
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
-  const opts = hotelMiuWeekOptions(getCurrentWeek());
+  const opts = hotelMiuWeekOptions(getCurrentWeek(), HOTEL_MIU_WEEK_UNTIL);
   return { year: opts[0].year, week: opts[0].week, weeks: opts };
 }
 
@@ -314,7 +315,7 @@ export default function HotelMiuIntakePage() {
       <div style={st.head}>
         <div>
           <h1 style={st.h1}>호텔+미우 통합게시판</h1>
-          <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 차수 4칸을 고른 뒤, 이미지·텍스트를 그 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
+          <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 차수(기본~36-02)를 고른 뒤, 이미지·텍스트를 그 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>
       </div>
