@@ -53,7 +53,12 @@ export default withAuth(async function handler(req, res) {
       farms,
       mappings: loadMappings(),
     });
-    if (!parsed.rows.length) return res.status(400).json({ success: false, error: '도착원가 표가 있는 시트를 찾지 못했습니다.' });
+    if (!parsed.rows.length) {
+      const error = parsed.detectedTableCount
+        ? '도착원가 표는 찾았지만 도착원가(단)·도착원가(송이) 값이 비어 있습니다. 엑셀에서 수식을 계산해 저장한 뒤 다시 올려 주세요.'
+        : '도착원가 표가 있는 시트를 찾지 못했습니다.';
+      return res.status(400).json({ success: false, error });
+    }
     const saved = await createArrivalCostImport({
       parsed,
       fileName,
