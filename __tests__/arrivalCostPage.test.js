@@ -19,6 +19,7 @@ assert.match(source, /matchedVarieties/);
 assert.match(source, /const next = \{ \.\.\.filters, flower \}/);
 assert.match(source, /전산 국가·품종\(CountryFlower\)/);
 assert.match(source, /aria-label="국가·품종 선택"/);
+assert.match(source, /fmt\(row\.sourceArrivalCostKRW, 2\)/, '원가(엑셀)은 도착원가(송이)처럼 소수까지 보여야 한다.');
 
 const upload = fs.readFileSync(new URL('../pages/api/arrival-cost/upload.js', import.meta.url), 'utf8');
 assert.match(upload, /detectedTableCount/, '표는 있는데 도착원가 금액이 비면 다른 안내를 해야 한다.');

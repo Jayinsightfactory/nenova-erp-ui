@@ -342,7 +342,7 @@ export default function ArrivalCostPage() {
                     <td>{row.farmNameRaw || '-'}</td>
                     <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
                     <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
-                    <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW)}원`}</td>
+                    <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW, 2)}원`}</td>
                     <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
                       {BASIS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select></td>
