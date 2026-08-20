@@ -47,6 +47,7 @@ assert.doesNotMatch(lib, /flower && !hasProductSearch/, '품목 검색 중에도
 assert.match(lib, /matchedVarieties/, '목록 API는 검색된 품종 목록을 반환해야 한다.');
 assert.match(lib, /COUNTRY_FLOWER_SQL/, '품종 버튼은 Product.CountryFlower 국가·품종 기준이어야 한다.');
 assert.match(lib, /COUNTRY_FLOWER_SQL\} = @flower/, '국가·품종 버튼은 CountryFlower 정확 일치로 좁혀야 한다.');
+assert.doesNotMatch(lib, /SELECT DISTINCT TOP \d+ CountryFlower/, 'SQL Server는 DISTINCT와 ORDER BY CASE를 같이 쓰지 못한다.');
 assert.doesNotMatch(lib, /arrivalFlowerInferSql/, '엑셀 품목명을 품종 버튼으로 쪼개지 않는다.');
 assert.doesNotMatch(page, /화이트붐/, '화이트붐 같은 품목명은 품종 그룹이 아니다.');
 assert.doesNotMatch(page, /<label>국가 /, '국가는 검색 조건이 아니라 표시 컬럼이다.');
