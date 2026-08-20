@@ -15,6 +15,8 @@ import {
   registerPreviewTable,
   boxRoundHint,
   applyPerBoxOverride,
+  boxFactorOverlayRecord,
+  mergeProductBoxFactors,
   roundChoiceLabel,
   buildRegisterItems,
   buildRegisterHistory,
@@ -199,6 +201,17 @@ assert.equal(mergeAllBatchLines([
   assert.equal(roundChoiceLabel(fixed, 'down'), '0박스');
   const stemFix = applyPerBoxOverride('송이', { SteamOf1Box: 30 }, 16);
   assert.equal(stemFix.SteamOf1Box, 16);
+  const overlayRec = boxFactorOverlayRecord({ prodKey: 9, prodName: '수국' }, '송이', 16);
+  assert.equal(overlayRec.token, 'prodbox:9');
+  assert.equal(overlayRec.value.perBox, 16);
+  assert.equal(overlayRec.value.unit, '송이');
+  assert.equal(boxFactorOverlayRecord({ prodKey: 9 }, '송이', 0), null);
+  const mergedFactors = mergeProductBoxFactors(
+    [{ ProdKey: 9, SteamOf1Box: 30, OutUnit: '송이' }],
+    [{ prodKey: 9, perBox: 16, unit: '송이' }],
+  );
+  assert.equal(boxRoundHint(40, '송이', mergedFactors[0]).perBox, 16);
+  assert.equal(mergedFactors[0].SteamOf1Box, 16);
   const hist = buildRegisterHistory(preview, up, { 9: 'up' });
   assert.equal(hist[0].beforeQty, 40);
   assert.equal(hist[0].beforeUnit, '송이');
@@ -395,6 +408,9 @@ assert.match(page, /반내림/);
 assert.match(page, /buildRegisterItems/);
 assert.match(page, /toggleBoxRound/);
 assert.match(page, /setBoxPerBox/);
+assert.match(page, /saveBoxFactor/);
+assert.match(page, /onBlur/);
+assert.match(page, /persistDirtyBoxFactors/);
 assert.match(page, /roundChoiceLabel/);
 assert.match(page, /반올림 \{roundChoiceLabel/);
 assert.match(page, /박스당/);
@@ -442,7 +458,13 @@ assert.doesNotMatch(intakeApi, /from ['"].*persistImportMappings['"]/);
 assert.doesNotMatch(intakeApi, /persistImportMatchMappings\(/);
 assert.match(intakeApi, /persistLineOverlays\(actor, lines\)/);
 assert.match(intakeApi, /upsertOverlay\(/);
+assert.match(intakeApi, /upsertBoxFactor\(/);
+assert.match(intakeApi, /saveBoxFactor/);
+assert.match(intakeApi, /prodbox:/);
+assert.match(intakeApi, /PerBox/);
+assert.match(intakeApi, /mergeProductBoxFactors/);
 assert.match(intakeApi, /SET isDeleted=1/);
+assert.doesNotMatch(intakeApi, /UPDATE Product/);
 assert.match(intakeApi, /req.query.prodKeys/);
 assert.match(intakeApi, /SteamOf1Box/);
 assert.match(intakeApi, /WebHotelMiuRegisterSnap/);
@@ -479,7 +501,11 @@ assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').order
 assert.equal(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').shipmentDetail, 'preserve');
 assert.equal(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').orderDetail, 'preserve');
 assert.match(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').sideEffect, /rounded up\/down to whole boxes/);
-assert.match(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').sideEffect, /Confirm table may override perBox/);
+assert.match(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').sideEffect, /prodbox:/);
+assert.equal(contract.actions.find((a) => a.name === 'SAVE_BOX_FACTOR_OVERLAY').orderDetail, 'preserve');
+assert.equal(contract.actions.find((a) => a.name === 'SAVE_BOX_FACTOR_OVERLAY').shipmentDetail, 'preserve');
+assert.match(contract.actions.find((a) => a.name === 'SAVE_BOX_FACTOR_OVERLAY').sideEffect, /prodbox:\{ProdKey\}/);
+assert.ok(contract.scope.includes('docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql'));
 assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').orderDetail, 'preserve');
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.match(contract.actions.find((a) => a.name === 'PARSE_IMAGE_OR_TEXT').sideEffect, /compact 입력\/매칭\/수량/);
@@ -495,10 +521,9 @@ const boardContract = JSON.parse(fs.readFileSync('docs/contracts/shilla-miu-boar
 assert.ok(boardContract.scope.includes('pages/sales/shilla-miu-allocation.js'));
 assert.ok(!boardContract.scope.includes('pages/sales/shilla-miu-board.js'));
 
-const migration = fs.readFileSync('docs/migrations/2026-08-19_web_hotel_miu_intake.sql', 'utf8');
-assert.match(migration, /CREATE TABLE dbo\.WebHotelMiuIntakeBatch/);
-assert.match(migration, /CREATE TABLE dbo\.WebHotelMiuProductMap/);
-assert.match(migration, /OrderYear NVARCHAR\(4\)/);
+const perBoxMigration = fs.readFileSync('docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql', 'utf8');
+assert.match(perBoxMigration, /WebHotelMiuProductMap/);
+assert.match(perBoxMigration, /PerBox FLOAT NULL/);
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 assert.match(pkg.scripts['test:erp-contract'], /hotelMiuIntake\.test\.js/);

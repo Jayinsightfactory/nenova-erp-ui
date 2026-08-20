@@ -13,7 +13,8 @@
     "docs/contracts/hotel-miu-intake.json",
     "docs/exe-golden/FormOrderAdd.md",
     "docs/migrations/2026-08-19_web_hotel_miu_intake.sql",
-    "docs/migrations/2026-08-20_web_hotel_miu_register_snap.sql"
+    "docs/migrations/2026-08-20_web_hotel_miu_register_snap.sql",
+    "docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -27,7 +28,7 @@
       "name": "SAVE_BOARD_PRODUCT_MAP",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "INSERT WebHotelMiuProductMap overlay only. Also upserted when DRAFT/REGISTERED batch lines with ProdKey are saved. Does not write data/order-mappings.json."
+      "sideEffect": "INSERT WebHotelMiuProductMap overlay only. Also upserted when DRAFT/REGISTERED batch lines with ProdKey are saved. Does not write data/order-mappings.json. Paste-name tokens stay separate from prodbox:{ProdKey} box-factor rows."
     },
     {
       "name": "FAVORITE_CUSTOMER_WEEK",
@@ -39,7 +40,13 @@
       "name": "READ_BOX_FACTORS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch only. Confirm table may override perBox in memory for this register. Does not UPDATE Product. No Order/Shipment write."
+      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch then overlays WebHotelMiuProductMap prodbox:{ProdKey} PerBox when present. Overlay wins. Does not UPDATE Product. No Order/Shipment write."
+    },
+    {
+      "name": "SAVE_BOX_FACTOR_OVERLAY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "POST saveBoxFactor upserts WebHotelMiuProductMap InputToken=prodbox:{ProdKey} with PerBox. Confirm-table 박스당 blur and register persist this overlay like matching data. Does not UPDATE Product. No Order/Shipment/Estimate/WebProfitReport write."
     },
     {
       "name": "SAVE_DRAFT_BATCH",
@@ -51,7 +58,7 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Hidden OrderMaster/OrderDetail (isDeleted=1, qty 0) for the same year+week+cust+prod are revived instead of inserting a second row. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. 박스당 단/송이(perBox) can be edited on the confirm table for this register only (applyPerBoxOverride), without writing Product. Round buttons show the resulting box qty. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Hidden OrderMaster/OrderDetail (isDeleted=1, qty 0) for the same year+week+cust+prod are revived instead of inserting a second row. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. 박스당 단/송이(perBox) can be edited on the confirm table (applyPerBoxOverride) and is saved as WebHotelMiuProductMap prodbox overlay, without writing Product. Round buttons show the resulting box qty. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "READ_REGISTER_HISTORY",
