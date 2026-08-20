@@ -15,7 +15,8 @@ import {
   mergeAllBatchLines,
   mergeDraftLines,
   nextBatchNo,
-  resolveHotelMiuDefaultVendors,
+  overlayMappingRecord,
+  applyBoardOverlay,
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
@@ -47,6 +48,7 @@ export default function HotelMiuIntakePage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const pasteLock = useRef(0);
+  const boardMapRef = useRef({});
 
   const loadFavorites = async () => {
     const d = await apiGet('/api/favorites', { page: HOTEL_MIU_FAVORITE_PAGE });
@@ -148,18 +150,29 @@ export default function HotelMiuIntakePage() {
     return false;
   };
 
+  const rememberMatch = (inputName, prod, unit) => {
+    const rec = overlayMappingRecord(inputName, prod, unit);
+    if (!rec) return null;
+    boardMapRef.current = { ...boardMapRef.current, [rec.token]: rec.value };
+    return rec;
+  };
+
   const appendItems = (items, sourceType) => {
-    const next = (items || []).filter((it) => !it.skip && Number(it.qty) > 0).map((it) => ({
-      id: lineSeq++,
-      inputName: it.inputName,
-      qty: Number(it.qty),
-      unit: it.unit || '',
-      prodKey: it.prodKey || null,
-      prodName: it.prodName || it.displayName || '',
-      displayName: it.displayName || it.prodName || '',
-      sourceType,
-      suggestedProducts: it.suggestedProducts || [],
-    }));
+    const next = applyBoardOverlay(
+      (items || []).filter((it) => !it.skip && Number(it.qty) > 0).map((it) => ({
+        id: lineSeq++,
+        inputName: it.inputName,
+        qty: Number(it.qty),
+        unit: it.unit || '',
+        prodKey: it.prodKey || null,
+        prodName: it.prodName || it.displayName || '',
+        displayName: it.displayName || it.prodName || '',
+        sourceType,
+        suggestedProducts: it.suggestedProducts || [],
+      })),
+      boardMapRef.current,
+      null,
+    );
     setDraft((prev) => [...prev, ...next]);
   };
 
@@ -240,11 +253,14 @@ export default function HotelMiuIntakePage() {
     setDraft((prev) => prev.map((l) => (l.inputName === line.inputName
       ? { ...l, prodKey: p.prodKey, prodName: p.prodName, displayName: p.displayName || p.prodName }
       : l)));
+    rememberMatch(line.inputName, p, line.unit);
     try {
       await apiPost('/api/sales/hotel-miu-intake', {
         action: 'saveMapping', inputName: line.inputName, prod: p, unit: line.unit,
       });
-    } catch { /* overlay 저장 실패해도 화면 매칭은 유지 */ }
+    } catch (e) {
+      setError(`품목은 골랐지만 매칭 저장에 실패했습니다: ${e.message}`);
+    }
     setPicker(null);
   };
 
@@ -580,7 +596,7 @@ function ProductSearch({ query, suggestions, onPick, onClose }) {
 }
 
 const st = {
-  page: { padding: 16, maxWidth: 1180, margin: '0 auto', fontSize: 13, color: '#0f172a' },
+  page: { padding: '12px 16px', maxWidth: 'min(1680px, 100%)', margin: '0 auto', fontSize: 13, color: '#0f172a' },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   h1: { margin: 0, fontSize: 20 },
   sub: { margin: '6px 0 0', color: '#64748b', fontSize: 12 },
@@ -602,10 +618,10 @@ const st = {
   warnNote: { background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8, padding: '6px 10px', marginTop: 8 },
   custBox: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', margin: '12px 0' },
   custBoxOn: { border: '2px solid #0f766e', borderRadius: 10, padding: 12, background: '#f0fdfa', margin: '12px 0' },
-  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
+  grid: { display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)', gap: 12, marginBottom: 12, alignItems: 'start' },
   panel: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', marginBottom: 12 },
-  drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 16, margin: '8px 0', color: '#475569' },
-  ta: { width: '100%', minHeight: 110, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8 },
+  drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 10, margin: '8px 0', color: '#475569', fontSize: 12 },
+  ta: { width: '100%', minHeight: 72, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8, fontSize: 12 },
   row: { display: 'flex', gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9' },
   merge: { fontSize: 12, color: '#334155', padding: '2px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   batch: { borderTop: '1px solid #e2e8f0', padding: '8px 0' },
@@ -620,5 +636,5 @@ const st = {
   sumCard: { flex: '1 1 220px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
   sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },
   modal: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 40 },
-  modalBox: { background: '#fff', padding: 16, width: 'min(560px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
+  modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
 };

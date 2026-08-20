@@ -12,6 +12,7 @@ import { loadMappings } from '../../../lib/parseMappings';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import {
   HOTEL_MIU_VISION_PROMPT,
+  applyBoardOverlay,
   decorateIntakeRows,
   mergeBoardMappings,
   parseHotelMiuText,
@@ -67,6 +68,7 @@ async function loadMatchContext() {
   return {
     allProducts,
     productByKey: new Map(allProducts.map((p) => [Number(p.ProdKey), p])),
+    overlay,
     savedMappings: mergeBoardMappings(loadMappings(true), overlay),
     unitCatalog: loadImportUnits(true),
   };
@@ -145,7 +147,11 @@ export default withAuth(async function handler(req, res) {
     }
 
     const ctx = await loadMatchContext();
-    const items = matchImportRows(decorateIntakeRows(parsedRows), ctx).map((it) => {
+    const items = applyBoardOverlay(
+      matchImportRows(decorateIntakeRows(parsedRows, { forImage: sourceType === 'image' }), ctx),
+      ctx.overlay,
+      ctx.productByKey,
+    ).map((it) => {
       if (it.prodKey) return it;
       const jamo = rankJamoCandidates(it.inputName || it.matchName, ctx.allProducts, 8);
       const seen = new Set((it.suggestedProducts || []).map((p) => Number(p.ProdKey || p.prodKey)));

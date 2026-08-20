@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
+  applyBoardOverlay,
   batchQtyDelta,
+  decorateIntakeRows,
   mergeBoardMappings,
   nextBatchNo,
   overlayMappingRecord,
@@ -71,6 +73,21 @@ const merged = mergeBoardMappings(
 );
 assert.equal(merged[overlay.token].prodKey, 99, '게시판 overlay가 공통 order-mappings를 덮는다.');
 assert.equal(merged[overlay.token].source, 'hotel-miu-board');
+
+{
+  const carn = overlayMappingRecord('카네이션(화이트)', { ProdKey: 55, ProdName: 'CARNATION WHITE', DisplayName: '카네이션 화이트' }, '단');
+  assert.equal(carn.token, overlayMappingRecord('카네이션 화이트', { ProdKey: 55, ProdName: 'x' }, '').token);
+  const restored = applyBoardOverlay(
+    [{ inputName: '카네이션(화이트)', qty: 6, prodKey: null, prodName: '' }],
+    { [carn.token]: carn.value },
+    new Map([[55, { ProdKey: 55, ProdName: 'CARNATION WHITE', DisplayName: '카네이션 화이트' }]]),
+  );
+  assert.equal(restored[0].prodKey, 55, '한 번 고른 카네이션(화이트)는 다음 입력에서도 남아야 한다.');
+  const textRows = decorateIntakeRows([{ inputName: '카네이션(화이트)', qty: 6 }]);
+  assert.equal(textRows[0].matchName, undefined, '텍스트는 이미지 matchName을 붙이지 않는다.');
+  const imageRows = decorateIntakeRows([{ inputName: '카네이션(화이트)', qty: 6 }], { forImage: true });
+  assert.ok(imageRows[0].matchName, '이미지 OCR만 matchName을 쓴다.');
+}
 
 const delta = batchQtyDelta(
   [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 220, unit: '박스' }],
@@ -184,12 +201,19 @@ assert.match(page, /href="\/sales\/shilla-miu-allocation"/);
 assert.match(page, /잔량분배표/);
 assert.doesNotMatch(page, /persistImportMatchMappings\(/);
 assert.doesNotMatch(page, /ensureShipmentMaster/);
-assert.match(page, /removeCardLine/);
+assert.match(page, /applyBoardOverlay/);
+assert.match(page, /overlayMappingRecord/);
+assert.match(page, /maxWidth: 'min\(1680px, 100%\)'/);
+assert.match(page, /minmax\(220px, 280px\)/);
+assert.match(page, /minHeight: 72/);
+assert.doesNotMatch(page, /gridTemplateColumns: '1fr 1fr'/);
 assert.match(page, /removeEditingLine/);
 assert.match(page, /품목 삭제/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
-assert.match(parseApi, /mergeBoardMappings\(loadMappings\(true\), overlay\)/);
+assert.match(parseApi, /applyBoardOverlay\(/);
+assert.match(parseApi, /forImage: sourceType === 'image'/);
+assert.doesNotMatch(parseApi, /decorateIntakeRows\(parsedRows\)/);
 assert.match(parseApi, /rankJamoCandidates/);
 assert.doesNotMatch(parseApi, /from ['"].*persistImportMappings['"]/);
 assert.doesNotMatch(parseApi, /persistImportMatchMappings\(/);
@@ -208,7 +232,8 @@ assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Shipment/);
 assert.doesNotMatch(intakeApi, /from ['"].*persistImportMappings['"]/);
 assert.doesNotMatch(intakeApi, /persistImportMatchMappings\(/);
-assert.match(intakeApi, /action === 'recordBatch' && !lines.length/);
+assert.match(intakeApi, /persistLineOverlays\(actor, lines\)/);
+assert.match(intakeApi, /upsertOverlay\(/);
 assert.match(intakeApi, /SET isDeleted=1/);
 
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');
