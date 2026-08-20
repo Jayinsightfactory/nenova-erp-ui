@@ -10,6 +10,7 @@ import {
   batchQtyDelta,
   hotelMiuWeekOptions,
   HOTEL_MIU_WEEK_UNTIL,
+  clipboardLooksLikeOrderText,
   isDraftBatch,
   mergeAllBatchLines,
   mergeDraftLines,
@@ -162,18 +163,21 @@ export default function HotelMiuIntakePage() {
     setDraft((prev) => [...prev, ...next]);
   };
 
-  const parseText = async () => {
-    if (!text.trim()) return;
+  const parseTextValue = async (raw) => {
+    const body = String(raw || '').trim();
+    if (!body) return;
     if (!requireCust()) return;
     setBusy('parse'); setError(''); setMessage('');
     try {
-      const d = await apiPost('/api/sales/hotel-miu-parse', { text });
+      const d = await apiPost('/api/sales/hotel-miu-parse', { text: body });
       appendItems(d.items, 'text');
       setText('');
-      setMessage(`텍스트 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭. 아래 저장으로 ${cust.custName}에 합산을 남기세요.`);
+      setMessage(`텍스트 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 (이미지 OCR 아님). 아래 저장으로 ${cust.custName}에 합산을 남기세요.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
+
+  const parseText = async () => parseTextValue(text);
 
   const parseImage = async (file) => {
     if (!file) return;
@@ -187,12 +191,24 @@ export default function HotelMiuIntakePage() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '이미지 분석 실패');
       appendItems(d.items, 'image');
-      setMessage(`이미지 ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭. 아래 저장으로 ${cust.custName}에 합산을 남기세요.`);
+      setMessage(`이미지 OCR ${d.summary?.matched || 0}/${d.summary?.active || 0}건 매칭. 엑셀 칸 복사는 텍스트로 들어갑니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
   };
 
   const onPaste = useCallback((e) => {
+    const raw = e.clipboardData?.getData('text/plain') || '';
+    if (clipboardLooksLikeOrderText(raw)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - pasteLock.current < 1500) return;
+      pasteLock.current = now;
+      parseTextValue(raw);
+      return;
+    }
+    const inField = e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
+    if (inField) return;
     const file = getClipboardImage(e.clipboardData?.items);
     if (!file) return;
     e.preventDefault();
@@ -383,9 +399,24 @@ export default function HotelMiuIntakePage() {
       <div style={st.grid}>
         <div style={st.panel}>
           <b>2) 이미지 붙여넣기 / 텍스트 추가</b>
-          <div style={st.drop}>이 칸을 클릭한 뒤 Ctrl+V 로 표 사진을 붙여 넣으세요. 한 번만 들어갑니다.</div>
+          <div style={st.drop}>엑셀 칸을 복사해 Ctrl+V 하면 글자 그대로 들어갑니다. 표 사진만 있을 때만 이미지 OCR을 씁니다.</div>
           <input type="file" accept="image/*" onChange={(e) => { parseImage(e.target.files?.[0]); e.target.value = ''; }} />
-          <textarea style={st.ta} value={text} onChange={(e) => setText(e.target.value)} placeholder={'엑셀에서 복사한 품명 / 단위 / 수량\n수국 화이트\t대\t220'} />
+          <textarea
+            style={st.ta}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onPaste={(e) => {
+              e.stopPropagation();
+              const raw = e.clipboardData?.getData('text/plain') || '';
+              if (!clipboardLooksLikeOrderText(raw)) return;
+              e.preventDefault();
+              const now = Date.now();
+              if (now - pasteLock.current < 1500) return;
+              pasteLock.current = now;
+              parseTextValue(raw);
+            }}
+            placeholder={'엑셀에서 복사한 품명 / 단위 / 수량\n수국 화이트\t대\t220'}
+          />
           <button style={st.primary} disabled={busy === 'parse'} onClick={parseText}>{busy === 'parse' ? '분석 중…' : '텍스트로 품목 추가'}</button>
         </div>
         <div style={st.panel}>
@@ -394,6 +425,7 @@ export default function HotelMiuIntakePage() {
           {draft.map((l) => (
             <div key={l.id} style={st.row}>
               <span style={{ flex: 1 }}>{l.inputName}</span>
+              <span style={l.sourceType === 'image' ? st.srcImg : st.srcTxt}>{l.sourceType === 'image' ? '이미지' : '텍스트'}</span>
               <span>{l.unit || '-'}</span>
               <input style={{ ...st.inp, width: 64 }} value={l.qty} onChange={(e) => setDraft((p) => p.map((x) => (x.id === l.id ? { ...x, qty: Number(e.target.value) || 0 } : x)))} />
               <button style={l.prodKey ? st.matchOk : st.warn} onClick={() => setPicker(l)}>{l.prodName || '품목 매칭'}</button>
@@ -549,6 +581,8 @@ const st = {
   err: { background: '#fef2f2', color: '#b91c1c', padding: 8, borderRadius: 8, margin: '8px 0' },
   warn: { background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
   matchOk: { background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' },
+  srcTxt: { fontSize: 11, color: '#0f766e', fontWeight: 700 },
+  srcImg: { fontSize: 11, color: '#b45309', fontWeight: 700 },
   sumRow: { display: 'flex', gap: 0, flexWrap: 'wrap', alignItems: 'stretch', marginTop: 8 },
   sumCard: { flex: '1 1 220px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
   sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },

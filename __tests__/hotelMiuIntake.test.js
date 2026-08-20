@@ -7,6 +7,7 @@ import {
   nextBatchNo,
   overlayMappingRecord,
   parseHotelMiuText,
+  clipboardLooksLikeOrderText,
   isDraftBatch,
   mergeAllBatchLines,
   batchLineTotal,
@@ -47,6 +48,17 @@ assert.ok(parsedIdx.rows.some((r) => /수국/.test(r.inputName) && Number(r.qty)
 
 const parsedLoose = parseHotelMiuText(sampleText('loose'));
 assert.ok(parsedLoose.rows.some((r) => /수국/.test(r.inputName) && Number(r.qty) === 220), '헤더 없는 붙여넣기도 읽는다.');
+
+const excelTsv = ['장미(화이트몬디알)\t단\t6', '카네이션(화이트)\t단\t6', '호접(화이트)\t대\t12'].join('\n');
+const excelParsed = parseHotelMiuText(excelTsv);
+assert.equal(excelParsed.rows.length, 3);
+assert.equal(excelParsed.rows[0].inputName, '장미(화이트몬디알)');
+assert.equal(excelParsed.rows[1].inputName, '카네이션(화이트)');
+assert.equal(excelParsed.rows[2].inputName, '호접(화이트)');
+assert.equal(Number(excelParsed.rows[2].qty), 12);
+assert.equal(clipboardLooksLikeOrderText(excelTsv), true);
+assert.equal(clipboardLooksLikeOrderText(''), false);
+assert.equal(clipboardLooksLikeOrderText('hello'), false);
 
 const overlay = overlayMappingRecord('수국 화이트', { ProdKey: 99, ProdName: '수국화이트', DisplayName: '수국 화이트' }, '대');
 assert.equal(overlay.value.prodKey, 99);
@@ -131,6 +143,14 @@ assert.match(page, /action: 'recordBatch'/);
 assert.match(page, /action: 'markRegistered'/);
 assert.match(page, /stopPropagation/);
 assert.match(page, /pasteLock/);
+assert.match(page, /clipboardLooksLikeOrderText/);
+assert.match(page, /getData\('text\/plain'\)/);
+assert.match(page, /parseTextValue/);
+assert.match(page, /이미지 OCR 아님/);
+{
+  const pasteFn = page.slice(page.indexOf('const onPaste'), page.indexOf('}, [cust, busy, year, week]'));
+  assert.ok(pasteFn.indexOf('clipboardLooksLikeOrderText') < pasteFn.indexOf('getClipboardImage'), '엑셀 텍스트가 있으면 이미지 OCR보다 앞선다');
+}
 assert.match(page, /합산으로 저장/);
 assert.equal((page.match(/onPaste=\{onPaste\}/g) || []).length, 1, '붙여넣기는 페이지에 한 번만 붙인다');
 assert.ok(page.indexOf("action: 'recordBatch'") < page.indexOf('/api/orders') || page.includes('saveToVendor'), '합산 저장이 주문등록보다 앞선다');
@@ -157,6 +177,9 @@ assert.match(parseApi, /rankJamoCandidates/);
 assert.doesNotMatch(parseApi, /from ['"].*persistImportMappings['"]/);
 assert.doesNotMatch(parseApi, /persistImportMatchMappings\(/);
 assert.doesNotMatch(parseApi, /saveMapping\(/);
+assert.match(parseApi, /parseHotelMiuText\(String\(body\.text\)\)/);
+assert.match(parseApi, /sourceType = 'image'/);
+assert.match(parseApi, /parseImageWithVision\(file\)/);
 
 const intakeApi = fs.readFileSync('pages/api/sales/hotel-miu-intake.js', 'utf8');
 assert.match(intakeApi, /WebHotelMiuProductMap/);

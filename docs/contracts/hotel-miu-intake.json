@@ -20,7 +20,7 @@
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "read Product + order-mappings.json + WebHotelMiuProductMap overlay. No persistImportMatchMappings. No Order/Shipment write."
+      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. read Product + order-mappings.json + WebHotelMiuProductMap overlay. No persistImportMatchMappings. No Order/Shipment write."
     },
     {
       "name": "SAVE_BOARD_PRODUCT_MAP",
