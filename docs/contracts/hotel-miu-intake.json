@@ -56,7 +56,7 @@
       "name": "REVISE_BATCH_DECREASE",
       "orderDetail": "decrease",
       "shipmentDetail": "preserve",
-      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract. Does not write Shipment*/Estimate/WebProfitReport."
+      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted. Empty updateBatch soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport."
     }
   ],
   "crossYearFixture": {

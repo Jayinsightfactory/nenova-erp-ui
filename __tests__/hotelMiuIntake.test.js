@@ -84,6 +84,20 @@ const addDelta = batchQtyDelta(
   [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 250, unit: '박스' }],
 );
 assert.equal(addDelta[0].qty, 30);
+const delDelta = batchQtyDelta(
+  [
+    { prodKey: 10, prodName: '수국', displayName: '수국', qty: 6, unit: '단' },
+    { prodKey: 11, prodName: '장미', displayName: '장미', qty: 6, unit: '단' },
+  ],
+  [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 6, unit: '단' }],
+);
+assert.equal(delDelta.length, 1);
+assert.equal(delDelta[0].prodKey, 11);
+assert.equal(delDelta[0].qty, -6);
+assert.equal(batchQtyDelta(
+  [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 6, unit: '단' }],
+  [],
+)[0].qty, -6);
 assert.equal(nextBatchNo([{ batchNo: 1 }, { BatchNo: 2 }]), 3);
 assert.equal(isDraftBatch({ status: HOTEL_MIU_BATCH_DRAFT }), true);
 assert.equal(isDraftBatch({ status: 'REGISTERED' }), false);
@@ -170,6 +184,9 @@ assert.match(page, /href="\/sales\/shilla-miu-allocation"/);
 assert.match(page, /잔량분배표/);
 assert.doesNotMatch(page, /persistImportMatchMappings\(/);
 assert.doesNotMatch(page, /ensureShipmentMaster/);
+assert.match(page, /removeCardLine/);
+assert.match(page, /removeEditingLine/);
+assert.match(page, /품목 삭제/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
 assert.match(parseApi, /mergeBoardMappings\(loadMappings\(true\), overlay\)/);
@@ -191,6 +208,8 @@ assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Shipment/);
 assert.doesNotMatch(intakeApi, /from ['"].*persistImportMappings['"]/);
 assert.doesNotMatch(intakeApi, /persistImportMatchMappings\(/);
+assert.match(intakeApi, /action === 'recordBatch' && !lines.length/);
+assert.match(intakeApi, /SET isDeleted=1/);
 
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');
 assert.match(orderApi, /ensureShipmentMaster = String\(source \|\| ''\)\.toLowerCase\(\) === 'raum-pnl'/);
