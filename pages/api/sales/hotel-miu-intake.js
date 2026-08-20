@@ -155,7 +155,10 @@ export default withAuth(async function handler(req, res) {
       const week = text(req.body?.week);
       const custKey = Number(req.body?.custKey);
       const lines = Array.isArray(req.body?.lines) ? req.body.lines : [];
-      if (!year || !week || !custKey || !lines.length) {
+      if (!year || !week || !custKey) {
+        return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
+      }
+      if (action === 'recordBatch' && !lines.length) {
         return res.status(400).json({ success: false, error: 'year, week, custKey, lines 필요' });
       }
       if (action === 'updateBatch') {
@@ -175,6 +178,21 @@ export default withAuth(async function handler(req, res) {
           return res.status(404).json({ success: false, error: '해당 연도·차수·업체의 입력이 아닙니다.' });
         }
         await query(`DELETE FROM WebHotelMiuIntakeLine WHERE BatchKey=@bk`, { bk: { type: sql.Int, value: batchKey } });
+        if (!lines.length) {
+          await query(
+            `UPDATE WebHotelMiuIntakeBatch
+                SET isDeleted=1, UpdatedAt=GETDATE(), UpdatedBy=@by
+              WHERE BatchKey=@bk AND OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck AND isDeleted=0`,
+            {
+              bk: { type: sql.Int, value: batchKey },
+              yr: { type: sql.NVarChar, value: year },
+              wk: { type: sql.NVarChar, value: week },
+              ck: { type: sql.Int, value: custKey },
+              by: { type: sql.NVarChar, value: actor },
+            }
+          );
+          return res.status(200).json({ success: true, batchKey, deleted: true, batches: await listBatches(year, week, custKey) });
+        }
         for (let i = 0; i < lines.length; i += 1) {
           const ln = lines[i];
           await query(

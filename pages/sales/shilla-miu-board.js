@@ -297,11 +297,9 @@ export default function HotelMiuIntakePage() {
     finally { setBusy(''); }
   };
 
-  const saveBatchEdit = async () => {
-    if (!editing) return;
-    const nextLines = editing.lines;
-    const wasDraft = isDraftBatch(editing);
-    const delta = wasDraft ? [] : batchQtyDelta(editing.original, nextLines);
+  const persistBatchLines = async (batch, nextLines, originalLines = batch.lines) => {
+    const wasDraft = isDraftBatch(batch);
+    const delta = wasDraft ? [] : batchQtyDelta(originalLines, nextLines);
     setBusy('edit'); setError('');
     try {
       if (delta.length) {
@@ -316,14 +314,41 @@ export default function HotelMiuIntakePage() {
       const rec = await apiPost('/api/sales/hotel-miu-intake', {
         action: 'updateBatch',
         year, week, custKey: cust.custKey,
-        batchKey: editing.batchKey,
+        batchKey: batch.batchKey,
         lines: nextLines,
       });
       setBatches(rec.batches || []);
       setEditing(null);
-      setMessage(wasDraft ? `${editing.batchNo}합산 수량을 고쳤습니다.` : `${editing.batchNo}차 주문수량을 수정했습니다.`);
+      setMessage(wasDraft
+        ? (nextLines.length ? `${batch.batchNo}합산을 고쳤습니다.` : `${batch.batchNo}합산을 삭제했습니다.`)
+        : `${batch.batchNo}합산 변경을 주문수량에 반영했습니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
+  };
+
+  const saveBatchEdit = async () => {
+    if (!editing) return;
+    if (!editing.lines.length && !window.confirm(`${editing.batchNo}합산의 품목을 모두 지울까요?`)) return;
+    await persistBatchLines(editing, editing.lines, editing.original);
+  };
+
+  const removeEditingLine = (idx) => {
+    const line = editing?.lines?.[idx];
+    if (!line) return;
+    const name = line.prodName || line.inputName || '이 품목';
+    if (!window.confirm(`${name}을(를) 합산에서 삭제할까요?`)) return;
+    setEditing((cur) => ({ ...cur, lines: cur.lines.filter((_, i) => i !== idx) }));
+  };
+
+  const removeCardLine = async (batch, line) => {
+    const name = line.prodName || line.inputName || '이 품목';
+    const extra = isDraftBatch(batch) ? '' : ' 주문수량에서도 빠집니다.';
+    if (!window.confirm(`${name}을(를) ${batch.batchNo}합산에서 삭제할까요?${extra}`)) return;
+    const next = (batch.lines || []).filter((x) => {
+      if (line.prodKey && x.prodKey) return Number(x.prodKey) !== Number(line.prodKey);
+      return String(x.inputName || x.prodName) !== String(line.inputName || line.prodName);
+    });
+    await persistBatchLines(batch, next, batch.lines);
   };
 
   return (
@@ -459,7 +484,10 @@ export default function HotelMiuIntakePage() {
                 <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
               </div>
               {mergeDraftLines(b.lines).map((l) => (
-                <div key={l.prodKey} style={st.merge}>{l.displayName || l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</div>
+                <div key={l.prodKey || l.inputName} style={st.merge}>
+                  <span>{l.displayName || l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</span>
+                  <button type="button" style={st.tiny} onClick={() => removeCardLine(b, l)} title="품목 삭제">×</button>
+                </div>
               ))}
             </div>
           ))}
@@ -480,7 +508,10 @@ export default function HotelMiuIntakePage() {
                 <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
               </div>
               {b.lines.map((l, i) => (
-                <div key={i} style={st.merge}>{l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</div>
+                <div key={i} style={st.merge}>
+                  <span>{l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</span>
+                  <button type="button" style={st.tiny} onClick={() => removeCardLine(b, l)} title="품목 삭제">×</button>
+                </div>
               ))}
             </div>
           ))}
@@ -490,7 +521,8 @@ export default function HotelMiuIntakePage() {
       {editing && (
         <div style={st.modal}>
           <div style={st.modalBox}>
-            <b>{editing.batchNo}{isDraftBatch(editing) ? '합산' : '합산(주문반영)'} 수량 수정</b>
+            <b>{editing.batchNo}{isDraftBatch(editing) ? '합산' : '합산(주문반영)'} 수량·품목 수정</b>
+            {!editing.lines.length && <div style={st.muted}>품목이 없습니다. 저장하면 이 합산이 삭제됩니다.</div>}
             {editing.lines.map((l, i) => (
               <div key={i} style={st.row}>
                 <span style={{ flex: 1 }}>{l.prodName || l.inputName}</span>
@@ -498,11 +530,12 @@ export default function HotelMiuIntakePage() {
                   const qty = Number(e.target.value) || 0;
                   setEditing((cur) => ({ ...cur, lines: cur.lines.map((x, idx) => (idx === i ? { ...x, qty } : x)) }));
                 }} />
+                <button type="button" style={st.tiny} onClick={() => removeEditingLine(i)} title="품목 삭제">×</button>
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button style={st.primary} disabled={!!busy} onClick={saveBatchEdit}>
-                {isDraftBatch(editing) ? '합산만 고치기' : '주문수량에 차이만큼 반영'}
+                {isDraftBatch(editing) ? '합산 저장' : '주문수량에 차이만큼 반영'}
               </button>
               <button style={st.btn} onClick={() => setEditing(null)}>닫기</button>
             </div>
@@ -574,7 +607,7 @@ const st = {
   drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 16, margin: '8px 0', color: '#475569' },
   ta: { width: '100%', minHeight: 110, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8 },
   row: { display: 'flex', gap: 6, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9' },
-  merge: { fontSize: 12, color: '#334155', padding: '2px 0' },
+  merge: { fontSize: 12, color: '#334155', padding: '2px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   batch: { borderTop: '1px solid #e2e8f0', padding: '8px 0' },
   muted: { color: '#94a3b8', fontSize: 12 },
   okMsg: { background: '#f0fdf4', color: '#166534', padding: 8, borderRadius: 8, margin: '8px 0' },
