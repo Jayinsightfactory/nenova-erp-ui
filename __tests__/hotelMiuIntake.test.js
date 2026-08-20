@@ -123,6 +123,13 @@ const delDelta = batchQtyDelta(
 assert.equal(delDelta.length, 1);
 assert.equal(delDelta[0].prodKey, 11);
 assert.equal(delDelta[0].qty, -6);
+const rematchDelta = batchQtyDelta(
+  [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 6, unit: '단' }],
+  [{ prodKey: 20, prodName: '장미', displayName: '장미', qty: 6, unit: '단' }],
+);
+assert.equal(rematchDelta.length, 2);
+assert.equal(rematchDelta.find((r) => r.prodKey === 10).qty, -6);
+assert.equal(rematchDelta.find((r) => r.prodKey === 20).qty, 6);
 assert.equal(batchQtyDelta(
   [{ prodKey: 10, prodName: '수국', displayName: '수국', qty: 6, unit: '단' }],
   [],
@@ -358,6 +365,10 @@ assert.match(page, /<th style=\{st\.matchTh\}>매칭<\/th>/);
 assert.doesNotMatch(page, /<span style=\{\{ flex: 1 \}\}>\{l\.inputName\}<\/span>/);
 assert.doesNotMatch(page, /'이미지' : '텍스트'/);
 assert.match(page, /removeEditingLine/);
+assert.match(page, /editIndex: i/);
+assert.match(page, /Number\.isInteger\(line\?\.editIndex\)/);
+assert.match(page, /수량·품목매칭 수정/);
+assert.match(page, /st\.modalFront/);
 assert.match(page, /품목 삭제/);
 assert.match(page, /합산 전체 삭제/);
 assert.match(page, /deleteEntireBatch/);
@@ -453,6 +464,8 @@ assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.match(contract.actions.find((a) => a.name === 'PARSE_IMAGE_OR_TEXT').sideEffect, /compact 입력\/매칭\/수량/);
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
 assert.match(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').sideEffect, /rounded snap afterQty/);
+assert.equal(contract.actions.find((a) => a.name === 'REMATCH_BATCH_LINE').orderDetail, 'create-positive');
+assert.equal(contract.actions.find((a) => a.name === 'REMATCH_BATCH_LINE').shipmentDetail, 'preserve');
 assert.equal(contract.actions.find((a) => a.name === 'BLOCK_OVERLAPPING_WRITE').orderDetail, 'preserve');
 assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').orderDetail, 'create-positive');
 assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').shipmentDetail, 'preserve');
