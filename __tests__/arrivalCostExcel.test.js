@@ -37,6 +37,33 @@ async function main() {
   assert.equal(parsed.rows[1].farmKey, 10, '첫 열 농장 구조도 매칭되어야 합니다.');
   assert.ok(parsed.rows.every(row => row.sourceArrivalCostKRW > 0));
   assert.ok(parsed.rows.every(row => row.rawJson));
+
+  const emptyCost = [
+    ['COLOMBIA'],
+    ['차수', '34-2'],
+    ['총금액 Invoice', '', '', '', '', '', '', '', '', '', '', '', '', '', '백상', '', '겸역차감', 40000],
+    ['환율', 1500, '', '', '', '', '', '', '', '', '', '', '', '', '통관 수수료', 33000],
+    ['GW', 10, 'CW', 100, '', '', '', '', '', '', '', '', '', '', '검역 수수료'],
+    ['품목수', 1, 'Rate', 2, '', '', '', '', '', '', '', '', '', '', '국내 운송비', 500],
+    ['총수량'],
+    ['항공료', '', '서류', 10, '운송비'],
+    [],
+    ['', 'Color\r\nGrade', '', '', '수량', 'FOB', '운송비 \r\n(송이)', 'CNF (송이)', '총금액\r\n(CNF포함)', 'CNF (원화)', '관세 (없음)', '그외통관\r\n(송이당)', '도착원가(송이)', '단당  수량', '도착원가(단)'],
+    ['Antioquia', 'Hydrangea White (화이트)', '', '', 10, 1, '', '', '', '', '', '', '', 1, ''],
+  ];
+  const emptyWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(emptyWb, XLSX.utils.aoa_to_sheet(emptyCost), '34-2');
+  const filled = parseArrivalCostWorkbook(XLSX.write(emptyWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '34-2 수국 원가자료.xlsx',
+    products: [{ ProdKey: 2, ProdName: 'Hydrangea White', DisplayName: '수국 화이트', FlowerName: '수국', CounName: '콜롬비아', OutUnit: '단', SteamOf1Box: 1 }],
+    farms: [{ FarmKey: 10, FarmName: 'Antioquia' }],
+  });
+  assert.equal(filled.rowCount, 1, '도착원가 열이 비어도 Color Grade 수국 양식은 행을 읽어야 한다.');
+  assert.equal(filled.rows[0].orderWeek, '34-2');
+  assert.equal(filled.rows[0].farmKey, 10);
+  // 백상=GW*410=4100, 검역=품목수*10000=10000, 그외통관합=4100+33000+10000+500+40000=87600
+  // 항공료=서류10+Rate2*CW100=210, 송이운임=21, CNF원화=(1+21)*1500=33000, 도착원가=33000+87600/10=41760
+  assert.equal(Math.round(filled.rows[0].sourceArrivalCostKRW), 41760);
   console.log('arrival cost excel parser tests passed');
 }
 
