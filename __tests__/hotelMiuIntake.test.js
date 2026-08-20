@@ -12,6 +12,7 @@ import {
   clipboardLooksLikeOrderText,
   isDraftBatch,
   mergeAllBatchLines,
+  registerPreviewTable,
   batchLineTotal,
   hotelMiuWeekOptions,
   pickHotelMiuCustomer,
@@ -123,6 +124,19 @@ assert.equal(mergeAllBatchLines([
   { lines: [{ prodKey: 1, prodName: 'A', qty: 6, unit: '단' }] },
   { lines: [{ prodKey: 1, prodName: 'A', qty: 6, unit: '단' }] },
 ])[0].qty, 12);
+{
+  const preview = registerPreviewTable([
+    { batchNo: 1, lines: [{ prodKey: 1, prodName: '장미', displayName: '장미 화이트', qty: 6, unit: '단' }] },
+    { batchNo: 2, lines: [{ prodKey: 1, prodName: '장미', displayName: '장미 화이트', qty: 4, unit: '단' }, { prodKey: 2, prodName: '호접', displayName: '호접 화이트', qty: 12, unit: '송이' }] },
+  ]);
+  assert.deepEqual(preview.batchNos, [1, 2]);
+  assert.equal(preview.rows.length, 2);
+  const rose = preview.rows.find((r) => r.prodKey === 1);
+  assert.equal(rose.byBatch[1], 6);
+  assert.equal(rose.byBatch[2], 4);
+  assert.equal(rose.total, 10);
+  assert.equal(preview.rows.find((r) => r.prodKey === 2).total, 12);
+}
 
 assert.deepEqual(HOTEL_MIU_DEFAULT_VENDOR_LABELS, ['라움', '신라', '쵸이문', '미우']);
 const weekOpts = hotelMiuWeekOptions('2026-34-01');
@@ -215,6 +229,12 @@ assert.match(page, /minHeight: 72/);
 assert.doesNotMatch(page, /gridTemplateColumns: '1fr 1fr'/);
 assert.match(page, /removeEditingLine/);
 assert.match(page, /품목 삭제/);
+assert.match(page, /합산 전체 삭제/);
+assert.match(page, /deleteEntireBatch/);
+assert.match(page, /openRegisterConfirm/);
+assert.match(page, /주문등록 수량 확인/);
+assert.match(page, /registerPreviewTable/);
+assert.doesNotMatch(page, /주문수량에 더할까요/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
 assert.match(parseApi, /applyBoardOverlay\(/);

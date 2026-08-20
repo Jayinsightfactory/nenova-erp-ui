@@ -17,6 +17,7 @@ import {
   nextBatchNo,
   overlayMappingRecord,
   applyBoardOverlay,
+  registerPreviewTable,
   resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
 
@@ -45,6 +46,7 @@ export default function HotelMiuIntakePage() {
   const [batches, setBatches] = useState([]);
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -239,6 +241,7 @@ export default function HotelMiuIntakePage() {
   const registeredBatches = batches.filter((b) => !isDraftBatch(b));
   const nextSumNo = nextBatchNo(batches);
   const orderItems = useMemo(() => mergeAllBatchLines(draftBatches), [draftBatches]);
+  const registerPreview = useMemo(() => registerPreviewTable(draftBatches), [draftBatches]);
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -285,14 +288,19 @@ export default function HotelMiuIntakePage() {
     finally { setBusy(''); }
   };
 
-  const register = async () => {
+  const openRegisterConfirm = () => {
     if (!requireCust()) return;
     if (draft.length) { setError('이번 입력을 먼저 이 업체 합산으로 저장하세요.'); return; }
     if (!draftBatches.length) { setError('저장된 합산이 없습니다. 품목을 넣은 뒤 업체에 저장하세요.'); return; }
-    const unmatchedSaved = draftBatches.flatMap((b) => b.lines || []).filter((l) => !l.prodKey);
+    const unmatchedSaved = draftBatches.flatMap((b) => (b.lines || [])).filter((l) => !l.prodKey);
     if (unmatchedSaved.length) { setError('저장된 합산에 미매칭 품목이 있습니다.'); return; }
     if (!orderItems.length) { setError('주문등록할 품목이 없습니다.'); return; }
-    if (!window.confirm(`${cust.custName} / ${week}\n${draftBatches.length}개 합산(${orderItems.length}품목)을 주문수량에 더할까요? (출고분배는 하지 않습니다)`)) return;
+    setError('');
+    setConfirming(true);
+  };
+
+  const register = async () => {
+    if (!confirming) return;
     setBusy('register'); setError(''); setMessage('');
     try {
       await apiPost('/api/orders', {
@@ -309,6 +317,7 @@ export default function HotelMiuIntakePage() {
         batchKeys: draftBatches.map((b) => b.batchKey),
       });
       await loadBatches();
+      setConfirming(false);
       setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다.`);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
@@ -355,6 +364,12 @@ export default function HotelMiuIntakePage() {
     const name = line.prodName || line.inputName || '이 품목';
     if (!window.confirm(`${name}을(를) 합산에서 삭제할까요?`)) return;
     setEditing((cur) => ({ ...cur, lines: cur.lines.filter((_, i) => i !== idx) }));
+  };
+
+  const deleteEntireBatch = async (batch) => {
+    const extra = isDraftBatch(batch) ? '' : ' 이미 주문에 더한 수량만큼 주문에서도 빠집니다.';
+    if (!window.confirm(`${batch.batchNo}합산을 통째로 삭제할까요?${extra}`)) return;
+    await persistBatchLines(batch, [], batch.original || batch.lines);
   };
 
   const removeCardLine = async (batch, line) => {
@@ -499,6 +514,7 @@ export default function HotelMiuIntakePage() {
                 <b>{b.batchNo}합산</b>
                 <span>{fmt(batchLineTotal(b.lines))}</span>
                 <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
+                <button type="button" style={st.danger} onClick={() => deleteEntireBatch(b)}>삭제</button>
               </div>
               {mergeDraftLines(b.lines).map((l) => (
                 <div key={l.prodKey || l.inputName} style={st.merge}>
@@ -509,7 +525,7 @@ export default function HotelMiuIntakePage() {
             </div>
           ))}
         </div>
-        <button style={st.orderBtn} disabled={!!busy} onClick={register}>
+        <button style={st.orderBtn} disabled={!!busy} onClick={openRegisterConfirm}>
           {busy === 'register' ? '등록 중…' : `주문등록 (더하기) — ${draftBatches.length}개 합산`}
         </button>
       </div>
@@ -523,6 +539,7 @@ export default function HotelMiuIntakePage() {
                 <b>{b.batchNo}합산 (주문반영)</b>
                 <span style={st.muted}>{b.createdAt}</span>
                 <button style={st.btn} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
+                <button type="button" style={st.danger} onClick={() => deleteEntireBatch(b)}>삭제</button>
               </div>
               {b.lines.map((l, i) => (
                 <div key={i} style={st.merge}>
@@ -550,11 +567,51 @@ export default function HotelMiuIntakePage() {
                 <button type="button" style={st.tiny} onClick={() => removeEditingLine(i)} title="품목 삭제">×</button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               <button style={st.primary} disabled={!!busy} onClick={saveBatchEdit}>
                 {isDraftBatch(editing) ? '합산 저장' : '주문수량에 차이만큼 반영'}
               </button>
+              <button type="button" style={st.danger} disabled={!!busy} onClick={() => deleteEntireBatch(editing)}>합산 전체 삭제</button>
               <button style={st.btn} onClick={() => setEditing(null)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirming && (
+        <div style={st.modal}>
+          <div style={{ ...st.modalBox, width: 'min(920px, 94vw)' }}>
+            <b>주문등록 수량 확인 — {cust?.custName} / {week}</b>
+            <p style={st.muted}>아래 합계만 주문수량에 더합니다. 출고분배는 하지 않습니다.</p>
+            <table style={st.tbl}>
+              <thead>
+                <tr>
+                  <th style={st.th}>품목</th>
+                  <th style={st.th}>단위</th>
+                  {registerPreview.batchNos.map((no) => (
+                    <th key={no} style={st.thRight}>{no}합산</th>
+                  ))}
+                  <th style={st.thRight}>합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {registerPreview.rows.map((row) => (
+                  <tr key={row.prodKey}>
+                    <td style={st.td}>{row.prodName}</td>
+                    <td style={st.td}>{row.unit || '-'}</td>
+                    {registerPreview.batchNos.map((no) => (
+                      <td key={no} style={st.tdRight}>{row.byBatch[no] ? fmt(row.byBatch[no]) : '-'}</td>
+                    ))}
+                    <td style={st.tdRight}><b>{fmt(row.total)}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button style={st.orderBtn} disabled={!!busy} onClick={register}>
+                {busy === 'register' ? '등록 중…' : `주문수량에 더하기 — ${registerPreview.rows.length}품목`}
+              </button>
+              <button style={st.btn} disabled={!!busy} onClick={() => setConfirming(false)}>취소</button>
             </div>
           </div>
         </div>
@@ -638,4 +695,10 @@ const st = {
   sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },
   modal: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 40 },
   modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
+  danger: { border: '1px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' },
+  tbl: { width: '100%', borderCollapse: 'collapse', marginTop: 10, fontSize: 13 },
+  th: { textAlign: 'left', borderBottom: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' },
+  thRight: { textAlign: 'right', borderBottom: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' },
+  td: { borderBottom: '1px solid #f1f5f9', padding: '6px 8px' },
+  tdRight: { borderBottom: '1px solid #f1f5f9', padding: '6px 8px', textAlign: 'right' },
 };

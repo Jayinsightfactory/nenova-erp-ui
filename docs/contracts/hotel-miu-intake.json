@@ -44,7 +44,7 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey. Then mark those batches REGISTERED. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Then mark those batches REGISTERED. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",
@@ -56,7 +56,7 @@
       "name": "REVISE_BATCH_DECREASE",
       "orderDetail": "decrease",
       "shipmentDetail": "preserve",
-      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted. Empty updateBatch soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport."
+      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted or the whole 합산 is deleted. Empty updateBatch soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport."
     }
   ],
   "crossYearFixture": {
