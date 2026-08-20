@@ -11,10 +11,21 @@ const fs = require('node:fs');
   assert.equal(productAlphabetInitial({ProdName:'Hydrangea G/ Esmeral'}), 'G');
   assert.equal(quantitiesMatch(2,2.00001), true); assert.equal(quantitiesMatch(2,3), false);
   const choices = buildForwardOrderWeeks(new Date(2026, 7, 11));
-  assert.deepEqual(choices.slice(0,4), [
-    {year:'2026',week:'34-01',label:'34-1'}, {year:'2026',week:'34-02',label:'34-2'},
-    {year:'2026',week:'35-01',label:'35-1'}, {year:'2026',week:'35-02',label:'35-2'}
+  assert.equal(choices[0].week, '30-01');
+  assert.equal(choices[0].year, '2026');
+  assert.equal(choices.find(c => c.default)?.week, '34-01');
+  assert.deepEqual(choices.slice(8, 12), [
+    {year:'2026',week:'34-01',label:'34-1',default:true}, {year:'2026',week:'34-02',label:'34-2',default:false},
+    {year:'2026',week:'35-01',label:'35-1',default:false}, {year:'2026',week:'35-02',label:'35-2',default:false}
   ]);
+  assert.equal(choices.at(-2).week, '39-01');
+  const yearWrap = buildForwardOrderWeeks(new Date(2026, 0, 5));
+  assert.deepEqual(yearWrap.slice(0, 4), [
+    {year:'2025',week:'51-01',label:'51-1',default:false}, {year:'2025',week:'51-02',label:'51-2',default:false},
+    {year:'2025',week:'52-01',label:'52-1',default:false}, {year:'2025',week:'52-02',label:'52-2',default:false}
+  ]);
+  assert.equal(yearWrap.find(c => c.default)?.year, '2026');
+  assert.equal(yearWrap.find(c => c.default)?.week, '03-01');
   const api=fs.readFileSync('pages/api/orders/index.js','utf8'), own=fs.readFileSync('pages/api/orders/my-customers.js','utf8'), page=fs.readFileSync('pages/orders/my-customers.js','utf8'), menu=fs.readFileSync('components/Layout.js','utf8');
   assert.match(menu,/\/orders\/my-customers/); assert.match(page,/\/api\/products\/search/); assert.match(page,/expectedCurrentQty/);
   assert.match(page,/aria-pressed/); assert.doesNotMatch(page,/api\/orders\/weeks/);
@@ -34,6 +45,7 @@ const fs = require('node:fs');
   assert.match(page,/className="product-name"/); assert.match(page,/white-space:nowrap/); assert.doesNotMatch(page,/<small>\{p\.CounName\} · \{p\.ProdName\}<\/small>/);
   assert.match(page,/entry-layout/); assert.match(page,/grid-template-columns:minmax\(0,1fr\) 280px/); assert.match(page,/flex-direction:column/); assert.match(page,/수량을 입력하면 이곳에 목록으로 표시됩니다/);
   assert.match(page,/filteredProductGroups/); assert.match(page,/현재 품종·품목 검색/); assert.match(page,/ALPHABET/); assert.match(page,/productAlphabetInitial/);
+  assert.match(page,/weekChoices\.find\(w => w\.default\)/); assert.match(page,/현재 차수 -2부터 표시합니다/); assert.match(page,/기본 선택은 \+2차/);
   assert.match(page,/position:sticky;top:42px/); assert.match(page,/검색 또는 알파벳 조건에 맞는 품목이 없습니다/);
   assert.match(page,/groupLabel/); assert.match(own,/p\.CountryFlower/); assert.match(own,/COALESCE\(NULLIF\(LTRIM\(RTRIM\(p\.CountryFlower\)\),''\)/);
   assert.match(page,/고정주문 불러오기/); assert.match(page,/ORDER_FAVORITE_PAGE/); assert.match(page,/apiDelete/);
