@@ -7,6 +7,10 @@ import {
   nextBatchNo,
   overlayMappingRecord,
   parseHotelMiuText,
+  isDraftBatch,
+  mergeAllBatchLines,
+  batchLineTotal,
+  HOTEL_MIU_BATCH_DRAFT,
 } from '../lib/hotelMiuIntake.js';
 import { normalizeImportUnit } from '../lib/orderImportUnits.js';
 
@@ -64,6 +68,13 @@ const addDelta = batchQtyDelta(
 );
 assert.equal(addDelta[0].qty, 30);
 assert.equal(nextBatchNo([{ batchNo: 1 }, { BatchNo: 2 }]), 3);
+assert.equal(isDraftBatch({ status: HOTEL_MIU_BATCH_DRAFT }), true);
+assert.equal(isDraftBatch({ status: 'REGISTERED' }), false);
+assert.equal(batchLineTotal([{ qty: 6 }, { qty: 12 }]), 18);
+assert.equal(mergeAllBatchLines([
+  { lines: [{ prodKey: 1, prodName: 'A', qty: 6, unit: '단' }] },
+  { lines: [{ prodKey: 1, prodName: 'A', qty: 6, unit: '단' }] },
+])[0].qty, 12);
 
 const page = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
 assert.doesNotMatch(page, /from ['"].*components\/Layout['"]/);
@@ -71,6 +82,14 @@ assert.doesNotMatch(page, /<Layout/);
 assert.match(page, /호텔\+미우 통합게시판/);
 assert.match(page, /source: 'hotel-miu-board'/);
 assert.match(page, /\/api\/orders/);
+assert.match(page, /status: HOTEL_MIU_BATCH_DRAFT/);
+assert.match(page, /action: 'recordBatch'/);
+assert.match(page, /action: 'markRegistered'/);
+assert.match(page, /stopPropagation/);
+assert.match(page, /pasteLock/);
+assert.match(page, /합산으로 저장/);
+assert.equal((page.match(/onPaste=\{onPaste\}/g) || []).length, 1, '붙여넣기는 페이지에 한 번만 붙인다');
+assert.ok(page.indexOf("action: 'recordBatch'") < page.indexOf('/api/orders') || page.includes('saveToVendor'), '합산 저장이 주문등록보다 앞선다');
 assert.match(page, /HOTEL_MIU_FAVORITE_PAGE/);
 assert.match(page, /year, week/);
 assert.match(page, /href="\/sales\/shilla-miu-allocation"/);
@@ -88,7 +107,9 @@ assert.doesNotMatch(parseApi, /saveMapping\(/);
 const intakeApi = fs.readFileSync('pages/api/sales/hotel-miu-intake.js', 'utf8');
 assert.match(intakeApi, /WebHotelMiuProductMap/);
 assert.match(intakeApi, /WebHotelMiuIntakeBatch/);
-assert.match(intakeApi, /OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck/);
+assert.match(intakeApi, /HOTEL_MIU_BATCH_DRAFT/);
+assert.match(intakeApi, /action === 'markRegistered'/);
+assert.match(intakeApi, /Status=@st/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Shipment/);
 assert.doesNotMatch(intakeApi, /from ['"].*persistImportMappings['"]/);
