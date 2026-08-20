@@ -21,6 +21,7 @@ import {
 } from '../../../lib/exeEstimateViewSql.js';
 import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
+import { exeAmountVatSql } from '../../../lib/estimateDateQuantity.js';
 
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getEstimates(req, res);
@@ -534,6 +535,11 @@ async function loadItems(sk, byDate = false) {
        CAST(NULL AS FLOAT) AS DateShipQty,
        CAST(NULL AS FLOAT) AS DateEstQty,`
     : ``;
+  const fallbackQty = `CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
+                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
+                    ELSE sd.BoxQuantity END`;
+  const fallbackCost = `ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))`;
+  const fallbackMoney = exeAmountVatSql(fallbackCost, fallbackQty);
   const result = await query(
     `SELECT * FROM (
        -- ① 정상출고 (ShipmentDetail) — sd.Cost/Amount/Vat 원본 사용
@@ -568,18 +574,10 @@ async function loadItems(sk, byDate = false) {
               ELSE 0 END                           AS BoxQty,
          ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
          ${byDate ? `ISNULL(sdd.Amount, 0)` : `ISNULL(NULLIF(sd.Amount, 0),
-           ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
-             * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
-                    WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-                    ELSE sd.BoxQuantity END
-             / 1.1, 0)
+           ${fallbackMoney.amount}
          )`} AS Amount,
           ${byDate ? `ISNULL(sdd.Vat, 0)` : `ISNULL(NULLIF(sd.Vat, 0),
-            ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))
-              * CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
-                     WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
-                     ELSE sd.BoxQuantity END
-              / 11, 0)
+            ${fallbackMoney.vat}
           )`} AS Vat,
           ISNULL(sd.BunchQuantity, 0)                AS RawBunchQuantity,
           ISNULL(sd.SteamQuantity, 0)                AS RawSteamQuantity,

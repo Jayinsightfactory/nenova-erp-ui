@@ -1312,8 +1312,8 @@ async function updateOutQty(req, res) {
             `UPDATE ShipmentDetail SET OutQuantity=@qty, EstQuantity=@estQty,
               BoxQuantity=@bq, BunchQuantity=@bnq, SteamQuantity=@sq,
               Cost=CASE WHEN ISNULL(Cost,0)>0 THEN Cost ELSE @cost END,
-              Amount=ROUND(ISNULL(NULLIF(Cost,0), @cost) * @estQty / 1.1, 0),
-              Vat=ROUND(ISNULL(NULLIF(Cost,0), @cost) * @estQty / 11, 0),
+              Amount=ROUND(ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0) / 1.1, 0),
+              Vat=((ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0)) - ROUND(ISNULL(NULLIF(Cost,0), @cost) * ROUND(@estQty,0) / 1.1, 0)),
               ShipmentDtm=${shipDtmExpr}
              WHERE SdetailKey=@sdk`,
             { qty: { type: sql.Float, value: units.outQty },
@@ -1342,7 +1342,7 @@ async function updateOutQty(req, res) {
                   BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix)
                VALUES
                  (@nk,@sk,@ck,@pk,${shipDtmExpr},@qty,@estQty,
-                  @bq,@bnq,@sq,@cost,ROUND(@cost * @estQty / 1.1, 0),ROUND(@cost * @estQty / 11, 0),0)`,
+                  @bq,@bnq,@sq,@cost,ROUND(@cost * ROUND(@estQty,0) / 1.1, 0),((@cost * ROUND(@estQty,0)) - ROUND(@cost * ROUND(@estQty,0) / 1.1, 0)),0)`,
               { nk:  { type: sql.Int,   value: candidateDk  },
                 sk:  { type: sql.Int,   value: sk  },
                 ck:  { type: sql.Int,   value: ck  },

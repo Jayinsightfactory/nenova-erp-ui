@@ -62,8 +62,9 @@ async function handler(req, res) {
       ISNULL(sdt.Amount,0) AS DateAmount,
       ISNULL(sdt.Vat,0) AS DateVat,
       calc.BillableQuantity AS DateEstQuantity,
-      ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 1.1, 0) AS ExpectedDateAmount,
-      ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 11, 0) AS ExpectedDateVat,
+      ROUND(ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0) / 1.1, 0) AS ExpectedDateAmount,
+      (ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0))
+        - ROUND(ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0) / 1.1, 0) AS ExpectedDateVat,
       LEFT(ISNULL(sd.Descr,''), 500) AS DetailDescr
     FROM ShipmentDetail sd
     JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
@@ -86,7 +87,8 @@ async function handler(req, res) {
       AND (
         ABS(ISNULL(sdt.Cost,0) - ISNULL(sd.Cost,0)) > 0.001
         OR ABS(ISNULL(sdt.Amount,0) - ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 1.1, 0)) > 0.001
-        OR ABS(ISNULL(sdt.Vat,0) - ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 11, 0)) > 0.001
+        OR ABS(ISNULL(sdt.Vat,0) - ((ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0))
+            - ROUND(ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0) / 1.1, 0))) > 0.001
       )
     ORDER BY sd.SdetailKey DESC, sdt.SdateKey DESC`;
 
@@ -102,8 +104,9 @@ async function handler(req, res) {
           `UPDATE sdt
               SET Cost = sd.Cost,
                   EstQuantity = calc.BillableQuantity,
-                  Amount = ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 1.1, 0),
-                  Vat = ROUND(ISNULL(sd.Cost,0) * calc.BillableQuantity / 11, 0)
+                  Amount = ROUND(ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0) / 1.1, 0),
+                  Vat = (ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0))
+                    - ROUND(ISNULL(sd.Cost,0) * ROUND(calc.BillableQuantity,0) / 1.1, 0)
              FROM ShipmentDate sdt
              JOIN ShipmentDetail sd ON sd.SdetailKey = sdt.SdetailKey
              OUTER APPLY (

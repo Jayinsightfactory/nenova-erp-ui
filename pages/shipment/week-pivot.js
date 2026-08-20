@@ -11,6 +11,7 @@ import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { buildWeekPivotDimensionOptions } from '../../lib/pivotFilterOptions';
 import { isWeekPivotCellFixed, weekPivotFixState } from '../../lib/weekPivotFix';
+import { amountVatFromCostEst } from '../../lib/distributeUnits';
 import PivotFarmAssignmentModal from '../../components/PivotFarmAssignmentModal';
 import * as XLSX from 'xlsx';
 
@@ -916,10 +917,9 @@ export default function WeekPivot() {
       return d||c.name;
     };
     const calcMoney = (qty, unitCost) => {
-      const gross = Math.round((Number(qty) || 0) * (Number(unitCost) || 0));
-      const supply = Math.round(gross / 1.1);
-      const vat = Math.round(gross / 11);
-      return { supply, vat, gross };
+      const { amount, vat } = amountVatFromCostEst(unitCost, qty);
+      const gross = (Number(unitCost) || 0) * Math.round(Number(qty) || 0);
+      return { supply: amount, vat, gross };
     };
     const unitCostFor = (pk, ck, wk) => Number(costMap[`${pk}-${ck}-${wk}`] || 0);
     const totalQtyFor = (pk, ck, weekList = weeks) => weekList.reduce((s, wk) => s + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);

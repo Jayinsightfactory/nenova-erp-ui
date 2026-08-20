@@ -210,30 +210,33 @@ UPDATE ShipmentDate
 
 ### 4-1. 확정차수 단가수정 사이클 (성능 이슈의 실체)
 
-웹은 확정차수 단가수정을 `확정해제 → 저장 → 재확정`으로 처리하고
-(`docs/contracts/estimate-cost-update.json`), 클라이언트는 수량 불변임을 알고
-`lightStock: true` → `skipStockCalc: true`를 보낸다. 그러나 서버가 이를 버린다.
+웹은 확정차수 수정을 EXE와 같이 `확정해제 → 저장 → 재확정`으로 처리한다.
+`usp_ShipmentFix` / `usp_ShipmentFixCancel` 은 항상 실행한다. 생략하는 것은
+품목별 `usp_StockCalculation` 합산뿐이다.
+
+- 출고수량 불변(단가·재배분): 중간·최종 재고합산 모두 생략
+- 출고수량 변경: 중간 합산 생략, 마지막 재확정 1회만 재계산
+- 확정해제 실패 원상복구·음수재고 보정: 재계산 생략 금지
 
 ```
-// pages/api/shipment/fix.js:669, :975
-const skipStockCalc = false;
+// pages/api/shipment/fix.js
+const skipStockCalc = req.body?.skipStockCalc === true;
 ```
 
-이 고정은 실수가 아니라 2026-08-13 `7e8fc9c "fix: close stock confirmation bypasses"`에서
-의도적으로 잠근 것이다. 같은 커밋에
-`scripts/repair-confirmed-negative-stock-from-31-01.mjs`가 포함되어 있어 31-01 확정 음수재고
-실사고 후속 조치였음을 알 수 있다. 사유는 코드 주석에 남아 있다: 브라우저가 수정 도중
-닫히거나 연속 호출이 실패하면 `Product.Stock`과 `ProductStock`이 영구 불일치한다.
-`__tests__/estimateFixCycle.test.js:45`가 재도입을 막는다.
+2026-08-13 `7e8fc9c` 가 클라이언트 우회를 잠근 이유는 브라우저가 사이클 중간에
+닫히면 `Product.Stock`과 `ProductStock`이 어긋난다는 사고였다. 이번 정책은
+확정/해제 SP는 그대로 두고 합산만 건너뛰며, 원상복구 재확정은 skip 을 쓰지 않는다.
 
-→ 그러므로 "재고 재계산을 생략해 빠르게 만들자"는 방향은 EXE 근거로도, 사고 이력으로도
-정당화되지 않는다. EXE 근거가 지지하는 방향은 다르다: **총수량이 변하지 않는 편집은
-애초에 확정해제 사이클을 타지 않는다**(§1-2). 지연을 없애려면 사이클 내부를 가볍게 하는
-대신, 단가·재배분 편집을 사이클 밖으로 빼는 설계를 검토해야 한다. 단 웹의 단가수정은
-EXE에 정식 대응 화면이 없는 웹 확장 기능이므로, 확정 원장을 해제 없이 쓰려면 별도 계약과
-음수재고·견적 노출 검증이 선행되어야 한다.
 
-### 4-2. 부가세 반올림 방식 차이 — 이론상 존재, 실데이터 영향 3건
+### 4-2. 부가세 — 웹 쓰기를 EXE와 동일하게 맞춤
+
+| | Amount | Vat |
+|---|---|---|
+| EXE / 웹 쓰기 | `Round(Cost × Round(EstQuantity,0) / 1.1, 0)` | `Cost × Round(EstQuantity,0) − Amount` |
+
+공용 헬퍼: `exeDateAmountVat` / `amountVatFromCostEst`.
+과거 `/11` 별도 반올림은 정수 총액에서는 같았고, 소수 `EstQuantity`에서만 1원 드리프트가 났다.
+기존 확정 원장은 소급 재계산하지 않는다.
 
 | | Amount | Vat |
 |---|---|---|

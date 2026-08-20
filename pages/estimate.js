@@ -69,7 +69,7 @@ import {
 } from '../lib/estimateManagerPrint';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
-import { shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
+import { confirmedWeekFixCycleStockFlags, shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1509,9 +1509,9 @@ export default function Estimate() {
     return d;
   };
 
-  // lightStock: 단가수정처럼 재고 수치가 안 변하는 편집용 — 사이클 중간 재고 재계산을 전부
-  // 생략(skipStockCalc)하고, 마지막 재확정 1회만 전체 재계산으로 스냅샷을 정리한다.
-  // 수량수정은 재고가 실제로 변하므로 lightStock 을 켜지 말 것.
+  // 확정차수 편집은 EXE처럼 usp_ShipmentFix/Cancel 을 그대로 탄다.
+  // 품목별 usp_StockCalculation 합산만 줄인다. lightStock=중간 생략,
+  // skipFinalStockCalc=출고수량 불변일 때만 최종 재계산도 생략.
   const runEditWithFixCycle = async ({ weeks, orderYear, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false, skipFinalStockCalc = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const selectedYear = resolveFixStatusOrderYear(orderYear, ...targetWeeks);
@@ -1850,6 +1850,7 @@ export default function Estimate() {
           stockProdKeys: cycleStockProdKeys,
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
           apply: async () => await savePendingQuantities(fixedPending),
+          ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: true }),
         });
         const retryByRef = new Map(retryResults.map(x => [x.pendingRef, x]));
         results = results.map(r => retryByRef.get(r.pendingRef) || r);
@@ -2035,8 +2036,7 @@ export default function Estimate() {
           stockProdKeys: [],
           progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
           apply: postCostUpdate,
-          // 단가는 재고 수치와 무관 — 중간 재계산 생략, 마지막 재확정만 정리 재계산
-          lightStock: true,
+          ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: false }),
         });
       }
 
@@ -2185,8 +2185,9 @@ export default function Estimate() {
       const addWeekShort = `${String(weekNum).padStart(2, '0')}-02`;
       const addCycleItems = pendingAdds.map((t) => ({ OrderWeek: addWeekShort, ProdKey: t.prodKey }));
       const cycleItems = [...costItems, ...physicalQtyItems, ...addCycleItems];
-      const existingQtyChanged = physicalQtyItems.length > 0;
+      const existingQtyChanged = physicalQtyItems.length > 0 || pendingAdds.length > 0;
       const skipStockCalc = shouldSkipFixCycleStockCalc({ existingQtyChanged });
+      const cycleStockFlags = confirmedWeekFixCycleStockFlags({ existingQtyChanged });
       const derivedCycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
       // 단가/출고일 수량을 함께 저장하는 경로에서 화면 행에 OrderWeek가 누락되어도
       // 확정 사이클을 생략하지 않는다. 선택 견적의 세부차수를 안전한 fallback으로 사용한다.
@@ -2204,7 +2205,7 @@ export default function Estimate() {
       if (cycleWeeks.length > 0) {
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: formatAutoUnfixSaveLog(cycleWeeks, `${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ''}`),
+          label: formatAutoUnfixSaveLog(cycleWeeks, `${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ' · 중간 재고합산 생략, 마지막 재확정만 재계산'}`),
         }]);
       }
 
@@ -2332,8 +2333,7 @@ export default function Estimate() {
         stockProdKeys: existingQtyChanged ? cycleStockProdKeys : [],
         progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
         apply: runCombinedUpdate,
-        lightStock: skipStockCalc,
-        skipFinalStockCalc: skipStockCalc,
+        ...cycleStockFlags,
       });
 
       let combinedResult;
@@ -2704,7 +2704,7 @@ export default function Estimate() {
             weeks: cycleWeeks,
             orderYear: yearStr,
             stockProdKeys: quantityChanged ? [Number(item.ProdKey)] : [],
-            lightStock: !quantityChanged,
+            ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: quantityChanged }),
             progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
             apply,
           })

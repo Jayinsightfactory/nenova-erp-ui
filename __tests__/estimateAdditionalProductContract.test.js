@@ -6,6 +6,7 @@ async function main() {
     formatReferenceCostLabel,
     rankReferenceCosts,
     shouldSkipFixCycleStockCalc,
+    confirmedWeekFixCycleStockFlags,
     validateAdditionalProductSelection,
   } = await import('../lib/estimateAdditionalProduct.js');
   let pass=0, fail=0;
@@ -21,8 +22,12 @@ async function main() {
   assert('단가만 선택',picked.cost===1500 && picked.costSourceId==='SDETAIL:9' && picked.custKey===undefined);
   const costLabel=formatReferenceCostLabel({cost:1500,year:'2026',week:'29-01',customerName:'다른업체'});
   assert('라벨은 단가 우선',costLabel.includes('원') && costLabel.includes('참고 다른업체') && costLabel.indexOf('원') < costLabel.indexOf('다른업체'));
-  assert('기존 수량 변경 없으면 재고계산 생략',shouldSkipFixCycleStockCalc({existingQtyChanged:false})===true);
-  assert('기존 수량 변경 있으면 재고계산',shouldSkipFixCycleStockCalc({existingQtyChanged:true})===false);
+  assert('기존 수량 변경 없으면 최종 재고계산 생략',shouldSkipFixCycleStockCalc({existingQtyChanged:false})===true);
+  assert('기존 수량 변경 있으면 최종 재고계산',shouldSkipFixCycleStockCalc({existingQtyChanged:true})===false);
+  const qtyFlags=confirmedWeekFixCycleStockFlags({existingQtyChanged:true});
+  assert('수량변경이어도 중간 합산은 생략',qtyFlags.lightStock===true && qtyFlags.skipFinalStockCalc===false);
+  const costFlags=confirmedWeekFixCycleStockFlags({existingQtyChanged:false});
+  assert('단가만 변경이면 최종 합산도 생략',costFlags.lightStock===true && costFlags.skipFinalStockCalc===true);
   const api=fs.readFileSync('pages/api/estimate/additional-product-context.js','utf8');
   const adjust=fs.readFileSync('pages/api/shipment/adjust.js','utf8');
   const modal=fs.readFileSync('components/estimate/OrderRegisterDistributeModal.js','utf8');
@@ -35,7 +40,7 @@ async function main() {
   assert('출고일 모호성 중단',api.includes('SHIPMENT_DATE_AMBIGUOUS'));
   assert('모달은 담기만',modal.includes('onQueue') && modal.includes('목록에 담기') && !modal.includes('runEditWithFixCycle'));
   assert('통합 저장',page.includes('pendingAdds') && page.includes("mode: 'PIVOT_DISTRIBUTION'") && page.includes('estimateAdditional: true'));
-  assert('한 번 사이클',page.includes('skipFinalStockCalc') && page.includes('shouldSkipFixCycleStockCalc'));
+  assert('한 번 사이클',page.includes('skipFinalStockCalc') && page.includes('confirmedWeekFixCycleStockFlags'));
   assert('force 금지',page.includes("force: false") && !modal.includes('force: true'));
   assert('확정 사이클',page.includes('runEditWithFixCycle') && page.includes('orderYear: yearStr') && page.includes('applyAllEdits'));
   assert('출고일 서버 대조',adjust.includes('출고일 불일치'));

@@ -20,6 +20,7 @@ import {
   weekdayKrFromYmd,
 } from '../../../lib/estimateInvariants';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits';
+import { exeAmountVatSql } from '../../../lib/estimateDateQuantity.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -315,6 +316,8 @@ async function fetchEstimateItems(shipmentKey, byDate) {
        WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN sd.BunchQuantity
        WHEN ISNULL(sd.SteamQuantity,0) > 0 THEN sd.SteamQuantity
        ELSE sd.BoxQuantity END`;
+  const fallbackCost = `ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))`;
+  const fallbackMoney = exeAmountVatSql(fallbackCost, estQtyExpr);
   const r = await query(
     `SELECT sd.SdetailKey, sd.ProdKey, p.ProdName, p.EstUnit,
             ${extraCols}
@@ -325,10 +328,10 @@ async function fetchEstimateItems(shipmentKey, byDate) {
             (${estQtyExpr}) AS Quantity,
             ISNULL(NULLIF(sd.Cost, 0), ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0))) AS Cost,
             ISNULL(NULLIF(sd.Amount, 0),
-              ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 1.1, 0)
+              ${fallbackMoney.amount}
             ) AS Amount,
             ISNULL(NULLIF(sd.Vat, 0),
-              ROUND(ISNULL(NULLIF(cpc.Cost, 0), ISNULL(p.Cost, 0)) * (${estQtyExpr}) / 11, 0)
+              ${fallbackMoney.vat}
             ) AS Vat,
             N'정상출고' AS EstimateType,
             CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate

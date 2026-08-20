@@ -9,12 +9,16 @@
     "pages/api/estimate/update-entry.js",
     "pages/api/estimate/index.js",
     "pages/api/estimate/order-statement-rows.js",
+    "pages/api/dev/estimate-edit-audit.js",
     "pages/api/shipment/fix.js",
     "lib/estimateFixCycle.js",
     "lib/fixCycleClient.js",
     "lib/fixStatusYearScope.js",
     "lib/weekProdCostSchema.js",
     "lib/erpWriteScope.js",
+    "lib/estimateAdditionalProduct.js",
+    "lib/distributeUnits.js",
+    "lib/estimateDateQuantity.js",
     "docs/migrations/2026-08-10_week_prod_cost_order_year.sql",
     "lib/i18n.js",
     "pages/orders/import.js",
@@ -33,7 +37,8 @@
       "selectedYearRequired": true,
       "forceLaterFixedOverride": false,
       "costWriteScope": "ShipmentKey + SdetailKey/EstimateKey, with ShipmentMaster.OrderYear/CustKey verification",
-      "weekProdCostKey": "OrderYear + OrderWeek + CustKey + ProdKey"
+      "weekProdCostKey": "OrderYear + OrderWeek + CustKey + ProdKey",
+      "stockCalc": "keep-unfix-save-refix; skip usp_StockCalculation when OutQuantity unchanged"
     }
   ],
   "crossYearFixture": {
@@ -44,6 +49,7 @@
     "__tests__/estimateFixCycle.test.js",
     "__tests__/estimateEditYearContract.test.js",
     "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/estimateAmountVatParity.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
