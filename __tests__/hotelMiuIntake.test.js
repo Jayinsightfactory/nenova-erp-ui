@@ -22,6 +22,7 @@ import {
   buildRegisterHistory,
   historyFromRegisteredBatches,
   summarizeRegisterHistory,
+  registeredLineHistory,
   parseRegisterSnapPayload,
   batchLineTotal,
   hotelMiuWeekOptions,
@@ -290,6 +291,14 @@ assert.equal(mergeAllBatchLines([
   assert.equal(summary[0].beforeLabel, '40송이');
   assert.equal(summary[0].afterLabel, '2박스');
   assert.equal(summary[0].roundLabel, '반올림');
+  const lineHist = registeredLineHistory({ prodKey: 9, qty: 40, unit: '송이' }, summary);
+  assert.equal(lineHist.beforeLabel, '40송이');
+  assert.equal(lineHist.afterLabel, '2박스');
+  assert.equal(lineHist.roundLabel, '반올림');
+  const inferredRound = summarizeRegisterHistory([{
+    rows: [{ prodKey: 9, prodName: '수국', beforeQty: 40, beforeUnit: '송이', afterQty: 2, afterUnit: '박스', round: '' }],
+  }]);
+  assert.equal(inferredRound[0].roundLabel, '박스맞춤');
   const inferred = historyFromRegisteredBatches([
     { status: 'REGISTERED', batchNo: 1, lines: [{ prodKey: 9, prodName: '수국', qty: 40, unit: '송이' }] },
   ]);
@@ -417,6 +426,10 @@ assert.match(page, /박스당/);
 assert.doesNotMatch(page, /UPDATE Product/);
 assert.match(page, /selectWeek/);
 assert.match(page, /주문등록 내역/);
+assert.match(page, /주문반영 내역/);
+assert.match(page, /HistoryQtyTable/);
+assert.match(page, /registeredLineHistory/);
+assert.match(page, /전 \{h\.beforeLabel\} → 후 \{h\.afterLabel\}/);
 assert.match(page, /반올림 전/);
 assert.match(page, /반올림 후/);
 assert.match(page, /setHistoryOpen\(true\)/);
@@ -469,6 +482,8 @@ assert.match(intakeApi, /req.query.prodKeys/);
 assert.match(intakeApi, /SteamOf1Box/);
 assert.match(intakeApi, /WebHotelMiuRegisterSnap/);
 assert.match(intakeApi, /INSERT INTO WebHotelMiuRegisterSnap/);
+assert.match(intakeApi, /batchKeys: keys/);
+assert.match(intakeApi, /await ensureTables\(\)/);
 assert.match(intakeApi, /OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 
@@ -507,6 +522,7 @@ assert.equal(contract.actions.find((a) => a.name === 'SAVE_BOX_FACTOR_OVERLAY').
 assert.match(contract.actions.find((a) => a.name === 'SAVE_BOX_FACTOR_OVERLAY').sideEffect, /prodbox:\{ProdKey\}/);
 assert.ok(contract.scope.includes('docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql'));
 assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').orderDetail, 'preserve');
+assert.match(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').sideEffect, /주문반영 내역/);
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.match(contract.actions.find((a) => a.name === 'PARSE_IMAGE_OR_TEXT').sideEffect, /compact 입력\/매칭\/수량/);
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
