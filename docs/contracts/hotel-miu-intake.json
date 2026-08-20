@@ -51,13 +51,13 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Hidden OrderMaster/OrderDetail (isDeleted=1, qty 0) for the same year+week+cust+prod are revived instead of inserting a second row. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "READ_REGISTER_HISTORY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "After a vendor is selected, clicking a week chip GETs WebHotelMiuRegisterSnap + REGISTERED 합산 for that OrderYear+OrderWeek+CustKey and opens a popup of 반올림 전 vs 반올림 후. No Order/Shipment write. Cross-year same OrderWeek is excluded."
+      "sideEffect": "After a vendor is selected, clicking a week chip GETs WebHotelMiuRegisterSnap + REGISTERED 합산 + ViewOrder 전산 현재 for that OrderYear+OrderWeek+CustKey and opens a popup of 반올림 전 vs 반올림 후 vs 전산 현재. No Order/Shipment write. Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",
@@ -69,7 +69,19 @@
       "name": "REVISE_BATCH_DECREASE",
       "orderDetail": "decrease",
       "shipmentDetail": "preserve",
-      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted or the whole 합산 is deleted. Empty updateBatch soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport."
+      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted or the whole 합산 is deleted. Empty updateBatch soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport. Card 삭제/× honor busy so this cannot overlap REGISTER_ORDER_ADD stock calc."
+    },
+    {
+      "name": "BLOCK_OVERLAPPING_WRITE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "writeLock + disabled={!!busy} block 합산 삭제/×/주문등록/다시 더하기 while a prior POST /api/orders is in flight. Prevents overlapping negative delta from wiping the just-added OrderDetail. No extra Order/Shipment write."
+    },
+    {
+      "name": "REAPPLY_REGISTER_SNAP",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Week popup 등록내역을 전산에 다시 더하기 posts snap afterQty as signed add for selected OrderYear+OrderWeek+CustKey+ProdKey. Revives hidden OrderDetail instead of a second row. Does not write Shipment*/Estimate/WebProfitReport. Cross-year same OrderWeek is excluded."
     }
   ],
   "crossYearFixture": {
