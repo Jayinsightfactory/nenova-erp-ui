@@ -27,6 +27,7 @@ import {
   buildRegisterHistory,
   historyFromRegisteredBatches,
   summarizeRegisterHistory,
+  registeredLineHistory,
   reapplyItemsFromSnaps,
   resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
@@ -38,6 +39,38 @@ function defaultScope() {
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 let lineSeq = 1;
+
+function HistoryQtyTable({ rows, exeQty }) {
+  if (!rows?.length) return <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다.</p>;
+  return (
+    <table style={st.tbl}>
+      <thead>
+        <tr>
+          <th style={st.th}>품목</th>
+          <th style={st.thRight}>반올림 전</th>
+          <th style={st.thRight}>반올림 후</th>
+          <th style={st.thRight}>전산 현재</th>
+          <th style={st.th}>맞춤</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const exe = exeQty?.[row.prodKey];
+          const exeLabel = exe ? `${fmt(exe.outQty ?? exe.qty)}${exe.unit || ''}` : '-';
+          return (
+            <tr key={row.prodKey}>
+              <td style={st.td}>{row.prodName}</td>
+              <td style={st.tdRight}>{row.beforeLabel}</td>
+              <td style={st.tdRight}><b>{row.afterLabel}</b></td>
+              <td style={st.tdRight}>{exeLabel}</td>
+              <td style={st.td}>{row.roundLabel}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
 
 export default function HotelMiuIntakePage() {
   const initial = useMemo(() => defaultScope(), []);
@@ -416,17 +449,18 @@ export default function HotelMiuIntakePage() {
         week,
         items: registerItems,
       });
-      await apiPost('/api/sales/hotel-miu-intake', {
+      const rec = await apiPost('/api/sales/hotel-miu-intake', {
         action: 'markRegistered',
         year, week, custKey: cust.custKey,
         batchKeys: draftBatches.map((b) => b.batchKey),
         history: buildRegisterHistory(registerPreview, registerItems, boxRounds),
       });
-      await loadBatches();
+      setBatches(rec.batches || []);
+      setRegisterSnaps(rec.registerSnaps || []);
       await loadExeQty();
       setConfirming(false);
       setHistoryOpen(true);
-      setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다. 차수 버튼을 다시 누르면 반올림 전·후를 볼 수 있습니다.`);
+      setMessage(`${cust.custName} 주문수량에 ${draftBatches.length}개 합산을 더했습니다. 아래 주문반영 내역에서 반올림 전·후를 확인하세요.`);
     } catch (e) { setError(e.message); }
     finally { writeLock.current = false; setBusy(''); }
   };
@@ -618,7 +652,7 @@ export default function HotelMiuIntakePage() {
           ))}
         </div>
         {cust
-          ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다. 차수 버튼을 누르면 주문등록 수량(반올림 전·후)이 열립니다.</div>
+          ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다. 주문등록 후 반올림 전·후는 아래 주문반영 내역에 남고, 차수 버튼을 눌러도 볼 수 있습니다.</div>
           : <div style={st.warnNote}>라움·신라·쵸이문·미우 중 하나를 고른 뒤에만 이미지/텍스트를 넣을 수 있습니다.</div>}
       </div>
 
@@ -722,7 +756,9 @@ export default function HotelMiuIntakePage() {
 
       {!!registeredBatches.length && (
         <div style={st.panel}>
-          <b>이미 주문에 더한 입력</b>
+          <b>주문반영 내역 — {cust?.custName} / {week}</b>
+          <p style={st.muted}>반올림 전은 합산 원문, 반올림 후는 주문에 더한 수량, 전산 현재는 nenova.exe가 보는 주문수량입니다. 출고분배는 하지 않습니다.</p>
+          <HistoryQtyTable rows={historyRows} exeQty={exeQty} />
           {registeredBatches.map((b) => (
             <div key={b.batchKey} style={st.batch}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -731,12 +767,15 @@ export default function HotelMiuIntakePage() {
                 <button style={st.btn} disabled={!!busy} onClick={() => setEditing({ ...b, original: b.lines.map((l) => ({ ...l })) })}>수정</button>
                 <button type="button" style={st.danger} disabled={!!busy} onClick={() => deleteEntireBatch(b)}>삭제</button>
               </div>
-              {b.lines.map((l, i) => (
+              {b.lines.map((l, i) => {
+                const h = registeredLineHistory(l, historyRows);
+                return (
                 <div key={i} style={st.merge}>
-                  <span>{l.prodName || l.inputName} · {l.unit} · {fmt(l.qty)}</span>
+                  <span>{l.prodName || l.inputName} · 전 {h.beforeLabel} → 후 {h.afterLabel}{h.roundLabel ? ` (${h.roundLabel})` : ''}</span>
                   <button type="button" style={st.tiny} disabled={!!busy} onClick={() => removeCardLine(b, l)} title="품목 삭제">×</button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
@@ -861,37 +900,8 @@ export default function HotelMiuIntakePage() {
         <div style={st.modal}>
           <div style={{ ...st.modalBox, width: 'min(920px, 96vw)' }}>
             <b>주문등록 내역 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>반올림 전은 합산 원문, 반올림 후는 주문에 더한 수량, 전산 현재는 nenova.exe가 보는 주문수량입니다. 출고분배는 하지 않습니다.</p>
-            {historyRows.length ? (
-              <table style={st.tbl}>
-                <thead>
-                  <tr>
-                    <th style={st.th}>품목</th>
-                    <th style={st.thRight}>반올림 전</th>
-                    <th style={st.thRight}>반올림 후</th>
-                    <th style={st.thRight}>전산 현재</th>
-                    <th style={st.th}>맞춤</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyRows.map((row) => {
-                    const exe = exeQty[row.prodKey];
-                    const exeLabel = exe ? `${fmt(exe.outQty ?? exe.qty)}${exe.unit || ''}` : '-';
-                    return (
-                    <tr key={row.prodKey}>
-                      <td style={st.td}>{row.prodName}</td>
-                      <td style={st.tdRight}>{row.beforeLabel}</td>
-                      <td style={st.tdRight}><b>{row.afterLabel}</b></td>
-                      <td style={st.tdRight}>{exeLabel}</td>
-                      <td style={st.td}>{row.roundLabel}</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다. 합산을 주문등록하면 여기에 남습니다.</p>
-            )}
+            <p style={st.muted}>반올림 전은 합산 원문, 반올림 후는 주문에 더한 수량, 전산 현재는 nenova.exe가 보는 주문수량입니다. 출고분배는 하지 않습니다. 같은 표가 아래 주문반영 내역에도 있습니다.</p>
+            <HistoryQtyTable rows={historyRows} exeQty={exeQty} />
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               <button style={st.orderBtn} disabled={!!busy || !reapplyItemsFromSnaps(registerSnaps).length} onClick={reapplyHistory}>
                 {busy === 'reapply' ? '반영 중…' : '등록내역을 전산에 다시 더하기'}

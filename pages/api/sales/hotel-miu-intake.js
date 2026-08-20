@@ -272,8 +272,7 @@ export default withAuth(async function handler(req, res) {
       const week = text(req.query.week);
       const custKey = Number(req.query.custKey);
       if (!year || !week || !custKey) return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
-      const exists = await query(`SELECT 1 AS ok FROM sys.tables WHERE name=N'WebHotelMiuIntakeBatch'`, {});
-      if (!exists.recordset.length) return res.status(200).json({ success: true, batches: [], registerSnaps: [] });
+      await ensureTables();
       const batches = await listBatches(year, week, custKey);
       const registerSnaps = await listRegisterSnaps(year, week, custKey);
       return res.status(200).json({ success: true, batches, registerSnaps });
@@ -446,7 +445,7 @@ export default withAuth(async function handler(req, res) {
             yr: { type: sql.NVarChar, value: year },
             wk: { type: sql.NVarChar, value: week },
             ck: { type: sql.Int, value: custKey },
-            pay: { type: sql.NVarChar(sql.MAX), value: JSON.stringify({ rows: history }) },
+            pay: { type: sql.NVarChar(sql.MAX), value: JSON.stringify({ batchKeys: keys, rows: history }) },
             by: { type: sql.NVarChar, value: actor },
           }
         );
