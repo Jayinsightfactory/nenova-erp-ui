@@ -304,8 +304,8 @@ export default function ArrivalCostPage() {
             <label>표시 차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="비우면 전 차수" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
-          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 화이트처럼 여러 품종이 나오면 아래 버튼으로 좁히고, 차수·국가는 결과 표에 표시됩니다.</div>
-          <div className="variety-tabs" role="tablist" aria-label="품종 선택">
+          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower) 기준입니다. 예: 콜롬비아수국.</div>
+          <div className="variety-tabs" role="tablist" aria-label="국가·품종 선택">
             <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim())} className={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim()) ? 'active' : ''} onClick={showAll}>전체보기</button>
             {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
             {!scopeReady && !String(filters.product || '').trim() && <span className="muted">차수를 입력하면 품종 탭으로 볼 수 있습니다. 품목 검색은 차수 없이 가능합니다.</span>}
@@ -328,7 +328,7 @@ export default function ArrivalCostPage() {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  <th>차수</th><th>국가</th><th>품종</th><th>원본 품목명</th><th>전산 품목 매칭</th><th>원본 농장</th><th>전산 농장 선택</th>
+                  <th>차수</th><th>국가</th><th>국가·품종</th><th>원본 품목명</th><th>전산 품목 매칭</th><th>원본 농장</th><th>전산 농장 선택</th>
                   <th>수량</th><th>원가(엑셀)</th><th>기준</th><th>선택 원가</th><th>메모</th><th>저장</th>
                 </tr></thead>
                 <tbody>{data.rows.map(row => {
@@ -336,7 +336,7 @@ export default function ArrivalCostPage() {
                   return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
                     <td>{row.orderWeek || '-'}</td>
                     <td>{row.countryName || row.dbCountryName || '-'}</td>
-                    <td>{row.flowerNameRaw || row.dbFlowerName || '-'}</td>
+                    <td>{row.countryFlower || row.dbFlowerName || row.flowerNameRaw || '-'}</td>
                     <td className="raw-name" title={row.productNameRaw}>{row.productNameRaw}</td>
                     <td><LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" /></td>
                     <td>{row.farmNameRaw || '-'}</td>

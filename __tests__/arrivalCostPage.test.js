@@ -17,6 +17,7 @@ assert.match(source, /aria-selected=/);
 assert.match(source, /filters\.orderYear, filters\.orderWeek/);
 assert.match(source, /matchedVarieties/);
 assert.match(source, /const next = \{ \.\.\.filters, flower \}/);
-assert.match(source, /화이트처럼 여러 품종이 나오면 아래 버튼으로 좁히고/);
+assert.match(source, /전산 국가·품종\(CountryFlower\)/);
+assert.match(source, /aria-label="국가·품종 선택"/);
 
 console.log('arrival cost upload form regression tests passed');
