@@ -187,7 +187,12 @@ assert.equal((page.match(/onPaste=\{onPaste\}/g) || []).length, 1, '붙여넣기
 assert.ok(page.indexOf("action: 'recordBatch'") < page.indexOf('/api/orders') || page.includes('saveToVendor'), '합산 저장이 주문등록보다 앞선다');
 assert.match(page, /HOTEL_MIU_FAVORITE_PAGE/);
 assert.match(page, /year, week/);
-assert.match(page, /resolveHotelMiuDefaultVendors/);
+{
+  const imp = page.slice(page.indexOf('import {'), page.indexOf("from '../../lib/hotelMiuIntake'"));
+  assert.match(imp, /resolveHotelMiuDefaultVendors/, '기본 업체 칩 import가 빠져 ReferenceError가 난다');
+  assert.match(imp, /applyBoardOverlay/);
+  assert.match(imp, /overlayMappingRecord/);
+}
 assert.match(page, /hotelMiuWeekOptions/);
 assert.match(page, /HOTEL_MIU_WEEK_UNTIL/);
 assert.match(page, /라움/);
