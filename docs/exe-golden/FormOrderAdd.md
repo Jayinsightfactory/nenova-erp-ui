@@ -22,3 +22,4 @@
 - `createOrder`는 같은 `OrderYear+OrderWeek+CustKey+ProdKey`의 숨긴(`isDeleted=1`) OrderMaster/OrderDetail를 재사용한다. EXE `FormOrderAdd.GetDataProduct`는 활성 행만 보여 주므로, 수량 0으로 숨긴 행 옆에 새 행을 INSERT하면 전산 화면은 비어 있고 웹 내역만 남는다.
 - 호텔+미우 합산 삭제의 음수 delta는 주문등록(재고계산 ~50초)과 겹치면 방금 더한 수량을 다시 뺀다. 화면 `writeLock`과 `disabled={!!busy}`로 겹친 POST를 막는다. 이미 빠진 수량은 차수 팝업의 **등록내역을 전산에 다시 더하기**로 스냅샷 `afterQty`를 가산한다.
 - 합산 삭제/수정이 전산 잔량보다 큰 취소를 보내면 `resolveHotelMiuOverflowCancel`이 남은 `OutQuantity`를 0으로 숨긴다. paste/my-customer 는 기존처럼 거부한다. 수국 화이트 0.33박스 leftover에 1440송이 취소를 보내도 합산 카드는 지워진다.
+- REGISTERED 합산을 통째로 지우면 전산에서 빼는 값은 합산 원문(반올림 전)이 아니라 주문등록 스냅샷의 반올림 후(`afterQty`)다. 6단을 1박스로 올려 등록한 뒤 합산을 지우면 1박스가 빠진다.

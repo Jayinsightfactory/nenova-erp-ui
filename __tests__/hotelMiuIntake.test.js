@@ -24,6 +24,7 @@ import {
   pickHotelMiuCustomer,
   resolveHotelMiuDefaultVendors,
   reapplyItemsFromSnaps,
+  orderDeltaForRegisteredBatch,
   resolveHotelMiuOverflowCancel,
   allowHotelMiuMissingCancel,
   isHotelMiuCancelOverflowError,
@@ -206,6 +207,44 @@ assert.equal(mergeAllBatchLines([
   assert.equal(allowHotelMiuMissingCancel('hotel-miu-board'), true);
   assert.equal(allowHotelMiuMissingCancel('paste'), false);
   assert.equal(isHotelMiuCancelOverflowError('Hydrangea White (화이트): 취소 수량이 현재 주문수량(0.33333333333333215)보다 큽니다.'), true);
+  const roundedCancel = orderDeltaForRegisteredBatch({
+    previousLines: [{ prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', qty: 6, unit: '단' }],
+    nextLines: [],
+    snaps: [{ rows: [{ prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', afterQty: 1, afterUnit: '박스' }] }],
+    otherRegisteredBatches: [],
+  });
+  assert.equal(roundedCancel.length, 1);
+  assert.equal(roundedCancel[0].qty, -1);
+  assert.equal(roundedCancel[0].unit, '박스');
+  const sharedCancel = orderDeltaForRegisteredBatch({
+    previousLines: [{ prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', qty: 6, unit: '단' }],
+    nextLines: [],
+    snaps: [{ rows: [{ prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', afterQty: 1, afterUnit: '박스' }] }],
+    otherRegisteredBatches: [{ lines: [{ prodKey: 1276, qty: 4, unit: '단' }] }],
+  });
+  assert.equal(sharedCancel[0].qty, -6);
+  assert.equal(sharedCancel[0].unit, '단');
+  const raum3601 = orderDeltaForRegisteredBatch({
+    previousLines: [
+      { prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', qty: 6, unit: '단' },
+      { prodKey: 447, prodName: 'CARNATION Moon Light', qty: 6, unit: '단' },
+      { prodKey: 3074, prodName: 'ORCHID 호접란 화이트 8', qty: 12, unit: '송이' },
+    ],
+    nextLines: [],
+    snaps: [{
+      rows: [
+        { prodKey: 1276, prodName: 'ROSE / Mondial White 50cm', afterQty: 1, afterUnit: '박스' },
+        { prodKey: 447, prodName: 'CARNATION Moon Light', afterQty: 1, afterUnit: '박스' },
+        { prodKey: 3074, prodName: 'ORCHID 호접란 화이트 8', afterQty: 1, afterUnit: '박스' },
+      ],
+    }],
+    otherRegisteredBatches: [],
+  });
+  assert.deepEqual(raum3601.map((r) => [r.prodKey, r.qty, r.unit]), [
+    [1276, -1, '박스'],
+    [447, -1, '박스'],
+    [3074, -1, '박스'],
+  ]);
   const skipped = buildRegisterHistory(
     { rows: [{ prodKey: 9, prodName: '수국', unit: '송이', total: 10 }] },
     tiny,
@@ -340,6 +379,7 @@ assert.match(page, /등록내역을 전산에 다시 더하기/);
 assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => deleteEntireBatch/);
 assert.match(page, /disabled=\{!!busy\} onClick=\{\(\) => removeCardLine/);
 assert.match(page, /isHotelMiuCancelOverflowError/);
+assert.match(page, /orderDeltaForRegisteredBatch/);
 assert.doesNotMatch(page, /주문수량에 더할까요/);
 
 const parseApi = fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8');
@@ -406,6 +446,7 @@ assert.match(contract.actions.find((a) => a.name === 'REGISTER_ORDER_ADD').sideE
 assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').orderDetail, 'preserve');
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
+assert.match(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').sideEffect, /rounded snap afterQty/);
 assert.equal(contract.actions.find((a) => a.name === 'BLOCK_OVERLAPPING_WRITE').orderDetail, 'preserve');
 assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').orderDetail, 'create-positive');
 assert.equal(contract.actions.find((a) => a.name === 'REAPPLY_REGISTER_SNAP').shipmentDetail, 'preserve');

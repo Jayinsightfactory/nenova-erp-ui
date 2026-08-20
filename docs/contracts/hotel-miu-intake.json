@@ -69,7 +69,7 @@
       "name": "REVISE_BATCH_DECREASE",
       "orderDetail": "decrease",
       "shipmentDetail": "preserve",
-      "sideEffect": "batchQtyDelta negative qty is sent to createOrder as signed subtract, including when a 합산 line is deleted or the whole 합산 is deleted. If cancel exceeds remaining OrderDetail.OutQuantity (e.g. leftover 0.33 box after a previous overlapping delete), hotel-miu-board clamps to 0 and hides the row instead of throwing. Missing OrderDetail on that year+week+cust+prod is skipped. Empty updateBatch still soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport. Card 삭제/× honor busy so this cannot overlap REGISTER_ORDER_ADD stock calc."
+      "sideEffect": "REGISTERED 합산 삭제/품목 제거 sends the rounded snap afterQty as signed subtract (what createOrder actually added), not the 합산 원문. If the same ProdKey remains on another REGISTERED 합산, 원문 batchQtyDelta is used. If cancel exceeds remaining OrderDetail.OutQuantity, hotel-miu-board clamps to 0 and hides the row. Empty updateBatch still soft-deletes the web batch (isDeleted=1) scoped by OrderYear+OrderWeek+CustKey. Does not write Shipment*/Estimate/WebProfitReport. Card 삭제/× honor busy so this cannot overlap REGISTER_ORDER_ADD stock calc."
     },
     {
       "name": "BLOCK_OVERLAPPING_WRITE",
