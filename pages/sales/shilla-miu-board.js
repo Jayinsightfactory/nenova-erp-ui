@@ -307,13 +307,23 @@ export default function HotelMiuIntakePage() {
       FlowerName: prod.FlowerName || prod.flowerName,
       CounName: prod.CounName || prod.counName,
     };
-    setDraft((prev) => prev.map((l) => (l.inputName === line.inputName
-      ? { ...l, prodKey: p.prodKey, prodName: p.prodName, displayName: p.displayName || p.prodName }
-      : l)));
-    rememberMatch(line.inputName, p, line.unit);
+    const apply = (row) => ({
+      ...row,
+      prodKey: p.prodKey,
+      prodName: p.prodName,
+      displayName: p.displayName || p.prodName,
+    });
+    if (Number.isInteger(line?.editIndex)) {
+      setEditing((cur) => (cur
+        ? { ...cur, lines: cur.lines.map((l, i) => (i === line.editIndex ? apply(l) : l)) }
+        : cur));
+    } else {
+      setDraft((prev) => prev.map((l) => (l.inputName === line.inputName ? apply(l) : l)));
+    }
+    rememberMatch(line.inputName || line.prodName, p, line.unit);
     try {
       await apiPost('/api/sales/hotel-miu-intake', {
-        action: 'saveMapping', inputName: line.inputName, prod: p, unit: line.unit,
+        action: 'saveMapping', inputName: line.inputName || line.prodName, prod: p, unit: line.unit,
       });
     } catch (e) {
       setError(`품목은 골랐지만 매칭 저장에 실패했습니다: ${e.message}`);
@@ -461,6 +471,10 @@ export default function HotelMiuIntakePage() {
 
   const saveBatchEdit = async () => {
     if (!editing) return;
+    if (editing.lines.some((l) => !l.prodKey)) {
+      setError('미매칭 품목을 먼저 고르세요.');
+      return;
+    }
     if (!editing.lines.length && !window.confirm(`${editing.batchNo}합산의 품목을 모두 지울까요?`)) return;
     await persistBatchLines(editing, editing.lines, editing.original);
   };
@@ -695,11 +709,21 @@ export default function HotelMiuIntakePage() {
       {editing && (
         <div style={st.modal}>
           <div style={st.modalBox}>
-            <b>{editing.batchNo}{isDraftBatch(editing) ? '합산' : '합산(주문반영)'} 수량·품목 수정</b>
+            <b>{editing.batchNo}{isDraftBatch(editing) ? '합산' : '합산(주문반영)'} 수량·품목매칭 수정</b>
             {!editing.lines.length && <div style={st.muted}>품목이 없습니다. 저장하면 이 합산이 삭제됩니다.</div>}
             {editing.lines.map((l, i) => (
               <div key={i} style={st.row}>
-                <span>{l.prodName || l.inputName}</span>
+                <span>{l.inputName || l.prodName}</span>
+                <button
+                  type="button"
+                  style={l.prodKey ? st.matchOk : st.warn}
+                  disabled={!!busy}
+                  onClick={() => setPicker({
+                    ...l,
+                    editIndex: i,
+                    inputName: l.inputName || l.displayName || l.prodName || '',
+                  })}
+                >{l.displayName || l.prodName || '품목 매칭'}</button>
                 <span style={st.muted}>{l.unit || ''}</span>
                 <input style={{ ...st.inp, width: 72 }} value={l.qty} onChange={(e) => {
                   const qty = Number(e.target.value) || 0;
@@ -828,10 +852,10 @@ export default function HotelMiuIntakePage() {
       )}
 
       {picker && (
-        <div style={st.modal}>
+        <div style={st.modalFront}>
           <div style={st.modalBox}>
-            <b>품목 매칭 — {picker.inputName}</b>
-            <ProductSearch query={picker.inputName} suggestions={picker.suggestedProducts} onPick={(p) => pickProduct(picker, p)} onClose={() => setPicker(null)} />
+            <b>품목 매칭 — {picker.inputName || picker.prodName}</b>
+            <ProductSearch query={picker.inputName || picker.prodName} suggestions={picker.suggestedProducts} onPick={(p) => pickProduct(picker, p)} onClose={() => setPicker(null)} />
           </div>
         </div>
       )}
@@ -909,6 +933,7 @@ const st = {
   sumCard: { flex: '0 1 320px', border: '1px solid #99f6e4', borderRadius: 8, padding: 10, background: '#f0fdfa', position: 'relative' },
   sumDash: { position: 'absolute', left: -14, top: '45%', width: 28, borderTop: '2px dashed #94a3b8' },
   modal: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 40 },
+  modalFront: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 50 },
   modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
   danger: { border: '1px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' },
   tbl: { width: '100%', borderCollapse: 'collapse', marginTop: 10, fontSize: 13 },
