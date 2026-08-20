@@ -39,7 +39,7 @@
       "name": "READ_BOX_FACTORS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch only. No Order/Shipment write."
+      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch only. Confirm table may override perBox in memory for this register. Does not UPDATE Product. No Order/Shipment write."
     },
     {
       "name": "SAVE_DRAFT_BATCH",
@@ -51,7 +51,7 @@
       "name": "REGISTER_ORDER_ADD",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Hidden OrderMaster/OrderDetail (isDeleted=1, qty 0) for the same year+week+cust+prod are revived instead of inserting a second row. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
+      "sideEffect": "POST /api/orders source=hotel-miu-board isDelta add of merged DRAFT batches for selected OrderYear+OrderWeek+CustKey+ProdKey after a UI table confirm. Hidden OrderMaster/OrderDetail (isDeleted=1, qty 0) for the same year+week+cust+prod are revived instead of inserting a second row. Items that do not fill a box can be rounded up/down to whole boxes on that confirm table only; 합산 원문은 유지. 박스당 단/송이(perBox) can be edited on the confirm table for this register only (applyPerBoxOverride), without writing Product. Round buttons show the resulting box qty. markRegistered also INSERTs WebHotelMiuRegisterSnap (before/after qty) for the week popup. ShipmentMaster is not ensured (not raum-pnl). Cross-year same OrderWeek is excluded."
     },
     {
       "name": "READ_REGISTER_HISTORY",

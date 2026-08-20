@@ -20,6 +20,8 @@ import {
   applyBoardOverlay,
   registerPreviewTable,
   boxRoundHint,
+  applyPerBoxOverride,
+  roundChoiceLabel,
   buildRegisterItems,
   buildRegisterHistory,
   historyFromRegisteredBatches,
@@ -515,6 +517,14 @@ export default function HotelMiuIntakePage() {
     });
   };
 
+  const setBoxPerBox = (row, raw) => {
+    const n = Number(raw);
+    setBoxFactors((prev) => ({
+      ...prev,
+      [row.prodKey]: applyPerBoxOverride(row.unit, prev[row.prodKey] || {}, n),
+    }));
+  };
+
   return (
     <div style={st.page} onPaste={onPaste}>
       <div style={st.head}>
@@ -747,7 +757,7 @@ export default function HotelMiuIntakePage() {
         <div style={st.modal}>
           <div style={{ ...st.modalBox, width: 'min(1100px, 96vw)' }}>
             <b>주문등록 수량 확인 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스로 떨어지지 않는 품목만 반올림(다음 박스)·반내림(현재 박스)할 수 있습니다. 출고분배는 하지 않습니다.</p>
+            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스당 단/송이가 틀리면 고친 뒤 반올림·반내림하세요. 출고분배와 품목 마스터는 건드리지 않습니다.</p>
             <table style={st.tbl}>
               <thead>
                 <tr>
@@ -757,7 +767,7 @@ export default function HotelMiuIntakePage() {
                     <th key={no} style={st.thRight}>{no}합산</th>
                   ))}
                   <th style={st.thRight}>합계</th>
-                  <th style={st.thRight}>1박스</th>
+                  <th style={st.thRight}>박스당</th>
                   <th style={st.thRight}>나머지</th>
                   <th style={st.thRight}>주문</th>
                   <th style={st.th}>박스맞춤</th>
@@ -768,9 +778,9 @@ export default function HotelMiuIntakePage() {
                   const hint = boxRoundHint(row.total, row.unit, boxFactors[row.prodKey]);
                   const round = boxRounds[row.prodKey];
                   const orderLabel = hint.needsRound && round === 'up'
-                    ? `${fmt(hint.ceilBoxes)}박스`
+                    ? roundChoiceLabel(hint, 'up')
                     : hint.needsRound && round === 'down'
-                      ? (hint.floorBoxes > 0 ? `${fmt(hint.floorBoxes)}박스` : '0 (제외)')
+                      ? (hint.floorBoxes > 0 ? roundChoiceLabel(hint, 'down') : '0 (제외)')
                       : `${fmt(row.total)}${row.unit || ''}`;
                   return (
                     <tr key={row.prodKey}>
@@ -780,16 +790,24 @@ export default function HotelMiuIntakePage() {
                         <td key={no} style={st.tdRight}>{row.byBatch[no] ? fmt(row.byBatch[no]) : '-'}</td>
                       ))}
                       <td style={st.tdRight}><b>{fmt(row.total)}</b></td>
-                      <td style={st.tdRight}>{hint.perBox > 1 ? fmt(hint.perBox) : '-'}</td>
+                      <td style={st.tdRight}>
+                        <input
+                          style={st.perBoxInp}
+                          value={hint.perBox || ''}
+                          onChange={(e) => setBoxPerBox(row, e.target.value)}
+                          title={`${row.unit || ''} / 1박스`}
+                        />
+                        <span style={st.muted}>{row.unit || ''}</span>
+                      </td>
                       <td style={st.tdRight}>{hint.needsRound ? fmt(hint.remainder) : '-'}</td>
                       <td style={st.tdRight}><b>{orderLabel}</b></td>
                       <td style={st.td}>
                         {hint.needsRound ? (
-                          <span style={{ display: 'inline-flex', gap: 4 }}>
-                            <button type="button" style={round === 'up' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'up')} title={`${hint.ceilBoxes}박스로 올림`}>반올림</button>
-                            <button type="button" style={round === 'down' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'down')} title={hint.floorBoxes > 0 ? `${hint.floorBoxes}박스로 내림` : '0박스(제외)'}>반내림</button>
+                          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button type="button" style={round === 'up' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'up')}>반올림 {roundChoiceLabel(hint, 'up')}</button>
+                            <button type="button" style={round === 'down' ? st.chipOn : st.chip} onClick={() => toggleBoxRound(row.prodKey, 'down')}>반내림 {roundChoiceLabel(hint, 'down')}</button>
                           </span>
-                        ) : <span style={st.muted}>정수 박스</span>}
+                        ) : <span style={st.muted}>{hint.perBox > 1 ? '정수 박스' : '박스당을 입력하면 반올림할 수 있습니다'}</span>}
                       </td>
                     </tr>
                   );
@@ -914,14 +932,14 @@ const st = {
   panel: { border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#fff', marginBottom: 12 },
   drop: { background: '#f8fafc', border: '1px dashed #94a3b8', borderRadius: 8, padding: 10, margin: '8px 0', color: '#475569', fontSize: 12 },
   ta: { width: '100%', minHeight: 72, border: '1px solid #cbd5e1', borderRadius: 8, padding: 8, marginTop: 8, fontSize: 12 },
-  row: { display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f1f5f9', justifyContent: 'flex-start' },
-  merge: { fontSize: 12, color: '#334155', padding: '2px 0', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 8 },
-  matchTbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 6, fontSize: 13 },
-  matchTh: { textAlign: 'left', padding: '4px 10px 4px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
-  matchThRight: { textAlign: 'right', padding: '4px 10px 4px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
-  matchTd: { padding: '4px 10px 4px 0', verticalAlign: 'middle', whiteSpace: 'nowrap' },
-  matchTdName: { padding: '4px 10px 4px 0', verticalAlign: 'middle', maxWidth: 220 },
-  matchTdRight: { padding: '4px 10px 4px 0', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' },
+  row: { display: 'flex', gap: 6, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f1f5f9', justifyContent: 'flex-start' },
+  merge: { fontSize: 12, color: '#334155', padding: '1px 0', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 6 },
+  matchTbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 4, fontSize: 12 },
+  matchTh: { textAlign: 'left', padding: '3px 8px 3px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
+  matchThRight: { textAlign: 'right', padding: '3px 8px 3px 0', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' },
+  matchTd: { padding: '3px 8px 3px 0', verticalAlign: 'middle', whiteSpace: 'nowrap' },
+  matchTdName: { padding: '3px 8px 3px 0', verticalAlign: 'middle', maxWidth: 260 },
+  matchTdRight: { padding: '3px 8px 3px 0', verticalAlign: 'middle', textAlign: 'right', whiteSpace: 'nowrap' },
   batch: { borderTop: '1px solid #e2e8f0', padding: '8px 0' },
   muted: { color: '#94a3b8', fontSize: 12 },
   okMsg: { background: '#f0fdf4', color: '#166534', padding: 8, borderRadius: 8, margin: '8px 0' },
@@ -936,9 +954,10 @@ const st = {
   modalFront: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 50 },
   modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
   danger: { border: '1px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' },
-  tbl: { width: '100%', borderCollapse: 'collapse', marginTop: 10, fontSize: 13 },
-  th: { textAlign: 'left', borderBottom: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' },
-  thRight: { textAlign: 'right', borderBottom: '1px solid #cbd5e1', padding: '6px 8px', color: '#475569' },
-  td: { borderBottom: '1px solid #f1f5f9', padding: '6px 8px' },
-  tdRight: { borderBottom: '1px solid #f1f5f9', padding: '6px 8px', textAlign: 'right' },
+  tbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: 12 },
+  th: { textAlign: 'left', borderBottom: '1px solid #cbd5e1', padding: '4px 7px', color: '#475569', fontWeight: 700 },
+  thRight: { textAlign: 'right', borderBottom: '1px solid #cbd5e1', padding: '4px 7px', color: '#475569', fontWeight: 700 },
+  td: { borderBottom: '1px solid #f1f5f9', padding: '4px 7px', verticalAlign: 'middle' },
+  tdRight: { borderBottom: '1px solid #f1f5f9', padding: '4px 7px', textAlign: 'right', verticalAlign: 'middle' },
+  perBoxInp: { border: '1px solid #cbd5e1', borderRadius: 6, padding: '3px 6px', width: 52, textAlign: 'right', marginRight: 4 },
 };
