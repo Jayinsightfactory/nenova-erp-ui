@@ -14,6 +14,7 @@ import {
   sqlOrderAddGetDataProduct,
 } from '../../../lib/exeOrderAddSql.js';
 import { quantitiesMatch } from '../../../lib/myCustomerOrderEntry.js';
+import { allowHotelMiuMissingCancel, resolveHotelMiuOverflowCancel } from '../../../lib/hotelMiuIntake.js';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -531,11 +532,27 @@ async function createOrder(req, res) {
         }
 
         if (existOd.recordset.length > 0) {
-          const nextOutQty = applyDeltaAdd ? oldOutQty + outQty : outQty;
-          if (nextOutQty < -0.0001) {
+          const computedNext = applyDeltaAdd ? oldOutQty + outQty : outQty;
+          const overflow = resolveHotelMiuOverflowCancel(source, applyDeltaAdd, oldOutQty, computedNext);
+          if (overflow.kind === 'reject') {
             throw new Error(`${item.prodName || prodKey}: 취소 수량이 현재 주문수량(${oldOutQty})보다 큽니다.`);
           }
-          if (applyDeltaAdd && nextOutQty <= 0) {
+          if (overflow.kind === 'skip') {
+            detailResults.push({
+              prodKey,
+              prodName: item.prodName || prod.ProdName || '',
+              qty,
+              unit,
+              status: 'SKIPPED',
+              previousQty: oldOutQty,
+              deltaQty: outQty,
+              finalQty: oldOutQty,
+              orderDetailKey: existOd.recordset[0].OrderDetailKey,
+            });
+            continue;
+          }
+          const nextOutQty = overflow.nextOutQty;
+          if (overflow.kind === 'zero' || (applyDeltaAdd && nextOutQty <= 0)) {
             await appLog('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
             await tQuery(
               `UPDATE OrderDetail SET
@@ -670,6 +687,19 @@ async function createOrder(req, res) {
             orderDetailKey: newDetailKey,
           });
         } else if (qty < 0) {
+          if (allowHotelMiuMissingCancel(source)) {
+            detailResults.push({
+              prodKey,
+              prodName: item.prodName || prod.ProdName || '',
+              qty,
+              unit,
+              status: 'SKIPPED',
+              previousQty: 0,
+              deltaQty: outQty,
+              finalQty: 0,
+            });
+            continue;
+          }
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
