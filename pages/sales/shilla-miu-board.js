@@ -8,18 +8,17 @@ import {
   HOTEL_MIU_FAVORITE_PAGE,
   batchLineTotal,
   batchQtyDelta,
+  hotelMiuWeekOptions,
   isDraftBatch,
   mergeAllBatchLines,
   mergeDraftLines,
   nextBatchNo,
+  resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
-  const cur = String(getCurrentWeek() || '');
-  const m = cur.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return { year: m[1], week: `${m[2]}-${m[3]}` };
-  const m2 = cur.match(/^(\d{2})-(\d{2})$/);
-  return { year: String(new Date().getFullYear()), week: m2 ? cur : '01-01' };
+  const opts = hotelMiuWeekOptions(getCurrentWeek());
+  return { year: opts[0].year, week: opts[0].week, weeks: opts };
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -27,13 +26,16 @@ let lineSeq = 1;
 
 export default function HotelMiuIntakePage() {
   const initial = useMemo(() => defaultScope(), []);
+  const weekOptions = initial.weeks;
   const [year, setYear] = useState(initial.year);
   const [week, setWeek] = useState(initial.week);
+  const [defaults, setDefaults] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [cust, setCust] = useState(null);
   const [custQ, setCustQ] = useState('');
   const [custHits, setCustHits] = useState([]);
-  const [needCust, setNeedCust] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [needCust, setNeedCust] = useState(true);
   const [text, setText] = useState('');
   const [draft, setDraft] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -70,15 +72,37 @@ export default function HotelMiuIntakePage() {
     setBatches(d.batches || []);
   };
 
-  useEffect(() => { loadFavorites().catch((e) => setError(e.message)); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [, all] = await Promise.all([
+          loadFavorites(),
+          apiGet('/api/customers/search'),
+        ]);
+        setDefaults(resolveHotelMiuDefaultVendors(all.customers || all.rows || []));
+      } catch (e) { setError(e.message); }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadBatches().catch((e) => setError(e.message)); }, [cust?.custKey, year, week]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectFav = (f) => {
-    setCust({ custKey: f.custKey, custName: f.custName });
-    if (f.year) setYear(f.year);
-    if (f.week) setWeek(f.week);
+  const extraVendors = favorites.filter((f) => !defaults.some((d) => d.custKey && d.custKey === f.custKey));
+
+  const selectCust = (next) => {
+    if (!next?.custKey) {
+      setNeedCust(true);
+      setError(`${next?.label || next?.custName || '업체'} 거래처를 찾지 못했습니다.`);
+      return;
+    }
+    setCust({ custKey: next.custKey, custName: next.custName || next.label });
     setNeedCust(false);
     setError('');
+    setShowAdd(false);
+    setCustHits([]);
+  };
+
+  const selectWeek = (opt) => {
+    setYear(opt.year);
+    setWeek(opt.week);
   };
 
   const addFavorite = async (hit) => {
@@ -91,11 +115,10 @@ export default function HotelMiuIntakePage() {
     });
     const list = await loadFavorites();
     const f = list.find((x) => x.custKey === key);
-    if (f) selectFav(f);
-    else setCust({ custKey: key, custName: name });
+    selectCust(f || { custKey: key, custName: name });
     setCustHits([]);
     setCustQ('');
-    setNeedCust(false);
+    setShowAdd(false);
   };
 
   const removeFavorite = async (f) => {
@@ -119,7 +142,7 @@ export default function HotelMiuIntakePage() {
   const requireCust = () => {
     if (cust?.custKey) return true;
     setNeedCust(true);
-    setError('먼저 업체를 검색해 고르세요. 그 업체 이름으로 합산이 쌓입니다.');
+    setError('라움·신라·쵸이문·미우 중에서 업체를 고르세요.');
     return false;
   };
 
@@ -291,7 +314,7 @@ export default function HotelMiuIntakePage() {
       <div style={st.head}>
         <div>
           <h1 style={st.h1}>호텔+미우 통합게시판</h1>
-          <p style={st.sub}>업체를 먼저 고르고, 이미지·텍스트를 그 업체 합산으로 쌓은 뒤 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
+          <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 차수 4칸을 고른 뒤, 이미지·텍스트를 그 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>
       </div>
@@ -300,35 +323,60 @@ export default function HotelMiuIntakePage() {
       {message && <div style={st.okMsg}>{message}</div>}
 
       <div style={needCust || !cust ? st.custBoxOn : st.custBox}>
-        <b>1) 작업 업체</b>
-        <div style={st.bar}>
-          <label>연도 <input style={st.inp} value={year} onChange={(e) => setYear(e.target.value)} /></label>
-          <label>차수 <input style={st.inp} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="33-01" title="주문 등록에 쓰는 세부차수" /></label>
-          <input style={{ ...st.inp, width: 180 }} value={custQ} onChange={(e) => setCustQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && searchCust()} placeholder="업체 이름 검색" />
-          <button style={st.btn} onClick={searchCust}>업체 검색</button>
-        </div>
-        {custHits.length > 0 && (
-          <div style={st.hits}>
-            {custHits.slice(0, 8).map((c) => (
-              <button key={c.CustKey || c.custKey} style={st.chip} onClick={() => addFavorite(c)}>
-                + {c.CustName || c.custName}
-              </button>
-            ))}
-          </div>
-        )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <span style={{ color: '#64748b', fontSize: 12 }}>지정업체</span>
-          {favorites.map((f) => (
-            <span key={f.favoriteKey} style={{ display: 'inline-flex', gap: 4 }}>
-              <button style={cust?.custKey === f.custKey ? st.chipOn : st.chip} onClick={() => selectFav(f)}>{f.custName}</button>
-              <button style={st.tiny} onClick={() => removeFavorite(f)} title="즐겨찾기 해제">×</button>
+        <b>1) 작업 업체 · 차수</b>
+        <div style={st.pickRow}>
+          {(defaults.length ? defaults : [
+            { label: '라움' }, { label: '신라' }, { label: '쵸이문' }, { label: '미우' },
+          ]).map((v) => (
+            <button
+              key={v.label}
+              type="button"
+              style={{
+                ...(cust?.custKey && cust.custKey === v.custKey ? st.pickOn : st.pick),
+                opacity: v.custKey ? 1 : 0.45,
+              }}
+              disabled={!v.custKey}
+              title={v.custKey ? v.custName : `${v.label} 거래처를 찾지 못했습니다`}
+              onClick={() => selectCust(v)}
+            >{v.label}</button>
+          ))}
+          {extraVendors.map((f) => (
+            <span key={f.favoriteKey} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <button type="button" style={cust?.custKey === f.custKey ? st.pickOn : st.pick} onClick={() => selectCust(f)}>{f.custName}</button>
+              <button type="button" style={st.tiny} onClick={() => removeFavorite(f)} title="추가 업체 해제">×</button>
             </span>
           ))}
-          {!favorites.length && <span style={st.muted}>검색해서 업체를 넣으면 칩으로 남습니다.</span>}
+          <button type="button" style={st.addBtn} onClick={() => setShowAdd((v) => !v)}>+ 추가</button>
+        </div>
+        {showAdd && (
+          <div style={st.bar}>
+            <input style={{ ...st.inp, width: 180 }} value={custQ} onChange={(e) => setCustQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && searchCust()} placeholder="추가할 업체 이름" />
+            <button type="button" style={st.btn} onClick={searchCust}>검색</button>
+            {custHits.length > 0 && (
+              <div style={st.hits}>
+                {custHits.slice(0, 8).map((c) => (
+                  <button key={c.CustKey || c.custKey} type="button" style={st.chip} onClick={() => addFavorite(c)}>
+                    + {c.CustName || c.custName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <div style={st.pickRow}>
+          <span style={st.muted}>차수</span>
+          {weekOptions.map((opt) => (
+            <button
+              key={opt.week}
+              type="button"
+              style={week === opt.week ? st.pickOn : st.pick}
+              onClick={() => selectWeek(opt)}
+            >{opt.isDefault ? `${opt.label} 기본` : opt.label}</button>
+          ))}
         </div>
         {cust
           ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다.</div>
-          : <div style={st.warnNote}>업체를 고른 뒤에만 이미지/텍스트를 넣을 수 있습니다.</div>}
+          : <div style={st.warnNote}>라움·신라·쵸이문·미우 중 하나를 고른 뒤에만 이미지/텍스트를 넣을 수 있습니다.</div>}
       </div>
 
       <div style={st.grid}>
@@ -478,6 +526,10 @@ const st = {
   linkBtn: { background: '#1d4ed8', color: '#fff', textDecoration: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 },
   chip: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' },
   chipOn: { border: '1px solid #0f766e', background: '#ccfbf1', borderRadius: 999, padding: '4px 10px', cursor: 'pointer', fontWeight: 800 },
+  pick: { border: '1px solid #94a3b8', background: '#fff', borderRadius: 10, padding: '10px 16px', cursor: 'pointer', fontSize: 15, fontWeight: 700, minWidth: 72 },
+  pickOn: { border: '2px solid #0f766e', background: '#ccfbf1', borderRadius: 10, padding: '10px 16px', cursor: 'pointer', fontSize: 15, fontWeight: 800, minWidth: 72, color: '#0f766e' },
+  pickRow: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '10px 0' },
+  addBtn: { border: '1px dashed #64748b', background: '#fff', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', color: '#334155' },
   tiny: { border: 0, background: 'transparent', cursor: 'pointer', color: '#64748b' },
   hits: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
   note: { background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 8, padding: '6px 10px', marginTop: 8 },

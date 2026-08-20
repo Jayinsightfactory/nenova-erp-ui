@@ -10,7 +10,11 @@ import {
   isDraftBatch,
   mergeAllBatchLines,
   batchLineTotal,
+  hotelMiuWeekOptions,
+  pickHotelMiuCustomer,
+  resolveHotelMiuDefaultVendors,
   HOTEL_MIU_BATCH_DRAFT,
+  HOTEL_MIU_DEFAULT_VENDOR_LABELS,
 } from '../lib/hotelMiuIntake.js';
 import { normalizeImportUnit } from '../lib/orderImportUnits.js';
 
@@ -76,6 +80,34 @@ assert.equal(mergeAllBatchLines([
   { lines: [{ prodKey: 1, prodName: 'A', qty: 6, unit: '단' }] },
 ])[0].qty, 12);
 
+assert.deepEqual(HOTEL_MIU_DEFAULT_VENDOR_LABELS, ['라움', '신라', '쵸이문', '미우']);
+const weekOpts = hotelMiuWeekOptions('2026-34-01');
+assert.equal(weekOpts.length, 4);
+assert.deepEqual(weekOpts.map((w) => w.week), ['34-01', '34-02', '34-03', '34-04']);
+assert.equal(weekOpts[0].year, '2026');
+assert.equal(weekOpts[0].isDefault, true);
+assert.deepEqual(hotelMiuWeekOptions('2026-34-03').map((w) => w.week), ['34-03', '34-04', '35-01', '35-02']);
+assert.deepEqual(hotelMiuWeekOptions('2026-52-04').map((w) => `${w.year}-${w.week}`), [
+  '2026-52-04', '2027-01-01', '2027-01-02', '2027-01-03',
+]);
+
+const sampleCusts = [
+  { CustKey: 680, CustName: '트라움에스앤씨' },
+  { CustKey: 656, CustName: '신라호텔' },
+  { CustKey: 900, CustName: '신라/중-화' },
+  { CustKey: 12, CustName: '쵸이문' },
+  { CustKey: 77, CustName: '미우' },
+  { CustKey: 88, CustName: '미우플라워' },
+  { CustKey: 456, CustName: '아이엠' },
+];
+assert.equal(pickHotelMiuCustomer(sampleCusts, '라움').custKey, 680);
+assert.equal(pickHotelMiuCustomer(sampleCusts, '신라').custKey, 656);
+assert.equal(pickHotelMiuCustomer(sampleCusts, '쵸이문').custKey, 12);
+assert.equal(pickHotelMiuCustomer(sampleCusts, '미우').custKey, 77);
+assert.equal(pickHotelMiuCustomer(sampleCusts, '미우').custName, '미우');
+assert.equal(resolveHotelMiuDefaultVendors(sampleCusts).map((v) => v.custKey).join(','), '680,656,12,77');
+assert.equal(pickHotelMiuCustomer([{ CustKey: 456, CustName: '아이엠' }], '미우'), null);
+
 const page = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
 assert.doesNotMatch(page, /from ['"].*components\/Layout['"]/);
 assert.doesNotMatch(page, /<Layout/);
@@ -92,6 +124,15 @@ assert.equal((page.match(/onPaste=\{onPaste\}/g) || []).length, 1, '붙여넣기
 assert.ok(page.indexOf("action: 'recordBatch'") < page.indexOf('/api/orders') || page.includes('saveToVendor'), '합산 저장이 주문등록보다 앞선다');
 assert.match(page, /HOTEL_MIU_FAVORITE_PAGE/);
 assert.match(page, /year, week/);
+assert.match(page, /resolveHotelMiuDefaultVendors/);
+assert.match(page, /hotelMiuWeekOptions/);
+assert.match(page, /라움/);
+assert.match(page, /신라/);
+assert.match(page, /쵸이문/);
+assert.match(page, /미우/);
+assert.match(page, /\+ 추가/);
+assert.doesNotMatch(page, /업체 이름 검색/);
+assert.doesNotMatch(page, /placeholder="33-01"/);
 assert.match(page, /href="\/sales\/shilla-miu-allocation"/);
 assert.match(page, /잔량분배표/);
 assert.doesNotMatch(page, /persistImportMatchMappings\(/);
