@@ -696,15 +696,26 @@ EXEC dbo.usp_ShipmentFix
 ### 10.2 핵심 동작 흐름
 
 1. **미확정 출고 수집** — `ViewShipment WHERE DetailFix=0`
-2. **잔량 마이너스 검증** ⭐
+2. **잔량 마이너스 검증** ⭐ (2026-08-20 패치)
+   예전:
    ```sql
    WITH stock AS (SELECT ps.ProdKey, ps.Stock, sm.OrderYearWeek
                   FROM StockMaster sm JOIN ProductStock ps ON sm.StockKey=ps.StockKey)
    ...
    WHERE ROUND(ISNULL(ns.Stock,0) - ISNULL(sl.OutQuantity,0), 0) < 0
-   -- → 마이너스 나오면 ROLLBACK + '잔량 마이너스 출고 존재' 오류
    ```
-   **주의**: stock CTE 에 `isFix` 필터 없음. 모든 ProductStock 봄.
+   `ns.Stock`은 `usp_StockCalculation` leftover(확정출고만 차감)다. 확정취소 후 재계산이
+   빠지면 기말 스냅샷에서 미확정 출고를 한 번 더 빼 이중차감이 된다
+   (2026-08-20 33-01 콜롬비아카네이션: 옛 검사 음수 52, 주간잔량은 Zurigo −0.33 뿐).
+
+   이후:
+   ```sql
+   ROUND(prevStock + warehouse − confirmedOut(DetailFix=1) + StockTypeAdj − unfixedOut, 0) < 0
+   ```
+   `prevStock`은 `OrderYearWeek < 현재` 최신 `StockMaster` 1건. 메시지 문구는
+   `제품 잔량이 마이너스인 출고 정보가 존재합니다.` 유지.
+   **주의**: 당주차 ProductStock `isFix` 필터는 원래도 없었다. 패치 후에도 스냅샷 `isFix`로
+   잔량을 판단하지 않는다.
 3. **출고일 합산 검증** — `ShipmentDate.ShipmentQuantity` 합과 `OutQuantity` 일치 확인
 4. **isFix 설정** — Detail 1, Master 는 미확정 detail 없으면 1 / 있으면 0
 5. **StockHistory 기록** — `BeforeValue=p.Stock, AfterValue=p.Stock-OutQuantity, ChangeType='출고'`
@@ -719,7 +730,7 @@ EXEC dbo.usp_ShipmentFix
 | isFix | → 1 | → 0 |
 | Product.Stock | **-= OutQuantity** | **+= OutQuantity** |
 | StockHistory.Descr | '출고확정' | '출고확정 취소' |
-| 잔량 검증 | ProductStock 마이너스 차단 | 검증 없음 |
+| 잔량 검증 | leftover−미확정 출고 마이너스 차단 (2026-08-20, 당주차 ProductStock 이중차감 폐지) | 검증 없음 |
 | 출고일 이력 | 기록 | 기록 안 함 |
 
 → **이론상 정확히 대칭**. 사이클 돌면 Product.Stock = 0 으로 복원되어야 함.

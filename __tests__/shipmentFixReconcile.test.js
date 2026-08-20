@@ -12,8 +12,10 @@ const assert = (label, cond) => {
 async function main() {
   const {
     deriveShipmentDetailStatus,
-    deriveStockFixStatus,
     deriveExeAlignedStatus,
+    sqlRound0,
+    shipmentFixWeekRemain,
+    isShipmentFixRemainNegative,
     isDoubleCountStaleSnapshot,
     prodKeysNeedingRecalc,
   } = await import('../lib/shipmentFixReconcile.js');
@@ -67,6 +69,24 @@ async function main() {
   console.log('\n=== prodKeysNeedingRecalc ===');
   assert('skips done', JSON.stringify(prodKeysNeedingRecalc([1, 2, 3], [2])) === JSON.stringify([1, 3]));
   assert('dedupe', JSON.stringify(prodKeysNeedingRecalc([1, 1, 2], [])) === JSON.stringify([1, 2]));
+
+  console.log('\n=== isShipmentFixRemainNegative (2026-08-20 SP) ===');
+  assert('SQL ROUND(-0.33,0)=0 이라 Zurigo 실부족 -0.33 은 통과', isShipmentFixRemainNegative({
+    prevStock: 0, warehouseQty: 4, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 4.33,
+  }) === false);
+  assert('문라이트 주간잔량 +3.7 은 통과', isShipmentFixRemainNegative({
+    prevStock: 1.2, warehouseQty: 145.3, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 142.8,
+  }) === false);
+  assert('진짜 부족 -0.6 은 차단', isShipmentFixRemainNegative({
+    prevStock: 0, warehouseQty: 1, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 1.6,
+  }) === true);
+  assert('교차연도: 2025 33-01 스냅샷을 2026 33-01 이월로 쓰지 않음', shipmentFixWeekRemain({
+    prevStock: 0,
+    warehouseQty: 4,
+    confirmedOut: 0,
+    unfixedOut: 4,
+  }) === 0);
+  assert('sqlRound0 는 음수 0.5를 0이 아니라 -1', sqlRound0(-0.5) === -1);
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
