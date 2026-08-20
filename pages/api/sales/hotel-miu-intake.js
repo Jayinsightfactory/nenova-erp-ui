@@ -65,6 +65,39 @@ function ensureTables() {
 
 function text(v, fallback = '') { return String(v ?? fallback).trim(); }
 
+async function upsertOverlay(actor, inputName, prod, unit) {
+  const rec = overlayMappingRecord(inputName, prod, unit);
+  if (!rec) return null;
+  await query(
+    `UPDATE WebHotelMiuProductMap SET isDeleted=1, UpdatedAt=GETDATE(), UpdatedBy=@by
+      WHERE InputToken=@tok AND isDeleted=0`,
+    { tok: { type: sql.NVarChar, value: rec.token }, by: { type: sql.NVarChar, value: actor } }
+  );
+  await query(
+    `INSERT INTO WebHotelMiuProductMap
+       (InputToken, ProdKey, ProdName, DisplayName, FlowerName, CounName, Unit, UpdatedBy)
+     VALUES (@tok,@pk,@pn,@dn,@fn,@cn,@un,@by)`,
+    {
+      tok: { type: sql.NVarChar, value: rec.token },
+      pk: { type: sql.Int, value: rec.value.prodKey },
+      pn: { type: sql.NVarChar, value: rec.value.prodName },
+      dn: { type: sql.NVarChar, value: rec.value.displayName },
+      fn: { type: sql.NVarChar, value: rec.value.flowerName },
+      cn: { type: sql.NVarChar, value: rec.value.counName },
+      un: { type: sql.NVarChar, value: rec.value.unit },
+      by: { type: sql.NVarChar, value: actor },
+    }
+  );
+  return rec.token;
+}
+
+async function persistLineOverlays(actor, lines) {
+  for (const ln of lines || []) {
+    if (!ln?.prodKey) continue;
+    await upsertOverlay(actor, ln.inputName, ln, ln.unit);
+  }
+}
+
 async function listBatches(year, week, custKey) {
   const r = await query(
     `SELECT b.BatchKey, b.OrderYear, b.OrderWeek, b.CustKey, b.BatchNo, b.Status, b.SourceNote,
@@ -125,29 +158,9 @@ export default withAuth(async function handler(req, res) {
     const action = text(req.body?.action);
 
     if (action === 'saveMapping') {
-      const rec = overlayMappingRecord(req.body?.inputName, req.body?.prod || req.body, req.body?.unit);
-      if (!rec) return res.status(400).json({ success: false, error: 'inputName, prodKey 필요' });
-      await query(
-        `UPDATE WebHotelMiuProductMap SET isDeleted=1, UpdatedAt=GETDATE(), UpdatedBy=@by
-          WHERE InputToken=@tok AND isDeleted=0`,
-        { tok: { type: sql.NVarChar, value: rec.token }, by: { type: sql.NVarChar, value: actor } }
-      );
-      await query(
-        `INSERT INTO WebHotelMiuProductMap
-           (InputToken, ProdKey, ProdName, DisplayName, FlowerName, CounName, Unit, UpdatedBy)
-         VALUES (@tok,@pk,@pn,@dn,@fn,@cn,@un,@by)`,
-        {
-          tok: { type: sql.NVarChar, value: rec.token },
-          pk: { type: sql.Int, value: rec.value.prodKey },
-          pn: { type: sql.NVarChar, value: rec.value.prodName },
-          dn: { type: sql.NVarChar, value: rec.value.displayName },
-          fn: { type: sql.NVarChar, value: rec.value.flowerName },
-          cn: { type: sql.NVarChar, value: rec.value.counName },
-          un: { type: sql.NVarChar, value: rec.value.unit },
-          by: { type: sql.NVarChar, value: actor },
-        }
-      );
-      return res.status(200).json({ success: true, token: rec.token });
+      const token = await upsertOverlay(actor, req.body?.inputName, req.body?.prod || req.body, req.body?.unit);
+      if (!token) return res.status(400).json({ success: false, error: 'inputName, prodKey 필요' });
+      return res.status(200).json({ success: true, token });
     }
 
     if (action === 'recordBatch' || action === 'updateBatch') {
@@ -210,6 +223,7 @@ export default withAuth(async function handler(req, res) {
             }
           );
         }
+        await persistLineOverlays(actor, lines);
         await query(
           `UPDATE WebHotelMiuIntakeBatch SET UpdatedAt=GETDATE(), UpdatedBy=@by WHERE BatchKey=@bk`,
           { bk: { type: sql.Int, value: batchKey }, by: { type: sql.NVarChar, value: actor } }
@@ -254,6 +268,7 @@ export default withAuth(async function handler(req, res) {
           }
         );
       }
+      await persistLineOverlays(actor, lines);
       return res.status(200).json({
         success: true,
         batchKey,

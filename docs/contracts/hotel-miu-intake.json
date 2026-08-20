@@ -20,13 +20,13 @@
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. read Product + order-mappings.json + WebHotelMiuProductMap overlay. No persistImportMatchMappings. No Order/Shipment write."
+      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision, no image matchName). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. read Product + order-mappings.json + WebHotelMiuProductMap overlay, then applyBoardOverlay so a once-picked name stays matched. No persistImportMatchMappings. No Order/Shipment write."
     },
     {
       "name": "SAVE_BOARD_PRODUCT_MAP",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "INSERT WebHotelMiuProductMap overlay only. Does not write data/order-mappings.json."
+      "sideEffect": "INSERT WebHotelMiuProductMap overlay only. Also upserted when DRAFT/REGISTERED batch lines with ProdKey are saved. Does not write data/order-mappings.json."
     },
     {
       "name": "FAVORITE_CUSTOMER_WEEK",
