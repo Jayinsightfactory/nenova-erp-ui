@@ -17,6 +17,7 @@ import {
   nextBatchNo,
   overlayMappingRecord,
   applyBoardOverlay,
+  resolveHotelMiuDefaultVendors,
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
