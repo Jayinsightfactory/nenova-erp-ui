@@ -340,7 +340,8 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 
 콜롬비아 수국 `Color Grade` 원가자료는 엑셀에 도착원가 수식이 없을 때
 `서류+Rate×CW`, `GW×410`, `품목수×10000` 등 같은 파일 29-1 양식의 표시 원가만
-채워 `WebArrivalCost`에 저장한다. 입고·출고·견적 원장은 보존한다.
+채워 `WebArrivalCost`에 저장한다. 엑셀 수식의 계산값이 비어 있으면 그 수식을
+계산해 `도착원가(송이)`와 같게 맞춘다. 입고·출고·견적 원장은 보존한다.
 
 | 동작 | Product | OrderDetail | WebArrivalCost | Shipment/Estimate/Stock |
 |---|---|---|---|---|

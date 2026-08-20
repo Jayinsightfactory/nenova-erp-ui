@@ -64,6 +64,20 @@ async function main() {
   // 백상=GW*410=4100, 검역=품목수*10000=10000, 그외통관합=4100+33000+10000+500+40000=87600
   // 항공료=서류10+Rate2*CW100=210, 송이운임=21, CNF원화=(1+21)*1500=33000, 도착원가=33000+87600/10=41760
   assert.equal(Math.round(filled.rows[0].sourceArrivalCostKRW), 41760);
+
+  const { hydrateSheetFormulas } = await import('../lib/arrivalCostExcel.js');
+  const formulaSheet = {
+    A1: { t: 'n', v: 2 },
+    B1: { t: 'n', v: 3 },
+    C1: { t: 'z', f: 'A1+B1', v: 0 },
+    D1: { t: 'z', f: 'SUM(A1:B1)*10', v: 0 },
+    E1: { t: 'z', f: '$A$1/$B$1', v: 0 },
+  };
+  hydrateSheetFormulas(formulaSheet);
+  assert.equal(formulaSheet.C1.v, 5);
+  assert.equal(formulaSheet.D1.v, 50);
+  assert.equal(formulaSheet.E1.v, 2 / 3);
+
   console.log('arrival cost excel parser tests passed');
 }
 
