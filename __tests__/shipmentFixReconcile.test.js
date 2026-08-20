@@ -14,6 +14,7 @@ async function main() {
     deriveShipmentDetailStatus,
     deriveStockFixStatus,
     deriveExeAlignedStatus,
+    isDoubleCountStaleSnapshot,
     prodKeysNeedingRecalc,
   } = await import('../lib/shipmentFixReconcile.js');
 
@@ -51,6 +52,17 @@ async function main() {
     });
     assert('negative stock blocks exe', neg.exeAligned === false);
   }
+
+  console.log('\n=== isDoubleCountStaleSnapshot ===');
+  assert('문라이트 스냅샷 1.2 / 출고 142.8 / 주간잔량 +3.7 은 stale', isDoubleCountStaleSnapshot({
+    productStock: 1.2, unfixedOut: 142.8, weekRemain: 3.7,
+  }) === true);
+  assert('주간잔량 -5처럼 진짜 부족은 stale 아님', isDoubleCountStaleSnapshot({
+    productStock: 0, unfixedOut: 10, weekRemain: -5,
+  }) === false);
+  assert('기말 스냅샷이 출고를 아직 안 뺀 정상 미확정은 stale 아님', isDoubleCountStaleSnapshot({
+    productStock: 84, unfixedOut: 84.27, weekRemain: 1,
+  }) === false);
 
   console.log('\n=== prodKeysNeedingRecalc ===');
   assert('skips done', JSON.stringify(prodKeysNeedingRecalc([1, 2, 3], [2])) === JSON.stringify([1, 3]));

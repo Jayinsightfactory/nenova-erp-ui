@@ -871,18 +871,8 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         }
         results.push({ countryFlower: label, ok: true, message: row.message });
         }
-      } else if (skipStockCalc) {
-        const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
-        const retryRow = retry.recordset?.[0] || {};
-        if (retryRow && retryRow.result === 0) {
-          await logFix('fix_sp_retry_ok', `${orderYear}/${orderWeek} ${label} skipStockCalc`);
-          results.push({ countryFlower: label, ok: true, message: retryRow.message });
-        } else {
-          const finalRow = retryRow || row;
-          await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${label} code=${finalRow.result} msg=${finalRow.message || ''}`, true);
-          errors.push({ countryFlower: label, code: finalRow.result, message: finalRow.message || 'unknown' });
-        }
       } else {
+        // skipStockCalc여도 확정 실패(스냅샷이 출고를 이미 뺀 기말인 경우)는 재계산 후 재시도한다.
         let retryRow = null;
         await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
         const preStock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
