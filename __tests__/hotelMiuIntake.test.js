@@ -20,7 +20,6 @@ import {
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
   HOTEL_MIU_WEEK_UNTIL,
 } from '../lib/hotelMiuIntake.js';
-import { normalizeImportUnit } from '../lib/orderImportUnits.js';
 
 function sampleText(kind) {
   if (kind === 'header3') {
@@ -40,7 +39,7 @@ assert.ok(parsed3.rows.length >= 2, '3열 헤더 표에서 행을 읽어야 한�
 const hydrangea = parsed3.rows.find((r) => /수국/.test(r.inputName));
 assert.ok(hydrangea, '수국 행이 있어야 한다.');
 assert.equal(Number(hydrangea.qty), 220);
-assert.equal(normalizeImportUnit(hydrangea.unit), '박스', '대는 박스로 환산한다.');
+assert.equal(hydrangea.unit, '송이', '대는 송이(스팀)로 환산한다.');
 
 const parsed2 = parseHotelMiuText(sampleText('header2'));
 assert.ok(parsed2.rows.some((r) => /수국/.test(r.inputName) && Number(r.qty) === 220), '2열 표도 품명+수량을 읽는다.');
@@ -58,6 +57,7 @@ assert.equal(excelParsed.rows[0].inputName, '장미(화이트몬디알)');
 assert.equal(excelParsed.rows[1].inputName, '카네이션(화이트)');
 assert.equal(excelParsed.rows[2].inputName, '호접(화이트)');
 assert.equal(Number(excelParsed.rows[2].qty), 12);
+assert.equal(excelParsed.rows[2].unit, '송이', '호접 대는 송이다.');
 assert.equal(clipboardLooksLikeOrderText(excelTsv), true);
 assert.equal(clipboardLooksLikeOrderText(''), false);
 assert.equal(clipboardLooksLikeOrderText('hello'), false);
@@ -65,7 +65,7 @@ assert.equal(clipboardLooksLikeOrderText('hello'), false);
 const overlay = overlayMappingRecord('수국 화이트', { ProdKey: 99, ProdName: '수국화이트', DisplayName: '수국 화이트' }, '대');
 assert.equal(overlay.value.prodKey, 99);
 assert.equal(overlay.value.source, 'hotel-miu-board');
-assert.equal(overlay.value.unit, '박스');
+assert.equal(overlay.value.unit, '송이');
 
 const merged = mergeBoardMappings(
   { [overlay.token]: { prodKey: 1, prodName: '공통매핑', source: 'global' } },
@@ -206,8 +206,9 @@ assert.match(page, /href="\/sales\/shilla-miu-allocation"/);
 assert.match(page, /잔량분배표/);
 assert.doesNotMatch(page, /persistImportMatchMappings\(/);
 assert.doesNotMatch(page, /ensureShipmentMaster/);
-assert.match(page, /applyBoardOverlay/);
-assert.match(page, /overlayMappingRecord/);
+assert.match(fs.readFileSync('lib/orderImportUnits.js', 'utf8'), /raw === '대'\) return '송이'/);
+assert.doesNotMatch(fs.readFileSync('lib/orderImportUnits.js', 'utf8'), /raw === '대'\) return '박스'/);
+assert.match(fs.readFileSync('lib/orderUtils.js', 'utf8'), /raw === '개' \|\| raw === '대'/);
 assert.match(page, /maxWidth: 'min\(1680px, 100%\)'/);
 assert.match(page, /minmax\(220px, 280px\)/);
 assert.match(page, /minHeight: 72/);

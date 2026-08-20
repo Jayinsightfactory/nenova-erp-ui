@@ -70,7 +70,7 @@ async function main() {
   assert(parseRaumOrderQty('67박스(2010대)').qty === 67, 'parse box qty');
   assert(parseRaumOrderQty('16박스(160단)').unit === '박스', 'parse box unit');
 
-  assert(normalizeImportUnit('대') === '박스', '대 -> 박스');
+  assert(normalizeImportUnit('대') === '송이', '대 -> 송이');
   assert(normalizeImportUnit('stem') === '송이', 'stem -> 송이');
   assert(normalizeImportUnit('단') === '단', '단 -> 단');
 
@@ -85,10 +85,10 @@ async function main() {
   assert(fromCatalog?.unit === '단', 'catalog rose unit');
 
   const resolved = resolveImportUnit(null, '수국 화이트', { sourceUnit: '', unitCatalog: catalog });
-  assert(resolved.unit === '박스' && resolved.unitSource === 'catalog', 'image uses excel-learned unit');
+  assert(resolved.unit === '송이' && resolved.unitSource === 'catalog', 'image uses excel-learned unit');
 
   const resolvedExplicit = resolveImportUnit(null, '수국 화이트', { sourceUnit: '대' });
-  assert(resolvedExplicit.unit === '박스' && resolvedExplicit.unitSource === 'upload', 'excel explicit unit');
+  assert(resolvedExplicit.unit === '송이' && resolvedExplicit.unitSource === 'upload', 'excel explicit 대 is 송이');
 
   const vision = normalizeVisionItems([{ inputName: '호접 화이트', qty: 15 }]);
   assert(vision.rows.length === 1 && vision.rows[0].unit === '', 'image no unit');
