@@ -21,6 +21,11 @@ const ness = rankProductSearchOptions('네스', [
   { ProdKey: 5, ProdName: 'CARNATION Nelson', DisplayName: '카네이션 넬슨', FlowerName: '카네이션', CounName: '콜롬비아', UsageCount: 1000 },
 ], { limit: 2 });
 assert.equal(ness[0].ProdKey, 4, '한글 품종명 네스는 사용량이 많은 유사 영문명보다 CARNATION Ness를 우선해야 한다.');
+const aliasOnly = scoreNaturalLanguageProducts('문라이트', [
+  { ProdKey: 9, ProdName: 'CARNATION Moon Light', DisplayName: '', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단', MappingAliases: ['문라이트'] },
+  { ProdKey: 8, ProdName: 'ROSE / Candlelight 50cm', DisplayName: '장미 캔들라이트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
+]);
+assert.equal(aliasOnly.candidates[0].prodKey, 9, '매칭데이터 별칭만 있어도 해당 품목이 먼저 나와야 한다.');
 const metrics = calculateMatchingMetrics(Array.from({ length: 20 }, (_, i) => ({ confirmed: true, selectedProdKey: 1, candidateProdKeys: i < 18 ? [1, 2] : [2, 1], candidateScores: [0.9], country: '콜롬비아', flower: '카네이션', createdAt: new Date() })));
 assert.equal(metrics.overall.top1, 0.9);
 assert.equal(metrics.targetMet, true);

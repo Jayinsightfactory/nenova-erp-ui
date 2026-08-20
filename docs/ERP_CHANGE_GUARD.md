@@ -328,6 +328,21 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 없을 때만 오타 후보를 허용한다. 이 계약은 `PRODUCT_LOOKUP_USAGE_RANK`와
 `__tests__/salesDefectDeductions.test.js`가 회귀를 검사한다.
 
+## 2026-08-20 도착원가 품목검색 = 매칭데이터
+
+도착원가 화면 검색은 차수·국가 문자열이 아니라 붙여넣기 매칭데이터
+(`order-mappings`)가 가리키는 `ProdKey`로 행을 찾는다. `OrderWeek`와
+`CountryName`은 결과 표 표시 값이다. 국가명 또는 차수명만 입력한 검색어는
+품목 필터로 쓰지 않는다. 교차연도 충돌을 막기 위해 목록 GET은 `OrderYear`를
+유지한다.
+
+| 동작 | Product | OrderDetail | WebArrivalCost | Shipment/Estimate/Stock |
+|---|---|---|---|---|
+| 품목 검색·품종 탭·페이지 조회 | 읽기 | 읽기(사용량) | 읽기 | 보존 |
+| 전산 품목/농장 선택 후 저장 | 보존 | 보존 | 해당 행만 UPDATE | 보존 |
+
+회귀는 `__tests__/arrivalCostProductSearch.test.js`와 기존 도착원가 계약 테스트가 담당한다.
+
 ## 2026-08-10 붙여넣기 ADD 이월재고 누락 검증
 
 붙여넣기 주문등록의 품목별 ADD 사전검증이 현차수 입고와 수동 재고조정만 가용수량으로

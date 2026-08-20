@@ -10,6 +10,9 @@ assert.doesNotMatch(source, /event\.currentTarget\.reset\(\);/);
 assert.doesNotMatch(source, /import Layout from/);
 assert.doesNotMatch(source, /<Layout title="도착원가">/);
 assert.match(source, /품종을 선택하거나 전체보기를 누르세요/);
+assert.match(source, /매칭데이터/);
+assert.match(source, /applySearch\(\)/);
+assert.doesNotMatch(source, /<label>국가 /);
 assert.match(source, /aria-selected=/);
 assert.match(source, /filters\.orderYear, filters\.orderWeek/);
 
