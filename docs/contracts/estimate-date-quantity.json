@@ -6,7 +6,8 @@
     "pages/api/estimate/index.js",
     "pages/api/estimate/update-date-quantity.js",
     "lib/estimateDateQuantity.js",
-    "__tests__/estimateDateQuantityContract.test.js"
+    "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/estimateAmountVatParity.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -31,6 +32,7 @@
   },
   "requiredTestFiles": [
     "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/estimateAmountVatParity.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js"
   ],

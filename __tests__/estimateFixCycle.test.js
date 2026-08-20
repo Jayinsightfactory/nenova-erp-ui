@@ -42,7 +42,10 @@ async function main() {
   assert('확정 음수검사는 전차수+입고+조정-출고 공식을 사용', fixApi.includes("ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),2) < 0"));
   assert('카테고리형 SP도 전체 음수검사를 우회하지 않음', !fixApi.includes('if (!procedureShape.hasCountryFlower) {\n    const wholeWeekNegativeRows'));
   assert('전차수 음수 이월도 확정을 차단', fixApi.includes('OR ISNULL(prev.Stock,0)<0'));
-  assert('클라이언트 skipStockCalc로 재고 재계산을 우회하지 못함', !fixApi.includes('const skipStockCalc = req.body?.skipStockCalc === true'));
+  assert('확정/해제 SP는 skipStockCalc와 무관하게 실행', fixApi.includes("runShipmentProcedure('usp_ShipmentFix'") && fixApi.includes("runShipmentProcedure('usp_ShipmentFixCancel'"));
+  assert('skipStockCalc는 usp_StockCalculation만 생략한다', fixApi.includes('const skipStockCalc = req.body?.skipStockCalc === true'));
+  assert('원상복구 재확정은 재계산을 생략하지 않음', page.includes('원상복구는 안전 우선'));
+  assert('확정차수 편집은 중간 재고합산을 생략한다', page.includes('confirmedWeekFixCycleStockFlags'));
   assert('부족분 자동보정은 Product.Stock도 EXE 순서대로 갱신', fixApi.includes("UPDATE Product SET Stock=ROUND(@after, 2) WHERE ProdKey=@pk"));
   assert('대량 재고 재계산도 보정 트랜잭션 queryFn을 사용', fixApi.includes('{ retries: 4, baseDelay: 300, queryFn: logContext.queryFn }'));
   const negativeMessage = formatFixApiErrorMessage({

@@ -18,7 +18,8 @@
       "name": "QUANTITY_EDIT",
       "orderDetail": "preserve",
       "shipmentDetail": "increase",
-      "fixCycle": "unfix-save-refix"
+      "fixCycle": "unfix-save-refix",
+      "stockCalc": "keep-unfix-save-refix; skip per-item usp_StockCalculation during intermediate unfix/refix; run once at final refix when OutQuantity changed"
     },
     {
       "name": "QUANTITY_ZERO_PURGE",

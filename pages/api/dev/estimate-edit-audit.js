@@ -122,7 +122,7 @@ export default withAuth(async function handler(req, res) {
        ISNULL(e.Descr,'') AS Descr,
        CASE WHEN ISNULL(e.Quantity,0) > 0 AND ISNULL(e.Amount,0) > 0 THEN 1 ELSE 0 END AS PositiveDeductionRisk,
        CASE WHEN ABS(ROUND(ISNULL(e.Quantity,0) * ISNULL(e.Cost,0) / 1.1, 0) - ISNULL(e.Amount,0)) > 1 THEN 1 ELSE 0 END AS AmountMismatch,
-       CASE WHEN ABS(ROUND(ISNULL(e.Quantity,0) * ISNULL(e.Cost,0) / 11, 0) - ISNULL(e.Vat,0)) > 1 THEN 1 ELSE 0 END AS VatMismatch
+       CASE WHEN ABS((ISNULL(e.Quantity,0) * ISNULL(e.Cost,0) - ROUND(ISNULL(e.Quantity,0) * ISNULL(e.Cost,0) / 1.1, 0)) - ISNULL(e.Vat,0)) > 1 THEN 1 ELSE 0 END AS VatMismatch
      FROM Estimate e
      JOIN ShipmentMaster sm ON sm.ShipmentKey = e.ShipmentKey
      LEFT JOIN Product p ON p.ProdKey = e.ProdKey

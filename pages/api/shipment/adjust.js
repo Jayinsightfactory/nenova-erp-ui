@@ -18,6 +18,7 @@
 
 import { withTransaction, query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
@@ -158,9 +159,7 @@ function weekToShipDateByBaseOutDay(weekStr, yearStr, baseDay) {
 }
 
 function calcShipmentAmount(qty, unitCost) {
-  const amount = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 1.1);
-  const vat = Math.round((Number(qty) || 0) * (Number(unitCost) || 0) / 11);
-  return { amount, vat };
+  return amountVatFromCostEst(unitCost, qty);
 }
 
 function qtyForUnit(row, userUnit, keys) {

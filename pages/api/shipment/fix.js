@@ -664,9 +664,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  // 재고 스냅샷 생략은 클라이언트 요청으로 허용하지 않는다. 브라우저가 확정 사이클
-  // 중간에 닫히거나 후속 호출이 실패하면 Product.Stock과 ProductStock이 영구 불일치한다.
-  const skipStockCalc = false;
+  // skipStockCalc: 확정/해제 SP는 항상 실행한다. 이 플래그는 usp_StockCalculation
+  // 품목별 합산만 생략한다. 확정차수 편집 사이클이 수량 이상을 막은 뒤 중간 합산을
+  // 건너뛸 때 클라이언트가 보낸다. 음수재고 보정 경로는 이 플래그를 쓰지 않는다.
+  const skipStockCalc = req.body?.skipStockCalc === true;
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
@@ -870,6 +871,17 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         }
         results.push({ countryFlower: label, ok: true, message: row.message });
         }
+      } else if (skipStockCalc) {
+        const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
+        const retryRow = retry.recordset?.[0] || {};
+        if (retryRow && retryRow.result === 0) {
+          await logFix('fix_sp_retry_ok', `${orderYear}/${orderWeek} ${label} skipStockCalc`);
+          results.push({ countryFlower: label, ok: true, message: retryRow.message });
+        } else {
+          const finalRow = retryRow || row;
+          await logFix('fix_sp_error', `${orderYear}/${orderWeek} ${label} code=${finalRow.result} msg=${finalRow.message || ''}`, true);
+          errors.push({ countryFlower: label, code: finalRow.result, message: finalRow.message || 'unknown' });
+        }
       } else {
         let retryRow = null;
         await logFix('fix_retry_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
@@ -971,8 +983,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
-  // 확정취소도 항상 스냅샷을 재계산한다. 클라이언트 후속 호출에 정합성을 의존하지 않는다.
-  const skipStockCalc = false;
+  // skipStockCalc: 확정해제 SP는 항상 실행하고, 곧바로 재확정될 사이클의
+  // 중간 스냅샷 합산만 생략한다.
+  const skipStockCalc = req.body?.skipStockCalc === true;
   await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   try {
