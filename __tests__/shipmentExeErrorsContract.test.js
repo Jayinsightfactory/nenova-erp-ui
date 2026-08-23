@@ -74,7 +74,10 @@ async function main() {
   assert.match(stockAdjust, /requireOrderYear\(rawWeek, requestedYear \|\| year \|\| ''\)/, '재고조정은 요청 연도가 없으면 안전하게 중단해야 한다.');
   assert.match(shipmentImportPrealign, /requireOrderYear\(week, year\)/, '엑셀 pre-align은 선택 연도를 필수로 검증해야 한다.');
   assert.match(shipmentFix, /requireOrderYear\(week, req\.body\?\.orderYear \|\| req\.body\?\.year \|\| ''\)/, '확정·확정취소는 선택 연도를 필수로 검증해야 한다.');
-  assert.match(shipmentFix, /WHERE OrderYear=@yr AND OrderWeek > @wk AND isFix=1/, '확정취소의 후속차수 검사는 같은 연도만 조회해야 한다.');
+  assert.match(shipmentFix, /FROM StockMaster[\s\S]*OrderYearWeek > @oyw/, '확정취소의 다음 차수는 StockMaster.OrderYearWeek로 교차연도 1건을 고른다.');
+  assert.match(shipmentFix, /vs\.DetailFix/, '확정취소 다음차수 가드는 ViewShipment.DetailFix를 본다.');
+  assert.match(shipmentFix, /evaluateCheckFixCancel/, '확정취소는 EXE CheckFixCancel 헬퍼를 사용해야 한다.');
+  assert.doesNotMatch(shipmentFix, /OrderWeek > @wk AND isFix=1/, '같은 연도 OrderWeek 문자열 비교로 다음 차수를 고르면 안 된다.');
   assert.match(fixReconcile, /sm\.OrderYear = @yr[\s\S]{0,80}sm\.OrderWeek = @wk/, '확정 후 재계산 대상 품목은 연도와 차수로 격리해야 한다.');
   assert.match(fixReconcile, /WHERE sm\.isDeleted=0 AND sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '확정 후 parity 출고 집계는 연도와 차수로 격리해야 한다.');
   assert.match(fixReconcile, /WHERE OrderYear=@yr AND OrderWeek=@wk/, '확정 후 parity 재고 집계는 연도와 차수로 격리해야 한다.');
