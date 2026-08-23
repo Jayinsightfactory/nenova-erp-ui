@@ -1,0 +1,63 @@
+{
+  "id": "shipment-fix-cancel-gate",
+  "title": "출고확정취소는 다음차수 DetailFix 가드와 재고계산 게이트를 지킨다",
+  "scope": [
+    "lib/shipmentFixCancelGuard.js",
+    "lib/shipmentFixGuards.js",
+    "pages/api/shipment/fix.js",
+    "pages/api/shipment/fix-status.js",
+    "pages/shipment/fix-status.js",
+    "pages/estimate.js",
+    "docs/migrations/2026-08-23_nenova_stock_week_gate.sql",
+    "scripts/apply-nenova-stock-week-gate.js",
+    "__tests__/shipmentFixCancelGuard.test.js",
+    "__tests__/estimateFixCycle.test.js",
+    "docs/exe-golden/FormShipmentDistribution.md"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "EXE_CHECK_FIX_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "stock": "read-only ViewShipment.DetailFix on next StockMaster.OrderYearWeek; force cannot bypass"
+    },
+    {
+      "name": "EXE_UNFIX_THEN_STOCK_CALC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "usp_ShipmentFixCancel 후 별도 연결 usp_StockCalculation. 게이트가 재계산 끝날 때까지 다음 FIX/CANCEL을 대기시킨다. 취소 SP 안에 재계산을 중첩하지 않는다."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "다음 차수는 StockMaster.OrderYearWeek > 현재 OrderYear+REPLACE(OrderWeek,'-','') 인 최신 1건이다. 2025 33-02 다음이 2026 01-01이면 2025 34-01이 아니라 그 키를 본다. 2026 33-02 취소는 2026 34-01 ViewShipment.DetailFix=1 이면 막는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentFixCancelGuard.test.js",
+    "__tests__/estimateFixCycle.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "sideEffects": {
+    "OrderDetail": "none",
+    "Estimate": "none",
+    "WebProfitReport": "none from the gate itself; cancel still sets DetailFix=0 so 견적 노출은 기존 취소와 같다",
+    "usp_StockCalculation": "not nested inside cancel; serialized via NenovaStockWeekGate WAIT_CALC"
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["CheckFixCancel", "GetNextOrderYearWeek", "GetProductFixStatus", "btnFixCancel_Click"],
+    "tables": ["ViewShipment", "StockMaster", "ShipmentDetail", "ProductStock"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

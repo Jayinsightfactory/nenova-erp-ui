@@ -11,6 +11,7 @@ import {
   deriveStockFixStatus,
   reconcileWeekAfterScopedOperation,
 } from '../../../lib/shipmentFixReconcile';
+import { evaluateCheckFixCancel } from '../../../lib/shipmentFixCancelGuard';
 
 function parseWeek(input, explicitYear) {
   const { orderYear, orderWeek } = requireOrderYear(input, explicitYear);
@@ -392,25 +393,42 @@ async function loadUnfixTargets(from, to, countryFlowersFilter = null) {
   );
 }
 
-async function loadLaterFixed(to) {
-  return await query(
-    `SELECT TOP 10
-       ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
-       sm.OrderWeek,
-       ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey
-     FROM ShipmentMaster sm
-     JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-     WHERE sm.isDeleted = 0
-       AND ISNULL(sd.isFix, 0) = 1
-       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) = @defaultYear
-       AND ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') > @toKey
-     GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear), sm.OrderWeek
-     ORDER BY WeekKey ASC`,
-    {
-      defaultYear: { type: sql.NVarChar, value: to.year },
-      toKey:       { type: sql.NVarChar, value: to.key },
-    }
+async function loadLaterFixed(to, countryFlowers = []) {
+  const nextRes = await query(
+    `SELECT TOP 1 OrderYear, OrderWeek, OrderYearWeek
+       FROM StockMaster
+      WHERE OrderYearWeek > @toKey
+      ORDER BY OrderYearWeek, OrderWeek`,
+    { toKey: { type: sql.NVarChar, value: to.key } }
   );
+  const next = nextRes.recordset[0];
+  if (!next) return evaluateCheckFixCancel({ nextWeek: null, products: [] });
+  const cfList = Array.isArray(countryFlowers) ? countryFlowers.filter(Boolean) : [];
+  const cfSql = cfList.length
+    ? `AND vs.CountryFlower IN (${cfList.map((_, i) => `@cf${i}`).join(',')})`
+    : '';
+  const params = { nextOyw: { type: sql.NVarChar, value: next.OrderYearWeek } };
+  cfList.forEach((name, i) => {
+    params[`cf${i}`] = { type: sql.NVarChar, value: name };
+  });
+  const prodRes = await query(
+    `SELECT vs.ProdKey AS prodKey, MAX(vs.ProdName) AS prodName, COUNT(*) AS fixCount
+       FROM ViewShipment vs
+      WHERE vs.OrderYearWeek2 = @nextOyw
+        AND ISNULL(vs.DetailFix, 0) = 1
+        ${cfSql}
+      GROUP BY vs.ProdKey
+     HAVING COUNT(*) > 0`,
+    params
+  );
+  return evaluateCheckFixCancel({
+    nextWeek: {
+      orderYear: next.OrderYear,
+      orderWeek: next.OrderWeek,
+      orderYearWeek: next.OrderYearWeek,
+    },
+    products: prodRes.recordset,
+  });
 }
 
 export default withAuth(async function handler(req, res) {
@@ -467,16 +485,18 @@ export default withAuth(async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { fromWeek, toWeek, orderYear, year, force, countryFlowers } = req.body || {};
+      const { fromWeek, toWeek, orderYear, year, countryFlowers } = req.body || {};
       const { from, to } = normalizeRange(fromWeek, toWeek, orderYear || year);
       const cfFilter = normalizeCountryFlowerFilter(countryFlowers);
-      const later = await loadLaterFixed(to);
-      if (later.recordset.length > 0 && !force) {
+      const laterGuard = await loadLaterFixed(to, cfFilter);
+      if (laterGuard.blocked) {
         return res.status(409).json({
           success: false,
-          warning: 'LATER_FIXED_EXISTS',
-          laterWeeks: later.recordset,
-          error: `선택 구간 이후에 이미 확정된 차수가 있습니다. (${later.recordset.map(r => `${r.OrderYear}-${r.OrderWeek}`).join(', ')})`,
+          code: laterGuard.code,
+          warning: laterGuard.code,
+          nextWeek: laterGuard.nextWeek,
+          products: laterGuard.products,
+          error: laterGuard.error,
         });
       }
 
@@ -546,10 +566,15 @@ export default withAuth(async function handler(req, res) {
 
       const reconcileStockErrors = Object.values(reconcileByWeek).flatMap((r) => r.stockErrors || []);
       const hasStockWarning = stockErrors.length > 0 || reconcileStockErrors.length > 0;
-      return res.status(errors.length ? 207 : 200).json({
-        success: errors.length === 0 && reconcileStockErrors.length === 0,
+      const calcFailed = hasStockWarning;
+      return res.status(errors.length || calcFailed ? (calcFailed && !errors.length ? 409 : 207) : 200).json({
+        success: errors.length === 0 && !calcFailed,
+        code: calcFailed && errors.length === 0 ? 'STOCK_CALC_FAILED' : undefined,
         message: `${from.year}-${from.week} ~ ${to.year}-${to.week} 구간 확정취소: 성공 ${results.length}건 / 실패 ${errors.length}건` +
-                 (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length + reconcileStockErrors.length}건` : ''),
+                 (hasStockWarning ? ` · 재고 재계산 실패 ${stockErrors.length + reconcileStockErrors.length}건` : ''),
+        error: calcFailed && errors.length === 0
+          ? '확정취소는 반영됐지만 재고 재계산에 실패했습니다. 잠시 후 같은 구간을 다시 시도하세요.'
+          : undefined,
         results,
         errors,
         stockResults,

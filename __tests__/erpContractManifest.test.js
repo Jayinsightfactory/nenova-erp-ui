@@ -16,6 +16,7 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'sales-registration-history'), '판매등록 히스토리 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'hotel-miu-intake'), '호텔+미우 주문입력 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'shipment-fix-remain-check'), '출고확정 SP 잔량검사 계약이 등록되어야 합니다.');
+  assert.ok(manifests.some(({ manifest }) => manifest.id === 'shipment-fix-cancel-gate'), '출고확정취소 다음차수 가드·재고게이트 계약이 등록되어야 합니다.');
   console.log('ERP contract manifest tests passed');
 }
 

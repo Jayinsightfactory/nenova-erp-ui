@@ -7,11 +7,78 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { reconcileWeekAfterScopedOperation } from '../../../lib/shipmentFixReconcile';
 import { evaluatePartialCategoryFixBlock, labelsFromCategoryTargets } from '../../../lib/shipmentFixGuards';
+import {
+  evaluateCheckFixCancel,
+  evaluateUnfixStockCalcResult,
+  retryWithDelays,
+} from '../../../lib/shipmentFixCancelGuard';
 import { calculateStockShortage, roundStockQuantity } from '../../../lib/stockShortage.js';
 import { requireOrderYear } from '../../../lib/orderUtils';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function toOrderYearWeekKey(orderYear, orderWeek) {
+  return `${orderYear}${String(orderWeek || '').replace(/-/g, '')}`;
+}
+
+async function loadCheckFixCancel(orderYear, orderWeek, allowedCountryFlowers) {
+  const oyw = toOrderYearWeekKey(orderYear, orderWeek);
+  const nextRes = await query(
+    `SELECT TOP 1 OrderYear, OrderWeek, OrderYearWeek
+       FROM StockMaster
+      WHERE OrderYearWeek > @oyw
+      ORDER BY OrderYearWeek, OrderWeek`,
+    { oyw: { type: sql.NVarChar, value: oyw } }
+  );
+  const next = nextRes.recordset[0];
+  if (!next) return evaluateCheckFixCancel({ nextWeek: null, products: [] });
+
+  const cfList = allowedCountryFlowers ? [...allowedCountryFlowers] : [];
+  const cfSql = cfList.length
+    ? `AND vs.CountryFlower IN (${cfList.map((_, i) => `@cf${i}`).join(',')})`
+    : '';
+  const params = { nextOyw: { type: sql.NVarChar, value: next.OrderYearWeek } };
+  cfList.forEach((name, i) => {
+    params[`cf${i}`] = { type: sql.NVarChar, value: name };
+  });
+  const prodRes = await query(
+    `SELECT vs.ProdKey AS prodKey, MAX(vs.ProdName) AS prodName, COUNT(*) AS fixCount
+       FROM ViewShipment vs
+      WHERE vs.OrderYearWeek2 = @nextOyw
+        AND ISNULL(vs.DetailFix, 0) = 1
+        ${cfSql}
+      GROUP BY vs.ProdKey
+     HAVING COUNT(*) > 0`,
+    params
+  );
+  return evaluateCheckFixCancel({
+    nextWeek: {
+      orderYear: next.OrderYear,
+      orderWeek: next.OrderWeek,
+      orderYearWeek: next.OrderYearWeek,
+    },
+    products: prodRes.recordset,
+  });
+}
+
+async function clearStockWeekGate() {
+  try {
+    await query('EXEC dbo.usp_NenovaStockWeekGateClear');
+  } catch (e) {
+    await logFix('gate_clear_error', e.message, true);
+  }
+}
+
+async function retryStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext = {}) {
+  return retryWithDelays(async (attempt) => {
+    if (attempt > 0) {
+      await logFix('stock_calc_retry', `${orderYear}/${orderWeek} attempt=${attempt + 1}`);
+    }
+    const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext);
+    return { ok: stock.errors.length === 0, results: stock.results, errors: stock.errors };
+  });
 }
 
 function isDeadlockError(err) {
@@ -938,6 +1005,9 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
         forceFullWeekRecalc: Boolean(allowedCountryFlowers),
       });
+  if (skipStockCalc) {
+    await clearStockWeekGate();
+  }
 
   await logFix(
     'fix_done',
@@ -979,29 +1049,40 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
   try {
-    // 후속 차수 확정 상태 경고 (웹 자체 안전장치, SP 와 무관)
-    const laterFix = await query(
-      `SELECT TOP 5 OrderWeek FROM StockMaster
-        WHERE OrderYear=@yr AND OrderWeek > @wk AND isFix=1
-        ORDER BY OrderWeek`,
-      { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek } }
-    );
-    const laterFixed = laterFix.recordset.map(r => r.OrderWeek);
-    if (laterFixed.length > 0 && !req.body.force) {
-      return res.status(400).json({
+    const laterGuard = await loadCheckFixCancel(orderYear, orderWeek, allowedCountryFlowers);
+    if (laterGuard.blocked) {
+      return res.status(409).json({
         success: false,
-        warning: 'LATER_FIXED_EXISTS',
-        laterWeeks: laterFixed,
-        error: `후속 차수가 확정 상태입니다: ${laterFixed.join(', ')}\n` +
-               `이 차수만 풀면 후속 차수 재고가 옛 값 기반으로 남습니다.\n` +
-               `강제 진행: body.force=true 추가`,
+        code: laterGuard.code,
+        warning: laterGuard.code,
+        nextWeek: laterGuard.nextWeek,
+        products: laterGuard.products,
+        error: laterGuard.error,
       });
     }
 
-    // 확정(DetailFix=1) 상태인 CountryFlower 목록
     const categoryTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 1, allowedCountryFlowers);
 
     if (categoryTargets.length === 0) {
+      if (skipStockCalc) {
+        await clearStockWeekGate();
+      } else {
+        const prodKeys = await loadShipmentProdKeys(orderYear, orderWeek, null, 'ALL');
+        const stock = await retryStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+          prefix: 'unfix_stock_calc',
+          label: 'already-unfixed',
+        });
+        const calcCheck = evaluateUnfixStockCalcResult({ stockErrors: stock.errors });
+        if (!calcCheck.ok) {
+          return res.status(409).json({
+            success: false,
+            code: calcCheck.code,
+            warning: calcCheck.code,
+            error: calcCheck.error,
+            stockErrors: stock.errors,
+          });
+        }
+      }
       return res.status(200).json({
         success: true,
         message: `[${week}] 확정 취소 대상 없음 (이미 모두 미확정 상태)`,
@@ -1034,7 +1115,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
             results.push({ countryFlower: label, ok: true, message: row.message });
           } else {
           await logFix('unfix_stock_calc_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
-          const stock = await runStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
+          const stock = await retryStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
             prefix: 'unfix_stock_calc',
             label,
           });
@@ -1080,18 +1161,38 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);
     const requiresAllCategoryFix = pendingUnfixed.length > 1;
 
+    if (skipStockCalc) {
+      await clearStockWeekGate();
+    }
+
+    const calcCheck = evaluateUnfixStockCalcResult({
+      skipStockCalc,
+      stockErrors,
+      reconcileStockErrors: reconcile.stockErrors,
+    });
     const hasStockWarning = stockErrors.length > 0 || reconcile.stockErrors.length > 0;
     await logFix(
       'unfix_done',
       `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length} reconcile=${reconcile.recalculatedCount} pendingUnfixed=${pendingUnfixed.length}`,
       errors.length > 0 || hasStockWarning,
     );
+    if (!calcCheck.ok) {
+      return res.status(409).json({
+        success: false,
+        code: calcCheck.code,
+        warning: calcCheck.code,
+        error: calcCheck.error,
+        results,
+        errors,
+        stockResults,
+        stockErrors,
+        reconcile,
+      });
+    }
     return res.status(200).json({
-      success: errors.length === 0 && reconcile.stockErrors.length === 0,
+      success: errors.length === 0,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +
                (errors.length > 0 ? ` (${errors.length}개 실패)` : '') +
-               (hasStockWarning ? ` · 재고 재계산 경고 ${stockErrors.length + reconcile.stockErrors.length}건` : '') +
-               (laterFixed.length > 0 ? ` ⚠ 후속차수 ${laterFixed.join(',')} 재확정 권장` : '') +
                (requiresAllCategoryFix
                  ? ` · 재확정 시 미확정 ${pendingUnfixed.length}개 카테고리를 한 번에 확정하세요 (${pendingUnfixedLabels.join(', ')})`
                  : '') +
@@ -1100,8 +1201,6 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       errors,
       stockResults,
       stockErrors,
-      stockWarning: hasStockWarning,
-      laterFixed,
       reconcile,
       parity: reconcile.parity,
       pendingUnfixedCategories: pendingUnfixedLabels,

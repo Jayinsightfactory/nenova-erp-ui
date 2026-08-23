@@ -716,6 +716,12 @@ EXEC dbo.usp_ShipmentFix
    `제품 잔량이 마이너스인 출고 정보가 존재합니다.` 유지.
    **주의**: 당주차 ProductStock `isFix` 필터는 원래도 없었다. 패치 후에도 스냅샷 `isFix`로
    잔량을 판단하지 않는다.
+
+   **확정취소 재발 방지 (2026-08-23)**: EXE `CheckFixCancel`은 다음 `StockMaster.OrderYearWeek`의
+   `ViewShipment.DetailFix=1`만 본다. 웹이 `StockMaster.isFix` + `force`로 우회하면 33-02를
+   푼 채 34-01이 확정으로 남아 `Product.Stock`이 음수가 된다. 웹 가드를 EXE와 같게 맞추고,
+   `NenovaStockWeekGate`로 취소 직후 재계산이 끝날 때까지 다음 FIX/CANCEL을 대기시킨다.
+   취소 SP 안에 `usp_StockCalculation`을 넣지 않는다.
 3. **출고일 합산 검증** — `ShipmentDate.ShipmentQuantity` 합과 `OutQuantity` 일치 확인
 4. **isFix 설정** — Detail 1, Master 는 미확정 detail 없으면 1 / 있으면 0
 5. **StockHistory 기록** — `BeforeValue=p.Stock, AfterValue=p.Stock-OutQuantity, ChangeType='출고'`

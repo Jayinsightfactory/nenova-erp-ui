@@ -818,15 +818,8 @@ export default function Estimate() {
     setFixLogSince(Date.now() - 3000);
     setFixServerLogs([]);
     try {
-      const { data: d } = await postShipmentFix({ week: subWeek, orderYear: yearStr, action: 'unfix', force });
+      const { data: d } = await postShipmentFix({ week: subWeek, orderYear: yearStr, action: 'unfix' });
       if (!d.success) {
-        // 후속차수 확정 경고면 강제 진행 옵션 제공
-        if (d.warning === 'LATER_FIXED_EXISTS') {
-          if (confirm(`${d.error}\n\n그래도 강제 진행하시겠습니까?`)) {
-            return await unfixOneWeek(subWeek, true);
-          }
-          return;
-        }
         alert(`확정 취소 실패: ${d.error || '알 수 없는 오류'}`);
         return;
       }
@@ -985,18 +978,11 @@ export default function Estimate() {
           orderYear: yearStr,
           fromWeek,
           toWeek,
-          force,
           ...(getFixStatusCountryFlowers().length ? { countryFlowers: getFixStatusCountryFlowers() } : {}),
         }),
       });
       const data = await res.json();
       if (!data.success) {
-        if (data.warning === 'LATER_FIXED_EXISTS' && !force) {
-          if (confirm(`${data.error}\n\n그래도 구간 확정취소를 진행할까요?`)) {
-            return await unfixRangeToSelectedWeek(true);
-          }
-          return;
-        }
         throw new Error(data.error || '구간 확정취소 실패');
       }
 
@@ -3426,7 +3412,6 @@ export default function Estimate() {
             week: row.OrderWeek,
             orderYear: yearStr,
             action: 'unfix',
-            force,
             ...(countryFlowers.length ? { countryFlowers } : {}),
           }));
         } catch (e) {
@@ -3436,14 +3421,7 @@ export default function Estimate() {
           }
           throw e;
         }
-        if (!data.success && data.warning === 'LATER_FIXED_EXISTS' && !force) {
-          const later = (data.laterWeeks || []).join(', ');
-          if (confirm(`${row.OrderWeek} 이후 확정 차수(${later})가 있습니다.\n후속 재고에 영향을 줄 수 있습니다. 그래도 이 차수만 확정취소할까요?`)) {
-            await unfixSelectedFixStatusWeeks(true);
-            return;
-          }
-          errors.push(`${row.OrderWeek}: 후속 확정 차수가 있어 중단`);
-        } else if (!data.success) errors.push(formatFixApiErrorMessage(data, row.OrderWeek));
+        if (!data.success) errors.push(formatFixApiErrorMessage(data, row.OrderWeek));
         else {
           if (data.requiresAllCategoryFix) {
             warnings.push(`${row.OrderWeek}: 재확정 시 미확정 카테고리 전체 확정 필요 (${(data.pendingUnfixedCategories || []).join(', ')})`);
