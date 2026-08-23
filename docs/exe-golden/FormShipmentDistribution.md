@@ -152,3 +152,26 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
   `OrderWeek` 단독으로 전년도 동일 차수를 이월로 쓰지 않는다.
 - 이 확인은 로컬 decompile 원문과 운영 SP 정의의 읽기 전용 대조이며, 주문·출고 수량 원장
   쓰기는 수행하지 않았다. SP 정의 ALTER는 별도 마이그레이션으로 적용한다.
+
+## 확정취소 다음차수 가드·재고게이트 (2026-08-23)
+
+```powershell
+$cli = 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe'
+$exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+& $cli --no-color -t CommonLogic $exe
+& $cli --no-color -t FormShipmentDistribution $exe
+```
+
+- `CheckFixCancel`(`CommonLogic.cs:450`)은 `GetNextOrderYearWeek`로 **다음 `StockMaster.OrderYearWeek` 1건**만 고른 뒤,
+  `GetProductFixStatus(nextOrderYearWeek, countryFlower, isFix=1)`로 `ViewShipment.DetailFix=1` 품목을 센다.
+  1개라도 있으면 `"다음차수에 확정된 제품이 N개 존재합니다. 다음차수 확정 취소 후 시도해주세요."` 로 막는다.
+  `StockMaster.isFix`와 `force` 우회는 없다.
+- `GetNextOrderYearWeek`는 `StockMaster.OrderYearWeek > 현재` 오름차순 1건이다. `OrderWeek` 문자열 비교나 같은 연도만 보지 않는다.
+- `btnFixCancel_Click`는 이 가드 통과 후 `uspShipmentFixCancel`을 호출하고, **별도 연결**로 `uspStockCalculation(year, week, 0)`을 호출한다.
+  취소 커밋과 재계산은 한 트랜잭션이 아니다.
+- 웹·EXE 재발을 막기 위해 `usp_ShipmentFix` / `usp_ShipmentFixCancel` / `usp_StockCalculation` 시작·종료에
+  `NenovaStockWeekGate`를 넣는다. 취소 성공 후에는 `WAIT_CALC`로 다음 FIX/CANCEL을 재계산 완료까지 대기시킨다.
+  취소 SP 안에 재계산을 중첩하지 않는다. 고정 `WAITFOR DELAY`는 쓰지 않는다.
+- 웹 확정취소 API는 위 CheckFixCancel과 같은 `ViewShipment.DetailFix` 가드를 쓰고, `body.force`로 우회하지 않는다.
+  재계산이 실패하면 취소를 성공으로 응답하지 않는다. 견적 `skipStockCalc` 중간 단계는 게이트를 비운다.
+- 이 확인은 로컬 decompile 원문의 읽기 전용 대조이며, dnSpy/WinForms 패치는 하지 않는다.

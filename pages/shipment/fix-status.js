@@ -140,17 +140,10 @@ export default function ShipmentFixStatus() {
       const res = await fetch('/api/shipment/fix-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderYear, fromWeek: fromInput.value, toWeek: toInput.value, force }),
+        body: JSON.stringify({ orderYear, fromWeek: fromInput.value, toWeek: toInput.value }),
       });
       const data = await res.json();
-      if (res.status === 409 && data.warning === 'LATER_FIXED_EXISTS') {
-        const later = (data.laterWeeks || []).map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
-        if (confirm(`선택 구간 이후 확정 차수가 있습니다.\n${later}\n\n그래도 선택 구간만 확정취소할까요?`)) {
-          await unfixRange(true);
-        }
-        return;
-      }
-      if (!data.success && (!data.results || data.results.length === 0)) {
+      if (!data.success) {
         throw new Error(data.error || data.message || '확정취소 실패');
       }
       setWorkStatus('확정취소 완료 — 현황 갱신 중');

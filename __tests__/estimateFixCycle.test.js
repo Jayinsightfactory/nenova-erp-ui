@@ -44,6 +44,12 @@ async function main() {
   assert('전차수 음수 이월도 확정을 차단', fixApi.includes('OR ISNULL(prev.Stock,0)<0'));
   assert('확정/해제 SP는 skipStockCalc와 무관하게 실행', fixApi.includes("runShipmentProcedure('usp_ShipmentFix'") && fixApi.includes("runShipmentProcedure('usp_ShipmentFixCancel'"));
   assert('skipStockCalc는 usp_StockCalculation만 생략한다', fixApi.includes('const skipStockCalc = req.body?.skipStockCalc === true'));
+  assert('다음차수 취소 가드는 ViewShipment.DetailFix', fixApi.includes('vs.DetailFix'));
+  assert('다음차수는 StockMaster.OrderYearWeek', fixApi.includes('OrderYearWeek > @oyw'));
+  assert('force로 다음차수 가드를 우회하지 않음', !fixApi.includes('laterFixed.length > 0 && !req.body.force'));
+  assert('재계산 실패 시 취소를 성공 처리하지 않음', fixApi.includes('evaluateUnfixStockCalcResult'));
+  assert('skipStockCalc는 재고게이트를 비운다', fixApi.includes('usp_NenovaStockWeekGateClear'));
+  assert('단건 취소는 later-fixed를 force로 재시도하지 않음', !page.includes('return await unfixOneWeek(subWeek, true)'));
   assert('skipStockCalc 확정 실패도 재계산 후 재시도', fixApi.includes('skipStockCalc여도 확정 실패') && !fixApi.includes('} else if (skipStockCalc) {\n        const retry = await runShipmentProcedure(\'usp_ShipmentFix\''));
   assert('원상복구 재확정은 재계산을 생략하지 않음', page.includes('원상복구는 안전 우선'));
   assert('확정차수 편집은 중간 재고합산을 생략한다', page.includes('confirmedWeekFixCycleStockFlags'));
@@ -61,6 +67,8 @@ async function main() {
   assert('이전차수 미확정오류에 카테고리·품목·출고수량·행수 표시', lowerMessage.includes('[콜롬비아카네이션] CARNATION Doncel — 출고 5 · 미확정 2행'));
   assert('확정 결과 UI가 줄바꿈 세부정보를 보존', page.includes("whiteSpace: 'pre-wrap'"));
 
+  const cancelGuard = spawnSync(process.execPath, ['__tests__/shipmentFixCancelGuard.test.js'], { stdio: 'inherit' });
+  assert('확정취소 CheckFixCancel/재고게이트 계약', cancelGuard.status === 0);
   const yearContract = spawnSync(process.execPath, ['__tests__/estimateFixStatusYearContract.test.js'], { stdio: 'inherit' });
   assert('확정현황 선택연도/교차연도 계약', yearContract.status === 0);
   const editYearContract = spawnSync(process.execPath, ['__tests__/estimateEditYearContract.test.js'], { stdio: 'inherit' });
