@@ -5,7 +5,7 @@
 - 계약: `docs/contracts/weekly-profit-report.json`
 - EXE 근거: `docs/exe-golden/FormProfitReport.md`
 - 입력 근거: `.verify/inputs/profit-report-weeks-22-28/week-28.xlsx` (원본 변경 금지)
-- 상태: 통합 완료 — 아래 exact-week 과세환율 정책이 과거 carry/fallback 초안을 대체함
+- 상태: 통합 완료 — 2026-08-24 사용자 확정으로 exact-week 우선 + 무매입 차수 제한 이월 정책 적용
 
 ## 1. 문제와 목표
 
@@ -13,8 +13,8 @@
 
 1. `Product.CounName='국내'`, `FlowerName='왁스'`인 경영지원 placeholder 중 `CARNATION/CHINA`, `ETC/ CHINA`, `ROSE / CHINA`는 원본 구매현황에서 중국으로 분류된다. 국가 단서 `CHINA`가 화종 단서 `CARNATION`/`ROSE`보다 먼저 적용되어야 한다.
 2. 같은 `국내/왁스` placeholder인 `샘플/단`, `샘플/송이`는 원본 28차 보고서에서 `국내` 그 외 매출로 합산된다. 이를 `기타(미분류)`로 보내면 원본의 국내 매출 619,546원이 사라진다.
-3. 호주는 28차부터 H/R 원천 검증 대상이고 통화는 AUD다. R의 실제 계산값은 증거가 있는 현재차수 H/R/S override 뒤에, 당주 `FreightCost.ExchangeRate`, 동일 주차 `WebTaxableRate`, 22~27 historical registry, 28차 이후 KCS 고시환율 중 정확한 주차 원천만 사용한다.
-4. 전차수 `WebProfitReport.R`과 `CurrencyMaster`는 입력 제안 근거일 수 있으나 자동 계산값으로 상속하지 않는다. 정확한 `OrderYear+OrderWeek` 증거가 없으면 `INPUT_REQUIRED`다.
+3. 호주는 28차부터 H/R 원천 검증 대상이고 통화는 AUD다. R은 현재 차수의 수기 확정값, `FreightCost.ExchangeRate`, 동일 주차 저장값, 22~27 historical registry, 28차 이후 KCS 고시환율 중 정확한 원천을 우선 사용한다.
+4. 현재 차수에 재고화 대상 매입이 있으면 exact R이 없을 때 `INPUT_REQUIRED`다. 매입이 없을 때만 직전 대차수부터 최근 exact R을 순차 이월하며, 이 제한 규칙은 호주뿐 아니라 모든 국가·화종·통화에 동일하다. `CurrencyMaster`는 항상 참고 제안 전용이다.
 
 목표는 국가/화종/통화/입력 시작 차수/과세환율 우선순위를 DB 없는 순수 resolver에 모으고 SQL 분류와 API 계산이 같은 계약을 사용하도록 만드는 것이다.
 
@@ -84,7 +84,7 @@ SQL `CASE`와 JavaScript 분류 함수는 같은 resolver 규칙/상수에서 �
 2. 당주 `FreightCost.ExchangeRate` 구매금액 가중 스냅샷
 3. 동일 주차 저장 `WebTaxableRate`
 4. 22~27 historical registry 또는 28차 이후 KCS 고시환율
-5. 원천 없음 — 전차수/CurrencyMaster 자동 fallback 금지
+5. 원천 없음 — 매입 차수의 전차수 fallback과 CurrencyMaster 자동 적용 금지
 
 자동값과 실효값을 분리한다. source에는 선택된 정확 주차 원천과 evidence metadata를 남긴다.
 
@@ -100,7 +100,7 @@ SQL `CASE`와 JavaScript 분류 함수는 같은 resolver 규칙/상수에서 �
 
 - 보고서 조회/저장 업무키는 `OrderYear + MajorWeek`이며, 원천 ERP 조회는 `OrderYear + OrderWeek`를 함께 사용한다.
 - 2025년 28차와 2026년 28차가 동시에 있어도 2026 조회는 2025 `WarehouseMaster`, `FreightCost`, `WebProfitReport.R`을 후보로 사용하지 않는다.
-- 전차수 R은 자동 후보가 아니다. 01차 연도 경계에서도 정확한 대상 연도·주차 evidence 없이는 환율을 추정하지 않는다.
+- 매입이 있는 차수에서는 전차수 R을 자동 후보로 쓰지 않는다. 매입이 없는 차수만 직전 대차수부터 최근 exact R을 제한적으로 이어 사용한다. 01차는 전년도 52차부터 탐색하며 같은 차수 번호의 다른 연도를 임의로 섞지 않는다.
 
 ## 5. side-effect matrix
 

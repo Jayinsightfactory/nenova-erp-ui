@@ -1,6 +1,7 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
 // 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F 확정재고·H통관비·R환율·S포워딩USD
-// 직접 입력은 정확한 차수 과세환율(R) 원천이 없을 때만 본표에 연다. H/S는 각 원천 화면에서 관리한다.
+// 직접 입력은 현재 차수에 매입이 있는데 정확한 과세환율(R) 원천이 없을 때만 본표에 연다.
+// 매입이 없는 차수는 최근 이전 차수의 정확한 환율을 이어 사용한다. H/S는 각 원천 화면에서 관리한다.
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -185,6 +186,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const warn = needsCheck(row, col) || missingRate;
   const suggestionText = (row.rateSuggestions || [])
     .map(sg => `${sg.label} ${Number(sg.rate).toLocaleString()}`).join(' / ');
+  const carryText = col === 'R' && row.rateCarry?.note ? row.rateCarry.note : '';
   const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
     ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
@@ -203,7 +205,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const titles = {
     R: missingRate
       ? `⚠ 이 차수의 ${row.currency || '-'} 과세환율(관세청 신고환율) 원천이 없습니다. 통관 신고 환율을 이 칸에 입력하고 저장하세요.${suggestionText ? ` (참고값: ${suggestionText} — 참고값은 적용·저장해야 계산에 들어갑니다)` : ''}`
-      : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 자동 적용은 "정확히 이 차수" 원천만 합니다: 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값. 통화마스터 현재 환율과 전차수 값은 참고 제안일 뿐 자동 적용하지 않습니다. 인보이스 과세환율과 다르면 직접 입력하세요.`,
+      : carryText
+        ? `과세환율(관세청 신고환율, ${row.currency || '-'}) — ${carryText}. 현재 차수에 새 매입이 생기면 이월값을 쓰지 않고 해당 차수의 정확한 과세환율을 요구합니다.`
+        : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값 → 관세청 공식 환율 순으로 적용합니다. 현재 차수에 매입이 없을 때만 가장 최근의 정확한 과세환율을 이어 사용하며, 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
     E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
@@ -899,7 +903,7 @@ export default function ProfitReportPage() {
         ) : (
           <>자동 입력: 매출·구매·재고수량·항공료는 전산에서 불러옵니다. <b>기초·기말상품재고액은 확정 재고수량에 확인된 매입원가를 적용</b>합니다.
           그외통관비, 원천이 없는 과세환율, 자동으로 계산할 수 없는 재고 매입단가만 아래 <b>입력·확인 필요</b> 영역에서 입력하세요. 판매·분배단가는 재고 매입원가로 사용하지 않습니다.
-          과세환율은 해당 차수의 입고별 과세환율 → 해당 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 원천이 없으면 표의 환율 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          과세환율은 해당 차수의 입고별 과세환율 → 해당 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 → 28차 이후 관세청 공식 환율 순서로 사용합니다. 이번 차수에 매입이 없으면 최근 이전 차수의 정확한 환율을 이어 사용하고, 매입이 있는데 원천이 없을 때만 표의 환율 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}
@@ -1153,7 +1157,7 @@ export default function ProfitReportPage() {
 
                 {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
                   <div style={st.attentionBanner}>
-                    ⚠ <b>과세환율 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
+                    ⚠ <b>과세환율 입력 필요</b> — 이번 차수에 매입이 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다. 매입이 없는 행은 최근 이전 차수의 정확한 환율을 자동으로 이어 사용합니다.
                     해당 행의 환율 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
                     <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
                       자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
