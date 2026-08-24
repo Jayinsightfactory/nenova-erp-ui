@@ -5,6 +5,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
+import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1159,6 +1160,7 @@ export default function RaumPnlPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
+  const [listView, setListView] = useState('weekly');
   // 여러 차수 XLSX는 편집본을 브라우저에 신뢰하지 않는다. 저장 시 원본 파일을 다시
   // multipart로 보내 서버가 재파싱·stale 검사를 한 뒤 한 transaction으로 반영한다.
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -1709,6 +1711,7 @@ export default function RaumPnlPage() {
   const nenovaPct = detail ? Number(detail.meta.nenovaPct) || 0 : 80;
   const totals = useMemo(() => (detail ? computeTotals(detail.items, nenovaPct) : null), [detail, nenovaPct]);
   const hasRef = detail ? detail.items.some(it => it.refPrice != null) : false;
+  const monthlySummary = useMemo(() => buildRaumPnlMonthlySummary(list), [list]);
   const gridMultiNames = useMemo(
     () => (detail ? multiPriceNames(detail.items.filter(it => !it.isCustom)) : new Set()),
     [detail]
@@ -1760,6 +1763,12 @@ export default function RaumPnlPage() {
           {uploading ? '분석 중…' : '📤 견적서 업로드'}
         </button>
         <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button>
+        {!detail && !bulkPreview ? (
+          <>
+            <button style={listView === 'weekly' ? st.btnPrimary : st.btn} onClick={() => setListView('weekly')}>차수별 목록</button>
+            <button style={listView === 'monthly' ? st.btnPrimary : st.btn} onClick={() => setListView('monthly')}>월별 합산</button>
+          </>
+        ) : null}
         {detail ? (
           <>
             <button style={st.btn} onClick={() => { setDetail(null); setMessage(''); setError(''); }}>← 결산 목록</button>
@@ -1828,6 +1837,35 @@ export default function RaumPnlPage() {
               })}
             </tbody>
           </table>
+        </div>
+      ) : !detail && listView === 'monthly' ? (
+        <div>
+          <div style={{ ...st.ok, marginBottom: 10 }}>견적일 기준 월별 합산입니다. 차수별 저장 비율을 적용한 네노바·미우 이익을 합산합니다.</div>
+          {!monthlySummary.length ? (
+            <div style={{ fontSize: 13.5, color: '#64748b', padding: '30px 0' }}>월별 집계할 저장 자료가 없습니다.</div>
+          ) : (
+            <table style={{ ...st.table, maxWidth: 1250 }}>
+              <thead><tr>{['월', '포함 차수', '차수 수', '총 매출', '사입 매출', '손익 대상 매출', '총 매입', '총 이익', '이익률', '네노바 이익', '미우 이익', '단가 미입력'].map(label => <th key={label} style={st.th}>{label}</th>)}</tr></thead>
+              <tbody>
+                {monthlySummary.map(month => (
+                  <tr key={month.month}>
+                    <td style={{ ...st.td, fontWeight: 700 }}>{month.month.replace('-날짜미지정', '년 날짜 미지정')}</td>
+                    <td style={{ ...st.td, whiteSpace: 'normal' }}>{month.weeks.join(', ')}</td>
+                    <td style={{ ...st.td, ...st.num }}>{month.count}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.sale)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.consignedSale)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.pnlSale)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.cost)}</td>
+                    <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(month.profit)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{month.rate == null ? '-' : pct(month.rate)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.nenova)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(month.miu)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{month.missingCost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       ) : !detail ? (
         // ── 결산(히스토리) 목록 ──
