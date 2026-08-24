@@ -58,6 +58,38 @@ const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
 const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
 // 이익률 분석의 변동요인(drivers) 컬럼 라벨 — COLUMN_DEFS 라벨과 동일한 용어를 그대로 재사용.
 const DRIVER_LABELS = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품 금액(구매)', H: '그외통관비', T: '포워딩 원화환산' };
+// 검증 안내(audit issue) 렌더링 전용 — 내부 열 문자(E/F/H/S/R 등)를 그대로 보여주지 않고
+// 사람이 읽는 한글로 바꾼다. audit 객체 자체(code/columns/message)는 서버 값 그대로 두고 UI 출력 단계에서만 변환.
+const ISSUE_COLUMN_LABELS = {
+  ...Object.fromEntries(COLUMN_DEFS.filter(cd => cd.key !== 'category').map(cd => [cd.key, cd.label])),
+  E: '기초재고 매입단가', F: '기말재고 매입단가', H: '그외통관비', S: '항공료·포워딩', R: '과세환율',
+};
+
+// 서버 감사 메시지는 계산 계약을 위해 내부 열 문자를 유지한다. 화면에 표시할 때만
+// 사용자가 바로 이해할 수 있는 업무 용어로 바꾸며 원본 응답과 저장값은 변경하지 않는다.
+function humanizeAuditMessage(message) {
+  return String(message || '')
+    .replace(/VERIFIED/g, '확인된')
+    .replace(/기초 재고수량은 있지만 전차수 확정 스냅샷 시점의 확인된 품목 단가 근거가 부족합니다\./g,
+      '기초재고 수량은 있으나 매입단가를 자동으로 찾지 못했습니다.')
+    .replace(/기말 재고수량은 있지만 동일 스냅샷 시점의 확인된 품목 단가 근거가 (\d+)건 부족합니다\./g,
+      '기말재고 수량은 있으나 매입단가를 자동으로 찾지 못한 품목이 $1건 있습니다.')
+    .replace(/\[E\]/g, '[기초재고 매입단가]')
+    .replace(/\[F\]/g, '[기말재고 매입단가]')
+    .replace(/\[H\]/g, '[그외통관비]')
+    .replace(/\[S\]/g, '[항공료·포워딩]')
+    .replace(/\[R\]/g, '[과세환율]')
+    .replace(/E 최종값/g, '기초상품재고액')
+    .replace(/F 최종값/g, '기말상품재고액')
+    .replace(/기초상품재고액을 직접 입력하지 말고 해당 품목 단가 근거를 등록해야 합니다\./g,
+      '위의 ‘재고 매입단가 입력’에서 해당 품목의 매입단가를 입력하세요.')
+    .replace(/기말상품재고액을 직접 입력하지 말고 해당 품목 단가 근거를 등록해야 합니다\./g,
+      '위의 ‘재고 매입단가 입력’에서 해당 품목의 매입단가를 입력하세요.')
+    .replace(/S 원천/g, '항공료·포워딩 원천')
+    .replace(/R 입력칸/g, '과세환율 입력칸')
+    .replace(/과세환율\(R\)/g, '과세환율')
+    .replace(/C\/D\/I\/J\/K|C·D·I·J·K/g, '매출액·매출비율·매출원가·매출이익·이익률');
+}
 
 // 읽기전용 표시값 — 합계행 / 차수별 뷰의 차수 합계행 / 세부표(읽기전용)에 공용
 function readonlyValue(key, obj, ctx) {
@@ -138,15 +170,15 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
     ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
-    verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
+    verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 확인된 품목 단가 근거',
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
     verified_freight_arrival_calc: 'EXE ProductStock 수량 × 동일 연도·세부차수 입고·항공료 원장으로 계산한 도착원가',
-    verified_carried_acquisition_cost: 'EXE ProductStock 수량 × 같은 연도·품목·단위의 이전 VERIFIED 매입원가(근거 이후 새 매입이 없을 때만 이월)',
+    verified_carried_acquisition_cost: 'EXE ProductStock 수량 × 같은 연도·품목·단위의 이전 확인된 매입원가(근거 이후 새 매입이 없을 때만 이월)',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
     verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
-    missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 VERIFIED 단가 근거가 부족합니다',
+    missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 확인된 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
   };
@@ -652,7 +684,8 @@ export default function ProfitReportPage() {
   const forwardingSourceReviewNeeded = auditIssues.some(issue => String(issue.code || '').startsWith('FORWARDING_'));
   const requiredInputCount = validationRateRows.length
     + (stockPriceInputNeeded ? 1 : 0)
-    + (customsInputNeeded ? 1 : 0);
+    + (customsInputNeeded ? 1 : 0)
+    + (forwardingSourceReviewNeeded ? 1 : 0);
   // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
   // 접고 펼치는 것은 다음 조회 전까지 유지).
   useEffect(() => {
@@ -680,7 +713,7 @@ export default function ProfitReportPage() {
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
               {isVisible('category') && (
                 <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
-                  title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                  title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(매출액·매출비율·매출원가·매출이익·이익률)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
                   {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
                 </td>
               )}
@@ -761,19 +794,6 @@ export default function ProfitReportPage() {
                 title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
-              {stockPriceInputNeeded && <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동으로 찾지 못한 재고 매입단가만 입력합니다'}>
-                🏷 필요한 재고 매입단가
-              </button>}
-              {customsInputNeeded && <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
-                📦 필요한 그외통관비{showCustoms ? ' ▲' : ' ▼'}
-              </button>}
-              {forwardingSourceReviewNeeded && <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '금액을 임의 입력하지 않고 누락된 항공료 전표 연결을 확인합니다'}>
-                🚢 포워딩 원천 확인{showForwarding ? ' ▲' : ' ▼'}
-              </button>}
-              {requiredInputCount > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: '#b45309' }}>입력 필요 {requiredInputCount}건</span>}
             </>
           ) : viewMode === 'weeks' ? (
             <>
@@ -858,10 +878,9 @@ export default function ProfitReportPage() {
         {viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
-          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 마지막 EXE ProductStock 수량에 원본 엑셀의 카테고리 평균원가 공식 또는 검증된 품목 단가를 적용</b>합니다.
-          평균원가 공식은 원본 수식이 확인된 콜롬비아 5품종·베트남에만 적용합니다. 명시적 샘플 품목은 정확한 단가가 없을 때만 같은 재고시점·동일 단위 비샘플 품목의 <b>검증된 매입원가</b> 평균을 사용합니다. 판매·분배단가는 재고원가에 사용하지 않습니다. 그 밖의 품종은 검증 매입원가가 없을 때만 입력 대상으로 표시하며 최근원가·Product.Cost로 임의 대체하지 않습니다. H는 그외통관비 구성요소, S는 항공료 전표에서 계산하고, R은 해당 차수 원천이 없을 때만 입력칸을 엽니다.
-          환율(R)은 정확히 그 차수의 입고별 과세환율 스냅샷 → 그 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 전차수 환율과 CurrencyMaster 현재 환율은 참고 제안일 뿐 자동 계산에는 넣지 않습니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
-          포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
+          <>자동 입력: 매출·구매·재고수량·항공료는 전산에서 불러옵니다. <b>기초·기말상품재고액은 확정 재고수량에 확인된 매입원가를 적용</b>합니다.
+          그외통관비, 원천이 없는 과세환율, 자동으로 계산할 수 없는 재고 매입단가만 아래 <b>입력·확인 필요</b> 영역에서 입력하세요. 판매·분배단가는 재고 매입원가로 사용하지 않습니다.
+          과세환율은 해당 차수의 입고별 과세환율 → 해당 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 순서로 사용합니다. 원천이 없으면 표의 환율 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}
@@ -899,7 +918,7 @@ export default function ProfitReportPage() {
             확정 후에는 원천 데이터가 바뀌어도 이 값이 자동으로 바뀌지 않습니다 — 값을 다시 반영하려면 확정을 취소한 뒤 다시 확정해야 합니다.
             {data.audit?.errorCount > 0 ? (
               <div style={{ marginTop: 8, padding: 9, background: '#fff7ed', border: '1px solid #f97316', borderRadius: 8, color: '#9a3412' }}>
-                <b>검증 오류 {data.audit.errorCount}건이 남아 있어 일반 확정은 저장할 수 없습니다.</b> 위 검증 안내의 각 항목을 먼저 해결하세요(원천 데이터 보정, 재고 스냅샷 확인 등).
+                <b>확인할 항목 {data.audit.errorCount}건이 남아 있어 일반 확정은 저장할 수 없습니다.</b> 아래 상세 확인 내역의 각 항목을 먼저 해결하세요.
                 불가피하게 오류가 있는 상태로 확정해야 한다면 아래 강제 확정을 관리자 권한으로 사유와 함께 사용하세요.
                 <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <textarea style={{ ...st.noteArea, minHeight: 44, flex: 1, minWidth: 220 }} placeholder="강제 확정 사유(필수) — 예: 재고조정 이력 반영 지연, 담당자 확인 완료 등" value={forceReason} onChange={e => setForceReason(e.target.value)} />
@@ -957,6 +976,65 @@ export default function ProfitReportPage() {
       )}
 
       {viewMode === 'category' && data && (
+        <div style={st.requiredWrap}>
+          <div style={st.requiredHead}>
+            <span style={st.requiredTitle}>📝 입력·확인 필요</span>
+            <span style={requiredInputCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
+              {requiredInputCount > 0 ? `⚠ ${requiredInputCount}건` : '문제 없음'}
+            </span>
+          </div>
+          <div style={st.requiredActions}>
+            {stockPriceInputNeeded && (
+              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '자동으로 찾지 못한 재고 매입단가만 입력합니다'}>
+                🏷 재고 매입단가 입력
+              </button>
+            )}
+            {customsInputNeeded && (
+              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — 그외통관비 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
+                📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
+              </button>
+            )}
+            {forwardingSourceReviewNeeded && (
+              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={data?.confirmed}
+                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '금액을 임의 입력하지 않고 누락된 항공료 전표 연결을 확인합니다'}>
+                🚢 항공료 연결 확인{showForwarding ? ' ▲' : ' ▼'}
+              </button>
+            )}
+            {validationRateRows.length > 0 && (
+              <span style={st.requiredNotice}>⚠ 과세환율 입력 필요 {validationRateRows.length}건 — 아래 표의 환율 칸이 자동으로 열렸습니다</span>
+            )}
+            {requiredInputCount === 0 && (
+              <span style={st.requiredOkNotice}>입력·확인이 필요한 항목이 없습니다</span>
+            )}
+          </div>
+          {showCustoms && (
+            <div style={st.embedPanel}>
+              <div style={st.embedPanelHead}>
+                <strong>📦 그외통관비 입력 — {data.major}차</strong>
+                <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
+              </div>
+              <div style={st.embedPanelBody}>
+                <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+              </div>
+            </div>
+          )}
+          {showForwarding && (
+            <div style={st.embedPanel}>
+              <div style={st.embedPanelHead}>
+                <strong>🚢 포워딩 입력 — {data.major}차</strong>
+                <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
+              </div>
+              <div style={st.embedPanelBody}>
+                <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
           <table style={st.table}>
             <thead>
@@ -975,7 +1053,7 @@ export default function ProfitReportPage() {
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
                     {isVisible('category') && (
                       <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}
-                        title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(C/D/I/J/K)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
+                        title={row.category === '기타(미분류)' ? '국가·화종 매핑에 들지 않은 거래입니다. 아래 합계(매출액·매출비율·매출원가·매출이익·이익률)에 포함되지 않는 검증 전용 행이며, 품목의 국가/화종을 정정해야 정식 카테고리로 반영됩니다.' : undefined}>
                         {row.category}{row.category === '기타(미분류)' ? ' ※합계 제외' : ''}
                       </td>
                     )}
@@ -1010,12 +1088,12 @@ export default function ProfitReportPage() {
             aria-expanded={showValidation}
             aria-controls={VALIDATION_PANEL_ID}
             style={st.collapseToggle}
-            title="검증 안내와 그외통관비/포워딩 입력 패널을 모아서 보여줍니다"
+            title="감사 오류·재고 확인 필요 등 계산에 사용된 자동값의 상세 진단 내역입니다 — 계산 전 필수 입력이 아닙니다"
           >
             <span aria-hidden="true" style={st.caret}>{showValidation ? '▾' : '▸'}</span>
-            검증·입력
+            상세 확인 내역
             <span style={validationCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
-              {validationCount > 0 ? `⚠ 검증·입력 ${validationCount}건` : '검증·입력 (문제 없음)'}
+              {validationCount > 0 ? `상세 확인 ${validationCount}건` : '상세 확인 (문제 없음)'}
             </span>
             <span style={st.toggleHint}>{showValidation ? '접기' : '펼치기'}</span>
           </button>
@@ -1035,7 +1113,10 @@ export default function ProfitReportPage() {
                         <ul style={{ margin: '4px 0 0', paddingLeft: 20, maxHeight: 190, overflowY: 'auto' }}>
                           {items.map((issue, i) => (
                             <li key={`${issue.code}-${issue.category}-${i}`}>
-                              <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
+                              <b>{issue.category}</b>
+                              {issue.columns?.length > 0 && (
+                                <span style={{ color: '#78716c' }}> ({(issue.columns || []).map(col => ISSUE_COLUMN_LABELS[col] || col).join(' · ')})</span>
+                              )} {humanizeAuditMessage(issue.message)}
                             </li>
                           ))}
                         </ul>
@@ -1053,8 +1134,8 @@ export default function ProfitReportPage() {
 
                 {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
                   <div style={st.attentionBanner}>
-                    ⚠ <b>과세환율(R) 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
-                    해당 행의 R 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
+                    ⚠ <b>과세환율 입력 필요</b> — 구매·포워딩 금액은 있는데 <b>이 차수</b>의 관세청 과세환율 원천이 없는 행이 있습니다.
+                    해당 행의 환율 입력칸이 자동으로 열렸으니 통관 신고 환율을 입력한 뒤 저장하세요.
                     <div style={{ marginTop: 4, fontSize: 11, color: '#7c2d12' }}>
                       자동으로 채우지 않는 이유: 통화마스터 현재 환율이나 전차수 환율을 과거 차수에 그대로 넣으면 확정된 손익이 조용히 바뀝니다.
                       입력칸에 마우스를 올리면 참고값(전차수·통화마스터)을 볼 수 있고, 적용·저장해야 계산에 반영됩니다.
@@ -1065,31 +1146,8 @@ export default function ProfitReportPage() {
                 {viewMode === 'category' && data && rows.some(r => r.category === '기타(미분류)') && (
                   <div style={st.attentionBanner}>
                     ⚠ <b>기타(미분류) 검증 영역</b> — 국가·화종 매핑에 들지 않은 거래가 있습니다.
-                    이 행은 <b>본표 합계(C·D·I·J·K)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
+                    이 행은 <b>본표 합계(매출액·매출비율·매출원가·매출이익·이익률)와 엑셀 다운로드 합계에 포함되지 않으며</b>, 임의로 다른 카테고리에 합산하지도 않습니다.
                     품목마스터의 국가(CounName)/화종(FlowerName)을 정정하면 정식 카테고리로 반영됩니다. 상세 품목은 아래 비고사항에 자동 기록됩니다.
-                  </div>
-                )}
-
-                {viewMode === 'category' && data && showCustoms && (
-                  <div style={st.embedPanel}>
-                    <div style={st.embedPanelHead}>
-                      <strong>📦 그외통관비 입력 — {data.major}차</strong>
-                      <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
-                    </div>
-                    <div style={st.embedPanelBody}>
-                      <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
-                    </div>
-                  </div>
-                )}
-                {viewMode === 'category' && data && showForwarding && (
-                  <div style={st.embedPanel}>
-                    <div style={st.embedPanelHead}>
-                      <strong>🚢 포워딩 입력 — {data.major}차</strong>
-                      <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
-                    </div>
-                    <div style={st.embedPanelBody}>
-                      <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
-                    </div>
                   </div>
                 )}
               </>
@@ -1431,18 +1489,49 @@ export default function ProfitReportPage() {
         <div style={st.modalOverlay}>
           <div style={st.modalCard}>
             <div style={st.panelHead}>
-              <strong>🏷 입력이 필요한 재고 매입단가 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)</strong>
+              <strong>🏷 재고 매입단가 입력 — 기초({priceModal.beginWeek || '-'}말) · 기말({priceModal.endWeek || '-'}말)</strong>
               <button style={st.secondaryBtn} onClick={() => setPriceModal(null)}>닫기</button>
             </div>
-            <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px' }}>
-              엑셀 수식·도착원가·확인된 매입원가로 자동 계산할 수 없는 품목만 표시합니다. 판매·분배단가는 재고 매입원가로 사용하지 않습니다.
-              입력 단가는 표시된 <b>기초 또는 기말 스냅샷에만</b> 연결되며, 저장할 때 근거 문서와 기준일이 필요합니다.
-              콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균매입원가 공식으로 자동 계산됩니다. 명시적 샘플 품목은 같은 재고시점·동일 단위의 검증된 매입원가만 평균합니다.
+            <div style={{ padding: '8px 12px 4px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0' }}>
+              <span style={priceInputRows.length > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
+                입력 필요 {priceInputRows.length}건
+              </span>
+              <span style={st.collapseBadgeOk}>입력한 값 {Object.keys(priceEdits).length}건</span>
+              <button style={{ ...st.primaryBtn, background: '#16a34a', marginLeft: 'auto' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
+                매입단가 근거 저장 ({Object.keys(priceEdits).length}건)
+              </button>
             </div>
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <table style={st.table}>
+            <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px 0', lineHeight: 1.6 }}>
+              엑셀 수식·도착원가·확인된 매입원가로 자동 계산할 수 없는 품목만 표시합니다.
+              입력 단가는 표시된 <b>기초 또는 기말 스냅샷에만</b> 연결되며, 저장할 때 근거 문서와 기준일이 필요합니다.
+            </div>
+            <details style={{ margin: '4px 12px 6px', fontSize: 11, color: '#64748b' }}>
+              <summary style={{ cursor: 'pointer' }}>계산 기준 보기</summary>
+              <div style={{ padding: '4px 0', lineHeight: 1.6 }}>
+                판매·분배단가는 재고 매입원가로 사용하지 않습니다.
+                콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균매입원가 공식으로 자동 계산됩니다.
+                명시적 샘플 품목은 같은 재고시점·동일 단위의 검증된 매입원가만 평균합니다.
+              </div>
+            </details>
+            <div style={{ flex: 1, overflow: 'auto', padding: '0 12px' }}>
+              <table style={st.priceModalTable}>
+                <colgroup>
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 120 }} />
+                  <col />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 160 }} />
+                </colgroup>
                 <thead>
-                  <tr><th>구분</th><th>품종</th><th>품목</th><th style={{ textAlign: 'right' }}>재고수량</th><th style={{ textAlign: 'right' }}>환산수량</th><th>입력 사유</th><th style={{ textAlign: 'right' }}>매입단가 입력</th></tr>
+                  <tr>
+                    <th style={st.priceModalTh}>재고 기준</th>
+                    <th style={st.priceModalTh}>국가·품종</th>
+                    <th style={st.priceModalTh}>품목명</th>
+                    <th style={{ ...st.priceModalTh, textAlign: 'right' }}>재고수량</th>
+                    <th style={{ ...st.priceModalTh, textAlign: 'right' }}>환산수량</th>
+                    <th style={{ ...st.priceModalTh, textAlign: 'right' }}>매입단가(원)</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {priceInputRows.map(r => {
@@ -1450,15 +1539,14 @@ export default function ProfitReportPage() {
                     const shown = edit !== undefined ? edit : '';
                     return (
                       <tr key={r.EditKey}>
-                        <td>{r.ScopeLabel}<br /><small>{r.ScopeOrderYear}-{r.ScopeOrderWeek}</small></td>
-                        <td>{r.Category}</td>
-                        <td>{r.ProdName}</td>
-                        <td style={{ textAlign: 'right' }}>{fmt(r.ScopeStock)}</td>
-                        <td style={{ textAlign: 'right' }}>{fmt(r.ScopeStockEst)} {r.EstUnit || ''}</td>
-                        <td style={{ color: '#b45309' }}>{r.ScopeLabel} 재고의 검증된 매입원가 근거가 없습니다.</td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={st.priceModalTd}>{r.ScopeLabel}<br /><small>{r.ScopeOrderYear}-{r.ScopeOrderWeek}</small></td>
+                        <td style={st.priceModalTd}>{r.Category}</td>
+                        <td style={{ ...st.priceModalTd, whiteSpace: 'normal', wordBreak: 'break-word' }}>{r.ProdName}</td>
+                        <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStock)}</td>
+                        <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStockEst)} {r.EstUnit || ''}</td>
+                        <td style={{ ...st.priceModalTd, textAlign: 'right' }}>
                           <NumericInput
-                            style={{ ...st.cellInput, width: 110, background: edit !== undefined ? '#fef9c3' : '#fff' }}
+                            style={{ ...st.cellInput, width: '100%', minWidth: 140, background: edit !== undefined ? '#fef9c3' : '#fff' }}
                             value={shown}
                             onChange={value => setPriceEdits(prev => ({ ...prev, [r.EditKey]: value }))}
                           />
@@ -1467,12 +1555,12 @@ export default function ProfitReportPage() {
                     );
                   })}
                   {!priceInputRows.length && (
-                    <tr><td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#166534', fontWeight: 800 }}>입력할 재고 매입단가가 없습니다. 모두 자동완성되었습니다.</td></tr>
+                    <tr><td colSpan={6} style={{ padding: 16, textAlign: 'center', color: '#166534', fontWeight: 800 }}>입력할 재고 매입단가가 없습니다. 모두 자동완성되었습니다.</td></tr>
                   )}
                 </tbody>
               </table>
-              <details style={{ margin: '8px 12px', fontSize: 11, color: '#64748b' }}>
-                <summary>자동완성·검증 완료 품목 {(priceModal.rows || []).filter(r => !r.RequiresInput).length}건 보기</summary>
+              <details style={{ margin: '8px 0', fontSize: 11, color: '#64748b' }}>
+                <summary style={{ cursor: 'pointer' }}>자동완성·검증 완료 품목 {(priceModal.rows || []).filter(r => !r.RequiresInput).length}건 보기</summary>
                 <div style={{ padding: '6px 0' }}>
                   {(priceModal.rows || []).filter(r => !r.RequiresInput).map(r => (
                     <div key={`auto-${r.ProdKey}`}>{r.Category} · {r.ProdName} — {r.InputReason || r.AppliedSource || '자동완성'}</div>
@@ -1521,7 +1609,14 @@ const st = {
   embedPanelHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', background: '#1d4ed8', color: '#fff' },
   embedPanelBody: { padding: 12, maxHeight: '46vh', overflow: 'auto' },
   tinyCloseBtn: { background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer' },
-  // 표 아래 접기 영역(검증·입력 / 이익률 분석) — components/ProfitReportSourceGuide.js 와 동일한 토글 패턴.
+  // 본표 위 "입력·확인 필요" 요약 — 재고 매입단가/그외통관비/항공료/과세환율 입력 진입점을 한곳에 모은다.
+  requiredWrap: { border: '1px solid #cbd5e1', borderRadius: 10, background: '#f8fafc', padding: '10px 12px', marginBottom: 10 },
+  requiredHead: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
+  requiredTitle: { fontSize: 13, fontWeight: 800, color: '#334155' },
+  requiredActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  requiredNotice: { fontSize: 12, fontWeight: 700, color: '#9a3412' },
+  requiredOkNotice: { fontSize: 12, fontWeight: 600, color: '#166534' },
+  // 표 아래 접기 영역(상세 확인 내역 / 이익률 분석) — components/ProfitReportSourceGuide.js 와 동일한 토글 패턴.
   collapseWrap: { marginTop: 12 },
   collapseToggle: {
     display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -1563,5 +1658,9 @@ const st = {
   noteArea: { width: '100%', minHeight: 90, border: '1px solid #cbd5e1', borderRadius: 8, padding: 10, fontSize: 13, boxSizing: 'border-box' },
   panelHead: { minHeight: 44, padding: '6px 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  modalCard: { width: 'min(1000px, 96vw)', maxHeight: '86vh', background: '#fff', borderRadius: 12, boxShadow: '0 24px 80px rgba(15,23,42,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  modalCard: { width: 'min(1320px, 98vw)', height: '92vh', maxHeight: '92vh', background: '#fff', borderRadius: 12, boxShadow: '0 24px 80px rgba(15,23,42,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  // 재고 매입단가 모달 전용 표 — 공용 st.table(minWidth 1800)을 쓰지 않고 tableLayout:fixed로 모달 폭에 맞춰 가로 스크롤을 없앤다.
+  priceModalTable: { borderCollapse: 'collapse', fontSize: 12, width: '100%', tableLayout: 'fixed' },
+  priceModalTh: { position: 'sticky', top: 0, background: '#1e293b', color: '#fff', padding: '7px 8px', fontSize: 11, textAlign: 'left', zIndex: 1 },
+  priceModalTd: { border: '1px solid #e2e8f0', padding: '5px 8px', whiteSpace: 'nowrap', verticalAlign: 'top' },
 };
