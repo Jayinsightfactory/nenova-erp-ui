@@ -25,7 +25,7 @@
   평균에 섞지 않는다. 이 평균은 일반 품목
   단가나 DB 근거로 저장하지 않으며 peer가 없으면 `INPUT_REQUIRED`를 유지한다.
 - 2026-08-11 정정: 27차 구매현황 시트의 호주 구매환율(918.54)과 이 보고서 R(1068.23)이 다른 것은 오류가 아니다 — 구매현황은 상업(환전) 환율, R은 과세환율이며 원래 서로 다른 두 환율이다. R을 구매현황 환율로 맞추려는 보정은 하지 않는다.
-- 2026-08-12 정정: R 자동 적용은 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①당주 `FreightCost.ExchangeRate` 스냅샷 → ②그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ③2026년 22~27차는 `lib/profitReportHistoricalCustoms.js`의 원본 엑셀 본표 R열. 이전 구현이 하던 "29차 이후 전차수 R 자동 상속"과 "CurrencyMaster 현재 환율 자동 fallback"은 모두 제거했다 — 과거 차수에 오늘의 환율이나 다른 차수 값을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다. 전차수 값과 CurrencyMaster 현재 환율은 화면에 참고 제안(`rateSuggestions`)으로만 표시되고, 사용자가 명시적으로 적용·저장(`TAXABLE_RATE_SAVE`)해야 계산에 들어간다.
+- 2026-08-24 최종 정정: R은 우선 정확한 `OrderYear+MajorWeek(+Currency/Category)` 원천만 쓴다 — ①행별 수기 확정 `WebProfitReport.R` → ②당주 `FreightCost.ExchangeRate` 스냅샷 → ③그 차수에 저장/캐시된 `WebTaxableExchangeRate`(카테고리 지정 값이 통화 기본값보다 우선) → ④2026년 22~27차 원본 엑셀 본표 R열 → ⑤28차 이후 관세청 공식 과세환율. **현재 차수에 재고화 대상 매입이 있으면** 이 원천이 없을 때 입력 필요로 두고 전차수 값을 쓰지 않는다. **현재 차수에 매입이 없으면** 바로 이전 대차수부터 최근 exact R을 순차 탐색해 이어 사용한다. 연속 무매입 차수는 계속 거슬러 올라가되 매입은 있으나 exact R이 없는 차수를 만나면 중단한다. 01차의 직전은 전년도 52차이며 같은 번호의 다른 연도 차수를 섞지 않는다. 이월값은 화면 계산에만 사용하고 자동 저장하지 않는다. `CurrencyMaster` 현재 환율은 항상 참고 제안일 뿐이다.
 - 2026-08-12 추가(28차 이후 관세청 공식 과세환율 KCS API): R 자동 우선순위 맨 앞에 행별 수기
   오버라이드(`WebProfitReport.R`, `man.R` — 호출부 `pages/api/sales/profit-report.js`가
   `resolveTaxableRate()` 결과보다 항상 먼저 적용)가 있고, 위 ①~③ 어느 것도 없을 때만 2026년
@@ -238,12 +238,13 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
    2026년 22~28차는 원본 workbook SHA·시트·F셀을 고정한 값만 마지막 역사 증거로 허용하며 다른 연도나
    미래 차수로 전파하지 않는다. `Product.Cost`, 최근 입고단가, 공식 대상 이외 카테고리 평균과 E/F
    최종값 직접입력은 금지하고, 근거가 없으면 `INPUT_REQUIRED`/`UNVERIFIED`로 남긴다.
-5. **과세환율(R) exact-week만 자동 적용, 웹 전용 캐시 테이블 신설**: `lib/taxableExchangeRate.js` +
+5. **과세환율(R) exact-week 우선 + 무매입 차수 제한 이월, 웹 전용 캐시 테이블**: `lib/taxableExchangeRate.js` +
    `docs/migrations/2026-08-12_web_taxable_exchange_rate.sql`(`WebTaxableExchangeRate`,
    `OrderYear+MajorWeek+Currency+Category` 키)을 추가하고, "29차 이후 전차수 R 자동 상속"과
-   "CurrencyMaster 현재 환율 자동 fallback"을 제거했다. R 자동 적용은 이제 ①당주 FreightCost 스냅샷 →
-   ②그 차수 저장/캐시값 → ③2026 22~27차 원본 엑셀 값 셋뿐이며, 전차수·CurrencyMaster는 참고 제안으로만
-   보이고 사용자가 적용·저장해야 계산에 들어간다. 호주(28차 이전)·베트남(29차 이전)의 H 미입력은
+   "CurrencyMaster 현재 환율 자동 fallback"을 제거했다. exact R 자동 적용은 ①당주 FreightCost 스냅샷 →
+   ②그 차수 저장/캐시값 → ③2026 22~27차 원본 엑셀 값 → ④28차 이후 KCS 순서다. 다만 현재 차수에
+   재고화 대상 매입이 없을 때만 최근 이전 차수의 exact R을 이어 사용하며 자동 저장하지 않는다. 매입이
+   있는 차수는 exact R이 없으면 입력 필요로 남고, CurrencyMaster는 참고 제안으로만 보인다. 호주(28차 이전)·베트남(29차 이전)의 H 미입력은
    여전히 정상이지만, R은 구매·포워딩이 있으면 차수와 무관하게 항상 검증한다(`TAXABLE_RATE_MISSING`).
 
 - 회귀: `__tests__/profitReportHistoricalCustoms.test.js`(scope 분리·차량 실제값 보존),
@@ -411,8 +412,9 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   catalog다(2026-08-19 정정 — 아래 "재고단가 우선순위·catalog eligibility 정정" 절 참고). 품명
   fuzzy 매칭과 다른 품목·카테고리 평균, 판매·분배단가, `Product.Cost`는 금지한다.
 - catalog 기준일은 2026-28차이며 그 이전 및 다른 연도에 역전파하지 않는다. 2026년 28차 이후에는
-  안정 원화 단가만 exact ProdKey template로 재사용한다. 호주는 28차 AUD 환율을 재사용하지 않고
-  대상 차수의 공식 과세환율이 있을 때만 외화단가×대상 환율로 평가한다. 이후 업로드에서
+  안정 원화 단가만 exact ProdKey template로 재사용한다. 호주는 28차 AUD 환율을 고정 재사용하지 않는다.
+  대상 차수에 매입이 있으면 대상 차수 exact 공식 과세환율을 쓰고, 매입이 없으면 위 제한 이월 정책으로
+  찾은 최근 exact AUD 과세환율을 외화단가에 곱한다. 이후 업로드에서
   더 최신의 확정 도착원가 또는 직접 단가가 생기면 그 근거가 항상 우선한다.
 - 모든 workbook에서 기초 F30=11,000원과 달리 기말 N30=110,000원인 카네이션 10배 이상값은
   `quarantined`로 기록하고 자동 catalog에 포함하지 않는다.

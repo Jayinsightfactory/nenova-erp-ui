@@ -24,14 +24,18 @@ import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 import { getHistoricalClosingInventoryEvidence } from '../../../lib/profitReportHistoricalInventory';
+import { resolveCarriedRatesForCategories, createWeekContextCache, CARRIED_RATE_SOURCE } from '../../../lib/profitReportTaxableRateCarry.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
   return m ? m[1].padStart(2, '0') : null;
 }
 
+// 호주/AUD 재고 평가 근거 — 행별 R과 같은 우선순위(정확한 원천만)를 쓰되, missing이면서 이번(그) 차수에
+// 재고화 대상 매입이 없을 때만 carry(호출부가 미리 계산해 넘긴다)를 적용한다. carry 자체는 이 함수가
+// 계산하지 않는다(순수/동기 유지) — lib/profitReportTaxableRateCarry.js의 비동기 오케스트레이션 몫이다.
 function buildInventoryRateEvidenceByCurrency({
-  targetYear, targetMajor, manual = {}, invoice = {}, saved = {}, kcs = {}, rateByCode = {},
+  targetYear, targetMajor, manual = {}, invoice = {}, saved = {}, kcs = {}, rateByCode = {}, carry = null,
 } = {}) {
   const category = '호주';
   const currency = 'AUD';
@@ -51,19 +55,72 @@ function buildInventoryRateEvidenceByCurrency({
     kcsRate: kcs.byCategory?.[category]?.rate ?? null,
     kcsDetail: kcs.byCategory?.[category]?.detail ?? null,
   });
-  return Number(resolved.rate) > 0
-    ? { AUD: { rate: Number(resolved.rate), source: `profit-report:${targetYear}:${targetMajor}:호주:R:${resolved.source || 'exact'}` } }
-    : {};
+  if (Number(resolved.rate) > 0) {
+    return { AUD: { rate: Number(resolved.rate), source: `profit-report:${targetYear}:${targetMajor}:호주:R:${resolved.source || 'exact'}` } };
+  }
+  if (carry) {
+    return {
+      AUD: {
+        rate: carry.rate,
+        source: `profit-report:${targetYear}:${targetMajor}:호주:R:${CARRIED_RATE_SOURCE}`,
+        carry,
+      },
+    };
+  }
+  return {};
 }
 
 async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
-  const [invoice, manualResult, saved, kcs, rates] = await Promise.all([
+  const [invoice, manualResult, saved, kcs, rates, purchaseQty] = await Promise.all([
     invoiceRatesByCategory(targetMajor, targetYear),
     loadManual(targetMajor, targetYear),
     loadTaxableRates(targetYear, targetMajor),
     kcsRatesByCategory(targetMajor, targetYear),
     currencyRates(),
+    purchaseQtyByCategory(targetMajor, targetYear),
   ]);
+  const rateByCode = Object.fromEntries((rates || []).map((row) => [row.CurrencyCode, Number(row.ExchangeRate)]));
+  const currency = 'AUD';
+  const category = '호주';
+  const exact = resolveTaxableRate({
+    snapshotRate: invoice?.[category] != null ? Number(invoice[category]) : null,
+    savedByCategory: saved.byCategory?.[category] || null,
+    savedByCurrency: saved.byCurrency?.[currency] || null,
+    historicalRate: getHistoricalTaxableRate(targetYear, targetMajor, category),
+    currency,
+    currencyMasterRate: null,
+    previousWeekRate: null,
+    previousWeekLabel: null,
+    kcsRate: kcs.byCategory?.[category]?.rate ?? null,
+    kcsDetail: kcs.byCategory?.[category]?.detail ?? null,
+  });
+  const hasExact = manualResult.manual?.[category]?.R != null && Number(manualResult.manual[category].R) > 0
+    ? true
+    : (exact.source !== RATE_SOURCE.MISSING && Number(exact.rate) > 0);
+  const qty = Number(purchaseQty?.[category] || 0);
+  let carry = null;
+  if (!hasExact && qty <= 0) {
+    const fetchWeekContext = createWeekContextCache(async (y, m) => {
+      const [invoiceRatesW, manualW, savedRatesW, purchaseQtyW] = await Promise.all([
+        invoiceRatesByCategory(m, y),
+        loadManual(m, y),
+        loadTaxableRates(y, m),
+        purchaseQtyByCategory(m, y),
+      ]);
+      const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
+      const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+      return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
+    });
+    const carried = await resolveCarriedRatesForCategories({
+      orderYear: targetYear,
+      major: targetMajor,
+      categories: [{ key: category, currency }],
+      currentExactByCategory: { [category]: null },
+      currentPurchaseQtyByCategory: { [category]: qty },
+      fetchWeekContext,
+    });
+    carry = carried[category] || null;
+  }
   return buildInventoryRateEvidenceByCurrency({
     targetYear,
     targetMajor,
@@ -71,7 +128,8 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
     invoice,
     saved,
     kcs,
-    rateByCode: Object.fromEntries((rates || []).map((row) => [row.CurrencyCode, Number(row.ExchangeRate)])),
+    rateByCode,
+    carry,
   });
 }
 
@@ -91,7 +149,7 @@ export async function loadReportData(major, orderYear) {
         currencyRates(),
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
-        loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용
+        loadManual(prevMajor, prevOrderYear), // 당차수 exact 제안 및 무매입 제한 이월 원천 판정에 사용
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
@@ -117,13 +175,100 @@ export async function loadReportData(major, orderYear) {
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
       const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
+
+      // R 이월(carry) — 이번/전 차수 모두 "정확한 원천"만으로 먼저 계산해두고(resolveTaxableRate,
+      // 카테고리별 반복 없이 이미 로드된 배치 결과만 사용), 그 결과가 missing이면서 그 차수 자체에
+      // 재고화 대상 매입도 없는 카테고리만 walk-back 대상으로 넘긴다. 걷는 동안 만나는 과거 차수는
+      // fetchCarryWeekContext가 (연도,차수) 조합당 한 번만 조회해 여러 호출(행 R + AUD 재고근거 +
+      // 전차수 평가)이 같은 과거 차수를 다시 쿼리하지 않게 한다.
+      const fetchCarryWeekContext = createWeekContextCache(async (y, m) => {
+        const [invoiceRatesW, manualW, savedRatesW, purchaseQtyW] = await Promise.all([
+          invoiceRatesByCategory(m, y),
+          loadManual(m, y),
+          loadTaxableRates(y, m),
+          purchaseQtyByCategory(m, y),
+        ]);
+        const hasPurchase = Object.values(purchaseQtyW || {}).some((qty) => Number(qty) > 0);
+        const kcsRatesW = hasPurchase ? await kcsRatesByCategory(m, y) : { byCategory: {} };
+        return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
+      });
+
+      const resolvedRateByKey = {};
+      for (const key of keys) {
+        const curCode = currencyCodeForCategory(key);
+        const prevMan = prev.manual[key] || {};
+        resolvedRateByKey[key] = {
+          curCode,
+          resolvedRate: resolveTaxableRate({
+            snapshotRate: invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null,
+            savedByCategory: savedRates.byCategory?.[key] || null,
+            savedByCurrency: curCode ? savedRates.byCurrency?.[curCode] || null : null,
+            historicalRate: getHistoricalTaxableRate(orderYear, major, key),
+            currency: curCode,
+            currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
+            previousWeekRate: prevMan.R != null ? Number(prevMan.R) : null,
+            previousWeekLabel: `${Number(prevMajor)}차`,
+            kcsRate: kcsRates.byCategory?.[key]?.rate ?? null,
+            kcsDetail: kcsRates.byCategory?.[key]?.detail ?? null,
+          }),
+        };
+      }
+      const currentExactByCategory = Object.fromEntries(keys.map((key) => {
+        const manualRate = Number(cur.manual[key]?.R);
+        if (manualRate > 0) return [key, { rate: manualRate, source: RATE_SOURCE.MANUAL_INPUT }];
+        const rr = resolvedRateByKey[key].resolvedRate;
+        return [key, (rr.source !== RATE_SOURCE.MISSING && Number(rr.rate) > 0) ? { rate: rr.rate, source: rr.source } : null];
+      }));
+      const currentCarryByCategory = await resolveCarriedRatesForCategories({
+        orderYear, major,
+        categories: keys.map((key) => ({ key, currency: resolvedRateByKey[key].curCode })),
+        currentExactByCategory,
+        currentPurchaseQtyByCategory: purchaseQty,
+        fetchWeekContext: fetchCarryWeekContext,
+      });
+
+      const prevResolvedRateByKey = {};
+      for (const key of keys) {
+        const curCode = currencyCodeForCategory(key);
+        prevResolvedRateByKey[key] = {
+          curCode,
+          resolvedRate: resolveTaxableRate({
+            snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
+            savedByCategory: prevSavedRates.byCategory?.[key] || null,
+            savedByCurrency: curCode ? prevSavedRates.byCurrency?.[curCode] || null : null,
+            historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
+            currency: curCode,
+            currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
+            previousWeekRate: null,
+            previousWeekLabel: null,
+            kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
+            kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
+          }),
+        };
+      }
+      const prevExactByCategory = Object.fromEntries(keys.map((key) => {
+        const manualRate = Number(prev.manual[key]?.R);
+        if (manualRate > 0) return [key, { rate: manualRate, source: RATE_SOURCE.MANUAL_INPUT }];
+        const rr = prevResolvedRateByKey[key].resolvedRate;
+        return [key, (rr.source !== RATE_SOURCE.MISSING && Number(rr.rate) > 0) ? { rate: rr.rate, source: rr.source } : null];
+      }));
+      const prevCarryByCategory = await resolveCarriedRatesForCategories({
+        orderYear: prevOrderYear, major: prevMajor,
+        categories: keys.map((key) => ({ key, currency: prevResolvedRateByKey[key].curCode })),
+        currentExactByCategory: prevExactByCategory,
+        currentPurchaseQtyByCategory: prevPurchaseQty,
+        fetchWeekContext: fetchCarryWeekContext,
+      });
+
       const endRateEvidenceByCurrency = buildInventoryRateEvidenceByCurrency({
         targetYear: orderYear, targetMajor: major, manual: cur.manual,
         invoice: invoiceRates, saved: savedRates, kcs: kcsRates, rateByCode,
+        carry: currentCarryByCategory['호주'] || null,
       });
       const beginRateEvidenceByCurrency = buildInventoryRateEvidenceByCurrency({
         targetYear: prevOrderYear, targetMajor: prevMajor, manual: prev.manual,
         invoice: prevInvoiceRates, saved: prevSavedRates, kcs: prevKcsRates, rateByCode,
+        carry: prevCarryByCategory['호주'] || null,
       });
       const [stockEnd, stockBegin] = await Promise.all([
         stockSnapshotByCategory(major, orderYear, { rateEvidenceByCurrency: endRateEvidenceByCurrency }),
@@ -132,19 +277,9 @@ export async function loadReportData(major, orderYear) {
       const previousValuation = Object.fromEntries(categories.map((definition) => {
         const key = definition.key;
         const previousManual = prev.manual[key] || {};
-        const currency = currencyCodeForCategory(key);
-        const resolved = resolveTaxableRate({
-          snapshotRate: prevInvoiceRates?.[key] != null ? Number(prevInvoiceRates[key]) : null,
-          savedByCategory: prevSavedRates.byCategory?.[key] || null,
-          savedByCurrency: currency ? prevSavedRates.byCurrency?.[currency] || null : null,
-          historicalRate: getHistoricalTaxableRate(prevOrderYear, prevMajor, key),
-          currency,
-          currencyMasterRate: currency && rateByCode[currency] != null ? rateByCode[currency] : null,
-          previousWeekRate: null,
-          previousWeekLabel: null,
-          kcsRate: prevKcsRates.byCategory?.[key]?.rate ?? null,
-          kcsDetail: prevKcsRates.byCategory?.[key]?.detail ?? null,
-        });
+        const resolved = prevResolvedRateByKey[key].resolvedRate;
+        const prevCarry = prevCarryByCategory[key] || null;
+        const effectivePrevRate = Number(resolved.rate) > 0 ? resolved.rate : (prevCarry ? prevCarry.rate : resolved.rate);
         const structuredSource = prevCustoms.sources?.S?.[key];
         const hasStructured = structuredSource != null && structuredSource !== 'missing';
         const automaticS = hasStructured ? Number(prevCustoms.S[key] || 0) : Number(prevLegacyS[key] || 0);
@@ -154,7 +289,7 @@ export async function loadReportData(major, orderYear) {
           category: key,
           purchaseForeign: Number(prevQ[key] || 0),
           forwardingForeign: previousManual.S != null ? Number(previousManual.S) : automaticS,
-          taxableRate: previousManual.R != null ? Number(previousManual.R) : resolved.rate,
+          taxableRate: previousManual.R != null ? Number(previousManual.R) : effectivePrevRate,
           customsCost: previousManual.H != null ? Number(previousManual.H) : Number(prevCustoms.H[key] || 0),
           purchaseQty: Number(prevPurchaseQty[key] || 0),
           stockQty: Number(stockBegin.qtys[key] || 0),
@@ -170,32 +305,27 @@ export async function loadReportData(major, orderYear) {
       const rows = keys.map(key => {
         const def = categories.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
-        const prevMan = prev.manual[key] || {};
-        const curCode = currencyCodeForCategory(key);
-        // R 과세환율(2026-08-12 원천 정정, 2026-08-12 KCS 4순위 추가) — 자동 적용은 "정확히 이
-        // OrderYear+MajorWeek" 원천만, 행별 수기 오버라이드(man.R, 아래 autoF/beginInputs/source.R)가
+        const curCode = resolvedRateByKey[key].curCode;
+        // R 과세환율(2026-08-12 원천 정정, 2026-08-12 KCS 4순위 추가, 2026-08-24 이월 추가) — 자동 적용은
+        // "정확히 이 OrderYear+MajorWeek" 원천만, 행별 수기 오버라이드(man.R, 아래 autoF/beginInputs/source.R)가
         // 항상 이 자동값보다 우선한다:
         //   1) 당주 입고 통관 스냅샷 FreightCost.ExchangeRate
         //   2) 이 주차에 저장/캐시된 과세환율(WebTaxableExchangeRate — 카테고리 지정 > 통화 기본)
         //   3) 2026 22~27차 원본 엑셀 본표 R열(historical snapshot) — 그 범위 밖은 항상 null
         //   4) (2026 28차 이후 및 그 다음 연도) 관세청 공식 과세환율 API(KCS) — 사용자가 입고에
         //      명시한 InputDate별 환율을 wd.TPrice로 가중평균(lib/kcsRateDateWeights.js)
-        // 현재 CurrencyMaster 환율과 전차수 R은 **자동 적용하지 않고** 제안(rateSuggestions)으로만
-        // 내려보낸다. 과거 차수에 오늘 환율을 자동으로 채우면 확정 손익이 조용히 바뀌기 때문이다.
-        const resolvedRate = resolveTaxableRate({
-          snapshotRate: invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null,
-          savedByCategory: savedRates.byCategory?.[key] || null,
-          savedByCurrency: curCode ? savedRates.byCurrency?.[curCode] || null : null,
-          historicalRate: getHistoricalTaxableRate(orderYear, major, key),
-          currency: curCode,
-          currencyMasterRate: curCode && rateByCode[curCode] != null ? rateByCode[curCode] : null,
-          previousWeekRate: prevMan.R != null ? Number(prevMan.R) : null,
-          previousWeekLabel: `${Number(prevMajor)}차`,
-          kcsRate: kcsRates.byCategory?.[key]?.rate ?? null,
-          kcsDetail: kcsRates.byCategory?.[key]?.detail ?? null,
-        });
-        const autoR = resolvedRate.rate;
-        const autoRSource = resolvedRate.source;
+        // 현재 CurrencyMaster 환율은 자동 적용하지 않고 제안(rateSuggestions)으로만 내려보낸다.
+        // 전차수 R도 이 exact resolver에서는 제안이지만, 아래의 무매입 제한 이월 정책이 별도로 판정한다.
+        // 위 네 원천이 모두 missing이고 이번 차수에 재고화 대상 매입도 없으면(=쓸 R 자체가 필요없는
+        // 주차) lib/profitReportTaxableRateCarry.js가 직전 대차수들로 걸어가며 찾은 이월값만 예외적으로
+        // 쓴다 — 매입이 있는데 원천이 없는 경우는 이 경로를 절대 타지 않는다(위 currentExactByCategory/
+        // currentCarryByCategory 게이팅, 이미 이번 차수 매입수량으로 걸러졌다).
+        const resolvedRate = resolvedRateByKey[key].resolvedRate;
+        const carry = currentCarryByCategory[key] || null;
+        const hasManualR = Number(man.R) > 0;
+        const hasExactR = resolvedRate.source !== RATE_SOURCE.MISSING && Number(resolvedRate.rate) > 0;
+        const autoR = hasExactR ? resolvedRate.rate : (carry ? carry.rate : resolvedRate.rate);
+        const autoRSource = hasExactR ? resolvedRate.source : (carry ? CARRIED_RATE_SOURCE : resolvedRate.source);
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
@@ -312,11 +442,14 @@ export async function loadReportData(major, orderYear) {
             H: autoH,                                    // 그외통관비 자동값(그외통관비/포워딩 입력 화면 연동)
             E: autoE != null ? Math.round(autoE) : null, // 전차수 기말재고 자동계산
             F: autoF != null ? Math.round(autoF) : null, // 이번 차수 기말재고 자동계산
-            R: autoR,                                    // 당주 통관 스냅샷 → 이 주차 저장/캐시 → 원본 엑셀
+            R: autoR,                                    // 당주 exact 원천 → 무매입일 때만 최근 exact R 이월
           },
-          // 자동 적용하지 않는 참고 제안(전차수 R·통화마스터 현재환율) — 사용자가 적용·저장해야 계산에 들어간다.
+          // exact resolver 참고 제안. 무매입 제한 이월은 rateCarry로 별도 표시한다.
           rateSuggestions: resolvedRate.suggestions,
           rateDetail: resolvedRate.detail,
+          // 이번 차수에 재고화 대상 매입이 없어 과거 정확한 원천을 이어 쓴 경우에만 채워진다(그 외 null).
+          // sourceYear/sourceMajor/originalSource/carryDepth/note — lib/profitReportTaxableRateCarry.js.
+          rateCarry: (hasManualR || hasExactR) ? null : carry,
           // H 구성요소(백상 GW/관세/선율/월드운송료/방역) — 화면이 "왜 이 금액인지"를 그대로 보여준다.
           customsComponents: customs.components?.H?.[key] || null,
           manual: {

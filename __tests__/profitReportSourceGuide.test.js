@@ -244,7 +244,7 @@ async function main() {
   check('마지막 세부차수 선택 코드가 유지됨(ProductStock 존재 + suffix DESC)',
     /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/.test(reportSource));
 
-  // 과세환율(R) — "정확히 그 차수" 원천만 자동 적용, CurrencyMaster/전차수는 제안일 뿐
+  // 과세환율(R) — 정확한 당차수 원천 우선, 매입 없는 차수만 제한 이월, CurrencyMaster는 제안 전용
   const { resolveTaxableRate, RATE_SOURCE } = await import('../lib/taxableExchangeRate.js');
   check('전차수 R 자동상속 코드가 제거됨',
     !/currentMajor >= 29 && prevMan\.R != null/.test(apiSource)
@@ -259,10 +259,10 @@ async function main() {
     resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).rate === null
     && resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).source === RATE_SOURCE.MISSING
     && resolveTaxableRate({ currencyMasterRate: 1350, previousWeekRate: 1360 }).suggestions.length === 2);
-  check('설명이 "그 차수 값만 자동 적용"을 명시',
-    /자동으로 물려받지 않습니다/.test(byKey['bd-rate-source'].note)
+  check('설명이 당차수 우선·무매입 제한 이월을 명시',
+    /매입이 없는 차수만/.test(byKey['bd-rate-source'].note)
     && /통화마스터/.test(byKey['bd-rate-source'].note)
-    && /정확히 그 차수/.test(byKey.R.source));
+    && /최근의 정확한 환율/.test(byKey.R.formula));
   check('R 설명이 같은 통화·다른 주차 차이를 예시로 명시', /1,548\.52/.test(byKey.R.note));
   check('H 시작차수와 R 원천 검증이 분리됨을 명시',
     /그외통관비\(H\)/.test(byKey['bd-country-start'].formula) && /과세환율\(R\)/.test(byKey['bd-country-start'].formula)
