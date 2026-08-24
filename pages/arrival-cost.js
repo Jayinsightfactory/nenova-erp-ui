@@ -352,7 +352,7 @@ export default function ArrivalCostPage() {
               <table>
                 <thead><tr>
                   <th>차수</th><th>국가</th><th>국가·품종</th><th>원본 품목명</th><th>전산 품목 매칭</th><th>원본 농장</th><th>전산 농장 선택</th>
-                  <th>수량</th><th>원가(엑셀)</th><th>기준</th><th>선택 원가</th><th>메모</th><th>저장</th>
+                  <th>입고수량</th><th>원가(엑셀)</th><th>기준</th><th>선택 원가</th><th>메모</th><th>저장</th>
                 </tr></thead>
                 <tbody>{groups.map(group => [
                   <tr key={`${group.key}-head`} className="group-head">
