@@ -6,18 +6,21 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
+import { getPreviousProfitReportPeriod } from '../../lib/profitReportDefaultPeriod.mjs';
 import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 
-function getDefaultMajor() {
-  const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? m[2] : '';
-}
 function getDefaultYear() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
   return m ? m[1] : String(new Date().getFullYear());
+}
+function getDefaultWeeklyPeriod() {
+  const previous = getPreviousProfitReportPeriod(getCurrentWeek());
+  return previous.year && previous.major
+    ? previous
+    : { year: getDefaultYear(), major: '' };
 }
 const fmt = v => (v == null || Number.isNaN(v) ? '' : Math.round(v).toLocaleString());
 const fmtMonthly = (v, hasData = true) => (!hasData || v == null || Number.isNaN(Number(v)) ? '—' : Math.round(Number(v)).toLocaleString());
@@ -239,8 +242,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
 }
 
 export default function ProfitReportPage() {
-  const weekInput = useWeekInput(getDefaultMajor());
-  const [reportYear, setReportYear] = useState(getDefaultYear());
+  const defaultWeeklyPeriod = useMemo(() => getDefaultWeeklyPeriod(), []);
+  const weekInput = useWeekInput(defaultWeeklyPeriod.major);
+  const [reportYear, setReportYear] = useState(defaultWeeklyPeriod.year);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moyiSending, setMoyiSending] = useState(false);
@@ -377,7 +381,7 @@ export default function ProfitReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAnalysis, viewMode, data?.major, data?.orderYear]);
   const stepWeek = delta => {
-    const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
+    const cur = Number(weekInput.value) || Number(defaultWeeklyPeriod.major) || 1;
     const next = String(Math.max(1, cur + delta)).padStart(2, '0');
     weekInput.setValue(next);
     load(next, reportYear);
@@ -410,7 +414,7 @@ export default function ProfitReportPage() {
   const switchToWeeksView = () => {
     setViewMode('weeks');
     if (!rangeFrom || !rangeTo) {
-      const cur = Number(weekInput.value) || Number(getDefaultMajor()) || 1;
+      const cur = Number(weekInput.value) || Number(defaultWeeklyPeriod.major) || 1;
       setRangeFrom(String(Math.max(1, cur - 5)).padStart(2, '0'));
       setRangeTo(String(cur).padStart(2, '0'));
     }
