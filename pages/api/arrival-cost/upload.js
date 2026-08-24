@@ -15,7 +15,7 @@ function first(value) { return Array.isArray(value) ? value[0] : value; }
 
 async function loadLookups() {
   const [products, farms] = await Promise.all([
-    query(`SELECT ProdKey,ProdCode,ProdName,DisplayName,FlowerName,CounName,OutUnit,SteamOf1Box,BoxWeight,BoxCBM FROM Product WHERE isDeleted=0`),
+    query(`SELECT ProdKey,ProdCode,ProdName,DisplayName,FlowerName,CounName,OutUnit,BunchOf1Box,SteamOf1Box,BoxWeight,BoxCBM FROM Product WHERE isDeleted=0`),
     query(`SELECT FarmKey,FarmName,CounKey FROM Farm WHERE isDeleted=0`),
   ]);
   return { products: products.recordset, farms: farms.recordset };

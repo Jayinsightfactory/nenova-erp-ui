@@ -24,6 +24,7 @@ assert.match(source, /parseJsonResponse/, '품목 검색이 HTML(502)을 받아�
 assert.match(source, /차수 오름차순/, '차수를 오름차순·내림차순으로 볼 수 있어야 한다.');
 assert.match(source, /groupArrivalCostRows/, '같은 차수·품목은 농장별 원가로 묶어야 한다.');
 assert.match(source, /품목명 없이 품종 버튼만/, '품목명 검색 없이 품종만 선택해 조회할 수 있어야 한다.');
+assert.match(source, /입고수량/, '수량 열은 단/박스 입고단위를 함께 보여야 한다.');
 
 const upload = fs.readFileSync(new URL('../pages/api/arrival-cost/upload.js', import.meta.url), 'utf8');
 assert.match(upload, /detectedTableCount/, '표는 있는데 도착원가 금액이 비면 다른 안내를 해야 한다.');
