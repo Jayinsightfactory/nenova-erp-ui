@@ -70,6 +70,10 @@ const ISSUE_COLUMN_LABELS = {
 function humanizeAuditMessage(message) {
   return String(message || '')
     .replace(/VERIFIED/g, '확인된')
+    .replace(/기초 재고수량은 있지만 전차수 확정 스냅샷 시점의 확인된 품목 단가 근거가 없습니다:/g,
+      '기초재고에 포함된 다음 품목의 매입단가를 자동으로 찾지 못했습니다:')
+    .replace(/기말 재고수량은 있지만 동일 스냅샷 시점의 확인된 품목 단가 근거가 없습니다:/g,
+      '기말재고에 포함된 다음 품목의 매입단가를 자동으로 찾지 못했습니다:')
     .replace(/기초 재고수량은 있지만 전차수 확정 스냅샷 시점의 확인된 품목 단가 근거가 부족합니다\./g,
       '기초재고 수량은 있으나 매입단가를 자동으로 찾지 못했습니다.')
     .replace(/기말 재고수량은 있지만 동일 스냅샷 시점의 확인된 품목 단가 근거가 (\d+)건 부족합니다\./g,
@@ -88,6 +92,17 @@ function humanizeAuditMessage(message) {
     .replace(/S 원천/g, '항공료·포워딩 원천')
     .replace(/R 입력칸/g, '과세환율 입력칸')
     .replace(/과세환율\(R\)/g, '과세환율')
+    .replace(/그외통관비 원천값이 없어 H가 0으로 계산됩니다\./g,
+      '그외통관비 입력값이 없어 0원으로 계산했습니다.')
+    .replace(/입고 반차수:/g, '입고 세부차수:')
+    .replace(/([가-힣]+)은\(는\)/g, '$1의 경우')
+    .replace(/GW2=0/g, '두 번째 입고의 총중량이 0')
+    .replace(/-02가 없다고 H를 비우지 말고,/g,
+      '두 번째 입고가 없더라도 그외통관비를 비워두지 말고,')
+    .replace(/Gross weight\(또는 입고 마스터 GW\)/g, '입고 총중량')
+    .replace(/품목 마스터/g, '품목정보')
+    .replace(/자동 분류된 항공료 전표/g, '자동 연결된 항공료 내역')
+    .replace(/품목명·BILL·AWB 국가 매칭/g, '품목명·청구서·항공운송장의 국가 연결')
     .replace(/C\/D\/I\/J\/K|C·D·I·J·K/g, '매출액·매출비율·매출원가·매출이익·이익률');
 }
 
@@ -1102,11 +1117,11 @@ export default function ProfitReportPage() {
               <>
                 {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
                   <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-                    <strong>처리할 항목: 직접 입력 {directInputIssues.length}건 · 원천 확인 {sourceReviewIssues.length}건 · 참고 {noticeIssues.length}건</strong>
+                    <strong>처리할 항목: 직접 입력 {directInputIssues.length}건 · 자동 연결 확인 {sourceReviewIssues.length}건 · 안내 {noticeIssues.length}건</strong>
                     {[
                       ['직접 입력 필요', directInputIssues, '#9a3412'],
-                      ['원천 연결 확인', sourceReviewIssues, '#9a3412'],
-                      ['참고', noticeIssues, '#92400e'],
+                      ['자동 연결 확인 필요', sourceReviewIssues, '#9a3412'],
+                      ['안내', noticeIssues, '#92400e'],
                     ].map(([label, items, color]) => items.length > 0 && (
                       <div key={label} style={{ marginTop: 8 }}>
                         <b style={{ color }}>{label} ({items.length})</b>
@@ -1127,7 +1142,7 @@ export default function ProfitReportPage() {
 
                 {viewMode === 'category' && data && needsAttention.length > 0 && (
                   <div style={st.attentionBanner}>
-                    ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
+                    ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗)가 없어 전산의 차수별 재고만 사용했습니다. 기초·기말재고가 실제 수량과 다를 수 있습니다:{' '}
                     {needsAttention.map(r => r.category).join(', ')}
                   </div>
                 )}
@@ -1503,7 +1518,7 @@ export default function ProfitReportPage() {
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', padding: '6px 12px 0', lineHeight: 1.6 }}>
               엑셀 수식·도착원가·확인된 매입원가로 자동 계산할 수 없는 품목만 표시합니다.
-              입력 단가는 표시된 <b>기초 또는 기말 스냅샷에만</b> 연결되며, 저장할 때 근거 문서와 기준일이 필요합니다.
+              입력 단가는 표시된 <b>기초 또는 기말 재고 기준일에만</b> 연결되며, 저장할 때 근거 문서와 기준일이 필요합니다.
             </div>
             <details style={{ margin: '4px 12px 6px', fontSize: 11, color: '#64748b' }}>
               <summary style={{ cursor: 'pointer' }}>계산 기준 보기</summary>
