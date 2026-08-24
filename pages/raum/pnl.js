@@ -1854,8 +1854,8 @@ export default function RaumPnlPage() {
         </div>
       ) : !detail ? (
         // ── 결산(히스토리) 목록 ──
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 760px', minWidth: 0 }}>
+        <div className="raum-pnl-summary-layout">
+          <div className="raum-pnl-week-list">
           {loadingList ? <div style={{ fontSize: 13, color: '#64748b' }}>불러오는 중…</div> : null}
           {!loadingList && !list.length ? (
             <div style={{ fontSize: 13.5, color: '#64748b', padding: '30px 0' }}>
@@ -1863,7 +1863,7 @@ export default function RaumPnlPage() {
             </div>
           ) : null}
           {list.length ? (
-            <table style={{ ...st.table, maxWidth: 1100 }}>
+            <table style={{ ...st.table, minWidth: 900 }}>
               <thead>
                 <tr>
                   {['차수', '월 배정', '견적일', '품목수', '총 매입', '총 매출(VAT별도)', '총 이익', '이익율', '네노바이익', '미우이익', '수정일', ''].map(h => (
@@ -1916,7 +1916,7 @@ export default function RaumPnlPage() {
             </table>
           ) : null}
           </div>
-          <aside style={{ flex: '1 1 430px', minWidth: 360, maxWidth: 620 }}>
+          <aside className="raum-pnl-month-summary">
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 7 }}>월별 합계</div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 8 }}>수동 월 배정 우선 · 미배정은 견적일 기준</div>
             {!monthlySummary.length ? <div style={{ color: '#64748b', fontSize: 13 }}>집계할 저장 자료가 없습니다.</div> : (
@@ -2175,6 +2175,31 @@ export default function RaumPnlPage() {
           </div>
         </div>
       )}
+      <style jsx>{`
+        .raum-pnl-summary-layout {
+          display: grid;
+          grid-template-columns: minmax(900px, 1fr) minmax(420px, 560px);
+          align-items: start;
+          gap: 18px;
+          width: 100%;
+        }
+        .raum-pnl-week-list {
+          min-width: 0;
+          overflow-x: auto;
+        }
+        .raum-pnl-month-summary {
+          min-width: 0;
+          overflow-x: auto;
+        }
+        @media (max-width: 1420px) {
+          .raum-pnl-summary-layout {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .raum-pnl-month-summary {
+            width: min(100%, 720px);
+          }
+        }
+      `}</style>
     </div>
   );
 }
