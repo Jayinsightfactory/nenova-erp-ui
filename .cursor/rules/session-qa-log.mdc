@@ -1,0 +1,15 @@
+---
+description: 세션마다 사용자 질문·답변 요약을 docs/work-sessions 에 남긴다. 백업/컨텍스트초기화/세션종료 시 필수.
+alwaysApply: true
+---
+
+# 세션 Q&A 로그 (기본)
+
+의미 있는 작업이 끝나면, 또는 사용자가 백업·컨텍스트 초기화·작업내역 저장을 말하면:
+
+1. `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 **질문 → 답변**을 시간순으로 적는다. 코드 전체가 아니라 결정·원인·PR 번호.
+2. `docs/work-sessions/INDEX.md` 맨 위에 한 줄 추가한다.
+3. 스킬 `.cursor/skills/session-qa-backup/SKILL.md` 형식을 따른다.
+
+세션 시작 시 INDEX의 최근 파일을 읽고 대화를 추측하지 않는다.
+비밀값·운영 비밀번호는 적지 않는다.
