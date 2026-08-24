@@ -9,6 +9,7 @@ alwaysApply: true
 2. **Claude**: 구현 (`.claude/tasks/*-claude.txt`)
 3. **Codex**: SQL·집계·알고리즘 설계 (`.claude/tasks/codex-*.md`)
 4. **완료 보고**: `docs/work-reports/YYYY-MM-DD_{slug}.md` + 채팅 「작업 완료 보고」
+5. **세션 Q&A**: `docs/work-sessions/YYYY-MM-DD_{slug}.md` + `INDEX.md` (질문→답변). 백업·컨텍스트 초기화 시 필수.
 
 템플릿: `.claude/tasks/_COMPLETION_REPORT_TEMPLATE.md`
 

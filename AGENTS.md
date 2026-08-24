@@ -77,3 +77,7 @@ npm run build
 즉시 보고하고, 검증을 건너뛴 배포는 하지 않는다.
 
 확정 시 음수재고가 발생하면 부족 품목·부족수량을 표시하고, 사용자가 명시적으로 확인한 경우에만 부족수량만큼 `StockHistory(ChangeType='재고조정')`를 기록한 뒤 재고 재계산·재확정을 수행한다. 이력 등록과 재계산은 한 트랜잭션으로 묶고 재계산 실패 시 롤백한다.
+
+## 세션 Q&A 백업 (기본)
+
+의미 있는 작업이 끝나거나 사용자가 백업·컨텍스트 초기화를 말하면 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 질문→답변을 남기고 `docs/work-sessions/INDEX.md`를 갱신한다. 규칙 `.cursor/rules/session-qa-log.mdc`, 스킬 `.cursor/skills/session-qa-backup/SKILL.md`. 새 채팅은 대화 기억이 아니라 최근 세션 md를 읽는다.
