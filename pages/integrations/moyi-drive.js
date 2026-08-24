@@ -305,6 +305,12 @@ export default function MoyiDriveAdminPage() {
         .moyi-erp-approval-actions { display: flex; gap: 6px; flex-wrap: wrap; }
         .moyi-page-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 4px; }
 
+        @media (max-width: 900px) {
+          .moyi-existing-files-head, .moyi-existing-files-actions { align-items: stretch; flex-direction: column; }
+          .moyi-existing-files-head :global(button), .moyi-existing-files-actions :global(button) { min-height: 36px; width: 100%; }
+          .moyi-existing-files-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
         @media (max-width: 768px) {
           .moyi-drive-views { min-height: 44px; }
           .moyi-drive-views button { min-height: 44px; }
