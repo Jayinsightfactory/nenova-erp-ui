@@ -1183,6 +1183,22 @@ export default function RaumPnlPage() {
   useEffect(() => { loadList(); }, []);
 
   // ── 업로드 → 미리보기 ──
+  const existingDiffWarnings = (batch) => {
+    const diff = batch?.existingDiff;
+    if (!diff) return [];
+    if (!diff.hasChanges) return [`${Number(batch.major)}차 기존 저장본과 업로드 내용이 동일합니다.`];
+    const summary = [
+      diff.added?.length ? `추가 ${diff.added.length}건` : '',
+      diff.removed?.length ? `삭제 ${diff.removed.length}건` : '',
+      diff.changed?.length ? `수량·매출 변경 ${diff.changed.length}건` : '',
+    ].filter(Boolean).join(' · ');
+    const result = [`${Number(batch.major)}차 기존 저장본과 차이가 있습니다: ${summary || '행 구성 변경'} / 총수량 ${diff.counts.qtyDelta > 0 ? '+' : ''}${diff.counts.qtyDelta}, 총매출 ${diff.counts.supplyDelta > 0 ? '+' : ''}${fmt(diff.counts.supplyDelta)}원`];
+    if (diff.added?.length) result.push(`추가: ${diff.added.slice(0, 4).map(x => `${x.name} ${x.qty}${x.unit || ''}`).join(', ')}${diff.added.length > 4 ? ` 외 ${diff.added.length - 4}건` : ''}`);
+    if (diff.removed?.length) result.push(`삭제: ${diff.removed.slice(0, 4).map(x => `${x.name} ${x.qty}${x.unit || ''}`).join(', ')}${diff.removed.length > 4 ? ` 외 ${diff.removed.length - 4}건` : ''}`);
+    if (diff.changed?.length) result.push(`변경: ${diff.changed.slice(0, 4).map(x => `${x.name} ${x.beforeQty}→${x.afterQty}${x.unit || ''}`).join(', ')}${diff.changed.length > 4 ? ` 외 ${diff.changed.length - 4}건` : ''}`);
+    return result;
+  };
+
   const onUpload = async (file) => {
     if (!file) return;
     setUploading(true);
@@ -1220,7 +1236,8 @@ export default function RaumPnlPage() {
         items: one.items.map(it => ({ ...it, costPrice: it.costPrice ?? null })),
         images: [],
         verification: one.verification || null,
-        warnings: [...warnings, ...(one.warnings || [])],
+        warnings: [...warnings, ...(one.warnings || []), ...existingDiffWarnings(one)],
+        existingDiff: one.existingDiff || null,
         unsaved: true,
       });
     } catch (e) {
@@ -1236,6 +1253,8 @@ export default function RaumPnlPage() {
       setError('미리보기 정보가 없습니다. 파일을 다시 업로드하세요.');
       return;
     }
+    const changedWeeks = bulkPreview.batches.filter(batch => batch.existingDiff?.hasChanges);
+    if (changedWeeks.length && !window.confirm(`${changedWeeks.map(batch => `${Number(batch.major)}차`).join(', ')} 기존 저장본이 변경됩니다. 비교 내용을 확인했으며 전체 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
@@ -1291,6 +1310,7 @@ export default function RaumPnlPage() {
     if (!detail) return;
     const { meta, items } = detail;
     if (!meta.major) { setError('차수를 입력하세요 (예: 27).'); return; }
+    if (detail.existingDiff?.hasChanges && !window.confirm(`${Number(meta.major)}차 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
@@ -1802,7 +1822,7 @@ export default function RaumPnlPage() {
                       <td style={{ ...st.td, color: failed.length ? '#b91c1c' : '#166534' }}>{failed.length ? `실패 ${failed.length}건` : '✓ 통과'}</td>
                       <td style={st.td}>수기 원가·수동 행·매칭 보존</td>
                     </tr>
-                    {batch.warnings?.length ? <tr><td colSpan={8} style={{ ...st.td, color: '#92400e', whiteSpace: 'pre-wrap' }}>{batch.warnings.map(w => `⚠ ${w}`).join('\n')}</td></tr> : null}
+                    {[...(batch.warnings || []), ...existingDiffWarnings(batch)].length ? <tr><td colSpan={8} style={{ ...st.td, color: batch.existingDiff?.hasChanges ? '#b91c1c' : '#92400e', whiteSpace: 'pre-wrap', fontWeight: batch.existingDiff?.hasChanges ? 700 : 400 }}>{[...(batch.warnings || []), ...existingDiffWarnings(batch)].map(w => `⚠ ${w}`).join('\n')}</td></tr> : null}
                   </Fragment>
                 );
               })}
